@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+
+    <!-- A test assembly composes across layers by nature and is not published,
+         so the stability argument behind the layering does not apply to it.
+         VARVE0002 accepts 'none' from a *.Tests assembly. ADR 0003. -->
+    <VarveLayer>none</VarveLayer>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Referenced as an ordinary library, not as an analyzer: these tests
+         instantiate the rule types directly. Directory.Build.props excludes
+         this project from the analyzer wiring for that reason. -->
+    <ProjectReference Include="../../src/Varve.Analyzers/Varve.Analyzers.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" />
+
+    <!-- Explicit, and not incidental: the testing package's floating minimum on
+         the workspace layer is 1.0.1, which NuGet would otherwise resolve.
+         ADR 0006. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
+  </ItemGroup>
+
+</Project>

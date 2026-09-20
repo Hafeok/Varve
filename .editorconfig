@@ -109,6 +109,10 @@ dotnet_diagnostic.VARVE0002.severity = error
 # they document themselves through their test names rather than XML comments.
 dotnet_diagnostic.CS1591.severity = none
 
+# Snake_case test names. A test name is a sentence read in a failure report,
+# not an identifier anyone calls, and CA1707 is written for the latter.
+dotnet_diagnostic.CA1707.severity = none
+
 [tests/fixtures/**/*.cs]
 # The layer-rule fixtures exist to exercise VARVE0001 and VARVE0002 through a
 # real build. Their content is one empty type each; style rules are quieted

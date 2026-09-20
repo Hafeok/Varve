@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <VarveLayer>0</VarveLayer>
+  </PropertyGroup>
+</Project>

@@ -32,6 +32,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- ADR 0003 permits InternalsVisibleTo toward *.Tests assemblies only,
+         which VARVE0003 will enforce. The tests assert the exact diagnostic
+         arguments, which means naming the descriptors. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>Varve.Analyzers.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Release tracking. RS2008 fails the build when a new rule appears in
          neither file. -->
     <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />

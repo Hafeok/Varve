@@ -24,23 +24,23 @@ namespace Varve.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class LayerDeclarationAnalyzer : DiagnosticAnalyzer
 {
-    private const string MustDeclare =
+    internal const string MustDeclare =
         "declares no layer. A Varve.* assembly must set the VarveLayer MSBuild property to an integer from 0 to 5, "
         + "or to 'none' if it is a test, benchmark or analyzer assembly (ADR 0003)";
 
-    private const string NoLayerNotAllowed =
+    internal const string NoLayerNotAllowed =
         "declares VarveLayer as 'none', which is allowed only for a test assembly, a benchmark assembly, or "
         + "Varve.Analyzers. A published Varve package has a layer (ADR 0003)";
 
-    private const string MalformedFormat =
+    internal const string MalformedFormat =
         "declares VarveLayer as '{0}', which is not a layer. A layer is an integer from 0 to 5 inclusive, or the "
         + "literal 'none' (ADR 0003)";
 
-    private const string ReferenceMissingMetadata =
+    internal const string ReferenceMissingMetadata =
         "is referenced but carries no Varve.Layer assembly metadata, so the direction of the reference cannot be "
         + "checked. Set VarveLayer in the referenced project (ADR 0003)";
 
-    private const string ReferenceMalformedFormat =
+    internal const string ReferenceMalformedFormat =
         "is referenced and carries Varve.Layer metadata of '{0}', which is not a layer. A layer is an integer from "
         + "0 to 5 inclusive (ADR 0003)";
 

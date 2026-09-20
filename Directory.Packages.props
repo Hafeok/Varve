@@ -29,6 +29,7 @@
     <PackageVersion Include="xunit.v3" Version="4.0.1" />
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" Version="1.1.4" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.9.0" />
   </ItemGroup>
 
   <ItemGroup Label="Test-time, temporary — remove at milestone 5">

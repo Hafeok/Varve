@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <VarveLayer>1</VarveLayer>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Layer 1 to layer 0. Downward, and therefore legal. -->
+    <ProjectReference Include="../Varve.Fixture.Base/Varve.Fixture.Base.csproj" />
+  </ItemGroup>
+</Project>

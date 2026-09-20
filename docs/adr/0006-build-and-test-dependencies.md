@@ -60,6 +60,7 @@ taken.
 | `xunit.v3` | 4.0.1 | The test framework. `Microsoft.Testing.Platform` is a runner, not a framework, and the BCL has no assertion or discovery model. v3 chosen over v2 as the current line; it runs natively on MTP. |
 | `Microsoft.Testing.Extensions.TrxReport` | 2.4.1 | Produces the TRX that `eng/ratchet.cs` reads. MTP does not build TRX in; the extension must be referenced explicitly or `--report-trx` fails the run with exit code 5. |
 | `Microsoft.CodeAnalysis.CSharp.Analyzer.Testing` | 1.1.4 | Compiles a sample, runs an analyzer over it, and asserts the exact diagnostics with locations. Rebuilding this by hand means reimplementing `TestState`, `AdditionalProjects` and diagnostic matching — which is what ADR 0004 calls the deliverable for a rule. The framework-neutral `DefaultVerifier` is used, so this does not pull in an xUnit binding. |
+| `Microsoft.CodeAnalysis.CSharp.Workspaces` | 5.9.0 | *Added 2026-09-20, after this ADR was accepted, within the same milestone.* The testing package depends on it with a floating minimum of `1.0.1`, so without an explicit reference NuGet resolves a 2015-era Roslyn into the test project and the harness does not work. Referencing it explicitly pins the workspace layer to the same 5.9.0 as the analyzer compiles against. Build-time only; the analyzer project does not reference it. |
 | `dotNetRdf.Core` | 3.5.2 | **Test-only, temporary.** The W3C manifests are Turtle and we have no Turtle parser. See ADR 0007 for the exit criterion. |
 
 **`Microsoft.NET.Test.Sdk` and `xunit.runner.visualstudio` are deliberately
