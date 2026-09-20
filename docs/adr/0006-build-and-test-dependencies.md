@@ -74,11 +74,19 @@ MTP v2 on the .NET 10 SDK no longer supports running under VSTest, so this is
 not only the smaller option but the supported one. Two test-time packages that a
 .NET test project normally carries are therefore not here at all.
 
+**One transitive pin.** `dotNetRdf.Core` asks for `AngleSharp` 1.4.0, which
+NuGet audit flags as GHSA-pgww-w46g-26qg, and warnings are errors here. Central
+transitive pinning raises it to 1.8.2. We never call into it — dotNetRDF uses
+it for HTML and RDFa, and this repository reads Turtle manifests — but a
+known-vulnerable package in the graph is not something to silence with
+`NoWarn`. The pin leaves with `dotNetRdf.Core` at milestone 5. *(Recorded
+2026-09-20, after this ADR was accepted, within the same milestone.)*
+
 **`dotNetRdf.Core` deserves the scrutiny.** It ships no native asset, so
 constraint 1 is satisfied. It brings twelve transitive managed dependencies —
 `AngleSharp`, `HtmlAgilityPack`, `Newtonsoft.Json`, `VDS.Common` and eight
 `System.*` compatibility facades — to read a Turtle file. That is a poor trade
-on its merits, and it is accepted only because it is confined to a test project,
+on its merits, and the pin above is what it costs in practice, and it is accepted only because it is confined to a test project,
 never referenced by anything packable, and has a stated end date. The meta-package
 `dotNetRDF` was rejected in favour of `dotNetRdf.Core`: the meta-package adds
 SHACL, SPIN, a Lucene full-text index and HTML schema writing, none of which

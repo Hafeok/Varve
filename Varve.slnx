@@ -7,5 +7,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Varve.Analyzers.Tests/Varve.Analyzers.Tests.csproj" />
+    <Project Path="tests/Varve.Conformance.Tests/Varve.Conformance.Tests.csproj" />
   </Folder>
 </Solution>

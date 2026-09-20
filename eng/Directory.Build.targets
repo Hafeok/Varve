@@ -1,0 +1,4 @@
+<Project>
+  <!-- Present for the same reason as eng/Directory.Build.props: to stop the
+       repository-wide targets from reaching into eng/ scripts. -->
+</Project>

@@ -1,0 +1,24 @@
+<Project>
+
+  <!--
+    Deliberately does not import the repository's Directory.Build.props.
+
+    Scripts in eng/ are C# file-based apps (`dotnet run eng/<name>.cs`). They
+    are build tooling, not Varve projects: they have no layer, they are not
+    analyzed by Varve.Analyzers, and injecting an analyzer ProjectReference
+    into a single-file script would make it unrunnable.
+
+    They still get warnings as errors and nullable reference types, because a
+    script that gates CI is code that gates CI.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <VarveLayer>none</VarveLayer>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+
+    <!-- Test-only and temporary. The W3C manifests are Turtle and we have no
+         Turtle parser; this reads them, from exactly one internal class
+         (ManifestReader). ADR 0007 states the exit criterion: removed when
+         Varve.Turtle passes rdf/rdf11/rdf-turtle unexempted, at milestone 5. -->
+    <PackageReference Include="dotNetRdf.Core" />
+  </ItemGroup>
+
+</Project>

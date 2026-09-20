@@ -39,6 +39,16 @@
          rdf/rdf11/rdf-turtle unexempted. If this line is still here after
          milestone 5, that is a defect. -->
     <PackageVersion Include="dotNetRdf.Core" Version="3.5.2" />
+
+    <!-- A transitive dependency of dotNetRdf.Core, pinned rather than
+         inherited. dotNetRdf.Core asks for AngleSharp 1.4.0, which NuGet audit
+         flags as GHSA-pgww-w46g-26qg, and warnings are errors here. Central
+         transitive pinning raises it to a version without the advisory. We
+         never call into it — dotNetRdf uses it for HTML and RDFa, and this
+         repository reads Turtle manifests — but a known-vulnerable package in
+         the graph is not something to silence with NoWarn. It leaves with
+         dotNetRdf.Core at milestone 5. -->
+    <PackageVersion Include="AngleSharp" Version="1.8.2" />
   </ItemGroup>
 
 </Project>
