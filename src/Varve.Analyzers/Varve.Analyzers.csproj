@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ADR 0004 — enforcement by analyzers.
+    ADR 0008 — netstandard2.0 is structural, not a preference: a Roslyn
+               analyzer loads into the compiler and into Visual Studio, which
+               is a .NET Framework process, and netstandard2.0 is the only
+               target that loads in both.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+
+    <!-- Referenced with OutputItemType="Analyzer" and
+         ReferenceOutputAssembly="false" from Directory.Build.props, so it is
+         never a runtime dependency and never appears in a consumer's
+         dependency graph. It is not published on its own either. -->
+    <IsPackable>false</IsPackable>
+
+    <!-- It has no layer: it runs inside the compiler and is not a library in
+         the package graph. VARVE0002 permits 'none' here by name, which
+         ADR 0004 records as a known limit. -->
+    <VarveLayer>none</VarveLayer>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Release tracking. RS2008 fails the build when a new rule appears in
+         neither file. -->
+    <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+
+</Project>

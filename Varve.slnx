@@ -2,4 +2,7 @@
   <!-- tests/fixtures/ is deliberately absent. Those projects exist to fail to
        build; a solution member that fails to build would fail CI. They are
        driven directly by Varve.Analyzers.Tests. -->
+  <Folder Name="/src/">
+    <Project Path="src/Varve.Analyzers/Varve.Analyzers.csproj" />
+  </Folder>
 </Solution>
