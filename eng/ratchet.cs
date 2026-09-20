@@ -1,6 +1,6 @@
 // Conformance ratchet.
 //
-//   dotnet run eng/ratchet.cs -- <trx-file-or-directory> [--baseline <path>]
+//   dotnet run eng/ratchet.cs -- <trx-file-or-directory> [--baseline <path>] [--label <text>]
 //
 // Reads the TRX from a conformance run and compares it against
 // tests/Varve.Conformance.Tests/baseline/passing.txt, which holds the test IRIs
@@ -33,18 +33,30 @@ XNamespace trxNs = "http://microsoft.com/schemas/VisualStudio/TeamTest/2010";
 string[] arguments = args;
 if (arguments.Length == 0)
 {
-    Console.Error.WriteLine("usage: dotnet run eng/ratchet.cs -- <trx-file-or-directory> [--baseline <path>]");
+    Console.Error.WriteLine(
+        "usage: dotnet run eng/ratchet.cs -- <trx-file-or-directory> [--baseline <path>] [--label <text>]");
     return 2;
 }
 
 string trxArgument = arguments[0];
 string? baselineOverride = null;
 
+// Distinguishes one run from another in the step summary, so a matrix over
+// several operating systems does not produce several identical headings.
+string? label = null;
+
 for (int i = 1; i < arguments.Length - 1; i++)
 {
-    if (arguments[i] is "--baseline")
+    switch (arguments[i])
     {
-        baselineOverride = arguments[i + 1];
+        case "--baseline":
+            baselineOverride = arguments[i + 1];
+            break;
+        case "--label":
+            label = arguments[i + 1];
+            break;
+        default:
+            break;
     }
 }
 
@@ -128,7 +140,8 @@ List<string> newlyPassing = caseOutcomes
 
 // --- report ----------------------------------------------------------------
 
-string summary = BuildSummary(caseOutcomes, baseline.Count, newlyPassing.Count, regressed.Count, missing.Count);
+string summary = BuildSummary(
+    caseOutcomes, label, baseline.Count, newlyPassing.Count, regressed.Count, missing.Count);
 Console.WriteLine(summary);
 
 string? stepSummary = Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY");
@@ -197,7 +210,12 @@ return failed ? 1 : 0;
 // --- helpers ---------------------------------------------------------------
 
 static string BuildSummary(
-    Dictionary<string, bool> outcomes, int baselineCount, int newlyPassing, int regressed, int missing)
+    Dictionary<string, bool> outcomes,
+    string? label,
+    int baselineCount,
+    int newlyPassing,
+    int regressed,
+    int missing)
 {
     // The suite key is the manifest IRI — everything before the fragment — so
     // this stays in step with the suite table without duplicating it.
@@ -213,7 +231,7 @@ static string BuildSummary(
     }
 
     StringBuilder builder = new();
-    builder.AppendLine("## W3C conformance");
+    builder.AppendLine(label is null ? "## W3C conformance" : $"## W3C conformance — {label}");
     builder.AppendLine();
     builder.AppendLine("| Suite | Passed | Failed | Total |");
     builder.AppendLine("|---|---:|---:|---:|");

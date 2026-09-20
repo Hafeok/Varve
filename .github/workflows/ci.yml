@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+jobs:
+  # Gates merges. Everything here must be green.
+  build:
+    name: build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows is not redundant. Parsers will meet CRLF and path
+        # differences, and a repository that only ever builds on Linux
+        # discovers that at the worst possible moment.
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          submodules: recursive
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore Varve.slnx
+
+      - name: Build
+        # Warnings are errors by configuration, not by a flag here; see
+        # Directory.Build.props. CI is set, so ContinuousIntegrationBuild is on
+        # and the build is deterministic.
+        run: dotnet build Varve.slnx --configuration Release --no-restore
+
+      - name: Test the analyzers
+        run: >
+          dotnet test
+          --project tests/Varve.Analyzers.Tests/Varve.Analyzers.Tests.csproj
+          --configuration Release
+
+  # Does not gate on the raw test result: every W3C case fails until the first
+  # parser lands at milestone 3, and that is the expected state (ADR 0007). The
+  # ratchet gates instead — on a regression, on a case that vanished, and on the
+  # harness itself failing.
+  conformance:
+    name: conformance (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          submodules: recursive
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Run the W3C suites
+        continue-on-error: true
+        run: >
+          dotnet test
+          --project tests/Varve.Conformance.Tests/Varve.Conformance.Tests.csproj
+          --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/conformance
+
+      - name: Ratchet
+        # This is the gate. It also writes the per-suite pass and fail counts to
+        # the step summary, so that the number rather than the colour is what
+        # people read on a job that is expected to be red for months.
+        run: >
+          dotnet run eng/ratchet.cs --
+          ${{ github.workspace }}/artifacts/conformance
+          --label ${{ matrix.os }}
+
+      - name: Upload the test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: conformance-trx-${{ matrix.os }}
+          path: ${{ github.workspace }}/artifacts/conformance
+          if-no-files-found: warn
