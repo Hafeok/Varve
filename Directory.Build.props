@@ -1,0 +1,78 @@
+<Project>
+
+  <!--
+    Repository-wide build settings. Imported before every project body, so a
+    project may override anything here by setting it again (Varve.Analyzers
+    overrides TargetFramework; see ADR 0008).
+
+    ADR 0008 — target framework and language version policy.
+    ADR 0003 — package layering; VarveLayer is declared per project.
+    ADR 0004 — enforcement by analyzers.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+
+    <!-- Usings are explicit. A file's dependencies are visible in the file,
+         which matters in a repository whose central rule is about what a
+         compilation may reference. ADR 0008. -->
+    <ImplicitUsings>disable</ImplicitUsings>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- A warning nobody is forced to read is a warning nobody reads. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!-- Required for IDE0005 to work at build time, and required of any
+         package we eventually publish. ADR 0008. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Two builds of one commit produce the same bytes. This is a
+         precondition for trusting what the conformance run reports. -->
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' != ''">true</ContinuousIntegrationBuild>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Nothing is packable at milestone 1, by design: the brief forbids
+         scaffolding that compiles and does nothing. A package project opts in
+         explicitly, which switches on the checks in Directory.Build.targets. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!--
+    The layer declaration (ADR 0003). The property is surfaced to the compiler
+    so VARVE0001 and VARVE0002 can read it as build_property.VarveLayer;
+    Directory.Build.targets emits it into the assembly so a *referencing*
+    compilation can read it back. Each project declares its own value: an
+    integer 0-5, or 'none' for a test, benchmark or analyzer assembly.
+  -->
+  <ItemGroup>
+    <CompilerVisibleProperty Include="VarveLayer" />
+  </ItemGroup>
+
+  <!--
+    Every project is analyzed by Varve.Analyzers, as an analyzer and never as a
+    library, so it is never a runtime dependency (ADR 0004).
+
+    Two exclusions. The analyzer cannot analyze itself into a cycle, and its
+    test project references it as an ordinary library in order to instantiate
+    the rule types.
+
+    The fixtures under tests/fixtures/ inherit this file, and that is precisely
+    how the end-to-end test gets a real MSBuild-wired analyzer to fail against.
+  -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'Varve.Analyzers' and '$(MSBuildProjectName)' != 'Varve.Analyzers.Tests'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Varve.Analyzers/Varve.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

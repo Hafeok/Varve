@@ -1,0 +1,43 @@
+<Project>
+
+  <!--
+    Central package management. Project files carry no Version attribute; a
+    version is changed here and applies everywhere, and a project cannot
+    quietly pin a different one.
+
+    Every package below is justified in ADR 0006, which also records the
+    version each was resolved at and why the BCL does not suffice. Versions are
+    resolved from nuget.org when a package is added, never taken from memory.
+  -->
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup Label="Analyzer authoring — build-time only, never shipped">
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Off-the-shelf enforcement — build-time only, never shipped">
+    <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="5.6.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Test-time">
+    <PackageVersion Include="xunit.v3" Version="4.0.1" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" Version="1.1.4" />
+  </ItemGroup>
+
+  <ItemGroup Label="Test-time, temporary — remove at milestone 5">
+    <!-- Reads the W3C manifests, which are Turtle, because we have no Turtle
+         parser yet. Confined to one internal class in Varve.Conformance.Tests.
+         Exit criterion in ADR 0007: removed when Varve.Turtle passes
+         rdf/rdf11/rdf-turtle unexempted. If this line is still here after
+         milestone 5, that is a defect. -->
+    <PackageVersion Include="dotNetRdf.Core" Version="3.5.2" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,61 @@
+<Project>
+
+  <!--
+    Imported after every project body, so it sees the project's own settings.
+  -->
+
+  <!--
+    ADR 0003 — surface the declared layer as assembly metadata.
+
+    A referencing compilation learns the layer of a referenced assembly by
+    reading this attribute off the referenced assembly symbol. The BCL's
+    AssemblyMetadataAttribute is used deliberately: a Varve-defined attribute
+    type would have to live in a package below layer 0, which is the same as
+    saying it would break the rule it exists to express.
+
+    'none' emits nothing. A test, benchmark or analyzer assembly has no layer,
+    and VARVE0002 treats absent metadata on those as correct rather than as a
+    missing declaration.
+
+    A malformed value IS emitted, on purpose: the declaring project's own
+    VARVE0002 reports it from the build property, and emitting it keeps the
+    assembly honest about what it declared rather than silently dropping it.
+  -->
+  <ItemGroup Condition="'$(VarveLayer)' != '' and '$(VarveLayer)' != 'none'">
+    <AssemblyMetadata Include="Varve.Layer" Value="$(VarveLayer)" />
+  </ItemGroup>
+
+  <!--
+    ADR 0004 — off-the-shelf enforcement, for packable projects only.
+
+    Nothing is packable at milestone 1. These are wired and inert until
+    Varve.Iri exists at milestone 3; see docs/roadmap.md. Configured is not the
+    same as proven, and the roadmap says so.
+  -->
+  <PropertyGroup Condition="'$(IsPackable)' == 'true'">
+    <!-- Switches on the trimming, AOT and single-file analyzers. The
+         IL-prefixed diagnostics they raise are errors in .editorconfig and
+         never enter NoWarn: constraint 2 is not a preference. -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
+
+    <!-- The public API baseline lives beside the project. Every new public
+         member is then a line in a reviewable diff. -->
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" Condition="Exists('$(MSBuildProjectDirectory)/PublicAPI.Shipped.txt')" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" Condition="Exists('$(MSBuildProjectDirectory)/PublicAPI.Unshipped.txt')" />
+
+    <!-- One banned-symbol list for the whole repository. ADR 0004 records that
+         its System.Uri entry must be narrowed before layer 5 exists. -->
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)eng/BannedSymbols.txt" />
+  </ItemGroup>
+
+</Project>
