@@ -14,7 +14,7 @@ Delivered: everything above except the NuGet prefix reservation, which is a
 manual request to nuget.org and cannot be automated. It is not on the critical
 path until milestone 3 produces the first packable project.
 
-## 2 — ADR set zero *(current)*
+## 2 — ADR set zero *(complete)*
 
 `docs/spec/log-and-projection-model.md` is the functional specification and the
 authority for `Varve.Store` behaviour. ADRs [0010–0020](adr/README.md) record the
@@ -31,7 +31,7 @@ decisions it presupposes.
 | Bulk load as one logical commit | **Resolved** — ADR 0013: a commit is one or more records, closed by a flag in the log. Remaining: **Q2**, **Q3**. |
 | Single writer versus optimistic concurrency | **Resolved** — ADR 0011: both. One sequencer, optional expected position per request. |
 | Managed storage engine for the projections | **Open** — `docs/research/managed-storage-engines.md` narrows it; ADR 0018 states the contract requirements. Decided at milestone 6. |
-| GDPR-style hard deletion in an append-only model | **Resolved** — ADRs 0019 and 0020: crypto-shredding, opt-in per dataset. Remaining: **Q4–Q8**. |
+| GDPR-style hard deletion in an append-only model | **Resolved** — ADRs 0023 and 0020: crypto-shredding, opt-in per dataset, access by key id. Remaining: **Q4**, **Q5**, **Q8**, **Q9**. |
 | Commit-time validation cost versus write latency, and what a validator may read | **Resolved** — ADR 0017: the overlay of the pending delta on the pinned state, and nothing else; the hook is inside the sequencer, so validation is write latency by construction. |
 | Incremental SHACL — which shapes are incrementally maintainable | **Open** — not addressed by this set. Due milestone 8. |
 
@@ -40,7 +40,11 @@ until milestone 8, and the key store, classifier and selector contracts are
 specified here even though erasure is not implemented until the milestone
 proposed below.
 
-## 3 — RDF model, IRI, XSD datatypes, N-Triples and N-Quads
+## 3 — RDF model, IRI, XSD datatypes, N-Triples and N-Quads *(current: 3a)*
+
+**3a**: `Varve.Iri`, `Varve.Rdf`, and N-Triples and N-Quads in `Varve.Turtle`, to a
+full suite pass. **3b**: `Varve.Xsd` and RDFC-1.0 canonicalisation — neither is
+needed for the N-Triples and N-Quads suites.
 
 The first packable projects, and therefore the first time several milestone 1
 mechanisms stop being inert:
@@ -89,9 +93,15 @@ for `log/`. `docs/research/managed-storage-engines.md` is the note that informs
 the choice, and it argues the two halves should be decided separately.
 
 Due here: **Q2** and **Q3** (bulk load against I2, and an overlay that does not
-fit in memory — ADR 0013), the durability-level question in the storage contract
-(ADR 0018), and the version discriminator in the storage format that ADR 0014
-requires from the first byte written.
+fit in memory — ADR 0013), and the version discriminator in the storage format
+that ADR 0014 requires from the first byte written.
+
+**The first durable format reserves erasure's shape even though erasure is not
+built until milestone 9**, because retrofitting any of it would be a format
+change: the **private id class** (ADR 0012), the **private entry layout** —
+`(KeyId, ciphertext)` covering the whole term encoding — and the file backend's
+**refusal of a key store path inside the dataset directory** (ADR 0023). None of
+them costs anything while erasure mode is off.
 
 ## 7 — Server and CLI
 
@@ -107,24 +117,32 @@ needs transport addresses that are not RDF IRIs.
 Standalone with a W3C suite pass, then commit-time gating, then the incremental
 validation projection.
 
-## Erasure — *proposed placement: after 6, before 7*
+## 9 — Erasure mode
 
-**Not currently a milestone, and it needs to be one.** ADRs 0019 and 0020 decide
-crypto-shredding and carry five open questions with no milestone to be due
-against. Proposed rather than assumed, because renumbering the brief's
-milestones is not mine to do.
+Crypto-shredding: the key store, classifier and selector contracts, private
+terms, `T4 Erase`, access requests by key id, and the classification gate
+(ADRs 0020, 0021, 0023).
 
-It depends on the dictionary and commit model (milestone 4) and on durable
-storage, since private entries appear in checkpoints (milestone 6). It should
-land **before** the server, because **Q4** — how a shredded term appears in
-SPARQL results and serialisations — has to be settled before endpoints expose
-results, and retrofitting it afterwards changes a wire format.
+**After SHACL, not before the server.** The shape-derived classifier and the
+classification gate both depend on the validator, so erasure cannot be honestly
+finished before milestone 8 — a classifier with no shapes to derive from can
+only be hand-written, and the gate that stops unclassified personal data
+reaching the log is validator policy. Most datasets will also never turn
+erasure mode on, which is the second reason it does not belong earlier.
 
-Due here: **Q4**, **Q5**, **Q6**, **Q7**, **Q8**. **Q7 needs legal input and is
-not a technical decision** — whether an access request covers `G_head` or every
-quad ever asserted. The cipher claim for browser WASM in ADR 0020 rests on a
-.NET 7 release note rather than the current support matrix and should be
-re-verified against a running build before anything is implemented.
+Milestone 6 reserves what a format change would otherwise cost: see there.
+
+Due here: **Q4** (how a shredded term appears in SPARQL results and
+serialisations), **Q5** (lookup by private value — scan and decrypt, or a blind
+index that weakens I10), **Q8** (key granularity when one term is about two data
+subjects), and **Q9** (whether the surviving structure counts as anonymous).
+
+**Q9 is a legal question and Q4 has a legal edge.** The engineering answer to Q9
+is the classifier's ability to make identifying links private; whether that is
+enough is not an engineering answer at all.
+
+**Q6 is decided** (ADR 0020) and its browser half is verified at milestone 3a,
+because ADR 0020's acceptance depends on it.
 
 ## Not scheduled
 
