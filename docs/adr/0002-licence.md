@@ -62,9 +62,17 @@ copying from Oxigraph — which is MIT/Apache-2.0 dual licensed, so this is not
 the binding reason — the practical rule stands: read other implementations for
 behaviour, write our own.
 
-**Open question.** The `LICENSE` appendix carries the unfilled boilerplate
-template, `Copyright [yyyy] [name of copyright owner]`. The copyright holder has
-not been named — whether that is an individual or a company is a decision the
-project owner has to make, and it is not one to guess. Until it is filled in,
-the licence still applies; only the recommended notice is incomplete. Resolve
-before the first package is published to nuget.org.
+**~~Open question.~~ Closed 2026-09-21.** The copyright holder is **Emil Okkels
+Klein**, an individual rather than a company, and is named in a `NOTICE` file at
+the repository root.
+
+The `LICENSE` appendix keeps its unfilled `Copyright [yyyy] [name of copyright
+owner]` template, and that is correct rather than an oversight: the appendix is
+§4's instructions for the per-file boilerplate, not a place to record ownership.
+Editing it would turn the canonical licence text into a near-copy of itself,
+which is exactly what people checking a licence for modifications look for.
+`NOTICE` is the file Apache-2.0 §4(d) gives this job, and it is the one
+downstream redistributors are required to carry.
+
+Packable projects will set `<PackageLicenseExpression>Apache-2.0</...>` and pack
+the `NOTICE`; that is due at milestone 3 with the first packable project.

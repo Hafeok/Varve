@@ -17,14 +17,18 @@ change of mind is a new ADR whose Status names the one it supersedes.
 
 ## Open questions recorded, not resolved
 
-- **ADR 0002** — the copyright holder named in the `LICENSE` appendix. Due
-  before the first package is published.
 - **ADR 0003, open question 1** — `Varve.Shacl` and the SPARQL evaluator are
   both placed in layer 3, yet SHACL-SPARQL depends on the evaluator. Under the
   strict rule that reference is illegal. Due by milestone 8.
 - **ADR 0003, open question 2** — the SPARQL optimiser and evaluator are both
   in layer 3. If the evaluator consumes a plan type the optimiser owns, they are
   one package or two layers. Due by milestone 5.
+
+## Closed
+
+- **ADR 0002** — the copyright holder. Closed 2026-09-21: Emil Okkels Klein,
+  named in `NOTICE`. The `LICENSE` appendix stays unedited, because it is the
+  per-file boilerplate template and not a record of ownership.
 
 ## Obligations recorded against a later milestone
 
