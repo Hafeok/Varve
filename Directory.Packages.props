@@ -5,9 +5,19 @@
     version is changed here and applies everywhere, and a project cannot
     quietly pin a different one.
 
-    Every package below is justified in ADR 0006, which also records the
-    version each was resolved at and why the BCL does not suffice. Versions are
-    resolved from nuget.org when a package is added, never taken from memory.
+    THIS FILE IS THE REGISTER. ADR 0009 states the policy; this file is the
+    list, and eng/dependency-register.cs makes it a gate.
+
+    Every PackageVersion carries Adr="NNNN" naming the decision that admits it,
+    transitive pins included. A package admitted by the policy alone cites 0009;
+    one admitted by a specific decision cites that decision instead, because a
+    citation pointing at the reasoning is worth more than one pointing at the
+    policy. The gate fails the build when the metadata is missing or cites an
+    ADR that does not exist.
+
+    Versions are resolved from nuget.org when a package is added, never taken
+    from memory. Latest stable is the default; the Roslyn floor below is the one
+    named exception, and ADR 0009 says why.
   -->
 
   <PropertyGroup>
@@ -22,26 +32,26 @@
          from the IDE rather than from global.json — so building against the
          latest makes the analyzer silently fail to load (CS9057) for anyone on
          an older Visual Studio. Raise this only with a reason. -->
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" Adr="0009" />
 
     <!-- Not part of the floor: these rules run in *our* build, never in a
          consumer's host, so latest is correct for them. -->
-    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" Adr="0009" />
   </ItemGroup>
 
   <ItemGroup Label="Off-the-shelf enforcement — build-time only, never shipped">
-    <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="5.6.0" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="5.6.0" Adr="0004" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0" Adr="0004" />
   </ItemGroup>
 
   <ItemGroup Label="Test-time">
-    <PackageVersion Include="xunit.v3" Version="4.0.1" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" Version="1.1.4" />
+    <PackageVersion Include="xunit.v3" Version="4.0.1" Adr="0009" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" Adr="0007" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" Version="1.1.4" Adr="0004" />
     <!-- Follows the analyzer's floor: the harness compiles against the same
          Roslyn the analyzer does, so a test cannot pass against an API the
          shipped analyzer would not have. -->
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.0.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.0.0" Adr="0009" />
   </ItemGroup>
 
   <ItemGroup Label="Test-time, temporary — remove at milestone 5">
@@ -50,7 +60,7 @@
          Exit criterion in ADR 0007: removed when Varve.Turtle passes
          rdf/rdf11/rdf-turtle unexempted. If this line is still here after
          milestone 5, that is a defect. -->
-    <PackageVersion Include="dotNetRdf.Core" Version="3.5.2" />
+    <PackageVersion Include="dotNetRdf.Core" Version="3.5.2" Adr="0007" />
 
     <!-- A transitive dependency of dotNetRdf.Core, pinned rather than
          inherited. dotNetRdf.Core asks for AngleSharp 1.4.0, which NuGet audit
@@ -60,7 +70,7 @@
          repository reads Turtle manifests — but a known-vulnerable package in
          the graph is not something to silence with NoWarn. It leaves with
          dotNetRdf.Core at milestone 5. -->
-    <PackageVersion Include="AngleSharp" Version="1.8.2" />
+    <PackageVersion Include="AngleSharp" Version="1.8.2" Adr="0009" />
   </ItemGroup>
 
 </Project>

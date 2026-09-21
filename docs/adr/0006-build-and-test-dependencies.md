@@ -2,7 +2,12 @@
 
 ## Status
 
-Accepted. 2026-09-20.
+Superseded by [0009](0009-dependency-policy-and-register.md). 2026-09-21.
+
+Accepted 2026-09-20. Superseded because an ADR that enumerates every package
+will be amended forever, and because constraint 4 needed to be a gate rather
+than a document. The package table below is a historical snapshot; the live
+register is `Directory.Packages.props`.
 
 ## Context
 

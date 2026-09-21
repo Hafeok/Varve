@@ -44,6 +44,13 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Dependency register
+        # ADR 0009. Constraint 4 says every third-party package needs an ADR;
+        # this is what makes that a gate rather than a sentence in a document.
+        # A text check over two inputs, so it runs before restore and fails in
+        # seconds rather than after a compile.
+        run: dotnet run eng/dependency-register.cs
+
       - name: Cache NuGet packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
