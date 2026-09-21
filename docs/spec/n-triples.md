@@ -46,6 +46,16 @@ something in the repository:
 Unicode ranges in §2; they are transcribed in the implementation and tested
 against the suite's blank-node cases rather than repeated here.
 
+**With one correction.** RDF 1.1 N-Triples [158s] reads `PN_CHARS_U ::=
+PN_CHARS_BASE | '_' | ':'`, and its own test suite contradicts it:
+`nt-syntax-bad-bnode-01` (`_::a`) and `nt-syntax-bad-bnode-02` (`_:abc:def`)
+are negative syntax tests, so a colon in a blank node label must be rejected.
+RDF 1.2 N-Triples has since dropped the colon from the production, which
+settles which of the two was the error. **We follow the tests and RDF 1.2**:
+`PN_CHARS_U ::= PN_CHARS_BASE | '_'`. Conformance is measured by the suite, so
+following the published 1.1 grammar here would mean failing two cases to obey a
+sentence its own authors have withdrawn.
+
 N-Quads (§4) differs in exactly two productions:
 
 ```
@@ -74,6 +84,31 @@ production.
   newline in a literal must be an `ECHAR`. The N-Triples specification says so
   explicitly: "as only the `STRING_LITERAL_QUOTE` production is allowed new
   lines in literals MUST be escaped."
+
+### RDF 1.2 constructs the reader accepts
+
+The term model carries RDF 1.2 from the start (`rdf-model.md` §1), so the
+syntax carries the two constructs that would otherwise be unwritable:
+
+- **A base direction** on a language-tagged literal — `"chat"@ar--rtl`. The
+  suffix is `'--' ('ltr' | 'rtl')` after the LANGTAG, and anything else after
+  `--` is an error rather than part of the tag.
+- **A triple term** in the object position — `<<( s p o )>>`, with
+  `ttSubject ::= IRIREF | BLANK_NODE_LABEL` so a triple term is not itself a
+  subject, and a triple term is never a graph label.
+
+Both are **extensions to the RDF 1.1 grammar above**, accepted in both syntaxes
+and in both the reader and the writer. Nothing in the RDF 1.1 suites exercises
+them, and accepting them cannot turn a negative case positive: `<<(` is
+rejected by 1.1 as a bad IRI either way, and `--` after a language tag is
+rejected by 1.1 as a bad tag either way, so no document the suite requires us to
+reject becomes acceptable. They are written rather than dropped because a
+writer that silently discarded a direction would produce a document that looks
+correct and is not.
+
+The alternative — a reader that cannot read what our own writer writes — was
+rejected: it makes the round-trip property untestable for exactly the terms
+most likely to be got wrong.
 
 ## 3. Error recovery
 

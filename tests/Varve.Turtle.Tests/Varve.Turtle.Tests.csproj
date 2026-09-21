@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <VarveLayer>none</VarveLayer>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Varve.Turtle/Varve.Turtle.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+    <PackageReference Include="CsCheck" />
+  </ItemGroup>
+
+</Project>

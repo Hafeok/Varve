@@ -1,0 +1,107 @@
+#nullable enable
+Varve.Turtle.ErrorAction
+Varve.Turtle.ErrorAction.Continue = 1 -> Varve.Turtle.ErrorAction
+Varve.Turtle.ErrorAction.Stop = 0 -> Varve.Turtle.ErrorAction
+Varve.Turtle.ErrorHandler
+Varve.Turtle.NQuadsParser
+Varve.Turtle.NQuadsReader
+Varve.Turtle.NQuadsReader.Current.get -> Varve.Rdf.QuadView
+Varve.Turtle.NQuadsReader.Error.get -> Varve.Turtle.ParseError
+Varve.Turtle.NQuadsReader.NQuadsReader() -> void
+Varve.Turtle.NQuadsReader.NQuadsReader(System.ReadOnlySpan<byte> utf8, in Varve.Turtle.ParseOptions options) -> void
+Varve.Turtle.NQuadsReader.NQuadsReader(in System.Buffers.ReadOnlySequence<byte> utf8, in Varve.Turtle.ParseOptions options) -> void
+Varve.Turtle.NQuadsReader.Position.get -> Varve.Turtle.ParsePosition
+Varve.Turtle.NQuadsReader.Read() -> bool
+Varve.Turtle.NQuadsReader.Result.get -> Varve.Turtle.ParseResult
+Varve.Turtle.NQuadsWriter
+Varve.Turtle.ParseError
+Varve.Turtle.ParseError.Equals(Varve.Turtle.ParseError other) -> bool
+Varve.Turtle.ParseError.Iri.get -> Varve.Iri.IriErrorKind
+Varve.Turtle.ParseError.IsError.get -> bool
+Varve.Turtle.ParseError.Kind.get -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseError.ParseError() -> void
+Varve.Turtle.ParseError.ParseError(Varve.Turtle.ParseErrorKind kind, Varve.Turtle.ParsePosition position, Varve.Iri.IriErrorKind iri = Varve.Iri.IriErrorKind.None) -> void
+Varve.Turtle.ParseError.Position.get -> Varve.Turtle.ParsePosition
+Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.ExpectedDot = 6 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.ExpectedGraphLabel = 5 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.ExpectedObject = 4 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.ExpectedPredicate = 3 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.ExpectedSubject = 2 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.GraphLabelNotAllowed = 7 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.InvalidBaseDirection = 19 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.InvalidBlankNodeLabel = 17 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.InvalidEscape = 14 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.InvalidIri = 12 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.InvalidIriCharacter = 11 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.InvalidLanguageTag = 18 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.InvalidUnicodeEscape = 15 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.InvalidUtf8 = 21 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.None = 0 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.RelativeIri = 13 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.TrailingContent = 20 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.UnexpectedEnd = 1 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.UnpairedSurrogate = 16 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.UnterminatedIri = 8 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.UnterminatedLiteral = 9 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.UnterminatedTripleTerm = 10 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseOptions
+Varve.Turtle.ParseOptions.OnError.get -> Varve.Turtle.ErrorHandler?
+Varve.Turtle.ParseOptions.OnError.init -> void
+Varve.Turtle.ParseOptions.ParseOptions() -> void
+Varve.Turtle.ParseOptions.Syntax.get -> Varve.Turtle.RdfSyntax
+Varve.Turtle.ParseOptions.Syntax.init -> void
+Varve.Turtle.ParseOptions.ValidateIris.get -> bool
+Varve.Turtle.ParseOptions.ValidateIris.init -> void
+Varve.Turtle.ParsePosition
+Varve.Turtle.ParsePosition.ByteOffset.get -> long
+Varve.Turtle.ParsePosition.Column.get -> int
+Varve.Turtle.ParsePosition.Equals(Varve.Turtle.ParsePosition other) -> bool
+Varve.Turtle.ParsePosition.Line.get -> int
+Varve.Turtle.ParsePosition.ParsePosition() -> void
+Varve.Turtle.ParsePosition.ParsePosition(long byteOffset, int line, int column) -> void
+Varve.Turtle.ParseResult
+Varve.Turtle.ParseResult.Equals(Varve.Turtle.ParseResult other) -> bool
+Varve.Turtle.ParseResult.ErrorCount.get -> long
+Varve.Turtle.ParseResult.FirstError.get -> Varve.Turtle.ParseError
+Varve.Turtle.ParseResult.ParseResult() -> void
+Varve.Turtle.ParseResult.ParseResult(long quadCount, long errorCount, Varve.Turtle.ParseError firstError) -> void
+Varve.Turtle.ParseResult.QuadCount.get -> long
+Varve.Turtle.ParseResult.Succeeded.get -> bool
+Varve.Turtle.QuadHandler
+Varve.Turtle.RdfSyntax
+Varve.Turtle.RdfSyntax.NQuads = 1 -> Varve.Turtle.RdfSyntax
+Varve.Turtle.RdfSyntax.NTriples = 0 -> Varve.Turtle.RdfSyntax
+Varve.Turtle.WriteOptions
+Varve.Turtle.WriteOptions.Canonical.get -> bool
+Varve.Turtle.WriteOptions.Canonical.init -> void
+Varve.Turtle.WriteOptions.Syntax.get -> Varve.Turtle.RdfSyntax
+Varve.Turtle.WriteOptions.Syntax.init -> void
+Varve.Turtle.WriteOptions.WriteOptions() -> void
+override Varve.Turtle.ParseError.Equals(object? obj) -> bool
+override Varve.Turtle.ParseError.GetHashCode() -> int
+override Varve.Turtle.ParseError.ToString() -> string!
+override Varve.Turtle.ParsePosition.Equals(object? obj) -> bool
+override Varve.Turtle.ParsePosition.GetHashCode() -> int
+override Varve.Turtle.ParsePosition.ToString() -> string!
+override Varve.Turtle.ParseResult.Equals(object? obj) -> bool
+override Varve.Turtle.ParseResult.GetHashCode() -> int
+static Varve.Turtle.NQuadsParser.Parse(System.IO.Stream! stream, Varve.Turtle.QuadHandler! handler, in Varve.Turtle.ParseOptions options) -> Varve.Turtle.ParseResult
+static Varve.Turtle.NQuadsParser.Parse(System.ReadOnlySpan<byte> utf8, Varve.Turtle.QuadHandler! handler, in Varve.Turtle.ParseOptions options) -> Varve.Turtle.ParseResult
+static Varve.Turtle.NQuadsParser.Parse(in System.Buffers.ReadOnlySequence<byte> utf8, Varve.Turtle.QuadHandler! handler, in Varve.Turtle.ParseOptions options) -> Varve.Turtle.ParseResult
+static Varve.Turtle.NQuadsParser.ParseAsync(System.IO.Pipelines.PipeReader! reader, Varve.Turtle.QuadHandler! handler, Varve.Turtle.ParseOptions options) -> System.Threading.Tasks.ValueTask<Varve.Turtle.ParseResult>
+static Varve.Turtle.NQuadsParser.ParseAsync(System.IO.Pipelines.PipeReader! reader, Varve.Turtle.QuadHandler! handler, Varve.Turtle.ParseOptions options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Turtle.ParseResult>
+static Varve.Turtle.NQuadsParser.ParseAsync(System.IO.Stream! stream, Varve.Turtle.QuadHandler! handler, Varve.Turtle.ParseOptions options) -> System.Threading.Tasks.ValueTask<Varve.Turtle.ParseResult>
+static Varve.Turtle.NQuadsParser.ParseAsync(System.IO.Stream! stream, Varve.Turtle.QuadHandler! handler, Varve.Turtle.ParseOptions options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Turtle.ParseResult>
+static Varve.Turtle.NQuadsWriter.TryWrite(in Varve.Rdf.QuadView quad, System.Span<byte> destination, out int written, in Varve.Turtle.WriteOptions options) -> bool
+static Varve.Turtle.NQuadsWriter.TryWriteTerm(Varve.Rdf.RdfTerm! term, System.Span<byte> destination, out int written, in Varve.Turtle.WriteOptions options) -> bool
+static Varve.Turtle.NQuadsWriter.Write(System.Buffers.IBufferWriter<byte>! output, in Varve.Rdf.Quad quad, Varve.Rdf.IQuadSource! source, in Varve.Turtle.WriteOptions options) -> void
+static Varve.Turtle.NQuadsWriter.Write(System.Buffers.IBufferWriter<byte>! output, in Varve.Rdf.QuadView quad, in Varve.Turtle.WriteOptions options) -> void
+static Varve.Turtle.ParseError.operator !=(Varve.Turtle.ParseError left, Varve.Turtle.ParseError right) -> bool
+static Varve.Turtle.ParseError.operator ==(Varve.Turtle.ParseError left, Varve.Turtle.ParseError right) -> bool
+static Varve.Turtle.ParsePosition.operator !=(Varve.Turtle.ParsePosition left, Varve.Turtle.ParsePosition right) -> bool
+static Varve.Turtle.ParsePosition.operator ==(Varve.Turtle.ParsePosition left, Varve.Turtle.ParsePosition right) -> bool
+static Varve.Turtle.ParseResult.operator !=(Varve.Turtle.ParseResult left, Varve.Turtle.ParseResult right) -> bool
+static Varve.Turtle.ParseResult.operator ==(Varve.Turtle.ParseResult left, Varve.Turtle.ParseResult right) -> bool
+virtual Varve.Turtle.ErrorHandler.Invoke(in Varve.Turtle.ParseError error) -> Varve.Turtle.ErrorAction
+virtual Varve.Turtle.QuadHandler.Invoke(in Varve.Rdf.QuadView quad) -> void
