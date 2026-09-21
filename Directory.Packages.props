@@ -16,7 +16,16 @@
   </PropertyGroup>
 
   <ItemGroup Label="Analyzer authoring — build-time only, never shipped">
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
+    <!-- 5.0.0 is a FLOOR, not the latest. It is the Roslyn line shipped with
+         the first .NET 10 SDK, 10.0.100. An analyzer requires a host at or
+         above the Roslyn it was built against, and an IDE's compiler comes
+         from the IDE rather than from global.json — so building against the
+         latest makes the analyzer silently fail to load (CS9057) for anyone on
+         an older Visual Studio. Raise this only with a reason. -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+
+    <!-- Not part of the floor: these rules run in *our* build, never in a
+         consumer's host, so latest is correct for them. -->
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" />
   </ItemGroup>
 
@@ -29,7 +38,10 @@
     <PackageVersion Include="xunit.v3" Version="4.0.1" />
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" Version="1.1.4" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.9.0" />
+    <!-- Follows the analyzer's floor: the harness compiles against the same
+         Roslyn the analyzer does, so a test cannot pass against an API the
+         shipped analyzer would not have. -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.0.0" />
   </ItemGroup>
 
   <ItemGroup Label="Test-time, temporary — remove at milestone 5">

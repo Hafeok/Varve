@@ -24,22 +24,43 @@ resolved from nuget.org on 2026-09-20 and is pinned centrally in
 
 | Package | Version | Why the BCL does not suffice |
 |---|---|---|
-| `Microsoft.CodeAnalysis.CSharp` | 5.9.0 | The compiler API. There is no BCL substitute for writing a Roslyn analyzer; this *is* the extension point. `PrivateAssets="all"`, and the analyzer project does not ship it. |
+| `Microsoft.CodeAnalysis.CSharp` | ~~5.9.0~~ **5.0.0** | The compiler API. There is no BCL substitute for writing a Roslyn analyzer; this *is* the extension point. `PrivateAssets="all"`, and the analyzer project does not ship it. *(Changed 2026-09-21: taking the latest was the wrong policy for this package specifically — see the amended "Version choice" below. The policy it implies is stated in the ADR that supersedes this one.)* |
 | `Microsoft.CodeAnalysis.Analyzers` | 5.9.0 | The `RS*` rules that check analyzer code itself — correct `Initialize` shape, release tracking (`RS2008`), the `CompilationEnd` tag (`RS1037`). Writing an analyzer without these is writing one that misbehaves in the IDE in ways that do not reproduce on the command line. |
 
-**Version choice.** SDK 10.0.401 hosts Roslyn `5.9.0-1.26423.113`, which sorts
-*below* stable `5.9.0`, so referencing 5.9.0 could in principle raise `CS9057`
-— an analyzer built against a newer compiler than the host. It was tested
-before this ADR was written: a 5.9.0 analyzer loads and reports under SDK
-10.0.401 without `CS9057`. Stable 5.9.0 therefore stands, per the rule that a
-version is resolved rather than remembered.
+**Version choice.** *Amended 2026-09-21. The original text is kept below with
+the reason it was wrong, because the mistake is the instructive part.*
 
-The cost of taking the latest is real and worth naming: an analyzer referencing
-Roslyn *n* requires a host at *n* or later, so contributors on an older SDK or
-an older Visual Studio will see the analyzer silently not load. `global.json`
-pins the SDK, which makes the command-line case deterministic. It does not
-constrain the IDE. If that becomes a problem the fix is to step the reference
-down to the oldest Roslyn whose API we use — a superseding ADR, not a quiet edit.
+~~SDK 10.0.401 hosts Roslyn `5.9.0-1.26423.113`, which sorts *below* stable
+`5.9.0`, so referencing 5.9.0 could in principle raise `CS9057` — an analyzer
+built against a newer compiler than the host. It was tested before this ADR was
+written: a 5.9.0 analyzer loads and reports under SDK 10.0.401 without
+`CS9057`. Stable 5.9.0 therefore stands, per the rule that a version is
+resolved rather than remembered.~~
+
+**That test proved less than it appeared to.** `CS9057` compares *assembly*
+versions, and a `5.9.0-1.x` host shares its assembly version with the 5.9.0
+stable package — so the check could not have fired, on any input, and the green
+result carried no information about the case that matters. The case that
+matters is an *older* host, which the command line never sees because
+`global.json` pins the SDK, and which an IDE does see because its compiler
+comes from the IDE.
+
+The rule "resolve the latest stable version" is wrong for this package. The
+correct value is a **floor**: the Roslyn line shipped with the first .NET 10
+SDK, 10.0.100, which is `5.0.0-2.25523.111`, and therefore stable **5.0.0**.
+Verified on 2026-09-21 by building the analyzer against 5.0.0 and compiling a
+consumer under both SDK 10.0.100 and SDK 10.0.401: it loads and reports under
+both, with no `CS9057`. `Microsoft.CodeAnalysis.CSharp.Workspaces` follows the
+same floor, so the test harness cannot pass against an API the shipped analyzer
+would not have.
+
+`Microsoft.CodeAnalysis.Analyzers` and the testing package stay on latest: they
+run in our build, never in a consumer's host, so the floor does not apply to
+them.
+
+The general policy this implies — that "latest" is the default and a floor is a
+named exception with a stated reason — belongs in a policy ADR rather than in a
+package table, and is stated in the ADR that supersedes this one.
 
 ### Build-time — off-the-shelf enforcement
 
@@ -60,7 +81,7 @@ taken.
 | `xunit.v3` | 4.0.1 | The test framework. `Microsoft.Testing.Platform` is a runner, not a framework, and the BCL has no assertion or discovery model. v3 chosen over v2 as the current line; it runs natively on MTP. |
 | `Microsoft.Testing.Extensions.TrxReport` | 2.4.1 | Produces the TRX that `eng/ratchet.cs` reads. MTP does not build TRX in; the extension must be referenced explicitly or `--report-trx` fails the run with exit code 5. |
 | `Microsoft.CodeAnalysis.CSharp.Analyzer.Testing` | 1.1.4 | Compiles a sample, runs an analyzer over it, and asserts the exact diagnostics with locations. Rebuilding this by hand means reimplementing `TestState`, `AdditionalProjects` and diagnostic matching — which is what ADR 0004 calls the deliverable for a rule. The framework-neutral `DefaultVerifier` is used, so this does not pull in an xUnit binding. |
-| `Microsoft.CodeAnalysis.CSharp.Workspaces` | 5.9.0 | *Added 2026-09-20, after this ADR was accepted, within the same milestone.* The testing package depends on it with a floating minimum of `1.0.1`, so without an explicit reference NuGet resolves a 2015-era Roslyn into the test project and the harness does not work. Referencing it explicitly pins the workspace layer to the same 5.9.0 as the analyzer compiles against. Build-time only; the analyzer project does not reference it. |
+| `Microsoft.CodeAnalysis.CSharp.Workspaces` | ~~5.9.0~~ **5.0.0** | *Added 2026-09-20, after this ADR was accepted, within the same milestone.* The testing package depends on it with a floating minimum of `1.0.1`, so without an explicit reference NuGet resolves a 2015-era Roslyn into the test project and the harness does not work. Referencing it explicitly pins the workspace layer to the same Roslyn the analyzer compiles against, which as of the 2026-09-21 amendment is the 5.0.0 floor. Build-time only; the analyzer project does not reference it. |
 | `dotNetRdf.Core` | 3.5.2 | **Test-only, temporary.** The W3C manifests are Turtle and we have no Turtle parser. See ADR 0007 for the exit criterion. |
 
 **`Microsoft.NET.Test.Sdk` and `xunit.runner.visualstudio` are deliberately
