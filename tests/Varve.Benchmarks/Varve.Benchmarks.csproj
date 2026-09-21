@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+
+    <!-- 'none', which VARVE0002 allows for an assembly whose name ends in
+         .Benchmarks. A benchmark composes across layers by nature and is never
+         published, so the stability argument behind the layering does not
+         apply to it. -->
+    <VarveLayer>none</VarveLayer>
+
+    <!-- BenchmarkDotNet needs release code with the optimiser on to measure
+         anything meaningful, and says so loudly if it is not. -->
+    <Optimize>true</Optimize>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Varve.Turtle/Varve.Turtle.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+
+    <!-- The baseline. ADR 0027: a throughput number with nothing to compare it
+         against says only that the machine is a machine. -->
+    <PackageReference Include="dotNetRdf.Core" />
+  </ItemGroup>
+
+</Project>

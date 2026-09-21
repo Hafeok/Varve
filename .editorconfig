@@ -131,3 +131,9 @@ dotnet_diagnostic.CA1707.severity = none
 # individually rather than with a bulk dotnet_analyzer_diagnostic override,
 # which would compete with the explicit VARVE severities above.
 dotnet_diagnostic.IDE0005.severity = none
+
+[tests/Varve.Benchmarks/**.cs]
+# BenchmarkDotNet discovers instance methods on an instantiated class, so a
+# benchmark that happens to touch no field still cannot be static. CA1822 is
+# right about the code and wrong about what it is for.
+dotnet_diagnostic.CA1822.severity = none
