@@ -52,6 +52,10 @@
          Roslyn the analyzer does, so a test cannot pass against an API the
          shipped analyzer would not have. -->
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.0.0" Adr="0009" />
+
+    <!-- Property-based testing. Apache-2.0, and zero dependencies of its own,
+         which is what decided it against FsCheck's FSharp.Core. ADR 0025. -->
+    <PackageVersion Include="CsCheck" Version="4.9.1" Adr="0025" />
   </ItemGroup>
 
   <ItemGroup Label="Test-time, temporary — remove at milestone 5">
