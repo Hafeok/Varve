@@ -179,7 +179,37 @@ candidate for either half of this design.
 ## Write our own
 
 The honest comparison, because the thing we would write is much smaller than a
-general engine.
+general engine — and smaller again for a reason worth stating on its own.
+
+### The log is already the write-ahead log
+
+A storage engine spends a great deal of its complexity on durability it has to
+provide for itself: a write-ahead log, a recovery procedure over that log,
+crash-consistency between the WAL and the data files, and a checkpointing
+scheme to bound recovery time. **Varve already has all of that, one layer up.**
+
+`log/` is the source of truth and is never rewritten (§2). Everything under
+`derived/` is reproducible from it, and every projection persists its position
+atomically with its state and can be dropped and rebuilt
+([ADR 0016](../adr/0016-projection-contract-and-subscriptions.md), I8). So an
+engine of our own for `derived/` needs:
+
+- a **memtable**,
+- **immutable sorted runs**,
+- a **background merge**,
+- and recovery by **replay from the projection's position**.
+
+It needs no WAL of its own, no recovery log, no crash-consistency protocol
+between two file sets, and no durability guarantee stronger than "if you are
+behind, say how far behind". A torn write under `derived/` is not data loss; it
+is a rebuild.
+
+That is a substantially smaller thing than an LSM engine, and it changes the
+build-versus-adopt balance: what we would be adopting an engine *for* is largely
+machinery we would then be running twice. It also sharpens the mismatch already
+noted above — an adopted engine's compaction discards superseded records, which
+is right for `derived/` and catastrophic for `log/`, and its recovery log is a
+second source of truth beside one we already have.
 
 **What it would have to do:** append-only segments with sealing and range reads
 for `log/`; immutable sorted runs with range scans and a background merge for
