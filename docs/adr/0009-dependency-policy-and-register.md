@@ -34,9 +34,26 @@ A script in `eng/` makes the register a gate.
 **Prefer the BCL.** A package enters only when the BCL does not do the job, and
 the register says which decision admitted it.
 
-**No native assets, no exceptions.** A package that ships a native binary is
-refused under constraint 1 whatever it does. This is a property of the package,
-not of how we intend to use it, and there is no exception process.
+**No native assets in anything that ships.** A package that ships a native
+binary is refused under constraint 1.
+
+> **Amended 2026-09-21** (see [ADR 0027](0027-benchmarking.md)). This originally
+> read "no exceptions … a property of the package, not of how we intend to use
+> it, and there is no exception process". That was my wording, not the brief's,
+> and it was wrong at the edge: constraint 1 is "100% managed code", which
+> describes **Varve** — the thing a consumer installs, trims, compiles ahead of
+> time and runs in a browser. It does not describe a benchmark harness.
+>
+> The refusal therefore binds the **runtime class**, and anything that can
+> reach a published Varve package. It does not bind build-time or test-only
+> packages that never leave the machine. The test is "can this reach a
+> published artifact", and it is answered by whether the referencing project is
+> packable.
+>
+> What forced the correction: the brief requires BenchmarkDotNet numbers, and
+> BenchmarkDotNet depends transitively on `Gee.External.Capstone`, which ships
+> nine `runtimes/*/native/libcapstone.so` entries. The absolute rule forbade
+> something the brief mandates.
 
 **Three classes, admitted on different terms:**
 

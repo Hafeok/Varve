@@ -41,6 +41,15 @@ or depart from `docs/brief.md`, each says so in its Context.
 | [0022](0022-quad-source-term-handle.md) | The quad source contract over an opaque term handle | Accepted |
 | [0023](0023-erasure-and-access-requests.md) | Erasure by crypto-shredding, and access requests | Accepted |
 
+## Milestone 3a — the model and the syntax
+
+| # | Title | Status |
+|---:|---|---|
+| [0024](0024-rdf-term-representation.md) | RDF term representation | Accepted |
+| [0025](0025-property-based-testing.md) | CsCheck for property-based testing | Accepted |
+| [0026](0026-hotpath-attribute.md) | Where the `[HotPath]` attribute lives | Accepted |
+| [0027](0027-benchmarking.md) | Benchmarking | Accepted |
+
 **No ADR in this repository is `Proposed`.** Three were, and were completed in
 place rather than superseded, because ADR 0001's no-edit rule binds accepted
 decisions and they had never been accepted.
@@ -86,8 +95,9 @@ From ADR 0003, and still unresolved:
 
 - **ADR 0004** — the `System.Uri` ban is wider than the brief scopes it. Narrow
   before layer 5 exists.
-- **ADR 0007 / 0009** — `dotNetRdf.Core` is a temporary test-only dependency.
-  Remove when `Varve.Turtle` passes `rdf/rdf11/rdf-turtle`, at milestone 5.
+- **ADR 0007 / 0027** — `dotNetRdf.Core`'s *manifest-reading* use ends when
+  `Varve.Turtle` passes `rdf/rdf11/rdf-turtle` at milestone 5. It stays as the
+  benchmark baseline, and its register citation moves from 0007 to 0027 then.
 - **ADR 0011** — banned-symbols entry for ambient clock and randomness under
   `Varve.Store`, which §10's determinism test depends on. Due milestone 4.
 - **ADR 0014** — the storage format must carry a version discriminator from the
