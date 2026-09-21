@@ -1,30 +1,31 @@
 # Log and projection model
 
-Functional specification, draft 2. Target location: `docs/spec/log-and-projection-model.md`.
+Functional specification, version 1.
 
-Status: all sections reflect positions agreed in design discussion. Section 12 lists the ADRs this specification presupposes; none of them exist yet.
+Status: Accepted. This document is the authority for the behaviour of `Varve.Store`. It changes only together with the ADR that motivates the change, and each change is listed at the top with its date. Section 12 maps the decisions to ADRs.
 
-Changes from draft 1: erasure is crypto-shredding, opt-in per dataset, and no longer rewrites the log (section 9). The dataset directory is assumed to be copied to places the store cannot reach (section 2). Commit headers are hash-chained for divergence detection (I6). The dictionary gains a private term class (section 1, I3).
+Changes from the last draft (draft 2): private ids are no longer required to be random (section 1). Dataset settings are a commit kind (section 1, T5). "Synchronous" for the default projection is defined, with a failed state (T1, section 7). Access requests are defined by key id with a configurable scope, and the selector is no longer part of erasure (section 9). Q7 is closed. Equality is stated as a property of the quad source (section 6).
 
 Scope: the abstract state machine of `Varve.Store`. No byte-level format, no API shape, no SPARQL. Everything here is stated over dictionary-encoded quads and must hold for every storage backend (memory, file, browser).
 
 ## 1. Domains
 
 - **Term**: an RDF 1.2 term (IRI, blank node, literal, triple term).
-- **TermId**: an opaque fixed-width identifier with a class: *canonical*, *blank* or *private*.
+- **TermId**: an opaque 64-bit identifier with a class carried in its high bits: *canonical*, *blank*, *private*, or *inline* for small values encoded in the id itself, which have no dictionary entry. Ids of the first three classes are counter-allocated by the sequencer (ADR 0012).
 - **Dictionary** `D`: a partial map from `TermId` to an entry.
   - A canonical entry is a term. `D` restricted to canonical ids is injective: one id per term.
   - A blank id is its own identity. Two blank nodes are equal iff their ids are equal.
-  - A private entry is `(KeyId, ciphertext)`, where the ciphertext covers the whole term encoding (kind, datatype, language, lexical form). Private ids are random and not interned: two occurrences of the same term under different keys, or under the same key, may have different ids. Private entries exist only in datasets with erasure mode on.
-- **KeyId**: a random identifier of a data-subject key. It identifies nobody by itself. The mapping from data subject to `KeyId`, and the key material, live in the key store (section 9), never in the dataset.
+  - A private entry is `(KeyId, ciphertext)`, where the ciphertext covers the whole term encoding (kind, datatype, language, lexical form). Private ids are allocated independently of content and are not interned: two occurrences of the same term under different keys, or under the same key, may have different ids. Private entries exist only in datasets with erasure mode on.
+- **KeyId**: an identifier of a data-subject key, assigned by the key store. It carries no information about the subject. The mapping from data subject to `KeyId`, and the key material, live in the key store (section 9), never in the dataset.
 - **Quad**: `(s, p, o, g) ∈ TermId⁴`, where `g` may be the reserved default-graph id.
 - **Position**: `P ∈ ℕ`. Position 0 is the empty dataset. Commit positions start at 1 and are dense.
 - **Delta**: `δ = (A, R)` with `A, R ⊆ Quad` and `A ∩ R = ∅`.
 - **Commit**: `c = (header, alloc, A, R)` with `header = (pos, kind, meta, prev, content)`.
-  - `kind ∈ {Data, Erasure}`.
+  - `kind ∈ {Data, Erasure, Settings}`.
   - `meta`: timestamp, agent, cause, optional named-graph scope, optional attachments (for example a validation report reference). Agent and any other value that can identify a person is a `TermId`, never an inline string, so that it can be a private term.
   - `prev`: hash of the previous commit's header. `content`: hash of `(alloc, A, R)`.
   - `alloc`: a finite map of fresh `TermId → entry`.
+- **Settings**: the dataset's configuration, a fold over `Settings` commits: erasure mode (off by default) and the default access scope (section 9). Settings travel with the log, so every copy of the dataset agrees on them and every change has an agent and a position.
 - **Log** `L = c₁ … cₙ`. `head(L) = n`.
 - **Record**: the physical unit of append. A commit is one or more records; the last carries a closing flag. The **readable head** is the position of the last closed commit. Records of an unclosed commit are invisible to every read, feed and projection. On recovery an unclosed tail is discarded.
 
@@ -57,7 +58,7 @@ G_0 = ∅                      G_P = (G_{P-1} \ R_P) ∪ A_P
 - **I1 Dense positions.** `pos(cᵢ) = i`.
 - **I2 Effective delta.** `A_P ∩ G_{P-1} = ∅`, `R_P ⊆ G_{P-1}`, `A_P ∩ R_P = ∅`. The log records what changed, not what was requested.
 - **I3 Dictionary closure.** Every id in `A_P`, `R_P` and `meta_P` is in `dom(D_P)`. Ids in `alloc_P` are fresh. Every id in `alloc_P` occurs in `A_P` or `meta_P`. Canonical ids are injective over terms; private ids are exempt from injectivity.
-- **I4 Non-empty.** A `Data` commit has `A_P ∪ R_P ≠ ∅`.
+- **I4 Non-empty.** A `Data` commit has `A_P ∪ R_P ≠ ∅`. `Erasure` and `Settings` commits have an empty delta.
 - **I5 Monotone time.** `ts(c_P) ≥ ts(c_{P-1})`. The sequencer assigns `max(clock, ts(head))`. As-of by timestamp `t` resolves to the greatest `P` with `ts(c_P) ≤ t`.
 - **I6 Header chain.** `prev(c_P) = hash(header(c_{P-1}))`, with a fixed value for `P = 1`. Two logs with a common prefix and different continuations are detectably divergent. A store that opens a log whose chain does not verify, or is asked to continue from a head that is not its own, refuses.
 
@@ -67,7 +68,7 @@ G_0 = ∅                      G_P = (G_{P-1} \ R_P) ∪ A_P
 
 Input: an ordered list of assert and retract operations over terms, metadata, an optional expected position, zero or more pre-commit validators, and in erasure mode a classifier (section 9).
 
-There is one sequencer per dataset. It processes requests one at a time:
+There is one sequencer per dataset. It processes requests one at a time. It accepts a request only when the default quad projection is at the readable head, because step 3 reads `G_head`; otherwise it fails with `Unavailable`.
 
 1. If an expected position is given and differs from the readable head: reject with `Conflict(head)`. No state change.
 2. Resolve terms to ids. Unknown terms get provisional fresh ids. Blank node labels in the request are scoped to the request: each distinct label maps to one fresh id. An existing blank node is addressed by its store identity (Q1). In erasure mode the classifier assigns term occurrences to `KeyId`s; those occurrences get private ids and encrypted entries.
@@ -93,7 +94,11 @@ Moves `L[1..H]` and checkpoints below `H` to cold storage. Constraint fixed now:
 
 ### T4 Erase
 
-See section 9. Erasure appends one commit and destroys one key. It changes no existing byte of the log.
+See section 9. Erasure appends commits and destroys one key. It changes no existing byte of the log.
+
+### T5 Change settings
+
+Appends a `Settings` commit through the sequencer, with agent and cause. Erasure mode cannot be turned off while any private entry exists in `D`.
 
 ## 6. Reads
 
@@ -110,7 +115,7 @@ Delta composition, used by R2 and R3:
 
 Deltas under `;` form a monoid with identity `(∅, ∅)`. `net(L(P..Q])` is the composition of the commits' deltas in order.
 
-Term equality seen by readers: canonical and blank ids compare by id. A readable private term compares by decrypted value, against private and canonical terms alike. A shredded private term is equal only to itself.
+Equality is a property of the quad source, not of the id: a source supplies the comparison for the term handles it hands out. Term equality seen by readers: canonical and blank ids compare by id. A readable private term compares by decrypted value, against private and canonical terms alike. A shredded private term is equal only to itself.
 
 ## 7. Projections
 
@@ -123,7 +128,7 @@ A projection `π` is a state machine `(state, pos)` with `apply(commit)`.
 - **I8 Rebuild equivalence.** For every `P`, a projection rebuilt by replay to `P` is observationally equal to one maintained incrementally to `P`.
 - A projection that holds plaintext derived from private terms (a full-text index, for example) records the `KeyId` with each such entry and purges those entries when it applies an `Erasure` commit for that key. Such state lives under `derived/` and nowhere else.
 
-The default quad projection is updated synchronously in T1 step 7, so that `Pin()` directly after `Committed(P)` observes `P`. All other projections are asynchronous and may lag: `pos(π) ≤ readable head`.
+The default quad projection is updated synchronously in T1 step 7. Synchronous means before the commit call returns, not atomically with the append. Once the records are durable and closed the commit stands, whatever happens to the projection; a derived artefact cannot veto a durable fact. If the update fails, the projection catches up by replay. `Pin()` directly after `Committed(P)` observes `P`. If the default projection cannot reach the head, the dataset enters a failed state in which `Pin()` and T1 fail explicitly until the projection is rebuilt; nothing waits indefinitely. All other projections are asynchronous and may lag: `pos(π) ≤ readable head`.
 
 ## 8. Subscriptions
 
@@ -136,10 +141,12 @@ Erasure mode is a per-dataset setting, off by default. When off, no private ids 
 - **Key store.** A contract owned by `Varve.Store`: create a key for a data subject, resolve subject to `KeyId`, fetch key material by `KeyId`, destroy a key. Implementations live outside the dataset directory by construction; the file backend refuses a key store path inside it. The key store is the only mutable, deletable component in the system and needs its own backup policy, which must itself honour destruction.
 - **Classifier.** A contract owned by `Varve.Store`, free of SPARQL and SHACL: given the pending operations and the pinned quad source, assign term occurrences to data subjects. Implementations derived from annotated shapes or from queries are layer 5 integrations.
 - **Classification gate.** Unclassified personal data that reaches the log can never be erased. In erasure mode, a pre-commit validator should therefore reject literals under properties that no shape has classified as either private or not personal. This is validator policy in the integration layer; the store only provides the hook. It cannot catch personal data inside free text that a shape has declared not personal.
-- **Selector.** A function from a quad source and a data subject to a set of quads, contract in `Varve.Store`. Used for access requests, and by T4 to clean the current graph.
+- **Access set.** For a key `K`: `Access(K) =` every dictionary entry under `K`, every quad in any commit that mentions such an id, with the positions and timestamps at which it was asserted and retracted, and the metadata of commits whose agent is under `K`. It is computed by scanning the log by key id, on demand, or from an optional projection. Agents of other commits are included only when canonical or under `K`, to protect other people (GDPR Article 15(4)).
+- **Access scope.** `AllHistory` returns `Access(K)`. `Current` restricts it to quads in `G_head`. A request may state the scope; otherwise the dataset's default access scope applies; the default of that setting is `AllHistory`. The setting exists because the call differs between controllers. Below an archive horizon, `AllHistory` fails explicitly unless the archive is attached.
+- **Without erasure mode** there are no key ids. Access is then served by a selector, an optional contract from a quad source and a data subject to a set of quads, evaluated over `G_head`. Such a dataset can serve access requests and can never serve erasure.
 - **T4 Erase(subject).**
-  1. Optionally commit a normal `Data` commit retracting the selector's result from `G_head`, so the current graph holds no dangling structure.
-  2. Append an `Erasure` commit whose metadata carries the `KeyId`, agent and cause. It has an empty delta and is exempt from I4.
+  1. Commit a normal `Data` commit retracting from `G_head` every quad that mentions a term under the subject's key, so the current graph holds no dangling structure. The caller may opt out.
+  2. Append an `Erasure` commit whose metadata carries the `KeyId`, agent and cause. It has an empty delta.
   3. Destroy the key in the key store.
   Replicas and subscribers receive the `Erasure` commit through the log and destroy their copy of the key. A party that was given a key and keeps it is outside technical control; towards such parties erasure is a contractual obligation.
 - **I9 Plaintext confinement.** At all times, not only after erasure: no file in `log/`, no checkpoint and no record delivered to a filtered subscription contains the plaintext of a private term or any key material. Plaintext derived from private terms exists only in memory and under `derived/`, tagged with its `KeyId`.
@@ -161,8 +168,10 @@ Erasure mode is a per-dataset setting, off by default. When off, no private ids 
 | R2, R4 | As-of via overlay equals as-of via full replay. |
 | R3 | `Overlay(G_{P₁}, Diff(P₁, P₂)) = G_{P₂}`; delta composition is associative. |
 | Records | A crash at any record boundary recovers to the last closed commit. |
-| Determinism | The same request sequence on two machines yields byte-identical `log/` directories (with injected clock and randomness). |
+| Determinism | The same request sequence on two machines yields byte-identical `log/` directories (with an injected clock and, in erasure mode, an injected key store; nothing else in `log/` may depend on the machine or on randomness). |
 | I9 | For generated private literals with high-entropy markers, a byte scan of `log/` and checkpoints never finds a marker. |
+| Access | `Access(K)` before erasure equals the set of quads with at least one term that becomes unreadable after `Erase` of `K`. |
+| Settings | Settings at `P` equal the fold of `Settings` commits up to `P`; erasure mode cannot be switched off while private entries exist. |
 | I10 | After erasure, reads at every sampled position return the shredded form for every term under the key, and structure is unchanged. |
 
 ## 11. Open questions
@@ -172,19 +181,29 @@ Erasure mode is a per-dataset setting, off by default. When off, no private ids 
 - **Q3** Bulk load and validators: the overlay of a multi-record commit does not fit in memory. Either validators are disabled for bulk commits, or the overlay spills.
 - **Q4** How a shredded term appears in SPARQL results and serialisations: unbound, or an opaque IRI in a reserved scheme.
 - **Q5** Lookup by private value (`?x foaf:name "Emil"`) cannot use an id. Either scan and decrypt, or a keyed blind index. A blind index is deterministic across subjects and its key is not per subject, so it weakens I10 and needs justification.
-- **Q6** Cipher and availability per host. `AesGcm` is, as far as known, unsupported on browser WASM, where AES-CBC and HMAC are available. Verify before the ADR. Determinism (section 2) also requires nonces derived deterministically or injected.
-- **Q7** Whether access requests default to `G_head` or to every quad ever asserted. Retained history is still processing; this needs legal input.
+- **Q6** Cipher. Documentation confirms `AesGcm` is unsupported on browser WASM; AES-CBC and HMAC support rests on a release note and must be verified on a running WASM build. ADR 0020 decides AES-CBC with HMAC-SHA-256, encrypt-then-MAC, with a deterministic IV derivation; its acceptance is conditional on that verification.
+- **Q7** Closed. Access is defined by key id, scope defaults to `AllHistory` and is a dataset setting (section 9). Whether that default is right for a given controller is their legal call.
 - **Q8** Granularity of keys: one per data subject is assumed. Data about two subjects in one term (a joint account label) has no single owner.
+- **Q9** Whether the structure that survives shredding counts as anonymous. Legal question; the engineering answer is the classifier's ability to make identifying links private.
 
-## 12. ADRs this specification presupposes
+## 12. ADRs
 
-1. Commit model and effective deltas (I2, I4, T1 steps 3 and 4).
-2. Concurrency: single sequencer with optional expected position.
-3. Term dictionary, id classes (canonical, blank, private), id scheme, blank node identity.
-4. Records versus commits; bulk load as a multi-record commit.
-5. Header chain and divergence detection (I6).
-6. Checkpoints, pinned reads, as-of reads, archive horizon.
-7. Projection contract; synchronous default projection; erasure handling in projections.
-8. Pre-commit validator contract and the overlay quad source, including which layer owns the overlay.
-9. Storage abstraction (memory, file, browser) and the dataset directory requirements of section 2.
-10. Erasure by crypto-shredding: key store, classifier and selector contracts, erasure mode, cipher choice.
+All Accepted. Three carry a stated condition under which they are to be superseded, because they were accepted ahead of the evidence.
+
+| Decision | ADR | Revisit condition |
+|---|---|---|
+| Commit model and effective deltas | 0010 | |
+| Concurrency: one sequencer, optional expected position | 0011 | |
+| Term dictionary: 64-bit ids, class tag, counters, inline small values, blank node identity | 0012 | Milestone 4 benchmarks of index size and scan throughput contradict the choice. No bytes are frozen before milestone 6. |
+| Records versus commits, bulk load | 0013 | |
+| Header chain and divergence detection | 0014 | |
+| Checkpoints, pinned reads, as-of reads, archive horizon | 0015 | |
+| Projection contract, synchronous default, erasure in projections | 0016 | |
+| Pre-commit validator contract and the overlay quad source | 0017 | |
+| Storage abstraction: append-only segment store plus derived blob store, durability declared by the backend | 0018 | The in-memory and browser backends cannot both implement the contract without leaking backend detail. |
+| Erasure by crypto-shredding, access requests | 0019 | |
+| Cipher: AES-CBC with HMAC-SHA-256, encrypt-then-MAC, deterministic IV | 0020 | The composition does not run on browser WASM when verified on a real build. |
+| Dataset settings as a commit kind | new | |
+| Quad source contract over an opaque 64-bit term handle with source-supplied equality and externalisation | new | Milestone 5 evaluator benchmarks show the opaque handle costs more than it saves. |
+
+Milestone placement: the first durable format (milestone 6) reserves the private id class, the private entry layout and the refusal of a key store path inside the dataset directory. Erasure mode itself is milestone 9, after the SHACL validator, because the shape-derived classifier and the classification gate depend on it.

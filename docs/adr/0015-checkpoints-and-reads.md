@@ -161,4 +161,4 @@ milestone 6.
 - **Analyzer rule.** None.
 - **Open questions owned.** None. Q7's question about whether an access request
   reads `G_head` or every quad ever asserted is adjacent to as-of reads but is a
-  data-protection decision, and ADR 0019 owns it.
+  data-protection decision, and ADR 0023 owns it.

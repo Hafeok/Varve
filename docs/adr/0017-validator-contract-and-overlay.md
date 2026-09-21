@@ -39,7 +39,8 @@ when `R ⊆ B` and `A ∩ B = ∅`, which ADR 0010's effective-delta invariant
 guarantees for every use in the specification.
 
 **It lives in `Varve.Rdf`, layer 1 — with the quad source contract, not in
-`Varve.Store`.** Everything it needs is already there: a quad source, and a pair
+`Varve.Store`.** *(Amended 2026-09-21: this now rests on a decision that did not
+exist when it was written — see the amendment below.)* Everything it needs is already there: a quad source, and a pair
 of quad sets over the same terms. It contains no store concept, no position, no
 commit. Putting it at layer 4 would put it out of reach of the layer 3
 evaluator, and would mean as-of reads and pre-commit validation each grew their
@@ -83,6 +84,21 @@ because unclassified personal data that reaches the log can never be erased.
 That is a **validator policy in the integration layer**. The store provides the
 hook and takes no view. It is recorded here so that the hook's existence is not
 mistaken for the store having an opinion about personal data.
+
+### Amendment, 2026-09-21 — the dependency this placement rests on
+
+Putting the overlay at layer 1 was argued above from what it needs: "a quad
+source, and a pair of quad sets over the same terms". **That argument is only
+sound because the quad source contract deals in an opaque term handle defined in
+`Varve.Rdf` itself** ([ADR 0022](0022-quad-source-term-handle.md)). Had the
+contract been expressed over the store's `TermId`, the overlay would have needed
+a layer 4 type and could not have lived at layer 1 at all; had it been generic
+over the handle type, the overlay would have been generic too, and the evaluator
+would have paid for it in code size.
+
+The decision is unchanged. What changes is that it now has a named dependency
+instead of an implicit assumption, and a superseding change to ADR 0022 is a
+change to this one.
 
 ## Alternatives considered
 
