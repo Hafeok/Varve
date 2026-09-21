@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 1: the model and the abstract quad source contract. ADR 0003. -->
+    <VarveLayer>1</VarveLayer>
+    <IsPackable>true</IsPackable>
+
+    <Description>The RDF 1.1 and 1.2 term model, and the abstract quad source contract.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Iri/Varve.Iri.csproj" />
+  </ItemGroup>
+
+</Project>

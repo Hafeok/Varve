@@ -1,0 +1,131 @@
+#nullable enable
+Varve.Rdf.IQuadCursor
+Varve.Rdf.IQuadCursor.Current.get -> Varve.Rdf.Quad
+Varve.Rdf.IQuadCursor.MoveNext() -> bool
+Varve.Rdf.IQuadSource
+Varve.Rdf.IQuadSource.Contains(in Varve.Rdf.Quad quad) -> bool
+Varve.Rdf.IQuadSource.Match(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object, Varve.Rdf.TermHandle graph) -> Varve.Rdf.IQuadCursor!
+Varve.Rdf.IQuadSource.MatchDefaultGraph(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object) -> Varve.Rdf.IQuadCursor!
+Varve.Rdf.IQuadSource.TermComparer.get -> System.Collections.Generic.IEqualityComparer<Varve.Rdf.TermHandle>!
+Varve.Rdf.IQuadSource.TryExternalise(Varve.Rdf.TermHandle handle, out Varve.Rdf.RdfTerm! term) -> bool
+Varve.Rdf.IQuadSource.TryInternalise(Varve.Rdf.RdfTerm! term, out Varve.Rdf.TermHandle handle) -> bool
+Varve.Rdf.InMemoryDataset
+Varve.Rdf.InMemoryDataset.Add(Varve.Rdf.RdfTerm! subject, Varve.Rdf.RdfTerm! predicate, Varve.Rdf.RdfTerm! object, Varve.Rdf.RdfTerm? graph = null) -> bool
+Varve.Rdf.InMemoryDataset.Add(in Varve.Rdf.Quad quad) -> bool
+Varve.Rdf.InMemoryDataset.Contains(in Varve.Rdf.Quad quad) -> bool
+Varve.Rdf.InMemoryDataset.Count.get -> int
+Varve.Rdf.InMemoryDataset.InMemoryDataset() -> void
+Varve.Rdf.InMemoryDataset.Internalise(Varve.Rdf.RdfTerm! term) -> Varve.Rdf.TermHandle
+Varve.Rdf.InMemoryDataset.Match(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object, Varve.Rdf.TermHandle graph) -> Varve.Rdf.IQuadCursor!
+Varve.Rdf.InMemoryDataset.MatchDefaultGraph(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object) -> Varve.Rdf.IQuadCursor!
+Varve.Rdf.InMemoryDataset.Remove(in Varve.Rdf.Quad quad) -> bool
+Varve.Rdf.InMemoryDataset.TermComparer.get -> System.Collections.Generic.IEqualityComparer<Varve.Rdf.TermHandle>!
+Varve.Rdf.InMemoryDataset.TermCount.get -> int
+Varve.Rdf.InMemoryDataset.TryExternalise(Varve.Rdf.TermHandle handle, out Varve.Rdf.RdfTerm! term) -> bool
+Varve.Rdf.InMemoryDataset.TryInternalise(Varve.Rdf.RdfTerm! term, out Varve.Rdf.TermHandle handle) -> bool
+Varve.Rdf.Quad
+Varve.Rdf.Quad.Equals(Varve.Rdf.Quad other) -> bool
+Varve.Rdf.Quad.Graph.get -> Varve.Rdf.TermHandle
+Varve.Rdf.Quad.IsDefaultGraph.get -> bool
+Varve.Rdf.Quad.Object.get -> Varve.Rdf.TermHandle
+Varve.Rdf.Quad.Predicate.get -> Varve.Rdf.TermHandle
+Varve.Rdf.Quad.Quad() -> void
+Varve.Rdf.Quad.Quad(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object) -> void
+Varve.Rdf.Quad.Quad(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object, Varve.Rdf.TermHandle graph) -> void
+Varve.Rdf.Quad.Subject.get -> Varve.Rdf.TermHandle
+Varve.Rdf.QuadView
+Varve.Rdf.QuadView.Graph.get -> Varve.Rdf.RdfTermView
+Varve.Rdf.QuadView.HasGraph.get -> bool
+Varve.Rdf.QuadView.Object.get -> Varve.Rdf.RdfTermView
+Varve.Rdf.QuadView.Predicate.get -> Varve.Rdf.RdfTermView
+Varve.Rdf.QuadView.QuadView() -> void
+Varve.Rdf.QuadView.Subject.get -> Varve.Rdf.RdfTermView
+Varve.Rdf.RdfTerm
+Varve.Rdf.RdfTerm.Datatype.get -> Varve.Rdf.RdfTerm?
+Varve.Rdf.RdfTerm.DatatypeIri.get -> System.ReadOnlySpan<byte>
+Varve.Rdf.RdfTerm.Direction.get -> Varve.Rdf.TextDirection
+Varve.Rdf.RdfTerm.Equals(Varve.Rdf.RdfTerm? other) -> bool
+Varve.Rdf.RdfTerm.Kind.get -> Varve.Rdf.RdfTermKind
+Varve.Rdf.RdfTerm.Language.get -> System.ReadOnlySpan<byte>
+Varve.Rdf.RdfTerm.Lexical.get -> System.ReadOnlySpan<byte>
+Varve.Rdf.RdfTerm.Object.get -> Varve.Rdf.RdfTerm?
+Varve.Rdf.RdfTerm.Predicate.get -> Varve.Rdf.RdfTerm?
+Varve.Rdf.RdfTerm.Subject.get -> Varve.Rdf.RdfTerm?
+Varve.Rdf.RdfTermKind
+Varve.Rdf.RdfTermKind.BlankNode = 1 -> Varve.Rdf.RdfTermKind
+Varve.Rdf.RdfTermKind.Iri = 0 -> Varve.Rdf.RdfTermKind
+Varve.Rdf.RdfTermKind.Literal = 2 -> Varve.Rdf.RdfTermKind
+Varve.Rdf.RdfTermKind.TripleTerm = 3 -> Varve.Rdf.RdfTermKind
+Varve.Rdf.RdfTermView
+Varve.Rdf.RdfTermView.Datatype.get -> System.ReadOnlySpan<byte>
+Varve.Rdf.RdfTermView.Direction.get -> Varve.Rdf.TextDirection
+Varve.Rdf.RdfTermView.HasDatatype.get -> bool
+Varve.Rdf.RdfTermView.HasLanguage.get -> bool
+Varve.Rdf.RdfTermView.Kind.get -> Varve.Rdf.RdfTermKind
+Varve.Rdf.RdfTermView.Language.get -> System.ReadOnlySpan<byte>
+Varve.Rdf.RdfTermView.Lexical.get -> System.ReadOnlySpan<byte>
+Varve.Rdf.RdfTermView.Materialise() -> Varve.Rdf.RdfTerm!
+Varve.Rdf.RdfTermView.Object.get -> Varve.Rdf.RdfTermView
+Varve.Rdf.RdfTermView.Predicate.get -> Varve.Rdf.RdfTermView
+Varve.Rdf.RdfTermView.RdfTermView() -> void
+Varve.Rdf.RdfTermView.Subject.get -> Varve.Rdf.RdfTermView
+Varve.Rdf.RdfVocabulary
+Varve.Rdf.TermArena
+Varve.Rdf.TermArena.AddBlankNode(Varve.Rdf.TermSpan label) -> int
+Varve.Rdf.TermArena.AddIri(Varve.Rdf.TermSpan lexical) -> int
+Varve.Rdf.TermArena.AddLiteral(Varve.Rdf.TermSpan lexical, Varve.Rdf.TermSpan datatype, Varve.Rdf.TermSpan language, Varve.Rdf.TextDirection direction) -> int
+Varve.Rdf.TermArena.AddTripleTerm(int subject, int predicate, int object) -> int
+Varve.Rdf.TermArena.AppendScratch(System.ReadOnlySpan<byte> bytes) -> Varve.Rdf.TermSpan
+Varve.Rdf.TermArena.CommitScratch(int length) -> Varve.Rdf.TermSpan
+Varve.Rdf.TermArena.Count.get -> int
+Varve.Rdf.TermArena.Quad(System.ReadOnlySpan<byte> text, int subject, int predicate, int object, int graph) -> Varve.Rdf.QuadView
+Varve.Rdf.TermArena.ReserveScratch(int minimumLength) -> System.Span<byte>
+Varve.Rdf.TermArena.Reset() -> void
+Varve.Rdf.TermArena.ScratchLength.get -> int
+Varve.Rdf.TermArena.TermArena() -> void
+Varve.Rdf.TermArena.View(System.ReadOnlySpan<byte> text, int index) -> Varve.Rdf.RdfTermView
+Varve.Rdf.TermHandle
+Varve.Rdf.TermHandle.Equals(Varve.Rdf.TermHandle other) -> bool
+Varve.Rdf.TermHandle.IsNone.get -> bool
+Varve.Rdf.TermHandle.TermHandle() -> void
+Varve.Rdf.TermHandle.TermHandle(ulong value) -> void
+Varve.Rdf.TermHandle.Value.get -> ulong
+Varve.Rdf.TermSpan
+Varve.Rdf.TermSpan.Equals(Varve.Rdf.TermSpan other) -> bool
+Varve.Rdf.TermSpan.IsPresent.get -> bool
+Varve.Rdf.TermSpan.IsScratch.get -> bool
+Varve.Rdf.TermSpan.Length.get -> int
+Varve.Rdf.TermSpan.Start.get -> int
+Varve.Rdf.TermSpan.TermSpan() -> void
+Varve.Rdf.TextDirection
+Varve.Rdf.TextDirection.LeftToRight = 1 -> Varve.Rdf.TextDirection
+Varve.Rdf.TextDirection.None = 0 -> Varve.Rdf.TextDirection
+Varve.Rdf.TextDirection.RightToLeft = 2 -> Varve.Rdf.TextDirection
+override Varve.Rdf.Quad.Equals(object? obj) -> bool
+override Varve.Rdf.Quad.GetHashCode() -> int
+override Varve.Rdf.RdfTerm.Equals(object? obj) -> bool
+override Varve.Rdf.RdfTerm.GetHashCode() -> int
+override Varve.Rdf.TermHandle.Equals(object? obj) -> bool
+override Varve.Rdf.TermHandle.GetHashCode() -> int
+override Varve.Rdf.TermSpan.Equals(object? obj) -> bool
+override Varve.Rdf.TermSpan.GetHashCode() -> int
+static Varve.Rdf.Quad.operator !=(Varve.Rdf.Quad left, Varve.Rdf.Quad right) -> bool
+static Varve.Rdf.Quad.operator ==(Varve.Rdf.Quad left, Varve.Rdf.Quad right) -> bool
+static Varve.Rdf.RdfTerm.BlankNode(System.ReadOnlySpan<byte> label) -> Varve.Rdf.RdfTerm!
+static Varve.Rdf.RdfTerm.Comparer.get -> System.Collections.Generic.IEqualityComparer<Varve.Rdf.RdfTerm!>!
+static Varve.Rdf.RdfTerm.Iri(System.ReadOnlySpan<byte> utf8) -> Varve.Rdf.RdfTerm!
+static Varve.Rdf.RdfTerm.Literal(System.ReadOnlySpan<byte> lexical) -> Varve.Rdf.RdfTerm!
+static Varve.Rdf.RdfTerm.Literal(System.ReadOnlySpan<byte> lexical, System.ReadOnlySpan<byte> language, Varve.Rdf.TextDirection direction = Varve.Rdf.TextDirection.None) -> Varve.Rdf.RdfTerm!
+static Varve.Rdf.RdfTerm.Literal(System.ReadOnlySpan<byte> lexical, Varve.Rdf.RdfTerm! datatype) -> Varve.Rdf.RdfTerm!
+static Varve.Rdf.RdfTerm.TripleTerm(Varve.Rdf.RdfTerm! subject, Varve.Rdf.RdfTerm! predicate, Varve.Rdf.RdfTerm! object) -> Varve.Rdf.RdfTerm!
+static Varve.Rdf.RdfVocabulary.RdfDirLangString.get -> System.ReadOnlySpan<byte>
+static Varve.Rdf.RdfVocabulary.RdfLangString.get -> System.ReadOnlySpan<byte>
+static Varve.Rdf.RdfVocabulary.XsdString.get -> System.ReadOnlySpan<byte>
+static Varve.Rdf.TermHandle.None.get -> Varve.Rdf.TermHandle
+static Varve.Rdf.TermHandle.operator !=(Varve.Rdf.TermHandle left, Varve.Rdf.TermHandle right) -> bool
+static Varve.Rdf.TermHandle.operator ==(Varve.Rdf.TermHandle left, Varve.Rdf.TermHandle right) -> bool
+static Varve.Rdf.TermSpan.FromScratch(int start, int length) -> Varve.Rdf.TermSpan
+static Varve.Rdf.TermSpan.FromText(int start, int length) -> Varve.Rdf.TermSpan
+static Varve.Rdf.TermSpan.None.get -> Varve.Rdf.TermSpan
+static Varve.Rdf.TermSpan.operator !=(Varve.Rdf.TermSpan left, Varve.Rdf.TermSpan right) -> bool
+static Varve.Rdf.TermSpan.operator ==(Varve.Rdf.TermSpan left, Varve.Rdf.TermSpan right) -> bool
