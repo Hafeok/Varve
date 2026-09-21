@@ -67,16 +67,40 @@ jobs:
         # and the build is deterministic.
         run: dotnet build Varve.slnx --configuration Release --no-restore
 
+      # Every test project except the conformance one, which has a job of its
+      # own because it is gated by the ratchet rather than by its own result.
+      # One step each rather than one step over the solution: `dotnet test`
+      # takes a single --project, and a named step says which suite went red
+      # without anyone opening the log.
       - name: Test the analyzers
         run: >
           dotnet test
           --project tests/Varve.Analyzers.Tests/Varve.Analyzers.Tests.csproj
           --configuration Release
 
-  # Does not gate on the raw test result: every W3C case fails until the first
-  # parser lands at milestone 3, and that is the expected state (ADR 0007). The
-  # ratchet gates instead — on a regression, on a case that vanished, and on the
-  # harness itself failing.
+      - name: Test Varve.Iri
+        run: >
+          dotnet test
+          --project tests/Varve.Iri.Tests/Varve.Iri.Tests.csproj
+          --configuration Release
+
+      - name: Test Varve.Rdf
+        run: >
+          dotnet test
+          --project tests/Varve.Rdf.Tests/Varve.Rdf.Tests.csproj
+          --configuration Release
+
+      - name: Test Varve.Turtle
+        run: >
+          dotnet test
+          --project tests/Varve.Turtle.Tests/Varve.Turtle.Tests.csproj
+          --configuration Release
+
+  # Does not gate on the raw test result, and still should not now that all 157
+  # cases pass: an exempt case is allowed to fail, and a case outside the
+  # baseline is allowed to fail while it is being worked on (ADR 0007). The
+  # ratchet gates instead — on a regression, on a case that vanished, on an
+  # exemption with no justification, and on the harness itself failing.
   conformance:
     name: conformance (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

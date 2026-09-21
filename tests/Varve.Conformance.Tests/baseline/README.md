@@ -1,8 +1,14 @@
 # Conformance baseline
 
-`passing.txt` holds the test IRIs that pass, one per line, sorted. It is empty:
-no parser exists, so nothing passes, and that is the correct state for
-milestone 1.
+`passing.txt` holds the test IRIs that pass, one per line, sorted. At
+milestone 3a it holds all 157 cases of `rdf/rdf11/rdf-n-triples` and
+`rdf/rdf11/rdf-n-quads`.
+
+`exemptions.txt` holds cases we have decided not to pass yet, as
+`<test IRI> <justification>`. An exempt case is neither required to pass nor
+reported as newly passing, an exemption with no justification fails the
+ratchet, and an exemption for a case that now passes is reported so it can be
+removed. It is empty, which at milestone 3a is a result rather than a default.
 
 `eng/ratchet.cs` reads the TRX from a conformance run and compares it against
 this file. It fails when a listed test stops passing, and when a listed test is

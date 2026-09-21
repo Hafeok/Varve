@@ -1,6 +1,7 @@
 // Conformance ratchet.
 //
-//   dotnet run eng/ratchet.cs -- <trx-file-or-directory> [--baseline <path>] [--label <text>]
+//   dotnet run eng/ratchet.cs -- <trx-file-or-directory> [--baseline <path>]
+//       [--exemptions <path>] [--label <text>]
 //
 // Reads the TRX from a conformance run and compares it against
 // tests/Varve.Conformance.Tests/baseline/passing.txt, which holds the test IRIs
@@ -12,7 +13,14 @@
 //     or silently dropped case becomes a build failure rather than a quiet loss
 //     of coverage;
 //   - the harness itself failed — a guard test, not a conformance case. A
-//     harness defect gates; a parser result does not.
+//     harness defect gates; a parser result does not;
+//   - an exemption has no written justification.
+//
+// baseline/exemptions.txt holds cases we have decided not to pass yet, as
+// "<test IRI> <space> <justification>". An exempt case is neither required to
+// pass nor counted as newly passing, and an exemption for a case that now
+// passes is reported so it can be removed. The justification is required
+// because the cost of an exemption should be writing down why.
 //
 // It does not fail when a test newly passes. It prints those, with the lines to
 // add, so the baseline moves in the same pull request as the change that earned
@@ -40,6 +48,7 @@ if (arguments.Length == 0)
 
 string trxArgument = arguments[0];
 string? baselineOverride = null;
+string? exemptionsOverride = null;
 
 // Distinguishes one run from another in the step summary, so a matrix over
 // several operating systems does not produce several identical headings.
@@ -52,6 +61,9 @@ for (int i = 1; i < arguments.Length - 1; i++)
         case "--baseline":
             baselineOverride = arguments[i + 1];
             break;
+        case "--exemptions":
+            exemptionsOverride = arguments[i + 1];
+            break;
         case "--label":
             label = arguments[i + 1];
             break;
@@ -63,6 +75,9 @@ for (int i = 1; i < arguments.Length - 1; i++)
 string repositoryRoot = FindRepositoryRoot();
 string baselinePath = baselineOverride
     ?? Path.Combine(repositoryRoot, "tests", "Varve.Conformance.Tests", "baseline", "passing.txt");
+
+string exemptionsPath = exemptionsOverride
+    ?? Path.Combine(repositoryRoot, "tests", "Varve.Conformance.Tests", "baseline", "exemptions.txt");
 
 string? trxPath = ResolveTrx(trxArgument);
 if (trxPath is null)
@@ -115,6 +130,33 @@ HashSet<string> baseline = new(
         .Where(static line => line.Length > 0 && !line.StartsWith('#')),
     StringComparer.Ordinal);
 
+Dictionary<string, string> exemptions = new(StringComparer.Ordinal);
+List<string> unjustified = [];
+
+if (File.Exists(exemptionsPath))
+{
+    foreach (string raw in File.ReadAllLines(exemptionsPath))
+    {
+        string line = raw.Trim();
+
+        if (line.Length == 0 || line.StartsWith('#'))
+        {
+            continue;
+        }
+
+        int space = line.IndexOf(' ', StringComparison.Ordinal);
+        string iri = space < 0 ? line : line[..space];
+        string justification = space < 0 ? "" : line[(space + 1)..].Trim();
+
+        if (justification.Length == 0)
+        {
+            unjustified.Add(iri);
+        }
+
+        exemptions[iri] = justification;
+    }
+}
+
 // --- compare ---------------------------------------------------------------
 
 List<string> regressed = [];
@@ -122,6 +164,13 @@ List<string> missing = [];
 
 foreach (string expected in baseline.OrderBy(static iri => iri, StringComparer.Ordinal))
 {
+    if (exemptions.ContainsKey(expected))
+    {
+        // An exemption wins over a baseline entry, and the pair is reported
+        // below rather than silently preferred one way or the other.
+        continue;
+    }
+
     if (!caseOutcomes.TryGetValue(expected, out bool passed))
     {
         missing.Add(expected);
@@ -133,15 +182,20 @@ foreach (string expected in baseline.OrderBy(static iri => iri, StringComparer.O
 }
 
 List<string> newlyPassing = caseOutcomes
-    .Where(entry => entry.Value && !baseline.Contains(entry.Key))
+    .Where(entry => entry.Value && !baseline.Contains(entry.Key) && !exemptions.ContainsKey(entry.Key))
     .Select(static entry => entry.Key)
+    .OrderBy(static iri => iri, StringComparer.Ordinal)
+    .ToList();
+
+List<string> exemptionsToRetire = exemptions.Keys
+    .Where(iri => caseOutcomes.GetValueOrDefault(iri))
     .OrderBy(static iri => iri, StringComparer.Ordinal)
     .ToList();
 
 // --- report ----------------------------------------------------------------
 
 string summary = BuildSummary(
-    caseOutcomes, label, baseline.Count, newlyPassing.Count, regressed.Count, missing.Count);
+    caseOutcomes, label, baseline.Count, exemptions.Count, newlyPassing.Count, regressed.Count, missing.Count);
 Console.WriteLine(summary);
 
 string? stepSummary = Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY");
@@ -163,7 +217,35 @@ if (newlyPassing.Count > 0)
     }
 }
 
+if (exemptionsToRetire.Count > 0)
+{
+    Console.WriteLine();
+    Console.WriteLine($"{exemptionsToRetire.Count} exempt test(s) now pass.");
+    Console.WriteLine(
+        $"Remove the exemption and add the test to {Relative(repositoryRoot, baselinePath)}:");
+    Console.WriteLine();
+
+    foreach (string iri in exemptionsToRetire)
+    {
+        Console.WriteLine(iri);
+    }
+}
+
 bool failed = false;
+
+if (unjustified.Count > 0)
+{
+    failed = true;
+    Console.Error.WriteLine();
+    Console.Error.WriteLine(
+        $"FAIL: {unjustified.Count} exemption(s) have no justification. An exemption is a decision not "
+        + "to pass a conformance case; write down why, on the same line, after the IRI:");
+
+    foreach (string iri in unjustified.OrderBy(static n => n, StringComparer.Ordinal))
+    {
+        Console.Error.WriteLine($"  {iri}");
+    }
+}
 
 if (harnessFailures.Count > 0)
 {
@@ -213,6 +295,7 @@ static string BuildSummary(
     Dictionary<string, bool> outcomes,
     string? label,
     int baselineCount,
+    int exemptCount,
     int newlyPassing,
     int regressed,
     int missing)
@@ -254,7 +337,7 @@ static string BuildSummary(
     builder.AppendLine();
     builder.AppendLine(string.Create(
         CultureInfo.InvariantCulture,
-        $"Baseline: {baselineCount} test(s). Newly passing: {newlyPassing}. "
+        $"Baseline: {baselineCount} test(s). Exempt: {exemptCount}. Newly passing: {newlyPassing}. "
         + $"Regressed: {regressed}. Missing from the run: {missing}."));
 
     return builder.ToString().TrimEnd();
