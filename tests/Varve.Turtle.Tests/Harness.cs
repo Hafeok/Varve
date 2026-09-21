@@ -70,6 +70,8 @@ internal static class Harness
 
         internal ReadOnlySpan<byte> Written => _bytes.AsSpan(0, _written);
 
+        internal void Reset() => _written = 0;
+
         public void Advance(int count) => _written += count;
 
         public Memory<byte> GetMemory(int sizeHint = 0)
