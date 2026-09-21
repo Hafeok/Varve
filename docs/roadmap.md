@@ -40,33 +40,52 @@ until milestone 8, and the key store, classifier and selector contracts are
 specified here even though erasure is not implemented until the milestone
 proposed below.
 
-## 3 — RDF model, IRI, XSD datatypes, N-Triples and N-Quads *(current: 3a)*
+## 3 — RDF model, IRI, XSD datatypes, N-Triples and N-Quads
 
-**3a**: `Varve.Iri`, `Varve.Rdf`, and N-Triples and N-Quads in `Varve.Turtle`, to a
-full suite pass. **3b**: `Varve.Xsd` and RDFC-1.0 canonicalisation — neither is
-needed for the N-Triples and N-Quads suites.
+**3a** *(complete)*: `Varve.Iri`, `Varve.Rdf`, and N-Triples and N-Quads in
+`Varve.Turtle`, to a full suite pass. **3b**: `Varve.Xsd` and RDFC-1.0
+canonicalisation — neither is needed for the N-Triples and N-Quads suites.
 
 The first packable projects, and therefore the first time several milestone 1
-mechanisms stop being inert:
+mechanisms stopped being inert. All of the following are **delivered**:
 
-- **Public API baselines.** `PublicAPI.Shipped.txt` and `PublicAPI.Unshipped.txt`
-  are wired in `Directory.Build.targets` but have nothing to track until
-  `Varve.Iri` exists.
-- **Banned symbols.** `eng/BannedSymbols.txt` applies to packable projects. Its
-  `System.Uri` entry needs its scope revisited before layer 5 — see
-  `docs/adr/0004-enforcement-by-analyzers.md`.
-- **Native AOT smoke build.** *Deferred from milestone 1.* There is nothing to
-  compile ahead of time until there is a type. Due here: a console project that
-  references `Varve.Iri`, published with `PublishAot=true`, built in CI on
-  ubuntu and windows. It gates on IL-prefixed warnings, which never enter
-  `NoWarn`.
-- **WASM smoke build.** *Deferred from milestone 1*, for the same reason. Due
-  here: a `wasi-wasm` or Blazor WebAssembly project referencing `Varve.Iri`,
-  published in CI. Constraint 3 says the browser is a first-class host; a host
-  that is only checked at milestone 7 is a host that will not work.
-- **Conformance turns green.** The N-Triples and N-Quads suites are the first to
-  move off zero, and `tests/Varve.Conformance.Tests/baseline/passing.txt` starts
-  ratcheting.
+- **Public API baselines.** Every public member of the three packages is a line
+  in a `PublicAPI.Unshipped.txt` beside its project, added by hand. A fixture
+  in `tests/fixtures/public-api/` proves `RS0016` fires on a member that is
+  not.
+- **Banned symbols.** A fixture in `tests/fixtures/banned-api/` proves `RS0030`
+  fires on `System.Uri` and that the message names ADR 0004. **The `System.Uri`
+  entry is not narrowed** — it stays repository-wide until layer 5 exists.
+- **Native AOT smoke build.** `tests/Varve.AotSmoke` publishes with
+  `PublishAot` and `IlcTreatWarningsAsErrors`, and CI **runs** the binary on
+  ubuntu and windows rather than only publishing it: the interesting AOT
+  failures are at run time and silent.
+- **WASM smoke build.** `tests/Varve.WasmSmoke`, a `browser-wasm` app on
+  `wasm-experimental` — **not** Blazor, which would add an ASP.NET Core package
+  tail unrelated to the claim. CI publishes it warning-free; it was run in
+  headless Chromium here, and **what it found supersedes ADR 0020** (below).
+- **Conformance is green.** All 157 cases of `rdf/rdf11/rdf-n-triples` and
+  `rdf/rdf11/rdf-n-quads` pass, `baseline/passing.txt` holds all 157, and
+  `baseline/exemptions.txt` is empty. The ratchet gained an exemptions
+  mechanism: an exempt case is neither required to pass nor reported as newly
+  passing, and an exemption with no written justification fails the run.
+
+Also delivered, beyond what this section asked for: **zero bytes allocated per
+quad**, asserted on all five entry points as the difference between a
+500-quad and a 4,000-quad parse rather than as an absolute figure; and
+benchmarks against dotNetRDF with the machine stated
+(`tests/Varve.Benchmarks/README.md`).
+
+**Two findings about the RDF 1.1 N-Triples specification** are recorded in
+`docs/spec/n-triples.md`: its `PN_CHARS_U` production contradicts its own test
+suite over the colon, and RDF 1.2 has since resolved it the way the suite
+already assumed. The reader and writer also carry RDF 1.2's base direction and
+triple terms, which the model held from the start and the syntax would
+otherwise be unable to express.
+
+**Not in 3a, and not attempted:** `Varve.Xsd`, canonicalisation, Turtle and
+TriG, the store, NuGet publication, and `VARVE0006` (the `[HotPath]` rule — the
+attribute exists and is applied, the analyzer does not).
 
 ## 4 — In-memory log and default quad projection
 

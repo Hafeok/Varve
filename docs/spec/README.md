@@ -33,7 +33,10 @@ The order is specification, then ADR, then code.
   both 1.2 documents as checked on 2026-09-21.
 - **[`n-triples.md`](n-triples.md)** — the N-Triples and N-Quads grammars,
   canonical form, the line-as-recovery-unit rule, and why a column is counted
-  in bytes.
+  in bytes. It also records where the RDF 1.1 N-Triples grammar contradicts its
+  own test suite (`PN_CHARS_U` and the colon), which of the two we follow and
+  why, and the two RDF 1.2 constructs the reader and writer accept beyond the
+  1.1 grammar.
 
 ## Planned
 
