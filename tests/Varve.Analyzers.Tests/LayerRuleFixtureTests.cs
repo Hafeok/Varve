@@ -58,6 +58,38 @@ public class LayerRuleFixtureTests
         Assert.Contains("Varve.Fixture.Upper", result.Output, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Packable is an MSBuild property like any other, and VARVE0002 only sees
+    /// it because Directory.Build.props marks it compiler-visible. A unit test
+    /// supplies that value itself and so cannot tell whether the wiring exists.
+    /// </summary>
+    [Fact]
+    public async Task A_packable_project_with_a_layer_builds()
+    {
+        BuildResult result = await BuildFixtureAsync(
+            Path.Combine("packable", "Varve.Fixture.Packaged", "Varve.Fixture.Packaged.csproj"));
+
+        Assert.True(
+            result.ExitCode == 0,
+            "Varve.Fixture.Packaged is packable and declares layer 0, and should build. This also exercises the "
+            + "packable block in Directory.Build.targets, which nothing else in the repository does yet."
+            + Environment.NewLine + result.Output);
+    }
+
+    [Fact]
+    public async Task A_packable_project_declaring_no_layer_fails_the_build_with_VARVE0002()
+    {
+        BuildResult result = await BuildFixtureAsync(
+            Path.Combine("packable", "Varve.Fixture.PackableNone", "Varve.Fixture.PackableNone.csproj"));
+
+        Assert.True(
+            result.ExitCode != 0,
+            "Varve.Fixture.PackableNone is packable and declares VarveLayer=none, and must not build."
+            + Environment.NewLine + result.Output);
+
+        Assert.Contains("VARVE0002", result.Output, StringComparison.Ordinal);
+    }
+
     private static async Task<BuildResult> BuildFixtureAsync(string relativeProjectPath)
     {
         string repositoryRoot = FindRepositoryRoot();

@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Packable and layered: the ordinary shape of a published package. It
+         also exercises the packable block in Directory.Build.targets, which
+         nothing else in the repository does yet. -->
+    <IsPackable>true</IsPackable>
+    <VarveLayer>0</VarveLayer>
+  </PropertyGroup>
+</Project>

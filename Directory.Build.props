@@ -56,6 +56,12 @@
   -->
   <ItemGroup>
     <CompilerVisibleProperty Include="VarveLayer" />
+
+    <!-- Whether an assembly is published is the question layering actually
+         turns on, and the one an assembly name can only approximate.
+         VARVE0002 refuses 'none' from anything packable, whatever it is
+         called. -->
+    <CompilerVisibleProperty Include="IsPackable" />
   </ItemGroup>
 
   <!--

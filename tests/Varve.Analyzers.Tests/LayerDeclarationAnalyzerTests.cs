@@ -23,8 +23,9 @@ public class LayerDeclarationAnalyzerTests
     private static readonly CompositeFormat ReferenceMalformedFormat =
         CompositeFormat.Parse(LayerDeclarationAnalyzer.ReferenceMalformedFormat);
 
-    private static LayerAnalyzerTest<LayerDeclarationAnalyzer> Declaring(string assemblyName, string? layer) =>
-        new(assemblyName, layer);
+    private static LayerAnalyzerTest<LayerDeclarationAnalyzer> Declaring(
+        string assemblyName, string? layer, bool isPackable = false) =>
+        new(assemblyName, layer, isPackable);
 
     private static DiagnosticResult Violation(string assemblyName, string reason) =>
         new DiagnosticResult(VarveDiagnostics.LayerDeclaration)
@@ -139,15 +140,69 @@ public class LayerDeclarationAnalyzerTests
     }
 
     /// <summary>
-    /// The analyzer is referenced as an ordinary library by its own test
-    /// project and has no layer to carry. ADR 0004 records that this exemption
-    /// is by name and that no analyzer can close that hole.
+    /// The analyzer's own test project instantiates the rule types, so it is
+    /// the one compilation with a reason to reference it as a library.
     /// </summary>
     [Fact]
-    public async Task Reference_to_the_analyzer_needs_no_layer_metadata()
+    public async Task The_analyzer_test_project_may_reference_the_analyzer_as_a_library()
+    {
+        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Analyzers.Tests", "none")
+            .ReferencingNoLayer("Varve.Analyzers");
+
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>
+    /// An analyzer reaches the compiler as <c>/analyzer:</c> and never as
+    /// <c>/reference:</c>, so appearing among the references means someone
+    /// referenced it as an ordinary library. That is the shape the old by-name
+    /// exemption used to wave through, and it is now the violation.
+    /// </summary>
+    [Fact]
+    public async Task Referencing_the_analyzer_as_a_library_is_reported()
     {
         LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Rdf.Tests", "none")
             .ReferencingNoLayer("Varve.Analyzers");
+
+        test.ExpectedDiagnostics.Add(
+            Violation("Varve.Analyzers", LayerDeclarationAnalyzer.AnalyzerReferencedAsLibrary));
+
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task A_packable_assembly_with_a_layer_is_clean()
+    {
+        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Rdf", "1", isPackable: true)
+            .ReferencingLayer("Varve.Iri", 0);
+
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task Declaring_none_on_a_packable_assembly_is_reported()
+    {
+        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Rdf", "none", isPackable: true);
+
+        test.ExpectedDiagnostics.Add(Violation("Varve.Rdf", LayerDeclarationAnalyzer.NoLayerOnPackable));
+
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>
+    /// The loophole itself: a name ending in <c>.Tests</c> used to exempt an
+    /// assembly from declaring a layer. Being packed now overrides the name,
+    /// so a package cannot escape the layering rule by what it calls itself.
+    /// </summary>
+    [Theory]
+    [InlineData("Varve.Rdf.Tests")]
+    [InlineData("Varve.Rdf.Benchmarks")]
+    [InlineData("Varve.Analyzers")]
+    public async Task A_packable_assembly_cannot_buy_an_exemption_with_its_name(string assemblyName)
+    {
+        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring(assemblyName, "none", isPackable: true);
+
+        test.ExpectedDiagnostics.Add(Violation(assemblyName, LayerDeclarationAnalyzer.NoLayerOnPackable));
 
         await test.RunAsync(TestContext.Current.CancellationToken);
     }

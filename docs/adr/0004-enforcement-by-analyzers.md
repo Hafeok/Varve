@@ -54,7 +54,7 @@ one of them.
 | Id | Rule | Motivated by | State |
 |---|---|---|---|
 | `VARVE0001` | Layer direction: a reference must be to a strictly lower layer | ADR 0003 | **Implemented** |
-| `VARVE0002` | Layer declaration: a `Varve.*` assembly declares a layer, and a referenced one must carry the metadata | ADR 0003 | **Implemented** |
+| `VARVE0002` | Layer declaration: missing, invalid, or worked around — including `none` on a packable assembly and the analyzer referenced as a library | ADR 0003 | **Implemented** |
 | `VARVE0003` | `InternalsVisibleTo` only toward `*.Tests` assemblies | ADR 0003 | Reserved |
 | `VARVE0004` | No project or namespace named `Common`, `Core`, `Utils`, `Helpers` or `Abstractions` | brief, principle 3 | Reserved |
 | `VARVE0005` | No mutable static state and no static registries outside an explicit allow-list | brief, principle 2 | Reserved |
@@ -128,14 +128,42 @@ Adding a rule means touching four things — the analyzer, its tests, the releas
 tracking file, and the doc page. That is deliberate friction proportional to
 adding a rule that will fail other people's builds.
 
-**Known limit: the `Varve.Analyzers` exemption is by name.** `VARVE0002` exempts
-an assembly literally named `Varve.Analyzers` from carrying layer metadata,
-because it is a build-time component with no meaningful layer. A future assembly
-could take that name and skip the layer check. An analyzer cannot see whether an
-assembly is packable or whether it was referenced as an analyzer, so there is no
-better discriminator available at the point where the rule runs. Recorded as a
-limit rather than papered over. If it ever matters, the fix is the CI-side
-package-graph check, which can see what an analyzer cannot.
+**~~Known limit: the `Varve.Analyzers` exemption is by name.~~** *Amended
+2026-09-21: withdrawn, because it was wrong. The original text is kept below.*
+
+> ~~`VARVE0002` exempts an assembly literally named `Varve.Analyzers` from
+> carrying layer metadata, because it is a build-time component with no
+> meaningful layer. A future assembly could take that name and skip the layer
+> check. An analyzer cannot see whether an assembly is packable or whether it
+> was referenced as an analyzer, so there is no better discriminator available
+> at the point where the rule runs. Recorded as a limit rather than papered
+> over. If it ever matters, the fix is the CI-side package-graph check, which
+> can see what an analyzer cannot.~~
+
+The claim that no better discriminator exists was false on both counts, and the
+loophole is closed rather than documented:
+
+- **An analyzer can see whether an assembly is packable.** `IsPackable` is an
+  MSBuild property like any other; it only needed
+  `<CompilerVisibleProperty Include="IsPackable" />`. `VARVE0002` now refuses
+  `none` from any packable assembly, whatever it is named. Being packed is the
+  question layering actually turns on, and a name was only ever a proxy for it.
+- **An analyzer can tell an analyzer reference from a library reference.** An
+  analyzer reaches the compiler as `/analyzer:` and never as `/reference:`, so
+  it cannot appear in `Compilation.SourceModule.ReferencedAssemblySymbols` at
+  all under this repository's wiring. `VARVE0002` now reports `Varve.Analyzers`
+  appearing there, from every assembly except `Varve.Analyzers.Tests`, which
+  instantiates the rule types and is the one compilation with a reason to.
+
+The name check survives beside the packable check because the two catch
+different things — a library that is not yet packable is still held to its name
+— and it is the pair that leaves no way through. The CI-side package-graph
+check remains worth having for what an analyzer genuinely cannot see (ADR 0003),
+but it is no longer the answer to this.
+
+The withdrawn text is kept rather than deleted because the reasoning that
+produced a wrong conclusion is the part worth being able to find again. See the
+matching amendment in `docs/rules/VARVE0002.md`.
 
 **Consequence to discharge: the `System.Uri` ban is currently wider than the
 brief supports.** The brief scopes the ban to "`System.Uri` in `Varve.Iri`

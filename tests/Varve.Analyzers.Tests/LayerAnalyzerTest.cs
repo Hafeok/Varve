@@ -29,7 +29,7 @@ internal sealed class LayerAnalyzerTest<TAnalyzer> : CSharpAnalyzerTest<TAnalyze
 {
     private readonly Dictionary<string, string> _assemblyNames = new(StringComparer.Ordinal);
 
-    internal LayerAnalyzerTest(string declaringAssemblyName, string? declaredLayer)
+    internal LayerAnalyzerTest(string declaringAssemblyName, string? declaredLayer, bool isPackable = false)
     {
         ReferenceAssemblies = ReferenceAssemblies.Net.Net80;
 
@@ -37,10 +37,12 @@ internal sealed class LayerAnalyzerTest<TAnalyzer> : CSharpAnalyzerTest<TAnalyze
 
         TestCode = "namespace Declaring { internal sealed class Marker { } }";
 
-        if (declaredLayer is not null)
-        {
-            TestState.AnalyzerConfigFiles.Add(("/.globalconfig", GlobalConfig(declaredLayer)));
-        }
+        // IsPackable is always supplied, because the repository always has a
+        // value for it: Directory.Build.props defaults it to false and a
+        // package project opts in. VarveLayer is supplied only when declared,
+        // so that "undeclared" is reproduced as an absent property rather than
+        // an empty one.
+        TestState.AnalyzerConfigFiles.Add(("/.globalconfig", GlobalConfig(declaredLayer, isPackable)));
 
         SolutionTransforms.Add((solution, _) =>
         {
@@ -116,7 +118,7 @@ internal sealed class LayerAnalyzerTest<TAnalyzer> : CSharpAnalyzerTest<TAnalyze
         {
             project.AnalyzerConfigFiles.Add((
                 "/" + assemblyName + "/.globalconfig",
-                GlobalConfig(declaredLayer)));
+                GlobalConfig(declaredLayer, isPackable: false)));
         }
 
         TestState.AdditionalProjects.Add(assemblyName, project);
@@ -125,7 +127,13 @@ internal sealed class LayerAnalyzerTest<TAnalyzer> : CSharpAnalyzerTest<TAnalyze
         return this;
     }
 
-    private static string GlobalConfig(string layer) =>
-        "is_global = true" + Environment.NewLine
-        + "build_property.VarveLayer = " + layer + Environment.NewLine;
+    private static string GlobalConfig(string? layer, bool isPackable)
+    {
+        string config = "is_global = true" + Environment.NewLine
+            + "build_property.IsPackable = " + (isPackable ? "true" : "false") + Environment.NewLine;
+
+        return layer is null
+            ? config
+            : config + "build_property.VarveLayer = " + layer + Environment.NewLine;
+    }
 }

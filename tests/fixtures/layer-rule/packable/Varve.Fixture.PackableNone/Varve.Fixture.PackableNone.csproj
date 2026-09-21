@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Packable and claiming no layer. This is the loophole VARVE0002 now
+         closes: a name could once buy the exemption, but being packed puts an
+         assembly in the package graph whatever it is called. Meant to fail. -->
+    <IsPackable>true</IsPackable>
+    <VarveLayer>none</VarveLayer>
+  </PropertyGroup>
+</Project>

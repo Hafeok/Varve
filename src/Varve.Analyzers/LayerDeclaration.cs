@@ -21,6 +21,17 @@ internal static class LayerDeclaration
     /// <summary>The MSBuild property, as the compiler surfaces it.</summary>
     internal const string BuildPropertyKey = "build_property.VarveLayer";
 
+    /// <summary>
+    /// The <c>IsPackable</c> MSBuild property, as the compiler surfaces it.
+    /// </summary>
+    /// <remarks>
+    /// Whether an assembly is published is the only question that actually
+    /// matters for layering, and it is the one an assembly name can only
+    /// approximate. A project that is packed is in the package graph the layer
+    /// rule describes, whatever it chose to call itself.
+    /// </remarks>
+    internal const string PackableBuildPropertyKey = "build_property.IsPackable";
+
     /// <summary>The assembly metadata key holding a compiled assembly's layer.</summary>
     internal const string MetadataKey = "Varve.Layer";
 
@@ -30,8 +41,14 @@ internal static class LayerDeclaration
     /// <summary>The assembly name prefix that brings an assembly under the rule.</summary>
     internal const string AssemblyPrefix = "Varve.";
 
-    /// <summary>The analyzer assembly, which has no layer and is exempt by name.</summary>
+    /// <summary>The analyzer assembly, which has no layer.</summary>
     internal const string AnalyzerAssemblyName = "Varve.Analyzers";
+
+    /// <summary>
+    /// The analyzer's own test assembly — the only compilation with a reason to
+    /// reference <see cref="AnalyzerAssemblyName"/> as an ordinary library.
+    /// </summary>
+    internal const string AnalyzerTestAssemblyName = "Varve.Analyzers.Tests";
 
     private const int LowestLayer = 0;
     private const int HighestLayer = 5;
@@ -94,9 +111,26 @@ internal static class LayerDeclaration
     /// The raw <c>VarveLayer</c> value the compilation under analysis declares,
     /// or <see langword="null"/> when the property is unset or empty.
     /// </summary>
-    internal static string? ReadDeclaredValue(AnalyzerConfigOptionsProvider options)
+    internal static string? ReadDeclaredValue(AnalyzerConfigOptionsProvider options) =>
+        ReadBuildProperty(options, BuildPropertyKey);
+
+    /// <summary>
+    /// Whether the compilation under analysis is packed into a NuGet package.
+    /// </summary>
+    /// <remarks>
+    /// Absent or unparseable is read as not packable. The repository sets
+    /// <c>IsPackable</c> to false by default, so the value that carries weight
+    /// — true — is always an explicit opt-in.
+    /// </remarks>
+    internal static bool ReadIsPackable(AnalyzerConfigOptionsProvider options) =>
+        string.Equals(
+            ReadBuildProperty(options, PackableBuildPropertyKey),
+            "true",
+            System.StringComparison.OrdinalIgnoreCase);
+
+    private static string? ReadBuildProperty(AnalyzerConfigOptionsProvider options, string key)
     {
-        if (!options.GlobalOptions.TryGetValue(BuildPropertyKey, out string? value))
+        if (!options.GlobalOptions.TryGetValue(key, out string? value))
         {
             return null;
         }

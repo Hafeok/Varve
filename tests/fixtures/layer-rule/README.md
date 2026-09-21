@@ -8,6 +8,13 @@ build, and a solution member that fails to build would fail CI.
 |---|---|---|
 | `conforming/` | `Varve.Fixture.Consumer` (layer 1) → `Varve.Fixture.Base` (layer 0) | builds |
 | `violating/` | `Varve.Fixture.Lower` (layer 1) → `Varve.Fixture.Upper` (layer 2) | fails with `VARVE0001` |
+| `packable/` | `Varve.Fixture.Packaged` — packable, layer 0 | builds |
+| `packable/` | `Varve.Fixture.PackableNone` — packable, `VarveLayer=none` | fails with `VARVE0002` |
+
+`Varve.Fixture.Packaged` is also the only project in the repository that is
+packable, so it is the only thing exercising the packable block in
+`Directory.Build.targets` — `IsAotCompatible`, the public-API analyzers and the
+banned-symbol analyzers — before `Varve.Iri` arrives at milestone 3.
 
 They inherit the repository's `Directory.Build.props` and
 `Directory.Build.targets`, which is the entire point. The unit tests in

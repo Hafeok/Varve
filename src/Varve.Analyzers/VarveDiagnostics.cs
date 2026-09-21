@@ -42,13 +42,13 @@ internal static class VarveDiagnostics
         customTags: WellKnownDiagnosticTags.CompilationEnd);
 
     /// <summary>
-    /// VARVE0002. Either the declaring assembly does not declare a usable
-    /// layer, or a referenced <c>Varve.*</c> assembly carries no layer
-    /// metadata — without which VARVE0001 has nothing to compare against.
+    /// VARVE0002. Every way a layer declaration can be missing, invalid, or
+    /// worked around — each of which would leave VARVE0001 with nothing to
+    /// compare against rather than something to fail.
     /// </summary>
     internal static readonly DiagnosticDescriptor LayerDeclaration = new(
         id: LayerDeclarationId,
-        title: "Layer is not declared, or a referenced Varve assembly carries no layer metadata",
+        title: "Layer declaration is missing, invalid, or worked around",
         messageFormat: "Assembly '{0}' {1}",
         category: LayeringCategory,
         defaultSeverity: DiagnosticSeverity.Error,
