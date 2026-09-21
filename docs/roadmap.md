@@ -31,7 +31,7 @@ decisions it presupposes.
 | Bulk load as one logical commit | **Resolved** — ADR 0013: a commit is one or more records, closed by a flag in the log. Remaining: **Q2**, **Q3**. |
 | Single writer versus optimistic concurrency | **Resolved** — ADR 0011: both. One sequencer, optional expected position per request. |
 | Managed storage engine for the projections | **Open** — `docs/research/managed-storage-engines.md` narrows it; ADR 0018 states the contract requirements. Decided at milestone 6. |
-| GDPR-style hard deletion in an append-only model | **Resolved** — ADRs 0023 and 0020: crypto-shredding, opt-in per dataset, access by key id. Remaining: **Q4**, **Q5**, **Q8**, **Q9**. |
+| GDPR-style hard deletion in an append-only model | **Partly resolved** — ADR 0023: crypto-shredding, opt-in per dataset, access by key id. **The cipher is not settled**: ADR 0020 failed its acceptance condition at milestone 3a (no symmetric cipher runs on browser WASM). Remaining: **Q4**, **Q5**, **Q6**, **Q8**, **Q9**. |
 | Commit-time validation cost versus write latency, and what a validator may read | **Resolved** — ADR 0017: the overlay of the pending delta on the pinned state, and nothing else; the hook is inside the sequencer, so validation is write latency by construction. |
 | Incremental SHACL — which shapes are incrementally maintainable | **Open** — not addressed by this set. Due milestone 8. |
 
@@ -141,8 +141,14 @@ subjects), and **Q9** (whether the surviving structure counts as anonymous).
 is the classifier's ability to make identifying links private; whether that is
 enough is not an engineering answer at all.
 
-**Q6 is decided** (ADR 0020) and its browser half is verified at milestone 3a,
-because ADR 0020's acceptance depends on it.
+**Q6 was decided** (ADR 0020) and its browser half was verified at milestone 3a.
+**It failed.** `Aes.Create()` throws `PlatformNotSupportedException` on
+browser-wasm under .NET 10, and `AesGcm`, `AesCcm` and `ChaCha20Poly1305` all
+report `IsSupported == false` — no symmetric cipher of any kind runs in a
+browser, so the question is no longer which cipher to use. `RandomNumberGenerator`,
+SHA-256, HMAC-SHA-256 and HKDF do all work. ADR 0020 is failed, Q6 is reopened,
+and the successor is milestone 9's to decide along with erasure mode. Nothing
+before milestone 9 depends on it.
 
 ## Not scheduled
 

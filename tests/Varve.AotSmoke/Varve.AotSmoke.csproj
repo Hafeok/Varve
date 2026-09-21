@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+
+    <!-- Layer 5, not 'none'. A smoke app is a host: it consumes the stack from
+         the top, which is exactly what makes it a smoke test. Declaring a real
+         layer also means VARVE0001 checks this reference like any other,
+         rather than the app being exempt from the rule it is here to exercise.
+         It is not packable, so nothing is published. -->
+    <VarveLayer>5</VarveLayer>
+
+    <!-- Constraint 2, proven rather than configured. The trimming and AOT
+         analyzers are on for packable projects, but an analyzer only sees
+         what it can see statically; only a real ILC run proves the packages
+         publish and the binary runs. -->
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <StackTraceSupport>false</StackTraceSupport>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+
+    <!-- IL2xxx and IL3xxx are errors in .editorconfig; these make the ILC
+         run itself fail on a warning too, rather than printing one. -->
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <IlcTreatWarningsAsErrors>true</IlcTreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Varve.Turtle/Varve.Turtle.csproj" />
+  </ItemGroup>
+
+</Project>

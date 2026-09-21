@@ -96,6 +96,88 @@ jobs:
           --project tests/Varve.Turtle.Tests/Varve.Turtle.Tests.csproj
           --configuration Release
 
+  # Constraint 2, proven rather than configured. An analyzer only sees what it
+  # can see statically; only an ILC run shows the packages publish, and only
+  # running the binary shows the interesting AOT failures — a trimmed type, a
+  # missing instantiation — which are at run time and silent.
+  aot:
+    name: native aot (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Publish
+        # IlcTreatWarningsAsErrors is set in the project, so an ILC warning
+        # fails here rather than being printed.
+        run: >
+          dotnet publish tests/Varve.AotSmoke
+          --configuration Release
+          --output ${{ github.workspace }}/artifacts/aot
+
+      - name: Run
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            "${{ github.workspace }}/artifacts/aot/Varve.AotSmoke.exe"
+          else
+            "${{ github.workspace }}/artifacts/aot/Varve.AotSmoke"
+          fi
+
+  # Constraint 3. CI publishes the browser build and requires it to be
+  # warning-free; it does not run it, because running it needs a browser and a
+  # server. The run happens where the browser is, and ADR 0020 records the
+  # result of the one that mattered.
+  wasm:
+    name: browser wasm
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Install the WebAssembly workloads
+        run: dotnet workload install wasm-tools wasm-experimental
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-wasm-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-wasm-
+
+      - name: Build
+        run: dotnet build tests/Varve.WasmSmoke --configuration Release
+
+      - name: Upload the app bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: wasm-app-bundle
+          path: tests/Varve.WasmSmoke/bin/Release/net10.0/browser-wasm/AppBundle
+          if-no-files-found: error
+
   # Does not gate on the raw test result, and still should not now that all 157
   # cases pass: an exempt case is allowed to fail, and a case outside the
   # baseline is allowed to fail while it is being worked on (ADR 0007). The

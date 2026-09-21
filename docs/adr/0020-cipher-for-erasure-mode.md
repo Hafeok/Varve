@@ -2,7 +2,10 @@
 
 ## Status
 
-**Accepted, conditionally.** 2026-09-21.
+**Failed its acceptance condition.** 2026-09-21. The decision below did not
+survive verification and **must not be built on**. A successor has not been
+decided; see *Verification* for what was measured and *What a successor has to
+answer*.
 
 [ADR 0023](0023-erasure-and-access-requests.md) decides that erasure is
 crypto-shredding. This decides what does the encrypting.
@@ -138,7 +141,84 @@ composition — HKDF derive, AES-CBC encrypt, HMAC-SHA-256, `FixedTimeEquals`,
 decrypt, round-trip assert — as a `browser-wasm` build executed in a real
 browser. The procedure and its result are recorded below.
 
-> **Result: pending.** To be filled in by the milestone 3a run.
+> **Result: failed.** 2026-09-21, milestone 3a.
+
+**Procedure.** `tests/Varve.WasmSmoke` was published as a `browser-wasm` app
+with `wasm-experimental` (not Blazor), relinked natively with `wasm-tools`, and
+served over HTTP to headless Chromium 141 driven by Playwright 1.56.1. The page
+calls a `[JSExport]` entry point that parses 200 quads and then probes each
+cryptographic primitive the composition needs, one at a time, reporting what it
+observed rather than stopping at the first failure. .NET SDK 10.0.401, runtime
+pack 10.0.12.
+
+**What was observed.**
+
+| Primitive | Browser (.NET 10) |
+|---|---|
+| `RandomNumberGenerator.Fill` | works |
+| `SHA256` | works |
+| `HMACSHA256` | works |
+| `HKDF.DeriveKey` | works, and is deterministic |
+| **`Aes.Create()`** | **throws `PlatformNotSupportedException`: `Cryptography_AlgorithmNotSupported, Aes`** |
+| `AesGcm.IsSupported` | false |
+| `AesCcm.IsSupported` | false |
+| `ChaCha20Poly1305.IsSupported` | false |
+
+The parse half passed: 200 quads read in the browser, so constraint 3 holds for
+the RDF stack. The cryptographic half did not.
+
+**The finding is wider than the one this ADR was testing for.** This ADR chose
+AES-CBC over AES-GCM, AES-CCM and ChaCha20Poly1305 because those three are
+unsupported on browser WebAssembly, and rested AES-CBC's availability on a .NET
+7 release note listing it among the algorithms enabled through SubtleCrypto.
+That note is not true of .NET 10 as measured here. **No symmetric cipher of any
+kind is available in a browser.** The choice this ADR makes is therefore not a
+choice between ciphers with different browser support; every candidate has the
+same browser support, which is none.
+
+The documentation is not self-consistent on the point, which is why the ADR
+demanded a build rather than a citation:
+
+- [What's new in ASP.NET Core in .NET 7](https://learn.microsoft.com/aspnet/core/release-notes/aspnetcore-7.0#blazor)
+  lists AES-CBC among the algorithms supported on WebAssembly.
+- [Cryptography APIs not supported on Blazor WebAssembly](https://learn.microsoft.com/dotnet/core/compatibility/cryptography/5.0/cryptography-apis-not-supported-on-blazor-webassembly)
+  lists the supported set as `RandomNumberGenerator`, `IncrementalHash` and the
+  SHA family, and says everything else throws.
+- [Cross-platform cryptography in .NET](https://learn.microsoft.com/dotnet/standard/security/cross-platform-cryptography#symmetric-encryption)
+  gives a symmetric-encryption table with **no browser column at all**.
+- The platform-compatibility analyzer (CA1416) says `Aes.Create()` is
+  unsupported on browser.
+
+Three of the four agree with the measurement. The release note does not, and it
+is the one this ADR relied on.
+
+**The result is pinned, not merely reported.** The smoke app asserts the table
+above and fails if any row changes. A runtime that makes a symmetric cipher
+available in the browser will therefore announce itself, which is the moment a
+successor becomes decidable.
+
+## What a successor has to answer
+
+Not decided here. The measurement changes the question from *which cipher* to
+*where the ciphertext is produced and consumed*, and the options are no longer
+comparable on cryptographic grounds alone:
+
+- **Do the cryptography in JavaScript**, through `crypto.subtle`, and treat the
+  browser as a host that calls out rather than one that computes. SubtleCrypto
+  offers AES-CBC, AES-GCM and HMAC — but it is asynchronous, which reaches into
+  the shape of every read path that might touch a private term, and it puts a
+  second implementation of the format's cryptography in a second language.
+- **Ship a managed implementation** of one cipher, so that every host computes
+  the same bytes with no platform dependency. That means a hand-written block
+  cipher in the trusted path, which is the thing ADR 0020 was written to avoid.
+- **Say that erasure mode does not run in a browser**, and that a browser host
+  reads only datasets without private entries. The narrowest option, and the
+  only one that costs nothing to build; it is a real reduction in what
+  constraint 3 claims, and it should be stated in the constraint rather than
+  discovered by a user.
+
+Erasure mode is milestone 9. Nothing before it depends on this being settled,
+which is why this ADR is left failed rather than replaced in haste.
 
 ## Consequences
 
