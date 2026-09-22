@@ -46,7 +46,9 @@ why.
 3. One core, three hosts: embedded library, server, browser (WASM).
 4. Minimal dependencies. Every third-party package has an ADR.
 5. Current LTS .NET and current C#. Allocation per quad is a defect.
-6. Permissive licence, no copied code.
+6. Permissive licence, no copied code. **The licence half is superseded**:
+   Varve is MPL-2.0, which is copyleft. `docs/adr/0031-licence-mpl-2-0.md`
+   records the departure and why. No copied code still binds.
 
 `docs/brief.md` is the authority for all of the above and is not summarised
 accurately anywhere else, including here.
@@ -77,4 +79,10 @@ git submodule update --init --recursive
 
 ## Licence
 
-Apache-2.0. See `LICENSE` and `docs/adr/0002-licence.md`.
+**MPL-2.0.** See `LICENSE`, `NOTICE`, and
+`docs/adr/0031-licence-mpl-2-0.md`, which supersedes the Apache-2.0 decision in
+`docs/adr/0002-licence.md`.
+
+MPL-2.0 is file-level copyleft. Referencing a Varve package from your own code
+does not make your code copyleft; modifying a Varve source file means that
+file's source has to stay available under the same terms.

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Linked into every packable project by Directory.Build.targets. See ADR 0026.
 //
 // It is internal, which does three things at once: it never enters a public API

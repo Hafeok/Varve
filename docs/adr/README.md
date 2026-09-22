@@ -13,7 +13,7 @@ or depart from `docs/brief.md`, each says so in its Context.
 | # | Title | Status |
 |---:|---|---|
 | [0001](0001-record-architecture-decisions.md) | Record architecture decisions | Accepted |
-| [0002](0002-licence.md) | Licence: Apache-2.0 | Accepted |
+| [0002](0002-licence.md) | Licence: Apache-2.0 | **Superseded by 0031** |
 | [0003](0003-package-layering.md) | Package layering and the strictly downward reference rule | Accepted |
 | [0004](0004-enforcement-by-analyzers.md) | Enforcement by analyzers | Accepted |
 | [0005](0005-store-is-sparql-free.md) | `Varve.Store` is SPARQL-free | Accepted |
@@ -62,6 +62,16 @@ or depart from `docs/brief.md`, each says so in its Context.
 | # | Title | Status |
 |---:|---|---|
 | [0030](0030-turtle-recovery-and-prefixes.md) | Turtle's recovery unit, prefix exposure, and where isomorphism lives | Accepted |
+
+## Stewardship — the Mind Over Machine standard
+
+Adopted at [#16](https://github.com/Hafeok/Varve/issues/16). Four of these
+reverse a decision this repository had already made, which is why each is a
+superseding ADR rather than an edit.
+
+| # | Title | Status |
+|---:|---|---|
+| [0031](0031-licence-mpl-2-0.md) | Licence: MPL-2.0 | Accepted; **supersedes 0002** |
 
 **No ADR in this repository is `Proposed`.** Three were, and were completed in
 place rather than superseded, because ADR 0001's no-edit rule binds accepted

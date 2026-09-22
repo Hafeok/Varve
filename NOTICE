@@ -2,14 +2,16 @@ Varve
 
 Copyright 2026 Emil Okkels Klein
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-    http://www.apache.org/licenses/LICENSE-2.0
+MPL-2.0 is a file-level copyleft licence. Using Varve as a dependency does
+not make your own code subject to it: the reciprocity attaches to the files
+covered by this notice and to modifications of them, not to the work that
+links against them. If you modify a Varve source file, that file stays under
+MPL-2.0 and its source must be made available; everything else you write
+remains yours under whatever terms you choose.
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+See docs/adr/0031-licence-mpl-2-0.md for why this licence was chosen, and
+docs/adr/0002-licence.md for the Apache-2.0 decision it supersedes.
