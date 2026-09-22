@@ -1,0 +1,37 @@
+#nullable enable
+Varve.Iri.IriComponents
+Varve.Iri.IriComponents.Authority.get -> System.Range
+Varve.Iri.IriComponents.Fragment.get -> System.Range
+Varve.Iri.IriComponents.HasAuthority.get -> bool
+Varve.Iri.IriComponents.HasFragment.get -> bool
+Varve.Iri.IriComponents.HasQuery.get -> bool
+Varve.Iri.IriComponents.HasScheme.get -> bool
+Varve.Iri.IriComponents.IriComponents() -> void
+Varve.Iri.IriComponents.Path.get -> System.Range
+Varve.Iri.IriComponents.Query.get -> System.Range
+Varve.Iri.IriComponents.Scheme.get -> System.Range
+Varve.Iri.IriError
+Varve.Iri.IriError.Equals(Varve.Iri.IriError other) -> bool
+Varve.Iri.IriError.IriError() -> void
+Varve.Iri.IriError.IsError.get -> bool
+Varve.Iri.IriError.Kind.get -> Varve.Iri.IriErrorKind
+Varve.Iri.IriError.Offset.get -> int
+Varve.Iri.IriErrorKind
+Varve.Iri.IriErrorKind.InvalidCharacter = 2 -> Varve.Iri.IriErrorKind
+Varve.Iri.IriErrorKind.InvalidPercentEncoding = 3 -> Varve.Iri.IriErrorKind
+Varve.Iri.IriErrorKind.InvalidPort = 7 -> Varve.Iri.IriErrorKind
+Varve.Iri.IriErrorKind.InvalidScheme = 6 -> Varve.Iri.IriErrorKind
+Varve.Iri.IriErrorKind.InvalidUtf8 = 4 -> Varve.Iri.IriErrorKind
+Varve.Iri.IriErrorKind.MissingScheme = 5 -> Varve.Iri.IriErrorKind
+Varve.Iri.IriErrorKind.None = 0 -> Varve.Iri.IriErrorKind
+Varve.Iri.IriErrorKind.UnexpectedEnd = 1 -> Varve.Iri.IriErrorKind
+Varve.Iri.IriErrorKind.UnterminatedIpLiteral = 8 -> Varve.Iri.IriErrorKind
+Varve.Iri.IriRef
+override Varve.Iri.IriError.Equals(object? obj) -> bool
+override Varve.Iri.IriError.GetHashCode() -> int
+static Varve.Iri.IriError.operator !=(Varve.Iri.IriError left, Varve.Iri.IriError right) -> bool
+static Varve.Iri.IriError.operator ==(Varve.Iri.IriError left, Varve.Iri.IriError right) -> bool
+static Varve.Iri.IriRef.IsAbsolute(System.ReadOnlySpan<byte> utf8) -> bool
+static Varve.Iri.IriRef.ResolveLength(System.ReadOnlySpan<byte> baseIri, System.ReadOnlySpan<byte> reference) -> int
+static Varve.Iri.IriRef.TryResolve(System.ReadOnlySpan<byte> baseIri, System.ReadOnlySpan<byte> reference, System.Span<byte> destination, out int written) -> bool
+static Varve.Iri.IriRef.TryValidate(System.ReadOnlySpan<byte> utf8, out Varve.Iri.IriComponents components, out Varve.Iri.IriError error) -> bool

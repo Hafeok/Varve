@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RuntimeIdentifier>browser-wasm</RuntimeIdentifier>
+    <OutputType>Exe</OutputType>
+    <WasmMainJSPath>main.js</WasmMainJSPath>
+
+    <!-- [JSExport] generates interop marshalling that needs it. Scoped to this
+         smoke app; nothing in src/ turns it on. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <IsPackable>false</IsPackable>
+
+    <!-- Layer 5, for the same reason as Varve.AotSmoke: a smoke app is a host.
+         Nothing is published. -->
+    <VarveLayer>5</VarveLayer>
+
+    <!-- wasm-experimental, not Blazor. Constraint 3 is that Varve runs in a
+         browser, not that it runs in a web framework, and Blazor would drag in
+         an ASP.NET Core package tail that has nothing to do with the claim. -->
+    <!-- InvariantGlobalization requires a native relink of the runtime, which
+         is what wasm-tools is for. Left on: the smoke app has no business
+         downloading ICU, and the relink is the shape a real deployment uses. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- Constraint 2. A trim or AOT warning here is a real finding about the
+         browser build, not noise. -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Varve.Turtle/Varve.Turtle.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Copied into the app bundle beside main.js and _framework. -->
+    <WasmExtraFilesToDeploy Include="index.html" />
+  </ItemGroup>
+
+</Project>

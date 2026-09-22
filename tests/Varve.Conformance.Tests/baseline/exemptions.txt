@@ -1,0 +1,10 @@
+# Conformance exemptions: cases we have decided not to pass yet.
+#
+# One per line, as "<test IRI> <justification>". An exempt case is neither
+# required to pass nor reported as newly passing, and an exemption with no
+# justification fails the ratchet — the cost of an exemption should be writing
+# down why.
+#
+# This file is empty, and at milestone 3a that is a result and not a default:
+# all 157 cases of rdf/rdf11/rdf-n-triples and rdf/rdf11/rdf-n-quads pass
+# without one.

@@ -104,6 +104,18 @@ dotnet_diagnostic.IL3053.severity = error
 dotnet_diagnostic.VARVE0001.severity = error
 dotnet_diagnostic.VARVE0002.severity = error
 
+# --- the RDF vocabulary -----------------------------------------------------
+# A triple is a subject, a predicate and an object. CA1720 objects to the
+# identifier "object" because it is a type name, and CA1716 objects to it on an
+# interface member because it is a C# keyword. Both are right in general and
+# wrong here: these names come from RDF 1.1 Concepts, they are what every
+# specification, every other implementation and every user of this library
+# calls the three positions, and renaming them would make the API harder to
+# read in exchange for nothing. Quieted for the whole repository rather than
+# suppressed at each site, because the vocabulary is repository-wide.
+dotnet_diagnostic.CA1716.severity = none
+dotnet_diagnostic.CA1720.severity = none
+
 [tests/**/*.cs]
 # Test assemblies are exempt from the layer rule by name (see VARVE0002), and
 # they document themselves through their test names rather than XML comments.
@@ -119,3 +131,9 @@ dotnet_diagnostic.CA1707.severity = none
 # individually rather than with a bulk dotnet_analyzer_diagnostic override,
 # which would compete with the explicit VARVE severities above.
 dotnet_diagnostic.IDE0005.severity = none
+
+[tests/Varve.Benchmarks/**.cs]
+# BenchmarkDotNet discovers instance methods on an instantiated class, so a
+# benchmark that happens to touch no field still cannot be static. CA1822 is
+# right about the code and wrong about what it is for.
+dotnet_diagnostic.CA1822.severity = none

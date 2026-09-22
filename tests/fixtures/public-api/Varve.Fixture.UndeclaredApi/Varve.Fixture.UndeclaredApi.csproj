@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Packable, so PublicApiAnalyzers applies and the two baseline files
+         beside this project are picked up as AdditionalFiles. The project
+         exists to fail. -->
+    <IsPackable>true</IsPackable>
+    <VarveLayer>0</VarveLayer>
+  </PropertyGroup>
+</Project>

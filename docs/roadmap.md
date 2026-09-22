@@ -14,7 +14,7 @@ Delivered: everything above except the NuGet prefix reservation, which is a
 manual request to nuget.org and cannot be automated. It is not on the critical
 path until milestone 3 produces the first packable project.
 
-## 2 — ADR set zero *(current)*
+## 2 — ADR set zero *(complete)*
 
 `docs/spec/log-and-projection-model.md` is the functional specification and the
 authority for `Varve.Store` behaviour. ADRs [0010–0020](adr/README.md) record the
@@ -31,7 +31,7 @@ decisions it presupposes.
 | Bulk load as one logical commit | **Resolved** — ADR 0013: a commit is one or more records, closed by a flag in the log. Remaining: **Q2**, **Q3**. |
 | Single writer versus optimistic concurrency | **Resolved** — ADR 0011: both. One sequencer, optional expected position per request. |
 | Managed storage engine for the projections | **Open** — `docs/research/managed-storage-engines.md` narrows it; ADR 0018 states the contract requirements. Decided at milestone 6. |
-| GDPR-style hard deletion in an append-only model | **Resolved** — ADRs 0019 and 0020: crypto-shredding, opt-in per dataset. Remaining: **Q4–Q8**. |
+| GDPR-style hard deletion in an append-only model | **Partly resolved** — ADR 0023: crypto-shredding, opt-in per dataset, access by key id. **The cipher is not settled**: ADR 0020 failed its acceptance condition at milestone 3a (no symmetric cipher runs on browser WASM). Remaining: **Q4**, **Q5**, **Q6**, **Q8**, **Q9**. |
 | Commit-time validation cost versus write latency, and what a validator may read | **Resolved** — ADR 0017: the overlay of the pending delta on the pinned state, and nothing else; the hook is inside the sequencer, so validation is write latency by construction. |
 | Incremental SHACL — which shapes are incrementally maintainable | **Open** — not addressed by this set. Due milestone 8. |
 
@@ -42,27 +42,50 @@ proposed below.
 
 ## 3 — RDF model, IRI, XSD datatypes, N-Triples and N-Quads
 
-The first packable projects, and therefore the first time several milestone 1
-mechanisms stop being inert:
+**3a** *(complete)*: `Varve.Iri`, `Varve.Rdf`, and N-Triples and N-Quads in
+`Varve.Turtle`, to a full suite pass. **3b**: `Varve.Xsd` and RDFC-1.0
+canonicalisation — neither is needed for the N-Triples and N-Quads suites.
 
-- **Public API baselines.** `PublicAPI.Shipped.txt` and `PublicAPI.Unshipped.txt`
-  are wired in `Directory.Build.targets` but have nothing to track until
-  `Varve.Iri` exists.
-- **Banned symbols.** `eng/BannedSymbols.txt` applies to packable projects. Its
-  `System.Uri` entry needs its scope revisited before layer 5 — see
-  `docs/adr/0004-enforcement-by-analyzers.md`.
-- **Native AOT smoke build.** *Deferred from milestone 1.* There is nothing to
-  compile ahead of time until there is a type. Due here: a console project that
-  references `Varve.Iri`, published with `PublishAot=true`, built in CI on
-  ubuntu and windows. It gates on IL-prefixed warnings, which never enter
-  `NoWarn`.
-- **WASM smoke build.** *Deferred from milestone 1*, for the same reason. Due
-  here: a `wasi-wasm` or Blazor WebAssembly project referencing `Varve.Iri`,
-  published in CI. Constraint 3 says the browser is a first-class host; a host
-  that is only checked at milestone 7 is a host that will not work.
-- **Conformance turns green.** The N-Triples and N-Quads suites are the first to
-  move off zero, and `tests/Varve.Conformance.Tests/baseline/passing.txt` starts
-  ratcheting.
+The first packable projects, and therefore the first time several milestone 1
+mechanisms stopped being inert. All of the following are **delivered**:
+
+- **Public API baselines.** Every public member of the three packages is a line
+  in a `PublicAPI.Unshipped.txt` beside its project, added by hand. A fixture
+  in `tests/fixtures/public-api/` proves `RS0016` fires on a member that is
+  not.
+- **Banned symbols.** A fixture in `tests/fixtures/banned-api/` proves `RS0030`
+  fires on `System.Uri` and that the message names ADR 0004. **The `System.Uri`
+  entry is not narrowed** — it stays repository-wide until layer 5 exists.
+- **Native AOT smoke build.** `tests/Varve.AotSmoke` publishes with
+  `PublishAot` and `IlcTreatWarningsAsErrors`, and CI **runs** the binary on
+  ubuntu and windows rather than only publishing it: the interesting AOT
+  failures are at run time and silent.
+- **WASM smoke build.** `tests/Varve.WasmSmoke`, a `browser-wasm` app on
+  `wasm-experimental` — **not** Blazor, which would add an ASP.NET Core package
+  tail unrelated to the claim. CI publishes it warning-free; it was run in
+  headless Chromium here, and **what it found supersedes ADR 0020** (below).
+- **Conformance is green.** All 157 cases of `rdf/rdf11/rdf-n-triples` and
+  `rdf/rdf11/rdf-n-quads` pass, `baseline/passing.txt` holds all 157, and
+  `baseline/exemptions.txt` is empty. The ratchet gained an exemptions
+  mechanism: an exempt case is neither required to pass nor reported as newly
+  passing, and an exemption with no written justification fails the run.
+
+Also delivered, beyond what this section asked for: **zero bytes allocated per
+quad**, asserted on all five entry points as the difference between a
+500-quad and a 4,000-quad parse rather than as an absolute figure; and
+benchmarks against dotNetRDF with the machine stated
+(`tests/Varve.Benchmarks/README.md`).
+
+**Two findings about the RDF 1.1 N-Triples specification** are recorded in
+`docs/spec/n-triples.md`: its `PN_CHARS_U` production contradicts its own test
+suite over the colon, and RDF 1.2 has since resolved it the way the suite
+already assumed. The reader and writer also carry RDF 1.2's base direction and
+triple terms, which the model held from the start and the syntax would
+otherwise be unable to express.
+
+**Not in 3a, and not attempted:** `Varve.Xsd`, canonicalisation, Turtle and
+TriG, the store, NuGet publication, and `VARVE0006` (the `[HotPath]` rule — the
+attribute exists and is applied, the analyzer does not).
 
 ## 4 — In-memory log and default quad projection
 
@@ -89,9 +112,15 @@ for `log/`. `docs/research/managed-storage-engines.md` is the note that informs
 the choice, and it argues the two halves should be decided separately.
 
 Due here: **Q2** and **Q3** (bulk load against I2, and an overlay that does not
-fit in memory — ADR 0013), the durability-level question in the storage contract
-(ADR 0018), and the version discriminator in the storage format that ADR 0014
-requires from the first byte written.
+fit in memory — ADR 0013), and the version discriminator in the storage format
+that ADR 0014 requires from the first byte written.
+
+**The first durable format reserves erasure's shape even though erasure is not
+built until milestone 9**, because retrofitting any of it would be a format
+change: the **private id class** (ADR 0012), the **private entry layout** —
+`(KeyId, ciphertext)` covering the whole term encoding — and the file backend's
+**refusal of a key store path inside the dataset directory** (ADR 0023). None of
+them costs anything while erasure mode is off.
 
 ## 7 — Server and CLI
 
@@ -107,24 +136,38 @@ needs transport addresses that are not RDF IRIs.
 Standalone with a W3C suite pass, then commit-time gating, then the incremental
 validation projection.
 
-## Erasure — *proposed placement: after 6, before 7*
+## 9 — Erasure mode
 
-**Not currently a milestone, and it needs to be one.** ADRs 0019 and 0020 decide
-crypto-shredding and carry five open questions with no milestone to be due
-against. Proposed rather than assumed, because renumbering the brief's
-milestones is not mine to do.
+Crypto-shredding: the key store, classifier and selector contracts, private
+terms, `T4 Erase`, access requests by key id, and the classification gate
+(ADRs 0020, 0021, 0023).
 
-It depends on the dictionary and commit model (milestone 4) and on durable
-storage, since private entries appear in checkpoints (milestone 6). It should
-land **before** the server, because **Q4** — how a shredded term appears in
-SPARQL results and serialisations — has to be settled before endpoints expose
-results, and retrofitting it afterwards changes a wire format.
+**After SHACL, not before the server.** The shape-derived classifier and the
+classification gate both depend on the validator, so erasure cannot be honestly
+finished before milestone 8 — a classifier with no shapes to derive from can
+only be hand-written, and the gate that stops unclassified personal data
+reaching the log is validator policy. Most datasets will also never turn
+erasure mode on, which is the second reason it does not belong earlier.
 
-Due here: **Q4**, **Q5**, **Q6**, **Q7**, **Q8**. **Q7 needs legal input and is
-not a technical decision** — whether an access request covers `G_head` or every
-quad ever asserted. The cipher claim for browser WASM in ADR 0020 rests on a
-.NET 7 release note rather than the current support matrix and should be
-re-verified against a running build before anything is implemented.
+Milestone 6 reserves what a format change would otherwise cost: see there.
+
+Due here: **Q4** (how a shredded term appears in SPARQL results and
+serialisations), **Q5** (lookup by private value — scan and decrypt, or a blind
+index that weakens I10), **Q8** (key granularity when one term is about two data
+subjects), and **Q9** (whether the surviving structure counts as anonymous).
+
+**Q9 is a legal question and Q4 has a legal edge.** The engineering answer to Q9
+is the classifier's ability to make identifying links private; whether that is
+enough is not an engineering answer at all.
+
+**Q6 was decided** (ADR 0020) and its browser half was verified at milestone 3a.
+**It failed.** `Aes.Create()` throws `PlatformNotSupportedException` on
+browser-wasm under .NET 10, and `AesGcm`, `AesCcm` and `ChaCha20Poly1305` all
+report `IsSupported == false` — no symmetric cipher of any kind runs in a
+browser, so the question is no longer which cipher to use. `RandomNumberGenerator`,
+SHA-256, HMAC-SHA-256 and HKDF do all work. ADR 0020 is failed, Q6 is reopened,
+and the successor is milestone 9's to decide along with erasure mode. Nothing
+before milestone 9 depends on it.
 
 ## Not scheduled
 

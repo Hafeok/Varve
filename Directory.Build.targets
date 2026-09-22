@@ -56,6 +56,13 @@
     <!-- One banned-symbol list for the whole repository. ADR 0004 records that
          its System.Uri entry must be narrowed before layer 5 exists. -->
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)eng/BannedSymbols.txt" />
+
+    <!-- ADR 0026. One source file rather than a package: principle 3 forbids a
+         grab-bag and the layering rule forbids anything below layer 0. The
+         attribute is internal, so each assembly gets its own harmless copy and
+         none of them enters a public API baseline. -->
+    <Compile Include="$(MSBuildThisFileDirectory)eng/HotPathAttribute.cs"
+             Link="Properties/HotPathAttribute.cs" />
   </ItemGroup>
 
 </Project>

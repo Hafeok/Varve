@@ -1,0 +1,149 @@
+using System;
+using System.Globalization;
+using System.IO;
+using Varve.Rdf;
+using Varve.Turtle;
+
+namespace Varve.AotSmoke;
+
+/// <summary>
+/// Parses a file under Native AOT and prints what it found.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Constraint 2 says Varve runs under Native AOT. A published binary that
+/// nobody runs proves only that ILC did not refuse; this runs it and checks the
+/// answer, because the interesting failures under AOT are at run time and
+/// silent — a missing generic instantiation, a trimmed type, a static
+/// constructor that never ran.
+/// </para>
+/// <para>
+/// It writes and re-reads what it parsed as well, so the writer is covered
+/// too, and it returns a non-zero exit code on any disagreement.
+/// </para>
+/// </remarks>
+internal static class Program
+{
+    private const int Quads = 1_000;
+
+    private static long observed;
+
+    internal static int Main(string[] args)
+    {
+        string path = args.Length > 0 ? args[0] : WriteSampleFile();
+
+        try
+        {
+            return Run(path);
+        }
+        catch (IOException error)
+        {
+            Console.Error.WriteLine("aot-smoke: " + error.Message);
+            return 2;
+        }
+    }
+
+    private static int Run(string path)
+    {
+        byte[] bytes = File.ReadAllBytes(path);
+        ParseOptions options = new() { Syntax = RdfSyntax.NQuads };
+
+        ParseResult parsed = NQuadsParser.Parse(bytes, Count, options);
+
+        if (!parsed.Succeeded)
+        {
+            Console.Error.WriteLine("aot-smoke: parse failed at " + parsed.FirstError.ToString());
+            return 1;
+        }
+
+        // Round trip: write what was parsed, parse that, and compare counts.
+        BufferWriter output = new();
+        NQuadsParser.Parse(bytes, (in QuadView quad) => NQuadsWriter.Write(output, in quad, new WriteOptions { Syntax = RdfSyntax.NQuads }), options);
+
+        long before = observed;
+        ParseResult reparsed = NQuadsParser.Parse(output.Written, Count, options);
+
+        Console.WriteLine(string.Create(
+            CultureInfo.InvariantCulture,
+            $"quads {parsed.QuadCount}, rewritten {output.Written.Length} bytes, reparsed {reparsed.QuadCount}"));
+
+        if (parsed.QuadCount != reparsed.QuadCount || observed - before != before)
+        {
+            Console.Error.WriteLine("aot-smoke: the round trip disagreed with the first parse.");
+            return 1;
+        }
+
+        // An IRI resolved through Varve.Iri, so layer 0 is exercised too and
+        // not merely linked.
+        Span<byte> resolved = stackalloc byte[64];
+
+        if (!IriRefResolves(resolved, out string text))
+        {
+            Console.Error.WriteLine("aot-smoke: IRI resolution failed.");
+            return 1;
+        }
+
+        Console.WriteLine("resolved " + text);
+        return 0;
+    }
+
+    private static bool IriRefResolves(Span<byte> destination, out string text)
+    {
+        bool ok = Varve.Iri.IriRef.TryResolve(
+            "http://example.org/a/b"u8, "../c/d"u8, destination, out int written);
+
+        text = ok ? System.Text.Encoding.UTF8.GetString(destination[..written]) : "";
+        return ok && text == "http://example.org/c/d";
+    }
+
+    private static readonly QuadHandler Count = static (in QuadView quad) =>
+        observed += quad.Subject.Lexical.Length + quad.Object.Lexical.Length;
+
+    private static string WriteSampleFile()
+    {
+        string path = Path.Combine(Path.GetTempPath(), "varve-aot-smoke.nq");
+        using StreamWriter writer = new(path, append: false);
+
+        for (int i = 0; i < Quads; i++)
+        {
+            writer.Write("<http://example.org/s/");
+            writer.Write(i.ToString(CultureInfo.InvariantCulture));
+            writer.Write("> <http://example.org/p> \"value \\u00E9\"@en <http://example.org/g> .\n");
+        }
+
+        return path;
+    }
+
+    /// <summary>A buffer writer, because the AOT app takes no dependencies of its own.</summary>
+    private sealed class BufferWriter : System.Buffers.IBufferWriter<byte>
+    {
+        private byte[] _bytes = new byte[4096];
+        private int _written;
+
+        internal ReadOnlySpan<byte> Written => _bytes.AsSpan(0, _written);
+
+        public void Advance(int count) => _written += count;
+
+        public Memory<byte> GetMemory(int sizeHint = 0)
+        {
+            Ensure(sizeHint);
+            return _bytes.AsMemory(_written);
+        }
+
+        public Span<byte> GetSpan(int sizeHint = 0)
+        {
+            Ensure(sizeHint);
+            return _bytes.AsSpan(_written);
+        }
+
+        private void Ensure(int sizeHint)
+        {
+            int wanted = _written + Math.Max(sizeHint, 1);
+
+            if (_bytes.Length < wanted)
+            {
+                Array.Resize(ref _bytes, Math.Max(_bytes.Length * 2, wanted));
+            }
+        }
+    }
+}

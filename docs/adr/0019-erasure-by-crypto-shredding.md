@@ -2,7 +2,13 @@
 
 ## Status
 
-Accepted. 2026-09-21.
+**Superseded by [0023](0023-erasure-and-access-requests.md).** 2026-09-21.
+
+Accepted 2026-09-21. Superseded the same day by specification version 1, which
+changed three things this ADR decided: the selector is no longer part of
+erasure, `T4` step 1 retracts by key id rather than by a selector's result, and
+access requests are defined by key id with a scope that is a dataset setting.
+Q7 is closed. The crypto-shredding decision itself carries over unchanged.
 
 Records [`docs/spec/log-and-projection-model.md`](../spec/log-and-projection-model.md)
 §9, T4, I9 and I10. The **cipher** is not decided here; see [ADR 0020](0020-cipher-for-erasure-mode.md).

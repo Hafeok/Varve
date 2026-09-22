@@ -60,9 +60,27 @@ readable head. The alternative, treating a projection failure as a failed
 commit, would make a derived artefact able to veto a durable fact, which
 inverts the thesis.
 
-*(§7 and T1 step 7 leave this implicit. It is recorded here as a decision and
-raised as a proposed clarification to the specification rather than patched
-into it.)*
+*(§7 and T1 step 7 left this implicit, and it was raised as a proposed
+clarification rather than patched in.)*
+
+### Amendment, 2026-09-21 — the specification adopted it, and added two things
+
+Specification version 1 takes the clarification above and goes further in two
+ways the original decision did not state. Both stand as written here; the
+decision is unchanged and this is a dated amendment rather than a supersession.
+
+- **The sequencer refuses the next commit until the default projection is at the
+  readable head**, failing with `Unavailable` (§5 T1). This follows from T1 step
+  3: normalisation reads `G_head`, so a sequencer whose default projection is
+  behind would be normalising against a state that is not the head, and I2 would
+  not hold. The original ADR said `Pin()` waits; it did not say what T1 does,
+  and "carries on regardless" would have been wrong.
+- **A default projection that cannot reach the head puts the dataset in an
+  explicit failed state**, in which `Pin()` and T1 fail until the projection is
+  rebuilt (§7). This is the part that keeps "the commit stands" from degrading
+  into an unbounded wait: a derived artefact cannot veto a durable fact, and it
+  also cannot be allowed to block the dataset silently. **Nothing waits
+  indefinitely** is the property; an explicit failure is how it is kept.
 
 ### Subscriptions
 

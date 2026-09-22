@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <VarveLayer>2</VarveLayer>
+    <IsPackable>true</IsPackable>
+    <Description>N-Triples and N-Quads, read and written over UTF-8 without allocating per quad.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
+  </ItemGroup>
+
+</Project>
