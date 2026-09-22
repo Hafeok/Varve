@@ -74,10 +74,21 @@ mechanisms stopped being inert. All of the following are **delivered**:
   headless Chromium here, and **what it found superseded ADR 0020** — see 0028
   and the Q6 note below.
 - **Conformance is green.** All 157 cases of `rdf/rdf11/rdf-n-triples` and
-  `rdf/rdf11/rdf-n-quads` pass, `baseline/passing.txt` holds all 157, and
+  `rdf/rdf11/rdf-n-quads` pass, and the close-out added `rdf/rdf12`'s
+  N-Triples and N-Quads **syntax** suites — 29 and 27 more — because the reader
+  and writer had shipped RDF 1.2's base direction and triple terms with no
+  suite behind them. `baseline/passing.txt` holds all **213**, and
   `baseline/exemptions.txt` is empty. The ratchet gained an exemptions
   mechanism: an exempt case is neither required to pass nor reported as newly
   passing, and an exemption with no written justification fails the run.
+  Gating 1.2 found three real bugs, two of which were wrong under 1.1 as well —
+  see the PR for `fix/3a-closeout`.
+- **The first packages have metadata and a publish workflow** (ADR 0029),
+  versioned from the git tag by MinVer, published through trusted publishing on
+  a `v*` tag, and packed as a dry run on every pull request. **Nothing is
+  published yet**; the first tag is `v0.1.0-preview.1`.
+- **The native-asset ban is a gate** rather than a sentence (`eng/native-assets.cs`),
+  now that ADR 0009's amendment has scoped it to shipped artifacts.
 
 Also delivered, beyond what this section asked for: **zero bytes allocated per
 quad**, asserted on all five entry points as the difference between a
@@ -93,8 +104,15 @@ triple terms, which the model held from the start and the syntax would
 otherwise be unable to express.
 
 **Not in 3a, and not attempted:** `Varve.Xsd`, canonicalisation, Turtle and
-TriG, the store, NuGet publication, and `VARVE0006` (the `[HotPath]` rule — the
-attribute exists and is applied, the analyzer does not).
+TriG, the store, the first NuGet publication itself, and `VARVE0006` (the
+`[HotPath]` rule — the attribute exists and is applied, the analyzer does not).
+
+**RDF 1.2 Turtle and TriG are deliberately later.** Their suites are wired for
+nobody yet: RDF 1.2 Turtle is a W3C Working Draft of 14 September 2026 and TriG
+of 15 September 2026, and implementing reifiers, annotations and a version
+directive against a draft that recent, under a ratchet, is churn a milestone
+should absorb rather than a session. RDF 1.2 N-Triples and N-Quads are wired,
+because we had already shipped their constructs.
 
 ## 4 — In-memory log and default quad projection
 

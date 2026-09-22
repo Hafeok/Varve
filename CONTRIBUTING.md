@@ -10,6 +10,25 @@ When a proposal contradicts an accepted ADR, say so and propose a superseding
 ADR. Do not diverge quietly. When one of specification, ADR or code changes,
 state in the same change what else must change.
 
+## Adding an ADR
+
+Take the next free number — `docs/adr/` is dense and numbers are never reused —
+and write five sections: **Status**, **Context**, **Decision**, **Alternatives
+considered**, **Consequences**. Add a row to `docs/adr/README.md`.
+
+*Alternatives considered* is not a formality. An ADR that lists no losing option
+has not recorded a decision, only an outcome, and the next person cannot tell
+whether the alternative was rejected or never seen.
+
+An accepted ADR is never edited. A decision that still stands but needs more
+detail gets a **dated amendment** inside it; a decision that changed gets a
+**superseding ADR**, and the old one keeps its text so the reasoning that was
+wrong stays readable.
+
+Where an ADR is accepted ahead of the evidence, it states a **revisit
+condition**: a fact which, if it turns out to be true, supersedes it. ADR 0020's
+condition fired on a real browser build, which is what the mechanism is for.
+
 ## Adding a rule
 
 A new architectural or code rule is delivered as three things, in this order of
