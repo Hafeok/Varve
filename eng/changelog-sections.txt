@@ -1,0 +1,22 @@
+# Section boundaries for eng/changelog.cs.
+#
+# One line per section, oldest first: "<commit-ish> <title>". The commit named
+# is the FIRST commit of the section; the section runs to the commit before the
+# next one starts, and the last runs to HEAD.
+#
+# Why a file rather than a derivation. Milestones 3a, the 3a close-out and 3b
+# each arrived as a pull request, so a merge commit could delimit them.
+# Milestones 1 and 2 predate that rule and are one unbroken run of commits on
+# main, so the boundary between them exists only in the intent — and a
+# derivation that silently merges two milestones into one is worse than five
+# lines naming where each began.
+#
+# Once a v* tag exists, tags become the sections and this file applies only to
+# what is unreleased.
+
+16e3515  Milestone 1 — Foundation
+191e0a0  Milestone 2 — ADR set zero, the log and projection model
+2f2d482  Milestone 3a — RDF model, IRI, N-Triples and N-Quads
+8a97f85  Milestone 3a close-out
+36282b1  Milestone 3b — Turtle and TriG
+93df7d5  Stewardship — the Mind Over Machine standard
