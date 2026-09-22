@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Package metadata gate.
 //
 //   dotnet run eng/package-metadata.cs -- <directory-of-nupkg>
@@ -116,9 +120,9 @@ foreach (string package in packages)
 
     XElement? license = metadata.Element(nuspecNs + "license");
 
-    if (license is null || license.Attribute("type")?.Value != "expression" || license.Value != "Apache-2.0")
+    if (license is null || license.Attribute("type")?.Value != "expression" || license.Value != "MPL-2.0")
     {
-        findings.Add("license must be the SPDX expression Apache-2.0, not a URL or a file");
+        findings.Add("license must be the SPDX expression MPL-2.0, not a URL or a file (ADR 0031)");
     }
 
     if (metadata.Element(nuspecNs + "iconUrl") is not null)
@@ -153,6 +157,13 @@ foreach (string package in packages)
     // consumer sees a broken icon and no readme on nuget.org.
     RequireFile(findings, archive, "icon.png");
     RequireFile(findings, archive, "README.md");
+
+    // The licence text and the notice are not referenced by the nuspec — the
+    // SPDX expression above does that job — so nothing else would notice if the
+    // Pack items were dropped. Under a copyleft licence that is worth a check
+    // rather than a convention. ADR 0031.
+    RequireFile(findings, archive, "LICENSE");
+    RequireFile(findings, archive, "NOTICE");
 
     if (findings.Count == 0)
     {

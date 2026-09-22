@@ -1,0 +1,93 @@
+# OpenSSF Scorecard.
+#
+# Scorecard runs a set of supply-chain checks against the repository itself
+# rather than against the code: whether workflow actions are pinned, whether
+# branch protection exists, whether dependencies are kept current, whether the
+# build is reproducible, whether a security policy is published.
+#
+# It is here because Varve is a store people will put data in, and because the
+# checks it runs are exactly the ones this repository already claims to pass —
+# ADR 0009's register, ADR 0031's licence, the SHA-pinned actions, the rulesets
+# on `main`, the Dependabot configuration and SECURITY.md. A claim that nothing
+# measures is a claim that quietly stops being true.
+#
+# Every action below is pinned by commit SHA, which is one of the things
+# Scorecard checks and which would be an embarrassing thing to fail here. The
+# SHAs were resolved with `git ls-remote` and peeled: ossf/scorecard-action and
+# github/codeql-action publish annotated tags, so `refs/tags/vN` names a tag
+# object rather than a commit, and pinning the unpeeled sha gives an action
+# reference that cannot resolve.
+
+name: Scorecard
+
+on:
+  # The reason this trigger exists: Scorecard's Branch-Protection check reads
+  # the rulesets, so it should re-run when they change rather than waiting for
+  # the weekly schedule to notice.
+  branch_protection_rule:
+
+  schedule:
+    - cron: "37 5 * * 1"
+
+  push:
+    branches: [main]
+
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+
+    permissions:
+      # To upload the SARIF to the code-scanning dashboard.
+      security-events: write
+
+      # Scorecard reads workflow run data for some of its checks.
+      actions: read
+      contents: read
+
+      # Only needed when publish_results is turned on; kept here so that
+      # flipping that switch does not also mean remembering this.
+      id-token: write
+
+    steps:
+      - name: Line endings
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Run the analysis
+        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+
+          # OFF, and this is a decision rather than an oversight. Turning it on
+          # publishes the score to the public OpenSSF API, which is what makes
+          # the badge in a README work. That is an outward-facing publication
+          # of an assessment of this repository, and it is the maintainer's to
+          # make rather than a session's. Flip it to true to get the badge; the
+          # permissions above already allow it.
+          publish_results: false
+
+      # The raw SARIF, kept for the runs where the dashboard is not enough —
+      # five days, because after that the interesting question is the trend
+      # rather than the run.
+      - name: Upload the results
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: scorecard-results
+          path: results.sarif
+          retention-days: 5
+
+      - name: Upload to code scanning
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+        with:
+          sarif_file: results.sarif

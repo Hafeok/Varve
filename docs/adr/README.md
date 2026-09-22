@@ -13,7 +13,7 @@ or depart from `docs/brief.md`, each says so in its Context.
 | # | Title | Status |
 |---:|---|---|
 | [0001](0001-record-architecture-decisions.md) | Record architecture decisions | Accepted |
-| [0002](0002-licence.md) | Licence: Apache-2.0 | Accepted |
+| [0002](0002-licence.md) | Licence: Apache-2.0 | **Superseded by 0031** |
 | [0003](0003-package-layering.md) | Package layering and the strictly downward reference rule | Accepted |
 | [0004](0004-enforcement-by-analyzers.md) | Enforcement by analyzers | Accepted |
 | [0005](0005-store-is-sparql-free.md) | `Varve.Store` is SPARQL-free | Accepted |
@@ -63,13 +63,38 @@ or depart from `docs/brief.md`, each says so in its Context.
 |---:|---|---|
 | [0030](0030-turtle-recovery-and-prefixes.md) | Turtle's recovery unit, prefix exposure, and where isomorphism lives | Accepted |
 
+## Stewardship — the Mind Over Machine standard
+
+Adopted at [#16](https://github.com/Hafeok/Varve/issues/16). Four of these
+reverse a decision this repository had already made, which is why each is a
+superseding ADR rather than an edit.
+
+| # | Title | Status |
+|---:|---|---|
+| [0031](0031-licence-mpl-2-0.md) | Licence: MPL-2.0 | Accepted; **supersedes 0002** |
+| [0032](0032-trunk-based-development.md) | Trunk-based development and non-blocking review | Accepted |
+| [0033](0033-commit-traceability.md) | Commit traceability and AI-session records | Accepted |
+| [0034](0034-commit-signing-and-the-sandbox-exception.md) | Commit signing and the sandbox exception | Accepted; revisit condition |
+| [0035](0035-semantic-versioning.md) | Semantic versioning | Accepted; complements 0029 |
+| [0036](0036-containerised-development.md) | Containerised development and the local pipeline | Accepted |
+
+## Milestone 7 — the server
+
+Accepted ahead of the milestone, because the decision bears on what the server
+is allowed to become and the cheapest time to reject API keys is before anyone
+has written one.
+
+| # | Title | Status |
+|---:|---|---|
+| [0037](0037-server-authentication.md) | Authentication and authorisation for the server | Accepted |
+
 **No ADR in this repository is `Proposed`.** Three were, and were completed in
 place rather than superseded, because ADR 0001's no-edit rule binds accepted
 decisions and they had never been accepted.
 
 ### Accepted ahead of the evidence
 
-Five ADRs carry a **revisit condition**: a stated fact which, if it turns out to
+Six ADRs carry a **revisit condition**: a stated fact which, if it turns out to
 be true, supersedes the ADR. It does not edit it.
 
 **One has fired.** ADR 0020's condition was its acceptance condition, it was
@@ -83,6 +108,7 @@ carries a condition of its own that is not measurable by a build.
 | [0020](0020-cipher-for-erasure-mode.md) | ~~AES-CBC, HMAC-SHA-256 and HKDF do not run on browser WASM when verified on a real build.~~ **Fired** at milestone 3a: `Aes.Create()` throws on browser-wasm and no symmetric cipher of any kind is available there. Superseded by 0028. | **fired**, superseded |
 | [0028](0028-deterministic-aead-from-hmac.md) | External cryptographic review rejects the construction. The fallback is then that erasure mode does not run in the browser, in its own ADR. Its other condition — the primitives run in a browser — is measured and holds. | milestone 9, before shipping |
 | [0022](0022-quad-source-term-handle.md) | Milestone 5 evaluator benchmarks show the opaque handle costs more than it saves. | milestone 5 |
+| [0034](0034-commit-signing-and-the-sandbox-exception.md) | A route appears by which a sandbox commit is signed by a key the project controls, or by GitHub itself. Two are identified and neither is available: GraphQL `createCommitOnBranch`, blocked by the session proxy rather than by GitHub, and a per-installation signing key. The REST contents API was tested and is **not** one — it produces unsigned commits. | whenever it fires |
 
 ## Open questions recorded, not resolved
 

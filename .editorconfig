@@ -20,6 +20,15 @@ indent_size = 2
 indent_size = 2
 
 [*.cs]
+# --- licence header ---------------------------------------------------------
+# MPL-2.0 is file-level copyleft: a file is Covered Software because it carries
+# the Exhibit A notice (ADR 0031). This template is what makes an IDE insert it
+# into a new file. It is a convenience, not the enforcement — IDE0073 is left at
+# its default severity on purpose, because promoting it would make the analyzer
+# fixtures under tests/fixtures/ carry diagnostics their tests do not expect.
+# `dotnet run eng/licence-headers.cs` is what binds.
+file_header_template = This Source Code Form is subject to the terms of the Mozilla Public\nLicense, v. 2.0. If a copy of the MPL was not distributed with this\nfile, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 # --- usings -----------------------------------------------------------------
 # ImplicitUsings is disabled repo-wide; usings are explicit and sorted, and an
 # unnecessary one is a defect (IDE0005 needs GenerateDocumentationFile, which

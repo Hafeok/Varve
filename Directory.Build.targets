@@ -61,8 +61,8 @@
     <Copyright>Copyright (c) 2026 Emil Okkels Klein</Copyright>
 
     <!-- An SPDX expression, never a licenseUrl: licenseUrl is deprecated and
-         points at a page that can change under the package. -->
-    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+         points at a page that can change under the package. ADR 0031. -->
+    <PackageLicenseExpression>MPL-2.0</PackageLicenseExpression>
 
     <PackageProjectUrl>https://github.com/Hafeok/Varve</PackageProjectUrl>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -84,6 +84,15 @@
   <ItemGroup Condition="'$(IsPackable)' == 'true'">
     <None Include="$(MSBuildThisFileDirectory)eng/icon.png" Pack="true" PackagePath="" Visible="false" />
     <None Include="README.md" Pack="true" PackagePath="" />
+
+    <!-- The licence text and the notice travel with the package. The SPDX
+         expression above tells nuget.org which licence it is; these two are for
+         the person who has the .nupkg and not the web page. MPL-2.0 §3.1
+         requires the source form to be available under the licence's terms, and
+         a copy of the terms beside the embedded sources is the least surprising
+         way to satisfy a reader looking for them. ADR 0031. -->
+    <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)NOTICE" Pack="true" PackagePath="" Visible="false" />
 
     <!-- Versioning from the git tag (ADR 0029). PrivateAssets keeps it out of
          the consumer's dependency graph; it exists at build time only. -->

@@ -148,6 +148,48 @@ It runs in the **`build`** job, before restore, on both operating systems. It is
 a text check over two inputs and should fail in seconds rather than after a
 compile.
 
+### Automated dependency updates
+
+> **Amended 2026-09-22** (see [ADR 0033](0033-commit-traceability.md) and
+> [#16](https://github.com/Hafeok/Varve/issues/16), the adoption of the Mind
+> Over Machine stewardship standard). Dependabot now opens pull requests for
+> GitHub Actions and NuGet, and the policy as written above would fail every
+> one of them: each bump edits `Directory.Packages.props`, and nothing in the
+> original decision distinguished a version bump from a new dependency.
+>
+> A gate that fails every automated update is a gate people route around, and
+> the register would become a thing to be satisfied rather than a thing to be
+> read. So the policy is refined rather than relaxed, at the point where a
+> version change can mean something the ADR that admitted the package did not
+> consider:
+>
+> | Change | Needs |
+> |---|---|
+> | Patch or minor bump of a package that already cites an ADR | nothing; it passes |
+> | **Major** bump | an ADR entry |
+> | **New** package | an ADR entry |
+>
+> **Everything the original decision said still holds.** Every package still
+> names the decision that admits it, a dangling citation still fails, and a
+> package shipping a native asset is still refused under constraint 1 by
+> `eng/native-assets.cs`. What is added is that maintenance no longer needs a
+> decision, because maintenance is not one.
+>
+> "Needs an ADR entry" is made checkable rather than left to judgement: the
+> cited ADR must itself have changed in the same diff — a new ADR, or a dated
+> amendment like this one. A major bump that cites an untouched ADR is a claim
+> that the decision admitting 4.x covers 5.x with nobody having looked, and
+> that claim is worth interrupting. A semantic version is a promise about
+> compatibility ([ADR 0035](0035-semantic-versioning.md)), so a major bump is
+> the upstream telling us the promise is broken; taking them at their word is
+> the cheapest correct policy.
+>
+> `eng/dependency-register.cs --base <ref>` implements it. Without `--base` the
+> gate behaves exactly as before, which is why nothing about the plain CI run
+> changes. A version the gate cannot parse is classified as major: a register
+> entry whose version is a range or an expression is not something to wave
+> through.
+
 ## Alternatives considered
 
 - **Keep 0006's shape and amend it.** Honest, and it is what ADR 0001's
