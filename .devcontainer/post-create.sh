@@ -36,7 +36,18 @@ echo "--- dotnet: the WebAssembly workloads"
 # Constraint 3's third host. CI builds the browser bundle and requires it to be
 # warning-free, so it has to be buildable here too or the first WASM change is
 # discovered in CI.
-dotnet workload install wasm-tools wasm-experimental
+#
+# Elevated, because the SDK the devcontainer feature installs lives under
+# /usr/share/dotnet and a workload writes into it. The container's default user
+# is not root, so without this the install fails with "Inadequate permissions"
+# — which is how the first CI run of this job failed, and is the reason the job
+# exists rather than a reason to remove it.
+if [ "$(id -u)" -eq 0 ]; then
+  dotnet workload install wasm-tools wasm-experimental
+else
+  sudo --preserve-env=DOTNET_ROOT,DOTNET_CLI_TELEMETRY_OPTOUT,DOTNET_NOLOGO \
+    "$(command -v dotnet)" workload install wasm-tools wasm-experimental
+fi
 
 echo "--- dotnet: restore"
 
