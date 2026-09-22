@@ -56,6 +56,29 @@ today, sorted by test IRI. `eng/ratchet.cs` fails the build when one of them
 stops passing, and prints tests that newly pass. When your change makes tests
 pass, update the baseline in the same pull request.
 
+## Branches and pull requests
+
+**Nothing reaches `main` except through a pull request.** Never commit to
+`main`, and never push it. The branch you are on is one of:
+
+| Branch | For |
+|---|---|
+| `milestone/<id>` | a milestone, or a part of one — `milestone/3a`, `milestone/3b` |
+| `fix/<topic>` | anything else — `fix/3a-closeout`, `fix/ratchet-exemptions` |
+
+**One pull request per milestone part**, and **the pull request body is the
+report**: what was decided, what was measured, what was found, what is left.
+Not a changelog — the commits are the changelog. A reviewer should be able to
+decide from the body alone whether the work is sound, and should not have to
+reconstruct a finding from a diff.
+
+When a pull request depends on one that has not merged yet, branch it from that
+one rather than from `main`, open it as a draft, and rebase onto `main` when
+the parent merges. A stack is honest about the dependency; a branch that
+silently contains someone else's unmerged work is not.
+
+Only the repository owner merges.
+
 ## Commits
 
 Conventional commits. One logical change per commit. A commit that changes a
