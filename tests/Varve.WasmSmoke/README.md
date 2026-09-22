@@ -27,24 +27,34 @@ runtime is loaded as an ES module and fetches `_framework/` over the network.
 
 ## What it found
 
-The crypto half is **ADR 0020's acceptance condition**, and it failed. On .NET
-10 in headless Chromium 141:
+On .NET 10 in headless Chromium 141:
 
-| Primitive | Browser |
-|---|---|
-| `RandomNumberGenerator.Fill` | works |
-| `SHA256` | works |
-| `HMACSHA256` | works |
-| `HKDF.DeriveKey` | works, deterministic |
-| `Aes.Create()` | throws `PlatformNotSupportedException` |
-| `AesGcm.IsSupported` | false |
-| `AesCcm.IsSupported` | false |
-| `ChaCha20Poly1305.IsSupported` | false |
+| Primitive | Browser | |
+|---|---|---|
+| `RandomNumberGenerator.Fill` | works | ADR 0028 |
+| `SHA256` | works | ADR 0028 |
+| `HMACSHA256` | works | ADR 0028 |
+| `HKDF.DeriveKey` | works, deterministic | ADR 0028 |
+| `CryptographicOperations.FixedTimeEquals` | works | ADR 0028 |
+| `Aes.Create()` | throws `PlatformNotSupportedException` | ADR 0020 |
+| `AesGcm.IsSupported` | false | |
+| `AesCcm.IsSupported` | false | |
+| `ChaCha20Poly1305.IsSupported` | false | |
 
-No symmetric cipher of any kind is available. The table is **pinned in
-`Smoke.cs` and asserted**, so a runtime that changes any row makes this fail —
-which is the signal that ADR 0020's successor can be revisited, and is the
-reason the app reports rather than throws on the first failure.
+Read it in two halves. The last four are **ADR 0020's acceptance condition**,
+and they failed it: no symmetric cipher of any kind is available in a browser,
+which is a wider finding than the one that ADR was testing for. The first five
+are **ADR 0028's first condition**, and they hold — 0028 builds a deterministic
+AEAD out of exactly those primitives because they are the ones that run here.
+
+The table is **pinned in `Smoke.cs` and asserted**, so a runtime that changes
+any row makes this fail. That is the correct behaviour in both directions: a
+cipher appearing in the browser is the signal that ADR 0028's alternatives are
+worth revisiting, and a primitive disappearing would break 0028 itself. It is
+also why the app reports every row rather than throwing on the first failure.
+
+A `404` for `/favicon.ico` in the console is Chromium asking for one that the
+app bundle does not contain. It is not a failure.
 
 `CA1416` is suppressed in `Smoke.cs`. It is the claim under test, not noise:
 the analyzer's annotation is one of the four sources that disagreed, and the
