@@ -117,11 +117,18 @@ public class SyntaxConformanceTests
             Describe(entry) + "'s expected result does not parse as " + resultFormat + ": "
             + (expected.Error ?? "(no reason given)"));
 
-        string? difference = Isomorphism.Compare(outcome.Quads, expected.Quads);
+        IsomorphismResult comparison = Isomorphism.Compare(outcome.Quads, expected.Quads);
+
+        // "Inconclusive" is not "different": the first is a limit of the check
+        // and the second a finding about the parser, and reporting one as the
+        // other sends someone looking for a bug that is not there.
+        string verdict = comparison.Verdict == IsomorphismVerdict.Inconclusive
+            ? " could not be compared with what it must produce — "
+            : " produced a different dataset — ";
 
         Assert.True(
-            difference is null,
-            Describe(entry) + " produced a different dataset — " + difference
+            comparison.IsSame,
+            Describe(entry) + verdict + comparison.Reason
             + ".\n  parsed:\n" + Lines(outcome.Quads) + "  expected:\n" + Lines(expected.Quads));
     }
 

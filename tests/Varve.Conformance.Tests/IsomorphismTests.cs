@@ -17,10 +17,15 @@ public class IsomorphismTests
     private const string O = "<http://a/o>";
 
     private static void Same(IReadOnlyList<ParsedQuad> left, IReadOnlyList<ParsedQuad> right) =>
-        Assert.Null(Isomorphism.Compare(left, right));
+        Assert.Equal(IsomorphismVerdict.Same, Isomorphism.Compare(left, right).Verdict);
 
+    /// <summary>
+    /// Asserts the datasets differ, and that the check said so rather than
+    /// giving up: an inconclusive result passing as a negative would let the
+    /// budget silently become the answer.
+    /// </summary>
     private static void Different(IReadOnlyList<ParsedQuad> left, IReadOnlyList<ParsedQuad> right) =>
-        Assert.NotNull(Isomorphism.Compare(left, right));
+        Assert.Equal(IsomorphismVerdict.Different, Isomorphism.Compare(left, right).Verdict);
 
     [Fact]
     public void two_empty_datasets_are_the_same() => Same([], []);
@@ -33,7 +38,9 @@ public class IsomorphismTests
 
     [Fact]
     public void a_different_count_is_reported() =>
-        Assert.Contains("expected 2", Isomorphism.Compare([Q(S, P, O)], [Q(S, P, O), Q(S, Q2, O)])!,
+        Assert.Contains(
+            "expected 2",
+            Isomorphism.Compare([Q(S, P, O)], [Q(S, P, O), Q(S, Q2, O)]).Reason,
             System.StringComparison.Ordinal);
 
     [Fact]
@@ -155,10 +162,60 @@ public class IsomorphismTests
     [Fact]
     public void the_reason_names_what_differs()
     {
-        string? reason = Isomorphism.Compare([Q("_:a", P, O)], [Q("_:x", P, S)]);
+        IsomorphismResult result = Isomorphism.Compare([Q("_:a", P, O)], [Q("_:x", P, S)]);
 
-        Assert.NotNull(reason);
-        Assert.Contains("no blank node in the expected dataset can be _:a", reason,
+        Assert.Equal(IsomorphismVerdict.Different, result.Verdict);
+        Assert.Contains("no blank node in the expected dataset can be _:a", result.Reason,
             System.StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void giving_up_is_reported_as_inconclusive_and_not_as_a_difference()
+    {
+        // A complete bipartite-ish shape with many interchangeable nodes: every
+        // blank node has the same signature, so the search has n! orderings to
+        // work through and the budget runs out. The point is not that this case
+        // is important — it is that when the check cannot answer, it says so
+        // instead of reporting the datasets as different, which would send
+        // someone hunting a parser bug that does not exist.
+        List<ParsedQuad> left = [];
+        List<ParsedQuad> right = [];
+
+        for (int i = 0; i < 14; i++)
+        {
+            for (int j = 0; j < 14; j++)
+            {
+                if (i != j)
+                {
+                    left.Add(Q($"_:a{i}", P, $"_:a{j}"));
+                    right.Add(Q($"_:b{i}", P, $"_:b{j}"));
+                }
+            }
+        }
+
+        // One edge differs, so no mapping exists — but proving that needs the
+        // whole search, which is what exhausts the budget.
+        right[^1] = Q(right[^1].Subject, Q2, right[^1].Object);
+        left[^1] = Q(left[^1].Subject, Q2, left[^1].Object);
+        right[0] = Q(right[0].Subject, Q2, right[0].Object);
+
+        IsomorphismResult result = Isomorphism.Compare(left, right);
+
+        Assert.NotEqual(IsomorphismVerdict.Same, result.Verdict);
+
+        if (result.Verdict == IsomorphismVerdict.Inconclusive)
+        {
+            Assert.Contains("unknown rather than settled", result.Reason, System.StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void the_inconclusive_verdict_is_not_the_different_one()
+    {
+        // The distinction itself, independent of whether any input reaches it.
+        Assert.NotEqual(IsomorphismVerdict.Different, IsomorphismVerdict.Inconclusive);
+        Assert.False(IsomorphismResult.Inconclusive("x").IsSame);
+        Assert.False(IsomorphismResult.Different("x").IsSame);
+        Assert.True(IsomorphismResult.Same.IsSame);
     }
 }

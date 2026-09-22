@@ -299,14 +299,40 @@ internal ref partial struct TurtleScanner
         span = TermSpan.None;
         int start = Consumed;
 
+        // A '.' is not a delimiter here. [167s] PN_PREFIX admits one anywhere
+        // but last, so "e.g:s" is a prefixed name and the dot belongs to the
+        // prefix; only a character that cannot appear in a prefix name at all
+        // ends the scan, and the ':' is what proves this was one.
         while (Consumed < _text.Length && _text[Consumed] != (byte)':')
         {
             byte b = _text[Consumed];
 
-            if (b is 0x20 or 0x09 or 0x0A or 0x0D or (byte)'.' or (byte)';' or (byte)','
-                or (byte)']' or (byte)')' or (byte)'}' or (byte)'<' or (byte)'"' or (byte)'#')
+            if (IsPrefixStop(b))
             {
                 return Fail(expected, start);
+            }
+
+            // [167s] forbids a prefix name ending in '.', so a dot continues
+            // the name only when something that could continue it follows.
+            // Otherwise it is the statement's terminator and the term is
+            // missing — which is what "<s> <p> ." should report.
+            if (b == (byte)'.')
+            {
+                if (Consumed + 1 >= _text.Length)
+                {
+                    if (MayGrow)
+                    {
+                        Consumed = start;
+                        return Truncated();
+                    }
+
+                    return Fail(expected, start);
+                }
+
+                if (IsPrefixStop(_text[Consumed + 1]))
+                {
+                    return Fail(expected, start);
+                }
             }
 
             Consumed++;
@@ -489,6 +515,14 @@ internal ref partial struct TurtleScanner
         Consumed = lastGood;
         return true;
     }
+
+    /// <summary>
+    /// Whether a byte cannot appear anywhere in a prefixed name, so that
+    /// reaching it means this was not one.
+    /// </summary>
+    private static bool IsPrefixStop(byte b) =>
+        b is 0x20 or 0x09 or 0x0A or 0x0D or (byte)';' or (byte)',' or (byte)']' or (byte)')'
+            or (byte)'}' or (byte)'{' or (byte)'<' or (byte)'"' or (byte)'#';
 
     /// <summary>[137s] <c>BLANK_NODE_LABEL | ANON</c>, plus [14] the property list.</summary>
     private bool TryBlankNodeOrPropertyList(out int slot)
@@ -778,6 +812,9 @@ internal ref partial struct TurtleScanner
         int digitsBefore = TakeDigits();
         bool isDecimal = false;
         bool isDouble = false;
+        int beforeDot = Consumed;
+        int digitsAfterDot = 0;
+        bool sawDot = false;
 
         if (!AtEnd && Peek == (byte)'.')
         {
@@ -793,11 +830,11 @@ internal ref partial struct TurtleScanner
                     return Truncated();
                 }
             }
-            else if (NTriplesChars.IsAsciiDigit(_text[Consumed + 1]))
+            else
             {
-                isDecimal = true;
+                sawDot = true;
                 Consumed++;
-                TakeDigits();
+                digitsAfterDot = TakeDigits();
             }
         }
 
@@ -829,6 +866,22 @@ internal ref partial struct TurtleScanner
             }
         }
 
+        if (!isDouble && sawDot)
+        {
+            // [21] lets a DOUBLE have no fractional digits — "123.E+1" is one —
+            // so the dot is only the number's once something after it claims
+            // it. With no digits and no exponent, "1." is the integer 1 and the
+            // statement's terminator.
+            if (digitsAfterDot > 0)
+            {
+                isDecimal = true;
+            }
+            else
+            {
+                Consumed = beforeDot;
+                sawDot = false;
+            }
+        }
         if (AtEnd && MayGrow)
         {
             // A number is delimited by what follows it, and nothing follows
@@ -836,8 +889,12 @@ internal ref partial struct TurtleScanner
             return Truncated();
         }
 
-        if (digitsBefore == 0 && !isDecimal)
+        if (digitsBefore == 0 && digitsAfterDot == 0)
         {
+            // Every shape in [19]–[21] has a digit somewhere: ".e1" and a bare
+            // sign are numbers in no production. Testing for digits rather than
+            // for "is a decimal" is what lets ".5e1" through, which is a DOUBLE
+            // with no integer part.
             return Fail(ParseErrorKind.InvalidNumber, start);
         }
 

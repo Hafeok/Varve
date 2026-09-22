@@ -75,6 +75,8 @@ public class SubmoduleGuardTests
         { "rdf11/n-quads", 87 },
         { "rdf12/n-triples", 29 },
         { "rdf12/n-quads", 27 },
+        { "rdf11/turtle", 313 },
+        { "rdf11/trig", 357 },
     };
 
     [Theory]
@@ -142,6 +144,8 @@ public class SubmoduleGuardTests
     {
         { "rdf11/turtle", 313 },
         { "rdf11/trig", 357 },
+        { "rdf11/n-triples", 70 },
+        { "rdf11/n-quads", 87 },
     };
 
     [Theory]

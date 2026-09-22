@@ -27,6 +27,46 @@ namespace Varve.Conformance.Tests;
 /// specification is measuring agreement with that implementation.
 /// </para>
 /// </remarks>
+/// <summary>What a comparison came to.</summary>
+internal enum IsomorphismVerdict
+{
+    /// <summary>The datasets are the same up to a bijection of blank nodes.</summary>
+    Same,
+
+    /// <summary>They are not, and the search proved it.</summary>
+    Different,
+
+    /// <summary>
+    /// The search ran out of budget without an answer.
+    /// </summary>
+    /// <remarks>
+    /// Distinct from <see cref="Different"/> on purpose. "Not isomorphic" is a
+    /// finding about the parser; "I gave up" is a finding about this check, and
+    /// reporting the second as the first would send someone looking for a bug
+    /// in the reader that is not there.
+    /// </remarks>
+    Inconclusive,
+}
+
+/// <summary>A verdict and why.</summary>
+/// <param name="Verdict">What the comparison came to.</param>
+/// <param name="Reason">
+/// What differs, or why the search stopped. Empty when the verdict is
+/// <see cref="IsomorphismVerdict.Same"/>.
+/// </param>
+internal readonly record struct IsomorphismResult(IsomorphismVerdict Verdict, string Reason)
+{
+    internal static IsomorphismResult Same { get; } = new(IsomorphismVerdict.Same, "");
+
+    internal static IsomorphismResult Different(string reason) =>
+        new(IsomorphismVerdict.Different, reason);
+
+    internal static IsomorphismResult Inconclusive(string reason) =>
+        new(IsomorphismVerdict.Inconclusive, reason);
+
+    internal bool IsSame => Verdict == IsomorphismVerdict.Same;
+}
+
 internal static class Isomorphism
 {
     /// <summary>
@@ -43,11 +83,12 @@ internal static class Isomorphism
     /// <summary>
     /// Compares two datasets, reporting why they differ when they do.
     /// </summary>
-    internal static string? Compare(IReadOnlyList<ParsedQuad> actual, IReadOnlyList<ParsedQuad> expected)
+    internal static IsomorphismResult Compare(
+        IReadOnlyList<ParsedQuad> actual, IReadOnlyList<ParsedQuad> expected)
     {
         if (actual.Count != expected.Count)
         {
-            return $"{actual.Count} quad(s), expected {expected.Count}";
+            return IsomorphismResult.Different($"{actual.Count} quad(s), expected {expected.Count}");
         }
 
         List<string> actualBlanks = BlankNodes(actual);
@@ -55,7 +96,8 @@ internal static class Isomorphism
 
         if (actualBlanks.Count != expectedBlanks.Count)
         {
-            return $"{actualBlanks.Count} blank node(s), expected {expectedBlanks.Count}";
+            return IsomorphismResult.Different(
+                $"{actualBlanks.Count} blank node(s), expected {expectedBlanks.Count}");
         }
 
         // The ground quads — those with no blank node anywhere — have to match
@@ -75,13 +117,14 @@ internal static class Isomorphism
         {
             if (!HasBlank(quad) && !expectedGround.Contains(quad))
             {
-                return "this quad is not in the expected dataset: " + quad;
+                return IsomorphismResult.Different(
+                    "this quad is not in the expected dataset: " + quad);
             }
         }
 
         if (actualBlanks.Count == 0)
         {
-            return null;
+            return IsomorphismResult.Same;
         }
 
         Dictionary<string, List<string>> candidates =
@@ -91,7 +134,8 @@ internal static class Isomorphism
         {
             if (entry.Value.Count == 0)
             {
-                return $"no blank node in the expected dataset can be {entry.Key}";
+                return IsomorphismResult.Different(
+                    $"no blank node in the expected dataset can be {entry.Key}");
             }
         }
 
@@ -106,12 +150,18 @@ internal static class Isomorphism
 
         if (Search(actual, expectedSet, actualBlanks, candidates, mapping, taken, 0, ref attempts))
         {
-            return null;
+            return IsomorphismResult.Same;
         }
 
-        return attempts >= MaxAttempts
-            ? $"gave up after {MaxAttempts} candidate mappings; this case needs looking at by hand"
-            : "no renaming of the blank nodes makes the two datasets equal";
+        // The budget being spent means the search abandoned subtrees it never
+        // examined, so it has not shown the datasets differ — only that it
+        // could not tell within the budget.
+        return attempts > MaxAttempts
+            ? IsomorphismResult.Inconclusive(
+                $"the search gave up after {MaxAttempts} candidate mappings over "
+                + $"{actualBlanks.Count} blank nodes, so whether these datasets match is unknown "
+                + "rather than settled; this case needs looking at by hand")
+            : IsomorphismResult.Different("no renaming of the blank nodes makes the two datasets equal");
     }
 
     private static bool Search(

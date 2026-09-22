@@ -52,7 +52,12 @@ internal sealed record ConformanceSuite(string Id, string ManifestPath, string B
         Suite("rdf12/n-triples", "rdf/rdf12/rdf-n-triples/syntax/manifest.ttl", RdfFormat.NTriples),
         Suite("rdf12/n-quads", "rdf/rdf12/rdf-n-quads/syntax/manifest.ttl", RdfFormat.NQuads),
 
-        // Milestone 3b: rdf/rdf11/rdf-turtle, rdf/rdf11/rdf-trig.
+        // Milestone 3b. Both carry evaluation entries as well as syntax ones,
+        // which is why they could not be wired until the dataset comparison
+        // existed.
+        Suite("rdf11/turtle", "rdf/rdf11/rdf-turtle/manifest.ttl", RdfFormat.Turtle),
+        Suite("rdf11/trig", "rdf/rdf11/rdf-trig/manifest.ttl", RdfFormat.TriG),
+
         // Later: rdf/rdf11/rdf-xml, the RDF 1.2 Turtle and TriG suites, and the
         // c14n manifests with RDFC-1.0. Each is one line.
     ];
@@ -69,11 +74,7 @@ internal sealed record ConformanceSuite(string Id, string ManifestPath, string B
     /// <see cref="OracleCorpus"/> unions the two and keeps the first of a
     /// duplicated id, so moving it is one edit and not two.
     /// </remarks>
-    internal static IReadOnlyList<ConformanceSuite> NotYetRatcheted { get; } =
-    [
-        Suite("rdf11/turtle", "rdf/rdf11/rdf-turtle/manifest.ttl", RdfFormat.Turtle),
-        Suite("rdf11/trig", "rdf/rdf11/rdf-trig/manifest.ttl", RdfFormat.TriG),
-    ];
+    internal static IReadOnlyList<ConformanceSuite> NotYetRatcheted { get; } = [];
 
     /// <summary>Every suite the oracle reads: the ratcheted ones and the rest.</summary>
     internal static IReadOnlyList<ConformanceSuite> OracleCorpus { get; } = Union(All, NotYetRatcheted);

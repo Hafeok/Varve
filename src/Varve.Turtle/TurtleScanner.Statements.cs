@@ -79,7 +79,31 @@ internal ref partial struct TurtleScanner
             return WrappedGraph(label) ? StatementStatus.Complete : Rejected();
         }
 
-        // [3g] triplesOrGraph, and [4g] triples2's two shapes.
+        // [7g] labelOrSubject is iri | BlankNode, and BlankNode includes ANON,
+        // so "[]" here is a graph label when a "{" follows and a subject
+        // otherwise — the same one-term lookahead an IRI needs. A "[" that
+        // opens a property list is not an ANON and is [4g] triples2.
+        if (IsAnon())
+        {
+            if (!TryLabelOrSubject(out int anon))
+            {
+                return Rejected();
+            }
+
+            SkipIgnorable();
+
+            if (AtEnd)
+            {
+                IsTruncated = true;
+                return StatementStatus.Incomplete;
+            }
+
+            return Peek == (byte)'{'
+                ? WrappedGraph(anon) ? StatementStatus.Complete : Rejected()
+                : TriplesFromSubject(anon, graph: -1) ? StatementStatus.Complete : Rejected();
+        }
+
+        // [4g] triples2's two shapes.
         if (Peek is (byte)'[' or (byte)'(')
         {
             return Triples(graph: -1) ? StatementStatus.Complete : Rejected();
@@ -211,7 +235,9 @@ internal ref partial struct TurtleScanner
         }
 
         // A bare blank node property list is a whole statement: [ :p :o ] .
-        if (bareBlankNodeList && Peek == (byte)'.')
+        // Inside a graph the brace closes it instead, because [6g] triplesBlock
+        // makes the final '.' optional.
+        if (bareBlankNodeList && (Peek == (byte)'.' || (!terminated && Peek == (byte)'}')))
         {
             return !terminated || ExpectStatementDot();
         }
