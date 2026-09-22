@@ -57,6 +57,11 @@
          which is what decided it against FsCheck's FSharp.Core. ADR 0025. -->
     <PackageVersion Include="CsCheck" Version="4.9.1" Adr="0025" />
 
+    <!-- Versioning from the git tag. Apache-2.0, no dependencies of its own,
+         and it contributes nothing to the package it versions: PrivateAssets
+         keeps it out of the consumer's graph. ADR 0029. -->
+    <PackageVersion Include="MinVer" Version="8.0.0" Adr="0029" />
+
     <!-- Benchmarks. Benchmark-time only, never referenced by anything
          shippable, and out of CI. Its Gee.External.Capstone dependency brings
          nine native .so files, which ADR 0009's native-asset ban covers by its
