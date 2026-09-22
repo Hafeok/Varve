@@ -61,6 +61,13 @@ jobs:
       - name: Restore
         run: dotnet restore Varve.slnx
 
+      - name: Native assets
+        # ADR 0009's amendment scopes constraint 1 to shipped artifacts. This is
+        # what makes the scoped version a gate rather than a sentence: no
+        # package in a packable project's restore closure may contribute a
+        # native runtime asset. Needs the restore above, and nothing else.
+        run: dotnet run eng/native-assets.cs
+
       - name: Build
         # Warnings are errors by configuration, not by a flag here; see
         # Directory.Build.props. CI is set, so ContinuousIntegrationBuild is on

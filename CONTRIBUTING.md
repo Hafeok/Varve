@@ -34,6 +34,13 @@ Versions are central, in `Directory.Packages.props`. Project files carry no
 `Version` attribute. Do not take a version from memory — resolve the current
 stable version when you add it.
 
+Two gates run in CI. `eng/dependency-register.cs` fails a `PackageVersion` with
+no `Adr` attribute, or one citing a number no ADR file matches.
+`eng/native-assets.cs` fails a package that contributes a native runtime asset
+to a packable project's restore closure — ADR 0009's amendment scopes the ban
+to shipped artifacts, so a benchmark-only native dependency is allowed and a
+shipped one is not.
+
 ## Suppressions
 
 A suppression carries a justification that cites an ADR number:

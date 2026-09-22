@@ -51,9 +51,36 @@ binary is refused under constraint 1.
 > packable.
 >
 > What forced the correction: the brief requires BenchmarkDotNet numbers, and
-> BenchmarkDotNet depends transitively on `Gee.External.Capstone`, which ships
-> nine `runtimes/*/native/libcapstone.so` entries. The absolute rule forbade
-> something the brief mandates.
+> **BenchmarkDotNet 0.15.8 depends transitively on `Gee.External.Capstone`
+> 2.3.0**, which ships nine native libraries —
+> `runtimes/{linux-arm,linux-arm64,linux-x64,linux-x86}/native/libcapstone.so`,
+> two `.dylib` for macOS and three `capstone.dll` for Windows. That is the one
+> package that forced this amendment, and the absolute rule forbade something
+> the brief mandates.
+>
+> **Confirmed by the repository owner on 2026-09-22.** The substance was right,
+> but narrowing a hard constraint from `docs/brief.md` was not mine to do
+> alone, and this records that it was ratified rather than assumed.
+
+> **Enforced from 2026-09-22.** `eng/native-assets.cs` runs in the build job and
+> fails when any package in the restore closure of a **packable solution
+> member** contributes a native runtime asset. A constraint that is narrowed and
+> not then enforced in its narrowed form is a sentence, and the narrowing is
+> exactly what makes an unenforced version plausible: the original was
+> absolute and obvious, the scoped one has an edge somebody has to check.
+>
+> The signal is `assetType: "native"` in `project.assets.json`, not a path
+> containing `/native/`. `System.Diagnostics.EventLog` ships
+> `runtimes/win/lib/…`, which is managed, and TraceEvent ships
+> `build/native/…`, which is an MSBuild-time file nobody deploys; a path match
+> would report both, and a gate that cries wolf is a gate that gets a `NoWarn`.
+>
+> Both outcomes are proven against **real restore graphs** rather than a
+> fixture: the benchmark harness's, which must fail and name Capstone's nine
+> files, and `Varve.Turtle`'s, which must pass. A hand-written assets file
+> would test the expectation rather than the gate. A missing assets file exits
+> 2 — could not run — and not 0, because a gate that cannot read its input has
+> not found the code clean.
 
 **Three classes, admitted on different terms:**
 
