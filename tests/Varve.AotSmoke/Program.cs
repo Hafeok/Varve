@@ -84,6 +84,95 @@ internal static class Program
         }
 
         Console.WriteLine("resolved " + text);
+
+        return Turtle();
+    }
+
+    /// <summary>
+    /// Reads Turtle and TriG and writes them back, under Native AOT.
+    /// </summary>
+    /// <remarks>
+    /// The Turtle reader leans on things a trimmer can remove without a build
+    /// error: a delegate invoked only through a field, a generic instantiated
+    /// once, a <c>ref struct</c> whose members are reached indirectly. Parsing
+    /// N-Quads does not exercise any of the constructs Turtle adds — the
+    /// statement buffer, the prefix table, the blank node naming, the writer's
+    /// state — so it would not notice their loss. This does.
+    /// </remarks>
+    private static int Turtle()
+    {
+        byte[] document = System.Text.Encoding.UTF8.GetBytes(
+            "@prefix p: <http://example.org/> .\n"
+            + "p:s p:p \"value \\u00E9\"@en , 1.5e3 ;\n"
+            + "  p:q [ p:r ( <rel> p:t ) ] ;\n"
+            + "  a p:C .\n");
+
+        TurtleOptions read = new()
+        {
+            Syntax = RdfSyntax.Turtle,
+            BaseIri = System.Text.Encoding.UTF8.GetBytes("http://example.org/base/"),
+        };
+
+        long before = observed;
+        ParseResult parsed = TurtleParser.Parse(document, Count, in read);
+
+        if (!parsed.Succeeded || parsed.QuadCount != 9)
+        {
+            Console.Error.WriteLine(
+                "aot-smoke: turtle parse gave " + parsed.QuadCount.ToString(CultureInfo.InvariantCulture)
+                + " quads, first error " + parsed.FirstError.ToString());
+            return 1;
+        }
+
+        // Write it back through the Turtle writer, with a prefix declared so
+        // that compaction runs, then read the result and compare.
+        BufferWriter output = new();
+        TurtleWriteOptions write = default;
+
+        using (TurtleWriter writer = new(output, in write))
+        {
+            writer.DeclarePrefix("p"u8, "http://example.org/"u8);
+            TurtleParser.Parse(document, (in QuadView quad) => writer.Write(in quad), in read);
+        }
+
+        ParseResult reparsed = TurtleParser.Parse(output.Written, Count, in read);
+
+        Console.WriteLine(string.Create(
+            CultureInfo.InvariantCulture,
+            $"turtle {parsed.QuadCount} quads, rewritten {output.Written.Length} bytes, "
+            + $"reparsed {reparsed.QuadCount}"));
+
+        if (parsed.QuadCount != reparsed.QuadCount || observed == before)
+        {
+            Console.Error.WriteLine("aot-smoke: the turtle round trip disagreed with the first parse.");
+            return 1;
+        }
+
+        return TriG();
+    }
+
+    private static int TriG()
+    {
+        byte[] document = System.Text.Encoding.UTF8.GetBytes(
+            "<http://example.org/g> { <http://example.org/s> <http://example.org/p> [] . }\n");
+
+        TurtleOptions read = new() { Syntax = RdfSyntax.TriG };
+        bool named = false;
+
+        ParseResult parsed = TurtleParser.Parse(
+            document,
+            (in QuadView quad) => named = quad.HasGraph,
+            in read);
+
+        if (!parsed.Succeeded || parsed.QuadCount != 1 || !named)
+        {
+            Console.Error.WriteLine(
+                "aot-smoke: trig parse gave " + parsed.QuadCount.ToString(CultureInfo.InvariantCulture)
+                + " quads, graph " + named.ToString() + ", first error " + parsed.FirstError.ToString());
+            return 1;
+        }
+
+        Console.WriteLine("trig 1 quad in a named graph");
         return 0;
     }
 

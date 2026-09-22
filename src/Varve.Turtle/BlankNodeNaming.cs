@@ -51,24 +51,55 @@ namespace Varve.Turtle;
 /// </remarks>
 internal sealed class BlankNodeNaming
 {
-    private readonly HashSet<int> _assigned = [];
-    private readonly Dictionary<int, int> _claimed = [];
-    private readonly List<int> _assignedPending = [];
-    private readonly List<KeyValuePair<int, int>> _claimedPending = [];
+    // Null until a document writes a g-form label, which almost none do. Held
+    // that way rather than allocated eagerly because a parse pays for what it
+    // uses, and these three are the naming's whole cost.
+    private HashSet<int>? _claimedNumbers;
+    private Dictionary<int, int>? _claimed;
+    private List<KeyValuePair<int, int>>? _claimedPending;
     private int _next;
     private int _nextAtStatementStart;
 
     /// <summary>A number for a blank node the document did not name.</summary>
     internal int Mint()
     {
-        while (IsAssigned(_next))
+        while (IsClaimed(_next))
         {
             _next++;
         }
 
-        int n = _next++;
-        _assignedPending.Add(n);
-        return n;
+        return _next++;
+    }
+
+    /// <summary>
+    /// Whether a number has been given to a document label, in this statement
+    /// or an earlier one.
+    /// </summary>
+    /// <remarks>
+    /// The pending half is not an optimisation. A single statement can claim a
+    /// number and then mint one — <c>_:g0 :p [ :q :r ]</c> does — and if the
+    /// claim is only visible after the statement completes, the mint hands out
+    /// the number the claim just took and two nodes share a label.
+    /// </remarks>
+    private bool IsClaimed(int n)
+    {
+        if (_claimedNumbers is not null && _claimedNumbers.Contains(n))
+        {
+            return true;
+        }
+
+        if (_claimedPending is not null)
+        {
+            foreach (KeyValuePair<int, int> pending in _claimedPending)
+            {
+                if (pending.Value == n)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -77,54 +108,69 @@ internal sealed class BlankNodeNaming
     /// </summary>
     internal int Claim(int n)
     {
-        if (_claimed.TryGetValue(n, out int assigned))
+        if (_claimed is not null && _claimed.TryGetValue(n, out int assigned))
         {
             return assigned;
         }
 
-        foreach (KeyValuePair<int, int> pending in _claimedPending)
+        if (_claimedPending is not null)
         {
-            if (pending.Key == n)
+            foreach (KeyValuePair<int, int> pending in _claimedPending)
             {
-                return pending.Value;
+                if (pending.Key == n)
+                {
+                    return pending.Value;
+                }
             }
         }
 
-        if (!IsAssigned(n))
+        // A number the counter has not reached is the document's for the
+        // asking, and recording it is what makes the generator skip it.
+        // Below the counter it was handed out — to an anonymous node, or to an
+        // earlier claim that was itself moved — so this occurrence moves.
+        if (n >= _next)
         {
-            _assignedPending.Add(n);
-            _claimedPending.Add(new KeyValuePair<int, int>(n, n));
+            (_claimedPending ??= []).Add(new KeyValuePair<int, int>(n, n));
             return n;
         }
 
         int fresh = Mint();
-        _claimedPending.Add(new KeyValuePair<int, int>(n, fresh));
+        (_claimedPending ??= []).Add(new KeyValuePair<int, int>(n, fresh));
         return fresh;
     }
 
     /// <summary>Drops everything the abandoned statement decided.</summary>
     internal void BeginStatement()
     {
-        _assignedPending.Clear();
-        _claimedPending.Clear();
+        _claimedPending?.Clear();
         _next = _nextAtStatementStart;
     }
 
     /// <summary>Keeps everything the completed statement decided.</summary>
+    /// <remarks>
+    /// Both collections stay empty for a document that writes no
+    /// <c>g</c>-form label, which is almost all of them — so the naming costs
+    /// nothing per blank node in the ordinary case, and the loop below does not
+    /// run. An earlier version recorded every number it handed out, which was
+    /// simpler to reason about and allocated in proportion to the blank nodes
+    /// in the document; the allocation assertion caught it.
+    /// </remarks>
     internal void CompleteStatement()
     {
-        foreach (int n in _assignedPending)
+        if (_claimedPending is not null && _claimedPending.Count > 0)
         {
-            _assigned.Add(n);
+            _claimed ??= [];
+            _claimedNumbers ??= [];
+
+            foreach (KeyValuePair<int, int> claim in _claimedPending)
+            {
+                _claimed[claim.Key] = claim.Value;
+                _claimedNumbers.Add(claim.Value);
+            }
+
+            _claimedPending.Clear();
         }
 
-        foreach (KeyValuePair<int, int> claim in _claimedPending)
-        {
-            _claimed[claim.Key] = claim.Value;
-        }
-
-        _assignedPending.Clear();
-        _claimedPending.Clear();
         _nextAtStatementStart = _next;
     }
 
@@ -170,6 +216,4 @@ internal sealed class BlankNodeNaming
 
         return value;
     }
-
-    private bool IsAssigned(int n) => _assigned.Contains(n) || _assignedPending.Contains(n);
 }

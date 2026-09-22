@@ -49,6 +49,7 @@ internal static partial class Smoke
         try
         {
             report.Append(Parse()).Append('\n');
+            report.Append(Turtle()).Append('\n');
             report.Append(Crypto()).Append('\n');
             Expect();
             report.Append("OK");
@@ -59,6 +60,110 @@ internal static partial class Smoke
         }
 
         return report.ToString();
+    }
+
+    /// <summary>
+    /// Reads Turtle and TriG in the browser, and writes Turtle back.
+    /// </summary>
+    /// <remarks>
+    /// N-Quads exercises none of what Turtle adds — the statement buffer, the
+    /// prefix table, the blank node naming, the writer's state — so a browser
+    /// runtime that broke one of them would pass the N-Quads probe. The
+    /// constructs here are chosen to reach each: a predicate-object list, an
+    /// object list, a collection, a nested property list, an escape, and a TriG
+    /// graph block.
+    /// </remarks>
+    private static string Turtle()
+    {
+        byte[] document = Encoding.UTF8.GetBytes(
+            "@prefix p: <http://example.org/> .\n"
+            + "p:s p:p \"value \\u00E9\"@en , 1.5e3 ;\n"
+            + "  p:q [ p:r ( <rel> p:t ) ] ;\n"
+            + "  a p:C .\n");
+
+        TurtleOptions read = new()
+        {
+            Syntax = RdfSyntax.Turtle,
+            BaseIri = Encoding.UTF8.GetBytes("http://example.org/base/"),
+        };
+
+        ParseResult parsed = TurtleParser.Parse(document, static (in QuadView _) => { }, in read);
+
+        if (!parsed.Succeeded || parsed.QuadCount != 9)
+        {
+            throw new InvalidOperationException(
+                "turtle: " + parsed.QuadCount.ToString(CultureInfo.InvariantCulture)
+                + " quads, first error " + parsed.FirstError.ToString());
+        }
+
+        Writer output = new();
+        TurtleWriteOptions write = default;
+
+        using (TurtleWriter writer = new(output, in write))
+        {
+            writer.DeclarePrefix("p"u8, "http://example.org/"u8);
+            TurtleParser.Parse(document, (in QuadView quad) => writer.Write(in quad), in read);
+        }
+
+        ParseResult reparsed = TurtleParser.Parse(output.Written, static (in QuadView _) => { }, in read);
+
+        if (reparsed.QuadCount != parsed.QuadCount)
+        {
+            throw new InvalidOperationException(
+                "turtle: round trip gave " + reparsed.QuadCount.ToString(CultureInfo.InvariantCulture)
+                + " quads, expected " + parsed.QuadCount.ToString(CultureInfo.InvariantCulture));
+        }
+
+        TurtleOptions trig = new() { Syntax = RdfSyntax.TriG };
+        bool named = false;
+
+        ParseResult block = TurtleParser.Parse(
+            Encoding.UTF8.GetBytes("<http://example.org/g> { <http://example.org/s> <http://example.org/p> [] . }"),
+            (in QuadView quad) => named = quad.HasGraph,
+            in trig);
+
+        if (!block.Succeeded || block.QuadCount != 1 || !named)
+        {
+            throw new InvalidOperationException("trig: no quad in a named graph");
+        }
+
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"turtle: {parsed.QuadCount} quads, rewritten {output.Written.Length} bytes, "
+            + $"reparsed {reparsed.QuadCount}; trig: 1 quad in a named graph");
+    }
+
+    /// <summary>A minimal buffer writer, so the browser build needs no extra package.</summary>
+    private sealed class Writer : System.Buffers.IBufferWriter<byte>
+    {
+        private byte[] _bytes = new byte[1024];
+        private int _written;
+
+        internal ReadOnlySpan<byte> Written => _bytes.AsSpan(0, _written);
+
+        public void Advance(int count) => _written += count;
+
+        public Memory<byte> GetMemory(int sizeHint = 0)
+        {
+            Grow(sizeHint);
+            return _bytes.AsMemory(_written);
+        }
+
+        public Span<byte> GetSpan(int sizeHint = 0)
+        {
+            Grow(sizeHint);
+            return _bytes.AsSpan(_written);
+        }
+
+        private void Grow(int sizeHint)
+        {
+            int needed = _written + Math.Max(sizeHint, 1);
+
+            if (needed > _bytes.Length)
+            {
+                Array.Resize(ref _bytes, Math.Max(needed, _bytes.Length * 2));
+            }
+        }
     }
 
     private static string Parse()

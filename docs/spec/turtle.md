@@ -283,7 +283,18 @@ than from the file for exactly that reason.
 ## 8. Streaming and allocation
 
 **Allocation per triple is a defect**, and the assertion is zero bytes on the
-view path, measured as in `n-triples.md` §6.
+view path, measured as in `n-triples.md` §6 — a difference between two
+documents, so that the harness's own cost cancels. It holds on all five paths:
+span, sequence, stream, TriG, and parse-into-writer. The fragmented
+measurements use 16-byte segments, smaller than any statement in the
+documents, so every statement is stitched from a dozen pieces and the stitching
+is included in the zero.
+
+**What a parse costs once is larger here than for N-Triples**, and the
+difference is this design rather than a defect: about 6.3 KB against 2 KB,
+because the arena holds a statement and not a line and grows to the largest
+statement in the document. The number is fixed — it does not move with the
+document's length — and that is what the test asserts beside the zero.
 
 Turtle is harder than N-Triples here and the difference is worth stating. A
 statement is not a line, so the buffering unit is a statement and a statement

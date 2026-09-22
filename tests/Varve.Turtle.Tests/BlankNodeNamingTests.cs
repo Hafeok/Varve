@@ -70,6 +70,29 @@ public class BlankNodeNamingTests
     }
 
     [Fact]
+    public void a_claim_and_a_mint_in_one_statement_do_not_collide()
+    {
+        // Found by the property test after the naming was made allocation-free:
+        // a claim recorded for the statement but not yet committed was
+        // invisible to the generator, which then handed out the number the
+        // claim had just taken. Two nodes, one label.
+        string written = Write("_:g0 <http://a/p> [ <http://a/q> <http://a/r> ] .");
+
+        Assert.Equal(2, Labels(written).Count);
+    }
+
+    [Fact]
+    public void a_claim_and_several_mints_in_one_statement_do_not_collide()
+    {
+        string written = Write(
+            "<http://a/s> <http://a/p> [ <http://a/q> [] ] .\n_:g0 <http://a/p> _:g1 .\n"
+            + "<http://a/s> <http://a/p> [] .\n[] <http://a/p> <http://a/o> .");
+
+        // Two from the first statement, two claims, then two more mints.
+        Assert.Equal(6, Labels(written).Count);
+    }
+
+    [Fact]
     public void the_generator_skips_a_number_the_document_claimed_first()
     {
         string written = Write("_:g0 <http://a/p> <http://a/o> .\n[] <http://a/q> ( <http://a/1> ) .");
