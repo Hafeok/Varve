@@ -40,6 +40,14 @@
 // devcontainer depend on GitHub being reachable. A reference to a closed or
 // non-existent issue is review's job.
 //
+// A warning about writing about this gate. GitHub closes an issue when a
+// closing keyword and a number reach the default branch, and it does not care
+// that the pair sits inside quotation marks, inside an example, or inside a
+// sentence explaining what the gate does. The commit that introduced this file
+// illustrated the subject-line rule with a quoted "Closes #12" and closed the
+// Operability milestone by describing it. Use a bare #N in prose, and never a
+// real number after a closing keyword unless the closure is meant.
+//
 // The range, when not given, is worked out from the environment: a pull request
 // gives GITHUB_BASE_REF, a push gives the before and after shas, and a local
 // run falls back to origin/main..HEAD.
