@@ -67,15 +67,10 @@ public interface IQuadSource
     bool Contains(in Quad quad);
 
     /// <summary>
-    /// Walks the quads matching a pattern. <see cref="TermHandle.None"/> in any
-    /// position is a wildcard; in the graph position it therefore matches every
-    /// graph, and the default graph is asked for by a pattern no wildcard can
-    /// express — <see cref="MatchDefaultGraph"/> exists for that.
+    /// Walks the quads matching a pattern. <see cref="TermHandle.None"/> in the
+    /// subject, predicate or object position is a wildcard; the graph position
+    /// takes a <see cref="GraphPattern"/>, because "any graph" is two different
+    /// questions there and a sentinel cannot tell them apart.
     /// </summary>
-    IQuadCursor Match(TermHandle subject, TermHandle predicate, TermHandle @object, TermHandle graph);
-
-    /// <summary>
-    /// Walks the quads in the default graph matching a triple pattern.
-    /// </summary>
-    IQuadCursor MatchDefaultGraph(TermHandle subject, TermHandle predicate, TermHandle @object);
+    IQuadCursor Match(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph);
 }

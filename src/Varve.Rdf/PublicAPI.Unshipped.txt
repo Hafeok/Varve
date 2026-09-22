@@ -1,11 +1,21 @@
 #nullable enable
+Varve.Rdf.GraphMatch
+Varve.Rdf.GraphMatch.Any = 3 -> Varve.Rdf.GraphMatch
+Varve.Rdf.GraphMatch.AnyNamed = 2 -> Varve.Rdf.GraphMatch
+Varve.Rdf.GraphMatch.DefaultGraph = 0 -> Varve.Rdf.GraphMatch
+Varve.Rdf.GraphMatch.Named = 1 -> Varve.Rdf.GraphMatch
+Varve.Rdf.GraphPattern
+Varve.Rdf.GraphPattern.Equals(Varve.Rdf.GraphPattern other) -> bool
+Varve.Rdf.GraphPattern.Graph.get -> Varve.Rdf.TermHandle
+Varve.Rdf.GraphPattern.GraphPattern() -> void
+Varve.Rdf.GraphPattern.Match.get -> Varve.Rdf.GraphMatch
+Varve.Rdf.GraphPattern.Matches(Varve.Rdf.TermHandle graph) -> bool
 Varve.Rdf.IQuadCursor
 Varve.Rdf.IQuadCursor.Current.get -> Varve.Rdf.Quad
 Varve.Rdf.IQuadCursor.MoveNext() -> bool
 Varve.Rdf.IQuadSource
 Varve.Rdf.IQuadSource.Contains(in Varve.Rdf.Quad quad) -> bool
-Varve.Rdf.IQuadSource.Match(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object, Varve.Rdf.TermHandle graph) -> Varve.Rdf.IQuadCursor!
-Varve.Rdf.IQuadSource.MatchDefaultGraph(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object) -> Varve.Rdf.IQuadCursor!
+Varve.Rdf.IQuadSource.Match(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object, Varve.Rdf.GraphPattern graph) -> Varve.Rdf.IQuadCursor!
 Varve.Rdf.IQuadSource.TermComparer.get -> System.Collections.Generic.IEqualityComparer<Varve.Rdf.TermHandle>!
 Varve.Rdf.IQuadSource.TryExternalise(Varve.Rdf.TermHandle handle, out Varve.Rdf.RdfTerm! term) -> bool
 Varve.Rdf.IQuadSource.TryInternalise(Varve.Rdf.RdfTerm! term, out Varve.Rdf.TermHandle handle) -> bool
@@ -16,8 +26,7 @@ Varve.Rdf.InMemoryDataset.Contains(in Varve.Rdf.Quad quad) -> bool
 Varve.Rdf.InMemoryDataset.Count.get -> int
 Varve.Rdf.InMemoryDataset.InMemoryDataset() -> void
 Varve.Rdf.InMemoryDataset.Internalise(Varve.Rdf.RdfTerm! term) -> Varve.Rdf.TermHandle
-Varve.Rdf.InMemoryDataset.Match(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object, Varve.Rdf.TermHandle graph) -> Varve.Rdf.IQuadCursor!
-Varve.Rdf.InMemoryDataset.MatchDefaultGraph(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object) -> Varve.Rdf.IQuadCursor!
+Varve.Rdf.InMemoryDataset.Match(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object, Varve.Rdf.GraphPattern graph) -> Varve.Rdf.IQuadCursor!
 Varve.Rdf.InMemoryDataset.Remove(in Varve.Rdf.Quad quad) -> bool
 Varve.Rdf.InMemoryDataset.TermComparer.get -> System.Collections.Generic.IEqualityComparer<Varve.Rdf.TermHandle>!
 Varve.Rdf.InMemoryDataset.TermCount.get -> int
@@ -101,6 +110,8 @@ Varve.Rdf.TextDirection
 Varve.Rdf.TextDirection.LeftToRight = 1 -> Varve.Rdf.TextDirection
 Varve.Rdf.TextDirection.None = 0 -> Varve.Rdf.TextDirection
 Varve.Rdf.TextDirection.RightToLeft = 2 -> Varve.Rdf.TextDirection
+override Varve.Rdf.GraphPattern.Equals(object? obj) -> bool
+override Varve.Rdf.GraphPattern.GetHashCode() -> int
 override Varve.Rdf.Quad.Equals(object? obj) -> bool
 override Varve.Rdf.Quad.GetHashCode() -> int
 override Varve.Rdf.RdfTerm.Equals(object? obj) -> bool
@@ -109,6 +120,12 @@ override Varve.Rdf.TermHandle.Equals(object? obj) -> bool
 override Varve.Rdf.TermHandle.GetHashCode() -> int
 override Varve.Rdf.TermSpan.Equals(object? obj) -> bool
 override Varve.Rdf.TermSpan.GetHashCode() -> int
+static Varve.Rdf.GraphPattern.Any.get -> Varve.Rdf.GraphPattern
+static Varve.Rdf.GraphPattern.AnyNamed.get -> Varve.Rdf.GraphPattern
+static Varve.Rdf.GraphPattern.DefaultGraph.get -> Varve.Rdf.GraphPattern
+static Varve.Rdf.GraphPattern.Named(Varve.Rdf.TermHandle graph) -> Varve.Rdf.GraphPattern
+static Varve.Rdf.GraphPattern.operator !=(Varve.Rdf.GraphPattern left, Varve.Rdf.GraphPattern right) -> bool
+static Varve.Rdf.GraphPattern.operator ==(Varve.Rdf.GraphPattern left, Varve.Rdf.GraphPattern right) -> bool
 static Varve.Rdf.Quad.operator !=(Varve.Rdf.Quad left, Varve.Rdf.Quad right) -> bool
 static Varve.Rdf.Quad.operator ==(Varve.Rdf.Quad left, Varve.Rdf.Quad right) -> bool
 static Varve.Rdf.RdfTerm.BlankNode(System.ReadOnlySpan<byte> label) -> Varve.Rdf.RdfTerm!

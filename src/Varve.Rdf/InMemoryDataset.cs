@@ -104,20 +104,15 @@ public sealed class InMemoryDataset : IQuadSource
     public bool Contains(in Quad quad) => _quads.Contains(quad);
 
     /// <inheritdoc />
-    public IQuadCursor Match(TermHandle subject, TermHandle predicate, TermHandle @object, TermHandle graph) =>
-        new Cursor(_quads, subject, predicate, @object, graph, defaultGraphOnly: false);
-
-    /// <inheritdoc />
-    public IQuadCursor MatchDefaultGraph(TermHandle subject, TermHandle predicate, TermHandle @object) =>
-        new Cursor(_quads, subject, predicate, @object, TermHandle.None, defaultGraphOnly: true);
+    public IQuadCursor Match(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph) =>
+        new Cursor(_quads, subject, predicate, @object, graph);
 
     private sealed class Cursor : IQuadCursor
     {
         private readonly TermHandle _subject;
         private readonly TermHandle _predicate;
         private readonly TermHandle _object;
-        private readonly TermHandle _graph;
-        private readonly bool _defaultGraphOnly;
+        private readonly GraphPattern _graph;
         private HashSet<Quad>.Enumerator _enumerator;
 
         internal Cursor(
@@ -125,15 +120,13 @@ public sealed class InMemoryDataset : IQuadSource
             TermHandle subject,
             TermHandle predicate,
             TermHandle @object,
-            TermHandle graph,
-            bool defaultGraphOnly)
+            GraphPattern graph)
         {
             _enumerator = quads.GetEnumerator();
             _subject = subject;
             _predicate = predicate;
             _object = @object;
             _graph = graph;
-            _defaultGraphOnly = defaultGraphOnly;
         }
 
         public Quad Current { get; private set; }
@@ -174,12 +167,7 @@ public sealed class InMemoryDataset : IQuadSource
                 return false;
             }
 
-            if (_defaultGraphOnly)
-            {
-                return quad.IsDefaultGraph;
-            }
-
-            return _graph.IsNone || _graph.Equals(quad.Graph);
+            return _graph.Matches(quad.Graph);
         }
     }
 }
