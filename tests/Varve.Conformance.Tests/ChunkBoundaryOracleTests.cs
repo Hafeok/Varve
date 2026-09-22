@@ -81,13 +81,13 @@ public class ChunkBoundaryOracleTests
         IParserSubject subject = ParserSubjects.Current
             ?? throw new InvalidOperationException("no parser registered");
 
-        ParseOutcome whole = subject.Parse(entry.Format, entry.ActionPath);
+        ParseOutcome whole = subject.Parse(entry.Format, entry.ActionPath, entry.ActionIri);
         int length = (int)new FileInfo(entry.ActionPath).Length;
         List<string> disagreements = [];
 
         foreach (int at in Offsets(length))
         {
-            ParseOutcome split = subject.ParseSplit(entry.Format, entry.ActionPath, at);
+            ParseOutcome split = subject.ParseSplit(entry.Format, entry.ActionPath, entry.ActionIri, at);
 
             if (!Same(whole, split))
             {
@@ -169,7 +169,7 @@ public class ChunkBoundaryOracleTests
 
         for (int i = 0; i < whole.Quads.Count; i++)
         {
-            if (!string.Equals(whole.Quads[i], split.Quads[i], StringComparison.Ordinal))
+            if (whole.Quads[i] != split.Quads[i])
             {
                 return false;
             }
@@ -190,7 +190,7 @@ public class ChunkBoundaryOracleTests
 
         for (int i = 0; i < outcome.Quads.Count && i < 3; i++)
         {
-            text.Append("\n      ").Append(outcome.Quads[i]);
+            text.Append("\n      ").Append(outcome.Quads[i].ToString());
         }
 
         return text.ToString();

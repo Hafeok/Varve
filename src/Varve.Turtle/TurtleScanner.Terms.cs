@@ -96,6 +96,13 @@ internal ref partial struct TurtleScanner
             return TryLiteral(out slot);
         }
 
+        if (b == (byte)'.' && Consumed + 1 >= _text.Length && MayGrow)
+        {
+            // A leading dot is a decimal when a digit follows and nothing at
+            // all otherwise, and the digit may be in the next chunk.
+            return Truncated();
+        }
+
         if (b is (byte)'+' or (byte)'-' || NTriplesChars.IsAsciiDigit(b)
             || (b == (byte)'.' && Consumed + 1 < _text.Length && NTriplesChars.IsAsciiDigit(_text[Consumed + 1])))
         {

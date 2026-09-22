@@ -172,6 +172,7 @@ internal static class ManifestReader
             Name: Literal(graph, entry, Mf + "name") ?? entryIri.Uri.Fragment.TrimStart('#'),
             Comment: Literal(graph, entry, Rdfs + "comment"),
             ActionPath: actionPath,
+            ActionIri: actionIri.Uri.AbsoluteUri,
             Format: suite.Format,
             Expected: expected.Value,
             ResultPath: resultPath);

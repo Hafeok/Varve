@@ -63,7 +63,7 @@ public class SyntaxConformanceTests
             return;
         }
 
-        ParseOutcome outcome = subject.Parse(entry.Format, entry.ActionPath);
+        ParseOutcome outcome = subject.Parse(entry.Format, entry.ActionPath, entry.ActionIri);
 
         switch (entry.Expected)
         {
@@ -79,10 +79,62 @@ public class SyntaxConformanceTests
                     Describe(entry) + " is ill-formed and must be rejected, but it parsed.");
                 break;
 
+            case ExpectedOutcome.Evaluates:
+                Evaluate(entry, subject, outcome);
+                break;
+
             default:
                 throw new InvalidOperationException(
                     "Unhandled expectation " + entry.Expected.ToString() + " for " + testIri + ".");
         }
+    }
+
+    /// <summary>
+    /// Compares the parse with the dataset the entry's <c>mf:result</c> holds,
+    /// up to a bijection of blank nodes.
+    /// </summary>
+    /// <remarks>
+    /// The result of a Turtle test is N-Triples and of a TriG test is N-Quads,
+    /// by the suites' own convention. Reading it with the line parser rather
+    /// than the Turtle one is deliberate: the expected side of a comparison
+    /// should go through as little of the code under test as it can.
+    /// </remarks>
+    private static void Evaluate(ManifestEntry entry, IParserSubject subject, ParseOutcome outcome)
+    {
+        Assert.True(
+            outcome.Succeeded,
+            Describe(entry) + " must parse, but was rejected: " + (outcome.Error ?? "(no reason given)"));
+
+        Assert.True(
+            entry.ResultPath is not null,
+            Describe(entry) + " is an evaluation test with no mf:result to compare against.");
+
+        RdfFormat resultFormat = entry.Format == RdfFormat.TriG ? RdfFormat.NQuads : RdfFormat.NTriples;
+        ParseOutcome expected = subject.Parse(resultFormat, entry.ResultPath!, entry.ActionIri);
+
+        Assert.True(
+            expected.Succeeded,
+            Describe(entry) + "'s expected result does not parse as " + resultFormat + ": "
+            + (expected.Error ?? "(no reason given)"));
+
+        string? difference = Isomorphism.Compare(outcome.Quads, expected.Quads);
+
+        Assert.True(
+            difference is null,
+            Describe(entry) + " produced a different dataset — " + difference
+            + ".\n  parsed:\n" + Lines(outcome.Quads) + "  expected:\n" + Lines(expected.Quads));
+    }
+
+    private static string Lines(System.Collections.Generic.IReadOnlyList<ParsedQuad> quads)
+    {
+        System.Text.StringBuilder text = new();
+
+        foreach (ParsedQuad quad in quads)
+        {
+            text.Append("    ").Append(quad.ToString()).Append('\n');
+        }
+
+        return text.ToString();
     }
 
     private static string Describe(ManifestEntry entry) =>

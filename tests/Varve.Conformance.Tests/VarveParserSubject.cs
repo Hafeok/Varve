@@ -32,19 +32,19 @@ internal sealed class VarveParserSubject : IParserSubject
     [ModuleInitializer]
     internal static void Register() => ParserSubjects.Current = new VarveParserSubject();
 
-    public ParseOutcome Parse(RdfFormat format, string path)
+    public ParseOutcome Parse(RdfFormat format, string path, string baseIri)
     {
         byte[] bytes = File.ReadAllBytes(path);
         Collector collector = new();
 
         ParseResult result = IsLineBased(format)
             ? NQuadsParser.Parse(bytes, collector.Handler, LineOptions(format))
-            : TurtleParser.Parse(bytes, collector.Handler, TurtleOptionsFor(format));
+            : TurtleParser.Parse(bytes, collector.Handler, TurtleOptionsFor(format, baseIri));
 
         return Outcome(result, collector);
     }
 
-    public ParseOutcome ParseSplit(RdfFormat format, string path, int at)
+    public ParseOutcome ParseSplit(RdfFormat format, string path, string baseIri, int at)
     {
         byte[] bytes = File.ReadAllBytes(path);
         Collector collector = new();
@@ -52,7 +52,7 @@ internal sealed class VarveParserSubject : IParserSubject
 
         ParseResult result = IsLineBased(format)
             ? NQuadsParser.Parse(in sequence, collector.Handler, LineOptions(format))
-            : TurtleParser.Parse(in sequence, collector.Handler, TurtleOptionsFor(format));
+            : TurtleParser.Parse(in sequence, collector.Handler, TurtleOptionsFor(format, baseIri));
 
         return Outcome(result, collector);
     }
@@ -65,9 +65,15 @@ internal sealed class VarveParserSubject : IParserSubject
         Syntax = format == RdfFormat.NQuads ? RdfSyntax.NQuads : RdfSyntax.NTriples,
     };
 
-    private static TurtleOptions TurtleOptionsFor(RdfFormat format) => new()
+    /// <remarks>
+    /// N-Triples and N-Quads take no base: they require absolute IRIs, so a
+    /// relative one is a fault their suites test for and supplying a base would
+    /// hide it.
+    /// </remarks>
+    private static TurtleOptions TurtleOptionsFor(RdfFormat format, string baseIri) => new()
     {
         Syntax = format == RdfFormat.TriG ? RdfSyntax.TriG : RdfSyntax.Turtle,
+        BaseIri = Encoding.UTF8.GetBytes(baseIri),
     };
 
     private static ParseOutcome Outcome(ParseResult result, Collector collector) =>
@@ -92,18 +98,34 @@ internal sealed class VarveParserSubject : IParserSubject
 
     private sealed class Collector
     {
-        private readonly ArrayBufferWriter _output = new();
         private readonly WriteOptions _writeOptions = new() { Syntax = RdfSyntax.NQuads };
 
-        internal List<string> Quads { get; } = [];
+        internal List<ParsedQuad> Quads { get; } = [];
 
         internal QuadHandler Handler => Collect;
 
         private void Collect(in QuadView quad)
         {
-            _output.Reset();
-            NQuadsWriter.Write(_output, in quad, _writeOptions);
-            Quads.Add(Encoding.UTF8.GetString(_output.Written).TrimEnd('\n'));
+            Quads.Add(new ParsedQuad(
+                Term(quad.Subject),
+                Term(quad.Predicate),
+                Term(quad.Object),
+                quad.HasGraph ? Term(quad.Graph) : null));
+        }
+
+        /// <summary>One term in canonical N-Triples syntax.</summary>
+        private string Term(in RdfTermView view)
+        {
+            RdfTerm term = view.Materialise();
+            byte[] buffer = new byte[256];
+
+            while (!NQuadsWriter.TryWriteTerm(term, buffer, out _, in _writeOptions))
+            {
+                buffer = new byte[buffer.Length * 2];
+            }
+
+            NQuadsWriter.TryWriteTerm(term, buffer, out int written, in _writeOptions);
+            return Encoding.UTF8.GetString(buffer, 0, written);
         }
     }
 

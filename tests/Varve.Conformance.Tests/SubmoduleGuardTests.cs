@@ -167,28 +167,26 @@ public class SubmoduleGuardTests
     }
 
     /// <summary>
-    /// No ratcheted suite contains an evaluation test.
+    /// Every evaluation entry has a result to compare against.
     /// </summary>
     /// <remarks>
     /// An evaluation test asserts that the parse produces a particular dataset,
-    /// and that comparison is not implemented yet. The syntax runner would
-    /// record such an entry as passing on the strength of "it parsed", so the
-    /// baseline would claim a conformance nobody checked — and a baseline that
-    /// overstates is worse than one that is missing entries, because it stops
-    /// anyone looking. Wiring the Turtle and TriG suites into the ratchet must
-    /// therefore land together with the isomorphism comparison, and this is
-    /// what makes doing one without the other fail rather than pass quietly.
+    /// and the comparison is <see cref="Isomorphism"/>. This replaces the guard
+    /// that kept such entries out of the ratchet while no comparison existed:
+    /// what can still go wrong is an entry whose <c>mf:result</c> the reader
+    /// fails to pick up, which would leave the runner asserting only that the
+    /// action parsed — the weaker claim the earlier guard was there to prevent.
     /// </remarks>
     [Fact]
-    public void No_ratcheted_suite_contains_an_evaluation_test()
+    public void Every_evaluation_entry_has_a_result_to_compare_against()
     {
         Assert.True(TestData.IsCheckedOut, "The W3C test data is missing; see the first failure.");
 
         List<string> unchecked_ = [];
 
-        foreach (ManifestEntry entry in Catalogue.Entries)
+        foreach (ManifestEntry entry in OracleCatalogue.Entries)
         {
-            if (entry.Expected == ExpectedOutcome.Evaluates)
+            if (entry.Expected == ExpectedOutcome.Evaluates && entry.ResultPath is null)
             {
                 unchecked_.Add(entry.TestIri);
             }
@@ -196,9 +194,34 @@ public class SubmoduleGuardTests
 
         Assert.True(
             unchecked_.Count == 0,
-            "These entries are evaluation tests in a ratcheted suite, and the result comparison "
-            + "is not implemented, so the ratchet would record them as passing without checking "
-            + "what they assert:\n  " + string.Join("\n  ", unchecked_));
+            "These evaluation entries have no mf:result, so nothing would compare what they produce "
+            + "against what they assert:\n  " + string.Join("\n  ", unchecked_));
+    }
+
+    /// <summary>
+    /// Evaluation entries exist to be compared, so there had better be some.
+    /// </summary>
+    /// <remarks>
+    /// The companion to the above: a reader that stopped recognising
+    /// <c>rdft:TestTurtleEval</c> would satisfy it by having nothing to check.
+    /// </remarks>
+    [Fact]
+    public void The_suites_contribute_evaluation_entries()
+    {
+        Assert.True(TestData.IsCheckedOut, "The W3C test data is missing; see the first failure.");
+
+        int evaluations = 0;
+
+        foreach (ManifestEntry entry in OracleCatalogue.Entries)
+        {
+            if (entry.Expected == ExpectedOutcome.Evaluates)
+            {
+                evaluations++;
+            }
+        }
+
+        // Turtle 145 and TriG 143, as the manifests list them.
+        Assert.Equal(288, evaluations);
     }
 
     /// <summary>

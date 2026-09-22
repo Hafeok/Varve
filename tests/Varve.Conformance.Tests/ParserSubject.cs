@@ -10,13 +10,14 @@ namespace Varve.Conformance.Tests;
 /// diagnosable.
 /// </param>
 /// <param name="Quads">
-/// The quads read, in canonical N-Quads form, when the subject can supply them.
-/// Empty until there is something that can. Evaluation tests will need it;
-/// syntax tests do not, which is why milestone 1 wires syntax suites only.
+/// The quads read, each term in canonical N-Triples term syntax. What an
+/// evaluation test compares, and what a syntax test's failure message can show
+/// so that a surprising result says what was parsed rather than only that
+/// something was.
 /// </param>
-internal sealed record ParseOutcome(bool Succeeded, string? Error, IReadOnlyList<string> Quads)
+internal sealed record ParseOutcome(bool Succeeded, string? Error, IReadOnlyList<ParsedQuad> Quads)
 {
-    internal static ParseOutcome Parsed(IReadOnlyList<string> quads) => new(true, null, quads);
+    internal static ParseOutcome Parsed(IReadOnlyList<ParsedQuad> quads) => new(true, null, quads);
 
     internal static ParseOutcome Rejected(string error) => new(false, error, []);
 }
@@ -39,7 +40,13 @@ internal interface IParserSubject
     /// Parses <paramref name="path"/> as <paramref name="format"/>, reporting
     /// whether it was accepted rather than throwing.
     /// </summary>
-    ParseOutcome Parse(RdfFormat format, string path);
+    /// <param name="format">The syntax to read it as.</param>
+    /// <param name="path">The file on disk.</param>
+    /// <param name="baseIri">
+    /// The IRI the file is published at. Several suite inputs are relative
+    /// throughout and do not parse without it.
+    /// </param>
+    ParseOutcome Parse(RdfFormat format, string path, string baseIri);
 
     /// <summary>
     /// The same parse, with the input delivered as two segments split at
@@ -52,7 +59,7 @@ internal interface IParserSubject
     /// whole-document API can say so by throwing, rather than by quietly
     /// reporting agreement it never tested.
     /// </remarks>
-    ParseOutcome ParseSplit(RdfFormat format, string path, int at);
+    ParseOutcome ParseSplit(RdfFormat format, string path, string baseIri, int at);
 }
 
 /// <summary>

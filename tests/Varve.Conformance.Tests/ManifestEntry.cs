@@ -41,6 +41,11 @@ internal enum ExpectedOutcome
 /// <param name="Name">The entry's <c>mf:name</c>.</param>
 /// <param name="Comment">The entry's <c>rdfs:comment</c>, if it has one.</param>
 /// <param name="ActionPath">The absolute path of the file to parse.</param>
+/// <param name="ActionIri">
+/// The IRI the file is published at, which is the base a relative reference in
+/// it resolves against. Several suite inputs have no <c>@base</c> and relative
+/// IRIs throughout, so without it they do not parse at all.
+/// </param>
 /// <param name="Format">The syntax to parse it as.</param>
 /// <param name="Expected">Whether parsing must succeed or must fail.</param>
 /// <param name="ResultPath">
@@ -54,6 +59,7 @@ internal sealed record ManifestEntry(
     string Name,
     string? Comment,
     string ActionPath,
+    string ActionIri,
     RdfFormat Format,
     ExpectedOutcome Expected,
     string? ResultPath = null);
