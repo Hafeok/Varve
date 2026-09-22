@@ -9,13 +9,21 @@ namespace Varve.Benchmarks;
 /// <remarks>
 /// Every statement carries a prefixed name to expand, a predicate-object list,
 /// an object list, a blank node property list and a collection, so the
-/// measurement is of Turtle's own work rather than of line splitting. Ten
-/// thousand statements, which is 90,000 quads — close enough to the N-Quads
-/// dataset's 100,000 that the two numbers can be read beside each other.
+/// measurement is of Turtle's own work rather than of line splitting.
+/// <para>
+/// Each statement yields ten quads: three from the object list, one naming the
+/// blank node property list, one inside it, four from the two-item collection's
+/// <c>rdf:first</c>/<c>rdf:rest</c> pairs, and one from <c>a</c>. Ten thousand
+/// statements is therefore 100,000 quads, the same count as the N-Quads
+/// dataset, so the two sets of numbers can be read beside each other.
+/// </para>
 /// </remarks>
 internal static class TurtleDataset
 {
     internal const int Statements = 10_000;
+
+    /// <summary>Ten per statement; see the remarks on this type.</summary>
+    internal const int Quads = Statements * 10;
 
     internal static byte[] Utf8 { get; } = Build();
 

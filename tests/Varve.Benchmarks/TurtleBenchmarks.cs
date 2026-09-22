@@ -37,6 +37,25 @@ public class TurtleBenchmarks
         BaseIri = System.Text.Encoding.UTF8.GetBytes("http://example.org/base/"),
     };
 
+    /// <summary>
+    /// The quad count is the claim's denominator, so it is checked rather than
+    /// asserted in prose: a parser that quietly stopped halfway through the
+    /// document would otherwise produce a flattering number.
+    /// </summary>
+    [GlobalSetup]
+    public void CheckDataset()
+    {
+        long count = TurtleParser.Parse(
+            TurtleDataset.Utf8, static (in QuadView quad) => sink += quad.Subject.Lexical.Length, in _options)
+            .QuadCount;
+
+        if (count != TurtleDataset.Quads)
+        {
+            throw new InvalidOperationException(
+                $"The dataset parses to {count} quads, not the {TurtleDataset.Quads} the report states.");
+        }
+    }
+
     [Benchmark(Baseline = true, Description = "Varve — views")]
     public long Varve_Views() =>
         TurtleParser.Parse(
@@ -56,6 +75,28 @@ public class TurtleBenchmarks
                 sink += subject.Kind == predicate.Kind ? obj.Lexical.Length : 1;
             },
             in _options).QuadCount;
+
+    /// <summary>
+    /// The like-for-like row: a queryable dataset with interned terms, which is
+    /// what dotNetRDF's <c>Graph</c> is. The streaming rows above are not doing
+    /// its work and must not be read as if they were.
+    /// </summary>
+    [Benchmark(Description = "Varve — into InMemoryDataset")]
+    public int Varve_Interned()
+    {
+        InMemoryDataset dataset = new();
+
+        TurtleParser.Parse(
+            TurtleDataset.Utf8,
+            (in QuadView quad) => dataset.Add(
+                quad.Subject.Materialise(),
+                quad.Predicate.Materialise(),
+                quad.Object.Materialise(),
+                quad.HasGraph ? quad.Graph.Materialise() : null),
+            in _options);
+
+        return dataset.Count;
+    }
 
     [Benchmark(Description = "Varve — read and write back")]
     public int Varve_RoundTrip()
