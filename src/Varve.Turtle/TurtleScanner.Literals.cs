@@ -222,22 +222,13 @@ internal ref partial struct TurtleScanner
             return true;
         }
 
-        ReadOnlySpan<byte> rest = _text[(i + 2)..];
-
-        if (rest.StartsWith("ltr"u8))
-        {
-            direction = TextDirection.LeftToRight;
-        }
-        else if (rest.StartsWith("rtl"u8))
-        {
-            direction = TextDirection.RightToLeft;
-        }
-        else
-        {
-            return Fail(ParseErrorKind.InvalidBaseDirection, i + 2);
-        }
-
-        Consumed = i + 5;
-        return true;
+        // A base direction is RDF 1.2's LANG_DIR, and this reader is RDF 1.1
+        // Turtle and TriG (`turtle.md` §9). [144s] LANGTAG requires each
+        // subtag after a '-' to be alphanumeric, so "en--ltr" is not a tag this
+        // syntax has — the term model carries a direction, and the syntaxes
+        // that can write one are N-Triples and N-Quads, where the rdf12 suites
+        // gate it. Accepting it here would be a feature with no suite behind
+        // it, which is the defect that gating rdf12 found at 3a.
+        return Fail(ParseErrorKind.InvalidLanguageTag, i);
     }
 }

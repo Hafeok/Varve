@@ -90,23 +90,22 @@ public sealed partial class TurtleWriter
 
         if (hasLanguage)
         {
-            writer.Byte((byte)'@');
-            writer.Bytes(language);
-
-            switch (direction)
+            if (direction != TextDirection.None)
             {
-                case TextDirection.LeftToRight:
-                    writer.Bytes("--ltr"u8);
-                    break;
-
-                case TextDirection.RightToLeft:
-                    writer.Bytes("--rtl"u8);
-                    break;
-
-                default:
-                    break;
+                // RDF 1.1 Turtle has no syntax for a base direction: it is RDF
+                // 1.2's LANG_DIR, which this reader does not accept
+                // (`turtle.md` §9). Writing it would produce a document this
+                // library's own reader rejects, and dropping it would write a
+                // different term — so neither, and the caller is told which
+                // syntaxes can carry one.
+                throw new InvalidOperationException(
+                    "This literal carries a base direction, and RDF 1.1 Turtle and TriG have no "
+                    + "syntax for one. Write it as N-Triples or N-Quads, where RDF 1.2's LANG_DIR "
+                    + "is gated by the rdf12 suites; RDF 1.2 Turtle is on the roadmap.");
             }
 
+            writer.Byte((byte)'@');
+            writer.Bytes(language);
             return;
         }
 

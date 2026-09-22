@@ -326,7 +326,26 @@ format rather than for Turtle alone: N-Triples and N-Quads are correct here by
 construction, because their line buffer never hands the parser a partial line,
 and the oracle is what turns that argument into a measurement.
 
-## 9. Open questions
+## 9. RDF 1.2 is not accepted here
 
-None. RDF 1.2 Turtle and TriG are deferred rather than open: the decision is
-recorded in `docs/roadmap.md`, and the reason is the age of the drafts.
+This is RDF 1.1 Turtle and TriG. The reader rejects every RDF 1.2 construct:
+triple terms `<<( … )>>` [30], reifiers `~` [29], annotations `{| … |}` [27],
+both spellings of the version directive [4], and `LANG_DIR` [154s] — the
+`--ltr` and `--rtl` suffix on a language tag.
+
+**The term model is a separate matter.** `Varve.Rdf` carries base direction and
+triple terms, and N-Triples and N-Quads read and write both, where the `rdf12`
+syntax suites gate them. What a term can be and what a syntax can spell are not
+the same question, and the RDF 1.2 Turtle drafts are days old
+(`docs/roadmap.md`).
+
+So the Turtle **writer refuses** a literal carrying a base direction rather
+than emitting one: a writer that produced `"x"@en--ltr` would produce a
+document this reader rejects, and one that dropped the direction would write a
+different term. A caller with such a term wants N-Triples or N-Quads.
+
+## 10. Open questions
+
+None. RDF 1.2 Turtle and TriG are deferred rather than open: the decision and
+its cost — 167 cases, of which 123 positive — are in `docs/roadmap.md`, and the
+reason is the age of the drafts.
