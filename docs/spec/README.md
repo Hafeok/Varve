@@ -42,9 +42,12 @@ The order is specification, then ADR, then code.
 
 In dependency order:
 
-- `xsd.md` — value spaces and SPARQL operator semantics (milestone 3b).
-- `sparql-evaluation.md` — the algebra semantics the evaluator implements
-  (milestone 5).
+- `turtle.md` — the Turtle and TriG grammars (milestone 3b).
+- `xsd.md` — value spaces and SPARQL operator semantics. Not the term model's:
+  term equality is lexical and stays that way (see `rdf-model.md` §2). Lands
+  just before the evaluator, which is the first thing with a suite that gates
+  it.
+- `sparql-evaluation.md` — the algebra semantics the evaluator implements.
 
 Cite specification sections when you write one. Where a W3C specification is
 silent, Oxigraph's behaviour is the tie-breaker; say so explicitly in the text

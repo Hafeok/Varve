@@ -4,7 +4,7 @@ Functional specification, version 1.1.
 
 Status: Accepted. This document is the authority for the behaviour of `Varve.Store`. It changes only together with the ADR that motivates the change, and each change is listed at the top with its date. Section 12 maps the decisions to ADRs.
 
-Changes in version 1.1 (2026-09-22): the cipher is ADR 0028's deterministic AEAD built from HMAC-SHA-256, replacing ADR 0020's AES-CBC composition, which failed its acceptance condition on a real browser build — Q6, section 12.
+Changes in version 1.1 (2026-09-22): the cipher is ADR 0028's deterministic AEAD built from HMAC-SHA-256, replacing ADR 0020's AES-CBC composition, which failed its acceptance condition on a real browser build — Q6, section 12. An inline id may encode a literal only when its lexical form is canonical, so that the inline optimisation cannot collapse two terms into one — section 1, TermId, ADR 0012.
 
 Changes in version 1 (2026-09-21), from the last draft (draft 2): private ids are no longer required to be random (section 1). Dataset settings are a commit kind (section 1, T5). "Synchronous" for the default projection is defined, with a failed state (T1, section 7). Access requests are defined by key id with a configurable scope, and the selector is no longer part of erasure (section 9). Q7 is closed. Equality is stated as a property of the quad source (section 6).
 
@@ -13,7 +13,7 @@ Scope: the abstract state machine of `Varve.Store`. No byte-level format, no API
 ## 1. Domains
 
 - **Term**: an RDF 1.2 term (IRI, blank node, literal, triple term).
-- **TermId**: an opaque 64-bit identifier with a class carried in its high bits: *canonical*, *blank*, *private*, or *inline* for small values encoded in the id itself, which have no dictionary entry. Ids of the first three classes are counter-allocated by the sequencer (ADR 0012).
+- **TermId**: an opaque 64-bit identifier with a class carried in its high bits: *canonical*, *blank*, *private*, or *inline* for small values encoded in the id itself, which have no dictionary entry. Ids of the first three classes are counter-allocated by the sequencer (ADR 0012). A literal may take an inline id **only when its lexical form is the canonical one for its datatype**: term identity is lexical (RDF 1.1 Concepts §3.3), and encoding `"1"` and `"01"` as one inline id would make two terms into one.
 - **Dictionary** `D`: a partial map from `TermId` to an entry.
   - A canonical entry is a term. `D` restricted to canonical ids is injective: one id per term.
   - A blank id is its own identity. Two blank nodes are equal iff their ids are equal.

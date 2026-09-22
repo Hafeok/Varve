@@ -43,8 +43,16 @@ proposed below.
 ## 3 — RDF model, IRI, XSD datatypes, N-Triples and N-Quads
 
 **3a** *(complete)*: `Varve.Iri`, `Varve.Rdf`, and N-Triples and N-Quads in
-`Varve.Turtle`, to a full suite pass. **3b**: `Varve.Xsd` and RDFC-1.0
-canonicalisation — neither is needed for the N-Triples and N-Quads suites.
+`Varve.Turtle`, to a full suite pass. **3b**: Turtle and TriG. `Varve.Xsd` and
+RDFC-1.0 canonicalisation come later — neither is needed for any syntax suite.
+
+**`Varve.Xsd` brings value equality to the evaluator, not to the term model.**
+Literal term equality is character by character over lexical form, datatype IRI
+and language tag (RDF 1.1 Concepts §3.3) and stays that way permanently; value
+comparison is SPARQL 1.1 §17.3 and §17.4.1.7, and lives at layer 3. An earlier
+draft of this file said `Varve.Xsd` would "unblock value equality in the term
+model", which would have been a change to what a graph contains rather than to
+what a query answers. See ADRs 0022 and 0024.
 
 The first packable projects, and therefore the first time several milestone 1
 mechanisms stopped being inert. All of the following are **delivered**:

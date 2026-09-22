@@ -44,6 +44,14 @@ supplied by the source**.
   blank ids compare by id; **a readable private term compares by decrypted
   value**, against private and canonical terms alike; a shredded one is equal
   only to itself. No consumer can get that right from the bits, and none has to.
+- **`TermComparer` is term equality** — RDF 1.1 Concepts §3.3, character by
+  character over lexical form, datatype IRI and language tag. It is not, and
+  will not become, value equality. "Compares by decrypted value" above means
+  the comparison is made on the plaintext term rather than on the ciphertext or
+  the id; it does **not** mean `"1"^^xsd:integer` equals `"01"^^xsd:integer`.
+  Value comparison is the evaluator's (SPARQL 1.1 §17.3, §17.4.1.7) and lives at
+  layer 3, above this contract. A quad source that returned value equality here
+  would change which quads a dataset contains.
 - **An in-memory dataset without a store brings its own interning table.** It is
   a quad source like any other, and nothing about the contract presumes a log.
 

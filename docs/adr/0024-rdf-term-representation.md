@@ -44,7 +44,7 @@ use-after-free **fail to compile**: a view cannot be captured by a lambda,
 stored in a field, boxed, or put in a collection. The alternative — a normal
 struct with a documented lifetime — puts that rule in a comment.
 
-### The owned term — allocating, storable, value equality
+### The owned term — allocating, storable, term equality
 
 `RdfTerm` is a sealed class with static factories and no public constructor. It
 owns its bytes, compares by value with a cached hash, and nests naturally
@@ -107,10 +107,29 @@ lands, is the mechanism that could: a `[HotPath]` method calling `Materialise`
 is exactly the shape it is meant to catch, and the parse and write paths are
 marked now so that the rule has something to check (ADR 0026).
 
-**The owned term's equality is term equality, not value equality.**
-`"1"^^xsd:integer` and `"01"^^xsd:integer` are different terms here and will be
-equal values once `Varve.Xsd` exists at milestone 3b. Nothing at 3a may assume
-otherwise, and `rdf-model.md` §6 says so.
+**The owned term's equality is term equality, and it stays term equality.**
+RDF 1.1 Concepts §3.3 defines literal equality character by character over the
+lexical form, the datatype IRI and the language tag. `"1"^^xsd:integer` and
+`"01"^^xsd:integer` are **different terms, permanently**.
+
+**`Varve.Xsd` does not change that, at 3b or ever.** It brings *value* equality,
+which belongs to the evaluator — SPARQL 1.1 §17.3's operator mapping and
+§17.4.1.7's `RDFterm-equal` — and the two live at different layers on purpose.
+A `Varve.Xsd` that made two lexically distinct literals equal *as terms* would
+change what a graph contains, not what a query answers.
+
+**Amendment, 2026-09-22.** The heading of this section read "value equality"
+while its body said the opposite. Corrected, and the paragraph above says what
+`Varve.Xsd` does and does not do, because the earlier roadmap wording had
+already drifted into claiming it would "unblock value equality in the term
+model".
+
+One fold is **not** an exception to this. An explicitly written
+`xsd:string` datatype is folded away, because Concepts §3.3 makes `"a"` and
+`"a"^^xsd:string` **the same term** — one term with two spellings, not two
+terms declared equal. The same reasoning is why `rdf:langString` and
+`rdf:dirLangString` are refused as explicit datatypes rather than accepted and
+normalised: there is no term for them to be a spelling of.
 
 ## Checks
 

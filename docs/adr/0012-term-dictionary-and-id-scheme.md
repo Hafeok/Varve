@@ -70,6 +70,30 @@ against.
 Which datatypes qualify for inline encoding, and the exact bit layout, are
 **milestone 6** decisions. No bytes are frozen before then.
 
+### Amendment, 2026-09-22 — an inline id may only encode a canonical lexical form
+
+The decision above is unchanged. This states a constraint it left implicit and
+that milestone 6 would otherwise be free to get wrong.
+
+An inline id *is* its value, so two ids are equal exactly when their bits are.
+But a literal's identity is its **lexical form**, not its value (Concepts §3.3),
+and `"1"^^xsd:integer` and `"01"^^xsd:integer` are different terms. If both were
+encoded inline as the integer 1 they would become one id, and therefore one
+term. **An inline encoding would have silently applied value equality to the
+dictionary** — in the one place a consumer cannot see it happening, because
+there is no dictionary entry to inspect.
+
+So: **a literal may be encoded inline only when its lexical form is the
+canonical one for its datatype.** `"1"^^xsd:integer` qualifies; `"01"`,
+`"+1"` and `"1.0"` do not, and take ordinary canonical ids with dictionary
+entries. The rule costs a canonicality check on the write path and nothing on
+the read path, and it is cheaper to state now than to discover from a dataset
+in which two terms became one.
+
+This does not make the store value-aware. It is the opposite: the constraint
+exists precisely so that the inline optimisation cannot leak value equality into
+a place that is supposed to be about terms.
+
 ## Corrections to the Proposed version
 
 **Private ids do not need to be random.** They need to be *independent of
