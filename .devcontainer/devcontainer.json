@@ -1,0 +1,63 @@
+{
+  // Varve's development container. ADR 0036.
+  //
+  // The base and the first two features are mirrored from the Mind Over Machine
+  // core skill's template (mindovermachine-dev/how-we-work,
+  // skills/init-takt-devcontainer/templates/.devcontainer/devcontainer.json):
+  // the same Ubuntu 24.04 image, common-utils and github-cli. What that
+  // template adds beyond them — Node, Python, cspell, prettier,
+  // markdownlint-cli2 and the gh-insitu extension — verifies nothing in this
+  // repository, and its `trunk-worthy` wave has an equivalent here that this
+  // repository already owns: `dotnet run eng/ci.cs`. ADR 0036 argues that at
+  // length rather than asserting it.
+  //
+  // What follows the mirrored part is the .NET stack overlay, written in the
+  // style the takt-stack-* overlays are described in (docs/architecture.md in
+  // that repository: runtime provisioning and cache strategy, plus the
+  // build/test commands for the stack) so that it can be offered back as one.
+  "name": "Varve",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+
+    // Pinned to the exact version in global.json, not to a major and not to
+    // latest. global.json rolls forward on feature band, so a container with a
+    // different SDK can produce a build the maintainer cannot reproduce — and
+    // a version skew between the container and global.json is a defect rather
+    // than a convenience.
+    "ghcr.io/devcontainers/features/dotnet:2": {
+      "version": "10.0.401"
+    }
+  },
+
+  "onCreateCommand": "bash .devcontainer/post-create.sh",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csharp",
+        "editorconfig.editorconfig",
+        "davidanson.vscode-markdownlint"
+      ],
+      "settings": {
+        "dotnet.defaultSolution": "Varve.slnx",
+        "files.eol": "\n"
+      }
+    }
+  },
+
+  "remoteEnv": {
+    "DOTNET_NOLOGO": "true",
+    "DOTNET_CLI_TELEMETRY_OPTOUT": "true",
+
+    // Signing, per ADR 0034: a local session with a key signs like a human, and
+    // only the cloud sandbox carries the exception. Passing the agent socket
+    // and the TTY through is what makes that possible inside the container.
+    // The template this mirrors passes the same three.
+    "GH_TOKEN": "${localEnv:GH_TOKEN}",
+    "GPG_TTY": "${containerEnv:GPG_TTY}",
+    "SSH_AUTH_SOCK": "${localEnv:SSH_AUTH_SOCK}"
+  }
+}

@@ -27,6 +27,20 @@ jobs:
   publish:
     runs-on: ubuntu-latest
 
+    # The one place a human is required. ADR 0032 moved review off the path to
+    # the trunk and onto this: the `release` environment has the maintainer as
+    # a required reviewer, so a tag does not publish until a person approves it.
+    # Merging is gated by the checks; publishing is gated by a person, because
+    # a version pushed to nuget.org cannot be edited, replaced or deleted.
+    #
+    # MAINTAINER, BEFORE THE FIRST v* TAG: the trusted-publishing policy on
+    # nuget.org was created naming this workflow with *no* environment (ADR
+    # 0029). Adding the environment changes the OIDC claim the policy is
+    # matched against, so the policy has to be updated to name `release` or the
+    # push step fails authentication in a way that looks like a bad credential.
+    # Nothing is published yet, so nothing is broken today.
+    environment: release
+
     permissions:
       contents: read
 
@@ -35,6 +49,16 @@ jobs:
       id-token: write
 
     steps:
+      - name: Line endings
+        # Before the checkout, because this is what the checkout obeys. Windows
+        # runners default to core.autocrlf=true, which rewrote the W3C suite's
+        # line endings at milestone 3b and left the two platforms testing
+        # different bytes — 163 cases reported a line number that was wrong on
+        # one runner only. Conformance inputs must be identical everywhere;
+        # CR LF handling is tested on documents this repository owns. ADR 0036.
+        shell: bash
+        run: git config --global core.autocrlf false
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -55,6 +79,13 @@ jobs:
 
       - name: Dependency register
         run: dotnet run eng/dependency-register.cs
+
+      - name: Licence headers
+        # MPL-2.0 is file-level copyleft: a file is Covered Software because it
+        # carries the Exhibit A notice (ADR 0031). A package published with a
+        # file missing its notice cannot be corrected afterwards, only
+        # unlisted, so this runs here as well as on every pull request.
+        run: dotnet run eng/licence-headers.cs
 
       - name: Restore
         run: dotnet restore Varve.slnx

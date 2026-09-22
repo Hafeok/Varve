@@ -21,6 +21,50 @@ env:
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 jobs:
+  # The pipeline, in the devcontainer. ADR 0036 and the Mind Over Machine
+  # stewardship item behind it: CI/CD pipelines are containerised and fully
+  # executable from the local development environment.
+  #
+  # This job and a developer's `dotnet run eng/ci.cs` are the same code in the
+  # same image. That is the whole claim, and it is why the job runs a single
+  # command rather than a list of steps — a list here would be a second
+  # description of the same intent, and two descriptions drift.
+  #
+  # It overlaps the ubuntu leg of `build` below, deliberately. The alternative
+  # was to drop that leg and let the container be linux, which would have been
+  # tidier and would have made this job load-bearing for all linux coverage on
+  # the day the image build breaks. ADR 0036 keeps both.
+  pipeline:
+    name: pipeline (devcontainer)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Line endings
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          submodules: recursive
+
+          # eng/issue-refs.cs walks the commits this push or pull request adds,
+          # and a shallow clone has no base to walk from. This is the one job
+          # that needs the history.
+          fetch-depth: 0
+
+      - name: Build the devcontainer and run the pipeline
+        uses: devcontainers/ci@513af61f4de4f75d37e4438f184ba4358f0fc1ca # v0.3.1900000450
+        env:
+          # eng/issue-refs.cs reads these to work out the range by itself, so
+          # the command below stays exactly what a developer types.
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+          GITHUB_SHA: ${{ github.sha }}
+        with:
+          push: never
+          runCmd: dotnet run eng/ci.cs
+
   # Gates merges. Everything here must be green.
   build:
     name: build (${{ matrix.os }})
@@ -34,6 +78,16 @@ jobs:
         os: [ubuntu-latest, windows-latest]
 
     steps:
+      - name: Line endings
+        # Before the checkout, because this is what the checkout obeys. Windows
+        # runners default to core.autocrlf=true, which rewrote the W3C suite's
+        # line endings at milestone 3b and left the two platforms testing
+        # different bytes — 163 cases reported a line number that was wrong on
+        # one runner only. Conformance inputs must be identical everywhere;
+        # CR LF handling is tested on documents this repository owns. ADR 0036.
+        shell: bash
+        run: git config --global core.autocrlf false
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -131,6 +185,16 @@ jobs:
         os: [ubuntu-latest, windows-latest]
 
     steps:
+      - name: Line endings
+        # Before the checkout, because this is what the checkout obeys. Windows
+        # runners default to core.autocrlf=true, which rewrote the W3C suite's
+        # line endings at milestone 3b and left the two platforms testing
+        # different bytes — 163 cases reported a line number that was wrong on
+        # one runner only. Conformance inputs must be identical everywhere;
+        # CR LF handling is tested on documents this repository owns. ADR 0036.
+        shell: bash
+        run: git config --global core.autocrlf false
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -172,6 +236,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Line endings
+        # Before the checkout, because this is what the checkout obeys. Windows
+        # runners default to core.autocrlf=true, which rewrote the W3C suite's
+        # line endings at milestone 3b and left the two platforms testing
+        # different bytes — 163 cases reported a line number that was wrong on
+        # one runner only. Conformance inputs must be identical everywhere;
+        # CR LF handling is tested on documents this repository owns. ADR 0036.
+        shell: bash
+        run: git config --global core.autocrlf false
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -214,6 +288,16 @@ jobs:
         os: [ubuntu-latest, windows-latest]
 
     steps:
+      - name: Line endings
+        # Before the checkout, because this is what the checkout obeys. Windows
+        # runners default to core.autocrlf=true, which rewrote the W3C suite's
+        # line endings at milestone 3b and left the two platforms testing
+        # different bytes — 163 cases reported a line number that was wrong on
+        # one runner only. Conformance inputs must be identical everywhere;
+        # CR LF handling is tested on documents this repository owns. ADR 0036.
+        shell: bash
+        run: git config --global core.autocrlf false
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
