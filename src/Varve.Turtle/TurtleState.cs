@@ -62,6 +62,52 @@ internal sealed class TurtleState
     /// </summary>
     private int _freshAtStatementStart;
 
+    /// <summary>The document offset the current buffer starts at.</summary>
+    internal long DocumentOffset { get; private set; }
+
+    /// <summary>The line number the current buffer starts on, counting from one.</summary>
+    internal int LineNumber { get; private set; } = 1;
+
+    /// <summary>The document offset of the start of that line.</summary>
+    /// <remarks>
+    /// Kept as well as the line number because a line may have begun in an
+    /// earlier buffer, and without it the column of an error on such a line
+    /// would be measured from the wrong place.
+    /// </remarks>
+    internal long LineStart { get; private set; }
+
+    /// <summary>
+    /// Records that <paramref name="consumed"/> has been parsed and the next
+    /// buffer begins after it.
+    /// </summary>
+    /// <remarks>
+    /// An error's position must name a place in the document, not in whichever
+    /// fragment of it the parser happened to be holding. A reader given the
+    /// same bytes in two pieces reports the same position as one given them
+    /// whole, and the chunk-boundary oracle is what holds that true.
+    /// </remarks>
+    internal void Advance(ReadOnlySpan<byte> consumed)
+    {
+        for (int i = 0; i < consumed.Length; i++)
+        {
+            if (IsLineBreak(consumed, i))
+            {
+                LineNumber++;
+                LineStart = DocumentOffset + i + 1;
+            }
+        }
+
+        DocumentOffset += consumed.Length;
+    }
+
+    /// <summary>
+    /// A line ends at a newline, and at a carriage return that is not part of
+    /// a CR LF pair. One rule, used both when advancing and when reporting.
+    /// </summary>
+    internal static bool IsLineBreak(ReadOnlySpan<byte> text, int index) =>
+        text[index] == (byte)'\n'
+        || (text[index] == (byte)'\r' && (index + 1 >= text.Length || text[index + 1] != (byte)'\n'));
+
     internal void SetBase(ReadOnlySpan<byte> iri) => _base = iri.ToArray();
 
     /// <summary>

@@ -45,7 +45,7 @@ internal static class TurtleEngine
                     break;
                 }
 
-                Reject(ParseErrorKind.UnexpectedEnd, scanner, data, in options, ref result);
+                Reject(ParseErrorKind.UnexpectedEnd, scanner, data, in options, state, ref result);
                 consumed = data.Length;
                 break;
             }
@@ -53,7 +53,7 @@ internal static class TurtleEngine
             if (status == StatementStatus.Error)
             {
                 state.Discard();
-                Reject(scanner.Error, scanner, data, in options, ref result);
+                Reject(scanner.Error, scanner, data, in options, state, ref result);
 
                 if (result.Stop)
                 {
@@ -78,6 +78,7 @@ internal static class TurtleEngine
             consumed = scanner.Consumed;
         }
 
+        state.Advance(data[..consumed]);
         return consumed;
     }
 
@@ -106,10 +107,11 @@ internal static class TurtleEngine
         scoped in TurtleScanner scanner,
         System.ReadOnlySpan<byte> data,
         in TurtleOptions options,
+        TurtleState state,
         ref ParseState result)
     {
         int offset = kind == ParseErrorKind.UnexpectedEnd ? data.Length : scanner.ErrorOffset;
-        ParsePosition position = Position(data, offset);
+        ParsePosition position = Position(data, offset, state);
         ParseError error = new(kind, position, scanner.IriError);
 
         result.ErrorCount++;
@@ -124,25 +126,30 @@ internal static class TurtleEngine
     }
 
     /// <summary>
-    /// Line and column for a byte offset. Counted from the start of the span
-    /// each time rather than tracked, because a Turtle statement may span any
-    /// number of lines and an error is rare — paying for it only when one
-    /// happens is cheaper than maintaining a counter through every term.
+    /// The document position of a byte offset within this buffer.
     /// </summary>
-    private static ParsePosition Position(System.ReadOnlySpan<byte> data, int offset)
+    /// <remarks>
+    /// Counted from the start of the buffer each time rather than tracked
+    /// through every term, because a Turtle statement may span any number of
+    /// lines and an error is rare. The buffer's own place in the document comes
+    /// from the state, so the position is the document's and not the
+    /// fragment's.
+    /// </remarks>
+    private static ParsePosition Position(System.ReadOnlySpan<byte> data, int offset, TurtleState state)
     {
-        int line = 1;
-        int lineStart = 0;
+        int line = state.LineNumber;
+        long lineStart = state.LineStart;
 
         for (int i = 0; i < offset && i < data.Length; i++)
         {
-            if (data[i] == (byte)'\n' || (data[i] == (byte)'\r' && (i + 1 >= data.Length || data[i + 1] != (byte)'\n')))
+            if (TurtleState.IsLineBreak(data, i))
             {
                 line++;
-                lineStart = i + 1;
+                lineStart = state.DocumentOffset + i + 1;
             }
         }
 
-        return new ParsePosition(offset, line, offset - lineStart + 1);
+        long absolute = state.DocumentOffset + offset;
+        return new ParsePosition(absolute, line, (int)(absolute - lineStart) + 1);
     }
 }

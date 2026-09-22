@@ -161,6 +161,11 @@ internal static class ManifestReader
 
         string actionPath = ResolveAction(actionIri.Uri.AbsoluteUri, baseDirectoryIri, manifestDirectory);
 
+        INode? result = SingleObject(graph, entry, graph.CreateUriNode(new Uri(Mf + "result")));
+        string? resultPath = result is IUriNode resultIri
+            ? ResolveAction(resultIri.Uri.AbsoluteUri, baseDirectoryIri, manifestDirectory)
+            : null;
+
         return new ManifestEntry(
             TestIri: entryIri.Uri.AbsoluteUri,
             Suite: suite.Id,
@@ -168,7 +173,8 @@ internal static class ManifestReader
             Comment: Literal(graph, entry, Rdfs + "comment"),
             ActionPath: actionPath,
             Format: suite.Format,
-            Expected: expected.Value);
+            Expected: expected.Value,
+            ResultPath: resultPath);
     }
 
     /// <summary>
@@ -184,6 +190,14 @@ internal static class ManifestReader
         "http://www.w3.org/ns/rdftest#TestNTriplesNegativeSyntax" => ExpectedOutcome.IsRejected,
         "http://www.w3.org/ns/rdftest#TestNQuadsPositiveSyntax" => ExpectedOutcome.Parses,
         "http://www.w3.org/ns/rdftest#TestNQuadsNegativeSyntax" => ExpectedOutcome.IsRejected,
+        "http://www.w3.org/ns/rdftest#TestTurtlePositiveSyntax" => ExpectedOutcome.Parses,
+        "http://www.w3.org/ns/rdftest#TestTurtleNegativeSyntax" => ExpectedOutcome.IsRejected,
+        "http://www.w3.org/ns/rdftest#TestTurtleEval" => ExpectedOutcome.Evaluates,
+        "http://www.w3.org/ns/rdftest#TestTurtleNegativeEval" => ExpectedOutcome.IsRejected,
+        "http://www.w3.org/ns/rdftest#TestTrigPositiveSyntax" => ExpectedOutcome.Parses,
+        "http://www.w3.org/ns/rdftest#TestTrigNegativeSyntax" => ExpectedOutcome.IsRejected,
+        "http://www.w3.org/ns/rdftest#TestTrigEval" => ExpectedOutcome.Evaluates,
+        "http://www.w3.org/ns/rdftest#TestTrigNegativeEval" => ExpectedOutcome.IsRejected,
         _ => null,
     };
 

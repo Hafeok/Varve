@@ -18,6 +18,13 @@ internal ref partial struct TurtleScanner
 
         SkipIgnorable();
 
+        if (AtEnd && MayGrow)
+        {
+            // A string may be followed by "@" or "^^", so what kind of literal
+            // this is has not been settled yet.
+            return Truncated();
+        }
+
         if (!AtEnd && Peek == (byte)'@')
         {
             if (!TryLanguage(out TermSpan language, out TextDirection direction))
@@ -27,6 +34,11 @@ internal ref partial struct TurtleScanner
 
             slot = _state.Arena.AddLiteral(lexical, TermSpan.None, language, direction);
             return true;
+        }
+
+        if (!AtEnd && Peek == (byte)'^' && Consumed + 1 >= _text.Length && MayGrow)
+        {
+            return Truncated();
         }
 
         if (!AtEnd && Peek == (byte)'^' && Consumed + 1 < _text.Length && _text[Consumed + 1] == (byte)'^')

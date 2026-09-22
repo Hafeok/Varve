@@ -26,6 +26,11 @@ internal ref partial struct TurtleScanner
     {
         slot = -1;
 
+        if (AtEnd)
+        {
+            return Truncated();
+        }
+
         if (Peek == (byte)'_' || IsAnon())
         {
             return TryBlankNode(out slot);
@@ -300,6 +305,12 @@ internal ref partial struct TurtleScanner
             Consumed++;
         }
 
+        if (Consumed >= _text.Length && MayGrow)
+        {
+            Consumed = start;
+            return Truncated();
+        }
+
         if (AtEnd)
         {
             return Truncated();
@@ -400,7 +411,12 @@ internal ref partial struct TurtleScanner
 
             if (b == (byte)'\\')
             {
-                if (at + 1 >= _text.Length || !EscapeDecoder.IsLocalEscape(_text[at + 1]))
+                if (at + 1 >= _text.Length)
+                {
+                    return MayGrow ? Truncated() : Fail(ParseErrorKind.InvalidEscape, at);
+                }
+
+                if (!EscapeDecoder.IsLocalEscape(_text[at + 1]))
                 {
                     return Fail(ParseErrorKind.InvalidEscape, at);
                 }
@@ -415,7 +431,9 @@ internal ref partial struct TurtleScanner
             {
                 if (at + 2 >= _text.Length)
                 {
-                    return Truncated();
+                    return MayGrow
+                        ? Truncated()
+                        : Fail(ParseErrorKind.InvalidPercentEncoding, at);
                 }
 
                 if (!NTriplesChars.IsHex(_text[at + 1]) || !NTriplesChars.IsHex(_text[at + 2]))
@@ -428,8 +446,13 @@ internal ref partial struct TurtleScanner
                 continue;
             }
 
-            if (!TurtleChars.TryRune(_text, at, out int c, out int length))
+            if (!TurtleChars.TryRune(_text, at, out int c, out int length, out bool incomplete))
             {
+                if (incomplete && MayGrow)
+                {
+                    return Truncated();
+                }
+
                 break;
             }
 
@@ -448,6 +471,13 @@ internal ref partial struct TurtleScanner
             lastGood = at;
         }
 
+        if (at >= _text.Length && MayGrow)
+        {
+            // The name ran to the end of the buffer, so the next byte may
+            // extend it. Ending it here would silently produce a shorter IRI.
+            return Truncated();
+        }
+
         end = lastGood;
         Consumed = lastGood;
         return true;
@@ -458,9 +488,14 @@ internal ref partial struct TurtleScanner
     {
         slot = -1;
 
-        if (IsAnon())
+        if (IsAnon(out bool incomplete))
         {
             return TryBlankNode(out slot);
+        }
+
+        if (incomplete && MayGrow)
+        {
+            return Truncated();
         }
 
         // [14] blankNodePropertyList. The node is fresh and its triples are
@@ -491,8 +526,22 @@ internal ref partial struct TurtleScanner
     }
 
     /// <summary>[162s] <c>'[' WS* ']'</c> — an anonymous node, not a property list.</summary>
-    private readonly bool IsAnon()
+    private readonly bool IsAnon() => IsAnon(out _);
+
+    /// <summary>
+    /// Whether <c>[</c> here opens an ANON — <c>[</c>, whitespace, <c>]</c> —
+    /// rather than a blank node property list.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="incomplete"/> is set when the whitespace runs to the end
+    /// of the buffer: the <c>]</c> that would settle it may be in the next
+    /// chunk, and answering "not an ANON" would start parsing a property list
+    /// that does not exist.
+    /// </remarks>
+    private readonly bool IsAnon(out bool incomplete)
     {
+        incomplete = false;
+
         if (Consumed >= _text.Length || _text[Consumed] != (byte)'[')
         {
             return false;
@@ -505,7 +554,13 @@ internal ref partial struct TurtleScanner
             i++;
         }
 
-        return i < _text.Length && _text[i] == (byte)']';
+        if (i >= _text.Length)
+        {
+            incomplete = true;
+            return false;
+        }
+
+        return _text[i] == (byte)']';
     }
 
     private bool TryBlankNode(out int slot)
@@ -549,8 +604,18 @@ internal ref partial struct TurtleScanner
         int at = start + width;
         int end = at;
 
-        while (TurtleChars.TryRune(_text, at, out int c, out int length))
+        while (true)
         {
+            if (!TurtleChars.TryRune(_text, at, out int c, out int length, out bool incomplete))
+            {
+                if (incomplete && MayGrow)
+                {
+                    return Truncated();
+                }
+
+                break;
+            }
+
             if (c == '.')
             {
                 at += length;
@@ -564,6 +629,13 @@ internal ref partial struct TurtleScanner
 
             at += length;
             end = at;
+        }
+
+        if (at >= _text.Length && MayGrow)
+        {
+            // The label ran to the end of the buffer and the next byte may
+            // extend it; ending it here would name a different blank node.
+            return Truncated();
         }
 
         Consumed = end;

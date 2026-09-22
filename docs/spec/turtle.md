@@ -198,6 +198,13 @@ As N-Triples (`n-triples.md` §4): byte offset, 1-based line, and 1-based column
 **counted in bytes**. A statement may span lines, so an error carries the
 position of the offending byte rather than the start of the statement.
 
+**The position is the document's, not the buffer's.** A streaming reader holds
+a fragment at a time, and the obvious implementation counts lines from the
+start of whatever it is holding — which reports the same fault at different
+places depending on how the input was delivered. The reader therefore carries
+the document offset, line number and line start across chunks, and a line that
+began in an earlier chunk is still measured from where it began.
+
 ## 7. Writing
 
 Both syntaxes, streaming, from a view or from a quad and its source.
@@ -234,10 +241,39 @@ pooled scratch therefore grows to the longest *statement* rather than the
 longest line, and a document with one enormous collection costs that much
 memory once.
 
-A blank node property list also produces triples **before** the statement that
-contains it finishes, so the parser emits as it goes rather than accumulating a
-statement's quads. That is what keeps the memory bound to the statement's text
-rather than to the number of triples it produces.
+A blank node property list produces triples **before** the statement that
+contains it finishes, which is why ADR 0030 makes the parser hold a statement's
+quads and release them together on the terminating `.`: an error later in the
+statement has to be able to take them back. The buffer is the arena, so the
+cost is bounded by the statement's text and not paid per triple.
+
+### The chunk-boundary rule
+
+**A token whose end is settled by the byte after it must not be decided at the
+end of a buffer that can still grow.** Turtle has several: a number (`1.` is an
+integer and a statement's dot, or the start of `1.5`), a language tag, a
+prefixed name's local part, a blank node label, the `@` or `^^` that may follow
+a string, a keyword (`@prefix`, `PREFIX`, `BASE`, `GRAPH`, `true`, `false`, `a`),
+an `ANON`'s closing `]`, a multi-byte character, and a comment with no newline
+yet. Each of them, cut in the wrong place, has a plausible wrong answer — and
+for a number the wrong answer is a **quad nobody wrote** rather than an error,
+which is the worst kind.
+
+The reader answers this with one mechanism: the scanner knows whether its
+buffer is the document's last, waits when it is not, and decides when it is. So
+`<s> <p> 1.` is a complete document and `1.` at a chunk boundary is an
+unfinished decimal.
+
+This is asserted by an **oracle** rather than by cases: for every input in
+every wired manifest, the conformance project parses the file whole and then
+again split at each byte offset, and requires the same quads, or the same error
+kind and position, every time. It never asks whether the answer is right — the
+suites do that — only whether the parser agrees with itself, which makes the
+expected value computable and the corpus free. It found six defect classes in
+this reader that hand-written tests had missed, and it is wired for every
+format rather than for Turtle alone: N-Triples and N-Quads are correct here by
+construction, because their line buffer never hands the parser a partial line,
+and the oracle is what turns that argument into a measurement.
 
 ## 9. Open questions
 

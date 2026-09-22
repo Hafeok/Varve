@@ -27,6 +27,15 @@ internal struct ParseState
 /// Line splitting and dispatch, shared by every entry point.
 /// </summary>
 /// <remarks>
+/// <strong>N-Triples needs no chunk-boundary rule</strong>, unlike Turtle
+/// (`turtle.md` §8). A line is only dispatched once its terminating newline has
+/// been found, or at the end of the document, so <see cref="LineParser"/> never
+/// sees a fragment and no token can be decided on too few bytes. The
+/// conformance project's chunk-boundary oracle measures that rather than taking
+/// it on trust: all 213 N-Triples and N-Quads manifest inputs give the same
+/// answer parsed whole and parsed split at every byte offset.
+/// </remarks>
+/// <remarks>
 /// <para>
 /// There are two line loops because there are two shapes of input, and neither
 /// reduces to the other without cost: a span is walked with an index, and a

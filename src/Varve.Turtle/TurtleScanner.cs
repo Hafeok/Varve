@@ -104,10 +104,18 @@ internal ref partial struct TurtleScanner
     {
         Error = ParseErrorKind.None;
         IriError = IriErrorKind.None;
+        IsTruncated = false;
         Graph = -1;
 
         SkipIgnorable();
         StatementStart = Consumed;
+
+        if (IsTruncated)
+        {
+            // Only SkipIgnorable sets this before a statement has begun, and
+            // only for a comment it declined to consume.
+            return StatementStatus.Incomplete;
+        }
 
         if (Consumed >= _text.Length)
         {
@@ -141,10 +149,25 @@ internal ref partial struct TurtleScanner
                 return;
             }
 
-            while (Consumed < _text.Length && _text[Consumed] is not (0x0A or 0x0D))
+            int scan = Consumed + 1;
+
+            while (scan < _text.Length && _text[scan] is not (0x0A or 0x0D))
             {
-                Consumed++;
+                scan++;
             }
+
+            if (scan >= _text.Length && MayGrow)
+            {
+                // The comment has no newline in this buffer, so the rest of it
+                // — and whatever follows it on the line — is in the next one.
+                // Consuming it here would resume the parse in the middle of a
+                // comment's text and read it as Turtle.
+                Consumed = _text.Length;
+                Truncated();
+                return;
+            }
+
+            Consumed = scan;
         }
     }
 

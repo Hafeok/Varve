@@ -52,18 +52,37 @@ internal static class TurtleChars
         return last != '.';
     }
 
-    internal static bool TryRune(ReadOnlySpan<byte> text, int index, out int codePoint, out int length)
+    internal static bool TryRune(ReadOnlySpan<byte> text, int index, out int codePoint, out int length) =>
+        TryRune(text, index, out codePoint, out length, out _);
+
+    /// <summary>
+    /// Decodes one scalar, saying whether a failure was for want of bytes.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="incomplete"/> is true when the sequence starts here and
+    /// runs past the end of <paramref name="text"/>. A scanner reading a chunk
+    /// must not treat that as the end of a token: a four-byte character cut
+    /// after two bytes would end a local name early and the document would
+    /// parse to something nobody wrote.
+    /// </remarks>
+    internal static bool TryRune(
+        ReadOnlySpan<byte> text, int index, out int codePoint, out int length, out bool incomplete)
     {
         codePoint = 0;
         length = 0;
+        incomplete = false;
 
         if (index >= text.Length)
         {
+            incomplete = true;
             return false;
         }
 
-        if (Rune.DecodeFromUtf8(text[index..], out Rune rune, out int consumed) != OperationStatus.Done)
+        OperationStatus status = Rune.DecodeFromUtf8(text[index..], out Rune rune, out int consumed);
+
+        if (status != OperationStatus.Done)
         {
+            incomplete = status == OperationStatus.NeedMoreData;
             return false;
         }
 

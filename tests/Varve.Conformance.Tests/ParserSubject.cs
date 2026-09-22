@@ -40,6 +40,19 @@ internal interface IParserSubject
     /// whether it was accepted rather than throwing.
     /// </summary>
     ParseOutcome Parse(RdfFormat format, string path);
+
+    /// <summary>
+    /// The same parse, with the input delivered as two segments split at
+    /// <paramref name="at"/>.
+    /// </summary>
+    /// <remarks>
+    /// The answer must not depend on where the split falls, and a subject that
+    /// cannot be fed in pieces has no business claiming to stream. Separate
+    /// from <see cref="Parse"/> so that a subject which genuinely has only a
+    /// whole-document API can say so by throwing, rather than by quietly
+    /// reporting agreement it never tested.
+    /// </remarks>
+    ParseOutcome ParseSplit(RdfFormat format, string path, int at);
 }
 
 /// <summary>

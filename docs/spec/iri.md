@@ -33,6 +33,25 @@ separately:
   absolute IRIs; a relative reference is well-formed and not usable as an RDF
   term until it is resolved.
 
+**Two predicates, and they are not the same question.** `IsAbsolute` answers
+*is this a usable RDF IRI* — well-formed **and** carrying a scheme.
+`StartsWithScheme` answers only *does this begin with `scheme ":"`*
+(RFC 3986 §3.1), and says nothing about the rest.
+
+The distinction is load-bearing for a caller that has turned validation off.
+Whether a reference must be resolved against a base is settled by the scheme
+alone; folding well-formedness into that decision makes a malformed absolute
+IRI look relative, so `<http://a/%zz>` under `ValidateIris = false` would be
+resolved rather than taken as written, and rejected for having no base when
+there is none. `StartsWithScheme` is what `Varve.Turtle` asks in that case, and
+`IsAbsolute` is what it asks in the validating one. Neither changed the other:
+`IsAbsolute` still means what it always meant, and the second predicate was
+added rather than the first weakened.
+
+`StartsWithScheme` is deliberately the weaker test, so it must never stand in
+for validation. A term built from an IRI that only starts with a scheme is as
+well-formed as the caller's input was.
+
 Errors carry a **kind and a byte offset**. The offset is the first byte at
 which the input could not continue, not the start of the construct — a caller
 reporting a position wants to point at the character that broke.
@@ -123,9 +142,15 @@ is resolved before the character class is checked, because `<http://example/ >`
 is a bad IRI — which is what the suite's `nt-syntax-bad-uri-*` cases test.
 
 N-Triples and N-Quads require absolute IRIs and have no base, so resolution is
-not exercised by the milestone 3a conformance suites. It is implemented and
-tested now regardless, because Turtle needs it at milestone 5 and the §5.4
-vectors are a better test of it than anything Turtle will supply.
+not exercised by their conformance suites. Turtle and TriG do exercise it: a
+document's retrieval IRI is the initial base, `@base` and `BASE` rebind it
+mid-document, and a later base is itself resolved against the earlier one.
+
+Which of the two absoluteness predicates a parse uses follows
+`ValidateIris`, per §2: validating, `IsAbsolute`; not validating,
+`StartsWithScheme`. The difference is visible only on input that is malformed
+and absolute, which is exactly the input the non-validating mode exists to
+pass through.
 
 ## 6. Open questions
 

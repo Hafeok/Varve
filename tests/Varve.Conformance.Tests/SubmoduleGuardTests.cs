@@ -129,4 +129,75 @@ public class SubmoduleGuardTests
         Assert.True(TestData.IsCheckedOut, "The W3C test data is missing; see the first failure.");
         Assert.Equal(Catalogue.Entries.Count, Catalogue.ByIri.Count);
     }
+
+    /// <summary>
+    /// The oracle's corpus is counted too, for the same reason.
+    /// </summary>
+    /// <remarks>
+    /// A suite whose manifest silently stops being read would make the oracle
+    /// pass by having nothing to disagree about. "More than zero" does not
+    /// catch a suite read as nine cases instead of three hundred and thirteen.
+    /// </remarks>
+    public static TheoryData<string, int> ExpectedOracleCounts() => new()
+    {
+        { "rdf11/turtle", 313 },
+        { "rdf11/trig", 357 },
+    };
+
+    [Theory]
+    [MemberData(nameof(ExpectedOracleCounts))]
+    public void Every_suite_the_oracle_reads_enumerates_the_cases_its_manifest_lists(
+        string suiteId, int expected)
+    {
+        Assert.True(TestData.IsCheckedOut, "The W3C test data is missing; see the first failure.");
+
+        ConformanceSuite? suite = null;
+
+        foreach (ConformanceSuite candidate in ConformanceSuite.OracleCorpus)
+        {
+            if (string.Equals(candidate.Id, suiteId, StringComparison.Ordinal))
+            {
+                suite = candidate;
+            }
+        }
+
+        Assert.True(suite is not null, "No suite is wired with id '" + suiteId + "'.");
+
+        Assert.Equal(expected, OracleCatalogue.Of(suite).Count);
+    }
+
+    /// <summary>
+    /// No ratcheted suite contains an evaluation test.
+    /// </summary>
+    /// <remarks>
+    /// An evaluation test asserts that the parse produces a particular dataset,
+    /// and that comparison is not implemented yet. The syntax runner would
+    /// record such an entry as passing on the strength of "it parsed", so the
+    /// baseline would claim a conformance nobody checked — and a baseline that
+    /// overstates is worse than one that is missing entries, because it stops
+    /// anyone looking. Wiring the Turtle and TriG suites into the ratchet must
+    /// therefore land together with the isomorphism comparison, and this is
+    /// what makes doing one without the other fail rather than pass quietly.
+    /// </remarks>
+    [Fact]
+    public void No_ratcheted_suite_contains_an_evaluation_test()
+    {
+        Assert.True(TestData.IsCheckedOut, "The W3C test data is missing; see the first failure.");
+
+        List<string> unchecked_ = [];
+
+        foreach (ManifestEntry entry in Catalogue.Entries)
+        {
+            if (entry.Expected == ExpectedOutcome.Evaluates)
+            {
+                unchecked_.Add(entry.TestIri);
+            }
+        }
+
+        Assert.True(
+            unchecked_.Count == 0,
+            "These entries are evaluation tests in a ratcheted suite, and the result comparison "
+            + "is not implemented, so the ratchet would record them as passing without checking "
+            + "what they assert:\n  " + string.Join("\n  ", unchecked_));
+    }
 }

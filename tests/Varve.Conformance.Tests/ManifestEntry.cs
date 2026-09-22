@@ -8,6 +8,20 @@ internal enum ExpectedOutcome
 
     /// <summary>The file is ill-formed and must be rejected.</summary>
     IsRejected,
+
+    /// <summary>
+    /// The test is expected to parse and to produce the dataset in its
+    /// <c>mf:result</c>, up to a bijection of blank nodes.
+    /// </summary>
+    /// <remarks>
+    /// The comparison is not implemented — it is milestone 3b's isomorphism
+    /// step (ADR 0030 §3). Until it is, an entry of this kind may be read, so
+    /// that the chunk-boundary oracle has the input as corpus, but it may not
+    /// appear in a ratcheted suite: recording it as passing on the strength of
+    /// "it parsed" would claim conformance the harness has not checked, and
+    /// the guard test is what stops that happening by accident.
+    /// </remarks>
+    Evaluates,
 }
 
 /// <summary>
@@ -29,6 +43,11 @@ internal enum ExpectedOutcome
 /// <param name="ActionPath">The absolute path of the file to parse.</param>
 /// <param name="Format">The syntax to parse it as.</param>
 /// <param name="Expected">Whether parsing must succeed or must fail.</param>
+/// <param name="ResultPath">
+/// The <c>mf:result</c> dataset an evaluation test expects, or null. Read now
+/// and compared at the isomorphism step; carrying it early is what makes the
+/// guard against ratcheting an unchecked evaluation possible.
+/// </param>
 internal sealed record ManifestEntry(
     string TestIri,
     string Suite,
@@ -36,4 +55,5 @@ internal sealed record ManifestEntry(
     string? Comment,
     string ActionPath,
     RdfFormat Format,
-    ExpectedOutcome Expected);
+    ExpectedOutcome Expected,
+    string? ResultPath = null);

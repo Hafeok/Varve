@@ -10,6 +10,12 @@ internal enum RdfFormat
 
     /// <summary>RDF 1.1 N-Quads.</summary>
     NQuads,
+
+    /// <summary>RDF 1.1 Turtle.</summary>
+    Turtle,
+
+    /// <summary>RDF 1.1 TriG.</summary>
+    TriG,
 }
 
 /// <summary>
@@ -51,6 +57,43 @@ internal sealed record ConformanceSuite(string Id, string ManifestPath, string B
         // c14n manifests with RDFC-1.0. Each is one line.
     ];
 
+    /// <summary>
+    /// Suites whose inputs are read but whose results are not yet ratcheted.
+    /// </summary>
+    /// <remarks>
+    /// The chunk-boundary oracle asks whether a subject gives the same answer
+    /// however the input arrives. That is a question about self-consistency, so
+    /// it needs a corpus and not a verdict, and it can therefore run over a
+    /// suite before <see cref="All"/> claims anything about conformance to it.
+    /// When a suite moves into <see cref="All"/> its line here is deleted;
+    /// <see cref="OracleCorpus"/> unions the two and keeps the first of a
+    /// duplicated id, so moving it is one edit and not two.
+    /// </remarks>
+    internal static IReadOnlyList<ConformanceSuite> NotYetRatcheted { get; } =
+    [
+        Suite("rdf11/turtle", "rdf/rdf11/rdf-turtle/manifest.ttl", RdfFormat.Turtle),
+        Suite("rdf11/trig", "rdf/rdf11/rdf-trig/manifest.ttl", RdfFormat.TriG),
+    ];
+
+    /// <summary>Every suite the oracle reads: the ratcheted ones and the rest.</summary>
+    internal static IReadOnlyList<ConformanceSuite> OracleCorpus { get; } = Union(All, NotYetRatcheted);
+
     private static ConformanceSuite Suite(string id, string manifestPath, RdfFormat format) =>
         new(id, manifestPath, PublishedRoot + manifestPath, format);
+
+    private static List<ConformanceSuite> Union(
+        IReadOnlyList<ConformanceSuite> first, IReadOnlyList<ConformanceSuite> second)
+    {
+        List<ConformanceSuite> all = [.. first];
+
+        foreach (ConformanceSuite suite in second)
+        {
+            if (!all.Exists(s => string.Equals(s.Id, suite.Id, System.StringComparison.Ordinal)))
+            {
+                all.Add(suite);
+            }
+        }
+
+        return all;
+    }
 }
