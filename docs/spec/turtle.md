@@ -221,13 +221,31 @@ Both syntaxes, streaming, from a view or from a quad and its source.
   written out in full. Those are output-shape decisions with their own
   trade-offs, and a writer that makes them badly is harder to undo than one
   that does not make them at all.
-- **TriG groups by graph**, one `GRAPH <label> { … }` block per graph, with the
-  default graph written unwrapped.
+- **TriG opens a block when the graph changes**, `<label> { … }`, with the
+  default graph written unwrapped. Not *one block per graph*: that needs the
+  whole dataset in memory before the first byte, and streaming is the property
+  the writer exists to keep. A caller whose quads are grouped by graph gets one
+  block per graph; a caller whose quads are interleaved gets several. Both
+  denote the same dataset. Declaring a prefix or a base also closes an open
+  block, because a directive inside one is not Turtle.
+- **A local name is used when the remainder can be spelt as one**, escaping
+  with `PN_LOCAL_ESC` where the grammar allows it, and the full IRI is written
+  when it cannot. The check is on the bytes, not on an assumption about what
+  IRIs look like: a `%` in the remainder falls back, because `%20` written
+  literally reads back as a percent-escape and denotes a different IRI.
 
 A round trip through the writer is **isomorphic**, not byte-identical: blank
 node labels are the parser's, and a document that named them `_:b0` may come
 back naming them something else. Byte stability is an N-Triples property, and
 `n-triples.md` §5 keeps it.
+
+Concretely, and worth knowing before someone reports it: §4's scheme gives a
+document's own label `x` the name `bx`, so a second round trip names it `bbx`,
+and a label grows by one byte per trip. That is the cost of the scheme's
+guarantee — a document label and a parser-minted one can never collide — and
+the alternative, reserving a naming space no document may use, is not something
+a streaming parser can enforce, since it would have to know every label the
+document uses before emitting the first fresh one.
 
 ## 8. Streaming and allocation
 

@@ -99,6 +99,20 @@ Varve.Turtle.TurtleOptions.TurtleOptions() -> void
 Varve.Turtle.TurtleOptions.ValidateIris.get -> bool
 Varve.Turtle.TurtleOptions.ValidateIris.init -> void
 Varve.Turtle.TurtleParser
+Varve.Turtle.TurtleWriteOptions
+Varve.Turtle.TurtleWriteOptions.Canonical.get -> bool
+Varve.Turtle.TurtleWriteOptions.Canonical.init -> void
+Varve.Turtle.TurtleWriteOptions.Syntax.get -> Varve.Turtle.RdfSyntax
+Varve.Turtle.TurtleWriteOptions.Syntax.init -> void
+Varve.Turtle.TurtleWriteOptions.TurtleWriteOptions() -> void
+Varve.Turtle.TurtleWriter
+Varve.Turtle.TurtleWriter.DeclareBase(System.ReadOnlySpan<byte> iri) -> void
+Varve.Turtle.TurtleWriter.DeclarePrefix(System.ReadOnlySpan<byte> prefix, System.ReadOnlySpan<byte> iri) -> void
+Varve.Turtle.TurtleWriter.Dispose() -> void
+Varve.Turtle.TurtleWriter.Flush() -> void
+Varve.Turtle.TurtleWriter.TurtleWriter(System.Buffers.IBufferWriter<byte>! output, in Varve.Turtle.TurtleWriteOptions options) -> void
+Varve.Turtle.TurtleWriter.Write(in Varve.Rdf.Quad quad, Varve.Rdf.IQuadSource! source) -> void
+Varve.Turtle.TurtleWriter.Write(in Varve.Rdf.QuadView quad) -> void
 Varve.Turtle.WriteOptions
 Varve.Turtle.WriteOptions.Canonical.get -> bool
 Varve.Turtle.WriteOptions.Canonical.init -> void
