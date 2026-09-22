@@ -109,8 +109,10 @@ The W3C suites are the acceptance gate. A feature is not done until its manifest
 entries pass or each failure has a justified exemption in
 `baseline/exemptions.txt` — the ratchet fails one with no reason beside it, and
 a feature shipped with no suite behind it is the defect A3 of the 3a close-out
-found. Performance claims need BenchmarkDotNet numbers, a stated dataset *and*
-machine (`tests/Varve.Benchmarks/README.md` is the shape).
+found. **Every streaming reader also runs the chunk-boundary oracle over its
+manifests** — whole versus split at every offset, expected value computed
+(`docs/testing.md` §2). Performance claims need BenchmarkDotNet numbers, a
+stated dataset *and* machine (`tests/Varve.Benchmarks/README.md` is the shape).
 
 ## Commands
 

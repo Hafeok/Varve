@@ -200,4 +200,69 @@ public class SubmoduleGuardTests
             + "is not implemented, so the ratchet would record them as passing without checking "
             + "what they assert:\n  " + string.Join("\n  ", unchecked_));
     }
+
+    /// <summary>
+    /// Every format has a suite the chunk-boundary oracle reads.
+    /// </summary>
+    /// <remarks>
+    /// The standing rule in <c>docs/testing.md</c> §2 is that every syntax
+    /// package runs the oracle over its own manifests. A rule that is only
+    /// written down is one a future format will skip without anyone noticing,
+    /// so this is the enforcing half: adding a value to
+    /// <see cref="RdfFormat"/> without wiring a suite for it fails here, and
+    /// the message says what to do.
+    /// </remarks>
+    [Fact]
+    public void Every_format_is_covered_by_the_chunk_boundary_oracle()
+    {
+        Assert.True(TestData.IsCheckedOut, "The W3C test data is missing; see the first failure.");
+
+        List<string> uncovered = [];
+
+        foreach (RdfFormat format in Enum.GetValues<RdfFormat>())
+        {
+            bool covered = false;
+
+            foreach (ConformanceSuite suite in ConformanceSuite.OracleCorpus)
+            {
+                if (suite.Format == format)
+                {
+                    covered = true;
+                }
+            }
+
+            if (!covered)
+            {
+                uncovered.Add(format.ToString());
+            }
+        }
+
+        Assert.True(
+            uncovered.Count == 0,
+            "These formats have no suite the chunk-boundary oracle can read, so nothing checks that "
+            + "their reader gives the same answer however the input arrives (docs/testing.md \u00A72). "
+            + "Add the suite to ConformanceSuite.All, or to NotYetRatcheted while its results are not "
+            + "yet claimed: " + string.Join(", ", uncovered));
+    }
+
+    /// <summary>
+    /// Every suite the oracle reads has at least one input for it to read.
+    /// </summary>
+    /// <remarks>
+    /// The companion to the count guards: a suite wired with a manifest path
+    /// that resolves to nothing would satisfy the format check above and give
+    /// the oracle nothing to do.
+    /// </remarks>
+    [Fact]
+    public void Every_suite_the_oracle_reads_has_entries()
+    {
+        Assert.True(TestData.IsCheckedOut, "The W3C test data is missing; see the first failure.");
+
+        foreach (ConformanceSuite suite in ConformanceSuite.OracleCorpus)
+        {
+            Assert.True(
+                OracleCatalogue.Of(suite).Count > 0,
+                "Suite '" + suite.Id + "' contributed no entries to the oracle.");
+        }
+    }
 }

@@ -640,20 +640,28 @@ internal ref partial struct TurtleScanner
 
         Consumed = end;
 
-        // A document's own label is emitted with a 'b' in front and a fresh
-        // node as 'g<n>', so the two families cannot collide however the
-        // document names things (`turtle.md` §4).
+        // A document's label is its own (`turtle.md` §4), except for the one
+        // case the naming cannot honour: a generated-form label the parser has
+        // already handed out.
         ReadOnlySpan<byte> label = _text[start..end];
-        Span<byte> destination = _state.Arena.ReserveScratch(label.Length + 1);
-        destination[0] = (byte)'b';
-        label.CopyTo(destination[1..]);
-        slot = _state.Arena.AddBlankNode(_state.Arena.CommitScratch(label.Length + 1));
+        int generated = BlankNodeNaming.GeneratedIndex(label);
+
+        if (generated >= 0)
+        {
+            slot = GeneratedLabel(_state.Names.Claim(generated));
+            return true;
+        }
+
+        Span<byte> destination = _state.Arena.ReserveScratch(label.Length);
+        label.CopyTo(destination);
+        slot = _state.Arena.AddBlankNode(_state.Arena.CommitScratch(label.Length));
         return true;
     }
 
-    private readonly int FreshBlankNode()
+    private readonly int FreshBlankNode() => GeneratedLabel(_state.Names.Mint());
+
+    private readonly int GeneratedLabel(int n)
     {
-        int n = _state.NextBlankNode();
         Span<byte> destination = _state.Arena.ReserveScratch(12);
         destination[0] = (byte)'g';
         bool formatted = n.TryFormat(destination[1..], out int digits, provider: null);

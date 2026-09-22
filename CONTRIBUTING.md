@@ -82,6 +82,26 @@ today, sorted by test IRI. `eng/ratchet.cs` fails the build when one of them
 stops passing, and prints tests that newly pass. When your change makes tests
 pass, update the baseline in the same pull request.
 
+Pin the suite's case count in `SubmoduleGuardTests` when you wire it. A
+manifest that stops being read makes its suite pass by having nothing in it,
+and "more than zero" does not catch a suite read as nine cases instead of three
+hundred and thirteen.
+
+## Testing
+
+[`docs/testing.md`](docs/testing.md) is what each kind of test is for and which
+pattern to reach for. Two rules bind every change:
+
+- **Every syntax package runs the chunk-boundary oracle over its own
+  manifests** — parse whole, parse again split at every byte offset, require
+  the same quads or the same error kind and position. A new reader is not done
+  until its suites are in `ConformanceSuite.OracleCorpus`, and
+  `Every_format_is_covered_by_the_chunk_boundary_oracle` fails when a format is
+  added without one. This holds for a line-based reader that does not need the
+  mechanism as much as for one that does: the argument is not the measurement.
+- **Prove a gate's failure path by running it.** A gate that has never failed
+  is a gate nobody has tested.
+
 ## Branches and pull requests
 
 **Nothing reaches `main` except through a pull request.** Never commit to

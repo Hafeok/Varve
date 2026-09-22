@@ -47,20 +47,8 @@ internal sealed class TurtleState
 
     internal bool HasBase => _base.Length > 0;
 
-    /// <summary>
-    /// The number of blank nodes this parse has invented. Fresh labels are
-    /// <c>g0</c>, <c>g1</c>, … and a document's own labels are emitted with a
-    /// <c>b</c> in front, so the two families cannot collide however the
-    /// document names things (`turtle.md` §4).
-    /// </summary>
-    internal int FreshBlankNodes { get; private set; }
-
-    /// <summary>
-    /// The counter as it stood when the last statement finished, so that an
-    /// attempt which is abandoned — for truncation or for an error — gives back
-    /// the labels it minted.
-    /// </summary>
-    private int _freshAtStatementStart;
+    /// <summary>What every blank node in this parse is called.</summary>
+    internal BlankNodeNaming Names { get; } = new();
 
     /// <summary>The document offset the current buffer starts at.</summary>
     internal long DocumentOffset { get; private set; }
@@ -145,7 +133,6 @@ internal sealed class TurtleState
         return false;
     }
 
-    internal int NextBlankNode() => FreshBlankNodes++;
 
     internal void Add(int subject, int predicate, int obj, int graph)
     {
@@ -168,7 +155,7 @@ internal sealed class TurtleState
 
     /// <summary>Starts a statement: no quads, and the arena free for its terms.</summary>
     /// <remarks>
-    /// The blank node counter rewinds with them. A statement that ran past the
+    /// The blank node naming rewinds with them. A statement that ran past the
     /// end of a chunk is scanned again when the next chunk arrives, and without
     /// the rewind every attempt would burn labels — so the same document would
     /// name its blank nodes differently depending on how it was delivered, and
@@ -177,10 +164,10 @@ internal sealed class TurtleState
     internal void BeginStatement()
     {
         PendingCount = 0;
-        FreshBlankNodes = _freshAtStatementStart;
+        Names.BeginStatement();
         Arena.Reset();
     }
 
     /// <summary>Accepts a statement's labels, so the next one starts after them.</summary>
-    internal void CompleteStatement() => _freshAtStatementStart = FreshBlankNodes;
+    internal void CompleteStatement() => Names.CompleteStatement();
 }

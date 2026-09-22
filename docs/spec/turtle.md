@@ -165,6 +165,35 @@ syntax as an option.
   diagnostics only — which is why the evaluation tests compare up to
   isomorphism rather than by label.
 
+### Naming
+
+A streaming parser has to name the nodes the document did not, before it has
+seen the names the document uses. Three rules settle it.
+
+1. **A document's own label passes through unchanged.** `_:x` is the node `x`.
+2. **Invented nodes are `g0`, `g1`, …**, and the generator skips any number the
+   document has already claimed, so `_:g0` in the document and a `[]` in the
+   same document do not collide.
+3. **A claim that arrives too late moves.** If the document writes `_:g0` after
+   the parser has already handed `g0` to an anonymous node, the document's
+   occurrence — every occurrence of it, consistently — is given the next free
+   number instead.
+
+**Why not a reserved form.** The obvious fix is to invent names no document
+could write, and Turtle has none: `BLANK_NODE_LABEL` admits every label this
+parser can emit, so any reserved space is one a document may legitimately use.
+Honouring claims and moving the one that cannot be honoured is what is left.
+
+**Why not prefix everything.** Putting a `b` in front of each document label is
+collision-free in one line and was the first scheme here. It renames every node
+on every pass — `x`, `bx`, `bbx` — so a pipeline of stages produces a diff of
+renames rather than of changes. Rule 1 is what makes §7's round trip a fixed
+point.
+
+**The honest limit.** Rule 3 means a document that uses `g`-form labels *beside*
+anonymous nodes may have some of its labels renamed, once. The result is then
+stable: writing it and reading it back renames nothing further.
+
 ## 5. Error recovery
 
 **The statement is the recovery unit** (ADR 0030). Turtle has no line
@@ -239,13 +268,17 @@ node labels are the parser's, and a document that named them `_:b0` may come
 back naming them something else. Byte stability is an N-Triples property, and
 `n-triples.md` §5 keeps it.
 
-Concretely, and worth knowing before someone reports it: §4's scheme gives a
-document's own label `x` the name `bx`, so a second round trip names it `bbx`,
-and a label grows by one byte per trip. That is the cost of the scheme's
-guarantee — a document label and a parser-minted one can never collide — and
-the alternative, reserving a naming space no document may use, is not something
-a streaming parser can enforce, since it would have to know every label the
-document uses before emitting the first fresh one.
+**Writing is a fixed point.** Whatever the writer produces, reading it back and
+writing it again produces the same bytes. It holds because the writer emits
+every blank node as an explicit label and never as `[]` or `()`, so re-reading
+its output invents no nodes and §4's rule 1 passes every label through. The
+property is asserted twice: over every input in every wired manifest, and over
+generated documents that mix named and anonymous nodes so that §4's rule 3 is
+exercised rather than avoided.
+
+What is *not* claimed is that the first write preserves the input's labels —
+§4's honest limit stands, and the property starts from the first write rather
+than from the file for exactly that reason.
 
 ## 8. Streaming and allocation
 
