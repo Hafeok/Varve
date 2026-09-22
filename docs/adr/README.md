@@ -36,7 +36,7 @@ or depart from `docs/brief.md`, each says so in its Context.
 | [0017](0017-validator-contract-and-overlay.md) | Pre-commit validator contract and the overlay quad source | Accepted |
 | [0018](0018-storage-abstraction.md) | Storage abstraction: memory, file, browser | Accepted |
 | [0019](0019-erasure-by-crypto-shredding.md) | Erasure by crypto-shredding | **Superseded by 0023** |
-| [0020](0020-cipher-for-erasure-mode.md) | Cipher for erasure mode | **Failed its acceptance condition** |
+| [0020](0020-cipher-for-erasure-mode.md) | Cipher for erasure mode | **Superseded by 0028** |
 | [0021](0021-dataset-settings-as-a-commit-kind.md) | Dataset settings as a commit kind | Accepted |
 | [0022](0022-quad-source-term-handle.md) | The quad source contract over an opaque term handle | Accepted |
 | [0023](0023-erasure-and-access-requests.md) | Erasure by crypto-shredding, and access requests | Accepted |
@@ -50,24 +50,31 @@ or depart from `docs/brief.md`, each says so in its Context.
 | [0026](0026-hotpath-attribute.md) | Where the `[HotPath]` attribute lives | Accepted |
 | [0027](0027-benchmarking.md) | Benchmarking | Accepted |
 
+## Milestone 3a close-out
+
+| # | Title | Status |
+|---:|---|---|
+| [0028](0028-deterministic-aead-from-hmac.md) | A deterministic AEAD built from HMAC-SHA-256 | Accepted, conditionally |
+
 **No ADR in this repository is `Proposed`.** Three were, and were completed in
 place rather than superseded, because ADR 0001's no-edit rule binds accepted
 decisions and they had never been accepted.
 
 ### Accepted ahead of the evidence
 
-Four ADRs carry a **revisit condition**: a stated fact which, if it turns out to
+Five ADRs carry a **revisit condition**: a stated fact which, if it turns out to
 be true, supersedes the ADR. It does not edit it.
 
 **One has fired.** ADR 0020's condition was its acceptance condition, it was
-tested on a real browser at milestone 3a, and it failed. The row below records
-what was measured; the ADR itself carries the procedure and the result.
+tested on a real browser at milestone 3a, and it failed. Its successor, 0028,
+carries a condition of its own that is not measurable by a build.
 
 | ADR | Condition | Due |
 |---|---|---|
 | [0012](0012-term-dictionary-and-id-scheme.md) | Milestone 4 benchmarks of index size and scan throughput contradict 64-bit counter-allocated ids. No bytes are frozen before milestone 6. | milestone 4 |
 | [0018](0018-storage-abstraction.md) | The in-memory and browser backends cannot both implement the contract without leaking backend detail. Members fixed when the first backend is written. | milestone 4 |
-| [0020](0020-cipher-for-erasure-mode.md) | ~~AES-CBC, HMAC-SHA-256 and HKDF do not run on browser WASM when verified on a real build.~~ **Fired.** Verified at milestone 3a: `Aes.Create()` throws on browser-wasm, and no symmetric cipher of any kind is available there. HKDF and HMAC-SHA-256 do work. The ADR is failed and a successor is undecided. | **fired**, milestone 3a |
+| [0020](0020-cipher-for-erasure-mode.md) | ~~AES-CBC, HMAC-SHA-256 and HKDF do not run on browser WASM when verified on a real build.~~ **Fired** at milestone 3a: `Aes.Create()` throws on browser-wasm and no symmetric cipher of any kind is available there. Superseded by 0028. | **fired**, superseded |
+| [0028](0028-deterministic-aead-from-hmac.md) | External cryptographic review rejects the construction. The fallback is then that erasure mode does not run in the browser, in its own ADR. Its other condition — the primitives run in a browser — is measured and holds. | milestone 9, before shipping |
 | [0022](0022-quad-source-term-handle.md) | Milestone 5 evaluator benchmarks show the opaque handle costs more than it saves. | milestone 5 |
 
 ## Open questions recorded, not resolved
@@ -81,8 +88,8 @@ falls out of:
 | **Q2** | Bulk load and I2 — normalising a huge commit against a populated dataset | [0013](0013-records-commits-and-bulk-load.md) | milestone 6 |
 | **Q3** | Bulk load and validators — an overlay that does not fit in memory | [0013](0013-records-commits-and-bulk-load.md), with [0017](0017-validator-contract-and-overlay.md) | milestone 6 |
 | **Q4** | How a shredded term appears in SPARQL results and serialisations | [0023](0023-erasure-and-access-requests.md) | milestone 9 |
-| **Q5** | Lookup by private value — scan and decrypt, or a keyed blind index | [0020](0020-cipher-for-erasure-mode.md) | milestone 9 |
-| **Q6** | Cipher and availability per host | [0020](0020-cipher-for-erasure-mode.md) | **reopened** — the browser half was verified at milestone 3a and failed. No symmetric cipher runs in a browser, so this is no longer a question about ciphers. Due milestone 9 with erasure mode. |
+| **Q5** | Lookup by private value — scan and decrypt, or a keyed blind index | [0028](0028-deterministic-aead-from-hmac.md) | milestone 9 |
+| **Q6** | Cipher and availability per host | [0028](0028-deterministic-aead-from-hmac.md) | **decided**, subject to 0028's two conditions: the primitives run in a browser (measured, holds) and the construction survives external review (milestone 9) |
 | **Q7** | ~~Whether an access request defaults to `G_head` or every quad ever asserted~~ | [0023](0023-erasure-and-access-requests.md) | **closed** — by key id, scope a dataset setting defaulting to `AllHistory` |
 | **Q8** | Key granularity when one term is about two data subjects | [0023](0023-erasure-and-access-requests.md) | milestone 9 |
 | **Q9** | Whether the structure surviving shredding counts as anonymous — **a legal question** | [0023](0023-erasure-and-access-requests.md) | milestone 9 |

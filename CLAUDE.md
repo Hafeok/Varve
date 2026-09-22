@@ -83,9 +83,9 @@ allocated in ADR 0004. **Suppressions cite an ADR number**, and a repo-wide
 
 **`docs/spec/log-and-projection-model.md` is the authority** (version 1) and
 takes precedence over the brief where they differ. ADRs 0010–0023 record the
-decisions it presupposes, and **none is `Proposed`** — though
-[0020](docs/adr/0020-cipher-for-erasure-mode.md) failed its acceptance condition
-and nothing may be built on it.
+decisions it presupposes, and **none is `Proposed`**. The cipher is
+[0028](docs/adr/0028-deterministic-aead-from-hmac.md), which supersedes 0020 and
+is conditional on an external review.
 
 Vocabulary that must not drift:
 
@@ -135,7 +135,7 @@ Milestone 3a. `src/` holds `Varve.Analyzers`, `Varve.Iri` (0), `Varve.Rdf` (1)
 and `Varve.Turtle` (2). **All 157** `rdf-n-triples` and `rdf-n-quads` cases pass,
 exemptions file empty; parsing allocates **zero bytes per quad** on every entry
 point; Native AOT and the browser build both publish and run, and what the
-browser found about cryptography is in ADR 0020. Not built: `Varve.Xsd`,
+browser found about cryptography is in ADRs 0020 and 0028. Not built: `Varve.Xsd`,
 canonicalisation, Turtle and TriG, the store, SPARQL, SHACL.
 `VARVE0003`–`VARVE0008` reserved and unbuilt. `docs/roadmap.md` has the rest,
 with an owner and a due milestone per open question.

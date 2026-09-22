@@ -2,10 +2,12 @@
 
 ## Status
 
-**Failed its acceptance condition.** 2026-09-21. The decision below did not
-survive verification and **must not be built on**. A successor has not been
-decided; see *Verification* for what was measured and *What a successor has to
-answer*.
+**Superseded by [0028](0028-deterministic-aead-from-hmac.md).** 2026-09-22.
+
+It first **failed its acceptance condition** on 2026-09-21: the decision below
+did not survive verification and **must not be built on**. It is kept because
+*Verification* records what was measured, and because the measurement is what
+0028 rests on. *What a successor has to answer* is answered there.
 
 [ADR 0023](0023-erasure-and-access-requests.md) decides that erasure is
 crypto-shredding. This decides what does the encrypting.
@@ -218,7 +220,14 @@ comparable on cryptographic grounds alone:
   discovered by a user.
 
 Erasure mode is milestone 9. Nothing before it depends on this being settled,
-which is why this ADR is left failed rather than replaced in haste.
+which is why this ADR was left failed rather than replaced in haste.
+
+**Settled on 2026-09-22 by [ADR 0028](0028-deterministic-aead-from-hmac.md)**,
+and by none of the three. The measurement above says the browser has SHA-256,
+HMAC-SHA-256, HKDF and a constant-time comparison; 0028 builds a deterministic
+AEAD out of those alone, in an SIV composition, so there is no new primitive to
+find and nothing to call out to. It also closes the IV collision this ADR
+decided to document.
 
 ## Consequences
 

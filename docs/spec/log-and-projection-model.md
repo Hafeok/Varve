@@ -1,10 +1,12 @@
 # Log and projection model
 
-Functional specification, version 1.
+Functional specification, version 1.1.
 
 Status: Accepted. This document is the authority for the behaviour of `Varve.Store`. It changes only together with the ADR that motivates the change, and each change is listed at the top with its date. Section 12 maps the decisions to ADRs.
 
-Changes from the last draft (draft 2): private ids are no longer required to be random (section 1). Dataset settings are a commit kind (section 1, T5). "Synchronous" for the default projection is defined, with a failed state (T1, section 7). Access requests are defined by key id with a configurable scope, and the selector is no longer part of erasure (section 9). Q7 is closed. Equality is stated as a property of the quad source (section 6).
+Changes in version 1.1 (2026-09-22): the cipher is ADR 0028's deterministic AEAD built from HMAC-SHA-256, replacing ADR 0020's AES-CBC composition, which failed its acceptance condition on a real browser build — Q6, section 12.
+
+Changes in version 1 (2026-09-21), from the last draft (draft 2): private ids are no longer required to be random (section 1). Dataset settings are a commit kind (section 1, T5). "Synchronous" for the default projection is defined, with a failed state (T1, section 7). Access requests are defined by key id with a configurable scope, and the selector is no longer part of erasure (section 9). Q7 is closed. Equality is stated as a property of the quad source (section 6).
 
 Scope: the abstract state machine of `Varve.Store`. No byte-level format, no API shape, no SPARQL. Everything here is stated over dictionary-encoded quads and must hold for every storage backend (memory, file, browser).
 
@@ -181,7 +183,7 @@ Erasure mode is a per-dataset setting, off by default. When off, no private ids 
 - **Q3** Bulk load and validators: the overlay of a multi-record commit does not fit in memory. Either validators are disabled for bulk commits, or the overlay spills.
 - **Q4** How a shredded term appears in SPARQL results and serialisations: unbound, or an opaque IRI in a reserved scheme.
 - **Q5** Lookup by private value (`?x foaf:name "Emil"`) cannot use an id. Either scan and decrypt, or a keyed blind index. A blind index is deterministic across subjects and its key is not per subject, so it weakens I10 and needs justification.
-- **Q6** Cipher. Documentation confirms `AesGcm` is unsupported on browser WASM; AES-CBC and HMAC support rests on a release note and must be verified on a running WASM build. ADR 0020 decides AES-CBC with HMAC-SHA-256, encrypt-then-MAC, with a deterministic IV derivation; its acceptance is conditional on that verification.
+- **Q6** Cipher. **Decided by ADR 0028**, subject to its two conditions. The verification ADR 0020 demanded was run at milestone 3a and failed: `Aes.Create()` throws `PlatformNotSupportedException` on browser WASM under .NET 10, and `AesGcm`, `AesCcm` and `ChaCha20Poly1305` all report `IsSupported == false` — no symmetric cipher of any kind runs in a browser. `RandomNumberGenerator`, SHA-256, HMAC-SHA-256, HKDF and `FixedTimeEquals` all do. ADR 0028 therefore builds a deterministic, misuse-resistant AEAD from HMAC-SHA-256 alone in an SIV composition, synchronous on all three hosts. Condition 1 — the primitives run in a browser — is measured and holds. Condition 2 — external cryptographic review of a custom instantiation of a standard composition — is due before milestone 9 ships; if the review rejects the construction, the fallback is that erasure mode does not run in the browser, recorded in its own ADR.
 - **Q7** Closed. Access is defined by key id, scope defaults to `AllHistory` and is a dataset setting (section 9). Whether that default is right for a given controller is their legal call.
 - **Q8** Granularity of keys: one per data subject is assumed. Data about two subjects in one term (a joint account label) has no single owner.
 - **Q9** Whether the structure that survives shredding counts as anonymous. Legal question; the engineering answer is the classifier's ability to make identifying links private.
@@ -202,7 +204,7 @@ All Accepted. Three carry a stated condition under which they are to be supersed
 | Pre-commit validator contract and the overlay quad source | 0017 | |
 | Storage abstraction: append-only segment store plus derived blob store, durability declared by the backend | 0018 | The in-memory and browser backends cannot both implement the contract without leaking backend detail. |
 | Erasure by crypto-shredding, access requests | 0019 | |
-| Cipher: AES-CBC with HMAC-SHA-256, encrypt-then-MAC, deterministic IV | 0020 | The composition does not run on browser WASM when verified on a real build. |
+| Cipher: a deterministic AEAD from HMAC-SHA-256 in an SIV composition | 0028 | External cryptographic review rejects the construction. Supersedes 0020, whose AES-CBC composition failed its own acceptance condition on a real browser build. |
 | Dataset settings as a commit kind | new | |
 | Quad source contract over an opaque 64-bit term handle with source-supplied equality and externalisation | new | Milestone 5 evaluator benchmarks show the opaque handle costs more than it saves. |
 

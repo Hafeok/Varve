@@ -31,7 +31,7 @@ decisions it presupposes.
 | Bulk load as one logical commit | **Resolved** — ADR 0013: a commit is one or more records, closed by a flag in the log. Remaining: **Q2**, **Q3**. |
 | Single writer versus optimistic concurrency | **Resolved** — ADR 0011: both. One sequencer, optional expected position per request. |
 | Managed storage engine for the projections | **Open** — `docs/research/managed-storage-engines.md` narrows it; ADR 0018 states the contract requirements. Decided at milestone 6. |
-| GDPR-style hard deletion in an append-only model | **Partly resolved** — ADR 0023: crypto-shredding, opt-in per dataset, access by key id. **The cipher is not settled**: ADR 0020 failed its acceptance condition at milestone 3a (no symmetric cipher runs on browser WASM). Remaining: **Q4**, **Q5**, **Q6**, **Q8**, **Q9**. |
+| GDPR-style hard deletion in an append-only model | **Resolved** — ADR 0023: crypto-shredding, opt-in per dataset, access by key id; ADR 0028: the cipher, after 0020 failed its browser condition. 0028 is conditional on an external cryptographic review before milestone 9 ships. Remaining: **Q4**, **Q5**, **Q8**, **Q9**. |
 | Commit-time validation cost versus write latency, and what a validator may read | **Resolved** — ADR 0017: the overlay of the pending delta on the pinned state, and nothing else; the hook is inside the sequencer, so validation is write latency by construction. |
 | Incremental SHACL — which shapes are incrementally maintainable | **Open** — not addressed by this set. Due milestone 8. |
 
@@ -63,7 +63,8 @@ mechanisms stopped being inert. All of the following are **delivered**:
 - **WASM smoke build.** `tests/Varve.WasmSmoke`, a `browser-wasm` app on
   `wasm-experimental` — **not** Blazor, which would add an ASP.NET Core package
   tail unrelated to the claim. CI publishes it warning-free; it was run in
-  headless Chromium here, and **what it found supersedes ADR 0020** (below).
+  headless Chromium here, and **what it found superseded ADR 0020** — see 0028
+  and the Q6 note below.
 - **Conformance is green.** All 157 cases of `rdf/rdf11/rdf-n-triples` and
   `rdf/rdf11/rdf-n-quads` pass, `baseline/passing.txt` holds all 157, and
   `baseline/exemptions.txt` is empty. The ratchet gained an exemptions
@@ -160,14 +161,18 @@ subjects), and **Q9** (whether the surviving structure counts as anonymous).
 is the classifier's ability to make identifying links private; whether that is
 enough is not an engineering answer at all.
 
-**Q6 was decided** (ADR 0020) and its browser half was verified at milestone 3a.
-**It failed.** `Aes.Create()` throws `PlatformNotSupportedException` on
+**Q6 is decided by ADR 0028**, after ADR 0020's browser verification failed at
+milestone 3a. `Aes.Create()` throws `PlatformNotSupportedException` on
 browser-wasm under .NET 10, and `AesGcm`, `AesCcm` and `ChaCha20Poly1305` all
 report `IsSupported == false` — no symmetric cipher of any kind runs in a
-browser, so the question is no longer which cipher to use. `RandomNumberGenerator`,
-SHA-256, HMAC-SHA-256 and HKDF do all work. ADR 0020 is failed, Q6 is reopened,
-and the successor is milestone 9's to decide along with erasure mode. Nothing
-before milestone 9 depends on it.
+browser. `RandomNumberGenerator`, SHA-256, HMAC-SHA-256, HKDF and
+`FixedTimeEquals` do, so 0028 builds a deterministic AEAD from HMAC-SHA-256
+alone in an SIV composition, synchronous on all three hosts. It carries a second
+condition that no build can settle: **external cryptographic review before
+milestone 9 ships**, because it is a custom instantiation of a standard
+composition rather than RFC 5297. If the review rejects it, the fallback is that
+erasure mode does not run in the browser, in its own ADR. Nothing before
+milestone 9 depends on any of this.
 
 ## Not scheduled
 
