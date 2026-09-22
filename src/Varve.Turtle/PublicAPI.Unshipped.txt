@@ -1,4 +1,5 @@
 #nullable enable
+Varve.Turtle.BaseHandler
 Varve.Turtle.ErrorAction
 Varve.Turtle.ErrorAction.Continue = 1 -> Varve.Turtle.ErrorAction
 Varve.Turtle.ErrorAction.Stop = 0 -> Varve.Turtle.ErrorAction
@@ -26,6 +27,7 @@ Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.DatatypeRequiresLanguage = 20 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.ExpectedDot = 6 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.ExpectedGraphLabel = 5 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.ExpectedIri = 26 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.ExpectedObject = 4 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.ExpectedPredicate = 3 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.ExpectedSubject = 2 -> Varve.Turtle.ParseErrorKind
@@ -36,13 +38,19 @@ Varve.Turtle.ParseErrorKind.InvalidEscape = 14 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.InvalidIri = 12 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.InvalidIriCharacter = 11 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.InvalidLanguageTag = 18 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.InvalidNumber = 28 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.InvalidPercentEncoding = 27 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.InvalidPrefix = 24 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.InvalidUnicodeEscape = 15 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.InvalidUtf8 = 22 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.None = 0 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.RelativeIri = 13 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.TrailingContent = 21 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.UndeclaredPrefix = 25 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.UnexpectedEnd = 1 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.UnknownDirective = 23 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.UnpairedSurrogate = 16 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.UnterminatedBlankNodeList = 29 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.UnterminatedIri = 8 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.UnterminatedLiteral = 9 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.UnterminatedTripleTerm = 10 -> Varve.Turtle.ParseErrorKind
@@ -69,10 +77,28 @@ Varve.Turtle.ParseResult.ParseResult() -> void
 Varve.Turtle.ParseResult.ParseResult(long quadCount, long errorCount, Varve.Turtle.ParseError firstError) -> void
 Varve.Turtle.ParseResult.QuadCount.get -> long
 Varve.Turtle.ParseResult.Succeeded.get -> bool
+Varve.Turtle.PrefixHandler
 Varve.Turtle.QuadHandler
 Varve.Turtle.RdfSyntax
 Varve.Turtle.RdfSyntax.NQuads = 1 -> Varve.Turtle.RdfSyntax
 Varve.Turtle.RdfSyntax.NTriples = 0 -> Varve.Turtle.RdfSyntax
+Varve.Turtle.RdfSyntax.TriG = 3 -> Varve.Turtle.RdfSyntax
+Varve.Turtle.RdfSyntax.Turtle = 2 -> Varve.Turtle.RdfSyntax
+Varve.Turtle.TurtleOptions
+Varve.Turtle.TurtleOptions.BaseIri.get -> System.ReadOnlyMemory<byte>
+Varve.Turtle.TurtleOptions.BaseIri.init -> void
+Varve.Turtle.TurtleOptions.OnBase.get -> Varve.Turtle.BaseHandler?
+Varve.Turtle.TurtleOptions.OnBase.init -> void
+Varve.Turtle.TurtleOptions.OnError.get -> Varve.Turtle.ErrorHandler?
+Varve.Turtle.TurtleOptions.OnError.init -> void
+Varve.Turtle.TurtleOptions.OnPrefix.get -> Varve.Turtle.PrefixHandler?
+Varve.Turtle.TurtleOptions.OnPrefix.init -> void
+Varve.Turtle.TurtleOptions.Syntax.get -> Varve.Turtle.RdfSyntax
+Varve.Turtle.TurtleOptions.Syntax.init -> void
+Varve.Turtle.TurtleOptions.TurtleOptions() -> void
+Varve.Turtle.TurtleOptions.ValidateIris.get -> bool
+Varve.Turtle.TurtleOptions.ValidateIris.init -> void
+Varve.Turtle.TurtleParser
 Varve.Turtle.WriteOptions
 Varve.Turtle.WriteOptions.Canonical.get -> bool
 Varve.Turtle.WriteOptions.Canonical.init -> void
@@ -104,5 +130,14 @@ static Varve.Turtle.ParsePosition.operator !=(Varve.Turtle.ParsePosition left, V
 static Varve.Turtle.ParsePosition.operator ==(Varve.Turtle.ParsePosition left, Varve.Turtle.ParsePosition right) -> bool
 static Varve.Turtle.ParseResult.operator !=(Varve.Turtle.ParseResult left, Varve.Turtle.ParseResult right) -> bool
 static Varve.Turtle.ParseResult.operator ==(Varve.Turtle.ParseResult left, Varve.Turtle.ParseResult right) -> bool
+static Varve.Turtle.TurtleParser.Parse(System.IO.Stream! stream, Varve.Turtle.QuadHandler! handler, in Varve.Turtle.TurtleOptions options) -> Varve.Turtle.ParseResult
+static Varve.Turtle.TurtleParser.Parse(System.ReadOnlySpan<byte> utf8, Varve.Turtle.QuadHandler! handler, in Varve.Turtle.TurtleOptions options) -> Varve.Turtle.ParseResult
+static Varve.Turtle.TurtleParser.Parse(in System.Buffers.ReadOnlySequence<byte> utf8, Varve.Turtle.QuadHandler! handler, in Varve.Turtle.TurtleOptions options) -> Varve.Turtle.ParseResult
+static Varve.Turtle.TurtleParser.ParseAsync(System.IO.Pipelines.PipeReader! reader, Varve.Turtle.QuadHandler! handler, Varve.Turtle.TurtleOptions options) -> System.Threading.Tasks.ValueTask<Varve.Turtle.ParseResult>
+static Varve.Turtle.TurtleParser.ParseAsync(System.IO.Pipelines.PipeReader! reader, Varve.Turtle.QuadHandler! handler, Varve.Turtle.TurtleOptions options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Turtle.ParseResult>
+static Varve.Turtle.TurtleParser.ParseAsync(System.IO.Stream! stream, Varve.Turtle.QuadHandler! handler, Varve.Turtle.TurtleOptions options) -> System.Threading.Tasks.ValueTask<Varve.Turtle.ParseResult>
+static Varve.Turtle.TurtleParser.ParseAsync(System.IO.Stream! stream, Varve.Turtle.QuadHandler! handler, Varve.Turtle.TurtleOptions options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Turtle.ParseResult>
+virtual Varve.Turtle.BaseHandler.Invoke(System.ReadOnlySpan<byte> iri) -> void
 virtual Varve.Turtle.ErrorHandler.Invoke(in Varve.Turtle.ParseError error) -> Varve.Turtle.ErrorAction
+virtual Varve.Turtle.PrefixHandler.Invoke(System.ReadOnlySpan<byte> prefix, System.ReadOnlySpan<byte> iri) -> void
 virtual Varve.Turtle.QuadHandler.Invoke(in Varve.Rdf.QuadView quad) -> void

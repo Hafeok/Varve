@@ -1,0 +1,264 @@
+using System;
+using System.Buffers;
+using System.Collections.Generic;
+using System.IO.Pipelines;
+using System.Text;
+using System.Threading.Tasks;
+using Xunit;
+using static Varve.Turtle.Tests.Harness;
+
+namespace Varve.Turtle.Tests;
+
+/// <summary>
+/// Turtle across chunk boundaries. Where N-Triples could buffer a line, Turtle
+/// buffers a statement, and a statement has no upper bound — so the interesting
+/// cases are the ones where a construct is cut in half by the reader's segment
+/// size rather than by a newline.
+/// </summary>
+public class TurtleStreamingTests
+{
+    /// <summary>
+    /// A document whose statements deliberately span lines, nest, and contain
+    /// every construct whose scanner keeps state across bytes: a long string, an
+    /// escape, a collection, a nested property list and a graph block.
+    /// </summary>
+    private static string Document(int statements, bool trig)
+    {
+        StringBuilder text = new();
+        text.Append("@prefix p: <http://a/> .\n@base <http://a/x/> .\n");
+
+        for (int i = 0; i < statements; i++)
+        {
+            if (trig)
+            {
+                text.Append("p:g").Append(i).Append("\n{\n");
+            }
+
+            text.Append("p:s").Append(i).Append("\n  p:p \"\"\"a \\u00E9 \"quoted\"\n  and wrapped\"\"\"@en-GB ,\n")
+                .Append("      1.5e3 ;\n  p:q [ p:r ( <rel").Append(i).Append("> p:t ) ] ;\n  a p:C .\n");
+
+            if (trig)
+            {
+                text.Append("}\n");
+            }
+        }
+
+        return text.ToString();
+    }
+
+    private static TurtleOptions Options(RdfSyntax syntax) => new()
+    {
+        Syntax = syntax,
+        BaseIri = U("http://a/doc"),
+    };
+
+    private static List<Row> ViaSpan(byte[] bytes, in TurtleOptions options)
+    {
+        List<Row> rows = [];
+        TurtleParser.Parse(bytes, rows.Collect(), in options);
+        return rows;
+    }
+
+    private static List<Row> ViaSequence(byte[] bytes, in TurtleOptions options, int segmentSize)
+    {
+        List<Row> rows = [];
+        ReadOnlySequence<byte> sequence = Fragments.Fragmented(bytes, segmentSize);
+        TurtleParser.Parse(in sequence, rows.Collect(), in options);
+        return rows;
+    }
+
+    private static List<Row> ViaStream(byte[] bytes, in TurtleOptions options, int drip)
+    {
+        List<Row> rows = [];
+        TurtleParser.Parse(new Fragments.DripStream(bytes, drip), rows.Collect(), in options);
+        return rows;
+    }
+
+    private static async Task<List<Row>> ViaStreamAsync(byte[] bytes, TurtleOptions options, int drip)
+    {
+        List<Row> rows = [];
+        await TurtleParser.ParseAsync(new Fragments.DripStream(bytes, drip), rows.Collect(), options);
+        return rows;
+    }
+
+    private static async Task<List<Row>> ViaPipeAsync(byte[] bytes, TurtleOptions options, int segmentSize)
+    {
+        Pipe pipe = new();
+        List<Row> rows = [];
+
+        Task writing = Task.Run(async () =>
+        {
+            for (int i = 0; i < bytes.Length; i += segmentSize)
+            {
+                int length = Math.Min(segmentSize, bytes.Length - i);
+                await pipe.Writer.WriteAsync(new ReadOnlyMemory<byte>(bytes, i, length));
+            }
+
+            await pipe.Writer.CompleteAsync();
+        });
+
+        await TurtleParser.ParseAsync(pipe.Reader, rows.Collect(), options);
+        await writing;
+        return rows;
+    }
+
+    [Theory]
+    [InlineData(RdfSyntax.Turtle, 1)]
+    [InlineData(RdfSyntax.Turtle, 5)]
+    [InlineData(RdfSyntax.TriG, 1)]
+    [InlineData(RdfSyntax.TriG, 5)]
+    public async Task every_entry_point_reads_the_same_quads(RdfSyntax syntax, int statements)
+    {
+        byte[] bytes = U(Document(statements, syntax == RdfSyntax.TriG));
+        TurtleOptions options = Options(syntax);
+
+        List<Row> expected = ViaSpan(bytes, in options);
+
+        // Nine per statement: two objects, the four collection triples, the
+        // rdf:first link into the list, the property-list link, and rdf:type.
+        Assert.Equal(9 * statements, expected.Count);
+
+        foreach (int segment in (int[])[1, 2, 3, 13, 16, 64, 997])
+        {
+            Assert.Equal(expected, ViaSequence(bytes, in options, segment));
+            Assert.Equal(expected, ViaStream(bytes, in options, segment));
+            Assert.Equal(expected, await ViaStreamAsync(bytes, options, segment));
+            Assert.Equal(expected, await ViaPipeAsync(bytes, options, segment));
+        }
+    }
+
+    [Fact]
+    public async Task a_statement_longer_than_the_buffer_still_reads()
+    {
+        // One collection of twenty thousand members is a single statement, so
+        // the arena has to grow to hold it rather than flushing at a newline.
+        StringBuilder text = new("<http://a/s> <http://a/p> (");
+
+        for (int i = 0; i < 20_000; i++)
+        {
+            text.Append(" <http://a/").Append(i).Append('>');
+        }
+
+        text.Append(" ) .\n");
+        byte[] bytes = U(text.ToString());
+
+        int expected = 2 * 20_000 + 1;
+        TurtleOptions options = default;
+
+        Assert.Equal(expected, ViaSpan(bytes, in options).Count);
+        Assert.Equal(expected, ViaStream(bytes, in options, 997).Count);
+        Assert.Equal(expected, (await ViaStreamAsync(bytes, options, 997)).Count);
+        Assert.Equal(expected, ViaSequence(bytes, in options, 997).Count);
+        Assert.Equal(expected, (await ViaPipeAsync(bytes, options, 997)).Count);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(5)]
+    [InlineData(16)]
+    public void a_long_string_cut_at_every_offset_still_reads(int segmentSize)
+    {
+        // The long-form quote run is the scanner's most stateful loop: """a""b"""
+        // ends on the third quote and not the first, and a chunk boundary can
+        // fall anywhere inside the run.
+        byte[] bytes = U("<http://a/s> <http://a/p> \"\"\"a\"b\"\"c\"\"\" .\n");
+        TurtleOptions options = default;
+
+        List<Row> rows = ViaSequence(bytes, in options, segmentSize);
+
+        Assert.Single(rows);
+        Assert.Equal("a\"b\"\"c", S(rows[0].Object.Lexical));
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(11)]
+    public void an_escape_cut_at_every_offset_still_reads(int segmentSize)
+    {
+        // \U0001F600 is ten bytes; a boundary inside it is truncation, not a
+        // malformed escape, and the two must not be confused.
+        byte[] bytes = U("<http://a/s> <http://a/p> \"\\U0001F600\\u00E9\" .\n");
+        TurtleOptions options = default;
+
+        List<Row> rows = ViaSequence(bytes, in options, segmentSize);
+
+        Assert.Single(rows);
+        Assert.Equal("\U0001F600é", S(rows[0].Object.Lexical));
+    }
+
+    [Fact]
+    public void a_directive_split_across_a_boundary_still_binds()
+    {
+        byte[] bytes = U("@prefix p: <http://a/> .\np:s p:p p:o .\n");
+        TurtleOptions options = default;
+
+        for (int segment = 1; segment <= 8; segment++)
+        {
+            List<Row> rows = ViaSequence(bytes, in options, segment);
+
+            Assert.True(rows.Count == 1, $"segment size {segment} read {rows.Count} quads");
+            Assert.Equal("http://a/s", S(rows[0].Subject.Lexical));
+        }
+    }
+
+    [Fact]
+    public void an_incomplete_final_statement_is_an_error_and_not_silence()
+    {
+        // Truncation must not look like a clean end of input just because the
+        // chunk loop ran out of chunks.
+        byte[] bytes = U("<http://a/s> <http://a/p> <http://a/o> .\n<http://a/s> <http://a/p>");
+        TurtleOptions options = default;
+
+        List<Row> rows = [];
+        ParseResult result = TurtleParser.Parse(
+            new Fragments.DripStream(bytes, 3), rows.Collect(), in options);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ParseErrorKind.UnexpectedEnd, result.FirstError.Kind);
+        Assert.Single(rows);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(7)]
+    [InlineData(64)]
+    public void blank_node_labels_do_not_depend_on_how_the_input_arrived(int segmentSize)
+    {
+        // A statement that outran its chunk is scanned again from the start, so
+        // without rewinding the counter the same document would name its blank
+        // nodes differently for every delivery, and a byte-at-a-time read would
+        // number them in the thousands.
+        byte[] bytes = U("<http://a/s> <http://a/p> [ <http://a/q> ( <http://a/1> [] ) ] .\n"
+            + "<http://a/t> <http://a/p> [] .\n");
+        TurtleOptions options = default;
+
+        List<string> whole = ViaSpan(bytes, in options).ConvertAll(Label);
+        List<string> split = ViaSequence(bytes, in options, segmentSize).ConvertAll(Label);
+
+        Assert.Equal(whole, split);
+        Assert.Contains(whole, label => label.Contains("g0", StringComparison.Ordinal));
+    }
+
+    private static string Label(Row row) =>
+        string.Join('|', S(row.Subject.Lexical), S(row.Predicate.Lexical), S(row.Object.Lexical));
+
+    [Fact]
+    public async Task an_empty_input_succeeds_on_every_entry_point()
+    {
+        byte[] bytes = [];
+        TurtleOptions options = default;
+
+        Assert.Empty(ViaSpan(bytes, in options));
+        Assert.Empty(ViaSequence(bytes, in options, 1));
+        Assert.Empty(ViaStream(bytes, in options, 1));
+        Assert.Empty(await ViaStreamAsync(bytes, options, 1));
+        Assert.Empty(await ViaPipeAsync(bytes, options, 1));
+    }
+}

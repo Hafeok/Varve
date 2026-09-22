@@ -40,6 +40,47 @@ public static class IriRef
         IriScanner.TryValidate(utf8, out IriComponents components, out _) && components.HasScheme;
 
     /// <summary>
+    /// Whether the input begins with a <c>scheme</c> and a colon (RFC 3986
+    /// §3.1), which is what decides whether it needs resolving against a base.
+    /// </summary>
+    /// <remarks>
+    /// Distinct from <see cref="IsAbsolute"/>, which also requires the whole
+    /// reference to be well-formed. A caller that has chosen not to validate
+    /// still has to decide whether to resolve, and using validity for that
+    /// makes a malformed absolute IRI look relative — so the two questions are
+    /// answered separately.
+    /// </remarks>
+    [Varve.HotPath]
+    public static bool StartsWithScheme(ReadOnlySpan<byte> utf8)
+    {
+        if (utf8.IsEmpty || !IsSchemeStart(utf8[0]))
+        {
+            return false;
+        }
+
+        for (int i = 1; i < utf8.Length; i++)
+        {
+            byte b = utf8[i];
+
+            if (b == (byte)':')
+            {
+                return true;
+            }
+
+            if (!IsSchemeStart(b) && b is not ((>= (byte)'0' and <= (byte)'9')
+                or (byte)'+' or (byte)'-' or (byte)'.'))
+            {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsSchemeStart(byte b) =>
+        b is (>= (byte)'a' and <= (byte)'z') or (>= (byte)'A' and <= (byte)'Z');
+
+    /// <summary>
     /// The exact byte length <see cref="TryResolve"/> would produce, or -1 if
     /// the base is not an absolute IRI or either input is malformed.
     /// </summary>

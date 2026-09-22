@@ -33,5 +33,6 @@ static Varve.Iri.IriError.operator !=(Varve.Iri.IriError left, Varve.Iri.IriErro
 static Varve.Iri.IriError.operator ==(Varve.Iri.IriError left, Varve.Iri.IriError right) -> bool
 static Varve.Iri.IriRef.IsAbsolute(System.ReadOnlySpan<byte> utf8) -> bool
 static Varve.Iri.IriRef.ResolveLength(System.ReadOnlySpan<byte> baseIri, System.ReadOnlySpan<byte> reference) -> int
+static Varve.Iri.IriRef.StartsWithScheme(System.ReadOnlySpan<byte> utf8) -> bool
 static Varve.Iri.IriRef.TryResolve(System.ReadOnlySpan<byte> baseIri, System.ReadOnlySpan<byte> reference, System.Span<byte> destination, out int written) -> bool
 static Varve.Iri.IriRef.TryValidate(System.ReadOnlySpan<byte> utf8, out Varve.Iri.IriComponents components, out Varve.Iri.IriError error) -> bool

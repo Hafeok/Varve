@@ -83,4 +83,25 @@ public enum ParseErrorKind : byte
 
     /// <summary>The input was not well-formed UTF-8.</summary>
     InvalidUtf8,
+
+    /// <summary>A <c>@</c> directive that is neither <c>@prefix</c> nor <c>@base</c>.</summary>
+    UnknownDirective,
+
+    /// <summary>A prefix name that does not match PN_PREFIX.</summary>
+    InvalidPrefix,
+
+    /// <summary>A prefixed name whose prefix no directive has bound.</summary>
+    UndeclaredPrefix,
+
+    /// <summary>An IRI or a prefixed name was expected.</summary>
+    ExpectedIri,
+
+    /// <summary>A <c>%</c> in a local name was not followed by two hex digits.</summary>
+    InvalidPercentEncoding,
+
+    /// <summary>A numeric literal that matches none of INTEGER, DECIMAL or DOUBLE.</summary>
+    InvalidNumber,
+
+    /// <summary>A <c>[</c> was not closed by a <c>]</c>.</summary>
+    UnterminatedBlankNodeList,
 }

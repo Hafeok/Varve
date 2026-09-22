@@ -40,8 +40,8 @@ public class AllocationTests
 
     private static readonly byte[] SmallDocument = Document(Small);
     private static readonly byte[] LargeDocument = Document(Large);
-    private static readonly ReadOnlySequence<byte> SmallSequence = Fragment(SmallDocument, 16);
-    private static readonly ReadOnlySequence<byte> LargeSequence = Fragment(LargeDocument, 16);
+    private static readonly ReadOnlySequence<byte> SmallSequence = Fragments.Fragmented(SmallDocument, 16);
+    private static readonly ReadOnlySequence<byte> LargeSequence = Fragments.Fragmented(LargeDocument, 16);
     private static readonly ParseOptions Options = new() { Syntax = RdfSyntax.NQuads };
     private static readonly WriteOptions Writing = new() { Syntax = RdfSyntax.NQuads };
     private static readonly Harness.ArrayBufferWriter Output = new();
@@ -203,35 +203,5 @@ public class AllocationTests
         Assert.True(
             allocated is > 0 and < 2048,
             string.Create(CultureInfo.InvariantCulture, $"an arena costs {allocated} bytes"));
-    }
-
-    private static ReadOnlySequence<byte> Fragment(byte[] bytes, int segmentSize)
-    {
-        Segment? first = null;
-        Segment? last = null;
-
-        for (int i = 0; i < bytes.Length; i += segmentSize)
-        {
-            ReadOnlyMemory<byte> memory = new(bytes, i, Math.Min(segmentSize, bytes.Length - i));
-            last = first is null ? first = new Segment(memory, 0) : last!.Append(memory);
-        }
-
-        return new ReadOnlySequence<byte>(first!, 0, last!, last!.Memory.Length);
-    }
-
-    private sealed class Segment : ReadOnlySequenceSegment<byte>
-    {
-        internal Segment(ReadOnlyMemory<byte> memory, long runningIndex)
-        {
-            Memory = memory;
-            RunningIndex = runningIndex;
-        }
-
-        internal Segment Append(ReadOnlyMemory<byte> memory)
-        {
-            Segment next = new(memory, RunningIndex + Memory.Length);
-            Next = next;
-            return next;
-        }
     }
 }
