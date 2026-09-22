@@ -3,6 +3,20 @@
 Milestones are from `docs/brief.md`. This file adds only the deferred items and
 the point at which each becomes due.
 
+Each milestone is tracked by an issue, and every commit references one
+(ADR 0033). The **Varve roadmap** project board carries them as cards in this
+order; the **Varve work** board carries only what is next. `GOVERNANCE.md`
+describes the flow between the two.
+
+| Milestone | Issue | | Milestone | Issue |
+|---|---|---|---|---|
+| 1 — Foundation | [#4](https://github.com/Hafeok/Varve/issues/4) | | 6 — Durable storage | [#10](https://github.com/Hafeok/Varve/issues/10) |
+| 2 — ADR set zero | [#5](https://github.com/Hafeok/Varve/issues/5) | | 7 — Server and CLI | [#11](https://github.com/Hafeok/Varve/issues/11) |
+| 3a — Model and line syntaxes | [#6](https://github.com/Hafeok/Varve/issues/6) | | Operability | [#12](https://github.com/Hafeok/Varve/issues/12) |
+| 3b — Turtle and TriG | [#7](https://github.com/Hafeok/Varve/issues/7) | | 8 — SHACL | [#13](https://github.com/Hafeok/Varve/issues/13) |
+| 4 — In-memory log | [#8](https://github.com/Hafeok/Varve/issues/8) | | 9 — Erasure mode | [#14](https://github.com/Hafeok/Varve/issues/14) |
+| 5 — SPARQL | [#9](https://github.com/Hafeok/Varve/issues/9) | | 1.0 definition | [#15](https://github.com/Hafeok/Varve/issues/15) |
+
 ## 1 — Foundation *(complete)*
 
 Repository layout, licence, NuGet prefix reservation for `Varve.*`, build
@@ -205,6 +219,46 @@ Layer 5 exists from here, which makes the `System.Uri` ban in
 `eng/BannedSymbols.txt` due for narrowing (ADR 0004): a server speaks HTTP and
 needs transport addresses that are not RDF IRIs.
 
+**Authentication and authorisation arrive with the server**, decided ahead of
+the milestone by [ADR 0037](adr/0037-server-authentication.md). OIDC bearer
+tokens validated with `JwtBearer` from the shared framework — no
+`Microsoft.Identity.Web`, no MSAL, and therefore no new register entry.
+Authorisation is claim-based and maps to three permissions per dataset,
+`read`, `write` and `admin`. Anonymous mode exists for development, must be
+enabled explicitly, and warns on every start. The commit agent is the caller's
+stable subject identifier from the token, so provenance survives the identity
+provider.
+
+`Varve.Store` never receives a principal, a claim or a token: all of this is
+layer 5, and the layer rule already prevents the alternative.
+
+**API keys are rejected permanently**, in any form, and ADR 0037 states that it
+is not to be superseded by a decision that adds one. A caller that cannot obtain
+an OIDC token is not a supported caller.
+
+## Operability — what a server needs before anyone runs it
+
+Between 7 and 8, and new with the adoption of the Mind Over Machine stewardship
+standard. Milestone 7 produces a server that answers queries; it does not
+produce a server anyone should operate. Every item here is a consequence of the
+server existing, and none of them should wait for a validator.
+
+- **Query and resource governance** — timeouts, result-size limits, memory
+  ceilings per request, and a defined answer for what happens when one is hit.
+  On an event-sourced store an as-of read can touch an unbounded amount of log,
+  so this is not a nicety.
+- **OpenTelemetry** — traces, metrics and logs, to the semantic conventions for
+  a database server.
+- **Health and readiness**, which are different questions here: the process
+  being up is not the dataset being open and the projections having caught up.
+- **Graceful shutdown** — in-flight requests drained, the sequencer quiesced,
+  the lease file in `derived/` released. A lease left behind by a killed process
+  is an operator's problem on the next start.
+- **Configuration** — ADR 0037's surface, plus dataset paths and limits, from
+  file, environment and command line.
+- **Container image** for the server.
+- **CLI as a `dotnet tool`**.
+
 ## 8 — SHACL
 
 Standalone with a W3C suite pass, then commit-time gating, then the incremental
@@ -246,6 +300,42 @@ milestone 9 ships**, because it is a custom instantiation of a standard
 composition rather than RFC 5297. If the review rejects it, the fallback is that
 erasure mode does not run in the browser, in its own ADR. Nothing before
 milestone 9 depends on any of this.
+
+## 1.0 definition
+
+Under strict SemVer ([ADR 0035](adr/0035-semantic-versioning.md)) the major
+version is a promise about compatibility, so what it promises is decided before
+it is made rather than at the moment of making it. 1.0 is reached when all of
+the following are true.
+
+- **Failure-injection and soak tests for the file backend.** Torn writes, full
+  disks, killed processes mid-commit, and a soak run long enough to be evidence
+  rather than a demonstration. ADR 0014's header chain exists to detect
+  divergence; 1.0 is where that claim is tested by causing it.
+- **Format versioning with a read-forever commitment.** Every format version
+  Varve has ever written stays readable by every later version. The version
+  discriminator is due at milestone 6 (ADR 0014) precisely so that this promise
+  is possible to make.
+- **Public API freeze.** `PublicAPI.Shipped.txt` becomes the contract, and the
+  baseline diff is the evidence for what is a breaking change (ADR 0035).
+- **Operator guide**, including the complete Entra example — app registration,
+  app roles, managed identity — and a generic OIDC issuer example (ADR 0037).
+- **Signed multi-arch container images with an SBOM.**
+- **Package-manager distribution for the CLI**: `winget` and Homebrew, beyond
+  the `dotnet tool` the Operability milestone delivers.
+- **Docs site with Mermaid rendering.** The specifications already carry
+  diagrams that only render as source today.
+
+### Excluded from 1.0, deliberately
+
+- **Erasure mode ships as preview only.** ADR 0028's second condition — external
+  cryptographic review of a custom instantiation of a standard composition —
+  governs whether it ships at all, and a feature whose cryptography is under
+  review is not a feature a major version should promise.
+- **No replication.**
+- **No branching or merging of datasets.** Milestone 2 was required not to
+  block it. That is not the same as building it, and conflating the two is how
+  a 1.0 acquires a feature nobody designed.
 
 ## Not scheduled
 
