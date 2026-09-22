@@ -54,6 +54,16 @@ GitHub and describes the merge, not the work; the commits it brings are each
 checked on their own. A merge whose body *does* carry a reference is fine and
 this repository's merges will.
 
+**Commits authored by a closed list of bots are exempt**, and this one is a
+concession rather than a principle. Dependabot composes its own commit message
+and offers no setting that would add `Refs #N` to the body, so the choice is
+between exempting it and refusing automated dependency updates — which ADR
+0009's amendment of the same date has just made a normal part of how this
+repository is maintained. The pull request Dependabot opens is the tracking
+artefact for those commits. The list is `dependabot[bot]` and
+`github-actions[bot]`, it is in the gate's source rather than in configuration,
+and widening it is how this gate would stop meaning anything.
+
 ### AI-assisted work is documented in `docs/traceability/`
 
 One Markdown file per AI-assisted session, named `YYYY-MM-DD-issue-N-<slug>.md`,

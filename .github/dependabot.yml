@@ -1,0 +1,83 @@
+# Automated dependency updates.
+#
+# ADR 0009's amendment of 2026-09-22 is what makes this possible without the
+# register gate failing every pull request. The grouping below is arranged to
+# match that amendment exactly:
+#
+#   patch and minor  ->  grouped into one pull request, passes the gate
+#   major            ->  its own pull request, fails the gate until the cited
+#                        ADR is amended
+#
+# So the noisy half arrives as one reviewable change a week, and the half that
+# is a decision arrives alone, red, with the gate naming what it needs. That is
+# the intended experience rather than an accident of configuration.
+#
+# Dependabot writes its own commit messages and cannot add a body, so its
+# commits carry no "Refs #N". eng/issue-refs.cs exempts dependabot[bot] by
+# author for that reason, which ADR 0033 records as a concession rather than a
+# principle.
+
+version: 2
+
+updates:
+  # Every action in .github/workflows/ is pinned by commit SHA, which is what
+  # the OpenSSF Scorecard's Pinned-Dependencies check wants and what stops a
+  # moved tag from changing what CI runs. A SHA pin cannot be read for
+  # freshness by a human, so something has to watch it: unattended, a pinned
+  # action silently ages past its security fixes, which is the failure mode
+  # pinning trades for.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Copenhagen
+    commit-message:
+      prefix: build(deps)
+    labels:
+      - dependencies
+    groups:
+      actions-patch-and-minor:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  # NuGet, through central package management: Directory.Packages.props is the
+  # register (ADR 0009) and the only file carrying a version, so every update
+  # lands there and the gate sees all of them.
+  - package-ecosystem: nuget
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Copenhagen
+    commit-message:
+      prefix: build(deps)
+    labels:
+      - dependencies
+    open-pull-requests-limit: 5
+    groups:
+      nuget-patch-and-minor:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Microsoft.CodeAnalysis.CSharp is a FLOOR, not a version to keep current,
+      # and Directory.Packages.props explains at length why: an analyzer needs a
+      # host at or above the Roslyn it was built against, and an IDE's compiler
+      # comes from the IDE rather than from global.json. Building against the
+      # latest makes the analyzer fail to load with CS9057 for anyone on an
+      # older Visual Studio. Raising it is a decision with a reason, never a
+      # bump, so Dependabot must not propose one.
+      #
+      # Microsoft.CodeAnalysis.CSharp.Workspaces follows the same floor, because
+      # the analyzer test harness compiles against the same Roslyn the shipped
+      # analyzer does.
+      - dependency-name: Microsoft.CodeAnalysis.CSharp
+      - dependency-name: Microsoft.CodeAnalysis.CSharp.Workspaces
