@@ -1,0 +1,17 @@
+# Blank issues are disabled deliberately. A bug report without the document
+# that reproduces it costs more to triage than it costs to write, and every
+# template below asks for the one thing that makes its kind of report useful.
+blank_issues_enabled: false
+
+contact_links:
+  - name: Question, idea, or something you built
+    url: https://github.com/Hafeok/Varve/discussions
+    about: >-
+      Discussions — Q&A, Ideas, Show and tell. Anything that is not yet a
+      specific piece of work belongs here rather than in an issue.
+
+  - name: Security vulnerability
+    url: https://github.com/Hafeok/Varve/security/advisories/new
+    about: >-
+      Report privately, never as a public issue. SECURITY.md has the policy and
+      the five-working-day acknowledgement.
