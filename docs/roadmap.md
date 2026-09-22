@@ -51,9 +51,10 @@ suite.
 Two things 3b delivered that were not asked for, and are worth keeping:
 
 - **The chunk-boundary oracle.** Parse every manifest input whole, then again
-  split at each byte offset, and require the same answer. It found eight defect
+  split at each byte offset, and require the same answer. It found nine defect
   classes in the Turtle reader — two of which produced *wrong quads rather than
-  errors* — and it is now a standing rule for every syntax package
+  errors*, and one of which only the Windows run could see — and it is now a
+  standing rule for every syntax package
   (`docs/testing.md` §2), enforced by a guard rather than remembered.
 - **ADR 0007's exit criterion, met two milestones early.** The conformance
   harness reads its own manifests with `Varve.Turtle`; `dotNetRdf.Core` remains

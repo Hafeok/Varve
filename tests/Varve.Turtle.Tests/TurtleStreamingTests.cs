@@ -394,6 +394,87 @@ public class TurtleStreamingTests
         Assert.Equal(2, reader.Error.Position.Line);
     }
 
+    /// <summary>
+    /// A document with CR LF line endings reports the same error position
+    /// however it was split — including a split that falls between the CR and
+    /// the LF.
+    /// </summary>
+    /// <remarks>
+    /// This is the chunk-boundary rule applied to the line ending itself, and
+    /// it is the one case the conformance oracle could not reach on Linux: the
+    /// W3C suite files check out with LF there, so no CR LF pair exists to be
+    /// cut in half. On Windows, where git checks them out as CR LF, the oracle
+    /// found it at once — 163 cases reporting a line one too high. The test is
+    /// here, on a document this repository owns, so the answer no longer
+    /// depends on how a contributor's git is configured.
+    /// </remarks>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(5)]
+    [InlineData(11)]
+    public void a_crlf_document_reports_the_same_error_line_however_it_is_split(int segmentSize)
+    {
+        byte[] bytes = U("@prefix p: <http://a/> .\r\n<http://a/s> <http://a/p> ;\r\n");
+        TurtleOptions options = default;
+
+        ParseError whole = FirstError(ViaSpanResult(bytes, in options));
+        ParseError split = FirstError(ViaSequenceResult(bytes, in options, segmentSize));
+
+        Assert.Equal(2, whole.Position.Line);
+        Assert.Equal(whole.Position.Line, split.Position.Line);
+        Assert.Equal(whole.Position.Column, split.Position.Column);
+        Assert.Equal(whole.Position.ByteOffset, split.Position.ByteOffset);
+        Assert.Equal(whole.Kind, split.Kind);
+    }
+
+    /// <summary>Every offset, which is what the conformance oracle does.</summary>
+    [Fact]
+    public void a_crlf_document_reports_the_same_error_line_at_every_offset()
+    {
+        byte[] bytes = U(
+            "@prefix p: <http://a/> .\r\n"
+            + "p:s p:p [ p:q ( p:1 p:2 ) ] .\r\n"
+            + "p:s p:p \"x\"\r\n"
+            + "  , \"y\" ;\r\n");
+        TurtleOptions options = default;
+
+        ParseError whole = FirstError(ViaSpanResult(bytes, in options));
+
+        for (int at = 0; at <= bytes.Length; at++)
+        {
+            ReadOnlySequence<byte> sequence = Fragments.Split(bytes, at);
+            ParseError split = FirstError(ViaSequenceParse(in sequence, in options));
+
+            Assert.Equal(whole.Position.Line, split.Position.Line);
+            Assert.Equal(whole.Position.Column, split.Position.Column);
+            Assert.Equal(whole.Position.ByteOffset, split.Position.ByteOffset);
+        }
+    }
+
+    private static ParseError FirstError(ParseResult result)
+    {
+        Assert.False(result.Succeeded);
+        return result.FirstError;
+    }
+
+    private static ParseResult ViaSpanResult(byte[] bytes, in TurtleOptions options) =>
+        TurtleParser.Parse(bytes, Ignore, in options);
+
+    private static ParseResult ViaSequenceResult(byte[] bytes, in TurtleOptions options, int segmentSize)
+    {
+        ReadOnlySequence<byte> sequence = Fragments.Fragmented(bytes, segmentSize);
+        return TurtleParser.Parse(in sequence, Ignore, in options);
+    }
+
+    private static ParseResult ViaSequenceParse(in ReadOnlySequence<byte> sequence, in TurtleOptions options) =>
+        TurtleParser.Parse(in sequence, Ignore, in options);
+
+    private static void Ignore(in Varve.Rdf.QuadView quad)
+    {
+    }
+
     [Fact]
     public void the_pull_reader_reads_trig_graph_blocks()
     {

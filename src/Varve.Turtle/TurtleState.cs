@@ -65,6 +65,13 @@ internal sealed class TurtleState
     internal long LineStart { get; private set; }
 
     /// <summary>
+    /// Whether the last byte advanced over was a carriage return, so that an
+    /// <c>LF</c> opening the next buffer completes a pair rather than ending a
+    /// second line. See <see cref="CountLineBreak"/>.
+    /// </summary>
+    internal bool AfterCarriageReturn { get; private set; }
+
+    /// <summary>
     /// Records that <paramref name="consumed"/> has been parsed and the next
     /// buffer begins after it.
     /// </summary>
@@ -76,25 +83,65 @@ internal sealed class TurtleState
     /// </remarks>
     internal void Advance(ReadOnlySpan<byte> consumed)
     {
+        int line = LineNumber;
+        long lineStart = LineStart;
+        bool afterCarriageReturn = AfterCarriageReturn;
+
         for (int i = 0; i < consumed.Length; i++)
         {
-            if (IsLineBreak(consumed, i))
-            {
-                LineNumber++;
-                LineStart = DocumentOffset + i + 1;
-            }
+            CountLineBreak(consumed[i], DocumentOffset + i, ref line, ref lineStart, ref afterCarriageReturn);
         }
 
+        LineNumber = line;
+        LineStart = lineStart;
+        AfterCarriageReturn = afterCarriageReturn;
         DocumentOffset += consumed.Length;
     }
 
     /// <summary>
-    /// A line ends at a newline, and at a carriage return that is not part of
-    /// a CR LF pair. One rule, used both when advancing and when reporting.
+    /// Counts <paramref name="b"/> as a line break if it is one, given whether
+    /// the byte before it was a carriage return.
     /// </summary>
-    internal static bool IsLineBreak(ReadOnlySpan<byte> text, int index) =>
-        text[index] == (byte)'\n'
-        || (text[index] == (byte)'\r' && (index + 1 >= text.Length || text[index + 1] != (byte)'\n'));
+    /// <remarks>
+    /// <para>
+    /// A line ends at a carriage return and at a newline, and <c>CR LF</c> is
+    /// one ending rather than two. The obvious way to say that is to look at
+    /// the byte after a <c>CR</c> — and that is the chunk-boundary rule's own
+    /// trap (`turtle.md` §8), because a <c>CR</c> at the end of a buffer has no
+    /// byte after it yet. A buffer that ends between the <c>CR</c> and the
+    /// <c>LF</c> then counts two lines where one document has one.
+    /// </para>
+    /// <para>
+    /// So the rule looks backwards instead: a <c>CR</c> always ends a line, and
+    /// an <c>LF</c> ends one only when the byte before it was not a <c>CR</c>.
+    /// Backwards needs no lookahead, so the only state that crosses a buffer is
+    /// one <see cref="bool"/> — and a document split anywhere reports the same
+    /// line as the same document whole.
+    /// </para>
+    /// </remarks>
+    internal static void CountLineBreak(
+        byte b, long absolute, ref int line, ref long lineStart, ref bool afterCarriageReturn)
+    {
+        if (b == (byte)'\r')
+        {
+            line++;
+            lineStart = absolute + 1;
+            afterCarriageReturn = true;
+            return;
+        }
+
+        if (b == (byte)'\n')
+        {
+            if (!afterCarriageReturn)
+            {
+                line++;
+            }
+
+            lineStart = absolute + 1;
+        }
+
+        afterCarriageReturn = false;
+    }
 
     internal void SetBase(ReadOnlySpan<byte> iri) => _base = iri.ToArray();
 

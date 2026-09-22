@@ -316,8 +316,9 @@ end of a buffer that can still grow.** Turtle has several: a number (`1.` is an
 integer and a statement's dot, or the start of `1.5`), a language tag, a
 prefixed name's local part, a blank node label, the `@` or `^^` that may follow
 a string, a keyword (`@prefix`, `PREFIX`, `BASE`, `GRAPH`, `true`, `false`, `a`),
-an `ANON`'s closing `]`, a multi-byte character, and a comment with no newline
-yet. Each of them, cut in the wrong place, has a plausible wrong answer — and
+an `ANON`'s closing `]`, a multi-byte character, a comment with no newline
+yet — and the **line ending itself**, since `CR LF` is one ending and a `CR` at
+a buffer's end does not yet know whether an `LF` follows it. Each of them, cut in the wrong place, has a plausible wrong answer — and
 for a number the wrong answer is a **quad nobody wrote** rather than an error,
 which is the worst kind.
 
@@ -326,15 +327,28 @@ buffer is the document's last, waits when it is not, and decides when it is. So
 `<s> <p> 1.` is a complete document and `1.` at a chunk boundary is an
 unfinished decimal.
 
+The line ending is the one that cannot wait, because a position has to be
+reported for the buffer in hand. It is answered by **looking backwards instead
+of forwards**: a `CR` always ends a line, and an `LF` ends one only when the
+byte before it was not a `CR`. That needs no lookahead, so the only state that
+crosses a buffer is a single flag, and `CR LF` is one ending whether or not the
+split falls between its two bytes. Deciding it forwards — *is the byte after
+this `CR` an `LF`?* — is wrong at exactly one place, the end of a growable
+buffer, and reports every later line one too high.
+
 This is asserted by an **oracle** rather than by cases: for every input in
 every wired manifest, the conformance project parses the file whole and then
 again split at each byte offset, and requires the same quads, or the same error
 kind and position, every time. It never asks whether the answer is right — the
 suites do that — only whether the parser agrees with itself, which makes the
-expected value computable and the corpus free. It found eight defect classes in
+expected value computable and the corpus free. It found nine defect classes in
 this reader that hand-written tests had missed — two of them producing wrong
-quads rather than errors, and two in code written the same hour — and it is
-wired for every
+quads rather than errors, two in code written the same hour, and one that only
+the Windows run could see, because the suite's files check out with `CR LF`
+there and with `LF` on Linux. That last one is why the line-ending rule above
+is also asserted on documents this repository owns, at every offset: a
+conformance result that depends on how a contributor's git is configured is not
+a conformance result. It is wired for every
 format rather than for Turtle alone: N-Triples and N-Quads are correct here by
 construction, because their line buffer never hands the parser a partial line,
 and the oracle is what turns that argument into a measurement.

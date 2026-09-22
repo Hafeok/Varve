@@ -182,14 +182,12 @@ internal static class TurtleEngine
     {
         int line = state.LineNumber;
         long lineStart = state.LineStart;
+        bool afterCarriageReturn = state.AfterCarriageReturn;
 
         for (int i = 0; i < offset && i < data.Length; i++)
         {
-            if (TurtleState.IsLineBreak(data, i))
-            {
-                line++;
-                lineStart = state.DocumentOffset + i + 1;
-            }
+            TurtleState.CountLineBreak(
+                data[i], state.DocumentOffset + i, ref line, ref lineStart, ref afterCarriageReturn);
         }
 
         long absolute = state.DocumentOffset + offset;

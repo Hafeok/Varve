@@ -32,6 +32,19 @@ internal static class Fragments
             : new ReadOnlySequence<byte>(first, 0, last!, last!.Memory.Length);
     }
 
+    /// <summary>
+    /// <paramref name="bytes"/> as exactly two segments meeting at
+    /// <paramref name="at"/>, which is the shape the conformance oracle uses:
+    /// one named boundary rather than a repeating size.
+    /// </summary>
+    internal static ReadOnlySequence<byte> Split(byte[] bytes, int at)
+    {
+        Segment first = new(new ReadOnlyMemory<byte>(bytes, 0, at), 0);
+        Segment last = first.Append(new ReadOnlyMemory<byte>(bytes, at, bytes.Length - at));
+
+        return new ReadOnlySequence<byte>(first, 0, last, last.Memory.Length);
+    }
+
     internal sealed class Segment : ReadOnlySequenceSegment<byte>
     {
         internal Segment(ReadOnlyMemory<byte> memory, long runningIndex)
