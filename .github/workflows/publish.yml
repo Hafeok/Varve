@@ -1,0 +1,136 @@
+# Publishes to nuget.org on a v* tag, through trusted publishing.
+#
+# The policy on nuget.org names this file by path — decision-driven-design /
+# Hafeok/Varve / publish.yml, no environment — so renaming it breaks publishing
+# in a way that looks like an authentication failure. See ADR 0029.
+#
+# A version pushed to nuget.org cannot be edited, replaced or deleted, only
+# unlisted. That is why every gate runs here too: a tag is the one moment they
+# matter most, and it is the wrong place to save four minutes.
+
+name: Publish
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+      # Trusted publishing: the workflow's OIDC token is exchanged for a
+      # short-lived API key. There is no long-lived secret to leak or rotate.
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          submodules: recursive
+
+          # MinVer reads the version off the tag, and a shallow clone has no
+          # tags. A package versioned 0.0.0-alpha.0.N on a tagged build is this
+          # line having been dropped.
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Install the WebAssembly workloads
+        run: dotnet workload install wasm-tools wasm-experimental
+
+      - name: Dependency register
+        run: dotnet run eng/dependency-register.cs
+
+      - name: Restore
+        run: dotnet restore Varve.slnx
+
+      - name: Native assets
+        run: dotnet run eng/native-assets.cs
+
+      - name: Build
+        run: dotnet build Varve.slnx --configuration Release --no-restore
+
+      - name: Test the analyzers
+        run: dotnet test --project tests/Varve.Analyzers.Tests/Varve.Analyzers.Tests.csproj --configuration Release
+
+      - name: Test Varve.Iri
+        run: dotnet test --project tests/Varve.Iri.Tests/Varve.Iri.Tests.csproj --configuration Release
+
+      - name: Test Varve.Rdf
+        run: dotnet test --project tests/Varve.Rdf.Tests/Varve.Rdf.Tests.csproj --configuration Release
+
+      - name: Test Varve.Turtle
+        run: dotnet test --project tests/Varve.Turtle.Tests/Varve.Turtle.Tests.csproj --configuration Release
+
+      - name: Run the W3C suites
+        continue-on-error: true
+        run: >
+          dotnet test
+          --project tests/Varve.Conformance.Tests/Varve.Conformance.Tests.csproj
+          --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/conformance
+
+      - name: Ratchet
+        run: dotnet run eng/ratchet.cs -- ${{ github.workspace }}/artifacts/conformance --label publish
+
+      - name: Native AOT
+        run: |
+          dotnet publish tests/Varve.AotSmoke --configuration Release \
+            --output ${{ github.workspace }}/artifacts/aot
+          "${{ github.workspace }}/artifacts/aot/Varve.AotSmoke"
+
+      - name: Browser WASM
+        run: dotnet build tests/Varve.WasmSmoke --configuration Release
+
+      - name: Pack
+        run: >
+          dotnet pack Varve.slnx
+          --configuration Release
+          --no-build
+          -p:ContinuousIntegrationBuild=true
+          --output ${{ github.workspace }}/artifacts/packages
+
+      - name: Check the package metadata
+        run: dotnet run eng/package-metadata.cs -- ${{ github.workspace }}/artifacts/packages
+
+      - name: Upload the packages
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: packages
+          path: ${{ github.workspace }}/artifacts/packages
+          if-no-files-found: error
+
+      # The two steps below are adjacent on purpose. The key NuGet/login mints
+      # lives one hour, and anything between them is something that can fail
+      # while a credential is in flight.
+      - name: Log in to nuget.org
+        id: login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push
+        # --skip-duplicate so that re-running a half-successful publish does not
+        # fail on the packages that already went up. A tag that published two of
+        # three packages and cannot be retried is the failure to avoid.
+        run: >
+          dotnet nuget push "${{ github.workspace }}/artifacts/packages/*.nupkg"
+          --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate

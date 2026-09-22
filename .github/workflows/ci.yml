@@ -103,6 +103,21 @@ jobs:
           --project tests/Varve.Turtle.Tests/Varve.Turtle.Tests.csproj
           --configuration Release
 
+      # The publish dry run. A version pushed to nuget.org cannot be edited,
+      # replaced or deleted, so the pack step and its output are exercised on
+      # every pull request rather than first on a tag. This packs and reads the
+      # nuspec back; it does not push, and the workflow that pushes is not
+      # triggered by a pull request at all. ADR 0029.
+      - name: Pack
+        run: >
+          dotnet pack Varve.slnx
+          --configuration Release
+          --no-build
+          --output ${{ github.workspace }}/artifacts/packages
+
+      - name: Check the package metadata
+        run: dotnet run eng/package-metadata.cs -- ${{ github.workspace }}/artifacts/packages
+
   # Constraint 2, proven rather than configured. An analyzer only sees what it
   # can see statically; only an ILC run shows the packages publish, and only
   # running the binary shows the interesting AOT failures — a trimmed type, a
