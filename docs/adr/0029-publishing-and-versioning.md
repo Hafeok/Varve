@@ -128,6 +128,15 @@ notice is on nuget.org, after it is permanent.
 it does not push, and the workflow that pushes is not triggered by a pull
 request at all.
 
+**The repository check fails closed.** SourceLink derives `RepositoryUrl` only
+from a remote it recognises, so a clone whose origin is a local path — which is
+how this repository is verified before a push — produces no repository element
+and a package that genuinely is not publishable. The gate therefore fails by
+default and names `--allow-missing-repository`, which nothing in CI passes. A
+package published without a repository link cannot be traced back to the commit
+that built it, and that is not something to make optional by default so that a
+local clone looks tidy.
+
 ## Alternatives considered
 
 - **A `Version` property in `Directory.Build.props`**, bumped by hand. Simplest,

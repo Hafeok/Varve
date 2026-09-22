@@ -1,6 +1,7 @@
 // Package metadata gate.
 //
 //   dotnet run eng/package-metadata.cs -- <directory-of-nupkg>
+//       [--allow-missing-repository]
 //
 // ADR 0029 fixes what a published Varve package must carry. Every one of those
 // values is set once, in Directory.Build.targets, and every one of them can be
@@ -12,6 +13,13 @@
 // So the dry run in the build job packs on every pull request, and this opens
 // each .nupkg and reads the nuspec back. It checks the artifact rather than the
 // properties that were supposed to produce it.
+//
+// On --allow-missing-repository: RepositoryUrl is derived from the git remote
+// by SourceLink, which only recognises known hosts. A clone whose origin is a
+// local path — which is how this repository is verified before a push — gets
+// no repository element, and the package genuinely is not publishable. The
+// check is therefore on by default and fails closed; the flag is for a local
+// clone and is passed by nothing in CI.
 //
 // On licenceUrl: NuGet emits <licenseUrl>https://licenses.nuget.org/...</licenseUrl>
 // itself, beside <license type="expression">, for clients older than the
@@ -31,6 +39,7 @@ if (args.Length == 0)
 }
 
 string directory = args[0];
+bool allowMissingRepository = Array.IndexOf(args, "--allow-missing-repository") >= 0;
 
 if (!Directory.Exists(directory))
 {
@@ -123,7 +132,21 @@ foreach (string package in packages)
         || string.IsNullOrEmpty(repository.Attribute("url")?.Value)
         || string.IsNullOrEmpty(repository.Attribute("commit")?.Value))
     {
-        findings.Add("repository needs a url and a commit; both come from the git remote via SourceLink");
+        string message =
+            "repository needs a url and a commit, and both come from the git remote via SourceLink. "
+            + "If this is a clone whose origin is a local path, SourceLink cannot recognise the host and "
+            + "there is nothing to derive; pass --allow-missing-repository to check the rest. Nothing in "
+            + "CI passes it, because a package published without a repository link cannot be traced to "
+            + "the commit that built it.";
+
+        if (allowMissingRepository)
+        {
+            Console.WriteLine($"note {name}: no repository element, allowed by --allow-missing-repository");
+        }
+        else
+        {
+            findings.Add(message);
+        }
     }
 
     // The two files the nuspec points at have to be in the package, or a
