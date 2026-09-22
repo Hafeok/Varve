@@ -200,7 +200,7 @@ jobs:
           path: tests/Varve.WasmSmoke/bin/Release/net10.0/browser-wasm/AppBundle
           if-no-files-found: error
 
-  # Does not gate on the raw test result, and still should not now that all 157
+  # Does not gate on the raw test result, and still should not now that all 883
   # cases pass: an exempt case is allowed to fail, and a case outside the
   # baseline is allowed to fail while it is being worked on (ADR 0007). The
   # ratchet gates instead — on a regression, on a case that vanished, on an

@@ -200,6 +200,36 @@ public class TurtleAllocationTests
             },
             fixedCostLimit: FixedCostLimit);
 
+    /// <summary>
+    /// The pull reader over a span, which is the shape that can make the claim.
+    /// </summary>
+    /// <remarks>
+    /// Its <c>ReadOnlySequence</c> constructor deliberately cannot: it copies a
+    /// fragmented sequence once, because a caller holding <c>Current</c> across
+    /// calls cannot have the buffer compacted underneath it (`turtle.md` §8).
+    /// That is one allocation for the reader and still none per quad, but it
+    /// scales with the document, so measuring it as a difference between two
+    /// documents would — correctly — not report zero. The push path is the one
+    /// that streams.
+    /// </remarks>
+    [Fact]
+    public void the_pull_reader_allocates_nothing_per_quad() =>
+        AssertZeroPerQuad(
+            static large =>
+            {
+                TurtleOptions options = Options(RdfSyntax.Turtle);
+                TurtleReader reader = new(large ? LargeDocument : SmallDocument, in options);
+
+                while (reader.Read())
+                {
+                    counter += reader.Current.Subject.Lexical.Length
+                        + reader.Current.Predicate.Lexical.Length
+                        + reader.Current.Object.Lexical.Length;
+                    quadsSeen++;
+                }
+            },
+            fixedCostLimit: FixedCostLimit);
+
     [Fact]
     public void the_writer_allocates_nothing_per_quad() =>
         AssertZeroPerQuad(

@@ -91,8 +91,8 @@ mechanisms stopped being inert. All of the following are **delivered**:
   `rdf/rdf11/rdf-n-quads` pass, and the close-out added `rdf/rdf12`'s
   N-Triples and N-Quads **syntax** suites — 29 and 27 more — because the reader
   and writer had shipped RDF 1.2's base direction and triple terms with no
-  suite behind them. `baseline/passing.txt` holds all **213**, and
-  `baseline/exemptions.txt` is empty. The ratchet gained an exemptions
+  suite behind them. That made 213; 3b's Turtle and TriG suites took it to
+  **883**, still with `baseline/exemptions.txt` empty. The ratchet gained an exemptions
   mechanism: an exempt case is neither required to pass nor reported as newly
   passing, and an exemption with no written justification fails the run.
   Gating 1.2 found three real bugs, two of which were wrong under 1.1 as well —
