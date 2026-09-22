@@ -76,9 +76,13 @@
          Exit criterion in ADR 0007: removed when Varve.Turtle passes
          rdf/rdf11/rdf-turtle unexempted. If this line is still here after
          milestone 5, that is a defect. -->
-    <!-- It now has a second, independent justification: the benchmark baseline
-         in ADR 0027. ADR 0007's exit criterion narrows to the manifest reader;
-         this line moves out of this group at milestone 5 rather than leaving. -->
+    <!-- ADR 0007's exit criterion is MET, at milestone 3b: the conformance
+         harness reads its manifests with Varve.Turtle and no longer references
+         this package. What remains is ADR 0027's separate justification — the
+         benchmark baseline, because a performance claim needs something to
+         compare against — so the line stays for tests/Varve.Benchmarks alone.
+         The harness's freedom from it is a test, not a convention:
+         The_harness_does_not_reference_another_rdf_implementation. -->
     <PackageVersion Include="dotNetRdf.Core" Version="3.5.2" Adr="0007" />
 
     <!-- A transitive dependency of dotNetRdf.Core, pinned rather than
@@ -87,8 +91,9 @@
          transitive pinning raises it to a version without the advisory. We
          never call into it — dotNetRdf uses it for HTML and RDFa, and this
          repository reads Turtle manifests — but a known-vulnerable package in
-         the graph is not something to silence with NoWarn. It leaves with
-         dotNetRdf.Core at milestone 5. -->
+         the graph is not something to silence with NoWarn. It is now in the
+         benchmark project's graph only, the conformance harness having dropped
+         dotNetRdf.Core at milestone 3b, and it leaves when that does. -->
     <PackageVersion Include="AngleSharp" Version="1.8.2" Adr="0009" />
   </ItemGroup>
 

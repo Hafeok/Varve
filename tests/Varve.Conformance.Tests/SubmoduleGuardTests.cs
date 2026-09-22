@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.IO;
 using Xunit;
 
@@ -291,5 +292,46 @@ public class SubmoduleGuardTests
                 OracleCatalogue.Of(suite).Count > 0,
                 "Suite '" + suite.Id + "' contributed no entries to the oracle.");
         }
+    }
+
+    /// <summary>
+    /// The harness no longer links another RDF implementation.
+    /// </summary>
+    /// <remarks>
+    /// ADR 0007's exit criterion, made a test rather than a note. A conformance
+    /// harness that uses another parser to decide what its manifests say is
+    /// measuring agreement with that parser, and the dependency was justified
+    /// only while there was no Turtle reader to read them with. Re-adding the
+    /// package reference would make this fail, which is the point: the
+    /// criterion was written down for a year before it could be met, and a
+    /// note is not a gate.
+    ///
+    /// dotNetRDF stays in the benchmark project on ADR 0027's justification —
+    /// a performance claim needs something to compare against — and that is a
+    /// different assembly.
+    /// </remarks>
+    [Fact]
+    public void The_harness_does_not_reference_another_rdf_implementation()
+    {
+        List<string> found = [];
+
+        foreach (AssemblyName reference in typeof(ManifestReader).Assembly.GetReferencedAssemblies())
+        {
+            string name = reference.Name ?? "";
+
+            if (name.StartsWith("dotNetRdf", StringComparison.OrdinalIgnoreCase)
+                || name.StartsWith("VDS.", StringComparison.OrdinalIgnoreCase)
+                || name.StartsWith("AngleSharp", StringComparison.OrdinalIgnoreCase))
+            {
+                found.Add(name);
+            }
+        }
+
+        Assert.True(
+            found.Count == 0,
+            "The conformance harness references " + string.Join(", ", found)
+            + ". It reads its manifests with Varve.Turtle (ADR 0007's exit criterion), and a "
+            + "harness that judges the parser with another parser measures agreement with that "
+            + "parser instead of with the specification.");
     }
 }

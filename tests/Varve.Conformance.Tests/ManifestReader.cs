@@ -1,8 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using VDS.RDF;
-using VDS.RDF.Parsing;
+using Varve.Rdf;
 
 namespace Varve.Conformance.Tests;
 
@@ -11,17 +10,21 @@ namespace Varve.Conformance.Tests;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>This is the only class in the repository that touches dotNetRDF,
-/// and it is temporary.</strong> The manifests are Turtle and we have no
-/// Turtle parser, which is the circularity ADR 0007 has to break. The exit
-/// criterion is stated there and is a criterion, not an aspiration: when
-/// <c>Varve.Turtle</c> passes <c>rdf/rdf11/rdf-turtle</c> unexempted, manifest
-/// reading moves to it and <c>dotNetRdf.Core</c> leaves
-/// <c>Directory.Packages.props</c>. Due at milestone 5.
+/// <strong>It reads them with <c>Varve.Turtle</c>.</strong> ADR 0007 opened a
+/// circularity deliberately — the manifests are Turtle and there was no Turtle
+/// parser — and set an exit criterion: when <c>Varve.Turtle</c> passes
+/// <c>rdf/rdf11/rdf-turtle</c> unexempted, manifest reading moves to it and
+/// <c>dotNetRdf.Core</c> leaves this project. It passes 313 of 313, and 357 of
+/// 357 for TriG, so this is that move.
 /// </para>
 /// <para>
-/// Keep the dependency inside this file. Everything else in this project works
-/// in terms of <see cref="ManifestEntry"/>.
+/// <strong>Why this is not self-certifying.</strong> The parser does not
+/// decide whether it is correct; the suites do, and a manifest is not a
+/// verdict. What a parser bug could do is change which entries run — drop some
+/// and quietly shrink a suite. That is what the per-suite counts in
+/// <see cref="SubmoduleGuardTests"/> are for, and they were recorded while
+/// dotNetRDF was still reading the manifests: 70, 87, 29, 27, 313, 357. The
+/// guard against the new reader was written by the old one.
 /// </para>
 /// </remarks>
 internal static class ManifestReader
@@ -46,22 +49,16 @@ internal static class ManifestReader
             ?? throw new InvalidOperationException("Manifest has no directory: " + manifestPath);
 
         string baseDirectoryIri = suite.BaseIri[..(suite.BaseIri.LastIndexOf('/') + 1)];
-
-        Graph graph = new() { BaseUri = new Uri(suite.BaseIri) };
-        using (StreamReader reader = new(manifestPath))
-        {
-            new TurtleParser().Load(graph, reader);
-        }
-
-        IUriNode entries = graph.CreateUriNode(new Uri(Mf + "entries"));
+        ManifestGraph graph = ManifestGraph.Load(manifestPath, suite.BaseIri);
 
         List<ManifestEntry> result = [];
 
-        foreach (Triple triple in graph.GetTriplesWithSubjectPredicate(FindManifest(graph, suite), entries))
+        foreach (RdfTerm list in graph.Objects(FindManifest(graph, suite), Mf + "entries"))
         {
-            foreach (INode entry in WalkCollection(graph, triple.Object))
+            foreach (RdfTerm entry in graph.Collection(list))
             {
                 ManifestEntry? parsed = ReadEntry(graph, entry, suite, manifestDirectory, baseDirectoryIri);
+
                 if (parsed is not null)
                 {
                     result.Add(parsed);
@@ -84,108 +81,74 @@ internal static class ManifestReader
     /// or more than one, is a manifest this reader should refuse rather than
     /// silently read as empty.
     /// </remarks>
-    private static INode FindManifest(Graph graph, ConformanceSuite suite)
+    private static RdfTerm FindManifest(ManifestGraph graph, ConformanceSuite suite)
     {
-        IUriNode type = graph.CreateUriNode(new Uri(Rdf + "type"));
-        IUriNode manifestType = graph.CreateUriNode(new Uri(Mf + "Manifest"));
-
-        List<INode> found = [];
-
-        foreach (Triple triple in graph.GetTriplesWithPredicateObject(type, manifestType))
-        {
-            found.Add(triple.Subject);
-        }
+        IReadOnlyList<RdfTerm> found = graph.Subjects(Rdf + "type", Mf + "Manifest");
 
         return found.Count == 1
             ? found[0]
             : throw new InvalidOperationException(
-                found.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                "Found " + found.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)
                 + " nodes typed mf:Manifest in " + suite.ManifestPath + "; expected exactly one.");
     }
 
-    /// <summary>
-    /// Walks an <c>rdf:first</c>/<c>rdf:rest</c> collection to its
-    /// <c>rdf:nil</c> terminator.
-    /// </summary>
-    private static IEnumerable<INode> WalkCollection(Graph graph, INode head)
-    {
-        IUriNode first = graph.CreateUriNode(new Uri(Rdf + "first"));
-        IUriNode rest = graph.CreateUriNode(new Uri(Rdf + "rest"));
-        IUriNode nil = graph.CreateUriNode(new Uri(Rdf + "nil"));
-
-        INode? cursor = head;
-
-        while (cursor is not null && !cursor.Equals(nil))
-        {
-            INode? item = SingleObject(graph, cursor, first);
-            if (item is null)
-            {
-                yield break;
-            }
-
-            yield return item;
-
-            cursor = SingleObject(graph, cursor, rest);
-        }
-    }
-
     private static ManifestEntry? ReadEntry(
-        Graph graph,
-        INode entry,
+        ManifestGraph graph,
+        RdfTerm entry,
         ConformanceSuite suite,
         string manifestDirectory,
         string baseDirectoryIri)
     {
-        if (entry is not IUriNode entryIri)
+        if (!ManifestGraph.IsIri(entry))
         {
             return null;
         }
 
-        INode? type = SingleObject(graph, entry, graph.CreateUriNode(new Uri(Rdf + "type")));
-        if (type is not IUriNode typeIri)
+        RdfTerm? type = graph.Object(entry, Rdf + "type");
+
+        if (type is null || !ManifestGraph.IsIri(type))
         {
             return null;
         }
 
-        ExpectedOutcome? expected = ExpectationOf(typeIri.Uri.AbsoluteUri);
+        ExpectedOutcome? expected = ExpectationOf(ManifestGraph.Text(type));
+
         if (expected is null)
         {
             return null;
         }
 
-        INode? action = SingleObject(graph, entry, graph.CreateUriNode(new Uri(Mf + "action")));
-        if (action is not IUriNode actionIri)
+        RdfTerm? action = graph.Object(entry, Mf + "action");
+
+        if (action is null || !ManifestGraph.IsIri(action))
         {
             return null;
         }
 
-        string actionPath = ResolveAction(actionIri.Uri.AbsoluteUri, baseDirectoryIri, manifestDirectory);
-
-        INode? result = SingleObject(graph, entry, graph.CreateUriNode(new Uri(Mf + "result")));
-        string? resultPath = result is IUriNode resultIri
-            ? ResolveAction(resultIri.Uri.AbsoluteUri, baseDirectoryIri, manifestDirectory)
-            : null;
+        string actionIri = ManifestGraph.Text(action);
+        RdfTerm? result = graph.Object(entry, Mf + "result");
 
         return new ManifestEntry(
-            TestIri: entryIri.Uri.AbsoluteUri,
+            TestIri: ManifestGraph.Text(entry),
             Suite: suite.Id,
-            Name: Literal(graph, entry, Mf + "name") ?? entryIri.Uri.Fragment.TrimStart('#'),
+            Name: Literal(graph, entry, Mf + "name") ?? Fragment(ManifestGraph.Text(entry)),
             Comment: Literal(graph, entry, Rdfs + "comment"),
-            ActionPath: actionPath,
-            ActionIri: actionIri.Uri.AbsoluteUri,
+            ActionPath: ResolveAction(actionIri, baseDirectoryIri, manifestDirectory),
+            ActionIri: actionIri,
             Format: suite.Format,
             Expected: expected.Value,
-            ResultPath: resultPath);
+            ResultPath: result is not null && ManifestGraph.IsIri(result)
+                ? ResolveAction(ManifestGraph.Text(result), baseDirectoryIri, manifestDirectory)
+                : null);
     }
 
     /// <summary>
-    /// The RDF 1.1 syntax suites use one test type per format and outcome.
-    /// A type this does not recognise yields no test case rather than a
-    /// guessed one — a silently mis-typed entry would be worse than a missing
-    /// one, and the count in the run summary is what makes a missing one
-    /// visible.
+    /// The suites use one test type per format and outcome. A type this does
+    /// not recognise yields no test case rather than a guessed one — a silently
+    /// mis-typed entry would be worse than a missing one, and the count in the
+    /// run summary is what makes a missing one visible.
     /// </summary>
-    private static ExpectedOutcome? ExpectationOf(string typeIri) => typeIri switch
+    private static ExpectedOutcome? ExpectationOf(string type) => type switch
     {
         "http://www.w3.org/ns/rdftest#TestNTriplesPositiveSyntax" => ExpectedOutcome.Parses,
         "http://www.w3.org/ns/rdftest#TestNTriplesNegativeSyntax" => ExpectedOutcome.IsRejected,
@@ -211,19 +174,18 @@ internal static class ManifestReader
         return Path.Combine(manifestDirectory, relative.Replace('/', Path.DirectorySeparatorChar));
     }
 
-    private static string? Literal(Graph graph, INode subject, string predicate)
+    private static string Fragment(string iri)
     {
-        INode? value = SingleObject(graph, subject, graph.CreateUriNode(new Uri(predicate)));
-        return value is ILiteralNode literal ? literal.Value : null;
+        int hash = iri.LastIndexOf('#');
+        return hash < 0 ? iri : iri[(hash + 1)..];
     }
 
-    private static INode? SingleObject(Graph graph, INode subject, IUriNode predicate)
+    private static string? Literal(ManifestGraph graph, RdfTerm subject, string predicate)
     {
-        foreach (Triple triple in graph.GetTriplesWithSubjectPredicate(subject, predicate))
-        {
-            return triple.Object;
-        }
+        RdfTerm? value = graph.Object(subject, predicate);
 
-        return null;
+        return value is not null && ManifestGraph.IsLiteral(value)
+            ? System.Text.Encoding.UTF8.GetString(value.Lexical)
+            : null;
     }
 }
