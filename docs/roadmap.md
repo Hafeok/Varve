@@ -43,8 +43,22 @@ proposed below.
 ## 3 — RDF model, IRI, XSD datatypes, N-Triples and N-Quads
 
 **3a** *(complete)*: `Varve.Iri`, `Varve.Rdf`, and N-Triples and N-Quads in
-`Varve.Turtle`, to a full suite pass. **3b**: Turtle and TriG. `Varve.Xsd` and
-RDFC-1.0 canonicalisation come later — neither is needed for any syntax suite.
+`Varve.Turtle`, to a full suite pass. **3b** *(complete)*: Turtle and TriG,
+reader and writer, to a full suite pass — 883 cases, no exemptions. `Varve.Xsd`
+and RDFC-1.0 canonicalisation come later — neither is needed for any syntax
+suite.
+
+Two things 3b delivered that were not asked for, and are worth keeping:
+
+- **The chunk-boundary oracle.** Parse every manifest input whole, then again
+  split at each byte offset, and require the same answer. It found eight defect
+  classes in the Turtle reader — two of which produced *wrong quads rather than
+  errors* — and it is now a standing rule for every syntax package
+  (`docs/testing.md` §2), enforced by a guard rather than remembered.
+- **ADR 0007's exit criterion, met two milestones early.** The conformance
+  harness reads its own manifests with `Varve.Turtle`; `dotNetRdf.Core` remains
+  only in the benchmark project, and a test rather than a note keeps it out of
+  the harness.
 
 **`Varve.Xsd` brings value equality to the evaluator, not to the term model.**
 Literal term equality is character by character over lexical form, datatype IRI

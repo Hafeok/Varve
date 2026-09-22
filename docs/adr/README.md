@@ -54,7 +54,7 @@ or depart from `docs/brief.md`, each says so in its Context.
 
 | # | Title | Status |
 |---:|---|---|
-| [0028](0028-deterministic-aead-from-hmac.md) | A deterministic AEAD built from HMAC-SHA-256 | Accepted, conditionally |
+| [0028](0028-deterministic-aead-from-hmac.md) | A deterministic AEAD built from HMAC-SHA-256 | Accepted; condition 1 **discharged** 2026-09-22, condition 2 open |
 | [0029](0029-publishing-and-versioning.md) | Publishing and versioning | Accepted |
 
 ## Milestone 3b — Turtle and TriG

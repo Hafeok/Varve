@@ -132,14 +132,17 @@ Adding an ADR, a rule or a dependency: `CONTRIBUTING.md` has the shape of each.
 
 ## State
 
-Milestone 3a, closed out. `src/` holds `Varve.Analyzers`, `Varve.Iri` (0),
-`Varve.Rdf` (1) and `Varve.Turtle` (2). **All 213** N-Triples and N-Quads cases
-pass — RDF 1.1 and 1.2 — exemptions empty; parsing allocates **zero bytes per
-quad** on every entry point; AOT and the browser build both publish and run,
-and what the browser found about cryptography is in ADRs 0020 and 0028.
-Nothing is published: the metadata and workflow are in place, awaiting the
-first `v0.1.0-preview.1` tag (ADR 0029). Not built: `Varve.Xsd`,
-canonicalisation, Turtle and TriG, the store, SPARQL, SHACL.
+Milestone 3b. `src/` holds `Varve.Analyzers`, `Varve.Iri` (0), `Varve.Rdf` (1)
+and `Varve.Turtle` (2) — N-Triples, N-Quads, **Turtle and TriG**, reader and
+writer. **All 883** cases pass, exemptions empty: Turtle 313, TriG 357,
+N-Triples 70, N-Quads 87, RDF 1.2 syntax 29 + 27. Parsing allocates **zero
+bytes per quad** on every entry point in every syntax; AOT and the browser both
+read and write Turtle. The conformance harness reads its own manifests with
+`Varve.Turtle` (ADR 0007's exit criterion, met early); dotNetRDF remains only
+in the benchmark project. **RDF 1.2 Turtle and TriG are not accepted at all** —
+`turtle.md` §9 lists the constructs and the roadmap the cost. Nothing is
+published: the metadata and workflow await the first `v0.1.0-preview.1` tag
+(ADR 0029). Not built: `Varve.Xsd`, canonicalisation, the store, SPARQL, SHACL.
 `VARVE0003`–`VARVE0008` reserved. `docs/roadmap.md` has the rest, with an owner
 and a due milestone per open question.
 

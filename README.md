@@ -17,13 +17,25 @@ code is ported from it or from dotNetRDF.
 
 ## Status
 
-Milestone 1. There is no production code yet, by design — the gates come first:
+Milestone 3b. Three packages exist — `Varve.Iri`, `Varve.Rdf` and
+`Varve.Turtle` — and between them they read and write **N-Triples, N-Quads,
+Turtle and TriG**.
 
+- **883 of 883** W3C cases pass, with **no exemptions**: Turtle 313, TriG 357,
+  N-Triples 70, N-Quads 87, and the RDF 1.2 N-Triples and N-Quads syntax suites
+  29 and 27. `eng/ratchet.cs` fails the build if one stops.
+- **Zero bytes allocated per quad**, on every entry point in every syntax,
+  measured as a difference between two documents rather than as an absolute.
+- Native AOT and browser WebAssembly both read and write Turtle.
 - `Varve.Analyzers` enforces the package layering rule at build time.
-- The W3C RDF 1.1 N-Triples and N-Quads test suites run in CI from this commit
-  onward. Every case currently fails with "no parser registered". That is the
-  correct result, and the baseline ratchet in `eng/ratchet.cs` is what will stop
-  it silently regressing once cases start to pass.
+
+Nothing is published yet: the package metadata and the trusted-publishing
+workflow are in place and await the first tag.
+
+Not built: `Varve.Xsd`, RDFC-1.0 canonicalisation, RDF/XML, JSON-LD, the store,
+SPARQL and SHACL. RDF 1.2 Turtle and TriG are deliberately not accepted at all
+rather than half-accepted — `docs/spec/turtle.md` §9 says which constructs and
+why.
 
 `docs/roadmap.md` has the milestone list.
 
@@ -60,6 +72,8 @@ git submodule update --init --recursive
 - `docs/rules/` — one page per `VARVE` analyzer rule, each linking to its ADR.
 - `docs/spec/` — functional specifications, per component.
 - `docs/roadmap.md` — milestones and what is deferred.
+- `docs/testing.md` — what each kind of test is for, and the patterns that are
+  standing rules rather than habits.
 
 ## Licence
 
