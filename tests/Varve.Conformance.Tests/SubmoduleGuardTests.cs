@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.IO;
 using Xunit;
 
@@ -75,6 +76,8 @@ public class SubmoduleGuardTests
         { "rdf11/n-quads", 87 },
         { "rdf12/n-triples", 29 },
         { "rdf12/n-quads", 27 },
+        { "rdf11/turtle", 313 },
+        { "rdf11/trig", 357 },
     };
 
     [Theory]
@@ -128,5 +131,207 @@ public class SubmoduleGuardTests
     {
         Assert.True(TestData.IsCheckedOut, "The W3C test data is missing; see the first failure.");
         Assert.Equal(Catalogue.Entries.Count, Catalogue.ByIri.Count);
+    }
+
+    /// <summary>
+    /// The oracle's corpus is counted too, for the same reason.
+    /// </summary>
+    /// <remarks>
+    /// A suite whose manifest silently stops being read would make the oracle
+    /// pass by having nothing to disagree about. "More than zero" does not
+    /// catch a suite read as nine cases instead of three hundred and thirteen.
+    /// </remarks>
+    public static TheoryData<string, int> ExpectedOracleCounts() => new()
+    {
+        { "rdf11/turtle", 313 },
+        { "rdf11/trig", 357 },
+        { "rdf11/n-triples", 70 },
+        { "rdf11/n-quads", 87 },
+    };
+
+    [Theory]
+    [MemberData(nameof(ExpectedOracleCounts))]
+    public void Every_suite_the_oracle_reads_enumerates_the_cases_its_manifest_lists(
+        string suiteId, int expected)
+    {
+        Assert.True(TestData.IsCheckedOut, "The W3C test data is missing; see the first failure.");
+
+        ConformanceSuite? suite = null;
+
+        foreach (ConformanceSuite candidate in ConformanceSuite.OracleCorpus)
+        {
+            if (string.Equals(candidate.Id, suiteId, StringComparison.Ordinal))
+            {
+                suite = candidate;
+            }
+        }
+
+        Assert.True(suite is not null, "No suite is wired with id '" + suiteId + "'.");
+
+        Assert.Equal(expected, OracleCatalogue.Of(suite).Count);
+    }
+
+    /// <summary>
+    /// Every evaluation entry has a result to compare against.
+    /// </summary>
+    /// <remarks>
+    /// An evaluation test asserts that the parse produces a particular dataset,
+    /// and the comparison is <see cref="Isomorphism"/>. This replaces the guard
+    /// that kept such entries out of the ratchet while no comparison existed:
+    /// what can still go wrong is an entry whose <c>mf:result</c> the reader
+    /// fails to pick up, which would leave the runner asserting only that the
+    /// action parsed — the weaker claim the earlier guard was there to prevent.
+    /// </remarks>
+    [Fact]
+    public void Every_evaluation_entry_has_a_result_to_compare_against()
+    {
+        Assert.True(TestData.IsCheckedOut, "The W3C test data is missing; see the first failure.");
+
+        List<string> unchecked_ = [];
+
+        foreach (ManifestEntry entry in OracleCatalogue.Entries)
+        {
+            if (entry.Expected == ExpectedOutcome.Evaluates && entry.ResultPath is null)
+            {
+                unchecked_.Add(entry.TestIri);
+            }
+        }
+
+        Assert.True(
+            unchecked_.Count == 0,
+            "These evaluation entries have no mf:result, so nothing would compare what they produce "
+            + "against what they assert:\n  " + string.Join("\n  ", unchecked_));
+    }
+
+    /// <summary>
+    /// Evaluation entries exist to be compared, so there had better be some.
+    /// </summary>
+    /// <remarks>
+    /// The companion to the above: a reader that stopped recognising
+    /// <c>rdft:TestTurtleEval</c> would satisfy it by having nothing to check.
+    /// </remarks>
+    [Fact]
+    public void The_suites_contribute_evaluation_entries()
+    {
+        Assert.True(TestData.IsCheckedOut, "The W3C test data is missing; see the first failure.");
+
+        int evaluations = 0;
+
+        foreach (ManifestEntry entry in OracleCatalogue.Entries)
+        {
+            if (entry.Expected == ExpectedOutcome.Evaluates)
+            {
+                evaluations++;
+            }
+        }
+
+        // Turtle 145 and TriG 143, as the manifests list them.
+        Assert.Equal(288, evaluations);
+    }
+
+    /// <summary>
+    /// Every format has a suite the chunk-boundary oracle reads.
+    /// </summary>
+    /// <remarks>
+    /// The standing rule in <c>docs/testing.md</c> §2 is that every syntax
+    /// package runs the oracle over its own manifests. A rule that is only
+    /// written down is one a future format will skip without anyone noticing,
+    /// so this is the enforcing half: adding a value to
+    /// <see cref="RdfFormat"/> without wiring a suite for it fails here, and
+    /// the message says what to do.
+    /// </remarks>
+    [Fact]
+    public void Every_format_is_covered_by_the_chunk_boundary_oracle()
+    {
+        Assert.True(TestData.IsCheckedOut, "The W3C test data is missing; see the first failure.");
+
+        List<string> uncovered = [];
+
+        foreach (RdfFormat format in Enum.GetValues<RdfFormat>())
+        {
+            bool covered = false;
+
+            foreach (ConformanceSuite suite in ConformanceSuite.OracleCorpus)
+            {
+                if (suite.Format == format)
+                {
+                    covered = true;
+                }
+            }
+
+            if (!covered)
+            {
+                uncovered.Add(format.ToString());
+            }
+        }
+
+        Assert.True(
+            uncovered.Count == 0,
+            "These formats have no suite the chunk-boundary oracle can read, so nothing checks that "
+            + "their reader gives the same answer however the input arrives (docs/testing.md \u00A72). "
+            + "Add the suite to ConformanceSuite.All, or to NotYetRatcheted while its results are not "
+            + "yet claimed: " + string.Join(", ", uncovered));
+    }
+
+    /// <summary>
+    /// Every suite the oracle reads has at least one input for it to read.
+    /// </summary>
+    /// <remarks>
+    /// The companion to the count guards: a suite wired with a manifest path
+    /// that resolves to nothing would satisfy the format check above and give
+    /// the oracle nothing to do.
+    /// </remarks>
+    [Fact]
+    public void Every_suite_the_oracle_reads_has_entries()
+    {
+        Assert.True(TestData.IsCheckedOut, "The W3C test data is missing; see the first failure.");
+
+        foreach (ConformanceSuite suite in ConformanceSuite.OracleCorpus)
+        {
+            Assert.True(
+                OracleCatalogue.Of(suite).Count > 0,
+                "Suite '" + suite.Id + "' contributed no entries to the oracle.");
+        }
+    }
+
+    /// <summary>
+    /// The harness no longer links another RDF implementation.
+    /// </summary>
+    /// <remarks>
+    /// ADR 0007's exit criterion, made a test rather than a note. A conformance
+    /// harness that uses another parser to decide what its manifests say is
+    /// measuring agreement with that parser, and the dependency was justified
+    /// only while there was no Turtle reader to read them with. Re-adding the
+    /// package reference would make this fail, which is the point: the
+    /// criterion was written down for a year before it could be met, and a
+    /// note is not a gate.
+    ///
+    /// dotNetRDF stays in the benchmark project on ADR 0027's justification —
+    /// a performance claim needs something to compare against — and that is a
+    /// different assembly.
+    /// </remarks>
+    [Fact]
+    public void The_harness_does_not_reference_another_rdf_implementation()
+    {
+        List<string> found = [];
+
+        foreach (AssemblyName reference in typeof(ManifestReader).Assembly.GetReferencedAssemblies())
+        {
+            string name = reference.Name ?? "";
+
+            if (name.StartsWith("dotNetRdf", StringComparison.OrdinalIgnoreCase)
+                || name.StartsWith("VDS.", StringComparison.OrdinalIgnoreCase)
+                || name.StartsWith("AngleSharp", StringComparison.OrdinalIgnoreCase))
+            {
+                found.Add(name);
+            }
+        }
+
+        Assert.True(
+            found.Count == 0,
+            "The conformance harness references " + string.Join(", ", found)
+            + ". It reads its manifests with Varve.Turtle (ADR 0007's exit criterion), and a "
+            + "harness that judges the parser with another parser measures agreement with that "
+            + "parser instead of with the specification.");
     }
 }

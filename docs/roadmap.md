@@ -43,8 +43,23 @@ proposed below.
 ## 3 — RDF model, IRI, XSD datatypes, N-Triples and N-Quads
 
 **3a** *(complete)*: `Varve.Iri`, `Varve.Rdf`, and N-Triples and N-Quads in
-`Varve.Turtle`, to a full suite pass. **3b**: Turtle and TriG. `Varve.Xsd` and
-RDFC-1.0 canonicalisation come later — neither is needed for any syntax suite.
+`Varve.Turtle`, to a full suite pass. **3b** *(complete)*: Turtle and TriG,
+reader and writer, to a full suite pass — 883 cases, no exemptions. `Varve.Xsd`
+and RDFC-1.0 canonicalisation come later — neither is needed for any syntax
+suite.
+
+Two things 3b delivered that were not asked for, and are worth keeping:
+
+- **The chunk-boundary oracle.** Parse every manifest input whole, then again
+  split at each byte offset, and require the same answer. It found nine defect
+  classes in the Turtle reader — two of which produced *wrong quads rather than
+  errors*, and one of which only the Windows run could see — and it is now a
+  standing rule for every syntax package
+  (`docs/testing.md` §2), enforced by a guard rather than remembered.
+- **ADR 0007's exit criterion, met two milestones early.** The conformance
+  harness reads its own manifests with `Varve.Turtle`; `dotNetRdf.Core` remains
+  only in the benchmark project, and a test rather than a note keeps it out of
+  the harness.
 
 **`Varve.Xsd` brings value equality to the evaluator, not to the term model.**
 Literal term equality is character by character over lexical form, datatype IRI
@@ -77,8 +92,8 @@ mechanisms stopped being inert. All of the following are **delivered**:
   `rdf/rdf11/rdf-n-quads` pass, and the close-out added `rdf/rdf12`'s
   N-Triples and N-Quads **syntax** suites — 29 and 27 more — because the reader
   and writer had shipped RDF 1.2's base direction and triple terms with no
-  suite behind them. `baseline/passing.txt` holds all **213**, and
-  `baseline/exemptions.txt` is empty. The ratchet gained an exemptions
+  suite behind them. That made 213; 3b's Turtle and TriG suites took it to
+  **883**, still with `baseline/exemptions.txt` empty. The ratchet gained an exemptions
   mechanism: an exempt case is neither required to pass nor reported as newly
   passing, and an exemption with no written justification fails the run.
   Gating 1.2 found three real bugs, two of which were wrong under 1.1 as well —
@@ -107,12 +122,42 @@ otherwise be unable to express.
 TriG, the store, the first NuGet publication itself, and `VARVE0006` (the
 `[HotPath]` rule — the attribute exists and is applied, the analyzer does not).
 
-**RDF 1.2 Turtle and TriG are deliberately later.** Their suites are wired for
-nobody yet: RDF 1.2 Turtle is a W3C Working Draft of 14 September 2026 and TriG
-of 15 September 2026, and implementing reifiers, annotations and a version
-directive against a draft that recent, under a ratchet, is churn a milestone
-should absorb rather than a session. RDF 1.2 N-Triples and N-Quads are wired,
-because we had already shipped their constructs.
+**RDF 1.2 Turtle and TriG are deliberately later, and nothing of them is
+accepted.** RDF 1.2 Turtle is a W3C Working Draft of 14 September 2026 and TriG
+of 15 September 2026, and implementing reifiers, annotations, triple terms and
+a version directive against a draft that recent, under a ratchet, is churn a
+milestone should absorb rather than a session.
+
+Their suites are 167 cases, and this is what wiring them would mean today:
+
+| Suite | Cases | |
+|---|---:|---|
+| `rdf12/rdf-turtle/syntax` | 74 | 41 positive, 33 negative |
+| `rdf12/rdf-turtle/eval` | 32 | |
+| `rdf12/rdf-trig/syntax` | 35 | 24 positive, 11 negative |
+| `rdf12/rdf-trig/eval` | 26 | |
+| **total** | **167** | **123 positive** |
+
+Almost every positive case exercises a construct that is not implemented, so
+wiring them now would file roughly a hundred exemptions — which is not gating a
+feature, it is recording that it is absent in a file nobody reads twice.
+
+**What is enforced instead is that none of it half-works.** The reader rejects
+triple terms, reifiers, annotations and both spellings of the version
+directive, and `Rdf12NotInTurtleTests` is the closed door: each construct has a
+case asserting the rejection, in Turtle and in TriG. Adding RDF 1.2 Turtle
+therefore means wiring its suites, not discovering that part of it already
+parsed.
+
+One construct **was** half-working and is now closed: the reader accepted
+`"x"@en--ltr` and the writer emitted it, with no suite behind either. A base
+direction is RDF 1.2's `LANG_DIR` [154s]; `"en--ltr"` is not an RDF 1.1
+`LANGTAG` [144s], which wants each subtag after a `-` to be alphanumeric. The
+Turtle reader now rejects it and the Turtle writer refuses a literal carrying
+one rather than emitting a document its own reader would reject. The **term
+model still carries base direction**, and N-Triples and N-Quads still read and
+write it, where the `rdf12` syntax suites gate it — 29 and 27 cases, both
+passing.
 
 ## 4 — In-memory log and default quad projection
 
@@ -123,12 +168,14 @@ Due here: **Q1** (blank node identity at the API boundary, ADR 0012), and the
 banned-symbols entry for ambient clock and randomness under `Varve.Store` that
 §10's determinism test depends on (ADR 0011).
 
-## 5 — Turtle and TriG, then the SPARQL parser and algebra, then the evaluator
+## 5 — The SPARQL parser and algebra, then the evaluator
 
 The evaluator runs over the in-memory projection through the abstract quad
-source contract. `Varve.Turtle` arriving here retires the test-only dotNetRDF
-dependency in the conformance harness — see
-`docs/adr/0007-w3c-conformance-harness.md`.
+source contract.
+
+Turtle and TriG were planned for this milestone and shipped in 3b instead,
+which is why ADR 0007's exit criterion — the conformance harness reading its
+own manifests without dotNetRDF — is already met.
 
 ## 6 — Durable managed storage backend
 

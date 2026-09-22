@@ -11,10 +11,42 @@ failed on a real build.
 Records [`docs/spec/log-and-projection-model.md`](../spec/log-and-projection-model.md)
 §9 and Q6.
 
-**Two conditions, in *Consequences*.** The first is measured and holds. The
-second — an external cryptographic review before milestone 9 ships — is not, and
-until it is met this is a decision about what to build and not a claim that it
-is sound.
+**Two conditions, in *Consequences*.** The first is **discharged** — see the
+amendment below. The second — an external cryptographic review before milestone
+9 ships — is **open**, and until it is met this is a decision about what to
+build and not a claim that it is sound.
+
+### Amendment, 2026-09-22 — condition 1 is discharged; condition 2 remains open
+
+The decision above is unchanged. This records the state of its two conditions,
+because an ADR that carries conditions should say which of them have been met
+and on what evidence rather than leaving a reader to reconstruct it.
+
+**Condition 1 — the primitives run in a browser — is discharged**, on commit
+`f4a7b0e`. The evidence is a test, not a report: `tests/Varve.WasmSmoke` probes
+each primitive in a real browser and asserts the result against the pinned
+table in *Consequences*, so the claim is re-made on every run rather than
+having been made once. Observed in headless Chromium 141 on .NET 10:
+
+```
+crypto: RandomNumberGenerator=yes, SHA256=yes, HMACSHA256=yes, HKDF=yes,
+        FixedTimeEquals=yes, AES-CBC=unsupported, AES-GCM=no, AES-CCM=no,
+        ChaCha20Poly1305=no
+```
+
+All five primitives this construction needs are present. Two are checked for
+more than presence: HKDF's derivation is checked to be **deterministic**, which
+is what makes the synthetic IV portable, and `FixedTimeEquals` is probed in
+both directions, because a comparison that says yes to everything is not a
+comparison. The last four rows are the ones that failed ADR 0020 and are
+asserted to still fail, so a symmetric cipher appearing in a browser reports
+itself instead of going unnoticed.
+
+**Condition 2 — external cryptographic review — remains open, and is due
+before milestone 9 ships.** Nothing here implements the construction, and
+nothing may present it as protecting anyone's data until the review is done.
+Discharging the first condition does not weaken the second: portability was
+never the part in doubt.
 
 ## Context
 
@@ -198,7 +230,8 @@ are the same term *at the same slot*, which is the same entry. Equality across
 slots stays invisible. **This is load-bearing: any change that removes a slot
 field from `AD` reintroduces the oracle**, and is a change to this decision.
 
-**Condition 1 — the primitives run in a browser. Measured, and it holds.**
+**Condition 1 — the primitives run in a browser. Measured, and it holds** (and
+is discharged as of the amendment above).
 SHA-256, HMAC-SHA-256, HKDF and `FixedTimeEquals` all work on browser
 WebAssembly under .NET 10; HKDF's derivation was checked to be deterministic and
 `FixedTimeEquals` to distinguish as well as match. The table is pinned and

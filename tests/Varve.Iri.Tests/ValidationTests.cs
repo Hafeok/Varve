@@ -149,3 +149,42 @@ public class ValidationTests
     private static string Slice(byte[] utf8, Range range) =>
         Encoding.UTF8.GetString(utf8.AsSpan()[range]);
 }
+
+/// <summary>
+/// <c>StartsWithScheme</c> answers only "does this need resolving", which is
+/// deliberately a weaker question than <c>IsAbsolute</c>'s.
+/// </summary>
+public class SchemeTests
+{
+    [Theory]
+    [InlineData("http://a/b", true)]
+    [InlineData("a:b", true)]
+    [InlineData("a+b-c.d:e", true)]
+    [InlineData("urn:uuid:0", true)]
+    [InlineData("HTTP://a/b", true)]
+    // Malformed, and still absolute: the point of the distinction.
+    [InlineData("http://a/%zz", true)]
+    [InlineData("http://a/ b", true)]
+    [InlineData("", false)]
+    [InlineData("/a/b", false)]
+    [InlineData("//a/b", false)]
+    [InlineData("a/b:c", false)]
+    [InlineData("?q", false)]
+    [InlineData("#f", false)]
+    [InlineData("1a:b", false)]
+    [InlineData("a_b:c", false)]
+    [InlineData("nocolon", false)]
+    public void a_scheme_is_recognised_without_validating_the_rest(string iri, bool expected) =>
+        Assert.Equal(expected, IriRef.StartsWithScheme(Encoding.UTF8.GetBytes(iri)));
+
+    [Theory]
+    [InlineData("http://a/%zz")]
+    [InlineData("http://a/ b")]
+    public void an_absolute_but_malformed_iri_is_not_absolute_by_the_stronger_test(string iri)
+    {
+        byte[] utf8 = Encoding.UTF8.GetBytes(iri);
+
+        Assert.True(IriRef.StartsWithScheme(utf8));
+        Assert.False(IriRef.IsAbsolute(utf8));
+    }
+}

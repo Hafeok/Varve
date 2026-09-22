@@ -1,3 +1,5 @@
+using System;
+using System.Globalization;
 using BenchmarkDotNet.Running;
 
 namespace Varve.Benchmarks;
@@ -13,6 +15,31 @@ namespace Varve.Benchmarks;
 /// </remarks>
 internal static class Program
 {
-    internal static void Main(string[] args) =>
+    internal static void Main(string[] args)
+    {
+        if (args.Length == 1 && args[0] == "--datasets")
+        {
+            PrintDatasets();
+            return;
+        }
+
         BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
+    }
+
+    /// <summary>
+    /// Prints what each dataset is, so <c>README.md</c> states measured numbers
+    /// rather than remembered ones. A document's byte count is what separates a
+    /// quads-per-second figure for Turtle from one for N-Quads: Turtle says the
+    /// same thing in far fewer bytes, so the two are not comparable per quad.
+    /// </summary>
+    private static void PrintDatasets()
+    {
+        Report("N-Quads", Dataset.Utf8.Length, Dataset.Quads);
+        Report("Turtle", TurtleDataset.Utf8.Length, TurtleDataset.Quads);
+
+        static void Report(string name, int bytes, int quads) =>
+            Console.WriteLine(string.Create(
+                CultureInfo.InvariantCulture,
+                $"{name}: {bytes:N0} bytes, {quads:N0} quads, {(double)bytes / quads:N1} bytes/quad"));
+    }
 }

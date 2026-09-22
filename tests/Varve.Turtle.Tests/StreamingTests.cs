@@ -1,7 +1,6 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
-using System.IO;
 using System.IO.Pipelines;
 using System.Threading.Tasks;
 using Xunit;
@@ -32,24 +31,6 @@ public class StreamingTests
         return builder.ToString();
     }
 
-    /// <summary>A sequence of one-byte segments: every line crosses a boundary.</summary>
-    private static ReadOnlySequence<byte> Fragmented(byte[] bytes, int segmentSize)
-    {
-        Segment? first = null;
-        Segment? last = null;
-
-        for (int i = 0; i < bytes.Length; i += segmentSize)
-        {
-            int length = Math.Min(segmentSize, bytes.Length - i);
-            ReadOnlyMemory<byte> memory = new(bytes, i, length);
-            last = first is null ? first = new Segment(memory, 0) : last!.Append(memory);
-        }
-
-        return first is null
-            ? ReadOnlySequence<byte>.Empty
-            : new ReadOnlySequence<byte>(first, 0, last!, last!.Memory.Length);
-    }
-
     private static List<Row> ViaSpan(byte[] bytes, ParseOptions options)
     {
         List<Row> rows = [];
@@ -60,7 +41,7 @@ public class StreamingTests
     private static List<Row> ViaSequence(byte[] bytes, ParseOptions options, int segmentSize)
     {
         List<Row> rows = [];
-        ReadOnlySequence<byte> sequence = Fragmented(bytes, segmentSize);
+        ReadOnlySequence<byte> sequence = Fragments.Fragmented(bytes, segmentSize);
         NQuadsParser.Parse(in sequence, rows.Collect(), options);
         return rows;
     }
@@ -68,14 +49,14 @@ public class StreamingTests
     private static List<Row> ViaStream(byte[] bytes, ParseOptions options)
     {
         List<Row> rows = [];
-        NQuadsParser.Parse(new DripStream(bytes, 7), rows.Collect(), options);
+        NQuadsParser.Parse(new Fragments.DripStream(bytes, 7), rows.Collect(), options);
         return rows;
     }
 
     private static async Task<List<Row>> ViaStreamAsync(byte[] bytes, ParseOptions options)
     {
         List<Row> rows = [];
-        await NQuadsParser.ParseAsync(new DripStream(bytes, 7), rows.Collect(), options);
+        await NQuadsParser.ParseAsync(new Fragments.DripStream(bytes, 7), rows.Collect(), options);
         return rows;
     }
 
@@ -162,7 +143,7 @@ public class StreamingTests
         List<Row> expected = ViaSpan(bytes, default);
         List<Row> pulled = [];
 
-        ReadOnlySequence<byte> sequence = Fragmented(bytes, 3);
+        ReadOnlySequence<byte> sequence = Fragments.Fragmented(bytes, 3);
         NQuadsReader reader = new(in sequence, default);
 
         while (reader.Read())
@@ -200,73 +181,5 @@ public class StreamingTests
         Assert.False(reader.Read());
         Assert.Equal(1, reader.Result.QuadCount);
         Assert.Equal(1, reader.Result.ErrorCount);
-    }
-
-    private sealed class Segment : ReadOnlySequenceSegment<byte>
-    {
-        internal Segment(ReadOnlyMemory<byte> memory, long runningIndex)
-        {
-            Memory = memory;
-            RunningIndex = runningIndex;
-        }
-
-        internal Segment Append(ReadOnlyMemory<byte> memory)
-        {
-            Segment next = new(memory, RunningIndex + Memory.Length);
-            Next = next;
-            return next;
-        }
-    }
-
-    /// <summary>A stream that hands back a few bytes at a time, as a socket would.</summary>
-    private sealed class DripStream : Stream
-    {
-        private readonly byte[] _bytes;
-        private readonly int _chunk;
-        private int _at;
-
-        internal DripStream(byte[] bytes, int chunk)
-        {
-            _bytes = bytes;
-            _chunk = chunk;
-        }
-
-        public override bool CanRead => true;
-
-        public override bool CanSeek => false;
-
-        public override bool CanWrite => false;
-
-        public override long Length => _bytes.Length;
-
-        public override long Position
-        {
-            get => _at;
-            set => throw new NotSupportedException();
-        }
-
-        public override int Read(byte[] buffer, int offset, int count) =>
-            Read(buffer.AsSpan(offset, count));
-
-        public override int Read(Span<byte> buffer)
-        {
-            int length = Math.Min(Math.Min(_chunk, buffer.Length), _bytes.Length - _at);
-            _bytes.AsSpan(_at, length).CopyTo(buffer);
-            _at += length;
-            return length;
-        }
-
-        public override ValueTask<int> ReadAsync(Memory<byte> buffer, System.Threading.CancellationToken cancellationToken = default) =>
-            ValueTask.FromResult(Read(buffer.Span));
-
-        public override void Flush()
-        {
-        }
-
-        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
-
-        public override void SetLength(long value) => throw new NotSupportedException();
-
-        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 }

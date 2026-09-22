@@ -54,8 +54,14 @@ or depart from `docs/brief.md`, each says so in its Context.
 
 | # | Title | Status |
 |---:|---|---|
-| [0028](0028-deterministic-aead-from-hmac.md) | A deterministic AEAD built from HMAC-SHA-256 | Accepted, conditionally |
+| [0028](0028-deterministic-aead-from-hmac.md) | A deterministic AEAD built from HMAC-SHA-256 | Accepted; condition 1 **discharged** 2026-09-22, condition 2 open |
 | [0029](0029-publishing-and-versioning.md) | Publishing and versioning | Accepted |
+
+## Milestone 3b — Turtle and TriG
+
+| # | Title | Status |
+|---:|---|---|
+| [0030](0030-turtle-recovery-and-prefixes.md) | Turtle's recovery unit, prefix exposure, and where isomorphism lives | Accepted |
 
 **No ADR in this repository is `Proposed`.** Three were, and were completed in
 place rather than superseded, because ADR 0001's no-edit rule binds accepted
@@ -107,9 +113,6 @@ From ADR 0003, and still unresolved:
 
 - **ADR 0004** — the `System.Uri` ban is wider than the brief scopes it. Narrow
   before layer 5 exists.
-- **ADR 0007 / 0027** — `dotNetRdf.Core`'s *manifest-reading* use ends when
-  `Varve.Turtle` passes `rdf/rdf11/rdf-turtle` at milestone 5. It stays as the
-  benchmark baseline, and its register citation moves from 0007 to 0027 then.
 - **ADR 0011** — banned-symbols entry for ambient clock and randomness under
   `Varve.Store`, which §10's determinism test depends on. Due milestone 4.
 - **ADR 0014** — the storage format must carry a version discriminator from the
@@ -117,6 +120,14 @@ From ADR 0003, and still unresolved:
 
 ## Closed
 
+- **ADR 0007 / 0027** — `dotNetRdf.Core`'s *manifest-reading* use. Closed
+  2026-09-22 at milestone 3b, two milestones early: `Varve.Turtle` passes
+  `rdf/rdf11/rdf-turtle` 313 of 313 and `rdf/rdf11/rdf-trig` 357 of 357
+  unexempted, the harness reads its own manifests, and
+  `The_harness_does_not_reference_another_rdf_implementation` keeps it out. The
+  package stays for the benchmark baseline on ADR 0027's separate
+  justification, and its register citation moved from 0007 to 0027 with this
+  closure.
 - **ADR 0002** — the copyright holder. Closed 2026-09-21: Emil Okkels Klein,
   named in `NOTICE`. The `LICENSE` appendix stays unedited, because it is the
   per-file boilerplate template and not a record of ownership.

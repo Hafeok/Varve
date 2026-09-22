@@ -89,6 +89,13 @@ A baseline you no longer depend on is the only kind worth having: after
 milestone 5 dotNetRDF is in this repository for exactly one reason, to be
 measured against.
 
+> **Happened 2026-09-22, at milestone 3b rather than 5.** `ManifestReader`
+> reads with `Varve.Turtle`, the package reference left
+> `Varve.Conformance.Tests`, and the register citation moved from 0007 to this
+> ADR. The paragraph above is therefore describing the present and not a plan:
+> dotNetRDF is here to be measured against, and nothing in this repository
+> depends on it for an answer.
+
 ## Alternatives considered
 
 - **Keep ADR 0009 absolute and suppress the asset flow** — a direct

@@ -60,6 +60,23 @@ unexempted. At that point manifest reading switches to `Varve.Turtle` and
 `dotNetRdf.Core` leaves `Directory.Packages.props`. Due at milestone 5. If it is
 still present after milestone 5, that is a defect.
 
+> **Met at milestone 3b, two milestones early.** `Varve.Turtle` passes
+> `rdf/rdf11/rdf-turtle` 313 of 313 and `rdf/rdf11/rdf-trig` 357 of 357, both
+> unexempted, so manifest reading moved to it and the package reference left
+> `Varve.Conformance.Tests`.
+>
+> Two things kept the switch honest. The per-suite case counts were **recorded
+> while dotNetRDF was still reading the manifests** — 70, 87, 29, 27, 313, 357
+> — so the guard against the new reader was written by the one it replaced; a
+> parser bug that dropped entries changes a count. And
+> `The_harness_does_not_reference_another_rdf_implementation` makes the
+> criterion a test rather than this paragraph.
+>
+> `dotNetRdf.Core` stays in `Directory.Packages.props` for the **benchmark**
+> project alone, on ADR 0027's separate justification: a performance claim needs
+> something to compare against. That is a different assembly from the harness,
+> and this criterion was about the harness.
+
 Using our own parser to read the manifests that judge our own parser is a real
 circularity, and it is worth being clear about why it is acceptable at that
 point and not now. A Turtle parser that passes its own W3C suite has been judged

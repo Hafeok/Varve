@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Varve.Benchmarks.TurtleBenchmarks-20260922-133512</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Ubuntu 24.04.4 LTS (Noble Numbat)
+Intel Xeon Processor 2.10GHz, 1 CPU, 4 logical and 4 physical cores
+.NET SDK 10.0.401
+  [Host]     : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+  DefaultJob : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+</code></pre>
+<pre><code></code></pre>
+
+<table>
+<thead><tr><th>Method                 </th><th>Mean</th><th>Error</th><th>StdDev</th><th>Median</th><th>Ratio</th><th>RatioSD</th><th>Gen0</th><th>Gen1</th><th>Gen2</th><th>Allocated</th><th>Alloc Ratio</th>
+</tr>
+</thead><tbody><tr><td>&#39;Varve — views&#39;</td><td>17.21 ms</td><td>0.462 ms</td><td>1.363 ms</td><td>17.84 ms</td><td>1.01</td><td>0.12</td><td>-</td><td>-</td><td>-</td><td>6.13 KB</td><td>1.00</td>
+</tr><tr><td>&#39;Varve — owned terms&#39;</td><td>27.59 ms</td><td>0.638 ms</td><td>1.881 ms</td><td>28.50 ms</td><td>1.61</td><td>0.18</td><td>281.2500</td><td>-</td><td>-</td><td>38131.13 KB</td><td>6,217.56</td>
+</tr><tr><td>&#39;Varve — read and write back&#39;</td><td>36.91 ms</td><td>0.730 ms</td><td>2.023 ms</td><td>37.36 ms</td><td>2.16</td><td>0.22</td><td>428.5714</td><td>428.5714</td><td>428.5714</td><td>15367.33 KB</td><td>2,505.76</td>
+</tr><tr><td>&#39;dotNetRDF — Graph&#39;</td><td>770.81 ms</td><td>15.281 ms</td><td>28.702 ms</td><td>772.16 ms</td><td>45.09</td><td>4.26</td><td>2000.0000</td><td>1000.0000</td><td>1000.0000</td><td>308427.52 KB</td><td>50,291.37</td>
+</tr></tbody></table>
+</body>
+</html>

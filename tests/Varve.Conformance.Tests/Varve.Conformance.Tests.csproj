@@ -18,7 +18,6 @@
          Turtle parser; this reads them, from exactly one internal class
          (ManifestReader). ADR 0007 states the exit criterion: removed when
          Varve.Turtle passes rdf/rdf11/rdf-turtle unexempted, at milestone 5. -->
-    <PackageReference Include="dotNetRdf.Core" />
   </ItemGroup>
 
 </Project>

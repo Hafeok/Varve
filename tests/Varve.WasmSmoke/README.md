@@ -1,7 +1,15 @@
 # Varve.WasmSmoke
 
-A `browser-wasm` app that does two things on one page: parses N-Quads, and
-probes the cryptographic primitives ADR 0020's composition needs.
+A `browser-wasm` app that does three things on one page: parses N-Quads, reads
+and writes Turtle and TriG, and probes the cryptographic primitives ADR 0028's
+composition needs.
+
+Turtle is there because N-Quads exercises none of what it adds — the statement
+buffer, the prefix table, the blank node naming, the writer's state — so a
+browser runtime that broke one of them would pass an N-Quads probe. The
+document it reads carries a predicate-object list, an object list, a
+collection, a nested blank node property list and an escape, and the TriG one a
+graph block.
 
 `wasm-experimental`, not Blazor. Constraint 3 is that Varve runs in a browser,
 not that it runs in a web framework, and Blazor would add an ASP.NET Core
