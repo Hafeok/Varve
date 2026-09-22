@@ -27,6 +27,11 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **adr**: trunk-based development, traceability, signing, SemVer, containers, auth (a66552a1)
 - OpenSSF Scorecard, every action pinned by peeled SHA (0dcdd681)
 - README, CONTRIBUTING, GOVERNANCE, SECURITY, conduct, templates, AGENTS.md (bbd42fef)
+- **changelog**: CHANGELOG.md generated from the conventional commits (ee3fa700)
+
+#### Fixed
+
+- **devcontainer**: the workload install needs elevation, and CI found it (81138cfc)
 
 ### Milestone 3b — Turtle and TriG
 
