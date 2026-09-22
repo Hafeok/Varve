@@ -57,6 +57,12 @@ or depart from `docs/brief.md`, each says so in its Context.
 | [0028](0028-deterministic-aead-from-hmac.md) | A deterministic AEAD built from HMAC-SHA-256 | Accepted, conditionally |
 | [0029](0029-publishing-and-versioning.md) | Publishing and versioning | Accepted |
 
+## Milestone 3b — Turtle and TriG
+
+| # | Title | Status |
+|---:|---|---|
+| [0030](0030-turtle-recovery-and-prefixes.md) | Turtle's recovery unit, prefix exposure, and where isomorphism lives | Accepted |
+
 **No ADR in this repository is `Proposed`.** Three were, and were completed in
 place rather than superseded, because ADR 0001's no-edit rule binds accepted
 decisions and they had never been accepted.

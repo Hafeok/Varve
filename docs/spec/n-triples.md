@@ -161,8 +161,13 @@ line it lost.
 A parser that tries to resynchronise inside a line has to guess where the
 author meant a term to end, and a wrong guess produces a quad that was never
 written — which is worse than losing the line, because nothing downstream can
-tell. Turtle at milestone 5 has no line structure to fall back on and will need
-a different rule; that is a decision to take then, with a grammar that needs it.
+tell.
+
+Turtle has no line structure to fall back on and needed a different rule.
+**Decided at milestone 3b by [ADR 0030](../adr/0030-turtle-recovery-and-prefixes.md)**:
+there the *statement* is the recovery unit, and the parser resumes after the
+next `.` at nesting depth zero, outside a String and an `IRIREF`. See
+[`turtle.md`](turtle.md) §5.
 
 ## 4. Position reporting
 
