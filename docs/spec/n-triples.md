@@ -13,9 +13,11 @@ Status: Accepted. Changes only together with the ADR that motivates the change.
 - **RDF 1.2 N-Triples** — Working Draft, 23 July 2026, checked 2026-09-21.
   Backward compatible; see `rdf-model.md` §1.
 
-Conformance is measured by `rdf/rdf11/rdf-n-triples` and
-`rdf/rdf11/rdf-n-quads` in the pinned `w3c/rdf-tests` submodule: 70 and 87
-cases, **all of them positive or negative syntax tests**. There are no
+Conformance is measured by four suites in the pinned `w3c/rdf-tests` submodule:
+`rdf/rdf11/rdf-n-triples` (70) and `rdf/rdf11/rdf-n-quads` (87), and
+`rdf/rdf12/rdf-n-triples/syntax` (29) and `rdf/rdf12/rdf-n-quads/syntax` (27) —
+**all of them positive or negative syntax tests**. The rdf12 `c14n` manifests
+are RDFC-1.0 and are not wired. There are no
 evaluation tests in these two suites, so the suites prove that we accept and
 reject the right documents and prove nothing about the quads we produce. That
 is what the round-trip property tests are for.
@@ -98,17 +100,43 @@ syntax carries the two constructs that would otherwise be unwritable:
   subject, and a triple term is never a graph label.
 
 Both are **extensions to the RDF 1.1 grammar above**, accepted in both syntaxes
-and in both the reader and the writer. Nothing in the RDF 1.1 suites exercises
-them, and accepting them cannot turn a negative case positive: `<<(` is
+and in both the reader and the writer, and **gated by the rdf12 syntax suites**
+listed in §1. Accepting them cannot turn a negative 1.1 case positive: `<<(` is
 rejected by 1.1 as a bad IRI either way, and `--` after a language tag is
-rejected by 1.1 as a bad tag either way, so no document the suite requires us to
-reject becomes acceptable. They are written rather than dropped because a
-writer that silently discarded a direction would produce a document that looks
-correct and is not.
+rejected by 1.1 as a bad tag either way, so no document the 1.1 suites require
+us to reject becomes acceptable.
 
 The alternative — a reader that cannot read what our own writer writes — was
 rejected: it makes the round-trip property untestable for exactly the terms
 most likely to be got wrong.
+
+### The language tag is constrained outside the grammar
+
+RDF 1.2 N-Triples gives `[15] LANG_DIR ::= '@' [a-zA-Z]+ ('-' [a-zA-Z0-9]+)*
+('--' [a-zA-Z]+)?` and then states, normatively and beside the grammar, that
+**the language tag MUST be well-formed according to BCP 47 §2.2.9**, and that a
+base direction MUST be `ltr` or `rtl`. The grammar alone accepts
+`"x"@cantbethislong`; `ntriples-langdir-bad-4` requires it to be rejected.
+
+**Well-formed, not valid.** BCP 47 §2.2.9 distinguishes them: well-formed means
+it matches the §2.1 ABNF, valid additionally means every subtag is in the IANA
+registry. RDF asks for the first, and we implement the first —
+`Varve.Rdf.LanguageTag`, including the 26 grandfathered tags, whose irregular
+half (`en-GB-oed`, `i-klingon`, `sgn-BE-FR`, …) no ABNF accepts. Validity would
+mean shipping and ageing a copy of the registry, so that a term would stop
+being a term because the file got old.
+
+### `rdf:langString` and `rdf:dirLangString` are not writable datatypes
+
+Both are the datatype a language-tagged literal already has. Written out as an
+explicit `^^` datatype with no language tag, they describe a literal that cannot
+exist (RDF 1.1 Concepts §3.3), and the reader rejects both —
+`ntriples-langdir-bad-3` and `-5`. **This is an RDF 1.1 defect as much as a 1.2
+one**; the 1.1 suites simply never test it, which is why gating the 1.2 suites
+found it.
+
+The same rule is enforced at the term model, not only at the parser: a writer
+that could emit one would produce a document its own reader must reject.
 
 ## 3. Error recovery
 

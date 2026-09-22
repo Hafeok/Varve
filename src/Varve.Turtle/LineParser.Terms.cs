@@ -260,9 +260,24 @@ internal ref partial struct LineParser
                 return Fail(ParseErrorKind.ExpectedObject, _at);
             }
 
+            int datatypeAt = _at;
+
             if (!TryIri(out TermSpan datatype))
             {
                 return false;
+            }
+
+            // rdf:langString and rdf:dirLangString are the datatypes a
+            // language-tagged literal already has. Written out with no language
+            // tag they describe a literal that cannot exist (RDF 1.1 Concepts
+            // §3.3), which the rdf12 suite tests directly and the rdf11 suite
+            // happens not to — it is a 1.1 defect as much as a 1.2 one.
+            ReadOnlySpan<byte> iri = _arena.Bytes(_line, datatype);
+
+            if (iri.SequenceEqual(RdfVocabulary.RdfLangString)
+                || iri.SequenceEqual(RdfVocabulary.RdfDirLangString))
+            {
+                return Fail(ParseErrorKind.DatatypeRequiresLanguage, datatypeAt);
             }
 
             slot = _arena.AddLiteral(lexical, datatype, TermSpan.None, TextDirection.None);
@@ -327,6 +342,14 @@ internal ref partial struct LineParser
             }
 
             i = sub;
+        }
+
+        // RDF 1.2 N-Triples [15] gives the shape; the prose beside it requires
+        // the tag to be well-formed per BCP 47 §2.2.9, which the shape alone
+        // does not enforce.
+        if (!LanguageTag.IsWellFormed(_line[start..i]))
+        {
+            return Fail(ParseErrorKind.InvalidLanguageTag, start);
         }
 
         span = TermSpan.FromText(start, i - start);

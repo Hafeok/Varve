@@ -31,7 +31,7 @@ decisions it presupposes.
 | Bulk load as one logical commit | **Resolved** — ADR 0013: a commit is one or more records, closed by a flag in the log. Remaining: **Q2**, **Q3**. |
 | Single writer versus optimistic concurrency | **Resolved** — ADR 0011: both. One sequencer, optional expected position per request. |
 | Managed storage engine for the projections | **Open** — `docs/research/managed-storage-engines.md` narrows it; ADR 0018 states the contract requirements. Decided at milestone 6. |
-| GDPR-style hard deletion in an append-only model | **Partly resolved** — ADR 0023: crypto-shredding, opt-in per dataset, access by key id. **The cipher is not settled**: ADR 0020 failed its acceptance condition at milestone 3a (no symmetric cipher runs on browser WASM). Remaining: **Q4**, **Q5**, **Q6**, **Q8**, **Q9**. |
+| GDPR-style hard deletion in an append-only model | **Resolved** — ADR 0023: crypto-shredding, opt-in per dataset, access by key id; ADR 0028: the cipher, after 0020 failed its browser condition. 0028 is conditional on an external cryptographic review before milestone 9 ships. Remaining: **Q4**, **Q5**, **Q8**, **Q9**. |
 | Commit-time validation cost versus write latency, and what a validator may read | **Resolved** — ADR 0017: the overlay of the pending delta on the pinned state, and nothing else; the hook is inside the sequencer, so validation is write latency by construction. |
 | Incremental SHACL — which shapes are incrementally maintainable | **Open** — not addressed by this set. Due milestone 8. |
 
@@ -43,8 +43,16 @@ proposed below.
 ## 3 — RDF model, IRI, XSD datatypes, N-Triples and N-Quads
 
 **3a** *(complete)*: `Varve.Iri`, `Varve.Rdf`, and N-Triples and N-Quads in
-`Varve.Turtle`, to a full suite pass. **3b**: `Varve.Xsd` and RDFC-1.0
-canonicalisation — neither is needed for the N-Triples and N-Quads suites.
+`Varve.Turtle`, to a full suite pass. **3b**: Turtle and TriG. `Varve.Xsd` and
+RDFC-1.0 canonicalisation come later — neither is needed for any syntax suite.
+
+**`Varve.Xsd` brings value equality to the evaluator, not to the term model.**
+Literal term equality is character by character over lexical form, datatype IRI
+and language tag (RDF 1.1 Concepts §3.3) and stays that way permanently; value
+comparison is SPARQL 1.1 §17.3 and §17.4.1.7, and lives at layer 3. An earlier
+draft of this file said `Varve.Xsd` would "unblock value equality in the term
+model", which would have been a change to what a graph contains rather than to
+what a query answers. See ADRs 0022 and 0024.
 
 The first packable projects, and therefore the first time several milestone 1
 mechanisms stopped being inert. All of the following are **delivered**:
@@ -63,12 +71,24 @@ mechanisms stopped being inert. All of the following are **delivered**:
 - **WASM smoke build.** `tests/Varve.WasmSmoke`, a `browser-wasm` app on
   `wasm-experimental` — **not** Blazor, which would add an ASP.NET Core package
   tail unrelated to the claim. CI publishes it warning-free; it was run in
-  headless Chromium here, and **what it found supersedes ADR 0020** (below).
+  headless Chromium here, and **what it found superseded ADR 0020** — see 0028
+  and the Q6 note below.
 - **Conformance is green.** All 157 cases of `rdf/rdf11/rdf-n-triples` and
-  `rdf/rdf11/rdf-n-quads` pass, `baseline/passing.txt` holds all 157, and
+  `rdf/rdf11/rdf-n-quads` pass, and the close-out added `rdf/rdf12`'s
+  N-Triples and N-Quads **syntax** suites — 29 and 27 more — because the reader
+  and writer had shipped RDF 1.2's base direction and triple terms with no
+  suite behind them. `baseline/passing.txt` holds all **213**, and
   `baseline/exemptions.txt` is empty. The ratchet gained an exemptions
   mechanism: an exempt case is neither required to pass nor reported as newly
   passing, and an exemption with no written justification fails the run.
+  Gating 1.2 found three real bugs, two of which were wrong under 1.1 as well —
+  see the PR for `fix/3a-closeout`.
+- **The first packages have metadata and a publish workflow** (ADR 0029),
+  versioned from the git tag by MinVer, published through trusted publishing on
+  a `v*` tag, and packed as a dry run on every pull request. **Nothing is
+  published yet**; the first tag is `v0.1.0-preview.1`.
+- **The native-asset ban is a gate** rather than a sentence (`eng/native-assets.cs`),
+  now that ADR 0009's amendment has scoped it to shipped artifacts.
 
 Also delivered, beyond what this section asked for: **zero bytes allocated per
 quad**, asserted on all five entry points as the difference between a
@@ -84,8 +104,15 @@ triple terms, which the model held from the start and the syntax would
 otherwise be unable to express.
 
 **Not in 3a, and not attempted:** `Varve.Xsd`, canonicalisation, Turtle and
-TriG, the store, NuGet publication, and `VARVE0006` (the `[HotPath]` rule — the
-attribute exists and is applied, the analyzer does not).
+TriG, the store, the first NuGet publication itself, and `VARVE0006` (the
+`[HotPath]` rule — the attribute exists and is applied, the analyzer does not).
+
+**RDF 1.2 Turtle and TriG are deliberately later.** Their suites are wired for
+nobody yet: RDF 1.2 Turtle is a W3C Working Draft of 14 September 2026 and TriG
+of 15 September 2026, and implementing reifiers, annotations and a version
+directive against a draft that recent, under a ratchet, is churn a milestone
+should absorb rather than a session. RDF 1.2 N-Triples and N-Quads are wired,
+because we had already shipped their constructs.
 
 ## 4 — In-memory log and default quad projection
 
@@ -160,14 +187,18 @@ subjects), and **Q9** (whether the surviving structure counts as anonymous).
 is the classifier's ability to make identifying links private; whether that is
 enough is not an engineering answer at all.
 
-**Q6 was decided** (ADR 0020) and its browser half was verified at milestone 3a.
-**It failed.** `Aes.Create()` throws `PlatformNotSupportedException` on
+**Q6 is decided by ADR 0028**, after ADR 0020's browser verification failed at
+milestone 3a. `Aes.Create()` throws `PlatformNotSupportedException` on
 browser-wasm under .NET 10, and `AesGcm`, `AesCcm` and `ChaCha20Poly1305` all
 report `IsSupported == false` — no symmetric cipher of any kind runs in a
-browser, so the question is no longer which cipher to use. `RandomNumberGenerator`,
-SHA-256, HMAC-SHA-256 and HKDF do all work. ADR 0020 is failed, Q6 is reopened,
-and the successor is milestone 9's to decide along with erasure mode. Nothing
-before milestone 9 depends on it.
+browser. `RandomNumberGenerator`, SHA-256, HMAC-SHA-256, HKDF and
+`FixedTimeEquals` do, so 0028 builds a deterministic AEAD from HMAC-SHA-256
+alone in an SIV composition, synchronous on all three hosts. It carries a second
+condition that no build can settle: **external cryptographic review before
+milestone 9 ships**, because it is a custom instantiation of a standard
+composition rather than RFC 5297. If the review rejects it, the fallback is that
+erasure mode does not run in the browser, in its own ADR. Nothing before
+milestone 9 depends on any of this.
 
 ## Not scheduled
 

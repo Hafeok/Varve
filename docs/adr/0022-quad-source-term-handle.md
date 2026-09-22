@@ -44,6 +44,14 @@ supplied by the source**.
   blank ids compare by id; **a readable private term compares by decrypted
   value**, against private and canonical terms alike; a shredded one is equal
   only to itself. No consumer can get that right from the bits, and none has to.
+- **`TermComparer` is term equality** — RDF 1.1 Concepts §3.3, character by
+  character over lexical form, datatype IRI and language tag. It is not, and
+  will not become, value equality. "Compares by decrypted value" above means
+  the comparison is made on the plaintext term rather than on the ciphertext or
+  the id; it does **not** mean `"1"^^xsd:integer` equals `"01"^^xsd:integer`.
+  Value comparison is the evaluator's (SPARQL 1.1 §17.3, §17.4.1.7) and lives at
+  layer 3, above this contract. A quad source that returned value equality here
+  would change which quads a dataset contains.
 - **An in-memory dataset without a store brings its own interning table.** It is
   a quad source like any other, and nothing about the contract presumes a log.
 
@@ -90,6 +98,43 @@ and one set of call sites, and nothing about them is instantiated per source.
   (ADR 0012's "not interned"), and an integer comparison would report them
   unequal. Getting this wrong would make erasure mode quietly return wrong query
   results rather than fail.
+
+## Amendment, 2026-09-22 — the graph position takes a pattern, not a handle
+
+The decision above is unchanged: an opaque fixed-width handle,
+source-supplied equality, internalise and externalise. What changes is the shape
+of `Match`.
+
+As first written it took four handles, with `TermHandle.None` as the wildcard in
+every position, plus a separate `MatchDefaultGraph` for the one pattern the
+wildcard could not express. That is wrong in a way that returns plausible
+answers rather than errors.
+
+Subject, predicate and object are unambiguous: a quad always has all three, so
+"no handle given" can only mean "any term". **The graph position is not**, because
+a quad may have no graph. `None` there had to mean both "the graph that is not
+there" and "whichever graph is", and the code resolved that by making it mean
+*every graph including the default one* — which is not what SPARQL's `GRAPH ?g`
+means. SPARQL 1.1 §13.3 ranges over the named graphs and excludes the default
+graph. A query written against this contract would have quietly included quads
+`GRAPH ?g` must not see.
+
+So the graph position takes a `GraphPattern` with four modes: `DefaultGraph`,
+`Named`, `AnyNamed` — which is `GRAPH ?g` — and `Any`, the union.
+`MatchDefaultGraph` is removed; it existed only because one handle could not
+mean two things.
+
+`Any` is kept beside `AnyNamed` rather than left to the caller because counting
+a dataset and serialising it are real operations that are not `GRAPH ?g`, and a
+caller unioning two cursors to reach them is a caller who can get the arithmetic
+wrong. `GraphPattern.Named(TermHandle.None)` throws: it is not the name of a
+graph, and accepting it would let the ambiguity back in through the front door.
+`default(GraphPattern)` is `DefaultGraph`, the reading that cannot silently
+widen a query.
+
+The four modes partition every quad, and a test asserts it: for any graph
+handle exactly one of `DefaultGraph` and `AnyNamed` accepts it, and `Any`
+accepts it either way.
 
 ## Consequences
 

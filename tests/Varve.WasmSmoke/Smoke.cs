@@ -102,12 +102,13 @@ internal static partial class Smoke
     /// What the browser actually offers, probed one primitive at a time.
     /// </summary>
     /// <remarks>
-    /// This is <strong>ADR 0020's acceptance condition</strong>, and it did not
-    /// hold. The decision chose AES-CBC with HMAC-SHA-256 partly because
-    /// AES-GCM, AES-CCM and ChaCha20Poly1305 are unsupported on browser
-    /// WebAssembly, resting the availability of AES-CBC on a .NET 7 release
-    /// note. On .NET 10 in a real browser, <c>Aes.Create()</c> throws
-    /// <see cref="PlatformNotSupportedException"/>.
+    /// This was <strong>ADR 0020's acceptance condition</strong>, and it did not
+    /// hold: on .NET 10 in a real browser <c>Aes.Create()</c> throws
+    /// <see cref="PlatformNotSupportedException"/> and no symmetric cipher of
+    /// any kind is available. It is now <strong>ADR 0028's first condition</strong>
+    /// as well, from the other direction — 0028 builds its cipher out of
+    /// SHA-256, HMAC-SHA-256, HKDF and a constant-time comparison precisely
+    /// because those four are the ones that do run here.
     /// <para>
     /// So the probe records the capability rather than asserting the
     /// composition. Each line says what was observed, and the expectations
@@ -136,8 +137,21 @@ internal static partial class Smoke
             byte[] once = HKDF.DeriveKey(HashAlgorithmName.SHA256, new byte[32], 32, info: "varve/enc"u8.ToArray());
             byte[] again = HKDF.DeriveKey(HashAlgorithmName.SHA256, new byte[32], 32, info: "varve/enc"u8.ToArray());
 
-            // Deterministic derivation is what makes ADR 0020's IV portable.
+            // Deterministic derivation is what makes ADR 0028's synthetic IV
+            // portable, and its key separation possible.
             return once.Length == 32 && once.AsSpan().SequenceEqual(again);
+        }));
+
+        report.Append(Probe("FixedTimeEquals", static () =>
+        {
+            byte[] tag = HMACSHA256.HashData(new byte[32], "varve"u8);
+            byte[] same = HMACSHA256.HashData(new byte[32], "varve"u8);
+            byte[] other = HMACSHA256.HashData(new byte[32], "varvf"u8);
+
+            // A comparison that says yes to everything is not a comparison, so
+            // both directions are probed.
+            return CryptographicOperations.FixedTimeEquals(tag, same)
+                && !CryptographicOperations.FixedTimeEquals(tag, other);
         }));
 
         report.Append(Probe("AES-CBC", static () =>
@@ -188,12 +202,14 @@ internal static partial class Smoke
     /// pinned so that a change is reported rather than noticed by accident.
     /// </summary>
     /// <remarks>
-    /// These are not aspirations. Every "unsupported" and every "no" here is a
-    /// fact about .NET 10 on browser-wasm that Varve has to live with, and the
-    /// ones that matter are the last four: <strong>no symmetric cipher of any
-    /// kind is available in a browser</strong>. If a future runtime changes
-    /// that, this fails, and failing is the correct behaviour — it is the
-    /// signal that ADR 0020's successor can be revisited.
+    /// These are not aspirations. Every row is a fact about .NET 10 on
+    /// browser-wasm that Varve has to live with. The last three say that
+    /// <strong>no symmetric cipher of any kind is available in a browser</strong>,
+    /// which is what failed ADR 0020; the first five are ADR 0028's first
+    /// condition, and they hold. If a future runtime changes any of them this
+    /// fails, and failing is the correct behaviour — a cipher appearing in the
+    /// browser is the signal that 0028's alternatives are worth revisiting, and
+    /// a primitive disappearing would break 0028 itself.
     /// </remarks>
     private static readonly (string Name, string Expected)[] Pinned =
     [
@@ -201,6 +217,7 @@ internal static partial class Smoke
         ("SHA256", "yes"),
         ("HMACSHA256", "yes"),
         ("HKDF", "yes"),
+        ("FixedTimeEquals", "yes"),
         ("AES-CBC", "unsupported"),
         ("AES-GCM", "no"),
         ("AES-CCM", "no"),

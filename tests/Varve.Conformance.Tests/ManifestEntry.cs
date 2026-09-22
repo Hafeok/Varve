@@ -18,6 +18,12 @@ internal enum ExpectedOutcome
 /// test's identity: it names the case in the run, and it is what a line in
 /// <c>baseline/passing.txt</c> refers to.
 /// </param>
+/// <param name="Suite">
+/// The <see cref="ConformanceSuite.Id"/> this entry was read from. Carried on
+/// the entry rather than recovered from the IRI: the rdf11 and rdf12 suites for
+/// one format have IRIs that differ only in a middle segment, and grouping by
+/// string prefix got that wrong once already.
+/// </param>
 /// <param name="Name">The entry's <c>mf:name</c>.</param>
 /// <param name="Comment">The entry's <c>rdfs:comment</c>, if it has one.</param>
 /// <param name="ActionPath">The absolute path of the file to parse.</param>
@@ -25,6 +31,7 @@ internal enum ExpectedOutcome
 /// <param name="Expected">Whether parsing must succeed or must fail.</param>
 internal sealed record ManifestEntry(
     string TestIri,
+    string Suite,
     string Name,
     string? Comment,
     string ActionPath,

@@ -59,11 +59,16 @@ while **lexical forms and datatype IRIs compare exactly**. This asymmetry is in
 the specification and is a real source of bugs; it is stated here so that the
 equality implementation has somewhere to point.
 
-`Varve.Xsd` is milestone 3b. Until then a datatype is an IRI and nothing more:
-no value space, no canonical lexical form, no comparison by value. A literal's
-equality at milestone 3a is **term equality** — same lexical form, same
-datatype, same language and direction — which is what the RDF abstract syntax
-defines and what the syntax suites test.
+Until `Varve.Xsd` exists a datatype is an IRI and nothing more: no value space,
+no canonical lexical form, no comparison by value.
+
+**A literal's equality is term equality — permanently, not until 3b.** Same
+lexical form, same datatype IRI, same language tag and direction, compared
+character by character (Concepts §3.3). That is what the abstract syntax defines
+and what the syntax suites test, and `Varve.Xsd` will not change it: value
+comparison is the evaluator's (SPARQL 1.1 §17.3, §17.4.1.7) and lives at layer
+3, above the model. A change here would change what a graph contains; a change
+there changes what a query answers.
 
 ### Triple terms
 
@@ -113,8 +118,9 @@ Two representations, for two paths (ADR 0024):
 
 - a **view** is a zero-allocation window over a parser's buffer, valid for the
   duration of the callback that receives it;
-- an **owned term** is a heap object with value equality, produced only when
-  someone asks for one.
+- an **owned term** is a heap object with structural equality — term equality,
+  in the sense above, and not RDF *value* equality — produced only when someone
+  asks for one.
 
 **Allocation per quad on the streaming path is a defect** (constraint 5), so
 the view is the default and materialising is opt-in. The allocation test
@@ -122,10 +128,11 @@ asserts zero bytes per quad, not a small number.
 
 ## 6. What this milestone does not model
 
-- **Value spaces and value equality** — `Varve.Xsd`, milestone 3b. `"1"^^xsd:integer`
-  and `"01"^^xsd:integer` are *different terms* here and equal values there,
-  and nothing at 3a may assume otherwise.
-- **RDFC-1.0 canonicalisation** — milestone 3b.
+- **Value spaces and value comparison** — `Varve.Xsd`, and then the evaluator.
+  `"1"^^xsd:integer` and `"01"^^xsd:integer` are *different terms* here and
+  stay different terms; they are equal *values*, which is a question only the
+  evaluator asks. Nothing may assume the model answers it.
+- **RDFC-1.0 canonicalisation** — a later milestone.
 - **Generalised RDF** (Concepts §5.2), where any term may appear in any
   position. Not supported; the constraints in §3 are enforced.
 - **Term identity across a store** — blank node identity at an API boundary is

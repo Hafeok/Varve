@@ -61,6 +61,13 @@ jobs:
       - name: Restore
         run: dotnet restore Varve.slnx
 
+      - name: Native assets
+        # ADR 0009's amendment scopes constraint 1 to shipped artifacts. This is
+        # what makes the scoped version a gate rather than a sentence: no
+        # package in a packable project's restore closure may contribute a
+        # native runtime asset. Needs the restore above, and nothing else.
+        run: dotnet run eng/native-assets.cs
+
       - name: Build
         # Warnings are errors by configuration, not by a flag here; see
         # Directory.Build.props. CI is set, so ContinuousIntegrationBuild is on
@@ -95,6 +102,21 @@ jobs:
           dotnet test
           --project tests/Varve.Turtle.Tests/Varve.Turtle.Tests.csproj
           --configuration Release
+
+      # The publish dry run. A version pushed to nuget.org cannot be edited,
+      # replaced or deleted, so the pack step and its output are exercised on
+      # every pull request rather than first on a tag. This packs and reads the
+      # nuspec back; it does not push, and the workflow that pushes is not
+      # triggered by a pull request at all. ADR 0029.
+      - name: Pack
+        run: >
+          dotnet pack Varve.slnx
+          --configuration Release
+          --no-build
+          --output ${{ github.workspace }}/artifacts/packages
+
+      - name: Check the package metadata
+        run: dotnet run eng/package-metadata.cs -- ${{ github.workspace }}/artifacts/packages
 
   # Constraint 2, proven rather than configured. An analyzer only sees what it
   # can see statically; only an ILC run shows the packages publish, and only

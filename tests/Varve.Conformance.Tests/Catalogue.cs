@@ -28,7 +28,7 @@ internal static class Catalogue
 
         foreach (ManifestEntry entry in Entries)
         {
-            if (entry.TestIri.StartsWith(suite.BaseIri + "#", StringComparison.Ordinal))
+            if (string.Equals(entry.Suite, suite.Id, StringComparison.Ordinal))
             {
                 entries.Add(entry);
             }

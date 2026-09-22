@@ -40,9 +40,55 @@
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
-
-    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
   </PropertyGroup>
+
+  <!--
+    ADR 0029 — package metadata.
+
+    Here rather than in Directory.Build.props because IsPackable is set in the
+    project body, which props is imported before and cannot see.
+
+    Nothing here names a repository host. RepositoryUrl comes from the git
+    remote at pack time through SourceLink, so moving the repository to another
+    organisation changes no file in this tree. PackageProjectUrl is the one
+    value that has to be written down, and it is the only line to revisit on a
+    move — along with the trusted-publishing policy on nuget.org, which is not
+    in this repository at all.
+  -->
+  <PropertyGroup Condition="'$(IsPackable)' == 'true'">
+    <Authors>decision-driven-design</Authors>
+    <Company>decision-driven-design</Company>
+    <Copyright>Copyright (c) 2026 Emil Okkels Klein</Copyright>
+
+    <!-- An SPDX expression, never a licenseUrl: licenseUrl is deprecated and
+         points at a page that can change under the package. -->
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+
+    <PackageProjectUrl>https://github.com/Hafeok/Varve</PackageProjectUrl>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+
+    <!-- An embedded icon, never an iconUrl: same reason. -->
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <PackageTags>rdf;sparql;graph-database;event-sourcing;semantic-web;linked-data</PackageTags>
+
+    <!-- A deterministic, restorable symbol package. Sources are embedded, so a
+         consumer can step into Varve without a symbol server. -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <EmbedAllSources>true</EmbedAllSources>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)eng/icon.png" Pack="true" PackagePath="" Visible="false" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+
+    <!-- Versioning from the git tag (ADR 0029). PrivateAssets keeps it out of
+         the consumer's dependency graph; it exists at build time only. -->
+    <PackageReference Include="MinVer" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers" />
+  </ItemGroup>
 
   <ItemGroup Condition="'$(IsPackable)' == 'true'">
     <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />

@@ -343,10 +343,19 @@ static string BuildSummary(
     return builder.ToString().TrimEnd();
 }
 
+// The path under rdf/, so that rdf11 and rdf12 suites for one format stay
+// apart. Taking the second-to-last segment collided: rdf11/rdf-n-triples ends
+// in .../rdf-n-triples/manifest.ttl and rdf12's in .../rdf-n-triples/syntax,
+// and both reduced to "rdf-n-triples".
 static string ShortSuiteName(string manifestIri)
 {
-    string[] segments = manifestIri.Split('/');
-    return segments.Length >= 2 ? segments[^2] : manifestIri;
+    const string Marker = "/rdf/";
+    int start = manifestIri.IndexOf(Marker, StringComparison.Ordinal);
+    string path = start < 0 ? manifestIri : manifestIri[(start + Marker.Length)..];
+
+    return path.EndsWith("/manifest.ttl", StringComparison.Ordinal)
+        ? path[..^"/manifest.ttl".Length]
+        : path;
 }
 
 static string? ResolveTrx(string argument)
