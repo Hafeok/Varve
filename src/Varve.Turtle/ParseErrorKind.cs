@@ -71,6 +71,13 @@ public enum ParseErrorKind : byte
     /// <summary>A base direction was neither <c>ltr</c> nor <c>rtl</c>.</summary>
     InvalidBaseDirection,
 
+    /// <summary>
+    /// <c>rdf:langString</c> or <c>rdf:dirLangString</c> was written as an
+    /// explicit datatype. Both are the datatype a language-tagged literal
+    /// already has, and neither describes a literal without one.
+    /// </summary>
+    DatatypeRequiresLanguage,
+
     /// <summary>Something other than whitespace or a comment followed the <c>.</c>.</summary>
     TrailingContent,
 

@@ -43,8 +43,13 @@ public class RoundTripTests
     private static readonly Gen<RdfTerm> BlankNode =
         Gen.String[Gen.Char.AlphaNumeric, 1, 8].Select(l => RdfTerm.BlankNode(U("b" + l)));
 
+    /// <summary>
+    /// Every one of these is well-formed BCP 47, which the term model now
+    /// requires: a generator that produced an ill-formed tag would be testing
+    /// that the model rejects it, which is <c>LanguageTagTests</c>' job.
+    /// </summary>
     private static readonly Gen<string> Language =
-        Gen.OneOfConst("en", "en-GB", "de-DE-1901", "zh-Hans-CN");
+        Gen.OneOfConst("en", "en-GB", "de-DE-1901", "zh-Hans-CN", "es-419", "en-x-custom");
 
     private static readonly Gen<TextDirection> Direction =
         Gen.OneOfConst(TextDirection.None, TextDirection.LeftToRight, TextDirection.RightToLeft);

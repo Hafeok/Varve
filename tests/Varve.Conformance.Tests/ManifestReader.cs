@@ -53,12 +53,11 @@ internal static class ManifestReader
             new TurtleParser().Load(graph, reader);
         }
 
-        IUriNode manifest = graph.CreateUriNode(new Uri(suite.BaseIri));
         IUriNode entries = graph.CreateUriNode(new Uri(Mf + "entries"));
 
         List<ManifestEntry> result = [];
 
-        foreach (Triple triple in graph.GetTriplesWithSubjectPredicate(manifest, entries))
+        foreach (Triple triple in graph.GetTriplesWithSubjectPredicate(FindManifest(graph, suite), entries))
         {
             foreach (INode entry in WalkCollection(graph, triple.Object))
             {
@@ -71,6 +70,37 @@ internal static class ManifestReader
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Finds the node the manifest describes.
+    /// </summary>
+    /// <remarks>
+    /// The RDF 1.1 manifests name themselves <c>&lt;&gt;</c>, which resolves to
+    /// the manifest file's own IRI. The RDF 1.2 manifests name themselves
+    /// <c>trs:manifest</c>, a fragment of the suite directory. Asking for the
+    /// node typed <c>mf:Manifest</c> works for both and does not need a table
+    /// of which suite is written which way — and a manifest with no such node,
+    /// or more than one, is a manifest this reader should refuse rather than
+    /// silently read as empty.
+    /// </remarks>
+    private static INode FindManifest(Graph graph, ConformanceSuite suite)
+    {
+        IUriNode type = graph.CreateUriNode(new Uri(Rdf + "type"));
+        IUriNode manifestType = graph.CreateUriNode(new Uri(Mf + "Manifest"));
+
+        List<INode> found = [];
+
+        foreach (Triple triple in graph.GetTriplesWithPredicateObject(type, manifestType))
+        {
+            found.Add(triple.Subject);
+        }
+
+        return found.Count == 1
+            ? found[0]
+            : throw new InvalidOperationException(
+                found.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " nodes typed mf:Manifest in " + suite.ManifestPath + "; expected exactly one.");
     }
 
     /// <summary>
@@ -133,6 +163,7 @@ internal static class ManifestReader
 
         return new ManifestEntry(
             TestIri: entryIri.Uri.AbsoluteUri,
+            Suite: suite.Id,
             Name: Literal(graph, entry, Mf + "name") ?? entryIri.Uri.Fragment.TrimStart('#'),
             Comment: Literal(graph, entry, Rdfs + "comment"),
             ActionPath: actionPath,

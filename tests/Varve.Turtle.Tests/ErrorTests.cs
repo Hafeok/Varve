@@ -19,6 +19,18 @@ public class ErrorTests
     [InlineData("<http://a/s> <http://a/p> \"\\uD800\" .\n", ParseErrorKind.UnpairedSurrogate)]
     [InlineData("<http://a/s> <http://a/p> \"\\uDC00\" .\n", ParseErrorKind.UnpairedSurrogate)]
     [InlineData("<http://a/s> <http://a/p> \"s\"@1 .\n", ParseErrorKind.InvalidLanguageTag)]
+    // Grammatical, and not a well-formed BCP 47 tag. RDF 1.2 N-Triples requires
+    // both; the rdf12 suite's ntriples-langdir-bad-4 is this case.
+    [InlineData("<http://a/s> <http://a/p> \"s\"@cantbethislong .\n", ParseErrorKind.InvalidLanguageTag)]
+    [InlineData("<http://a/s> <http://a/p> \"s\"@en-GB-abc .\n", ParseErrorKind.InvalidLanguageTag)]
+    // rdf:langString and rdf:dirLangString describe a literal that has a
+    // language tag, so neither can be written as an explicit datatype.
+    [InlineData(
+        "<http://a/s> <http://a/p> \"s\"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#langString> .\n",
+        ParseErrorKind.DatatypeRequiresLanguage)]
+    [InlineData(
+        "<http://a/s> <http://a/p> \"s\"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#dirLangString> .\n",
+        ParseErrorKind.DatatypeRequiresLanguage)]
     [InlineData("<http://a/s> <http://a/p> \"s\"@en--up .\n", ParseErrorKind.InvalidBaseDirection)]
     [InlineData("_::a <http://a/p> <http://a/o> .\n", ParseErrorKind.InvalidBlankNodeLabel)]
     [InlineData("<http://a/s> <http://a/p> <http://a/o> . junk\n", ParseErrorKind.TrailingContent)]

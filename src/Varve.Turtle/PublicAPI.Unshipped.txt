@@ -23,6 +23,7 @@ Varve.Turtle.ParseError.ParseError() -> void
 Varve.Turtle.ParseError.ParseError(Varve.Turtle.ParseErrorKind kind, Varve.Turtle.ParsePosition position, Varve.Iri.IriErrorKind iri = Varve.Iri.IriErrorKind.None) -> void
 Varve.Turtle.ParseError.Position.get -> Varve.Turtle.ParsePosition
 Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.DatatypeRequiresLanguage = 20 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.ExpectedDot = 6 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.ExpectedGraphLabel = 5 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.ExpectedObject = 4 -> Varve.Turtle.ParseErrorKind
@@ -36,10 +37,10 @@ Varve.Turtle.ParseErrorKind.InvalidIri = 12 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.InvalidIriCharacter = 11 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.InvalidLanguageTag = 18 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.InvalidUnicodeEscape = 15 -> Varve.Turtle.ParseErrorKind
-Varve.Turtle.ParseErrorKind.InvalidUtf8 = 21 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.InvalidUtf8 = 22 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.None = 0 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.RelativeIri = 13 -> Varve.Turtle.ParseErrorKind
-Varve.Turtle.ParseErrorKind.TrailingContent = 20 -> Varve.Turtle.ParseErrorKind
+Varve.Turtle.ParseErrorKind.TrailingContent = 21 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.UnexpectedEnd = 1 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.UnpairedSurrogate = 16 -> Varve.Turtle.ParseErrorKind
 Varve.Turtle.ParseErrorKind.UnterminatedIri = 8 -> Varve.Turtle.ParseErrorKind

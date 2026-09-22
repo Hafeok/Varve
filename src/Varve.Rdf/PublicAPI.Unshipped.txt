@@ -32,6 +32,7 @@ Varve.Rdf.InMemoryDataset.TermComparer.get -> System.Collections.Generic.IEquali
 Varve.Rdf.InMemoryDataset.TermCount.get -> int
 Varve.Rdf.InMemoryDataset.TryExternalise(Varve.Rdf.TermHandle handle, out Varve.Rdf.RdfTerm! term) -> bool
 Varve.Rdf.InMemoryDataset.TryInternalise(Varve.Rdf.RdfTerm! term, out Varve.Rdf.TermHandle handle) -> bool
+Varve.Rdf.LanguageTag
 Varve.Rdf.Quad
 Varve.Rdf.Quad.Equals(Varve.Rdf.Quad other) -> bool
 Varve.Rdf.Quad.Graph.get -> Varve.Rdf.TermHandle
@@ -85,6 +86,7 @@ Varve.Rdf.TermArena.AddIri(Varve.Rdf.TermSpan lexical) -> int
 Varve.Rdf.TermArena.AddLiteral(Varve.Rdf.TermSpan lexical, Varve.Rdf.TermSpan datatype, Varve.Rdf.TermSpan language, Varve.Rdf.TextDirection direction) -> int
 Varve.Rdf.TermArena.AddTripleTerm(int subject, int predicate, int object) -> int
 Varve.Rdf.TermArena.AppendScratch(System.ReadOnlySpan<byte> bytes) -> Varve.Rdf.TermSpan
+Varve.Rdf.TermArena.Bytes(System.ReadOnlySpan<byte> text, Varve.Rdf.TermSpan span) -> System.ReadOnlySpan<byte>
 Varve.Rdf.TermArena.CommitScratch(int length) -> Varve.Rdf.TermSpan
 Varve.Rdf.TermArena.Count.get -> int
 Varve.Rdf.TermArena.Quad(System.ReadOnlySpan<byte> text, int subject, int predicate, int object, int graph) -> Varve.Rdf.QuadView
@@ -126,6 +128,8 @@ static Varve.Rdf.GraphPattern.DefaultGraph.get -> Varve.Rdf.GraphPattern
 static Varve.Rdf.GraphPattern.Named(Varve.Rdf.TermHandle graph) -> Varve.Rdf.GraphPattern
 static Varve.Rdf.GraphPattern.operator !=(Varve.Rdf.GraphPattern left, Varve.Rdf.GraphPattern right) -> bool
 static Varve.Rdf.GraphPattern.operator ==(Varve.Rdf.GraphPattern left, Varve.Rdf.GraphPattern right) -> bool
+static Varve.Rdf.LanguageTag.IsBaseDirection(System.ReadOnlySpan<byte> direction) -> bool
+static Varve.Rdf.LanguageTag.IsWellFormed(System.ReadOnlySpan<byte> tag) -> bool
 static Varve.Rdf.Quad.operator !=(Varve.Rdf.Quad left, Varve.Rdf.Quad right) -> bool
 static Varve.Rdf.Quad.operator ==(Varve.Rdf.Quad left, Varve.Rdf.Quad right) -> bool
 static Varve.Rdf.RdfTerm.BlankNode(System.ReadOnlySpan<byte> label) -> Varve.Rdf.RdfTerm!

@@ -131,20 +131,45 @@ public sealed class RdfTerm : IEquatable<RdfTerm>
     {
         ArgumentNullException.ThrowIfNull(datatype);
 
-        RdfTerm? kept = datatype.Kind == RdfTermKind.Iri
-            && datatype._lexical.AsSpan().SequenceEqual(RdfVocabulary.XsdString)
-                ? null
-                : datatype;
+        ReadOnlySpan<byte> iri = datatype.Kind == RdfTermKind.Iri ? datatype._lexical : default;
+
+        if (iri.SequenceEqual(RdfVocabulary.RdfLangString) || iri.SequenceEqual(RdfVocabulary.RdfDirLangString))
+        {
+            throw new ArgumentException(
+                "rdf:langString and rdf:dirLangString are the datatypes of a language-tagged literal and "
+                + "cannot be given explicitly: a literal with either and no language tag is ill-formed "
+                + "(RDF 1.1 Concepts §3.3). Use the language overload.",
+                nameof(datatype));
+        }
+
+        RdfTerm? kept = iri.SequenceEqual(RdfVocabulary.XsdString) ? null : datatype;
 
         return new RdfTerm(RdfTermKind.Literal, lexical.ToArray(), kept, [], TextDirection.None, null, null, null);
     }
 
-    /// <summary>A language-tagged literal, optionally with a base direction.</summary>
+    /// <summary>
+    /// A language-tagged literal, optionally with a base direction. The tag
+    /// must be well-formed per BCP 47 §2.1, which is what RDF 1.2 N-Triples
+    /// requires of one in a document — a model that can hold a tag no syntax
+    /// can express is a model whose writer produces documents its own reader
+    /// rejects.
+    /// </summary>
     public static RdfTerm Literal(
         ReadOnlySpan<byte> lexical,
         ReadOnlySpan<byte> language,
-        TextDirection direction = TextDirection.None) =>
-        new(RdfTermKind.Literal, lexical.ToArray(), null, language.ToArray(), direction, null, null, null);
+        TextDirection direction = TextDirection.None)
+    {
+        if (!LanguageTag.IsWellFormed(language))
+        {
+            throw new ArgumentException(
+                "Not a well-formed BCP 47 language tag. A literal with no language is built by the "
+                + "single-argument overload.",
+                nameof(language));
+        }
+
+        return new RdfTerm(
+            RdfTermKind.Literal, lexical.ToArray(), null, language.ToArray(), direction, null, null, null);
+    }
 
     /// <summary>A triple term. RDF 1.2.</summary>
     public static RdfTerm TripleTerm(RdfTerm subject, RdfTerm predicate, RdfTerm @object)

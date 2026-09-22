@@ -142,6 +142,14 @@ public sealed class TermArena
         return new QuadView(this, text, subject, predicate, @object, graph);
     }
 
+    /// <summary>
+    /// The bytes a <see cref="TermSpan"/> names, over the text it was taken
+    /// from. Public because a parser at layer 2 has to read back a span it just
+    /// recorded — a datatype IRI, say, to check it is not one the grammar
+    /// permits and the model forbids.
+    /// </summary>
+    public ReadOnlySpan<byte> Bytes(ReadOnlySpan<byte> text, TermSpan span) => Resolve(text, span);
+
     internal RdfTermKind KindOf(int index) => _slots[index].Kind;
 
     internal TextDirection DirectionOf(int index) => _slots[index].Direction;
