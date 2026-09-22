@@ -261,4 +261,151 @@ public class TurtleStreamingTests
         Assert.Empty(await ViaStreamAsync(bytes, options, 1));
         Assert.Empty(await ViaPipeAsync(bytes, options, 1));
     }
+
+    /// <summary>
+    /// One statement, many quads. This is the whole difference between the two
+    /// pull readers, so it is asserted on the shape that has the most of them:
+    /// a property list and a collection inside one statement.
+    /// </summary>
+    [Fact]
+    public void the_pull_reader_hands_out_one_statements_quads_one_at_a_time()
+    {
+        byte[] bytes = U("<http://a/s> <http://a/p> [ <http://a/q> ( <http://a/1> <http://a/2> ) ] .\n");
+        TurtleOptions options = default;
+
+        List<string> pushed = ViaSpan(bytes, in options).ConvertAll(Label);
+        List<string> pulled = [];
+
+        TurtleReader reader = new(bytes, in options);
+
+        while (reader.Read())
+        {
+            pulled.Add(Label(new Row(
+                reader.Current.Subject.Materialise(),
+                reader.Current.Predicate.Materialise(),
+                reader.Current.Object.Materialise(),
+                reader.Current.HasGraph ? reader.Current.Graph.Materialise() : null)));
+        }
+
+        Assert.Equal(pushed, pulled);
+        Assert.Equal(6, pulled.Count);
+        Assert.Equal(6, reader.Result.QuadCount);
+        Assert.True(reader.Result.Succeeded);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(7)]
+    [InlineData(64)]
+    public void the_pull_reader_reads_a_fragmented_sequence_the_same_way(int segmentSize)
+    {
+        byte[] bytes = U(Document(8, trig: false));
+        TurtleOptions options = default;
+
+        List<string> pushed = ViaSpan(bytes, in options).ConvertAll(Label);
+        List<string> pulled = [];
+
+        ReadOnlySequence<byte> sequence = Fragments.Fragmented(bytes, segmentSize);
+        TurtleReader reader = new(in sequence, in options);
+
+        while (reader.Read())
+        {
+            pulled.Add(Label(new Row(
+                reader.Current.Subject.Materialise(),
+                reader.Current.Predicate.Materialise(),
+                reader.Current.Object.Materialise(),
+                reader.Current.HasGraph ? reader.Current.Graph.Materialise() : null)));
+        }
+
+        Assert.Equal(pushed, pulled);
+    }
+
+    /// <summary>
+    /// A rejected statement leaves nothing behind, including the quads its
+    /// blank node property list had already produced. That is ADR 0030, and it
+    /// has to hold on the pull path too — which it does because the recovery
+    /// is <c>TurtleEngine.Step</c>'s and not a second copy.
+    /// </summary>
+    [Fact]
+    public void the_pull_reader_drops_a_whole_rejected_statement_and_carries_on()
+    {
+        ErrorHandler handler = static (in ParseError error) => ErrorAction.Continue;
+        TurtleOptions options = new() { OnError = handler };
+
+        TurtleReader reader = new(
+            U("<http://a/s> <http://a/p> [ <http://a/q> <http://a/r> ] ; <http://a/bad> .\n"
+                + "<http://a/t> <http://a/p> <http://a/o> .\n"),
+            in options);
+
+        List<string> pulled = [];
+
+        while (reader.Read())
+        {
+            pulled.Add(S(reader.Current.Subject.Lexical));
+        }
+
+        Assert.Equal(["http://a/t"], pulled);
+        Assert.Equal(1, reader.Result.QuadCount);
+        Assert.Equal(1, reader.Result.ErrorCount);
+    }
+
+    [Fact]
+    public void the_pull_reader_stops_at_an_error_and_says_why()
+    {
+        TurtleOptions options = default;
+        TurtleReader reader = new(
+            U("<http://a/s> <http://a/p> <http://a/o> .\n<http://a/s> <http://a/p> ;\n"),
+            in options);
+
+        Assert.True(reader.Read());
+        Assert.False(reader.Read());
+        Assert.Equal(ParseErrorKind.ExpectedObject, reader.Error.Kind);
+        Assert.Equal(2, reader.Error.Position.Line);
+    }
+
+    /// <summary>
+    /// <c>Error</c> is the rejection that ended the read, not the first one the
+    /// document contained. With recovery on, those differ.
+    /// </summary>
+    /// <remarks>
+    /// Both statements carry their own terminating dot, because recovery
+    /// resynchronises at the next one: a first statement with no dot would
+    /// swallow the second and there would be only one error to tell apart.
+    /// </remarks>
+    [Fact]
+    public void the_pull_reader_reports_the_error_that_ended_it()
+    {
+        int seen = 0;
+
+        ErrorHandler handler = (in ParseError error) =>
+        {
+            seen++;
+            return seen == 1 ? ErrorAction.Continue : ErrorAction.Stop;
+        };
+
+        TurtleOptions options = new() { OnError = handler };
+        TurtleReader reader = new(
+            U("<http://a/s> <http://a/p> \"x\"^^ .\n<http://a/s> <http://a/p> \"y\"^^ .\n"),
+            in options);
+
+        Assert.False(reader.Read());
+        Assert.Equal(2, reader.Result.ErrorCount);
+        Assert.Equal(1, reader.Result.FirstError.Position.Line);
+        Assert.Equal(2, reader.Error.Position.Line);
+    }
+
+    [Fact]
+    public void the_pull_reader_reads_trig_graph_blocks()
+    {
+        TurtleOptions options = new() { Syntax = RdfSyntax.TriG };
+        TurtleReader reader = new(
+            U("<http://a/g> { <http://a/s> <http://a/p> <http://a/o> . }\n"),
+            in options);
+
+        Assert.True(reader.Read());
+        Assert.True(reader.Current.HasGraph);
+        Assert.Equal("http://a/g", S(reader.Current.Graph.Lexical));
+        Assert.False(reader.Read());
+        Assert.True(reader.Result.Succeeded);
+    }
 }

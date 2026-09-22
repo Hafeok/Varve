@@ -99,6 +99,15 @@ Varve.Turtle.TurtleOptions.TurtleOptions() -> void
 Varve.Turtle.TurtleOptions.ValidateIris.get -> bool
 Varve.Turtle.TurtleOptions.ValidateIris.init -> void
 Varve.Turtle.TurtleParser
+Varve.Turtle.TurtleReader
+Varve.Turtle.TurtleReader.Current.get -> Varve.Rdf.QuadView
+Varve.Turtle.TurtleReader.Error.get -> Varve.Turtle.ParseError
+Varve.Turtle.TurtleReader.Position.get -> Varve.Turtle.ParsePosition
+Varve.Turtle.TurtleReader.Read() -> bool
+Varve.Turtle.TurtleReader.Result.get -> Varve.Turtle.ParseResult
+Varve.Turtle.TurtleReader.TurtleReader() -> void
+Varve.Turtle.TurtleReader.TurtleReader(System.ReadOnlySpan<byte> utf8, in Varve.Turtle.TurtleOptions options) -> void
+Varve.Turtle.TurtleReader.TurtleReader(in System.Buffers.ReadOnlySequence<byte> utf8, in Varve.Turtle.TurtleOptions options) -> void
 Varve.Turtle.TurtleWriteOptions
 Varve.Turtle.TurtleWriteOptions.Canonical.get -> bool
 Varve.Turtle.TurtleWriteOptions.Canonical.init -> void

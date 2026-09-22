@@ -167,12 +167,14 @@ Due here: **Q1** (blank node identity at the API boundary, ADR 0012), and the
 banned-symbols entry for ambient clock and randomness under `Varve.Store` that
 §10's determinism test depends on (ADR 0011).
 
-## 5 — Turtle and TriG, then the SPARQL parser and algebra, then the evaluator
+## 5 — The SPARQL parser and algebra, then the evaluator
 
 The evaluator runs over the in-memory projection through the abstract quad
-source contract. `Varve.Turtle` arriving here retires the test-only dotNetRDF
-dependency in the conformance harness — see
-`docs/adr/0007-w3c-conformance-harness.md`.
+source contract.
+
+Turtle and TriG were planned for this milestone and shipped in 3b instead,
+which is why ADR 0007's exit criterion — the conformance harness reading its
+own manifests without dotNetRDF — is already met.
 
 ## 6 — Durable managed storage backend
 

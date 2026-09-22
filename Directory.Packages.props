@@ -83,7 +83,7 @@
          compare against — so the line stays for tests/Varve.Benchmarks alone.
          The harness's freedom from it is a test, not a convention:
          The_harness_does_not_reference_another_rdf_implementation. -->
-    <PackageVersion Include="dotNetRdf.Core" Version="3.5.2" Adr="0007" />
+    <PackageVersion Include="dotNetRdf.Core" Version="3.5.2" Adr="0027" />
 
     <!-- A transitive dependency of dotNetRdf.Core, pinned rather than
          inherited. dotNetRdf.Core asks for AngleSharp 1.4.0, which NuGet audit

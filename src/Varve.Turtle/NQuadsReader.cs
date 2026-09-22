@@ -149,15 +149,9 @@ public ref struct NQuadsReader
 
         _errorCount = state.ErrorCount;
         _firstError = state.FirstError;
-        Error = state.ErrorCount == 1 ? state.FirstError : LastError(parser, lineOffset, lineNumber);
+        Error = state.LastError;
         return !state.Stop;
     }
-
-    private static ParseError LastError(scoped in LineParser parser, long lineOffset, int lineNumber) =>
-        new(
-            parser.Error,
-            new ParsePosition(lineOffset + parser.ErrorOffset, lineNumber, parser.ErrorOffset + 1),
-            parser.IriError);
 
     /// <summary>Finds the next line without consuming its terminator.</summary>
     private bool TryNextLine()

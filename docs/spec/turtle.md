@@ -331,11 +331,42 @@ every wired manifest, the conformance project parses the file whole and then
 again split at each byte offset, and requires the same quads, or the same error
 kind and position, every time. It never asks whether the answer is right — the
 suites do that — only whether the parser agrees with itself, which makes the
-expected value computable and the corpus free. It found six defect classes in
-this reader that hand-written tests had missed, and it is wired for every
+expected value computable and the corpus free. It found eight defect classes in
+this reader that hand-written tests had missed — two of them producing wrong
+quads rather than errors, and two in code written the same hour — and it is
+wired for every
 format rather than for Turtle alone: N-Triples and N-Quads are correct here by
 construction, because their line buffer never hands the parser a partial line,
 and the oracle is what turns that argument into a measurement.
+
+### The pull reader holds a statement, not a line
+
+`TurtleReader` is the pull shape, and it owes the caller a different guarantee
+from the push parsers': a quad it returns stays readable until the call that
+crosses into the next statement, because the caller holds the cursor and may
+look at `Current` more than once.
+
+Two consequences follow, and both are deliberate.
+
+A statement's quads are handed out one at a time from the buffer the parser
+already holds, so **one `Read` is not one statement** — a statement carrying a
+property list and a collection answers a dozen calls before the reader looks at
+any more input. Nothing is copied to make that work; the quads were already
+buffered because §5's recovery rule requires it.
+
+A **fragmented `ReadOnlySequence` is copied once** into contiguous memory. The
+push path does not need to: a quad's life ends when the callback returns, so
+its buffer can be compacted as soon as a statement is emitted, and the memory
+is the longest statement. A pull reader cannot compact underneath a view it
+just returned. The copy is one allocation for the reader and none per quad, and
+the sequence was already in memory — so this costs memory, never a second read
+of anything. **The push path, not this one, is the streaming shape**, and a
+document that does not fit in memory belongs to `ParseAsync(PipeReader …)`.
+
+The two shapes are required to agree: every input in every wired manifest is
+read push and pull, and must give the same quads and the same rejection. That
+is the same argument as the oracle's above — the expected value is computed
+from the other path rather than authored.
 
 ## 9. RDF 1.2 is not accepted here
 

@@ -12,6 +12,13 @@ internal struct ParseState
     internal ParseError FirstError;
     internal bool Stop;
 
+    /// <summary>
+    /// The most recent rejection, which is the one a pull reader has to report:
+    /// <c>Read</c> returned false because of <em>this</em> error, not because
+    /// of the first one the document contained.
+    /// </summary>
+    internal ParseError LastError;
+
     /// <summary>The byte offset of the next line, from the start of the input.</summary>
     internal long Offset;
 
@@ -93,6 +100,7 @@ internal static class ParseEngine
     {
         ParseError error = new(kind, new ParsePosition(lineOffset + column, lineNumber, column + 1), iri);
         state.ErrorCount++;
+        state.LastError = error;
 
         if (state.ErrorCount == 1)
         {

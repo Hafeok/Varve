@@ -157,6 +157,20 @@ Nine packages enter the repository and eight of them are permanent. The ninth,
 is met; if it is still here after milestone 5, that is a defect to raise, not a
 fact to accept.
 
+> **Amended 2026-09-22, at milestone 3b.** ADR 0007's criterion is met and the
+> conformance harness no longer references the package. It is nevertheless
+> still in `Directory.Packages.props`, which is not the defect the paragraph
+> above anticipates: what remains is ADR 0027's *separate* justification, the
+> benchmark baseline, and the register citation moved from 0007 to 0027 to say
+> so. The distinction is worth holding, because "still present" and "still
+> present for the reason it was admitted" are different facts, and only the
+> second is the defect. The `AngleSharp` pin rides the same reference and so
+> also stays, now in `tests/Varve.Benchmarks` alone.
+>
+> The harness's freedom from it is a test rather than a convention —
+> `The_harness_does_not_reference_another_rdf_implementation` — so a reference
+> reintroduced by habit fails a build instead of surviving a review.
+
 `global.json` now pins both the SDK version and the test runner. A contributor
 on a different SDK gets a clear error rather than a different test experience.
 
