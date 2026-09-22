@@ -31,6 +31,10 @@ The order is specification, then ADR, then code.
   RDF 1.1 Concepts, with RDF 1.2's triple terms and directional
   language-tagged strings in the model from the start, and the W3C status of
   both 1.2 documents as checked on 2026-09-21.
+- **[`turtle.md`](turtle.md)** — the Turtle and TriG grammars, prefix and base
+  handling, blank node scoping, the statement-as-recovery-unit rule, and why a
+  Turtle round trip is isomorphic rather than byte-identical. Also why RDF 1.2
+  Turtle and TriG are deferred: both drafts are days old.
 - **[`n-triples.md`](n-triples.md)** — the N-Triples and N-Quads grammars,
   canonical form, the line-as-recovery-unit rule, and why a column is counted
   in bytes. It also records where the RDF 1.1 N-Triples grammar contradicts its
@@ -42,7 +46,6 @@ The order is specification, then ADR, then code.
 
 In dependency order:
 
-- `turtle.md` — the Turtle and TriG grammars (milestone 3b).
 - `xsd.md` — value spaces and SPARQL operator semantics. Not the term model's:
   term equality is lexical and stays that way (see `rdf-model.md` §2). Lands
   just before the evaluator, which is the first thing with a suite that gates
