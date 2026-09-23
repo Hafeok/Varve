@@ -190,8 +190,9 @@ browser run the store. The specification moved to **1.2** (ADR 0046).
 
 Found on the way, and reported rather than patched: **§6's claim that deltas
 form a monoid is false** for arbitrary deltas and true over the exact chains a
-log holds — a proposed specification change with a failing counterexample as
-its witness. And the records property found a real recovery bug on its first
+log holds, with a counterexample as its witness; and I3 cannot hold literally
+over RDF 1.2 triple terms. The maintainer accepted both as specification 1.3
+(ADR 0047). And the records property found a real recovery bug on its first
 run: a crash inside a new segment's preamble made the dataset unopenable after
 one more commit. Fixed, and kept as a named test.
 
@@ -204,6 +205,20 @@ in-process form is decided here, and the protocol form moves to milestone 7.
 
 The evaluator runs over the in-memory projection through the abstract quad
 source contract.
+
+**Positions the maintainer took at the end of milestone 4**, to be written as
+ADRs when milestone 5 starts:
+
+- **The optimiser's output is algebra**, and the optimiser and the evaluator
+  share one layer 3 package. That closes ADR 0003's open question 2.
+- **`IQuadSource` gains a cardinality estimate** that may return *unknown*.
+- **A typed-value accessor beside the handle** for inline numerics, benchmarked
+  with and without it against the SPARQL evaluation suite. This is the
+  measurement ADR 0022's revisit condition asks for.
+- **`Varve.Xsd` owns canonical lexical forms**, and replaces the store's
+  private canonical-integer check.
+- **A pinned read lives for one query execution**, owned by the caller, with a
+  configurable maximum lifetime.
 
 Turtle and TriG were planned for this milestone and shipped in 3b instead,
 which is why ADR 0007's exit criterion — the conformance harness reading its

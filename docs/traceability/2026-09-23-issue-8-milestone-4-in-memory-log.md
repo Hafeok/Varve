@@ -276,6 +276,23 @@ Accepted by the maintainer during the session and now in 1.2: §8 (ADR 0046),
    one operation (ADR 0015); the evaluator's API should make that operation's
    boundary explicit rather than hold a view for a session.
 
+## Decided after the report
+
+The maintainer, on the same day:
+
+- **Both proposed specification changes accepted**, as specification 1.3 with
+  [ADR 0047](../adr/0047-delta-composition-and-closure-over-triple-terms.md).
+  The change entry records that the monoid claim was the maintainer's error.
+- **Positions for milestone 5**, to be written as ADRs when it starts, and
+  recorded meanwhile in `docs/roadmap.md`: the optimiser's output is algebra,
+  and it shares one layer 3 package with the evaluator (closing ADR 0003's
+  open question 2); `IQuadSource` gains a cardinality estimate that may be
+  unknown; a typed-value accessor for inline numerics, benchmarked with and
+  without against the SPARQL evaluation suite; `Varve.Xsd` owns canonical
+  lexical forms and replaces the store's integer check; a pinned read lives for
+  one query execution, owned by the caller, with a configurable maximum
+  lifetime.
+
 ## Commits
 
 ```
