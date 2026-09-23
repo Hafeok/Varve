@@ -89,15 +89,17 @@ internal static class LogReader
 
             if (bytes.Length < LogFormat.PreambleLength)
             {
-                if (last)
+                // A segment created and cut before its preamble was complete. It is
+                // torn, like a cut record: ignored, and anything pending was cut
+                // with it. Recovery seals it and moves on, so it need not be last.
+                if (!LogFormat.Preamble.StartsWith(bytes.Span))
                 {
-                    // A segment created and cut before its preamble was written.
-                    scan.DiscardedTail |= bytes.Length > 0 || pending.Count > 0;
-                    pending.Clear();
-                    continue;
+                    throw new LogVerificationException(scan.Commits.Count + 1, "Segment " + segment.Id + " is too short to be a segment.");
                 }
 
-                throw new LogVerificationException(scan.Commits.Count + 1, "Segment " + segment.Id + " is too short to be a segment.");
+                scan.DiscardedTail |= bytes.Length > 0 || pending.Count > 0 || !last;
+                pending.Clear();
+                continue;
             }
 
             if (!bytes.Span[..LogFormat.PreambleLength].SequenceEqual(LogFormat.Preamble))
