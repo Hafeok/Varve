@@ -34,6 +34,9 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - the store under Native AOT and in the browser (9930a37a)
 - **store**: commit and scan throughput, and index size, against ADR 0012 (cba409a2)
 - milestone 4 — the state, the roadmap, and the revisit conditions (eaaf6657)
+- **traceability**: milestone 4 — the prompt, the model, and the report (7ff34f7d)
+- **spec**: version 1.3 — delta composition over chains, and I3 over triple terms (ccffd86c)
+- **roadmap**: the maintainer's positions for milestone 5, recorded until they are ADRs (88123e3c)
 
 #### Fixed
 
