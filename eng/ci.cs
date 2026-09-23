@@ -104,6 +104,9 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-turtle", "Varve.Turtle",
         () => Test("Varve.Turtle.Tests")),
 
+    ("test-store", "Varve.Store, and the specification's section 10 properties",
+        () => Test("Varve.Store.Tests")),
+
     ("conformance", "the W3C suites, gated by the ratchet",
         Conformance),
 
