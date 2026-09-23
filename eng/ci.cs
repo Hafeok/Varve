@@ -104,6 +104,16 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-turtle", "Varve.Turtle",
         () => Test("Varve.Turtle.Tests")),
 
+    // tools/repo-standard is its own solution, outside Varve.slnx, and moves to
+    // its own repository (ADR 0039). Its jobs are separate so that the move
+    // deletes them rather than untangling them. The Native AOT publish and the
+    // Action test are in ci.yml, beside Varve's own AOT job.
+    ("repo-standard-build", "the repo-standard tool, warnings as errors",
+        () => Run("dotnet", ["build", "tools/repo-standard/RepoStandard.slnx", "--configuration", "Release"])),
+
+    ("repo-standard-test", "repo-standard: recorded exchanges, round trip, the rest",
+        () => Run("dotnet", ["test", "--project", "tools/repo-standard/tests/RepoStandard.Tests/RepoStandard.Tests.csproj", "--configuration", "Release"])),
+
     ("conformance", "the W3C suites, gated by the ratchet",
         Conformance),
 
