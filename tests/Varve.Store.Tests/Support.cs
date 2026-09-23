@@ -93,6 +93,6 @@ internal static class T
         RdfTermKind.BlankNode => "_:" + Encoding.UTF8.GetString(term.Lexical),
         RdfTermKind.TripleTerm => "<<( " + Render(term.Subject!) + " " + Render(term.Predicate!) + " " + Render(term.Object!) + " )>>",
         _ => "\"" + Encoding.UTF8.GetString(term.Lexical) + "\""
-            + (term.Language.Length > 0 ? "@" + Encoding.UTF8.GetString(term.Language) + "--" + term.Direction : "^^<" + Encoding.UTF8.GetString(term.DatatypeIri) + ">"),
+            + (term.Language.Length > 0 ? "@" + Encoding.UTF8.GetString(term.Language).ToLowerInvariant() + "--" + term.Direction : "^^<" + Encoding.UTF8.GetString(term.DatatypeIri) + ">"),
     };
 }
