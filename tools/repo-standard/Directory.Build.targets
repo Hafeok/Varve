@@ -1,0 +1,23 @@
+<Project>
+
+  <!--
+    Replaces, for this directory, the repository's Directory.Build.targets
+    (see Directory.Build.props beside this file, and ADR 0039).
+  -->
+
+  <PropertyGroup Condition="'$(IsPackable)' == 'true'">
+    <Authors>Emil Okkels Klein</Authors>
+    <Copyright>Copyright (c) 2026 Emil Okkels Klein</Copyright>
+    <PackageLicenseExpression>MPL-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>github;repository-settings;rulesets;configuration-as-code;dotnet-tool</PackageTags>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)../../LICENSE" Pack="true" PackagePath="" Visible="false" />
+  </ItemGroup>
+
+</Project>

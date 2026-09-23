@@ -1,0 +1,6 @@
+# Not root: the repository's .editorconfig applies, and this adds the
+# test-project relaxations it scopes to tests/ at the repository root.
+
+[tests/**/*.cs]
+dotnet_diagnostic.CS1591.severity = none
+dotnet_diagnostic.CA1707.severity = none

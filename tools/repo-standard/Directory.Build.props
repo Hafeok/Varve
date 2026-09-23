@@ -1,0 +1,29 @@
+<Project>
+
+  <!--
+    repo-standard is built inside Varve for convenience and will move to its own
+    repository (ADR 0039). This file is the seam.
+
+    It imports the repository's Directory.Build.props, which brings the Varve
+    rules this tool is held to while it lives here: .NET 10, current C#,
+    nullable, warnings as errors, latest-recommended analysis, deterministic
+    builds, and Varve.Analyzers passed to the compiler as an analyzer (never as
+    a library). On the move, the import is the line that goes, and the
+    properties it supplied are written out here.
+
+    It deliberately does NOT import the repository's Directory.Build.targets.
+    That file gives anything packable Varve's package identity - its tags, its
+    project URL, MinVer from Varve's tags, the public API baseline - and none of
+    that describes this tool. Directory.Build.targets beside this file replaces
+    it.
+  -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <!-- Declared for the record. Varve.Analyzers' layering rules apply to
+         Varve.* assemblies only, so on RepoStandard they are wired and inert;
+         ADR 0039 says so rather than renaming the tool into their scope. -->
+    <VarveLayer>none</VarveLayer>
+  </PropertyGroup>
+
+</Project>

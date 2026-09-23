@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>RepoStandard</AssemblyName>
+    <RootNamespace>RepoStandard</RootNamespace>
+    <Version>0.1.0</Version>
+
+    <!-- A dotnet tool. Packing is how it is built as one; nothing packs it for
+         publication from this repository (ADR 0039). -->
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>repo-standard</ToolCommandName>
+    <PackageId>RepoStandard</PackageId>
+    <Description>Applies a declared set of GitHub repository settings: plan, apply, check for drift, export.</Description>
+
+    <!-- The Native AOT single-file binary is the other build, and the one the
+         Action downloads. The analyzers are on for every build so an AOT
+         problem is a compile error before it is an ILC one. -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <IlcTreatWarningsAsErrors>true</IlcTreatWarningsAsErrors>
+
+    <!-- Reflection-based System.Text.Json is off: every serialisation goes
+         through the source-generated context or JsonNode. -->
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+  </PropertyGroup>
+
+  <!-- Only when a runtime identifier is given: `dotnet publish -r linux-x64`.
+       A plain build and `dotnet pack` stay framework-dependent. -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <PublishAot>true</PublishAot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="YamlDotNet" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="RepoStandard.Tests" />
+  </ItemGroup>
+
+</Project>
