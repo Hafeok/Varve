@@ -39,7 +39,7 @@ decisions it presupposes.
 | Tension | Resolution |
 |---|---|
 | Log growth, compaction, and what time travel survives it | **Resolved** — ADR 0015. There is no compaction in the destructive sense; checkpoints give bounded read cost and the log is retained. |
-| Blank node identity across transactions and across time | **Resolved in shape** — ADR 0012: store-scoped identity allocated at commit, request labels request-scoped. The external form is **Q1**. |
+| Blank node identity across transactions and across time | **Resolved in shape** — ADR 0012: store-scoped identity allocated at commit, request labels request-scoped. The external form is **Q1**: in process, by handle (ADR 0044); across protocols, at milestone 7. |
 | Retraction of a non-existent quad; re-assertion | **Resolved** — ADR 0010. Neither event nor error; the log records the effective delta. |
 | SPARQL Update semantics and one request to one commit | **Resolved** — ADR 0005 places Update at layer 5; it evaluates `WHERE` against a pinned position and submits the delta as one commit (ADRs 0010, 0011). |
 | Bulk load as one logical commit | **Resolved** — ADR 0013: a commit is one or more records, closed by a flag in the log. Remaining: **Q2**, **Q3**. |
@@ -180,7 +180,8 @@ incrementally maintained one.
 
 Due here: **Q1** (blank node identity at the API boundary, ADR 0012), and the
 banned-symbols entry for ambient clock and randomness under `Varve.Store` that
-§10's determinism test depends on (ADR 0011).
+§10's determinism test depends on (ADR 0011). Q1 was **split** by ADR 0044: the
+in-process form is decided here, and the protocol form moves to milestone 7.
 
 ## 5 — The SPARQL parser and algebra, then the evaluator
 
@@ -199,6 +200,17 @@ that merges and discards superseded records is right for `derived/` and wrong
 for `log/`. `docs/research/managed-storage-engines.md` is the note that informs
 the choice, and it argues the two halves should be decided separately.
 
+**A risk carried from milestone 4: `IQuadSource` is synchronous and the storage
+contract is asynchronous.** ADR 0018 made storage asynchronous throughout,
+because the browser needs it; ADR 0022's quad source walks a cursor with a
+synchronous `MoveNext`. In memory the two never meet — a checkpoint is a slice
+already in hand (ADR 0041). On the file and browser backends, a scan over a
+checkpoint that does not fit in memory needs pages the cursor cannot await.
+Milestone 6 has to choose: page the checkpoint in before the scan starts, give
+the file backend a synchronous read path beside the asynchronous one, or make
+the cursor asynchronous — which is a superseding change to ADR 0022 and reaches
+the evaluator.
+
 Due here: **Q2** and **Q3** (bulk load against I2, and an overlay that does not
 fit in memory — ADR 0013), and the version discriminator in the storage format
 that ADR 0014 requires from the first byte written.
@@ -214,6 +226,10 @@ them costs anything while erasure mode is off.
 
 SPARQL 1.1 Protocol, Graph Store Protocol, service description, federation, and
 the endpoints for the event-sourced features.
+
+**Q1's protocol half is due here** (ADR 0044): the skolem IRI scheme by which a
+store blank node crosses a protocol boundary, decided with the server that is
+its first consumer.
 
 Layer 5 exists from here, which makes the `System.Uri` ban in
 `eng/BannedSymbols.txt` due for narrowing (ADR 0004): a server speaks HTTP and
