@@ -5,7 +5,7 @@ import { dotnet } from './_framework/dotnet.js';
 
 const { getAssemblyExports, getConfig } = await dotnet.create();
 const exports = await getAssemblyExports(getConfig().mainAssemblyName);
-const report = exports.Varve.WasmSmoke.Smoke.Run();
+const report = await exports.Varve.WasmSmoke.Smoke.Run();
 
 document.getElementById('out').textContent = report;
 globalThis.varveSmokeReport = report;
