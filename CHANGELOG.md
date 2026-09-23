@@ -14,6 +14,31 @@ published to nuget.org, so every change below is unreleased and the sections
 are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 ([ADR 0029](docs/adr/0029-publishing-and-versioning.md)).
 
+### Milestone 4 — the in-memory log and the default quad projection
+
+#### Added
+
+- **rdf**: QuadDelta and QuadOverlay — the delta and the overlay at layer 1 (38766d7c)
+- **store**: Varve.Store — the log, the sequencer and the default projection (7042ad7e)
+
+#### Changed
+
+- **adr**: 0040–0045, what milestone 4 decides that set zero did not (2a373984)
+- **spec**: version 1.2 — settings reach every subscriber, and three clarifications (646e439d)
+- **adr**: 0034 amended — a branch-bound cloud session lands through a pull request (80e612aa)
+- **adr**: 0038, upstream contribution to Oxigraph and the shared suites (85262107)
+- ambient clock and randomness banned where log bytes are compared (c9f1b7e5)
+- **store**: the reference model, and the property that ties §10 together (6771c6a4)
+- **store**: I7 for every position, the failed state, subscriptions, and the rules one by one (94dbe65c)
+- **store**: allocation — zero per quad on a scan, the six key arrays on an index update (9febaf11)
+- the store under Native AOT and in the browser (9930a37a)
+- **store**: commit and scan throughput, and index size, against ADR 0012 (cba409a2)
+- milestone 4 — the state, the roadmap, and the revisit conditions (eaaf6657)
+
+#### Fixed
+
+- **store**: a cut inside a segment's preamble no longer bricks the next open (14502be9)
+
 ### Stewardship — the Mind Over Machine standard
 
 #### Added
@@ -28,10 +53,13 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - OpenSSF Scorecard, every action pinned by peeled SHA (0dcdd681)
 - README, CONTRIBUTING, GOVERNANCE, SECURITY, conduct, templates, AGENTS.md (bbd42fef)
 - **changelog**: CHANGELOG.md generated from the conventional commits (ee3fa700)
+- **traceability**: the backfill, the topic summaries, and this session (b9f99b72)
+- **traceability**: what the first direct push to main proved (bb2ed840)
 
 #### Fixed
 
 - **devcontainer**: the workload install needs elevation, and CI found it (81138cfc)
+- **eng**: writing about a closing keyword is still a closing keyword (1cfad663)
 
 ### Milestone 3b — Turtle and TriG
 
