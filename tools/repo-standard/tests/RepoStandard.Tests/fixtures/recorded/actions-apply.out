@@ -1,0 +1,9 @@
+exit: 0
+--- stdout
+applied  ~ actions permissions
+applied  ~ actions selected_actions
+applied  ~ actions workflow
+--- stderr
+--- waits
+00:00:01
+00:00:01

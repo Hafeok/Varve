@@ -1,0 +1,9 @@
+exit: 0
+--- stdout
+applied  + rulesets tags
+applied  ~ rulesets super cool ruleset
+applied  - rulesets Another ruleset
+--- stderr
+--- waits
+00:00:01
+00:00:01

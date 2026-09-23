@@ -1,0 +1,16 @@
+exit: 1
+--- stdout
++ environments release
+    name: (absent) -> "release"
+    reviewers: (absent) -> [{"type":"Team","slug":"justice-league"}]
+    deployment_branch_policy: (absent) -> {"protected_branches":false,"custom_branch_policies":true}
+    branch_policies: (absent) -> [{"name":"v*","type":"tag"}]
+~ environments staging
+    wait_timer: 30 -> 10
+    prevent_self_review: false -> true
+    reviewers: [{"type":"User","login":"octocat"},{"type":"Team","slug":"justice-league"}] -> [{"type":"User","login":"octocat"}]
+    branch_policies: [{"name":"main","type":"branch"},{"name":"release/*","type":"branch"}] -> [{"name":"main","type":"branch"}]
+! environments staging: secret GIST_ID
+    note: present and not declared; repo-standard never deletes a secret, so declare it or remove it by hand
+3 differences: 1 to create, 1 to update, 0 to delete, 1 repo-standard cannot change.
+--- stderr

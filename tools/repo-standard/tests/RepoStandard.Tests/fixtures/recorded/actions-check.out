@@ -1,0 +1,8 @@
+exit: 1
+--- stdout
+~ actions selected_actions
+    selected_actions.patterns_allowed: ["docker/*","monalisa/octocat@*"] -> ["docker/*"]
+~ actions workflow
+    workflow.can_approve_pull_request_reviews: true -> false
+2 differences: 0 to create, 2 to update, 0 to delete, 0 repo-standard cannot change.
+--- stderr

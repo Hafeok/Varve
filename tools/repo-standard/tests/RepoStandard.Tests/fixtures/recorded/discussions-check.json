@@ -1,0 +1,74 @@
+{
+  "description": "Discussions categories: a description changed, one declared and missing, one added by hand; all reported as not writable",
+  "source": "No documented example exists for GraphQL; the response is constructed to the GraphQL schema (octokit/graphql-schema, schema.graphql) with GitHub's default categories",
+  "command": [
+    "check"
+  ],
+  "declaration": "discussions:\n  categories:\n    - name: Announcements\n      emoji: \":mega:\"\n      description: Releases and decisions\n    - name: General\n      emoji: \":speech_balloon:\"\n      description: Chat about anything and everything here\n    - name: Ideas\n      emoji: \":bulb:\"\n      description: Share ideas for new features\n    - name: Q&A\n      emoji: \":pray:\"\n      description: Ask the community for help\n      answerable: true\n    - name: Show and tell\n      emoji: \":raised_hands:\"\n      description: Show off something you've made\n    - name: Design\n      emoji: \":triangular_ruler:\"\n      description: Proposals before they are ADRs\n",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/graphql",
+        "operation": "DiscussionCategories",
+        "body": {
+          "owner": "octo-org",
+          "name": "hello-world"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "data": {
+            "repository": {
+              "hasDiscussionsEnabled": true,
+              "discussionCategories": {
+                "nodes": [
+                  {
+                    "name": "Announcements",
+                    "emoji": ":mega:",
+                    "description": "Updates from maintainers",
+                    "isAnswerable": false
+                  },
+                  {
+                    "name": "General",
+                    "emoji": ":speech_balloon:",
+                    "description": "Chat about anything and everything here",
+                    "isAnswerable": false
+                  },
+                  {
+                    "name": "Ideas",
+                    "emoji": ":bulb:",
+                    "description": "Share ideas for new features",
+                    "isAnswerable": false
+                  },
+                  {
+                    "name": "Polls",
+                    "emoji": ":ballot_box:",
+                    "description": "Take a vote from the community",
+                    "isAnswerable": false
+                  },
+                  {
+                    "name": "Q&A",
+                    "emoji": ":pray:",
+                    "description": "Ask the community for help",
+                    "isAnswerable": true
+                  },
+                  {
+                    "name": "Show and tell",
+                    "emoji": ":raised_hands:",
+                    "description": "Show off something you've made",
+                    "isAnswerable": false
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "expect": {
+    "exit": 1
+  }
+}

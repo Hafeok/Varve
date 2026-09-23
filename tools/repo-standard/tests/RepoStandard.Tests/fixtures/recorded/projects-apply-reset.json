@@ -1,0 +1,173 @@
+{
+  "description": "apply --allow-status-reset: the Status options rewritten, and the board linked by hand unlinked",
+  "source": "No documented example exists for GraphQL; the response is constructed to the GraphQL schema (octokit/graphql-schema, schema.graphql) with GitHub's default categories",
+  "command": [
+    "apply",
+    "--allow-status-reset"
+  ],
+  "declaration": "projects:\n  - title: Roadmap\n    short_description: Where it is going\n    public: true\n    status:\n      - name: Backlog\n        color: GRAY\n      - name: In progress\n        color: YELLOW\n      - name: Done\n        color: PURPLE\n",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/graphql",
+        "operation": "LinkedProjects",
+        "body": {
+          "owner": "octo-org",
+          "name": "hello-world"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "data": {
+            "repository": {
+              "id": "R_kgDOAAAAAA",
+              "projectsV2": {
+                "nodes": [
+                  {
+                    "id": "PVT_kwDOAAAAAc4AAAAA",
+                    "title": "Roadmap",
+                    "shortDescription": "Where it is going",
+                    "readme": "",
+                    "public": true,
+                    "closed": false,
+                    "owner": {
+                      "login": "octo-org"
+                    },
+                    "items": {
+                      "totalCount": 12
+                    },
+                    "field": {
+                      "id": "PVTSSF_lADOAAAAAc4AAAAAzgAAAAA",
+                      "options": [
+                        {
+                          "name": "Todo",
+                          "color": "GREEN",
+                          "description": "This item hasn't been started"
+                        },
+                        {
+                          "name": "In Progress",
+                          "color": "YELLOW",
+                          "description": "This is actively being worked on"
+                        },
+                        {
+                          "name": "Done",
+                          "color": "PURPLE",
+                          "description": "This has been completed"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "PVT_kwDOAAAAAc4AAAAB",
+                    "title": "Scratch",
+                    "shortDescription": "",
+                    "readme": "",
+                    "public": false,
+                    "closed": false,
+                    "owner": {
+                      "login": "octo-org"
+                    },
+                    "items": {
+                      "totalCount": 0
+                    },
+                    "field": {
+                      "id": "PVTSSF_lADOAAAAAc4AAAAAzgAAAAB",
+                      "options": [
+                        {
+                          "name": "Todo",
+                          "color": "GREEN",
+                          "description": "This item hasn't been started"
+                        },
+                        {
+                          "name": "In Progress",
+                          "color": "YELLOW",
+                          "description": "This is actively being worked on"
+                        },
+                        {
+                          "name": "Done",
+                          "color": "PURPLE",
+                          "description": "This has been completed"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/graphql",
+        "operation": "UpdateStatusField",
+        "body": {
+          "input": {
+            "fieldId": "PVTSSF_lADOAAAAAc4AAAAAzgAAAAA",
+            "singleSelectOptions": [
+              {
+                "name": "Backlog",
+                "color": "GRAY",
+                "description": ""
+              },
+              {
+                "name": "In progress",
+                "color": "YELLOW",
+                "description": ""
+              },
+              {
+                "name": "Done",
+                "color": "PURPLE",
+                "description": ""
+              }
+            ]
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "data": {
+            "updateProjectV2Field": {
+              "projectV2Field": {
+                "id": "PVTSSF_lADOAAAAAc4AAAAAzgAAAAA"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/graphql",
+        "operation": "UnlinkProject",
+        "body": {
+          "input": {
+            "projectId": "PVT_kwDOAAAAAc4AAAAB",
+            "repositoryId": "R_kgDOAAAAAA"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "data": {
+            "unlinkProjectV2FromRepository": {
+              "repository": {
+                "id": "R_kgDOAAAAAA"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "expect": {
+    "exit": 0
+  }
+}

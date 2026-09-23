@@ -1,0 +1,7 @@
+exit: 0
+--- stdout
+No differences: the repository matches the declaration.
+--- stderr
+rate limited on GET /repos/octo-org/hello-world/actions/secrets?per_page=100; waiting 42s (retry 1 of 5)
+--- waits
+00:00:42

@@ -1,0 +1,12 @@
+exit: 1
+--- stdout
++ labels documentation
+    name: (absent) -> "documentation"
+    color: (absent) -> "0075ca"
+    description: (absent) -> "Improvements or additions to documentation"
+~ labels bug
+    color: "f29513" -> "d73a4a"
+- labels enhancement
+    note: removes it from every issue and pull request that carries it
+3 differences: 1 to create, 1 to update, 1 to delete, 0 repo-standard cannot change.
+--- stderr

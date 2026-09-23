@@ -1,0 +1,14 @@
+exit: 1
+--- stdout
+! discussions category Design
+    name: (absent) -> "Design"
+    emoji: (absent) -> ":triangular_ruler:"
+    description: (absent) -> "Proposals before they are ADRs"
+    note: declared and not present. GitHub has no API that writes Discussions categories; change it in the repository's settings
+! discussions category Announcements
+    description: "Updates from maintainers" -> "Releases and decisions"
+    note: GitHub has no API that writes Discussions categories; change it in the repository's settings
+! discussions category Polls
+    note: present and not declared. GitHub has no API that writes Discussions categories; change it in the repository's settings
+3 differences: 0 to create, 0 to update, 0 to delete, 3 repo-standard cannot change.
+--- stderr

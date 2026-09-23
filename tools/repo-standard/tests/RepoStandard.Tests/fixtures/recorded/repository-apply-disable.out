@@ -1,0 +1,9 @@
+exit: 0
+--- stdout
+applied  ~ repository security.private_vulnerability_reporting
+applied  ~ repository security.dependabot_alerts
+applied  ~ repository security.dependabot_security_updates
+--- stderr
+--- waits
+00:00:01
+00:00:01

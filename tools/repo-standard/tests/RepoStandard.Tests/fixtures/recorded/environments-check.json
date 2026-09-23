@@ -1,0 +1,150 @@
+{
+  "description": "environments: wait timer and reviewers changed, a branch policy removed, a secret added by hand, and an environment declared and missing",
+  "source": "github/rest-api-description@02e8fa6 response examples: GET .../environments; GET .../environments/{environment_name}/deployment-branch-policies; GET .../environments/{environment_name}/secrets",
+  "command": [
+    "check"
+  ],
+  "declaration": "environments:\n  - name: staging\n    wait_timer: 10\n    prevent_self_review: true\n    reviewers:\n      - type: User\n        login: octocat\n    deployment_branch_policy:\n      protected_branches: false\n      custom_branch_policies: true\n    branch_policies:\n      - name: main\n    secrets: [GH_TOKEN]\n  - name: release\n    reviewers:\n      - type: Team\n        slug: justice-league\n    deployment_branch_policy:\n      protected_branches: false\n      custom_branch_policies: true\n    branch_policies:\n      - name: v*\n        type: tag\n",
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/repos/octo-org/hello-world/environments?per_page=100"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "total_count": 1,
+          "environments": [
+            {
+              "id": 161088068,
+              "node_id": "MDExOkVudmlyb25tZW50MTYxMDg4MDY4",
+              "name": "staging",
+              "url": "https://api.github.com/repos/github/hello-world/environments/staging",
+              "html_url": "https://github.com/github/hello-world/deployments/activity_log?environments_filter=staging",
+              "created_at": "2020-11-23T22:00:40Z",
+              "updated_at": "2020-11-23T22:00:40Z",
+              "protection_rules": [
+                {
+                  "id": 3736,
+                  "node_id": "MDQ6R2F0ZTM3MzY=",
+                  "type": "wait_timer",
+                  "wait_timer": 30
+                },
+                {
+                  "id": 3755,
+                  "node_id": "MDQ6R2F0ZTM3NTU=",
+                  "prevent_self_review": false,
+                  "type": "required_reviewers",
+                  "reviewers": [
+                    {
+                      "type": "User",
+                      "reviewer": {
+                        "login": "octocat",
+                        "id": 1,
+                        "node_id": "MDQ6VXNlcjE=",
+                        "avatar_url": "https://github.com/images/error/octocat_happy.gif",
+                        "gravatar_id": "",
+                        "url": "https://api.github.com/users/octocat",
+                        "html_url": "https://github.com/octocat",
+                        "followers_url": "https://api.github.com/users/octocat/followers",
+                        "following_url": "https://api.github.com/users/octocat/following{/other_user}",
+                        "gists_url": "https://api.github.com/users/octocat/gists{/gist_id}",
+                        "starred_url": "https://api.github.com/users/octocat/starred{/owner}{/repo}",
+                        "subscriptions_url": "https://api.github.com/users/octocat/subscriptions",
+                        "organizations_url": "https://api.github.com/users/octocat/orgs",
+                        "repos_url": "https://api.github.com/users/octocat/repos",
+                        "events_url": "https://api.github.com/users/octocat/events{/privacy}",
+                        "received_events_url": "https://api.github.com/users/octocat/received_events",
+                        "type": "User",
+                        "site_admin": false
+                      }
+                    },
+                    {
+                      "type": "Team",
+                      "reviewer": {
+                        "id": 1,
+                        "node_id": "MDQ6VGVhbTE=",
+                        "url": "https://api.github.com/teams/1",
+                        "html_url": "https://github.com/orgs/github/teams/justice-league",
+                        "name": "Justice League",
+                        "slug": "justice-league",
+                        "description": "A great team.",
+                        "privacy": "closed",
+                        "notification_setting": "notifications_enabled",
+                        "permission": "admin",
+                        "members_url": "https://api.github.com/teams/1/members{/member}",
+                        "repositories_url": "https://api.github.com/teams/1/repos",
+                        "parent": null
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 3756,
+                  "node_id": "MDQ6R2F0ZTM3NTY=",
+                  "type": "branch_policy"
+                }
+              ],
+              "deployment_branch_policy": {
+                "protected_branches": false,
+                "custom_branch_policies": true
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/repos/octo-org/hello-world/environments/staging/deployment-branch-policies?per_page=100"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "total_count": 2,
+          "branch_policies": [
+            {
+              "id": 361471,
+              "node_id": "MDE2OkdhdGVCcmFuY2hQb2xpY3kzNjE0NzE=",
+              "name": "release/*"
+            },
+            {
+              "id": 361472,
+              "node_id": "MDE2OkdhdGVCcmFuY2hQb2xpY3kzNjE0NzI=",
+              "name": "main"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/repos/octo-org/hello-world/environments/staging/secrets?per_page=100"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "total_count": 2,
+          "secrets": [
+            {
+              "name": "GH_TOKEN",
+              "created_at": "2019-08-10T14:59:22Z",
+              "updated_at": "2020-01-10T14:59:22Z"
+            },
+            {
+              "name": "GIST_ID",
+              "created_at": "2020-01-10T10:59:22Z",
+              "updated_at": "2020-01-11T11:59:22Z"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "expect": {
+    "exit": 1
+  }
+}

@@ -1,0 +1,130 @@
+exit: 0
+--- stdout
+wrote <file>: repository, labels, rulesets, environments, secrets, projects, actions
+--- stderr
+--- file
+# repo-standard declaration for octo-org/hello-world
+# Written by `repo-standard export` 0.1.0. Secrets are names only; values are never read.
+# Remove a top-level key to stop managing that kind of resource.
+repository:
+  description: This your first repo!
+  homepage: https://github.com
+  topics:
+  - octocat
+  - atom
+  - electron
+  - api
+  default_branch: master
+  features:
+    issues: true
+    projects: true
+    wiki: true
+    discussions: false
+  merge:
+    allow_merge_commit: true
+    allow_squash_merge: true
+    allow_rebase_merge: true
+    allow_auto_merge: false
+    delete_branch_on_merge: true
+  security:
+    private_vulnerability_reporting: true
+    dependabot_alerts: true
+    dependabot_security_updates: true
+labels:
+- name: bug
+  color: f29513
+  description: Something isn't working
+- name: enhancement
+  color: a2eeef
+  description: New feature or request
+rulesets:
+- name: Another ruleset
+  target: branch
+  enforcement: active
+  bypass_actors:
+  - actor_id: 234
+    actor_type: Team
+    bypass_mode: always
+  conditions:
+    ref_name:
+      include:
+      - refs/heads/main
+      - refs/heads/master
+      exclude:
+      - refs/heads/dev*
+  rules:
+  - type: commit_author_email_pattern
+    parameters:
+      operator: contains
+      pattern: github
+- name: super cool ruleset
+  target: branch
+  enforcement: active
+  bypass_actors:
+  - actor_id: 234
+    actor_type: Team
+    bypass_mode: always
+  conditions:
+    ref_name:
+      include:
+      - refs/heads/main
+      - refs/heads/master
+      exclude:
+      - refs/heads/dev*
+  rules:
+  - type: commit_author_email_pattern
+    parameters:
+      operator: contains
+      pattern: github
+environments:
+- name: staging
+  wait_timer: 30
+  prevent_self_review: false
+  reviewers:
+  - type: User
+    login: octocat
+  - type: Team
+    slug: justice-league
+  deployment_branch_policy:
+    protected_branches: false
+    custom_branch_policies: true
+  branch_policies:
+  - name: main
+    type: branch
+  - name: release/*
+    type: branch
+  secrets:
+  - GH_TOKEN
+  - GIST_ID
+secrets:
+- GH_TOKEN
+- GIST_ID
+projects:
+- title: Roadmap
+  short_description: Where it is going
+  readme: ""
+  public: true
+  closed: false
+  status:
+  - name: Todo
+    color: GREEN
+    description: This item hasn't been started
+  - name: In Progress
+    color: YELLOW
+    description: This is actively being worked on
+  - name: Done
+    color: PURPLE
+    description: This has been completed
+actions:
+  enabled: true
+  allowed_actions: selected
+  sha_pinning_required: true
+  selected_actions:
+    github_owned_allowed: true
+    verified_allowed: false
+    patterns_allowed:
+    - docker/*
+    - monalisa/octocat@*
+  workflow:
+    default_workflow_permissions: read
+    can_approve_pull_request_reviews: true

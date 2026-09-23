@@ -1,0 +1,4 @@
+exit: 0
+--- stdout
+No differences: the repository matches the declaration.
+--- stderr

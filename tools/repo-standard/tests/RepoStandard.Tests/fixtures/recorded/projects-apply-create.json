@@ -1,0 +1,277 @@
+{
+  "description": "apply: a board created under the owner and linked, then described and given its columns; an existing unlinked board linked; a linked board without a Status field given one",
+  "source": "No documented example exists for GraphQL; the response is constructed to the GraphQL schema (octokit/graphql-schema, schema.graphql) with GitHub's default categories",
+  "command": [
+    "apply"
+  ],
+  "declaration": "projects:\n  - title: Work\n    short_description: What is in flight\n    public: true\n    status:\n      - name: Ready\n        color: BLUE\n      - name: Done\n        color: PURPLE\n  - title: Roadmap\n  - title: Scratch\n    status:\n      - name: Open\n        color: GRAY\n",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/graphql",
+        "operation": "LinkedProjects",
+        "body": {
+          "owner": "octo-org",
+          "name": "hello-world"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "data": {
+            "repository": {
+              "id": "R_kgDOAAAAAA",
+              "projectsV2": {
+                "nodes": [
+                  {
+                    "id": "PVT_kwDOAAAAAc4AAAAB",
+                    "title": "Scratch",
+                    "shortDescription": "",
+                    "readme": "",
+                    "public": false,
+                    "closed": false,
+                    "owner": {
+                      "login": "octo-org"
+                    },
+                    "items": {
+                      "totalCount": 0
+                    },
+                    "field": null
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/graphql",
+        "operation": "OwnerProjects",
+        "body": {
+          "login": "octo-org",
+          "title": "Work"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "data": {
+            "repositoryOwner": {
+              "id": "O_kgDOAAAAAA",
+              "projectsV2": {
+                "nodes": [
+                  {
+                    "id": "PVT_kwDOAAAAAc4AAAAC",
+                    "title": "Work (old)"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/graphql",
+        "operation": "CreateProject",
+        "body": {
+          "input": {
+            "ownerId": "O_kgDOAAAAAA",
+            "title": "Work",
+            "repositoryId": "R_kgDOAAAAAA"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "data": {
+            "createProjectV2": {
+              "projectV2": {
+                "id": "PVT_kwDOAAAAAc4AAAAD",
+                "field": {
+                  "id": "PVTSSF_lADOAAAAAc4AAAAAzgAAAAD",
+                  "options": [
+                    {
+                      "name": "Todo",
+                      "color": "GREEN",
+                      "description": "This item hasn't been started"
+                    },
+                    {
+                      "name": "In Progress",
+                      "color": "YELLOW",
+                      "description": "This is actively being worked on"
+                    },
+                    {
+                      "name": "Done",
+                      "color": "PURPLE",
+                      "description": "This has been completed"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/graphql",
+        "operation": "UpdateProject",
+        "body": {
+          "input": {
+            "projectId": "PVT_kwDOAAAAAc4AAAAD",
+            "shortDescription": "What is in flight",
+            "public": true
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "data": {
+            "updateProjectV2": {
+              "projectV2": {
+                "id": "PVT_kwDOAAAAAc4AAAAD"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/graphql",
+        "operation": "UpdateStatusField",
+        "body": {
+          "input": {
+            "fieldId": "PVTSSF_lADOAAAAAc4AAAAAzgAAAAD",
+            "singleSelectOptions": [
+              {
+                "name": "Ready",
+                "color": "BLUE",
+                "description": ""
+              },
+              {
+                "name": "Done",
+                "color": "PURPLE",
+                "description": ""
+              }
+            ]
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "data": {
+            "updateProjectV2Field": {
+              "projectV2Field": {
+                "id": "PVTSSF_lADOAAAAAc4AAAAAzgAAAAD"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/graphql",
+        "operation": "OwnerProjects",
+        "body": {
+          "login": "octo-org",
+          "title": "Roadmap"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "data": {
+            "repositoryOwner": {
+              "id": "O_kgDOAAAAAA",
+              "projectsV2": {
+                "nodes": [
+                  {
+                    "id": "PVT_kwDOAAAAAc4AAAAA",
+                    "title": "Roadmap"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/graphql",
+        "operation": "LinkProject",
+        "body": {
+          "input": {
+            "projectId": "PVT_kwDOAAAAAc4AAAAA",
+            "repositoryId": "R_kgDOAAAAAA"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "data": {
+            "linkProjectV2ToRepository": {
+              "repository": {
+                "id": "R_kgDOAAAAAA"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/graphql",
+        "operation": "CreateStatusField",
+        "body": {
+          "input": {
+            "projectId": "PVT_kwDOAAAAAc4AAAAB",
+            "dataType": "SINGLE_SELECT",
+            "name": "Status",
+            "singleSelectOptions": [
+              {
+                "name": "Open",
+                "color": "GRAY",
+                "description": ""
+              }
+            ]
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "data": {
+            "createProjectV2Field": {
+              "projectV2Field": {
+                "id": "PVTSSF_lADOAAAAAc4AAAAAzgAAAAE"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "expect": {
+    "exit": 0
+  }
+}

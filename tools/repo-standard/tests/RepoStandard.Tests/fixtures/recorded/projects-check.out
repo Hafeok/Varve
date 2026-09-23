@@ -1,0 +1,9 @@
+exit: 1
+--- stdout
+~ projects octo-org/Roadmap
+    status: [{"name":"Todo","color":"GREEN","description":"This item hasn't been started"},{"name":"In Progress","color":"YELLOW","description":"This is actively being worked on"},{"name":"Done","color":"PURPLE","description":"This has been completed"}] -> [{"name":"Backlog","color":"GRAY","description":""},{"name":"In progress","color":"YELLOW","description":""},{"name":"Done","color":"PURPLE","description":""}]
+    note: rewrites the Status options of a board with 12 or more items, clearing Status on every item whose option changes; needs --allow-status-reset
+- projects octo-org/Scratch
+    note: unlinks the board from the repository; the board itself is not deleted
+2 differences: 0 to create, 1 to update, 1 to delete, 0 repo-standard cannot change.
+--- stderr

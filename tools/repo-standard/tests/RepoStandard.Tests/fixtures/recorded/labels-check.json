@@ -1,0 +1,79 @@
+{
+  "description": "labels, read over two pages: a colour changed, one declared and missing, and one added by hand",
+  "source": "github/rest-api-description@02e8fa6 response examples: GET /repos/{owner}/{repo}/labels, split across two pages with a Link header",
+  "command": [
+    "check"
+  ],
+  "declaration": "labels:\n  - name: bug\n    color: \"d73a4a\"\n    description: Something isn't working\n  - name: documentation\n    color: \"0075ca\"\n    description: Improvements or additions to documentation\n",
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/repos/octo-org/hello-world/labels?per_page=100"
+      },
+      "response": {
+        "status": 200,
+        "body": [
+          {
+            "id": 208045946,
+            "node_id": "MDU6TGFiZWwyMDgwNDU5NDY=",
+            "url": "https://api.github.com/repos/octocat/Hello-World/labels/bug",
+            "name": "bug",
+            "description": "Something isn't working",
+            "color": "f29513",
+            "default": true,
+            "archived_at": null,
+            "archived_by": null
+          }
+        ],
+        "headers": {
+          "link": "<https://api.github.com/repositories/1296269/labels?per_page=100&page=2>; rel=\"next\", <https://api.github.com/repositories/1296269/labels?per_page=100&page=2>; rel=\"last\""
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/repositories/1296269/labels?per_page=100&page=2"
+      },
+      "response": {
+        "status": 200,
+        "body": [
+          {
+            "id": 208045947,
+            "node_id": "MDU6TGFiZWwyMDgwNDU5NDc=",
+            "url": "https://api.github.com/repos/octocat/Hello-World/labels/enhancement",
+            "name": "enhancement",
+            "description": "New feature or request",
+            "color": "a2eeef",
+            "default": false,
+            "archived_at": "2023-01-01T12:00:00Z",
+            "archived_by": {
+              "login": "octocat",
+              "id": 1,
+              "node_id": "MDQ6VXNlcjE=",
+              "avatar_url": "https://github.com/images/error/octocat_happy.gif",
+              "gravatar_id": "",
+              "url": "https://api.github.com/users/octocat",
+              "html_url": "https://github.com/octocat",
+              "followers_url": "https://api.github.com/users/octocat/followers",
+              "following_url": "https://api.github.com/users/octocat/following{/other_user}",
+              "gists_url": "https://api.github.com/users/octocat/gists{/gist_id}",
+              "starred_url": "https://api.github.com/users/octocat/starred{/owner}{/repo}",
+              "subscriptions_url": "https://api.github.com/users/octocat/subscriptions",
+              "organizations_url": "https://api.github.com/users/octocat/orgs",
+              "repos_url": "https://api.github.com/users/octocat/repos",
+              "events_url": "https://api.github.com/users/octocat/events{/privacy}",
+              "received_events_url": "https://api.github.com/users/octocat/received_events",
+              "type": "User",
+              "site_admin": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "exit": 1
+  }
+}

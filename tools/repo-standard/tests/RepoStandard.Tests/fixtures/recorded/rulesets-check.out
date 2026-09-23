@@ -1,0 +1,8 @@
+exit: 1
+--- stdout
++ rulesets tags
+~ rulesets super cool ruleset
+    rules: [{"type":"commit_author_email_pattern","parameters":{"operator":"contains","pattern":"github"}}] -> [{"type":"commit_author_email_pattern","parameters":{"operator":"contains","pattern":"github"}},{"type":"deletion"}]
+- rulesets Another ruleset
+3 differences: 1 to create, 1 to update, 1 to delete, 0 repo-standard cannot change.
+--- stderr
