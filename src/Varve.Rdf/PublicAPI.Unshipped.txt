@@ -150,3 +150,27 @@ static Varve.Rdf.TermSpan.FromText(int start, int length) -> Varve.Rdf.TermSpan
 static Varve.Rdf.TermSpan.None.get -> Varve.Rdf.TermSpan
 static Varve.Rdf.TermSpan.operator !=(Varve.Rdf.TermSpan left, Varve.Rdf.TermSpan right) -> bool
 static Varve.Rdf.TermSpan.operator ==(Varve.Rdf.TermSpan left, Varve.Rdf.TermSpan right) -> bool
+Varve.Rdf.QuadDelta
+Varve.Rdf.QuadDelta.Asserted.get -> System.ReadOnlySpan<Varve.Rdf.Quad>
+Varve.Rdf.QuadDelta.Asserts(in Varve.Rdf.Quad quad) -> bool
+Varve.Rdf.QuadDelta.Count.get -> int
+Varve.Rdf.QuadDelta.Equals(Varve.Rdf.QuadDelta other) -> bool
+Varve.Rdf.QuadDelta.Inverse() -> Varve.Rdf.QuadDelta
+Varve.Rdf.QuadDelta.IsEmpty.get -> bool
+Varve.Rdf.QuadDelta.QuadDelta() -> void
+Varve.Rdf.QuadDelta.Retracted.get -> System.ReadOnlySpan<Varve.Rdf.Quad>
+Varve.Rdf.QuadDelta.Retracts(in Varve.Rdf.Quad quad) -> bool
+Varve.Rdf.QuadDelta.Then(Varve.Rdf.QuadDelta next) -> Varve.Rdf.QuadDelta
+Varve.Rdf.QuadOverlay
+Varve.Rdf.QuadOverlay.Contains(in Varve.Rdf.Quad quad) -> bool
+Varve.Rdf.QuadOverlay.Match(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object, Varve.Rdf.GraphPattern graph) -> Varve.Rdf.IQuadCursor!
+Varve.Rdf.QuadOverlay.QuadOverlay(Varve.Rdf.IQuadSource! base, Varve.Rdf.QuadDelta delta) -> void
+Varve.Rdf.QuadOverlay.TermComparer.get -> System.Collections.Generic.IEqualityComparer<Varve.Rdf.TermHandle>!
+Varve.Rdf.QuadOverlay.TryExternalise(Varve.Rdf.TermHandle handle, out Varve.Rdf.RdfTerm! term) -> bool
+Varve.Rdf.QuadOverlay.TryInternalise(Varve.Rdf.RdfTerm! term, out Varve.Rdf.TermHandle handle) -> bool
+override Varve.Rdf.QuadDelta.Equals(object? obj) -> bool
+override Varve.Rdf.QuadDelta.GetHashCode() -> int
+static Varve.Rdf.QuadDelta.Create(System.ReadOnlySpan<Varve.Rdf.Quad> asserted, System.ReadOnlySpan<Varve.Rdf.Quad> retracted) -> Varve.Rdf.QuadDelta
+static Varve.Rdf.QuadDelta.Empty.get -> Varve.Rdf.QuadDelta
+static Varve.Rdf.QuadDelta.operator !=(Varve.Rdf.QuadDelta left, Varve.Rdf.QuadDelta right) -> bool
+static Varve.Rdf.QuadDelta.operator ==(Varve.Rdf.QuadDelta left, Varve.Rdf.QuadDelta right) -> bool
