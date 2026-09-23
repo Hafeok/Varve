@@ -94,6 +94,15 @@ has written one.
 |---:|---|---|
 | [0038](0038-upstream-contribution-policy.md) | Upstream contribution to Oxigraph and the shared test suites | Accepted; refines the brief's tie-breaker |
 
+## Tooling — repo-standard
+
+Built here and moving to a repository of its own; see
+[#23](https://github.com/Hafeok/Varve/issues/23).
+
+| # | Title | Status |
+|---:|---|---|
+| [0039](0039-repo-standard.md) | repo-standard: repository settings as code, built here and moving out | Accepted |
+
 **No ADR in this repository is `Proposed`.** Three were, and were completed in
 place rather than superseded, because ADR 0001's no-edit rule binds accepted
 decisions and they had never been accepted.

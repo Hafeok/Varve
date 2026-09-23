@@ -44,6 +44,14 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0" Adr="0004" />
   </ItemGroup>
 
+  <ItemGroup Label="repo-standard — runtime of the tool under tools/repo-standard, never of Varve">
+    <!-- The YAML reader and writer of repo-standard's declarations. MIT, no
+         dependencies of its own. Only its parser and emitter are used, never
+         its reflection-based serializer, which is what keeps the tool's Native
+         AOT build clean. ADR 0039. -->
+    <PackageVersion Include="YamlDotNet" Version="18.1.0" Adr="0039" />
+  </ItemGroup>
+
   <ItemGroup Label="Test-time">
     <PackageVersion Include="xunit.v3" Version="4.0.1" Adr="0009" />
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" Adr="0007" />
