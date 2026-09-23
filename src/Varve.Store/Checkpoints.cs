@@ -210,8 +210,8 @@ internal static class CheckpointFormat
 
 /// <summary>Composes a chain of exact deltas — consecutive commits — in one pass.</summary>
 /// <remarks>
-/// The specification's <c>;</c> is associative only over such chains (reported
-/// at milestone 4), which is every use the store makes of it. A running net
+/// The specification's <c>;</c> is associative only over such chains
+/// (specification 1.3, §6; ADR 0047), which is every use the store makes of it. A running net
 /// state per quad composes a chain in time proportional to its total size.
 /// </remarks>
 internal sealed class DeltaChain

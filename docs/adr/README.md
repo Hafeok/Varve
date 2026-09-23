@@ -82,7 +82,7 @@ superseding ADR rather than an edit.
 ## Milestone 4 — the in-memory log
 
 Issue [#8](https://github.com/Hafeok/Varve/issues/8). The first code against the
-specification, which moved to version 1.2 with 0046.
+specification, which moved to version 1.2 with 0046 and to 1.3 with 0047.
 
 | # | Title | Status |
 |---:|---|---|
@@ -93,6 +93,7 @@ specification, which moved to version 1.2 with 0046.
 | [0044](0044-blank-node-identity-in-process.md) | Blank node identity at the in-process boundary (Q1, split) | Accepted |
 | [0045](0045-the-provisional-in-memory-log-encoding.md) | The provisional log encoding, and the in-memory id layout | Accepted, provisional by design |
 | [0046](0046-settings-commits-reach-every-subscriber.md) | Settings commits reach every subscriber; specification 1.2 | Accepted; **amends 0016** |
+| [0047](0047-delta-composition-and-closure-over-triple-terms.md) | Delta composition over chains, and dictionary closure over triple terms; specification 1.3 | Accepted |
 
 ## Milestone 7 — the server
 

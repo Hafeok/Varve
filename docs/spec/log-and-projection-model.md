@@ -1,8 +1,10 @@
 # Log and projection model
 
-Functional specification, version 1.2.
+Functional specification, version 1.3.
 
 Status: Accepted. This document is the authority for the behaviour of `Varve.Store`. It changes only together with the ADR that motivates the change, and each change is listed at the top with its date. Section 12 maps the decisions to ADRs.
+
+Changes in version 1.3 (2026-09-23), with ADR 0047: delta composition is associative over chains of exact deltas and **not** over arbitrary deltas; version 1.2 and earlier claimed a monoid, which was false, and the claim was the maintainer's error (section 6, and R3 in section 10). Every id in `alloc_P` is reachable from `A_P` or `meta_P` through entries, which RDF 1.2 triple terms require (I3). Both were found by milestone 4's property tests.
 
 Changes in version 1.2 (2026-09-23), with ADR 0046: `Settings` commits, like `Erasure` commits, are delivered to every subscriber regardless of filter (section 8). The determinism property holds for crash-free histories (section 10). The named-graph scope in `meta` is a declaration, never enforced by the store (section 1). A note on hashing under source-supplied equality (section 6). Q1 is narrowed to its protocol half, due at milestone 7; the in-process half is decided by ADR 0044 (section 11). Section 12 names the ADR numbers the two "new" rows became, and lists the milestone 4 ADRs.
 
@@ -61,7 +63,7 @@ G_0 = ∅                      G_P = (G_{P-1} \ R_P) ∪ A_P
 
 - **I1 Dense positions.** `pos(cᵢ) = i`.
 - **I2 Effective delta.** `A_P ∩ G_{P-1} = ∅`, `R_P ⊆ G_{P-1}`, `A_P ∩ R_P = ∅`. The log records what changed, not what was requested.
-- **I3 Dictionary closure.** Every id in `A_P`, `R_P` and `meta_P` is in `dom(D_P)`. Ids in `alloc_P` are fresh. Every id in `alloc_P` occurs in `A_P` or `meta_P`. Canonical ids are injective over terms; private ids are exempt from injectivity.
+- **I3 Dictionary closure.** Every id in `A_P`, `R_P` and `meta_P` is in `dom(D_P)`. Ids in `alloc_P` are fresh. Every id in `alloc_P` is reachable through entries from `A_P` or `meta_P`: it occurs in one of them, or it is a component of an entry in `alloc_P` that is. A triple term's components are allocated so that its identity can depend on theirs, and may occur nowhere else. Canonical ids are injective over terms; private ids are exempt from injectivity.
 - **I4 Non-empty.** A `Data` commit has `A_P ∪ R_P ≠ ∅`. `Erasure` and `Settings` commits have an empty delta.
 - **I5 Monotone time.** `ts(c_P) ≥ ts(c_{P-1})`. The sequencer assigns `max(clock, ts(head))`. As-of by timestamp `t` resolves to the greatest `P` with `ts(c_P) ≤ t`.
 - **I6 Header chain.** `prev(c_P) = hash(header(c_{P-1}))`, with a fixed value for `P = 1`. Two logs with a common prefix and different continuations are detectably divergent. A store that opens a log whose chain does not verify, or is asked to continue from a head that is not its own, refuses.
@@ -117,7 +119,7 @@ Delta composition, used by R2 and R3:
 (A₁, R₁) ; (A₂, R₂) = ((A₁ \ R₂) ∪ (A₂ \ R₁), (R₁ \ A₂) ∪ (R₂ \ A₁))
 ```
 
-Deltas under `;` form a monoid with identity `(∅, ∅)`. `net(L(P..Q])` is the composition of the commits' deltas in order.
+`;` has identity `(∅, ∅)` and is associative over any chain of exact deltas — each exact against the state the previous ones produce — and in particular over any run of a log. It is **not** associative over arbitrary deltas: with `a = (∅, {q})`, `b = (∅, {q})`, `c = ({q}, ∅)`, `(a ; b) ; c = (∅, ∅)` but `a ; (b ; c) = (∅, {q})`. No log holds `a` then `b`, because `b` retracts a quad `a` removed (I2). `net(L(P..Q])` is the composition of the commits' deltas in order, which is a chain.
 
 Equality is a property of the quad source, not of the id: a source supplies the comparison for the term handles it hands out. Term equality seen by readers: canonical and blank ids compare by id. A readable private term compares by decrypted value, against private and canonical terms alike. A shredded private term is equal only to itself. Because a readable private term can equal a canonical one, a source whose dictionary holds private entries must hash every handle by value, whatever its class; with erasure mode off, the hash of a handle is its id.
 
@@ -170,7 +172,7 @@ Erasure mode is a per-dataset setting, off by default. When off, no private ids 
 | I8 | Rebuilt projection equals incrementally maintained projection at every position. |
 | R1 | A pinned source returns identical results before and after arbitrary later commits. |
 | R2, R4 | As-of via overlay equals as-of via full replay. |
-| R3 | `Overlay(G_{P₁}, Diff(P₁, P₂)) = G_{P₂}`; delta composition is associative. |
+| R3 | `Overlay(G_{P₁}, Diff(P₁, P₂)) = G_{P₂}`; delta composition is associative over chains of exact deltas, and the counterexample in section 6 is not associative. |
 | Records | A crash at any record boundary recovers to the last closed commit. |
 | Determinism | For crash-free histories, the same request sequence on two machines yields byte-identical `log/` directories (with an injected clock and, in erasure mode, an injected key store; nothing else in `log/` may depend on the machine or on randomness). A tail abandoned by recovery stays in `log/`, because the log is never rewritten. |
 | I9 | For generated private literals with high-entropy markers, a byte scan of `log/` and checkpoints never finds a marker. |
@@ -214,6 +216,7 @@ All Accepted. Three carry a stated condition under which they are to be supersed
 | Subscriptions pull from the log | 0042 | |
 | Blank node identity in process (Q1, in-process half) | 0044 | |
 | The provisional log encoding and in-memory id layout | 0045 | Superseded in part by the milestone 6 durable format, by design. |
-| `Settings` commits reach every subscriber; this version | 0046 | |
+| `Settings` commits reach every subscriber; version 1.2 | 0046 | |
+| Delta composition over chains; I3 over triple terms; version 1.3 | 0047 | |
 
 Milestone placement: the first durable format (milestone 6) reserves the private id class, the private entry layout and the refusal of a key store path inside the dataset directory. Erasure mode itself is milestone 9, after the SHACL validator, because the shape-derived classifier and the classification gate depend on it.

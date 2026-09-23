@@ -11,7 +11,7 @@ using Xunit;
 namespace Varve.Rdf.Tests;
 
 /// <summary>
-/// The delta monoid of specification §6, checked against the set formula it is
+/// Delta composition of specification §6, checked against the set formula it is
 /// defined by rather than against itself.
 /// </summary>
 /// <remarks>
@@ -90,13 +90,12 @@ public class DeltaPropertyTests
     }
 
     /// <summary>
-    /// The counterexample CsCheck found (seed <c>fIBTkyl27KJ4</c>) to the
-    /// specification's claim, in §6, that deltas under <c>;</c> form a monoid.
-    /// Two deltas that both retract <c>q</c> cannot follow one another in any
-    /// log — the second retracts a quad the first removed, which I2 forbids —
-    /// and over such inputs the formula is not associative. Recorded as a
-    /// proposed specification change in milestone 4's report; this test pins
-    /// the behaviour so that the proposal has a witness.
+    /// The counterexample CsCheck found (seed <c>fIBTkyl27KJ4</c>) to the claim,
+    /// in specification 1.2 and earlier, that deltas under <c>;</c> form a
+    /// monoid. Two deltas that both retract <c>q</c> cannot follow one another
+    /// in any log — the second retracts a quad the first removed, which I2
+    /// forbids — and over such inputs the formula is not associative.
+    /// Specification 1.3 states it in §6 (ADR 0047); this test is its witness.
     /// </summary>
     [Fact]
     public void composition_is_not_associative_over_deltas_no_log_could_hold()

@@ -92,8 +92,7 @@ public readonly struct QuadDelta : IEquatable<QuadDelta>
     /// exact deltas — consecutive changes to one evolving set, which is every
     /// use a log makes of it — and **not** over arbitrary deltas: two deltas
     /// that both retract one quad, then one that asserts it, compose to
-    /// different answers depending on grouping. The specification's §6 claims a
-    /// monoid; milestone 4 reported that as a proposed change. The result's
+    /// different answers depending on grouping. Specification 1.3, §6 (ADR 0047). The result's
     /// halves are disjoint whenever both inputs' are, so no check is needed.
     /// </remarks>
     public QuadDelta Then(QuadDelta next)
