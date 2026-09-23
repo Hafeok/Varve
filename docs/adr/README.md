@@ -104,6 +104,12 @@ has written one.
 |---:|---|---|
 | [0037](0037-server-authentication.md) | Authentication and authorisation for the server | Accepted |
 
+## Conformance — differential testing against Oxigraph
+
+| # | Title | Status |
+|---:|---|---|
+| [0038](0038-upstream-contribution-policy.md) | Upstream contribution to Oxigraph and the shared test suites | Accepted; refines the brief's tie-breaker |
+
 **No ADR in this repository is `Proposed`.** Three were, and were completed in
 place rather than superseded, because ADR 0001's no-edit rule binds accepted
 decisions and they had never been accepted.
@@ -153,6 +159,10 @@ From ADR 0003, and still unresolved:
 
 ## Obligations recorded against a later milestone
 
+- **ADR 0038** — the differential harness enforces the four exemption checks
+  (category, required references, no `varve-defect`, stale entry), each with a
+  violating and a conforming test. Due with the differential harness. Its open
+  question (whether a `spec-gap` entry must cite a W3C suite PR) is due then too.
 - **ADR 0004** — the `System.Uri` ban is wider than the brief scopes it. Narrow
   before layer 5 exists.
 - **ADR 0014** — the storage format must carry a version discriminator from the
