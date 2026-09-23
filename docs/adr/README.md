@@ -119,8 +119,8 @@ carries a condition of its own that is not measurable by a build.
 
 | ADR | Condition | Due |
 |---|---|---|
-| [0012](0012-term-dictionary-and-id-scheme.md) | Milestone 4 benchmarks of index size and scan throughput contradict 64-bit counter-allocated ids. No bytes are frozen before milestone 6. | milestone 4 |
-| [0018](0018-storage-abstraction.md) | The in-memory and browser backends cannot both implement the contract without leaking backend detail. Members fixed when the first backend is written. | milestone 4 |
+| [0012](0012-term-dictionary-and-id-scheme.md) | Milestone 4 benchmarks of index size and scan throughput contradict 64-bit counter-allocated ids. No bytes are frozen before milestone 6. | **did not fire** at milestone 4: 192 bytes per quad for six orders, 37–45 M quads/s scanned (`tests/Varve.Benchmarks/README.md`). The on-disk locality hypothesis waits for milestone 6 |
+| [0018](0018-storage-abstraction.md) | The in-memory and browser backends cannot both implement the contract without leaking backend detail. Members fixed when the first backend is written. | members **fixed** by [0040](0040-storage-contract-members-and-the-memory-backend.md); the memory backend and a second one outside the assembly implement them with nothing leaked. The browser half waits for milestone 6 |
 | [0020](0020-cipher-for-erasure-mode.md) | ~~AES-CBC, HMAC-SHA-256 and HKDF do not run on browser WASM when verified on a real build.~~ **Fired** at milestone 3a: `Aes.Create()` throws on browser-wasm and no symmetric cipher of any kind is available there. Superseded by 0028. | **fired**, superseded |
 | [0028](0028-deterministic-aead-from-hmac.md) | External cryptographic review rejects the construction. The fallback is then that erasure mode does not run in the browser, in its own ADR. Its other condition — the primitives run in a browser — is measured and holds. | milestone 9, before shipping |
 | [0022](0022-quad-source-term-handle.md) | Milestone 5 evaluator benchmarks show the opaque handle costs more than it saves. | milestone 5 |

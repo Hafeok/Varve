@@ -173,10 +173,27 @@ model still carries base direction**, and N-Triples and N-Quads still read and
 write it, where the `rdf12` syntax suites gate it — 29 and 27 cases, both
 passing.
 
-## 4 — In-memory log and default quad projection
+## 4 — In-memory log and default quad projection *(complete)*
 
 As-of reads, and the property test that a rebuilt projection equals an
 incrementally maintained one.
+
+Delivered: `Varve.Store` at layer 4 — the log in a provisional encoding
+(ADR 0045), the sequencer, the dictionary with its three allocated classes and
+inline values, the default projection as immutable sorted runs (ADR 0041),
+pinned and as-of reads, `Diff`, checkpoints, settings, subscriptions (ADR 0042),
+the projection contract and the failed state — over `MemoryStorage` in the same
+package (ADR 0040). In `Varve.Rdf`, the overlay and the delta. Every §10
+property that does not concern erasure or the file backend runs against a
+reference model (ADR 0043); a scan allocates zero bytes per quad; AOT and the
+browser run the store. The specification moved to **1.2** (ADR 0046).
+
+Found on the way, and reported rather than patched: **§6's claim that deltas
+form a monoid is false** for arbitrary deltas and true over the exact chains a
+log holds — a proposed specification change with a failing counterexample as
+its witness. And the records property found a real recovery bug on its first
+run: a crash inside a new segment's preamble made the dataset unopenable after
+one more commit. Fixed, and kept as a named test.
 
 Due here: **Q1** (blank node identity at the API boundary, ADR 0012), and the
 banned-symbols entry for ambient clock and randomness under `Varve.Store` that

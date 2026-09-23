@@ -20,3 +20,4 @@
 8a97f85  Milestone 3a close-out
 36282b1  Milestone 3b — Turtle and TriG
 93df7d5  Stewardship — the Mind Over Machine standard
+2a37398  Milestone 4 — the in-memory log and the default quad projection

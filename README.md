@@ -40,7 +40,8 @@ dataset directory.
 
 ## Status
 
-**Milestone 3b.** Three packages, reading and writing four syntaxes.
+**Milestone 4.** Four packages: reading and writing four syntaxes, and an
+event-sourced store in memory.
 
 | Package | Layer | What it is | State |
 |---|---:|---|---|
@@ -49,7 +50,7 @@ dataset directory.
 | `Varve.Turtle` | 2 | N-Triples, N-Quads, Turtle, TriG — reader and writer | working |
 | `Varve.Analyzers` | — | the layer rules, at build time | working, never shipped |
 | `Varve.Xsd` | 0 | XSD datatypes | not built |
-| `Varve.Store` | 4 | the log, projections, checkpoints | not built |
+| `Varve.Store` | 4 | the log, the default projection, pinned and as-of reads, checkpoints, subscriptions | working, in memory; file and browser backends at milestone 6 |
 | SPARQL, SHACL, server, CLI | 2–5 | | not built |
 
 ### Conformance
@@ -82,6 +83,14 @@ Also true today, and measured rather than asserted:
 - **Every reader runs the chunk-boundary oracle**: parse whole, parse again
   split at every byte offset, require the same answer. It has found nine defect
   classes, two of which produced *wrong quads rather than errors*.
+
+- **The store's specification is tested against a reference model.**
+  §10's properties — effective deltas, dictionary closure, monotone time, the
+  header chain, checkpoint and rebuild equivalence, pinned and as-of reads,
+  `Diff`, crash recovery at every byte offset, byte-identical logs — run as
+  CsCheck properties against a naive fold written from the specification
+  alone. A scan allocates zero bytes per quad; AOT and the browser both run
+  the store.
 
 **RDF 1.2 Turtle and TriG are not accepted at all** — deliberately, rather than
 half-accepted. `docs/spec/turtle.md` §9 lists the constructs and the reasoning.
