@@ -83,10 +83,20 @@ internal sealed class Run
     }
 
     /// <summary>
-    /// Two runs as one, the newer deciding wherever both speak. Merging into
-    /// the oldest run drops retractions, because there is nothing older for
-    /// them to cancel.
+    /// Two runs as one, still an exact delta against the runs older than both
+    /// (I2). A key one run asserts and the other retracts is back where it was
+    /// before the older run and drops out; the newer decides wherever both say
+    /// the same thing, which I2 makes impossible anyway. Merging into the
+    /// oldest run drops retractions, because there is nothing older for them
+    /// to cancel.
     /// </summary>
+    /// <remarks>
+    /// Keeping the newer verdict for a key the older asserted and the newer
+    /// retracted reads the same through a lookup, because the retraction just
+    /// hides a key nothing older holds; it counts differently, because
+    /// <see cref="IndexVersion.Estimate"/> subtracts a retraction it assumes
+    /// cancels an older assertion. The estimate property found the case.
+    /// </remarks>
     internal static Run Merge(Run older, Run newer, bool dropRetractions)
     {
         ReadOnlyMemory<QuadKey>[] asserted = new ReadOnlyMemory<QuadKey>[Orders.Count];
@@ -117,8 +127,9 @@ internal sealed class Run
         return new Run(asserted, retracted);
     }
 
-    // One pass that either counts or writes: the newer run's verdict wins for
-    // every key either run mentions.
+    // One pass that either counts or writes. A key both runs mention with
+    // opposite verdicts cancels; one they agree on, or one run alone mentions,
+    // is kept.
     private static (int Asserted, int Retracted) MergeInto(
         ReadOnlySpan<QuadKey> olderAsserted,
         ReadOnlySpan<QuadKey> olderRetracted,
@@ -144,8 +155,8 @@ internal sealed class Run
             bool newerA = Take(newerAsserted, ref na, in min);
             bool newerR = Take(newerRetracted, ref nr, in min);
 
-            bool assert = newerA || (!newerR && olderA);
-            bool retract = newerR || (!newerA && olderR);
+            bool assert = (newerA && !olderR) || (olderA && !newerR);
+            bool retract = (newerR && !olderA) || (olderR && !newerA);
 
             if (assert)
             {

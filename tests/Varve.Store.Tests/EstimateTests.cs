@@ -98,6 +98,65 @@ public class EstimateTests
             print: script => script.ToString());
     }
 
+    /// <summary>
+    /// Found by the property above (CsCheck seed <c>1zI0tBTNKoy3</c>, no
+    /// shrink). A merge of two runs kept the newer verdict for a key the older
+    /// run asserted and the newer retracted, so the merged run retracted a key
+    /// nothing older held: the same through a lookup, one short through the
+    /// count. Built here without the generator: a run of eight, which a run of
+    /// one does not merge into, then the pair that merges with each other. Two
+    /// more commits would cascade the merge into the oldest run, which drops
+    /// retractions and hides the case.
+    /// </summary>
+    [Fact]
+    public async Task a_merged_run_cancels_an_assertion_the_newer_run_retracted()
+    {
+        await using Dataset dataset = await T.Open(new MemoryStorage());
+        await dataset.CommitAsync(Eight(), T.Ct);
+        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("x"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await dataset.CommitAsync(new CommitRequest().Retract(T.Iri("x"), T.Iri("p"), T.Iri("o")), T.Ct);
+
+        using DatasetView view = dataset.Pin();
+        Assert.True(view.TryInternalise(T.Iri("x"), out TermHandle x));
+
+        Assert.Equal(CardinalityEstimate.Exact(0), view.Estimate(x, TermHandle.None, TermHandle.None, GraphPattern.DefaultGraph));
+        Assert.Equal(CardinalityEstimate.Exact(8), view.Estimate(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.DefaultGraph));
+        Agree(view, "head " + view.Position);
+    }
+
+    /// <summary>
+    /// The reverse pair of the case above: a key the older run retracted and
+    /// the newer asserted was kept as an assertion, and counted once over on
+    /// top of the run that held it all along.
+    /// </summary>
+    [Fact]
+    public async Task a_merged_run_cancels_a_retraction_the_newer_run_reasserted()
+    {
+        await using Dataset dataset = await T.Open(new MemoryStorage());
+        await dataset.CommitAsync(Eight(), T.Ct);
+        await dataset.CommitAsync(new CommitRequest().Retract(T.Iri("s0"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s0"), T.Iri("p"), T.Iri("o")), T.Ct);
+
+        using DatasetView view = dataset.Pin();
+        Assert.True(view.TryInternalise(T.Iri("s0"), out TermHandle s0));
+
+        Assert.Equal(CardinalityEstimate.Exact(1), view.Estimate(s0, TermHandle.None, TermHandle.None, GraphPattern.DefaultGraph));
+        Assert.Equal(CardinalityEstimate.Exact(8), view.Estimate(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.DefaultGraph));
+        Agree(view, "head " + view.Position);
+    }
+
+    private static CommitRequest Eight()
+    {
+        CommitRequest request = new();
+
+        for (int i = 0; i < 8; i++)
+        {
+            request.Assert(T.Iri("s" + i), T.Iri("p"), T.Iri("o"));
+        }
+
+        return request;
+    }
+
     [Fact]
     public async Task a_validator_sees_the_proposed_state_estimated()
     {
