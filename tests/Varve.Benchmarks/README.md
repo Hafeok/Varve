@@ -176,3 +176,83 @@ not.** Index size is 192 bytes per quad for six orders; the content-derived
 37–45 M quads/s single-threaded, allocation-free, over merged runs. Neither
 number argues for a wider id. What the benchmark cannot yet test is the ADR's
 locality and compression hypothesis on disk, which is milestone 6's layout.
+
+## Milestone 5a — parsing the SPARQL syntax corpus
+
+**Machine.** Intel Xeon @ 2.80 GHz, 4 logical and 4 physical cores, 15 GiB,
+Ubuntu 24.04.4 LTS (Noble Numbat), kernel 6.18, a cloud container rather than
+dedicated hardware. .NET SDK 10.0.401, runtime 10.0.12, X64 RyuJIT
+`x86-64-v4`. BenchmarkDotNet 0.15.8, default job. Baseline: dotNetRDF
+(`dotNetRdf.Core` 3.5.2, `SparqlQueryParser` and `SparqlUpdateParser`).
+
+The same clock as the milestone 3a section and a different one from 3b and
+4; as before, absolute numbers are comparable only within a section and the
+ratios are comparable everywhere.
+
+**Corpus.** Loaded by `SparqlCorpus` in `SparqlBenchmarks.cs` from the W3C
+submodule, and printed rather than asserted in prose:
+
+```
+$ dotnet run -c Release --project tests/Varve.Benchmarks -- --sparql-corpus
+1.0 and 1.1 corpus: 215 queries both parsers accept (0 that dotNetRDF rejects left out), 15,415 bytes
+1.2 corpus: 120 cases, 13,386 bytes
+large update: 12,910 bytes
+```
+
+The first corpus is every positive *query* case of the SPARQL 1.0 and 1.1
+syntax suites, parsed at version 1.1 by both parsers, with a case left out if
+dotNetRDF refuses it so that the two rows time the same work. None were left
+out. The second is every positive case of the six SPARQL 1.2 syntax suites,
+queries and updates together; dotNetRDF has no SPARQL 1.2, so that row has no
+baseline. The third is `syntax-update-2/large-request-01.ru`, an `INSERT DATA`
+of 868 quads, the one input in the suites that is big enough to measure by
+itself. Each row parses its whole corpus once, so a mean is the cost of the
+corpus and not of a query; the per-query figures below are that mean divided
+by the count.
+
+| | Mean | Per case | Bytes/s | Allocated | vs. dotNetRDF |
+|---|---:|---:|---:|---:|---:|
+| Varve — 1.0 and 1.1 corpus, 215 queries | 761 µs ± 26 | 3.5 µs | 20.3 MB/s | 304 KB | **8.0× faster, 13.4× less memory** |
+| dotNetRDF — 1.0 and 1.1 corpus, 215 queries | 6,065 µs ± 115 | 28.2 µs | 2.5 MB/s | 4,066 KB | — |
+| Varve — the same, parse and write back | 866 µs ± 28 | 4.0 µs | — | 304 KB | — |
+| Varve — 1.2 corpus, 120 cases | 578 µs ± 15 | 4.8 µs | 23.2 MB/s | 324 KB | no baseline |
+| Varve — large update, 868 quads | 985 µs ± 29 | 1.1 µs per quad | 13.1 MB/s | 474 KB | **4.5× faster, 5.1× less memory** |
+| dotNetRDF — large update, 868 quads | 4,441 µs ± 69 | 5.1 µs per quad | 2.9 MB/s | 2,442 KB | — |
+
+**The corpus is small, and that is the caveat to read first.** Fifteen
+kilobytes of queries is the whole positive syntax corpus, and it fits in the
+L2 cache; a workload of long queries with long literals would move every row,
+and there is no such corpus in the suites. What the table measures is the
+parser's dispatch across every construct of the grammar on realistic query
+sizes, which is the shape a query engine sees, and not bulk throughput, which
+is what the Turtle sections measure.
+
+**The allocation is the tree.** 304 KB over 215 queries is 1.4 KB per query,
+and it is all algebra: immutable records with their lists and the interned
+terms, which is what the parse returns. `AllocationTests` asserts that parsing
+350 more triple patterns allocates exactly what building them by hand does,
+so the parser's own working set — its token buffer, pooled lists and the
+interning table — is rented and returned and shows here as nothing. The
+milestone 3b reader's 6.1 KB fixed cost is the same idea; the difference is
+that a parse's result here is a tree the caller owns.
+
+**The third row has no baseline on purpose**, as at milestone 3b: it parses,
+serialises the algebra back to text and discards the text, and dotNetRDF's
+formatter was not measured. It says that writing costs about a seventh of
+parsing, with no allocation beyond the tree, because the output buffer is
+rented once at set-up. It is the property the round-trip test exercises 3,000
+times per run.
+
+**The large update is slower per byte than the small queries**, 13 MB/s
+against 20, and that is the direction to expect: the queries are mostly
+keywords and short names, while the update is 868 terms each resolved against
+`BASE`, validated as an IRI and interned, then held in a `QuadPattern` record
+apiece. 474 KB for 868 quads is 560 bytes per quad, which is the record, its
+four terms and the `RdfTerm` behind each, and the ratio against dotNetRDF is
+narrower here because its cost per term is also mostly the term.
+
+**What is not measured.** Error paths, UTF-16 input (transcoded once at the
+entry, at `Utf8.FromUtf16` speed), the rewriter, and anything after parsing;
+nothing evaluates a query yet. The 1.2 row will get a baseline when another
+.NET parser reads SPARQL 1.2. ADR 0050's evaluator benchmark, the one with a
+revisit condition attached, is milestone 5b's and needs the evaluator first.

@@ -27,6 +27,12 @@ internal static class Program
             return;
         }
 
+        if (args.Length == 1 && args[0] == "--sparql-corpus")
+        {
+            SparqlCorpus.Load().Print();
+            return;
+        }
+
         if (args.Length == 1 && args[0] == "--store-sizes")
         {
             StoreSizes.PrintAsync().GetAwaiter().GetResult();
