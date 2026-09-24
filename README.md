@@ -40,18 +40,20 @@ dataset directory.
 
 ## Status
 
-**Milestone 4.** Four packages: reading and writing four syntaxes, and an
+**Milestone 5a.** Six packages: reading and writing four syntaxes, the XSD
+value spaces, the SPARQL algebra with its parser and serialiser, and an
 event-sourced store in memory.
 
 | Package | Layer | What it is | State |
 |---|---:|---|---|
 | `Varve.Iri` | 0 | IRI parsing, resolution and normalisation over UTF-8 | working |
-| `Varve.Rdf` | 1 | terms, triples, quads, and the abstract quad source contract | working |
+| `Varve.Xsd` | 0 | the XSD 1.1 value spaces with SPARQL operator semantics: exact decimal, the integer family, IEEE double and float, boolean, string, the date and time family, durations | working; gated by its property tests until the evaluation suite at 5b |
+| `Varve.Rdf` | 1 | terms, triples, quads, and the abstract quad source contract — with cardinality estimates and an inline-value accessor | working |
 | `Varve.Turtle` | 2 | N-Triples, N-Quads, Turtle, TriG — reader and writer | working |
+| `Varve.Sparql` | 2 | SPARQL 1.1 Query and Update as an immutable algebra, with the 1.2 additions; the parser and the serialiser | working |
 | `Varve.Analyzers` | — | the layer rules, at build time | working, never shipped |
-| `Varve.Xsd` | 0 | XSD datatypes | not built |
 | `Varve.Store` | 4 | the log, the default projection, pinned and as-of reads, checkpoints, subscriptions | working, in memory; file and browser backends at milestone 6 |
-| SPARQL, SHACL, server, CLI | 2–5 | | not built |
+| `Varve.Sparql.Evaluation`, results, SHACL, server, CLI | 2–5 | | not built; the evaluator is 5b, the result formats 5c |
 
 ### Conformance
 
@@ -66,11 +68,23 @@ The W3C suites are the acceptance gate, from
 | `rdf11/rdf-n-triples` | 70 |
 | `rdf12/rdf-n-triples` (syntax) | 29 |
 | `rdf12/rdf-n-quads` (syntax) | 27 |
-| **Total** | **883 of 883** |
+| `sparql10/syntax-sparql1` … `5` (parsed under 1.1) | 199 |
+| `sparql11/syntax-query` | 94 |
+| `sparql11/syntax-update-1`, `-2`, `syntax-fed` | 58 |
+| `sparql12/syntax-triple-terms-positive`, `-negative` | 178 |
+| `sparql12/syntax`, `version`, `codepoint-escapes`, `lang-basedir` | 25 |
+| **Total** | **1,437 of 1,437** |
+
+Each SPARQL suite is parsed at its own version, so the 1.0 and 1.1 suites
+never see the 1.2 grammar; the 1.2 default is for API callers only. The six
+SPARQL 1.2 suites are against Working Drafts of 2026, ratcheted anyway
+because the algebra carries 1.2 from the start and the ratchet is what
+absorbs churn (`docs/spec/sparql-grammar.md` §1).
 
 **`baseline/exemptions.txt` is empty**, and that is a result rather than a
-default. `eng/ratchet.cs` fails the build if any of those 883 stops passing,
-and an exemption with no written justification fails the run too.
+default: no SPARQL 1.0 negative case turned out to be relaxed by 1.1.
+`eng/ratchet.cs` fails the build if any of those 1,437 stops passing, and an
+exemption with no written justification fails the run too.
 
 Also true today, and measured rather than asserted:
 
@@ -91,9 +105,24 @@ Also true today, and measured rather than asserted:
   CsCheck properties against a naive fold written from the specification
   alone. A scan allocates zero bytes per quad; AOT and the browser both run
   the store.
+- **The SPARQL parser allocates the tree and nothing else**: parsing 350 more
+  triple patterns allocates exactly what building them by hand allocates.
+  **Parse, write, parse gives the identical tree**, by record equality, over
+  3,000 generated queries and 3,000 generated updates per run and over every
+  positive corpus case; and every corpus case parsed as UTF-16 agrees with
+  its UTF-8 parse. AOT and the browser both parse a query and print its
+  algebra.
+- **The store's cardinality estimate is exact**, held to a counted scan over
+  generated histories at the head and at every as-of position (ADR 0049).
 
 **RDF 1.2 Turtle and TriG are not accepted at all** — deliberately, rather than
 half-accepted. `docs/spec/turtle.md` §9 lists the constructs and the reasoning.
+SPARQL 1.2 is accepted in full, triple terms, reifiers, annotations and
+`VERSION` included, because the algebra was built with 1.2 from the start.
+
+**Nothing evaluates a query yet.** `Varve.Sparql` parses to the algebra and
+writes it back; the optimiser and evaluator are milestone 5b, and until then a
+`SELECT` has a tree and no answer.
 
 **Nothing is published yet.** The package metadata and the trusted-publishing
 workflow are in place and await the first `v0.1.0-preview.1` tag.
@@ -117,6 +146,16 @@ await foreach (Quad quad in TurtleReader.ReadAsync(stream, baseIri))
 `Varve.Rdf` gives you the term model and the quad source contract if you only
 want those; `Varve.Iri` is usable on its own wherever `System.Uri` is the wrong
 answer, which for an IRI it is.
+
+```csharp
+Query query = SparqlParser.ParseQuery("SELECT ?s WHERE { ?s a ?type } LIMIT 10"u8);
+string algebra = SparqlWriter.ToText(query);   // parses back to the identical tree
+```
+
+`Varve.Sparql` parses SPARQL 1.1 and 1.2 Query and Update into an immutable
+algebra with a source span on every node, and `Varve.Xsd` gives the value
+spaces an evaluator compares with — `XsdDecimal`, `XsdDateTime` and the rest,
+allocation-free.
 
 ### Browser (WebAssembly)
 

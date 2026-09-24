@@ -209,7 +209,7 @@ landing on the trunk before the next starts:
 
 | Slice | Delivers | Gate |
 |---|---|---|
-| **5a** | The five ADRs below, `Varve.Xsd`, the SPARQL algebra, parser and serialiser (`Varve.Sparql`, layer 2), cardinality estimates and the typed-value accessor on `IQuadSource` | The W3C SPARQL 1.0, 1.1 and 1.2 syntax suites, query and update, in the ratchet |
+| **5a** *(complete)* | The five ADRs below, `Varve.Xsd`, the SPARQL algebra, parser and serialiser (`Varve.Sparql`, layer 2), cardinality estimates and the typed-value accessor on `IQuadSource` | The W3C SPARQL 1.0, 1.1 and 1.2 syntax suites, query and update, in the ratchet — **554 of 554, no exemption** |
 | **5b** | The optimiser and evaluator (`Varve.Sparql.Evaluation`, layer 3) over the in-memory projection; ADR 0022's benchmark per ADR 0050 | The SPARQL 1.1 query evaluation suite |
 | **5c** | The result formats (`Varve.Sparql.Results`, layer 2) and the SPARQL Update integration package at layer 5; RDFC-1.0 canonicalisation, which has waited since 3a and whose first consumer is the result comparison | The results-format and update evaluation suites |
 
@@ -231,6 +231,17 @@ accepted at the start of 5a:
 - [0052](adr/0052-pinned-read-lifetime.md) — a pinned read lives for one query
   execution, owned by the caller, with a maximum lifetime the server enforces
   at milestone 7.
+
+**5a landed** with `docs/spec/xsd.md`, `docs/spec/sparql-algebra.md` and
+`docs/spec/sparql-grammar.md` as the specifications; `Varve.Xsd` gated by its
+property tests and the XSD 1.1 examples until 5b's evaluation suite can gate
+it; the parser holding the round-trip identity over generated algebra and the
+whole corpus, allocating the tree and nothing else, and running under Native
+AOT and in the browser. What 5b inherits is in the traceability record
+(`docs/traceability/2026-09-24-issue-9-milestone-5a-xsd-and-sparql-algebra.md`):
+the aggregate extraction and the sequence-path rewrite the algebra leaves to
+the evaluator, ADR 0050's three-arm benchmark, and ADR 0051's dateTime order
+to verify.
 
 Turtle and TriG were planned for this milestone and shipped in 3b instead,
 which is why ADR 0007's exit criterion — the conformance harness reading its

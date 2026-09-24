@@ -14,12 +14,42 @@ published to nuget.org, so every change below is unreleased and the sections
 are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 ([ADR 0029](docs/adr/0029-publishing-and-versioning.md)).
 
+### Milestone 5a — XSD datatypes, the SPARQL algebra and parser
+
+#### Added
+
+- **xsd**: Varve.Xsd — the numeric types, boolean and string (fd23462f)
+- **xsd**: the date and time family on the seven-property model (0c76b62b)
+- **xsd**: durations, and duration arithmetic on dateTime and date (a3ee090f)
+- **store**: the canonical checks move to Varve.Xsd (14e49f16)
+- **rdf**: cardinality estimates and an inline-value accessor on the quad source (c4623191)
+- **sparql**: the algebra and the rewriter (84f2d064)
+- **sparql**: the query parser (f5e39d03)
+- **sparql**: the update parser (ffafa6a4)
+- **sparql**: the serialiser and the round-trip property (099439d4)
+- **conformance**: the SPARQL syntax suites, ratcheted at their own version (7cd5ae36)
+
+#### Changed
+
+- **adr**: 0048–0052, the milestone 5 positions as decisions (cd3de767)
+- **spec**: xsd.md — value spaces, mappings and the operator semantics (f9570905)
+- **xsd**: the properties that gate the package, and the XSD 1.1 examples (6d5da09a)
+- **spec**: the SPARQL grammar and algebra specifications (bcba772c)
+- **sparql**: the allocation assertion, and the parser under Native AOT and in the browser (f7adf8aa)
+- **sparql**: parse throughput against dotNetRDF (354039f7)
+
+#### Fixed
+
+- **store**: a merged run stays an exact delta (f013709c)
+
 ### Milestone 4 — the in-memory log and the default quad projection
 
 #### Added
 
 - **rdf**: QuadDelta and QuadOverlay — the delta and the overlay at layer 1 (38766d7c)
 - **store**: Varve.Store — the log, the sequencer and the default projection (7042ad7e)
+- **repo-standard**: export, plan, apply and check (4f874663)
+- **repo-standard**: the Action, and a replayed GitHub to test it against (9a26de48)
 
 #### Changed
 
@@ -29,6 +59,11 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **adr**: 0038, upstream contribution to Oxigraph and the shared suites (85262107)
 - ambient clock and randomness banned where log bytes are compared (c9f1b7e5)
 - **store**: the reference model, and the property that ties §10 together (6771c6a4)
+- **adr**: 0039, repo-standard, and the declaration it reads (863aa7aa)
+- **repo-standard**: recorded exchanges, the round trip, and a live test (3872227c)
+- repo-standard's build, tests, native binary and Action (3efd2762)
+- keep this repository's settings to a declaration, once there is one (c630dc8b)
+- **traceability**: the repo-standard session, and the state it leaves (1494885a)
 - **store**: I7 for every position, the failed state, subscriptions, and the rules one by one (94dbe65c)
 - **store**: allocation — zero per quad on a scan, the six key arrays on an index update (9febaf11)
 - the store under Native AOT and in the browser (9930a37a)
@@ -37,10 +72,17 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **traceability**: milestone 4 — the prompt, the model, and the report (7ff34f7d)
 - **spec**: version 1.3 — delta composition over chains, and I3 over triple terms (ccffd86c)
 - **roadmap**: the maintainer's positions for milestone 5, recorded until they are ADRs (88123e3c)
+- **changelog**: regenerated with specification 1.3 and the milestone 5 positions (4abff1ae)
+- the first repo-standard declaration for this repository (38fe4c05)
+- **adr**: 0032 amended — the gate runs after the push; ruleset 1 blocks nothing (997900e0)
+- **repo-standard**: trunk's strict mode off, and the session record (b078c8e3)
+- **repo-standard**: turn Discussions on (111c726b)
 
 #### Fixed
 
 - **store**: a cut inside a segment's preamble no longer bricks the next open (14502be9)
+- **repo-standard**: hash the downloaded binary from stdin (d83fd30f)
+- **repo-standard**: end each line as the wrapped writer does (5a7a2c9b)
 
 ### Stewardship — the Mind Over Machine standard
 
