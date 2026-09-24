@@ -95,6 +95,21 @@ specification, which moved to version 1.2 with 0046 and to 1.3 with 0047.
 | [0046](0046-settings-commits-reach-every-subscriber.md) | Settings commits reach every subscriber; specification 1.2 | Accepted; **amends 0016** |
 | [0047](0047-delta-composition-and-closure-over-triple-terms.md) | Delta composition over chains, and dictionary closure over triple terms; specification 1.3 | Accepted |
 
+## Milestone 5a — `Varve.Xsd`, the SPARQL algebra and parser
+
+Issue [#9](https://github.com/Hafeok/Varve/issues/9). The maintainer's
+positions from the close of milestone 4, written as decisions before the
+first SPARQL line; 0051 and 0052 also carry the answers to the plan's
+questions.
+
+| # | Title | Status |
+|---:|---|---|
+| [0048](0048-optimiser-and-evaluator-one-package-algebra-in-algebra-out.md) | Optimiser and evaluator: one package, algebra in and algebra out; closes 0003's open question 2 | Accepted |
+| [0049](0049-cardinality-estimates-on-the-quad-source.md) | Cardinality estimates on the quad source | Accepted; widens 0022 |
+| [0050](0050-typed-value-accessor-and-the-benchmark-for-adr-0022.md) | A typed-value accessor beside the handle, and the benchmark ADR 0022 asked for | Accepted; widens 0022, measurement due 5b |
+| [0051](0051-varve-xsd-scope-and-precision.md) | `Varve.Xsd`: scope, precision policy, canonical forms, and value comparison | Accepted; dateTime order verified in 5b |
+| [0052](0052-pinned-read-lifetime.md) | A pinned read lives for one query execution | Accepted; refines 0015 |
+
 ## Milestone 7 — the server
 
 Accepted ahead of the milestone, because the decision bears on what the server
@@ -139,7 +154,7 @@ carries a condition of its own that is not measurable by a build.
 | [0018](0018-storage-abstraction.md) | The in-memory and browser backends cannot both implement the contract without leaking backend detail. Members fixed when the first backend is written. | members **fixed** by [0040](0040-storage-contract-members-and-the-memory-backend.md); the memory backend and a second one outside the assembly implement them with nothing leaked. The browser half waits for milestone 6 |
 | [0020](0020-cipher-for-erasure-mode.md) | ~~AES-CBC, HMAC-SHA-256 and HKDF do not run on browser WASM when verified on a real build.~~ **Fired** at milestone 3a: `Aes.Create()` throws on browser-wasm and no symmetric cipher of any kind is available there. Superseded by 0028. | **fired**, superseded |
 | [0028](0028-deterministic-aead-from-hmac.md) | External cryptographic review rejects the construction. The fallback is then that erasure mode does not run in the browser, in its own ADR. Its other condition — the primitives run in a browser — is measured and holds. | milestone 9, before shipping |
-| [0022](0022-quad-source-term-handle.md) | Milestone 5 evaluator benchmarks show the opaque handle costs more than it saves. | milestone 5 |
+| [0022](0022-quad-source-term-handle.md) | Milestone 5 evaluator benchmarks show the opaque handle costs more than it saves. The accessor it named as its successor is built in 5a ([0050](0050-typed-value-accessor-and-the-benchmark-for-adr-0022.md)), which fixes the three arms and the verdict rule. | milestone 5b |
 | [0034](0034-commit-signing-and-the-sandbox-exception.md) | A route appears by which a sandbox commit is signed by a key the project controls, or by GitHub itself. Two are identified and neither is available: GraphQL `createCommitOnBranch`, blocked by the session proxy rather than by GitHub, and a per-installation signing key. The REST contents API was tested and is **not** one — it produces unsigned commits. | whenever it fires |
 
 ## Open questions recorded, not resolved
@@ -159,13 +174,15 @@ falls out of:
 | **Q8** | Key granularity when one term is about two data subjects | [0023](0023-erasure-and-access-requests.md) | milestone 9 |
 | **Q9** | Whether the structure surviving shredding counts as anonymous — **a legal question** | [0023](0023-erasure-and-access-requests.md) | milestone 9 |
 
-From ADR 0003, and still unresolved:
+From ADR 0003:
 
 - **0003 open question 1** — `Varve.Shacl` and the SPARQL evaluator are both
   placed in layer 3, yet SHACL-SPARQL depends on the evaluator. Due milestone 8.
-- **0003 open question 2** — the SPARQL optimiser and evaluator are both in
+- **0003 open question 2** — ~~the SPARQL optimiser and evaluator are both in
   layer 3. If the evaluator consumes a plan type the optimiser owns, they are one
-  package or two layers. Due milestone 5.
+  package or two layers.~~ **Closed** 2026-09-24 by
+  [0048](0048-optimiser-and-evaluator-one-package-algebra-in-algebra-out.md):
+  no plan type, one layer 3 package.
 
 ## Obligations recorded against a later milestone
 

@@ -204,21 +204,33 @@ in-process form is decided here, and the protocol form moves to milestone 7.
 ## 5 — The SPARQL parser and algebra, then the evaluator
 
 The evaluator runs over the in-memory projection through the abstract quad
-source contract.
+source contract. Too large for one session, so it is three slices, each
+landing on the trunk before the next starts:
 
-**Positions the maintainer took at the end of milestone 4**, to be written as
-ADRs when milestone 5 starts:
+| Slice | Delivers | Gate |
+|---|---|---|
+| **5a** | The five ADRs below, `Varve.Xsd`, the SPARQL algebra, parser and serialiser (`Varve.Sparql`, layer 2), cardinality estimates and the typed-value accessor on `IQuadSource` | The W3C SPARQL 1.0, 1.1 and 1.2 syntax suites, query and update, in the ratchet |
+| **5b** | The optimiser and evaluator (`Varve.Sparql.Evaluation`, layer 3) over the in-memory projection; ADR 0022's benchmark per ADR 0050 | The SPARQL 1.1 query evaluation suite |
+| **5c** | The result formats (`Varve.Sparql.Results`, layer 2) and the SPARQL Update integration package at layer 5; RDFC-1.0 canonicalisation, which has waited since 3a and whose first consumer is the result comparison | The results-format and update evaluation suites |
 
-- **The optimiser's output is algebra**, and the optimiser and the evaluator
-  share one layer 3 package. That closes ADR 0003's open question 2.
-- **`IQuadSource` gains a cardinality estimate** that may return *unknown*.
-- **A typed-value accessor beside the handle** for inline numerics, benchmarked
-  with and without it against the SPARQL evaluation suite. This is the
-  measurement ADR 0022's revisit condition asks for.
-- **`Varve.Xsd` owns canonical lexical forms**, and replaces the store's
-  private canonical-integer check.
-- **A pinned read lives for one query execution**, owned by the caller, with a
-  configurable maximum lifetime.
+**The positions the maintainer took at the end of milestone 4 are ADRs**, all
+accepted at the start of 5a:
+
+- [0048](adr/0048-optimiser-and-evaluator-one-package-algebra-in-algebra-out.md) —
+  the optimiser's output is algebra, and the optimiser and evaluator share one
+  layer 3 package. Closes ADR 0003's open question 2, by amendment there.
+- [0049](adr/0049-cardinality-estimates-on-the-quad-source.md) — `IQuadSource`
+  gains a cardinality estimate that may be exact, estimated or unknown.
+- [0050](adr/0050-typed-value-accessor-and-the-benchmark-for-adr-0022.md) — a
+  typed-value accessor beside the handle for inline values, and the three-arm
+  benchmark with a verdict rule fixed before the numbers exist, run in 5b.
+- [0051](adr/0051-varve-xsd-scope-and-precision.md) — `Varve.Xsd`'s scope,
+  precision policy (`Int128` fixed-point decimal, `Int64` integer), canonical
+  forms owned there and called from the store, and the implicit-timezone
+  total order for dateTime comparison, verified in 5b.
+- [0052](adr/0052-pinned-read-lifetime.md) — a pinned read lives for one query
+  execution, owned by the caller, with a maximum lifetime the server enforces
+  at milestone 7.
 
 Turtle and TriG were planned for this milestone and shipped in 3b instead,
 which is why ADR 0007's exit criterion — the conformance harness reading its

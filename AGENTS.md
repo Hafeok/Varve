@@ -30,15 +30,15 @@ shared mutable state, no static registries. **High cohesion**: one reason to cha
 |---:|---|
 | 0 | `Varve.Iri`, `Varve.Xsd` |
 | 1 | `Varve.Rdf` — model and the abstract quad source contract |
-| 2 | syntax: `Varve.Turtle`, `Varve.RdfXml`, `Varve.JsonLd`, `Varve.Sparql.Results`, SPARQL algebra and parser |
-| 3 | SPARQL optimiser and evaluator, `Varve.Shacl` |
+| 2 | syntax: `Varve.Turtle`, `Varve.RdfXml`, `Varve.JsonLd`, `Varve.Sparql.Results`, and `Varve.Sparql` (the algebra, parser and serialiser) |
+| 3 | `Varve.Sparql.Evaluation` (optimiser and evaluator, one package — ADR 0048), `Varve.Shacl` |
 | 4 | `Varve.Store` — log, projection contract, pre-commit validator contract |
 | 5 | integration and hosts |
 
 **Same-layer references are violations.** Contracts live in the lowest layer that
 can define them without knowing their implementers; `Varve.Store` is SPARQL-free
-(ADR 0005). ADR 0003's two open questions are **not resolved** — do not resolve
-them in passing. Each project declares `<VarveLayer>` (0–5, or `none`).
+(ADR 0005). ADR 0003's open question 1 (`Varve.Shacl` and the evaluator) is
+**not resolved** — do not resolve it in passing; question 2 was closed by ADR 0048. Each project declares `<VarveLayer>` (0–5, or `none`).
 
 ## How we work
 
