@@ -477,12 +477,15 @@ blank node everywhere in it. Beyond that the draft forbids:
 
 - a blank node anywhere in `DELETE WHERE`, `DELETE DATA` and a `DeleteClause`;
 - the same label in two separate basic graph patterns of a query — where
-  "separate" is what the translation makes separate: across `{ }` group
-  boundaries, and on either side of an `OPTIONAL`, `UNION`, `GRAPH`, `MINUS`,
-  `BIND`, `VALUES`, `SERVICE` or property path within one group, each of
-  which closes the basic graph pattern before it; a `FILTER` does not
-  (`syn-blabel-cross-graph-bad`, `-optional-bad`, `-union-bad`,
-  `syn-bad-OPT-breaks-BGP`, `-UNION-breaks-BGP`, `-GRAPH-breaks-BGP`);
+  "separate" is read as the suites read it: across `{ }` group boundaries,
+  and on either side of an `OPTIONAL`, `UNION`, `GRAPH`, `MINUS`, `BIND`,
+  `VALUES` or `SERVICE` within one group, each of which closes the run of
+  triples before it. A `FILTER` does not close it, and neither does a
+  property path: a run of triples and paths is one scope, which the positive
+  cases with paths inside collections require, even though the translation
+  makes two `Bgp` nodes of it (`syn-blabel-cross-graph-bad`, `-optional-bad`,
+  `-union-bad`, `syn-bad-OPT-breaks-BGP`, `-UNION-breaks-BGP`,
+  `-GRAPH-breaks-BGP`, `syn-pp-in-collection`);
 - the same label in two `WHERE` clauses of one update request, or in two
   `INSERT DATA` operations of one request (`syntax-update-bad-*`).
 

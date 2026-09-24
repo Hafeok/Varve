@@ -674,6 +674,7 @@ Varve.Sparql.SparqlVersion
 Varve.Sparql.SparqlVersion.Sparql11 = 1 -> Varve.Sparql.SparqlVersion
 Varve.Sparql.SparqlVersion.Sparql12 = 3 -> Varve.Sparql.SparqlVersion
 Varve.Sparql.SparqlVersion.Sparql12Basic = 2 -> Varve.Sparql.SparqlVersion
+Varve.Sparql.SparqlWriter
 abstract Varve.Sparql.Algebra.AlgebraNode.<Clone>$() -> Varve.Sparql.Algebra.AlgebraNode!
 abstract Varve.Sparql.Algebra.Query.Pattern.get -> Varve.Sparql.Algebra.QueryPattern!
 abstract Varve.Sparql.Algebra.Query.Pattern.init -> void
@@ -1218,6 +1219,10 @@ static Varve.Sparql.SparqlParser.TryParseQuery(System.ReadOnlySpan<byte> utf8, V
 static Varve.Sparql.SparqlParser.TryParseQuery(System.ReadOnlySpan<char> text, Varve.Sparql.SparqlParseOptions options, out Varve.Sparql.Algebra.Query? query, out Varve.Sparql.SparqlParseError error) -> bool
 static Varve.Sparql.SparqlParser.TryParseUpdate(System.ReadOnlySpan<byte> utf8, Varve.Sparql.SparqlParseOptions options, out Varve.Sparql.Algebra.Update? update, out Varve.Sparql.SparqlParseError error) -> bool
 static Varve.Sparql.SparqlParser.TryParseUpdate(System.ReadOnlySpan<char> text, Varve.Sparql.SparqlParseOptions options, out Varve.Sparql.Algebra.Update? update, out Varve.Sparql.SparqlParseError error) -> bool
+static Varve.Sparql.SparqlWriter.ToText(Varve.Sparql.Algebra.Query! query) -> string!
+static Varve.Sparql.SparqlWriter.ToText(Varve.Sparql.Algebra.Update! update) -> string!
+static Varve.Sparql.SparqlWriter.Write(Varve.Sparql.Algebra.Query! query, System.Buffers.IBufferWriter<byte>! output) -> void
+static Varve.Sparql.SparqlWriter.Write(Varve.Sparql.Algebra.Update! update, System.Buffers.IBufferWriter<byte>! output) -> void
 virtual Varve.Sparql.Algebra.AlgebraNode.EqualityContract.get -> System.Type!
 virtual Varve.Sparql.Algebra.AlgebraNode.Equals(Varve.Sparql.Algebra.AlgebraNode? other) -> bool
 virtual Varve.Sparql.Algebra.AlgebraNode.PrintMembers(System.Text.StringBuilder! builder) -> bool

@@ -113,6 +113,12 @@ internal ref partial struct Parser
 
         try
         {
+            if (Accept(TokenKind.Nil))
+            {
+                // '!()' — the lexer reads the empty parentheses as NIL.
+                return new NegatedPropertySet(default, default) { Span = From(start) };
+            }
+
             if (Accept(TokenKind.LeftParen))
             {
                 if (!Accept(TokenKind.RightParen))

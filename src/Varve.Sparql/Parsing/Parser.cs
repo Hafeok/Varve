@@ -45,6 +45,7 @@ internal ref partial struct Parser
     private readonly SparqlVersion _widest;
     private SparqlVersion _version;
     private SparqlVersion? _declaredVersion;
+    private RdfTerm? _declaredBase;
 
     private PooledBytes _scratch;
     private PooledBytes _resolved;

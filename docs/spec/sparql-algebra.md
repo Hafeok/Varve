@@ -409,11 +409,14 @@ The text is canonical and not the author's:
   not need and a source of bugs it does not want.
 - `SELECT` always lists its variables; `SELECT *` is never written. `WHERE` is
   always written.
-- Every `Join` operand is in its own `{ }`. Two adjacent `Bgp`s would merge
-  on re-parse (§18.3.2.6), so `Join(Bgp₁, Bgp₂)` is `{ { … } { … } }`, and a
-  `Bgp` is written without extra braces only where it is the sole content of
-  a group. Left-nested `Join` chains flatten into one group, since a group
-  folds left; left-nested `Union` chains flatten the same way.
+- A `Join` operand that could merge with its neighbour is in its own `{ }`.
+  Two adjacent `Bgp`s would merge on re-parse (§18.3.2.6), so
+  `Join(Bgp₁, Bgp₂)` is `t₁ { t₂ }`; a `Bgp` after anything else, and a
+  `PathPattern` anywhere, go bare, because nothing but triples merges with
+  triples. Every other operand — a `Filter`, a `Union`, a sub-`SELECT` —
+  is braced so that its structure survives the group fold. Left-nested
+  `Join` chains flatten into one group, since a group folds left;
+  left-nested `Union` chains flatten the same way.
 - `Filter(F, A)` is `{ A' FILTER(F) }` with `A'` written as a group element,
   which for a nested `Filter` means nested braces: `Filter(F, Filter(G, A))`
   is `{ { { A } FILTER(G) } FILTER(F) }`.
@@ -435,9 +438,10 @@ The text is canonical and not the author's:
   the corresponding terminal exactly; otherwise in `"…"^^<…>` form.
 - Blank nodes are written with their labels; `[]` and the 1.2 shorthands are
   never written, so no label is generated on re-parse.
-- 1.2 constructs are written in 1.2 syntax, and a tree containing one is
-  written with `VERSION "1.2"` if its prologue does not already carry a
-  version, so that the text says what it needs.
+- 1.2 constructs are written in 1.2 syntax. The prologue is written as the
+  tree carries it and no `VERSION` is added, because an added declaration
+  would come back as part of the tree and break the identity; the text is
+  for the 1.2 parser, which is the default.
 
 The parser's image is the set of trees the rules of §4 can produce. A
 generator for the property test stays inside it: fresh variable per

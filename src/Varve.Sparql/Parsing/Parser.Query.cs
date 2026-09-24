@@ -54,7 +54,6 @@ internal ref partial struct Parser
     private Prologue ParsePrologue()
     {
         Token start = _token;
-        RdfTerm? baseIri = null;
 
         while (true)
         {
@@ -62,8 +61,9 @@ internal ref partial struct Parser
 
             if (AcceptWord("BASE"u8))
             {
-                baseIri = ParseIriRef();
+                RdfTerm baseIri = ParseIriRef();
                 DeclareBase(baseIri);
+                _declaredBase = baseIri;
             }
             else if (AcceptWord("PREFIX"u8))
             {
@@ -83,9 +83,9 @@ internal ref partial struct Parser
             }
         }
 
-        // A second prologue in an update request adds to the first; the
-        // prefixes accumulate and the last base wins.
-        return new Prologue(baseIri, AlgebraList.From(_prefixes.Span), _declaredVersion) { Span = From(start) };
+        // A second prologue in an update request adds to the first: the
+        // prefixes accumulate, and the last base and version declared win.
+        return new Prologue(_declaredBase, AlgebraList.From(_prefixes.Span), _declaredVersion) { Span = From(start) };
     }
 
     /// <summary><c>[8] VersionSpecifier ::= STRING_LITERAL1 | STRING_LITERAL2</c>: a short string naming a version no wider than the caller's.</summary>
@@ -538,7 +538,8 @@ internal ref partial struct Parser
 
             if (values is not null)
             {
-                pattern = new Join(pattern, values) { Span = values.Span };
+                // Join(Z, A) is A (§18.3.2.9), for an empty WHERE as anywhere.
+                pattern = pattern is Bgp { Triples.IsEmpty: true } ? values : new Join(pattern, values) { Span = values.Span };
             }
 
             // VS': what the pattern makes visible. After a Group that is the

@@ -67,13 +67,13 @@ internal ref partial struct Parser
 
                 if (AcceptWord("OPTIONAL"u8))
                 {
-                    FlushTriples();
+                    CloseLabelScope();
                     QueryPattern body = ParseGroup(out Expression? condition);
                     _group = new LeftJoin(_group ?? Empty(at), body, condition) { Span = From(at) };
                 }
                 else if (AcceptWord("MINUS"u8))
                 {
-                    FlushTriples();
+                    CloseLabelScope();
                     QueryPattern body = ParseGroupGraphPattern();
                     _group = new Minus(_group ?? Empty(at), body) { Span = From(at) };
                 }
@@ -86,24 +86,24 @@ internal ref partial struct Parser
                     Variable variable = ParseVariable();
                     Expect(TokenKind.RightParen, "')'");
                     CheckBindScope(variable, variableToken);
-                    FlushTriples();
+                    CloseLabelScope();
                     _group = new Extend(_group ?? Empty(at), variable, expression) { Span = From(at) };
                 }
                 else if (AcceptWord("VALUES"u8))
                 {
-                    FlushTriples();
+                    CloseLabelScope();
                     AddToGroup(ParseDataBlock(at));
                 }
                 else if (AcceptWord("GRAPH"u8))
                 {
-                    FlushTriples();
+                    CloseLabelScope();
                     PatternTerm name = ParseVarOrIri();
                     QueryPattern body = ParseGroupGraphPattern();
                     AddToGroup(new Graph(name, body) { Span = From(at) });
                 }
                 else if (AcceptWord("SERVICE"u8))
                 {
-                    FlushTriples();
+                    CloseLabelScope();
                     bool silent = AcceptWord("SILENT"u8);
                     PatternTerm name = ParseVarOrIri();
                     QueryPattern body = ParseGroupGraphPattern();
@@ -115,7 +115,7 @@ internal ref partial struct Parser
                 }
                 else if (Is(TokenKind.LeftBrace))
                 {
-                    FlushTriples();
+                    CloseLabelScope();
                     QueryPattern union = ParseGroupGraphPattern();
 
                     while (AcceptWord("UNION"u8))
@@ -178,10 +178,19 @@ internal ref partial struct Parser
         TriplePattern first = _triples[0];
         TriplePattern last = _triples[_triples.Count - 1];
         AddToGroup(new Bgp(_triples.Drain()) { Span = new SourceSpan(first.Span.Start, last.Span.End, first.Span.Line, first.Span.Column) });
+    }
 
-        // The basic graph pattern is closed: a blank node label written after
-        // this point is in a separate one (grammar §3.6), which is what the
-        // 1.0 suite's "OPTIONAL breaks BGP" cases pin.
+    /// <summary>
+    /// A non-triples element closes the run of triples before it for blank
+    /// node labels (grammar §3.6): a label written after this point is in a
+    /// separate basic graph pattern, which is what the 1.0 suite's "OPTIONAL
+    /// breaks BGP" cases pin. A property path does not close it, nor does
+    /// FILTER: the run of triples and paths is one scope, as the suites'
+    /// collections with paths inside them require.
+    /// </summary>
+    private void CloseLabelScope()
+    {
+        FlushTriples();
         _groupId = ++_nextGroupId;
     }
 
