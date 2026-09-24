@@ -78,6 +78,23 @@ superseding ADR rather than an edit.
 | [0035](0035-semantic-versioning.md) | Semantic versioning | Accepted; complements 0029 |
 | [0036](0036-containerised-development.md) | Containerised development and the local pipeline | Accepted |
 
+
+## Milestone 4 — the in-memory log
+
+Issue [#8](https://github.com/Hafeok/Varve/issues/8). The first code against the
+specification, which moved to version 1.2 with 0046 and to 1.3 with 0047.
+
+| # | Title | Status |
+|---:|---|---|
+| [0040](0040-storage-contract-members-and-the-memory-backend.md) | The storage contract's members, and where the memory backend lives | Accepted |
+| [0041](0041-sorted-runs-for-the-default-projection-and-checkpoints.md) | Sorted runs for the default projection and for checkpoints | Accepted |
+| [0042](0042-subscriptions-pull-from-the-log.md) | Subscriptions pull from the log | Accepted |
+| [0043](0043-the-reference-model-as-a-test-asset.md) | The reference model is a test asset | Accepted |
+| [0044](0044-blank-node-identity-in-process.md) | Blank node identity at the in-process boundary (Q1, split) | Accepted |
+| [0045](0045-the-provisional-in-memory-log-encoding.md) | The provisional log encoding, and the in-memory id layout | Accepted, provisional by design |
+| [0046](0046-settings-commits-reach-every-subscriber.md) | Settings commits reach every subscriber; specification 1.2 | Accepted; **amends 0016** |
+| [0047](0047-delta-composition-and-closure-over-triple-terms.md) | Delta composition over chains, and dictionary closure over triple terms; specification 1.3 | Accepted |
+
 ## Milestone 7 — the server
 
 Accepted ahead of the milestone, because the decision bears on what the server
@@ -118,8 +135,8 @@ carries a condition of its own that is not measurable by a build.
 
 | ADR | Condition | Due |
 |---|---|---|
-| [0012](0012-term-dictionary-and-id-scheme.md) | Milestone 4 benchmarks of index size and scan throughput contradict 64-bit counter-allocated ids. No bytes are frozen before milestone 6. | milestone 4 |
-| [0018](0018-storage-abstraction.md) | The in-memory and browser backends cannot both implement the contract without leaking backend detail. Members fixed when the first backend is written. | milestone 4 |
+| [0012](0012-term-dictionary-and-id-scheme.md) | Milestone 4 benchmarks of index size and scan throughput contradict 64-bit counter-allocated ids. No bytes are frozen before milestone 6. | **did not fire** at milestone 4: 192 bytes per quad for six orders, 37–45 M quads/s scanned (`tests/Varve.Benchmarks/README.md`). The on-disk locality hypothesis waits for milestone 6 |
+| [0018](0018-storage-abstraction.md) | The in-memory and browser backends cannot both implement the contract without leaking backend detail. Members fixed when the first backend is written. | members **fixed** by [0040](0040-storage-contract-members-and-the-memory-backend.md); the memory backend and a second one outside the assembly implement them with nothing leaked. The browser half waits for milestone 6 |
 | [0020](0020-cipher-for-erasure-mode.md) | ~~AES-CBC, HMAC-SHA-256 and HKDF do not run on browser WASM when verified on a real build.~~ **Fired** at milestone 3a: `Aes.Create()` throws on browser-wasm and no symmetric cipher of any kind is available there. Superseded by 0028. | **fired**, superseded |
 | [0028](0028-deterministic-aead-from-hmac.md) | External cryptographic review rejects the construction. The fallback is then that erasure mode does not run in the browser, in its own ADR. Its other condition — the primitives run in a browser — is measured and holds. | milestone 9, before shipping |
 | [0022](0022-quad-source-term-handle.md) | Milestone 5 evaluator benchmarks show the opaque handle costs more than it saves. | milestone 5 |
@@ -132,7 +149,7 @@ falls out of:
 
 | | Question | Owner | Due |
 |---|---|---|---|
-| **Q1** | External form of store-scoped blank node identity at API and protocol boundaries | [0012](0012-term-dictionary-and-id-scheme.md) | milestone 4 |
+| **Q1** | External form of store-scoped blank node identity at protocol boundaries. The in-process half is **decided** by [0044](0044-blank-node-identity-in-process.md): by handle | [0012](0012-term-dictionary-and-id-scheme.md) | milestone 7, with the server |
 | **Q2** | Bulk load and I2 — normalising a huge commit against a populated dataset | [0013](0013-records-commits-and-bulk-load.md) | milestone 6 |
 | **Q3** | Bulk load and validators — an overlay that does not fit in memory | [0013](0013-records-commits-and-bulk-load.md), with [0017](0017-validator-contract-and-overlay.md) | milestone 6 |
 | **Q4** | How a shredded term appears in SPARQL results and serialisations | [0023](0023-erasure-and-access-requests.md) | milestone 9 |
@@ -158,8 +175,6 @@ From ADR 0003, and still unresolved:
   question (whether a `spec-gap` entry must cite a W3C suite PR) is due then too.
 - **ADR 0004** — the `System.Uri` ban is wider than the brief scopes it. Narrow
   before layer 5 exists.
-- **ADR 0011** — banned-symbols entry for ambient clock and randomness under
-  `Varve.Store`, which §10's determinism test depends on. Due milestone 4.
 - **ADR 0014** — the storage format must carry a version discriminator from the
   start, so a change to what is hashed is a migration rather than a corruption.
 

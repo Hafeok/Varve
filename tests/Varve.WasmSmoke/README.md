@@ -1,7 +1,8 @@
 # Varve.WasmSmoke
 
-A `browser-wasm` app that does three things on one page: parses N-Quads, reads
-and writes Turtle and TriG, and probes the cryptographic primitives ADR 0028's
+A `browser-wasm` app that does four things on one page: parses N-Quads, reads
+and writes Turtle and TriG, opens an in-memory `Varve.Store` dataset — commit,
+pin, checkpoint, as-of, and a reopen from its own log — and probes the cryptographic primitives ADR 0028's
 composition needs.
 
 Turtle is there because N-Quads exercises none of what it adds — the statement
@@ -60,6 +61,12 @@ any row makes this fail. That is the correct behaviour in both directions: a
 cipher appearing in the browser is the signal that ADR 0028's alternatives are
 worth revisiting, and a primitive disappearing would break 0028 itself. It is
 also why the app reports every row rather than throwing on the first failure.
+
+**The store runs in the browser** (milestone 4, headless Chromium 141): two
+commits, a pinned read, a checkpoint, an as-of read over it, and a reopen that
+verifies the chain and loads the checkpoint. `Run` is asynchronous and the page
+awaits it, because the storage contract is asynchronous throughout (ADR 0018)
+and a browser has one thread to block.
 
 A `404` for `/favicon.ico` in the console is Chromium asking for one that the
 app bundle does not contain. It is not a failure.

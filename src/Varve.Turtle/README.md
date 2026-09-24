@@ -52,4 +52,4 @@ valid only for that call — which the type system enforces, because a
 `ref struct` cannot be captured or stored. Call `Materialise()` to keep one.
 
 Layer 2 of [Varve](https://github.com/Hafeok/Varve), a .NET-native
-event-sourced RDF store and SPARQL toolkit. Apache-2.0.
+event-sourced RDF store and SPARQL toolkit. MPL-2.0.

@@ -157,6 +157,12 @@ jobs:
           --project tests/Varve.Turtle.Tests/Varve.Turtle.Tests.csproj
           --configuration Release
 
+      - name: Test Varve.Store
+        run: >
+          dotnet test
+          --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj
+          --configuration Release
+
       # tools/repo-standard: its own solution, built and tested on both
       # platforms (ADR 0039). Not packed: it is not published from here.
       - name: Build repo-standard

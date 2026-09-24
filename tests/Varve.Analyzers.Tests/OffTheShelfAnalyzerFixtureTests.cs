@@ -49,6 +49,27 @@ public class OffTheShelfAnalyzerFixtureTests
     }
 
     [Fact]
+    public async Task Reading_the_clock_in_a_deterministic_project_fails_the_build_with_RS0030()
+    {
+        // The second list is wired by VarveDeterministic, the property
+        // Varve.Store sets. A list that never reaches the analyzer would pass
+        // this build silently, which is why the fixture opts in the same way.
+        BuildResult result = await FixtureBuild.RunAsync(
+            Path.Combine("banned-api", "Varve.Fixture.AmbientClock", "Varve.Fixture.AmbientClock.csproj"));
+
+        Assert.True(
+            result.ExitCode != 0,
+            "Varve.Fixture.AmbientClock reads DateTimeOffset.UtcNow and Random, which "
+            + "eng/BannedSymbols.Deterministic.txt bans, and must not build."
+            + Environment.NewLine + result.Output);
+
+        Assert.Contains("RS0030", result.Output, StringComparison.Ordinal);
+        Assert.Contains("DateTimeOffset.UtcNow", result.Output, StringComparison.Ordinal);
+        Assert.Contains("'Random'", result.Output, StringComparison.Ordinal);
+        Assert.Contains("ADR 0011", result.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task A_public_member_missing_from_the_baseline_fails_the_build_with_RS0016()
     {
         BuildResult result = await FixtureBuild.RunAsync(

@@ -1,0 +1,206 @@
+#nullable enable
+Varve.Store.Durability
+Varve.Store.Durability.Committed = 1 -> Varve.Store.Durability
+Varve.Store.Durability.None = 0 -> Varve.Store.Durability
+Varve.Store.Durability.Synchronised = 2 -> Varve.Store.Durability
+Varve.Store.IDerivedStore
+Varve.Store.IDerivedStore.DeleteAsync(string! name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
+Varve.Store.IDerivedStore.GetRangeAsync(string! name, long offset, int length, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.ReadOnlyMemory<byte>>
+Varve.Store.IDerivedStore.ListAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<string!>!>
+Varve.Store.IDerivedStore.PutAsync(string! name, System.ReadOnlyMemory<byte> bytes, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Store.ISegmentStore
+Varve.Store.ISegmentStore.AppendAsync(int segment, System.ReadOnlyMemory<byte> bytes, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Store.ISegmentStore.CreateSegmentAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<int>
+Varve.Store.ISegmentStore.Durability.get -> Varve.Store.Durability
+Varve.Store.ISegmentStore.FlushAsync(int segment, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Store.ISegmentStore.ListSegmentsAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Varve.Store.SegmentInfo>!>
+Varve.Store.ISegmentStore.ReadRangeAsync(int segment, long offset, int length, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.ReadOnlyMemory<byte>>
+Varve.Store.ISegmentStore.SealAsync(int segment, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Store.IStorage
+Varve.Store.IStorage.Derived.get -> Varve.Store.IDerivedStore!
+Varve.Store.IStorage.Log.get -> Varve.Store.ISegmentStore!
+Varve.Store.MemoryStorage
+Varve.Store.MemoryStorage.Derived.get -> Varve.Store.IDerivedStore!
+Varve.Store.MemoryStorage.Log.get -> Varve.Store.ISegmentStore!
+Varve.Store.MemoryStorage.MemoryStorage() -> void
+Varve.Store.SegmentInfo
+Varve.Store.SegmentInfo.Equals(Varve.Store.SegmentInfo other) -> bool
+Varve.Store.SegmentInfo.Id.get -> int
+Varve.Store.SegmentInfo.IsSealed.get -> bool
+Varve.Store.SegmentInfo.Length.get -> long
+Varve.Store.SegmentInfo.SegmentInfo() -> void
+Varve.Store.SegmentInfo.SegmentInfo(int id, long length, bool isSealed) -> void
+override Varve.Store.SegmentInfo.Equals(object? obj) -> bool
+override Varve.Store.SegmentInfo.GetHashCode() -> int
+static Varve.Store.MemoryStorage.FromSegments(System.Collections.Generic.IEnumerable<System.ReadOnlyMemory<byte>>! log, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, System.ReadOnlyMemory<byte>>>? derived = null) -> Varve.Store.MemoryStorage!
+static Varve.Store.SegmentInfo.operator !=(Varve.Store.SegmentInfo left, Varve.Store.SegmentInfo right) -> bool
+static Varve.Store.SegmentInfo.operator ==(Varve.Store.SegmentInfo left, Varve.Store.SegmentInfo right) -> bool
+Varve.Store.AccessScope
+Varve.Store.AccessScope.AllHistory = 0 -> Varve.Store.AccessScope
+Varve.Store.AccessScope.Current = 1 -> Varve.Store.AccessScope
+Varve.Store.Commit
+Varve.Store.Commit.Agent.get -> Varve.Rdf.TermHandle
+Varve.Store.Commit.Allocations.get -> System.ReadOnlyMemory<Varve.Store.TermAllocation>
+Varve.Store.Commit.Attachments.get -> System.ReadOnlyMemory<Varve.Rdf.TermHandle>
+Varve.Store.Commit.Cause.get -> Varve.Rdf.TermHandle
+Varve.Store.Commit.Delta.get -> Varve.Rdf.QuadDelta
+Varve.Store.Commit.GraphScope.get -> Varve.Rdf.TermHandle
+Varve.Store.Commit.Kind.get -> Varve.Store.CommitKind
+Varve.Store.Commit.Position.get -> long
+Varve.Store.Commit.Timestamp.get -> System.DateTimeOffset
+Varve.Store.CommitKind
+Varve.Store.CommitKind.Data = 0 -> Varve.Store.CommitKind
+Varve.Store.CommitKind.Erasure = 1 -> Varve.Store.CommitKind
+Varve.Store.CommitKind.Settings = 2 -> Varve.Store.CommitKind
+Varve.Store.CommitMetadata
+Varve.Store.CommitMetadata.Agent.get -> Varve.Store.RequestTerm
+Varve.Store.CommitMetadata.Agent.init -> void
+Varve.Store.CommitMetadata.Cause.get -> Varve.Store.RequestTerm
+Varve.Store.CommitMetadata.Cause.init -> void
+Varve.Store.CommitMetadata.CommitMetadata() -> void
+Varve.Store.CommitMetadata.GraphScope.get -> Varve.Store.RequestTerm
+Varve.Store.CommitMetadata.GraphScope.init -> void
+Varve.Store.CommitOutcome
+Varve.Store.CommitOutcome.Committed = 0 -> Varve.Store.CommitOutcome
+Varve.Store.CommitOutcome.Conflict = 2 -> Varve.Store.CommitOutcome
+Varve.Store.CommitOutcome.NoChange = 1 -> Varve.Store.CommitOutcome
+Varve.Store.CommitOutcome.Rejected = 3 -> Varve.Store.CommitOutcome
+Varve.Store.CommitOutcome.Unavailable = 4 -> Varve.Store.CommitOutcome
+Varve.Store.CommitRequest
+Varve.Store.CommitRequest.Assert(Varve.Store.RequestTerm subject, Varve.Store.RequestTerm predicate, Varve.Store.RequestTerm object) -> Varve.Store.CommitRequest!
+Varve.Store.CommitRequest.Assert(Varve.Store.RequestTerm subject, Varve.Store.RequestTerm predicate, Varve.Store.RequestTerm object, Varve.Store.RequestTerm graph) -> Varve.Store.CommitRequest!
+Varve.Store.CommitRequest.CommitRequest() -> void
+Varve.Store.CommitRequest.Count.get -> int
+Varve.Store.CommitRequest.ExpectedPosition.get -> long?
+Varve.Store.CommitRequest.ExpectedPosition.init -> void
+Varve.Store.CommitRequest.Metadata.get -> Varve.Store.CommitMetadata!
+Varve.Store.CommitRequest.Metadata.init -> void
+Varve.Store.CommitRequest.Retract(Varve.Store.RequestTerm subject, Varve.Store.RequestTerm predicate, Varve.Store.RequestTerm object) -> Varve.Store.CommitRequest!
+Varve.Store.CommitRequest.Retract(Varve.Store.RequestTerm subject, Varve.Store.RequestTerm predicate, Varve.Store.RequestTerm object, Varve.Store.RequestTerm graph) -> Varve.Store.CommitRequest!
+Varve.Store.CommitRequest.Validators.get -> System.Collections.Generic.IList<Varve.Store.ICommitValidator!>!
+Varve.Store.CommitResult
+Varve.Store.CommitResult.CommitResult() -> void
+Varve.Store.CommitResult.Equals(Varve.Store.CommitResult other) -> bool
+Varve.Store.CommitResult.Outcome.get -> Varve.Store.CommitOutcome
+Varve.Store.CommitResult.Position.get -> long
+Varve.Store.CommitResult.Reason.get -> string?
+Varve.Store.CommitResult.Report.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Store.Dataset
+Varve.Store.Dataset.AsOfAsync(long position, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.DatasetView!>
+Varve.Store.Dataset.AsOfTimestampAsync(System.DateTimeOffset timestamp, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.DatasetView!>
+Varve.Store.Dataset.CatchUpAsync(Varve.Store.IProjection! projection, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Varve.Store.Dataset.ChangeSettingsAsync(Varve.Store.SettingsChange! change, Varve.Store.CommitMetadata! metadata, long? expectedPosition = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.CommitResult>
+Varve.Store.Dataset.CheckpointAsync(long position, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Varve.Store.Dataset.Checkpoints.get -> System.Collections.Generic.IReadOnlyList<long>!
+Varve.Store.Dataset.CommitAsync(Varve.Store.CommitRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.CommitResult>
+Varve.Store.Dataset.DiffAsync(long from, long to, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Rdf.QuadDelta>
+Varve.Store.Dataset.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Varve.Store.Dataset.DropCheckpointAsync(long position, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Varve.Store.Dataset.Durability.get -> Varve.Store.Durability
+Varve.Store.Dataset.Head.get -> long
+Varve.Store.Dataset.IsFailed.get -> bool
+Varve.Store.Dataset.Pin() -> Varve.Store.DatasetView!
+Varve.Store.Dataset.PositionAt(System.DateTimeOffset timestamp) -> long
+Varve.Store.Dataset.RebuildAsync(Varve.Store.IProjection! projection, bool fromCheckpoint, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Varve.Store.Dataset.RebuildDefaultProjectionAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Varve.Store.Dataset.Settings.get -> Varve.Store.DatasetSettings!
+Varve.Store.Dataset.SettingsAtAsync(long position, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.DatasetSettings!>
+Varve.Store.Dataset.Subscribe(long from, Varve.Store.SubscriptionFilter filter, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Varve.Store.Commit!>!
+Varve.Store.DatasetOptions
+Varve.Store.DatasetOptions.Clock.get -> System.TimeProvider!
+Varve.Store.DatasetOptions.Clock.init -> void
+Varve.Store.DatasetOptions.DatasetOptions() -> void
+Varve.Store.DatasetOptions.MaxRecordBytes.get -> int
+Varve.Store.DatasetOptions.MaxRecordBytes.init -> void
+Varve.Store.DatasetOptions.SegmentBytes.get -> long
+Varve.Store.DatasetOptions.SegmentBytes.init -> void
+Varve.Store.DatasetSettings
+Varve.Store.DatasetSettings.DefaultAccessScope.get -> Varve.Store.AccessScope
+Varve.Store.DatasetUnavailableException
+Varve.Store.DatasetUnavailableException.DatasetUnavailableException() -> void
+Varve.Store.DatasetUnavailableException.DatasetUnavailableException(string! message) -> void
+Varve.Store.DatasetUnavailableException.DatasetUnavailableException(string! message, System.Exception! innerException) -> void
+Varve.Store.DatasetView
+Varve.Store.DatasetView.Contains(in Varve.Rdf.Quad quad) -> bool
+Varve.Store.DatasetView.Dispose() -> void
+Varve.Store.DatasetView.Match(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object, Varve.Rdf.GraphPattern graph) -> Varve.Rdf.IQuadCursor!
+Varve.Store.DatasetView.Position.get -> long
+Varve.Store.DatasetView.TermComparer.get -> System.Collections.Generic.IEqualityComparer<Varve.Rdf.TermHandle>!
+Varve.Store.DatasetView.TryExternalise(Varve.Rdf.TermHandle handle, out Varve.Rdf.RdfTerm! term) -> bool
+Varve.Store.DatasetView.TryInternalise(Varve.Rdf.RdfTerm! term, out Varve.Rdf.TermHandle handle) -> bool
+Varve.Store.ICommitValidator
+Varve.Store.ICommitValidator.Validate(Varve.Rdf.IQuadSource! proposed, Varve.Rdf.QuadDelta delta) -> Varve.Store.ValidationVerdict
+Varve.Store.IProjection
+Varve.Store.IProjection.ApplyAsync(Varve.Store.Commit! commit, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Store.IProjection.Position.get -> long
+Varve.Store.IProjection.ResetAsync(Varve.Store.DatasetView? checkpoint, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Store.LogChain
+Varve.Store.LogVerificationException
+Varve.Store.LogVerificationException.LogVerificationException() -> void
+Varve.Store.LogVerificationException.LogVerificationException(long position, string! message) -> void
+Varve.Store.LogVerificationException.LogVerificationException(string! message) -> void
+Varve.Store.LogVerificationException.LogVerificationException(string! message, System.Exception! innerException) -> void
+Varve.Store.LogVerificationException.Position.get -> long
+Varve.Store.RequestTerm
+Varve.Store.RequestTerm.Equals(Varve.Store.RequestTerm other) -> bool
+Varve.Store.RequestTerm.Handle.get -> Varve.Rdf.TermHandle
+Varve.Store.RequestTerm.IsExisting.get -> bool
+Varve.Store.RequestTerm.IsNone.get -> bool
+Varve.Store.RequestTerm.RequestTerm() -> void
+Varve.Store.RequestTerm.Term.get -> Varve.Rdf.RdfTerm?
+Varve.Store.SettingsChange
+Varve.Store.SettingsChange.DefaultAccessScope.get -> Varve.Store.AccessScope?
+Varve.Store.SettingsChange.DefaultAccessScope.init -> void
+Varve.Store.SettingsChange.SettingsChange() -> void
+Varve.Store.SubscriptionFilter
+Varve.Store.SubscriptionFilter.Equals(Varve.Store.SubscriptionFilter other) -> bool
+Varve.Store.SubscriptionFilter.Graph.get -> Varve.Rdf.GraphPattern
+Varve.Store.SubscriptionFilter.Matches(in Varve.Rdf.Quad quad) -> bool
+Varve.Store.SubscriptionFilter.Object.get -> Varve.Rdf.TermHandle
+Varve.Store.SubscriptionFilter.Predicate.get -> Varve.Rdf.TermHandle
+Varve.Store.SubscriptionFilter.Subject.get -> Varve.Rdf.TermHandle
+Varve.Store.SubscriptionFilter.SubscriptionFilter() -> void
+Varve.Store.TermAllocation
+Varve.Store.TermAllocation.Equals(Varve.Store.TermAllocation other) -> bool
+Varve.Store.TermAllocation.Handle.get -> Varve.Rdf.TermHandle
+Varve.Store.TermAllocation.Term.get -> Varve.Rdf.RdfTerm!
+Varve.Store.TermAllocation.TermAllocation() -> void
+Varve.Store.ValidationVerdict
+Varve.Store.ValidationVerdict.Attachment.get -> Varve.Rdf.RdfTerm?
+Varve.Store.ValidationVerdict.Equals(Varve.Store.ValidationVerdict other) -> bool
+Varve.Store.ValidationVerdict.IsAccepted.get -> bool
+Varve.Store.ValidationVerdict.Report.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Store.ValidationVerdict.ValidationVerdict() -> void
+override Varve.Store.CommitResult.Equals(object? obj) -> bool
+override Varve.Store.CommitResult.GetHashCode() -> int
+override Varve.Store.CommitResult.ToString() -> string!
+override Varve.Store.RequestTerm.Equals(object? obj) -> bool
+override Varve.Store.RequestTerm.GetHashCode() -> int
+override Varve.Store.SubscriptionFilter.Equals(object? obj) -> bool
+override Varve.Store.SubscriptionFilter.GetHashCode() -> int
+override Varve.Store.TermAllocation.Equals(object? obj) -> bool
+override Varve.Store.TermAllocation.GetHashCode() -> int
+override Varve.Store.ValidationVerdict.Equals(object? obj) -> bool
+override Varve.Store.ValidationVerdict.GetHashCode() -> int
+static Varve.Store.CommitResult.operator !=(Varve.Store.CommitResult left, Varve.Store.CommitResult right) -> bool
+static Varve.Store.CommitResult.operator ==(Varve.Store.CommitResult left, Varve.Store.CommitResult right) -> bool
+static Varve.Store.Dataset.OpenAsync(Varve.Store.IStorage! storage, Varve.Store.DatasetOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Dataset!>
+static Varve.Store.LogChain.FindDivergenceAsync(Varve.Store.ISegmentStore! first, Varve.Store.ISegmentStore! second, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<long?>
+static Varve.Store.RequestTerm.Existing(Varve.Rdf.TermHandle handle) -> Varve.Store.RequestTerm
+static Varve.Store.RequestTerm.FromTerm(Varve.Rdf.RdfTerm! term) -> Varve.Store.RequestTerm
+static Varve.Store.RequestTerm.None.get -> Varve.Store.RequestTerm
+static Varve.Store.RequestTerm.implicit operator Varve.Store.RequestTerm(Varve.Rdf.RdfTerm! term) -> Varve.Store.RequestTerm
+static Varve.Store.RequestTerm.operator !=(Varve.Store.RequestTerm left, Varve.Store.RequestTerm right) -> bool
+static Varve.Store.RequestTerm.operator ==(Varve.Store.RequestTerm left, Varve.Store.RequestTerm right) -> bool
+static Varve.Store.SubscriptionFilter.All.get -> Varve.Store.SubscriptionFilter
+static Varve.Store.SubscriptionFilter.ForGraph(Varve.Rdf.GraphPattern graph) -> Varve.Store.SubscriptionFilter
+static Varve.Store.SubscriptionFilter.ForPattern(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object, Varve.Rdf.GraphPattern graph) -> Varve.Store.SubscriptionFilter
+static Varve.Store.SubscriptionFilter.operator !=(Varve.Store.SubscriptionFilter left, Varve.Store.SubscriptionFilter right) -> bool
+static Varve.Store.SubscriptionFilter.operator ==(Varve.Store.SubscriptionFilter left, Varve.Store.SubscriptionFilter right) -> bool
+static Varve.Store.TermAllocation.operator !=(Varve.Store.TermAllocation left, Varve.Store.TermAllocation right) -> bool
+static Varve.Store.TermAllocation.operator ==(Varve.Store.TermAllocation left, Varve.Store.TermAllocation right) -> bool
+static Varve.Store.ValidationVerdict.Accept() -> Varve.Store.ValidationVerdict
+static Varve.Store.ValidationVerdict.Accept(Varve.Rdf.RdfTerm! attachment) -> Varve.Store.ValidationVerdict
+static Varve.Store.ValidationVerdict.Reject(System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! report) -> Varve.Store.ValidationVerdict
+static Varve.Store.ValidationVerdict.operator !=(Varve.Store.ValidationVerdict left, Varve.Store.ValidationVerdict right) -> bool
+static Varve.Store.ValidationVerdict.operator ==(Varve.Store.ValidationVerdict left, Varve.Store.ValidationVerdict right) -> bool

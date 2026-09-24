@@ -108,6 +108,9 @@ jobs:
       - name: Test Varve.Turtle
         run: dotnet test --project tests/Varve.Turtle.Tests/Varve.Turtle.Tests.csproj --configuration Release
 
+      - name: Test Varve.Store
+        run: dotnet test --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj --configuration Release
+
       - name: Run the W3C suites
         continue-on-error: true
         run: >

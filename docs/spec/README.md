@@ -20,7 +20,7 @@ The order is specification, then ADR, then code.
   visibly in separating a pinned read from an as-of read, which the brief merges
   — the specification takes precedence and the relevant ADR says so.
 
-  Its §11 lists eight open questions and its §12 lists the ADRs it presupposes.
+  Version 1.3. Its §11 lists eight open questions and its §12 lists the ADRs it presupposes.
   [`docs/adr/README.md`](../adr/README.md) tracks both, with an owner and a due
   milestone for every question.
 

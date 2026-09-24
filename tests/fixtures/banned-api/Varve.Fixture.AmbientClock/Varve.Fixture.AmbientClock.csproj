@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Packable and deterministic, exactly as Varve.Store declares itself, so
+         eng/BannedSymbols.Deterministic.txt applies. The project exists to fail. -->
+    <IsPackable>true</IsPackable>
+    <VarveDeterministic>true</VarveDeterministic>
+    <VarveLayer>0</VarveLayer>
+  </PropertyGroup>
+</Project>

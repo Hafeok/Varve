@@ -120,4 +120,17 @@
              Link="Properties/HotPathAttribute.cs" />
   </ItemGroup>
 
+  <!--
+    ADR 0011 — no ambient clock and no ambient randomness, for the projects whose
+    bytes §10's determinism property compares. A project opts in with
+    VarveDeterministic; Varve.Store does. BannedApiAnalyzers reads every
+    additional file named BannedSymbols.*.txt, so this list adds to the
+    repository-wide one rather than replacing it. The fixture in
+    tests/fixtures/banned-api/ opts in the same way, which is what proves the
+    wiring rather than the list.
+  -->
+  <ItemGroup Condition="'$(IsPackable)' == 'true' and '$(VarveDeterministic)' == 'true'">
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)eng/BannedSymbols.Deterministic.txt" />
+  </ItemGroup>
+
 </Project>

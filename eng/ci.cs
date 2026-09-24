@@ -104,6 +104,9 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-turtle", "Varve.Turtle",
         () => Test("Varve.Turtle.Tests")),
 
+    ("test-store", "Varve.Store, and the specification's section 10 properties",
+        () => Test("Varve.Store.Tests")),
+
     // tools/repo-standard is its own solution, outside Varve.slnx, and moves to
     // its own repository (ADR 0039). Its jobs are separate so that the move
     // deletes them rather than untangling them. The Native AOT publish and the

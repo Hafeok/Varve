@@ -109,6 +109,24 @@ it can be redistributed under. Neither substitutes for the other.
    running on the maintainer's machine uses the maintainer's key and gets no
    bypass.
 
+### Amendment, 2026-09-23 — a cloud session bound to a branch lands through a pull request
+
+Point 4 above, and the rejection below of "forbid AI sessions from pushing to
+`main`", assumed every cloud session could push to the trunk. **Not every one
+can.** A cloud session may be configured with a designated development branch,
+and such a session can push only to that branch: the platform refuses a push to
+any other, `main` included. The milestone 4 session (issue #8) was configured
+that way.
+
+Such a session **lands its work through a pull request from its branch**, which
+the maintainer merges — with the admin override where the ruleset's required
+review would otherwise hold it, since the blocking review here is the
+automated one (ADR 0032). The route is still a choice in the sense ADR 0032
+means: it is the session's configuration that makes it, not a rule that treats
+AI commits differently. Nothing else in this ADR changes. The commits are
+signed with the sandbox key, are unverified for the reason recorded above, carry
+the DCO sign-off, and have a traceability record.
+
 ## Alternatives considered
 
 - **Register the sandbox's SSH public key as a signing key on the maintainer's

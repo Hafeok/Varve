@@ -105,6 +105,7 @@ public sealed class InMemoryDataset : IQuadSource
     public bool Remove(in Quad quad) => _quads.Remove(quad);
 
     /// <inheritdoc />
+    [HotPath]
     public bool Contains(in Quad quad) => _quads.Contains(quad);
 
     /// <inheritdoc />
@@ -135,6 +136,7 @@ public sealed class InMemoryDataset : IQuadSource
 
         public Quad Current { get; private set; }
 
+        [HotPath]
         public bool MoveNext()
         {
             while (_enumerator.MoveNext())
@@ -154,6 +156,7 @@ public sealed class InMemoryDataset : IQuadSource
 
         public void Dispose() => _enumerator.Dispose();
 
+        [HotPath]
         private bool Matches(in Quad quad)
         {
             if (!_subject.IsNone && !_subject.Equals(quad.Subject))
