@@ -154,5 +154,41 @@ public readonly struct XsdDateTime : IEquatable<XsdDateTime>
     /// <summary>XML Schema inequality.</summary>
     public static bool operator !=(XsdDateTime left, XsdDateTime right) => !left.Equals(right);
 
+
+    /// <summary>
+    /// <c>dateTimePlusDuration</c> (§E.3.3): the months first, with the day
+    /// pinned to the new month's length, then the seconds. False when the
+    /// year leaves the representable range.
+    /// </summary>
+    public bool TryAdd(XsdDuration duration, out XsdDateTime result)
+    {
+        bool ok = SevenPropertyModel.TryAdd(in _value, duration.Months, duration.Seconds, out SevenProperties sum);
+        result = new XsdDateTime(in sum);
+        return ok;
+    }
+
+    /// <summary>Adds a year-month duration (<c>op:add-yearMonthDuration-to-dateTime</c>).</summary>
+    public bool TryAdd(XsdYearMonthDuration duration, out XsdDateTime result) =>
+        TryAdd(XsdDuration.FromYearMonth(duration), out result);
+
+    /// <summary>Adds a day-time duration (<c>op:add-dayTimeDuration-to-dateTime</c>).</summary>
+    public bool TryAdd(XsdDayTimeDuration duration, out XsdDateTime result) =>
+        TryAdd(XsdDuration.FromDayTime(duration), out result);
+
+    /// <summary>
+    /// The elapsed time from <paramref name="right"/> to <paramref name="left"/>
+    /// (<c>op:subtract-dateTimes</c>), with the implicit timezone
+    /// supplied to an operand that has none.
+    /// </summary>
+    public static XsdDayTimeDuration Subtract(XsdDateTime left, XsdDateTime right, int implicitTimezoneOffset) =>
+        new(left.TimeOnTimeline(implicitTimezoneOffset) - right.TimeOnTimeline(implicitTimezoneOffset));
+
+    /// <summary>
+    /// The timezone offset as a day-time duration, which is what SPARQL 1.1
+    /// §17.4.5.8's <c>timezone</c> returns; check <see cref="HasTimezone"/>
+    /// first, because that function is an error without one.
+    /// </summary>
+    public XsdDayTimeDuration TimezoneDuration => XsdDayTimeDuration.FromMinutes(TimezoneOffset);
+
     internal SevenProperties Properties => _value;
 }

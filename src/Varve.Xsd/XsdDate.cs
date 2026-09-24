@@ -129,5 +129,34 @@ public readonly struct XsdDate : IEquatable<XsdDate>
     /// <summary>XML Schema inequality.</summary>
     public static bool operator !=(XsdDate left, XsdDate right) => !left.Equals(right);
 
+
+    /// <summary>
+    /// <c>dateTimePlusDuration</c> (§E.3.3): the months first, with the day
+    /// pinned to the new month's length, then the seconds. False when the
+    /// year leaves the representable range.
+    /// </summary>
+    public bool TryAdd(XsdDuration duration, out XsdDate result)
+    {
+        bool ok = SevenPropertyModel.TryAdd(in _value, duration.Months, duration.Seconds, out SevenProperties sum);
+        result = new XsdDate(in sum);
+        return ok;
+    }
+
+    /// <summary>Adds a year-month duration (<c>op:add-yearMonthDuration-to-date</c>).</summary>
+    public bool TryAdd(XsdYearMonthDuration duration, out XsdDate result) =>
+        TryAdd(XsdDuration.FromYearMonth(duration), out result);
+
+    /// <summary>Adds a day-time duration (<c>op:add-dayTimeDuration-to-date</c>).</summary>
+    public bool TryAdd(XsdDayTimeDuration duration, out XsdDate result) =>
+        TryAdd(XsdDuration.FromDayTime(duration), out result);
+
+    /// <summary>
+    /// The elapsed time from <paramref name="right"/> to <paramref name="left"/>
+    /// (<c>op:subtract-dates</c>), with the implicit timezone
+    /// supplied to an operand that has none.
+    /// </summary>
+    public static XsdDayTimeDuration Subtract(XsdDate left, XsdDate right, int implicitTimezoneOffset) =>
+        new(left.TimeOnTimeline(implicitTimezoneOffset) - right.TimeOnTimeline(implicitTimezoneOffset));
+
     internal SevenProperties Properties => _value;
 }
