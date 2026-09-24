@@ -605,10 +605,10 @@ sharper one in §8: it allocates the tree and nothing else.
   (ADR 0007): a case that passed and now fails is a build failure; a case that
   vanished is one too; an exemption without a justification naming a
   production is one too.
-- **SPARQL 1.0 exemptions.** A 1.0 negative case that SPARQL 1.1 relaxed is
-  exempted with the 1.1 production that relaxed it, one line each. The
-  expected set is small and listed in `exemptions.txt`; anything else in the
-  1.0 suites passes as written.
+- **SPARQL 1.0 exemptions.** A 1.0 negative case that SPARQL 1.1 relaxed
+  would be exempted with the 1.1 production that relaxed it, one line each.
+  There is none: every 1.0 negative case is still negative under the 1.1
+  grammar, and `exemptions.txt` stays empty.
 - **Every corpus file parsed twice**, as UTF-8 and as UTF-16, must give the
   same tree or the same error kind at the same offset. The parser has no
   chunked entry point, so `turtle.md` §8's chunk-boundary oracle does not
