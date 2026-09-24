@@ -6,6 +6,7 @@
     <Project Path="src/Varve.Analyzers/Varve.Analyzers.csproj" />
     <Project Path="src/Varve.Iri/Varve.Iri.csproj" />
     <Project Path="src/Varve.Rdf/Varve.Rdf.csproj" />
+    <Project Path="src/Varve.Store/Varve.Store.csproj" />
     <Project Path="src/Varve.Turtle/Varve.Turtle.csproj" />
   </Folder>
   <Folder Name="/tests/">
@@ -13,6 +14,7 @@
     <Project Path="tests/Varve.Conformance.Tests/Varve.Conformance.Tests.csproj" />
     <Project Path="tests/Varve.Iri.Tests/Varve.Iri.Tests.csproj" />
     <Project Path="tests/Varve.Rdf.Tests/Varve.Rdf.Tests.csproj" />
+    <Project Path="tests/Varve.Store.Tests/Varve.Store.Tests.csproj" />
     <Project Path="tests/Varve.Turtle.Tests/Varve.Turtle.Tests.csproj" />
   </Folder>
 </Solution>

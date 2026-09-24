@@ -11,6 +11,7 @@ solution member that fails to build would fail CI.
 | `layer-rule/packable/` | `Varve.Fixture.Packaged` — packable, layer 0 | builds |
 | `layer-rule/packable/` | `Varve.Fixture.PackableNone` — packable, `VarveLayer=none` | fails with `VARVE0002` |
 | `banned-api/` | `Varve.Fixture.BannedSymbol` — packable, uses `System.Uri` | fails with `RS0030` |
+| `banned-api/` | `Varve.Fixture.AmbientClock` — packable, `VarveDeterministic`, reads the clock and `Random` | fails with `RS0030` |
 | `public-api/` | `Varve.Fixture.UndeclaredApi` — packable, public type in neither baseline | fails with `RS0016` |
 
 They inherit the repository's `Directory.Build.props` and

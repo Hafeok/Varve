@@ -96,6 +96,15 @@ because the position it stores is a real one.
 that filtered one out would keep a key it was told to destroy, and a filter is
 about relevance, not about permission.
 
+### Amendment, 2026-09-23 — `Settings` commits are delivered regardless of filter
+
+By [ADR 0046](0046-settings-commits-reach-every-subscriber.md) and
+specification 1.2 §8. The rule above for `Erasure` commits applies to
+`Settings` commits as well, for the same reason: a filter is about relevance,
+not permission, and a subscriber that filtered out a settings change would
+treat what follows under the wrong configuration. Both kinds have an empty
+delta and are delivered as themselves. The decision is otherwise unchanged.
+
 ### Erasure in projections
 
 A projection that holds **plaintext derived from private terms** — a full-text

@@ -1,8 +1,12 @@
 # Log and projection model
 
-Functional specification, version 1.1.
+Functional specification, version 1.3.
 
 Status: Accepted. This document is the authority for the behaviour of `Varve.Store`. It changes only together with the ADR that motivates the change, and each change is listed at the top with its date. Section 12 maps the decisions to ADRs.
+
+Changes in version 1.3 (2026-09-23), with ADR 0047: delta composition is associative over chains of exact deltas and **not** over arbitrary deltas; version 1.2 and earlier claimed a monoid, which was false, and the claim was the maintainer's error (section 6, and R3 in section 10). Every id in `alloc_P` is reachable from `A_P` or `meta_P` through entries, which RDF 1.2 triple terms require (I3). Both were found by milestone 4's property tests.
+
+Changes in version 1.2 (2026-09-23), with ADR 0046: `Settings` commits, like `Erasure` commits, are delivered to every subscriber regardless of filter (section 8). The determinism property holds for crash-free histories (section 10). The named-graph scope in `meta` is a declaration, never enforced by the store (section 1). A note on hashing under source-supplied equality (section 6). Q1 is narrowed to its protocol half, due at milestone 7; the in-process half is decided by ADR 0044 (section 11). Section 12 names the ADR numbers the two "new" rows became, and lists the milestone 4 ADRs.
 
 Changes in version 1.1 (2026-09-22): the cipher is ADR 0028's deterministic AEAD built from HMAC-SHA-256, replacing ADR 0020's AES-CBC composition, which failed its acceptance condition on a real browser build — Q6, section 12. An inline id may encode a literal only when its lexical form is canonical, so that the inline optimisation cannot collapse two terms into one — section 1, TermId, ADR 0012.
 
@@ -24,7 +28,7 @@ Scope: the abstract state machine of `Varve.Store`. No byte-level format, no API
 - **Delta**: `δ = (A, R)` with `A, R ⊆ Quad` and `A ∩ R = ∅`.
 - **Commit**: `c = (header, alloc, A, R)` with `header = (pos, kind, meta, prev, content)`.
   - `kind ∈ {Data, Erasure, Settings}`.
-  - `meta`: timestamp, agent, cause, optional named-graph scope, optional attachments (for example a validation report reference). Agent and any other value that can identify a person is a `TermId`, never an inline string, so that it can be a private term.
+  - `meta`: timestamp, agent, cause, optional named-graph scope, optional attachments (for example a validation report reference). Agent and any other value that can identify a person is a `TermId`, never an inline string, so that it can be a private term. The named-graph scope is a declaration recorded in metadata and is never enforced by the store; validators may enforce it.
   - `prev`: hash of the previous commit's header. `content`: hash of `(alloc, A, R)`.
   - `alloc`: a finite map of fresh `TermId → entry`.
 - **Settings**: the dataset's configuration, a fold over `Settings` commits: erasure mode (off by default) and the default access scope (section 9). Settings travel with the log, so every copy of the dataset agrees on them and every change has an agent and a position.
@@ -59,7 +63,7 @@ G_0 = ∅                      G_P = (G_{P-1} \ R_P) ∪ A_P
 
 - **I1 Dense positions.** `pos(cᵢ) = i`.
 - **I2 Effective delta.** `A_P ∩ G_{P-1} = ∅`, `R_P ⊆ G_{P-1}`, `A_P ∩ R_P = ∅`. The log records what changed, not what was requested.
-- **I3 Dictionary closure.** Every id in `A_P`, `R_P` and `meta_P` is in `dom(D_P)`. Ids in `alloc_P` are fresh. Every id in `alloc_P` occurs in `A_P` or `meta_P`. Canonical ids are injective over terms; private ids are exempt from injectivity.
+- **I3 Dictionary closure.** Every id in `A_P`, `R_P` and `meta_P` is in `dom(D_P)`. Ids in `alloc_P` are fresh. Every id in `alloc_P` is reachable through entries from `A_P` or `meta_P`: it occurs in one of them, or it is a component of an entry in `alloc_P` that is. A triple term's components are allocated so that its identity can depend on theirs, and may occur nowhere else. Canonical ids are injective over terms; private ids are exempt from injectivity.
 - **I4 Non-empty.** A `Data` commit has `A_P ∪ R_P ≠ ∅`. `Erasure` and `Settings` commits have an empty delta.
 - **I5 Monotone time.** `ts(c_P) ≥ ts(c_{P-1})`. The sequencer assigns `max(clock, ts(head))`. As-of by timestamp `t` resolves to the greatest `P` with `ts(c_P) ≤ t`.
 - **I6 Header chain.** `prev(c_P) = hash(header(c_{P-1}))`, with a fixed value for `P = 1`. Two logs with a common prefix and different continuations are detectably divergent. A store that opens a log whose chain does not verify, or is asked to continue from a head that is not its own, refuses.
@@ -115,9 +119,9 @@ Delta composition, used by R2 and R3:
 (A₁, R₁) ; (A₂, R₂) = ((A₁ \ R₂) ∪ (A₂ \ R₁), (R₁ \ A₂) ∪ (R₂ \ A₁))
 ```
 
-Deltas under `;` form a monoid with identity `(∅, ∅)`. `net(L(P..Q])` is the composition of the commits' deltas in order.
+`;` has identity `(∅, ∅)` and is associative over any chain of exact deltas — each exact against the state the previous ones produce — and in particular over any run of a log. It is **not** associative over arbitrary deltas: with `a = (∅, {q})`, `b = (∅, {q})`, `c = ({q}, ∅)`, `(a ; b) ; c = (∅, ∅)` but `a ; (b ; c) = (∅, {q})`. No log holds `a` then `b`, because `b` retracts a quad `a` removed (I2). `net(L(P..Q])` is the composition of the commits' deltas in order, which is a chain.
 
-Equality is a property of the quad source, not of the id: a source supplies the comparison for the term handles it hands out. Term equality seen by readers: canonical and blank ids compare by id. A readable private term compares by decrypted value, against private and canonical terms alike. A shredded private term is equal only to itself.
+Equality is a property of the quad source, not of the id: a source supplies the comparison for the term handles it hands out. Term equality seen by readers: canonical and blank ids compare by id. A readable private term compares by decrypted value, against private and canonical terms alike. A shredded private term is equal only to itself. Because a readable private term can equal a canonical one, a source whose dictionary holds private entries must hash every handle by value, whatever its class; with erasure mode off, the hash of a handle is its id.
 
 ## 7. Projections
 
@@ -134,7 +138,7 @@ The default quad projection is updated synchronously in T1 step 7. Synchronous m
 
 ## 8. Subscriptions
 
-`Subscribe(from: P, filter)` delivers closed commits with position `> P`, in order, at-least-once. The consumer owns its position. A filter (graph or quad pattern) restricts each delivered delta; commits whose filtered delta is empty are skipped, and the next delivered commit carries its true position, so resumption is unaffected. `Erasure` commits are always delivered, regardless of filter.
+`Subscribe(from: P, filter)` delivers closed commits with position `> P`, in order, at-least-once. The consumer owns its position. A filter (graph or quad pattern) restricts each delivered delta; commits whose filtered delta is empty are skipped, and the next delivered commit carries its true position, so resumption is unaffected. `Settings` and `Erasure` commits are always delivered, regardless of filter.
 
 ## 9. Erasure by crypto-shredding
 
@@ -168,9 +172,9 @@ Erasure mode is a per-dataset setting, off by default. When off, no private ids 
 | I8 | Rebuilt projection equals incrementally maintained projection at every position. |
 | R1 | A pinned source returns identical results before and after arbitrary later commits. |
 | R2, R4 | As-of via overlay equals as-of via full replay. |
-| R3 | `Overlay(G_{P₁}, Diff(P₁, P₂)) = G_{P₂}`; delta composition is associative. |
+| R3 | `Overlay(G_{P₁}, Diff(P₁, P₂)) = G_{P₂}`; delta composition is associative over chains of exact deltas, and the counterexample in section 6 is not associative. |
 | Records | A crash at any record boundary recovers to the last closed commit. |
-| Determinism | The same request sequence on two machines yields byte-identical `log/` directories (with an injected clock and, in erasure mode, an injected key store; nothing else in `log/` may depend on the machine or on randomness). |
+| Determinism | For crash-free histories, the same request sequence on two machines yields byte-identical `log/` directories (with an injected clock and, in erasure mode, an injected key store; nothing else in `log/` may depend on the machine or on randomness). A tail abandoned by recovery stays in `log/`, because the log is never rewritten. |
 | I9 | For generated private literals with high-entropy markers, a byte scan of `log/` and checkpoints never finds a marker. |
 | Access | `Access(K)` before erasure equals the set of quads with at least one term that becomes unreadable after `Erase` of `K`. |
 | Settings | Settings at `P` equal the fold of `Settings` commits up to `P`; erasure mode cannot be switched off while private entries exist. |
@@ -178,7 +182,7 @@ Erasure mode is a per-dataset setting, off by default. When off, no private ids 
 
 ## 11. Open questions
 
-- **Q1** External form of store-scoped blank node identity at API and protocol boundaries (a skolem IRI scheme per RDF 1.1 Concepts 3.5 is the obvious candidate).
+- **Q1** External form of store-scoped blank node identity at protocol boundaries (a skolem IRI scheme per RDF 1.1 Concepts 3.5 is the obvious candidate). Due at milestone 7, with the server. The in-process form is decided by ADR 0044: an existing blank node is addressed by its handle.
 - **Q2** Bulk load and I2: normalising a multi-billion-quad commit needs an index lookup per quad. Loading into an empty dataset is trivial; loading into a populated one needs a stated strategy.
 - **Q3** Bulk load and validators: the overlay of a multi-record commit does not fit in memory. Either validators are disabled for bulk commits, or the overlay spills.
 - **Q4** How a shredded term appears in SPARQL results and serialisations: unbound, or an opaque IRI in a reserved scheme.
@@ -205,7 +209,14 @@ All Accepted. Three carry a stated condition under which they are to be supersed
 | Storage abstraction: append-only segment store plus derived blob store, durability declared by the backend | 0018 | The in-memory and browser backends cannot both implement the contract without leaking backend detail. |
 | Erasure by crypto-shredding, access requests | 0019 | |
 | Cipher: a deterministic AEAD from HMAC-SHA-256 in an SIV composition | 0028 | External cryptographic review rejects the construction. Supersedes 0020, whose AES-CBC composition failed its own acceptance condition on a real browser build. |
-| Dataset settings as a commit kind | new | |
-| Quad source contract over an opaque 64-bit term handle with source-supplied equality and externalisation | new | Milestone 5 evaluator benchmarks show the opaque handle costs more than it saves. |
+| Dataset settings as a commit kind | 0021 | |
+| Quad source contract over an opaque 64-bit term handle with source-supplied equality and externalisation | 0022 | Milestone 5 evaluator benchmarks show the opaque handle costs more than it saves. |
+| Storage contract members; the memory backend in `Varve.Store` | 0040 | |
+| Sorted runs for the default projection and for checkpoints | 0041 | |
+| Subscriptions pull from the log | 0042 | |
+| Blank node identity in process (Q1, in-process half) | 0044 | |
+| The provisional log encoding and in-memory id layout | 0045 | Superseded in part by the milestone 6 durable format, by design. |
+| `Settings` commits reach every subscriber; version 1.2 | 0046 | |
+| Delta composition over chains; I3 over triple terms; version 1.3 | 0047 | |
 
 Milestone placement: the first durable format (milestone 6) reserves the private id class, the private entry layout and the refusal of a key store path inside the dataset directory. Erasure mode itself is milestone 9, after the SHACL validator, because the shape-derived classifier and the classification gate depend on it.

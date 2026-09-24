@@ -17,6 +17,10 @@ The RDF 1.1 and 1.2 term model, and the abstract quad source contract.
   source, and four explicit graph modes — the default graph, one named graph,
   every named graph (SPARQL's `GRAPH ?g`), or the union.
 
+- **`QuadOverlay` and `QuadDelta`**: a source with a change applied,
+  `(B \ R) ∪ A`, merged at scan time. One implementation serves a store's
+  as-of reads and the view a pre-commit validator gets.
+
 ```csharp
 InMemoryDataset dataset = new();
 dataset.Add(RdfTerm.Iri("http://example.org/s"u8), RdfTerm.Iri("http://example.org/p"u8),
@@ -27,4 +31,4 @@ using IQuadCursor cursor = dataset.Match(
 ```
 
 Layer 1 of [Varve](https://github.com/Hafeok/Varve), a .NET-native
-event-sourced RDF store and SPARQL toolkit. Apache-2.0.
+event-sourced RDF store and SPARQL toolkit. MPL-2.0.

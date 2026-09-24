@@ -39,7 +39,7 @@ decisions it presupposes.
 | Tension | Resolution |
 |---|---|
 | Log growth, compaction, and what time travel survives it | **Resolved** — ADR 0015. There is no compaction in the destructive sense; checkpoints give bounded read cost and the log is retained. |
-| Blank node identity across transactions and across time | **Resolved in shape** — ADR 0012: store-scoped identity allocated at commit, request labels request-scoped. The external form is **Q1**. |
+| Blank node identity across transactions and across time | **Resolved in shape** — ADR 0012: store-scoped identity allocated at commit, request labels request-scoped. The external form is **Q1**: in process, by handle (ADR 0044); across protocols, at milestone 7. |
 | Retraction of a non-existent quad; re-assertion | **Resolved** — ADR 0010. Neither event nor error; the log records the effective delta. |
 | SPARQL Update semantics and one request to one commit | **Resolved** — ADR 0005 places Update at layer 5; it evaluates `WHERE` against a pinned position and submits the delta as one commit (ADRs 0010, 0011). |
 | Bulk load as one logical commit | **Resolved** — ADR 0013: a commit is one or more records, closed by a flag in the log. Remaining: **Q2**, **Q3**. |
@@ -173,19 +173,52 @@ model still carries base direction**, and N-Triples and N-Quads still read and
 write it, where the `rdf12` syntax suites gate it — 29 and 27 cases, both
 passing.
 
-## 4 — In-memory log and default quad projection
+## 4 — In-memory log and default quad projection *(complete)*
 
 As-of reads, and the property test that a rebuilt projection equals an
 incrementally maintained one.
 
+Delivered: `Varve.Store` at layer 4 — the log in a provisional encoding
+(ADR 0045), the sequencer, the dictionary with its three allocated classes and
+inline values, the default projection as immutable sorted runs (ADR 0041),
+pinned and as-of reads, `Diff`, checkpoints, settings, subscriptions (ADR 0042),
+the projection contract and the failed state — over `MemoryStorage` in the same
+package (ADR 0040). In `Varve.Rdf`, the overlay and the delta. Every §10
+property that does not concern erasure or the file backend runs against a
+reference model (ADR 0043); a scan allocates zero bytes per quad; AOT and the
+browser run the store. The specification moved to **1.2** (ADR 0046).
+
+Found on the way, and reported rather than patched: **§6's claim that deltas
+form a monoid is false** for arbitrary deltas and true over the exact chains a
+log holds, with a counterexample as its witness; and I3 cannot hold literally
+over RDF 1.2 triple terms. The maintainer accepted both as specification 1.3
+(ADR 0047). And the records property found a real recovery bug on its first
+run: a crash inside a new segment's preamble made the dataset unopenable after
+one more commit. Fixed, and kept as a named test.
+
 Due here: **Q1** (blank node identity at the API boundary, ADR 0012), and the
 banned-symbols entry for ambient clock and randomness under `Varve.Store` that
-§10's determinism test depends on (ADR 0011).
+§10's determinism test depends on (ADR 0011). Q1 was **split** by ADR 0044: the
+in-process form is decided here, and the protocol form moves to milestone 7.
 
 ## 5 — The SPARQL parser and algebra, then the evaluator
 
 The evaluator runs over the in-memory projection through the abstract quad
 source contract.
+
+**Positions the maintainer took at the end of milestone 4**, to be written as
+ADRs when milestone 5 starts:
+
+- **The optimiser's output is algebra**, and the optimiser and the evaluator
+  share one layer 3 package. That closes ADR 0003's open question 2.
+- **`IQuadSource` gains a cardinality estimate** that may return *unknown*.
+- **A typed-value accessor beside the handle** for inline numerics, benchmarked
+  with and without it against the SPARQL evaluation suite. This is the
+  measurement ADR 0022's revisit condition asks for.
+- **`Varve.Xsd` owns canonical lexical forms**, and replaces the store's
+  private canonical-integer check.
+- **A pinned read lives for one query execution**, owned by the caller, with a
+  configurable maximum lifetime.
 
 Turtle and TriG were planned for this milestone and shipped in 3b instead,
 which is why ADR 0007's exit criterion — the conformance harness reading its
@@ -198,6 +231,17 @@ ADR 0015 decides there is none in the destructive sense, and a storage engine
 that merges and discards superseded records is right for `derived/` and wrong
 for `log/`. `docs/research/managed-storage-engines.md` is the note that informs
 the choice, and it argues the two halves should be decided separately.
+
+**A risk carried from milestone 4: `IQuadSource` is synchronous and the storage
+contract is asynchronous.** ADR 0018 made storage asynchronous throughout,
+because the browser needs it; ADR 0022's quad source walks a cursor with a
+synchronous `MoveNext`. In memory the two never meet — a checkpoint is a slice
+already in hand (ADR 0041). On the file and browser backends, a scan over a
+checkpoint that does not fit in memory needs pages the cursor cannot await.
+Milestone 6 has to choose: page the checkpoint in before the scan starts, give
+the file backend a synchronous read path beside the asynchronous one, or make
+the cursor asynchronous — which is a superseding change to ADR 0022 and reaches
+the evaluator.
 
 Due here: **Q2** and **Q3** (bulk load against I2, and an overlay that does not
 fit in memory — ADR 0013), and the version discriminator in the storage format
@@ -214,6 +258,10 @@ them costs anything while erasure mode is off.
 
 SPARQL 1.1 Protocol, Graph Store Protocol, service description, federation, and
 the endpoints for the event-sourced features.
+
+**Q1's protocol half is due here** (ADR 0044): the skolem IRI scheme by which a
+store blank node crosses a protocol boundary, decided with the server that is
+its first consumer.
 
 Layer 5 exists from here, which makes the `System.Uri` ban in
 `eng/BannedSymbols.txt` due for narrowing (ADR 0004): a server speaks HTTP and

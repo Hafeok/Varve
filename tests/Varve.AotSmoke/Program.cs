@@ -5,6 +5,7 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Threading.Tasks;
 using Varve.Rdf;
 using Varve.Turtle;
 
@@ -177,7 +178,77 @@ internal static class Program
         }
 
         Console.WriteLine("trig 1 quad in a named graph");
+        return Store().AsTask().GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// Opens an in-memory store, commits, pins, checkpoints and reads as-of,
+    /// under Native AOT.
+    /// </summary>
+    /// <remarks>
+    /// The store leans on things a trimmer removes without a build error: an
+    /// async state machine per call, a <c>MemoryManager</c> that reinterprets a
+    /// checkpoint's bytes as keys, <c>SHA256</c> on every commit, and a
+    /// generic sort over a struct key. The reopen at the end reads the log
+    /// back, verifies its chain, and loads the checkpoint.
+    /// </remarks>
+    private static async ValueTask<int> Store()
+    {
+        Varve.Store.MemoryStorage storage = new();
+        Varve.Store.DatasetOptions options = new() { Clock = TimeProvider.System };
+        RdfTerm p = RdfTerm.Iri("http://example.org/p"u8);
+
+        await using (Varve.Store.Dataset dataset = await Varve.Store.Dataset.OpenAsync(storage, options))
+        {
+            Varve.Store.CommitResult first = await dataset.CommitAsync(new Varve.Store.CommitRequest()
+                .Assert(RdfTerm.Iri("http://example.org/a"u8), p, RdfTerm.Literal("1"u8, RdfTerm.Iri("http://www.w3.org/2001/XMLSchema#integer"u8)))
+                .Assert(RdfTerm.BlankNode("x"u8), p, RdfTerm.Literal("chat"u8, "en"u8), RdfTerm.Iri("http://example.org/g"u8)));
+            Varve.Store.CommitResult second = await dataset.CommitAsync(new Varve.Store.CommitRequest()
+                .Retract(RdfTerm.Iri("http://example.org/a"u8), p, RdfTerm.Literal("1"u8, RdfTerm.Iri("http://www.w3.org/2001/XMLSchema#integer"u8)))
+                .Assert(RdfTerm.Iri("http://example.org/b"u8), p, RdfTerm.TripleTerm(RdfTerm.Iri("http://example.org/a"u8), p, RdfTerm.Iri("http://example.org/c"u8))));
+
+            await dataset.CheckpointAsync(1);
+
+            using Varve.Store.DatasetView pinned = dataset.Pin();
+            using Varve.Store.DatasetView asOf = await dataset.AsOfAsync(1);
+            int now = CountQuads(pinned);
+            int then = CountQuads(asOf);
+
+            Console.WriteLine(string.Create(
+                CultureInfo.InvariantCulture,
+                $"store: {first.Outcome}({first.Position}), {second.Outcome}({second.Position}), pinned {now} quads, as-of 1 {then} quads"));
+
+            if (second.Position != 2 || now != 2 || then != 2)
+            {
+                Console.Error.WriteLine("aot-smoke: the store disagreed with itself.");
+                return 1;
+            }
+        }
+
+        await using Varve.Store.Dataset reopened = await Varve.Store.Dataset.OpenAsync(storage, options);
+
+        if (reopened.Head != 2 || reopened.Checkpoints.Count != 1)
+        {
+            Console.Error.WriteLine("aot-smoke: the reopened store lost its log or its checkpoint.");
+            return 1;
+        }
+
+        Console.WriteLine("store: reopened at 2 with a checkpoint at 1");
         return 0;
+    }
+
+    private static int CountQuads(Varve.Store.DatasetView source)
+    {
+        int count = 0;
+
+        using IQuadCursor cursor = source.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any);
+
+        while (cursor.MoveNext())
+        {
+            count++;
+        }
+
+        return count;
     }
 
     private static bool IriRefResolves(Span<byte> destination, out string text)

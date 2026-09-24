@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 4: the log, the projection contract, the pre-commit validator
+         contract. SPARQL-free and SHACL-free (ADR 0005). ADR 0003. -->
+    <VarveLayer>4</VarveLayer>
+    <IsPackable>true</IsPackable>
+
+    <!-- No ambient clock and no ambient randomness: §10 compares log bytes
+         across machines. eng/BannedSymbols.Deterministic.txt. ADR 0011. -->
+    <VarveDeterministic>true</VarveDeterministic>
+
+    <Description>An event-sourced RDF store: an append-only log of effective deltas, a default quad projection, pinned and as-of reads, checkpoints, subscriptions, and the projection and validator contracts.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Two seams only a test may reach, both recorded in the milestone 4
+         report: a fault in the default projection (the failed state), and
+         appending an Erasure commit before erasure mode exists. VARVE0003,
+         reserved, permits InternalsVisibleTo toward *.Tests only. -->
+    <InternalsVisibleTo Include="Varve.Store.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -157,6 +157,12 @@ jobs:
           --project tests/Varve.Turtle.Tests/Varve.Turtle.Tests.csproj
           --configuration Release
 
+      - name: Test Varve.Store
+        run: >
+          dotnet test
+          --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj
+          --configuration Release
+
       # The publish dry run. A version pushed to nuget.org cannot be edited,
       # replaced or deleted, so the pack step and its output are exercised on
       # every pull request rather than first on a tag. This packs and reads the

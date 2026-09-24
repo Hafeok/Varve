@@ -7,6 +7,7 @@ using System.Globalization;
 using System.Runtime.InteropServices.JavaScript;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 using Varve.Rdf;
 using Varve.Turtle;
 
@@ -46,7 +47,7 @@ internal static partial class Smoke
     private const int Quads = 200;
 
     [JSExport]
-    internal static string Run()
+    internal static async Task<string> Run()
     {
         StringBuilder report = new();
 
@@ -54,6 +55,7 @@ internal static partial class Smoke
         {
             report.Append(Parse()).Append('\n');
             report.Append(Turtle()).Append('\n');
+            report.Append(await Store()).Append('\n');
             report.Append(Crypto()).Append('\n');
             Expect();
             report.Append("OK");
@@ -135,6 +137,74 @@ internal static partial class Smoke
             CultureInfo.InvariantCulture,
             $"turtle: {parsed.QuadCount} quads, rewritten {output.Written.Length} bytes, "
             + $"reparsed {reparsed.QuadCount}; trig: 1 quad in a named graph");
+    }
+
+    /// <summary>
+    /// Opens an in-memory store in the browser, commits, pins, checkpoints,
+    /// reads as-of, and reopens it from its own log.
+    /// </summary>
+    /// <remarks>
+    /// Asynchronous all the way, as ADR 0018 requires of the storage contract:
+    /// the browser has one thread, and a store that blocked on its own
+    /// <c>ValueTask</c>s would deadlock here rather than anywhere else. SHA-256
+    /// runs on every commit, which ADR 0014 rested on the browser supporting.
+    /// </remarks>
+    private static async Task<string> Store()
+    {
+        Varve.Store.MemoryStorage storage = new();
+        Varve.Store.DatasetOptions options = new() { Clock = TimeProvider.System };
+        RdfTerm p = RdfTerm.Iri("http://example.org/p"u8);
+        RdfTerm one = RdfTerm.Literal("1"u8, RdfTerm.Iri("http://www.w3.org/2001/XMLSchema#integer"u8));
+        int now;
+        int then;
+
+        await using (Varve.Store.Dataset dataset = await Varve.Store.Dataset.OpenAsync(storage, options))
+        {
+            await dataset.CommitAsync(new Varve.Store.CommitRequest()
+                .Assert(RdfTerm.Iri("http://example.org/a"u8), p, one)
+                .Assert(RdfTerm.BlankNode("x"u8), p, RdfTerm.Literal("chat"u8, "en"u8), RdfTerm.Iri("http://example.org/g"u8)));
+            Varve.Store.CommitResult second = await dataset.CommitAsync(new Varve.Store.CommitRequest()
+                .Retract(RdfTerm.Iri("http://example.org/a"u8), p, one)
+                .Assert(RdfTerm.Iri("http://example.org/b"u8), p, RdfTerm.TripleTerm(RdfTerm.Iri("http://example.org/a"u8), p, one)));
+            await dataset.CheckpointAsync(1);
+
+            using Varve.Store.DatasetView pinned = dataset.Pin();
+            using Varve.Store.DatasetView asOf = await dataset.AsOfAsync(1);
+            now = Count(pinned);
+            then = Count(asOf);
+
+            if (second.Position != 2 || now != 2 || then != 2)
+            {
+                throw new InvalidOperationException(
+                    "store: position " + second.Position.ToString(CultureInfo.InvariantCulture)
+                    + ", pinned " + now.ToString(CultureInfo.InvariantCulture) + ", as-of " + then.ToString(CultureInfo.InvariantCulture));
+            }
+        }
+
+        await using Varve.Store.Dataset reopened = await Varve.Store.Dataset.OpenAsync(storage, options);
+
+        if (reopened.Head != 2 || reopened.Checkpoints.Count != 1)
+        {
+            throw new InvalidOperationException("store: the reopened store lost its log or its checkpoint");
+        }
+
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"store: committed 2, pinned {now} quads, as-of 1 {then} quads, reopened at {reopened.Head} with a checkpoint");
+    }
+
+    private static int Count(Varve.Store.DatasetView source)
+    {
+        int count = 0;
+
+        using IQuadCursor cursor = source.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any);
+
+        while (cursor.MoveNext())
+        {
+            count++;
+        }
+
+        return count;
     }
 
     /// <summary>A minimal buffer writer, so the browser build needs no extra package.</summary>

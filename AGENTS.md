@@ -80,7 +80,7 @@ review" and **names no product**.
 
 ## `Varve.Store` behaviour
 
-**`docs/spec/log-and-projection-model.md` is the authority** (version 1.1) and
+**`docs/spec/log-and-projection-model.md` is the authority** (version 1.3) and
 beats the brief where they differ. ADRs 0010–0023 record what it presupposes and
 **none is `Proposed`**. The cipher is [0028](docs/adr/0028-deterministic-aead-from-hmac.md),
 superseding 0020, conditional on external review. Vocabulary that must not drift:
@@ -124,14 +124,17 @@ ADR, a rule, a suite and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone 3b. `src/` holds `Varve.Analyzers`, `Varve.Iri` (0), `Varve.Rdf` (1)
-and `Varve.Turtle` (2) — N-Triples, N-Quads, **Turtle and TriG**, reader and
-writer. **All 883** cases pass, exemptions empty: Turtle 313, TriG 357,
-N-Triples 70, N-Quads 87, RDF 1.2 syntax 29 + 27. Parsing allocates **zero bytes
-per quad** on every entry point; AOT and the browser both read and write Turtle.
-**RDF 1.2 Turtle and TriG are not accepted at all** — `turtle.md` §9. Nothing is
-published; the first tag is `v0.1.0-preview.1` (ADR 0029). Not built:
-`Varve.Xsd`, canonicalisation, the store, SPARQL, SHACL. `docs/roadmap.md` has
+Milestone 4. `src/` holds `Varve.Analyzers`, `Varve.Iri` (0), `Varve.Rdf` (1),
+`Varve.Turtle` (2) and **`Varve.Store` (4)** — the in-memory log, the default
+quad projection as sorted runs, pinned and as-of reads, checkpoints, `Diff`,
+settings, subscriptions and the failed state, over `MemoryStorage`
+(durability `None`). §10's properties that do not concern erasure or the file
+backend pass against a reference model (ADR 0043); a scan allocates zero bytes
+per quad. **All 883** syntax cases pass, exemptions empty. AOT and the browser
+both run the store. Specification **1.3**. **RDF 1.2 Turtle and TriG are not
+accepted at all** — `turtle.md` §9. Nothing is published; the first tag is
+`v0.1.0-preview.1` (ADR 0029). Not built: `Varve.Xsd`, canonicalisation, the
+file and browser backends, erasure mode, SPARQL, SHACL. `docs/roadmap.md` has
 the rest, an owner and a due milestone per open question.
 
 ## Never
