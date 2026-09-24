@@ -15,6 +15,11 @@
 
   <ItemGroup>
     <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
+
+    <!-- Layer 0. The inline rule asks whether a lexical form is canonical for
+         its datatype, and Varve.Xsd is the one definition of canonical
+         (ADR 0051), so the store asks it rather than keeping a second. -->
+    <ProjectReference Include="../Varve.Xsd/Varve.Xsd.csproj" />
   </ItemGroup>
 
   <ItemGroup>
