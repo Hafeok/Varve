@@ -30,6 +30,11 @@ internal sealed class RedactingWriter : TextWriter
     {
         _inner = inner;
         _secret = secret;
+
+        // WriteLine ends a line with this writer's NewLine, not the inner
+        // writer's; left at the default it would be \r\n on Windows whatever
+        // the inner writer uses.
+        NewLine = inner.NewLine;
     }
 
     public override Encoding Encoding => _inner.Encoding;

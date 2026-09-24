@@ -231,3 +231,23 @@ public sealed class PagingTests
         Assert.Empty(replay.Remaining);
     }
 }
+
+public sealed class RedactingWriterTests
+{
+    // Both, so the test fails on either platform if the wrapper uses its own
+    // default rather than the wrapped writer's.
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("\r\n")]
+    public void Lines_end_as_the_wrapped_writer_ends_them(string newLine)
+    {
+        using StringWriter inner = new() { NewLine = newLine };
+        using (RepoStandard.Cli.RedactingWriter writer = new(inner, TestHost.Token))
+        {
+            writer.WriteLine("one");
+            writer.WriteLine("two " + TestHost.Token);
+        }
+
+        Assert.Equal($"one{newLine}two ***{newLine}", inner.ToString());
+    }
+}
