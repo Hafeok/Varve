@@ -45,6 +45,34 @@ Varve.Xsd.XsdDatatype.UnsignedLong = 23 -> Varve.Xsd.XsdDatatype
 Varve.Xsd.XsdDatatype.UnsignedShort = 25 -> Varve.Xsd.XsdDatatype
 Varve.Xsd.XsdDatatype.YearMonthDuration = 28 -> Varve.Xsd.XsdDatatype
 Varve.Xsd.XsdDatatypes
+Varve.Xsd.XsdDate
+Varve.Xsd.XsdDate.Day.get -> int
+Varve.Xsd.XsdDate.Equals(Varve.Xsd.XsdDate other) -> bool
+Varve.Xsd.XsdDate.HasTimezone.get -> bool
+Varve.Xsd.XsdDate.Month.get -> int
+Varve.Xsd.XsdDate.TimeOnTimeline(int implicitTimezoneOffset) -> Varve.Xsd.XsdDecimal
+Varve.Xsd.XsdDate.TimezoneOffset.get -> int
+Varve.Xsd.XsdDate.TryFormat(System.Span<byte> destination, out int written) -> bool
+Varve.Xsd.XsdDate.TryFormat(System.Span<char> destination, out int written) -> bool
+Varve.Xsd.XsdDate.XsdDate() -> void
+Varve.Xsd.XsdDate.XsdDate(int year, int month, int day, int? timezoneOffset = null) -> void
+Varve.Xsd.XsdDate.Year.get -> int
+Varve.Xsd.XsdDateTime
+Varve.Xsd.XsdDateTime.Day.get -> int
+Varve.Xsd.XsdDateTime.Equals(Varve.Xsd.XsdDateTime other) -> bool
+Varve.Xsd.XsdDateTime.HasTimezone.get -> bool
+Varve.Xsd.XsdDateTime.Hour.get -> int
+Varve.Xsd.XsdDateTime.IsDateTimeStamp.get -> bool
+Varve.Xsd.XsdDateTime.Minute.get -> int
+Varve.Xsd.XsdDateTime.Month.get -> int
+Varve.Xsd.XsdDateTime.Second.get -> Varve.Xsd.XsdDecimal
+Varve.Xsd.XsdDateTime.TimeOnTimeline(int implicitTimezoneOffset) -> Varve.Xsd.XsdDecimal
+Varve.Xsd.XsdDateTime.TimezoneOffset.get -> int
+Varve.Xsd.XsdDateTime.TryFormat(System.Span<byte> destination, out int written) -> bool
+Varve.Xsd.XsdDateTime.TryFormat(System.Span<char> destination, out int written) -> bool
+Varve.Xsd.XsdDateTime.XsdDateTime() -> void
+Varve.Xsd.XsdDateTime.XsdDateTime(int year, int month, int day, int hour, int minute, Varve.Xsd.XsdDecimal second, int? timezoneOffset = null) -> void
+Varve.Xsd.XsdDateTime.Year.get -> int
 Varve.Xsd.XsdDecimal
 Varve.Xsd.XsdDecimal.Ceiling() -> Varve.Xsd.XsdDecimal
 Varve.Xsd.XsdDecimal.CompareTo(Varve.Xsd.XsdDecimal other) -> int
@@ -79,6 +107,58 @@ Varve.Xsd.XsdFloat.TryFormat(System.Span<char> destination, out int written) -> 
 Varve.Xsd.XsdFloat.Value.get -> float
 Varve.Xsd.XsdFloat.XsdFloat() -> void
 Varve.Xsd.XsdFloat.XsdFloat(float value) -> void
+Varve.Xsd.XsdGDay
+Varve.Xsd.XsdGDay.Day.get -> int
+Varve.Xsd.XsdGDay.Equals(Varve.Xsd.XsdGDay other) -> bool
+Varve.Xsd.XsdGDay.HasTimezone.get -> bool
+Varve.Xsd.XsdGDay.TimeOnTimeline(int implicitTimezoneOffset) -> Varve.Xsd.XsdDecimal
+Varve.Xsd.XsdGDay.TimezoneOffset.get -> int
+Varve.Xsd.XsdGDay.TryFormat(System.Span<byte> destination, out int written) -> bool
+Varve.Xsd.XsdGDay.TryFormat(System.Span<char> destination, out int written) -> bool
+Varve.Xsd.XsdGDay.XsdGDay() -> void
+Varve.Xsd.XsdGDay.XsdGDay(int day, int? timezoneOffset = null) -> void
+Varve.Xsd.XsdGMonth
+Varve.Xsd.XsdGMonth.Equals(Varve.Xsd.XsdGMonth other) -> bool
+Varve.Xsd.XsdGMonth.HasTimezone.get -> bool
+Varve.Xsd.XsdGMonth.Month.get -> int
+Varve.Xsd.XsdGMonth.TimeOnTimeline(int implicitTimezoneOffset) -> Varve.Xsd.XsdDecimal
+Varve.Xsd.XsdGMonth.TimezoneOffset.get -> int
+Varve.Xsd.XsdGMonth.TryFormat(System.Span<byte> destination, out int written) -> bool
+Varve.Xsd.XsdGMonth.TryFormat(System.Span<char> destination, out int written) -> bool
+Varve.Xsd.XsdGMonth.XsdGMonth() -> void
+Varve.Xsd.XsdGMonth.XsdGMonth(int month, int? timezoneOffset = null) -> void
+Varve.Xsd.XsdGMonthDay
+Varve.Xsd.XsdGMonthDay.Day.get -> int
+Varve.Xsd.XsdGMonthDay.Equals(Varve.Xsd.XsdGMonthDay other) -> bool
+Varve.Xsd.XsdGMonthDay.HasTimezone.get -> bool
+Varve.Xsd.XsdGMonthDay.Month.get -> int
+Varve.Xsd.XsdGMonthDay.TimeOnTimeline(int implicitTimezoneOffset) -> Varve.Xsd.XsdDecimal
+Varve.Xsd.XsdGMonthDay.TimezoneOffset.get -> int
+Varve.Xsd.XsdGMonthDay.TryFormat(System.Span<byte> destination, out int written) -> bool
+Varve.Xsd.XsdGMonthDay.TryFormat(System.Span<char> destination, out int written) -> bool
+Varve.Xsd.XsdGMonthDay.XsdGMonthDay() -> void
+Varve.Xsd.XsdGMonthDay.XsdGMonthDay(int month, int day, int? timezoneOffset = null) -> void
+Varve.Xsd.XsdGYear
+Varve.Xsd.XsdGYear.Equals(Varve.Xsd.XsdGYear other) -> bool
+Varve.Xsd.XsdGYear.HasTimezone.get -> bool
+Varve.Xsd.XsdGYear.TimeOnTimeline(int implicitTimezoneOffset) -> Varve.Xsd.XsdDecimal
+Varve.Xsd.XsdGYear.TimezoneOffset.get -> int
+Varve.Xsd.XsdGYear.TryFormat(System.Span<byte> destination, out int written) -> bool
+Varve.Xsd.XsdGYear.TryFormat(System.Span<char> destination, out int written) -> bool
+Varve.Xsd.XsdGYear.XsdGYear() -> void
+Varve.Xsd.XsdGYear.XsdGYear(int year, int? timezoneOffset = null) -> void
+Varve.Xsd.XsdGYear.Year.get -> int
+Varve.Xsd.XsdGYearMonth
+Varve.Xsd.XsdGYearMonth.Equals(Varve.Xsd.XsdGYearMonth other) -> bool
+Varve.Xsd.XsdGYearMonth.HasTimezone.get -> bool
+Varve.Xsd.XsdGYearMonth.Month.get -> int
+Varve.Xsd.XsdGYearMonth.TimeOnTimeline(int implicitTimezoneOffset) -> Varve.Xsd.XsdDecimal
+Varve.Xsd.XsdGYearMonth.TimezoneOffset.get -> int
+Varve.Xsd.XsdGYearMonth.TryFormat(System.Span<byte> destination, out int written) -> bool
+Varve.Xsd.XsdGYearMonth.TryFormat(System.Span<char> destination, out int written) -> bool
+Varve.Xsd.XsdGYearMonth.XsdGYearMonth() -> void
+Varve.Xsd.XsdGYearMonth.XsdGYearMonth(int year, int month, int? timezoneOffset = null) -> void
+Varve.Xsd.XsdGYearMonth.Year.get -> int
 Varve.Xsd.XsdInteger
 Varve.Xsd.XsdInteger.CompareTo(Varve.Xsd.XsdInteger other) -> int
 Varve.Xsd.XsdInteger.Equals(Varve.Xsd.XsdInteger other) -> bool
@@ -108,10 +188,28 @@ Varve.Xsd.XsdNumericKind.Double = 3 -> Varve.Xsd.XsdNumericKind
 Varve.Xsd.XsdNumericKind.Float = 2 -> Varve.Xsd.XsdNumericKind
 Varve.Xsd.XsdNumericKind.Integer = 0 -> Varve.Xsd.XsdNumericKind
 Varve.Xsd.XsdString
+Varve.Xsd.XsdTime
+Varve.Xsd.XsdTime.Equals(Varve.Xsd.XsdTime other) -> bool
+Varve.Xsd.XsdTime.HasTimezone.get -> bool
+Varve.Xsd.XsdTime.Hour.get -> int
+Varve.Xsd.XsdTime.Minute.get -> int
+Varve.Xsd.XsdTime.Second.get -> Varve.Xsd.XsdDecimal
+Varve.Xsd.XsdTime.TimeOnTimeline(int implicitTimezoneOffset) -> Varve.Xsd.XsdDecimal
+Varve.Xsd.XsdTime.TimezoneOffset.get -> int
+Varve.Xsd.XsdTime.TryFormat(System.Span<byte> destination, out int written) -> bool
+Varve.Xsd.XsdTime.TryFormat(System.Span<char> destination, out int written) -> bool
+Varve.Xsd.XsdTime.XsdTime() -> void
+Varve.Xsd.XsdTime.XsdTime(int hour, int minute, Varve.Xsd.XsdDecimal second, int? timezoneOffset = null) -> void
 const Varve.Xsd.XsdDecimal.Scale = 18 -> int
 override Varve.Xsd.XsdBoolean.Equals(object? obj) -> bool
 override Varve.Xsd.XsdBoolean.GetHashCode() -> int
 override Varve.Xsd.XsdBoolean.ToString() -> string!
+override Varve.Xsd.XsdDate.Equals(object? obj) -> bool
+override Varve.Xsd.XsdDate.GetHashCode() -> int
+override Varve.Xsd.XsdDate.ToString() -> string!
+override Varve.Xsd.XsdDateTime.Equals(object? obj) -> bool
+override Varve.Xsd.XsdDateTime.GetHashCode() -> int
+override Varve.Xsd.XsdDateTime.ToString() -> string!
 override Varve.Xsd.XsdDecimal.Equals(object? obj) -> bool
 override Varve.Xsd.XsdDecimal.GetHashCode() -> int
 override Varve.Xsd.XsdDecimal.ToString() -> string!
@@ -121,12 +219,30 @@ override Varve.Xsd.XsdDouble.ToString() -> string!
 override Varve.Xsd.XsdFloat.Equals(object? obj) -> bool
 override Varve.Xsd.XsdFloat.GetHashCode() -> int
 override Varve.Xsd.XsdFloat.ToString() -> string!
+override Varve.Xsd.XsdGDay.Equals(object? obj) -> bool
+override Varve.Xsd.XsdGDay.GetHashCode() -> int
+override Varve.Xsd.XsdGDay.ToString() -> string!
+override Varve.Xsd.XsdGMonth.Equals(object? obj) -> bool
+override Varve.Xsd.XsdGMonth.GetHashCode() -> int
+override Varve.Xsd.XsdGMonth.ToString() -> string!
+override Varve.Xsd.XsdGMonthDay.Equals(object? obj) -> bool
+override Varve.Xsd.XsdGMonthDay.GetHashCode() -> int
+override Varve.Xsd.XsdGMonthDay.ToString() -> string!
+override Varve.Xsd.XsdGYear.Equals(object? obj) -> bool
+override Varve.Xsd.XsdGYear.GetHashCode() -> int
+override Varve.Xsd.XsdGYear.ToString() -> string!
+override Varve.Xsd.XsdGYearMonth.Equals(object? obj) -> bool
+override Varve.Xsd.XsdGYearMonth.GetHashCode() -> int
+override Varve.Xsd.XsdGYearMonth.ToString() -> string!
 override Varve.Xsd.XsdInteger.Equals(object? obj) -> bool
 override Varve.Xsd.XsdInteger.GetHashCode() -> int
 override Varve.Xsd.XsdInteger.ToString() -> string!
 override Varve.Xsd.XsdNumeric.Equals(object? obj) -> bool
 override Varve.Xsd.XsdNumeric.GetHashCode() -> int
 override Varve.Xsd.XsdNumeric.ToString() -> string!
+override Varve.Xsd.XsdTime.Equals(object? obj) -> bool
+override Varve.Xsd.XsdTime.GetHashCode() -> int
+override Varve.Xsd.XsdTime.ToString() -> string!
 static Varve.Xsd.XsdBoolean.False.get -> Varve.Xsd.XsdBoolean
 static Varve.Xsd.XsdBoolean.IsCanonical(System.ReadOnlySpan<byte> lexical) -> bool
 static Varve.Xsd.XsdBoolean.True.get -> Varve.Xsd.XsdBoolean
@@ -143,6 +259,20 @@ static Varve.Xsd.XsdDatatypes.Iri(Varve.Xsd.XsdDatatype datatype) -> System.Read
 static Varve.Xsd.XsdDatatypes.IsIntegerType(Varve.Xsd.XsdDatatype datatype) -> bool
 static Varve.Xsd.XsdDatatypes.IsNumeric(Varve.Xsd.XsdDatatype datatype) -> bool
 static Varve.Xsd.XsdDatatypes.Namespace.get -> System.ReadOnlySpan<byte>
+static Varve.Xsd.XsdDate.Compare(Varve.Xsd.XsdDate left, Varve.Xsd.XsdDate right, int implicitTimezoneOffset) -> int
+static Varve.Xsd.XsdDate.CompareXsd(Varve.Xsd.XsdDate left, Varve.Xsd.XsdDate right) -> Varve.Xsd.PartialOrdering
+static Varve.Xsd.XsdDate.IsCanonical(System.ReadOnlySpan<byte> lexical) -> bool
+static Varve.Xsd.XsdDate.TryParse(System.ReadOnlySpan<byte> utf8, out Varve.Xsd.XsdDate value) -> bool
+static Varve.Xsd.XsdDate.TryParse(System.ReadOnlySpan<char> text, out Varve.Xsd.XsdDate value) -> bool
+static Varve.Xsd.XsdDate.operator !=(Varve.Xsd.XsdDate left, Varve.Xsd.XsdDate right) -> bool
+static Varve.Xsd.XsdDate.operator ==(Varve.Xsd.XsdDate left, Varve.Xsd.XsdDate right) -> bool
+static Varve.Xsd.XsdDateTime.Compare(Varve.Xsd.XsdDateTime left, Varve.Xsd.XsdDateTime right, int implicitTimezoneOffset) -> int
+static Varve.Xsd.XsdDateTime.CompareXsd(Varve.Xsd.XsdDateTime left, Varve.Xsd.XsdDateTime right) -> Varve.Xsd.PartialOrdering
+static Varve.Xsd.XsdDateTime.IsCanonical(System.ReadOnlySpan<byte> lexical) -> bool
+static Varve.Xsd.XsdDateTime.TryParse(System.ReadOnlySpan<byte> utf8, out Varve.Xsd.XsdDateTime value) -> bool
+static Varve.Xsd.XsdDateTime.TryParse(System.ReadOnlySpan<char> text, out Varve.Xsd.XsdDateTime value) -> bool
+static Varve.Xsd.XsdDateTime.operator !=(Varve.Xsd.XsdDateTime left, Varve.Xsd.XsdDateTime right) -> bool
+static Varve.Xsd.XsdDateTime.operator ==(Varve.Xsd.XsdDateTime left, Varve.Xsd.XsdDateTime right) -> bool
 static Varve.Xsd.XsdDecimal.Add(Varve.Xsd.XsdDecimal left, Varve.Xsd.XsdDecimal right) -> Varve.Xsd.XsdDecimal
 static Varve.Xsd.XsdDecimal.Divide(Varve.Xsd.XsdDecimal left, Varve.Xsd.XsdDecimal right) -> Varve.Xsd.XsdDecimal
 static Varve.Xsd.XsdDecimal.FromInt64(long value) -> Varve.Xsd.XsdDecimal
@@ -195,6 +325,41 @@ static Varve.Xsd.XsdFloat.operator <=(Varve.Xsd.XsdFloat left, Varve.Xsd.XsdFloa
 static Varve.Xsd.XsdFloat.operator ==(Varve.Xsd.XsdFloat left, Varve.Xsd.XsdFloat right) -> bool
 static Varve.Xsd.XsdFloat.operator >(Varve.Xsd.XsdFloat left, Varve.Xsd.XsdFloat right) -> bool
 static Varve.Xsd.XsdFloat.operator >=(Varve.Xsd.XsdFloat left, Varve.Xsd.XsdFloat right) -> bool
+static Varve.Xsd.XsdGDay.Compare(Varve.Xsd.XsdGDay left, Varve.Xsd.XsdGDay right, int implicitTimezoneOffset) -> int
+static Varve.Xsd.XsdGDay.CompareXsd(Varve.Xsd.XsdGDay left, Varve.Xsd.XsdGDay right) -> Varve.Xsd.PartialOrdering
+static Varve.Xsd.XsdGDay.IsCanonical(System.ReadOnlySpan<byte> lexical) -> bool
+static Varve.Xsd.XsdGDay.TryParse(System.ReadOnlySpan<byte> utf8, out Varve.Xsd.XsdGDay value) -> bool
+static Varve.Xsd.XsdGDay.TryParse(System.ReadOnlySpan<char> text, out Varve.Xsd.XsdGDay value) -> bool
+static Varve.Xsd.XsdGDay.operator !=(Varve.Xsd.XsdGDay left, Varve.Xsd.XsdGDay right) -> bool
+static Varve.Xsd.XsdGDay.operator ==(Varve.Xsd.XsdGDay left, Varve.Xsd.XsdGDay right) -> bool
+static Varve.Xsd.XsdGMonth.Compare(Varve.Xsd.XsdGMonth left, Varve.Xsd.XsdGMonth right, int implicitTimezoneOffset) -> int
+static Varve.Xsd.XsdGMonth.CompareXsd(Varve.Xsd.XsdGMonth left, Varve.Xsd.XsdGMonth right) -> Varve.Xsd.PartialOrdering
+static Varve.Xsd.XsdGMonth.IsCanonical(System.ReadOnlySpan<byte> lexical) -> bool
+static Varve.Xsd.XsdGMonth.TryParse(System.ReadOnlySpan<byte> utf8, out Varve.Xsd.XsdGMonth value) -> bool
+static Varve.Xsd.XsdGMonth.TryParse(System.ReadOnlySpan<char> text, out Varve.Xsd.XsdGMonth value) -> bool
+static Varve.Xsd.XsdGMonth.operator !=(Varve.Xsd.XsdGMonth left, Varve.Xsd.XsdGMonth right) -> bool
+static Varve.Xsd.XsdGMonth.operator ==(Varve.Xsd.XsdGMonth left, Varve.Xsd.XsdGMonth right) -> bool
+static Varve.Xsd.XsdGMonthDay.Compare(Varve.Xsd.XsdGMonthDay left, Varve.Xsd.XsdGMonthDay right, int implicitTimezoneOffset) -> int
+static Varve.Xsd.XsdGMonthDay.CompareXsd(Varve.Xsd.XsdGMonthDay left, Varve.Xsd.XsdGMonthDay right) -> Varve.Xsd.PartialOrdering
+static Varve.Xsd.XsdGMonthDay.IsCanonical(System.ReadOnlySpan<byte> lexical) -> bool
+static Varve.Xsd.XsdGMonthDay.TryParse(System.ReadOnlySpan<byte> utf8, out Varve.Xsd.XsdGMonthDay value) -> bool
+static Varve.Xsd.XsdGMonthDay.TryParse(System.ReadOnlySpan<char> text, out Varve.Xsd.XsdGMonthDay value) -> bool
+static Varve.Xsd.XsdGMonthDay.operator !=(Varve.Xsd.XsdGMonthDay left, Varve.Xsd.XsdGMonthDay right) -> bool
+static Varve.Xsd.XsdGMonthDay.operator ==(Varve.Xsd.XsdGMonthDay left, Varve.Xsd.XsdGMonthDay right) -> bool
+static Varve.Xsd.XsdGYear.Compare(Varve.Xsd.XsdGYear left, Varve.Xsd.XsdGYear right, int implicitTimezoneOffset) -> int
+static Varve.Xsd.XsdGYear.CompareXsd(Varve.Xsd.XsdGYear left, Varve.Xsd.XsdGYear right) -> Varve.Xsd.PartialOrdering
+static Varve.Xsd.XsdGYear.IsCanonical(System.ReadOnlySpan<byte> lexical) -> bool
+static Varve.Xsd.XsdGYear.TryParse(System.ReadOnlySpan<byte> utf8, out Varve.Xsd.XsdGYear value) -> bool
+static Varve.Xsd.XsdGYear.TryParse(System.ReadOnlySpan<char> text, out Varve.Xsd.XsdGYear value) -> bool
+static Varve.Xsd.XsdGYear.operator !=(Varve.Xsd.XsdGYear left, Varve.Xsd.XsdGYear right) -> bool
+static Varve.Xsd.XsdGYear.operator ==(Varve.Xsd.XsdGYear left, Varve.Xsd.XsdGYear right) -> bool
+static Varve.Xsd.XsdGYearMonth.Compare(Varve.Xsd.XsdGYearMonth left, Varve.Xsd.XsdGYearMonth right, int implicitTimezoneOffset) -> int
+static Varve.Xsd.XsdGYearMonth.CompareXsd(Varve.Xsd.XsdGYearMonth left, Varve.Xsd.XsdGYearMonth right) -> Varve.Xsd.PartialOrdering
+static Varve.Xsd.XsdGYearMonth.IsCanonical(System.ReadOnlySpan<byte> lexical) -> bool
+static Varve.Xsd.XsdGYearMonth.TryParse(System.ReadOnlySpan<byte> utf8, out Varve.Xsd.XsdGYearMonth value) -> bool
+static Varve.Xsd.XsdGYearMonth.TryParse(System.ReadOnlySpan<char> text, out Varve.Xsd.XsdGYearMonth value) -> bool
+static Varve.Xsd.XsdGYearMonth.operator !=(Varve.Xsd.XsdGYearMonth left, Varve.Xsd.XsdGYearMonth right) -> bool
+static Varve.Xsd.XsdGYearMonth.operator ==(Varve.Xsd.XsdGYearMonth left, Varve.Xsd.XsdGYearMonth right) -> bool
 static Varve.Xsd.XsdInteger.Add(Varve.Xsd.XsdInteger left, Varve.Xsd.XsdInteger right) -> Varve.Xsd.XsdInteger
 static Varve.Xsd.XsdInteger.IsCanonical(System.ReadOnlySpan<byte> lexical) -> bool
 static Varve.Xsd.XsdInteger.Multiply(Varve.Xsd.XsdInteger left, Varve.Xsd.XsdInteger right) -> Varve.Xsd.XsdInteger
@@ -238,3 +403,10 @@ static Varve.Xsd.XsdNumeric.operator !=(Varve.Xsd.XsdNumeric left, Varve.Xsd.Xsd
 static Varve.Xsd.XsdNumeric.operator ==(Varve.Xsd.XsdNumeric left, Varve.Xsd.XsdNumeric right) -> bool
 static Varve.Xsd.XsdString.CompareCodePoints(System.ReadOnlySpan<byte> left, System.ReadOnlySpan<byte> right) -> int
 static Varve.Xsd.XsdString.CompareCodePoints(System.ReadOnlySpan<char> left, System.ReadOnlySpan<char> right) -> int
+static Varve.Xsd.XsdTime.Compare(Varve.Xsd.XsdTime left, Varve.Xsd.XsdTime right, int implicitTimezoneOffset) -> int
+static Varve.Xsd.XsdTime.CompareXsd(Varve.Xsd.XsdTime left, Varve.Xsd.XsdTime right) -> Varve.Xsd.PartialOrdering
+static Varve.Xsd.XsdTime.IsCanonical(System.ReadOnlySpan<byte> lexical) -> bool
+static Varve.Xsd.XsdTime.TryParse(System.ReadOnlySpan<byte> utf8, out Varve.Xsd.XsdTime value) -> bool
+static Varve.Xsd.XsdTime.TryParse(System.ReadOnlySpan<char> text, out Varve.Xsd.XsdTime value) -> bool
+static Varve.Xsd.XsdTime.operator !=(Varve.Xsd.XsdTime left, Varve.Xsd.XsdTime right) -> bool
+static Varve.Xsd.XsdTime.operator ==(Varve.Xsd.XsdTime left, Varve.Xsd.XsdTime right) -> bool
