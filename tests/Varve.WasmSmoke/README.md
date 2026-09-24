@@ -1,9 +1,10 @@
 # Varve.WasmSmoke
 
-A `browser-wasm` app that does four things on one page: parses N-Quads, reads
+A `browser-wasm` app that does five things on one page: parses N-Quads, reads
 and writes Turtle and TriG, opens an in-memory `Varve.Store` dataset — commit,
-pin, checkpoint, as-of, and a reopen from its own log — and probes the cryptographic primitives ADR 0028's
-composition needs.
+pin, checkpoint, as-of, and a reopen from its own log — parses a SPARQL query
+and an update, prints the algebra through the serialiser and parses it back,
+and probes the cryptographic primitives ADR 0028's composition needs.
 
 Turtle is there because N-Quads exercises none of what it adds — the statement
 buffer, the prefix table, the blank node naming, the writer's state — so a
@@ -67,6 +68,14 @@ commits, a pinned read, a checkpoint, an as-of read over it, and a reopen that
 verifies the chain and loads the checkpoint. `Run` is asynchronous and the page
 awaits it, because the storage contract is asynchronous throughout (ADR 0018)
 and a browser has one thread to block.
+
+**The parser runs in the browser** (milestone 5a, headless Chromium 141): a
+query with a property path, a subquery, an aggregate and a reified triple is
+parsed from UTF-16, written back through the serialiser, parsed again and
+compared for the identical tree; an update goes the same way; an ill-formed
+query is refused with its position. The trimmer kept every record's
+synthesised equality and the dictionary's span lookup, which is what the
+round trip proves.
 
 A `404` for `/favicon.ico` in the console is Chromium asking for one that the
 app bundle does not contain. It is not a failure.

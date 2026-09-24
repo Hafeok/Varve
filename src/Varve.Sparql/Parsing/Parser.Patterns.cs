@@ -309,20 +309,33 @@ internal ref partial struct Parser
             }
             else if (mode.AllowPaths)
             {
-                PropertyPath parsed = ParsePath();
+                // The common case, an IRI or 'a' with no path operator after
+                // it, becomes a triple pattern without a path node being
+                // allocated on the way (§4.4): the parser allocates the tree
+                // and nothing else.
+                inverse = Accept(TokenKind.Caret);
+                Token iriToken = _token;
 
-                switch (parsed)
+                if (Is(TokenKind.Iri) || Is(TokenKind.PrefixedName) || IsWord("a"u8))
                 {
-                    case PredicatePath simple:
-                        predicate = new TermPattern(simple.Predicate) { Span = simple.Span };
-                        break;
-                    case InversePath { Inner: PredicatePath inner }:
-                        predicate = new TermPattern(inner.Predicate) { Span = inner.Span };
-                        inverse = true;
-                        break;
-                    default:
-                        path = parsed;
-                        break;
+                    RdfTerm iri = AcceptWord("a"u8) ? RdfTypeTerm : ParseIri();
+
+                    if (Is(TokenKind.Question) || Is(TokenKind.Star) || Is(TokenKind.Plus) || Is(TokenKind.Slash) || Is(TokenKind.Pipe))
+                    {
+                        PropertyPath first = ParsePathModifier(new PredicatePath(iri) { Span = iriToken.Span }, verbToken);
+                        path = ContinuePath(inverse ? new InversePath(first) { Span = From(verbToken) } : first, verbToken);
+                        inverse = false;
+                    }
+                    else
+                    {
+                        predicate = new TermPattern(iri) { Span = iriToken.Span };
+                    }
+                }
+                else
+                {
+                    PropertyPath first = ParsePathElt();
+                    path = ContinuePath(inverse ? new InversePath(first) { Span = From(verbToken) } : first, verbToken);
+                    inverse = false;
                 }
             }
             else

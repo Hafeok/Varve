@@ -178,6 +178,17 @@ public class ParserTests
     }
 
     [Fact]
+    public void an_alias_is_visible_to_order_by_but_not_to_having_at_a_grouped_level()
+    {
+        Query query = SparqlParser.ParseQuery(Encoding.UTF8.GetBytes(Prefix + "SELECT ?s (COUNT(?o) AS ?n) WHERE { ?s :p ?o } GROUP BY ?s ORDER BY DESC(?n)"));
+        Assert.IsType<Project>(query.Pattern);
+
+        Assert.Equal(SparqlErrorKind.Aggregate, Error(Prefix + "SELECT ?s (COUNT(?o) AS ?n) WHERE { ?s :p ?o } GROUP BY ?s HAVING (?n > 1)").Kind);
+        Assert.Equal(SparqlErrorKind.Aggregate, Error(Prefix + "SELECT ?s (COUNT(?o) AS ?n) WHERE { ?s :p ?o } GROUP BY ?s ORDER BY ?o").Kind);
+        Assert.Equal(SparqlErrorKind.Aggregate, Error(Prefix + "SELECT ?o WHERE { ?s :p ?o } GROUP BY ?s").Kind);
+    }
+
+    [Fact]
     public void reified_triples_and_annotations_expand_to_reifies_triples()
     {
         Query query = SparqlParser.ParseQuery(Encoding.UTF8.GetBytes(Prefix + "SELECT * { ?person :name \"Alice\" ~ :t {| :statedBy ?authority |} }"));

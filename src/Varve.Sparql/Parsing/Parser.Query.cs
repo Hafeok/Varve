@@ -651,9 +651,35 @@ internal ref partial struct Parser
             CheckVariablesAreKeys(condition, ref keys, _token);
         }
 
-        foreach (OrderCondition condition in order)
+        // ORDER BY runs after the SELECT expressions (§18.3.5.1 after
+        // §18.3.4.4), so an AS variable is in scope there; HAVING runs before
+        // them and cannot see one (§18.3.4.2). A separate list, because the
+        // caller's is the pattern's scope and the AS check reads it next.
+        PooledList<Variable> visible = default;
+
+        try
         {
-            CheckVariablesAreKeys(condition.Expression, ref keys, _token);
+            foreach (Variable key in keys.Span)
+            {
+                visible.Add(key);
+            }
+
+            foreach (SelectItem item in items.Span)
+            {
+                if (item.Expression is not null)
+                {
+                    AddScope(ref visible, item.Variable);
+                }
+            }
+
+            foreach (OrderCondition condition in order)
+            {
+                CheckVariablesAreKeys(condition.Expression, ref visible, _token);
+            }
+        }
+        finally
+        {
+            visible.Dispose();
         }
     }
 

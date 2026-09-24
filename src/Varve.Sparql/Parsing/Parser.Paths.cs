@@ -55,8 +55,12 @@ internal ref partial struct Parser
     private PropertyPath ParsePathElt()
     {
         Token start = _token;
-        PropertyPath primary = ParsePathPrimary();
+        return ParsePathModifier(ParsePathPrimary(), start);
+    }
 
+    /// <summary><c>[99] PathMod</c>, if one follows, applied to a primary already parsed.</summary>
+    private PropertyPath ParsePathModifier(PropertyPath primary, Token start)
+    {
         if (Accept(TokenKind.Question))
         {
             return new ZeroOrOnePath(primary) { Span = From(start) };
@@ -73,6 +77,29 @@ internal ref partial struct Parser
         }
 
         return primary;
+    }
+
+    /// <summary>
+    /// The rest of <c>[94] Path</c> after its first <c>PathEltOrInverse</c>:
+    /// the sequence it begins, then the alternatives that sequence begins.
+    /// </summary>
+    private PropertyPath ContinuePath(PropertyPath first, Token start)
+    {
+        PropertyPath sequence = first;
+
+        while (Accept(TokenKind.Slash))
+        {
+            sequence = new SequencePath(sequence, ParsePathEltOrInverse()) { Span = From(start) };
+        }
+
+        PropertyPath path = sequence;
+
+        while (Accept(TokenKind.Pipe))
+        {
+            path = new AlternativePath(path, ParsePathSequence()) { Span = From(start) };
+        }
+
+        return path;
     }
 
     /// <summary><c>[100] PathPrimary ::= iri | 'a' | '!' PathNegatedPropertySet | '(' Path ')'</c></summary>
