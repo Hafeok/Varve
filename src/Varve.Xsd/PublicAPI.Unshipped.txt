@@ -181,6 +181,7 @@ Varve.Xsd.XsdGYearMonth.HasTimezone.get -> bool
 Varve.Xsd.XsdGYearMonth.Month.get -> int
 Varve.Xsd.XsdGYearMonth.TimeOnTimeline(int implicitTimezoneOffset) -> Varve.Xsd.XsdDecimal
 Varve.Xsd.XsdGYearMonth.TimezoneOffset.get -> int
+Varve.Xsd.XsdGYearMonth.TryAdd(Varve.Xsd.XsdYearMonthDuration duration, out Varve.Xsd.XsdGYearMonth result) -> bool
 Varve.Xsd.XsdGYearMonth.TryFormat(System.Span<byte> destination, out int written) -> bool
 Varve.Xsd.XsdGYearMonth.TryFormat(System.Span<char> destination, out int written) -> bool
 Varve.Xsd.XsdGYearMonth.XsdGYearMonth() -> void

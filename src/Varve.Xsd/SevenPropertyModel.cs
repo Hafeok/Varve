@@ -94,14 +94,17 @@ internal static class SevenPropertyModel
 
     private static bool IsLeap(int year) => (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
 
-    /// <summary>The number of days from the fixed origin to the start of a proleptic Gregorian year (astronomical numbering).</summary>
-    private static long DaysBeforeYear(long year)
-    {
-        // Days in complete years before `year`, counting year 0 as a leap year,
-        // as §E.3.4 does with its 400/100/4 terms.
-        long y = year;
-        return (365 * y) + Floor(y, 4) - Floor(y, 100) + Floor(y, 400);
-    }
+    /// <summary>
+    /// The number of days from the start of year 0 to the start of a
+    /// proleptic Gregorian year, astronomical numbering: the leap years in
+    /// [0, year), which is what §E.3.4's terms over year − 1 count, and
+    /// which makes year 0 a leap year.
+    /// </summary>
+    private static long DaysBeforeYear(long year) =>
+        (365 * year) + Ceiling(year, 4) - Ceiling(year, 100) + Ceiling(year, 400);
+
+    private static long Ceiling(long value, long divisor) =>
+        value >= 0 ? (value + divisor - 1) / divisor : value / divisor;
 
     private static long Floor(long value, long divisor)
     {

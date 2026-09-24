@@ -124,5 +124,16 @@ public readonly struct XsdGYearMonth : IEquatable<XsdGYearMonth>
     /// <summary>XML Schema inequality.</summary>
     public static bool operator !=(XsdGYearMonth left, XsdGYearMonth right) => !left.Equals(right);
 
+    /// <summary>
+    /// <c>dateTimePlusDuration</c> (§E.3.3) applied to a month, as the
+    /// specification's own example <c>2000-01 + -P3M = 1999-10</c> does.
+    /// </summary>
+    public bool TryAdd(XsdYearMonthDuration duration, out XsdGYearMonth result)
+    {
+        bool ok = SevenPropertyModel.TryAdd(in _value, duration.Months, XsdDecimal.Zero, out SevenProperties sum);
+        result = new XsdGYearMonth(in sum);
+        return ok;
+    }
+
     internal SevenProperties Properties => _value;
 }

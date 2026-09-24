@@ -280,6 +280,12 @@ with each reduced below its unit and zero fragments omitted
 (`duDayTimeCanonicalFragmentMap`); a zero duration is `PT0S`. `P1Y13M` is
 `P2Y1M`; `PT90M` is `PT1H30M`; `P0D` is `PT0S`.
 
+**A zero `yearMonthDuration` has no canonical form in XSD** (§3.4.26.1: its
+canonical form as a `duration`, `PT0S`, is outside the derived type's lexical
+space). This package writes `P0M` for it, which is in the lexical space and
+is the only zero form with no day-time fragment; stated here because it is a
+choice the specification leaves open.
+
 ## 5. Value comparison and the SPARQL operator mapping
 
 SPARQL 1.1 §17.3 maps each operator, by operand types, to an XPath operator.
