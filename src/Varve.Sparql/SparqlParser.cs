@@ -87,6 +87,64 @@ public static class SparqlParser
         }
     }
 
+    /// <summary>Parses an update request as SPARQL 1.2 with no base, throwing <see cref="SparqlParseException"/> on the first error.</summary>
+    public static Update ParseUpdate(ReadOnlySpan<byte> utf8) => ParseUpdate(utf8, default);
+
+    /// <summary>Parses an update request, throwing <see cref="SparqlParseException"/> on the first error.</summary>
+    public static Update ParseUpdate(ReadOnlySpan<byte> utf8, SparqlParseOptions options) =>
+        TryParseUpdate(utf8, options, out Update? update, out SparqlParseError error) ? update : throw new SparqlParseException(error);
+
+    /// <summary>Parses an update request from UTF-16 as SPARQL 1.2 with no base, throwing <see cref="SparqlParseException"/> on the first error.</summary>
+    public static Update ParseUpdate(ReadOnlySpan<char> text) => ParseUpdate(text, default);
+
+    /// <summary>Parses an update request from UTF-16, throwing <see cref="SparqlParseException"/> on the first error.</summary>
+    public static Update ParseUpdate(ReadOnlySpan<char> text, SparqlParseOptions options) =>
+        TryParseUpdate(text, options, out Update? update, out SparqlParseError error) ? update : throw new SparqlParseException(error);
+
+    /// <summary>Parses an update request; false with the error on the first one.</summary>
+    public static bool TryParseUpdate(ReadOnlySpan<byte> utf8, SparqlParseOptions options, [NotNullWhen(true)] out Update? update, out SparqlParseError error)
+    {
+        try
+        {
+            update = Run(utf8, options, static (ref Parser parser) => parser.ParseUpdateUnit());
+            error = default;
+            return true;
+        }
+        catch (SparqlParseException exception)
+        {
+            update = null;
+            error = exception.Error;
+            return false;
+        }
+    }
+
+    /// <summary>Parses an update request from UTF-16; false with the error on the first one.</summary>
+    public static bool TryParseUpdate(ReadOnlySpan<char> text, SparqlParseOptions options, [NotNullWhen(true)] out Update? update, out SparqlParseError error)
+    {
+        byte[]? rented = null;
+
+        try
+        {
+            ReadOnlySpan<byte> utf8 = Transcode(text, ref rented, out SparqlParseError encoding);
+
+            if (encoding.IsError)
+            {
+                update = null;
+                error = encoding;
+                return false;
+            }
+
+            return TryParseUpdate(utf8, options, out update, out error);
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
+        }
+    }
+
     private delegate T Parse<T>(ref Parser parser);
 
     /// <summary>

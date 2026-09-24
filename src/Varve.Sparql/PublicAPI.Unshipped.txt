@@ -1210,8 +1210,14 @@ static Varve.Sparql.SparqlParser.ParseQuery(System.ReadOnlySpan<byte> utf8) -> V
 static Varve.Sparql.SparqlParser.ParseQuery(System.ReadOnlySpan<byte> utf8, Varve.Sparql.SparqlParseOptions options) -> Varve.Sparql.Algebra.Query!
 static Varve.Sparql.SparqlParser.ParseQuery(System.ReadOnlySpan<char> text) -> Varve.Sparql.Algebra.Query!
 static Varve.Sparql.SparqlParser.ParseQuery(System.ReadOnlySpan<char> text, Varve.Sparql.SparqlParseOptions options) -> Varve.Sparql.Algebra.Query!
+static Varve.Sparql.SparqlParser.ParseUpdate(System.ReadOnlySpan<byte> utf8) -> Varve.Sparql.Algebra.Update!
+static Varve.Sparql.SparqlParser.ParseUpdate(System.ReadOnlySpan<byte> utf8, Varve.Sparql.SparqlParseOptions options) -> Varve.Sparql.Algebra.Update!
+static Varve.Sparql.SparqlParser.ParseUpdate(System.ReadOnlySpan<char> text) -> Varve.Sparql.Algebra.Update!
+static Varve.Sparql.SparqlParser.ParseUpdate(System.ReadOnlySpan<char> text, Varve.Sparql.SparqlParseOptions options) -> Varve.Sparql.Algebra.Update!
 static Varve.Sparql.SparqlParser.TryParseQuery(System.ReadOnlySpan<byte> utf8, Varve.Sparql.SparqlParseOptions options, out Varve.Sparql.Algebra.Query? query, out Varve.Sparql.SparqlParseError error) -> bool
 static Varve.Sparql.SparqlParser.TryParseQuery(System.ReadOnlySpan<char> text, Varve.Sparql.SparqlParseOptions options, out Varve.Sparql.Algebra.Query? query, out Varve.Sparql.SparqlParseError error) -> bool
+static Varve.Sparql.SparqlParser.TryParseUpdate(System.ReadOnlySpan<byte> utf8, Varve.Sparql.SparqlParseOptions options, out Varve.Sparql.Algebra.Update? update, out Varve.Sparql.SparqlParseError error) -> bool
+static Varve.Sparql.SparqlParser.TryParseUpdate(System.ReadOnlySpan<char> text, Varve.Sparql.SparqlParseOptions options, out Varve.Sparql.Algebra.Update? update, out Varve.Sparql.SparqlParseError error) -> bool
 virtual Varve.Sparql.Algebra.AlgebraNode.EqualityContract.get -> System.Type!
 virtual Varve.Sparql.Algebra.AlgebraNode.Equals(Varve.Sparql.Algebra.AlgebraNode? other) -> bool
 virtual Varve.Sparql.Algebra.AlgebraNode.PrintMembers(System.Text.StringBuilder! builder) -> bool
