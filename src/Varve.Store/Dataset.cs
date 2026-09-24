@@ -194,6 +194,27 @@ public sealed class Dataset : IAsyncDisposable
     /// R1: a view of the readable head, stable until disposed whatever commits
     /// follow. An engine snapshot for one operation, not time travel.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// **A pinned read lives for one query execution** (ADR 0052). The caller
+    /// takes the pin before evaluation begins and disposes it after the last
+    /// result has been consumed or the consumer has stopped, whichever comes
+    /// first. It is not held across queries, not cached, and not shared
+    /// between requests: while it is open the engine cannot release the index
+    /// version and checkpoint it reads (ADR 0015, 0041).
+    /// </para>
+    /// <para>
+    /// The evaluator never sees this method. It receives the view as an
+    /// <see cref="IQuadSource"/> it does not own, never disposes it, and never
+    /// learns that it was a pin (ADR 0005). Disposing the view while results
+    /// are still being pulled is a caller error, and the
+    /// <see cref="ObjectDisposedException"/> every member then throws is the
+    /// honest report of it. The bound on how long a query may run is the
+    /// host's: a <see cref="CancellationToken"/> handed to the evaluator, which
+    /// the server enforces per request and the embedded caller sets for
+    /// itself, if at all.
+    /// </para>
+    /// </remarks>
     /// <exception cref="DatasetUnavailableException">The dataset is in the failed state.</exception>
     public DatasetView Pin()
     {

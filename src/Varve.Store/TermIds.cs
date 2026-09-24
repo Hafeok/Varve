@@ -125,6 +125,35 @@ internal static class TermIds
             RdfTerm.Iri(XsdIntegerIri));
     }
 
+    /// <summary>The value an inline id carries, decoded from its bits (ADR 0050).</summary>
+    [HotPath]
+    internal static bool TryInlineValue(ulong id, out InlineValue value)
+    {
+        if (ClassOf(id) != IdClass.Inline)
+        {
+            value = InlineValue.None;
+            return false;
+        }
+
+        ulong tag = (id >> InlineTagShift) & 0x3F;
+        ulong payload = id & InlinePayloadMask;
+
+        if (tag == InlineBoolean)
+        {
+            value = InlineValue.FromBoolean(payload != 0);
+            return true;
+        }
+
+        if (tag == InlineInteger)
+        {
+            value = InlineValue.FromInteger((long)(payload << 8) >> 8);
+            return true;
+        }
+
+        value = InlineValue.None;
+        return false;
+    }
+
     internal static bool IsValidInline(ulong id)
     {
         ulong tag = (id >> InlineTagShift) & 0x3F;

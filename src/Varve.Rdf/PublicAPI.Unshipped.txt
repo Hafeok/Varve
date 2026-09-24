@@ -174,3 +174,41 @@ static Varve.Rdf.QuadDelta.Create(System.ReadOnlySpan<Varve.Rdf.Quad> asserted, 
 static Varve.Rdf.QuadDelta.Empty.get -> Varve.Rdf.QuadDelta
 static Varve.Rdf.QuadDelta.operator !=(Varve.Rdf.QuadDelta left, Varve.Rdf.QuadDelta right) -> bool
 static Varve.Rdf.QuadDelta.operator ==(Varve.Rdf.QuadDelta left, Varve.Rdf.QuadDelta right) -> bool
+Varve.Rdf.CardinalityEstimate
+Varve.Rdf.CardinalityEstimate.CardinalityEstimate() -> void
+Varve.Rdf.CardinalityEstimate.Count.get -> long
+Varve.Rdf.CardinalityEstimate.Equals(Varve.Rdf.CardinalityEstimate other) -> bool
+Varve.Rdf.CardinalityEstimate.IsEstimated.get -> bool
+Varve.Rdf.CardinalityEstimate.IsExact.get -> bool
+Varve.Rdf.CardinalityEstimate.IsUnknown.get -> bool
+Varve.Rdf.IQuadSource.Estimate(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object, Varve.Rdf.GraphPattern graph) -> Varve.Rdf.CardinalityEstimate
+Varve.Rdf.IQuadSource.TryGetInlineValue(Varve.Rdf.TermHandle handle, out Varve.Rdf.InlineValue value) -> bool
+Varve.Rdf.InMemoryDataset.Estimate(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object, Varve.Rdf.GraphPattern graph) -> Varve.Rdf.CardinalityEstimate
+Varve.Rdf.InMemoryDataset.TryGetInlineValue(Varve.Rdf.TermHandle handle, out Varve.Rdf.InlineValue value) -> bool
+Varve.Rdf.InlineValue
+Varve.Rdf.InlineValue.Boolean.get -> bool
+Varve.Rdf.InlineValue.Equals(Varve.Rdf.InlineValue other) -> bool
+Varve.Rdf.InlineValue.InlineValue() -> void
+Varve.Rdf.InlineValue.Integer.get -> long
+Varve.Rdf.InlineValue.Kind.get -> Varve.Rdf.InlineValueKind
+Varve.Rdf.InlineValueKind
+Varve.Rdf.InlineValueKind.Boolean = 2 -> Varve.Rdf.InlineValueKind
+Varve.Rdf.InlineValueKind.Integer = 1 -> Varve.Rdf.InlineValueKind
+Varve.Rdf.InlineValueKind.None = 0 -> Varve.Rdf.InlineValueKind
+Varve.Rdf.QuadOverlay.Estimate(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object, Varve.Rdf.GraphPattern graph) -> Varve.Rdf.CardinalityEstimate
+Varve.Rdf.QuadOverlay.TryGetInlineValue(Varve.Rdf.TermHandle handle, out Varve.Rdf.InlineValue value) -> bool
+override Varve.Rdf.CardinalityEstimate.Equals(object? obj) -> bool
+override Varve.Rdf.CardinalityEstimate.GetHashCode() -> int
+override Varve.Rdf.CardinalityEstimate.ToString() -> string!
+override Varve.Rdf.InlineValue.Equals(object? obj) -> bool
+override Varve.Rdf.InlineValue.GetHashCode() -> int
+static Varve.Rdf.CardinalityEstimate.Estimated(long count) -> Varve.Rdf.CardinalityEstimate
+static Varve.Rdf.CardinalityEstimate.Exact(long count) -> Varve.Rdf.CardinalityEstimate
+static Varve.Rdf.CardinalityEstimate.Unknown.get -> Varve.Rdf.CardinalityEstimate
+static Varve.Rdf.CardinalityEstimate.operator !=(Varve.Rdf.CardinalityEstimate left, Varve.Rdf.CardinalityEstimate right) -> bool
+static Varve.Rdf.CardinalityEstimate.operator ==(Varve.Rdf.CardinalityEstimate left, Varve.Rdf.CardinalityEstimate right) -> bool
+static Varve.Rdf.InlineValue.FromBoolean(bool value) -> Varve.Rdf.InlineValue
+static Varve.Rdf.InlineValue.FromInteger(long value) -> Varve.Rdf.InlineValue
+static Varve.Rdf.InlineValue.None.get -> Varve.Rdf.InlineValue
+static Varve.Rdf.InlineValue.operator !=(Varve.Rdf.InlineValue left, Varve.Rdf.InlineValue right) -> bool
+static Varve.Rdf.InlineValue.operator ==(Varve.Rdf.InlineValue left, Varve.Rdf.InlineValue right) -> bool

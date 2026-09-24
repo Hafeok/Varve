@@ -65,6 +65,50 @@ public sealed class QuadOverlay : IQuadSource
     public IQuadCursor Match(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph) =>
         new Cursor(_base.Match(subject, predicate, @object, graph), _delta, subject, predicate, @object, graph);
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// The base's estimate adjusted by the delta (ADR 0049): for each delta
+    /// quad matching the pattern, plus one if asserted and not in the base,
+    /// minus one if retracted, not asserted, and in the base. Exact when the
+    /// base is, at one base lookup per matching delta quad; unknown when the
+    /// base is.
+    /// </remarks>
+    public CardinalityEstimate Estimate(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph)
+    {
+        CardinalityEstimate below = _base.Estimate(subject, predicate, @object, graph);
+
+        if (below.IsUnknown)
+        {
+            return below;
+        }
+
+        long count = below.Count;
+
+        foreach (Quad quad in _delta.Asserted)
+        {
+            if (QuadPatterns.Matches(in quad, subject, predicate, @object, graph) && !_base.Contains(in quad))
+            {
+                count++;
+            }
+        }
+
+        foreach (Quad quad in _delta.Retracted)
+        {
+            if (QuadPatterns.Matches(in quad, subject, predicate, @object, graph)
+                && !_delta.Asserts(in quad)
+                && _base.Contains(in quad))
+            {
+                count--;
+            }
+        }
+
+        return below.IsExact ? CardinalityEstimate.Exact(count) : CardinalityEstimate.Estimated(count);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>The base's answer: the delta's handles are the base's (ADR 0050).</remarks>
+    public bool TryGetInlineValue(TermHandle handle, out InlineValue value) => _base.TryGetInlineValue(handle, out value);
+
     private sealed class Cursor : IQuadCursor
     {
         private readonly IQuadCursor _base;

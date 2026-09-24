@@ -77,4 +77,22 @@ public interface IQuadSource
     /// questions there and a sentinel cannot tell them apart.
     /// </summary>
     IQuadCursor Match(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph);
+
+    /// <summary>
+    /// How many quads <see cref="Match"/> would yield for the same pattern:
+    /// exact, estimated, or unknown (ADR 0049). The cost is bounded by the
+    /// source's documentation, and a consumer may call it freely only where
+    /// that documentation says it is cheap. A source that claims to be an
+    /// index does not answer by scanning.
+    /// </summary>
+    CardinalityEstimate Estimate(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph);
+
+    /// <summary>
+    /// The value a handle encodes in its own bits, when it encodes one (ADR
+    /// 0050). True hands over the value of a literal whose lexical form is
+    /// canonical, without materialising the term. False means the handle is
+    /// not inline — nothing more — and the consumer externalises as it would
+    /// have anyway.
+    /// </summary>
+    bool TryGetInlineValue(TermHandle handle, out InlineValue value);
 }

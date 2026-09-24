@@ -332,6 +332,43 @@ internal sealed class IndexVersion
     internal IQuadCursor Match(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph) =>
         new RunCursor(Runs, subject.Value, predicate.Value, @object.Value, graph);
 
+    /// <summary>
+    /// How many quads match a pattern, exactly, at <c>O(runs × log n)</c>
+    /// (ADR 0049). Every combination of bound positions is a prefix range in
+    /// one of the six orders (ADR 0041), so a run's contribution is two binary
+    /// searches per key list; and each run is a delta exact against the state
+    /// the older runs produce (I2), so the sum over runs of asserted keys in
+    /// range minus retracted keys in range is the count. <see cref="GraphMatch.AnyNamed"/>
+    /// is every graph minus the default graph, both prefix ranges.
+    /// </summary>
+    internal CardinalityEstimate Estimate(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph)
+    {
+        if (graph.Match == GraphMatch.AnyNamed)
+        {
+            return CardinalityEstimate.Exact(
+                CountRange(subject.Value, predicate.Value, @object.Value, GraphPattern.Any)
+                - CountRange(subject.Value, predicate.Value, @object.Value, GraphPattern.DefaultGraph));
+        }
+
+        return CardinalityEstimate.Exact(CountRange(subject.Value, predicate.Value, @object.Value, graph));
+    }
+
+    private long CountRange(ulong subject, ulong predicate, ulong @object, GraphPattern graph)
+    {
+        (IndexOrder order, QuadKey low, QuadKey high) = RunCursor.Plan(subject, predicate, @object, graph);
+        long count = 0;
+
+        foreach (Run run in Runs)
+        {
+            ReadOnlySpan<QuadKey> asserted = run.Asserted(order).Span;
+            ReadOnlySpan<QuadKey> retracted = run.Retracted(order).Span;
+            count += Run.UpperBound(asserted, in high) - Run.LowerBound(asserted, in low);
+            count -= Run.UpperBound(retracted, in high) - Run.LowerBound(retracted, in low);
+        }
+
+        return count;
+    }
+
     /// <summary>How many quads the version holds. A full scan; for tests and checkpoints.</summary>
     internal long CountQuads()
     {
@@ -466,9 +503,12 @@ internal sealed class RunCursor : IQuadCursor
     /// The order whose longest prefix is bound, and the key range it gives. A
     /// graph position is bound by <see cref="GraphPattern.DefaultGraph"/> (id 0)
     /// and by a named graph; <see cref="GraphPattern.AnyNamed"/> starts the
-    /// range at graph 1 when the graph comes first.
+    /// range at graph 1 when the graph comes first. With six orders every
+    /// subset of the four positions is some order's prefix, so the range holds
+    /// exactly the matching keys; the cursor still filters, the estimate
+    /// counts the range and the property test holds the two to each other.
     /// </summary>
-    private static (IndexOrder Order, QuadKey Low, QuadKey High) Plan(
+    internal static (IndexOrder Order, QuadKey Low, QuadKey High) Plan(
         ulong subject, ulong predicate, ulong @object, GraphPattern graph)
     {
         Span<ulong> value = [subject, predicate, @object, graph.Graph.Value];

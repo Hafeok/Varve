@@ -18,10 +18,17 @@ namespace Varve.Rdf;
 /// table and mean nothing to another source.
 /// </para>
 /// <para>
-/// <see cref="Match"/> is a linear scan. There are no indices here, because
-/// this type exists to hold a parsed file and to give layer 3 something to run
-/// against before there is a store — not to be one. The store at milestone 4
-/// is where access paths are a design question.
+/// <see cref="Match"/> is a linear scan, and so is <see cref="Estimate"/>,
+/// which counts and reports the count exact (ADR 0049). There are no indices
+/// here, because this type exists to hold a parsed file and to give layer 3
+/// something to run against before there is a store — not to be one. The
+/// store at milestone 4 is where access paths are a design question.
+/// </para>
+/// <para>
+/// There are no inline handles either: <see cref="TryGetInlineValue"/> always
+/// answers false (ADR 0050). It could parse the interned term on demand and
+/// deliberately does not, so that the member promises what its name says and
+/// ADR 0022's benchmark measures the handle rather than parsing.
 /// </para>
 /// </remarks>
 public sealed class InMemoryDataset : IQuadSource
@@ -112,6 +119,31 @@ public sealed class InMemoryDataset : IQuadSource
     public IQuadCursor Match(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph) =>
         new Cursor(_quads, subject, predicate, @object, graph);
 
+    /// <inheritdoc />
+    /// <remarks>A count by scan, exact: this source has no index to consult.</remarks>
+    public CardinalityEstimate Estimate(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph)
+    {
+        long count = 0;
+
+        foreach (Quad quad in _quads)
+        {
+            if (QuadPatterns.Matches(in quad, subject, predicate, @object, graph))
+            {
+                count++;
+            }
+        }
+
+        return CardinalityEstimate.Exact(count);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Always false: this source's handles are table indices and encode nothing.</remarks>
+    public bool TryGetInlineValue(TermHandle handle, out InlineValue value)
+    {
+        value = InlineValue.None;
+        return false;
+    }
+
     private sealed class Cursor : IQuadCursor
     {
         private readonly TermHandle _subject;
@@ -157,24 +189,6 @@ public sealed class InMemoryDataset : IQuadSource
         public void Dispose() => _enumerator.Dispose();
 
         [HotPath]
-        private bool Matches(in Quad quad)
-        {
-            if (!_subject.IsNone && !_subject.Equals(quad.Subject))
-            {
-                return false;
-            }
-
-            if (!_predicate.IsNone && !_predicate.Equals(quad.Predicate))
-            {
-                return false;
-            }
-
-            if (!_object.IsNone && !_object.Equals(quad.Object))
-            {
-                return false;
-            }
-
-            return _graph.Matches(quad.Graph);
-        }
+        private bool Matches(in Quad quad) => QuadPatterns.Matches(in quad, _subject, _predicate, _object, _graph);
     }
 }

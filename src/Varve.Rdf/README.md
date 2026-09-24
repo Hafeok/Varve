@@ -15,7 +15,11 @@ The RDF 1.1 and 1.2 term model, and the abstract quad source contract.
 - **`IQuadSource`** is the contract everything reads through: an opaque 64-bit
   handle, internalise and externalise, an equality comparer supplied by the
   source, and four explicit graph modes — the default graph, one named graph,
-  every named graph (SPARQL's `GRAPH ?g`), or the union.
+  every named graph (SPARQL's `GRAPH ?g`), or the union. Two members for an
+  optimiser: a **cardinality estimate** per pattern that is exact, estimated
+  or honestly unknown, and an **inline-value accessor** that hands over the
+  integer or boolean a handle encodes in its own bits without materialising
+  the term.
 
 - **`QuadOverlay` and `QuadDelta`**: a source with a change applied,
   `(B \ R) ∪ A`, merged at scan time. One implementation serves a store's
