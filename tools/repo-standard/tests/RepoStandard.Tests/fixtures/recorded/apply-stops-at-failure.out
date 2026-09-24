@@ -1,0 +1,14 @@
+exit: 1
+--- stdout
+--- stderr
+FAILED   + labels documentation: POST /repos/octo-org/hello-world/labels: 422 Validation Failed (Label name already_exists)
+Stopped. Not applied:
++ labels documentation
+    name: (absent) -> "documentation"
+    color: (absent) -> "0075ca"
++ labels question
+    name: (absent) -> "question"
+    color: (absent) -> "d876e3"
+- labels enhancement
+    note: removes it from every issue and pull request that carries it
+3 differences: 2 to create, 0 to update, 1 to delete, 0 repo-standard cannot change.

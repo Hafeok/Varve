@@ -1,0 +1,12 @@
+exit: 1
+--- stdout
+~ repository settings
+    description: "This your first repo!" -> "A graph database for .NET."
+    features.wiki: true -> false
+    merge.allow_squash_merge: true -> false
+~ repository topics
+    topics: ["octocat","atom","electron","api"] -> ["octocat","atom","api"]
+~ repository security.dependabot_security_updates
+    security.dependabot_security_updates: true -> false
+3 differences: 0 to create, 3 to update, 0 to delete, 0 repo-standard cannot change.
+--- stderr

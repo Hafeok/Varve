@@ -137,6 +137,13 @@ accepted at all** — `turtle.md` §9. Nothing is published; the first tag is
 file and browser backends, erasure mode, SPARQL, SHACL. `docs/roadmap.md` has
 the rest, an owner and a due milestone per open question.
 
+`tools/repo-standard/` is **repo-standard** (ADR 0039): a CLI and a GitHub
+Action that apply a declared set of GitHub repository settings. Built here,
+moving to its own repository: its own solution, nothing in `src/` references
+it and it references nothing there, and it is held to every rule above.
+`.github/workflows/repo-standard.yml` is inert until `.github/repo-standard.yaml`
+exists.
+
 ## Never
 
 - A native dependency, or any package that ships a native asset.

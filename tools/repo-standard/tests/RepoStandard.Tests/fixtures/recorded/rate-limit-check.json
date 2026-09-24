@@ -1,0 +1,53 @@
+{
+  "description": "a secondary rate limit on a read is waited out for retry-after seconds, then the read is repeated",
+  "source": "The 403 body is GitHub's documented secondary-rate-limit message; the retry-after header per \"Best practices for using the REST API\". The 200 is the documented example.",
+  "command": [
+    "check"
+  ],
+  "declaration": "secrets: [GH_TOKEN, GIST_ID]\n",
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/repos/octo-org/hello-world/actions/secrets?per_page=100"
+      },
+      "response": {
+        "status": 403,
+        "body": {
+          "message": "You have exceeded a secondary rate limit. Please wait a few minutes before you try again.",
+          "documentation_url": "https://docs.github.com/rest/overview/rate-limits-for-the-rest-api#about-secondary-rate-limits"
+        },
+        "headers": {
+          "retry-after": "42"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/repos/octo-org/hello-world/actions/secrets?per_page=100"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "total_count": 2,
+          "secrets": [
+            {
+              "name": "GH_TOKEN",
+              "created_at": "2019-08-10T14:59:22Z",
+              "updated_at": "2020-01-10T14:59:22Z"
+            },
+            {
+              "name": "GIST_ID",
+              "created_at": "2020-01-10T10:59:22Z",
+              "updated_at": "2020-01-11T11:59:22Z"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "expect": {
+    "exit": 0
+  }
+}

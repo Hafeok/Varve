@@ -1,0 +1,343 @@
+{
+  "description": "apply: create, replace, and delete a ruleset",
+  "source": "github/rest-api-description@02e8fa6 response examples: GET .../rulesets; GET .../rulesets/{ruleset_id}; POST .../rulesets; PUT .../rulesets/{ruleset_id}; DELETE .../rulesets/{ruleset_id} (204)",
+  "command": [
+    "apply"
+  ],
+  "declaration": "rulesets:\n  - name: super cool ruleset\n    target: branch\n    enforcement: active\n    bypass_actors:\n      - actor_id: 234\n        actor_type: Team\n        bypass_mode: always\n    conditions:\n      ref_name:\n        include: [refs/heads/master, refs/heads/main]\n        exclude: [refs/heads/dev*]\n    rules:\n      - type: commit_author_email_pattern\n        parameters:\n          operator: contains\n          pattern: github\n      - type: deletion\n  - name: tags\n    target: tag\n    enforcement: active\n    conditions:\n      ref_name:\n        include: [refs/tags/v*]\n        exclude: []\n    rules:\n      - type: deletion\n    bypass_actors: []\n",
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/repos/octo-org/hello-world/rulesets?includes_parents=false&per_page=100"
+      },
+      "response": {
+        "status": 200,
+        "body": [
+          {
+            "id": 42,
+            "name": "super cool ruleset",
+            "source_type": "Repository",
+            "source": "monalisa/my-repo",
+            "enforcement": "enabled",
+            "node_id": "RRS_lACkVXNlcgQB",
+            "_links": {
+              "self": {
+                "href": "https://api.github.com/repos/monalisa/my-repo/rulesets/42"
+              },
+              "html": {
+                "href": "https://github.com/monalisa/my-repo/rules/42"
+              }
+            },
+            "created_at": "2023-07-15T08:43:03Z",
+            "updated_at": "2023-08-23T16:29:47Z"
+          },
+          {
+            "id": 314,
+            "name": "Another ruleset",
+            "source_type": "Repository",
+            "source": "monalisa/my-repo",
+            "enforcement": "enabled",
+            "node_id": "RRS_lACkVXNlcgQQ",
+            "_links": {
+              "self": {
+                "href": "https://api.github.com/repos/monalisa/my-repo/rulesets/314"
+              },
+              "html": {
+                "href": "https://github.com/monalisa/my-repo/rules/314"
+              }
+            },
+            "created_at": "2023-08-15T08:43:03Z",
+            "updated_at": "2023-09-23T16:29:47Z"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/repos/octo-org/hello-world/rulesets/314"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": 314,
+          "name": "Another ruleset",
+          "target": "branch",
+          "source_type": "Repository",
+          "source": "monalisa/my-repo",
+          "enforcement": "active",
+          "bypass_actors": [
+            {
+              "actor_id": 234,
+              "actor_type": "Team",
+              "bypass_mode": "always"
+            }
+          ],
+          "conditions": {
+            "ref_name": {
+              "include": [
+                "refs/heads/main",
+                "refs/heads/master"
+              ],
+              "exclude": [
+                "refs/heads/dev*"
+              ]
+            }
+          },
+          "rules": [
+            {
+              "type": "commit_author_email_pattern",
+              "parameters": {
+                "operator": "contains",
+                "pattern": "github"
+              }
+            }
+          ],
+          "node_id": "RRS_lACkVXNlcgQQ",
+          "_links": {
+            "self": {
+              "href": "https://api.github.com/repos/monalisa/my-repo/rulesets/314"
+            },
+            "html": {
+              "href": "https://github.com/monalisa/my-repo/rules/314"
+            }
+          },
+          "created_at": "2023-08-15T08:43:03Z",
+          "updated_at": "2023-09-23T16:29:47Z"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/repos/octo-org/hello-world/rulesets/42"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": 42,
+          "name": "super cool ruleset",
+          "target": "branch",
+          "source_type": "Repository",
+          "source": "monalisa/my-repo",
+          "enforcement": "active",
+          "bypass_actors": [
+            {
+              "actor_id": 234,
+              "actor_type": "Team",
+              "bypass_mode": "always"
+            }
+          ],
+          "conditions": {
+            "ref_name": {
+              "include": [
+                "refs/heads/main",
+                "refs/heads/master"
+              ],
+              "exclude": [
+                "refs/heads/dev*"
+              ]
+            }
+          },
+          "rules": [
+            {
+              "type": "commit_author_email_pattern",
+              "parameters": {
+                "operator": "contains",
+                "pattern": "github"
+              }
+            }
+          ],
+          "node_id": "RRS_lACkVXNlcgQB",
+          "_links": {
+            "self": {
+              "href": "https://api.github.com/repos/monalisa/my-repo/rulesets/42"
+            },
+            "html": {
+              "href": "https://github.com/monalisa/my-repo/rules/42"
+            }
+          },
+          "created_at": "2023-07-15T08:43:03Z",
+          "updated_at": "2023-08-23T16:29:47Z"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/repos/octo-org/hello-world/rulesets",
+        "body": {
+          "name": "tags",
+          "target": "tag",
+          "enforcement": "active",
+          "conditions": {
+            "ref_name": {
+              "include": [
+                "refs/tags/v*"
+              ],
+              "exclude": []
+            }
+          },
+          "rules": [
+            {
+              "type": "deletion"
+            }
+          ],
+          "bypass_actors": []
+        }
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "id": 42,
+          "name": "super cool ruleset",
+          "target": "branch",
+          "source_type": "Repository",
+          "source": "monalisa/my-repo",
+          "enforcement": "active",
+          "bypass_actors": [
+            {
+              "actor_id": 234,
+              "actor_type": "Team",
+              "bypass_mode": "always"
+            }
+          ],
+          "conditions": {
+            "ref_name": {
+              "include": [
+                "refs/heads/main",
+                "refs/heads/master"
+              ],
+              "exclude": [
+                "refs/heads/dev*"
+              ]
+            }
+          },
+          "rules": [
+            {
+              "type": "commit_author_email_pattern",
+              "parameters": {
+                "operator": "contains",
+                "pattern": "github"
+              }
+            }
+          ],
+          "node_id": "RRS_lACkVXNlcgQB",
+          "_links": {
+            "self": {
+              "href": "https://api.github.com/repos/monalisa/my-repo/rulesets/42"
+            },
+            "html": {
+              "href": "https://github.com/monalisa/my-repo/rules/42"
+            }
+          },
+          "created_at": "2023-07-15T08:43:03Z",
+          "updated_at": "2023-08-23T16:29:47Z"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "path": "/repos/octo-org/hello-world/rulesets/42",
+        "body": {
+          "name": "super cool ruleset",
+          "target": "branch",
+          "enforcement": "active",
+          "bypass_actors": [
+            {
+              "actor_id": 234,
+              "actor_type": "Team",
+              "bypass_mode": "always"
+            }
+          ],
+          "conditions": {
+            "ref_name": {
+              "include": [
+                "refs/heads/master",
+                "refs/heads/main"
+              ],
+              "exclude": [
+                "refs/heads/dev*"
+              ]
+            }
+          },
+          "rules": [
+            {
+              "type": "commit_author_email_pattern",
+              "parameters": {
+                "operator": "contains",
+                "pattern": "github"
+              }
+            },
+            {
+              "type": "deletion"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": 42,
+          "name": "super cool ruleset",
+          "target": "branch",
+          "source_type": "Repository",
+          "source": "monalisa/my-repo",
+          "enforcement": "active",
+          "bypass_actors": [
+            {
+              "actor_id": 234,
+              "actor_type": "Team",
+              "bypass_mode": "always"
+            }
+          ],
+          "conditions": {
+            "ref_name": {
+              "include": [
+                "refs/heads/main",
+                "refs/heads/master"
+              ],
+              "exclude": [
+                "refs/heads/dev*"
+              ]
+            }
+          },
+          "rules": [
+            {
+              "type": "commit_author_email_pattern",
+              "parameters": {
+                "operator": "contains",
+                "pattern": "github"
+              }
+            }
+          ],
+          "node_id": "RRS_lACkVXNlcgQB",
+          "_links": {
+            "self": {
+              "href": "https://api.github.com/repos/monalisa/my-repo/rulesets/42"
+            },
+            "html": {
+              "href": "https://github.com/monalisa/my-repo/rules/42"
+            }
+          },
+          "created_at": "2023-07-15T08:43:03Z",
+          "updated_at": "2023-08-23T16:29:47Z"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "path": "/repos/octo-org/hello-world/rulesets/314"
+      },
+      "response": {
+        "status": 204
+      }
+    }
+  ],
+  "expect": {
+    "exit": 0
+  }
+}

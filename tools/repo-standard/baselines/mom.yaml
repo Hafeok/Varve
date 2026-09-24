@@ -1,0 +1,155 @@
+# The Mind Over Machine way of working, as a repo-standard declaration.
+#
+# Source: the open-source stewardship standard in the organisation profile at
+# https://github.com/mindovermachine-dev, as Varve adopted it (GOVERNANCE.md in
+# that repository: its rulesets, the release environment, Discussions, and the
+# two boards). Each block names the item of the standard it implements.
+#
+# Written by hand, in the shape `repo-standard export` produces, because the
+# session that shipped it ran the tool against no repository. To extract it
+# instead, run export against a repository set up to the standard and keep the
+# blocks below:
+#
+#   GITHUB_TOKEN=$(gh auth token) repo-standard export --repo OWNER/NAME --file mom.yaml
+#
+# Adopt it with extends, and override what is yours:
+#
+#   extends: https://<where this file is published>/baselines/mom.yaml
+#   rulesets:
+#     - name: trunk              # replaces the trunk ruleset below, whole
+#       ...                      # with your required status checks added
+#   environments:
+#     - name: release
+#       reviewers: [{type: User, login: you}]
+#
+# ${owner} and ${repo} are the repository being converged. A key set to null in
+# your file stops managing it; a list item with `absent: true` removes it.
+
+repository:
+  features:
+    issues: true
+    # Open project management: the boards below.
+    projects: true
+    # Dedicated channels: Discussions is the end-user voice channel.
+    discussions: true
+    wiki: false
+  merge:
+    # Trunk-based development: pull requests are optional, and a merged one
+    # lands as a merge commit so its commits keep their issue references and
+    # sign-offs. Branches do not outlive their merge.
+    allow_merge_commit: true
+    allow_squash_merge: false
+    allow_rebase_merge: false
+    delete_branch_on_merge: true
+  # Full traceability: every commit carries a DCO sign-off, web edits included.
+  web_commit_signoff_required: true
+  security:
+    private_vulnerability_reporting: true
+    dependabot_alerts: true
+    dependabot_security_updates: true
+    secret_scanning: true
+    secret_scanning_push_protection: true
+
+rulesets:
+  # Trunk-based development, with non-blocking reviews: the blocking review is
+  # the automated one. No pull request is required; the trunk cannot be
+  # deleted or rewritten, and nobody bypasses it. Override this ruleset whole
+  # to add a required_status_checks rule naming your pipeline's checks.
+  - name: trunk
+    target: branch
+    enforcement: active
+    conditions:
+      ref_name:
+        include: ["~DEFAULT_BRANCH"]
+        exclude: []
+    rules:
+      - type: deletion
+      - type: non_fast_forward
+    bypass_actors: []
+
+  # Cryptographic security: signed commits on the trunk.
+  - name: signed commits
+    target: branch
+    enforcement: active
+    conditions:
+      ref_name:
+        include: ["~DEFAULT_BRANCH"]
+        exclude: []
+    rules:
+      - type: required_signatures
+    bypass_actors: []
+
+  # Semantic versioning: release tags are v*, only an administrator creates,
+  # moves or deletes one, and a tag's commit is signed.
+  - name: release tags
+    target: tag
+    enforcement: active
+    conditions:
+      ref_name:
+        include: ["refs/tags/v*"]
+        exclude: []
+    rules:
+      - type: creation
+      - type: update
+      - type: deletion
+      - type: required_signatures
+    bypass_actors:
+      - actor_id: 5
+        actor_type: RepositoryRole
+        bypass_mode: always
+
+environments:
+  # Non-blocking reviews: reviews are required for formal releases, and this
+  # is where. Only a release tag deploys to it. The reviewers are yours to
+  # declare; the baseline leaves them unmanaged rather than guess an account.
+  - name: release
+    deployment_branch_policy:
+      protected_branches: false
+      custom_branch_policies: true
+    branch_policies:
+      - name: v*
+        type: tag
+
+discussions:
+  # Dedicated channels. The categories cannot be created through GitHub's API;
+  # check reports a difference here and a maintainer makes it in the settings.
+  categories:
+    - name: Announcements
+    - name: Q&A
+      answerable: true
+    - name: Ideas
+    - name: Show and tell
+
+projects:
+  # Open project management: an upstream board for the roadmap and a
+  # downstream board that minimises work in progress. The standard's WIP limit
+  # on the downstream board's In progress column is a board-view setting the
+  # Projects API cannot write; set it on the board by hand.
+  - title: ${repo} roadmap
+    status:
+      - name: Todo
+        color: GREEN
+      - name: In progress
+        color: YELLOW
+      - name: Done
+        color: PURPLE
+  - title: ${repo} work
+    status:
+      - name: Todo
+        color: GREEN
+      - name: In progress
+        color: YELLOW
+      - name: In review
+        color: BLUE
+      - name: Done
+        color: PURPLE
+
+actions:
+  enabled: true
+  allowed_actions: all
+  # Every action pinned to a full commit SHA, as the standard's supply-chain
+  # posture and OpenSSF Scorecard both ask.
+  sha_pinning_required: true
+  workflow:
+    default_workflow_permissions: read
+    can_approve_pull_request_reviews: false

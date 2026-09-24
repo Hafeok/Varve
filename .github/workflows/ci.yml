@@ -163,6 +163,17 @@ jobs:
           --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj
           --configuration Release
 
+      # tools/repo-standard: its own solution, built and tested on both
+      # platforms (ADR 0039). Not packed: it is not published from here.
+      - name: Build repo-standard
+        run: dotnet build tools/repo-standard/RepoStandard.slnx --configuration Release
+
+      - name: Test repo-standard
+        run: >
+          dotnet test
+          --project tools/repo-standard/tests/RepoStandard.Tests/RepoStandard.Tests.csproj
+          --configuration Release
+
       # The publish dry run. A version pushed to nuget.org cannot be edited,
       # replaced or deleted, so the pack step and its output are exercised on
       # every pull request rather than first on a tag. This packs and reads the
@@ -232,6 +243,130 @@ jobs:
           else
             "${{ github.workspace }}/artifacts/aot/Varve.AotSmoke"
           fi
+
+  # repo-standard's native binary and its Action, end to end (ADR 0039).
+  #
+  # The Native AOT publish is a gate: IlcTreatWarningsAsErrors is set in the
+  # project. The binary is then laid out as a release would lay it out — the
+  # platform's asset and a SHA256SUMS — and the Action is run from this checkout
+  # against it, with a recorded GitHub replayed on localhost. It must pass
+  # `check` on a declaration that matches, and it must refuse to run a binary
+  # whose checksum does not match. No release is made and no GitHub API is
+  # called: until the tool has a home, this is how the Action is exercised.
+  repo-standard:
+    name: repo-standard native and action (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: windows-latest
+            rid: win-x64
+
+    steps:
+      - name: Line endings
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-repo-standard-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Publish the native binary
+        run: >
+          dotnet publish tools/repo-standard/src/RepoStandard
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --output ${{ runner.temp }}/aot
+
+      - name: Lay it out as a release, and a tampered copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          suffix=""
+          [ "$RUNNER_OS" = Windows ] && suffix=".exe"
+          asset="repo-standard-${{ matrix.rid }}$suffix"
+
+          release="$RUNNER_TEMP/release"
+          mkdir -p "$release"
+          cp "$RUNNER_TEMP/aot/RepoStandard$suffix" "$release/$asset"
+          (cd "$release" && sha256sum "$asset" > SHA256SUMS)
+          "$release/$asset" --version
+
+          tampered="$RUNNER_TEMP/tampered"
+          mkdir -p "$tampered"
+          cp "$release/$asset" "$tampered/$asset"
+          echo "0000000000000000000000000000000000000000000000000000000000000000  $asset" > "$tampered/SHA256SUMS"
+
+          root=$(cygpath -m "$RUNNER_TEMP" 2>/dev/null || echo "$RUNNER_TEMP")
+          case "$root" in /*) ;; *) root="/$root" ;; esac
+          echo "RELEASE_URL=file://$root/release" >> "$GITHUB_ENV"
+          echo "TAMPERED_URL=file://$root/tampered" >> "$GITHUB_ENV"
+
+      - name: Start the replayed GitHub
+        shell: bash
+        run: |
+          dotnet run tools/repo-standard/tests/action/replay-server.cs -- \
+            tools/repo-standard/tests/RepoStandard.Tests/fixtures/recorded/action-check-clean.json \
+            --port 8765 --declaration "$RUNNER_TEMP/repo-standard.yaml" > "$RUNNER_TEMP/replay.log" 2>&1 &
+          for _ in $(seq 1 180); do
+            grep -q listening "$RUNNER_TEMP/replay.log" 2>/dev/null && exit 0
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/replay.log"
+          exit 1
+
+      - name: The Action runs check against the local binary
+        uses: ./tools/repo-standard
+        with:
+          command: check
+          file: ${{ runner.temp }}/repo-standard.yaml
+          repo: octo-org/hello-world
+          token: not-a-real-token
+          download-url: ${{ env.RELEASE_URL }}
+          api-url: http://127.0.0.1:8765
+          graphql-url: http://127.0.0.1:8765/graphql
+
+      - name: The Action, given a binary whose checksum does not match
+        id: tampered
+        continue-on-error: true
+        uses: ./tools/repo-standard
+        with:
+          command: check
+          file: ${{ runner.temp }}/repo-standard.yaml
+          repo: octo-org/hello-world
+          token: not-a-real-token
+          download-url: ${{ env.TAMPERED_URL }}
+          api-url: http://127.0.0.1:8765
+          graphql-url: http://127.0.0.1:8765/graphql
+
+      - name: Require the refusal
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.tampered.outcome }}
+        run: |
+          if [ "$OUTCOME" != failure ]; then
+            echo "::error::the Action ran a binary whose checksum did not match"
+            exit 1
+          fi
+
+      - name: The replayed GitHub's log
+        if: always()
+        shell: bash
+        run: cat "$RUNNER_TEMP/replay.log" || true
 
   # Constraint 3. CI publishes the browser build and requires it to be
   # warning-free; it does not run it, because running it needs a browser and a

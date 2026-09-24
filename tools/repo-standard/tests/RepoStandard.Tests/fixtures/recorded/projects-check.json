@@ -1,0 +1,106 @@
+{
+  "description": "Projects v2: the Status columns of a board with items changed, and a board linked by hand",
+  "source": "No documented example exists for GraphQL; the response is constructed to the GraphQL schema (octokit/graphql-schema, schema.graphql) with GitHub's default categories",
+  "command": [
+    "check"
+  ],
+  "declaration": "projects:\n  - title: Roadmap\n    short_description: Where it is going\n    public: true\n    status:\n      - name: Backlog\n        color: GRAY\n      - name: In progress\n        color: YELLOW\n      - name: Done\n        color: PURPLE\n",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/graphql",
+        "operation": "LinkedProjects",
+        "body": {
+          "owner": "octo-org",
+          "name": "hello-world"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "data": {
+            "repository": {
+              "id": "R_kgDOAAAAAA",
+              "projectsV2": {
+                "nodes": [
+                  {
+                    "id": "PVT_kwDOAAAAAc4AAAAA",
+                    "title": "Roadmap",
+                    "shortDescription": "Where it is going",
+                    "readme": "",
+                    "public": true,
+                    "closed": false,
+                    "owner": {
+                      "login": "octo-org"
+                    },
+                    "items": {
+                      "totalCount": 12
+                    },
+                    "field": {
+                      "id": "PVTSSF_lADOAAAAAc4AAAAAzgAAAAA",
+                      "options": [
+                        {
+                          "name": "Todo",
+                          "color": "GREEN",
+                          "description": "This item hasn't been started"
+                        },
+                        {
+                          "name": "In Progress",
+                          "color": "YELLOW",
+                          "description": "This is actively being worked on"
+                        },
+                        {
+                          "name": "Done",
+                          "color": "PURPLE",
+                          "description": "This has been completed"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "PVT_kwDOAAAAAc4AAAAB",
+                    "title": "Scratch",
+                    "shortDescription": "",
+                    "readme": "",
+                    "public": false,
+                    "closed": false,
+                    "owner": {
+                      "login": "octo-org"
+                    },
+                    "items": {
+                      "totalCount": 0
+                    },
+                    "field": {
+                      "id": "PVTSSF_lADOAAAAAc4AAAAAzgAAAAB",
+                      "options": [
+                        {
+                          "name": "Todo",
+                          "color": "GREEN",
+                          "description": "This item hasn't been started"
+                        },
+                        {
+                          "name": "In Progress",
+                          "color": "YELLOW",
+                          "description": "This is actively being worked on"
+                        },
+                        {
+                          "name": "Done",
+                          "color": "PURPLE",
+                          "description": "This has been completed"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "expect": {
+    "exit": 1
+  }
+}

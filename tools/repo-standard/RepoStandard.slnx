@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RepoStandard/RepoStandard.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RepoStandard.Tests/RepoStandard.Tests.csproj" />
+  </Folder>
+</Solution>

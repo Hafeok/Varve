@@ -1,0 +1,155 @@
+name: repo-standard
+description: Apply a declared set of GitHub repository settings, or check the repository for drift from them.
+author: Emil Okkels Klein
+
+branding:
+  icon: check-square
+  color: green
+
+inputs:
+  command:
+    description: plan, apply or check.
+    required: true
+  file:
+    description: The declaration.
+    required: false
+    default: .github/repo-standard.yaml
+  repo:
+    description: OWNER/NAME of the repository to converge.
+    required: false
+    default: ${{ github.repository }}
+  token:
+    description: >
+      A token with the Administration permission: a GitHub App installation
+      token or a fine-grained personal access token. The workflow's own
+      GITHUB_TOKEN cannot have it. See the README.
+    required: true
+  version:
+    description: >
+      The release to download, as its tag (v1.2.3). Defaults to the ref this
+      action is used at; required when the action is pinned by commit SHA.
+    required: false
+    default: ""
+  api-url:
+    description: The REST API root. Defaults to this run's, which is right on GitHub.com and on GitHub Enterprise Server.
+    required: false
+    default: ${{ github.api_url }}
+  graphql-url:
+    description: The GraphQL endpoint. Defaults to this run's.
+    required: false
+    default: ${{ github.graphql_url }}
+  download-url:
+    description: >
+      A base URL holding repo-standard-<platform> and SHA256SUMS. Defaults to
+      the release of the repository this action is used from. For mirrors,
+      and for testing the action against a locally built binary.
+    required: false
+    default: ""
+
+outputs:
+  exit-code:
+    description: >
+      The tool's exit code: 0 no differences (or converged), 1 differences (drift
+      for check, a failed write for apply), 2 could not run.
+    value: ${{ steps.run.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - name: Download and verify repo-standard
+      id: download
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        SERVER_URL: ${{ github.server_url }}
+        VERSION: ${{ inputs.version }}
+        DOWNLOAD_URL: ${{ inputs.download-url }}
+      run: |
+        set -euo pipefail
+
+        case "${RUNNER_OS}/${RUNNER_ARCH}" in
+          Linux/X64)   platform=linux-x64;   suffix="" ;;
+          Linux/ARM64) platform=linux-arm64; suffix="" ;;
+          macOS/ARM64) platform=osx-arm64;   suffix="" ;;
+          Windows/X64) platform=win-x64;     suffix=".exe" ;;
+          *) echo "::error::repo-standard has no build for ${RUNNER_OS}/${RUNNER_ARCH}"; exit 1 ;;
+        esac
+        asset="repo-standard-${platform}${suffix}"
+
+        base="${DOWNLOAD_URL%/}"
+        if [ -z "$base" ]; then
+          # github.action_repository and github.action_ref are empty inside a
+          # composite action, so the repository and ref this action was used
+          # at are read from where the runner checked it out:
+          # .../_actions/<owner>/<repo>/<ref>[/<path>].
+          location="${ACTION_PATH//\\//}"
+          case "$location" in
+            */_actions/*) ;;
+            *) echo "::error::this action was not used from a repository (a local path?); set download-url"; exit 1 ;;
+          esac
+          IFS=/ read -r owner repo ref _ <<< "${location#*/_actions/}"
+          if [ -z "$VERSION" ]; then
+            if [[ "$ref" =~ ^v[0-9] ]]; then
+              VERSION="$ref"
+            else
+              echo "::error::the action is used at '$ref', which is not a release tag; set version: vX.Y.Z"
+              exit 1
+            fi
+          fi
+          base="${SERVER_URL}/${owner}/${repo}/releases/download/${VERSION}"
+        fi
+
+        directory="${RUNNER_TEMP}/repo-standard"
+        mkdir -p "$directory"
+        curl --fail --silent --show-error --location --retry 3 --output "$directory/$asset" "$base/$asset"
+        curl --fail --silent --show-error --location --retry 3 --output "$directory/SHA256SUMS" "$base/SHA256SUMS"
+
+        expected=$(awk -v name="$asset" '$2 == name || $2 == "*"name { print $1 }' "$directory/SHA256SUMS")
+        if [ -z "$expected" ]; then
+          echo "::error::SHA256SUMS lists no checksum for $asset"
+          exit 1
+        fi
+
+        # Hashed from stdin: given a Windows path, Git Bash's sha256sum escapes
+        # the backslashes in the name it prints and prefixes the line with "\",
+        # which the hash then carries.
+        if command -v sha256sum > /dev/null; then
+          actual=$(sha256sum < "$directory/$asset" | awk '{ print $1 }')
+        else
+          actual=$(shasum -a 256 < "$directory/$asset" | awk '{ print $1 }')
+        fi
+
+        if [ "$actual" != "$expected" ]; then
+          rm -f "$directory/$asset"
+          echo "::error::checksum mismatch for $asset: expected $expected, got $actual"
+          exit 1
+        fi
+
+        chmod +x "$directory/$asset"
+        echo "binary=$directory/$asset" >> "$GITHUB_OUTPUT"
+        echo "repo-standard $asset verified: sha256 $actual"
+
+    - name: Run repo-standard ${{ inputs.command }}
+      id: run
+      shell: bash
+      env:
+        BINARY: ${{ steps.download.outputs.binary }}
+        COMMAND: ${{ inputs.command }}
+        FILE: ${{ inputs.file }}
+        REPO: ${{ inputs.repo }}
+        API_URL: ${{ inputs.api-url }}
+        GRAPHQL_URL: ${{ inputs.graphql-url }}
+        # Passed as the environment, never on the command line, where other
+        # processes on the runner could read it.
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+        case "$COMMAND" in
+          plan|apply|check) ;;
+          *) echo "::error::command must be plan, apply or check, not '$COMMAND'"; exit 1 ;;
+        esac
+        set +e
+        "$BINARY" "$COMMAND" --repo "$REPO" --file "$FILE" --api-url "$API_URL" --graphql-url "$GRAPHQL_URL"
+        code=$?
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        exit $code
