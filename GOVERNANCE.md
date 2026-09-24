@@ -52,9 +52,12 @@ their choice. Neither is the lesser form of the other. A change not ready for
 the trunk lives behind a feature flag or stays local — **not on a long-lived
 branch**.
 
-**The blocking review is the automated one.** Ruleset 1 requires every gate to
-pass and has no bypass. A human cannot merge past a red ratchet, and would not
-catch what the ratchet catches.
+**The blocking review is the automated one.** Every gate runs in CI on every
+push to `main` and every pull request, and a red trunk is fixed forward before
+anything else lands. The gates are not required checks on the `trunk` ruleset:
+GitHub would then refuse every direct push, because a pushed commit has not been
+built yet ([ADR 0032](docs/adr/0032-trunk-based-development.md), amendment of
+2026-09-24). A human would not catch what the ratchet catches.
 
 **Human review is required for a release, not for a merge.** `publish.yml` runs
 in the `release` environment, which has the maintainer as a required reviewer.
@@ -67,17 +70,19 @@ unreviewed pull request whose checks are green is not waiting for anybody.
 
 ## Repository settings
 
-These are GitHub settings held by the maintainer, not files in this repository.
-Nothing here can check them, which is why they are written down: if they change,
-this section stops describing reality and should be updated in the same motion.
+The settings are declared in [`.github/repo-standard.yaml`](.github/repo-standard.yaml),
+which is the source of truth: a push that changes it applies it, and a weekly
+check opens a "Configuration drift" issue when the repository and the file
+disagree ([ADR 0039](docs/adr/0039-repo-standard.md)). This table summarises the
+file and follows it.
 
 | | What |
 |---|---|
-| **Ruleset 1** on `main` | required status checks, no force push, no deletion, **no bypass** |
-| **Ruleset 2** on `main` | required signed commits, with the Claude GitHub App on the **bypass list** ([ADR 0034](docs/adr/0034-commit-signing-and-the-sandbox-exception.md)) |
-| **Tag ruleset** on `v*` | creation restricted to the maintainer; signed tags required |
+| **`trunk`** ruleset on `main` | no deletion, no force push, **no bypass**; no required status checks (see above) |
+| **`Signed Commits`** ruleset on `main` | required signed commits, with the admin role and the Claude GitHub App on the **bypass list** ([ADR 0034](docs/adr/0034-commit-signing-and-the-sandbox-exception.md)) |
+| **`Varve Release Approval`** ruleset on `v*` tags | creating, deleting or force-moving a `v*` tag is restricted to the maintainer |
 | **Environment** `release` | maintainer as required reviewer; referenced by `publish.yml` |
-| **Discussions** | enabled — Announcements, Q&A, Ideas, Show and tell |
+| **Discussions** | off |
 | **Projects** | *Varve roadmap* (upstream) and *Varve work* (downstream) |
 
 ### The signing exception

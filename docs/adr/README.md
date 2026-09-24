@@ -72,7 +72,7 @@ superseding ADR rather than an edit.
 | # | Title | Status |
 |---:|---|---|
 | [0031](0031-licence-mpl-2-0.md) | Licence: MPL-2.0 | Accepted; **supersedes 0002** |
-| [0032](0032-trunk-based-development.md) | Trunk-based development and non-blocking review | Accepted |
+| [0032](0032-trunk-based-development.md) | Trunk-based development and non-blocking review | Accepted; amended 2026-09-24 (the gate runs after the push) |
 | [0033](0033-commit-traceability.md) | Commit traceability and AI-session records | Accepted |
 | [0034](0034-commit-signing-and-the-sandbox-exception.md) | Commit signing and the sandbox exception | Accepted; revisit condition |
 | [0035](0035-semantic-versioning.md) | Semantic versioning | Accepted; complements 0029 |

@@ -79,6 +79,34 @@ This ADR does not change the rulesets, which are GitHub settings held by the
 maintainer. It records what they are so that a contributor can predict what will
 happen to a push, and so that a later change to them is visibly a change.
 
+### Amendment, 2026-09-24 — the gate runs after the push; ruleset 1 blocks nothing
+
+Point 2 says ruleset 1 "requires every required status check to pass … and it
+satisfies it identically whether it arrived by push or by pull request". **The
+list of required checks is empty, and has been.** The first export of this
+repository's settings (#23, [ADR 0039](0039-repo-standard.md)) showed it: the
+ruleset, named `trunk` on GitHub, forbids deletion and force pushes and requires
+no check. That is why direct pushes to `main` have been landing.
+
+It cannot be otherwise while point 1 stands. GitHub checks a required status
+against the pushed commit itself, and a commit pushed straight to `main` has not
+been built yet, so requiring the CI jobs would refuse every direct push — for
+everyone, since the ruleset has no bypass. The maintainer weighed that on
+2026-09-24 (#27) and **kept point 1**: the route to `main` stays a choice, and
+the checks stay off the ruleset.
+
+So the automated review is real, but it is not a lock. **Every gate runs in CI
+on every push to `main` and on every pull request; it does not stop a push. A red
+trunk is fixed forward before anything else lands.** A pull request shows its
+checks before it merges and is the route to take when a change should be seen
+green first. The ruleset's strict mode (a branch must be up to date with `main`
+before it merges) is switched off in the same change, since with no required
+checks it guards nothing.
+
+Revisit if a red trunk is ever left standing: that is the failure this
+arrangement trusts people not to cause, and the fix would be required checks
+with a bypass for direct pushes, which would supersede this ADR.
+
 ## Alternatives considered
 
 - **Keep pull-request-only.** The status quo, and the option with the strongest
