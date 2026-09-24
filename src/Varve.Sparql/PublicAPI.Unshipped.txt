@@ -629,6 +629,47 @@ Varve.Sparql.SourceSpan.Line.get -> int
 Varve.Sparql.SourceSpan.SourceSpan() -> void
 Varve.Sparql.SourceSpan.SourceSpan(long start, long end, int line, int column) -> void
 Varve.Sparql.SourceSpan.Start.get -> long
+Varve.Sparql.SparqlErrorKind
+Varve.Sparql.SparqlErrorKind.Aggregate = 12 -> Varve.Sparql.SparqlErrorKind
+Varve.Sparql.SparqlErrorKind.BlankNode = 11 -> Varve.Sparql.SparqlErrorKind
+Varve.Sparql.SparqlErrorKind.InvalidEncoding = 3 -> Varve.Sparql.SparqlErrorKind
+Varve.Sparql.SparqlErrorKind.InvalidEscape = 4 -> Varve.Sparql.SparqlErrorKind
+Varve.Sparql.SparqlErrorKind.InvalidIri = 5 -> Varve.Sparql.SparqlErrorKind
+Varve.Sparql.SparqlErrorKind.InvalidLanguageTag = 8 -> Varve.Sparql.SparqlErrorKind
+Varve.Sparql.SparqlErrorKind.None = 0 -> Varve.Sparql.SparqlErrorKind
+Varve.Sparql.SparqlErrorKind.Range = 14 -> Varve.Sparql.SparqlErrorKind
+Varve.Sparql.SparqlErrorKind.RelativeIri = 6 -> Varve.Sparql.SparqlErrorKind
+Varve.Sparql.SparqlErrorKind.Syntax = 1 -> Varve.Sparql.SparqlErrorKind
+Varve.Sparql.SparqlErrorKind.UndeclaredPrefix = 7 -> Varve.Sparql.SparqlErrorKind
+Varve.Sparql.SparqlErrorKind.UnexpectedEnd = 2 -> Varve.Sparql.SparqlErrorKind
+Varve.Sparql.SparqlErrorKind.Values = 13 -> Varve.Sparql.SparqlErrorKind
+Varve.Sparql.SparqlErrorKind.VariableScope = 10 -> Varve.Sparql.SparqlErrorKind
+Varve.Sparql.SparqlErrorKind.Version = 9 -> Varve.Sparql.SparqlErrorKind
+Varve.Sparql.SparqlParseError
+Varve.Sparql.SparqlParseError.Column.get -> int
+Varve.Sparql.SparqlParseError.Equals(Varve.Sparql.SparqlParseError other) -> bool
+Varve.Sparql.SparqlParseError.IsError.get -> bool
+Varve.Sparql.SparqlParseError.Kind.get -> Varve.Sparql.SparqlErrorKind
+Varve.Sparql.SparqlParseError.Line.get -> int
+Varve.Sparql.SparqlParseError.Message.get -> string!
+Varve.Sparql.SparqlParseError.Offset.get -> long
+Varve.Sparql.SparqlParseError.SparqlParseError() -> void
+Varve.Sparql.SparqlParseError.SparqlParseError(Varve.Sparql.SparqlErrorKind kind, long offset, int line, int column, string! message) -> void
+Varve.Sparql.SparqlParseException
+Varve.Sparql.SparqlParseException.Error.get -> Varve.Sparql.SparqlParseError
+Varve.Sparql.SparqlParseException.SparqlParseException() -> void
+Varve.Sparql.SparqlParseException.SparqlParseException(Varve.Sparql.SparqlParseError error) -> void
+Varve.Sparql.SparqlParseException.SparqlParseException(string! message) -> void
+Varve.Sparql.SparqlParseException.SparqlParseException(string! message, System.Exception! innerException) -> void
+Varve.Sparql.SparqlParseOptions
+Varve.Sparql.SparqlParseOptions.BaseIri.get -> System.ReadOnlyMemory<byte>
+Varve.Sparql.SparqlParseOptions.BaseIri.init -> void
+Varve.Sparql.SparqlParseOptions.Equals(Varve.Sparql.SparqlParseOptions other) -> bool
+Varve.Sparql.SparqlParseOptions.SparqlParseOptions() -> void
+Varve.Sparql.SparqlParseOptions.SparqlParseOptions(System.ReadOnlyMemory<byte> baseIri, Varve.Sparql.SparqlVersion version = Varve.Sparql.SparqlVersion.Sparql12) -> void
+Varve.Sparql.SparqlParseOptions.Version.get -> Varve.Sparql.SparqlVersion
+Varve.Sparql.SparqlParseOptions.Version.init -> void
+Varve.Sparql.SparqlParser
 Varve.Sparql.SparqlVersion
 Varve.Sparql.SparqlVersion.Sparql11 = 1 -> Varve.Sparql.SparqlVersion
 Varve.Sparql.SparqlVersion.Sparql12 = 3 -> Varve.Sparql.SparqlVersion
@@ -926,6 +967,11 @@ override Varve.Sparql.Algebra.ZeroOrOnePath.ToString() -> string!
 override Varve.Sparql.SourceSpan.Equals(object? obj) -> bool
 override Varve.Sparql.SourceSpan.GetHashCode() -> int
 override Varve.Sparql.SourceSpan.ToString() -> string!
+override Varve.Sparql.SparqlParseError.Equals(object? obj) -> bool
+override Varve.Sparql.SparqlParseError.GetHashCode() -> int
+override Varve.Sparql.SparqlParseError.ToString() -> string!
+override Varve.Sparql.SparqlParseOptions.Equals(object? obj) -> bool
+override Varve.Sparql.SparqlParseOptions.GetHashCode() -> int
 override abstract Varve.Sparql.Algebra.Expression.<Clone>$() -> Varve.Sparql.Algebra.Expression!
 override abstract Varve.Sparql.Algebra.PatternTerm.<Clone>$() -> Varve.Sparql.Algebra.PatternTerm!
 override abstract Varve.Sparql.Algebra.PropertyPath.<Clone>$() -> Varve.Sparql.Algebra.PropertyPath!
@@ -1156,6 +1202,16 @@ static Varve.Sparql.Algebra.ZeroOrOnePath.operator ==(Varve.Sparql.Algebra.ZeroO
 static Varve.Sparql.SourceSpan.None.get -> Varve.Sparql.SourceSpan
 static Varve.Sparql.SourceSpan.operator !=(Varve.Sparql.SourceSpan left, Varve.Sparql.SourceSpan right) -> bool
 static Varve.Sparql.SourceSpan.operator ==(Varve.Sparql.SourceSpan left, Varve.Sparql.SourceSpan right) -> bool
+static Varve.Sparql.SparqlParseError.operator !=(Varve.Sparql.SparqlParseError left, Varve.Sparql.SparqlParseError right) -> bool
+static Varve.Sparql.SparqlParseError.operator ==(Varve.Sparql.SparqlParseError left, Varve.Sparql.SparqlParseError right) -> bool
+static Varve.Sparql.SparqlParseOptions.operator !=(Varve.Sparql.SparqlParseOptions left, Varve.Sparql.SparqlParseOptions right) -> bool
+static Varve.Sparql.SparqlParseOptions.operator ==(Varve.Sparql.SparqlParseOptions left, Varve.Sparql.SparqlParseOptions right) -> bool
+static Varve.Sparql.SparqlParser.ParseQuery(System.ReadOnlySpan<byte> utf8) -> Varve.Sparql.Algebra.Query!
+static Varve.Sparql.SparqlParser.ParseQuery(System.ReadOnlySpan<byte> utf8, Varve.Sparql.SparqlParseOptions options) -> Varve.Sparql.Algebra.Query!
+static Varve.Sparql.SparqlParser.ParseQuery(System.ReadOnlySpan<char> text) -> Varve.Sparql.Algebra.Query!
+static Varve.Sparql.SparqlParser.ParseQuery(System.ReadOnlySpan<char> text, Varve.Sparql.SparqlParseOptions options) -> Varve.Sparql.Algebra.Query!
+static Varve.Sparql.SparqlParser.TryParseQuery(System.ReadOnlySpan<byte> utf8, Varve.Sparql.SparqlParseOptions options, out Varve.Sparql.Algebra.Query? query, out Varve.Sparql.SparqlParseError error) -> bool
+static Varve.Sparql.SparqlParser.TryParseQuery(System.ReadOnlySpan<char> text, Varve.Sparql.SparqlParseOptions options, out Varve.Sparql.Algebra.Query? query, out Varve.Sparql.SparqlParseError error) -> bool
 virtual Varve.Sparql.Algebra.AlgebraNode.EqualityContract.get -> System.Type!
 virtual Varve.Sparql.Algebra.AlgebraNode.Equals(Varve.Sparql.Algebra.AlgebraNode? other) -> bool
 virtual Varve.Sparql.Algebra.AlgebraNode.PrintMembers(System.Text.StringBuilder! builder) -> bool

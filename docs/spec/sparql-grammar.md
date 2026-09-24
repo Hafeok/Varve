@@ -478,9 +478,11 @@ blank node everywhere in it. Beyond that the draft forbids:
 - a blank node anywhere in `DELETE WHERE`, `DELETE DATA` and a `DeleteClause`;
 - the same label in two separate basic graph patterns of a query — where
   "separate" is what the translation makes separate: across `{ }` group
-  boundaries, `OPTIONAL`, `UNION`, `GRAPH`, `MINUS`, a `FILTER`'s `EXISTS`,
-  and a sub-`SELECT` (`syn-blabel-cross-graph-bad`, `-optional-bad`,
-  `-union-bad`, `-filter`);
+  boundaries, and on either side of an `OPTIONAL`, `UNION`, `GRAPH`, `MINUS`,
+  `BIND`, `VALUES`, `SERVICE` or property path within one group, each of
+  which closes the basic graph pattern before it; a `FILTER` does not
+  (`syn-blabel-cross-graph-bad`, `-optional-bad`, `-union-bad`,
+  `syn-bad-OPT-breaks-BGP`, `-UNION-breaks-BGP`, `-GRAPH-breaks-BGP`);
 - the same label in two `WHERE` clauses of one update request, or in two
   `INSERT DATA` operations of one request (`syntax-update-bad-*`).
 
