@@ -1,0 +1,240 @@
+#nullable enable
+Varve.Xsd.PartialOrdering
+Varve.Xsd.PartialOrdering.Equal = 2 -> Varve.Xsd.PartialOrdering
+Varve.Xsd.PartialOrdering.Greater = 3 -> Varve.Xsd.PartialOrdering
+Varve.Xsd.PartialOrdering.Indeterminate = 0 -> Varve.Xsd.PartialOrdering
+Varve.Xsd.PartialOrdering.Less = 1 -> Varve.Xsd.PartialOrdering
+Varve.Xsd.XsdBoolean
+Varve.Xsd.XsdBoolean.CompareTo(Varve.Xsd.XsdBoolean other) -> int
+Varve.Xsd.XsdBoolean.Equals(Varve.Xsd.XsdBoolean other) -> bool
+Varve.Xsd.XsdBoolean.TryFormat(System.Span<byte> destination, out int written) -> bool
+Varve.Xsd.XsdBoolean.TryFormat(System.Span<char> destination, out int written) -> bool
+Varve.Xsd.XsdBoolean.Value.get -> bool
+Varve.Xsd.XsdBoolean.XsdBoolean() -> void
+Varve.Xsd.XsdBoolean.XsdBoolean(bool value) -> void
+Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.Boolean = 2 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.Byte = 21 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.Date = 9 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.DateTime = 7 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.DateTimeStamp = 30 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.DayTimeDuration = 29 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.Decimal = 3 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.Double = 5 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.Duration = 6 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.Float = 4 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.GDay = 13 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.GMonth = 14 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.GMonthDay = 12 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.GYear = 11 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.GYearMonth = 10 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.Int = 19 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.Integer = 15 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.Long = 18 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.NegativeInteger = 17 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.NonNegativeInteger = 22 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.NonPositiveInteger = 16 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.None = 0 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.PositiveInteger = 27 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.Short = 20 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.String = 1 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.Time = 8 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.UnsignedByte = 26 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.UnsignedInt = 24 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.UnsignedLong = 23 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.UnsignedShort = 25 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatype.YearMonthDuration = 28 -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdDatatypes
+Varve.Xsd.XsdDecimal
+Varve.Xsd.XsdDecimal.Ceiling() -> Varve.Xsd.XsdDecimal
+Varve.Xsd.XsdDecimal.CompareTo(Varve.Xsd.XsdDecimal other) -> int
+Varve.Xsd.XsdDecimal.Equals(Varve.Xsd.XsdDecimal other) -> bool
+Varve.Xsd.XsdDecimal.Floor() -> Varve.Xsd.XsdDecimal
+Varve.Xsd.XsdDecimal.IsInteger.get -> bool
+Varve.Xsd.XsdDecimal.IsNegative.get -> bool
+Varve.Xsd.XsdDecimal.IsZero.get -> bool
+Varve.Xsd.XsdDecimal.Mantissa.get -> System.Int128
+Varve.Xsd.XsdDecimal.ToDouble() -> double
+Varve.Xsd.XsdDecimal.ToSingle() -> float
+Varve.Xsd.XsdDecimal.TryFormat(System.Span<byte> destination, out int written) -> bool
+Varve.Xsd.XsdDecimal.TryFormat(System.Span<char> destination, out int written) -> bool
+Varve.Xsd.XsdDecimal.TryRound(out Varve.Xsd.XsdDecimal result) -> bool
+Varve.Xsd.XsdDecimal.TryToInteger(out Varve.Xsd.XsdInteger value) -> bool
+Varve.Xsd.XsdDecimal.XsdDecimal() -> void
+Varve.Xsd.XsdDouble
+Varve.Xsd.XsdDouble.CompareTo(Varve.Xsd.XsdDouble other) -> int
+Varve.Xsd.XsdDouble.Equals(Varve.Xsd.XsdDouble other) -> bool
+Varve.Xsd.XsdDouble.IsNaN.get -> bool
+Varve.Xsd.XsdDouble.TryFormat(System.Span<byte> destination, out int written) -> bool
+Varve.Xsd.XsdDouble.TryFormat(System.Span<char> destination, out int written) -> bool
+Varve.Xsd.XsdDouble.Value.get -> double
+Varve.Xsd.XsdDouble.XsdDouble() -> void
+Varve.Xsd.XsdDouble.XsdDouble(double value) -> void
+Varve.Xsd.XsdFloat
+Varve.Xsd.XsdFloat.CompareTo(Varve.Xsd.XsdFloat other) -> int
+Varve.Xsd.XsdFloat.Equals(Varve.Xsd.XsdFloat other) -> bool
+Varve.Xsd.XsdFloat.IsNaN.get -> bool
+Varve.Xsd.XsdFloat.TryFormat(System.Span<byte> destination, out int written) -> bool
+Varve.Xsd.XsdFloat.TryFormat(System.Span<char> destination, out int written) -> bool
+Varve.Xsd.XsdFloat.Value.get -> float
+Varve.Xsd.XsdFloat.XsdFloat() -> void
+Varve.Xsd.XsdFloat.XsdFloat(float value) -> void
+Varve.Xsd.XsdInteger
+Varve.Xsd.XsdInteger.CompareTo(Varve.Xsd.XsdInteger other) -> int
+Varve.Xsd.XsdInteger.Equals(Varve.Xsd.XsdInteger other) -> bool
+Varve.Xsd.XsdInteger.IsNegative.get -> bool
+Varve.Xsd.XsdInteger.IsZero.get -> bool
+Varve.Xsd.XsdInteger.TryFormat(System.Span<byte> destination, out int written) -> bool
+Varve.Xsd.XsdInteger.TryFormat(System.Span<char> destination, out int written) -> bool
+Varve.Xsd.XsdInteger.Value.get -> long
+Varve.Xsd.XsdInteger.XsdInteger() -> void
+Varve.Xsd.XsdInteger.XsdInteger(long value) -> void
+Varve.Xsd.XsdNumeric
+Varve.Xsd.XsdNumeric.AsDecimal.get -> Varve.Xsd.XsdDecimal
+Varve.Xsd.XsdNumeric.AsDouble.get -> Varve.Xsd.XsdDouble
+Varve.Xsd.XsdNumeric.AsFloat.get -> Varve.Xsd.XsdFloat
+Varve.Xsd.XsdNumeric.AsInteger.get -> Varve.Xsd.XsdInteger
+Varve.Xsd.XsdNumeric.Ceiling() -> Varve.Xsd.XsdNumeric
+Varve.Xsd.XsdNumeric.Datatype.get -> Varve.Xsd.XsdDatatype
+Varve.Xsd.XsdNumeric.Equals(Varve.Xsd.XsdNumeric other) -> bool
+Varve.Xsd.XsdNumeric.Floor() -> Varve.Xsd.XsdNumeric
+Varve.Xsd.XsdNumeric.Kind.get -> Varve.Xsd.XsdNumericKind
+Varve.Xsd.XsdNumeric.TryFormat(System.Span<byte> destination, out int written) -> bool
+Varve.Xsd.XsdNumeric.TryRound(out Varve.Xsd.XsdNumeric result) -> bool
+Varve.Xsd.XsdNumeric.XsdNumeric() -> void
+Varve.Xsd.XsdNumericKind
+Varve.Xsd.XsdNumericKind.Decimal = 1 -> Varve.Xsd.XsdNumericKind
+Varve.Xsd.XsdNumericKind.Double = 3 -> Varve.Xsd.XsdNumericKind
+Varve.Xsd.XsdNumericKind.Float = 2 -> Varve.Xsd.XsdNumericKind
+Varve.Xsd.XsdNumericKind.Integer = 0 -> Varve.Xsd.XsdNumericKind
+Varve.Xsd.XsdString
+const Varve.Xsd.XsdDecimal.Scale = 18 -> int
+override Varve.Xsd.XsdBoolean.Equals(object? obj) -> bool
+override Varve.Xsd.XsdBoolean.GetHashCode() -> int
+override Varve.Xsd.XsdBoolean.ToString() -> string!
+override Varve.Xsd.XsdDecimal.Equals(object? obj) -> bool
+override Varve.Xsd.XsdDecimal.GetHashCode() -> int
+override Varve.Xsd.XsdDecimal.ToString() -> string!
+override Varve.Xsd.XsdDouble.Equals(object? obj) -> bool
+override Varve.Xsd.XsdDouble.GetHashCode() -> int
+override Varve.Xsd.XsdDouble.ToString() -> string!
+override Varve.Xsd.XsdFloat.Equals(object? obj) -> bool
+override Varve.Xsd.XsdFloat.GetHashCode() -> int
+override Varve.Xsd.XsdFloat.ToString() -> string!
+override Varve.Xsd.XsdInteger.Equals(object? obj) -> bool
+override Varve.Xsd.XsdInteger.GetHashCode() -> int
+override Varve.Xsd.XsdInteger.ToString() -> string!
+override Varve.Xsd.XsdNumeric.Equals(object? obj) -> bool
+override Varve.Xsd.XsdNumeric.GetHashCode() -> int
+override Varve.Xsd.XsdNumeric.ToString() -> string!
+static Varve.Xsd.XsdBoolean.False.get -> Varve.Xsd.XsdBoolean
+static Varve.Xsd.XsdBoolean.IsCanonical(System.ReadOnlySpan<byte> lexical) -> bool
+static Varve.Xsd.XsdBoolean.True.get -> Varve.Xsd.XsdBoolean
+static Varve.Xsd.XsdBoolean.TryParse(System.ReadOnlySpan<byte> utf8, out Varve.Xsd.XsdBoolean value) -> bool
+static Varve.Xsd.XsdBoolean.TryParse(System.ReadOnlySpan<char> text, out Varve.Xsd.XsdBoolean value) -> bool
+static Varve.Xsd.XsdBoolean.operator !=(Varve.Xsd.XsdBoolean left, Varve.Xsd.XsdBoolean right) -> bool
+static Varve.Xsd.XsdBoolean.operator <(Varve.Xsd.XsdBoolean left, Varve.Xsd.XsdBoolean right) -> bool
+static Varve.Xsd.XsdBoolean.operator <=(Varve.Xsd.XsdBoolean left, Varve.Xsd.XsdBoolean right) -> bool
+static Varve.Xsd.XsdBoolean.operator ==(Varve.Xsd.XsdBoolean left, Varve.Xsd.XsdBoolean right) -> bool
+static Varve.Xsd.XsdBoolean.operator >(Varve.Xsd.XsdBoolean left, Varve.Xsd.XsdBoolean right) -> bool
+static Varve.Xsd.XsdBoolean.operator >=(Varve.Xsd.XsdBoolean left, Varve.Xsd.XsdBoolean right) -> bool
+static Varve.Xsd.XsdDatatypes.FromIri(System.ReadOnlySpan<byte> iri) -> Varve.Xsd.XsdDatatype
+static Varve.Xsd.XsdDatatypes.Iri(Varve.Xsd.XsdDatatype datatype) -> System.ReadOnlySpan<byte>
+static Varve.Xsd.XsdDatatypes.IsIntegerType(Varve.Xsd.XsdDatatype datatype) -> bool
+static Varve.Xsd.XsdDatatypes.IsNumeric(Varve.Xsd.XsdDatatype datatype) -> bool
+static Varve.Xsd.XsdDatatypes.Namespace.get -> System.ReadOnlySpan<byte>
+static Varve.Xsd.XsdDecimal.Add(Varve.Xsd.XsdDecimal left, Varve.Xsd.XsdDecimal right) -> Varve.Xsd.XsdDecimal
+static Varve.Xsd.XsdDecimal.Divide(Varve.Xsd.XsdDecimal left, Varve.Xsd.XsdDecimal right) -> Varve.Xsd.XsdDecimal
+static Varve.Xsd.XsdDecimal.FromInt64(long value) -> Varve.Xsd.XsdDecimal
+static Varve.Xsd.XsdDecimal.FromInteger(Varve.Xsd.XsdInteger value) -> Varve.Xsd.XsdDecimal
+static Varve.Xsd.XsdDecimal.FromMantissa(System.Int128 mantissa) -> Varve.Xsd.XsdDecimal
+static Varve.Xsd.XsdDecimal.IsCanonical(System.ReadOnlySpan<byte> lexical) -> bool
+static Varve.Xsd.XsdDecimal.MaxValue.get -> Varve.Xsd.XsdDecimal
+static Varve.Xsd.XsdDecimal.MinValue.get -> Varve.Xsd.XsdDecimal
+static Varve.Xsd.XsdDecimal.Multiply(Varve.Xsd.XsdDecimal left, Varve.Xsd.XsdDecimal right) -> Varve.Xsd.XsdDecimal
+static Varve.Xsd.XsdDecimal.Negate(Varve.Xsd.XsdDecimal value) -> Varve.Xsd.XsdDecimal
+static Varve.Xsd.XsdDecimal.One.get -> Varve.Xsd.XsdDecimal
+static Varve.Xsd.XsdDecimal.Subtract(Varve.Xsd.XsdDecimal left, Varve.Xsd.XsdDecimal right) -> Varve.Xsd.XsdDecimal
+static Varve.Xsd.XsdDecimal.TryAbs(Varve.Xsd.XsdDecimal value, out Varve.Xsd.XsdDecimal result) -> bool
+static Varve.Xsd.XsdDecimal.TryAdd(Varve.Xsd.XsdDecimal left, Varve.Xsd.XsdDecimal right, out Varve.Xsd.XsdDecimal result) -> bool
+static Varve.Xsd.XsdDecimal.TryDivide(Varve.Xsd.XsdDecimal left, Varve.Xsd.XsdDecimal right, out Varve.Xsd.XsdDecimal result) -> bool
+static Varve.Xsd.XsdDecimal.TryMultiply(Varve.Xsd.XsdDecimal left, Varve.Xsd.XsdDecimal right, out Varve.Xsd.XsdDecimal result) -> bool
+static Varve.Xsd.XsdDecimal.TryNegate(Varve.Xsd.XsdDecimal value, out Varve.Xsd.XsdDecimal result) -> bool
+static Varve.Xsd.XsdDecimal.TryParse(System.ReadOnlySpan<byte> utf8, out Varve.Xsd.XsdDecimal value) -> bool
+static Varve.Xsd.XsdDecimal.TryParse(System.ReadOnlySpan<char> text, out Varve.Xsd.XsdDecimal value) -> bool
+static Varve.Xsd.XsdDecimal.TrySubtract(Varve.Xsd.XsdDecimal left, Varve.Xsd.XsdDecimal right, out Varve.Xsd.XsdDecimal result) -> bool
+static Varve.Xsd.XsdDecimal.Zero.get -> Varve.Xsd.XsdDecimal
+static Varve.Xsd.XsdDecimal.operator !=(Varve.Xsd.XsdDecimal left, Varve.Xsd.XsdDecimal right) -> bool
+static Varve.Xsd.XsdDecimal.operator *(Varve.Xsd.XsdDecimal left, Varve.Xsd.XsdDecimal right) -> Varve.Xsd.XsdDecimal
+static Varve.Xsd.XsdDecimal.operator +(Varve.Xsd.XsdDecimal left, Varve.Xsd.XsdDecimal right) -> Varve.Xsd.XsdDecimal
+static Varve.Xsd.XsdDecimal.operator -(Varve.Xsd.XsdDecimal left, Varve.Xsd.XsdDecimal right) -> Varve.Xsd.XsdDecimal
+static Varve.Xsd.XsdDecimal.operator -(Varve.Xsd.XsdDecimal value) -> Varve.Xsd.XsdDecimal
+static Varve.Xsd.XsdDecimal.operator /(Varve.Xsd.XsdDecimal left, Varve.Xsd.XsdDecimal right) -> Varve.Xsd.XsdDecimal
+static Varve.Xsd.XsdDecimal.operator <(Varve.Xsd.XsdDecimal left, Varve.Xsd.XsdDecimal right) -> bool
+static Varve.Xsd.XsdDecimal.operator <=(Varve.Xsd.XsdDecimal left, Varve.Xsd.XsdDecimal right) -> bool
+static Varve.Xsd.XsdDecimal.operator ==(Varve.Xsd.XsdDecimal left, Varve.Xsd.XsdDecimal right) -> bool
+static Varve.Xsd.XsdDecimal.operator >(Varve.Xsd.XsdDecimal left, Varve.Xsd.XsdDecimal right) -> bool
+static Varve.Xsd.XsdDecimal.operator >=(Varve.Xsd.XsdDecimal left, Varve.Xsd.XsdDecimal right) -> bool
+static Varve.Xsd.XsdDouble.Compare(Varve.Xsd.XsdDouble left, Varve.Xsd.XsdDouble right) -> Varve.Xsd.PartialOrdering
+static Varve.Xsd.XsdDouble.IsCanonical(System.ReadOnlySpan<byte> lexical) -> bool
+static Varve.Xsd.XsdDouble.TryParse(System.ReadOnlySpan<byte> utf8, out Varve.Xsd.XsdDouble value) -> bool
+static Varve.Xsd.XsdDouble.TryParse(System.ReadOnlySpan<char> text, out Varve.Xsd.XsdDouble value) -> bool
+static Varve.Xsd.XsdDouble.operator !=(Varve.Xsd.XsdDouble left, Varve.Xsd.XsdDouble right) -> bool
+static Varve.Xsd.XsdDouble.operator <(Varve.Xsd.XsdDouble left, Varve.Xsd.XsdDouble right) -> bool
+static Varve.Xsd.XsdDouble.operator <=(Varve.Xsd.XsdDouble left, Varve.Xsd.XsdDouble right) -> bool
+static Varve.Xsd.XsdDouble.operator ==(Varve.Xsd.XsdDouble left, Varve.Xsd.XsdDouble right) -> bool
+static Varve.Xsd.XsdDouble.operator >(Varve.Xsd.XsdDouble left, Varve.Xsd.XsdDouble right) -> bool
+static Varve.Xsd.XsdDouble.operator >=(Varve.Xsd.XsdDouble left, Varve.Xsd.XsdDouble right) -> bool
+static Varve.Xsd.XsdFloat.Compare(Varve.Xsd.XsdFloat left, Varve.Xsd.XsdFloat right) -> Varve.Xsd.PartialOrdering
+static Varve.Xsd.XsdFloat.IsCanonical(System.ReadOnlySpan<byte> lexical) -> bool
+static Varve.Xsd.XsdFloat.TryParse(System.ReadOnlySpan<byte> utf8, out Varve.Xsd.XsdFloat value) -> bool
+static Varve.Xsd.XsdFloat.TryParse(System.ReadOnlySpan<char> text, out Varve.Xsd.XsdFloat value) -> bool
+static Varve.Xsd.XsdFloat.operator !=(Varve.Xsd.XsdFloat left, Varve.Xsd.XsdFloat right) -> bool
+static Varve.Xsd.XsdFloat.operator <(Varve.Xsd.XsdFloat left, Varve.Xsd.XsdFloat right) -> bool
+static Varve.Xsd.XsdFloat.operator <=(Varve.Xsd.XsdFloat left, Varve.Xsd.XsdFloat right) -> bool
+static Varve.Xsd.XsdFloat.operator ==(Varve.Xsd.XsdFloat left, Varve.Xsd.XsdFloat right) -> bool
+static Varve.Xsd.XsdFloat.operator >(Varve.Xsd.XsdFloat left, Varve.Xsd.XsdFloat right) -> bool
+static Varve.Xsd.XsdFloat.operator >=(Varve.Xsd.XsdFloat left, Varve.Xsd.XsdFloat right) -> bool
+static Varve.Xsd.XsdInteger.Add(Varve.Xsd.XsdInteger left, Varve.Xsd.XsdInteger right) -> Varve.Xsd.XsdInteger
+static Varve.Xsd.XsdInteger.IsCanonical(System.ReadOnlySpan<byte> lexical) -> bool
+static Varve.Xsd.XsdInteger.Multiply(Varve.Xsd.XsdInteger left, Varve.Xsd.XsdInteger right) -> Varve.Xsd.XsdInteger
+static Varve.Xsd.XsdInteger.Negate(Varve.Xsd.XsdInteger value) -> Varve.Xsd.XsdInteger
+static Varve.Xsd.XsdInteger.Range(Varve.Xsd.XsdDatatype datatype) -> (long Minimum, long Maximum)
+static Varve.Xsd.XsdInteger.Subtract(Varve.Xsd.XsdInteger left, Varve.Xsd.XsdInteger right) -> Varve.Xsd.XsdInteger
+static Varve.Xsd.XsdInteger.TryAbs(Varve.Xsd.XsdInteger value, out Varve.Xsd.XsdInteger result) -> bool
+static Varve.Xsd.XsdInteger.TryAdd(Varve.Xsd.XsdInteger left, Varve.Xsd.XsdInteger right, out Varve.Xsd.XsdInteger result) -> bool
+static Varve.Xsd.XsdInteger.TryDivide(Varve.Xsd.XsdInteger left, Varve.Xsd.XsdInteger right, out Varve.Xsd.XsdInteger result) -> bool
+static Varve.Xsd.XsdInteger.TryMultiply(Varve.Xsd.XsdInteger left, Varve.Xsd.XsdInteger right, out Varve.Xsd.XsdInteger result) -> bool
+static Varve.Xsd.XsdInteger.TryNegate(Varve.Xsd.XsdInteger value, out Varve.Xsd.XsdInteger result) -> bool
+static Varve.Xsd.XsdInteger.TryParse(System.ReadOnlySpan<byte> utf8, Varve.Xsd.XsdDatatype datatype, out Varve.Xsd.XsdInteger value) -> bool
+static Varve.Xsd.XsdInteger.TryParse(System.ReadOnlySpan<byte> utf8, out Varve.Xsd.XsdInteger value) -> bool
+static Varve.Xsd.XsdInteger.TryParse(System.ReadOnlySpan<char> text, Varve.Xsd.XsdDatatype datatype, out Varve.Xsd.XsdInteger value) -> bool
+static Varve.Xsd.XsdInteger.TryParse(System.ReadOnlySpan<char> text, out Varve.Xsd.XsdInteger value) -> bool
+static Varve.Xsd.XsdInteger.TrySubtract(Varve.Xsd.XsdInteger left, Varve.Xsd.XsdInteger right, out Varve.Xsd.XsdInteger result) -> bool
+static Varve.Xsd.XsdInteger.Zero.get -> Varve.Xsd.XsdInteger
+static Varve.Xsd.XsdInteger.operator !=(Varve.Xsd.XsdInteger left, Varve.Xsd.XsdInteger right) -> bool
+static Varve.Xsd.XsdInteger.operator *(Varve.Xsd.XsdInteger left, Varve.Xsd.XsdInteger right) -> Varve.Xsd.XsdInteger
+static Varve.Xsd.XsdInteger.operator +(Varve.Xsd.XsdInteger left, Varve.Xsd.XsdInteger right) -> Varve.Xsd.XsdInteger
+static Varve.Xsd.XsdInteger.operator -(Varve.Xsd.XsdInteger left, Varve.Xsd.XsdInteger right) -> Varve.Xsd.XsdInteger
+static Varve.Xsd.XsdInteger.operator -(Varve.Xsd.XsdInteger value) -> Varve.Xsd.XsdInteger
+static Varve.Xsd.XsdInteger.operator <(Varve.Xsd.XsdInteger left, Varve.Xsd.XsdInteger right) -> bool
+static Varve.Xsd.XsdInteger.operator <=(Varve.Xsd.XsdInteger left, Varve.Xsd.XsdInteger right) -> bool
+static Varve.Xsd.XsdInteger.operator ==(Varve.Xsd.XsdInteger left, Varve.Xsd.XsdInteger right) -> bool
+static Varve.Xsd.XsdInteger.operator >(Varve.Xsd.XsdInteger left, Varve.Xsd.XsdInteger right) -> bool
+static Varve.Xsd.XsdInteger.operator >=(Varve.Xsd.XsdInteger left, Varve.Xsd.XsdInteger right) -> bool
+static Varve.Xsd.XsdNumeric.Compare(Varve.Xsd.XsdNumeric left, Varve.Xsd.XsdNumeric right) -> Varve.Xsd.PartialOrdering
+static Varve.Xsd.XsdNumeric.FromDecimal(Varve.Xsd.XsdDecimal value) -> Varve.Xsd.XsdNumeric
+static Varve.Xsd.XsdNumeric.FromDouble(Varve.Xsd.XsdDouble value) -> Varve.Xsd.XsdNumeric
+static Varve.Xsd.XsdNumeric.FromFloat(Varve.Xsd.XsdFloat value) -> Varve.Xsd.XsdNumeric
+static Varve.Xsd.XsdNumeric.FromInteger(Varve.Xsd.XsdInteger value) -> Varve.Xsd.XsdNumeric
+static Varve.Xsd.XsdNumeric.TryAbs(Varve.Xsd.XsdNumeric value, out Varve.Xsd.XsdNumeric result) -> bool
+static Varve.Xsd.XsdNumeric.TryAdd(Varve.Xsd.XsdNumeric left, Varve.Xsd.XsdNumeric right, out Varve.Xsd.XsdNumeric result) -> bool
+static Varve.Xsd.XsdNumeric.TryDivide(Varve.Xsd.XsdNumeric left, Varve.Xsd.XsdNumeric right, out Varve.Xsd.XsdNumeric result) -> bool
+static Varve.Xsd.XsdNumeric.TryMultiply(Varve.Xsd.XsdNumeric left, Varve.Xsd.XsdNumeric right, out Varve.Xsd.XsdNumeric result) -> bool
+static Varve.Xsd.XsdNumeric.TryNegate(Varve.Xsd.XsdNumeric value, out Varve.Xsd.XsdNumeric result) -> bool
+static Varve.Xsd.XsdNumeric.TryParse(System.ReadOnlySpan<byte> utf8, Varve.Xsd.XsdDatatype datatype, out Varve.Xsd.XsdNumeric value) -> bool
+static Varve.Xsd.XsdNumeric.TrySubtract(Varve.Xsd.XsdNumeric left, Varve.Xsd.XsdNumeric right, out Varve.Xsd.XsdNumeric result) -> bool
+static Varve.Xsd.XsdNumeric.operator !=(Varve.Xsd.XsdNumeric left, Varve.Xsd.XsdNumeric right) -> bool
+static Varve.Xsd.XsdNumeric.operator ==(Varve.Xsd.XsdNumeric left, Varve.Xsd.XsdNumeric right) -> bool
+static Varve.Xsd.XsdString.CompareCodePoints(System.ReadOnlySpan<byte> left, System.ReadOnlySpan<byte> right) -> int
+static Varve.Xsd.XsdString.CompareCodePoints(System.ReadOnlySpan<char> left, System.ReadOnlySpan<char> right) -> int
