@@ -44,15 +44,29 @@ The order is specification, then ADR, then code.
   why, and the two RDF 1.2 constructs the reader and writer accept beyond the
   1.1 grammar.
 
+- **[`xsd.md`](xsd.md)** — the XSD 1.1 value spaces `Varve.Xsd` implements,
+  the precision policy (`Int128` decimal with eighteen fractional digits,
+  `Int64` integer with out-of-range literals kept as terms), the seven-property
+  date and time model, durations, and the SPARQL operator mapping including
+  the implicit-timezone total order for `dateTime`. Value spaces only: term
+  equality stays lexical (`rdf-model.md` §2).
+- **[`sparql-grammar.md`](sparql-grammar.md)** — the SPARQL 1.2 grammar by
+  production with every 1.1 difference marked, the lexical rules (escapes
+  processed during parsing, surrogates refused), the checks beyond the EBNF,
+  the three version labels and what each refuses, byte positions, no
+  recovery, and the suites that gate it — each parsed at its own version.
+- **[`sparql-algebra.md`](sparql-algebra.md)** — the algebra tree the parser
+  produces: node families, the §18.3 translation step by step and where the
+  tree departs from it (blank nodes kept, no invented variables, aggregates
+  left where they were written), the 1.2 reifier and annotation expansions,
+  the update operations as a record of the request, the serialiser's
+  round-trip contract, and the rewrite surface.
+
 ## Planned
 
-In dependency order:
-
-- `xsd.md` — value spaces and SPARQL operator semantics. Not the term model's:
-  term equality is lexical and stays that way (see `rdf-model.md` §2). Lands
-  just before the evaluator, which is the first thing with a suite that gates
-  it.
-- `sparql-evaluation.md` — the algebra semantics the evaluator implements.
+- `sparql-evaluation.md` — the algebra semantics the evaluator implements,
+  with the aggregate extraction and the sequence-path rewrite that
+  `sparql-algebra.md` leaves to it. Milestone 5b.
 
 Cite specification sections when you write one. Where a W3C specification is
 silent, Oxigraph's behaviour is the tie-breaker; say so explicitly in the text
