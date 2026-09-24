@@ -48,9 +48,16 @@ date with `main` before it merges.
     ruleset has no signed-tags rule, ruleset 2's bypass list also names the
     admin role, and Discussions is off.
 
-## Left for the maintainer
+## Follow-up: Discussions turned on ([#29](https://github.com/Hafeok/Varve/issues/29))
 
-`GOVERNANCE.md`'s Channels table still sends questions, ideas and announcements
-to Discussions, which is off. Either Discussions is turned on (the declaration
-then needs `features.discussions: true`) or the table changes. That is a
-decision about the project's channels, not a correction, so it was left alone.
+> turn discussions on in the declaration
+
+- `.github/repo-standard.yaml` now has `repository.features.discussions: true`.
+- `GOVERNANCE.md`'s table row is updated to match.
+- **The categories are deliberately not declared.** Enabling Discussions creates
+  GitHub's six default categories, and `GOVERNANCE.md` names four. No API can
+  create or delete a category, so declaring the four would leave two differences
+  `apply` cannot fix. `apply` would then exit 1, and the workflow would go red on
+  merge.
+- Once the categories are arranged by hand, declaring them under
+  `discussions.categories` makes the weekly check watch them.

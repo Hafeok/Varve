@@ -82,7 +82,7 @@ file and follows it.
 | **`Signed Commits`** ruleset on `main` | required signed commits, with the admin role and the Claude GitHub App on the **bypass list** ([ADR 0034](docs/adr/0034-commit-signing-and-the-sandbox-exception.md)) |
 | **`Varve Release Approval`** ruleset on `v*` tags | creating, deleting or force-moving a `v*` tag is restricted to the maintainer |
 | **Environment** `release` | maintainer as required reviewer; referenced by `publish.yml` |
-| **Discussions** | off |
+| **Discussions** | on; the categories are not yet declared (GitHub creates its six defaults, and no API can remove one) |
 | **Projects** | *Varve roadmap* (upstream) and *Varve work* (downstream) |
 
 ### The signing exception

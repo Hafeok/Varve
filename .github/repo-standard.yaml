@@ -10,7 +10,7 @@ repository:
     issues: true
     projects: true
     wiki: false
-    discussions: false
+    discussions: true
   merge:
     allow_merge_commit: true
     allow_squash_merge: true
