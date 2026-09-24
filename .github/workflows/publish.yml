@@ -114,6 +114,9 @@ jobs:
       - name: Test Varve.Xsd
         run: dotnet test --project tests/Varve.Xsd.Tests/Varve.Xsd.Tests.csproj --configuration Release
 
+      - name: Test Varve.Sparql
+        run: dotnet test --project tests/Varve.Sparql.Tests/Varve.Sparql.Tests.csproj --configuration Release
+
       - name: Run the W3C suites
         continue-on-error: true
         run: >

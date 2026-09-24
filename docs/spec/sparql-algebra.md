@@ -41,9 +41,11 @@ kept for the serialiser's sake.
 ### 2.2 Records, immutable, with value equality
 
 Every node is a `sealed record` class (ADR 0048's stated exception to the
-repository's avoidance of records). Children are `ImmutableArray<T>`, compared
-element by element by a helper the records call, so that two trees are equal
-when they have the same shape and the same leaves. `Variable` is a
+repository's avoidance of records). A node's children are held in
+`AlgebraList<T>`, a small immutable sequence with element-wise equality — the
+helper ADR 0048 mentions — because `ImmutableArray<T>` compares by reference
+to its backing array and would make two identical trees unequal. So two trees
+are equal when they have the same shape and the same leaves. `Variable` is a
 `readonly record struct` over its name. Terms in the tree are owned
 `RdfTerm`s (ADR 0024: an allocated tree may hold allocated terms).
 
@@ -72,7 +74,7 @@ object)` for a triple term with a variable somewhere inside it (1.2). A
 `TriplePattern` is three `PatternTerm`s; a `QuadPattern` adds an optional
 graph, which in an update template may be a variable.
 
-**Graph patterns.** `GraphPattern`:
+**Query patterns.** `QueryPattern` — the draft's "algebraic query expression"; not `QueryPattern`, which is `Varve.Rdf`'s match-pattern type and would be ambiguous in every evaluator file:
 
 | Node | Operator | Notes |
 |---|---|---|
@@ -113,16 +115,16 @@ ImmutableArray<Expression>)` for every keyword function of `[141]
 BuiltInCall` including `BOUND`, `IF`, `COALESCE`, `IN` and `NOT IN` (the
 tested expression first, then the list); `CustomFunctionCall(RdfTerm Iri,
 ImmutableArray<Expression>)` for `[76] FunctionCall`, which is also how an
-XSD constructor such as `xsd:integer(?x)` appears; `ExistsExpression(GraphPattern,
+XSD constructor such as `xsd:integer(?x)` appears; `ExistsExpression(QueryPattern,
 bool Negated)`; and `AggregateExpression` (§4.6). A `<<( … )>>` in an
 expression with a variable inside is `FunctionCall(Triple, …)`; a ground one
 is a `ConstantExpression` holding a triple term.
 
 **Queries.** `Query(Prologue, DatasetSpec?, SourceSpan)` with four forms:
-`SelectQuery(GraphPattern)`, whose pattern already ends in the modifier chain;
-`ConstructQuery(ImmutableArray<TriplePattern> Template, GraphPattern)`;
-`AskQuery(GraphPattern)`; `DescribeQuery(ImmutableArray<PatternTerm> Resources,
-GraphPattern)`. `Prologue(RdfTerm? Base, ImmutableArray<PrefixDeclaration>,
+`SelectQuery(QueryPattern)`, whose pattern already ends in the modifier chain;
+`ConstructQuery(ImmutableArray<TriplePattern> Template, QueryPattern)`;
+`AskQuery(QueryPattern)`; `DescribeQuery(ImmutableArray<PatternTerm> Resources,
+QueryPattern)`. `Prologue(RdfTerm? Base, ImmutableArray<PrefixDeclaration>,
 SparqlVersion? Version)` keeps what was declared, for the serialiser; the
 tree's terms are already expanded and resolved. `DatasetSpec(ImmutableArray<RdfTerm>
 DefaultGraphs, ImmutableArray<RdfTerm> NamedGraphs)` is `FROM` / `FROM NAMED`,
@@ -361,7 +363,7 @@ Update §3, one node each, in request order:
 | `InsertData(ImmutableArray<QuadPattern>)` | `INSERT DATA { }`; blank nodes allowed, variables not |
 | `DeleteData(ImmutableArray<QuadPattern>)` | `DELETE DATA { }`; neither |
 | `DeleteWhere(ImmutableArray<QuadPattern>)` | `DELETE WHERE { }`; variables allowed, blank nodes not |
-| `Modify(RdfTerm? With, ImmutableArray<QuadPattern> Delete, ImmutableArray<QuadPattern> Insert, DatasetSpec? Using, GraphPattern Where)` | `WITH … DELETE { } INSERT { } USING … WHERE { }` |
+| `Modify(RdfTerm? With, ImmutableArray<QuadPattern> Delete, ImmutableArray<QuadPattern> Insert, DatasetSpec? Using, QueryPattern Where)` | `WITH … DELETE { } INSERT { } USING … WHERE { }` |
 | `Load(RdfTerm Source, RdfTerm? Graph, bool Silent)` | `LOAD` |
 | `Clear(GraphTarget, bool Silent)`, `Drop(GraphTarget, bool Silent)` | `GraphTarget`: `Default`, `Named`, `All`, or `Graph(iri)` |
 | `Create(RdfTerm Graph, bool Silent)` | |

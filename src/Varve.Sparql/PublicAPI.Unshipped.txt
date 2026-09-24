@@ -1,0 +1,1233 @@
+#nullable enable
+Varve.Sparql.Algebra.Add
+Varve.Sparql.Algebra.Add.Add(Varve.Sparql.Algebra.GraphOrDefault From, Varve.Sparql.Algebra.GraphOrDefault To, bool Silent) -> void
+Varve.Sparql.Algebra.Add.Deconstruct(out Varve.Sparql.Algebra.GraphOrDefault From, out Varve.Sparql.Algebra.GraphOrDefault To, out bool Silent) -> void
+Varve.Sparql.Algebra.Add.Equals(Varve.Sparql.Algebra.Add? other) -> bool
+Varve.Sparql.Algebra.Add.From.get -> Varve.Sparql.Algebra.GraphOrDefault
+Varve.Sparql.Algebra.Add.From.init -> void
+Varve.Sparql.Algebra.Add.Silent.get -> bool
+Varve.Sparql.Algebra.Add.Silent.init -> void
+Varve.Sparql.Algebra.Add.To.get -> Varve.Sparql.Algebra.GraphOrDefault
+Varve.Sparql.Algebra.Add.To.init -> void
+Varve.Sparql.Algebra.AggregateExpression
+Varve.Sparql.Algebra.AggregateExpression.AggregateExpression(Varve.Sparql.Algebra.AggregateFunction Function, Varve.Sparql.Algebra.Expression? Argument, bool Distinct, string? Separator, Varve.Rdf.RdfTerm? CustomFunction) -> void
+Varve.Sparql.Algebra.AggregateExpression.Argument.get -> Varve.Sparql.Algebra.Expression?
+Varve.Sparql.Algebra.AggregateExpression.Argument.init -> void
+Varve.Sparql.Algebra.AggregateExpression.CustomFunction.get -> Varve.Rdf.RdfTerm?
+Varve.Sparql.Algebra.AggregateExpression.CustomFunction.init -> void
+Varve.Sparql.Algebra.AggregateExpression.Deconstruct(out Varve.Sparql.Algebra.AggregateFunction Function, out Varve.Sparql.Algebra.Expression? Argument, out bool Distinct, out string? Separator, out Varve.Rdf.RdfTerm? CustomFunction) -> void
+Varve.Sparql.Algebra.AggregateExpression.Distinct.get -> bool
+Varve.Sparql.Algebra.AggregateExpression.Distinct.init -> void
+Varve.Sparql.Algebra.AggregateExpression.Equals(Varve.Sparql.Algebra.AggregateExpression? other) -> bool
+Varve.Sparql.Algebra.AggregateExpression.Function.get -> Varve.Sparql.Algebra.AggregateFunction
+Varve.Sparql.Algebra.AggregateExpression.Function.init -> void
+Varve.Sparql.Algebra.AggregateExpression.Separator.get -> string?
+Varve.Sparql.Algebra.AggregateExpression.Separator.init -> void
+Varve.Sparql.Algebra.AggregateFunction
+Varve.Sparql.Algebra.AggregateFunction.Avg = 4 -> Varve.Sparql.Algebra.AggregateFunction
+Varve.Sparql.Algebra.AggregateFunction.Count = 0 -> Varve.Sparql.Algebra.AggregateFunction
+Varve.Sparql.Algebra.AggregateFunction.Custom = 7 -> Varve.Sparql.Algebra.AggregateFunction
+Varve.Sparql.Algebra.AggregateFunction.GroupConcat = 6 -> Varve.Sparql.Algebra.AggregateFunction
+Varve.Sparql.Algebra.AggregateFunction.Max = 3 -> Varve.Sparql.Algebra.AggregateFunction
+Varve.Sparql.Algebra.AggregateFunction.Min = 2 -> Varve.Sparql.Algebra.AggregateFunction
+Varve.Sparql.Algebra.AggregateFunction.Sample = 5 -> Varve.Sparql.Algebra.AggregateFunction
+Varve.Sparql.Algebra.AggregateFunction.Sum = 1 -> Varve.Sparql.Algebra.AggregateFunction
+Varve.Sparql.Algebra.AlgebraList
+Varve.Sparql.Algebra.AlgebraList<T>
+Varve.Sparql.Algebra.AlgebraList<T>.AlgebraList() -> void
+Varve.Sparql.Algebra.AlgebraList<T>.Count.get -> int
+Varve.Sparql.Algebra.AlgebraList<T>.Equals(Varve.Sparql.Algebra.AlgebraList<T> other) -> bool
+Varve.Sparql.Algebra.AlgebraList<T>.GetEnumerator() -> System.ReadOnlySpan<T>.Enumerator
+Varve.Sparql.Algebra.AlgebraList<T>.IsEmpty.get -> bool
+Varve.Sparql.Algebra.AlgebraList<T>.Span.get -> System.ReadOnlySpan<T>
+Varve.Sparql.Algebra.AlgebraList<T>.ToArray() -> T[]!
+Varve.Sparql.Algebra.AlgebraList<T>.this[int index].get -> T
+Varve.Sparql.Algebra.AlgebraNode
+Varve.Sparql.Algebra.AlgebraNode.AlgebraNode() -> void
+Varve.Sparql.Algebra.AlgebraNode.AlgebraNode(Varve.Sparql.Algebra.AlgebraNode! original) -> void
+Varve.Sparql.Algebra.AlgebraNode.Span.get -> Varve.Sparql.SourceSpan
+Varve.Sparql.Algebra.AlgebraNode.Span.init -> void
+Varve.Sparql.Algebra.AlgebraRewriter
+Varve.Sparql.Algebra.AlgebraRewriter.AlgebraRewriter() -> void
+Varve.Sparql.Algebra.AlternativePath
+Varve.Sparql.Algebra.AlternativePath.AlternativePath(Varve.Sparql.Algebra.PropertyPath! Left, Varve.Sparql.Algebra.PropertyPath! Right) -> void
+Varve.Sparql.Algebra.AlternativePath.Deconstruct(out Varve.Sparql.Algebra.PropertyPath! Left, out Varve.Sparql.Algebra.PropertyPath! Right) -> void
+Varve.Sparql.Algebra.AlternativePath.Equals(Varve.Sparql.Algebra.AlternativePath? other) -> bool
+Varve.Sparql.Algebra.AlternativePath.Left.get -> Varve.Sparql.Algebra.PropertyPath!
+Varve.Sparql.Algebra.AlternativePath.Left.init -> void
+Varve.Sparql.Algebra.AlternativePath.Right.get -> Varve.Sparql.Algebra.PropertyPath!
+Varve.Sparql.Algebra.AlternativePath.Right.init -> void
+Varve.Sparql.Algebra.AskQuery
+Varve.Sparql.Algebra.AskQuery.AskQuery(Varve.Sparql.Algebra.Prologue! Prologue, Varve.Sparql.Algebra.DatasetSpec? Dataset, Varve.Sparql.Algebra.QueryPattern! Pattern) -> void
+Varve.Sparql.Algebra.AskQuery.Deconstruct(out Varve.Sparql.Algebra.Prologue! Prologue, out Varve.Sparql.Algebra.DatasetSpec? Dataset, out Varve.Sparql.Algebra.QueryPattern! Pattern) -> void
+Varve.Sparql.Algebra.AskQuery.Equals(Varve.Sparql.Algebra.AskQuery? other) -> bool
+Varve.Sparql.Algebra.Bgp
+Varve.Sparql.Algebra.Bgp.Bgp(Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.TriplePattern!> Triples) -> void
+Varve.Sparql.Algebra.Bgp.Deconstruct(out Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.TriplePattern!> Triples) -> void
+Varve.Sparql.Algebra.Bgp.Equals(Varve.Sparql.Algebra.Bgp? other) -> bool
+Varve.Sparql.Algebra.Bgp.Triples.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.TriplePattern!>
+Varve.Sparql.Algebra.Bgp.Triples.init -> void
+Varve.Sparql.Algebra.BinaryExpression
+Varve.Sparql.Algebra.BinaryExpression.BinaryExpression(Varve.Sparql.Algebra.BinaryOperator Operator, Varve.Sparql.Algebra.Expression! Left, Varve.Sparql.Algebra.Expression! Right) -> void
+Varve.Sparql.Algebra.BinaryExpression.Deconstruct(out Varve.Sparql.Algebra.BinaryOperator Operator, out Varve.Sparql.Algebra.Expression! Left, out Varve.Sparql.Algebra.Expression! Right) -> void
+Varve.Sparql.Algebra.BinaryExpression.Equals(Varve.Sparql.Algebra.BinaryExpression? other) -> bool
+Varve.Sparql.Algebra.BinaryExpression.Left.get -> Varve.Sparql.Algebra.Expression!
+Varve.Sparql.Algebra.BinaryExpression.Left.init -> void
+Varve.Sparql.Algebra.BinaryExpression.Operator.get -> Varve.Sparql.Algebra.BinaryOperator
+Varve.Sparql.Algebra.BinaryExpression.Operator.init -> void
+Varve.Sparql.Algebra.BinaryExpression.Right.get -> Varve.Sparql.Algebra.Expression!
+Varve.Sparql.Algebra.BinaryExpression.Right.init -> void
+Varve.Sparql.Algebra.BinaryOperator
+Varve.Sparql.Algebra.BinaryOperator.Add = 8 -> Varve.Sparql.Algebra.BinaryOperator
+Varve.Sparql.Algebra.BinaryOperator.And = 1 -> Varve.Sparql.Algebra.BinaryOperator
+Varve.Sparql.Algebra.BinaryOperator.Divide = 11 -> Varve.Sparql.Algebra.BinaryOperator
+Varve.Sparql.Algebra.BinaryOperator.Equal = 2 -> Varve.Sparql.Algebra.BinaryOperator
+Varve.Sparql.Algebra.BinaryOperator.Greater = 5 -> Varve.Sparql.Algebra.BinaryOperator
+Varve.Sparql.Algebra.BinaryOperator.GreaterOrEqual = 7 -> Varve.Sparql.Algebra.BinaryOperator
+Varve.Sparql.Algebra.BinaryOperator.Less = 4 -> Varve.Sparql.Algebra.BinaryOperator
+Varve.Sparql.Algebra.BinaryOperator.LessOrEqual = 6 -> Varve.Sparql.Algebra.BinaryOperator
+Varve.Sparql.Algebra.BinaryOperator.Multiply = 10 -> Varve.Sparql.Algebra.BinaryOperator
+Varve.Sparql.Algebra.BinaryOperator.NotEqual = 3 -> Varve.Sparql.Algebra.BinaryOperator
+Varve.Sparql.Algebra.BinaryOperator.Or = 0 -> Varve.Sparql.Algebra.BinaryOperator
+Varve.Sparql.Algebra.BinaryOperator.Subtract = 9 -> Varve.Sparql.Algebra.BinaryOperator
+Varve.Sparql.Algebra.BlankNodePattern
+Varve.Sparql.Algebra.BlankNodePattern.BlankNodePattern(string! Label) -> void
+Varve.Sparql.Algebra.BlankNodePattern.Deconstruct(out string! Label) -> void
+Varve.Sparql.Algebra.BlankNodePattern.Equals(Varve.Sparql.Algebra.BlankNodePattern? other) -> bool
+Varve.Sparql.Algebra.BlankNodePattern.Label.get -> string!
+Varve.Sparql.Algebra.BlankNodePattern.Label.init -> void
+Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Abs = 9 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.BNode = 7 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Bound = 5 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Ceil = 10 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Coalesce = 41 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Concat = 13 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Contains = 20 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Datatype = 4 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Day = 27 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.EncodeForUri = 19 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Floor = 11 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.HasLang = 51 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.HasLangDir = 52 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Hours = 28 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.If = 42 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.In = 59 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Iri = 6 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.IsBlank = 48 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.IsIri = 47 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.IsLiteral = 49 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.IsNumeric = 50 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.IsTriple = 54 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.LCase = 18 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Lang = 1 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.LangDir = 3 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.LangMatches = 2 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Md5 = 36 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Minutes = 29 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Month = 26 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.NotIn = 60 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Now = 33 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Object = 58 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Predicate = 57 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Rand = 8 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Regex = 53 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Replace = 16 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Round = 12 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.SameTerm = 46 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Seconds = 30 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Sha1 = 37 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Sha256 = 38 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Sha384 = 39 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Sha512 = 40 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Str = 0 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.StrAfter = 24 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.StrBefore = 23 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.StrDt = 45 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.StrEnds = 22 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.StrLang = 43 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.StrLangDir = 44 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.StrLen = 15 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.StrStarts = 21 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.StrUuid = 35 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Subject = 56 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Substr = 14 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Timezone = 31 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Triple = 55 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Tz = 32 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.UCase = 17 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Uuid = 34 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.BuiltInFunction.Year = 25 -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.Clear
+Varve.Sparql.Algebra.Clear.Clear(Varve.Sparql.Algebra.GraphTarget Target, bool Silent) -> void
+Varve.Sparql.Algebra.Clear.Deconstruct(out Varve.Sparql.Algebra.GraphTarget Target, out bool Silent) -> void
+Varve.Sparql.Algebra.Clear.Equals(Varve.Sparql.Algebra.Clear? other) -> bool
+Varve.Sparql.Algebra.Clear.Silent.get -> bool
+Varve.Sparql.Algebra.Clear.Silent.init -> void
+Varve.Sparql.Algebra.Clear.Target.get -> Varve.Sparql.Algebra.GraphTarget
+Varve.Sparql.Algebra.Clear.Target.init -> void
+Varve.Sparql.Algebra.ConstantExpression
+Varve.Sparql.Algebra.ConstantExpression.ConstantExpression(Varve.Rdf.RdfTerm! Term) -> void
+Varve.Sparql.Algebra.ConstantExpression.Deconstruct(out Varve.Rdf.RdfTerm! Term) -> void
+Varve.Sparql.Algebra.ConstantExpression.Equals(Varve.Sparql.Algebra.ConstantExpression? other) -> bool
+Varve.Sparql.Algebra.ConstantExpression.Term.get -> Varve.Rdf.RdfTerm!
+Varve.Sparql.Algebra.ConstantExpression.Term.init -> void
+Varve.Sparql.Algebra.ConstructQuery
+Varve.Sparql.Algebra.ConstructQuery.ConstructQuery(Varve.Sparql.Algebra.Prologue! Prologue, Varve.Sparql.Algebra.DatasetSpec? Dataset, Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.TriplePattern!> Template, Varve.Sparql.Algebra.QueryPattern! Pattern) -> void
+Varve.Sparql.Algebra.ConstructQuery.Deconstruct(out Varve.Sparql.Algebra.Prologue! Prologue, out Varve.Sparql.Algebra.DatasetSpec? Dataset, out Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.TriplePattern!> Template, out Varve.Sparql.Algebra.QueryPattern! Pattern) -> void
+Varve.Sparql.Algebra.ConstructQuery.Equals(Varve.Sparql.Algebra.ConstructQuery? other) -> bool
+Varve.Sparql.Algebra.ConstructQuery.Template.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.TriplePattern!>
+Varve.Sparql.Algebra.ConstructQuery.Template.init -> void
+Varve.Sparql.Algebra.Copy
+Varve.Sparql.Algebra.Copy.Copy(Varve.Sparql.Algebra.GraphOrDefault From, Varve.Sparql.Algebra.GraphOrDefault To, bool Silent) -> void
+Varve.Sparql.Algebra.Copy.Deconstruct(out Varve.Sparql.Algebra.GraphOrDefault From, out Varve.Sparql.Algebra.GraphOrDefault To, out bool Silent) -> void
+Varve.Sparql.Algebra.Copy.Equals(Varve.Sparql.Algebra.Copy? other) -> bool
+Varve.Sparql.Algebra.Copy.From.get -> Varve.Sparql.Algebra.GraphOrDefault
+Varve.Sparql.Algebra.Copy.From.init -> void
+Varve.Sparql.Algebra.Copy.Silent.get -> bool
+Varve.Sparql.Algebra.Copy.Silent.init -> void
+Varve.Sparql.Algebra.Copy.To.get -> Varve.Sparql.Algebra.GraphOrDefault
+Varve.Sparql.Algebra.Copy.To.init -> void
+Varve.Sparql.Algebra.Create
+Varve.Sparql.Algebra.Create.Create(Varve.Rdf.RdfTerm! Graph, bool Silent) -> void
+Varve.Sparql.Algebra.Create.Deconstruct(out Varve.Rdf.RdfTerm! Graph, out bool Silent) -> void
+Varve.Sparql.Algebra.Create.Equals(Varve.Sparql.Algebra.Create? other) -> bool
+Varve.Sparql.Algebra.Create.Graph.get -> Varve.Rdf.RdfTerm!
+Varve.Sparql.Algebra.Create.Graph.init -> void
+Varve.Sparql.Algebra.Create.Silent.get -> bool
+Varve.Sparql.Algebra.Create.Silent.init -> void
+Varve.Sparql.Algebra.CustomFunctionCall
+Varve.Sparql.Algebra.CustomFunctionCall.Arguments.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.Expression!>
+Varve.Sparql.Algebra.CustomFunctionCall.Arguments.init -> void
+Varve.Sparql.Algebra.CustomFunctionCall.CustomFunctionCall(Varve.Rdf.RdfTerm! Function, Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.Expression!> Arguments) -> void
+Varve.Sparql.Algebra.CustomFunctionCall.Deconstruct(out Varve.Rdf.RdfTerm! Function, out Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.Expression!> Arguments) -> void
+Varve.Sparql.Algebra.CustomFunctionCall.Equals(Varve.Sparql.Algebra.CustomFunctionCall? other) -> bool
+Varve.Sparql.Algebra.CustomFunctionCall.Function.get -> Varve.Rdf.RdfTerm!
+Varve.Sparql.Algebra.CustomFunctionCall.Function.init -> void
+Varve.Sparql.Algebra.DatasetSpec
+Varve.Sparql.Algebra.DatasetSpec.DatasetSpec(Varve.Sparql.Algebra.AlgebraList<Varve.Rdf.RdfTerm!> DefaultGraphs, Varve.Sparql.Algebra.AlgebraList<Varve.Rdf.RdfTerm!> NamedGraphs) -> void
+Varve.Sparql.Algebra.DatasetSpec.Deconstruct(out Varve.Sparql.Algebra.AlgebraList<Varve.Rdf.RdfTerm!> DefaultGraphs, out Varve.Sparql.Algebra.AlgebraList<Varve.Rdf.RdfTerm!> NamedGraphs) -> void
+Varve.Sparql.Algebra.DatasetSpec.DefaultGraphs.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Rdf.RdfTerm!>
+Varve.Sparql.Algebra.DatasetSpec.DefaultGraphs.init -> void
+Varve.Sparql.Algebra.DatasetSpec.Equals(Varve.Sparql.Algebra.DatasetSpec? other) -> bool
+Varve.Sparql.Algebra.DatasetSpec.NamedGraphs.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Rdf.RdfTerm!>
+Varve.Sparql.Algebra.DatasetSpec.NamedGraphs.init -> void
+Varve.Sparql.Algebra.DeleteData
+Varve.Sparql.Algebra.DeleteData.Deconstruct(out Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.QuadPattern!> Quads) -> void
+Varve.Sparql.Algebra.DeleteData.DeleteData(Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.QuadPattern!> Quads) -> void
+Varve.Sparql.Algebra.DeleteData.Equals(Varve.Sparql.Algebra.DeleteData? other) -> bool
+Varve.Sparql.Algebra.DeleteData.Quads.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.QuadPattern!>
+Varve.Sparql.Algebra.DeleteData.Quads.init -> void
+Varve.Sparql.Algebra.DeleteWhere
+Varve.Sparql.Algebra.DeleteWhere.Deconstruct(out Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.QuadPattern!> Quads) -> void
+Varve.Sparql.Algebra.DeleteWhere.DeleteWhere(Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.QuadPattern!> Quads) -> void
+Varve.Sparql.Algebra.DeleteWhere.Equals(Varve.Sparql.Algebra.DeleteWhere? other) -> bool
+Varve.Sparql.Algebra.DeleteWhere.Quads.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.QuadPattern!>
+Varve.Sparql.Algebra.DeleteWhere.Quads.init -> void
+Varve.Sparql.Algebra.DescribeQuery
+Varve.Sparql.Algebra.DescribeQuery.Deconstruct(out Varve.Sparql.Algebra.Prologue! Prologue, out Varve.Sparql.Algebra.DatasetSpec? Dataset, out Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.PatternTerm!> Resources, out Varve.Sparql.Algebra.QueryPattern! Pattern) -> void
+Varve.Sparql.Algebra.DescribeQuery.DescribeQuery(Varve.Sparql.Algebra.Prologue! Prologue, Varve.Sparql.Algebra.DatasetSpec? Dataset, Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.PatternTerm!> Resources, Varve.Sparql.Algebra.QueryPattern! Pattern) -> void
+Varve.Sparql.Algebra.DescribeQuery.Equals(Varve.Sparql.Algebra.DescribeQuery? other) -> bool
+Varve.Sparql.Algebra.DescribeQuery.Resources.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.PatternTerm!>
+Varve.Sparql.Algebra.DescribeQuery.Resources.init -> void
+Varve.Sparql.Algebra.Distinct
+Varve.Sparql.Algebra.Distinct.Deconstruct(out Varve.Sparql.Algebra.QueryPattern! Inner) -> void
+Varve.Sparql.Algebra.Distinct.Distinct(Varve.Sparql.Algebra.QueryPattern! Inner) -> void
+Varve.Sparql.Algebra.Distinct.Equals(Varve.Sparql.Algebra.Distinct? other) -> bool
+Varve.Sparql.Algebra.Distinct.Inner.get -> Varve.Sparql.Algebra.QueryPattern!
+Varve.Sparql.Algebra.Distinct.Inner.init -> void
+Varve.Sparql.Algebra.Drop
+Varve.Sparql.Algebra.Drop.Deconstruct(out Varve.Sparql.Algebra.GraphTarget Target, out bool Silent) -> void
+Varve.Sparql.Algebra.Drop.Drop(Varve.Sparql.Algebra.GraphTarget Target, bool Silent) -> void
+Varve.Sparql.Algebra.Drop.Equals(Varve.Sparql.Algebra.Drop? other) -> bool
+Varve.Sparql.Algebra.Drop.Silent.get -> bool
+Varve.Sparql.Algebra.Drop.Silent.init -> void
+Varve.Sparql.Algebra.Drop.Target.get -> Varve.Sparql.Algebra.GraphTarget
+Varve.Sparql.Algebra.Drop.Target.init -> void
+Varve.Sparql.Algebra.ExistsExpression
+Varve.Sparql.Algebra.ExistsExpression.Deconstruct(out Varve.Sparql.Algebra.QueryPattern! Pattern, out bool Negated) -> void
+Varve.Sparql.Algebra.ExistsExpression.Equals(Varve.Sparql.Algebra.ExistsExpression? other) -> bool
+Varve.Sparql.Algebra.ExistsExpression.ExistsExpression(Varve.Sparql.Algebra.QueryPattern! Pattern, bool Negated) -> void
+Varve.Sparql.Algebra.ExistsExpression.Negated.get -> bool
+Varve.Sparql.Algebra.ExistsExpression.Negated.init -> void
+Varve.Sparql.Algebra.ExistsExpression.Pattern.get -> Varve.Sparql.Algebra.QueryPattern!
+Varve.Sparql.Algebra.ExistsExpression.Pattern.init -> void
+Varve.Sparql.Algebra.Expression
+Varve.Sparql.Algebra.Expression.Expression(Varve.Sparql.Algebra.Expression! original) -> void
+Varve.Sparql.Algebra.Extend
+Varve.Sparql.Algebra.Extend.Deconstruct(out Varve.Sparql.Algebra.QueryPattern! Inner, out Varve.Sparql.Algebra.Variable Variable, out Varve.Sparql.Algebra.Expression! Expression) -> void
+Varve.Sparql.Algebra.Extend.Equals(Varve.Sparql.Algebra.Extend? other) -> bool
+Varve.Sparql.Algebra.Extend.Expression.get -> Varve.Sparql.Algebra.Expression!
+Varve.Sparql.Algebra.Extend.Expression.init -> void
+Varve.Sparql.Algebra.Extend.Extend(Varve.Sparql.Algebra.QueryPattern! Inner, Varve.Sparql.Algebra.Variable Variable, Varve.Sparql.Algebra.Expression! Expression) -> void
+Varve.Sparql.Algebra.Extend.Inner.get -> Varve.Sparql.Algebra.QueryPattern!
+Varve.Sparql.Algebra.Extend.Inner.init -> void
+Varve.Sparql.Algebra.Extend.Variable.get -> Varve.Sparql.Algebra.Variable
+Varve.Sparql.Algebra.Extend.Variable.init -> void
+Varve.Sparql.Algebra.Filter
+Varve.Sparql.Algebra.Filter.Condition.get -> Varve.Sparql.Algebra.Expression!
+Varve.Sparql.Algebra.Filter.Condition.init -> void
+Varve.Sparql.Algebra.Filter.Deconstruct(out Varve.Sparql.Algebra.Expression! Condition, out Varve.Sparql.Algebra.QueryPattern! Inner) -> void
+Varve.Sparql.Algebra.Filter.Equals(Varve.Sparql.Algebra.Filter? other) -> bool
+Varve.Sparql.Algebra.Filter.Filter(Varve.Sparql.Algebra.Expression! Condition, Varve.Sparql.Algebra.QueryPattern! Inner) -> void
+Varve.Sparql.Algebra.Filter.Inner.get -> Varve.Sparql.Algebra.QueryPattern!
+Varve.Sparql.Algebra.Filter.Inner.init -> void
+Varve.Sparql.Algebra.FunctionCall
+Varve.Sparql.Algebra.FunctionCall.Arguments.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.Expression!>
+Varve.Sparql.Algebra.FunctionCall.Arguments.init -> void
+Varve.Sparql.Algebra.FunctionCall.Deconstruct(out Varve.Sparql.Algebra.BuiltInFunction Function, out Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.Expression!> Arguments) -> void
+Varve.Sparql.Algebra.FunctionCall.Equals(Varve.Sparql.Algebra.FunctionCall? other) -> bool
+Varve.Sparql.Algebra.FunctionCall.Function.get -> Varve.Sparql.Algebra.BuiltInFunction
+Varve.Sparql.Algebra.FunctionCall.Function.init -> void
+Varve.Sparql.Algebra.FunctionCall.FunctionCall(Varve.Sparql.Algebra.BuiltInFunction Function, Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.Expression!> Arguments) -> void
+Varve.Sparql.Algebra.Graph
+Varve.Sparql.Algebra.Graph.Deconstruct(out Varve.Sparql.Algebra.PatternTerm! Name, out Varve.Sparql.Algebra.QueryPattern! Inner) -> void
+Varve.Sparql.Algebra.Graph.Equals(Varve.Sparql.Algebra.Graph? other) -> bool
+Varve.Sparql.Algebra.Graph.Graph(Varve.Sparql.Algebra.PatternTerm! Name, Varve.Sparql.Algebra.QueryPattern! Inner) -> void
+Varve.Sparql.Algebra.Graph.Inner.get -> Varve.Sparql.Algebra.QueryPattern!
+Varve.Sparql.Algebra.Graph.Inner.init -> void
+Varve.Sparql.Algebra.Graph.Name.get -> Varve.Sparql.Algebra.PatternTerm!
+Varve.Sparql.Algebra.Graph.Name.init -> void
+Varve.Sparql.Algebra.GraphOrDefault
+Varve.Sparql.Algebra.GraphOrDefault.Equals(Varve.Sparql.Algebra.GraphOrDefault other) -> bool
+Varve.Sparql.Algebra.GraphOrDefault.Graph.get -> Varve.Rdf.RdfTerm?
+Varve.Sparql.Algebra.GraphOrDefault.GraphOrDefault() -> void
+Varve.Sparql.Algebra.GraphOrDefault.IsDefault.get -> bool
+Varve.Sparql.Algebra.GraphTarget
+Varve.Sparql.Algebra.GraphTarget.Equals(Varve.Sparql.Algebra.GraphTarget other) -> bool
+Varve.Sparql.Algebra.GraphTarget.Graph.get -> Varve.Rdf.RdfTerm?
+Varve.Sparql.Algebra.GraphTarget.GraphTarget() -> void
+Varve.Sparql.Algebra.GraphTarget.Kind.get -> Varve.Sparql.Algebra.GraphTargetKind
+Varve.Sparql.Algebra.GraphTargetKind
+Varve.Sparql.Algebra.GraphTargetKind.All = 2 -> Varve.Sparql.Algebra.GraphTargetKind
+Varve.Sparql.Algebra.GraphTargetKind.Default = 0 -> Varve.Sparql.Algebra.GraphTargetKind
+Varve.Sparql.Algebra.GraphTargetKind.Graph = 3 -> Varve.Sparql.Algebra.GraphTargetKind
+Varve.Sparql.Algebra.GraphTargetKind.Named = 1 -> Varve.Sparql.Algebra.GraphTargetKind
+Varve.Sparql.Algebra.Group
+Varve.Sparql.Algebra.Group.Deconstruct(out Varve.Sparql.Algebra.QueryPattern! Inner, out Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.GroupKey!> Keys) -> void
+Varve.Sparql.Algebra.Group.Equals(Varve.Sparql.Algebra.Group? other) -> bool
+Varve.Sparql.Algebra.Group.Group(Varve.Sparql.Algebra.QueryPattern! Inner, Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.GroupKey!> Keys) -> void
+Varve.Sparql.Algebra.Group.Inner.get -> Varve.Sparql.Algebra.QueryPattern!
+Varve.Sparql.Algebra.Group.Inner.init -> void
+Varve.Sparql.Algebra.Group.Keys.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.GroupKey!>
+Varve.Sparql.Algebra.Group.Keys.init -> void
+Varve.Sparql.Algebra.GroupKey
+Varve.Sparql.Algebra.GroupKey.Deconstruct(out Varve.Sparql.Algebra.Expression! Expression, out Varve.Sparql.Algebra.Variable? Variable) -> void
+Varve.Sparql.Algebra.GroupKey.Equals(Varve.Sparql.Algebra.GroupKey? other) -> bool
+Varve.Sparql.Algebra.GroupKey.Expression.get -> Varve.Sparql.Algebra.Expression!
+Varve.Sparql.Algebra.GroupKey.Expression.init -> void
+Varve.Sparql.Algebra.GroupKey.GroupKey(Varve.Sparql.Algebra.Expression! Expression, Varve.Sparql.Algebra.Variable? Variable) -> void
+Varve.Sparql.Algebra.GroupKey.Variable.get -> Varve.Sparql.Algebra.Variable?
+Varve.Sparql.Algebra.GroupKey.Variable.init -> void
+Varve.Sparql.Algebra.InsertData
+Varve.Sparql.Algebra.InsertData.Deconstruct(out Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.QuadPattern!> Quads) -> void
+Varve.Sparql.Algebra.InsertData.Equals(Varve.Sparql.Algebra.InsertData? other) -> bool
+Varve.Sparql.Algebra.InsertData.InsertData(Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.QuadPattern!> Quads) -> void
+Varve.Sparql.Algebra.InsertData.Quads.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.QuadPattern!>
+Varve.Sparql.Algebra.InsertData.Quads.init -> void
+Varve.Sparql.Algebra.InversePath
+Varve.Sparql.Algebra.InversePath.Deconstruct(out Varve.Sparql.Algebra.PropertyPath! Inner) -> void
+Varve.Sparql.Algebra.InversePath.Equals(Varve.Sparql.Algebra.InversePath? other) -> bool
+Varve.Sparql.Algebra.InversePath.Inner.get -> Varve.Sparql.Algebra.PropertyPath!
+Varve.Sparql.Algebra.InversePath.Inner.init -> void
+Varve.Sparql.Algebra.InversePath.InversePath(Varve.Sparql.Algebra.PropertyPath! Inner) -> void
+Varve.Sparql.Algebra.Join
+Varve.Sparql.Algebra.Join.Deconstruct(out Varve.Sparql.Algebra.QueryPattern! Left, out Varve.Sparql.Algebra.QueryPattern! Right) -> void
+Varve.Sparql.Algebra.Join.Equals(Varve.Sparql.Algebra.Join? other) -> bool
+Varve.Sparql.Algebra.Join.Join(Varve.Sparql.Algebra.QueryPattern! Left, Varve.Sparql.Algebra.QueryPattern! Right) -> void
+Varve.Sparql.Algebra.Join.Left.get -> Varve.Sparql.Algebra.QueryPattern!
+Varve.Sparql.Algebra.Join.Left.init -> void
+Varve.Sparql.Algebra.Join.Right.get -> Varve.Sparql.Algebra.QueryPattern!
+Varve.Sparql.Algebra.Join.Right.init -> void
+Varve.Sparql.Algebra.LeftJoin
+Varve.Sparql.Algebra.LeftJoin.Condition.get -> Varve.Sparql.Algebra.Expression?
+Varve.Sparql.Algebra.LeftJoin.Condition.init -> void
+Varve.Sparql.Algebra.LeftJoin.Deconstruct(out Varve.Sparql.Algebra.QueryPattern! Left, out Varve.Sparql.Algebra.QueryPattern! Right, out Varve.Sparql.Algebra.Expression? Condition) -> void
+Varve.Sparql.Algebra.LeftJoin.Equals(Varve.Sparql.Algebra.LeftJoin? other) -> bool
+Varve.Sparql.Algebra.LeftJoin.Left.get -> Varve.Sparql.Algebra.QueryPattern!
+Varve.Sparql.Algebra.LeftJoin.Left.init -> void
+Varve.Sparql.Algebra.LeftJoin.LeftJoin(Varve.Sparql.Algebra.QueryPattern! Left, Varve.Sparql.Algebra.QueryPattern! Right, Varve.Sparql.Algebra.Expression? Condition) -> void
+Varve.Sparql.Algebra.LeftJoin.Right.get -> Varve.Sparql.Algebra.QueryPattern!
+Varve.Sparql.Algebra.LeftJoin.Right.init -> void
+Varve.Sparql.Algebra.Load
+Varve.Sparql.Algebra.Load.Deconstruct(out Varve.Rdf.RdfTerm! Source, out Varve.Rdf.RdfTerm? Graph, out bool Silent) -> void
+Varve.Sparql.Algebra.Load.Equals(Varve.Sparql.Algebra.Load? other) -> bool
+Varve.Sparql.Algebra.Load.Graph.get -> Varve.Rdf.RdfTerm?
+Varve.Sparql.Algebra.Load.Graph.init -> void
+Varve.Sparql.Algebra.Load.Load(Varve.Rdf.RdfTerm! Source, Varve.Rdf.RdfTerm? Graph, bool Silent) -> void
+Varve.Sparql.Algebra.Load.Silent.get -> bool
+Varve.Sparql.Algebra.Load.Silent.init -> void
+Varve.Sparql.Algebra.Load.Source.get -> Varve.Rdf.RdfTerm!
+Varve.Sparql.Algebra.Load.Source.init -> void
+Varve.Sparql.Algebra.Minus
+Varve.Sparql.Algebra.Minus.Deconstruct(out Varve.Sparql.Algebra.QueryPattern! Left, out Varve.Sparql.Algebra.QueryPattern! Right) -> void
+Varve.Sparql.Algebra.Minus.Equals(Varve.Sparql.Algebra.Minus? other) -> bool
+Varve.Sparql.Algebra.Minus.Left.get -> Varve.Sparql.Algebra.QueryPattern!
+Varve.Sparql.Algebra.Minus.Left.init -> void
+Varve.Sparql.Algebra.Minus.Minus(Varve.Sparql.Algebra.QueryPattern! Left, Varve.Sparql.Algebra.QueryPattern! Right) -> void
+Varve.Sparql.Algebra.Minus.Right.get -> Varve.Sparql.Algebra.QueryPattern!
+Varve.Sparql.Algebra.Minus.Right.init -> void
+Varve.Sparql.Algebra.Modify
+Varve.Sparql.Algebra.Modify.Deconstruct(out Varve.Rdf.RdfTerm? With, out Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.QuadPattern!> Delete, out Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.QuadPattern!> Insert, out Varve.Sparql.Algebra.DatasetSpec? Using, out Varve.Sparql.Algebra.QueryPattern! Where) -> void
+Varve.Sparql.Algebra.Modify.Delete.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.QuadPattern!>
+Varve.Sparql.Algebra.Modify.Delete.init -> void
+Varve.Sparql.Algebra.Modify.Equals(Varve.Sparql.Algebra.Modify? other) -> bool
+Varve.Sparql.Algebra.Modify.Insert.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.QuadPattern!>
+Varve.Sparql.Algebra.Modify.Insert.init -> void
+Varve.Sparql.Algebra.Modify.Modify(Varve.Rdf.RdfTerm? With, Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.QuadPattern!> Delete, Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.QuadPattern!> Insert, Varve.Sparql.Algebra.DatasetSpec? Using, Varve.Sparql.Algebra.QueryPattern! Where) -> void
+Varve.Sparql.Algebra.Modify.Using.get -> Varve.Sparql.Algebra.DatasetSpec?
+Varve.Sparql.Algebra.Modify.Using.init -> void
+Varve.Sparql.Algebra.Modify.Where.get -> Varve.Sparql.Algebra.QueryPattern!
+Varve.Sparql.Algebra.Modify.Where.init -> void
+Varve.Sparql.Algebra.Modify.With.get -> Varve.Rdf.RdfTerm?
+Varve.Sparql.Algebra.Modify.With.init -> void
+Varve.Sparql.Algebra.Move
+Varve.Sparql.Algebra.Move.Deconstruct(out Varve.Sparql.Algebra.GraphOrDefault From, out Varve.Sparql.Algebra.GraphOrDefault To, out bool Silent) -> void
+Varve.Sparql.Algebra.Move.Equals(Varve.Sparql.Algebra.Move? other) -> bool
+Varve.Sparql.Algebra.Move.From.get -> Varve.Sparql.Algebra.GraphOrDefault
+Varve.Sparql.Algebra.Move.From.init -> void
+Varve.Sparql.Algebra.Move.Move(Varve.Sparql.Algebra.GraphOrDefault From, Varve.Sparql.Algebra.GraphOrDefault To, bool Silent) -> void
+Varve.Sparql.Algebra.Move.Silent.get -> bool
+Varve.Sparql.Algebra.Move.Silent.init -> void
+Varve.Sparql.Algebra.Move.To.get -> Varve.Sparql.Algebra.GraphOrDefault
+Varve.Sparql.Algebra.Move.To.init -> void
+Varve.Sparql.Algebra.NegatedPropertySet
+Varve.Sparql.Algebra.NegatedPropertySet.Deconstruct(out Varve.Sparql.Algebra.AlgebraList<Varve.Rdf.RdfTerm!> Forward, out Varve.Sparql.Algebra.AlgebraList<Varve.Rdf.RdfTerm!> Inverse) -> void
+Varve.Sparql.Algebra.NegatedPropertySet.Equals(Varve.Sparql.Algebra.NegatedPropertySet? other) -> bool
+Varve.Sparql.Algebra.NegatedPropertySet.Forward.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Rdf.RdfTerm!>
+Varve.Sparql.Algebra.NegatedPropertySet.Forward.init -> void
+Varve.Sparql.Algebra.NegatedPropertySet.Inverse.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Rdf.RdfTerm!>
+Varve.Sparql.Algebra.NegatedPropertySet.Inverse.init -> void
+Varve.Sparql.Algebra.NegatedPropertySet.NegatedPropertySet(Varve.Sparql.Algebra.AlgebraList<Varve.Rdf.RdfTerm!> Forward, Varve.Sparql.Algebra.AlgebraList<Varve.Rdf.RdfTerm!> Inverse) -> void
+Varve.Sparql.Algebra.OneOrMorePath
+Varve.Sparql.Algebra.OneOrMorePath.Deconstruct(out Varve.Sparql.Algebra.PropertyPath! Inner) -> void
+Varve.Sparql.Algebra.OneOrMorePath.Equals(Varve.Sparql.Algebra.OneOrMorePath? other) -> bool
+Varve.Sparql.Algebra.OneOrMorePath.Inner.get -> Varve.Sparql.Algebra.PropertyPath!
+Varve.Sparql.Algebra.OneOrMorePath.Inner.init -> void
+Varve.Sparql.Algebra.OneOrMorePath.OneOrMorePath(Varve.Sparql.Algebra.PropertyPath! Inner) -> void
+Varve.Sparql.Algebra.OrderBy
+Varve.Sparql.Algebra.OrderBy.Conditions.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.OrderCondition!>
+Varve.Sparql.Algebra.OrderBy.Conditions.init -> void
+Varve.Sparql.Algebra.OrderBy.Deconstruct(out Varve.Sparql.Algebra.QueryPattern! Inner, out Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.OrderCondition!> Conditions) -> void
+Varve.Sparql.Algebra.OrderBy.Equals(Varve.Sparql.Algebra.OrderBy? other) -> bool
+Varve.Sparql.Algebra.OrderBy.Inner.get -> Varve.Sparql.Algebra.QueryPattern!
+Varve.Sparql.Algebra.OrderBy.Inner.init -> void
+Varve.Sparql.Algebra.OrderBy.OrderBy(Varve.Sparql.Algebra.QueryPattern! Inner, Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.OrderCondition!> Conditions) -> void
+Varve.Sparql.Algebra.OrderCondition
+Varve.Sparql.Algebra.OrderCondition.Deconstruct(out Varve.Sparql.Algebra.Expression! Expression, out bool Descending) -> void
+Varve.Sparql.Algebra.OrderCondition.Descending.get -> bool
+Varve.Sparql.Algebra.OrderCondition.Descending.init -> void
+Varve.Sparql.Algebra.OrderCondition.Equals(Varve.Sparql.Algebra.OrderCondition? other) -> bool
+Varve.Sparql.Algebra.OrderCondition.Expression.get -> Varve.Sparql.Algebra.Expression!
+Varve.Sparql.Algebra.OrderCondition.Expression.init -> void
+Varve.Sparql.Algebra.OrderCondition.OrderCondition(Varve.Sparql.Algebra.Expression! Expression, bool Descending) -> void
+Varve.Sparql.Algebra.PathPattern
+Varve.Sparql.Algebra.PathPattern.Deconstruct(out Varve.Sparql.Algebra.PatternTerm! Subject, out Varve.Sparql.Algebra.PropertyPath! Path, out Varve.Sparql.Algebra.PatternTerm! Object) -> void
+Varve.Sparql.Algebra.PathPattern.Equals(Varve.Sparql.Algebra.PathPattern? other) -> bool
+Varve.Sparql.Algebra.PathPattern.Object.get -> Varve.Sparql.Algebra.PatternTerm!
+Varve.Sparql.Algebra.PathPattern.Object.init -> void
+Varve.Sparql.Algebra.PathPattern.Path.get -> Varve.Sparql.Algebra.PropertyPath!
+Varve.Sparql.Algebra.PathPattern.Path.init -> void
+Varve.Sparql.Algebra.PathPattern.PathPattern(Varve.Sparql.Algebra.PatternTerm! Subject, Varve.Sparql.Algebra.PropertyPath! Path, Varve.Sparql.Algebra.PatternTerm! Object) -> void
+Varve.Sparql.Algebra.PathPattern.Subject.get -> Varve.Sparql.Algebra.PatternTerm!
+Varve.Sparql.Algebra.PathPattern.Subject.init -> void
+Varve.Sparql.Algebra.PatternTerm
+Varve.Sparql.Algebra.PatternTerm.PatternTerm(Varve.Sparql.Algebra.PatternTerm! original) -> void
+Varve.Sparql.Algebra.PredicatePath
+Varve.Sparql.Algebra.PredicatePath.Deconstruct(out Varve.Rdf.RdfTerm! Predicate) -> void
+Varve.Sparql.Algebra.PredicatePath.Equals(Varve.Sparql.Algebra.PredicatePath? other) -> bool
+Varve.Sparql.Algebra.PredicatePath.Predicate.get -> Varve.Rdf.RdfTerm!
+Varve.Sparql.Algebra.PredicatePath.Predicate.init -> void
+Varve.Sparql.Algebra.PredicatePath.PredicatePath(Varve.Rdf.RdfTerm! Predicate) -> void
+Varve.Sparql.Algebra.PrefixDeclaration
+Varve.Sparql.Algebra.PrefixDeclaration.Deconstruct(out string! Prefix, out Varve.Rdf.RdfTerm! Iri) -> void
+Varve.Sparql.Algebra.PrefixDeclaration.Equals(Varve.Sparql.Algebra.PrefixDeclaration? other) -> bool
+Varve.Sparql.Algebra.PrefixDeclaration.Iri.get -> Varve.Rdf.RdfTerm!
+Varve.Sparql.Algebra.PrefixDeclaration.Iri.init -> void
+Varve.Sparql.Algebra.PrefixDeclaration.Prefix.get -> string!
+Varve.Sparql.Algebra.PrefixDeclaration.Prefix.init -> void
+Varve.Sparql.Algebra.PrefixDeclaration.PrefixDeclaration(string! Prefix, Varve.Rdf.RdfTerm! Iri) -> void
+Varve.Sparql.Algebra.Project
+Varve.Sparql.Algebra.Project.Deconstruct(out Varve.Sparql.Algebra.QueryPattern! Inner, out Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.Variable> Variables) -> void
+Varve.Sparql.Algebra.Project.Equals(Varve.Sparql.Algebra.Project? other) -> bool
+Varve.Sparql.Algebra.Project.Inner.get -> Varve.Sparql.Algebra.QueryPattern!
+Varve.Sparql.Algebra.Project.Inner.init -> void
+Varve.Sparql.Algebra.Project.Project(Varve.Sparql.Algebra.QueryPattern! Inner, Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.Variable> Variables) -> void
+Varve.Sparql.Algebra.Project.Variables.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.Variable>
+Varve.Sparql.Algebra.Project.Variables.init -> void
+Varve.Sparql.Algebra.Prologue
+Varve.Sparql.Algebra.Prologue.Base.get -> Varve.Rdf.RdfTerm?
+Varve.Sparql.Algebra.Prologue.Base.init -> void
+Varve.Sparql.Algebra.Prologue.Deconstruct(out Varve.Rdf.RdfTerm? Base, out Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.PrefixDeclaration!> Prefixes, out Varve.Sparql.SparqlVersion? Version) -> void
+Varve.Sparql.Algebra.Prologue.Equals(Varve.Sparql.Algebra.Prologue? other) -> bool
+Varve.Sparql.Algebra.Prologue.Prefixes.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.PrefixDeclaration!>
+Varve.Sparql.Algebra.Prologue.Prefixes.init -> void
+Varve.Sparql.Algebra.Prologue.Prologue(Varve.Rdf.RdfTerm? Base, Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.PrefixDeclaration!> Prefixes, Varve.Sparql.SparqlVersion? Version) -> void
+Varve.Sparql.Algebra.Prologue.Version.get -> Varve.Sparql.SparqlVersion?
+Varve.Sparql.Algebra.Prologue.Version.init -> void
+Varve.Sparql.Algebra.PropertyPath
+Varve.Sparql.Algebra.PropertyPath.PropertyPath(Varve.Sparql.Algebra.PropertyPath! original) -> void
+Varve.Sparql.Algebra.QuadPattern
+Varve.Sparql.Algebra.QuadPattern.Deconstruct(out Varve.Sparql.Algebra.PatternTerm! Subject, out Varve.Sparql.Algebra.PatternTerm! Predicate, out Varve.Sparql.Algebra.PatternTerm! Object, out Varve.Sparql.Algebra.PatternTerm? Graph) -> void
+Varve.Sparql.Algebra.QuadPattern.Equals(Varve.Sparql.Algebra.QuadPattern? other) -> bool
+Varve.Sparql.Algebra.QuadPattern.Graph.get -> Varve.Sparql.Algebra.PatternTerm?
+Varve.Sparql.Algebra.QuadPattern.Graph.init -> void
+Varve.Sparql.Algebra.QuadPattern.Object.get -> Varve.Sparql.Algebra.PatternTerm!
+Varve.Sparql.Algebra.QuadPattern.Object.init -> void
+Varve.Sparql.Algebra.QuadPattern.Predicate.get -> Varve.Sparql.Algebra.PatternTerm!
+Varve.Sparql.Algebra.QuadPattern.Predicate.init -> void
+Varve.Sparql.Algebra.QuadPattern.QuadPattern(Varve.Sparql.Algebra.PatternTerm! Subject, Varve.Sparql.Algebra.PatternTerm! Predicate, Varve.Sparql.Algebra.PatternTerm! Object, Varve.Sparql.Algebra.PatternTerm? Graph) -> void
+Varve.Sparql.Algebra.QuadPattern.Subject.get -> Varve.Sparql.Algebra.PatternTerm!
+Varve.Sparql.Algebra.QuadPattern.Subject.init -> void
+Varve.Sparql.Algebra.Query
+Varve.Sparql.Algebra.Query.Dataset.get -> Varve.Sparql.Algebra.DatasetSpec?
+Varve.Sparql.Algebra.Query.Dataset.init -> void
+Varve.Sparql.Algebra.Query.Deconstruct(out Varve.Sparql.Algebra.Prologue! Prologue, out Varve.Sparql.Algebra.DatasetSpec? Dataset) -> void
+Varve.Sparql.Algebra.Query.Prologue.get -> Varve.Sparql.Algebra.Prologue!
+Varve.Sparql.Algebra.Query.Prologue.init -> void
+Varve.Sparql.Algebra.Query.Query(Varve.Sparql.Algebra.Prologue! Prologue, Varve.Sparql.Algebra.DatasetSpec? Dataset) -> void
+Varve.Sparql.Algebra.Query.Query(Varve.Sparql.Algebra.Query! original) -> void
+Varve.Sparql.Algebra.QueryPattern
+Varve.Sparql.Algebra.QueryPattern.QueryPattern(Varve.Sparql.Algebra.QueryPattern! original) -> void
+Varve.Sparql.Algebra.Reduced
+Varve.Sparql.Algebra.Reduced.Deconstruct(out Varve.Sparql.Algebra.QueryPattern! Inner) -> void
+Varve.Sparql.Algebra.Reduced.Equals(Varve.Sparql.Algebra.Reduced? other) -> bool
+Varve.Sparql.Algebra.Reduced.Inner.get -> Varve.Sparql.Algebra.QueryPattern!
+Varve.Sparql.Algebra.Reduced.Inner.init -> void
+Varve.Sparql.Algebra.Reduced.Reduced(Varve.Sparql.Algebra.QueryPattern! Inner) -> void
+Varve.Sparql.Algebra.SelectQuery
+Varve.Sparql.Algebra.SelectQuery.Deconstruct(out Varve.Sparql.Algebra.Prologue! Prologue, out Varve.Sparql.Algebra.DatasetSpec? Dataset, out Varve.Sparql.Algebra.QueryPattern! Pattern) -> void
+Varve.Sparql.Algebra.SelectQuery.Equals(Varve.Sparql.Algebra.SelectQuery? other) -> bool
+Varve.Sparql.Algebra.SelectQuery.SelectQuery(Varve.Sparql.Algebra.Prologue! Prologue, Varve.Sparql.Algebra.DatasetSpec? Dataset, Varve.Sparql.Algebra.QueryPattern! Pattern) -> void
+Varve.Sparql.Algebra.SequencePath
+Varve.Sparql.Algebra.SequencePath.Deconstruct(out Varve.Sparql.Algebra.PropertyPath! Left, out Varve.Sparql.Algebra.PropertyPath! Right) -> void
+Varve.Sparql.Algebra.SequencePath.Equals(Varve.Sparql.Algebra.SequencePath? other) -> bool
+Varve.Sparql.Algebra.SequencePath.Left.get -> Varve.Sparql.Algebra.PropertyPath!
+Varve.Sparql.Algebra.SequencePath.Left.init -> void
+Varve.Sparql.Algebra.SequencePath.Right.get -> Varve.Sparql.Algebra.PropertyPath!
+Varve.Sparql.Algebra.SequencePath.Right.init -> void
+Varve.Sparql.Algebra.SequencePath.SequencePath(Varve.Sparql.Algebra.PropertyPath! Left, Varve.Sparql.Algebra.PropertyPath! Right) -> void
+Varve.Sparql.Algebra.Service
+Varve.Sparql.Algebra.Service.Deconstruct(out Varve.Sparql.Algebra.PatternTerm! Name, out Varve.Sparql.Algebra.QueryPattern! Inner, out bool Silent) -> void
+Varve.Sparql.Algebra.Service.Equals(Varve.Sparql.Algebra.Service? other) -> bool
+Varve.Sparql.Algebra.Service.Inner.get -> Varve.Sparql.Algebra.QueryPattern!
+Varve.Sparql.Algebra.Service.Inner.init -> void
+Varve.Sparql.Algebra.Service.Name.get -> Varve.Sparql.Algebra.PatternTerm!
+Varve.Sparql.Algebra.Service.Name.init -> void
+Varve.Sparql.Algebra.Service.Service(Varve.Sparql.Algebra.PatternTerm! Name, Varve.Sparql.Algebra.QueryPattern! Inner, bool Silent) -> void
+Varve.Sparql.Algebra.Service.Silent.get -> bool
+Varve.Sparql.Algebra.Service.Silent.init -> void
+Varve.Sparql.Algebra.Slice
+Varve.Sparql.Algebra.Slice.Deconstruct(out Varve.Sparql.Algebra.QueryPattern! Inner, out long Offset, out long? Limit) -> void
+Varve.Sparql.Algebra.Slice.Equals(Varve.Sparql.Algebra.Slice? other) -> bool
+Varve.Sparql.Algebra.Slice.Inner.get -> Varve.Sparql.Algebra.QueryPattern!
+Varve.Sparql.Algebra.Slice.Inner.init -> void
+Varve.Sparql.Algebra.Slice.Limit.get -> long?
+Varve.Sparql.Algebra.Slice.Limit.init -> void
+Varve.Sparql.Algebra.Slice.Offset.get -> long
+Varve.Sparql.Algebra.Slice.Offset.init -> void
+Varve.Sparql.Algebra.Slice.Slice(Varve.Sparql.Algebra.QueryPattern! Inner, long Offset, long? Limit) -> void
+Varve.Sparql.Algebra.TermPattern
+Varve.Sparql.Algebra.TermPattern.Deconstruct(out Varve.Rdf.RdfTerm! Term) -> void
+Varve.Sparql.Algebra.TermPattern.Equals(Varve.Sparql.Algebra.TermPattern? other) -> bool
+Varve.Sparql.Algebra.TermPattern.Term.get -> Varve.Rdf.RdfTerm!
+Varve.Sparql.Algebra.TermPattern.Term.init -> void
+Varve.Sparql.Algebra.TermPattern.TermPattern(Varve.Rdf.RdfTerm! Term) -> void
+Varve.Sparql.Algebra.TriplePattern
+Varve.Sparql.Algebra.TriplePattern.Deconstruct(out Varve.Sparql.Algebra.PatternTerm! Subject, out Varve.Sparql.Algebra.PatternTerm! Predicate, out Varve.Sparql.Algebra.PatternTerm! Object) -> void
+Varve.Sparql.Algebra.TriplePattern.Equals(Varve.Sparql.Algebra.TriplePattern? other) -> bool
+Varve.Sparql.Algebra.TriplePattern.Object.get -> Varve.Sparql.Algebra.PatternTerm!
+Varve.Sparql.Algebra.TriplePattern.Object.init -> void
+Varve.Sparql.Algebra.TriplePattern.Predicate.get -> Varve.Sparql.Algebra.PatternTerm!
+Varve.Sparql.Algebra.TriplePattern.Predicate.init -> void
+Varve.Sparql.Algebra.TriplePattern.Subject.get -> Varve.Sparql.Algebra.PatternTerm!
+Varve.Sparql.Algebra.TriplePattern.Subject.init -> void
+Varve.Sparql.Algebra.TriplePattern.TriplePattern(Varve.Sparql.Algebra.PatternTerm! Subject, Varve.Sparql.Algebra.PatternTerm! Predicate, Varve.Sparql.Algebra.PatternTerm! Object) -> void
+Varve.Sparql.Algebra.TripleTermPattern
+Varve.Sparql.Algebra.TripleTermPattern.Deconstruct(out Varve.Sparql.Algebra.PatternTerm! Subject, out Varve.Sparql.Algebra.PatternTerm! Predicate, out Varve.Sparql.Algebra.PatternTerm! Object) -> void
+Varve.Sparql.Algebra.TripleTermPattern.Equals(Varve.Sparql.Algebra.TripleTermPattern? other) -> bool
+Varve.Sparql.Algebra.TripleTermPattern.Object.get -> Varve.Sparql.Algebra.PatternTerm!
+Varve.Sparql.Algebra.TripleTermPattern.Object.init -> void
+Varve.Sparql.Algebra.TripleTermPattern.Predicate.get -> Varve.Sparql.Algebra.PatternTerm!
+Varve.Sparql.Algebra.TripleTermPattern.Predicate.init -> void
+Varve.Sparql.Algebra.TripleTermPattern.Subject.get -> Varve.Sparql.Algebra.PatternTerm!
+Varve.Sparql.Algebra.TripleTermPattern.Subject.init -> void
+Varve.Sparql.Algebra.TripleTermPattern.TripleTermPattern(Varve.Sparql.Algebra.PatternTerm! Subject, Varve.Sparql.Algebra.PatternTerm! Predicate, Varve.Sparql.Algebra.PatternTerm! Object) -> void
+Varve.Sparql.Algebra.UnaryExpression
+Varve.Sparql.Algebra.UnaryExpression.Deconstruct(out Varve.Sparql.Algebra.UnaryOperator Operator, out Varve.Sparql.Algebra.Expression! Operand) -> void
+Varve.Sparql.Algebra.UnaryExpression.Equals(Varve.Sparql.Algebra.UnaryExpression? other) -> bool
+Varve.Sparql.Algebra.UnaryExpression.Operand.get -> Varve.Sparql.Algebra.Expression!
+Varve.Sparql.Algebra.UnaryExpression.Operand.init -> void
+Varve.Sparql.Algebra.UnaryExpression.Operator.get -> Varve.Sparql.Algebra.UnaryOperator
+Varve.Sparql.Algebra.UnaryExpression.Operator.init -> void
+Varve.Sparql.Algebra.UnaryExpression.UnaryExpression(Varve.Sparql.Algebra.UnaryOperator Operator, Varve.Sparql.Algebra.Expression! Operand) -> void
+Varve.Sparql.Algebra.UnaryOperator
+Varve.Sparql.Algebra.UnaryOperator.Minus = 2 -> Varve.Sparql.Algebra.UnaryOperator
+Varve.Sparql.Algebra.UnaryOperator.Not = 0 -> Varve.Sparql.Algebra.UnaryOperator
+Varve.Sparql.Algebra.UnaryOperator.Plus = 1 -> Varve.Sparql.Algebra.UnaryOperator
+Varve.Sparql.Algebra.Union
+Varve.Sparql.Algebra.Union.Deconstruct(out Varve.Sparql.Algebra.QueryPattern! Left, out Varve.Sparql.Algebra.QueryPattern! Right) -> void
+Varve.Sparql.Algebra.Union.Equals(Varve.Sparql.Algebra.Union? other) -> bool
+Varve.Sparql.Algebra.Union.Left.get -> Varve.Sparql.Algebra.QueryPattern!
+Varve.Sparql.Algebra.Union.Left.init -> void
+Varve.Sparql.Algebra.Union.Right.get -> Varve.Sparql.Algebra.QueryPattern!
+Varve.Sparql.Algebra.Union.Right.init -> void
+Varve.Sparql.Algebra.Union.Union(Varve.Sparql.Algebra.QueryPattern! Left, Varve.Sparql.Algebra.QueryPattern! Right) -> void
+Varve.Sparql.Algebra.Update
+Varve.Sparql.Algebra.Update.Deconstruct(out Varve.Sparql.Algebra.Prologue! Prologue, out Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.UpdateOperation!> Operations) -> void
+Varve.Sparql.Algebra.Update.Equals(Varve.Sparql.Algebra.Update? other) -> bool
+Varve.Sparql.Algebra.Update.Operations.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.UpdateOperation!>
+Varve.Sparql.Algebra.Update.Operations.init -> void
+Varve.Sparql.Algebra.Update.Prologue.get -> Varve.Sparql.Algebra.Prologue!
+Varve.Sparql.Algebra.Update.Prologue.init -> void
+Varve.Sparql.Algebra.Update.Update(Varve.Sparql.Algebra.Prologue! Prologue, Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.UpdateOperation!> Operations) -> void
+Varve.Sparql.Algebra.UpdateOperation
+Varve.Sparql.Algebra.UpdateOperation.UpdateOperation(Varve.Sparql.Algebra.UpdateOperation! original) -> void
+Varve.Sparql.Algebra.Values
+Varve.Sparql.Algebra.Values.Deconstruct(out Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.Variable> Variables, out Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.AlgebraList<Varve.Rdf.RdfTerm?>> Rows) -> void
+Varve.Sparql.Algebra.Values.Equals(Varve.Sparql.Algebra.Values? other) -> bool
+Varve.Sparql.Algebra.Values.Rows.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.AlgebraList<Varve.Rdf.RdfTerm?>>
+Varve.Sparql.Algebra.Values.Rows.init -> void
+Varve.Sparql.Algebra.Values.Values(Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.Variable> Variables, Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.AlgebraList<Varve.Rdf.RdfTerm?>> Rows) -> void
+Varve.Sparql.Algebra.Values.Variables.get -> Varve.Sparql.Algebra.AlgebraList<Varve.Sparql.Algebra.Variable>
+Varve.Sparql.Algebra.Values.Variables.init -> void
+Varve.Sparql.Algebra.Variable
+Varve.Sparql.Algebra.Variable.Equals(Varve.Sparql.Algebra.Variable other) -> bool
+Varve.Sparql.Algebra.Variable.Name.get -> string!
+Varve.Sparql.Algebra.Variable.Variable() -> void
+Varve.Sparql.Algebra.Variable.Variable(string! name) -> void
+Varve.Sparql.Algebra.VariableExpression
+Varve.Sparql.Algebra.VariableExpression.Deconstruct(out Varve.Sparql.Algebra.Variable Variable) -> void
+Varve.Sparql.Algebra.VariableExpression.Equals(Varve.Sparql.Algebra.VariableExpression? other) -> bool
+Varve.Sparql.Algebra.VariableExpression.Variable.get -> Varve.Sparql.Algebra.Variable
+Varve.Sparql.Algebra.VariableExpression.Variable.init -> void
+Varve.Sparql.Algebra.VariableExpression.VariableExpression(Varve.Sparql.Algebra.Variable Variable) -> void
+Varve.Sparql.Algebra.VariablePattern
+Varve.Sparql.Algebra.VariablePattern.Deconstruct(out Varve.Sparql.Algebra.Variable Variable) -> void
+Varve.Sparql.Algebra.VariablePattern.Equals(Varve.Sparql.Algebra.VariablePattern? other) -> bool
+Varve.Sparql.Algebra.VariablePattern.Variable.get -> Varve.Sparql.Algebra.Variable
+Varve.Sparql.Algebra.VariablePattern.Variable.init -> void
+Varve.Sparql.Algebra.VariablePattern.VariablePattern(Varve.Sparql.Algebra.Variable Variable) -> void
+Varve.Sparql.Algebra.ZeroOrMorePath
+Varve.Sparql.Algebra.ZeroOrMorePath.Deconstruct(out Varve.Sparql.Algebra.PropertyPath! Inner) -> void
+Varve.Sparql.Algebra.ZeroOrMorePath.Equals(Varve.Sparql.Algebra.ZeroOrMorePath? other) -> bool
+Varve.Sparql.Algebra.ZeroOrMorePath.Inner.get -> Varve.Sparql.Algebra.PropertyPath!
+Varve.Sparql.Algebra.ZeroOrMorePath.Inner.init -> void
+Varve.Sparql.Algebra.ZeroOrMorePath.ZeroOrMorePath(Varve.Sparql.Algebra.PropertyPath! Inner) -> void
+Varve.Sparql.Algebra.ZeroOrOnePath
+Varve.Sparql.Algebra.ZeroOrOnePath.Deconstruct(out Varve.Sparql.Algebra.PropertyPath! Inner) -> void
+Varve.Sparql.Algebra.ZeroOrOnePath.Equals(Varve.Sparql.Algebra.ZeroOrOnePath? other) -> bool
+Varve.Sparql.Algebra.ZeroOrOnePath.Inner.get -> Varve.Sparql.Algebra.PropertyPath!
+Varve.Sparql.Algebra.ZeroOrOnePath.Inner.init -> void
+Varve.Sparql.Algebra.ZeroOrOnePath.ZeroOrOnePath(Varve.Sparql.Algebra.PropertyPath! Inner) -> void
+Varve.Sparql.SourceSpan
+Varve.Sparql.SourceSpan.Column.get -> int
+Varve.Sparql.SourceSpan.End.get -> long
+Varve.Sparql.SourceSpan.Equals(Varve.Sparql.SourceSpan other) -> bool
+Varve.Sparql.SourceSpan.Length.get -> long
+Varve.Sparql.SourceSpan.Line.get -> int
+Varve.Sparql.SourceSpan.SourceSpan() -> void
+Varve.Sparql.SourceSpan.SourceSpan(long start, long end, int line, int column) -> void
+Varve.Sparql.SourceSpan.Start.get -> long
+Varve.Sparql.SparqlVersion
+Varve.Sparql.SparqlVersion.Sparql11 = 1 -> Varve.Sparql.SparqlVersion
+Varve.Sparql.SparqlVersion.Sparql12 = 3 -> Varve.Sparql.SparqlVersion
+Varve.Sparql.SparqlVersion.Sparql12Basic = 2 -> Varve.Sparql.SparqlVersion
+abstract Varve.Sparql.Algebra.AlgebraNode.<Clone>$() -> Varve.Sparql.Algebra.AlgebraNode!
+abstract Varve.Sparql.Algebra.Query.Pattern.get -> Varve.Sparql.Algebra.QueryPattern!
+abstract Varve.Sparql.Algebra.Query.Pattern.init -> void
+override Varve.Sparql.Algebra.Add.<Clone>$() -> Varve.Sparql.Algebra.Add!
+override Varve.Sparql.Algebra.Add.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Add.GetHashCode() -> int
+override Varve.Sparql.Algebra.Add.ToString() -> string!
+override Varve.Sparql.Algebra.AggregateExpression.<Clone>$() -> Varve.Sparql.Algebra.AggregateExpression!
+override Varve.Sparql.Algebra.AggregateExpression.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.AggregateExpression.GetHashCode() -> int
+override Varve.Sparql.Algebra.AggregateExpression.ToString() -> string!
+override Varve.Sparql.Algebra.AlgebraList<T>.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.AlgebraList<T>.GetHashCode() -> int
+override Varve.Sparql.Algebra.AlgebraNode.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.AlgebraNode.GetHashCode() -> int
+override Varve.Sparql.Algebra.AlgebraNode.ToString() -> string!
+override Varve.Sparql.Algebra.AlternativePath.<Clone>$() -> Varve.Sparql.Algebra.AlternativePath!
+override Varve.Sparql.Algebra.AlternativePath.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.AlternativePath.GetHashCode() -> int
+override Varve.Sparql.Algebra.AlternativePath.ToString() -> string!
+override Varve.Sparql.Algebra.AskQuery.<Clone>$() -> Varve.Sparql.Algebra.AskQuery!
+override Varve.Sparql.Algebra.AskQuery.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.AskQuery.GetHashCode() -> int
+override Varve.Sparql.Algebra.AskQuery.Pattern.get -> Varve.Sparql.Algebra.QueryPattern!
+override Varve.Sparql.Algebra.AskQuery.Pattern.init -> void
+override Varve.Sparql.Algebra.AskQuery.ToString() -> string!
+override Varve.Sparql.Algebra.Bgp.<Clone>$() -> Varve.Sparql.Algebra.Bgp!
+override Varve.Sparql.Algebra.Bgp.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Bgp.GetHashCode() -> int
+override Varve.Sparql.Algebra.Bgp.ToString() -> string!
+override Varve.Sparql.Algebra.BinaryExpression.<Clone>$() -> Varve.Sparql.Algebra.BinaryExpression!
+override Varve.Sparql.Algebra.BinaryExpression.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.BinaryExpression.GetHashCode() -> int
+override Varve.Sparql.Algebra.BinaryExpression.ToString() -> string!
+override Varve.Sparql.Algebra.BlankNodePattern.<Clone>$() -> Varve.Sparql.Algebra.BlankNodePattern!
+override Varve.Sparql.Algebra.BlankNodePattern.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.BlankNodePattern.GetHashCode() -> int
+override Varve.Sparql.Algebra.BlankNodePattern.ToString() -> string!
+override Varve.Sparql.Algebra.Clear.<Clone>$() -> Varve.Sparql.Algebra.Clear!
+override Varve.Sparql.Algebra.Clear.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Clear.GetHashCode() -> int
+override Varve.Sparql.Algebra.Clear.ToString() -> string!
+override Varve.Sparql.Algebra.ConstantExpression.<Clone>$() -> Varve.Sparql.Algebra.ConstantExpression!
+override Varve.Sparql.Algebra.ConstantExpression.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.ConstantExpression.GetHashCode() -> int
+override Varve.Sparql.Algebra.ConstantExpression.ToString() -> string!
+override Varve.Sparql.Algebra.ConstructQuery.<Clone>$() -> Varve.Sparql.Algebra.ConstructQuery!
+override Varve.Sparql.Algebra.ConstructQuery.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.ConstructQuery.GetHashCode() -> int
+override Varve.Sparql.Algebra.ConstructQuery.Pattern.get -> Varve.Sparql.Algebra.QueryPattern!
+override Varve.Sparql.Algebra.ConstructQuery.Pattern.init -> void
+override Varve.Sparql.Algebra.ConstructQuery.ToString() -> string!
+override Varve.Sparql.Algebra.Copy.<Clone>$() -> Varve.Sparql.Algebra.Copy!
+override Varve.Sparql.Algebra.Copy.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Copy.GetHashCode() -> int
+override Varve.Sparql.Algebra.Copy.ToString() -> string!
+override Varve.Sparql.Algebra.Create.<Clone>$() -> Varve.Sparql.Algebra.Create!
+override Varve.Sparql.Algebra.Create.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Create.GetHashCode() -> int
+override Varve.Sparql.Algebra.Create.ToString() -> string!
+override Varve.Sparql.Algebra.CustomFunctionCall.<Clone>$() -> Varve.Sparql.Algebra.CustomFunctionCall!
+override Varve.Sparql.Algebra.CustomFunctionCall.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.CustomFunctionCall.GetHashCode() -> int
+override Varve.Sparql.Algebra.CustomFunctionCall.ToString() -> string!
+override Varve.Sparql.Algebra.DatasetSpec.<Clone>$() -> Varve.Sparql.Algebra.DatasetSpec!
+override Varve.Sparql.Algebra.DatasetSpec.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.DatasetSpec.GetHashCode() -> int
+override Varve.Sparql.Algebra.DatasetSpec.ToString() -> string!
+override Varve.Sparql.Algebra.DeleteData.<Clone>$() -> Varve.Sparql.Algebra.DeleteData!
+override Varve.Sparql.Algebra.DeleteData.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.DeleteData.GetHashCode() -> int
+override Varve.Sparql.Algebra.DeleteData.ToString() -> string!
+override Varve.Sparql.Algebra.DeleteWhere.<Clone>$() -> Varve.Sparql.Algebra.DeleteWhere!
+override Varve.Sparql.Algebra.DeleteWhere.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.DeleteWhere.GetHashCode() -> int
+override Varve.Sparql.Algebra.DeleteWhere.ToString() -> string!
+override Varve.Sparql.Algebra.DescribeQuery.<Clone>$() -> Varve.Sparql.Algebra.DescribeQuery!
+override Varve.Sparql.Algebra.DescribeQuery.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.DescribeQuery.GetHashCode() -> int
+override Varve.Sparql.Algebra.DescribeQuery.Pattern.get -> Varve.Sparql.Algebra.QueryPattern!
+override Varve.Sparql.Algebra.DescribeQuery.Pattern.init -> void
+override Varve.Sparql.Algebra.DescribeQuery.ToString() -> string!
+override Varve.Sparql.Algebra.Distinct.<Clone>$() -> Varve.Sparql.Algebra.Distinct!
+override Varve.Sparql.Algebra.Distinct.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Distinct.GetHashCode() -> int
+override Varve.Sparql.Algebra.Distinct.ToString() -> string!
+override Varve.Sparql.Algebra.Drop.<Clone>$() -> Varve.Sparql.Algebra.Drop!
+override Varve.Sparql.Algebra.Drop.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Drop.GetHashCode() -> int
+override Varve.Sparql.Algebra.Drop.ToString() -> string!
+override Varve.Sparql.Algebra.ExistsExpression.<Clone>$() -> Varve.Sparql.Algebra.ExistsExpression!
+override Varve.Sparql.Algebra.ExistsExpression.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.ExistsExpression.GetHashCode() -> int
+override Varve.Sparql.Algebra.ExistsExpression.ToString() -> string!
+override Varve.Sparql.Algebra.Expression.EqualityContract.get -> System.Type!
+override Varve.Sparql.Algebra.Expression.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Expression.GetHashCode() -> int
+override Varve.Sparql.Algebra.Expression.PrintMembers(System.Text.StringBuilder! builder) -> bool
+override Varve.Sparql.Algebra.Expression.ToString() -> string!
+override Varve.Sparql.Algebra.Extend.<Clone>$() -> Varve.Sparql.Algebra.Extend!
+override Varve.Sparql.Algebra.Extend.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Extend.GetHashCode() -> int
+override Varve.Sparql.Algebra.Extend.ToString() -> string!
+override Varve.Sparql.Algebra.Filter.<Clone>$() -> Varve.Sparql.Algebra.Filter!
+override Varve.Sparql.Algebra.Filter.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Filter.GetHashCode() -> int
+override Varve.Sparql.Algebra.Filter.ToString() -> string!
+override Varve.Sparql.Algebra.FunctionCall.<Clone>$() -> Varve.Sparql.Algebra.FunctionCall!
+override Varve.Sparql.Algebra.FunctionCall.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.FunctionCall.GetHashCode() -> int
+override Varve.Sparql.Algebra.FunctionCall.ToString() -> string!
+override Varve.Sparql.Algebra.Graph.<Clone>$() -> Varve.Sparql.Algebra.Graph!
+override Varve.Sparql.Algebra.Graph.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Graph.GetHashCode() -> int
+override Varve.Sparql.Algebra.Graph.ToString() -> string!
+override Varve.Sparql.Algebra.GraphOrDefault.GetHashCode() -> int
+override Varve.Sparql.Algebra.GraphTarget.GetHashCode() -> int
+override Varve.Sparql.Algebra.Group.<Clone>$() -> Varve.Sparql.Algebra.Group!
+override Varve.Sparql.Algebra.Group.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Group.GetHashCode() -> int
+override Varve.Sparql.Algebra.Group.ToString() -> string!
+override Varve.Sparql.Algebra.GroupKey.<Clone>$() -> Varve.Sparql.Algebra.GroupKey!
+override Varve.Sparql.Algebra.GroupKey.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.GroupKey.GetHashCode() -> int
+override Varve.Sparql.Algebra.GroupKey.ToString() -> string!
+override Varve.Sparql.Algebra.InsertData.<Clone>$() -> Varve.Sparql.Algebra.InsertData!
+override Varve.Sparql.Algebra.InsertData.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.InsertData.GetHashCode() -> int
+override Varve.Sparql.Algebra.InsertData.ToString() -> string!
+override Varve.Sparql.Algebra.InversePath.<Clone>$() -> Varve.Sparql.Algebra.InversePath!
+override Varve.Sparql.Algebra.InversePath.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.InversePath.GetHashCode() -> int
+override Varve.Sparql.Algebra.InversePath.ToString() -> string!
+override Varve.Sparql.Algebra.Join.<Clone>$() -> Varve.Sparql.Algebra.Join!
+override Varve.Sparql.Algebra.Join.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Join.GetHashCode() -> int
+override Varve.Sparql.Algebra.Join.ToString() -> string!
+override Varve.Sparql.Algebra.LeftJoin.<Clone>$() -> Varve.Sparql.Algebra.LeftJoin!
+override Varve.Sparql.Algebra.LeftJoin.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.LeftJoin.GetHashCode() -> int
+override Varve.Sparql.Algebra.LeftJoin.ToString() -> string!
+override Varve.Sparql.Algebra.Load.<Clone>$() -> Varve.Sparql.Algebra.Load!
+override Varve.Sparql.Algebra.Load.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Load.GetHashCode() -> int
+override Varve.Sparql.Algebra.Load.ToString() -> string!
+override Varve.Sparql.Algebra.Minus.<Clone>$() -> Varve.Sparql.Algebra.Minus!
+override Varve.Sparql.Algebra.Minus.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Minus.GetHashCode() -> int
+override Varve.Sparql.Algebra.Minus.ToString() -> string!
+override Varve.Sparql.Algebra.Modify.<Clone>$() -> Varve.Sparql.Algebra.Modify!
+override Varve.Sparql.Algebra.Modify.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Modify.GetHashCode() -> int
+override Varve.Sparql.Algebra.Modify.ToString() -> string!
+override Varve.Sparql.Algebra.Move.<Clone>$() -> Varve.Sparql.Algebra.Move!
+override Varve.Sparql.Algebra.Move.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Move.GetHashCode() -> int
+override Varve.Sparql.Algebra.Move.ToString() -> string!
+override Varve.Sparql.Algebra.NegatedPropertySet.<Clone>$() -> Varve.Sparql.Algebra.NegatedPropertySet!
+override Varve.Sparql.Algebra.NegatedPropertySet.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.NegatedPropertySet.GetHashCode() -> int
+override Varve.Sparql.Algebra.NegatedPropertySet.ToString() -> string!
+override Varve.Sparql.Algebra.OneOrMorePath.<Clone>$() -> Varve.Sparql.Algebra.OneOrMorePath!
+override Varve.Sparql.Algebra.OneOrMorePath.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.OneOrMorePath.GetHashCode() -> int
+override Varve.Sparql.Algebra.OneOrMorePath.ToString() -> string!
+override Varve.Sparql.Algebra.OrderBy.<Clone>$() -> Varve.Sparql.Algebra.OrderBy!
+override Varve.Sparql.Algebra.OrderBy.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.OrderBy.GetHashCode() -> int
+override Varve.Sparql.Algebra.OrderBy.ToString() -> string!
+override Varve.Sparql.Algebra.OrderCondition.<Clone>$() -> Varve.Sparql.Algebra.OrderCondition!
+override Varve.Sparql.Algebra.OrderCondition.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.OrderCondition.GetHashCode() -> int
+override Varve.Sparql.Algebra.OrderCondition.ToString() -> string!
+override Varve.Sparql.Algebra.PathPattern.<Clone>$() -> Varve.Sparql.Algebra.PathPattern!
+override Varve.Sparql.Algebra.PathPattern.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.PathPattern.GetHashCode() -> int
+override Varve.Sparql.Algebra.PathPattern.ToString() -> string!
+override Varve.Sparql.Algebra.PatternTerm.EqualityContract.get -> System.Type!
+override Varve.Sparql.Algebra.PatternTerm.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.PatternTerm.GetHashCode() -> int
+override Varve.Sparql.Algebra.PatternTerm.PrintMembers(System.Text.StringBuilder! builder) -> bool
+override Varve.Sparql.Algebra.PatternTerm.ToString() -> string!
+override Varve.Sparql.Algebra.PredicatePath.<Clone>$() -> Varve.Sparql.Algebra.PredicatePath!
+override Varve.Sparql.Algebra.PredicatePath.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.PredicatePath.GetHashCode() -> int
+override Varve.Sparql.Algebra.PredicatePath.ToString() -> string!
+override Varve.Sparql.Algebra.PrefixDeclaration.<Clone>$() -> Varve.Sparql.Algebra.PrefixDeclaration!
+override Varve.Sparql.Algebra.PrefixDeclaration.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.PrefixDeclaration.GetHashCode() -> int
+override Varve.Sparql.Algebra.PrefixDeclaration.ToString() -> string!
+override Varve.Sparql.Algebra.Project.<Clone>$() -> Varve.Sparql.Algebra.Project!
+override Varve.Sparql.Algebra.Project.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Project.GetHashCode() -> int
+override Varve.Sparql.Algebra.Project.ToString() -> string!
+override Varve.Sparql.Algebra.Prologue.<Clone>$() -> Varve.Sparql.Algebra.Prologue!
+override Varve.Sparql.Algebra.Prologue.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Prologue.GetHashCode() -> int
+override Varve.Sparql.Algebra.Prologue.ToString() -> string!
+override Varve.Sparql.Algebra.PropertyPath.EqualityContract.get -> System.Type!
+override Varve.Sparql.Algebra.PropertyPath.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.PropertyPath.GetHashCode() -> int
+override Varve.Sparql.Algebra.PropertyPath.PrintMembers(System.Text.StringBuilder! builder) -> bool
+override Varve.Sparql.Algebra.PropertyPath.ToString() -> string!
+override Varve.Sparql.Algebra.QuadPattern.<Clone>$() -> Varve.Sparql.Algebra.QuadPattern!
+override Varve.Sparql.Algebra.QuadPattern.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.QuadPattern.GetHashCode() -> int
+override Varve.Sparql.Algebra.QuadPattern.ToString() -> string!
+override Varve.Sparql.Algebra.Query.EqualityContract.get -> System.Type!
+override Varve.Sparql.Algebra.Query.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Query.GetHashCode() -> int
+override Varve.Sparql.Algebra.Query.PrintMembers(System.Text.StringBuilder! builder) -> bool
+override Varve.Sparql.Algebra.Query.ToString() -> string!
+override Varve.Sparql.Algebra.QueryPattern.EqualityContract.get -> System.Type!
+override Varve.Sparql.Algebra.QueryPattern.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.QueryPattern.GetHashCode() -> int
+override Varve.Sparql.Algebra.QueryPattern.PrintMembers(System.Text.StringBuilder! builder) -> bool
+override Varve.Sparql.Algebra.QueryPattern.ToString() -> string!
+override Varve.Sparql.Algebra.Reduced.<Clone>$() -> Varve.Sparql.Algebra.Reduced!
+override Varve.Sparql.Algebra.Reduced.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Reduced.GetHashCode() -> int
+override Varve.Sparql.Algebra.Reduced.ToString() -> string!
+override Varve.Sparql.Algebra.SelectQuery.<Clone>$() -> Varve.Sparql.Algebra.SelectQuery!
+override Varve.Sparql.Algebra.SelectQuery.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.SelectQuery.GetHashCode() -> int
+override Varve.Sparql.Algebra.SelectQuery.Pattern.get -> Varve.Sparql.Algebra.QueryPattern!
+override Varve.Sparql.Algebra.SelectQuery.Pattern.init -> void
+override Varve.Sparql.Algebra.SelectQuery.ToString() -> string!
+override Varve.Sparql.Algebra.SequencePath.<Clone>$() -> Varve.Sparql.Algebra.SequencePath!
+override Varve.Sparql.Algebra.SequencePath.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.SequencePath.GetHashCode() -> int
+override Varve.Sparql.Algebra.SequencePath.ToString() -> string!
+override Varve.Sparql.Algebra.Service.<Clone>$() -> Varve.Sparql.Algebra.Service!
+override Varve.Sparql.Algebra.Service.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Service.GetHashCode() -> int
+override Varve.Sparql.Algebra.Service.ToString() -> string!
+override Varve.Sparql.Algebra.Slice.<Clone>$() -> Varve.Sparql.Algebra.Slice!
+override Varve.Sparql.Algebra.Slice.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Slice.GetHashCode() -> int
+override Varve.Sparql.Algebra.Slice.ToString() -> string!
+override Varve.Sparql.Algebra.TermPattern.<Clone>$() -> Varve.Sparql.Algebra.TermPattern!
+override Varve.Sparql.Algebra.TermPattern.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.TermPattern.GetHashCode() -> int
+override Varve.Sparql.Algebra.TermPattern.ToString() -> string!
+override Varve.Sparql.Algebra.TriplePattern.<Clone>$() -> Varve.Sparql.Algebra.TriplePattern!
+override Varve.Sparql.Algebra.TriplePattern.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.TriplePattern.GetHashCode() -> int
+override Varve.Sparql.Algebra.TriplePattern.ToString() -> string!
+override Varve.Sparql.Algebra.TripleTermPattern.<Clone>$() -> Varve.Sparql.Algebra.TripleTermPattern!
+override Varve.Sparql.Algebra.TripleTermPattern.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.TripleTermPattern.GetHashCode() -> int
+override Varve.Sparql.Algebra.TripleTermPattern.ToString() -> string!
+override Varve.Sparql.Algebra.UnaryExpression.<Clone>$() -> Varve.Sparql.Algebra.UnaryExpression!
+override Varve.Sparql.Algebra.UnaryExpression.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.UnaryExpression.GetHashCode() -> int
+override Varve.Sparql.Algebra.UnaryExpression.ToString() -> string!
+override Varve.Sparql.Algebra.Union.<Clone>$() -> Varve.Sparql.Algebra.Union!
+override Varve.Sparql.Algebra.Union.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Union.GetHashCode() -> int
+override Varve.Sparql.Algebra.Union.ToString() -> string!
+override Varve.Sparql.Algebra.Update.<Clone>$() -> Varve.Sparql.Algebra.Update!
+override Varve.Sparql.Algebra.Update.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Update.GetHashCode() -> int
+override Varve.Sparql.Algebra.Update.ToString() -> string!
+override Varve.Sparql.Algebra.UpdateOperation.EqualityContract.get -> System.Type!
+override Varve.Sparql.Algebra.UpdateOperation.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.UpdateOperation.GetHashCode() -> int
+override Varve.Sparql.Algebra.UpdateOperation.PrintMembers(System.Text.StringBuilder! builder) -> bool
+override Varve.Sparql.Algebra.UpdateOperation.ToString() -> string!
+override Varve.Sparql.Algebra.Values.<Clone>$() -> Varve.Sparql.Algebra.Values!
+override Varve.Sparql.Algebra.Values.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.Values.GetHashCode() -> int
+override Varve.Sparql.Algebra.Values.ToString() -> string!
+override Varve.Sparql.Algebra.Variable.GetHashCode() -> int
+override Varve.Sparql.Algebra.Variable.ToString() -> string!
+override Varve.Sparql.Algebra.VariableExpression.<Clone>$() -> Varve.Sparql.Algebra.VariableExpression!
+override Varve.Sparql.Algebra.VariableExpression.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.VariableExpression.GetHashCode() -> int
+override Varve.Sparql.Algebra.VariableExpression.ToString() -> string!
+override Varve.Sparql.Algebra.VariablePattern.<Clone>$() -> Varve.Sparql.Algebra.VariablePattern!
+override Varve.Sparql.Algebra.VariablePattern.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.VariablePattern.GetHashCode() -> int
+override Varve.Sparql.Algebra.VariablePattern.ToString() -> string!
+override Varve.Sparql.Algebra.ZeroOrMorePath.<Clone>$() -> Varve.Sparql.Algebra.ZeroOrMorePath!
+override Varve.Sparql.Algebra.ZeroOrMorePath.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.ZeroOrMorePath.GetHashCode() -> int
+override Varve.Sparql.Algebra.ZeroOrMorePath.ToString() -> string!
+override Varve.Sparql.Algebra.ZeroOrOnePath.<Clone>$() -> Varve.Sparql.Algebra.ZeroOrOnePath!
+override Varve.Sparql.Algebra.ZeroOrOnePath.Equals(object? obj) -> bool
+override Varve.Sparql.Algebra.ZeroOrOnePath.GetHashCode() -> int
+override Varve.Sparql.Algebra.ZeroOrOnePath.ToString() -> string!
+override Varve.Sparql.SourceSpan.Equals(object? obj) -> bool
+override Varve.Sparql.SourceSpan.GetHashCode() -> int
+override Varve.Sparql.SourceSpan.ToString() -> string!
+override abstract Varve.Sparql.Algebra.Expression.<Clone>$() -> Varve.Sparql.Algebra.Expression!
+override abstract Varve.Sparql.Algebra.PatternTerm.<Clone>$() -> Varve.Sparql.Algebra.PatternTerm!
+override abstract Varve.Sparql.Algebra.PropertyPath.<Clone>$() -> Varve.Sparql.Algebra.PropertyPath!
+override abstract Varve.Sparql.Algebra.Query.<Clone>$() -> Varve.Sparql.Algebra.Query!
+override abstract Varve.Sparql.Algebra.QueryPattern.<Clone>$() -> Varve.Sparql.Algebra.QueryPattern!
+override abstract Varve.Sparql.Algebra.UpdateOperation.<Clone>$() -> Varve.Sparql.Algebra.UpdateOperation!
+override sealed Varve.Sparql.Algebra.Add.Equals(Varve.Sparql.Algebra.UpdateOperation? other) -> bool
+override sealed Varve.Sparql.Algebra.AggregateExpression.Equals(Varve.Sparql.Algebra.Expression? other) -> bool
+override sealed Varve.Sparql.Algebra.AlternativePath.Equals(Varve.Sparql.Algebra.PropertyPath? other) -> bool
+override sealed Varve.Sparql.Algebra.AskQuery.Equals(Varve.Sparql.Algebra.Query? other) -> bool
+override sealed Varve.Sparql.Algebra.Bgp.Equals(Varve.Sparql.Algebra.QueryPattern? other) -> bool
+override sealed Varve.Sparql.Algebra.BinaryExpression.Equals(Varve.Sparql.Algebra.Expression? other) -> bool
+override sealed Varve.Sparql.Algebra.BlankNodePattern.Equals(Varve.Sparql.Algebra.PatternTerm? other) -> bool
+override sealed Varve.Sparql.Algebra.Clear.Equals(Varve.Sparql.Algebra.UpdateOperation? other) -> bool
+override sealed Varve.Sparql.Algebra.ConstantExpression.Equals(Varve.Sparql.Algebra.Expression? other) -> bool
+override sealed Varve.Sparql.Algebra.ConstructQuery.Equals(Varve.Sparql.Algebra.Query? other) -> bool
+override sealed Varve.Sparql.Algebra.Copy.Equals(Varve.Sparql.Algebra.UpdateOperation? other) -> bool
+override sealed Varve.Sparql.Algebra.Create.Equals(Varve.Sparql.Algebra.UpdateOperation? other) -> bool
+override sealed Varve.Sparql.Algebra.CustomFunctionCall.Equals(Varve.Sparql.Algebra.Expression? other) -> bool
+override sealed Varve.Sparql.Algebra.DatasetSpec.Equals(Varve.Sparql.Algebra.AlgebraNode? other) -> bool
+override sealed Varve.Sparql.Algebra.DeleteData.Equals(Varve.Sparql.Algebra.UpdateOperation? other) -> bool
+override sealed Varve.Sparql.Algebra.DeleteWhere.Equals(Varve.Sparql.Algebra.UpdateOperation? other) -> bool
+override sealed Varve.Sparql.Algebra.DescribeQuery.Equals(Varve.Sparql.Algebra.Query? other) -> bool
+override sealed Varve.Sparql.Algebra.Distinct.Equals(Varve.Sparql.Algebra.QueryPattern? other) -> bool
+override sealed Varve.Sparql.Algebra.Drop.Equals(Varve.Sparql.Algebra.UpdateOperation? other) -> bool
+override sealed Varve.Sparql.Algebra.ExistsExpression.Equals(Varve.Sparql.Algebra.Expression? other) -> bool
+override sealed Varve.Sparql.Algebra.Expression.Equals(Varve.Sparql.Algebra.AlgebraNode? other) -> bool
+override sealed Varve.Sparql.Algebra.Extend.Equals(Varve.Sparql.Algebra.QueryPattern? other) -> bool
+override sealed Varve.Sparql.Algebra.Filter.Equals(Varve.Sparql.Algebra.QueryPattern? other) -> bool
+override sealed Varve.Sparql.Algebra.FunctionCall.Equals(Varve.Sparql.Algebra.Expression? other) -> bool
+override sealed Varve.Sparql.Algebra.Graph.Equals(Varve.Sparql.Algebra.QueryPattern? other) -> bool
+override sealed Varve.Sparql.Algebra.Group.Equals(Varve.Sparql.Algebra.QueryPattern? other) -> bool
+override sealed Varve.Sparql.Algebra.GroupKey.Equals(Varve.Sparql.Algebra.AlgebraNode? other) -> bool
+override sealed Varve.Sparql.Algebra.InsertData.Equals(Varve.Sparql.Algebra.UpdateOperation? other) -> bool
+override sealed Varve.Sparql.Algebra.InversePath.Equals(Varve.Sparql.Algebra.PropertyPath? other) -> bool
+override sealed Varve.Sparql.Algebra.Join.Equals(Varve.Sparql.Algebra.QueryPattern? other) -> bool
+override sealed Varve.Sparql.Algebra.LeftJoin.Equals(Varve.Sparql.Algebra.QueryPattern? other) -> bool
+override sealed Varve.Sparql.Algebra.Load.Equals(Varve.Sparql.Algebra.UpdateOperation? other) -> bool
+override sealed Varve.Sparql.Algebra.Minus.Equals(Varve.Sparql.Algebra.QueryPattern? other) -> bool
+override sealed Varve.Sparql.Algebra.Modify.Equals(Varve.Sparql.Algebra.UpdateOperation? other) -> bool
+override sealed Varve.Sparql.Algebra.Move.Equals(Varve.Sparql.Algebra.UpdateOperation? other) -> bool
+override sealed Varve.Sparql.Algebra.NegatedPropertySet.Equals(Varve.Sparql.Algebra.PropertyPath? other) -> bool
+override sealed Varve.Sparql.Algebra.OneOrMorePath.Equals(Varve.Sparql.Algebra.PropertyPath? other) -> bool
+override sealed Varve.Sparql.Algebra.OrderBy.Equals(Varve.Sparql.Algebra.QueryPattern? other) -> bool
+override sealed Varve.Sparql.Algebra.OrderCondition.Equals(Varve.Sparql.Algebra.AlgebraNode? other) -> bool
+override sealed Varve.Sparql.Algebra.PathPattern.Equals(Varve.Sparql.Algebra.QueryPattern? other) -> bool
+override sealed Varve.Sparql.Algebra.PatternTerm.Equals(Varve.Sparql.Algebra.AlgebraNode? other) -> bool
+override sealed Varve.Sparql.Algebra.PredicatePath.Equals(Varve.Sparql.Algebra.PropertyPath? other) -> bool
+override sealed Varve.Sparql.Algebra.PrefixDeclaration.Equals(Varve.Sparql.Algebra.AlgebraNode? other) -> bool
+override sealed Varve.Sparql.Algebra.Project.Equals(Varve.Sparql.Algebra.QueryPattern? other) -> bool
+override sealed Varve.Sparql.Algebra.Prologue.Equals(Varve.Sparql.Algebra.AlgebraNode? other) -> bool
+override sealed Varve.Sparql.Algebra.PropertyPath.Equals(Varve.Sparql.Algebra.AlgebraNode? other) -> bool
+override sealed Varve.Sparql.Algebra.QuadPattern.Equals(Varve.Sparql.Algebra.AlgebraNode? other) -> bool
+override sealed Varve.Sparql.Algebra.Query.Equals(Varve.Sparql.Algebra.AlgebraNode? other) -> bool
+override sealed Varve.Sparql.Algebra.QueryPattern.Equals(Varve.Sparql.Algebra.AlgebraNode? other) -> bool
+override sealed Varve.Sparql.Algebra.Reduced.Equals(Varve.Sparql.Algebra.QueryPattern? other) -> bool
+override sealed Varve.Sparql.Algebra.SelectQuery.Equals(Varve.Sparql.Algebra.Query? other) -> bool
+override sealed Varve.Sparql.Algebra.SequencePath.Equals(Varve.Sparql.Algebra.PropertyPath? other) -> bool
+override sealed Varve.Sparql.Algebra.Service.Equals(Varve.Sparql.Algebra.QueryPattern? other) -> bool
+override sealed Varve.Sparql.Algebra.Slice.Equals(Varve.Sparql.Algebra.QueryPattern? other) -> bool
+override sealed Varve.Sparql.Algebra.TermPattern.Equals(Varve.Sparql.Algebra.PatternTerm? other) -> bool
+override sealed Varve.Sparql.Algebra.TriplePattern.Equals(Varve.Sparql.Algebra.AlgebraNode? other) -> bool
+override sealed Varve.Sparql.Algebra.TripleTermPattern.Equals(Varve.Sparql.Algebra.PatternTerm? other) -> bool
+override sealed Varve.Sparql.Algebra.UnaryExpression.Equals(Varve.Sparql.Algebra.Expression? other) -> bool
+override sealed Varve.Sparql.Algebra.Union.Equals(Varve.Sparql.Algebra.QueryPattern? other) -> bool
+override sealed Varve.Sparql.Algebra.Update.Equals(Varve.Sparql.Algebra.AlgebraNode? other) -> bool
+override sealed Varve.Sparql.Algebra.UpdateOperation.Equals(Varve.Sparql.Algebra.AlgebraNode? other) -> bool
+override sealed Varve.Sparql.Algebra.Values.Equals(Varve.Sparql.Algebra.QueryPattern? other) -> bool
+override sealed Varve.Sparql.Algebra.VariableExpression.Equals(Varve.Sparql.Algebra.Expression? other) -> bool
+override sealed Varve.Sparql.Algebra.VariablePattern.Equals(Varve.Sparql.Algebra.PatternTerm? other) -> bool
+override sealed Varve.Sparql.Algebra.ZeroOrMorePath.Equals(Varve.Sparql.Algebra.PropertyPath? other) -> bool
+override sealed Varve.Sparql.Algebra.ZeroOrOnePath.Equals(Varve.Sparql.Algebra.PropertyPath? other) -> bool
+static Varve.Sparql.Algebra.Add.operator !=(Varve.Sparql.Algebra.Add? left, Varve.Sparql.Algebra.Add? right) -> bool
+static Varve.Sparql.Algebra.Add.operator ==(Varve.Sparql.Algebra.Add? left, Varve.Sparql.Algebra.Add? right) -> bool
+static Varve.Sparql.Algebra.AggregateExpression.operator !=(Varve.Sparql.Algebra.AggregateExpression? left, Varve.Sparql.Algebra.AggregateExpression? right) -> bool
+static Varve.Sparql.Algebra.AggregateExpression.operator ==(Varve.Sparql.Algebra.AggregateExpression? left, Varve.Sparql.Algebra.AggregateExpression? right) -> bool
+static Varve.Sparql.Algebra.AlgebraList.Empty<T>() -> Varve.Sparql.Algebra.AlgebraList<T>
+static Varve.Sparql.Algebra.AlgebraList.From<T>(System.Collections.Generic.IEnumerable<T>! items) -> Varve.Sparql.Algebra.AlgebraList<T>
+static Varve.Sparql.Algebra.AlgebraList.From<T>(System.ReadOnlySpan<T> items) -> Varve.Sparql.Algebra.AlgebraList<T>
+static Varve.Sparql.Algebra.AlgebraList.Of<T>(T first, T second) -> Varve.Sparql.Algebra.AlgebraList<T>
+static Varve.Sparql.Algebra.AlgebraList.Of<T>(T first, T second, T third) -> Varve.Sparql.Algebra.AlgebraList<T>
+static Varve.Sparql.Algebra.AlgebraList.Of<T>(T item) -> Varve.Sparql.Algebra.AlgebraList<T>
+static Varve.Sparql.Algebra.AlgebraList<T>.operator !=(Varve.Sparql.Algebra.AlgebraList<T> left, Varve.Sparql.Algebra.AlgebraList<T> right) -> bool
+static Varve.Sparql.Algebra.AlgebraList<T>.operator ==(Varve.Sparql.Algebra.AlgebraList<T> left, Varve.Sparql.Algebra.AlgebraList<T> right) -> bool
+static Varve.Sparql.Algebra.AlgebraNode.operator !=(Varve.Sparql.Algebra.AlgebraNode? left, Varve.Sparql.Algebra.AlgebraNode? right) -> bool
+static Varve.Sparql.Algebra.AlgebraNode.operator ==(Varve.Sparql.Algebra.AlgebraNode? left, Varve.Sparql.Algebra.AlgebraNode? right) -> bool
+static Varve.Sparql.Algebra.AlternativePath.operator !=(Varve.Sparql.Algebra.AlternativePath? left, Varve.Sparql.Algebra.AlternativePath? right) -> bool
+static Varve.Sparql.Algebra.AlternativePath.operator ==(Varve.Sparql.Algebra.AlternativePath? left, Varve.Sparql.Algebra.AlternativePath? right) -> bool
+static Varve.Sparql.Algebra.AskQuery.operator !=(Varve.Sparql.Algebra.AskQuery? left, Varve.Sparql.Algebra.AskQuery? right) -> bool
+static Varve.Sparql.Algebra.AskQuery.operator ==(Varve.Sparql.Algebra.AskQuery? left, Varve.Sparql.Algebra.AskQuery? right) -> bool
+static Varve.Sparql.Algebra.Bgp.operator !=(Varve.Sparql.Algebra.Bgp? left, Varve.Sparql.Algebra.Bgp? right) -> bool
+static Varve.Sparql.Algebra.Bgp.operator ==(Varve.Sparql.Algebra.Bgp? left, Varve.Sparql.Algebra.Bgp? right) -> bool
+static Varve.Sparql.Algebra.BinaryExpression.operator !=(Varve.Sparql.Algebra.BinaryExpression? left, Varve.Sparql.Algebra.BinaryExpression? right) -> bool
+static Varve.Sparql.Algebra.BinaryExpression.operator ==(Varve.Sparql.Algebra.BinaryExpression? left, Varve.Sparql.Algebra.BinaryExpression? right) -> bool
+static Varve.Sparql.Algebra.BlankNodePattern.operator !=(Varve.Sparql.Algebra.BlankNodePattern? left, Varve.Sparql.Algebra.BlankNodePattern? right) -> bool
+static Varve.Sparql.Algebra.BlankNodePattern.operator ==(Varve.Sparql.Algebra.BlankNodePattern? left, Varve.Sparql.Algebra.BlankNodePattern? right) -> bool
+static Varve.Sparql.Algebra.Clear.operator !=(Varve.Sparql.Algebra.Clear? left, Varve.Sparql.Algebra.Clear? right) -> bool
+static Varve.Sparql.Algebra.Clear.operator ==(Varve.Sparql.Algebra.Clear? left, Varve.Sparql.Algebra.Clear? right) -> bool
+static Varve.Sparql.Algebra.ConstantExpression.operator !=(Varve.Sparql.Algebra.ConstantExpression? left, Varve.Sparql.Algebra.ConstantExpression? right) -> bool
+static Varve.Sparql.Algebra.ConstantExpression.operator ==(Varve.Sparql.Algebra.ConstantExpression? left, Varve.Sparql.Algebra.ConstantExpression? right) -> bool
+static Varve.Sparql.Algebra.ConstructQuery.operator !=(Varve.Sparql.Algebra.ConstructQuery? left, Varve.Sparql.Algebra.ConstructQuery? right) -> bool
+static Varve.Sparql.Algebra.ConstructQuery.operator ==(Varve.Sparql.Algebra.ConstructQuery? left, Varve.Sparql.Algebra.ConstructQuery? right) -> bool
+static Varve.Sparql.Algebra.Copy.operator !=(Varve.Sparql.Algebra.Copy? left, Varve.Sparql.Algebra.Copy? right) -> bool
+static Varve.Sparql.Algebra.Copy.operator ==(Varve.Sparql.Algebra.Copy? left, Varve.Sparql.Algebra.Copy? right) -> bool
+static Varve.Sparql.Algebra.Create.operator !=(Varve.Sparql.Algebra.Create? left, Varve.Sparql.Algebra.Create? right) -> bool
+static Varve.Sparql.Algebra.Create.operator ==(Varve.Sparql.Algebra.Create? left, Varve.Sparql.Algebra.Create? right) -> bool
+static Varve.Sparql.Algebra.CustomFunctionCall.operator !=(Varve.Sparql.Algebra.CustomFunctionCall? left, Varve.Sparql.Algebra.CustomFunctionCall? right) -> bool
+static Varve.Sparql.Algebra.CustomFunctionCall.operator ==(Varve.Sparql.Algebra.CustomFunctionCall? left, Varve.Sparql.Algebra.CustomFunctionCall? right) -> bool
+static Varve.Sparql.Algebra.DatasetSpec.operator !=(Varve.Sparql.Algebra.DatasetSpec? left, Varve.Sparql.Algebra.DatasetSpec? right) -> bool
+static Varve.Sparql.Algebra.DatasetSpec.operator ==(Varve.Sparql.Algebra.DatasetSpec? left, Varve.Sparql.Algebra.DatasetSpec? right) -> bool
+static Varve.Sparql.Algebra.DeleteData.operator !=(Varve.Sparql.Algebra.DeleteData? left, Varve.Sparql.Algebra.DeleteData? right) -> bool
+static Varve.Sparql.Algebra.DeleteData.operator ==(Varve.Sparql.Algebra.DeleteData? left, Varve.Sparql.Algebra.DeleteData? right) -> bool
+static Varve.Sparql.Algebra.DeleteWhere.operator !=(Varve.Sparql.Algebra.DeleteWhere? left, Varve.Sparql.Algebra.DeleteWhere? right) -> bool
+static Varve.Sparql.Algebra.DeleteWhere.operator ==(Varve.Sparql.Algebra.DeleteWhere? left, Varve.Sparql.Algebra.DeleteWhere? right) -> bool
+static Varve.Sparql.Algebra.DescribeQuery.operator !=(Varve.Sparql.Algebra.DescribeQuery? left, Varve.Sparql.Algebra.DescribeQuery? right) -> bool
+static Varve.Sparql.Algebra.DescribeQuery.operator ==(Varve.Sparql.Algebra.DescribeQuery? left, Varve.Sparql.Algebra.DescribeQuery? right) -> bool
+static Varve.Sparql.Algebra.Distinct.operator !=(Varve.Sparql.Algebra.Distinct? left, Varve.Sparql.Algebra.Distinct? right) -> bool
+static Varve.Sparql.Algebra.Distinct.operator ==(Varve.Sparql.Algebra.Distinct? left, Varve.Sparql.Algebra.Distinct? right) -> bool
+static Varve.Sparql.Algebra.Drop.operator !=(Varve.Sparql.Algebra.Drop? left, Varve.Sparql.Algebra.Drop? right) -> bool
+static Varve.Sparql.Algebra.Drop.operator ==(Varve.Sparql.Algebra.Drop? left, Varve.Sparql.Algebra.Drop? right) -> bool
+static Varve.Sparql.Algebra.ExistsExpression.operator !=(Varve.Sparql.Algebra.ExistsExpression? left, Varve.Sparql.Algebra.ExistsExpression? right) -> bool
+static Varve.Sparql.Algebra.ExistsExpression.operator ==(Varve.Sparql.Algebra.ExistsExpression? left, Varve.Sparql.Algebra.ExistsExpression? right) -> bool
+static Varve.Sparql.Algebra.Expression.operator !=(Varve.Sparql.Algebra.Expression? left, Varve.Sparql.Algebra.Expression? right) -> bool
+static Varve.Sparql.Algebra.Expression.operator ==(Varve.Sparql.Algebra.Expression? left, Varve.Sparql.Algebra.Expression? right) -> bool
+static Varve.Sparql.Algebra.Extend.operator !=(Varve.Sparql.Algebra.Extend? left, Varve.Sparql.Algebra.Extend? right) -> bool
+static Varve.Sparql.Algebra.Extend.operator ==(Varve.Sparql.Algebra.Extend? left, Varve.Sparql.Algebra.Extend? right) -> bool
+static Varve.Sparql.Algebra.Filter.operator !=(Varve.Sparql.Algebra.Filter? left, Varve.Sparql.Algebra.Filter? right) -> bool
+static Varve.Sparql.Algebra.Filter.operator ==(Varve.Sparql.Algebra.Filter? left, Varve.Sparql.Algebra.Filter? right) -> bool
+static Varve.Sparql.Algebra.FunctionCall.operator !=(Varve.Sparql.Algebra.FunctionCall? left, Varve.Sparql.Algebra.FunctionCall? right) -> bool
+static Varve.Sparql.Algebra.FunctionCall.operator ==(Varve.Sparql.Algebra.FunctionCall? left, Varve.Sparql.Algebra.FunctionCall? right) -> bool
+static Varve.Sparql.Algebra.Graph.operator !=(Varve.Sparql.Algebra.Graph? left, Varve.Sparql.Algebra.Graph? right) -> bool
+static Varve.Sparql.Algebra.Graph.operator ==(Varve.Sparql.Algebra.Graph? left, Varve.Sparql.Algebra.Graph? right) -> bool
+static Varve.Sparql.Algebra.GraphOrDefault.Default.get -> Varve.Sparql.Algebra.GraphOrDefault
+static Varve.Sparql.Algebra.GraphOrDefault.Of(Varve.Rdf.RdfTerm! graph) -> Varve.Sparql.Algebra.GraphOrDefault
+static Varve.Sparql.Algebra.GraphOrDefault.operator !=(Varve.Sparql.Algebra.GraphOrDefault left, Varve.Sparql.Algebra.GraphOrDefault right) -> bool
+static Varve.Sparql.Algebra.GraphOrDefault.operator ==(Varve.Sparql.Algebra.GraphOrDefault left, Varve.Sparql.Algebra.GraphOrDefault right) -> bool
+static Varve.Sparql.Algebra.GraphTarget.All.get -> Varve.Sparql.Algebra.GraphTarget
+static Varve.Sparql.Algebra.GraphTarget.Default.get -> Varve.Sparql.Algebra.GraphTarget
+static Varve.Sparql.Algebra.GraphTarget.Named.get -> Varve.Sparql.Algebra.GraphTarget
+static Varve.Sparql.Algebra.GraphTarget.Of(Varve.Rdf.RdfTerm! graph) -> Varve.Sparql.Algebra.GraphTarget
+static Varve.Sparql.Algebra.GraphTarget.operator !=(Varve.Sparql.Algebra.GraphTarget left, Varve.Sparql.Algebra.GraphTarget right) -> bool
+static Varve.Sparql.Algebra.GraphTarget.operator ==(Varve.Sparql.Algebra.GraphTarget left, Varve.Sparql.Algebra.GraphTarget right) -> bool
+static Varve.Sparql.Algebra.Group.operator !=(Varve.Sparql.Algebra.Group? left, Varve.Sparql.Algebra.Group? right) -> bool
+static Varve.Sparql.Algebra.Group.operator ==(Varve.Sparql.Algebra.Group? left, Varve.Sparql.Algebra.Group? right) -> bool
+static Varve.Sparql.Algebra.GroupKey.operator !=(Varve.Sparql.Algebra.GroupKey? left, Varve.Sparql.Algebra.GroupKey? right) -> bool
+static Varve.Sparql.Algebra.GroupKey.operator ==(Varve.Sparql.Algebra.GroupKey? left, Varve.Sparql.Algebra.GroupKey? right) -> bool
+static Varve.Sparql.Algebra.InsertData.operator !=(Varve.Sparql.Algebra.InsertData? left, Varve.Sparql.Algebra.InsertData? right) -> bool
+static Varve.Sparql.Algebra.InsertData.operator ==(Varve.Sparql.Algebra.InsertData? left, Varve.Sparql.Algebra.InsertData? right) -> bool
+static Varve.Sparql.Algebra.InversePath.operator !=(Varve.Sparql.Algebra.InversePath? left, Varve.Sparql.Algebra.InversePath? right) -> bool
+static Varve.Sparql.Algebra.InversePath.operator ==(Varve.Sparql.Algebra.InversePath? left, Varve.Sparql.Algebra.InversePath? right) -> bool
+static Varve.Sparql.Algebra.Join.operator !=(Varve.Sparql.Algebra.Join? left, Varve.Sparql.Algebra.Join? right) -> bool
+static Varve.Sparql.Algebra.Join.operator ==(Varve.Sparql.Algebra.Join? left, Varve.Sparql.Algebra.Join? right) -> bool
+static Varve.Sparql.Algebra.LeftJoin.operator !=(Varve.Sparql.Algebra.LeftJoin? left, Varve.Sparql.Algebra.LeftJoin? right) -> bool
+static Varve.Sparql.Algebra.LeftJoin.operator ==(Varve.Sparql.Algebra.LeftJoin? left, Varve.Sparql.Algebra.LeftJoin? right) -> bool
+static Varve.Sparql.Algebra.Load.operator !=(Varve.Sparql.Algebra.Load? left, Varve.Sparql.Algebra.Load? right) -> bool
+static Varve.Sparql.Algebra.Load.operator ==(Varve.Sparql.Algebra.Load? left, Varve.Sparql.Algebra.Load? right) -> bool
+static Varve.Sparql.Algebra.Minus.operator !=(Varve.Sparql.Algebra.Minus? left, Varve.Sparql.Algebra.Minus? right) -> bool
+static Varve.Sparql.Algebra.Minus.operator ==(Varve.Sparql.Algebra.Minus? left, Varve.Sparql.Algebra.Minus? right) -> bool
+static Varve.Sparql.Algebra.Modify.operator !=(Varve.Sparql.Algebra.Modify? left, Varve.Sparql.Algebra.Modify? right) -> bool
+static Varve.Sparql.Algebra.Modify.operator ==(Varve.Sparql.Algebra.Modify? left, Varve.Sparql.Algebra.Modify? right) -> bool
+static Varve.Sparql.Algebra.Move.operator !=(Varve.Sparql.Algebra.Move? left, Varve.Sparql.Algebra.Move? right) -> bool
+static Varve.Sparql.Algebra.Move.operator ==(Varve.Sparql.Algebra.Move? left, Varve.Sparql.Algebra.Move? right) -> bool
+static Varve.Sparql.Algebra.NegatedPropertySet.operator !=(Varve.Sparql.Algebra.NegatedPropertySet? left, Varve.Sparql.Algebra.NegatedPropertySet? right) -> bool
+static Varve.Sparql.Algebra.NegatedPropertySet.operator ==(Varve.Sparql.Algebra.NegatedPropertySet? left, Varve.Sparql.Algebra.NegatedPropertySet? right) -> bool
+static Varve.Sparql.Algebra.OneOrMorePath.operator !=(Varve.Sparql.Algebra.OneOrMorePath? left, Varve.Sparql.Algebra.OneOrMorePath? right) -> bool
+static Varve.Sparql.Algebra.OneOrMorePath.operator ==(Varve.Sparql.Algebra.OneOrMorePath? left, Varve.Sparql.Algebra.OneOrMorePath? right) -> bool
+static Varve.Sparql.Algebra.OrderBy.operator !=(Varve.Sparql.Algebra.OrderBy? left, Varve.Sparql.Algebra.OrderBy? right) -> bool
+static Varve.Sparql.Algebra.OrderBy.operator ==(Varve.Sparql.Algebra.OrderBy? left, Varve.Sparql.Algebra.OrderBy? right) -> bool
+static Varve.Sparql.Algebra.OrderCondition.operator !=(Varve.Sparql.Algebra.OrderCondition? left, Varve.Sparql.Algebra.OrderCondition? right) -> bool
+static Varve.Sparql.Algebra.OrderCondition.operator ==(Varve.Sparql.Algebra.OrderCondition? left, Varve.Sparql.Algebra.OrderCondition? right) -> bool
+static Varve.Sparql.Algebra.PathPattern.operator !=(Varve.Sparql.Algebra.PathPattern? left, Varve.Sparql.Algebra.PathPattern? right) -> bool
+static Varve.Sparql.Algebra.PathPattern.operator ==(Varve.Sparql.Algebra.PathPattern? left, Varve.Sparql.Algebra.PathPattern? right) -> bool
+static Varve.Sparql.Algebra.PatternTerm.operator !=(Varve.Sparql.Algebra.PatternTerm? left, Varve.Sparql.Algebra.PatternTerm? right) -> bool
+static Varve.Sparql.Algebra.PatternTerm.operator ==(Varve.Sparql.Algebra.PatternTerm? left, Varve.Sparql.Algebra.PatternTerm? right) -> bool
+static Varve.Sparql.Algebra.PredicatePath.operator !=(Varve.Sparql.Algebra.PredicatePath? left, Varve.Sparql.Algebra.PredicatePath? right) -> bool
+static Varve.Sparql.Algebra.PredicatePath.operator ==(Varve.Sparql.Algebra.PredicatePath? left, Varve.Sparql.Algebra.PredicatePath? right) -> bool
+static Varve.Sparql.Algebra.PrefixDeclaration.operator !=(Varve.Sparql.Algebra.PrefixDeclaration? left, Varve.Sparql.Algebra.PrefixDeclaration? right) -> bool
+static Varve.Sparql.Algebra.PrefixDeclaration.operator ==(Varve.Sparql.Algebra.PrefixDeclaration? left, Varve.Sparql.Algebra.PrefixDeclaration? right) -> bool
+static Varve.Sparql.Algebra.Project.operator !=(Varve.Sparql.Algebra.Project? left, Varve.Sparql.Algebra.Project? right) -> bool
+static Varve.Sparql.Algebra.Project.operator ==(Varve.Sparql.Algebra.Project? left, Varve.Sparql.Algebra.Project? right) -> bool
+static Varve.Sparql.Algebra.Prologue.Empty.get -> Varve.Sparql.Algebra.Prologue!
+static Varve.Sparql.Algebra.Prologue.operator !=(Varve.Sparql.Algebra.Prologue? left, Varve.Sparql.Algebra.Prologue? right) -> bool
+static Varve.Sparql.Algebra.Prologue.operator ==(Varve.Sparql.Algebra.Prologue? left, Varve.Sparql.Algebra.Prologue? right) -> bool
+static Varve.Sparql.Algebra.PropertyPath.operator !=(Varve.Sparql.Algebra.PropertyPath? left, Varve.Sparql.Algebra.PropertyPath? right) -> bool
+static Varve.Sparql.Algebra.PropertyPath.operator ==(Varve.Sparql.Algebra.PropertyPath? left, Varve.Sparql.Algebra.PropertyPath? right) -> bool
+static Varve.Sparql.Algebra.QuadPattern.operator !=(Varve.Sparql.Algebra.QuadPattern? left, Varve.Sparql.Algebra.QuadPattern? right) -> bool
+static Varve.Sparql.Algebra.QuadPattern.operator ==(Varve.Sparql.Algebra.QuadPattern? left, Varve.Sparql.Algebra.QuadPattern? right) -> bool
+static Varve.Sparql.Algebra.Query.operator !=(Varve.Sparql.Algebra.Query? left, Varve.Sparql.Algebra.Query? right) -> bool
+static Varve.Sparql.Algebra.Query.operator ==(Varve.Sparql.Algebra.Query? left, Varve.Sparql.Algebra.Query? right) -> bool
+static Varve.Sparql.Algebra.QueryPattern.operator !=(Varve.Sparql.Algebra.QueryPattern? left, Varve.Sparql.Algebra.QueryPattern? right) -> bool
+static Varve.Sparql.Algebra.QueryPattern.operator ==(Varve.Sparql.Algebra.QueryPattern? left, Varve.Sparql.Algebra.QueryPattern? right) -> bool
+static Varve.Sparql.Algebra.Reduced.operator !=(Varve.Sparql.Algebra.Reduced? left, Varve.Sparql.Algebra.Reduced? right) -> bool
+static Varve.Sparql.Algebra.Reduced.operator ==(Varve.Sparql.Algebra.Reduced? left, Varve.Sparql.Algebra.Reduced? right) -> bool
+static Varve.Sparql.Algebra.SelectQuery.operator !=(Varve.Sparql.Algebra.SelectQuery? left, Varve.Sparql.Algebra.SelectQuery? right) -> bool
+static Varve.Sparql.Algebra.SelectQuery.operator ==(Varve.Sparql.Algebra.SelectQuery? left, Varve.Sparql.Algebra.SelectQuery? right) -> bool
+static Varve.Sparql.Algebra.SequencePath.operator !=(Varve.Sparql.Algebra.SequencePath? left, Varve.Sparql.Algebra.SequencePath? right) -> bool
+static Varve.Sparql.Algebra.SequencePath.operator ==(Varve.Sparql.Algebra.SequencePath? left, Varve.Sparql.Algebra.SequencePath? right) -> bool
+static Varve.Sparql.Algebra.Service.operator !=(Varve.Sparql.Algebra.Service? left, Varve.Sparql.Algebra.Service? right) -> bool
+static Varve.Sparql.Algebra.Service.operator ==(Varve.Sparql.Algebra.Service? left, Varve.Sparql.Algebra.Service? right) -> bool
+static Varve.Sparql.Algebra.Slice.operator !=(Varve.Sparql.Algebra.Slice? left, Varve.Sparql.Algebra.Slice? right) -> bool
+static Varve.Sparql.Algebra.Slice.operator ==(Varve.Sparql.Algebra.Slice? left, Varve.Sparql.Algebra.Slice? right) -> bool
+static Varve.Sparql.Algebra.TermPattern.operator !=(Varve.Sparql.Algebra.TermPattern? left, Varve.Sparql.Algebra.TermPattern? right) -> bool
+static Varve.Sparql.Algebra.TermPattern.operator ==(Varve.Sparql.Algebra.TermPattern? left, Varve.Sparql.Algebra.TermPattern? right) -> bool
+static Varve.Sparql.Algebra.TriplePattern.operator !=(Varve.Sparql.Algebra.TriplePattern? left, Varve.Sparql.Algebra.TriplePattern? right) -> bool
+static Varve.Sparql.Algebra.TriplePattern.operator ==(Varve.Sparql.Algebra.TriplePattern? left, Varve.Sparql.Algebra.TriplePattern? right) -> bool
+static Varve.Sparql.Algebra.TripleTermPattern.operator !=(Varve.Sparql.Algebra.TripleTermPattern? left, Varve.Sparql.Algebra.TripleTermPattern? right) -> bool
+static Varve.Sparql.Algebra.TripleTermPattern.operator ==(Varve.Sparql.Algebra.TripleTermPattern? left, Varve.Sparql.Algebra.TripleTermPattern? right) -> bool
+static Varve.Sparql.Algebra.UnaryExpression.operator !=(Varve.Sparql.Algebra.UnaryExpression? left, Varve.Sparql.Algebra.UnaryExpression? right) -> bool
+static Varve.Sparql.Algebra.UnaryExpression.operator ==(Varve.Sparql.Algebra.UnaryExpression? left, Varve.Sparql.Algebra.UnaryExpression? right) -> bool
+static Varve.Sparql.Algebra.Union.operator !=(Varve.Sparql.Algebra.Union? left, Varve.Sparql.Algebra.Union? right) -> bool
+static Varve.Sparql.Algebra.Union.operator ==(Varve.Sparql.Algebra.Union? left, Varve.Sparql.Algebra.Union? right) -> bool
+static Varve.Sparql.Algebra.Update.operator !=(Varve.Sparql.Algebra.Update? left, Varve.Sparql.Algebra.Update? right) -> bool
+static Varve.Sparql.Algebra.Update.operator ==(Varve.Sparql.Algebra.Update? left, Varve.Sparql.Algebra.Update? right) -> bool
+static Varve.Sparql.Algebra.UpdateOperation.operator !=(Varve.Sparql.Algebra.UpdateOperation? left, Varve.Sparql.Algebra.UpdateOperation? right) -> bool
+static Varve.Sparql.Algebra.UpdateOperation.operator ==(Varve.Sparql.Algebra.UpdateOperation? left, Varve.Sparql.Algebra.UpdateOperation? right) -> bool
+static Varve.Sparql.Algebra.Values.operator !=(Varve.Sparql.Algebra.Values? left, Varve.Sparql.Algebra.Values? right) -> bool
+static Varve.Sparql.Algebra.Values.operator ==(Varve.Sparql.Algebra.Values? left, Varve.Sparql.Algebra.Values? right) -> bool
+static Varve.Sparql.Algebra.Variable.operator !=(Varve.Sparql.Algebra.Variable left, Varve.Sparql.Algebra.Variable right) -> bool
+static Varve.Sparql.Algebra.Variable.operator ==(Varve.Sparql.Algebra.Variable left, Varve.Sparql.Algebra.Variable right) -> bool
+static Varve.Sparql.Algebra.VariableExpression.operator !=(Varve.Sparql.Algebra.VariableExpression? left, Varve.Sparql.Algebra.VariableExpression? right) -> bool
+static Varve.Sparql.Algebra.VariableExpression.operator ==(Varve.Sparql.Algebra.VariableExpression? left, Varve.Sparql.Algebra.VariableExpression? right) -> bool
+static Varve.Sparql.Algebra.VariablePattern.operator !=(Varve.Sparql.Algebra.VariablePattern? left, Varve.Sparql.Algebra.VariablePattern? right) -> bool
+static Varve.Sparql.Algebra.VariablePattern.operator ==(Varve.Sparql.Algebra.VariablePattern? left, Varve.Sparql.Algebra.VariablePattern? right) -> bool
+static Varve.Sparql.Algebra.ZeroOrMorePath.operator !=(Varve.Sparql.Algebra.ZeroOrMorePath? left, Varve.Sparql.Algebra.ZeroOrMorePath? right) -> bool
+static Varve.Sparql.Algebra.ZeroOrMorePath.operator ==(Varve.Sparql.Algebra.ZeroOrMorePath? left, Varve.Sparql.Algebra.ZeroOrMorePath? right) -> bool
+static Varve.Sparql.Algebra.ZeroOrOnePath.operator !=(Varve.Sparql.Algebra.ZeroOrOnePath? left, Varve.Sparql.Algebra.ZeroOrOnePath? right) -> bool
+static Varve.Sparql.Algebra.ZeroOrOnePath.operator ==(Varve.Sparql.Algebra.ZeroOrOnePath? left, Varve.Sparql.Algebra.ZeroOrOnePath? right) -> bool
+static Varve.Sparql.SourceSpan.None.get -> Varve.Sparql.SourceSpan
+static Varve.Sparql.SourceSpan.operator !=(Varve.Sparql.SourceSpan left, Varve.Sparql.SourceSpan right) -> bool
+static Varve.Sparql.SourceSpan.operator ==(Varve.Sparql.SourceSpan left, Varve.Sparql.SourceSpan right) -> bool
+virtual Varve.Sparql.Algebra.AlgebraNode.EqualityContract.get -> System.Type!
+virtual Varve.Sparql.Algebra.AlgebraNode.Equals(Varve.Sparql.Algebra.AlgebraNode? other) -> bool
+virtual Varve.Sparql.Algebra.AlgebraNode.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual Varve.Sparql.Algebra.AlgebraRewriter.Rewrite(Varve.Sparql.Algebra.Expression! expression) -> Varve.Sparql.Algebra.Expression!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.Rewrite(Varve.Sparql.Algebra.PatternTerm! term) -> Varve.Sparql.Algebra.PatternTerm!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.Rewrite(Varve.Sparql.Algebra.PropertyPath! path) -> Varve.Sparql.Algebra.PropertyPath!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.Rewrite(Varve.Sparql.Algebra.QuadPattern! quad) -> Varve.Sparql.Algebra.QuadPattern!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.Rewrite(Varve.Sparql.Algebra.Query! query) -> Varve.Sparql.Algebra.Query!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.Rewrite(Varve.Sparql.Algebra.QueryPattern! pattern) -> Varve.Sparql.Algebra.QueryPattern!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.Rewrite(Varve.Sparql.Algebra.TriplePattern! triple) -> Varve.Sparql.Algebra.TriplePattern!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.Rewrite(Varve.Sparql.Algebra.Update! update) -> Varve.Sparql.Algebra.Update!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.Rewrite(Varve.Sparql.Algebra.UpdateOperation! operation) -> Varve.Sparql.Algebra.UpdateOperation!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteAdd(Varve.Sparql.Algebra.Add! operation) -> Varve.Sparql.Algebra.UpdateOperation!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteAggregateExpression(Varve.Sparql.Algebra.AggregateExpression! expression) -> Varve.Sparql.Algebra.Expression!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteAlternativePath(Varve.Sparql.Algebra.AlternativePath! path) -> Varve.Sparql.Algebra.PropertyPath!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteAskQuery(Varve.Sparql.Algebra.AskQuery! query) -> Varve.Sparql.Algebra.Query!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteBgp(Varve.Sparql.Algebra.Bgp! pattern) -> Varve.Sparql.Algebra.QueryPattern!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteBinaryExpression(Varve.Sparql.Algebra.BinaryExpression! expression) -> Varve.Sparql.Algebra.Expression!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteBlankNodePattern(Varve.Sparql.Algebra.BlankNodePattern! term) -> Varve.Sparql.Algebra.PatternTerm!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteClear(Varve.Sparql.Algebra.Clear! operation) -> Varve.Sparql.Algebra.UpdateOperation!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteConstantExpression(Varve.Sparql.Algebra.ConstantExpression! expression) -> Varve.Sparql.Algebra.Expression!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteConstructQuery(Varve.Sparql.Algebra.ConstructQuery! query) -> Varve.Sparql.Algebra.Query!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteCopy(Varve.Sparql.Algebra.Copy! operation) -> Varve.Sparql.Algebra.UpdateOperation!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteCreate(Varve.Sparql.Algebra.Create! operation) -> Varve.Sparql.Algebra.UpdateOperation!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteCustomFunctionCall(Varve.Sparql.Algebra.CustomFunctionCall! expression) -> Varve.Sparql.Algebra.Expression!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteDeleteData(Varve.Sparql.Algebra.DeleteData! operation) -> Varve.Sparql.Algebra.UpdateOperation!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteDeleteWhere(Varve.Sparql.Algebra.DeleteWhere! operation) -> Varve.Sparql.Algebra.UpdateOperation!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteDescribeQuery(Varve.Sparql.Algebra.DescribeQuery! query) -> Varve.Sparql.Algebra.Query!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteDistinct(Varve.Sparql.Algebra.Distinct! pattern) -> Varve.Sparql.Algebra.QueryPattern!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteDrop(Varve.Sparql.Algebra.Drop! operation) -> Varve.Sparql.Algebra.UpdateOperation!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteExistsExpression(Varve.Sparql.Algebra.ExistsExpression! expression) -> Varve.Sparql.Algebra.Expression!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteExtend(Varve.Sparql.Algebra.Extend! pattern) -> Varve.Sparql.Algebra.QueryPattern!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteFilter(Varve.Sparql.Algebra.Filter! pattern) -> Varve.Sparql.Algebra.QueryPattern!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteFunctionCall(Varve.Sparql.Algebra.FunctionCall! expression) -> Varve.Sparql.Algebra.Expression!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteGraph(Varve.Sparql.Algebra.Graph! pattern) -> Varve.Sparql.Algebra.QueryPattern!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteGroup(Varve.Sparql.Algebra.Group! pattern) -> Varve.Sparql.Algebra.QueryPattern!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteInsertData(Varve.Sparql.Algebra.InsertData! operation) -> Varve.Sparql.Algebra.UpdateOperation!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteInversePath(Varve.Sparql.Algebra.InversePath! path) -> Varve.Sparql.Algebra.PropertyPath!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteJoin(Varve.Sparql.Algebra.Join! pattern) -> Varve.Sparql.Algebra.QueryPattern!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteLeftJoin(Varve.Sparql.Algebra.LeftJoin! pattern) -> Varve.Sparql.Algebra.QueryPattern!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteLoad(Varve.Sparql.Algebra.Load! operation) -> Varve.Sparql.Algebra.UpdateOperation!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteMinus(Varve.Sparql.Algebra.Minus! pattern) -> Varve.Sparql.Algebra.QueryPattern!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteModify(Varve.Sparql.Algebra.Modify! operation) -> Varve.Sparql.Algebra.UpdateOperation!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteMove(Varve.Sparql.Algebra.Move! operation) -> Varve.Sparql.Algebra.UpdateOperation!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteNegatedPropertySet(Varve.Sparql.Algebra.NegatedPropertySet! path) -> Varve.Sparql.Algebra.PropertyPath!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteOneOrMorePath(Varve.Sparql.Algebra.OneOrMorePath! path) -> Varve.Sparql.Algebra.PropertyPath!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteOrderBy(Varve.Sparql.Algebra.OrderBy! pattern) -> Varve.Sparql.Algebra.QueryPattern!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewritePathPattern(Varve.Sparql.Algebra.PathPattern! pattern) -> Varve.Sparql.Algebra.QueryPattern!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewritePredicatePath(Varve.Sparql.Algebra.PredicatePath! path) -> Varve.Sparql.Algebra.PropertyPath!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteProject(Varve.Sparql.Algebra.Project! pattern) -> Varve.Sparql.Algebra.QueryPattern!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteReduced(Varve.Sparql.Algebra.Reduced! pattern) -> Varve.Sparql.Algebra.QueryPattern!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteSelectQuery(Varve.Sparql.Algebra.SelectQuery! query) -> Varve.Sparql.Algebra.Query!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteSequencePath(Varve.Sparql.Algebra.SequencePath! path) -> Varve.Sparql.Algebra.PropertyPath!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteService(Varve.Sparql.Algebra.Service! pattern) -> Varve.Sparql.Algebra.QueryPattern!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteSlice(Varve.Sparql.Algebra.Slice! pattern) -> Varve.Sparql.Algebra.QueryPattern!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteTermPattern(Varve.Sparql.Algebra.TermPattern! term) -> Varve.Sparql.Algebra.PatternTerm!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteTripleTermPattern(Varve.Sparql.Algebra.TripleTermPattern! term) -> Varve.Sparql.Algebra.PatternTerm!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteUnaryExpression(Varve.Sparql.Algebra.UnaryExpression! expression) -> Varve.Sparql.Algebra.Expression!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteUnion(Varve.Sparql.Algebra.Union! pattern) -> Varve.Sparql.Algebra.QueryPattern!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteValues(Varve.Sparql.Algebra.Values! pattern) -> Varve.Sparql.Algebra.QueryPattern!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteVariableExpression(Varve.Sparql.Algebra.VariableExpression! expression) -> Varve.Sparql.Algebra.Expression!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteVariablePattern(Varve.Sparql.Algebra.VariablePattern! term) -> Varve.Sparql.Algebra.PatternTerm!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteZeroOrMorePath(Varve.Sparql.Algebra.ZeroOrMorePath! path) -> Varve.Sparql.Algebra.PropertyPath!
+virtual Varve.Sparql.Algebra.AlgebraRewriter.RewriteZeroOrOnePath(Varve.Sparql.Algebra.ZeroOrOnePath! path) -> Varve.Sparql.Algebra.PropertyPath!
+virtual Varve.Sparql.Algebra.Expression.Equals(Varve.Sparql.Algebra.Expression? other) -> bool
+virtual Varve.Sparql.Algebra.PatternTerm.Equals(Varve.Sparql.Algebra.PatternTerm? other) -> bool
+virtual Varve.Sparql.Algebra.PropertyPath.Equals(Varve.Sparql.Algebra.PropertyPath? other) -> bool
+virtual Varve.Sparql.Algebra.Query.Equals(Varve.Sparql.Algebra.Query? other) -> bool
+virtual Varve.Sparql.Algebra.QueryPattern.Equals(Varve.Sparql.Algebra.QueryPattern? other) -> bool
+virtual Varve.Sparql.Algebra.UpdateOperation.Equals(Varve.Sparql.Algebra.UpdateOperation? other) -> bool
+~override Varve.Sparql.Algebra.GraphOrDefault.Equals(object obj) -> bool
+~override Varve.Sparql.Algebra.GraphOrDefault.ToString() -> string
+~override Varve.Sparql.Algebra.GraphTarget.Equals(object obj) -> bool
+~override Varve.Sparql.Algebra.GraphTarget.ToString() -> string
+~override Varve.Sparql.Algebra.Variable.Equals(object obj) -> bool
