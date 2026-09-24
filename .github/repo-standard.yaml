@@ -10,7 +10,7 @@ repository:
     issues: true
     projects: true
     wiki: false
-    discussions: false
+    discussions: true
   merge:
     allow_merge_commit: true
     allow_squash_merge: true
@@ -107,7 +107,7 @@ rulesets:
   - type: non_fast_forward
   - type: required_status_checks
     parameters:
-      strict_required_status_checks_policy: true
+      strict_required_status_checks_policy: false
       do_not_enforce_on_create: false
       required_status_checks: []
   bypass_actors: []
