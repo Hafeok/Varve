@@ -1,0 +1,136 @@
+# repo-standard declaration for Hafeok/Varve
+# Written by `repo-standard export` 0.1.0. Secrets are names only; values are never read.
+# Remove a top-level key to stop managing that kind of resource.
+repository:
+  description: ""
+  homepage: ""
+  topics: []
+  default_branch: main
+  features:
+    issues: true
+    projects: true
+    wiki: false
+    discussions: false
+  merge:
+    allow_merge_commit: true
+    allow_squash_merge: true
+    allow_rebase_merge: true
+    allow_auto_merge: false
+    allow_update_branch: false
+    delete_branch_on_merge: false
+    merge_commit_title: MERGE_MESSAGE
+    merge_commit_message: PR_TITLE
+    squash_merge_commit_title: COMMIT_OR_PR_TITLE
+    squash_merge_commit_message: COMMIT_MESSAGES
+  web_commit_signoff_required: false
+  security:
+    private_vulnerability_reporting: false
+    dependabot_alerts: false
+    dependabot_security_updates: false
+    secret_scanning: false
+    secret_scanning_push_protection: false
+labels:
+- name: accessibility
+  color: f143ab
+  description: Barrier affecting people with disabilities
+- name: bug
+  color: d73a4a
+  description: Something isn't working
+- name: documentation
+  color: 0075ca
+  description: Improvements or additions to documentation
+- name: duplicate
+  color: cfd3d7
+  description: This issue or pull request already exists
+- name: enhancement
+  color: a2eeef
+  description: New feature or request
+- name: good first issue
+  color: 7057ff
+  description: Good for newcomers
+- name: help wanted
+  color: "008672"
+  description: Extra attention is needed
+- name: invalid
+  color: e4e669
+  description: This doesn't seem right
+- name: question
+  color: d876e3
+  description: Further information is requested
+- name: wontfix
+  color: ffffff
+  description: This will not be worked on
+rulesets:
+- name: Signed Commits
+  target: branch
+  enforcement: active
+  conditions:
+    ref_name:
+      exclude: []
+      include:
+      - ~DEFAULT_BRANCH
+  rules:
+  - type: required_signatures
+  bypass_actors:
+  - actor_id: 5
+    actor_type: RepositoryRole
+    bypass_mode: always
+  - actor_id: 1236702
+    actor_type: Integration
+    bypass_mode: always
+- name: Varve Release Approval
+  target: tag
+  enforcement: active
+  conditions:
+    ref_name:
+      exclude: []
+      include:
+      - refs/tags/v*
+  rules:
+  - type: deletion
+  - type: non_fast_forward
+  - type: creation
+  bypass_actors:
+  - actor_id: 2194785
+    actor_type: User
+    bypass_mode: always
+- name: trunk
+  target: branch
+  enforcement: active
+  conditions:
+    ref_name:
+      exclude: []
+      include:
+      - ~DEFAULT_BRANCH
+  rules:
+  - type: deletion
+  - type: non_fast_forward
+  - type: required_status_checks
+    parameters:
+      strict_required_status_checks_policy: true
+      do_not_enforce_on_create: false
+      required_status_checks: []
+  bypass_actors: []
+environments:
+- name: release
+  wait_timer: 0
+  prevent_self_review: false
+  reviewers:
+  - type: User
+    login: Hafeok
+  deployment_branch_policy: null
+  branch_policies: []
+  secrets:
+  - NUGET_USER
+secrets:
+- REPO_STANDARD_APP_CLIENT_ID
+- REPO_STANDARD_APP_PRIVATE_KEY
+# projects: left out on purpose. The boards are owned by a user account, which an
+# App's installation token cannot reach (ADR 0039); they are not managed here.
+actions:
+  enabled: true
+  allowed_actions: all
+  sha_pinning_required: false
+  workflow:
+    default_workflow_permissions: read
+    can_approve_pull_request_reviews: false
