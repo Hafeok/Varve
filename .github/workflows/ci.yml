@@ -181,6 +181,12 @@ jobs:
           --project tests/Varve.Sparql.Results.Tests/Varve.Sparql.Results.Tests.csproj
           --configuration Release
 
+      - name: Test Varve.Sparql.Evaluation
+        run: >
+          dotnet test
+          --project tests/Varve.Sparql.Evaluation.Tests/Varve.Sparql.Evaluation.Tests.csproj
+          --configuration Release
+
       # tools/repo-standard: its own solution, built and tested on both
       # platforms (ADR 0039). Not packed: it is not published from here.
       - name: Build repo-standard

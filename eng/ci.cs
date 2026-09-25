@@ -116,6 +116,9 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-sparql-results", "Varve.Sparql.Results: the four readers, the chunk-boundary oracle over every suite result file",
         () => Test("Varve.Sparql.Results.Tests")),
 
+    ("test-sparql-evaluation", "Varve.Sparql.Evaluation: the optimiser and store properties, allocation, MD5, cancellation, SERVICE",
+        () => Test("Varve.Sparql.Evaluation.Tests")),
+
     // tools/repo-standard is its own solution, outside Varve.slnx, and moves to
     // its own repository (ADR 0039). Its jobs are separate so that the move
     // deletes them rather than untangling them. The Native AOT publish and the
