@@ -33,6 +33,10 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **results**: escape two characters a test held raw (bc8e864f)
 - **smoke**: update, results JSON and RDFC-1.0 under AOT and in the browser (9275b160)
 - **bench**: updates and RDFC-1.0 against dotNetRDF and pyoxigraph (9b0d2c97)
+- roadmap, README, AGENTS, changelog, the traceability record (474dc370)
+- **adr**: 0060, hosts at layer 6 — the composition root, reserved to executables (3356f272)
+- **spec**: RDFC-1.0's blank-graph-name limit, stated for callers, with the evidence corrected (4655d17c)
+- build the benchmark project on every run, without running it (2b872976)
 
 #### Fixed
 
