@@ -541,6 +541,26 @@ sentence in the report above is left as written.
 **The host question** is decided by ADR 0060: hosts at layer 6. The smoke
 apps now run their update through `Varve.Sparql.Store`.
 
+## Addendum, 2026-09-25 — the canonical form
+
+This addendum records the maintainer's decisions on the proposals commented on #34.
+
+**The prompt**, verbatim:
+
+> Merged with a merge commit. Decisions:
+>
+> - N-Triples canonical form follows the RDF 1.2 N-Triples specification; where 1.1 and 1.2 differ, 1.2 wins and the ADR says why. Own PR before milestone 6: writer change, the 86 rdf12 canonical-form cases under the ratchet with guard counts, n-triples.md updated, the RDFC-1.0 internal writer held byte-identical by the existing property.
+> - ADR 0057 step order: paste the proposal text into this channel via the maintainer; decided there.
+> - Add to #39's draft that dotNetRDF's canonical form matches neither of the two RDFC-1.0 produces, as an observation.
+
+**What was done.**
+- **The canonical form (#41).** ADR 0061; the writer change; the RDF 1.2 `c14n` suites under the ratchet with guard counts; `n-triples.md` updated; and the existing read-back property extended to hold the two canonical writers byte-identical.
+  - **The suites hold 82 cases, not the 86 in the prompt.** The prompt's figure came from my comment on #34, which counted a header comment and a commented-out entry. Each manifest lists 41 cases.
+  - **A line-parser defect was found and fixed:** whitespace before a literal's `^^` or language tag.
+  - The ratchet moves to **2,803**.
+- **ADR 0057's step order.** The proposal text was given in the session's reply, for the decision there.
+- **#39.** The observation was added to its draft: over 300 relabellings, dotNetRDF's canonical form for the blank-graph-name dataset matches neither of the two forms RDFC-1.0 produces in Varve and pyoxigraph.
+
 ## Commits
 
 1. `f51f97b` fix(test): read allocation where no collection or tier-up can move it
