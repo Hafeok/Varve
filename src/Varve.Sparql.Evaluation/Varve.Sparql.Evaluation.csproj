@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 3: the optimiser and the evaluator, one package (ADR 0048).
+         docs/spec/sparql-evaluation.md. -->
+    <VarveLayer>3</VarveLayer>
+    <IsPackable>true</IsPackable>
+
+    <!-- ADR 0056: no ambient clock and no ambient randomness. NOW(), RAND(),
+         UUID() and STRUUID() read what the caller injects, and the banned-
+         symbol list in eng/BannedSymbols.Deterministic.txt makes anything
+         else a compile error here, as it does in Varve.Store. -->
+    <VarveDeterministic>true</VarveDeterministic>
+
+    <Description>SPARQL 1.1 query evaluation, with SPARQL 1.2's additions, over any Varve quad source: the optimiser and the evaluator.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Sparql/Varve.Sparql.csproj" />
+    <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
+    <ProjectReference Include="../Varve.Xsd/Varve.Xsd.csproj" />
+    <ProjectReference Include="../Varve.Iri/Varve.Iri.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ADR 0003 permits InternalsVisibleTo toward *.Tests only: the optimiser's
+         rewrite counters, which keep its equivalence property from passing
+         vacuously, are internal. -->
+    <InternalsVisibleTo Include="Varve.Sparql.Evaluation.Tests" />
+  </ItemGroup>
+
+</Project>

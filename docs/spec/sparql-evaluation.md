@@ -259,9 +259,27 @@ Only closures and negated property sets reach here. `ZeroOrMorePath` and
 `OneOrMorePath` run `ALP` from each start node with a visited set per start;
 `ZeroOrOnePath` is the start and its one-step successors, deduplicated. With
 both ends unbound the start nodes are `nodes(G)`, the subjects and objects of
-the active graph. A zero-length path from a term the graph does not hold
-yields that term. A negated property set is a scan in the direction its
-members name, keeping triples whose predicate is not among them.
+the active graph.
+
+**The zero-length step** of `*` and `?` reaches its start whatever the graph
+holds when either end is a term **written in the query**; when both ends are
+variables it reaches only nodes of the active graph, **even when an incoming
+solution has bound one of them**. A variable bound by `VALUES` or by a join is
+still a variable of the path pattern, and `sparql11/property-path`'s
+`values_and_path` requires exactly this: the `VALUES` binds a term the graph
+does not hold, and the expected answer has no zero-length row for it.
+
+**A negated property set** is a scan in the direction its members name,
+keeping triples whose predicate is not among them, and **each direction is a
+set**: §18.4 defines `eval(Path(x, NPS(S), y))` as `{ μ | ∃ triple … }`, so
+two triples between the same two nodes are one solution, whichever ends are
+bound. A set with both forward and inverse members is §18.2.2.3's
+`alt(NPS(fwd), inv(NPS(inv)))`, and its halves join as `alt` does, a multiset
+union. The optimiser property (§8.6) found the first implementation counting
+each triple when both ends were free and each pair once when one was bound,
+which made the answer depend on join order; Oxigraph 0.5.11 does the same
+(two solutions for `?c !:p0 ?c` over two such triples, one once `?c` is
+bound by `VALUES`), and is not followed here.
 
 ### 6.11 `Graph`, and the dataset — §13, §18.6
 
@@ -280,12 +298,22 @@ triples. The active graph starts as the default graph.
 
 `Graph(<g>, P)` evaluates `P` with `<g>` active if `<g>` is a named graph of
 the dataset, and yields nothing otherwise. `Graph(?g, P)` ranges `?g` over the
-named graphs: when every solution of `P` binds `?g` through a scan (every
-branch holds a non-empty `Bgp`), the scans themselves bind it — `Match` over
-`AnyNamed`, restricted to the `FROM NAMED` set when there is one — and
-otherwise `P` is evaluated once per named graph, the graphs being the
-`FROM NAMED` list or, without one, the distinct graph names of one `AnyNamed`
-scan, taken once per execution.
+named graphs, and §18.6's definition is a join: `P` is evaluated with the
+graph active **and `?g` as `P` would see it without the `GRAPH`** — unbound,
+unless the incoming solution binds it — and each of its solutions is then
+joined with `?g` = the graph's name. A `?g` that `P` itself binds, in an
+`OPTIONAL` or a sub-`SELECT` (`sparql10/graph`'s `graph-optional`,
+`sparql11/aggregates`' `agg-empty-group-count-graph`, `sparql12`'s
+`graph-variable-scope`), must be compatible with the name, not pre-bound to
+it: pre-binding changes which `OPTIONAL` branches match and what a grouped
+count sees.
+
+When `P` does not mention `?g` and every solution of `P` binds it through a
+scan (every branch holds a non-empty `Bgp`), the scans themselves bind it —
+`Match` over `AnyNamed`, restricted to the `FROM NAMED` set when there is one
+— which is the same join done by the index. Otherwise `P` is evaluated once
+per named graph, the graphs being the `FROM NAMED` list or, without one, the
+distinct graph names of one `AnyNamed` scan, taken once per execution.
 
 ### 6.12 `Service` — ADR 0055, Federated Query §3.2
 
@@ -335,9 +363,15 @@ need one produce an error, and `sameTerm` and term equality still work.
 
 ### 7.3 Effective boolean value — §17.2.2
 
-`xsd:boolean` by value, invalid lexical forms false; numerics false when zero
-or `NaN`, invalid lexical forms false; simple literals and `xsd:string`
-false when empty; anything else an error.
+`xsd:boolean` by value; numerics false when zero or `NaN`; simple literals
+and `xsd:string` false when empty; anything else an error — **a boolean or
+numeric literal whose lexical form is invalid for its datatype included**.
+SPARQL 1.1 §17.2.2 made such a literal false; SPARQL 1.2 makes it an error,
+and `sparql12/expression`'s `not-not` case tests the difference (`!!"z"^^xsd:boolean`
+has no value, so the solution's `BIND` leaves its variable unbound). The 1.2
+rule is applied to 1.0 and 1.1 queries too: no 1.0 or 1.1 case depends on
+the old one, and one evaluator with two EBVs would answer the same query two
+ways by its `VERSION`.
 
 ### 7.4 Operators — §17.3
 
@@ -345,11 +379,26 @@ Numerics compare and compute through `XsdNumeric` with XPath promotion
 (integer → decimal → float → double; integer division is decimal); simple
 literals and `xsd:string` compare by code point (`XsdString`); booleans with
 `false < true`; `xsd:dateTime` **by the implicit-timezone total order** (ADR
-0051, `XsdDateTime.Compare` with `ImplicitTimezoneOffsetMinutes`). The other
-seven-property types and the two ordered duration types compare the same way
-when both operands have the same type — §17.3.1's operator extensibility, as
-Oxigraph does — and `xsd:duration` by its partial order, an incomparable pair
-being a type error.
+0051, `XsdDateTime.Compare` with `ImplicitTimezoneOffsetMinutes`).
+
+`xsd:date`, `xsd:time` and the `g` types — `gYear`, `gYearMonth`, `gMonth`,
+`gMonthDay`, `gDay` — compare, when both operands have the same type, **by
+XSD's partial order** (`CompareXsd`): a timezoned and an untimezoned value
+closer than fourteen hours are incomparable, and incomparable is a type
+error. This is the mapping ADR 0051 left to 5b "as the evaluation suite
+decides", and the suite decides it: over `data-3.ttl`,
+`sparql10/open-world`'s `date-1` (`FILTER(?v = "2006-08-23"^^xsd:date)`)
+expects only `:d1`, not `:d2` (`"2006-08-23Z"`) or `:d3`
+(`"2006-08-23+00:00"`), and `date-2` (the same with `!=`) expects neither of
+them either. Under the implicit-timezone order with the UTC default,
+`"2006-08-23"` equals both, so `date-1` would include them and `date-2`
+exclude them only by accident of the default; under the partial order the
+comparisons are indeterminate, an error, and the filter drops them in both. No case of
+the suites compares `xsd:dateTime` values across the fourteen-hour window,
+so the dateTime order is not contradicted (§13.1). The two ordered duration
+types compare by value; `xsd:duration` by its partial order, an incomparable
+pair being a type error. Each of these is §17.3.1's operator extensibility,
+as Oxigraph provides.
 
 `=` and `!=` are value equality where the table above applies, and
 `RDFterm-equal` (§17.4.1.7) otherwise: equal when the terms are the same,
@@ -438,20 +487,27 @@ moved by the optimiser.
 
 A pass from `Query` to `Query` that changes no answer. It runs over the
 normalised tree (§5.1) with the source at hand, because its estimates are the
-source's (ADR 0049).
+source's (ADR 0049). Its rewrites run in a fixed order: constants are folded
+(§8.4) so that a folded condition can be placed; trivial joins go (§8.5) so
+that adjacent groups merge; filters are placed (§8.1) before joins are
+ordered (§8.3) so that a filter travels with its operand; and triple patterns
+are ordered last (§8.2). Each counts how often it fired (§8.6).
 
 ### 8.1 Filter placement
 
 A `Filter`'s condition is split into its `&&` conjuncts (sound, because a
 solution passes `a && b` exactly when it passes both, §17.2's truth table),
-and each conjunct is moved down to the lowest operator whose output
-**certainly binds** every variable the conjunct reads:
+and each conjunct is moved down as far as it soundly can:
 
-- through `Join` into the operand that certainly binds them;
-- through `Union` into both branches;
-- through `Extend` when the conjunct does not read the extended variable;
-- into the **left** operand of `LeftJoin` and of `Minus`, never the right;
-- into `Graph`'s pattern when the pattern certainly binds them;
+- through `Union` into both branches, through `Extend` when the conjunct
+  does not read the extended variable, and through another `Filter` —
+  **always**: each passes every solution of its input through, one to one or
+  not at all, without changing what the conjunct reads;
+- into an operand of `Join`, the **left** operand of `LeftJoin` and of
+  `Minus` (never the right), and `Graph`'s pattern — **only when that operand
+  certainly binds** every variable the conjunct reads: then each output
+  solution agrees, on those variables, with the operand's solution it came
+  from;
 - never through `Project`, `Group`, `Slice`, `Distinct`, `Reduced`,
   `OrderBy`, `Values` or `Service`.
 
@@ -464,26 +520,33 @@ a variable that is only *possibly* bound stays where it was: that is what
 keeps §18.2.2.7's scoping intact, since moving a filter to a place where the
 variable is unbound changes an error into a different error or a true.
 
-A conjunct that contains `EXISTS`, `BOUND`, `COALESCE`, `IF`, a call to
-`RAND`, `NOW`, `UUID`, `STRUUID` or `BNODE`, or an extension function, is
-not moved.
+A conjunct that contains `EXISTS`, an aggregate, `BOUND`, `COALESCE`,
+`IF`, a call to `RAND`, `NOW`, `UUID`, `STRUUID` or `BNODE`, or an extension
+function, is not moved. (An XSD constructor is a cast, not an extension
+function: the compiler takes it first.)
 
 ### 8.2 Triple order within a `Bgp`
 
-Greedy by estimate (ADR 0049): the first pattern is the one with the smallest
-estimate given only its constants; each next is the smallest given the
-variables the patterns before it bind, where a pattern that shares no bound
-variable with them sorts after every pattern that does. An estimate the
-source reports unknown sorts as large; ties keep the written order.
+Greedy by estimate (ADR 0049), each pattern's estimate being the source's
+for its constants with every other position a wildcard: the first pattern is
+the one with the smallest estimate; each next is the smallest among those
+sharing a variable or blank node with the patterns placed, or, when none
+does, the smallest of all. An estimate the source reports unknown sorts
+after every known one; a pattern with a constant the source cannot
+internalise estimates zero, since it matches nothing; ties keep the written
+order. A `Bgp`'s solutions are a set of matches (§18.3), the same in any
+order. Estimates are asked once per pattern per query.
 
 ### 8.3 Join order
 
-A maximal chain of `Join` nodes whose operands are `Bgp`s, `PathPattern`s,
-`Values`, and `Graph`s of those is flattened and rebuilt left-deep in the
-order §8.2 would give its operands, the estimate of an operand being its
-smallest pattern's. Nothing else is reordered: `LeftJoin`, `Minus`, `Extend`
-and `Filter` are order-sensitive, and a `Join` whose operand is a
-sub-`SELECT`, `Group` or `Service` keeps its place.
+A chain of `Join` nodes whose every operand is a `Bgp`, a `PathPattern`, a
+`Values`, or a `Graph` or `Filter` over one of those, is flattened and rebuilt
+left-deep in the order §8.2's rule gives its operands, sharing meaning a
+certainly bound variable (§8.1), and the estimate of an operand being its
+smallest pattern's (a `Values`, its row count; a closure or negated property
+set, unknown). Join is associative and commutative over multisets (§18.5), so
+the answer is the same. A chain with any other operand — a `LeftJoin`,
+`Minus`, `Extend`, sub-`SELECT`, `Group` or `Service` — is left as written.
 
 ### 8.4 Constant folding
 
@@ -499,16 +562,25 @@ error**, because the algebra has no node for an error.
 
 ### 8.6 The equivalence property
 
-For generated queries and datasets, evaluation with `Optimise = true` and
-with `Optimise = false` gives **the same solution multiset**. Under a
-`Slice` without a total `OrderBy`, which solutions are returned is
-unspecified (§15.4), so the property checks instead that the optimised
-result is a sub-multiset of the unsliced result of the right size; under an
-`OrderBy` with ties, it compares the sequences of tie groups. Each rewrite
-of §8.1–§8.5 counts how often it fired, and the run fails if any count is
-zero, which is what keeps the property from passing vacuously (ADR 0043's
-rule for generators). Every counterexample is a defect in a rewrite, and the
-report names which.
+For generated queries and datasets, the normalised query and the optimised
+one give **the same solution multiset** (for `ASK`, the same boolean). The
+generator writes SPARQL text — triple patterns, closures and negated property
+sets, `FILTER` with pure and impure conditions and constant-foldable parts,
+`BIND`, `VALUES` (with `UNDEF`, and the identity `VALUES () { () }`),
+`OPTIONAL`, `UNION`, `MINUS`, `GRAPH` by IRI and by variable, nested groups,
+sub-`SELECT`s, `FILTER EXISTS`, and `SELECT`, `SELECT DISTINCT`, grouped
+`SELECT` with `HAVING`, and `ASK` forms — over a vocabulary small enough that
+joins meet: five IRIs, four integers, a string and two blank nodes, three
+predicates, two named graphs. It writes no `ORDER BY` or `LIMIT`: the
+optimiser does not cross them, so they add no coverage, and they would make
+the comparison one of tie groups and sub-multisets.
+
+Each rewrite of §8.1–§8.5 counts how often it fired, and the run fails if any
+count is zero, or if fewer than two in five generated queries have a
+non-empty answer — what keeps the property from passing vacuously (ADR 0043's
+rule for generators). A counterexample is a defect in a rewrite or in an
+operator whose answer depends on the order it is asked in; the report names
+which.
 
 ## 9. Query forms — §16
 
@@ -562,7 +634,16 @@ pattern is a `Bgp` (no expression, no `DISTINCT`, no `ORDER BY`):
 
 Both are asserted as milestone 4 asserted the store's scan: the difference
 between two runs of different sizes, divided by the difference in solutions,
-against a stated bound, and zero for quads that do not match.
+against a stated bound, and zero for quads that do not match. The measured
+constant, over `InMemoryDataset` and over the store's pinned view alike, is
+**48 bytes per solution** for a two-slot query — the row, `ulong[3]`, and
+nothing else — and **0 bytes** per quad scanned and not matched.
+
+A `SELECT`'s own `Project`, when nothing above it but a `Slice` compares
+whole rows, is compiled away: the results read the projected columns only,
+so restricting the row would cost a second row per solution and change
+nothing anyone reads. A `Project` under `DISTINCT` or `REDUCED`, and every
+sub-`SELECT`'s, restricts as §18.5 says.
 
 ## 12. Tests, and the gate
 
@@ -583,8 +664,11 @@ a pinned view. Both are in the ratchet, one line per case per subject.
 - **Comparison, by result form.** `SELECT` results as multisets of solutions
   with a bijection between blank nodes, in order when the query has
   `ORDER BY` (compared as a sequence of tie groups); `mf:LaxCardinality` as
-  sets. Literals compare as terms, except that a CSV result compares lexical
-  forms, which is all CSV carries. `CONSTRUCT` and `DESCRIBE` results by graph
+  sets. Literals compare as terms, with two exceptions: a CSV result
+  compares lexical forms, which is all CSV carries; and two numeric or two
+  boolean literals **of the same datatype** compare by value, because the
+  suites' cast cases write expected results in lexical forms other than the
+  canonical one a processor returns. `CONSTRUCT` and `DESCRIBE` results by graph
   isomorphism. `ASK` by value.
 - **The RDF/XML files** of `sparql10/sort` and `sparql11/subquery` are read
   from N-Triples translations generated by dotNetRDF, with a SHA-256 guard
@@ -605,9 +689,13 @@ a pinned view. Both are in the ratchet, one line per case per subject.
   and a position P: evaluation over the store's as-of view at P and over an
   `InMemoryDataset` loaded from that view's quads give the same solutions,
   compared as terms with a blank node bijection. This is the property that
-  ties the evaluator to the storage thesis.
-- Both run a stated number of iterations; the report gives the count and
-  every counterexample found.
+  ties the evaluator to the storage thesis. The dataset is loaded from the
+  view's own externalised terms, so a blank node carries the store's label
+  into both answers and the bijection is the identity; the histories are one
+  to eight commits of two to twelve assertions and retractions each, and the
+  queries §8.6's generator's.
+- Both run a stated number of iterations — **20,000** for the optimiser,
+  **2,000** for the store — and the report gives every counterexample found.
 
 ### 12.3 Allocation — §11
 
@@ -629,7 +717,14 @@ against the pinned suites.
 
 ### 13.1 The dateTime order
 
-*Recorded when the suite has run.*
+**No case disagrees with ADR 0051's implicit-timezone total order for
+`xsd:dateTime`**, over both subjects: the order was applied, the suites run,
+and nothing changed for dateTime. `sparql10/open-world`'s `date-1` and
+`date-2` compare **`xsd:date`** values and require the XSD partial order
+(§7.4); ADR 0051 left `xsd:date` and the other seven-property types for 5b to
+map "as the evaluation suite decides", and they are mapped to the partial
+order. This is recorded as a finding, not a change to ADR 0051: its dateTime
+decision stands as written.
 
 ### 13.2 ADR 0050's benchmark
 
@@ -639,7 +734,10 @@ against the pinned suites.
 
 The SPARQL 1.2 evaluation cases whose data is RDF 1.2 Turtle or TriG are
 blocked on `turtle.md` §9, and are unblocked by the roadmap's slice that
-brings RDF 1.2 Turtle together with RDF/XML and JSON-LD, before milestone 7.
+brings RDF 1.2 Turtle together with RDF/XML and JSON-LD, before milestone 7
+(6b). There are **41**: 37 of `eval-triple-terms`' 38 (its `expr-2` reads
+`empty.nq` and runs) and 4 of `lang-basedir`'s 10. `EvaluationGuardTests`
+pins the count and prints each case with the error its data raises.
 
 ## 14. Open questions
 

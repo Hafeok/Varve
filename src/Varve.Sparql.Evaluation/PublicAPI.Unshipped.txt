@@ -1,0 +1,83 @@
+#nullable enable
+Varve.Sparql.Evaluation.BooleanResult
+Varve.Sparql.Evaluation.BooleanResult.Value.get -> bool
+Varve.Sparql.Evaluation.EvaluationOptions
+Varve.Sparql.Evaluation.EvaluationOptions.Aggregates.get -> System.Collections.Generic.IReadOnlyDictionary<string!, Varve.Sparql.Evaluation.IExtensionAggregate!>?
+Varve.Sparql.Evaluation.EvaluationOptions.Aggregates.init -> void
+Varve.Sparql.Evaluation.EvaluationOptions.Clock.get -> System.TimeProvider?
+Varve.Sparql.Evaluation.EvaluationOptions.Clock.init -> void
+Varve.Sparql.Evaluation.EvaluationOptions.EvaluationOptions() -> void
+Varve.Sparql.Evaluation.EvaluationOptions.Functions.get -> System.Collections.Generic.IReadOnlyDictionary<string!, Varve.Sparql.Evaluation.IExtensionFunction!>?
+Varve.Sparql.Evaluation.EvaluationOptions.Functions.init -> void
+Varve.Sparql.Evaluation.EvaluationOptions.ImplicitTimezoneOffsetMinutes.get -> int
+Varve.Sparql.Evaluation.EvaluationOptions.ImplicitTimezoneOffsetMinutes.init -> void
+Varve.Sparql.Evaluation.EvaluationOptions.Optimise.get -> bool
+Varve.Sparql.Evaluation.EvaluationOptions.Optimise.init -> void
+Varve.Sparql.Evaluation.EvaluationOptions.Randomness.get -> Varve.Sparql.Evaluation.IRandomSource?
+Varve.Sparql.Evaluation.EvaluationOptions.Randomness.init -> void
+Varve.Sparql.Evaluation.EvaluationOptions.RegexTimeout.get -> System.TimeSpan
+Varve.Sparql.Evaluation.EvaluationOptions.RegexTimeout.init -> void
+Varve.Sparql.Evaluation.EvaluationOptions.ServiceHandler.get -> Varve.Sparql.Evaluation.IServiceHandler!
+Varve.Sparql.Evaluation.EvaluationOptions.ServiceHandler.init -> void
+Varve.Sparql.Evaluation.EvaluationOptions.ValueAccess.get -> Varve.Sparql.Evaluation.ValueAccess
+Varve.Sparql.Evaluation.EvaluationOptions.ValueAccess.init -> void
+Varve.Sparql.Evaluation.IAggregateAccumulator
+Varve.Sparql.Evaluation.IAggregateAccumulator.Add(Varve.Rdf.RdfTerm! value) -> void
+Varve.Sparql.Evaluation.IAggregateAccumulator.TryGetResult(out Varve.Rdf.RdfTerm? result) -> bool
+Varve.Sparql.Evaluation.IExtensionAggregate
+Varve.Sparql.Evaluation.IExtensionAggregate.CreateAccumulator(bool distinct) -> Varve.Sparql.Evaluation.IAggregateAccumulator!
+Varve.Sparql.Evaluation.IExtensionFunction
+Varve.Sparql.Evaluation.IExtensionFunction.TryEvaluate(System.ReadOnlySpan<Varve.Rdf.RdfTerm!> arguments, out Varve.Rdf.RdfTerm? result) -> bool
+Varve.Sparql.Evaluation.IRandomSource
+Varve.Sparql.Evaluation.IRandomSource.NextBytes(System.Span<byte> destination) -> void
+Varve.Sparql.Evaluation.IServiceHandler
+Varve.Sparql.Evaluation.IServiceHandler.Execute(Varve.Sparql.Evaluation.ServiceRequest! request, System.Threading.CancellationToken cancellationToken) -> Varve.Sparql.Evaluation.ServiceResult!
+Varve.Sparql.Evaluation.QueryEvaluationException
+Varve.Sparql.Evaluation.QueryEvaluationException.QueryEvaluationException() -> void
+Varve.Sparql.Evaluation.QueryEvaluationException.QueryEvaluationException(string! message) -> void
+Varve.Sparql.Evaluation.QueryEvaluationException.QueryEvaluationException(string! message, System.Exception! innerException) -> void
+Varve.Sparql.Evaluation.QueryResultKind
+Varve.Sparql.Evaluation.QueryResultKind.Boolean = 1 -> Varve.Sparql.Evaluation.QueryResultKind
+Varve.Sparql.Evaluation.QueryResultKind.Solutions = 0 -> Varve.Sparql.Evaluation.QueryResultKind
+Varve.Sparql.Evaluation.QueryResultKind.Triples = 2 -> Varve.Sparql.Evaluation.QueryResultKind
+Varve.Sparql.Evaluation.QueryResults
+Varve.Sparql.Evaluation.QueryResults.Dispose() -> void
+Varve.Sparql.Evaluation.RefusingServiceHandler
+Varve.Sparql.Evaluation.RefusingServiceHandler.Execute(Varve.Sparql.Evaluation.ServiceRequest! request, System.Threading.CancellationToken cancellationToken) -> Varve.Sparql.Evaluation.ServiceResult!
+Varve.Sparql.Evaluation.ServiceRequest
+Varve.Sparql.Evaluation.ServiceRequest.Endpoint.get -> Varve.Rdf.RdfTerm!
+Varve.Sparql.Evaluation.ServiceRequest.Incoming.get -> System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm?>!>!
+Varve.Sparql.Evaluation.ServiceRequest.Pattern.get -> Varve.Sparql.Algebra.Service!
+Varve.Sparql.Evaluation.ServiceRequest.ServiceRequest(Varve.Rdf.RdfTerm! endpoint, Varve.Sparql.Algebra.Service! pattern, System.Collections.Generic.IReadOnlyList<Varve.Sparql.Algebra.Variable>! variables, System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm?>!>! incoming) -> void
+Varve.Sparql.Evaluation.ServiceRequest.Variables.get -> System.Collections.Generic.IReadOnlyList<Varve.Sparql.Algebra.Variable>!
+Varve.Sparql.Evaluation.ServiceResult
+Varve.Sparql.Evaluation.ServiceResult.Failure.get -> string?
+Varve.Sparql.Evaluation.ServiceResult.IsFailure.get -> bool
+Varve.Sparql.Evaluation.ServiceResult.Solutions.get -> System.Collections.Generic.IEnumerable<System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm?>!>!
+Varve.Sparql.Evaluation.ServiceResult.Variables.get -> System.Collections.Generic.IReadOnlyList<Varve.Sparql.Algebra.Variable>!
+Varve.Sparql.Evaluation.SolutionResults
+Varve.Sparql.Evaluation.SolutionResults.IsBound(int column) -> bool
+Varve.Sparql.Evaluation.SolutionResults.MoveNext() -> bool
+Varve.Sparql.Evaluation.SolutionResults.TryGetHandle(int column, out Varve.Rdf.TermHandle handle) -> bool
+Varve.Sparql.Evaluation.SolutionResults.TryGetTerm(int column, out Varve.Rdf.RdfTerm? term) -> bool
+Varve.Sparql.Evaluation.SolutionResults.Variables.get -> System.Collections.Generic.IReadOnlyList<Varve.Sparql.Algebra.Variable>!
+Varve.Sparql.Evaluation.SparqlEvaluator
+Varve.Sparql.Evaluation.SparqlEvaluator.Evaluate(Varve.Sparql.Algebra.Query! query, Varve.Rdf.IQuadSource! source, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Varve.Sparql.Evaluation.QueryResults!
+Varve.Sparql.Evaluation.SparqlEvaluator.SparqlEvaluator(Varve.Sparql.Evaluation.EvaluationOptions? options = null) -> void
+Varve.Sparql.Evaluation.TripleResults
+Varve.Sparql.Evaluation.TripleResults.MoveNext() -> bool
+Varve.Sparql.Evaluation.TripleResults.Object.get -> Varve.Rdf.RdfTerm!
+Varve.Sparql.Evaluation.TripleResults.Predicate.get -> Varve.Rdf.RdfTerm!
+Varve.Sparql.Evaluation.TripleResults.Subject.get -> Varve.Rdf.RdfTerm!
+Varve.Sparql.Evaluation.ValueAccess
+Varve.Sparql.Evaluation.ValueAccess.Externalise = 1 -> Varve.Sparql.Evaluation.ValueAccess
+Varve.Sparql.Evaluation.ValueAccess.InlineAccessor = 0 -> Varve.Sparql.Evaluation.ValueAccess
+Varve.Sparql.Evaluation.ValueAccess.Materialise = 2 -> Varve.Sparql.Evaluation.ValueAccess
+abstract Varve.Sparql.Evaluation.QueryResults.Kind.get -> Varve.Sparql.Evaluation.QueryResultKind
+override Varve.Sparql.Evaluation.BooleanResult.Kind.get -> Varve.Sparql.Evaluation.QueryResultKind
+override Varve.Sparql.Evaluation.SolutionResults.Kind.get -> Varve.Sparql.Evaluation.QueryResultKind
+override Varve.Sparql.Evaluation.TripleResults.Kind.get -> Varve.Sparql.Evaluation.QueryResultKind
+static Varve.Sparql.Evaluation.EvaluationOptions.Default.get -> Varve.Sparql.Evaluation.EvaluationOptions!
+static Varve.Sparql.Evaluation.RefusingServiceHandler.Instance.get -> Varve.Sparql.Evaluation.RefusingServiceHandler!
+static Varve.Sparql.Evaluation.ServiceResult.Failed(string! reason) -> Varve.Sparql.Evaluation.ServiceResult!
+static Varve.Sparql.Evaluation.ServiceResult.FromSolutions(System.Collections.Generic.IReadOnlyList<Varve.Sparql.Algebra.Variable>! variables, System.Collections.Generic.IEnumerable<System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm?>!>! solutions) -> Varve.Sparql.Evaluation.ServiceResult!
