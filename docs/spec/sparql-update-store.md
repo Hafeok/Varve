@@ -64,13 +64,16 @@ and "a result of failure from any operation MUST abort the sequence". ADR
    `S_k` and asserts only quads not in it (§5 per operation). `δ₁ ; … ; δₖ` is
    a chain of exact deltas, over which `;` is associative (§6 of the model,
    ADR 0047), so the composed delta is exact against `G_P`.
-3. **Submit** the composed delta `Δ` as one commit with
+3. **Release** the pin. Nothing after this step reads it: the request is
+   built, and what ties it to the pin is the position it expects.
+4. **Submit** the composed delta `Δ` as one commit with
    `expectedPosition = P`: each retraction and assertion of `Δ` becomes an
    operation of one `CommitRequest`, a term the pin holds as
    `RequestTerm.Existing(handle)` and a staged term as a request term the
    sequencer resolves (ADR 0058's mapping). The sequencer normalises against
    `G_head`, which is `G_P` or a `Conflict`, so the committed delta is `Δ`.
-4. **Release** the pin, whatever happened.
+   A failing operation throws before this step, and the pin is released on
+   that path too.
 
 **Consequences, which the tests assert.**
 

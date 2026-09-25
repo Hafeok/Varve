@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 5: SPARQL Update over the store, one request one commit
+         (ADR 0005, ADR 0057). docs/spec/sparql-update-store.md. -->
+    <VarveLayer>5</VarveLayer>
+    <IsPackable>true</IsPackable>
+
+    <!-- The clock and the random source NOW(), RAND() and UUID() read come
+         from the caller's options (ADR 0056), as in the evaluator. -->
+    <VarveDeterministic>true</VarveDeterministic>
+
+    <Description>SPARQL 1.1 Update over a Varve store: every request pinned, evaluated operation by operation over an overlay, and committed as one commit.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Store/Varve.Store.csproj" />
+    <ProjectReference Include="../Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
+    <ProjectReference Include="../Varve.Sparql/Varve.Sparql.csproj" />
+    <ProjectReference Include="../Varve.Turtle/Varve.Turtle.csproj" />
+    <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
+  </ItemGroup>
+
+</Project>
