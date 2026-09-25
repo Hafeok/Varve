@@ -21,9 +21,9 @@ namespace Varve.AotSmoke;
 /// </summary>
 /// <remarks>
 /// The update is composed here rather than through
-/// <c>Varve.Sparql.Store.SparqlUpdate</c>: this app is a layer 5 host and that
-/// package is layer 5, and ADR 0003 has no recorded exception for a host
-/// referencing an integration. The composition is the same one the package
+/// <c>Varve.Sparql.Store.SparqlUpdate</c>: ADR 0003 puts hosts and
+/// integrations both at layer 5, VARVE0001 forbids a same-layer reference, and
+/// no exception is recorded. The composition is the same one the package
 /// makes — pin, evaluate, commit at the pinned position — over the same
 /// store, evaluator and staging code.
 /// </remarks>

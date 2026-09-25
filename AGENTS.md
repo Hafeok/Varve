@@ -124,23 +124,30 @@ ADR, a rule, a suite and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone 5b. `src/` holds `Varve.Analyzers`, `Varve.Iri` and `Varve.Xsd`
+Milestone 5c. `src/` holds `Varve.Analyzers`, `Varve.Iri` and `Varve.Xsd`
 (0), `Varve.Rdf` (1), `Varve.Turtle`, `Varve.Sparql` and
-**`Varve.Sparql.Results`** (2), **`Varve.Sparql.Evaluation`** (3) and
-`Varve.Store` (4). The evaluator answers SPARQL 1.1 queries, with the 1.2
-additions, over any `IQuadSource` — the store's pinned and as-of views and
-`InMemoryDataset` — with an optimiser whose every rewrite is held to an
-equivalence property; the results readers read XML, JSON, CSV and TSV. **All
-544** evaluation cases that are not blocked pass over both subjects, and in
-all three of ADR 0050's arms; 41 SPARQL 1.2 cases are blocked on RDF 1.2
-Turtle data, which roadmap slice 6b unblocks. With the syntax suites the
-ratchet holds **2,525** lines, exemptions empty. AOT and the browser both
-evaluate queries. **RDF 1.2 Turtle and TriG are not accepted at all** —
-`turtle.md` §9. Nothing is published; the first tag is `v0.1.0-preview.1`
-(ADR 0029). Not built: result writers, update execution, HTTP federation,
-canonicalisation (5c), the file and browser backends, erasure mode, SHACL,
-the server. `docs/roadmap.md` has the rest, an owner and a due milestone per
-open question.
+`Varve.Sparql.Results` (2), `Varve.Sparql.Evaluation` (3), `Varve.Store` (4)
+and **`Varve.Sparql.Store`** (5). The evaluator answers SPARQL 1.1 queries,
+with the 1.2 additions, over any `IQuadSource`; the results package reads and
+**writes** XML, JSON, CSV and TSV; **one SPARQL Update request is one commit**
+— or none when its net effect is empty — evaluated operation by operation over
+the pinned head and the overlay of the operations before it (ADR 0057), with
+dataset-level validators and a staging view in the store (ADR 0058); and
+`Varve.Rdf` canonicalises datasets with **RDFC-1.0**, SHA-256 or SHA-384, under
+a work limit (ADR 0059), which the harness now uses to compare datasets. All
+547 query evaluation cases that are not blocked pass over both subjects (5b's
+544 and the three CSV cases 5b never wired), all
+94 update cases, all 86 `rdf-canon` cases and ten writer checks; the ratchet
+holds **2,721** lines, exemptions empty. AOT and the browser both commit an
+update composed from the store and the evaluator, write results JSON and
+canonicalise; neither references `Varve.Sparql.Store`, because ADR 0003
+puts hosts and integrations both at layer 5 and VARVE0001 then forbids the
+reference — a question for the maintainer, raised in the 5c record. **RDF 1.2 Turtle and TriG are not
+accepted at all** — `turtle.md` §9. Nothing is published; the first tag is
+`v0.1.0-preview.1` (ADR 0029). Not built: HTTP for `LOAD` and `SERVICE`, the
+file and browser backends (milestone 6), erasure mode, SHACL, the server.
+`docs/roadmap.md` has the rest, an owner and a due milestone per open
+question.
 
 `tools/repo-standard/` is **repo-standard** (ADR 0039): a CLI and a GitHub
 Action that apply a declared set of GitHub repository settings. Built here,

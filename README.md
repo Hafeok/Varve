@@ -40,10 +40,11 @@ dataset directory.
 
 ## Status
 
-**Milestone 5b.** Eight packages: reading and writing four syntaxes, the XSD
-value spaces, the SPARQL algebra with its parser and serialiser, the SPARQL
-results formats, a query evaluator with an optimiser, and an event-sourced
-store in memory.
+**Milestone 5c.** Nine packages: reading and writing four syntaxes, the XSD
+value spaces, RDFC-1.0 canonicalisation, the SPARQL algebra with its parser
+and serialiser, the SPARQL results formats read and written, a query
+evaluator with an optimiser, an event-sourced store in memory, and SPARQL
+Update over that store, one request as one commit.
 
 | Package | Layer | What it is | State |
 |---|---:|---|---|
@@ -52,10 +53,11 @@ store in memory.
 | `Varve.Rdf` | 1 | terms, triples, quads, and the abstract quad source contract — with cardinality estimates and an inline-value accessor | working |
 | `Varve.Turtle` | 2 | N-Triples, N-Quads, Turtle, TriG — reader and writer | working |
 | `Varve.Sparql` | 2 | SPARQL 1.1 Query and Update as an immutable algebra, with the 1.2 additions; the parser and the serialiser | working |
-| `Varve.Sparql.Results` | 2 | the SPARQL results formats — XML, JSON, CSV, TSV — as pull readers | working; writers at 5c |
-| `Varve.Sparql.Evaluation` | 3 | the optimiser and evaluator: every operator, the function library, aggregates, property paths, `SERVICE` through a handler, over any quad source | working; update execution at 5c |
+| `Varve.Sparql.Results` | 2 | the SPARQL results formats — XML, JSON, CSV, TSV — as pull readers and streaming writers | working |
+| `Varve.Sparql.Evaluation` | 3 | the optimiser and evaluator: every operator, the function library, aggregates, property paths, `SERVICE` through a handler, over any quad source | working |
 | `Varve.Analyzers` | — | the layer rules, at build time | working, never shipped |
-| `Varve.Store` | 4 | the log, the default projection, pinned and as-of reads, checkpoints, subscriptions | working, in memory; file and browser backends at milestone 6 |
+| `Varve.Store` | 4 | the log, the default projection, pinned and as-of reads, checkpoints, subscriptions, dataset validators, the staging view | working, in memory; file and browser backends at milestone 6 |
+| `Varve.Sparql.Store` | 5 | SPARQL Update over the store: one request, one commit, `LOAD` through a caller's source | working |
 | SHACL, server, CLI | 3–5 | | not built |
 
 ### Conformance
@@ -77,9 +79,12 @@ The W3C suites are the acceptance gate, from
 | `sparql12/syntax-triple-terms-positive`, `-negative` | 178 |
 | `sparql12/syntax`, `version`, `codepoint-escapes`, `lang-basedir` | 25 |
 | `sparql10` query evaluation, 24 directories (under 1.1), × 2 subjects | 566 |
-| `sparql11` query evaluation, 15 directories with `service`, × 2 subjects | 478 |
+| `sparql11` query evaluation, 15 directories with `service`, × 2 subjects | 484 |
 | `sparql12` query evaluation, 6 directories, × 2 subjects | 44 |
-| **Total** | **2,525 of 2,525** |
+| `sparql11/csv-tsv-res`, `json-res`, written by the results writers | 10 |
+| `sparql11` update evaluation, 11 directories, one commit or none each | 94 |
+| `rdf-canon`, RDFC-1.0: 64 canonical forms, 21 issued maps, 1 refusal | 86 |
+| **Total** | **2,721 of 2,721** |
 
 Each SPARQL suite is parsed at its own version, so the 1.0 and 1.1 suites
 never see the 1.2 grammar; the 1.2 default is for API callers only. The six
@@ -96,8 +101,9 @@ pins their count.
 
 **`baseline/exemptions.txt` is empty**, and that is a result rather than a
 default: no SPARQL 1.0 negative case turned out to be relaxed by 1.1, and no
-evaluation case needs one. `eng/ratchet.cs` fails the build if any of those
-2,525 stops passing, and an exemption with no written justification fails the
+evaluation, update or canonicalisation case needs one — including none for
+empty graphs, which the store does not record (SPARQL 1.1 Update §3.2 allows
+it). `eng/ratchet.cs` fails the build if any of those 2,721 stops passing, and an exemption with no written justification fails the
 run too.
 
 Also true today, and measured rather than asserted:
@@ -137,15 +143,32 @@ Also true today, and measured rather than asserted:
   both evaluate a basic graph pattern, an aggregate and a property path.
 - **The store's cardinality estimate is exact**, held to a counted scan over
   generated histories at the head and at every as-of position (ADR 0049).
+- **One update request is one commit.** Every update case asserts exactly one
+  commit when the request's net effect is non-empty and none otherwise, and a
+  property applies 2,000 generated request sequences a run both through
+  `Varve.Sparql.Store` and as a term-level model's deltas through the commit
+  API, and requires the same state at every position and the same commits.
+- **Results written read back as written**: 5,000 generated solution
+  sequences per format a run, with blank nodes, directional literals, triple
+  terms and unbound variables, through the writer and back through the
+  reader — term for term for XML, JSON and TSV, and what CSV carries for CSV.
+- **Isomorphic datasets canonicalise alike, and only they do**: 20,000
+  generated pairs a run against the harness's backtracking check, plus
+  idempotence and a read-back property. It found that **RDFC-1.0 itself gives
+  some isomorphic datasets with blank graph names different canonical forms**
+  — pyoxigraph gives the same two forms — which `docs/spec/rdf-canon.md` §6
+  states; with IRI graph names the equivalence holds.
 
 **RDF 1.2 Turtle and TriG are not accepted at all** — deliberately, rather than
 half-accepted. `docs/spec/turtle.md` §9 lists the constructs and the reasoning.
 SPARQL 1.2 is accepted in full, triple terms, reifiers, annotations and
 `VERSION` included, because the algebra was built with 1.2 from the start.
 
-**Queries evaluate; updates do not yet.** `Varve.Sparql.Evaluation` answers
-`SELECT`, `ASK`, `CONSTRUCT` and `DESCRIBE` over any quad source; executing an
-update, writing results and HTTP federation are milestone 5c. `NOW()` and the
+**Queries evaluate and updates commit.** `Varve.Sparql.Evaluation` answers
+`SELECT`, `ASK`, `CONSTRUCT` and `DESCRIBE` over any quad source, and
+`Varve.Sparql.Store` executes an update request against a `Dataset` as one
+commit. `LOAD` reads through a source the caller supplies; HTTP for `LOAD`
+and `SERVICE` is the server's, milestone 7. `NOW()` and the
 random functions read a clock and a random source the caller supplies —
 `Clock = TimeProvider.System` for the system clock — and fail by the option's
 name without one (ADR 0056).

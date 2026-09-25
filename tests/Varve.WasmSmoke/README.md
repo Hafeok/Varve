@@ -106,9 +106,9 @@ SPARQL results JSON; and a three-quad dataset with a chain of blank nodes
 canonicalised with RDFC-1.0 under SHA-256 and SHA-384. Each is compared whole
 with the string the AOT host produces from the same code (`Update.cs`, shared
 by both apps). The update is composed from the store and the evaluator here
-rather than through `Varve.Sparql.Store`: this app is a layer 5 host, that
-package is layer 5, and ADR 0003 records no exception for a host referencing
-an integration — a decision left to the maintainer, not made in passing.
+rather than through `Varve.Sparql.Store`: ADR 0003 puts hosts and
+integrations both at layer 5, VARVE0001 forbids a same-layer reference, and no
+exception is recorded — a decision left to the maintainer, not made in passing.
 
 A `404` for `/favicon.ico` in the console is Chromium asking for one that the
 app bundle does not contain. It is not a failure.
