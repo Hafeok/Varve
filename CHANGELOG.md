@@ -40,6 +40,9 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - build the benchmark project on every run, without running it (2b872976)
 - changelog (1148f1c5)
 - **adr**: 0061, canonical N-Triples and N-Quads follow RDF 1.2 (1dd3eeff)
+- **conformance**: the 82 RDF 1.2 canonical-form cases join the ratchet (bfb2ff6a)
+- **traceability**: the canonical-form decisions, in the 5c record (eed2926d)
+- **adr**: 0057 amended — release the pin, then submit (f62f5989)
 
 #### Fixed
 
