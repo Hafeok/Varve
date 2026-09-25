@@ -19,8 +19,9 @@ N-Triples, N-Quads, Turtle and TriG, read and written over UTF-8, allocating
   nesting depth zero and outside a string or IRI, and a failed statement
   produces no quads at all — including ones a blank node property list inside
   it had already emitted.
-- **Canonical N-Triples output** per §4, so two canonical documents are
-  comparable byte for byte. A Turtle round trip is isomorphic rather than
+- **Canonical N-Triples and N-Quads output**, RDF 1.2's (ADR 0061), so two
+  canonical documents are comparable byte for byte; RDF 1.2's `c14n` suites
+  gate it. A Turtle round trip is isomorphic rather than
   byte-identical, because blank node labels are the parser's; **writing what
   was written reproduces it exactly**.
 - **RDF 1.2** base direction and triple terms are read and written in

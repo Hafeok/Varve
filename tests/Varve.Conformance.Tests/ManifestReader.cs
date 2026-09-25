@@ -232,6 +232,8 @@ internal static class ManifestReader
         "http://www.w3.org/ns/rdftest#TestNTriplesNegativeSyntax" => ExpectedOutcome.IsRejected,
         "http://www.w3.org/ns/rdftest#TestNQuadsPositiveSyntax" => ExpectedOutcome.Parses,
         "http://www.w3.org/ns/rdftest#TestNQuadsNegativeSyntax" => ExpectedOutcome.IsRejected,
+        "http://www.w3.org/ns/rdftest#TestNTriplesPositiveC14N" => ExpectedOutcome.Canonicalises,
+        "http://www.w3.org/ns/rdftest#TestNQuadsPositiveC14N" => ExpectedOutcome.Canonicalises,
         "http://www.w3.org/ns/rdftest#TestTurtlePositiveSyntax" => ExpectedOutcome.Parses,
         "http://www.w3.org/ns/rdftest#TestTurtleNegativeSyntax" => ExpectedOutcome.IsRejected,
         "http://www.w3.org/ns/rdftest#TestTurtleEval" => ExpectedOutcome.Evaluates,

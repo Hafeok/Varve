@@ -12,9 +12,19 @@ namespace Varve.Turtle;
 /// Writes N-Triples and N-Quads, from a view or from a quad and its source.
 /// </summary>
 /// <remarks>
+/// <para>
+/// Canonical form is RDF 1.2 N-Triples §3's (ADR 0061), and N-Quads 1.2's with
+/// the graph label: a lowercase language tag, triple terms as
+/// <c>&lt;&lt;( s p o )&gt;&gt;</c>, and the string escapes of
+/// <see cref="Escapes.WriteLineString"/>. It is RDFC-1.0 Appendix A's form,
+/// which <c>Varve.Rdf</c> writes for itself one layer down; a property holds
+/// the two byte-identical.
+/// </para>
+/// <para>
 /// A canonical round trip is byte-stable: parsing a canonical document and
 /// writing it again reproduces it exactly, which is what the round-trip
 /// property tests assert.
+/// </para>
 /// </remarks>
 public static class NQuadsWriter
 {
@@ -149,13 +159,13 @@ public static class NQuadsWriter
                 return;
 
             case RdfTermKind.TripleTerm:
-                writer.Bytes("<<("u8);
+                writer.Bytes("<<( "u8);
                 WriteTerm(ref writer, term.Subject, in options);
                 writer.Byte((byte)' ');
                 WriteTerm(ref writer, term.Predicate, in options);
                 writer.Byte((byte)' ');
                 WriteTerm(ref writer, term.Object, in options);
-                writer.Bytes(")>>"u8);
+                writer.Bytes(" )>>"u8);
                 return;
 
             default:
@@ -185,13 +195,13 @@ public static class NQuadsWriter
                 return;
 
             case RdfTermKind.TripleTerm:
-                writer.Bytes("<<("u8);
+                writer.Bytes("<<( "u8);
                 WriteTerm(ref writer, term.Subject!, in options);
                 writer.Byte((byte)' ');
                 WriteTerm(ref writer, term.Predicate!, in options);
                 writer.Byte((byte)' ');
                 WriteTerm(ref writer, term.Object!, in options);
-                writer.Bytes(")>>"u8);
+                writer.Bytes(" )>>"u8);
                 return;
 
             default:
@@ -217,13 +227,26 @@ public static class NQuadsWriter
         in WriteOptions options)
     {
         writer.Byte((byte)'"');
-        Escapes.WriteString(ref writer, lexical, options.Canonical);
+        Escapes.WriteLineString(ref writer, lexical, options.Canonical);
         writer.Byte((byte)'"');
 
         if (hasLanguage)
         {
             writer.Byte((byte)'@');
-            writer.Bytes(language);
+
+            if (options.Canonical)
+            {
+                // Tags compare case-insensitively, so one term has one form:
+                // RDF 1.2 N-Triples §3 requires the lowercase one.
+                foreach (byte b in language)
+                {
+                    writer.Byte(b is >= (byte)'A' and <= (byte)'Z' ? (byte)(b + 32) : b);
+                }
+            }
+            else
+            {
+                writer.Bytes(language);
+            }
 
             switch (direction)
             {
@@ -242,7 +265,10 @@ public static class NQuadsWriter
             return;
         }
 
-        if (!datatype.IsEmpty)
+        // A simple literal is xsd:string, and canonical form writes it without
+        // the datatype (RDF 1.2 N-Triples §3). A term never holds it; a view
+        // of what a parser read can.
+        if (!datatype.IsEmpty && !(options.Canonical && datatype.SequenceEqual(RdfVocabulary.XsdString)))
         {
             writer.Bytes("^^"u8);
             WriteIri(ref writer, datatype, in options);

@@ -42,12 +42,37 @@ public class WriterTests
         Assert.Equal(document, Write(document, new WriteOptions { Syntax = RdfSyntax.NQuads }));
     }
 
+    /// <remarks>
+    /// RDF 1.2 N-Triples §3's set (ADR 0061): BS, HT, LF, FF, CR, <c>"</c> and
+    /// <c>\</c> as <c>ECHAR</c>. RDF 1.1's was the last four only, and wrote a
+    /// tab raw.
+    /// </remarks>
     [Fact]
-    public void canonical_form_escapes_four_characters_and_no_others()
+    public void canonical_form_escapes_seven_characters_as_echar()
     {
         Assert.Equal(
-            "\"a\\\"b\\\\c\\nd\\re\tf\"",
-            WriteTerm(RdfTerm.Literal(U("a\"b\\c\nd\re\tf"))));
+            "\"a\\\"b\\\\c\\nd\\re\\tf\\bg\\fh\"",
+            WriteTerm(RdfTerm.Literal(U("a\"b\\c\nd\re\tf\bg\fh"))));
+    }
+
+    [Fact]
+    public void canonical_form_escapes_other_controls_del_and_two_noncharacters_as_uchar()
+    {
+        Assert.Equal(
+            "\"\\u0000\\u000B\\u001F\\u007F\\uFFFE\\uFFFF\"",
+            WriteTerm(RdfTerm.Literal(U("\u0000\u000B\u001F\u007F\uFFFE\uFFFF"))));
+    }
+
+    [Fact]
+    public void canonical_form_lowercases_a_language_tag_and_keeps_the_direction()
+    {
+        Assert.Equal("\"chat\"@en-gb--ltr", WriteTerm(RdfTerm.Literal(U("chat"), U("EN-GB"), TextDirection.LeftToRight)));
+    }
+
+    [Fact]
+    public void non_canonical_form_keeps_a_language_tag_as_held()
+    {
+        Assert.Equal("\"chat\"@EN-GB", WriteTerm(RdfTerm.Literal(U("chat"), U("EN-GB")), new WriteOptions { Canonical = false }));
     }
 
     [Fact]
@@ -94,16 +119,15 @@ public class WriterTests
     }
 
     /// <remarks>
-    /// No padding inside the brackets: N-Triples §4 allows whitespace only
-    /// between the three terms, and RDF 1.2 has not defined a canonical form
-    /// of its own, so the narrower reading is the one that stays comparable.
-    /// The reader accepts padding either way.
+    /// One space inside each bracket, as RDF 1.2 N-Triples §3's canonical form
+    /// and its c14n test cases write it (ADR 0061). Written tight until the
+    /// 1.2 form existed to follow. The reader accepts padding either way.
     /// </remarks>
     [Fact]
     public void a_triple_term_is_written_in_the_rdf_1_2_form()
     {
         Assert.Equal(
-            "<<(<http://a/s> <http://a/p> \"o\")>>",
+            "<<( <http://a/s> <http://a/p> \"o\" )>>",
             WriteTerm(RdfTerm.TripleTerm(
                 RdfTerm.Iri(U("http://a/s")),
                 RdfTerm.Iri(U("http://a/p")),
@@ -111,11 +135,40 @@ public class WriterTests
     }
 
     [Fact]
-    public void a_padded_triple_term_is_read_and_written_tight()
+    public void a_triple_term_is_read_with_any_padding_and_written_canonically()
     {
         Assert.Equal(
-            "<http://a/s> <http://a/p> <<(<http://a/s2> <http://a/p2> \"o\")>> .\n",
+            "<http://a/s> <http://a/p> <<( <http://a/s2> <http://a/p2> \"o\" )>> .\n",
             Write("<http://a/s> <http://a/p> <<(  <http://a/s2>  <http://a/p2>  \"o\"  )>> .\n"));
+    }
+
+    /// <remarks>
+    /// <c>'^^'</c> and <c>LANG_DIR</c> are terminals, and whitespace may
+    /// separate terminals. The line parser once read the suffix only directly
+    /// after the closing quote; RDF 1.2's c14n suite (extra_whitespace-03 and
+    /// -04) found it.
+    /// </remarks>
+    [Theory]
+    [InlineData("<http://a/s> <http://a/p> \"Alice\" @EN .\n", "<http://a/s> <http://a/p> \"Alice\"@en .\n")]
+    [InlineData("<http://a/s> <http://a/p> \"2\"  ^^  <http://www.w3.org/2001/XMLSchema#integer>  .\n", "<http://a/s> <http://a/p> \"2\"^^<http://www.w3.org/2001/XMLSchema#integer> .\n")]
+    [InlineData("<http://a/s> <http://a/p> \"x\"   .\n", "<http://a/s> <http://a/p> \"x\" .\n")]
+    public void whitespace_before_a_literals_suffix_is_read_and_written_canonically(string document, string canonical)
+    {
+        Assert.Equal(canonical, Write(document));
+    }
+
+    [Fact]
+    public void a_datatype_marker_with_nothing_after_it_is_rejected()
+    {
+        Assert.False(Parse("<http://a/s> <http://a/p> \"x\" ^^ .\n").Result.Succeeded);
+    }
+
+    [Fact]
+    public void canonical_form_writes_an_explicit_xsd_string_as_a_simple_literal()
+    {
+        Assert.Equal(
+            "<http://a/s> <http://a/p> \"foo\" .\n",
+            Write("<http://a/s> <http://a/p> \"foo\"^^<http://www.w3.org/2001/XMLSchema#string> .\n"));
     }
 
     [Fact]

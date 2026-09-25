@@ -4,23 +4,31 @@ Functional specification for the N-Triples and N-Quads reader and writer in
 `Varve.Turtle` (layer 2).
 
 Status: Accepted. Changes only together with the ADR that motivates the change.
+§5's canonical form is RDF 1.2's since ADR 0061.
 
 ## 1. Normative references
 
-- **RDF 1.1 N-Triples** — W3C Recommendation, 25 February 2014. §2 the grammar,
-  §4 canonical N-Triples.
+- **RDF 1.1 N-Triples** — W3C Recommendation, 25 February 2014. §2 the grammar.
+  Its §4 canonical form is superseded here by RDF 1.2's (ADR 0061).
 - **RDF 1.1 N-Quads** — W3C Recommendation, 25 February 2014. §4 the grammar.
-- **RDF 1.2 N-Triples** — Working Draft, 23 July 2026, checked 2026-09-21.
-  Backward compatible; see `rdf-model.md` §1.
+- **RDF 1.2 N-Triples** — Working Draft, 23 July 2026, checked 2026-09-21, for
+  the grammar's additions (backward compatible; see `rdf-model.md` §1); and
+  the Working Draft of 24 September 2026, §3, for **canonical N-Triples**,
+  which §5 follows. Where RDF 1.1 and 1.2 differ on the canonical form, 1.2
+  wins (ADR 0061).
+- **RDF 1.2 N-Quads** — the same form with the graph label.
 
-Conformance is measured by four suites in the pinned `w3c/rdf-tests` submodule:
-`rdf/rdf11/rdf-n-triples` (70) and `rdf/rdf11/rdf-n-quads` (87), and
-`rdf/rdf12/rdf-n-triples/syntax` (29) and `rdf/rdf12/rdf-n-quads/syntax` (27) —
-**all of them positive or negative syntax tests**. The rdf12 `c14n` manifests
-are RDFC-1.0 and are not wired. There are no
-evaluation tests in these two suites, so the suites prove that we accept and
-reject the right documents and prove nothing about the quads we produce. That
-is what the round-trip property tests are for.
+Conformance is measured by six suites in the pinned `w3c/rdf-tests` submodule:
+- `rdf/rdf11/rdf-n-triples` (70) and `rdf/rdf11/rdf-n-quads` (87), and
+  `rdf/rdf12/rdf-n-triples/syntax` (29) and `rdf/rdf12/rdf-n-quads/syntax`
+  (27). **All of them are positive or negative syntax tests**, which prove
+  that we accept and reject the right documents and prove nothing about the
+  quads we produce. That is what the round-trip property tests are for.
+- `rdf/rdf12/rdf-n-triples/c14n` (41) and `rdf/rdf12/rdf-n-quads/c14n` (41),
+  **canonical-form tests** since ADR 0061: each input is parsed, every quad is
+  written canonically, and the bytes must equal the expected file. Each
+  manifest lists a 42nd entry, `lantag_with_subtag`, commented out. These
+  suites test the canonical writer, and through it what the reader produced.
 
 ## 2. Grammar
 
@@ -189,21 +197,36 @@ literals.
 
 Both formats, from a view (zero allocation) or from a quad plus its source.
 
-**Canonical form** is N-Triples §4, and it is the default for anything that
-must be comparable:
+**Canonical form** is RDF 1.2 N-Triples §3's (ADR 0061), and it is the
+default for anything that must be comparable:
 
-- exactly one space (U+0020) after subject, predicate and object; no whitespace
-  anywhere else it would be allowed;
+- exactly one space (U+0020) after the subject, the predicate and the object,
+  and after the graph label in N-Quads; no whitespace anywhere else; a single
+  LF at the end of each line;
 - no comments;
-- `HEX` in uppercase;
-- **characters must not be represented by `UCHAR`** — write the character;
-- within a string, `ECHAR` for U+0022, U+005C, U+000A and U+000D **and nothing
-  else**. A character that can be written directly must be.
+- a language tag **in lowercase** — tags compare case-insensitively, so one
+  term has one spelling — followed by `--ltr` or `--rtl` for a base
+  direction;
+- a triple term as `<<( s p o )>>`, one space inside each bracket;
+- a literal of `xsd:string` without its datatype;
+- within a string, `ECHAR` for BS, HT, LF, FF, CR, U+0022 and U+005C;
+  `UCHAR` — `\u` and four **uppercase** hexadecimal digits — for
+  U+0000–U+0007, VT, U+000E–U+001F, DEL, U+FFFE and U+FFFF; every other
+  character written as itself;
+- an IRI written as the term holds it.
 
-**N-Quads has no canonical form section.** We apply N-Triples §4's rules to it
-unchanged, with the graph label written after the object separated by a single
-space. That is an extension of a specification rather than a reading of one,
-and is recorded as such.
+This is RDFC-1.0 Appendix A's form too, which `Varve.Rdf` writes for itself one
+layer down (`rdf-canon.md` §4). The two writers are held byte-identical by a
+property over generated datasets (ADR 0061).
+
+**Where RDF 1.1 differed**, 1.2 wins: RDF 1.1 N-Triples §4 escaped only `"`,
+`\`, LF and CR, wrote every other control character raw, kept a tag's case,
+and had no triple terms. RDF 1.1 N-Quads had no canonical section at all, and
+this section once applied the N-Triples rules to it as an extension of the
+specification. RDF 1.2 N-Quads now defines it.
+
+**Non-canonical form**, `Canonical = false`, writes every non-ASCII character
+as a `UCHAR` for a consumer that needs ASCII, and a tag as the term holds it.
 
 A round trip through the canonical writer is therefore byte-stable: parsing and
 re-writing a canonical document reproduces it exactly, which is what the

@@ -255,9 +255,18 @@ internal ref partial struct LineParser
 
         _at = i + 1;
 
+        // '^^' and LANG_DIR are terminals of their own, and whitespace may
+        // separate any two terminals: "Alice" @en and "2" ^^ <…> are
+        // well-formed, which the RDF 1.2 c14n suite tests (extra_whitespace-03
+        // and -04). When neither follows, the whitespace belongs to the
+        // statement, so the position goes back to just after the string.
+        int afterString = _at;
+        SkipWhitespace();
+
         if (_at + 1 < _line.Length && _line[_at] == (byte)'^' && _line[_at + 1] == (byte)'^')
         {
             _at += 2;
+            SkipWhitespace();
 
             if (_at >= _line.Length || _line[_at] != (byte)'<')
             {
@@ -299,6 +308,7 @@ internal ref partial struct LineParser
             return true;
         }
 
+        _at = afterString;
         slot = _arena.AddLiteral(lexical, TermSpan.None, TermSpan.None, TextDirection.None);
         return true;
     }

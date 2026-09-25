@@ -26,6 +26,14 @@ internal enum ExpectedOutcome
     /// the guard test is what stops that happening by accident.
     /// </remarks>
     Evaluates,
+
+    /// <summary>
+    /// The file must parse, and writing what it parsed in canonical form must
+    /// give the bytes of its <c>mf:result</c> exactly: RDF 1.2's
+    /// <c>TestNTriplesPositiveC14N</c> and <c>TestNQuadsPositiveC14N</c>
+    /// (ADR 0061).
+    /// </summary>
+    Canonicalises,
 }
 
 /// <summary>

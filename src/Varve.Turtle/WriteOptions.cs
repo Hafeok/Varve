@@ -12,12 +12,12 @@ namespace Varve.Turtle;
 /// and the safe default here is true.
 /// </para>
 /// <para>
-/// Canonical form is N-Triples §4 — one space after the subject, the predicate
-/// and the object, no comments, and a character written directly wherever it
-/// can be rather than as a <c>UCHAR</c>. N-Quads has no canonical form section
-/// of its own; we apply the same rules with the graph label after the object,
-/// which is an extension of a specification rather than a reading of one, and
-/// <c>docs/spec/n-triples.md</c> §5 says so.
+/// Canonical form is RDF 1.2 N-Triples §3's (ADR 0061) — one space after the
+/// subject, the predicate and the object, no comments, a lowercase language
+/// tag, <c>ECHAR</c> for BS, HT, LF, FF, CR, <c>"</c> and <c>\</c>, a
+/// <c>UCHAR</c> for the other controls, DEL, U+FFFE and U+FFFF, and every
+/// other character written directly. N-Quads 1.2 adds the graph label after
+/// the object; <c>docs/spec/n-triples.md</c> §5 has it all.
 /// </para>
 /// </remarks>
 public readonly struct WriteOptions
@@ -34,8 +34,9 @@ public readonly struct WriteOptions
     /// <summary>
     /// Whether to write canonical form. True by default. Turning it off escapes
     /// every non-ASCII character as a <c>UCHAR</c> with uppercase hex, for a
-    /// consumer that needs ASCII; the result is still well-formed, and is no
-    /// longer byte-comparable with anyone else's output.
+    /// consumer that needs ASCII, and writes a language tag as the term holds
+    /// it; the result is still well-formed, and is no longer byte-comparable
+    /// with anyone else's output.
     /// </summary>
     public bool Canonical
     {
