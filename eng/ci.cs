@@ -113,7 +113,7 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-sparql", "Varve.Sparql: the algebra, the parser, and the round-trip property",
         () => Test("Varve.Sparql.Tests")),
 
-    ("test-sparql-results", "Varve.Sparql.Results: the four readers, the chunk-boundary oracle over every suite result file",
+    ("test-sparql-results", "Varve.Sparql.Results: the four readers and writers, the chunk-boundary oracle over every suite result file, the round trip",
         () => Test("Varve.Sparql.Results.Tests")),
 
     ("test-sparql-evaluation", "Varve.Sparql.Evaluation: the optimiser and store properties, allocation, MD5, cancellation, SERVICE",

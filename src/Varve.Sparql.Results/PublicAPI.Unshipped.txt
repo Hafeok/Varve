@@ -54,3 +54,18 @@ static Varve.Sparql.Results.ResultsPosition.operator !=(Varve.Sparql.Results.Res
 static Varve.Sparql.Results.ResultsPosition.operator ==(Varve.Sparql.Results.ResultsPosition left, Varve.Sparql.Results.ResultsPosition right) -> bool
 static Varve.Sparql.Results.SparqlResultsError.operator !=(Varve.Sparql.Results.SparqlResultsError left, Varve.Sparql.Results.SparqlResultsError right) -> bool
 static Varve.Sparql.Results.SparqlResultsError.operator ==(Varve.Sparql.Results.SparqlResultsError left, Varve.Sparql.Results.SparqlResultsError right) -> bool
+Varve.Sparql.Results.SparqlResultsWriter
+Varve.Sparql.Results.SparqlResultsWriter.BytesPending.get -> int
+Varve.Sparql.Results.SparqlResultsWriter.Dispose() -> void
+Varve.Sparql.Results.SparqlResultsWriter.EndSolution() -> void
+Varve.Sparql.Results.SparqlResultsWriter.Flush() -> void
+Varve.Sparql.Results.SparqlResultsWriter.FlushAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Varve.Sparql.Results.SparqlResultsWriter.Format.get -> Varve.Sparql.Results.SparqlResultsFormat
+Varve.Sparql.Results.SparqlResultsWriter.SparqlResultsWriter(System.Buffers.IBufferWriter<byte>! output, Varve.Sparql.Results.SparqlResultsFormat format) -> void
+Varve.Sparql.Results.SparqlResultsWriter.SparqlResultsWriter(System.IO.Stream! output, Varve.Sparql.Results.SparqlResultsFormat format) -> void
+Varve.Sparql.Results.SparqlResultsWriter.StartSolution() -> void
+Varve.Sparql.Results.SparqlResultsWriter.WriteBinding(int variable, Varve.Rdf.RdfTerm! term) -> void
+Varve.Sparql.Results.SparqlResultsWriter.WriteBinding(int variable, Varve.Rdf.RdfTermView term) -> void
+Varve.Sparql.Results.SparqlResultsWriter.WriteBoolean(bool value) -> void
+Varve.Sparql.Results.SparqlResultsWriter.WriteEnd() -> void
+Varve.Sparql.Results.SparqlResultsWriter.WriteHead(System.Collections.Generic.IReadOnlyList<string!>! variables) -> void
