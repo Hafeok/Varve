@@ -154,10 +154,7 @@ internal static class EvaluationRunner
                     }
 
                     List<ParsedQuad> wanted = [.. expectedGraph.Select(q => new ParsedQuad(EvaluationData.Text(q.Subject), EvaluationData.Text(q.Predicate), EvaluationData.Text(q.Object), null)).Distinct()];
-                    IsomorphismResult verdict = Isomorphism.Compare(actual, wanted);
-                    return verdict.Verdict == IsomorphismVerdict.Same
-                        ? null
-                        : verdict.Reason + "\n  actual:\n    " + string.Join("\n    ", actual) + "\n  expected:\n    " + string.Join("\n    ", wanted);
+                    return DatasetComparison.Compare(actual, wanted);
                 }
 
             default:
