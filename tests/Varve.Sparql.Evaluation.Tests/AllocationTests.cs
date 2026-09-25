@@ -16,9 +16,7 @@ namespace Varve.Sparql.Evaluation.Tests;
 /// §11: what a <c>Bgp</c> query allocates, as the difference between two runs
 /// of different sizes — so the fixed cost of compiling and opening cancels —
 /// divided by the difference in solutions, and zero for quads scanned and not
-/// matched. Each side is measured three times and the smallest reading counts,
-/// as in the parser's and the store's allocation tests: a stray allocation
-/// only ever adds.
+/// matched. Readings are <see cref="AllocationMeter"/>'s (issue #32).
 /// </summary>
 public class AllocationTests
 {
@@ -60,40 +58,34 @@ public class AllocationTests
         return (store, store.Pin());
     }
 
-    private static long Measure(Query query, IQuadSource source)
+    // One execution, its results returned so that they escape at every tier.
+    private static Func<object?> Run(Query query, IQuadSource source) => () =>
     {
-        SparqlEvaluator evaluator = new(Options());
-        long best = long.MaxValue;
-        for (int attempt = 0; attempt < 4; attempt++)
+        QueryResults results = new SparqlEvaluator(Options()).Evaluate(query, source);
+        SolutionResults solutions = (SolutionResults)results;
+
+        while (solutions.MoveNext())
         {
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            using (QueryResults results = evaluator.Evaluate(query, source))
-            {
-                SolutionResults solutions = (SolutionResults)results;
-                while (solutions.MoveNext())
-                {
-                }
-            }
-
-            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-
-            // The first run warms up whatever is lazily built once per source.
-            if (attempt > 0)
-            {
-                best = Math.Min(best, allocated);
-            }
         }
 
-        return best;
+        results.Dispose();
+        return results;
+    };
+
+    private static long Difference(Query query, IQuadSource small, IQuadSource large)
+    {
+        (long smallCost, long largeCost) = AllocationMeter.MeasurePair(Run(query, small), Run(query, large));
+        return largeCost - smallCost;
     }
 
     [Fact]
     public void Over_the_dataset_a_solution_costs_its_row_and_an_unmatched_quad_nothing()
     {
-        long perSolution = (Measure(Matching, Data(Large)) - Measure(Matching, Data(Small))) / (Large - Small);
+        InMemoryDataset small = Data(Small), large = Data(Large);
+        long perSolution = Difference(Matching, small, large) / (Large - Small);
         Assert.Equal(RowBytes, perSolution);
 
-        Assert.Equal(0, Measure(Unmatched, Data(Large)) - Measure(Unmatched, Data(Small)));
+        Assert.Equal(0, Difference(Unmatched, small, large));
     }
 
     [Fact]
@@ -103,10 +95,10 @@ public class AllocationTests
         (Varve.Store.Dataset largeStore, DatasetView large) = await StoreOf(Large);
         try
         {
-            long perSolution = (Measure(Matching, large) - Measure(Matching, small)) / (Large - Small);
+            long perSolution = Difference(Matching, small, large) / (Large - Small);
             Assert.Equal(RowBytes, perSolution);
 
-            Assert.Equal(0, Measure(Unmatched, large) - Measure(Unmatched, small));
+            Assert.Equal(0, Difference(Unmatched, small, large));
         }
         finally
         {

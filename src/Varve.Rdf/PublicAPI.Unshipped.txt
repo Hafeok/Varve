@@ -212,3 +212,22 @@ static Varve.Rdf.InlineValue.FromInteger(long value) -> Varve.Rdf.InlineValue
 static Varve.Rdf.InlineValue.None.get -> Varve.Rdf.InlineValue
 static Varve.Rdf.InlineValue.operator !=(Varve.Rdf.InlineValue left, Varve.Rdf.InlineValue right) -> bool
 static Varve.Rdf.InlineValue.operator ==(Varve.Rdf.InlineValue left, Varve.Rdf.InlineValue right) -> bool
+Varve.Rdf.CanonicalDataset
+Varve.Rdf.CanonicalDataset.IssuedIdentifiers.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
+Varve.Rdf.CanonicalDataset.NQuads.get -> System.ReadOnlyMemory<byte>
+Varve.Rdf.CanonicalisationLimitException
+Varve.Rdf.CanonicalisationLimitException.CanonicalisationLimitException() -> void
+Varve.Rdf.CanonicalisationLimitException.CanonicalisationLimitException(long steps, long limit) -> void
+Varve.Rdf.CanonicalisationLimitException.CanonicalisationLimitException(string! message) -> void
+Varve.Rdf.CanonicalisationLimitException.CanonicalisationLimitException(string! message, System.Exception! innerException) -> void
+Varve.Rdf.CanonicalisationLimitException.Limit.get -> long
+Varve.Rdf.CanonicalisationLimitException.Steps.get -> long
+Varve.Rdf.CanonicalisationOptions
+Varve.Rdf.CanonicalisationOptions.CanonicalisationOptions() -> void
+Varve.Rdf.CanonicalisationOptions.HashAlgorithm.get -> System.Security.Cryptography.HashAlgorithmName
+Varve.Rdf.CanonicalisationOptions.HashAlgorithm.init -> void
+Varve.Rdf.CanonicalisationOptions.WorkLimit.get -> int
+Varve.Rdf.CanonicalisationOptions.WorkLimit.init -> void
+Varve.Rdf.RdfCanonicaliser
+static Varve.Rdf.CanonicalisationOptions.Default.get -> Varve.Rdf.CanonicalisationOptions!
+static Varve.Rdf.RdfCanonicaliser.Canonicalise(Varve.Rdf.IQuadSource! source, Varve.Rdf.CanonicalisationOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Varve.Rdf.CanonicalDataset!

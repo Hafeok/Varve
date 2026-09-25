@@ -14,6 +14,30 @@ published to nuget.org, so every change below is unreleased and the sections
 are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 ([ADR 0029](docs/adr/0029-publishing-and-versioning.md)).
 
+### Milestone 5c — the result writers, SPARQL Update as one commit, RDFC-1.0
+
+#### Added
+
+- **results**: the four result-format writers (213a1c57)
+- **store**: validators bound to the dataset, and the staging view (a3f073d3)
+- **sparql-store**: Varve.Sparql.Store — SPARQL Update as one commit (ac87f326)
+- **rdf**: RDFC-1.0 canonicalisation, bounded by a work limit (7bbe4f77)
+
+#### Changed
+
+- **spec**: the result writers, SPARQL Update over the store, RDFC-1.0 (4bf24842)
+- **adr**: 0057–0059, update as one commit, staging, canonicalisation (1f580e71)
+- **conformance**: the writers against csv-tsv-res and json-res; the CSV cases (8f9fd75e)
+- **conformance**: the W3C SPARQL 1.1 update evaluation suites (9ab7a442)
+- **conformance**: the rdf-canon suite, the canonicalisation properties, canonical comparison (cabb35a5)
+- **results**: escape two characters a test held raw (bc8e864f)
+- **smoke**: update, results JSON and RDFC-1.0 under AOT and in the browser (9275b160)
+- **bench**: updates and RDFC-1.0 against dotNetRDF and pyoxigraph (9b0d2c97)
+
+#### Fixed
+
+- **test**: read allocation where no collection or tier-up can move it (f51f97be)
+
 ### Milestone 5b — the optimiser and evaluator, and the result-format readers
 
 #### Added
@@ -29,6 +53,8 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **conformance**: the W3C query evaluation suites, over two subjects (882e349e)
 - **smoke**: the evaluator under Native AOT and in the browser (81c2cf1d)
 - **evaluation**: ADR 0050's arms, a BSBM-style mix, and Oxigraph (f439e391)
+- roadmap, README, AGENTS, changelog, the traceability record (1c9fc2e0)
+- **adr**: 0051 amended — the date and time types on XSD's partial order (dc90de61)
 
 #### Fixed
 

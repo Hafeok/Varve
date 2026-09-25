@@ -1,0 +1,244 @@
+// Validating benchmarks:
+// ***** BenchmarkRunner: Start   *****
+// ***** Found 2 benchmark(s) in total *****
+// ***** Building 1 exe(s) in Parallel: Start   *****
+// start dotnet  restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-KGWPIM-1/" /p:OutDir="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-KGWPIM-1/bin/Release/net10.0/" /p:OutputPath="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-KGWPIM-1/bin/Release/net10.0/" /p:PublishDir="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-KGWPIM-1/publish/" in /home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-KGWPIM-1
+// command took 3.43 sec and exited with 0
+// start dotnet  build -c Release --no-restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-KGWPIM-1/" /p:OutDir="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-KGWPIM-1/bin/Release/net10.0/" /p:OutputPath="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-KGWPIM-1/bin/Release/net10.0/" /p:PublishDir="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-KGWPIM-1/publish/" --output "/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-KGWPIM-1/bin/Release/net10.0/" in /home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-KGWPIM-1
+// command took 36.33 sec and exited with 0
+// ***** Done, took 00:00:39 (39.83 sec)   *****
+// Found 2 benchmarks:
+//   DeleteInsertWhereBenchmarks.Varve: Job-KGWPIM(InvocationCount=2, IterationCount=8, UnrollFactor=1, WarmupCount=2)
+//   DeleteInsertWhereBenchmarks.DotNetRdf: Job-KGWPIM(InvocationCount=2, IterationCount=8, UnrollFactor=1, WarmupCount=2)
+
+// **************************
+// Benchmark: DeleteInsertWhereBenchmarks.Varve: Job-KGWPIM(InvocationCount=2, IterationCount=8, UnrollFactor=1, WarmupCount=2)
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Varve.Benchmarks-Job-KGWPIM-1.dll --anonymousPipes 146 147 --benchmarkName Varve.Benchmarks.DeleteInsertWhereBenchmarks.Varve --job "InvocationCount=2, IterationCount=8, UnrollFactor=1, WarmupCount=2" --benchmarkId 0 in /home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-KGWPIM-1/bin/Release/net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-KGWPIM(InvocationCount=2, IterationCount=8, UnrollFactor=1, WarmupCount=2)
+
+OverheadJitting  1: 1 op, 400617.00 ns, 400.6170 us/op
+WorkloadJitting  1: 1 op, 599073412.00 ns, 599.0734 ms/op
+
+OverheadWarmup   1: 2 op, 2882.00 ns, 1.4410 us/op
+OverheadWarmup   2: 2 op, 2798.00 ns, 1.3990 us/op
+OverheadWarmup   3: 2 op, 3266.00 ns, 1.6330 us/op
+OverheadWarmup   4: 2 op, 2775.00 ns, 1.3875 us/op
+OverheadWarmup   5: 2 op, 3263.00 ns, 1.6315 us/op
+OverheadWarmup   6: 2 op, 2757.00 ns, 1.3785 us/op
+
+OverheadActual   1: 2 op, 3148.00 ns, 1.5740 us/op
+OverheadActual   2: 2 op, 3256.00 ns, 1.6280 us/op
+OverheadActual   3: 2 op, 2833.00 ns, 1.4165 us/op
+OverheadActual   4: 2 op, 2383.00 ns, 1.1915 us/op
+OverheadActual   5: 2 op, 2843.00 ns, 1.4215 us/op
+OverheadActual   6: 2 op, 2440.00 ns, 1.2200 us/op
+OverheadActual   7: 2 op, 2504.00 ns, 1.2520 us/op
+OverheadActual   8: 2 op, 2451.00 ns, 1.2255 us/op
+OverheadActual   9: 2 op, 7960.00 ns, 3.9800 us/op
+OverheadActual  10: 2 op, 2948.00 ns, 1.4740 us/op
+OverheadActual  11: 2 op, 3095.00 ns, 1.5475 us/op
+OverheadActual  12: 2 op, 2911.00 ns, 1.4555 us/op
+OverheadActual  13: 2 op, 3080.00 ns, 1.5400 us/op
+OverheadActual  14: 2 op, 2683.00 ns, 1.3415 us/op
+OverheadActual  15: 2 op, 2997.00 ns, 1.4985 us/op
+OverheadActual  16: 2 op, 2973.00 ns, 1.4865 us/op
+OverheadActual  17: 2 op, 3201.00 ns, 1.6005 us/op
+OverheadActual  18: 2 op, 3097.00 ns, 1.5485 us/op
+OverheadActual  19: 2 op, 2859.00 ns, 1.4295 us/op
+OverheadActual  20: 2 op, 2933.00 ns, 1.4665 us/op
+
+WorkloadWarmup   1: 2 op, 453107705.00 ns, 226.5539 ms/op
+WorkloadWarmup   2: 2 op, 351226160.00 ns, 175.6131 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 2 op, 388771482.00 ns, 194.3857 ms/op
+WorkloadActual   2: 2 op, 399602874.00 ns, 199.8014 ms/op
+WorkloadActual   3: 2 op, 389224260.00 ns, 194.6121 ms/op
+WorkloadActual   4: 2 op, 427933927.00 ns, 213.9670 ms/op
+WorkloadActual   5: 2 op, 367343173.00 ns, 183.6716 ms/op
+WorkloadActual   6: 2 op, 336201360.00 ns, 168.1007 ms/op
+WorkloadActual   7: 2 op, 331086367.00 ns, 165.5432 ms/op
+WorkloadActual   8: 2 op, 333973545.00 ns, 166.9868 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 2 op, 388768541.50 ns, 194.3843 ms/op
+WorkloadResult   2: 2 op, 399599933.50 ns, 199.8000 ms/op
+WorkloadResult   3: 2 op, 389221319.50 ns, 194.6107 ms/op
+WorkloadResult   4: 2 op, 427930986.50 ns, 213.9655 ms/op
+WorkloadResult   5: 2 op, 367340232.50 ns, 183.6701 ms/op
+WorkloadResult   6: 2 op, 336198419.50 ns, 168.0992 ms/op
+WorkloadResult   7: 2 op, 331083426.50 ns, 165.5417 ms/op
+WorkloadResult   8: 2 op, 333970604.50 ns, 166.9853 ms/op
+// GC:  0 0 0 262439104 2
+// Threading:  0 0 2
+
+// AfterAll
+// Benchmark Process 21305 has exited with code 0.
+
+Mean = 185.882 ms, StdErr = 6.300 ms (3.39%), N = 8, StdDev = 17.820 ms
+Min = 165.542 ms, Q1 = 167.821 ms, Median = 189.027 ms, Q3 = 195.908 ms, Max = 213.965 ms
+IQR = 28.087 ms, LowerFence = 125.690 ms, UpperFence = 238.039 ms
+ConfidenceInterval = [151.811 ms; 219.953 ms] (CI 99.9%), Margin = 34.071 ms (18.33% of Mean)
+Skewness = 0.12, Kurtosis = 1.33, MValue = 2
+
+// ** Remained 1 (50.0 %) benchmark(s) to run. Estimated finish 2026-09-25 15:22 (0h 0m from now) **
+// **************************
+// Benchmark: DeleteInsertWhereBenchmarks.DotNetRdf: Job-KGWPIM(InvocationCount=2, IterationCount=8, UnrollFactor=1, WarmupCount=2)
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Varve.Benchmarks-Job-KGWPIM-1.dll --anonymousPipes 146 147 --benchmarkName Varve.Benchmarks.DeleteInsertWhereBenchmarks.DotNetRdf --job "InvocationCount=2, IterationCount=8, UnrollFactor=1, WarmupCount=2" --benchmarkId 1 in /home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-KGWPIM-1/bin/Release/net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-KGWPIM(InvocationCount=2, IterationCount=8, UnrollFactor=1, WarmupCount=2)
+
+OverheadJitting  1: 1 op, 391401.00 ns, 391.4010 us/op
+WorkloadJitting  1: 1 op, 3382236029.00 ns, 3.3822 s/op
+
+OverheadWarmup   1: 2 op, 3600.00 ns, 1.8000 us/op
+OverheadWarmup   2: 2 op, 3680.00 ns, 1.8400 us/op
+OverheadWarmup   3: 2 op, 4446.00 ns, 2.2230 us/op
+OverheadWarmup   4: 2 op, 3583.00 ns, 1.7915 us/op
+OverheadWarmup   5: 2 op, 5204.00 ns, 2.6020 us/op
+OverheadWarmup   6: 2 op, 3940.00 ns, 1.9700 us/op
+
+OverheadActual   1: 2 op, 4255.00 ns, 2.1275 us/op
+OverheadActual   2: 2 op, 4678.00 ns, 2.3390 us/op
+OverheadActual   3: 2 op, 4711.00 ns, 2.3555 us/op
+OverheadActual   4: 2 op, 4534.00 ns, 2.2670 us/op
+OverheadActual   5: 2 op, 4096.00 ns, 2.0480 us/op
+OverheadActual   6: 2 op, 3864.00 ns, 1.9320 us/op
+OverheadActual   7: 2 op, 4440.00 ns, 2.2200 us/op
+OverheadActual   8: 2 op, 4197.00 ns, 2.0985 us/op
+OverheadActual   9: 2 op, 12214.00 ns, 6.1070 us/op
+OverheadActual  10: 2 op, 24598.00 ns, 12.2990 us/op
+OverheadActual  11: 2 op, 5199.00 ns, 2.5995 us/op
+OverheadActual  12: 2 op, 3963.00 ns, 1.9815 us/op
+OverheadActual  13: 2 op, 2510.00 ns, 1.2550 us/op
+OverheadActual  14: 2 op, 2402.00 ns, 1.2010 us/op
+OverheadActual  15: 2 op, 2963.00 ns, 1.4815 us/op
+OverheadActual  16: 2 op, 2207.00 ns, 1.1035 us/op
+OverheadActual  17: 2 op, 2318.00 ns, 1.1590 us/op
+OverheadActual  18: 2 op, 2382.00 ns, 1.1910 us/op
+OverheadActual  19: 2 op, 2366.00 ns, 1.1830 us/op
+OverheadActual  20: 2 op, 2359.00 ns, 1.1795 us/op
+
+WorkloadWarmup   1: 2 op, 3704200405.00 ns, 1.8521 s/op
+WorkloadWarmup   2: 2 op, 3391393385.00 ns, 1.6957 s/op
+
+// BeforeActualRun
+WorkloadActual   1: 2 op, 3396743051.00 ns, 1.6984 s/op
+WorkloadActual   2: 2 op, 3474193333.00 ns, 1.7371 s/op
+WorkloadActual   3: 2 op, 3405132848.00 ns, 1.7026 s/op
+WorkloadActual   4: 2 op, 3656305829.00 ns, 1.8282 s/op
+WorkloadActual   5: 2 op, 3430283516.00 ns, 1.7151 s/op
+WorkloadActual   6: 2 op, 3515451826.00 ns, 1.7577 s/op
+WorkloadActual   7: 2 op, 3532974484.00 ns, 1.7665 s/op
+WorkloadActual   8: 2 op, 3542907373.00 ns, 1.7715 s/op
+
+// AfterActualRun
+WorkloadResult   1: 2 op, 3396739021.50 ns, 1.6984 s/op
+WorkloadResult   2: 2 op, 3474189303.50 ns, 1.7371 s/op
+WorkloadResult   3: 2 op, 3405128818.50 ns, 1.7026 s/op
+WorkloadResult   4: 2 op, 3656301799.50 ns, 1.8282 s/op
+WorkloadResult   5: 2 op, 3430279486.50 ns, 1.7151 s/op
+WorkloadResult   6: 2 op, 3515447796.50 ns, 1.7577 s/op
+WorkloadResult   7: 2 op, 3532970454.50 ns, 1.7665 s/op
+WorkloadResult   8: 2 op, 3542903343.50 ns, 1.7715 s/op
+// GC:  4 3 0 633108640 2
+// Threading:  0 0 2
+
+// AfterAll
+// Benchmark Process 21332 has exited with code 0.
+
+Mean = 1.747 s, StdErr = 0.015 s (0.88%), N = 8, StdDev = 0.043 s
+Min = 1.698 s, Q1 = 1.712 s, Median = 1.747 s, Q3 = 1.768 s, Max = 1.828 s
+IQR = 0.056 s, LowerFence = 1.628 s, UpperFence = 1.851 s
+ConfidenceInterval = [1.664 s; 1.830 s] (CI 99.9%), Margin = 0.083 s (4.74% of Mean)
+Skewness = 0.49, Kurtosis = 1.93, MValue = 2
+
+// ** Remained 0 (0.0 %) benchmark(s) to run. Estimated finish 2026-09-25 15:28 (0h 0m from now) **
+// ***** BenchmarkRunner: Finish  *****
+
+// * Export *
+  BenchmarkDotNet.Artifacts/results/Varve.Benchmarks.DeleteInsertWhereBenchmarks-report.csv
+  BenchmarkDotNet.Artifacts/results/Varve.Benchmarks.DeleteInsertWhereBenchmarks-report-github.md
+  BenchmarkDotNet.Artifacts/results/Varve.Benchmarks.DeleteInsertWhereBenchmarks-report.html
+
+// * Detailed results *
+DeleteInsertWhereBenchmarks.Varve: Job-KGWPIM(InvocationCount=2, IterationCount=8, UnrollFactor=1, WarmupCount=2)
+Runtime = .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 185.882 ms, StdErr = 6.300 ms (3.39%), N = 8, StdDev = 17.820 ms
+Min = 165.542 ms, Q1 = 167.821 ms, Median = 189.027 ms, Q3 = 195.908 ms, Max = 213.965 ms
+IQR = 28.087 ms, LowerFence = 125.690 ms, UpperFence = 238.039 ms
+ConfidenceInterval = [151.811 ms; 219.953 ms] (CI 99.9%), Margin = 34.071 ms (18.33% of Mean)
+Skewness = 0.12, Kurtosis = 1.33, MValue = 2
+-------------------- Histogram --------------------
+[153.848 ms ; 180.041 ms) | @@@
+[180.041 ms ; 203.429 ms) | @@@@
+[203.429 ms ; 225.660 ms) | @
+---------------------------------------------------
+
+DeleteInsertWhereBenchmarks.DotNetRdf: Job-KGWPIM(InvocationCount=2, IterationCount=8, UnrollFactor=1, WarmupCount=2)
+Runtime = .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 1.747 s, StdErr = 0.015 s (0.88%), N = 8, StdDev = 0.043 s
+Min = 1.698 s, Q1 = 1.712 s, Median = 1.747 s, Q3 = 1.768 s, Max = 1.828 s
+IQR = 0.056 s, LowerFence = 1.628 s, UpperFence = 1.851 s
+ConfidenceInterval = [1.664 s; 1.830 s] (CI 99.9%), Margin = 0.083 s (4.74% of Mean)
+Skewness = 0.49, Kurtosis = 1.93, MValue = 2
+-------------------- Histogram --------------------
+[1.670 s ; 1.715 s) | @@
+[1.715 s ; 1.800 s) | @@@@@
+[1.800 s ; 1.857 s) | @
+---------------------------------------------------
+
+// * Summary *
+
+BenchmarkDotNet v0.15.8, Linux Ubuntu 24.04.4 LTS (Noble Numbat)
+Intel Xeon Processor 2.10GHz, 1 CPU, 4 logical and 4 physical cores
+.NET SDK 10.0.401
+  [Host]     : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+  Job-KGWPIM : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+
+InvocationCount=2  IterationCount=8  UnrollFactor=1  
+WarmupCount=2  
+
+| Method    | Mean       | Error    | StdDev   | Ratio | RatioSD | Gen0      | Gen1      | Allocated | Alloc Ratio |
+|---------- |-----------:|---------:|---------:|------:|--------:|----------:|----------:|----------:|------------:|
+| Varve     |   185.9 ms | 34.07 ms | 17.82 ms |  0.11 |    0.01 |         - |         - | 125.14 MB |        0.41 |
+| DotNetRdf | 1,747.1 ms | 82.81 ms | 43.31 ms |  1.00 |    0.03 | 2000.0000 | 1500.0000 | 301.89 MB |        1.00 |
+
+// * Legends *
+  Mean        : Arithmetic mean of all measurements
+  Error       : Half of 99.9% confidence interval
+  StdDev      : Standard deviation of all measurements
+  Ratio       : Mean of the ratio distribution ([Current]/[Baseline])
+  RatioSD     : Standard deviation of the ratio distribution ([Current]/[Baseline])
+  Gen0        : GC Generation 0 collects per 1000 operations
+  Gen1        : GC Generation 1 collects per 1000 operations
+  Allocated   : Allocated memory per single operation (managed only, inclusive, 1KB = 1024B)
+  Alloc Ratio : Allocated memory ratio distribution ([Current]/[Baseline])
+  1 ms        : 1 Millisecond (0.001 sec)
+
+// * Diagnostic Output - MemoryDiagnoser *
+
+
+// ***** BenchmarkRunner: End *****
+Run time: 00:06:08 (368.03 sec), executed benchmarks: 2
+
+Global total time: 00:06:47 (407.98 sec), executed benchmarks: 2
+// * Artifacts cleanup *
+Artifacts cleanup is finished

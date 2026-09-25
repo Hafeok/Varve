@@ -2,7 +2,9 @@
 
 ## Status
 
-**Accepted.** 2026-09-22.
+**Accepted.** 2026-09-22. **Its deletion clause is superseded by
+[0059](0059-rdfc-in-varve-rdf-and-its-work-limit.md)**: the isomorphism
+check stays beside RDFC-1.0, as a cross-check that must agree.
 
 Records [`docs/spec/turtle.md`](../spec/turtle.md) §3, §5 and §7, and answers
 the question [`docs/spec/n-triples.md`](../spec/n-triples.md) §3 deferred to

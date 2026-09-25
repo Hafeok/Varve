@@ -194,16 +194,19 @@ public class ReaderTests
         byte[] small = Document(format, 1_000);
         byte[] large = Document(format, 10_000);
 
-        // Warm: the first read grows the arena and the builders to their size.
-        Consume(small, format);
-        Consume(large, format);
-
-        long smallCost = long.MaxValue, largeCost = long.MaxValue;
-        for (int run = 0; run < 3; run++)
-        {
-            smallCost = Math.Min(smallCost, Measure(small, format));
-            largeCost = Math.Min(largeCost, Measure(large, format));
-        }
+        // The first large read grows the arena and the builders to their size;
+        // the meter's rounds repeat until one reproduces the last (issue #32).
+        (long smallCost, long largeCost) = AllocationMeter.MeasurePair(
+            () =>
+            {
+                Consume(small, format);
+                return null;
+            },
+            () =>
+            {
+                Consume(large, format);
+                return null;
+            });
 
         // A reader is a handful of objects, and those are the same at any size:
         // per solution the difference must be zero.
@@ -211,13 +214,6 @@ public class ReaderTests
         Assert.True(
             perSolution < 0.5,
             string.Create(CultureInfo.InvariantCulture, $"{format}: {perSolution:F2} bytes per solution ({smallCost} for 1,000, {largeCost} for 10,000)"));
-    }
-
-    private static long Measure(byte[] document, SparqlResultsFormat format)
-    {
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        Consume(document, format);
-        return GC.GetAllocatedBytesForCurrentThread() - before;
     }
 
     private static int Consume(byte[] document, SparqlResultsFormat format)

@@ -1,3 +1,6 @@
 [submodule "tests/w3c/rdf-tests"]
 	path = tests/w3c/rdf-tests
 	url = https://github.com/w3c/rdf-tests
+[submodule "tests/w3c/rdf-canon"]
+	path = tests/w3c/rdf-canon
+	url = https://github.com/w3c/rdf-canon

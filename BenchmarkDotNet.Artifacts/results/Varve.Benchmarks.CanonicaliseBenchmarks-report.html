@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Varve.Benchmarks.CanonicaliseBenchmarks-20260925-151111</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Ubuntu 24.04.4 LTS (Noble Numbat)
+Intel Xeon Processor 2.10GHz, 1 CPU, 4 logical and 4 physical cores
+.NET SDK 10.0.401
+  [Host]     : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+  DefaultJob : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+</code></pre>
+<pre><code></code></pre>
+
+<table>
+<thead><tr><th>Method</th><th>Shape</th><th>Mean</th><th>Error</th><th>StdDev</th><th>Ratio</th><th>RatioSD</th><th>Gen0</th><th>Gen1</th><th>Gen2</th><th>Allocated</th><th>Alloc Ratio</th>
+</tr>
+</thead><tbody><tr><td>Varve</td><td>Blank</td><td>255.4 ms</td><td>5.09 ms</td><td>14.35 ms</td><td>?</td><td>?</td><td>1000.0000</td><td>500.0000</td><td>-</td><td>177.67 MB</td><td>?</td>
+</tr><tr><td>DotNetRdf</td><td>Blank</td><td>NA</td><td>NA</td><td>NA</td><td>?</td><td>?</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>?</td>
+</tr><tr><td>Varve</td><td>Twins</td><td>270.0 ms</td><td>5.38 ms</td><td>15.19 ms</td><td>?</td><td>?</td><td>1000.0000</td><td>500.0000</td><td>-</td><td>200.28 MB</td><td>?</td>
+</tr><tr><td>DotNetRdf</td><td>Twins</td><td>NA</td><td>NA</td><td>NA</td><td>?</td><td>?</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>?</td>
+</tr><tr><td>Varve</td><td>Blank1000</td><td>187.3 ms</td><td>3.68 ms</td><td>5.51 ms</td><td>0.12</td><td>0.01</td><td>666.6667</td><td>333.3333</td><td>333.3333</td><td>119.16 MB</td><td>0.14</td>
+</tr><tr><td>DotNetRdf</td><td>Blank1000</td><td>1,524.7 ms</td><td>39.72 ms</td><td>113.34 ms</td><td>1.01</td><td>0.11</td><td>6000.0000</td><td>3000.0000</td><td>-</td><td>849.76 MB</td><td>1.00</td>
+</tr></tbody></table>
+</body>
+</html>

@@ -113,6 +113,18 @@ The measurement runs on the fragmented paths too, with segment sizes small
 enough to cut constructs in half, because a buffer copied per chunk is a cost
 the whole-span path never shows.
 
+**Every reading goes through `tests/AllocationMeter.cs`**, linked into each
+test project that measures (issue #32). Two things outside the code under
+test move a single reading of `GC.GetAllocatedBytesForCurrentThread`. A
+collection in the window — started by any thread — retires the thread's
+allocation context and the counter keeps its unused tail, up to one 8 KB
+quantum, so a reading is taken inside a no-GC region and discarded if the
+region broke. Tiered compilation can stack-allocate an object the caller
+discards once the call is inlined, so the measured action returns what it
+made and the meter keeps it alive; and a pair of readings counts only when
+the next round reproduces it, so a tier-up between the two sides of one round
+is not used. There is no warm-up count to tune: the rounds are the warm-up.
+
 ## 5. Fitness tests for the things a review forgets
 
 Layer direction and layer declaration are analyzers (`VARVE0001`, `VARVE0002`).

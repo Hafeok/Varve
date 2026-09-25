@@ -58,6 +58,7 @@ internal static partial class Smoke
             report.Append(await Store()).Append('\n');
             report.Append(Sparql()).Append('\n');
             report.Append(await Evaluate()).Append('\n');
+            report.Append(await Update()).Append('\n');
             report.Append(Crypto()).Append('\n');
             Expect();
             report.Append("OK");
@@ -270,6 +271,26 @@ internal static partial class Smoke
         return "evaluation: " + bgp + "; " + aggregate + "; " + path + "; the five hashes of \"abc\" as FIPS 180 and RFC 1321 give them";
     }
 
+    /// <summary>
+    /// Milestone 5c: an update committed against the pinned head, a query's
+    /// results written as SPARQL results JSON, and a small dataset
+    /// canonicalised with RDFC-1.0 under SHA-256 and SHA-384, each compared
+    /// whole with what the AOT host produces.
+    /// </summary>
+    private static async Task<string> Update()
+    {
+        (string update, string json, string canonical, string sha384) = await UpdateAsync();
+        if (!string.Equals(update, ExpectedUpdate, StringComparison.Ordinal)
+            || !string.Equals(json, ExpectedJson, StringComparison.Ordinal)
+            || !string.Equals(canonical, ExpectedCanonical, StringComparison.Ordinal)
+            || !string.Equals(sha384, ExpectedCanonical384, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("update: " + update + "\n" + json + canonical + "---\n" + sha384);
+        }
+
+        return "update: " + update + "; " + json.Length + " bytes of results JSON; RDFC-1.0 under SHA-256 and SHA-384 as the AOT host gives it";
+    }
+
     private static int Count(Varve.Store.DatasetView source)
     {
         int count = 0;
@@ -394,6 +415,8 @@ internal static partial class Smoke
         report.Append(Probe("SHA1", static () => SHA1.HashData("varve"u8).Length == 20));
         report.Append(Probe("SHA384", static () => SHA384.HashData("varve"u8).Length == 48));
         report.Append(Probe("SHA512", static () => SHA512.HashData("varve"u8).Length == 64));
+        report.Append(Probe("IncrementalHash-SHA256", static () => Incremental(HashAlgorithmName.SHA256, 32)));
+        report.Append(Probe("IncrementalHash-SHA384", static () => Incremental(HashAlgorithmName.SHA384, 48)));
         report.Append(Probe("MD5", static () => MD5.HashData("varve"u8).Length == 16));
 #pragma warning restore CA5350, CA5351
         report.Append(Probe("HMACSHA256", static () => HMACSHA256.HashData(new byte[32], "varve"u8).Length == 32));
@@ -440,6 +463,20 @@ internal static partial class Smoke
     /// <c>name=threw(Type)</c>. A probe never propagates: the point is the
     /// whole picture, not the first thing that fails.
     /// </summary>
+    /// <summary>
+    /// Hashes in two appends and checks the digest against the one-shot's, which
+    /// is how the canonicaliser uses it.
+    /// </summary>
+    private static bool Incremental(HashAlgorithmName algorithm, int length)
+    {
+        using IncrementalHash hash = IncrementalHash.CreateHash(algorithm);
+        hash.AppendData("var"u8);
+        hash.AppendData("ve"u8);
+        byte[] digest = hash.GetHashAndReset();
+        byte[] once = algorithm == HashAlgorithmName.SHA256 ? SHA256.HashData("varve"u8) : SHA384.HashData("varve"u8);
+        return digest.Length == length && digest.AsSpan().SequenceEqual(once);
+    }
+
     private static string Probe(string name, Func<bool> check)
     {
         string outcome;
@@ -490,6 +527,11 @@ internal static partial class Smoke
         ("SHA1", "yes"),
         ("SHA384", "yes"),
         ("SHA512", "yes"),
+
+        // Milestone 5c: RDFC-1.0 hashes through IncrementalHash, SHA-256 by
+        // default and SHA-384 when selected (ADR 0059).
+        ("IncrementalHash-SHA256", "yes"),
+        ("IncrementalHash-SHA384", "yes"),
         ("MD5", "threw(CryptographicException)"),
 
         ("AES-CBC", "unsupported"),

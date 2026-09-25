@@ -1,6 +1,7 @@
 # Varve.Rdf
 
-The RDF 1.1 and 1.2 term model, and the abstract quad source contract.
+The RDF 1.1 and 1.2 term model, the abstract quad source contract, and
+RDF Dataset Canonicalization (RDFC-1.0).
 
 - **Two representations.** `RdfTermView` is a zero-allocation window over a
   parser's buffer, valid for the callback that receives it. `RdfTerm` is the
@@ -12,6 +13,9 @@ The RDF 1.1 and 1.2 term model, and the abstract quad source contract.
   datatype IRI and language tag (Concepts §3.3). `"1"^^xsd:integer` and
   `"01"^^xsd:integer` are different terms and stay different terms; value
   comparison belongs to a SPARQL evaluator, not to a graph.
+- **RDFC-1.0** over any quad source: the canonical N-Quads form and the
+  issued blank node identifiers, SHA-256 or SHA-384, bounded by a work limit
+  that fails explicitly on a poison graph instead of running without end.
 - **`IQuadSource`** is the contract everything reads through: an opaque 64-bit
   handle, internalise and externalise, an equality comparer supplied by the
   source, and four explicit graph modes — the default graph, one named graph,

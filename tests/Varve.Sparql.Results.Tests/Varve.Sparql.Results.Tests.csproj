@@ -13,6 +13,11 @@
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+    <PackageReference Include="CsCheck" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../AllocationMeter.cs" Link="AllocationMeter.cs" />
   </ItemGroup>
 
 </Project>

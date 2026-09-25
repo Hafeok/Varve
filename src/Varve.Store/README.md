@@ -14,6 +14,12 @@ a projection of it.
   nearest checkpoint plus an overlay of the log tail.
 - **A header chain** makes two copies of one dataset that were continued
   independently detectably divergent.
+- **Pre-commit validators** bound to the dataset gate every commit; a request
+  may add its own. A validator sees the state the commit would produce and
+  the delta, and nothing else.
+- **A staging view** over a pinned read names terms the dataset does not hold
+  yet, so that several changes can be composed over an overlay and
+  submitted as one commit — what SPARQL Update's integration does.
 - **SPARQL-free and SHACL-free.** Reads are through `IQuadSource` from
   `Varve.Rdf`; writes are an ordered list of assertions and retractions over
   terms.

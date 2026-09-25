@@ -12,11 +12,13 @@
     <ProjectReference Include="../../src/Varve.Sparql.Results/Varve.Sparql.Results.csproj" />
     <ProjectReference Include="../../src/Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
     <ProjectReference Include="../../src/Varve.Store/Varve.Store.csproj" />
+    <ProjectReference Include="../../src/Varve.Sparql.Store/Varve.Sparql.Store.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+    <PackageReference Include="CsCheck" />
 
     <!-- Test-only and temporary. The W3C manifests are Turtle and we have no
          Turtle parser; this reads them, from exactly one internal class

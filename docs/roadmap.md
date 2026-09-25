@@ -211,7 +211,7 @@ landing on the trunk before the next starts:
 |---|---|---|
 | **5a** *(complete)* | The five ADRs below, `Varve.Xsd`, the SPARQL algebra, parser and serialiser (`Varve.Sparql`, layer 2), cardinality estimates and the typed-value accessor on `IQuadSource` | The W3C SPARQL 1.0, 1.1 and 1.2 syntax suites, query and update, in the ratchet — **554 of 554, no exemption** |
 | **5b** *(complete)* | ADRs 0053–0056; the optimiser and evaluator (`Varve.Sparql.Evaluation`, layer 3) over the in-memory projection and over `InMemoryDataset`; **the result-format readers** (`Varve.Sparql.Results`, layer 2), brought forward from 5c because the suite's expected results come in those formats; ADR 0022's benchmark per ADR 0050 | The SPARQL 1.0 and 1.1 query evaluation suites and the loadable SPARQL 1.2 ones, over two subjects — **544 cases, 1,088 of 1,088, no exemption**; 41 blocked on 6b |
-| **5c** | The result-format **writers**, and the SPARQL Update integration package at layer 5; RDFC-1.0 canonicalisation, which has waited since 3a and whose first consumer is the result comparison | The results-format and update evaluation suites |
+| **5c** *(complete)* | ADRs 0057–0059; the result-format **writers**; `Varve.Sparql.Store`, the SPARQL Update integration package at layer 5 — one request, one commit — with dataset validators and a staging view in the store; RDFC-1.0 canonicalisation in `Varve.Rdf`, now the harness's dataset comparison | The update evaluation suites — **94 of 94**, each one commit or none, asserted; `rdf-canon` — **86 of 86**; the results-format cases written — **10 of 10**; no exemption, ratchet **2,721** |
 
 **The positions the maintainer took at the end of milestone 4 are ADRs**, all
 accepted at the start of 5a:
@@ -253,6 +253,18 @@ optimiser holds its equivalence property, the store answers as a dataset of
 its own quads at any position, and AOT and the browser evaluate queries. What
 5c inherits is in the traceability record
 (`docs/traceability/2026-09-25-issue-9-milestone-5b-evaluation.md`).
+
+**5c landed** with `docs/spec/sparql-update-store.md` and `docs/spec/rdf-canon.md`,
+the writers in `docs/spec/sparql-results.md`, and ADRs 0057 (update as one
+commit), 0058 (dataset validators and the staging view) and 0059 (RDFC-1.0 in
+`Varve.Rdf`, bounded by a work limit; supersedes ADR 0030's deletion clause).
+No update case needed an exemption for empty graphs. The flaky allocation
+test (#32) was a garbage collection and tier-1 escape analysis moving
+readings, now taken inside a no-GC region. RDFC-1.0 was found to give some
+isomorphic datasets with blank graph names different canonical forms
+(`rdf-canon.md` §6). What milestone 6 needs decided before it starts is in the
+traceability record
+(`docs/traceability/2026-09-25-issue-9-milestone-5c-update-and-canonicalisation.md`).
 
 Turtle and TriG were planned for this milestone and shipped in 3b instead,
 which is why ADR 0007's exit criterion — the conformance harness reading its

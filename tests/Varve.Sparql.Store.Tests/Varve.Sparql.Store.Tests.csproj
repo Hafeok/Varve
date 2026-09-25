@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <VarveLayer>none</VarveLayer>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Varve.Sparql.Store/Varve.Sparql.Store.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+    <PackageReference Include="CsCheck" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The harness's isomorphism check, test code (ADR 0030, ADR 0059). -->
+    <Compile Include="../Varve.Conformance.Tests/Isomorphism.cs;../Varve.Conformance.Tests/ParsedQuad.cs" LinkBase="Conformance" />
+  </ItemGroup>
+
+</Project>

@@ -26,6 +26,17 @@ internal static class TestData
     internal static bool IsCheckedOut =>
         Directory.Exists(RdfTestsRoot) && File.Exists(Path.Combine(RdfTestsRoot, "README.md"));
 
+    /// <summary>
+    /// The second submodule, <c>w3c/rdf-canon</c> (ADR 0059, ADR 0007's
+    /// pattern), whether or not it has been checked out.
+    /// </summary>
+    internal static string RdfCanonRoot { get; } =
+        Path.Combine(RepositoryRoot(), "tests", "w3c", "rdf-canon");
+
+    /// <summary>Whether the canonicalisation submodule has actually been checked out.</summary>
+    internal static bool IsCanonCheckedOut =>
+        File.Exists(Path.Combine(RdfCanonRoot, "tests", "manifest.ttl"));
+
     /// <summary>Resolves a manifest path from a suite to an absolute path.</summary>
     internal static string ResolveFromRoot(string relativePath) =>
         Path.Combine(RdfTestsRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));

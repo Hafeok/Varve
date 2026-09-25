@@ -32,7 +32,19 @@ internal static class EvaluationRunner
     /// Runs one case with the given arm (ADR 0050); with <paramref name="expectedPath"/>,
     /// against that result file rather than the manifest's — the differential run's Oxigraph answer.
     /// </summary>
-    internal static async Task<string?> RunAsync(EvaluationEntry entry, IEvaluationSubject subject, ValueAccess access, string? expectedPath, CancellationToken cancellationToken)
+    internal static Task<string?> RunAsync(EvaluationEntry entry, IEvaluationSubject subject, ValueAccess access, string? expectedPath, CancellationToken cancellationToken) =>
+        EvaluateAsync(entry, subject, access, (query, results) => Compare(entry, query, results, expectedPath), cancellationToken);
+
+    /// <summary>
+    /// Loads the case's data into the subject, evaluates its query, and hands
+    /// the results to <paramref name="use"/> while the source is still open.
+    /// </summary>
+    internal static async Task<T> EvaluateAsync<T>(
+        EvaluationEntry entry,
+        IEvaluationSubject subject,
+        ValueAccess access,
+        Func<Query, QueryResults, T> use,
+        CancellationToken cancellationToken)
     {
         Query query = ParseQuery(entry);
         List<(IReadOnlyList<DataQuad>, RdfTerm?)> graphs = [];
@@ -73,7 +85,7 @@ internal static class EvaluationRunner
 
         await using LoadedSource loaded = await subject.LoadAsync(graphs);
         using QueryResults results = new SparqlEvaluator(options).Evaluate(query, loaded.Source, cancellationToken);
-        return Compare(entry, query, results, expectedPath);
+        return use(query, results);
     }
 
     internal static Query ParseQuery(EvaluationEntry entry)
@@ -135,17 +147,14 @@ internal static class EvaluationRunner
                         return "a graph, but the expected result is a table";
                     }
 
-                    List<ParsedQuad> actual = [];
+                    List<DataQuad> actual = [];
                     while (triples.MoveNext())
                     {
-                        actual.Add(new ParsedQuad(EvaluationData.Text(triples.Subject), EvaluationData.Text(triples.Predicate), EvaluationData.Text(triples.Object), null));
+                        actual.Add(new DataQuad(triples.Subject, triples.Predicate, triples.Object, null));
                     }
 
-                    List<ParsedQuad> wanted = [.. expectedGraph.Select(q => new ParsedQuad(EvaluationData.Text(q.Subject), EvaluationData.Text(q.Predicate), EvaluationData.Text(q.Object), null)).Distinct()];
-                    IsomorphismResult verdict = Isomorphism.Compare(actual, wanted);
-                    return verdict.Verdict == IsomorphismVerdict.Same
-                        ? null
-                        : verdict.Reason + "\n  actual:\n    " + string.Join("\n    ", actual) + "\n  expected:\n    " + string.Join("\n    ", wanted);
+                    List<DataQuad> wanted = [.. expectedGraph.Select(q => q with { Graph = null })];
+                    return DatasetComparison.Compare(actual, wanted);
                 }
 
             default:

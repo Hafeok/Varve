@@ -51,6 +51,8 @@ On .NET 10 in headless Chromium 141:
 | `SHA1` | works | SPARQL `SHA1()` |
 | `SHA384` | works | SPARQL `SHA384()` |
 | `SHA512` | works | SPARQL `SHA512()` |
+| `IncrementalHash` SHA-256 | works | RDFC-1.0 (ADR 0059) |
+| `IncrementalHash` SHA-384 | works | RDFC-1.0, when selected |
 | `MD5` | throws `CryptographicException` | SPARQL `MD5()`: the package's own, RFC 1321 |
 | `Aes.Create()` | throws `PlatformNotSupportedException` | ADR 0020 |
 | `AesGcm.IsSupported` | false | |
@@ -62,8 +64,10 @@ and they failed it: no symmetric cipher of any kind is available in a browser,
 which is a wider finding than the one that ADR was testing for. The first five
 are **ADR 0028's first condition**, and they hold — 0028 builds a deterministic
 AEAD out of exactly those primitives because they are the ones that run here.
-The four between are SPARQL's hash functions (milestone 5b): three are the
-platform's, and `MD5` is not available, so the evaluator carries its own.
+The six between are the hash functions: SPARQL's (milestone 5b), of which
+three are the platform's and `MD5` is not available, so the evaluator carries
+its own; and the incremental SHA-256 and SHA-384 that RDFC-1.0 hashes with
+(milestone 5c).
 
 The table is **pinned in `Smoke.cs` and asserted**, so a runtime that changes
 any row makes this fail. That is the correct behaviour in both directions: a
@@ -93,6 +97,18 @@ whole with its expected answer. The platform's `MD5` throws here, so SPARQL's
 `MD5()` is `Varve.Sparql.Evaluation`'s own RFC 1321 implementation, tested
 against §A.5's vectors; the other four are the platform's, and the rows above
 pin that they are available.
+
+**Updates, result writing and canonicalisation run in the browser** (milestone
+5c, headless Chromium 141): data committed to an in-memory store, then a
+DELETE/INSERT whose WHERE is evaluated over the pinned head and whose change
+is committed expecting that position; a query over the result written as
+SPARQL results JSON; and a three-quad dataset with a chain of blank nodes
+canonicalised with RDFC-1.0 under SHA-256 and SHA-384. Each is compared whole
+with the string the AOT host produces from the same code (`Update.cs`, shared
+by both apps). The update is composed from the store and the evaluator here
+rather than through `Varve.Sparql.Store`: ADR 0003 puts hosts and
+integrations both at layer 5, VARVE0001 forbids a same-layer reference, and no
+exception is recorded — a decision left to the maintainer, not made in passing.
 
 A `404` for `/favicon.ico` in the console is Chromium asking for one that the
 app bundle does not contain. It is not a failure.

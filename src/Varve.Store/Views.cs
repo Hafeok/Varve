@@ -311,6 +311,18 @@ public sealed class DatasetView : IQuadSource, IDisposable
         return _source.TryGetInlineValue(handle, out value);
     }
 
+    /// <summary>
+    /// A staging view over this view: the same quads, and handles for terms
+    /// this view does not hold (ADR 0058) — the provisional ids of T1 step 2,
+    /// exposed for a caller that composes several changes before one commit.
+    /// The staging view reads through this one, so it lives no longer.
+    /// </summary>
+    public StagingView Stage()
+    {
+        ThrowIfDisposed();
+        return new StagingView(this, _terms);
+    }
+
     /// <summary>Releases the view. In memory this holds nothing a later commit could need back.</summary>
     public void Dispose() => _disposed = true;
 

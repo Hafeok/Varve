@@ -1,0 +1,29 @@
+#nullable enable
+Varve.Sparql.Store.ILoadSource
+Varve.Sparql.Store.ILoadSource.LoadAsync(Varve.Rdf.RdfTerm! iri, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Sparql.Store.LoadedDocument!>
+Varve.Sparql.Store.LoadedDocument
+Varve.Sparql.Store.LoadedDocument.BaseIri.get -> System.ReadOnlyMemory<byte>
+Varve.Sparql.Store.LoadedDocument.Content.get -> System.ReadOnlyMemory<byte>
+Varve.Sparql.Store.LoadedDocument.Failure.get -> string?
+Varve.Sparql.Store.LoadedDocument.Syntax.get -> Varve.Turtle.RdfSyntax
+Varve.Sparql.Store.SparqlUpdate
+Varve.Sparql.Store.SparqlUpdateException
+Varve.Sparql.Store.SparqlUpdateException.OperationIndex.get -> int
+Varve.Sparql.Store.SparqlUpdateException.OperationKind.get -> string!
+Varve.Sparql.Store.SparqlUpdateException.SparqlUpdateException() -> void
+Varve.Sparql.Store.SparqlUpdateException.SparqlUpdateException(int operationIndex, string! operationKind, string! message, System.Exception? innerException = null) -> void
+Varve.Sparql.Store.SparqlUpdateException.SparqlUpdateException(string! message) -> void
+Varve.Sparql.Store.SparqlUpdateException.SparqlUpdateException(string! message, System.Exception! innerException) -> void
+Varve.Sparql.Store.UpdateOptions
+Varve.Sparql.Store.UpdateOptions.ConflictRetries.get -> int
+Varve.Sparql.Store.UpdateOptions.ConflictRetries.init -> void
+Varve.Sparql.Store.UpdateOptions.Evaluation.get -> Varve.Sparql.Evaluation.EvaluationOptions!
+Varve.Sparql.Store.UpdateOptions.Evaluation.init -> void
+Varve.Sparql.Store.UpdateOptions.LoadSource.get -> Varve.Sparql.Store.ILoadSource!
+Varve.Sparql.Store.UpdateOptions.LoadSource.init -> void
+Varve.Sparql.Store.UpdateOptions.Metadata.get -> Varve.Store.CommitMetadata!
+Varve.Sparql.Store.UpdateOptions.Metadata.init -> void
+Varve.Sparql.Store.UpdateOptions.UpdateOptions() -> void
+static Varve.Sparql.Store.LoadedDocument.Failed(string! reason) -> Varve.Sparql.Store.LoadedDocument!
+static Varve.Sparql.Store.LoadedDocument.Of(System.ReadOnlyMemory<byte> content, Varve.Turtle.RdfSyntax syntax, System.ReadOnlyMemory<byte> baseIri) -> Varve.Sparql.Store.LoadedDocument!
+static Varve.Sparql.Store.SparqlUpdate.ExecuteAsync(Varve.Store.Dataset! dataset, Varve.Sparql.Algebra.Update! update, Varve.Sparql.Store.UpdateOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.CommitResult>

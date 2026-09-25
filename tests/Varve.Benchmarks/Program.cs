@@ -45,6 +45,12 @@ internal static class Program
             return;
         }
 
+        if (args.Length == 2 && args[0] == "--update-export")
+        {
+            UpdateWorkload.Export(args[1]);
+            return;
+        }
+
         if (args.Length == 2 && args[0] == "--export-cases")
         {
             Differential.Export(args[1]);

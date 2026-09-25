@@ -319,6 +319,29 @@ internal static class Program
             return 1;
         }
 
+        return Update().AsTask().GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// Milestone 5c under Native AOT: an update committed against the pinned
+    /// head, a query's results written as JSON, and RDFC-1.0 under SHA-256
+    /// and SHA-384. The writer and the canonicaliser use IncrementalHash and
+    /// pooled buffers, which ILC could trim without a build error.
+    /// </summary>
+    private static async ValueTask<int> Update()
+    {
+        (string update, string json, string canonical, string sha384) = await Smoke.UpdateAsync();
+        Console.WriteLine("update: " + update + "; " + json.Length + " bytes of results JSON; canonical form of " + canonical.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length + " quads");
+
+        if (!string.Equals(update, Smoke.ExpectedUpdate, StringComparison.Ordinal)
+            || !string.Equals(json, Smoke.ExpectedJson, StringComparison.Ordinal)
+            || !string.Equals(canonical, Smoke.ExpectedCanonical, StringComparison.Ordinal)
+            || !string.Equals(sha384, Smoke.ExpectedCanonical384, StringComparison.Ordinal))
+        {
+            Console.Error.WriteLine("aot-smoke: update, results or canonicalisation are not the expected ones:\n" + update + "\n" + json + canonical + "---\n" + sha384);
+            return 1;
+        }
+
         return 0;
     }
 
