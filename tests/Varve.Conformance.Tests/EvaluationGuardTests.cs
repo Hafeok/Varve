@@ -52,7 +52,7 @@ public class EvaluationGuardTests
         { "sparql11/bindings", 11, 0 },
         { "sparql11/cast", 6, 0 },
         { "sparql11/construct", 5, 0 },
-        { "sparql11/csv-tsv-res", 3, 0 },
+        { "sparql11/csv-tsv-res", 6, 0 },
         { "sparql11/exists", 6, 0 },
         { "sparql11/functions", 75, 0 },
         { "sparql11/grouping", 4, 0 },

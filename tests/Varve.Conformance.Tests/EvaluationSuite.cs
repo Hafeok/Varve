@@ -114,6 +114,16 @@ internal static class EvaluationCatalogue
         return all;
     }
 
+    /// <summary>
+    /// A query evaluation case: <c>mf:QueryEvaluationTest</c>, and
+    /// <c>mf:CSVResultFormatTest</c>, which <c>csv-tsv-res</c> uses for its
+    /// three CSV cases and which is the same test with a CSV result — wired at
+    /// milestone 5c, when the writers made the omission visible.
+    /// </summary>
+    private static bool IsQueryEvaluation(string type) =>
+        string.Equals(type, Mf + "QueryEvaluationTest", StringComparison.Ordinal)
+        || string.Equals(type, Mf + "CSVResultFormatTest", StringComparison.Ordinal);
+
     private static List<EvaluationEntry> Read(EvaluationSuite suite)
     {
         string path = TestData.ResolveFromRoot(suite.ManifestPath);
@@ -125,7 +135,7 @@ internal static class EvaluationCatalogue
             foreach (RdfTerm entry in graph.Collection(list))
             {
                 if (graph.Object(entry, Rdf + "type") is not { } type
-                    || !string.Equals(ManifestGraph.Text(type), Mf + "QueryEvaluationTest", StringComparison.Ordinal)
+                    || !IsQueryEvaluation(ManifestGraph.Text(type))
                     || graph.Object(entry, Mf + "action") is not { } action)
                 {
                     continue;
