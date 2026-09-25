@@ -139,7 +139,8 @@ a work limit (ADR 0059), which the harness now uses to compare datasets. All
 547 query evaluation cases that are not blocked pass over both subjects (5b's
 544 and the three CSV cases 5b never wired), all
 94 update cases, all 86 `rdf-canon` cases and ten writer checks; the ratchet
-holds **2,721** lines, exemptions empty. AOT and the browser both execute an
+holds **2,803** lines, exemptions empty; canonical N-Triples and N-Quads are
+RDF 1.2's (ADR 0061), gated by its 82 `c14n` cases. AOT and the browser both execute an
 update request through `Varve.Sparql.Store`, write results JSON and
 canonicalise; they are layer 6 hosts (ADR 0060). **RDF 1.2 Turtle and TriG
 are not accepted at all** — `turtle.md` §9. Nothing is published; the first tag is

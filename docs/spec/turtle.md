@@ -241,10 +241,12 @@ Both syntaxes, streaming, from a view or from a quad and its source.
 - **Prefix compaction.** A writer is told its prefixes up front and uses them;
   it does not invent them, because a prefix nobody declared is a prefix the
   reader of the output has to guess the meaning of.
-- **Canonical form is N-Triples §4's**, extended to Turtle: one space between
-  terms, no comments, a character written directly rather than as a `UCHAR`,
-  and `ECHAR` only for the four characters that need it. Turtle has no
-  canonical form of its own, and saying so is better than implying one.
+- **Canonical form is RDF 1.1 N-Triples §4's**, extended to Turtle: one space
+  between terms, no comments, a character written directly rather than as a
+  `UCHAR`, and `ECHAR` only for the four characters that need it. Turtle has
+  no canonical form of its own, and saying so is better than implying one.
+  N-Triples and N-Quads moved to RDF 1.2's form (ADR 0061); Turtle keeps the
+  narrower escape set, which every Turtle reader accepts.
 - **No pretty-printing** in this milestone: no nested blank node property
   lists, no collection syntax, no predicate or object lists. Every statement is
   written out in full. Those are output-shape decisions with their own

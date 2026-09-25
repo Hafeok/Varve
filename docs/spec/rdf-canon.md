@@ -127,15 +127,14 @@ which extends canonical N-Triples with the graph label:
 - IRIs are written between `<` and `>` as the term holds them; `HEX` is
   uppercase.
 
-**This is not the canonical form `n-triples.md` §5 defines**, and the
-difference is a finding of this milestone. That form is RDF 1.1 N-Triples §4:
-`ECHAR` for `"`, `\`, LF and CR only, and never `UCHAR`. Appendix A adds BS,
-HT and FF to the `ECHAR` set and requires `UCHAR` for the other control
-characters and DEL, which RDF 1.1's form writes raw. A literal holding a tab
-is therefore written differently by `Varve.Turtle`'s canonical writer and by
-the canonicaliser. `n-triples.md` is not changed by this milestone; §8 of
-the report proposes aligning it with RDF 1.2 N-Triples, whose canonical form
-is Appendix A's.
+**It is the canonical form `n-triples.md` §5 defines**, since ADR 0061.
+Until then `Varve.Turtle`'s canonical writer followed RDF 1.1 N-Triples §4:
+`ECHAR` for `"`, `\`, LF and CR only, no `UCHAR`, and a tag as held. That
+made a literal holding a tab come out differently from the two writers, which
+was a finding of milestone 5c. Both now write RDF 1.2 N-Triples §3's form.
+They remain two pieces of code, one per layer, and the read-back property of
+§7 requires that `Varve.Turtle`'s canonical writer reproduces this output byte
+for byte.
 
 ## 5. Why it is in `Varve.Rdf`, and bounded
 
@@ -229,9 +228,12 @@ ADR 0059 requires, and this section is where its explanation is.
 - **Idempotence**: `canon(canon(A)) = canon(A)`, reading the canonical form
   back with `Varve.Turtle`, for datasets without blank graph names — with
   them it inherits §6's shortfall, since the canonical form is a relabelling.
-- **The canonical form parses**: every canonical output read back with
-  `Varve.Turtle`'s N-Quads reader gives the dataset it was computed from, up
-  to the issued relabelling.
+- **The canonical form parses, and the writers agree**: every canonical
+  output read back with `Varve.Turtle`'s N-Quads reader gives the dataset it
+  was computed from, up to the issued relabelling; and writing what was read
+  with `Varve.Turtle`'s canonical writer gives the output back byte for byte
+  (ADR 0061). Case folding cannot show there, since the output is already
+  lowercase; RDF 1.2's `c14n` suites and `Varve.Turtle`'s own tests hold it.
 - **SHA-384 in the browser** is measured by the browser smoke app (ADR 0028's
   table gains the row).
 
@@ -239,8 +241,8 @@ ADR 0059 requires, and this section is where its explanation is.
 
 1. **Triple terms containing blank nodes** (§3.1): refused until RDF 1.2
    says how RDFC applies to them.
-2. **`n-triples.md`'s canonical form** (§4) — whether it becomes RDF 1.2's.
-   Proposed in this milestone's report; decided by the maintainer.
+2. ~~**`n-triples.md`'s canonical form** (§4) — whether it becomes RDF
+   1.2's.~~ Decided: it does, and 1.2 wins where 1.1 differs (ADR 0061).
 3. ~~**§6's counterexample** — whether and how to raise it with the RDF &
    SPARQL Working Group.~~ Decided on the 5c report: raised, with the minimal
    pair (#36), and recorded here as a known limit.

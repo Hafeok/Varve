@@ -87,6 +87,10 @@ public class SyntaxConformanceTests
                 Evaluate(entry, subject, outcome);
                 break;
 
+            case ExpectedOutcome.Canonicalises:
+                Canonicalise(entry, outcome);
+                break;
+
             default:
                 throw new InvalidOperationException(
                     "Unhandled expectation " + entry.Expected.ToString() + " for " + testIri + ".");
@@ -134,6 +138,45 @@ public class SyntaxConformanceTests
             comparison.IsSame,
             Describe(entry) + verdict + comparison.Reason
             + ".\n  parsed:\n" + Lines(outcome.Quads) + "  expected:\n" + Lines(expected.Quads));
+    }
+
+    /// <summary>
+    /// Parses the entry's input with Varve's line parser, writes every quad in
+    /// canonical form, and requires the bytes of its <c>mf:result</c>.
+    /// </summary>
+    /// <remarks>
+    /// Varve's parser and writer directly, not the registered subject: the
+    /// canonical form is a property of the writer, which the subject
+    /// abstraction does not have. Quads are written in the order the input
+    /// holds them, which is the order each expected file lists them.
+    /// </remarks>
+    private static void Canonicalise(ManifestEntry entry, ParseOutcome outcome)
+    {
+        Assert.True(
+            outcome.Succeeded,
+            Describe(entry) + " must parse, but was rejected: " + (outcome.Error ?? "(no reason given)"));
+
+        Assert.True(
+            entry.ResultPath is not null,
+            Describe(entry) + " is a canonical-form test with no mf:result to compare against.");
+
+        Varve.Turtle.RdfSyntax syntax = entry.Format == RdfFormat.NQuads ? Varve.Turtle.RdfSyntax.NQuads : Varve.Turtle.RdfSyntax.NTriples;
+        Varve.Turtle.WriteOptions options = new() { Syntax = syntax };
+        ArrayBufferWriter written = new();
+
+        Varve.Turtle.ParseResult parsed = Varve.Turtle.NQuadsParser.Parse(
+            File.ReadAllBytes(entry.ActionPath),
+            (in Varve.Rdf.QuadView quad) => Varve.Turtle.NQuadsWriter.Write(written, in quad, in options),
+            new Varve.Turtle.ParseOptions { Syntax = syntax });
+
+        Assert.True(parsed.Succeeded, Describe(entry) + " did not parse: " + parsed.FirstError);
+
+        string expected = System.Text.Encoding.UTF8.GetString(File.ReadAllBytes(entry.ResultPath!));
+        string actual = System.Text.Encoding.UTF8.GetString(written.Written);
+
+        Assert.True(
+            string.Equals(expected, actual, StringComparison.Ordinal),
+            Describe(entry) + " is not written in canonical form.\n  written:  " + actual + "  expected: " + expected);
     }
 
     private static string Lines(System.Collections.Generic.IReadOnlyList<ParsedQuad> quads)

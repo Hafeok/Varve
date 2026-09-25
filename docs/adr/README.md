@@ -137,13 +137,14 @@ Decided by the maintainer on the 5c plan.
 | [0058](0058-staging-view-and-dataset-validators.md) | A staging view over a pinned read, and validators bound to a dataset | Accepted; refines 0017 |
 | [0059](0059-rdfc-in-varve-rdf-and-its-work-limit.md) | RDFC-1.0 in `Varve.Rdf`, bounded by a work limit; the isomorphism check stays as a cross-check | Accepted; supersedes 0030's deletion clause |
 
-## After milestone 5c — hosts
+## After milestone 5c — hosts and the canonical form
 
 Decided by the maintainer on the 5c report.
 
 | # | Title | Status |
 |---:|---|---|
 | [0060](0060-hosts-at-layer-6-the-composition-root.md) | Hosts at layer 6: the composition root, reserved to executables | Accepted; supersedes 0003's layer table |
+| [0061](0061-canonical-n-triples-is-rdf-1-2s.md) | Canonical N-Triples and N-Quads follow RDF 1.2; where 1.1 and 1.2 differ, 1.2 wins | Accepted |
 
 ## Milestone 7 — the server
 

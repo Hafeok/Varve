@@ -51,10 +51,16 @@ internal sealed record ConformanceSuite(string Id, string ManifestPath, string B
 
         // RDF 1.2. The reader and writer carry base direction and triple terms,
         // so by our own rule those features are not done until their manifest
-        // entries pass. Syntax only: the sibling c14n manifests are RDFC-1.0,
-        // which is milestone 3b's.
+        // entries pass.
         Suite("rdf12/n-triples", "rdf/rdf12/rdf-n-triples/syntax/manifest.ttl", RdfFormat.NTriples),
         Suite("rdf12/n-quads", "rdf/rdf12/rdf-n-quads/syntax/manifest.ttl", RdfFormat.NQuads),
+
+        // RDF 1.2's canonical N-Triples and N-Quads (ADR 0061): each input
+        // parsed and written canonically must give its expected file byte for
+        // byte. The canonical form is the writer's, not RDFC-1.0's, which has
+        // a suite of its own (CanonSuite).
+        Suite("rdf12/n-triples-c14n", "rdf/rdf12/rdf-n-triples/c14n/manifest.ttl", RdfFormat.NTriples),
+        Suite("rdf12/n-quads-c14n", "rdf/rdf12/rdf-n-quads/c14n/manifest.ttl", RdfFormat.NQuads),
 
         // Milestone 3b. Both carry evaluation entries as well as syntax ones,
         // which is why they could not be wired until the dataset comparison
@@ -62,8 +68,8 @@ internal sealed record ConformanceSuite(string Id, string ManifestPath, string B
         Suite("rdf11/turtle", "rdf/rdf11/rdf-turtle/manifest.ttl", RdfFormat.Turtle),
         Suite("rdf11/trig", "rdf/rdf11/rdf-trig/manifest.ttl", RdfFormat.TriG),
 
-        // Later: rdf/rdf11/rdf-xml, the RDF 1.2 Turtle and TriG suites, and the
-        // c14n manifests with RDFC-1.0. Each is one line.
+        // Later: rdf/rdf11/rdf-xml and the RDF 1.2 Turtle and TriG suites.
+        // Each is one line.
     ];
 
     /// <summary>

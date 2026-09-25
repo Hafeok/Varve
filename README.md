@@ -73,6 +73,7 @@ The W3C suites are the acceptance gate, from
 | `rdf11/rdf-n-triples` | 70 |
 | `rdf12/rdf-n-triples` (syntax) | 29 |
 | `rdf12/rdf-n-quads` (syntax) | 27 |
+| `rdf12/rdf-n-triples`, `rdf-n-quads` (canonical form, ADR 0061) | 82 |
 | `sparql10/syntax-sparql1` … `5` (parsed under 1.1) | 199 |
 | `sparql11/syntax-query` | 94 |
 | `sparql11/syntax-update-1`, `-2`, `syntax-fed` | 58 |
@@ -84,7 +85,7 @@ The W3C suites are the acceptance gate, from
 | `sparql11/csv-tsv-res`, `json-res`, written by the results writers | 10 |
 | `sparql11` update evaluation, 11 directories, one commit or none each | 94 |
 | `rdf-canon`, RDFC-1.0: 64 canonical forms, 21 issued maps, 1 refusal | 86 |
-| **Total** | **2,721 of 2,721** |
+| **Total** | **2,803 of 2,803** |
 
 Each SPARQL suite is parsed at its own version, so the 1.0 and 1.1 suites
 never see the 1.2 grammar; the 1.2 default is for API callers only. The six
@@ -103,7 +104,7 @@ pins their count.
 default: no SPARQL 1.0 negative case turned out to be relaxed by 1.1, and no
 evaluation, update or canonicalisation case needs one — including none for
 empty graphs, which the store does not record (SPARQL 1.1 Update §3.2 allows
-it). `eng/ratchet.cs` fails the build if any of those 2,721 stops passing, and an exemption with no written justification fails the
+it). `eng/ratchet.cs` fails the build if any of those 2,803 stops passing, and an exemption with no written justification fails the
 run too.
 
 Also true today, and measured rather than asserted:

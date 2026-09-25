@@ -10,8 +10,9 @@ namespace Varve.Rdf;
 /// <summary>
 /// RDFC-1.0 Appendix A's canonical form of N-Quads, term by term
 /// (<c>rdf-canon.md</c> §4). Written here because the N-Quads writer is at
-/// layer 2 (ADR 0003), and because Appendix A is not the RDF 1.1 N-Triples
-/// canonical form that writer produces.
+/// layer 2 (ADR 0003). It is the same form as that writer's canonical output,
+/// RDF 1.2 N-Triples §3's (ADR 0061), and a property holds the two
+/// byte-identical.
 /// </summary>
 internal static class CanonicalNQuads
 {

@@ -252,17 +252,43 @@ public class CanonPropertyTests
             iter: Iterations);
     }
 
+    /// <remarks>
+    /// And it is the same bytes <c>Varve.Turtle</c>'s canonical N-Quads writer
+    /// produces for it. The two canonical writers are separate code, one per
+    /// layer (ADR 0003), and ADR 0061 makes them one form: RDF 1.2 N-Triples
+    /// §3's, which is RDFC-1.0 Appendix A's. Reading the canonical document
+    /// and writing each quad back out canonically must give it byte for byte.
+    /// </remarks>
     [Fact]
     public void The_canonical_form_reads_back_as_the_dataset_it_came_from()
     {
         AnyDataset.Sample(
             quads =>
             {
-                List<DataQuad> back = Read(Canonical(quads));
+                byte[] canonical = Canonical(quads);
+                List<DataQuad> back = Read(canonical);
                 IsomorphismResult verdict = Isomorphism.Compare(Parsed(back), Parsed(quads));
                 Assert.True(verdict.Verdict != IsomorphismVerdict.Different, verdict.Reason + "\n" + Text(quads));
+
+                byte[] rewritten = Rewrite(canonical);
+                Assert.True(
+                    rewritten.AsSpan().SequenceEqual(canonical),
+                    "Varve.Turtle's canonical writer and RDFC-1.0's disagree:\n" + Encoding.UTF8.GetString(canonical)
+                    + "---\n" + Encoding.UTF8.GetString(rewritten));
             },
             iter: Iterations);
+    }
+
+    private static byte[] Rewrite(byte[] nquads)
+    {
+        ArrayBufferWriter output = new();
+        WriteOptions options = new() { Syntax = RdfSyntax.NQuads };
+        ParseResult result = NQuadsParser.Parse(
+            nquads,
+            (in QuadView q) => NQuadsWriter.Write(output, in q, in options),
+            new ParseOptions { Syntax = RdfSyntax.NQuads });
+        Assert.True(result.Succeeded, "the canonical form does not parse: " + result.FirstError);
+        return output.Written.ToArray();
     }
 
     private static byte[] Canonical(List<DataQuad> quads)

@@ -80,6 +80,8 @@ public class SubmoduleGuardTests
         { "rdf11/n-quads", 87 },
         { "rdf12/n-triples", 29 },
         { "rdf12/n-quads", 27 },
+        { "rdf12/n-triples-c14n", 41 },
+        { "rdf12/n-quads-c14n", 41 },
         { "rdf11/turtle", 313 },
         { "rdf11/trig", 357 },
     };
@@ -205,6 +207,38 @@ public class SubmoduleGuardTests
             unchecked_.Count == 0,
             "These evaluation entries have no mf:result, so nothing would compare what they produce "
             + "against what they assert:\n  " + string.Join("\n  ", unchecked_));
+    }
+
+    /// <summary>
+    /// A canonical-form entry compares bytes with its <c>mf:result</c>; one the
+    /// reader left without a result would assert only that its input parsed.
+    /// </summary>
+    [Fact]
+    public void Every_canonical_form_entry_has_a_result_and_there_are_82()
+    {
+        Assert.True(TestData.IsCheckedOut, "The W3C test data is missing; see the first failure.");
+
+        int canonical = 0;
+        List<string> unchecked_ = [];
+
+        foreach (ManifestEntry entry in Catalogue.Entries)
+        {
+            if (entry.Expected == ExpectedOutcome.Canonicalises)
+            {
+                canonical++;
+
+                if (entry.ResultPath is null)
+                {
+                    unchecked_.Add(entry.TestIri);
+                }
+            }
+        }
+
+        Assert.True(unchecked_.Count == 0, "Canonical-form entries with no mf:result:\n  " + string.Join("\n  ", unchecked_));
+
+        // N-Triples 41 and N-Quads 41, as the manifests list them; each lists a
+        // 42nd, lantag_with_subtag, commented out.
+        Assert.Equal(82, canonical);
     }
 
     /// <summary>
