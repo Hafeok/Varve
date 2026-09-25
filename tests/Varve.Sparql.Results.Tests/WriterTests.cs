@@ -445,7 +445,7 @@ public class WriterTests
     private static bool XmlCanCarry(RdfTerm term) => term.Kind switch
     {
         RdfTermKind.TripleTerm => XmlCanCarry(term.Subject!) && XmlCanCarry(term.Predicate!) && XmlCanCarry(term.Object!),
-        _ => !Encoding.UTF8.GetString(term.Lexical).Any(c => c < 0x20 && c is not ('\t' or '\n' or '\r') || c is '￾' or '￿'),
+        _ => !Encoding.UTF8.GetString(term.Lexical).Any(c => c < 0x20 && c is not ('\t' or '\n' or '\r') || c is '\uFFFE' or '\uFFFF'),
     };
 
     private sealed class ReusedBuffer(int size) : IBufferWriter<byte>
