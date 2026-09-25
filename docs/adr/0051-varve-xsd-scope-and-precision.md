@@ -140,6 +140,27 @@ operators to, and the specification names each:
   **5b verifies the choice against the SPARQL 1.1 query evaluation suite.**
   If the suite disagrees with the total order, the correction is a dated
   amendment here superseding this paragraph, not a quiet switch.
+
+  > **Amended 2026-09-25** (milestone 5b). **Verified: no case of the SPARQL
+  > 1.0 and 1.1 evaluation suites disagrees with the total order for
+  > `xsd:dateTime`**, and this paragraph stands. **`xsd:date`, `xsd:time`
+  > and the `g` types** — `gYear`, `gYearMonth`, `gMonth`, `gMonthDay`,
+  > `gDay` — **compare by the XSD partial order**, an indeterminate pair
+  > being a type error. SPARQL 1.1 §17.3's operator mapping names
+  > `xsd:dateTime` alone among the date and time types, so the implicit
+  > timezone of `op:dateTime-less-than` does not reach them; comparing them
+  > at all is §17.3.1's operator extension, and the suite decides which
+  > order that extension takes: `sparql10/open-world`'s `date-1`
+  > (`FILTER(?v = "2006-08-23"^^xsd:date)`) expects neither
+  > `"2006-08-23Z"` nor `"2006-08-23+00:00"`, and `date-2` (the same with
+  > `!=`) expects neither of them either — an indeterminate comparison in
+  > both, which the total order with a UTC default would make equal.
+  > Recorded in `docs/spec/sparql-evaluation.md` §7.4 and §13.1, where
+  > `docs/spec/xsd.md` left the mapping to 5b. **SPARQL 1.2 may supersede
+  > it.** The 1.2 Query draft of this date still maps `xsd:dateTime` alone
+  > in §17.3; if 1.2 adds date and time operators, or its evaluation cases
+  > — those blocked until roadmap slice 6b among them — expect another
+  > order, the correction is a further dated amendment here.
 - **Durations**: the four-reference-dateTime order of §3.3.6.1, partial for
   `xsd:duration` and total for the two derived types.
 

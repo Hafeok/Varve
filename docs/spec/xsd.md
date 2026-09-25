@@ -355,7 +355,9 @@ The same two comparisons exist on every seven-property type, because
 `timeOnTimeline` is defined over all of them (§E.3.4 fills absent properties
 with the values it names, `1972-12-31` and midnight). SPARQL 1.1 §17.3 maps
 only `xsd:dateTime`; the others are available for 5b to map or refuse as the
-evaluation suite decides.
+evaluation suite decides. **Decided at 5b** (ADR 0051's amendment of
+2026-09-25): the other seven-property types take the partial order, as
+`sparql10/open-world`'s `date-1` and `date-2` require.
 
 **5b verifies this section against the SPARQL 1.1 query evaluation suite.**
 A case that disagrees with the total order is a finding recorded here and in
