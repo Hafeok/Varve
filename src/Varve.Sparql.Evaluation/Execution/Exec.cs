@@ -98,13 +98,16 @@ internal sealed class Exec
 
     private TermRef MaterialiseFromSource(TermHandle handle) =>
         Source.TryExternalise(handle, out RdfTerm? term)
-            ? new TermRef(Locals.Intern(term), true)
+            ? new TermRef(Locals.Intern(term, handle), true)
             : new TermRef(handle.Value, false);
 
     /// <summary>
     /// The source's handle for a slot value, when the source has the term. In
     /// every arm but the materialised one a local term is never the source's,
-    /// by construction (§4.1), so no lookup is made.
+    /// by construction (§4.1), so no lookup is made. In the materialised arm a
+    /// term a scan found goes back to the scan by the handle it came from —
+    /// the arm still joins on handles, which is why its cost is a lower bound
+    /// (§10) — and any other term is looked up.
     /// </summary>
     [HotPath]
     internal bool TryGetSourceHandle(TermRef value, out TermHandle handle)
@@ -117,7 +120,7 @@ internal sealed class Exec
 
         if (Materialising)
         {
-            return Source.TryInternalise(Locals.Get(value.Raw), out handle);
+            return Locals.TryGetOrigin(value.Raw, out handle) || Source.TryInternalise(Locals.Get(value.Raw), out handle);
         }
 
         handle = default;

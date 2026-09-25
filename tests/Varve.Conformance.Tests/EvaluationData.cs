@@ -142,6 +142,17 @@ internal static class EvaluationData
         return (File.ReadAllBytes(translation), null);
     }
 
+    /// <summary>An N-Triples file outside the suites — the differential run's Oxigraph answer to a graph query.</summary>
+    internal static IReadOnlyList<DataQuad> NTriplesFile(string path)
+    {
+        List<DataQuad> quads = [];
+        ParseResult result = NQuadsParser.Parse(
+            File.ReadAllBytes(path),
+            (in QuadView quad) => quads.Add(new DataQuad(quad.Subject.Materialise(), quad.Predicate.Materialise(), quad.Object.Materialise(), null)),
+            new ParseOptions { Syntax = RdfSyntax.NTriples });
+        return result.Succeeded ? quads : throw new InvalidOperationException(path + ": " + result.FirstError);
+    }
+
     /// <summary>A term as N-Triples-like text: comparable, and readable in a failure message.</summary>
     internal static string Text(RdfTerm term) => term.Kind switch
     {

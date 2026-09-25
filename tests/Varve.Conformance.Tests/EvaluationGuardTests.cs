@@ -6,6 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
+using Varve.Sparql.Evaluation;
 using Xunit;
 
 namespace Varve.Conformance.Tests;
@@ -136,6 +138,33 @@ public class EvaluationGuardTests
             Assert.True(File.Exists(original), "A translation with no original: " + relative);
             Assert.Null(EvaluationData.Translation(original).Problem);
         }
+    }
+
+    /// <summary>
+    /// ADR 0050's other two arms answer every case the default arm does, over
+    /// the store, whose handles are the ones the arms differ on. The ratchet
+    /// carries the default arm case by case; this gates the others whole. The
+    /// first run of ADR 0050's suite time found the materialised arm failing
+    /// 25 cases — every join through a blank node, whose label the store does
+    /// not internalise back to a handle — which no test had run.
+    /// </summary>
+    [Theory]
+    [InlineData(ValueAccess.Externalise)]
+    [InlineData(ValueAccess.Materialise)]
+    public async Task Every_arm_passes_every_case_over_the_store(ValueAccess arm)
+    {
+        Assert.True(TestData.IsCheckedOut, "The W3C test data is missing; see SubmoduleGuardTests.");
+        List<string> failures = [];
+        foreach (EvaluationEntry entry in EvaluationCatalogue.Entries)
+        {
+            if (!EvaluationCatalogue.IsBlocked(entry)
+                && await EvaluationRunner.RunAsync(entry, EvaluationSubjects.Store, arm, null, TestContext.Current.CancellationToken) is { } failure)
+            {
+                failures.Add(entry.TestIri + ": " + failure.Split('\n')[0]);
+            }
+        }
+
+        Assert.True(failures.Count == 0, arm + " fails " + failures.Count + " cases:\n" + string.Join("\n", failures));
     }
 
     [Fact]

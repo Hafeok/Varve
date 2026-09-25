@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using Varve.Rdf;
 using Varve.Sparql.Evaluation.Execution;
 using Varve.Sparql.Evaluation.Expressions;
+using Varve.Xsd;
 
 namespace Varve.Sparql.Evaluation.Operators;
 
@@ -600,7 +601,7 @@ internal sealed class OrderByOperator(Operator inner, Expr[] keys, bool[] descen
                 Value[] key = new Value[keys.Length];
                 for (int i = 0; i < keys.Length; i++)
                 {
-                    key[i] = keys[i].Eval(exec, row, graph);
+                    key[i] = SortKey(exec, keys[i].Eval(exec, row, graph));
                 }
 
                 rows.Add(row);
@@ -632,6 +633,38 @@ internal sealed class OrderByOperator(Operator inner, Expr[] keys, bool[] descen
         {
             yield return rows[index];
         }
+    }
+
+    /// <summary>
+    /// A key made ready for the n log n comparisons of the sort, once per row:
+    /// an inline integer or boolean becomes its value (the accessor arm), and
+    /// any other term of the source is externalised once and held as a local
+    /// term, whose numeric parse the local table caches. Compared as they come,
+    /// every comparison externalised both terms to rank them — ten gigabytes
+    /// for a million rows, found by ADR 0050's benchmark.
+    /// </summary>
+    private static Value SortKey(Exec exec, Value value)
+    {
+        if (value.Kind != ValueKind.Ref || value.Ref.IsLocal || value.HasNumber)
+        {
+            return value;
+        }
+
+        if (exec.Options.ValueAccess == ValueAccess.InlineAccessor
+            && exec.Source.TryGetInlineValue(new TermHandle(value.Ref.Raw), out InlineValue inline))
+        {
+            switch (inline.Kind)
+            {
+                case InlineValueKind.Integer:
+                    return Value.Of(XsdNumeric.FromInteger(new XsdInteger(inline.Integer)));
+                case InlineValueKind.Boolean:
+                    return Value.Of(inline.Boolean);
+                default:
+                    break;
+            }
+        }
+
+        return Value.Of(new TermRef(exec.Locals.Intern(exec.Materialise(value.Ref)), true));
     }
 }
 

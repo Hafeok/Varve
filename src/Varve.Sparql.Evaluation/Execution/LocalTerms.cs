@@ -34,7 +34,31 @@ internal sealed class LocalTerms
         return (ulong)index + 1;
     }
 
+    /// <summary>
+    /// Interns a term the source handed out, remembering its handle: the
+    /// materialised arm (ADR 0050) holds owned terms, but a scan still takes a
+    /// handle, and a blank node's label does not internalise back to one.
+    /// </summary>
+    internal ulong Intern(RdfTerm term, TermHandle origin)
+    {
+        ulong raw = Intern(term);
+        Entry entry = _entries[(int)raw - 1];
+        if (entry.Origin.IsNone)
+        {
+            entry.Origin = origin;
+        }
+
+        return raw;
+    }
+
     internal RdfTerm Get(ulong raw) => _entries[(int)raw - 1].Term;
+
+    /// <summary>The source handle a term was materialised from, if it was.</summary>
+    internal bool TryGetOrigin(ulong raw, out TermHandle origin)
+    {
+        origin = _entries[(int)raw - 1].Origin;
+        return !origin.IsNone;
+    }
 
     /// <summary>The term's numeric value, parsed once.</summary>
     internal bool TryGetNumeric(ulong raw, out XsdNumeric value)
@@ -58,5 +82,7 @@ internal sealed class LocalTerms
         internal byte State;
 
         internal XsdNumeric Numeric;
+
+        internal TermHandle Origin;
     }
 }
