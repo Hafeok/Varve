@@ -66,6 +66,20 @@ Reserved means the id is allocated and the rule is agreed in principle. It is
 not a rule until the analyzer exists. Nothing in this repository relies on a
 reserved rule.
 
+> **Amended 2026-09-25** (milestone 5b, ADRs 0048 and 0055). `VARVE0007`'s
+> reserved wording is widened to read: *public contracts between packages use
+> `Varve.Rdf` types, BCL primitives, or the SPARQL algebra's node types from
+> `Varve.Sparql`*. The narrower wording predates the algebra. ADR 0048 made
+> the algebra the evaluator's input — its entry point takes a `Query` — and
+> ADR 0055's `IServiceHandler` receives a `Service` node, so both would be
+> violations of the rule as first worded and of nothing the rule was for:
+> the algebra is at layer 2, below every consumer, immutable, and exists to be
+> the contract between the parser and whatever evaluates or rewrites. The
+> principle the rule protects — a contract names nothing a consumer would have
+> to take a dependency on beside the one it already has — is unchanged. The
+> rule is still reserved; when its analyzer is written, it admits exactly
+> these three sources.
+
 ### Severity
 
 Architectural rules — anything that would let the package graph rot — are

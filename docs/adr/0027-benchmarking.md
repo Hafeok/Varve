@@ -96,6 +96,20 @@ measured against.
 > dotNetRDF is here to be measured against, and nothing in this repository
 > depends on it for an answer.
 
+> **Amended 2026-09-25** (milestone 5b). dotNetRDF gains one **offline** use,
+> decided by the maintainer on the 5b plan: it generated, once, the N-Triples
+> translations of the W3C SPARQL suites' RDF/XML files (the `sort` results and
+> the `subquery` data), committed under `tests/fixtures/w3c-rdfxml/` with the
+> SHA-256 of each original. Nothing reads dotNetRDF at test time — the
+> conformance harness reads the committed N-Triples, and a guard test fails if
+> a submodule bump changes an original's hash. The generator is the benchmark
+> project's `convert-rdfxml` command, so the dependency stays where this ADR
+> admitted it. The fixtures are deleted when `Varve.RdfXml` passes its own
+> suite, at which point the harness reads the originals. This is a second
+> reason dotNetRDF answers something, and it is stated rather than implied:
+> the translations are a third party's reading of RDF/XML, which is what an
+> independent fixture should be.
+
 ## Alternatives considered
 
 - **Keep ADR 0009 absolute and suppress the asset flow** — a direct

@@ -49,6 +49,13 @@ answer in.
 | **`Varve.Sparql`** | 2 | The algebra: an immutable tree of node types for SPARQL 1.1 Query and Update, with SPARQL 1.2's additions present and marked. The parser, from text to algebra. The serialiser, from algebra to text. | `Varve.Rdf`, `Varve.Iri` |
 | **`Varve.Sparql.Evaluation`** | 3 | The evaluator, over `IQuadSource`. The optimiser. | `Varve.Sparql`, `Varve.Rdf`, `Varve.Xsd` |
 
+> **Amended 2026-09-25** (milestone 5b). `Varve.Sparql.Evaluation` also
+> references **`Varve.Iri`** (layer 0), for `IRI()` / `URI()` (SPARQL 1.1
+> §17.4.2.8), which resolve a relative IRI against the query's base by RFC
+> 3986 §5, and for checking that a constructed IRI is one (RFC 3987). The
+> reference is strictly downward and changes nothing else in the table; it is
+> recorded here so that the table stays the complete list.
+
 `Varve.Sparql` does not reference `Varve.Xsd`. A numeric literal in a query is
 a lexical form until something evaluates it; constant folding is the
 optimiser's, and the parser needs no value.

@@ -110,6 +110,22 @@ questions.
 | [0051](0051-varve-xsd-scope-and-precision.md) | `Varve.Xsd`: scope, precision policy, canonical forms, and value comparison | Accepted; dateTime order verified in 5b |
 | [0052](0052-pinned-read-lifetime.md) | A pinned read lives for one query execution | Accepted; refines 0015 |
 
+## Milestone 5b — the evaluator and the optimiser
+
+Issue [#9](https://github.com/Hafeok/Varve/issues/9). The five questions 5a
+left open, decided by the maintainer on the 5b plan. The dateTime order stays
+ADR 0051's and ADR 0050's benchmark stays as written; both are carried out in
+`docs/spec/sparql-evaluation.md`. Dated notes the same day: 0004 (VARVE0007's
+reserved wording admits algebra types), 0027 (dotNetRDF generates the RDF/XML
+fixtures offline), 0048 (the evaluation package references `Varve.Iri`).
+
+| # | Title | Status |
+|---:|---|---|
+| [0053](0053-aggregation-by-hash-grouping-and-accumulators.md) | Aggregation: hash grouping, one accumulator per aggregate | Accepted |
+| [0054](0054-property-paths-normalised-then-evaluated-by-alp.md) | Property paths: normalised to joins and unions, closures by `ALP`; closes `sparql-algebra.md` open question 1 | Accepted |
+| [0055](0055-service-through-a-handler-the-default-refuses.md) | `SERVICE` through a handler, and the default refuses | Accepted |
+| [0056](0056-evaluator-options-extension-functions-clock-and-randomness.md) | Evaluator options: extension functions, the clock and randomness are injected; extends 0011's ban | Accepted |
+
 ## Milestone 7 — the server
 
 Accepted ahead of the milestone, because the decision bears on what the server
