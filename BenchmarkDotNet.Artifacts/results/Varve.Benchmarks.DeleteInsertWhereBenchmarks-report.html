@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Varve.Benchmarks.DeleteInsertWhereBenchmarks-20260925-152154</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Ubuntu 24.04.4 LTS (Noble Numbat)
+Intel Xeon Processor 2.10GHz, 1 CPU, 4 logical and 4 physical cores
+.NET SDK 10.0.401
+  [Host]     : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+  Job-KGWPIM : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+</code></pre>
+<pre><code>InvocationCount=2  IterationCount=8  UnrollFactor=1  
+WarmupCount=2  
+</code></pre>
+
+<table>
+<thead><tr><th>Method</th><th>Mean</th><th>Error</th><th>StdDev</th><th>Ratio</th><th>RatioSD</th><th>Gen0</th><th>Gen1</th><th>Allocated</th><th>Alloc Ratio</th>
+</tr>
+</thead><tbody><tr><td>Varve</td><td>185.9 ms</td><td>34.07 ms</td><td>17.82 ms</td><td>0.11</td><td>0.01</td><td>-</td><td>-</td><td>125.14 MB</td><td>0.41</td>
+</tr><tr><td>DotNetRdf</td><td>1,747.1 ms</td><td>82.81 ms</td><td>43.31 ms</td><td>1.00</td><td>0.03</td><td>2000.0000</td><td>1500.0000</td><td>301.89 MB</td><td>1.00</td>
+</tr></tbody></table>
+</body>
+</html>

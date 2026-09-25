@@ -393,3 +393,112 @@ stored by value, `GRAPH ?g` evaluated with `?g` pre-bound, double braces
 scoped as one group, a zero-length path from a constant not in the graph,
 `GROUP_CONCAT`'s language tag, `BNODE(str)` across solutions, and a date
 order — listed case by case in `docs/spec/sparql-evaluation.md` §13.4.
+
+## Milestone 5c — updates and RDFC-1.0, against dotNetRDF and Oxigraph
+
+**Machine.** Intel Xeon @ 2.10 GHz, 4 logical and 4 physical cores, 15 GiB,
+Ubuntu 24.04.4 LTS, kernel 6.18.44, a cloud container rather than dedicated
+hardware. .NET SDK 10.0.401, runtime 10.0.12, X64 RyuJIT `x86-64-v4`.
+BenchmarkDotNet 0.15.8. Baselines: dotNetRDF (`dotNetRdf.Core` 3.5.2, the
+Leviathan update processor over its `TripleStore`, and its `RdfCanonicalizer`)
+and pyoxigraph 0.5.11 — **Oxigraph through its Python binding**, not the Rust
+library. The 2.10 GHz clock of the 3b and 4 sections, not the 2.80 GHz one of
+3a, 5a and 5b.
+
+```bash
+dotnet run -c Release --project tests/Varve.Benchmarks -- --update-export update/
+python tests/Varve.Benchmarks/oxigraph/update.py update/
+dotnet run -c Release --project tests/Varve.Benchmarks -- --filter '*.UpdateBenchmarks*'
+dotnet run -c Release --project tests/Varve.Benchmarks -- --filter '*DeleteInsertWhereBenchmarks*'
+dotnet run -c Release --project tests/Varve.Benchmarks -- --filter '*CanonicaliseBenchmarks*'
+```
+
+The engines read the same bytes: `--update-export` writes the requests, the
+store and the graphs that the .NET benchmarks build in memory. The pyoxigraph
+column is timed with `perf_counter` inside one Python process (see the
+caveat under 5b; it includes the binding's cost, excludes start-up).
+
+### INSERT DATA of N quads, into an empty store
+
+The first N quads of `StoreDataset` as one `INSERT DATA` request — plain
+triples and `GRAPH` blocks across five named graphs, 15.5 MB of text for
+100,000. **Parsing is inside the time for every engine**, because
+pyoxigraph's `update` takes text. One invocation an iteration, each into an
+empty store made in the untimed setup; the quad count is checked after every
+invocation. Median; BenchmarkDotNet `--warmupCount 2 --iterationCount 8`.
+
+| N | Varve | dotNetRDF | pyoxigraph | Varve allocates |
+|---:|---:|---:|---:|---:|
+| 10,000 | 68 ms | 104 ms | **30 ms** | 36.4 MB, 2.4× less than dotNetRDF |
+| 100,000 | 475 ms | 2,078 ms | **392 ms** | 340 MB, 2.5× less |
+
+**pyoxigraph is faster, 1.2× at 100,000 and 2.2× at 10,000, and that is the
+first row to read.** Varve is 4.4× faster than dotNetRDF at 100,000. The
+10,000 row is noisy in both .NET engines (a standard deviation of half the
+mean in Varve's), which is garbage collection in one-invocation iterations;
+the medians are quoted for that reason.
+
+Where Varve's 475 ms goes: **143 ms is parsing** (a `VarveParseOnly` row in
+the same run, 98 MB), about 175 ms is the store committing 100,000 quads in
+one commit (milestone 4's figure, on this clock), and the remaining ~155 ms is
+the executor — staging every term, the asserted set, sorting the delta and
+building the request. That last part is the obvious place to look first; it
+was not optimised in this milestone.
+
+### DELETE/INSERT WHERE over a million-quad store
+
+`StoreDataset`'s 1,000,000 quads, loaded once. The request moves every quad of
+one predicate in the named graphs to another predicate — **49,020 quads
+deleted and 49,020 inserted** — and the next request moves them back, so each
+invocation does the same work over what the last one left. Two invocations
+an iteration, `--warmupCount 2 --iterationCount 8`; pyoxigraph the median of
+16 requests after 4 warm-up requests. After the run each engine is checked
+to hold the 49,020 quads where they started. Varve's store grows a commit per
+request, which is what a store under updates does.
+
+| | Mean | Allocated | vs. dotNetRDF |
+|---|---:|---:|---:|
+| Varve | **186 ms** ± 18 | 125 MB | 9.4× faster, 2.4× less memory |
+| pyoxigraph | 205 ms (median) | — | 8.5× faster |
+| dotNetRDF | 1,747 ms ± 43 | 302 MB | — |
+
+**Varve and pyoxigraph are within 10% of each other** here, Varve ahead; the
+noise on a shared container is about that size, so read it as a tie.
+
+### RDFC-1.0 of a 100,000-triple graph
+
+`CanonGraph`: 12,500 subjects of eight triples — a type, a label, a number,
+and five links to other subjects by strides that make one connected
+structure. Three shapes: **Blank**, every subject a blank node and each told
+apart at first degree; **Twins**, the same with 250 pairs sharing their label
+and number, so each pair needs the N-degree step; **Blank1000**, only the
+first 1,000 subjects blank and the rest IRIs. SHA-256, to the canonical
+N-Quads document, which every engine produces and which pyoxigraph's run
+serialises inside its time. **The three engines' documents are byte-identical
+on every shape each of them completes** — checked by the benchmark's setup
+against dotNetRDF and by `update.py` against Oxigraph.
+
+| Shape | Varve | dotNetRDF | pyoxigraph | Varve allocates |
+|---|---:|---:|---:|---:|
+| Blank | **255 ms** ± 14 | refused | 485 ms | 178 MB |
+| Twins | **270 ms** ± 15 | refused | 523 ms | 200 MB |
+| Blank1000 | **187 ms** ± 6 | 1,525 ms ± 113 | 337 ms | 119 MB, 7.1× less than dotNetRDF |
+
+**dotNetRDF 3.5.2 refuses any dataset of more than 1,000 blank nodes** with
+"Recursion limit reached" from its N-degree hash — measured, not inferred: a
+chain or a set of 1,000 unlinked blank nodes with distinct literals
+canonicalises, 1,001 does not, although RDFC-1.0 never reaches the N-degree
+step for a blank node with a unique first-degree hash. Blank1000 exists to
+give it a like-for-like row, where Varve is 8.1× faster.
+
+Varve is **1.8–1.9× faster than pyoxigraph** on every shape. The twins cost
+Varve 6% over the Blank shape; the N-degree step for 500 blank nodes is cheap
+next to hashing 100,000 quads. The work limit (ADR 0059) is a multiple of the
+blank nodes without a unique first-degree hash, default 1,000; **the Twins
+shape needs between 21 and 25** — it stops at a limit of 20 and completes at
+25 — so the default leaves a margin of 40× on a graph of this kind.
+
+**What is not measured.** The file backend (milestone 6), updates with
+`LOAD`, conflict retries, SHA-384, and canonicalisation of adversarial
+graphs — the rdf-canon suite's poison graphs are what the work limit is for,
+and a benchmark of a refusal measures nothing.

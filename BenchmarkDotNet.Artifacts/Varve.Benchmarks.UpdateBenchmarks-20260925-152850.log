@@ -1,0 +1,640 @@
+// Validating benchmarks:
+// ***** BenchmarkRunner: Start   *****
+// ***** Found 6 benchmark(s) in total *****
+// ***** Building 1 exe(s) in Parallel: Start   *****
+// start dotnet  restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-LCXOWM-1/" /p:OutDir="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-LCXOWM-1/bin/Release/net10.0/" /p:OutputPath="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-LCXOWM-1/bin/Release/net10.0/" /p:PublishDir="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-LCXOWM-1/publish/" in /home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-LCXOWM-1
+// command took 2.93 sec and exited with 0
+// start dotnet  build -c Release --no-restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-LCXOWM-1/" /p:OutDir="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-LCXOWM-1/bin/Release/net10.0/" /p:OutputPath="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-LCXOWM-1/bin/Release/net10.0/" /p:PublishDir="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-LCXOWM-1/publish/" --output "/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-LCXOWM-1/bin/Release/net10.0/" in /home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-LCXOWM-1
+// command took 35.93 sec and exited with 0
+// ***** Done, took 00:00:38 (38.93 sec)   *****
+// Found 6 benchmarks:
+//   UpdateBenchmarks.Varve: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2) [Count=10000]
+//   UpdateBenchmarks.VarveParseOnly: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2) [Count=10000]
+//   UpdateBenchmarks.DotNetRdf: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2) [Count=10000]
+//   UpdateBenchmarks.Varve: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2) [Count=100000]
+//   UpdateBenchmarks.VarveParseOnly: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2) [Count=100000]
+//   UpdateBenchmarks.DotNetRdf: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2) [Count=100000]
+
+// **************************
+// Benchmark: UpdateBenchmarks.Varve: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2) [Count=10000]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Varve.Benchmarks-Job-LCXOWM-1.dll --anonymousPipes 150 151 --benchmarkName "Varve.Benchmarks.UpdateBenchmarks.Varve(Count: 10000)" --job "InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2" --benchmarkId 0 in /home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-LCXOWM-1/bin/Release/net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2)
+
+OverheadJitting  1: 1 op, 336286.00 ns, 336.2860 us/op
+WorkloadJitting  1: 1 op, 335739083.00 ns, 335.7391 ms/op
+
+OverheadWarmup   1: 1 op, 866.00 ns, 866.0000 ns/op
+OverheadWarmup   2: 1 op, 345.00 ns, 345.0000 ns/op
+OverheadWarmup   3: 1 op, 617.00 ns, 617.0000 ns/op
+OverheadWarmup   4: 1 op, 336.00 ns, 336.0000 ns/op
+OverheadWarmup   5: 1 op, 519.00 ns, 519.0000 ns/op
+OverheadWarmup   6: 1 op, 345.00 ns, 345.0000 ns/op
+
+OverheadActual   1: 1 op, 972.00 ns, 972.0000 ns/op
+OverheadActual   2: 1 op, 825.00 ns, 825.0000 ns/op
+OverheadActual   3: 1 op, 921.00 ns, 921.0000 ns/op
+OverheadActual   4: 1 op, 458.00 ns, 458.0000 ns/op
+OverheadActual   5: 1 op, 692.00 ns, 692.0000 ns/op
+OverheadActual   6: 1 op, 334.00 ns, 334.0000 ns/op
+OverheadActual   7: 1 op, 353.00 ns, 353.0000 ns/op
+OverheadActual   8: 1 op, 240.00 ns, 240.0000 ns/op
+OverheadActual   9: 1 op, 252.00 ns, 252.0000 ns/op
+OverheadActual  10: 1 op, 392.00 ns, 392.0000 ns/op
+OverheadActual  11: 1 op, 317.00 ns, 317.0000 ns/op
+OverheadActual  12: 1 op, 373.00 ns, 373.0000 ns/op
+OverheadActual  13: 1 op, 369.00 ns, 369.0000 ns/op
+OverheadActual  14: 1 op, 284.00 ns, 284.0000 ns/op
+OverheadActual  15: 1 op, 337.00 ns, 337.0000 ns/op
+OverheadActual  16: 1 op, 249.00 ns, 249.0000 ns/op
+OverheadActual  17: 1 op, 300.00 ns, 300.0000 ns/op
+OverheadActual  18: 1 op, 508.00 ns, 508.0000 ns/op
+OverheadActual  19: 1 op, 332.00 ns, 332.0000 ns/op
+OverheadActual  20: 1 op, 297.00 ns, 297.0000 ns/op
+
+WorkloadWarmup   1: 1 op, 243767535.00 ns, 243.7675 ms/op
+WorkloadWarmup   2: 1 op, 217715242.00 ns, 217.7152 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 1 op, 193627088.00 ns, 193.6271 ms/op
+WorkloadActual   2: 1 op, 135845343.00 ns, 135.8453 ms/op
+WorkloadActual   3: 1 op, 113655949.00 ns, 113.6559 ms/op
+WorkloadActual   4: 1 op, 63332468.00 ns, 63.3325 ms/op
+WorkloadActual   5: 1 op, 54304715.00 ns, 54.3047 ms/op
+WorkloadActual   6: 1 op, 66790241.00 ns, 66.7902 ms/op
+WorkloadActual   7: 1 op, 68887149.00 ns, 68.8871 ms/op
+WorkloadActual   8: 1 op, 63013673.00 ns, 63.0137 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 1 op, 193626743.00 ns, 193.6267 ms/op
+WorkloadResult   2: 1 op, 135844998.00 ns, 135.8450 ms/op
+WorkloadResult   3: 1 op, 113655604.00 ns, 113.6556 ms/op
+WorkloadResult   4: 1 op, 63332123.00 ns, 63.3321 ms/op
+WorkloadResult   5: 1 op, 54304370.00 ns, 54.3044 ms/op
+WorkloadResult   6: 1 op, 66789896.00 ns, 66.7899 ms/op
+WorkloadResult   7: 1 op, 68886804.00 ns, 68.8868 ms/op
+WorkloadResult   8: 1 op, 63013328.00 ns, 63.0133 ms/op
+// GC:  1 1 1 38163080 1
+// Threading:  0 0 1
+
+// AfterAll
+// Benchmark Process 22622 has exited with code 0.
+
+Mean = 94.932 ms, StdErr = 17.374 ms (18.30%), N = 8, StdDev = 49.140 ms
+Min = 54.304 ms, Q1 = 63.252 ms, Median = 67.838 ms, Q3 = 119.203 ms, Max = 193.627 ms
+IQR = 55.951 ms, LowerFence = -20.673 ms, UpperFence = 203.129 ms
+ConfidenceInterval = [0.977 ms; 188.887 ms] (CI 99.9%), Margin = 93.955 ms (98.97% of Mean)
+Skewness = 0.91, Kurtosis = 2.22, MValue = 2
+
+// ** Remained 5 (83.3 %) benchmark(s) to run. Estimated finish 2026-09-25 15:29 (0h 0m from now) **
+// **************************
+// Benchmark: UpdateBenchmarks.VarveParseOnly: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2) [Count=10000]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Varve.Benchmarks-Job-LCXOWM-1.dll --anonymousPipes 150 151 --benchmarkName "Varve.Benchmarks.UpdateBenchmarks.VarveParseOnly(Count: 10000)" --job "InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2" --benchmarkId 1 in /home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-LCXOWM-1/bin/Release/net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2)
+
+OverheadJitting  1: 1 op, 174464.00 ns, 174.4640 us/op
+WorkloadJitting  1: 1 op, 98465161.00 ns, 98.4652 ms/op
+
+OverheadWarmup   1: 1 op, 621.00 ns, 621.0000 ns/op
+OverheadWarmup   2: 1 op, 394.00 ns, 394.0000 ns/op
+OverheadWarmup   3: 1 op, 8578.00 ns, 8.5780 us/op
+OverheadWarmup   4: 1 op, 112.00 ns, 112.0000 ns/op
+OverheadWarmup   5: 1 op, 381.00 ns, 381.0000 ns/op
+OverheadWarmup   6: 1 op, 175.00 ns, 175.0000 ns/op
+
+OverheadActual   1: 1 op, 490.00 ns, 490.0000 ns/op
+OverheadActual   2: 1 op, 477.00 ns, 477.0000 ns/op
+OverheadActual   3: 1 op, 495.00 ns, 495.0000 ns/op
+OverheadActual   4: 1 op, 517.00 ns, 517.0000 ns/op
+OverheadActual   5: 1 op, 431.00 ns, 431.0000 ns/op
+OverheadActual   6: 1 op, 248.00 ns, 248.0000 ns/op
+OverheadActual   7: 1 op, 118.00 ns, 118.0000 ns/op
+OverheadActual   8: 1 op, 171.00 ns, 171.0000 ns/op
+OverheadActual   9: 1 op, 140.00 ns, 140.0000 ns/op
+OverheadActual  10: 1 op, 207.00 ns, 207.0000 ns/op
+OverheadActual  11: 1 op, 133.00 ns, 133.0000 ns/op
+OverheadActual  12: 1 op, 197.00 ns, 197.0000 ns/op
+OverheadActual  13: 1 op, 111.00 ns, 111.0000 ns/op
+OverheadActual  14: 1 op, 173.00 ns, 173.0000 ns/op
+OverheadActual  15: 1 op, 111.00 ns, 111.0000 ns/op
+OverheadActual  16: 1 op, 196.00 ns, 196.0000 ns/op
+OverheadActual  17: 1 op, 138.00 ns, 138.0000 ns/op
+OverheadActual  18: 1 op, 445.00 ns, 445.0000 ns/op
+OverheadActual  19: 1 op, 339.00 ns, 339.0000 ns/op
+OverheadActual  20: 1 op, 240.00 ns, 240.0000 ns/op
+
+WorkloadWarmup   1: 1 op, 98809939.00 ns, 98.8099 ms/op
+WorkloadWarmup   2: 1 op, 129723603.00 ns, 129.7236 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 1 op, 142785229.00 ns, 142.7852 ms/op
+WorkloadActual   2: 1 op, 38111768.00 ns, 38.1118 ms/op
+WorkloadActual   3: 1 op, 23494724.00 ns, 23.4947 ms/op
+WorkloadActual   4: 1 op, 19986961.00 ns, 19.9870 ms/op
+WorkloadActual   5: 1 op, 18748090.00 ns, 18.7481 ms/op
+WorkloadActual   6: 1 op, 18328170.00 ns, 18.3282 ms/op
+WorkloadActual   7: 1 op, 19553362.00 ns, 19.5534 ms/op
+WorkloadActual   8: 1 op, 20375455.00 ns, 20.3755 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 1 op, 38111566.00 ns, 38.1116 ms/op
+WorkloadResult   2: 1 op, 23494522.00 ns, 23.4945 ms/op
+WorkloadResult   3: 1 op, 19986759.00 ns, 19.9868 ms/op
+WorkloadResult   4: 1 op, 18747888.00 ns, 18.7479 ms/op
+WorkloadResult   5: 1 op, 18327968.00 ns, 18.3280 ms/op
+WorkloadResult   6: 1 op, 19553160.00 ns, 19.5532 ms/op
+WorkloadResult   7: 1 op, 20375253.00 ns, 20.3753 ms/op
+// GC:  0 0 0 10275256 1
+// Threading:  0 0 1
+
+// AfterAll
+// Benchmark Process 22635 has exited with code 0.
+
+Mean = 22.657 ms, StdErr = 2.653 ms (11.71%), N = 7, StdDev = 7.018 ms
+Min = 18.328 ms, Q1 = 19.151 ms, Median = 19.987 ms, Q3 = 21.935 ms, Max = 38.112 ms
+IQR = 2.784 ms, LowerFence = 14.974 ms, UpperFence = 26.111 ms
+ConfidenceInterval = [6.850 ms; 38.463 ms] (CI 99.9%), Margin = 15.807 ms (69.77% of Mean)
+Skewness = 1.44, Kurtosis = 3.4, MValue = 2.4
+
+// ** Remained 4 (66.7 %) benchmark(s) to run. Estimated finish 2026-09-25 15:29 (0h 0m from now) **
+// **************************
+// Benchmark: UpdateBenchmarks.DotNetRdf: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2) [Count=10000]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Varve.Benchmarks-Job-LCXOWM-1.dll --anonymousPipes 150 151 --benchmarkName "Varve.Benchmarks.UpdateBenchmarks.DotNetRdf(Count: 10000)" --job "InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2" --benchmarkId 2 in /home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-LCXOWM-1/bin/Release/net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2)
+
+OverheadJitting  1: 1 op, 268745.00 ns, 268.7450 us/op
+WorkloadJitting  1: 1 op, 484084491.00 ns, 484.0845 ms/op
+
+OverheadWarmup   1: 1 op, 941.00 ns, 941.0000 ns/op
+OverheadWarmup   2: 1 op, 980.00 ns, 980.0000 ns/op
+OverheadWarmup   3: 1 op, 760.00 ns, 760.0000 ns/op
+OverheadWarmup   4: 1 op, 806.00 ns, 806.0000 ns/op
+OverheadWarmup   5: 1 op, 718.00 ns, 718.0000 ns/op
+
+OverheadActual   1: 1 op, 977.00 ns, 977.0000 ns/op
+OverheadActual   2: 1 op, 757.00 ns, 757.0000 ns/op
+OverheadActual   3: 1 op, 807.00 ns, 807.0000 ns/op
+OverheadActual   4: 1 op, 786.00 ns, 786.0000 ns/op
+OverheadActual   5: 1 op, 763.00 ns, 763.0000 ns/op
+OverheadActual   6: 1 op, 632.00 ns, 632.0000 ns/op
+OverheadActual   7: 1 op, 714.00 ns, 714.0000 ns/op
+OverheadActual   8: 1 op, 687.00 ns, 687.0000 ns/op
+OverheadActual   9: 1 op, 668.00 ns, 668.0000 ns/op
+OverheadActual  10: 1 op, 622.00 ns, 622.0000 ns/op
+OverheadActual  11: 1 op, 760.00 ns, 760.0000 ns/op
+OverheadActual  12: 1 op, 724.00 ns, 724.0000 ns/op
+OverheadActual  13: 1 op, 1125.00 ns, 1.1250 us/op
+OverheadActual  14: 1 op, 895.00 ns, 895.0000 ns/op
+OverheadActual  15: 1 op, 698.00 ns, 698.0000 ns/op
+OverheadActual  16: 1 op, 733.00 ns, 733.0000 ns/op
+OverheadActual  17: 1 op, 658.00 ns, 658.0000 ns/op
+OverheadActual  18: 1 op, 770.00 ns, 770.0000 ns/op
+OverheadActual  19: 1 op, 784.00 ns, 784.0000 ns/op
+OverheadActual  20: 1 op, 1209.00 ns, 1.2090 us/op
+
+WorkloadWarmup   1: 1 op, 430294118.00 ns, 430.2941 ms/op
+WorkloadWarmup   2: 1 op, 432979328.00 ns, 432.9793 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 1 op, 271601584.00 ns, 271.6016 ms/op
+WorkloadActual   2: 1 op, 169491756.00 ns, 169.4918 ms/op
+WorkloadActual   3: 1 op, 127880529.00 ns, 127.8805 ms/op
+WorkloadActual   4: 1 op, 101899166.00 ns, 101.8992 ms/op
+WorkloadActual   5: 1 op, 114958182.00 ns, 114.9582 ms/op
+WorkloadActual   6: 1 op, 96145382.00 ns, 96.1454 ms/op
+WorkloadActual   7: 1 op, 104152829.00 ns, 104.1528 ms/op
+WorkloadActual   8: 1 op, 94693583.00 ns, 94.6936 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 1 op, 169490997.50 ns, 169.4910 ms/op
+WorkloadResult   2: 1 op, 127879770.50 ns, 127.8798 ms/op
+WorkloadResult   3: 1 op, 101898407.50 ns, 101.8984 ms/op
+WorkloadResult   4: 1 op, 114957423.50 ns, 114.9574 ms/op
+WorkloadResult   5: 1 op, 96144623.50 ns, 96.1446 ms/op
+WorkloadResult   6: 1 op, 104152070.50 ns, 104.1521 ms/op
+WorkloadResult   7: 1 op, 94692824.50 ns, 94.6928 ms/op
+// GC:  0 0 0 89806088 1
+// Threading:  0 0 1
+
+// AfterAll
+// Benchmark Process 22642 has exited with code 0.
+
+Mean = 115.602 ms, StdErr = 9.988 ms (8.64%), N = 7, StdDev = 26.426 ms
+Min = 94.693 ms, Q1 = 99.022 ms, Median = 104.152 ms, Q3 = 121.419 ms, Max = 169.491 ms
+IQR = 22.397 ms, LowerFence = 65.426 ms, UpperFence = 155.014 ms
+ConfidenceInterval = [56.086 ms; 175.118 ms] (CI 99.9%), Margin = 59.516 ms (51.48% of Mean)
+Skewness = 1.07, Kurtosis = 2.59, MValue = 2
+
+// ** Remained 3 (50.0 %) benchmark(s) to run. Estimated finish 2026-09-25 15:29 (0h 0m from now) **
+// **************************
+// Benchmark: UpdateBenchmarks.Varve: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2) [Count=100000]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Varve.Benchmarks-Job-LCXOWM-1.dll --anonymousPipes 150 151 --benchmarkName "Varve.Benchmarks.UpdateBenchmarks.Varve(Count: 100000)" --job "InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2" --benchmarkId 3 in /home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-LCXOWM-1/bin/Release/net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2)
+
+OverheadJitting  1: 1 op, 264759.00 ns, 264.7590 us/op
+WorkloadJitting  1: 1 op, 1400524161.00 ns, 1.4005 s/op
+
+OverheadWarmup   1: 1 op, 1741.00 ns, 1.7410 us/op
+OverheadWarmup   2: 1 op, 1331.00 ns, 1.3310 us/op
+OverheadWarmup   3: 1 op, 1183.00 ns, 1.1830 us/op
+OverheadWarmup   4: 1 op, 875.00 ns, 875.0000 ns/op
+OverheadWarmup   5: 1 op, 1249.00 ns, 1.2490 us/op
+OverheadWarmup   6: 1 op, 1087.00 ns, 1.0870 us/op
+OverheadWarmup   7: 1 op, 1544.00 ns, 1.5440 us/op
+OverheadWarmup   8: 1 op, 1117.00 ns, 1.1170 us/op
+
+OverheadActual   1: 1 op, 1333.00 ns, 1.3330 us/op
+OverheadActual   2: 1 op, 1232.00 ns, 1.2320 us/op
+OverheadActual   3: 1 op, 1311.00 ns, 1.3110 us/op
+OverheadActual   4: 1 op, 1093.00 ns, 1.0930 us/op
+OverheadActual   5: 1 op, 1158.00 ns, 1.1580 us/op
+OverheadActual   6: 1 op, 1063.00 ns, 1.0630 us/op
+OverheadActual   7: 1 op, 1202.00 ns, 1.2020 us/op
+OverheadActual   8: 1 op, 1118.00 ns, 1.1180 us/op
+OverheadActual   9: 1 op, 999.00 ns, 999.0000 ns/op
+OverheadActual  10: 1 op, 1004.00 ns, 1.0040 us/op
+OverheadActual  11: 1 op, 1143.00 ns, 1.1430 us/op
+OverheadActual  12: 1 op, 1121.00 ns, 1.1210 us/op
+OverheadActual  13: 1 op, 1200.00 ns, 1.2000 us/op
+OverheadActual  14: 1 op, 923.00 ns, 923.0000 ns/op
+OverheadActual  15: 1 op, 1010.00 ns, 1.0100 us/op
+OverheadActual  16: 1 op, 1013.00 ns, 1.0130 us/op
+OverheadActual  17: 1 op, 21854.00 ns, 21.8540 us/op
+OverheadActual  18: 1 op, 1092.00 ns, 1.0920 us/op
+OverheadActual  19: 1 op, 1016.00 ns, 1.0160 us/op
+OverheadActual  20: 1 op, 1261.00 ns, 1.2610 us/op
+
+WorkloadWarmup   1: 1 op, 659484302.00 ns, 659.4843 ms/op
+WorkloadWarmup   2: 1 op, 533780393.00 ns, 533.7804 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 1 op, 495425402.00 ns, 495.4254 ms/op
+WorkloadActual   2: 1 op, 461986423.00 ns, 461.9864 ms/op
+WorkloadActual   3: 1 op, 486629907.00 ns, 486.6299 ms/op
+WorkloadActual   4: 1 op, 453641494.00 ns, 453.6415 ms/op
+WorkloadActual   5: 1 op, 477383238.00 ns, 477.3832 ms/op
+WorkloadActual   6: 1 op, 473742133.00 ns, 473.7421 ms/op
+WorkloadActual   7: 1 op, 457127565.00 ns, 457.1276 ms/op
+WorkloadActual   8: 1 op, 476706305.00 ns, 476.7063 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 1 op, 495424282.50 ns, 495.4243 ms/op
+WorkloadResult   2: 1 op, 461985303.50 ns, 461.9853 ms/op
+WorkloadResult   3: 1 op, 486628787.50 ns, 486.6288 ms/op
+WorkloadResult   4: 1 op, 453640374.50 ns, 453.6404 ms/op
+WorkloadResult   5: 1 op, 477382118.50 ns, 477.3821 ms/op
+WorkloadResult   6: 1 op, 473741013.50 ns, 473.7410 ms/op
+WorkloadResult   7: 1 op, 457126445.50 ns, 457.1264 ms/op
+WorkloadResult   8: 1 op, 476705185.50 ns, 476.7052 ms/op
+// GC:  1 1 1 356718040 1
+// Threading:  0 0 1
+
+// AfterAll
+// Benchmark Process 22654 has exited with code 0.
+
+Mean = 472.829 ms, StdErr = 5.123 ms (1.08%), N = 8, StdDev = 14.491 ms
+Min = 453.640 ms, Q1 = 460.771 ms, Median = 475.223 ms, Q3 = 479.694 ms, Max = 495.424 ms
+IQR = 18.923 ms, LowerFence = 432.386 ms, UpperFence = 508.079 ms
+ConfidenceInterval = [445.123 ms; 500.536 ms] (CI 99.9%), Margin = 27.706 ms (5.86% of Mean)
+Skewness = 0.09, Kurtosis = 1.44, MValue = 2
+
+// ** Remained 2 (33.3 %) benchmark(s) to run. Estimated finish 2026-09-25 15:29 (0h 0m from now) **
+// **************************
+// Benchmark: UpdateBenchmarks.VarveParseOnly: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2) [Count=100000]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Varve.Benchmarks-Job-LCXOWM-1.dll --anonymousPipes 150 151 --benchmarkName "Varve.Benchmarks.UpdateBenchmarks.VarveParseOnly(Count: 100000)" --job "InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2" --benchmarkId 4 in /home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-LCXOWM-1/bin/Release/net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2)
+
+OverheadJitting  1: 1 op, 250778.00 ns, 250.7780 us/op
+WorkloadJitting  1: 1 op, 433946552.00 ns, 433.9466 ms/op
+
+OverheadWarmup   1: 1 op, 1931.00 ns, 1.9310 us/op
+OverheadWarmup   2: 1 op, 1442.00 ns, 1.4420 us/op
+OverheadWarmup   3: 1 op, 1287.00 ns, 1.2870 us/op
+OverheadWarmup   4: 1 op, 1343.00 ns, 1.3430 us/op
+OverheadWarmup   5: 1 op, 1366.00 ns, 1.3660 us/op
+OverheadWarmup   6: 1 op, 1522.00 ns, 1.5220 us/op
+OverheadWarmup   7: 1 op, 1493.00 ns, 1.4930 us/op
+OverheadWarmup   8: 1 op, 1312.00 ns, 1.3120 us/op
+OverheadWarmup   9: 1 op, 1382.00 ns, 1.3820 us/op
+OverheadWarmup  10: 1 op, 836.00 ns, 836.0000 ns/op
+
+OverheadActual   1: 1 op, 1496.00 ns, 1.4960 us/op
+OverheadActual   2: 1 op, 1362.00 ns, 1.3620 us/op
+OverheadActual   3: 1 op, 1593.00 ns, 1.5930 us/op
+OverheadActual   4: 1 op, 1186.00 ns, 1.1860 us/op
+OverheadActual   5: 1 op, 1374.00 ns, 1.3740 us/op
+OverheadActual   6: 1 op, 1026.00 ns, 1.0260 us/op
+OverheadActual   7: 1 op, 1059.00 ns, 1.0590 us/op
+OverheadActual   8: 1 op, 1153.00 ns, 1.1530 us/op
+OverheadActual   9: 1 op, 1071.00 ns, 1.0710 us/op
+OverheadActual  10: 1 op, 1082.00 ns, 1.0820 us/op
+OverheadActual  11: 1 op, 913.00 ns, 913.0000 ns/op
+OverheadActual  12: 1 op, 1203.00 ns, 1.2030 us/op
+OverheadActual  13: 1 op, 967.00 ns, 967.0000 ns/op
+OverheadActual  14: 1 op, 1388.00 ns, 1.3880 us/op
+OverheadActual  15: 1 op, 1525.00 ns, 1.5250 us/op
+OverheadActual  16: 1 op, 1421.00 ns, 1.4210 us/op
+OverheadActual  17: 1 op, 903.00 ns, 903.0000 ns/op
+OverheadActual  18: 1 op, 1556.00 ns, 1.5560 us/op
+OverheadActual  19: 1 op, 1661.00 ns, 1.6610 us/op
+OverheadActual  20: 1 op, 4517.00 ns, 4.5170 us/op
+
+WorkloadWarmup   1: 1 op, 154020087.00 ns, 154.0201 ms/op
+WorkloadWarmup   2: 1 op, 150929184.00 ns, 150.9292 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 1 op, 155317280.00 ns, 155.3173 ms/op
+WorkloadActual   2: 1 op, 162780830.00 ns, 162.7808 ms/op
+WorkloadActual   3: 1 op, 140704050.00 ns, 140.7041 ms/op
+WorkloadActual   4: 1 op, 131940526.00 ns, 131.9405 ms/op
+WorkloadActual   5: 1 op, 130013024.00 ns, 130.0130 ms/op
+WorkloadActual   6: 1 op, 126097633.00 ns, 126.0976 ms/op
+WorkloadActual   7: 1 op, 175622456.00 ns, 175.6225 ms/op
+WorkloadActual   8: 1 op, 144741943.00 ns, 144.7419 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 1 op, 155315997.50 ns, 155.3160 ms/op
+WorkloadResult   2: 1 op, 162779547.50 ns, 162.7795 ms/op
+WorkloadResult   3: 1 op, 140702767.50 ns, 140.7028 ms/op
+WorkloadResult   4: 1 op, 131939243.50 ns, 131.9392 ms/op
+WorkloadResult   5: 1 op, 130011741.50 ns, 130.0117 ms/op
+WorkloadResult   6: 1 op, 126096350.50 ns, 126.0964 ms/op
+WorkloadResult   7: 1 op, 175621173.50 ns, 175.6212 ms/op
+WorkloadResult   8: 1 op, 144740660.50 ns, 144.7407 ms/op
+// GC:  0 0 0 102933984 1
+// Threading:  0 0 1
+
+// AfterAll
+// Benchmark Process 22667 has exited with code 0.
+
+Mean = 145.901 ms, StdErr = 6.160 ms (4.22%), N = 8, StdDev = 17.423 ms
+Min = 126.096 ms, Q1 = 131.457 ms, Median = 142.722 ms, Q3 = 157.182 ms, Max = 175.621 ms
+IQR = 25.725 ms, LowerFence = 92.871 ms, UpperFence = 195.769 ms
+ConfidenceInterval = [112.590 ms; 179.212 ms] (CI 99.9%), Margin = 33.311 ms (22.83% of Mean)
+Skewness = 0.41, Kurtosis = 1.53, MValue = 2
+
+// ** Remained 1 (16.7 %) benchmark(s) to run. Estimated finish 2026-09-25 15:29 (0h 0m from now) **
+// **************************
+// Benchmark: UpdateBenchmarks.DotNetRdf: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2) [Count=100000]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Varve.Benchmarks-Job-LCXOWM-1.dll --anonymousPipes 150 151 --benchmarkName "Varve.Benchmarks.UpdateBenchmarks.DotNetRdf(Count: 100000)" --job "InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2" --benchmarkId 5 in /home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-LCXOWM-1/bin/Release/net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2)
+
+OverheadJitting  1: 1 op, 297310.00 ns, 297.3100 us/op
+WorkloadJitting  1: 1 op, 3564958776.00 ns, 3.5650 s/op
+
+OverheadWarmup   1: 1 op, 1986.00 ns, 1.9860 us/op
+OverheadWarmup   2: 1 op, 1892.00 ns, 1.8920 us/op
+OverheadWarmup   3: 1 op, 1767.00 ns, 1.7670 us/op
+OverheadWarmup   4: 1 op, 1784.00 ns, 1.7840 us/op
+OverheadWarmup   5: 1 op, 1672.00 ns, 1.6720 us/op
+OverheadWarmup   6: 1 op, 1681.00 ns, 1.6810 us/op
+OverheadWarmup   7: 1 op, 1547.00 ns, 1.5470 us/op
+
+OverheadActual   1: 1 op, 1970.00 ns, 1.9700 us/op
+OverheadActual   2: 1 op, 1661.00 ns, 1.6610 us/op
+OverheadActual   3: 1 op, 2239.00 ns, 2.2390 us/op
+OverheadActual   4: 1 op, 2004.00 ns, 2.0040 us/op
+OverheadActual   5: 1 op, 2081.00 ns, 2.0810 us/op
+OverheadActual   6: 1 op, 1825.00 ns, 1.8250 us/op
+OverheadActual   7: 1 op, 1793.00 ns, 1.7930 us/op
+OverheadActual   8: 1 op, 1780.00 ns, 1.7800 us/op
+OverheadActual   9: 1 op, 2019.00 ns, 2.0190 us/op
+OverheadActual  10: 1 op, 2181.00 ns, 2.1810 us/op
+OverheadActual  11: 1 op, 2224.00 ns, 2.2240 us/op
+OverheadActual  12: 1 op, 2284.00 ns, 2.2840 us/op
+OverheadActual  13: 1 op, 2304.00 ns, 2.3040 us/op
+OverheadActual  14: 1 op, 1898.00 ns, 1.8980 us/op
+OverheadActual  15: 1 op, 1892.00 ns, 1.8920 us/op
+OverheadActual  16: 1 op, 1782.00 ns, 1.7820 us/op
+OverheadActual  17: 1 op, 1617.00 ns, 1.6170 us/op
+OverheadActual  18: 1 op, 1516.00 ns, 1.5160 us/op
+OverheadActual  19: 1 op, 1426.00 ns, 1.4260 us/op
+OverheadActual  20: 1 op, 1432.00 ns, 1.4320 us/op
+
+WorkloadWarmup   1: 1 op, 2198991288.00 ns, 2.1990 s/op
+WorkloadWarmup   2: 1 op, 2070775142.00 ns, 2.0708 s/op
+
+// BeforeActualRun
+WorkloadActual   1: 1 op, 2043561565.00 ns, 2.0436 s/op
+WorkloadActual   2: 1 op, 2051783827.00 ns, 2.0518 s/op
+WorkloadActual   3: 1 op, 2070304112.00 ns, 2.0703 s/op
+WorkloadActual   4: 1 op, 2078737914.00 ns, 2.0787 s/op
+WorkloadActual   5: 1 op, 2173296453.00 ns, 2.1733 s/op
+WorkloadActual   6: 1 op, 2146801947.00 ns, 2.1468 s/op
+WorkloadActual   7: 1 op, 2076762275.00 ns, 2.0768 s/op
+WorkloadActual   8: 1 op, 2116441197.00 ns, 2.1164 s/op
+
+// AfterActualRun
+WorkloadResult   1: 1 op, 2043559670.00 ns, 2.0436 s/op
+WorkloadResult   2: 1 op, 2051781932.00 ns, 2.0518 s/op
+WorkloadResult   3: 1 op, 2070302217.00 ns, 2.0703 s/op
+WorkloadResult   4: 1 op, 2078736019.00 ns, 2.0787 s/op
+WorkloadResult   5: 1 op, 2173294558.00 ns, 2.1733 s/op
+WorkloadResult   6: 1 op, 2146800052.00 ns, 2.1468 s/op
+WorkloadResult   7: 1 op, 2076760380.00 ns, 2.0768 s/op
+WorkloadResult   8: 1 op, 2116439302.00 ns, 2.1164 s/op
+// GC:  7 6 1 889946120 1
+// Threading:  0 0 1
+
+// AfterAll
+// Benchmark Process 22676 has exited with code 0.
+
+Mean = 2.095 s, StdErr = 0.016 s (0.78%), N = 8, StdDev = 0.046 s
+Min = 2.044 s, Q1 = 2.066 s, Median = 2.078 s, Q3 = 2.124 s, Max = 2.173 s
+IQR = 0.058 s, LowerFence = 1.978 s, UpperFence = 2.212 s
+ConfidenceInterval = [2.006 s; 2.183 s] (CI 99.9%), Margin = 0.088 s (4.22% of Mean)
+Skewness = 0.5, Kurtosis = 1.54, MValue = 2
+
+// ** Remained 0 (0.0 %) benchmark(s) to run. Estimated finish 2026-09-25 15:30 (0h 0m from now) **
+// ***** BenchmarkRunner: Finish  *****
+
+// * Export *
+  BenchmarkDotNet.Artifacts/results/Varve.Benchmarks.UpdateBenchmarks-report.csv
+  BenchmarkDotNet.Artifacts/results/Varve.Benchmarks.UpdateBenchmarks-report-github.md
+  BenchmarkDotNet.Artifacts/results/Varve.Benchmarks.UpdateBenchmarks-report.html
+
+// * Detailed results *
+UpdateBenchmarks.Varve: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2) [Count=10000]
+Runtime = .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 94.932 ms, StdErr = 17.374 ms (18.30%), N = 8, StdDev = 49.140 ms
+Min = 54.304 ms, Q1 = 63.252 ms, Median = 67.838 ms, Q3 = 119.203 ms, Max = 193.627 ms
+IQR = 55.951 ms, LowerFence = -20.673 ms, UpperFence = 203.129 ms
+ConfidenceInterval = [0.977 ms; 188.887 ms] (CI 99.9%), Margin = 93.955 ms (98.97% of Mean)
+Skewness = 0.91, Kurtosis = 2.22, MValue = 2
+-------------------- Histogram --------------------
+[ 51.732 ms ; 132.488 ms) | @@@@@@
+[132.488 ms ; 196.984 ms) | @@
+---------------------------------------------------
+
+UpdateBenchmarks.VarveParseOnly: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2) [Count=10000]
+Runtime = .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 22.657 ms, StdErr = 2.653 ms (11.71%), N = 7, StdDev = 7.018 ms
+Min = 18.328 ms, Q1 = 19.151 ms, Median = 19.987 ms, Q3 = 21.935 ms, Max = 38.112 ms
+IQR = 2.784 ms, LowerFence = 14.974 ms, UpperFence = 26.111 ms
+ConfidenceInterval = [6.850 ms; 38.463 ms] (CI 99.9%), Margin = 15.807 ms (69.77% of Mean)
+Skewness = 1.44, Kurtosis = 3.4, MValue = 2.4
+-------------------- Histogram --------------------
+[16.096 ms ; 25.727 ms) | @@@@@@
+[25.727 ms ; 33.296 ms) | 
+[33.296 ms ; 42.927 ms) | @
+---------------------------------------------------
+
+UpdateBenchmarks.DotNetRdf: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2) [Count=10000]
+Runtime = .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 115.602 ms, StdErr = 9.988 ms (8.64%), N = 7, StdDev = 26.426 ms
+Min = 94.693 ms, Q1 = 99.022 ms, Median = 104.152 ms, Q3 = 121.419 ms, Max = 169.491 ms
+IQR = 22.397 ms, LowerFence = 65.426 ms, UpperFence = 155.014 ms
+ConfidenceInterval = [56.086 ms; 175.118 ms] (CI 99.9%), Margin = 59.516 ms (51.48% of Mean)
+Skewness = 1.07, Kurtosis = 2.59, MValue = 2
+-------------------- Histogram --------------------
+[ 93.155 ms ; 129.417 ms) | @@@@@@
+[129.417 ms ; 151.360 ms) | 
+[151.360 ms ; 187.622 ms) | @
+---------------------------------------------------
+
+UpdateBenchmarks.Varve: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2) [Count=100000]
+Runtime = .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 472.829 ms, StdErr = 5.123 ms (1.08%), N = 8, StdDev = 14.491 ms
+Min = 453.640 ms, Q1 = 460.771 ms, Median = 475.223 ms, Q3 = 479.694 ms, Max = 495.424 ms
+IQR = 18.923 ms, LowerFence = 432.386 ms, UpperFence = 508.079 ms
+ConfidenceInterval = [445.123 ms; 500.536 ms] (CI 99.9%), Margin = 27.706 ms (5.86% of Mean)
+Skewness = 0.09, Kurtosis = 1.44, MValue = 2
+-------------------- Histogram --------------------
+[448.303 ms ; 470.675 ms) | @@@
+[470.675 ms ; 489.695 ms) | @@@@
+[489.695 ms ; 504.934 ms) | @
+---------------------------------------------------
+
+UpdateBenchmarks.VarveParseOnly: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2) [Count=100000]
+Runtime = .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 145.901 ms, StdErr = 6.160 ms (4.22%), N = 8, StdDev = 17.423 ms
+Min = 126.096 ms, Q1 = 131.457 ms, Median = 142.722 ms, Q3 = 157.182 ms, Max = 175.621 ms
+IQR = 25.725 ms, LowerFence = 92.871 ms, UpperFence = 195.769 ms
+ConfidenceInterval = [112.590 ms; 179.212 ms] (CI 99.9%), Margin = 33.311 ms (22.83% of Mean)
+Skewness = 0.41, Kurtosis = 1.53, MValue = 2
+-------------------- Histogram --------------------
+[123.985 ms ; 146.852 ms) | @@@@@
+[146.852 ms ; 176.902 ms) | @@@
+---------------------------------------------------
+
+UpdateBenchmarks.DotNetRdf: Job-LCXOWM(InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2) [Count=100000]
+Runtime = .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 2.095 s, StdErr = 0.016 s (0.78%), N = 8, StdDev = 0.046 s
+Min = 2.044 s, Q1 = 2.066 s, Median = 2.078 s, Q3 = 2.124 s, Max = 2.173 s
+IQR = 0.058 s, LowerFence = 1.978 s, UpperFence = 2.212 s
+ConfidenceInterval = [2.006 s; 2.183 s] (CI 99.9%), Margin = 0.088 s (4.22% of Mean)
+Skewness = 0.5, Kurtosis = 1.54, MValue = 2
+-------------------- Histogram --------------------
+[2.031 s ; 2.092 s) | @@@@@
+[2.092 s ; 2.175 s) | @@@
+---------------------------------------------------
+
+// * Summary *
+
+BenchmarkDotNet v0.15.8, Linux Ubuntu 24.04.4 LTS (Noble Numbat)
+Intel Xeon Processor 2.10GHz, 1 CPU, 4 logical and 4 physical cores
+.NET SDK 10.0.401
+  [Host]     : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+  Job-LCXOWM : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+
+InvocationCount=1  IterationCount=8  UnrollFactor=1  
+WarmupCount=2  
+
+| Method         | Count  | Mean        | Error    | StdDev    | Median      | Ratio | RatioSD | Gen0      | Gen1      | Gen2      | Allocated | Alloc Ratio |
+|--------------- |------- |------------:|---------:|----------:|------------:|------:|--------:|----------:|----------:|----------:|----------:|------------:|
+| Varve          | 10000  |    94.93 ms | 93.96 ms | 49.140 ms |    67.84 ms |  0.85 |    0.45 | 1000.0000 | 1000.0000 | 1000.0000 |   36.4 MB |        0.42 |
+| VarveParseOnly | 10000  |    22.66 ms | 15.81 ms |  7.018 ms |    19.99 ms |  0.20 |    0.07 |         - |         - |         - |    9.8 MB |        0.11 |
+| DotNetRdf      | 10000  |   115.60 ms | 59.52 ms | 26.426 ms |   104.15 ms |  1.04 |    0.29 |         - |         - |         - |  85.65 MB |        1.00 |
+|                |        |             |          |           |             |       |         |           |           |           |           |             |
+| Varve          | 100000 |   472.83 ms | 27.71 ms | 14.491 ms |   475.22 ms |  0.23 |    0.01 | 1000.0000 | 1000.0000 | 1000.0000 | 340.19 MB |        0.40 |
+| VarveParseOnly | 100000 |   145.90 ms | 33.31 ms | 17.423 ms |   142.72 ms |  0.07 |    0.01 |         - |         - |         - |  98.17 MB |        0.12 |
+| DotNetRdf      | 100000 | 2,094.71 ms | 88.49 ms | 46.281 ms | 2,077.75 ms |  1.00 |    0.03 | 7000.0000 | 6000.0000 | 1000.0000 | 848.72 MB |        1.00 |
+
+// * Warnings *
+MinIterationTime
+  UpdateBenchmarks.Varve: InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2          -> The minimum observed iteration time is 54.305ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  UpdateBenchmarks.VarveParseOnly: InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2 -> The minimum observed iteration time is 18.328ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  UpdateBenchmarks.DotNetRdf: InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2      -> The minimum observed iteration time is 94.694ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+
+// * Hints *
+Outliers
+  UpdateBenchmarks.VarveParseOnly: InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2 -> 1 outlier  was  removed (142.79 ms)
+  UpdateBenchmarks.DotNetRdf: InvocationCount=1, IterationCount=8, UnrollFactor=1, WarmupCount=2      -> 1 outlier  was  removed (271.60 ms)
+
+// * Legends *
+  Count       : Value of the 'Count' parameter
+  Mean        : Arithmetic mean of all measurements
+  Error       : Half of 99.9% confidence interval
+  StdDev      : Standard deviation of all measurements
+  Median      : Value separating the higher half of all measurements (50th percentile)
+  Ratio       : Mean of the ratio distribution ([Current]/[Baseline])
+  RatioSD     : Standard deviation of the ratio distribution ([Current]/[Baseline])
+  Gen0        : GC Generation 0 collects per 1000 operations
+  Gen1        : GC Generation 1 collects per 1000 operations
+  Gen2        : GC Generation 2 collects per 1000 operations
+  Allocated   : Allocated memory per single operation (managed only, inclusive, 1KB = 1024B)
+  Alloc Ratio : Allocated memory ratio distribution ([Current]/[Baseline])
+  1 ms        : 1 Millisecond (0.001 sec)
+
+// * Diagnostic Output - MemoryDiagnoser *
+
+
+// ***** BenchmarkRunner: End *****
+Run time: 00:00:52 (52.46 sec), executed benchmarks: 6
+
+Global total time: 00:01:31 (91.53 sec), executed benchmarks: 6
+// * Artifacts cleanup *
+Artifacts cleanup is finished

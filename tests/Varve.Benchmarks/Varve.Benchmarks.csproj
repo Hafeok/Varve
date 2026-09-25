@@ -27,6 +27,7 @@
     <ProjectReference Include="../../src/Varve.Sparql/Varve.Sparql.csproj" />
     <ProjectReference Include="../../src/Varve.Sparql.Results/Varve.Sparql.Results.csproj" />
     <ProjectReference Include="../../src/Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
+    <ProjectReference Include="../../src/Varve.Sparql.Store/Varve.Sparql.Store.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -34,7 +35,7 @@
          suite time and the differential run against Oxigraph run the same
          cases through the same loader and comparator as the conformance gate,
          and none of these files depends on the test framework. -->
-    <Compile Include="../Varve.Conformance.Tests/EvaluationRunner.cs;../Varve.Conformance.Tests/EvaluationData.cs;../Varve.Conformance.Tests/EvaluationSuite.cs;../Varve.Conformance.Tests/EvaluationSubject.cs;../Varve.Conformance.Tests/ResultTable.cs;../Varve.Conformance.Tests/ManifestGraph.cs;../Varve.Conformance.Tests/TestData.cs;../Varve.Conformance.Tests/Isomorphism.cs;../Varve.Conformance.Tests/ParsedQuad.cs" LinkBase="Conformance" />
+    <Compile Include="../Varve.Conformance.Tests/EvaluationRunner.cs;../Varve.Conformance.Tests/EvaluationData.cs;../Varve.Conformance.Tests/EvaluationSuite.cs;../Varve.Conformance.Tests/EvaluationSubject.cs;../Varve.Conformance.Tests/ResultTable.cs;../Varve.Conformance.Tests/ManifestGraph.cs;../Varve.Conformance.Tests/TestData.cs;../Varve.Conformance.Tests/Isomorphism.cs;../Varve.Conformance.Tests/ParsedQuad.cs;../Varve.Conformance.Tests/DatasetComparison.cs" LinkBase="Conformance" />
   </ItemGroup>
 
   <ItemGroup>
