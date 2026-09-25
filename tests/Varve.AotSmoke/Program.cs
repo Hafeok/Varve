@@ -289,6 +289,36 @@ internal static class Program
         }
 
         Console.WriteLine("sparql: query and update round-tripped through the algebra; error reported at " + error.ToString());
+        return Evaluation().AsTask().GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// Loads Turtle into the store and evaluates a basic graph pattern with a
+    /// filter, an aggregate, a property path closure and the hash functions
+    /// over the pinned view, under Native AOT.
+    /// </summary>
+    /// <remarks>
+    /// The evaluator leans on things ILC can drop without a build error:
+    /// iterator state machines per operator, generic hash sets keyed by row,
+    /// the inline array of the function arguments, <c>Regex</c> and the hash
+    /// primitives reached only through a switch. MD5 is the package's own (RFC
+    /// 1321), since the browser has none; the others are the platform's.
+    /// </remarks>
+    private static async ValueTask<int> Evaluation()
+    {
+        (string Bgp, string Aggregate, string Path, string Hashes) answer = await Smoke.EvaluateAsync();
+        Console.WriteLine("evaluation: " + answer.Bgp + "; " + answer.Aggregate + "; " + answer.Path);
+        Console.WriteLine("evaluation: " + answer.Hashes);
+
+        if (!string.Equals(answer.Bgp, Smoke.ExpectedBgp, StringComparison.Ordinal)
+            || !string.Equals(answer.Aggregate, Smoke.ExpectedAggregate, StringComparison.Ordinal)
+            || !string.Equals(answer.Path, Smoke.ExpectedPath, StringComparison.Ordinal)
+            || !string.Equals(answer.Hashes, Smoke.ExpectedHashes, StringComparison.Ordinal))
+        {
+            Console.Error.WriteLine("aot-smoke: the evaluator's answers are not the expected ones.");
+            return 1;
+        }
+
         return 0;
     }
 

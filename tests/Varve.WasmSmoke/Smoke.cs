@@ -57,6 +57,7 @@ internal static partial class Smoke
             report.Append(Turtle()).Append('\n');
             report.Append(await Store()).Append('\n');
             report.Append(Sparql()).Append('\n');
+            report.Append(await Evaluate()).Append('\n');
             report.Append(Crypto()).Append('\n');
             Expect();
             report.Append("OK");
@@ -247,6 +248,28 @@ internal static partial class Smoke
             $"sparql: query round-tripped through {written.Length} characters of algebra, update round-tripped, error at {error.Line}:{error.Column}");
     }
 
+    /// <summary>
+    /// Loads Turtle into the store and evaluates a basic graph pattern with a
+    /// filter, an aggregate, a property path closure and the five hash
+    /// functions over the pinned view, in the browser (milestone 5b). The hash
+    /// line is compared whole: SPARQL's <c>MD5()</c> is the package's own RFC
+    /// 1321 implementation because the platform's is not here, and the others
+    /// are the platform's, which the crypto probes pin.
+    /// </summary>
+    private static async Task<string> Evaluate()
+    {
+        (string bgp, string aggregate, string path, string hashes) = await EvaluateAsync();
+        if (!string.Equals(bgp, ExpectedBgp, StringComparison.Ordinal)
+            || !string.Equals(aggregate, ExpectedAggregate, StringComparison.Ordinal)
+            || !string.Equals(path, ExpectedPath, StringComparison.Ordinal)
+            || !string.Equals(hashes, ExpectedHashes, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("evaluation: " + bgp + "; " + aggregate + "; " + path + "; " + hashes);
+        }
+
+        return "evaluation: " + bgp + "; " + aggregate + "; " + path + "; the five hashes of \"abc\" as FIPS 180 and RFC 1321 give them";
+    }
+
     private static int Count(Varve.Store.DatasetView source)
     {
         int count = 0;
@@ -363,6 +386,16 @@ internal static partial class Smoke
         }));
 
         report.Append(Probe("SHA256", static () => SHA256.HashData("varve"u8).Length == 32));
+
+        // SPARQL's SHA1(), SHA384(), SHA512() and MD5() are what these four
+        // are probed for; the weak two are the functions' algorithms, not a
+        // choice (ADR 0048).
+#pragma warning disable CA5350, CA5351
+        report.Append(Probe("SHA1", static () => SHA1.HashData("varve"u8).Length == 20));
+        report.Append(Probe("SHA384", static () => SHA384.HashData("varve"u8).Length == 48));
+        report.Append(Probe("SHA512", static () => SHA512.HashData("varve"u8).Length == 64));
+        report.Append(Probe("MD5", static () => MD5.HashData("varve"u8).Length == 16));
+#pragma warning restore CA5350, CA5351
         report.Append(Probe("HMACSHA256", static () => HMACSHA256.HashData(new byte[32], "varve"u8).Length == 32));
 
         report.Append(Probe("HKDF", static () =>
@@ -451,6 +484,14 @@ internal static partial class Smoke
         ("HMACSHA256", "yes"),
         ("HKDF", "yes"),
         ("FixedTimeEquals", "yes"),
+
+        // Milestone 5b: SPARQL's hash functions. MD5 is the one the browser
+        // lacks, which is why Varve.Sparql.Evaluation carries its own (RFC 1321).
+        ("SHA1", "yes"),
+        ("SHA384", "yes"),
+        ("SHA512", "yes"),
+        ("MD5", "threw(CryptographicException)"),
+
         ("AES-CBC", "unsupported"),
         ("AES-GCM", "no"),
         ("AES-CCM", "no"),
