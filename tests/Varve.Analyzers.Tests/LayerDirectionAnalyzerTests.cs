@@ -144,11 +144,24 @@ public class LayerDirectionAnalyzerTests
         await test.RunAsync(TestContext.Current.CancellationToken);
     }
 
+    /// <summary>ADR 0060: a host at layer 6 composes the integrations at 5.</summary>
     [Fact]
-    public async Task Benchmark_assemblies_may_reference_any_layer()
+    public async Task A_host_may_reference_an_integration()
     {
-        LayerAnalyzerTest<LayerDirectionAnalyzer> test = Declaring("Varve.Rdf.Benchmarks", "none")
+        LayerAnalyzerTest<LayerDirectionAnalyzer> test = Declaring("Varve.Server", "6")
+            .ReferencingLayer("Varve.Sparql.Store", 5)
             .ReferencingLayer("Varve.Store", 4);
+
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task Referencing_a_host_is_reported()
+    {
+        LayerAnalyzerTest<LayerDirectionAnalyzer> test = Declaring("Varve.Sparql.Store", "5")
+            .ReferencingLayer("Varve.Server", 6);
+
+        test.ExpectedDiagnostics.Add(Violation("Varve.Sparql.Store", "5", "Varve.Server", "6"));
 
         await test.RunAsync(TestContext.Current.CancellationToken);
     }

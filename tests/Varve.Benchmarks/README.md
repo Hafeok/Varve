@@ -1,9 +1,11 @@
 # Varve.Benchmarks
 
-Not in CI, and not a gate. ADR 0027: a benchmark that gates turns a noisy
-measurement into a flaky build, and a shared runner is the noisiest machine
-there is. Numbers are taken deliberately, on a stated machine, and reported
-with the machine.
+Built in CI, never run there, and not a gate. ADR 0027: a benchmark that
+gates turns a noisy measurement into a flaky build, and a shared runner is the
+noisiest machine there is. Numbers are taken deliberately, on a stated
+machine, and reported with the machine. The `build-benchmarks` job only
+compiles the project, so that a change elsewhere cannot break it unseen, as
+one did in 5c. The project is a layer 6 host (ADR 0060).
 
 ```bash
 dotnet run -c Release --project tests/Varve.Benchmarks -- --filter '*'

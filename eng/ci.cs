@@ -92,6 +92,13 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("build", "build with warnings as errors",
         () => Run("dotnet", ["build", "Varve.slnx", "--configuration", "Release", "--no-restore"])),
 
+    // The benchmarks are outside Varve.slnx, and not run here (ADR 0027): a
+    // benchmark that gates is a flaky build. They are built, because they link
+    // conformance sources and reference every package, and in 5c they broke
+    // without any gate seeing it. Their own restore: dotNetRDF is theirs alone.
+    ("build-benchmarks", "the benchmark project builds; it is not run",
+        () => Run("dotnet", ["build", "tests/Varve.Benchmarks/Varve.Benchmarks.csproj", "--configuration", "Release"])),
+
     ("test-analyzers", "the analyzer rules and their fixtures",
         () => Test("Varve.Analyzers.Tests")),
 

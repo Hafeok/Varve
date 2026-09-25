@@ -14,7 +14,7 @@ or depart from `docs/brief.md`, each says so in its Context.
 |---:|---|---|
 | [0001](0001-record-architecture-decisions.md) | Record architecture decisions | Accepted |
 | [0002](0002-licence.md) | Licence: Apache-2.0 | **Superseded by 0031** |
-| [0003](0003-package-layering.md) | Package layering and the strictly downward reference rule | Accepted |
+| [0003](0003-package-layering.md) | Package layering and the strictly downward reference rule | Accepted; layer table **superseded by 0060** |
 | [0004](0004-enforcement-by-analyzers.md) | Enforcement by analyzers | Accepted |
 | [0005](0005-store-is-sparql-free.md) | `Varve.Store` is SPARQL-free | Accepted |
 | [0006](0006-build-and-test-dependencies.md) | Build-time and test-time dependencies | **Superseded by 0009** |
@@ -136,6 +136,14 @@ Decided by the maintainer on the 5c plan.
 | [0057](0057-sparql-update-one-request-one-commit.md) | SPARQL Update over the store: one request, one commit | Accepted |
 | [0058](0058-staging-view-and-dataset-validators.md) | A staging view over a pinned read, and validators bound to a dataset | Accepted; refines 0017 |
 | [0059](0059-rdfc-in-varve-rdf-and-its-work-limit.md) | RDFC-1.0 in `Varve.Rdf`, bounded by a work limit; the isomorphism check stays as a cross-check | Accepted; supersedes 0030's deletion clause |
+
+## After milestone 5c — hosts
+
+Decided by the maintainer on the 5c report.
+
+| # | Title | Status |
+|---:|---|---|
+| [0060](0060-hosts-at-layer-6-the-composition-root.md) | Hosts at layer 6: the composition root, reserved to executables | Accepted; supersedes 0003's layer table |
 
 ## Milestone 7 — the server
 

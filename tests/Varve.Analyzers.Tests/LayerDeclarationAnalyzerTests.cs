@@ -27,9 +27,12 @@ public class LayerDeclarationAnalyzerTests
     private static readonly CompositeFormat ReferenceMalformedFormat =
         CompositeFormat.Parse(LayerDeclarationAnalyzer.ReferenceMalformedFormat);
 
+    private static readonly CompositeFormat ExecutableBelowHostLayerFormat =
+        CompositeFormat.Parse(LayerDeclarationAnalyzer.ExecutableBelowHostLayerFormat);
+
     private static LayerAnalyzerTest<LayerDeclarationAnalyzer> Declaring(
-        string assemblyName, string? layer, bool isPackable = false) =>
-        new(assemblyName, layer, isPackable);
+        string assemblyName, string? layer, bool isPackable = false, bool isExecutable = false) =>
+        new(assemblyName, layer, isPackable, isExecutable);
 
     private static DiagnosticResult Violation(string assemblyName, string reason) =>
         new DiagnosticResult(VarveDiagnostics.LayerDeclaration)
@@ -70,7 +73,7 @@ public class LayerDeclarationAnalyzerTests
     [InlineData("one")]
     [InlineData("")]
     [InlineData("-1")]
-    [InlineData("6")]
+    [InlineData("7")]
     [InlineData("2.0")]
     public async Task Malformed_declaration_is_reported(string layer)
     {
@@ -99,11 +102,70 @@ public class LayerDeclarationAnalyzerTests
 
     [Theory]
     [InlineData("Varve.Rdf.Tests")]
-    [InlineData("Varve.Rdf.Benchmarks")]
     [InlineData("Varve.Analyzers")]
     public async Task Declaring_none_is_accepted_from_an_exempt_assembly(string assemblyName)
     {
         LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring(assemblyName, "none");
+
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>
+    /// ADR 0060: a benchmark composes the public packages as a host does, and
+    /// its name no longer buys it <c>none</c>.
+    /// </summary>
+    [Fact]
+    public async Task Declaring_none_from_a_benchmark_assembly_is_reported()
+    {
+        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Benchmarks", "none", isExecutable: true);
+
+        test.ExpectedDiagnostics.Add(Violation("Varve.Benchmarks", LayerDeclarationAnalyzer.NoLayerNotAllowed));
+
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Theory]
+    [InlineData("Varve.Server")]
+    [InlineData("Varve.Benchmarks")]
+    public async Task An_executable_at_the_host_layer_is_clean(string assemblyName)
+    {
+        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring(assemblyName, "6", isExecutable: true)
+            .ReferencingLayer("Varve.Sparql.Store", 5);
+
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("5")]
+    public async Task An_executable_below_the_host_layer_is_reported(string layer)
+    {
+        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.AotSmoke", layer, isExecutable: true);
+
+        test.ExpectedDiagnostics.Add(Violation(
+            "Varve.AotSmoke", string.Format(CultureInfo.InvariantCulture, ExecutableBelowHostLayerFormat, layer)));
+
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task A_library_at_the_host_layer_is_reported()
+    {
+        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Something", "6");
+
+        test.ExpectedDiagnostics.Add(Violation("Varve.Something", LayerDeclarationAnalyzer.HostLayerNotExecutable));
+
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>
+    /// Under xUnit v3 a test assembly is an executable; it is exempt from
+    /// layering altogether, and the host-layer rule does not reach it.
+    /// </summary>
+    [Fact]
+    public async Task A_test_executable_may_declare_none()
+    {
+        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Store.Tests", "none", isExecutable: true);
 
         await test.RunAsync(TestContext.Current.CancellationToken);
     }
@@ -200,7 +262,6 @@ public class LayerDeclarationAnalyzerTests
     /// </summary>
     [Theory]
     [InlineData("Varve.Rdf.Tests")]
-    [InlineData("Varve.Rdf.Benchmarks")]
     [InlineData("Varve.Analyzers")]
     public async Task A_packable_assembly_cannot_buy_an_exemption_with_its_name(string assemblyName)
     {

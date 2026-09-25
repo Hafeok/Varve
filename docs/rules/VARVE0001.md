@@ -79,8 +79,9 @@ A repository-wide `NoWarn` is not an allowed form. See
 ## Not reported
 
 - A compilation whose assembly is not named `Varve.*`.
-- A test or benchmark assembly, or `Varve.Analyzers`. These compose across
-  layers by nature and declare `VarveLayer=none`.
+- A test assembly, or `Varve.Analyzers`. These compose across layers by
+  nature and declare `VarveLayer=none`. A benchmark assembly is a host and
+  declares layer 6 (ADR 0060), so it is checked like any other.
 - A compilation whose own layer declaration is missing or malformed, and a
   reference whose layer metadata is missing or malformed. Both are
   [VARVE0002](VARVE0002.md), and reporting them here as well would say the same

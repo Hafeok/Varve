@@ -148,7 +148,7 @@ stated, configurable number of calls, and exceeding it fails explicitly
 rather than running without end. That bound is what makes the algorithm
 acceptable as public API where the harness's search was not.
 
-## 6. Isomorphism, and where RDFC-1.0 falls short of it
+## 6. Isomorphism, and where RDFC-1.0 falls short of it — a known limit
 
 Equal canonical forms mean isomorphic datasets, always: a canonical form is a
 relabelling of its dataset. The converse — isomorphic datasets have equal
@@ -173,10 +173,32 @@ which is the object in one quad and the graph name in the other. §4.4.3 step
 5.4 orders the tied results "by the hash in result", which leaves the order
 to the input, so two relabellings of this dataset get two canonical forms.
 Only a quad with three blank nodes — subject, object and graph name — can
-hide the reference node's position this way. pyoxigraph 0.5.11's RDFC-1.0
-gives the same two forms, byte for byte, so this is the algorithm's and not
-this implementation's; §8 of the milestone report proposes raising it with the
-Working Group (ADR 0038, D2: `spec-gap`).
+hide the reference node's position this way.
+
+**It is the algorithm's, not this implementation's.** Over 300 random
+relabellings and quad orders of the dataset above (measured 2026-09-25):
+
+| Implementation | Canonical forms | Split |
+|---|---:|---|
+| Varve (this package) | 2 | 151 / 149 |
+| pyoxigraph 0.5.11, `RDFC_1_0` | 2 — the same two, byte for byte | 147 / 153 |
+| dotNetRDF 3.5.2, `RdfCanonicalizer("SHA256")` | 1 — neither of the two | 300 |
+
+Varve and pyoxigraph produce the same pair of forms; which relabelling gets
+which form differs between them, because the tie falls to each one's internal
+order. dotNetRDF is stable on this dataset but disagrees with both from the
+first issued identifier; why is not investigated here, and nothing is
+concluded from it.
+
+**Known limit, stated for callers.** `RdfCanonicaliser` implements RDFC-1.0
+as specified, so for a dataset with blank nodes as graph names, equal
+canonical forms still mean isomorphic datasets, but isomorphic datasets may
+have different canonical forms. A caller comparing such datasets for
+isomorphism must not rely on canonical inequality. With IRI graph names only,
+the equivalence holds, and this package's property tests assert it (§7).
+Raised with the RDF & SPARQL Working Group under ADR 0038, D2: `spec-gap`;
+[#36](https://github.com/Hafeok/Varve/issues/36) tracks it and carries the
+report and, once filed, its URL.
 
 The conformance harness compares `CONSTRUCT` results and update results by
 canonical equality and runs its backtracking check beside it as a
@@ -219,5 +241,6 @@ ADR 0059 requires, and this section is where its explanation is.
    says how RDFC applies to them.
 2. **`n-triples.md`'s canonical form** (§4) — whether it becomes RDF 1.2's.
    Proposed in this milestone's report; decided by the maintainer.
-3. **§6's counterexample** — whether and how to raise it with the RDF & SPARQL
-   Working Group. Proposed in this milestone's report.
+3. ~~**§6's counterexample** — whether and how to raise it with the RDF &
+   SPARQL Working Group.~~ Decided on the 5c report: raised, with the minimal
+   pair (#36), and recorded here as a known limit.

@@ -4,11 +4,10 @@
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
 
-    <!-- 'none', which VARVE0002 allows for an assembly whose name ends in
-         .Benchmarks. A benchmark composes across layers by nature and is never
-         published, so the stability argument behind the layering does not
-         apply to it. -->
-    <VarveLayer>none</VarveLayer>
+    <!-- Layer 6 (ADR 0060). A benchmark composes the public packages from the
+         top, as a host does, and is an executable, which is a composition
+         root; it declared 'none' by name until 0060 took that away. -->
+    <VarveLayer>6</VarveLayer>
 
     <!-- BenchmarkDotNet needs release code with the optimiser on to measure
          anything meaningful, and says so loudly if it is not. -->

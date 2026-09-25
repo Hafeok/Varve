@@ -128,6 +128,13 @@ jobs:
         # and the build is deterministic.
         run: dotnet build Varve.slnx --configuration Release --no-restore
 
+      - name: Build the benchmarks
+        # Built, not run (ADR 0027: a benchmark that gates is a flaky build).
+        # Outside Varve.slnx, so nothing else compiles it; at 5c it broke on a
+        # linked conformance source and no gate saw it. Its own restore, since
+        # dotNetRDF is a benchmark-only reference.
+        run: dotnet build tests/Varve.Benchmarks/Varve.Benchmarks.csproj --configuration Release
+
       # Every test project except the conformance one, which has a job of its
       # own because it is gated by the ratchet rather than by its own result.
       # One step each rather than one step over the solution: `dotnet test`
