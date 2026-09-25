@@ -69,8 +69,19 @@ The order is specification, then ADR, then code.
   the optimiser's rewrites and the property that keeps them honest, and
   ADR 0050's three arms.
 - **[`sparql-results.md`](sparql-results.md)** — the four result formats'
-  readers: one pull reader over UTF-8 with term views, a non-validating XML
-  subset reader, and positions on error. The writers are 5c's.
+  readers and writers: one pull reader over UTF-8 with term views, a
+  non-validating XML subset reader, positions on error; one push writer to
+  a buffer writer or a stream, nothing per row, and what each format cannot
+  carry.
+- **[`sparql-update-store.md`](sparql-update-store.md)** — SPARQL Update over
+  the store: one request pinned, each operation evaluated over the overlay of
+  the ones before it through a staging view, one commit with the pinned
+  position expected; graph management in a store that records no empty
+  graphs; `LOAD` through a contract.
+- **[`rdf-canon.md`](rdf-canon.md)** — RDFC-1.0 over any quad source: the
+  hash algorithms, the work limit that bounds it, triple terms, and the
+  canonical N-Quads form of its Appendix A, which differs from
+  `n-triples.md`'s.
 
 Cite specification sections when you write one. Where a W3C specification is
 silent, Oxigraph's behaviour is the tie-breaker; say so explicitly in the text

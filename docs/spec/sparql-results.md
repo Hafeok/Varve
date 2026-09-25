@@ -1,9 +1,9 @@
 # SPARQL result formats
 
-Functional specification for `Varve.Sparql.Results` (layer 2): reading, and
-at milestone 5c writing, the four formats in which SPARQL results travel.
-Milestone 5b builds **the readers**, because the evaluation suite's expected
-results come in these forms; the writers are 5c's.
+Functional specification for `Varve.Sparql.Results` (layer 2): reading and
+writing the four formats in which SPARQL results travel. Milestone 5b built
+**the readers**, because the evaluation suite's expected results come in
+these forms; milestone 5c built **the writers** (§5).
 
 Status: Accepted. Changes only together with the ADR that motivates the change.
 
@@ -17,8 +17,11 @@ Status: Accepted. Changes only together with the ADR that motivates the change.
   21 March 2013 — `.csv`, `.tsv`.
 - **SPARQL 1.2 Query Results XML, JSON, CSV and TSV Formats**, Working Drafts
   of 2026, for their two additions only: **triple terms** (`<triple>` in XML,
-  `"type": "triple"` in JSON, `<<( s p o )>>` in TSV) and **base direction**
-  (`its:dir` in XML and JSON, `--ltr` / `--rtl` in TSV).
+  `"type": "triple"` in JSON, `<<( s p o )>>` in CSV and TSV) and **base
+  direction** (`its:dir` in XML and JSON, `--ltr` / `--rtl` in TSV). As
+  checked on 2026-09-25: the JSON draft of 13 August 2026 (§3.2.2), the
+  CSV and TSV draft of 23 July 2026 (§3.2, §4.2), and the XML draft's §2.3.1.
+- **RFC 4180** for the CSV record and quoting rules the CSV format cites.
 - **Extensible Markup Language (XML) 1.0**, §2 (well-formedness), for the
   subset §3.1 reads; **RFC 8259** for JSON, through the BCL's
   `Utf8JsonReader`.
@@ -141,7 +144,147 @@ comparison against CSV results compares lexical forms (`sparql-evaluation.md`
 - **Allocation.** Reading a document of many solutions allocates a bounded
   amount independent of the number of solutions, beyond the arena's growth.
 
-## 5. Open questions
+## 5. The writers
 
-1. **The writers** are 5c's, with the protocol's content negotiation at
-   milestone 7. Owner: 5c.
+One writer type for the four formats, push-based, writing UTF-8:
+
+```csharp
+using var writer = new SparqlResultsWriter(output, SparqlResultsFormat.Json);
+writer.WriteHead(["s", "o"]);            // or writer.WriteBoolean(true), and nothing else
+foreach (…)
+{
+    writer.StartSolution();
+    writer.WriteBinding(0, term);        // an RdfTerm, or an RdfTermView
+    writer.WriteBinding(1, view);        // an unwritten variable is unbound
+    writer.EndSolution();
+}
+writer.WriteEnd();
+await writer.FlushAsync(cancellationToken);
+```
+
+- **Output** is an `IBufferWriter<byte>`, written as the calls are made, or
+  a `Stream`, which the writer buffers in a pooled buffer and writes on
+  `Flush` or `FlushAsync`. `BytesPending` says how much is buffered, so a
+  caller writing to a network stream flushes asynchronously when it chooses;
+  nothing is written to a stream synchronously except by `Flush`, because a
+  host such as ASP.NET Core forbids synchronous I/O on its response body.
+  Disposing returns the buffer; disposing without `WriteEnd` leaves the
+  document incomplete, which is the caller's to avoid.
+- **The row is the caller's.** A binding is given by variable index, as an
+  `RdfTerm` or as an `RdfTermView` — the reader's own view type, so a reader
+  can be copied into a writer without materialising a term — and bindings of
+  one solution are given in ascending index order, because CSV and TSV are
+  positional. The writer keeps nothing per solution: it allocates nothing per
+  row beyond what the caller's row costs, which the allocation test of §6
+  asserts as zero bytes per solution.
+- **The call sequence is checked**: `WriteHead` or `WriteBoolean` once and
+  first, bindings only inside a solution, indexes in range and ascending,
+  `WriteEnd` last; a call out of order throws `InvalidOperationException`,
+  and a term the format cannot carry throws `ArgumentException` naming the
+  rule (below).
+- **Blank node labels are written as given.** A label is scoped to the
+  document (XML §2.3.1, JSON §3.2.2, CSV §3.2, TSV §4.2), so the caller
+  chooses them, and the store's labels (ADR 0044) are already unique within
+  one dataset.
+
+### 5.1 XML — SPARQL Query Results XML Format §2
+
+The declaration `<?xml version="1.0"?>`, then `<sparql>` in the results
+namespace (§2.1), `<head>` with one `<variable name="…"/>` per variable
+(§2.2), and either `<boolean>true</boolean>` (§2.3.2) or `<results>` with one
+`<result>` per solution and one `<binding name="…">` per bound variable
+(§2.3.1). Terms as §2.3.1: `<uri>`, `<bnode>`, `<literal>` with `xml:lang`,
+or `datatype` for a datatype other than `xsd:string`. 1.2: `its:dir` on a
+directional literal, with `xmlns:its` declared on
+`<sparql>` — written on every document, because the root is written before
+the writer knows whether a directional literal will follow, and `its:version`
+is optional (draft §2.3.1) — and
+`<triple>` with `<subject>`, `<predicate>`, `<object>`, recursively. Text
+escapes `&`, `<` and `>`; attribute values also `"`. XML 1.0 cannot carry
+U+0000 or the other characters outside its `Char` production (XML 1.0 §2.2),
+even as a character reference, so such a term throws `ArgumentException`.
+
+### 5.2 JSON — SPARQL 1.1 Query Results JSON Format
+
+`{"head":{"vars":[…]},"results":{"bindings":[…]}}` (§2, §3.1.1, §3.2.1), or
+`{"head":{},"boolean":true}` (§4). A term is an object with `type` and
+`value`, and `xml:lang` or `datatype` (§3.2.2); `datatype` is omitted for
+`xsd:string`; a blank node's `value` is its label without `_:`. 1.2:
+`its:dir`, and `{"type":"triple","value":{"subject":…,"predicate":…,"object":…}}`
+(draft §3.2.2). Written by hand rather than with `Utf8JsonWriter`, whose
+default encoder escapes every non-ASCII character: strings escape `"`, `\`
+and U+0000–U+001F (RFC 8259 §7), with `\b`, `\f`, `\n`, `\r`, `\t` where
+they exist and `\u00XX` otherwise, and nothing else. No whitespace is written.
+
+### 5.3 CSV — SPARQL 1.1 Query Results CSV and TSV Formats §3
+
+The variable names without `?`, then one record per solution; an unbound
+variable is an empty field (§3.1). A field is the term's string value
+(§3.2): an IRI's text, a literal's lexical form, a blank node's `_:label`.
+1.2: a triple term is `<<( s p o )>>` with its parts written recursively the
+same way and separated by single spaces (draft §3.2); **a base direction is
+not written**, because the draft says nothing about it and CSV writes no
+language tag either. A field containing `"`, `,`, LF or CR is quoted with
+`""` for `"` (§3.2, RFC 4180 §2 rules 6–7). **Records end with CRLF**, RFC
+4180 §2 rule 1, whose record rules the format adopts; the W3C expected
+files end their lines with LF, which is why the writer check of §6 compares
+lines. Boolean results have no CSV form in the Recommendation; the writer
+writes the header `_askResult` and one record, `true` or `false`, which is
+the convention Oxigraph and Jena share and the reader here does not read
+back as a boolean (§3.4 has no boolean form either). *(Oxigraph is the
+tie-breaker where the specification is silent; said here, not matched
+silently.)*
+
+### 5.4 TSV — SPARQL 1.1 Query Results CSV and TSV Formats §4
+
+The variables as `?name`, tab-separated; one line per solution; an unbound
+variable is an empty field; lines end with LF, including the last (§4.1).
+A term in Turtle syntax without the triple-quoted forms (§4, §4.2):
+`<iri>`, `_:label`, `"…"` with `@lang`, `@lang--dir` (1.2), or `^^<datatype>`
+for a datatype other than `xsd:string`, strings escaping `"`, `\`, LF, CR
+and tab with `ECHAR` and nothing else; and a literal of `xsd:integer`,
+`xsd:decimal`, `xsd:double` or `xsd:boolean` whose lexical form matches
+Turtle's `INTEGER`, `DECIMAL`, `DOUBLE` or `BooleanLiteral` exactly is
+written bare, as the §4.3 example and the suite's expected files write it.
+1.2: `<<( s p o )>>` (draft §4.2). Boolean results are the header `?_askResult`
+and one line, by the same convention as CSV.
+
+### 5.5 What each format cannot carry
+
+| Term | XML | JSON | CSV | TSV |
+|---|---|---|---|---|
+| A character outside XML 1.0 `Char` | refused | written | written | written |
+| Language tag, datatype | written | written | **dropped** | written |
+| Base direction | written | written | **dropped** | written |
+| IRI versus literal | written | written | **dropped** | written |
+| Unbound versus `""` | written | written | **same field** | written |
+| Triple term | written | written | written, as text | written |
+
+CSV is lossy by the format's own statement (§3.2); nothing else is.
+
+## 6. Tests of the writers
+
+- **The round trip, as a property.** For generated solution sequences —
+  IRIs with non-ASCII characters, blank nodes, simple, language-tagged,
+  directional and typed literals with every character class a string escape
+  touches, nested triple terms, and unbound variables — writing then reading
+  with this package's reader gives the same solutions, term for term, for XML,
+  JSON and TSV. For CSV it gives what CSV carries: each term replaced by the
+  simple literal of its string value, a blank node kept, and an unbound
+  variable and an empty string both empty. XML skips the characters it
+  cannot carry. Booleans likewise, in every format.
+- **The W3C cases.** For each `csv-tsv-res` and `json-res` case, the query is
+  evaluated over the store and its results written in the case's format;
+  for TSV and CSV the written lines equal the expected file's lines up to a
+  bijection of blank node labels and, for CSV, the line ending (§5.3); for
+  JSON, whose whitespace is not canonical, reading the written document and
+  the expected one gives the same solutions. The report says which cases are
+  byte-equal and which re-parsed.
+- **Allocation.** Writing many solutions of views allocates nothing per
+  solution, measured as a difference (`docs/testing.md` §4).
+- **Call order.** Each out-of-order call throws.
+
+## 7. Open questions
+
+1. **Content negotiation** — which format, from an `Accept` header, with the
+   1.2 `version` parameter (JSON draft §6) — is the protocol's, at milestone 7.

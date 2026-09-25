@@ -148,7 +148,7 @@ asserts zero bytes per quad, not a small number.
   `"1"^^xsd:integer` and `"01"^^xsd:integer` are *different terms* here and
   stay different terms; they are equal *values*, which is a question only the
   evaluator asks. Nothing may assume the model answers it.
-- **RDFC-1.0 canonicalisation** — a later milestone.
+- **RDFC-1.0 canonicalisation** — its own specification, [`rdf-canon.md`](rdf-canon.md) (milestone 5c, ADR 0059).
 - **Generalised RDF** (Concepts §5.2), where any term may appear in any
   position. Not supported; the constraints in §3 are enforced.
 - **Term identity across a store** — blank node identity at an API boundary is
