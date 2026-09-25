@@ -210,7 +210,7 @@ landing on the trunk before the next starts:
 | Slice | Delivers | Gate |
 |---|---|---|
 | **5a** *(complete)* | The five ADRs below, `Varve.Xsd`, the SPARQL algebra, parser and serialiser (`Varve.Sparql`, layer 2), cardinality estimates and the typed-value accessor on `IQuadSource` | The W3C SPARQL 1.0, 1.1 and 1.2 syntax suites, query and update, in the ratchet — **554 of 554, no exemption** |
-| **5b** | ADRs 0053–0056; the optimiser and evaluator (`Varve.Sparql.Evaluation`, layer 3) over the in-memory projection and over `InMemoryDataset`; **the result-format readers** (`Varve.Sparql.Results`, layer 2), brought forward from 5c because the suite's expected results come in those formats; ADR 0022's benchmark per ADR 0050 | The SPARQL 1.0 and 1.1 query evaluation suites and the loadable SPARQL 1.2 ones, over two subjects |
+| **5b** *(complete)* | ADRs 0053–0056; the optimiser and evaluator (`Varve.Sparql.Evaluation`, layer 3) over the in-memory projection and over `InMemoryDataset`; **the result-format readers** (`Varve.Sparql.Results`, layer 2), brought forward from 5c because the suite's expected results come in those formats; ADR 0022's benchmark per ADR 0050 | The SPARQL 1.0 and 1.1 query evaluation suites and the loadable SPARQL 1.2 ones, over two subjects — **544 cases, 1,088 of 1,088, no exemption**; 41 blocked on 6b |
 | **5c** | The result-format **writers**, and the SPARQL Update integration package at layer 5; RDFC-1.0 canonicalisation, which has waited since 3a and whose first consumer is the result comparison | The results-format and update evaluation suites |
 
 **The positions the maintainer took at the end of milestone 4 are ADRs**, all
@@ -242,6 +242,17 @@ AOT and in the browser. What 5b inherits is in the traceability record
 the aggregate extraction and the sequence-path rewrite the algebra leaves to
 the evaluator, ADR 0050's three-arm benchmark, and ADR 0051's dateTime order
 to verify.
+
+**5b landed** with `docs/spec/sparql-evaluation.md` and
+`docs/spec/sparql-results.md`, ADRs 0053–0056, and every evaluation case that
+is not blocked passing over `InMemoryDataset` and over the store, in all
+three of ADR 0050's arms. No dateTime case disagrees with ADR 0051; `xsd:date`
+and the other seven-property types take XSD's partial order, as the suite
+requires. ADR 0022's revisit condition was judged and does not fire. The
+optimiser holds its equivalence property, the store answers as a dataset of
+its own quads at any position, and AOT and the browser evaluate queries. What
+5c inherits is in the traceability record
+(`docs/traceability/2026-09-25-issue-9-milestone-5b-evaluation.md`).
 
 Turtle and TriG were planned for this milestone and shipped in 3b instead,
 which is why ADR 0007's exit criterion — the conformance harness reading its

@@ -40,20 +40,23 @@ dataset directory.
 
 ## Status
 
-**Milestone 5a.** Six packages: reading and writing four syntaxes, the XSD
-value spaces, the SPARQL algebra with its parser and serialiser, and an
-event-sourced store in memory.
+**Milestone 5b.** Eight packages: reading and writing four syntaxes, the XSD
+value spaces, the SPARQL algebra with its parser and serialiser, the SPARQL
+results formats, a query evaluator with an optimiser, and an event-sourced
+store in memory.
 
 | Package | Layer | What it is | State |
 |---|---:|---|---|
 | `Varve.Iri` | 0 | IRI parsing, resolution and normalisation over UTF-8 | working |
-| `Varve.Xsd` | 0 | the XSD 1.1 value spaces with SPARQL operator semantics: exact decimal, the integer family, IEEE double and float, boolean, string, the date and time family, durations | working; gated by its property tests until the evaluation suite at 5b |
+| `Varve.Xsd` | 0 | the XSD 1.1 value spaces with SPARQL operator semantics: exact decimal, the integer family, IEEE double and float, boolean, string, the date and time family, durations | working |
 | `Varve.Rdf` | 1 | terms, triples, quads, and the abstract quad source contract — with cardinality estimates and an inline-value accessor | working |
 | `Varve.Turtle` | 2 | N-Triples, N-Quads, Turtle, TriG — reader and writer | working |
 | `Varve.Sparql` | 2 | SPARQL 1.1 Query and Update as an immutable algebra, with the 1.2 additions; the parser and the serialiser | working |
+| `Varve.Sparql.Results` | 2 | the SPARQL results formats — XML, JSON, CSV, TSV — as pull readers | working; writers at 5c |
+| `Varve.Sparql.Evaluation` | 3 | the optimiser and evaluator: every operator, the function library, aggregates, property paths, `SERVICE` through a handler, over any quad source | working; update execution at 5c |
 | `Varve.Analyzers` | — | the layer rules, at build time | working, never shipped |
 | `Varve.Store` | 4 | the log, the default projection, pinned and as-of reads, checkpoints, subscriptions | working, in memory; file and browser backends at milestone 6 |
-| `Varve.Sparql.Evaluation`, results, SHACL, server, CLI | 2–5 | | not built; the evaluator is 5b, the result formats 5c |
+| SHACL, server, CLI | 3–5 | | not built |
 
 ### Conformance
 
@@ -73,7 +76,10 @@ The W3C suites are the acceptance gate, from
 | `sparql11/syntax-update-1`, `-2`, `syntax-fed` | 58 |
 | `sparql12/syntax-triple-terms-positive`, `-negative` | 178 |
 | `sparql12/syntax`, `version`, `codepoint-escapes`, `lang-basedir` | 25 |
-| **Total** | **1,437 of 1,437** |
+| `sparql10` query evaluation, 24 directories (under 1.1), × 2 subjects | 566 |
+| `sparql11` query evaluation, 15 directories with `service`, × 2 subjects | 478 |
+| `sparql12` query evaluation, 6 directories, × 2 subjects | 44 |
+| **Total** | **2,525 of 2,525** |
 
 Each SPARQL suite is parsed at its own version, so the 1.0 and 1.1 suites
 never see the 1.2 grammar; the 1.2 default is for API callers only. The six
@@ -81,10 +87,18 @@ SPARQL 1.2 suites are against Working Drafts of 2026, ratcheted anyway
 because the algebra carries 1.2 from the start and the ratchet is what
 absorbs churn (`docs/spec/sparql-grammar.md` §1).
 
+Each query evaluation case runs over two subjects, `InMemoryDataset` and the
+store's pinned view, and is one ratchet line per subject; a guard runs every
+case again in ADR 0050's two other value-access arms. **41 SPARQL 1.2
+evaluation cases are blocked**, not exempt: their data is RDF 1.2 Turtle,
+which `turtle.md` §9 refuses, and roadmap slice 6b unblocks them. The guard
+pins their count.
+
 **`baseline/exemptions.txt` is empty**, and that is a result rather than a
-default: no SPARQL 1.0 negative case turned out to be relaxed by 1.1.
-`eng/ratchet.cs` fails the build if any of those 1,437 stops passing, and an
-exemption with no written justification fails the run too.
+default: no SPARQL 1.0 negative case turned out to be relaxed by 1.1, and no
+evaluation case needs one. `eng/ratchet.cs` fails the build if any of those
+2,525 stops passing, and an exemption with no written justification fails the
+run too.
 
 Also true today, and measured rather than asserted:
 
@@ -112,6 +126,15 @@ Also true today, and measured rather than asserted:
   positive corpus case; and every corpus case parsed as UTF-16 agrees with
   its UTF-8 parse. AOT and the browser both parse a query and print its
   algebra.
+- **The optimiser changes no answer**: 20,000 generated queries over
+  generated data per run give the same multiset optimised and not, and every
+  rewrite must have fired. Its one counterexample was an operator whose answer
+  depended on join order, now fixed. **The store answers as a dataset of its
+  own quads**: at a generated as-of position of a generated history with
+  retractions, 2,000 times a run. A `SELECT` over a basic graph pattern
+  allocates **its 48-byte row per solution, and nothing per quad** scanned and
+  not matched, over the store and over `InMemoryDataset`. AOT and the browser
+  both evaluate a basic graph pattern, an aggregate and a property path.
 - **The store's cardinality estimate is exact**, held to a counted scan over
   generated histories at the head and at every as-of position (ADR 0049).
 
@@ -120,9 +143,12 @@ half-accepted. `docs/spec/turtle.md` §9 lists the constructs and the reasoning.
 SPARQL 1.2 is accepted in full, triple terms, reifiers, annotations and
 `VERSION` included, because the algebra was built with 1.2 from the start.
 
-**Nothing evaluates a query yet.** `Varve.Sparql` parses to the algebra and
-writes it back; the optimiser and evaluator are milestone 5b, and until then a
-`SELECT` has a tree and no answer.
+**Queries evaluate; updates do not yet.** `Varve.Sparql.Evaluation` answers
+`SELECT`, `ASK`, `CONSTRUCT` and `DESCRIBE` over any quad source; executing an
+update, writing results and HTTP federation are milestone 5c. `NOW()` and the
+random functions read a clock and a random source the caller supplies —
+`Clock = TimeProvider.System` for the system clock — and fail by the option's
+name without one (ADR 0056).
 
 **Nothing is published yet.** The package metadata and the trusted-publishing
 workflow are in place and await the first `v0.1.0-preview.1` tag.
