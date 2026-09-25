@@ -187,9 +187,13 @@ given a non-empty μ.
   `Reduced` is evaluated as `Distinct`, which §15.3.2 permits.
 - `Slice(P, offset, limit)`: skips and stops; the input is not read past the
   limit.
-- `OrderBy(P, conditions)`: materialised and sorted by a stable merge sort
-  under the order of §7.5, each condition in turn; equal keys keep their
-  input order.
+- `OrderBy(P, conditions)`: materialised and sorted under the order of
+  §7.5, each condition in turn, with the input position as the last key, so
+  equal keys keep their input order. Each key is evaluated **and made ready
+  once per row**: an inline integer or boolean becomes its value, and any
+  other term of the source is externalised once and held as a local term,
+  whose numeric parse is cached — the n log n comparisons then externalise
+  nothing.
 
 ### 6.2 `Join` — §18.5 *Join*
 
@@ -619,7 +623,10 @@ direction) and any symmetric variant are **out of scope** and stated so.
 measures the cost of externalising every bound term and not the cost of
 comparing owned terms in joins — which a term-based contract would also pay.
 Its cost is therefore **a lower bound** on the contract ADR 0022 rejected,
-and ADR 0050's verdict rule is read with that in mind.
+and ADR 0050's verdict rule is read with that in mind. A term a scan found
+keeps the handle it came from, and goes back to a scan by it: a blank
+node's label does not internalise back to a handle in the store (ADR 0044),
+so without it the arm could not join through one.
 
 ## 11. Allocation
 
@@ -728,7 +735,17 @@ decision stands as written.
 
 ### 13.2 ADR 0050's benchmark
 
-*Recorded when measured.*
+**ADR 0022's revisit condition does not fire**; ADR 0022 carries the dated
+verdict and `tests/Varve.Benchmarks/README.md` the tables. The suites' wall
+time does not separate the arms — it is loading, parsing and tiny
+datasets — and on a million inline integers the accessor arm is 20–23×
+faster than the materialised arm on `FILTER` and 6.3× on `ORDER BY`. The
+first run of the benchmark found two defects the suites had not: the
+materialised arm could not join through a blank node (§10 now says a
+materialised term keeps the handle it came from), and `ORDER BY` ranked
+every key by externalising it on every comparison, ten gigabytes for a
+million rows (§6.1: keys are made ready once per row). A guard now runs
+every case in all three arms.
 
 ### 13.3 What is blocked
 
@@ -738,6 +755,33 @@ brings RDF 1.2 Turtle together with RDF/XML and JSON-LD, before milestone 7
 (6b). There are **41**: 37 of `eval-triple-terms`' 38 (its `expr-2` reads
 `empty.nq` and runs) and 4 of `lang-basedir`'s 10. `EvaluationGuardTests`
 pins the count and prints each case with the error its data raises.
+
+### 13.4 The differential run against Oxigraph
+
+Every case that is not blocked and calls no `SERVICE` — **537** — was
+answered by pyoxigraph 0.5.11 (Oxigraph through its Python binding) from the
+same files, one load per file, and compared with Varve's answer by the
+conformance comparator (`tests/Varve.Benchmarks`, `--export-cases`,
+`oxigraph/differential.py`, `--differential`). **508 agree, 27 disagree, 2
+are refused by Oxigraph.** Varve passes every one of these cases, so each
+disagreement is Oxigraph's answer departing from the suite's expected one;
+triaged under ADR 0038's D2, none is followed:
+
+| Cases | Oxigraph's behaviour | Here |
+|---|---|---|
+| `distinct-1`, `distinct-9`, `dawg-str-1`, `dawg-str-2`, `sameTerm-simple`, `sameTerm-eq`, `sameTerm-not-eq`, `open-eq-01`, `eq-graph-1`, `eq-graph-2`, `tsv03`, `sparql12 group01` | stores typed literals by value, so `"01"^^xsd:integer` comes back as `"1"` and `"-3"^^xsd:negativeInteger` as `xsd:integer` — D-entailment where SPARQL is defined over simple entailment (`open-eq-01`'s own comment) | terms kept as written (§7.2) |
+| `date-2`, `date-3` | the same, for `"2006-08-23+00:00"`, and its date order | XSD's partial order (§7.4) |
+| `graph-variable-scope`, `graph-optional`, `agg-empty-group-count-graph`, `bindings#graph`, `graph-minus` | evaluates `GRAPH ?g { P }` with `?g` already bound to the graph's name | §18.6's join after `P` (§6.11) |
+| `dawg-optional-filter-005-not-simplified` | scopes a `FILTER` in `{{ … }}` as if the braces were one group | the group the braces make |
+| `zero_or_more_set_start`, `_end`, `zero_or_one_set_start`, `_end` | a zero-length path from a constant the graph does not hold yields nothing | yields the constant (§6.10) |
+| `agg-groupconcat-04`, `-06` | `GROUP_CONCAT` keeps a language tag its inputs share | a simple literal (ADR 0053) |
+| `bnode01` | `BNODE(str)` gives one blank node per string across solutions | one per string per solution (§7.9) |
+
+Refused by Oxigraph's parser: `case-insensitive-booleans` (`TRUE`, which
+SPARQL's keywords allow in any case) and `sparql12 select-variable-reuse`
+(an alias read by a later `SELECT` expression, the parser fix of this
+milestone). The negated property set's multiplicity (§6.10) is a further
+disagreement no suite case reaches.
 
 ## 14. Open questions
 

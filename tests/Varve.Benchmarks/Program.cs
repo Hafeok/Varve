@@ -39,6 +39,30 @@ internal static class Program
             return;
         }
 
+        if (args.Length == 2 && args[0] == "--bsbm-export")
+        {
+            Bsbm.Export(args[1]);
+            return;
+        }
+
+        if (args.Length == 2 && args[0] == "--export-cases")
+        {
+            Differential.Export(args[1]);
+            return;
+        }
+
+        if (args.Length == 2 && args[0] == "--differential")
+        {
+            Differential.Compare(args[1]);
+            return;
+        }
+
+        if (args.Length is 1 or 2 && args[0] == "--suite-time")
+        {
+            SuiteTime.Run(args.Length == 2 ? int.Parse(args[1], CultureInfo.InvariantCulture) : 5);
+            return;
+        }
+
         if (args.Length == 2 && args[0] == "--convert-rdfxml")
         {
             ConvertRdfXml.Run(args[1]);

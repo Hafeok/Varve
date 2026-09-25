@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Varve.Benchmarks.BsbmBenchmarks-20260925-113118</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Ubuntu 24.04.4 LTS (Noble Numbat)
+Intel Xeon Processor 2.80GHz, 1 CPU, 4 logical and 4 physical cores
+.NET SDK 10.0.401
+  [Host]     : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+  Job-YFEFPZ : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+</code></pre>
+<pre><code>IterationCount=10  WarmupCount=3  
+</code></pre>
+
+<table>
+<thead><tr><th>Method</th><th>Query     </th><th>Mean  </th><th>Error</th><th>StdDev</th><th>Ratio</th><th>RatioSD</th><th>Gen0</th><th>Gen1</th><th>Allocated</th><th>Alloc Ratio</th>
+</tr>
+</thead><tbody><tr><td>DotNetRdf</td><td>Q10 cheap offers</td><td>102.199 ms</td><td>10.1523 ms</td><td>6.0414 ms</td><td>1.00</td><td>0.08</td><td>1000.0000</td><td>333.3333</td><td>22.49 MB</td><td>1.00</td>
+</tr><tr><td>VarveStore</td><td>Q10 cheap offers</td><td>6.817 ms</td><td>0.4462 ms</td><td>0.2951 ms</td><td>0.07</td><td>0.00</td><td>109.3750</td><td>23.4375</td><td>1.8 MB</td><td>0.08</td>
+</tr><tr><td>VarveDataset</td><td>Q10 cheap offers</td><td>7,804.409 ms</td><td>214.3870 ms</td><td>141.8037 ms</td><td>76.62</td><td>4.73</td><td>-</td><td>-</td><td>1.37 MB</td><td>0.06</td>
+</tr></tbody></table>
+</body>
+</html>
