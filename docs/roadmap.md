@@ -280,7 +280,7 @@ them costs anything while erasure mode is off.
 ## 6b — RDF 1.2 Turtle and TriG, RDF/XML, JSON-LD
 
 **Before milestone 7**, which serves all of them. Added at milestone 5b, when
-the SPARQL 1.2 evaluation suites turned out to need it: 42 of their cases
+the SPARQL 1.2 evaluation suites turned out to need it: 41 of their cases
 (`eval-triple-terms` and the data-bearing half of `lang-basedir`) load their
 data from RDF 1.2 Turtle or TriG, which `turtle.md` §9 refuses, so they are
 pinned as blocked in the conformance guard with this slice named as the one

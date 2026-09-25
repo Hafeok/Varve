@@ -39,6 +39,12 @@ internal static class Program
             return;
         }
 
+        if (args.Length == 2 && args[0] == "--convert-rdfxml")
+        {
+            ConvertRdfXml.Run(args[1]);
+            return;
+        }
+
         BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
     }
 

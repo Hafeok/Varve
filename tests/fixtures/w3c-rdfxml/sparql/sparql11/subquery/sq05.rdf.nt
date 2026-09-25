@@ -1,0 +1,2 @@
+<http://www.example.org/instance#a> <http://www.example.org/schema#p> <http://www.example.org/instance#b> .
+<http://www.example.org/instance#c> <http://www.example.org/schema#p> <https://w3c.github.io/rdf-tests/sparql/sparql11/subquery/sq05.rdf> .

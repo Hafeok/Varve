@@ -1,0 +1,3 @@
+<http://www.example.org/instance#a> <http://www.example.org/schema#p> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<http://www.example.org/instance#a> <http://www.example.org/schema#p> "2"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<http://www.example.org/instance#b> <http://www.example.org/schema#p> "3"^^<http://www.w3.org/2001/XMLSchema#integer> .
