@@ -61,7 +61,7 @@ or depart from `docs/brief.md`, each says so in its Context.
 
 | # | Title | Status |
 |---:|---|---|
-| [0030](0030-turtle-recovery-and-prefixes.md) | Turtle's recovery unit, prefix exposure, and where isomorphism lives | Accepted |
+| [0030](0030-turtle-recovery-and-prefixes.md) | Turtle's recovery unit, prefix exposure, and where isomorphism lives | Accepted; deletion clause **superseded by 0059** |
 
 ## Stewardship — the Mind Over Machine standard
 
@@ -125,6 +125,17 @@ fixtures offline), 0048 (the evaluation package references `Varve.Iri`).
 | [0054](0054-property-paths-normalised-then-evaluated-by-alp.md) | Property paths: normalised to joins and unions, closures by `ALP`; closes `sparql-algebra.md` open question 1 | Accepted |
 | [0055](0055-service-through-a-handler-the-default-refuses.md) | `SERVICE` through a handler, and the default refuses | Accepted |
 | [0056](0056-evaluator-options-extension-functions-clock-and-randomness.md) | Evaluator options: extension functions, the clock and randomness are injected; extends 0011's ban | Accepted |
+
+
+## Milestone 5c — result writers, SPARQL Update, canonicalisation
+
+Decided by the maintainer on the 5c plan.
+
+| # | Title | Status |
+|---:|---|---|
+| [0057](0057-sparql-update-one-request-one-commit.md) | SPARQL Update over the store: one request, one commit | Accepted |
+| [0058](0058-staging-view-and-dataset-validators.md) | A staging view over a pinned read, and validators bound to a dataset | Accepted; refines 0017 |
+| [0059](0059-rdfc-in-varve-rdf-and-its-work-limit.md) | RDFC-1.0 in `Varve.Rdf`, bounded by a work limit; the isomorphism check stays as a cross-check | Accepted; supersedes 0030's deletion clause |
 
 ## Milestone 7 — the server
 
