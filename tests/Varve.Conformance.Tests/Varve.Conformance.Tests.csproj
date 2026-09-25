@@ -18,6 +18,7 @@
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+    <PackageReference Include="CsCheck" />
 
     <!-- Test-only and temporary. The W3C manifests are Turtle and we have no
          Turtle parser; this reads them, from exactly one internal class

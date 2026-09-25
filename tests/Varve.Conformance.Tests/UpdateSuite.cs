@@ -163,38 +163,35 @@ internal static class UpdateRunner
             return new UpdateOutcome(commitFailure, result.Outcome, commits);
         }
 
-        List<ParsedQuad> actual = [];
+        List<DataQuad> actual = [];
         using (DatasetView view = await dataset.AsOfAsync(dataset.Head, cancellationToken))
         using (IQuadCursor cursor = view.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any))
         {
             while (cursor.MoveNext())
             {
                 Quad quad = cursor.Current;
-                actual.Add(new ParsedQuad(
-                    Text(view, quad.Subject),
-                    Text(view, quad.Predicate),
-                    Text(view, quad.Object),
-                    quad.Graph.IsNone ? null : Text(view, quad.Graph)));
+                actual.Add(new DataQuad(
+                    Term(view, quad.Subject),
+                    Term(view, quad.Predicate),
+                    Term(view, quad.Object),
+                    quad.Graph.IsNone ? null : Term(view, quad.Graph)));
             }
         }
 
-        List<ParsedQuad> expected = [];
+        // Each expected file's blank nodes are its own, as separate loads keep them.
+        List<DataQuad> expected = [];
+        int file = 0;
         foreach ((IReadOnlyList<DataQuad> quads, RdfTerm? graph) in Files(entry.After))
         {
-            foreach (DataQuad quad in quads)
-            {
-                RdfTerm? g = graph ?? quad.Graph;
-                expected.Add(new ParsedQuad(EvaluationData.Text(quad.Subject), EvaluationData.Text(quad.Predicate), EvaluationData.Text(quad.Object), g is null ? null : EvaluationData.Text(g)));
-            }
+            expected.AddRange(DatasetComparison.Apart(quads.Select(q => q with { Graph = graph ?? q.Graph }), file++));
         }
 
-        expected = [.. expected.Distinct()];
         string? failure = DatasetComparison.Compare(actual, expected);
         return new UpdateOutcome(failure, result.Outcome, commits);
     }
 
-    private static string Text(DatasetView source, TermHandle handle) =>
-        source.TryExternalise(handle, out RdfTerm? term) ? EvaluationData.Text(term) : throw new InvalidOperationException("A handle the view cannot externalise.");
+    private static RdfTerm Term(DatasetView source, TermHandle handle) =>
+        source.TryExternalise(handle, out RdfTerm? term) ? term : throw new InvalidOperationException("A handle the view cannot externalise.");
 
     private static IEnumerable<(IReadOnlyList<DataQuad>, RdfTerm?)> Files(UpdateDataset dataset)
     {

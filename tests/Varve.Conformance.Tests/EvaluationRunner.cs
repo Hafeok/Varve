@@ -147,13 +147,13 @@ internal static class EvaluationRunner
                         return "a graph, but the expected result is a table";
                     }
 
-                    List<ParsedQuad> actual = [];
+                    List<DataQuad> actual = [];
                     while (triples.MoveNext())
                     {
-                        actual.Add(new ParsedQuad(EvaluationData.Text(triples.Subject), EvaluationData.Text(triples.Predicate), EvaluationData.Text(triples.Object), null));
+                        actual.Add(new DataQuad(triples.Subject, triples.Predicate, triples.Object, null));
                     }
 
-                    List<ParsedQuad> wanted = [.. expectedGraph.Select(q => new ParsedQuad(EvaluationData.Text(q.Subject), EvaluationData.Text(q.Predicate), EvaluationData.Text(q.Object), null)).Distinct()];
+                    List<DataQuad> wanted = [.. expectedGraph.Select(q => q with { Graph = null })];
                     return DatasetComparison.Compare(actual, wanted);
                 }
 
