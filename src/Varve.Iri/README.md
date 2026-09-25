@@ -26,4 +26,4 @@ if (IriRef.TryValidate("http://example.org/a/b"u8, out IriComponents parts, out 
 ```
 
 Layer 0 of [Varve](https://github.com/Hafeok/Varve), a .NET-native
-event-sourced RDF store and SPARQL toolkit. Apache-2.0.
+event-sourced RDF store and SPARQL toolkit. MPL-2.0.

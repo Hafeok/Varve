@@ -234,6 +234,61 @@ internal static class Program
         }
 
         Console.WriteLine("store: reopened at 2 with a checkpoint at 1");
+        return Sparql();
+    }
+
+    /// <summary>
+    /// Parses a query and an update, prints the algebra through the serialiser,
+    /// parses that back, and requires the identical tree, under Native AOT.
+    /// </summary>
+    /// <remarks>
+    /// The parser leans on things ILC can drop or get wrong without a build
+    /// error: records with synthesised equality over forty node types, a
+    /// dictionary's alternate lookup by span, pooled arrays returned through a
+    /// ref struct, UTF-16 to UTF-8 transcoding. The constructs reach a property
+    /// path, a subquery, an aggregate, a reified triple with its 1.2 expansion,
+    /// and an update with a WHERE clause.
+    /// </remarks>
+    private static int Sparql()
+    {
+        string query =
+            "PREFIX ex: <http://example.org/>\n"
+            + "SELECT ?s (COUNT(?o) AS ?n) WHERE {\n"
+            + "  ?s ex:p/ex:q ?o . << ?s ex:r 1 >> ex:said ?w .\n"
+            + "  OPTIONAL { ?s ex:t ?v FILTER(?v > 2) }\n"
+            + "  { SELECT ?s WHERE { ?s a ex:C } LIMIT 5 }\n"
+            + "} GROUP BY ?s HAVING (COUNT(?o) > 1) ORDER BY DESC(?n)";
+
+        Varve.Sparql.Algebra.Query parsed = Varve.Sparql.SparqlParser.ParseQuery(query.AsSpan());
+        string written = Varve.Sparql.SparqlWriter.ToText(parsed);
+        Varve.Sparql.Algebra.Query again = Varve.Sparql.SparqlParser.ParseQuery(System.Text.Encoding.UTF8.GetBytes(written));
+
+        Console.WriteLine(written);
+
+        if (!parsed.Equals(again))
+        {
+            Console.Error.WriteLine("aot-smoke: the serialised query parses to a different tree.");
+            return 1;
+        }
+
+        Varve.Sparql.Algebra.Update update = Varve.Sparql.SparqlParser.ParseUpdate(
+            "PREFIX ex: <http://example.org/> DELETE { ?s ex:p ?o } INSERT { GRAPH ex:g { ?s ex:q ?o } } WHERE { ?s ex:p ?o }"u8);
+        Varve.Sparql.Algebra.Update updateAgain = Varve.Sparql.SparqlParser.ParseUpdate(
+            System.Text.Encoding.UTF8.GetBytes(Varve.Sparql.SparqlWriter.ToText(update)));
+
+        if (!update.Equals(updateAgain) || update.Operations.Count != 1)
+        {
+            Console.Error.WriteLine("aot-smoke: the serialised update parses to a different tree.");
+            return 1;
+        }
+
+        if (Varve.Sparql.SparqlParser.TryParseQuery("SELECT * WHERE { ?s ?p }"u8, default, out _, out Varve.Sparql.SparqlParseError error))
+        {
+            Console.Error.WriteLine("aot-smoke: an ill-formed query parsed.");
+            return 1;
+        }
+
+        Console.WriteLine("sparql: query and update round-tripped through the algebra; error reported at " + error.ToString());
         return 0;
     }
 

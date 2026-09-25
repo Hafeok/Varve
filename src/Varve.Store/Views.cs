@@ -152,6 +152,11 @@ internal sealed class IndexSource : IQuadSource
 
     public IQuadCursor Match(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph) =>
         _index.Match(subject, predicate, @object, graph);
+
+    public CardinalityEstimate Estimate(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph) =>
+        _index.Estimate(subject, predicate, @object, graph);
+
+    public bool TryGetInlineValue(TermHandle handle, out InlineValue value) => TermIds.TryInlineValue(handle.Value, out value);
 }
 
 /// <summary>
@@ -205,6 +210,11 @@ internal sealed class PendingSource : IQuadSource
 
     public IQuadCursor Match(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph) =>
         _head.Match(subject, predicate, @object, graph);
+
+    public CardinalityEstimate Estimate(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph) =>
+        _head.Estimate(subject, predicate, @object, graph);
+
+    public bool TryGetInlineValue(TermHandle handle, out InlineValue value) => _head.TryGetInlineValue(handle, out value);
 }
 
 /// <summary>
@@ -219,7 +229,9 @@ internal sealed class PendingSource : IQuadSource
 /// </para>
 /// <para>
 /// A pinned read is an engine snapshot for the lifetime of one operation, not
-/// time travel (ADR 0015). Dispose it when the operation is done.
+/// time travel (ADR 0015). Dispose it when the operation is done; for a query,
+/// that is when its result stream has been consumed or abandoned (ADR 0052,
+/// documented on <see cref="Dataset.Pin"/>).
 /// </para>
 /// </remarks>
 public sealed class DatasetView : IQuadSource, IDisposable
@@ -271,6 +283,32 @@ public sealed class DatasetView : IQuadSource, IDisposable
     {
         ThrowIfDisposed();
         return _source.Match(subject, predicate, @object, graph);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Exact, and cheap: the sum over the projection's runs of a prefix range
+    /// per run, at <c>O(runs × log n)</c> (ADR 0049). An as-of read adds one
+    /// lookup per quad of the log tail it overlays.
+    /// </remarks>
+    public CardinalityEstimate Estimate(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph)
+    {
+        ThrowIfDisposed();
+        return _source.Estimate(subject, predicate, @object, graph);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Decodes the inline classes the store allocates (ADR 0045): canonical
+    /// <c>xsd:integer</c> within 56 bits and <c>xsd:boolean</c>. Every other
+    /// handle answers false, a term with a non-canonical lexical form included,
+    /// because it took an ordinary id (ADR 0012).
+    /// </remarks>
+    [HotPath]
+    public bool TryGetInlineValue(TermHandle handle, out InlineValue value)
+    {
+        ThrowIfDisposed();
+        return _source.TryGetInlineValue(handle, out value);
     }
 
     /// <summary>Releases the view. In memory this holds nothing a later commit could need back.</summary>

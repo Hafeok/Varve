@@ -6,6 +6,7 @@ using System;
 using System.Buffers.Text;
 using System.Globalization;
 using Varve.Rdf;
+using Varve.Xsd;
 
 namespace Varve.Store;
 
@@ -41,9 +42,9 @@ internal static class TermIds
     private const long InlineIntegerMax = (1L << 55) - 1;
     private const long InlineIntegerMin = -(1L << 55);
 
-    internal static ReadOnlySpan<byte> XsdInteger => "http://www.w3.org/2001/XMLSchema#integer"u8;
+    internal static ReadOnlySpan<byte> XsdIntegerIri => "http://www.w3.org/2001/XMLSchema#integer"u8;
 
-    internal static ReadOnlySpan<byte> XsdBoolean => "http://www.w3.org/2001/XMLSchema#boolean"u8;
+    internal static ReadOnlySpan<byte> XsdBooleanIri => "http://www.w3.org/2001/XMLSchema#boolean"u8;
 
     [HotPath]
     internal static IdClass ClassOf(ulong id) => (IdClass)(id >> ClassShift);
@@ -57,9 +58,10 @@ internal static class TermIds
 
     /// <summary>
     /// The inline id for a literal, when it has one: canonical <c>xsd:integer</c>
-    /// in range, or <c>xsd:boolean</c>. A literal takes an inline id only when
-    /// its lexical form is canonical (ADR 0012's amendment), so that two terms
-    /// can never become one.
+    /// in range, or canonical <c>xsd:boolean</c>. A literal takes an inline id
+    /// only when its lexical form is canonical (ADR 0012's amendment), so that
+    /// two terms can never become one, and <c>Varve.Xsd</c> is what says
+    /// whether it is (ADR 0051): the store keeps no definition of its own.
     /// </summary>
     internal static bool TryInline(RdfTerm term, out ulong id)
     {
@@ -73,24 +75,20 @@ internal static class TermIds
         ReadOnlySpan<byte> datatype = term.DatatypeIri;
         ReadOnlySpan<byte> lexical = term.Lexical;
 
-        if (datatype.SequenceEqual(XsdBoolean))
+        if (datatype.SequenceEqual(XsdBooleanIri))
         {
-            if (lexical.SequenceEqual("true"u8))
+            // "1" and "0" are lexical forms of xsd:boolean and not canonical ones,
+            // so they take ordinary ids, as "01"^^xsd:integer does.
+            if (!XsdBoolean.IsCanonical(lexical) || !XsdBoolean.TryParse(lexical, out XsdBoolean flag))
             {
-                id = Inline(InlineBoolean, 1);
-                return true;
+                return false;
             }
 
-            if (lexical.SequenceEqual("false"u8))
-            {
-                id = Inline(InlineBoolean, 0);
-                return true;
-            }
-
-            return false;
+            id = Inline(InlineBoolean, flag.Value ? 1UL : 0UL);
+            return true;
         }
 
-        if (!datatype.SequenceEqual(XsdInteger) || !IsCanonicalInteger(lexical))
+        if (!datatype.SequenceEqual(XsdIntegerIri) || !XsdInteger.IsCanonical(lexical) || lexical.Length > 18)
         {
             return false;
         }
@@ -117,14 +115,43 @@ internal static class TermIds
 
         if (tag == InlineBoolean)
         {
-            return RdfTerm.Literal(payload == 0 ? "false"u8 : "true"u8, RdfTerm.Iri(XsdBoolean));
+            return RdfTerm.Literal(payload == 0 ? "false"u8 : "true"u8, RdfTerm.Iri(XsdBooleanIri));
         }
 
         // Sign-extend the 56-bit payload.
         long value = (long)(payload << 8) >> 8;
         return RdfTerm.Literal(
             System.Text.Encoding.UTF8.GetBytes(value.ToString(CultureInfo.InvariantCulture)),
-            RdfTerm.Iri(XsdInteger));
+            RdfTerm.Iri(XsdIntegerIri));
+    }
+
+    /// <summary>The value an inline id carries, decoded from its bits (ADR 0050).</summary>
+    [HotPath]
+    internal static bool TryInlineValue(ulong id, out InlineValue value)
+    {
+        if (ClassOf(id) != IdClass.Inline)
+        {
+            value = InlineValue.None;
+            return false;
+        }
+
+        ulong tag = (id >> InlineTagShift) & 0x3F;
+        ulong payload = id & InlinePayloadMask;
+
+        if (tag == InlineBoolean)
+        {
+            value = InlineValue.FromBoolean(payload != 0);
+            return true;
+        }
+
+        if (tag == InlineInteger)
+        {
+            value = InlineValue.FromInteger((long)(payload << 8) >> 8);
+            return true;
+        }
+
+        value = InlineValue.None;
+        return false;
     }
 
     internal static bool IsValidInline(ulong id)
@@ -136,31 +163,4 @@ internal static class TermIds
 
     private static ulong Inline(ulong tag, ulong payload) =>
         ((ulong)IdClass.Inline << ClassShift) | (tag << InlineTagShift) | payload;
-
-    /// <summary><c>-?(0|[1-9][0-9]*)</c>, without <c>-0</c>: the canonical xsd:integer lexical form.</summary>
-    private static bool IsCanonicalInteger(ReadOnlySpan<byte> lexical)
-    {
-        int start = lexical.Length > 0 && lexical[0] == (byte)'-' ? 1 : 0;
-        ReadOnlySpan<byte> digits = lexical[start..];
-
-        if (digits.IsEmpty || digits.Length > 17)
-        {
-            return false;
-        }
-
-        if (digits[0] == (byte)'0')
-        {
-            return digits.Length == 1 && start == 0;
-        }
-
-        foreach (byte b in digits)
-        {
-            if (b < (byte)'0' || b > (byte)'9')
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
 }

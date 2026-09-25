@@ -108,6 +108,22 @@ a readable private term compares by decrypted value rather than by handle
 (specification §6), so comparing handles as integers would report equal terms
 unequal in a dataset with erasure mode on.
 
+Milestone 5a widened the contract by two members, each with its own ADR:
+
+- **A cardinality estimate** for a match pattern (ADR 0049): exact, estimated,
+  or unknown. An exact answer is the number of quads `Match` yields for the
+  same pattern at the source's current state, and a test may assert equality;
+  an unknown answer is honest and the consumer falls back to scanning; an
+  estimated answer is a count the source has reason to believe, and its
+  documentation says how. The in-memory dataset counts by scan; the store sums
+  a prefix range per run, exact because each run is an exact delta (I2); an
+  overlay adjusts its base by the delta.
+- **An inline-value accessor** (ADR 0050): the value a handle encodes in its
+  own bits, when it does — the store's canonical `xsd:integer` and
+  `xsd:boolean` ids — as BCL primitives, so that a numeric comparison need not
+  materialise a term. False means "not inline", never "not a number". The
+  in-memory dataset has no inline handles and always answers false.
+
 At milestone 3a the only implementation is an in-memory dataset with its own
 interning table. It is a real implementation, not a test double — it is what
 the round-trip property tests compare through.

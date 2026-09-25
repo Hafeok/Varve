@@ -56,6 +56,7 @@ internal static partial class Smoke
             report.Append(Parse()).Append('\n');
             report.Append(Turtle()).Append('\n');
             report.Append(await Store()).Append('\n');
+            report.Append(Sparql()).Append('\n');
             report.Append(Crypto()).Append('\n');
             Expect();
             report.Append("OK");
@@ -191,6 +192,59 @@ internal static partial class Smoke
         return string.Create(
             CultureInfo.InvariantCulture,
             $"store: committed 2, pinned {now} quads, as-of 1 {then} quads, reopened at {reopened.Head} with a checkpoint");
+    }
+
+    /// <summary>
+    /// Parses a query and an update in the browser, prints the algebra through
+    /// the serialiser, parses that back, and requires the identical tree.
+    /// </summary>
+    /// <remarks>
+    /// The parser leans on things a trimmer can remove or a browser runtime
+    /// can get wrong: records with synthesised equality over forty node types,
+    /// a dictionary's alternate lookup by span, pooled arrays, UTF-16 to UTF-8
+    /// transcoding. The constructs here reach a property path, a subquery, an
+    /// aggregate, a reified triple with its 1.2 expansion, and an update with a
+    /// WHERE clause.
+    /// </remarks>
+    private static string Sparql()
+    {
+        string query =
+            "PREFIX ex: <http://example.org/>\n"
+            + "SELECT ?s (COUNT(?o) AS ?n) WHERE {\n"
+            + "  ?s ex:p/ex:q ?o . << ?s ex:r 1 >> ex:said ?w .\n"
+            + "  OPTIONAL { ?s ex:t ?v FILTER(?v > 2) }\n"
+            + "  { SELECT ?s WHERE { ?s a ex:C } LIMIT 5 }\n"
+            + "} GROUP BY ?s HAVING (COUNT(?o) > 1) ORDER BY DESC(?n)";
+
+        Varve.Sparql.Algebra.Query parsed = Varve.Sparql.SparqlParser.ParseQuery(query.AsSpan());
+        string written = Varve.Sparql.SparqlWriter.ToText(parsed);
+        Varve.Sparql.Algebra.Query again = Varve.Sparql.SparqlParser.ParseQuery(Encoding.UTF8.GetBytes(written));
+
+        if (!parsed.Equals(again))
+        {
+            throw new InvalidOperationException("sparql: the serialised query parses to a different tree:\n" + written);
+        }
+
+        Varve.Sparql.Algebra.Update update = Varve.Sparql.SparqlParser.ParseUpdate(
+            "PREFIX ex: <http://example.org/> DELETE { ?s ex:p ?o } INSERT { GRAPH ex:g { ?s ex:q ?o } } WHERE { ?s ex:p ?o }"u8);
+        Varve.Sparql.Algebra.Update updateAgain = Varve.Sparql.SparqlParser.ParseUpdate(
+            Encoding.UTF8.GetBytes(Varve.Sparql.SparqlWriter.ToText(update)));
+
+        if (!update.Equals(updateAgain) || update.Operations.Count != 1)
+        {
+            throw new InvalidOperationException("sparql: the serialised update parses to a different tree");
+        }
+
+        Varve.Sparql.SparqlParseError error = default;
+
+        if (Varve.Sparql.SparqlParser.TryParseQuery("SELECT * WHERE { ?s ?p }"u8, default, out _, out error))
+        {
+            throw new InvalidOperationException("sparql: an ill-formed query parsed");
+        }
+
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"sparql: query round-tripped through {written.Length} characters of algebra, update round-tripped, error at {error.Line}:{error.Column}");
     }
 
     private static int Count(Varve.Store.DatasetView source)

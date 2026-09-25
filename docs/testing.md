@@ -17,6 +17,18 @@ catch a suite read as nine cases instead of three hundred and thirteen. Each
 wired suite has its case count pinned in `SubmoduleGuardTests`, and a second
 test fails when a suite has no count at all.
 
+**The SPARQL syntax suites are a second list, parsed at their own version.**
+`SparqlSuite.All` names the fifteen SPARQL 1.0, 1.1 and 1.2 syntax suites,
+each with the version its cases are parsed at (`docs/spec/sparql-grammar.md`
+§5); `SparqlGuardTests` pins their counts, 554 in all. They are kept apart
+from `ConformanceSuite.All` because that list is about streaming document
+readers — a format, the chunk-boundary oracle, the pull-reader agreement —
+and a SPARQL case is parsed whole. What stands in for the oracle is the
+UTF-8 / UTF-16 agreement: every case parsed both ways must give the same
+tree or the same error at the same offset. A positive case also passes only
+if the serialiser's text parses back to the identical tree, which is the
+corpus half of the round-trip property (§3). Same baseline, same ratchet.
+
 ## 2. The chunk-boundary oracle — for every streaming reader
 
 **Standing rule: every syntax package runs the chunk-boundary oracle over its
@@ -84,6 +96,12 @@ Both run over every manifest input as well as over generated documents. The
 generator exists to reach the cases the corpus does not: for the fixed point
 that is a document mixing named and anonymous blank nodes, so that the renaming
 path is exercised rather than avoided.
+
+- **The SPARQL algebra round-trips exactly**: write a tree, parse the text,
+  get the identical tree, by record equality (`docs/spec/sparql-algebra.md`
+  §6). Stronger than a fixed point, because the tree is the meaning and the
+  text is canonical. Held over generated trees inside the parser's image and
+  over every positive corpus case.
 
 ## 4. Allocation is measured as a difference
 

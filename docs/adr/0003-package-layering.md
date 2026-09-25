@@ -130,3 +130,13 @@ for splitting the layers. Nothing before milestone 5 depends on the answer.
 
 Whichever way both questions go, the resolution is a superseding ADR, not an edit
 to this one.
+
+### Amendment, 2026-09-24 — open question 2 is closed
+
+Closed by [ADR 0048](0048-optimiser-and-evaluator-one-package-algebra-in-algebra-out.md):
+the optimiser's output is algebra, there is no plan type, and the optimiser
+and evaluator share one layer 3 package, `Varve.Sparql.Evaluation`, above the
+layer 2 algebra and parser package `Varve.Sparql`. The layer table above is
+unchanged in substance; its "SPARQL optimiser and evaluator" and "SPARQL
+algebra and parser" entries now have package names. Open question 1 remains
+open, due at milestone 8.

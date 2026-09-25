@@ -204,3 +204,5 @@ static Varve.Store.ValidationVerdict.Accept(Varve.Rdf.RdfTerm! attachment) -> Va
 static Varve.Store.ValidationVerdict.Reject(System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! report) -> Varve.Store.ValidationVerdict
 static Varve.Store.ValidationVerdict.operator !=(Varve.Store.ValidationVerdict left, Varve.Store.ValidationVerdict right) -> bool
 static Varve.Store.ValidationVerdict.operator ==(Varve.Store.ValidationVerdict left, Varve.Store.ValidationVerdict right) -> bool
+Varve.Store.DatasetView.Estimate(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object, Varve.Rdf.GraphPattern graph) -> Varve.Rdf.CardinalityEstimate
+Varve.Store.DatasetView.TryGetInlineValue(Varve.Rdf.TermHandle handle, out Varve.Rdf.InlineValue value) -> bool

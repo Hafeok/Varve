@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 0: no Varve dependencies at all. ADR 0003, ADR 0051. -->
+    <VarveLayer>0</VarveLayer>
+    <IsPackable>true</IsPackable>
+
+    <Description>XML Schema 1.1 datatypes with SPARQL 1.1 operator semantics: exact decimal, the integer family, double and float, boolean, the date and time family, and durations, with canonical lexical forms.</Description>
+  </PropertyGroup>
+
+</Project>

@@ -85,7 +85,81 @@ internal static class ManifestReader
     /// or more than one, is a manifest this reader should refuse rather than
     /// silently read as empty.
     /// </remarks>
-    private static RdfTerm FindManifest(ManifestGraph graph, ConformanceSuite suite)
+    /// <summary>
+    /// The syntax entries of a SPARQL suite. The six syntax test types and
+    /// nothing else: an evaluation entry in a mixed 1.2 manifest is not
+    /// enumerated, and the pinned counts in <see cref="SparqlGuardTests"/> say
+    /// how many that leaves.
+    /// </summary>
+    internal static IReadOnlyList<SparqlManifestEntry> Read(SparqlSuite suite)
+    {
+        string manifestPath = TestData.ResolveFromRoot(suite.ManifestPath);
+        string manifestDirectory = Path.GetDirectoryName(manifestPath)
+            ?? throw new InvalidOperationException("Manifest has no directory: " + manifestPath);
+
+        string baseDirectoryIri = suite.BaseIri[..(suite.BaseIri.LastIndexOf('/') + 1)];
+        ManifestGraph graph = ManifestGraph.Load(manifestPath, suite.BaseIri);
+
+        List<SparqlManifestEntry> result = [];
+
+        foreach (RdfTerm list in graph.Objects(FindManifest(graph, suite.ManifestPath), Mf + "entries"))
+        {
+            foreach (RdfTerm entry in graph.Collection(list))
+            {
+                if (!ManifestGraph.IsIri(entry))
+                {
+                    continue;
+                }
+
+                RdfTerm? type = graph.Object(entry, Rdf + "type");
+
+                if (type is null || !ManifestGraph.IsIri(type))
+                {
+                    continue;
+                }
+
+                (bool mustParse, bool isUpdate)? kind = SparqlKindOf(ManifestGraph.Text(type));
+                RdfTerm? action = graph.Object(entry, Mf + "action");
+
+                if (kind is null || action is null || !ManifestGraph.IsIri(action))
+                {
+                    continue;
+                }
+
+                string actionIri = ManifestGraph.Text(action);
+
+                result.Add(new SparqlManifestEntry(
+                    TestIri: ManifestGraph.Text(entry),
+                    Suite: suite.Id,
+                    Name: Literal(graph, entry, Mf + "name") ?? Fragment(ManifestGraph.Text(entry)),
+                    Comment: Literal(graph, entry, Rdfs + "comment"),
+                    ActionPath: ResolveAction(actionIri, baseDirectoryIri, manifestDirectory),
+                    ActionIri: actionIri,
+                    IsUpdate: kind.Value.isUpdate || actionIri.EndsWith(".ru", StringComparison.Ordinal),
+                    MustParse: kind.Value.mustParse,
+                    Version: suite.Version));
+            }
+        }
+
+        return result;
+    }
+
+    private static (bool MustParse, bool IsUpdate)? SparqlKindOf(string type) => type switch
+    {
+        Mf + "PositiveSyntaxTest" => (true, false),
+        Mf + "NegativeSyntaxTest" => (false, false),
+        Mf + "PositiveSyntaxTest11" => (true, false),
+        Mf + "NegativeSyntaxTest11" => (false, false),
+        Mf + "PositiveUpdateSyntaxTest" => (true, true),
+        Mf + "NegativeUpdateSyntaxTest" => (false, true),
+        Mf + "PositiveUpdateSyntaxTest11" => (true, true),
+        Mf + "NegativeUpdateSyntaxTest11" => (false, true),
+        _ => null,
+    };
+
+    private static RdfTerm FindManifest(ManifestGraph graph, ConformanceSuite suite) => FindManifest(graph, suite.ManifestPath);
+
+    private static RdfTerm FindManifest(ManifestGraph graph, string manifestPath)
     {
         IReadOnlyList<RdfTerm> found = graph.Subjects(Rdf + "type", Mf + "Manifest");
 
@@ -93,7 +167,7 @@ internal static class ManifestReader
             ? found[0]
             : throw new InvalidOperationException(
                 "Found " + found.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                + " nodes typed mf:Manifest in " + suite.ManifestPath + "; expected exactly one.");
+                + " nodes typed mf:Manifest in " + manifestPath + "; expected exactly one.");
     }
 
     private static ManifestEntry? ReadEntry(
