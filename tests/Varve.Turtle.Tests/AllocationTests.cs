@@ -84,28 +84,24 @@ public class AllocationTests
     }
 
     /// <summary>
-    /// Runs the small and the large parse and reports what each allocated.
-    /// Both are run twice first, so every buffer has already reached the size
-    /// the larger document needs.
+    /// Runs the small and the large parse and reports what each allocated, in
+    /// rounds until one reproduces the last (<see cref="AllocationMeter"/>):
+    /// the first large parse grows every buffer to the size it needs, so the
+    /// round after it is the first that can repeat.
     /// </summary>
     private static (long Fixed, long ForExtraQuads) Profile(Action<bool> parse)
     {
-        for (int i = 0; i < 2; i++)
-        {
-            parse(true);
-            parse(false);
-        }
-
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        parse(false);
-        long small = GC.GetAllocatedBytesForCurrentThread() - before;
-
-        before = GC.GetAllocatedBytesForCurrentThread();
-        parse(true);
-        long large = GC.GetAllocatedBytesForCurrentThread() - before;
+        (long small, long large) = AllocationMeter.MeasurePair(
+            () =>
+            {
+                parse(false);
+                return null;
+            },
+            () =>
+            {
+                parse(true);
+                return null;
+            });
 
         return (small, large - small);
     }

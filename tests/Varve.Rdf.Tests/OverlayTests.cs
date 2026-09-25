@@ -143,34 +143,26 @@ public class OverlayTests
     private static readonly (InMemoryDataset Base, QuadDelta Delta) SmallCase = Scannable(Small);
     private static readonly (InMemoryDataset Base, QuadDelta Delta) LargeCase = Scannable(Large);
 
-    private static long Scan(bool large)
+    // The cursor is returned so that it escapes at every tier (AllocationMeter).
+    private static Func<object?> Scan(bool large) => () =>
     {
         (InMemoryDataset dataset, QuadDelta delta) = large ? LargeCase : SmallCase;
         QuadOverlay overlay = new(dataset, delta);
-        long before = GC.GetAllocatedBytesForCurrentThread();
+        IQuadCursor cursor = overlay.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any);
 
-        using (IQuadCursor cursor = overlay.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any))
+        while (cursor.MoveNext())
         {
-            while (cursor.MoveNext())
-            {
-                sink += (long)cursor.Current.Subject.Value;
-            }
+            sink += (long)cursor.Current.Subject.Value;
         }
 
-        return GC.GetAllocatedBytesForCurrentThread() - before;
-    }
+        cursor.Dispose();
+        return cursor;
+    };
 
     [Fact]
     public void scanning_an_overlay_allocates_nothing_per_quad()
     {
-        for (int i = 0; i < 3; i++)
-        {
-            Scan(false);
-            Scan(true);
-        }
-
-        long small = Scan(false);
-        long large = Scan(true);
+        (long small, long large) = AllocationMeter.MeasurePair(Scan(false), Scan(true));
 
         Assert.Equal(0, large - small);
         Assert.True(small <= 512, string.Create(CultureInfo.InvariantCulture, $"fixed cost {small}"));

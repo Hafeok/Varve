@@ -15,4 +15,8 @@
     <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="../AllocationMeter.cs" Link="AllocationMeter.cs" />
+  </ItemGroup>
+
 </Project>

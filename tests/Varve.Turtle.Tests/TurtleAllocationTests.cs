@@ -124,24 +124,20 @@ public class TurtleAllocationTests
         BaseIri = Encoding.UTF8.GetBytes("http://example.org/base/"),
     };
 
+    // As AllocationTests.Profile: rounds until one reproduces the last.
     private static (long Fixed, long ForExtraQuads) Profile(Action<bool> parse)
     {
-        for (int i = 0; i < 2; i++)
-        {
-            parse(true);
-            parse(false);
-        }
-
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        parse(false);
-        long small = GC.GetAllocatedBytesForCurrentThread() - before;
-
-        before = GC.GetAllocatedBytesForCurrentThread();
-        parse(true);
-        long large = GC.GetAllocatedBytesForCurrentThread() - before;
+        (long small, long large) = AllocationMeter.MeasurePair(
+            () =>
+            {
+                parse(false);
+                return null;
+            },
+            () =>
+            {
+                parse(true);
+                return null;
+            });
 
         return (small, large - small);
     }

@@ -12,8 +12,9 @@ namespace Varve.Store.Tests;
 
 /// <summary>
 /// Allocation per quad is a defect (constraint 5). Measured as 3a and 3b
-/// measured it: the same operation over 500 and over 4,000 quads, after
-/// warming up on both, and the difference is what the extra quads cost.
+/// measured it: the same operation over 500 and over 4,000 quads, in rounds
+/// until one reproduces the last, and the difference is what the extra quads
+/// cost.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -27,6 +28,11 @@ namespace Varve.Store.Tests;
 /// whole commit's slope is asserted against a stated byte budget, because it
 /// is a sum of arrays whose growth policy is the runtime's.
 /// </para>
+/// <para>
+/// Readings are <see cref="AllocationMeter"/>'s (issue #32): a collection in
+/// the window added up to 8 KB to one side, and a tier-up stack-allocated a
+/// result the test discarded.
+/// </para>
 /// </remarks>
 public class AllocationTests
 {
@@ -34,13 +40,6 @@ public class AllocationTests
     private const int Large = 4_000;
 
     private static long sink;
-
-    private static long Measure(Action action)
-    {
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        action();
-        return GC.GetAllocatedBytesForCurrentThread() - before;
-    }
 
     private static async Task<Dataset> Loaded(int quads)
     {
@@ -59,17 +58,24 @@ public class AllocationTests
         return dataset;
     }
 
-    private static long Scan(DatasetView source, TermHandle predicate)
+    // The cursor is returned so that it escapes at every tier.
+    private static Func<object?> Scan(DatasetView source, TermHandle predicate) => () =>
     {
-        return Measure(() =>
-        {
-            using IQuadCursor cursor = source.Match(TermHandle.None, predicate, TermHandle.None, GraphPattern.Any);
+        IQuadCursor cursor = source.Match(TermHandle.None, predicate, TermHandle.None, GraphPattern.Any);
 
-            while (cursor.MoveNext())
-            {
-                sink += (long)cursor.Current.Object.Value;
-            }
-        });
+        while (cursor.MoveNext())
+        {
+            sink += (long)cursor.Current.Object.Value;
+        }
+
+        cursor.Dispose();
+        return cursor;
+    };
+
+    private static long Difference(Func<object?> small, Func<object?> large)
+    {
+        (long smallCost, long largeCost) = AllocationMeter.MeasurePair(small, large);
+        return largeCost - smallCost;
     }
 
     [Fact]
@@ -82,17 +88,9 @@ public class AllocationTests
         Assert.True(smallView.TryInternalise(T.Iri("p"), out TermHandle ps));
         Assert.True(largeView.TryInternalise(T.Iri("p"), out TermHandle pl));
 
-        for (int i = 0; i < 3; i++)
-        {
-            Scan(smallView, ps);
-            Scan(largeView, pl);
-            Scan(smallView, TermHandle.None);
-            Scan(largeView, TermHandle.None);
-        }
-
-        Assert.Equal(0, Scan(largeView, pl) - Scan(smallView, ps));
-        Assert.Equal(0, Scan(largeView, TermHandle.None) - Scan(smallView, TermHandle.None));
-        Assert.True(Scan(smallView, ps) <= 512);
+        Assert.Equal(0, Difference(Scan(smallView, ps), Scan(largeView, pl)));
+        Assert.Equal(0, Difference(Scan(smallView, TermHandle.None), Scan(largeView, TermHandle.None)));
+        Assert.True(AllocationMeter.Measure(Scan(smallView, ps)) <= 512);
     }
 
     [Fact]
@@ -105,13 +103,7 @@ public class AllocationTests
         using DatasetView smallView = await small.AsOfAsync(2, T.Ct);
         using DatasetView largeView = await large.AsOfAsync(2, T.Ct);
 
-        for (int i = 0; i < 3; i++)
-        {
-            Scan(smallView, TermHandle.None);
-            Scan(largeView, TermHandle.None);
-        }
-
-        Assert.Equal(0, Scan(largeView, TermHandle.None) - Scan(smallView, TermHandle.None));
+        Assert.Equal(0, Difference(Scan(smallView, TermHandle.None), Scan(largeView, TermHandle.None)));
     }
 
     /// <summary>
@@ -124,14 +116,9 @@ public class AllocationTests
         Quad[] small = Quads(Small);
         Quad[] large = Quads(Large);
 
-        for (int i = 0; i < 3; i++)
-        {
-            IndexVersion.Empty.Apply(small, [], 1);
-            IndexVersion.Empty.Apply(large, [], 1);
-        }
-
-        long smallCost = Measure(() => IndexVersion.Empty.Apply(small, [], 1));
-        long largeCost = Measure(() => IndexVersion.Empty.Apply(large, [], 1));
+        (long smallCost, long largeCost) = AllocationMeter.MeasurePair(
+            () => IndexVersion.Empty.Apply(small, [], 1),
+            () => IndexVersion.Empty.Apply(large, [], 1));
 
         Assert.Equal((Large - Small) * Orders.Count * QuadKey.Size, largeCost - smallCost);
         TestContext.Current.TestOutputHelper?.WriteLine(
@@ -153,7 +140,10 @@ public class AllocationTests
     /// <summary>
     /// The whole commit path, known terms only: retract and re-assert the same
     /// quads, so the dictionary is not what is measured. The budget per quad is
-    /// stated rather than discovered; see the remarks on the class.
+    /// stated rather than discovered; see the remarks on the class. Read
+    /// directly rather than through <see cref="AllocationMeter"/>, because a
+    /// commit changes the state it is measured in; what a collection can add,
+    /// 8 KB over 3,500 quads, is 2.3 bytes per quad against the budget.
     /// </summary>
     [Fact]
     public async Task a_commit_allocates_linearly_within_its_budget()
