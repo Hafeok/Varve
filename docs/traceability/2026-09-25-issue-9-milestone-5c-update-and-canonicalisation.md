@@ -561,6 +561,19 @@ This addendum records the maintainer's decisions on the proposals commented on #
 - **ADR 0057's step order.** The proposal text was given in the session's reply, for the decision there.
 - **#39.** The observation was added to its draft: over 300 relabellings, dotNetRDF's canonical form for the blank-graph-name dataset matches neither of the two forms RDFC-1.0 produces in Varve and pyoxigraph.
 
+## Addendum, 2026-09-25 — ADR 0057's step order, and the close of milestone 5
+
+**The prompt**, verbatim:
+
+> Merged with a merge commit. Amend ADR 0057 by a dated note swapping steps 3 and 4 with the reason given; no code or spec change. New PR, then done with milestone 5.
+
+**What was done.** ADR 0057 gained a dated amendment note below its status,
+in the form ADR 0059 used. The note swaps Execution's steps 3 and 4 (release
+the pin, then submit), gives the reason from the proposal, and leaves the
+steps themselves as written. The ADR index records the amendment. No code
+or specification changed: both already had this order. With this, the work
+for milestone 5 (#9) in this session is done.
+
 ## Commits
 
 1. `f51f97b` fix(test): read allocation where no collection or tier-up can move it

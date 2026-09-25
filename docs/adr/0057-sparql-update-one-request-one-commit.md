@@ -8,6 +8,27 @@ evaluated against which position) and how one update request maps to one
 atomic commit", which ADR 0005 placed in a layer 5 package without deciding.
 Specification: [`docs/spec/sparql-update-store.md`](../spec/sparql-update-store.md).
 
+> **Amended 2026-09-25**, by the maintainer's decision on the milestone 5c
+> report. **Execution's steps 3 and 4 are swapped: the pin is released, then
+> the composed delta is submitted.** That is the order the specification
+> (§3) and `SparqlUpdate.ExecuteAsync` already had; only this record listed
+> the release last. The reasons:
+> - Nothing after the request is built reads the pin. The request ties itself
+>   to `P` by `expectedPosition`, not by holding a read.
+> - A term the pin holds goes in as `RequestTerm.Existing(handle)`, and the
+>   dictionary is append-only (ADR 0012), so the handle stays valid without
+>   the pin. A staged term goes in as a request term the sequencer resolves
+>   (ADR 0058).
+> - The sequencer normalises against `G_head`, which is `G_P` or a
+>   `Conflict`, so the outcome is the same in either order.
+> - Holding the pin across the submit would keep a pinned read alive while
+>   the request waits in the sequencer's queue. ADR 0052 has a pin live for
+>   one execution and no longer, and that wait is unbounded under load.
+>
+> A failing operation still throws before the submit, and the pin is
+> released on that path too. The steps below are left as written; read 3
+> and 4 in the swapped order. No code or specification changes.
+
 ## Context
 
 ADR 0005 put SPARQL Update in a layer 5 integration package that "evaluates

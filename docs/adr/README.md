@@ -133,7 +133,7 @@ Decided by the maintainer on the 5c plan.
 
 | # | Title | Status |
 |---:|---|---|
-| [0057](0057-sparql-update-one-request-one-commit.md) | SPARQL Update over the store: one request, one commit | Accepted |
+| [0057](0057-sparql-update-one-request-one-commit.md) | SPARQL Update over the store: one request, one commit | Accepted; amended 2026-09-25 (release before submit) |
 | [0058](0058-staging-view-and-dataset-validators.md) | A staging view over a pinned read, and validators bound to a dataset | Accepted; refines 0017 |
 | [0059](0059-rdfc-in-varve-rdf-and-its-work-limit.md) | RDFC-1.0 in `Varve.Rdf`, bounded by a work limit; the isomorphism check stays as a cross-check | Accepted; supersedes 0030's deletion clause |
 
