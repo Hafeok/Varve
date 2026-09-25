@@ -27,13 +27,47 @@ namespace Varve.Store.Tests;
 /// whole commit's slope is asserted against a stated byte budget, because it
 /// is a sum of arrays whose growth policy is the runtime's.
 /// </para>
+/// <para>
+/// <strong>These tests run alone</strong> (<see cref="RunsAlone"/>),
+/// because <c>GC.GetAllocatedBytesForCurrentThread</c> is exact only while no
+/// other thread allocates. It counts the bytes of every allocation context the
+/// thread has been handed, less what is unused in the current one, so the
+/// unused tail of a context the thread abandons counts as allocated; how much
+/// is abandoned depends on which regions the GC can hand out, which depends on
+/// what every other thread is allocating at that moment. Issue #32 found it: in
+/// a full run of this project, with other test classes allocating in parallel,
+/// the index update read 7,920 bytes over about one run in ten; a probe beside
+/// a heavy allocator read up to 7,984 bytes over, with and without a collection
+/// inside the window, in 67–97 of 1,000 assertions, and in none of 25,000 once
+/// the probe ran alone. The third thing that moves it is a background gen-2
+/// collection running during the measurement — with collections forced into
+/// the background, 11 of 600 assertions failed, and none with concurrent
+/// collection off — so this project's test host runs without it (see the
+/// project file). The counter's error only ever adds, so a minimum over
+/// several readings would hide it most of the time, but not always — a probe
+/// beside a heavy allocator still saw five inflated readings in a row — and it
+/// would also hide the other thing the probe found, that the code measured can
+/// itself allocate differently from one compilation to the next
+/// (<see cref="kept"/>). Running alone removes the cause; the minimum would
+/// only make it rarer.
+/// </para>
 /// </remarks>
+[Collection(RunsAlone.Name)]
 public class AllocationTests
 {
     private const int Small = 500;
     private const int Large = 4_000;
 
     private static long sink;
+
+    /// <summary>
+    /// Where the index update's result goes, so that it escapes. Discarded, it
+    /// is a 32-byte <see cref="IndexVersion"/> the JIT may allocate on the stack
+    /// once the call is inlined into the measured lambda — and then not, after
+    /// the next recompilation: issue #32's probe saw the small side read 32
+    /// bytes under at the tier-up, for three iterations.
+    /// </summary>
+    private static IndexVersion? kept;
 
     private static long Measure(Action action)
     {
@@ -126,12 +160,12 @@ public class AllocationTests
 
         for (int i = 0; i < 3; i++)
         {
-            IndexVersion.Empty.Apply(small, [], 1);
-            IndexVersion.Empty.Apply(large, [], 1);
+            kept = IndexVersion.Empty.Apply(small, [], 1);
+            kept = IndexVersion.Empty.Apply(large, [], 1);
         }
 
-        long smallCost = Measure(() => IndexVersion.Empty.Apply(small, [], 1));
-        long largeCost = Measure(() => IndexVersion.Empty.Apply(large, [], 1));
+        long smallCost = Measure(() => kept = IndexVersion.Empty.Apply(small, [], 1));
+        long largeCost = Measure(() => kept = IndexVersion.Empty.Apply(large, [], 1));
 
         Assert.Equal((Large - Small) * Orders.Count * QuadKey.Size, largeCost - smallCost);
         TestContext.Current.TestOutputHelper?.WriteLine(
@@ -220,4 +254,15 @@ public class AllocationTests
 
         return request;
     }
+}
+
+/// <summary>
+/// The allocation tests' collection: no other test runs beside it, because a
+/// thread's allocation count is exact only while no other thread allocates
+/// (<see cref="AllocationTests"/>, issue #32).
+/// </summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class RunsAlone
+{
+    internal const string Name = "allocation, alone";
 }

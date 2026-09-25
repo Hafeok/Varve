@@ -4,6 +4,14 @@
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
     <VarveLayer>none</VarveLayer>
+
+    <!-- The allocation tests assert exact byte counts, and a background gen-2
+         collection running beside the measured thread changes what
+         GC.GetAllocatedBytesForCurrentThread reports: with collections forced
+         into the background during the measurement, 11 of 600 exact assertions
+         failed, and none with concurrent collection off (issue #32). The
+         production default is untouched; this is the test host's setting. -->
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
   </PropertyGroup>
 
   <ItemGroup>
