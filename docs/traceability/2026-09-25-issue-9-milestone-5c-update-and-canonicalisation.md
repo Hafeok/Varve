@@ -503,6 +503,44 @@ the smoke apps and the server sit above the integrations** (proposal 4
 above). The file backend's smoke will want to run an update through
 `Varve.Sparql.Store`.
 
+## Addendum, 2026-09-25 — after the merge
+
+Recorded after pull request #34 merged, in the follow-up pull request, by
+the same session. It covers the decisions the maintainer took on this
+report.
+
+**The upstream findings.** The maintainer asked for them to be filed
+upstream. This session cannot post in third-party repositories, and ADR 0038
+D3 has the filer review and own each report. So each finding has a Varve
+tracking issue carrying its report, drafted and ready to file, and the
+upstream URL goes on the tracking issue once it is filed:
+
+| Finding | Upstream destination | Varve issue |
+|---|---|---|
+| RDFC-1.0: isomorphic datasets with blank graph names, different canonical forms | `w3c/rdf-canon` (WG, `spec-gap`) | [#36](https://github.com/Hafeok/Varve/issues/36) |
+| `csv-tsv-res` expected CSV files end lines with LF; CSV/TSV §2 says CRLF | `w3c/rdf-tests` | [#37](https://github.com/Hafeok/Varve/issues/37) |
+| The SPARQL 1.2 CSV draft is silent on base direction | the CSV/TSV 1.2 repository (`spec-gap`) | [#38](https://github.com/Hafeok/Varve/issues/38) |
+| dotNetRDF 3.5.2 refuses any dataset of more than 1,000 blank nodes | `dotnetrdf/dotnetrdf` | [#39](https://github.com/Hafeok/Varve/issues/39) |
+
+**INSERT DATA throughput** is [#35](https://github.com/Hafeok/Varve/issues/35),
+in the operability milestone (#12). Its bar is pyoxigraph's 392 ms.
+
+**A correction to "pyoxigraph gives the same two forms, byte for byte".**
+Re-checking this for #36 found that for the two particular inputs pinned in
+`CanonPropertyTests`, pyoxigraph gives one form, not two. The finding still
+holds, and the evidence is now stated properly. Over 300 random relabellings
+and quad orders:
+- Varve gives two forms, 151 and 149 times.
+- pyoxigraph gives the same two forms, 147 and 153 times.
+- dotNetRDF gives one form every time, and it is neither of the two.
+
+Which relabelling gets which form depends on each implementation's internal
+order. `rdf-canon.md` §6 and the pinned test's comment now say this. The
+sentence in the report above is left as written.
+
+**The host question** is decided by ADR 0060: hosts at layer 6. The smoke
+apps now run their update through `Varve.Sparql.Store`.
+
 ## Commits
 
 1. `f51f97b` fix(test): read allocation where no collection or tier-up can move it

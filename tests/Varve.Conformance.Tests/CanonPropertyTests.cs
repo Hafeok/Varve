@@ -196,13 +196,15 @@ public class CanonPropertyTests
     /// <summary>
     /// The counterexample the first run found, minimised by hand: _:n0 and
     /// _:n2 are not automorphic — swapping them needs _:n3 and _:n4 swapped,
-    /// which the second quad forbids — but their first-degree hashes are
-    /// equal and so are their N-degree hashes, because a related hash records
-    /// where the related node stands in the quad (§4.7.3) and not where the
-    /// reference node does: object here, graph name there. The tie falls to
-    /// input order, and the two relabellings get different forms.
-    /// pyoxigraph 0.5.11's <c>Dataset.canonicalize(RDFC_1_0)</c> gives these
-    /// same two forms, byte for byte.
+    /// which the third quad of the first dataset forbids — but their
+    /// first-degree hashes are equal and so are their N-degree hashes, because
+    /// a related hash records where the related node stands in the quad
+    /// (§4.7.3) and not where the reference node does: object here, graph name
+    /// there. The tie falls to input order, and the two relabellings get
+    /// different forms. pyoxigraph 0.5.11's <c>Dataset.canonicalize(RDFC_1_0)</c>
+    /// produces the same pair of forms across relabellings, though not
+    /// necessarily for these two inputs, since its tie falls to its own
+    /// order (<c>rdf-canon.md</c> §6 has the counts).
     /// </summary>
     [Fact]
     public void Rdfc_10_gives_these_isomorphic_datasets_different_forms()
