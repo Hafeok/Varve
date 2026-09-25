@@ -59,7 +59,9 @@ if (reader.Error.IsError) { … reader.Error.Position … }
   **position**: byte offset, 1-based line, and 1-based byte column, as in
   `sparql-grammar.md` §6. There is no recovery: a malformed result document
   has no useful remainder.
-- **The reader is disposable**, returning its pooled buffers.
+- **The reader holds no pooled buffers** and so is not disposable: its arena
+  and builders are its own and grow to the largest solution, and the
+  allocation test (§4) checks that nothing else is allocated per solution.
 
 ## 3. The formats
 
@@ -125,13 +127,15 @@ comparison against CSV results compares lexical forms (`sparql-evaluation.md`
 
 ## 4. Tests
 
-- **Round trip against the other formats.** Every result file of the
-  evaluation suite is read, and a file that exists in two formats for the
-  same test reads to the same solutions.
+- **The corpus.** Every result document in the pinned `sparql/` tree — 508
+  files of the four extensions — reads without error, and a result that
+  exists as both `.srx` and `.srj` reads to the same solutions. The count is
+  pinned, so a submodule bump that changes it is looked at.
 - **The chunk-boundary oracle** (`docs/testing.md` §2), as for every
-  streaming reader: each document read whole and read as a sequence split at
-  every byte offset gives the same solutions, and a malformed one the same
-  error at the same position.
+  streaming reader, over the same corpus: each document read whole and read
+  as a sequence split at every byte offset gives the same solutions, and a
+  malformed one the same error at the same position. It found, on its first
+  run, a JSON binding name split across segments read as empty.
 - **Positions.** Malformed documents of each format, with the expected byte
   offset, line and column of the error stated in the test.
 - **Allocation.** Reading a document of many solutions allocates a bounded

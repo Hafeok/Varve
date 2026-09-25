@@ -1,0 +1,56 @@
+#nullable enable
+Varve.Sparql.Results.ResultsPosition
+Varve.Sparql.Results.ResultsPosition.ByteOffset.get -> long
+Varve.Sparql.Results.ResultsPosition.Column.get -> int
+Varve.Sparql.Results.ResultsPosition.Equals(Varve.Sparql.Results.ResultsPosition other) -> bool
+Varve.Sparql.Results.ResultsPosition.Line.get -> int
+Varve.Sparql.Results.ResultsPosition.ResultsPosition() -> void
+Varve.Sparql.Results.ResultsPosition.ResultsPosition(long byteOffset, int line, int column) -> void
+Varve.Sparql.Results.SolutionView
+Varve.Sparql.Results.SolutionView.Count.get -> int
+Varve.Sparql.Results.SolutionView.SolutionView() -> void
+Varve.Sparql.Results.SolutionView.TryGet(int variable, out Varve.Rdf.RdfTermView term) -> bool
+Varve.Sparql.Results.SparqlResultsError
+Varve.Sparql.Results.SparqlResultsError.Equals(Varve.Sparql.Results.SparqlResultsError other) -> bool
+Varve.Sparql.Results.SparqlResultsError.IsError.get -> bool
+Varve.Sparql.Results.SparqlResultsError.Kind.get -> Varve.Sparql.Results.SparqlResultsErrorKind
+Varve.Sparql.Results.SparqlResultsError.Message.get -> string!
+Varve.Sparql.Results.SparqlResultsError.Position.get -> Varve.Sparql.Results.ResultsPosition
+Varve.Sparql.Results.SparqlResultsError.SparqlResultsError() -> void
+Varve.Sparql.Results.SparqlResultsError.SparqlResultsError(Varve.Sparql.Results.SparqlResultsErrorKind kind, Varve.Sparql.Results.ResultsPosition position, string! message) -> void
+Varve.Sparql.Results.SparqlResultsErrorKind
+Varve.Sparql.Results.SparqlResultsErrorKind.DocumentTypeDeclaration = 8 -> Varve.Sparql.Results.SparqlResultsErrorKind
+Varve.Sparql.Results.SparqlResultsErrorKind.FieldCount = 7 -> Varve.Sparql.Results.SparqlResultsErrorKind
+Varve.Sparql.Results.SparqlResultsErrorKind.InvalidTerm = 5 -> Varve.Sparql.Results.SparqlResultsErrorKind
+Varve.Sparql.Results.SparqlResultsErrorKind.InvalidUtf8 = 2 -> Varve.Sparql.Results.SparqlResultsErrorKind
+Varve.Sparql.Results.SparqlResultsErrorKind.Malformed = 3 -> Varve.Sparql.Results.SparqlResultsErrorKind
+Varve.Sparql.Results.SparqlResultsErrorKind.None = 0 -> Varve.Sparql.Results.SparqlResultsErrorKind
+Varve.Sparql.Results.SparqlResultsErrorKind.UnexpectedEnd = 1 -> Varve.Sparql.Results.SparqlResultsErrorKind
+Varve.Sparql.Results.SparqlResultsErrorKind.UnexpectedStructure = 4 -> Varve.Sparql.Results.SparqlResultsErrorKind
+Varve.Sparql.Results.SparqlResultsErrorKind.UnknownVariable = 6 -> Varve.Sparql.Results.SparqlResultsErrorKind
+Varve.Sparql.Results.SparqlResultsFormat
+Varve.Sparql.Results.SparqlResultsFormat.Csv = 2 -> Varve.Sparql.Results.SparqlResultsFormat
+Varve.Sparql.Results.SparqlResultsFormat.Json = 1 -> Varve.Sparql.Results.SparqlResultsFormat
+Varve.Sparql.Results.SparqlResultsFormat.Tsv = 3 -> Varve.Sparql.Results.SparqlResultsFormat
+Varve.Sparql.Results.SparqlResultsFormat.Xml = 0 -> Varve.Sparql.Results.SparqlResultsFormat
+Varve.Sparql.Results.SparqlResultsReader
+Varve.Sparql.Results.SparqlResultsReader.Boolean.get -> bool
+Varve.Sparql.Results.SparqlResultsReader.Current.get -> Varve.Sparql.Results.SolutionView
+Varve.Sparql.Results.SparqlResultsReader.Error.get -> Varve.Sparql.Results.SparqlResultsError
+Varve.Sparql.Results.SparqlResultsReader.Format.get -> Varve.Sparql.Results.SparqlResultsFormat
+Varve.Sparql.Results.SparqlResultsReader.IsBoolean.get -> bool
+Varve.Sparql.Results.SparqlResultsReader.Read() -> bool
+Varve.Sparql.Results.SparqlResultsReader.ReadHead() -> bool
+Varve.Sparql.Results.SparqlResultsReader.SparqlResultsReader(System.Buffers.ReadOnlySequence<byte> utf8, Varve.Sparql.Results.SparqlResultsFormat format) -> void
+Varve.Sparql.Results.SparqlResultsReader.SparqlResultsReader(System.ReadOnlyMemory<byte> utf8, Varve.Sparql.Results.SparqlResultsFormat format) -> void
+Varve.Sparql.Results.SparqlResultsReader.Variables.get -> System.Collections.Generic.IReadOnlyList<string!>!
+override Varve.Sparql.Results.ResultsPosition.Equals(object? obj) -> bool
+override Varve.Sparql.Results.ResultsPosition.GetHashCode() -> int
+override Varve.Sparql.Results.ResultsPosition.ToString() -> string!
+override Varve.Sparql.Results.SparqlResultsError.Equals(object? obj) -> bool
+override Varve.Sparql.Results.SparqlResultsError.GetHashCode() -> int
+override Varve.Sparql.Results.SparqlResultsError.ToString() -> string!
+static Varve.Sparql.Results.ResultsPosition.operator !=(Varve.Sparql.Results.ResultsPosition left, Varve.Sparql.Results.ResultsPosition right) -> bool
+static Varve.Sparql.Results.ResultsPosition.operator ==(Varve.Sparql.Results.ResultsPosition left, Varve.Sparql.Results.ResultsPosition right) -> bool
+static Varve.Sparql.Results.SparqlResultsError.operator !=(Varve.Sparql.Results.SparqlResultsError left, Varve.Sparql.Results.SparqlResultsError right) -> bool
+static Varve.Sparql.Results.SparqlResultsError.operator ==(Varve.Sparql.Results.SparqlResultsError left, Varve.Sparql.Results.SparqlResultsError right) -> bool
