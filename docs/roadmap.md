@@ -210,8 +210,8 @@ landing on the trunk before the next starts:
 | Slice | Delivers | Gate |
 |---|---|---|
 | **5a** *(complete)* | The five ADRs below, `Varve.Xsd`, the SPARQL algebra, parser and serialiser (`Varve.Sparql`, layer 2), cardinality estimates and the typed-value accessor on `IQuadSource` | The W3C SPARQL 1.0, 1.1 and 1.2 syntax suites, query and update, in the ratchet — **554 of 554, no exemption** |
-| **5b** | The optimiser and evaluator (`Varve.Sparql.Evaluation`, layer 3) over the in-memory projection; ADR 0022's benchmark per ADR 0050 | The SPARQL 1.1 query evaluation suite |
-| **5c** | The result formats (`Varve.Sparql.Results`, layer 2) and the SPARQL Update integration package at layer 5; RDFC-1.0 canonicalisation, which has waited since 3a and whose first consumer is the result comparison | The results-format and update evaluation suites |
+| **5b** | ADRs 0053–0056; the optimiser and evaluator (`Varve.Sparql.Evaluation`, layer 3) over the in-memory projection and over `InMemoryDataset`; **the result-format readers** (`Varve.Sparql.Results`, layer 2), brought forward from 5c because the suite's expected results come in those formats; ADR 0022's benchmark per ADR 0050 | The SPARQL 1.0 and 1.1 query evaluation suites and the loadable SPARQL 1.2 ones, over two subjects |
+| **5c** | The result-format **writers**, and the SPARQL Update integration package at layer 5; RDFC-1.0 canonicalisation, which has waited since 3a and whose first consumer is the result comparison | The results-format and update evaluation suites |
 
 **The positions the maintainer took at the end of milestone 4 are ADRs**, all
 accepted at the start of 5a:
@@ -276,6 +276,24 @@ change: the **private id class** (ADR 0012), the **private entry layout** —
 `(KeyId, ciphertext)` covering the whole term encoding — and the file backend's
 **refusal of a key store path inside the dataset directory** (ADR 0023). None of
 them costs anything while erasure mode is off.
+
+## 6b — RDF 1.2 Turtle and TriG, RDF/XML, JSON-LD
+
+**Before milestone 7**, which serves all of them. Added at milestone 5b, when
+the SPARQL 1.2 evaluation suites turned out to need it: 42 of their cases
+(`eval-triple-terms` and the data-bearing half of `lang-basedir`) load their
+data from RDF 1.2 Turtle or TriG, which `turtle.md` §9 refuses, so they are
+pinned as blocked in the conformance guard with this slice named as the one
+that unblocks them.
+
+- **RDF 1.2 Turtle and TriG**: reifiers, annotations, triple terms and
+  directional language tags in the reader and writer, with `turtle.md` §9
+  revised by the ADR that opens it — the decision it records was that both
+  drafts were days old, and that reason expires.
+- **`Varve.RdfXml`** (layer 2), to its W3C suite. When it passes, the N-Triples
+  translations of the SPARQL suites' RDF/XML files (`tests/fixtures/w3c-rdfxml/`,
+  ADR 0027's dated note) are deleted and the harness reads the originals.
+- **`Varve.JsonLd`** (layer 2), JSON-LD 1.1 to its W3C suite.
 
 ## 7 — Server and CLI
 
