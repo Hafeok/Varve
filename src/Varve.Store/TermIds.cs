@@ -57,6 +57,18 @@ internal static class TermIds
     internal static ulong Blank(long counter) => ((ulong)IdClass.Blank << ClassShift) | (ulong)counter;
 
     /// <summary>
+    /// The counter bit that marks a staging view's provisional ids (ADR 0058):
+    /// inside the canonical and blank classes, and above anything a
+    /// dictionary counter reaches, so the dictionary never issues one and the
+    /// sequencer refuses one given as an existing handle.
+    /// </summary>
+    internal const long ProvisionalBit = 1L << 61;
+
+    /// <summary>Whether an id is a staging view's provisional id.</summary>
+    internal static bool IsProvisional(ulong id) =>
+        ClassOf(id) is IdClass.Canonical or IdClass.Blank && (Counter(id) & ProvisionalBit) != 0;
+
+    /// <summary>
     /// The inline id for a literal, when it has one: canonical <c>xsd:integer</c>
     /// in range, or canonical <c>xsd:boolean</c>. A literal takes an inline id
     /// only when its lexical form is canonical (ADR 0012's amendment), so that

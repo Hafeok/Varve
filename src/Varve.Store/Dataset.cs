@@ -29,6 +29,14 @@ public sealed class DatasetOptions
     /// <summary>The size past which the active segment is sealed and a new one begun (ADR 0018).</summary>
     public long SegmentBytes { get; init; } = 64L << 20;
 
+    /// <summary>
+    /// Pre-commit validators bound to the dataset: run on every <c>Data</c>
+    /// commit, in order, before the request's own (ADR 0058). Each sees the
+    /// same pair as a request validator — the proposed state and the delta —
+    /// and may reject; every accepting validator's attachment is recorded.
+    /// </summary>
+    public IReadOnlyList<ICommitValidator> Validators { get; init; } = [];
+
     /// <summary>Test seam: throws from the default projection at the positions it returns true for.</summary>
     internal Func<long, bool>? DefaultProjectionFault { get; set; }
 }
@@ -116,6 +124,7 @@ public sealed class Dataset : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(storage);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(options.Clock);
+        ArgumentNullException.ThrowIfNull(options.Validators);
         ArgumentOutOfRangeException.ThrowIfLessThan(options.MaxRecordBytes, 64);
         ArgumentOutOfRangeException.ThrowIfLessThan(options.SegmentBytes, 1024L);
 
@@ -588,23 +597,15 @@ public sealed class Dataset : IAsyncDisposable
             // Steps 5 and 6.
             List<ulong> attachments = [];
 
-            if (request is not null && request.Validators.Count > 0)
+            if (kind == CommitKind.Data && (_options.Validators.Count > 0 || request?.Validators.Count > 0))
             {
                 QuadOverlay proposed = new(new PendingSource(state.Index, terms, resolver.Allocations), delta);
 
-                foreach (ICommitValidator validator in request.Validators)
+                // The dataset's validators, then the request's (ADR 0058).
+                if (!Validate(_options.Validators, proposed, delta, resolver, attachments, out ValidationVerdict rejected)
+                    || (request is not null && !Validate(request.Validators, proposed, delta, resolver, attachments, out rejected)))
                 {
-                    ValidationVerdict verdict = validator.Validate(proposed, delta);
-
-                    if (!verdict.IsAccepted)
-                    {
-                        return CommitResult.Rejected(head, verdict.Report);
-                    }
-
-                    if (verdict.Attachment is not null)
-                    {
-                        attachments.Add(resolver.ResolveFinal(verdict.Attachment));
-                    }
+                    return CommitResult.Rejected(head, rejected.Report);
                 }
             }
 
@@ -665,6 +666,35 @@ public sealed class Dataset : IAsyncDisposable
         {
             _sequencer.Release();
         }
+    }
+
+    // Runs validators in order; false with the first rejection.
+    private static bool Validate(
+        IEnumerable<ICommitValidator> validators,
+        IQuadSource proposed,
+        QuadDelta delta,
+        Resolver resolver,
+        List<ulong> attachments,
+        out ValidationVerdict rejected)
+    {
+        foreach (ICommitValidator validator in validators)
+        {
+            ValidationVerdict verdict = validator.Validate(proposed, delta);
+
+            if (!verdict.IsAccepted)
+            {
+                rejected = verdict;
+                return false;
+            }
+
+            if (verdict.Attachment is not null)
+            {
+                attachments.Add(resolver.ResolveFinal(verdict.Attachment));
+            }
+        }
+
+        rejected = default;
+        return true;
     }
 
     private void ThrowIfFaulted(long position)
