@@ -8,6 +8,13 @@ be deleted, not promoted", in its Consequences, and the sentence of its §3
 that makes RDFC-1.0 the replacement); the rest of ADR 0030 stands.
 Specification: [`docs/spec/rdf-canon.md`](../spec/rdf-canon.md).
 
+> **Amended 2026-09-25**, before the milestone closed, by measurement. The
+> default work limit is **1,000**, not 12, and a step counts a permutation as
+> well as a call: the figure 12 was written before the suite had been run,
+> and the suite's three computable poison graphs (test044–046) need 279.
+> Decision 2's rule — the default is set from the suite's measured maxima —
+> is what fixed the number; `rdf-canon.md` §2 has the measurements.
+
 ## Context
 
 The brief puts RDFC-1.0 in the RDF model (oxrdf's scope), and the roadmap has

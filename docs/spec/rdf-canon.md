@@ -43,16 +43,21 @@ IReadOnlyDictionary<string, string> issued = result.IssuedIdentifiers;   // inpu
     and §3.1 says other algorithms SHOULD be selectable. Anything else is
     refused with `ArgumentException`. Through `IncrementalHash`, so one hash
     object serves one call.
-  - `WorkLimit` — the most calls to Hash N-Degree Quads (§4.8) one
-    canonicalisation may make, counting recursive calls, **as a multiple of
-    the number of blank nodes** that reach §4.4.3 step 5 without a unique
-    first-degree hash; default **12**. §4.4.3: "implementations MUST defend
-    against potential denial-of-service attacks by raising suitable exceptions
-    and terminating early", and "for most typical datasets, more than a couple
-    of iterations on Hash N-Degree Quads per blank node would be unusual".
-    Exceeding it throws `CanonicalisationLimitException`, which says how many
-    calls were made and what the limit was. The default is measured, not
-    guessed: §8 states how many calls each suite case needed.
+  - `WorkLimit` — the most steps one canonicalisation may take, **as a
+    multiple of the number of blank nodes** that reach §4.4.3 step 5 without
+    a unique first-degree hash, where a step is a call to Hash N-Degree Quads
+    (§4.8), recursive calls included, or a permutation one of them examines;
+    default **1,000**. §4.4.3: "implementations MUST defend against potential
+    denial-of-service attacks by raising suitable exceptions and terminating
+    early", and "for most typical datasets, more than a couple of iterations
+    on Hash N-Degree Quads per blank node would be unusual". Exceeding it
+    throws `CanonicalisationLimitException`, which says how many steps were
+    taken and what the limit was. The default is measured, not guessed: the
+    suite's most demanding computable cases, the three "poison – evil" graphs
+    (test044–046), need 279; the next need 15; the ten-node clique of
+    test074 meets 1,000 in about 60 ms, and meets 100,000 still unfinished. A
+    test finds each positive case's least limit by search and holds the
+    default at three times the worst.
 - **Cancellation** is checked at every call to Hash N-Degree Quads and every
   permutation.
 
@@ -104,8 +109,15 @@ which extends canonical N-Triples with the graph label:
   and no other white space; each line ends with a single LF, the last
   included;
 - an `xsd:string` literal is written without its datatype;
-- a language tag is written as the term holds it, and a base direction as
-  `--ltr` or `--rtl` (N-Quads 1.2);
+- a language tag is written **in lowercase**, and a base direction as
+  `--ltr` or `--rtl` (N-Quads 1.2). Appendix A says nothing about case, but
+  language tags compare case-insensitively (RDF 1.1 Concepts §3.3), so
+  `"x"@en` and `"x"@EN` are one term and must have one canonical form —
+  which is what RDF 1.2 N-Triples §3 (Working Draft, 24 September 2026)
+  requires: "Alphabetic characters in `LANG_DIR` MUST use only the lowercase
+  letters". Found by the isomorphism property of §7, whose first run wrote
+  one term two ways depending on which spelling a dataset interned first;
+  no case in the W3C suite has an uppercase tag;
 - within a string, BS, HT, LF, FF, CR, `"` and `\` are written as `ECHAR`;
   U+0000–U+0007, VT, U+000E–U+001F, DEL and every character that does not
   match XML 1.1's `Char` production (the surrogate code points, which a
@@ -136,12 +148,42 @@ stated, configurable number of calls, and exceeding it fails explicitly
 rather than running without end. That bound is what makes the algorithm
 acceptable as public API where the harness's search was not.
 
-## 6. Isomorphism
+## 6. Isomorphism, and where RDFC-1.0 falls short of it
 
-Two datasets are isomorphic if and only if their canonical N-Quads forms are
-equal (§1's claim of the algorithm, for datasets within the work limit). The
-conformance harness compares `CONSTRUCT` results and update results that way,
-and runs its backtracking check beside it as a cross-check (ADR 0059).
+Equal canonical forms mean isomorphic datasets, always: a canonical form is a
+relabelling of its dataset. The converse — isomorphic datasets have equal
+canonical forms, which §1 of the Recommendation and its §4.4.3 note rely on —
+**holds for datasets whose graph names are IRIs, and fails for some datasets
+with blank nodes as graph names.** Found by this milestone's isomorphism
+property (§7); the smallest instance is
+
+```
+<http://example.org/a> <http://example.org/p> _:n1 _:n1 .
+_:n4 <http://example.org/p> _:n0 _:n2 .
+_:n4 <http://example.org/q> _:n3 _:n4 .
+_:n3 <http://example.org/p> _:n2 _:n0 .
+```
+
+`_:n0` and `_:n2` are not automorphic — swapping them needs `_:n3` and
+`_:n4` swapped, which the third quad forbids — but their first-degree hashes
+are equal (§4.6.3 replaces every other blank node with `_:z`) and so are
+their N-degree hashes: a related hash records the related node's position
+(§4.7.3), here the subject in both quads, and not the reference node's,
+which is the object in one quad and the graph name in the other. §4.4.3 step
+5.4 orders the tied results "by the hash in result", which leaves the order
+to the input, so two relabellings of this dataset get two canonical forms.
+Only a quad with three blank nodes — subject, object and graph name — can
+hide the reference node's position this way. pyoxigraph 0.5.11's RDFC-1.0
+gives the same two forms, byte for byte, so this is the algorithm's and not
+this implementation's; §8 of the milestone report proposes raising it with the
+Working Group (ADR 0038, D2: `spec-gap`).
+
+The conformance harness compares `CONSTRUCT` results and update results by
+canonical equality and runs its backtracking check beside it as a
+cross-check (ADR 0059). No suite case compares a dataset with a blank graph
+name; if one did, a disagreement of this kind — canonical forms differ,
+backtracking finds a bijection — fails the case naming both verdicts, as
+ADR 0059 requires, and this section is where its explanation is.
 
 ## 7. Tests, and the gate
 
@@ -152,15 +194,19 @@ and runs its backtracking check beside it as a cross-check (ADR 0059).
   the expected JSON; every `RDFC10NegativeEvalTest` must fail with
   `CanonicalisationLimitException` under the default limit. `rdfc:hashAlgorithm`
   selects the hash. The inputs are read with `Varve.Turtle`'s N-Quads reader.
-  Guard counts, and the ratchet.
+  Guard counts — 64 evaluation cases, 21 map cases, one negative, two of them
+  on SHA-384 — and the ratchet.
 - **Isomorphism as a property.** For generated datasets and generated
-  relabellings and reorderings of them, `iso(A, B) ⇔ canon(A) = canon(B)`,
-  with `iso` the harness's backtracking check — which is therefore also that
-  check's differential test. The generator produces isomorphic pairs by
-  permuting labels and quad order, and non-isomorphic pairs by one edit, and
-  counts both kinds; each kind must occur.
+  relabellings and reorderings of them, with one quad changed or removed in
+  some: without blank graph names, `iso(A, B) ⇔ canon(A) = canon(B)`, with
+  `iso` the harness's backtracking check — which is therefore also that
+  check's differential test; with blank graph names, `canon(A) = canon(B) ⇒
+  iso(A, B)`, and the pairs where RDFC-1.0 separates isomorphic datasets are
+  counted and reported. The generators count isomorphic and non-isomorphic
+  pairs, and both must occur. §6's counterexample is pinned as a test.
 - **Idempotence**: `canon(canon(A)) = canon(A)`, reading the canonical form
-  back with `Varve.Turtle`.
+  back with `Varve.Turtle`, for datasets without blank graph names — with
+  them it inherits §6's shortfall, since the canonical form is a relabelling.
 - **The canonical form parses**: every canonical output read back with
   `Varve.Turtle`'s N-Quads reader gives the dataset it was computed from, up
   to the issued relabelling.
@@ -173,3 +219,5 @@ and runs its backtracking check beside it as a cross-check (ADR 0059).
    says how RDFC applies to them.
 2. **`n-triples.md`'s canonical form** (§4) — whether it becomes RDF 1.2's.
    Proposed in this milestone's report; decided by the maintainer.
+3. **§6's counterexample** — whether and how to raise it with the RDF & SPARQL
+   Working Group. Proposed in this milestone's report.
