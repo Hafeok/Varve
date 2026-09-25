@@ -4,31 +4,32 @@
 |---|---|
 | **Category** | `Varve.Layering` |
 | **Severity** | Error |
-| **Motivated by** | [ADR 0003 — Package layering](../adr/0003-package-layering.md) |
+| **Motivated by** | [ADR 0003 — Package layering](../adr/0003-package-layering.md), [ADR 0060 — Hosts at layer 6](../adr/0060-hosts-at-layer-6-the-composition-root.md) |
 | **Enforcement policy** | [ADR 0004](../adr/0004-enforcement-by-analyzers.md) |
 
 ## What it reports
 
-Six situations, all of which would leave [VARVE0001](VARVE0001.md) with nothing
-to check rather than something to fail.
+Six situations that would leave [VARVE0001](VARVE0001.md) with nothing to
+check rather than something to fail, and two that put a composition root in
+the wrong layer.
 
 **The compilation declares no layer.**
 
 ```
 error VARVE0002: Assembly 'Varve.Rdf' declares no layer. A Varve.* assembly
-must set the VarveLayer MSBuild property to an integer from 0 to 5, or to
-'none' if it is a test, benchmark or analyzer assembly (ADR 0003).
+must set the VarveLayer MSBuild property to an integer from 0 to 6, or to
+'none' if it is a test or analyzer assembly (ADR 0003, ADR 0060).
 ```
 
 **It declares `none` without being entitled to.**
 
 ```
 error VARVE0002: Assembly 'Varve.Rdf' declares VarveLayer as 'none', which is
-allowed only for a test assembly, a benchmark assembly, or Varve.Analyzers. A
-published Varve package has a layer (ADR 0003).
+allowed only for a test assembly or Varve.Analyzers. A published Varve package
+has a layer, and a host or benchmark declares layer 6 (ADR 0003, ADR 0060).
 ```
 
-**The declared value is not a layer.** An integer outside 0–5, or anything
+**The declared value is not a layer.** An integer outside 0–6, or anything
 non-numeric that is not the literal `none`.
 
 **A referenced `Varve.*` assembly carries no usable `Varve.Layer` metadata** —
@@ -39,8 +40,29 @@ either absent, or present and malformed.
 ```
 error VARVE0002: Assembly 'Varve.Rdf.Tests' declares VarveLayer as 'none' but
 is packable. Whatever it is named, an assembly that is packed is in the package
-graph the layering rule describes and must declare an integer from 0 to 5. Set
+graph the layering rule describes and must declare an integer from 0 to 6. Set
 a layer, or set IsPackable to false (ADR 0003).
+```
+
+**An executable declares a layer other than 6.** An executable — `OutputType`
+`Exe` or `WinExe` — is a composition root, which ADR 0060 reserves to layer 6.
+A test assembly is an executable too, under xUnit v3, and is untouched: it
+declares `none`.
+
+```
+error VARVE0002: Assembly 'Varve.AotSmoke' is an executable declaring layer 5.
+An executable is a composition root, which ADR 0060 reserves to layer 6:
+declare VarveLayer 6, or build it as a library.
+```
+
+**A library declares layer 6.** Nothing is above layer 6, so nothing may
+reference it; a library there is unreachable.
+
+```
+error VARVE0002: Assembly 'Varve.Something' declares layer 6 but is not an
+executable. Layer 6 is the composition root and nothing may reference it, so a
+library there is unreachable: build it as an executable, or give it the layer
+of what it is — an integration is layer 5 (ADR 0060).
 ```
 
 **`Varve.Analyzers` appears among a compilation's referenced assemblies**, from
@@ -114,7 +136,17 @@ Declare the layer in the project file:
 </PropertyGroup>
 ```
 
-For a test, benchmark or analyzer assembly:
+For a host — the server, the CLI, a smoke app, a benchmark — which is an
+executable:
+
+```xml
+<PropertyGroup>
+  <OutputType>Exe</OutputType>
+  <VarveLayer>6</VarveLayer>
+</PropertyGroup>
+```
+
+For a test or analyzer assembly:
 
 ```xml
 <PropertyGroup>
@@ -171,3 +203,9 @@ The removal is recorded rather than performed silently, because the reasoning
 that produced the wrong conclusion is the part worth being able to find again.
 See the matching amendment in
 [ADR 0004](../adr/0004-enforcement-by-analyzers.md).
+
+## Amendment, 2026-09-25 — ADR 0060
+
+Layer 6 exists, for hosts. The rule gains the two composition-root cases
+above, and the by-name exemption no longer covers `*.Benchmarks`: a benchmark
+composes the public packages as a host does, and declares 6.

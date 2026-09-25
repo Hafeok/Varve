@@ -323,9 +323,9 @@ internal static class Program
     }
 
     /// <summary>
-    /// Milestone 5c under Native AOT: an update committed against the pinned
-    /// head, a query's results written as JSON, and RDFC-1.0 under SHA-256
-    /// and SHA-384. The writer and the canonicaliser use IncrementalHash and
+    /// Milestone 5c under Native AOT: a two-operation update request committed
+    /// as one commit through Varve.Sparql.Store, a query's results written as
+    /// JSON, and RDFC-1.0 under SHA-256 and SHA-384. The writer and the canonicaliser use IncrementalHash and
     /// pooled buffers, which ILC could trim without a build error.
     /// </summary>
     private static async ValueTask<int> Update()

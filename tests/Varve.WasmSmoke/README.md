@@ -99,16 +99,14 @@ against §A.5's vectors; the other four are the platform's, and the rows above
 pin that they are available.
 
 **Updates, result writing and canonicalisation run in the browser** (milestone
-5c, headless Chromium 141): data committed to an in-memory store, then a
-DELETE/INSERT whose WHERE is evaluated over the pinned head and whose change
-is committed expecting that position; a query over the result written as
-SPARQL results JSON; and a three-quad dataset with a chain of blank nodes
-canonicalised with RDFC-1.0 under SHA-256 and SHA-384. Each is compared whole
-with the string the AOT host produces from the same code (`Update.cs`, shared
-by both apps). The update is composed from the store and the evaluator here
-rather than through `Varve.Sparql.Store`: ADR 0003 puts hosts and
-integrations both at layer 5, VARVE0001 forbids a same-layer reference, and no
-exception is recorded — a decision left to the maintainer, not made in passing.
+5c, headless Chromium 141): an `INSERT DATA` and a `DELETE/INSERT` in one
+request, executed through `Varve.Sparql.Store` as one commit to an in-memory
+store; a query over the result written as SPARQL results JSON; and a
+three-quad dataset with a chain of blank nodes canonicalised with RDFC-1.0
+under SHA-256 and SHA-384. Each is compared whole with the string the AOT host
+produces from the same code (`Update.cs`, shared by both apps). The app is a
+layer 6 host (ADR 0060), which is what lets it reference the layer 5
+integration.
 
 A `404` for `/favicon.ico` in the console is Chromium asking for one that the
 app bundle does not contain. It is not a failure.

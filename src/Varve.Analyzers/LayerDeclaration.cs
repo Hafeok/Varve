@@ -55,7 +55,14 @@ internal static class LayerDeclaration
     internal const string AnalyzerTestAssemblyName = "Varve.Analyzers.Tests";
 
     private const int LowestLayer = 0;
-    private const int HighestLayer = 5;
+
+    /// <summary>
+    /// The host layer: the composition root, and the only layer an executable
+    /// may declare (ADR 0060).
+    /// </summary>
+    internal const int HostLayer = 6;
+
+    private const int HighestLayer = HostLayer;
 
     /// <summary>
     /// Whether <paramref name="assemblyName"/> is subject to the layering
@@ -71,21 +78,31 @@ internal static class LayerDeclaration
     /// also exempt from VARVE0001.
     /// </summary>
     /// <remarks>
-    /// Test and benchmark assemblies compose across layers by nature — a test
-    /// for the evaluator may need a store — and are not published, so the
-    /// stability argument behind the layering does not apply to them. The
+    /// Test assemblies compose across layers by nature — a test for the
+    /// evaluator may need a store, and internals — and are not published, so
+    /// the stability argument behind the layering does not apply to them. The
     /// analyzer itself runs inside the compiler and is not a library in the
     /// package graph. ADR 0004 records that this exemption is by name, and
-    /// that no analyzer can close that hole.
+    /// that no analyzer can close that hole. Benchmark assemblies had it too
+    /// until ADR 0060: they compose the public packages as a host does, and
+    /// declare the host layer.
     /// </remarks>
     internal static bool IsExemptFromLayering(string? assemblyName) =>
         assemblyName is not null
         && (assemblyName.EndsWith(".Tests", System.StringComparison.Ordinal)
-            || assemblyName.EndsWith(".Benchmarks", System.StringComparison.Ordinal)
             || string.Equals(assemblyName, AnalyzerAssemblyName, System.StringComparison.Ordinal));
 
     /// <summary>
-    /// Parses a declared layer. A layer is an integer from 0 to 5 inclusive;
+    /// Whether the compilation is an executable — the composition root ADR
+    /// 0060 reserves to <see cref="HostLayer"/>.
+    /// </summary>
+    internal static bool IsExecutable(Compilation compilation) =>
+        compilation.Options.OutputKind is OutputKind.ConsoleApplication
+            or OutputKind.WindowsApplication
+            or OutputKind.WindowsRuntimeApplication;
+
+    /// <summary>
+    /// Parses a declared layer. A layer is an integer from 0 to 6 inclusive;
     /// anything else, including <see cref="NoLayer"/>, is not a layer.
     /// </summary>
     internal static bool TryParseLayer(string? raw, out int layer)

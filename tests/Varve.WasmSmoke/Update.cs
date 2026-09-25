@@ -9,27 +9,23 @@ using System.Threading.Tasks;
 using Varve.Rdf;
 using Varve.Sparql.Evaluation;
 using Varve.Sparql.Results;
+using Varve.Sparql.Store;
 
 namespace Varve.WasmSmoke;
 
 /// <summary>
-/// Milestone 5c's smoke, which both hosts run: an update against an in-memory
-/// store — the data inserted, then a DELETE/INSERT whose WHERE is evaluated
-/// over the pinned head and whose change is committed expecting that head — a
-/// query over the result written as SPARQL results JSON, and a small dataset
-/// canonicalised with RDFC-1.0 under SHA-256 and SHA-384.
+/// Milestone 5c's smoke, which both hosts run: a SPARQL Update request of two
+/// operations executed through <c>Varve.Sparql.Store</c> as one commit to an
+/// in-memory store, a query over the result written as SPARQL results JSON,
+/// and a small dataset canonicalised with RDFC-1.0 under SHA-256 and SHA-384.
 /// </summary>
 /// <remarks>
-/// The update is composed here rather than through
-/// <c>Varve.Sparql.Store.SparqlUpdate</c>: ADR 0003 puts hosts and
-/// integrations both at layer 5, VARVE0001 forbids a same-layer reference, and
-/// no exception is recorded. The composition is the same one the package
-/// makes — pin, evaluate, commit at the pinned position — over the same
-/// store, evaluator and staging code.
+/// The update runs through the integration package since ADR 0060 made the
+/// smoke apps layer 6 hosts; until then they composed it by hand.
 /// </remarks>
 internal static partial class Smoke
 {
-    internal const string ExpectedUpdate = "Committed at 1; Committed at 2";
+    internal const string ExpectedUpdate = "Committed at 1";
 
     internal const string ExpectedJson =
         "{\"head\":{\"vars\":[\"s\",\"n\"]},\"results\":{\"bindings\":["
@@ -44,41 +40,20 @@ internal static partial class Smoke
 
     internal const string ExpectedCanonical384 = ExpectedCanonical;
 
-    private static readonly RdfTerm N = RdfTerm.Iri("http://example.org/n"u8);
+    private const string Request =
+        "PREFIX ex: <http://example.org/>\n"
+        + "INSERT DATA { ex:a ex:n 1 . ex:b ex:n \"B\u00e9\\n\"@fr } ;\n"
+        + "DELETE { ?s ex:n ?o } INSERT { ?s ex:n 2 } WHERE { ?s ex:n ?o FILTER(isNumeric(?o)) }";
 
     internal static async Task<(string Update, string Json, string Canonical, string Sha384)> UpdateAsync()
     {
         await using Varve.Store.Dataset dataset = await Varve.Store.Dataset.OpenAsync(
             new Varve.Store.MemoryStorage(), new Varve.Store.DatasetOptions { Clock = TimeProvider.System });
 
-        // INSERT DATA { ex:a ex:n 1 . ex:b ex:n "Bé\n"@fr }
-        Varve.Store.CommitResult inserted = await dataset.CommitAsync(new Varve.Store.CommitRequest()
-            .Assert(RdfTerm.Iri("http://example.org/a"u8), N, RdfTerm.Literal("1"u8, RdfTerm.Iri("http://www.w3.org/2001/XMLSchema#integer"u8)))
-            .Assert(RdfTerm.Iri("http://example.org/b"u8), N, RdfTerm.Literal("B\u00e9\n"u8, "fr"u8)));
-        string update = inserted.Outcome + " at " + dataset.Head.ToString(System.Globalization.CultureInfo.InvariantCulture);
-
-        // DELETE { ?s ex:n ?o } INSERT { ?s ex:n 2 } WHERE { ?s ex:n ?o FILTER(isNumeric(?o)) }
-        Varve.Store.CommitRequest rewrite;
-        using (Varve.Store.DatasetView where = dataset.Pin())
-        {
-            rewrite = new Varve.Store.CommitRequest { ExpectedPosition = where.Position };
-            Varve.Sparql.Algebra.Query select = Varve.Sparql.SparqlParser.ParseQuery(
-                "PREFIX ex: <http://example.org/>\nSELECT ?s ?o { ?s ex:n ?o FILTER(isNumeric(?o)) }".AsSpan());
-
-            using QueryResults matches = new SparqlEvaluator().Evaluate(select, where);
-            SolutionResults rows = (SolutionResults)matches;
-
-            while (rows.MoveNext())
-            {
-                if (rows.TryGetTerm(0, out RdfTerm? s) && rows.TryGetTerm(1, out RdfTerm? o))
-                {
-                    rewrite.Retract(s!, N, o!).Assert(s!, N, RdfTerm.Literal("2"u8, RdfTerm.Iri("http://www.w3.org/2001/XMLSchema#integer"u8)));
-                }
-            }
-        }
-
-        Varve.Store.CommitResult rewritten = await dataset.CommitAsync(rewrite);
-        update += "; " + rewritten.Outcome + " at " + dataset.Head.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        // Two operations, one commit: the second sees the first's insert.
+        Varve.Store.CommitResult result = await SparqlUpdate.ExecuteAsync(
+            dataset, Varve.Sparql.SparqlParser.ParseUpdate(Encoding.UTF8.GetBytes(Request)), new UpdateOptions());
+        string update = result.Outcome + " at " + dataset.Head.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
         using Varve.Store.DatasetView view = dataset.Pin();
         Varve.Sparql.Algebra.Query query = Varve.Sparql.SparqlParser.ParseQuery(

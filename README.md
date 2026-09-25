@@ -58,7 +58,7 @@ Update over that store, one request as one commit.
 | `Varve.Analyzers` | — | the layer rules, at build time | working, never shipped |
 | `Varve.Store` | 4 | the log, the default projection, pinned and as-of reads, checkpoints, subscriptions, dataset validators, the staging view | working, in memory; file and browser backends at milestone 6 |
 | `Varve.Sparql.Store` | 5 | SPARQL Update over the store: one request, one commit, `LOAD` through a caller's source | working |
-| SHACL, server, CLI | 3–5 | | not built |
+| SHACL, server, CLI | 3–6 | | not built |
 
 ### Conformance
 

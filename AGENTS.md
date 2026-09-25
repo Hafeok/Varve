@@ -33,12 +33,13 @@ shared mutable state, no static registries. **High cohesion**: one reason to cha
 | 2 | syntax: `Varve.Turtle`, `Varve.RdfXml`, `Varve.JsonLd`, `Varve.Sparql.Results`, and `Varve.Sparql` (the algebra, parser and serialiser) |
 | 3 | `Varve.Sparql.Evaluation` (optimiser and evaluator, one package — ADR 0048), `Varve.Shacl` |
 | 4 | `Varve.Store` — log, projection contract, pre-commit validator contract |
-| 5 | integration and hosts |
+| 5 | integrations: `Varve.Sparql.Store` |
+| 6 | hosts — every executable, and only executables: the server, the CLI, the smoke apps, the benchmarks (ADR 0060) |
 
 **Same-layer references are violations.** Contracts live in the lowest layer that
 can define them without knowing their implementers; `Varve.Store` is SPARQL-free
 (ADR 0005). ADR 0003's open question 1 (`Varve.Shacl` and the evaluator) is
-**not resolved** — do not resolve it in passing; question 2 was closed by ADR 0048. Each project declares `<VarveLayer>` (0–5, or `none`).
+**not resolved** — do not resolve it in passing; question 2 was closed by ADR 0048. Each project declares `<VarveLayer>` (0–6, or `none` for a test assembly).
 
 ## How we work
 
@@ -138,12 +139,10 @@ a work limit (ADR 0059), which the harness now uses to compare datasets. All
 547 query evaluation cases that are not blocked pass over both subjects (5b's
 544 and the three CSV cases 5b never wired), all
 94 update cases, all 86 `rdf-canon` cases and ten writer checks; the ratchet
-holds **2,721** lines, exemptions empty. AOT and the browser both commit an
-update composed from the store and the evaluator, write results JSON and
-canonicalise; neither references `Varve.Sparql.Store`, because ADR 0003
-puts hosts and integrations both at layer 5 and VARVE0001 then forbids the
-reference — a question for the maintainer, raised in the 5c record. **RDF 1.2 Turtle and TriG are not
-accepted at all** — `turtle.md` §9. Nothing is published; the first tag is
+holds **2,721** lines, exemptions empty. AOT and the browser both execute an
+update request through `Varve.Sparql.Store`, write results JSON and
+canonicalise; they are layer 6 hosts (ADR 0060). **RDF 1.2 Turtle and TriG
+are not accepted at all** — `turtle.md` §9. Nothing is published; the first tag is
 `v0.1.0-preview.1` (ADR 0029). Not built: HTTP for `LOAD` and `SERVICE`, the
 file and browser backends (milestone 6), erasure mode, SHACL, the server.
 `docs/roadmap.md` has the rest, an owner and a due milestone per open

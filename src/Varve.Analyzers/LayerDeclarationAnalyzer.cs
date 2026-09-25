@@ -22,7 +22,7 @@ namespace Varve.Analyzers;
 /// </para>
 /// <para>
 /// The value <c>none</c> is a declaration, not an absence. It is accepted from
-/// an assembly whose name marks it as a test, benchmark or analyzer assembly,
+/// an assembly whose name marks it as a test or analyzer assembly,
 /// and refused outright from anything packed into a package — whatever it is
 /// called. The name check and the <c>IsPackable</c> check catch different
 /// things, and it is the pair that closes the hole: a package cannot escape a
@@ -41,16 +41,25 @@ namespace Varve.Analyzers;
 public sealed class LayerDeclarationAnalyzer : DiagnosticAnalyzer
 {
     internal const string MustDeclare =
-        "declares no layer. A Varve.* assembly must set the VarveLayer MSBuild property to an integer from 0 to 5, "
-        + "or to 'none' if it is a test, benchmark or analyzer assembly (ADR 0003)";
+        "declares no layer. A Varve.* assembly must set the VarveLayer MSBuild property to an integer from 0 to 6, "
+        + "or to 'none' if it is a test or analyzer assembly (ADR 0003, ADR 0060)";
 
     internal const string NoLayerNotAllowed =
-        "declares VarveLayer as 'none', which is allowed only for a test assembly, a benchmark assembly, or "
-        + "Varve.Analyzers. A published Varve package has a layer (ADR 0003)";
+        "declares VarveLayer as 'none', which is allowed only for a test assembly or Varve.Analyzers. A published "
+        + "Varve package has a layer, and a host or benchmark declares layer 6 (ADR 0003, ADR 0060)";
+
+    internal const string ExecutableBelowHostLayerFormat =
+        "is an executable declaring layer {0}. An executable is a composition root, which ADR 0060 reserves to "
+        + "layer 6: declare VarveLayer 6, or build it as a library";
+
+    internal const string HostLayerNotExecutable =
+        "declares layer 6 but is not an executable. Layer 6 is the composition root and nothing may reference it, "
+        + "so a library there is unreachable: build it as an executable, or give it the layer of what it is — "
+        + "an integration is layer 5 (ADR 0060)";
 
     internal const string NoLayerOnPackable =
         "declares VarveLayer as 'none' but is packable. Whatever it is named, an assembly that is packed is in the "
-        + "package graph the layering rule describes and must declare an integer from 0 to 5. Set a layer, or set "
+        + "package graph the layering rule describes and must declare an integer from 0 to 6. Set a layer, or set "
         + "IsPackable to false (ADR 0003)";
 
     internal const string AnalyzerReferencedAsLibrary =
@@ -59,7 +68,7 @@ public sealed class LayerDeclarationAnalyzer : DiagnosticAnalyzer
         + "OutputItemType=\"Analyzer\" and ReferenceOutputAssembly=\"false\" (ADR 0004)";
 
     internal const string MalformedFormat =
-        "declares VarveLayer as '{0}', which is not a layer. A layer is an integer from 0 to 5 inclusive, or the "
+        "declares VarveLayer as '{0}', which is not a layer. A layer is an integer from 0 to 6 inclusive, or the "
         + "literal 'none' (ADR 0003)";
 
     internal const string ReferenceMissingMetadata =
@@ -68,7 +77,7 @@ public sealed class LayerDeclarationAnalyzer : DiagnosticAnalyzer
 
     internal const string ReferenceMalformedFormat =
         "is referenced and carries Varve.Layer metadata of '{0}', which is not a layer. A layer is an integer from "
-        + "0 to 5 inclusive (ADR 0003)";
+        + "0 to 6 inclusive (ADR 0003)";
 
     /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
@@ -92,11 +101,12 @@ public sealed class LayerDeclarationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        ReportOwnDeclaration(context, declaringName);
+        ReportOwnDeclaration(context, compilation, declaringName);
         ReportReferences(context, compilation, declaringName);
     }
 
-    private static void ReportOwnDeclaration(CompilationAnalysisContext context, string? declaringName)
+    private static void ReportOwnDeclaration(
+        CompilationAnalysisContext context, Compilation compilation, string? declaringName)
     {
         AnalyzerConfigOptionsProvider options = context.Options.AnalyzerConfigOptionsProvider;
         string? declared = LayerDeclaration.ReadDeclaredValue(options);
@@ -124,10 +134,24 @@ public sealed class LayerDeclarationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!LayerDeclaration.TryParseLayer(declared, out _))
+        if (!LayerDeclaration.TryParseLayer(declared, out int layer))
         {
             Report(context, declaringName, string.Format(
                 System.Globalization.CultureInfo.InvariantCulture, MalformedFormat, declared));
+            return;
+        }
+
+        // ADR 0060: executable and layer 6 are the same thing, both ways.
+        bool executable = LayerDeclaration.IsExecutable(compilation);
+
+        if (executable && layer != LayerDeclaration.HostLayer)
+        {
+            Report(context, declaringName, string.Format(
+                System.Globalization.CultureInfo.InvariantCulture, ExecutableBelowHostLayerFormat, layer));
+        }
+        else if (!executable && layer == LayerDeclaration.HostLayer)
+        {
+            Report(context, declaringName, HostLayerNotExecutable);
         }
     }
 

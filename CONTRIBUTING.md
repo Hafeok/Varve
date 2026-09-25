@@ -303,8 +303,9 @@ constructs outright, and prove the rejection with tests.
 
 ## Adding a package
 
-New projects declare `<VarveLayer>` — 0–5, or `none` for a test, benchmark or
-analyzer assembly — enforced by `VARVE0001` and `VARVE0002`. References go
+New projects declare `<VarveLayer>` — 0–6, or `none` for a test or analyzer
+assembly — enforced by `VARVE0001` and `VARVE0002`. An executable is a host
+and declares 6, and only an executable may (ADR 0060). References go
 strictly downward; **same-layer references are violations**, and there is never
 a `Common`, `Core`, `Utils`, `Helpers` or `Abstractions` package.
 

@@ -33,13 +33,25 @@ internal sealed class LayerAnalyzerTest<TAnalyzer> : CSharpAnalyzerTest<TAnalyze
 {
     private readonly Dictionary<string, string> _assemblyNames = new(StringComparer.Ordinal);
 
-    internal LayerAnalyzerTest(string declaringAssemblyName, string? declaredLayer, bool isPackable = false)
+    internal LayerAnalyzerTest(
+        string declaringAssemblyName, string? declaredLayer, bool isPackable = false, bool isExecutable = false)
     {
         ReferenceAssemblies = ReferenceAssemblies.Net.Net80;
 
         _assemblyNames[DefaultTestProjectName] = declaringAssemblyName;
 
-        TestCode = "namespace Declaring { internal sealed class Marker { } }";
+        // An executable is what ADR 0060 calls a composition root; the rules
+        // read it from the compilation's output kind, so the declaring
+        // compilation is built as one, with the entry point that needs.
+        if (isExecutable)
+        {
+            TestState.OutputKind = OutputKind.ConsoleApplication;
+            TestCode = "namespace Declaring { internal static class Program { private static void Main() { } } }";
+        }
+        else
+        {
+            TestCode = "namespace Declaring { internal sealed class Marker { } }";
+        }
 
         // IsPackable is always supplied, because the repository always has a
         // value for it: Directory.Build.props defaults it to false and a

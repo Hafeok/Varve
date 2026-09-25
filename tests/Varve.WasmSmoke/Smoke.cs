@@ -272,10 +272,10 @@ internal static partial class Smoke
     }
 
     /// <summary>
-    /// Milestone 5c: an update committed against the pinned head, a query's
-    /// results written as SPARQL results JSON, and a small dataset
-    /// canonicalised with RDFC-1.0 under SHA-256 and SHA-384, each compared
-    /// whole with what the AOT host produces.
+    /// Milestone 5c: a two-operation update request committed as one commit
+    /// through Varve.Sparql.Store, a query's results written as SPARQL results
+    /// JSON, and a small dataset canonicalised with RDFC-1.0 under SHA-256 and
+    /// SHA-384, each compared whole with what the AOT host produces.
     /// </summary>
     private static async Task<string> Update()
     {

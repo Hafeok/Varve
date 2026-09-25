@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted. 2026-09-20.
+Accepted. 2026-09-20. **Its layer table is superseded by
+[0060](0060-hosts-at-layer-6-the-composition-root.md)**: integrations stay at
+layer 5, hosts move to a layer 6 reserved to executables, and benchmark
+assemblies declare a layer rather than `none`. The rest stands.
 
 Enforced by `VARVE0001` and `VARVE0002`. See
 `docs/rules/VARVE0001.md`, `docs/rules/VARVE0002.md` and ADR 0004.

@@ -12,9 +12,9 @@
 
     <IsPackable>false</IsPackable>
 
-    <!-- Layer 5, for the same reason as Varve.AotSmoke: a smoke app is a host.
-         Nothing is published. -->
-    <VarveLayer>5</VarveLayer>
+    <!-- Layer 6, for the same reason as Varve.AotSmoke: a smoke app is a host,
+         and a host is layer 6 (ADR 0060). Nothing is published. -->
+    <VarveLayer>6</VarveLayer>
 
     <!-- wasm-experimental, not Blazor. Constraint 3 is that Varve runs in a
          browser, not that it runs in a web framework, and Blazor would drag in
@@ -36,6 +36,7 @@
     <ProjectReference Include="../../src/Varve.Sparql/Varve.Sparql.csproj" />
     <ProjectReference Include="../../src/Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
     <ProjectReference Include="../../src/Varve.Sparql.Results/Varve.Sparql.Results.csproj" />
+    <ProjectReference Include="../../src/Varve.Sparql.Store/Varve.Sparql.Store.csproj" />
   </ItemGroup>
 
   <ItemGroup>

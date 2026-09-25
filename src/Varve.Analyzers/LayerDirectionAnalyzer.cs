@@ -21,7 +21,7 @@ namespace Varve.Analyzers;
 /// answered rather than deferred.
 /// </para>
 /// <para>
-/// An assembly exempt from layering — a test, a benchmark, or the analyzer
+/// An assembly exempt from layering — a test assembly or the analyzer
 /// itself — is skipped. So is a compilation whose own declaration is missing or
 /// malformed: VARVE0002 reports that, and reporting both would say the same
 /// thing twice.
