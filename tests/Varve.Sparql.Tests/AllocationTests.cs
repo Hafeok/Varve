@@ -18,12 +18,26 @@ namespace Varve.Sparql.Tests;
 /// difference for building the same two trees by hand.
 /// </summary>
 /// <remarks>
+/// <para>
 /// A difference rather than an absolute number, as <c>docs/testing.md</c> §4
 /// asks, so that the fixed cost of a parse — a lexer buffer, the interning
 /// table, the prologue — cancels. Equal rather than small, because a pooled
 /// builder that leaked one growth step per pattern would be "small" and
 /// wrong. Both sides are run twice first so that every pool has reached the
 /// size the larger query needs.
+/// </para>
+/// <para>
+/// Each side is measured three times and the smallest reading counts. The
+/// first pull request run reported the parse 152 bytes over on one runner and
+/// 152 under on another: a 16-element reference array, the shared array
+/// pool's smallest bucket, which the pooled lists rent. That pool drops its
+/// thread-local arrays on a gen-2 collection under high memory pressure, so
+/// the collection this test used to force between warm-up and measurement
+/// was what made the next rent allocate on a loaded runner. The allocation
+/// counter is monotonic and needs no collection, so none is forced now; and
+/// a stray allocation only ever adds, so the minimum of several readings is
+/// the cost.
+/// </para>
 /// </remarks>
 public class AllocationTests
 {
@@ -84,14 +98,18 @@ public class AllocationTests
             GC.KeepAlive(action());
         }
 
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
+        long least = long.MaxValue;
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        object result = action();
-        long after = GC.GetAllocatedBytesForCurrentThread();
-        GC.KeepAlive(result);
-        return after - before;
+        for (int i = 0; i < 3; i++)
+        {
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            object result = action();
+            long after = GC.GetAllocatedBytesForCurrentThread();
+            GC.KeepAlive(result);
+            least = Math.Min(least, after - before);
+        }
+
+        return least;
     }
 
     [Fact]

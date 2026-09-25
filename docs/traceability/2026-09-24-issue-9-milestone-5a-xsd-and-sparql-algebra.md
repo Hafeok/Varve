@@ -12,7 +12,7 @@
 | **Model** | `claude-fable-5-1` (Claude Fable 5.1), configured and served — confirmed from the session's own metadata, not from memory |
 | **Session identifier** | `session_01XRAfH8gbwVQ1SvtYnSuo3o` |
 | **Branch** | `claude/milestone-5a-xsd-algebra-nerbse`, landing on `main` as one pull request (ADR 0034's amendment) |
-| **Commits** | 18 |
+| **Commits** | 19 |
 
 ## The prompt
 
@@ -331,7 +331,14 @@ For the W3C drafts, three observations, none patched here:
 15. `f7adf8a` test(sparql): the allocation assertion, and the parser under Native AOT and in the browser
 16. `354039f` perf(sparql): parse throughput against dotNetRDF
 17. `f013709` fix(store): a merged run stays an exact delta
-18. the closing commit: roadmap, README, changelog and this record
+18. `7ac3794` docs: roadmap, README, changelog, the traceability record
+19. after the pull request opened: test(sparql): the allocation assertion
+    survives a trimmed array pool — the first CI run reported the parse 152
+    bytes over on the devcontainer runner and 152 under on Windows, a
+    16-element reference array from the shared pool's smallest bucket, which
+    the pool drops from its thread-local cache on a gen-2 collection under
+    memory pressure; the test no longer forces that collection and takes the
+    least of three readings per side
 
 ## What this record does not contain
 
