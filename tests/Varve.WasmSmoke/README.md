@@ -1,10 +1,12 @@
 # Varve.WasmSmoke
 
-A `browser-wasm` app that does five things on one page: parses N-Quads, reads
+A `browser-wasm` app that does six things on one page: parses N-Quads, reads
 and writes Turtle and TriG, opens an in-memory `Varve.Store` dataset — commit,
 pin, checkpoint, as-of, and a reopen from its own log — parses a SPARQL query
 and an update, prints the algebra through the serialiser and parses it back,
-and probes the cryptographic primitives ADR 0028's composition needs.
+evaluates queries over a store loaded from Turtle, and probes the
+cryptographic primitives ADR 0028's composition and SPARQL's hash functions
+need.
 
 Turtle is there because N-Quads exercises none of what it adds — the statement
 buffer, the prefix table, the blank node naming, the writer's state — so a
@@ -42,20 +44,26 @@ On .NET 10 in headless Chromium 141:
 | Primitive | Browser | |
 |---|---|---|
 | `RandomNumberGenerator.Fill` | works | ADR 0028 |
-| `SHA256` | works | ADR 0028 |
+| `SHA256` | works | ADR 0028, SPARQL `SHA256()` |
 | `HMACSHA256` | works | ADR 0028 |
 | `HKDF.DeriveKey` | works, deterministic | ADR 0028 |
 | `CryptographicOperations.FixedTimeEquals` | works | ADR 0028 |
+| `SHA1` | works | SPARQL `SHA1()` |
+| `SHA384` | works | SPARQL `SHA384()` |
+| `SHA512` | works | SPARQL `SHA512()` |
+| `MD5` | throws `CryptographicException` | SPARQL `MD5()`: the package's own, RFC 1321 |
 | `Aes.Create()` | throws `PlatformNotSupportedException` | ADR 0020 |
 | `AesGcm.IsSupported` | false | |
 | `AesCcm.IsSupported` | false | |
 | `ChaCha20Poly1305.IsSupported` | false | |
 
-Read it in two halves. The last four are **ADR 0020's acceptance condition**,
+Read it in three parts. The last four are **ADR 0020's acceptance condition**,
 and they failed it: no symmetric cipher of any kind is available in a browser,
 which is a wider finding than the one that ADR was testing for. The first five
 are **ADR 0028's first condition**, and they hold — 0028 builds a deterministic
 AEAD out of exactly those primitives because they are the ones that run here.
+The four between are SPARQL's hash functions (milestone 5b): three are the
+platform's, and `MD5` is not available, so the evaluator carries its own.
 
 The table is **pinned in `Smoke.cs` and asserted**, so a runtime that changes
 any row makes this fail. That is the correct behaviour in both directions: a
@@ -76,6 +84,15 @@ compared for the identical tree; an update goes the same way; an ill-formed
 query is refused with its position. The trimmer kept every record's
 synthesised equality and the dictionary's span lookup, which is what the
 round trip proves.
+
+**The evaluator runs in the browser** (milestone 5b, headless Chromium 141):
+a Turtle document committed to the store, then over its pinned view a basic
+graph pattern with a filter, an aggregate (`COUNT`, `SUM`, `AVG`), a `+`
+closure, and the five hash functions of SPARQL over `"abc"`, each compared
+whole with its expected answer. The platform's `MD5` throws here, so SPARQL's
+`MD5()` is `Varve.Sparql.Evaluation`'s own RFC 1321 implementation, tested
+against §A.5's vectors; the other four are the platform's, and the rows above
+pin that they are available.
 
 A `404` for `/favicon.ico` in the console is Chromium asking for one that the
 app bundle does not contain. It is not a failure.

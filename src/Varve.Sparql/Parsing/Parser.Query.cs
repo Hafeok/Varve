@@ -631,19 +631,38 @@ internal ref partial struct Parser
     {
         _ = pattern;
 
-        foreach (SelectItem item in items.Span)
+        // A SELECT expression may read an alias an earlier one bound: each is
+        // an Extend over the ones before it (§18.3.4.4), and sparql-grammar.md
+        // §4 admits a variable "bound by AS". The keys grow by each alias as the
+        // items are read; HAVING runs before any of them and sees the keys only.
+        PooledList<Variable> bound = default;
+
+        try
         {
-            if (item.Expression is null)
+            foreach (Variable key in keys.Span)
             {
-                if (!Contains(keys.Span, item.Variable))
+                bound.Add(key);
+            }
+
+            foreach (SelectItem item in items.Span)
+            {
+                if (item.Expression is null)
                 {
-                    throw Fail(SparqlErrorKind.Aggregate, item.At, "The variable " + item.Variable + " is projected but is not a GROUP BY key of a level that aggregates (SPARQL 1.2 Query §11.4).");
+                    if (!Contains(bound.Span, item.Variable))
+                    {
+                        throw Fail(SparqlErrorKind.Aggregate, item.At, "The variable " + item.Variable + " is projected but is not a GROUP BY key of a level that aggregates (SPARQL 1.2 Query §11.4).");
+                    }
+                }
+                else
+                {
+                    CheckVariablesAreKeys(item.Expression, ref bound, item.At);
+                    AddScope(ref bound, item.Variable);
                 }
             }
-            else
-            {
-                CheckVariablesAreKeys(item.Expression, ref keys, item.At);
-            }
+        }
+        finally
+        {
+            bound.Dispose();
         }
 
         foreach (Expression condition in having)

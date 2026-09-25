@@ -11,6 +11,25 @@ id.
 **Revisit condition** (see *Consequences*): milestone 5 evaluator benchmarks
 show the opaque handle costs more than it saves. Meeting it supersedes this ADR.
 
+> **Judged 2026-09-25** (milestone 5b, by ADR 0050's rule). **The condition
+> does not fire; this ADR stands, and the accessor stays.** The rule fires
+> only if the materialised arm beats the accessor arm on both measurements
+> by more than run-to-run noise. On the SPARQL 1.0 and 1.1 suites' wall time
+> over the store (522 cases, three processes of 20 interleaved runs per arm)
+> the arms are indistinguishable: medians of 76.0–79.0 ms for the accessor,
+> 74.6–78.2 ms materialised, 75.3–79.8 ms externalising, against a spread of
+> 62–284 ms within each. On one million inline integers the accessor arm is
+> faster in every case — `FILTER(?o > n)` at 1%, 50% and 99% and the equality
+> case in 136–164 ms against 3,246–3,416 ms materialised, 20–23×, and
+> `ORDER BY ?o` in 785 ms against 4,958 ms, 6.3× — and allocates 46 MB
+> against 692 MB. The externalise arm, 0022 as shipped, sits between: the
+> accessor bought 2.0–2.3× on the filters and 5.0× on the sort. Measured on
+> an Intel Xeon @ 2.80 GHz, 4 cores, .NET 10.0.12; the tables are in
+> `tests/Varve.Benchmarks/README.md`. The materialised arm still joins on
+> handles, as the maintainer's decision on the plan said, so its cost is a
+> lower bound on a term-based contract's; that it loses anyway is the
+> stronger for it.
+
 ## Context
 
 The quad source contract is the most load-bearing type in the design. The

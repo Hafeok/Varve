@@ -189,6 +189,17 @@ public class ParserTests
     }
 
     [Fact]
+    public void a_select_expression_at_a_grouped_level_may_read_an_earlier_alias()
+    {
+        // sparql12/grouping select-variable-reuse: each alias is an Extend over the ones before it.
+        Query query = SparqlParser.ParseQuery(Encoding.UTF8.GetBytes(Prefix + "SELECT ?s (COUNT(?o) AS ?n) (?n * 2 AS ?m) WHERE { ?s :p ?o } GROUP BY ?s"));
+        Assert.Equal(AlgebraList.Of(new Variable("s"), new Variable("n"), new Variable("m")), Assert.IsType<Project>(query.Pattern).Variables);
+
+        // An alias is read only after it is bound, and a later alias is not visible to an earlier one.
+        Assert.Equal(SparqlErrorKind.Aggregate, Error(Prefix + "SELECT ?s (?m * 2 AS ?n) (COUNT(?o) AS ?m) WHERE { ?s :p ?o } GROUP BY ?s").Kind);
+    }
+
+    [Fact]
     public void reified_triples_and_annotations_expand_to_reifies_triples()
     {
         Query query = SparqlParser.ParseQuery(Encoding.UTF8.GetBytes(Prefix + "SELECT * { ?person :name \"Alice\" ~ :t {| :statedBy ?authority |} }"));

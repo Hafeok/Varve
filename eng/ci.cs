@@ -104,7 +104,7 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-turtle", "Varve.Turtle",
         () => Test("Varve.Turtle.Tests")),
 
-    ("test-xsd", "Varve.Xsd, and the properties that gate it until the evaluation suite can",
+    ("test-xsd", "Varve.Xsd, and its properties; the evaluation suites gate it too",
         () => Test("Varve.Xsd.Tests")),
 
     ("test-store", "Varve.Store, and the specification's section 10 properties",
@@ -112,6 +112,12 @@ List<(string Name, string Description, Func<int> Run)> jobs =
 
     ("test-sparql", "Varve.Sparql: the algebra, the parser, and the round-trip property",
         () => Test("Varve.Sparql.Tests")),
+
+    ("test-sparql-results", "Varve.Sparql.Results: the four readers, the chunk-boundary oracle over every suite result file",
+        () => Test("Varve.Sparql.Results.Tests")),
+
+    ("test-sparql-evaluation", "Varve.Sparql.Evaluation: the optimiser and store properties, allocation, MD5, cancellation, SERVICE",
+        () => Test("Varve.Sparql.Evaluation.Tests")),
 
     // tools/repo-standard is its own solution, outside Varve.slnx, and moves to
     // its own repository (ADR 0039). Its jobs are separate so that the move

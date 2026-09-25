@@ -22,3 +22,4 @@
 93df7d5  Stewardship — the Mind Over Machine standard
 2a37398  Milestone 4 — the in-memory log and the default quad projection
 cd3de76  Milestone 5a — XSD datatypes, the SPARQL algebra and parser
+f62509d  Milestone 5b — the optimiser and evaluator, and the result-format readers

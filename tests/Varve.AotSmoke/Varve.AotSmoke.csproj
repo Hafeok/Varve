@@ -30,6 +30,7 @@
     <ProjectReference Include="../../src/Varve.Turtle/Varve.Turtle.csproj" />
     <ProjectReference Include="../../src/Varve.Store/Varve.Store.csproj" />
     <ProjectReference Include="../../src/Varve.Sparql/Varve.Sparql.csproj" />
+    <ProjectReference Include="../../src/Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
   </ItemGroup>
 
 </Project>

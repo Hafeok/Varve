@@ -14,6 +14,27 @@ published to nuget.org, so every change below is unreleased and the sections
 are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 ([ADR 0029](docs/adr/0029-publishing-and-versioning.md)).
 
+### Milestone 5b — the optimiser and evaluator, and the result-format readers
+
+#### Added
+
+- **results**: Varve.Sparql.Results — the four result-format readers (31ed038b)
+- **evaluation**: Varve.Sparql.Evaluation — the optimiser and evaluator (61c82cfd)
+
+#### Changed
+
+- **adr**: 0053–0056, the questions 5a left to 5b (f62509d9)
+- **spec**: the evaluation and result-format specifications (079f1a21)
+- **evaluation**: the optimiser and store properties, allocation, MD5 (21dd9090)
+- **conformance**: the W3C query evaluation suites, over two subjects (882e349e)
+- **smoke**: the evaluator under Native AOT and in the browser (81c2cf1d)
+- **evaluation**: ADR 0050's arms, a BSBM-style mix, and Oxigraph (f439e391)
+
+#### Fixed
+
+- **sparql**: a grouped SELECT expression may read an earlier alias (e97abdaf)
+- **evaluation**: the materialised arm through blank nodes, and sort keys once per row (09700b05)
+
 ### Milestone 5a — XSD datatypes, the SPARQL algebra and parser
 
 #### Added
@@ -37,6 +58,8 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **spec**: the SPARQL grammar and algebra specifications (bcba772c)
 - **sparql**: the allocation assertion, and the parser under Native AOT and in the browser (f7adf8aa)
 - **sparql**: parse throughput against dotNetRDF (354039f7)
+- roadmap, README, changelog, the traceability record (7ac3794d)
+- **sparql**: the allocation assertion survives a trimmed array pool (7d43295a)
 
 #### Fixed
 

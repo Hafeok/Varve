@@ -124,18 +124,23 @@ ADR, a rule, a suite and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone 4. `src/` holds `Varve.Analyzers`, `Varve.Iri` (0), `Varve.Rdf` (1),
-`Varve.Turtle` (2) and **`Varve.Store` (4)** — the in-memory log, the default
-quad projection as sorted runs, pinned and as-of reads, checkpoints, `Diff`,
-settings, subscriptions and the failed state, over `MemoryStorage`
-(durability `None`). §10's properties that do not concern erasure or the file
-backend pass against a reference model (ADR 0043); a scan allocates zero bytes
-per quad. **All 883** syntax cases pass, exemptions empty. AOT and the browser
-both run the store. Specification **1.3**. **RDF 1.2 Turtle and TriG are not
-accepted at all** — `turtle.md` §9. Nothing is published; the first tag is
-`v0.1.0-preview.1` (ADR 0029). Not built: `Varve.Xsd`, canonicalisation, the
-file and browser backends, erasure mode, SPARQL, SHACL. `docs/roadmap.md` has
-the rest, an owner and a due milestone per open question.
+Milestone 5b. `src/` holds `Varve.Analyzers`, `Varve.Iri` and `Varve.Xsd`
+(0), `Varve.Rdf` (1), `Varve.Turtle`, `Varve.Sparql` and
+**`Varve.Sparql.Results`** (2), **`Varve.Sparql.Evaluation`** (3) and
+`Varve.Store` (4). The evaluator answers SPARQL 1.1 queries, with the 1.2
+additions, over any `IQuadSource` — the store's pinned and as-of views and
+`InMemoryDataset` — with an optimiser whose every rewrite is held to an
+equivalence property; the results readers read XML, JSON, CSV and TSV. **All
+544** evaluation cases that are not blocked pass over both subjects, and in
+all three of ADR 0050's arms; 41 SPARQL 1.2 cases are blocked on RDF 1.2
+Turtle data, which roadmap slice 6b unblocks. With the syntax suites the
+ratchet holds **2,525** lines, exemptions empty. AOT and the browser both
+evaluate queries. **RDF 1.2 Turtle and TriG are not accepted at all** —
+`turtle.md` §9. Nothing is published; the first tag is `v0.1.0-preview.1`
+(ADR 0029). Not built: result writers, update execution, HTTP federation,
+canonicalisation (5c), the file and browser backends, erasure mode, SHACL,
+the server. `docs/roadmap.md` has the rest, an owner and a due milestone per
+open question.
 
 `tools/repo-standard/` is **repo-standard** (ADR 0039): a CLI and a GitHub
 Action that apply a declared set of GitHub repository settings. Built here,

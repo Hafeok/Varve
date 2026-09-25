@@ -62,11 +62,15 @@ The order is specification, then ADR, then code.
   the update operations as a record of the request, the serialiser's
   round-trip contract, and the rewrite surface.
 
-## Planned
-
-- `sparql-evaluation.md` — the algebra semantics the evaluator implements,
-  with the aggregate extraction and the sequence-path rewrite that
-  `sparql-algebra.md` leaves to it. Milestone 5b.
+- **[`sparql-evaluation.md`](sparql-evaluation.md)** — what the evaluator does
+  with the algebra: the entry point and the pinned-read contract, solutions as
+  slots of handles with a local term table, every operator by §18.5, the
+  datasets of §13, the function library by §17.4, the order of `ORDER BY`,
+  the optimiser's rewrites and the property that keeps them honest, and
+  ADR 0050's three arms.
+- **[`sparql-results.md`](sparql-results.md)** — the four result formats'
+  readers: one pull reader over UTF-8 with term views, a non-validating XML
+  subset reader, and positions on error. The writers are 5c's.
 
 Cite specification sections when you write one. Where a W3C specification is
 silent, Oxigraph's behaviour is the tie-breaker; say so explicitly in the text

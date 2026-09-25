@@ -8,21 +8,26 @@
 // says the same of the storage contract, and ADR 0040 puts the memory backend
 // in Varve.Store, under this list.
 //
-// The clock is DatasetOptions.Clock, a TimeProvider the caller supplies. It is
-// required, so there is no default for this list to have to exempt.
+// ADR 0056 extends the list to Varve.Sparql.Evaluation: NOW(), RAND(), UUID()
+// and STRUUID() read what the caller injects, so that the evaluator's
+// properties compare answers that cannot differ by time or chance.
+//
+// The clock is a TimeProvider the caller supplies — DatasetOptions.Clock in
+// the store, EvaluationOptions.Clock in the evaluator — and randomness is the
+// evaluator's IRandomSource. Neither has a default for this list to exempt.
 
 // --- ambient clock ------------------------------------------------------------
-P:System.DateTime.Now; Ambient clock. Use the injected TimeProvider (DatasetOptions.Clock). ADR 0011.
-P:System.DateTime.UtcNow; Ambient clock. Use the injected TimeProvider (DatasetOptions.Clock). ADR 0011.
-P:System.DateTime.Today; Ambient clock. Use the injected TimeProvider (DatasetOptions.Clock). ADR 0011.
-P:System.DateTimeOffset.Now; Ambient clock. Use the injected TimeProvider (DatasetOptions.Clock). ADR 0011.
-P:System.DateTimeOffset.UtcNow; Ambient clock. Use the injected TimeProvider (DatasetOptions.Clock). ADR 0011.
-P:System.TimeProvider.System; The system clock is the caller's choice, not the store's. Take a TimeProvider. ADR 0011.
-T:System.Diagnostics.Stopwatch; Ambient clock. Time through the injected TimeProvider. ADR 0011.
-P:System.Environment.TickCount; Ambient clock. Use the injected TimeProvider. ADR 0011.
-P:System.Environment.TickCount64; Ambient clock. Use the injected TimeProvider. ADR 0011.
+P:System.DateTime.Now; Ambient clock. Use the injected TimeProvider. ADR 0011, ADR 0056.
+P:System.DateTime.UtcNow; Ambient clock. Use the injected TimeProvider. ADR 0011, ADR 0056.
+P:System.DateTime.Today; Ambient clock. Use the injected TimeProvider. ADR 0011, ADR 0056.
+P:System.DateTimeOffset.Now; Ambient clock. Use the injected TimeProvider. ADR 0011, ADR 0056.
+P:System.DateTimeOffset.UtcNow; Ambient clock. Use the injected TimeProvider. ADR 0011, ADR 0056.
+P:System.TimeProvider.System; The system clock is the caller's choice, not the package's. Take a TimeProvider. ADR 0011, ADR 0056.
+T:System.Diagnostics.Stopwatch; Ambient clock. Time through the injected TimeProvider. ADR 0011, ADR 0056.
+P:System.Environment.TickCount; Ambient clock. Use the injected TimeProvider. ADR 0011, ADR 0056.
+P:System.Environment.TickCount64; Ambient clock. Use the injected TimeProvider. ADR 0011, ADR 0056.
 
 // --- ambient randomness -------------------------------------------------------
-T:System.Random; Ambient randomness. Nothing in the log may depend on it (spec §10, determinism). ADR 0011.
-T:System.Security.Cryptography.RandomNumberGenerator; Ambient randomness. Nothing in the log may depend on it (spec §10, determinism). ADR 0011.
-M:System.Guid.NewGuid; Ambient randomness. Ids are counters allocated by the sequencer (ADR 0012). ADR 0011.
+T:System.Random; Ambient randomness. Take the injected source: nothing in the log or in a compared answer may depend on it. ADR 0011, ADR 0056.
+T:System.Security.Cryptography.RandomNumberGenerator; Ambient randomness. Take the injected source: nothing in the log or in a compared answer may depend on it. ADR 0011, ADR 0056.
+M:System.Guid.NewGuid; Ambient randomness. Store ids are sequencer counters (ADR 0012); UUID() takes the injected source. ADR 0011, ADR 0056.

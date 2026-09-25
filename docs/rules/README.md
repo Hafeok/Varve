@@ -15,7 +15,7 @@ are never reused.
 | VARVE0004 | No `Common`, `Core`, `Utils`, `Helpers` or `Abstractions` | Reserved |
 | VARVE0005 | No mutable static state or static registries | Reserved |
 | VARVE0006 | Hot path discipline | Reserved |
-| VARVE0007 | Public contracts use `Varve.Rdf` types or BCL primitives | Reserved |
+| VARVE0007 | Public contracts use `Varve.Rdf` types, BCL primitives, or algebra node types (wording amended 2026-09-25, ADR 0004) | Reserved |
 | VARVE0008 | A suppression must cite an ADR | Reserved |
 
 A reserved id is allocated and agreed in principle. It is not a rule until the
