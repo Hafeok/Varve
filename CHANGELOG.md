@@ -22,6 +22,7 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **store**: validators bound to the dataset, and the staging view (a3f073d3)
 - **sparql-store**: Varve.Sparql.Store — SPARQL Update as one commit (ac87f326)
 - **rdf**: RDFC-1.0 canonicalisation, bounded by a work limit (7bbe4f77)
+- **turtle**: canonical N-Triples and N-Quads are RDF 1.2's, gated by its c14n suites (3f2f08b8)
 
 #### Changed
 
@@ -37,6 +38,8 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **adr**: 0060, hosts at layer 6 — the composition root, reserved to executables (3356f272)
 - **spec**: RDFC-1.0's blank-graph-name limit, stated for callers, with the evidence corrected (4655d17c)
 - build the benchmark project on every run, without running it (2b872976)
+- changelog (1148f1c5)
+- **adr**: 0061, canonical N-Triples and N-Quads follow RDF 1.2 (1dd3eeff)
 
 #### Fixed
 
