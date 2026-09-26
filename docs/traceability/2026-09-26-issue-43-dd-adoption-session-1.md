@@ -239,6 +239,7 @@ Filled in pull request by pull request.
 |---|---:|---:|---|
 | 0001–0010 | 8 | 67 | part 2 |
 | 0011–0020 | 8 | 65 | part 3 |
+| 0021–0030 | 10 | 65 | part 4 |
 
 **No set file, because wholly superseded:**
 - 0002, superseded by 0031. Its rulings move to 0031's set.
@@ -265,6 +266,12 @@ Filled in pull request by pull request.
 - **Open questions and revisit conditions throughout.** Q2 and Q3 (0013), Q1
   (0012, answered by 0044), and the revisit conditions of 0012 and 0018 are a
   falsifier or a question, not a ruling, and are not enumerated.
+- **0022's revisit condition** was judged on 2026-09-25 and did not fire. A
+  judgement is not a ruling. 0027's "Oxigraph remains owed" is a debt, not a
+  ruling. Neither is enumerated.
+- **Superseded wholesale, carried by the successor:** 0019's rulings are in
+  0023's set and 0020's cipher decision is in 0028's. Neither predecessor had a
+  set file, so the successor's key is the only one.
 
 **`revoked-at` uses:** none.
 
