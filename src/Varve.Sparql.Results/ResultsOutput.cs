@@ -33,6 +33,7 @@ internal sealed class ResultsOutput : IDisposable
     }
 
     /// <summary>Bytes buffered for the stream and not yet written to it.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal int Pending { get; private set; }
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
@@ -91,7 +92,7 @@ internal sealed class ResultsOutput : IDisposable
     {
         if (_writer is not null)
         {
-            return _writer.GetSpan(size);
+            return WriterSpan(size);
         }
 
         ObjectDisposedException.ThrowIf(_pooled is null, this);
@@ -109,7 +110,7 @@ internal sealed class ResultsOutput : IDisposable
     {
         if (_writer is not null)
         {
-            _writer.Advance(count);
+            WriterAdvance(count);
         }
         else
         {
@@ -117,7 +118,17 @@ internal sealed class ResultsOutput : IDisposable
         }
     }
 
+    // The caller's own buffer writer, which is the sink this output was made
+    // over: whatever it costs is the caller's, and it is called per write.
+    [DesignDecision(typeof(HotPathScope.CallerBufferWriterIsTheSink), Scope = ExceptionScope.HotPath)]
+    private Span<byte> WriterSpan(int size) => _writer!.GetSpan(size);
+
+    [DesignDecision(typeof(HotPathScope.CallerBufferWriterIsTheSink), Scope = ExceptionScope.HotPath)]
+    private void WriterAdvance(int count) => _writer!.Advance(count);
+
     // Growth, not flushing: a stream is written only by Flush and FlushAsync.
+    // Rented and returned, so it allocates nothing once the pool is warm.
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private void Grow(int size)
     {
         byte[] larger = ArrayPool<byte>.Shared.Rent(Math.Max(_pooled!.Length * 2, Pending + size));

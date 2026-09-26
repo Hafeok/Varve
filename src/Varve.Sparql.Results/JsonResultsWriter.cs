@@ -183,5 +183,6 @@ internal sealed class JsonResultsWriter : FormatWriter
         Output.Write((byte)'"');
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static ReadOnlySpan<byte> Hex => "0123456789ABCDEF"u8;
 }
