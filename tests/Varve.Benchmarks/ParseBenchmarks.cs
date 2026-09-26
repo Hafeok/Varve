@@ -60,20 +60,20 @@ public class ParseBenchmarks
 
     /// <summary>Varve, interning into a dataset. The closest thing to a store.</summary>
     [Benchmark(Description = "Varve — into InMemoryDataset")]
-    public int Varve_Interned()
+    public long Varve_Interned()
     {
-        InMemoryDataset dataset = new();
+        InMemoryDatasetBuilder builder = new();
 
         VarveParser.Parse(
             Dataset.Utf8,
-            (in QuadView quad) => dataset.Add(
+            (in QuadView quad) => builder.Add(
                 quad.Subject.Materialise(),
                 quad.Predicate.Materialise(),
                 quad.Object.Materialise(),
                 quad.HasGraph ? quad.Graph.Materialise() : null),
             _options);
 
-        return dataset.Count;
+        return builder.ToDataset().Count.Value;
     }
 
     /// <summary>dotNetRDF, building its object graph.</summary>

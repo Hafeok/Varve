@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Rdf;
 
@@ -34,6 +36,7 @@ namespace Varve.Rdf;
 /// syntax can express.
 /// </para>
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 public static class LanguageTag
 {
     /// <summary>
@@ -41,16 +44,14 @@ public static class LanguageTag
     /// ABNF existed. Most of the regular ones happen to match
     /// <c>langtag</c> anyway; the irregular ones — <c>en-GB-oed</c>,
     /// <c>i-klingon</c>, <c>sgn-BE-FR</c> and the rest — do not, and a list is
-    /// the only way to accept them.
+    /// the only way to accept them. One constant, NUL-separated: it lives in
+    /// the assembly's data, so checking a tag against it allocates nothing and
+    /// nothing can write to it (DD0004, VARVE0003).
     /// </summary>
-    private static readonly string[] Grandfathered =
-    [
-        "en-GB-oed", "i-ami", "i-bnn", "i-default", "i-enochian", "i-hak",
-        "i-klingon", "i-lux", "i-mingo", "i-navajo", "i-pwn", "i-tao",
-        "i-tay", "i-tsu", "sgn-BE-FR", "sgn-BE-NL", "sgn-CH-DE",
-        "art-lojban", "cel-gaulish", "no-bok", "no-nyn", "zh-guoyu",
-        "zh-hakka", "zh-min", "zh-min-nan", "zh-xiang",
-    ];
+    private static ReadOnlySpan<byte> Grandfathered =>
+        "en-GB-oed\0i-ami\0i-bnn\0i-default\0i-enochian\0i-hak\0i-klingon\0i-lux\0i-mingo\0"u8
+        + "i-navajo\0i-pwn\0i-tao\0i-tay\0i-tsu\0sgn-BE-FR\0sgn-BE-NL\0sgn-CH-DE\0art-lojban\0"u8
+        + "cel-gaulish\0no-bok\0no-nyn\0zh-guoyu\0zh-hakka\0zh-min\0zh-min-nan\0zh-xiang"u8;
 
     /// <summary>
     /// Whether <paramref name="tag"/> is a well-formed <c>Language-Tag</c>.
@@ -98,12 +99,19 @@ public static class LanguageTag
 
     private static bool IsGrandfathered(ReadOnlySpan<byte> tag)
     {
-        foreach (string candidate in Grandfathered)
+        ReadOnlySpan<byte> rest = Grandfathered;
+
+        while (!rest.IsEmpty)
         {
+            int end = rest.IndexOf((byte)0);
+            ReadOnlySpan<byte> candidate = end < 0 ? rest : rest[..end];
+
             if (EqualsAsciiIgnoreCase(tag, candidate))
             {
                 return true;
             }
+
+            rest = end < 0 ? default : rest[(end + 1)..];
         }
 
         return false;
@@ -281,7 +289,7 @@ public static class LanguageTag
         return true;
     }
 
-    private static bool EqualsAsciiIgnoreCase(ReadOnlySpan<byte> utf8, string ascii)
+    private static bool EqualsAsciiIgnoreCase(ReadOnlySpan<byte> utf8, ReadOnlySpan<byte> ascii)
     {
         if (utf8.Length != ascii.Length)
         {

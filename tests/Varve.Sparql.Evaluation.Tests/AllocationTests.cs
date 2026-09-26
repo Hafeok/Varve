@@ -36,13 +36,13 @@ public class AllocationTests
 
     private static InMemoryDataset Data(int count)
     {
-        InMemoryDataset dataset = new();
+        InMemoryDatasetBuilder builder = new();
         for (int i = 0; i < count; i++)
         {
-            dataset.Add(Named("s" + i), Named("p"), Named("o" + i));
+            builder.Add(Named("s" + i), Named("p"), Named("o" + i));
         }
 
-        return dataset;
+        return builder.ToDataset();
     }
 
     private static async Task<(Varve.Store.Dataset Store, DatasetView View)> StoreOf(int count)

@@ -11,13 +11,23 @@ using DecisionDriven.Ledger.Varve;
 namespace Varve.Rdf;
 
 /// <summary>
-/// A quad source held entirely in memory, with its own interning table.
+/// A quad source held entirely in memory, with its own interning table: an
+/// immutable value, made by <see cref="InMemoryDatasetBuilder.ToDataset"/>.
 /// </summary>
 /// <remarks>
 /// <para>
 /// ADR 0022: an in-memory dataset is a quad source like any other, and nothing
 /// about the contract presumes a log. Its handles are indices into its own
 /// table and mean nothing to another source.
+/// </para>
+/// <para>
+/// ADR 0067: once made, its quads and its interning table do not change. It is
+/// what a caller is handed and passes on as an <see cref="IQuadSource"/>; the
+/// <see cref="InMemoryDatasetBuilder"/> is what is filled. A handle means the
+/// same term in every dataset one builder produces, before and after later
+/// additions, because the builder only ever appends to its table.
+/// <see cref="TryInternalise"/> answers false for a term this dataset has never
+/// seen, which ADR 0022 calls a read-only source's entitlement.
 /// </para>
 /// <para>
 /// <see cref="Match"/> is a linear scan, and so is <see cref="Estimate"/>,
@@ -35,9 +45,28 @@ namespace Varve.Rdf;
 /// </remarks>
 public sealed class InMemoryDataset : IQuadSource
 {
-    private readonly Dictionary<RdfTerm, TermHandle> _handles = new(RdfTerm.Comparer);
-    private readonly List<RdfTerm> _terms = [];
-    private readonly HashSet<Quad> _quads = [];
+    // Copies, never the builder's own collections: aliasing them would make
+    // this value change when the builder did (ADR 0067). Nothing writes these
+    // after the constructor. The quads are held twice: in the order they were
+    // added, which is the order Match walks, as the mutable dataset's set did;
+    // and sorted by handle bits, which is what Contains searches. Both are
+    // arrays, so the per-quad paths are index loops over memory this value
+    // owns (VARVE0003), and neither calls into a collection.
+    private readonly Dictionary<RdfTerm, TermHandle> _handles;
+    private readonly RdfTerm[] _terms;
+    private readonly Quad[] _quads;
+    private readonly Quad[] _sorted;
+
+    internal InMemoryDataset(
+        Dictionary<RdfTerm, TermHandle> handles, List<RdfTerm> terms, HashSet<Quad> quads)
+    {
+        _handles = new Dictionary<RdfTerm, TermHandle>(handles, RdfTerm.Comparer);
+        _terms = terms.ToArray();
+        _quads = new Quad[quads.Count];
+        quads.CopyTo(_quads);
+        _sorted = (Quad[])_quads.Clone();
+        _sorted.AsSpan().Sort(static (left, right) => QuadDelta.Compare(in left, in right));
+    }
 
     /// <summary>
     /// Bit equality, which is correct here because every term is interned and
@@ -46,29 +75,11 @@ public sealed class InMemoryDataset : IQuadSource
     public IEqualityComparer<TermHandle> TermComparer => EqualityComparer<TermHandle>.Default;
 
     /// <summary>How many quads the dataset holds.</summary>
-    public int Count => _quads.Count;
+    public QuadCount Count => new(_quads.Length);
 
-    /// <summary>How many distinct terms have been interned.</summary>
-    public int TermCount => _terms.Count;
-
-    /// <summary>
-    /// The handle for a term, interning it if it is new. Handles start at one,
-    /// so no term is ever <see cref="TermHandle.None"/>.
-    /// </summary>
-    public TermHandle Internalise(RdfTerm term)
-    {
-        ArgumentNullException.ThrowIfNull(term);
-
-        if (_handles.TryGetValue(term, out TermHandle existing))
-        {
-            return existing;
-        }
-
-        _terms.Add(term);
-        TermHandle handle = new((ulong)_terms.Count);
-        _handles.Add(term, handle);
-        return handle;
-    }
+    /// <summary>How many distinct terms had been interned when it was made.</summary>
+    [DesignDecision(typeof(RdfModelSurfaces.InMemoryTermCountIsAnInteger), Scope = ExceptionScope.Boundary)]
+    public int TermCount => _terms.Length;
 
     /// <inheritdoc />
     public bool TryInternalise(RdfTerm term, out TermHandle handle)
@@ -82,7 +93,7 @@ public sealed class InMemoryDataset : IQuadSource
     {
         ulong value = handle.Value;
 
-        if (value == 0 || value > (ulong)_terms.Count)
+        if (value == 0 || value > (ulong)_terms.Length)
         {
             term = null;
             return false;
@@ -92,30 +103,9 @@ public sealed class InMemoryDataset : IQuadSource
         return true;
     }
 
-    /// <summary>Adds a quad. Returns false when it was already present.</summary>
-    public bool Add(in Quad quad) => _quads.Add(quad);
-
-    /// <summary>
-    /// Adds a quad from owned terms, interning each. A graph of null is the
-    /// default graph.
-    /// </summary>
-    public bool Add(RdfTerm subject, RdfTerm predicate, RdfTerm @object, RdfTerm? graph = null)
-    {
-        Quad quad = new(
-            Internalise(subject),
-            Internalise(predicate),
-            Internalise(@object),
-            graph is null ? TermHandle.None : Internalise(graph));
-
-        return Add(in quad);
-    }
-
-    /// <summary>Removes a quad. Returns false when it was not present.</summary>
-    public bool Remove(in Quad quad) => _quads.Remove(quad);
-
-    /// <inheritdoc />
+    /// <summary>Whether the dataset holds <paramref name="quad"/>.</summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
-    public bool Contains(in Quad quad) => _quads.Contains(quad);
+    public bool Contains(in Quad quad) => QuadDelta.IndexOf(_sorted, in quad) >= 0;
 
     /// <inheritdoc />
     public IQuadCursor Match(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph) =>
@@ -135,7 +125,7 @@ public sealed class InMemoryDataset : IQuadSource
             }
         }
 
-        return CardinalityEstimate.Exact(count);
+        return CardinalityEstimate.Exact(new QuadCount(count));
     }
 
     /// <inheritdoc />
@@ -148,20 +138,21 @@ public sealed class InMemoryDataset : IQuadSource
 
     private sealed class Cursor : IQuadCursor
     {
+        private readonly Quad[] _quads;
         private readonly TermHandle _subject;
         private readonly TermHandle _predicate;
         private readonly TermHandle _object;
         private readonly GraphPattern _graph;
-        private HashSet<Quad>.Enumerator _enumerator;
+        private int _next;
 
         internal Cursor(
-            HashSet<Quad> quads,
+            Quad[] quads,
             TermHandle subject,
             TermHandle predicate,
             TermHandle @object,
             GraphPattern graph)
         {
-            _enumerator = quads.GetEnumerator();
+            _quads = quads;
             _subject = subject;
             _predicate = predicate;
             _object = @object;
@@ -173,9 +164,9 @@ public sealed class InMemoryDataset : IQuadSource
         [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
         public bool MoveNext()
         {
-            while (_enumerator.MoveNext())
+            while (_next < _quads.Length)
             {
-                Quad candidate = _enumerator.Current;
+                Quad candidate = _quads[_next++];
 
                 if (Matches(candidate))
                 {
@@ -188,7 +179,11 @@ public sealed class InMemoryDataset : IQuadSource
             return false;
         }
 
-        public void Dispose() => _enumerator.Dispose();
+        public void Dispose()
+        {
+            // An array holds nothing to release; the contract asks for disposal
+            // because a store's cursor does.
+        }
 
         [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
         private bool Matches(in Quad quad) => QuadPatterns.Matches(in quad, _subject, _predicate, _object, _graph);

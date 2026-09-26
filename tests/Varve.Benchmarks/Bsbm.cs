@@ -288,17 +288,18 @@ public class BsbmBenchmarks : IDisposable
         string text = Bsbm.Queries.Single(q => q.Name == Query).Text;
         _varveQuery = SparqlParser.ParseQuery(text.AsSpan());
 
-        _dataset = new Varve.Rdf.InMemoryDataset();
+        InMemoryDatasetBuilder builder = new();
         CommitRequest request = new();
         Varve.Turtle.NQuadsParser.Parse(
             Bsbm.Data,
             (in QuadView quad) =>
             {
                 RdfTerm s = quad.Subject.Materialise(), p = quad.Predicate.Materialise(), o = quad.Object.Materialise();
-                _dataset.Add(s, p, o);
+                builder.Add(s, p, o);
                 request.Assert(s, p, o);
             },
             new ParseOptions { Syntax = RdfSyntax.NTriples });
+        _dataset = builder.ToDataset();
         _store = Varve.Store.Dataset.OpenAsync(new MemoryStorage(), new DatasetOptions { Clock = TimeProvider.System }).AsTask().GetAwaiter().GetResult();
         _ = _store.CommitAsync(request).AsTask().GetAwaiter().GetResult();
         _view = _store.Pin();

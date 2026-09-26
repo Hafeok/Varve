@@ -45,16 +45,18 @@ public readonly struct QuadDelta : IEquatable<QuadDelta>
     public static QuadDelta Empty => default;
 
     /// <summary>The quads asserted, sorted by handle bits.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public ReadOnlySpan<Quad> Asserted => _asserted;
 
     /// <summary>The quads retracted, sorted by handle bits.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public ReadOnlySpan<Quad> Retracted => _retracted;
 
     /// <summary>How many quads the delta mentions, asserted and retracted together.</summary>
-    public int Count => (_asserted?.Length ?? 0) + (_retracted?.Length ?? 0);
+    public QuadCount Count => new((_asserted?.Length ?? 0) + (_retracted?.Length ?? 0));
 
     /// <summary>True when the delta changes nothing.</summary>
-    public bool IsEmpty => Count == 0;
+    public bool IsEmpty => (_asserted?.Length ?? 0) + (_retracted?.Length ?? 0) == 0;
 
     /// <summary>
     /// A delta from two sets of quads. Both are copied, sorted and
@@ -154,23 +156,28 @@ public readonly struct QuadDelta : IEquatable<QuadDelta>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static int Compare(in Quad left, in Quad right)
     {
-        int c = left.Subject.Value.CompareTo(right.Subject.Value);
+        int c = Compare(left.Subject.Value, right.Subject.Value);
 
         if (c != 0)
         {
             return c;
         }
 
-        c = left.Predicate.Value.CompareTo(right.Predicate.Value);
+        c = Compare(left.Predicate.Value, right.Predicate.Value);
 
         if (c != 0)
         {
             return c;
         }
 
-        c = left.Object.Value.CompareTo(right.Object.Value);
-        return c != 0 ? c : left.Graph.Value.CompareTo(right.Graph.Value);
+        c = Compare(left.Object.Value, right.Object.Value);
+        return c != 0 ? c : Compare(left.Graph.Value, right.Graph.Value);
     }
+
+    // The three-way comparison of two handle values, written out rather than
+    // called on ulong: a hot path calls only hot-path code (VARVE0003).
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private static int Compare(ulong left, ulong right) => left < right ? -1 : left > right ? 1 : 0;
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static int IndexOf(ReadOnlySpan<Quad> sorted, in Quad quad)

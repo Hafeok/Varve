@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Rdf;
 
@@ -30,18 +32,22 @@ public readonly struct TermHandle : IEquatable<TermHandle>
     public TermHandle(ulong value) => Value = value;
 
     /// <summary>The source-specific value.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public ulong Value { get; }
 
     /// <summary>
     /// True for the absent handle. In a <see cref="Quad"/>'s graph position it
     /// means the default graph; in a match pattern it means "any term".
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool IsNone => Value == 0;
 
     /// <summary>The absent handle. Zero is never issued.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static TermHandle None => default;
 
     /// <inheritdoc />
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool Equals(TermHandle other) => Value == other.Value;
 
     /// <inheritdoc />
@@ -51,8 +57,10 @@ public readonly struct TermHandle : IEquatable<TermHandle>
     public override int GetHashCode() => Value.GetHashCode();
 
     /// <summary>Compares the bits. See the type's remarks before using it.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool operator ==(TermHandle left, TermHandle right) => left.Equals(right);
 
     /// <summary>Compares the bits. See the type's remarks before using it.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool operator !=(TermHandle left, TermHandle right) => !left.Equals(right);
 }

@@ -84,7 +84,7 @@ public sealed class QuadOverlay : IQuadSource
             return below;
         }
 
-        long count = below.Count;
+        long count = below.Count.Value;
 
         foreach (Quad quad in _delta.Asserted)
         {
@@ -104,7 +104,9 @@ public sealed class QuadOverlay : IQuadSource
             }
         }
 
-        return below.IsExact ? CardinalityEstimate.Exact(count) : CardinalityEstimate.Estimated(count);
+        return below.IsExact
+            ? CardinalityEstimate.Exact(new QuadCount(count))
+            : CardinalityEstimate.Estimated(new QuadCount(count));
     }
 
     /// <inheritdoc />

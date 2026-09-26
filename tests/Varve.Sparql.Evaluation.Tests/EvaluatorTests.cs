@@ -17,13 +17,13 @@ public class EvaluatorTests
 {
     private static InMemoryDataset Chain(int length)
     {
-        InMemoryDataset dataset = new();
+        InMemoryDatasetBuilder builder = new();
         for (int i = 0; i < length; i++)
         {
-            dataset.Add(Named("n" + i), Named("next"), Named("n" + (i + 1)));
+            builder.Add(Named("n" + i), Named("next"), Named("n" + (i + 1)));
         }
 
-        return dataset;
+        return builder.ToDataset();
     }
 
     [Fact]
@@ -145,11 +145,12 @@ public class EvaluatorTests
     [Fact]
     public void A_negated_property_set_is_a_set_whichever_ends_are_bound()
     {
-        InMemoryDataset dataset = new();
-        dataset.Add(Named("s"), Named("p1"), Named("o"));
-        dataset.Add(Named("s"), Named("p2"), Named("o"));
-        dataset.Add(Named("s"), Named("p1"), Named("s"));
-        dataset.Add(Named("s"), Named("p2"), Named("s"));
+        InMemoryDatasetBuilder builder = new();
+        builder.Add(Named("s"), Named("p1"), Named("o"));
+        builder.Add(Named("s"), Named("p2"), Named("o"));
+        builder.Add(Named("s"), Named("p1"), Named("s"));
+        builder.Add(Named("s"), Named("p2"), Named("s"));
+        InMemoryDataset dataset = builder.ToDataset();
 
         Assert.Equal(2, Run("SELECT * { ?x !:p0 ?y }", dataset).Count);
         Assert.Equal(2, Run("SELECT * { :s !:p0 ?y }", dataset).Count);

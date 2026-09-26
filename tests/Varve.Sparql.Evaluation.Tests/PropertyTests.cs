@@ -119,17 +119,18 @@ public class PropertyTests
 
                 long position = at % (store.Head + 1);
                 using DatasetView view = await store.AsOfAsync(position);
-                InMemoryDataset copy = new();
+                InMemoryDatasetBuilder filling = new();
                 using (IQuadCursor cursor = view.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any))
                 {
                     while (cursor.MoveNext())
                     {
                         Quad quad = cursor.Current;
                         RdfTerm? graph = quad.IsDefaultGraph ? null : Term(view, quad.Graph);
-                        copy.Add(Term(view, quad.Subject), Term(view, quad.Predicate), Term(view, quad.Object), graph);
+                        filling.Add(Term(view, quad.Subject), Term(view, quad.Predicate), Term(view, quad.Object), graph);
                     }
                 }
 
+                InMemoryDataset copy = filling.ToDataset();
                 List<string> fromStore = Evaluate(query, view);
                 List<string> fromDataset = Evaluate(query, copy);
                 if (fromStore.Count > 0 && fromStore[0] != "false")

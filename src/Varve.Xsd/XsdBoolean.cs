@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Xsd;
 
@@ -13,6 +15,7 @@ namespace Varve.Xsd;
 public readonly struct XsdBoolean : IEquatable<XsdBoolean>, IComparable<XsdBoolean>
 {
     /// <summary>Wraps a value.</summary>
+    [DesignDecision(typeof(BoolValues.BoolParameterIsTheValue), Scope = ExceptionScope.Boundary)]
     public XsdBoolean(bool value) => Value = value;
 
     /// <summary>The value.</summary>

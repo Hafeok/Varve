@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Rdf;
 
@@ -52,6 +54,7 @@ public readonly struct InlineValue : IEquatable<InlineValue>
     public InlineValueKind Kind { get; }
 
     /// <summary>The integer, when <see cref="Kind"/> is <see cref="InlineValueKind.Integer"/>. Zero otherwise.</summary>
+    [DesignDecision(typeof(RdfModelSurfaces.InlineValueIsAUnionOfTypedPrimitives), Scope = ExceptionScope.Boundary)]
     public long Integer => Kind == InlineValueKind.Integer ? _bits : 0;
 
     /// <summary>The boolean, when <see cref="Kind"/> is <see cref="InlineValueKind.Boolean"/>. False otherwise.</summary>
@@ -64,6 +67,7 @@ public readonly struct InlineValue : IEquatable<InlineValue>
     public static InlineValue FromInteger(long value) => new(InlineValueKind.Integer, value);
 
     /// <summary>An <c>xsd:boolean</c> value.</summary>
+    [DesignDecision(typeof(BoolValues.BoolParameterIsTheValue), Scope = ExceptionScope.Boundary)]
     public static InlineValue FromBoolean(bool value) => new(InlineValueKind.Boolean, value ? 1 : 0);
 
     /// <inheritdoc />

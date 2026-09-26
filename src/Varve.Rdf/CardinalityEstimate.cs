@@ -34,14 +34,14 @@ public readonly struct CardinalityEstimate : IEquatable<CardinalityEstimate>
 
     private readonly byte _state;
 
-    private CardinalityEstimate(long count, byte state)
+    private CardinalityEstimate(QuadCount count, byte state)
     {
         Count = count;
         _state = state;
     }
 
     /// <summary>The count, when there is one. Zero when <see cref="IsUnknown"/>.</summary>
-    public long Count { get; }
+    public QuadCount Count { get; }
 
     /// <summary><see cref="Count"/> is the number of quads <c>Match</c> would yield.</summary>
     public bool IsExact => _state == ExactState;
@@ -56,20 +56,10 @@ public readonly struct CardinalityEstimate : IEquatable<CardinalityEstimate>
     public static CardinalityEstimate Unknown => default;
 
     /// <summary>An exact count.</summary>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="count"/> is negative.</exception>
-    public static CardinalityEstimate Exact(long count)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegative(count);
-        return new CardinalityEstimate(count, ExactState);
-    }
+    public static CardinalityEstimate Exact(QuadCount count) => new(count, ExactState);
 
     /// <summary>A count the source believes but does not guarantee.</summary>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="count"/> is negative.</exception>
-    public static CardinalityEstimate Estimated(long count)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegative(count);
-        return new CardinalityEstimate(count, EstimatedState);
-    }
+    public static CardinalityEstimate Estimated(QuadCount count) => new(count, EstimatedState);
 
     /// <inheritdoc />
     public bool Equals(CardinalityEstimate other) => _state == other._state && Count == other.Count;
@@ -83,8 +73,8 @@ public readonly struct CardinalityEstimate : IEquatable<CardinalityEstimate>
     /// <inheritdoc />
     public override string ToString() => _state switch
     {
-        ExactState => Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
-        EstimatedState => "~" + Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        ExactState => Count.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        EstimatedState => "~" + Count.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
         _ => "?",
     };
 

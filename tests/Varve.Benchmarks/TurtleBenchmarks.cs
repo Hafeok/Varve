@@ -86,20 +86,20 @@ public class TurtleBenchmarks
     /// its work and must not be read as if they were.
     /// </summary>
     [Benchmark(Description = "Varve — into InMemoryDataset")]
-    public int Varve_Interned()
+    public long Varve_Interned()
     {
-        InMemoryDataset dataset = new();
+        InMemoryDatasetBuilder builder = new();
 
         TurtleParser.Parse(
             TurtleDataset.Utf8,
-            (in QuadView quad) => dataset.Add(
+            (in QuadView quad) => builder.Add(
                 quad.Subject.Materialise(),
                 quad.Predicate.Materialise(),
                 quad.Object.Materialise(),
                 quad.HasGraph ? quad.Graph.Materialise() : null),
             in _options);
 
-        return dataset.Count;
+        return builder.ToDataset().Count.Value;
     }
 
     [Benchmark(Description = "Varve — read and write back")]

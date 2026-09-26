@@ -126,7 +126,7 @@ dd_rule_id_prefixes = VARVE
 # VARVE0003's allow-list: the BCL types a [HotPath] member may call without the
 # callee being [HotPath] itself (ADR 0064). Configuration, not code. A name
 # ending in '*' is a prefix; every other name is a type's full metadata name.
-varve_hot_path_allowed_types = System.Span`1, System.ReadOnlySpan`1, System.Runtime.InteropServices.MemoryMarshal, System.Buffers.Binary.BinaryPrimitives, System.Runtime.CompilerServices.Unsafe, System.Buffers.ArrayPool`1, System.Numerics.Vector*, System.Runtime.Intrinsics.Vector*, System.Index, System.Range, System.MemoryExtensions, System.Text.Rune, System.HashCode
+varve_hot_path_allowed_types = System.Span`1, System.ReadOnlySpan`1, System.Runtime.InteropServices.MemoryMarshal, System.Buffers.Binary.BinaryPrimitives, System.Runtime.CompilerServices.Unsafe, System.Buffers.ArrayPool`1, System.Numerics.Vector*, System.Runtime.Intrinsics.Vector*, System.Index, System.Range, System.MemoryExtensions, System.Text.Rune, System.HashCode, System.ArgumentException, System.ArgumentNullException, System.ArgumentOutOfRangeException, System.Math, System.Text.Unicode.Utf8, System.Int32
 
 # --- the RDF vocabulary -----------------------------------------------------
 # A triple is a subject, a predicate and an object. CA1720 objects to the

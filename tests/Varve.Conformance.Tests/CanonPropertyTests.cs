@@ -293,14 +293,14 @@ public class CanonPropertyTests
 
     private static byte[] Canonical(List<DataQuad> quads)
     {
-        InMemoryDataset dataset = new();
+        InMemoryDatasetBuilder builder = new();
 
         foreach (DataQuad quad in quads)
         {
-            dataset.Add(quad.Subject, quad.Predicate, quad.Object, quad.Graph);
+            builder.Add(quad.Subject, quad.Predicate, quad.Object, quad.Graph);
         }
 
-        return RdfCanonicaliser.Canonicalise(dataset).NQuads.ToArray();
+        return RdfCanonicaliser.Canonicalise(builder.ToDataset()).NQuads.ToArray();
     }
 
     private static List<DataQuad> Read(byte[] nquads)

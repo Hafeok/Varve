@@ -84,11 +84,12 @@ internal static partial class Smoke
             writer.WriteEnd();
         }
 
-        InMemoryDataset small = new();
+        InMemoryDatasetBuilder builder = new();
         RdfTerm p = RdfTerm.Iri("http://example.org/p"u8);
-        small.Add(RdfTerm.BlankNode("x"u8), RdfTerm.Iri("http://example.org/q"u8), RdfTerm.Literal("end"u8));
-        small.Add(RdfTerm.BlankNode("y"u8), p, RdfTerm.BlankNode("x"u8));
-        small.Add(RdfTerm.Iri("http://example.org/s"u8), p, RdfTerm.BlankNode("y"u8));
+        builder.Add(RdfTerm.BlankNode("x"u8), RdfTerm.Iri("http://example.org/q"u8), RdfTerm.Literal("end"u8));
+        builder.Add(RdfTerm.BlankNode("y"u8), p, RdfTerm.BlankNode("x"u8));
+        builder.Add(RdfTerm.Iri("http://example.org/s"u8), p, RdfTerm.BlankNode("y"u8));
+        InMemoryDataset small = builder.ToDataset();
         CanonicalDataset sha256 = RdfCanonicaliser.Canonicalise(small);
         CanonicalDataset sha384 = RdfCanonicaliser.Canonicalise(
             small, new CanonicalisationOptions { HashAlgorithm = System.Security.Cryptography.HashAlgorithmName.SHA384 });

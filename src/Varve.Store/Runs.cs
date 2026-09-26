@@ -358,12 +358,12 @@ internal sealed class IndexVersion
     {
         if (graph.Match == GraphMatch.AnyNamed)
         {
-            return CardinalityEstimate.Exact(
+            return CardinalityEstimate.Exact(new QuadCount(
                 CountRange(subject.Value, predicate.Value, @object.Value, GraphPattern.Any)
-                - CountRange(subject.Value, predicate.Value, @object.Value, GraphPattern.DefaultGraph));
+                - CountRange(subject.Value, predicate.Value, @object.Value, GraphPattern.DefaultGraph)));
         }
 
-        return CardinalityEstimate.Exact(CountRange(subject.Value, predicate.Value, @object.Value, graph));
+        return CardinalityEstimate.Exact(new QuadCount(CountRange(subject.Value, predicate.Value, @object.Value, graph)));
     }
 
     private long CountRange(ulong subject, ulong predicate, ulong @object, GraphPattern graph)
