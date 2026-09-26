@@ -20,7 +20,7 @@ set: enforcement-by-analyzers       # the ADR's file name without its number
 namespace: varve                    # every Varve decision
 adr: 0004                           # the ADR this set enumerates
 decisions:
-  - key: OffTheShelfFirst           # ^[A-Z][A-Za-z0-9]{0,63}$, unique across every file
+  - key: OffTheShelfAnalyzersFirst           # ^[A-Z][A-Za-z0-9]{0,63}$, unique across every file
     statement: "One line, double-quoted, no quote inside"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-20T00:00:00Z
@@ -28,7 +28,7 @@ decisions:
 ```
 
 - **A key is a ruling.** It identifies the decision across versions and
-  becomes the type code cites: `[Contract(typeof(EnforcementByAnalyzers.OffTheShelfFirst))]`.
+  becomes the type code cites: `[DesignDecision(typeof(EnforcementByAnalyzers.OffTheShelfAnalyzersFirst), Scope = …)]`.
   It is never renamed, and never reused for something else.
 - **Acceptance is transcribed from the ADR.** `accepted-at` is the ADR's date
   at `T00:00:00Z`. A ruling changed by a dated amendment inside its own ADR
