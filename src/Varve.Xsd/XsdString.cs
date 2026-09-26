@@ -4,6 +4,8 @@
 
 using System;
 using System.Text;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Xsd;
 
@@ -22,10 +24,12 @@ namespace Varve.Xsd;
 public static class XsdString
 {
     /// <summary>Code-point order over two UTF-8 strings.</summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdOrderingsReturnInt), Scope = ExceptionScope.Boundary)]
     public static int CompareCodePoints(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right) =>
         Math.Sign(left.SequenceCompareTo(right));
 
     /// <summary>Code-point order over two UTF-16 strings.</summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdOrderingsReturnInt), Scope = ExceptionScope.Boundary)]
     public static int CompareCodePoints(ReadOnlySpan<char> left, ReadOnlySpan<char> right)
     {
         int i = 0;

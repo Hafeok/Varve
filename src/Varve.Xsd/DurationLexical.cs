@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Immutable;
 
 namespace Varve.Xsd;
 
@@ -357,7 +358,9 @@ internal static class DurationLexical
     private static PartialOrdering Ordering(int comparison) =>
         comparison < 0 ? PartialOrdering.Less : comparison > 0 ? PartialOrdering.Greater : PartialOrdering.Equal;
 
-    private static readonly SevenProperties[] References =
+    // The four reference dateTimes the duration order is decided against.
+    // Immutable: a static array was writable by anyone holding it (DD0004).
+    private static readonly ImmutableArray<SevenProperties> References =
     [
         Reference(1696, 9, 1),
         Reference(1697, 2, 1),

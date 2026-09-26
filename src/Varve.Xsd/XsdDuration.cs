@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Xsd;
 
@@ -32,6 +34,7 @@ public readonly struct XsdDuration : IEquatable<XsdDuration>
     }
 
     /// <summary>The <c>months</c> property.</summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
     public long Months { get; }
 
     /// <summary>The <c>seconds</c> property.</summary>

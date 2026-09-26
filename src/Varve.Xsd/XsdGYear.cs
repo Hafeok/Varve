@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Xsd;
 
@@ -47,12 +49,14 @@ public readonly struct XsdGYear : IEquatable<XsdGYear>
     }
 
     /// <summary>The year, proleptic Gregorian with astronomical numbering: year 0 exists and precedes year 1.</summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
     public int Year => _value.Year;
 
     /// <summary>Whether a timezone offset is present.</summary>
     public bool HasTimezone => _value.HasTimezone;
 
     /// <summary>The timezone offset in minutes east of UTC; zero when absent, so check <see cref="HasTimezone"/>.</summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
     public int TimezoneOffset => _value.HasTimezone ? _value.TimezoneOffset : 0;
 
     /// <summary>
@@ -60,6 +64,7 @@ public readonly struct XsdGYear : IEquatable<XsdGYear>
     /// <paramref name="implicitTimezoneOffset"/> supplied when the value has
     /// no timezone of its own.
     /// </summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
     public XsdDecimal TimeOnTimeline(int implicitTimezoneOffset) =>
         SevenPropertyModel.TimeOnTimeline(in _value, _value.HasTimezone ? _value.TimezoneOffset : implicitTimezoneOffset);
 
@@ -94,6 +99,8 @@ public readonly struct XsdGYear : IEquatable<XsdGYear>
     /// given <paramref name="implicitTimezoneOffset"/> (XPath Functions and
     /// Operators §10.4), and every pair is then comparable.
     /// </summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdOrderingsReturnInt), Scope = ExceptionScope.Boundary)]
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
     public static int Compare(XsdGYear left, XsdGYear right, int implicitTimezoneOffset) =>
         SevenPropertyModel.Compare(in left._value, in right._value, implicitTimezoneOffset);
 
