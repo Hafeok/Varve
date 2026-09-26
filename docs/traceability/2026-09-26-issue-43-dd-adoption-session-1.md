@@ -238,10 +238,13 @@ Filled in pull request by pull request.
 | ADRs | Set files | Decisions | Pull request |
 |---|---:|---:|---|
 | 0001–0010 | 8 | 67 | part 2 |
+| 0011–0020 | 8 | 65 | part 3 |
 
 **No set file, because wholly superseded:**
 - 0002, superseded by 0031. Its rulings move to 0031's set.
 - 0006, superseded by 0009.
+- 0019, superseded by 0023.
+- 0020, superseded by 0028.
 
 **ADRs not fully enumerated, and why:**
 - **0006.** 0009 superseded it whole, replacing its package table with the
@@ -259,6 +262,9 @@ Filled in pull request by pull request.
   a key to fit practice. It is a question for the maintainer: an ADR amending
   0001, or a stop to the practice.
 - **0003.** Open question 1 is not a ruling and is not enumerated.
+- **Open questions and revisit conditions throughout.** Q2 and Q3 (0013), Q1
+  (0012, answered by 0044), and the revisit conditions of 0012 and 0018 are a
+  falsifier or a question, not a ruling, and are not enumerated.
 
 **`revoked-at` uses:** none.
 
