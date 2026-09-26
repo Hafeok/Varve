@@ -242,6 +242,7 @@ Filled in pull request by pull request.
 | 0021–0030 | 10 | 65 | part 4 |
 | 0031–0040 | 10 | 70 | part 5 |
 | 0041–0050 | 10 | 60 | part 6 |
+| 0051–0060 | 10 | 76 | part 7 |
 
 **No set file, because wholly superseded:**
 - 0002, superseded by 0031. Its rulings move to 0031's set.
@@ -283,6 +284,9 @@ Filled in pull request by pull request.
 - **0050's benchmark plan and verdict rule** were carried out in 5b and judged
   in 0022's Status on 2026-09-25. A discharged plan is not a ruling in force,
   so only the accessor's own rulings are enumerated.
+- **The check earned its place during the enumeration.** A first draft of
+  0053's key, `AggregationFollows18_5_1`, failed DDGEN0002's syntax. The
+  gate reported it before commit, and the key was renamed.
 
 **`revoked-at` uses:** none.
 
