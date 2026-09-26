@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading;
@@ -19,7 +20,7 @@ namespace RepoStandard.Resources;
 /// </summary>
 internal sealed class ActionsResource : IResourceKind
 {
-    private static readonly string[] PermissionFields = ["enabled", "allowed_actions", "sha_pinning_required"];
+    private static readonly ImmutableArray<string> PermissionFields = ["enabled", "allowed_actions", "sha_pinning_required"];
 
     public string Key => "actions";
 

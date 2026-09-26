@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -38,14 +39,14 @@ namespace RepoStandard.Declaration;
 internal sealed class DeclarationLoader
 {
     /// <summary>The lists merged by key, and the key of each.</summary>
-    public static readonly IReadOnlyDictionary<string, string> KeyedLists = new Dictionary<string, string>(StringComparer.Ordinal)
+    public static readonly FrozenDictionary<string, string> KeyedLists = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         ["labels"] = "name",
         ["rulesets"] = "name",
         ["environments"] = "name",
         ["projects"] = "title",
         ["discussions.categories"] = "name",
-    };
+    }.ToFrozenDictionary(StringComparer.Ordinal);
 
     private const int MaxDepth = 10;
 

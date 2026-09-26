@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
-using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Net.Http;
 using System.Text;
 
@@ -109,7 +109,7 @@ internal static class Endpoints
     public static readonly Endpoint GraphQl = new("POST", "/graphql");
 
     /// <summary>All of them.</summary>
-    public static IReadOnlyList<Endpoint> All { get; } =
+    public static ImmutableArray<Endpoint> All { get; } =
     [
         GetRepository, UpdateRepository, GetTopics, ReplaceTopics,
         GetPrivateVulnerabilityReporting, EnablePrivateVulnerabilityReporting, DisablePrivateVulnerabilityReporting,
