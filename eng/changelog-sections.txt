@@ -24,3 +24,4 @@
 cd3de76  Milestone 5a — XSD datatypes, the SPARQL algebra and parser
 f62509d  Milestone 5b — the optimiser and evaluator, and the result-format readers
 f51f97b  Milestone 5c — the result writers, SPARQL Update as one commit, RDFC-1.0
+17852ee  Adopting DecisionDriven.Analyzers — the decision ledger, the DD rules, Varve's own rules only

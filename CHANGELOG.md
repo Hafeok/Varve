@@ -14,6 +14,14 @@ published to nuget.org, so every change below is unreleased and the sections
 are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 ([ADR 0029](docs/adr/0029-publishing-and-versioning.md)).
 
+### Adopting DecisionDriven.Analyzers — the decision ledger, the DD rules, Varve's own rules only
+
+#### Changed
+
+- **adr**: 0062–0067, adopting DecisionDriven.Analyzers (17852ee3)
+- **eng**: decision-sets, the front-matter check for docs/decisions (b364d25d)
+- **traceability**: issue 43, adoption session 1 (d8b0cadb)
+
 ### Milestone 5c — the result writers, SPARQL Update as one commit, RDFC-1.0
 
 #### Added
@@ -43,6 +51,7 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **conformance**: the 82 RDF 1.2 canonical-form cases join the ratchet (bfb2ff6a)
 - **traceability**: the canonical-form decisions, in the 5c record (eed2926d)
 - **adr**: 0057 amended — release the pin, then submit (f62f5989)
+- changelog (3f5af6f7)
 
 #### Fixed
 
