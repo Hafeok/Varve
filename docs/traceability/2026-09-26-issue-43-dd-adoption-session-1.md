@@ -429,3 +429,23 @@ In `hafeok/decision-driven-analyzers`:
 
 `eng/decision-sets.cs`: 64 set files, 466 decisions, all accepted. The session's
 upstream issues are #43–#49 in `hafeok/decision-driven-analyzers`.
+
+### Found by the first build against the generator
+
+A throwaway build with the package referenced (session 2's preparation, not
+committed) failed in generated code:
+
+```
+DecisionDriven.Ledger.Varve.g.cs(5252,29): error CS0542: 'StoreIsSparqlFree': member names cannot be the same as their enclosing type
+```
+
+- **The cause.** The set `store-is-sparql-free` becomes class
+  `StoreIsSparqlFree`, and its key `StoreIsSparqlFree` would be a nested class
+  of the same name.
+- **The fix here.** The key is renamed `StoreReferencesNoSparql`. It is the
+  only collision among the 466 keys. `eng/decision-sets.cs` now reports a key
+  equal to its set's generated class name, using the generator's own
+  PascalCase rule. It was run against the old file, which it reports, before
+  it was trusted.
+- **Upstream.** The generator should say so itself:
+  [decision-driven-analyzers#52](https://github.com/Hafeok/decision-driven-analyzers/issues/52).
