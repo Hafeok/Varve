@@ -413,3 +413,103 @@ downgraded to a warning locally:
 
 The store's VARVE0003 count fell from 133 to 91 as layer 1's types were marked.
 ADR 0065's `Varve.Store.Log` move and wrappers are session 3's.
+
+## After the report
+
+### The maintainer's decisions, verbatim
+
+> Decisions:
+> 1. Open upstream fix PRs for #59, #62 and #64 with the Varve reproductions as tests; #63 becomes a message fix (DD0010 points struct/enum at [DomainModel], never [Contract]). I release 0.1.0-preview.5; #53 stays draft until it references preview.5.
+> 2. SourceSpan moves into Varve.Sparql.Algebra; each syntax package gets one model namespace for its public data types (ParseError, ErrorAction, positions), added to ADR 0064 by dated amendment.
+> 3. The hot-path allow-list additions and the .editorconfig-only decision are accepted; keep them filed, I add accepted-by on the branch after the preview.5 bump.
+> 4. File a DD rule request upstream: no `dynamic` in ArchLayer projects. Note the gap in 0064 until it exists.
+> 5. Yes, watch #53; rebase onto preview.5 when released, then tell me the branch is ready for my acceptance edits.
+
+### 1. Upstream fix pull requests
+
+In [hafeok/decision-driven-analyzers](https://github.com/Hafeok/decision-driven-analyzers).
+There is one pull request per issue. Each amends the decision it implements,
+updates the rule page and the changelog, and adds no `accepted-by`. The Varve
+reproductions are the tests, under neutral names, since that repository
+mentions no consumer.
+
+| Pull request | Issue | Change | Decision amended |
+|---|---|---|---|
+| [#65](https://github.com/Hafeok/decision-driven-analyzers/pull/65) | #59 | DD0013 treats a member whose signature another assembly chose (an override of a member declared elsewhere, or an implementation of an interface declared elsewhere) as a boundary member. The consumer's own interfaces and bases stay checked | `PrimitiveFreeSurfaces.BoundaryMembersExempt` |
+| [#66](https://github.com/Hafeok/decision-driven-analyzers/pull/66) | #62 | A model type is one that is externally visible: it and every containing type public. One definition, `Surfaces.IsModel`, shared by DD0013, DD0014, DD0015, DD0016 and DD0019 | `PrimitiveFreeSurfaces.NoNakedPrimitivesOnModelAndContract`, `ImmutableModel.DomainModelImmutable` |
+| [#67](https://github.com/Hafeok/decision-driven-analyzers/pull/67) | #64 | DD0016 honours `[DesignDecision]` on the containing type, as DD0013 does | `PrimitiveFreeSurfaces.FlagArgumentsWarning` |
+| [#68](https://github.com/Hafeok/decision-driven-analyzers/pull/68) | #63 | A message fix: for a struct or an enum, both of DD0010's paths name the model, never `[Contract]` | `Contracts.ContractVocabularyAllowList` |
+
+Each new test fails on the analyzer's `main` and passes on its branch. Merged
+together locally, the analyzer suite passes, and so does the packaged-samples
+check (all 20 ids fire exactly once, and the conforming build is silent).
+Built from that merge and consumed by Varve's layers 0 to 2, **with only
+`CS0618` downgraded, the package leaves nothing but the DD0010 sites decision
+2 answers**. After decision 2, below, it leaves 16 DD0013 sites. They are
+answered by a filed decision, which leaves only `CS0618`.
+
+The four pull requests each add a line at the same place in the changelog,
+so each after the first conflicts on that line only. The session merges `main`
+into the others as they land.
+
+### 4. The `dynamic` rule request
+
+[decision-driven-analyzers#69](https://github.com/Hafeok/decision-driven-analyzers/issues/69),
+tier 1: `dynamic` is an error in any project with `ArchLayer` set. It also
+notes that the package's own `StableDependencyRules.CallbackLoopholeNeedsNoRule`
+("dynamic by banned symbols") rests on the same mistaken premise. The claim was
+re-checked by a scratch build with `BannedApiAnalyzers` 5.6.0: an explicit
+`Binder.InvokeMember` is reported, and `dynamic d = o; d.Foo();` is not. ADR
+0064 records the gap in a dated block beside its `dynamic` bullet, and there is
+no `dynamic` in `src/`.
+
+### 2. The syntax packages' model namespaces
+
+ADR 0064 is amended, dated 2026-09-26, add-only (ADR 0068), with the Status
+line naming both blocks. The ruling enters the ledger as
+`VarveConfigurationAndHotPathRules.SyntaxPackagesHaveOneModelNamespace`,
+unaccepted.
+
+| Namespace | Types moved in |
+|---|---|
+| `Varve.Turtle.Model` (new, declared) | `ParseError`, `ParseErrorKind`, `ParsePosition`, `ErrorAction` (out of `RdfSyntax.cs` into its own file) |
+| `Varve.Sparql.Algebra` (already declared) | `SourceSpan`, `SparqlParseError`, `SparqlErrorKind`. `SparqlParseException` stays in `Varve.Sparql`, in its own file |
+| `Varve.Sparql.Results.Model` (new, declared) | `SparqlResultsError`, `SparqlResultsErrorKind`, `ResultsPosition` |
+
+`ParseResult` stays in `Varve.Turtle`: nothing on a contract names it, and it
+was not among the types the decision lists. **API**: ten public types change
+namespace. Every line moved is in a `PublicAPI.Unshipped.txt`, so nothing
+shipped breaks; the baselines are renamed in place. Callers across `src/` and
+`tests/` gain a `using`. The two smoke apps, which name the type in full and
+are outside `Varve.slnx`, are corrected by hand. The AOT one builds, and the
+WebAssembly one needs a workload this container does not have.
+
+**DD0013 on the moved types.** Sixteen sites, every one a source coordinate
+(`long` offsets, `int` line and column) or an error message. They are filed as
+one set, each key with its wrapper alternative:
+
+| Decision | Question | Cited at |
+|---|---|---|
+| `SyntaxModelSurfaces.SourceCoordinatesAreOffsetsLinesAndColumns` | Byte offsets as `long`, line and column as `int`, or three shared wrappers at layer 1 | `ParsePosition`, `ResultsPosition`, `SourceSpan` (type); `SparqlParseError.Offset`, `.Line`, `.Column` |
+| `SyntaxModelSurfaces.ErrorMessagesAreDisplayText` | An error's message is text for a person, or a one-member wrapper | `SparqlParseError.Message`, `SparqlResultsError.Message` |
+
+**Gates, local, with the `survey` override.**
+- `licence-headers`, `decision-sets`, `banned-symbols` and `register` pass.
+- The solution builds with no warning but the downgraded ids and no `RS0016`/`RS0017`.
+- Test counts: Turtle 388, Sparql 36, Results 1,058, Evaluation 26, Sparql.Store 13, Store 54, Rdf 116, Analyzers 83. All pass.
+- Conformance: 6,018 pass.
+
+### 3. The accepted hot-path decisions
+
+These stay filed as they are, with no `accepted-by`. The maintainer adds it on
+this branch after the preview.5 bump.
+
+### 5. Preview.5
+
+This branch is watched. When `0.1.0-preview.5` is on nuget.org:
+1. `Directory.Packages.props` moves to it, in a commit whose body carries the
+   changelog's breaking entries.
+2. `main` comes in, and the build is re-verified: only `CS0618` should remain
+   on layers 0 to 2.
+3. This record and the pull request body are updated, and the pull request
+   leaves draft only then.
