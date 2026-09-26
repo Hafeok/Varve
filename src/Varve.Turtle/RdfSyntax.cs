@@ -28,13 +28,3 @@ public enum RdfSyntax : byte
     /// <summary>RDF 1.1 TriG.</summary>
     TriG,
 }
-
-/// <summary>What the parser should do after an error has been reported.</summary>
-public enum ErrorAction : byte
-{
-    /// <summary>End the parse. This is what happens with no error handler.</summary>
-    Stop,
-
-    /// <summary>Resume at the byte after the next end of line.</summary>
-    Continue,
-}

@@ -6,6 +6,7 @@ using System;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
+using Varve.Turtle.Model;
 
 namespace Varve.Turtle;
 

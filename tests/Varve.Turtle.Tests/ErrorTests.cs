@@ -4,6 +4,7 @@
 
 using System.Collections.Generic;
 using Varve.Rdf;
+using Varve.Turtle.Model;
 using Xunit;
 using static Varve.Turtle.Tests.Harness;
 

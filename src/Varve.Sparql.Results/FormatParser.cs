@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.Unicode;
 using Varve.Rdf;
+using Varve.Sparql.Results.Model;
 
 namespace Varve.Sparql.Results;
 

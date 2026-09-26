@@ -31,6 +31,8 @@ decisions:
     statement: "The DomainModel namespaces are Varve.Iri, Varve.Xsd, Varve.Rdf, Varve.Sparql.Algebra and Varve.Store.Log, with Varve.Shacl.Reports planned"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-25T00:00:00Z
+  - key: SyntaxPackagesHaveOneModelNamespace
+    statement: "Each syntax package has one DomainModel namespace for its public data types - its parse errors, their kinds, its source positions and its callbacks' answers: Varve.Turtle.Model, Varve.Sparql.Algebra (which also takes SourceSpan and SparqlParseError) and Varve.Sparql.Results.Model. The syntax namespaces themselves stay undeclared"
   - key: VarveRulesUnderDd0008
     statement: "dd_rule_id_prefixes is VARVE, and dd_banned_names is left at the package's default list"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -78,3 +80,6 @@ Received from earlier sets: `LayerDeclaredPerProject` and `UnlayeredAssemblies` 
 `HotPathAttributeFromGenerator` from 0026's. Keys dated 2026-09-26 are the maintainer's
 decisions on the pull request, before the ADR merged: VARVE0005, and the supersession of
 0003's declaration mechanism.
+
+`SyntaxPackagesHaveOneModelNamespace` is the 2026-09-26 amendment (ADR 0068), filed by session 2
+of #43 on the maintainer's decision and unaccepted until the maintainer accepts it here.

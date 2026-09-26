@@ -3,9 +3,11 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 // The algebra is the model: the node types the parser produces, the
-// serialiser writes and the evaluator runs (ADR 0048, ADR 0064's table). The
-// parser and the writer, in Varve.Sparql.Parsing and Varve.Sparql.Writing, are
-// not. Declared before any [Contract] in this assembly.
+// serialiser writes and the evaluator runs (ADR 0048, ADR 0064's table), and,
+// since ADR 0064's 2026-09-26 amendment, the package's other public data: the
+// source span every node carries and the parse error. The parser and the
+// writer, in Varve.Sparql.Parsing and Varve.Sparql.Writing, are not. Declared
+// before any [Contract] in this assembly.
 
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;

@@ -6,6 +6,7 @@ using System;
 using System.Buffers;
 using System.Text.Json;
 using Varve.Rdf;
+using Varve.Sparql.Results.Model;
 
 namespace Varve.Sparql.Results;
 

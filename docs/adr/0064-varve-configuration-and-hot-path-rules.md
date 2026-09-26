@@ -23,6 +23,15 @@ for the half of `VARVE0002` that `DD0001` does not cover.
 It is the Varve form of the draft ADR-A13, with two corrections listed under
 Context.
 
+**Amended 2026-09-26** (ADR [0068](0068-dated-amendments.md)), by two blocks
+marked with that date:
+
+- each syntax package gains one `[DomainModel]` namespace for its public data
+  types, under *The `[DomainModel]` namespaces*;
+- the `dynamic` ban is recorded as covering explicit binder use only, until
+  the package ships a rule for the keyword, under *`BannedSymbols.txt`
+  additions*.
+
 ## Context
 
 ADR 0062 moves the generic rules to `DecisionDriven.Analyzers`. What remains
@@ -105,12 +114,62 @@ Not model namespaces:
 - the root `Varve.Store` namespace, which is the engine: `Dataset`, the views,
   the storage contract and its memory backend.
 
+> **Amended 2026-09-26** (session 2 of #43, on the maintainer's decision).
+> **Each syntax package has one model namespace for its public data types**:
+> its parse errors and their kinds, its source positions, and the answers its
+> callbacks return. The syntax namespaces above stay undeclared. The rows this
+> adds:
+>
+> | Namespace | Assembly | What it holds |
+> |---|---|---|
+> | `Varve.Turtle.Model` | `Varve.Turtle` | `ParseError`, `ParseErrorKind`, `ParsePosition`, and `ErrorAction`, the answer an `ErrorHandler` returns |
+> | `Varve.Sparql.Algebra` | `Varve.Sparql` | already declared, and it also takes `SourceSpan`, which every algebra node carries, and `SparqlParseError` with `SparqlErrorKind`. `SparqlParseException` stays in `Varve.Sparql` |
+> | `Varve.Sparql.Results.Model` | `Varve.Sparql.Results` | `SparqlResultsError`, `SparqlResultsErrorKind`, `ResultsPosition` |
+>
+> **Why.** `DD0010` reported the Turtle parser's `[Contract]` delegate
+> `ErrorHandler` for naming `ParseError` and `ErrorAction`. It also reported
+> `AlgebraNode.Span` for naming `SourceSpan`. Each of those types was in a
+> namespace this ADR had declared not a model. A struct or an enum cannot be a
+> `[Contract]`, so declaring the model was the only answer. One namespace per
+> package, rather than a declaration per type, keeps the line between data and
+> machinery where a reader looks for it. `ParseResult` and the options types
+> stay in `Varve.Turtle`: nothing on a contract names them.
+>
+> **Cost.** It moves ten public types into new namespaces. None of them has
+> shipped (every baseline line is in `PublicAPI.Unshipped.txt`), so no
+> released surface breaks. Callers add a `using`. Bringing the moved types
+> under `DD0013` leaves their source coordinates and error messages as
+> primitives. Those are filed for the maintainer as
+> `SyntaxModelSurfaces.SourceCoordinatesAreOffsetsLinesAndColumns` and
+> `.ErrorMessagesAreDisplayText`, each with its wrapper alternative, and are
+> unaccepted until the maintainer accepts them.
+>
+> The ruling enters the ledger as
+> `VarveConfigurationAndHotPathRules.SyntaxPackagesHaveOneModelNamespace`,
+> dated 2026-09-26.
+
 ### `BannedSymbols.txt` additions
 
 Each entry cites this ADR in its comment and its message (ADR 0063):
 
 - **`dynamic`**, by banning `Microsoft.CSharp.RuntimeBinder`: the brief bans it
   (constraint 2), and nothing bans it today.
+
+  > **Amended 2026-09-26** (session 2 of #43). **This bans explicit use of
+  > the binder, not the `dynamic` keyword.** The compiler lowers a dynamic
+  > operation to `Microsoft.CSharp.RuntimeBinder` call sites, but
+  > BannedApiAnalyzers sees only the symbols the source names. A scratch build
+  > with the namespace banned reported `Binder.InvokeMember(...)` and nothing
+  > for `dynamic d = o; d.Foo();`. Constraint 2's ban on `dynamic` is
+  > therefore **not enforced** today. It is a gap, not a decision to allow it.
+  > The rule that closes it is requested from the package,
+  > [decision-driven-analyzers#69](https://github.com/Hafeok/decision-driven-analyzers/issues/69)
+  > (tier 1: `dynamic` is an error in any project with `ArchLayer` set). When
+  > a preview carries it, the adopting pull request configures it here and
+  > this block records that the gap is closed. Until then, review is the
+  > only check, and no `dynamic` exists in `src/` (checked on 2026-09-26).
+  > A local Varve analyzer for it was not written: the rule is generic, and
+  > ADR 0062 moves generic rules to the package.
 - **The reflection members that inspect or invoke**:
   - `MethodBase.Invoke`, `PropertyInfo.GetValue`/`SetValue` and
     `FieldInfo.GetValue`/`SetValue`;

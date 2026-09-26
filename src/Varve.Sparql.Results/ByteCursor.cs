@@ -4,6 +4,7 @@
 
 using System;
 using System.Buffers;
+using Varve.Sparql.Results.Model;
 
 namespace Varve.Sparql.Results;
 

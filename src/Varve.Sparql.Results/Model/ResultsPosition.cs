@@ -4,13 +4,16 @@
 
 using System;
 using System.Globalization;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
-namespace Varve.Sparql.Results;
+namespace Varve.Sparql.Results.Model;
 
 /// <summary>
 /// A place in a result document: a byte offset, and the 1-based line and
 /// 1-based byte column of that byte, as <c>sparql-grammar.md</c> §6 counts them.
 /// </summary>
+[DesignDecision(typeof(SyntaxModelSurfaces.SourceCoordinatesAreOffsetsLinesAndColumns), Scope = ExceptionScope.Boundary)]
 public readonly struct ResultsPosition : IEquatable<ResultsPosition>
 {
     /// <summary>A position.</summary>
