@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Rdf;
 
@@ -76,11 +78,11 @@ public readonly struct QuadDelta : IEquatable<QuadDelta>
     }
 
     /// <summary>Whether the delta asserts a quad.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool Asserts(in Quad quad) => IndexOf(Asserted, in quad) >= 0;
 
     /// <summary>Whether the delta retracts a quad.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool Retracts(in Quad quad) => IndexOf(Retracted, in quad) >= 0;
 
     /// <summary>
@@ -149,7 +151,7 @@ public readonly struct QuadDelta : IEquatable<QuadDelta>
     /// <summary>Set equality of both halves.</summary>
     public static bool operator !=(QuadDelta left, QuadDelta right) => !left.Equals(right);
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static int Compare(in Quad left, in Quad right)
     {
         int c = left.Subject.Value.CompareTo(right.Subject.Value);
@@ -170,7 +172,7 @@ public readonly struct QuadDelta : IEquatable<QuadDelta>
         return c != 0 ? c : left.Graph.Value.CompareTo(right.Graph.Value);
     }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static int IndexOf(ReadOnlySpan<Quad> sorted, in Quad quad)
     {
         int low = 0;

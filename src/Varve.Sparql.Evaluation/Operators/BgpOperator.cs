@@ -5,6 +5,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Sparql.Evaluation.Execution;
 
@@ -76,7 +78,7 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
 
     object IEnumerator.Current => Current;
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool MoveNext()
     {
         if (_done)
@@ -131,7 +133,7 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
     }
 
     /// <summary>Opens level <paramref name="level"/>'s scan against the working solution.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private void OpenLevel(int level)
     {
         _boundCount[level] = 0;
@@ -143,7 +145,7 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
     }
 
     /// <summary>A position as a scan argument: a handle, or the wildcard; false when nothing can match.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private bool Resolve(in PatternPosition position, out TermHandle handle)
     {
         handle = default;
@@ -163,7 +165,7 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
     }
 
     /// <summary>Moves level <paramref name="level"/> to its next quad that unifies with the working solution.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private bool Advance(int level)
     {
         Unbind(level);
@@ -191,7 +193,7 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
         return false;
     }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private bool Unify(int level, in PatternPosition position, TermHandle found)
     {
         switch (position.Kind)
@@ -205,7 +207,7 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
         }
     }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private bool UnifySlot(int level, int slot, TermRef value)
     {
         if (_work[slot] != 0)
@@ -247,7 +249,7 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
         }
     }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private void Unbind(int level)
     {
         int count = _boundCount[level];

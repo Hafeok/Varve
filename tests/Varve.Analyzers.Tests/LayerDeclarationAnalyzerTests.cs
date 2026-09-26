@@ -2,291 +2,199 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using System;
 using System.Globalization;
-using System.Text;
 using System.Threading.Tasks;
+using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Testing;
 using Xunit;
 
 namespace Varve.Analyzers.Tests;
 
 /// <summary>
-/// VARVE0002. A Varve assembly declares a layer, and a referenced Varve
-/// assembly carries one (ADR 0003).
+/// VARVE0005. A Varve assembly declares the layer it is, and the declaration
+/// agrees with what the assembly is (ADR 0064, ADR 0060).
 /// </summary>
 /// <remarks>
-/// The rule exists because a missing layer would not fail VARVE0001 — it would
-/// make VARVE0001 skip the assembly. Every case here is a way that could
-/// happen.
+/// The properties arrive as <c>build_property.*</c> in a global analyzer
+/// config, which is how <c>CompilerVisibleProperty</c> surfaces an MSBuild
+/// property. An unset property is absent from the config, not empty, because
+/// that is what "undeclared" is. The fixture tests prove the wiring.
 /// </remarks>
 public class LayerDeclarationAnalyzerTests
 {
-    private static readonly CompositeFormat MalformedFormat =
-        CompositeFormat.Parse(LayerDeclarationAnalyzer.MalformedFormat);
+    private static Test Declaring(
+        string assemblyName,
+        string? layer,
+        bool packable = false,
+        bool executable = false,
+        bool compositionRoot = false) =>
+        new(assemblyName, layer, packable, executable, compositionRoot);
 
-    private static readonly CompositeFormat ReferenceMalformedFormat =
-        CompositeFormat.Parse(LayerDeclarationAnalyzer.ReferenceMalformedFormat);
-
-    private static readonly CompositeFormat ExecutableBelowHostLayerFormat =
-        CompositeFormat.Parse(LayerDeclarationAnalyzer.ExecutableBelowHostLayerFormat);
-
-    private static LayerAnalyzerTest<LayerDeclarationAnalyzer> Declaring(
-        string assemblyName, string? layer, bool isPackable = false, bool isExecutable = false) =>
-        new(assemblyName, layer, isPackable, isExecutable);
-
-    private static DiagnosticResult Violation(string assemblyName, string reason) =>
+    private static DiagnosticResult Violation(string assemblyName, string finding, string decide) =>
         new DiagnosticResult(VarveDiagnostics.LayerDeclaration)
             .WithNoLocation()
-            .WithArguments(assemblyName, reason);
+            .WithArguments(assemblyName, finding, decide);
 
-    [Fact]
-    public async Task A_declared_layer_is_clean()
-    {
-        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Rdf", "1")
-            .ReferencingLayer("Varve.Iri", 0);
-
-        await test.RunAsync(TestContext.Current.CancellationToken);
-    }
+    private static string Format(string format, object argument) =>
+        string.Format(CultureInfo.InvariantCulture, format, argument);
 
     [Theory]
     [InlineData("0")]
-    [InlineData("3")]
+    [InlineData("1")]
     [InlineData("5")]
-    public async Task Every_layer_in_range_is_accepted(string layer)
+    public async Task A_library_declaring_a_layer_below_6_is_clean(string layer) =>
+        await Declaring("Varve.Rdf", layer, packable: true).RunAsync(TestContext.Current.CancellationToken);
+
+    [Fact]
+    public async Task A_host_at_layer_6_that_is_the_composition_root_is_clean() =>
+        await Declaring("Varve.AotSmoke", "6", executable: true, compositionRoot: true)
+            .RunAsync(TestContext.Current.CancellationToken);
+
+    [Theory]
+    [InlineData("Varve.Rdf.Tests")]
+    [InlineData("Varve.Analyzers")]
+    public async Task A_test_assembly_or_the_analyzer_declaring_no_layer_is_clean(string name) =>
+        await Declaring(name, layer: null, executable: name.EndsWith(".Tests", StringComparison.Ordinal))
+            .RunAsync(TestContext.Current.CancellationToken);
+
+    [Fact]
+    public async Task An_assembly_outside_the_family_is_not_checked() =>
+        await Declaring("RepoStandard", layer: null).RunAsync(TestContext.Current.CancellationToken);
+
+    [Fact]
+    public async Task A_library_declaring_no_layer_is_reported()
     {
-        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Something", layer);
+        Test test = Declaring("Varve.Something", layer: null);
+        test.ExpectedDiagnostics.Add(Violation(
+            "Varve.Something", LayerDeclarationAnalyzer.MustDeclare, LayerDeclarationAnalyzer.MustDeclareDecide));
 
         await test.RunAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
-    public async Task Missing_declaration_is_reported()
+    public async Task A_packable_assembly_declaring_no_layer_is_reported_whatever_it_is_called()
     {
-        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Rdf", layer: null);
+        Test test = Declaring("Varve.Something.Tests", layer: null, packable: true);
+        test.ExpectedDiagnostics.Add(Violation(
+            "Varve.Something.Tests",
+            LayerDeclarationAnalyzer.PackableMustDeclare,
+            LayerDeclarationAnalyzer.PackableMustDeclareDecide));
 
-        test.ExpectedDiagnostics.Add(Violation("Varve.Rdf", LayerDeclarationAnalyzer.MustDeclare));
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task A_test_assembly_declaring_a_layer_is_reported()
+    {
+        Test test = Declaring("Varve.Rdf.Tests", "1", executable: true);
+        test.ExpectedDiagnostics.Add(Violation(
+            "Varve.Rdf.Tests",
+            Format(LayerDeclarationAnalyzer.UnlayeredDeclaresFormat, "1"),
+            LayerDeclarationAnalyzer.UnlayeredDeclaresDecide));
 
         await test.RunAsync(TestContext.Current.CancellationToken);
     }
 
     [Theory]
     [InlineData("one")]
-    [InlineData("")]
     [InlineData("-1")]
     [InlineData("7")]
     [InlineData("2.0")]
-    public async Task Malformed_declaration_is_reported(string layer)
+    [InlineData("none")]
+    public async Task A_malformed_layer_is_reported(string layer)
     {
-        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Rdf", layer);
-
-        // An empty value is indistinguishable from an unset property once
-        // MSBuild has evaluated it, so it is reported as undeclared.
-        string reason = layer.Length == 0
-            ? LayerDeclarationAnalyzer.MustDeclare
-            : string.Format(CultureInfo.InvariantCulture, MalformedFormat, layer);
-
-        test.ExpectedDiagnostics.Add(Violation("Varve.Rdf", reason));
-
-        await test.RunAsync(TestContext.Current.CancellationToken);
-    }
-
-    [Fact]
-    public async Task Declaring_none_on_a_package_is_reported()
-    {
-        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Rdf", "none");
-
-        test.ExpectedDiagnostics.Add(Violation("Varve.Rdf", LayerDeclarationAnalyzer.NoLayerNotAllowed));
-
-        await test.RunAsync(TestContext.Current.CancellationToken);
-    }
-
-    [Theory]
-    [InlineData("Varve.Rdf.Tests")]
-    [InlineData("Varve.Analyzers")]
-    public async Task Declaring_none_is_accepted_from_an_exempt_assembly(string assemblyName)
-    {
-        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring(assemblyName, "none");
-
-        await test.RunAsync(TestContext.Current.CancellationToken);
-    }
-
-    /// <summary>
-    /// ADR 0060: a benchmark composes the public packages as a host does, and
-    /// its name no longer buys it <c>none</c>.
-    /// </summary>
-    [Fact]
-    public async Task Declaring_none_from_a_benchmark_assembly_is_reported()
-    {
-        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Benchmarks", "none", isExecutable: true);
-
-        test.ExpectedDiagnostics.Add(Violation("Varve.Benchmarks", LayerDeclarationAnalyzer.NoLayerNotAllowed));
-
-        await test.RunAsync(TestContext.Current.CancellationToken);
-    }
-
-    [Theory]
-    [InlineData("Varve.Server")]
-    [InlineData("Varve.Benchmarks")]
-    public async Task An_executable_at_the_host_layer_is_clean(string assemblyName)
-    {
-        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring(assemblyName, "6", isExecutable: true)
-            .ReferencingLayer("Varve.Sparql.Store", 5);
-
-        await test.RunAsync(TestContext.Current.CancellationToken);
-    }
-
-    [Theory]
-    [InlineData("0")]
-    [InlineData("5")]
-    public async Task An_executable_below_the_host_layer_is_reported(string layer)
-    {
-        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.AotSmoke", layer, isExecutable: true);
-
+        Test test = Declaring("Varve.Rdf", layer);
         test.ExpectedDiagnostics.Add(Violation(
-            "Varve.AotSmoke", string.Format(CultureInfo.InvariantCulture, ExecutableBelowHostLayerFormat, layer)));
+            "Varve.Rdf",
+            Format(LayerDeclarationAnalyzer.MalformedFormat, layer),
+            LayerDeclarationAnalyzer.MalformedDecide));
 
         await test.RunAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
-    public async Task A_library_at_the_host_layer_is_reported()
+    public async Task An_executable_below_layer_6_is_reported()
     {
-        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Something", "6");
-
-        test.ExpectedDiagnostics.Add(Violation("Varve.Something", LayerDeclarationAnalyzer.HostLayerNotExecutable));
-
-        await test.RunAsync(TestContext.Current.CancellationToken);
-    }
-
-    /// <summary>
-    /// Under xUnit v3 a test assembly is an executable; it is exempt from
-    /// layering altogether, and the host-layer rule does not reach it.
-    /// </summary>
-    [Fact]
-    public async Task A_test_executable_may_declare_none()
-    {
-        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Store.Tests", "none", isExecutable: true);
-
-        await test.RunAsync(TestContext.Current.CancellationToken);
-    }
-
-    /// <summary>
-    /// The omission bypass this rule exists to close: without this case, a
-    /// reference to an assembly that simply never declared a layer would be
-    /// invisible to VARVE0001.
-    /// </summary>
-    [Fact]
-    public async Task Reference_without_layer_metadata_is_reported()
-    {
-        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Rdf", "1")
-            .ReferencingUndeclared("Varve.Store");
-
-        // Both halves fire, as they would in a real build: the referenced
-        // project reports its own missing declaration, and the referencing
-        // project reports that it cannot check the direction of the reference.
-        test.ExpectedDiagnostics.Add(Violation("Varve.Store", LayerDeclarationAnalyzer.MustDeclare));
-        test.ExpectedDiagnostics.Add(
-            Violation("Varve.Store", LayerDeclarationAnalyzer.ReferenceMissingMetadata));
+        Test test = Declaring("Varve.Tool", "5", executable: true);
+        test.ExpectedDiagnostics.Add(Violation(
+            "Varve.Tool",
+            Format(LayerDeclarationAnalyzer.ExecutableBelowHostFormat, 5),
+            LayerDeclarationAnalyzer.ExecutableBelowHostDecide));
 
         await test.RunAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
-    public async Task Reference_with_malformed_layer_metadata_is_reported()
+    public async Task A_library_at_layer_6_is_reported()
     {
-        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Rdf", "1")
-            .Referencing("Varve.Store", "four");
-
-        test.ExpectedDiagnostics.Add(Violation("Varve.Store", string.Format(
-            CultureInfo.InvariantCulture, MalformedFormat, "four")));
-        test.ExpectedDiagnostics.Add(Violation("Varve.Store", string.Format(
-            CultureInfo.InvariantCulture, ReferenceMalformedFormat, "four")));
-
-        await test.RunAsync(TestContext.Current.CancellationToken);
-    }
-
-    /// <summary>
-    /// The analyzer's own test project instantiates the rule types, so it is
-    /// the one compilation with a reason to reference it as a library.
-    /// </summary>
-    [Fact]
-    public async Task The_analyzer_test_project_may_reference_the_analyzer_as_a_library()
-    {
-        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Analyzers.Tests", "none")
-            .ReferencingNoLayer("Varve.Analyzers");
-
-        await test.RunAsync(TestContext.Current.CancellationToken);
-    }
-
-    /// <summary>
-    /// An analyzer reaches the compiler as <c>/analyzer:</c> and never as
-    /// <c>/reference:</c>, so appearing among the references means someone
-    /// referenced it as an ordinary library. That is the shape the old by-name
-    /// exemption used to wave through, and it is now the violation.
-    /// </summary>
-    [Fact]
-    public async Task Referencing_the_analyzer_as_a_library_is_reported()
-    {
-        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Rdf.Tests", "none")
-            .ReferencingNoLayer("Varve.Analyzers");
-
-        test.ExpectedDiagnostics.Add(
-            Violation("Varve.Analyzers", LayerDeclarationAnalyzer.AnalyzerReferencedAsLibrary));
+        Test test = Declaring("Varve.Server.Parts", "6", compositionRoot: true);
+        test.ExpectedDiagnostics.Add(Violation(
+            "Varve.Server.Parts",
+            LayerDeclarationAnalyzer.HostNotExecutable,
+            LayerDeclarationAnalyzer.HostNotExecutableDecide));
 
         await test.RunAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
-    public async Task A_packable_assembly_with_a_layer_is_clean()
+    public async Task A_composition_root_below_layer_6_is_reported()
     {
-        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Rdf", "1", isPackable: true)
-            .ReferencingLayer("Varve.Iri", 0);
+        Test test = Declaring("Varve.Store", "4", compositionRoot: true);
+        test.ExpectedDiagnostics.Add(Violation(
+            "Varve.Store",
+            Format(LayerDeclarationAnalyzer.RootWithoutHostFormat, 4),
+            LayerDeclarationAnalyzer.RootWithoutHostDecide));
 
         await test.RunAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
-    public async Task Declaring_none_on_a_packable_assembly_is_reported()
+    public async Task A_host_at_layer_6_that_is_not_the_composition_root_is_reported()
     {
-        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Rdf", "none", isPackable: true);
-
-        test.ExpectedDiagnostics.Add(Violation("Varve.Rdf", LayerDeclarationAnalyzer.NoLayerOnPackable));
-
-        await test.RunAsync(TestContext.Current.CancellationToken);
-    }
-
-    /// <summary>
-    /// The loophole itself: a name ending in <c>.Tests</c> used to exempt an
-    /// assembly from declaring a layer. Being packed now overrides the name,
-    /// so a package cannot escape the layering rule by what it calls itself.
-    /// </summary>
-    [Theory]
-    [InlineData("Varve.Rdf.Tests")]
-    [InlineData("Varve.Analyzers")]
-    public async Task A_packable_assembly_cannot_buy_an_exemption_with_its_name(string assemblyName)
-    {
-        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring(assemblyName, "none", isPackable: true);
-
-        test.ExpectedDiagnostics.Add(Violation(assemblyName, LayerDeclarationAnalyzer.NoLayerOnPackable));
+        Test test = Declaring("Varve.AotSmoke", "6", executable: true);
+        test.ExpectedDiagnostics.Add(Violation(
+            "Varve.AotSmoke",
+            LayerDeclarationAnalyzer.HostWithoutRoot,
+            LayerDeclarationAnalyzer.HostWithoutRootDecide));
 
         await test.RunAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
-    public async Task Non_varve_references_need_no_layer_metadata()
+    public async Task A_test_assembly_claiming_to_be_the_composition_root_is_reported()
     {
-        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Varve.Rdf", "1")
-            .ReferencingUndeclared("Contoso.Data");
+        Test test = Declaring("Varve.Rdf.Tests", layer: null, executable: true, compositionRoot: true);
+        test.ExpectedDiagnostics.Add(Violation(
+            "Varve.Rdf.Tests",
+            Format(LayerDeclarationAnalyzer.RootWithoutHostFormat, "none"),
+            LayerDeclarationAnalyzer.RootWithoutHostDecide));
 
         await test.RunAsync(TestContext.Current.CancellationToken);
     }
 
-    [Fact]
-    public async Task Assemblies_outside_the_varve_namespace_are_not_checked()
+    /// <summary>One compilation with a name and the build properties VARVE0005 reads.</summary>
+    private sealed class Test : CSharpAnalyzerTest<LayerDeclarationAnalyzer, DefaultVerifier>
     {
-        LayerAnalyzerTest<LayerDeclarationAnalyzer> test = Declaring("Contoso.App", layer: null)
-            .ReferencingLayer("Varve.Store", 4);
+        internal Test(string assemblyName, string? layer, bool packable, bool executable, bool compositionRoot)
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80;
+            TestCode = "namespace Declaring { internal sealed class Marker { } }";
 
-        await test.RunAsync(TestContext.Current.CancellationToken);
+            string config = "is_global = true" + Environment.NewLine
+                + "build_property.IsPackable = " + (packable ? "true" : "false") + Environment.NewLine
+                + "build_property.OutputType = " + (executable ? "Exe" : "Library") + Environment.NewLine
+                + "build_property.ArchCompositionRoot = " + (compositionRoot ? "true" : "false") + Environment.NewLine;
+
+            if (layer is not null)
+            {
+                config += "build_property.ArchLayer = " + layer + Environment.NewLine;
+            }
+
+            TestState.AnalyzerConfigFiles.Add(("/.globalconfig", config));
+
+            SolutionTransforms.Add((solution, projectId) =>
+                solution.WithProjectAssemblyName(projectId, assemblyName));
+        }
     }
 }

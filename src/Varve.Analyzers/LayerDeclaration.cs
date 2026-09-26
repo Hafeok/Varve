@@ -3,44 +3,32 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System.Globalization;
-using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Varve.Analyzers;
 
 /// <summary>
-/// Reading and validating the layer an assembly declares.
+/// Reading the layer declaration a compilation makes about itself.
 /// </summary>
 /// <remarks>
-/// A layer reaches an analyzer by two different routes, and both are needed.
-/// The compilation being analyzed reads its own layer from the
-/// <c>VarveLayer</c> MSBuild property, surfaced through
-/// <see cref="AnalyzerConfigOptions"/>. An assembly it *references* is already
-/// compiled, so its layer is read back from the
-/// <c>[assembly: AssemblyMetadata("Varve.Layer", n)]</c> attribute that
-/// <c>Directory.Build.targets</c> emitted. See ADR 0003.
+/// Everything here arrives through <c>CompilerVisibleProperty</c>, read as
+/// <c>build_property.*</c>. <c>DecisionDriven.Analyzers</c> makes the four
+/// <c>Arch*</c> properties visible, and <c>Directory.Build.props</c> adds
+/// <c>IsPackable</c> and <c>OutputType</c> (ADR 0064). A referenced assembly's
+/// layer is <c>DD0001</c>'s business, read from the <c>[ArchLayer]</c> the
+/// package generates, and nothing here reads metadata.
 /// </remarks>
 internal static class LayerDeclaration
 {
-    /// <summary>The MSBuild property, as the compiler surfaces it.</summary>
-    internal const string BuildPropertyKey = "build_property.VarveLayer";
+    internal const string LayerKey = "build_property.ArchLayer";
+    internal const string CompositionRootKey = "build_property.ArchCompositionRoot";
+    internal const string OutputTypeKey = "build_property.OutputType";
 
     /// <summary>
-    /// The <c>IsPackable</c> MSBuild property, as the compiler surfaces it.
+    /// Whether an assembly is published is the question layering turns on, and
+    /// the one an assembly name can only approximate.
     /// </summary>
-    /// <remarks>
-    /// Whether an assembly is published is the only question that actually
-    /// matters for layering, and it is the one an assembly name can only
-    /// approximate. A project that is packed is in the package graph the layer
-    /// rule describes, whatever it chose to call itself.
-    /// </remarks>
-    internal const string PackableBuildPropertyKey = "build_property.IsPackable";
-
-    /// <summary>The assembly metadata key holding a compiled assembly's layer.</summary>
-    internal const string MetadataKey = "Varve.Layer";
-
-    /// <summary>The value declaring that an assembly has no layer.</summary>
-    internal const string NoLayer = "none";
+    internal const string PackableKey = "build_property.IsPackable";
 
     /// <summary>The assembly name prefix that brings an assembly under the rule.</summary>
     internal const string AssemblyPrefix = "Varve.";
@@ -48,78 +36,33 @@ internal static class LayerDeclaration
     /// <summary>The analyzer assembly, which has no layer.</summary>
     internal const string AnalyzerAssemblyName = "Varve.Analyzers";
 
-    /// <summary>
-    /// The analyzer's own test assembly — the only compilation with a reason to
-    /// reference <see cref="AnalyzerAssemblyName"/> as an ordinary library.
-    /// </summary>
-    internal const string AnalyzerTestAssemblyName = "Varve.Analyzers.Tests";
+    /// <summary>The host layer: the composition root, and only executables (ADR 0060).</summary>
+    internal const int HostLayer = 6;
 
     private const int LowestLayer = 0;
 
-    /// <summary>
-    /// The host layer: the composition root, and the only layer an executable
-    /// may declare (ADR 0060).
-    /// </summary>
-    internal const int HostLayer = 6;
-
-    private const int HighestLayer = HostLayer;
-
-    /// <summary>
-    /// Whether <paramref name="assemblyName"/> is subject to the layering
-    /// rules at all. Only <c>Varve.*</c> assemblies are; anything else in a
-    /// compilation's reference set — the BCL, a test framework — is ignored.
-    /// </summary>
+    /// <summary>Whether the rule applies to an assembly at all.</summary>
     internal static bool IsVarveAssembly(string? assemblyName) =>
         assemblyName is not null
         && assemblyName.StartsWith(AssemblyPrefix, System.StringComparison.Ordinal);
 
     /// <summary>
-    /// Whether an assembly may declare <see cref="NoLayer"/>, and is therefore
-    /// also exempt from VARVE0001.
+    /// Whether an assembly declares no layer by its nature: a test assembly, or
+    /// the analyzer, which runs inside the compiler. ADR 0004 records that this
+    /// is by name and that no analyzer can close that hole; the packable check
+    /// is what stops a package escaping by its name.
     /// </summary>
-    /// <remarks>
-    /// Test assemblies compose across layers by nature — a test for the
-    /// evaluator may need a store, and internals — and are not published, so
-    /// the stability argument behind the layering does not apply to them. The
-    /// analyzer itself runs inside the compiler and is not a library in the
-    /// package graph. ADR 0004 records that this exemption is by name, and
-    /// that no analyzer can close that hole. Benchmark assemblies had it too
-    /// until ADR 0060: they compose the public packages as a host does, and
-    /// declare the host layer.
-    /// </remarks>
-    internal static bool IsExemptFromLayering(string? assemblyName) =>
-        assemblyName is not null
-        && (assemblyName.EndsWith(".Tests", System.StringComparison.Ordinal)
-            || string.Equals(assemblyName, AnalyzerAssemblyName, System.StringComparison.Ordinal));
+    internal static bool IsUnlayeredByName(string assemblyName) =>
+        assemblyName.EndsWith(".Tests", System.StringComparison.Ordinal)
+        || string.Equals(assemblyName, AnalyzerAssemblyName, System.StringComparison.Ordinal);
 
-    /// <summary>
-    /// Whether the compilation is an executable — the composition root ADR
-    /// 0060 reserves to <see cref="HostLayer"/>.
-    /// </summary>
-    internal static bool IsExecutable(Compilation compilation) =>
-        compilation.Options.OutputKind is OutputKind.ConsoleApplication
-            or OutputKind.WindowsApplication
-            or OutputKind.WindowsRuntimeApplication;
-
-    /// <summary>
-    /// Parses a declared layer. A layer is an integer from 0 to 6 inclusive;
-    /// anything else, including <see cref="NoLayer"/>, is not a layer.
-    /// </summary>
-    internal static bool TryParseLayer(string? raw, out int layer)
+    /// <summary>A layer is an integer from 0 to 6 inclusive, and nothing else.</summary>
+    internal static bool TryParseLayer(string raw, out int layer)
     {
         layer = -1;
 
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            return false;
-        }
-
-        if (!int.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out int parsed))
-        {
-            return false;
-        }
-
-        if (parsed is < LowestLayer or > HighestLayer)
+        if (!int.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out int parsed)
+            || parsed is < LowestLayer or > HostLayer)
         {
             return false;
         }
@@ -128,81 +71,24 @@ internal static class LayerDeclaration
         return true;
     }
 
-    /// <summary>
-    /// The raw <c>VarveLayer</c> value the compilation under analysis declares,
-    /// or <see langword="null"/> when the property is unset or empty.
-    /// </summary>
-    internal static string? ReadDeclaredValue(AnalyzerConfigOptionsProvider options) =>
-        ReadBuildProperty(options, BuildPropertyKey);
+    /// <summary>An <c>OutputType</c> of <c>Exe</c> or <c>WinExe</c>, as ADR 0064 defines an executable.</summary>
+    internal static bool IsExecutable(string? outputType) =>
+        string.Equals(outputType, "Exe", System.StringComparison.OrdinalIgnoreCase)
+        || string.Equals(outputType, "WinExe", System.StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Whether the compilation under analysis is packed into a NuGet package.
+    /// A boolean property. Absent or unparseable is false: the value that
+    /// carries weight is always an explicit opt-in.
     /// </summary>
-    /// <remarks>
-    /// Absent or unparseable is read as not packable. The repository sets
-    /// <c>IsPackable</c> to false by default, so the value that carries weight
-    /// — true — is always an explicit opt-in.
-    /// </remarks>
-    internal static bool ReadIsPackable(AnalyzerConfigOptionsProvider options) =>
-        string.Equals(
-            ReadBuildProperty(options, PackableBuildPropertyKey),
-            "true",
-            System.StringComparison.OrdinalIgnoreCase);
-
-    private static string? ReadBuildProperty(AnalyzerConfigOptionsProvider options, string key)
-    {
-        if (!options.GlobalOptions.TryGetValue(key, out string? value))
-        {
-            return null;
-        }
-
-        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-    }
+    internal static bool ReadFlag(AnalyzerConfigOptions options, string key) =>
+        string.Equals(Read(options, key), "true", System.StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// The layer a referenced assembly carries in its
-    /// <c>AssemblyMetadata("Varve.Layer", …)</c> attribute, or
-    /// <see langword="null"/> when it carries none.
+    /// A property's value, or <see langword="null"/> when it is unset or empty.
+    /// MSBuild cannot tell the two apart, and neither can this.
     /// </summary>
-    /// <remarks>
-    /// Returns the raw string rather than an integer so that a referenced
-    /// assembly compiled from a malformed declaration is reported as malformed
-    /// rather than silently treated as absent.
-    /// </remarks>
-    internal static string? ReadMetadataValue(IAssemblySymbol assembly, INamedTypeSymbol? metadataAttribute)
-    {
-        if (metadataAttribute is null)
-        {
-            return null;
-        }
-
-        foreach (AttributeData attribute in assembly.GetAttributes())
-        {
-            if (!SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, metadataAttribute))
-            {
-                continue;
-            }
-
-            if (attribute.ConstructorArguments.Length != 2)
-            {
-                continue;
-            }
-
-            if (attribute.ConstructorArguments[0].Value is not string key
-                || !string.Equals(key, MetadataKey, System.StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            return attribute.ConstructorArguments[1].Value as string;
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// The metadata attribute type, resolved once per compilation.
-    /// </summary>
-    internal static INamedTypeSymbol? ResolveMetadataAttribute(Compilation compilation) =>
-        compilation.GetTypeByMetadataName("System.Reflection.AssemblyMetadataAttribute");
+    internal static string? Read(AnalyzerConfigOptions options, string key) =>
+        options.TryGetValue(key, out string? value) && !string.IsNullOrWhiteSpace(value)
+            ? value.Trim()
+            : null;
 }

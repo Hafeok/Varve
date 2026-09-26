@@ -4,10 +4,10 @@
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
 
-    <!-- A test assembly composes across layers by nature and is not published,
-         so the stability argument behind the layering does not apply to it.
-         VARVE0002 accepts 'none' from a *.Tests assembly. ADR 0003. -->
-    <VarveLayer>none</VarveLayer>
+    <!-- No ArchLayer. A test assembly composes across layers by nature and is
+         not published, so the stability argument behind the layering does not
+         apply to it; VARVE0005 accepts no layer from a *.Tests assembly
+         (ADR 0064). -->
   </PropertyGroup>
 
   <ItemGroup>

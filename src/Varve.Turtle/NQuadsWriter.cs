@@ -4,6 +4,8 @@
 
 using System;
 using System.Buffers;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Turtle;
@@ -33,7 +35,7 @@ public static class NQuadsWriter
     /// <paramref name="destination"/> is too small, in which case nothing has
     /// been written and <paramref name="written"/> is zero.
     /// </summary>
-    [Varve.HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryWrite(in QuadView quad, Span<byte> destination, out int written, in WriteOptions options)
     {
         SpanWriter writer = new(destination);
@@ -57,7 +59,7 @@ public static class NQuadsWriter
     }
 
     /// <summary>Writes one quad to a buffer writer.</summary>
-    [Varve.HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static void Write(IBufferWriter<byte> output, in QuadView quad, in WriteOptions options)
     {
         ArgumentNullException.ThrowIfNull(output);

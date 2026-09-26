@@ -14,7 +14,8 @@
 
     <!-- Layer 6, for the same reason as Varve.AotSmoke: a smoke app is a host,
          and a host is layer 6 (ADR 0060). Nothing is published. -->
-    <VarveLayer>6</VarveLayer>
+    <ArchLayer>6</ArchLayer>
+    <ArchCompositionRoot>true</ArchCompositionRoot>
 
     <!-- wasm-experimental, not Blazor. Constraint 3 is that Varve runs in a
          browser, not that it runs in a web framework, and Blazor would drag in

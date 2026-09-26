@@ -127,7 +127,7 @@ is not used. There is no warm-up count to tune: the rounds are the warm-up.
 
 ## 5. Fitness tests for the things a review forgets
 
-Layer direction and layer declaration are analyzers (`VARVE0001`, `VARVE0002`).
+Layer direction and layer declaration are analyzers (`DD0001`, `VARVE0005`).
 The dependency register, the native-asset ban and the package metadata are
 file-based apps under `eng/`, run in CI. Each of them replaces a rule someone
 would otherwise have to remember.

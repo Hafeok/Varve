@@ -5,6 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Rdf;
 
@@ -57,7 +59,7 @@ public sealed class QuadOverlay : IQuadSource
         _base.TryExternalise(handle, out term);
 
     /// <inheritdoc />
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool Contains(in Quad quad) =>
         _delta.Asserts(in quad) || (!_delta.Retracts(in quad) && _base.Contains(in quad));
 
@@ -150,7 +152,7 @@ public sealed class QuadOverlay : IQuadSource
 
         public Quad Current { get; private set; }
 
-        [HotPath]
+        [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
         public bool MoveNext()
         {
             if (!_baseDone)
@@ -188,7 +190,7 @@ public sealed class QuadOverlay : IQuadSource
 
         public void Dispose() => _base.Dispose();
 
-        [HotPath]
+        [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
         private bool Matches(in Quad quad) =>
             (_subject.IsNone || _subject.Equals(quad.Subject))
             && (_predicate.IsNone || _predicate.Equals(quad.Predicate))

@@ -8,6 +8,8 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Xsd;
 
@@ -69,11 +71,11 @@ internal sealed class Exec
     internal ulong[] NewRow() => new ulong[RowLength];
 
     /// <summary>Throws if cancelled; cheap enough for every solution.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal void Check() => Token.ThrowIfCancellationRequested();
 
     /// <summary>Throws if cancelled, looking only every 1,024 calls: for scans and searches.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal void Step()
     {
         if ((++_steps & 1023) == 0)
@@ -85,7 +87,7 @@ internal sealed class Exec
     // --------------------------------------------------------------- terms
 
     /// <summary>A handle a scan found, as a slot value: itself, or in the materialised arm an owned term.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal TermRef FromSource(TermHandle handle)
     {
         if (!Materialising)
@@ -109,7 +111,7 @@ internal sealed class Exec
     /// the arm still joins on handles, which is why its cost is a lower bound
     /// (§10) — and any other term is looked up.
     /// </summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool TryGetSourceHandle(TermRef value, out TermHandle handle)
     {
         if (!value.IsLocal)
@@ -157,7 +159,7 @@ internal sealed class Exec
         return term;
     }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool TermEquals(TermRef left, TermRef right)
     {
         if (left.IsLocal != right.IsLocal)
@@ -173,7 +175,7 @@ internal sealed class Exec
         return !left.IsLocal && Comparer.Equals(new TermHandle(left.Raw), new TermHandle(right.Raw));
     }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal int TermHash(TermRef value) =>
         value.IsLocal ? HashCode.Combine(value.Raw, 0x5bd1e995) : Comparer.GetHashCode(new TermHandle(value.Raw));
 

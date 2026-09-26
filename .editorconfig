@@ -109,9 +109,24 @@ dotnet_diagnostic.IL3050.severity = error
 dotnet_diagnostic.IL3051.severity = error
 dotnet_diagnostic.IL3053.severity = error
 
-# --- the Varve rules --------------------------------------------------------
-dotnet_diagnostic.VARVE0001.severity = error
-dotnet_diagnostic.VARVE0002.severity = error
+# --- the DD and VARVE rules -------------------------------------------------
+# DecisionDriven.Analyzers' rules and Varve.Analyzers' own ship at their tier's
+# severity, and nothing here lowers one: DD0008 reports a severity below the
+# tier, a #pragma or a [SuppressMessage] for any DD rule, and for the VARVE
+# prefix named below. The only exception path is [DesignDecision] on the symbol,
+# citing a filed decision (ADR 0062).
+dd_rule_id_prefixes = VARVE
+
+# dd_banned_names is deliberately unset (ADR 0064). The package's default list
+# contains all five names ADR 0004 banned (Common, Core, Utils, Helpers,
+# Abstractions) and adds Utilities, Shared, Misc, Internal and Extensions. The
+# option replaces the list rather than extending it, so the only thing setting
+# it could do here is narrow it.
+
+# VARVE0003's allow-list: the BCL types a [HotPath] member may call without the
+# callee being [HotPath] itself (ADR 0064). Configuration, not code. A name
+# ending in '*' is a prefix; every other name is a type's full metadata name.
+varve_hot_path_allowed_types = System.Span`1, System.ReadOnlySpan`1, System.Runtime.InteropServices.MemoryMarshal, System.Buffers.Binary.BinaryPrimitives, System.Runtime.CompilerServices.Unsafe, System.Buffers.ArrayPool`1, System.Numerics.Vector*, System.Runtime.Intrinsics.Vector*
 
 # --- the RDF vocabulary -----------------------------------------------------
 # A triple is a subject, a predicate and an object. CA1720 objects to the
@@ -126,7 +141,7 @@ dotnet_diagnostic.CA1716.severity = none
 dotnet_diagnostic.CA1720.severity = none
 
 [tests/**/*.cs]
-# Test assemblies are exempt from the layer rule by name (see VARVE0002), and
+# Test assemblies declare no layer (VARVE0005 accepts that by name), and
 # they document themselves through their test names rather than XML comments.
 dotnet_diagnostic.CS1591.severity = none
 
@@ -135,7 +150,7 @@ dotnet_diagnostic.CS1591.severity = none
 dotnet_diagnostic.CA1707.severity = none
 
 [tests/fixtures/**/*.cs]
-# The layer-rule fixtures exist to exercise VARVE0001 and VARVE0002 through a
+# The layer-rule fixtures exist to exercise DD0001 and VARVE0005 through a
 # real build. Their content is one empty type each; style rules are quieted
 # individually rather than with a bulk dotnet_analyzer_diagnostic override,
 # which would compete with the explicit VARVE severities above.

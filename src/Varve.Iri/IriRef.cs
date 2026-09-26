@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Iri;
 
@@ -31,7 +33,7 @@ public static class IriRef
     /// <param name="components">The components, when this returns true.</param>
     /// <param name="error">The failure, when this returns false.</param>
     /// <returns>True if the input is a well-formed <c>IRI-reference</c>.</returns>
-    [Varve.HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryValidate(ReadOnlySpan<byte> utf8, out IriComponents components, out IriError error) =>
         IriScanner.TryValidate(utf8, out components, out error);
 
@@ -39,7 +41,7 @@ public static class IriRef
     /// Whether the input is a well-formed IRI <em>with a scheme</em>. RDF terms
     /// require one; a relative reference is not an RDF IRI until it is resolved.
     /// </summary>
-    [Varve.HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool IsAbsolute(ReadOnlySpan<byte> utf8) =>
         IriScanner.TryValidate(utf8, out IriComponents components, out _) && components.HasScheme;
 
@@ -54,7 +56,7 @@ public static class IriRef
     /// makes a malformed absolute IRI look relative — so the two questions are
     /// answered separately.
     /// </remarks>
-    [Varve.HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool StartsWithScheme(ReadOnlySpan<byte> utf8)
     {
         if (utf8.IsEmpty || !IsSchemeStart(utf8[0]))

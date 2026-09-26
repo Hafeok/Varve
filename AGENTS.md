@@ -39,7 +39,7 @@ shared mutable state, no static registries. **High cohesion**: one reason to cha
 **Same-layer references are violations.** Contracts live in the lowest layer that
 can define them without knowing their implementers; `Varve.Store` is SPARQL-free
 (ADR 0005). ADR 0003's open question 1 (`Varve.Shacl` and the evaluator) is
-**not resolved** — do not resolve it in passing; question 2 was closed by ADR 0048. Each project declares `<VarveLayer>` (0–6, or `none` for a test assembly).
+**not resolved** — do not resolve it in passing; question 2 was closed by ADR 0048. Each project declares `<ArchLayer>` (0–6; a test assembly declares none), and a layer-6 host also sets `<ArchCompositionRoot>` (ADR 0064).
 
 ## How we work
 

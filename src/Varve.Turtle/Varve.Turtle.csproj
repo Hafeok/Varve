@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <VarveLayer>2</VarveLayer>
+    <ArchLayer>2</ArchLayer>
     <IsPackable>true</IsPackable>
     <Description>N-Triples and N-Quads, read and written over UTF-8 without allocating per quad.</Description>
   </PropertyGroup>

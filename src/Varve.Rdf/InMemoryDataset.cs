@@ -5,6 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Rdf;
 
@@ -112,7 +114,7 @@ public sealed class InMemoryDataset : IQuadSource
     public bool Remove(in Quad quad) => _quads.Remove(quad);
 
     /// <inheritdoc />
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool Contains(in Quad quad) => _quads.Contains(quad);
 
     /// <inheritdoc />
@@ -168,7 +170,7 @@ public sealed class InMemoryDataset : IQuadSource
 
         public Quad Current { get; private set; }
 
-        [HotPath]
+        [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
         public bool MoveNext()
         {
             while (_enumerator.MoveNext())
@@ -188,7 +190,7 @@ public sealed class InMemoryDataset : IQuadSource
 
         public void Dispose() => _enumerator.Dispose();
 
-        [HotPath]
+        [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
         private bool Matches(in Quad quad) => QuadPatterns.Matches(in quad, _subject, _predicate, _object, _graph);
     }
 }

@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <!-- Layer 2: the algebra, the parser and the serialiser. ADR 0048. -->
-    <VarveLayer>2</VarveLayer>
+    <ArchLayer>2</ArchLayer>
     <IsPackable>true</IsPackable>
     <Description>SPARQL 1.1 Query and Update, with SPARQL 1.2's additions: an immutable algebra, a parser from UTF-8 or UTF-16 to it, and a serialiser back.</Description>
   </PropertyGroup>

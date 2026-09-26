@@ -7,10 +7,11 @@
     <!-- Layer 6, not 'none'. A smoke app is a host: it consumes the stack from
          the top, which is exactly what makes it a smoke test, and an
          executable is a composition root, which ADR 0060 reserves to layer 6.
-         Declaring a real layer also means VARVE0001 checks this reference
+         Declaring a real layer also means DD0001 checks this reference
          like any other, rather than the app being exempt from the rule it is
          here to exercise. It is not packable, so nothing is published. -->
-    <VarveLayer>6</VarveLayer>
+    <ArchLayer>6</ArchLayer>
+    <ArchCompositionRoot>true</ArchCompositionRoot>
 
     <!-- Constraint 2, proven rather than configured. The trimming and AOT
          analyzers are on for packable projects, but an analyzer only sees

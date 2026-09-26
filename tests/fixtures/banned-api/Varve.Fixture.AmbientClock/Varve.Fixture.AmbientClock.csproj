@@ -4,6 +4,6 @@
          eng/BannedSymbols.Deterministic.txt applies. The project exists to fail. -->
     <IsPackable>true</IsPackable>
     <VarveDeterministic>true</VarveDeterministic>
-    <VarveLayer>0</VarveLayer>
+    <ArchLayer>0</ArchLayer>
   </PropertyGroup>
 </Project>

@@ -7,7 +7,8 @@
     <!-- Layer 6 (ADR 0060). A benchmark composes the public packages from the
          top, as a host does, and is an executable, which is a composition
          root; it declared 'none' by name until 0060 took that away. -->
-    <VarveLayer>6</VarveLayer>
+    <ArchLayer>6</ArchLayer>
+    <ArchCompositionRoot>true</ArchCompositionRoot>
 
     <!-- BenchmarkDotNet needs release code with the optimiser on to measure
          anything meaningful, and says so loudly if it is not. -->

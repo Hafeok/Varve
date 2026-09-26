@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Store;
@@ -47,7 +49,7 @@ internal sealed class Run
     /// <summary>A run of assertions only, already sorted in every order: a checkpoint's.</summary>
     internal static Run FromSorted(ReadOnlyMemory<QuadKey>[] asserted) => new(asserted, NoRetractions);
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static ReadOnlyMemory<QuadKey>[] Build(ReadOnlySpan<Quad> quads)
     {
         ReadOnlyMemory<QuadKey>[] orders = new ReadOnlyMemory<QuadKey>[Orders.Count];
@@ -71,7 +73,7 @@ internal sealed class Run
     /// <summary>
     /// What this run says about a quad: asserted, retracted, or nothing (null).
     /// </summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool? Lookup(in QuadKey spog)
     {
         if (Search(_asserted[0].Span, in spog) >= 0)
@@ -181,7 +183,7 @@ internal sealed class Run
         return (outA, outR);
     }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static void Pick(ReadOnlySpan<QuadKey> keys, int at, ref QuadKey min, ref bool any)
     {
         if (at < keys.Length && (!any || keys[at].CompareTo(min) < 0))
@@ -191,7 +193,7 @@ internal sealed class Run
         }
     }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool Take(ReadOnlySpan<QuadKey> keys, ref int at, in QuadKey key)
     {
         if (at < keys.Length && keys[at].Equals(key))
@@ -204,7 +206,7 @@ internal sealed class Run
     }
 
     /// <summary>Binary search: the index of the key, or the complement of where it would go.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static int Search(ReadOnlySpan<QuadKey> keys, in QuadKey key)
     {
         int low = 0;
@@ -234,7 +236,7 @@ internal sealed class Run
     }
 
     /// <summary>The first index whose key is at or above the bound.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static int LowerBound(ReadOnlySpan<QuadKey> keys, in QuadKey bound)
     {
         int at = Search(keys, in bound);
@@ -242,7 +244,7 @@ internal sealed class Run
     }
 
     /// <summary>The first index whose key is above the bound.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static int UpperBound(ReadOnlySpan<QuadKey> keys, in QuadKey bound)
     {
         int low = 0;
@@ -321,7 +323,7 @@ internal sealed class IndexVersion
     }
 
     /// <summary>Whether the quad is in the graph at this version.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool Contains(in Quad quad)
     {
         QuadKey key = Orders.Key(IndexOrder.Spog, in quad);
@@ -433,7 +435,7 @@ internal sealed class RunCursor : IQuadCursor
 
     public Quad Current { get; private set; }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool MoveNext()
     {
         Stream[] streams = _streams;
@@ -503,7 +505,7 @@ internal sealed class RunCursor : IQuadCursor
     {
     }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private bool Matches(in Quad quad) =>
         (_subject == 0 || _subject == quad.Subject.Value)
         && (_predicate == 0 || _predicate == quad.Predicate.Value)

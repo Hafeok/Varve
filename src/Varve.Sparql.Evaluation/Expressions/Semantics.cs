@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Sparql.Evaluation.Execution;
 using Varve.Xsd;
@@ -42,7 +44,7 @@ internal static class Semantics
     /// allows: a computed number, a local term's cached parse, the inline
     /// accessor, and only then an externalisation and a parse.
     /// </summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool TryNumeric(Exec exec, in Value value, out XsdNumeric number)
     {
         switch (value.Kind)

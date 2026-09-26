@@ -4,6 +4,8 @@
 
 using System;
 using System.Runtime.InteropServices;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Store;
@@ -37,7 +39,7 @@ internal readonly struct QuadKey : IComparable<QuadKey>, IEquatable<QuadKey>
 
     internal const int Size = 32;
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public int CompareTo(QuadKey other)
     {
         if (K0 != other.K0)
@@ -58,7 +60,7 @@ internal readonly struct QuadKey : IComparable<QuadKey>, IEquatable<QuadKey>
         return K3 == other.K3 ? 0 : K3 < other.K3 ? -1 : 1;
     }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool Equals(QuadKey other) => K0 == other.K0 && K1 == other.K1 && K2 == other.K2 && K3 == other.K3;
 
     public override bool Equals(object? obj) => obj is QuadKey other && Equals(other);
@@ -82,7 +84,7 @@ internal static class Orders
     internal const int Count = 6;
 
     /// <summary>A quad's key in an order.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static QuadKey Key(IndexOrder order, ulong s, ulong p, ulong o, ulong g) => order switch
     {
         IndexOrder.Spog => new QuadKey(s, p, o, g),
@@ -93,12 +95,12 @@ internal static class Orders
         _ => new QuadKey(g, o, s, p),
     };
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static QuadKey Key(IndexOrder order, in Quad quad) =>
         Key(order, quad.Subject.Value, quad.Predicate.Value, quad.Object.Value, quad.Graph.Value);
 
     /// <summary>The quad a key in an order stands for.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static Quad Quad(IndexOrder order, in QuadKey key)
     {
         (ulong s, ulong p, ulong o, ulong g) = order switch

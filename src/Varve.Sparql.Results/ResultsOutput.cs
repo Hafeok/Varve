@@ -7,6 +7,8 @@ using System.Buffers;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Sparql.Results;
 
@@ -33,7 +35,7 @@ internal sealed class ResultsOutput : IDisposable
     /// <summary>Bytes buffered for the stream and not yet written to it.</summary>
     internal int Pending { get; private set; }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal void Write(ReadOnlySpan<byte> bytes)
     {
         if (bytes.IsEmpty)
@@ -46,7 +48,7 @@ internal sealed class ResultsOutput : IDisposable
         Advance(bytes.Length);
     }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal void Write(byte value)
     {
         GetSpan(1)[0] = value;
@@ -84,7 +86,7 @@ internal sealed class ResultsOutput : IDisposable
         }
     }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private Span<byte> GetSpan(int size)
     {
         if (_writer is not null)
@@ -102,7 +104,7 @@ internal sealed class ResultsOutput : IDisposable
         return _pooled.AsSpan(Pending);
     }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private void Advance(int count)
     {
         if (_writer is not null)
