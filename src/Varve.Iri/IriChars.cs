@@ -4,6 +4,8 @@
 
 using System.Buffers;
 using System.Text;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Iri;
 
@@ -15,6 +17,7 @@ namespace Varve.Iri;
 /// range-checked, because <c>ucschar</c> and <c>iprivate</c> are defined over
 /// code points and not over bytes.
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal static class IriChars
 {
     private const byte Unreserved = 1 << 0;   // ALPHA / DIGIT / "-" / "." / "_" / "~"
@@ -24,49 +27,24 @@ internal static class IriChars
     private const byte Digit = 1 << 4;
     private const byte Hex = 1 << 5;
 
-    private static readonly byte[] Ascii = BuildAsciiTable();
-
-    private static byte[] BuildAsciiTable()
-    {
-        byte[] table = new byte[128];
-
-        for (char c = 'a'; c <= 'z'; c++)
-        {
-            table[c] |= Unreserved | SchemeTail | Alpha;
-        }
-
-        for (char c = 'A'; c <= 'Z'; c++)
-        {
-            table[c] |= Unreserved | SchemeTail | Alpha;
-        }
-
-        for (char c = '0'; c <= '9'; c++)
-        {
-            table[c] |= Unreserved | SchemeTail | Digit | Hex;
-        }
-
-        foreach (char c in "abcdefABCDEF")
-        {
-            table[c] |= Hex;
-        }
-
-        foreach (char c in "-._~")
-        {
-            table[c] |= Unreserved;
-        }
-
-        foreach (char c in "+-.")
-        {
-            table[c] |= SchemeTail;
-        }
-
-        foreach (char c in "!$&'()*+,;=")
-        {
-            table[c] |= SubDelims;
-        }
-
-        return table;
-    }
+    /// <summary>
+    /// One byte of class bits per ASCII code point. A constant table: the
+    /// compiler keeps it in the assembly's data and a read of it allocates
+    /// nothing, where a <c>static readonly byte[]</c> was a heap array anybody
+    /// holding the reference could write. Each entry is the OR of the class
+    /// bits above for that code point, per RFC 3987 §2.2 and RFC 3986 §3.1.
+    /// </summary>
+    internal static System.ReadOnlySpan<byte> Ascii =>
+    [
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 0x00-0x0F
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 0x10-0x1F
+        0x00, 0x02, 0x00, 0x00, 0x02, 0x00, 0x02, 0x02, 0x02, 0x02, 0x02, 0x06, 0x02, 0x05, 0x05, 0x00, // 0x20-0x2F
+        0x35, 0x35, 0x35, 0x35, 0x35, 0x35, 0x35, 0x35, 0x35, 0x35, 0x00, 0x02, 0x00, 0x02, 0x00, 0x00, // 0x30-0x3F
+        0x00, 0x2D, 0x2D, 0x2D, 0x2D, 0x2D, 0x2D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, // 0x40-0x4F
+        0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x00, 0x00, 0x00, 0x00, 0x01, // 0x50-0x5F
+        0x00, 0x2D, 0x2D, 0x2D, 0x2D, 0x2D, 0x2D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, // 0x60-0x6F
+        0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x00, 0x00, 0x00, 0x01, 0x00, // 0x70-0x7F
+    ];
 
     internal static bool IsAlpha(byte b) => b < 128 && (Ascii[b] & Alpha) != 0;
 

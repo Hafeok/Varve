@@ -83,6 +83,7 @@ public static class IriRef
         return false;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool IsSchemeStart(byte b) =>
         b is (>= (byte)'a' and <= (byte)'z') or (>= (byte)'A' and <= (byte)'Z');
 
@@ -90,6 +91,7 @@ public static class IriRef
     /// The exact byte length <see cref="TryResolve"/> would produce, or -1 if
     /// the base is not an absolute IRI or either input is malformed.
     /// </summary>
+    [DesignDecision(typeof(SpanBoundaryCounts.SpanWriterCountsAreInt), Scope = ExceptionScope.Boundary)]
     public static int ResolveLength(ReadOnlySpan<byte> baseIri, ReadOnlySpan<byte> reference) =>
         IriResolver.TryResolve(baseIri, reference, default, out int written) || written > 0
             ? written
@@ -111,6 +113,7 @@ public static class IriRef
     /// is malformed, or when <paramref name="destination"/> is too small — the
     /// last of which is told apart by <paramref name="written"/> being non-zero.
     /// </returns>
+    [DesignDecision(typeof(SpanBoundaryCounts.SpanWriterCountsAreInt), Scope = ExceptionScope.Boundary)]
     public static bool TryResolve(
         ReadOnlySpan<byte> baseIri,
         ReadOnlySpan<byte> reference,
