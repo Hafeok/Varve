@@ -14,7 +14,7 @@ or depart from `docs/brief.md`, each says so in its Context.
 |---:|---|---|
 | [0001](0001-record-architecture-decisions.md) | Record architecture decisions | Accepted |
 | [0002](0002-licence.md) | Licence: Apache-2.0 | **Superseded by 0031** |
-| [0003](0003-package-layering.md) | Package layering and the strictly downward reference rule | Accepted; layer table **superseded by 0060** |
+| [0003](0003-package-layering.md) | Package layering and the strictly downward reference rule | Accepted; layer table **superseded by 0060**; declaration **by 0064**; suppression escape **by 0062** |
 | [0004](0004-enforcement-by-analyzers.md) | Enforcement by analyzers | Accepted; reservation table **superseded by 0062** |
 | [0005](0005-store-is-sparql-free.md) | `Varve.Store` is SPARQL-free | Accepted |
 | [0006](0006-build-and-test-dependencies.md) | Build-time and test-time dependencies | **Superseded by 0009** |
@@ -154,9 +154,9 @@ maintainer on the adoption plan. Every ADR is also a decision set in
 
 | # | Title | Status |
 |---:|---|---|
-| [0062](0062-adopting-decisiondriven-analyzers.md) | Adopting `DecisionDriven.Analyzers`: generic rules from a package, Varve's own rules only in `Varve.Analyzers` | Accepted; supersedes 0004's reservation table |
+| [0062](0062-adopting-decisiondriven-analyzers.md) | Adopting `DecisionDriven.Analyzers`: generic rules from a package, Varve's own rules only in `Varve.Analyzers` | Accepted; supersedes 0004's reservation table and 0003's suppression escape |
 | [0063](0063-build-time-analyzer-packages.md) | Build-time packages for the analyzers, and what `BannedSymbols.txt` must cite | Accepted; amends 0009 |
-| [0064](0064-varve-configuration-and-hot-path-rules.md) | Varve's configuration of the `DD` rules, and the hot-path rules `VARVE0003` and `VARVE0004` | Accepted; supersedes 0026's placement |
+| [0064](0064-varve-configuration-and-hot-path-rules.md) | Varve's configuration of the `DD` rules; the hot-path rules `VARVE0003` and `VARVE0004`; the layer declaration `VARVE0005` | Accepted; supersedes 0026's placement and 0003's declaration |
 | [0065](0065-wrapper-types-and-the-store-log-namespace.md) | Positions, ids and sizes as wrapper types; the log's values in `Varve.Store.Log` | Accepted; supersedes 0011, 0040 and 0049 in part |
 | [0066](0066-expected-red-pull-requests.md) | Expected-red pull requests: citing a decision nobody has accepted yet | Accepted; amends 0032 and 0034 |
 | [0067](0067-inmemorydataset-is-a-value-built-by-a-builder.md) | `InMemoryDataset` is an immutable value, assembled by `InMemoryDatasetBuilder` | Accepted |

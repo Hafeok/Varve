@@ -63,6 +63,8 @@ session then found to be false and corrected (see *Disagreements*, 3).
 > **Q:** How should 0067 decide it? **A:** Builder escape hatch.
 >
 > **Q (after the correction):** With that corrected, no rule forces a change to InMemoryDataset. How should ADR 0067 decide? **A:** Builder anyway.
+>
+> **Q:** Retiring VARVE0002 loses enforcement that DD0001 doesn't replace (an undeclared project is unchecked; ADR 0060's executable ⇔ layer 6; ArchCompositionRoot as a second declaration). How should the lost checks be handled? **A:** New VARVE0005.
 
 ## Report
 
@@ -70,9 +72,9 @@ session then found to be false and corrected (see *Disagreements*, 3).
 
 | # | Title | Amends or supersedes |
 |---|---|---|
-| [0062](../adr/0062-adopting-decisiondriven-analyzers.md) | Adopting `DecisionDriven.Analyzers` | **Supersedes 0004 in part**: its reservation table. `VARVE0001`/`0002` are retired; `0003`–`0008` are released to `DD0002`, `DD0005`, `DD0004`, the hot-path pair, `DD0010`/`DD0011` and `DD0008` |
+| [0062](../adr/0062-adopting-decisiondriven-analyzers.md) | Adopting `DecisionDriven.Analyzers` | **Supersedes 0003 in part** (the suppression escape) and **0004 in part**: its reservation table. `VARVE0001`/`0002` are retired; `0003`–`0008` are released to `DD0002`, `DD0005`, `DD0004`, the hot-path pair, `DD0010`/`DD0011` and `DD0008` |
 | [0063](../adr/0063-build-time-analyzer-packages.md) | Build-time packages for the analyzers, and what `BannedSymbols.txt` must cite | **Amends 0009** |
-| [0064](../adr/0064-varve-configuration-and-hot-path-rules.md) | Varve's configuration of the `DD` rules, and `VARVE0003`/`VARVE0004` | **Supersedes 0026 in part**: where `[HotPath]` lives. Renumbers 0004's `VARVE0006` |
+| [0064](../adr/0064-varve-configuration-and-hot-path-rules.md) | Varve's configuration of the `DD` rules; `VARVE0003`/`VARVE0004`; `VARVE0005` layer declaration | **Supersedes 0026 in part** (where `[HotPath]` lives) and **0003 in part** (`VarveLayer` becomes `ArchLayer`). Renumbers 0004's `VARVE0006`, and takes over `VARVE0002`'s uncovered half |
 | [0065](../adr/0065-wrapper-types-and-the-store-log-namespace.md) | Positions, ids and sizes as wrapper types; the log's values in `Varve.Store.Log` | **Supersedes in part** 0011 (primitive results), 0040 (member types) and 0049 (`Count`'s type) |
 | [0066](../adr/0066-expected-red-pull-requests.md) | Expected-red pull requests | **Amends 0032 and 0034** |
 | [0067](../adr/0067-inmemorydataset-is-a-value-built-by-a-builder.md) | `InMemoryDataset` is an immutable value, assembled by `InMemoryDatasetBuilder` | Refines 0022's in-memory dataset; supersedes nothing |
@@ -161,7 +163,16 @@ Where the package documentation disagreed, it won.
     - The README's quick start omits the `IncludeAssets="analyzers;build"` that
       ADR-A02 prescribes:
       [#45](https://github.com/Hafeok/decision-driven-analyzers/issues/45).
-11. **`dependency-register.cs` reads only the major version**, so every `0.x`
+11. **Retiring `VARVE0002` would have dropped enforcement.** `DD0001` is
+    silent on a project that declares no `ArchLayer`, and has no view of ADR
+    0060's executable ⇔ layer 6 rule. `ArchCompositionRoot` is also the second
+    declaration 0060 rejected. The maintainer chose a new `VARVE0005` (ADR
+    0064). The generic half is proposed upstream as
+    [decision-driven-analyzers#48](https://github.com/Hafeok/decision-driven-analyzers/issues/48).
+    Found while enumerating 0003, which also showed that 0064 supersedes
+    0003's declaration mechanism and 0062 its suppression escape. Both now say
+    so.
+12. **`dependency-register.cs` reads only the major version**, so every `0.x`
     preview bump passes as maintenance. ADR 0063 states the gap and makes the
     changelog in the bump commit the review, rather than special-casing two
     package names in the gate.
@@ -226,3 +237,4 @@ In `hafeok/decision-driven-analyzers`:
 - [#43](https://github.com/Hafeok/decision-driven-analyzers/issues/43), [#44](https://github.com/Hafeok/decision-driven-analyzers/issues/44), [#45](https://github.com/Hafeok/decision-driven-analyzers/issues/45): documentation gaps.
 - [#46](https://github.com/Hafeok/decision-driven-analyzers/issues/46): `[DomainModel]` prefix semantics.
 - [#47](https://github.com/Hafeok/decision-driven-analyzers/issues/47): `DD0019`'s blind spot for mutation through methods.
+- [#48](https://github.com/Hafeok/decision-driven-analyzers/issues/48): a family project must declare `ArchLayer`.

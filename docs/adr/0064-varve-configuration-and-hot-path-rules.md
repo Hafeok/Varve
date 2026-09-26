@@ -1,4 +1,4 @@
-# 0064 — Varve's configuration of the `DD` rules, and the hot-path rules `VARVE0003` and `VARVE0004`
+# 0064 — Varve's configuration of the `DD` rules; the hot-path rules `VARVE0003` and `VARVE0004`; the layer declaration `VARVE0005`
 
 ## Status
 
@@ -8,8 +8,18 @@
 attribute `DecisionDriven.Analyzers` generates, and `eng/HotPathAttribute.cs`
 is retired. The rest of 0026 stands: marking is a judgement made while
 writing, the attribute is internal to each assembly and never on an API
-baseline, and it is matched by full name. Renumbers ADR 0004's reserved
-hot-path rule as recorded by ADR [0062](0062-adopting-decisiondriven-analyzers.md).
+baseline, and it is matched by full name. **Supersedes ADR
+[0003](0003-package-layering.md) in part**, its declaration mechanism:
+
+- `VarveLayer` becomes the package's `ArchLayer`;
+- `[assembly: AssemblyMetadata("Varve.Layer", n)]` becomes the generated
+  `[assembly: ArchLayer(n)]`;
+- the rule that test assemblies and `Varve.Analyzers` declare no layer is
+  restated in those terms.
+
+Renumbers ADR 0004's reserved hot-path rule, as recorded by ADR
+[0062](0062-adopting-decisiondriven-analyzers.md), and allocates `VARVE0005`
+for the half of `VARVE0002` that `DD0001` does not cover.
 It is the Varve form of the draft ADR-A13, with two corrections listed under
 Context.
 
@@ -49,7 +59,7 @@ five corrections. The last three are small.
    assembly-information attributes the SDK generates. The ban is on the
    members that inspect and invoke, which is what constraint 2 is about.
 5. **A13 placed everything in `Directory.Build.props`.** `ArchLayer` is per
-   project (ADR 0003's declaration mechanism, unchanged), and so is the
+   project, as `VarveLayer` was under ADR 0003, and so is the
    layer-3 widening in (1).
 
 ## Decision
@@ -160,9 +170,35 @@ is the technique 0026 chose, now with the generator's name.
 `eng/HotPathAttribute.cs` and its link in `Directory.Build.targets` are removed
 in session 2 of #43. Every existing mark is rewritten to cite its decision.
 
-Each rule has a page, `docs/rules/VARVE0003.md` and `VARVE0004.md`, citing
-this ADR, and tests with a violating and a conforming case per diagnostic
-(ADR 0004). Both land in session 2.
+### `VARVE0005` — layer declaration (tier 1, error)
+
+This is `VARVE0002`'s uncovered half (ADR 0062), in `ArchLayer` terms, with
+ADR [0060](0060-hosts-at-layer-6-the-composition-root.md)'s rules. For a
+compilation whose assembly name starts with `Varve.`:
+
+1. **It declares `ArchLayer`**, an integer from 0 to 6, unless it is a test
+   assembly (`*.Tests`) or `Varve.Analyzers`. Those declare none. A packable
+   assembly always declares one, whatever its name. `DD0001` reports a
+   *reference* to an undeclared assembly, and this reports the undeclared
+   assembly itself, including one that nothing references, such as a host.
+2. **An executable declares 6, and only an executable declares 6.** An
+   executable is an `OutputType` of `Exe` or `WinExe`. The exception is a test
+   assembly, which declares none as before. This is ADR 0060's pair, moved
+   from `VARVE0002`.
+3. **`ArchCompositionRoot` is `true` exactly when `ArchLayer` is 6.** ADR 0060
+   rejected a composition-root property separate from the layer, because
+   a second declaration can disagree with the first. The package needs the
+   property, so this rule makes disagreement impossible instead.
+
+It reads `ArchLayer`, `ArchCompositionRoot`, `OutputType` and `IsPackable`
+through `CompilerVisibleProperty`, as `VARVE0002` read `VarveLayer` and
+`IsPackable`.
+
+Each rule has a page, `docs/rules/VARVE0003.md`, `VARVE0004.md` and
+`VARVE0005.md`, citing this ADR. Each has tests with a violating and a
+conforming case per diagnostic (ADR 0004). All three land in session 2. The
+generic half of rule 1 (a family project must declare its layer) is proposed
+upstream, and if the package ships it, `VARVE0005` drops that half.
 
 ## Alternatives considered
 
@@ -193,6 +229,9 @@ this ADR, and tests with a violating and a conforming case per diagnostic
 
 ## Consequences
 
+- **`VARVE0002`'s protection is kept, not lost.** `VARVE0005` carries it,
+  with the composition-root agreement that ADR 0060's rejected alternative
+  warned about.
 - **Every packable project gains an `ArchLayer`** (a rename of `VarveLayer`),
   and the four layer-6 projects gain `ArchCompositionRoot`. The layer-3
   project gains one line widening its contract vocabulary.
@@ -215,8 +254,10 @@ this ADR, and tests with a violating and a conforming case per diagnostic
 
 - **Checked against the accepted ADRs** (0001, 0003–0005, 0007–0018,
   0021–0063). Touches:
-  - **0003** and **0060**: the layer table, transcribed into `ArchLayer`
-    unchanged.
+  - **0003**: superseded in part (the declaration mechanism).
+  - **0060**: the layer table, transcribed into `ArchLayer` unchanged. Its
+    executable rules are carried by `VARVE0005`, and its rejected
+    second-declaration alternative is answered by rule 3.
   - **0004**: the banned-symbol file, extended under its own rules.
   - **0005**: the reason `Varve.Sparql` is not global.
   - **0026**: superseded in part, above.
@@ -226,8 +267,9 @@ this ADR, and tests with a violating and a conforming case per diagnostic
 
   The specification is not touched.
 - **Layer ownership.** Unchanged for every package.
-- **Analyzer rule.** Allocates `VARVE0003` (hot-path discipline) and
-  `VARVE0004` (hot-path signature). Both are implemented in session 2 of #43.
+- **Analyzer rule.** Allocates `VARVE0003` (hot-path discipline),
+  `VARVE0004` (hot-path signature) and `VARVE0005` (layer declaration). All
+  three are implemented in session 2 of #43.
 - **Open questions owned.** None. ADR 0003's open question 1 (`Varve.Shacl`
   and the evaluator) stays open. The `Varve.Shacl` rows above are
   placeholders that assume nothing about how it is answered.

@@ -8,7 +8,11 @@
 and `VARVE0006`'s and `VARVE0007`'s reservations with it. The rest of 0004
 stands: off-the-shelf first, the id scheme and its never-reuse rule, error
 severity for architectural rules, and the suppression policy as it applies to
-rules that are neither `DD` nor `VARVE`.
+rules that are neither `DD` nor `VARVE`. **Supersedes ADR
+[0003](0003-package-layering.md) in part**: its escape for a locally harmless
+forbidden reference, "an ADR and a suppression citing it", becomes a
+`[DesignDecision]` citing a filed decision, because a `DD` or `VARVE` rule
+cannot be suppressed.
 
 ## Context
 
@@ -57,12 +61,25 @@ same rules under other ids.
 - **`Varve.Analyzers`** keeps only the rules that know a Varve fact, under
   the `VARVE` prefix. Today that is the hot-path pair, renumbered by ADR 0064.
 
-**`VARVE0001` and `VARVE0002` are retired**, replaced by `DD0001` (a reference
-within a family points strictly downward) and by `ArchLayer` declared per
-project. The ids are never reused, as 0004's id scheme requires. Their rule
-pages stay, as "retired, replaced by `DD0001`/`ArchLayer`" stubs, so a
-suppression or a link naming them still resolves to something that says what
-happened.
+**`VARVE0001` and `VARVE0002` are retired.** `VARVE0001` is replaced by
+`DD0001` (a reference within a family points strictly downward). `VARVE0002`
+is replaced only in part, and the rest is re-allocated.
+
+- **What `DD0001` covers:** it reports a reference to a family assembly that
+  declares no layer.
+- **What `DD0001` does not cover:** it is silent on a project that declares no
+  `ArchLayer` itself, so a packable project or a host that omits the property
+  is checked by nothing. It has no view of ADR
+  [0060](0060-hosts-at-layer-6-the-composition-root.md)'s rule that an
+  executable is layer 6 and layer 6 is only executables.
+- **Where the rest goes:** those checks are Varve's own. They encode 0060, so
+  they become **`VARVE0005`**, allocated by ADR
+  [0064](0064-varve-configuration-and-hot-path-rules.md).
+
+The retired ids are never reused, as 0004's id scheme requires. Their rule
+pages stay as stubs ("retired, replaced by `DD0001`" and "retired, replaced by
+`DD0001` and `VARVE0005`"), so a suppression or a link naming them still
+resolves to something that says what happened.
 
 **ADR 0004's id reservation table is retired.** Each reserved rule maps to its
 successor:
@@ -70,17 +87,17 @@ successor:
 | Reserved | Rule | Now |
 |---|---|---|
 | `VARVE0001` | Layer direction | **Retired.** `DD0001`. |
-| `VARVE0002` | Layer declaration | **Retired.** `ArchLayer` per project, read by `DD0001`. |
+| `VARVE0002` | Layer declaration | **Retired.** `DD0001` for an undeclared referenced assembly; `VARVE0005` (ADR 0064) for the rest. |
 | `VARVE0003` | `InternalsVisibleTo` only toward tests | Released, never implemented. `DD0002`. |
-| `VARVE0004` | No grab-bag names | Released, never implemented. `DD0005`, with `dd_banned_names` set to 0004's list. |
+| `VARVE0004` | No grab-bag names | Released, never implemented. `DD0005`, whose default list contains 0004's five names. |
 | `VARVE0005` | No mutable static state, no static registries | Released, never implemented. `DD0004`. |
 | `VARVE0006` | Hot-path discipline | Released, never implemented. **Renumbered** by ADR 0064 as `VARVE0003` and `VARVE0004`. |
 | `VARVE0007` | Public contracts use `Varve.Rdf`, BCL and algebra types | Released, never implemented. `DD0010` and `DD0011`, configured by ADR 0064. |
 | `VARVE0008` | A suppression's justification cites an ADR | Released, never implemented. `DD0008` for `DD` and `VARVE` rules (see below). |
 
 "Released" means the reservation is withdrawn, and the id goes back to
-`Varve.Analyzers`' sequence. `VARVE0003` and `VARVE0004` are reused by ADR 0064
-for the hot-path rules. That is not a reuse in the sense 0004 forbids: no
+`Varve.Analyzers`' sequence. `VARVE0003`, `VARVE0004` and `VARVE0005` are
+reused by ADR 0064, for the hot-path rules and the layer declaration. That is not a reuse in the sense 0004 forbids: no
 analyzer ever reported under either id, and no suppression anywhere names
 one. The repository was checked. Every mention of `VARVE0003`–`VARVE0008` is
 prose describing the reservation, in ADRs, `docs/rules/README.md`,
@@ -175,7 +192,8 @@ Until session 2 of #43 wires the set files into the generator,
   0021–0061). Touches:
   - **0001**: every ADR also becomes a set file, and the ADR remains the
     narrative.
-  - **0003**: `DD0001` enforces its downward rule under ADR 0060's table,
+  - **0003**: superseded in part (the escape clause), and `DD0001` enforces
+    its downward rule under ADR 0060's table,
     unchanged in substance.
   - **0004**: superseded in part, above.
   - **0009**: the new packages, by ADR 0063.
@@ -188,5 +206,6 @@ Until session 2 of #43 wires the set files into the generator,
 - **Layer ownership.** None. Both analyzer packages are development-time only
   and have no layer.
 - **Analyzer rule.** Retires `VARVE0001` and `VARVE0002`, and releases
-  `VARVE0003`–`VARVE0008`. Allocates nothing; ADR 0064 does.
+  `VARVE0003`–`VARVE0008`. Allocates nothing; ADR 0064 does. `VARVE0002`'s
+  uncovered half is not dropped: it becomes `VARVE0005`.
 - **Open questions owned.** None. ADR 0003's open question 1 is untouched.

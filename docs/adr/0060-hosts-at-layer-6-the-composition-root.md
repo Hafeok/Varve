@@ -7,7 +7,10 @@
 that benchmark assemblies declare `none`. The rest of ADR 0003 stands: the
 strictly downward rule, same-layer references as violations, the declaration
 mechanism, and both open questions. Enforced by `VARVE0001` and `VARVE0002`;
-see [`docs/rules/VARVE0002.md`](../rules/VARVE0002.md).
+see [`docs/rules/VARVE0002.md`](../rules/VARVE0002.md). **Enforcement moves** to `DD0001` and
+`VARVE0005` ([0062](0062-adopting-decisiondriven-analyzers.md),
+[0064](0064-varve-configuration-and-hot-path-rules.md), 2026-09-25); the
+rulings are unchanged.
 
 ## Context
 
