@@ -33,7 +33,9 @@
 //   - set, namespace, and each decision's key and statement are present;
 //   - accepted-at comes with accepted-by and accepted-by with accepted-at;
 //     accepted-by is a mailto: identity; every date is an xsd:dateTime;
-//   - a set id is lowercase alphanumerics, dashes and dots.
+//   - a set id is lowercase alphanumerics, dashes and dots;
+//   - a key is not its own set's generated class name, which C# rejects as CS0542
+//     (found by the first real build against the generator, not by the documentation).
 //
 // And three rules of Varve's own, which the package does not need but this
 // ledger does:
@@ -350,6 +352,14 @@ foreach (string path in Directory.EnumerateFiles(decisionDirectory, "*.md").Orde
                 findings.Add($"{where}: key '{key.Value}' does not match ^[A-Z][A-Za-z0-9]{{0,63}}$ (DDGEN0002).");
             }
 
+            // The generator emits the set as a class named by PascalCasing its id and each key
+            // as a class nested in it. C# forbids a member named like its enclosing type, so a
+            // key equal to its set's class name is CS0542 in every consuming compilation.
+            if (set is not null && key.Value == ToPascalCase(set))
+            {
+                findings.Add($"{where}: key '{key.Value}' is its set's own generated class name; a nested type cannot share it (CS0542).");
+            }
+
             if (keyOwner.TryGetValue(key.Value, out string? other))
             {
                 findings.Add($"{where}: key '{key.Value}' is also claimed at {other} (DDGEN0001).");
@@ -451,6 +461,30 @@ return 1;
 bool IsDateTime(string value) =>
     dateTimeSyntax.IsMatch(value)
     && DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _);
+
+// The generator's rule for a set id's class name (Identifiers.ToPascalCase in
+// hafeok/decision-driven-analyzers): each run between -, ., _ and space starts upper-case,
+// and a leading digit is prefixed with _.
+static string ToPascalCase(string id)
+{
+    System.Text.StringBuilder builder = new(id.Length);
+    bool startOfWord = true;
+
+    foreach (char c in id)
+    {
+        if (c is '-' or '.' or '_' or ' ')
+        {
+            startOfWord = true;
+            continue;
+        }
+
+        builder.Append(startOfWord ? char.ToUpperInvariant(c) : c);
+        startOfWord = false;
+    }
+
+    string name = builder.ToString();
+    return name.Length > 0 && char.IsAsciiDigit(name[0]) ? "_" + name : name;
+}
 
 static string FindRepositoryRoot()
 {

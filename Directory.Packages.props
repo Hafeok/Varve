@@ -102,7 +102,7 @@
          the graph is not something to silence with NoWarn. It is now in the
          benchmark project's graph only, the conformance harness having dropped
          dotNetRdf.Core at milestone 3b, and it leaves when that does. -->
-    <PackageVersion Include="AngleSharp" Version="1.8.2" Adr="0009" />
+    <PackageVersion Include="AngleSharp" Version="1.8.2" Adr="0063" />
   </ItemGroup>
 
 </Project>

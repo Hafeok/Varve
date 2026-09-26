@@ -23,7 +23,18 @@ decisions:
     statement: "An off-the-shelf analyzer is used where it expresses a rule exactly, a DD rule where it does, and a VARVE rule only for what neither can express"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-25T00:00:00Z
+  - key: TestsRunOnTestingPlatform
+    statement: "dotnet test runs on Microsoft.Testing.Platform, selected in global.json, so Microsoft.NET.Test.Sdk and the VSTest adapter are deliberately absent"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-26T00:00:00Z
+  - key: AngleSharpPinnedTransitively
+    statement: "AngleSharp is pinned transitively above the version dotNetRdf.Core asks for, which NuGet audit flags, rather than silenced, and leaves with dotNetRdf.Core"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-26T00:00:00Z
 ---
 
 The rulings of [ADR 0063](../adr/0063-build-time-analyzer-packages.md) still in force, one line each. The ADR is the
 narrative; this is what code cites. Acceptance is transcribed from the ADR's Status (ADR 0062).
+
+`TestsRunOnTestingPlatform` and `AngleSharpPinnedTransitively` are ADR 0006's, which 0009 superseded
+whole without restating them; the 2026-09-26 amendment places them here.

@@ -3,7 +3,7 @@ set: store-is-sparql-free
 namespace: varve
 adr: 0005
 decisions:
-  - key: StoreIsSparqlFree
+  - key: StoreReferencesNoSparql
     statement: "Varve.Store at layer 4 references no SPARQL package and exposes no query language"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-20T00:00:00Z

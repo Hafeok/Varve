@@ -9,6 +9,26 @@ the gate are unchanged. This ADR admits two build-time packages, states the
 version policy for a prerelease one, and makes the citation rule for banned
 symbols explicit. It is the Varve form of the analyzer repository's draft
 [ADR-A03](https://github.com/Hafeok/decision-driven-analyzers/blob/main/docs/drafts/ADR-A03-build-time-dependencies.md).
+Amended 2026-09-26 (below).
+
+> **Amended 2026-09-26**, by the maintainer's decision on the session 1 report
+> of #43. ADR 0006, which 0009 superseded whole, decided two build-time and
+> test-time facts that no later ADR restates. Both still hold, in
+> configuration only:
+>
+> - **`dotnet test` runs on Microsoft.Testing.Platform**, selected in
+>   `global.json`, so `Microsoft.NET.Test.Sdk` and `xunit.runner.visualstudio`
+>   are deliberately absent. MTP v2 on the .NET 10 SDK no longer supports
+>   running under VSTest.
+> - **`AngleSharp` is pinned transitively** (1.8.2 today), above the 1.4.0 that
+>   `dotNetRdf.Core` asks for, because NuGet audit flags 1.4.0
+>   (GHSA-pgww-w46g-26qg). A known-vulnerable package in the graph is not
+>   silenced with `NoWarn`. The pin is in the benchmark project's graph only,
+>   and it leaves when `dotNetRdf.Core` does.
+>
+> They are stated here, the ADR that owns Varve's build-time dependencies
+> since the adoption, so that each is a decision the ledger can carry rather
+> than a fact that only a configuration file records (ADR 0068).
 
 ## Context
 

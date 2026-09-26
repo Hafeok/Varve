@@ -27,7 +27,7 @@ no losing option has recorded an outcome, not a decision, and the next person
 cannot tell whether the alternative was rejected or never seen.
 
 **An accepted ADR is never edited.** A decision that still stands but needs
-detail gets a **dated amendment** inside it; a decision that changed gets a
+detail gets a **dated amendment** inside it (add-only and dated, [ADR 0068](docs/adr/0068-dated-amendments.md)); a decision that changed gets a
 **superseding ADR**, and the old one keeps its text so the reasoning that was
 wrong stays readable. Four ADRs in the stewardship set exist because this rule
 forbids the easier alternative of quietly rewriting the old ones.

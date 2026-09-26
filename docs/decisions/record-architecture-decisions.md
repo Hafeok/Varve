@@ -19,10 +19,6 @@ decisions:
     statement: "An ADR is Accepted when docs/brief.md already settles the matter or the project owner has agreed it, and Proposed otherwise"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-20T00:00:00Z
-  - key: AcceptedAdrNotEdited
-    statement: "An accepted ADR is not edited: a change of decision is a new ADR naming the one it supersedes, and only the superseded ADR's Status line changes"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-09-20T00:00:00Z
   - key: MeaningChangeIsSupersession
     statement: "Fixing a broken link or a typo that changes no meaning is not an edit; anything that changes meaning is a supersession, and doubt counts as a supersession"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -40,6 +36,5 @@ decisions:
 The rulings of [ADR 0001](../adr/0001-record-architecture-decisions.md) still in force, one line each. The ADR is the
 narrative; this is what code cites. Acceptance is transcribed from the ADR's Status (ADR 0062).
 
-GOVERNANCE.md's **dated amendment** inside an accepted ADR is practised throughout
-`docs/adr/` but decided by no ADR; ADR 0001 permits only a Status-line edit. Recorded in the
-session 1 report of #43 as a finding, not filed as a decision here.
+Moved to a later set: `AcceptedAdrNotEdited`, as amended to permit dated, add-only amendment
+blocks, is in ADR 0068's set.
