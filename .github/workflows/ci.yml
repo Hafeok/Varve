@@ -105,6 +105,13 @@ jobs:
         # seconds rather than after a compile.
         run: dotnet run eng/dependency-register.cs
 
+      - name: Decision sets
+        # ADR 0062. docs/decisions/ is the ledger code will cite; until the
+        # analyzer package's generator reads it (issue #43, session 2), this is
+        # what checks it: key syntax, a key claimed twice, missing fields. A
+        # text check, so it runs before restore beside the register.
+        run: dotnet run eng/decision-sets.cs
+
       - name: Cache NuGet packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:

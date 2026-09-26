@@ -69,7 +69,7 @@ for (int i = 0; i < arguments.Length; i++)
 string conformanceResults = Path.Combine(repositoryRoot, "artifacts", "conformance");
 string packageOutput = Path.Combine(repositoryRoot, "artifacts", "packages");
 
-// The order is the dependency order, and it is also cheapest-first: the three
+// The order is the dependency order, and it is also cheapest-first: the four
 // text gates cost seconds and catch the mistakes that are easiest to make, so
 // they run before anything waits on a restore.
 List<(string Name, string Description, Func<int> Run)> jobs =
@@ -79,6 +79,9 @@ List<(string Name, string Description, Func<int> Run)> jobs =
 
     ("licence-headers", "every .cs file carries the MPL-2.0 notice",
         () => Run("dotnet", ["run", "eng/licence-headers.cs"])),
+
+    ("decision-sets", "every decision set file is well formed, and no key is claimed twice",
+        () => Run("dotnet", ["run", "eng/decision-sets.cs"])),
 
     ("issue-refs", "every commit references a tracked issue",
         () => Run("dotnet", Args("run", "eng/issue-refs.cs", baseRef is null ? null : "--", baseRef is null ? null : "--base", baseRef))),

@@ -237,6 +237,13 @@ Take the next free number — `docs/adr/` is dense and numbers are never reused 
 and write five sections: **Status**, **Context**, **Decision**, **Alternatives
 considered**, **Consequences**. Add a row to `docs/adr/README.md`.
 
+**Every ADR is also a decision set** in `docs/decisions/`
+([ADR 0062](docs/adr/0062-adopting-decisiondriven-analyzers.md)): one file,
+named for the ADR's title, listing each ruling as a key with a one-line
+statement. A ruling the new ADR supersedes moves into its set under the same key.
+[`docs/decisions/README.md`](docs/decisions/README.md) has the format, and
+`eng/decision-sets.cs` checks it.
+
 *Alternatives considered* is not a formality. An ADR that lists no losing option
 has not recorded a decision, only an outcome, and the next person cannot tell
 whether the alternative was rejected or never seen.
