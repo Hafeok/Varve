@@ -111,7 +111,7 @@ public sealed class HotPathDisciplineAnalyzer : DiagnosticAnalyzer
             ? HotPath.ReadAllowList(context.Options, context.OperationBlocks[0].Syntax.SyntaxTree)
             : AllowList.Empty;
 
-        context.RegisterOperationAction(c => OnConversion(c, owner), OperationKind.Conversion);
+        context.RegisterOperationAction(c => OnConversion(c, owner, allowed), OperationKind.Conversion);
         context.RegisterOperationAction(c => OnAnonymousFunction(c, owner), OperationKind.AnonymousFunction);
         context.RegisterOperationAction(c => OnLocalFunction(c, owner), OperationKind.LocalFunction);
         context.RegisterOperationAction(c => OnArrayCreation(c, owner), OperationKind.ArrayCreation);
@@ -125,7 +125,7 @@ public sealed class HotPathDisciplineAnalyzer : DiagnosticAnalyzer
         context.RegisterOperationAction(c => OnForEach(c, owner), OperationKind.Loop);
     }
 
-    private static void OnConversion(OperationAnalysisContext context, ISymbol owner)
+    private static void OnConversion(OperationAnalysisContext context, ISymbol owner, AllowList allowed)
     {
         IConversionOperation conversion = (IConversionOperation)context.Operation;
 
@@ -136,7 +136,7 @@ public sealed class HotPathDisciplineAnalyzer : DiagnosticAnalyzer
 
         if (conversion.OperatorMethod is { } op)
         {
-            CheckCallee(context, owner, op, conversion, AllowList.Empty);
+            CheckCallee(context, owner, op, conversion, allowed);
             return;
         }
 

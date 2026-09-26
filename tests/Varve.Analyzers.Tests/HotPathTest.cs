@@ -71,7 +71,7 @@ internal sealed class HotPathTest<TAnalyzer> : CSharpAnalyzerTest<TAnalyzer, Def
         }
         """;
 
-    internal HotPathTest(string source)
+    internal HotPathTest(string source, string allowList = AllowList)
     {
         ReferenceAssemblies = ReferenceAssemblies.Net.Net80;
         TestCode = "using DecisionDriven;" + Environment.NewLine
@@ -80,7 +80,7 @@ internal sealed class HotPathTest<TAnalyzer> : CSharpAnalyzerTest<TAnalyzer, Def
         TestState.Sources.Add(("Attributes.cs", Attributes));
         TestState.AnalyzerConfigFiles.Add((
             "/.globalconfig",
-            "is_global = true" + Environment.NewLine + "varve_hot_path_allowed_types = " + AllowList + Environment.NewLine));
+            "is_global = true" + Environment.NewLine + "varve_hot_path_allowed_types = " + allowList + Environment.NewLine));
     }
 
     internal static string Format(string format, params object[] arguments) =>

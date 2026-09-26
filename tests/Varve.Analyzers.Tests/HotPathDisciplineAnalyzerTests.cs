@@ -347,6 +347,25 @@ public class HotPathDisciplineAnalyzerTests
         """, "C.M(int, int)", F(A.CallsColdMember, "Math.Max(int, int)"), F(A.CallsColdMemberDecide, "Math.Max(int, int)"));
 
     [Fact]
+    public Task A_conversion_operator_of_an_allow_listed_type_is_clean() =>
+        new HotPathTest<A>($$"""
+            internal sealed class C
+            {
+                {{Mark}}
+                public System.Index M(int x) => x;
+            }
+            """, "System.Index").RunAsync(TestContext.Current.CancellationToken);
+
+    [Fact]
+    public Task A_conversion_operator_of_a_type_not_on_the_allow_list_is_reported() => Reports($$"""
+        internal sealed class C
+        {
+            {{Mark}}
+            public System.Index M(int x) => {|#0:x|};
+        }
+        """, "C.M(int)", F(A.CallsColdMember, "Index.implicit operator Index(int)"), F(A.CallsColdMemberDecide, "Index.implicit operator Index(int)"));
+
+    [Fact]
     public Task An_array_length_is_an_instruction_and_not_a_call() => Clean($$"""
         internal sealed class C
         {
