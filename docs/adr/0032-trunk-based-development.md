@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted. 2026-09-22.
+Accepted. 2026-09-22. **Amended by
+[0066](0066-expected-red-pull-requests.md)** (2026-09-25): a change citing a
+decision filed without acceptance reaches `main` only through a pull request,
+which may arrive red on `CS0618` alone and is merged only green.
 
 Supersedes the pull-request rule written at the milestone 3a close-out. That
 rule lived in `CONTRIBUTING.md` and in the never list rather than in an ADR,

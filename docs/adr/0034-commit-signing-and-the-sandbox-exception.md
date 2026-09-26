@@ -3,6 +3,9 @@
 ## Status
 
 Accepted. 2026-09-22. Carries a **revisit condition**; see the end.
+**Amended by [0066](0066-expected-red-pull-requests.md)** (2026-09-25): the
+maintainer's acceptance of a session's filed decisions is a signed human
+commit on that session's branch, and a session never writes `accepted-by`.
 
 ## Context
 
