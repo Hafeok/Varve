@@ -485,7 +485,6 @@ Varve.Sparql.Algebra.Query.Dataset.init -> void
 Varve.Sparql.Algebra.Query.Deconstruct(out Varve.Sparql.Algebra.Prologue! Prologue, out Varve.Sparql.Algebra.DatasetSpec? Dataset) -> void
 Varve.Sparql.Algebra.Query.Prologue.get -> Varve.Sparql.Algebra.Prologue!
 Varve.Sparql.Algebra.Query.Prologue.init -> void
-Varve.Sparql.Algebra.Query.Query(Varve.Sparql.Algebra.Prologue! Prologue, Varve.Sparql.Algebra.DatasetSpec? Dataset) -> void
 Varve.Sparql.Algebra.Query.Query(Varve.Sparql.Algebra.Query! original) -> void
 Varve.Sparql.Algebra.QueryPattern
 Varve.Sparql.Algebra.QueryPattern.QueryPattern(Varve.Sparql.Algebra.QueryPattern! original) -> void

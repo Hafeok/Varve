@@ -2,6 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
+
 namespace Varve.Sparql.Algebra;
 
 /// <summary>
@@ -24,6 +27,7 @@ namespace Varve.Sparql.Algebra;
 /// compares the fields that record declares — everything but the span.
 /// </para>
 /// </remarks>
+[Contract(typeof(OptimiserAndEvaluatorOnePackageAlgebraInAlgebraOut.AlgebraNodesAreSealedRecords), Role = "the root of every algebra node")]
 public abstract record AlgebraNode
 {
     /// <summary>Where the node came from. Excluded from equality.</summary>

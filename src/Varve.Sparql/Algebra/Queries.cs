@@ -2,13 +2,39 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Sparql.Algebra;
 
 /// <summary>A query: the prologue, the dataset clause, and one of four forms.</summary>
-public abstract record Query(Prologue Prologue, DatasetSpec? Dataset) : AlgebraNode
+[Contract(typeof(OptimiserAndEvaluatorOnePackageAlgebraInAlgebraOut.AlgebraNodesAreSealedRecords), Role = "a query: the prologue, the dataset clause, and one of four forms")]
+public abstract record Query : AlgebraNode
 {
+    // Closed, as the other node bases are: only the four forms here derive
+    // (DD0017). A positional base would have a protected constructor anyone
+    // could chain to; this one is private protected, and the two properties
+    // and the deconstructor are written out to keep the shape they had.
+    private protected Query(Prologue prologue, DatasetSpec? dataset)
+    {
+        Prologue = prologue;
+        Dataset = dataset;
+    }
+
+    /// <summary>The prologue: base and prefixes.</summary>
+    public Prologue Prologue { get; init; }
+
+    /// <summary>The dataset clause, or null when the query has none.</summary>
+    public DatasetSpec? Dataset { get; init; }
+
+    /// <summary>The prologue and the dataset clause, as the positional record had them.</summary>
+    public void Deconstruct(out Prologue Prologue, out DatasetSpec? Dataset)
+    {
+        Prologue = this.Prologue;
+        Dataset = this.Dataset;
+    }
+
     /// <summary>The graph pattern, with the solution modifiers already applied (<c>docs/spec/sparql-algebra.md</c> §4.7).</summary>
     public abstract QueryPattern Pattern { get; init; }
 }
@@ -55,6 +81,7 @@ public sealed record Prologue(RdfTerm? Base, AlgebraList<PrefixDeclaration> Pref
 }
 
 /// <summary>One <c>PREFIX</c> declaration; the prefix is without its colon.</summary>
+[DesignDecision(typeof(SparqlAlgebraSurfaces.QueryLiteralsKeepTheirTypes), Scope = ExceptionScope.Boundary)]
 public sealed record PrefixDeclaration(string Prefix, RdfTerm Iri) : AlgebraNode;
 
 /// <summary><c>FROM</c> and <c>FROM NAMED</c>; <c>USING</c> and <c>USING NAMED</c> in an update.</summary>
