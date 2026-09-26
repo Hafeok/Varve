@@ -3,6 +3,9 @@
 ## Status
 
 Accepted. 2026-09-21. Supersedes [0006](0006-build-and-test-dependencies.md).
+**Amended by [0063](0063-build-time-analyzer-packages.md)** (2026-09-25): the
+two `DecisionDriven` packages are admitted as build-time, with a version policy
+for prerelease packages, and every banned-symbol entry cites an ADR.
 
 ## Context
 

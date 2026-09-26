@@ -2,7 +2,11 @@
 
 ## Status
 
-Accepted. 2026-09-21.
+Accepted. 2026-09-21. **Superseded in part by
+[0065](0065-wrapper-types-and-the-store-log-namespace.md)** (2026-09-25): the
+transaction contract's results are no longer expressed over BCL primitives; a
+position is a `Position` and a timestamp a `CommitTimestamp`. The sequencer,
+the optional expected position and I1/I5 stand.
 
 Records [`docs/spec/log-and-projection-model.md`](../spec/log-and-projection-model.md)
 §5 T1, and I1 and I5.

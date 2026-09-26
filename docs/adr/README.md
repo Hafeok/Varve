@@ -14,20 +14,20 @@ or depart from `docs/brief.md`, each says so in its Context.
 |---:|---|---|
 | [0001](0001-record-architecture-decisions.md) | Record architecture decisions | Accepted |
 | [0002](0002-licence.md) | Licence: Apache-2.0 | **Superseded by 0031** |
-| [0003](0003-package-layering.md) | Package layering and the strictly downward reference rule | Accepted; layer table **superseded by 0060** |
-| [0004](0004-enforcement-by-analyzers.md) | Enforcement by analyzers | Accepted |
+| [0003](0003-package-layering.md) | Package layering and the strictly downward reference rule | Accepted; layer table **superseded by 0060**; declaration **by 0064**; suppression escape **by 0062** |
+| [0004](0004-enforcement-by-analyzers.md) | Enforcement by analyzers | Accepted; reservation table **superseded by 0062** |
 | [0005](0005-store-is-sparql-free.md) | `Varve.Store` is SPARQL-free | Accepted |
 | [0006](0006-build-and-test-dependencies.md) | Build-time and test-time dependencies | **Superseded by 0009** |
 | [0007](0007-w3c-conformance-harness.md) | W3C conformance harness | Accepted |
 | [0008](0008-target-framework-and-language.md) | Target framework and language version policy | Accepted |
-| [0009](0009-dependency-policy-and-register.md) | Dependency policy and the enforced register | Accepted |
+| [0009](0009-dependency-policy-and-register.md) | Dependency policy and the enforced register | Accepted; **amended by 0063** |
 
 ## Set zero — the log and projection model
 
 | # | Title | Status |
 |---:|---|---|
 | [0010](0010-commit-model-and-effective-deltas.md) | Commit model and effective deltas | Accepted |
-| [0011](0011-concurrency-single-sequencer.md) | Concurrency: one sequencer, optional expected position | Accepted |
+| [0011](0011-concurrency-single-sequencer.md) | Concurrency: one sequencer, optional expected position | Accepted; primitive results **superseded by 0065** |
 | [0012](0012-term-dictionary-and-id-scheme.md) | Term dictionary, id classes, id scheme, blank node identity | Accepted |
 | [0013](0013-records-commits-and-bulk-load.md) | Records versus commits, and bulk load | Accepted |
 | [0014](0014-header-chain-and-divergence.md) | Header chain and divergence detection | Accepted |
@@ -47,7 +47,7 @@ or depart from `docs/brief.md`, each says so in its Context.
 |---:|---|---|
 | [0024](0024-rdf-term-representation.md) | RDF term representation | Accepted |
 | [0025](0025-property-based-testing.md) | CsCheck for property-based testing | Accepted |
-| [0026](0026-hotpath-attribute.md) | Where the `[HotPath]` attribute lives | Accepted |
+| [0026](0026-hotpath-attribute.md) | Where the `[HotPath]` attribute lives | Accepted; placement **superseded by 0064** |
 | [0027](0027-benchmarking.md) | Benchmarking | Accepted |
 
 ## Milestone 3a close-out
@@ -72,9 +72,9 @@ superseding ADR rather than an edit.
 | # | Title | Status |
 |---:|---|---|
 | [0031](0031-licence-mpl-2-0.md) | Licence: MPL-2.0 | Accepted; **supersedes 0002** |
-| [0032](0032-trunk-based-development.md) | Trunk-based development and non-blocking review | Accepted; amended 2026-09-24 (the gate runs after the push) |
+| [0032](0032-trunk-based-development.md) | Trunk-based development and non-blocking review | Accepted; amended 2026-09-24 (the gate runs after the push); **amended by 0066** |
 | [0033](0033-commit-traceability.md) | Commit traceability and AI-session records | Accepted |
-| [0034](0034-commit-signing-and-the-sandbox-exception.md) | Commit signing and the sandbox exception | Accepted; revisit condition |
+| [0034](0034-commit-signing-and-the-sandbox-exception.md) | Commit signing and the sandbox exception | Accepted; revisit condition; **amended by 0066** |
 | [0035](0035-semantic-versioning.md) | Semantic versioning | Accepted; complements 0029 |
 | [0036](0036-containerised-development.md) | Containerised development and the local pipeline | Accepted |
 
@@ -86,7 +86,7 @@ specification, which moved to version 1.2 with 0046 and to 1.3 with 0047.
 
 | # | Title | Status |
 |---:|---|---|
-| [0040](0040-storage-contract-members-and-the-memory-backend.md) | The storage contract's members, and where the memory backend lives | Accepted |
+| [0040](0040-storage-contract-members-and-the-memory-backend.md) | The storage contract's members, and where the memory backend lives | Accepted; member types **superseded by 0065** |
 | [0041](0041-sorted-runs-for-the-default-projection-and-checkpoints.md) | Sorted runs for the default projection and for checkpoints | Accepted |
 | [0042](0042-subscriptions-pull-from-the-log.md) | Subscriptions pull from the log | Accepted |
 | [0043](0043-the-reference-model-as-a-test-asset.md) | The reference model is a test asset | Accepted |
@@ -105,7 +105,7 @@ questions.
 | # | Title | Status |
 |---:|---|---|
 | [0048](0048-optimiser-and-evaluator-one-package-algebra-in-algebra-out.md) | Optimiser and evaluator: one package, algebra in and algebra out; closes 0003's open question 2 | Accepted |
-| [0049](0049-cardinality-estimates-on-the-quad-source.md) | Cardinality estimates on the quad source | Accepted; widens 0022 |
+| [0049](0049-cardinality-estimates-on-the-quad-source.md) | Cardinality estimates on the quad source | Accepted; widens 0022; `Count`'s type **superseded by 0065** |
 | [0050](0050-typed-value-accessor-and-the-benchmark-for-adr-0022.md) | A typed-value accessor beside the handle, and the benchmark ADR 0022 asked for | Accepted; widens 0022, measurement due 5b |
 | [0051](0051-varve-xsd-scope-and-precision.md) | `Varve.Xsd`: scope, precision policy, canonical forms, and value comparison | Accepted; dateTime order verified in 5b |
 | [0052](0052-pinned-read-lifetime.md) | A pinned read lives for one query execution | Accepted; refines 0015 |
@@ -145,6 +145,21 @@ Decided by the maintainer on the 5c report.
 |---:|---|---|
 | [0060](0060-hosts-at-layer-6-the-composition-root.md) | Hosts at layer 6: the composition root, reserved to executables | Accepted; supersedes 0003's layer table |
 | [0061](0061-canonical-n-triples-is-rdf-1-2s.md) | Canonical N-Triples and N-Quads follow RDF 1.2; where 1.1 and 1.2 differ, 1.2 wins | Accepted |
+
+## Adopting `DecisionDriven.Analyzers`
+
+Issue [#43](https://github.com/Hafeok/Varve/issues/43). Decided by the
+maintainer on the adoption plan. Every ADR is also a decision set in
+[`docs/decisions/`](../decisions/), which code cites as a type.
+
+| # | Title | Status |
+|---:|---|---|
+| [0062](0062-adopting-decisiondriven-analyzers.md) | Adopting `DecisionDriven.Analyzers`: generic rules from a package, Varve's own rules only in `Varve.Analyzers` | Accepted; supersedes 0004's reservation table and 0003's suppression escape |
+| [0063](0063-build-time-analyzer-packages.md) | Build-time packages for the analyzers, and what `BannedSymbols.txt` must cite | Accepted; amends 0009 |
+| [0064](0064-varve-configuration-and-hot-path-rules.md) | Varve's configuration of the `DD` rules; the hot-path rules `VARVE0003` and `VARVE0004`; the layer declaration `VARVE0005` | Accepted; supersedes 0026's placement and 0003's declaration |
+| [0065](0065-wrapper-types-and-the-store-log-namespace.md) | Positions, ids and sizes as wrapper types; the log's values in `Varve.Store.Log` | Accepted; supersedes 0011, 0040 and 0049 in part |
+| [0066](0066-expected-red-pull-requests.md) | Expected-red pull requests: citing a decision nobody has accepted yet | Accepted; amends 0032 and 0034 |
+| [0067](0067-inmemorydataset-is-a-value-built-by-a-builder.md) | `InMemoryDataset` is an immutable value, assembled by `InMemoryDatasetBuilder` | Accepted |
 
 ## Milestone 7 — the server
 

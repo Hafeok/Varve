@@ -2,7 +2,13 @@
 
 ## Status
 
-Accepted. 2026-09-20.
+Accepted. 2026-09-20. **Superseded in part by
+[0062](0062-adopting-decisiondriven-analyzers.md)** (2026-09-25): the id
+reservation table is retired, `VARVE0001` and `VARVE0002` are retired, and
+`VARVE0003`–`VARVE0008` are released to their `DD` successors; the hot-path
+rule is renumbered by [0064](0064-varve-configuration-and-hot-path-rules.md).
+Off-the-shelf first, the id scheme, severity, and the suppression policy for
+rules that are neither `DD` nor `VARVE` stand.
 
 ## Context
 

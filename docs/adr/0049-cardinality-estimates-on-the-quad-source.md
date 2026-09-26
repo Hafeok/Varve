@@ -2,7 +2,9 @@
 
 ## Status
 
-**Accepted.** 2026-09-24. Widens the quad source contract of ADR 0022 by one
+**Accepted.** 2026-09-24. **Superseded in part by
+[0065](0065-wrapper-types-and-the-store-log-namespace.md)** (2026-09-25):
+`Count` is a `QuadCount`; the three promises stand. Widens the quad source contract of ADR 0022 by one
 member, as that ADR's *Consequences* anticipated: "if that contract turns out
 to be too narrow to carry the statistics an optimiser needs, the answer is to
 widen the contract deliberately, in a superseding ADR — not to move the
