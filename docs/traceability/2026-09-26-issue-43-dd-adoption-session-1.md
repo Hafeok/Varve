@@ -240,6 +240,7 @@ Filled in pull request by pull request.
 | 0001–0010 | 8 | 67 | part 2 |
 | 0011–0020 | 8 | 65 | part 3 |
 | 0021–0030 | 10 | 65 | part 4 |
+| 0031–0040 | 10 | 70 | part 5 |
 
 **No set file, because wholly superseded:**
 - 0002, superseded by 0031. Its rulings move to 0031's set.
@@ -272,6 +273,12 @@ Filled in pull request by pull request.
 - **Superseded wholesale, carried by the successor:** 0019's rulings are in
   0023's set and 0020's cipher decision is in 0028's. Neither predecessor had a
   set file, so the successor's key is the only one.
+- **One rejected alternative is enumerated.** 0034's "never register the
+  sandbox key" is stated as a prohibition in its Context and called "the
+  important rejection", so it is `SandboxKeyNeverRegistered`. It is the only
+  exception to leaving alternatives out.
+- **0037 still says `Varve.Server` is layer 5.** ADR 0060 moved it to 6, and
+  0037's statements name the package rather than the layer.
 
 **`revoked-at` uses:** none.
 
