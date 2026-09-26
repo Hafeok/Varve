@@ -89,7 +89,13 @@ public sealed class HotPathDisciplineAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterOperationBlockStartAction(OnBlockStart);
+        context.RegisterCompilationStartAction(start =>
+        {
+            if (!HotPath.IsTestAssembly(start.Compilation))
+            {
+                start.RegisterOperationBlockStartAction(OnBlockStart);
+            }
+        });
     }
 
     private static void OnBlockStart(OperationBlockStartAnalysisContext context)

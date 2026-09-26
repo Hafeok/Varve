@@ -44,6 +44,10 @@ marked `[HotPath]`, and a member implementing a member of an interface marked
 `[HotPath]`. The generated attribute cannot be put on an interface as a whole
 (decision-driven-analyzers#61), so an interface is marked member by member.
 
+**Not checked**: a test assembly (`*.Tests`). It is not shipped, and a test
+double implementing a hot contract, such as a stub quad source, allocates per
+call on purpose. The DD contract rules draw the same line.
+
 **Not findings**, deliberately:
 
 - a class's constructor and its field and property initializers: they run

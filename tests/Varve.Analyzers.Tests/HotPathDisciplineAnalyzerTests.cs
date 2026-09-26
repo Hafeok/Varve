@@ -41,6 +41,20 @@ public class HotPathDisciplineAnalyzerTests
         """);
 
     [Fact]
+    public Task A_test_assembly_is_not_checked()
+    {
+        HotPathTest<A> test = new($$"""
+            internal sealed class C
+            {
+                {{Mark}}
+                public object M(int x) => x;
+            }
+            """);
+        test.SolutionTransforms.Add((solution, projectId) => solution.WithProjectAssemblyName(projectId, "Varve.Rdf.Tests"));
+        return test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
     public Task Boxing_is_reported() => Reports($$"""
         internal sealed class C
         {

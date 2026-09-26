@@ -34,7 +34,7 @@ hot signature is made of.
 ## Configuration
 
 None. `[HotPath]` and `[Contract]` are matched by full name, as for
-`VARVE0003`. Only `[DesignDecision(..., Scope = ExceptionScope.HotPath)]`
+`VARVE0003`, and a test assembly (`*.Tests`) is not checked. Only `[DesignDecision(..., Scope = ExceptionScope.HotPath)]`
 exempts a member.
 
 ## False-positive story

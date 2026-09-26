@@ -56,8 +56,14 @@ public sealed class HotPathSignatureAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterSymbolAction(OnMethod, SymbolKind.Method);
-        context.RegisterSymbolAction(OnProperty, SymbolKind.Property);
+        context.RegisterCompilationStartAction(start =>
+        {
+            if (!HotPath.IsTestAssembly(start.Compilation))
+            {
+                start.RegisterSymbolAction(OnMethod, SymbolKind.Method);
+                start.RegisterSymbolAction(OnProperty, SymbolKind.Property);
+            }
+        });
     }
 
     private static void OnMethod(SymbolAnalysisContext context)

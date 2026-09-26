@@ -39,6 +39,14 @@ internal static class HotPath
     /// <summary><c>ExceptionScope.HotPath</c>'s value in the generated enum.</summary>
     private const int HotPathScope = 1;
 
+    /// <summary>
+    /// A test assembly (<c>*.Tests</c>) is not checked. It is not shipped, and a
+    /// test double implementing a hot contract allocates per call on purpose;
+    /// the DD contract rules draw the same line.
+    /// </summary>
+    internal static bool IsTestAssembly(Compilation compilation) =>
+        compilation.AssemblyName is { } name && name.EndsWith(".Tests", System.StringComparison.Ordinal);
+
     /// <summary>Whether <paramref name="symbol"/> is held to the hot-path rules.</summary>
     /// <remarks>
     /// Marked itself or by a container, or an implementation of a member of a
