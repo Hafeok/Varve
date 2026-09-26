@@ -223,10 +223,42 @@ exit=2
 
 Filled in pull request by pull request.
 
+**How rulings were chosen:**
+- **What was enumerated:** the Decision section, dated amendments, and
+  Consequences that bind later work.
+- **What was not:** rejected alternatives, context, and open questions. They
+  are not rulings.
+- **Split rulings:** when a later ADR supersedes part of a ruling, the part
+  still in force keeps its key in the old set, and the superseded part is a key
+  in the superseding set. `SuppressionCitesAdr` in 0004 and
+  `NoSuppressionOfDdOrVarveRules` in 0062 are the first case.
+- **Keys moved forward:** a ruling that moves to a later set is listed in the
+  body of the set it left, and it is written when that later set is.
+
 | ADRs | Set files | Decisions | Pull request |
 |---|---:|---:|---|
+| 0001–0010 | 8 | 67 | part 2 |
 
-**ADRs not fully enumerated:** none yet.
+**No set file, because wholly superseded:**
+- 0002, superseded by 0031. Its rulings move to 0031's set.
+- 0006, superseded by 0009.
+
+**ADRs not fully enumerated, and why:**
+- **0006.** 0009 superseded it whole, replacing its package table with the
+  register. Two of its rulings are restated by no later ADR and survive only
+  as configuration:
+  - `dotnet test` runs on Microsoft.Testing.Platform, so
+    `Microsoft.NET.Test.Sdk` and the VSTest adapter are absent (`global.json`);
+  - the `AngleSharp` transitive pin (the register, citing 0009).
+
+  Neither is filed: there is no in-force ruling to transcribe, and filing one
+  would be padding.
+- **0001.** GOVERNANCE.md's *dated amendment* inside an accepted ADR is
+  practised in at least eight ADRs, but no ADR decides it. 0001 permits only a
+  Status-line edit. It is not filed as a decision, because that would be adding
+  a key to fit practice. It is a question for the maintainer: an ADR amending
+  0001, or a stop to the practice.
+- **0003.** Open question 1 is not a ruling and is not enumerated.
 
 **`revoked-at` uses:** none.
 
