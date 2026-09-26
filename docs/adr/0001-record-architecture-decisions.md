@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted. 2026-09-20.
+Accepted. 2026-09-20. **Amended by [0068](0068-dated-amendments.md)**
+(2026-09-26): an accepted ADR may carry dated, add-only amendment blocks; a
+change of meaning is still a supersession.
 
 ## Context
 
