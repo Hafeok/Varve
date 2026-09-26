@@ -80,8 +80,11 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("licence-headers", "every .cs file carries the MPL-2.0 notice",
         () => Run("dotnet", ["run", "eng/licence-headers.cs"])),
 
-    ("decision-sets", "every decision set file is well formed, and no key is claimed twice",
+    ("decision-sets", "every decision set file is well formed and names where it comes from",
         () => Run("dotnet", ["run", "eng/decision-sets.cs"])),
+
+    ("banned-symbols", "every banned symbol cites the decision that bans it",
+        () => Run("dotnet", ["run", "eng/banned-symbols.cs"])),
 
     ("issue-refs", "every commit references a tracked issue",
         () => Run("dotnet", Args("run", "eng/issue-refs.cs", baseRef is null ? null : "--", baseRef is null ? null : "--base", baseRef))),
