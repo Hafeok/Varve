@@ -241,6 +241,7 @@ Filled in pull request by pull request.
 | 0011–0020 | 8 | 65 | part 3 |
 | 0021–0030 | 10 | 65 | part 4 |
 | 0031–0040 | 10 | 70 | part 5 |
+| 0041–0050 | 10 | 60 | part 6 |
 
 **No set file, because wholly superseded:**
 - 0002, superseded by 0031. Its rulings move to 0031's set.
@@ -279,6 +280,9 @@ Filled in pull request by pull request.
   exception to leaving alternatives out.
 - **0037 still says `Varve.Server` is layer 5.** ADR 0060 moved it to 6, and
   0037's statements name the package rather than the layer.
+- **0050's benchmark plan and verdict rule** were carried out in 5b and judged
+  in 0022's Status on 2026-09-25. A discharged plan is not a ruling in force,
+  so only the accessor's own rulings are enumerated.
 
 **`revoked-at` uses:** none.
 
