@@ -24,7 +24,7 @@ On a `[HotPath]` method or property, or a member of a `[HotPath]` type:
 | returns `IEnumerable<T>` or `IEnumerable` | as the declared type |
 | takes `IEnumerable<T>` or `IEnumerable` | |
 | returns or takes `Task` or `Task<T>` | `ValueTask` is not reported |
-| takes an interface-typed parameter | unless the interface is a `[Contract]` itself marked `[HotPath]` |
+| takes an interface-typed parameter | unless the interface is a `[Contract]` on the hot path: marked `[HotPath]` itself or, since the generated attribute cannot be applied to an interface (decision-driven-analyzers#61), with every member marked |
 
 A type parameter constrained to an interface (`TSource : IQuadSource`) is not an
 interface-typed parameter. It is the shape that lets the JIT specialise, and
@@ -34,7 +34,8 @@ hot signature is made of.
 ## Configuration
 
 None. `[HotPath]` and `[Contract]` are matched by full name, as for
-`VARVE0003`.
+`VARVE0003`. Only `[DesignDecision(..., Scope = ExceptionScope.HotPath)]`
+exempts a member.
 
 ## False-positive story
 

@@ -404,9 +404,9 @@ public class HotPathDisciplineAnalyzerTests
         internal sealed class C
         {
             {{Mark}}
-            public int M(int a, int b) => {|#0:System.Math.Max(a, b)|};
+            public int M(uint a) => {|#0:System.Numerics.BitOperations.PopCount(a)|};
         }
-        """, "C.M(int, int)", F(A.CallsColdMember, "Math.Max(int, int)"), F(A.CallsColdMemberDecide, "Math.Max(int, int)"));
+        """, "C.M(uint)", F(A.CallsColdMember, "BitOperations.PopCount(uint)"), F(A.CallsColdMemberDecide, "BitOperations.PopCount(uint)"));
 
     [Fact]
     public Task A_conversion_operator_of_an_allow_listed_type_is_clean() =>
@@ -419,13 +419,23 @@ public class HotPathDisciplineAnalyzerTests
             """, "System.Index").RunAsync(TestContext.Current.CancellationToken);
 
     [Fact]
-    public Task A_conversion_operator_of_a_type_not_on_the_allow_list_is_reported() => Reports($$"""
-        internal sealed class C
-        {
-            {{Mark}}
-            public System.Index M(int x) => {|#0:x|};
-        }
-        """, "C.M(int)", F(A.CallsColdMember, "Index.implicit operator Index(int)"), F(A.CallsColdMemberDecide, "Index.implicit operator Index(int)"));
+    public Task A_conversion_operator_of_a_type_not_on_the_allow_list_is_reported()
+    {
+        HotPathTest<A> test = new($$"""
+            internal sealed class C
+            {
+                {{Mark}}
+                public System.Index M(int x) => {|#0:x|};
+            }
+            """, "System.Span`1");
+        test.ExpectedDiagnostics.Add(new DiagnosticResult(VarveDiagnostics.HotPathDiscipline)
+            .WithLocation(0)
+            .WithArguments(
+                "C.M(int)",
+                F(A.CallsColdMember, "Index.implicit operator Index(int)"),
+                F(A.CallsColdMemberDecide, "Index.implicit operator Index(int)")));
+        return test.RunAsync(TestContext.Current.CancellationToken);
+    }
 
     [Fact]
     public Task An_array_length_is_an_instruction_and_not_a_call() => Clean($$"""

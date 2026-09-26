@@ -33,13 +33,23 @@ lambdas and local functions declared in them):
 
 **A call** is an invocation, a property access, a struct's explicit
 constructor, and a user-defined operator or conversion. A callee is fine when
-it, its property, or a type containing it is `[HotPath]`; when it is a local
-function or lambda of the hot member itself; when it carries
+it, its property, or a type containing it is `[HotPath]`; when it implements a
+member of an interface marked `[HotPath]`; when it is a local function or
+lambda of the hot member itself; when it carries
 `[DesignDecision(..., Scope = ExceptionScope.HotPath)]`; or when its type is a
 BCL type on the allow-list.
 
+**What is held to the rule**: a member marked `[HotPath]`, a member of a type
+marked `[HotPath]`, and a member implementing a member of an interface marked
+`[HotPath]`. The generated attribute cannot be put on an interface as a whole
+(decision-driven-analyzers#61), so an interface is marked member by member.
+
 **Not findings**, deliberately:
 
+- a class's constructor and its field and property initializers: they run
+  when the object is made, and a class made per quad is reported where it is
+  made, at the hot caller's `new`. A struct's constructor runs per value and
+  is checked;
 - anything under a `throw`: the exception and its message are built on the
   path that ends the operation, not the path per quad, and a hot path that
   could not report malformed input would have to be wrong about it instead;
@@ -56,13 +66,16 @@ answers to: `[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]`
 `varve_hot_path_allowed_types`, in `.editorconfig`:
 
 ```ini
-varve_hot_path_allowed_types = System.Span`1, System.ReadOnlySpan`1, System.Runtime.InteropServices.MemoryMarshal, System.Buffers.Binary.BinaryPrimitives, System.Runtime.CompilerServices.Unsafe, System.Buffers.ArrayPool`1, System.Numerics.Vector*, System.Runtime.Intrinsics.Vector*
+varve_hot_path_allowed_types = System.Span`1, System.ReadOnlySpan`1, System.Runtime.InteropServices.MemoryMarshal, System.Buffers.Binary.BinaryPrimitives, System.Runtime.CompilerServices.Unsafe, System.Buffers.ArrayPool`1, System.Numerics.Vector*, System.Runtime.Intrinsics.Vector*, System.Index, System.Range, System.MemoryExtensions, System.Text.Rune, System.HashCode, System.ArgumentException, System.ArgumentNullException, System.ArgumentOutOfRangeException, System.ObjectDisposedException, System.Math, System.Text.Unicode.Utf8, System.Int32
 ```
 
-Comma-separated full metadata names; a trailing `*` is a prefix. The list is
-ADR 0064's, and it is configuration, not code: **unset means empty**, so the
-rule allows nothing the repository did not write down. A type from a `Varve.*`
-assembly never matches, whatever it is called.
+Comma-separated full metadata names; a trailing `*` is a prefix. The first
+eight entries are ADR 0064's. The rest are the non-allocating BCL helpers span
+code is written with, filed as `HotPathScope.AllowListAddsNonAllocatingBclHelpers`
+(unaccepted, session 2 of #43). The list is configuration, not code
+(`VarveConfigurationAndHotPathRules.HotPathAllowListIsConfiguration`): **unset
+means empty**, so the rule allows nothing the repository did not write down. A
+type from a `Varve.*` assembly never matches, whatever it is called.
 
 ## False-positive story
 
@@ -76,8 +89,11 @@ decision that made it.
 
 Suppressing it is not an answer: `DD0008` reports any `#pragma`,
 `[SuppressMessage]` or `.editorconfig` downgrade for a `VARVE` id
-(`dd_rule_id_prefixes = VARVE`). The exception path is `[DesignDecision]` on
-the member or its type, citing a filed decision (ADR 0062). `async` in
+(`dd_rule_id_prefixes = VARVE`). The exception path is
+`[DesignDecision(..., Scope = ExceptionScope.HotPath)]` on the member or its
+type, citing a filed decision (ADR 0062). A `[DesignDecision]` with another
+scope answers another rule (a pool's `Pool` for DD0004, say) and exempts
+nothing here. `async` in
 particular is allowed only where a `[DesignDecision]` cites the I/O decision
 that needs it.
 

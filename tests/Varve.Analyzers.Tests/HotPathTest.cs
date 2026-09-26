@@ -32,9 +32,7 @@ internal sealed class HotPathTest<TAnalyzer> : CSharpAnalyzerTest<TAnalyzer, Def
     where TAnalyzer : DiagnosticAnalyzer, new()
 {
     internal const string AllowList =
-        "System.Span`1, System.ReadOnlySpan`1, System.Runtime.InteropServices.MemoryMarshal, "
-        + "System.Buffers.Binary.BinaryPrimitives, System.Runtime.CompilerServices.Unsafe, System.Buffers.ArrayPool`1, "
-        + "System.Numerics.Vector*, System.Runtime.Intrinsics.Vector*";
+        "System.Span`1, System.ReadOnlySpan`1, System.Runtime.InteropServices.MemoryMarshal, System.Buffers.Binary.BinaryPrimitives, System.Runtime.CompilerServices.Unsafe, System.Buffers.ArrayPool`1, System.Numerics.Vector*, System.Runtime.Intrinsics.Vector*, System.Index, System.Range, System.MemoryExtensions, System.Text.Rune, System.HashCode, System.ArgumentException, System.ArgumentNullException, System.ArgumentOutOfRangeException, System.ObjectDisposedException, System.Math, System.Text.Unicode.Utf8, System.Int32";
 
     private const string Attributes = """
         namespace DecisionDriven
