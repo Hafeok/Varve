@@ -390,3 +390,42 @@ In `hafeok/decision-driven-analyzers`:
 - [#46](https://github.com/Hafeok/decision-driven-analyzers/issues/46): `[DomainModel]` prefix semantics.
 - [#47](https://github.com/Hafeok/decision-driven-analyzers/issues/47): `DD0019`'s blind spot for mutation through methods.
 - [#48](https://github.com/Hafeok/decision-driven-analyzers/issues/48): a family project must declare `ArchLayer`.
+
+## After the report
+
+### The maintainer's decisions on the report
+
+> Merging #44–#51 in order. Decisions:
+>
+> - Keep 2026-09-26 on the five keys accepted on #44.
+> - NOTICE ruling stays in force.
+> - Write an ADR amending 0001 that legitimises dated amendment blocks: add-only, dated, never editing accepted text; a change of meaning is a supersession; amendment rulings enter the ledger with the amendment's date. Next free number; Accepted; its own set file.
+> - 0006's two config-only rulings go into 0063's set; if the AngleSharp pin no longer exists in the register, retire it instead of filing it.
+> - Note upstream (analyzer repo) that dd_banned_names replaces the package list rather than extending it, if the docs don't say so.
+>
+> Then session 2 from the prompt.
+
+### What was done (part 9)
+
+- **[ADR 0068](../adr/0068-dated-amendments.md)** amends 0001. Dated amendments
+  are add-only, headed with a date, and never edit accepted text. A change of
+  meaning is a supersession. An amendment's rulings enter the ledger with the
+  amendment's date. The fifteen earlier amendments are recognised as they
+  stand. Its set, `dated-amendments`, has six keys. 0001's
+  `AcceptedAdrNotEdited` moved into it, restated, and 0001's set has seven.
+  `GOVERNANCE.md` and `CONTRIBUTING.md` point at it.
+- **0006's two rulings go to 0063**, placed by a dated amendment (the first
+  written under ADR 0068). They are `TestsRunOnTestingPlatform` and
+  `AngleSharpPinnedTransitively`, both dated 2026-09-26.
+  - The AngleSharp pin still exists: `Directory.Packages.props`, 1.8.2, in the
+    benchmark project's graph. So it is filed, not retired.
+  - Its register citation moves from `Adr="0009"` to `Adr="0063"`, which now
+    holds its reasoning.
+- **`dd_banned_names`.** The analyzer's DD0005 rule page does say the option
+  "Replaces the list entirely". The decision it enforces
+  (`names-and-namespaces.md`: "list configurable") and draft A06 do not.
+  Filed as
+  [decision-driven-analyzers#49](https://github.com/Hafeok/decision-driven-analyzers/issues/49).
+
+`eng/decision-sets.cs`: 64 set files, 466 decisions, all accepted. The session's
+upstream issues are #43–#49 in `hafeok/decision-driven-analyzers`.
