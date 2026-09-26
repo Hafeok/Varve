@@ -243,6 +243,8 @@ Filled in pull request by pull request.
 | 0031–0040 | 10 | 70 | part 5 |
 | 0041–0050 | 10 | 60 | part 6 |
 | 0051–0060 | 10 | 76 | part 7 |
+| 0061–0067 | 7 | 56 | part 8 |
+| **All** | **63** | **459** | |
 
 **No set file, because wholly superseded:**
 - 0002, superseded by 0031. Its rulings move to 0031's set.
@@ -289,6 +291,96 @@ Filled in pull request by pull request.
   gate reported it before commit, and the key was renamed.
 
 **`revoked-at` uses:** none.
+
+#### Every set
+
+63 set files for 67 ADRs. The four without one (0002, 0006, 0019,
+0020) are wholly superseded. Every acceptance is transcribed, so none of the
+459 decisions is unaccepted, and none cites `CS0618` once the generator
+reads them.
+
+<details><summary>The table</summary>
+
+| ADR | Set | Decisions |
+|---|---|---:|
+| 0001 | `record-architecture-decisions` | 8 |
+| 0003 | `package-layering` | 6 |
+| 0004 | `enforcement-by-analyzers` | 12 |
+| 0005 | `store-is-sparql-free` | 7 |
+| 0007 | `w3c-conformance-harness` | 9 |
+| 0008 | `target-framework-and-language` | 11 |
+| 0009 | `dependency-policy-and-register` | 8 |
+| 0010 | `commit-model-and-effective-deltas` | 6 |
+| 0011 | `concurrency-single-sequencer` | 7 |
+| 0012 | `term-dictionary-and-id-scheme` | 6 |
+| 0013 | `records-commits-and-bulk-load` | 8 |
+| 0014 | `header-chain-and-divergence` | 7 |
+| 0015 | `checkpoints-and-reads` | 10 |
+| 0016 | `projection-contract-and-subscriptions` | 11 |
+| 0017 | `validator-contract-and-overlay` | 6 |
+| 0018 | `storage-abstraction` | 10 |
+| 0021 | `dataset-settings-as-a-commit-kind` | 5 |
+| 0022 | `quad-source-term-handle` | 7 |
+| 0023 | `erasure-and-access-requests` | 15 |
+| 0024 | `rdf-term-representation` | 6 |
+| 0025 | `property-based-testing` | 2 |
+| 0026 | `hotpath-attribute` | 3 |
+| 0027 | `benchmarking` | 5 |
+| 0028 | `deterministic-aead-from-hmac` | 9 |
+| 0029 | `publishing-and-versioning` | 8 |
+| 0030 | `turtle-recovery-and-prefixes` | 5 |
+| 0031 | `licence-mpl-2-0` | 6 |
+| 0032 | `trunk-based-development` | 6 |
+| 0033 | `commit-traceability` | 9 |
+| 0034 | `commit-signing-and-the-sandbox-exception` | 8 |
+| 0035 | `semantic-versioning` | 6 |
+| 0036 | `containerised-development` | 5 |
+| 0037 | `server-authentication` | 10 |
+| 0038 | `upstream-contribution-policy` | 6 |
+| 0039 | `repo-standard` | 7 |
+| 0040 | `storage-contract-members-and-the-memory-backend` | 7 |
+| 0041 | `sorted-runs-for-the-default-projection-and-checkpoints` | 10 |
+| 0042 | `subscriptions-pull-from-the-log` | 6 |
+| 0043 | `the-reference-model-as-a-test-asset` | 8 |
+| 0044 | `blank-node-identity-in-process` | 5 |
+| 0045 | `the-provisional-in-memory-log-encoding` | 10 |
+| 0046 | `settings-commits-reach-every-subscriber` | 4 |
+| 0047 | `delta-composition-and-closure-over-triple-terms` | 3 |
+| 0048 | `optimiser-and-evaluator-one-package-algebra-in-algebra-out` | 5 |
+| 0049 | `cardinality-estimates-on-the-quad-source` | 6 |
+| 0050 | `typed-value-accessor-and-the-benchmark-for-adr-0022` | 3 |
+| 0051 | `varve-xsd-scope-and-precision` | 14 |
+| 0052 | `pinned-read-lifetime` | 5 |
+| 0053 | `aggregation-by-hash-grouping-and-accumulators` | 11 |
+| 0054 | `property-paths-normalised-then-evaluated-by-alp` | 7 |
+| 0055 | `service-through-a-handler-the-default-refuses` | 7 |
+| 0056 | `evaluator-options-extension-functions-clock-and-randomness` | 7 |
+| 0057 | `sparql-update-one-request-one-commit` | 8 |
+| 0058 | `staging-view-and-dataset-validators` | 6 |
+| 0059 | `rdfc-in-varve-rdf-and-its-work-limit` | 7 |
+| 0060 | `hosts-at-layer-6-the-composition-root` | 4 |
+| 0061 | `canonical-n-triples-is-rdf-1-2s` | 6 |
+| 0062 | `adopting-decisiondriven-analyzers` | 9 |
+| 0063 | `build-time-analyzer-packages` | 5 |
+| 0064 | `varve-configuration-and-hot-path-rules` | 16 |
+| 0065 | `wrapper-types-and-the-store-log-namespace` | 10 |
+| 0066 | `expected-red-pull-requests` | 7 |
+| 0067 | `inmemorydataset-is-a-value-built-by-a-builder` | 3 |
+
+</details>
+
+#### Keys dated 2026-09-26
+
+Five keys in 0062's and 0064's sets carry 2026-09-26 rather than their ADRs'
+2026-09-25, because the maintainer decided them on #44 before it merged:
+
+- `LayerExceptionEscape`
+- `LayerDeclaredPerProject`
+- `UnlayeredAssemblies`
+- `PackableAssemblyDeclaresLayer`
+- `ExecutableLayerAndRootAgree`
+
+Each set's body says so.
 
 ### Upstream issues
 
