@@ -92,6 +92,7 @@ public static class IriRef
     /// the base is not an absolute IRI or either input is malformed.
     /// </summary>
     [DesignDecision(typeof(SpanBoundaryCounts.SpanWriterCountsAreInt), Scope = ExceptionScope.Boundary)]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static int ResolveLength(ReadOnlySpan<byte> baseIri, ReadOnlySpan<byte> reference) =>
         IriResolver.TryResolve(baseIri, reference, default, out int written) || written > 0
             ? written
@@ -114,6 +115,7 @@ public static class IriRef
     /// last of which is told apart by <paramref name="written"/> being non-zero.
     /// </returns>
     [DesignDecision(typeof(SpanBoundaryCounts.SpanWriterCountsAreInt), Scope = ExceptionScope.Boundary)]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryResolve(
         ReadOnlySpan<byte> baseIri,
         ReadOnlySpan<byte> reference,

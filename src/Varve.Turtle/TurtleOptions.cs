@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Turtle;
 
@@ -12,9 +14,11 @@ namespace Varve.Turtle;
 /// prefix twice, and both bindings are reported: the sequence is the fact, and
 /// a caller that wants a map builds the one it needs (ADR 0030).
 /// </remarks>
+[Contract(typeof(TurtleRecoveryAndPrefixes.PrefixesReportedAsDeclared), Role = "receives each prefix binding as the document declares it")]
 public delegate void PrefixHandler(ReadOnlySpan<byte> prefix, ReadOnlySpan<byte> iri);
 
 /// <summary>Receives a base IRI as the document declares it, already resolved.</summary>
+[Contract(typeof(TurtleRecoveryAndPrefixes.PrefixesReportedAsDeclared), Role = "receives each base IRI as the document declares it")]
 public delegate void BaseHandler(ReadOnlySpan<byte> iri);
 
 /// <summary>How to parse Turtle or TriG.</summary>
@@ -32,6 +36,7 @@ public readonly struct TurtleOptions
 #pragma warning restore IDE0032
 
     /// <summary>Turtle or TriG. Turtle by default.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public RdfSyntax Syntax { get; init; }
 
     /// <summary>
@@ -49,15 +54,18 @@ public readonly struct TurtleOptions
     public ErrorHandler? OnError { get; init; }
 
     /// <summary>Called for each prefix binding, in document order.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public PrefixHandler? OnPrefix { get; init; }
 
     /// <summary>Called for each base directive, in document order.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public BaseHandler? OnBase { get; init; }
 
     /// <summary>
     /// Whether each IRI is checked against RFC 3987 and required to have a
     /// scheme once resolved. True by default.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool ValidateIris
     {
         get => !_skipIriValidation;

@@ -4,6 +4,8 @@
 
 using System;
 using System.Text.Unicode;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Turtle;
@@ -24,6 +26,7 @@ namespace Varve.Turtle;
 /// equivalent of.
 /// </para>
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal static class EscapeDecoder
 {
     /// <summary>What a term's escapes are allowed to be.</summary>

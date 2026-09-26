@@ -8,8 +8,6 @@ using System.IO;
 using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
-using DecisionDriven;
-using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Turtle;
@@ -35,7 +33,6 @@ public static class TurtleParser
     private const int DefaultBufferSize = 64 * 1024;
 
     /// <summary>Parses a whole document held in memory.</summary>
-    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static ParseResult Parse(ReadOnlySpan<byte> utf8, QuadHandler handler, in TurtleOptions options)
     {
         ArgumentNullException.ThrowIfNull(handler);

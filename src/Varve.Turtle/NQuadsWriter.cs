@@ -59,7 +59,6 @@ public static class NQuadsWriter
     }
 
     /// <summary>Writes one quad to a buffer writer.</summary>
-    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static void Write(IBufferWriter<byte> output, in QuadView quad, in WriteOptions options)
     {
         ArgumentNullException.ThrowIfNull(output);
@@ -147,6 +146,7 @@ public static class NQuadsWriter
                 "The quad source cannot externalise a term of this quad. A term whose key has been "
                 + "destroyed has no serialisation, and writing a placeholder would claim it does.");
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static void WriteTerm(ref SpanWriter writer, in RdfTermView term, in WriteOptions options)
     {
         switch (term.Kind)
@@ -219,6 +219,7 @@ public static class NQuadsWriter
         }
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static void WriteLiteral(
         ref SpanWriter writer,
         ReadOnlySpan<byte> lexical,
@@ -277,6 +278,7 @@ public static class NQuadsWriter
         }
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static void WriteIri(ref SpanWriter writer, ReadOnlySpan<byte> text, in WriteOptions options)
     {
         writer.Byte((byte)'<');

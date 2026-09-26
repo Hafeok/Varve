@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Turtle;
@@ -395,6 +397,7 @@ internal ref partial struct TurtleScanner
             or (byte)'_' or (byte)'[' or (byte)'(' or (byte)'#';
 
     /// <summary>[3] the four directive forms.</summary>
+    [DesignDecision(typeof(HotPathScope.DirectivesAreNotPerQuad), Scope = ExceptionScope.HotPath)]
     private bool Directive()
     {
         bool sparqlStyle;
