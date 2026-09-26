@@ -40,7 +40,79 @@ internal static class HotPath
     private const int HotPathScope = 1;
 
     /// <summary>Whether <paramref name="symbol"/> is held to the hot-path rules.</summary>
-    internal static bool IsHotPath(ISymbol? symbol)
+    /// <remarks>
+    /// Marked itself or by a container, or an implementation of a member of a
+    /// <c>[HotPath]</c> interface: a contract marked hot holds every
+    /// implementation to the rules, or calling it through the interface would
+    /// be a hot call into code nobody checked.
+    /// </remarks>
+    internal static bool IsHotPath(ISymbol? symbol) =>
+        IsMarked(symbol) || ImplementsHotInterfaceMember(symbol);
+
+    private static bool ImplementsHotInterfaceMember(ISymbol? symbol)
+    {
+        ISymbol? member = symbol is IMethodSymbol { AssociatedSymbol: { } associated } ? associated : symbol;
+
+        if (member is not (IMethodSymbol or IPropertySymbol) || member.ContainingType is not { } type)
+        {
+            return false;
+        }
+
+        foreach (INamedTypeSymbol implemented in type.AllInterfaces)
+        {
+            foreach (ISymbol candidate in implemented.GetMembers())
+            {
+                if (IsMarked(candidate)
+                    && SymbolEqualityComparer.Default.Equals(type.FindImplementationForInterfaceMember(candidate), member))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Whether an interface is on the hot path as a whole: marked itself, or
+    /// every member marked. The generated attribute cannot be applied to an
+    /// interface today (its usage is methods, properties, classes and structs),
+    /// so the second form is the one that compiles; the first is kept for when
+    /// it can be (decision-driven-analyzers#61).
+    /// </summary>
+    internal static bool IsHotInterface(ITypeSymbol type)
+    {
+        if (IsMarked(type))
+        {
+            return true;
+        }
+
+        bool any = false;
+
+        foreach (ISymbol member in type.GetMembers())
+        {
+            if (member is IMethodSymbol { MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet })
+            {
+                continue;
+            }
+
+            if (member is not (IMethodSymbol or IPropertySymbol))
+            {
+                continue;
+            }
+
+            if (!IsMarked(member))
+            {
+                return false;
+            }
+
+            any = true;
+        }
+
+        return any;
+    }
+
+    private static bool IsMarked(ISymbol? symbol)
     {
         for (ISymbol? current = symbol; current is not null; current = current.ContainingSymbol)
         {
@@ -66,21 +138,22 @@ internal static class HotPath
 
     /// <summary>
     /// Whether <paramref name="symbol"/>, or anything containing it, carries a
-    /// <c>[DesignDecision]</c>: the only exception path for a DD or VARVE rule
-    /// (ADR 0062). Whether the cited decision exists and fits is DD0007's
-    /// question, not this one's.
+    /// <c>[DesignDecision(..., Scope = ExceptionScope.HotPath)]</c>: the only
+    /// exception path for a DD or VARVE rule (ADR 0062), with the scope that
+    /// says the exception is about the hot path. A citation with another scope
+    /// answers another rule (a pool's for DD0004, say) and exempts nothing
+    /// here. Whether the cited decision exists and fits is DD0007's question.
     /// </summary>
     internal static bool IsExempted(ISymbol? symbol)
     {
         for (ISymbol? current = symbol; current is not null and not INamespaceSymbol; current = current.ContainingSymbol)
         {
-            if (HasAttribute(current, DesignDecisionAttributeName))
+            if (IsDeclaredHotPathSafe(current))
             {
                 return true;
             }
 
-            if (current is IMethodSymbol { AssociatedSymbol: { } associated }
-                && HasAttribute(associated, DesignDecisionAttributeName))
+            if (current is IMethodSymbol { AssociatedSymbol: { } associated } && IsDeclaredHotPathSafe(associated))
             {
                 return true;
             }

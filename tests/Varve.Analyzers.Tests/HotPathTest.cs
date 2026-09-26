@@ -39,7 +39,7 @@ internal sealed class HotPathTest<TAnalyzer> : CSharpAnalyzerTest<TAnalyzer, Def
     private const string Attributes = """
         namespace DecisionDriven
         {
-            [System.AttributeUsage(System.AttributeTargets.Method | System.AttributeTargets.Property | System.AttributeTargets.Class | System.AttributeTargets.Struct | System.AttributeTargets.Interface)]
+            [System.AttributeUsage(System.AttributeTargets.Method | System.AttributeTargets.Property | System.AttributeTargets.Class | System.AttributeTargets.Struct)]
             internal sealed class HotPathAttribute : System.Attribute
             {
                 public HotPathAttribute(System.Type decision) { }

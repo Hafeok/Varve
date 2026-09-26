@@ -108,8 +108,11 @@ public class HotPathSignatureAnalyzerTests
     [Fact]
     public Task Taking_a_contract_that_is_itself_a_hot_path_is_clean() => Clean($$"""
         [Contract(typeof(BriefConstraints.AllocationPerQuadIsADefect), Role = "source")]
-        {{Mark}}
-        internal interface ISource { int Next(); }
+        internal interface ISource
+        {
+            {{Mark}}
+            int Next();
+        }
 
         internal sealed class C
         {
@@ -117,6 +120,24 @@ public class HotPathSignatureAnalyzerTests
             public int M(ISource source) => 0;
         }
         """);
+
+    [Fact]
+    public Task Taking_a_contract_with_one_member_not_on_the_hot_path_is_reported() => Reports($$"""
+        [Contract(typeof(BriefConstraints.AllocationPerQuadIsADefect), Role = "source")]
+        internal interface ISource
+        {
+            {{Mark}}
+            int Next();
+
+            void Reset();
+        }
+
+        internal sealed class C
+        {
+            {{Mark}}
+            public int M(ISource {|#0:source|}) => 0;
+        }
+        """, "C.M(ISource)", F(A.TakesInterface, "ISource", "source"), A.TakesInterfaceDecide);
 
     [Fact]
     public Task A_type_parameter_constrained_to_an_interface_is_clean() => Clean($$"""

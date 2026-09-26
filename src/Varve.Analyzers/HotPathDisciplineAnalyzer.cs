@@ -96,7 +96,7 @@ public sealed class HotPathDisciplineAnalyzer : DiagnosticAnalyzer
     {
         ISymbol owner = context.OwningSymbol;
 
-        if (!HotPath.IsHotPath(owner) || HotPath.IsExempted(owner))
+        if (!HotPath.IsHotPath(owner) || HotPath.IsExempted(owner) || IsClassConstruction(owner))
         {
             return;
         }
@@ -467,6 +467,21 @@ public sealed class HotPathDisciplineAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
+
+    /// <summary>
+    /// Whether the block builds an instance of a class: a constructor, or a
+    /// field or property initializer. That runs when the object is made, and a
+    /// class made per quad is reported where it is made, by the hot caller's
+    /// <c>new</c>. A struct's constructor runs per value and stays checked.
+    /// </summary>
+    private static bool IsClassConstruction(ISymbol owner) =>
+        owner switch
+        {
+            IMethodSymbol { MethodKind: MethodKind.Constructor, ContainingType.IsReferenceType: true } => true,
+            IFieldSymbol { IsStatic: false, ContainingType.IsReferenceType: true } => true,
+            IPropertySymbol { IsStatic: false, ContainingType.IsReferenceType: true } => true,
+            _ => false,
+        };
 
     /// <summary>
     /// Whether the operation is off the path per quad: built only to be

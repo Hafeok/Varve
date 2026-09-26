@@ -152,6 +152,30 @@ public class HotPathDisciplineAnalyzerTests
         """);
 
     [Fact]
+    public Task Building_a_hot_path_class_is_not_per_quad_and_is_clean() => Clean($$"""
+        {{Mark}}
+        internal sealed class Arena
+        {
+            private byte[] _buffer = new byte[256];
+
+            public Arena() => _buffer = new byte[512];
+
+            public int Length => _buffer.Length;
+        }
+        """);
+
+    [Fact]
+    public Task A_hot_path_struct_constructor_is_checked() => Reports($$"""
+        {{Mark}}
+        internal readonly struct Cell
+        {
+            public Cell(int x) => Boxed = {|#0:x|};
+
+            public object Boxed { get; }
+        }
+        """, "Cell.Cell(int)", F(A.Boxes, "int"), A.BoxesDecide);
+
+    [Fact]
     public Task A_collection_expression_building_an_array_is_reported() => Reports($$"""
         internal sealed class C
         {
@@ -328,6 +352,44 @@ public class HotPathDisciplineAnalyzerTests
         """, "C.N(int)", F(A.Boxes, "int"), A.BoxesDecide);
 
     [Fact]
+    public Task An_implementation_of_a_hot_path_interface_is_held_to_the_rule() => Reports($$"""
+        internal interface ICursor
+        {
+            {{Mark}}
+            object Next(int x);
+        }
+
+        internal sealed class Cursor : ICursor
+        {
+            public object Next(int x) => {|#0:x|};
+        }
+        """, "Cursor.Next(int)", F(A.Boxes, "int"), A.BoxesDecide);
+
+    [Fact]
+    public Task Calling_through_a_hot_path_interface_is_clean() => Clean($$"""
+        internal interface ICursor
+        {
+            {{Mark}}
+            bool MoveNext();
+        }
+
+        internal sealed class C
+        {
+            {{Mark}}
+            public int M<TCursor>(TCursor cursor) where TCursor : ICursor
+            {
+                int n = 0;
+                while (cursor.MoveNext())
+                {
+                    n++;
+                }
+
+                return n;
+            }
+        }
+        """);
+
+    [Fact]
     public Task Calling_an_allow_listed_BCL_member_is_clean() => Clean($$"""
         internal sealed class C
         {
@@ -392,6 +454,16 @@ public class HotPathDisciplineAnalyzerTests
             public object M(int x) => x;
         }
         """);
+
+    [Fact]
+    public Task A_design_decision_with_another_scope_does_not_exempt_the_member() => Reports($$"""
+        internal sealed class C
+        {
+            {{Mark}}
+            [DesignDecision(typeof(BriefConstraints.AllocationPerQuadIsADefect), Scope = ExceptionScope.Pool)]
+            public object M(int x) => {|#0:x|};
+        }
+        """, "C.M(int)", F(A.Boxes, "int"), A.BoxesDecide);
 
     [Fact]
     public Task A_callee_declared_safe_for_hot_paths_is_clean() => Clean($$"""

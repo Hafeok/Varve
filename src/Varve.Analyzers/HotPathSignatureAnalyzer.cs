@@ -133,7 +133,7 @@ public sealed class HotPathSignatureAnalyzer : DiagnosticAnalyzer
 
     private static bool IsHotContract(ITypeSymbol type) =>
         HotPath.HasAttribute(type.OriginalDefinition, HotPath.ContractAttributeName)
-        && HotPath.HasAttribute(type.OriginalDefinition, HotPath.HotPathAttributeName);
+        && HotPath.IsHotInterface(type.OriginalDefinition);
 
     /// <summary><c>IEnumerable</c> or <c>IEnumerable&lt;T&gt;</c> itself, as the declared type.</summary>
     private static bool IsSequence(ITypeSymbol type) =>
