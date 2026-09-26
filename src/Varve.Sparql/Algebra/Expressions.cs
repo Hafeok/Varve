@@ -2,11 +2,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Sparql.Algebra;
 
 /// <summary>An expression (SPARQL 1.2 §17).</summary>
+[Contract(typeof(OptimiserAndEvaluatorOnePackageAlgebraInAlgebraOut.AlgebraNodesAreSealedRecords), Role = "an expression node")]
 public abstract record Expression : AlgebraNode
 {
     private protected Expression()
@@ -37,6 +40,7 @@ public sealed record FunctionCall(BuiltInFunction Function, AlgebraList<Expressi
 public sealed record CustomFunctionCall(RdfTerm Function, AlgebraList<Expression> Arguments) : Expression;
 
 /// <summary><c>EXISTS { }</c> and <c>NOT EXISTS { }</c>.</summary>
+[DesignDecision(typeof(SparqlAlgebraSurfaces.GrammarKeywordsAreBools), Scope = ExceptionScope.Boundary)]
 public sealed record ExistsExpression(QueryPattern Pattern, bool Negated) : Expression;
 
 /// <summary>
@@ -47,6 +51,8 @@ public sealed record ExistsExpression(QueryPattern Pattern, bool Negated) : Expr
 /// <see cref="CustomFunction"/> is set when <see cref="Function"/> is
 /// <see cref="AggregateFunction.Custom"/>.
 /// </summary>
+[DesignDecision(typeof(SparqlAlgebraSurfaces.GrammarKeywordsAreBools), Scope = ExceptionScope.Boundary)]
+[DesignDecision(typeof(SparqlAlgebraSurfaces.QueryLiteralsKeepTheirTypes), Scope = ExceptionScope.Boundary)]
 public sealed record AggregateExpression(
     AggregateFunction Function,
     Expression? Argument,

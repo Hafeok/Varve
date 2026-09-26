@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Rdf;
 
@@ -23,6 +25,7 @@ namespace Varve.Rdf;
 /// contain itself.
 /// </para>
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 public readonly ref struct RdfTermView
 {
     private readonly TermArena _arena;
@@ -73,6 +76,7 @@ public readonly ref struct RdfTermView
     /// Copies this view into an owned term. The one place on the view path
     /// where allocation happens, and it happens because the caller asked.
     /// </summary>
+    [DesignDecision(typeof(RdfTermRepresentation.MaterialiseIsTheOnlyCrossing), Scope = ExceptionScope.HotPath)]
     public RdfTerm Materialise()
     {
         switch (Kind)

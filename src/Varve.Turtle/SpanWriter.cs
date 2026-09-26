@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Turtle;
 
@@ -15,6 +17,7 @@ namespace Varve.Turtle;
 /// the buffer and asks again. The alternative, sizing every write beforehand,
 /// means walking every term twice.
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal ref struct SpanWriter
 {
     private readonly Span<byte> _destination;

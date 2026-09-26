@@ -364,14 +364,14 @@ internal static class CanonGraph
 
     internal static InMemoryDataset Build(CanonShape shape)
     {
-        InMemoryDataset dataset = new();
+        InMemoryDatasetBuilder builder = new();
 
         foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in Triples(shape))
         {
-            dataset.Add(s, p, o);
+            builder.Add(s, p, o);
         }
 
-        return dataset;
+        return builder.ToDataset();
     }
 
     internal static byte[] NTriples(CanonShape shape)
@@ -439,7 +439,7 @@ public enum CanonShape
 [MemoryDiagnoser]
 public class CanonicaliseBenchmarks : IDisposable
 {
-    private InMemoryDataset _dataset = new();
+    private InMemoryDataset _dataset = new InMemoryDatasetBuilder().ToDataset();
     private TripleStore _triples = new();
     private string? _refused;
 
@@ -460,14 +460,14 @@ public class CanonicaliseBenchmarks : IDisposable
         try
         {
             string dotNetRdf = new RdfCanonicalizer("SHA256").Canonicalize(_triples).SerializedNQuads;
-            Console.WriteLine($"// {Shape}: {_dataset.Count:N0} triples; Varve {varve.Length:N0} characters of canonical N-Quads, dotNetRDF {dotNetRdf.Length:N0}; same: {string.Equals(varve, dotNetRdf, StringComparison.Ordinal)}");
+            Console.WriteLine($"// {Shape}: {_dataset.Count.Value:N0} triples; Varve {varve.Length:N0} characters of canonical N-Quads, dotNetRDF {dotNetRdf.Length:N0}; same: {string.Equals(varve, dotNetRdf, StringComparison.Ordinal)}");
         }
 #pragma warning disable CA1031 // ADR 0027: a baseline's refusal is reported with the numbers, not handled.
         catch (Exception error)
 #pragma warning restore CA1031
         {
             _refused = error.Message;
-            Console.WriteLine($"// {Shape}: {_dataset.Count:N0} triples; Varve {varve.Length:N0} characters of canonical N-Quads; dotNetRDF refused: {error.Message}");
+            Console.WriteLine($"// {Shape}: {_dataset.Count.Value:N0} triples; Varve {varve.Length:N0} characters of canonical N-Quads; dotNetRDF refused: {error.Message}");
         }
     }
 

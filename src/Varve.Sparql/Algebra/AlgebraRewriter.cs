@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Sparql.Algebra;
 
@@ -24,6 +26,7 @@ namespace Varve.Sparql.Algebra;
 /// compile error here until its method exists, which is the point.
 /// </para>
 /// </remarks>
+[Contract(typeof(OptimiserAndEvaluatorOnePackageAlgebraInAlgebraOut.RewritingByTypeSwitch), Role = "rewrites algebra to algebra, one virtual method per node type")]
 public abstract class AlgebraRewriter
 {
     /// <summary>Rewrites a query.</summary>

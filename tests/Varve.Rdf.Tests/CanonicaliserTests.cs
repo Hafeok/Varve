@@ -26,9 +26,10 @@ public class CanonicaliserTests
     public void The_example_of_4_6_2_hashes_as_the_recommendation_says()
     {
         // §4.6.2: e0's first-degree hash under SHA-256.
-        InMemoryDataset dataset = new();
-        dataset.Add(RdfTerm.Iri(U("http://example.com/#p")), RdfTerm.Iri(U("http://example.com/#q")), RdfTerm.BlankNode(U("e0")));
-        dataset.Add(RdfTerm.BlankNode(U("e0")), RdfTerm.Iri(U("http://example.com/#s")), RdfTerm.Iri(U("http://example.com/#u")));
+        InMemoryDatasetBuilder builder = new();
+        builder.Add(RdfTerm.Iri(U("http://example.com/#p")), RdfTerm.Iri(U("http://example.com/#q")), RdfTerm.BlankNode(U("e0")));
+        builder.Add(RdfTerm.BlankNode(U("e0")), RdfTerm.Iri(U("http://example.com/#s")), RdfTerm.Iri(U("http://example.com/#u")));
+        InMemoryDataset dataset = builder.ToDataset();
         string line = "<http://example.com/#p> <http://example.com/#q> _:a .\n_:a <http://example.com/#s> <http://example.com/#u> .\n";
 
         Assert.Equal("21d1dd5ba21f3dee9d76c0c00c260fa6f5d5d65315099e553026f4828d0dc77a", Convert.ToHexStringLower(SHA256.HashData(U(line))));
@@ -41,11 +42,12 @@ public class CanonicaliserTests
     [Fact]
     public void Appendix_a_escapes_and_lowercases()
     {
-        InMemoryDataset dataset = new();
-        dataset.Add(Iri("s"), Iri("p"), RdfTerm.Literal(U("\b\t\n\f\r\"\\\u0001\u000B\u001F\u007F\uFFFE é")));
-        dataset.Add(Iri("s"), Iri("p"), RdfTerm.Literal(U("x"), U("EN-gb"), TextDirection.RightToLeft));
-        dataset.Add(Iri("s"), Iri("p"), RdfTerm.Literal(U("1"), RdfTerm.Iri(U("http://www.w3.org/2001/XMLSchema#integer"))), Iri("g"));
-        dataset.Add(Iri("s"), Iri("p"), RdfTerm.TripleTerm(Iri("a"), Iri("b"), RdfTerm.Literal(U("c"))));
+        InMemoryDatasetBuilder builder = new();
+        builder.Add(Iri("s"), Iri("p"), RdfTerm.Literal(U("\b\t\n\f\r\"\\\u0001\u000B\u001F\u007F\uFFFE é")));
+        builder.Add(Iri("s"), Iri("p"), RdfTerm.Literal(U("x"), U("EN-gb"), TextDirection.RightToLeft));
+        builder.Add(Iri("s"), Iri("p"), RdfTerm.Literal(U("1"), RdfTerm.Iri(U("http://www.w3.org/2001/XMLSchema#integer"))), Iri("g"));
+        builder.Add(Iri("s"), Iri("p"), RdfTerm.TripleTerm(Iri("a"), Iri("b"), RdfTerm.Literal(U("c"))));
+        InMemoryDataset dataset = builder.ToDataset();
 
         Assert.Equal(
             "<http://example.org/s> <http://example.org/p> \"1\"^^<http://www.w3.org/2001/XMLSchema#integer> <http://example.org/g> .\n"
@@ -67,8 +69,9 @@ public class CanonicaliserTests
     [Fact]
     public void A_triple_term_around_a_blank_node_is_refused()
     {
-        InMemoryDataset dataset = new();
-        dataset.Add(Iri("s"), Iri("p"), RdfTerm.TripleTerm(RdfTerm.BlankNode(U("b")), Iri("q"), Iri("o")));
+        InMemoryDatasetBuilder builder = new();
+        builder.Add(Iri("s"), Iri("p"), RdfTerm.TripleTerm(RdfTerm.BlankNode(U("b")), Iri("q"), Iri("o")));
+        InMemoryDataset dataset = builder.ToDataset();
 
         ArgumentException error = Assert.Throws<ArgumentException>(() => Canonical(dataset));
         Assert.Contains("RDF 1.1", error.Message, StringComparison.Ordinal);
@@ -78,18 +81,19 @@ public class CanonicaliserTests
     public void A_symmetric_dataset_meets_a_small_limit_and_says_so()
     {
         // A four-clique: every first-degree hash equal, everything to Hash N-Degree Quads.
-        InMemoryDataset dataset = new();
+        InMemoryDatasetBuilder builder = new();
         for (int i = 0; i < 4; i++)
         {
             for (int j = 0; j < 4; j++)
             {
                 if (i != j)
                 {
-                    dataset.Add(RdfTerm.BlankNode(U("n" + i)), Iri("p"), RdfTerm.BlankNode(U("n" + j)));
+                    builder.Add(RdfTerm.BlankNode(U("n" + i)), Iri("p"), RdfTerm.BlankNode(U("n" + j)));
                 }
             }
         }
 
+        InMemoryDataset dataset = builder.ToDataset();
         CanonicalisationLimitException error = Assert.Throws<CanonicalisationLimitException>(() => Canonical(dataset, new CanonicalisationOptions { WorkLimit = 1 }));
         Assert.Equal(4, error.Limit);
         Assert.True(error.Steps > error.Limit);
@@ -99,9 +103,10 @@ public class CanonicaliserTests
     [Fact]
     public void Cancellation_stops_it()
     {
-        InMemoryDataset dataset = new();
-        dataset.Add(RdfTerm.BlankNode(U("a")), Iri("p"), RdfTerm.BlankNode(U("b")));
-        dataset.Add(RdfTerm.BlankNode(U("b")), Iri("p"), RdfTerm.BlankNode(U("a")));
+        InMemoryDatasetBuilder builder = new();
+        builder.Add(RdfTerm.BlankNode(U("a")), Iri("p"), RdfTerm.BlankNode(U("b")));
+        builder.Add(RdfTerm.BlankNode(U("b")), Iri("p"), RdfTerm.BlankNode(U("a")));
+        InMemoryDataset dataset = builder.ToDataset();
         using System.Threading.CancellationTokenSource cancelled = new();
         cancelled.Cancel();
 

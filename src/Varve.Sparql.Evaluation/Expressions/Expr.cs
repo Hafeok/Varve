@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Sparql.Algebra;
 using Varve.Sparql.Evaluation.Execution;
@@ -25,7 +27,7 @@ internal sealed class SlotExpr(int slot) : Expr
 {
     internal int Slot { get; } = slot;
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal override Value Eval(Exec exec, ulong[] row, in ActiveGraph graph) => Value.Of(Rows.Get(row, exec.Width, Slot));
 }
 
@@ -40,7 +42,7 @@ internal sealed class ConstExpr(RdfTerm term) : Expr
 
     internal RdfTerm Term { get; } = term;
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal override Value Eval(Exec exec, ulong[] row, in ActiveGraph graph)
     {
         if (!ReferenceEquals(_for, exec))
@@ -118,7 +120,7 @@ internal sealed class SignExpr(bool negate, Expr operand) : Expr
 /// <summary>The six comparisons of §17.3.</summary>
 internal sealed class CompareExpr(BinaryOperator op, Expr left, Expr right) : Expr
 {
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal override Value Eval(Exec exec, ulong[] row, in ActiveGraph graph)
     {
         Value l = left.Eval(exec, row, graph);
@@ -147,7 +149,7 @@ internal sealed class CompareExpr(BinaryOperator op, Expr left, Expr right) : Ex
 /// <summary>The four arithmetic operators of §17.3, promoting per XPath.</summary>
 internal sealed class ArithmeticExpr(BinaryOperator op, Expr left, Expr right) : Expr
 {
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal override Value Eval(Exec exec, ulong[] row, in ActiveGraph graph)
     {
         if (!Semantics.TryNumeric(exec, left.Eval(exec, row, graph), out XsdNumeric a)

@@ -3,81 +3,90 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System.Collections.Immutable;
+using System.Globalization;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Varve.Analyzers;
 
 /// <summary>
-/// VARVE0002. Reports every way a layer declaration can be missing, invalid, or
-/// worked around.
+/// VARVE0005. A Varve assembly declares the layer it is, and the declaration
+/// agrees with what the assembly is (ADR 0064, ADR 0060).
 /// </summary>
 /// <remarks>
 /// <para>
-/// This rule exists because VARVE0001 can otherwise be bypassed by omission. An
-/// assembly that declares no layer has nothing to compare against, and a
-/// referenced assembly with no layer metadata is invisible to the direction
-/// check. Either would turn the layering rule off silently, which is worse than
-/// turning it off deliberately. See ADR 0003.
+/// This is the half of the retired <c>VARVE0002</c> that <c>DD0001</c> does not
+/// cover. <c>DD0001</c> reports a <em>reference</em> to a family assembly that
+/// declares no layer, and is silent on a project that declares none itself.
+/// That leaves a host, which nothing references, and a packable project that
+/// forgot the property, checked by nothing at all.
 /// </para>
 /// <para>
-/// The value <c>none</c> is a declaration, not an absence. It is accepted from
-/// an assembly whose name marks it as a test or analyzer assembly,
-/// and refused outright from anything packed into a package — whatever it is
-/// called. The name check and the <c>IsPackable</c> check catch different
-/// things, and it is the pair that closes the hole: a package cannot escape a
-/// layer by naming itself <c>Something.Tests</c>, and a library that is not yet
-/// packable is still held to its name.
+/// Three rules, for a compilation whose name starts <c>Varve.</c>:
 /// </para>
-/// <para>
-/// The analyzer appearing among a compilation's referenced assemblies is itself
-/// a violation. An analyzer is passed to the compiler as <c>/analyzer:</c> and
-/// never as <c>/reference:</c>, so it cannot appear there by the wiring this
-/// repository uses — if it does, something referenced it as an ordinary
-/// library, which is the shape the old by-name exemption used to permit.
-/// </para>
+/// <list type="number">
+///   <item>It declares <c>ArchLayer</c>, an integer from 0 to 6, unless it is a
+///   test assembly or <c>Varve.Analyzers</c>, which declare none. A packable
+///   assembly declares one whatever it is called.</item>
+///   <item>An executable declares 6, and only an executable declares 6. A test
+///   assembly is an executable under Microsoft.Testing.Platform and declares
+///   none, as before.</item>
+///   <item><c>ArchCompositionRoot</c> is true exactly when <c>ArchLayer</c> is
+///   6. ADR 0060 rejected a second declaration because it can disagree with the
+///   first; the package needs the property, so this makes disagreement an
+///   error instead.</item>
+/// </list>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class LayerDeclarationAnalyzer : DiagnosticAnalyzer
 {
-    internal const string MustDeclare =
-        "declares no layer. A Varve.* assembly must set the VarveLayer MSBuild property to an integer from 0 to 6, "
-        + "or to 'none' if it is a test or analyzer assembly (ADR 0003, ADR 0060)";
+    internal const string MustDeclare = "declares no layer";
 
-    internal const string NoLayerNotAllowed =
-        "declares VarveLayer as 'none', which is allowed only for a test assembly or Varve.Analyzers. A published "
-        + "Varve package has a layer, and a host or benchmark declares layer 6 (ADR 0003, ADR 0060)";
+    internal const string MustDeclareDecide =
+        "set ArchLayer in its project file to the layer ADR 0060's table gives it, an integer from 0 to 6 | if it is "
+        + "a test assembly, name it *.Tests";
 
-    internal const string ExecutableBelowHostLayerFormat =
-        "is an executable declaring layer {0}. An executable is a composition root, which ADR 0060 reserves to "
-        + "layer 6: declare VarveLayer 6, or build it as a library";
+    internal const string PackableMustDeclare = "is packable and declares no layer";
 
-    internal const string HostLayerNotExecutable =
-        "declares layer 6 but is not an executable. Layer 6 is the composition root and nothing may reference it, "
-        + "so a library there is unreachable: build it as an executable, or give it the layer of what it is — "
-        + "an integration is layer 5 (ADR 0060)";
+    internal const string PackableMustDeclareDecide =
+        "set ArchLayer to the layer ADR 0060's table gives it, since a packed assembly is in the package graph "
+        + "whatever it is called | set IsPackable to false";
 
-    internal const string NoLayerOnPackable =
-        "declares VarveLayer as 'none' but is packable. Whatever it is named, an assembly that is packed is in the "
-        + "package graph the layering rule describes and must declare an integer from 0 to 6. Set a layer, or set "
-        + "IsPackable to false (ADR 0003)";
+    internal const string UnlayeredDeclaresFormat =
+        "is a test assembly or the analyzer, and declares layer '{0}'";
 
-    internal const string AnalyzerReferencedAsLibrary =
-        "is referenced as an ordinary library. Varve.Analyzers is a build-time component: it is passed to the "
-        + "compiler as an analyzer and must never appear among a compilation's references. Reference it with "
-        + "OutputItemType=\"Analyzer\" and ReferenceOutputAssembly=\"false\" (ADR 0004)";
+    internal const string UnlayeredDeclaresDecide =
+        "remove ArchLayer: a test assembly composes across layers and is not published, and the analyzer runs "
+        + "inside the compiler | if it is a package, name it as one";
 
-    internal const string MalformedFormat =
-        "declares VarveLayer as '{0}', which is not a layer. A layer is an integer from 0 to 6 inclusive, or the "
-        + "literal 'none' (ADR 0003)";
+    internal const string MalformedFormat = "declares ArchLayer '{0}', which is not a layer";
 
-    internal const string ReferenceMissingMetadata =
-        "is referenced but carries no Varve.Layer assembly metadata, so the direction of the reference cannot be "
-        + "checked. Set VarveLayer in the referenced project (ADR 0003)";
+    internal const string MalformedDecide =
+        "declare an integer from 0 to 6 inclusive | if it has no layer, it is a test assembly: name it *.Tests";
 
-    internal const string ReferenceMalformedFormat =
-        "is referenced and carries Varve.Layer metadata of '{0}', which is not a layer. A layer is an integer from "
-        + "0 to 6 inclusive (ADR 0003)";
+    internal const string ExecutableBelowHostFormat = "is an executable and declares layer {0}";
+
+    internal const string ExecutableBelowHostDecide =
+        "declare ArchLayer 6, since an executable is a composition root and ADR 0060 reserves those to layer 6 | "
+        + "build it as a library";
+
+    internal const string HostNotExecutable = "declares layer 6 and is not an executable";
+
+    internal const string HostNotExecutableDecide =
+        "build it as an executable, since nothing may reference layer 6 and a library there is unreachable | give it "
+        + "the layer of what it is: an integration is layer 5";
+
+    internal const string RootWithoutHostFormat = "sets ArchCompositionRoot but declares layer {0}";
+
+    internal const string RootWithoutHostDecide =
+        "remove ArchCompositionRoot, which is true only at layer 6 | if it is the composition root, it is an "
+        + "executable at layer 6: declare that";
+
+    internal const string HostWithoutRoot = "declares layer 6 and does not set ArchCompositionRoot";
+
+    internal const string HostWithoutRootDecide =
+        "set ArchCompositionRoot to true, since layer 6 is the composition root (ADR 0060) | if it is not a host, "
+        + "give it the layer of what it is";
 
     /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
@@ -93,117 +102,79 @@ public sealed class LayerDeclarationAnalyzer : DiagnosticAnalyzer
 
     private static void Analyze(CompilationAnalysisContext context)
     {
-        Compilation compilation = context.Compilation;
-        string? declaringName = compilation.Assembly.Name;
+        string? name = context.Compilation.Assembly.Name;
 
-        if (!LayerDeclaration.IsVarveAssembly(declaringName))
+        if (name is null || !LayerDeclaration.IsVarveAssembly(name))
         {
             return;
         }
 
-        ReportOwnDeclaration(context, compilation, declaringName);
-        ReportReferences(context, compilation, declaringName);
-    }
+        AnalyzerConfigOptions options = context.Options.AnalyzerConfigOptionsProvider.GlobalOptions;
 
-    private static void ReportOwnDeclaration(
-        CompilationAnalysisContext context, Compilation compilation, string? declaringName)
-    {
-        AnalyzerConfigOptionsProvider options = context.Options.AnalyzerConfigOptionsProvider;
-        string? declared = LayerDeclaration.ReadDeclaredValue(options);
+        string? declared = LayerDeclaration.Read(options, LayerDeclaration.LayerKey);
+        bool packable = LayerDeclaration.ReadFlag(options, LayerDeclaration.PackableKey);
+        bool root = LayerDeclaration.ReadFlag(options, LayerDeclaration.CompositionRootKey);
+        bool executable = LayerDeclaration.IsExecutable(
+            LayerDeclaration.Read(options, LayerDeclaration.OutputTypeKey));
+        bool unlayered = LayerDeclaration.IsUnlayeredByName(name);
 
         if (declared is null)
         {
-            Report(context, declaringName, MustDeclare);
+            if (packable)
+            {
+                Report(context, name, PackableMustDeclare, PackableMustDeclareDecide);
+            }
+            else if (!unlayered)
+            {
+                Report(context, name, MustDeclare, MustDeclareDecide);
+            }
+
+            // A test assembly with no layer is not a composition root either.
+            if (root)
+            {
+                Report(context, name, Format(RootWithoutHostFormat, "none"), RootWithoutHostDecide);
+            }
+
             return;
         }
 
-        if (string.Equals(declared, LayerDeclaration.NoLayer, System.StringComparison.Ordinal))
+        if (unlayered && !packable)
         {
-            // Two independent checks, because a name and a packaging decision
-            // answer different questions. Being packed is the one that settles
-            // whether an assembly is in the package graph at all.
-            if (LayerDeclaration.ReadIsPackable(options))
-            {
-                Report(context, declaringName, NoLayerOnPackable);
-            }
-            else if (!LayerDeclaration.IsExemptFromLayering(declaringName))
-            {
-                Report(context, declaringName, NoLayerNotAllowed);
-            }
-
+            Report(context, name, Format(UnlayeredDeclaresFormat, declared), UnlayeredDeclaresDecide);
             return;
         }
 
         if (!LayerDeclaration.TryParseLayer(declared, out int layer))
         {
-            Report(context, declaringName, string.Format(
-                System.Globalization.CultureInfo.InvariantCulture, MalformedFormat, declared));
+            Report(context, name, Format(MalformedFormat, declared), MalformedDecide);
             return;
         }
 
-        // ADR 0060: executable and layer 6 are the same thing, both ways.
-        bool executable = LayerDeclaration.IsExecutable(compilation);
-
+        // ADR 0060: an executable and layer 6 are the same thing, both ways.
         if (executable && layer != LayerDeclaration.HostLayer)
         {
-            Report(context, declaringName, string.Format(
-                System.Globalization.CultureInfo.InvariantCulture, ExecutableBelowHostLayerFormat, layer));
+            Report(context, name, Format(ExecutableBelowHostFormat, layer), ExecutableBelowHostDecide);
         }
         else if (!executable && layer == LayerDeclaration.HostLayer)
         {
-            Report(context, declaringName, HostLayerNotExecutable);
+            Report(context, name, HostNotExecutable, HostNotExecutableDecide);
         }
-    }
 
-    private static void ReportReferences(
-        CompilationAnalysisContext context, Compilation compilation, string? declaringName)
-    {
-        INamedTypeSymbol? metadataAttribute = LayerDeclaration.ResolveMetadataAttribute(compilation);
-
-        // Only the analyzer's own test project has a reason to reference it as
-        // a library: the tests instantiate the rule types.
-        bool mayReferenceTheAnalyzer = string.Equals(
-            declaringName, LayerDeclaration.AnalyzerTestAssemblyName, System.StringComparison.Ordinal);
-
-        foreach (IAssemblySymbol referenced in compilation.SourceModule.ReferencedAssemblySymbols)
+        // And the composition root is layer 6, both ways.
+        if (root && layer != LayerDeclaration.HostLayer)
         {
-            string? referencedName = referenced.Name;
-
-            if (!LayerDeclaration.IsVarveAssembly(referencedName))
-            {
-                continue;
-            }
-
-            if (string.Equals(referencedName, LayerDeclaration.AnalyzerAssemblyName, System.StringComparison.Ordinal))
-            {
-                // Reaching here at all means it came in as /reference: rather
-                // than /analyzer:, which is the wiring mistake the old by-name
-                // exemption used to wave through.
-                if (!mayReferenceTheAnalyzer)
-                {
-                    Report(context, referencedName, AnalyzerReferencedAsLibrary);
-                }
-
-                continue;
-            }
-
-            string? metadata = LayerDeclaration.ReadMetadataValue(referenced, metadataAttribute);
-
-            if (metadata is null)
-            {
-                Report(context, referencedName, ReferenceMissingMetadata);
-                continue;
-            }
-
-            if (!LayerDeclaration.TryParseLayer(metadata, out _))
-            {
-                Report(context, referencedName, string.Format(
-                    System.Globalization.CultureInfo.InvariantCulture, ReferenceMalformedFormat, metadata));
-            }
+            Report(context, name, Format(RootWithoutHostFormat, layer), RootWithoutHostDecide);
+        }
+        else if (!root && layer == LayerDeclaration.HostLayer)
+        {
+            Report(context, name, HostWithoutRoot, HostWithoutRootDecide);
         }
     }
 
-    private static void Report(CompilationAnalysisContext context, string? assemblyName, string reason) =>
+    private static string Format(string format, object argument) =>
+        string.Format(CultureInfo.InvariantCulture, format, argument);
+
+    private static void Report(CompilationAnalysisContext context, string name, string finding, string decide) =>
         context.ReportDiagnostic(Diagnostic.Create(
-            VarveDiagnostics.LayerDeclaration, Location.None, assemblyName, reason));
+            VarveDiagnostics.LayerDeclaration, Location.None, name, finding, decide));
 }

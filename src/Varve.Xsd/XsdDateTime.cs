@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Xsd;
 
@@ -58,18 +60,23 @@ public readonly struct XsdDateTime : IEquatable<XsdDateTime>
     }
 
     /// <summary>The year, proleptic Gregorian with astronomical numbering: year 0 exists and precedes year 1.</summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
     public int Year => _value.Year;
 
     /// <summary>The month, 1 to 12.</summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
     public int Month => _value.Month;
 
     /// <summary>The day of the month.</summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
     public int Day => _value.Day;
 
     /// <summary>The hour, 0 to 23.</summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
     public int Hour => _value.Hour;
 
     /// <summary>The minute, 0 to 59.</summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
     public int Minute => _value.Minute;
 
     /// <summary>The second, a decimal in [0, 60).</summary>
@@ -79,6 +86,7 @@ public readonly struct XsdDateTime : IEquatable<XsdDateTime>
     public bool HasTimezone => _value.HasTimezone;
 
     /// <summary>The timezone offset in minutes east of UTC; zero when absent, so check <see cref="HasTimezone"/>.</summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
     public int TimezoneOffset => _value.HasTimezone ? _value.TimezoneOffset : 0;
 
     /// <summary>
@@ -94,6 +102,7 @@ public readonly struct XsdDateTime : IEquatable<XsdDateTime>
     /// <paramref name="implicitTimezoneOffset"/> supplied when the value has
     /// no timezone of its own.
     /// </summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
     public XsdDecimal TimeOnTimeline(int implicitTimezoneOffset) =>
         SevenPropertyModel.TimeOnTimeline(in _value, _value.HasTimezone ? _value.TimezoneOffset : implicitTimezoneOffset);
 
@@ -128,6 +137,8 @@ public readonly struct XsdDateTime : IEquatable<XsdDateTime>
     /// given <paramref name="implicitTimezoneOffset"/> (XPath Functions and
     /// Operators §10.4), and every pair is then comparable.
     /// </summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdOrderingsReturnInt), Scope = ExceptionScope.Boundary)]
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
     public static int Compare(XsdDateTime left, XsdDateTime right, int implicitTimezoneOffset) =>
         SevenPropertyModel.Compare(in left._value, in right._value, implicitTimezoneOffset);
 
@@ -180,6 +191,7 @@ public readonly struct XsdDateTime : IEquatable<XsdDateTime>
     /// (<c>op:subtract-dateTimes</c>), with the implicit timezone
     /// supplied to an operand that has none.
     /// </summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
     public static XsdDayTimeDuration Subtract(XsdDateTime left, XsdDateTime right, int implicitTimezoneOffset) =>
         new(left.TimeOnTimeline(implicitTimezoneOffset) - right.TimeOnTimeline(implicitTimezoneOffset));
 

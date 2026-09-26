@@ -60,7 +60,7 @@ public class EstimateTests
             CardinalityEstimate estimate = source.Estimate(s, p, o, g);
             long counted = T.Drain(source.Match(s, p, o, g)).Count;
 
-            if (!estimate.IsExact || estimate.Count != counted)
+            if (!estimate.IsExact || estimate.Count.Value != counted)
             {
                 throw new InvalidOperationException(
                     when + ": estimate " + estimate + " for (" + s.Value + ", " + p.Value + ", " + o.Value + ", " + g.Match + "/" + g.Graph.Value
@@ -119,8 +119,8 @@ public class EstimateTests
         using DatasetView view = dataset.Pin();
         Assert.True(view.TryInternalise(T.Iri("x"), out TermHandle x));
 
-        Assert.Equal(CardinalityEstimate.Exact(0), view.Estimate(x, TermHandle.None, TermHandle.None, GraphPattern.DefaultGraph));
-        Assert.Equal(CardinalityEstimate.Exact(8), view.Estimate(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.DefaultGraph));
+        Assert.Equal(CardinalityEstimate.Exact(new QuadCount(0)), view.Estimate(x, TermHandle.None, TermHandle.None, GraphPattern.DefaultGraph));
+        Assert.Equal(CardinalityEstimate.Exact(new QuadCount(8)), view.Estimate(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.DefaultGraph));
         Agree(view, "head " + view.Position);
     }
 
@@ -140,8 +140,8 @@ public class EstimateTests
         using DatasetView view = dataset.Pin();
         Assert.True(view.TryInternalise(T.Iri("s0"), out TermHandle s0));
 
-        Assert.Equal(CardinalityEstimate.Exact(1), view.Estimate(s0, TermHandle.None, TermHandle.None, GraphPattern.DefaultGraph));
-        Assert.Equal(CardinalityEstimate.Exact(8), view.Estimate(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.DefaultGraph));
+        Assert.Equal(CardinalityEstimate.Exact(new QuadCount(1)), view.Estimate(s0, TermHandle.None, TermHandle.None, GraphPattern.DefaultGraph));
+        Assert.Equal(CardinalityEstimate.Exact(new QuadCount(8)), view.Estimate(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.DefaultGraph));
         Agree(view, "head " + view.Position);
     }
 
@@ -170,7 +170,7 @@ public class EstimateTests
         request.Validators.Add(validator);
         await dataset.CommitAsync(request, T.Ct);
 
-        Assert.Equal(CardinalityEstimate.Exact(1), validator.Seen);
+        Assert.Equal(CardinalityEstimate.Exact(new QuadCount(1)), validator.Seen);
     }
 
     [Fact]

@@ -2,6 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
+
 namespace Varve.Iri;
 
 /// <summary>Why an IRI reference failed to validate.</summary>
@@ -43,6 +46,7 @@ public enum IriErrorKind : byte
 /// the construct it belongs to: a caller reporting a position wants to point at
 /// the byte that broke.
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 public readonly struct IriError : System.IEquatable<IriError>
 {
     internal IriError(IriErrorKind kind, int offset)

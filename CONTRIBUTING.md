@@ -310,9 +310,10 @@ constructs outright, and prove the rejection with tests.
 
 ## Adding a package
 
-New projects declare `<VarveLayer>` — 0–6, or `none` for a test or analyzer
-assembly — enforced by `VARVE0001` and `VARVE0002`. An executable is a host
-and declares 6, and only an executable may (ADR 0060). References go
+New projects declare `<ArchLayer>` — 0–6; a test or analyzer assembly declares
+none — enforced by `DD0001` and `VARVE0005` (ADR 0064). An executable is a host
+and declares 6, and only an executable may (ADR 0060); a host also sets
+`<ArchCompositionRoot>true</ArchCompositionRoot>`. References go
 strictly downward; **same-layer references are violations**, and there is never
 a `Common`, `Core`, `Utils`, `Helpers` or `Abstractions` package.
 
@@ -321,16 +322,19 @@ A packable project sets `IsPackable`, keeps `PublicAPI.Shipped.txt` and
 
 ## Suppressions
 
-A suppression carries a justification that cites an ADR number:
+**A `DD` or `VARVE` rule is never suppressed**: no `#pragma`, no
+`[SuppressMessage]`, no `.editorconfig` downgrade. `DD0008` reports each. The
+only exception path is `[DesignDecision]` on the symbol, citing a filed
+decision in `docs/decisions/` (ADR 0062):
 
 ```csharp
-[SuppressMessage("Varve", "VARVE0001:Layer direction",
-    Justification = "ADR 0003: recorded exception, see the open question on Varve.Shacl.")]
+[DesignDecision(typeof(StaticState.PoolsExemptByDesignDecision), Scope = ExceptionScope.Pool)]
 ```
 
-`VARVE0008` will enforce the citation once it is implemented. Until then it is a
-review obligation. **A repository-wide `NoWarn` for a `VARVE` or IL-prefixed
-rule is not an allowed form.**
+For every other rule (IL-prefixed, CA, RS, BannedApi) a suppression carries a
+justification that cites an ADR number, at the narrowest scope, and that is a
+review obligation (ADR 0004). **A repository-wide `NoWarn` for a `VARVE` or
+IL-prefixed rule is not an allowed form.**
 
 ## Licence
 

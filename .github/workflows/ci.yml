@@ -106,11 +106,17 @@ jobs:
         run: dotnet run eng/dependency-register.cs
 
       - name: Decision sets
-        # ADR 0062. docs/decisions/ is the ledger code will cite; until the
-        # analyzer package's generator reads it (issue #43, session 2), this is
-        # what checks it: key syntax, a key claimed twice, missing fields. A
-        # text check, so it runs before restore beside the register.
+        # ADR 0062. docs/decisions/ is the ledger code cites. The package's
+        # generator reads it in every build and reports keys (DDGEN); this
+        # checks what the generator does not: missing or unknown fields,
+        # acceptance pairs, quoting, and that every set names its ADR or its
+        # origin. A text check, so it runs before restore beside the register.
         run: dotnet run eng/decision-sets.cs
+
+      - name: Banned symbols
+        # ADR 0063. Every banned symbol cites the decision that bans it, in its
+        # comment and at the end of its message.
+        run: dotnet run eng/banned-symbols.cs
 
       - name: Cache NuGet packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6

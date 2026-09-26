@@ -5,6 +5,8 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Store;
@@ -161,7 +163,7 @@ public readonly struct SubscriptionFilter : IEquatable<SubscriptionFilter>
         new(subject, predicate, @object, graph);
 
     /// <summary>Whether a quad passes.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool Matches(in Quad quad) =>
         !_restricted
         || ((Subject.IsNone || Subject == quad.Subject)

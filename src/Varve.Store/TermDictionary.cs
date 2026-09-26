@@ -8,6 +8,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 using System.Threading;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Store;
@@ -124,7 +126,7 @@ internal sealed class TermDictionary
         _triples.TryGetValue((subject, predicate, @object), out id);
 
     /// <summary>Whether an id names something in <c>D</c> at the given counters.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool IsKnown(ulong id, long canonicalLimit, long blankLimit) =>
         TermIds.ClassOf(id) switch
         {

@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Varve.Sparql;
+using Varve.Sparql.Algebra;
 using Xunit;
 
 namespace Varve.Conformance.Tests;

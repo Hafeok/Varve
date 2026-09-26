@@ -210,15 +210,16 @@ internal sealed class TestServiceHandler(IReadOnlyList<(string Endpoint, IReadOn
                 continue;
             }
 
-            InMemoryDataset dataset = new();
+            InMemoryDatasetBuilder builder = new();
             for (int f = 0; f < data.Count; f++)
             {
                 foreach (DataQuad quad in EvaluationData.Quads(data[f]))
                 {
-                    dataset.Add(EvaluationSubjects.Scope(quad.Subject, f), quad.Predicate, EvaluationSubjects.Scope(quad.Object, f), quad.Graph);
+                    builder.Add(EvaluationSubjects.Scope(quad.Subject, f), quad.Predicate, EvaluationSubjects.Scope(quad.Object, f), quad.Graph);
                 }
             }
 
+            InMemoryDataset dataset = builder.ToDataset();
             SelectQuery query = new(Prologue.Empty, null, new Project(request.Pattern.Inner, AlgebraList.From(request.Variables)));
             EvaluationOptions options = new() { Clock = FixedClock.Instance, ServiceHandler = this };
             using SolutionResults results = (SolutionResults)new SparqlEvaluator(options).Evaluate(query, dataset, cancellationToken);

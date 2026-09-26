@@ -1,0 +1,13 @@
+// No LINQ in layers 0 to 4. Applies to packable projects whose ArchLayer is 0
+// to 4; see Directory.Build.targets. Test assemblies are not packable and are
+// not covered.
+//
+// ADR 0064: stricter than the brief, which bans LINQ in marked hot paths only.
+// Layers 0 to 4 are where every per-quad path lives, and a hot path missed by a
+// [HotPath] mark would allocate per quad with no diagnostic. The failure this
+// guards against is the unmarked hot path, the one case a rule keyed on the
+// mark cannot see.
+//
+// Every entry cites the decision that bans it (ADR 0063).
+
+T:System.Linq.Enumerable; No LINQ in layers 0 to 4: an unmarked hot path would allocate per quad unseen. Write the loop. ADR 0064.

@@ -5,6 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Rdf;
 
@@ -16,15 +18,18 @@ namespace Varve.Rdf;
 /// hold a read lock, a pinned segment or a snapshot for the cursor's lifetime,
 /// which is what makes disposal part of the contract rather than a courtesy.
 /// </remarks>
+[Contract(typeof(RdfModelSurfaces.QuadCursorIsForwardOnlyAndDisposable), Role = "the walk a quad source answers a match with")]
 public interface IQuadCursor : IDisposable
 {
     /// <summary>Advances to the next quad, or returns false at the end.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     bool MoveNext();
 
     /// <summary>
     /// The quad at the current position. Undefined before the first
     /// <see cref="MoveNext"/> and after it returns false.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     Quad Current { get; }
 }
 
@@ -45,6 +50,7 @@ public interface IQuadCursor : IDisposable
 /// equal only to itself. No consumer can derive that from the bits.
 /// </para>
 /// </remarks>
+[Contract(typeof(QuadSourceTermHandle.OpaqueTermHandle), Role = "the source of quads every read path is written against")]
 public interface IQuadSource
 {
     /// <summary>
@@ -68,6 +74,7 @@ public interface IQuadSource
     bool TryExternalise(TermHandle handle, [MaybeNullWhen(false)] out RdfTerm term);
 
     /// <summary>Whether this source holds a quad.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     bool Contains(in Quad quad);
 
     /// <summary>

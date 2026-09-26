@@ -4,6 +4,7 @@
 
 using System;
 using System.Text;
+using Varve.Sparql.Algebra;
 
 namespace Varve.Sparql.Parsing;
 

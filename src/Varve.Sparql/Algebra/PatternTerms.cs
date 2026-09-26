@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Sparql.Algebra;
@@ -10,6 +12,7 @@ namespace Varve.Sparql.Algebra;
 /// A term position in a pattern: a variable, a term, a blank node, or a triple
 /// term with a variable inside it (<c>docs/spec/sparql-algebra.md</c> §2.4).
 /// </summary>
+[Contract(typeof(OptimiserAndEvaluatorOnePackageAlgebraInAlgebraOut.AlgebraNodesAreSealedRecords), Role = "a term in a pattern: a constant, a variable or a blank node")]
 public abstract record PatternTerm : AlgebraNode
 {
     private protected PatternTerm()
@@ -28,6 +31,7 @@ public sealed record TermPattern(RdfTerm Term) : PatternTerm;
 /// (<c>docs/spec/sparql-algebra.md</c> §3.1); an evaluator treats it as a
 /// variable that is never projected.
 /// </summary>
+[DesignDecision(typeof(OptimiserAndEvaluatorOnePackageAlgebraInAlgebraOut.AlgebraNodesAreSealedRecords), Scope = ExceptionScope.Compatibility)]
 public sealed record BlankNodePattern(string Label) : PatternTerm;
 
 /// <summary>A triple term with a variable or blank node somewhere inside it. SPARQL 1.2.</summary>

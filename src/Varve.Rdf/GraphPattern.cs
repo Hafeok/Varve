@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Rdf;
 
@@ -57,12 +59,14 @@ public readonly struct GraphPattern : IEquatable<GraphPattern>
     }
 
     /// <summary>Which graphs this pattern ranges over.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public GraphMatch Match { get; }
 
     /// <summary>
     /// The graph named, when <see cref="Match"/> is <see cref="GraphMatch.Named"/>.
     /// <see cref="TermHandle.None"/> otherwise.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public TermHandle Graph { get; }
 
     /// <summary>The default graph, and nothing else.</summary>
@@ -98,6 +102,7 @@ public readonly struct GraphPattern : IEquatable<GraphPattern>
     /// <see cref="DefaultGraph"/> and <see cref="AnyNamed"/> accepts it, and
     /// <see cref="Any"/> accepts it either way.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool Matches(TermHandle graph) => Match switch
     {
         GraphMatch.DefaultGraph => graph.IsNone,

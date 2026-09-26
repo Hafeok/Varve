@@ -282,7 +282,7 @@ internal static class Program
             return 1;
         }
 
-        if (Varve.Sparql.SparqlParser.TryParseQuery("SELECT * WHERE { ?s ?p }"u8, default, out _, out Varve.Sparql.SparqlParseError error))
+        if (Varve.Sparql.SparqlParser.TryParseQuery("SELECT * WHERE { ?s ?p }"u8, default, out _, out Varve.Sparql.Algebra.SparqlParseError error))
         {
             Console.Error.WriteLine("aot-smoke: an ill-formed query parsed.");
             return 1;

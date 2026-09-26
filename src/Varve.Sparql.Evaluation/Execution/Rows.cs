@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Sparql.Evaluation.Execution;
 
@@ -15,14 +17,14 @@ internal static class Rows
 {
     internal static int Length(int width) => width + ((width + 63) >> 6);
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static TermRef Get(ulong[] row, int width, int slot) =>
         new(row[slot], ((row[width + (slot >> 6)] >> (slot & 63)) & 1) != 0);
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool IsBound(ulong[] row, int slot) => row[slot] != 0;
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static void Set(ulong[] row, int width, int slot, TermRef value)
     {
         row[slot] = value.Raw;
@@ -31,7 +33,7 @@ internal static class Rows
         mask = value.IsLocal ? mask | bit : mask & ~bit;
     }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static void Clear(ulong[] row, int width, int slot) => Set(row, width, slot, TermRef.Unbound);
 
     internal static ulong[] Copy(ulong[] row)
@@ -42,7 +44,7 @@ internal static class Rows
     }
 
     /// <summary>Whether two solutions agree on every slot both bind (§18.5, compatible mappings).</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool Compatible(Exec exec, ulong[] left, ulong[] right)
     {
         int width = exec.Width;
@@ -59,7 +61,7 @@ internal static class Rows
     }
 
     /// <summary>Whether two solutions bind some variable in common: MINUS's condition.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool ShareVariable(int width, ulong[] left, ulong[] right)
     {
         for (int slot = 0; slot < width; slot++)

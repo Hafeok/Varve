@@ -5,6 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Store;
@@ -74,7 +76,7 @@ internal sealed class StoreTermComparer : IEqualityComparer<TermHandle>
     /// </summary>
     internal static StoreTermComparer ByValue(IPrivateTermValues privates, Func<ulong, RdfTerm?> values) => new(privates, values);
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool Equals(TermHandle x, TermHandle y)
     {
         if (x.Value == y.Value)
@@ -100,7 +102,7 @@ internal sealed class StoreTermComparer : IEqualityComparer<TermHandle>
         return left is not null && right is not null && left.Equals(right);
     }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public int GetHashCode(TermHandle obj)
     {
         if (_privates is null)
@@ -147,7 +149,7 @@ internal sealed class IndexSource : IQuadSource
 
     public bool TryExternalise(TermHandle handle, [MaybeNullWhen(false)] out RdfTerm term) => _terms.TryExternalise(handle, out term);
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool Contains(in Quad quad) => _index.Contains(in quad);
 
     public IQuadCursor Match(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph) =>
@@ -271,7 +273,7 @@ public sealed class DatasetView : IQuadSource, IDisposable
     }
 
     /// <inheritdoc />
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool Contains(in Quad quad)
     {
         ThrowIfDisposed();
@@ -304,7 +306,7 @@ public sealed class DatasetView : IQuadSource, IDisposable
     /// handle answers false, a term with a non-canonical lexical form included,
     /// because it took an ordinary id (ADR 0012).
     /// </remarks>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool TryGetInlineValue(TermHandle handle, out InlineValue value)
     {
         ThrowIfDisposed();

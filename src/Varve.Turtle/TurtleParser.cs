@@ -33,7 +33,6 @@ public static class TurtleParser
     private const int DefaultBufferSize = 64 * 1024;
 
     /// <summary>Parses a whole document held in memory.</summary>
-    [Varve.HotPath]
     public static ParseResult Parse(ReadOnlySpan<byte> utf8, QuadHandler handler, in TurtleOptions options)
     {
         ArgumentNullException.ThrowIfNull(handler);

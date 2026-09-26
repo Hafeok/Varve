@@ -5,6 +5,7 @@
 using System;
 using System.Buffers;
 using Varve.Rdf;
+using Varve.Sparql.Results.Model;
 
 namespace Varve.Sparql.Results;
 

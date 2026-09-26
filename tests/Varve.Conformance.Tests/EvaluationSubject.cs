@@ -60,17 +60,17 @@ internal static class EvaluationSubjects
 
         public ValueTask<LoadedSource> LoadAsync(IReadOnlyList<(IReadOnlyList<DataQuad> Quads, RdfTerm? Graph)> files)
         {
-            InMemoryDataset dataset = new();
+            InMemoryDatasetBuilder builder = new();
             for (int f = 0; f < files.Count; f++)
             {
                 (IReadOnlyList<DataQuad> quads, RdfTerm? graph) = files[f];
                 foreach (DataQuad quad in quads)
                 {
-                    dataset.Add(Scope(quad.Subject, f), quad.Predicate, Scope(quad.Object, f), graph ?? quad.Graph);
+                    builder.Add(Scope(quad.Subject, f), quad.Predicate, Scope(quad.Object, f), graph ?? quad.Graph);
                 }
             }
 
-            return ValueTask.FromResult(new LoadedSource(dataset, null));
+            return ValueTask.FromResult(new LoadedSource(builder.ToDataset(), null));
         }
     }
 

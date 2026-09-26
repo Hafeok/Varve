@@ -3,8 +3,11 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Iri;
 using Varve.Rdf;
+using Varve.Turtle.Model;
 
 namespace Varve.Turtle;
 
@@ -30,6 +33,7 @@ internal enum LineStatus : byte
 /// allocates: a term without escapes is a range of the line, and a term with
 /// escapes is decoded into the arena's scratch.
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal ref partial struct LineParser
 {
     private readonly ReadOnlySpan<byte> _line;

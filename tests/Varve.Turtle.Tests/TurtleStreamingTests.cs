@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO.Pipelines;
 using System.Text;
 using System.Threading.Tasks;
+using Varve.Turtle.Model;
 using Xunit;
 using static Varve.Turtle.Tests.Harness;
 

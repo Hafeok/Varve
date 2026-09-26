@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Sparql.Evaluation.Execution;
 
@@ -92,7 +94,7 @@ internal sealed class ScanCursor
         }
     }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool MoveNext()
     {
         while (_cursor is not null)

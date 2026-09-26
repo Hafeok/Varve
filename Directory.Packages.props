@@ -39,6 +39,16 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" Adr="0009" />
   </ItemGroup>
 
+  <ItemGroup Label="Decision-driven enforcement — build-time only, never shipped">
+    <!-- The DD rules, the generator that turns docs/decisions/ into types, and
+         the attributes code cites decisions with. Prerelease: the latest
+         preview is taken, and a bump carries the changelog's breaking entries
+         in its commit body (ADR 0063). Referenced from Directory.Build.props
+         with PrivateAssets="all", so it is never in a published package's
+         dependencies. -->
+    <PackageVersion Include="DecisionDriven.Analyzers" Version="0.1.0-preview.4" Adr="0063" />
+  </ItemGroup>
+
   <ItemGroup Label="Off-the-shelf enforcement — build-time only, never shipped">
     <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="5.6.0" Adr="0004" />
     <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0" Adr="0004" />

@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Sparql.Results;
@@ -134,7 +136,7 @@ internal sealed class TsvResultsWriter : FormatWriter
 
     // ECHAR for ", \, LF, CR and tab — what a single-quoted Turtle string and
     // a TSV line cannot hold raw — and nothing else.
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private void WriteString(ReadOnlySpan<byte> text)
     {
         int start = 0;
@@ -166,7 +168,7 @@ internal sealed class TsvResultsWriter : FormatWriter
 
     // IRIREF excludes controls, space and <>"{}|^`\ ; a term that holds one
     // anyway is written with UCHAR rather than as a field that does not parse.
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private void WriteIri(ReadOnlySpan<byte> iri)
     {
         Output.Write((byte)'<');
@@ -192,5 +194,6 @@ internal sealed class TsvResultsWriter : FormatWriter
         Output.Write((byte)'>');
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static ReadOnlySpan<byte> Hex => "0123456789ABCDEF"u8;
 }

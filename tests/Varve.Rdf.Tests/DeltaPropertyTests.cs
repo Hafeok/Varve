@@ -176,7 +176,7 @@ public class DeltaPropertyTests
         QuadDelta delta = QuadDelta.Create([high, low, high], []);
 
         Assert.Equal([low, high], delta.Asserted.ToArray());
-        Assert.Equal(2, delta.Count);
+        Assert.Equal(2, delta.Count.Value);
     }
 
     /// <summary>Restricts a delta to what it would actually change on a base: I2's shape.</summary>

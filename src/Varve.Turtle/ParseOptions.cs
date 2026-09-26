@@ -2,7 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
+using Varve.Turtle.Model;
 
 namespace Varve.Turtle;
 
@@ -11,9 +14,11 @@ namespace Varve.Turtle;
 /// A custom delegate rather than <c>Action&lt;QuadView&gt;</c>, because a
 /// <c>ref struct</c> cannot be a generic type argument.
 /// </remarks>
+[Contract(typeof(RdfTermRepresentation.TermViewIsARefStruct), Role = "receives each parsed quad as a view valid for the call")]
 public delegate void QuadHandler(in QuadView quad);
 
 /// <summary>Receives one rejected line and says whether to carry on.</summary>
+[Contract(typeof(ParserCallbacks.ErrorHandlerIsOptInRecovery), Role = "decides whether a parse carries on past a rejected line or statement")]
 public delegate ErrorAction ErrorHandler(in ParseError error);
 
 /// <summary>How to parse.</summary>

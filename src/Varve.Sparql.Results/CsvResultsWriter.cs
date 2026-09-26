@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Sparql.Results;
@@ -127,7 +129,7 @@ internal sealed class CsvResultsWriter : FormatWriter
     }
 
     // Inside quotes, a quotation mark is doubled (RFC 4180 §2 rule 7).
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private void WriteEscaped(ReadOnlySpan<byte> text, bool quoted)
     {
         if (!quoted)

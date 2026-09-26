@@ -237,7 +237,7 @@ internal static partial class Smoke
             throw new InvalidOperationException("sparql: the serialised update parses to a different tree");
         }
 
-        Varve.Sparql.SparqlParseError error = default;
+        Varve.Sparql.Algebra.SparqlParseError error = default;
 
         if (Varve.Sparql.SparqlParser.TryParseQuery("SELECT * WHERE { ?s ?p }"u8, default, out _, out error))
         {

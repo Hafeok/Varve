@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
@@ -102,7 +102,7 @@ internal static class GraphQlOperations
         """);
 
     /// <summary>All of them.</summary>
-    public static IReadOnlyList<GraphQlOperation> All { get; } =
+    public static ImmutableArray<GraphQlOperation> All { get; } =
     [
         DiscussionCategories, LinkedProjects, OwnerProjects, CreateProject, UpdateProject,
         LinkProject, UnlinkProject, UpdateStatusField, CreateStatusField,

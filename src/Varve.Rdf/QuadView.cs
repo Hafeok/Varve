@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Rdf;
 
@@ -10,6 +12,7 @@ namespace Varve.Rdf;
 /// A quad seen without owning it: four <see cref="RdfTermView"/>s over one
 /// arena, valid for as long as they are.
 /// </summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 public readonly ref struct QuadView
 {
     private readonly TermArena _arena;

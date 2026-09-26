@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <!-- Layer 0: no Varve dependencies at all. ADR 0003. -->
-    <VarveLayer>0</VarveLayer>
+    <ArchLayer>0</ArchLayer>
     <IsPackable>true</IsPackable>
 
     <Description>RFC 3987 IRI validation and RFC 3986 reference resolution over UTF-8, without System.Uri.</Description>

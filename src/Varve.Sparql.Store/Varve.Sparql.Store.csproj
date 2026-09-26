@@ -3,7 +3,7 @@
   <PropertyGroup>
     <!-- Layer 5: SPARQL Update over the store, one request one commit
          (ADR 0005, ADR 0057). docs/spec/sparql-update-store.md. -->
-    <VarveLayer>5</VarveLayer>
+    <ArchLayer>5</ArchLayer>
     <IsPackable>true</IsPackable>
 
     <!-- The clock and the random source NOW(), RAND() and UUID() read come

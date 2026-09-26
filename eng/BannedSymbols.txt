@@ -1,5 +1,6 @@
 // Banned symbols. Applies to packable projects; see Directory.Build.targets.
-// Every entry cites the decision that bans it.
+// Every entry cites the decision that bans it, in its comment and at the end of
+// its message (ADR 0063); eng/banned-symbols.cs makes that a gate.
 //
 // Format: one symbol per line, then ';', then the message shown at the call site.
 // Documented at https://github.com/dotnet/roslyn-analyzers/blob/main/src/Microsoft.CodeAnalysis.BannedApiAnalyzers/BannedApiAnalyzers.Help.md
@@ -22,6 +23,7 @@ N:System.Reflection.Emit; Native AOT and WASM have no Reflection.Emit. Use a sou
 // Each of these defeats the trimmer: the referenced type is named in a string,
 // so the trimmer cannot see the reference and removes the type. They are the
 // APIs behind IL2026/IL2057/IL2072, banned outright rather than suppressed.
+// ADR 0004.
 M:System.Type.GetType(System.String); Type names in strings defeat trimming. ADR 0004.
 M:System.Type.GetType(System.String,System.Boolean); Type names in strings defeat trimming. ADR 0004.
 M:System.Type.GetType(System.String,System.Boolean,System.Boolean); Type names in strings defeat trimming. ADR 0004.
@@ -32,3 +34,69 @@ M:System.Reflection.Assembly.Load(System.String); Dynamic assembly loading is un
 M:System.Reflection.Assembly.Load(System.Byte[]); Dynamic assembly loading is unavailable under Native AOT. ADR 0004.
 M:System.Reflection.Assembly.LoadFrom(System.String); Dynamic assembly loading is unavailable under Native AOT. ADR 0004.
 M:System.Reflection.Assembly.LoadFile(System.String); Dynamic assembly loading is unavailable under Native AOT. ADR 0004.
+
+// --- constraint 2: no reflection that inspects or invokes -------------------
+// ADR 0064. The members that look a member up by name or enumerate them, and the
+// members that read, write or call through what they found. Not the
+// System.Reflection namespace: it holds AssemblyMetadataAttribute and the
+// assembly-information attributes the SDK writes into every assembly, and
+// System.Reflection.Metadata is unaffected. BannedApiAnalyzers matches one
+// overload per line, so every public overload is listed.
+M:System.Type.GetConstructor(System.Type[]); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetConstructor(System.Reflection.BindingFlags,System.Type[]); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetConstructor(System.Reflection.BindingFlags,System.Reflection.Binder,System.Type[],System.Reflection.ParameterModifier[]); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetConstructor(System.Reflection.BindingFlags,System.Reflection.Binder,System.Reflection.CallingConventions,System.Type[],System.Reflection.ParameterModifier[]); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetConstructors; Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetConstructors(System.Reflection.BindingFlags); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetField(System.String); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetField(System.String,System.Reflection.BindingFlags); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetFields; Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetFields(System.Reflection.BindingFlags); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetMember(System.String); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetMember(System.String,System.Reflection.BindingFlags); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetMember(System.String,System.Reflection.MemberTypes,System.Reflection.BindingFlags); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetMembers; Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetMembers(System.Reflection.BindingFlags); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetMethod(System.String); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetMethod(System.String,System.Reflection.BindingFlags); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetMethod(System.String,System.Type[]); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetMethod(System.String,System.Reflection.BindingFlags,System.Type[]); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetMethod(System.String,System.Type[],System.Reflection.ParameterModifier[]); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetMethod(System.String,System.Int32,System.Type[]); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetMethod(System.String,System.Int32,System.Type[],System.Reflection.ParameterModifier[]); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetMethod(System.String,System.Int32,System.Reflection.BindingFlags,System.Type[]); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetMethod(System.String,System.Reflection.BindingFlags,System.Reflection.Binder,System.Type[],System.Reflection.ParameterModifier[]); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetMethod(System.String,System.Reflection.BindingFlags,System.Reflection.Binder,System.Reflection.CallingConventions,System.Type[],System.Reflection.ParameterModifier[]); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetMethod(System.String,System.Int32,System.Reflection.BindingFlags,System.Reflection.Binder,System.Type[],System.Reflection.ParameterModifier[]); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetMethod(System.String,System.Int32,System.Reflection.BindingFlags,System.Reflection.Binder,System.Reflection.CallingConventions,System.Type[],System.Reflection.ParameterModifier[]); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetMethods; Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetMethods(System.Reflection.BindingFlags); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetProperties; Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetProperties(System.Reflection.BindingFlags); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetProperty(System.String); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetProperty(System.String,System.Reflection.BindingFlags); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetProperty(System.String,System.Type); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetProperty(System.String,System.Type[]); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetProperty(System.String,System.Type,System.Type[]); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetProperty(System.String,System.Type,System.Type[],System.Reflection.ParameterModifier[]); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Type.GetProperty(System.String,System.Reflection.BindingFlags,System.Reflection.Binder,System.Type,System.Type[],System.Reflection.ParameterModifier[]); Reflection over members defeats trimming and Native AOT. Name the member in code, or generate it. ADR 0064.
+M:System.Reflection.MethodBase.Invoke(System.Object,System.Object[]); Reflective access and invocation defeat trimming and Native AOT. Call the member directly. ADR 0064.
+M:System.Reflection.MethodBase.Invoke(System.Object,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo); Reflective access and invocation defeat trimming and Native AOT. Call the member directly. ADR 0064.
+M:System.Reflection.PropertyInfo.GetValue(System.Object); Reflective access and invocation defeat trimming and Native AOT. Call the member directly. ADR 0064.
+M:System.Reflection.PropertyInfo.GetValue(System.Object,System.Object[]); Reflective access and invocation defeat trimming and Native AOT. Call the member directly. ADR 0064.
+M:System.Reflection.PropertyInfo.GetValue(System.Object,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo); Reflective access and invocation defeat trimming and Native AOT. Call the member directly. ADR 0064.
+M:System.Reflection.PropertyInfo.SetValue(System.Object,System.Object); Reflective access and invocation defeat trimming and Native AOT. Call the member directly. ADR 0064.
+M:System.Reflection.PropertyInfo.SetValue(System.Object,System.Object,System.Object[]); Reflective access and invocation defeat trimming and Native AOT. Call the member directly. ADR 0064.
+M:System.Reflection.PropertyInfo.SetValue(System.Object,System.Object,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo); Reflective access and invocation defeat trimming and Native AOT. Call the member directly. ADR 0064.
+M:System.Reflection.FieldInfo.GetValue(System.Object); Reflective access and invocation defeat trimming and Native AOT. Call the member directly. ADR 0064.
+M:System.Reflection.FieldInfo.SetValue(System.Object,System.Object); Reflective access and invocation defeat trimming and Native AOT. Call the member directly. ADR 0064.
+M:System.Reflection.FieldInfo.SetValue(System.Object,System.Object,System.Reflection.BindingFlags,System.Reflection.Binder,System.Globalization.CultureInfo); Reflective access and invocation defeat trimming and Native AOT. Call the member directly. ADR 0064.
+
+// --- constraint 2: no dynamic -----------------------------------------------
+// ADR 0064. The brief bans dynamic in shipped code. This bans the runtime
+// binder's types where source names them. It does NOT catch the dynamic
+// keyword itself: the compiler emits the binder calls, and BannedApiAnalyzers
+// sees only symbols the source references (verified against 5.6.0 by a scratch
+// build during session 2 of #43, and reported there). Until a rule covers the
+// keyword, review is the check.
+N:Microsoft.CSharp.RuntimeBinder; No dynamic: the runtime binder is reflection, and Native AOT cannot carry it. ADR 0064.

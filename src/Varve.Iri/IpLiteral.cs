@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Iri;
 
@@ -15,6 +17,7 @@ namespace Varve.Iri;
 /// address. Nothing in the N-Triples or N-Quads suites reaches here; it is
 /// implemented properly so that no limit has to be stated for it.
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal static class IpLiteral
 {
     internal static bool TryValidate(ReadOnlySpan<byte> inner, out int badOffset)

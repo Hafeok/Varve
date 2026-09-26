@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Xsd;
 
@@ -30,6 +32,7 @@ namespace Varve.Xsd;
 public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecimal>
 {
     /// <summary>The number of fractional digits every value carries.</summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
     public const int Scale = 18;
 
     private static readonly Int128 ScaleFactor = Pow10(Scale);
@@ -90,9 +93,11 @@ public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecim
     }
 
     /// <summary>The nearest <see cref="double"/>.</summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdDecimalConvertsToIeeePrimitives), Scope = ExceptionScope.Boundary)]
     public double ToDouble() => (double)Mantissa / 1e18;
 
     /// <summary>The nearest <see cref="float"/>.</summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdDecimalConvertsToIeeePrimitives), Scope = ExceptionScope.Boundary)]
     public float ToSingle() => (float)ToDouble();
 
     // --- lexical mapping ----------------------------------------------------

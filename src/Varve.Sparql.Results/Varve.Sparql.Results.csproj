@@ -3,7 +3,7 @@
   <PropertyGroup>
     <!-- Layer 2: the SPARQL result formats. Readers at milestone 5b, writers
          at 5c. docs/spec/sparql-results.md. -->
-    <VarveLayer>2</VarveLayer>
+    <ArchLayer>2</ArchLayer>
     <IsPackable>true</IsPackable>
     <Description>The SPARQL result formats — XML, JSON, CSV and TSV — read and written as streams of UTF-8, with RDF 1.2 triple terms and base directions.</Description>
   </PropertyGroup>

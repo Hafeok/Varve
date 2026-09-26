@@ -5,6 +5,8 @@
 using System;
 using System.Buffers.Text;
 using System.Globalization;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Xsd;
 
@@ -46,10 +48,10 @@ internal static class TermIds
 
     internal static ReadOnlySpan<byte> XsdBooleanIri => "http://www.w3.org/2001/XMLSchema#boolean"u8;
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static IdClass ClassOf(ulong id) => (IdClass)(id >> ClassShift);
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static long Counter(ulong id) => (long)(id & CounterMask);
 
     internal static ulong Canonical(long counter) => (ulong)counter;
@@ -138,7 +140,7 @@ internal static class TermIds
     }
 
     /// <summary>The value an inline id carries, decoded from its bits (ADR 0050).</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool TryInlineValue(ulong id, out InlineValue value)
     {
         if (ClassOf(id) != IdClass.Inline)
