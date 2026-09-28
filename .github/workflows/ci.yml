@@ -531,3 +531,51 @@ jobs:
           name: conformance-trx-${{ matrix.os }}
           path: ${{ github.workspace }}/artifacts/conformance
           if-no-files-found: warn
+
+  # The decision-driven report (ADR 0063): layers, contracts, cohesion and every
+  # citation, read from the Release build. It never gates (ADR 0062), so the
+  # job is continue-on-error and eng/decision-report.cs exits 0 whatever the
+  # report says. What moved since eng/decision-report/baseline.md goes to the
+  # step summary; report.md and citations.nt are uploaded. The pipeline job
+  # runs the same script as its last job; this one is where the files are kept.
+  decision-report:
+    name: decision report (never gates)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Line endings
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          submodules: recursive
+
+          # The report dates each citation by the commit that introduced it,
+          # from git history; a shallow clone would attribute every one to HEAD.
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Build and report
+        run: dotnet run eng/ci.cs -- --only restore --only build --only decision-report
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: decision-report
+          path: ${{ github.workspace }}/artifacts/report
+          if-no-files-found: warn

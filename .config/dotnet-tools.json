@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "decisiondriven.report": {
+      "version": "0.1.0-preview.5",
+      "commands": [
+        "decisiondriven-report"
+      ],
+      "rollForward": false
+    }
+  }
+}
