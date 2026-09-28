@@ -5,10 +5,16 @@ origin: "DD0013 and DD0016 findings on Varve.Sparql.Algebra in session 2 of #43"
 decisions:
   - key: GrammarKeywordsAreBools
     statement: "An algebra node records an optional keyword of the SPARQL grammar, SILENT, DISTINCT, DESC or NOT, as a bool named after the keyword"
+    accepted-by: mailto:YOU@EXAMPLE
+    accepted-at: 2026-09-29T00:00:00Z
   - key: QueryLiteralsKeepTheirTypes
     statement: "A value a query writes literally, a GROUP_CONCAT separator, a prefix label, OFFSET and LIMIT, is carried in the algebra as the string or integer the query text gives"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-28T00:00:00Z
   - key: AlgebraListCountsAndIndexesAsInt
     statement: "AlgebraList exposes its length and indexer as int, as every .NET collection does"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-28T00:00:00Z
 ---
 
 # The primitives on the SPARQL algebra's surface

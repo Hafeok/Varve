@@ -5,6 +5,8 @@ origin: "a DD0009 finding on Varve.Turtle in session 2 of #43"
 decisions:
   - key: ErrorHandlerIsOptInRecovery
     statement: "A parser reports each rejected line or statement to the ErrorHandler the caller supplies, which says whether to carry on, and with no handler the first error stops the parse"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-28T00:00:00Z
 ---
 
 # The parser's error callback

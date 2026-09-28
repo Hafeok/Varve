@@ -5,6 +5,8 @@ origin: "docs/brief.md, Hard constraints; filed in session 2 of #43"
 decisions:
   - key: AllocationPerQuadIsADefect
     statement: "Parsers, the term dictionary and index scans use spans, memory, pipelines, ref structs and pooled buffers, and allocation per quad is a defect"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-28T00:00:00Z
 ---
 
 # The brief's hard constraints

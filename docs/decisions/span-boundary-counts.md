@@ -5,6 +5,8 @@ origin: "a DD0013 finding in session 2 of #43"
 decisions:
   - key: SpanWriterCountsAreInt
     statement: "A member that writes into a caller's span reports the elements written, or the length it needs, as int, the BCL span-writer convention, because the count indexes that caller's buffer and means nothing beyond it"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-28T00:00:00Z
 ---
 
 # Counts at the span boundary
