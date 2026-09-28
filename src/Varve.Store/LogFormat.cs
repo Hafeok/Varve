@@ -8,6 +8,7 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using Varve.Rdf;
+using Varve.Store.Log;
 
 namespace Varve.Store;
 

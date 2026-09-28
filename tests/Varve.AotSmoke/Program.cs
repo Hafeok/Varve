@@ -200,10 +200,10 @@ internal static class Program
 
         await using (Varve.Store.Dataset dataset = await Varve.Store.Dataset.OpenAsync(storage, options))
         {
-            Varve.Store.CommitResult first = await dataset.CommitAsync(new Varve.Store.CommitRequest()
+            Varve.Store.Log.CommitResult first = await dataset.CommitAsync(new Varve.Store.Log.CommitRequest()
                 .Assert(RdfTerm.Iri("http://example.org/a"u8), p, RdfTerm.Literal("1"u8, RdfTerm.Iri("http://www.w3.org/2001/XMLSchema#integer"u8)))
                 .Assert(RdfTerm.BlankNode("x"u8), p, RdfTerm.Literal("chat"u8, "en"u8), RdfTerm.Iri("http://example.org/g"u8)));
-            Varve.Store.CommitResult second = await dataset.CommitAsync(new Varve.Store.CommitRequest()
+            Varve.Store.Log.CommitResult second = await dataset.CommitAsync(new Varve.Store.Log.CommitRequest()
                 .Retract(RdfTerm.Iri("http://example.org/a"u8), p, RdfTerm.Literal("1"u8, RdfTerm.Iri("http://www.w3.org/2001/XMLSchema#integer"u8)))
                 .Assert(RdfTerm.Iri("http://example.org/b"u8), p, RdfTerm.TripleTerm(RdfTerm.Iri("http://example.org/a"u8), p, RdfTerm.Iri("http://example.org/c"u8))));
 

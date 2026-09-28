@@ -6,6 +6,7 @@ using System;
 using System.Globalization;
 using System.Threading.Tasks;
 using Varve.Rdf;
+using Varve.Store.Log;
 using Xunit;
 
 namespace Varve.Store.Tests;

@@ -4,6 +4,7 @@
 
 using System;
 using Varve.Sparql.Evaluation;
+using Varve.Store.Log;
 using Varve.Store;
 
 namespace Varve.Sparql.Store;

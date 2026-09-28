@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Varve.Store.Log;
 using Xunit;
 
 namespace Varve.Store.Tests;

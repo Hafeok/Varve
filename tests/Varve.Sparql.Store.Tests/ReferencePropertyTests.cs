@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using CsCheck;
 using Varve.Conformance.Tests;
 using Varve.Rdf;
+using Varve.Store.Log;
 using Varve.Store;
 using Xunit;
 
@@ -210,7 +211,7 @@ public class ReferencePropertyTests
 
             // The new blank nodes, in the order the request first named them,
             // are the commit's blank allocations in id order.
-            await foreach (Varve.Store.Commit commit in dataset.Subscribe(head, SubscriptionFilter.All, Ct))
+            await foreach (Varve.Store.Log.Commit commit in dataset.Subscribe(head, SubscriptionFilter.All, Ct))
             {
                 TermHandle[] blanks = [.. commit.Allocations.ToArray().Where(a => a.Term.Kind == RdfTermKind.BlankNode).Select(a => a.Handle)];
                 Assert.Equal(fresh.Count, blanks.Length);

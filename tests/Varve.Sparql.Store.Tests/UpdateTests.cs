@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Varve.Rdf;
+using Varve.Store.Log;
 using Varve.Store;
 using Varve.Turtle;
 using Xunit;

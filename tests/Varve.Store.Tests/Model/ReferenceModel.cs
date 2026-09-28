@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Varve.Rdf;
+using Varve.Store.Log;
 
 namespace Varve.Store.Tests.Model;
 

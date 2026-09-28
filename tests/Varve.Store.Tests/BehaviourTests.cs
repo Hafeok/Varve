@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using CsCheck;
 using Varve.Rdf;
+using Varve.Store.Log;
 using Varve.Store.Tests.Model;
 using Xunit;
 

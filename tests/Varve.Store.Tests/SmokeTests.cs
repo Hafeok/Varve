@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System.Threading.Tasks;
+using Varve.Store.Log;
 using Xunit;
 
 namespace Varve.Store.Tests;

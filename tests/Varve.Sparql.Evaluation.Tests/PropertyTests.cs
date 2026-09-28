@@ -12,6 +12,7 @@ using Varve.Rdf;
 using Varve.Sparql.Algebra;
 using Varve.Sparql.Evaluation.Compile;
 using Varve.Sparql.Evaluation.Optimisation;
+using Varve.Store.Log;
 using Varve.Store;
 using Xunit;
 using static Varve.Sparql.Evaluation.Tests.Support;

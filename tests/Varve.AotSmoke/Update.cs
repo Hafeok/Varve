@@ -51,7 +51,7 @@ internal static partial class Smoke
             new Varve.Store.MemoryStorage(), new Varve.Store.DatasetOptions { Clock = TimeProvider.System });
 
         // Two operations, one commit: the second sees the first's insert.
-        Varve.Store.CommitResult result = await SparqlUpdate.ExecuteAsync(
+        Varve.Store.Log.CommitResult result = await SparqlUpdate.ExecuteAsync(
             dataset, Varve.Sparql.SparqlParser.ParseUpdate(Encoding.UTF8.GetBytes(Request)), new UpdateOptions());
         string update = result.Outcome + " at " + dataset.Head.ToString(System.Globalization.CultureInfo.InvariantCulture);
 

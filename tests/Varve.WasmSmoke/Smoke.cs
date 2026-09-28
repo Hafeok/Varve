@@ -163,10 +163,10 @@ internal static partial class Smoke
 
         await using (Varve.Store.Dataset dataset = await Varve.Store.Dataset.OpenAsync(storage, options))
         {
-            await dataset.CommitAsync(new Varve.Store.CommitRequest()
+            await dataset.CommitAsync(new Varve.Store.Log.CommitRequest()
                 .Assert(RdfTerm.Iri("http://example.org/a"u8), p, one)
                 .Assert(RdfTerm.BlankNode("x"u8), p, RdfTerm.Literal("chat"u8, "en"u8), RdfTerm.Iri("http://example.org/g"u8)));
-            Varve.Store.CommitResult second = await dataset.CommitAsync(new Varve.Store.CommitRequest()
+            Varve.Store.Log.CommitResult second = await dataset.CommitAsync(new Varve.Store.Log.CommitRequest()
                 .Retract(RdfTerm.Iri("http://example.org/a"u8), p, one)
                 .Assert(RdfTerm.Iri("http://example.org/b"u8), p, RdfTerm.TripleTerm(RdfTerm.Iri("http://example.org/a"u8), p, one)));
             await dataset.CheckpointAsync(1);
