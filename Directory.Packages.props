@@ -46,7 +46,7 @@
          in its commit body (ADR 0063). Referenced from Directory.Build.props
          with PrivateAssets="all", so it is never in a published package's
          dependencies. -->
-    <PackageVersion Include="DecisionDriven.Analyzers" Version="0.1.0-preview.4" Adr="0063" />
+    <PackageVersion Include="DecisionDriven.Analyzers" Version="0.1.0-preview.5" Adr="0063" />
   </ItemGroup>
 
   <ItemGroup Label="Off-the-shelf enforcement — build-time only, never shipped">
