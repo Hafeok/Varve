@@ -479,10 +479,16 @@ public sealed class HotPathDisciplineAnalyzer : DiagnosticAnalyzer
     /// field or property initializer. That runs when the object is made, and a
     /// class made per quad is reported where it is made, by the hot caller's
     /// <c>new</c>. A struct's constructor runs per value and stays checked.
+    /// Or whether it initialises a type: a static constructor, or a static field
+    /// or property initializer, which runs once per type and never per quad. A
+    /// static property's getter is a method of its own and stays checked.
     /// </summary>
     private static bool IsClassConstruction(ISymbol owner) =>
         owner switch
         {
+            IMethodSymbol { MethodKind: MethodKind.StaticConstructor } => true,
+            IFieldSymbol { IsStatic: true } => true,
+            IPropertySymbol { IsStatic: true } => true,
             IMethodSymbol { MethodKind: MethodKind.Constructor, ContainingType.IsReferenceType: true } => true,
             IFieldSymbol { IsStatic: false, ContainingType.IsReferenceType: true } => true,
             IPropertySymbol { IsStatic: false, ContainingType.IsReferenceType: true } => true,
