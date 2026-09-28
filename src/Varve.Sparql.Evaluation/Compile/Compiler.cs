@@ -4,7 +4,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using Varve.Rdf;
 using Varve.Sparql.Algebra;
@@ -67,7 +66,7 @@ internal sealed class Compiler
         if (query is SelectQuery && FindProject(query.Pattern) is { } project)
         {
             columns = project.Variables.ToArray();
-            columnSlots = [.. columns.Select(v => Slot(v.Name))];
+            columnSlots = SlotsOf(project.Variables);
         }
 
         return new CompiledQuery { Root = root, Width = _slots.Count, Slots = _slots, Columns = columns, ColumnSlots = columnSlots };
@@ -179,7 +178,7 @@ internal sealed class Compiler
             case Project project:
                 {
                     Operator inner = CompilePattern(project.Inner, null);
-                    int[] slots = [.. project.Variables.ToArray().Select(v => Slot(v.Name))];
+                    int[] slots = SlotsOf(project.Variables);
                     return ReferenceEquals(project, _columnsOnly)
                         ? inner
                         : new ProjectOperator(inner, slots) { Certain = Intersect(inner.Certain, slots) };
@@ -218,7 +217,7 @@ internal sealed class Compiler
             specs[i] = new TriplePatternSpec(Position(triple.Subject, certain), Position(triple.Predicate, certain), Position(triple.Object, certain));
         }
 
-        return new BgpOperator(specs) { Certain = [.. certain.Distinct()] };
+        return new BgpOperator(specs) { Certain = Distinct(certain) };
     }
 
     private PatternPosition Position(PatternTerm term, List<int>? certain)
@@ -255,7 +254,7 @@ internal sealed class Compiler
     {
         PathEnd subject = End(path.Subject, out int s);
         PathEnd @object = End(path.Object, out int o);
-        int[] certain = [.. new[] { s, o }.Where(x => x >= 0).Distinct()];
+        int[] certain = s < 0 ? (o < 0 ? [] : [o]) : o < 0 || o == s ? [s] : [s, o];
         return new PathOperator(subject, path.Path, @object) { Certain = certain };
     }
 
@@ -279,7 +278,7 @@ internal sealed class Compiler
 
     private ValuesOperator CompileValues(Values values)
     {
-        int[] slots = [.. values.Variables.ToArray().Select(v => Slot(v.Name))];
+        int[] slots = SlotsOf(values.Variables);
         RdfTerm?[][] rows = new RdfTerm?[values.Rows.Count][];
         List<int> certain = [];
         for (int i = 0; i < rows.Length; i++)
@@ -289,7 +288,7 @@ internal sealed class Compiler
 
         for (int j = 0; j < slots.Length; j++)
         {
-            if (rows.Length > 0 && rows.All(r => r[j] is not null))
+            if (rows.Length > 0 && AllBound(rows, j))
             {
                 certain.Add(slots[j]);
             }
@@ -302,8 +301,16 @@ internal sealed class Compiler
     {
         HashSet<string> names = new(StringComparer.Ordinal);
         CollectVariables(service.Inner, names);
-        Variable[] variables = [.. names.OrderBy(n => n, StringComparer.Ordinal).Select(n => new Variable(n))];
-        int[] slots = [.. variables.Select(v => Slot(v.Name))];
+        string[] sorted = new string[names.Count];
+        names.CopyTo(sorted);
+        Array.Sort(sorted, StringComparer.Ordinal);
+        Variable[] variables = new Variable[sorted.Length];
+        int[] slots = new int[sorted.Length];
+        for (int i = 0; i < sorted.Length; i++)
+        {
+            variables[i] = new Variable(sorted[i]);
+            slots[i] = Slot(sorted[i]);
+        }
         return service.Name switch
         {
             VariablePattern variable => new ServiceOperator(service, null, Slot(variable.Variable.Name), variables, slots),
@@ -528,9 +535,67 @@ internal sealed class Compiler
 
     // --------------------------------------------------------------- helpers
 
-    private static int[] Union(int[] left, int[] right) => [.. left.Union(right)];
+    private int[] SlotsOf(AlgebraList<Variable> variables)
+    {
+        int[] slots = new int[variables.Count];
+        for (int i = 0; i < slots.Length; i++)
+        {
+            slots[i] = Slot(variables[i].Name);
+        }
 
-    private static int[] Intersect(int[] left, int[] right) => [.. left.Intersect(right)];
+        return slots;
+    }
+
+    private static bool AllBound(RdfTerm?[][] rows, int column)
+    {
+        foreach (RdfTerm?[] row in rows)
+        {
+            if (row[column] is null)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // First occurrence kept, in order: what Enumerable.Distinct, Union and
+    // Intersect gave, which the operators' Certain lists were built from.
+    private static int[] Distinct(List<int> slots)
+    {
+        List<int> kept = new(slots.Count);
+        foreach (int slot in slots)
+        {
+            if (!kept.Contains(slot))
+            {
+                kept.Add(slot);
+            }
+        }
+
+        return [.. kept];
+    }
+
+    private static int[] Union(int[] left, int[] right)
+    {
+        List<int> all = new(left.Length + right.Length);
+        all.AddRange(left);
+        all.AddRange(right);
+        return Distinct(all);
+    }
+
+    private static int[] Intersect(int[] left, int[] right)
+    {
+        List<int> both = new(Math.Min(left.Length, right.Length));
+        foreach (int slot in left)
+        {
+            if (Array.IndexOf(right, slot) >= 0)
+            {
+                both.Add(slot);
+            }
+        }
+
+        return Distinct(both);
+    }
 
     /// <summary>The variables a pattern mentions, for a SERVICE's columns.</summary>
     internal static void CollectVariables(QueryPattern pattern, HashSet<string> names) =>
