@@ -59,22 +59,22 @@ public interface ISegmentStore
     /// Opens a new, empty segment after every existing one and returns its
     /// number. Fails when the newest existing segment is not sealed.
     /// </summary>
-    ValueTask<int> CreateSegmentAsync(CancellationToken cancellationToken);
+    ValueTask<SegmentId> CreateSegmentAsync(CancellationToken cancellationToken);
 
     /// <summary>Appends bytes to the end of the unsealed newest segment.</summary>
-    ValueTask AppendAsync(int segment, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken);
+    ValueTask AppendAsync(SegmentId segment, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken);
 
     /// <summary>Makes everything appended so far as durable as <see cref="Durability"/> says.</summary>
-    ValueTask FlushAsync(int segment, CancellationToken cancellationToken);
+    ValueTask FlushAsync(SegmentId segment, CancellationToken cancellationToken);
 
     /// <summary>Makes a segment immutable. Sealing is permanent.</summary>
-    ValueTask SealAsync(int segment, CancellationToken cancellationToken);
+    ValueTask SealAsync(SegmentId segment, CancellationToken cancellationToken);
 
     /// <summary>
     /// Reads bytes from a segment. Returns fewer than asked for only at the
     /// segment's end. The returned bytes never change.
     /// </summary>
-    ValueTask<ReadOnlyMemory<byte>> ReadRangeAsync(int segment, long offset, int length, CancellationToken cancellationToken);
+    ValueTask<ReadOnlyMemory<byte>> ReadRangeAsync(SegmentId segment, ByteOffset offset, ByteCount length, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -96,7 +96,7 @@ public interface IDerivedStore
     /// Reads bytes from a blob. Returns fewer than asked for only at the blob's
     /// end. Fails when there is no blob of that name.
     /// </summary>
-    ValueTask<ReadOnlyMemory<byte>> GetRangeAsync(string name, long offset, int length, CancellationToken cancellationToken);
+    ValueTask<ReadOnlyMemory<byte>> GetRangeAsync(string name, ByteOffset offset, ByteCount length, CancellationToken cancellationToken);
 
     /// <summary>Deletes a blob. Returns false when there was none.</summary>
     ValueTask<bool> DeleteAsync(string name, CancellationToken cancellationToken);

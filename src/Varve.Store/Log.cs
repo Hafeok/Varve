@@ -146,7 +146,7 @@ internal static class LogReader
                 {
                     // A restart abandons whatever was pending for this position.
                     scan.DiscardedTail |= pending.Count > 0;
-                    pending.Start(kind, new CommitLocation(segment.Id, at));
+                    pending.Start(kind, new CommitLocation(segment.Id.Value, at));
                 }
                 else if (index != pending.Count || kind != pending.Kind)
                 {
@@ -192,7 +192,7 @@ internal static class LogReader
 
         while (true)
         {
-            ReadOnlyMemory<byte> header = await store.ReadRangeAsync(segment, offset, LogFormat.RecordHeaderLength, cancellationToken).ConfigureAwait(false);
+            ReadOnlyMemory<byte> header = await store.ReadRangeAsync(new SegmentId(segment), new ByteOffset(offset), new ByteCount(LogFormat.RecordHeaderLength), cancellationToken).ConfigureAwait(false);
 
             if (header.Length < LogFormat.RecordHeaderLength)
             {
@@ -213,7 +213,7 @@ internal static class LogReader
             }
 
             ReadOnlyMemory<byte> payload = await store.ReadRangeAsync(
-                segment, offset + LogFormat.RecordHeaderLength, payloadLength, cancellationToken).ConfigureAwait(false);
+                new SegmentId(segment), new ByteOffset(offset + LogFormat.RecordHeaderLength), new ByteCount(payloadLength), cancellationToken).ConfigureAwait(false);
             pending.Add(payload);
             offset += LogFormat.RecordHeaderLength + payloadLength;
 
@@ -276,12 +276,12 @@ internal static class LogReader
 
     private static async ValueTask<ReadOnlyMemory<byte>> ReadAllAsync(ISegmentStore store, SegmentInfo segment, CancellationToken cancellationToken)
     {
-        if (segment.Length > int.MaxValue)
+        if (segment.Length.Value > int.MaxValue)
         {
-            throw new LogVerificationException(0, "Segment " + segment.Id + " is larger than one read can hold.");
+            throw new LogVerificationException(0, "Segment " + segment.Id.Value + " is larger than one read can hold.");
         }
 
-        return await store.ReadRangeAsync(segment.Id, 0, (int)segment.Length, cancellationToken).ConfigureAwait(false);
+        return await store.ReadRangeAsync(segment.Id, new ByteOffset(0), segment.Length, cancellationToken).ConfigureAwait(false);
     }
 
     private sealed class Pending
@@ -369,7 +369,7 @@ internal sealed class LogWriter
         {
             SegmentInfo newest = scan.Segments[^1];
 
-            if (scan.DiscardedTail || newest.IsSealed || newest.Length < LogFormat.PreambleLength)
+            if (scan.DiscardedTail || newest.IsSealed || newest.Length.Value < LogFormat.PreambleLength)
             {
                 if (!newest.IsSealed)
                 {
@@ -378,8 +378,8 @@ internal sealed class LogWriter
             }
             else
             {
-                active = newest.Id;
-                length = newest.Length;
+                active = newest.Id.Value;
+                length = newest.Length.Value;
             }
         }
 
@@ -415,7 +415,7 @@ internal sealed class LogWriter
 
             await EnsureRoomAsync(record.Length, cancellationToken).ConfigureAwait(false);
             start ??= new CommitLocation(_active, _activeLength);
-            await _store.AppendAsync(_active, record, cancellationToken).ConfigureAwait(false);
+            await _store.AppendAsync(new SegmentId(_active), record, cancellationToken).ConfigureAwait(false);
             _activeLength += record.Length;
             bodyOffset += take;
             index++;
@@ -428,7 +428,7 @@ internal sealed class LogWriter
 
         // Every record before the closing one is durable no later than it is:
         // one flush after the last append orders them (ADR 0013).
-        await _store.FlushAsync(_active, cancellationToken).ConfigureAwait(false);
+        await _store.FlushAsync(new SegmentId(_active), cancellationToken).ConfigureAwait(false);
         return start.Value;
     }
 
@@ -441,12 +441,12 @@ internal sealed class LogWriter
 
         if (_active >= 0)
         {
-            await _store.FlushAsync(_active, cancellationToken).ConfigureAwait(false);
-            await _store.SealAsync(_active, cancellationToken).ConfigureAwait(false);
+            await _store.FlushAsync(new SegmentId(_active), cancellationToken).ConfigureAwait(false);
+            await _store.SealAsync(new SegmentId(_active), cancellationToken).ConfigureAwait(false);
         }
 
-        _active = await _store.CreateSegmentAsync(cancellationToken).ConfigureAwait(false);
-        await _store.AppendAsync(_active, LogFormat.Preamble.ToArray(), cancellationToken).ConfigureAwait(false);
+        _active = (await _store.CreateSegmentAsync(cancellationToken).ConfigureAwait(false)).Value;
+        await _store.AppendAsync(new SegmentId(_active), LogFormat.Preamble.ToArray(), cancellationToken).ConfigureAwait(false);
         _activeLength = LogFormat.PreambleLength;
     }
 }

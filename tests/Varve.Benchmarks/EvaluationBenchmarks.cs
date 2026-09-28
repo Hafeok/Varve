@@ -15,6 +15,7 @@ using Varve.Rdf;
 using Varve.Sparql;
 using Varve.Sparql.Algebra;
 using Varve.Sparql.Evaluation;
+using Varve.Store.Log;
 using Varve.Store;
 
 namespace Varve.Benchmarks;

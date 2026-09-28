@@ -89,9 +89,9 @@ public class EstimateTests
                     Agree(head, "head " + head.Position);
                 }
 
-                for (long position = 0; position <= harness.Dataset.Head; position++)
+                for (long position = 0; position <= harness.Dataset.Head.Value; position++)
                 {
-                    using DatasetView view = await harness.Dataset.AsOfAsync(position, T.Ct);
+                    using DatasetView view = await harness.Dataset.AsOfAsync(new Position(position), T.Ct);
                     Agree(view, "as of " + position);
                 }
             },

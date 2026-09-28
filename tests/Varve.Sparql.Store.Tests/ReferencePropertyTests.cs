@@ -128,10 +128,10 @@ public class ReferencePropertyTests
             Assert.Equal(model.State.SetEquals(before) ? CommitOutcome.NoChange : CommitOutcome.Committed, result.Outcome);
         }
 
-        for (long position = 1; position <= viaUpdate.Head; position++)
+        for (long position = 1; position <= viaUpdate.Head.Value; position++)
         {
-            using DatasetView a = await viaUpdate.AsOfAsync(position, Ct);
-            using DatasetView b = await viaModel.AsOfAsync(position, Ct);
+            using DatasetView a = await viaUpdate.AsOfAsync(new Position(position), Ct);
+            using DatasetView b = await viaModel.AsOfAsync(new Position(position), Ct);
             IsomorphismResult verdict = Isomorphism.Compare(Quads(a), Quads(b));
             Assert.True(
                 verdict.IsSame,
@@ -206,7 +206,7 @@ public class ReferencePropertyTests
                 request.Assert(Term(quad.S, fresh), Term(quad.P, fresh), Term(quad.O, fresh), quad.G.Length == 0 ? RequestTerm.None : Term(quad.G, fresh));
             }
 
-            long head = dataset.Head;
+            Position head = dataset.Head;
             Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(request, Ct)).Outcome);
 
             // The new blank nodes, in the order the request first named them,

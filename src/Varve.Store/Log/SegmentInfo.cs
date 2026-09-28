@@ -7,21 +7,31 @@ using System;
 namespace Varve.Store.Log;
 
 /// <summary>A segment of the log: its number, its length, and whether it is sealed.</summary>
+/// <remarks>
+/// Made by <see cref="Open"/> or <see cref="Sealed"/> rather than by a
+/// constructor taking a <c>bool</c>, whose call site would read
+/// <c>new SegmentInfo(id, length, true)</c> (DD0016).
+/// </remarks>
 public readonly struct SegmentInfo : IEquatable<SegmentInfo>
 {
-    /// <summary>Describes a segment.</summary>
-    public SegmentInfo(int id, long length, bool isSealed)
+    private SegmentInfo(SegmentId id, ByteCount length, bool isSealed)
     {
         Id = id;
         Length = length;
         IsSealed = isSealed;
     }
 
+    /// <summary>Describes a segment that is still open for appends.</summary>
+    public static SegmentInfo Open(SegmentId id, ByteCount length) => new(id, length, isSealed: false);
+
+    /// <summary>Describes a sealed segment, which will never change.</summary>
+    public static SegmentInfo Sealed(SegmentId id, ByteCount length) => new(id, length, isSealed: true);
+
     /// <summary>The segment's number.</summary>
-    public int Id { get; }
+    public SegmentId Id { get; }
 
     /// <summary>How many bytes it holds.</summary>
-    public long Length { get; }
+    public ByteCount Length { get; }
 
     /// <summary>Whether it is sealed and will never change.</summary>
     public bool IsSealed { get; }

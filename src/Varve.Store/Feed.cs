@@ -59,7 +59,7 @@ public readonly struct TermAllocation : IEquatable<TermAllocation>
 public interface IProjection
 {
     /// <summary>The position of the last commit applied: <c>pos(π)</c>.</summary>
-    long Position { get; }
+    Position Position { get; }
 
     /// <summary>
     /// Applies a commit. A commit at or below <see cref="Position"/> is a no-op,
@@ -93,8 +93,14 @@ public enum AccessScope : byte
 public sealed class LogVerificationException : Exception
 {
     /// <summary>A refusal at a position.</summary>
-    public LogVerificationException(long position, string message)
+    public LogVerificationException(Position position, string message)
         : base(message) => Position = position;
+
+    /// <summary>A refusal at a position the reader holds as a count of commits.</summary>
+    internal LogVerificationException(long position, string message)
+        : this(new Position(position), message)
+    {
+    }
 
     /// <summary>A refusal with no position.</summary>
     public LogVerificationException()
@@ -114,7 +120,7 @@ public sealed class LogVerificationException : Exception
     }
 
     /// <summary>The position at which verification failed.</summary>
-    public long Position { get; }
+    public Position Position { get; }
 }
 
 /// <summary>

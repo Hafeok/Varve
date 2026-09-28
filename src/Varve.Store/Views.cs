@@ -8,6 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
+using Varve.Store.Log;
 
 namespace Varve.Store;
 
@@ -244,13 +245,13 @@ public sealed class DatasetView : IQuadSource, IDisposable
 
     internal DatasetView(long position, IQuadSource source, TermView terms)
     {
-        Position = position;
+        Position = new Position(position);
         _source = source;
         _terms = terms;
     }
 
     /// <summary>The position this view reads.</summary>
-    public long Position { get; }
+    public Position Position { get; }
 
     /// <summary>
     /// Id equality: canonical, blank and inline handles compare by id. Private

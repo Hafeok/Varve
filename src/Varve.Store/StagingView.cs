@@ -8,6 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 using Varve.Rdf;
+using Varve.Store.Log;
 
 namespace Varve.Store;
 
@@ -52,7 +53,7 @@ public sealed class StagingView : IQuadSource
     }
 
     /// <summary>The position the view reads.</summary>
-    public long Position => _view.Position;
+    public Position Position => _view.Position;
 
     /// <inheritdoc />
     public IEqualityComparer<TermHandle> TermComparer => _view.TermComparer;

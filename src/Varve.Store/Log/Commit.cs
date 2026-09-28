@@ -30,9 +30,9 @@ public sealed class Commit
         QuadDelta delta,
         ReadOnlyMemory<TermAllocation> allocations)
     {
-        Position = position;
+        Position = new Position(position);
         Kind = kind;
-        Timestamp = timestamp;
+        Timestamp = new CommitTimestamp(timestamp);
         Agent = agent;
         Cause = cause;
         GraphScope = graphScope;
@@ -42,13 +42,13 @@ public sealed class Commit
     }
 
     /// <summary>Its position in the log.</summary>
-    public long Position { get; }
+    public Position Position { get; }
 
     /// <summary>What kind of commit it is.</summary>
     public CommitKind Kind { get; }
 
     /// <summary>When the sequencer closed it: <c>max(clock, ts(previous))</c>, so never earlier than the one before.</summary>
-    public DateTimeOffset Timestamp { get; }
+    public CommitTimestamp Timestamp { get; }
 
     /// <summary>Who made it, or <see cref="TermHandle.None"/>.</summary>
     public TermHandle Agent { get; }

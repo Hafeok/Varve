@@ -27,7 +27,7 @@ public sealed class CommitRequest
     /// the request is refused with <see cref="CommitOutcome.Conflict"/> and
     /// changes nothing (ADR 0011).
     /// </summary>
-    public long? ExpectedPosition { get; init; }
+    public Position? ExpectedPosition { get; init; }
 
     /// <summary>What the commit records about itself.</summary>
     public CommitMetadata Metadata { get; init; } = new();

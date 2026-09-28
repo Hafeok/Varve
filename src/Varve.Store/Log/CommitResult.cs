@@ -14,7 +14,7 @@ public readonly struct CommitResult : IEquatable<CommitResult>
     private CommitResult(CommitOutcome outcome, long position, IReadOnlyList<RdfTerm>? report, string? reason)
     {
         Outcome = outcome;
-        Position = position;
+        Position = new Position(position);
         Report = report ?? [];
         Reason = reason;
     }
@@ -26,7 +26,7 @@ public readonly struct CommitResult : IEquatable<CommitResult>
     /// The new position when committed; otherwise the readable head at the
     /// time of the answer.
     /// </summary>
-    public long Position { get; }
+    public Position Position { get; }
 
     /// <summary>The validator's report, when rejected; empty otherwise.</summary>
     public IReadOnlyList<RdfTerm> Report { get; }

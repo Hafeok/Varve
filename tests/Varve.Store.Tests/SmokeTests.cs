@@ -21,7 +21,7 @@ public class SmokeTests
                 .Assert(T.Iri("s"), T.Iri("p"), T.Integer("42"), T.Iri("g")), T.Ct);
 
             Assert.Equal(CommitOutcome.Committed, result.Outcome);
-            Assert.Equal(1, result.Position);
+            Assert.Equal(new Position(1), result.Position);
 
             using DatasetView view = dataset.Pin();
             Assert.Equal(2, T.All(view).Count);
@@ -29,7 +29,7 @@ public class SmokeTests
         }
 
         await using Dataset reopened = await T.Open(storage);
-        Assert.Equal(1, reopened.Head);
+        Assert.Equal(new Position(1), reopened.Head);
         using DatasetView again = reopened.Pin();
         Assert.Equal(2, T.All(again).Count);
     }

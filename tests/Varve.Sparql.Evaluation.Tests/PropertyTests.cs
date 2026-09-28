@@ -118,7 +118,7 @@ public class PropertyTests
                     _ = await store.CommitAsync(request);
                 }
 
-                long position = at % (store.Head + 1);
+                Position position = new(at % (store.Head.Value + 1));
                 using DatasetView view = await store.AsOfAsync(position);
                 InMemoryDatasetBuilder filling = new();
                 using (IQuadCursor cursor = view.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any))

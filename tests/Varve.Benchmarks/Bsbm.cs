@@ -16,6 +16,7 @@ using VDS.RDF.Query;
 using Varve.Rdf;
 using Varve.Sparql;
 using Varve.Sparql.Evaluation;
+using Varve.Store.Log;
 using Varve.Store;
 using Varve.Turtle;
 

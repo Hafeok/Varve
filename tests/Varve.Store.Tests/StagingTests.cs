@@ -62,7 +62,7 @@ public class StagingTests
         CommitResult result = await dataset.CommitAsync(One("new"), T.Ct);
 
         Assert.Equal(CommitOutcome.Rejected, result.Outcome);
-        Assert.Equal(0, dataset.Head);
+        Assert.Equal(new Position(0), dataset.Head);
         using DatasetView view = dataset.Pin();
         Assert.False(view.TryInternalise(T.Iri("new"), out _));
     }
@@ -161,7 +161,7 @@ public class StagingTests
             await Assert.ThrowsAsync<ArgumentException>(async () => await dataset.CommitAsync(request, T.Ct));
         }
 
-        Assert.Equal(1, dataset.Head);
+        Assert.Equal(new Position(1), dataset.Head);
         using DatasetView after = dataset.Pin();
         Assert.False(after.TryInternalise(T.Iri("fresh"), out _));
         Assert.Single(T.All(after));

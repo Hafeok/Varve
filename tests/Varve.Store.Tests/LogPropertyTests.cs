@@ -29,7 +29,7 @@ public class LogPropertyTests
 
         foreach (SegmentInfo segment in await storage.Log.ListSegmentsAsync(T.Ct))
         {
-            segments.Add((await storage.Log.ReadRangeAsync(segment.Id, 0, (int)segment.Length, T.Ct)).ToArray());
+            segments.Add((await storage.Log.ReadRangeAsync(segment.Id, new ByteOffset(0), segment.Length, T.Ct)).ToArray());
         }
 
         return segments;
@@ -83,14 +83,14 @@ public class LogPropertyTests
                     MemoryStorage cut = MemoryStorage.FromSegments(Prefix(segments, length));
                     await using Dataset opened = await Dataset.OpenAsync(cut, harness.Options, T.Ct);
 
-                    if (opened.Head != previous && opened.Head != previous + 1)
+                    if (opened.Head.Value != previous && opened.Head.Value != previous + 1)
                     {
                         throw new InvalidOperationException("Cutting at " + length + " jumped from " + previous + " to " + opened.Head + ".");
                     }
 
-                    previous = opened.Head;
+                    previous = opened.Head.Value;
                     using DatasetView view = opened.Pin();
-                    Harness.Same(Harness.Rendered(harness.Model.History[(int)opened.Head]), harness.Rendered(view), "cut at " + length);
+                    Harness.Same(Harness.Rendered(harness.Model.History[(int)opened.Head.Value]), harness.Rendered(view), "cut at " + length);
 
                     if (length % 97 == 0 || length == total)
                     {
@@ -192,13 +192,13 @@ public class LogPropertyTests
                     {
                         await using Dataset opened = await Dataset.OpenAsync(MemoryStorage.FromSegments([changed]), harness.Options, T.Ct);
 
-                        if (opened.Head >= harness.Model.Head)
+                        if (opened.Head.Value >= harness.Model.Head)
                         {
                             throw new InvalidOperationException("A change at byte " + at + " went unnoticed.");
                         }
 
                         using DatasetView view = opened.Pin();
-                        Harness.Same(Harness.Rendered(harness.Model.History[(int)opened.Head]), harness.Rendered(view), "change at " + at);
+                        Harness.Same(Harness.Rendered(harness.Model.History[(int)opened.Head.Value]), harness.Rendered(view), "change at " + at);
                     }
                     catch (LogVerificationException)
                     {
@@ -221,7 +221,7 @@ public class LogPropertyTests
             {
                 await using Harness harness = await Harness.StartAsync();
                 await harness.RunAsync(script);
-                long prefix = harness.Dataset.Head;
+                long prefix = harness.Dataset.Head.Value;
                 List<byte[]> copied = await SegmentsAsync(harness.Storage);
                 MemoryStorage copy = MemoryStorage.FromSegments(copied.Select(s => (ReadOnlyMemory<byte>)s.ToArray()));
                 MemoryStorage snapshot = MemoryStorage.FromSegments(copied.Select(s => (ReadOnlyMemory<byte>)s.ToArray()));
@@ -236,8 +236,8 @@ public class LogPropertyTests
                     await other.CommitAsync(new CommitRequest().Assert(T.Iri("there"), T.Iri("p0"), T.Integer(i.ToString(System.Globalization.CultureInfo.InvariantCulture))), T.Ct);
                 }
 
-                Assert.Equal(prefix + 1, await LogChain.FindDivergenceAsync(harness.Storage.Log, copy.Log, T.Ct));
-                Assert.Equal(prefix + 1, await LogChain.FindDivergenceAsync(copy.Log, harness.Storage.Log, T.Ct));
+                Assert.Equal(new Position(prefix + 1), await LogChain.FindDivergenceAsync(harness.Storage.Log, copy.Log, T.Ct));
+                Assert.Equal(new Position(prefix + 1), await LogChain.FindDivergenceAsync(copy.Log, harness.Storage.Log, T.Ct));
                 Assert.Null(await LogChain.FindDivergenceAsync(harness.Storage.Log, snapshot.Log, T.Ct));
                 Assert.Null(await LogChain.FindDivergenceAsync(snapshot.Log, copy.Log, T.Ct));
             },

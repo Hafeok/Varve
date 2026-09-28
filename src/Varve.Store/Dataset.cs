@@ -28,7 +28,7 @@ public sealed class DatasetOptions
     public int MaxRecordBytes { get; init; } = 1 << 20;
 
     /// <summary>The size past which the active segment is sealed and a new one begun (ADR 0018).</summary>
-    public long SegmentBytes { get; init; } = 64L << 20;
+    public ByteCount SegmentBytes { get; init; } = new(64L << 20);
 
     /// <summary>
     /// Pre-commit validators bound to the dataset: run on every <c>Data</c>
@@ -82,7 +82,7 @@ public sealed class Dataset : IAsyncDisposable
     }
 
     /// <summary>The readable head: the position of the last closed commit.</summary>
-    public long Head => _state.Head;
+    public Position Head => new(_state.Head);
 
     /// <summary>
     /// True in the failed state: the default projection could not reach the
@@ -98,16 +98,16 @@ public sealed class Dataset : IAsyncDisposable
     public DatasetSettings Settings => _state.SettingsAt(_state.Head);
 
     /// <summary>The positions that have a checkpoint, ascending.</summary>
-    public IReadOnlyList<long> Checkpoints
+    public IReadOnlyList<Position> Checkpoints
     {
         get
         {
             Checkpoint[] checkpoints = _state.Checkpoints;
-            long[] positions = new long[checkpoints.Length];
+            Position[] positions = new Position[checkpoints.Length];
 
             for (int i = 0; i < positions.Length; i++)
             {
-                positions[i] = checkpoints[i].Position;
+                positions[i] = new Position(checkpoints[i].Position);
             }
 
             return positions;
@@ -127,10 +127,10 @@ public sealed class Dataset : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(options.Clock);
         ArgumentNullException.ThrowIfNull(options.Validators);
         ArgumentOutOfRangeException.ThrowIfLessThan(options.MaxRecordBytes, 64);
-        ArgumentOutOfRangeException.ThrowIfLessThan(options.SegmentBytes, 1024L);
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.SegmentBytes.Value, 1024L, nameof(options));
 
         LogScan scan = await LogReader.ScanAsync(storage.Log, cancellationToken).ConfigureAwait(false);
-        LogWriter writer = await LogWriter.OpenAsync(storage.Log, scan, options.SegmentBytes, options.MaxRecordBytes, cancellationToken).ConfigureAwait(false);
+        LogWriter writer = await LogWriter.OpenAsync(storage.Log, scan, options.SegmentBytes.Value, options.MaxRecordBytes, cancellationToken).ConfigureAwait(false);
         TermDictionary dictionary = new();
 
         CommitInfo[] commits = new CommitInfo[Math.Max(16, scan.Commits.Count)];
@@ -171,7 +171,7 @@ public sealed class Dataset : IAsyncDisposable
     public async ValueTask<CommitResult> CommitAsync(CommitRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        return await SequenceAsync(CommitKind.Data, request, request.Metadata, request.ExpectedPosition, [], cancellationToken).ConfigureAwait(false);
+        return await SequenceAsync(CommitKind.Data, request, request.Metadata, request.ExpectedPosition?.Value, [], cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -179,7 +179,7 @@ public sealed class Dataset : IAsyncDisposable
     /// an agent and a cause (ADR 0021).
     /// </summary>
     public async ValueTask<CommitResult> ChangeSettingsAsync(
-        SettingsChange change, CommitMetadata metadata, long? expectedPosition = null, CancellationToken cancellationToken = default)
+        SettingsChange change, CommitMetadata metadata, Position? expectedPosition = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(change);
         ArgumentNullException.ThrowIfNull(metadata);
@@ -189,7 +189,7 @@ public sealed class Dataset : IAsyncDisposable
             throw new ArgumentException("A settings change records who made it and why: give an agent and a cause.", nameof(metadata));
         }
 
-        return await SequenceAsync(CommitKind.Settings, null, metadata, expectedPosition, LogFormat.EncodeSettings(change), cancellationToken).ConfigureAwait(false);
+        return await SequenceAsync(CommitKind.Settings, null, metadata, expectedPosition?.Value, LogFormat.EncodeSettings(change), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Test seam: an <see cref="CommitKind.Erasure"/> commit, before erasure mode can produce one.</summary>
@@ -244,7 +244,10 @@ public sealed class Dataset : IAsyncDisposable
     /// or below it with the log tail overlaid. Cost is the log distance, not
     /// the dataset's size.
     /// </summary>
-    public async ValueTask<DatasetView> AsOfAsync(long position, CancellationToken cancellationToken = default)
+    public ValueTask<DatasetView> AsOfAsync(Position position, CancellationToken cancellationToken = default) =>
+        AsOfCoreAsync(position.Value, cancellationToken);
+
+    private async ValueTask<DatasetView> AsOfCoreAsync(long position, CancellationToken cancellationToken)
     {
         State state = _state;
         ArgumentOutOfRangeException.ThrowIfNegative(position);
@@ -266,14 +269,14 @@ public sealed class Dataset : IAsyncDisposable
     }
 
     /// <summary>I5: the view at the greatest position whose timestamp is at or before <paramref name="timestamp"/>.</summary>
-    public ValueTask<DatasetView> AsOfTimestampAsync(DateTimeOffset timestamp, CancellationToken cancellationToken = default) =>
+    public ValueTask<DatasetView> AsOfTimestampAsync(CommitTimestamp timestamp, CancellationToken cancellationToken = default) =>
         AsOfAsync(PositionAt(timestamp), cancellationToken);
 
     /// <summary>The greatest position whose timestamp is at or before <paramref name="timestamp"/>; 0 when none is.</summary>
-    public long PositionAt(DateTimeOffset timestamp)
+    public Position PositionAt(CommitTimestamp timestamp)
     {
         State state = _state;
-        long ticks = timestamp.UtcTicks;
+        long ticks = timestamp.Value.UtcTicks;
         long low = 1;
         long high = state.Head;
         long found = 0;
@@ -293,7 +296,7 @@ public sealed class Dataset : IAsyncDisposable
             }
         }
 
-        return found;
+        return new Position(found);
     }
 
     /// <summary>
@@ -301,7 +304,10 @@ public sealed class Dataset : IAsyncDisposable
     /// When <paramref name="from"/> is after <paramref name="to"/> the answer is
     /// the same formula, which is the inverse of the forward diff.
     /// </summary>
-    public async ValueTask<QuadDelta> DiffAsync(long from, long to, CancellationToken cancellationToken = default)
+    public ValueTask<QuadDelta> DiffAsync(Position from, Position to, CancellationToken cancellationToken = default) =>
+        DiffCoreAsync(from.Value, to.Value, cancellationToken);
+
+    private async ValueTask<QuadDelta> DiffCoreAsync(long from, long to, CancellationToken cancellationToken)
     {
         State state = _state;
         ArgumentOutOfRangeException.ThrowIfNegative(from);
@@ -315,19 +321,27 @@ public sealed class Dataset : IAsyncDisposable
     }
 
     /// <summary>The settings at a closed position: the fold of the settings commits up to it.</summary>
-    public ValueTask<DatasetSettings> SettingsAtAsync(long position, CancellationToken cancellationToken = default)
+    public ValueTask<DatasetSettings> SettingsAtAsync(Position position, CancellationToken cancellationToken = default)
     {
         State state = _state;
+        return new ValueTask<DatasetSettings>(SettingsAt(state, position.Value));
+    }
+
+    private static DatasetSettings SettingsAt(State state, long position)
+    {
         ArgumentOutOfRangeException.ThrowIfNegative(position);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(position, state.Head);
-        return new ValueTask<DatasetSettings>(state.SettingsAt(position));
+        return state.SettingsAt(position);
     }
 
     /// <summary>
     /// T2: materialises the state at a closed position as a checkpoint in the
     /// derived store. Derived data: dropping it loses nothing (ADR 0015).
     /// </summary>
-    public async ValueTask CheckpointAsync(long position, CancellationToken cancellationToken = default)
+    public ValueTask CheckpointAsync(Position position, CancellationToken cancellationToken = default) =>
+        CheckpointCoreAsync(position.Value, cancellationToken);
+
+    private async ValueTask CheckpointCoreAsync(long position, CancellationToken cancellationToken)
     {
         await _sequencer.WaitAsync(cancellationToken).ConfigureAwait(false);
 
@@ -344,7 +358,7 @@ public sealed class Dataset : IAsyncDisposable
 
             List<Quad> quads = [];
 
-            using (DatasetView view = await AsOfAsync(position, cancellationToken).ConfigureAwait(false))
+            using (DatasetView view = await AsOfCoreAsync(position, cancellationToken).ConfigureAwait(false))
             using (IQuadCursor cursor = view.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any))
             {
                 while (cursor.MoveNext())
@@ -359,7 +373,7 @@ public sealed class Dataset : IAsyncDisposable
             string name = Checkpoint.Name(position);
 
             await _storage.Derived.PutAsync(name, blob, cancellationToken).ConfigureAwait(false);
-            ReadOnlyMemory<byte> stored = await _storage.Derived.GetRangeAsync(name, 0, blob.Length, cancellationToken).ConfigureAwait(false);
+            ReadOnlyMemory<byte> stored = await _storage.Derived.GetRangeAsync(name, new ByteOffset(0), new ByteCount(blob.Length), cancellationToken).ConfigureAwait(false);
             Checkpoint checkpoint = CheckpointFormat.TryDecode(stored, _dictionary)
                 ?? throw new InvalidOperationException("A checkpoint just written does not read back.");
 
@@ -372,14 +386,15 @@ public sealed class Dataset : IAsyncDisposable
     }
 
     /// <summary>Drops a checkpoint. Nothing is lost: an as-of read at that position is slower, never wrong.</summary>
-    public async ValueTask DropCheckpointAsync(long position, CancellationToken cancellationToken = default)
+    public async ValueTask DropCheckpointAsync(Position position, CancellationToken cancellationToken = default)
     {
         await _sequencer.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
-            await _storage.Derived.DeleteAsync(Checkpoint.Name(position), cancellationToken).ConfigureAwait(false);
-            Checkpoint[] kept = Array.FindAll(_state.Checkpoints, c => c.Position != position);
+            long at = position.Value;
+            await _storage.Derived.DeleteAsync(Checkpoint.Name(at), cancellationToken).ConfigureAwait(false);
+            Checkpoint[] kept = Array.FindAll(_state.Checkpoints, c => c.Position != at);
             _state = _state.WithCheckpoints(kept);
         }
         finally
@@ -394,8 +409,11 @@ public sealed class Dataset : IAsyncDisposable
     /// filtered delta is empty is skipped; settings and erasure commits are
     /// always delivered (ADR 0046). The consumer owns its position (ADR 0042).
     /// </summary>
-    public async IAsyncEnumerable<Commit> Subscribe(
-        long from, SubscriptionFilter filter, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public IAsyncEnumerable<Commit> Subscribe(Position from, SubscriptionFilter filter, CancellationToken cancellationToken = default) =>
+        SubscribeCore(from.Value, filter, cancellationToken);
+
+    private async IAsyncEnumerable<Commit> SubscribeCore(
+        long from, SubscriptionFilter filter, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(from);
         long next = from + 1;
@@ -427,7 +445,7 @@ public sealed class Dataset : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(projection);
         State state = _state;
 
-        for (long p = projection.Position + 1; p <= state.Head; p++)
+        for (long p = projection.Position.Value + 1; p <= state.Head; p++)
         {
             Commit commit = (await ReadCommitAsync(state, p, SubscriptionFilter.All, cancellationToken).ConfigureAwait(false))!;
             await projection.ApplyAsync(commit, cancellationToken).ConfigureAwait(false);
@@ -449,7 +467,7 @@ public sealed class Dataset : IAsyncDisposable
         }
         else
         {
-            using DatasetView view = await AsOfAsync(checkpoint.Position, cancellationToken).ConfigureAwait(false);
+            using DatasetView view = await AsOfCoreAsync(checkpoint.Position, cancellationToken).ConfigureAwait(false);
             await projection.ResetAsync(view, cancellationToken).ConfigureAwait(false);
         }
 
@@ -767,7 +785,7 @@ public sealed class Dataset : IAsyncDisposable
                 continue;
             }
 
-            ReadOnlyMemory<byte> blob = await _storage.Derived.GetRangeAsync(name, 0, int.MaxValue, cancellationToken).ConfigureAwait(false);
+            ReadOnlyMemory<byte> blob = await _storage.Derived.GetRangeAsync(name, new ByteOffset(0), new ByteCount(int.MaxValue), cancellationToken).ConfigureAwait(false);
             Checkpoint? checkpoint = CheckpointFormat.TryDecode(blob, _dictionary);
 
             // A checkpoint names the commit it materialises. One copied beside a
