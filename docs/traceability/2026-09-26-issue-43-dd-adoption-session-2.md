@@ -513,3 +513,64 @@ This branch is watched. When `0.1.0-preview.5` is on nuget.org:
    on layers 0 to 2.
 3. This record and the pull request body are updated, and the pull request
    leaves draft only then.
+
+### Preview.5, adopted (2026-09-28)
+
+The maintainer released `0.1.0-preview.5` and asked for the bump. The
+nuspec's repository commit is decision-driven-analyzers `e33abfc`, the merge
+of #68. That is the same commit this session built locally and ran layers 0
+to 2 against on 2026-09-27. Its changelog entries since preview.4 are the four
+fixes above, all under Fixed. There are **no breaking entries**, and each fix
+narrows what a rule reports. The package's changelog still carries them under
+`[Unreleased]`, with no preview.5 heading.
+
+- **Bump.** `Directory.Packages.props` moves to `0.1.0-preview.5`. Nothing else
+  in the tree names a preview. Varve's `main` is still `4b23015`, which this
+  branch already contains, so nothing needed merging in.
+- **Layers 0 to 2**, built with only `CS0618` downgraded, show nothing but
+  `CS0618`:
+
+  | Package | `CS0618` warnings |
+  |---|---:|
+  | Iri | 28 |
+  | Xsd | 116 |
+  | Rdf | 80 |
+  | Turtle | 56 |
+  | Sparql | 42 |
+  | Sparql.Results | 38 |
+
+  Each counts every compilation. These are the citations of the unaccepted
+  decisions (ADR 0066), and accepting those decisions turns the layers
+  green. `tools/repo-standard` builds clean.
+- **Layers 3 to 5** are unchanged, and are session 3's work. These are the
+  distinct sites, which is a more exact count than the report's first table:
+
+  | Package | Findings |
+  |---|---|
+  | `Varve.Sparql.Evaluation` | VARVE0003 108, DD0017 22, RS0030 10, DD0009 6, DD0004 2, DD0012 1 |
+  | `Varve.Store` | VARVE0003 91, DD0009 5, DD0004 2 |
+  | `Varve.Sparql.Store` | DD0017 6, DD0009 1 |
+
+- **Tests.** Every suite passes:
+
+  | Suite | Tests |
+  |---|---:|
+  | Analyzers | 83 |
+  | Iri | 109 |
+  | Xsd | 213 |
+  | Rdf | 116 |
+  | Turtle | 388 |
+  | Sparql | 36 |
+  | Results | 1,058 |
+  | Store | 54 |
+  | Evaluation | 26 |
+  | Sparql.Store | 13 |
+  | Conformance | 6,018 |
+
+  The first seven suites ran with only `CS0618` downgraded. The last four
+  reference layers 3 to 5, so they ran under the local `survey` override.
+- **Text gates.** Register, licence headers, decision sets and banned symbols
+  all pass. The AOT smoke app builds.
+
+The branch is ready for the maintainer's `accepted-by` edits. It references
+preview.5, so under the maintainer's decision it leaves draft.
