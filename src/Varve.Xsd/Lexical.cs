@@ -5,6 +5,8 @@
 using System;
 using System.Buffers;
 using System.Text;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Xsd;
 
@@ -23,8 +25,10 @@ internal static class Lexical
     /// <summary>Inputs at or below this length are narrowed on the stack.</summary>
     internal const int StackLimit = 256;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool IsDigit(byte b) => (uint)(b - '0') <= 9;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static int Digit(byte b) => b - '0';
 
     /// <summary>
@@ -133,6 +137,7 @@ internal static class Lexical
     }
 
     /// <summary>Writes an unsigned integer in decimal, no padding.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool TryWriteUnsigned(ulong value, Span<byte> destination, out int written)
     {
         Span<byte> digits = stackalloc byte[20];
@@ -161,6 +166,7 @@ internal static class Lexical
     }
 
     /// <summary>Writes an unsigned integer zero-padded to <paramref name="width"/> digits.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool TryWritePadded(ulong value, int width, Span<byte> destination, out int written)
     {
         if (destination.Length < width)

@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Xsd;
 
@@ -19,6 +21,7 @@ public readonly struct XsdYearMonthDuration : IEquatable<XsdYearMonthDuration>, 
     public long Months { get; }
 
     /// <summary>Parses a <c>yearMonthDurationLexicalRep</c> (§3.4.26.1).</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryParse(ReadOnlySpan<byte> utf8, out XsdYearMonthDuration value)
     {
         bool ok = DurationLexical.TryParse(utf8, allowYearMonth: true, allowDayTime: false, out long months, out _);

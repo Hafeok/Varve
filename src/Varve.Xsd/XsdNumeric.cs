@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Xsd;
 
@@ -52,30 +54,39 @@ public readonly struct XsdNumeric : IEquatable<XsdNumeric>
     }
 
     /// <summary>Which type this holds.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public XsdNumericKind Kind { get; }
 
     /// <summary>An integer.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static XsdNumeric FromInteger(XsdInteger value) => new(XsdNumericKind.Integer, value.Value, default, 0);
 
     /// <summary>A decimal.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static XsdNumeric FromDecimal(XsdDecimal value) => new(XsdNumericKind.Decimal, 0, value, 0);
 
     /// <summary>A float.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static XsdNumeric FromFloat(XsdFloat value) => new(XsdNumericKind.Float, 0, default, value.Value);
 
     /// <summary>A double.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static XsdNumeric FromDouble(XsdDouble value) => new(XsdNumericKind.Double, 0, default, value.Value);
 
     /// <summary>The value as an integer; only meaningful when <see cref="Kind"/> says so.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public XsdInteger AsInteger => new(_integer);
 
     /// <summary>The value as a decimal; meaningful for the integer and decimal kinds.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public XsdDecimal AsDecimal => Kind == XsdNumericKind.Integer ? XsdDecimal.FromInt64(_integer) : _decimal;
 
     /// <summary>The value as a float; meaningful for every kind, by promotion.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public XsdFloat AsFloat => new((float)AsDouble.Value);
 
     /// <summary>The value as a double; meaningful for every kind, by promotion.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public XsdDouble AsDouble => Kind switch
     {
         XsdNumericKind.Integer => new XsdDouble(_integer),
@@ -88,6 +99,7 @@ public readonly struct XsdNumeric : IEquatable<XsdNumeric>
     /// datatype promotes to. False when the datatype is not numeric or the
     /// form is not a value of it.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryParse(ReadOnlySpan<byte> utf8, XsdDatatype datatype, out XsdNumeric value)
     {
         value = default;
@@ -135,6 +147,7 @@ public readonly struct XsdNumeric : IEquatable<XsdNumeric>
     }
 
     /// <summary>Writes the canonical form of the held kind.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool TryFormat(Span<byte> destination, out int written) => Kind switch
     {
         XsdNumericKind.Integer => AsInteger.TryFormat(destination, out written),
@@ -147,6 +160,7 @@ public readonly struct XsdNumeric : IEquatable<XsdNumeric>
     public override string ToString() => Lexical.ToString(TryFormat);
 
     /// <summary>The datatype the held kind maps back to.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public XsdDatatype Datatype => Kind switch
     {
         XsdNumericKind.Integer => XsdDatatype.Integer,
@@ -158,14 +172,17 @@ public readonly struct XsdNumeric : IEquatable<XsdNumeric>
     // --- arithmetic ---------------------------------------------------------
 
     /// <summary><c>op:numeric-add</c> after promotion; false on overflow.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryAdd(XsdNumeric left, XsdNumeric right, out XsdNumeric result) =>
         Binary(left, right, Operation.Add, out result);
 
     /// <summary><c>op:numeric-subtract</c> after promotion; false on overflow.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TrySubtract(XsdNumeric left, XsdNumeric right, out XsdNumeric result) =>
         Binary(left, right, Operation.Subtract, out result);
 
     /// <summary><c>op:numeric-multiply</c> after promotion; false on overflow.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryMultiply(XsdNumeric left, XsdNumeric right, out XsdNumeric result) =>
         Binary(left, right, Operation.Multiply, out result);
 
@@ -174,10 +191,12 @@ public readonly struct XsdNumeric : IEquatable<XsdNumeric>
     /// (§17.3); false on a zero divisor for integers and decimals, and on
     /// overflow. Floats and doubles divide as IEEE does.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryDivide(XsdNumeric left, XsdNumeric right, out XsdNumeric result) =>
         Binary(left, right, Operation.Divide, out result);
 
     /// <summary><c>op:numeric-unary-minus</c>; false on overflow.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryNegate(XsdNumeric value, out XsdNumeric result)
     {
         switch (value.Kind)
@@ -275,6 +294,7 @@ public readonly struct XsdNumeric : IEquatable<XsdNumeric>
         Divide,
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool Binary(XsdNumeric left, XsdNumeric right, Operation operation, out XsdNumeric result)
     {
         XsdNumericKind kind = left.Kind > right.Kind ? left.Kind : right.Kind;
@@ -345,12 +365,14 @@ public readonly struct XsdNumeric : IEquatable<XsdNumeric>
         }
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool Store(XsdInteger value, out XsdNumeric result)
     {
         result = FromInteger(value);
         return true;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool Store(XsdDecimal value, out XsdNumeric result)
     {
         result = FromDecimal(value);
@@ -364,6 +386,7 @@ public readonly struct XsdNumeric : IEquatable<XsdNumeric>
     /// <see cref="PartialOrdering.Indeterminate"/> only when a <c>NaN</c> is
     /// involved.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static PartialOrdering Compare(XsdNumeric left, XsdNumeric right)
     {
         XsdNumericKind kind = left.Kind > right.Kind ? left.Kind : right.Kind;
@@ -377,6 +400,7 @@ public readonly struct XsdNumeric : IEquatable<XsdNumeric>
         };
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static PartialOrdering Ordering(int comparison) =>
         comparison < 0 ? PartialOrdering.Less : comparison > 0 ? PartialOrdering.Greater : PartialOrdering.Equal;
 

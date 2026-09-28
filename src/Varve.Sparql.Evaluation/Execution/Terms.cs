@@ -3,6 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Immutable;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Xsd;
 
@@ -11,10 +14,13 @@ namespace Varve.Sparql.Evaluation.Execution;
 /// <summary>Literal construction and classification, over <c>Varve.Xsd</c>.</summary>
 internal static class Terms
 {
-    private static readonly RdfTerm?[] Datatypes = BuildDatatypes();
+    // Immutable: a static array was writable by anyone holding it (DD0004).
+    private static readonly ImmutableArray<RdfTerm?> Datatypes = [.. BuildDatatypes()];
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static RdfTerm True { get; } = RdfTerm.Literal("true"u8, Datatype(XsdDatatype.Boolean));
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static RdfTerm False { get; } = RdfTerm.Literal("false"u8, Datatype(XsdDatatype.Boolean));
 
     internal static RdfTerm EmptyString { get; } = RdfTerm.Literal(default);
@@ -24,9 +30,11 @@ internal static class Terms
     internal static RdfTerm RdfDirLangString { get; } = RdfTerm.Iri(RdfVocabulary.RdfDirLangString);
 
     /// <summary>The datatype IRI term of an XSD datatype.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static RdfTerm Datatype(XsdDatatype datatype) =>
         Datatypes[(int)datatype] ?? throw new ArgumentOutOfRangeException(nameof(datatype));
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static RdfTerm Boolean(bool value) => value ? True : False;
 
     /// <summary>The XSD datatype a literal has, or <see cref="XsdDatatype.None"/> for any other datatype.</summary>
@@ -46,6 +54,7 @@ internal static class Terms
     internal static bool IsStringLiteral(RdfTerm term) =>
         term.Kind == RdfTermKind.Literal && term.Datatype is null;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool TryNumeric(RdfTerm term, out XsdNumeric value)
     {
         value = default;
@@ -63,6 +72,7 @@ internal static class Terms
         term.Kind == RdfTermKind.Literal && term.Datatype is not null && XsdDatatypes.IsNumeric(XsdDatatypes.FromIri(term.DatatypeIri));
 
     /// <summary>A numeric value as a literal in its canonical form.</summary>
+    [DesignDecision(typeof(EvaluationHotPathScope.TermBuildingExpressionsAllocate), Scope = ExceptionScope.HotPath)]
     internal static RdfTerm Literal(XsdNumeric value)
     {
         Span<byte> buffer = stackalloc byte[64];

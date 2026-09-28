@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Immutable;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Xsd;
 
@@ -22,6 +24,7 @@ internal static class DurationLexical
     private static readonly XsdDecimal SecondsPerHour = XsdDecimal.FromInt64(3600);
     private static readonly XsdDecimal SecondsPerMinute = XsdDecimal.FromInt64(60);
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool TryParse(
         ReadOnlySpan<byte> utf8, bool allowYearMonth, bool allowDayTime, out long months, out XsdDecimal seconds)
     {
@@ -318,6 +321,7 @@ internal static class DurationLexical
     /// The order of §3.3.6.1: add both durations to each of the four
     /// reference dateTimes and compare; ordered only when all four agree.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static PartialOrdering CompareXsd(long leftMonths, XsdDecimal leftSeconds, long rightMonths, XsdDecimal rightSeconds)
     {
         if (leftMonths == rightMonths)
@@ -355,6 +359,7 @@ internal static class DurationLexical
         return verdict ?? PartialOrdering.Indeterminate;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static PartialOrdering Ordering(int comparison) =>
         comparison < 0 ? PartialOrdering.Less : comparison > 0 ? PartialOrdering.Greater : PartialOrdering.Equal;
 

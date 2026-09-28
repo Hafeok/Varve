@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Sparql.Evaluation.Operators;
@@ -22,6 +24,7 @@ internal enum PositionKind : byte
 }
 
 /// <summary>One position of a triple pattern, resolved once per execution (§5.3).</summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal readonly struct PatternPosition
 {
     private PatternPosition(PositionKind kind, TermHandle handle, int slot, RdfTerm? constant, NestedPattern? nested)
@@ -54,6 +57,7 @@ internal readonly struct PatternPosition
 }
 
 /// <summary>A triple term pattern with variables: three positions, any of which may nest again.</summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal sealed class NestedPattern(PatternPosition subject, PatternPosition predicate, PatternPosition @object)
 {
     internal PatternPosition Subject { get; } = subject;
@@ -64,6 +68,7 @@ internal sealed class NestedPattern(PatternPosition subject, PatternPosition pre
 }
 
 /// <summary>A triple pattern, resolved.</summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal sealed class TriplePatternSpec(PatternPosition subject, PatternPosition predicate, PatternPosition @object)
 {
     internal PatternPosition Subject { get; } = subject;

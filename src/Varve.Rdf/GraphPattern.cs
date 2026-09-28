@@ -50,6 +50,7 @@ public enum GraphMatch : byte
 /// is a caller who can get the arithmetic wrong.
 /// </para>
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 public readonly struct GraphPattern : IEquatable<GraphPattern>
 {
     private GraphPattern(GraphMatch match, TermHandle graph)

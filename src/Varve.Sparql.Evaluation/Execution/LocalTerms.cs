@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Xsd;
 
@@ -51,9 +53,11 @@ internal sealed class LocalTerms
         return raw;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal RdfTerm Get(ulong raw) => _entries[(int)raw - 1].Term;
 
     /// <summary>The source handle a term was materialised from, if it was.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool TryGetOrigin(ulong raw, out TermHandle origin)
     {
         origin = _entries[(int)raw - 1].Origin;
@@ -61,6 +65,7 @@ internal sealed class LocalTerms
     }
 
     /// <summary>The term's numeric value, parsed once.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool TryGetNumeric(ulong raw, out XsdNumeric value)
     {
         Entry entry = _entries[(int)raw - 1];
@@ -73,6 +78,7 @@ internal sealed class LocalTerms
         return entry.State == 1;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private sealed class Entry
     {
         internal Entry(RdfTerm term) => Term = term;

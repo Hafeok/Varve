@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Xsd;
 
@@ -116,6 +118,7 @@ public enum XsdDatatype
 public static class XsdDatatypes
 {
     /// <summary>The XML Schema namespace, <c>http://www.w3.org/2001/XMLSchema#</c>.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static ReadOnlySpan<byte> Namespace => "http://www.w3.org/2001/XMLSchema#"u8;
 
     /// <summary>
@@ -126,6 +129,7 @@ public static class XsdDatatypes
     /// One namespace comparison and one switch on the local name, allocating
     /// nothing. RDF IRI equality is byte equality, so no case folding.
     /// </remarks>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static XsdDatatype FromIri(ReadOnlySpan<byte> iri)
     {
         if (!iri.StartsWith(Namespace))
@@ -211,6 +215,7 @@ public static class XsdDatatypes
     /// Whether the datatype is <c>xsd:integer</c> or derived from it
     /// (§3.4.13–§3.4.25), so that its values are <see cref="XsdInteger"/>s.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool IsIntegerType(XsdDatatype datatype) =>
         datatype is >= XsdDatatype.Integer and <= XsdDatatype.PositiveInteger;
 
@@ -218,6 +223,7 @@ public static class XsdDatatypes
     /// Whether the datatype is numeric in SPARQL 1.1 §17.1's sense: the
     /// integer family, <c>decimal</c>, <c>float</c> or <c>double</c>.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool IsNumeric(XsdDatatype datatype) =>
         datatype is XsdDatatype.Decimal or XsdDatatype.Float or XsdDatatype.Double || IsIntegerType(datatype);
 }

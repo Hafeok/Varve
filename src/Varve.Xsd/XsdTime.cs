@@ -83,6 +83,7 @@ public readonly struct XsdTime : IEquatable<XsdTime>
         SevenPropertyModel.TimeOnTimeline(in _value, _value.HasTimezone ? _value.TimezoneOffset : implicitTimezoneOffset);
 
     /// <summary>Parses the lexical representation (§3.3.8, §D.2.2).</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryParse(ReadOnlySpan<byte> utf8, out XsdTime value)
     {
         bool ok = SevenPropertyModel.TryParse(utf8, Fields, out SevenProperties parsed);
@@ -123,6 +124,7 @@ public readonly struct XsdTime : IEquatable<XsdTime>
     /// untimezoned value are comparable only when imputing both <c>+14:00</c>
     /// and <c>-14:00</c> gives the same strict answer.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static PartialOrdering CompareXsd(XsdTime left, XsdTime right) =>
         SevenPropertyModel.CompareXsd(in left._value, in right._value);
 

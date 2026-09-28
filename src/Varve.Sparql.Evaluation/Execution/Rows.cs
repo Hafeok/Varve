@@ -36,6 +36,7 @@ internal static class Rows
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static void Clear(ulong[] row, int width, int slot) => Set(row, width, slot, TermRef.Unbound);
 
+    [DesignDecision(typeof(EvaluationHotPathScope.SolutionCostsItsRow), Scope = ExceptionScope.HotPath)]
     internal static ulong[] Copy(ulong[] row)
     {
         ulong[] copy = new ulong[row.Length];
