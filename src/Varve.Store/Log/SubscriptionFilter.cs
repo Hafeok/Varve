@@ -32,15 +32,19 @@ public readonly struct SubscriptionFilter : IEquatable<SubscriptionFilter>
     public static SubscriptionFilter All => default;
 
     /// <summary>The subject to match, or <see cref="TermHandle.None"/> for any.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public TermHandle Subject { get; }
 
     /// <summary>The predicate to match, or <see cref="TermHandle.None"/> for any.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public TermHandle Predicate { get; }
 
     /// <summary>The object to match, or <see cref="TermHandle.None"/> for any.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public TermHandle Object { get; }
 
     /// <summary>The graphs to match. Ignored for <see cref="All"/>.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public GraphPattern Graph { get; }
 
     /// <summary>Quads in the graphs a pattern names.</summary>

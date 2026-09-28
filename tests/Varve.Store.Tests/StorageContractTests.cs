@@ -84,15 +84,15 @@ public abstract class StorageContractTests
     public async Task derived_blobs_are_put_replaced_listed_in_ordinal_order_and_deleted()
     {
         IStorage storage = Create();
-        await storage.Derived.PutAsync("b", Bytes(1), T.Ct);
-        await storage.Derived.PutAsync("a", Bytes(2, 3), T.Ct);
-        await storage.Derived.PutAsync("b", Bytes(4, 5, 6), T.Ct);
+        await storage.Derived.PutAsync(new BlobName("b"), Bytes(1), T.Ct);
+        await storage.Derived.PutAsync(new BlobName("a"), Bytes(2, 3), T.Ct);
+        await storage.Derived.PutAsync(new BlobName("b"), Bytes(4, 5, 6), T.Ct);
 
-        Assert.Equal(["a", "b"], await storage.Derived.ListAsync(T.Ct));
-        Assert.Equal(Bytes(5, 6), (await storage.Derived.GetRangeAsync("b", new ByteOffset(1), new ByteCount(10), T.Ct)).ToArray());
-        Assert.True(await storage.Derived.DeleteAsync("a", T.Ct));
-        Assert.False(await storage.Derived.DeleteAsync("a", T.Ct));
-        Assert.Equal(["b"], await storage.Derived.ListAsync(T.Ct));
+        Assert.Equal([new BlobName("a"), new BlobName("b")], await storage.Derived.ListAsync(T.Ct));
+        Assert.Equal(Bytes(5, 6), (await storage.Derived.GetRangeAsync(new BlobName("b"), new ByteOffset(1), new ByteCount(10), T.Ct)).ToArray());
+        Assert.True(await storage.Derived.DeleteAsync(new BlobName("a"), T.Ct));
+        Assert.False(await storage.Derived.DeleteAsync(new BlobName("a"), T.Ct));
+        Assert.Equal([new BlobName("b")], await storage.Derived.ListAsync(T.Ct));
     }
 
     [Fact]
@@ -147,7 +147,7 @@ public sealed class ExternalBackendContractTests : StorageContractTests
 internal sealed class ListStorage : IStorage, ISegmentStore, IDerivedStore
 {
     private readonly List<(List<byte> Bytes, bool Sealed)> _segments = [];
-    private readonly SortedDictionary<string, byte[]> _blobs = new(StringComparer.Ordinal);
+    private readonly SortedDictionary<BlobName, byte[]> _blobs = [];
 
     public ISegmentStore Log => this;
 
@@ -197,20 +197,20 @@ internal sealed class ListStorage : IStorage, ISegmentStore, IDerivedStore
         return new(bytes.GetRange(start, (int)Math.Min(length.Value, bytes.Count - start)).ToArray());
     }
 
-    public ValueTask PutAsync(string name, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
+    public ValueTask PutAsync(BlobName name, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
     {
         _blobs[name] = bytes.ToArray();
         return ValueTask.CompletedTask;
     }
 
-    public ValueTask<ReadOnlyMemory<byte>> GetRangeAsync(string name, ByteOffset offset, ByteCount length, CancellationToken cancellationToken)
+    public ValueTask<ReadOnlyMemory<byte>> GetRangeAsync(BlobName name, ByteOffset offset, ByteCount length, CancellationToken cancellationToken)
     {
         byte[] blob = _blobs[name];
         int start = (int)Math.Min(offset.Value, blob.Length);
         return new(blob.AsMemory(start, (int)Math.Min(length.Value, blob.Length - start)).ToArray());
     }
 
-    public ValueTask<bool> DeleteAsync(string name, CancellationToken cancellationToken) => new(_blobs.Remove(name));
+    public ValueTask<bool> DeleteAsync(BlobName name, CancellationToken cancellationToken) => new(_blobs.Remove(name));
 
-    public ValueTask<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken) => new(_blobs.Keys.ToArray());
+    public ValueTask<IReadOnlyList<BlobName>> ListAsync(CancellationToken cancellationToken) => new(_blobs.Keys.ToArray());
 }

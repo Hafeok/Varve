@@ -58,7 +58,7 @@ public sealed class MemoryStorage : IStorage
     /// </summary>
     public static MemoryStorage FromSegments(
         IEnumerable<ReadOnlyMemory<byte>> log,
-        IEnumerable<KeyValuePair<string, ReadOnlyMemory<byte>>>? derived = null)
+        IEnumerable<KeyValuePair<BlobName, ReadOnlyMemory<byte>>>? derived = null)
     {
         ArgumentNullException.ThrowIfNull(log);
 
@@ -80,9 +80,9 @@ public sealed class MemoryStorage : IStorage
 
         if (derived is not null)
         {
-            foreach (KeyValuePair<string, ReadOnlyMemory<byte>> blob in derived)
+            foreach (KeyValuePair<BlobName, ReadOnlyMemory<byte>> blob in derived)
             {
-                blobs[blob.Key] = blob.Value.ToArray();
+                blobs[blob.Key.Value] = blob.Value.ToArray();
             }
         }
 
@@ -210,23 +210,22 @@ public sealed class MemoryStorage : IStorage
 
         public MemoryDerivedStore(SortedDictionary<string, ReadOnlyMemory<byte>> blobs) => _blobs = blobs;
 
-        public ValueTask PutAsync(string name, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
+        public ValueTask PutAsync(BlobName name, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
         {
-            ArgumentException.ThrowIfNullOrEmpty(name);
             byte[] copy = bytes.ToArray();
 
             lock (_gate)
             {
-                _blobs[name] = copy;
+                _blobs[name.Value] = copy;
                 return ValueTask.CompletedTask;
             }
         }
 
-        public ValueTask<ReadOnlyMemory<byte>> GetRangeAsync(string name, ByteOffset offset, ByteCount length, CancellationToken cancellationToken)
+        public ValueTask<ReadOnlyMemory<byte>> GetRangeAsync(BlobName name, ByteOffset offset, ByteCount length, CancellationToken cancellationToken)
         {
             lock (_gate)
             {
-                if (!_blobs.TryGetValue(name, out ReadOnlyMemory<byte> blob))
+                if (!_blobs.TryGetValue(name.Value, out ReadOnlyMemory<byte> blob))
                 {
                     throw new KeyNotFoundException("No derived blob named '" + name + "'.");
                 }
@@ -235,19 +234,27 @@ public sealed class MemoryStorage : IStorage
             }
         }
 
-        public ValueTask<bool> DeleteAsync(string name, CancellationToken cancellationToken)
+        public ValueTask<bool> DeleteAsync(BlobName name, CancellationToken cancellationToken)
         {
             lock (_gate)
             {
-                return new ValueTask<bool>(_blobs.Remove(name));
+                return new ValueTask<bool>(_blobs.Remove(name.Value));
             }
         }
 
-        public ValueTask<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken)
+        public ValueTask<IReadOnlyList<BlobName>> ListAsync(CancellationToken cancellationToken)
         {
             lock (_gate)
             {
-                return new ValueTask<IReadOnlyList<string>>([.. _blobs.Keys]);
+                BlobName[] names = new BlobName[_blobs.Count];
+                int i = 0;
+
+                foreach (string name in _blobs.Keys)
+                {
+                    names[i++] = new BlobName(name);
+                }
+
+                return new ValueTask<IReadOnlyList<BlobName>>(names);
             }
         }
     }

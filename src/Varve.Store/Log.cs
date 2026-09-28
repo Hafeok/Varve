@@ -80,7 +80,7 @@ internal static class LogReader
     {
         LogScan scan = new() { Segments = await store.ListSegmentsAsync(cancellationToken).ConfigureAwait(false) };
         Pending pending = new();
-        byte[] previous = LogFormat.Genesis;
+        byte[] previous = LogFormat.Genesis();
 
         for (int s = 0; s < scan.Segments.Count; s++)
         {

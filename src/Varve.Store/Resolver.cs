@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using Varve.Rdf;
+using Varve.Store.Log;
 
 namespace Varve.Store;
 

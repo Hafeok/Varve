@@ -165,10 +165,9 @@ public class EstimateTests
         await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Integer("1")), T.Ct);
         Counting validator = new();
 
-        CommitRequest request = new CommitRequest()
+        CommitRequest request = new CommitRequest { Validators = [validator] }
             .Assert(T.Iri("s"), T.Iri("p"), T.Integer("2"))
             .Retract(T.Iri("s"), T.Iri("p"), T.Integer("1"));
-        request.Validators.Add(validator);
         await dataset.CommitAsync(request, T.Ct);
 
         Assert.Equal(CardinalityEstimate.Exact(new QuadCount(1)), validator.Seen);

@@ -226,7 +226,7 @@ internal static class UpdateRunner
             }
         }
 
-        if (request.Count > 0)
+        if (request.Count.Value > 0)
         {
             await dataset.CommitAsync(request, cancellationToken);
         }

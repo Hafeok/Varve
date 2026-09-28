@@ -56,6 +56,7 @@ public readonly struct TermAllocation : IEquatable<TermAllocation>
 /// crash. Feed one with <see cref="Dataset.CatchUpAsync"/> and rebuild it with
 /// <see cref="Dataset.RebuildAsync"/>.
 /// </remarks>
+[Contract(typeof(ProjectionContractAndSubscriptions.ProjectionGetsClosedCommitsInOrder), Role = "a projection of the log, fed closed commits in position order")]
 public interface IProjection
 {
     /// <summary>The position of the last commit applied: <c>pos(π)</c>.</summary>

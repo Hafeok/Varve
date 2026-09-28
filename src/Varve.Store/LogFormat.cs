@@ -36,7 +36,11 @@ internal static class LogFormat
     /// that a hash of nothing, or another format's genesis, is not mistaken for
     /// it (ADR 0045).
     /// </summary>
-    internal static byte[] Genesis { get; } = SHA256.HashData("Varve log, before position 1"u8);
+    /// <remarks>
+    /// Computed on each call, which is at open and at position 1, rather than
+    /// held in a static array any caller could write to (DD0004).
+    /// </remarks>
+    internal static byte[] Genesis() => SHA256.HashData("Varve log, before position 1"u8);
 
     /// <summary>The body — <c>(alloc, A, R)</c>, what <c>content</c> hashes.</summary>
     internal static byte[] EncodeBody(ReadOnlySpan<Allocation> allocations, ReadOnlySpan<Quad> asserted, ReadOnlySpan<Quad> retracted)

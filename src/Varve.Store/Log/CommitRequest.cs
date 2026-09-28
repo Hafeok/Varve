@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using Varve.Rdf;
 
 namespace Varve.Store.Log;
 
@@ -33,10 +34,15 @@ public sealed class CommitRequest
     public CommitMetadata Metadata { get; init; } = new();
 
     /// <summary>Validators run against the proposed state, in order. The first reject wins.</summary>
-    public IList<ICommitValidator> Validators { get; } = [];
+    /// <remarks>
+    /// Given when the request is made and read-only afterwards (DD0019): a
+    /// request is handed to the sequencer, and the list it validates with is
+    /// fixed by then.
+    /// </remarks>
+    public IReadOnlyList<ICommitValidator> Validators { get; init; } = [];
 
-    /// <summary>How many operations the request holds.</summary>
-    public int Count => _operations.Count;
+    /// <summary>How many quads the request asserts or retracts: one per operation.</summary>
+    public QuadCount Count => new(_operations.Count);
 
     /// <summary>Asserts a quad in the default graph.</summary>
     public CommitRequest Assert(RequestTerm subject, RequestTerm predicate, RequestTerm @object) =>

@@ -6,6 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven.Ledger.Varve;
+using DecisionDriven;
 using Varve.Store.Log;
 
 namespace Varve.Store;
@@ -19,6 +21,7 @@ namespace Varve.Store;
 /// separate types so that dropping everything derived is an operation the
 /// type makes safe, and confusing the two is not expressible.
 /// </remarks>
+[Contract(typeof(StorageAbstraction.SegmentStoreAndDerivedStore), Role = "a storage backend: the log's segments and the derived blobs")]
 public interface IStorage
 {
     /// <summary>The log: append-only segments.</summary>
@@ -47,6 +50,7 @@ public interface IStorage
 /// copies (ADR 0040).
 /// </para>
 /// </remarks>
+[Contract(typeof(StorageContractMembersAndTheMemoryBackend.StorageContractMembers), Role = "the log's append-only segments")]
 public interface ISegmentStore
 {
     /// <summary>What a completed <see cref="FlushAsync"/> guarantees.</summary>
@@ -87,20 +91,21 @@ public interface ISegmentStore
 /// replaced, never modified in place. That is what lets a checkpoint be
 /// scanned where it lies (ADR 0041).
 /// </remarks>
+[Contract(typeof(StorageContractMembersAndTheMemoryBackend.StorageContractMembers), Role = "derived blobs, rebuildable from the log")]
 public interface IDerivedStore
 {
     /// <summary>Stores a blob under a name, replacing any blob of that name.</summary>
-    ValueTask PutAsync(string name, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken);
+    ValueTask PutAsync(BlobName name, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken);
 
     /// <summary>
     /// Reads bytes from a blob. Returns fewer than asked for only at the blob's
     /// end. Fails when there is no blob of that name.
     /// </summary>
-    ValueTask<ReadOnlyMemory<byte>> GetRangeAsync(string name, ByteOffset offset, ByteCount length, CancellationToken cancellationToken);
+    ValueTask<ReadOnlyMemory<byte>> GetRangeAsync(BlobName name, ByteOffset offset, ByteCount length, CancellationToken cancellationToken);
 
     /// <summary>Deletes a blob. Returns false when there was none.</summary>
-    ValueTask<bool> DeleteAsync(string name, CancellationToken cancellationToken);
+    ValueTask<bool> DeleteAsync(BlobName name, CancellationToken cancellationToken);
 
     /// <summary>The names of every blob, in ordinal order.</summary>
-    ValueTask<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken);
+    ValueTask<IReadOnlyList<BlobName>> ListAsync(CancellationToken cancellationToken);
 }

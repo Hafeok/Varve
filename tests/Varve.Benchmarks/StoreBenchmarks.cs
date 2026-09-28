@@ -243,7 +243,7 @@ internal static class StoreSizes
         }
 
         await dataset.CheckpointAsync(dataset.Head);
-        string name = (await storage.Derived.ListAsync(default)).Single();
+        BlobName name = (await storage.Derived.ListAsync(default)).Single();
         long checkpointBytes = (await storage.Derived.GetRangeAsync(name, new ByteOffset(0), new ByteCount(int.MaxValue), default)).Length;
         GC.KeepAlive(quads);
         long after = GC.GetTotalMemory(forceFullCollection: true);

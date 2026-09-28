@@ -32,8 +32,7 @@ public class StagingTests
         await using Dataset dataset = await Dataset.OpenAsync(
             new MemoryStorage(), new DatasetOptions { Clock = ManualClock.Epoch(), Validators = [first, second] }, T.Ct);
 
-        CommitRequest request = One("a");
-        request.Validators.Add(own);
+        CommitRequest request = new CommitRequest { Validators = [own] }.Assert(T.Iri("a"), T.Iri("p"), T.Iri("o"));
         Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(request, T.Ct)).Outcome);
         Assert.Equal(["dataset-1", "dataset-2", "request"], order);
 

@@ -139,8 +139,7 @@ public class BehaviourTests
         await dataset.CommitAsync(One("old"), T.Ct);
         Inspecting validator = new();
 
-        CommitRequest request = new CommitRequest().Assert(T.Iri("new"), T.Iri("p"), T.Iri("o")).Retract(T.Iri("old"), T.Iri("p"), T.Iri("o"));
-        request.Validators.Add(validator);
+        CommitRequest request = new CommitRequest { Validators = [validator] }.Assert(T.Iri("new"), T.Iri("p"), T.Iri("o")).Retract(T.Iri("old"), T.Iri("p"), T.Iri("o"));
         CommitResult result = await dataset.CommitAsync(request, T.Ct);
 
         Assert.Equal(CommitOutcome.Committed, result.Outcome);
@@ -309,7 +308,7 @@ public class BehaviourTests
                 for (long p = 1; p <= head; p++)
                 {
                     await harness.Dataset.CheckpointAsync(new Position(p), T.Ct);
-                    string name = (await harness.Storage.Derived.ListAsync(T.Ct)).Single();
+                    BlobName name = (await harness.Storage.Derived.ListAsync(T.Ct)).Single();
                     ReadOnlyMemory<byte> blob = await harness.Storage.Derived.GetRangeAsync(name, new ByteOffset(0), new ByteCount(int.MaxValue), T.Ct);
                     await harness.Dataset.DropCheckpointAsync(new Position(p), T.Ct);
 
@@ -347,7 +346,7 @@ public class BehaviourTests
             await dataset.CommitAsync(One("different"), T.Ct);
         }
 
-        string name = (await first.Derived.ListAsync(T.Ct)).Single();
+        BlobName name = (await first.Derived.ListAsync(T.Ct)).Single();
         ReadOnlyMemory<byte> blob = await first.Derived.GetRangeAsync(name, new ByteOffset(0), new ByteCount(int.MaxValue), T.Ct);
         MemoryStorage mixed = MemoryStorage.FromSegments(await LogPropertyTests.SegmentsAsync(second) is { } log ? log.Select(s => (ReadOnlyMemory<byte>)s) : [], [new(name, blob)]);
 

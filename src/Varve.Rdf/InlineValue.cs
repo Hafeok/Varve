@@ -40,6 +40,7 @@ public enum InlineValueKind : byte
 /// set does.
 /// </para>
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 public readonly struct InlineValue : IEquatable<InlineValue>
 {
     private readonly long _bits;

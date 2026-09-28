@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
+using DecisionDriven.Ledger.Varve;
+using DecisionDriven;
 using Varve.Rdf;
 using Varve.Store.Log;
 
@@ -35,6 +37,7 @@ namespace Varve.Store;
 /// (I3).
 /// </para>
 /// </remarks>
+[Contract(typeof(StagingViewAndDatasetValidators.StagingViewOverAPin), Role = "a pinned read that also stages terms for a request")]
 public sealed class StagingView : IQuadSource
 {
     private readonly DatasetView _view;

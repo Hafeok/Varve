@@ -113,6 +113,7 @@ internal sealed class Harness : IAsyncDisposable
         {
             ExpectedPosition = AsPosition(Expected(step.Expected)),
             Metadata = new CommitMetadata { Agent = step.Agent == 0 ? RequestTerm.None : T.Iri("agent" + step.Agent) },
+            Validators = step.Validator == ValidatorKind.None ? [] : [new ScriptValidator(step.Validator)],
         };
 
         List<MQuad> ordered = [.. Model.Graph.OrderBy(q => Render(q), StringComparer.Ordinal)];
@@ -168,10 +169,6 @@ internal sealed class Harness : IAsyncDisposable
             }
         }
 
-        if (step.Validator != ValidatorKind.None)
-        {
-            request.Validators.Add(new ScriptValidator(step.Validator));
-        }
 
         RdfTerm? agent = step.Agent == 0 ? null : T.Iri("agent" + step.Agent);
         Expected model = Model.Commit(modelOps, agent, request.ExpectedPosition?.Value, (after, a, r) => Validate(step.Validator, after, a), Clock.Now.UtcTicks, out List<RdfTerm> freshBlanks);

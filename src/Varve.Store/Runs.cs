@@ -20,8 +20,6 @@ namespace Varve.Store;
 /// </remarks>
 internal sealed class Run
 {
-    private static readonly ReadOnlyMemory<QuadKey>[] NoRetractions = new ReadOnlyMemory<QuadKey>[Orders.Count];
-
     private readonly ReadOnlyMemory<QuadKey>[] _asserted;
     private readonly ReadOnlyMemory<QuadKey>[] _retracted;
 
@@ -42,14 +40,24 @@ internal sealed class Run
 
     internal ReadOnlyMemory<QuadKey> Retracted(IndexOrder order) => _retracted[(int)order];
 
+    /// <summary>
+    /// One empty slot per order, for a run with no retractions. Each run gets
+    /// its own array rather than sharing a static one (DD0004): twelve empty
+    /// memories once per run, which is per commit and never per quad.
+    /// </summary>
+    private static ReadOnlyMemory<QuadKey>[] NoRetractions() => new ReadOnlyMemory<QuadKey>[Orders.Count];
+
     /// <summary>A run from a delta's two halves: one array per order per half.</summary>
     internal static Run FromDelta(ReadOnlySpan<Quad> asserted, ReadOnlySpan<Quad> retracted) =>
-        new(Build(asserted), retracted.IsEmpty ? NoRetractions : Build(retracted));
+        new(Build(asserted), retracted.IsEmpty ? NoRetractions() : Build(retracted));
 
     /// <summary>A run of assertions only, already sorted in every order: a checkpoint's.</summary>
-    internal static Run FromSorted(ReadOnlyMemory<QuadKey>[] asserted) => new(asserted, NoRetractions);
+    internal static Run FromSorted(ReadOnlyMemory<QuadKey>[] asserted) => new(asserted, NoRetractions());
 
+    // The arrays are the run: one per order, kept for as long as the version
+    // that holds it. The loop inside is per quad and allocates nothing.
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    [DesignDecision(typeof(StoreHotPathScope.RunBuildAllocatesTheRunItReturns), Scope = ExceptionScope.HotPath)]
     private static ReadOnlyMemory<QuadKey>[] Build(ReadOnlySpan<Quad> quads)
     {
         ReadOnlyMemory<QuadKey>[] orders = new ReadOnlyMemory<QuadKey>[Orders.Count];
@@ -102,7 +110,7 @@ internal sealed class Run
     internal static Run Merge(Run older, Run newer, bool dropRetractions)
     {
         ReadOnlyMemory<QuadKey>[] asserted = new ReadOnlyMemory<QuadKey>[Orders.Count];
-        ReadOnlyMemory<QuadKey>[] retracted = dropRetractions ? NoRetractions : new ReadOnlyMemory<QuadKey>[Orders.Count];
+        ReadOnlyMemory<QuadKey>[] retracted = NoRetractions();
 
         for (int order = 0; order < Orders.Count; order++)
         {
@@ -286,6 +294,7 @@ internal sealed class IndexVersion
 
     internal long Position { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal Run[] Runs { get; }
 
     /// <summary>A version standing on a checkpoint's run.</summary>

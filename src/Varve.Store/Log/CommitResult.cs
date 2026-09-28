@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Store.Log;
@@ -32,6 +34,7 @@ public readonly struct CommitResult : IEquatable<CommitResult>
     public IReadOnlyList<RdfTerm> Report { get; }
 
     /// <summary>Why, when unavailable.</summary>
+    [DesignDecision(typeof(StoreLogSurfaces.UnavailableReasonIsDisplayText), Scope = ExceptionScope.Boundary)]
     public string? Reason { get; }
 
     internal static CommitResult Committed(long position) => new(CommitOutcome.Committed, position, null, null);

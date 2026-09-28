@@ -370,7 +370,7 @@ public sealed class Dataset : IAsyncDisposable
             CommitInfo at = state.Commits[position - 1];
             Run run = Run.FromDelta(CollectionsMarshal.AsSpan(quads), []);
             byte[] blob = CheckpointFormat.Encode(position, at.HeaderHash, at.CanonicalCount, at.BlankCount, run, _dictionary);
-            string name = Checkpoint.Name(position);
+            BlobName name = Checkpoint.Name(position);
 
             await _storage.Derived.PutAsync(name, blob, cancellationToken).ConfigureAwait(false);
             ReadOnlyMemory<byte> stored = await _storage.Derived.GetRangeAsync(name, new ByteOffset(0), new ByteCount(blob.Length), cancellationToken).ConfigureAwait(false);
@@ -636,7 +636,7 @@ public sealed class Dataset : IAsyncDisposable
 
             Allocation[] allocations = [.. resolver.Allocations];
             byte[] body = LogFormat.EncodeBody(allocations, delta.Asserted, delta.Retracted);
-            byte[] previous = head == 0 ? LogFormat.Genesis : state.Commits[head - 1].HeaderHash;
+            byte[] previous = head == 0 ? LogFormat.Genesis() : state.Commits[head - 1].HeaderHash;
             CommitHeader header = new(kind, next, timestamp, agent, cause, scope, [.. attachments], kindPayload, previous, SHA256.HashData(body));
             byte[] headerBytes = LogFormat.EncodeHeader(in header);
             byte[] headerHash = SHA256.HashData(headerBytes);
@@ -778,9 +778,9 @@ public sealed class Dataset : IAsyncDisposable
     {
         List<Checkpoint> loaded = [];
 
-        foreach (string name in await _storage.Derived.ListAsync(cancellationToken).ConfigureAwait(false))
+        foreach (BlobName name in await _storage.Derived.ListAsync(cancellationToken).ConfigureAwait(false))
         {
-            if (!name.StartsWith(Checkpoint.Prefix, StringComparison.Ordinal))
+            if (!name.Value.StartsWith(Checkpoint.Prefix, StringComparison.Ordinal))
             {
                 continue;
             }
@@ -823,7 +823,7 @@ public sealed class Dataset : IAsyncDisposable
     private ValueTask<LoggedCommit> ReadLoggedAsync(State state, long position, CancellationToken cancellationToken)
     {
         CommitInfo info = state.Commits[position - 1];
-        byte[] previous = position == 1 ? LogFormat.Genesis : state.Commits[position - 2].HeaderHash;
+        byte[] previous = position == 1 ? LogFormat.Genesis() : state.Commits[position - 2].HeaderHash;
         return LogReader.ReadAsync(_storage.Log, info.Location, position, previous, cancellationToken);
     }
 
