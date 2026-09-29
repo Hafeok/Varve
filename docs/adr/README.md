@@ -156,11 +156,12 @@ maintainer on the adoption plan. Every ADR is also a decision set in
 |---:|---|---|
 | [0062](0062-adopting-decisiondriven-analyzers.md) | Adopting `DecisionDriven.Analyzers`: generic rules from a package, Varve's own rules only in `Varve.Analyzers` | Accepted; supersedes 0004's reservation table and 0003's suppression escape |
 | [0063](0063-build-time-analyzer-packages.md) | Build-time packages for the analyzers, and what `BannedSymbols.txt` must cite | Accepted; amends 0009; amended 2026-09-26 (0006's two config-only rulings) |
-| [0064](0064-varve-configuration-and-hot-path-rules.md) | Varve's configuration of the `DD` rules; the hot-path rules `VARVE0003` and `VARVE0004`; the layer declaration `VARVE0005` | Accepted; supersedes 0026's placement and 0003's declaration |
-| [0065](0065-wrapper-types-and-the-store-log-namespace.md) | Positions, ids and sizes as wrapper types; the log's values in `Varve.Store.Log` | Accepted; supersedes 0011, 0040 and 0049 in part |
+| [0064](0064-varve-configuration-and-hot-path-rules.md) | Varve's configuration of the `DD` rules; the hot-path rules `VARVE0003` and `VARVE0004`; the layer declaration `VARVE0005` | Accepted; supersedes 0026's placement and 0003's declaration; two *not a model* bullets **superseded by 0069** (Proposed) |
+| [0065](0065-wrapper-types-and-the-store-log-namespace.md) | Positions, ids and sizes as wrapper types; the log's values in `Varve.Store.Log` | Accepted; supersedes 0011, 0040 and 0049 in part; `Durability`'s placement **superseded by 0069** (Proposed) |
 | [0066](0066-expected-red-pull-requests.md) | Expected-red pull requests: citing a decision nobody has accepted yet | Accepted; amends 0032 and 0034 |
 | [0067](0067-inmemorydataset-is-a-value-built-by-a-builder.md) | `InMemoryDataset` is an immutable value, assembled by `InMemoryDatasetBuilder` | Accepted |
 | [0068](0068-dated-amendments.md) | Dated amendments: add-only, dated, never a change of meaning | Accepted; amends 0001 |
+| [0069](0069-model-namespaces-for-layers-3-to-5.md) | One model namespace per package at layers 3 to 5; `Durability` is a log value | **Proposed**; supersedes 0065's `Durability` line and two of 0064's *not a model* bullets |
 
 ## Milestone 7 — the server
 
@@ -187,9 +188,11 @@ Built here and moving to a repository of its own; see
 |---:|---|---|
 | [0039](0039-repo-standard.md) | repo-standard: repository settings as code, built here and moving out | Accepted |
 
-**No ADR in this repository is `Proposed`.** Three were, and were completed in
-place rather than superseded, because ADR 0001's no-edit rule binds accepted
-decisions and they had never been accepted.
+**One ADR is `Proposed`: [0069](0069-model-namespaces-for-layers-3-to-5.md)**,
+filed 2026-09-29 by session 3 of #43 for the maintainer. Three others were
+`Proposed` once, and were completed in place rather than superseded, because
+ADR 0001's no-edit rule binds accepted decisions and they had never been
+accepted.
 
 ### Accepted ahead of the evidence
 

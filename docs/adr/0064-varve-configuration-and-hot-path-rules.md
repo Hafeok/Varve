@@ -32,6 +32,12 @@ marked with that date:
   the package ships a rule for the keyword, under *`BannedSymbols.txt`
   additions*.
 
+**Superseded in part by [0069](0069-model-namespaces-for-layers-3-to-5.md)**
+(2026-09-29, **Proposed**, in force only once the maintainer accepts it): two
+bullets of *Not model namespaces*. `Varve.Sparql.Evaluation.Model` and
+`Varve.Sparql.Store.Model` are model namespaces; the root namespaces of both
+packages stay undeclared.
+
 ## Context
 
 ADR 0062 moves the generic rules to `DecisionDriven.Analyzers`. What remains
