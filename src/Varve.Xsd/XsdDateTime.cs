@@ -27,6 +27,7 @@ public readonly struct XsdDateTime : IEquatable<XsdDateTime>
 
     private readonly SevenProperties _value;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal XsdDateTime(in SevenProperties value) => _value = value;
 
     /// <summary>

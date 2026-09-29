@@ -27,6 +27,7 @@ public readonly struct XsdGMonth : IEquatable<XsdGMonth>
 
     private readonly SevenProperties _value;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal XsdGMonth(in SevenProperties value) => _value = value;
 
     /// <summary>

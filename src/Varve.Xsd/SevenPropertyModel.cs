@@ -32,6 +32,7 @@ internal readonly struct SevenProperties : IEquatable<SevenProperties>
     /// <summary>The timezone offset value meaning "absent".</summary>
     internal const short NoTimezone = short.MinValue;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal SevenProperties(
         DateTimeFields present, int year, int month, int day, int hour, int minute, XsdDecimal second, short timezoneOffset)
     {

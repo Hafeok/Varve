@@ -27,6 +27,7 @@ public readonly struct XsdGDay : IEquatable<XsdGDay>
 
     private readonly SevenProperties _value;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal XsdGDay(in SevenProperties value) => _value = value;
 
     /// <summary>

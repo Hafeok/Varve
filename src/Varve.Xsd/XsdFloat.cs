@@ -16,6 +16,7 @@ namespace Varve.Xsd;
 public readonly struct XsdFloat : IEquatable<XsdFloat>, IComparable<XsdFloat>
 {
     /// <summary>Wraps a value.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public XsdFloat(float value) => Value = value;
 
     /// <summary>The value.</summary>

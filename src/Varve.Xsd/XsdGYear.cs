@@ -27,6 +27,7 @@ public readonly struct XsdGYear : IEquatable<XsdGYear>
 
     private readonly SevenProperties _value;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal XsdGYear(in SevenProperties value) => _value = value;
 
     /// <summary>

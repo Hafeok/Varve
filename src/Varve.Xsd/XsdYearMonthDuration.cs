@@ -15,9 +15,11 @@ namespace Varve.Xsd;
 public readonly struct XsdYearMonthDuration : IEquatable<XsdYearMonthDuration>, IComparable<XsdYearMonthDuration>
 {
     /// <summary>Wraps a number of months.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public XsdYearMonthDuration(long months) => Months = months;
 
     /// <summary>The <c>months</c> property.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public long Months { get; }
 
     /// <summary>Parses a <c>yearMonthDurationLexicalRep</c> (§3.4.26.1).</summary>

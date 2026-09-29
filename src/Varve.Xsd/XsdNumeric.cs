@@ -45,6 +45,7 @@ public readonly struct XsdNumeric : IEquatable<XsdNumeric>
     private readonly double _double;
     private readonly long _integer;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private XsdNumeric(XsdNumericKind kind, long integer, XsdDecimal @decimal, double @double)
     {
         Kind = kind;

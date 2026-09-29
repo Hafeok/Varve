@@ -39,6 +39,7 @@ public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecim
 
     private static readonly UInt128 ScaleFactorUnsigned = (UInt128)ScaleFactor;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private XsdDecimal(Int128 mantissa) => Mantissa = mantissa;
 
     /// <summary>Zero.</summary>

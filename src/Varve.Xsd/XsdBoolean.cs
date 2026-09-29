@@ -16,6 +16,7 @@ public readonly struct XsdBoolean : IEquatable<XsdBoolean>, IComparable<XsdBoole
 {
     /// <summary>Wraps a value.</summary>
     [DesignDecision(typeof(BoolValues.BoolParameterIsTheValue), Scope = ExceptionScope.Boundary)]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public XsdBoolean(bool value) => Value = value;
 
     /// <summary>The value.</summary>

@@ -21,6 +21,7 @@ namespace Varve.Xsd;
 public readonly struct XsdDouble : IEquatable<XsdDouble>, IComparable<XsdDouble>
 {
     /// <summary>Wraps a value.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public XsdDouble(double value) => Value = value;
 
     /// <summary>The value.</summary>

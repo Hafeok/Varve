@@ -31,6 +31,7 @@ namespace Varve.Xsd;
 public readonly struct XsdInteger : IEquatable<XsdInteger>, IComparable<XsdInteger>
 {
     /// <summary>Wraps a value.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public XsdInteger(long value) => Value = value;
 
     /// <summary>The value.</summary>

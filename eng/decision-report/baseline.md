@@ -1,6 +1,6 @@
 # Decision-driven report
 
-DecisionDriven.Report 0.1.0-preview.5 at `ef641848090e`. Nothing here gates a build: a metric becomes a gate only by a decision that names its threshold and baseline.
+DecisionDriven.Report 0.1.0-preview.6 at `d93036f63daf`. Nothing here gates a build: a metric becomes a gate only by a decision that names its threshold and baseline.
 
 ## Layers
 
@@ -77,8 +77,10 @@ The number of groups a type's methods fall into, where methods sharing a field o
 | `Varve.Sparql.Algebra.SourceSpan` | 1 | 6 |
 | `Varve.Sparql.Algebra.SparqlParseError` | 1 | 6 |
 | `Varve.Sparql.Algebra.Variable` | 1 | 1 |
+| `Varve.Sparql.Evaluation.Model.ServiceResult` | 2 | 2 |
 | `Varve.Sparql.Results.Model.ResultsPosition` | 1 | 6 |
 | `Varve.Sparql.Results.Model.SparqlResultsError` | 1 | 6 |
+| `Varve.Sparql.Store.Model.LoadedDocument` | 2 | 2 |
 | `Varve.Store.Log.BlobName` | 1 | 6 |
 | `Varve.Store.Log.ByteCount` | 1 | 1 |
 | `Varve.Store.Log.ByteOffset` | 1 | 1 |
@@ -124,7 +126,7 @@ The number of groups a type's methods fall into, where methods sharing a field o
 
 ## Citations
 
-516 citations of 60 decisions.
+542 citations of 65 decisions.
 
 ### Decisions with no citation
 
@@ -144,6 +146,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/AggregationFollowsTheAlgebraLiterally` — Aggregation follows SPARQL section 18.5.1 literally: aggregates are extracted once per Group into slots no author can name, and a non-key variable in one reads as SAMPLE
 - `dec:varve/AllocationsReachable` — Every id in a commit's alloc is reachable from its A or its metadata, directly or as a component of an entry that is (I3)
 - `dec:varve/AllowListAddsNonAllocatingBclHelpers` — The hot-path allow-list also admits the BCL helpers span parsing is written with that neither allocate nor call back into user code: Index, Range, MemoryExtensions, Rune, Utf8, HashCode, Math, Int32, and the throw helpers of ArgumentException, ArgumentNullException, ArgumentOutOfRangeException and ObjectDisposedException
+- `dec:varve/AllowListAddsNonAllocatingValueTypes` — The hot-path allow-list admits by type the numeric value types Byte, SByte, Int16, UInt16, Int32, UInt32, Int64, UInt64, Int128, UInt128, Single, Double and Decimal, and Boolean, Nullable of T and ReadOnlyMemory of T, none of which allocates; until VARVE0003 can admit members (Varve issue 56) it also admits ImmutableArray of T and CancellationToken by type, of which a hot path may call only members that do not allocate, and never ImmutableArray's ToArray, Add, AddRange, Insert, InsertRange, Remove, RemoveAt, RemoveAll, RemoveRange, Replace, SetItem, Sort, ToBuilder or its enumeration through IEnumerable of T, nor CancellationToken's Register, UnsafeRegister or WaitHandle
 - `dec:varve/AmendmentRulingsCarryTheirDate` — A ruling an amendment adds or changes enters the ledger in the amended ADR's set with the amendment's date
 - `dec:varve/AnalyzerNeverRuntimeDependency` — Varve.Analyzers is referenced as an analyzer, never as a library, and never appears in a published dependency list
 - `dec:varve/AnalyzerReleaseTracking` — Rules are tracked in AnalyzerReleases.Shipped.md and AnalyzerReleases.Unshipped.md, as RS2008 enforces
@@ -244,6 +247,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/DotNetRdfIsTheBaseline` — dotNetRdf.Core is in the register as the benchmark baseline, and nothing in the repository depends on it for an answer
 - `dec:varve/DroppingCheckpointLosesNothing` — Dropping a checkpoint loses nothing: it is a cache whose miss is slower, never wrong
 - `dec:varve/DurabilityDeclared` — A storage backend declares its durability as Synchronised, Committed or None, and the contract never treats them as equal
+- `dec:varve/DurabilityIsALogValue` — Durability, what a storage backend promises once a flush returns, is a value in Varve.Store.Log and not engine in Varve.Store
 - `dec:varve/DurableFormatVersioned` — The durable log format carries a version discriminator, so a change to what is hashed is a stated migration rather than a corruption
 - `dec:varve/DurationOrders` — Durations compare by the four-reference-dateTime order, partial for xsd:duration and total for the two derived types
 - `dec:varve/EarlierAmendmentsRecognised` — The dated amendments made before this ADR are recognised as they stand
@@ -412,6 +416,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/PackableAssemblyDeclaresLayer` — VARVE0005: a Varve project that is neither a test assembly nor Varve.Analyzers declares ArchLayer, and a packable one always does
 - `dec:varve/PackageLicenceExpression` — PackageLicenseExpression is the SPDX expression MPL-2.0, and eng/package-metadata.cs reads it back out of every built package
 - `dec:varve/PackageMetadataSetOnce` — Package metadata is set once in Directory.Build.targets, with the licence as an SPDX expression and the icon embedded, never licenseUrl or iconUrl
+- `dec:varve/PackagesAtLayers3To5HaveOneModelNamespace` — Each package at layers 3 to 5 whose contracts name its own data types has one DomainModel namespace for them, the package's root namespace plus Model; the engine namespaces themselves stay undeclared
 - `dec:varve/PackagesVersionTogether` — Every package versions together from one tag and ships as a set
 - `dec:varve/PaddingIsADatasetSetting` — Length-hiding padding to a multiple of 16 bytes, applied before the MAC, is a dataset setting off by default
 - `dec:varve/PathsNormalisedFirst` — A normalisation pass, always applied before the optimiser, rewrites link, inverse, sequence and alternative at the top of a path into triple patterns, swapped paths, joins and unions, recursively
@@ -465,6 +470,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/RepoStandardBuiltHere` — tools/repo-standard holds a CLI over a YAML declaration of repository settings and a composite GitHub Action, built here and not published from this repository
 - `dec:varve/RepoStandardHeldToVarveRules` — While it lives here the tool is held to Varve's rules: warnings as errors, the MPL-2.0 header, register citations, issue references, sign-off and traceability
 - `dec:varve/RepoStandardIsolated` — Nothing in src/ references repo-standard and it references nothing there, with its own solution and its own Directory.Build.targets
+- `dec:varve/ReportIsALocalToolAgainstABaseline` — DecisionDriven.Report is a local .NET tool pinned in .config/dotnet-tools.json and registered in Directory.Packages.props, run by eng/decision-report.cs over the shipped assemblies against a committed baseline report, in CI and never as a gate
 - `dec:varve/RequestBlankNodesAreFresh` — A blank node term in a request is always fresh: each distinct label is one new node in that request, even a label TryExternalise produced
 - `dec:varve/RetiredRulePagesStay` — A retired rule's page stays as a stub naming what replaced it, so the id still resolves
 - `dec:varve/RoslynFloor` — Microsoft.CodeAnalysis.CSharp and its Workspaces package are pinned to the 5.0.0 floor, the Roslyn of the first .NET 10 SDK, and a floor is raised only with a reason

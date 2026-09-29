@@ -19,9 +19,11 @@ namespace Varve.Xsd;
 public readonly struct XsdDayTimeDuration : IEquatable<XsdDayTimeDuration>, IComparable<XsdDayTimeDuration>
 {
     /// <summary>Wraps a number of seconds.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public XsdDayTimeDuration(XsdDecimal seconds) => Seconds = seconds;
 
     /// <summary>The <c>seconds</c> property.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public XsdDecimal Seconds { get; }
 
     /// <summary>A duration of whole minutes, as a timezone offset is.</summary>

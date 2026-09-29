@@ -22,6 +22,7 @@ public readonly struct XsdDuration : IEquatable<XsdDuration>
 {
     /// <summary>Builds a duration; the two components must not have opposite signs.</summary>
     /// <exception cref="ArgumentException">The signs differ.</exception>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public XsdDuration(long months, XsdDecimal seconds)
     {
         if ((months < 0 && seconds > XsdDecimal.Zero) || (months > 0 && seconds.IsNegative))
