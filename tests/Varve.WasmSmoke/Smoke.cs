@@ -179,7 +179,7 @@ internal static partial class Smoke
             if (second.Position != new Varve.Store.Log.Position(2) || now != 2 || then != 2)
             {
                 throw new InvalidOperationException(
-                    "store: position " + second.Position.ToString(CultureInfo.InvariantCulture)
+                    "store: position " + second.Position.ToString()
                     + ", pinned " + now.ToString(CultureInfo.InvariantCulture) + ", as-of " + then.ToString(CultureInfo.InvariantCulture));
             }
         }
