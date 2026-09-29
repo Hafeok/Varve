@@ -6,6 +6,7 @@ using System;
 using System.Threading.Tasks;
 using Varve.Rdf;
 using Varve.Sparql.Algebra;
+using Varve.Store.Log;
 using Varve.Store;
 using Xunit;
 using static Varve.Sparql.Evaluation.Tests.Support;

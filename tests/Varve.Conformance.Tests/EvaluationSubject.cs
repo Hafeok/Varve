@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using Varve.Rdf;
+using Varve.Store.Log;
 using Varve.Store;
 
 namespace Varve.Conformance.Tests;

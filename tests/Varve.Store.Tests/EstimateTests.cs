@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CsCheck;
 using Varve.Rdf;
+using Varve.Store.Log;
 using Varve.Store.Tests.Model;
 using Xunit;
 
@@ -88,9 +89,9 @@ public class EstimateTests
                     Agree(head, "head " + head.Position);
                 }
 
-                for (long position = 0; position <= harness.Dataset.Head; position++)
+                for (long position = 0; position <= harness.Dataset.Head.Value; position++)
                 {
-                    using DatasetView view = await harness.Dataset.AsOfAsync(position, T.Ct);
+                    using DatasetView view = await harness.Dataset.AsOfAsync(new Position(position), T.Ct);
                     Agree(view, "as of " + position);
                 }
             },
@@ -164,10 +165,9 @@ public class EstimateTests
         await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Integer("1")), T.Ct);
         Counting validator = new();
 
-        CommitRequest request = new CommitRequest()
+        CommitRequest request = new CommitRequest { Validators = [validator] }
             .Assert(T.Iri("s"), T.Iri("p"), T.Integer("2"))
             .Retract(T.Iri("s"), T.Iri("p"), T.Integer("1"));
-        request.Validators.Add(validator);
         await dataset.CommitAsync(request, T.Ct);
 
         Assert.Equal(CardinalityEstimate.Exact(new QuadCount(1)), validator.Seen);

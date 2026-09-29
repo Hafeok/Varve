@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Xsd;
 
@@ -26,6 +28,7 @@ public readonly struct XsdDayTimeDuration : IEquatable<XsdDayTimeDuration>, ICom
     public static XsdDayTimeDuration FromMinutes(long minutes) => new(XsdDecimal.FromInt64(minutes * 60));
 
     /// <summary>Parses a <c>dayTimeDurationLexicalRep</c> (§3.4.27.1).</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryParse(ReadOnlySpan<byte> utf8, out XsdDayTimeDuration value)
     {
         bool ok = DurationLexical.TryParse(utf8, allowYearMonth: false, allowDayTime: true, out _, out XsdDecimal seconds);

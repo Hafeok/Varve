@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Sparql.Evaluation;
 
@@ -25,6 +27,7 @@ public sealed class EvaluationOptions
     public bool Optimise { get; init; } = true;
 
     /// <summary>How an expression obtains a term's value: ADR 0050's three arms.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public ValueAccess ValueAccess { get; init; } = ValueAccess.InlineAccessor;
 
     /// <summary>
@@ -32,6 +35,7 @@ public sealed class EvaluationOptions
     /// minutes east of UTC, supplied to a dateTime without one when it is
     /// compared (ADR 0051). Defaults to UTC.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public int ImplicitTimezoneOffsetMinutes { get; init; }
 
     /// <summary>

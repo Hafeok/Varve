@@ -5,6 +5,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Varve.Store.Log;
 
 namespace Varve.Store;
 
@@ -24,7 +25,7 @@ public static class LogChain
     /// verify.
     /// </summary>
     /// <exception cref="LogVerificationException">Either log does not verify.</exception>
-    public static async ValueTask<long?> FindDivergenceAsync(ISegmentStore first, ISegmentStore second, CancellationToken cancellationToken = default)
+    public static async ValueTask<Position?> FindDivergenceAsync(ISegmentStore first, ISegmentStore second, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(first);
         ArgumentNullException.ThrowIfNull(second);
@@ -39,7 +40,7 @@ public static class LogChain
             // the first difference is the branch point.
             if (!left.Commits[i].HeaderHash.AsSpan().SequenceEqual(right.Commits[i].HeaderHash))
             {
-                return i + 1;
+                return new Position(i + 1);
             }
         }
 

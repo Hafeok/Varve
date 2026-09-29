@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Xsd;
 
@@ -17,12 +19,14 @@ public readonly struct XsdFloat : IEquatable<XsdFloat>, IComparable<XsdFloat>
     public XsdFloat(float value) => Value = value;
 
     /// <summary>The value.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public float Value { get; }
 
     /// <summary>Whether the value is <c>NaN</c>.</summary>
     public bool IsNaN => float.IsNaN(Value);
 
     /// <summary>Parses a <c>floatRep</c> (§3.3.4.2).</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryParse(ReadOnlySpan<byte> utf8, out XsdFloat value)
     {
         bool ok = FloatingPoint.TryParseSingle(utf8, out float parsed);
@@ -38,6 +42,7 @@ public readonly struct XsdFloat : IEquatable<XsdFloat>, IComparable<XsdFloat>
     public static bool IsCanonical(ReadOnlySpan<byte> lexical) => FloatingPoint.IsCanonical(lexical);
 
     /// <summary>Writes the canonical form.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool TryFormat(Span<byte> destination, out int written) =>
         FloatingPoint.TryFormatSingle(Value, destination, out written);
 
@@ -49,6 +54,7 @@ public readonly struct XsdFloat : IEquatable<XsdFloat>, IComparable<XsdFloat>
     public override string ToString() => Lexical.ToString(TryFormat);
 
     /// <summary>IEEE order, <see cref="PartialOrdering.Indeterminate"/> against <c>NaN</c>.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static PartialOrdering Compare(XsdFloat left, XsdFloat right)
     {
         if (float.IsNaN(left.Value) || float.IsNaN(right.Value))
@@ -80,12 +86,14 @@ public readonly struct XsdFloat : IEquatable<XsdFloat>, IComparable<XsdFloat>
     public static bool operator !=(XsdFloat left, XsdFloat right) => !left.Equals(right);
 
     /// <summary>IEEE order.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool operator <(XsdFloat left, XsdFloat right) => left.Value < right.Value;
 
     /// <summary>IEEE order.</summary>
     public static bool operator >(XsdFloat left, XsdFloat right) => left.Value > right.Value;
 
     /// <summary>IEEE order.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool operator <=(XsdFloat left, XsdFloat right) => left.Value <= right.Value;
 
     /// <summary>IEEE order.</summary>

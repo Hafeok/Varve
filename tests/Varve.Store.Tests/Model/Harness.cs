@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Varve.Rdf;
+using Varve.Store.Log;
 
 namespace Varve.Store.Tests.Model;
 
@@ -80,7 +81,7 @@ internal sealed class Harness : IAsyncDisposable
                 CommitResult result = await Dataset.ChangeSettingsAsync(
                     new SettingsChange { DefaultAccessScope = settings.Scope },
                     new CommitMetadata { Agent = Admin, Cause = Why },
-                    expected,
+                    AsPosition(expected),
                     T.Ct);
                 Check(model, result, step);
                 Coverage.Hit(Coverage.Settings);
@@ -98,7 +99,7 @@ internal sealed class Harness : IAsyncDisposable
                 break;
 
             case CheckpointStep checkpoint when Model.Head > 0:
-                await Dataset.CheckpointAsync(1 + (checkpoint.Choice % Model.Head), T.Ct);
+                await Dataset.CheckpointAsync(new Position(1 + (checkpoint.Choice % Model.Head)), T.Ct);
                 Coverage.Hit(Coverage.Checkpoint);
                 break;
         }
@@ -110,8 +111,9 @@ internal sealed class Harness : IAsyncDisposable
         List<(bool, MQuad)> modelOps = [];
         CommitRequest request = new()
         {
-            ExpectedPosition = Expected(step.Expected),
+            ExpectedPosition = AsPosition(Expected(step.Expected)),
             Metadata = new CommitMetadata { Agent = step.Agent == 0 ? RequestTerm.None : T.Iri("agent" + step.Agent) },
+            Validators = step.Validator == ValidatorKind.None ? [] : [new ScriptValidator(step.Validator)],
         };
 
         List<MQuad> ordered = [.. Model.Graph.OrderBy(q => Render(q), StringComparer.Ordinal)];
@@ -167,13 +169,9 @@ internal sealed class Harness : IAsyncDisposable
             }
         }
 
-        if (step.Validator != ValidatorKind.None)
-        {
-            request.Validators.Add(new ScriptValidator(step.Validator));
-        }
 
         RdfTerm? agent = step.Agent == 0 ? null : T.Iri("agent" + step.Agent);
-        Expected model = Model.Commit(modelOps, agent, request.ExpectedPosition, (after, a, r) => Validate(step.Validator, after, a), Clock.Now.UtcTicks, out List<RdfTerm> freshBlanks);
+        Expected model = Model.Commit(modelOps, agent, request.ExpectedPosition?.Value, (after, a, r) => Validate(step.Validator, after, a), Clock.Now.UtcTicks, out List<RdfTerm> freshBlanks);
         CommitResult result = await Dataset.CommitAsync(request, T.Ct);
         Check(model, result, step);
 
@@ -244,7 +242,7 @@ internal sealed class Harness : IAsyncDisposable
 
         if (step.Pin && !Dataset.IsFailed)
         {
-            _pins.Add((Dataset.Head, Dataset.Pin()));
+            _pins.Add((Dataset.Head.Value, Dataset.Pin()));
         }
     }
 
@@ -263,9 +261,11 @@ internal sealed class Harness : IAsyncDisposable
         _ => null,
     };
 
+    private static Position? AsPosition(long? position) => position is long p ? new Position(p) : null;
+
     private static void Check(Expected model, CommitResult result, Step step)
     {
-        if (model.Outcome != result.Outcome || model.Position != result.Position)
+        if (model.Outcome != result.Outcome || model.Position != result.Position.Value)
         {
             throw new InvalidOperationException(
                 "Model said " + model.Outcome + "(" + model.Position + "), store said " + result + " for\n" + step);
@@ -430,23 +430,23 @@ internal sealed class Harness : IAsyncDisposable
         // R2 and R4: as-of via checkpoint and overlay equals full replay, at every position.
         for (long p = 0; p <= head; p++)
         {
-            using DatasetView view = await Dataset.AsOfAsync(p, cancellationToken);
+            using DatasetView view = await Dataset.AsOfAsync(new Position(p), cancellationToken);
             Same(Rendered(Model.History[(int)p]), Rendered(view), "R2: as-of " + p);
 
-            if ((await Dataset.SettingsAtAsync(p, cancellationToken)).DefaultAccessScope != Model.Settings[(int)p])
+            if ((await Dataset.SettingsAtAsync(new Position(p), cancellationToken)).DefaultAccessScope != Model.Settings[(int)p])
             {
                 throw new InvalidOperationException("Settings at " + p + " are not the fold of the settings commits up to it.");
             }
         }
 
-        using DatasetView headView = Dataset.IsFailed ? await Dataset.AsOfAsync(head, cancellationToken) : Dataset.Pin();
+        using DatasetView headView = Dataset.IsFailed ? await Dataset.AsOfAsync(new Position(head), cancellationToken) : Dataset.Pin();
 
         // R3: Diff is the set difference of the model's graphs, forwards and backwards.
         for (long p1 = 0; p1 <= head; p1 += Math.Max(1, head / 5))
         {
             for (long p2 = 0; p2 <= head; p2 += Math.Max(1, head / 4))
             {
-                QuadDelta diff = await Dataset.DiffAsync(p1, p2, cancellationToken);
+                QuadDelta diff = await Dataset.DiffAsync(new Position(p1), new Position(p2), cancellationToken);
                 HashSet<MQuad> g1 = Model.History[(int)p1];
                 HashSet<MQuad> g2 = Model.History[(int)p2];
                 Same(Rendered([.. g2.Except(g1)]), [.. diff.Asserted.ToArray().Select(q => Render(headView, q))], "R3: diff " + p1 + ".." + p2 + " asserted");
@@ -457,14 +457,14 @@ internal sealed class Harness : IAsyncDisposable
         // I2 and I3, commit by commit, from the log.
         foreach (Commit commit in Recorder.Commits)
         {
-            long p = commit.Position;
+            long p = commit.Position.Value;
             (HashSet<MQuad> a, HashSet<MQuad> r) = Model.Deltas[(int)p];
             Same(Rendered(a), [.. commit.Delta.Asserted.ToArray().Select(q => Render(headView, q))], "I2: A at " + p);
             Same(Rendered(r), [.. commit.Delta.Retracted.ToArray().Select(q => Render(headView, q))], "I2: R at " + p);
             Same([.. Model.Allocated[(int)p].Select(T.Render)], [.. commit.Allocations.ToArray().Select(x => T.Render(Translate(x.Term)))], "I3: alloc at " + p);
 
-            using DatasetView before = await Dataset.AsOfAsync(p - 1, cancellationToken);
-            using DatasetView after = await Dataset.AsOfAsync(p, cancellationToken);
+            using DatasetView before = await Dataset.AsOfAsync(new Position(p - 1), cancellationToken);
+            using DatasetView after = await Dataset.AsOfAsync(new Position(p), cancellationToken);
 
             foreach (Quad quad in commit.Delta.Asserted)
             {
@@ -489,20 +489,20 @@ internal sealed class Harness : IAsyncDisposable
             }
 
             // I5.
-            Check(commit.Timestamp.UtcTicks == Model.Timestamps[(int)p], "I5: the timestamp at " + p + " is not max(clock, ts(head))");
-            long resolved = Dataset.PositionAt(commit.Timestamp);
-            Check(resolved == Model.PositionAt(commit.Timestamp.UtcTicks), "I5: as-of " + commit.Timestamp + " resolves wrongly");
+            Check(commit.Timestamp.Value.UtcTicks == Model.Timestamps[(int)p], "I5: the timestamp at " + p + " is not max(clock, ts(head))");
+            long resolved = Dataset.PositionAt(commit.Timestamp).Value;
+            Check(resolved == Model.PositionAt(commit.Timestamp.Value.UtcTicks), "I5: as-of " + commit.Timestamp + " resolves wrongly");
             using DatasetView byTime = await Dataset.AsOfTimestampAsync(commit.Timestamp, cancellationToken);
-            Check(byTime.Position == resolved, "I5: as-of by timestamp is not as-of by the resolved position");
+            Check(byTime.Position.Value == resolved, "I5: as-of by timestamp is not as-of by the resolved position");
             Same(Rendered(Model.History[(int)resolved]), Rendered(byTime), "I5: as-of by timestamp at " + p);
         }
 
-        Check(Dataset.PositionAt(Clock.Now.AddYears(-1)) == 0, "I5: a time before every commit resolves to 0");
+        Check(Dataset.PositionAt(new CommitTimestamp(Clock.Now.AddYears(-1))).Value == 0, "I5: a time before every commit resolves to 0");
 
         // Reopening rebuilds from the newest checkpoint and the tail: I7 and I8.
         await using (Dataset reopened = await Dataset.OpenAsync(Storage, Options, cancellationToken))
         {
-            Check(reopened.Head == head, "a reopened dataset has a different head");
+            Check(reopened.Head.Value == head, "a reopened dataset has a different head");
             using DatasetView view = reopened.Pin();
             Same(Rendered(Model.Graph), Rendered(view), "I7/I8: reopened");
             Check(reopened.Checkpoints.SequenceEqual(Dataset.Checkpoints), "a reopened dataset lost a checkpoint");
@@ -545,7 +545,7 @@ internal sealed class RecordingProjection : IProjection
 {
     public List<Commit> Commits { get; } = [];
 
-    public long Position { get; private set; }
+    public Position Position { get; private set; }
 
     public ValueTask ApplyAsync(Commit commit, CancellationToken cancellationToken)
     {
@@ -561,7 +561,7 @@ internal sealed class RecordingProjection : IProjection
     public ValueTask ResetAsync(DatasetView? checkpoint, CancellationToken cancellationToken)
     {
         Commits.Clear();
-        Position = checkpoint?.Position ?? 0;
+        Position = checkpoint?.Position ?? default;
         return ValueTask.CompletedTask;
     }
 }
@@ -571,7 +571,7 @@ internal sealed class QuadSetProjection : IProjection
 {
     public HashSet<Quad> Quads { get; } = [];
 
-    public long Position { get; private set; }
+    public Position Position { get; private set; }
 
     public ValueTask ApplyAsync(Commit commit, CancellationToken cancellationToken)
     {
@@ -589,7 +589,7 @@ internal sealed class QuadSetProjection : IProjection
     public ValueTask ResetAsync(DatasetView? checkpoint, CancellationToken cancellationToken)
     {
         Quads.Clear();
-        Position = 0;
+        Position = default;
 
         if (checkpoint is not null)
         {

@@ -9,6 +9,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Varve.Rdf;
+using Varve.Store.Log;
 
 namespace Varve.Store;
 
@@ -36,7 +37,7 @@ internal sealed class Checkpoint
 
     internal const string Prefix = "checkpoints/";
 
-    internal static string Name(long position) => Prefix + position.ToString("D20", CultureInfo.InvariantCulture);
+    internal static BlobName Name(long position) => new(Prefix + position.ToString("D20", CultureInfo.InvariantCulture));
 }
 
 /// <summary>

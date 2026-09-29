@@ -9,7 +9,7 @@ the gate are unchanged. This ADR admits two build-time packages, states the
 version policy for a prerelease one, and makes the citation rule for banned
 symbols explicit. It is the Varve form of the analyzer repository's draft
 [ADR-A03](https://github.com/Hafeok/decision-driven-analyzers/blob/main/docs/drafts/ADR-A03-build-time-dependencies.md).
-Amended 2026-09-26 (below).
+Amended 2026-09-26 and 2026-09-28 (below).
 
 > **Amended 2026-09-26**, by the maintainer's decision on the session 1 report
 > of #43. ADR 0006, which 0009 superseded whole, decided two build-time and
@@ -29,6 +29,26 @@ Amended 2026-09-26 (below).
 > They are stated here, the ADR that owns Varve's build-time dependencies
 > since the adoption, so that each is a decision the ledger can carry rather
 > than a fact that only a configuration file records (ADR 0068).
+
+> **Amended 2026-09-28** (session 3 of #43). Records how `DecisionDriven.Report`
+> landed, which this ADR admitted and left to the session that first used it.
+> Nothing it decided changes.
+>
+> - **It is a local .NET tool.** `.config/dotnet-tools.json` pins it, at the
+>   same preview as `DecisionDriven.Analyzers` (0.1.0-preview.5 today). Its
+>   register entry in `Directory.Packages.props` cites this ADR, as the
+>   analyzers' does, although no project references it, because that file is
+>   the register of every dependency. A bump changes both.
+> - **`eng/decision-report.cs` runs it** over the one assembly each shipped
+>   project builds. It compares `report.md` with the committed
+>   `eng/decision-report/baseline.md`, all but the header line, which names the
+>   commit. What moved goes to the log and to the CI step summary. It exits 0
+>   whatever the report says.
+> - **It runs in CI twice, gating neither time.** It is the last job of
+>   `eng/ci.cs`, and the pipeline job runs that. It is also a
+>   `continue-on-error` job of its own, `decision-report`, which uploads
+>   `report.md` and `citations.nt`. `citations.nt` names the commit of every
+>   citation, so it is an artifact and not committed.
 
 ## Context
 

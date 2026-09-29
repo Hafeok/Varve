@@ -47,6 +47,12 @@
          with PrivateAssets="all", so it is never in a published package's
          dependencies. -->
     <PackageVersion Include="DecisionDriven.Analyzers" Version="0.1.0-preview.5" Adr="0063" />
+
+    <!-- The whole-graph report, a .NET tool run in CI and never a gate. No
+         project references it: .config/dotnet-tools.json installs it, at the
+         same version, which a bump changes in both places. Registered here
+         because this file is the register of every dependency (ADR 0009). -->
+    <PackageVersion Include="DecisionDriven.Report" Version="0.1.0-preview.5" Adr="0063" />
   </ItemGroup>
 
   <ItemGroup Label="Off-the-shelf enforcement — build-time only, never shipped">

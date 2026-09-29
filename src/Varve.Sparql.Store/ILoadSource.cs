@@ -5,6 +5,8 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Turtle;
 
@@ -21,6 +23,7 @@ namespace Varve.Sparql.Store;
 /// or an exception; either fails the operation, and <c>LOAD SILENT</c> makes
 /// it an operation with no effect.
 /// </remarks>
+[Contract(typeof(SparqlUpdateOneRequestOneCommit.LoadThroughALoadSource), Role = "what LOAD fetches a document through")]
 public interface ILoadSource
 {
     /// <summary>The document the IRI names, or a failure.</summary>

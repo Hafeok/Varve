@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Sparql.Evaluation.Execution;
 
@@ -10,6 +12,7 @@ namespace Varve.Sparql.Evaluation.Execution;
 /// One slot of a solution: unbound, a source handle, or a local term — an
 /// index (from 1) into the execution's own table (<c>sparql-evaluation.md</c> §4.1).
 /// </summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal readonly struct TermRef : IEquatable<TermRef>
 {
     internal TermRef(ulong raw, bool local)

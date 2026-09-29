@@ -42,9 +42,11 @@ public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecim
     private XsdDecimal(Int128 mantissa) => Mantissa = mantissa;
 
     /// <summary>Zero.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static XsdDecimal Zero => default;
 
     /// <summary>One.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static XsdDecimal One => new(ScaleFactor);
 
     /// <summary>The largest representable value.</summary>
@@ -54,12 +56,15 @@ public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecim
     public static XsdDecimal MinValue => new(Int128.MinValue);
 
     /// <summary>The value scaled by 10¹⁸: the exact integer this struct holds.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public Int128 Mantissa { get; }
 
     /// <summary>Whether the value is negative.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool IsNegative => Mantissa < 0;
 
     /// <summary>Whether the value is zero.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool IsZero => Mantissa == 0;
 
     /// <summary>Whether the value has no fractional part.</summary>
@@ -69,6 +74,7 @@ public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecim
     public static XsdDecimal FromInteger(XsdInteger value) => new((Int128)value.Value * ScaleFactor);
 
     /// <summary>The value of a <see cref="long"/>, which always fits.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static XsdDecimal FromInt64(long value) => new((Int128)value * ScaleFactor);
 
     /// <summary>A value from its mantissa, for a caller that has one.</summary>
@@ -78,6 +84,7 @@ public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecim
     /// The integral part, truncated toward zero, when it fits a
     /// <see cref="long"/>. XPath's cast from decimal to integer.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool TryToInteger(out XsdInteger value)
     {
         Int128 integral = Mantissa / ScaleFactor;
@@ -94,10 +101,12 @@ public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecim
 
     /// <summary>The nearest <see cref="double"/>.</summary>
     [DesignDecision(typeof(XsdValueSurfaces.XsdDecimalConvertsToIeeePrimitives), Scope = ExceptionScope.Boundary)]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public double ToDouble() => (double)Mantissa / 1e18;
 
     /// <summary>The nearest <see cref="float"/>.</summary>
     [DesignDecision(typeof(XsdValueSurfaces.XsdDecimalConvertsToIeeePrimitives), Scope = ExceptionScope.Boundary)]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public float ToSingle() => (float)ToDouble();
 
     // --- lexical mapping ----------------------------------------------------
@@ -108,6 +117,7 @@ public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecim
     /// when ill-formed, when more than eighteen fractional digits are
     /// significant, or when the integral part does not fit.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryParse(ReadOnlySpan<byte> utf8, out XsdDecimal value)
     {
         value = default;
@@ -251,6 +261,7 @@ public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecim
     }
 
     /// <summary>Writes the canonical form (<c>decimalCanonicalMap</c>).</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool TryFormat(Span<byte> destination, out int written)
     {
         written = 0;
@@ -313,6 +324,7 @@ public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecim
     /// <summary>The canonical form.</summary>
     public override string ToString() => Lexical.ToString(TryFormat);
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool TryWriteUInt128(UInt128 value, Span<byte> destination, out int written)
     {
         Span<byte> digits = stackalloc byte[40];
@@ -343,6 +355,7 @@ public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecim
     // --- arithmetic ---------------------------------------------------------
 
     /// <summary><c>op:numeric-add</c>; false on overflow.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryAdd(XsdDecimal left, XsdDecimal right, out XsdDecimal result)
     {
         Int128 sum = unchecked(left.Mantissa + right.Mantissa);
@@ -351,6 +364,7 @@ public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecim
     }
 
     /// <summary><c>op:numeric-subtract</c>; false on overflow.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TrySubtract(XsdDecimal left, XsdDecimal right, out XsdDecimal result)
     {
         Int128 difference = unchecked(left.Mantissa - right.Mantissa);
@@ -359,6 +373,7 @@ public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecim
     }
 
     /// <summary><c>op:numeric-multiply</c>, exact; false on overflow.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryMultiply(XsdDecimal left, XsdDecimal right, out XsdDecimal result)
     {
         bool negative = (left.Mantissa < 0) != (right.Mantissa < 0);
@@ -395,6 +410,7 @@ public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecim
     /// truncated toward zero at the nineteenth; false on a zero divisor or on
     /// overflow.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryDivide(XsdDecimal left, XsdDecimal right, out XsdDecimal result)
     {
         if (right.Mantissa == 0)
@@ -427,6 +443,7 @@ public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecim
     }
 
     /// <summary><c>op:numeric-unary-minus</c>; false for the minimum value.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryNegate(XsdDecimal value, out XsdDecimal result)
     {
         result = new XsdDecimal(unchecked(-value.Mantissa));
@@ -446,6 +463,7 @@ public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecim
     }
 
     /// <summary><c>fn:floor</c>: the largest integer not greater than the value.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public XsdDecimal Floor()
     {
         Int128 remainder = Mantissa % ScaleFactor;
@@ -480,24 +498,29 @@ public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecim
     }
 
     /// <summary>Adds; throws on overflow.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static XsdDecimal operator +(XsdDecimal left, XsdDecimal right) =>
         TryAdd(left, right, out XsdDecimal result) ? result : throw new OverflowException();
 
     /// <summary>Subtracts; throws on overflow.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static XsdDecimal operator -(XsdDecimal left, XsdDecimal right) =>
         TrySubtract(left, right, out XsdDecimal result) ? result : throw new OverflowException();
 
     /// <summary>Multiplies; throws on overflow.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static XsdDecimal operator *(XsdDecimal left, XsdDecimal right) =>
         TryMultiply(left, right, out XsdDecimal result) ? result : throw new OverflowException();
 
     /// <summary>Divides; throws on a zero divisor or overflow.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static XsdDecimal operator /(XsdDecimal left, XsdDecimal right) =>
         right.IsZero
             ? throw new DivideByZeroException()
             : TryDivide(left, right, out XsdDecimal result) ? result : throw new OverflowException();
 
     /// <summary>Negates; throws for the minimum value.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static XsdDecimal operator -(XsdDecimal value) =>
         TryNegate(value, out XsdDecimal result) ? result : throw new OverflowException();
 
@@ -516,9 +539,11 @@ public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecim
     /// <summary>The named form of unary <c>-</c>.</summary>
     public static XsdDecimal Negate(XsdDecimal value) => -value;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static UInt128 Magnitude(Int128 value) =>
         value < 0 ? (UInt128)(-(value + 1)) + 1 : (UInt128)value;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool FromMagnitude(UInt128 magnitude, bool negative, out XsdDecimal result)
     {
         UInt128 limit = negative ? (UInt128)Int128.MaxValue + 1 : (UInt128)Int128.MaxValue;
@@ -548,9 +573,11 @@ public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecim
     // --- order --------------------------------------------------------------
 
     /// <inheritdoc />
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public int CompareTo(XsdDecimal other) => Mantissa.CompareTo(other.Mantissa);
 
     /// <inheritdoc />
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool Equals(XsdDecimal other) => Mantissa == other.Mantissa;
 
     /// <inheritdoc />
@@ -560,20 +587,26 @@ public readonly struct XsdDecimal : IEquatable<XsdDecimal>, IComparable<XsdDecim
     public override int GetHashCode() => Mantissa.GetHashCode();
 
     /// <summary>Value equality.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool operator ==(XsdDecimal left, XsdDecimal right) => left.Equals(right);
 
     /// <summary>Value inequality.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool operator !=(XsdDecimal left, XsdDecimal right) => !left.Equals(right);
 
     /// <summary>Numeric order.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool operator <(XsdDecimal left, XsdDecimal right) => left.Mantissa < right.Mantissa;
 
     /// <summary>Numeric order.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool operator >(XsdDecimal left, XsdDecimal right) => left.Mantissa > right.Mantissa;
 
     /// <summary>Numeric order.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool operator <=(XsdDecimal left, XsdDecimal right) => left.Mantissa <= right.Mantissa;
 
     /// <summary>Numeric order.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool operator >=(XsdDecimal left, XsdDecimal right) => left.Mantissa >= right.Mantissa;
 }

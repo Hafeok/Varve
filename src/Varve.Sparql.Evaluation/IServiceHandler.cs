@@ -5,6 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Sparql.Algebra;
 
@@ -16,6 +18,7 @@ namespace Varve.Sparql.Evaluation;
 /// joins what comes back. The HTTP implementation is the server's, at layer 5;
 /// the default refuses.
 /// </summary>
+[Contract(typeof(ServiceThroughAHandlerTheDefaultRefuses.ServiceHandlerContract), Role = "what executes a SERVICE request")]
 public interface IServiceHandler
 {
     /// <summary>

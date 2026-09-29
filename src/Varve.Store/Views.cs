@@ -8,6 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
+using Varve.Store.Log;
 
 namespace Varve.Store;
 
@@ -97,9 +98,7 @@ internal sealed class StoreTermComparer : IEqualityComparer<TermHandle>
             return false;
         }
 
-        RdfTerm? left = Value(x.Value);
-        RdfTerm? right = Value(y.Value);
-        return left is not null && right is not null && left.Equals(right);
+        return SameValue(x.Value, y.Value);
     }
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
@@ -110,8 +109,24 @@ internal sealed class StoreTermComparer : IEqualityComparer<TermHandle>
             return obj.Value.GetHashCode();
         }
 
-        RdfTerm? value = Value(obj.Value);
-        return value is null ? obj.Value.GetHashCode() : value.GetHashCode();
+        return ValueHash(obj.Value);
+    }
+
+    // Resolving a private term is the per-hash dictionary lookup the remarks
+    // describe: the value path, taken only once a dataset has private terms.
+    [DesignDecision(typeof(StoreHotPathScope.PrivateTermComparisonResolvesValues), Scope = ExceptionScope.HotPath)]
+    private bool SameValue(ulong x, ulong y)
+    {
+        RdfTerm? left = Value(x);
+        RdfTerm? right = Value(y);
+        return left is not null && right is not null && left.Equals(right);
+    }
+
+    [DesignDecision(typeof(StoreHotPathScope.PrivateTermComparisonResolvesValues), Scope = ExceptionScope.HotPath)]
+    private int ValueHash(ulong id)
+    {
+        RdfTerm? value = Value(id);
+        return value is null ? id.GetHashCode() : value.GetHashCode();
     }
 
     // Null for a blank node and for a shredded private term: both equal only themselves.
@@ -221,7 +236,7 @@ internal sealed class PendingSource : IQuadSource
 
 /// <summary>
 /// A read of the dataset at one position: a pinned read (<see cref="Dataset.Pin"/>)
-/// or an as-of read (<see cref="Dataset.AsOfAsync(long, System.Threading.CancellationToken)"/>).
+/// or an as-of read (<see cref="Dataset.AsOfAsync(Position, System.Threading.CancellationToken)"/>).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -236,6 +251,7 @@ internal sealed class PendingSource : IQuadSource
 /// documented on <see cref="Dataset.Pin"/>).
 /// </para>
 /// </remarks>
+[Contract(typeof(CheckpointsAndReads.PinnedReadIsASnapshot), Role = "a stable read of the dataset at one position")]
 public sealed class DatasetView : IQuadSource, IDisposable
 {
     private readonly IQuadSource _source;
@@ -244,13 +260,13 @@ public sealed class DatasetView : IQuadSource, IDisposable
 
     internal DatasetView(long position, IQuadSource source, TermView terms)
     {
-        Position = position;
+        Position = new Position(position);
         _source = source;
         _terms = terms;
     }
 
     /// <summary>The position this view reads.</summary>
-    public long Position { get; }
+    public Position Position { get; }
 
     /// <summary>
     /// Id equality: canonical, blank and inline handles compare by id. Private
@@ -328,5 +344,6 @@ public sealed class DatasetView : IQuadSource, IDisposable
     /// <summary>Releases the view. In memory this holds nothing a later commit could need back.</summary>
     public void Dispose() => _disposed = true;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
 }

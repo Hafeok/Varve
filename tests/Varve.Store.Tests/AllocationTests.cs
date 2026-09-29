@@ -6,6 +6,7 @@ using System;
 using System.Globalization;
 using System.Threading.Tasks;
 using Varve.Rdf;
+using Varve.Store.Log;
 using Xunit;
 
 namespace Varve.Store.Tests;
@@ -100,8 +101,8 @@ public class AllocationTests
         await using Dataset large = await Loaded(Large);
 
         // Position 2 with no checkpoint: the whole log overlaid on an empty run.
-        using DatasetView smallView = await small.AsOfAsync(2, T.Ct);
-        using DatasetView largeView = await large.AsOfAsync(2, T.Ct);
+        using DatasetView smallView = await small.AsOfAsync(new Position(2), T.Ct);
+        using DatasetView largeView = await large.AsOfAsync(new Position(2), T.Ct);
 
         Assert.Equal(0, Difference(Scan(smallView, TermHandle.None), Scan(largeView, TermHandle.None)));
     }

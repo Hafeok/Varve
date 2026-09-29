@@ -150,6 +150,11 @@ List<(string Name, string Description, Func<int> Run)> jobs =
 
     ("pack", "the publish dry run, and the package metadata",
         Pack),
+
+    // Last, and never a failure: the report reads the Release build, and
+    // prints how it moved from the committed baseline (ADR 0063).
+    ("decision-report", "the decision-driven report against its baseline; never gates",
+        DecisionReport),
 ];
 
 if (list)
@@ -272,6 +277,18 @@ int Conformance()
     ]);
 
     return Run("dotnet", ["run", "eng/ratchet.cs", "--", conformanceResults, "--label", "local"]);
+}
+
+int DecisionReport()
+{
+    int exitCode = Run("dotnet", ["run", "eng/decision-report.cs"]);
+
+    if (exitCode != 0)
+    {
+        Console.WriteLine("decision-report: did not run; it does not gate, so the pipeline goes on.");
+    }
+
+    return 0;
 }
 
 int Pack()

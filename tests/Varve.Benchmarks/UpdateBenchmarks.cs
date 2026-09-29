@@ -14,6 +14,7 @@ using BenchmarkDotNet.Attributes;
 using Varve.Rdf;
 using Varve.Sparql;
 using Varve.Sparql.Store;
+using Varve.Store.Log;
 using Varve.Store;
 using VDS.RDF;
 using VDS.RDF.Parsing;

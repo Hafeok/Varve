@@ -83,6 +83,7 @@ public readonly struct XsdDateTime : IEquatable<XsdDateTime>
     public XsdDecimal Second => _value.Second;
 
     /// <summary>Whether a timezone offset is present.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool HasTimezone => _value.HasTimezone;
 
     /// <summary>The timezone offset in minutes east of UTC; zero when absent, so check <see cref="HasTimezone"/>.</summary>
@@ -107,6 +108,7 @@ public readonly struct XsdDateTime : IEquatable<XsdDateTime>
         SevenPropertyModel.TimeOnTimeline(in _value, _value.HasTimezone ? _value.TimezoneOffset : implicitTimezoneOffset);
 
     /// <summary>Parses the lexical representation (§3.3.7, §D.2.2).</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryParse(ReadOnlySpan<byte> utf8, out XsdDateTime value)
     {
         bool ok = SevenPropertyModel.TryParse(utf8, Fields, out SevenProperties parsed);
@@ -139,6 +141,7 @@ public readonly struct XsdDateTime : IEquatable<XsdDateTime>
     /// </summary>
     [DesignDecision(typeof(XsdValueSurfaces.XsdOrderingsReturnInt), Scope = ExceptionScope.Boundary)]
     [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static int Compare(XsdDateTime left, XsdDateTime right, int implicitTimezoneOffset) =>
         SevenPropertyModel.Compare(in left._value, in right._value, implicitTimezoneOffset);
 

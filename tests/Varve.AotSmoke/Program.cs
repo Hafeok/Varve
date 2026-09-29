@@ -200,17 +200,17 @@ internal static class Program
 
         await using (Varve.Store.Dataset dataset = await Varve.Store.Dataset.OpenAsync(storage, options))
         {
-            Varve.Store.CommitResult first = await dataset.CommitAsync(new Varve.Store.CommitRequest()
+            Varve.Store.Log.CommitResult first = await dataset.CommitAsync(new Varve.Store.Log.CommitRequest()
                 .Assert(RdfTerm.Iri("http://example.org/a"u8), p, RdfTerm.Literal("1"u8, RdfTerm.Iri("http://www.w3.org/2001/XMLSchema#integer"u8)))
                 .Assert(RdfTerm.BlankNode("x"u8), p, RdfTerm.Literal("chat"u8, "en"u8), RdfTerm.Iri("http://example.org/g"u8)));
-            Varve.Store.CommitResult second = await dataset.CommitAsync(new Varve.Store.CommitRequest()
+            Varve.Store.Log.CommitResult second = await dataset.CommitAsync(new Varve.Store.Log.CommitRequest()
                 .Retract(RdfTerm.Iri("http://example.org/a"u8), p, RdfTerm.Literal("1"u8, RdfTerm.Iri("http://www.w3.org/2001/XMLSchema#integer"u8)))
                 .Assert(RdfTerm.Iri("http://example.org/b"u8), p, RdfTerm.TripleTerm(RdfTerm.Iri("http://example.org/a"u8), p, RdfTerm.Iri("http://example.org/c"u8))));
 
-            await dataset.CheckpointAsync(1);
+            await dataset.CheckpointAsync(new Varve.Store.Log.Position(1));
 
             using Varve.Store.DatasetView pinned = dataset.Pin();
-            using Varve.Store.DatasetView asOf = await dataset.AsOfAsync(1);
+            using Varve.Store.DatasetView asOf = await dataset.AsOfAsync(new Varve.Store.Log.Position(1));
             int now = CountQuads(pinned);
             int then = CountQuads(asOf);
 
@@ -218,7 +218,7 @@ internal static class Program
                 CultureInfo.InvariantCulture,
                 $"store: {first.Outcome}({first.Position}), {second.Outcome}({second.Position}), pinned {now} quads, as-of 1 {then} quads"));
 
-            if (second.Position != 2 || now != 2 || then != 2)
+            if (second.Position != new Varve.Store.Log.Position(2) || now != 2 || then != 2)
             {
                 Console.Error.WriteLine("aot-smoke: the store disagreed with itself.");
                 return 1;
@@ -227,7 +227,7 @@ internal static class Program
 
         await using Varve.Store.Dataset reopened = await Varve.Store.Dataset.OpenAsync(storage, options);
 
-        if (reopened.Head != 2 || reopened.Checkpoints.Count != 1)
+        if (reopened.Head != new Varve.Store.Log.Position(2) || reopened.Checkpoints.Count != 1)
         {
             Console.Error.WriteLine("aot-smoke: the reopened store lost its log or its checkpoint.");
             return 1;

@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Varve.Store.Log;
 using Xunit;
 
 namespace Varve.Store.Tests;
@@ -46,13 +47,13 @@ public class RegressionTests
 
             await using (Dataset recovered = await Dataset.OpenAsync(copy, options, T.Ct))
             {
-                head = recovered.Head;
+                head = recovered.Head.Value;
                 CommitResult next = await recovered.CommitAsync(new CommitRequest().Assert(T.Iri("after"), T.Iri("p"), T.Iri("o")), T.Ct);
-                Assert.Equal(head + 1, next.Position);
+                Assert.Equal(new Position(head + 1), next.Position);
             }
 
             await using Dataset reopened = await Dataset.OpenAsync(copy, options, T.Ct);
-            Assert.Equal(head + 1, reopened.Head);
+            Assert.Equal(new Position(head + 1), reopened.Head);
         }
     }
 }

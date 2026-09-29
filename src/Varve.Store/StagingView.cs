@@ -7,7 +7,10 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
+using DecisionDriven.Ledger.Varve;
+using DecisionDriven;
 using Varve.Rdf;
+using Varve.Store.Log;
 
 namespace Varve.Store;
 
@@ -34,6 +37,7 @@ namespace Varve.Store;
 /// (I3).
 /// </para>
 /// </remarks>
+[Contract(typeof(StagingViewAndDatasetValidators.StagingViewOverAPin), Role = "a pinned read that also stages terms for a request")]
 public sealed class StagingView : IQuadSource
 {
     private readonly DatasetView _view;
@@ -52,7 +56,7 @@ public sealed class StagingView : IQuadSource
     }
 
     /// <summary>The position the view reads.</summary>
-    public long Position => _view.Position;
+    public Position Position => _view.Position;
 
     /// <inheritdoc />
     public IEqualityComparer<TermHandle> TermComparer => _view.TermComparer;

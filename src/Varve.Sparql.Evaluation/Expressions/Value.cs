@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Sparql.Evaluation.Execution;
 using Varve.Xsd;
@@ -31,6 +33,7 @@ internal enum ValueKind : byte
 /// numeric or boolean result stays a value, and a term held by reference is
 /// externalised only when an operator needs more than its handle.
 /// </summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal readonly struct Value
 {
     private Value(ValueKind kind, TermRef reference, XsdNumeric number, bool flag, RdfTerm? term)

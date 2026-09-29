@@ -34,14 +34,17 @@ lambdas and local functions declared in them):
 **A call** is an invocation, a property access, a struct's explicit
 constructor, and a user-defined operator or conversion. A callee is fine when
 it, its property, or a type containing it is `[HotPath]`; when it implements a
-member of an interface marked `[HotPath]`; when it is a local function or
+member of an interface marked `[HotPath]` or overrides a member marked
+`[HotPath]`; when it is a local function or
 lambda of the hot member itself; when it carries
 `[DesignDecision(..., Scope = ExceptionScope.HotPath)]`; or when its type is a
 BCL type on the allow-list.
 
 **What is held to the rule**: a member marked `[HotPath]`, a member of a type
-marked `[HotPath]`, and a member implementing a member of an interface marked
-`[HotPath]`. The generated attribute cannot be put on an interface as a whole
+marked `[HotPath]`, a member implementing a member of an interface marked
+`[HotPath]`, and an override of an abstract or virtual member marked
+`[HotPath]`, since a call through the base would otherwise reach code nobody
+checked. The generated attribute cannot be put on an interface as a whole
 (decision-driven-analyzers#61), so an interface is marked member by member.
 
 **Not checked**: a test assembly (`*.Tests`). It is not shipped, and a test
@@ -54,6 +57,8 @@ call on purpose. The DD contract rules draw the same line.
   when the object is made, and a class made per quad is reported where it is
   made, at the hot caller's `new`. A struct's constructor runs per value and
   is checked;
+- a static constructor and a static field or property initializer: they run
+  once per type. A static property's getter runs per call and is checked;
 - anything under a `throw`: the exception and its message are built on the
   path that ends the operation, not the path per quad, and a hot path that
   could not report malformed input would have to be wrong about it instead;

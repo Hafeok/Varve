@@ -168,6 +168,7 @@ internal static class TermIds
         return false;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool IsValidInline(ulong id)
     {
         ulong tag = (id >> InlineTagShift) & 0x3F;

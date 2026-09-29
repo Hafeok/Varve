@@ -380,6 +380,62 @@ public class HotPathDisciplineAnalyzerTests
         """, "Cursor.Next(int)", F(A.Boxes, "int"), A.BoxesDecide);
 
     [Fact]
+    public Task A_static_initializer_runs_once_and_is_clean() => Clean($$"""
+        {{Mark}}
+        internal static class Constants
+        {
+            internal static object Boxed { get; } = new object();
+
+            private static readonly int[] Table = new int[16];
+
+            internal static int First => Table[0];
+        }
+        """);
+
+    [Fact]
+    public Task A_static_getter_runs_per_call_and_is_checked() => Reports($$"""
+        {{Mark}}
+        internal static class Constants
+        {
+            internal static object Boxed => {|#0:new object()|};
+        }
+        """, "Constants.Boxed.get", F(A.AllocatesObject, "object"), A.AllocatesObjectDecide);
+
+    [Fact]
+    public Task An_override_of_a_hot_path_member_is_held_to_the_rule() => Reports($$"""
+        internal abstract class Expr
+        {
+            {{Mark}}
+            internal abstract object Eval(int x);
+        }
+
+        internal sealed class Boxing : Expr
+        {
+            internal override object Eval(int x) => {|#0:x|};
+        }
+        """, "Boxing.Eval(int)", F(A.Boxes, "int"), A.BoxesDecide);
+
+    [Fact]
+    public Task Calling_through_a_hot_path_base_member_is_clean() => Clean($$"""
+        internal abstract class Expr
+        {
+            {{Mark}}
+            internal abstract int Eval(int x);
+        }
+
+        internal sealed class Twice : Expr
+        {
+            internal override int Eval(int x) => x + x;
+        }
+
+        internal sealed class C
+        {
+            {{Mark}}
+            public int M(Expr e, int x) => e.Eval(x);
+        }
+        """);
+
+    [Fact]
     public Task Calling_through_a_hot_path_interface_is_clean() => Clean($$"""
         internal interface ICursor
         {

@@ -19,15 +19,19 @@ public readonly struct XsdBoolean : IEquatable<XsdBoolean>, IComparable<XsdBoole
     public XsdBoolean(bool value) => Value = value;
 
     /// <summary>The value.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool Value { get; }
 
     /// <summary><c>true</c>.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static XsdBoolean True => new(true);
 
     /// <summary><c>false</c>.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static XsdBoolean False => new(false);
 
     /// <summary>Parses <c>true</c>, <c>false</c>, <c>1</c> or <c>0</c> (§3.3.2.2).</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryParse(ReadOnlySpan<byte> utf8, out XsdBoolean value)
     {
         if (utf8.SequenceEqual("true"u8) || utf8.SequenceEqual("1"u8))

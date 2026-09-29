@@ -163,20 +163,20 @@ internal static partial class Smoke
 
         await using (Varve.Store.Dataset dataset = await Varve.Store.Dataset.OpenAsync(storage, options))
         {
-            await dataset.CommitAsync(new Varve.Store.CommitRequest()
+            await dataset.CommitAsync(new Varve.Store.Log.CommitRequest()
                 .Assert(RdfTerm.Iri("http://example.org/a"u8), p, one)
                 .Assert(RdfTerm.BlankNode("x"u8), p, RdfTerm.Literal("chat"u8, "en"u8), RdfTerm.Iri("http://example.org/g"u8)));
-            Varve.Store.CommitResult second = await dataset.CommitAsync(new Varve.Store.CommitRequest()
+            Varve.Store.Log.CommitResult second = await dataset.CommitAsync(new Varve.Store.Log.CommitRequest()
                 .Retract(RdfTerm.Iri("http://example.org/a"u8), p, one)
                 .Assert(RdfTerm.Iri("http://example.org/b"u8), p, RdfTerm.TripleTerm(RdfTerm.Iri("http://example.org/a"u8), p, one)));
-            await dataset.CheckpointAsync(1);
+            await dataset.CheckpointAsync(new Varve.Store.Log.Position(1));
 
             using Varve.Store.DatasetView pinned = dataset.Pin();
-            using Varve.Store.DatasetView asOf = await dataset.AsOfAsync(1);
+            using Varve.Store.DatasetView asOf = await dataset.AsOfAsync(new Varve.Store.Log.Position(1));
             now = Count(pinned);
             then = Count(asOf);
 
-            if (second.Position != 2 || now != 2 || then != 2)
+            if (second.Position != new Varve.Store.Log.Position(2) || now != 2 || then != 2)
             {
                 throw new InvalidOperationException(
                     "store: position " + second.Position.ToString(CultureInfo.InvariantCulture)
@@ -186,7 +186,7 @@ internal static partial class Smoke
 
         await using Varve.Store.Dataset reopened = await Varve.Store.Dataset.OpenAsync(storage, options);
 
-        if (reopened.Head != 2 || reopened.Checkpoints.Count != 1)
+        if (reopened.Head != new Varve.Store.Log.Position(2) || reopened.Checkpoints.Count != 1)
         {
             throw new InvalidOperationException("store: the reopened store lost its log or its checkpoint");
         }

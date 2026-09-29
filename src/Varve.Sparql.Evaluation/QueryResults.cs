@@ -5,6 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Sparql.Algebra;
 using Varve.Sparql.Evaluation.Execution;
@@ -29,6 +31,7 @@ public enum QueryResultKind : byte
 /// releases every cursor it opened; it is the signal that the caller may
 /// release the source (ADR 0052).
 /// </summary>
+[Contract(typeof(EvaluationSurfaces.QueryResultsIsAClosedHierarchy), Role = "what an evaluation returns: solutions, a boolean or triples")]
 public abstract class QueryResults : IDisposable
 {
     private protected QueryResults()

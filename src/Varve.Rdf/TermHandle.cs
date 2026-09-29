@@ -26,6 +26,7 @@ namespace Varve.Rdf;
 /// different bits can name equal terms.
 /// </para>
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 public readonly struct TermHandle : IEquatable<TermHandle>
 {
     /// <summary>Wraps a source-specific value.</summary>

@@ -49,13 +49,36 @@ internal static class HotPath
 
     /// <summary>Whether <paramref name="symbol"/> is held to the hot-path rules.</summary>
     /// <remarks>
-    /// Marked itself or by a container, or an implementation of a member of a
-    /// <c>[HotPath]</c> interface: a contract marked hot holds every
-    /// implementation to the rules, or calling it through the interface would
-    /// be a hot call into code nobody checked.
+    /// Marked itself or by a container, an implementation of a member of a
+    /// <c>[HotPath]</c> interface, or an override of a <c>[HotPath]</c>
+    /// abstract or virtual member: a contract marked hot holds every
+    /// implementation to the rules, or calling it through the interface or the
+    /// base would be a hot call into code nobody checked.
     /// </remarks>
     internal static bool IsHotPath(ISymbol? symbol) =>
-        IsMarked(symbol) || ImplementsHotInterfaceMember(symbol);
+        IsMarked(symbol) || ImplementsHotInterfaceMember(symbol) || OverridesHotMember(symbol);
+
+    private static bool OverridesHotMember(ISymbol? symbol)
+    {
+        ISymbol? member = symbol is IMethodSymbol { AssociatedSymbol: { } associated } ? associated : symbol;
+
+        for (ISymbol? overridden = Overridden(member); overridden is not null; overridden = Overridden(overridden))
+        {
+            if (IsMarked(overridden))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static ISymbol? Overridden(ISymbol? member) => member switch
+    {
+        IMethodSymbol method => method.OverriddenMethod,
+        IPropertySymbol property => property.OverriddenProperty,
+        _ => null,
+    };
 
     private static bool ImplementsHotInterfaceMember(ISymbol? symbol)
     {

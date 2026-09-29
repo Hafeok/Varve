@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Xsd;
 
@@ -32,15 +34,18 @@ public readonly struct XsdInteger : IEquatable<XsdInteger>, IComparable<XsdInteg
     public XsdInteger(long value) => Value = value;
 
     /// <summary>The value.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public long Value { get; }
 
     /// <summary>Zero.</summary>
     public static XsdInteger Zero => default;
 
     /// <summary>Whether the value is negative.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool IsNegative => Value < 0;
 
     /// <summary>Whether the value is zero.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool IsZero => Value == 0;
 
     // --- lexical mapping ----------------------------------------------------
@@ -50,6 +55,7 @@ public readonly struct XsdInteger : IEquatable<XsdInteger>, IComparable<XsdInteg
     /// and one or more digits). False when the form is ill-formed or the
     /// value does not fit.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryParse(ReadOnlySpan<byte> utf8, out XsdInteger value) =>
         TryParse(utf8, XsdDatatype.Integer, out value);
 
@@ -58,6 +64,7 @@ public readonly struct XsdInteger : IEquatable<XsdInteger>, IComparable<XsdInteg
     /// <c>xsd:integer</c> or one of its derived types, and checks the range
     /// that datatype fixes.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryParse(ReadOnlySpan<byte> utf8, XsdDatatype datatype, out XsdInteger value)
     {
         value = default;
@@ -90,6 +97,7 @@ public readonly struct XsdInteger : IEquatable<XsdInteger>, IComparable<XsdInteg
             static (ReadOnlySpan<byte> utf8, XsdDatatype d, out XsdInteger v) => TryParse(utf8, d, out v),
             out value);
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool TryParseCore(ReadOnlySpan<byte> utf8, out long value)
     {
         value = 0;
@@ -154,6 +162,7 @@ public readonly struct XsdInteger : IEquatable<XsdInteger>, IComparable<XsdInteg
     /// far as a <see cref="long"/> reaches: <c>xsd:unsignedLong</c>'s upper
     /// bound is <see cref="long.MaxValue"/> here, not 2⁶⁴ − 1.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static (long Minimum, long Maximum) Range(XsdDatatype datatype) => datatype switch
     {
         XsdDatatype.Integer => (long.MinValue, long.MaxValue),
@@ -204,6 +213,7 @@ public readonly struct XsdInteger : IEquatable<XsdInteger>, IComparable<XsdInteg
     }
 
     /// <summary>Writes the canonical form.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool TryFormat(Span<byte> destination, out int written)
     {
         written = 0;
@@ -245,6 +255,7 @@ public readonly struct XsdInteger : IEquatable<XsdInteger>, IComparable<XsdInteg
     // --- arithmetic, checked ------------------------------------------------
 
     /// <summary><c>op:numeric-add</c>; false on overflow.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryAdd(XsdInteger left, XsdInteger right, out XsdInteger result)
     {
         long sum = unchecked(left.Value + right.Value);
@@ -253,6 +264,7 @@ public readonly struct XsdInteger : IEquatable<XsdInteger>, IComparable<XsdInteg
     }
 
     /// <summary><c>op:numeric-subtract</c>; false on overflow.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TrySubtract(XsdInteger left, XsdInteger right, out XsdInteger result)
     {
         long difference = unchecked(left.Value - right.Value);
@@ -261,6 +273,7 @@ public readonly struct XsdInteger : IEquatable<XsdInteger>, IComparable<XsdInteg
     }
 
     /// <summary><c>op:numeric-multiply</c>; false on overflow.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryMultiply(XsdInteger left, XsdInteger right, out XsdInteger result)
     {
         long high = Math.BigMul(left.Value, right.Value, out long low);
@@ -285,6 +298,7 @@ public readonly struct XsdInteger : IEquatable<XsdInteger>, IComparable<XsdInteg
     }
 
     /// <summary><c>op:numeric-unary-minus</c>; false for the minimum value.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryNegate(XsdInteger value, out XsdInteger result)
     {
         result = new XsdInteger(unchecked(-value.Value));
@@ -352,12 +366,14 @@ public readonly struct XsdInteger : IEquatable<XsdInteger>, IComparable<XsdInteg
     public static bool operator !=(XsdInteger left, XsdInteger right) => !left.Equals(right);
 
     /// <summary>Numeric order.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool operator <(XsdInteger left, XsdInteger right) => left.Value < right.Value;
 
     /// <summary>Numeric order.</summary>
     public static bool operator >(XsdInteger left, XsdInteger right) => left.Value > right.Value;
 
     /// <summary>Numeric order.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool operator <=(XsdInteger left, XsdInteger right) => left.Value <= right.Value;
 
     /// <summary>Numeric order.</summary>

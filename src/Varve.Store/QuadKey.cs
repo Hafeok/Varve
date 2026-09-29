@@ -19,6 +19,7 @@ namespace Varve.Store;
 /// place (ADR 0041).
 /// </remarks>
 [StructLayout(LayoutKind.Sequential)]
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal readonly struct QuadKey : IComparable<QuadKey>, IEquatable<QuadKey>
 {
     internal QuadKey(ulong k0, ulong k1, ulong k2, ulong k3)

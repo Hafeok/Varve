@@ -101,5 +101,6 @@ public interface IQuadSource
     /// not inline — nothing more — and the consumer externalises as it would
     /// have anyway.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     bool TryGetInlineValue(TermHandle handle, out InlineValue value);
 }

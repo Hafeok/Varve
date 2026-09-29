@@ -5,6 +5,8 @@
 using System;
 using System.Globalization;
 using System.Text;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Sparql.Evaluation.Execution;
 using Varve.Xsd;
@@ -20,6 +22,7 @@ namespace Varve.Sparql.Evaluation.Expressions;
 /// </summary>
 internal sealed class CastExpr(XsdDatatype target, Expr argument) : Expr
 {
+    [DesignDecision(typeof(EvaluationHotPathScope.TermBuildingExpressionsAllocate), Scope = ExceptionScope.HotPath)]
     internal override Value Eval(Exec exec, ulong[] row, in ActiveGraph graph)
     {
         Value value = argument.Eval(exec, row, graph);

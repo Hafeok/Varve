@@ -25,6 +25,7 @@ public static class XsdString
 {
     /// <summary>Code-point order over two UTF-8 strings.</summary>
     [DesignDecision(typeof(XsdValueSurfaces.XsdOrderingsReturnInt), Scope = ExceptionScope.Boundary)]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static int CompareCodePoints(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right) =>
         Math.Sign(left.SequenceCompareTo(right));
 

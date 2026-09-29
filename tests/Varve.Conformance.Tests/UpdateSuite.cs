@@ -15,6 +15,7 @@ using Varve.Sparql;
 using Varve.Sparql.Algebra;
 using Varve.Sparql.Evaluation;
 using Varve.Sparql.Store;
+using Varve.Store.Log;
 using Varve.Store;
 using Varve.Turtle;
 
@@ -128,7 +129,7 @@ internal static class UpdateRunner
             await LoadAsync(dataset, quads, graph, cancellationToken);
         }
 
-        long before = dataset.Head;
+        Position before = dataset.Head;
         byte[] text = File.ReadAllBytes(EvaluationSuite.PathOf(entry.RequestIri));
         Update update = SparqlParser.ParseUpdate(text, new SparqlParseOptions(Encoding.UTF8.GetBytes(entry.RequestIri), SparqlVersion.Sparql11));
         UpdateOptions options = new()
@@ -148,7 +149,7 @@ internal static class UpdateRunner
             return new UpdateOutcome("the request failed: " + error.Message, CommitOutcome.Rejected, 0);
         }
 
-        long commits = dataset.Head - before;
+        long commits = dataset.Head.Value - before.Value;
         string? commitFailure = result.Outcome switch
         {
             CommitOutcome.Committed when commits != 1 => "Committed, but the log grew by " + commits + " commit(s)",
@@ -225,7 +226,7 @@ internal static class UpdateRunner
             }
         }
 
-        if (request.Count > 0)
+        if (request.Count.Value > 0)
         {
             await dataset.CommitAsync(request, cancellationToken);
         }

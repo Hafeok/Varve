@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Varve.Rdf;
+using Varve.Store.Log;
 using Xunit;
 
 namespace Varve.Store.Tests;
@@ -45,7 +46,7 @@ internal static class T
         RdfTerm.Literal(Encoding.UTF8.GetBytes(lexical), Encoding.UTF8.GetBytes(language));
 
     public static DatasetOptions Options(TimeProvider? clock = null, int maxRecordBytes = 1 << 20, long segmentBytes = 64L << 20) =>
-        new() { Clock = clock ?? ManualClock.Epoch(), MaxRecordBytes = maxRecordBytes, SegmentBytes = segmentBytes };
+        new() { Clock = clock ?? ManualClock.Epoch(), MaxRecordBytes = maxRecordBytes, SegmentBytes = new ByteCount(segmentBytes) };
 
     public static ValueTask<Dataset> Open(IStorage storage, TimeProvider? clock = null) => Dataset.OpenAsync(storage, Options(clock), Ct);
 

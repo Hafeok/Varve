@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
 using Varve.Rdf;
+using Varve.Store.Log;
 using Varve.Store;
 using StoreDatasetType = Varve.Store.Dataset;
 
@@ -117,7 +118,7 @@ public class CommitBenchmarks
 
     /// <summary>100,000 quads, one commit, into an empty dataset.</summary>
     [Benchmark]
-    public async Task<long> OneCommitOf100000() => (await _dataset!.CommitAsync(_bulk)).Position;
+    public async Task<long> OneCommitOf100000() => (await _dataset!.CommitAsync(_bulk)).Position.Value;
 
     /// <summary>100,000 quads as 100 commits of 1,000, into an empty dataset.</summary>
     [Benchmark]
@@ -127,7 +128,7 @@ public class CommitBenchmarks
 
         foreach (CommitRequest batch in _batches)
         {
-            position = (await _dataset!.CommitAsync(batch)).Position;
+            position = (await _dataset!.CommitAsync(batch)).Position.Value;
         }
 
         return position;
@@ -141,7 +142,7 @@ public class CommitBenchmarks
 
         foreach (CommitRequest single in _singles)
         {
-            position = (await _dataset!.CommitAsync(single)).Position;
+            position = (await _dataset!.CommitAsync(single)).Position.Value;
         }
 
         return position;
@@ -238,12 +239,12 @@ internal static class StoreSizes
 
         foreach (SegmentInfo segment in await storage.Log.ListSegmentsAsync(default))
         {
-            logBytes += segment.Length;
+            logBytes += segment.Length.Value;
         }
 
         await dataset.CheckpointAsync(dataset.Head);
-        string name = (await storage.Derived.ListAsync(default)).Single();
-        long checkpointBytes = (await storage.Derived.GetRangeAsync(name, 0, int.MaxValue, default)).Length;
+        BlobName name = (await storage.Derived.ListAsync(default)).Single();
+        long checkpointBytes = (await storage.Derived.GetRangeAsync(name, new ByteOffset(0), new ByteCount(int.MaxValue), default)).Length;
         GC.KeepAlive(quads);
         long after = GC.GetTotalMemory(forceFullCollection: true);
 
