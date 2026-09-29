@@ -13,9 +13,9 @@ decisions:
     accepted-at: 2026-09-29T00:00:00Z
   - key: SparqlStoreModel
     statement: "Varve.Sparql.Store.Model is the integration's model namespace and holds LoadedDocument"
-  - key: DurabilityIsALogValue
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-29T00:00:00Z
+  - key: DurabilityIsALogValue
     statement: "Durability, what a storage backend promises once a flush returns, is a value in Varve.Store.Log and not engine in Varve.Store"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-29T00:00:00Z
