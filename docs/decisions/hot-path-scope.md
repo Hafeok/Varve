@@ -17,7 +17,7 @@ decisions:
     accepted-at: 2026-09-28T00:00:00Z
   - key: GeneratedLabelClaimsAreRecorded
     statement: "The Turtle parser records a document's own g-form blank node labels in collections when it first meets them, the one place it allocates in proportion to its input, because a streaming parser must honour a claim it cannot foresee"
-    accepted-by: mailto:YOU@EXAMPLE
+    accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-29T00:00:00Z
 ---
 
