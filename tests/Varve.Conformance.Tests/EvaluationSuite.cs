@@ -3,7 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using Varve.Rdf;
@@ -28,7 +30,7 @@ internal sealed record EvaluationSuite(string Id, string ManifestPath, string Ba
     /// the SPARQL 1.2 directories, whose cases with RDF 1.2 Turtle data are
     /// blocked (<see cref="EvaluationCatalogue.IsBlocked"/>).
     /// </summary>
-    internal static IReadOnlyList<EvaluationSuite> All { get; } =
+    internal static ImmutableArray<EvaluationSuite> All { get; } =
     [
         .. Sparql10(
             "basic", "triple-match", "open-world", "algebra", "bnode-coreference", "optional", "optional-filter",
@@ -83,12 +85,12 @@ internal static class EvaluationCatalogue
     private const string Qt = "http://www.w3.org/2001/sw/DataAccess/tests/test-query#";
     private const string Rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
 
-    private static readonly Lazy<IReadOnlyList<EvaluationEntry>> AllEntries = new(ReadAll);
-    private static readonly Lazy<IReadOnlyDictionary<string, EvaluationEntry>> Index = new(() => AllEntries.Value.ToDictionary(e => e.TestIri, StringComparer.Ordinal));
+    private static readonly Lazy<ImmutableArray<EvaluationEntry>> AllEntries = new(() => [.. ReadAll()]);
+    private static readonly Lazy<FrozenDictionary<string, EvaluationEntry>> Index = new(() => AllEntries.Value.ToFrozenDictionary(e => e.TestIri, StringComparer.Ordinal));
 
-    internal static IReadOnlyList<EvaluationEntry> Entries => AllEntries.Value;
+    internal static ImmutableArray<EvaluationEntry> Entries => AllEntries.Value;
 
-    internal static IReadOnlyDictionary<string, EvaluationEntry> ByIri => Index.Value;
+    internal static FrozenDictionary<string, EvaluationEntry> ByIri => Index.Value;
 
     internal static IReadOnlyList<EvaluationEntry> Of(EvaluationSuite suite) =>
         [.. Entries.Where(e => string.Equals(e.Suite, suite.Id, StringComparison.Ordinal))];
@@ -101,7 +103,7 @@ internal static class EvaluationCatalogue
     internal static bool IsBlocked(EvaluationEntry entry) => EvaluationData.RefusedFiles(entry).Count > 0;
 
     /// <summary>The blocked cases, which the guard pins by count and by suite.</summary>
-    internal static IReadOnlyList<EvaluationEntry> Blocked => [.. Entries.Where(IsBlocked)];
+    internal static ImmutableArray<EvaluationEntry> Blocked => [.. Entries.Where(IsBlocked)];
 
     private static List<EvaluationEntry> ReadAll()
     {

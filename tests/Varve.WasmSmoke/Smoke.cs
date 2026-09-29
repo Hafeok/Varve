@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.Runtime.InteropServices.JavaScript;
 using System.Security.Cryptography;
@@ -59,8 +61,9 @@ internal static partial class Smoke
             report.Append(Sparql()).Append('\n');
             report.Append(await Evaluate()).Append('\n');
             report.Append(await Update()).Append('\n');
-            report.Append(Crypto()).Append('\n');
-            Expect();
+            SortedDictionary<string, string> observed = new(StringComparer.Ordinal);
+            report.Append(Crypto(observed)).Append('\n');
+            Expect(observed);
             report.Append("OK");
         }
         catch (Exception error)
@@ -394,34 +397,34 @@ internal static partial class Smoke
     /// which is when the successor to ADR 0020 can be decided.
     /// </para>
     /// </remarks>
-    private static string Crypto()
+    private static string Crypto(SortedDictionary<string, string> observed)
     {
         StringBuilder report = new();
 
         report.Append("crypto: ");
-        report.Append(Probe("RandomNumberGenerator", static () =>
+        report.Append(Probe(observed, "RandomNumberGenerator", static () =>
         {
             byte[] bytes = new byte[32];
             RandomNumberGenerator.Fill(bytes);
             return bytes.Length == 32;
         }));
 
-        report.Append(Probe("SHA256", static () => SHA256.HashData("varve"u8).Length == 32));
+        report.Append(Probe(observed, "SHA256", static () => SHA256.HashData("varve"u8).Length == 32));
 
         // SPARQL's SHA1(), SHA384(), SHA512() and MD5() are what these four
         // are probed for; the weak two are the functions' algorithms, not a
         // choice (ADR 0048).
 #pragma warning disable CA5350, CA5351
-        report.Append(Probe("SHA1", static () => SHA1.HashData("varve"u8).Length == 20));
-        report.Append(Probe("SHA384", static () => SHA384.HashData("varve"u8).Length == 48));
-        report.Append(Probe("SHA512", static () => SHA512.HashData("varve"u8).Length == 64));
-        report.Append(Probe("IncrementalHash-SHA256", static () => Incremental(HashAlgorithmName.SHA256, 32)));
-        report.Append(Probe("IncrementalHash-SHA384", static () => Incremental(HashAlgorithmName.SHA384, 48)));
-        report.Append(Probe("MD5", static () => MD5.HashData("varve"u8).Length == 16));
+        report.Append(Probe(observed, "SHA1", static () => SHA1.HashData("varve"u8).Length == 20));
+        report.Append(Probe(observed, "SHA384", static () => SHA384.HashData("varve"u8).Length == 48));
+        report.Append(Probe(observed, "SHA512", static () => SHA512.HashData("varve"u8).Length == 64));
+        report.Append(Probe(observed, "IncrementalHash-SHA256", static () => Incremental(HashAlgorithmName.SHA256, 32)));
+        report.Append(Probe(observed, "IncrementalHash-SHA384", static () => Incremental(HashAlgorithmName.SHA384, 48)));
+        report.Append(Probe(observed, "MD5", static () => MD5.HashData("varve"u8).Length == 16));
 #pragma warning restore CA5350, CA5351
-        report.Append(Probe("HMACSHA256", static () => HMACSHA256.HashData(new byte[32], "varve"u8).Length == 32));
+        report.Append(Probe(observed, "HMACSHA256", static () => HMACSHA256.HashData(new byte[32], "varve"u8).Length == 32));
 
-        report.Append(Probe("HKDF", static () =>
+        report.Append(Probe(observed, "HKDF", static () =>
         {
             byte[] once = HKDF.DeriveKey(HashAlgorithmName.SHA256, new byte[32], 32, info: "varve/enc"u8.ToArray());
             byte[] again = HKDF.DeriveKey(HashAlgorithmName.SHA256, new byte[32], 32, info: "varve/enc"u8.ToArray());
@@ -431,7 +434,7 @@ internal static partial class Smoke
             return once.Length == 32 && once.AsSpan().SequenceEqual(again);
         }));
 
-        report.Append(Probe("FixedTimeEquals", static () =>
+        report.Append(Probe(observed, "FixedTimeEquals", static () =>
         {
             byte[] tag = HMACSHA256.HashData(new byte[32], "varve"u8);
             byte[] same = HMACSHA256.HashData(new byte[32], "varve"u8);
@@ -443,7 +446,7 @@ internal static partial class Smoke
                 && !CryptographicOperations.FixedTimeEquals(tag, other);
         }));
 
-        report.Append(Probe("AES-CBC", static () =>
+        report.Append(Probe(observed, "AES-CBC", static () =>
         {
             using Aes aes = Aes.Create();
             aes.Key = new byte[32];
@@ -451,9 +454,9 @@ internal static partial class Smoke
             return aes.DecryptCbc(ciphertext, new byte[16], PaddingMode.PKCS7).AsSpan().SequenceEqual("varve"u8);
         }));
 
-        report.Append(Probe("AES-GCM", static () => AesGcm.IsSupported));
-        report.Append(Probe("AES-CCM", static () => AesCcm.IsSupported));
-        report.Append(Probe("ChaCha20Poly1305", static () => ChaCha20Poly1305.IsSupported));
+        report.Append(Probe(observed, "AES-GCM", static () => AesGcm.IsSupported));
+        report.Append(Probe(observed, "AES-CCM", static () => AesCcm.IsSupported));
+        report.Append(Probe(observed, "ChaCha20Poly1305", static () => ChaCha20Poly1305.IsSupported));
 
         return report.ToString().TrimEnd(',', ' ');
     }
@@ -477,7 +480,7 @@ internal static partial class Smoke
         return digest.Length == length && digest.AsSpan().SequenceEqual(once);
     }
 
-    private static string Probe(string name, Func<bool> check)
+    private static string Probe(SortedDictionary<string, string> observed, string name, Func<bool> check)
     {
         string outcome;
 
@@ -494,11 +497,9 @@ internal static partial class Smoke
             outcome = "threw(CryptographicException)";
         }
 
-        Observed[name] = outcome;
+        observed[name] = outcome;
         return name + "=" + outcome + ", ";
     }
-
-    internal static readonly System.Collections.Generic.SortedDictionary<string, string> Observed = new(StringComparer.Ordinal);
 
     /// <summary>
     /// What the browser offered on the day ADR 0020's condition was tested,
@@ -514,7 +515,7 @@ internal static partial class Smoke
     /// browser is the signal that 0028's alternatives are worth revisiting, and
     /// a primitive disappearing would break 0028 itself.
     /// </remarks>
-    private static readonly (string Name, string Expected)[] Pinned =
+    private static readonly ImmutableArray<(string Name, string Expected)> Pinned =
     [
         ("RandomNumberGenerator", "yes"),
         ("SHA256", "yes"),
@@ -540,11 +541,11 @@ internal static partial class Smoke
         ("ChaCha20Poly1305", "no"),
     ];
 
-    private static void Expect()
+    private static void Expect(SortedDictionary<string, string> observed)
     {
         foreach ((string name, string expected) in Pinned)
         {
-            string actual = Observed.TryGetValue(name, out string? value) ? value : "(not probed)";
+            string actual = observed.TryGetValue(name, out string? value) ? value : "(not probed)";
 
             if (!string.Equals(actual, expected, StringComparison.Ordinal))
             {

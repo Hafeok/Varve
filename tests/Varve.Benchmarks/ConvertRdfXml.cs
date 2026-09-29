@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Immutable;
 using System.IO;
 using System.Security.Cryptography;
 using VDS.RDF;
@@ -23,7 +24,7 @@ internal static class ConvertRdfXml
     private const string PublishedRoot = "https://w3c.github.io/rdf-tests/";
 
     /// <summary>The directories whose RDF/XML the query evaluation suites read.</summary>
-    private static readonly string[] Directories = ["sparql/sparql10/sort", "sparql/sparql11/subquery"];
+    private static readonly ImmutableArray<string> Directories = ["sparql/sparql10/sort", "sparql/sparql11/subquery"];
 
     internal static void Run(string repositoryRoot)
     {

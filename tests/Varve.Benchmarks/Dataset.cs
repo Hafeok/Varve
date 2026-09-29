@@ -2,7 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using System.Collections.Immutable;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Varve.Benchmarks;
@@ -25,9 +27,9 @@ internal static class Dataset
 {
     internal const int Quads = 100_000;
 
-    internal static byte[] Utf8 { get; } = Build();
+    internal static ImmutableArray<byte> Utf8 { get; } = ImmutableCollectionsMarshal.AsImmutableArray(Build());
 
-    internal static string Text { get; } = Encoding.UTF8.GetString(Utf8);
+    internal static string Text { get; } = Encoding.UTF8.GetString(Utf8.AsSpan());
 
     private static byte[] Build()
     {

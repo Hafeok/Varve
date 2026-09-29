@@ -5,6 +5,7 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -150,7 +151,7 @@ internal static class UpdateWorkload
 [InvocationCount(1, 1)]
 public class UpdateBenchmarks : IDisposable
 {
-    internal static readonly int[] Sizes = [10_000, 100_000];
+    internal static readonly ImmutableArray<int> Sizes = [10_000, 100_000];
 
     private string _text = string.Empty;
     private StoreDatasetType? _dataset;
