@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-namespace Varve.Store;
+namespace Varve.Store.Log;
 
 /// <summary>
 /// What a storage backend promises once a flush returns. Declared by the

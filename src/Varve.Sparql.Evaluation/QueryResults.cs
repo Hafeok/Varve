@@ -10,21 +10,9 @@ using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Sparql.Algebra;
 using Varve.Sparql.Evaluation.Execution;
+using Varve.Sparql.Evaluation.Model;
 
 namespace Varve.Sparql.Evaluation;
-
-/// <summary>What a query form answers.</summary>
-public enum QueryResultKind : byte
-{
-    /// <summary>A <c>SELECT</c>: a sequence of solutions.</summary>
-    Solutions,
-
-    /// <summary>An <c>ASK</c>: a boolean.</summary>
-    Boolean,
-
-    /// <summary>A <c>CONSTRUCT</c> or <c>DESCRIBE</c>: triples.</summary>
-    Triples,
-}
 
 /// <summary>
 /// The answer to one query execution. Disposing it stops the evaluation and

@@ -1,11 +1,11 @@
 #nullable enable
-Varve.Store.Durability
-Varve.Store.Durability.Committed = 1 -> Varve.Store.Durability
-Varve.Store.Durability.None = 0 -> Varve.Store.Durability
-Varve.Store.Durability.Synchronised = 2 -> Varve.Store.Durability
+Varve.Store.Log.Durability
+Varve.Store.Log.Durability.Committed = 1 -> Varve.Store.Log.Durability
+Varve.Store.Log.Durability.None = 0 -> Varve.Store.Log.Durability
+Varve.Store.Log.Durability.Synchronised = 2 -> Varve.Store.Log.Durability
 Varve.Store.IDerivedStore
 Varve.Store.ISegmentStore
-Varve.Store.ISegmentStore.Durability.get -> Varve.Store.Durability
+Varve.Store.ISegmentStore.Durability.get -> Varve.Store.Log.Durability
 Varve.Store.ISegmentStore.ListSegmentsAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Varve.Store.Log.SegmentInfo>!>
 Varve.Store.IStorage
 Varve.Store.IStorage.Derived.get -> Varve.Store.IDerivedStore!
@@ -63,7 +63,7 @@ Varve.Store.Dataset
 Varve.Store.Dataset.CatchUpAsync(Varve.Store.IProjection! projection, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 Varve.Store.Dataset.CommitAsync(Varve.Store.Log.CommitRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.CommitResult>
 Varve.Store.Dataset.DisposeAsync() -> System.Threading.Tasks.ValueTask
-Varve.Store.Dataset.Durability.get -> Varve.Store.Durability
+Varve.Store.Dataset.Durability.get -> Varve.Store.Log.Durability
 Varve.Store.Dataset.IsFailed.get -> bool
 Varve.Store.Dataset.Pin() -> Varve.Store.DatasetView!
 Varve.Store.Dataset.RebuildAsync(Varve.Store.IProjection! projection, bool fromCheckpoint, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask

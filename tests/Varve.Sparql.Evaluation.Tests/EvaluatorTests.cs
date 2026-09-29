@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Varve.Rdf;
 using Varve.Sparql.Algebra;
+using Varve.Sparql.Evaluation.Model;
 using Xunit;
 using static Varve.Sparql.Evaluation.Tests.Support;
 

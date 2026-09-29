@@ -13,6 +13,7 @@ using Varve.Rdf;
 using Varve.Sparql;
 using Varve.Sparql.Algebra;
 using Varve.Sparql.Evaluation;
+using Varve.Sparql.Evaluation.Model;
 
 namespace Varve.Conformance.Tests;
 

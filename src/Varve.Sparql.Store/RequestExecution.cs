@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Varve.Rdf;
 using Varve.Sparql.Algebra;
 using Varve.Sparql.Evaluation;
+using Varve.Sparql.Store.Model;
 using Varve.Store.Log;
 using Varve.Store;
 using Varve.Turtle;

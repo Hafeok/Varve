@@ -8,6 +8,7 @@ using System.Text;
 using Varve.Rdf;
 using Varve.Sparql.Algebra;
 using Varve.Sparql.Evaluation.Execution;
+using Varve.Sparql.Evaluation.Model;
 
 namespace Varve.Sparql.Evaluation.Operators;
 
