@@ -48,7 +48,7 @@ internal sealed class ConstExpr(RdfTerm term) : Expr
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal override Value Eval(Exec exec, ulong[] row, in ActiveGraph graph)
     {
-        if (!ReferenceEquals(_for, exec))
+        if (_for != exec)
         {
             Resolve(exec);
         }

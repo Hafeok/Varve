@@ -199,7 +199,8 @@ public sealed class RdfTerm : IEquatable<RdfTerm>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool Equals(RdfTerm? other)
     {
-        if (ReferenceEquals(this, other))
+        // A reference comparison, as ReferenceEquals is: RdfTerm has no ==.
+        if (this == other)
         {
             return true;
         }

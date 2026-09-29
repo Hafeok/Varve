@@ -126,7 +126,11 @@ dd_rule_id_prefixes = VARVE
 # VARVE0003's allow-list: the BCL types a [HotPath] member may call without the
 # callee being [HotPath] itself (ADR 0064). Configuration, not code. A name
 # ending in '*' is a prefix; every other name is a type's full metadata name.
-varve_hot_path_allowed_types = System.Span`1, System.ReadOnlySpan`1, System.Runtime.InteropServices.MemoryMarshal, System.Buffers.Binary.BinaryPrimitives, System.Runtime.CompilerServices.Unsafe, System.Buffers.ArrayPool`1, System.Numerics.Vector*, System.Runtime.Intrinsics.Vector*, System.Index, System.Range, System.MemoryExtensions, System.Text.Rune, System.HashCode, System.ArgumentException, System.ArgumentNullException, System.ArgumentOutOfRangeException, System.ObjectDisposedException, System.Math, System.Text.Unicode.Utf8, System.Int32
+# The numerics, Boolean, Nullable`1 and ReadOnlyMemory`1 are admitted as types
+# (HotPathScope.AllowListAddsNonAllocatingValueTypes). ImmutableArray`1 and
+# CancellationToken are admitted as types only until VARVE0003 can admit members
+# (#56); the members that allocate are named as excluded in that key.
+varve_hot_path_allowed_types = System.Span`1, System.ReadOnlySpan`1, System.Runtime.InteropServices.MemoryMarshal, System.Buffers.Binary.BinaryPrimitives, System.Runtime.CompilerServices.Unsafe, System.Buffers.ArrayPool`1, System.Numerics.Vector*, System.Runtime.Intrinsics.Vector*, System.Index, System.Range, System.MemoryExtensions, System.Text.Rune, System.HashCode, System.ArgumentException, System.ArgumentNullException, System.ArgumentOutOfRangeException, System.ObjectDisposedException, System.Math, System.Text.Unicode.Utf8, System.Int32, System.Byte, System.SByte, System.Int16, System.UInt16, System.UInt32, System.Int64, System.UInt64, System.Int128, System.UInt128, System.Single, System.Double, System.Decimal, System.Boolean, System.Nullable`1, System.ReadOnlyMemory`1, System.Collections.Immutable.ImmutableArray`1, System.Threading.CancellationToken
 
 # --- the RDF vocabulary -----------------------------------------------------
 # A triple is a subject, a predicate and an object. CA1720 objects to the

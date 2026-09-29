@@ -32,6 +32,11 @@ namespace Varve.Xsd;
 /// </remarks>
 internal static class FloatingPoint
 {
+    // The BCL's IEEE parser and formatter, told to use the invariant culture: a
+    // cached singleton, read here once for the four calls that pass it.
+    [DesignDecision(typeof(HotPathScope.IeeeTextGoesThroughTheInvariantFormatter), Scope = ExceptionScope.HotPath)]
+    private static CultureInfo Invariant => CultureInfo.InvariantCulture;
+
     internal enum Special
     {
         None,
@@ -232,7 +237,7 @@ internal static class FloatingPoint
                 value = double.NaN;
                 return true;
             default:
-                return double.TryParse(utf8, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+                return double.TryParse(utf8, NumberStyles.Float, Invariant, out value);
         }
     }
 
@@ -257,7 +262,7 @@ internal static class FloatingPoint
                 value = float.NaN;
                 return true;
             default:
-                return float.TryParse(utf8, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+                return float.TryParse(utf8, NumberStyles.Float, Invariant, out value);
         }
     }
 
@@ -276,7 +281,7 @@ internal static class FloatingPoint
 
         Span<byte> shortest = stackalloc byte[64];
 
-        return value.TryFormat(shortest, out int length, "R", CultureInfo.InvariantCulture)
+        return value.TryFormat(shortest, out int length, "R", Invariant)
             && Canonicalise(shortest[..length], destination, out written);
     }
 
@@ -295,7 +300,7 @@ internal static class FloatingPoint
 
         Span<byte> shortest = stackalloc byte[64];
 
-        return value.TryFormat(shortest, out int length, "R", CultureInfo.InvariantCulture)
+        return value.TryFormat(shortest, out int length, "R", Invariant)
             && Canonicalise(shortest[..length], destination, out written);
     }
 

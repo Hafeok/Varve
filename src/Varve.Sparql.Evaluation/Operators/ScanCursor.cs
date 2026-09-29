@@ -80,7 +80,7 @@ internal sealed class ScanCursor
                 if (row[graph.Slot] != 0)
                 {
                     if (!exec.TryGetSourceHandle(Rows.Get(row, exec.Width, graph.Slot), out TermHandle named)
-                        || (exec.NamedGraphSet is { } set && !set.Contains(named)))
+                        || (exec.NamedGraphSet is not null && !IsNamed(named)))
                     {
                         return false;
                     }
@@ -104,7 +104,7 @@ internal sealed class ScanCursor
             {
                 _exec.Step();
                 Quad quad = _cursor.Current;
-                if (_filterNamed && !_exec.NamedGraphSet!.Contains(quad.Graph))
+                if (_filterNamed && !IsNamed(quad.Graph))
                 {
                     continue;
                 }
@@ -149,6 +149,11 @@ internal sealed class ScanCursor
         _cursor!.Dispose();
         _cursor = null;
     }
+
+    // FROM NAMED restricts the named graphs to a set, looked up under the
+    // source's term equality: a hash lookup, which allocates nothing.
+    [DesignDecision(typeof(EvaluationHotPathScope.FromNamedIsASetLookup), Scope = ExceptionScope.HotPath)]
+    private bool IsNamed(TermHandle graph) => _exec.NamedGraphSet!.Contains(graph);
 
     // The merge of several FROM graphs returns a triple in two of them once,
     // so the scan remembers what it returned.

@@ -15,6 +15,8 @@ decisions:
     statement: "A scan over the merge of several FROM graphs remembers each triple it has returned in a set, which grows with the triples, because the merge returns a triple in two of the graphs once"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-29T00:00:00Z
+  - key: FromNamedIsASetLookup
+    statement: "A scan restricted by FROM NAMED checks each graph against the query's set of named graphs, a hash set lookup under the source's term equality that allocates nothing"
   - key: MaterialisedArmOwnsItsTerms
     statement: "In the materialised arm, the evaluator externalises every handle a scan finds and interns the term locally, and looks a local term up in the source to join on it, because that arm measures the cost of owning every term"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -72,6 +74,13 @@ alternative is a resettable cursor on the quad source contract.
 **`FromMergeRemembersTriples`.** `ScanCursor.ForgetSeen` and `.FirstTime`. Only
 with two or more `FROM` graphs. The alternative, a merge over sorted cursors,
 needs an order the contract does not promise.
+
+**`FromNamedIsASetLookup`.** `ScanCursor.IsNamed`. Filed by session 3 of #43, after
+the maintainer admitted `ImmutableArray<T>` and `CancellationToken` by member but
+not the collections: a `HashSet<T>` lookup does not allocate, but the type's other
+members do, so the one call cites this rather than the allow-list admitting the
+type. The alternative is a sorted handle array searched in place, which needs an
+order the source's term equality does not give.
 
 **`MaterialisedArmOwnsItsTerms`.** `Exec.MaterialiseFromSource` and
 `.InternaliseLocal`. The arm exists to measure owning every term (ADR 0050);

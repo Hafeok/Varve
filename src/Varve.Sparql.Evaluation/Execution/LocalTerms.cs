@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using System;
 using System.Collections.Generic;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
@@ -18,18 +19,25 @@ namespace Varve.Sparql.Evaluation.Execution;
 /// </summary>
 internal sealed class LocalTerms
 {
-    private readonly List<Entry> _entries = [];
+    // An array, not a List: the hot readers index it, which is an instruction
+    // rather than a call. It grows by doubling, on the interning path only.
+    private Entry[] _entries = new Entry[16];
     private readonly Dictionary<RdfTerm, int> _index = new(RdfTerm.Comparer);
 
-    internal int Count => _entries.Count;
+    internal int Count { get; private set; }
 
     /// <summary>The raw value (index from 1) of a term, interning it.</summary>
     internal ulong Intern(RdfTerm term)
     {
         if (!_index.TryGetValue(term, out int index))
         {
-            index = _entries.Count;
-            _entries.Add(new Entry(term));
+            index = Count;
+            if (Count == _entries.Length)
+            {
+                Array.Resize(ref _entries, _entries.Length * 2);
+            }
+
+            _entries[Count++] = new Entry(term);
             _index.Add(term, index);
         }
 
