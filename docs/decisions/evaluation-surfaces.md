@@ -5,10 +5,22 @@ origin: "DD0009, DD0012 and DD0016 findings on Varve.Sparql.Evaluation in sessio
 decisions:
   - key: QueryResultsIsAClosedHierarchy
     statement: "An evaluation returns a QueryResults, an abstract class closed to this assembly whose three sealed forms are SolutionResults, BooleanResult and TripleResults, told apart by Kind, and the caller disposes it"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
+    accepted-by: mailto:YOU@EXAMPLE
+    accepted-at: 2026-09-29T00:00:00Z
   - key: AggregateDistinctIsTheKeyword
     statement: "IExtensionAggregate.CreateAccumulator takes the aggregate's DISTINCT keyword as a bool named after it, as the algebra records the keyword, and the evaluator has already removed duplicates when it is true"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
+    accepted-by: mailto:YOU@EXAMPLE
+    accepted-at: 2026-09-29T00:00:00Z
   - key: OperatorsAreEnumerators
     statement: "The evaluator's operators yield solutions as IEnumerator of ulong[], as C# iterators do, and the one hand-written cursor, BgpCursor, throws on Reset as every iterator does"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
+    accepted-by: mailto:YOU@EXAMPLE
+    accepted-at: 2026-09-29T00:00:00Z
 ---
 
 # Contracts and shapes on Varve.Sparql.Evaluation's surface

@@ -5,8 +5,16 @@ origin: "VARVE0003 findings on Varve.Store in session 3 of #43"
 decisions:
   - key: RunBuildAllocatesTheRunItReturns
     statement: "Building a run from a commit's delta allocates the run's six key arrays and the array that holds them, because those arrays are the run, kept as long as the index version that holds it; the loop over the quads allocates nothing"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
+    accepted-by: mailto:YOU@EXAMPLE
+    accepted-at: 2026-09-29T00:00:00Z
   - key: PrivateTermComparisonResolvesValues
     statement: "Once a dataset has private terms, the store's term comparer resolves a handle to its term to compare or hash it, a lookup through the private-term values and the dictionary per call, because specification 1.2 lets a readable private term equal a canonical one"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
+    accepted-by: mailto:YOU@EXAMPLE
+    accepted-at: 2026-09-29T00:00:00Z
 ---
 
 # What the hot-path rules do not cover in the store

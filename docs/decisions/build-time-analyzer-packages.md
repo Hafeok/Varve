@@ -25,6 +25,10 @@ decisions:
     accepted-at: 2026-09-25T00:00:00Z
   - key: ReportIsALocalToolAgainstABaseline
     statement: "DecisionDriven.Report is a local .NET tool pinned in .config/dotnet-tools.json and registered in Directory.Packages.props, run by eng/decision-report.cs over the shipped assemblies against a committed baseline report, in CI and never as a gate"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
+    accepted-by: mailto:YOU@EXAMPLE
+    accepted-at: 2026-09-29T00:00:00Z
   - key: TestsRunOnTestingPlatform
     statement: "dotnet test runs on Microsoft.Testing.Platform, selected in global.json, so Microsoft.NET.Test.Sdk and the VSTest adapter are deliberately absent"
     accepted-by: mailto:emil@okkels-klein.dk
