@@ -5,12 +5,20 @@ origin: "VARVE0003 findings on layers 0 to 2 in session 2 of #43"
 decisions:
   - key: AllowListAddsNonAllocatingBclHelpers
     statement: "The hot-path allow-list also admits the BCL helpers span parsing is written with that neither allocate nor call back into user code: Index, Range, MemoryExtensions, Rune, Utf8, HashCode, Math, Int32, and the throw helpers of ArgumentException, ArgumentNullException, ArgumentOutOfRangeException and ObjectDisposedException"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-28T00:00:00Z
   - key: DirectivesAreNotPerQuad
     statement: "A Turtle or TriG directive keeps its own copy of what it binds and calls the caller's prefix and base handlers, because a directive happens once per binding and not once per quad"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-28T00:00:00Z
   - key: CallerBufferWriterIsTheSink
     statement: "A results writer made over the caller's IBufferWriter of byte calls its GetSpan and Advance on every write, because that buffer writer is the sink the caller chose and its cost is the caller's"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-28T00:00:00Z
   - key: GeneratedLabelClaimsAreRecorded
     statement: "The Turtle parser records a document's own g-form blank node labels in collections when it first meets them, the one place it allocates in proportion to its input, because a streaming parser must honour a claim it cannot foresee"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
 ---
 
 # What the hot-path rules do not cover

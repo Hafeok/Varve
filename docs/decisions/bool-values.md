@@ -5,6 +5,8 @@ origin: "DD0016 findings on Varve.Xsd and Varve.Rdf in session 2 of #43"
 decisions:
   - key: BoolParameterIsTheValue
     statement: "A model member whose bool parameter is the boolean value being represented, XsdBoolean's constructor and InlineValue.FromBoolean, takes a bool, because an enum of two members would be a second name for the value space"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-28T00:00:00Z
 ---
 
 # A `bool` that is the value

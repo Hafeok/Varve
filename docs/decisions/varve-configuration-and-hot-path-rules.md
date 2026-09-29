@@ -33,6 +33,8 @@ decisions:
     accepted-at: 2026-09-25T00:00:00Z
   - key: SyntaxPackagesHaveOneModelNamespace
     statement: "Each syntax package has one DomainModel namespace for its public data types - its parse errors, their kinds, its source positions and its callbacks' answers: Varve.Turtle.Model, Varve.Sparql.Algebra (which also takes SourceSpan and SparqlParseError) and Varve.Sparql.Results.Model. The syntax namespaces themselves stay undeclared"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-26T00:00:00Z
   - key: VarveRulesUnderDd0008
     statement: "dd_rule_id_prefixes is VARVE, and dd_banned_names is left at the package's default list"
     accepted-by: mailto:emil@okkels-klein.dk

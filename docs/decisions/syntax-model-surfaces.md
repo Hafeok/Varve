@@ -5,8 +5,12 @@ origin: "DD0013 findings on the syntax packages' model namespaces, after ADR 006
 decisions:
   - key: SourceCoordinatesAreOffsetsLinesAndColumns
     statement: "A source position or span in a syntax package's model namespace exposes its byte offsets as long and its line and column as int: coordinates into the caller's own input, used to point at or slice that input and never passed on as a quantity of anything else"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-28T00:00:00Z
   - key: ErrorMessagesAreDisplayText
     statement: "A parse error's Message is a string: text for a person, which nothing parses or branches on, because the error's Kind is the half a program reads"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-28T00:00:00Z
 ---
 
 # The primitives on the syntax packages' model surfaces

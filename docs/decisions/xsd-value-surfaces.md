@@ -5,10 +5,16 @@ origin: "DD0013 findings on Varve.Xsd in session 2 of #43"
 decisions:
   - key: XsdComponentsAreSpecIntegers
     statement: "The components of a Varve.Xsd value, year, month, day, hour, minute, timezone offset in minutes, a duration's months and a decimal's scale, are the integers XSD 1.1 Part 2 defines them as, and the members that take or expose one use int or long"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-28T00:00:00Z
   - key: XsdOrderingsReturnInt
     statement: "A Compare or CompareCodePoints member of Varve.Xsd returns int, negative, zero or positive, as Comparison of T does"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-28T00:00:00Z
   - key: XsdDecimalConvertsToIeeePrimitives
     statement: "XsdDecimal.ToDouble and ToSingle return the IEEE primitive, the value space a numeric promotion casts an xsd:decimal to"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-28T00:00:00Z
 ---
 
 # The primitives on Varve.Xsd's surface

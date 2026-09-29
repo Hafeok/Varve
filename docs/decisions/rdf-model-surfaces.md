@@ -5,12 +5,20 @@ origin: "DD0009 and DD0013 findings on Varve.Rdf in session 2 of #43"
 decisions:
   - key: QuadCursorIsForwardOnlyAndDisposable
     statement: "A quad source answers a match with IQuadCursor, a forward-only walk with no reset that the caller disposes, not IEnumerator, so a source may hold a lock, a pinned segment or a snapshot for the cursor's lifetime"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-28T00:00:00Z
   - key: InlineValueIsAUnionOfTypedPrimitives
     statement: "InlineValue is a union over the primitives a handle can encode, and its Integer is the long the evaluator asked for (ADR 0050), not a single-primitive wrapper"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-28T00:00:00Z
   - key: CanonicalisationWorkIsAnInteger
     statement: "CanonicalisationOptions.WorkLimit and CanonicalisationLimitException's Steps and Limit count RDFC-1.0 work steps as integers (ADR 0059)"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-28T00:00:00Z
   - key: InMemoryTermCountIsAnInteger
     statement: "InMemoryDataset.TermCount reports the size of the dataset's interning table as an int"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-28T00:00:00Z
 ---
 
 # Contracts and primitives on Varve.Rdf's surface
