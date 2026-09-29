@@ -5,14 +5,24 @@ adr: 0069
 decisions:
   - key: PackagesAtLayers3To5HaveOneModelNamespace
     statement: "Each package at layers 3 to 5 whose contracts name its own data types has one DomainModel namespace for them, the package's root namespace plus Model; the engine namespaces themselves stay undeclared"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
   - key: EvaluationModel
     statement: "Varve.Sparql.Evaluation.Model is the evaluator's model namespace and holds QueryResultKind, ServiceRequest and ServiceResult"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
   - key: SparqlStoreModel
     statement: "Varve.Sparql.Store.Model is the integration's model namespace and holds LoadedDocument"
   - key: DurabilityIsALogValue
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
     statement: "Durability, what a storage backend promises once a flush returns, is a value in Varve.Store.Log and not engine in Varve.Store"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
   - key: FailureTextIsDisplayText
     statement: "ServiceResult.Failure and LoadedDocument.Failure are strings: the text a failed SERVICE call or LOAD gives the error a person reads, which nothing compares, parses or routes on, because whether there is a failure is the half a program reads"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
 ---
 
 # Model namespaces for layers 3 to 5

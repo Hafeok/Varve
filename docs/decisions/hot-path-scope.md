@@ -21,8 +21,12 @@ decisions:
     accepted-at: 2026-09-29T00:00:00Z
   - key: AllowListAddsNonAllocatingValueTypes
     statement: "The hot-path allow-list admits by type the numeric value types Byte, SByte, Int16, UInt16, Int32, UInt32, Int64, UInt64, Int128, UInt128, Single, Double and Decimal, and Boolean, Nullable of T and ReadOnlyMemory of T, none of which allocates; until VARVE0003 can admit members (Varve issue 56) it also admits ImmutableArray of T and CancellationToken by type, of which a hot path may call only members that do not allocate, and never ImmutableArray's ToArray, Add, AddRange, Insert, InsertRange, Remove, RemoveAt, RemoveAll, RemoveRange, Replace, SetItem, Sort, ToBuilder or its enumeration through IEnumerable of T, nor CancellationToken's Register, UnsafeRegister or WaitHandle"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
   - key: IeeeTextGoesThroughTheInvariantFormatter
     statement: "Varve.Xsd parses and formats xsd:double and xsd:float through the BCL's IEEE parser and formatter with the invariant culture, which neither allocates on a span nor calls back into Varve"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
 ---
 
 # What the hot-path rules do not cover

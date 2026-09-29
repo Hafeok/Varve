@@ -17,6 +17,8 @@ decisions:
     accepted-at: 2026-09-29T00:00:00Z
   - key: FromNamedIsASetLookup
     statement: "A scan restricted by FROM NAMED checks each graph against the query's set of named graphs, a hash set lookup under the source's term equality that allocates nothing"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
   - key: MaterialisedArmOwnsItsTerms
     statement: "In the materialised arm, the evaluator externalises every handle a scan finds and interns the term locally, and looks a local term up in the source to join on it, because that arm measures the cost of owning every term"
     accepted-by: mailto:emil@okkels-klein.dk
