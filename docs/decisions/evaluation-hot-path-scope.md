@@ -7,55 +7,37 @@ decisions:
     statement: "A join that produces a solution copies its working row into a new one, one ulong array per solution, because a solution is handed to the next operator and outlives the join's next step"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-29T00:00:00Z
-    accepted-by: mailto:YOU@EXAMPLE
-    accepted-at: 2026-09-29T00:00:00Z
   - key: ScanOpensTheSourcesCursor
     statement: "A scan asks the quad source for one cursor per graph it reads and disposes it when that graph is done, so a triple pattern costs the source's cursor once per binding of the patterns before it, never once per quad"
     accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-09-29T00:00:00Z
-    accepted-by: mailto:YOU@EXAMPLE
     accepted-at: 2026-09-29T00:00:00Z
   - key: FromMergeRemembersTriples
     statement: "A scan over the merge of several FROM graphs remembers each triple it has returned in a set, which grows with the triples, because the merge returns a triple in two of the graphs once"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-29T00:00:00Z
-    accepted-by: mailto:YOU@EXAMPLE
-    accepted-at: 2026-09-29T00:00:00Z
   - key: MaterialisedArmOwnsItsTerms
     statement: "In the materialised arm, the evaluator externalises every handle a scan finds and interns the term locally, and looks a local term up in the source to join on it, because that arm measures the cost of owning every term"
     accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-09-29T00:00:00Z
-    accepted-by: mailto:YOU@EXAMPLE
     accepted-at: 2026-09-29T00:00:00Z
   - key: NestedPatternsExternalise
     statement: "A triple pattern with a nested triple pattern in it externalises the triple term a scan finds and matches the nested pattern against that term"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-29T00:00:00Z
-    accepted-by: mailto:YOU@EXAMPLE
-    accepted-at: 2026-09-29T00:00:00Z
   - key: ConstantsResolveOncePerExecution
     statement: "A constant in an expression looks its term up in the execution's source once per execution, interning it locally when the source does not hold it, and reuses the result for every solution"
     accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-09-29T00:00:00Z
-    accepted-by: mailto:YOU@EXAMPLE
     accepted-at: 2026-09-29T00:00:00Z
   - key: TermBuildingExpressionsAllocate
     statement: "A built-in function or a cast that makes a new term allocates the term it makes and the text it builds, and a computed number allocates its literal when it is bound or returned; comparisons, logic, arithmetic, variables and constants do not"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-29T00:00:00Z
-    accepted-by: mailto:YOU@EXAMPLE
-    accepted-at: 2026-09-29T00:00:00Z
   - key: ExistsRunsItsPattern
     statement: "EXISTS and NOT EXISTS open their pattern's operator against the solution being filtered, once per solution, with what that operator allocates"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-29T00:00:00Z
-    accepted-by: mailto:YOU@EXAMPLE
-    accepted-at: 2026-09-29T00:00:00Z
   - key: ExtensionFunctionsAreTheCallersCode
     statement: "A call to an extension function passes its arguments as an array of terms and runs the caller's code, which the evaluator does not hold to its own rules"
     accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-09-29T00:00:00Z
-    accepted-by: mailto:YOU@EXAMPLE
     accepted-at: 2026-09-29T00:00:00Z
 ---
 

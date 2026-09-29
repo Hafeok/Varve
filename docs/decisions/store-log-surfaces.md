@@ -7,8 +7,6 @@ decisions:
     statement: "CommitResult.Reason is the text a caller shows or logs when a commit is unavailable, a string, because nothing compares, parses or routes on it"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-29T00:00:00Z
-    accepted-by: mailto:YOU@EXAMPLE
-    accepted-at: 2026-09-29T00:00:00Z
 ---
 
 # Primitives on Varve.Store.Log's surface
