@@ -19,7 +19,7 @@ decisions:
 
 # The primitives on the SPARQL algebra's surface
 
-**Unaccepted.** Filed by session 2 of #43, for the maintainer.
+**Accepted** by the maintainer on 2026-09-28 and 2026-09-29. Filed by session 2 of #43.
 
 ADR 0064 declares `Varve.Sparql.Algebra` a `[DomainModel]` namespace, which
 brings the algebra's public members under `DD0013` and `DD0016`. ADR 0048

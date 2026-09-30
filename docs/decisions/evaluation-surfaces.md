@@ -19,7 +19,7 @@ decisions:
 
 # Contracts and shapes on Varve.Sparql.Evaluation's surface
 
-**Unaccepted.** Filed by session 3 of #43, for the maintainer.
+**Accepted** by the maintainer on 2026-09-29. Filed by session 3 of #43.
 
 Five of the evaluator's six public abstractions cite the ADRs that made them:
 `IExtensionFunction` and `IRandomSource` (ADR 0056's

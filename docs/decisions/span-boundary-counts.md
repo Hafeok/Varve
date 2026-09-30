@@ -11,7 +11,7 @@ decisions:
 
 # Counts at the span boundary
 
-**Unaccepted.** Filed by session 2 of #43, for the maintainer.
+**Accepted** by the maintainer on 2026-09-28. Filed by session 2 of #43.
 
 `DD0013` bans naked primitives on model and contract surfaces. It exempts the
 parse and format boundary by name (`Parse`, `TryParse`, `Format`, `TryFormat`)

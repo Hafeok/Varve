@@ -11,7 +11,7 @@ decisions:
 
 # A `bool` that is the value
 
-**Unaccepted.** Filed by session 2 of #43, for the maintainer.
+**Accepted** by the maintainer on 2026-09-28. Filed by session 2 of #43.
 
 `DD0016` (tier 2) warns on a `bool` parameter on a model member, because a call
 site reading `Find(id, true, false)` cannot say which flag is which. Its rule

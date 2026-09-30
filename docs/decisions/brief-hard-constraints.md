@@ -20,7 +20,7 @@ rule". There was none, so session 2 of #43 files it here.
 Only constraint 5 is filed, because only it is cited today. The other five are
 filed when code first needs to cite one.
 
-**Unaccepted.** ADR 0001 treats a matter the brief already settles as accepted,
-but a session never writes `accepted-by` (ADR 0066): the maintainer's
-acceptance is a signed human commit on the pull request's branch. Until then
-every `[HotPath]` mark citing it is `CS0618`.
+**Accepted** by the maintainer on 2026-09-28. ADR 0001 treats a matter the brief
+already settles as accepted, but a session never writes `accepted-by` (ADR 0066):
+the maintainer's acceptance is a signed human commit on the pull request's branch.
+Until it was made, every `[HotPath]` mark citing this was `CS0618`.

@@ -11,7 +11,7 @@ decisions:
 
 # Primitives on Varve.Store.Log's surface
 
-**Unaccepted.** Filed by session 3 of #43, for the maintainer.
+**Accepted** by the maintainer on 2026-09-29. Filed by session 3 of #43.
 
 ADR 0065 left two `string`s on the store's surface to the two-bucket rule: the
 derived store's names, and `CommitResult.Reason`.

@@ -33,7 +33,7 @@ marked with that date:
   additions*.
 
 **Superseded in part by [0069](0069-model-namespaces-for-layers-3-to-5.md)**
-(2026-09-29, **Proposed**, in force only once the maintainer accepts it): two
+(filed 2026-09-29, accepted 2026-09-30): two
 bullets of *Not model namespaces*. `Varve.Sparql.Evaluation.Model` and
 `Varve.Sparql.Store.Model` are model namespaces; the root namespaces of both
 packages stay undeclared.

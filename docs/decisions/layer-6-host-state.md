@@ -15,7 +15,7 @@ decisions:
 
 # What the layer 6 hosts keep in static state
 
-**Unaccepted.** Filed by session 3 of #43, for the maintainer.
+**Accepted** by the maintainer on 2026-09-30. Filed by session 3 of #43.
 
 Until `DecisionDriven.Analyzers` 0.1.0-preview.6, every build stopped in
 `Varve.Xsd`, so no build reached the hosts at layer 6 (ADR 0060): the

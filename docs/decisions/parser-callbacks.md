@@ -11,7 +11,7 @@ decisions:
 
 # The parser's error callback
 
-**Unaccepted.** Filed by session 2 of #43, for the maintainer.
+**Accepted** by the maintainer on 2026-09-28. Filed by session 2 of #43.
 
 `DD0009` requires every public delegate in a layered project to cite the
 decision that made it a contract. `Varve.Turtle`'s four delegates are

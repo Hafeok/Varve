@@ -2,12 +2,12 @@
 
 ## Status
 
-**Proposed.** 2026-09-29. Filed by session 3 of #43 for the maintainer
+**Accepted.** 2026-09-30. Filed 2026-09-29 by session 3 of #43
 (issue [#43](https://github.com/Hafeok/Varve/issues/43)), on the maintainer's
-decision of where each type goes. Nothing in it is in force until the
-maintainer accepts it here and in its decision set.
+decision of where each type goes. The maintainer accepted its decision set,
+`ModelNamespacesForLayers3To5`, on 2026-09-29, and this ADR on 2026-09-30.
 
-When accepted, it **supersedes in part**:
+It **supersedes in part**:
 
 - **ADR [0065](0065-wrapper-types-and-the-store-log-namespace.md)**, one line
   of its *Decision* and nothing else: the list of what stays in `Varve.Store`

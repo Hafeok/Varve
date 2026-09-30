@@ -27,9 +27,9 @@ decisions:
 
 # Model namespaces for layers 3 to 5
 
-**Unaccepted.** Filed by session 3 of #43, for the maintainer. The rulings of
+**Accepted** by the maintainer on 2026-09-29. Filed by session 3 of #43. The rulings of
 [ADR 0069](../adr/0069-model-namespaces-for-layers-3-to-5.md), which is
-`Proposed`, one line each. The ADR is the narrative; this is what code cites.
+`Accepted`, one line each. The ADR is the narrative; this is what code cites.
 
 `PackagesAtLayers3To5HaveOneModelNamespace` is the syntax packages' ruling
 (`VarveConfigurationAndHotPathRules.SyntaxPackagesHaveOneModelNamespace`) one

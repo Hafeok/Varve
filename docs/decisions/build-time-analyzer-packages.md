@@ -44,4 +44,4 @@ narrative; this is what code cites. Acceptance is transcribed from the ADR's Sta
 whole without restating them; the 2026-09-26 amendment places them here.
 
 `ReportIsALocalToolAgainstABaseline` is the 2026-09-28 amendment (ADR 0068), filed by session 3 of #43 and
-unaccepted until the maintainer accepts it here.
+accepted by the maintainer on 2026-09-29.

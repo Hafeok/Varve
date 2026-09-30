@@ -31,7 +31,7 @@ decisions:
 
 # What the hot-path rules do not cover
 
-**Unaccepted.** Filed by session 2 of #43, for the maintainer.
+**Accepted** by the maintainer on 2026-09-28 and 2026-09-29. Filed by session 2 of #43.
 
 `VARVE0003` (ADR 0064) holds a `[HotPath]` member to constraint 5, *allocation
 per quad is a defect*. Marking the parser cores, the term arena and the quad
@@ -81,7 +81,7 @@ distinct claimed label. The members that touch them cite this; `Mint` and
 document may use, is impossible: the grammar lets a document write any label
 the parser can emit.
 
-**`AllowListAddsNonAllocatingValueTypes`.** Filed by session 3 of #43, unaccepted.
+**`AllowListAddsNonAllocatingValueTypes`.** Filed by session 3 of #43, accepted 2026-09-29.
 Holding `Varve.Xsd`'s value path to `VARVE0003` meets the BCL at every operator:
 `XsdDecimal` is fixed-point `Int128` (`DecimalIsFixedPointInt128`), and its
 arithmetic, the IEEE conversions and the integer checks are calls into `Int128`,
@@ -94,7 +94,7 @@ hot path must not call are named in the statement, so the exclusion is on record
 where the rule cannot enforce it. The alternative is an allow-list of members, which
 is issue 56.
 
-**`IeeeTextGoesThroughTheInvariantFormatter`.** Filed by session 3 of #43, unaccepted.
+**`IeeeTextGoesThroughTheInvariantFormatter`.** Filed by session 3 of #43, accepted 2026-09-29.
 `FloatingPoint.TryParseDouble`, `TryParseSingle`, `TryFormatDouble` and
 `TryFormatSingle` pass `CultureInfo.InvariantCulture` to the BCL's span parser and
 formatter; the culture is a cached singleton and the calls do not allocate. They

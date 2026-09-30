@@ -84,4 +84,4 @@ decisions on the pull request, before the ADR merged: VARVE0005, and the superse
 0003's declaration mechanism.
 
 `SyntaxPackagesHaveOneModelNamespace` is the 2026-09-26 amendment (ADR 0068), filed by session 2
-of #43 on the maintainer's decision and unaccepted until the maintainer accepts it here.
+of #43 on the maintainer's decision, and accepted by the maintainer on 2026-09-26.

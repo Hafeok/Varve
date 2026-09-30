@@ -47,7 +47,7 @@ decisions:
 
 # What the hot-path rules do not cover in the evaluator
 
-**Unaccepted.** Filed by session 3 of #43, for the maintainer.
+**Accepted** by the maintainer on 2026-09-29. Filed by session 3 of #43.
 
 Session 3 held the evaluator's hot paths to `VARVE0003` (ADR 0064): the BGP
 join, the scan cursor, the solution row, and expression evaluation, which is

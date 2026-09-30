@@ -23,7 +23,7 @@ decisions:
 
 # Contracts and primitives on Varve.Rdf's surface
 
-**Unaccepted.** Filed by session 2 of #43, for the maintainer.
+**Accepted** by the maintainer on 2026-09-28. Filed by session 2 of #43.
 
 Declaring `Varve.Rdf` a `[DomainModel]` namespace (ADR 0064) brings its
 interfaces under `DD0009` and its public members under `DD0013`. ADR 0065

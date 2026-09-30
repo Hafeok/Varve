@@ -22,7 +22,7 @@ vocabulary.
 Implemented in sessions 2 and 3 of #43.
 
 **Superseded in part by [0069](0069-model-namespaces-for-layers-3-to-5.md)**
-(2026-09-29, **Proposed**, in force only once the maintainer accepts it): one
+(filed 2026-09-29, accepted 2026-09-30): one
 line of *Decision*, the one that keeps `Durability` in `Varve.Store` as engine.
 `Durability` moves to `Varve.Store.Log`. The rest of this ADR stands.
 

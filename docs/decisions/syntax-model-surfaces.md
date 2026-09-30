@@ -15,7 +15,7 @@ decisions:
 
 # The primitives on the syntax packages' model surfaces
 
-**Unaccepted.** Filed by session 2 of #43, for the maintainer.
+**Accepted** by the maintainer on 2026-09-28. Filed by session 2 of #43.
 
 ADR 0064's 2026-09-26 amendment gives each syntax package one
 `[DomainModel]` namespace for its public data: `Varve.Turtle.Model`,

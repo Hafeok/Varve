@@ -19,7 +19,7 @@ decisions:
 
 # The primitives on Varve.Xsd's surface
 
-**Unaccepted.** Filed by session 2 of #43, for the maintainer.
+**Accepted** by the maintainer on 2026-09-28. Filed by session 2 of #43.
 
 Declaring `Varve.Xsd` a `[DomainModel]` namespace (ADR 0064) brings every
 public member under `DD0013`: no naked primitives on a model surface. ADR 0065

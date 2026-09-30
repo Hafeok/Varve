@@ -15,7 +15,7 @@ decisions:
 
 # What the hot-path rules do not cover in the store
 
-**Unaccepted.** Filed by session 3 of #43, for the maintainer.
+**Accepted** by the maintainer on 2026-09-29. Filed by session 3 of #43.
 
 Session 3 held `Varve.Store`'s existing `[HotPath]` members to `VARVE0003`
 (ADR 0064). Most findings were small members the hot paths call that were
