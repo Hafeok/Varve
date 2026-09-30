@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Rdf;
 
@@ -28,6 +30,8 @@ namespace Varve.Rdf;
 /// representation is still this package's business.
 /// </para>
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+[DesignDecision(typeof(RdfTermRepresentation.ViewsNestByArena), Scope = ExceptionScope.Pool)]
 public sealed class TermArena
 {
     private Slot[] _slots = new Slot[8];
@@ -59,12 +63,21 @@ public sealed class TermArena
 
         if (_scratch.Length - ScratchLength < minimumLength)
         {
-            int wanted = Math.Max(_scratch.Length * 2, ScratchLength + minimumLength);
-            Array.Resize(ref _scratch, wanted);
+            GrowScratch(Math.Max(_scratch.Length * 2, ScratchLength + minimumLength));
         }
 
         return _scratch.AsSpan(ScratchLength);
     }
+
+    // The pool's growth: only when a quad needs more scratch than any quad
+    // before it, so it is amortised to nothing per quad. This is what the
+    // pooled slots of ADR 0024 are, and the one place the arena allocates.
+    [DesignDecision(typeof(RdfTermRepresentation.ViewsNestByArena), Scope = ExceptionScope.HotPath)]
+    private void GrowScratch(int length) => Array.Resize(ref _scratch, length);
+
+    // The same for the slots.
+    [DesignDecision(typeof(RdfTermRepresentation.ViewsNestByArena), Scope = ExceptionScope.HotPath)]
+    private void GrowSlots() => Array.Resize(ref _slots, _slots.Length * 2);
 
     /// <summary>
     /// Takes the bytes just written into <see cref="ReserveScratch"/> and
@@ -186,7 +199,7 @@ public sealed class TermArena
     {
         if (Count == _slots.Length)
         {
-            Array.Resize(ref _slots, _slots.Length * 2);
+            GrowSlots();
         }
 
         ref Slot slot = ref _slots[Count];

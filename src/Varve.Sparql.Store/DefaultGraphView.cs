@@ -58,7 +58,7 @@ internal sealed class DefaultGraphView : IQuadSource
         switch (graph.Match)
         {
             case GraphMatch.DefaultGraph:
-                return _graph.IsNone ? CardinalityEstimate.Exact(0) : _inner.Estimate(subject, predicate, @object, GraphPattern.Named(_graph));
+                return _graph.IsNone ? CardinalityEstimate.Exact(new QuadCount(0)) : _inner.Estimate(subject, predicate, @object, GraphPattern.Named(_graph));
 
             case GraphMatch.Any:
                 CardinalityEstimate named = _inner.Estimate(subject, predicate, @object, GraphPattern.AnyNamed);
@@ -69,7 +69,7 @@ internal sealed class DefaultGraphView : IQuadSource
                     return CardinalityEstimate.Unknown;
                 }
 
-                long count = named.Count + own.Count;
+                QuadCount count = new(named.Count.Value + own.Count.Value);
                 return named.IsExact && own.IsExact ? CardinalityEstimate.Exact(count) : CardinalityEstimate.Estimated(count);
 
             default:

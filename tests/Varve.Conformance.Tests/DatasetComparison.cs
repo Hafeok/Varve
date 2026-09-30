@@ -96,14 +96,14 @@ internal static class DatasetComparison
 
     private static InMemoryDataset Dataset(IReadOnlyList<DataQuad> quads)
     {
-        InMemoryDataset dataset = new();
+        InMemoryDatasetBuilder builder = new();
 
         foreach (DataQuad quad in quads)
         {
-            dataset.Add(quad.Subject, quad.Predicate, quad.Object, quad.Graph);
+            builder.Add(quad.Subject, quad.Predicate, quad.Object, quad.Graph);
         }
 
-        return dataset;
+        return builder.ToDataset();
     }
 
     private static List<ParsedQuad> Parsed(IReadOnlyList<DataQuad> quads) =>

@@ -9,6 +9,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Varve.Rdf;
+using Varve.Sparql.Store.Model;
+using Varve.Store.Log;
 using Varve.Store;
 using Varve.Turtle;
 using Xunit;
@@ -74,7 +76,7 @@ public class UpdateTests
             """);
 
         Assert.Equal(CommitOutcome.Committed, result.Outcome);
-        Assert.Equal(2, dataset.Head);
+        Assert.Equal(new Position(2), dataset.Head);
         Assert.Equal([":new :r :x", ":old :p :o", ":old :q :old"], State(dataset));
     }
 
@@ -93,7 +95,7 @@ public class UpdateTests
             """);
 
         Assert.Equal(CommitOutcome.NoChange, result.Outcome);
-        Assert.Equal(1, dataset.Head);
+        Assert.Equal(new Position(1), dataset.Head);
     }
 
     [Fact]
@@ -123,7 +125,7 @@ public class UpdateTests
 
         Assert.Equal(1, error.OperationIndex);
         Assert.Equal("LOAD", error.OperationKind);
-        Assert.Equal(0, dataset.Head);
+        Assert.Equal(new Position(0), dataset.Head);
         using DatasetView view = dataset.Pin();
         Assert.False(view.TryInternalise(Iri("fresh"), out _));
     }
@@ -142,7 +144,7 @@ public class UpdateTests
 
         // Each load's blank node is its own.
         Assert.Equal(["_ :p :o", "_ :p :o :g"], State(dataset));
-        Assert.Equal(1, dataset.Head);
+        Assert.Equal(new Position(1), dataset.Head);
     }
 
     [Fact]
@@ -152,7 +154,7 @@ public class UpdateTests
 
         Assert.Equal(CommitOutcome.Committed, (await Run(dataset, "INSERT DATA { :a :p :o }")).Outcome);
         Assert.Equal(CommitOutcome.Rejected, (await Run(dataset, "INSERT DATA { :a :p \"x\" }")).Outcome);
-        Assert.Equal(1, dataset.Head);
+        Assert.Equal(new Position(1), dataset.Head);
     }
 
     [Fact]

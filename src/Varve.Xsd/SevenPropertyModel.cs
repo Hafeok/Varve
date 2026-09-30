@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Xsd;
 
@@ -30,6 +32,7 @@ internal readonly struct SevenProperties : IEquatable<SevenProperties>
     /// <summary>The timezone offset value meaning "absent".</summary>
     internal const short NoTimezone = short.MinValue;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal SevenProperties(
         DateTimeFields present, int year, int month, int day, int hour, int minute, XsdDecimal second, short timezoneOffset)
     {
@@ -43,25 +46,35 @@ internal readonly struct SevenProperties : IEquatable<SevenProperties>
         TimezoneOffset = timezoneOffset;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal DateTimeFields Present { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal int Year { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal byte Month { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal byte Day { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal byte Hour { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal byte Minute { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal XsdDecimal Second { get; }
 
     /// <summary>Minutes east of UTC, or <see cref="NoTimezone"/>.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal short TimezoneOffset { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool HasTimezone => TimezoneOffset != NoTimezone;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool Has(DateTimeFields field) => (Present & field) != 0;
 
     /// <summary>XSD equality: the same time-line position and the same timezone presence.</summary>
@@ -85,6 +98,7 @@ internal static class SevenPropertyModel
     // --- calendar arithmetic -----------------------------------------------
 
     /// <summary><c>daysInMonth</c> (§E.3.2); an absent year is a leap year, as §3.3.12 permits 29 February.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static int DaysInMonth(int? year, int month) => month switch
     {
         2 => year is null || IsLeap(year.Value) ? 29 : 28,
@@ -92,6 +106,7 @@ internal static class SevenPropertyModel
         _ => 31,
     };
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool IsLeap(int year) => (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
 
     /// <summary>
@@ -100,18 +115,22 @@ internal static class SevenPropertyModel
     /// [0, year), which is what §E.3.4's terms over year − 1 count, and
     /// which makes year 0 a leap year.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static long DaysBeforeYear(long year) =>
         (365 * year) + Ceiling(year, 4) - Ceiling(year, 100) + Ceiling(year, 400);
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static long Ceiling(long value, long divisor) =>
         value >= 0 ? (value + divisor - 1) / divisor : value / divisor;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static long Floor(long value, long divisor)
     {
         long quotient = value / divisor;
         return value % divisor != 0 && (value < 0) != (divisor < 0) ? quotient - 1 : quotient;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static int DaysBeforeMonth(int year, int month)
     {
         int days = 0;
@@ -131,6 +150,7 @@ internal static class SevenPropertyModel
     /// the caller has chosen (the value's own, an implicit one, or an imputed
     /// extreme).
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static XsdDecimal TimeOnTimeline(in SevenProperties value, int timezoneOffset)
     {
         // §E.3.4 works from year − 1, filling an absent year with 1971 so that
@@ -151,6 +171,7 @@ internal static class SevenPropertyModel
     // --- orders --------------------------------------------------------------
 
     /// <summary>The implicit-timezone total order (XPath F&amp;O §10.4; ADR 0051).</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static int Compare(in SevenProperties left, in SevenProperties right, int implicitTimezoneOffset)
     {
         XsdDecimal a = TimeOnTimeline(in left, left.HasTimezone ? left.TimezoneOffset : implicitTimezoneOffset);
@@ -164,6 +185,7 @@ internal static class SevenPropertyModel
     /// <c>+14:00</c> and <c>-14:00</c>, and the pair is comparable only when
     /// both imputations give the same strict inequality.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static PartialOrdering CompareXsd(in SevenProperties left, in SevenProperties right)
     {
         if (left.HasTimezone == right.HasTimezone)
@@ -193,6 +215,7 @@ internal static class SevenPropertyModel
         return PartialOrdering.Indeterminate;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static PartialOrdering Ordering(int comparison) =>
         comparison < 0 ? PartialOrdering.Less : comparison > 0 ? PartialOrdering.Greater : PartialOrdering.Equal;
 
@@ -205,6 +228,7 @@ internal static class SevenPropertyModel
     /// <c>timezoneFrag</c>, with the leading <c>--</c> and <c>---</c> of the
     /// month and day types.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool TryParse(ReadOnlySpan<byte> utf8, DateTimeFields fields, out SevenProperties value)
     {
         value = default;
@@ -324,6 +348,7 @@ internal static class SevenPropertyModel
         return true;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool Expect(ReadOnlySpan<byte> utf8, ref int i, byte expected)
     {
         if (i < utf8.Length && utf8[i] == expected)
@@ -336,6 +361,7 @@ internal static class SevenPropertyModel
     }
 
     /// <summary><c>yearFrag</c>: an optional minus, four digits or more with no leading zero beyond four.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool ParseYear(ReadOnlySpan<byte> utf8, ref int i, out int year)
     {
         year = 0;
@@ -373,6 +399,7 @@ internal static class SevenPropertyModel
         return true;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool ParseTwoDigits(ReadOnlySpan<byte> utf8, ref int i, int minimum, int maximum, out int value)
     {
         value = 0;
@@ -388,6 +415,7 @@ internal static class SevenPropertyModel
     }
 
     /// <summary><c>hourFrag ':' minuteFrag ':' secondFrag</c>, or <c>endOfDayFrag</c>.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool ParseTime(
         ReadOnlySpan<byte> utf8, ref int i, out int hour, out int minute, out XsdDecimal second, out bool endOfDay)
     {
@@ -446,6 +474,7 @@ internal static class SevenPropertyModel
     }
 
     /// <summary><c>timezoneFrag</c>: <c>Z</c>, or a signed <c>hh:mm</c> up to <c>14:00</c>.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool ParseTimezone(ReadOnlySpan<byte> utf8, ref int i, out short offset)
     {
         offset = SevenProperties.NoTimezone;
@@ -657,6 +686,7 @@ internal static class SevenPropertyModel
     /// day pinned to the new month's length, then the seconds are added and
     /// the result normalised. The timezone offset is kept.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool TryAdd(in SevenProperties value, long months, XsdDecimal seconds, out SevenProperties result)
     {
         result = default;

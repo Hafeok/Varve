@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using CsCheck;
 using Varve.Rdf;
+using Varve.Store.Log;
 using Varve.Store.Tests.Model;
 using Xunit;
 
@@ -38,8 +39,8 @@ public class BehaviourTests
             .Retract(T.Iri("new"), T.Iri("p"), T.Iri("fresh")), T.Ct); // retracted
 
         Assert.Equal(CommitOutcome.NoChange, result.Outcome);
-        Assert.Equal(1, result.Position);
-        Assert.Equal(1, dataset.Head);
+        Assert.Equal(new Position(1), result.Position);
+        Assert.Equal(new Position(1), dataset.Head);
 
         using DatasetView view = dataset.Pin();
         Assert.False(view.TryInternalise(T.Iri("new"), out _));
@@ -53,11 +54,11 @@ public class BehaviourTests
         await dataset.CommitAsync(One("a"), T.Ct);
         await dataset.CommitAsync(One("b"), T.Ct);
 
-        CommitResult result = await dataset.CommitAsync(new CommitRequest { ExpectedPosition = 1 }.Assert(T.Iri("c"), T.Iri("p"), T.Iri("o")), T.Ct);
+        CommitResult result = await dataset.CommitAsync(new CommitRequest { ExpectedPosition = new Position(1) }.Assert(T.Iri("c"), T.Iri("p"), T.Iri("o")), T.Ct);
 
         Assert.Equal(CommitOutcome.Conflict, result.Outcome);
-        Assert.Equal(2, result.Position);
-        Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(new CommitRequest { ExpectedPosition = 2 }.Assert(T.Iri("c"), T.Iri("p"), T.Iri("o")), T.Ct)).Outcome);
+        Assert.Equal(new Position(2), result.Position);
+        Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(new CommitRequest { ExpectedPosition = new Position(2) }.Assert(T.Iri("c"), T.Iri("p"), T.Iri("o")), T.Ct)).Outcome);
     }
 
     [Fact]
@@ -96,7 +97,7 @@ public class BehaviourTests
         await Assert.ThrowsAsync<ArgumentException>(async () =>
             await dataset.CommitAsync(new CommitRequest().Assert(RequestTerm.Existing(new TermHandle(999)), T.Iri("new"), T.Iri("o")), T.Ct));
 
-        Assert.Equal(1, dataset.Head);
+        Assert.Equal(new Position(1), dataset.Head);
         using DatasetView view = dataset.Pin();
         Assert.False(view.TryInternalise(T.Iri("new"), out _));
         Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(One("t"), T.Ct)).Outcome);
@@ -138,8 +139,7 @@ public class BehaviourTests
         await dataset.CommitAsync(One("old"), T.Ct);
         Inspecting validator = new();
 
-        CommitRequest request = new CommitRequest().Assert(T.Iri("new"), T.Iri("p"), T.Iri("o")).Retract(T.Iri("old"), T.Iri("p"), T.Iri("o"));
-        request.Validators.Add(validator);
+        CommitRequest request = new CommitRequest { Validators = [validator] }.Assert(T.Iri("new"), T.Iri("p"), T.Iri("o")).Retract(T.Iri("old"), T.Iri("p"), T.Iri("o"));
         CommitResult result = await dataset.CommitAsync(request, T.Ct);
 
         Assert.Equal(CommitOutcome.Committed, result.Outcome);
@@ -175,9 +175,9 @@ public class BehaviourTests
         await dataset.CommitAsync(One("s"), T.Ct);
         await dataset.ChangeSettingsAsync(new SettingsChange(), new CommitMetadata { Agent = T.Iri("me"), Cause = T.Literal("nothing") }, cancellationToken: T.Ct);
 
-        Assert.Equal(3, dataset.Head);
-        Assert.Equal(AccessScope.AllHistory, (await dataset.SettingsAtAsync(0, T.Ct)).DefaultAccessScope);
-        Assert.Equal(AccessScope.Current, (await dataset.SettingsAtAsync(1, T.Ct)).DefaultAccessScope);
+        Assert.Equal(new Position(3), dataset.Head);
+        Assert.Equal(AccessScope.AllHistory, (await dataset.SettingsAtAsync(new Position(0), T.Ct)).DefaultAccessScope);
+        Assert.Equal(AccessScope.Current, (await dataset.SettingsAtAsync(new Position(1), T.Ct)).DefaultAccessScope);
         Assert.Equal(AccessScope.Current, dataset.Settings.DefaultAccessScope);
     }
 
@@ -196,7 +196,7 @@ public class BehaviourTests
         // The commit stands: a derived artefact cannot veto a durable fact.
         CommitResult committed = await dataset.CommitAsync(One("b"), T.Ct);
         Assert.Equal(CommitOutcome.Committed, committed.Outcome);
-        Assert.Equal(2, committed.Position);
+        Assert.Equal(new Position(2), committed.Position);
         Assert.True(dataset.IsFailed);
 
         // Pin() and T1 fail explicitly; nothing waits.
@@ -206,7 +206,7 @@ public class BehaviourTests
         Assert.NotNull(refused.Reason);
 
         // As-of reads come from the log and a checkpoint, not the default projection.
-        using (DatasetView asOf = await dataset.AsOfAsync(2, T.Ct))
+        using (DatasetView asOf = await dataset.AsOfAsync(new Position(2), T.Ct))
         {
             Assert.Equal(2, T.All(asOf).Count);
         }
@@ -239,9 +239,9 @@ public class BehaviourTests
 
         using DatasetView pin = dataset.Pin();
         Assert.True(pin.TryInternalise(g, out TermHandle gh));
-        List<Commit> delivered = await Take(dataset.Subscribe(0, SubscriptionFilter.ForGraph(GraphPattern.Named(gh)), T.Ct), 4);
+        List<Commit> delivered = await Take(dataset.Subscribe(new Position(0), SubscriptionFilter.ForGraph(GraphPattern.Named(gh)), T.Ct), 4);
 
-        Assert.Equal([1L, 3, 4, 5], delivered.Select(c => c.Position));
+        Assert.Equal([1L, 3, 4, 5], delivered.Select(c => c.Position.Value));
         Assert.Equal([CommitKind.Data, CommitKind.Settings, CommitKind.Erasure, CommitKind.Data], delivered.Select(c => c.Kind));
         Assert.Equal(1, delivered[3].Delta.Asserted.Length);
         Assert.True(delivered[1].Delta.IsEmpty && delivered[2].Delta.IsEmpty);
@@ -252,7 +252,7 @@ public class BehaviourTests
         Assert.DoesNotContain(T.Render(T.Iri("d")), allocated);
 
         // The consumer owns its position: resuming from 3 resumes at 4.
-        Assert.Equal([4L, 5], (await Take(dataset.Subscribe(3, SubscriptionFilter.ForGraph(GraphPattern.Named(gh)), T.Ct), 2)).Select(c => c.Position));
+        Assert.Equal([4L, 5], (await Take(dataset.Subscribe(new Position(3), SubscriptionFilter.ForGraph(GraphPattern.Named(gh)), T.Ct), 2)).Select(c => c.Position.Value));
     }
 
     [Fact]
@@ -261,13 +261,13 @@ public class BehaviourTests
         await using Dataset dataset = await T.Open(new MemoryStorage());
         await dataset.CommitAsync(One("a"), T.Ct);
 
-        Task<List<Commit>> waiting = Take(dataset.Subscribe(1, SubscriptionFilter.All, T.Ct), 1);
+        Task<List<Commit>> waiting = Take(dataset.Subscribe(new Position(1), SubscriptionFilter.All, T.Ct), 1);
         await Task.Delay(50, T.Ct);
         Assert.False(waiting.IsCompleted);
 
         await dataset.CommitAsync(One("b"), T.Ct);
         List<Commit> got = await waiting.WaitAsync(TimeSpan.FromSeconds(10), T.Ct);
-        Assert.Equal(2, got.Single().Position);
+        Assert.Equal(new Position(2), got.Single().Position);
     }
 
     private static async Task<List<Commit>> Take(IAsyncEnumerable<Commit> feed, int count)
@@ -307,18 +307,18 @@ public class BehaviourTests
 
                 for (long p = 1; p <= head; p++)
                 {
-                    await harness.Dataset.CheckpointAsync(p, T.Ct);
-                    string name = (await harness.Storage.Derived.ListAsync(T.Ct)).Single();
-                    ReadOnlyMemory<byte> blob = await harness.Storage.Derived.GetRangeAsync(name, 0, int.MaxValue, T.Ct);
-                    await harness.Dataset.DropCheckpointAsync(p, T.Ct);
+                    await harness.Dataset.CheckpointAsync(new Position(p), T.Ct);
+                    BlobName name = (await harness.Storage.Derived.ListAsync(T.Ct)).Single();
+                    ReadOnlyMemory<byte> blob = await harness.Storage.Derived.GetRangeAsync(name, new ByteOffset(0), new ByteCount(int.MaxValue), T.Ct);
+                    await harness.Dataset.DropCheckpointAsync(new Position(p), T.Ct);
 
                     MemoryStorage alone = MemoryStorage.FromSegments(log.Select(s => (ReadOnlyMemory<byte>)s), [new(name, blob)]);
                     await using Dataset opened = await Dataset.OpenAsync(alone, harness.Options, T.Ct);
-                    Assert.Equal([p], opened.Checkpoints);
+                    Assert.Equal([new Position(p)], opened.Checkpoints);
 
                     for (long q = p; q <= head; q++)
                     {
-                        using DatasetView view = await opened.AsOfAsync(q, T.Ct);
+                        using DatasetView view = await opened.AsOfAsync(new Position(q), T.Ct);
                         Harness.Same(Harness.Rendered(harness.Model.History[(int)q]), harness.Rendered(view), "checkpoint " + p + " + tail to " + q);
                     }
 
@@ -337,7 +337,7 @@ public class BehaviourTests
         await using (Dataset dataset = await T.Open(first))
         {
             await dataset.CommitAsync(One("a"), T.Ct);
-            await dataset.CheckpointAsync(1, T.Ct);
+            await dataset.CheckpointAsync(new Position(1), T.Ct);
         }
 
         MemoryStorage second = new();
@@ -346,8 +346,8 @@ public class BehaviourTests
             await dataset.CommitAsync(One("different"), T.Ct);
         }
 
-        string name = (await first.Derived.ListAsync(T.Ct)).Single();
-        ReadOnlyMemory<byte> blob = await first.Derived.GetRangeAsync(name, 0, int.MaxValue, T.Ct);
+        BlobName name = (await first.Derived.ListAsync(T.Ct)).Single();
+        ReadOnlyMemory<byte> blob = await first.Derived.GetRangeAsync(name, new ByteOffset(0), new ByteCount(int.MaxValue), T.Ct);
         MemoryStorage mixed = MemoryStorage.FromSegments(await LogPropertyTests.SegmentsAsync(second) is { } log ? log.Select(s => (ReadOnlyMemory<byte>)s) : [], [new(name, blob)]);
 
         await using Dataset opened = await T.Open(mixed);
@@ -415,14 +415,14 @@ public class BehaviourTests
         await dataset.CommitAsync(One("a"), T.Ct);
         await dataset.CommitAsync(One("b"), T.Ct);
 
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await dataset.AsOfAsync(3, T.Ct));
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await dataset.DiffAsync(0, 3, T.Ct));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await dataset.AsOfAsync(new Position(3), T.Ct));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await dataset.DiffAsync(new Position(0), new Position(3), T.Ct));
 
-        QuadDelta forward = await dataset.DiffAsync(0, 2, T.Ct);
-        QuadDelta backward = await dataset.DiffAsync(2, 0, T.Ct);
+        QuadDelta forward = await dataset.DiffAsync(new Position(0), new Position(2), T.Ct);
+        QuadDelta backward = await dataset.DiffAsync(new Position(2), new Position(0), T.Ct);
         Assert.Equal(2, forward.Asserted.Length);
         Assert.Equal(forward.Inverse(), backward);
-        Assert.True((await dataset.DiffAsync(1, 1, T.Ct)).IsEmpty);
+        Assert.True((await dataset.DiffAsync(new Position(1), new Position(1), T.Ct)).IsEmpty);
     }
 
     [Fact]
@@ -434,17 +434,17 @@ public class BehaviourTests
         QuadSetProjection projection = new();
 
         await dataset.CatchUpAsync(projection, T.Ct);
-        await foreach (Commit commit in dataset.Subscribe(0, SubscriptionFilter.All, T.Ct))
+        await foreach (Commit commit in dataset.Subscribe(new Position(0), SubscriptionFilter.All, T.Ct))
         {
             await projection.ApplyAsync(commit, CancellationToken.None);
 
-            if (commit.Position == 2)
+            if (commit.Position == new Position(2))
             {
                 break;
             }
         }
 
         Assert.Equal(2, projection.Quads.Count);
-        Assert.Equal(2, projection.Position);
+        Assert.Equal(new Position(2), projection.Position);
     }
 }

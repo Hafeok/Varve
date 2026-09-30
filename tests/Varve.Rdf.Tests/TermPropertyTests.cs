@@ -59,8 +59,8 @@ public class TermPropertyTests
     {
         Term.Sample(term =>
         {
-            InMemoryDataset dataset = new();
-            return dataset.Internalise(term) == dataset.Internalise(term) && dataset.TermCount == 1;
+            InMemoryDatasetBuilder builder = new();
+            return builder.Internalise(term) == builder.Internalise(term) && builder.ToDataset().TermCount == 1;
         });
     }
 
@@ -69,13 +69,15 @@ public class TermPropertyTests
     {
         Term.List[1, 20].Sample(terms =>
         {
-            InMemoryDataset dataset = new();
+            InMemoryDatasetBuilder builder = new();
             List<TermHandle> handles = [];
 
             foreach (RdfTerm term in terms)
             {
-                handles.Add(dataset.Internalise(term));
+                handles.Add(builder.Internalise(term));
             }
+
+            InMemoryDataset dataset = builder.ToDataset();
 
             for (int i = 0; i < terms.Count; i++)
             {

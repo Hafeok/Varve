@@ -3,10 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
-using System.Collections.Generic;
 using System.Threading;
-using Varve.Rdf;
-using Varve.Sparql.Algebra;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
+using Varve.Sparql.Evaluation.Model;
 
 namespace Varve.Sparql.Evaluation;
 
@@ -16,6 +16,7 @@ namespace Varve.Sparql.Evaluation;
 /// joins what comes back. The HTTP implementation is the server's, at layer 5;
 /// the default refuses.
 /// </summary>
+[Contract(typeof(ServiceThroughAHandlerTheDefaultRefuses.ServiceHandlerContract), Role = "what executes a SERVICE request")]
 public interface IServiceHandler
 {
     /// <summary>
@@ -24,78 +25,6 @@ public interface IServiceHandler
     /// case it is one empty solution (Federated Query §2.3).
     /// </summary>
     ServiceResult Execute(ServiceRequest request, CancellationToken cancellationToken);
-}
-
-/// <summary>What the evaluator asks a <see cref="IServiceHandler"/>.</summary>
-public sealed class ServiceRequest
-{
-    /// <summary>A request.</summary>
-    public ServiceRequest(RdfTerm endpoint, Service pattern, IReadOnlyList<Variable> variables, IReadOnlyList<IReadOnlyList<RdfTerm?>> incoming)
-    {
-        ArgumentNullException.ThrowIfNull(endpoint);
-        ArgumentNullException.ThrowIfNull(pattern);
-        ArgumentNullException.ThrowIfNull(variables);
-        ArgumentNullException.ThrowIfNull(incoming);
-        Endpoint = endpoint;
-        Pattern = pattern;
-        Variables = variables;
-        Incoming = incoming;
-    }
-
-    /// <summary>The endpoint's IRI.</summary>
-    public RdfTerm Endpoint { get; }
-
-    /// <summary>The <c>SERVICE</c> node as written: its pattern and its <c>SILENT</c> flag.</summary>
-    public Service Pattern { get; }
-
-    /// <summary>The variables of the pattern, the columns of <see cref="Incoming"/>.</summary>
-    public IReadOnlyList<Variable> Variables { get; }
-
-    /// <summary>
-    /// The solutions the answer will be joined with, as terms over
-    /// <see cref="Variables"/>, null where unbound. A handler may use them to
-    /// narrow what it asks (Federated Query §2.4) or ignore them: the evaluator
-    /// joins either way.
-    /// </summary>
-    public IReadOnlyList<IReadOnlyList<RdfTerm?>> Incoming { get; }
-}
-
-/// <summary>What a <see cref="IServiceHandler"/> answers: solutions, or a failure.</summary>
-public sealed class ServiceResult
-{
-    private ServiceResult(IReadOnlyList<Variable> variables, IEnumerable<IReadOnlyList<RdfTerm?>> solutions, string? failure)
-    {
-        Variables = variables;
-        Solutions = solutions;
-        Failure = failure;
-    }
-
-    /// <summary>The columns of <see cref="Solutions"/>.</summary>
-    public IReadOnlyList<Variable> Variables { get; }
-
-    /// <summary>The solutions, each a row of terms over <see cref="Variables"/>, null where unbound.</summary>
-    public IEnumerable<IReadOnlyList<RdfTerm?>> Solutions { get; }
-
-    /// <summary>Why the invocation failed, or null when it did not.</summary>
-    public string? Failure { get; }
-
-    /// <summary>Whether the invocation failed.</summary>
-    public bool IsFailure => Failure is not null;
-
-    /// <summary>A successful answer.</summary>
-    public static ServiceResult FromSolutions(IReadOnlyList<Variable> variables, IEnumerable<IReadOnlyList<RdfTerm?>> solutions)
-    {
-        ArgumentNullException.ThrowIfNull(variables);
-        ArgumentNullException.ThrowIfNull(solutions);
-        return new ServiceResult(variables, solutions, null);
-    }
-
-    /// <summary>A failed invocation, and why.</summary>
-    public static ServiceResult Failed(string reason)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(reason);
-        return new ServiceResult([], [], reason);
-    }
 }
 
 /// <summary>

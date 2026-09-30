@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Xsd;
 
@@ -25,6 +27,7 @@ public readonly struct XsdGYearMonth : IEquatable<XsdGYearMonth>
 
     private readonly SevenProperties _value;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal XsdGYearMonth(in SevenProperties value) => _value = value;
 
     /// <summary>
@@ -48,15 +51,18 @@ public readonly struct XsdGYearMonth : IEquatable<XsdGYearMonth>
     }
 
     /// <summary>The year, proleptic Gregorian with astronomical numbering: year 0 exists and precedes year 1.</summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
     public int Year => _value.Year;
 
     /// <summary>The month, 1 to 12.</summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
     public int Month => _value.Month;
 
     /// <summary>Whether a timezone offset is present.</summary>
     public bool HasTimezone => _value.HasTimezone;
 
     /// <summary>The timezone offset in minutes east of UTC; zero when absent, so check <see cref="HasTimezone"/>.</summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
     public int TimezoneOffset => _value.HasTimezone ? _value.TimezoneOffset : 0;
 
     /// <summary>
@@ -64,10 +70,12 @@ public readonly struct XsdGYearMonth : IEquatable<XsdGYearMonth>
     /// <paramref name="implicitTimezoneOffset"/> supplied when the value has
     /// no timezone of its own.
     /// </summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
     public XsdDecimal TimeOnTimeline(int implicitTimezoneOffset) =>
         SevenPropertyModel.TimeOnTimeline(in _value, _value.HasTimezone ? _value.TimezoneOffset : implicitTimezoneOffset);
 
     /// <summary>Parses the lexical representation (§3.3.10, §D.2.2).</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryParse(ReadOnlySpan<byte> utf8, out XsdGYearMonth value)
     {
         bool ok = SevenPropertyModel.TryParse(utf8, Fields, out SevenProperties parsed);
@@ -98,6 +106,8 @@ public readonly struct XsdGYearMonth : IEquatable<XsdGYearMonth>
     /// given <paramref name="implicitTimezoneOffset"/> (XPath Functions and
     /// Operators §10.4), and every pair is then comparable.
     /// </summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdOrderingsReturnInt), Scope = ExceptionScope.Boundary)]
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
     public static int Compare(XsdGYearMonth left, XsdGYearMonth right, int implicitTimezoneOffset) =>
         SevenPropertyModel.Compare(in left._value, in right._value, implicitTimezoneOffset);
 
@@ -106,6 +116,7 @@ public readonly struct XsdGYearMonth : IEquatable<XsdGYearMonth>
     /// untimezoned value are comparable only when imputing both <c>+14:00</c>
     /// and <c>-14:00</c> gives the same strict answer.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static PartialOrdering CompareXsd(XsdGYearMonth left, XsdGYearMonth right) =>
         SevenPropertyModel.CompareXsd(in left._value, in right._value);
 

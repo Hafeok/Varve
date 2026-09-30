@@ -9,6 +9,8 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Iri;
 using Varve.Rdf;
 using Varve.Sparql.Algebra;
@@ -38,6 +40,7 @@ internal sealed class FunctionExpr : Expr
         _boundSlot = boundSlot;
     }
 
+    [DesignDecision(typeof(EvaluationHotPathScope.TermBuildingExpressionsAllocate), Scope = ExceptionScope.HotPath)]
     internal override Value Eval(Exec exec, ulong[] row, in ActiveGraph graph)
     {
         switch (_function)

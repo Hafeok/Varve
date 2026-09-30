@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Sparql.Algebra;
@@ -12,6 +14,7 @@ namespace Varve.Sparql.Algebra;
 /// graph half of a match pattern, and which the evaluator uses in the same
 /// files as this.
 /// </summary>
+[Contract(typeof(OptimiserAndEvaluatorOnePackageAlgebraInAlgebraOut.AlgebraNodesAreSealedRecords), Role = "a graph pattern node")]
 public abstract record QueryPattern : AlgebraNode
 {
     private protected QueryPattern()
@@ -53,6 +56,7 @@ public sealed record Minus(QueryPattern Left, QueryPattern Right) : QueryPattern
 public sealed record Values(AlgebraList<Variable> Variables, AlgebraList<AlgebraList<RdfTerm?>> Rows) : QueryPattern;
 
 /// <summary><c>SERVICE</c>: a node an evaluator may refuse (<c>docs/spec/sparql-algebra.md</c> §5).</summary>
+[DesignDecision(typeof(SparqlAlgebraSurfaces.GrammarKeywordsAreBools), Scope = ExceptionScope.Boundary)]
 public sealed record Service(PatternTerm Name, QueryPattern Inner, bool Silent) : QueryPattern;
 
 /// <summary>
@@ -74,6 +78,7 @@ public sealed record GroupKey(Expression Expression, Variable? Variable) : Algeb
 public sealed record OrderBy(QueryPattern Inner, AlgebraList<OrderCondition> Conditions) : QueryPattern;
 
 /// <summary>One <c>ORDER BY</c> condition.</summary>
+[DesignDecision(typeof(SparqlAlgebraSurfaces.GrammarKeywordsAreBools), Scope = ExceptionScope.Boundary)]
 public sealed record OrderCondition(Expression Expression, bool Descending) : AlgebraNode;
 
 /// <summary><c>Project(inner, variables)</c>, in the order named.</summary>
@@ -86,4 +91,5 @@ public sealed record Distinct(QueryPattern Inner) : QueryPattern;
 public sealed record Reduced(QueryPattern Inner) : QueryPattern;
 
 /// <summary><c>Slice(inner, offset, limit)</c>; a <see langword="null"/> limit is unbounded.</summary>
+[DesignDecision(typeof(SparqlAlgebraSurfaces.QueryLiteralsKeepTheirTypes), Scope = ExceptionScope.Boundary)]
 public sealed record Slice(QueryPattern Inner, long Offset, long? Limit) : QueryPattern;

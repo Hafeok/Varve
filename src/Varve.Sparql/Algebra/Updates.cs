@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Sparql.Algebra;
@@ -11,6 +13,7 @@ namespace Varve.Sparql.Algebra;
 public sealed record Update(Prologue Prologue, AlgebraList<UpdateOperation> Operations) : AlgebraNode;
 
 /// <summary>One operation of SPARQL 1.1 Update §3. A record of the request; nothing here executes.</summary>
+[Contract(typeof(OptimiserAndEvaluatorOnePackageAlgebraInAlgebraOut.AlgebraNodesAreSealedRecords), Role = "one operation of an update request")]
 public abstract record UpdateOperation : AlgebraNode
 {
     private protected UpdateOperation()
@@ -39,24 +42,31 @@ public sealed record Modify(
     QueryPattern Where) : UpdateOperation;
 
 /// <summary><c>LOAD source INTO GRAPH graph</c>; a <see langword="null"/> graph is the default graph.</summary>
+[DesignDecision(typeof(SparqlAlgebraSurfaces.GrammarKeywordsAreBools), Scope = ExceptionScope.Boundary)]
 public sealed record Load(RdfTerm Source, RdfTerm? Graph, bool Silent) : UpdateOperation;
 
 /// <summary><c>CLEAR</c>.</summary>
+[DesignDecision(typeof(SparqlAlgebraSurfaces.GrammarKeywordsAreBools), Scope = ExceptionScope.Boundary)]
 public sealed record Clear(GraphTarget Target, bool Silent) : UpdateOperation;
 
 /// <summary><c>DROP</c>.</summary>
+[DesignDecision(typeof(SparqlAlgebraSurfaces.GrammarKeywordsAreBools), Scope = ExceptionScope.Boundary)]
 public sealed record Drop(GraphTarget Target, bool Silent) : UpdateOperation;
 
 /// <summary><c>CREATE GRAPH</c>.</summary>
+[DesignDecision(typeof(SparqlAlgebraSurfaces.GrammarKeywordsAreBools), Scope = ExceptionScope.Boundary)]
 public sealed record Create(RdfTerm Graph, bool Silent) : UpdateOperation;
 
 /// <summary><c>ADD from TO to</c>.</summary>
+[DesignDecision(typeof(SparqlAlgebraSurfaces.GrammarKeywordsAreBools), Scope = ExceptionScope.Boundary)]
 public sealed record Add(GraphOrDefault From, GraphOrDefault To, bool Silent) : UpdateOperation;
 
 /// <summary><c>MOVE from TO to</c>.</summary>
+[DesignDecision(typeof(SparqlAlgebraSurfaces.GrammarKeywordsAreBools), Scope = ExceptionScope.Boundary)]
 public sealed record Move(GraphOrDefault From, GraphOrDefault To, bool Silent) : UpdateOperation;
 
 /// <summary><c>COPY from TO to</c>.</summary>
+[DesignDecision(typeof(SparqlAlgebraSurfaces.GrammarKeywordsAreBools), Scope = ExceptionScope.Boundary)]
 public sealed record Copy(GraphOrDefault From, GraphOrDefault To, bool Silent) : UpdateOperation;
 
 /// <summary>Which graphs <c>CLEAR</c> and <c>DROP</c> act on: production <c>[49] GraphRefAll</c>.</summary>

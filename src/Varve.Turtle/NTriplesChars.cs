@@ -2,6 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
+
 namespace Varve.Turtle;
 
 /// <summary>
@@ -18,6 +21,7 @@ namespace Varve.Turtle;
 /// the 1.1 text was the error and not the tests.
 /// </para>
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal static class NTriplesChars
 {
     internal static bool IsWhitespace(byte b) => b is 0x20 or 0x09;

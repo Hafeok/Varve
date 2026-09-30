@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <!-- Layer 1: the model and the abstract quad source contract. ADR 0003. -->
-    <VarveLayer>1</VarveLayer>
+    <ArchLayer>1</ArchLayer>
     <IsPackable>true</IsPackable>
 
     <Description>The RDF 1.1 and 1.2 term model, the abstract quad source contract, and RDF Dataset Canonicalization (RDFC-1.0).</Description>

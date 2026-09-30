@@ -31,8 +31,6 @@ internal static class Program
 {
     private const int Quads = 1_000;
 
-    private static long observed;
-
     internal static int Main(string[] args)
     {
         string path = args.Length > 0 ? args[0] : WriteSampleFile();
@@ -52,8 +50,9 @@ internal static class Program
     {
         byte[] bytes = File.ReadAllBytes(path);
         ParseOptions options = new() { Syntax = RdfSyntax.NQuads };
+        Tally tally = new();
 
-        ParseResult parsed = NQuadsParser.Parse(bytes, Count, options);
+        ParseResult parsed = NQuadsParser.Parse(bytes, tally.Add, options);
 
         if (!parsed.Succeeded)
         {
@@ -65,14 +64,14 @@ internal static class Program
         BufferWriter output = new();
         NQuadsParser.Parse(bytes, (in QuadView quad) => NQuadsWriter.Write(output, in quad, new WriteOptions { Syntax = RdfSyntax.NQuads }), options);
 
-        long before = observed;
-        ParseResult reparsed = NQuadsParser.Parse(output.Written, Count, options);
+        long before = tally.Total;
+        ParseResult reparsed = NQuadsParser.Parse(output.Written, tally.Add, options);
 
         Console.WriteLine(string.Create(
             CultureInfo.InvariantCulture,
             $"quads {parsed.QuadCount}, rewritten {output.Written.Length} bytes, reparsed {reparsed.QuadCount}"));
 
-        if (parsed.QuadCount != reparsed.QuadCount || observed - before != before)
+        if (parsed.QuadCount != reparsed.QuadCount || tally.Total - before != before)
         {
             Console.Error.WriteLine("aot-smoke: the round trip disagreed with the first parse.");
             return 1;
@@ -118,8 +117,9 @@ internal static class Program
             BaseIri = System.Text.Encoding.UTF8.GetBytes("http://example.org/base/"),
         };
 
-        long before = observed;
-        ParseResult parsed = TurtleParser.Parse(document, Count, in read);
+        Tally tally = new();
+        long before = tally.Total;
+        ParseResult parsed = TurtleParser.Parse(document, tally.Add, in read);
 
         if (!parsed.Succeeded || parsed.QuadCount != 9)
         {
@@ -140,14 +140,14 @@ internal static class Program
             TurtleParser.Parse(document, (in QuadView quad) => writer.Write(in quad), in read);
         }
 
-        ParseResult reparsed = TurtleParser.Parse(output.Written, Count, in read);
+        ParseResult reparsed = TurtleParser.Parse(output.Written, tally.Add, in read);
 
         Console.WriteLine(string.Create(
             CultureInfo.InvariantCulture,
             $"turtle {parsed.QuadCount} quads, rewritten {output.Written.Length} bytes, "
             + $"reparsed {reparsed.QuadCount}"));
 
-        if (parsed.QuadCount != reparsed.QuadCount || observed == before)
+        if (parsed.QuadCount != reparsed.QuadCount || tally.Total == before)
         {
             Console.Error.WriteLine("aot-smoke: the turtle round trip disagreed with the first parse.");
             return 1;
@@ -200,17 +200,17 @@ internal static class Program
 
         await using (Varve.Store.Dataset dataset = await Varve.Store.Dataset.OpenAsync(storage, options))
         {
-            Varve.Store.CommitResult first = await dataset.CommitAsync(new Varve.Store.CommitRequest()
+            Varve.Store.Log.CommitResult first = await dataset.CommitAsync(new Varve.Store.Log.CommitRequest()
                 .Assert(RdfTerm.Iri("http://example.org/a"u8), p, RdfTerm.Literal("1"u8, RdfTerm.Iri("http://www.w3.org/2001/XMLSchema#integer"u8)))
                 .Assert(RdfTerm.BlankNode("x"u8), p, RdfTerm.Literal("chat"u8, "en"u8), RdfTerm.Iri("http://example.org/g"u8)));
-            Varve.Store.CommitResult second = await dataset.CommitAsync(new Varve.Store.CommitRequest()
+            Varve.Store.Log.CommitResult second = await dataset.CommitAsync(new Varve.Store.Log.CommitRequest()
                 .Retract(RdfTerm.Iri("http://example.org/a"u8), p, RdfTerm.Literal("1"u8, RdfTerm.Iri("http://www.w3.org/2001/XMLSchema#integer"u8)))
                 .Assert(RdfTerm.Iri("http://example.org/b"u8), p, RdfTerm.TripleTerm(RdfTerm.Iri("http://example.org/a"u8), p, RdfTerm.Iri("http://example.org/c"u8))));
 
-            await dataset.CheckpointAsync(1);
+            await dataset.CheckpointAsync(new Varve.Store.Log.Position(1));
 
             using Varve.Store.DatasetView pinned = dataset.Pin();
-            using Varve.Store.DatasetView asOf = await dataset.AsOfAsync(1);
+            using Varve.Store.DatasetView asOf = await dataset.AsOfAsync(new Varve.Store.Log.Position(1));
             int now = CountQuads(pinned);
             int then = CountQuads(asOf);
 
@@ -218,7 +218,7 @@ internal static class Program
                 CultureInfo.InvariantCulture,
                 $"store: {first.Outcome}({first.Position}), {second.Outcome}({second.Position}), pinned {now} quads, as-of 1 {then} quads"));
 
-            if (second.Position != 2 || now != 2 || then != 2)
+            if (second.Position != new Varve.Store.Log.Position(2) || now != 2 || then != 2)
             {
                 Console.Error.WriteLine("aot-smoke: the store disagreed with itself.");
                 return 1;
@@ -227,7 +227,7 @@ internal static class Program
 
         await using Varve.Store.Dataset reopened = await Varve.Store.Dataset.OpenAsync(storage, options);
 
-        if (reopened.Head != 2 || reopened.Checkpoints.Count != 1)
+        if (reopened.Head != new Varve.Store.Log.Position(2) || reopened.Checkpoints.Count != 1)
         {
             Console.Error.WriteLine("aot-smoke: the reopened store lost its log or its checkpoint.");
             return 1;
@@ -282,7 +282,7 @@ internal static class Program
             return 1;
         }
 
-        if (Varve.Sparql.SparqlParser.TryParseQuery("SELECT * WHERE { ?s ?p }"u8, default, out _, out Varve.Sparql.SparqlParseError error))
+        if (Varve.Sparql.SparqlParser.TryParseQuery("SELECT * WHERE { ?s ?p }"u8, default, out _, out Varve.Sparql.Algebra.SparqlParseError error))
         {
             Console.Error.WriteLine("aot-smoke: an ill-formed query parsed.");
             return 1;
@@ -368,8 +368,17 @@ internal static class Program
         return ok && text == "http://example.org/c/d";
     }
 
-    private static readonly QuadHandler Count = static (in QuadView quad) =>
-        observed += quad.Subject.Lexical.Length + quad.Object.Lexical.Length;
+    /// <summary>
+    /// Adds up the lexical lengths a parse reports, so that a round trip is
+    /// compared by more than its quad count. One per check: the smoke app
+    /// measures nothing, so the delegate over it may allocate.
+    /// </summary>
+    private sealed class Tally
+    {
+        internal long Total { get; private set; }
+
+        internal void Add(in QuadView quad) => Total += quad.Subject.Lexical.Length + quad.Object.Lexical.Length;
+    }
 
     private static string WriteSampleFile()
     {

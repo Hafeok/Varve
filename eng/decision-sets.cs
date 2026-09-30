@@ -22,41 +22,39 @@
 //       accepted-at: 2026-09-20T00:00:00Z
 //   ---
 //
-// Until session 2 of #43 wires these files into the generator, nothing reads
-// them, and DDGEN0001 (a key claimed twice) cannot fire. A ledger that nothing
-// reads rots the same way an unenforced rule does, so this checks them against
-// the package's documented rules (docs/rules/ledger-input.md and the README's
-// "The decision set format" in hafeok/decision-driven-analyzers):
+// DecisionDriven.Analyzers' generator reads these files in every build
+// (Directory.Build.props points DdLedgerDirectory here), and reports what it
+// checks itself: a key claimed twice (DDGEN0001), a key that is not an
+// identifier (DDGEN0002), and a key that collides with its set's generated
+// class (DDGEN0005). This gate no longer checks those three. It is KEPT,
+// because it checks what the generator does not, and what the generator
+// silently tolerates:
 //
-//   - a key matches ^[A-Z][A-Za-z0-9]{0,63}$, and is unique across the
-//     namespace — every file, not just its own (DDGEN0001, DDGEN0002);
 //   - set, namespace, and each decision's key and statement are present;
 //   - accepted-at comes with accepted-by and accepted-by with accepted-at;
-//     accepted-by is a mailto: identity; every date is an xsd:dateTime;
+//     accepted-by is a mailto: identity; every date is an xsd:dateTime with a
+//     zone;
 //   - a set id is lowercase alphanumerics, dashes and dots;
-//   - a key is not its own set's generated class name, which C# rejects as CS0542
-//     (found by the first real build against the generator, not by the documentation).
-//
-// And three rules of Varve's own, which the package does not need but this
-// ledger does:
-//
-//   - the namespace is `varve`, and the file is named <set>.md;
-//   - adr names an existing docs/adr/NNNN-*.md, and no two files claim one;
+//   - a field the reader does not know is reported rather than ignored,
+//     because the reader ignores it, and a misspelt accepted-by would read as
+//     an unaccepted decision;
 //   - a statement is double-quoted with no quote inside it. The package's
 //     reader cuts an unquoted value at " #", so an unquoted statement can lose
-//     its end silently; and a field the reader does not know is reported
-//     rather than ignored, because the reader ignores it, and a misspelt
-//     accepted-by would read as an unaccepted decision.
+//     its end silently;
+//   - a file without front matter is skipped by the package and reported
+//     here, except a README.md;
 //
-// It reads front matter exactly where the package does: the file's first
-// non-blank line must be ---. A file without front matter is skipped by the
-// package and reported here, except a README.md.
+// and Varve's own rules, which the package does not need but this ledger does:
+//
+//   - the namespace is `varve`, and the file is named <set>.md;
+//   - a set names where its decisions come from: `adr: NNNN` for a set that
+//     enumerates an ADR, naming an existing docs/adr/NNNN-*.md that no other
+//     file claims; or `origin: "..."` for a set filed without one (a ruling of
+//     the brief, or a question a finding raised), which is unaccepted until
+//     the maintainer accepts it (ADR 0066). Exactly one of the two.
 //
 // revoked-at is reported in the summary every run: ADR 0062 reserves it for a
 // ruling withdrawn with no successor, and each use should be visible.
-//
-// When session 2 wires the generator, this is kept for what DDGEN does not
-// check (the three Varve rules) or retired, and that session says which.
 //
 // Exit codes: 0 conformant, 1 findings, 2 could not run.
 //
@@ -106,7 +104,6 @@ foreach (string file in Directory.EnumerateFiles(adrDirectory, "*.md"))
 
 const string Namespace = "varve";
 
-Regex keySyntax = new(@"^[A-Z][A-Za-z0-9]{0,63}$", RegexOptions.CultureInvariant);
 Regex setSyntax = new(@"^[a-z0-9][a-z0-9.-]*$", RegexOptions.CultureInvariant);
 Regex adrSyntax = new(@"^\d{4}$", RegexOptions.CultureInvariant);
 Regex identitySyntax = new(@"^mailto:[^\s@]+@[^\s@]+$", RegexOptions.CultureInvariant);
@@ -120,11 +117,10 @@ Regex dateTimeSyntax = new(
 
 // Top-level fields, then the fields of one decision. Anything else is a typo
 // the package's reader would silently ignore.
-HashSet<string> setFields = new(StringComparer.Ordinal) { "set", "namespace", "adr", "decisions" };
+HashSet<string> setFields = new(StringComparer.Ordinal) { "set", "namespace", "adr", "origin", "decisions" };
 HashSet<string> decisionFields = new(StringComparer.Ordinal) { "key", "statement", "accepted-by", "accepted-at", "revoked-at" };
 
 List<string> findings = [];
-Dictionary<string, string> keyOwner = new(StringComparer.Ordinal);
 Dictionary<string, string> adrOwner = new(StringComparer.Ordinal);
 Dictionary<string, string> setOwner = new(StringComparer.Ordinal);
 List<string> revoked = [];
@@ -178,6 +174,7 @@ foreach (string path in Directory.EnumerateFiles(decisionDirectory, "*.md").Orde
     string? set = null;
     string? ns = null;
     string? adr = null;
+    string? origin = null;
     bool sawDecisions = false;
     List<Dictionary<string, (string Value, int Line)>> entries = [];
     Dictionary<string, (string Value, int Line)>? current = null;
@@ -236,6 +233,7 @@ foreach (string path in Directory.EnumerateFiles(decisionDirectory, "*.md").Orde
                 case "set": set = value; break;
                 case "namespace": ns = value; break;
                 case "adr": adr = value; break;
+                case "origin": origin = value; break;
                 case "decisions":
                     sawDecisions = true;
                     if (value.Length > 0)
@@ -307,9 +305,24 @@ foreach (string path in Directory.EnumerateFiles(decisionDirectory, "*.md").Orde
         findings.Add($"{name}: namespace '{ns}'; every Varve decision is in '{Namespace}'.");
     }
 
-    if (adr is null)
+    if (adr is not null && origin is not null)
     {
-        findings.Add($"{name}: no 'adr'.");
+        findings.Add($"{name}: both 'adr' and 'origin'; a set enumerates an ADR or is filed without one, not both.");
+    }
+    else if (adr is null && origin is null)
+    {
+        findings.Add($"{name}: no 'adr' and no 'origin'.");
+    }
+    else if (origin is not null)
+    {
+        if (origin.Length < 3 || origin[0] != '"' || origin[^1] != '"' || origin[1..^1].Contains('"'))
+        {
+            findings.Add($"{name}: origin is not one double-quoted line with no quote inside it.");
+        }
+    }
+    else if (adr is null)
+    {
+        // Unreachable: one of the two is present.
     }
     else if (!adrSyntax.IsMatch(adr))
     {
@@ -343,32 +356,10 @@ foreach (string path in Directory.EnumerateFiles(decisionDirectory, "*.md").Orde
         {
             findings.Add($"{name}: a decision with no 'key'.");
         }
-        else
-        {
-            string where = $"{name}:{key.Line}";
 
-            if (!keySyntax.IsMatch(key.Value))
-            {
-                findings.Add($"{where}: key '{key.Value}' does not match ^[A-Z][A-Za-z0-9]{{0,63}}$ (DDGEN0002).");
-            }
-
-            // The generator emits the set as a class named by PascalCasing its id and each key
-            // as a class nested in it. C# forbids a member named like its enclosing type, so a
-            // key equal to its set's class name is CS0542 in every consuming compilation.
-            if (set is not null && key.Value == ToPascalCase(set))
-            {
-                findings.Add($"{where}: key '{key.Value}' is its set's own generated class name; a nested type cannot share it (CS0542).");
-            }
-
-            if (keyOwner.TryGetValue(key.Value, out string? other))
-            {
-                findings.Add($"{where}: key '{key.Value}' is also claimed at {other} (DDGEN0001).");
-            }
-            else
-            {
-                keyOwner[key.Value] = where;
-            }
-        }
+        // Key syntax (DDGEN0002), a key claimed twice (DDGEN0001) and a key
+        // equal to its set's class name (DDGEN0005) are the generator's to
+        // report, in every build.
 
         string label = key.Value ?? "(no key)";
 
@@ -461,30 +452,6 @@ return 1;
 bool IsDateTime(string value) =>
     dateTimeSyntax.IsMatch(value)
     && DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _);
-
-// The generator's rule for a set id's class name (Identifiers.ToPascalCase in
-// hafeok/decision-driven-analyzers): each run between -, ., _ and space starts upper-case,
-// and a leading digit is prefixed with _.
-static string ToPascalCase(string id)
-{
-    System.Text.StringBuilder builder = new(id.Length);
-    bool startOfWord = true;
-
-    foreach (char c in id)
-    {
-        if (c is '-' or '.' or '_' or ' ')
-        {
-            startOfWord = true;
-            continue;
-        }
-
-        builder.Append(startOfWord ? char.ToUpperInvariant(c) : c);
-        startOfWord = false;
-    }
-
-    string name = builder.ToString();
-    return name.Length > 0 && char.IsAsciiDigit(name[0]) ? "_" + name : name;
-}
 
 static string FindRepositoryRoot()
 {

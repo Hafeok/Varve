@@ -5,6 +5,7 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -14,6 +15,7 @@ using BenchmarkDotNet.Attributes;
 using Varve.Rdf;
 using Varve.Sparql;
 using Varve.Sparql.Store;
+using Varve.Store.Log;
 using Varve.Store;
 using VDS.RDF;
 using VDS.RDF.Parsing;
@@ -149,7 +151,7 @@ internal static class UpdateWorkload
 [InvocationCount(1, 1)]
 public class UpdateBenchmarks : IDisposable
 {
-    internal static readonly int[] Sizes = [10_000, 100_000];
+    internal static readonly ImmutableArray<int> Sizes = [10_000, 100_000];
 
     private string _text = string.Empty;
     private StoreDatasetType? _dataset;
@@ -364,14 +366,14 @@ internal static class CanonGraph
 
     internal static InMemoryDataset Build(CanonShape shape)
     {
-        InMemoryDataset dataset = new();
+        InMemoryDatasetBuilder builder = new();
 
         foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in Triples(shape))
         {
-            dataset.Add(s, p, o);
+            builder.Add(s, p, o);
         }
 
-        return dataset;
+        return builder.ToDataset();
     }
 
     internal static byte[] NTriples(CanonShape shape)
@@ -439,7 +441,7 @@ public enum CanonShape
 [MemoryDiagnoser]
 public class CanonicaliseBenchmarks : IDisposable
 {
-    private InMemoryDataset _dataset = new();
+    private InMemoryDataset _dataset = new InMemoryDatasetBuilder().ToDataset();
     private TripleStore _triples = new();
     private string? _refused;
 
@@ -460,14 +462,14 @@ public class CanonicaliseBenchmarks : IDisposable
         try
         {
             string dotNetRdf = new RdfCanonicalizer("SHA256").Canonicalize(_triples).SerializedNQuads;
-            Console.WriteLine($"// {Shape}: {_dataset.Count:N0} triples; Varve {varve.Length:N0} characters of canonical N-Quads, dotNetRDF {dotNetRdf.Length:N0}; same: {string.Equals(varve, dotNetRdf, StringComparison.Ordinal)}");
+            Console.WriteLine($"// {Shape}: {_dataset.Count.Value:N0} triples; Varve {varve.Length:N0} characters of canonical N-Quads, dotNetRDF {dotNetRdf.Length:N0}; same: {string.Equals(varve, dotNetRdf, StringComparison.Ordinal)}");
         }
 #pragma warning disable CA1031 // ADR 0027: a baseline's refusal is reported with the numbers, not handled.
         catch (Exception error)
 #pragma warning restore CA1031
         {
             _refused = error.Message;
-            Console.WriteLine($"// {Shape}: {_dataset.Count:N0} triples; Varve {varve.Length:N0} characters of canonical N-Quads; dotNetRDF refused: {error.Message}");
+            Console.WriteLine($"// {Shape}: {_dataset.Count.Value:N0} triples; Varve {varve.Length:N0} characters of canonical N-Quads; dotNetRDF refused: {error.Message}");
         }
     }
 

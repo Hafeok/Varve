@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Unicode;
 using Varve.Iri;
 using Varve.Rdf;
+using Varve.Turtle.Model;
 
 namespace Varve.Turtle;
 

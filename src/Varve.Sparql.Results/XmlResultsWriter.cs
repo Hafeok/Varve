@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Sparql.Results;
@@ -143,7 +145,7 @@ internal sealed class XmlResultsWriter : FormatWriter
     /// (§3.3.3). A character outside XML 1.0's <c>Char</c> (§2.2) cannot be
     /// written at all, not even as a reference.
     /// </summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private void Escape(ReadOnlySpan<byte> text, bool attribute)
     {
         int start = 0;

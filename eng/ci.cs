@@ -80,8 +80,11 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("licence-headers", "every .cs file carries the MPL-2.0 notice",
         () => Run("dotnet", ["run", "eng/licence-headers.cs"])),
 
-    ("decision-sets", "every decision set file is well formed, and no key is claimed twice",
+    ("decision-sets", "every decision set file is well formed and names where it comes from",
         () => Run("dotnet", ["run", "eng/decision-sets.cs"])),
+
+    ("banned-symbols", "every banned symbol cites the decision that bans it",
+        () => Run("dotnet", ["run", "eng/banned-symbols.cs"])),
 
     ("issue-refs", "every commit references a tracked issue",
         () => Run("dotnet", Args("run", "eng/issue-refs.cs", baseRef is null ? null : "--", baseRef is null ? null : "--base", baseRef))),
@@ -147,6 +150,11 @@ List<(string Name, string Description, Func<int> Run)> jobs =
 
     ("pack", "the publish dry run, and the package metadata",
         Pack),
+
+    // Last, and never a failure: the report reads the Release build, and
+    // prints how it moved from the committed baseline (ADR 0063).
+    ("decision-report", "the decision-driven report against its baseline; never gates",
+        DecisionReport),
 ];
 
 if (list)
@@ -269,6 +277,18 @@ int Conformance()
     ]);
 
     return Run("dotnet", ["run", "eng/ratchet.cs", "--", conformanceResults, "--label", "local"]);
+}
+
+int DecisionReport()
+{
+    int exitCode = Run("dotnet", ["run", "eng/decision-report.cs"]);
+
+    if (exitCode != 0)
+    {
+        Console.WriteLine("decision-report: did not run; it does not gate, so the pipeline goes on.");
+    }
+
+    return 0;
 }
 
 int Pack()

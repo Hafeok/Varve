@@ -118,13 +118,14 @@ public class RoundTripTests
     {
         WriteOptions options = new() { Syntax = syntax };
         ArrayBufferWriter output = new();
-        InMemoryDataset dataset = new();
+        InMemoryDatasetBuilder builder = new();
 
         Quad quad = new(
-            dataset.Internalise(row.Subject),
-            dataset.Internalise(row.Predicate),
-            dataset.Internalise(row.Object),
-            row.Graph is null ? TermHandle.None : dataset.Internalise(row.Graph));
+            builder.Internalise(row.Subject),
+            builder.Internalise(row.Predicate),
+            builder.Internalise(row.Object),
+            row.Graph is null ? TermHandle.None : builder.Internalise(row.Graph));
+        InMemoryDataset dataset = builder.ToDataset();
 
         NQuadsWriter.Write(output, in quad, dataset, options);
         return Encoding.UTF8.GetString(output.Written);
@@ -167,13 +168,14 @@ public class RoundTripTests
         Statement.Sample(row =>
         {
             ArrayBufferWriter output = new();
-            InMemoryDataset dataset = new();
+            InMemoryDatasetBuilder builder = new();
 
             Quad quad = new(
-                dataset.Internalise(row.Subject),
-                dataset.Internalise(row.Predicate),
-                dataset.Internalise(row.Object),
-                row.Graph is null ? TermHandle.None : dataset.Internalise(row.Graph));
+                builder.Internalise(row.Subject),
+                builder.Internalise(row.Predicate),
+                builder.Internalise(row.Object),
+                row.Graph is null ? TermHandle.None : builder.Internalise(row.Graph));
+            InMemoryDataset dataset = builder.ToDataset();
 
             NQuadsWriter.Write(
                 output, in quad, dataset, new WriteOptions { Syntax = RdfSyntax.NQuads, Canonical = false });

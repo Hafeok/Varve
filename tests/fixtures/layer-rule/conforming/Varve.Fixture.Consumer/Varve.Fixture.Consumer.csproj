@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <VarveLayer>1</VarveLayer>
+    <ArchLayer>1</ArchLayer>
   </PropertyGroup>
   <ItemGroup>
     <!-- Layer 1 to layer 0. Downward, and therefore legal. -->

@@ -5,27 +5,6 @@
   -->
 
   <!--
-    ADR 0003 — surface the declared layer as assembly metadata.
-
-    A referencing compilation learns the layer of a referenced assembly by
-    reading this attribute off the referenced assembly symbol. The BCL's
-    AssemblyMetadataAttribute is used deliberately: a Varve-defined attribute
-    type would have to live in a package below layer 0, which is the same as
-    saying it would break the rule it exists to express.
-
-    'none' emits nothing. A test, benchmark or analyzer assembly has no layer,
-    and VARVE0002 treats absent metadata on those as correct rather than as a
-    missing declaration.
-
-    A malformed value IS emitted, on purpose: the declaring project's own
-    VARVE0002 reports it from the build property, and emitting it keeps the
-    assembly honest about what it declared rather than silently dropping it.
-  -->
-  <ItemGroup Condition="'$(VarveLayer)' != '' and '$(VarveLayer)' != 'none'">
-    <AssemblyMetadata Include="Varve.Layer" Value="$(VarveLayer)" />
-  </ItemGroup>
-
-  <!--
     ADR 0004 — off-the-shelf enforcement, for packable projects only.
 
     Nothing is packable at milestone 1. These are wired and inert until
@@ -111,13 +90,6 @@
     <!-- One banned-symbol list for the whole repository. ADR 0004 records that
          its System.Uri entry must be narrowed before layer 5 exists. -->
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)eng/BannedSymbols.txt" />
-
-    <!-- ADR 0026. One source file rather than a package: principle 3 forbids a
-         grab-bag and the layering rule forbids anything below layer 0. The
-         attribute is internal, so each assembly gets its own harmless copy and
-         none of them enters a public API baseline. -->
-    <Compile Include="$(MSBuildThisFileDirectory)eng/HotPathAttribute.cs"
-             Link="Properties/HotPathAttribute.cs" />
   </ItemGroup>
 
   <!--
@@ -131,6 +103,17 @@
   -->
   <ItemGroup Condition="'$(IsPackable)' == 'true' and '$(VarveDeterministic)' == 'true'">
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)eng/BannedSymbols.Deterministic.txt" />
+  </ItemGroup>
+
+  <!--
+    ADR 0064 — no LINQ in layers 0 to 4. Stricter than the brief, which bans it
+    in marked hot paths only: every per-quad path lives in these layers, and a
+    hot path missed by a mark would allocate per quad with no diagnostic. Added
+    by layer the way the deterministic list is added by opt-in. Test
+    assemblies are not packable and never see it.
+  -->
+  <ItemGroup Condition="'$(IsPackable)' == 'true' and ('$(ArchLayer)' == '0' or '$(ArchLayer)' == '1' or '$(ArchLayer)' == '2' or '$(ArchLayer)' == '3' or '$(ArchLayer)' == '4')">
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)eng/BannedSymbols.Model.txt" />
   </ItemGroup>
 
 </Project>

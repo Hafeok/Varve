@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Sparql.Results;
@@ -128,7 +130,7 @@ internal sealed class JsonResultsWriter : FormatWriter
     /// A JSON string: <c>"</c>, <c>\</c> and U+0000–U+001F escaped (RFC 8259
     /// §7), the two-character forms where they exist, and nothing else.
     /// </summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private void WriteString(ReadOnlySpan<byte> text)
     {
         Output.Write((byte)'"');
@@ -181,5 +183,6 @@ internal sealed class JsonResultsWriter : FormatWriter
         Output.Write((byte)'"');
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static ReadOnlySpan<byte> Hex => "0123456789ABCDEF"u8;
 }

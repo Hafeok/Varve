@@ -183,12 +183,13 @@ public class WriterTests
     [Fact]
     public void writing_from_a_quad_source_materialises_its_terms()
     {
-        InMemoryDataset dataset = new();
+        InMemoryDatasetBuilder builder = new();
         Quad quad = new(
-            dataset.Internalise(RdfTerm.Iri(U("http://a/s"))),
-            dataset.Internalise(RdfTerm.Iri(U("http://a/p"))),
-            dataset.Internalise(RdfTerm.Literal(U("o"), U("en"))),
-            dataset.Internalise(RdfTerm.Iri(U("http://a/g"))));
+            builder.Internalise(RdfTerm.Iri(U("http://a/s"))),
+            builder.Internalise(RdfTerm.Iri(U("http://a/p"))),
+            builder.Internalise(RdfTerm.Literal(U("o"), U("en"))),
+            builder.Internalise(RdfTerm.Iri(U("http://a/g"))));
+        InMemoryDataset dataset = builder.ToDataset();
 
         ArrayBufferWriter output = new();
         NQuadsWriter.Write(output, in quad, dataset, new WriteOptions { Syntax = RdfSyntax.NQuads });
@@ -201,7 +202,7 @@ public class WriterTests
     [Fact]
     public void writing_a_handle_the_source_cannot_externalise_is_refused()
     {
-        InMemoryDataset dataset = new();
+        InMemoryDataset dataset = new InMemoryDatasetBuilder().ToDataset();
         Quad quad = new(new TermHandle(1), new TermHandle(2), new TermHandle(3));
 
         Assert.Throws<InvalidOperationException>(

@@ -4,8 +4,10 @@
 
 using System;
 using System.Globalization;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
-namespace Varve.Sparql;
+namespace Varve.Sparql.Algebra;
 
 /// <summary>
 /// Where in the input a node came from: byte offsets, and the line and byte
@@ -25,6 +27,7 @@ namespace Varve.Sparql;
 /// ordinary one.
 /// </para>
 /// </remarks>
+[DesignDecision(typeof(SyntaxModelSurfaces.SourceCoordinatesAreOffsetsLinesAndColumns), Scope = ExceptionScope.Boundary)]
 public readonly struct SourceSpan : IEquatable<SourceSpan>
 {
     /// <summary>Builds a span.</summary>

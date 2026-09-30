@@ -553,7 +553,7 @@ internal sealed class Optimiser
             else
             {
                 CardinalityEstimate reported = source.Estimate(subject, predicate, @object, named ? GraphPattern.AnyNamed : GraphPattern.DefaultGraph);
-                estimate = reported.IsUnknown ? Large : reported.Count;
+                estimate = reported.IsUnknown ? Large : reported.Count.Value;
             }
 
             _cache[(triple, named)] = estimate;

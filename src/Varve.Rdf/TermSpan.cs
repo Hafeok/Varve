@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Rdf;
 
@@ -16,6 +18,7 @@ namespace Varve.Rdf;
 /// made of do not occur in the input. A parser copies only what it must, and
 /// the common case still costs nothing.
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 public readonly struct TermSpan : IEquatable<TermSpan>
 {
     private TermSpan(int start, int length, bool scratch)

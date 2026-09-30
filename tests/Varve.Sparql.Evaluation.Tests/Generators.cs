@@ -128,12 +128,12 @@ internal static class Generators
 
     internal static InMemoryDataset Load(GenQuad[] data)
     {
-        InMemoryDataset dataset = new();
+        InMemoryDatasetBuilder builder = new();
         foreach (GenQuad quad in data)
         {
-            dataset.Add(quad.S, quad.P, quad.O, quad.G);
+            builder.Add(quad.S, quad.P, quad.O, quad.G);
         }
 
-        return dataset;
+        return builder.ToDataset();
     }
 }

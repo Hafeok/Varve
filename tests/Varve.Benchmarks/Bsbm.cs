@@ -4,9 +4,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using BenchmarkDotNet.Attributes;
@@ -16,6 +18,7 @@ using VDS.RDF.Query;
 using Varve.Rdf;
 using Varve.Sparql;
 using Varve.Sparql.Evaluation;
+using Varve.Store.Log;
 using Varve.Store;
 using Varve.Turtle;
 
@@ -48,7 +51,7 @@ internal static class Bsbm
         + "PREFIX xsd: <" + Xsd + ">\nPREFIX dc: <" + Dc + ">\nPREFIX rev: <" + Rev + ">\nPREFIX foaf: <" + Foaf + ">\n";
 
     /// <summary>The query mix: BSBM explore's shapes with fixed parameters, and one aggregate.</summary>
-    internal static readonly (string Name, string Text)[] Queries =
+    internal static readonly ImmutableArray<(string Name, string Text)> Queries =
     [
         ("Q1 type+feature+numeric", Prefixes + """
             SELECT DISTINCT ?product ?label WHERE {
@@ -134,8 +137,14 @@ internal static class Bsbm
             """),
     ];
 
-    /// <summary>The dataset as N-Triples, generated once.</summary>
-    internal static byte[] Data => field ??= Generate();
+    /// <summary>The dataset as N-Triples, generated once, on first use.</summary>
+    internal static ImmutableArray<byte> Data => Generated.Utf8;
+
+    /// <summary>Holds the dataset, so that naming the queries does not generate it.</summary>
+    private static class Generated
+    {
+        internal static ImmutableArray<byte> Utf8 { get; } = ImmutableCollectionsMarshal.AsImmutableArray(Generate());
+    }
 
     private static byte[] Generate()
     {
@@ -242,7 +251,7 @@ internal static class Bsbm
         return Encoding.UTF8.GetBytes(text.ToString());
     }
 
-    private static readonly string[] Words = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet", "kilo", "lima", "mike", "november", "oscar", "papa"];
+    private static readonly ImmutableArray<string> Words = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet", "kilo", "lima", "mike", "november", "oscar", "papa"];
 
     private static string Word(Random random) => Words[random.Next(Words.Length)];
 
@@ -250,7 +259,7 @@ internal static class Bsbm
     internal static void Export(string directory)
     {
         Directory.CreateDirectory(directory);
-        File.WriteAllBytes(Path.Combine(directory, "bsbm.nt"), Data);
+        File.WriteAllBytes(Path.Combine(directory, "bsbm.nt"), Data.AsSpan());
         File.WriteAllText(Path.Combine(directory, "queries.json"), JsonSerializer.Serialize(Queries.Select(q => new[] { q.Name, q.Text })));
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{Data.Length:N0} bytes, {Data.Count(b => b == (byte)'\n'):N0} triples, {Queries.Length} queries, in {directory}"));
     }
@@ -274,7 +283,7 @@ public class BsbmBenchmarks : IDisposable
     private SparqlQuery _dotNetRdfQuery = null!;
 
     /// <summary>The query mix, or the part of it named in <c>VARVE_BSBM_QUERIES</c> (comma-separated), to re-run one query without the rest.</summary>
-    public static IEnumerable<string> Names =>
+    public static IEnumerable<string> Names() =>
         Environment.GetEnvironmentVariable("VARVE_BSBM_QUERIES") is { Length: > 0 } only
             ? Bsbm.Queries.Select(q => q.Name).Where(n => only.Split(',').Contains(n))
             : Bsbm.Queries.Select(q => q.Name);
@@ -288,23 +297,24 @@ public class BsbmBenchmarks : IDisposable
         string text = Bsbm.Queries.Single(q => q.Name == Query).Text;
         _varveQuery = SparqlParser.ParseQuery(text.AsSpan());
 
-        _dataset = new Varve.Rdf.InMemoryDataset();
+        InMemoryDatasetBuilder builder = new();
         CommitRequest request = new();
         Varve.Turtle.NQuadsParser.Parse(
-            Bsbm.Data,
+            Bsbm.Data.AsSpan(),
             (in QuadView quad) =>
             {
                 RdfTerm s = quad.Subject.Materialise(), p = quad.Predicate.Materialise(), o = quad.Object.Materialise();
-                _dataset.Add(s, p, o);
+                builder.Add(s, p, o);
                 request.Assert(s, p, o);
             },
             new ParseOptions { Syntax = RdfSyntax.NTriples });
+        _dataset = builder.ToDataset();
         _store = Varve.Store.Dataset.OpenAsync(new MemoryStorage(), new DatasetOptions { Clock = TimeProvider.System }).AsTask().GetAwaiter().GetResult();
         _ = _store.CommitAsync(request).AsTask().GetAwaiter().GetResult();
         _view = _store.Pin();
 
         Graph graph = new();
-        new NTriplesParser().Load(graph, new StreamReader(new MemoryStream(Bsbm.Data), Encoding.UTF8));
+        new NTriplesParser().Load(graph, new StreamReader(new MemoryStream(ImmutableCollectionsMarshal.AsArray(Bsbm.Data)!, writable: false), Encoding.UTF8));
         TripleStore triples = new();
         triples.Add(graph);
         _processor = new LeviathanQueryProcessor(new VDS.RDF.Query.Datasets.InMemoryDataset(triples, true));

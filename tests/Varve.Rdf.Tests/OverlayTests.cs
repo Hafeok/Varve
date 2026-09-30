@@ -31,20 +31,20 @@ public class OverlayTests
 
     private static InMemoryDataset Base(Quad[] quads)
     {
-        InMemoryDataset dataset = new();
+        InMemoryDatasetBuilder builder = new();
 
         // Handles 1 to 4 must mean something to the dataset; the quads use them directly.
         for (int i = 1; i <= 4; i++)
         {
-            dataset.Internalise(RdfTerm.Iri(Encoding.UTF8.GetBytes("http://a/" + i.ToString(CultureInfo.InvariantCulture))));
+            builder.Internalise(RdfTerm.Iri(Encoding.UTF8.GetBytes("http://a/" + i.ToString(CultureInfo.InvariantCulture))));
         }
 
         foreach (Quad quad in quads)
         {
-            dataset.Add(in quad);
+            builder.Add(in quad);
         }
 
-        return dataset;
+        return builder.ToDataset();
     }
 
     private static List<Quad> Drain(IQuadCursor cursor)
@@ -95,8 +95,9 @@ public class OverlayTests
     [Fact]
     public void an_overlay_answers_term_questions_from_its_base()
     {
-        InMemoryDataset dataset = new();
-        TermHandle handle = dataset.Internalise(RdfTerm.Iri("http://a/x"u8));
+        InMemoryDatasetBuilder builder = new();
+        TermHandle handle = builder.Internalise(RdfTerm.Iri("http://a/x"u8));
+        InMemoryDataset dataset = builder.ToDataset();
         QuadOverlay overlay = new(dataset, QuadDelta.Empty);
 
         Assert.True(overlay.TryInternalise(RdfTerm.Iri("http://a/x"u8), out TermHandle found));
@@ -112,14 +113,14 @@ public class OverlayTests
 
     private static (InMemoryDataset Base, QuadDelta Delta) Scannable(int quads)
     {
-        InMemoryDataset dataset = new();
-        TermHandle p = dataset.Internalise(RdfTerm.Iri("http://a/p"u8));
+        InMemoryDatasetBuilder builder = new();
+        TermHandle p = builder.Internalise(RdfTerm.Iri("http://a/p"u8));
         List<Quad> asserted = [];
         List<Quad> retracted = [];
 
         for (int i = 0; i < quads; i++)
         {
-            TermHandle s = dataset.Internalise(RdfTerm.Iri(Encoding.UTF8.GetBytes("http://a/s" + i.ToString(CultureInfo.InvariantCulture))));
+            TermHandle s = builder.Internalise(RdfTerm.Iri(Encoding.UTF8.GetBytes("http://a/s" + i.ToString(CultureInfo.InvariantCulture))));
             Quad quad = new(s, p, s);
 
             if (i % 3 == 0)
@@ -128,7 +129,7 @@ public class OverlayTests
             }
             else
             {
-                dataset.Add(in quad);
+                builder.Add(in quad);
 
                 if (i % 3 == 1)
                 {
@@ -137,7 +138,7 @@ public class OverlayTests
             }
         }
 
-        return (dataset, QuadDelta.Create([.. asserted], [.. retracted]));
+        return (builder.ToDataset(), QuadDelta.Create([.. asserted], [.. retracted]));
     }
 
     private static readonly (InMemoryDataset Base, QuadDelta Delta) SmallCase = Scannable(Small);

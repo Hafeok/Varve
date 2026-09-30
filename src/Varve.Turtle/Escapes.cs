@@ -5,6 +5,8 @@
 using System;
 using System.Buffers;
 using System.Text;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Turtle;
 
@@ -24,6 +26,7 @@ namespace Varve.Turtle;
 /// and nothing else, which every Turtle reader accepts.
 /// </para>
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal static class Escapes
 {
     private static ReadOnlySpan<byte> HexDigits => "0123456789ABCDEF"u8;

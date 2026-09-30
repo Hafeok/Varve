@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Sparql.Algebra;
 
@@ -24,6 +26,7 @@ public readonly struct AlgebraList<T> : IEquatable<AlgebraList<T>>
     private readonly T[]? _items;
 
     /// <summary>The number of elements.</summary>
+    [DesignDecision(typeof(SparqlAlgebraSurfaces.AlgebraListCountsAndIndexesAsInt), Scope = ExceptionScope.Boundary)]
     public int Count => _items?.Length ?? 0;
 
     /// <summary>True when there are no elements.</summary>
@@ -33,6 +36,7 @@ public readonly struct AlgebraList<T> : IEquatable<AlgebraList<T>>
     public ReadOnlySpan<T> Span => _items;
 
     /// <summary>The element at an index.</summary>
+    [DesignDecision(typeof(SparqlAlgebraSurfaces.AlgebraListCountsAndIndexesAsInt), Scope = ExceptionScope.Boundary)]
     public T this[int index] => Span[index];
 
     /// <summary>Wraps an array nobody else holds; internal so that the promise can be kept.</summary>

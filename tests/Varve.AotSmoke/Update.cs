@@ -51,9 +51,9 @@ internal static partial class Smoke
             new Varve.Store.MemoryStorage(), new Varve.Store.DatasetOptions { Clock = TimeProvider.System });
 
         // Two operations, one commit: the second sees the first's insert.
-        Varve.Store.CommitResult result = await SparqlUpdate.ExecuteAsync(
+        Varve.Store.Log.CommitResult result = await SparqlUpdate.ExecuteAsync(
             dataset, Varve.Sparql.SparqlParser.ParseUpdate(Encoding.UTF8.GetBytes(Request)), new UpdateOptions());
-        string update = result.Outcome + " at " + dataset.Head.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        string update = result.Outcome + " at " + dataset.Head.ToString();
 
         using Varve.Store.DatasetView view = dataset.Pin();
         Varve.Sparql.Algebra.Query query = Varve.Sparql.SparqlParser.ParseQuery(
@@ -84,11 +84,12 @@ internal static partial class Smoke
             writer.WriteEnd();
         }
 
-        InMemoryDataset small = new();
+        InMemoryDatasetBuilder builder = new();
         RdfTerm p = RdfTerm.Iri("http://example.org/p"u8);
-        small.Add(RdfTerm.BlankNode("x"u8), RdfTerm.Iri("http://example.org/q"u8), RdfTerm.Literal("end"u8));
-        small.Add(RdfTerm.BlankNode("y"u8), p, RdfTerm.BlankNode("x"u8));
-        small.Add(RdfTerm.Iri("http://example.org/s"u8), p, RdfTerm.BlankNode("y"u8));
+        builder.Add(RdfTerm.BlankNode("x"u8), RdfTerm.Iri("http://example.org/q"u8), RdfTerm.Literal("end"u8));
+        builder.Add(RdfTerm.BlankNode("y"u8), p, RdfTerm.BlankNode("x"u8));
+        builder.Add(RdfTerm.Iri("http://example.org/s"u8), p, RdfTerm.BlankNode("y"u8));
+        InMemoryDataset small = builder.ToDataset();
         CanonicalDataset sha256 = RdfCanonicaliser.Canonicalise(small);
         CanonicalDataset sha384 = RdfCanonicaliser.Canonicalise(
             small, new CanonicalisationOptions { HashAlgorithm = System.Security.Cryptography.HashAlgorithmName.SHA384 });

@@ -3,7 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Iri;
+using Varve.Turtle.Model;
 
 namespace Varve.Turtle;
 
@@ -35,6 +38,7 @@ internal enum StatementStatus : byte
 /// quads accumulate there until the terminating <c>.</c>, because ADR 0030
 /// makes a statement all-or-nothing.
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal ref partial struct TurtleScanner
 {
     private readonly ReadOnlySpan<byte> _text;

@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <VarveLayer>1</VarveLayer>
+    <ArchLayer>1</ArchLayer>
   </PropertyGroup>
   <ItemGroup>
-    <!-- Layer 1 to layer 2. Upward, and therefore VARVE0001. This project is
+    <!-- Layer 1 to layer 2. Upward, and therefore DD0001. This project is
          meant to fail to build; that failure is the assertion. -->
     <ProjectReference Include="../Varve.Fixture.Upper/Varve.Fixture.Upper.csproj" />
   </ItemGroup>

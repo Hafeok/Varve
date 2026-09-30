@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Varve.Store.Log;
 
 namespace Varve.Store;
 
@@ -57,7 +58,7 @@ public sealed class MemoryStorage : IStorage
     /// </summary>
     public static MemoryStorage FromSegments(
         IEnumerable<ReadOnlyMemory<byte>> log,
-        IEnumerable<KeyValuePair<string, ReadOnlyMemory<byte>>>? derived = null)
+        IEnumerable<KeyValuePair<BlobName, ReadOnlyMemory<byte>>>? derived = null)
     {
         ArgumentNullException.ThrowIfNull(log);
 
@@ -79,9 +80,9 @@ public sealed class MemoryStorage : IStorage
 
         if (derived is not null)
         {
-            foreach (KeyValuePair<string, ReadOnlyMemory<byte>> blob in derived)
+            foreach (KeyValuePair<BlobName, ReadOnlyMemory<byte>> blob in derived)
             {
-                blobs[blob.Key] = blob.Value.ToArray();
+                blobs[blob.Key.Value] = blob.Value.ToArray();
             }
         }
 
@@ -130,14 +131,16 @@ public sealed class MemoryStorage : IStorage
 
                 for (int i = 0; i < list.Length; i++)
                 {
-                    list[i] = new SegmentInfo(i, _segments[i].Length, _segments[i].Sealed);
+                    SegmentId id = new(i);
+                    ByteCount length = new(_segments[i].Length);
+                    list[i] = _segments[i].Sealed ? SegmentInfo.Sealed(id, length) : SegmentInfo.Open(id, length);
                 }
 
                 return new ValueTask<IReadOnlyList<SegmentInfo>>(list);
             }
         }
 
-        public ValueTask<int> CreateSegmentAsync(CancellationToken cancellationToken)
+        public ValueTask<SegmentId> CreateSegmentAsync(CancellationToken cancellationToken)
         {
             lock (_gate)
             {
@@ -147,11 +150,11 @@ public sealed class MemoryStorage : IStorage
                 }
 
                 _segments.Add(new Segment());
-                return new ValueTask<int>(_segments.Count - 1);
+                return new ValueTask<SegmentId>(new SegmentId(_segments.Count - 1));
             }
         }
 
-        public ValueTask AppendAsync(int segment, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
+        public ValueTask AppendAsync(SegmentId segment, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
         {
             lock (_gate)
             {
@@ -159,7 +162,7 @@ public sealed class MemoryStorage : IStorage
 
                 if (target.Sealed)
                 {
-                    throw new InvalidOperationException("Segment " + segment + " is sealed and never changes again.");
+                    throw new InvalidOperationException("Segment " + segment.Value + " is sealed and never changes again.");
                 }
 
                 target.Append(bytes.Span);
@@ -167,7 +170,7 @@ public sealed class MemoryStorage : IStorage
             }
         }
 
-        public ValueTask FlushAsync(int segment, CancellationToken cancellationToken)
+        public ValueTask FlushAsync(SegmentId segment, CancellationToken cancellationToken)
         {
             lock (_gate)
             {
@@ -176,7 +179,7 @@ public sealed class MemoryStorage : IStorage
             }
         }
 
-        public ValueTask SealAsync(int segment, CancellationToken cancellationToken)
+        public ValueTask SealAsync(SegmentId segment, CancellationToken cancellationToken)
         {
             lock (_gate)
             {
@@ -185,7 +188,7 @@ public sealed class MemoryStorage : IStorage
             }
         }
 
-        public ValueTask<ReadOnlyMemory<byte>> ReadRangeAsync(int segment, long offset, int length, CancellationToken cancellationToken)
+        public ValueTask<ReadOnlyMemory<byte>> ReadRangeAsync(SegmentId segment, ByteOffset offset, ByteCount length, CancellationToken cancellationToken)
         {
             lock (_gate)
             {
@@ -194,10 +197,10 @@ public sealed class MemoryStorage : IStorage
             }
         }
 
-        private Segment Get(int segment) =>
-            segment >= 0 && segment < _segments.Count
-                ? _segments[segment]
-                : throw new ArgumentOutOfRangeException(nameof(segment), segment, "No such segment.");
+        private Segment Get(SegmentId segment) =>
+            segment.Value < _segments.Count
+                ? _segments[segment.Value]
+                : throw new ArgumentOutOfRangeException(nameof(segment), segment.Value, "No such segment.");
     }
 
     private sealed class MemoryDerivedStore : IDerivedStore
@@ -207,23 +210,22 @@ public sealed class MemoryStorage : IStorage
 
         public MemoryDerivedStore(SortedDictionary<string, ReadOnlyMemory<byte>> blobs) => _blobs = blobs;
 
-        public ValueTask PutAsync(string name, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
+        public ValueTask PutAsync(BlobName name, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
         {
-            ArgumentException.ThrowIfNullOrEmpty(name);
             byte[] copy = bytes.ToArray();
 
             lock (_gate)
             {
-                _blobs[name] = copy;
+                _blobs[name.Value] = copy;
                 return ValueTask.CompletedTask;
             }
         }
 
-        public ValueTask<ReadOnlyMemory<byte>> GetRangeAsync(string name, long offset, int length, CancellationToken cancellationToken)
+        public ValueTask<ReadOnlyMemory<byte>> GetRangeAsync(BlobName name, ByteOffset offset, ByteCount length, CancellationToken cancellationToken)
         {
             lock (_gate)
             {
-                if (!_blobs.TryGetValue(name, out ReadOnlyMemory<byte> blob))
+                if (!_blobs.TryGetValue(name.Value, out ReadOnlyMemory<byte> blob))
                 {
                     throw new KeyNotFoundException("No derived blob named '" + name + "'.");
                 }
@@ -232,34 +234,42 @@ public sealed class MemoryStorage : IStorage
             }
         }
 
-        public ValueTask<bool> DeleteAsync(string name, CancellationToken cancellationToken)
+        public ValueTask<bool> DeleteAsync(BlobName name, CancellationToken cancellationToken)
         {
             lock (_gate)
             {
-                return new ValueTask<bool>(_blobs.Remove(name));
+                return new ValueTask<bool>(_blobs.Remove(name.Value));
             }
         }
 
-        public ValueTask<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken)
+        public ValueTask<IReadOnlyList<BlobName>> ListAsync(CancellationToken cancellationToken)
         {
             lock (_gate)
             {
-                return new ValueTask<IReadOnlyList<string>>([.. _blobs.Keys]);
+                BlobName[] names = new BlobName[_blobs.Count];
+                int i = 0;
+
+                foreach (string name in _blobs.Keys)
+                {
+                    names[i++] = new BlobName(name);
+                }
+
+                return new ValueTask<IReadOnlyList<BlobName>>(names);
             }
         }
     }
 
-    private static ReadOnlyMemory<byte> Slice(ReadOnlyMemory<byte> bytes, long offset, int length)
+    private static ReadOnlyMemory<byte> Slice(ReadOnlyMemory<byte> bytes, ByteOffset offset, ByteCount length)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(offset);
-        ArgumentOutOfRangeException.ThrowIfNegative(length);
-
-        if (offset >= bytes.Length)
+        // Both wrappers are non-negative by construction. A length past the
+        // end, including one above int.MaxValue, reads to the end: fewer bytes
+        // than asked for, only at the end, as the contract says.
+        if (offset.Value >= bytes.Length)
         {
             return ReadOnlyMemory<byte>.Empty;
         }
 
-        int start = (int)offset;
-        return bytes.Slice(start, Math.Min(length, bytes.Length - start));
+        int start = (int)offset.Value;
+        return bytes.Slice(start, (int)Math.Min(length.Value, bytes.Length - start));
     }
 }

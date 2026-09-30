@@ -3,6 +3,6 @@
     <!-- Packable, so BannedApiAnalyzers and eng/BannedSymbols.txt apply. The
          project exists to fail. -->
     <IsPackable>true</IsPackable>
-    <VarveLayer>0</VarveLayer>
+    <ArchLayer>0</ArchLayer>
   </PropertyGroup>
 </Project>

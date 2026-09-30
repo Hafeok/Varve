@@ -3,8 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
-namespace Varve.Sparql.Results;
+namespace Varve.Sparql.Results.Model;
 
 /// <summary>What went wrong in a result document.</summary>
 public enum SparqlResultsErrorKind : byte
@@ -55,6 +57,7 @@ public readonly struct SparqlResultsError : IEquatable<SparqlResultsError>
     public ResultsPosition Position { get; }
 
     /// <summary>A sentence for a person. Not a stable format.</summary>
+    [DesignDecision(typeof(SyntaxModelSurfaces.ErrorMessagesAreDisplayText), Scope = ExceptionScope.Boundary)]
     public string Message { get; }
 
     /// <summary>Whether this is an error at all.</summary>

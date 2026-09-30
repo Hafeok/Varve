@@ -5,6 +5,8 @@
 using System;
 using System.IO;
 using BenchmarkDotNet.Attributes;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using VDS.RDF;
 using Varve.Rdf;
 using Varve.Turtle;
@@ -33,6 +35,7 @@ namespace Varve.Benchmarks;
 [MemoryDiagnoser]
 public class TurtleBenchmarks
 {
+    [DesignDecision(typeof(Layer6HostState.BenchmarkSinkIsStatic), Scope = ExceptionScope.HotPath)]
     private static long sink;
 
     private readonly TurtleOptions _options = new()
@@ -50,7 +53,7 @@ public class TurtleBenchmarks
     public void CheckDataset()
     {
         long count = TurtleParser.Parse(
-            TurtleDataset.Utf8, static (in QuadView quad) => sink += quad.Subject.Lexical.Length, in _options)
+            TurtleDataset.Utf8.AsSpan(), static (in QuadView quad) => sink += quad.Subject.Lexical.Length, in _options)
             .QuadCount;
 
         if (count != TurtleDataset.Quads)
@@ -63,14 +66,14 @@ public class TurtleBenchmarks
     [Benchmark(Baseline = true, Description = "Varve — views")]
     public long Varve_Views() =>
         TurtleParser.Parse(
-            TurtleDataset.Utf8,
+            TurtleDataset.Utf8.AsSpan(),
             static (in QuadView quad) => sink += quad.Subject.Lexical.Length + quad.Object.Lexical.Length,
             in _options).QuadCount;
 
     [Benchmark(Description = "Varve — owned terms")]
     public long Varve_Materialised() =>
         TurtleParser.Parse(
-            TurtleDataset.Utf8,
+            TurtleDataset.Utf8.AsSpan(),
             static (in QuadView quad) =>
             {
                 RdfTerm subject = quad.Subject.Materialise();
@@ -86,20 +89,20 @@ public class TurtleBenchmarks
     /// its work and must not be read as if they were.
     /// </summary>
     [Benchmark(Description = "Varve — into InMemoryDataset")]
-    public int Varve_Interned()
+    public long Varve_Interned()
     {
-        InMemoryDataset dataset = new();
+        InMemoryDatasetBuilder builder = new();
 
         TurtleParser.Parse(
-            TurtleDataset.Utf8,
-            (in QuadView quad) => dataset.Add(
+            TurtleDataset.Utf8.AsSpan(),
+            (in QuadView quad) => builder.Add(
                 quad.Subject.Materialise(),
                 quad.Predicate.Materialise(),
                 quad.Object.Materialise(),
                 quad.HasGraph ? quad.Graph.Materialise() : null),
             in _options);
 
-        return dataset.Count;
+        return builder.ToDataset().Count.Value;
     }
 
     [Benchmark(Description = "Varve — read and write back")]
@@ -112,7 +115,7 @@ public class TurtleBenchmarks
         {
             writer.DeclarePrefix("p"u8, "http://example.org/"u8);
             TurtleParser.Parse(
-                TurtleDataset.Utf8, (in QuadView quad) => writer.Write(in quad), in _options);
+                TurtleDataset.Utf8.AsSpan(), (in QuadView quad) => writer.Write(in quad), in _options);
         }
 
         return output.Length;

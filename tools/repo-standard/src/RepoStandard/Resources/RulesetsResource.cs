@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json.Nodes;
@@ -29,7 +30,7 @@ namespace RepoStandard.Resources;
 /// </remarks>
 internal sealed class RulesetsResource : IResourceKind
 {
-    private static readonly string[] ServerFields =
+    private static readonly ImmutableArray<string> ServerFields =
     [
         "id", "node_id", "source", "source_type", "_links", "created_at", "updated_at", "current_user_can_bypass",
     ];

@@ -6,7 +6,7 @@
     overrides TargetFramework; see ADR 0008).
 
     ADR 0008 — target framework and language version policy.
-    ADR 0003 — package layering; VarveLayer is declared per project.
+    ADR 0003, ADR 0064 — package layering; ArchLayer is declared per project.
     ADR 0004 — enforcement by analyzers.
   -->
 
@@ -48,20 +48,51 @@
   </PropertyGroup>
 
   <!--
-    The layer declaration (ADR 0003). The property is surfaced to the compiler
-    so VARVE0001 and VARVE0002 can read it as build_property.VarveLayer;
-    Directory.Build.targets emits it into the assembly so a *referencing*
-    compilation can read it back. Each project declares its own value: an
-    integer 0-5, or 'none' for a test, benchmark or analyzer assembly.
+    DecisionDriven.Analyzers (ADR 0062, ADR 0063): the DD rules, and the
+    generator that turns docs/decisions/ into the types code cites. Every
+    project in the family is analyzed by it, build-time only: PrivateAssets
+    keeps it out of every published package's dependencies, and IncludeAssets
+    takes its analyzers and its build/ props and targets and nothing else.
   -->
   <ItemGroup>
-    <CompilerVisibleProperty Include="VarveLayer" />
+    <PackageReference Include="DecisionDriven.Analyzers" PrivateAssets="all" IncludeAssets="analyzers;build" />
+  </ItemGroup>
 
-    <!-- Whether an assembly is published is the question layering actually
-         turns on, and the one an assembly name can only approximate.
-         VARVE0002 refuses 'none' from anything packable, whatever it is
-         called. -->
+  <!--
+    Varve's configuration of the DD rules (ADR 0064).
+
+    ArchFamily is the family every Varve.* assembly is in. ArchLayer is per
+    project, in each project file: the layer ADR 0060's table gives it, and
+    unset for a test assembly and Varve.Analyzers. The package generates
+    [assembly: ArchLayer(n)] from it, which is how a referencing compilation
+    reads the layer back (DD0001). ArchCompositionRoot is true on exactly the
+    layer-6 projects, set in each one, and VARVE0005 holds the two together.
+
+    ArchContractTypeAssemblies is the vocabulary a contract may name beyond the
+    BCL and its own assembly's model. The global value is layers 0 and 1. It is
+    never widened here: Varve.Store's contracts are SPARQL-free (ADR 0005), and
+    a global Varve.Sparql would let an algebra type onto one with no
+    diagnostic. A project that needs more appends it in its own file, with its
+    reason (Varve.Sparql.Evaluation does).
+
+    The ledger is docs/decisions/, one set file per ADR (ADR 0062). The package
+    targets glob it into AdditionalFiles with DdLedger="decision-set".
+  -->
+  <PropertyGroup>
+    <ArchFamily>Varve</ArchFamily>
+    <ArchContractTypeAssemblies>Varve.Rdf;Varve.Iri;Varve.Xsd</ArchContractTypeAssemblies>
+    <DdLedgerDirectory>$(MSBuildThisFileDirectory)docs/decisions</DdLedgerDirectory>
+  </PropertyGroup>
+
+  <!--
+    VARVE0005 (ADR 0064) reads these, beside the four Arch* properties the
+    package already makes visible: whether an assembly is published is the
+    question the layer declaration turns on, and an executable is what ADR 0060
+    reserves to layer 6.
+  -->
+  <ItemGroup>
     <CompilerVisibleProperty Include="IsPackable" />
+    <CompilerVisibleProperty Include="OutputType" />
   </ItemGroup>
 
   <!--

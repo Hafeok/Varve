@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Xsd;
 
@@ -20,6 +22,7 @@ public readonly struct XsdDuration : IEquatable<XsdDuration>
 {
     /// <summary>Builds a duration; the two components must not have opposite signs.</summary>
     /// <exception cref="ArgumentException">The signs differ.</exception>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public XsdDuration(long months, XsdDecimal seconds)
     {
         if ((months < 0 && seconds > XsdDecimal.Zero) || (months > 0 && seconds.IsNegative))
@@ -32,15 +35,19 @@ public readonly struct XsdDuration : IEquatable<XsdDuration>
     }
 
     /// <summary>The <c>months</c> property.</summary>
+    [DesignDecision(typeof(XsdValueSurfaces.XsdComponentsAreSpecIntegers), Scope = ExceptionScope.Boundary)]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public long Months { get; }
 
     /// <summary>The <c>seconds</c> property.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public XsdDecimal Seconds { get; }
 
     /// <summary>Whether both components are zero.</summary>
     public bool IsZero => Months == 0 && Seconds.IsZero;
 
     /// <summary>Whether the duration is negative.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool IsNegative => Months < 0 || Seconds.IsNegative;
 
     /// <summary>The value of a year-month duration.</summary>
@@ -64,6 +71,7 @@ public readonly struct XsdDuration : IEquatable<XsdDuration>
     }
 
     /// <summary>Parses a <c>durationLexicalRep</c> (§3.3.6.2).</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryParse(ReadOnlySpan<byte> utf8, out XsdDuration value)
     {
         bool ok = DurationLexical.TryParse(utf8, allowYearMonth: true, allowDayTime: true, out long months, out XsdDecimal seconds);
@@ -103,6 +111,7 @@ public readonly struct XsdDuration : IEquatable<XsdDuration>
     /// dateTimes; <see cref="PartialOrdering.Indeterminate"/> when they
     /// disagree.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static PartialOrdering CompareXsd(XsdDuration left, XsdDuration right) =>
         DurationLexical.CompareXsd(left.Months, left.Seconds, right.Months, right.Seconds);
 

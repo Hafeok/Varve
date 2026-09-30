@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Varve.Store.Log;
 using Xunit;
 
 namespace Varve.Store.Tests;
@@ -33,21 +34,21 @@ public abstract class StorageContractTests
     public async Task appended_bytes_read_back_and_a_read_past_the_end_is_short()
     {
         IStorage storage = Create();
-        int segment = await storage.Log.CreateSegmentAsync(T.Ct);
+        SegmentId segment = await storage.Log.CreateSegmentAsync(T.Ct);
         await storage.Log.AppendAsync(segment, Bytes(1, 2, 3), T.Ct);
         await storage.Log.AppendAsync(segment, Bytes(4, 5), T.Ct);
         await storage.Log.FlushAsync(segment, T.Ct);
 
-        Assert.Equal(Bytes(1, 2, 3, 4, 5), (await storage.Log.ReadRangeAsync(segment, 0, 100, T.Ct)).ToArray());
-        Assert.Equal(Bytes(3, 4), (await storage.Log.ReadRangeAsync(segment, 2, 2, T.Ct)).ToArray());
-        Assert.Equal(0, (await storage.Log.ReadRangeAsync(segment, 5, 10, T.Ct)).Length);
+        Assert.Equal(Bytes(1, 2, 3, 4, 5), (await storage.Log.ReadRangeAsync(segment, new ByteOffset(0), new ByteCount(100), T.Ct)).ToArray());
+        Assert.Equal(Bytes(3, 4), (await storage.Log.ReadRangeAsync(segment, new ByteOffset(2), new ByteCount(2), T.Ct)).ToArray());
+        Assert.Equal(0, (await storage.Log.ReadRangeAsync(segment, new ByteOffset(5), new ByteCount(10), T.Ct)).Length);
     }
 
     [Fact]
     public async Task a_sealed_segment_refuses_appends_and_only_the_newest_may_be_open()
     {
         IStorage storage = Create();
-        int first = await storage.Log.CreateSegmentAsync(T.Ct);
+        SegmentId first = await storage.Log.CreateSegmentAsync(T.Ct);
 
         await Assert.ThrowsAnyAsync<InvalidOperationException>(async () => await storage.Log.CreateSegmentAsync(T.Ct));
 
@@ -55,20 +56,20 @@ public abstract class StorageContractTests
         await storage.Log.SealAsync(first, T.Ct);
         await Assert.ThrowsAnyAsync<InvalidOperationException>(async () => await storage.Log.AppendAsync(first, Bytes(1), T.Ct));
 
-        int second = await storage.Log.CreateSegmentAsync(T.Ct);
+        SegmentId second = await storage.Log.CreateSegmentAsync(T.Ct);
         Assert.True(second > first);
 
         IReadOnlyList<SegmentInfo> segments = await storage.Log.ListSegmentsAsync(T.Ct);
-        Assert.Equal([new SegmentInfo(first, 1, true), new SegmentInfo(second, 0, false)], segments);
+        Assert.Equal([SegmentInfo.Sealed(first, new ByteCount(1)), SegmentInfo.Open(second, new ByteCount(0))], segments);
     }
 
     [Fact]
     public async Task bytes_already_read_never_change()
     {
         IStorage storage = Create();
-        int segment = await storage.Log.CreateSegmentAsync(T.Ct);
+        SegmentId segment = await storage.Log.CreateSegmentAsync(T.Ct);
         await storage.Log.AppendAsync(segment, Bytes(1, 2), T.Ct);
-        ReadOnlyMemory<byte> held = await storage.Log.ReadRangeAsync(segment, 0, 2, T.Ct);
+        ReadOnlyMemory<byte> held = await storage.Log.ReadRangeAsync(segment, new ByteOffset(0), new ByteCount(2), T.Ct);
 
         // Enough appends to force any buffer the backend keeps to grow.
         for (int i = 0; i < 1000; i++)
@@ -83,15 +84,15 @@ public abstract class StorageContractTests
     public async Task derived_blobs_are_put_replaced_listed_in_ordinal_order_and_deleted()
     {
         IStorage storage = Create();
-        await storage.Derived.PutAsync("b", Bytes(1), T.Ct);
-        await storage.Derived.PutAsync("a", Bytes(2, 3), T.Ct);
-        await storage.Derived.PutAsync("b", Bytes(4, 5, 6), T.Ct);
+        await storage.Derived.PutAsync(new BlobName("b"), Bytes(1), T.Ct);
+        await storage.Derived.PutAsync(new BlobName("a"), Bytes(2, 3), T.Ct);
+        await storage.Derived.PutAsync(new BlobName("b"), Bytes(4, 5, 6), T.Ct);
 
-        Assert.Equal(["a", "b"], await storage.Derived.ListAsync(T.Ct));
-        Assert.Equal(Bytes(5, 6), (await storage.Derived.GetRangeAsync("b", 1, 10, T.Ct)).ToArray());
-        Assert.True(await storage.Derived.DeleteAsync("a", T.Ct));
-        Assert.False(await storage.Derived.DeleteAsync("a", T.Ct));
-        Assert.Equal(["b"], await storage.Derived.ListAsync(T.Ct));
+        Assert.Equal([new BlobName("a"), new BlobName("b")], await storage.Derived.ListAsync(T.Ct));
+        Assert.Equal(Bytes(5, 6), (await storage.Derived.GetRangeAsync(new BlobName("b"), new ByteOffset(1), new ByteCount(10), T.Ct)).ToArray());
+        Assert.True(await storage.Derived.DeleteAsync(new BlobName("a"), T.Ct));
+        Assert.False(await storage.Derived.DeleteAsync(new BlobName("a"), T.Ct));
+        Assert.Equal([new BlobName("b")], await storage.Derived.ListAsync(T.Ct));
     }
 
     [Fact]
@@ -109,16 +110,16 @@ public abstract class StorageContractTests
                 await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s" + i), T.Iri("p"), T.Literal(new string('x', 40))), T.Ct);
             }
 
-            await dataset.CheckpointAsync(10, T.Ct);
+            await dataset.CheckpointAsync(new Position(10), T.Ct);
         }
 
         Assert.True((await storage.Log.ListSegmentsAsync(T.Ct)).Count > 1, "the small segment size should have forced several segments");
 
         await using Dataset reopened = await Dataset.OpenAsync(storage, T.Options(segmentBytes: 1024), T.Ct);
-        Assert.Equal(20, reopened.Head);
-        Assert.Equal([10L], reopened.Checkpoints);
+        Assert.Equal(new Position(20), reopened.Head);
+        Assert.Equal([new Position(10)], reopened.Checkpoints);
 
-        using DatasetView at12 = await reopened.AsOfAsync(12, T.Ct);
+        using DatasetView at12 = await reopened.AsOfAsync(new Position(12), T.Ct);
         Assert.Equal(12, T.All(at12).Count);
     }
 }
@@ -146,7 +147,7 @@ public sealed class ExternalBackendContractTests : StorageContractTests
 internal sealed class ListStorage : IStorage, ISegmentStore, IDerivedStore
 {
     private readonly List<(List<byte> Bytes, bool Sealed)> _segments = [];
-    private readonly SortedDictionary<string, byte[]> _blobs = new(StringComparer.Ordinal);
+    private readonly SortedDictionary<BlobName, byte[]> _blobs = [];
 
     public ISegmentStore Log => this;
 
@@ -155,9 +156,11 @@ internal sealed class ListStorage : IStorage, ISegmentStore, IDerivedStore
     public Durability Durability => Durability.Committed;
 
     public ValueTask<IReadOnlyList<SegmentInfo>> ListSegmentsAsync(CancellationToken cancellationToken) =>
-        new(_segments.Select((s, i) => new SegmentInfo(i, s.Bytes.Count, s.Sealed)).ToArray());
+        new(_segments.Select((s, i) => s.Sealed
+            ? SegmentInfo.Sealed(new SegmentId(i), new ByteCount(s.Bytes.Count))
+            : SegmentInfo.Open(new SegmentId(i), new ByteCount(s.Bytes.Count))).ToArray());
 
-    public ValueTask<int> CreateSegmentAsync(CancellationToken cancellationToken)
+    public ValueTask<SegmentId> CreateSegmentAsync(CancellationToken cancellationToken)
     {
         if (_segments.Count > 0 && !_segments[^1].Sealed)
         {
@@ -165,49 +168,49 @@ internal sealed class ListStorage : IStorage, ISegmentStore, IDerivedStore
         }
 
         _segments.Add(([], false));
-        return new(_segments.Count - 1);
+        return new(new SegmentId(_segments.Count - 1));
     }
 
-    public ValueTask AppendAsync(int segment, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
+    public ValueTask AppendAsync(SegmentId segment, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
     {
-        if (_segments[segment].Sealed)
+        if (_segments[segment.Value].Sealed)
         {
             throw new InvalidOperationException("Sealed.");
         }
 
-        _segments[segment].Bytes.AddRange(bytes.ToArray());
+        _segments[segment.Value].Bytes.AddRange(bytes.ToArray());
         return ValueTask.CompletedTask;
     }
 
-    public ValueTask FlushAsync(int segment, CancellationToken cancellationToken) => ValueTask.CompletedTask;
+    public ValueTask FlushAsync(SegmentId segment, CancellationToken cancellationToken) => ValueTask.CompletedTask;
 
-    public ValueTask SealAsync(int segment, CancellationToken cancellationToken)
+    public ValueTask SealAsync(SegmentId segment, CancellationToken cancellationToken)
     {
-        _segments[segment] = (_segments[segment].Bytes, true);
+        _segments[segment.Value] = (_segments[segment.Value].Bytes, true);
         return ValueTask.CompletedTask;
     }
 
-    public ValueTask<ReadOnlyMemory<byte>> ReadRangeAsync(int segment, long offset, int length, CancellationToken cancellationToken)
+    public ValueTask<ReadOnlyMemory<byte>> ReadRangeAsync(SegmentId segment, ByteOffset offset, ByteCount length, CancellationToken cancellationToken)
     {
-        List<byte> bytes = _segments[segment].Bytes;
-        int start = (int)Math.Min(offset, bytes.Count);
-        return new(bytes.GetRange(start, Math.Min(length, bytes.Count - start)).ToArray());
+        List<byte> bytes = _segments[segment.Value].Bytes;
+        int start = (int)Math.Min(offset.Value, bytes.Count);
+        return new(bytes.GetRange(start, (int)Math.Min(length.Value, bytes.Count - start)).ToArray());
     }
 
-    public ValueTask PutAsync(string name, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
+    public ValueTask PutAsync(BlobName name, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
     {
         _blobs[name] = bytes.ToArray();
         return ValueTask.CompletedTask;
     }
 
-    public ValueTask<ReadOnlyMemory<byte>> GetRangeAsync(string name, long offset, int length, CancellationToken cancellationToken)
+    public ValueTask<ReadOnlyMemory<byte>> GetRangeAsync(BlobName name, ByteOffset offset, ByteCount length, CancellationToken cancellationToken)
     {
         byte[] blob = _blobs[name];
-        int start = (int)Math.Min(offset, blob.Length);
-        return new(blob.AsMemory(start, Math.Min(length, blob.Length - start)).ToArray());
+        int start = (int)Math.Min(offset.Value, blob.Length);
+        return new(blob.AsMemory(start, (int)Math.Min(length.Value, blob.Length - start)).ToArray());
     }
 
-    public ValueTask<bool> DeleteAsync(string name, CancellationToken cancellationToken) => new(_blobs.Remove(name));
+    public ValueTask<bool> DeleteAsync(BlobName name, CancellationToken cancellationToken) => new(_blobs.Remove(name));
 
-    public ValueTask<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken) => new(_blobs.Keys.ToArray());
+    public ValueTask<IReadOnlyList<BlobName>> ListAsync(CancellationToken cancellationToken) => new(_blobs.Keys.ToArray());
 }

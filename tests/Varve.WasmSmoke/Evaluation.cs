@@ -42,7 +42,7 @@ internal static partial class Smoke
 
     internal static async Task<(string Bgp, string Aggregate, string Path, string Hashes)> EvaluateAsync()
     {
-        Varve.Store.CommitRequest request = new();
+        Varve.Store.Log.CommitRequest request = new();
         TurtleOptions read = new() { Syntax = RdfSyntax.Turtle };
         ParseResult parsed = TurtleParser.Parse(
             Encoding.UTF8.GetBytes(Data),

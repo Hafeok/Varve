@@ -20,10 +20,13 @@
   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
 
   <PropertyGroup>
-    <!-- Declared for the record. Varve.Analyzers' layering rules apply to
-         Varve.* assemblies only, so on RepoStandard they are wired and inert;
-         ADR 0039 says so rather than renaming the tool into their scope. -->
-    <VarveLayer>none</VarveLayer>
+    <!-- Not in the Varve family, and no layer: the tool is leaving (ADR 0039),
+         and the layering and contract rules describe Varve's package graph,
+         which it is not part of. The layer-independent rules (DD0002, DD0004
+         to DD0008, DD0018) and the VARVE rules still run on it, because the
+         package and Varve.Analyzers still do. -->
+    <ArchFamily></ArchFamily>
+    <ArchContractTypeAssemblies></ArchContractTypeAssemblies>
   </PropertyGroup>
 
 </Project>

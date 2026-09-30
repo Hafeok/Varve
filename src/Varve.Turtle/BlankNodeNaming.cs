@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Turtle;
 
@@ -53,6 +55,7 @@ namespace Varve.Turtle;
 /// counter's rewind exists to prevent, one level up.
 /// </para>
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal sealed class BlankNodeNaming
 {
     // Null until a document writes a g-form label, which almost none do. Held
@@ -85,6 +88,7 @@ internal sealed class BlankNodeNaming
     /// claim is only visible after the statement completes, the mint hands out
     /// the number the claim just took and two nodes share a label.
     /// </remarks>
+    [DesignDecision(typeof(HotPathScope.GeneratedLabelClaimsAreRecorded), Scope = ExceptionScope.HotPath)]
     private bool IsClaimed(int n)
     {
         if (_claimedNumbers is not null && _claimedNumbers.Contains(n))
@@ -110,6 +114,7 @@ internal sealed class BlankNodeNaming
     /// The number to use for a document's <c>g</c>-form label, which is the
     /// document's own unless it has already been handed out.
     /// </summary>
+    [DesignDecision(typeof(HotPathScope.GeneratedLabelClaimsAreRecorded), Scope = ExceptionScope.HotPath)]
     internal int Claim(int n)
     {
         if (_claimed is not null && _claimed.TryGetValue(n, out int assigned))
@@ -144,6 +149,7 @@ internal sealed class BlankNodeNaming
     }
 
     /// <summary>Drops everything the abandoned statement decided.</summary>
+    [DesignDecision(typeof(HotPathScope.GeneratedLabelClaimsAreRecorded), Scope = ExceptionScope.HotPath)]
     internal void BeginStatement()
     {
         _claimedPending?.Clear();
@@ -159,6 +165,7 @@ internal sealed class BlankNodeNaming
     /// simpler to reason about and allocated in proportion to the blank nodes
     /// in the document; the allocation assertion caught it.
     /// </remarks>
+    [DesignDecision(typeof(HotPathScope.GeneratedLabelClaimsAreRecorded), Scope = ExceptionScope.HotPath)]
     internal void CompleteStatement()
     {
         if (_claimedPending is not null && _claimedPending.Count > 0)

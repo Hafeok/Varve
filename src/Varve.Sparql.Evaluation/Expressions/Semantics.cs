@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Sparql.Evaluation.Execution;
 using Varve.Xsd;
@@ -20,6 +22,7 @@ internal static class Semantics
     // ------------------------------------------------------------ conversions
 
     /// <summary>The term a value is; null for an error.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static RdfTerm? AsTerm(Exec exec, in Value value) => value.Kind switch
     {
         ValueKind.Ref => exec.Materialise(value.Ref),
@@ -42,7 +45,7 @@ internal static class Semantics
     /// allows: a computed number, a local term's cached parse, the inline
     /// accessor, and only then an externalisation and a parse.
     /// </summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool TryNumeric(Exec exec, in Value value, out XsdNumeric number)
     {
         switch (value.Kind)
@@ -79,6 +82,7 @@ internal static class Semantics
     }
 
     /// <summary>Effective boolean value (§17.2.2); null is a type error.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool? Ebv(Exec exec, in Value value)
     {
         switch (value.Kind)
@@ -120,6 +124,7 @@ internal static class Semantics
         return null;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool NumericTruth(XsdNumeric number) =>
         number.Kind switch
         {
@@ -134,6 +139,7 @@ internal static class Semantics
     /// <c>=</c> of §17.3: value equality where an operator applies, and
     /// <c>RDFterm-equal</c> (§17.4.1.7) otherwise. Null is a type error.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool? Equal(Exec exec, in Value left, in Value right)
     {
         if (left.IsError || right.IsError)
@@ -154,6 +160,7 @@ internal static class Semantics
         return TermsEqual(exec, AsTerm(exec, left)!, AsTerm(exec, right)!);
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool? TermsEqual(Exec exec, RdfTerm left, RdfTerm right)
     {
         if (left.Equals(right))
@@ -222,6 +229,7 @@ internal static class Semantics
     /// operator applies, which is a type error; <c>NaN</c> is
     /// <see cref="PartialOrdering.Indeterminate"/>.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool TryCompare(Exec exec, in Value left, in Value right, out PartialOrdering order)
     {
         order = PartialOrdering.Indeterminate;
@@ -254,6 +262,7 @@ internal static class Semantics
         return order != PartialOrdering.Indeterminate || x.Family is Family.Numeric;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static PartialOrdering Order(Exec exec, in Typed a, in Typed b)
     {
         int tz = exec.Options.ImplicitTimezoneOffsetMinutes;
@@ -279,6 +288,7 @@ internal static class Semantics
         };
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static PartialOrdering Sign(int comparison) =>
         comparison < 0 ? PartialOrdering.Less : comparison > 0 ? PartialOrdering.Greater : PartialOrdering.Equal;
 
@@ -409,6 +419,7 @@ internal enum Family : byte
 }
 
 /// <summary>A literal's family and, when its lexical form is in the value space, its value.</summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal readonly struct Typed
 {
     internal Family Family { get; init; }

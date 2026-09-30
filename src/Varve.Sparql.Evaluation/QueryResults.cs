@@ -5,30 +5,21 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Sparql.Algebra;
 using Varve.Sparql.Evaluation.Execution;
+using Varve.Sparql.Evaluation.Model;
 
 namespace Varve.Sparql.Evaluation;
-
-/// <summary>What a query form answers.</summary>
-public enum QueryResultKind : byte
-{
-    /// <summary>A <c>SELECT</c>: a sequence of solutions.</summary>
-    Solutions,
-
-    /// <summary>An <c>ASK</c>: a boolean.</summary>
-    Boolean,
-
-    /// <summary>A <c>CONSTRUCT</c> or <c>DESCRIBE</c>: triples.</summary>
-    Triples,
-}
 
 /// <summary>
 /// The answer to one query execution. Disposing it stops the evaluation and
 /// releases every cursor it opened; it is the signal that the caller may
 /// release the source (ADR 0052).
 /// </summary>
+[Contract(typeof(EvaluationSurfaces.QueryResultsIsAClosedHierarchy), Role = "what an evaluation returns: solutions, a boolean or triples")]
 public abstract class QueryResults : IDisposable
 {
     private protected QueryResults()

@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Turtle;
 
@@ -24,6 +26,7 @@ internal sealed record DataQuad(RdfTerm Subject, RdfTerm Predicate, RdfTerm Obje
 /// </summary>
 internal static class EvaluationData
 {
+    [DesignDecision(typeof(Layer6HostState.EvaluationRunnerReadsEachFileOnce), Scope = ExceptionScope.Pool)]
     private static readonly ConcurrentDictionary<string, (IReadOnlyList<DataQuad>? Quads, string? Error)> Cache = new(StringComparer.Ordinal);
 
     internal static string FixtureRoot => Path.Combine(TestData.RdfTestsRoot, "..", "..", "fixtures", "w3c-rdfxml");

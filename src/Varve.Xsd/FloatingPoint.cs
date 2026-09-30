@@ -4,6 +4,8 @@
 
 using System;
 using System.Globalization;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Xsd;
 
@@ -30,6 +32,11 @@ namespace Varve.Xsd;
 /// </remarks>
 internal static class FloatingPoint
 {
+    // The BCL's IEEE parser and formatter, told to use the invariant culture: a
+    // cached singleton, read here once for the four calls that pass it.
+    [DesignDecision(typeof(HotPathScope.IeeeTextGoesThroughTheInvariantFormatter), Scope = ExceptionScope.HotPath)]
+    private static CultureInfo Invariant => CultureInfo.InvariantCulture;
+
     internal enum Special
     {
         None,
@@ -42,6 +49,7 @@ internal static class FloatingPoint
     /// Whether the input matches XSD's numeric lexical grammar, or one of the
     /// special forms.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool IsLexical(ReadOnlySpan<byte> utf8, out Special special)
     {
         special = Special.None;
@@ -208,6 +216,7 @@ internal static class FloatingPoint
         return i == lexical.Length;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool TryParseDouble(ReadOnlySpan<byte> utf8, out double value)
     {
         if (!IsLexical(utf8, out Special special))
@@ -228,10 +237,11 @@ internal static class FloatingPoint
                 value = double.NaN;
                 return true;
             default:
-                return double.TryParse(utf8, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+                return double.TryParse(utf8, NumberStyles.Float, Invariant, out value);
         }
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool TryParseSingle(ReadOnlySpan<byte> utf8, out float value)
     {
         if (!IsLexical(utf8, out Special special))
@@ -252,10 +262,11 @@ internal static class FloatingPoint
                 value = float.NaN;
                 return true;
             default:
-                return float.TryParse(utf8, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+                return float.TryParse(utf8, NumberStyles.Float, Invariant, out value);
         }
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool TryFormatDouble(double value, Span<byte> destination, out int written)
     {
         if (TryFormatSpecial(double.IsNaN(value), double.IsPositiveInfinity(value), double.IsNegativeInfinity(value), destination, out written))
@@ -270,10 +281,11 @@ internal static class FloatingPoint
 
         Span<byte> shortest = stackalloc byte[64];
 
-        return value.TryFormat(shortest, out int length, "R", CultureInfo.InvariantCulture)
+        return value.TryFormat(shortest, out int length, "R", Invariant)
             && Canonicalise(shortest[..length], destination, out written);
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool TryFormatSingle(float value, Span<byte> destination, out int written)
     {
         if (TryFormatSpecial(float.IsNaN(value), float.IsPositiveInfinity(value), float.IsNegativeInfinity(value), destination, out written))
@@ -288,10 +300,11 @@ internal static class FloatingPoint
 
         Span<byte> shortest = stackalloc byte[64];
 
-        return value.TryFormat(shortest, out int length, "R", CultureInfo.InvariantCulture)
+        return value.TryFormat(shortest, out int length, "R", Invariant)
             && Canonicalise(shortest[..length], destination, out written);
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool TryFormatSpecial(bool nan, bool positive, bool negative, Span<byte> destination, out int written)
     {
         ReadOnlySpan<byte> text = nan ? "NaN"u8 : positive ? "INF"u8 : negative ? "-INF"u8 : default;
@@ -314,6 +327,7 @@ internal static class FloatingPoint
         return true;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool WriteZero(bool negative, Span<byte> destination, out int written)
     {
         ReadOnlySpan<byte> text = negative ? "-0.0E0"u8 : "0.0E0"u8;
@@ -333,6 +347,7 @@ internal static class FloatingPoint
     /// Rewrites the runtime's shortest round-trip form — digits, an optional
     /// point, an optional <c>E±dd</c> — into XSD's canonical scientific form.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool Canonicalise(ReadOnlySpan<byte> shortest, Span<byte> destination, out int written)
     {
         written = 0;

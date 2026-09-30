@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Rdf;
 
@@ -16,6 +18,7 @@ namespace Varve.Rdf;
 /// valid only inside one source; across sources, and for private terms within
 /// one, use <see cref="IQuadSource.TermComparer"/>.
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 public readonly struct Quad : IEquatable<Quad>
 {
     /// <summary>A quad in a named graph.</summary>

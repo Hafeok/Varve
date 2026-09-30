@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Xsd;
 
@@ -21,6 +23,7 @@ namespace Varve.Xsd;
 internal static class Int256
 {
     /// <summary>The unsigned 256-bit product of two unsigned 128-bit values.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static (UInt128 High, UInt128 Low) Multiply(UInt128 a, UInt128 b)
     {
         ulong a0 = (ulong)a;
@@ -52,6 +55,7 @@ internal static class Int256
     /// Divides a 256-bit unsigned value by a 128-bit unsigned divisor,
     /// truncating. False when the quotient does not fit in 128 bits.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool TryDivide(UInt128 high, UInt128 low, UInt128 divisor, out UInt128 quotient)
     {
         quotient = 0;

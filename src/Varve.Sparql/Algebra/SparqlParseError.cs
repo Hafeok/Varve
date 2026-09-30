@@ -4,8 +4,10 @@
 
 using System;
 using System.Globalization;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
-namespace Varve.Sparql;
+namespace Varve.Sparql.Algebra;
 
 /// <summary>What went wrong, by class. The message says which token and which production.</summary>
 public enum SparqlErrorKind : byte
@@ -79,15 +81,19 @@ public readonly struct SparqlParseError : IEquatable<SparqlParseError>
     public SparqlErrorKind Kind { get; }
 
     /// <summary>Bytes from the start of the input.</summary>
+    [DesignDecision(typeof(SyntaxModelSurfaces.SourceCoordinatesAreOffsetsLinesAndColumns), Scope = ExceptionScope.Boundary)]
     public long Offset { get; }
 
     /// <summary>The line, counting from one.</summary>
+    [DesignDecision(typeof(SyntaxModelSurfaces.SourceCoordinatesAreOffsetsLinesAndColumns), Scope = ExceptionScope.Boundary)]
     public int Line { get; }
 
     /// <summary>The byte within the line, counting from one.</summary>
+    [DesignDecision(typeof(SyntaxModelSurfaces.SourceCoordinatesAreOffsetsLinesAndColumns), Scope = ExceptionScope.Boundary)]
     public int Column { get; }
 
     /// <summary>What was found and what was expected.</summary>
+    [DesignDecision(typeof(SyntaxModelSurfaces.ErrorMessagesAreDisplayText), Scope = ExceptionScope.Boundary)]
     public string Message { get; }
 
     /// <summary>True unless the kind is <see cref="SparqlErrorKind.None"/>.</summary>
@@ -113,33 +119,4 @@ public readonly struct SparqlParseError : IEquatable<SparqlParseError>
 
     /// <summary>Different error.</summary>
     public static bool operator !=(SparqlParseError left, SparqlParseError right) => !left.Equals(right);
-}
-
-/// <summary>Thrown by the parsing entry points that do not return an error; <see cref="Error"/> has the details.</summary>
-public sealed class SparqlParseException : Exception
-{
-    /// <summary>An exception carrying no error. For serialisation-shaped callers only.</summary>
-    public SparqlParseException()
-        : this(new SparqlParseError(SparqlErrorKind.Syntax, 0, 1, 1, "The text could not be parsed."))
-    {
-    }
-
-    /// <summary>An exception with a message and no position.</summary>
-    public SparqlParseException(string message)
-        : this(new SparqlParseError(SparqlErrorKind.Syntax, 0, 1, 1, message))
-    {
-    }
-
-    /// <summary>An exception with a message and a cause.</summary>
-    public SparqlParseException(string message, Exception innerException)
-        : base(message, innerException) =>
-        Error = new SparqlParseError(SparqlErrorKind.Syntax, 0, 1, 1, message);
-
-    /// <summary>An exception carrying an error.</summary>
-    public SparqlParseException(SparqlParseError error)
-        : base(error.ToString()) =>
-        Error = error;
-
-    /// <summary>The error.</summary>
-    public SparqlParseError Error { get; }
 }

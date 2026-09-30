@@ -5,10 +5,13 @@
 using System;
 using System.Buffers;
 using System.Text;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Turtle;
 
 /// <summary>The character classes Turtle adds to N-Triples'.</summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal static class TurtleChars
 {
     /// <summary>PN_CHARS_BASE [163s], over a decoded code point.</summary>

@@ -4,6 +4,8 @@
 
 using System;
 using System.Diagnostics.CodeAnalysis;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Sparql.Evaluation;
@@ -13,6 +15,7 @@ namespace Varve.Sparql.Evaluation;
 /// evaluator in <see cref="EvaluationOptions.Functions"/> — never registered in
 /// a process-wide table (ADR 0056).
 /// </summary>
+[Contract(typeof(EvaluatorOptionsExtensionFunctionsClockAndRandomness.UnknownExtensionFunctionIsAnError), Role = "an extension function, keyed by IRI in the evaluator's options")]
 public interface IExtensionFunction
 {
     /// <summary>
@@ -27,13 +30,16 @@ public interface IExtensionFunction
 /// A custom aggregate (ADR 0053), passed in <see cref="EvaluationOptions.Aggregates"/>
 /// by IRI: it makes one accumulator per group.
 /// </summary>
+[Contract(typeof(AggregationByHashGroupingAndAccumulators.CustomAggregatesFromOptions), Role = "a custom aggregate, keyed by IRI in the evaluator's options")]
 public interface IExtensionAggregate
 {
     /// <summary>A fresh accumulator for one group. <paramref name="distinct"/> says whether <c>DISTINCT</c> was written; the evaluator has already removed duplicates when it was.</summary>
+    [DesignDecision(typeof(EvaluationSurfaces.AggregateDistinctIsTheKeyword), Scope = ExceptionScope.Boundary)]
     IAggregateAccumulator CreateAccumulator(bool distinct);
 }
 
 /// <summary>One group's state for a custom aggregate.</summary>
+[Contract(typeof(AggregationByHashGroupingAndAccumulators.AccumulatorPerAggregate), Role = "one group's accumulator, fed one solution at a time")]
 public interface IAggregateAccumulator
 {
     /// <summary>

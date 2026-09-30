@@ -5,6 +5,7 @@
 using System.Collections.Generic;
 using System.Text;
 using Varve.Rdf;
+using Varve.Turtle.Model;
 
 namespace Varve.Turtle.Tests;
 

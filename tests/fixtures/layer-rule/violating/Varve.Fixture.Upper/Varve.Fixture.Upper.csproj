@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <VarveLayer>2</VarveLayer>
+    <ArchLayer>2</ArchLayer>
   </PropertyGroup>
 </Project>

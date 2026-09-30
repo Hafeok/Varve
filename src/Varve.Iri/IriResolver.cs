@@ -4,6 +4,8 @@
 
 using System;
 using System.Buffers;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Iri;
 
@@ -16,6 +18,7 @@ namespace Varve.Iri;
 /// <see cref="ArrayPool{T}"/> beyond, which is why this file is the one place
 /// in the package that is not allocation-free by construction.
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal static class IriResolver
 {
     private const int StackThreshold = 512;

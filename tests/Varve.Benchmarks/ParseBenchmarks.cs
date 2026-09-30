@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System.IO;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using BenchmarkDotNet.Attributes;
 using VDS.RDF;
 using VDS.RDF.Parsing;
@@ -32,6 +34,7 @@ namespace Varve.Benchmarks;
 [MemoryDiagnoser]
 public class ParseBenchmarks
 {
+    [DesignDecision(typeof(Layer6HostState.BenchmarkSinkIsStatic), Scope = ExceptionScope.HotPath)]
     private static long sink;
 
     private readonly ParseOptions _options = new() { Syntax = RdfSyntax.NQuads };
@@ -40,7 +43,7 @@ public class ParseBenchmarks
     [Benchmark(Baseline = true, Description = "Varve — views")]
     public long Varve_Views() =>
         VarveParser.Parse(
-            Dataset.Utf8,
+            Dataset.Utf8.AsSpan(),
             static (in QuadView quad) => sink += quad.Subject.Lexical.Length + quad.Object.Lexical.Length,
             _options).QuadCount;
 
@@ -48,7 +51,7 @@ public class ParseBenchmarks
     [Benchmark(Description = "Varve — owned terms")]
     public long Varve_Materialised() =>
         VarveParser.Parse(
-            Dataset.Utf8,
+            Dataset.Utf8.AsSpan(),
             static (in QuadView quad) =>
             {
                 RdfTerm subject = quad.Subject.Materialise();
@@ -60,20 +63,20 @@ public class ParseBenchmarks
 
     /// <summary>Varve, interning into a dataset. The closest thing to a store.</summary>
     [Benchmark(Description = "Varve — into InMemoryDataset")]
-    public int Varve_Interned()
+    public long Varve_Interned()
     {
-        InMemoryDataset dataset = new();
+        InMemoryDatasetBuilder builder = new();
 
         VarveParser.Parse(
-            Dataset.Utf8,
-            (in QuadView quad) => dataset.Add(
+            Dataset.Utf8.AsSpan(),
+            (in QuadView quad) => builder.Add(
                 quad.Subject.Materialise(),
                 quad.Predicate.Materialise(),
                 quad.Object.Materialise(),
                 quad.HasGraph ? quad.Graph.Materialise() : null),
             _options);
 
-        return dataset.Count;
+        return builder.ToDataset().Count.Value;
     }
 
     /// <summary>dotNetRDF, building its object graph.</summary>

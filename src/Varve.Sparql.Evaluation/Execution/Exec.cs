@@ -8,6 +8,8 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Xsd;
 
@@ -39,28 +41,37 @@ internal sealed class Exec
         Materialising = options.ValueAccess == ValueAccess.Materialise;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal IQuadSource Source { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal IEqualityComparer<TermHandle> Comparer { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal EvaluationOptions Options { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal CancellationToken Token { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal LocalTerms Locals { get; } = new();
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal int Width { get; }
 
     internal int RowLength { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool Materialising { get; }
 
     /// <summary>The FROM graphs, or null for the source's default graph.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal TermHandle[]? DefaultGraphs { get; set; }
 
     /// <summary>The FROM NAMED graphs, or null for every named graph the source has.</summary>
     internal List<TermHandle>? NamedGraphList { get; set; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal HashSet<TermHandle>? NamedGraphSet { get; set; }
 
     /// <summary>The base IRI of the query, for IRI().</summary>
@@ -69,11 +80,11 @@ internal sealed class Exec
     internal ulong[] NewRow() => new ulong[RowLength];
 
     /// <summary>Throws if cancelled; cheap enough for every solution.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal void Check() => Token.ThrowIfCancellationRequested();
 
     /// <summary>Throws if cancelled, looking only every 1,024 calls: for scans and searches.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal void Step()
     {
         if ((++_steps & 1023) == 0)
@@ -85,7 +96,7 @@ internal sealed class Exec
     // --------------------------------------------------------------- terms
 
     /// <summary>A handle a scan found, as a slot value: itself, or in the materialised arm an owned term.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal TermRef FromSource(TermHandle handle)
     {
         if (!Materialising)
@@ -96,6 +107,7 @@ internal sealed class Exec
         return MaterialiseFromSource(handle);
     }
 
+    [DesignDecision(typeof(EvaluationHotPathScope.MaterialisedArmOwnsItsTerms), Scope = ExceptionScope.HotPath)]
     private TermRef MaterialiseFromSource(TermHandle handle) =>
         Source.TryExternalise(handle, out RdfTerm? term)
             ? new TermRef(Locals.Intern(term, handle), true)
@@ -109,7 +121,7 @@ internal sealed class Exec
     /// the arm still joins on handles, which is why its cost is a lower bound
     /// (§10) — and any other term is looked up.
     /// </summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool TryGetSourceHandle(TermRef value, out TermHandle handle)
     {
         if (!value.IsLocal)
@@ -120,12 +132,15 @@ internal sealed class Exec
 
         if (Materialising)
         {
-            return Locals.TryGetOrigin(value.Raw, out handle) || Source.TryInternalise(Locals.Get(value.Raw), out handle);
+            return Locals.TryGetOrigin(value.Raw, out handle) || InternaliseLocal(value.Raw, out handle);
         }
 
         handle = default;
         return false;
     }
+
+    [DesignDecision(typeof(EvaluationHotPathScope.MaterialisedArmOwnsItsTerms), Scope = ExceptionScope.HotPath)]
+    private bool InternaliseLocal(ulong raw, out TermHandle handle) => Source.TryInternalise(Locals.Get(raw), out handle);
 
     /// <summary>A computed term as a slot value: the source's handle if it has the term, a local term otherwise.</summary>
     internal TermRef Intern(RdfTerm term)
@@ -142,6 +157,7 @@ internal sealed class Exec
     internal TermRef InternLocal(RdfTerm term) => new(Locals.Intern(term), true);
 
     /// <summary>The term a slot value names.</summary>
+    [DesignDecision(typeof(TypedValueAccessorAndTheBenchmarkForAdr0022.FalseMeansNotInline), Scope = ExceptionScope.HotPath)]
     internal RdfTerm Materialise(TermRef value)
     {
         if (value.IsLocal)
@@ -157,7 +173,7 @@ internal sealed class Exec
         return term;
     }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool TermEquals(TermRef left, TermRef right)
     {
         if (left.IsLocal != right.IsLocal)
@@ -170,12 +186,19 @@ internal sealed class Exec
             return true;
         }
 
-        return !left.IsLocal && Comparer.Equals(new TermHandle(left.Raw), new TermHandle(right.Raw));
+        return !left.IsLocal && SourceEquals(left.Raw, right.Raw);
     }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal int TermHash(TermRef value) =>
-        value.IsLocal ? HashCode.Combine(value.Raw, 0x5bd1e995) : Comparer.GetHashCode(new TermHandle(value.Raw));
+        value.IsLocal ? HashCode.Combine(value.Raw, 0x5bd1e995) : SourceHash(value.Raw);
+
+    // The source's term equality, which a private term makes a lookup (ADR 0022).
+    [DesignDecision(typeof(QuadSourceTermHandle.SourceSuppliesEquality), Scope = ExceptionScope.HotPath)]
+    private bool SourceEquals(ulong left, ulong right) => Comparer.Equals(new TermHandle(left), new TermHandle(right));
+
+    [DesignDecision(typeof(QuadSourceTermHandle.SourceSuppliesEquality), Scope = ExceptionScope.HotPath)]
+    private int SourceHash(ulong raw) => Comparer.GetHashCode(new TermHandle(raw));
 
     /// <summary>A fresh blank node for this execution (§7.9). Its label cannot come from a parse: it begins with a dot.</summary>
     internal RdfTerm MintBlankNode()

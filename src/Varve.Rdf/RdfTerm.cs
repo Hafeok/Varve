@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Rdf;
 
@@ -52,12 +54,14 @@ public sealed class RdfTerm : IEquatable<RdfTerm>
     }
 
     /// <summary>Which kind of term this is.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public RdfTermKind Kind { get; }
 
     /// <summary>
     /// The IRI text, the blank node label without its <c>_:</c>, or the
     /// literal's lexical form. Empty for a triple term.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public ReadOnlySpan<byte> Lexical => _lexical;
 
     /// <summary>
@@ -66,12 +70,15 @@ public sealed class RdfTerm : IEquatable<RdfTerm>
     /// datatype is <c>xsd:string</c>: the absence is a shorthand and not a
     /// third state (Concepts §3.3).
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public RdfTerm? Datatype { get; }
 
     /// <summary>The language tag, or empty.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public ReadOnlySpan<byte> Language => _language;
 
     /// <summary>The base direction of a language-tagged string.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public TextDirection Direction { get; }
 
     /// <summary>
@@ -80,6 +87,7 @@ public sealed class RdfTerm : IEquatable<RdfTerm>
     /// <c>rdf:dirLangString</c>, or the explicit one. Empty for a term that is
     /// not a literal.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public ReadOnlySpan<byte> DatatypeIri
     {
         get
@@ -106,12 +114,15 @@ public sealed class RdfTerm : IEquatable<RdfTerm>
     }
 
     /// <summary>A triple term's subject, or null.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public RdfTerm? Subject { get; }
 
     /// <summary>A triple term's predicate, or null.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public RdfTerm? Predicate { get; }
 
     /// <summary>A triple term's object, or null.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public RdfTerm? Object { get; }
 
     /// <summary>An IRI term.</summary>
@@ -185,9 +196,11 @@ public sealed class RdfTerm : IEquatable<RdfTerm>
     }
 
     /// <inheritdoc />
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool Equals(RdfTerm? other)
     {
-        if (ReferenceEquals(this, other))
+        // A reference comparison, as ReferenceEquals is: RdfTerm has no ==.
+        if (this == other)
         {
             return true;
         }
@@ -257,6 +270,7 @@ public sealed class RdfTerm : IEquatable<RdfTerm>
         return _hash;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool LanguageEquals(byte[] left, byte[] right)
     {
         if (left.Length != right.Length)

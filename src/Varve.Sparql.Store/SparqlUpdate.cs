@@ -6,6 +6,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Varve.Sparql.Algebra;
+using Varve.Store.Log;
 using Varve.Store;
 
 namespace Varve.Sparql.Store;

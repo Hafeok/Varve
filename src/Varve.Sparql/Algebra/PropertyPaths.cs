@@ -2,11 +2,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Sparql.Algebra;
 
 /// <summary>An algebraic property path expression (SPARQL 1.2 §18.2).</summary>
+[Contract(typeof(OptimiserAndEvaluatorOnePackageAlgebraInAlgebraOut.AlgebraNodesAreSealedRecords), Role = "a property path node")]
 public abstract record PropertyPath : AlgebraNode
 {
     private protected PropertyPath()

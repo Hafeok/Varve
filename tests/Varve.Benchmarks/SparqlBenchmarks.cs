@@ -5,6 +5,7 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -37,7 +38,7 @@ namespace Varve.Benchmarks;
 [MemoryDiagnoser]
 public class SparqlBenchmarks
 {
-    private static long sink;
+    private long _sink;
 
     private readonly ArrayBufferWriter<byte> _output = new(1 << 16);
     private SparqlCorpus _corpus = null!;
@@ -139,7 +140,7 @@ public class SparqlBenchmarks
             quads += ((InsertData)operation).Quads.Count;
         }
 
-        sink += quads;
+        _sink += quads;
         return quads;
     }
 
@@ -159,13 +160,13 @@ internal sealed record SparqlCase(string Name, byte[] Bytes, string Text, Sparql
 /// <summary>The syntax corpus, read from the submodule's manifests.</summary>
 internal sealed class SparqlCorpus
 {
-    private static readonly string[] SharedSuites =
+    private static readonly ImmutableArray<string> SharedSuites =
     [
         "sparql10/syntax-sparql1", "sparql10/syntax-sparql2", "sparql10/syntax-sparql3", "sparql10/syntax-sparql4", "sparql10/syntax-sparql5",
         "sparql11/syntax-query", "sparql11/syntax-fed",
     ];
 
-    private static readonly string[] Sparql12Suites =
+    private static readonly ImmutableArray<string> Sparql12Suites =
     [
         "sparql12/syntax-triple-terms-positive", "sparql12/syntax", "sparql12/version", "sparql12/codepoint-escapes", "sparql12/lang-basedir",
     ];
@@ -223,7 +224,7 @@ internal sealed class SparqlCorpus
         return new SparqlCorpus(shared, rejected, sparql12, large);
     }
 
-    private static IEnumerable<SparqlCase> Positive(string root, string[] suites, SparqlVersion version)
+    private static IEnumerable<SparqlCase> Positive(string root, ImmutableArray<string> suites, SparqlVersion version)
     {
         foreach (string suite in suites)
         {

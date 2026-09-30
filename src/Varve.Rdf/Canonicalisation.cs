@@ -5,6 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Rdf;
 
@@ -42,6 +44,7 @@ public sealed class CanonicalisationOptions
     /// measured: the W3C suite's most demanding computable case needs 279,
     /// and its poison graph meets 1,000 in tens of milliseconds.
     /// </summary>
+    [DesignDecision(typeof(RdfModelSurfaces.CanonicalisationWorkIsAnInteger), Scope = ExceptionScope.Boundary)]
     public int WorkLimit
     {
         get;
@@ -102,8 +105,10 @@ public sealed class CanonicalisationLimitException : Exception
     }
 
     /// <summary>The steps taken: calls to Hash N-Degree Quads and permutations examined.</summary>
+    [DesignDecision(typeof(RdfModelSurfaces.CanonicalisationWorkIsAnInteger), Scope = ExceptionScope.Boundary)]
     public long Steps { get; }
 
     /// <summary>The limit that was met.</summary>
+    [DesignDecision(typeof(RdfModelSurfaces.CanonicalisationWorkIsAnInteger), Scope = ExceptionScope.Boundary)]
     public long Limit { get; }
 }

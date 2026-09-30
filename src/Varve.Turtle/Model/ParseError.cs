@@ -6,7 +6,7 @@ using System;
 using System.Globalization;
 using Varve.Iri;
 
-namespace Varve.Turtle;
+namespace Varve.Turtle.Model;
 
 /// <summary>One rejected line.</summary>
 public readonly struct ParseError : IEquatable<ParseError>

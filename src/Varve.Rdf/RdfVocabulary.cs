@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Rdf;
 
@@ -15,6 +17,7 @@ namespace Varve.Rdf;
 /// §3.3 define literals whose datatype is implied by their shape, so the model
 /// cannot compare two literals for equality without them.
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 public static class RdfVocabulary
 {
     /// <summary>The datatype of a literal written with no datatype and no language tag.</summary>

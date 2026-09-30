@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Sparql.Algebra;
 using Varve.Sparql.Evaluation.Execution;
@@ -17,15 +19,17 @@ namespace Varve.Sparql.Evaluation.Expressions;
 /// </summary>
 internal abstract class Expr
 {
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal abstract Value Eval(Exec exec, ulong[] row, in ActiveGraph graph);
 }
 
 /// <summary>A variable's value in the solution; unbound is an error (§17.2).</summary>
 internal sealed class SlotExpr(int slot) : Expr
 {
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal int Slot { get; } = slot;
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal override Value Eval(Exec exec, ulong[] row, in ActiveGraph graph) => Value.Of(Rows.Get(row, exec.Width, Slot));
 }
 
@@ -38,12 +42,13 @@ internal sealed class ConstExpr(RdfTerm term) : Expr
     private Value _value;
     private Exec? _for;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal RdfTerm Term { get; } = term;
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal override Value Eval(Exec exec, ulong[] row, in ActiveGraph graph)
     {
-        if (!ReferenceEquals(_for, exec))
+        if (_for != exec)
         {
             Resolve(exec);
         }
@@ -51,6 +56,8 @@ internal sealed class ConstExpr(RdfTerm term) : Expr
         return _value;
     }
 
+    // Once per execution: the constant's handle in this execution's source.
+    [DesignDecision(typeof(EvaluationHotPathScope.ConstantsResolveOncePerExecution), Scope = ExceptionScope.HotPath)]
     private void Resolve(Exec exec)
     {
         TermRef reference = exec.Intern(Term);
@@ -118,7 +125,7 @@ internal sealed class SignExpr(bool negate, Expr operand) : Expr
 /// <summary>The six comparisons of §17.3.</summary>
 internal sealed class CompareExpr(BinaryOperator op, Expr left, Expr right) : Expr
 {
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal override Value Eval(Exec exec, ulong[] row, in ActiveGraph graph)
     {
         Value l = left.Eval(exec, row, graph);
@@ -147,7 +154,7 @@ internal sealed class CompareExpr(BinaryOperator op, Expr left, Expr right) : Ex
 /// <summary>The four arithmetic operators of §17.3, promoting per XPath.</summary>
 internal sealed class ArithmeticExpr(BinaryOperator op, Expr left, Expr right) : Expr
 {
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal override Value Eval(Exec exec, ulong[] row, in ActiveGraph graph)
     {
         if (!Semantics.TryNumeric(exec, left.Eval(exec, row, graph), out XsdNumeric a)
@@ -181,6 +188,7 @@ internal sealed class ArithmeticExpr(BinaryOperator op, Expr left, Expr right) :
 /// <summary><c>EXISTS</c> and <c>NOT EXISTS</c> (§17.4.1.4): the pattern evaluated given the solution (§6.13).</summary>
 internal sealed class ExistsExpr(Operator pattern, bool negated) : Expr
 {
+    [DesignDecision(typeof(EvaluationHotPathScope.ExistsRunsItsPattern), Scope = ExceptionScope.HotPath)]
     internal override Value Eval(Exec exec, ulong[] row, in ActiveGraph graph)
     {
         using IEnumerator<ulong[]> solutions = pattern.Open(exec, row, graph);
@@ -192,6 +200,7 @@ internal sealed class ExistsExpr(Operator pattern, bool negated) : Expr
 /// <summary>A call to an extension function (§17.6, ADR 0056).</summary>
 internal sealed class ExtensionExpr(IExtensionFunction function, Expr[] arguments) : Expr
 {
+    [DesignDecision(typeof(EvaluationHotPathScope.ExtensionFunctionsAreTheCallersCode), Scope = ExceptionScope.HotPath)]
     internal override Value Eval(Exec exec, ulong[] row, in ActiveGraph graph)
     {
         RdfTerm[] terms = new RdfTerm[arguments.Length];

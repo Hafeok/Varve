@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Xsd;
 
@@ -19,15 +21,18 @@ namespace Varve.Xsd;
 public readonly struct XsdDouble : IEquatable<XsdDouble>, IComparable<XsdDouble>
 {
     /// <summary>Wraps a value.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public XsdDouble(double value) => Value = value;
 
     /// <summary>The value.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public double Value { get; }
 
     /// <summary>Whether the value is <c>NaN</c>.</summary>
     public bool IsNaN => double.IsNaN(Value);
 
     /// <summary>Parses a <c>doubleRep</c> (§3.3.5.2).</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool TryParse(ReadOnlySpan<byte> utf8, out XsdDouble value)
     {
         bool ok = FloatingPoint.TryParseDouble(utf8, out double parsed);
@@ -43,6 +48,7 @@ public readonly struct XsdDouble : IEquatable<XsdDouble>, IComparable<XsdDouble>
     public static bool IsCanonical(ReadOnlySpan<byte> lexical) => FloatingPoint.IsCanonical(lexical);
 
     /// <summary>Writes the canonical form: <c>1.0E0</c>, <c>-0.0E0</c>, <c>INF</c>, <c>NaN</c>.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool TryFormat(Span<byte> destination, out int written) =>
         FloatingPoint.TryFormatDouble(Value, destination, out written);
 
@@ -58,6 +64,7 @@ public readonly struct XsdDouble : IEquatable<XsdDouble>, IComparable<XsdDouble>
     /// side is <c>NaN</c>, which is what <c>op:numeric-less-than</c> reports
     /// as false in both directions.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static PartialOrdering Compare(XsdDouble left, XsdDouble right)
     {
         if (double.IsNaN(left.Value) || double.IsNaN(right.Value))
@@ -89,12 +96,14 @@ public readonly struct XsdDouble : IEquatable<XsdDouble>, IComparable<XsdDouble>
     public static bool operator !=(XsdDouble left, XsdDouble right) => !left.Equals(right);
 
     /// <summary>IEEE order.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool operator <(XsdDouble left, XsdDouble right) => left.Value < right.Value;
 
     /// <summary>IEEE order.</summary>
     public static bool operator >(XsdDouble left, XsdDouble right) => left.Value > right.Value;
 
     /// <summary>IEEE order.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool operator <=(XsdDouble left, XsdDouble right) => left.Value <= right.Value;
 
     /// <summary>IEEE order.</summary>

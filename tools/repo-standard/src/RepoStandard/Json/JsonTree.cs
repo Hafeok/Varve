@@ -16,7 +16,10 @@ namespace RepoStandard.Json;
 internal static class JsonTree
 {
     // For people to read, not for a parser: "Q&A" rather than "Q\u0026A".
-    private static readonly JsonSerializerOptions DisplayOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    // Made per call: JsonSerializerOptions is mutable until first use, and a
+    // shared static one is shared mutable state (DD0004). Display is for a
+    // drift report, not a loop.
+    private static JsonSerializerOptions DisplayOptions() => new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
     /// <summary>
     /// Structural equality. Object members compare by name whatever their
@@ -102,7 +105,7 @@ internal static class JsonTree
     }
 
     /// <summary>The tree as display text: strings quoted, the rest as JSON.</summary>
-    public static string Display(JsonNode? node) => node is null ? "(absent)" : node.ToJsonString(DisplayOptions);
+    public static string Display(JsonNode? node) => node is null ? "(absent)" : node.ToJsonString(DisplayOptions());
 
     /// <summary>A string member, or null when absent or not a string.</summary>
     public static string? Str(JsonNode? node, string name) =>

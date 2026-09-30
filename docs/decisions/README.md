@@ -45,6 +45,32 @@ decisions:
   an error, `CS0619`, on every citation. It should be rare, and every use is
   listed in the report of the change that makes it.
 
-`dotnet run eng/decision-sets.cs` checks every file: key syntax, a key claimed
-twice, missing fields, acceptance fields in pairs, the namespace, and that
-`adr` names a real ADR. It runs in the build job and in `eng/ci.cs`.
+`DecisionDriven.Analyzers`' generator reads every file in every build
+(`DdLedgerDirectory` in `Directory.Build.props`) and reports a key claimed
+twice, a key that is not an identifier, and a key that collides with its set's
+class (`DDGEN0001`, `0002`, `0005`). `dotnet run eng/decision-sets.cs` checks
+what the generator does not: missing and unknown fields, acceptance fields in
+pairs, quoting, the namespace, the file name, and where the set comes from. It
+runs in the build job and in `eng/ci.cs`.
+
+## A set with no ADR
+
+A decision filed by a session, for a finding no ADR answers, has no ADR to
+enumerate. Its set names where it comes from instead, with `origin:` in place
+of `adr:`:
+
+```yaml
+---
+set: span-boundary-counts
+namespace: varve
+origin: "a DD0013 finding in session 2 of #43"
+decisions:
+  - key: SpanWriterCountsAreInt
+    statement: "..."
+---
+```
+
+It is filed without `accepted-by`, so every citation of it is `CS0618` until
+the maintainer accepts it on the pull request's branch (ADR 0066). The body
+below the front matter says what the question is and what the alternative
+would be.

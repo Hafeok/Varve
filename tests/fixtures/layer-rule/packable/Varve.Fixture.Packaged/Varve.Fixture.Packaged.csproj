@@ -4,6 +4,6 @@
          also exercises the packable block in Directory.Build.targets, which
          nothing else in the repository does yet. -->
     <IsPackable>true</IsPackable>
-    <VarveLayer>0</VarveLayer>
+    <ArchLayer>0</ArchLayer>
   </PropertyGroup>
 </Project>

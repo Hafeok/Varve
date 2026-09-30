@@ -3,7 +3,7 @@
   <PropertyGroup>
     <!-- Layer 4: the log, the projection contract, the pre-commit validator
          contract. SPARQL-free and SHACL-free (ADR 0005). ADR 0003. -->
-    <VarveLayer>4</VarveLayer>
+    <ArchLayer>4</ArchLayer>
     <IsPackable>true</IsPackable>
 
     <!-- No ambient clock and no ambient randomness: §10 compares log bytes
@@ -25,8 +25,8 @@
   <ItemGroup>
     <!-- Two seams only a test may reach, both recorded in the milestone 4
          report: a fault in the default projection (the failed state), and
-         appending an Erasure commit before erasure mode exists. VARVE0003,
-         reserved, permits InternalsVisibleTo toward *.Tests only. -->
+         appending an Erasure commit before erasure mode exists. DD0002
+         permits InternalsVisibleTo toward *.Tests only (ADR 0062). -->
     <InternalsVisibleTo Include="Varve.Store.Tests" />
   </ItemGroup>
 

@@ -2,11 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-using System;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
-using Varve.Turtle;
+using Varve.Sparql.Store.Model;
 
 namespace Varve.Sparql.Store;
 
@@ -21,45 +22,11 @@ namespace Varve.Sparql.Store;
 /// or an exception; either fails the operation, and <c>LOAD SILENT</c> makes
 /// it an operation with no effect.
 /// </remarks>
+[Contract(typeof(SparqlUpdateOneRequestOneCommit.LoadThroughALoadSource), Role = "what LOAD fetches a document through")]
 public interface ILoadSource
 {
     /// <summary>The document the IRI names, or a failure.</summary>
     ValueTask<LoadedDocument> LoadAsync(RdfTerm iri, CancellationToken cancellationToken);
-}
-
-/// <summary>A document for <c>LOAD</c>: its bytes and syntax, or why there is none.</summary>
-public sealed class LoadedDocument
-{
-    private LoadedDocument(ReadOnlyMemory<byte> content, RdfSyntax syntax, ReadOnlyMemory<byte> baseIri, string? failure)
-    {
-        Content = content;
-        Syntax = syntax;
-        BaseIri = baseIri;
-        Failure = failure;
-    }
-
-    /// <summary>The document, UTF-8.</summary>
-    public ReadOnlyMemory<byte> Content { get; }
-
-    /// <summary>What to parse it as.</summary>
-    public RdfSyntax Syntax { get; }
-
-    /// <summary>The IRI relative references in it resolve against.</summary>
-    public ReadOnlyMemory<byte> BaseIri { get; }
-
-    /// <summary>Why there is no document, or null when there is one.</summary>
-    public string? Failure { get; }
-
-    /// <summary>A document to parse.</summary>
-    public static LoadedDocument Of(ReadOnlyMemory<byte> content, RdfSyntax syntax, ReadOnlyMemory<byte> baseIri) =>
-        new(content, syntax, baseIri, null);
-
-    /// <summary>No document, and why.</summary>
-    public static LoadedDocument Failed(string reason)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(reason);
-        return new LoadedDocument(default, default, default, reason);
-    }
 }
 
 /// <summary>The default: every IRI refused, naming it. Nothing is fetched.</summary>

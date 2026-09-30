@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading;
@@ -20,7 +21,7 @@ namespace RepoStandard.Resources;
 internal sealed class RepositoryResource : IResourceKind
 {
     /// <summary>Declaration path to the field of <c>GET /repos/{owner}/{repo}</c> that holds it.</summary>
-    private static readonly (string Path, string ApiField)[] PatchFields =
+    private static readonly ImmutableArray<(string Path, string ApiField)> PatchFields =
     [
         ("description", "description"),
         ("homepage", "homepage"),
@@ -43,14 +44,14 @@ internal sealed class RepositoryResource : IResourceKind
     ];
 
     /// <summary>Security options that live in <c>security_and_analysis</c>.</summary>
-    private static readonly (string Name, string ApiField)[] AnalysisFields =
+    private static readonly ImmutableArray<(string Name, string ApiField)> AnalysisFields =
     [
         ("secret_scanning", "secret_scanning"),
         ("secret_scanning_push_protection", "secret_scanning_push_protection"),
     ];
 
     /// <summary>Security options that have an endpoint each: GET, PUT to enable, DELETE to disable.</summary>
-    private static readonly (string Name, Endpoint Get, Endpoint Enable, Endpoint Disable)[] ToggleFields =
+    private static readonly ImmutableArray<(string Name, Endpoint Get, Endpoint Enable, Endpoint Disable)> ToggleFields =
     [
         ("private_vulnerability_reporting", Endpoints.GetPrivateVulnerabilityReporting,
             Endpoints.EnablePrivateVulnerabilityReporting, Endpoints.DisablePrivateVulnerabilityReporting),

@@ -28,6 +28,7 @@ P:System.Environment.TickCount; Ambient clock. Use the injected TimeProvider. AD
 P:System.Environment.TickCount64; Ambient clock. Use the injected TimeProvider. ADR 0011, ADR 0056.
 
 // --- ambient randomness -------------------------------------------------------
+// ADR 0011, ADR 0056.
 T:System.Random; Ambient randomness. Take the injected source: nothing in the log or in a compared answer may depend on it. ADR 0011, ADR 0056.
 T:System.Security.Cryptography.RandomNumberGenerator; Ambient randomness. Take the injected source: nothing in the log or in a compared answer may depend on it. ADR 0011, ADR 0056.
 M:System.Guid.NewGuid; Ambient randomness. Store ids are sequencer counters (ADR 0012); UUID() takes the injected source. ADR 0011, ADR 0056.

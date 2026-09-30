@@ -23,6 +23,10 @@ decisions:
     statement: "An off-the-shelf analyzer is used where it expresses a rule exactly, a DD rule where it does, and a VARVE rule only for what neither can express"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-25T00:00:00Z
+  - key: ReportIsALocalToolAgainstABaseline
+    statement: "DecisionDriven.Report is a local .NET tool pinned in .config/dotnet-tools.json and registered in Directory.Packages.props, run by eng/decision-report.cs over the shipped assemblies against a committed baseline report, in CI and never as a gate"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
   - key: TestsRunOnTestingPlatform
     statement: "dotnet test runs on Microsoft.Testing.Platform, selected in global.json, so Microsoft.NET.Test.Sdk and the VSTest adapter are deliberately absent"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -38,3 +42,6 @@ narrative; this is what code cites. Acceptance is transcribed from the ADR's Sta
 
 `TestsRunOnTestingPlatform` and `AngleSharpPinnedTransitively` are ADR 0006's, which 0009 superseded
 whole without restating them; the 2026-09-26 amendment places them here.
+
+`ReportIsALocalToolAgainstABaseline` is the 2026-09-28 amendment (ADR 0068), filed by session 3 of #43 and
+accepted by the maintainer on 2026-09-29.

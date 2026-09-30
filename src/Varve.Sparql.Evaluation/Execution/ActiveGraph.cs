@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Sparql.Evaluation.Execution;
@@ -20,6 +22,7 @@ internal enum GraphMode : byte
 }
 
 /// <summary>The active graph.</summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal readonly struct ActiveGraph
 {
     private ActiveGraph(GraphMode mode, TermHandle graph, int slot)

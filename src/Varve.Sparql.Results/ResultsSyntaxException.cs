@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using Varve.Sparql.Results.Model;
 
 namespace Varve.Sparql.Results;
 

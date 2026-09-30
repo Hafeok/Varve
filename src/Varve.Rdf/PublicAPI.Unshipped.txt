@@ -20,14 +20,9 @@ Varve.Rdf.IQuadSource.TermComparer.get -> System.Collections.Generic.IEqualityCo
 Varve.Rdf.IQuadSource.TryExternalise(Varve.Rdf.TermHandle handle, out Varve.Rdf.RdfTerm! term) -> bool
 Varve.Rdf.IQuadSource.TryInternalise(Varve.Rdf.RdfTerm! term, out Varve.Rdf.TermHandle handle) -> bool
 Varve.Rdf.InMemoryDataset
-Varve.Rdf.InMemoryDataset.Add(Varve.Rdf.RdfTerm! subject, Varve.Rdf.RdfTerm! predicate, Varve.Rdf.RdfTerm! object, Varve.Rdf.RdfTerm? graph = null) -> bool
-Varve.Rdf.InMemoryDataset.Add(in Varve.Rdf.Quad quad) -> bool
 Varve.Rdf.InMemoryDataset.Contains(in Varve.Rdf.Quad quad) -> bool
-Varve.Rdf.InMemoryDataset.Count.get -> int
-Varve.Rdf.InMemoryDataset.InMemoryDataset() -> void
-Varve.Rdf.InMemoryDataset.Internalise(Varve.Rdf.RdfTerm! term) -> Varve.Rdf.TermHandle
+Varve.Rdf.InMemoryDataset.Count.get -> Varve.Rdf.QuadCount
 Varve.Rdf.InMemoryDataset.Match(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object, Varve.Rdf.GraphPattern graph) -> Varve.Rdf.IQuadCursor!
-Varve.Rdf.InMemoryDataset.Remove(in Varve.Rdf.Quad quad) -> bool
 Varve.Rdf.InMemoryDataset.TermComparer.get -> System.Collections.Generic.IEqualityComparer<Varve.Rdf.TermHandle>!
 Varve.Rdf.InMemoryDataset.TermCount.get -> int
 Varve.Rdf.InMemoryDataset.TryExternalise(Varve.Rdf.TermHandle handle, out Varve.Rdf.RdfTerm! term) -> bool
@@ -153,7 +148,7 @@ static Varve.Rdf.TermSpan.operator ==(Varve.Rdf.TermSpan left, Varve.Rdf.TermSpa
 Varve.Rdf.QuadDelta
 Varve.Rdf.QuadDelta.Asserted.get -> System.ReadOnlySpan<Varve.Rdf.Quad>
 Varve.Rdf.QuadDelta.Asserts(in Varve.Rdf.Quad quad) -> bool
-Varve.Rdf.QuadDelta.Count.get -> int
+Varve.Rdf.QuadDelta.Count.get -> Varve.Rdf.QuadCount
 Varve.Rdf.QuadDelta.Equals(Varve.Rdf.QuadDelta other) -> bool
 Varve.Rdf.QuadDelta.Inverse() -> Varve.Rdf.QuadDelta
 Varve.Rdf.QuadDelta.IsEmpty.get -> bool
@@ -176,7 +171,7 @@ static Varve.Rdf.QuadDelta.operator !=(Varve.Rdf.QuadDelta left, Varve.Rdf.QuadD
 static Varve.Rdf.QuadDelta.operator ==(Varve.Rdf.QuadDelta left, Varve.Rdf.QuadDelta right) -> bool
 Varve.Rdf.CardinalityEstimate
 Varve.Rdf.CardinalityEstimate.CardinalityEstimate() -> void
-Varve.Rdf.CardinalityEstimate.Count.get -> long
+Varve.Rdf.CardinalityEstimate.Count.get -> Varve.Rdf.QuadCount
 Varve.Rdf.CardinalityEstimate.Equals(Varve.Rdf.CardinalityEstimate other) -> bool
 Varve.Rdf.CardinalityEstimate.IsEstimated.get -> bool
 Varve.Rdf.CardinalityEstimate.IsExact.get -> bool
@@ -185,6 +180,14 @@ Varve.Rdf.IQuadSource.Estimate(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandl
 Varve.Rdf.IQuadSource.TryGetInlineValue(Varve.Rdf.TermHandle handle, out Varve.Rdf.InlineValue value) -> bool
 Varve.Rdf.InMemoryDataset.Estimate(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object, Varve.Rdf.GraphPattern graph) -> Varve.Rdf.CardinalityEstimate
 Varve.Rdf.InMemoryDataset.TryGetInlineValue(Varve.Rdf.TermHandle handle, out Varve.Rdf.InlineValue value) -> bool
+Varve.Rdf.InMemoryDatasetBuilder
+Varve.Rdf.InMemoryDatasetBuilder.Add(Varve.Rdf.RdfTerm! subject, Varve.Rdf.RdfTerm! predicate, Varve.Rdf.RdfTerm! object, Varve.Rdf.RdfTerm? graph = null) -> bool
+Varve.Rdf.InMemoryDatasetBuilder.Add(in Varve.Rdf.Quad quad) -> bool
+Varve.Rdf.InMemoryDatasetBuilder.InMemoryDatasetBuilder() -> void
+Varve.Rdf.InMemoryDatasetBuilder.Internalise(Varve.Rdf.RdfTerm! term) -> Varve.Rdf.TermHandle
+Varve.Rdf.InMemoryDatasetBuilder.Remove(in Varve.Rdf.Quad quad) -> bool
+Varve.Rdf.InMemoryDatasetBuilder.ToDataset() -> Varve.Rdf.InMemoryDataset!
+Varve.Rdf.InMemoryDatasetBuilder.TryInternalise(Varve.Rdf.RdfTerm! term, out Varve.Rdf.TermHandle handle) -> bool
 Varve.Rdf.InlineValue
 Varve.Rdf.InlineValue.Boolean.get -> bool
 Varve.Rdf.InlineValue.Equals(Varve.Rdf.InlineValue other) -> bool
@@ -202,8 +205,8 @@ override Varve.Rdf.CardinalityEstimate.GetHashCode() -> int
 override Varve.Rdf.CardinalityEstimate.ToString() -> string!
 override Varve.Rdf.InlineValue.Equals(object? obj) -> bool
 override Varve.Rdf.InlineValue.GetHashCode() -> int
-static Varve.Rdf.CardinalityEstimate.Estimated(long count) -> Varve.Rdf.CardinalityEstimate
-static Varve.Rdf.CardinalityEstimate.Exact(long count) -> Varve.Rdf.CardinalityEstimate
+static Varve.Rdf.CardinalityEstimate.Estimated(Varve.Rdf.QuadCount count) -> Varve.Rdf.CardinalityEstimate
+static Varve.Rdf.CardinalityEstimate.Exact(Varve.Rdf.QuadCount count) -> Varve.Rdf.CardinalityEstimate
 static Varve.Rdf.CardinalityEstimate.Unknown.get -> Varve.Rdf.CardinalityEstimate
 static Varve.Rdf.CardinalityEstimate.operator !=(Varve.Rdf.CardinalityEstimate left, Varve.Rdf.CardinalityEstimate right) -> bool
 static Varve.Rdf.CardinalityEstimate.operator ==(Varve.Rdf.CardinalityEstimate left, Varve.Rdf.CardinalityEstimate right) -> bool
@@ -231,3 +234,13 @@ Varve.Rdf.CanonicalisationOptions.WorkLimit.init -> void
 Varve.Rdf.RdfCanonicaliser
 static Varve.Rdf.CanonicalisationOptions.Default.get -> Varve.Rdf.CanonicalisationOptions!
 static Varve.Rdf.RdfCanonicaliser.Canonicalise(Varve.Rdf.IQuadSource! source, Varve.Rdf.CanonicalisationOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Varve.Rdf.CanonicalDataset!
+Varve.Rdf.QuadCount
+Varve.Rdf.QuadCount.Equals(Varve.Rdf.QuadCount other) -> bool
+Varve.Rdf.QuadCount.QuadCount() -> void
+Varve.Rdf.QuadCount.QuadCount(long value) -> void
+Varve.Rdf.QuadCount.Value.get -> long
+override Varve.Rdf.QuadCount.GetHashCode() -> int
+static Varve.Rdf.QuadCount.operator !=(Varve.Rdf.QuadCount left, Varve.Rdf.QuadCount right) -> bool
+static Varve.Rdf.QuadCount.operator ==(Varve.Rdf.QuadCount left, Varve.Rdf.QuadCount right) -> bool
+~override Varve.Rdf.QuadCount.Equals(object obj) -> bool
+~override Varve.Rdf.QuadCount.ToString() -> string

@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using Varve.Sparql.Algebra;
+
 namespace Varve.Sparql.Parsing;
 
 /// <summary>The terminals of SPARQL 1.2 §19.7, plus the punctuation the grammar writes inline.</summary>

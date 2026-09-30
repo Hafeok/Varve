@@ -2,6 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
+
 namespace Varve.Turtle;
 
 /// <summary>How to write.</summary>
@@ -20,6 +23,7 @@ namespace Varve.Turtle;
 /// the object; <c>docs/spec/n-triples.md</c> §5 has it all.
 /// </para>
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 public readonly struct WriteOptions
 {
     // IDE0032 wants an auto property here and cannot have one: the field is

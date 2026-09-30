@@ -5,6 +5,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Sparql.Evaluation.Execution;
 
@@ -72,11 +74,12 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
         }
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public ulong[] Current { get; private set; } = [];
 
     object IEnumerator.Current => Current;
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool MoveNext()
     {
         if (_done)
@@ -118,6 +121,7 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
         }
     }
 
+    [DesignDecision(typeof(EvaluationSurfaces.OperatorsAreEnumerators), Scope = ExceptionScope.Compatibility)]
     public void Reset() => throw new NotSupportedException();
 
     public void Dispose()
@@ -131,7 +135,7 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
     }
 
     /// <summary>Opens level <paramref name="level"/>'s scan against the working solution.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private void OpenLevel(int level)
     {
         _boundCount[level] = 0;
@@ -143,7 +147,7 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
     }
 
     /// <summary>A position as a scan argument: a handle, or the wildcard; false when nothing can match.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private bool Resolve(in PatternPosition position, out TermHandle handle)
     {
         handle = default;
@@ -163,7 +167,7 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
     }
 
     /// <summary>Moves level <paramref name="level"/> to its next quad that unifies with the working solution.</summary>
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private bool Advance(int level)
     {
         Unbind(level);
@@ -191,7 +195,7 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
         return false;
     }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private bool Unify(int level, in PatternPosition position, TermHandle found)
     {
         switch (position.Kind)
@@ -199,13 +203,19 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
             case PositionKind.Slot:
                 return UnifySlot(level, position.Slot, _exec.FromSource(found));
             case PositionKind.Nested:
-                return _exec.Source.TryExternalise(found, out RdfTerm? term) && UnifyNested(level, position.Nested!, term);
+                return UnifyExternalised(level, position.Nested!, found);
             default:
                 return true;
         }
     }
 
-    [HotPath]
+    // A triple term is matched against a nested pattern as a term: the source
+    // is asked for it.
+    [DesignDecision(typeof(EvaluationHotPathScope.NestedPatternsExternalise), Scope = ExceptionScope.HotPath)]
+    private bool UnifyExternalised(int level, NestedPattern nested, TermHandle found) =>
+        _exec.Source.TryExternalise(found, out RdfTerm? term) && UnifyNested(level, nested, term);
+
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private bool UnifySlot(int level, int slot, TermRef value)
     {
         if (_work[slot] != 0)
@@ -218,16 +228,19 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
         return true;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private bool UnifyGraph(int level, TermHandle graph) =>
         _graph.Mode != GraphMode.Slot || UnifySlot(level, _graph.Slot, _exec.FromSource(graph));
 
     /// <summary>A triple term found, against a triple term pattern with variables inside (1.2).</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private bool UnifyNested(int level, NestedPattern pattern, RdfTerm term) =>
         term.Kind == RdfTermKind.TripleTerm
         && UnifyTerm(level, pattern.Subject, term.Subject!)
         && UnifyTerm(level, pattern.Predicate, term.Predicate!)
         && UnifyTerm(level, pattern.Object, term.Object!);
 
+    [DesignDecision(typeof(EvaluationHotPathScope.NestedPatternsExternalise), Scope = ExceptionScope.HotPath)]
     private bool UnifyTerm(int level, in PatternPosition position, RdfTerm term)
     {
         switch (position.Kind)
@@ -247,7 +260,7 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
         }
     }
 
-    [HotPath]
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private void Unbind(int level)
     {
         int count = _boundCount[level];

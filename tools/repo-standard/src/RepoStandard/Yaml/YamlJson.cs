@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -41,10 +42,10 @@ internal static partial class YamlJson
 {
     private const string StringTag = "tag:yaml.org,2002:str";
 
-    private static readonly HashSet<string> Yaml11Booleans = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly FrozenSet<string> Yaml11Booleans = new[]
     {
         "y", "n", "yes", "no", "on", "off",
-    };
+    }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Parses one YAML document. An empty stream is null.</summary>
     /// <param name="text">The YAML.</param>

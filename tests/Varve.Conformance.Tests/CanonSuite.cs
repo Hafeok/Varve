@@ -94,17 +94,17 @@ internal static class CanonCatalogue
     /// <summary>An N-Quads file as a dataset, its blank node labels as the file writes them.</summary>
     internal static InMemoryDataset Load(string path)
     {
-        InMemoryDataset dataset = new();
+        InMemoryDatasetBuilder builder = new();
         ParseResult result = NQuadsParser.Parse(
             File.ReadAllBytes(path),
-            (in QuadView quad) => dataset.Add(
+            (in QuadView quad) => builder.Add(
                 quad.Subject.Materialise(),
                 quad.Predicate.Materialise(),
                 quad.Object.Materialise(),
                 quad.HasGraph ? quad.Graph.Materialise() : null),
             new ParseOptions { Syntax = RdfSyntax.NQuads });
 
-        return result.Succeeded ? dataset : throw new InvalidOperationException("The input does not parse: " + result.FirstError);
+        return result.Succeeded ? builder.ToDataset() : throw new InvalidOperationException("The input does not parse: " + result.FirstError);
     }
 }
 

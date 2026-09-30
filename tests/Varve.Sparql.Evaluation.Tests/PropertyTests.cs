@@ -12,6 +12,7 @@ using Varve.Rdf;
 using Varve.Sparql.Algebra;
 using Varve.Sparql.Evaluation.Compile;
 using Varve.Sparql.Evaluation.Optimisation;
+using Varve.Store.Log;
 using Varve.Store;
 using Xunit;
 using static Varve.Sparql.Evaluation.Tests.Support;
@@ -117,19 +118,20 @@ public class PropertyTests
                     _ = await store.CommitAsync(request);
                 }
 
-                long position = at % (store.Head + 1);
+                Position position = new(at % (store.Head.Value + 1));
                 using DatasetView view = await store.AsOfAsync(position);
-                InMemoryDataset copy = new();
+                InMemoryDatasetBuilder filling = new();
                 using (IQuadCursor cursor = view.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any))
                 {
                     while (cursor.MoveNext())
                     {
                         Quad quad = cursor.Current;
                         RdfTerm? graph = quad.IsDefaultGraph ? null : Term(view, quad.Graph);
-                        copy.Add(Term(view, quad.Subject), Term(view, quad.Predicate), Term(view, quad.Object), graph);
+                        filling.Add(Term(view, quad.Subject), Term(view, quad.Predicate), Term(view, quad.Object), graph);
                     }
                 }
 
+                InMemoryDataset copy = filling.ToDataset();
                 List<string> fromStore = Evaluate(query, view);
                 List<string> fromDataset = Evaluate(query, copy);
                 if (fromStore.Count > 0 && fromStore[0] != "false")

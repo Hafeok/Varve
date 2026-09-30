@@ -4,8 +4,10 @@
 
 using System;
 using System.Globalization;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
-namespace Varve.Turtle;
+namespace Varve.Turtle.Model;
 
 /// <summary>Where in the input something happened.</summary>
 /// <remarks>
@@ -15,6 +17,7 @@ namespace Varve.Turtle;
 /// byte-oriented tool wants the byte anyway. See <c>docs/spec/n-triples.md</c>
 /// §4.
 /// </remarks>
+[DesignDecision(typeof(SyntaxModelSurfaces.SourceCoordinatesAreOffsetsLinesAndColumns), Scope = ExceptionScope.Boundary)]
 public readonly struct ParsePosition : IEquatable<ParsePosition>
 {
     /// <summary>Builds a position.</summary>

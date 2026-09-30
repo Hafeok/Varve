@@ -34,19 +34,19 @@ public class EstimateTests
 
     private static InMemoryDataset Dataset(IEnumerable<Quad> quads)
     {
-        InMemoryDataset dataset = new();
+        InMemoryDatasetBuilder builder = new();
 
         for (int i = 1; i <= 4; i++)
         {
-            dataset.Internalise(RdfTerm.Iri(System.Text.Encoding.UTF8.GetBytes("http://a/" + i.ToString(System.Globalization.CultureInfo.InvariantCulture))));
+            builder.Internalise(RdfTerm.Iri(System.Text.Encoding.UTF8.GetBytes("http://a/" + i.ToString(System.Globalization.CultureInfo.InvariantCulture))));
         }
 
         foreach (Quad quad in quads)
         {
-            dataset.Add(in quad);
+            builder.Add(in quad);
         }
 
-        return dataset;
+        return builder.ToDataset();
     }
 
     private static long Counted(IQuadSource source, (TermHandle S, TermHandle P, TermHandle O, GraphPattern G) pattern)
@@ -72,22 +72,22 @@ public class EstimateTests
         Assert.Equal(CardinalityEstimate.Unknown, unknown);
         Assert.Equal("?", unknown.ToString());
 
-        CardinalityEstimate exact = CardinalityEstimate.Exact(3);
+        CardinalityEstimate exact = CardinalityEstimate.Exact(new QuadCount(3));
         Assert.True(exact.IsExact);
         Assert.False(exact.IsUnknown);
-        Assert.Equal(3, exact.Count);
+        Assert.Equal(3, exact.Count.Value);
         Assert.Equal("3", exact.ToString());
 
-        CardinalityEstimate estimated = CardinalityEstimate.Estimated(3);
+        CardinalityEstimate estimated = CardinalityEstimate.Estimated(new QuadCount(3));
         Assert.True(estimated.IsEstimated);
         Assert.Equal("~3", estimated.ToString());
 
         Assert.NotEqual(exact, estimated);
-        Assert.NotEqual(exact, CardinalityEstimate.Exact(4));
-        Assert.True(exact == CardinalityEstimate.Exact(3));
-        Assert.Equal(exact.GetHashCode(), CardinalityEstimate.Exact(3).GetHashCode());
-        Assert.Throws<ArgumentOutOfRangeException>(() => CardinalityEstimate.Exact(-1));
-        Assert.Throws<ArgumentOutOfRangeException>(() => CardinalityEstimate.Estimated(-1));
+        Assert.NotEqual(exact, CardinalityEstimate.Exact(new QuadCount(4)));
+        Assert.True(exact == CardinalityEstimate.Exact(new QuadCount(3)));
+        Assert.Equal(exact.GetHashCode(), CardinalityEstimate.Exact(new QuadCount(3)).GetHashCode());
+        Assert.Throws<ArgumentOutOfRangeException>(() => CardinalityEstimate.Exact(new QuadCount(-1)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => CardinalityEstimate.Estimated(new QuadCount(-1)));
     }
 
     [Fact]
@@ -119,7 +119,7 @@ public class EstimateTests
                 {
                     InMemoryDataset dataset = Dataset(quads);
                     CardinalityEstimate estimate = dataset.Estimate(pattern.S, pattern.P, pattern.O, pattern.G);
-                    return estimate.IsExact && estimate.Count == Counted(dataset, pattern);
+                    return estimate.IsExact && estimate.Count.Value == Counted(dataset, pattern);
                 },
                 iter: DeltaPropertyTests.Iterations);
     }
@@ -135,7 +135,7 @@ public class EstimateTests
                     QuadDelta delta = exact ? DeltaPropertyTests.Exact(baseSet, raw) : raw;
                     QuadOverlay overlay = new(Dataset(start), delta);
                     CardinalityEstimate estimate = overlay.Estimate(pattern.S, pattern.P, pattern.O, pattern.G);
-                    return estimate.IsExact && estimate.Count == Counted(overlay, pattern);
+                    return estimate.IsExact && estimate.Count.Value == Counted(overlay, pattern);
                 },
                 iter: DeltaPropertyTests.Iterations);
     }
@@ -150,17 +150,18 @@ public class EstimateTests
         QuadOverlay unknown = new(new Stub(CardinalityEstimate.Unknown, [inBase]), delta);
         Assert.True(unknown.Estimate(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any).IsUnknown);
 
-        QuadOverlay estimated = new(new Stub(CardinalityEstimate.Estimated(5), [inBase]), delta);
+        QuadOverlay estimated = new(new Stub(CardinalityEstimate.Estimated(new QuadCount(5)), [inBase]), delta);
         CardinalityEstimate adjusted = estimated.Estimate(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any);
         Assert.True(adjusted.IsEstimated);
-        Assert.Equal(5, adjusted.Count); // +1 for the assertion the base lacks, -1 for the retraction it has
+        Assert.Equal(5, adjusted.Count.Value); // +1 for the assertion the base lacks, -1 for the retraction it has
     }
 
     [Fact]
     public void the_in_memory_dataset_has_no_inline_values_and_the_overlay_asks_its_base()
     {
-        InMemoryDataset dataset = new();
-        TermHandle one = dataset.Internalise(RdfTerm.Literal("1"u8, RdfTerm.Iri("http://www.w3.org/2001/XMLSchema#integer"u8)));
+        InMemoryDatasetBuilder builder = new();
+        TermHandle one = builder.Internalise(RdfTerm.Literal("1"u8, RdfTerm.Iri("http://www.w3.org/2001/XMLSchema#integer"u8)));
+        InMemoryDataset dataset = builder.ToDataset();
         Assert.False(dataset.TryGetInlineValue(one, out InlineValue none));
         Assert.Equal(InlineValue.None, none);
         Assert.False(new QuadOverlay(dataset, QuadDelta.Empty).TryGetInlineValue(one, out _));

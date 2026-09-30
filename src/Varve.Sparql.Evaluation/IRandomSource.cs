@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Sparql.Evaluation;
 
@@ -12,6 +14,7 @@ namespace Varve.Sparql.Evaluation;
 /// BCL's, the adapter is one line —
 /// <c>RandomNumberGenerator.Fill(destination)</c> in <see cref="NextBytes"/>.
 /// </summary>
+[Contract(typeof(EvaluatorOptionsExtensionFunctionsClockAndRandomness.RandomnessIsARandomSource), Role = "the randomness RAND, UUID and STRUUID draw from")]
 public interface IRandomSource
 {
     /// <summary>Fills <paramref name="destination"/> with random bytes.</summary>

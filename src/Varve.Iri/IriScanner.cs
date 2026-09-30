@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Iri;
 
@@ -13,6 +15,7 @@ namespace Varve.Iri;
 /// One left-to-right pass, no backtracking except the scheme probe, and no
 /// allocation. Components are recorded as byte ranges into the caller's input.
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal static class IriScanner
 {
     /// <summary>Where a character class is being applied. Each permits a different set.</summary>

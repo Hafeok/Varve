@@ -3,7 +3,6 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
-    <VarveLayer>none</VarveLayer>
   </PropertyGroup>
 
   <ItemGroup>

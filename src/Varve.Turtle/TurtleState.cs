@@ -3,7 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
-using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Turtle;
@@ -25,10 +26,14 @@ namespace Varve.Turtle;
 /// terminating <c>.</c> arrives.
 /// </para>
 /// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal sealed class TurtleState
 {
-    private readonly List<byte[]> _prefixNames = [];
-    private readonly List<byte[]> _prefixIris = [];
+    // Arrays with a count rather than lists, so that resolving a prefixed
+    // name, once per term, is a loop over memory this state owns (VARVE0003).
+    private byte[][] _prefixNames = new byte[4][];
+    private byte[][] _prefixIris = new byte[4][];
+    private int _prefixCount;
     private byte[] _base = [];
     private PendingQuad[] _pending = new PendingQuad[16];
 
@@ -147,6 +152,7 @@ internal sealed class TurtleState
         afterCarriageReturn = false;
     }
 
+    [DesignDecision(typeof(HotPathScope.DirectivesAreNotPerQuad), Scope = ExceptionScope.HotPath)]
     internal void SetBase(ReadOnlySpan<byte> iri) => _base = iri.ToArray();
 
     /// <summary>
@@ -154,9 +160,10 @@ internal sealed class TurtleState
     /// scan: a document has a handful of prefixes, and a dictionary keyed by
     /// bytes would allocate on every lookup to save nothing.
     /// </summary>
+    [DesignDecision(typeof(HotPathScope.DirectivesAreNotPerQuad), Scope = ExceptionScope.HotPath)]
     internal void BindPrefix(ReadOnlySpan<byte> name, ReadOnlySpan<byte> iri)
     {
-        for (int i = 0; i < _prefixNames.Count; i++)
+        for (int i = 0; i < _prefixCount; i++)
         {
             if (name.SequenceEqual(_prefixNames[i]))
             {
@@ -165,13 +172,20 @@ internal sealed class TurtleState
             }
         }
 
-        _prefixNames.Add(name.ToArray());
-        _prefixIris.Add(iri.ToArray());
+        if (_prefixCount == _prefixNames.Length)
+        {
+            Array.Resize(ref _prefixNames, _prefixCount * 2);
+            Array.Resize(ref _prefixIris, _prefixCount * 2);
+        }
+
+        _prefixNames[_prefixCount] = name.ToArray();
+        _prefixIris[_prefixCount] = iri.ToArray();
+        _prefixCount++;
     }
 
     internal bool TryResolvePrefix(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> iri)
     {
-        for (int i = 0; i < _prefixNames.Count; i++)
+        for (int i = 0; i < _prefixCount; i++)
         {
             if (name.SequenceEqual(_prefixNames[i]))
             {
@@ -189,7 +203,7 @@ internal sealed class TurtleState
     {
         if (PendingCount == _pending.Length)
         {
-            Array.Resize(ref _pending, _pending.Length * 2);
+            GrowPending();
         }
 
         _pending[PendingCount].Subject = subject;
@@ -200,6 +214,12 @@ internal sealed class TurtleState
     }
 
     internal PendingQuad At(int index) => _pending[index];
+
+    // The statement's buffer of pending quads grows only when a statement has
+    // more quads than any before it, so it is amortised to nothing per quad.
+    // ADR 0030 decided the buffer; this is what having one costs.
+    [DesignDecision(typeof(TurtleRecoveryAndPrefixes.StatementQuadsBuffered), Scope = ExceptionScope.HotPath)]
+    private void GrowPending() => Array.Resize(ref _pending, _pending.Length * 2);
 
     /// <summary>Drops the statement's quads without emitting them. ADR 0030.</summary>
     internal void Discard() => PendingCount = 0;

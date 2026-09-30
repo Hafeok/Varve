@@ -5,6 +5,7 @@
 using System;
 using System.Text.Unicode;
 using Varve.Rdf;
+using Varve.Turtle.Model;
 
 namespace Varve.Turtle;
 

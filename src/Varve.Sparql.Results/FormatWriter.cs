@@ -4,6 +4,8 @@
 
 using System.Collections.Generic;
 using System.Text;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Sparql.Results;
 
@@ -15,6 +17,7 @@ internal abstract class FormatWriter
 {
     protected FormatWriter(ResultsOutput output) => Output = output;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     protected ResultsOutput Output { get; }
 
     /// <summary>The variables' names as UTF-8, encoded once at the head.</summary>
