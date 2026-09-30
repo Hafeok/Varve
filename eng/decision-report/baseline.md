@@ -1,6 +1,6 @@
 # Decision-driven report
 
-DecisionDriven.Report 0.1.0-preview.6 at `d93036f63daf`. Nothing here gates a build: a metric becomes a gate only by a decision that names its threshold and baseline.
+DecisionDriven.Report 0.1.0-preview.6 at `e438ceae8568`. Nothing here gates a build: a metric becomes a gate only by a decision that names its threshold and baseline.
 
 ## Layers
 
@@ -168,6 +168,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/BelowArchiveHorizonFailsLoudly` — An as-of read or diff below the archive horizon without the archive attached fails explicitly and never returns a partial answer
 - `dec:varve/BenchmarkDataReproducible` — A benchmark dataset is generated from a stated seed and generator, never a downloaded corpus
 - `dec:varve/BenchmarkDotNetConfined` — BenchmarkDotNet is admitted for a non-packable benchmark project only, where its native and Reflection.Emit dependencies reach no published artifact
+- `dec:varve/BenchmarkSinkIsStatic` — A parse benchmark's sink, the counter its callbacks add to so that the parse is not optimised away, is a static field, because the callbacks are static lambdas and an instance sink would make each one a closure: an allocation in the arm that measures allocation
 - `dec:varve/BenchmarksNeverGate` — Benchmarks are never a gate and are not run in CI, and a number is reported with the machine that produced it
 - `dec:varve/BindingDecisionsAreEnforced` — A decision that binds code is enforced or it does not bind, and an ADR that can become an analyzer rule names the rule that enforces it
 - `dec:varve/BodyIsAllocThenAssertThenRetract` — A commit's body is alloc, then A, then R, each counted, with A and R sorted by id
@@ -270,6 +271,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/EstimateOnTheQuadSource` — IQuadSource in Varve.Rdf gains Estimate over the pattern Match takes, returning a CardinalityEstimate that is exact, unknown, or a count the source has reason to believe
 - `dec:varve/EstimatedCountIsDocumented` — An estimate that is neither exact nor unknown is a count the source's documentation says how it derived
 - `dec:varve/EvaluationOptionsCarryTheOutside` — Everything the evaluator needs from outside, extension functions, custom aggregates, the clock and randomness, arrives in the immutable EvaluationOptions
+- `dec:varve/EvaluationRunnerReadsEachFileOnce` — The evaluation-suite runner that the conformance tests and the benchmarks share keeps what it has read of each data file in one static cache for the process, because every case of every suite loads through it and the suites' files do not change during a run
 - `dec:varve/EvaluatorNeverPins` — The evaluator receives a quad source it does not own, never calls Pin() and never disposes what it is given
 - `dec:varve/EvaluatorUnderDeterministicBan` — Varve.Sparql.Evaluation is under the ambient clock and randomness ban, as Varve.Store is
 - `dec:varve/EveryAdrIsADecisionSet` — Every ADR is enumerated into docs/decisions as an interim set file in ledger namespace varve, one key per ruling in force, with its acceptance transcribed from the ADR
