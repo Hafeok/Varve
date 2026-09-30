@@ -292,7 +292,15 @@ internal static class HotPath
     }
 }
 
-/// <summary>The BCL types a hot path may call without the callee being <c>[HotPath]</c>.</summary>
+/// <summary>
+/// The BCL types and members a hot path may call without the callee being
+/// <c>[HotPath]</c>. An entry is a type's full metadata name, which admits
+/// every member of the type; or that name, a dot and a member's metadata
+/// name, which admits that member and every overload of it; or either with a
+/// trailing <c>*</c>, which is a prefix. A property is listed by its
+/// accessors, <c>get_Length</c> or <c>set_Length</c>, and an indexer by
+/// <c>get_Item</c> and <c>set_Item</c>.
+/// </summary>
 internal sealed class AllowList
 {
     internal static readonly AllowList Empty = new(ImmutableArray<string>.Empty, ImmutableArray<string>.Empty);
@@ -318,8 +326,37 @@ internal sealed class AllowList
             return false;
         }
 
-        string name = HotPath.MetadataName(type.OriginalDefinition);
+        return Matches(HotPath.MetadataName(type.OriginalDefinition));
+    }
 
+    /// <summary>
+    /// Whether every one of <paramref name="members"/>, the metadata names of
+    /// what a call runs in <paramref name="type"/>, is on the list by name. A
+    /// method call runs one; a property access runs its getter, its setter, or
+    /// both. The type itself being on the list is <see cref="Allows(INamedTypeSymbol)"/>.
+    /// </summary>
+    internal bool AllowsMembers(INamedTypeSymbol type, ImmutableArray<string> members)
+    {
+        if (members.IsDefaultOrEmpty || type.ContainingAssembly is null || LayerDeclaration.IsVarveAssembly(type.ContainingAssembly.Name))
+        {
+            return false;
+        }
+
+        string prefix = HotPath.MetadataName(type.OriginalDefinition) + ".";
+
+        foreach (string member in members)
+        {
+            if (!Matches(prefix + member))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool Matches(string name)
+    {
         foreach (string exact in _exact)
         {
             if (name == exact)

@@ -23,6 +23,8 @@ decisions:
     statement: "The hot-path allow-list admits by type the numeric value types Byte, SByte, Int16, UInt16, Int32, UInt32, Int64, UInt64, Int128, UInt128, Single, Double and Decimal, and Boolean, Nullable of T and ReadOnlyMemory of T, none of which allocates; until VARVE0003 can admit members (Varve issue 56) it also admits ImmutableArray of T and CancellationToken by type, of which a hot path may call only members that do not allocate, and never ImmutableArray's ToArray, Add, AddRange, Insert, InsertRange, Remove, RemoveAt, RemoveAll, RemoveRange, Replace, SetItem, Sort, ToBuilder or its enumeration through IEnumerable of T, nor CancellationToken's Register, UnsafeRegister or WaitHandle"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-29T00:00:00Z
+  - key: ImmutableArrayAndCancellationTokenByMember
+    statement: "The hot-path allow-list admits ImmutableArray of T only by its indexer's getter, Length, IsEmpty, IsDefault, IsDefaultOrEmpty, AsSpan, AsMemory and its struct GetEnumerator, and CancellationToken only by IsCancellationRequested, CanBeCanceled and ThrowIfCancellationRequested, none of which allocates; this replaces their admission by type in AllowListAddsNonAllocatingValueTypes, whose interim clause ends with it"
   - key: IeeeTextGoesThroughTheInvariantFormatter
     statement: "Varve.Xsd parses and formats xsd:double and xsd:float through the BCL's IEEE parser and formatter with the invariant culture, which neither allocates on a span nor calls back into Varve"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -101,3 +103,14 @@ formatter; the culture is a cached singleton and the calls do not allocate. They
 cite this rather than admitting `CultureInfo`, whose other members do far more. The
 alternative is an IEEE parser and formatter written in Varve, which ADR 0051's
 `NoNumericPackage` does not require and which would duplicate the BCL.
+
+**`ImmutableArrayAndCancellationTokenByMember`.** Filed by session 4 of #43, unaccepted.
+`AllowListAddsNonAllocatingValueTypes` admitted `ImmutableArray<T>` and `CancellationToken`
+by type "until VARVE0003 can admit members (Varve issue 56)", and named their allocating
+members as excluded in its statement, where no build could see them. ADR 0064's amendment
+of 2026-09-30 (`VarveConfigurationAndHotPathRules.AllowListNamesMembers`) lets the list name
+members, so `.editorconfig` now lists the members this key names and no longer the two types.
+A hot path calling `ToArray`, `Add`, enumeration through `IEnumerable<T>`, `Register` or
+`WaitHandle` is reported. That key's statement is left as accepted: its clause about the two
+types was conditional on this, and this key is what discharges it. The alternative is to
+keep admitting both types whole, which is what #56 was filed to end.

@@ -1,6 +1,6 @@
 # Decision-driven report
 
-DecisionDriven.Report 0.1.0-preview.6 at `e438ceae8568`. Nothing here gates a build: a metric becomes a gate only by a decision that names its threshold and baseline.
+DecisionDriven.Report 0.1.0-preview.6 at `50252d2ca66a`. Nothing here gates a build: a metric becomes a gate only by a decision that names its threshold and baseline.
 
 ## Layers
 
@@ -147,6 +147,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/AllocationsReachable` — Every id in a commit's alloc is reachable from its A or its metadata, directly or as a component of an entry that is (I3)
 - `dec:varve/AllowListAddsNonAllocatingBclHelpers` — The hot-path allow-list also admits the BCL helpers span parsing is written with that neither allocate nor call back into user code: Index, Range, MemoryExtensions, Rune, Utf8, HashCode, Math, Int32, and the throw helpers of ArgumentException, ArgumentNullException, ArgumentOutOfRangeException and ObjectDisposedException
 - `dec:varve/AllowListAddsNonAllocatingValueTypes` — The hot-path allow-list admits by type the numeric value types Byte, SByte, Int16, UInt16, Int32, UInt32, Int64, UInt64, Int128, UInt128, Single, Double and Decimal, and Boolean, Nullable of T and ReadOnlyMemory of T, none of which allocates; until VARVE0003 can admit members (Varve issue 56) it also admits ImmutableArray of T and CancellationToken by type, of which a hot path may call only members that do not allocate, and never ImmutableArray's ToArray, Add, AddRange, Insert, InsertRange, Remove, RemoveAt, RemoveAll, RemoveRange, Replace, SetItem, Sort, ToBuilder or its enumeration through IEnumerable of T, nor CancellationToken's Register, UnsafeRegister or WaitHandle
+- `dec:varve/AllowListNamesMembers` — An entry of the hot-path allow-list is a type, which admits every member of it, or a type and a member's metadata name, which admits that member and its overloads and nothing else of its type; a property is named by the accessor an access runs, both for a compound assignment, and a trailing star is a prefix for either
 - `dec:varve/AmendmentRulingsCarryTheirDate` — A ruling an amendment adds or changes enters the ledger in the amended ADR's set with the amendment's date
 - `dec:varve/AnalyzerNeverRuntimeDependency` — Varve.Analyzers is referenced as an analyzer, never as a library, and never appears in a published dependency list
 - `dec:varve/AnalyzerReleaseTracking` — Rules are tracked in AnalyzerReleases.Shipped.md and AnalyzerReleases.Unshipped.md, as RS2008 enforces
@@ -319,6 +320,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/HumanReviewGatesReleases` — Human review is required for a release, through the release environment, and not for a merge
 - `dec:varve/IeeeWithXsdGrammar` — XsdDouble and XsdFloat are IEEE binary64 and binary32 with XML Schema's lexical grammar and canonical forms
 - `dec:varve/IlDiagnosticsAreErrors` — The IL-prefixed trimming and AOT diagnostics are error severity in .editorconfig and never enter NoWarn
+- `dec:varve/ImmutableArrayAndCancellationTokenByMember` — The hot-path allow-list admits ImmutableArray of T only by its indexer's getter, Length, IsEmpty, IsDefault, IsDefaultOrEmpty, AsSpan, AsMemory and its struct GetEnumerator, and CancellationToken only by IsCancellationRequested, CanBeCanceled and ThrowIfCancellationRequested, none of which allocates; this replaces their admission by type in AllowListAddsNonAllocatingValueTypes, whose interim clause ends with it
 - `dec:varve/ImplicitGroupOverEmptyInput` — A Group with no keys over an empty input yields one empty group, and a Group with keys yields none
 - `dec:varve/ImplicitUsingsDisabled` — ImplicitUsings is disabled, so a file's dependencies are visible in the file
 - `dec:varve/InMemoryDatasetBuilder` — A sealed InMemoryDatasetBuilder in Varve.Rdf carries the mutators, and ToDataset() returns a copied snapshot

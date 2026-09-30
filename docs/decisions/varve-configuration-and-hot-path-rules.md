@@ -55,6 +55,8 @@ decisions:
     statement: "The hot-path BCL allow-list is configuration in .editorconfig, not code"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-25T00:00:00Z
+  - key: AllowListNamesMembers
+    statement: "An entry of the hot-path allow-list is a type, which admits every member of it, or a type and a member's metadata name, which admits that member and its overloads and nothing else of its type; a property is named by the accessor an access runs, both for a compound assignment, and a trailing star is a prefix for either"
   - key: HotPathSignature
     statement: "VARVE0004: a HotPath member takes and returns no IEnumerable, no Task and no interface other than a Contract type itself marked HotPath"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -85,3 +87,7 @@ decisions on the pull request, before the ADR merged: VARVE0005, and the superse
 
 `SyntaxPackagesHaveOneModelNamespace` is the 2026-09-26 amendment (ADR 0068), filed by session 2
 of #43 on the maintainer's decision, and accepted by the maintainer on 2026-09-26.
+
+`AllowListNamesMembers` is the 2026-09-30 amendment (ADR 0068), filed by session 4 of #43 on the
+maintainer's decision closing #56. It is unaccepted until the maintainer accepts it here; no code
+cites it, so it turns nothing red.
