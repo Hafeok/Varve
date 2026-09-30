@@ -5,8 +5,12 @@ origin: "DD0004 findings on the layer 6 hosts in session 3 of #43, reached once 
 decisions:
   - key: BenchmarkSinkIsStatic
     statement: "A parse benchmark's sink, the counter its callbacks add to so that the parse is not optimised away, is a static field, because the callbacks are static lambdas and an instance sink would make each one a closure: an allocation in the arm that measures allocation"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-30T00:00:00Z
   - key: EvaluationRunnerReadsEachFileOnce
     statement: "The evaluation-suite runner that the conformance tests and the benchmarks share keeps what it has read of each data file in one static cache for the process, because every case of every suite loads through it and the suites' files do not change during a run"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-30T00:00:00Z
 ---
 
 # What the layer 6 hosts keep in static state
