@@ -7,6 +7,8 @@ using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Security.Cryptography;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Store.Log;
 
@@ -283,8 +285,14 @@ internal static class LogFormat
     private static void WriteQuads(ArrayBufferWriter<byte> writer, ReadOnlySpan<Quad> quads)
     {
         WriteUInt32(writer, (uint)quads.Length);
-        Span<byte> span = writer.GetSpan(quads.Length * 32);
+        EncodeQuads(quads, writer.GetSpan(quads.Length * 32));
+        writer.Advance(quads.Length * 32);
+    }
 
+    /// <summary>The quads, 32 bytes each, into a span the commit's writer gave.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private static void EncodeQuads(ReadOnlySpan<Quad> quads, Span<byte> span)
+    {
         for (int i = 0; i < quads.Length; i++)
         {
             Span<byte> at = span[(i * 32)..];
@@ -293,8 +301,6 @@ internal static class LogFormat
             BinaryPrimitives.WriteUInt64LittleEndian(at[16..], quads[i].Object.Value);
             BinaryPrimitives.WriteUInt64LittleEndian(at[24..], quads[i].Graph.Value);
         }
-
-        writer.Advance(quads.Length * 32);
     }
 
     private static Quad[] ReadQuads(ref Reader reader, int limit)
@@ -307,7 +313,14 @@ internal static class LogFormat
         }
 
         Quad[] quads = new Quad[count];
+        DecodeQuads(ref reader, quads);
+        return quads;
+    }
 
+    /// <summary>The quads, 32 bytes each, into the commit's array.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private static void DecodeQuads(ref Reader reader, Span<Quad> quads)
+    {
         for (int i = 0; i < quads.Length; i++)
         {
             quads[i] = new Quad(
@@ -316,8 +329,6 @@ internal static class LogFormat
                 new TermHandle(reader.UInt64()),
                 new TermHandle(reader.UInt64()));
         }
-
-        return quads;
     }
 
     internal static void WriteByte(ArrayBufferWriter<byte> writer, byte value)
@@ -358,14 +369,19 @@ internal static class LogFormat
             _at = 0;
         }
 
+        [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
         internal readonly int Remaining => _bytes.Length - _at;
 
+        [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
         internal byte Byte() => Fixed(1)[0];
 
+        [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
         internal uint UInt32() => BinaryPrimitives.ReadUInt32LittleEndian(Fixed(4));
 
+        [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
         internal ulong UInt64() => BinaryPrimitives.ReadUInt64LittleEndian(Fixed(8));
 
+        [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
         internal ReadOnlySpan<byte> Bytes()
         {
             uint length = UInt32();
@@ -378,6 +394,7 @@ internal static class LogFormat
             return Fixed((int)length);
         }
 
+        [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
         internal ReadOnlySpan<byte> Fixed(int length)
         {
             if (length > Remaining)
@@ -390,6 +407,7 @@ internal static class LogFormat
             return slice;
         }
 
+        [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
         internal readonly void End()
         {
             if (Remaining != 0)

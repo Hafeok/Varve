@@ -9,6 +9,8 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Store.Log;
 
@@ -724,6 +726,23 @@ public sealed class Dataset : IAsyncDisposable
         }
     }
 
+    /// <summary>The quads a subscription's filter passes, copied in order; how many.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private static int Keep(ReadOnlySpan<Quad> quads, in SubscriptionFilter filter, Span<Quad> kept)
+    {
+        int count = 0;
+
+        for (int i = 0; i < quads.Length; i++)
+        {
+            if (filter.Matches(in quads[i]))
+            {
+                kept[count++] = quads[i];
+            }
+        }
+
+        return count;
+    }
+
     private static void AddIds(HashSet<ulong> ids, in Quad quad)
     {
         ids.Add(quad.Subject.Value);
@@ -831,26 +850,12 @@ public sealed class Dataset : IAsyncDisposable
     {
         LoggedCommit logged = await ReadLoggedAsync(state, position, cancellationToken).ConfigureAwait(false);
         CommitHeader header = logged.Header;
-        List<Quad> asserted = [];
-        List<Quad> retracted = [];
+        Quad[] assertedKept = new Quad[logged.Asserted.Length];
+        Quad[] retractedKept = new Quad[logged.Retracted.Length];
+        ReadOnlySpan<Quad> asserted = assertedKept.AsSpan(0, Keep(logged.Asserted, filter, assertedKept));
+        ReadOnlySpan<Quad> retracted = retractedKept.AsSpan(0, Keep(logged.Retracted, filter, retractedKept));
 
-        foreach (Quad quad in logged.Asserted)
-        {
-            if (filter.Matches(in quad))
-            {
-                asserted.Add(quad);
-            }
-        }
-
-        foreach (Quad quad in logged.Retracted)
-        {
-            if (filter.Matches(in quad))
-            {
-                retracted.Add(quad);
-            }
-        }
-
-        if (header.Kind == CommitKind.Data && asserted.Count == 0 && retracted.Count == 0)
+        if (header.Kind == CommitKind.Data && asserted.IsEmpty && retracted.IsEmpty)
         {
             return null;
         }
@@ -904,7 +909,7 @@ public sealed class Dataset : IAsyncDisposable
             new TermHandle(header.Cause),
             new TermHandle(header.GraphScope),
             attachments,
-            QuadDelta.Create(CollectionsMarshal.AsSpan(asserted), CollectionsMarshal.AsSpan(retracted)),
+            QuadDelta.Create(asserted, retracted),
             allocations.ToArray());
     }
 

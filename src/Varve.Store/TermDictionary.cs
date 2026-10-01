@@ -84,6 +84,7 @@ internal sealed class TermDictionary
     /// The id a term already has, at or below the given canonical counter.
     /// A blank node has none: a label is not a store identity (ADR 0044).
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool TryFind(RdfTerm term, long canonicalLimit, out ulong id)
     {
         switch (term.Kind)
@@ -96,7 +97,7 @@ internal sealed class TermDictionary
                 if (TryFind(term.Subject!, canonicalLimit, out ulong s)
                     && TryFind(term.Predicate!, canonicalLimit, out ulong p)
                     && TryFind(term.Object!, canonicalLimit, out ulong o)
-                    && _triples.TryGetValue((s, p, o), out id)
+                    && TryFindTriple(s, p, o, out id)
                     && TermIds.Counter(id) <= canonicalLimit)
                 {
                     return true;
@@ -111,7 +112,7 @@ internal sealed class TermDictionary
                     return true;
                 }
 
-                if (_terms.TryGetValue(term, out id) && TermIds.Counter(id) <= canonicalLimit)
+                if (TryFindTerm(term, out id) && TermIds.Counter(id) <= canonicalLimit)
                 {
                     return true;
                 }
@@ -122,8 +123,12 @@ internal sealed class TermDictionary
     }
 
     /// <summary>The id a triple term with these components already has.</summary>
+    [DesignDecision(typeof(StoreHotPathScope.TermLookupsAreHashLookups), Scope = ExceptionScope.HotPath)]
     internal bool TryFindTriple(ulong subject, ulong predicate, ulong @object, out ulong id) =>
         _triples.TryGetValue((subject, predicate, @object), out id);
+
+    [DesignDecision(typeof(StoreHotPathScope.TermLookupsAreHashLookups), Scope = ExceptionScope.HotPath)]
+    private bool TryFindTerm(RdfTerm term, out ulong id) => _terms.TryGetValue(term, out id);
 
     /// <summary>Whether an id names something in <c>D</c> at the given counters.</summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]

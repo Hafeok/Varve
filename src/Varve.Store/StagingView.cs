@@ -69,6 +69,7 @@ public sealed class StagingView : IQuadSource
     /// The term is a blank node, or a triple term with a blank node inside:
     /// a new blank node is fresh, not looked up (<see cref="StageBlank"/>).
     /// </exception>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public TermHandle Stage(RdfTerm term)
     {
         ArgumentNullException.ThrowIfNull(term);
@@ -88,16 +89,22 @@ public sealed class StagingView : IQuadSource
                 return StageTriple(Stage(term.Subject!), Stage(term.Predicate!), Stage(term.Object!));
 
             default:
-                if (_byTerm.TryGetValue(term, out ulong id))
-                {
-                    return new TermHandle(id);
-                }
-
-                _staged[++_canonical] = term;
-                id = TermIds.Canonical(TermIds.ProvisionalBit | _canonical);
-                _byTerm[term] = id;
-                return new TermHandle(id);
+                return new TermHandle(StageValue(term));
         }
+    }
+
+    /// <summary>A term the view does not hold: its provisional id, given the first time it is staged.</summary>
+    [DesignDecision(typeof(StoreHotPathScope.TermLookupsAreHashLookups), Scope = ExceptionScope.HotPath)]
+    private ulong StageValue(RdfTerm term)
+    {
+        if (!_byTerm.TryGetValue(term, out ulong id))
+        {
+            _staged[++_canonical] = term;
+            id = TermIds.Canonical(TermIds.ProvisionalBit | _canonical);
+            _byTerm[term] = id;
+        }
+
+        return id;
     }
 
     /// <summary>A new blank node, distinct from every other.</summary>
@@ -109,6 +116,7 @@ public sealed class StagingView : IQuadSource
     /// parts.
     /// </summary>
     /// <exception cref="ArgumentException">A handle is neither the view's nor provisional.</exception>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public TermHandle StageTriple(TermHandle subject, TermHandle predicate, TermHandle @object)
     {
         ulong s = Known(subject, nameof(subject));
@@ -122,6 +130,13 @@ public sealed class StagingView : IQuadSource
             return new TermHandle(existing);
         }
 
+        return new TermHandle(StageParts(s, p, o));
+    }
+
+    /// <summary>A triple term the view does not hold: its provisional id, given the first time it is staged.</summary>
+    [DesignDecision(typeof(StoreHotPathScope.TermLookupsAreHashLookups), Scope = ExceptionScope.HotPath)]
+    private ulong StageParts(ulong s, ulong p, ulong o)
+    {
         if (!_tripleByParts.TryGetValue((s, p, o), out ulong id))
         {
             id = TermIds.Canonical(TermIds.ProvisionalBit | ++_canonical);
@@ -129,7 +144,7 @@ public sealed class StagingView : IQuadSource
             _triples[id] = (s, p, o);
         }
 
-        return new TermHandle(id);
+        return id;
     }
 
     /// <summary>
@@ -152,6 +167,7 @@ public sealed class StagingView : IQuadSource
 
     /// <inheritdoc />
     /// <remarks>True for a term the view holds or that has been staged; never stages.</remarks>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool TryInternalise(RdfTerm term, out TermHandle handle)
     {
         ArgumentNullException.ThrowIfNull(term);
@@ -161,7 +177,7 @@ public sealed class StagingView : IQuadSource
             return true;
         }
 
-        if (term.Kind != RdfTermKind.BlankNode && _byTerm.TryGetValue(term, out ulong id))
+        if (term.Kind != RdfTermKind.BlankNode && TryFindStaged(term, out ulong id))
         {
             handle = new TermHandle(id);
             return true;
@@ -171,7 +187,7 @@ public sealed class StagingView : IQuadSource
             && TryInternalise(term.Subject!, out TermHandle s)
             && TryInternalise(term.Predicate!, out TermHandle p)
             && TryInternalise(term.Object!, out TermHandle o)
-            && _tripleByParts.TryGetValue((s.Value, p.Value, o.Value), out id))
+            && TryFindStagedParts(s.Value, p.Value, o.Value, out id))
         {
             handle = new TermHandle(id);
             return true;
@@ -263,12 +279,20 @@ public sealed class StagingView : IQuadSource
         _ => false,
     };
 
+    [DesignDecision(typeof(StoreHotPathScope.TermLookupsAreHashLookups), Scope = ExceptionScope.HotPath)]
+    private bool TryFindStaged(RdfTerm term, out ulong id) => _byTerm.TryGetValue(term, out id);
+
+    [DesignDecision(typeof(StoreHotPathScope.TermLookupsAreHashLookups), Scope = ExceptionScope.HotPath)]
+    private bool TryFindStagedParts(ulong s, ulong p, ulong o, out ulong id) => _tripleByParts.TryGetValue((s, p, o), out id);
+
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private bool IsStaged(ulong id)
     {
         long counter = TermIds.Counter(id) & ~TermIds.ProvisionalBit;
         return counter >= 1 && counter <= (TermIds.ClassOf(id) == IdClass.Blank ? _blanks : _canonical);
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private ulong Known(TermHandle handle, string name)
     {
         ulong id = handle.Value;

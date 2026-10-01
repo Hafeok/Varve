@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Store.Log;
@@ -41,15 +43,19 @@ public readonly struct RequestTerm : IEquatable<RequestTerm>
     public static RequestTerm None => default;
 
     /// <summary>The term, when this is not a handle.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public RdfTerm? Term { get; }
 
     /// <summary>The handle, when <see cref="IsExisting"/>.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public TermHandle Handle { get; }
 
     /// <summary>True when this names a term the dataset already has, by handle.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool IsExisting => !Handle.IsNone;
 
     /// <summary>True for <see cref="None"/>.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool IsNone => Term is null && Handle.IsNone;
 
     /// <summary>

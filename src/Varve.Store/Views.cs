@@ -22,12 +22,16 @@ internal readonly struct TermView
         BlankCount = blankCount;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal TermDictionary Dictionary { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal long CanonicalCount { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal long BlankCount { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool TryInternalise(RdfTerm term, out TermHandle handle)
     {
         ArgumentNullException.ThrowIfNull(term);
@@ -160,6 +164,7 @@ internal sealed class IndexSource : IQuadSource
 
     public IEqualityComparer<TermHandle> TermComparer => StoreTermComparer.ById;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool TryInternalise(RdfTerm term, out TermHandle handle) => _terms.TryInternalise(term, out handle);
 
     public bool TryExternalise(TermHandle handle, [MaybeNullWhen(false)] out RdfTerm term) => _terms.TryExternalise(handle, out term);
@@ -275,6 +280,7 @@ public sealed class DatasetView : IQuadSource, IDisposable
     public IEqualityComparer<TermHandle> TermComparer => StoreTermComparer.ById;
 
     /// <inheritdoc />
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool TryInternalise(RdfTerm term, out TermHandle handle)
     {
         ThrowIfDisposed();

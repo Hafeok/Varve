@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
-using System.Buffers.Text;
 using System.Globalization;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
@@ -44,8 +43,10 @@ internal static class TermIds
     private const long InlineIntegerMax = (1L << 55) - 1;
     private const long InlineIntegerMin = -(1L << 55);
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static ReadOnlySpan<byte> XsdIntegerIri => "http://www.w3.org/2001/XMLSchema#integer"u8;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static ReadOnlySpan<byte> XsdBooleanIri => "http://www.w3.org/2001/XMLSchema#boolean"u8;
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
@@ -67,6 +68,7 @@ internal static class TermIds
     internal const long ProvisionalBit = 1L << 61;
 
     /// <summary>Whether an id is a staging view's provisional id.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool IsProvisional(ulong id) =>
         ClassOf(id) is IdClass.Canonical or IdClass.Blank && (Counter(id) & ProvisionalBit) != 0;
 
@@ -77,6 +79,7 @@ internal static class TermIds
     /// two terms can never become one, and <c>Varve.Xsd</c> is what says
     /// whether it is (ADR 0051): the store keeps no definition of its own.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool TryInline(RdfTerm term, out ulong id)
     {
         id = 0;
@@ -107,10 +110,16 @@ internal static class TermIds
             return false;
         }
 
-        if (!Utf8Parser.TryParse(lexical, out long value, out int consumed) || consumed != lexical.Length)
+        // Canonical and at most 18 characters: an optional '-' and digits that fit a long.
+        bool negative = lexical[0] == (byte)'-';
+        long value = 0;
+
+        for (int i = negative ? 1 : 0; i < lexical.Length; i++)
         {
-            return false;
+            value = (value * 10) + (lexical[i] - (byte)'0');
         }
+
+        value = negative ? -value : value;
 
         if (value < InlineIntegerMin || value > InlineIntegerMax)
         {
@@ -176,6 +185,7 @@ internal static class TermIds
             && (tag == InlineInteger || (tag == InlineBoolean && (id & InlinePayloadMask) <= 1));
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static ulong Inline(ulong tag, ulong payload) =>
         ((ulong)IdClass.Inline << ClassShift) | (tag << InlineTagShift) | payload;
 }

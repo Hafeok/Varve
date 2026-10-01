@@ -56,6 +56,7 @@ public readonly struct XsdBoolean : IEquatable<XsdBoolean>, IComparable<XsdBoole
         Lexical.ParseChars(text, TryParse, out value);
 
     /// <summary>Whether a lexical form is <c>true</c> or <c>false</c> (<c>booleanCanonicalMap</c>).</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool IsCanonical(ReadOnlySpan<byte> lexical) =>
         lexical.SequenceEqual("true"u8) || lexical.SequenceEqual("false"u8);
 
