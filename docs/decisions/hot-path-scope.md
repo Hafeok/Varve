@@ -25,6 +25,8 @@ decisions:
     accepted-at: 2026-09-29T00:00:00Z
   - key: ImmutableArrayAndCancellationTokenByMember
     statement: "The hot-path allow-list admits ImmutableArray of T only by its indexer's getter, Length, IsEmpty, IsDefault, IsDefaultOrEmpty, AsSpan, AsMemory and its struct GetEnumerator, and CancellationToken only by IsCancellationRequested, CanBeCanceled and ThrowIfCancellationRequested, none of which allocates; this replaces their admission by type in AllowListAddsNonAllocatingValueTypes, whose interim clause ends with it"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-01T00:00:00Z
   - key: IeeeTextGoesThroughTheInvariantFormatter
     statement: "Varve.Xsd parses and formats xsd:double and xsd:float through the BCL's IEEE parser and formatter with the invariant culture, which neither allocates on a span nor calls back into Varve"
     accepted-by: mailto:emil@okkels-klein.dk

@@ -57,6 +57,8 @@ decisions:
     accepted-at: 2026-09-25T00:00:00Z
   - key: AllowListNamesMembers
     statement: "An entry of the hot-path allow-list is a type, which admits every member of it, or a type and a member's metadata name, which admits that member and its overloads and nothing else of its type; a property is named by the accessor an access runs, both for a compound assignment, and a trailing star is a prefix for either"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-01T00:00:00Z
   - key: HotPathSignature
     statement: "VARVE0004: a HotPath member takes and returns no IEnumerable, no Task and no interface other than a Contract type itself marked HotPath"
     accepted-by: mailto:emil@okkels-klein.dk
