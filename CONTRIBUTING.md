@@ -261,8 +261,10 @@ Anyone may propose one — there is an issue template.
 
 ## Adding a rule
 
-A new architectural or code rule is delivered as three things, in this order of
-importance:
+A rule that knows nothing about Varve belongs in `DecisionDriven.Analyzers`, as
+an issue or a pull request there (ADR 0062); Varve configures it and does not
+copy it. A rule that needs a Varve fact (a layer, the hot-path list) is a
+`VARVE` rule, delivered as three things, in this order of importance:
 
 1. the analyzer, in `src/Varve.Analyzers/`,
 2. its tests, with at least one violating and one conforming sample,
@@ -271,6 +273,39 @@ importance:
 A rule without an analyzer is a suggestion. Ids are allocated in
 [ADR 0004](docs/adr/0004-enforcement-by-analyzers.md); take the next free one
 and do not reuse a retired id.
+
+## When a `DD` or `VARVE` rule fires
+
+Every project in `src/` builds under `DD0001`–`DD0019` and
+`VARVE0003`–`VARVE0005` at error severity. Read the rule's page first (the
+analyzer repository's `docs/rules/` for `DD`, `docs/rules/` here for `VARVE`);
+its message ends in `Decide:`, with two paths.
+
+1. **The design change.** If the code looks like this only because it always
+   did, change it: a wrapper type for a naked primitive (ADR 0065), a
+   `[Contract]` citing the decision that made an abstraction, a reused buffer
+   for an allocation on a hot path.
+2. **A decision.** If the code is right and the rule's reason does not apply,
+   put `[DesignDecision(typeof(<Set>.<Key>), Scope = ...)]` on the narrowest
+   symbol that carries the exception, citing a decision in `docs/decisions/`.
+   If none says so, file one: add the key to the set its ADR owns, with a
+   one-line statement and no `accepted-by`. The citation is `CS0618` until the
+   maintainer accepts it; the pull request says so and is red on that alone
+   ([ADR 0066](docs/adr/0066-expected-red-pull-requests.md)).
+
+**A hot path** is a member marked `[HotPath]`, or a member of a marked type,
+or an override or implementation of a marked member. Mark what runs per quad,
+per row or per term (a scan, an operator's `Open` and its iterator, a decode
+loop), not the orchestration that runs once per commit or per query. Then
+`VARVE0003` holds it to no allocation and no call into unmarked code. A BCL
+member it calls is admitted by the allow-list in `.editorconfig`, by type or by
+member, and adding to the list is a change to a decided list
+(`HotPathScope`). Run the allocation benchmark before and after a change to a
+hot path, and put both numbers in the pull request.
+
+**A false positive is an upstream issue**, with a reproduction, filed in the
+analyzer repository, which never names Varve. Leave the finding unfixed if the
+issue blocks it, and say so in the pull request. Never work around it here.
 
 ## Adding a dependency
 

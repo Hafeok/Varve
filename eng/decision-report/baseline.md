@@ -1,6 +1,6 @@
 # Decision-driven report
 
-DecisionDriven.Report 0.1.0-preview.6 at `50252d2ca66a`. Nothing here gates a build: a metric becomes a gate only by a decision that names its threshold and baseline.
+DecisionDriven.Report 0.1.0-preview.6 at `c96f631dbf1e`. Nothing here gates a build: a metric becomes a gate only by a decision that names its threshold and baseline.
 
 ## Layers
 
@@ -77,6 +77,7 @@ The number of groups a type's methods fall into, where methods sharing a field o
 | `Varve.Sparql.Algebra.SourceSpan` | 1 | 6 |
 | `Varve.Sparql.Algebra.SparqlParseError` | 1 | 6 |
 | `Varve.Sparql.Algebra.Variable` | 1 | 1 |
+| `Varve.Sparql.Evaluation.Model.ColumnIndex` | 1 | 1 |
 | `Varve.Sparql.Evaluation.Model.ServiceResult` | 2 | 2 |
 | `Varve.Sparql.Results.Model.ResultsPosition` | 1 | 6 |
 | `Varve.Sparql.Results.Model.SparqlResultsError` | 1 | 6 |
@@ -126,7 +127,7 @@ The number of groups a type's methods fall into, where methods sharing a field o
 
 ## Citations
 
-542 citations of 65 decisions.
+652 citations of 71 decisions.
 
 ### Decisions with no citation
 
@@ -145,6 +146,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/AggregateErrorLeavesUnbound` — An aggregate whose result is an error leaves its binding unbound and never fails the query
 - `dec:varve/AggregationFollowsTheAlgebraLiterally` — Aggregation follows SPARQL section 18.5.1 literally: aggregates are extracted once per Group into slots no author can name, and a non-key variable in one reads as SAMPLE
 - `dec:varve/AllocationsReachable` — Every id in a commit's alloc is reachable from its A or its metadata, directly or as a component of an entry that is (I3)
+- `dec:varve/AllowListAddsEnumeratorAndListReads` — The hot-path allow-list admits by member IEnumerator's MoveNext, IEnumerator of T's Current, and List of T's indexer getter and Count; the two List members neither allocate nor call back, and a call through the two interface members runs what implements them, which VARVE0003 checks where it is written: every solution enumerator in the evaluator is an operator's Open, held to the rule as an override of a HotPath member, or BgpCursor, which is marked
 - `dec:varve/AllowListAddsNonAllocatingBclHelpers` — The hot-path allow-list also admits the BCL helpers span parsing is written with that neither allocate nor call back into user code: Index, Range, MemoryExtensions, Rune, Utf8, HashCode, Math, Int32, and the throw helpers of ArgumentException, ArgumentNullException, ArgumentOutOfRangeException and ObjectDisposedException
 - `dec:varve/AllowListAddsNonAllocatingValueTypes` — The hot-path allow-list admits by type the numeric value types Byte, SByte, Int16, UInt16, Int32, UInt32, Int64, UInt64, Int128, UInt128, Single, Double and Decimal, and Boolean, Nullable of T and ReadOnlyMemory of T, none of which allocates; until VARVE0003 can admit members (Varve issue 56) it also admits ImmutableArray of T and CancellationToken by type, of which a hot path may call only members that do not allocate, and never ImmutableArray's ToArray, Add, AddRange, Insert, InsertRange, Remove, RemoveAt, RemoveAll, RemoveRange, Replace, SetItem, Sort, ToBuilder or its enumeration through IEnumerable of T, nor CancellationToken's Register, UnsafeRegister or WaitHandle
 - `dec:varve/AllowListNamesMembers` — An entry of the hot-path allow-list is a type, which admits every member of it, or a type and a member's metadata name, which admits that member and its overloads and nothing else of its type; a property is named by the accessor an access runs, both for a compound assignment, and a trailing star is a prefix for either
@@ -202,7 +204,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/ClassifierContract` — A classifier assigns the term occurrences of pending operations to data subjects over the pinned source, free of SPARQL and SHACL, with derived implementations at layer 5
 - `dec:varve/ClosingFlagInTheLog` — The closing flag is in the log, so a copy of log/ made at any moment is a valid log up to its last closed commit
 - `dec:varve/ClosureStartsFromBoundEnds` — A closure searches from its bound end, stops at a bound other end, and with both ends unbound starts from every node of the active graph
-- `dec:varve/ClosuresByAlp` — Path closures are evaluated by section 18.4's ALP, one reachability search per start node with a visited set, yielding sets of nodes
+- `dec:varve/ColumnIndexIsAWrapper` — A column of a SELECT's solutions is a ColumnIndex, a readonly record struct over its position in SolutionResults.Variables in Varve.Sparql.Evaluation.Model, and SolutionResults takes it where it took an int
 - `dec:varve/CommitAgentIsATermId` — A commit's agent is a TermId, never an inline string, so the agent can itself be a private term and be erased
 - `dec:varve/CommitAgentIsTheTokenSubject` — The commit agent is the caller's stable subject identifier from the token, oid for Entra and sub otherwise, recorded as a term
 - `dec:varve/CommitStandsIfProjectionFails` — If the default projection fails after a commit's records are durable, the commit stands and the projection catches up by replay
@@ -302,7 +304,6 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/HandleFixedWidthNotGeneric` — The handle is a fixed 64-bit type rather than a generic parameter, so there is one evaluator and no generic virtual method for AOT to resolve
 - `dec:varve/HandlesStableAcrossSnapshots` — A builder only appends to its interning table, so a handle means the same term in every snapshot it produces
 - `dec:varve/HarnessOwnsSubjectAbstraction` — The harness defines its own subject abstraction on the test side, which is not a design for the parser API
-- `dec:varve/HashAggregationWithoutSpill` — Aggregation is one in-memory hash table per Group with no spilling, bounded only by the caller's resource governance
 - `dec:varve/HeaderChainsToPrevious` — Every commit header carries prev, the hash of the previous commit's header, with a fixed value at position 1
 - `dec:varve/HeaderCommitsToContent` — Every commit header carries content, the hash of (alloc, A, R), so the chain commits to every byte of the log
 - `dec:varve/HeaderFieldsAndHashes` — The header is version, kind, position, timestamp, agent, cause, graph scope, attachments, kind payload, prev and content, where content hashes the body and prev the previous header with SHA-256
@@ -322,6 +323,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/IlDiagnosticsAreErrors` — The IL-prefixed trimming and AOT diagnostics are error severity in .editorconfig and never enter NoWarn
 - `dec:varve/ImmutableArrayAndCancellationTokenByMember` — The hot-path allow-list admits ImmutableArray of T only by its indexer's getter, Length, IsEmpty, IsDefault, IsDefaultOrEmpty, AsSpan, AsMemory and its struct GetEnumerator, and CancellationToken only by IsCancellationRequested, CanBeCanceled and ThrowIfCancellationRequested, none of which allocates; this replaces their admission by type in AllowListAddsNonAllocatingValueTypes, whose interim clause ends with it
 - `dec:varve/ImplicitGroupOverEmptyInput` — A Group with no keys over an empty input yields one empty group, and a Group with keys yields none
+- `dec:varve/ImplicitTimezoneIsATimeSpan` — EvaluationOptions.ImplicitTimezoneOffset is a TimeSpan, a whole number of minutes from minus 14 to plus 14 hours, and replaces ImplicitTimezoneOffsetMinutes
 - `dec:varve/ImplicitUsingsDisabled` — ImplicitUsings is disabled, so a file's dependencies are visible in the file
 - `dec:varve/InMemoryDatasetBuilder` — A sealed InMemoryDatasetBuilder in Varve.Rdf carries the mutators, and ToDataset() returns a copied snapshot
 - `dec:varve/InMemoryDatasetInternsItsOwn` — An in-memory dataset without a store brings its own interning table, and nothing about the contract presumes a log
@@ -361,6 +363,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/MajorBumpNeedsAdrChange` — A patch or minor bump of a registered package needs nothing, and a major bump or a new package needs its cited ADR changed in the same diff
 - `dec:varve/ManifestsReadByVarveTurtle` — The conformance harness reads manifests with Varve.Turtle and references no other RDF implementation
 - `dec:varve/MarkHotPathsWhileWriting` — Hot paths are marked when they are written, before the rule that checks them exists
+- `dec:varve/MaxRecordBytesIsAByteCount` — DatasetOptions.MaxRecordBytes is a ByteCount, as SegmentBytes is, and opening a dataset refuses one below 64 bytes or above what a record's 32-bit length can carry
 - `dec:varve/MeaningChangeIsSupersession` — Fixing a broken link or a typo that changes no meaning is not an edit; anything that changes meaning is a supersession, and doubt counts as a supersession
 - `dec:varve/MemoryBackendIsReal` — The memory backend is a real backend with durability None, not a test double
 - `dec:varve/MemoryStorageLivesInStore` — MemoryStorage is a public backend in Varve.Store with durability None
@@ -492,7 +495,6 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/SelectorWithoutErasureMode` — Without erasure mode, access is served by an optional selector over G_head, and erasure cannot be served at all
 - `dec:varve/SemVerKeptDuringZeroX` — During 0.x the versioning rules are followed anyway, and a breaking change moves the minor while the major is zero
 - `dec:varve/SequencerWaitsForDefaultProjection` — The sequencer refuses the next commit with Unavailable until the default projection is at the readable head
-- `dec:varve/ServiceResultsJoined` — The evaluator joins a handler's solutions with the incoming ones, so a handler may use them to narrow its request or ignore them
 - `dec:varve/ServiceVariablePerDistinctIri` — SERVICE ?v invokes the handler once per distinct IRI ?v takes, and an unbound or non-IRI ?v fails that invocation
 - `dec:varve/SessionsNeverWriteAcceptedBy` — A session never writes accepted-by for a decision it filed, and transcribes only acceptances an ADR already records
 - `dec:varve/SettingsAreACommitKind` — Settings are a commit kind beside Data and Erasure, sequenced like any other commit with an agent, a cause and a position
