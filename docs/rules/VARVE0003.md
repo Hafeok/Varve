@@ -37,8 +37,8 @@ it, its property, or a type containing it is `[HotPath]`; when it implements a
 member of an interface marked `[HotPath]` or overrides a member marked
 `[HotPath]`; when it is a local function or
 lambda of the hot member itself; when it carries
-`[DesignDecision(..., Scope = ExceptionScope.HotPath)]`; or when its type is a
-BCL type on the allow-list.
+`[DesignDecision(..., Scope = ExceptionScope.HotPath)]`; or when it, or its
+type, is a BCL member or type on the allow-list.
 
 **What is held to the rule**: a member marked `[HotPath]`, a member of a type
 marked `[HotPath]`, a member implementing a member of an interface marked
@@ -72,26 +72,42 @@ answers to: `[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]`
 
 ## Configuration
 
-`varve_hot_path_allowed_types`, in `.editorconfig`:
+`varve_hot_path_allowed_types`, in `.editorconfig`, is a comma-separated list.
+Each entry is one of these:
 
-```ini
-varve_hot_path_allowed_types = System.Span`1, System.ReadOnlySpan`1, System.Runtime.InteropServices.MemoryMarshal, System.Buffers.Binary.BinaryPrimitives, System.Runtime.CompilerServices.Unsafe, System.Buffers.ArrayPool`1, System.Numerics.Vector*, System.Runtime.Intrinsics.Vector*, System.Index, System.Range, System.MemoryExtensions, System.Text.Rune, System.HashCode, System.ArgumentException, System.ArgumentNullException, System.ArgumentOutOfRangeException, System.ObjectDisposedException, System.Math, System.Text.Unicode.Utf8, System.Int32
-```
+| Entry | Admits | Example |
+|---|---|---|
+| a type's full metadata name | every member of the type | `System.Span`1` |
+| that name, a dot and a member's metadata name | that member and its overloads, and nothing else of the type | `System.Math.Abs` |
+| either, ending in `*` | every name with that prefix | `System.Numerics.Vector*` |
 
-Comma-separated full metadata names; a trailing `*` is a prefix. The first
-eight entries are ADR 0064's. The rest are the non-allocating BCL helpers span
-code is written with, filed as `HotPathScope.AllowListAddsNonAllocatingBclHelpers`
-(unaccepted, session 2 of #43). The list is configuration, not code
+A property is named by the accessor an access runs: `get_Length` for a read,
+`set_Length` for a write, and both for a compound assignment or an increment,
+each of which must be listed. An indexer's accessors are `get_Item` and
+`set_Item`. A member entry is matched against the callee's original definition,
+so `ImmutableArray`1.get_Item` covers `ImmutableArray<T>[i]` for every `T`.
+Member entries were added by ADR 0064's amendment of 2026-09-30
+(`VarveConfigurationAndHotPathRules.AllowListNamesMembers`, #56).
+
+The list itself is in `.editorconfig`, with the decisions that admit each part:
+ADR 0064's eight, the non-allocating helpers span code is written with
+(`HotPathScope.AllowListAddsNonAllocatingBclHelpers`), the value types
+(`HotPathScope.AllowListAddsNonAllocatingValueTypes`), and the members of
+`ImmutableArray<T>` and `CancellationToken` that do not allocate
+(`HotPathScope.ImmutableArrayAndCancellationTokenByMember`). The list is
+configuration, not code
 (`VarveConfigurationAndHotPathRules.HotPathAllowListIsConfiguration`): **unset
 means empty**, so the rule allows nothing the repository did not write down. A
-type from a `Varve.*` assembly never matches, whatever it is called.
+type or member from a `Varve.*` assembly never matches, whatever it is called.
 
 ## False-positive story
 
 Tier 1: every input is a symbol or an operation in the compilation. Where it
-reads as wrong, it is usually the allow-list being exact. `Math.Max`,
-`int.CompareTo` and `MemoryExtensions.SequenceEqual` do not allocate, and are
-still reported, because none is on ADR 0064's list. The answers are to inline
+reads as wrong, it is usually the allow-list being exact.
+`BitOperations.PopCount` does not allocate, and is still reported, because it
+is not on the list. (`ImmutableArray<T>.ToArray` is reported too, and rightly:
+it allocates, and only its type's members that do not are listed.) The answers
+are to inline
 what is needed, to mark a Varve helper `[HotPath]` and hold it to the rules, or
 to change the list, which is a change to a decided list and goes through the
 decision that made it.

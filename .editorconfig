@@ -127,10 +127,13 @@ dd_rule_id_prefixes = VARVE
 # callee being [HotPath] itself (ADR 0064). Configuration, not code. A name
 # ending in '*' is a prefix; every other name is a type's full metadata name.
 # The numerics, Boolean, Nullable`1 and ReadOnlyMemory`1 are admitted as types
-# (HotPathScope.AllowListAddsNonAllocatingValueTypes). ImmutableArray`1 and
-# CancellationToken are admitted as types only until VARVE0003 can admit members
-# (#56); the members that allocate are named as excluded in that key.
-varve_hot_path_allowed_types = System.Span`1, System.ReadOnlySpan`1, System.Runtime.InteropServices.MemoryMarshal, System.Buffers.Binary.BinaryPrimitives, System.Runtime.CompilerServices.Unsafe, System.Buffers.ArrayPool`1, System.Numerics.Vector*, System.Runtime.Intrinsics.Vector*, System.Index, System.Range, System.MemoryExtensions, System.Text.Rune, System.HashCode, System.ArgumentException, System.ArgumentNullException, System.ArgumentOutOfRangeException, System.ObjectDisposedException, System.Math, System.Text.Unicode.Utf8, System.Int32, System.Byte, System.SByte, System.Int16, System.UInt16, System.UInt32, System.Int64, System.UInt64, System.Int128, System.UInt128, System.Single, System.Double, System.Decimal, System.Boolean, System.Nullable`1, System.ReadOnlyMemory`1, System.Collections.Immutable.ImmutableArray`1, System.Threading.CancellationToken
+# (HotPathScope.AllowListAddsNonAllocatingValueTypes). A name, a dot and a
+# member's metadata name admits that member and its overloads, and nothing else
+# of its type (ADR 0064, amended 2026-09-30); a property is named by its
+# accessor, get_Length, and an indexer by get_Item. ImmutableArray`1 and
+# CancellationToken are admitted that way, by the members that do not allocate
+# (HotPathScope.ImmutableArrayAndCancellationTokenByMember).
+varve_hot_path_allowed_types = System.Span`1, System.ReadOnlySpan`1, System.Runtime.InteropServices.MemoryMarshal, System.Buffers.Binary.BinaryPrimitives, System.Runtime.CompilerServices.Unsafe, System.Buffers.ArrayPool`1, System.Numerics.Vector*, System.Runtime.Intrinsics.Vector*, System.Index, System.Range, System.MemoryExtensions, System.Text.Rune, System.HashCode, System.ArgumentException, System.ArgumentNullException, System.ArgumentOutOfRangeException, System.ObjectDisposedException, System.Math, System.Text.Unicode.Utf8, System.Int32, System.Byte, System.SByte, System.Int16, System.UInt16, System.UInt32, System.Int64, System.UInt64, System.Int128, System.UInt128, System.Single, System.Double, System.Decimal, System.Boolean, System.Nullable`1, System.ReadOnlyMemory`1, System.Collections.Immutable.ImmutableArray`1.get_Item, System.Collections.Immutable.ImmutableArray`1.get_Length, System.Collections.Immutable.ImmutableArray`1.get_IsEmpty, System.Collections.Immutable.ImmutableArray`1.get_IsDefault, System.Collections.Immutable.ImmutableArray`1.get_IsDefaultOrEmpty, System.Collections.Immutable.ImmutableArray`1.AsSpan, System.Collections.Immutable.ImmutableArray`1.AsMemory, System.Collections.Immutable.ImmutableArray`1.GetEnumerator, System.Threading.CancellationToken.get_IsCancellationRequested, System.Threading.CancellationToken.get_CanBeCanceled, System.Threading.CancellationToken.ThrowIfCancellationRequested
 
 # --- the RDF vocabulary -----------------------------------------------------
 # A triple is a subject, a predicate and an object. CA1720 objects to the

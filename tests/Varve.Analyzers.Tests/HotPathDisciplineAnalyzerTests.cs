@@ -507,6 +507,99 @@ public class HotPathDisciplineAnalyzerTests
         return test.RunAsync(TestContext.Current.CancellationToken);
     }
 
+    private static Task CleanWith(string allowList, string source) =>
+        new HotPathTest<A>(source, allowList).RunAsync(TestContext.Current.CancellationToken);
+
+    private static Task ReportsWith(string allowList, string source, string owner, string callee)
+    {
+        HotPathTest<A> test = new(source, allowList);
+        test.ExpectedDiagnostics.Add(new DiagnosticResult(VarveDiagnostics.HotPathDiscipline)
+            .WithLocation(0)
+            .WithArguments(owner, F(A.CallsColdMember, callee), F(A.CallsColdMemberDecide, callee)));
+        return test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public Task A_member_on_the_allow_list_is_clean() => CleanWith("System.Math.Abs", $$"""
+        internal sealed class C
+        {
+            {{Mark}}
+            public int M(int a) => System.Math.Abs(a);
+        }
+        """);
+
+    [Fact]
+    public Task A_member_entry_admits_that_member_and_not_the_rest_of_its_type() => ReportsWith("System.Math.Abs", $$"""
+        internal sealed class C
+        {
+            {{Mark}}
+            public int M(int a, int b) => {|#0:System.Math.Max(a, b)|};
+        }
+        """, "C.M(int, int)", "Math.Max(int, int)");
+
+    [Fact]
+    public Task A_member_entry_admits_every_overload_of_that_name() => CleanWith("System.Math.Abs", $$"""
+        internal sealed class C
+        {
+            {{Mark}}
+            public long M(int a, long b) => System.Math.Abs(a) + System.Math.Abs(b);
+        }
+        """);
+
+    [Fact]
+    public Task A_type_entry_still_admits_every_member() => CleanWith("System.Math", $$"""
+        internal sealed class C
+        {
+            {{Mark}}
+            public int M(int a, int b) => System.Math.Max(System.Math.Abs(a), b);
+        }
+        """);
+
+    [Fact]
+    public Task A_property_is_listed_by_the_accessor_the_access_calls() => CleanWith("System.Collections.Immutable.ImmutableArray`1.get_Length, System.Collections.Immutable.ImmutableArray`1.get_Item", $$"""
+        internal sealed class C
+        {
+            {{Mark}}
+            public int M(System.Collections.Immutable.ImmutableArray<int> a) => a.Length == 0 ? 0 : a[0];
+        }
+        """);
+
+    [Fact]
+    public Task An_indexer_is_listed_as_get_Item_and_nothing_else_admits_it() => ReportsWith("System.Collections.Immutable.ImmutableArray`1.get_Length", $$"""
+        internal sealed class C
+        {
+            {{Mark}}
+            public int M(System.Collections.Immutable.ImmutableArray<int> a) => a.Length == 0 ? 0 : {|#0:a[0]|};
+        }
+        """, "C.M(ImmutableArray<int>)", "ImmutableArray<int>.this[int]");
+
+    [Fact]
+    public Task A_listed_getter_does_not_admit_the_setter() => ReportsWith("System.Text.StringBuilder.get_Length", $$"""
+        internal sealed class C
+        {
+            {{Mark}}
+            public void M(System.Text.StringBuilder text) => {|#0:text.Length|} = 0;
+        }
+        """, "C.M(StringBuilder)", "StringBuilder.Length");
+
+    [Fact]
+    public Task A_compound_assignment_calls_both_accessors_and_needs_both() => ReportsWith("System.Text.StringBuilder.get_Length", $$"""
+        internal sealed class C
+        {
+            {{Mark}}
+            public void M(System.Text.StringBuilder text) => {|#0:text.Length|} -= 1;
+        }
+        """, "C.M(StringBuilder)", "StringBuilder.Length");
+
+    [Fact]
+    public Task A_compound_assignment_with_both_accessors_listed_is_clean() => CleanWith("System.Text.StringBuilder.get_Length, System.Text.StringBuilder.set_Length", $$"""
+        internal sealed class C
+        {
+            {{Mark}}
+            public void M(System.Text.StringBuilder text) => text.Length -= 1;
+        }
+        """);
+
     [Fact]
     public Task An_array_length_is_an_instruction_and_not_a_call() => Clean($$"""
         internal sealed class C

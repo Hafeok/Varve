@@ -32,6 +32,10 @@ marked with that date:
   the package ships a rule for the keyword, under *`BannedSymbols.txt`
   additions*.
 
+**Amended 2026-09-30** (ADR [0068](0068-dated-amendments.md)), by one block
+under *`VARVE0003` — hot-path discipline*: the allow-list names members as
+well as types.
+
 **Superseded in part by [0069](0069-model-namespaces-for-layers-3-to-5.md)**
 (filed 2026-09-29, accepted 2026-09-30): two
 bullets of *Not model namespaces*. `Varve.Sparql.Evaluation.Model` and
@@ -216,6 +220,37 @@ a BCL member on the allow-list: `Span<T>`, `ReadOnlySpan<T>`, `MemoryMarshal`,
 configuration (`varve_hot_path_allowed_types` in `.editorconfig`), not code. A
 call from a hot path to an ordinary Varve member is the error that keeps the
 two worlds apart.
+
+> **Amended 2026-09-30** (on the maintainer's decision, closing
+> [#56](https://github.com/Hafeok/Varve/issues/56)). **The allow-list names
+> members as well as types.** An entry that is a type's full metadata name
+> admits every member of the type, as before. An entry that is that name, a dot
+> and a member's metadata name admits that member and its overloads, and
+> nothing else of its type. A trailing `*` is a prefix for either. A property
+> is named by the accessor an access runs, `get_Length` or `set_Length`, and a
+> compound assignment or an increment runs both, so both must be listed. An
+> indexer's accessors are `get_Item` and `set_Item`. An entry is matched
+> against the callee's original definition, so one entry covers a generic
+> type's member for every type argument.
+>
+> **Why.** Some BCL types are safe to call from a hot path through some members
+> and not others. `ImmutableArray<T>`'s indexer, `Length` and `AsSpan` read the
+> array it wraps, while its `ToArray`, `Add` and enumeration through
+> `IEnumerable<T>` allocate. `CancellationToken.ThrowIfCancellationRequested`
+> reads a flag, while `Register` allocates a registration. Admitting such a
+> type as a whole lets a hot path call its allocating members unchecked, and
+> the only record of which ones it must not call was a decision's wording,
+> which no build reads. Naming members puts that line in the configuration the
+> rule enforces.
+>
+> **Cost.** Existing entries keep their meaning, so no configuration breaks.
+> The entries are longer, and a member the BCL renames or adds needs a new
+> entry: an unlisted member is reported, which is the safe direction. This
+> adds to how the list is written; what the rule decides, that a hot path
+> calls only `[HotPath]` code or listed BCL code, is unchanged.
+>
+> The ruling enters the ledger as
+> `VarveConfigurationAndHotPathRules.AllowListNamesMembers`, dated 2026-09-30.
 
 ### `VARVE0004` — hot-path signature (tier 1, error)
 

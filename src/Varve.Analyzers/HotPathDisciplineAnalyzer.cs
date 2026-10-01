@@ -28,8 +28,8 @@ namespace Varve.Analyzers;
 /// collection expressions included; string concatenation and interpolation; a
 /// <c>params</c> call that builds an array; LINQ; <c>foreach</c> over an
 /// enumerator that is not a struct; <c>async</c>; and a call to a member that
-/// is not <c>[HotPath]</c>, unless its type is a BCL type on the allow-list in
-/// <c>varve_hot_path_allowed_types</c>.
+/// is not <c>[HotPath]</c>, unless it or its type is a BCL member or type on
+/// the allow-list in <c>varve_hot_path_allowed_types</c>.
 /// </para>
 /// <para>
 /// Two things are deliberately not findings. A <c>throw</c> expression and
@@ -433,7 +433,7 @@ public sealed class HotPathDisciplineAnalyzer : DiagnosticAnalyzer
 
     private static void CheckCallee(OperationAnalysisContext context, ISymbol owner, ISymbol callee, IOperation at, AllowList allowed)
     {
-        if (IsCallableFromHotPath(callee, allowed))
+        if (IsCallableFromHotPath(callee, at, allowed))
         {
             return;
         }
@@ -442,7 +442,7 @@ public sealed class HotPathDisciplineAnalyzer : DiagnosticAnalyzer
         Report(context.ReportDiagnostic, at.Syntax.GetLocation(), owner, Format(CallsColdMember, name), Format(CallsColdMemberDecide, name));
     }
 
-    private static bool IsCallableFromHotPath(ISymbol callee, AllowList allowed)
+    private static bool IsCallableFromHotPath(ISymbol callee, IOperation at, AllowList allowed)
     {
         ISymbol definition = callee.OriginalDefinition;
 
@@ -471,7 +471,51 @@ public sealed class HotPathDisciplineAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        return false;
+        return definition.ContainingType is { } containing
+            && allowed.AllowsMembers(containing, CalledMembers(definition, at));
+    }
+
+    /// <summary>
+    /// The metadata names of what the access at <paramref name="at"/> runs in
+    /// <paramref name="definition"/>: the method itself, or a property's
+    /// getter, setter, or both for a compound assignment or an increment.
+    /// </summary>
+    private static ImmutableArray<string> CalledMembers(ISymbol definition, IOperation at)
+    {
+        if (definition is not IPropertySymbol property)
+        {
+            return [definition.MetadataName];
+        }
+
+        bool reads = true;
+        bool writes = false;
+
+        switch (at.Parent)
+        {
+            case ISimpleAssignmentOperation simple when simple.Target == at:
+                reads = false;
+                writes = true;
+                break;
+            case ICompoundAssignmentOperation compound when compound.Target == at:
+            case ICoalesceAssignmentOperation coalesce when coalesce.Target == at:
+            case IIncrementOrDecrementOperation:
+                writes = true;
+                break;
+        }
+
+        ImmutableArray<string>.Builder members = ImmutableArray.CreateBuilder<string>(2);
+
+        if (reads)
+        {
+            members.Add(property.GetMethod?.MetadataName ?? "get_" + property.MetadataName);
+        }
+
+        if (writes)
+        {
+            members.Add(property.SetMethod?.MetadataName ?? "set_" + property.MetadataName);
+        }
+
+        return members.ToImmutable();
     }
 
     /// <summary>
