@@ -676,15 +676,20 @@ internal sealed class OrderByOperator(Operator inner, Expr[] keys, bool[] descen
     }
 
     /// <summary>
-    /// The solutions an ORDER BY holds, and their keys in one list, a row's
-    /// keys side by side, so a solution costs its keys and no array of them.
+    /// The solutions an ORDER BY holds, and their keys side by side, so a
+    /// solution costs its keys and no array of them. The keys are in chunks
+    /// that double in size and are never copied: a list would allocate each
+    /// key again at every doubling.
     /// </summary>
     private sealed class SortTable : IComparer<int>
     {
         private readonly Exec _exec;
         private readonly int _width;
         private readonly List<ulong[]> _rows = [];
-        private readonly List<Value> _keys = [];
+        private const int FirstChunk = 16;
+
+        private readonly List<Value[]> _chunks = [];
+        private int _keyCount;
         private bool[] _descending = [];
 
         private SortTable(Exec exec, int width)
@@ -700,7 +705,30 @@ internal sealed class OrderByOperator(Operator inner, Expr[] keys, bool[] descen
         internal void Hold(ulong[] row) => _rows.Add(row);
 
         [DesignDecision(typeof(EvaluationHotPathScope.BlockingOperatorsHoldTheirInput), Scope = ExceptionScope.HotPath)]
-        internal void Hold(Value key) => _keys.Add(key);
+        internal void Hold(Value key)
+        {
+            int at = _keyCount + FirstChunk;
+            int chunk = Chunk(at);
+            if (chunk == _chunks.Count)
+            {
+                _chunks.Add(new Value[FirstChunk << chunk]);
+            }
+
+            _chunks[chunk][at - (FirstChunk << chunk)] = key;
+            _keyCount++;
+        }
+
+        /// <summary>Which chunk key <paramref name="at"/> minus <see cref="FirstChunk"/> is in: chunk n holds 16 × 2ⁿ keys.</summary>
+        [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+        private static int Chunk(int at) => 27 - int.LeadingZeroCount(at);
+
+        [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+        private Value Key(int index)
+        {
+            int at = index + FirstChunk;
+            int chunk = Chunk(at);
+            return _chunks[chunk][at - (FirstChunk << chunk)];
+        }
 
         [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
         internal ulong[] Row(int index) => _rows[index];
@@ -725,7 +753,7 @@ internal sealed class OrderByOperator(Operator inner, Expr[] keys, bool[] descen
         {
             for (int k = 0; k < _width; k++)
             {
-                int c = Semantics.OrderCompare(_exec, _keys[(x * _width) + k], _keys[(y * _width) + k]);
+                int c = Semantics.OrderCompare(_exec, Key((x * _width) + k), Key((y * _width) + k));
                 if (c != 0)
                 {
                     return _descending[k] ? -c : c;
