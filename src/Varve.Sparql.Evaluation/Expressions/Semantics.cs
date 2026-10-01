@@ -33,12 +33,17 @@ internal static class Semantics
     };
 
     /// <summary>A value as a slot: the source's handle when it has the term, else a local term.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static TermRef ToRef(Exec exec, in Value value) => value.Kind switch
     {
         ValueKind.Ref => value.Ref,
         ValueKind.Error => TermRef.Unbound,
-        _ => exec.Intern(AsTerm(exec, value)!),
+        _ => Bind(exec, value),
     };
+
+    /// <summary>A computed value as a slot: the term it is, looked up in the source or interned locally.</summary>
+    [DesignDecision(typeof(EvaluationHotPathScope.TermBuildingExpressionsAllocate), Scope = ExceptionScope.HotPath)]
+    private static TermRef Bind(Exec exec, in Value value) => exec.Intern(AsTerm(exec, value)!);
 
     /// <summary>
     /// The numeric value of a value, by the cheapest route ADR 0050's arm
@@ -298,6 +303,7 @@ internal static class Semantics
     /// <c>&lt;</c> where it orders them, and otherwise by lexical form, datatype
     /// and language, which is where <c>NaN</c> falls.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static int OrderCompare(Exec exec, in Value left, in Value right)
     {
         int lr = Rank(exec, left, out RdfTerm? l);
@@ -330,6 +336,7 @@ internal static class Semantics
         return CompareTerms(exec, l, r);
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static int CompareTerms(Exec exec, RdfTerm l, RdfTerm r)
     {
         switch (l.Kind)
@@ -376,6 +383,7 @@ internal static class Semantics
     }
 
     /// <summary>0 unbound or error, 1 blank node, 2 IRI, 3 literal, 4 triple term.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static int Rank(Exec exec, in Value value, out RdfTerm? term)
     {
         term = null;

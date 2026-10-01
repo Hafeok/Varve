@@ -94,7 +94,9 @@ ADR 0064's eight, the non-allocating helpers span code is written with
 (`HotPathScope.AllowListAddsNonAllocatingBclHelpers`), the value types
 (`HotPathScope.AllowListAddsNonAllocatingValueTypes`), and the members of
 `ImmutableArray<T>` and `CancellationToken` that do not allocate
-(`HotPathScope.ImmutableArrayAndCancellationTokenByMember`). The list is
+(`HotPathScope.ImmutableArrayAndCancellationTokenByMember`), and
+`IEnumerator`'s `MoveNext`, `IEnumerator<T>`'s `Current` and `List<T>`'s indexer
+and `Count` (`HotPathScope.AllowListAddsEnumeratorAndListReads`). The list is
 configuration, not code
 (`VarveConfigurationAndHotPathRules.HotPathAllowListIsConfiguration`): **unset
 means empty**, so the rule allows nothing the repository did not write down. A

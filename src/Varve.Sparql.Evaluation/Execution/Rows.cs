@@ -77,6 +77,7 @@ internal static class Rows
     }
 
     /// <summary>The merge of two compatible solutions: each slot from whichever binds it.</summary>
+    [DesignDecision(typeof(EvaluationHotPathScope.SolutionCostsItsRow), Scope = ExceptionScope.HotPath)]
     internal static ulong[] Merge(int width, ulong[] left, ulong[] right)
     {
         ulong[] merged = Copy(left);

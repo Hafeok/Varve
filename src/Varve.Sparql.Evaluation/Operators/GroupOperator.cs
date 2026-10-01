@@ -5,6 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Sparql.Algebra;
 using Varve.Sparql.Evaluation.Execution;
@@ -14,16 +16,17 @@ using Varve.Xsd;
 namespace Varve.Sparql.Evaluation.Operators;
 
 /// <summary>A group key: its expression, and the slot its value goes to.</summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal sealed record GroupKeySpec(Expr Expression, int Slot);
 
 /// <summary>An aggregate extracted from above a <c>Group</c> (ADR 0053), and the hidden slot its value goes to.</summary>
 internal sealed record AggregateSpec(
-    AggregateFunction Function,
-    Expr? Argument,
+    [property: HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))] AggregateFunction Function,
+    [property: HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))] Expr? Argument,
     bool Distinct,
     string Separator,
     IExtensionAggregate? Custom,
-    int Slot);
+    [property: HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))] int Slot);
 
 /// <summary>
 /// §18.5.1 <c>Group</c> and <c>Aggregation</c> (ADR 0053): hash grouping by
@@ -31,32 +34,26 @@ internal sealed record AggregateSpec(
 /// errors per the ADR's table, no spilling. The output binds the keys that
 /// have variables and the aggregates' slots, and nothing else.
 /// </summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal sealed class GroupOperator(Operator inner, GroupKeySpec[] keys, List<AggregateSpec> aggregates) : Operator
 {
     internal override IEnumerator<ulong[]> Open(Exec exec, ulong[] input, ActiveGraph graph)
     {
-        Dictionary<TermRef[], Accumulator[]> groups = new(new KeyComparer(exec));
-        List<(TermRef[] Key, Accumulator[] State)> order = [];
+        GroupTable table = GroupTable.Create(exec, keys.Length);
+        TermRef[] key = table.Probe;
         using (IEnumerator<ulong[]> solutions = inner.Open(exec, input, graph))
         {
             while (solutions.MoveNext())
             {
                 exec.Check();
                 ulong[] row = solutions.Current;
-                TermRef[] key = new TermRef[keys.Length];
                 for (int i = 0; i < keys.Length; i++)
                 {
                     Value value = keys[i].Expression.Eval(exec, row, graph);
                     key[i] = value.IsError ? TermRef.Unbound : Semantics.ToRef(exec, value);
                 }
 
-                if (!groups.TryGetValue(key, out Accumulator[]? state))
-                {
-                    state = Create(exec);
-                    groups.Add(key, state);
-                    order.Add((key, state));
-                }
-
+                Accumulator[] state = table.Find(exec, aggregates);
                 for (int i = 0; i < state.Length; i++)
                 {
                     state[i].Add(exec, row, graph);
@@ -64,19 +61,21 @@ internal sealed class GroupOperator(Operator inner, GroupKeySpec[] keys, List<Ag
             }
         }
 
-        if (order.Count == 0 && keys.Length == 0)
+        if (table.Count == 0 && keys.Length == 0)
         {
-            order.Add(([], Create(exec)));
+            table.Find(exec, aggregates);
         }
 
-        foreach ((TermRef[] key, Accumulator[] state) in order)
+        for (int g = 0; g < table.Count; g++)
         {
+            TermRef[] found = table.Key(g);
+            Accumulator[] state = table.State(g);
             ulong[] output = exec.NewRow();
             for (int i = 0; i < keys.Length; i++)
             {
-                if (keys[i].Slot >= 0 && key[i].IsBound)
+                if (keys[i].Slot >= 0 && found[i].IsBound)
                 {
-                    Rows.Set(output, exec.Width, keys[i].Slot, key[i]);
+                    Rows.Set(output, exec.Width, keys[i].Slot, found[i]);
                 }
             }
 
@@ -93,15 +92,56 @@ internal sealed class GroupOperator(Operator inner, GroupKeySpec[] keys, List<Ag
         }
     }
 
-    private Accumulator[] Create(Exec exec)
+    /// <summary>
+    /// The groups of one Open, in the order they were first met. A solution's
+    /// key is worked out in <see cref="Probe"/>, which is copied only for a
+    /// group not seen before: a solution of a known group costs no array.
+    /// </summary>
+    private sealed class GroupTable
     {
-        Accumulator[] state = new Accumulator[aggregates.Count];
-        for (int i = 0; i < state.Length; i++)
+        private readonly Dictionary<TermRef[], Accumulator[]> _groups;
+        private readonly List<TermRef[]> _keys = [];
+        private readonly List<Accumulator[]> _states = [];
+
+        private GroupTable(Exec exec, int width)
         {
-            state[i] = new Accumulator(exec, aggregates[i]);
+            _groups = new Dictionary<TermRef[], Accumulator[]>(new KeyComparer(exec));
+            Probe = new TermRef[width];
         }
 
-        return state;
+        /// <summary>The key being looked up, written in place for each solution.</summary>
+        internal TermRef[] Probe { get; }
+
+        internal int Count => _keys.Count;
+
+        [DesignDecision(typeof(AggregationByHashGroupingAndAccumulators.HashAggregationWithoutSpill), Scope = ExceptionScope.HotPath)]
+        internal static GroupTable Create(Exec exec, int width) => new(exec, width);
+
+        internal TermRef[] Key(int group) => _keys[group];
+
+        internal Accumulator[] State(int group) => _states[group];
+
+        /// <summary>The accumulators of <see cref="Probe"/>'s group, made when it is new.</summary>
+        [DesignDecision(typeof(AggregationByHashGroupingAndAccumulators.HashAggregationWithoutSpill), Scope = ExceptionScope.HotPath)]
+        internal Accumulator[] Find(Exec exec, List<AggregateSpec> aggregates)
+        {
+            if (_groups.TryGetValue(Probe, out Accumulator[]? state))
+            {
+                return state;
+            }
+
+            TermRef[] key = (TermRef[])Probe.Clone();
+            state = new Accumulator[aggregates.Count];
+            for (int i = 0; i < state.Length; i++)
+            {
+                state[i] = new Accumulator(exec, aggregates[i]);
+            }
+
+            _groups.Add(key, state);
+            _keys.Add(key);
+            _states.Add(state);
+            return state;
+        }
     }
 
     private sealed class KeyComparer(Exec exec) : IEqualityComparer<TermRef[]>
@@ -144,6 +184,7 @@ internal sealed class GroupOperator(Operator inner, GroupKeySpec[] keys, List<Ag
         private readonly HashSet<ulong[]>? _distinctRows;
         private readonly IAggregateAccumulator? _custom;
         private readonly List<byte> _text = [];
+        private readonly byte[] _separator;
         private long _count;
         private XsdNumeric _sum = XsdNumeric.FromInteger(XsdInteger.Zero);
         private bool _failed;
@@ -172,6 +213,7 @@ internal sealed class GroupOperator(Operator inner, GroupKeySpec[] keys, List<Ag
             }
 
             _custom = spec.Custom?.CreateAccumulator(spec.Distinct);
+            _separator = Encoding.UTF8.GetBytes(spec.Separator);
         }
 
         internal void Add(Exec exec, ulong[] row, ActiveGraph graph)
@@ -179,7 +221,7 @@ internal sealed class GroupOperator(Operator inner, GroupKeySpec[] keys, List<Ag
             if (_spec.Argument is null)
             {
                 // COUNT(*): solutions, or distinct solutions.
-                if (_distinctRows is null || _distinctRows.Add(row))
+                if (_distinctRows is null || FirstTime(_distinctRows, row))
                 {
                     _count++;
                 }
@@ -199,7 +241,7 @@ internal sealed class GroupOperator(Operator inner, GroupKeySpec[] keys, List<Ag
                 return;
             }
 
-            if (_distinct is not null && !_distinct.Add(Semantics.ToRef(exec, value)))
+            if (_distinct is not null && !FirstTime(_distinct, Semantics.ToRef(exec, value)))
             {
                 return;
             }
@@ -253,17 +295,35 @@ internal sealed class GroupOperator(Operator inner, GroupKeySpec[] keys, List<Ag
 
                     if (_any)
                     {
-                        _text.AddRange(Encoding.UTF8.GetBytes(_spec.Separator));
+                        Append(_separator);
                     }
 
-                    _text.AddRange(term.Lexical);
+                    Append(term.Lexical);
                     _any = true;
                     break;
                 case AggregateFunction.Custom:
-                    _custom!.Add(Semantics.AsTerm(exec, value)!);
+                    AddCustom(Semantics.AsTerm(exec, value)!);
                     break;
             }
         }
+
+        /// <summary>Whether a DISTINCT aggregate meets this value, or COUNT(DISTINCT *) this solution, for the first time.</summary>
+        [DesignDecision(typeof(EvaluationHotPathScope.BlockingOperatorsHoldTheirInput), Scope = ExceptionScope.HotPath)]
+        private static bool FirstTime<T>(HashSet<T> seen, T item) => seen.Add(item);
+
+        /// <summary>GROUP_CONCAT's text, which grows with the group.</summary>
+        [DesignDecision(typeof(EvaluationHotPathScope.BlockingOperatorsHoldTheirInput), Scope = ExceptionScope.HotPath)]
+        private void Append(ReadOnlySpan<byte> bytes) => _text.AddRange(bytes);
+
+        [DesignDecision(typeof(EvaluationHotPathScope.ExtensionFunctionsAreTheCallersCode), Scope = ExceptionScope.HotPath)]
+        private void AddCustom(RdfTerm term) => _custom!.Add(term);
+
+        [DesignDecision(typeof(EvaluationHotPathScope.ExtensionFunctionsAreTheCallersCode), Scope = ExceptionScope.HotPath)]
+        private Value CustomResult() => _custom!.TryGetResult(out RdfTerm? result) ? Value.Of(result) : Value.Error;
+
+        /// <summary>GROUP_CONCAT's literal, made once per group.</summary>
+        [DesignDecision(typeof(EvaluationHotPathScope.TermBuildingExpressionsAllocate), Scope = ExceptionScope.HotPath)]
+        private Value Concatenated() => Value.Of(RdfTerm.Literal(_text.ToArray()));
 
         internal Value Result(Exec exec)
         {
@@ -292,9 +352,9 @@ internal sealed class GroupOperator(Operator inner, GroupKeySpec[] keys, List<Ag
                 case AggregateFunction.Sample:
                     return _failed || !_any ? Value.Error : _best;
                 case AggregateFunction.GroupConcat:
-                    return _failed ? Value.Error : Value.Of(RdfTerm.Literal(_text.ToArray()));
+                    return _failed ? Value.Error : Concatenated();
                 default:
-                    return _custom!.TryGetResult(out RdfTerm? result) ? Value.Of(result) : Value.Error;
+                    return CustomResult();
             }
         }
     }

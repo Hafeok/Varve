@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Sparql.Evaluation.Execution;
 using Varve.Sparql.Evaluation.Expressions;
@@ -12,8 +14,11 @@ using Varve.Xsd;
 namespace Varve.Sparql.Evaluation.Operators;
 
 /// <summary>§18.5 <c>Join</c> (<c>sparql-evaluation.md</c> §6.2).</summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal sealed class JoinOperator(Operator left, Operator right) : Operator
 {
+    private int[]? _keys;
+
     internal Operator Left { get; } = left;
 
     internal Operator Right { get; } = right;
@@ -49,13 +54,15 @@ internal sealed class JoinOperator(Operator left, Operator right) : Operator
     /// <summary>The right evaluated once, alone, into a table keyed on the variables both sides certainly bind.</summary>
     private IEnumerator<ulong[]> HashJoin(Exec exec, ulong[] input, ActiveGraph graph)
     {
-        JoinTable table = JoinTable.Build(exec, Right.Open(exec, input, graph), Keys(Left, Right));
+        JoinTable table = JoinTable.Build(exec, Right.Open(exec, input, graph), _keys ??= Keys(Left, Right));
         using IEnumerator<ulong[]> lefts = Left.Open(exec, input, graph);
         while (lefts.MoveNext())
         {
             ulong[] left = lefts.Current;
-            foreach (ulong[] right in table.Candidates(left))
+            List<ulong[]>? candidates = table.Candidates(left);
+            for (int i = 0; candidates is not null && i < candidates.Count; i++)
             {
+                ulong[] right = candidates[i];
                 if (Rows.Compatible(exec, left, right))
                 {
                     exec.Check();
@@ -65,6 +72,8 @@ internal sealed class JoinOperator(Operator left, Operator right) : Operator
         }
     }
 
+    /// <summary>The slots both sides certainly bind; worked out once per operator, on its first hash join.</summary>
+    [DesignDecision(typeof(EvaluationHotPathScope.OperatorStateIsMadeOncePerExecution), Scope = ExceptionScope.HotPath)]
     internal static int[] Keys(Operator left, Operator right)
     {
         List<int> keys = [];
@@ -83,7 +92,6 @@ internal sealed class JoinOperator(Operator left, Operator right) : Operator
 /// <summary>A materialised side of a join, hashed on key slots every row binds.</summary>
 internal sealed class JoinTable
 {
-    private readonly List<ulong[]> _rows = [];
     private readonly Dictionary<ulong[], List<ulong[]>>? _buckets;
 
     private JoinTable(Exec exec, int[] keys)
@@ -94,10 +102,12 @@ internal sealed class JoinTable
         }
     }
 
-    internal int Count => _rows.Count;
+    internal int Count => Rows.Count;
 
-    internal IReadOnlyList<ulong[]> Rows => _rows;
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal List<ulong[]> Rows { get; } = [];
 
+    [DesignDecision(typeof(EvaluationHotPathScope.BlockingOperatorsHoldTheirInput), Scope = ExceptionScope.HotPath)]
     internal static JoinTable Build(Exec exec, IEnumerator<ulong[]> source, int[] keys)
     {
         JoinTable table = new(exec, keys);
@@ -106,7 +116,7 @@ internal sealed class JoinTable
             while (source.MoveNext())
             {
                 exec.Check();
-                table._rows.Add(source.Current);
+                table.Rows.Add(source.Current);
                 if (table._buckets is not null)
                 {
                     if (!table._buckets.TryGetValue(source.Current, out List<ulong[]>? bucket))
@@ -123,18 +133,21 @@ internal sealed class JoinTable
         return table;
     }
 
-    internal IReadOnlyList<ulong[]> Candidates(ulong[] probe)
+    /// <summary>The rows that may join <paramref name="probe"/>, or null for none.</summary>
+    [DesignDecision(typeof(EvaluationHotPathScope.BlockingOperatorsHoldTheirInput), Scope = ExceptionScope.HotPath)]
+    internal List<ulong[]>? Candidates(ulong[] probe)
     {
         if (_buckets is null)
         {
-            return _rows;
+            return Rows;
         }
 
-        return _buckets.TryGetValue(probe, out List<ulong[]>? bucket) ? bucket : [];
+        return _buckets.TryGetValue(probe, out List<ulong[]>? bucket) ? bucket : null;
     }
 }
 
 /// <summary>Equality and hashing of solutions on some slots, under the source's term equality.</summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal sealed class RowKeyComparer(Exec exec, int[] slots) : IEqualityComparer<ulong[]>
 {
     public bool Equals(ulong[]? x, ulong[]? y)
@@ -171,8 +184,11 @@ internal sealed class RowKeyComparer(Exec exec, int[] slots) : IEqualityComparer
 }
 
 /// <summary>§18.5 <c>LeftJoin</c> (§6.3).</summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal sealed class LeftJoinOperator(Operator left, Operator right, Expr? condition) : Operator
 {
+    private int[]? _keys;
+
     internal override bool ScansBindGraph => left.ScansBindGraph;
 
     internal override IEnumerator<ulong[]> Open(Exec exec, ulong[] input, ActiveGraph graph) =>
@@ -205,14 +221,16 @@ internal sealed class LeftJoinOperator(Operator left, Operator right, Expr? cond
 
     private IEnumerator<ulong[]> Hashed(Exec exec, ulong[] input, ActiveGraph graph)
     {
-        JoinTable table = JoinTable.Build(exec, right.Open(exec, input, graph), JoinOperator.Keys(left, right));
+        JoinTable table = JoinTable.Build(exec, right.Open(exec, input, graph), _keys ??= JoinOperator.Keys(left, right));
         using IEnumerator<ulong[]> lefts = left.Open(exec, input, graph);
         while (lefts.MoveNext())
         {
             ulong[] l = lefts.Current;
             bool matched = false;
-            foreach (ulong[] r in table.Candidates(l))
+            List<ulong[]>? candidates = table.Candidates(l);
+            for (int i = 0; candidates is not null && i < candidates.Count; i++)
             {
+                ulong[] r = candidates[i];
                 if (!Rows.Compatible(exec, l, r))
                 {
                     continue;
@@ -238,6 +256,7 @@ internal sealed class LeftJoinOperator(Operator left, Operator right, Expr? cond
 }
 
 /// <summary>§18.5 <c>Filter</c> (§6.4): true passes, false and error do not.</summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal sealed class FilterOperator(Expr condition, Operator inner) : Operator
 {
     internal override bool ScansBindGraph => inner.ScansBindGraph;
@@ -257,6 +276,7 @@ internal sealed class FilterOperator(Expr condition, Operator inner) : Operator
 }
 
 /// <summary>§18.5 <c>Union</c> (§6.5).</summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal sealed class UnionOperator(Operator left, Operator right) : Operator
 {
     internal override bool Substitutable => left.Substitutable && right.Substitutable;
@@ -282,18 +302,24 @@ internal sealed class UnionOperator(Operator left, Operator right) : Operator
 }
 
 /// <summary>§18.5 <c>Minus</c> (§6.6): removed only by a compatible solution sharing a bound variable.</summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal sealed class MinusOperator(Operator left, Operator right) : Operator
 {
+    /// <summary>MINUS compares each left solution with every right one: its table is not keyed.</summary>
+    private readonly int[] _noKeys = [];
+
     internal override IEnumerator<ulong[]> Open(Exec exec, ulong[] input, ActiveGraph graph)
     {
-        JoinTable removals = JoinTable.Build(exec, right.Open(exec, exec.NewRow(), graph), []);
+        JoinTable removals = JoinTable.Build(exec, right.Open(exec, exec.NewRow(), graph), _noKeys);
+        List<ulong[]> rows = removals.Rows;
         using IEnumerator<ulong[]> lefts = left.Open(exec, input, graph);
         while (lefts.MoveNext())
         {
             ulong[] l = lefts.Current;
             bool removed = false;
-            foreach (ulong[] r in removals.Rows)
+            for (int i = 0; i < rows.Count; i++)
             {
+                ulong[] r = rows[i];
                 if (Rows.ShareVariable(exec.Width, l, r) && Rows.Compatible(exec, l, r))
                 {
                     removed = true;
@@ -310,6 +336,7 @@ internal sealed class MinusOperator(Operator left, Operator right) : Operator
 }
 
 /// <summary>§18.5 <c>Extend</c> (§6.7): an error leaves the variable unbound and keeps the solution.</summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal sealed class ExtendOperator(Operator inner, int slot, Expr expression) : Operator
 {
     internal override bool ScansBindGraph => inner.ScansBindGraph;
@@ -349,6 +376,7 @@ internal sealed class ExtendOperator(Operator inner, int slot, Expr expression) 
 }
 
 /// <summary><c>VALUES</c> (§6.8): each row compatible with the incoming solution, merged with it.</summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal sealed class ValuesOperator(RdfTerm?[][] rows, int[] slots) : Operator
 {
     private TermRef[][]? _resolved;
@@ -358,22 +386,30 @@ internal sealed class ValuesOperator(RdfTerm?[][] rows, int[] slots) : Operator
 
     internal override IEnumerator<ulong[]> Open(Exec exec, ulong[] input, ActiveGraph graph)
     {
-        if (!ReferenceEquals(_for, exec))
+        if (_for != exec || _resolved is null)
         {
-            _resolved = new TermRef[rows.Length][];
-            for (int i = 0; i < rows.Length; i++)
-            {
-                _resolved[i] = new TermRef[slots.Length];
-                for (int j = 0; j < slots.Length; j++)
-                {
-                    _resolved[i][j] = rows[i][j] is { } term ? exec.Intern(term) : TermRef.Unbound;
-                }
-            }
-
+            _resolved = Resolve(exec);
             _for = exec;
         }
 
-        return Rows(exec, input, _resolved!);
+        return Rows(exec, input, _resolved);
+    }
+
+    /// <summary>The rows' terms as slot values, looked up in this execution's source.</summary>
+    [DesignDecision(typeof(EvaluationHotPathScope.OperatorStateIsMadeOncePerExecution), Scope = ExceptionScope.HotPath)]
+    private TermRef[][] Resolve(Exec exec)
+    {
+        TermRef[][] resolved = new TermRef[rows.Length][];
+        for (int i = 0; i < rows.Length; i++)
+        {
+            resolved[i] = new TermRef[slots.Length];
+            for (int j = 0; j < slots.Length; j++)
+            {
+                resolved[i][j] = rows[i][j] is { } term ? exec.Intern(term) : TermRef.Unbound;
+            }
+        }
+
+        return resolved;
     }
 
     private IEnumerator<ulong[]> Rows(Exec exec, ulong[] input, TermRef[][] resolved)
@@ -414,12 +450,16 @@ internal sealed class ValuesOperator(RdfTerm?[][] rows, int[] slots) : Operator
 /// <c>FILTER(BOUND(?g))</c> inside sees it unbound, and a <c>?g</c> the
 /// pattern itself mentions is its own binding until that join.
 /// </summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal sealed class GraphOperator : Operator
 {
     private readonly Operator _inner;
     private readonly RdfTerm? _name;
     private readonly int _slot;
     private readonly bool _mentioned;
+    private Exec? _for;
+    private TermHandle _named;
+    private bool _isNamed;
 
     internal GraphOperator(Operator inner, RdfTerm? name, int slot, bool mentioned)
     {
@@ -435,12 +475,13 @@ internal sealed class GraphOperator : Operator
     {
         if (_name is not null)
         {
-            if (!exec.Source.TryInternalise(_name, out TermHandle named) || !exec.IsNamedGraph(named))
+            if (_for != exec)
             {
-                return Solutions.Empty;
+                _isNamed = ResolveName(exec, _name, out _named);
+                _for = exec;
             }
 
-            return _inner.Open(exec, input, ActiveGraph.Named(named));
+            return _isNamed ? _inner.Open(exec, input, ActiveGraph.Named(_named)) : Solutions.Empty;
         }
 
         if (input[_slot] != 0)
@@ -452,7 +493,7 @@ internal sealed class GraphOperator : Operator
 
             ulong[] seed = Rows.Copy(input);
             Rows.Clear(seed, exec.Width, _slot);
-            return JoinName(exec, _inner.Open(exec, seed, ActiveGraph.Named(bound)), Rows.Get(input, exec.Width, _slot));
+            return JoinName(exec, seed, ActiveGraph.Named(bound), Rows.Get(input, exec.Width, _slot));
         }
 
         // The scans bind the graph's name themselves only when nothing inside
@@ -462,12 +503,19 @@ internal sealed class GraphOperator : Operator
             : EachGraph(exec, input);
     }
 
+    /// <summary>Whether the GRAPH's IRI names one of the dataset's graphs, and its handle; once per execution.</summary>
+    [DesignDecision(typeof(EvaluationHotPathScope.OperatorStateIsMadeOncePerExecution), Scope = ExceptionScope.HotPath)]
+    private static bool ResolveName(Exec exec, RdfTerm name, out TermHandle named) =>
+        exec.Source.TryInternalise(name, out named) && exec.IsNamedGraph(named);
+
     /// <summary>The pattern once per named graph, the graph's name joined on afterwards.</summary>
     private IEnumerator<ulong[]> EachGraph(Exec exec, ulong[] input)
     {
-        foreach (TermHandle named in exec.NamedGraphs().ToArray())
+        List<TermHandle> graphs = exec.NamedGraphs();
+        for (int i = 0; i < graphs.Count; i++)
         {
-            using IEnumerator<ulong[]> solutions = JoinName(exec, _inner.Open(exec, input, ActiveGraph.Named(named)), exec.FromSource(named));
+            TermHandle named = graphs[i];
+            using IEnumerator<ulong[]> solutions = JoinName(exec, input, ActiveGraph.Named(named), exec.FromSource(named));
             while (solutions.MoveNext())
             {
                 yield return solutions.Current;
@@ -475,9 +523,10 @@ internal sealed class GraphOperator : Operator
         }
     }
 
-    private IEnumerator<ulong[]> JoinName(Exec exec, IEnumerator<ulong[]> solutions, TermRef name)
+    /// <summary>The pattern in one graph, the graph's name joined on.</summary>
+    private IEnumerator<ulong[]> JoinName(Exec exec, ulong[] input, ActiveGraph graph, TermRef name)
     {
-        using (solutions)
+        using (IEnumerator<ulong[]> solutions = _inner.Open(exec, input, graph))
         {
             while (solutions.MoveNext())
             {
@@ -505,6 +554,7 @@ internal sealed class GraphOperator : Operator
 /// projected variables on the way in, and the output restricted on the way out,
 /// because a sub-<c>SELECT</c>'s other variables are not the outer query's.
 /// </summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal sealed class ProjectOperator(Operator inner, int[] slots) : Operator
 {
     internal override IEnumerator<ulong[]> Open(Exec exec, ulong[] input, ActiveGraph graph)
@@ -533,9 +583,26 @@ internal sealed class ProjectOperator(Operator inner, int[] slots) : Operator
 }
 
 /// <summary>§18.5 <c>Distinct</c>; <c>Reduced</c> is evaluated the same, as §15.3.2 permits.</summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal sealed class DistinctOperator(Operator inner) : Operator
 {
     internal override IEnumerator<ulong[]> Open(Exec exec, ulong[] input, ActiveGraph graph)
+    {
+        HashSet<ulong[]> seen = NewSeen(exec);
+        using IEnumerator<ulong[]> solutions = inner.Open(exec, input, graph);
+        while (solutions.MoveNext())
+        {
+            exec.Check();
+            if (FirstTime(seen, solutions.Current))
+            {
+                yield return solutions.Current;
+            }
+        }
+    }
+
+    /// <summary>The set of the solutions yielded so far, keyed on every slot.</summary>
+    [DesignDecision(typeof(EvaluationHotPathScope.BlockingOperatorsHoldTheirInput), Scope = ExceptionScope.HotPath)]
+    internal static HashSet<ulong[]> NewSeen(Exec exec)
     {
         int[] all = new int[exec.Width];
         for (int i = 0; i < all.Length; i++)
@@ -543,20 +610,15 @@ internal sealed class DistinctOperator(Operator inner) : Operator
             all[i] = i;
         }
 
-        HashSet<ulong[]> seen = new(new RowKeyComparer(exec, all));
-        using IEnumerator<ulong[]> solutions = inner.Open(exec, input, graph);
-        while (solutions.MoveNext())
-        {
-            exec.Check();
-            if (seen.Add(solutions.Current))
-            {
-                yield return solutions.Current;
-            }
-        }
+        return new HashSet<ulong[]>(new RowKeyComparer(exec, all));
     }
+
+    [DesignDecision(typeof(EvaluationHotPathScope.BlockingOperatorsHoldTheirInput), Scope = ExceptionScope.HotPath)]
+    private static bool FirstTime(HashSet<ulong[]> seen, ulong[] row) => seen.Add(row);
 }
 
 /// <summary>§18.5 <c>Slice</c>: the input is not read past the limit.</summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal sealed class SliceOperator(Operator inner, long offset, long? limit) : Operator
 {
     internal override IEnumerator<ulong[]> Open(Exec exec, ulong[] input, ActiveGraph graph)
@@ -586,52 +648,91 @@ internal sealed class SliceOperator(Operator inner, long offset, long? limit) : 
 }
 
 /// <summary>§18.5 <c>OrderBy</c> (§6.1): a stable sort under §7.5's order, each key evaluated once per solution.</summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal sealed class OrderByOperator(Operator inner, Expr[] keys, bool[] descending) : Operator
 {
     internal override IEnumerator<ulong[]> Open(Exec exec, ulong[] input, ActiveGraph graph)
     {
-        List<ulong[]> rows = [];
-        List<Value[]> values = [];
+        SortTable table = SortTable.Create(exec, keys.Length);
         using (IEnumerator<ulong[]> solutions = inner.Open(exec, input, graph))
         {
             while (solutions.MoveNext())
             {
                 exec.Check();
                 ulong[] row = solutions.Current;
-                Value[] key = new Value[keys.Length];
+                table.Hold(row);
                 for (int i = 0; i < keys.Length; i++)
                 {
-                    key[i] = SortKey(exec, keys[i].Eval(exec, row, graph));
+                    table.Hold(SortKey(exec, keys[i].Eval(exec, row, graph)));
                 }
-
-                rows.Add(row);
-                values.Add(key);
             }
         }
 
-        int[] order = new int[rows.Count];
+        int[] order = table.Sort(descending);
         for (int i = 0; i < order.Length; i++)
         {
-            order[i] = i;
+            yield return table.Row(order[i]);
+        }
+    }
+
+    /// <summary>
+    /// The solutions an ORDER BY holds, and their keys in one list, a row's
+    /// keys side by side, so a solution costs its keys and no array of them.
+    /// </summary>
+    private sealed class SortTable : IComparer<int>
+    {
+        private readonly Exec _exec;
+        private readonly int _width;
+        private readonly List<ulong[]> _rows = [];
+        private readonly List<Value> _keys = [];
+        private bool[] _descending = [];
+
+        private SortTable(Exec exec, int width)
+        {
+            _exec = exec;
+            _width = width;
         }
 
-        Array.Sort(order, (a, b) =>
+        [DesignDecision(typeof(EvaluationHotPathScope.BlockingOperatorsHoldTheirInput), Scope = ExceptionScope.HotPath)]
+        internal static SortTable Create(Exec exec, int width) => new(exec, width);
+
+        [DesignDecision(typeof(EvaluationHotPathScope.BlockingOperatorsHoldTheirInput), Scope = ExceptionScope.HotPath)]
+        internal void Hold(ulong[] row) => _rows.Add(row);
+
+        [DesignDecision(typeof(EvaluationHotPathScope.BlockingOperatorsHoldTheirInput), Scope = ExceptionScope.HotPath)]
+        internal void Hold(Value key) => _keys.Add(key);
+
+        [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+        internal ulong[] Row(int index) => _rows[index];
+
+        /// <summary>The held rows' indices in order: stable, since a tie falls back to the index.</summary>
+        [DesignDecision(typeof(EvaluationHotPathScope.BlockingOperatorsHoldTheirInput), Scope = ExceptionScope.HotPath)]
+        internal int[] Sort(bool[] descending)
         {
-            for (int k = 0; k < keys.Length; k++)
+            int[] order = new int[_rows.Count];
+            for (int i = 0; i < order.Length; i++)
             {
-                int c = Semantics.OrderCompare(exec, values[a][k], values[b][k]);
+                order[i] = i;
+            }
+
+            _descending = descending;
+            Array.Sort(order, this);
+            return order;
+        }
+
+        [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+        public int Compare(int x, int y)
+        {
+            for (int k = 0; k < _width; k++)
+            {
+                int c = Semantics.OrderCompare(_exec, _keys[(x * _width) + k], _keys[(y * _width) + k]);
                 if (c != 0)
                 {
-                    return descending[k] ? -c : c;
+                    return _descending[k] ? -c : c;
                 }
             }
 
-            return a.CompareTo(b);
-        });
-
-        foreach (int index in order)
-        {
-            yield return rows[index];
+            return x.CompareTo(y);
         }
     }
 
@@ -664,17 +765,24 @@ internal sealed class OrderByOperator(Operator inner, Expr[] keys, bool[] descen
             }
         }
 
-        return Value.Of(new TermRef(exec.Locals.Intern(exec.Materialise(value.Ref)), true));
+        return HoldAsLocal(exec, value.Ref);
     }
+
+    /// <summary>A key of the source's held as a local term, so the sort externalises it once.</summary>
+    [DesignDecision(typeof(EvaluationHotPathScope.BlockingOperatorsHoldTheirInput), Scope = ExceptionScope.HotPath)]
+    private static Value HoldAsLocal(Exec exec, TermRef key) =>
+        Value.Of(new TermRef(exec.Locals.Intern(exec.Materialise(key)), true));
 }
 
 /// <summary>Rows already in hand: the answer of a <c>SERVICE</c>, or a test's fixed input.</summary>
-internal sealed class TableOperator(IReadOnlyList<ulong[]> rows) : Operator
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+internal sealed class TableOperator(List<ulong[]> rows) : Operator
 {
     internal override IEnumerator<ulong[]> Open(Exec exec, ulong[] input, ActiveGraph graph)
     {
-        foreach (ulong[] row in rows)
+        for (int i = 0; i < rows.Count; i++)
         {
+            ulong[] row = rows[i];
             if (Rows.Compatible(exec, input, row))
             {
                 yield return Rows.Merge(exec.Width, input, row);

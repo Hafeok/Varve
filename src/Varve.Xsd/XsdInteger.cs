@@ -39,6 +39,7 @@ public readonly struct XsdInteger : IEquatable<XsdInteger>, IComparable<XsdInteg
     public long Value { get; }
 
     /// <summary>Zero.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static XsdInteger Zero => default;
 
     /// <summary>Whether the value is negative.</summary>

@@ -77,6 +77,7 @@ internal sealed class Exec
     /// <summary>The base IRI of the query, for IRI().</summary>
     internal RdfTerm? BaseIri { get; set; }
 
+    [DesignDecision(typeof(EvaluationHotPathScope.SolutionCostsItsRow), Scope = ExceptionScope.HotPath)]
     internal ulong[] NewRow() => new ulong[RowLength];
 
     /// <summary>Throws if cancelled; cheap enough for every solution.</summary>
@@ -230,9 +231,10 @@ internal sealed class Exec
     /// An Extend copied a solution to bind one more variable: it is still the
     /// same solution for BNODE(str), so the memo follows the copy.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal void SameSolution(ulong[] from, ulong[] to)
     {
-        if (ReferenceEquals(from, _blankNodeRow))
+        if (from == _blankNodeRow)
         {
             _blankNodeRow = to;
         }
@@ -277,6 +279,7 @@ internal sealed class Exec
     }
 
     /// <summary>The named graphs of the dataset: the FROM NAMED list, or every graph name the source has, found once.</summary>
+    [DesignDecision(typeof(EvaluationHotPathScope.OperatorStateIsMadeOncePerExecution), Scope = ExceptionScope.HotPath)]
     internal List<TermHandle> NamedGraphs()
     {
         if (NamedGraphList is not null)
@@ -303,13 +306,17 @@ internal sealed class Exec
     }
 
     /// <summary>Whether a graph is one of the dataset's named graphs.</summary>
-    internal bool IsNamedGraph(TermHandle graph)
-    {
-        if (NamedGraphSet is not null)
-        {
-            return NamedGraphSet.Contains(graph);
-        }
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal bool IsNamedGraph(TermHandle graph) =>
+        NamedGraphSet is { } named ? InNamedSet(named, graph) : GraphHasQuads(graph);
 
+    [DesignDecision(typeof(EvaluationHotPathScope.FromNamedIsASetLookup), Scope = ExceptionScope.HotPath)]
+    private static bool InNamedSet(HashSet<TermHandle> named, TermHandle graph) => named.Contains(graph);
+
+    /// <summary>Whether the source has a quad in the graph: a scan of it, stopped at the first.</summary>
+    [DesignDecision(typeof(EvaluationHotPathScope.ScanOpensTheSourcesCursor), Scope = ExceptionScope.HotPath)]
+    private bool GraphHasQuads(TermHandle graph)
+    {
         using IQuadCursor cursor = Source.Match(default, default, default, GraphPattern.Named(graph));
         return cursor.MoveNext();
     }
