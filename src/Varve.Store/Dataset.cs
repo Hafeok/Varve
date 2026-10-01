@@ -27,7 +27,7 @@ public sealed class DatasetOptions
     public required TimeProvider Clock { get; init; }
 
     /// <summary>The most body bytes one record carries; a larger commit is several records (ADR 0013).</summary>
-    public int MaxRecordBytes { get; init; } = 1 << 20;
+    public ByteCount MaxRecordBytes { get; init; } = new(1 << 20);
 
     /// <summary>The size past which the active segment is sealed and a new one begun (ADR 0018).</summary>
     public ByteCount SegmentBytes { get; init; } = new(64L << 20);
@@ -128,11 +128,12 @@ public sealed class Dataset : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(options.Clock);
         ArgumentNullException.ThrowIfNull(options.Validators);
-        ArgumentOutOfRangeException.ThrowIfLessThan(options.MaxRecordBytes, 64);
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.MaxRecordBytes.Value, 64L, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(options.MaxRecordBytes.Value, int.MaxValue, nameof(options));
         ArgumentOutOfRangeException.ThrowIfLessThan(options.SegmentBytes.Value, 1024L, nameof(options));
 
         LogScan scan = await LogReader.ScanAsync(storage.Log, cancellationToken).ConfigureAwait(false);
-        LogWriter writer = await LogWriter.OpenAsync(storage.Log, scan, options.SegmentBytes.Value, options.MaxRecordBytes, cancellationToken).ConfigureAwait(false);
+        LogWriter writer = await LogWriter.OpenAsync(storage.Log, scan, options.SegmentBytes.Value, (int)options.MaxRecordBytes.Value, cancellationToken).ConfigureAwait(false);
         TermDictionary dictionary = new();
 
         CommitInfo[] commits = new CommitInfo[Math.Max(16, scan.Commits.Count)];

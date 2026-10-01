@@ -270,7 +270,7 @@ internal static class Semantics
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static PartialOrdering Order(Exec exec, in Typed a, in Typed b)
     {
-        int tz = exec.Options.ImplicitTimezoneOffsetMinutes;
+        int tz = exec.Options.ImplicitTimezoneMinutes;
         return a.Family switch
         {
             Family.Numeric => XsdNumeric.Compare(a.Numeric, b.Numeric),

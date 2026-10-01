@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Varve.Rdf;
 using Varve.Sparql.Algebra;
 using Varve.Sparql.Evaluation;
+using Varve.Sparql.Evaluation.Model;
 using Varve.Sparql.Store.Model;
 using Varve.Store.Log;
 using Varve.Store;
@@ -328,10 +329,10 @@ internal sealed class RequestExecution
         using QueryResults results = _evaluator.Evaluate(query, source, _cancellationToken);
         SolutionResults solutions = (SolutionResults)results;
 
-        Dictionary<string, int> columns = new(StringComparer.Ordinal);
+        Dictionary<string, ColumnIndex> columns = new(StringComparer.Ordinal);
         for (int i = 0; i < solutions.Variables.Count; i++)
         {
-            columns[solutions.Variables[i].Name] = i;
+            columns[solutions.Variables[i].Name] = new ColumnIndex(i);
         }
 
         // Blank nodes the evaluator minted, by their labels, unique in the execution.
@@ -432,7 +433,7 @@ internal sealed class RequestExecution
     private sealed class Solution(
         RequestExecution owner,
         SolutionResults solutions,
-        Dictionary<string, int> columns,
+        Dictionary<string, ColumnIndex> columns,
         Dictionary<string, TermHandle> minted)
     {
         internal bool TryDelete(QuadPattern pattern, TermHandle defaultGraph, out Quad quad)
@@ -480,7 +481,7 @@ internal sealed class RequestExecution
                     return owner._staging.TryInternalise(constant.Term, out handle);
 
                 case VariablePattern variable:
-                    if (!columns.TryGetValue(variable.Variable.Name, out int column))
+                    if (!columns.TryGetValue(variable.Variable.Name, out ColumnIndex column))
                     {
                         return false;
                     }
@@ -522,7 +523,7 @@ internal sealed class RequestExecution
                     return true;
 
                 case VariablePattern variable:
-                    if (!columns.TryGetValue(variable.Variable.Name, out int column))
+                    if (!columns.TryGetValue(variable.Variable.Name, out ColumnIndex column))
                     {
                         return false;
                     }

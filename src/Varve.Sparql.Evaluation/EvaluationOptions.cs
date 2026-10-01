@@ -31,12 +31,36 @@ public sealed class EvaluationOptions
     public ValueAccess ValueAccess { get; init; } = ValueAccess.InlineAccessor;
 
     /// <summary>
-    /// The implicit timezone of XPath Functions and Operators §10.4, in
-    /// minutes east of UTC, supplied to a dateTime without one when it is
-    /// compared (ADR 0051). Defaults to UTC.
+    /// The implicit timezone of XPath Functions and Operators §10.4, as its
+    /// offset from UTC, supplied to a dateTime without one when it is compared
+    /// (ADR 0051). Defaults to UTC.
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// The offset is not a whole number of minutes, or is outside -14:00 to
+    /// +14:00, the range of an <c>xsd:dateTime</c>'s timezone.
+    /// </exception>
+    public TimeSpan ImplicitTimezoneOffset
+    {
+        get => TimeSpan.FromMinutes(ImplicitTimezoneMinutes);
+        init
+        {
+            if (value.Ticks % TimeSpan.TicksPerMinute != 0 || value < MinimumOffset || value > MaximumOffset)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(value), value, "An implicit timezone is a whole number of minutes from -14:00 to +14:00.");
+            }
+
+            ImplicitTimezoneMinutes = (int)(value.Ticks / TimeSpan.TicksPerMinute);
+        }
+    }
+
+    /// <summary><see cref="ImplicitTimezoneOffset"/> in minutes east of UTC, as the comparisons take it.</summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
-    public int ImplicitTimezoneOffsetMinutes { get; init; }
+    internal int ImplicitTimezoneMinutes { get; private init; }
+
+    private static TimeSpan MinimumOffset => TimeSpan.FromHours(-14);
+
+    private static TimeSpan MaximumOffset => TimeSpan.FromHours(14);
 
     /// <summary>
     /// The clock <c>NOW()</c> reads, once per execution. None by default; the

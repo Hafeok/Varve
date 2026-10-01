@@ -23,6 +23,12 @@ decisions:
     statement: "ServiceResult.Failure and LoadedDocument.Failure are strings: the text a failed SERVICE call or LOAD gives the error a person reads, which nothing compares, parses or routes on, because whether there is a failure is the half a program reads"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-29T00:00:00Z
+  - key: ColumnIndexIsAWrapper
+    statement: "A column of a SELECT's solutions is a ColumnIndex, a readonly record struct over its position in SolutionResults.Variables in Varve.Sparql.Evaluation.Model, and SolutionResults takes it where it took an int"
+  - key: MaxRecordBytesIsAByteCount
+    statement: "DatasetOptions.MaxRecordBytes is a ByteCount, as SegmentBytes is, and opening a dataset refuses one below 64 bytes or above what a record's 32-bit length can carry"
+  - key: ImplicitTimezoneIsATimeSpan
+    statement: "EvaluationOptions.ImplicitTimezoneOffset is a TimeSpan, a whole number of minutes from minus 14 to plus 14 hours, and replaces ImplicitTimezoneOffsetMinutes"
 ---
 
 # Model namespaces for layers 3 to 5
@@ -47,3 +53,10 @@ call or `LOAD` becomes, read by a person; the evaluator acts on whether there
 is a failure, never on its words. Both members cite this with
 `Scope = ExceptionScope.Boundary`. The alternative is a `FailureText` wrapper
 over `string`, which names the text but adds no rule to it.
+
+**`ColumnIndexIsAWrapper`, `MaxRecordBytesIsAByteCount`,
+`ImplicitTimezoneIsATimeSpan`.** Filed by the close of session 3 of #43, on the
+maintainer's decision, unaccepted. They are the rulings of ADR 0069's amendment
+of 2026-10-01. None of the three is in a model namespace, so no `DD` rule
+reported them. The session-3 audit found them on public surfaces. None is cited
+from code; `ColumnIndex`'s remarks name its key.

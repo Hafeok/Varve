@@ -7,6 +7,10 @@
 decision of where each type goes. The maintainer accepted its decision set,
 `ModelNamespacesForLayers3To5`, on 2026-09-29, and this ADR on 2026-09-30.
 
+**Amended 2026-10-01** (ADR [0068](0068-dated-amendments.md)), by one block
+under *The primitives this brings under the model rules*: three more
+primitives on the surfaces of layers 3 and 4 become wrappers or BCL value types.
+
 It **supersedes in part**:
 
 - **ADR [0065](0065-wrapper-types-and-the-store-log-namespace.md)**, one line
@@ -117,6 +121,31 @@ handler reports. Both members cite it with `Scope = ExceptionScope.Boundary`.
 The alternative is a wrapper, a `FailureText` over `string`. Each type holds
 one string, so there is nothing for it to be swapped with, and the wrapper
 would name the text without adding a rule to it.
+
+> **Amended 2026-10-01** (session 3 of #43, on the maintainer's decision).
+> **Three more primitives leave the surfaces.** None is in a declared model
+> namespace's type today, which is why no rule reported them; each is a number
+> with a unit a caller could get wrong.
+>
+> - **`ColumnIndex`** (`ColumnIndexIsAWrapper`) is a `readonly record struct`
+>   over `int` in `Varve.Sparql.Evaluation.Model`, as ADR 0065's wrappers are
+>   (`WrapperOnlyApiDiff` holds: no conversion but the constructor and
+>   `Value`). `SolutionResults.IsBound`, `TryGetHandle` and `TryGetTerm` take
+>   it. A column is a position in `Variables`, and the `int` beside it in a
+>   caller's loop is usually a row count or a slot.
+> - **`DatasetOptions.MaxRecordBytes`** (`MaxRecordBytesIsAByteCount`) is a
+>   `ByteCount`, as `SegmentBytes` beside it already is. `OpenAsync` still
+>   refuses less than 64 bytes, and now also more than `int.MaxValue`, which a
+>   record's length field cannot carry.
+> - **`EvaluationOptions.ImplicitTimezoneOffset`**
+>   (`ImplicitTimezoneIsATimeSpan`) replaces `ImplicitTimezoneOffsetMinutes`,
+>   a `TimeSpan` and not a wrapper: the BCL already has the type for an offset,
+>   and `DateTimeOffset.Offset` is one. Its `init` refuses an offset that is not
+>   a whole number of minutes or is outside −14:00 to +14:00, the range of an
+>   `xsd:dateTime`'s timezone; before, an out-of-range number was accepted and
+>   compared with. The comparisons read the minutes once, from the options.
+>
+> None of the three has shipped (every line is in `PublicAPI.Unshipped.txt`).
 
 ## Alternatives considered
 

@@ -9,8 +9,6 @@ Varve.Sparql.Evaluation.EvaluationOptions.Clock.init -> void
 Varve.Sparql.Evaluation.EvaluationOptions.EvaluationOptions() -> void
 Varve.Sparql.Evaluation.EvaluationOptions.Functions.get -> System.Collections.Generic.IReadOnlyDictionary<string!, Varve.Sparql.Evaluation.IExtensionFunction!>?
 Varve.Sparql.Evaluation.EvaluationOptions.Functions.init -> void
-Varve.Sparql.Evaluation.EvaluationOptions.ImplicitTimezoneOffsetMinutes.get -> int
-Varve.Sparql.Evaluation.EvaluationOptions.ImplicitTimezoneOffsetMinutes.init -> void
 Varve.Sparql.Evaluation.EvaluationOptions.Optimise.get -> bool
 Varve.Sparql.Evaluation.EvaluationOptions.Optimise.init -> void
 Varve.Sparql.Evaluation.EvaluationOptions.Randomness.get -> Varve.Sparql.Evaluation.IRandomSource?
@@ -56,10 +54,7 @@ Varve.Sparql.Evaluation.Model.ServiceResult.IsFailure.get -> bool
 Varve.Sparql.Evaluation.Model.ServiceResult.Solutions.get -> System.Collections.Generic.IEnumerable<System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm?>!>!
 Varve.Sparql.Evaluation.Model.ServiceResult.Variables.get -> System.Collections.Generic.IReadOnlyList<Varve.Sparql.Algebra.Variable>!
 Varve.Sparql.Evaluation.SolutionResults
-Varve.Sparql.Evaluation.SolutionResults.IsBound(int column) -> bool
 Varve.Sparql.Evaluation.SolutionResults.MoveNext() -> bool
-Varve.Sparql.Evaluation.SolutionResults.TryGetHandle(int column, out Varve.Rdf.TermHandle handle) -> bool
-Varve.Sparql.Evaluation.SolutionResults.TryGetTerm(int column, out Varve.Rdf.RdfTerm? term) -> bool
 Varve.Sparql.Evaluation.SolutionResults.Variables.get -> System.Collections.Generic.IReadOnlyList<Varve.Sparql.Algebra.Variable>!
 Varve.Sparql.Evaluation.SparqlEvaluator
 Varve.Sparql.Evaluation.SparqlEvaluator.Evaluate(Varve.Sparql.Algebra.Query! query, Varve.Rdf.IQuadSource! source, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Varve.Sparql.Evaluation.QueryResults!
@@ -81,3 +76,18 @@ static Varve.Sparql.Evaluation.EvaluationOptions.Default.get -> Varve.Sparql.Eva
 static Varve.Sparql.Evaluation.RefusingServiceHandler.Instance.get -> Varve.Sparql.Evaluation.RefusingServiceHandler!
 static Varve.Sparql.Evaluation.Model.ServiceResult.Failed(string! reason) -> Varve.Sparql.Evaluation.Model.ServiceResult!
 static Varve.Sparql.Evaluation.Model.ServiceResult.FromSolutions(System.Collections.Generic.IReadOnlyList<Varve.Sparql.Algebra.Variable>! variables, System.Collections.Generic.IEnumerable<System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm?>!>! solutions) -> Varve.Sparql.Evaluation.Model.ServiceResult!
+Varve.Sparql.Evaluation.Model.ColumnIndex
+Varve.Sparql.Evaluation.Model.ColumnIndex.ColumnIndex() -> void
+static Varve.Sparql.Evaluation.Model.ColumnIndex.operator !=(Varve.Sparql.Evaluation.Model.ColumnIndex left, Varve.Sparql.Evaluation.Model.ColumnIndex right) -> bool
+static Varve.Sparql.Evaluation.Model.ColumnIndex.operator ==(Varve.Sparql.Evaluation.Model.ColumnIndex left, Varve.Sparql.Evaluation.Model.ColumnIndex right) -> bool
+override Varve.Sparql.Evaluation.Model.ColumnIndex.GetHashCode() -> int
+~override Varve.Sparql.Evaluation.Model.ColumnIndex.Equals(object obj) -> bool
+Varve.Sparql.Evaluation.Model.ColumnIndex.Equals(Varve.Sparql.Evaluation.Model.ColumnIndex other) -> bool
+Varve.Sparql.Evaluation.SolutionResults.IsBound(Varve.Sparql.Evaluation.Model.ColumnIndex column) -> bool
+Varve.Sparql.Evaluation.SolutionResults.TryGetHandle(Varve.Sparql.Evaluation.Model.ColumnIndex column, out Varve.Rdf.TermHandle handle) -> bool
+Varve.Sparql.Evaluation.SolutionResults.TryGetTerm(Varve.Sparql.Evaluation.Model.ColumnIndex column, out Varve.Rdf.RdfTerm? term) -> bool
+Varve.Sparql.Evaluation.EvaluationOptions.ImplicitTimezoneOffset.get -> System.TimeSpan
+Varve.Sparql.Evaluation.EvaluationOptions.ImplicitTimezoneOffset.init -> void
+Varve.Sparql.Evaluation.Model.ColumnIndex.ColumnIndex(int value) -> void
+Varve.Sparql.Evaluation.Model.ColumnIndex.Value.get -> int
+override Varve.Sparql.Evaluation.Model.ColumnIndex.ToString() -> string!

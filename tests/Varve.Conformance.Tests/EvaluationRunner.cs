@@ -127,7 +127,7 @@ internal static class EvaluationRunner
                         RdfTerm?[] row = new RdfTerm?[actual.Variables.Count];
                         for (int i = 0; i < row.Length; i++)
                         {
-                            row[i] = solutions.TryGetTerm(i, out RdfTerm? term) ? term : null;
+                            row[i] = solutions.TryGetTerm(new ColumnIndex(i), out RdfTerm? term) ? term : null;
                         }
 
                         actual.Rows.Add(row);
@@ -230,7 +230,7 @@ internal sealed class TestServiceHandler(IReadOnlyList<(string Endpoint, IReadOn
                 RdfTerm?[] row = new RdfTerm?[request.Variables.Count];
                 for (int i = 0; i < row.Length; i++)
                 {
-                    row[i] = results.TryGetTerm(i, out RdfTerm? term) ? term : null;
+                    row[i] = results.TryGetTerm(new ColumnIndex(i), out RdfTerm? term) ? term : null;
                 }
 
                 rows.Add(row);
