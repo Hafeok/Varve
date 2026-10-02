@@ -20,13 +20,25 @@ a projection of it.
 - **A staging view** over a pinned read names terms the dataset does not hold
   yet, so that several changes can be composed over an overlay and
   submitted as one commit — what SPARQL Update's integration does.
+- **On disk or in memory.** `FileStorage` keeps a dataset directory of plain
+  files — `log/`, the source of truth, never rewritten, and `derived/`, which
+  can be deleted and is rebuilt — and flushes every commit to the device.
+  `MemoryStorage` keeps the same bytes in memory. The on-disk format is
+  versioned and read for ever from the first release that writes it.
+- **Recovers from crashes.** A torn or unclosed tail is ignored, a copy taken
+  while the dataset was being written opens at its last closed commit, and
+  damage that no crash produces refuses rather than guesses.
 - **SPARQL-free and SHACL-free.** Reads are through `IQuadSource` from
   `Varve.Rdf`; writes are an ordered list of assertions and retractions over
   terms.
 
 ```csharp
-await using Dataset dataset = await Dataset.OpenAsync(
-    new MemoryStorage(), new DatasetOptions { Clock = TimeProvider.System });
+await using FileStorage storage = await FileStorage.OpenAsync(
+    new DatasetDirectory("my-dataset"), new FileStorageOptions { Clock = TimeProvider.System });
+DatasetOptions options = new() { Clock = TimeProvider.System };
+
+await using Dataset dataset = await Dataset.CreateAsync(storage, new DatasetId(Guid.NewGuid()), options);
+// Later: await Dataset.OpenAsync(storage, options);
 
 CommitResult result = await dataset.CommitAsync(new CommitRequest()
     .Assert(RdfTerm.Iri("http://example.org/s"u8), RdfTerm.Iri("http://example.org/p"u8),
