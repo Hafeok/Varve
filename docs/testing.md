@@ -136,3 +136,32 @@ would otherwise have to remember.
 a gate nobody has tested. `eng/native-assets.cs` is pointed at a real restore
 graph that contains a native asset and at one that does not, and both outcomes
 are asserted.
+
+## 6. Failure injection — for everything that writes to disk
+
+A store that has only been tested on runs that never crashed has been tested on
+the case that does not matter. Milestone 6a makes crashing a gate, the way §2
+makes chunk boundaries one: **every write path is crashed at every operation,
+and every byte of the log's writes**, and the result must open at a closed
+commit no earlier than the last one acknowledged, read exactly as a run that
+never crashed, and continue.
+
+The double is the file system, the one process boundary the store has
+(`IFileSystem`, internal to `Varve.Store`); the file backend runs on it
+unchanged. `tests/Varve.Store.Tests/Faults/SimulatedFileSystem.cs` counts
+operations, crashes at any of them, and builds the image a restart would find,
+under three models stated in ADR 0073:
+
+| Model | What the image keeps |
+|---|---|
+| process crash | everything written; the write in flight cut at any byte |
+| power loss | what was flushed; each later write kept, dropped or torn at a 512-byte sector in any combination, which is any reordering; metadata journaled in order and cut anywhere after the last flush |
+| lost directory entries | as power loss, with metadata cut anywhere at all; consistency is checked, durability is not |
+
+Around those, `FaultInjectionTests` runs crashes during recovery itself,
+`derived/` deleted or replaced by a longer log's after a crash, and copies of
+the directory taken file by file while it is written. Every defect the suite
+finds is fixed with the case kept as a named regression, and the injection
+points are counted and reported. `VARVE_FAULT_SEEDS=<n>` runs the same suites
+over many seeds and longer workloads, which is for hunting rather than for the
+gate, and is not in CI.

@@ -118,7 +118,7 @@ tool's co-author trailer naming the product is not one (ADR 0033, amended
 
 ## `Varve.Store` behaviour
 
-**`docs/spec/log-and-projection-model.md` is the authority** (version 1.3) and
+**`docs/spec/log-and-projection-model.md` is the authority** (version 1.4) and
 beats the brief where they differ. ADRs 0010–0023 record what it presupposes and
 **none is `Proposed`**. The cipher is [0028](docs/adr/0028-deterministic-aead-from-hmac.md),
 superseding 0020, conditional on external review. Vocabulary that must not drift:
@@ -162,7 +162,7 @@ ADR, a rule, a suite and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone 5c. `src/` holds `Varve.Analyzers`, `Varve.Iri` and `Varve.Xsd`
+Milestone 6a. `src/` holds `Varve.Analyzers`, `Varve.Iri` and `Varve.Xsd`
 (0), `Varve.Rdf` (1), `Varve.Turtle`, `Varve.Sparql` and
 `Varve.Sparql.Results` (2), `Varve.Sparql.Evaluation` (3), `Varve.Store` (4)
 and **`Varve.Sparql.Store`** (5). The evaluator answers SPARQL 1.1 queries,
@@ -179,10 +179,17 @@ a work limit (ADR 0059), which the harness now uses to compare datasets. All
 holds **2,803** lines, exemptions empty; canonical N-Triples and N-Quads are
 RDF 1.2's (ADR 0061), gated by its 82 `c14n` cases. AOT and the browser both execute an
 update request through `Varve.Sparql.Store`, write results JSON and
-canonicalise; they are layer 6 hosts (ADR 0060). **RDF 1.2 Turtle and TriG
-are not accepted at all** — `turtle.md` §9. Nothing is published; the first tag is
-`v0.1.0-preview.1` (ADR 0029). Not built: HTTP for `LOAD` and `SERVICE`, the
-file and browser backends (milestone 6), erasure mode, SHACL, the server.
+canonicalise; they are layer 6 hosts (ADR 0060). **The store is durable**
+(milestone 6a, ADRs 0070–0077): `FileStorage` keeps `log/` in **format version
+1** (`docs/spec/storage-format.md`, read for ever from the first prerelease
+that writes it) and the default projection's runs in `derived/`, read through a
+synchronous blob read; the failure-injection suite in
+`tests/Varve.Store.Tests/Faults/` crashes it at every operation and byte, loses
+power with writes reordered, and copies it mid-write, and is a gate. **RDF 1.2
+Turtle and TriG are not accepted at all** — `turtle.md` §9. Nothing is
+published; the first tag is `v0.1.0-preview.1` (ADR 0029). Not built: HTTP for
+`LOAD` and `SERVICE`, the browser backend and the bulk loader (6b), erasure
+mode, SHACL, the server.
 `docs/roadmap.md` has the rest, an owner and a due milestone per open
 question.
 

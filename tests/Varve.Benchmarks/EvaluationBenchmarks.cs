@@ -131,7 +131,7 @@ public class FilterBenchmarks
 
     internal static (Varve.Store.Dataset, DatasetView) Build()
     {
-        Varve.Store.Dataset store = Varve.Store.Dataset.OpenAsync(new MemoryStorage(), new DatasetOptions { Clock = TimeProvider.System }).AsTask().GetAwaiter().GetResult();
+        Varve.Store.Dataset store = Varve.Store.Dataset.CreateAsync(new MemoryStorage(), new Varve.Store.Log.DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }).AsTask().GetAwaiter().GetResult();
         RdfTerm predicate = RdfTerm.Iri("http://example.org/v"u8);
         RdfTerm integer = RdfTerm.Iri("http://www.w3.org/2001/XMLSchema#integer"u8);
         const int PerCommit = 100_000;

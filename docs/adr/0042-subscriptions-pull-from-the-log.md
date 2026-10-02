@@ -2,7 +2,9 @@
 
 ## Status
 
-**Accepted.** 2026-09-23.
+**Accepted.** 2026-09-23. **Amended 2026-10-02** (ADR
+[0068](0068-dated-amendments.md)), by a note scoping it to delivery and
+allowing dataset-owned maintenance; see the end of *Decision*.
 
 Decides the delivery mechanism behind §8's `Subscribe(from, filter)` and §7's
 asynchronous projections. ADR 0016 fixed the promises — closed commits, in
@@ -59,7 +61,30 @@ checkpoint's view at its position — and catches up. There is no registry and n
 background task the store owns; the caller decides when a projection runs,
 which in a browser is the only honest answer.
 
-## Alternatives considered
+### Amendment, 2026-10-02 — this decision is about delivery; maintenance is not delivery
+
+Filed by session 6a of #10, unaccepted until the maintainer accepts it
+(ADR 0066). The decision above is unchanged.
+
+*"There is no registry and no background task the store owns"* was written
+about **delivering commits** — to subscribers and to asynchronous projections —
+and that is its scope. It does not forbid the dataset from doing its own
+**maintenance**: work on derived data that no commit and no subscriber depends
+on — flushing the memtable to a disk run, merging disk runs in tiers, writing a
+checkpoint (ADR 0070).
+
+Maintenance is allowed on a task the dataset owns, under three conditions:
+
+- **an explicit option**, `DatasetOptions.Maintenance`, says so; the caller can
+  turn it off and drive the same work through `Dataset.MaintainAsync`;
+- **it runs off the sequencer**, and **never blocks a commit**: its results are
+  published only if the state they replace is still current, and discarded
+  otherwise;
+- **in a browser the default is off** until 6b decides what a browser host can
+  schedule — the reason given above for declining a registry.
+
+A subscriber or projection still never runs on a task the store owns.
+
 
 - **Push from the sequencer.** Lowest latency. Rejected: it puts every
   subscriber's cost into every commit, which ADR 0016 already refused for

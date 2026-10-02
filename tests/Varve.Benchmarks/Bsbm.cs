@@ -309,7 +309,7 @@ public class BsbmBenchmarks : IDisposable
             },
             new ParseOptions { Syntax = RdfSyntax.NTriples });
         _dataset = builder.ToDataset();
-        _store = Varve.Store.Dataset.OpenAsync(new MemoryStorage(), new DatasetOptions { Clock = TimeProvider.System }).AsTask().GetAwaiter().GetResult();
+        _store = Varve.Store.Dataset.CreateAsync(new MemoryStorage(), new Varve.Store.Log.DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }).AsTask().GetAwaiter().GetResult();
         _ = _store.CommitAsync(request).AsTask().GetAwaiter().GetResult();
         _view = _store.Pin();
 

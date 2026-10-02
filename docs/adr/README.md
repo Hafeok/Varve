@@ -34,7 +34,7 @@ or depart from `docs/brief.md`, each says so in its Context.
 | [0015](0015-checkpoints-and-reads.md) | Checkpoints, pinned reads, as-of reads, archive horizon | Accepted |
 | [0016](0016-projection-contract-and-subscriptions.md) | Projection contract, synchronous default projection, erasure in projections | Accepted |
 | [0017](0017-validator-contract-and-overlay.md) | Pre-commit validator contract and the overlay quad source | Accepted |
-| [0018](0018-storage-abstraction.md) | Storage abstraction: memory, file, browser | Accepted |
+| [0018](0018-storage-abstraction.md) | Storage abstraction: memory, file, browser | Accepted; "asynchronous throughout" **superseded by 0071** (proposed) |
 | [0019](0019-erasure-by-crypto-shredding.md) | Erasure by crypto-shredding | **Superseded by 0023** |
 | [0020](0020-cipher-for-erasure-mode.md) | Cipher for erasure mode | **Superseded by 0028** |
 | [0021](0021-dataset-settings-as-a-commit-kind.md) | Dataset settings as a commit kind | Accepted |
@@ -86,12 +86,12 @@ specification, which moved to version 1.2 with 0046 and to 1.3 with 0047.
 
 | # | Title | Status |
 |---:|---|---|
-| [0040](0040-storage-contract-members-and-the-memory-backend.md) | The storage contract's members, and where the memory backend lives | Accepted; member types **superseded by 0065** |
+| [0040](0040-storage-contract-members-and-the-memory-backend.md) | The storage contract's members, and where the memory backend lives | Accepted; member types **superseded by 0065**; derived members **by 0071** (proposed) |
 | [0041](0041-sorted-runs-for-the-default-projection-and-checkpoints.md) | Sorted runs for the default projection and for checkpoints | Accepted |
-| [0042](0042-subscriptions-pull-from-the-log.md) | Subscriptions pull from the log | Accepted |
+| [0042](0042-subscriptions-pull-from-the-log.md) | Subscriptions pull from the log | Accepted; amended 2026-10-02 (maintenance is not delivery; proposed) |
 | [0043](0043-the-reference-model-as-a-test-asset.md) | The reference model is a test asset | Accepted |
 | [0044](0044-blank-node-identity-in-process.md) | Blank node identity at the in-process boundary (Q1, split) | Accepted |
-| [0045](0045-the-provisional-in-memory-log-encoding.md) | The provisional log encoding, and the in-memory id layout | Accepted, provisional by design |
+| [0045](0045-the-provisional-in-memory-log-encoding.md) | The provisional log encoding, and the in-memory id layout | Accepted, provisional by design; **superseded by 0072** (proposed) |
 | [0046](0046-settings-commits-reach-every-subscriber.md) | Settings commits reach every subscriber; specification 1.2 | Accepted; **amends 0016** |
 | [0047](0047-delta-composition-and-closure-over-triple-terms.md) | Delta composition over chains, and dictionary closure over triple terms; specification 1.3 | Accepted |
 
@@ -163,6 +163,22 @@ maintainer on the adoption plan. Every ADR is also a decision set in
 | [0068](0068-dated-amendments.md) | Dated amendments: add-only, dated, never a change of meaning | Accepted; amends 0001 |
 | [0069](0069-model-namespaces-for-layers-3-to-5.md) | One model namespace per package at layers 3 to 5; `Durability` is a log value | Accepted; supersedes 0065's `Durability` line and two of 0064's *not a model* bullets |
 
+## Milestone 6a — the file backend and format version 1
+
+Issue [#10](https://github.com/Hafeok/Varve/issues/10). Decided by the
+maintainer on the 6a plan, filed unaccepted (ADR 0066); specification 1.4.
+
+| # | Title | Status |
+|---:|---|---|
+| [0070](0070-the-storage-engine-is-our-own.md) | The storage engine is our own, and it is two different things | **Proposed**; revisit condition |
+| [0071](0071-synchronous-reads-over-asynchronous-storage.md) | Synchronous reads of derived data over asynchronous storage | **Proposed**; supersedes 0018 and 0040 in part; revisit condition |
+| [0072](0072-format-version-1.md) | Format version 1, read forever from the first prerelease that writes it | **Proposed**; supersedes 0045 |
+| [0073](0073-durability-per-host-declared.md) | Durability per host, declared, and what each level survives | **Proposed** |
+| [0074](0074-private-ids-reserved-and-the-key-store-refused.md) | The private id and entry layout, reserved; the key store refused by path | **Proposed** |
+| [0075](0075-one-process-per-dataset-by-an-os-lease.md) | One process per dataset directory, held by an exclusive handle | **Proposed** |
+| [0076](0076-bulk-load-by-sort-and-merge-join.md) | Bulk load and I2: sort into a run, merge-join, one multi-record commit (Q2) | **Proposed**; implemented in 6b |
+| [0077](0077-bulk-load-validators-scan-the-delta-on-disk.md) | Bulk load and validators: the overlay scans the delta on disk (Q3) | **Proposed**; implemented in 6b |
+
 ## Milestone 7 — the server
 
 Accepted ahead of the milestone, because the decision bears on what the server
@@ -188,7 +204,7 @@ Built here and moving to a repository of its own; see
 |---:|---|---|
 | [0039](0039-repo-standard.md) | repo-standard: repository settings as code, built here and moving out | Accepted |
 
-**No ADR is `Proposed`.** [0069](0069-model-namespaces-for-layers-3-to-5.md) was,
+**0070–0077 are `Proposed`**, filed by milestone 6a and awaiting acceptance on its pull request. [0069](0069-model-namespaces-for-layers-3-to-5.md) was,
 from its filing on 2026-09-29 until its acceptance on 2026-09-30. Three others were
 `Proposed` once, and were completed in place rather than superseded, because
 ADR 0001's no-edit rule binds accepted decisions and they had never been
@@ -205,11 +221,13 @@ carries a condition of its own that is not measurable by a build.
 
 | ADR | Condition | Due |
 |---|---|---|
-| [0012](0012-term-dictionary-and-id-scheme.md) | Milestone 4 benchmarks of index size and scan throughput contradict 64-bit counter-allocated ids. No bytes are frozen before milestone 6. | **did not fire** at milestone 4: 192 bytes per quad for six orders, 37–45 M quads/s scanned (`tests/Varve.Benchmarks/README.md`). The on-disk locality hypothesis waits for milestone 6 |
+| [0012](0012-term-dictionary-and-id-scheme.md) | Milestone 4 benchmarks of index size and scan throughput contradict 64-bit counter-allocated ids. No bytes are frozen before milestone 6. | **did not fire** at milestone 4: 192 bytes per quad for six orders, 37–45 M quads/s scanned (`tests/Varve.Benchmarks/README.md`). At milestone 6a, **did not fire, and the locality hypothesis holds**: sorted keys delta-encode to 5.2–7.1 bytes with counter ids against 17.3–33.9 with scattered ids; format version 1 freezes the 64-bit layout (ADR 0072) |
 | [0018](0018-storage-abstraction.md) | The in-memory and browser backends cannot both implement the contract without leaking backend detail. Members fixed when the first backend is written. | members **fixed** by [0040](0040-storage-contract-members-and-the-memory-backend.md); the memory backend and a second one outside the assembly implement them with nothing leaked. The browser half waits for milestone 6 |
 | [0020](0020-cipher-for-erasure-mode.md) | ~~AES-CBC, HMAC-SHA-256 and HKDF do not run on browser WASM when verified on a real build.~~ **Fired** at milestone 3a: `Aes.Create()` throws on browser-wasm and no symmetric cipher of any kind is available there. Superseded by 0028. | **fired**, superseded |
 | [0028](0028-deterministic-aead-from-hmac.md) | External cryptographic review rejects the construction. The fallback is then that erasure mode does not run in the browser, in its own ADR. Its other condition — the primitives run in a browser — is measured and holds. | milestone 9, before shipping |
 | [0022](0022-quad-source-term-handle.md) | Milestone 5 evaluator benchmarks show the opaque handle costs more than it saves. The accessor it named as its successor is built in 5a ([0050](0050-typed-value-accessor-and-the-benchmark-for-adr-0022.md)), which fixes the three arms and the verdict rule. | milestone 5b |
+| [0070](0070-the-storage-engine-is-our-own.md) | A workload at milestone 7 where tier merges cannot keep up with the commit rate. | milestone 7 |
+| [0071](0071-synchronous-reads-over-asynchronous-storage.md) | A host where no synchronous read exists. | milestone 6b, the browser |
 | [0034](0034-commit-signing-and-the-sandbox-exception.md) | A route appears by which a sandbox commit is signed by a key the project controls, or by GitHub itself. Two are identified and neither is available: GraphQL `createCommitOnBranch`, blocked by the session proxy rather than by GitHub, and a per-installation signing key. The REST contents API was tested and is **not** one — it produces unsigned commits. | whenever it fires |
 
 ## Open questions recorded, not resolved
@@ -220,8 +238,8 @@ falls out of:
 | | Question | Owner | Due |
 |---|---|---|---|
 | **Q1** | External form of store-scoped blank node identity at protocol boundaries. The in-process half is **decided** by [0044](0044-blank-node-identity-in-process.md): by handle | [0012](0012-term-dictionary-and-id-scheme.md) | milestone 7, with the server |
-| **Q2** | Bulk load and I2 — normalising a huge commit against a populated dataset | [0013](0013-records-commits-and-bulk-load.md) | milestone 6 |
-| **Q3** | Bulk load and validators — an overlay that does not fit in memory | [0013](0013-records-commits-and-bulk-load.md), with [0017](0017-validator-contract-and-overlay.md) | milestone 6 |
+| **Q2** | Bulk load and I2 — normalising a huge commit against a populated dataset | [0013](0013-records-commits-and-bulk-load.md) | **decided** by [0076](0076-bulk-load-by-sort-and-merge-join.md) (proposed): sort and merge-join; built in 6b |
+| **Q3** | Bulk load and validators — an overlay that does not fit in memory | [0013](0013-records-commits-and-bulk-load.md), with [0017](0017-validator-contract-and-overlay.md) | **decided** by [0077](0077-bulk-load-validators-scan-the-delta-on-disk.md) (proposed): the overlay scans the delta on disk; built in 6b |
 | **Q4** | How a shredded term appears in SPARQL results and serialisations | [0023](0023-erasure-and-access-requests.md) | milestone 9 |
 | **Q5** | Lookup by private value — scan and decrypt, or a keyed blind index | [0028](0028-deterministic-aead-from-hmac.md) | milestone 9 |
 | **Q6** | Cipher and availability per host | [0028](0028-deterministic-aead-from-hmac.md) | **decided**, subject to 0028's two conditions: the primitives run in a browser (measured, holds) and the construction survives external review (milestone 9) |
@@ -247,8 +265,10 @@ From ADR 0003:
   question (whether a `spec-gap` entry must cite a W3C suite PR) is due then too.
 - **ADR 0004** — the `System.Uri` ban is wider than the brief scopes it. Narrow
   before layer 5 exists.
-- **ADR 0014** — the storage format must carry a version discriminator from the
-  start, so a change to what is hashed is a migration rather than a corruption.
+- ~~**ADR 0014** — the storage format must carry a version discriminator from the
+  start, so a change to what is hashed is a migration rather than a corruption.~~
+  **Discharged** by [0072](0072-format-version-1.md): every header carries the
+  format version.
 
 ## Closed
 

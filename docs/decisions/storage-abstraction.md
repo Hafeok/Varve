@@ -3,10 +3,6 @@ set: storage-abstraction
 namespace: varve
 adr: 0018
 decisions:
-  - key: SegmentStoreAndDerivedStore
-    statement: "Storage is an append-only segment store for log/ and a derived blob store for derived/, asynchronous throughout"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-09-21T00:00:00Z
   - key: ForbiddenOperationsAbsent
     statement: "Truncation, positional writes and deletion of a sealed segment are absent from the storage contract's type, not forbidden in prose"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -48,5 +44,7 @@ decisions:
 The rulings of [ADR 0018](../adr/0018-storage-abstraction.md) still in force, one line each. The ADR is the
 narrative; this is what code cites. Acceptance is transcribed from the ADR's Status (ADR 0062).
 
-The members of the contract are fixed by ADR 0040, in its set. The revisit condition is not a
+Moved to a later set: `SegmentStoreAndDerivedStore`, whose "asynchronous throughout" ADR 0071
+supersedes, is in that ADR's set. The members of the contract are fixed by ADR 0040 and 0071, in
+their sets. The revisit condition is not a
 ruling and is not enumerated.

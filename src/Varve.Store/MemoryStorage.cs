@@ -3,9 +3,12 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Store.Log;
 
 namespace Varve.Store;
@@ -34,13 +37,13 @@ public sealed class MemoryStorage : IStorage
 
     /// <summary>Empty storage: no segments and no derived data.</summary>
     public MemoryStorage()
-        : this([], [])
+        : this(null, [], [])
     {
     }
 
-    private MemoryStorage(List<Segment> segments, SortedDictionary<string, ReadOnlyMemory<byte>> blobs)
+    private MemoryStorage(byte[]? manifest, List<Segment> segments, SortedDictionary<string, byte[]> blobs)
     {
-        _log = new MemorySegmentStore(segments);
+        _log = new MemorySegmentStore(segments, manifest);
         _derived = new MemoryDerivedStore(blobs);
     }
 
@@ -51,12 +54,13 @@ public sealed class MemoryStorage : IStorage
     public IDerivedStore Derived => _derived;
 
     /// <summary>
-    /// Storage restored from bytes someone kept: the log's segments in order,
-    /// and optionally derived blobs by name. Every segment but the last is
-    /// sealed; the last is open, as it would be in a copy taken while the
-    /// dataset was live.
+    /// Storage restored from bytes someone kept: the log's manifest (empty
+    /// when the copy has none), its segments in order, and optionally derived
+    /// blobs by name. Every segment but the last is sealed; the last is open,
+    /// as it would be in a copy taken while the dataset was live.
     /// </summary>
-    public static MemoryStorage FromSegments(
+    public static MemoryStorage FromLog(
+        ReadOnlyMemory<byte> manifest,
         IEnumerable<ReadOnlyMemory<byte>> log,
         IEnumerable<KeyValuePair<BlobName, ReadOnlyMemory<byte>>>? derived = null)
     {
@@ -76,7 +80,7 @@ public sealed class MemoryStorage : IStorage
             segments.Add(segment);
         }
 
-        SortedDictionary<string, ReadOnlyMemory<byte>> blobs = new(StringComparer.Ordinal);
+        SortedDictionary<string, byte[]> blobs = new(StringComparer.Ordinal);
 
         if (derived is not null)
         {
@@ -86,7 +90,7 @@ public sealed class MemoryStorage : IStorage
             }
         }
 
-        return new MemoryStorage(segments, blobs);
+        return new MemoryStorage(manifest.IsEmpty ? null : manifest.ToArray(), segments, blobs);
     }
 
     private sealed class Segment
@@ -118,8 +122,40 @@ public sealed class MemoryStorage : IStorage
     {
         private readonly List<Segment> _segments;
         private readonly Lock _gate = new();
+        private byte[]? _manifest;
 
-        public MemorySegmentStore(List<Segment> segments) => _segments = segments;
+        public MemorySegmentStore(List<Segment> segments, byte[]? manifest)
+        {
+            _segments = segments;
+            _manifest = manifest;
+        }
+
+        public ValueTask<ReadOnlyMemory<byte>> ReadManifestAsync(CancellationToken cancellationToken)
+        {
+            lock (_gate)
+            {
+                return new ValueTask<ReadOnlyMemory<byte>>(_manifest ?? ReadOnlyMemory<byte>.Empty);
+            }
+        }
+
+        public ValueTask WriteManifestAsync(ReadOnlyMemory<byte> manifest, CancellationToken cancellationToken)
+        {
+            lock (_gate)
+            {
+                if (_manifest is not null)
+                {
+                    throw new InvalidOperationException("The log already has a manifest; it is written once.");
+                }
+
+                if (_segments.Count > 0)
+                {
+                    throw new InvalidOperationException("The manifest is written before any segment.");
+                }
+
+                _manifest = manifest.ToArray();
+                return ValueTask.CompletedTask;
+            }
+        }
 
         public Durability Durability => Durability.None;
 
@@ -205,32 +241,24 @@ public sealed class MemoryStorage : IStorage
 
     private sealed class MemoryDerivedStore : IDerivedStore
     {
-        private readonly SortedDictionary<string, ReadOnlyMemory<byte>> _blobs;
+        private readonly SortedDictionary<string, byte[]> _blobs;
         private readonly Lock _gate = new();
 
-        public MemoryDerivedStore(SortedDictionary<string, ReadOnlyMemory<byte>> blobs) => _blobs = blobs;
+        public MemoryDerivedStore(SortedDictionary<string, byte[]> blobs) => _blobs = blobs;
 
-        public ValueTask PutAsync(BlobName name, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
-        {
-            byte[] copy = bytes.ToArray();
+        public ValueTask<IBlobWriter> CreateAsync(BlobName name, CancellationToken cancellationToken) =>
+            new(new Writer(this, name));
 
-            lock (_gate)
-            {
-                _blobs[name.Value] = copy;
-                return ValueTask.CompletedTask;
-            }
-        }
-
-        public ValueTask<ReadOnlyMemory<byte>> GetRangeAsync(BlobName name, ByteOffset offset, ByteCount length, CancellationToken cancellationToken)
+        public ValueTask<IReadableBlob> OpenAsync(BlobName name, CancellationToken cancellationToken)
         {
             lock (_gate)
             {
-                if (!_blobs.TryGetValue(name.Value, out ReadOnlyMemory<byte> blob))
-                {
-                    throw new KeyNotFoundException("No derived blob named '" + name + "'.");
-                }
-
-                return new ValueTask<ReadOnlyMemory<byte>>(Slice(blob, offset, length));
+                // A published blob is never written again, so the reader holds the
+                // array itself: a later publish of the same name replaces the entry,
+                // not the bytes.
+                return _blobs.TryGetValue(name.Value, out byte[]? blob)
+                    ? new ValueTask<IReadableBlob>(new MemoryBlob(blob))
+                    : throw new KeyNotFoundException("No derived blob named '" + name + "'.");
             }
         }
 
@@ -256,6 +284,75 @@ public sealed class MemoryStorage : IStorage
 
                 return new ValueTask<IReadOnlyList<BlobName>>(names);
             }
+        }
+
+        private void Publish(BlobName name, byte[] bytes)
+        {
+            lock (_gate)
+            {
+                _blobs[name.Value] = bytes;
+            }
+        }
+
+        private sealed class Writer : IBlobWriter
+        {
+            private readonly MemoryDerivedStore _store;
+            private readonly BlobName _name;
+            private ArrayBufferWriter<byte>? _bytes = new();
+
+            public Writer(MemoryDerivedStore store, BlobName name)
+            {
+                _store = store;
+                _name = name;
+            }
+
+            public ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
+            {
+                (_bytes ?? throw new InvalidOperationException("The blob is already published.")).Write(bytes.Span);
+                return ValueTask.CompletedTask;
+            }
+
+            public ValueTask PublishAsync(CancellationToken cancellationToken)
+            {
+                ArrayBufferWriter<byte> bytes = _bytes ?? throw new InvalidOperationException("The blob is already published.");
+                _bytes = null;
+                _store.Publish(_name, bytes.WrittenSpan.ToArray());
+                return ValueTask.CompletedTask;
+            }
+
+            public ValueTask DisposeAsync()
+            {
+                _bytes = null;
+                return ValueTask.CompletedTask;
+            }
+        }
+    }
+
+    /// <summary>A published blob: an array nobody writes again.</summary>
+    private sealed class MemoryBlob : IReadableBlob
+    {
+        private readonly byte[] _bytes;
+
+        public MemoryBlob(byte[] bytes) => _bytes = bytes;
+
+        public ByteCount Length => new(_bytes.Length);
+
+        [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+        public int Read(ByteOffset offset, Span<byte> destination)
+        {
+            if (offset.Value >= _bytes.Length)
+            {
+                return 0;
+            }
+
+            int start = (int)offset.Value;
+            int count = Math.Min(destination.Length, _bytes.Length - start);
+            _bytes.AsSpan(start, count).CopyTo(destination);
+            return count;
+        }
+
+        public void Dispose()
+        {
         }
     }
 

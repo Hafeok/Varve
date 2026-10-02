@@ -2,7 +2,10 @@
 
 ## Status
 
-**Accepted.** 2026-09-21.
+**Accepted.** 2026-09-21. **Superseded in part by
+[0071](0071-synchronous-reads-over-asynchronous-storage.md)** (filed 2026-10-02):
+the words "asynchronous throughout". Reads of derived data are synchronous;
+everything else here stands.
 
 Records [`docs/spec/log-and-projection-model.md`](../spec/log-and-projection-model.md)
 §2, which fixes the requirements and says byte-level layout belongs here.

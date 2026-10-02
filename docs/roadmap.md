@@ -305,6 +305,51 @@ change: the **private id class** (ADR 0012), the **private entry layout** —
 **refusal of a key store path inside the dataset directory** (ADR 0023). None of
 them costs anything while erasure mode is off.
 
+### 6a — the file backend, format version 1, failure injection *(this session; ADRs 0070–0077, specification 1.4)*
+
+Issue [#10](https://github.com/Hafeok/Varve/issues/10). **Delivered:**
+
+- **`FileStorage`**: a dataset directory of plain files, `log/` and
+  `derived/`, durability `Synchronised` (ADR 0073), one process at a time by an
+  exclusive handle (ADR 0075), and a key store refused inside the directory by
+  path (ADR 0074).
+- **Format version 1** (ADR 0072, `docs/spec/storage-format.md`), read for
+  ever from the first prerelease that writes it: self-hashing headers, a
+  sealed trailer, chunked bodies, commit headers carrying the dictionary's
+  counters; recovery walks the chain across segments and refuses only what no
+  crash or copy produces. Opening reads bodies only after the newest
+  checkpoint.
+- **The storage engine is our own** (ADR 0070): the default projection's runs
+  on disk, read in blocks through a synchronous blob read (ADR 0071), flushed
+  and merged by maintenance off the sequencer.
+- **The risk above is closed for the desktop** by ADR 0071: derived data is read
+  synchronously; writes stay asynchronous; the cursor and ADR 0052 are
+  unchanged.
+- **Q2 and Q3 decided** (ADRs 0076, 0077); the format carries what a bulk
+  commit needs.
+- **The failure-injection gate**: process crashes at every operation and every
+  byte of the log's writes, power loss with writes torn and reordered up to the
+  flush barrier, lost directory entries, crashes during recovery, `derived/`
+  deleted or stale, and copies taken mid-write. It found one defect, fixed: a
+  seal's trailer could outlive the records before it.
+
+### 6b (storage) — what 6a leaves
+
+Called 6b in the 6a brief; the section below already uses the name for RDF 1.2
+syntaxes, which the maintainer may want to renumber.
+
+- **The browser backend** (layer 5), deciding ADR 0071's revisit condition — a
+  synchronous read in a browser worker, or the cursor goes asynchronous — and
+  whether a browser host runs maintenance (ADR 0042's amendment).
+- **The bulk loader** of ADRs 0076 and 0077: external sort, merge-join, one
+  multi-record commit, validators over the delta on disk.
+- **A dictionary on disk.** The dictionary is in memory, rebuilt on open from
+  the newest checkpoint and the log after it.
+- **A checkpoint policy**, and checkpoints written by streaming the runs when
+  the position is the projection's, rather than materialised in memory.
+- **Compression of derived runs**, if the locality numbers argue for it: a
+  derived format version, never a `log/` one (ADR 0072).
+
 ## 6b — RDF 1.2 Turtle and TriG, RDF/XML, JSON-LD
 
 **Before milestone 7**, which serves all of them. Added at milestone 5b, when

@@ -504,3 +504,151 @@ shape needs between 21 and 25** — it stops at a limit of 20 and completes at
 `LOAD`, conflict retries, SHA-384, and canonicalisation of adversarial
 graphs — the rdf-canon suite's poison graphs are what the work limit is for,
 and a benchmark of a refusal measures nothing.
+
+## Milestone 6a — the file backend, against memory and pyoxigraph on disk
+
+**Machine.** Intel Xeon @ 2.80 GHz, 4 logical and 4 physical cores, 15 GiB,
+Ubuntu 24.04.4 LTS, kernel 6.18, ext4 on a virtio disk, a cloud container
+rather than dedicated hardware. .NET SDK 10.0.401, runtime 10.0.12, X64 RyuJIT
+`x86-64-v4`; BenchmarkDotNet 0.15.8; pyoxigraph 0.5.11, Python 3. This is not
+milestone 4's machine (2.10 GHz), so the memory rows below were measured again
+in the same session, and those are the ones the file rows are compared with.
+The dataset is milestone 4's: 1,000,000 quads, 769,188 dictionary terms.
+
+```bash
+dotnet run -c Release --project tests/Varve.Benchmarks -- --file-sizes
+dotnet run -c Release --project tests/Varve.Benchmarks -- --filter '*FileCommitBenchmarks*' \
+  --warmupCount 2 --iterationCount 8 --invocationCount 1 --unrollFactor 1
+dotnet run -c Release --project tests/Varve.Benchmarks -- --filter '*FileScanBenchmarks*' \
+  --warmupCount 3 --iterationCount 10
+dotnet run -c Release --project tests/Varve.Benchmarks -- --filter '*BlockReadBenchmarks*'
+dotnet run -c Release --project tests/Varve.Benchmarks -- --update-export update/
+python tests/Varve.Benchmarks/oxigraph/store.py update/store.nq
+dotnet run -c Release --project tests/Varve.Benchmarks -- --soak 60
+```
+
+### Commits
+
+Each file commit returns after its records are flushed to the device
+(`Synchronised`, ADR 0073). pyoxigraph's RocksDB store does not sync its
+write-ahead log per transaction by default, so its acknowledged transaction is
+not durable the way a file commit is: **the rows time different guarantees**,
+and the pyoxigraph row is first because it is the one a reader will compare
+against. pyoxigraph is timed through its Python binding, median of five.
+
+| | pyoxigraph, on disk, unsynced | Varve, memory | Varve, files, flushed |
+|---|---:|---:|---:|
+| 100,000 quads in one commit | 2,130 ms | 270 ms ± 32 | **257 ms ± 7** |
+| 100,000 quads as 100 commits of 1,000 | 2,212 ms | 335 ms ± 21 | **431 ms ± 40** |
+| 1,000 single-quad commits into 100,000 | 36.9 ms | 11.3 ms ± 1.0 | **367 ms ± 34** |
+
+A large commit on files costs what it costs in memory: one flush amortised
+over 100,000 quads. A single-quad commit costs **0.37 ms**, of which the
+device's flush is 0.23 ms (an append and `fsync` measured alone on this disk);
+that is about 2,700 durable commits a second from one writer. pyoxigraph's
+37 µs per transaction is what skipping the sync buys.
+
+### Scans, over a pinned read of 1,000,000 quads in disk runs
+
+The file rows read the default projection from runs in `derived/`, block by
+block through the synchronous blob read (ADR 0071), with the newest commits
+in the memtable. The memory rows read the same projection from arrays.
+pyoxigraph's rows iterate `quads_for_pattern` in Python, so the binding's
+per-quad cost is inside them; they say what a Python user would see, not what
+RocksDB can do.
+
+| | pyoxigraph, on disk | Varve, memory | Varve, files | Allocated (both Varve) |
+|---|---:|---:|---:|---:|
+| Every quad, every graph | 8,153 ms | 38.9 ms ± 1.7 | **44.1 ms ± 2.8** | 512 B |
+| One predicate of seventeen (POSG) | 565 ms | 2.22 ms ± 0.06 | **2.94 ms ± 0.29** | 512 B |
+| The default graph | 1,598 ms | 7.40 ms ± 1.06 | **8.01 ms ± 0.68** | 512 B |
+| 10,000 subject lookups (SPOG) | 1,219 ms | 14.6 ms ± 1.2 | **28.4 ms ± 2.2** | 512 B per lookup |
+
+A range scan on files runs at 0.75–0.92 of memory's speed; the page cache is
+warm, so this is the cost of copying blocks and walking fences, not of the
+disk. A point lookup costs twice memory's: each one reads at least one 4 KiB
+block per run it touches. The scan allocates nothing per quad, on files as
+in memory, which `AllocationTests.a_scan_of_disk_runs_allocates_nothing_per_quad`
+asserts. That took a fix in this milestone: a cursor allocated a block buffer
+per run, 4.5 KB per lookup, until the buffers came from the array pool.
+
+**The read path, chosen by benchmark (ADR 0071).** Reading 4 KiB blocks of a
+64 MiB file, a memory-mapped view read through a raw pointer beats
+`RandomAccess.Read` 1.65× in order and 2.1× at random. Through the safe
+accessor, which is what the store can use without unsafe code, the whole scan
+is slower than `RandomAccess` (lookups 69.5 ms against 34.5 ms, both measured
+under the soak). `RandomAccess` shipped; the tables are in ADR 0071.
+
+### Size on disk
+
+| | Bytes | Per quad |
+|---|---:|---:|
+| pyoxigraph after `bulk_load` (RocksDB: its indexes and dictionary) | 241,026,879 | 241.0 |
+| Varve's `log/`, format version 1 | 36,797,486 | **36.8** |
+| Varve's runs in `derived/`, six orders, three runs after maintenance | 193,501,368 | 193.5 |
+| A checkpoint in `derived/`: six key arrays and the dictionary | 221,301,613 | 221.3 |
+| Fences held in memory for the runs | | 1.5 |
+
+The log is half milestone 4's 69.0 bytes a quad: format version 1 writes ids
+as LEB128 in the body, where ADR 0045's provisional layout wrote fixed width.
+`log/` plus the runs is 230 bytes a quad; the dictionary is on disk only inside
+a checkpoint, so a dataset with one is 452. Runs are written uncompressed.
+
+Loading the million quads as 100 commits of 10,000, with maintenance after
+each, took 16.5 s.
+
+### ADR 0012's locality hypothesis, measured
+
+ADR 0012 chose counter-allocated ids partly on the hypothesis that ids
+allocated in commit order cluster, so that sorted keys delta-encode small.
+Measured over the six orders of the million-quad run: each key written as one
+byte counting the leading ids it shares with the key before it, the varint
+difference of the first id that differs, and the remaining ids as varints;
+with the ids as allocated, and again with every id replaced by a fixed
+pseudo-random bijection and the keys sorted again, which is what
+content-derived ids would do to the same data.
+
+| Order | Counter ids, bytes per key | Scattered ids, bytes per key |
+|---|---:|---:|
+| SPOG | 7.08 | 28.48 |
+| POSG | 5.86 | 25.16 |
+| OSPG | 6.65 | 33.91 |
+| GSPO | 6.58 | 23.99 |
+| GPOS | 5.19 | 17.31 |
+| GOSP | 5.65 | 25.70 |
+
+**The hypothesis holds**: counter ids make keys 3.3–5.1 times smaller under
+delta encoding than ids without locality, and 4.5–6.2 times smaller than the
+32 bytes a key takes uncompressed. The runs do not compress yet; if they do, it
+is a derived format version, never a `log/` one (ADR 0072), and these numbers
+are the case for it.
+
+### Soak: one hour, mixed
+
+`--soak 60`: one writer committing batches of 50 (a third of them
+retractions) with a 25 ms pause between commits, background maintenance and a
+memtable of 20,000; two readers pinning and scanning one predicate, then
+reading as of a position up to 10,000 back; a checkpoint every two minutes,
+keeping three.
+Run once, not in CI.
+
+| Minutes | Commits | Managed heap, median (max) | Working set, median (max) | Open handles | `derived/` files |
+|---|---:|---|---|---|---|
+| 0–10 | 19,634 | 16.5 MB (37) | 168 MB (208) | 59–65 | 5–10 |
+| 10–20 | 39,475 | 24.8 MB (153) | 256 MB (866) | 62–64 | 8–10 |
+| 20–30 | 59,382 | 37.2 MB (274) | 303 MB (1,211) | 62–65 | 8–10 |
+| 30–40 | 79,329 | 37.9 MB (472) | 386 MB (2,190) | 62–66 | 8–10 |
+| 40–50 | 99,906 | 46.6 MB (434) | 697 MB (2,173) | 63–65 | 9–11 |
+| 50–60 | 120,627 | 44.8 MB (528) | 730 MB (2,812) | 62–65 | 8–11 |
+
+120,627 commits, 409,822 pinned scans, 319,201 as-of reads, 29 checkpoints;
+reopened at the last commit. **File handles and `derived/` files are flat.**
+The managed heap's median grows with the dataset, which is not bounded: the
+vocabulary allows ten million distinct quads, and the dataset kept growing
+toward that for the whole hour. The heap's peaks fall, in 10 of 14 samples
+above 150 MB, in the sample where a checkpoint was written: a checkpoint is
+materialised in memory before it is written, which 6b's list replaces with
+writing it by streaming the runs. **The working set is not flat**: its median
+grows from 168 to 730 MB. This session did not separate how much of that is the
+garbage collector keeping its high-water mark after the checkpoint peaks and
+how much is something else; it is reported, not explained.

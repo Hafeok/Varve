@@ -31,7 +31,7 @@ public class UpdateTests
     private static RdfTerm Iri(string local) => RdfTerm.Iri(Encoding.UTF8.GetBytes("http://example.org/" + local));
 
     private static ValueTask<Dataset> Open(params ICommitValidator[] validators) =>
-        Dataset.OpenAsync(new MemoryStorage(), new DatasetOptions { Clock = new FixedClock(), Validators = validators }, Ct);
+        Dataset.CreateAsync(new MemoryStorage(), new Varve.Store.Log.DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = new FixedClock(), Validators = validators }, Ct);
 
     private static ValueTask<CommitResult> Run(Dataset dataset, string update, UpdateOptions? options = null) =>
         SparqlUpdate.ExecuteAsync(dataset, SparqlParser.ParseUpdate(Encoding.UTF8.GetBytes(Prefix + update)), options ?? new UpdateOptions(), Ct);

@@ -148,3 +148,45 @@ public sealed class DatasetUnavailableException : Exception
     {
     }
 }
+
+/// <summary>
+/// The dataset was written in a format this build does not read: a later
+/// format version, or creation settings it does not know (ADR 0072).
+/// </summary>
+/// <remarks>
+/// A higher version is refused by name rather than read as damage. A lower one
+/// does not exist on disk: version 1 is the first written outside memory.
+/// </remarks>
+public sealed class UnsupportedFormatException : Exception
+{
+    /// <summary>A format this build does not read.</summary>
+    public UnsupportedFormatException()
+    {
+    }
+
+    /// <summary>A format this build does not read, and why.</summary>
+    public UnsupportedFormatException(string message)
+        : base(message)
+    {
+    }
+
+    /// <summary>A format this build does not read, why, and the cause.</summary>
+    public UnsupportedFormatException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+
+    /// <summary>A log of a later format version than this build reads.</summary>
+    public UnsupportedFormatException(FormatVersion found, FormatVersion supported)
+        : base("The log is format version " + found + "; this version of Varve reads format versions 1 to " + supported + ". Open it with a later version of Varve.")
+    {
+        Found = found;
+        Supported = supported;
+    }
+
+    /// <summary>The version found, when the refusal is about a version.</summary>
+    public FormatVersion? Found { get; }
+
+    /// <summary>The newest version this build reads, when the refusal is about a version.</summary>
+    public FormatVersion? Supported { get; }
+}

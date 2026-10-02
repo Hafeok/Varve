@@ -14,13 +14,116 @@ published to nuget.org, so every change below is unreleased and the sections
 are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 ([ADR 0029](docs/adr/0029-publishing-and-versioning.md)).
 
+### Milestone 6a — the file backend, format version 1, failure injection
+
+#### Added
+
+- **store**: derived blobs are written as streams and read synchronously (987f41c2)
+- **store**: format version 1 of log/, and opening from the newest checkpoint (6f9c3091)
+- **store**: FileStorage, a dataset directory of plain files (1bbec4ca)
+- **store**: the default projection on disk, as runs in derived/ (4b8f8493)
+
+#### Changed
+
+- **adr**: 0070-0077 for the file backend and format version 1; spec 1.4 (6ad54c27)
+- **store**: milestone 4's properties on the file backend (3d5b72c4)
+- **aot**: a file-backed dataset crashed and recovered under Native AOT (e5688b51)
+- **bench**: the file backend's commits, scans, sizes and soak (6a90bb5d)
+- the file backend in the roadmap, AGENTS, the store's README and testing (7b8c933e)
+- **store**: pool a cursor's block buffers; derived reads stay on RandomAccess (42837592)
+- **bench**: milestone 6a's numbers, the soak, and ADR 0012's verdict (a1975695)
+- **traceability**: milestone 6a's record, and the decision report's baseline (a8f8415a)
+
+#### Fixed
+
+- **store**: flush a segment before the trailer that seals it (842d3bdf)
+
 ### Adopting DecisionDriven.Analyzers — the decision ledger, the DD rules, Varve's own rules only
+
+#### Added
+
+- **analyzers**: VARVE0003's allow-list names members as well as types (c96f631d)
+- **api**: ColumnIndex, MaxRecordBytes as a ByteCount, the implicit timezone as a TimeSpan (68c25d05)
+- **eng**: decision-sets refuses an acceptance dated before its filing (621fbed6)
 
 #### Changed
 
 - **adr**: 0062–0067, adopting DecisionDriven.Analyzers (17852ee3)
 - **eng**: decision-sets, the front-matter check for docs/decisions (b364d25d)
 - **traceability**: issue 43, adoption session 1 (d8b0cadb)
+- changelog (a6ddbf4f)
+- **adr**: VARVE0005 keeps VARVE0002's uncovered half; 0003 superseded in part (8618312f)
+- **decisions**: ADRs 0001–0010 as decision sets (3cf2966f)
+- **traceability**: the enumeration of 0001–0010 (64139623)
+- **decisions**: ADRs 0011–0020 as decision sets (bf92aabf)
+- **decisions**: ADRs 0021–0030 as decision sets (5ae13e3b)
+- **decisions**: ADRs 0031–0040 as decision sets (696675f9)
+- **decisions**: ADRs 0041–0050 as decision sets (e0644aeb)
+- **decisions**: ADRs 0051–0060 as decision sets (edd5825e)
+- **decisions**: ADRs 0061–0067 as decision sets; the enumeration is complete (7a696a98)
+- **adr**: 0068, dated amendments; 0063 amended with 0006's two rulings (f8c81793)
+- **deps**: the AngleSharp pin cites 0063 (e00f7bb2)
+- **decisions**: 0068's set; 0001's no-edit rule moves to it; 0063 gains two keys (95c76f76)
+- **analyzers**: adopt DecisionDriven.Analyzers 0.1.0-preview.4; VARVE0003-0005 (ea044db5)
+- **banned**: reflection members and the runtime binder; the citation gate (b86e82fc)
+- **iri**: Varve.Iri under every DD and VARVE rule (6253f56b)
+- **xsd**: Varve.Xsd under every DD and VARVE rule (5438f7f7)
+- **rdf**: Varve.Rdf under every DD and VARVE rule; InMemoryDataset is a value (1dd01c8e)
+- **turtle**: Varve.Turtle under every DD and VARVE rule (14dffc83)
+- **sparql**: Varve.Sparql under every DD and VARVE rule (15f03427)
+- **sparql-results**: Varve.Sparql.Results under every DD and VARVE rule (e8cb4829)
+- **repo-standard**: immutable lookup tables for DD0004 (970b5e8f)
+- **rules**: VARVE0003 and VARVE0004 pages as the rules now stand; the ledger README (a24cec38)
+- **traceability**: the record of session 2 of #43 (b2cd5c0d)
+- **syntax**: one model namespace per syntax package; ADR 0064 amended (2142306c)
+- **traceability**: session 2 of #43, after the report (57628376)
+- **analyzers**: DecisionDriven.Analyzers 0.1.0-preview.5 (869f6dcf)
+- **traceability**: session 2 of #43, preview.5 adopted (c929cce4)
+- **store**: the log's values move to Varve.Store.Log (2d991a09)
+- **store**: positions, timestamps and storage coordinates are wrappers (5eac224c)
+- **store**: Varve.Store under the DD and VARVE rules (9e4fc216)
+- **evaluation**: the compiler writes its loops (RS0030) (2cd5415a)
+- **evaluation**: Varve.Sparql.Evaluation under the DD and VARVE rules (90b20e5a)
+- **sparql-store**: ILoadSource is a contract (ef641848)
+- DecisionDriven.Report, never a gate, against a committed baseline (80f25202)
+- **traceability**: the record of session 3 of #43 (5e5d0328)
+- Accept layer 0-2 decisions (76b9d1fd)
+- accepted (993877e4)
+- accept (8f4b1fb0)
+- **decisions**: drop the duplicated placeholder acceptances (fe7b4800)
+- **adr**: 0069, one model namespace per package at layers 3 to 5, proposed (0dbe5114)
+- **evaluation,sparql-store,store**: the model namespaces of ADR 0069 (b4447bc2)
+- **analyzers**: the hot-path allow-list admits the value types; four calls fixed or cited (cb7f8db3)
+- **decisions**: record acceptances for hot-path scope and model namespaces (refs #53) (1f07965c)
+- **decisions**: SparqlStoreModel's acceptance sits under its own key (b12116b8)
+- **analyzers**: DecisionDriven 0.1.0-preview.6; the Xsd constructors are on the hot path (34f0b79f)
+- **wasm-smoke**: Position formats itself (9a7fd287)
+- **hosts**: the layer 6 hosts under DD0004 (55a77b3b)
+- **decisions**: accept layer-6-host-state (e438ceae)
+- **report**: the decision report's baseline, from the green build (254c9d2c)
+- ADR 0069 is accepted; the ledger says what was accepted and when (2613ef49)
+- **decisions**: accept AllowListNamesMembers and ImmutableArrayAndCancellationTokenByMember (beaabee4)
+- **evaluation**: hold every operator to VARVE0003 (c4caef5e)
+- **store**: mark the write and replay inner loops (39641af6)
+- **evaluation**: hold ORDER BY's keys in chunks that never copy (de8147af)
+- close session 3 of #43 (94e6cc04)
+- **decisions**: accept the session-3 hot-path keys Refs #43 Signed-off-by: Emil Okkels Klein <emil@okkels-klein.dk> (dbd9fde9)
+- **adr**: 0033 amended: the model is named in the record, never in a commit (5efbbaf5)
+- **traceability**: the tidy after session 3, and the close-out's Tool row (bf412056)
+- **decisions**: date six session-3 acceptances to the day they were made (9a8085e8)
+- **traceability**: the tidy's record says the six dates are corrected (2c2da128)
+- Update 2026-10-02-issue-43-dd-adoption-tidy.md Refs #43 (6396abbb)
+- Update commit-traceability.md (d7301b7b)
+- **traceability**: split the tidy record's Model and Session rows again (280697c6)
+
+#### Fixed
+
+- **decisions**: a key may not equal its set's class name (2af9d86c)
+- **analyzers**: VARVE0003 checks a conversion operator against the allow-list (29c09d6f)
+- **analyzers**: VARVE0003 and VARVE0004 as Varve.Rdf found them (4fb4b51b)
+- **analyzers**: VARVE0003 and VARVE0004 do not check test assemblies (afafcc36)
+- **analyzers**: VARVE0003 holds overrides of a hot member; static initializers run once (2f3cec52)
+- **ci**: the build job fetches the history decision-sets now reads (2d55f89a)
 
 ### Milestone 5c — the result writers, SPARQL Update as one commit, RDFC-1.0
 

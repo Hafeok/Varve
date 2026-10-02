@@ -31,15 +31,19 @@ internal sealed class Harness : IAsyncDisposable
     private readonly HashSet<char> _labelsUsed = [];
     private int _nextBlank;
 
-    private Harness(MemoryStorage storage, ManualClock clock, Dataset dataset, DatasetOptions options)
+    private Harness(IStorage storage, ManualClock clock, Dataset dataset, DatasetOptions options, bool maintain)
     {
         Storage = storage;
         Clock = clock;
         Dataset = dataset;
         Options = options;
+        Maintain = maintain;
     }
 
-    public MemoryStorage Storage { get; }
+    public IStorage Storage { get; }
+
+    /// <summary>Whether maintenance runs after every step: memtable flushes and disk merges (ADR 0070).</summary>
+    public bool Maintain { get; }
 
     public ManualClock Clock { get; }
 
@@ -51,12 +55,27 @@ internal sealed class Harness : IAsyncDisposable
 
     public RecordingProjection Recorder { get; } = new();
 
-    public static async Task<Harness> StartAsync(int maxRecordBytes = 1 << 20, long segmentBytes = 64L << 20)
+    public static async Task<Harness> StartAsync(int maxRecordBytes = 1 << 20, long segmentBytes = 64L << 20, IStorage? storage = null, long? memtableLimit = null)
     {
-        MemoryStorage storage = new();
+        storage ??= new MemoryStorage();
         ManualClock clock = ManualClock.Epoch();
         DatasetOptions options = T.Options(clock, maxRecordBytes, segmentBytes);
-        return new Harness(storage, clock, await Dataset.OpenAsync(storage, options, T.Ct), options);
+
+        if (memtableLimit is long limit)
+        {
+            // Maintenance by hand, after every step, so that the run is the
+            // same every time: a flush whenever the memtable passes the limit.
+            options = new DatasetOptions
+            {
+                Clock = options.Clock,
+                MaxRecordBytes = options.MaxRecordBytes,
+                SegmentBytes = options.SegmentBytes,
+                MemtableLimit = new QuadCount(limit),
+                Maintenance = MaintenanceMode.Off,
+            };
+        }
+
+        return new Harness(storage, clock, await T.OpenOrCreate(storage, options), options, memtableLimit is not null);
     }
 
     public async Task RunAsync(Script script)
@@ -64,6 +83,12 @@ internal sealed class Harness : IAsyncDisposable
         foreach (Step step in script.Steps)
         {
             await StepAsync(step);
+
+            if (Maintain && !Dataset.IsFailed)
+            {
+                await Dataset.MaintainAsync(T.Ct);
+                await CompareHeadAsync("after maintenance");
+            }
         }
     }
 
@@ -500,7 +525,7 @@ internal sealed class Harness : IAsyncDisposable
         Check(Dataset.PositionAt(new CommitTimestamp(Clock.Now.AddYears(-1))).Value == 0, "I5: a time before every commit resolves to 0");
 
         // Reopening rebuilds from the newest checkpoint and the tail: I7 and I8.
-        await using (Dataset reopened = await Dataset.OpenAsync(Storage, Options, cancellationToken))
+        await using (Dataset reopened = await T.OpenOrCreate(Storage, Options))
         {
             Check(reopened.Head.Value == head, "a reopened dataset has a different head");
             using DatasetView view = reopened.Pin();

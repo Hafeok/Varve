@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using System.Globalization;
 
 namespace Varve.Store.Log;
@@ -18,6 +20,7 @@ public readonly record struct ByteCount
 {
     /// <summary>A number of bytes.</summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="value"/> is negative.</exception>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public ByteCount(long value)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(value);
@@ -25,6 +28,7 @@ public readonly record struct ByteCount
     }
 
     /// <summary>The number of bytes.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public long Value { get; }
 
     /// <summary>Renders as the number, in the invariant culture.</summary>

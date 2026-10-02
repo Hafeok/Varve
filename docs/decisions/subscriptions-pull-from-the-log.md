@@ -27,6 +27,8 @@ decisions:
     statement: "Asynchronous projections catch up and rebuild through the same reader when the caller asks, with no registry and no background task the store owns"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-23T00:00:00Z
+  - key: MaintenanceIsNotDelivery
+    statement: "The decision is about delivering commits; the dataset may own maintenance on derived data under an explicit option, off the sequencer and never blocking a commit, off by default in a browser until 6b"
 ---
 
 The rulings of [ADR 0042](../adr/0042-subscriptions-pull-from-the-log.md) still in force, one line each. The ADR is the
