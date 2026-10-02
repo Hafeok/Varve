@@ -10,7 +10,8 @@
 | **Issue** | [#43](https://github.com/Hafeok/Varve/issues/43), the adoption, closed by this pull request |
 | **Date** | 2026-10-02 |
 | **Tool** | Claude Code 2.1.287, a cloud session |
-| **Model** | `claude-opus-5-5`, as the session's metadata reports it; filled in by the maintainer (ADR 0033, amended 2026-10-02) || **Session identifier** | `session_014b8nsHnffPP88mVP1cb9F8` |
+| **Model** | `claude-opus-5-5`, as the session's metadata reports it; filled in by the maintainer (ADR 0033, amended 2026-10-02) |
+| **Session identifier** | `session_014b8nsHnffPP88mVP1cb9F8` |
 | **Branch** | `claude/brave-ride-ssydzx`, one pull request |
 
 ## The prompts
