@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Sparql.Algebra;
 using Varve.Sparql.Evaluation.Execution;
@@ -34,7 +36,14 @@ internal sealed class PathOperator : Operator
 
     internal override bool Substitutable => true;
 
-    internal override IEnumerator<ulong[]> Open(Exec exec, ulong[] input, ActiveGraph graph)
+    internal override IEnumerator<ulong[]> Open(Exec exec, ulong[] input, ActiveGraph graph) => Search(exec, input, graph);
+
+    /// <summary>
+    /// The ALP search, with its visited sets and its table of predicates looked
+    /// up in the source: the path is the decision's, not held to the rule.
+    /// </summary>
+    [DesignDecision(typeof(PropertyPathsNormalisedThenEvaluatedByAlp.ClosuresByAlp), Scope = ExceptionScope.HotPath)]
+    private IEnumerator<ulong[]> Search(Exec exec, ulong[] input, ActiveGraph graph)
     {
         if (!ReferenceEquals(_for, exec))
         {

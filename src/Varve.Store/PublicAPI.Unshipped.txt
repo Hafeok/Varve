@@ -73,7 +73,6 @@ Varve.Store.DatasetOptions
 Varve.Store.DatasetOptions.Clock.get -> System.TimeProvider!
 Varve.Store.DatasetOptions.Clock.init -> void
 Varve.Store.DatasetOptions.DatasetOptions() -> void
-Varve.Store.DatasetOptions.MaxRecordBytes.get -> int
 Varve.Store.DatasetOptions.MaxRecordBytes.init -> void
 Varve.Store.DatasetOptions.SegmentBytes.init -> void
 Varve.Store.Log.DatasetSettings
@@ -304,3 +303,4 @@ static Varve.Store.Log.RequestTerm.operator !=(Varve.Store.Log.RequestTerm left,
 static Varve.Store.Log.RequestTerm.operator ==(Varve.Store.Log.RequestTerm left, Varve.Store.Log.RequestTerm right) -> bool
 static Varve.Store.MemoryStorage.FromSegments(System.Collections.Generic.IEnumerable<System.ReadOnlyMemory<byte>>! log, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Varve.Store.Log.BlobName, System.ReadOnlyMemory<byte>>>? derived = null) -> Varve.Store.MemoryStorage!
 ~override Varve.Store.Log.BlobName.Equals(object obj) -> bool
+Varve.Store.DatasetOptions.MaxRecordBytes.get -> Varve.Store.Log.ByteCount

@@ -27,6 +27,10 @@ decisions:
     statement: "The hot-path allow-list admits ImmutableArray of T only by its indexer's getter, Length, IsEmpty, IsDefault, IsDefaultOrEmpty, AsSpan, AsMemory and its struct GetEnumerator, and CancellationToken only by IsCancellationRequested, CanBeCanceled and ThrowIfCancellationRequested, none of which allocates; this replaces their admission by type in AllowListAddsNonAllocatingValueTypes, whose interim clause ends with it"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-01T00:00:00Z
+  - key: AllowListAddsEnumeratorAndListReads
+    statement: "The hot-path allow-list admits by member IEnumerator's MoveNext, IEnumerator of T's Current, and List of T's indexer getter and Count; the two List members neither allocate nor call back, and a call through the two interface members runs what implements them, which VARVE0003 checks where it is written: every solution enumerator in the evaluator is an operator's Open, held to the rule as an override of a HotPath member, or BgpCursor, which is marked"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
   - key: IeeeTextGoesThroughTheInvariantFormatter
     statement: "Varve.Xsd parses and formats xsd:double and xsd:float through the BCL's IEEE parser and formatter with the invariant culture, which neither allocates on a span nor calls back into Varve"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -116,3 +120,20 @@ A hot path calling `ToArray`, `Add`, enumeration through `IEnumerable<T>`, `Regi
 `WaitHandle` is reported. That key's statement is left as accepted: its clause about the two
 types was conditional on this, and this key is what discharges it. The alternative is to
 keep admitting both types whole, which is what #56 was filed to end.
+
+**`AllowListAddsEnumeratorAndListReads`.** Filed by the close of session 3 of #43, unaccepted.
+Marking `Operator.Open` holds every operator's iterator to `VARVE0003`, and every
+operator advances its input through `IEnumerator.MoveNext` and
+`IEnumerator<T>.Current`. Those are interface calls: what they run is whatever
+implements them, which the rule cannot see from the call. In the evaluator every
+solution enumerator is an operator's `Open`, held to the rule as an override of a
+`[HotPath]` member, a `BgpCursor`, which is marked, or `NoSolutions`, which is
+marked; so the work behind the call is checked where it is written, not at the
+call. `List<T>`'s indexer getter and `Count` read the list in place and call
+nothing back; `Add` is not admitted, because it grows the list. The entries are
+by member (ADR 0064, amended 2026-09-30). **What this admits beyond the
+evaluator**: the entries are repository-wide, so a hot path anywhere may call
+`MoveNext` on an enumerator nobody marked. The alternatives were a Varve-owned
+cursor class with `[HotPath]` abstract members, which turns every iterator in
+the evaluator into a hand-written class, and a helper that wraps each
+`MoveNext` with a citation, which hides the same admission behind a name.

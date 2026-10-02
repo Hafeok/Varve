@@ -9,6 +9,8 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Store.Log;
 
@@ -25,7 +27,7 @@ public sealed class DatasetOptions
     public required TimeProvider Clock { get; init; }
 
     /// <summary>The most body bytes one record carries; a larger commit is several records (ADR 0013).</summary>
-    public int MaxRecordBytes { get; init; } = 1 << 20;
+    public ByteCount MaxRecordBytes { get; init; } = new(1 << 20);
 
     /// <summary>The size past which the active segment is sealed and a new one begun (ADR 0018).</summary>
     public ByteCount SegmentBytes { get; init; } = new(64L << 20);
@@ -126,11 +128,12 @@ public sealed class Dataset : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(options.Clock);
         ArgumentNullException.ThrowIfNull(options.Validators);
-        ArgumentOutOfRangeException.ThrowIfLessThan(options.MaxRecordBytes, 64);
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.MaxRecordBytes.Value, 64L, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(options.MaxRecordBytes.Value, int.MaxValue, nameof(options));
         ArgumentOutOfRangeException.ThrowIfLessThan(options.SegmentBytes.Value, 1024L, nameof(options));
 
         LogScan scan = await LogReader.ScanAsync(storage.Log, cancellationToken).ConfigureAwait(false);
-        LogWriter writer = await LogWriter.OpenAsync(storage.Log, scan, options.SegmentBytes.Value, options.MaxRecordBytes, cancellationToken).ConfigureAwait(false);
+        LogWriter writer = await LogWriter.OpenAsync(storage.Log, scan, options.SegmentBytes.Value, (int)options.MaxRecordBytes.Value, cancellationToken).ConfigureAwait(false);
         TermDictionary dictionary = new();
 
         CommitInfo[] commits = new CommitInfo[Math.Max(16, scan.Commits.Count)];
@@ -724,6 +727,23 @@ public sealed class Dataset : IAsyncDisposable
         }
     }
 
+    /// <summary>The quads a subscription's filter passes, copied in order; how many.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private static int Keep(ReadOnlySpan<Quad> quads, in SubscriptionFilter filter, Span<Quad> kept)
+    {
+        int count = 0;
+
+        for (int i = 0; i < quads.Length; i++)
+        {
+            if (filter.Matches(in quads[i]))
+            {
+                kept[count++] = quads[i];
+            }
+        }
+
+        return count;
+    }
+
     private static void AddIds(HashSet<ulong> ids, in Quad quad)
     {
         ids.Add(quad.Subject.Value);
@@ -831,26 +851,12 @@ public sealed class Dataset : IAsyncDisposable
     {
         LoggedCommit logged = await ReadLoggedAsync(state, position, cancellationToken).ConfigureAwait(false);
         CommitHeader header = logged.Header;
-        List<Quad> asserted = [];
-        List<Quad> retracted = [];
+        Quad[] assertedKept = new Quad[logged.Asserted.Length];
+        Quad[] retractedKept = new Quad[logged.Retracted.Length];
+        ReadOnlySpan<Quad> asserted = assertedKept.AsSpan(0, Keep(logged.Asserted, filter, assertedKept));
+        ReadOnlySpan<Quad> retracted = retractedKept.AsSpan(0, Keep(logged.Retracted, filter, retractedKept));
 
-        foreach (Quad quad in logged.Asserted)
-        {
-            if (filter.Matches(in quad))
-            {
-                asserted.Add(quad);
-            }
-        }
-
-        foreach (Quad quad in logged.Retracted)
-        {
-            if (filter.Matches(in quad))
-            {
-                retracted.Add(quad);
-            }
-        }
-
-        if (header.Kind == CommitKind.Data && asserted.Count == 0 && retracted.Count == 0)
+        if (header.Kind == CommitKind.Data && asserted.IsEmpty && retracted.IsEmpty)
         {
             return null;
         }
@@ -904,7 +910,7 @@ public sealed class Dataset : IAsyncDisposable
             new TermHandle(header.Cause),
             new TermHandle(header.GraphScope),
             attachments,
-            QuadDelta.Create(CollectionsMarshal.AsSpan(asserted), CollectionsMarshal.AsSpan(retracted)),
+            QuadDelta.Create(asserted, retracted),
             allocations.ToArray());
     }
 

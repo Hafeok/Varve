@@ -79,7 +79,7 @@ defaults:
 |---|---|---|
 | `Optimise` | `true` | Apply the optimiser (§8). The normalisation of §5.1 runs regardless. |
 | `ValueAccess` | `InlineAccessor` | How an expression obtains a term's value: ADR 0050's three arms (§10) |
-| `ImplicitTimezoneOffsetMinutes` | `0` (UTC) | F&O §10.4's implicit timezone, for comparing dateTimes (§7.4) |
+| `ImplicitTimezoneOffset` | `TimeSpan.Zero` (UTC) | F&O §10.4's implicit timezone, for comparing dateTimes (§7.4) |
 | `Clock` | none | A `TimeProvider`; `NOW()` without one fails the query naming this option. The caller's line is `Clock = TimeProvider.System`. |
 | `Randomness` | none | An `IRandomSource`; `RAND`, `UUID`, `STRUUID` without one fail the query naming this option. |
 | `ServiceHandler` | refuses | ADR 0055 |
@@ -383,7 +383,7 @@ Numerics compare and compute through `XsdNumeric` with XPath promotion
 (integer → decimal → float → double; integer division is decimal); simple
 literals and `xsd:string` compare by code point (`XsdString`); booleans with
 `false < true`; `xsd:dateTime` **by the implicit-timezone total order** (ADR
-0051, `XsdDateTime.Compare` with `ImplicitTimezoneOffsetMinutes`).
+0051, `XsdDateTime.Compare` with `ImplicitTimezoneOffset` in minutes).
 
 `xsd:date`, `xsd:time` and the `g` types — `gYear`, `gYearMonth`, `gMonth`,
 `gMonthDay`, `gDay` — compare, when both operands have the same type, **by

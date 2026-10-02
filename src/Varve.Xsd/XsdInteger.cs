@@ -39,6 +39,7 @@ public readonly struct XsdInteger : IEquatable<XsdInteger>, IComparable<XsdInteg
     public long Value { get; }
 
     /// <summary>Zero.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static XsdInteger Zero => default;
 
     /// <summary>Whether the value is negative.</summary>
@@ -187,6 +188,7 @@ public readonly struct XsdInteger : IEquatable<XsdInteger>, IComparable<XsdInteg
     /// minus, no leading zeros, and zero written <c>0</c> and never <c>-0</c>.
     /// Judged on the string, so a form too long to be a value is still judged.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static bool IsCanonical(ReadOnlySpan<byte> lexical)
     {
         int start = !lexical.IsEmpty && lexical[0] == (byte)'-' ? 1 : 0;

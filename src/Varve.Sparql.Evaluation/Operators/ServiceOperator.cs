@@ -5,6 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Sparql.Algebra;
 using Varve.Sparql.Evaluation.Execution;
@@ -36,10 +38,14 @@ internal sealed class ServiceOperator : Operator
         _slots = slots;
     }
 
-    internal override IEnumerator<ulong[]> Open(Exec exec, ulong[] input, ActiveGraph graph) =>
+    internal override IEnumerator<ulong[]> Open(Exec exec, ulong[] input, ActiveGraph graph) => JoinOne(exec, input, graph);
+
+    [DesignDecision(typeof(ServiceThroughAHandlerTheDefaultRefuses.ServiceResultsJoined), Scope = ExceptionScope.HotPath)]
+    private IEnumerator<ulong[]> JoinOne(Exec exec, ulong[] input, ActiveGraph graph) =>
         Join(exec, Solutions.Once(input), graph);
 
     /// <summary>Joins the service's answer with the incoming solutions, invoking it once per endpoint.</summary>
+    [DesignDecision(typeof(ServiceThroughAHandlerTheDefaultRefuses.ServiceResultsJoined), Scope = ExceptionScope.HotPath)]
     internal IEnumerator<ulong[]> Join(Exec exec, IEnumerator<ulong[]> incoming, ActiveGraph graph)
     {
         List<ulong[]> rows = [];

@@ -272,6 +272,11 @@ own manifests without dotNetRDF — is already met.
 
 ## 6 — Durable managed storage backend
 
+**Written under the `DD` and `VARVE` rules from its first line** (#43, ADRs
+0062–0069): each new contract is a `[Contract]` citing its decision, each new
+log value is a wrapper in `Varve.Store.Log`, and each backend's write, read and
+replay inner loops are `[HotPath]` before they are benchmarked.
+
 Bulk loader against the decisions from milestone 2. Not a compaction strategy:
 ADR 0015 decides there is none in the destructive sense, and a storage engine
 that merges and discards superseded records is right for `derived/` and wrong

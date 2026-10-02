@@ -17,8 +17,12 @@ namespace Varve.Sparql.Evaluation.Operators;
 /// patterns matched depth-first, in the order the optimiser left them, each
 /// scan bound by what the patterns before it bound.
 /// </summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal sealed class BgpOperator(TriplePatternSpec[] patterns) : Operator
 {
+    /// <summary>The cursor the last <see cref="BgpCursor.Dispose"/> handed back, for the next <see cref="Open"/>.</summary>
+    private BgpCursor? _spare;
+
     internal TriplePatternSpec[] Patterns { get; } = patterns;
 
     internal override bool Substitutable => true;
@@ -35,21 +39,41 @@ internal sealed class BgpOperator(TriplePatternSpec[] patterns) : Operator
             }
         }
 
-        return Patterns.Length == 0 ? Solutions.Once(Rows.Copy(input)) : new BgpCursor(exec, Patterns, input, graph);
+        // The right side of a bind join is opened once per left solution, and
+        // each cursor is disposed before the next is opened: one spare is
+        // enough to make the cursor once per execution.
+        BgpCursor? spare = _spare;
+        if (spare is not null && spare.Exec == exec)
+        {
+            _spare = null;
+            spare.Restart(input, graph);
+            return spare;
+        }
+
+        return NewCursor(exec, input, graph);
     }
+
+    /// <summary>Takes a disposed cursor back, for the next <see cref="Open"/>.</summary>
+    internal void Return(BgpCursor cursor) => _spare = cursor;
+
+    [DesignDecision(typeof(EvaluationHotPathScope.OperatorStateIsMadeOncePerExecution), Scope = ExceptionScope.HotPath)]
+    private BgpCursor NewCursor(Exec exec, ulong[] input, ActiveGraph graph) => new(this, exec, Patterns, input, graph);
 }
 
 /// <summary>
 /// The depth-first match of a basic graph pattern. One working solution is
 /// bound and unbound in place as the search moves; a solution array is
 /// allocated only when the last pattern matches, which is what makes the cost
-/// per quad scanned and not matched zero (§11).
+/// per quad scanned and not matched zero (§11). Disposing it hands it back to
+/// its operator, which restarts it for the next incoming solution: a bind
+/// join's right side makes one cursor per execution, not one per left solution.
+/// With no patterns, it yields the incoming solution once.
 /// </summary>
 internal sealed class BgpCursor : IEnumerator<ulong[]>
 {
-    private readonly Exec _exec;
+    private readonly BgpOperator _owner;
     private readonly TriplePatternSpec[] _patterns;
-    private readonly ActiveGraph _graph;
+    private ActiveGraph _graph;
     private readonly ulong[] _work;
     private readonly ScanCursor[] _scans;
     private readonly int[] _bound;
@@ -57,10 +81,12 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
     private readonly bool[] _open;
     private int _level = -1;
     private bool _done;
+    private bool _returned;
 
-    internal BgpCursor(Exec exec, TriplePatternSpec[] patterns, ulong[] input, ActiveGraph graph)
+    internal BgpCursor(BgpOperator owner, Exec exec, TriplePatternSpec[] patterns, ulong[] input, ActiveGraph graph)
     {
-        _exec = exec;
+        _owner = owner;
+        Exec = exec;
         _patterns = patterns;
         _graph = graph;
         _work = Rows.Copy(input);
@@ -73,6 +99,9 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
             _scans[i] = new ScanCursor();
         }
     }
+
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal Exec Exec { get; }
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public ulong[] Current { get; private set; } = [];
@@ -89,6 +118,13 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
 
         if (_level < 0)
         {
+            if (_patterns.Length == 0)
+            {
+                _done = true;
+                Current = Rows.Copy(_work);
+                return true;
+            }
+
             _level = 0;
             OpenLevel(0);
         }
@@ -99,7 +135,7 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
             {
                 if (_level == _patterns.Length - 1)
                 {
-                    _exec.Check();
+                    Exec.Check();
                     Current = Rows.Copy(_work);
                     return true;
                 }
@@ -124,6 +160,18 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
     [DesignDecision(typeof(EvaluationSurfaces.OperatorsAreEnumerators), Scope = ExceptionScope.Compatibility)]
     public void Reset() => throw new NotSupportedException();
 
+    /// <summary>Starts again from a new incoming solution, as a new cursor would.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal void Restart(ulong[] input, ActiveGraph graph)
+    {
+        input.AsSpan().CopyTo(_work);
+        _graph = graph;
+        _level = -1;
+        _done = false;
+        _returned = false;
+    }
+
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public void Dispose()
     {
         foreach (ScanCursor scan in _scans)
@@ -132,6 +180,11 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
         }
 
         _done = true;
+        if (!_returned)
+        {
+            _returned = true;
+            _owner.Return(this);
+        }
     }
 
     /// <summary>Opens level <paramref name="level"/>'s scan against the working solution.</summary>
@@ -143,7 +196,7 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
         _open[level] = Resolve(pattern.Subject, out TermHandle s)
             && Resolve(pattern.Predicate, out TermHandle p)
             && Resolve(pattern.Object, out TermHandle o)
-            && _scans[level].Open(_exec, s, p, o, _graph, _work);
+            && _scans[level].Open(Exec, s, p, o, _graph, _work);
     }
 
     /// <summary>A position as a scan argument: a handle, or the wildcard; false when nothing can match.</summary>
@@ -158,7 +211,7 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
                 return true;
             case PositionKind.Slot:
                 return _work[position.Slot] == 0
-                    || _exec.TryGetSourceHandle(Rows.Get(_work, _exec.Width, position.Slot), out handle);
+                    || Exec.TryGetSourceHandle(Rows.Get(_work, Exec.Width, position.Slot), out handle);
             case PositionKind.Nested:
                 return true;
             default:
@@ -201,7 +254,7 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
         switch (position.Kind)
         {
             case PositionKind.Slot:
-                return UnifySlot(level, position.Slot, _exec.FromSource(found));
+                return UnifySlot(level, position.Slot, Exec.FromSource(found));
             case PositionKind.Nested:
                 return UnifyExternalised(level, position.Nested!, found);
             default:
@@ -213,24 +266,24 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
     // is asked for it.
     [DesignDecision(typeof(EvaluationHotPathScope.NestedPatternsExternalise), Scope = ExceptionScope.HotPath)]
     private bool UnifyExternalised(int level, NestedPattern nested, TermHandle found) =>
-        _exec.Source.TryExternalise(found, out RdfTerm? term) && UnifyNested(level, nested, term);
+        Exec.Source.TryExternalise(found, out RdfTerm? term) && UnifyNested(level, nested, term);
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private bool UnifySlot(int level, int slot, TermRef value)
     {
         if (_work[slot] != 0)
         {
-            return _exec.TermEquals(Rows.Get(_work, _exec.Width, slot), value);
+            return Exec.TermEquals(Rows.Get(_work, Exec.Width, slot), value);
         }
 
-        Rows.Set(_work, _exec.Width, slot, value);
+        Rows.Set(_work, Exec.Width, slot, value);
         _bound[(level * 8) + _boundCount[level]++] = slot;
         return true;
     }
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private bool UnifyGraph(int level, TermHandle graph) =>
-        _graph.Mode != GraphMode.Slot || UnifySlot(level, _graph.Slot, _exec.FromSource(graph));
+        _graph.Mode != GraphMode.Slot || UnifySlot(level, _graph.Slot, Exec.FromSource(graph));
 
     /// <summary>A triple term found, against a triple term pattern with variables inside (1.2).</summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
@@ -254,7 +307,7 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
                     throw new NotSupportedException("A triple term pattern binds more than eight variables in one position.");
                 }
 
-                return UnifySlot(level, position.Slot, _exec.Intern(term));
+                return UnifySlot(level, position.Slot, Exec.Intern(term));
             default:
                 return UnifyNested(level, position.Nested!, term);
         }
@@ -266,7 +319,7 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
         int count = _boundCount[level];
         for (int i = 0; i < count; i++)
         {
-            Rows.Clear(_work, _exec.Width, _bound[(level * 8) + i]);
+            Rows.Clear(_work, Exec.Width, _bound[(level * 8) + i]);
         }
 
         _boundCount[level] = 0;
@@ -276,7 +329,33 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
 /// <summary>Small enumerators with no state worth a class of their own.</summary>
 internal static class Solutions
 {
-    internal static IEnumerator<ulong[]> Empty => ((IEnumerable<ulong[]>)Array.Empty<ulong[]>()).GetEnumerator();
+    /// <summary>No solutions: one enumerator for every caller, since it has no state.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal static IEnumerator<ulong[]> Empty => NoSolutions.Instance;
 
     internal static IEnumerator<ulong[]> Once(ulong[] row) => ((IEnumerable<ulong[]>)new[] { row }).GetEnumerator();
+}
+
+/// <summary>The enumerator of no solutions. It has no state, so one serves every caller.</summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+internal sealed class NoSolutions : IEnumerator<ulong[]>
+{
+    internal static readonly NoSolutions Instance = new();
+
+    private NoSolutions()
+    {
+    }
+
+    public ulong[] Current => throw new InvalidOperationException("There are no solutions.");
+
+    object IEnumerator.Current => Current;
+
+    public bool MoveNext() => false;
+
+    [DesignDecision(typeof(EvaluationSurfaces.OperatorsAreEnumerators), Scope = ExceptionScope.Compatibility)]
+    public void Reset() => throw new NotSupportedException();
+
+    public void Dispose()
+    {
+    }
 }

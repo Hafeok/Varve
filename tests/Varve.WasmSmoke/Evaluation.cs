@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Varve.Rdf;
 using Varve.Sparql.Evaluation;
+using Varve.Sparql.Evaluation.Model;
 using Varve.Turtle;
 
 namespace Varve.WasmSmoke;
@@ -79,7 +80,7 @@ internal static partial class Smoke
             RdfTerm?[] row = new RdfTerm?[solutions.Variables.Count];
             for (int i = 0; i < row.Length; i++)
             {
-                row[i] = solutions.TryGetTerm(i, out RdfTerm? term) ? term : null;
+                row[i] = solutions.TryGetTerm(new ColumnIndex(i), out RdfTerm? term) ? term : null;
             }
 
             rows.Add(render(row));

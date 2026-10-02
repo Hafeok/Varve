@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Store.Log;
 
@@ -51,6 +53,7 @@ internal sealed class Resolver
     /// <summary>The allocations, in id order within each class. Final after <see cref="Finalise"/>.</summary>
     internal IReadOnlyList<Allocation> Allocations => _allocations;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal ulong Resolve(RequestTerm term)
     {
         if (term.IsNone)
@@ -76,46 +79,64 @@ internal sealed class Resolver
         return Resolve(term.Term!);
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal ulong Resolve(RdfTerm term)
     {
         switch (term.Kind)
         {
             case RdfTermKind.BlankNode:
-                if (!_labels.TryGetValue(term, out ulong blank))
-                {
-                    blank = TermIds.Blank(_nextBlank++);
-                    _labels[term] = blank;
-                    _allocations.Add(new Allocation(blank, null));
-                }
-
-                return blank;
+                return Label(term);
 
             case RdfTermKind.TripleTerm:
-                ulong s = Resolve(term.Subject!);
-                ulong p = Resolve(term.Predicate!);
-                ulong o = Resolve(term.Object!);
-
-                if (_triples.TryGetValue((s, p, o), out ulong triple) || _dictionary.TryFindTriple(s, p, o, out triple))
-                {
-                    return triple;
-                }
-
-                triple = TermIds.Canonical(_nextCanonical++);
-                _triples[(s, p, o)] = triple;
-                _allocations.Add(new Allocation(triple, null, s, p, o));
-                return triple;
+                return Triple(Resolve(term.Subject!), Resolve(term.Predicate!), Resolve(term.Object!));
 
             default:
-                if (_dictionary.TryFind(term, _canonicalLimit, out ulong existing) || _terms.TryGetValue(term, out existing))
-                {
-                    return existing;
-                }
-
-                ulong fresh = TermIds.Canonical(_nextCanonical++);
-                _terms[term] = fresh;
-                _allocations.Add(new Allocation(fresh, term));
-                return fresh;
+                return _dictionary.TryFind(term, _canonicalLimit, out ulong existing) ? existing : Fresh(term);
         }
+    }
+
+    /// <summary>A blank node's id in this request, allocated the first time its label is met.</summary>
+    [DesignDecision(typeof(StoreHotPathScope.TermLookupsAreHashLookups), Scope = ExceptionScope.HotPath)]
+    private ulong Label(RdfTerm term)
+    {
+        if (!_labels.TryGetValue(term, out ulong blank))
+        {
+            blank = TermIds.Blank(_nextBlank++);
+            _labels[term] = blank;
+            _allocations.Add(new Allocation(blank, null));
+        }
+
+        return blank;
+    }
+
+    /// <summary>A triple term's id: the dataset's, this request's, or a new allocation.</summary>
+    [DesignDecision(typeof(StoreHotPathScope.TermLookupsAreHashLookups), Scope = ExceptionScope.HotPath)]
+    private ulong Triple(ulong s, ulong p, ulong o)
+    {
+        if (_triples.TryGetValue((s, p, o), out ulong triple) || _dictionary.TryFindTriple(s, p, o, out triple))
+        {
+            return triple;
+        }
+
+        triple = TermIds.Canonical(_nextCanonical++);
+        _triples[(s, p, o)] = triple;
+        _allocations.Add(new Allocation(triple, null, s, p, o));
+        return triple;
+    }
+
+    /// <summary>A term the dataset does not hold: this request's id for it, allocated the first time.</summary>
+    [DesignDecision(typeof(StoreHotPathScope.TermLookupsAreHashLookups), Scope = ExceptionScope.HotPath)]
+    private ulong Fresh(RdfTerm term)
+    {
+        if (_terms.TryGetValue(term, out ulong fresh))
+        {
+            return fresh;
+        }
+
+        fresh = TermIds.Canonical(_nextCanonical++);
+        _terms[term] = fresh;
+        _allocations.Add(new Allocation(fresh, term));
+        return fresh;
     }
 
     /// <summary>

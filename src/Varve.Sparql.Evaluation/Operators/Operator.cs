@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Sparql.Evaluation.Execution;
 
 namespace Varve.Sparql.Evaluation.Operators;
@@ -13,6 +15,12 @@ namespace Varve.Sparql.Evaluation.Operators;
 /// incoming solution; each array it yields is new and is never changed again,
 /// so a consumer may keep it.
 /// </summary>
+/// <remarks>
+/// Marked whole: <see cref="Open"/> runs once per incoming solution on the
+/// right side of a bind join, and every override, with the iterator it
+/// returns, is held to <c>VARVE0003</c>.
+/// </remarks>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal abstract class Operator
 {
     /// <summary>

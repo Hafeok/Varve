@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading;
 using Varve.Rdf;
 using Varve.Sparql.Algebra;
+using Varve.Sparql.Evaluation.Model;
 
 namespace Varve.Sparql.Evaluation.Tests;
 
@@ -35,7 +36,7 @@ internal static class Support
             List<string> cells = [];
             for (int i = 0; i < solutions.Variables.Count; i++)
             {
-                if (solutions.TryGetTerm(i, out RdfTerm? term))
+                if (solutions.TryGetTerm(new ColumnIndex(i), out RdfTerm? term))
                 {
                     cells.Add("?" + solutions.Variables[i].Name + "=" + Text(term!));
                 }

@@ -55,8 +55,40 @@ tests, never scaffolding that compiles and does nothing.
 - Never take a version from memory: resolve it from NuGet into
   `Directory.Packages.props` with `Adr="NNNN"` (ADR 0009).
 - **A new rule ships as analyzer, then tests, then doc page.** A rule only in a
-  document is not a rule. **Suppressions cite an ADR number**; a repo-wide
-  `NoWarn` for a `VARVE` or IL-prefixed rule is not allowed.
+  document is not a rule. A suppression of any other rule cites an ADR number;
+  a `DD` or `VARVE` rule is never suppressed (below), and a repo-wide `NoWarn`
+  for a `VARVE` or IL-prefixed rule is not allowed.
+
+## Rules: `DD` and `VARVE`
+
+`DecisionDriven.Analyzers` (`DD0001`–`DD0019`, development-time only, ADR 0062)
+and `Varve.Analyzers` (`VARVE0003`–`VARVE0005`, ADR 0064) run at error
+severity on every project in `src/`. Every ADR is also a decision set in
+`docs/decisions/`, and code cites a ruling as a type:
+`[Contract(typeof(<Set>.<Key>), Role = "...")]`,
+`[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]`,
+`[DesignDecision(typeof(<Set>.<Key>), Scope = ExceptionScope.<Scope>)]`.
+
+- **A finding is fixed, or answered by a decision.** The `Decide:` line names
+  both paths. Take the design change when the only reason for the code is that
+  it already looked like this. Otherwise put `[DesignDecision]` on the
+  narrowest symbol, citing a filed decision with the scope that matches the
+  rule (`HotPath` for `VARVE0003`, `Pool` for `DD0004`, `Boundary` for the
+  primitive rules).
+- **Never `#pragma`, `[SuppressMessage]` or an `.editorconfig` downgrade** for
+  a `DD` or `VARVE` id; `DD0008` reports each.
+- **A new decision is filed unaccepted.** Its citations are `CS0618` until the
+  maintainer adds `accepted-by`, which **a session never writes**; the pull
+  request is red on that alone (ADR 0066). An accepted ADR changes by a dated
+  amendment (ADR 0068), never by editing.
+- **A finding about the analyzers themselves** (a false positive, a wrong
+  message, a missing exemption) is an issue in the analyzer repository, with
+  the reproduction, never a local workaround. That repository never names
+  Varve. A finding about `VARVE0003`–`0005` is fixed in `src/Varve.Analyzers/`.
+- **`[HotPath]` marks what runs per quad, per row or per term**, not the
+  orchestration around it. Mark it, then fix what `VARVE0003` reports. The
+  BCL allow-list (`varve_hot_path_allowed_types`) is configuration, by type or
+  by member, and every entry is admitted by a decision in `HotPathScope`.
 
 **`main` is the trunk** (ADR 0032). Commit directly or open a pull request, your
 choice; work not ready for the trunk lives behind a feature flag or stays local,
@@ -167,5 +199,8 @@ exists.
   same-layer reference. A `.cs` file without the MPL-2.0 notice (ADR 0031).
 - Code copied from Oxigraph or dotNetRDF, a version taken from memory, an
   IL-prefixed warning in `NoWarn`, or editing an accepted ADR.
+- A suppression of a `DD` or `VARVE` rule, an `accepted-by` written by a
+  session, or a workaround for an analyzer's false positive in place of an
+  upstream issue.
 - **API keys, or any credential scheme other than OIDC bearer tokens** (ADR 0037).
 - A placeholder body not explicitly marked as a stub and reported.

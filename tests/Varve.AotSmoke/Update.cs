@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Varve.Rdf;
 using Varve.Sparql.Evaluation;
+using Varve.Sparql.Evaluation.Model;
 using Varve.Sparql.Results;
 using Varve.Sparql.Store;
 
@@ -72,7 +73,7 @@ internal static partial class Smoke
 
                 for (int i = 0; i < solutions.Variables.Count; i++)
                 {
-                    if (solutions.TryGetTerm(i, out RdfTerm? term))
+                    if (solutions.TryGetTerm(new ColumnIndex(i), out RdfTerm? term))
                     {
                         writer.WriteBinding(i, term!);
                     }

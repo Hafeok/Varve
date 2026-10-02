@@ -43,6 +43,14 @@ decisions:
     statement: "A call to an extension function passes its arguments as an array of terms and runs the caller's code, which the evaluator does not hold to its own rules"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-29T00:00:00Z
+  - key: OperatorStateIsMadeOncePerExecution
+    statement: "An operator makes what it keeps for an execution the first time it is opened in it and keeps it on the operator: a BGP's cursor, which its Dispose hands back for the next Open, the join keys, the resolved VALUES rows, the GRAPH name and the named graphs; so the right side of a bind join pays for them once per execution, not once per left solution"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-02T00:00:00Z
+  - key: BlockingOperatorsHoldTheirInput
+    statement: "GROUP, DISTINCT, ORDER BY, MINUS and the right side of a hash join or a hashed OPTIONAL hold the solutions they must see before they answer in a table made once per Open, which grows with what it holds and hashes under the source's term equality, and a group's accumulators grow with what DISTINCT and GROUP_CONCAT keep; the loops that read solutions in and out of the table are held to the rule"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
 ---
 
 # What the hot-path rules do not cover in the evaluator
@@ -108,3 +116,60 @@ solution.
 
 **`ExtensionFunctionsAreTheCallersCode`.** `ExtensionExpr.Eval`. The argument
 array is `IExtensionFunction`'s signature (ADR 0056).
+
+**Filed by the close of session 3 of #43, unaccepted: two keys.** Marking
+`Operator` as a whole held every operator's `Open`, its iterator and its
+helpers to `VARVE0003`. It reported 108 findings. Most were unmarked plumbing,
+now marked, and fixes:
+
+- **A group's key** was a new array per solution, and is now written in place
+  and copied only for a group not seen before.
+- **`ORDER BY`'s keys** were a new array per solution, and are now one list, a
+  solution's keys side by side.
+- **`GROUP_CONCAT`'s separator** was encoded per solution, and is now encoded
+  once per accumulator.
+- **A hash join's probe** that found no bucket returned a new empty list, and
+  now returns none.
+- **`ORDER BY`'s comparison** was a lambda capturing its keys, and is now the
+  sort table itself.
+- **A BGP's cursor** was made per `Open`, which is per left solution under a
+  bind join, and is now handed back on `Dispose` and restarted.
+
+What is left is filed here.
+
+**`OperatorStateIsMadeOncePerExecution`.** `BgpOperator.NewCursor`, the first
+cursor of an execution. `JoinOperator.Keys`, cached on the operator.
+`ValuesOperator.Resolve`. `GraphOperator.ResolveName`. `Exec.NamedGraphs`. Each
+is made the first time the operator is opened in an execution. An operator tree
+is compiled per evaluation (`SparqlEvaluator.Evaluate`), so state kept on the
+operator is not shared between executions; `ValuesOperator` and `PathOperator`
+already relied on that. A cursor disposed twice after being handed out again
+would close its new user's scans; every consumer disposes once, through
+`using`. What `VARVE0003` cannot see is the C# iterator each other operator's
+`Open` returns. It is a state machine allocated per `Open`, so the right side
+of a bind join still costs one object per left solution per iterator operator
+in it. The alternative is a hand-written cursor per operator, reused as the
+BGP's now is, which the maintainer's instruction reserves for a per-row
+allocation the rule finds.
+
+**`BlockingOperatorsHoldTheirInput`.** `JoinTable.Build` and `.Candidates`,
+`DistinctOperator.NewSeen` and `.FirstTime`, `OrderByOperator.SortTable`'s
+`Create`, `Hold`, `Sort` and `HoldAsLocal`, and an accumulator's `FirstTime`
+and `Append`. Each holds what it must see before it can answer: the right side
+of a hash join, the solutions seen, the solutions to sort, a DISTINCT
+aggregate's values, a GROUP_CONCAT's text. A lookup hashes under the source's
+term equality through a comparer, which is Varve code and marked. The loops
+that read solutions in and out of the table stay checked. GROUP's own table
+cites `AggregationByHashGroupingAndAccumulators.HashAggregationWithoutSpill`,
+which already says it. The alternative is spilling to storage, which ADR 0053
+ruled out for the in-memory evaluator.
+
+Accepted keys answer the rest. `ServiceThroughAHandlerTheDefaultRefuses.ServiceResultsJoined`
+covers `ServiceOperator.Join`, which calls the handler. `PropertyPathsNormalisedThenEvaluatedByAlp.ClosuresByAlp`
+covers `PathOperator.Search`, the ALP search with its visited sets.
+`ExtensionFunctionsAreTheCallersCode` covers a custom aggregate's `Add` and
+result, which are the caller's code as an extension function's are.
+`TermBuildingExpressionsAllocate` covers `Semantics.Bind` and GROUP_CONCAT's
+literal. `SolutionCostsItsRow` covers `Rows.Merge` and `Exec.NewRow`.
+`FromNamedIsASetLookup` and `ScanOpensTheSourcesCursor` cover the two halves of
+`Exec.IsNamedGraph`.

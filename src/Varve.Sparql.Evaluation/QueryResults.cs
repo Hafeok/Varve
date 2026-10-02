@@ -86,16 +86,16 @@ public sealed class SolutionResults : QueryResults
     }
 
     /// <summary>Whether a column is bound in the current solution.</summary>
-    public bool IsBound(int column) => CurrentRow()[_slots[column]] != 0;
+    public bool IsBound(ColumnIndex column) => CurrentRow()[_slots[column.Value]] != 0;
 
     /// <summary>
     /// The source's handle for a column: false when it is unbound, and when it
     /// holds a term the source does not have (a computed literal, a minted blank
     /// node, a constant the source has never seen).
     /// </summary>
-    public bool TryGetHandle(int column, out TermHandle handle)
+    public bool TryGetHandle(ColumnIndex column, out TermHandle handle)
     {
-        TermRef value = Rows.Get(CurrentRow(), _exec.Width, _slots[column]);
+        TermRef value = Rows.Get(CurrentRow(), _exec.Width, _slots[column.Value]);
         if (!value.IsBound)
         {
             handle = default;
@@ -106,9 +106,9 @@ public sealed class SolutionResults : QueryResults
     }
 
     /// <summary>The term of a column, or false when it is unbound.</summary>
-    public bool TryGetTerm(int column, [NotNullWhen(true)] out RdfTerm? term)
+    public bool TryGetTerm(ColumnIndex column, [NotNullWhen(true)] out RdfTerm? term)
     {
-        TermRef value = Rows.Get(CurrentRow(), _exec.Width, _slots[column]);
+        TermRef value = Rows.Get(CurrentRow(), _exec.Width, _slots[column.Value]);
         term = value.IsBound ? _exec.Materialise(value) : null;
         return term is not null;
     }

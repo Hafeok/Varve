@@ -28,6 +28,19 @@ public class EvaluatorTests
     }
 
     [Fact]
+    public void The_implicit_timezone_is_a_whole_number_of_minutes_within_fourteen_hours()
+    {
+        Assert.Equal(TimeSpan.FromHours(-5), new EvaluationOptions { ImplicitTimezoneOffset = TimeSpan.FromHours(-5) }.ImplicitTimezoneOffset);
+        Assert.Equal(TimeSpan.Zero, EvaluationOptions.Default.ImplicitTimezoneOffset);
+        Assert.Throws<ArgumentOutOfRangeException>(() => new EvaluationOptions { ImplicitTimezoneOffset = TimeSpan.FromSeconds(30) });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new EvaluationOptions { ImplicitTimezoneOffset = TimeSpan.FromHours(15) });
+    }
+
+    [Fact]
+    public void A_column_is_counted_from_zero() =>
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ColumnIndex(-1));
+
+    [Fact]
     public void A_token_cancelled_before_the_call_stops_it() =>
         Assert.ThrowsAny<OperationCanceledException>(() =>
             new SparqlEvaluator(Options()).Evaluate(Parse("SELECT * { ?s ?p ?o }"), Chain(3), new CancellationToken(true)));
