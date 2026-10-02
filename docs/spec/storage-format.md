@@ -42,7 +42,8 @@ storage contract that writes them is ADRs 0018, 0040 and 0071.
     …
   derived/
     .gitignore          "*", written at creation
-    LOCK                the lease (ADR 0075); not a blob
+    LOCK                the lease (ADR 0075), held open; not a blob
+    LOCK.owner          who holds it, for the refusal's message; not a blob
     checkpoints/<P>.ckpt
     index/state
     index/runs/<from>-<to>.<n>.run

@@ -347,3 +347,40 @@ static Varve.Store.Log.FormatVersion.operator >(Varve.Store.Log.FormatVersion le
 static Varve.Store.Log.FormatVersion.operator >=(Varve.Store.Log.FormatVersion left, Varve.Store.Log.FormatVersion right) -> bool
 ~override Varve.Store.Log.DatasetId.Equals(object obj) -> bool
 ~override Varve.Store.Log.FormatVersion.Equals(object obj) -> bool
+Varve.Store.DatasetLeasedException
+Varve.Store.DatasetLeasedException.DatasetLeasedException() -> void
+Varve.Store.DatasetLeasedException.DatasetLeasedException(string! message) -> void
+Varve.Store.DatasetLeasedException.DatasetLeasedException(string! message, System.Exception! innerException) -> void
+Varve.Store.FileStorage
+Varve.Store.FileStorage.Derived.get -> Varve.Store.IDerivedStore!
+Varve.Store.FileStorage.Directory.get -> Varve.Store.Log.DatasetDirectory
+Varve.Store.FileStorage.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Varve.Store.FileStorage.Log.get -> Varve.Store.ISegmentStore!
+Varve.Store.FileStorageOptions
+Varve.Store.FileStorageOptions.Clock.get -> System.TimeProvider!
+Varve.Store.FileStorageOptions.Clock.init -> void
+Varve.Store.FileStorageOptions.FileStorageOptions() -> void
+Varve.Store.FileStorageOptions.KeyStore.get -> Varve.Store.Log.KeyStoreDirectory?
+Varve.Store.FileStorageOptions.KeyStore.init -> void
+Varve.Store.Log.DatasetDirectory
+Varve.Store.Log.DatasetDirectory.DatasetDirectory() -> void
+Varve.Store.Log.DatasetDirectory.DatasetDirectory(string! path) -> void
+Varve.Store.Log.DatasetDirectory.Equals(Varve.Store.Log.DatasetDirectory other) -> bool
+Varve.Store.Log.DatasetDirectory.Value.get -> string!
+Varve.Store.Log.KeyStoreDirectory
+Varve.Store.Log.KeyStoreDirectory.Equals(Varve.Store.Log.KeyStoreDirectory other) -> bool
+Varve.Store.Log.KeyStoreDirectory.IsWithin(Varve.Store.Log.DatasetDirectory dataset) -> bool
+Varve.Store.Log.KeyStoreDirectory.KeyStoreDirectory() -> void
+Varve.Store.Log.KeyStoreDirectory.KeyStoreDirectory(string! path) -> void
+Varve.Store.Log.KeyStoreDirectory.Value.get -> string!
+override Varve.Store.Log.DatasetDirectory.GetHashCode() -> int
+override Varve.Store.Log.DatasetDirectory.ToString() -> string!
+override Varve.Store.Log.KeyStoreDirectory.GetHashCode() -> int
+override Varve.Store.Log.KeyStoreDirectory.ToString() -> string!
+static Varve.Store.FileStorage.OpenAsync(Varve.Store.Log.DatasetDirectory directory, Varve.Store.FileStorageOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.FileStorage!>
+static Varve.Store.Log.DatasetDirectory.operator !=(Varve.Store.Log.DatasetDirectory left, Varve.Store.Log.DatasetDirectory right) -> bool
+static Varve.Store.Log.DatasetDirectory.operator ==(Varve.Store.Log.DatasetDirectory left, Varve.Store.Log.DatasetDirectory right) -> bool
+static Varve.Store.Log.KeyStoreDirectory.operator !=(Varve.Store.Log.KeyStoreDirectory left, Varve.Store.Log.KeyStoreDirectory right) -> bool
+static Varve.Store.Log.KeyStoreDirectory.operator ==(Varve.Store.Log.KeyStoreDirectory left, Varve.Store.Log.KeyStoreDirectory right) -> bool
+~override Varve.Store.Log.DatasetDirectory.Equals(object obj) -> bool
+~override Varve.Store.Log.KeyStoreDirectory.Equals(object obj) -> bool

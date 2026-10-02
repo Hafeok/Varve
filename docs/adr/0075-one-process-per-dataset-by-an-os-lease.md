@@ -29,9 +29,11 @@ the handle until `DisposeAsync`.**
   is a share mode. Either way **the operating system releases it when the
   process ends**, however it ends. A stale lease does not exist, so there is no
   takeover interval to state.
-- **The file's contents are for the message only**: an owner string the host
-  may set, the process id, and the time the lease was taken from the injected
-  clock. A second opener is refused with `DatasetLeasedException` quoting them.
+- **The owner is written beside it, for the message only**: the process id,
+  the machine name, and the time the lease was taken from the injected clock,
+  in `derived/LOCK.owner`. A file held with `FileShare.None` cannot be read by
+  the process it refuses, so `LOCK` itself holds nothing. A second opener is
+  refused with `DatasetLeasedException` quoting the owner.
 - **The lease lives under `derived/`**, which is excluded from version control
   by the `.gitignore` the store writes there, so a copy never carries a lease.
 - **A lease is per directory, not per `FileStorage`**: a second `OpenAsync` of
