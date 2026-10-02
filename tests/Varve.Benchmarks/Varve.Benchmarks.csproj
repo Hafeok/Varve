@@ -15,6 +15,10 @@
     <Optimize>true</Optimize>
     <ServerGarbageCollection>false</ServerGarbageCollection>
 
+    <!-- BlockReadBenchmarks reads a memory-mapped view through a pointer, the
+         way ADR 0071's other read path would; nothing shipped does. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
     <!-- The linked conformance files below cite types of their own project in
          their doc comments (ManifestReader, SubmoduleGuardTests), which this
          assembly does not compile. -->

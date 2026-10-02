@@ -228,7 +228,7 @@ internal static class StoreSizes
         GC.Collect();
         long before = GC.GetTotalMemory(forceFullCollection: true);
         MemoryStorage storage = new();
-        StoreDatasetType dataset = await StoreDatasetType.OpenAsync(storage, new DatasetOptions { Clock = TimeProvider.System });
+        StoreDatasetType dataset = await StoreDatasetType.CreateAsync(storage, new Varve.Store.Log.DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System });
 
         for (int start = 0; start < quads.Length; start += 10_000)
         {
