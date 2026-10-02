@@ -119,7 +119,14 @@ maintainer, as the amendment provides.
 ### Gates
 
 The results are in the pull request body, as they were run. The
-`decision-sets` job is **red on the six acceptance dates** until the
-maintainer's correction lands. That is red on something other than `CS0618`,
-and it is the new rule working on `main`'s own ledger, not a defect of this
-change.
+`decision-sets` job was **red on the six acceptance dates**: the new rule
+working on `main`'s own ledger, not a defect of this change. At the
+maintainer's instruction, which changed their earlier "I correct the six
+acceptance dates myself", the session then set the six `accepted-at` to
+2026-10-02, the day of the acceptance commit `dbd9fde` and the date its
+seventh key already carries. `accepted-by` is untouched. `decision-sets` then
+passes, and the whole pipeline is green.
+
+The prose in those set files still says some of these keys are unaccepted,
+or accepted on 2026-09-29. That predates this pull request (`dbd9fde` changed
+only the front matter), and it is left for the maintainer.
