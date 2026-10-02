@@ -37,6 +37,8 @@ decisions:
     accepted-at: 2026-09-22T00:00:00Z
   - key: ModelNamedInTheRecordNotTheCommit
     statement: "The traceability record names the model by the identifier the session's metadata reports, filled in by the maintainer where the tool will not write it, and a commit message never carries a model's API identifier"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-02T00:00:00Z
   - key: AgentsMdHoldsTheRules
     statement: "The agent rules live in the vendor-neutral AGENTS.md, and CLAUDE.md is one line pointing at it"
     accepted-by: mailto:emil@okkels-klein.dk
