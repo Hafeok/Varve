@@ -50,8 +50,7 @@ jobs:
 
           # eng/issue-refs.cs walks the commits this push or pull request adds,
           # and a shallow clone has no base to walk from; eng/decision-sets.cs
-          # reads when each decision was filed. This is the one job that needs
-          # the history.
+          # reads when each decision was filed, as it does in the build job.
           fetch-depth: 0
 
       - name: Build the devcontainer and run the pipeline
@@ -93,6 +92,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           submodules: recursive
+
+          # eng/decision-sets.cs reads when each decision was filed from the
+          # ledger's history, and a shallow clone could not run it.
+          fetch-depth: 0
 
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6

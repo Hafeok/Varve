@@ -121,7 +121,9 @@ public sealed class DecisionSetsGateTests : IDisposable
         await GitInAsync(Filed, origin, "commit", "--quiet", "-am", "accept");
 
         string clone = Path.Combine(_root, "clone");
-        await GitInAsync(Filed, _root, "clone", "--quiet", "--depth", "1", "file://" + origin, clone);
+        // --depth needs a file:// URL; a Windows path is file:///C:/....
+        string path = origin.Replace('\\', '/');
+        await GitInAsync(Filed, _root, "clone", "--quiet", "--depth", "1", "file://" + (path.StartsWith('/') ? "" : "/") + path, clone);
 
         GateResult result = await RunAsync(clone);
 
@@ -170,7 +172,7 @@ public sealed class DecisionSetsGateTests : IDisposable
             ["GIT_COMMITTER_EMAIL"] = "fixture@example.org",
             ["GIT_AUTHOR_DATE"] = date,
             ["GIT_COMMITTER_DATE"] = date,
-            ["GIT_CONFIG_GLOBAL"] = "/dev/null",
+            ["GIT_CONFIG_GLOBAL"] = EmptyGitConfig,
             ["GIT_CONFIG_NOSYSTEM"] = "1",
         };
 
@@ -187,6 +189,18 @@ public sealed class DecisionSetsGateTests : IDisposable
         await process.WaitForExitAsync(TestContext.Current.CancellationToken);
 
         Assert.True(process.ExitCode == 0, "git " + string.Join(' ', arguments) + ": " + await stdout + await stderr);
+    }
+
+    // An empty global configuration, so the runner's own settings do not reach
+    // the fixtures; /dev/null is not a path on Windows. Made once, before any
+    // test runs, so parallel tests never race to write it.
+    private static readonly string EmptyGitConfig = CreateEmptyGitConfig();
+
+    private static string CreateEmptyGitConfig()
+    {
+        string file = Path.Combine(Path.GetTempPath(), "varve-decision-sets-" + Guid.NewGuid().ToString("N") + ".gitconfig");
+        File.WriteAllText(file, "");
+        return file;
     }
 
     private Task<GateResult> RunAsync() => RunAsync(_root);
