@@ -25,10 +25,16 @@ decisions:
     accepted-at: 2026-09-29T00:00:00Z
   - key: ColumnIndexIsAWrapper
     statement: "A column of a SELECT's solutions is a ColumnIndex, a readonly record struct over its position in SolutionResults.Variables in Varve.Sparql.Evaluation.Model, and SolutionResults takes it where it took an int"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
   - key: MaxRecordBytesIsAByteCount
     statement: "DatasetOptions.MaxRecordBytes is a ByteCount, as SegmentBytes is, and opening a dataset refuses one below 64 bytes or above what a record's 32-bit length can carry"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
   - key: ImplicitTimezoneIsATimeSpan
     statement: "EvaluationOptions.ImplicitTimezoneOffset is a TimeSpan, a whole number of minutes from minus 14 to plus 14 hours, and replaces ImplicitTimezoneOffsetMinutes"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
 ---
 
 # Model namespaces for layers 3 to 5

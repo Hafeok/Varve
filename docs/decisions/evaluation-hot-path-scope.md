@@ -45,8 +45,12 @@ decisions:
     accepted-at: 2026-09-29T00:00:00Z
   - key: OperatorStateIsMadeOncePerExecution
     statement: "An operator makes what it keeps for an execution the first time it is opened in it and keeps it on the operator: a BGP's cursor, which its Dispose hands back for the next Open, the join keys, the resolved VALUES rows, the GRAPH name and the named graphs; so the right side of a bind join pays for them once per execution, not once per left solution"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-02T00:00:00Z
   - key: BlockingOperatorsHoldTheirInput
     statement: "GROUP, DISTINCT, ORDER BY, MINUS and the right side of a hash join or a hashed OPTIONAL hold the solutions they must see before they answer in a table made once per Open, which grows with what it holds and hashes under the source's term equality, and a group's accumulators grow with what DISTINCT and GROUP_CONCAT keep; the loops that read solutions in and out of the table are held to the rule"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
 ---
 
 # What the hot-path rules do not cover in the evaluator

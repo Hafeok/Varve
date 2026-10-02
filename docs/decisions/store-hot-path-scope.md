@@ -13,6 +13,8 @@ decisions:
     accepted-at: 2026-09-29T00:00:00Z
   - key: TermLookupsAreHashLookups
     statement: "The store's per-term lookups, interning a term, resolving a request's term and staging one, are lookups in hash tables keyed by term under RdfTerm's comparer or by the ids of a triple term's parts, which hash and compare in place and allocate nothing; a term the table does not hold yet adds its entry and its allocation, once per term per request"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-29T00:00:00Z
 ---
 
 # What the hot-path rules do not cover in the store
