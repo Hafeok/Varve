@@ -50,7 +50,7 @@ decisions:
   - key: BlockingOperatorsHoldTheirInput
     statement: "GROUP, DISTINCT, ORDER BY, MINUS and the right side of a hash join or a hashed OPTIONAL hold the solutions they must see before they answer in a table made once per Open, which grows with what it holds and hashes under the source's term equality, and a group's accumulators grow with what DISTINCT and GROUP_CONCAT keep; the loops that read solutions in and out of the table are held to the rule"
     accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-09-29T00:00:00Z
+    accepted-at: 2026-10-02T00:00:00Z
 ---
 
 # What the hot-path rules do not cover in the evaluator

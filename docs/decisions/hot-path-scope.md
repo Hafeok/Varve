@@ -30,7 +30,7 @@ decisions:
   - key: AllowListAddsEnumeratorAndListReads
     statement: "The hot-path allow-list admits by member IEnumerator's MoveNext, IEnumerator of T's Current, and List of T's indexer getter and Count; the two List members neither allocate nor call back, and a call through the two interface members runs what implements them, which VARVE0003 checks where it is written: every solution enumerator in the evaluator is an operator's Open, held to the rule as an override of a HotPath member, or BgpCursor, which is marked"
     accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-09-29T00:00:00Z
+    accepted-at: 2026-10-02T00:00:00Z
   - key: IeeeTextGoesThroughTheInvariantFormatter
     statement: "Varve.Xsd parses and formats xsd:double and xsd:float through the BCL's IEEE parser and formatter with the invariant culture, which neither allocates on a span nor calls back into Varve"
     accepted-by: mailto:emil@okkels-klein.dk
