@@ -375,8 +375,8 @@ public sealed class Dataset : IAsyncDisposable
             byte[] blob = CheckpointFormat.Encode(position, at.HeaderHash, at.CanonicalCount, at.BlankCount, run, _dictionary);
             BlobName name = Checkpoint.Name(position);
 
-            await _storage.Derived.PutAsync(name, blob, cancellationToken).ConfigureAwait(false);
-            ReadOnlyMemory<byte> stored = await _storage.Derived.GetRangeAsync(name, new ByteOffset(0), new ByteCount(blob.Length), cancellationToken).ConfigureAwait(false);
+            await WriteBlobAsync(name, blob, cancellationToken).ConfigureAwait(false);
+            ReadOnlyMemory<byte> stored = await ReadBlobAsync(name, cancellationToken).ConfigureAwait(false);
             Checkpoint checkpoint = CheckpointFormat.TryDecode(stored, _dictionary)
                 ?? throw new InvalidOperationException("A checkpoint just written does not read back.");
 
@@ -805,7 +805,7 @@ public sealed class Dataset : IAsyncDisposable
                 continue;
             }
 
-            ReadOnlyMemory<byte> blob = await _storage.Derived.GetRangeAsync(name, new ByteOffset(0), new ByteCount(int.MaxValue), cancellationToken).ConfigureAwait(false);
+            ReadOnlyMemory<byte> blob = await ReadBlobAsync(name, cancellationToken).ConfigureAwait(false);
             Checkpoint? checkpoint = CheckpointFormat.TryDecode(blob, _dictionary);
 
             // A checkpoint names the commit it materialises. One copied beside a
@@ -825,6 +825,28 @@ public sealed class Dataset : IAsyncDisposable
 
         loaded.Sort((a, b) => a.Position.CompareTo(b.Position));
         return [.. loaded];
+    }
+
+    private async ValueTask WriteBlobAsync(BlobName name, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
+    {
+        await using IBlobWriter writer = await _storage.Derived.CreateAsync(name, cancellationToken).ConfigureAwait(false);
+        await writer.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+        await writer.PublishAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    // A whole blob, read into one array. Checkpoints are scanned from it in place.
+    private async ValueTask<ReadOnlyMemory<byte>> ReadBlobAsync(BlobName name, CancellationToken cancellationToken)
+    {
+        using IReadableBlob blob = await _storage.Derived.OpenAsync(name, cancellationToken).ConfigureAwait(false);
+
+        if (blob.Length.Value > int.MaxValue)
+        {
+            return ReadOnlyMemory<byte>.Empty;
+        }
+
+        byte[] bytes = new byte[blob.Length.Value];
+        int read = blob.Read(new ByteOffset(0), bytes);
+        return bytes.AsMemory(0, read);
     }
 
     private async ValueTask<QuadDelta> NetAsync(State state, long from, long to, CancellationToken cancellationToken)

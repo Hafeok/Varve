@@ -80,7 +80,7 @@ public class LogPropertyTests
 
                 for (long length = 0; length <= total; length++)
                 {
-                    MemoryStorage cut = MemoryStorage.FromSegments(Prefix(segments, length));
+                    MemoryStorage cut = MemoryStorage.FromLog(ReadOnlyMemory<byte>.Empty, Prefix(segments, length));
                     await using Dataset opened = await Dataset.OpenAsync(cut, harness.Options, T.Ct);
 
                     if (opened.Head.Value != previous && opened.Head.Value != previous + 1)
@@ -160,7 +160,7 @@ public class LogPropertyTests
                         byte[] changed = (byte[])log.Clone();
                         changed[at] ^= 0x01;
                         await Assert.ThrowsAsync<LogVerificationException>(async () =>
-                            await Dataset.OpenAsync(MemoryStorage.FromSegments([changed]), harness.Options, T.Ct));
+                            await Dataset.OpenAsync(MemoryStorage.FromLog(ReadOnlyMemory<byte>.Empty, [changed]), harness.Options, T.Ct));
                     }
                 }
             },
@@ -190,7 +190,7 @@ public class LogPropertyTests
 
                     try
                     {
-                        await using Dataset opened = await Dataset.OpenAsync(MemoryStorage.FromSegments([changed]), harness.Options, T.Ct);
+                        await using Dataset opened = await Dataset.OpenAsync(MemoryStorage.FromLog(ReadOnlyMemory<byte>.Empty, [changed]), harness.Options, T.Ct);
 
                         if (opened.Head.Value >= harness.Model.Head)
                         {
@@ -223,8 +223,8 @@ public class LogPropertyTests
                 await harness.RunAsync(script);
                 long prefix = harness.Dataset.Head.Value;
                 List<byte[]> copied = await SegmentsAsync(harness.Storage);
-                MemoryStorage copy = MemoryStorage.FromSegments(copied.Select(s => (ReadOnlyMemory<byte>)s.ToArray()));
-                MemoryStorage snapshot = MemoryStorage.FromSegments(copied.Select(s => (ReadOnlyMemory<byte>)s.ToArray()));
+                MemoryStorage copy = MemoryStorage.FromLog(ReadOnlyMemory<byte>.Empty, copied.Select(s => (ReadOnlyMemory<byte>)s.ToArray()));
+                MemoryStorage snapshot = MemoryStorage.FromLog(ReadOnlyMemory<byte>.Empty, copied.Select(s => (ReadOnlyMemory<byte>)s.ToArray()));
 
                 Assert.Null(await LogChain.FindDivergenceAsync(harness.Storage.Log, copy.Log, T.Ct));
 

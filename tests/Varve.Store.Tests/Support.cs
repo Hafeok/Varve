@@ -50,6 +50,14 @@ internal static class T
 
     public static ValueTask<Dataset> Open(IStorage storage, TimeProvider? clock = null) => Dataset.OpenAsync(storage, Options(clock), Ct);
 
+    /// <summary>A whole derived blob, read through the synchronous blob read.</summary>
+    public static async Task<ReadOnlyMemory<byte>> ReadBlobAsync(IStorage storage, BlobName name)
+    {
+        using IReadableBlob blob = await storage.Derived.OpenAsync(name, Ct);
+        byte[] bytes = new byte[blob.Length.Value];
+        return bytes.AsMemory(0, blob.Read(new ByteOffset(0), bytes));
+    }
+
     public static List<Quad> Drain(IQuadCursor cursor)
     {
         using (cursor)

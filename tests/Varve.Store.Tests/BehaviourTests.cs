@@ -309,10 +309,10 @@ public class BehaviourTests
                 {
                     await harness.Dataset.CheckpointAsync(new Position(p), T.Ct);
                     BlobName name = (await harness.Storage.Derived.ListAsync(T.Ct)).Single();
-                    ReadOnlyMemory<byte> blob = await harness.Storage.Derived.GetRangeAsync(name, new ByteOffset(0), new ByteCount(int.MaxValue), T.Ct);
+                    ReadOnlyMemory<byte> blob = await T.ReadBlobAsync(harness.Storage, name);
                     await harness.Dataset.DropCheckpointAsync(new Position(p), T.Ct);
 
-                    MemoryStorage alone = MemoryStorage.FromSegments(log.Select(s => (ReadOnlyMemory<byte>)s), [new(name, blob)]);
+                    MemoryStorage alone = MemoryStorage.FromLog(ReadOnlyMemory<byte>.Empty, log.Select(s => (ReadOnlyMemory<byte>)s), [new(name, blob)]);
                     await using Dataset opened = await Dataset.OpenAsync(alone, harness.Options, T.Ct);
                     Assert.Equal([new Position(p)], opened.Checkpoints);
 
@@ -347,8 +347,8 @@ public class BehaviourTests
         }
 
         BlobName name = (await first.Derived.ListAsync(T.Ct)).Single();
-        ReadOnlyMemory<byte> blob = await first.Derived.GetRangeAsync(name, new ByteOffset(0), new ByteCount(int.MaxValue), T.Ct);
-        MemoryStorage mixed = MemoryStorage.FromSegments(await LogPropertyTests.SegmentsAsync(second) is { } log ? log.Select(s => (ReadOnlyMemory<byte>)s) : [], [new(name, blob)]);
+        ReadOnlyMemory<byte> blob = await T.ReadBlobAsync(first, name);
+        MemoryStorage mixed = MemoryStorage.FromLog(ReadOnlyMemory<byte>.Empty, await LogPropertyTests.SegmentsAsync(second) is { } log ? log.Select(s => (ReadOnlyMemory<byte>)s) : [], [new(name, blob)]);
 
         await using Dataset opened = await T.Open(mixed);
         Assert.Empty(opened.Checkpoints);

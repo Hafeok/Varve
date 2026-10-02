@@ -42,7 +42,7 @@ public class RegressionTests
 
         for (int cut = 0; cut < 8; cut++)
         {
-            MemoryStorage copy = MemoryStorage.FromSegments([segments[0], segments[1].AsMemory(0, cut)]);
+            MemoryStorage copy = MemoryStorage.FromLog(ReadOnlyMemory<byte>.Empty, [segments[0], segments[1].AsMemory(0, cut)]);
             long head;
 
             await using (Dataset recovered = await Dataset.OpenAsync(copy, options, T.Ct))

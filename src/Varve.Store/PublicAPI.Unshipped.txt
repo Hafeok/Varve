@@ -258,9 +258,7 @@ static Varve.Store.LogChain.FindDivergenceAsync(Varve.Store.ISegmentStore! first
 ~override Varve.Store.Log.Position.Equals(object obj) -> bool
 ~override Varve.Store.Log.SegmentId.Equals(object obj) -> bool
 Varve.Store.IDerivedStore.DeleteAsync(Varve.Store.Log.BlobName name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
-Varve.Store.IDerivedStore.GetRangeAsync(Varve.Store.Log.BlobName name, Varve.Store.Log.ByteOffset offset, Varve.Store.Log.ByteCount length, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.ReadOnlyMemory<byte>>
 Varve.Store.IDerivedStore.ListAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Varve.Store.Log.BlobName>!>
-Varve.Store.IDerivedStore.PutAsync(Varve.Store.Log.BlobName name, System.ReadOnlyMemory<byte> bytes, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
 Varve.Store.Log.BlobName
 Varve.Store.Log.BlobName.BlobName() -> void
 Varve.Store.Log.BlobName.BlobName(string! value) -> void
@@ -301,6 +299,16 @@ static Varve.Store.Log.RequestTerm.None.get -> Varve.Store.Log.RequestTerm
 static Varve.Store.Log.RequestTerm.implicit operator Varve.Store.Log.RequestTerm(Varve.Rdf.RdfTerm! term) -> Varve.Store.Log.RequestTerm
 static Varve.Store.Log.RequestTerm.operator !=(Varve.Store.Log.RequestTerm left, Varve.Store.Log.RequestTerm right) -> bool
 static Varve.Store.Log.RequestTerm.operator ==(Varve.Store.Log.RequestTerm left, Varve.Store.Log.RequestTerm right) -> bool
-static Varve.Store.MemoryStorage.FromSegments(System.Collections.Generic.IEnumerable<System.ReadOnlyMemory<byte>>! log, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Varve.Store.Log.BlobName, System.ReadOnlyMemory<byte>>>? derived = null) -> Varve.Store.MemoryStorage!
 ~override Varve.Store.Log.BlobName.Equals(object obj) -> bool
 Varve.Store.DatasetOptions.MaxRecordBytes.get -> Varve.Store.Log.ByteCount
+Varve.Store.IBlobWriter
+Varve.Store.IBlobWriter.PublishAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Store.IBlobWriter.WriteAsync(System.ReadOnlyMemory<byte> bytes, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Store.IDerivedStore.CreateAsync(Varve.Store.Log.BlobName name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Store.IBlobWriter!>
+Varve.Store.IDerivedStore.OpenAsync(Varve.Store.Log.BlobName name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Store.IReadableBlob!>
+Varve.Store.IReadableBlob
+Varve.Store.IReadableBlob.Length.get -> Varve.Store.Log.ByteCount
+Varve.Store.IReadableBlob.Read(Varve.Store.Log.ByteOffset offset, System.Span<byte> destination) -> int
+Varve.Store.ISegmentStore.ReadManifestAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.ReadOnlyMemory<byte>>
+Varve.Store.ISegmentStore.WriteManifestAsync(System.ReadOnlyMemory<byte> manifest, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+static Varve.Store.MemoryStorage.FromLog(System.ReadOnlyMemory<byte> manifest, System.Collections.Generic.IEnumerable<System.ReadOnlyMemory<byte>>! log, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Varve.Store.Log.BlobName, System.ReadOnlyMemory<byte>>>? derived = null) -> Varve.Store.MemoryStorage!

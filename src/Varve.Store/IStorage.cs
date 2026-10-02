@@ -79,6 +79,19 @@ public interface ISegmentStore
     /// segment's end. The returned bytes never change.
     /// </summary>
     ValueTask<ReadOnlyMemory<byte>> ReadRangeAsync(SegmentId segment, ByteOffset offset, ByteCount length, CancellationToken cancellationToken);
+
+    /// <summary>The log's manifest, or empty when it has none yet.</summary>
+    /// <remarks>
+    /// The bytes are the store's (ADR 0072); the backend keeps them — the file
+    /// backend as <c>log/MANIFEST</c> — and never interprets them.
+    /// </remarks>
+    ValueTask<ReadOnlyMemory<byte>> ReadManifestAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Writes the log's manifest, durably, before any segment exists. A
+    /// manifest is written once; a second write fails.
+    /// </summary>
+    ValueTask WriteManifestAsync(ReadOnlyMemory<byte> manifest, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -86,26 +99,71 @@ public interface ISegmentStore
 /// dropped without loss.
 /// </summary>
 /// <remarks>
-/// Bytes returned by <see cref="GetRangeAsync"/> are immutable and may be held,
-/// on the same terms as <see cref="ISegmentStore.ReadRangeAsync"/>: a blob is
-/// replaced, never modified in place. That is what lets a checkpoint be
-/// scanned where it lies (ADR 0041).
+/// <para>
+/// A blob is written as a stream and becomes visible only when published,
+/// atomically replacing any blob of the same name; a writer disposed without
+/// publishing leaves nothing (ADR 0071). A blob is never modified in place.
+/// </para>
+/// <para>
+/// A blob is read **synchronously**, through <see cref="IReadableBlob"/>, so
+/// that runs and checkpoints are scanned by the store's synchronous cursor
+/// with the same code on every backend (ADR 0071).
+/// </para>
 /// </remarks>
 [Contract(typeof(SynchronousReadsOverAsynchronousStorage.StorageContractMembers), Role = "derived blobs, rebuildable from the log")]
 public interface IDerivedStore
 {
-    /// <summary>Stores a blob under a name, replacing any blob of that name.</summary>
-    ValueTask PutAsync(BlobName name, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken);
+    /// <summary>Starts writing a blob. Nothing is visible under the name until the writer publishes.</summary>
+    ValueTask<IBlobWriter> CreateAsync(BlobName name, CancellationToken cancellationToken);
 
-    /// <summary>
-    /// Reads bytes from a blob. Returns fewer than asked for only at the blob's
-    /// end. Fails when there is no blob of that name.
-    /// </summary>
-    ValueTask<ReadOnlyMemory<byte>> GetRangeAsync(BlobName name, ByteOffset offset, ByteCount length, CancellationToken cancellationToken);
+    /// <summary>Opens a blob for synchronous reads. Fails when there is no blob of that name.</summary>
+    /// <exception cref="System.Collections.Generic.KeyNotFoundException">There is no blob of that name.</exception>
+    ValueTask<IReadableBlob> OpenAsync(BlobName name, CancellationToken cancellationToken);
 
     /// <summary>Deletes a blob. Returns false when there was none.</summary>
     ValueTask<bool> DeleteAsync(BlobName name, CancellationToken cancellationToken);
 
-    /// <summary>The names of every blob, in ordinal order.</summary>
+    /// <summary>The names of every published blob, in ordinal order.</summary>
     ValueTask<IReadOnlyList<BlobName>> ListAsync(CancellationToken cancellationToken);
+}
+
+/// <summary>A blob being written. Visible under its name only once published.</summary>
+/// <remarks>
+/// Disposing a writer that has not published discards what it wrote, so a
+/// crash or an exception mid-write leaves no blob, and never a torn one
+/// (ADR 0071, ADR 0073).
+/// </remarks>
+[Contract(typeof(SynchronousReadsOverAsynchronousStorage.BlobsArePublishedAtomically), Role = "a derived blob being written, published atomically")]
+public interface IBlobWriter : IAsyncDisposable
+{
+    /// <summary>Appends bytes to the blob.</summary>
+    ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Makes the blob as durable as the backend's <see cref="ISegmentStore.Durability"/>
+    /// says, then visible under its name, atomically replacing any blob of
+    /// that name. A writer publishes once.
+    /// </summary>
+    ValueTask PublishAsync(CancellationToken cancellationToken);
+}
+
+/// <summary>A published blob, open for synchronous reads.</summary>
+/// <remarks>
+/// The blob's bytes never change while it is open. Deleting a blob that is
+/// open is the backend's to allow or to defer; reads of an open blob keep
+/// returning its bytes either way.
+/// </remarks>
+[Contract(typeof(SynchronousReadsOverAsynchronousStorage.DerivedReadsAreSynchronous), Role = "a derived blob, read synchronously")]
+public interface IReadableBlob : IDisposable
+{
+    /// <summary>The blob's length.</summary>
+    ByteCount Length { get; }
+
+    /// <summary>
+    /// Copies bytes from <paramref name="offset"/> into
+    /// <paramref name="destination"/> and returns how many: fewer than the
+    /// destination holds only at the blob's end.
+    /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    int Read(ByteOffset offset, Span<byte> destination);
 }

@@ -5,7 +5,7 @@ adr: 0076
 decisions:
   - key: BulkLoadSortsAndMergeJoins
     statement: "A bulk load sorts its resolved input into a run by an external sort spilling to derived/ and computes its effective delta by a streaming merge-join against the pinned state's runs, with no index lookup per quad"
-  - key: BulkLoadIsOneCommit
+  - key: BulkLoadCommitsOnceByChunks
     statement: "A bulk load commits its effective delta as one multi-record commit of chunks with their own counts and an incrementally computed content hash"
 ---
 
