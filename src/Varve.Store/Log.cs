@@ -150,6 +150,11 @@ internal static class LogReader
                     throw new LogVerificationException(expected, "Segment " + id + " starts a different history at position " + segment.FirstPosition + ".");
                 }
 
+                if (!segment.HeaderValid)
+                {
+                    await RefuseIfWrittenAfterAsync(segment, 1, 0, expected, "after a segment header that does not verify", cancellationToken).ConfigureAwait(false);
+                }
+
                 // Written beyond the point at which this copy of the log was taken.
                 scan.Abandoned.Add(id);
                 continue;
@@ -169,8 +174,27 @@ internal static class LogReader
 
             if (segment.HeaderValid)
             {
-                torn = await ReadRecordsAsync(segment, scan, pending, bodiesAfter, headHash, cancellationToken).ConfigureAwait(false);
+                long brokeAt = await ReadRecordsAsync(segment, scan, pending, bodiesAfter, headHash, cancellationToken).ConfigureAwait(false);
                 headHash = scan.HeadHash;
+                torn = brokeAt >= 0;
+
+                // A sealed segment's trailer, changed: what is left after the
+                // last record is this segment's trailer and does not verify.
+                // A later segment exists only once the trailer was flushed, so
+                // no crash leaves it so, and a copy takes it whole or as a prefix.
+                if (torn && segment.Trailer is null && s < scan.Segments.Count - 1 && segment.RecordsEnd - brokeAt == LogFormat.TrailerLength)
+                {
+                    ReadOnlyMemory<byte> rest = await segment.ReadAsync(brokeAt, LogFormat.TrailerLength, cancellationToken).ConfigureAwait(false);
+
+                    if (LogFormat.IsDamagedTrailer(rest.Span, dataset, id))
+                    {
+                        throw new LogVerificationException(expected, "The trailer of segment " + id + " does not verify, and a later segment follows it: the log is damaged, not torn.");
+                    }
+                }
+            }
+            else
+            {
+                await RefuseIfWrittenAfterAsync(segment, 1, 0, expected, "after a segment header that does not verify", cancellationToken).ConfigureAwait(false);
             }
 
             if (torn)
@@ -215,8 +239,8 @@ internal static class LogReader
         return scan;
     }
 
-    // Reads one segment's records. True when it ends torn.
-    private static async ValueTask<bool> ReadRecordsAsync(
+    // Reads one segment's records. Where they break, or -1 when they do not.
+    private static async ValueTask<long> ReadRecordsAsync(
         SegmentReader segment, LogScan scan, Pending pending, long bodiesAfter, byte[] headHash, CancellationToken cancellationToken)
     {
         long at = LogFormat.SegmentHeaderLength;
@@ -228,7 +252,7 @@ internal static class LogReader
 
             if (segment.RecordsEnd - at < LogFormat.RecordHeaderLength)
             {
-                return true;
+                return at;
             }
 
             ReadOnlyMemory<byte> headerBytes = await segment.ReadAsync(at, LogFormat.RecordHeaderLength, cancellationToken).ConfigureAwait(false);
@@ -236,7 +260,8 @@ internal static class LogReader
 
             if (record is null || at + LogFormat.RecordHeaderLength + record.BodyLength > segment.RecordsEnd)
             {
-                return true;
+                await RefuseIfWrittenAfterAsync(segment, at + 1, expected, expected, "after a record header at position " + expected + " that does not verify", cancellationToken).ConfigureAwait(false);
+                return at;
             }
 
             if (record.Position != expected)
@@ -275,8 +300,8 @@ internal static class LogReader
 
                 if (!LogFormat.HashMatches(body.Span, record.Content))
                 {
-                    await RefuseIfALaterCommitFollowsAsync(segment, bodyAt + record.BodyLength, expected, cancellationToken).ConfigureAwait(false);
-                    return true;
+                    await RefuseIfWrittenAfterAsync(segment, at + 1, expected, expected, "after a record at position " + expected + " whose body does not match its hash", cancellationToken).ConfigureAwait(false);
+                    return at;
                 }
 
                 pending.Add(body);
@@ -300,34 +325,41 @@ internal static class LogReader
             first = false;
         }
 
-        return false;
+        return -1;
     }
 
-    // A body that fails its hash under a header that verifies is a torn tail —
-    // unless a record of a later position follows it, which no crash writes:
-    // the later commit was written only after this one's flush (ADR 0072).
-    private static async ValueTask RefuseIfALaterCommitFollowsAsync(SegmentReader segment, long next, long expected, CancellationToken cancellationToken)
+    // Bytes that do not verify are a torn tail only when nothing written after
+    // them, in the same file, verifies: a record of a later position than the
+    // break belongs to (or, after a segment header that does not verify, any
+    // record) was written after a flush that made the broken bytes durable, so
+    // no crash leaves it, and a copy takes a file as a prefix (ADR 0072, I6).
+    // A later segment cannot vouch for an earlier one, because a copy may take
+    // them at different moments. Every offset is looked at, since a broken
+    // length says nothing about where the next record starts; the position is
+    // checked before the hash, so the look costs a hash only where one could be.
+    private static async ValueTask RefuseIfWrittenAfterAsync(
+        SegmentReader segment, long from, long above, long expected, string after, CancellationToken cancellationToken)
     {
-        if (segment.RecordsEnd - next < LogFormat.RecordHeaderLength)
-        {
-            return;
-        }
+        const int Window = 1 << 20;
+        long end = segment.RecordsEnd;
+        long most = expected + ((end - from) / LogFormat.RecordHeaderLength) + 1;
 
-        ReadOnlyMemory<byte> bytes = await segment.ReadAsync(next, LogFormat.RecordHeaderLength, cancellationToken).ConfigureAwait(false);
-        RecordHeader? following;
+        for (long start = from; end - start >= LogFormat.RecordHeaderLength; start += Window)
+        {
+            long length = Math.Min(end - start, Window + LogFormat.RecordHeaderLength - 1);
+            ReadOnlyMemory<byte> bytes = await segment.ReadAsync(start, length, cancellationToken).ConfigureAwait(false);
+            int offsets = (int)Math.Min(Window, length - LogFormat.RecordHeaderLength + 1);
 
-        try
-        {
-            following = LogFormat.TryReadRecordHeader(bytes.Span, expected);
-        }
-        catch (LogVerificationException)
-        {
-            return;
-        }
+            for (int o = 0; o < offsets; o++)
+            {
+                ReadOnlySpan<byte> candidate = bytes.Span[o..];
+                long position = (long)BinaryPrimitives.ReadUInt64LittleEndian(candidate[8..]);
 
-        if (following is not null && following.Position > expected)
-        {
-            throw new LogVerificationException(expected, "The body of a record at position " + expected + " does not match its hash, and position " + following.Position + " follows it: the log is damaged, not torn.");
+                if (position > above && position <= most && LogFormat.IsRecordHeader(candidate, out _))
+                {
+                    throw new LogVerificationException(expected, "Segment " + segment.Id + " holds a record of position " + position + " " + after + ": the log is damaged, not torn.");
+                }
+            }
         }
     }
 

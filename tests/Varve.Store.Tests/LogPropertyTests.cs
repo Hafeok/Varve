@@ -229,6 +229,133 @@ public class LogPropertyTests
     }
 
     /// <summary>
+    /// I6, first case (specification 1.5): a byte changed anywhere the newest
+    /// commit's records do not hold — an earlier commit's records, a segment
+    /// header, a sealed trailer, the newest commit's records in a sealed
+    /// segment — is covered by a later closed commit or a sealed trailer in
+    /// the same file, and the log refuses to open. Run on segments of 1 KiB and
+    /// records of 64 bytes, so that commits span seals and every log has
+    /// trailers.
+    /// </summary>
+    [Fact]
+    public async Task a_change_covered_by_a_later_commit_or_a_sealed_trailer_refuses()
+    {
+        await Generators.CommitsOnly.SampleAsync(
+            async script =>
+            {
+                await using Harness harness = await Harness.StartAsync(64, 1024L);
+                await harness.RunAsync(script);
+                List<byte[]> segments = await SegmentsAsync(harness.Storage);
+
+                if (segments.Count == 0)
+                {
+                    return;
+                }
+
+                HashSet<int> newest = [.. NewestCommitBytes(segments[^1], harness.Model.Head)];
+
+                for (int s = 0; s < segments.Count; s++)
+                {
+                    for (int at = 0; at < segments[s].Length; at++)
+                    {
+                        if (s == segments.Count - 1 && newest.Contains(at))
+                        {
+                            continue;
+                        }
+
+                        List<ReadOnlyMemory<byte>> changed = Changed(segments, s, at);
+
+                        await Assert.ThrowsAsync<LogVerificationException>(async () =>
+                        {
+                            await using Dataset opened = await T.OpenOrCreate(MemoryStorage.FromLog(T.Manifest, changed), harness.Options);
+                            throw new InvalidOperationException("A change at byte " + at + " of segment " + s + " opened at " + opened.Head + " of " + harness.Model.Head + ".");
+                        });
+                    }
+                }
+            },
+            iter: Iterations,
+            print: script => script.ToString());
+    }
+
+    /// <summary>
+    /// I6, second case (specification 1.5): a byte changed in the newest
+    /// commit's records, in the newest segment, cannot be told from a write
+    /// that never completed. The log refuses, or opens at the position before
+    /// the newest commit with exactly the state it had there — never at the
+    /// same head.
+    /// </summary>
+    [Fact]
+    public async Task a_change_to_the_newest_commit_refuses_or_yields_the_head_before_it()
+    {
+        await Generators.CommitsOnly.SampleAsync(
+            async script =>
+            {
+                await using Harness harness = await Harness.StartAsync(64, 1024L);
+                await harness.RunAsync(script);
+                List<byte[]> segments = await SegmentsAsync(harness.Storage);
+
+                if (segments.Count == 0 || harness.Model.Head == 0)
+                {
+                    return;
+                }
+
+                List<int> newest = [.. NewestCommitBytes(segments[^1], harness.Model.Head)];
+                Assert.NotEmpty(newest);
+
+                foreach (int at in newest)
+                {
+                    try
+                    {
+                        await using Dataset opened = await T.OpenOrCreate(MemoryStorage.FromLog(T.Manifest, Changed(segments, segments.Count - 1, at)), harness.Options);
+                        Assert.Equal(new Position(harness.Model.Head - 1), opened.Head);
+                        using DatasetView view = opened.Pin();
+                        Harness.Same(Harness.Rendered(harness.Model.History[(int)opened.Head.Value]), harness.Rendered(view), "change at " + at);
+                    }
+                    catch (LogVerificationException)
+                    {
+                    }
+                }
+            },
+            iter: Iterations,
+            print: script => script.ToString());
+    }
+
+    private static List<ReadOnlyMemory<byte>> Changed(List<byte[]> segments, int segment, int at)
+    {
+        List<ReadOnlyMemory<byte>> changed = [.. segments.Select(b => (ReadOnlyMemory<byte>)b)];
+        byte[] copy = (byte[])segments[segment].Clone();
+        copy[at] ^= 0x01;
+        changed[segment] = copy;
+        return changed;
+    }
+
+    /// <summary>The offsets of the records of <paramref name="position"/> in one segment, found by walking format version 1.</summary>
+    private static IEnumerable<int> NewestCommitBytes(byte[] segment, long position)
+    {
+        int at = LogFormat.SegmentHeaderLength;
+
+        while (at + LogFormat.RecordHeaderLength <= segment.Length)
+        {
+            int end = at + LogFormat.RecordHeaderLength + (int)BinaryPrimitives.ReadUInt32LittleEndian(segment.AsSpan(at));
+
+            if (end > segment.Length)
+            {
+                yield break;
+            }
+
+            if ((long)BinaryPrimitives.ReadUInt64LittleEndian(segment.AsSpan(at + 8)) == position)
+            {
+                for (int i = at; i < end; i++)
+                {
+                    yield return i;
+                }
+            }
+
+            at = end;
+        }
+    }
+
+    /// <summary>
     /// I6: two continuations of one prefix are reported as divergent, at the
     /// first position where they differ; a log and its own prefix are not.
     /// </summary>

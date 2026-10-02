@@ -283,6 +283,36 @@ internal static class LogFormat
             bytes.Slice(56, HashLength).ToArray());
     }
 
+    /// <summary>
+    /// Whether a record header begins these bytes — its self-hash verifies — and
+    /// the position it claims. Used to look past a break for bytes written after
+    /// it (storage format §5, I6), where a self-hash is what tells a record from
+    /// any other bytes.
+    /// </summary>
+    internal static bool IsRecordHeader(ReadOnlySpan<byte> bytes, out long position)
+    {
+        position = bytes.Length < RecordHeaderLength ? 0 : (long)BinaryPrimitives.ReadUInt64LittleEndian(bytes[8..]);
+        return bytes.Length >= RecordHeaderLength && HashMatches(bytes[..96], bytes.Slice(96, HashLength));
+    }
+
+    /// <summary>
+    /// Whether these bytes are a trailer of this segment that no longer
+    /// verifies: two of its magic, dataset id and segment id agree, which one
+    /// changed byte cannot undo and the start of a record never matches.
+    /// </summary>
+    internal static bool IsDamagedTrailer(ReadOnlySpan<byte> bytes, DatasetId dataset, int segment)
+    {
+        if (bytes.Length != TrailerLength)
+        {
+            return false;
+        }
+
+        int agree = (bytes[..4].SequenceEqual(TrailerMagic) ? 1 : 0)
+            + (DatasetId.Read(bytes.Slice(8, DatasetId.Length)) == dataset ? 1 : 0)
+            + (BinaryPrimitives.ReadUInt32LittleEndian(bytes[24..]) == (uint)segment ? 1 : 0);
+        return agree >= 2;
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Bodies.
 
