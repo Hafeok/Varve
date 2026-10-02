@@ -55,4 +55,27 @@ public class ModelTests
             iter: Iterations / 3,
             print: script => script.ToString());
     }
+
+    /// <summary>
+    /// The same property with the default projection on disk (ADR 0070): a
+    /// memtable of a few quads, flushed to a disk run after almost every step,
+    /// and disk runs merged in tiers; the reopen at the end loads them from
+    /// the persisted state and replays the rest.
+    /// </summary>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(4)]
+    [InlineData(16)]
+    public async Task the_model_agrees_when_the_projection_lives_in_derived_runs(long memtableLimit)
+    {
+        await Generators.Scripts.SampleAsync(
+            async script =>
+            {
+                await using Harness harness = await Harness.StartAsync(memtableLimit: memtableLimit);
+                await harness.RunAsync(script);
+                await harness.VerifyRunAsync(T.Ct);
+            },
+            iter: Iterations / 3,
+            print: script => script.ToString());
+    }
 }

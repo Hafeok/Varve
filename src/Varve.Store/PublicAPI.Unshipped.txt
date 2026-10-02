@@ -384,3 +384,11 @@ static Varve.Store.Log.KeyStoreDirectory.operator !=(Varve.Store.Log.KeyStoreDir
 static Varve.Store.Log.KeyStoreDirectory.operator ==(Varve.Store.Log.KeyStoreDirectory left, Varve.Store.Log.KeyStoreDirectory right) -> bool
 ~override Varve.Store.Log.DatasetDirectory.Equals(object obj) -> bool
 ~override Varve.Store.Log.KeyStoreDirectory.Equals(object obj) -> bool
+Varve.Store.Dataset.MaintainAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Varve.Store.DatasetOptions.Maintenance.get -> Varve.Store.MaintenanceMode
+Varve.Store.DatasetOptions.Maintenance.init -> void
+Varve.Store.DatasetOptions.MemtableLimit.get -> Varve.Rdf.QuadCount
+Varve.Store.DatasetOptions.MemtableLimit.init -> void
+Varve.Store.MaintenanceMode
+Varve.Store.MaintenanceMode.Background = 1 -> Varve.Store.MaintenanceMode
+Varve.Store.MaintenanceMode.Off = 0 -> Varve.Store.MaintenanceMode

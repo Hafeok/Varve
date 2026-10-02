@@ -269,7 +269,12 @@ Recovery writes nothing else, and rewrites nothing.
 
 ## 7. `derived/`
 
-Every file begins with a **derived header** — 160 bytes:
+A derived file is written as a stream, so what describes it comes last: its
+**contents**, then its **directory**, then the **derived header**, which is the
+file's last 160 bytes. A file is published by a temporary file, a flush and a
+rename (ADR 0071, ADR 0073), so a reader never sees one half written.
+
+### 7.1 Derived header — the last 160 bytes
 
 | Offset | Size | Field |
 |---:|---:|---|
@@ -277,26 +282,28 @@ Every file begins with a **derived header** — 160 bytes:
 | 4 | 2 | derived format version, `1` |
 | 6 | 2 | kind: `1` run, `2` checkpoint, `3` projection state |
 | 8 | 16 | dataset id |
-| 24 | 8 | from position (a run covers the commits after it; otherwise 0) |
+| 24 | 8 | from position: a run covers the commits after it; 0 for the others |
 | 32 | 8 | to position |
 | 40 | 32 | the header hash of the commit at *to position* |
 | 72 | 8 | directory offset |
-| 80 | 8 | directory length |
+| 80 | 8 | directory length; the directory ends where the header begins |
 | 88 | 32 | SHA-256 of the directory |
 | 120 | 8 | reserved |
 | 128 | 32 | self-hash of bytes 0–127 |
 
-A derived file is used only if its header and directory verify, its dataset id
-is the log's, and its *to position*'s header hash is the log's. Otherwise it is
-a cache miss.
+A derived file is used only if its header and directory verify, its kind is the
+one expected, its dataset id is the log's, and its *to position*'s header hash
+is the log's. Otherwise it is a cache miss.
 
-### 7.1 Runs and checkpoints
+### 7.2 Runs and checkpoints
 
 A **quad key** is 32 bytes: four `u64` ids in the order's permutation. The six
 orders are `SPOG`, `POSG`, `OSPG`, `GSPO`, `GPOS`, `GOSP`, numbered 0–5 (ADR
-0041). A run has twelve **sections**: for each order, its asserted keys, then its
-retracted keys, each ascending. A checkpoint is a run with no retractions and a
-dictionary.
+0041). A run has twelve **sections**, in this order: for each order, its
+asserted keys, then its retracted keys, each ascending. They start at offset 0
+and follow each other with no gap. A checkpoint is a run with no retractions,
+and its sections are followed by its **dictionary**: the term entries (§4.4) of
+every canonical id from 1 to its counter, in order.
 
 **Directory:**
 
@@ -305,26 +312,33 @@ dictionary.
 | 4 | keys per block, `128` |
 | 4 | section count, `12` |
 | 16 × 12 | per section: `u64` byte offset, `u64` key count |
-| 32 × Σ⌈count / block⌉ | fences: the first key of every block, section by section |
+| 32 × Σ⌈count / 128⌉ | fences: the first key of every block, section by section |
 | checkpoint only: 8 | canonical counter |
 | checkpoint only: 8 | blank counter |
 | checkpoint only: 8 | dictionary offset |
 | checkpoint only: 8 | dictionary length |
 | checkpoint only: 32 | SHA-256 of the dictionary |
 
-The **dictionary** of a checkpoint is the term entries (§4.4) of every canonical
-id from 1 to its counter, in order.
+A reader holds the fences in memory and reads a block — 128 keys, 4 KiB — at a
+time through the synchronous blob read. Keys are verified by their directory's
+placement, not hashed one by one: a derived file torn by a crash is never
+published, and bit rot in a published one is outside 6a.
 
-### 7.2 Projection state — `derived/index/state`
+Names: a run is `index/runs/<from>-<to>.<n>`, positions in twenty digits and
+`n` a sequence number; a checkpoint is `checkpoints/<P>`.
 
-Kind 3; *to position* is the projection's position. Its directory:
+### 7.3 Projection state — `derived/index/state`
+
+Kind 3; *to position* is the projection's position, which is the last run's.
+Its contents are its directory, at offset 0:
 
 | Size | Field |
-|---:|---|
-| 8 | sequence number of the next run file |
+|---|---|
+| 8 | the next run sequence number |
 | 4 | run count |
 | per run | `u16` name length, UTF-8 blob name, `u64` from position, `u64` to position |
 
 Runs are listed oldest first; their ranges are contiguous from 0 to *to
-position*. The file is replaced atomically, which is how the projection's
-position is persisted with its state (ADR 0016).
+position*. The oldest may be a checkpoint, named as one. The file is replaced
+atomically, which is how the projection's position is persisted with its state
+(ADR 0016). Runs that no valid state names are deleted on open.

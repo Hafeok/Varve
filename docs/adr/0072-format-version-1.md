@@ -131,9 +131,11 @@ before it are verified against their content hash whenever they are read.
 
 ### `derived/` has its own version, and is not read forever
 
-Every file under `derived/` begins with a header carrying magic, format version,
+Every file under `derived/` ends with a header carrying magic, format version,
 kind, the dataset id, the position range it covers and the header hash of the
-commit it reaches. **The read-forever rule binds `log/` only.** A derived file
+commit it reaches. It ends the file rather than beginning it because derived
+files are written as streams — a merged run is not in memory — and only at the
+end is everything the header describes known. **The read-forever rule binds `log/` only.** A derived file
 of a version this store does not read, of another dataset, or naming a header
 hash that is not the log's, is a cache miss and is rebuilt (ADR 0041's rule,
 extended from checkpoints to runs and to the projection's state).
