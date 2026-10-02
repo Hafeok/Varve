@@ -50,7 +50,13 @@ decisions:
 twice, a key that is not an identifier, and a key that collides with its set's
 class (`DDGEN0001`, `0002`, `0005`). `dotnet run eng/decision-sets.cs` checks
 what the generator does not: missing and unknown fields, acceptance fields in
-pairs, quoting, the namespace, the file name, and where the set comes from. It
+pairs, quoting, the namespace, the file name, and where the set comes from.
+It also reads the ledger's git history: **an acceptance is never dated before
+the commit that filed its decision.** A key added in place of another in the
+same hunk is a rename and keeps the earlier filing. The keys in an `adr:` set's
+first commit are exempt, because they carry their ADR's own acceptance date;
+a key an amendment adds later is filed then (ADR 0068). It needs the full
+history, so a shallow clone could not run (exit 2) rather than passing. It
 runs in the build job and in `eng/ci.cs`.
 
 ## A set with no ADR

@@ -80,7 +80,7 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("licence-headers", "every .cs file carries the MPL-2.0 notice",
         () => Run("dotnet", ["run", "eng/licence-headers.cs"])),
 
-    ("decision-sets", "every decision set file is well formed and names where it comes from",
+    ("decision-sets", "every decision set file is well formed, names where it comes from, and is never accepted before it was filed",
         () => Run("dotnet", ["run", "eng/decision-sets.cs"])),
 
     ("banned-symbols", "every banned symbol cites the decision that bans it",

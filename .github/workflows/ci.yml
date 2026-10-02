@@ -49,8 +49,9 @@ jobs:
           submodules: recursive
 
           # eng/issue-refs.cs walks the commits this push or pull request adds,
-          # and a shallow clone has no base to walk from. This is the one job
-          # that needs the history.
+          # and a shallow clone has no base to walk from; eng/decision-sets.cs
+          # reads when each decision was filed. This is the one job that needs
+          # the history.
           fetch-depth: 0
 
       - name: Build the devcontainer and run the pipeline
@@ -109,8 +110,10 @@ jobs:
         # ADR 0062. docs/decisions/ is the ledger code cites. The package's
         # generator reads it in every build and reports keys (DDGEN); this
         # checks what the generator does not: missing or unknown fields,
-        # acceptance pairs, quoting, and that every set names its ADR or its
-        # origin. A text check, so it runs before restore beside the register.
+        # acceptance pairs, quoting, that every set names its ADR or its
+        # origin, and that no acceptance is dated before the commit that filed
+        # its decision. Text and git history, so it runs before restore beside
+        # the register.
         run: dotnet run eng/decision-sets.cs
 
       - name: Banned symbols

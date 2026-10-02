@@ -53,6 +53,18 @@
 //     the brief, or a question a finding raised), which is unaccepted until
 //     the maintainer accepts it (ADR 0066). Exactly one of the two.
 //
+// and one rule that needs the ledger's history, so it reads it from git:
+//
+//   - an acceptance is never earlier than the decision it accepts. A key is
+//     filed by the commit that adds its '- key:' line; a key that replaces
+//     another in the same hunk is a rename and keeps the replaced key's
+//     filing. The keys of an `adr:` set's first commit are exempt: they are
+//     transcribed from an ADR accepted before the ledger existed, with that
+//     ADR's date (ADR 0062). A key an amendment adds later is filed then
+//     (ADR 0068). Days are compared as written, each in its own zone, so an
+//     acceptance on the day of filing passes. A shallow clone has no filing
+//     dates, and the gate could not run rather than passing.
+//
 // revoked-at is reported in the summary every run: ADR 0062 reserves it for a
 // ruling withdrawn with no successor, and each use should be visible.
 //
@@ -124,6 +136,7 @@ List<string> findings = [];
 Dictionary<string, string> adrOwner = new(StringComparer.Ordinal);
 Dictionary<string, string> setOwner = new(StringComparer.Ordinal);
 List<string> revoked = [];
+List<(string Name, bool Adr, string Key, DateTimeOffset AcceptedAt, int Line)> acceptances = [];
 
 int files = 0;
 int decisions = 0;
@@ -409,6 +422,11 @@ foreach (string path in Directory.EnumerateFiles(decisionDirectory, "*.md").Orde
             accepted++;
         }
 
+        if (key.Value is not null && hasAt && IsDateTime(at.Value))
+        {
+            acceptances.Add((name, adr is not null, key.Value, DateTimeOffset.Parse(at.Value, CultureInfo.InvariantCulture), at.Line));
+        }
+
         if (entry.TryGetValue("revoked-at", out (string Value, int Line) revokedAt))
         {
             if (!IsDateTime(revokedAt.Value))
@@ -419,6 +437,15 @@ foreach (string path in Directory.EnumerateFiles(decisionDirectory, "*.md").Orde
             revoked.Add($"{label} ({name}, {revokedAt.Value})");
         }
     }
+}
+
+// --- acceptance against filing, from history ------------------------------
+
+string? historyProblem = CheckFilingDates(decisionDirectory, acceptances, findings);
+if (historyProblem is not null)
+{
+    Console.Error.WriteLine($"decision-sets: {historyProblem}");
+    return 2;
 }
 
 Console.WriteLine($"decision-sets: {files} set file(s), {decisions} decision(s), {accepted} accepted, in namespace '{Namespace}'.");
@@ -448,6 +475,145 @@ Console.Error.WriteLine();
 Console.Error.WriteLine("The format is the interim form in hafeok/decision-driven-analyzers,");
 Console.Error.WriteLine("docs/rules/ledger-input.md, with Varve's own rules in ADR 0062.");
 return 1;
+
+// Adds a finding for each acceptance dated before its decision was filed, or
+// returns why the history could not be read.
+static string? CheckFilingDates(
+    string decisionDirectory,
+    List<(string Name, bool Adr, string Key, DateTimeOffset AcceptedAt, int Line)> acceptances,
+    List<string> findings)
+{
+    (int shallowExit, string shallow) = Git(decisionDirectory, "rev-parse", "--is-shallow-repository");
+    if (shallowExit != 0)
+    {
+        return $"'{decisionDirectory}' is not in a git repository, and filing dates come from its history.";
+    }
+
+    if (shallow.Trim() == "true")
+    {
+        return "the clone is shallow, so a decision's filing date is unknown. Run 'git fetch --unshallow'.";
+    }
+
+    Regex keyLine = new(@"^(?<sign>[+-])\s+- key:\s*(?<key>\S+)\s*$", RegexOptions.CultureInvariant);
+
+    foreach (IGrouping<string, (string Name, bool Adr, string Key, DateTimeOffset AcceptedAt, int Line)> file
+        in acceptances.GroupBy(a => a.Name, StringComparer.Ordinal))
+    {
+        (int exit, string log) = Git(
+            decisionDirectory, "log", "--follow", "--reverse", "--format=commit %h %aI", "-p", "--unified=0", "--", file.Key);
+        if (exit != 0)
+        {
+            return $"git log failed for {file.Key}: {log.Trim()}";
+        }
+
+        // Key -> filing (commit and day); a null day is a transcription.
+        Dictionary<string, (string Commit, DateTimeOffset? Day)> filed = new(StringComparer.Ordinal);
+        Queue<string> removedInHunk = new();
+        string commit = "";
+        DateTimeOffset date = default;
+        int commits = 0;
+        bool adr = file.First().Adr;
+
+        foreach (string line in log.Split('\n'))
+        {
+            if (line.StartsWith("commit ", StringComparison.Ordinal))
+            {
+                string[] parts = line.Split(' ');
+                commit = parts[1];
+                date = DateTimeOffset.Parse(parts[2], CultureInfo.InvariantCulture);
+                commits++;
+                removedInHunk.Clear();
+                continue;
+            }
+
+            if (line.StartsWith("@@", StringComparison.Ordinal))
+            {
+                removedInHunk.Clear();
+                continue;
+            }
+
+            Match match = keyLine.Match(line.TrimEnd('\r'));
+            if (!match.Success)
+            {
+                continue;
+            }
+
+            string key = match.Groups["key"].Value;
+            if (match.Groups["sign"].Value == "-")
+            {
+                removedInHunk.Enqueue(key);
+                continue;
+            }
+
+            if (filed.ContainsKey(key))
+            {
+                continue;
+            }
+
+            if (removedInHunk.TryDequeue(out string? renamed) && filed.TryGetValue(renamed, out var original))
+            {
+                filed[key] = original;
+            }
+            else
+            {
+                filed[key] = (commit, adr && commits == 1 ? null : date);
+            }
+        }
+
+        foreach (var acceptance in file)
+        {
+            // A key no commit adds yet is being filed in the working tree, today.
+            (string Commit, DateTimeOffset? Day) filing = filed.TryGetValue(acceptance.Key, out var known)
+                ? known
+                : ("the working tree", DateTimeOffset.Now);
+
+            if (filing.Day is not DateTimeOffset day)
+            {
+                continue;
+            }
+
+            DateOnly acceptedOn = DateOnly.FromDateTime(acceptance.AcceptedAt.DateTime);
+            DateOnly filedOn = DateOnly.FromDateTime(day.DateTime);
+            if (acceptedOn < filedOn)
+            {
+                findings.Add(
+                    $"{acceptance.Name}:{acceptance.Line}: '{acceptance.Key}' is accepted-at {acceptedOn:yyyy-MM-dd}, "
+                    + $"before it was filed on {filedOn:yyyy-MM-dd} ({filing.Commit}). An acceptance cannot precede what it accepts.");
+            }
+        }
+    }
+
+    return null;
+}
+
+static (int ExitCode, string Output) Git(string workingDirectory, params string[] arguments)
+{
+    System.Diagnostics.ProcessStartInfo startInfo = new("git")
+    {
+        WorkingDirectory = workingDirectory,
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        UseShellExecute = false,
+    };
+
+    foreach (string argument in arguments)
+    {
+        startInfo.ArgumentList.Add(argument);
+    }
+
+    try
+    {
+        using System.Diagnostics.Process process = System.Diagnostics.Process.Start(startInfo)!;
+        Task<string> error = process.StandardError.ReadToEndAsync();
+        string output = process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+        return (process.ExitCode, process.ExitCode == 0 ? output : error.Result);
+    }
+    catch (System.ComponentModel.Win32Exception exception)
+    {
+        return (-1, exception.Message);
+    }
+}
 
 bool IsDateTime(string value) =>
     dateTimeSyntax.IsMatch(value)
