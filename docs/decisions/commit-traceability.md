@@ -35,6 +35,10 @@ decisions:
     statement: "Prose describes the project as developed with AI assistance under human review and names no product, while records and issues name the tool and model"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-22T00:00:00Z
+  - key: ModelNamedInTheRecordNotTheCommit
+    statement: "The traceability record names the model by the identifier the session's metadata reports, filled in by the maintainer where the tool will not write it, and a commit message never carries a model's API identifier"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-02T00:00:00Z
   - key: AgentsMdHoldsTheRules
     statement: "The agent rules live in the vendor-neutral AGENTS.md, and CLAUDE.md is one line pointing at it"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -43,3 +47,7 @@ decisions:
 
 The rulings of [ADR 0033](../adr/0033-commit-traceability.md) still in force, one line each. The ADR is the
 narrative; this is what code cites. Acceptance is transcribed from the ADR's Status (ADR 0062).
+
+`ModelNamedInTheRecordNotTheCommit` is the ruling of the amendment of 2026-10-02. It is filed unaccepted,
+and its `accepted-at` will be the date the maintainer accepts it, which can be no earlier than the
+amendment (ADR 0068).

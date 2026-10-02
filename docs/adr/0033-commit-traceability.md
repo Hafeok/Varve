@@ -9,6 +9,10 @@ documentation prose to describe the project as AI-assisted without naming a
 product. That rule is not abolished — it is narrowed to prose, and reversed for
 the records.
 
+**Amended 2026-10-02** (ADR [0068](0068-dated-amendments.md)), by one block
+under *The wording rule splits*: what "named exactly" means for the model, and
+that a commit message never carries a model's identifier.
+
 ## Context
 
 The Mind Over Machine stewardship standard asks for one thing under this
@@ -97,6 +101,32 @@ worse than either.
 
 The distinction is between a claim about the project and a fact about a piece of
 work. The first ages badly and belongs in no README; the second is evidence.
+
+#### Amendment, 2026-10-02 — the model in the record, and never in a commit message
+
+The decision above is unchanged. This settles two things it left implicit,
+which sessions have since read in opposite directions. Session 3 of #43 left
+its record's model blank, because its tool keeps model identifiers out of
+every file it pushes. The same tool's commits carried a co-author trailer
+that names the product and the model.
+
+- **The record names the tool and the model exactly.** For the tool, that is
+  its name and version. For the model, it is the identifier the session's
+  metadata reports. A record that leaves the model blank is not complete. When
+  the tool will not write the identifier into a pushed file, the record says
+  so where the model belongs, and the maintainer fills it in from the
+  session's metadata. Leaving it blank and moving on does not meet this ADR.
+- **A commit message never carries a model's identifier**, meaning the string
+  a provider's API takes to select a model. A commit message cannot be
+  corrected without rewriting the trunk (ADR 0032), and the record is the one
+  place the fact lives and can be corrected. A co-author trailer that names
+  the product a tool attributes the commit to is not an identifier, and is
+  allowed. This is the same split as above: the record holds the evidence,
+  and nothing permanent and uncorrectable holds a second copy.
+
+The ruling enters the ledger as
+`CommitTraceability.ModelNamedInTheRecordNotTheCommit`, with this amendment's
+date once accepted (ADR 0068).
 
 ### The agent instruction file becomes vendor-neutral
 

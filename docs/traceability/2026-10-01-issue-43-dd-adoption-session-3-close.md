@@ -9,7 +9,7 @@
 |---|---|
 | **Issue** | [#43](https://github.com/Hafeok/Varve/issues/43), the adoption; session 3's remainder |
 | **Date** | 2026-10-01 |
-| **Tool** | Claude Code 2.1.286, a cloud session, the same session as sessions 2 and 3 and as #56 |
+| **Tool** | Claude Code 2.1.286, a cloud session: the one that ran session 2, session 3's first part (#55) and #56 |
 | **Model** | Not recorded in the repository: the tool is configured to keep model identifiers out of pushed artifacts. The session's own metadata and the transcript hold it |
 | **Session identifier** | `session_012aNo8XhYGVT6rgfvDN69P7` |
 | **Branch** | `claude/analyzers-layers-0-2-cl3hky`, restarted from `main` after #57 merged |
