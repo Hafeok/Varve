@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Buffers;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -786,8 +787,18 @@ internal sealed class RunCursor : IQuadCursor
         }
     }
 
+    /// <summary>Returns the streams' block buffers to the pool; a cursor is disposed once its scan ends.</summary>
     public void Dispose()
     {
+        for (int i = 0; i < _streams.Length; i++)
+        {
+            if (_streams[i].Buffer is { } buffer)
+            {
+                _streams[i].Buffer = null;
+                _streams[i].Block = default;
+                ArrayPool<QuadKey>.Shared.Return(buffer);
+            }
+        }
     }
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
@@ -879,7 +890,7 @@ internal sealed class RunCursor : IQuadCursor
             {
                 Section = section,
                 Block = section.Memory,
-                Buffer = section.OnBlob && next < end ? new QuadKey[KeySection.BlockKeys] : null,
+                Buffer = section.OnBlob && next < end ? ArrayPool<QuadKey>.Shared.Rent(KeySection.BlockKeys) : null,
                 BlockStart = section.OnBlob ? long.MinValue / 2 : 0,
                 Next = next,
                 End = end,

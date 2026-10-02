@@ -100,8 +100,37 @@ the same thing; the backend only keeps them — on the file backend as
 ### The file backend's read path is chosen by benchmark
 
 `RandomAccess.Read` on a held handle, or a `MemoryMappedFile` view, whichever
-the milestone 6a benchmark favours; the result is recorded in this ADR by dated
-amendment, with the numbers.
+the milestone 6a benchmark favours.
+
+**Chosen 2026-10-02: `RandomAccess.Read`.** Measured on the machine in
+`tests/Varve.Benchmarks/README.md` (milestone 6a), page cache warm, with a
+one-hour soak running on the same machine for the second table, so its rows
+compare with each other and not with the README's.
+
+Reading 4 KiB blocks of a 64 MiB file (`BlockReadBenchmarks`):
+
+| | `RandomAccess.Read` | Mapped view, through a raw pointer |
+|---|---:|---:|
+| 16,384 blocks in order | 13.3 ms | 8.1 ms |
+| 10,000 blocks at random | 8.5 ms | 4.1 ms |
+
+A raw pointer needs unsafe code in `Varve.Store`. Through the safe accessor
+(`SafeBuffer.ReadSpan`), the scans of a million quads in disk runs
+(`FileScanBenchmarks`) are slower than through `RandomAccess`:
+
+| | `RandomAccess` | Mapped, safe accessor | `RandomAccess`, block buffers pooled |
+|---|---:|---:|---:|
+| Every quad | 47.6 ms | 54.4 ms | 45.5 ms |
+| One predicate | 2.74 ms | 3.15 ms | 2.63 ms |
+| The default graph | 7.9 ms | 9.5 ms | 7.9 ms |
+| 10,000 subject lookups | 34.5 ms | 69.5 ms | 28.6 ms |
+
+The block read is a few percent of a scan; decoding and merging the runs is
+the rest. So the file backend reads through `RandomAccess`, with no unsafe
+code, and no mapped file for Windows to refuse to replace or delete while a
+view holds it. The third column is what shipped: a cursor's block buffers
+come from the shared array pool and go back when it is disposed, so a scan of
+disk runs allocates what a scan of memory does.
 
 ## Alternatives considered
 

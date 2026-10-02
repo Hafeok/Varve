@@ -14,7 +14,7 @@ decisions:
   - key: BlobsArePublishedAtomically
     statement: "A derived blob is written through an IBlobWriter and becomes visible only when published, durable as the backend declares and atomically replacing any blob of that name; an unpublished writer leaves nothing"
   - key: ReadPathByBenchmark
-    statement: "The file backend reads derived blobs with RandomAccess or a memory-mapped view, whichever milestone 6a's benchmark favours, recorded in ADR 0071"
+    statement: "The file backend reads derived blobs with RandomAccess on a held handle, chosen over a memory-mapped view by milestone 6a's benchmark, recorded in ADR 0071"
 ---
 
 The rulings of [ADR 0071](../adr/0071-synchronous-reads-over-asynchronous-storage.md), filed unaccepted
