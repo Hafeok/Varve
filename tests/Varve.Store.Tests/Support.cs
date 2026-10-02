@@ -48,7 +48,32 @@ internal static class T
     public static DatasetOptions Options(TimeProvider? clock = null, int maxRecordBytes = 1 << 20, long segmentBytes = 64L << 20) =>
         new() { Clock = clock ?? ManualClock.Epoch(), MaxRecordBytes = new ByteCount(maxRecordBytes), SegmentBytes = new ByteCount(segmentBytes) };
 
-    public static ValueTask<Dataset> Open(IStorage storage, TimeProvider? clock = null) => Dataset.OpenAsync(storage, Options(clock), Ct);
+    /// <summary>The id every test dataset is created with, so that two runs write the same bytes.</summary>
+    public static DatasetId Id { get; } = new(new Guid("6a0e7b3c-1d2f-4a5b-8c9d-0e1f2a3b4c5d"));
+
+    /// <summary>The manifest of a dataset created with <see cref="Id"/>, for copies of a log made from its segments.</summary>
+    public static ReadOnlyMemory<byte> Manifest => LogFormat.EncodeManifest(Id);
+
+    public static ValueTask<Dataset> Open(IStorage storage, TimeProvider? clock = null) => OpenOrCreate(storage, Options(clock));
+
+    /// <summary>Opens the dataset in the storage, creating it with <see cref="Id"/> when the storage is empty.</summary>
+    public static async ValueTask<Dataset> OpenOrCreate(IStorage storage, DatasetOptions options) =>
+        (await storage.Log.ReadManifestAsync(Ct)).IsEmpty && (await storage.Log.ListSegmentsAsync(Ct)).Count == 0
+            ? await Dataset.CreateAsync(storage, Id, options, Ct)
+            : await Dataset.OpenAsync(storage, options, Ct);
+
+    /// <summary>A copy of a log as bytes: its manifest and its segments.</summary>
+    public static async Task<(ReadOnlyMemory<byte> Manifest, List<byte[]> Segments)> CopyLogAsync(IStorage storage)
+    {
+        List<byte[]> segments = [];
+
+        foreach (SegmentInfo segment in await storage.Log.ListSegmentsAsync(Ct))
+        {
+            segments.Add((await storage.Log.ReadRangeAsync(segment.Id, new ByteOffset(0), segment.Length, Ct)).ToArray());
+        }
+
+        return ((await storage.Log.ReadManifestAsync(Ct)).ToArray(), segments);
+    }
 
     /// <summary>A whole derived blob, read through the synchronous blob read.</summary>
     public static async Task<ReadOnlyMemory<byte>> ReadBlobAsync(IStorage storage, BlobName name)

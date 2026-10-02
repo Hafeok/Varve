@@ -173,7 +173,7 @@ public abstract class StorageContractTests
     {
         IStorage storage = Create();
 
-        await using (Dataset dataset = await Dataset.OpenAsync(storage, T.Options(segmentBytes: 1024), T.Ct))
+        await using (Dataset dataset = await T.OpenOrCreate(storage, T.Options(segmentBytes: 1024)))
         {
             for (int i = 0; i < 20; i++)
             {
@@ -185,7 +185,7 @@ public abstract class StorageContractTests
 
         Assert.True((await storage.Log.ListSegmentsAsync(T.Ct)).Count > 1, "the small segment size should have forced several segments");
 
-        await using Dataset reopened = await Dataset.OpenAsync(storage, T.Options(segmentBytes: 1024), T.Ct);
+        await using Dataset reopened = await T.OpenOrCreate(storage, T.Options(segmentBytes: 1024));
         Assert.Equal(new Position(20), reopened.Head);
         Assert.Equal([new Position(10)], reopened.Checkpoints);
 

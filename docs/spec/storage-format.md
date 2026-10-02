@@ -141,7 +141,7 @@ chunks. A quad is four `uleb` ids, `s p o g`.
 |---:|---|---|
 | `0` IRI | `lbytes` UTF-8 | canonical |
 | `1` blank node | nothing | blank |
-| `2` literal | `lbytes` lexical form, `lbytes` datatype IRI (empty for a language-tagged literal), `lbytes` language tag, `u8` base direction (`0` none, `1` ltr, `2` rtl) | canonical |
+| `2` literal | `lbytes` lexical form, `lbytes` datatype IRI (empty for a simple literal and for a language-tagged one), `lbytes` language tag, `u8` base direction (`0` none, `1` ltr, `2` rtl) | canonical |
 | `3` triple term | `uleb` subject, `uleb` predicate, `uleb` object ids, each allocated earlier | canonical |
 | `4` private | `bytes(16)` key id, `bytes(32)` synthetic IV `V`, `lbytes` ciphertext over the whole term encoding (ADR 0074) | private |
 
@@ -208,12 +208,18 @@ head** `H` and its header hash `h` (initially 0 and genesis).
 
 **A segment header continues the chain** when its magic, version, dataset id,
 segment id and self-hash verify, its first position is `H + 1`, and its hash
-field is `h`.
+field is `h`. A header whose magic and self-hash verify but which names another
+dataset or another segment id is a foreign segment and **refuses**. A header that
+does not verify at all — a crash while the segment was being created — makes
+the segment **open-ended, holding a torn tail and nothing else**.
 
 1. **Records.** Within a segment, a record is read when its header's self-hash
    verifies, its body fits before the end (or the trailer), and its body hash
    verifies. Its position must be `H + 1`, its `prev` must be `h`, and its index
-   must be the number of records pending for that position, with the same kind;
+   must be the number of records pending for that position, with the same kind
+   — except that the first record of a segment may have index 0 while records
+   of its position are pending from the segment before, which **restarts** the
+   commit: recovery abandoned it at a seal and began again;
    a record with the closing flag closes the commit, whose header must verify
    against the pending records (§4.5), and `H` and `h` advance. A verified
    record that breaks one of these rules **refuses** the log.

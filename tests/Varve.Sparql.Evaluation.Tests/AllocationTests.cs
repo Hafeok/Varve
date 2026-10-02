@@ -48,7 +48,7 @@ public class AllocationTests
 
     private static async Task<(Varve.Store.Dataset Store, DatasetView View)> StoreOf(int count)
     {
-        Varve.Store.Dataset store = await Varve.Store.Dataset.OpenAsync(new MemoryStorage(), new DatasetOptions { Clock = FixedClock.Instance });
+        Varve.Store.Dataset store = await Varve.Store.Dataset.CreateAsync(new MemoryStorage(), new Varve.Store.Log.DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = FixedClock.Instance });
         CommitRequest request = new();
         for (int i = 0; i < count; i++)
         {

@@ -312,3 +312,38 @@ Varve.Store.IReadableBlob.Read(Varve.Store.Log.ByteOffset offset, System.Span<by
 Varve.Store.ISegmentStore.ReadManifestAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.ReadOnlyMemory<byte>>
 Varve.Store.ISegmentStore.WriteManifestAsync(System.ReadOnlyMemory<byte> manifest, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
 static Varve.Store.MemoryStorage.FromLog(System.ReadOnlyMemory<byte> manifest, System.Collections.Generic.IEnumerable<System.ReadOnlyMemory<byte>>! log, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Varve.Store.Log.BlobName, System.ReadOnlyMemory<byte>>>? derived = null) -> Varve.Store.MemoryStorage!
+Varve.Store.Dataset.Id.get -> Varve.Store.Log.DatasetId
+Varve.Store.Log.DatasetId
+Varve.Store.Log.DatasetId.DatasetId() -> void
+Varve.Store.Log.DatasetId.DatasetId(System.Guid value) -> void
+Varve.Store.Log.DatasetId.Equals(Varve.Store.Log.DatasetId other) -> bool
+Varve.Store.Log.DatasetId.Value.get -> System.Guid
+Varve.Store.Log.FormatVersion
+Varve.Store.Log.FormatVersion.CompareTo(Varve.Store.Log.FormatVersion other) -> int
+Varve.Store.Log.FormatVersion.Equals(Varve.Store.Log.FormatVersion other) -> bool
+Varve.Store.Log.FormatVersion.FormatVersion() -> void
+Varve.Store.Log.FormatVersion.FormatVersion(ushort value) -> void
+Varve.Store.Log.FormatVersion.Value.get -> ushort
+Varve.Store.UnsupportedFormatException
+Varve.Store.UnsupportedFormatException.Found.get -> Varve.Store.Log.FormatVersion?
+Varve.Store.UnsupportedFormatException.Supported.get -> Varve.Store.Log.FormatVersion?
+Varve.Store.UnsupportedFormatException.UnsupportedFormatException() -> void
+Varve.Store.UnsupportedFormatException.UnsupportedFormatException(Varve.Store.Log.FormatVersion found, Varve.Store.Log.FormatVersion supported) -> void
+Varve.Store.UnsupportedFormatException.UnsupportedFormatException(string! message) -> void
+Varve.Store.UnsupportedFormatException.UnsupportedFormatException(string! message, System.Exception! innerException) -> void
+override Varve.Store.Log.DatasetId.GetHashCode() -> int
+override Varve.Store.Log.DatasetId.ToString() -> string!
+override Varve.Store.Log.FormatVersion.GetHashCode() -> int
+override Varve.Store.Log.FormatVersion.ToString() -> string!
+static Varve.Store.Dataset.CreateAsync(Varve.Store.IStorage! storage, Varve.Store.Log.DatasetId id, Varve.Store.DatasetOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Dataset!>
+static Varve.Store.Log.DatasetId.operator !=(Varve.Store.Log.DatasetId left, Varve.Store.Log.DatasetId right) -> bool
+static Varve.Store.Log.DatasetId.operator ==(Varve.Store.Log.DatasetId left, Varve.Store.Log.DatasetId right) -> bool
+static Varve.Store.Log.FormatVersion.Current.get -> Varve.Store.Log.FormatVersion
+static Varve.Store.Log.FormatVersion.operator !=(Varve.Store.Log.FormatVersion left, Varve.Store.Log.FormatVersion right) -> bool
+static Varve.Store.Log.FormatVersion.operator <(Varve.Store.Log.FormatVersion left, Varve.Store.Log.FormatVersion right) -> bool
+static Varve.Store.Log.FormatVersion.operator <=(Varve.Store.Log.FormatVersion left, Varve.Store.Log.FormatVersion right) -> bool
+static Varve.Store.Log.FormatVersion.operator ==(Varve.Store.Log.FormatVersion left, Varve.Store.Log.FormatVersion right) -> bool
+static Varve.Store.Log.FormatVersion.operator >(Varve.Store.Log.FormatVersion left, Varve.Store.Log.FormatVersion right) -> bool
+static Varve.Store.Log.FormatVersion.operator >=(Varve.Store.Log.FormatVersion left, Varve.Store.Log.FormatVersion right) -> bool
+~override Varve.Store.Log.DatasetId.Equals(object obj) -> bool
+~override Varve.Store.Log.FormatVersion.Equals(object obj) -> bool

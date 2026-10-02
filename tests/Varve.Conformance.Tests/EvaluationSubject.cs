@@ -86,7 +86,7 @@ internal static class EvaluationSubjects
 
         public async ValueTask<LoadedSource> LoadAsync(IReadOnlyList<(IReadOnlyList<DataQuad> Quads, RdfTerm? Graph)> files)
         {
-            Dataset dataset = await Varve.Store.Dataset.OpenAsync(new MemoryStorage(), new DatasetOptions { Clock = FixedClock.Instance });
+            Dataset dataset = await Varve.Store.Dataset.CreateAsync(new MemoryStorage(), new Varve.Store.Log.DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = FixedClock.Instance });
             foreach ((IReadOnlyList<DataQuad> quads, RdfTerm? graph) in files)
             {
                 if (quads.Count == 0)

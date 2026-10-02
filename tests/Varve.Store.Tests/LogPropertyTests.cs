@@ -80,8 +80,8 @@ public class LogPropertyTests
 
                 for (long length = 0; length <= total; length++)
                 {
-                    MemoryStorage cut = MemoryStorage.FromLog(ReadOnlyMemory<byte>.Empty, Prefix(segments, length));
-                    await using Dataset opened = await Dataset.OpenAsync(cut, harness.Options, T.Ct);
+                    MemoryStorage cut = MemoryStorage.FromLog(T.Manifest, Prefix(segments, length));
+                    await using Dataset opened = await T.OpenOrCreate(cut, harness.Options);
 
                     if (opened.Head.Value != previous && opened.Head.Value != previous + 1)
                     {
@@ -99,7 +99,7 @@ public class LogPropertyTests
                         Assert.Equal(CommitOutcome.Committed, next.Outcome);
                         Assert.Equal(opened.Head, next.Position);
 
-                        await using Dataset again = await Dataset.OpenAsync(cut, harness.Options, T.Ct);
+                        await using Dataset again = await T.OpenOrCreate(cut, harness.Options);
                         Assert.Equal(next.Position, again.Head);
                     }
                 }
@@ -140,8 +140,11 @@ public class LogPropertyTests
     }
 
     /// <summary>
-    /// I6: every byte of every header, and of the header's stored hash, when
-    /// flipped, makes the log refuse to open — the last header included.
+    /// I6: every byte of every commit header, when flipped, makes the log
+    /// refuse to open — except the last commit's, which reads as a torn tail
+    /// and opens at the position before it. Format version 1 cannot tell a
+    /// change to the last record from a write that never completed, and says
+    /// so (ADR 0072); what it never does is open at the same head.
     /// </summary>
     [Fact]
     public async Task any_change_to_a_header_breaks_verification()
@@ -153,14 +156,30 @@ public class LogPropertyTests
                 await harness.RunAsync(script);
                 byte[] log = (await SegmentsAsync(harness.Storage)).SingleOrDefault() ?? [];
 
-                foreach ((int start, int end) in HeaderRanges(log))
+                List<(int Start, int End)> ranges = [.. HeaderRanges(log)];
+
+                for (int h = 0; h < ranges.Count; h++)
                 {
-                    for (int at = start; at < end; at++)
+                    for (int at = ranges[h].Start; at < ranges[h].End; at++)
                     {
                         byte[] changed = (byte[])log.Clone();
                         changed[at] ^= 0x01;
-                        await Assert.ThrowsAsync<LogVerificationException>(async () =>
-                            await Dataset.OpenAsync(MemoryStorage.FromLog(ReadOnlyMemory<byte>.Empty, [changed]), harness.Options, T.Ct));
+
+                        if (h < ranges.Count - 1)
+                        {
+                            await Assert.ThrowsAsync<LogVerificationException>(async () =>
+                                await T.OpenOrCreate(MemoryStorage.FromLog(T.Manifest, [changed]), harness.Options));
+                            continue;
+                        }
+
+                        try
+                        {
+                            await using Dataset opened = await T.OpenOrCreate(MemoryStorage.FromLog(T.Manifest, [changed]), harness.Options);
+                            Assert.Equal(new Position(harness.Model.Head - 1), opened.Head);
+                        }
+                        catch (LogVerificationException)
+                        {
+                        }
                     }
                 }
             },
@@ -190,7 +209,7 @@ public class LogPropertyTests
 
                     try
                     {
-                        await using Dataset opened = await Dataset.OpenAsync(MemoryStorage.FromLog(ReadOnlyMemory<byte>.Empty, [changed]), harness.Options, T.Ct);
+                        await using Dataset opened = await T.OpenOrCreate(MemoryStorage.FromLog(T.Manifest, [changed]), harness.Options);
 
                         if (opened.Head.Value >= harness.Model.Head)
                         {
@@ -223,12 +242,12 @@ public class LogPropertyTests
                 await harness.RunAsync(script);
                 long prefix = harness.Dataset.Head.Value;
                 List<byte[]> copied = await SegmentsAsync(harness.Storage);
-                MemoryStorage copy = MemoryStorage.FromLog(ReadOnlyMemory<byte>.Empty, copied.Select(s => (ReadOnlyMemory<byte>)s.ToArray()));
-                MemoryStorage snapshot = MemoryStorage.FromLog(ReadOnlyMemory<byte>.Empty, copied.Select(s => (ReadOnlyMemory<byte>)s.ToArray()));
+                MemoryStorage copy = MemoryStorage.FromLog(T.Manifest, copied.Select(s => (ReadOnlyMemory<byte>)s.ToArray()));
+                MemoryStorage snapshot = MemoryStorage.FromLog(T.Manifest, copied.Select(s => (ReadOnlyMemory<byte>)s.ToArray()));
 
                 Assert.Null(await LogChain.FindDivergenceAsync(harness.Storage.Log, copy.Log, T.Ct));
 
-                await using Dataset other = await Dataset.OpenAsync(copy, harness.Options, T.Ct);
+                await using Dataset other = await T.OpenOrCreate(copy, harness.Options);
 
                 for (int i = 0; i < extra; i++)
                 {
@@ -246,24 +265,29 @@ public class LogPropertyTests
     }
 
     /// <summary>
-    /// The byte ranges of every header and its stored length and hash, found by
-    /// walking the provisional encoding of ADR 0045 through its internal
-    /// constants: this test is about that encoding.
+    /// The byte ranges of every commit header and its stored length, found by
+    /// walking format version 1 (ADR 0072) through its internal constants:
+    /// this test is about that encoding.
     /// </summary>
     private static IEnumerable<(int Start, int End)> HeaderRanges(byte[] log)
     {
-        int at = LogFormat.PreambleLength;
+        int at = LogFormat.SegmentHeaderLength;
 
-        while (at < log.Length)
+        while (at + LogFormat.RecordHeaderLength <= log.Length)
         {
             int length = (int)BinaryPrimitives.ReadUInt32LittleEndian(log.AsSpan(at));
-            bool closing = (log[at + 4] & LogFormat.ClosingFlag) != 0;
+            bool closing = (log[at + 5] & LogFormat.ClosingFlag) != 0;
             int end = at + LogFormat.RecordHeaderLength + length;
+
+            if (end > log.Length)
+            {
+                yield break;
+            }
 
             if (closing)
             {
-                int headerLength = (int)BinaryPrimitives.ReadUInt32LittleEndian(log.AsSpan(end - LogFormat.HashLength - 4));
-                yield return (end - LogFormat.HashLength - 4 - headerLength, end);
+                int headerLength = (int)BinaryPrimitives.ReadUInt32LittleEndian(log.AsSpan(end - 4));
+                yield return (end - 4 - headerLength, end);
             }
 
             at = end;

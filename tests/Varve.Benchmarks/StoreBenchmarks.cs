@@ -74,7 +74,7 @@ internal static class StoreDataset
 
     internal static async Task<StoreDatasetType> LoadAsync((RdfTerm S, RdfTerm P, RdfTerm O, RdfTerm? G)[] quads, int batch)
     {
-        StoreDatasetType dataset = await StoreDatasetType.OpenAsync(new MemoryStorage(), new DatasetOptions { Clock = TimeProvider.System });
+        StoreDatasetType dataset = await StoreDatasetType.CreateAsync(new MemoryStorage(), new Varve.Store.Log.DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System });
 
         for (int start = 0; start < quads.Length; start += batch)
         {
@@ -111,7 +111,7 @@ public class CommitBenchmarks
     }
 
     [IterationSetup(Targets = [nameof(OneCommitOf100000), nameof(HundredCommitsOf1000)])]
-    public void Empty() => _dataset = StoreDatasetType.OpenAsync(new MemoryStorage(), new DatasetOptions { Clock = TimeProvider.System }).AsTask().GetAwaiter().GetResult();
+    public void Empty() => _dataset = StoreDatasetType.CreateAsync(new MemoryStorage(), new Varve.Store.Log.DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }).AsTask().GetAwaiter().GetResult();
 
     [IterationSetup(Target = nameof(ThousandCommitsOf1IntoLoaded))]
     public void Preloaded() => _dataset = StoreDataset.LoadAsync(_quads, 10_000).GetAwaiter().GetResult();

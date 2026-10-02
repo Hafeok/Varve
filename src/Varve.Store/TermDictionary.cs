@@ -224,6 +224,21 @@ internal sealed class TermDictionary
         }
     }
 
+    /// <summary>
+    /// Brings the blank counter to <paramref name="count"/>: a checkpoint
+    /// records how many blank nodes exist, and a blank node has no entry
+    /// beyond its id (ADR 0012).
+    /// </summary>
+    internal void PublishBlanks(long count)
+    {
+        if (count < _blankCount)
+        {
+            throw new InvalidOperationException("Blank ids are never taken back.");
+        }
+
+        Volatile.Write(ref _blankCount, count);
+    }
+
     private RdfTerm Canonical(long counter)
     {
         RdfTerm[][] chunks = Volatile.Read(ref _chunks);

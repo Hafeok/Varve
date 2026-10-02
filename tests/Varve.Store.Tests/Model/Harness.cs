@@ -56,7 +56,7 @@ internal sealed class Harness : IAsyncDisposable
         MemoryStorage storage = new();
         ManualClock clock = ManualClock.Epoch();
         DatasetOptions options = T.Options(clock, maxRecordBytes, segmentBytes);
-        return new Harness(storage, clock, await Dataset.OpenAsync(storage, options, T.Ct), options);
+        return new Harness(storage, clock, await T.OpenOrCreate(storage, options), options);
     }
 
     public async Task RunAsync(Script script)
@@ -500,7 +500,7 @@ internal sealed class Harness : IAsyncDisposable
         Check(Dataset.PositionAt(new CommitTimestamp(Clock.Now.AddYears(-1))).Value == 0, "I5: a time before every commit resolves to 0");
 
         // Reopening rebuilds from the newest checkpoint and the tail: I7 and I8.
-        await using (Dataset reopened = await Dataset.OpenAsync(Storage, Options, cancellationToken))
+        await using (Dataset reopened = await T.OpenOrCreate(Storage, Options))
         {
             Check(reopened.Head.Value == head, "a reopened dataset has a different head");
             using DatasetView view = reopened.Pin();

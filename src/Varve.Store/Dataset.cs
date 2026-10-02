@@ -74,14 +74,18 @@ public sealed class Dataset : IAsyncDisposable
     private volatile State _state;
     private string? _broken;
 
-    private Dataset(IStorage storage, DatasetOptions options, TermDictionary dictionary, LogWriter writer, State state)
+    private Dataset(IStorage storage, DatasetId id, DatasetOptions options, TermDictionary dictionary, LogWriter writer, State state)
     {
         _storage = storage;
+        Id = id;
         _options = options;
         _dictionary = dictionary;
         _writer = writer;
         _state = state;
     }
+
+    /// <summary>The dataset's id, as its manifest records it (ADR 0072).</summary>
+    public DatasetId Id { get; }
 
     /// <summary>The readable head: the position of the last closed commit.</summary>
     public Position Head => new(_state.Head);
@@ -117,52 +121,122 @@ public sealed class Dataset : IAsyncDisposable
     }
 
     /// <summary>
-    /// Opens a dataset: verifies the log (refusing one whose chain does not
-    /// verify), ignores an unclosed or torn tail, and builds the default
-    /// projection from the newest valid checkpoint and the log after it.
+    /// Creates a dataset in empty storage: writes its manifest, with the id
+    /// the caller gives (ADR 0072), and opens it.
     /// </summary>
+    /// <exception cref="InvalidOperationException">The storage already holds a dataset, or part of one.</exception>
+    public static async ValueTask<Dataset> CreateAsync(IStorage storage, DatasetId id, DatasetOptions options, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(storage);
+        ValidateOptions(options);
+
+        if (!(await storage.Log.ReadManifestAsync(cancellationToken).ConfigureAwait(false)).IsEmpty
+            || (await storage.Log.ListSegmentsAsync(cancellationToken).ConfigureAwait(false)).Count > 0)
+        {
+            throw new InvalidOperationException("The storage already holds a dataset; open it with Dataset.OpenAsync.");
+        }
+
+        await storage.Log.WriteManifestAsync(LogFormat.EncodeManifest(id), cancellationToken).ConfigureAwait(false);
+        return await OpenAsync(storage, options, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Opens a dataset: checks its manifest, verifies the log's chain (refusing
+    /// one that does not verify), ignores a torn or unclosed tail, and builds
+    /// the dictionary and the default projection from the newest valid
+    /// checkpoint and the log after it (ADR 0072).
+    /// </summary>
+    /// <remarks>
+    /// Every record and commit header is read; bodies are read only after the
+    /// newest checkpoint that names this log, so opening costs the log since
+    /// that checkpoint.
+    /// </remarks>
     /// <exception cref="LogVerificationException">The log does not verify.</exception>
+    /// <exception cref="UnsupportedFormatException">The log is of a format this build does not read.</exception>
+    /// <exception cref="InvalidOperationException">The storage holds no dataset.</exception>
     public static async ValueTask<Dataset> OpenAsync(IStorage storage, DatasetOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(storage);
+        ValidateOptions(options);
+
+        ReadOnlyMemory<byte> manifest = await storage.Log.ReadManifestAsync(cancellationToken).ConfigureAwait(false);
+
+        if (manifest.IsEmpty)
+        {
+            if ((await storage.Log.ListSegmentsAsync(cancellationToken).ConfigureAwait(false)).Count == 0)
+            {
+                throw new InvalidOperationException("The storage holds no dataset; create one with Dataset.CreateAsync.");
+            }
+
+            throw new LogVerificationException(0, "The log has segments and no manifest.");
+        }
+
+        DatasetId id = LogFormat.DecodeManifest(manifest.Span);
+        long[] candidates = await CheckpointPositionsAsync(storage.Derived, cancellationToken).ConfigureAwait(false);
+        long bodiesAfter = candidates.Length > 0 ? candidates[0] : 0;
+
+        LogScan scan = await LogReader.ScanAsync(storage.Log, id, bodiesAfter, cancellationToken).ConfigureAwait(false);
+        long head = scan.Head;
+        CommitInfo[] commits = new CommitInfo[Math.Max(16, head)];
+        DatasetSettings settings = DatasetSettings.Default;
+
+        for (int i = 0; i < head; i++)
+        {
+            ScannedCommit commit = scan.Commits[i];
+
+            if (commit.Header.Kind == CommitKind.Erasure)
+            {
+                throw new LogVerificationException(i + 1, "Position " + (i + 1) + " is an erasure commit, which needs erasure mode, and this version of Varve does not support erasure mode.");
+            }
+
+            settings = Fold(settings, commit.Header);
+            commits[i] = new CommitInfo(commit.Header, commit.HeaderHash, commit.Location, settings);
+        }
+
+        LogWriter writer = await LogWriter.OpenAsync(storage.Log, id, scan, options.SegmentBytes.Value, (int)options.MaxRecordBytes.Value, cancellationToken).ConfigureAwait(false);
+        TermDictionary dictionary = new();
+        State partial = new(head, commits, IndexVersion.Empty, [], null);
+        Dataset dataset = new(storage, id, options, dictionary, writer, partial);
+
+        Checkpoint[] checkpoints = await dataset.LoadCheckpointsAsync(partial, candidates, cancellationToken).ConfigureAwait(false);
+        Checkpoint? newest = checkpoints.Length > 0 ? checkpoints[^1] : null;
+        IndexVersion index = IndexVersion.Empty;
+
+        if (newest is not null)
+        {
+            dictionary.Publish(newest.Dictionary!);
+            dictionary.PublishBlanks(newest.BlankCount);
+            newest.ReleaseDictionary();
+            index = IndexVersion.FromCheckpoint(newest.Position, newest.Run);
+        }
+
+        for (long p = index.Position + 1; p <= head; p++)
+        {
+            ScannedCommit scanned = scan.Commits[(int)(p - 1)];
+            LoggedCommit commit = scanned.Full
+                ?? await dataset.ReadLoggedAsync(partial, p, cancellationToken).ConfigureAwait(false);
+            dictionary.Publish(commit.Allocations);
+
+            if (dictionary.CanonicalCount != commit.Header.CanonicalCount || dictionary.BlankCount != commit.Header.BlankCount)
+            {
+                throw new LogVerificationException(p, "The dictionary's counters after position " + p + " disagree with its header.");
+            }
+
+            index = index.Apply(commit.Asserted, commit.Retracted, p);
+        }
+
+        dataset._state = new State(head, commits, index, checkpoints, null);
+        return dataset;
+    }
+
+    private static void ValidateOptions(DatasetOptions options)
+    {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(options.Clock);
         ArgumentNullException.ThrowIfNull(options.Validators);
         ArgumentOutOfRangeException.ThrowIfLessThan(options.MaxRecordBytes.Value, 64L, nameof(options));
         ArgumentOutOfRangeException.ThrowIfGreaterThan(options.MaxRecordBytes.Value, int.MaxValue, nameof(options));
         ArgumentOutOfRangeException.ThrowIfLessThan(options.SegmentBytes.Value, 1024L, nameof(options));
-
-        LogScan scan = await LogReader.ScanAsync(storage.Log, cancellationToken).ConfigureAwait(false);
-        LogWriter writer = await LogWriter.OpenAsync(storage.Log, scan, options.SegmentBytes.Value, (int)options.MaxRecordBytes.Value, cancellationToken).ConfigureAwait(false);
-        TermDictionary dictionary = new();
-
-        CommitInfo[] commits = new CommitInfo[Math.Max(16, scan.Commits.Count)];
-        DatasetSettings settings = DatasetSettings.Default;
-
-        for (int i = 0; i < scan.Commits.Count; i++)
-        {
-            LoggedCommit commit = scan.Commits[i];
-            dictionary.Publish(commit.Allocations);
-            settings = Fold(settings, commit.Header);
-            commits[i] = new CommitInfo(commit, dictionary.CanonicalCount, dictionary.BlankCount, settings);
-        }
-
-        long head = scan.Commits.Count;
-        State partial = new(head, commits, IndexVersion.Empty, [], null);
-        Dataset dataset = new(storage, options, dictionary, writer, partial);
-
-        Checkpoint[] checkpoints = await dataset.LoadCheckpointsAsync(partial, cancellationToken).ConfigureAwait(false);
-        Checkpoint? newest = checkpoints.Length > 0 ? checkpoints[^1] : null;
-        IndexVersion index = newest is null ? IndexVersion.Empty : IndexVersion.FromCheckpoint(newest.Position, newest.Run);
-
-        for (long p = index.Position + 1; p <= head; p++)
-        {
-            LoggedCommit commit = scan.Commits[(int)(p - 1)];
-            index = index.Apply(commit.Asserted, commit.Retracted, p);
-        }
-
-        dataset._state = new State(head, commits, index, checkpoints, null);
-        return dataset;
     }
 
     /// <summary>
@@ -198,7 +272,7 @@ public sealed class Dataset : IAsyncDisposable
     /// <summary>Test seam: an <see cref="CommitKind.Erasure"/> commit, before erasure mode can produce one.</summary>
     internal ValueTask<CommitResult> AppendErasureAsync(ulong keyId, CommitMetadata metadata, CancellationToken cancellationToken = default)
     {
-        byte[] payload = new byte[8];
+        byte[] payload = new byte[LogFormat.KeyIdLength];
         System.Buffers.Binary.BinaryPrimitives.WriteUInt64LittleEndian(payload, keyId);
         return SequenceAsync(CommitKind.Erasure, null, metadata, null, payload, cancellationToken);
     }
@@ -377,7 +451,7 @@ public sealed class Dataset : IAsyncDisposable
 
             await WriteBlobAsync(name, blob, cancellationToken).ConfigureAwait(false);
             ReadOnlyMemory<byte> stored = await ReadBlobAsync(name, cancellationToken).ConfigureAwait(false);
-            Checkpoint checkpoint = CheckpointFormat.TryDecode(stored, _dictionary)
+            Checkpoint checkpoint = CheckpointFormat.TryDecode(stored, readDictionary: false)
                 ?? throw new InvalidOperationException("A checkpoint just written does not read back.");
 
             _state = _state.WithCheckpoints(Insert(_state.Checkpoints, checkpoint));
@@ -640,7 +714,8 @@ public sealed class Dataset : IAsyncDisposable
             Allocation[] allocations = [.. resolver.Allocations];
             byte[] body = LogFormat.EncodeBody(allocations, delta.Asserted, delta.Retracted);
             byte[] previous = head == 0 ? LogFormat.Genesis() : state.Commits[head - 1].HeaderHash;
-            CommitHeader header = new(kind, next, timestamp, agent, cause, scope, [.. attachments], kindPayload, previous, SHA256.HashData(body));
+            (long canonical, long blank) = Counters(terms, allocations);
+            CommitHeader header = new(kind, next, timestamp, agent, cause, scope, canonical, blank, 0, [.. attachments], kindPayload, previous, SHA256.HashData(body));
             byte[] headerBytes = LogFormat.EncodeHeader(in header);
             byte[] headerHash = SHA256.HashData(headerBytes);
 
@@ -648,7 +723,7 @@ public sealed class Dataset : IAsyncDisposable
 
             try
             {
-                location = await _writer.AppendAsync(kind, next, body, headerBytes, headerHash, cancellationToken).ConfigureAwait(false);
+                location = await _writer.AppendAsync(kind, next, previous, body, headerBytes, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception)
             {
@@ -662,7 +737,7 @@ public sealed class Dataset : IAsyncDisposable
             // The commit is durable and closed: it stands, whatever follows.
             _dictionary.Publish(allocations);
             DatasetSettings settings = Fold(state.SettingsAt(head), header);
-            CommitInfo info = new(header, headerHash, location, _dictionary.CanonicalCount, _dictionary.BlankCount, settings);
+            CommitInfo info = new(header, headerHash, location, settings);
             CommitInfo[] commits = Append(state.Commits, head, info);
 
             IndexVersion index = state.Index;
@@ -744,6 +819,27 @@ public sealed class Dataset : IAsyncDisposable
         return count;
     }
 
+    // The dictionary's counters after a commit's allocations, for its header.
+    private static (long Canonical, long Blank) Counters(TermView terms, Allocation[] allocations)
+    {
+        long canonical = terms.CanonicalCount;
+        long blank = terms.BlankCount;
+
+        foreach (Allocation allocation in allocations)
+        {
+            if (TermIds.ClassOf(allocation.Id) == IdClass.Blank)
+            {
+                blank++;
+            }
+            else
+            {
+                canonical++;
+            }
+        }
+
+        return (canonical, blank);
+    }
+
     private static void AddIds(HashSet<ulong> ids, in Quad quad)
     {
         ids.Add(quad.Subject.Value);
@@ -794,28 +890,47 @@ public sealed class Dataset : IAsyncDisposable
         return [.. list];
     }
 
-    private async ValueTask<Checkpoint[]> LoadCheckpointsAsync(State state, CancellationToken cancellationToken)
+    // The positions of the checkpoint blobs, newest first, by name alone.
+    private static async ValueTask<long[]> CheckpointPositionsAsync(IDerivedStore derived, CancellationToken cancellationToken)
+    {
+        List<long> positions = [];
+
+        foreach (BlobName name in await derived.ListAsync(cancellationToken).ConfigureAwait(false))
+        {
+            if (Checkpoint.TryParseName(name, out long position))
+            {
+                positions.Add(position);
+            }
+        }
+
+        positions.Sort((a, b) => b.CompareTo(a));
+        return [.. positions];
+    }
+
+    // The checkpoints that name this log, oldest first. The newest one's
+    // dictionary is read, because the dictionary is rebuilt from it.
+    private async ValueTask<Checkpoint[]> LoadCheckpointsAsync(State state, long[] candidates, CancellationToken cancellationToken)
     {
         List<Checkpoint> loaded = [];
 
-        foreach (BlobName name in await _storage.Derived.ListAsync(cancellationToken).ConfigureAwait(false))
+        foreach (long position in candidates)
         {
-            if (!name.Value.StartsWith(Checkpoint.Prefix, StringComparison.Ordinal))
+            if (position < 1 || position > state.Head)
             {
                 continue;
             }
 
-            ReadOnlyMemory<byte> blob = await ReadBlobAsync(name, cancellationToken).ConfigureAwait(false);
-            Checkpoint? checkpoint = CheckpointFormat.TryDecode(blob, _dictionary);
+            ReadOnlyMemory<byte> blob = await ReadBlobAsync(Checkpoint.Name(position), cancellationToken).ConfigureAwait(false);
+            Checkpoint? checkpoint = CheckpointFormat.TryDecode(blob, readDictionary: loaded.Count == 0);
+            CommitInfo at = state.Commits[position - 1];
 
             // A checkpoint names the commit it materialises. One copied beside a
             // different log is a cache miss, never a wrong answer (ADR 0041).
             if (checkpoint is null
-                || checkpoint.Position < 1
-                || checkpoint.Position > state.Head
-                || !checkpoint.HeaderHash.AsSpan().SequenceEqual(state.Commits[checkpoint.Position - 1].HeaderHash)
-                || checkpoint.CanonicalCount != state.Commits[checkpoint.Position - 1].CanonicalCount
-                || checkpoint.BlankCount != state.Commits[checkpoint.Position - 1].BlankCount)
+                || checkpoint.Position != position
+                || !checkpoint.HeaderHash.AsSpan().SequenceEqual(at.HeaderHash)
+                || checkpoint.CanonicalCount != at.CanonicalCount
+                || checkpoint.BlankCount != at.BlankCount)
             {
                 continue;
             }
@@ -823,7 +938,7 @@ public sealed class Dataset : IAsyncDisposable
             loaded.Add(checkpoint);
         }
 
-        loaded.Sort((a, b) => a.Position.CompareTo(b.Position));
+        loaded.Reverse();
         return [.. loaded];
     }
 
@@ -866,7 +981,7 @@ public sealed class Dataset : IAsyncDisposable
     {
         CommitInfo info = state.Commits[position - 1];
         byte[] previous = position == 1 ? LogFormat.Genesis() : state.Commits[position - 2].HeaderHash;
-        return LogReader.ReadAsync(_storage.Log, info.Location, position, previous, cancellationToken);
+        return LogReader.ReadAsync(_storage.Log, Id, info.Location, position, previous, cancellationToken);
     }
 
     private async ValueTask<Commit?> ReadCommitAsync(State state, long position, SubscriptionFilter filter, CancellationToken cancellationToken)
@@ -962,18 +1077,13 @@ public sealed class Dataset : IAsyncDisposable
     /// <summary>What the store keeps per closed commit, beside the log.</summary>
     private sealed class CommitInfo
     {
-        internal CommitInfo(LoggedCommit commit, long canonicalCount, long blankCount, DatasetSettings settings)
-            : this(commit.Header, commit.HeaderHash, commit.Location, canonicalCount, blankCount, settings)
-        {
-        }
-
-        internal CommitInfo(CommitHeader header, byte[] headerHash, CommitLocation location, long canonicalCount, long blankCount, DatasetSettings settings)
+        internal CommitInfo(CommitHeader header, byte[] headerHash, CommitLocation location, DatasetSettings settings)
         {
             TimestampTicks = header.TimestampTicks;
             HeaderHash = headerHash;
             Location = location;
-            CanonicalCount = canonicalCount;
-            BlankCount = blankCount;
+            CanonicalCount = header.CanonicalCount;
+            BlankCount = header.BlankCount;
             Settings = settings;
         }
 

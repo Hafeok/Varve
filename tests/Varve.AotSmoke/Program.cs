@@ -198,7 +198,7 @@ internal static class Program
         Varve.Store.DatasetOptions options = new() { Clock = TimeProvider.System };
         RdfTerm p = RdfTerm.Iri("http://example.org/p"u8);
 
-        await using (Varve.Store.Dataset dataset = await Varve.Store.Dataset.OpenAsync(storage, options))
+        await using (Varve.Store.Dataset dataset = await Varve.Store.Dataset.CreateAsync(storage, new Varve.Store.Log.DatasetId(Guid.NewGuid()), options))
         {
             Varve.Store.Log.CommitResult first = await dataset.CommitAsync(new Varve.Store.Log.CommitRequest()
                 .Assert(RdfTerm.Iri("http://example.org/a"u8), p, RdfTerm.Literal("1"u8, RdfTerm.Iri("http://www.w3.org/2001/XMLSchema#integer"u8)))

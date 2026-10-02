@@ -35,9 +35,26 @@ internal sealed class Checkpoint
 
     internal byte[] HeaderHash { get; }
 
+    /// <summary>The dictionary's entries up to the watermark, when they were read; null otherwise.</summary>
+    internal Allocation[]? Dictionary { get; private set; }
+
     internal const string Prefix = "checkpoints/";
 
     internal static BlobName Name(long position) => new(Prefix + position.ToString("D20", CultureInfo.InvariantCulture));
+
+    internal static bool TryParseName(BlobName name, out long position)
+    {
+        position = 0;
+        string value = name.Value;
+        return value.Length == Prefix.Length + 20
+            && value.StartsWith(Prefix, StringComparison.Ordinal)
+            && long.TryParse(value.AsSpan(Prefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out position);
+    }
+
+    internal void Attach(Allocation[] dictionary) => Dictionary = dictionary;
+
+    /// <summary>Drops the entries once the dictionary holds them.</summary>
+    internal void ReleaseDictionary() => Dictionary = null;
 }
 
 /// <summary>
@@ -92,9 +109,11 @@ internal static class CheckpointFormat
     /// <summary>
     /// A checkpoint over a blob's bytes, or null when the blob is not one this
     /// store can trust: wrong magic, wrong hash, a big-endian host, or a
-    /// dictionary that disagrees with the log's.
+    /// dictionary that does not parse. With <paramref name="readDictionary"/>
+    /// the dictionary's entries are decoded and attached, for rebuilding the
+    /// dictionary on open (ADR 0072).
     /// </summary>
-    internal static Checkpoint? TryDecode(ReadOnlyMemory<byte> blob, TermDictionary dictionary)
+    internal static Checkpoint? TryDecode(ReadOnlyMemory<byte> blob, bool readDictionary)
     {
         ReadOnlySpan<byte> bytes = blob.Span;
 
@@ -132,57 +151,54 @@ internal static class CheckpointFormat
             orders[order] = new KeyMemory(slice).Memory;
         }
 
-        if (!DictionaryAgrees(covered[(HeaderLength + (int)keysLength)..], canonicalCount, dictionary, position))
+        Checkpoint checkpoint = new(position, Run.FromSorted(orders), canonicalCount, blankCount, headerHash);
+
+        if (readDictionary)
         {
-            return null;
+            Allocation[]? dictionary = ReadDictionary(covered[(HeaderLength + (int)keysLength)..], canonicalCount, position);
+
+            if (dictionary is null)
+            {
+                return null;
+            }
+
+            checkpoint.Attach(dictionary);
         }
 
-        return new Checkpoint(position, Run.FromSorted(orders), canonicalCount, blankCount, headerHash);
+        return checkpoint;
     }
 
-    private static bool DictionaryAgrees(ReadOnlySpan<byte> section, long canonicalCount, TermDictionary dictionary, long position)
+    private static Allocation[]? ReadDictionary(ReadOnlySpan<byte> section, long canonicalCount, long position)
     {
-        if (canonicalCount > dictionary.CanonicalCount)
-        {
-            return false;
-        }
-
         try
         {
             LogFormat.Reader reader = new(section, position);
 
             if ((long)reader.UInt64() != canonicalCount)
             {
-                return false;
+                return null;
             }
+
+            Allocation[] entries = new Allocation[canonicalCount];
 
             for (long counter = 1; counter <= canonicalCount; counter++)
             {
                 Allocation entry = LogFormat.ReadAllocation(ref reader);
-                ulong id = TermIds.Canonical(counter);
 
-                if (entry.Id != id)
+                if (entry.Id != TermIds.Canonical(counter))
                 {
-                    return false;
+                    return null;
                 }
 
-                bool agrees = entry.IsTriple
-                    ? dictionary.TryComponents(counter, out (ulong S, ulong P, ulong O) parts)
-                        && parts == (entry.Subject, entry.Predicate, entry.Object)
-                    : entry.Term!.Equals(dictionary.Term(id));
-
-                if (!agrees)
-                {
-                    return false;
-                }
+                entries[counter - 1] = entry;
             }
 
             reader.End();
-            return true;
+            return entries;
         }
         catch (LogVerificationException)
         {
-            return false;
+            return null;
         }
     }
 

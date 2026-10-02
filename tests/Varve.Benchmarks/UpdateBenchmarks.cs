@@ -166,7 +166,7 @@ public class UpdateBenchmarks : IDisposable
     public void Setup() => _text = UpdateWorkload.InsertData(Count);
 
     [IterationSetup(Target = nameof(Varve))]
-    public void EmptyVarve() => _dataset = StoreDatasetType.OpenAsync(new MemoryStorage(), new DatasetOptions { Clock = TimeProvider.System }).AsTask().GetAwaiter().GetResult();
+    public void EmptyVarve() => _dataset = StoreDatasetType.CreateAsync(new MemoryStorage(), new Varve.Store.Log.DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }).AsTask().GetAwaiter().GetResult();
 
     [IterationSetup(Target = nameof(DotNetRdf))]
     public void EmptyDotNetRdf() => _triples = new TripleStore();
