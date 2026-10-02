@@ -391,11 +391,22 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
                 throw new InvalidOperationException("The log already has a manifest; it is written once.");
             }
 
-            // Written in place, once, before any segment: a crash leaves a torn
-            // manifest and no segment, which is a directory holding no dataset.
-            using IFileHandle handle = _files.Open(path, FileOpen.CreateNew);
-            await handle.WriteAsync(0, manifest, cancellationToken).ConfigureAwait(false);
-            handle.Flush();
+            // Written beside, flushed and renamed, before any segment: a crash
+            // leaves the manifest whole or absent, never torn (ADR 0073).
+            string temporary = path + TemporarySuffix;
+
+            if (_files.FileExists(temporary))
+            {
+                _files.Delete(temporary);
+            }
+
+            using (IFileHandle handle = _files.Open(temporary, FileOpen.CreateNew))
+            {
+                await handle.WriteAsync(0, manifest, cancellationToken).ConfigureAwait(false);
+                handle.Flush();
+            }
+
+            _files.Move(temporary, path);
         }
 
         public void Dispose()

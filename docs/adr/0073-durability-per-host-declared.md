@@ -42,8 +42,8 @@ facts from this session decide what the file backend can promise.
   read-only. **Creating** a segment writes its header and flushes it before the
   first record is appended.
 - **Publishing a derived blob** writes a temporary file, flushes it, and
-  renames it over its name. **The manifest** is written once with
-  `FileMode.CreateNew` and flushed before any segment exists.
+  renames it over its name. **The manifest** is written the same way, once,
+  before any segment exists, so it is whole or absent and never torn.
 - **No directory is flushed**, by fact 2.
 
 ### What each level promises on power loss

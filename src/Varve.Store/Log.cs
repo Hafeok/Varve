@@ -718,7 +718,13 @@ internal sealed class LogWriter
 
         if (_active >= 0)
         {
+            // The records already in the segment are flushed before the trailer
+            // that vouches for them is written: in one flush window a power loss
+            // can keep the trailer and tear a record before it, and a closed
+            // trailer over torn bytes reads as damage (found by the power-loss
+            // suite, seeds 6201 and 6202, operation 21).
             SegmentId sealing = new(_active);
+            await _store.FlushAsync(sealing, cancellationToken).ConfigureAwait(false);
             byte[] trailer = LogFormat.EncodeTrailer(_dataset, _active, LogFormat.TrailerClosed, position - 1, previous);
             await _store.AppendAsync(sealing, trailer, cancellationToken).ConfigureAwait(false);
             await _store.FlushAsync(sealing, cancellationToken).ConfigureAwait(false);
