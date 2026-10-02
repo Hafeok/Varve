@@ -25,7 +25,10 @@ the losing option lost, beyond what the winner chose to write.
 Named `YYYY-MM-DD-issue-N-<slug>.md`, and containing:
 
 - **the prompt** the session was given,
-- **the tool and the model**, named exactly,
+- **the tool and the model**, named exactly: the tool's name and version, and
+  the model's identifier as the session's metadata reports it. Where the tool
+  will not write the identifier, the record says so and the maintainer fills it
+  in (ADR 0033, amended 2026-10-02). A commit message never carries it,
 - **the report** the session returned,
 - **the issue** it belongs to, and the commits it produced.
 

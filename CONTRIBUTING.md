@@ -141,7 +141,10 @@ and tied to issues ([ADR 0033](docs/adr/0033-commit-traceability.md)).
 
 **A session leaves a record** in `docs/traceability/`, named
 `YYYY-MM-DD-issue-N-<slug>.md`, containing the prompt it was given, **the tool
-and the model, named exactly**, and the report it returned.
+and the model, named exactly**, and the report it returned. The model is the
+identifier the session's metadata reports; where the tool will not write it,
+the record says so and the maintainer fills it in. A commit message never
+carries a model's identifier (ADR 0033, amended 2026-10-02).
 
 Prose in `README.md`, `CONTRIBUTING.md`, `GOVERNANCE.md` and the documentation
 describes the project as developed with AI assistance under human review and

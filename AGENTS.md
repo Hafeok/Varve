@@ -108,8 +108,13 @@ Conventional commits, one logical change each, and three things in each:
 
 **Every AI-assisted session files a record** in `docs/traceability/`, named
 `YYYY-MM-DD-issue-N-<slug>.md`, with the prompt, **the tool and model named
-exactly**, and the report. Prose says "developed with AI assistance under human
-review" and **names no product**.
+exactly**, and the report. The model is the identifier the session's metadata
+reports. A tool that will not write it says so in the record, and the maintainer
+fills it in: a blank model is an incomplete record. **A commit message never
+carries a model's identifier** (the string an API takes to select a model); a
+tool's co-author trailer naming the product is not one (ADR 0033, amended
+2026-10-02). Prose says "developed with AI assistance under human review" and
+**names no product**.
 
 ## `Varve.Store` behaviour
 
@@ -192,8 +197,9 @@ exists.
 
 - A native dependency, or any package that ships a native asset.
 - `System.Uri` where an IRI is meant. Use `Varve.Iri` (ADR 0004).
-- A commit with no issue reference or no DCO sign-off; a long-lived branch; a
-  trunk left un-releasable.
+- A commit with no issue reference or no DCO sign-off, or one whose message
+  carries a model's identifier; a long-lived branch; a trunk left
+  un-releasable.
 - Reflection, `Reflection.Emit` or `dynamic` in shipped code.
 - A `Common` / `Core` / `Utils` / `Abstractions` package, or an upward or
   same-layer reference. A `.cs` file without the MPL-2.0 notice (ADR 0031).
