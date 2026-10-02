@@ -513,9 +513,9 @@ internal static class Soak
         using CancellationTokenSource stop = new(duration);
         long commits = 0, reads = 0, asOf = 0, checkpoints = 0;
 
-        // The writer: batches of 50 over a bounded vocabulary, a third of them
-        // retractions, about 40 commits a second, so the dataset reaches a
-        // steady size and growth in memory is growth in the store.
+        // The writer: batches of 50 over a vocabulary of ten million possible
+        // quads, a third of them retractions, pausing 25 ms between commits; the
+        // dataset grows toward that bound for the whole hour.
         Task writer = Task.Run(async () =>
         {
             Random random = new(1);
