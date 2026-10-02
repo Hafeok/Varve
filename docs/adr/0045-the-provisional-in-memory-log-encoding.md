@@ -2,7 +2,9 @@
 
 ## Status
 
-**Accepted, and provisional by design.** 2026-09-23.
+**Accepted, and provisional by design.** 2026-09-23. **Superseded by
+[0072](0072-format-version-1.md)** (filed 2026-10-02), format version 1, as
+this ADR said it would be.
 
 Nothing here is a durable format. ADR 0012 and ADR 0014 put the on-disk
 encoding, the inline datatype set and the tag layout at **milestone 6**, and

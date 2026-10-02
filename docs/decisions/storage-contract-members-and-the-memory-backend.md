@@ -3,16 +3,8 @@ set: storage-contract-members-and-the-memory-backend
 namespace: varve
 adr: 0040
 decisions:
-  - key: StorageContractMembers
-    statement: "IStorage exposes an ISegmentStore that lists, creates, appends to, flushes, seals and reads segments and an IDerivedStore that puts, reads a range of, deletes and lists blobs, asynchronously"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-09-23T00:00:00Z
   - key: OnlyTheNewestSegmentUnsealed
     statement: "Segments are numbered by the backend in ascending order, and only the newest may be unsealed or appended to"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-09-23T00:00:00Z
-  - key: ReadBytesAreImmutable
-    statement: "Bytes returned by a storage read are immutable and may be held, and a backend that cannot promise it copies"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-23T00:00:00Z
   - key: DetachAbsentUntilArchive
@@ -38,3 +30,6 @@ narrative; this is what code cites. Acceptance is transcribed from the ADR's Sta
 
 Moved to a later set: the members' parameter and return types are superseded by ADR 0065's
 wrapper types, in its set. Their number and meaning are these.
+
+Moved to ADR 0071's set (2026-10-02): `StorageContractMembers` and `ReadBytesAreImmutable`,
+which it supersedes for the derived store and restates for the log.
