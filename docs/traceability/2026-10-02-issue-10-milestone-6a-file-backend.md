@@ -194,8 +194,8 @@ backend in `Varve.Store.Tests`.
 | Platform | File system | Measured |
 |---|---|---|
 | Linux 6.18, Ubuntu 24.04 (this session) | ext4 on a virtio disk | an append and flush to the device: **0.230 ms**; the fault suites and the AOT smoke pass |
-| Windows | NTFS | not measured in this session; CI's Windows leg runs the suites once the decisions are accepted and the build is green |
-| macOS | APFS | not measured; there is no macOS runner |
+| Windows | NTFS | from CI's `durability` job, after the pull request opened: 2.574 ms median for an append and flush (see below) |
+| macOS | APFS | from CI's `durability` job, after the pull request opened: 1.503 ms median (see below) |
 
 The AOT smoke kills a child process holding the dataset mid-commit, proves the
 lease refused a second opener while the child lived, tears the newest
@@ -320,8 +320,16 @@ Later, with the acceptances not yet pushed:
   through a raw pointer, and that reading through one is a separate decision.
 - **Durability per platform**: `eng/durability.cs` measures an append and a
   flush with the backend's own calls, and a `durability` CI job runs it on
-  Linux, Windows and macOS. That job is the only one with a macOS leg. The
-  numbers are below.
+  Linux, Windows and macOS. That job is the only one with a macOS leg. Run
+  37197080464 on `5bda991`:
+
+  | Platform | File system | Small record: median | 90th | 99th | 64 KiB record: median |
+  |---|---|---:|---:|---:|---:|
+  | Linux, the benchmark machine (Ubuntu 24.04.4, virtio disk) | ext4 | 0.156 ms | 0.233 ms | 0.590 ms | 0.610 ms |
+  | Linux, CI runner (Ubuntu 24.04.5, x64) | ext4 | 0.201 ms | 0.264 ms | 0.439 ms | 0.377 ms |
+  | Windows, CI runner (Windows 10.0.26100, x64) | NTFS | 2.574 ms | 10.615 ms | 22.003 ms | 3.021 ms |
+  | macOS, CI runner (macOS 26.6.2, Arm64) | APFS | 1.503 ms | 2.115 ms | 5.917 ms | 2.379 ms |
+  | Any other host | | not measured | | | |
 - **The acceptances were not written by this session.** ADR 0066 makes an
   acceptance a signed human commit and calls a session writing `accepted-by`
   forging it, and AGENTS.md lists it as never. Asked to accept on the

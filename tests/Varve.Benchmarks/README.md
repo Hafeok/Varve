@@ -548,6 +548,31 @@ device's flush is 0.23 ms (an append and `fsync` measured alone on this disk);
 that is about 2,700 durable commits a second from one writer. pyoxigraph's
 37 µs per transaction is what skipping the sync buys.
 
+### Durability per platform
+
+`dotnet run eng/durability.cs` appends a record and flushes it to the device,
+1,000 times for a 256-byte record and 100 times for a 64 KiB one, with the
+calls the file backend makes (`RandomAccess.Write`, then
+`RandomAccess.FlushToDisk`: `fsync` on Linux, `F_FULLFSYNC` on macOS,
+`FlushFileBuffers` on Windows, ADR 0073). CI's `durability` job runs it on
+every platform with a runner; the rows below are from run 37197080464 on
+`5bda991`. A shared runner is a noisy machine (ADR 0027): read them as
+orders of magnitude.
+
+| Platform | File system | Small record: median | 90th | 99th | 64 KiB record: median |
+|---|---|---:|---:|---:|---:|
+| Linux, the benchmark machine (Ubuntu 24.04.4, virtio disk) | ext4 | 0.156 ms | 0.233 ms | 0.590 ms | 0.610 ms |
+| Linux, CI runner (Ubuntu 24.04.5, x64) | ext4 | 0.201 ms | 0.264 ms | 0.439 ms | 0.377 ms |
+| Windows, CI runner (Windows 10.0.26100, x64) | NTFS | 2.574 ms | 10.615 ms | 22.003 ms | 3.021 ms |
+| macOS, CI runner (macOS 26.6.2, Arm64) | APFS | 1.503 ms | 2.115 ms | 5.917 ms | 2.379 ms |
+| Any other host | | not measured | | | |
+
+A durable single-quad commit costs one of these flushes on top of the store's
+own work, so it is a fraction of a millisecond on Linux, and one to a few
+milliseconds on macOS and Windows. On macOS the cost is `F_FULLFSYNC`, the
+only call there that flushes the drive's cache. On Windows the 90th and 99th
+percentiles are an order of magnitude above the median on this runner.
+
 ### Scans, over a pinned read of 1,000,000 quads in disk runs
 
 The file rows read the default projection from runs in `derived/`, block by
