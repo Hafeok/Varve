@@ -33,10 +33,15 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **store**: pool a cursor's block buffers; derived reads stay on RandomAccess (42837592)
 - **bench**: milestone 6a's numbers, the soak, and ADR 0012's verdict (a1975695)
 - **traceability**: milestone 6a's record, and the decision report's baseline (a8f8415a)
+- regenerate the changelog (1cdf56dc)
+- I6 in specification 1.5, the storage follow-up as 6c, durability per platform (5bda9919)
+- **traceability**: the maintainer's decisions on the 6a pull request (aae2f582)
+- **bench**: durability measured on Linux, Windows and macOS (70694b8d)
 
 #### Fixed
 
 - **store**: flush a segment before the trailer that seals it (842d3bdf)
+- **store**: bytes covered by a later commit or a sealed trailer refuse (61c0f85d)
 
 ### Adopting DecisionDriven.Analyzers — the decision ledger, the DD rules, Varve's own rules only
 
