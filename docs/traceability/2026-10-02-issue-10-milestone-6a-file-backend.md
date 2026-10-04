@@ -80,13 +80,13 @@ does not accept its own decisions.
 | ADR | Decides | Brief |
 |---|---|---|
 | [0070](../adr/0070-the-storage-engine-is-our-own.md) | The storage engine is our own: `log/` an append-only segment writer, `derived/` immutable sorted runs in the six orders, with a memtable and tier merges; the log is the write-ahead log. Maintenance is dataset-owned, under an explicit option, off the sequencer. Revisit: tier merges that cannot keep up at milestone 7. | A1 |
-| [0071](../adr/0071-synchronous-reads-over-asynchronous-storage.md) | Synchronous reads of `derived/` over asynchronous storage: `IReadableBlob.Read(ByteOffset, Span<byte>)`; blobs written as streams and published atomically; the read path chosen by benchmark (below). Supersedes 0018's "asynchronous throughout" and 0040's derived members. Revisit: a host with no synchronous read (6b). | A2 |
+| [0071](../adr/0071-synchronous-reads-over-asynchronous-storage.md) | Synchronous reads of `derived/` over asynchronous storage: `IReadableBlob.Read(ByteOffset, Span<byte>)`; blobs written as streams and published atomically; the read path chosen by benchmark (below). Supersedes 0018's "asynchronous throughout" and 0040's derived members. Revisit: a host with no synchronous read (6c). | A2 |
 | [0072](../adr/0072-format-version-1.md) | Format version 1, read for ever from the first prerelease that writes it; the read-forever rule binds `log/` only, `derived/` is a cache. Supersedes 0045. | A3 |
 | [0073](../adr/0073-durability-per-host-declared.md) | Durability per host, declared: the file backend declares `Synchronised` (the existing name, kept), the three crash models, and per file system what a new file's directory entry survives; a lost entry is equivalent to a segment never created. | A4 |
 | [0074](../adr/0074-private-ids-reserved-and-the-key-store-refused.md) | The private id class and entry layout reserved, never written; the key store refused inside the dataset directory, by `KeyStoreDirectory.IsWithin(DatasetDirectory)`; directories are wrappers, never strings. | A5 |
 | [0075](../adr/0075-one-process-per-dataset-by-an-os-lease.md) | One process per dataset directory, held by an exclusive handle on `derived/LOCK`, released by the operating system when the process dies — no stale lease to take over. | A6 |
-| [0076](../adr/0076-bulk-load-by-sort-and-merge-join.md) | Q2: bulk load sorts into a run, merge-joins against the pinned runs, commits once by chunks. Built in 6b. | D |
-| [0077](../adr/0077-bulk-load-validators-scan-the-delta-on-disk.md) | Q3: validators over a bulk commit scan the delta on disk through the same blob read. Built in 6b. | D |
+| [0076](../adr/0076-bulk-load-by-sort-and-merge-join.md) | Q2: bulk load sorts into a run, merge-joins against the pinned runs, commits once by chunks. Built in 6c. | D |
+| [0077](../adr/0077-bulk-load-validators-scan-the-delta-on-disk.md) | Q3: validators over a bulk commit scan the delta on disk through the same blob read. Built in 6c. | D |
 
 Amended, each with a dated note: [0018](../adr/0018-storage-abstraction.md)
 and [0040](../adr/0040-storage-contract-members-and-the-memory-backend.md)
@@ -94,7 +94,7 @@ and [0040](../adr/0040-storage-contract-members-and-the-memory-backend.md)
 [0045](../adr/0045-the-provisional-in-memory-log-encoding.md) (superseded by
 0072), and [0042](../adr/0042-subscriptions-pull-from-the-log.md) — scoped to
 delivery, allowing dataset-owned maintenance under an explicit option, off the
-sequencer, never blocking a commit; the browser's default is off until 6b.
+sequencer, never blocking a commit; the browser's default is off until 6c.
 
 The specification moves to **1.4**: §2's determinism binds `log/`; §10's
 Records row is widened to any byte offset, any reordering up to the flush
@@ -122,7 +122,7 @@ barrier, and a copy taken mid-write.
   the benchmark.
 - **Opening is O(log since the newest checkpoint)** in bodies read, and reads
   every record and commit header for the chain; the dictionary is carried by
-  checkpoints, and a dictionary on disk is on 6b's list.
+  checkpoints, and a dictionary on disk is on 6c's list.
 
 ### Format version 1
 
@@ -246,7 +246,7 @@ orders. ADR 0012's revisit condition did not fire.
 29 checkpoints, reopened at the last commit. File handles (59–66) and
 `derived/` files (5–11) are flat. The managed heap's median grows from 16.5 to
 44.8 MB as the dataset grows, with peaks to 528 MB that mostly coincide with a
-checkpoint, which is materialised in memory (6b's list). The working set is
+checkpoint, which is materialised in memory (6c's list). The working set is
 **not flat** (median 168 → 730 MB, peak 2.8 GB), and this session did not
 separate its causes; it is reported as found.
 
@@ -263,12 +263,12 @@ separate its causes; it is reported as found.
 No other change was needed beyond the two the maintainer accepted on the plan
 (§2 and §10's Records row, version 1.4).
 
-### What 6b needs from the maintainer
+### What 6c needs from the maintainer
 
 - **Acceptance of ADRs 0070–0077**, which turns this pull request green.
-- **The name.** The roadmap already uses "6b" for RDF 1.2 Turtle and TriG,
-  RDF/XML and JSON-LD; the storage follow-up is written as "6b (storage)"
-  until it is renumbered.
+- **The name.** The roadmap already used "6b" for RDF 1.2 Turtle and TriG,
+  RDF/XML and JSON-LD. Decided on the pull request: the storage follow-up is
+  **6c**, and 6b stays the RDF 1.2 syntaxes.
 - **The browser backend's question** (ADR 0071's revisit condition): a
   synchronous read in a browser worker (OPFS sync access handles), or the
   cursor goes asynchronous — and whether a browser host runs maintenance.

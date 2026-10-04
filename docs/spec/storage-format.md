@@ -10,7 +10,7 @@ own version and is **not** read forever: a derived file this build does not
 read is a cache miss and is rebuilt (ADR 0072).
 
 Scope: the bytes of a dataset directory. The state machine they encode is
-[`log-and-projection-model.md`](log-and-projection-model.md) (version 1.4); the
+[`log-and-projection-model.md`](log-and-projection-model.md) (version 1.5); the
 storage contract that writes them is ADRs 0018, 0040 and 0071.
 
 ## 1. Conventions
@@ -212,7 +212,10 @@ segment id and self-hash verify, its first position is `H + 1`, and its hash
 field is `h`. A header whose magic and self-hash verify but which names another
 dataset or another segment id is a foreign segment and **refuses**. A header that
 does not verify at all — a crash while the segment was being created — makes
-the segment **open-ended, holding a torn tail and nothing else**.
+the segment **open-ended, holding a torn tail and nothing else**; if a record
+header verifies anywhere after it in the file, or the file ends with a closed
+trailer, the log is **refused**, since a segment's header is flushed before
+its first record.
 
 1. **Records.** Within a segment, a record is read when its header's self-hash
    verifies, its body fits before the end (or the trailer), and its body hash
@@ -226,10 +229,13 @@ the segment **open-ended, holding a torn tail and nothing else**.
    record that breaks one of these rules **refuses** the log.
 2. **Torn tail.** The first record that does not verify ends what the segment
    holds; the commit it belongs to, and any pending records, are discarded.
-   **Except:** when its header verifies and only its body does not, and a record
-   whose header verifies and whose position is above `H + 1` follows
-   immediately, the log is **refused** — no crash produces a later commit after
-   an earlier one that was not flushed.
+   **Except:** when, anywhere after it in the same segment file, a record
+   header verifies whose position is above `H + 1`, the log is **refused** — no
+   crash produces a later commit after an earlier one that was not flushed, and
+   a copy takes each file as a prefix. Every offset is looked at, since a broken
+   length says nothing about where the next record starts. Bytes of a later
+   segment do not count: a copy may take two files at different moments
+   (specification 1.5, I6).
 3. **Closed trailer.** The segment must end exactly at a record boundary with no
    torn bytes, and the trailer's head and hash must equal `H` and `h`. The next
    segment must exist with the next id and continue the chain, or, if no later
@@ -244,7 +250,12 @@ the segment **open-ended, holding a torn tail and nothing else**.
    directory was taken); the first that continues resumes the walk. A later
    segment whose header verifies, does not continue, and claims a first position
    at or below `H + 1` is a different history and **refuses**. A later segment
-   whose header does not verify is abandoned.
+   whose header does not verify is abandoned, unless a record header verifies
+   after it in the file, which **refuses** as above. A segment without a trailer
+   whose bytes after its last record are exactly a trailer's length and agree
+   with this segment's trailer in two of magic, dataset id and segment id is a
+   sealed trailer that was changed, and **refuses** when a later segment exists:
+   the next segment is created only after the trailer is flushed.
 
 **On open, recovery** makes the next commit safe to write:
 

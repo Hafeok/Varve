@@ -305,7 +305,7 @@ change: the **private id class** (ADR 0012), the **private entry layout** —
 **refusal of a key store path inside the dataset directory** (ADR 0023). None of
 them costs anything while erasure mode is off.
 
-### 6a — the file backend, format version 1, failure injection *(this session; ADRs 0070–0077, specification 1.4)*
+### 6a — the file backend, format version 1, failure injection *(ADRs 0070–0077, specification 1.5)*
 
 Issue [#10](https://github.com/Hafeok/Varve/issues/10). **Delivered:**
 
@@ -333,23 +333,6 @@ Issue [#10](https://github.com/Hafeok/Varve/issues/10). **Delivered:**
   deleted or stale, and copies taken mid-write. It found one defect, fixed: a
   seal's trailer could outlive the records before it.
 
-### 6b (storage) — what 6a leaves
-
-Called 6b in the 6a brief; the section below already uses the name for RDF 1.2
-syntaxes, which the maintainer may want to renumber.
-
-- **The browser backend** (layer 5), deciding ADR 0071's revisit condition — a
-  synchronous read in a browser worker, or the cursor goes asynchronous — and
-  whether a browser host runs maintenance (ADR 0042's amendment).
-- **The bulk loader** of ADRs 0076 and 0077: external sort, merge-join, one
-  multi-record commit, validators over the delta on disk.
-- **A dictionary on disk.** The dictionary is in memory, rebuilt on open from
-  the newest checkpoint and the log after it.
-- **A checkpoint policy**, and checkpoints written by streaming the runs when
-  the position is the projection's, rather than materialised in memory.
-- **Compression of derived runs**, if the locality numbers argue for it: a
-  derived format version, never a `log/` one (ADR 0072).
-
 ## 6b — RDF 1.2 Turtle and TriG, RDF/XML, JSON-LD
 
 **Before milestone 7**, which serves all of them. Added at milestone 5b, when
@@ -367,6 +350,27 @@ that unblocks them.
   translations of the SPARQL suites' RDF/XML files (`tests/fixtures/w3c-rdfxml/`,
   ADR 0027's dated note) are deleted and the harness reads the originals.
 - **`Varve.JsonLd`** (layer 2), JSON-LD 1.1 to its W3C suite.
+
+## 6c — the second storage session: what 6a leaves
+
+Called 6b in the 6a brief; renumbered by the maintainer on the 6a pull
+request, since 6b is the RDF 1.2 syntaxes below.
+
+- **The browser backend** (layer 5), deciding ADR 0071's revisit condition — a
+  synchronous read in a browser worker, or the cursor goes asynchronous — and
+  whether a browser host runs maintenance (ADR 0042's amendment).
+- **The bulk loader** of ADRs 0076 and 0077: external sort, merge-join, one
+  multi-record commit, validators over the delta on disk.
+- **A dictionary on disk.** The dictionary is in memory, rebuilt on open from
+  the newest checkpoint and the log after it.
+- **A checkpoint policy**, and checkpoints written by streaming the runs when
+  the position is the projection's, rather than materialised in memory.
+- **The soak's working set**, which grew through the hour in 6a: checkpoints
+  built by streaming, then the soak reported again with the causes separated
+  (issue [#61](https://github.com/Hafeok/Varve/issues/61); it blocks the 1.0
+  soak gate).
+- **Compression of derived runs**, if the locality numbers argue for it: a
+  derived format version, never a `log/` one (ADR 0072).
 
 ## 7 — Server and CLI
 

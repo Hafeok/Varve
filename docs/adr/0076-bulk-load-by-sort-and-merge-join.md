@@ -7,7 +7,7 @@
 Closes the specification's **Q2**, owned by ADR
 [0013](0013-records-commits-and-bulk-load.md) and due at milestone 6. Decided
 here so that format version 1 (ADR 0072) carries what a bulk commit needs;
-**implemented in 6b**.
+**implemented in 6c**.
 
 ## Context
 
@@ -63,7 +63,7 @@ step 2 before any id is final, as `Resolver.Finalise` does for small commits.
 ## Consequences
 
 - **Format version 1 already carries it**: chunked bodies with per-chunk
-  counts, 64-bit counts, an incremental content hash. 6b adds no format.
+  counts, 64-bit counts, an incremental content hash. 6c adds no format.
 - **A bulk load occupies the sequencer for its duration** (ADR 0013's stated
   cost), and its temporary runs occupy `derived/`.
 - **The commit can be larger than memory**, and the writer uses bounded

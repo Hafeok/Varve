@@ -647,8 +647,11 @@ The managed heap's median grows with the dataset, which is not bounded: the
 vocabulary allows ten million distinct quads, and the dataset kept growing
 toward that for the whole hour. The heap's peaks fall, in 10 of 14 samples
 above 150 MB, in the sample where a checkpoint was written: a checkpoint is
-materialised in memory before it is written, which 6b's list replaces with
+materialised in memory before it is written, which 6c's list replaces with
 writing it by streaming the runs. **The working set is not flat**: its median
 grows from 168 to 730 MB. This session did not separate how much of that is the
 garbage collector keeping its high-water mark after the checkpoint peaks and
-how much is something else; it is reported, not explained.
+how much is something else; it is reported, not explained. Issue
+[#61](https://github.com/Hafeok/Varve/issues/61) tracks it: 6c streams
+checkpoints and reports the soak again with the causes separated, and it
+blocks the 1.0 soak gate.

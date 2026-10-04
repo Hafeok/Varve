@@ -15,7 +15,7 @@ It **supersedes in part**:
   promise that bytes read from the derived store may be held. The segment
   store's members gain two (the manifest); the rest of 0040 stands.
 
-**Revisit condition:** a host where no synchronous read exists — 6b decides
+**Revisit condition:** a host where no synchronous read exists — 6c decides
 this for the browser — supersedes this ADR.
 
 ## Context
@@ -126,7 +126,11 @@ A raw pointer needs unsafe code in `Varve.Store`. Through the safe accessor
 | 10,000 subject lookups | 34.5 ms | 69.5 ms | 28.6 ms |
 
 The block read is a few percent of a scan; decoding and merging the runs is
-the rest. So the file backend reads through `RandomAccess`, with no unsafe
+the rest. **The mapped view wins only through a raw pointer**, and a raw
+pointer means unsafe code in `Varve.Store`. Taking that path is a separate
+decision, filed with its own benchmark and its own case for unsafe code in a
+shipped package, if it is ever taken; this ADR does not decide it, and
+`ReadPathByBenchmark` does not admit it. So the file backend reads through `RandomAccess`, with no unsafe
 code, and no mapped file for Windows to refuse to replace or delete while a
 view holds it. The third column is what shipped: a cursor's block buffers
 come from the shared array pool and go back when it is disposed, so a scan of
@@ -138,7 +142,7 @@ disk runs allocates what a scan of memory does.
   and the only one if a host has no synchronous read at all. Rejected now: it
   supersedes ADR 0022 and costs every operator of the evaluator an
   `async` state machine per row on the desktop, to serve a browser whose answer
-  is not known yet. If 6b finds no synchronous read in a browser worker, that is
+  is not known yet. If 6c finds no synchronous read in a browser worker, that is
   this ADR's revisit condition, and the cursor change is made then with the
   evidence.
 - **Page each run in before a scan**, keeping storage asynchronous. Rejected
@@ -147,7 +151,7 @@ disk runs allocates what a scan of memory does.
   separate names. Rejected: a run in parts needs its own manifest of parts and
   its own atomicity, which is a writer with publish under another name.
 - **Make the log's reads synchronous too**, for symmetry. Rejected for now: no
-  caller needs it, and it widens what 6b must find.
+  caller needs it, and it widens what 6c must find.
 - **Hand out the backend's own bytes** (a span over a mapped view) instead of
   copying into the caller's. Zero copy, and what ADR 0040's "bytes may be held"
   promised. Rejected for the contract: a mapped view's lifetime is the mapping's,

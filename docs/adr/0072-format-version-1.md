@@ -101,14 +101,25 @@ Trailers are found at the end of the file. The rules for walking the log:
 ### What counts as damage beyond the unclosed tail
 
 Within a segment, a record whose header hash fails, or whose body does not
-match its content hash, is the start of a **torn tail**. One check refuses
-instead: a body that fails its hash, under a header that verifies, followed
-immediately by a verifying record of a **later** position. No crash produces
-that, because the later commit was written only after the earlier one's flush.
-A byte flipped inside a record header remains indistinguishable from a cut and
-yields an earlier readable head; the property test states it exactly as
-milestone 4's did — every single-byte change refuses or yields an earlier head,
-never the same head with different content.
+match its content hash, is the start of a **torn tail** — unless something
+written after it in the same file verifies. A record header of a **later**
+position anywhere after the break, a record header anywhere after a segment
+header that does not verify, or a closed trailer over the break refuses. No
+crash produces any of them, because the later bytes were written only after a
+flush made the broken ones durable, and a copy takes each file as a prefix. A
+later segment does not cover an earlier one: a copy may take the two at
+different moments. A sealed segment's trailer that no longer verifies refuses
+when a later segment exists, since the next segment is created only after the
+trailer is flushed.
+
+So I6, as specification 1.5 states it: a byte changed anywhere a later closed
+commit or a sealed trailer covers refuses; only a byte of the newest commit's
+records may read as a torn write, and then the log opens at the position before
+it with exactly the state there, never at the same head. A body before the
+newest checkpoint is read only when something needs it, so a change there
+refuses at that read rather than at open. The two cases are separate
+properties, on segments of 1 KiB and records of 64 bytes so that commits span
+seals.
 
 ### The id layout and the inline set are frozen
 

@@ -8,4 +8,4 @@ decisions:
 ---
 
 The ruling of [ADR 0077](../adr/0077-bulk-load-validators-scan-the-delta-on-disk.md), filed unaccepted
-by session 6a of #10 (ADR 0066). Implemented in 6b.
+by session 6a of #10 (ADR 0066). Implemented in 6c.

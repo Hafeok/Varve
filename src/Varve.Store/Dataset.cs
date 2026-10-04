@@ -51,7 +51,7 @@ public sealed class DatasetOptions
     /// Whether the dataset runs its own maintenance — memtable flushes and
     /// disk merges — on a task it owns, off the sequencer (ADR 0070, ADR 0042's
     /// amendment). <see cref="MaintenanceMode.Background"/> by default, except
-    /// in a browser, where it is <see cref="MaintenanceMode.Off"/> until 6b.
+    /// in a browser, where it is <see cref="MaintenanceMode.Off"/> until 6c.
     /// With it off, <see cref="Dataset.MaintainAsync"/> runs it when the caller
     /// asks.
     /// </summary>

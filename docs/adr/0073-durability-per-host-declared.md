@@ -6,7 +6,7 @@
 
 Completes ADR [0018](0018-storage-abstraction.md)'s "durability is declared,
 not assumed" for the file backend, and states, for every level, what survives
-power loss. The browser's level is 6b's.
+power loss. The browser's level is 6c's.
 
 ## Context
 
@@ -83,7 +83,7 @@ documentation, and it is the cost of constraint 1. A derived blob whose rename
 is lost is a cache miss; a manifest whose entry is lost leaves a directory
 with no dataset in it, because nothing else was written before it.
 
-### The memory backend declares `None`; the browser backend declares what 6b finds
+### The memory backend declares `None`; the browser backend declares what 6c finds
 
 ## Alternatives considered
 
@@ -104,7 +104,13 @@ with no dataset in it, because nothing else was written before it.
 ## Consequences
 
 - **A commit returns after one device flush.** Commit latency on the file
-  backend is the device's flush latency; the milestone report measures it.
+  backend is the device's flush latency. `eng/durability.cs` measures it with
+  the backend's own calls, and CI's `durability` job runs it on Linux,
+  Windows and macOS — the one job with a macOS leg — writing the table to the
+  step summary. A shared runner is a noisy machine, so its numbers are orders
+  of magnitude. They are recorded per platform in
+  `tests/Varve.Benchmarks/README.md`, with the run they came from; a platform
+  with no runner is "not measured".
 - **The gap is named, per file system**, rather than discovered. A host that
   needs the undocumented rows closed has a superseding ADR to write about
   constraint 1, not a bug to find.

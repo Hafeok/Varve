@@ -80,7 +80,7 @@ Maintenance is allowed on a task the dataset owns, under three conditions:
 - **it runs off the sequencer**, and **never blocks a commit**: its results are
   published only if the state they replace is still current, and discarded
   otherwise;
-- **in a browser the default is off** until 6b decides what a browser host can
+- **in a browser the default is off** until 6c decides what a browser host can
   schedule — the reason given above for declining a registry.
 
 A subscriber or projection still never runs on a task the store owns.

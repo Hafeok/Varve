@@ -22,7 +22,7 @@ decisions:
   - key: HeaderHashStoredBeside
     statement: "Every header in log/ and derived/ carries the SHA-256 of its own bytes, so a torn or reordered header is detected by itself"
   - key: TornTailSealedAndSkipped
-    statement: "Recovery follows the chain across segments: a torn or unclosed tail is ignored and its segment sealed with an abandoned trailer, segments beyond a copy point are abandoned, and any other break refuses to open"
+    statement: "Recovery follows the chain across segments: a torn or unclosed tail is ignored and its segment sealed with an abandoned trailer, segments beyond a copy point are abandoned, and any other break refuses to open; bytes that do not verify are a torn tail only when no record of a later position, no record after a broken segment header, and no sealed trailer verifies after them in the same file"
   - key: SealIsATrailer
     statement: "Sealing appends a trailer naming the last closed position and its header hash, so a seal survives a copy and a closed trailer's successor must continue the chain"
   - key: InMemoryIdLayout

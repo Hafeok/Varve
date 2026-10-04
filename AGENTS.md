@@ -118,7 +118,7 @@ tool's co-author trailer naming the product is not one (ADR 0033, amended
 
 ## `Varve.Store` behaviour
 
-**`docs/spec/log-and-projection-model.md` is the authority** (version 1.4) and
+**`docs/spec/log-and-projection-model.md` is the authority** (version 1.5) and
 beats the brief where they differ. ADRs 0010–0023 record what it presupposes and
 **none is `Proposed`**. The cipher is [0028](docs/adr/0028-deterministic-aead-from-hmac.md),
 superseding 0020, conditional on external review. Vocabulary that must not drift:
@@ -188,7 +188,7 @@ synchronous blob read; the failure-injection suite in
 power with writes reordered, and copies it mid-write, and is a gate. **RDF 1.2
 Turtle and TriG are not accepted at all** — `turtle.md` §9. Nothing is
 published; the first tag is `v0.1.0-preview.1` (ADR 0029). Not built: HTTP for
-`LOAD` and `SERVICE`, the browser backend and the bulk loader (6b), erasure
+`LOAD` and `SERVICE`, the browser backend and the bulk loader (6c), erasure
 mode, SHACL, the server.
 `docs/roadmap.md` has the rest, an owner and a due milestone per open
 question.

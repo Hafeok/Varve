@@ -10,4 +10,4 @@ decisions:
 ---
 
 The rulings of [ADR 0076](../adr/0076-bulk-load-by-sort-and-merge-join.md), filed unaccepted by session
-6a of #10 (ADR 0066). Implemented in 6b.
+6a of #10 (ADR 0066). Implemented in 6c.

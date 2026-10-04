@@ -7,7 +7,7 @@
 Closes the specification's **Q3**, owned by ADR
 [0013](0013-records-commits-and-bulk-load.md) with ADR
 [0017](0017-validator-contract-and-overlay.md), due at milestone 6. Decided
-here; **implemented in 6b** with the bulk loader (ADR 0076).
+here; **implemented in 6c** with the bulk loader (ADR 0076).
 
 ## Context
 
@@ -45,7 +45,7 @@ paid at that size belongs in the asynchronous validation projection (ADR 0017,
 
 - **`δ` as a quad source** is a widening of how ADR 0017 hands a delta to a
   validator for bulk commits only; the `QuadDelta` form stays for ordinary
-  commits. 6b states the exact member when it builds it, as an addition to the
+  commits. 6c states the exact member when it builds it, as an addition to the
   validator contract rather than a change to it.
 - **Validation of a large load is slow and honest about it.**
 

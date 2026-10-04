@@ -91,7 +91,7 @@ if the runs it replaced are still the current ones, and a run a pinned read
 holds is deleted only after the pin is released. `Dataset.MaintainAsync` runs
 one round on the caller's schedule, for hosts that run none in the
 background. The default is `Background`, except in a browser, where it is
-`Off` until 6b decides; ADR 0042 is amended to say why this is not the
+`Off` until 6c decides; ADR 0042 is amended to say why this is not the
 registry it declined.
 
 ## Alternatives considered
@@ -127,14 +127,14 @@ registry it declined.
   where storage engines fail months later. The failure-injection suite of
   milestone 6a is the mitigation and is a gate, not a report.
 - **No package is added.** The engine is AOT-safe because it is written so, and
-  it runs over the storage abstraction, so the browser backend in 6b is an
+  it runs over the storage abstraction, so the browser backend in 6c is an
   implementation of ADR 0018's contract rather than a port of an engine.
 - **Scan cost grows with the number of runs**, memtable and disk together;
   tiering bounds both to `O(log n)`. A dataset that has just absorbed many
   commits scans more runs until maintenance catches up — which is what the
   revisit condition watches.
 - **The term dictionary stays in memory** in 6a, rebuilt on open from the
-  newest checkpoint and the log after it. A dictionary on disk is on 6b's list.
+  newest checkpoint and the log after it. A dictionary on disk is on 6c's list.
 
 ## Checks
 

@@ -166,7 +166,7 @@ maintainer on the adoption plan. Every ADR is also a decision set in
 ## Milestone 6a — the file backend and format version 1
 
 Issue [#10](https://github.com/Hafeok/Varve/issues/10). Decided by the
-maintainer on the 6a plan, filed unaccepted (ADR 0066); specification 1.4.
+maintainer on the 6a plan, filed unaccepted (ADR 0066); specification 1.4, and 1.5 on its pull request.
 
 | # | Title | Status |
 |---:|---|---|
@@ -176,8 +176,8 @@ maintainer on the 6a plan, filed unaccepted (ADR 0066); specification 1.4.
 | [0073](0073-durability-per-host-declared.md) | Durability per host, declared, and what each level survives | **Proposed** |
 | [0074](0074-private-ids-reserved-and-the-key-store-refused.md) | The private id and entry layout, reserved; the key store refused by path | **Proposed** |
 | [0075](0075-one-process-per-dataset-by-an-os-lease.md) | One process per dataset directory, held by an exclusive handle | **Proposed** |
-| [0076](0076-bulk-load-by-sort-and-merge-join.md) | Bulk load and I2: sort into a run, merge-join, one multi-record commit (Q2) | **Proposed**; implemented in 6b |
-| [0077](0077-bulk-load-validators-scan-the-delta-on-disk.md) | Bulk load and validators: the overlay scans the delta on disk (Q3) | **Proposed**; implemented in 6b |
+| [0076](0076-bulk-load-by-sort-and-merge-join.md) | Bulk load and I2: sort into a run, merge-join, one multi-record commit (Q2) | **Proposed**; implemented in 6c |
+| [0077](0077-bulk-load-validators-scan-the-delta-on-disk.md) | Bulk load and validators: the overlay scans the delta on disk (Q3) | **Proposed**; implemented in 6c |
 
 ## Milestone 7 — the server
 
@@ -227,7 +227,7 @@ carries a condition of its own that is not measurable by a build.
 | [0028](0028-deterministic-aead-from-hmac.md) | External cryptographic review rejects the construction. The fallback is then that erasure mode does not run in the browser, in its own ADR. Its other condition — the primitives run in a browser — is measured and holds. | milestone 9, before shipping |
 | [0022](0022-quad-source-term-handle.md) | Milestone 5 evaluator benchmarks show the opaque handle costs more than it saves. The accessor it named as its successor is built in 5a ([0050](0050-typed-value-accessor-and-the-benchmark-for-adr-0022.md)), which fixes the three arms and the verdict rule. | milestone 5b |
 | [0070](0070-the-storage-engine-is-our-own.md) | A workload at milestone 7 where tier merges cannot keep up with the commit rate. | milestone 7 |
-| [0071](0071-synchronous-reads-over-asynchronous-storage.md) | A host where no synchronous read exists. | milestone 6b, the browser |
+| [0071](0071-synchronous-reads-over-asynchronous-storage.md) | A host where no synchronous read exists. | milestone 6c, the browser |
 | [0034](0034-commit-signing-and-the-sandbox-exception.md) | A route appears by which a sandbox commit is signed by a key the project controls, or by GitHub itself. Two are identified and neither is available: GraphQL `createCommitOnBranch`, blocked by the session proxy rather than by GitHub, and a per-installation signing key. The REST contents API was tested and is **not** one — it produces unsigned commits. | whenever it fires |
 
 ## Open questions recorded, not resolved
@@ -238,8 +238,8 @@ falls out of:
 | | Question | Owner | Due |
 |---|---|---|---|
 | **Q1** | External form of store-scoped blank node identity at protocol boundaries. The in-process half is **decided** by [0044](0044-blank-node-identity-in-process.md): by handle | [0012](0012-term-dictionary-and-id-scheme.md) | milestone 7, with the server |
-| **Q2** | Bulk load and I2 — normalising a huge commit against a populated dataset | [0013](0013-records-commits-and-bulk-load.md) | **decided** by [0076](0076-bulk-load-by-sort-and-merge-join.md) (proposed): sort and merge-join; built in 6b |
-| **Q3** | Bulk load and validators — an overlay that does not fit in memory | [0013](0013-records-commits-and-bulk-load.md), with [0017](0017-validator-contract-and-overlay.md) | **decided** by [0077](0077-bulk-load-validators-scan-the-delta-on-disk.md) (proposed): the overlay scans the delta on disk; built in 6b |
+| **Q2** | Bulk load and I2 — normalising a huge commit against a populated dataset | [0013](0013-records-commits-and-bulk-load.md) | **decided** by [0076](0076-bulk-load-by-sort-and-merge-join.md) (proposed): sort and merge-join; built in 6c |
+| **Q3** | Bulk load and validators — an overlay that does not fit in memory | [0013](0013-records-commits-and-bulk-load.md), with [0017](0017-validator-contract-and-overlay.md) | **decided** by [0077](0077-bulk-load-validators-scan-the-delta-on-disk.md) (proposed): the overlay scans the delta on disk; built in 6c |
 | **Q4** | How a shredded term appears in SPARQL results and serialisations | [0023](0023-erasure-and-access-requests.md) | milestone 9 |
 | **Q5** | Lookup by private value — scan and decrypt, or a keyed blind index | [0028](0028-deterministic-aead-from-hmac.md) | milestone 9 |
 | **Q6** | Cipher and availability per host | [0028](0028-deterministic-aead-from-hmac.md) | **decided**, subject to 0028's two conditions: the primitives run in a browser (measured, holds) and the construction survives external review (milestone 9) |

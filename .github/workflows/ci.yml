@@ -300,6 +300,33 @@ jobs:
             "${{ github.workspace }}/artifacts/aot/Varve.AotSmoke"
           fi
 
+  # Durability, measured per platform (ADR 0073): what an append and a flush
+  # to the device cost on each runner, with the calls the file backend makes.
+  # A measurement, not a gate (ADR 0027): eng/durability.cs exits 0 whatever
+  # it measures, and the table goes to the step summary, from where it is
+  # recorded by hand. It references no Varve project, so it runs whatever
+  # state the build is in. The only job with a macOS leg, because durability
+  # is the one property whose answer depends on the operating system's flush.
+  durability:
+    name: durability (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Measure
+        run: dotnet run eng/durability.cs
+
   # repo-standard's native binary and its Action, end to end (ADR 0039).
   #
   # The Native AOT publish is a gate: IlcTreatWarningsAsErrors is set in the
