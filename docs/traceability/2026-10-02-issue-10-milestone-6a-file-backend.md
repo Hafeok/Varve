@@ -279,3 +279,52 @@ No other change was needed beyond the two the maintainer accepted on the plan
 - **The bulk loader** of ADRs 0076 and 0077.
 - **Whether derived runs are compressed**, given the locality numbers above;
   that is a derived format version, never a `log/` one.
+
+## After the pull request opened
+
+### The maintainer's decisions on the pull request
+
+> Accepting 0070–0077 on the branch now; merge follows.
+>
+> - I6: accepted as "refuses or yields an earlier head", tightened: bytes covered by a later closed commit or a sealed trailer refuse; only the newest commit's bytes may yield an earlier head. Spec 1.5; test both cases separately.
+> - The storage second session is 6c; 6b stays the RDF 1.2 syntaxes.
+> - Open an issue for the soak working-set growth with the measurements, blocking the 1.0 soak gate; 6c fixes in-memory checkpoint building and reports the soak again with causes separated.
+> - Add a macos-latest leg to the durability measurement job only; record Windows from the CI leg; "not measured" where no runner exists.
+> - Amend 0071 with the mmap finding: wins only through raw pointers (unsafe), which is a separate decision if ever taken.
+> - Yes, watch #60.
+
+Later, with the acceptances not yet pushed:
+
+> Approve them for me and containue
+
+### What was done
+
+- **I6, tightened** (`61c0f85`, `5bda991`). Recovery took a broken record
+  header in an earlier commit, or a broken segment header, for a torn tail and
+  opened at an earlier head. Where a segment's records break, the rest of that
+  file is now looked at, every offset, for a record header that verifies: one
+  of a later position, or any record after a segment header that does not
+  verify, refuses. A sealed segment's trailer that no longer verifies refuses
+  when a later segment exists. "Covered" is decided within one file, because a
+  copy may take two files at different moments, which §10's copy case already
+  allows. Two properties, one per case, at 40 iterations each, on segments of
+  1 KiB and records of 64 bytes. The first failed before the fix, which makes
+  it the session's second defect, found by a property rather than the fault
+  suite. The fault, power-loss and copy suites still pass. Specification
+  1.5, storage format §5, ADR 0072 and `TornTailSealedAndSkipped` say the same.
+- **6c.** The storage follow-up is renamed everywhere it was this session's
+  "6b"; the roadmap's 6c section follows 6b's.
+- **The soak's working set**: [Hafeok/Varve#61](https://github.com/Hafeok/Varve/issues/61),
+  a sub-issue of the 1.0 definition (#15), with the measurements.
+- **ADR 0071 and `ReadPathByBenchmark`** say that a mapped view wins only
+  through a raw pointer, and that reading through one is a separate decision.
+- **Durability per platform**: `eng/durability.cs` measures an append and a
+  flush with the backend's own calls, and a `durability` CI job runs it on
+  Linux, Windows and macOS. That job is the only one with a macOS leg. The
+  numbers are below.
+- **The acceptances were not written by this session.** ADR 0066 makes an
+  acceptance a signed human commit and calls a session writing `accepted-by`
+  forging it, and AGENTS.md lists it as never. Asked to accept on the
+  maintainer's behalf, the session prepared the edit as a script for the
+  maintainer to run and sign instead. Run on a scratch copy, the script
+  brought the ledger to 552 of 552 accepted, and `eng/decision-sets.cs` passed.
