@@ -240,7 +240,7 @@ internal static class BulkGate
             }
         }
 
-        Console.WriteLine("crashes: the log cut at the start of each of the load's " + cuts.Count + " records, and " + torn.Count
+        Console.WriteLine(closedOnly ? "crashes: the record cuts skipped (--crash-closed-only)" : "crashes: the log cut at the start of each of the load's " + cuts.Count + " records, and " + torn.Count
             + " one byte into one, opened at the head before the load with its quads, in " + clock.Elapsed.TotalSeconds.ToString("F0", CultureInfo.InvariantCulture) + " s");
 
         // And after the commit closed, before the state naming its delta run
