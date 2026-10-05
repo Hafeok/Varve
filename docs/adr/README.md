@@ -171,7 +171,7 @@ maintainer on the 6a plan, filed unaccepted (ADR 0066); specification 1.4, and 1
 | # | Title | Status |
 |---:|---|---|
 | [0070](0070-the-storage-engine-is-our-own.md) | The storage engine is our own, and it is two different things | Accepted; revisit condition |
-| [0071](0071-synchronous-reads-over-asynchronous-storage.md) | Synchronous reads of derived data over asynchronous storage | Accepted; supersedes 0018 and 0040 in part; revisit condition |
+| [0071](0071-synchronous-reads-over-asynchronous-storage.md) | Synchronous reads of derived data over asynchronous storage | Accepted; amended 2026-10-05 (replacing an open blob on Windows); supersedes 0018 and 0040 in part; revisit condition |
 | [0072](0072-format-version-1.md) | Format version 1, read forever from the first prerelease that writes it | Accepted; supersedes 0045 |
 | [0073](0073-durability-per-host-declared.md) | Durability per host, declared, and what each level survives | Accepted |
 | [0074](0074-private-ids-reserved-and-the-key-store-refused.md) | The private id and entry layout, reserved; the key store refused by path | Accepted |

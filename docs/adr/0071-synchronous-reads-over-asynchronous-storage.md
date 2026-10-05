@@ -3,6 +3,8 @@
 ## Status
 
 **Accepted — filed unaccepted by session 6a of #10, 2026-10-02** (ADR 0066).
+**Amended 2026-10-05** (ADR [0068](0068-dated-amendments.md)), by a note on
+replacing a derived blob that is open, on Windows.
 
 It **supersedes in part**:
 
@@ -135,6 +137,48 @@ code, and no mapped file for Windows to refuse to replace or delete while a
 view holds it. The third column is what shipped: a cursor's block buffers
 come from the shared array pool and go back when it is disposed, so a scan of
 disk runs allocates what a scan of memory does.
+
+### Amendment, 2026-10-05 — replacing an open blob on Windows
+
+Agreed by the maintainer on the 6a pull request. The decision above is
+unchanged. This note states a consequence of that decision on one platform,
+as ADR 0068 allows. ADR 0068 counts an unclear case as a supersession, and the
+maintainer considered one and chose this note instead: within a process the
+replacement stays atomic, and what a crash can leave is a cache miss that
+ADR 0072 already allows for everything under `derived/`.
+
+`BlobsArePublishedAtomically` says a published blob atomically replaces any
+blob of its name. The file backend publishes by renaming a finished
+temporary file over the name. Linux and macOS do that atomically even while
+a reader holds the old file open, and the reader keeps its bytes
+(`ReadBytesAreImmutable`). **Windows refuses to rename over a file that is
+open**, and a reader holds a published blob open for as long as it reads it.
+The first Windows run of the store tests found this (defect 3 of milestone 6a,
+`fcf1571`).
+
+So, when the rename is refused and the name exists, the backend moves in two
+steps. First it moves the open file aside, under a temporary name that
+nothing lists. Windows allows that because every reader opens with
+`FileShare.Delete`. Then it moves the new blob into place, and deletes the
+aside copy, or leaves it for the next open to delete if a reader still holds
+it. What this keeps and what it gives up:
+
+- **Within a running process, the replacement is still atomic.** Opening a
+  blob takes the same lock as publishing, so a reader sees the old blob or the
+  new one, never neither. A reader that already held the old one keeps its
+  bytes.
+- **Across a crash, it is not.** A crash between the two moves leaves no blob
+  of that name: the old one survives only as a temporary, which the next open
+  deletes. On the other platforms a crash leaves the old blob or the new one.
+- **That is a cache miss, not a loss.** Everything under `derived/` can be
+  rebuilt from `log/` (ADR 0072): a missing run, checkpoint or projection
+  state is rebuilt on open. `log/` itself never replaces a file by name; its
+  manifest is written once.
+
+The storage contract runs this path on every machine. The simulated file
+system can refuse a rename over an open file, as Windows does, and the
+contract suite runs on the file backend under that rule
+(`FileStorageWindowsSharingContractTests`).
 
 ## Alternatives considered
 
