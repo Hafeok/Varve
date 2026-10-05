@@ -47,6 +47,7 @@ internal static class BulkGate
         string? file = null;
         string? write = null;
         bool crashes = false;
+        bool closedOnly = false;
 
         for (int i = 2; i < args.Length; i++)
         {
@@ -66,6 +67,10 @@ internal static class BulkGate
                     break;
                 case "--crash-every-record":
                     crashes = true;
+                    break;
+                case "--crash-closed-only":
+                    crashes = true;
+                    closedOnly = true;
                     break;
                 default:
                     throw new ArgumentException("Unknown option " + args[i]);
@@ -157,7 +162,7 @@ internal static class BulkGate
 
         if (crashes)
         {
-            await CrashEveryRecordAsync(storage, before, options, headBefore, countBefore, expected);
+            await CrashEveryRecordAsync(storage, before, options, headBefore, countBefore, expected, closedOnly);
             Directory.Delete(before, recursive: true);
         }
 
@@ -180,7 +185,7 @@ internal static class BulkGate
     /// the load's commit and one byte into it, opened with derived/ as it was
     /// before the load, must open at the head before the load with its count;
     /// </summary>
-    private static async Task CrashEveryRecordAsync(FileStorage storage, string before, DatasetOptions options, long headBefore, long countBefore, long countAfter)
+    private static async Task CrashEveryRecordAsync(FileStorage storage, string before, DatasetOptions options, long headBefore, long countBefore, long countAfter, bool closedOnly)
     {
         Stopwatch clock = Stopwatch.StartNew();
         await using FileStorage earlier = await FileStorage.OpenAsync(new DatasetDirectory(before), new FileStorageOptions { Clock = TimeProvider.System });
@@ -225,7 +230,7 @@ internal static class BulkGate
 
         int done = 0;
 
-        foreach ((int segment, long offset) in (IEnumerable<(int, long)>)[.. cuts, .. torn])
+        foreach ((int segment, long offset) in closedOnly ? [] : (IEnumerable<(int, long)>)[.. cuts, .. torn])
         {
             await CheckAsync(new CutStorage(storage, earlier, segment, offset), headBefore, countBefore);
 
@@ -243,11 +248,19 @@ internal static class BulkGate
         // state as it was before. The run is adopted, not the load replayed.
         IReadOnlyList<SegmentInfo> all = await storage.Log.ListSegmentsAsync(default);
         CutStorage closed = new(storage, storage, all[^1].Id.Value, all[^1].Length.Value);
-        using (IReadableBlob state = await earlier.Derived.OpenAsync(new BlobName("index/state"), default))
+        BlobName stateName = new("index/state");
+
+        // An empty dataset has no state before the load: then none is left.
+        if (System.Linq.Enumerable.Contains(await earlier.Derived.ListAsync(default), stateName))
         {
+            using IReadableBlob state = await earlier.Derived.OpenAsync(stateName, default);
             byte[] bytes = new byte[state.Length.Value];
             state.Read(new ByteOffset(0), bytes);
-            closed.Replace(new BlobName("index/state"), bytes);
+            closed.Replace(stateName, bytes);
+        }
+        else
+        {
+            closed.Remove(stateName);
         }
 
         GC.Collect();
