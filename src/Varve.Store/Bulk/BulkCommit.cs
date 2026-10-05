@@ -77,7 +77,7 @@ internal sealed class BulkCommit : IAsyncDisposable
         _allTerms = await MergeTermsAsync(ct).ConfigureAwait(false);
 
         // 2. Pass A: the terms the effective delta reaches.
-        ExternalSort<BulkRef> reached = new(_space, "reached", (int)Math.Max(1024, _load.Memory / 4 / BulkRef.Size));
+        ExternalSort<BulkRef> reached = new(_space, "reached", (int)Math.Max(1024, _load.Memory / 8 / BulkRef.Size));
 
         foreach (BulkRef meta in new[] { agent, cause, scope })
         {
@@ -99,7 +99,7 @@ internal sealed class BulkCommit : IAsyncDisposable
             await CloseOverTriplesAsync(ct).ConfigureAwait(false);
         }
 
-        _ranks = await RankIndex.OpenAsync(_space.Store, _reached, _load.Memory / 2, ct).ConfigureAwait(false);
+        _ranks = await RankIndex.OpenAsync(_space.Store, _reached, _load.Memory / 4, ct).ConfigureAwait(false);
         NewCanonical = _ranks.Canonical;
         _blank = _ranks.Count - _ranks.Canonical;
 
@@ -313,7 +313,7 @@ internal sealed class BulkCommit : IAsyncDisposable
     {
         for (int pass = 0; pass <= BulkRef.MaxDepth; pass++)
         {
-            ExternalSort<BulkRef> grown = new(_space, "reached", (int)Math.Max(1024, _load.Memory / 4 / BulkRef.Size));
+            ExternalSort<BulkRef> grown = new(_space, "reached", (int)Math.Max(1024, _load.Memory / 8 / BulkRef.Size));
             long before = 0;
 
             using (RecordReader<BulkRef> current = await RecordReader<BulkRef>.OpenAsync(_space.Store, _reached, ct).ConfigureAwait(false))
@@ -403,7 +403,7 @@ internal sealed class BulkCommit : IAsyncDisposable
     {
         BlobName termsBlob = _space.Next("termsection");
         BlobName offsetsSpill = _space.Next("offsets");
-        ExternalSort<TermHash> hashes = new(_space, "hashes", (int)Math.Max(1024, _load.Memory / 4 / TermHash.Size));
+        ExternalSort<TermHash> hashes = new(_space, "hashes", (int)Math.Max(1024, _load.Memory / 8 / TermHash.Size));
         long entriesLength = 0;
         long count = 0;
 
@@ -665,7 +665,7 @@ internal sealed class BulkCommit : IAsyncDisposable
             return new SpillKeySource(await RecordReader<QuadKey>.OpenAsync(_space.Store, spill, ct).ConfigureAwait(false));
         }
 
-        ExternalSort<QuadKey> sort = new(_space, "order", (int)Math.Max(1024, _load.Memory / 2 / QuadKey.Size));
+        ExternalSort<QuadKey> sort = new(_space, "order", (int)Math.Max(1024, _load.Memory / 4 / QuadKey.Size));
 
         using (RecordReader<QuadKey> keys = await RecordReader<QuadKey>.OpenAsync(_space.Store, spill, ct).ConfigureAwait(false))
         {

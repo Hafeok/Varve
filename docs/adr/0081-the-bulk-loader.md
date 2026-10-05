@@ -81,14 +81,21 @@ SHA-256.
 
 ### Memory is bounded
 
-`BulkLoadOptions.MemoryBytes`, 256 MiB by default, is carved up: three eighths
-for the operations' sort buffer, a quarter for new terms' table and a quarter
-for the term cache while the input arrives; then half for each sort of the
-commit, and the reached terms' ranks held in memory when they fit in half, a
-search of their spill when not. Beyond it: one 64 KiB buffer per sorted run a
-merge reads (at most 64 at a time; more are merged in passes first), and the
-dataset's own state. The gate runs under `DOTNET_GCHeapHardLimit` — the
-runtime's assertion of the bound — and reports the peak.
+`BulkLoadOptions.MemoryBytes`, 256 MiB by default, is carved up so that no
+two parts of it are alive at once beyond it: while the input arrives, three
+eighths for the operations' sort buffer, a quarter for the new terms' table
+and a quarter for the term cache; in the commit, an eighth for the reached
+terms' sort and for the hashes' sort, a quarter for the reached terms' ranks —
+held in memory when they fit, a search of their spill when not — and a
+quarter for each order's sort. Beyond it: one 64 KiB buffer per sorted run a
+merge reads (at most 64 at a time; more are merged in passes first); the
+directory of the run being written, which the run's readers hold anyway — 40
+bytes per 128 keys per order, about two bytes per quad of the delta; and the
+dataset's own state. So the bound is **`MemoryBytes` + 2 bytes per quad of
+the delta + the dataset**, and the gate runs under `DOTNET_GCHeapHardLimit` —
+the runtime's assertion of it — and reports the peak. The first 100-million
+quad run, with the ranks and the order sort each allowed half, ran out of
+memory under the cap; that is how the carve-up above was arrived at.
 
 ### Who may load
 
