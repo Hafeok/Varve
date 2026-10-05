@@ -359,10 +359,16 @@ request, since 6b is the RDF 1.2 syntaxes above. Issues
 [#61](https://github.com/Hafeok/Varve/issues/61). **Delivered:**
 
 - **The soak's working set, separated** (#61): the causes measured one at a
-  time — checkpoints built in memory, and as-of reads replaying the log from
-  far back — and fixed: checkpoints and merges stream from the runs, and a
-  **checkpoint policy** (ADR 0078) bounds as-of distance. The soak gate is a
-  band (ADR 0082), and the soak is reported against it.
+  time — checkpoints built in memory; as-of reads replaying the log from far
+  back; fences rebuilt on the large object heap at every merge; and twelve
+  kept checkpoints each holding the dataset's fences — and fixed: checkpoints
+  and merges stream from the runs, a **checkpoint policy** (ADR 0078) bounds
+  as-of distance, and a reader holds directories in chunks and a
+  checkpoint's sparsely (ADR 0080). The soak gate is a band (ADR 0082): the
+  hour's working set, 153 → 200 MB with peaks to 218 MB where 6a's reached
+  2.8 GB, holds the ±25% band and misses the 10% drift (+20.6%), the
+  collector's headroom over a commit table of 144 bytes a commit. Closing it
+  is put to the maintainer.
 - **The dictionary on disk** (ADR 0079): carried by the runs, read by id and by
   term through the synchronous blob read; opening loads none.
 - **Derived format 2**: keys compressed in their blocks (ADR 0080), answering
