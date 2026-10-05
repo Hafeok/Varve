@@ -8,7 +8,7 @@
 |---|---|
 | **Issue** | [#10](https://github.com/Hafeok/Varve/issues/10) |
 | **Date** | 2026-10-05 |
-| **Tool** | Claude Code, a subagent in a git worktree, launched by the milestone 6c cloud session; the tool's version was not reported to the subagent, and the maintainer fills it in |
+| **Tool** | Claude Code 2.1.289 (the launching session's version, from its metadata), a subagent in a git worktree, launched by the milestone 6c cloud session |
 | **Model** | `claude-opus-5-5` (Claude Opus 5.5), as the session's own environment reports it |
 | **Session identifier** | `session_01JZjxTGanMjuGR2KWbPjWRi` |
 | **Branch** | the worktree branch `worktree-agent-a23e4320781d4864c`, handed back to the launching session; not pushed |
