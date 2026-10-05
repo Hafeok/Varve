@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 5: an integration of the store with a host's storage. It
+         references Varve.Store only (ADR 0084). -->
+    <ArchLayer>5</ArchLayer>
+    <IsPackable>true</IsPackable>
+
+    <!-- The lease's timestamp comes from the caller's clock (ADR 0011). -->
+    <VarveDeterministic>true</VarveDeterministic>
+
+    <!-- The [JSImport] source generator emits unsafe code and refuses to run
+         without this (SYSLIB1074). No line written by hand here is unsafe.
+         ADR 0084, GeneratedInteropNeedsUnsafeBlocks. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <Description>Browser storage for a Varve store: the origin private file system through synchronous access handles in a dedicated worker, and IndexedDB where they do not exist.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Store/Varve.Store.csproj" />
+  </ItemGroup>
+
+</Project>

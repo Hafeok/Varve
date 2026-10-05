@@ -1,0 +1,28 @@
+#nullable enable
+Varve.Store.Browser.BrowserStorage
+Varve.Store.Browser.BrowserStorage.Name.get -> Varve.Store.Browser.Model.BrowserDatasetName
+Varve.Store.Browser.Model.BrowserBackend
+Varve.Store.Browser.Model.BrowserBackend.IndexedDb = 1 -> Varve.Store.Browser.Model.BrowserBackend
+Varve.Store.Browser.Model.BrowserBackend.OriginPrivateFileSystem = 0 -> Varve.Store.Browser.Model.BrowserBackend
+Varve.Store.Browser.Model.BrowserDatasetName
+Varve.Store.Browser.Model.BrowserDatasetName.BrowserDatasetName() -> void
+Varve.Store.Browser.Model.BrowserDatasetName.BrowserDatasetName(string! value) -> void
+Varve.Store.Browser.Model.BrowserDatasetName.Equals(Varve.Store.Browser.Model.BrowserDatasetName other) -> bool
+Varve.Store.Browser.Model.BrowserDatasetName.Value.get -> string!
+Varve.Store.Browser.Model.BrowserStorageOptions
+Varve.Store.Browser.Model.BrowserStorageOptions.BrowserStorageOptions() -> void
+Varve.Store.Browser.Model.BrowserStorageOptions.Clock.get -> System.TimeProvider!
+Varve.Store.Browser.Model.BrowserStorageOptions.Clock.init -> void
+abstract Varve.Store.Browser.BrowserStorage.Backend.get -> Varve.Store.Browser.Model.BrowserBackend
+abstract Varve.Store.Browser.BrowserStorage.Derived.get -> Varve.Store.IDerivedStore!
+abstract Varve.Store.Browser.BrowserStorage.DisposeAsync() -> System.Threading.Tasks.ValueTask
+abstract Varve.Store.Browser.BrowserStorage.Log.get -> Varve.Store.ISegmentStore!
+override Varve.Store.Browser.Model.BrowserDatasetName.GetHashCode() -> int
+override Varve.Store.Browser.Model.BrowserDatasetName.ToString() -> string!
+static Varve.Store.Browser.BrowserStorage.IsOriginPrivateFileSystemAvailableAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
+static Varve.Store.Browser.BrowserStorage.OpenAsync(Varve.Store.Browser.Model.BrowserDatasetName name, Varve.Store.Browser.Model.BrowserStorageOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Browser.BrowserStorage!>
+static Varve.Store.Browser.BrowserStorage.OpenIndexedDbAsync(Varve.Store.Browser.Model.BrowserDatasetName name, Varve.Store.Browser.Model.BrowserStorageOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Browser.BrowserStorage!>
+static Varve.Store.Browser.BrowserStorage.OpenOriginPrivateFileSystemAsync(Varve.Store.Browser.Model.BrowserDatasetName name, Varve.Store.Browser.Model.BrowserStorageOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Browser.BrowserStorage!>
+static Varve.Store.Browser.Model.BrowserDatasetName.operator !=(Varve.Store.Browser.Model.BrowserDatasetName left, Varve.Store.Browser.Model.BrowserDatasetName right) -> bool
+static Varve.Store.Browser.Model.BrowserDatasetName.operator ==(Varve.Store.Browser.Model.BrowserDatasetName left, Varve.Store.Browser.Model.BrowserDatasetName right) -> bool
+~override Varve.Store.Browser.Model.BrowserDatasetName.Equals(object obj) -> bool
