@@ -38,11 +38,11 @@ handles and `derived/` files stay within fixed bounds. **The dataset's own** is
 what grows with it and nothing else, and is reported per quad and per commit
 beside the band:
 
-- the directories of its runs and checkpoints — the fences and where each
-  block begins, 40 bytes per 128 keys per section, which a reader holds in
-  memory (ADR 0080) — summed from each derived file's header, so the soak
-  reads them from the files rather than from the store's internals; the
-  policy's `Keep` multiplies them, one set per checkpoint kept;
+- what a reader holds of its runs' and checkpoints' directories (ADR 0080):
+  a run's whole directory — the fences and where each block begins, 40 bytes
+  per 128 keys per section — and a twentieth of a checkpoint's, which is held
+  sparsely; summed from each derived file's header, so the soak reads them
+  from the files rather than from the store's internals;
 - the table of commits, 144 bytes a commit, measured by opening a log of
   102,000 commits that leave the index empty against one of 2,000.
 

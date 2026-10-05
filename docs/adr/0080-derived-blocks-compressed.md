@@ -33,7 +33,18 @@ seek. It holds them in chunks of 64 KiB, below the large object heap, read
 from the directory in pieces and hashed as they are read, and a writer streams
 the directory the same way: as one array per run they were rebuilt larger at
 every merge and checkpoint on a heap that is not compacted, which was the
-soak's remaining growth (issue #61). The cursor, the estimate and the merge still count keys by block and
+soak's remaining growth (issue #61).
+
+**A checkpoint's sections are held sparsely**: every sixteenth fence, and
+none of the block starts, which are read from the directory when a block is,
+the block's own first key being its first 32 bytes. A seek reads one stride's
+starts (at most 136 bytes) and the first keys of a binary search through it
+(four reads of 32 bytes) before the block: a few small reads more, for a
+twentieth of the memory — 2 bytes per 128 keys per section against 40. Only
+as-of reads seek a checkpoint, and a policy keeps several of them, each a
+whole copy of the dataset's fences: in the soak, twelve of every thirteen
+fences held were checkpoints', and the collector keeps memory committed in
+proportion to what is live. The projection's own runs stay dense. The cursor, the estimate and the merge still count keys by block and
 index: only the bytes of a block changed. A block that does not decode, or
 does not use exactly its bytes, is refused as damaged.
 

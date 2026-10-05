@@ -194,7 +194,7 @@ internal static class Soak
         });
 
         Stopwatch clock = Stopwatch.StartNew();
-        Console.WriteLine("minutes,commits,head,quads,managed MB,heap MB,fragmented MB,committed MB,LOH MB,working set MB,private MB,peak working set MB,peak heap MB,open handles,derived files,derived MB,pins,as-of reads,checkpoints,checkpoint in window,allocated GB,directories MB");
+        Console.WriteLine("minutes,commits,head,quads,managed MB,heap MB,fragmented MB,committed MB,LOH MB,working set MB,private MB,peak working set MB,peak heap MB,open handles,derived files,derived MB,pins,as-of reads,checkpoints,checkpoint in window,allocated GB,directories MB,checkpoint directories MB");
 
         while (!stop.IsCancellationRequested)
         {
@@ -214,7 +214,8 @@ internal static class Soak
             int handles = Directory.Exists("/proc/self/fd") ? Directory.GetFiles("/proc/self/fd").Length : self.HandleCount;
             string[] derivedFiles = Directory.GetFiles(Path.Combine(directory, "derived"), "*", SearchOption.AllDirectories);
             long derivedBytes = derivedFiles.Sum(f => new FileInfo(f).Length);
-            long directories = derivedFiles.Sum(DirectoryLength);
+            long directories = derivedFiles.Where(f => !IsCheckpoint(f)).Sum(DirectoryLength);
+            long checkpointDirectories = derivedFiles.Where(IsCheckpoint).Sum(DirectoryLength);
             long quads = 0;
 
             try
@@ -249,7 +250,8 @@ internal static class Soak
                 Interlocked.Read(ref checkpoints).ToString(CultureInfo.InvariantCulture),
                 Interlocked.Exchange(ref checkpointsInWindow, 0).ToString(CultureInfo.InvariantCulture),
                 (GC.GetTotalAllocatedBytes() / 1e9).ToString("F1", CultureInfo.InvariantCulture),
-                Mb(directories)));
+                Mb(directories),
+                Mb(checkpointDirectories)));
         }
 
         await writer;
@@ -278,6 +280,9 @@ internal static class Soak
     // memory, the fences and where each block begins (ADR 0080), read from
     // the header at the file's end (storage-format.md §7). What ADR 0082
     // counts as the dataset's own; zero for a file that is not a run.
+    private static bool IsCheckpoint(string path) =>
+        path.Replace('\\', '/').Contains("/derived/checkpoints/", StringComparison.Ordinal);
+
     private static long DirectoryLength(string path)
     {
         try
