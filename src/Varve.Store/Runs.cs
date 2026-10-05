@@ -30,10 +30,13 @@ internal sealed class KeySection
 
     private readonly IReadableBlob? _blob;
     private readonly long _offset;
-    private readonly QuadKey[] _fences;
-    private readonly long[] _blocks;
+    private static readonly Chunked<QuadKey> NoFences = new();
+    private static readonly Chunked<long> NoBlocks = new();
 
-    private KeySection(ReadOnlyMemory<QuadKey> memory, IReadableBlob? blob, long offset, long count, QuadKey[] fences, long[] blocks)
+    private readonly Chunked<QuadKey> _fences;
+    private readonly Chunked<long> _blocks;
+
+    private KeySection(ReadOnlyMemory<QuadKey> memory, IReadableBlob? blob, long offset, long count, Chunked<QuadKey> fences, Chunked<long> blocks)
     {
         Memory = memory;
         _blob = blob;
@@ -43,7 +46,7 @@ internal sealed class KeySection
         Count = count;
     }
 
-    internal static KeySection Empty { get; } = new(ReadOnlyMemory<QuadKey>.Empty, null, 0, 0, [], [0]);
+    internal static KeySection Empty { get; } = new(ReadOnlyMemory<QuadKey>.Empty, null, 0, 0, NoFences, NoBlocks);
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal long Count { get; }
@@ -55,14 +58,14 @@ internal sealed class KeySection
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool OnBlob => _blob is not null;
 
-    internal static KeySection Of(ReadOnlyMemory<QuadKey> keys) => keys.IsEmpty ? Empty : new(keys, null, 0, keys.Length, [], [0]);
+    internal static KeySection Of(ReadOnlyMemory<QuadKey> keys) => keys.IsEmpty ? Empty : new(keys, null, 0, keys.Length, NoFences, NoBlocks);
 
     /// <summary>
     /// A section of a blob: <paramref name="count"/> keys in compressed blocks
     /// from <paramref name="offset"/>, block <c>b</c> spanning
     /// <c>[blocks[b], blocks[b + 1])</c> bytes from there.
     /// </summary>
-    internal static KeySection On(IReadableBlob blob, long offset, long count, QuadKey[] fences, long[] blocks) =>
+    internal static KeySection On(IReadableBlob blob, long offset, long count, Chunked<QuadKey> fences, Chunked<long> blocks) =>
         count == 0 ? Empty : new(ReadOnlyMemory<QuadKey>.Empty, blob, offset, count, fences, blocks);
 
     /// <summary>Reads and decodes block <paramref name="block"/> into the buffer; returns how many keys it holds.</summary>
@@ -94,7 +97,7 @@ internal sealed class KeySection
             return Run.LowerBound(Memory.Span, in bound);
         }
 
-        long block = Run.LowerBound(_fences, in bound) - 1;
+        long block = ChunkedKeys.LowerBound(_fences, in bound) - 1;
 
         if (block < 0)
         {
@@ -115,7 +118,7 @@ internal sealed class KeySection
             return Run.UpperBound(Memory.Span, in bound);
         }
 
-        long block = Run.UpperBound(_fences, in bound) - 1;
+        long block = ChunkedKeys.UpperBound(_fences, in bound) - 1;
 
         if (block < 0)
         {
@@ -135,7 +138,7 @@ internal sealed class KeySection
             return Run.Search(Memory.Span, in key) >= 0;
         }
 
-        long block = Run.UpperBound(_fences, in key) - 1;
+        long block = ChunkedKeys.UpperBound(_fences, in key) - 1;
 
         if (block < 0)
         {

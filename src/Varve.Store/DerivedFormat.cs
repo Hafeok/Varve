@@ -200,8 +200,8 @@ internal static class DerivedFormat
         long[] offsets = new long[Sections];
         long[] counts = new long[Sections];
         long[] lengths = new long[Sections];
-        QuadKey[][] fences = new QuadKey[Sections][];
-        long[][] starts = new long[Sections][];
+        Chunked<QuadKey>[] fences = new Chunked<QuadKey>[Sections];
+        Chunked<long>[] starts = new Chunked<long>[Sections];
 
         for (int section = 0; section < Sections; section++)
         {
@@ -230,8 +230,8 @@ internal static class DerivedFormat
             blocks.End();
             counts[section] = blocks.Count;
             lengths[section] = blocks.Length;
-            fences[section] = [.. blocks.Fences];
-            starts[section] = [.. blocks.Blocks];
+            fences[section] = blocks.Fences;
+            starts[section] = blocks.Blocks;
             offset += blocks.Length;
 
             if (source is IDisposable disposable)
@@ -247,38 +247,49 @@ internal static class DerivedFormat
             await WriteTermsAsync(writer, terms, offset, cancellationToken).ConfigureAwait(false);
         offset = end;
 
-        ArrayBufferWriter<byte> directory = new();
-        LogFormat.WriteUInt32(directory, KeySection.BlockKeys);
-        LogFormat.WriteUInt32(directory, Sections);
+        // The directory streams to the blob, hashed as it goes: its fences
+        // grow with the run, and are never gathered into one buffer (issue #61).
+        using DirectoryWriter directory = new(writer);
+        ArrayBufferWriter<byte> part = new();
+        LogFormat.WriteUInt32(part, KeySection.BlockKeys);
+        LogFormat.WriteUInt32(part, Sections);
 
         for (int section = 0; section < Sections; section++)
         {
-            LogFormat.WriteUInt64(directory, (ulong)offsets[section]);
-            LogFormat.WriteUInt64(directory, (ulong)counts[section]);
-            LogFormat.WriteUInt64(directory, (ulong)lengths[section]);
+            LogFormat.WriteUInt64(part, (ulong)offsets[section]);
+            LogFormat.WriteUInt64(part, (ulong)counts[section]);
+            LogFormat.WriteUInt64(part, (ulong)lengths[section]);
+        }
+
+        await directory.WriteAsync(part.WrittenMemory, cancellationToken).ConfigureAwait(false);
+
+        for (int section = 0; section < Sections; section++)
+        {
+            for (int chunk = 0; chunk < fences[section].ChunkCount; chunk++)
+            {
+                await directory.WriteAsync(fences[section], chunk, cancellationToken).ConfigureAwait(false);
+            }
         }
 
         for (int section = 0; section < Sections; section++)
         {
-            directory.Write(MemoryMarshal.AsBytes(fences[section].AsSpan()));
+            for (int chunk = 0; chunk < starts[section].ChunkCount; chunk++)
+            {
+                await directory.WriteAsync(starts[section], chunk, cancellationToken).ConfigureAwait(false);
+            }
         }
 
-        for (int section = 0; section < Sections; section++)
-        {
-            directory.Write(MemoryMarshal.AsBytes(starts[section].AsSpan()));
-        }
+        part.Clear();
+        LogFormat.WriteUInt64(part, (ulong)canonicalFrom);
+        LogFormat.WriteUInt64(part, (ulong)canonicalTo);
+        LogFormat.WriteUInt64(part, (ulong)entriesAt);
+        LogFormat.WriteUInt64(part, (ulong)entriesLength);
+        LogFormat.WriteUInt64(part, (ulong)offsetsAt);
+        LogFormat.WriteUInt64(part, (ulong)hashesAt);
+        LogFormat.WriteUInt64(part, (ulong)blankCount);
+        await directory.WriteAsync(part.WrittenMemory, cancellationToken).ConfigureAwait(false);
 
-        LogFormat.WriteUInt64(directory, (ulong)canonicalFrom);
-        LogFormat.WriteUInt64(directory, (ulong)canonicalTo);
-        LogFormat.WriteUInt64(directory, (ulong)entriesAt);
-        LogFormat.WriteUInt64(directory, (ulong)entriesLength);
-        LogFormat.WriteUInt64(directory, (ulong)offsetsAt);
-        LogFormat.WriteUInt64(directory, (ulong)hashesAt);
-        LogFormat.WriteUInt64(directory, (ulong)blankCount);
-
-        byte[] directoryBytes = directory.WrittenSpan.ToArray();
-        await writer.WriteAsync(directoryBytes, cancellationToken).ConfigureAwait(false);
-        byte[] header = EncodeHeader(kind, dataset, from, to, toHash, offset, directoryBytes.Length, SHA256.HashData(directoryBytes));
+        byte[] header = EncodeHeader(kind, dataset, from, to, toHash, offset, directory.Length, directory.Hash());
         await writer.WriteAsync(header, cancellationToken).ConfigureAwait(false);
         await writer.PublishAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -482,18 +493,15 @@ internal static class DerivedFormat
             return null;
         }
 
-        byte[] directory = new byte[header.DirectoryLength];
-
-        if (blob.Read(new ByteOffset(header.DirectoryOffset), directory) != directory.Length
-            || !LogFormat.HashMatches(directory, header.DirectoryHash))
-        {
-            return null;
-        }
-
-        ReadOnlySpan<byte> span = directory;
+        // The directory is read in pieces and hashed as it is read: it holds
+        // the fences, which grow with the run, and they go into chunks, never
+        // into one buffer the size of the directory (issue #61).
+        using DirectoryReader directory = new(blob, header.DirectoryOffset, header.DirectoryLength);
         int fixedLength = 8 + (Sections * 24);
+        Span<byte> span = stackalloc byte[8 + (Sections * 24)];
 
-        if (span.Length < fixedLength
+        if (header.DirectoryLength < fixedLength + (7 * 8)
+            || !directory.TryRead(span)
             || BinaryPrimitives.ReadUInt32LittleEndian(span) != KeySection.BlockKeys
             || BinaryPrimitives.ReadUInt32LittleEndian(span[4..]) != Sections)
         {
@@ -531,70 +539,49 @@ internal static class DerivedFormat
             keysEnd += lengths[section];
         }
 
-        if ((span.Length - at) / (QuadKey.Size + 8) < blocksTotal)
+        if (header.DirectoryLength != fixedLength + (blocksTotal * (QuadKey.Size + 8)) + (7 * 8))
         {
             return null;
         }
 
-        QuadKey[][] fences = new QuadKey[Sections][];
+        Chunked<QuadKey>[] fences = new Chunked<QuadKey>[Sections];
 
         for (int section = 0; section < Sections; section++)
         {
-            int bytes = (int)blockCounts[section] * QuadKey.Size;
-            fences[section] = MemoryMarshal.Cast<byte, QuadKey>(span.Slice(at, bytes)).ToArray();
-            at += bytes;
-        }
+            fences[section] = new Chunked<QuadKey>(blockCounts[section]);
 
-        RunBlob owner = new(name, blob);
-        KeySection[] asserted = new KeySection[Orders.Count];
-        KeySection[] retracted = new KeySection[Orders.Count];
-
-        for (int section = 0; section < Sections; section++)
-        {
-            long[] starts = new long[blockCounts[section] + 1];
-
-            for (int b = 0; b < blockCounts[section]; b++)
-            {
-                starts[b] = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[at..]);
-                at += 8;
-
-                if (starts[b] < (b == 0 ? 0 : starts[b - 1] + 1) || (b == 0 && starts[b] != 0))
-                {
-                    return null;
-                }
-            }
-
-            starts[blockCounts[section]] = lengths[section];
-
-            if (blockCounts[section] > 0 && starts[blockCounts[section] - 1] >= lengths[section])
+            if (!directory.TryReadKeys(blockCounts[section], fences[section]))
             {
                 return null;
             }
+        }
 
-            KeySection keys = KeySection.On(blob, offsets[section], counts[section], fences[section], starts);
+        Chunked<long>[] starts = new Chunked<long>[Sections];
 
-            if (section % 2 == 0)
+        for (int section = 0; section < Sections; section++)
+        {
+            starts[section] = new Chunked<long>(blockCounts[section] + 1);
+
+            if (!directory.TryReadStarts(blockCounts[section], lengths[section], starts[section]))
             {
-                asserted[section / 2] = keys;
-            }
-            else
-            {
-                retracted[section / 2] = keys;
+                return null;
             }
         }
 
-        if (span.Length - at != 7 * 8)
+        Span<byte> tail = stackalloc byte[7 * 8];
+
+        if (!directory.TryRead(tail) || !directory.HashMatches(header.DirectoryHash))
         {
             return null;
         }
 
-        long canonicalFrom = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[at..]);
-        long canonicalTo = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[(at + 8)..]);
-        long entriesAt = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[(at + 16)..]);
-        long entriesLength = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[(at + 24)..]);
-        long offsetsAt = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[(at + 32)..]);
-        long hashesAt = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[(at + 40)..]);
-        long blank = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[(at + 48)..]);
+        long canonicalFrom = (long)BinaryPrimitives.ReadUInt64LittleEndian(tail);
+        long canonicalTo = (long)BinaryPrimitives.ReadUInt64LittleEndian(tail[8..]);
+        long entriesAt = (long)BinaryPrimitives.ReadUInt64LittleEndian(tail[16..]);
+        long entriesLength = (long)BinaryPrimitives.ReadUInt64LittleEndian(tail[24..]);
+        long offsetsAt = (long)BinaryPrimitives.ReadUInt64LittleEndian(tail[32..]);
+        long hashesAt = (long)BinaryPrimitives.ReadUInt64LittleEndian(tail[40..]);
+        long blank = (long)BinaryPrimitives.ReadUInt64LittleEndian(tail[48..]);
         long terms = canonicalTo - canonicalFrom;
 
         if (canonicalFrom < 0 || terms < 0 || blank < 0 || entriesLength < 0
@@ -608,8 +595,150 @@ internal static class DerivedFormat
             return null;
         }
 
+        RunBlob owner = new(name, blob);
+        KeySection[] asserted = new KeySection[Orders.Count];
+        KeySection[] retracted = new KeySection[Orders.Count];
+
+        for (int section = 0; section < Sections; section++)
+        {
+            KeySection keys = KeySection.On(blob, offsets[section], counts[section], fences[section], starts[section]);
+
+            if (section % 2 == 0)
+            {
+                asserted[section / 2] = keys;
+            }
+            else
+            {
+                retracted[section / 2] = keys;
+            }
+        }
+
         TermSection termSection = TermSection.On(blob, canonicalFrom, canonicalTo, entriesAt, entriesLength, offsetsAt, hashesAt);
         return new LoadedRun(new Run(asserted, retracted, header.From, header.To, termSection, owner), header, blank);
+    }
+
+    /// <summary>A run's directory, written to its blob in parts and hashed as it goes.</summary>
+    private sealed class DirectoryWriter(IBlobWriter writer) : IDisposable
+    {
+        private readonly IncrementalHash _hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        private readonly byte[] _buffer = ArrayPool<byte>.Shared.Rent(Chunked<byte>.ChunkBytes);
+
+        internal long Length { get; private set; }
+
+        internal async ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
+        {
+            _hash.AppendData(bytes.Span);
+            Length += bytes.Length;
+            await writer.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>One chunk of fences or block starts, as the bytes they are in memory: little-endian, as the format is.</summary>
+        internal ValueTask WriteAsync<T>(Chunked<T> items, int chunk, CancellationToken cancellationToken)
+            where T : unmanaged
+        {
+            ReadOnlySpan<byte> bytes = MemoryMarshal.AsBytes(items.Chunk(chunk));
+            bytes.CopyTo(_buffer);
+            return WriteAsync(_buffer.AsMemory(0, bytes.Length), cancellationToken);
+        }
+
+        internal byte[] Hash() => _hash.GetHashAndReset();
+
+        public void Dispose()
+        {
+            _hash.Dispose();
+            ArrayPool<byte>.Shared.Return(_buffer);
+        }
+    }
+
+    /// <summary>A run's directory, read from its blob in order and hashed as it goes.</summary>
+    private sealed class DirectoryReader(IReadableBlob blob, long offset, long length) : IDisposable
+    {
+        private readonly IncrementalHash _hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        private readonly byte[] _buffer = ArrayPool<byte>.Shared.Rent(Chunked<byte>.ChunkBytes);
+        private long _at;
+
+        internal bool TryRead(Span<byte> destination)
+        {
+            if (_at + destination.Length > length || blob.Read(new ByteOffset(offset + _at), destination) != destination.Length)
+            {
+                return false;
+            }
+
+            _hash.AppendData(destination);
+            _at += destination.Length;
+            return true;
+        }
+
+        internal bool TryReadKeys(long count, Chunked<QuadKey> keys)
+        {
+            int per = _buffer.Length / QuadKey.Size;
+
+            for (long done = 0; done < count;)
+            {
+                int take = (int)Math.Min(per, count - done);
+                Span<byte> bytes = _buffer.AsSpan(0, take * QuadKey.Size);
+
+                if (!TryRead(bytes))
+                {
+                    return false;
+                }
+
+                foreach (QuadKey key in MemoryMarshal.Cast<byte, QuadKey>(bytes))
+                {
+                    keys.Add(key);
+                }
+
+                done += take;
+            }
+
+            return true;
+        }
+
+        // Where each block begins, strictly rising from 0 and below the
+        // section's length; the section's length is added as the end.
+        internal bool TryReadStarts(long count, long sectionLength, Chunked<long> starts)
+        {
+            int per = _buffer.Length / 8;
+            long previous = -1;
+
+            for (long done = 0; done < count;)
+            {
+                int take = (int)Math.Min(per, count - done);
+                Span<byte> bytes = _buffer.AsSpan(0, take * 8);
+
+                if (!TryRead(bytes))
+                {
+                    return false;
+                }
+
+                for (int i = 0; i < take; i++)
+                {
+                    long start = (long)BinaryPrimitives.ReadUInt64LittleEndian(bytes[(i * 8)..]);
+
+                    if ((previous < 0 ? start != 0 : start <= previous) || start >= sectionLength)
+                    {
+                        return false;
+                    }
+
+                    starts.Add(start);
+                    previous = start;
+                }
+
+                done += take;
+            }
+
+            starts.Add(sectionLength);
+            return true;
+        }
+
+        internal bool HashMatches(ReadOnlySpan<byte> expected) =>
+            _at == length && _hash.GetHashAndReset().AsSpan().SequenceEqual(expected);
+
+        public void Dispose()
+        {
+            _hash.Dispose();
+            ArrayPool<byte>.Shared.Return(_buffer);
+        }
     }
 
     // ---------------------------------------------------------------------------------------------

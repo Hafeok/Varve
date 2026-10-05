@@ -431,6 +431,13 @@ public class BulkLoadTests
 
                 // Torn: the newest segment cut short, as a crash leaves it.
                 (ReadOnlyMemory<byte> manifest, List<byte[]> segments) = T.CopyLogAsync(storage).GetAwaiter().GetResult();
+
+                // A load that changes nothing commits nothing, and a log with no commit has no segment.
+                if (segments.Count == 0)
+                {
+                    return;
+                }
+
                 byte[] last = segments[^1];
                 segments[^1] = last[..(int)(LogFormat.SegmentHeaderLength + ((last.Length - LogFormat.SegmentHeaderLength) * (long)cut / 100))];
                 MemoryStorage torn = MemoryStorage.FromLog(manifest, segments.Select(b => (ReadOnlyMemory<byte>)b));

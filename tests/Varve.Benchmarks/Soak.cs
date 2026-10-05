@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -193,7 +194,7 @@ internal static class Soak
         });
 
         Stopwatch clock = Stopwatch.StartNew();
-        Console.WriteLine("minutes,commits,head,quads,managed MB,heap MB,fragmented MB,committed MB,LOH MB,working set MB,private MB,peak working set MB,peak heap MB,open handles,derived files,derived MB,pins,as-of reads,checkpoints,checkpoint in window,allocated GB");
+        Console.WriteLine("minutes,commits,head,quads,managed MB,heap MB,fragmented MB,committed MB,LOH MB,working set MB,private MB,peak working set MB,peak heap MB,open handles,derived files,derived MB,pins,as-of reads,checkpoints,checkpoint in window,allocated GB,directories MB");
 
         while (!stop.IsCancellationRequested)
         {
@@ -213,6 +214,7 @@ internal static class Soak
             int handles = Directory.Exists("/proc/self/fd") ? Directory.GetFiles("/proc/self/fd").Length : self.HandleCount;
             string[] derivedFiles = Directory.GetFiles(Path.Combine(directory, "derived"), "*", SearchOption.AllDirectories);
             long derivedBytes = derivedFiles.Sum(f => new FileInfo(f).Length);
+            long directories = derivedFiles.Sum(DirectoryLength);
             long quads = 0;
 
             try
@@ -246,7 +248,8 @@ internal static class Soak
                 Interlocked.Read(ref asOf).ToString(CultureInfo.InvariantCulture),
                 Interlocked.Read(ref checkpoints).ToString(CultureInfo.InvariantCulture),
                 Interlocked.Exchange(ref checkpointsInWindow, 0).ToString(CultureInfo.InvariantCulture),
-                (GC.GetTotalAllocatedBytes() / 1e9).ToString("F1", CultureInfo.InvariantCulture)));
+                (GC.GetTotalAllocatedBytes() / 1e9).ToString("F1", CultureInfo.InvariantCulture),
+                Mb(directories)));
         }
 
         await writer;
@@ -269,6 +272,32 @@ internal static class Soak
         }
 
         Directory.Delete(directory, recursive: true);
+    }
+
+    // The directory of a derived run or checkpoint: what its reader holds in
+    // memory, the fences and where each block begins (ADR 0080), read from
+    // the header at the file's end (storage-format.md §7). What ADR 0082
+    // counts as the dataset's own; zero for a file that is not a run.
+    private static long DirectoryLength(string path)
+    {
+        try
+        {
+            using FileStream file = File.OpenRead(path);
+
+            if (file.Length < 160)
+            {
+                return 0;
+            }
+
+            Span<byte> header = stackalloc byte[160];
+            file.Seek(-160, SeekOrigin.End);
+            file.ReadExactly(header);
+            return header[..4].SequenceEqual("VRVD"u8) ? (long)BinaryPrimitives.ReadUInt64LittleEndian(header[80..]) : 0;
+        }
+        catch (IOException)
+        {
+            return 0;
+        }
     }
 
     private static string Mb(long bytes) => (bytes / 1e6).ToString("F1", CultureInfo.InvariantCulture);

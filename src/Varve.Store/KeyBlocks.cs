@@ -186,17 +186,19 @@ internal sealed class KeyBlockWriter
 
     internal long Count { get; private set; }
 
-    internal System.Collections.Generic.List<QuadKey> Fences { get; } = [];
+    /// <summary>The section's fences, the first key of every block: the section keeps them, so each section has its own.</summary>
+    internal Chunked<QuadKey> Fences { get; private set; } = new();
 
-    internal System.Collections.Generic.List<long> Blocks { get; } = [];
+    /// <summary>Where each of the section's blocks begins.</summary>
+    internal Chunked<long> Blocks { get; private set; } = new();
 
     /// <summary>Starts a new section; the bytes pending stay pending.</summary>
     internal void Begin()
     {
         Length = 0;
         Count = 0;
-        Fences.Clear();
-        Blocks.Clear();
+        Fences = new();
+        Blocks = new();
     }
 
     /// <summary>Adds keys, at most 2,048 at a time; blocks that fill are encoded into the pending bytes.</summary>

@@ -19,6 +19,42 @@ public class KeyBlockTests
         Gen.Select(Id, Id, Id, Id, (a, b, c, d) => new QuadKey(a, b, c, d)).Array[1, KeySection.BlockKeys]
             .Select(keys => keys.Distinct().Order().ToArray());
 
+    /// <summary>
+    /// Fences held in chunks below the large object heap (issue #61) are
+    /// searched as one sorted array is: the same lower and upper bounds for
+    /// any bound, across chunk boundaries — 2,048 keys to a chunk — and at
+    /// both ends.
+    /// </summary>
+    [Fact]
+    public void chunked_fences_are_searched_as_one_array()
+    {
+        Gen.Select(Gen.Int[0, 7000], Gen.ULong[1, 4], Gen.ULong[0, 30000].Array[1, 20]).Sample((count, step, probes) =>
+        {
+            QuadKey[] keys = [.. Enumerable.Range(0, count).Select(i => new QuadKey((ulong)i * step, 0, 0, 0))];
+            Chunked<QuadKey> chunked = count % 2 == 0 ? new() : new(count);
+
+            foreach (QuadKey key in keys)
+            {
+                chunked.Add(key);
+            }
+
+            Assert.Equal(count, chunked.Count);
+            Assert.Equal((count + 2047) / 2048, chunked.ChunkCount);
+
+            foreach (ulong probe in probes)
+            {
+                QuadKey bound = new(probe, 0, 0, 0);
+                Assert.Equal(Run.LowerBound(keys, in bound), ChunkedKeys.LowerBound(chunked, in bound));
+                Assert.Equal(Run.UpperBound(keys, in bound), ChunkedKeys.UpperBound(chunked, in bound));
+            }
+
+            for (int i = 0; i < count; i += 997)
+            {
+                Assert.Equal(keys[i], chunked[i]);
+            }
+        }, iter: 500);
+    }
+
     [Fact]
     public void a_block_decodes_to_the_keys_it_encoded()
     {
