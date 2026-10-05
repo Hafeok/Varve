@@ -178,7 +178,7 @@ iteration counts; each case in a directory of its own, with real flushes.
 | The model property (I2, I3, I5, I7, I8, R1–R4, the settings fold) | 1,000 |
 | … with many records and segments | 333 |
 | … with the projection in derived runs on disk | 333 |
-| Records: a log cut at every byte recovers (two segment shapes) | 40 each |
+| Records: a log cut at every structural boundary, the byte either side, and 16 random offsets, opens at exactly its closed commits (two segment shapes; every byte on the memory backend and in the fault suite) | 40 each |
 | Determinism: byte-identical `log/` directories | 250 |
 | I6: a changed header refuses or yields an earlier head | 40 |
 | I6: two continuations are divergent | 40 |
@@ -336,3 +336,18 @@ Later, with the acceptances not yet pushed:
   maintainer's behalf, the session prepared the edit as a script for the
   maintainer to run and sign instead. Run on a scratch copy, the script
   brought the ledger to 552 of 552 accepted, and `eng/decision-sets.cs` passed.
+- **Windows, on the first run of the store tests there** (`fcf1571`, and the
+  commit after it). Three tests failed. Two were the file backend: Windows
+  refuses to rename over an open file, so publishing a derived blob over one
+  a reader held open failed. Publishing now moves the open file aside first,
+  and the simulated file system can refuse such a rename, so the storage
+  contract tests that path on every machine. The third was a test reading a
+  segment without sharing write access. The store tests also took over 30
+  minutes on Windows against minutes on Linux. Nearly all of it was the
+  records property on files cutting the log at every byte: about 220,000
+  directories written, opened, recovered and deleted per run. Creating,
+  flushing and deleting files costs ten times as much on Windows. On the
+  maintainer's decision the test on files now cuts at every structural
+  boundary, the byte either side, and 16 random offsets, and checks each
+  cut's exact head. Locally it went from 431 s to 15 s. Every-byte cutting
+  stays on the memory backend and in the fault suite.

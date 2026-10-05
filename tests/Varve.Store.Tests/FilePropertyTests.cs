@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -102,15 +103,27 @@ public sealed class FilePropertyTests
     }
 
     /// <summary>
-    /// Records, and I8 at every position, on files: the log cut at every byte
-    /// offset and written to a directory of its own opens at the last commit
-    /// it holds closed, with the model's state there; a sample of cuts is
+    /// Records, and I8 at every position, on files: the log cut and written to a
+    /// directory of its own opens at exactly the commits whose closing record the
+    /// cut holds whole, with the model's state there; every seventh cut is
     /// continued and reopened.
     /// </summary>
+    /// <remarks>
+    /// The cuts are every structural boundary of format version 1 and the byte
+    /// either side of it — segment starts and header ends, record starts, header
+    /// ends and body ends, trailer starts and ends — and 16 offsets at random.
+    /// Cutting at every byte stays where it costs nothing: on the memory backend
+    /// (<see cref="LogPropertyTests"/>), and through the file backend's own code
+    /// at every byte of every write in the fault-injection suite. On real files a
+    /// cut is a directory written, opened, recovered and deleted, and at every byte
+    /// that was 220,000 directories a run: minutes on Linux, hours on Windows,
+    /// where creating, flushing and deleting files costs ten times as much. The
+    /// maintainer narrowed it on the 6a pull request.
+    /// </remarks>
     [Theory]
     [InlineData(1 << 20, 64L << 20)]
     [InlineData(64, 1024L)]
-    public async Task a_log_on_files_cut_at_any_byte_recovers_to_the_last_closed_commit(int maxRecordBytes, long segmentBytes)
+    public async Task a_log_on_files_cut_at_its_boundaries_recovers_to_the_last_closed_commit(int maxRecordBytes, long segmentBytes)
     {
         await Generators.CommitsOnly.SampleAsync(
             async script =>
@@ -119,32 +132,34 @@ public sealed class FilePropertyTests
                 await using Harness harness = await Harness.StartAsync(maxRecordBytes, segmentBytes, await directory.OpenAsync());
                 await harness.RunAsync(script);
                 (ReadOnlyMemory<byte> manifest, List<byte[]> segments) = await T.CopyLogAsync(harness.Storage);
-                long total = segments.Sum(s => (long)s.Length);
-                long previous = 0;
+                (List<long> cuts, List<long> closings) = Cuts(segments);
+                long last = 0;
 
-                for (long length = 0; length <= total; length++)
+                for (int i = 0; i < cuts.Count; i++)
                 {
+                    long length = cuts[i];
                     List<ReadOnlyMemory<byte>> cut = Prefix(segments, length);
+                    long expected = closings.Count(end => end <= length);
 
-                    previous = await WithCopyAsync(manifest, cut, async storage =>
+                    long opened = await WithCopyAsync(manifest, cut, async storage =>
                     {
-                        await using Dataset opened = await Dataset.OpenAsync(storage, harness.Options, T.Ct);
+                        await using Dataset dataset = await Dataset.OpenAsync(storage, harness.Options, T.Ct);
 
-                        if (opened.Head.Value != previous && opened.Head.Value != previous + 1)
+                        long head = dataset.Head.Value;
+
+                        if (head != expected)
                         {
-                            throw new InvalidOperationException("Cutting at " + length + " jumped from " + previous + " to " + opened.Head + ".");
+                            throw new InvalidOperationException("Cutting at " + length + " opened at " + head + " where " + expected + " commits are closed.");
                         }
 
-                        long head = opened.Head.Value;
-
-                        using (DatasetView view = opened.Pin())
+                        using (DatasetView view = dataset.Pin())
                         {
-                            Harness.Same(Harness.Rendered(harness.Model.History[(int)opened.Head.Value]), harness.Rendered(view), "cut at " + length);
+                            Harness.Same(Harness.Rendered(harness.Model.History[(int)head]), harness.Rendered(view), "cut at " + length);
                         }
 
-                        if (length % 97 == 0 || length == total)
+                        if (i % 7 == 0 || i == cuts.Count - 1)
                         {
-                            CommitResult next = await opened.CommitAsync(new CommitRequest().Assert(T.Iri("after"), T.Iri("cut"), T.Integer("1")), T.Ct);
+                            CommitResult next = await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("after"), T.Iri("cut"), T.Integer("1")), T.Ct);
                             Assert.Equal(CommitOutcome.Committed, next.Outcome);
 
                             await using Dataset again = await Dataset.OpenAsync(storage, harness.Options, T.Ct);
@@ -153,12 +168,74 @@ public sealed class FilePropertyTests
 
                         return head;
                     });
+
+                    last = opened;
                 }
 
-                Assert.Equal(harness.Model.Head, previous);
+                Assert.Equal(harness.Model.Head, last);
             },
             iter: Iterations,
             print: script => script.ToString());
+    }
+
+    // Where a cut is worth making in a log of format version 1, as offsets into
+    // the segments laid end to end: every structural boundary and the byte
+    // either side, and 16 offsets at random, seeded by the log's length so that
+    // a run can be repeated. Also where each commit's closing record ends.
+    private static (List<long> Cuts, List<long> Closings) Cuts(List<byte[]> segments)
+    {
+        SortedSet<long> boundaries = [];
+        List<long> closings = [];
+        long total = segments.Sum(s => (long)s.Length);
+        long origin = 0;
+
+        foreach (byte[] segment in segments)
+        {
+            boundaries.Add(origin);
+            boundaries.Add(origin + Math.Min(segment.Length, LogFormat.SegmentHeaderLength));
+            int at = LogFormat.SegmentHeaderLength;
+
+            while (LogFormat.IsRecordHeader(segment.AsSpan(Math.Min(at, segment.Length)), out _))
+            {
+                int end = at + LogFormat.RecordHeaderLength + (int)BinaryPrimitives.ReadUInt32LittleEndian(segment.AsSpan(at));
+                boundaries.Add(origin + at);
+                boundaries.Add(origin + at + LogFormat.RecordHeaderLength);
+                boundaries.Add(origin + end);
+
+                if ((segment[at + 5] & LogFormat.ClosingFlag) != 0)
+                {
+                    closings.Add(origin + end);
+                }
+
+                at = end;
+            }
+
+            // What follows the records is the trailer, or nothing.
+            boundaries.Add(origin + segment.Length);
+            origin += segment.Length;
+        }
+
+        SortedSet<long> cuts = [];
+
+        foreach (long boundary in boundaries)
+        {
+            for (long offset = boundary - 1; offset <= boundary + 1; offset++)
+            {
+                if (offset >= 0 && offset <= total)
+                {
+                    cuts.Add(offset);
+                }
+            }
+        }
+
+        Random random = new((int)(total % int.MaxValue));
+
+        for (int i = 0; i < 16 && total > 0; i++)
+        {
+            cuts.Add(random.NextInt64(total + 1));
+        }
+
+        return ([.. cuts], closings);
     }
 
     /// <summary>
