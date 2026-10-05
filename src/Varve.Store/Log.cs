@@ -387,6 +387,46 @@ internal static class LogReader
         return await segment.ReadAsync(bodyAt + bodyLength - 4 - headerLength, headerLength + 4, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Where a closed commit's records end: the segment of its closing record
+    /// and the offset just past it. Headers only; the chain is checked.
+    /// </summary>
+    internal static async ValueTask<CommitLocation> EndAsync(
+        ISegmentStore store, DatasetId dataset, CommitLocation location, long position, byte[] previous, CancellationToken cancellationToken)
+    {
+        int segmentId = location.Segment;
+        long offset = location.Offset;
+        int index = 0;
+        IReadOnlyList<SegmentInfo>? segments = null;
+
+        while (true)
+        {
+            ReadOnlyMemory<byte> headerBytes = await store.ReadRangeAsync(new SegmentId(segmentId), new ByteOffset(offset), new ByteCount(LogFormat.RecordHeaderLength), cancellationToken).ConfigureAwait(false);
+            RecordHeader? record = headerBytes.Length == LogFormat.RecordHeaderLength ? LogFormat.TryReadRecordHeader(headerBytes.Span, position) : null;
+
+            if (record is null || record.Position != position || (index == 0 && record.Index != 0))
+            {
+                segments ??= await store.ListSegmentsAsync(cancellationToken).ConfigureAwait(false);
+                segmentId = await NextContinuingAsync(store, dataset, segments, segmentId, position, previous, cancellationToken).ConfigureAwait(false);
+                offset = LogFormat.SegmentHeaderLength;
+                continue;
+            }
+
+            if (record.Index != index || !record.Previous.AsSpan().SequenceEqual(previous))
+            {
+                throw new LogVerificationException(position, "Position " + position + " no longer reads as it did when the log was opened.");
+            }
+
+            offset += LogFormat.RecordHeaderLength + record.BodyLength;
+            index++;
+
+            if (record.Closing)
+            {
+                return new CommitLocation(segmentId, offset);
+            }
+        }
+    }
+
     /// <summary>Reads one closed commit, whole, from where its first record is, and verifies it.</summary>
     internal static async ValueTask<LoggedCommit> ReadAsync(
         ISegmentStore store, DatasetId dataset, CommitLocation location, long position, byte[] previous, CancellationToken cancellationToken)

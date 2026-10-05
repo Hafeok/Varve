@@ -403,3 +403,4 @@ Varve.Store.CheckpointPolicy.Keep.init -> void
 static Varve.Store.CheckpointPolicy.Never.get -> Varve.Store.CheckpointPolicy!
 Varve.Store.DatasetOptions.Checkpoints.get -> Varve.Store.CheckpointPolicy!
 Varve.Store.DatasetOptions.Checkpoints.init -> void
+Varve.Store.Dataset.ShipAsync(Varve.Store.IStorage! target, Varve.Store.Log.Position position, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.Position>

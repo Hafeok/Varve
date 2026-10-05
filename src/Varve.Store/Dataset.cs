@@ -125,6 +125,9 @@ public sealed partial class Dataset : IAsyncDisposable
     /// <summary>The settings at the head.</summary>
     public DatasetSettings Settings => _state.SettingsAt(_state.Head);
 
+    /// <summary>Test seam: the storage the dataset was opened on.</summary>
+    internal IStorage StorageForTests() => _storage;
+
     /// <summary>Test seam: the bytes of the log's records after <paramref name="from"/> up to <paramref name="to"/>.</summary>
     internal long LogBytesBetween(long from, long to) => _state.LogBytesAt(to) - _state.LogBytesAt(from);
 
