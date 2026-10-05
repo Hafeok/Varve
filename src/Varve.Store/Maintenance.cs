@@ -471,6 +471,8 @@ public sealed partial class Dataset
             await _storage.Derived.DeleteAsync(StateName, cancellationToken).ConfigureAwait(false);
         }
 
+        loaded = await AdoptRunsAsync(state, loaded, kept, cancellationToken).ConfigureAwait(false);
+
         foreach (BlobName name in await _storage.Derived.ListAsync(cancellationToken).ConfigureAwait(false))
         {
             // A bulk load's spills, left by a crash during the load (ADR 0081).
@@ -494,6 +496,70 @@ public sealed partial class Dataset
                     await _storage.Derived.DeleteAsync(name, cancellationToken).ConfigureAwait(false);
                 }
             }
+        }
+
+        return loaded;
+    }
+
+    // Runs that continue what was loaded, written before a crash took the
+    // state that would have named them: a bulk load's delta run, published
+    // before its commit and named in the state after it. A run whose header
+    // starts where the index ends and whose end hash is the log's header there
+    // is that commit's projection, as a state's run would be; adopting it is
+    // what keeps a crash in that window from replaying the load in memory
+    // (ADR 0081). The furthest-reaching such run is taken, until none is left.
+    private async ValueTask<IndexVersion> AdoptRunsAsync(State state, IndexVersion loaded, HashSet<string> kept, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<BlobName> names = await _storage.Derived.ListAsync(cancellationToken).ConfigureAwait(false);
+
+        while (loaded.Position < state.Head)
+        {
+            string from = RunPrefix + loaded.Position.ToString("D20", CultureInfo.InvariantCulture) + "-";
+            Run? adopted = null;
+            string? adoptedName = null;
+
+            List<string> candidates = [];
+
+            foreach (BlobName name in names)
+            {
+                if (name.Value.StartsWith(from, StringComparison.Ordinal))
+                {
+                    candidates.Add(name.Value);
+                }
+            }
+
+            candidates.Sort(StringComparer.Ordinal);
+            candidates.Reverse();
+
+            foreach (string candidate in candidates)
+            {
+                BlobName name = new(candidate);
+                LoadedRun? run = await DerivedFormat.TryLoadAsync(_storage.Derived, name, Id, DerivedFormat.KindRun, cancellationToken).ConfigureAwait(false);
+
+                if (run is not null
+                    && run.Header.From == loaded.Position
+                    && run.Header.To > run.Header.From
+                    && run.Header.To <= state.Head
+                    && run.Header.ToHash.AsSpan().SequenceEqual(state.Commits[run.Header.To - 1].HeaderHash)
+                    && run.Run.Terms.From == state.CanonicalAt(run.Header.From)
+                    && run.Run.Terms.To == state.CanonicalAt(run.Header.To))
+                {
+                    adopted = run.Run;
+                    adoptedName = name.Value;
+                    break;
+                }
+
+                run?.Run.Blob!.Release();
+            }
+
+            if (adopted is null)
+            {
+                break;
+            }
+
+            kept.Add(adoptedName!);
+            Run[] runs = [.. loaded.Runs, adopted];
+            loaded = new IndexVersion(adopted.To, runs, runs.Length);
         }
 
         return loaded;

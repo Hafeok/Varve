@@ -321,6 +321,125 @@ public class BulkLoadTests
         Assert.Equal(after, Canonical(all));
     }
 
+    /// <summary>
+    /// A crash after a load's commit is durable and before the state naming
+    /// its delta run is: the run, written before the commit, is adopted on
+    /// open — it starts where the loaded index ends and its end hash is the
+    /// log's — so the load is not replayed from the log in memory (ADR 0081).
+    /// Defect found by the 100-million-quad gate: a crash in that window
+    /// replayed the whole load into a memtable.
+    /// </summary>
+    [Fact]
+    public async Task a_load_whose_state_was_lost_reopens_from_its_delta_run()
+    {
+        MemoryStorage storage = new();
+        Op[][] prior = [[new Op(true, 0, 0, 3, 0), new Op(true, 1, 1, 4, 1)], [new Op(true, 2, 2, 12, 2)]];
+        Op[] ops = [.. Enumerable.Range(0, 60).Select(i => new Op(i % 5 != 0, i % 9, i % 3, i % 16, i % 3))];
+        BlobName state = new("index/state");
+        string after;
+        ReadOnlyMemory<byte> stateBefore;
+
+        await using (Dataset dataset = await PriorAsync(storage, prior))
+        {
+            await using BulkLoad load = await dataset.BeginBulkLoadAsync(Tiny, T.Ct);
+            stateBefore = await T.ReadBlobAsync(storage, state);
+            Feed(load, ops);
+            Assert.Equal(CommitOutcome.Committed, (await load.CommitAsync(new CommitMetadata(), T.Ct)).Outcome);
+            using DatasetView view = dataset.Pin();
+            after = Canonical(view);
+        }
+
+        // The state as the crash left it: as it was before the load.
+        await using (IBlobWriter writer = await storage.Derived.CreateAsync(state, T.Ct))
+        {
+            await writer.WriteAsync(stateBefore, T.Ct);
+            await writer.PublishAsync(T.Ct);
+        }
+
+        string run = "index/runs/" + prior.Length.ToString("D20", CultureInfo.InvariantCulture) + "-" + (prior.Length + 1).ToString("D20", CultureInfo.InvariantCulture) + ".";
+        Assert.Contains(await storage.Derived.ListAsync(T.Ct), n => n.Value.StartsWith(run, StringComparison.Ordinal));
+
+        await using Dataset reopened = await Dataset.OpenAsync(storage, Options(), T.Ct);
+        Assert.Equal(prior.Length + 1, reopened.Head.Value);
+
+        using (DatasetView view = reopened.Pin())
+        {
+            Assert.Equal(after, Canonical(view));
+        }
+
+        // Kept, so adopted: a replay would have left it unnamed, and deleted.
+        Assert.Contains(await storage.Derived.ListAsync(T.Ct), n => n.Value.StartsWith(run, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The open scan holds at most a bound of any one commit's body, whatever
+    /// the commit's size: a commit past it is verified as it passes — every
+    /// record's hash and the body's content hash — and let go, to be read
+    /// again if replay needs it (ADR 0081). The scan with any bound finds the
+    /// same commits, with the same headers, as the scan that holds them all;
+    /// and a dataset opened over a torn tail opens the same either way.
+    /// Defect found by the 100-million-quad gate: the scan held a torn bulk
+    /// commit's every record, and recovery ran out of memory.
+    /// </summary>
+    [Fact]
+    public void the_open_scan_holds_a_bounded_part_of_any_commit() =>
+        Gen.Select(Gen.Select(Ops.Array[1, 40], Gen.Bool).Array[1, 6], Gen.Long[0, 400], Gen.Int[0, 100])
+            .Sample(sample =>
+            {
+                ((Op[] Ops, bool Bulk)[] commits, long retain, int cut) = sample;
+                MemoryStorage storage = new();
+
+                Task.Run(async () =>
+                {
+                    await using Dataset dataset = await Dataset.CreateAsync(storage, T.Id, Options(), T.Ct);
+
+                    foreach ((Op[] ops, bool bulk) in commits)
+                    {
+                        if (bulk)
+                        {
+                            await using BulkLoad load = await dataset.BeginBulkLoadAsync(Tiny, T.Ct);
+                            Feed(load, ops);
+                            await load.CommitAsync(new CommitMetadata(), T.Ct);
+                        }
+                        else
+                        {
+                            await dataset.CommitAsync(Request(ops), T.Ct);
+                        }
+                    }
+                }).GetAwaiter().GetResult();
+
+                LogScan whole = LogReader.ScanAsync(storage.Log, T.Id, 0, long.MaxValue, T.Ct).AsTask().GetAwaiter().GetResult();
+                LogScan bounded = LogReader.ScanAsync(storage.Log, T.Id, 0, retain, T.Ct).AsTask().GetAwaiter().GetResult();
+                Assert.Equal(whole.Head, bounded.Head);
+
+                for (int i = 0; i < whole.Commits.Count; i++)
+                {
+                    Assert.Equal(whole.Commits[i].HeaderHash, bounded.Commits[i].HeaderHash);
+                    Assert.Equal(whole.Commits[i].Bytes, bounded.Commits[i].Bytes);
+                    Assert.NotNull(whole.Commits[i].Full);
+
+                    if (bounded.Commits[i].Full is { } full)
+                    {
+                        Assert.Equal(whole.Commits[i].Full!.Asserted, full.Asserted);
+                        Assert.Equal(whole.Commits[i].Full!.Retracted, full.Retracted);
+                    }
+                    else
+                    {
+                        Assert.True(whole.Commits[i].Bytes > retain, "a commit of " + whole.Commits[i].Bytes + " bytes was let go under a bound of " + retain);
+                    }
+                }
+
+                // Torn: the newest segment cut short, as a crash leaves it.
+                (ReadOnlyMemory<byte> manifest, List<byte[]> segments) = T.CopyLogAsync(storage).GetAwaiter().GetResult();
+                byte[] last = segments[^1];
+                segments[^1] = last[..(int)(LogFormat.SegmentHeaderLength + ((last.Length - LogFormat.SegmentHeaderLength) * (long)cut / 100))];
+                MemoryStorage torn = MemoryStorage.FromLog(manifest, segments.Select(b => (ReadOnlyMemory<byte>)b));
+                LogScan tornWhole = LogReader.ScanAsync(torn.Log, T.Id, 0, long.MaxValue, T.Ct).AsTask().GetAwaiter().GetResult();
+                LogScan tornBounded = LogReader.ScanAsync(torn.Log, T.Id, 0, retain, T.Ct).AsTask().GetAwaiter().GetResult();
+                Assert.Equal(tornWhole.Head, tornBounded.Head);
+                Assert.Equal(tornWhole.DiscardedTail, tornBounded.DiscardedTail);
+            }, iter: 100);
+
     // The prior commits, then the load; the canonical state before and after,
     // and the operation numbers the load spans.
     private static async Task<(string Before, string After, int Start, int End)> RunAsync(SimulatedFileSystem files, string root, Op[][] prior, Op[] ops)

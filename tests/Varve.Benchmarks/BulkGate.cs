@@ -157,7 +157,7 @@ internal static class BulkGate
 
         if (crashes)
         {
-            await CrashEveryRecordAsync(storage, before, options, headBefore, countBefore);
+            await CrashEveryRecordAsync(storage, before, options, headBefore, countBefore, expected);
             Directory.Delete(before, recursive: true);
         }
 
@@ -180,7 +180,7 @@ internal static class BulkGate
     /// the load's commit and one byte into it, opened with derived/ as it was
     /// before the load, must open at the head before the load with its count;
     /// </summary>
-    private static async Task CrashEveryRecordAsync(FileStorage storage, string before, DatasetOptions options, long headBefore, long countBefore)
+    private static async Task CrashEveryRecordAsync(FileStorage storage, string before, DatasetOptions options, long headBefore, long countBefore, long countAfter)
     {
         Stopwatch clock = Stopwatch.StartNew();
         await using FileStorage earlier = await FileStorage.OpenAsync(new DatasetDirectory(before), new FileStorageOptions { Clock = TimeProvider.System });
@@ -237,6 +237,25 @@ internal static class BulkGate
 
         Console.WriteLine("crashes: the log cut at the start of each of the load's " + cuts.Count + " records, and " + torn.Count
             + " one byte into one, opened at the head before the load with its quads, in " + clock.Elapsed.TotalSeconds.ToString("F0", CultureInfo.InvariantCulture) + " s");
+
+        // And after the commit closed, before the state naming its delta run
+        // was written: the whole log, derived/ as the load left it, and the
+        // state as it was before. The run is adopted, not the load replayed.
+        IReadOnlyList<SegmentInfo> all = await storage.Log.ListSegmentsAsync(default);
+        CutStorage closed = new(storage, storage, all[^1].Id.Value, all[^1].Length.Value);
+        using (IReadableBlob state = await earlier.Derived.OpenAsync(new BlobName("index/state"), default))
+        {
+            byte[] bytes = new byte[state.Length.Value];
+            state.Read(new ByteOffset(0), bytes);
+            closed.Replace(new BlobName("index/state"), bytes);
+        }
+
+        GC.Collect();
+        long heapBefore = GC.GetTotalMemory(forceFullCollection: true);
+        Stopwatch opening = Stopwatch.StartNew();
+        await CheckAsync(closed, headBefore + 1, countAfter);
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"crashes: the commit closed and its state lost, opened at the load's head with its quads in {opening.Elapsed.TotalSeconds:F1} s, the managed heap {heapBefore / 1e6:F0} MB before and {GC.GetTotalMemory(false) / 1e6:F0} MB after"));
 
         async Task CheckAsync(CutStorage cut, long head, long count)
         {

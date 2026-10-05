@@ -78,6 +78,17 @@ SHA-256.
    last (`LogWriter.AppendStreamAsync`). A crash before the closing record
    leaves the dataset where it was; the spills are deleted when the load ends,
    or by the next open.
+6. **Recovery is bounded too.** The open scan reads every commit after what
+   derived/ claims whole, to replay it; it holds at most
+   `LogReader.ScanRetains` (64 MiB) of any one commit's body, and past that
+   hashes the body as it passes and lets the payloads go — a commit let go is
+   read again only if replay needs it. And a crash after the closing record
+   is durable but before the state naming the delta run is written would
+   replay the load into a memtable: open instead **adopts** a run that starts
+   where the loaded index ends and whose end hash is the log's header there,
+   as a state's run would be checked. Both were found by the 100-million-quad
+   gate's crash check, which ran out of memory under the cap opening a log
+   cut in the load's commit (the scan held every record before the cut).
 
 ### Memory is bounded
 

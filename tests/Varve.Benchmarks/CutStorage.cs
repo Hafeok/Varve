@@ -39,6 +39,9 @@ internal sealed class CutStorage : IStorage, ISegmentStore, IDerivedStore
         _cutLength = cutLength;
     }
 
+    /// <summary>A blob as an earlier moment left it, over the derived store's own.</summary>
+    internal void Replace(BlobName name, byte[] bytes) => _written[name.Value] = bytes;
+
     public ISegmentStore Log => this;
 
     public IDerivedStore Derived => this;

@@ -13,6 +13,8 @@ decisions:
     statement: "A validator of a bulk commit is given the delta as quad sources over its run on disk through ICommitValidator.Validate(IQuadSource, BulkDelta), whose default reads the delta into memory"
   - key: BulkLoadNeedsAThread
     statement: "The call that fills a bulk load's sort buffer writes it before returning, so a host that cannot block a thread, the browser, cannot bulk-load"
+  - key: RecoveryIsBoundedToo
+    statement: "Opening after a crash during or just after a bulk load holds at most a bound of any one commit's body, verifying a larger one as it passes, and adopts a delta run that continues the loaded index rather than replaying the load from the log"
 ---
 
 The rulings of [ADR 0081](../adr/0081-the-bulk-loader.md), filed unaccepted by session

@@ -125,10 +125,23 @@ internal static class LogReader
     /// below it are read header by header — the chain is still verified — so
     /// that opening reads the log since the newest checkpoint (ADR 0072).
     /// </summary>
-    internal static async ValueTask<LogScan> ScanAsync(ISegmentStore store, DatasetId dataset, long bodiesAfter, CancellationToken cancellationToken)
+    internal static ValueTask<LogScan> ScanAsync(ISegmentStore store, DatasetId dataset, long bodiesAfter, CancellationToken cancellationToken) =>
+        ScanAsync(store, dataset, bodiesAfter, ScanRetains, cancellationToken);
+
+    /// <summary>
+    /// What a scan holds of a commit it reads whole, for replay: past this,
+    /// the payloads are let go and the body is hashed as it passes, so a
+    /// scan's memory is bounded by it and one record whatever the size of a
+    /// commit — a bulk load's, closed or torn (ADR 0081). A commit let go is
+    /// read again if replay needs it.
+    /// </summary>
+    internal const long ScanRetains = 64L << 20;
+
+    /// <summary>The scan, holding at most <paramref name="retain"/> bytes of any one commit's body.</summary>
+    internal static async ValueTask<LogScan> ScanAsync(ISegmentStore store, DatasetId dataset, long bodiesAfter, long retain, CancellationToken cancellationToken)
     {
         LogScan scan = new() { Segments = await store.ListSegmentsAsync(cancellationToken).ConfigureAwait(false) };
-        Pending pending = new();
+        Pending pending = new(retain);
         byte[] headHash = LogFormat.Genesis();
         bool openEnded = false;
         int previousId = -1;
@@ -431,7 +444,7 @@ internal static class LogReader
     internal static async ValueTask<LoggedCommit> ReadAsync(
         ISegmentStore store, DatasetId dataset, CommitLocation location, long position, byte[] previous, CancellationToken cancellationToken)
     {
-        Pending pending = new();
+        Pending pending = new(long.MaxValue);
         int segmentId = location.Segment;
         long offset = location.Offset;
         IReadOnlyList<SegmentInfo>? segments = null;
@@ -538,12 +551,18 @@ internal static class LogReader
             return new ScannedCommit(header, headerHash, pending.Location, null, pending.Bytes);
         }
 
-        byte[] body = pending.Body(headerStart);
-
-        if (!SHA256.HashData(body).AsSpan().SequenceEqual(header.Content))
+        if (!pending.BodyHash(headerStart).AsSpan().SequenceEqual(header.Content))
         {
             throw new LogVerificationException(position, "The body of position " + position + " does not match its content hash.");
         }
+
+        // Verified as it passed; too large to hold, it is read again if replay needs it.
+        if (!pending.Whole)
+        {
+            return new ScannedCommit(header, headerHash, pending.Location, null, pending.Bytes);
+        }
+
+        byte[] body = pending.Body(headerStart);
 
         LoggedCommit commit = new(header, headerHash, LogFormat.DecodeBody(body, position), pending.Location);
         return new ScannedCommit(header, headerHash, pending.Location, commit, pending.Bytes);
@@ -614,9 +633,12 @@ internal static class LogReader
 
     private sealed record Trailer(byte Status, long Head, byte[] HeadHash);
 
-    private sealed class Pending
+    private sealed class Pending(long retain)
     {
         private readonly List<ReadOnlyMemory<byte>> _payloads = [];
+        private readonly IncrementalHash _hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        private long _held;
+        private bool _dropped;
 
         internal int Count { get; private set; }
 
@@ -626,7 +648,10 @@ internal static class LogReader
 
         internal long Bytes { get; set; }
 
-        internal ReadOnlyMemory<byte> Last => _payloads[^1];
+        internal ReadOnlyMemory<byte> Last { get; private set; }
+
+        /// <summary>Whether every payload is still held, so the body can be built.</summary>
+        internal bool Whole => !_dropped;
 
         internal void Start(CommitKind kind, CommitLocation location)
         {
@@ -637,7 +662,25 @@ internal static class LogReader
 
         internal void Add(ReadOnlyMemory<byte> payload)
         {
-            _payloads.Add(payload);
+            if (Count > 0 && !Last.IsEmpty)
+            {
+                _hash.AppendData(Last.Span);
+            }
+
+            Last = payload;
+            _held += payload.Length;
+
+            if (!_dropped && _held > retain)
+            {
+                _dropped = true;
+                _payloads.Clear();
+            }
+
+            if (!_dropped)
+            {
+                _payloads.Add(payload);
+            }
+
             Count++;
         }
 
@@ -647,8 +690,19 @@ internal static class LogReader
         internal void Clear()
         {
             _payloads.Clear();
+            _hash.GetHashAndReset();
+            Last = default;
+            _held = 0;
+            _dropped = false;
             Count = 0;
             Bytes = 0;
+        }
+
+        /// <summary>The body's hash: every payload, the last one up to where its header starts.</summary>
+        internal byte[] BodyHash(int lastBodyLength)
+        {
+            _hash.AppendData(Last.Span[..lastBodyLength]);
+            return _hash.GetHashAndReset();
         }
 
         /// <summary>The body: every payload, the last one up to where its header starts.</summary>
