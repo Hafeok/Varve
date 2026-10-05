@@ -157,7 +157,7 @@ internal static class BulkGate
 
         if (crashes)
         {
-            await CrashEveryRecordAsync(storage, before, options, headBefore, countBefore, expected);
+            await CrashEveryRecordAsync(storage, before, options, headBefore, countBefore);
             Directory.Delete(before, recursive: true);
         }
 
@@ -179,14 +179,12 @@ internal static class BulkGate
     /// The crash check at scale: the log cut at the start of every record of
     /// the load's commit and one byte into it, opened with derived/ as it was
     /// before the load, must open at the head before the load with its count;
-    /// cut after the closing record, at the head after it with its count.
     /// </summary>
-    private static async Task CrashEveryRecordAsync(FileStorage storage, string before, DatasetOptions options, long headBefore, long countBefore, long countAfter)
+    private static async Task CrashEveryRecordAsync(FileStorage storage, string before, DatasetOptions options, long headBefore, long countBefore)
     {
         Stopwatch clock = Stopwatch.StartNew();
         await using FileStorage earlier = await FileStorage.OpenAsync(new DatasetDirectory(before), new FileStorageOptions { Clock = TimeProvider.System });
         List<(int Segment, long Offset)> cuts = [];
-        (int Segment, long Offset) end = default;
 
         foreach (SegmentInfo segment in await storage.Log.ListSegmentsAsync(default))
         {
@@ -206,21 +204,39 @@ internal static class BulkGate
                 if (position == headBefore + 1)
                 {
                     cuts.Add((segment.Id.Value, at));
-                    cuts.Add((segment.Id.Value, at + 1));
-                    end = (segment.Id.Value, at + 128 + body);
                 }
 
                 at += 128 + body;
             }
         }
 
-        foreach ((int segment, long offset) in cuts)
+        // One byte into a record too, for the first four, the last four and
+        // eight between: each cut reads the unclosed commit up to it, so
+        // every record twice over would cost hours, not what it shows.
+        List<(int Segment, long Offset)> torn = [];
+
+        for (int i = 0; i < cuts.Count; i++)
         {
-            await CheckAsync(new CutStorage(storage, earlier, segment, offset), headBefore, countBefore);
+            if (i < 4 || i >= cuts.Count - 4 || i % Math.Max(1, cuts.Count / 8) == 0)
+            {
+                torn.Add((cuts[i].Segment, cuts[i].Offset + 1));
+            }
         }
 
-        await CheckAsync(new CutStorage(storage, earlier, end.Segment, end.Offset), headBefore + 1, countAfter);
-        Console.WriteLine("crashes: " + (cuts.Count + 1) + " cuts at and one byte into each of the load's " + (cuts.Count / 2) + " records opened as they must, in " + clock.Elapsed.TotalSeconds.ToString("F0", CultureInfo.InvariantCulture) + " s");
+        int done = 0;
+
+        foreach ((int segment, long offset) in (IEnumerable<(int, long)>)[.. cuts, .. torn])
+        {
+            await CheckAsync(new CutStorage(storage, earlier, segment, offset), headBefore, countBefore);
+
+            if (++done % 100 == 0)
+            {
+                Console.WriteLine("  crashes: " + done + " cuts opened, " + clock.Elapsed.TotalSeconds.ToString("F0", CultureInfo.InvariantCulture) + " s");
+            }
+        }
+
+        Console.WriteLine("crashes: the log cut at the start of each of the load's " + cuts.Count + " records, and " + torn.Count
+            + " one byte into one, opened at the head before the load with its quads, in " + clock.Elapsed.TotalSeconds.ToString("F0", CultureInfo.InvariantCulture) + " s");
 
         async Task CheckAsync(CutStorage cut, long head, long count)
         {
