@@ -178,6 +178,12 @@ maintainer on the 6a plan, filed unaccepted (ADR 0066); specification 1.4, and 1
 | [0075](0075-one-process-per-dataset-by-an-os-lease.md) | One process per dataset directory, held by an exclusive handle | Accepted |
 | [0076](0076-bulk-load-by-sort-and-merge-join.md) | Bulk load and I2: sort into a run, merge-join, one multi-record commit (Q2) | Accepted; implemented in 6c |
 | [0077](0077-bulk-load-validators-scan-the-delta-on-disk.md) | Bulk load and validators: the overlay scans the delta on disk (Q3) | Accepted; implemented in 6c |
+| [0078](0078-checkpoints-streamed-and-written-by-policy.md) | Checkpoints streamed from the runs, and written by a policy; runs deleted once unread | Proposed (filed unaccepted, ADR 0066) |
+| [0079](0079-the-term-dictionary-on-disk.md) | The term dictionary on disk, carried by the runs | Proposed (filed unaccepted, ADR 0066) |
+| [0080](0080-derived-blocks-compressed.md) | Derived keys compressed in their blocks; derived format 2 | Proposed (filed unaccepted, ADR 0066); answers 6a's compression question |
+| [0081](0081-the-bulk-loader.md) | The bulk loader: references by content hash, memory bounded, one commit | Proposed (filed unaccepted, ADR 0066); builds 0076 and 0077 |
+| [0082](0082-the-soak-gate.md) | The soak gate: a flat working set within a stated band | Proposed (filed unaccepted, ADR 0066); the gate #61 blocks |
+| [0083](0083-replica-bootstrap-is-a-file-copy.md) | Replica bootstrap is a copy of files | Proposed (filed unaccepted, ADR 0066) |
 | [0084](0084-the-browser-backend.md) | The browser backend: OPFS sync access handles in a worker, IndexedDB as the fallback | Proposed (filed unaccepted, ADR 0066); answers 0071's revisit condition for the browser |
 
 ## Milestone 7 — the server
