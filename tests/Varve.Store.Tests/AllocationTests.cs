@@ -94,6 +94,61 @@ public class AllocationTests
         Assert.True(AllocationMeter.Measure(Scan(smallView, ps)) <= 512);
     }
 
+    // The same shape with the base on disk: one commit flushed to a disk run,
+    // then one small run in the memtable (ADR 0070).
+    private static async Task<Dataset> LoadedOnDisk(IStorage storage, int quads)
+    {
+        DatasetOptions options = new() { Clock = ManualClock.Epoch(), MemtableLimit = new QuadCount(1), Maintenance = MaintenanceMode.Off };
+        Dataset dataset = await Dataset.CreateAsync(storage, T.Id, options, T.Ct);
+        CommitRequest request = new();
+
+        for (int i = 0; i < quads; i++)
+        {
+            request.Assert(T.Iri("s" + i.ToString(CultureInfo.InvariantCulture)), T.Iri("p"), T.Integer(i.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        await dataset.CommitAsync(request, T.Ct);
+        await dataset.MaintainAsync(T.Ct);
+        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("extra"), T.Iri("p"), T.Iri("o")), T.Ct);
+        return dataset;
+    }
+
+    /// <summary>
+    /// A scan over disk runs reads a block at a time into one buffer per run
+    /// it reads, per scan; the quads cost nothing — on the memory backend's
+    /// blobs and on files alike (ADR 0071).
+    /// </summary>
+    [Fact]
+    public async Task a_scan_of_disk_runs_allocates_nothing_per_quad()
+    {
+        await using TemporaryDirectory smallDirectory = new();
+        await using TemporaryDirectory largeDirectory = new();
+
+        foreach ((IStorage smallStorage, IStorage largeStorage) in new (IStorage, IStorage)[]
+        {
+            (new MemoryStorage(), new MemoryStorage()),
+            (await smallDirectory.OpenAsync(), await largeDirectory.OpenAsync()),
+        })
+        {
+            await using Dataset small = await LoadedOnDisk(smallStorage, Small);
+            await using Dataset large = await LoadedOnDisk(largeStorage, Large);
+            using DatasetView smallView = small.Pin();
+            using DatasetView largeView = large.Pin();
+            Assert.True(smallView.TryInternalise(T.Iri("p"), out TermHandle ps));
+            Assert.True(largeView.TryInternalise(T.Iri("p"), out TermHandle pl));
+
+            Assert.Equal(0, Difference(Scan(smallView, ps), Scan(largeView, pl)));
+            Assert.Equal(0, Difference(Scan(smallView, TermHandle.None), Scan(largeView, TermHandle.None)));
+
+            // As-of over a checkpoint on disk, with nothing overlaid.
+            await small.CheckpointAsync(small.Head, T.Ct);
+            await large.CheckpointAsync(large.Head, T.Ct);
+            using DatasetView smallThen = await small.AsOfAsync(small.Head, T.Ct);
+            using DatasetView largeThen = await large.AsOfAsync(large.Head, T.Ct);
+            Assert.Equal(0, Difference(Scan(smallThen, TermHandle.None), Scan(largeThen, TermHandle.None)));
+        }
+    }
+
     [Fact]
     public async Task a_scan_of_an_as_of_read_allocates_nothing_per_quad()
     {

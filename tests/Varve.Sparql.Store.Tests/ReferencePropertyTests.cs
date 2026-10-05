@@ -140,7 +140,7 @@ public class ReferencePropertyTests
     }
 
     private static ValueTask<Dataset> Open() =>
-        Dataset.OpenAsync(new MemoryStorage(), new DatasetOptions { Clock = new Clock() }, Ct);
+        Dataset.CreateAsync(new MemoryStorage(), new Varve.Store.Log.DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = new Clock() }, Ct);
 
     private static List<ParsedQuad> Quads(DatasetView view)
     {

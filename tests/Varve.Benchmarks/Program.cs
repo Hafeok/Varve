@@ -39,6 +39,18 @@ internal static class Program
             return;
         }
 
+        if (args.Length == 1 && args[0] == "--file-sizes")
+        {
+            FileSizes.PrintAsync().GetAwaiter().GetResult();
+            return;
+        }
+
+        if (args.Length == 2 && args[0] == "--soak")
+        {
+            Soak.RunAsync(TimeSpan.FromMinutes(double.Parse(args[1], CultureInfo.InvariantCulture))).GetAwaiter().GetResult();
+            return;
+        }
+
         if (args.Length == 2 && args[0] == "--bsbm-export")
         {
             Bsbm.Export(args[1]);

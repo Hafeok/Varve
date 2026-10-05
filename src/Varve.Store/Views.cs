@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
@@ -261,13 +262,15 @@ public sealed class DatasetView : IQuadSource, IDisposable
 {
     private readonly IQuadSource _source;
     private readonly TermView _terms;
+    private Action? _release;
     private bool _disposed;
 
-    internal DatasetView(long position, IQuadSource source, TermView terms)
+    internal DatasetView(long position, IQuadSource source, TermView terms, Action? release = null)
     {
         Position = new Position(position);
         _source = source;
         _terms = terms;
+        _release = release;
     }
 
     /// <summary>The position this view reads.</summary>
@@ -348,7 +351,13 @@ public sealed class DatasetView : IQuadSource, IDisposable
     }
 
     /// <summary>Releases the view. In memory this holds nothing a later commit could need back.</summary>
-    public void Dispose() => _disposed = true;
+    public void Dispose()
+    {
+        _disposed = true;
+
+        // The derived blobs the view reads are closed once nothing reads them (ADR 0071).
+        Interlocked.Exchange(ref _release, null)?.Invoke();
+    }
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);

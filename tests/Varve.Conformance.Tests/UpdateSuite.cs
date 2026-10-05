@@ -123,7 +123,7 @@ internal static class UpdateRunner
     /// </summary>
     internal static async Task<UpdateOutcome> RunAsync(UpdateEntry entry, CancellationToken cancellationToken)
     {
-        await using Dataset dataset = await Dataset.OpenAsync(new MemoryStorage(), new DatasetOptions { Clock = FixedClock.Instance }, cancellationToken);
+        await using Dataset dataset = await Dataset.CreateAsync(new MemoryStorage(), new Varve.Store.Log.DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = FixedClock.Instance }, cancellationToken);
 
         foreach ((IReadOnlyList<DataQuad> quads, RdfTerm? graph) in Files(entry.Before))
         {

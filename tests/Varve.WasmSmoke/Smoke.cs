@@ -164,7 +164,7 @@ internal static partial class Smoke
         int now;
         int then;
 
-        await using (Varve.Store.Dataset dataset = await Varve.Store.Dataset.OpenAsync(storage, options))
+        await using (Varve.Store.Dataset dataset = await Varve.Store.Dataset.CreateAsync(storage, new Varve.Store.Log.DatasetId(Guid.NewGuid()), options))
         {
             await dataset.CommitAsync(new Varve.Store.Log.CommitRequest()
                 .Assert(RdfTerm.Iri("http://example.org/a"u8), p, one)

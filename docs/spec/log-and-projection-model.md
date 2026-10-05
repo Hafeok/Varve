@@ -1,8 +1,12 @@
 # Log and projection model
 
-Functional specification, version 1.3.
+Functional specification, version 1.5.
 
 Status: Accepted. This document is the authority for the behaviour of `Varve.Store`. It changes only together with the ADR that motivates the change, and each change is listed at the top with its date. Section 12 maps the decisions to ADRs.
+
+Changes in version 1.5 (2026-10-02), decided by the maintainer on the milestone 6a pull request: I6 is stated for logs as they are found on disk. A byte changed anywhere a later closed commit or a sealed segment trailer covers refuses; only a byte of the newest commit's records may instead read as a torn write and open at the position before it, and never at the same head with other content (sections 4 and 10). The two cases are tested separately.
+
+Changes in version 1.4 (2026-10-02), decided by the maintainer on the milestone 6a plan: the determinism requirement of §2 binds `log/`; bytes under `derived/` depend on when maintenance ran (section 2). The Records property is widened from a crash at a record boundary to a crash at any byte offset, any reordering of writes up to the flush barrier, and a copy of the directory taken mid-write (section 10). Q2 and Q3 are decided by ADRs 0076 and 0077 (section 11). Section 12 lists ADRs 0070–0077.
 
 Changes in version 1.3 (2026-09-23), with ADR 0047: delta composition is associative over chains of exact deltas and **not** over arbitrary deltas; version 1.2 and earlier claimed a monoid, which was false, and the claim was the maintainer's error (section 6, and R3 in section 10). Every id in `alloc_P` is reachable from `A_P` or `meta_P` through entries, which RDF 1.2 triple terms require (I3). Both were found by milestone 4's property tests.
 
@@ -43,7 +47,7 @@ The dataset directory of the file backend consists of plain files. It will be co
 - Nothing that must stay secret or must be deletable is ever written inside the dataset directory. Keys live elsewhere, in the way a signing key is never checked into the repository it signs.
 - The directory separates the source of truth (`log/`) from derived data (`derived/`: checkpoints, indexes, projection state). Derived data is reproducible and excluded from version control by an ignore file the store writes at creation.
 - Sealed log segments are immutable. Only the active segment changes.
-- Bytes are deterministic: the same log yields the same files on every machine.
+- Bytes are deterministic: the same log yields the same files under `log/` on every machine. Files under `derived/` are reproducible in content, not in bytes: they depend on when maintenance ran.
 - Default segment size stays below common hosting limits for single files.
 
 Byte-level layout belongs to the storage ADR. The points above are requirements on it.
@@ -66,7 +70,7 @@ G_0 = ∅                      G_P = (G_{P-1} \ R_P) ∪ A_P
 - **I3 Dictionary closure.** Every id in `A_P`, `R_P` and `meta_P` is in `dom(D_P)`. Ids in `alloc_P` are fresh. Every id in `alloc_P` is reachable through entries from `A_P` or `meta_P`: it occurs in one of them, or it is a component of an entry in `alloc_P` that is. A triple term's components are allocated so that its identity can depend on theirs, and may occur nowhere else. Canonical ids are injective over terms; private ids are exempt from injectivity.
 - **I4 Non-empty.** A `Data` commit has `A_P ∪ R_P ≠ ∅`. `Erasure` and `Settings` commits have an empty delta.
 - **I5 Monotone time.** `ts(c_P) ≥ ts(c_{P-1})`. The sequencer assigns `max(clock, ts(head))`. As-of by timestamp `t` resolves to the greatest `P` with `ts(c_P) ≤ t`.
-- **I6 Header chain.** `prev(c_P) = hash(header(c_{P-1}))`, with a fixed value for `P = 1`. Two logs with a common prefix and different continuations are detectably divergent. A store that opens a log whose chain does not verify, or is asked to continue from a head that is not its own, refuses.
+- **I6 Header chain.** `prev(c_P) = hash(header(c_{P-1}))`, with a fixed value for `P = 1`. Two logs with a common prefix and different continuations are detectably divergent. A store that opens a log whose chain does not verify, or is asked to continue from a head that is not its own, refuses. A changed byte that a later closed commit or a sealed segment trailer covers is a chain that does not verify; a changed byte in the newest commit's records cannot be told from a write that never completed, and opens at the position before it (version 1.5).
 
 ## 5. Transitions
 
@@ -167,13 +171,13 @@ Erasure mode is a per-dataset setting, off by default. When off, no private ids 
 | I2 | For arbitrary request sequences, every committed delta satisfies the three conditions against the model fold. |
 | I3 | No id appears before its allocation; no allocation is unreferenced; rejected and empty requests leave the dictionary unchanged. |
 | I5 | As-of by timestamp equals as-of by the resolved position. |
-| I6 | Any single-byte change to a header breaks verification; two continuations of one prefix are reported as divergent. |
+| I6 | A single-byte change covered by a later closed commit or a sealed trailer refuses to open; a single-byte change to the newest commit's records refuses or opens at the position before it, with exactly the state there, and never at the same head. Two continuations of one prefix are reported as divergent. |
 | I7 | Checkpoint at `P` plus log tail to `Q` equals full replay to `Q`. |
 | I8 | Rebuilt projection equals incrementally maintained projection at every position. |
 | R1 | A pinned source returns identical results before and after arbitrary later commits. |
 | R2, R4 | As-of via overlay equals as-of via full replay. |
 | R3 | `Overlay(G_{P₁}, Diff(P₁, P₂)) = G_{P₂}`; delta composition is associative over chains of exact deltas, and the counterexample in section 6 is not associative. |
-| Records | A crash at any record boundary recovers to the last closed commit. |
+| Records | A crash at any byte offset of any write, with the writes since the last flush barrier persisted in any order or torn, recovers to the last closed commit; so does a copy of the directory taken while it was being written. |
 | Determinism | For crash-free histories, the same request sequence on two machines yields byte-identical `log/` directories (with an injected clock and, in erasure mode, an injected key store; nothing else in `log/` may depend on the machine or on randomness). A tail abandoned by recovery stays in `log/`, because the log is never rewritten. |
 | I9 | For generated private literals with high-entropy markers, a byte scan of `log/` and checkpoints never finds a marker. |
 | Access | `Access(K)` before erasure equals the set of quads with at least one term that becomes unreadable after `Erase` of `K`. |
@@ -183,8 +187,8 @@ Erasure mode is a per-dataset setting, off by default. When off, no private ids 
 ## 11. Open questions
 
 - **Q1** External form of store-scoped blank node identity at protocol boundaries (a skolem IRI scheme per RDF 1.1 Concepts 3.5 is the obvious candidate). Due at milestone 7, with the server. The in-process form is decided by ADR 0044: an existing blank node is addressed by its handle.
-- **Q2** Bulk load and I2: normalising a multi-billion-quad commit needs an index lookup per quad. Loading into an empty dataset is trivial; loading into a populated one needs a stated strategy.
-- **Q3** Bulk load and validators: the overlay of a multi-record commit does not fit in memory. Either validators are disabled for bulk commits, or the overlay spills.
+- **Q2** Bulk load and I2: normalising a multi-billion-quad commit needs an index lookup per quad. Loading into an empty dataset is trivial; loading into a populated one needs a stated strategy. **Decided by ADR 0076**: sort into a run and merge-join against the pinned state's runs; implemented at milestone 6c.
+- **Q3** Bulk load and validators: the overlay of a multi-record commit does not fit in memory. Either validators are disabled for bulk commits, or the overlay spills. **Decided by ADR 0077**: the overlay scans the delta as a run on disk, and validators are never disabled; implemented at milestone 6c.
 - **Q4** How a shredded term appears in SPARQL results and serialisations: unbound, or an opaque IRI in a reserved scheme.
 - **Q5** Lookup by private value (`?x foaf:name "Emil"`) cannot use an id. Either scan and decrypt, or a keyed blind index. A blind index is deterministic across subjects and its key is not per subject, so it weakens I10 and needs justification.
 - **Q6** Cipher. **Decided by ADR 0028**, subject to its two conditions. The verification ADR 0020 demanded was run at milestone 3a and failed: `Aes.Create()` throws `PlatformNotSupportedException` on browser WASM under .NET 10, and `AesGcm`, `AesCcm` and `ChaCha20Poly1305` all report `IsSupported == false` — no symmetric cipher of any kind runs in a browser. `RandomNumberGenerator`, SHA-256, HMAC-SHA-256, HKDF and `FixedTimeEquals` all do. ADR 0028 therefore builds a deterministic, misuse-resistant AEAD from HMAC-SHA-256 alone in an SIV composition, synchronous on all three hosts. Condition 1 — the primitives run in a browser — is measured and holds. Condition 2 — external cryptographic review of a custom instantiation of a standard composition — is due before milestone 9 ships; if the review rejects the construction, the fallback is that erasure mode does not run in the browser, recorded in its own ADR.
@@ -215,8 +219,16 @@ All Accepted. Three carry a stated condition under which they are to be supersed
 | Sorted runs for the default projection and for checkpoints | 0041 | |
 | Subscriptions pull from the log | 0042 | |
 | Blank node identity in process (Q1, in-process half) | 0044 | |
-| The provisional log encoding and in-memory id layout | 0045 | Superseded in part by the milestone 6 durable format, by design. |
+| The provisional log encoding and in-memory id layout | 0045 | Superseded by 0072, by design. |
 | `Settings` commits reach every subscriber; version 1.2 | 0046 | |
 | Delta composition over chains; I3 over triple terms; version 1.3 | 0047 | |
+| The storage engine is our own: a segment writer for `log/`, sorted runs for `derived/` | 0070 | Tier merges cannot keep up with the commit rate at milestone 7. |
+| Synchronous reads of derived data over asynchronous storage | 0071 | A host has no synchronous read (6c decides for the browser). |
+| Format version 1, read forever from the first prerelease that writes it | 0072 | |
+| Durability per host, declared | 0073 | |
+| The private id and entry layout reserved; the key store refused by path | 0074 | |
+| One process per dataset directory, by an exclusive handle | 0075 | |
+| Bulk load by sort and merge-join (Q2) | 0076 | |
+| Bulk load validators scan the delta on disk (Q3) | 0077 | |
 
 Milestone placement: the first durable format (milestone 6) reserves the private id class, the private entry layout and the refusal of a key store path inside the dataset directory. Erasure mode itself is milestone 9, after the SHACL validator, because the shape-derived classifier and the classification gate depend on it.

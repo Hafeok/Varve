@@ -30,7 +30,7 @@ public class RegressionTests
         MemoryStorage storage = new();
         DatasetOptions options = T.Options(segmentBytes: 1024);
 
-        await using (Dataset dataset = await Dataset.OpenAsync(storage, options, T.Ct))
+        await using (Dataset dataset = await T.OpenOrCreate(storage, options))
         {
             for (int i = 0; (await storage.Log.ListSegmentsAsync(T.Ct)).Count < 2; i++)
             {
@@ -42,17 +42,17 @@ public class RegressionTests
 
         for (int cut = 0; cut < 8; cut++)
         {
-            MemoryStorage copy = MemoryStorage.FromSegments([segments[0], segments[1].AsMemory(0, cut)]);
+            MemoryStorage copy = MemoryStorage.FromLog(T.Manifest, [segments[0], segments[1].AsMemory(0, cut)]);
             long head;
 
-            await using (Dataset recovered = await Dataset.OpenAsync(copy, options, T.Ct))
+            await using (Dataset recovered = await T.OpenOrCreate(copy, options))
             {
                 head = recovered.Head.Value;
                 CommitResult next = await recovered.CommitAsync(new CommitRequest().Assert(T.Iri("after"), T.Iri("p"), T.Iri("o")), T.Ct);
                 Assert.Equal(new Position(head + 1), next.Position);
             }
 
-            await using Dataset reopened = await Dataset.OpenAsync(copy, options, T.Ct);
+            await using Dataset reopened = await T.OpenOrCreate(copy, options);
             Assert.Equal(new Position(head + 1), reopened.Head);
         }
     }

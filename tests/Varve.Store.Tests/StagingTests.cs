@@ -29,8 +29,8 @@ public class StagingTests
     {
         List<string> order = [];
         Recording first = new("dataset-1", order), second = new("dataset-2", order), own = new("request", order);
-        await using Dataset dataset = await Dataset.OpenAsync(
-            new MemoryStorage(), new DatasetOptions { Clock = ManualClock.Epoch(), Validators = [first, second] }, T.Ct);
+        await using Dataset dataset = await Dataset.CreateAsync(
+            new MemoryStorage(), T.Id, new DatasetOptions { Clock = ManualClock.Epoch(), Validators = [first, second] }, T.Ct);
 
         CommitRequest request = new CommitRequest { Validators = [own] }.Assert(T.Iri("a"), T.Iri("p"), T.Iri("o"));
         Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(request, T.Ct)).Outcome);
@@ -55,8 +55,8 @@ public class StagingTests
     [Fact]
     public async Task a_dataset_validator_rejects_whatever_the_request_brings_and_leaves_no_trace()
     {
-        await using Dataset dataset = await Dataset.OpenAsync(
-            new MemoryStorage(), new DatasetOptions { Clock = ManualClock.Epoch(), Validators = [new Refusing()] }, T.Ct);
+        await using Dataset dataset = await Dataset.CreateAsync(
+            new MemoryStorage(), T.Id, new DatasetOptions { Clock = ManualClock.Epoch(), Validators = [new Refusing()] }, T.Ct);
 
         CommitResult result = await dataset.CommitAsync(One("new"), T.Ct);
 

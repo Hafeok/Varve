@@ -80,19 +80,89 @@ public abstract class StorageContractTests
         Assert.Equal(Bytes(1, 2), held.ToArray());
     }
 
+    private static async Task PutAsync(IStorage storage, string name, params byte[] bytes)
+    {
+        await using IBlobWriter writer = await storage.Derived.CreateAsync(new BlobName(name), T.Ct);
+        await writer.WriteAsync(bytes, T.Ct);
+        await writer.PublishAsync(T.Ct);
+    }
+
+    private static async Task<byte[]> ReadAsync(IStorage storage, string name, long offset = 0, int length = 100)
+    {
+        using IReadableBlob blob = await storage.Derived.OpenAsync(new BlobName(name), T.Ct);
+        byte[] buffer = new byte[length];
+        int read = blob.Read(new ByteOffset(offset), buffer);
+        return buffer.AsSpan(0, read).ToArray();
+    }
+
     [Fact]
-    public async Task derived_blobs_are_put_replaced_listed_in_ordinal_order_and_deleted()
+    public async Task derived_blobs_are_published_replaced_listed_in_ordinal_order_and_deleted()
     {
         IStorage storage = Create();
-        await storage.Derived.PutAsync(new BlobName("b"), Bytes(1), T.Ct);
-        await storage.Derived.PutAsync(new BlobName("a"), Bytes(2, 3), T.Ct);
-        await storage.Derived.PutAsync(new BlobName("b"), Bytes(4, 5, 6), T.Ct);
+        await PutAsync(storage, "b", 1);
+        await PutAsync(storage, "a", 2, 3);
+        await PutAsync(storage, "b", 4, 5, 6);
 
         Assert.Equal([new BlobName("a"), new BlobName("b")], await storage.Derived.ListAsync(T.Ct));
-        Assert.Equal(Bytes(5, 6), (await storage.Derived.GetRangeAsync(new BlobName("b"), new ByteOffset(1), new ByteCount(10), T.Ct)).ToArray());
+        Assert.Equal(Bytes(5, 6), await ReadAsync(storage, "b", 1, 10));
+        Assert.Equal(Bytes(4, 5, 6), await ReadAsync(storage, "b"));
+        Assert.Empty(await ReadAsync(storage, "b", 3, 10));
         Assert.True(await storage.Derived.DeleteAsync(new BlobName("a"), T.Ct));
         Assert.False(await storage.Derived.DeleteAsync(new BlobName("a"), T.Ct));
         Assert.Equal([new BlobName("b")], await storage.Derived.ListAsync(T.Ct));
+        await Assert.ThrowsAnyAsync<KeyNotFoundException>(async () => await storage.Derived.OpenAsync(new BlobName("a"), T.Ct));
+    }
+
+    [Fact]
+    public async Task a_blob_is_invisible_until_published_and_an_unpublished_writer_leaves_nothing()
+    {
+        IStorage storage = Create();
+        await PutAsync(storage, "kept", 1, 2);
+
+        await using (IBlobWriter writer = await storage.Derived.CreateAsync(new BlobName("kept"), T.Ct))
+        {
+            await writer.WriteAsync(Bytes(9, 9, 9), T.Ct);
+            Assert.Equal(Bytes(1, 2), await ReadAsync(storage, "kept"));
+        }
+
+        await using (IBlobWriter writer = await storage.Derived.CreateAsync(new BlobName("never"), T.Ct))
+        {
+            await writer.WriteAsync(Bytes(7), T.Ct);
+        }
+
+        Assert.Equal(Bytes(1, 2), await ReadAsync(storage, "kept"));
+        Assert.Equal([new BlobName("kept")], await storage.Derived.ListAsync(T.Ct));
+    }
+
+    [Fact]
+    public async Task an_open_blob_keeps_its_bytes_when_its_name_is_replaced()
+    {
+        IStorage storage = Create();
+        await PutAsync(storage, "run", 1, 2, 3);
+        using IReadableBlob held = await storage.Derived.OpenAsync(new BlobName("run"), T.Ct);
+
+        await PutAsync(storage, "run", 4, 5, 6, 7);
+
+        byte[] buffer = new byte[8];
+        Assert.Equal(new ByteCount(3), held.Length);
+        Assert.Equal(3, held.Read(new ByteOffset(0), buffer));
+        Assert.Equal(Bytes(1, 2, 3), buffer.AsSpan(0, 3).ToArray());
+        Assert.Equal(Bytes(4, 5, 6, 7), await ReadAsync(storage, "run"));
+    }
+
+    [Fact]
+    public async Task the_manifest_is_empty_until_written_and_is_written_once_before_any_segment()
+    {
+        IStorage storage = Create();
+        Assert.True((await storage.Log.ReadManifestAsync(T.Ct)).IsEmpty);
+
+        await storage.Log.WriteManifestAsync(Bytes(1, 2, 3), T.Ct);
+        Assert.Equal(Bytes(1, 2, 3), (await storage.Log.ReadManifestAsync(T.Ct)).ToArray());
+        await Assert.ThrowsAnyAsync<InvalidOperationException>(async () => await storage.Log.WriteManifestAsync(Bytes(4), T.Ct));
+
+        IStorage other = Create();
+        await other.Log.CreateSegmentAsync(T.Ct);
+        await Assert.ThrowsAnyAsync<InvalidOperationException>(async () => await other.Log.WriteManifestAsync(Bytes(4), T.Ct));
     }
 
     [Fact]
@@ -103,7 +173,7 @@ public abstract class StorageContractTests
     {
         IStorage storage = Create();
 
-        await using (Dataset dataset = await Dataset.OpenAsync(storage, T.Options(segmentBytes: 1024), T.Ct))
+        await using (Dataset dataset = await T.OpenOrCreate(storage, T.Options(segmentBytes: 1024)))
         {
             for (int i = 0; i < 20; i++)
             {
@@ -115,7 +185,7 @@ public abstract class StorageContractTests
 
         Assert.True((await storage.Log.ListSegmentsAsync(T.Ct)).Count > 1, "the small segment size should have forced several segments");
 
-        await using Dataset reopened = await Dataset.OpenAsync(storage, T.Options(segmentBytes: 1024), T.Ct);
+        await using Dataset reopened = await T.OpenOrCreate(storage, T.Options(segmentBytes: 1024));
         Assert.Equal(new Position(20), reopened.Head);
         Assert.Equal([new Position(10)], reopened.Checkpoints);
 
@@ -148,6 +218,7 @@ internal sealed class ListStorage : IStorage, ISegmentStore, IDerivedStore
 {
     private readonly List<(List<byte> Bytes, bool Sealed)> _segments = [];
     private readonly SortedDictionary<BlobName, byte[]> _blobs = [];
+    private byte[]? _manifest;
 
     public ISegmentStore Log => this;
 
@@ -197,20 +268,61 @@ internal sealed class ListStorage : IStorage, ISegmentStore, IDerivedStore
         return new(bytes.GetRange(start, (int)Math.Min(length.Value, bytes.Count - start)).ToArray());
     }
 
-    public ValueTask PutAsync(BlobName name, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
+    public ValueTask<ReadOnlyMemory<byte>> ReadManifestAsync(CancellationToken cancellationToken) => new(_manifest ?? ReadOnlyMemory<byte>.Empty);
+
+    public ValueTask WriteManifestAsync(ReadOnlyMemory<byte> manifest, CancellationToken cancellationToken)
     {
-        _blobs[name] = bytes.ToArray();
+        if (_manifest is not null || _segments.Count > 0)
+        {
+            throw new InvalidOperationException("The manifest is written once, before any segment.");
+        }
+
+        _manifest = manifest.ToArray();
         return ValueTask.CompletedTask;
     }
 
-    public ValueTask<ReadOnlyMemory<byte>> GetRangeAsync(BlobName name, ByteOffset offset, ByteCount length, CancellationToken cancellationToken)
-    {
-        byte[] blob = _blobs[name];
-        int start = (int)Math.Min(offset.Value, blob.Length);
-        return new(blob.AsMemory(start, (int)Math.Min(length.Value, blob.Length - start)).ToArray());
-    }
+    public ValueTask<IBlobWriter> CreateAsync(BlobName name, CancellationToken cancellationToken) => new(new ListWriter(this, name));
+
+    public ValueTask<IReadableBlob> OpenAsync(BlobName name, CancellationToken cancellationToken) =>
+        _blobs.TryGetValue(name, out byte[]? blob) ? new(new ListBlob(blob)) : throw new KeyNotFoundException(name.Value);
 
     public ValueTask<bool> DeleteAsync(BlobName name, CancellationToken cancellationToken) => new(_blobs.Remove(name));
 
     public ValueTask<IReadOnlyList<BlobName>> ListAsync(CancellationToken cancellationToken) => new(_blobs.Keys.ToArray());
+
+    private sealed class ListWriter(ListStorage storage, BlobName name) : IBlobWriter
+    {
+        private readonly List<byte> _bytes = [];
+
+        public ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
+        {
+            _bytes.AddRange(bytes.ToArray());
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask PublishAsync(CancellationToken cancellationToken)
+        {
+            storage._blobs[name] = [.. _bytes];
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    private sealed class ListBlob(byte[] bytes) : IReadableBlob
+    {
+        public ByteCount Length => new(bytes.Length);
+
+        public int Read(ByteOffset offset, Span<byte> destination)
+        {
+            int start = (int)Math.Min(offset.Value, bytes.Length);
+            int count = Math.Min(destination.Length, bytes.Length - start);
+            bytes.AsSpan(start, count).CopyTo(destination);
+            return count;
+        }
+
+        public void Dispose()
+        {
+        }
+    }
 }

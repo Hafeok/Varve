@@ -258,9 +258,7 @@ static Varve.Store.LogChain.FindDivergenceAsync(Varve.Store.ISegmentStore! first
 ~override Varve.Store.Log.Position.Equals(object obj) -> bool
 ~override Varve.Store.Log.SegmentId.Equals(object obj) -> bool
 Varve.Store.IDerivedStore.DeleteAsync(Varve.Store.Log.BlobName name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
-Varve.Store.IDerivedStore.GetRangeAsync(Varve.Store.Log.BlobName name, Varve.Store.Log.ByteOffset offset, Varve.Store.Log.ByteCount length, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.ReadOnlyMemory<byte>>
 Varve.Store.IDerivedStore.ListAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Varve.Store.Log.BlobName>!>
-Varve.Store.IDerivedStore.PutAsync(Varve.Store.Log.BlobName name, System.ReadOnlyMemory<byte> bytes, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
 Varve.Store.Log.BlobName
 Varve.Store.Log.BlobName.BlobName() -> void
 Varve.Store.Log.BlobName.BlobName(string! value) -> void
@@ -301,6 +299,96 @@ static Varve.Store.Log.RequestTerm.None.get -> Varve.Store.Log.RequestTerm
 static Varve.Store.Log.RequestTerm.implicit operator Varve.Store.Log.RequestTerm(Varve.Rdf.RdfTerm! term) -> Varve.Store.Log.RequestTerm
 static Varve.Store.Log.RequestTerm.operator !=(Varve.Store.Log.RequestTerm left, Varve.Store.Log.RequestTerm right) -> bool
 static Varve.Store.Log.RequestTerm.operator ==(Varve.Store.Log.RequestTerm left, Varve.Store.Log.RequestTerm right) -> bool
-static Varve.Store.MemoryStorage.FromSegments(System.Collections.Generic.IEnumerable<System.ReadOnlyMemory<byte>>! log, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Varve.Store.Log.BlobName, System.ReadOnlyMemory<byte>>>? derived = null) -> Varve.Store.MemoryStorage!
 ~override Varve.Store.Log.BlobName.Equals(object obj) -> bool
 Varve.Store.DatasetOptions.MaxRecordBytes.get -> Varve.Store.Log.ByteCount
+Varve.Store.IBlobWriter
+Varve.Store.IBlobWriter.PublishAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Store.IBlobWriter.WriteAsync(System.ReadOnlyMemory<byte> bytes, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Store.IDerivedStore.CreateAsync(Varve.Store.Log.BlobName name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Store.IBlobWriter!>
+Varve.Store.IDerivedStore.OpenAsync(Varve.Store.Log.BlobName name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Store.IReadableBlob!>
+Varve.Store.IReadableBlob
+Varve.Store.IReadableBlob.Length.get -> Varve.Store.Log.ByteCount
+Varve.Store.IReadableBlob.Read(Varve.Store.Log.ByteOffset offset, System.Span<byte> destination) -> int
+Varve.Store.ISegmentStore.ReadManifestAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.ReadOnlyMemory<byte>>
+Varve.Store.ISegmentStore.WriteManifestAsync(System.ReadOnlyMemory<byte> manifest, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+static Varve.Store.MemoryStorage.FromLog(System.ReadOnlyMemory<byte> manifest, System.Collections.Generic.IEnumerable<System.ReadOnlyMemory<byte>>! log, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Varve.Store.Log.BlobName, System.ReadOnlyMemory<byte>>>? derived = null) -> Varve.Store.MemoryStorage!
+Varve.Store.Dataset.Id.get -> Varve.Store.Log.DatasetId
+Varve.Store.Log.DatasetId
+Varve.Store.Log.DatasetId.DatasetId() -> void
+Varve.Store.Log.DatasetId.DatasetId(System.Guid value) -> void
+Varve.Store.Log.DatasetId.Equals(Varve.Store.Log.DatasetId other) -> bool
+Varve.Store.Log.DatasetId.Value.get -> System.Guid
+Varve.Store.Log.FormatVersion
+Varve.Store.Log.FormatVersion.CompareTo(Varve.Store.Log.FormatVersion other) -> int
+Varve.Store.Log.FormatVersion.Equals(Varve.Store.Log.FormatVersion other) -> bool
+Varve.Store.Log.FormatVersion.FormatVersion() -> void
+Varve.Store.Log.FormatVersion.FormatVersion(ushort value) -> void
+Varve.Store.Log.FormatVersion.Value.get -> ushort
+Varve.Store.UnsupportedFormatException
+Varve.Store.UnsupportedFormatException.Found.get -> Varve.Store.Log.FormatVersion?
+Varve.Store.UnsupportedFormatException.Supported.get -> Varve.Store.Log.FormatVersion?
+Varve.Store.UnsupportedFormatException.UnsupportedFormatException() -> void
+Varve.Store.UnsupportedFormatException.UnsupportedFormatException(Varve.Store.Log.FormatVersion found, Varve.Store.Log.FormatVersion supported) -> void
+Varve.Store.UnsupportedFormatException.UnsupportedFormatException(string! message) -> void
+Varve.Store.UnsupportedFormatException.UnsupportedFormatException(string! message, System.Exception! innerException) -> void
+override Varve.Store.Log.DatasetId.GetHashCode() -> int
+override Varve.Store.Log.DatasetId.ToString() -> string!
+override Varve.Store.Log.FormatVersion.GetHashCode() -> int
+override Varve.Store.Log.FormatVersion.ToString() -> string!
+static Varve.Store.Dataset.CreateAsync(Varve.Store.IStorage! storage, Varve.Store.Log.DatasetId id, Varve.Store.DatasetOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Dataset!>
+static Varve.Store.Log.DatasetId.operator !=(Varve.Store.Log.DatasetId left, Varve.Store.Log.DatasetId right) -> bool
+static Varve.Store.Log.DatasetId.operator ==(Varve.Store.Log.DatasetId left, Varve.Store.Log.DatasetId right) -> bool
+static Varve.Store.Log.FormatVersion.Current.get -> Varve.Store.Log.FormatVersion
+static Varve.Store.Log.FormatVersion.operator !=(Varve.Store.Log.FormatVersion left, Varve.Store.Log.FormatVersion right) -> bool
+static Varve.Store.Log.FormatVersion.operator <(Varve.Store.Log.FormatVersion left, Varve.Store.Log.FormatVersion right) -> bool
+static Varve.Store.Log.FormatVersion.operator <=(Varve.Store.Log.FormatVersion left, Varve.Store.Log.FormatVersion right) -> bool
+static Varve.Store.Log.FormatVersion.operator ==(Varve.Store.Log.FormatVersion left, Varve.Store.Log.FormatVersion right) -> bool
+static Varve.Store.Log.FormatVersion.operator >(Varve.Store.Log.FormatVersion left, Varve.Store.Log.FormatVersion right) -> bool
+static Varve.Store.Log.FormatVersion.operator >=(Varve.Store.Log.FormatVersion left, Varve.Store.Log.FormatVersion right) -> bool
+~override Varve.Store.Log.DatasetId.Equals(object obj) -> bool
+~override Varve.Store.Log.FormatVersion.Equals(object obj) -> bool
+Varve.Store.DatasetLeasedException
+Varve.Store.DatasetLeasedException.DatasetLeasedException() -> void
+Varve.Store.DatasetLeasedException.DatasetLeasedException(string! message) -> void
+Varve.Store.DatasetLeasedException.DatasetLeasedException(string! message, System.Exception! innerException) -> void
+Varve.Store.FileStorage
+Varve.Store.FileStorage.Derived.get -> Varve.Store.IDerivedStore!
+Varve.Store.FileStorage.Directory.get -> Varve.Store.Log.DatasetDirectory
+Varve.Store.FileStorage.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Varve.Store.FileStorage.Log.get -> Varve.Store.ISegmentStore!
+Varve.Store.FileStorageOptions
+Varve.Store.FileStorageOptions.Clock.get -> System.TimeProvider!
+Varve.Store.FileStorageOptions.Clock.init -> void
+Varve.Store.FileStorageOptions.FileStorageOptions() -> void
+Varve.Store.FileStorageOptions.KeyStore.get -> Varve.Store.Log.KeyStoreDirectory?
+Varve.Store.FileStorageOptions.KeyStore.init -> void
+Varve.Store.Log.DatasetDirectory
+Varve.Store.Log.DatasetDirectory.DatasetDirectory() -> void
+Varve.Store.Log.DatasetDirectory.DatasetDirectory(string! path) -> void
+Varve.Store.Log.DatasetDirectory.Equals(Varve.Store.Log.DatasetDirectory other) -> bool
+Varve.Store.Log.DatasetDirectory.Value.get -> string!
+Varve.Store.Log.KeyStoreDirectory
+Varve.Store.Log.KeyStoreDirectory.Equals(Varve.Store.Log.KeyStoreDirectory other) -> bool
+Varve.Store.Log.KeyStoreDirectory.IsWithin(Varve.Store.Log.DatasetDirectory dataset) -> bool
+Varve.Store.Log.KeyStoreDirectory.KeyStoreDirectory() -> void
+Varve.Store.Log.KeyStoreDirectory.KeyStoreDirectory(string! path) -> void
+Varve.Store.Log.KeyStoreDirectory.Value.get -> string!
+override Varve.Store.Log.DatasetDirectory.GetHashCode() -> int
+override Varve.Store.Log.DatasetDirectory.ToString() -> string!
+override Varve.Store.Log.KeyStoreDirectory.GetHashCode() -> int
+override Varve.Store.Log.KeyStoreDirectory.ToString() -> string!
+static Varve.Store.FileStorage.OpenAsync(Varve.Store.Log.DatasetDirectory directory, Varve.Store.FileStorageOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.FileStorage!>
+static Varve.Store.Log.DatasetDirectory.operator !=(Varve.Store.Log.DatasetDirectory left, Varve.Store.Log.DatasetDirectory right) -> bool
+static Varve.Store.Log.DatasetDirectory.operator ==(Varve.Store.Log.DatasetDirectory left, Varve.Store.Log.DatasetDirectory right) -> bool
+static Varve.Store.Log.KeyStoreDirectory.operator !=(Varve.Store.Log.KeyStoreDirectory left, Varve.Store.Log.KeyStoreDirectory right) -> bool
+static Varve.Store.Log.KeyStoreDirectory.operator ==(Varve.Store.Log.KeyStoreDirectory left, Varve.Store.Log.KeyStoreDirectory right) -> bool
+~override Varve.Store.Log.DatasetDirectory.Equals(object obj) -> bool
+~override Varve.Store.Log.KeyStoreDirectory.Equals(object obj) -> bool
+Varve.Store.Dataset.MaintainAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Varve.Store.DatasetOptions.Maintenance.get -> Varve.Store.MaintenanceMode
+Varve.Store.DatasetOptions.Maintenance.init -> void
+Varve.Store.DatasetOptions.MemtableLimit.get -> Varve.Rdf.QuadCount
+Varve.Store.DatasetOptions.MemtableLimit.init -> void
+Varve.Store.MaintenanceMode
+Varve.Store.MaintenanceMode.Background = 1 -> Varve.Store.MaintenanceMode
+Varve.Store.MaintenanceMode.Off = 0 -> Varve.Store.MaintenanceMode

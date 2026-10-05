@@ -1,6 +1,6 @@
 # Decision-driven report
 
-DecisionDriven.Report 0.1.0-preview.6 at `c96f631dbf1e`. Nothing here gates a build: a metric becomes a gate only by a decision that names its threshold and baseline.
+DecisionDriven.Report 0.1.0-preview.6 at `a19756956494`. Nothing here gates a build: a metric becomes a gate only by a decision that names its threshold and baseline.
 
 ## Layers
 
@@ -15,7 +15,7 @@ Instability should fall as the layer does. An assembly marked ⚠ is less stable
 | `Varve.Sparql.Results` | 2 | 0 | 1 | 1.00 | 0.07 | 0.07 | ⚠ |
 | `Varve.Turtle` | 2 | 1 | 2 | 0.67 | 0.00 | 0.33 |  |
 | `Varve.Sparql.Evaluation` | 3 | 1 | 4 | 0.80 | 0.08 | 0.12 | ⚠ |
-| `Varve.Store` | 4 | 1 | 2 | 0.67 | 0.09 | 0.25 |  |
+| `Varve.Store` | 4 | 1 | 2 | 0.67 | 0.10 | 0.23 |  |
 | `Varve.Sparql.Store` | 5 | 0 | 5 | 1.00 | 0.08 | 0.08 |  |
 
 ## Contracts
@@ -32,11 +32,13 @@ Members offered against members each caller takes. A contract every caller uses 
 | `Varve.Sparql.Evaluation.IRandomSource` | 1 | 0 | `Varve.Sparql.Evaluation.Execution.Exec` uses 1 of 1: NextBytes |
 | `Varve.Sparql.Evaluation.IServiceHandler` | 1 | 1 | `Varve.Sparql.Evaluation.Operators.ServiceOperator` uses 1 of 1: Execute |
 | `Varve.Sparql.Store.ILoadSource` | 1 | 1 | `Varve.Sparql.Store.RequestExecution` uses 1 of 1: LoadAsync |
+| `Varve.Store.IBlobWriter` | 2 | 2 | `Varve.Store.DerivedFormat` uses 2 of 2: PublishAsync, WriteAsync |
 | `Varve.Store.ICommitValidator` | 1 | 0 | `Varve.Store.Dataset` uses 1 of 1: Validate |
-| `Varve.Store.IDerivedStore` | 4 | 1 | `Varve.Store.Dataset` uses 4 of 4: DeleteAsync, GetRangeAsync, ListAsync, PutAsync |
+| `Varve.Store.IDerivedStore` | 4 | 2 | `Varve.Store.Dataset` uses 2 of 4: DeleteAsync, ListAsync<br>`Varve.Store.DerivedFormat` uses 2 of 4: CreateAsync, OpenAsync |
 | `Varve.Store.IProjection` | 3 | 0 | `Varve.Store.Dataset` uses 3 of 3: ApplyAsync, Position, ResetAsync |
-| `Varve.Store.ISegmentStore` | 7 | 1 | `Varve.Store.Dataset` uses 1 of 7: Durability<br>`Varve.Store.LogReader` uses 2 of 7: ListSegmentsAsync, ReadRangeAsync<br>`Varve.Store.LogWriter` uses 4 of 7: AppendAsync, CreateSegmentAsync, FlushAsync, SealAsync |
-| `Varve.Store.IStorage` | 2 | 1 | `Varve.Store.Dataset` uses 2 of 2: Derived, Log |
+| `Varve.Store.IReadableBlob` | 2 | 2 | `Varve.Store.DerivedFormat` uses 2 of 2: Length, Read<br>`Varve.Store.KeySection` uses 1 of 2: Read |
+| `Varve.Store.ISegmentStore` | 9 | 2 | `Varve.Store.Dataset` uses 4 of 9: Durability, ListSegmentsAsync, ReadManifestAsync, WriteManifestAsync<br>`Varve.Store.LogChain` uses 1 of 9: ReadManifestAsync<br>`Varve.Store.LogReader` uses 2 of 9: ListSegmentsAsync, ReadRangeAsync<br>`Varve.Store.LogReader.SegmentReader` uses 1 of 9: ReadRangeAsync<br>`Varve.Store.LogWriter` uses 4 of 9: AppendAsync, CreateSegmentAsync, FlushAsync, SealAsync |
+| `Varve.Store.IStorage` | 2 | 2 | `Varve.Store.Dataset` uses 2 of 2: Derived, Log |
 
 ## Model cohesion (LCOM4)
 
@@ -88,6 +90,11 @@ The number of groups a type's methods fall into, where methods sharing a field o
 | `Varve.Store.Log.CommitRequest` | 1 | 5 |
 | `Varve.Store.Log.CommitResult` | 6 | 11 |
 | `Varve.Store.Log.CommitTimestamp` | 1 | 6 |
+| `Varve.Store.Log.DatasetDirectory` | 1 | 1 |
+| `Varve.Store.Log.DatasetId` | 2 | 3 |
+| `Varve.Store.Log.DirectoryPath` | 2 | 3 |
+| `Varve.Store.Log.FormatVersion` | 1 | 6 |
+| `Varve.Store.Log.KeyStoreDirectory` | 1 | 2 |
 | `Varve.Store.Log.Position` | 1 | 7 |
 | `Varve.Store.Log.RequestTerm` | 3 | 8 |
 | `Varve.Store.Log.SegmentId` | 1 | 6 |
@@ -127,7 +134,7 @@ The number of groups a type's methods fall into, where methods sharing a field o
 
 ## Citations
 
-652 citations of 71 decisions.
+692 citations of 76 decisions.
 
 ### Decisions with no citation
 
@@ -174,13 +181,15 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/BenchmarkSinkIsStatic` — A parse benchmark's sink, the counter its callbacks add to so that the parse is not optimised away, is a static field, because the callbacks are static lambdas and an instance sink would make each one a closure: an allocation in the arm that measures allocation
 - `dec:varve/BenchmarksNeverGate` — Benchmarks are never a gate and are not run in CI, and a number is reported with the machine that produced it
 - `dec:varve/BindingDecisionsAreEnforced` — A decision that binds code is enforced or it does not bind, and an ADR that can become an analyzer rule names the rule that enforces it
-- `dec:varve/BodyIsAllocThenAssertThenRetract` — A commit's body is alloc, then A, then R, each counted, with A and R sorted by id
+- `dec:varve/BodyIsAllocThenAssertThenRetract` — A commit's body is chunks of alloc, then assert, then retract, each with its own count, with asserted and retracted quads sorted; the closing record's body ends with the commit header and its length
 - `dec:varve/BotCommitsExempt` — Commits by dependabot[bot] and github-actions[bot], a closed list in the gate's source, are exempt from the issue reference
 - `dec:varve/BranchBoundSessionLandsByPullRequest` — A cloud session bound to a development branch lands its work through a pull request the maintainer merges
 - `dec:varve/BranchNamesAreTheAuthors` — The branch-naming table is withdrawn, and a short-lived branch's name is its author's business
 - `dec:varve/BrowserBackendAtLayer5` — The memory and file backends may live in Varve.Store, and the browser backend is a separate layer 5 package
 - `dec:varve/BrowserPrimitivesAsserted` — The browser smoke test asserts on every run which cryptographic primitives the browser has and lacks
+- `dec:varve/BulkLoadCommitsOnceByChunks` — A bulk load commits its effective delta as one multi-record commit of chunks with their own counts and an incrementally computed content hash
 - `dec:varve/BulkLoadIsOneCommit` — A bulk load is one logical commit of as many records as it needs, written in bounded memory
+- `dec:varve/BulkLoadSortsAndMergeJoins` — A bulk load sorts its resolved input into a run by an external sort spilling to derived/ and computes its effective delta by a streaming merge-join against the pinned state's runs, with no index lookup per quad
 - `dec:varve/C14nCasesUnderTheRatchet` — The 82 RDF 1.2 c14n cases are under the ratchet with guard counts of 41 per manifest
 - `dec:varve/CallerDisposesThePin` — The caller disposes the pin when the disposable result stream ends, and disposing it earlier is a caller error
 - `dec:varve/CallerRunsProjections` — Asynchronous projections catch up and rebuild through the same reader when the caller asks, with no registry and no background task the store owns
@@ -224,6 +233,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/CrLfTestedOnOwnDocuments` — CR LF handling in parsers is tested on documents this repository owns, never on whatever a checkout produced
 - `dec:varve/CsCheckForProperties` — Property-based tests use CsCheck, a test-only package chosen for having no dependencies
 - `dec:varve/DatasetBoundValidators` — DatasetOptions.Validators run on every Data commit in order, before the request's own validators, both seeing the overlay and the delta, and either may reject
+- `dec:varve/DatasetIdIsGiven` — A dataset's 16-byte id is given by whoever creates the dataset; the store never generates one
 - `dec:varve/DatasetLeasePreventsConcurrentOpen` — A lease file in derived/ prevents a CLI and a server from opening one dataset concurrently
 - `dec:varve/DateAndGTypesPartialOrder` — xsd:date, xsd:time and the g types compare by the XSD partial order, an indeterminate pair being a type error
 - `dec:varve/DateTimeImplicitTimezoneOrder` — xsd:dateTime compares by the implicit-timezone total order, the implicit timezone being an evaluator setting that defaults to UTC
@@ -235,6 +245,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/DefaultProjectionSynchronous` — The default quad projection is updated before Committed(P) returns, so a pin taken afterwards observes P, and every other projection lags
 - `dec:varve/DefaultServiceHandlerRefuses` — The default service handler refuses every endpoint, so the default configuration opens no connection
 - `dec:varve/DeliveredAllocationsFiltered` — A delivered commit carries only the allocations its delivered delta and metadata refer to
+- `dec:varve/DerivedIsSortedRunsOnDisk` — derived/ holds the default projection as ADR 0041's immutable sorted runs: the newest in memory as a memtable, and older ones as disk runs written by a memtable flush or a tier merge
 - `dec:varve/DetachAbsentUntilArchive` — Detach is absent from the storage contract until archive exists
 - `dec:varve/DeterminismForCrashFreeHistories` — The determinism property holds for crash-free histories, because a tail recovery abandoned stays in the log
 - `dec:varve/DeterministicBuilds` — Builds are deterministic, with ContinuousIntegrationBuild under CI and EmbedUntrackedSources, so two builds of one commit produce the same bytes
@@ -243,6 +254,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/DiffFromTheLogAlone` — Diff(P1, P2) is net(L(P1..P2]), computed from the log alone with no state lookup
 - `dec:varve/DifferentialExemptionsChecked` — The differential harness fails on an exemption with no or an unknown category, missing references or the category varve-defect
 - `dec:varve/DifferentialTriage` — Every differential disagreement is exactly one of varve-defect, upstream-defect, spec-gap or intentional-divergence, and varve-defect is never exempted
+- `dec:varve/DirectoriesAreWrappers` — DatasetDirectory and KeyStoreDirectory are wrappers over a normalised absolute path, compared segment by segment from the full path, case-insensitively on Windows only, and no string path is on FileStorage or Dataset
 - `dec:varve/DiscardedTailRepresentable` — The storage contract can represent a discarded unclosed tail
 - `dec:varve/DistinctAggregateIsASet` — DISTINCT in an aggregate is a set per accumulator keyed by term equality, and COUNT(DISTINCT *) keys on the whole solution
 - `dec:varve/DivergenceFoundByComparison` — Two logs with a common prefix and different continuations are divergent, and the branch point is the first position whose chain values differ
@@ -287,9 +299,11 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/ExternalReviewBeforeShipping` — Nothing presents the construction as protecting data until an external cryptographic review, due before milestone 9 ships, and a rejection means erasure mode does not run in the browser
 - `dec:varve/ExternalisedBlankLabelsFromIds` — TryExternalise of a blank id gives a label derived from the id, stable within the dataset and no identity across datasets
 - `dec:varve/FailingOperationThrowsBeforeSubmit` — A failing update operation throws before the submit, releasing the pin, and nothing reaches the log or the dictionary
+- `dec:varve/FileBackendIsSynchronised` — The file backend declares Synchronised: a flush returns after FlushToDisk, so the appended bytes and the file's length are on the device
 - `dec:varve/FilterRunsInTheReader` — A subscription's filter runs in the reader, before delivery
 - `dec:varve/FilteredSkipsKeepTruePositions` — A subscription filter skips a commit whose filtered delta is empty, and the next delivered commit carries its true position
 - `dec:varve/FloorRaiseWaitsForAmendment` — A preview that raises the Roslyn floor it declares is not taken until a dated amendment to ADR 0009 raises Varve's
+- `dec:varve/FlushBeforeVisible` — A derived blob is flushed before it is renamed into place, a segment's header before its first record, and the manifest before any segment exists
 - `dec:varve/ForbiddenOperationsAbsent` — Truncation, positional writes and deletion of a sealed segment are absent from the storage contract's type, not forbidden in prose
 - `dec:varve/FreshPathVariablesOutsideVarname` — Variables a path rewrite introduces are named .p0, .p1 and so on, outside VARNAME, so none collides with an author's or is ever projected
 - `dec:varve/FullWidthSyntheticIv` — The synthetic IV and tag is the full 32 bytes of HMAC-SHA-256
@@ -306,8 +320,9 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/HarnessOwnsSubjectAbstraction` — The harness defines its own subject abstraction on the test side, which is not a design for the parser API
 - `dec:varve/HeaderChainsToPrevious` — Every commit header carries prev, the hash of the previous commit's header, with a fixed value at position 1
 - `dec:varve/HeaderCommitsToContent` — Every commit header carries content, the hash of (alloc, A, R), so the chain commits to every byte of the log
-- `dec:varve/HeaderFieldsAndHashes` — The header is version, kind, position, timestamp, agent, cause, graph scope, attachments, kind payload, prev and content, where content hashes the body and prev the previous header with SHA-256
-- `dec:varve/HeaderHashStoredBeside` — Each header's own hash is stored beside it, so a change to the last header breaks verification
+- `dec:varve/HeaderFieldsAndHashes` — The commit header is version, kind, position, timestamp, agent, cause, graph scope, attachments, kind payload, the dictionary's three counters after the commit, prev and content, with SHA-256 for both hashes
+- `dec:varve/HeaderHashStoredBeside` — Every header in log/ and derived/ carries the SHA-256 of its own bytes, so a torn or reordered header is detected by itself
+- `dec:varve/HigherVersionRefused` — Opening a log of a format version above those the build reads refuses with a message naming the version found and the versions read
 - `dec:varve/HistoryNotRewrittenForSignatures` — Existing unsigned history is not rewritten to add signatures
 - `dec:varve/HostNamedOnce` — PackageProjectUrl is the only value naming the host, and RepositoryUrl is derived from the git remote at pack time
 - `dec:varve/HotPathAllowListIsConfiguration` — The hot-path BCL allow-list is configuration in .editorconfig, not code
@@ -329,11 +344,11 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/InMemoryDatasetInternsItsOwn` — An in-memory dataset without a store brings its own interning table, and nothing about the contract presumes a log
 - `dec:varve/InMemoryDatasetIsAValue` — InMemoryDataset is an immutable value in Varve.Rdf, an IQuadSource whose quads and interning table never change once made
 - `dec:varve/InMemoryDatasetNeverInline` — InMemoryDataset has no inline ids and always answers false rather than parsing behind the accessor
-- `dec:varve/InMemoryIdLayout` — An id's class is its top two bits, counters start at 1 so id 0 is the default graph, and an inline id carries a datatype tag in bits 61 to 56 and a 56-bit payload
+- `dec:varve/InMemoryIdLayout` — An id's class is its top two bits, counters start at 1 so id 0 is the default graph, and an inline id carries a datatype tag in bits 61 to 56 and a 56-bit payload, frozen as the format's id layout
 - `dec:varve/InlineIdsForSmallValues` — Small values are encoded inline, the value being the id, with no dictionary entry
 - `dec:varve/InlineOnlyCanonicalLexicalForms` — A literal may be encoded inline only when its lexical form is the canonical one for its datatype
 - `dec:varve/InlineSetAndLayoutAtMilestone6` — Which datatypes qualify for inline encoding and the exact tag layout are decided with the durable format at milestone 6, and no bytes are frozen before then
-- `dec:varve/InlineSetIntegerAndBoolean` — The in-memory inline set is canonical xsd:integer within range and xsd:boolean
+- `dec:varve/InlineSetIntegerAndBoolean` — The inline set is canonical xsd:integer within range and xsd:boolean, and is part of a dataset's creation settings, so it grows only for datasets created with the larger set
 - `dec:varve/IntegerIsCheckedInt64` — XsdInteger is a checked Int64, the derived integer types are range checks on it, and a form outside its range is a valid term with no value
 - `dec:varve/InternaliseAndExternalise` — A source maps a term to its handle with TryInternalise and back with TryExternalise, which answers false for a shredded private term
 - `dec:varve/InternalsVisibleToTestsOnly` — InternalsVisibleTo is permitted toward *.Tests assemblies only
@@ -351,16 +366,22 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/LayerExceptionEscape` — A reference the layer rule forbids is allowed only by a DesignDecision on the referencing symbol citing a filed, accepted decision
 - `dec:varve/LayerTable` — Seven layers: 0 Varve.Iri and Varve.Xsd, 1 Varve.Rdf, 2 the syntaxes and Varve.Sparql, 3 Varve.Sparql.Evaluation and Varve.Shacl, 4 Varve.Store, 5 integrations, 6 hosts
 - `dec:varve/LayersStrictlyDownward` — A package declares its layer, and a reference is legal only to a package in a strictly lower layer
+- `dec:varve/LeaseContentIsDiagnostic` — The lease's process id, machine and time taken are written beside it in derived/LOCK.owner, for the refusal's message only
+- `dec:varve/LeaseIsAnExclusiveHandle` — The lease is derived/LOCK held open with FileShare.None until the storage is disposed, released by the operating system when the process ends, with no renewal and no takeover interval
+- `dec:varve/LevelsStatePowerLoss` — The documentation of each durability level states what survives power loss, and names the directory-entry exception for Synchronised
 - `dec:varve/LicenceAndNoticePacked` — LICENSE and NOTICE are packed into every package, and the metadata gate requires both to be present in the archive
 - `dec:varve/LifetimeBoundedByCancellation` — A query's maximum lifetime is a host setting enforced through the evaluator's CancellationToken, set per request by the server and optional for an embedded caller
 - `dec:varve/LocalOverrideIsNotConfiguration` — Verifying a branch with a command-line override for CS0618 is allowed and is not configuration
 - `dec:varve/LocalSessionSignsLikeAHuman` — A session running locally with the maintainer's key signs like a human and gets no bypass
 - `dec:varve/LogAndDerivedUnconfusable` — log/ and derived/ cannot be confused, so dropping everything derived is safe
-- `dec:varve/LogEncodingIsProvisional` — The milestone 4 log encoding is provisional: every byte may change at milestone 6, whose format carries its own version byte
+- `dec:varve/LogEncodingIsProvisional` — The log's encoding is format version 1, tabulated in docs/spec/storage-format.md, and from the first prerelease tag that writes it every later version reads it
+- `dec:varve/LogIsASegmentWriter` — log/ is written by an append-only segment writer of Varve's own, with no keys, no index and no compaction
 - `dec:varve/LogTypesThatMove` — Commit, CommitKind, CommitMetadata, CommitOutcome, CommitResult, CommitRequest, DatasetSettings, SettingsChange, SubscriptionFilter, ValidationVerdict and SegmentInfo move to Varve.Store.Log
 - `dec:varve/MainIsTheTrunk` — main is the trunk, and anyone with write access commits to it directly or through a pull request, their choice
 - `dec:varve/MaintainerAcceptanceIsTheReview` — The maintainer accepts a filed decision by adding accepted-by and accepted-at on the pull request's branch in a signed commit of their own
+- `dec:varve/MaintenanceIsNotDelivery` — The decision is about delivering commits; the dataset may own maintenance on derived data under an explicit option, off the sequencer and never blocking a commit, off by default in a browser until 6b
 - `dec:varve/MajorBumpNeedsAdrChange` — A patch or minor bump of a registered package needs nothing, and a major bump or a new package needs its cited ADR changed in the same diff
+- `dec:varve/ManifestWrittenOnce` — log/MANIFEST holds the magic, format version, dataset id and creation settings with their hash, and is written once, before any segment
 - `dec:varve/ManifestsReadByVarveTurtle` — The conformance harness reads manifests with Varve.Turtle and references no other RDF implementation
 - `dec:varve/MarkHotPathsWhileWriting` — Hot paths are marked when they are written, before the rule that checks them exists
 - `dec:varve/MaxRecordBytesIsAByteCount` — DatasetOptions.MaxRecordBytes is a ByteCount, as SegmentBytes is, and opening a dataset refuses one below 64 bytes or above what a record's 32-bit length can carry
@@ -371,6 +392,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/MergedOnlyGreen` — An expected-red pull request is merged only green
 - `dec:varve/MissingSubmoduleFailsLoudly` — A guard test fails when a suite submodule is missing, so zero enumerated cases never pass silently
 - `dec:varve/ModelIsNaiveOnPurpose` — The reference model is deliberately slow and correct by inspection
+- `dec:varve/ModelNamedInTheRecordNotTheCommit` — The traceability record names the model by the identifier the session's metadata reports, filled in by the maintainer where the tool will not write it, and a commit message never carries a model's API identifier
 - `dec:varve/ModelPropertyAfterEveryRequest` — After every generated request the property compares the outcome and position, G_P and the dictionary's growth, and over the run as-of reads, diffs and the settings fold
 - `dec:varve/ModelSharesNoCode` — The reference model shares no code with the store, not even a helper
 - `dec:varve/MonotoneTimestamps` — The sequencer assigns each commit's timestamp as max(clock, ts(head)), so timestamps are monotone even across a clock that steps backwards (I5)
@@ -386,9 +408,10 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/NoCommittedCs0618Downgrade` — No committed configuration downgrades CS0618
 - `dec:varve/NoDefaultClockOrRandomness` — There is no default clock or randomness, and a query that needs one fails naming the option to set
 - `dec:varve/NoDestructiveCompaction` — The log before a checkpoint is retained, and no feature may depend on removing bytes from it
-- `dec:varve/NoKeysInDatasetDirectory` — No key material and nothing that must be deletable is in the dataset directory, and the file backend refuses a key store path inside it
+- `dec:varve/NoDirectoryFlush` — The file backend flushes no directory, because no managed API opens one; a lost entry of a new segment is a segment never created
 - `dec:varve/NoLinqInLayersZeroToFour` — System.Linq.Enumerable is banned in projects at layers 0 to 4, test assemblies excepted
 - `dec:varve/NoLongLivedBranches` — Work not ready for the trunk lives behind a feature flag or stays local, never on a long-lived branch
+- `dec:varve/NoManagedEngineAdopted` — No managed storage engine is adopted, ZoneTree for owning its file I/O and FASTER for its hash model among them
 - `dec:varve/NoMultiTargeting` — The packages are not multi-targeted without an ADR of their own
 - `dec:varve/NoNativeAssetInShippedClosure` — No package reaching a published Varve artifact contributes a native asset; build-time and test-only packages are exempt, and eng/native-assets.cs enforces it
 - `dec:varve/NoNumericPackage` — No third-party numeric library enters the register, and BigInteger and Decimal serve only as test oracles
@@ -407,10 +430,12 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/OneCasePerManifestEntry` — Each manifest entry is one test case named by its test IRI, and suites are discovered from a table
 - `dec:varve/OneOverlayImplementation` — One overlay implementation serves as-of reads, diff and pre-commit validation
 - `dec:varve/OnePointZeroIsAnApiFreeze` — 1.0 is a public API freeze, reached by the roadmap's definition and not by the number looking ready
+- `dec:varve/OneProcessPerDirectory` — A dataset directory is opened by one FileStorage at a time, across processes and within one
 - `dec:varve/OneSequencerPerDataset` — One sequencer per dataset processes commit requests one at a time and assigns dense, ascending positions (I1)
 - `dec:varve/OnlyTheMaintainerMergesAndReleases` — Only the maintainer merges a pull request and only the maintainer releases
 - `dec:varve/OnlyTheNewestSegmentUnsealed` — Segments are numbered by the backend in ascending order, and only the newest may be unsealed or appended to
 - `dec:varve/OpenQuestionsAreArtefacts` — An open question in an ADR is a first-class artefact, written under the decision it affects and never resolved in passing
+- `dec:varve/OpenReadsTheLogSinceTheLastCheckpoint` — Opening reads every record and commit header, and the bodies after the newest valid checkpoint, which carries the dictionary
 - `dec:varve/OptimiserIsAlgebraToAlgebra` — The optimiser is a function from algebra to algebra with no plan type, applied by default and skippable by a caller
 - `dec:varve/OptimiserNeverMovesNondeterminism` — The optimiser never folds or moves a call to RAND, NOW, UUID, STRUUID, BNODE or an extension function
 - `dec:varve/OptionalExpectedPosition` — An expected position is optional per request, and a request whose expected position differs from the readable head is rejected with Conflict(head) and changes nothing
@@ -438,12 +463,15 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/PositionPersistedWithState` — A projection persists its position atomically with its state
 - `dec:varve/PreferBcl` — A package enters only when the BCL does not do the job
 - `dec:varve/PrereleaseUntilSparqlConformance` — The first tag is v0.1.0-preview.1, and versions stay 0.x prerelease until the core passes the SPARQL conformance suites
+- `dec:varve/PrivateEntriesRefused` — The decoder reads private entries, Erasure payloads and the erasure-mode setting, and the store refuses to open a log holding them until erasure mode exists
+- `dec:varve/PrivateEntryLayout` — A private dictionary entry is term kind 4: a 16-byte key id, a 32-byte synthetic IV and the ciphertext with its length; an Erasure commit's payload is a 16-byte key id, and settings field 2 is erasure mode
 - `dec:varve/PrivateIdsIndependentOfContent` — Private ids are counters in their own class, independent of content and never interned
 - `dec:varve/PrivateTermsCompareByPlaintext` — A readable private term compares by its plaintext term against private and canonical terms alike, and a shredded one is equal only to itself
 - `dec:varve/PrivateTermsHashByValue` — When private terms exist, a source's comparer hashes by value for every class of id
 - `dec:varve/ProjectLicence` — Varve is licensed under MPL-2.0, file-level copyleft, with the canonical text verbatim in LICENSE
 - `dec:varve/ProjectionRebuildEquivalence` — A projection may be dropped and rebuilt from position 0 or a checkpoint, and a rebuilt projection is observationally equal to a maintained one (I8)
 - `dec:varve/ProjectionStateIsAnImmutableVersion` — The default projection's state is an immutable version of its position and runs, published by one reference write
+- `dec:varve/ProjectionStateIsOneBlob` — The default projection's persisted state is one derived blob naming its runs and its position, replaced atomically
 - `dec:varve/ProseNamesNoProduct` — Prose describes the project as developed with AI assistance under human review and names no product, while records and issues name the tool and model
 - `dec:varve/PublicApiBaselinePerPackage` — Every packable project tracks its public API in PublicAPI.Shipped.txt and PublicAPI.Unshipped.txt, so a new public member is a reviewable line
 - `dec:varve/PublishOnTagAfterEveryGate` — publish.yml publishes on a v* tag only after the full suite and every gate pass, and never from a pull request
@@ -459,10 +487,11 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/RdfcInVarveRdf` — RDFC-1.0 is public API in Varve.Rdf over IQuadSource, returning the canonical N-Quads bytes and the issued identifiers, SHA-256 by default with SHA-384 and SHA-512 selectable
 - `dec:varve/RdfcRefusesBlankInTripleTerm` — RDFC-1.0 refuses a triple term with a blank node inside it
 - `dec:varve/RdfcWorkLimit` — A configurable work limit counting hash calls and permutations per blank node that needs them, defaulting to 1,000 from the suite's measured maxima, throws CanonicalisationLimitException when exceeded
-- `dec:varve/ReadBytesAreImmutable` — Bytes returned by a storage read are immutable and may be held, and a backend that cannot promise it copies
+- `dec:varve/ReadBytesAreImmutable` — Bytes returned by a segment read are immutable and may be held, and a backend that cannot promise it copies; derived bytes are copied into the reader's buffer
+- `dec:varve/ReadForeverBindsTheLog` — The read-forever rule binds log/; a derived/ file of a version the store does not read, of another dataset or naming another header hash is a cache miss and is rebuilt
 - `dec:varve/ReadableHeadIsLastClosedCommit` — The readable head is the position of the last closed commit, and an unclosed commit's records are invisible to every read, subscription and projection
 - `dec:varve/RebuildFromNewestCheckpoint` — The default projection rebuilds from the newest valid checkpoint as its base run and applies the tail, or from the empty run
-- `dec:varve/RecordLayout` — A record is a payload length, flags with the closing flag in bit 0, the kind, reserved bytes, the position, its index within the commit and the payload, and a commit's body is split across its records
+- `dec:varve/RecordLayout` — A record is a 128-byte header of body length, kind, flags with the closing flag, position, index, prev, the body's SHA-256 and the header's own hash, then the body; a record never spans segments
 - `dec:varve/RecordNeverSpansSegments` — The store seals the active segment when an append would exceed the segment size, so a record never spans two segments
 - `dec:varve/RecordsAndCommits` — A record is the physical unit of append, and a commit is one or more records of which the last carries a closing flag
 - `dec:varve/RecordsIndependentlyDiscardable` — A record never depends on anything outside the log having been updated when it was written
@@ -489,8 +518,9 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/SandboxSignatureException` — Commits from AI sessions in the cloud sandbox are exempt from the signature requirement through the pushing App's bypass, a stated deviation from the standard
 - `dec:varve/ScalarValueOrders` — Numerics compare by the XPath total order over the promoted type with NaN unordered, strings by code point, and booleans false before true
 - `dec:varve/SdkPinnedLatestFeature` — global.json pins the SDK to 10.0.401 with rollForward latestFeature
+- `dec:varve/SealIsATrailer` — Sealing appends a trailer naming the last closed position and its header hash, so a seal survives a copy and a closed trailer's successor must continue the chain
 - `dec:varve/SecondBackendInTheTests` — Varve.Store.Tests carries a second storage backend written against public members only and runs the contract tests against it
-- `dec:varve/SegmentPreamble` — Every segment begins with VRVL, a version byte and three zero bytes, and every integer is little-endian
+- `dec:varve/SegmentPreamble` — Every segment begins with a header carrying VRVL, the format version, the dataset id, the segment id, its first position and the header hash before it, every header integer little-endian and fixed-width
 - `dec:varve/SegmentSizeIsAnInput` — Segment size is an input to the storage contract, not a constant compiled into a backend
 - `dec:varve/SelectorWithoutErasureMode` — Without erasure mode, access is served by an optional selector over G_head, and erasure cannot be served at all
 - `dec:varve/SemVerKeptDuringZeroX` — During 0.x the versioning rules are followed anyway, and a breaking change moves the minor while the major is zero
@@ -535,13 +565,14 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/TermComparerIsTermEquality` — TermComparer is RDF term equality, never value equality, which is the evaluator's at layer 3
 - `dec:varve/TermIdClassInHighBits` — A TermId is 64 bits with its class carried in the high bits, read with a mask, so a reader knows the class without a lookup
 - `dec:varve/TestsRunOnTestingPlatform` — dotnet test runs on Microsoft.Testing.Platform, selected in global.json, so Microsoft.NET.Test.Sdk and the VSTest adapter are deliberately absent
+- `dec:varve/TheLogIsTheWriteAheadLog` — derived/ has no write-ahead log of its own and recovers by replaying the log from the projection's persisted position
 - `dec:varve/ThreeDependencyClasses` — Dependencies are runtime, build-time or test-only, admitted on different bars, and a test-only stopgap states its exit criterion
 - `dec:varve/TieredRunMerging` — Runs are merged in tiers so a version holds O(log n) runs, and a merge into the oldest run drops its retractions
 - `dec:varve/TlsTerminationIsTheDeployments` — TLS termination is the deployment's job, and the server serves a supplied certificate but manages none
 - `dec:varve/ToRequestTermMapping` — ToRequestTerm maps a view's handle to RequestTerm.Existing and a provisional handle to its term, a provisional blank node taking a label unique within the staging view
 - `dec:varve/TokenOnTheAuthorizationHeaderOnly` — The tool puts its GitHub token on the Authorization header only, never logs or writes it, and never sends it to an extends URL or follows a link off the API host
 - `dec:varve/TopicSummariesForOutsideWork` — A design conversation held outside the repository is recorded as a topic summary naming its decisions, and the maintainer holds the transcript
-- `dec:varve/TornTailSealedAndSkipped` — On open a torn or unclosed tail is ignored, its segment is sealed and appending resumes in a new one, and any other disorder refuses to open
+- `dec:varve/TornTailSealedAndSkipped` — Recovery follows the chain across segments: a torn or unclosed tail is ignored and its segment sealed with an abandoned trailer, segments beyond a copy point are abandoned, and any other break refuses to open
 - `dec:varve/TraceabilityRecordPerSession` — Every AI-assisted session files docs/traceability/YYYY-MM-DD-issue-N-slug.md with its prompt, the tool and model named exactly, its report and its issue
 - `dec:varve/TrustedPublishingNoApiKey` — Publishing exchanges the workflow's OIDC token for a short-lived key, pushes immediately after login with --skip-duplicate, and stores no API key
 - `dec:varve/TurtleRoundTripIsIsomorphic` — A Turtle round trip is isomorphic, not byte-identical, and byte stability belongs to canonical N-Triples
@@ -565,6 +596,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/ValidatorAcceptsOrRejects` — A validator accepts, optionally with an attachment carried in the commit's metadata, or rejects with a report, and a rejection leaves no trace
 - `dec:varve/ValidatorBindingNotInTheLog` — Binding validators to a dataset is an option of the open dataset, never a fact in the log
 - `dec:varve/ValidatorContractInStore` — The pre-commit validator contract is a store concern at layer 4, and a validator that uses it is a layer 5 composition
+- `dec:varve/ValidatorsSeeTheBulkDeltaOnDisk` — For a bulk commit, validators receive the overlay of the pinned state and the delta as a run on disk, scanned through the synchronous blob read, and are never disabled
 - `dec:varve/ValidatorsStatedTwice` — Validators are stated over the store's types and over the model's term sets, and their verdicts must agree before anything else is compared
 - `dec:varve/ValuelessLiteralIsATypeError` — A lexical form with no value in range is a type error to the evaluator, never a parse failure
 - `dec:varve/VarveIdReservations` — ADR 0004's reservation table is retired: VARVE0001 and VARVE0002 are retired for ever, and VARVE0003 to VARVE0008 are released to their DD successors or renumbered
@@ -589,5 +621,8 @@ Implicit somewhere, or dead. The report does not say which.
 
 The decision changed after the code that cites it was written.
 
-None.
+- `M:Varve.Store.DiskFileSystem.DiskFile.Read(System.Int64,System.Span{System.Byte})` [DesignDecision] cites `dec:varve/ReadPathByBenchmark` in `src/Varve.Store/FileSystem.cs`
+- `T:Varve.Store.IDerivedStore` [Contract] cites `dec:varve/StorageContractMembers` in `src/Varve.Store/IStorage.cs`
+- `T:Varve.Store.ISegmentStore` [Contract] cites `dec:varve/StorageContractMembers` in `src/Varve.Store/IStorage.cs`
+- `T:Varve.Store.IStorage` [Contract] cites `dec:varve/SegmentStoreAndDerivedStore` in `src/Varve.Store/IStorage.cs`
 

@@ -48,8 +48,8 @@ internal static partial class Smoke
 
     internal static async Task<(string Update, string Json, string Canonical, string Sha384)> UpdateAsync()
     {
-        await using Varve.Store.Dataset dataset = await Varve.Store.Dataset.OpenAsync(
-            new Varve.Store.MemoryStorage(), new Varve.Store.DatasetOptions { Clock = TimeProvider.System });
+        await using Varve.Store.Dataset dataset = await Varve.Store.Dataset.CreateAsync(
+            new Varve.Store.MemoryStorage(), new Varve.Store.Log.DatasetId(Guid.NewGuid()), new Varve.Store.DatasetOptions { Clock = TimeProvider.System });
 
         // Two operations, one commit: the second sees the first's insert.
         Varve.Store.Log.CommitResult result = await SparqlUpdate.ExecuteAsync(

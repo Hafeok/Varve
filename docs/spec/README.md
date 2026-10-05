@@ -20,10 +20,15 @@ The order is specification, then ADR, then code.
   visibly in separating a pinned read from an as-of read, which the brief merges
   — the specification takes precedence and the relevant ADR says so.
 
-  Version 1.3. Its §11 lists eight open questions and its §12 lists the ADRs it presupposes.
+  Version 1.5. Its §11 lists eight open questions and its §12 lists the ADRs it presupposes.
   [`docs/adr/README.md`](../adr/README.md) tracks both, with an owner and a due
   milestone for every question.
 
+- **[`storage-format.md`](storage-format.md)** — the bytes of a dataset
+  directory: the manifest, segments, records, commit headers and bodies,
+  trailers, and the files under `derived/`, with how the log is read and
+  recovered. Version 1, read forever from the first prerelease that writes it
+  (ADR 0072).
 - **[`iri.md`](iri.md)** — RFC 3987 validation and RFC 3986 §5 resolution over
   UTF-8, with the §5.4 vectors as the test oracle, and an explicit list of the
   normalisations we refuse because RDF IRI equality is byte equality.

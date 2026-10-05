@@ -30,8 +30,8 @@ public static class LogChain
         ArgumentNullException.ThrowIfNull(first);
         ArgumentNullException.ThrowIfNull(second);
 
-        LogScan left = await LogReader.ScanAsync(first, cancellationToken).ConfigureAwait(false);
-        LogScan right = await LogReader.ScanAsync(second, cancellationToken).ConfigureAwait(false);
+        LogScan left = await ScanAsync(first, cancellationToken).ConfigureAwait(false);
+        LogScan right = await ScanAsync(second, cancellationToken).ConfigureAwait(false);
         int common = Math.Min(left.Commits.Count, right.Commits.Count);
 
         for (int i = 0; i < common; i++)
@@ -45,5 +45,18 @@ public static class LogChain
         }
 
         return null;
+    }
+
+    // Every commit read whole and verified, as the comparison promises.
+    private static async ValueTask<LogScan> ScanAsync(ISegmentStore log, CancellationToken cancellationToken)
+    {
+        ReadOnlyMemory<byte> manifest = await log.ReadManifestAsync(cancellationToken).ConfigureAwait(false);
+
+        if (manifest.IsEmpty)
+        {
+            throw new LogVerificationException(0, "The log has no manifest.");
+        }
+
+        return await LogReader.ScanAsync(log, LogFormat.DecodeManifest(manifest.Span), bodiesAfter: 0, cancellationToken).ConfigureAwait(false);
     }
 }

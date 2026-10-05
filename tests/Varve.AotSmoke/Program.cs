@@ -33,6 +33,11 @@ internal static class Program
 
     internal static int Main(string[] args)
     {
+        if (args.Length == 2 && args[0] == FileStore.ChildArgument)
+        {
+            return FileStore.CommitUntilKilledAsync(args[1]).GetAwaiter().GetResult();
+        }
+
         string path = args.Length > 0 ? args[0] : WriteSampleFile();
 
         try
@@ -198,7 +203,7 @@ internal static class Program
         Varve.Store.DatasetOptions options = new() { Clock = TimeProvider.System };
         RdfTerm p = RdfTerm.Iri("http://example.org/p"u8);
 
-        await using (Varve.Store.Dataset dataset = await Varve.Store.Dataset.OpenAsync(storage, options))
+        await using (Varve.Store.Dataset dataset = await Varve.Store.Dataset.CreateAsync(storage, new Varve.Store.Log.DatasetId(Guid.NewGuid()), options))
         {
             Varve.Store.Log.CommitResult first = await dataset.CommitAsync(new Varve.Store.Log.CommitRequest()
                 .Assert(RdfTerm.Iri("http://example.org/a"u8), p, RdfTerm.Literal("1"u8, RdfTerm.Iri("http://www.w3.org/2001/XMLSchema#integer"u8)))
@@ -234,7 +239,9 @@ internal static class Program
         }
 
         Console.WriteLine("store: reopened at 2 with a checkpoint at 1");
-        return Sparql();
+
+        int files = FileStore.RunAsync().GetAwaiter().GetResult();
+        return files != 0 ? files : Sparql();
     }
 
     /// <summary>

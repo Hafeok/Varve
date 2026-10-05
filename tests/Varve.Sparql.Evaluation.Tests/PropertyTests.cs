@@ -99,7 +99,7 @@ public class PropertyTests
             async (history, at, text) =>
             {
                 Query query = Parse(text);
-                await using Varve.Store.Dataset store = await Varve.Store.Dataset.OpenAsync(new MemoryStorage(), new DatasetOptions { Clock = FixedClock.Instance });
+                await using Varve.Store.Dataset store = await Varve.Store.Dataset.CreateAsync(new MemoryStorage(), new Varve.Store.Log.DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = FixedClock.Instance });
                 foreach ((bool Retract, GenQuad Quad)[] commit in history)
                 {
                     CommitRequest request = new();

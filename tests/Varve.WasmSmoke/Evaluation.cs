@@ -54,8 +54,8 @@ internal static partial class Smoke
             throw new InvalidOperationException("evaluation: the Turtle did not parse: " + parsed.FirstError.ToString());
         }
 
-        await using Varve.Store.Dataset dataset = await Varve.Store.Dataset.OpenAsync(
-            new Varve.Store.MemoryStorage(), new Varve.Store.DatasetOptions { Clock = TimeProvider.System });
+        await using Varve.Store.Dataset dataset = await Varve.Store.Dataset.CreateAsync(
+            new Varve.Store.MemoryStorage(), new Varve.Store.Log.DatasetId(Guid.NewGuid()), new Varve.Store.DatasetOptions { Clock = TimeProvider.System });
         _ = await dataset.CommitAsync(request);
         using Varve.Store.DatasetView view = dataset.Pin();
 

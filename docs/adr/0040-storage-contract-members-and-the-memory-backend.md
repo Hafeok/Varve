@@ -6,6 +6,12 @@
 [0065](0065-wrapper-types-and-the-store-log-namespace.md)** (2026-09-25): the
 members' parameter and return types — segment ids, offsets and lengths become
 `SegmentId`, `ByteOffset` and `ByteCount`. Their number and meaning stand.
+**Superseded in part by
+[0071](0071-synchronous-reads-over-asynchronous-storage.md)** (filed
+2026-10-02): the derived store's members (`PutAsync` and `GetRangeAsync` give
+way to a blob writer and a synchronous readable blob), the promise that bytes
+read from the derived store may be held, and two members added to the segment
+store for the manifest.
 
 Fixes the members ADR 0018 left to "when the first backend is written, at
 milestone 4", and places that backend. Does not supersede 0018: its shape, its
