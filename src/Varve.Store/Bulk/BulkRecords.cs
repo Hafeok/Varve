@@ -64,10 +64,22 @@ internal readonly struct BulkRef : IComparable<BulkRef>, IOrdered<BulkRef>, IEqu
         return new BulkRef((ulong)segment << 56, id);
     }
 
-    /// <summary>A new term's reference: its segment and the 120 bits of its key's hash.</summary>
+    /// <summary>
+    /// A new term's reference: its segment and the first 120 bits of the
+    /// SHA-256 of its key — a hash whose collisions are not a property of the
+    /// input's shape. Computed once per term a load meets that its cache does
+    /// not hold.
+    /// </summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
-    internal static BulkRef New(byte segment, ReadOnlySpan<byte> key) =>
-        new(((ulong)segment << 56) | (TermKey.Hash(key, 0x5851F42D4C957F2DUL) >> 8), TermKey.Hash(key, 0x14057B7EF767814FUL));
+    internal static BulkRef New(byte segment, ReadOnlySpan<byte> key)
+    {
+        Span<byte> hash = stackalloc byte[32];
+        Sha256(key, hash);
+        return new(((ulong)segment << 56) | (System.Buffers.Binary.BinaryPrimitives.ReadUInt64BigEndian(hash) >> 8), System.Buffers.Binary.BinaryPrimitives.ReadUInt64BigEndian(hash[8..]));
+    }
+
+    [DesignDecision(typeof(TheBulkLoader.NewTermsByContentHash), Scope = ExceptionScope.HotPath)]
+    private static void Sha256(ReadOnlySpan<byte> key, Span<byte> hash) => System.Security.Cryptography.SHA256.HashData(key, hash);
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public int CompareTo(BulkRef other)

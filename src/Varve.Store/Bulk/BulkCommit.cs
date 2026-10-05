@@ -98,7 +98,7 @@ internal sealed class BulkCommit : IAsyncDisposable
             await CloseOverTriplesAsync(ct).ConfigureAwait(false);
         }
 
-        _ranks = await RankIndex.OpenAsync(_space.Store, _reached, ct).ConfigureAwait(false);
+        _ranks = await RankIndex.OpenAsync(_space.Store, _reached, _load.Memory / 2, ct).ConfigureAwait(false);
         NewCanonical = _ranks.Canonical;
         _blank = _ranks.Count - _ranks.Canonical;
 
@@ -116,6 +116,8 @@ internal sealed class BulkCommit : IAsyncDisposable
             _assertedCount = asserted.Written;
             _retractedCount = retracted.Written;
         }
+
+        _load.Quads.Release();
 
         if (_assertedCount == 0 && _retractedCount == 0)
         {
@@ -691,11 +693,21 @@ internal sealed class RankIndex : IDisposable
 
     private readonly IReadableBlob _blob;
     private readonly (BulkRef Ref, long Rank)[] _cache = new (BulkRef, long)[CacheSlots];
+    private readonly BulkRef[]? _memory;
 
-    private RankIndex(IReadableBlob blob)
+    private RankIndex(IReadableBlob blob, long memoryBytes)
     {
         _blob = blob;
         Count = blob.Length.Value / BulkRef.Size;
+
+        // Within the load's memory, the references are read in once and
+        // searched in place; beyond it, each search reads windows of the blob.
+        if (Count * BulkRef.Size <= memoryBytes && Count <= int.MaxValue / 2)
+        {
+            _memory = new BulkRef[Count];
+            ReadWindow(0, _memory);
+        }
+
         Canonical = Count == 0 || Read(Count - 1).Segment != BulkRef.NewBlank ? Count : FirstAtOrAbove(new BulkRef((ulong)BulkRef.NewBlank << 56, 0));
     }
 
@@ -704,8 +716,8 @@ internal sealed class RankIndex : IDisposable
     /// <summary>How many of them are canonical; the rest are blank nodes.</summary>
     internal long Canonical { get; }
 
-    internal static async ValueTask<RankIndex> OpenAsync(IDerivedStore store, BlobName name, CancellationToken cancellationToken) =>
-        new(await store.OpenAsync(name, cancellationToken).ConfigureAwait(false));
+    internal static async ValueTask<RankIndex> OpenAsync(IDerivedStore store, BlobName name, long memoryBytes, CancellationToken cancellationToken) =>
+        new(await store.OpenAsync(name, cancellationToken).ConfigureAwait(false), memoryBytes);
 
     /// <summary>The rank of a reference the delta reaches.</summary>
     internal long Rank(BulkRef reference)
@@ -717,7 +729,13 @@ internal sealed class RankIndex : IDisposable
             return _cache[slot].Rank;
         }
 
-        long rank = FirstAtOrAbove(reference);
+        long rank = _memory is not null ? Array.BinarySearch(_memory, reference) : FirstAtOrAbove(reference);
+
+        if (_memory is not null)
+        {
+            return rank >= 0 ? rank : throw new InvalidOperationException("A new term of the delta was not collected as reached.");
+        }
+
 
         if (rank >= Count || !Read(rank).Equals(reference))
         {
@@ -801,6 +819,12 @@ internal sealed class RankIndex : IDisposable
 
     private void ReadWindow(long index, Span<BulkRef> destination)
     {
+        if (_memory is not null && destination.Length < _memory.Length)
+        {
+            _memory.AsSpan((int)index, destination.Length).CopyTo(destination);
+            return;
+        }
+
         Span<byte> bytes = MemoryMarshal.AsBytes(destination);
 
         if (_blob.Read(new ByteOffset(index * BulkRef.Size), bytes) != bytes.Length)

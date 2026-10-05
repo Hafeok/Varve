@@ -87,7 +87,6 @@ public sealed class BulkLoadException : Exception
 /// </remarks>
 public sealed class BulkLoad : IAsyncDisposable
 {
-    private const int CacheLimit = 1 << 20;
     private readonly SpillSpace _space;
     private readonly TermTable _newTerms;
     private readonly Dictionary<byte[], BulkRef> _cache = new(KeyComparer.Instance);
@@ -95,6 +94,7 @@ public sealed class BulkLoad : IAsyncDisposable
     private ulong _sequence;
     private bool _finished;
     private byte[] _scratch = new byte[1024];
+    private readonly int _cacheLimit;
 
     internal BulkLoad(Dataset dataset, IndexVersion version, TermView terms, long head, IDerivedStore derived, BulkLoadOptions options)
     {
@@ -107,6 +107,9 @@ public sealed class BulkLoad : IAsyncDisposable
         Quads = new ExternalSort<BulkQuad>(_space, "quads", options.SortRecords ?? (int)Math.Min(int.MaxValue / BulkQuad.Size, Memory * 3 / 8 / BulkQuad.Size));
         _newTerms = new TermTable(options.TermBytes ?? (int)Math.Min(1 << 30, Memory / 4));
         _lookup = _cache.GetAlternateLookup<ReadOnlySpan<byte>>();
+
+        // A quarter of the memory, at about 128 bytes an entry: the key's array and the table's slot.
+        _cacheLimit = (int)Math.Clamp(Memory / 4 / 128, 1024, 1 << 24);
     }
 
     internal Dataset Dataset { get; }
@@ -306,7 +309,7 @@ public sealed class BulkLoad : IAsyncDisposable
     // Each term a batch meets: once in the cache, and once in the table if it is new.
     private BulkRef Remember(ReadOnlySpan<byte> key, BulkRef reference, bool isNew)
     {
-        if (_cache.Count >= CacheLimit)
+        if (_cache.Count >= _cacheLimit)
         {
             _cache.Clear();
         }
@@ -365,7 +368,10 @@ public sealed class BulkLoad : IAsyncDisposable
                 TermRuns.Add(name);
             }
 
+            // The input is over: its table and cache give their memory to the commit's passes.
+            _newTerms.Release();
             _cache.Clear();
+            _cache.TrimExcess();
             await using BulkCommit commit = new(this, _space, cancellationToken);
             return await commit.RunAsync(agent, cause, scope).ConfigureAwait(false);
         }

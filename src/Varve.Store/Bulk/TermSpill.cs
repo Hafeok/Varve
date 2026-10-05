@@ -28,6 +28,14 @@ internal sealed class TermTable
 
     internal int Count => _entries.Count;
 
+    /// <summary>Drops the arena: the load has stopped meeting terms.</summary>
+    internal void Release()
+    {
+        _arena = [];
+        _entries.Clear();
+        _entries.TrimExcess();
+    }
+
     /// <summary>Adds a term; true when the table is full and must be spilled before the next.</summary>
     internal bool Add(BulkRef reference, ReadOnlySpan<byte> key)
     {

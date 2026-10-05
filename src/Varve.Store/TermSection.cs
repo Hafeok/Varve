@@ -187,26 +187,28 @@ internal static class TermKey
     }
 
     /// <summary>
-    /// A 64-bit hash of a key, the same on every machine: eight bytes at a
-    /// time multiplied in, then the bits mixed so that the hash is spread
-    /// evenly enough to search the index by interpolation (ADR 0079). Not a
+    /// A 64-bit hash of a key, the same on every machine: each eight bytes
+    /// mixed in through SplitMix64's finaliser, so that every input bit
+    /// reaches every output bit at every step, and the hash is spread evenly
+    /// enough to search the index by interpolation (ADR 0079). Not a
     /// cryptographic hash; a collision costs one more entry compared.
     /// </summary>
+    /// <remarks>
+    /// The first version mixed each eight bytes by one multiplication, which
+    /// carries upward only: a difference in a word's top byte could be
+    /// cancelled by one in the tail, whatever the seed. A bulk load's term
+    /// references, which must not collide, found it (milestone 6c, defect 2);
+    /// they are SHA-256 now, and this hash mixes fully.
+    /// </remarks>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
-    internal static ulong Hash(ReadOnlySpan<byte> key) => Hash(key, 0x243F6A8885A308D3UL);
-
-    /// <summary>The same hash from another seed: an independent 64 bits of the same key.</summary>
-    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
-    internal static ulong Hash(ReadOnlySpan<byte> key, ulong seed)
+    internal static ulong Hash(ReadOnlySpan<byte> key)
     {
-        const ulong Multiplier = 0x9E3779B97F4A7C15UL;
-        ulong h = seed ^ (ulong)key.Length;
+        ulong h = 0x243F6A8885A308D3UL ^ (ulong)key.Length;
         int at = 0;
 
         while (key.Length - at >= 8)
         {
-            h = (h ^ BinaryPrimitives.ReadUInt64LittleEndian(key[at..])) * Multiplier;
-            h = (h << 27) | (h >> 37);
+            h = Mix(h ^ BinaryPrimitives.ReadUInt64LittleEndian(key[at..]));
             at += 8;
         }
 
@@ -217,9 +219,14 @@ internal static class TermKey
             tail |= (ulong)key[at] << shift;
         }
 
-        h = (h ^ tail) * Multiplier;
+        return Mix(h ^ tail ^ 0x9E3779B97F4A7C15UL);
+    }
 
-        // The finaliser of SplitMix64: every input bit reaches every output bit.
+    // SplitMix64's finaliser, after a step of its counter.
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private static ulong Mix(ulong h)
+    {
+        h += 0x9E3779B97F4A7C15UL;
         h = (h ^ (h >> 30)) * 0xBF58476D1CE4E5B9UL;
         h = (h ^ (h >> 27)) * 0x94D049BB133111EBUL;
         return h ^ (h >> 31);

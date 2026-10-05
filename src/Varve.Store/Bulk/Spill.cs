@@ -83,6 +83,7 @@ internal sealed class ExternalSort<T>
     private readonly string _kind;
     private readonly List<BlobName> _runs = [];
     private List<BlobName>? _final;
+    private (int Start, int End)[] _parts = [];
     private T[] _buffer;
     private int _count;
 
@@ -113,10 +114,13 @@ internal sealed class ExternalSort<T>
             return;
         }
 
-        _buffer.AsSpan(0, _count).Sort();
-        BlobName name = _space.Next(_kind);
-        await WriteAsync(_space.Store, name, _buffer.AsMemory(0, _count), cancellationToken).ConfigureAwait(false);
-        _runs.Add(name);
+        foreach ((int start, int end) in SortInParts(_buffer, _count))
+        {
+            BlobName name = _space.Next(_kind);
+            await WriteAsync(_space.Store, name, _buffer.AsMemory(start, end - start), cancellationToken).ConfigureAwait(false);
+            _runs.Add(name);
+        }
+
         _count = 0;
     }
 
@@ -126,6 +130,14 @@ internal sealed class ExternalSort<T>
     /// </summary>
     internal async ValueTask<SortedReader<T>> FinishAsync(CancellationToken cancellationToken)
     {
+        // Everything in one buffer: read in place, nothing spilled.
+        if (_runs.Count == 0)
+        {
+            _parts = SortInParts(_buffer, _count);
+            _final = [];
+            return SortedReader<T>.Over(_buffer, _parts);
+        }
+
         await SpillAsync(cancellationToken).ConfigureAwait(false);
         _buffer = [];
 
@@ -158,7 +170,35 @@ internal sealed class ExternalSort<T>
 
     /// <summary>After <see cref="FinishAsync"/>: the records in order again, from the start.</summary>
     internal ValueTask<SortedReader<T>> ReopenAsync(CancellationToken cancellationToken) =>
-        SortedReader<T>.OpenAsync(_space.Store, _final ?? throw new InvalidOperationException("Not finished."), cancellationToken);
+        _final is null ? throw new InvalidOperationException("Not finished.")
+        : _final.Count == 0 ? new ValueTask<SortedReader<T>>(SortedReader<T>.Over(_buffer, _parts))
+        : SortedReader<T>.OpenAsync(_space.Store, _final, cancellationToken);
+
+    /// <summary>
+    /// Sorts the first <paramref name="count"/> records in as many parts as
+    /// there are processors, the parts at once; returns the parts, each a
+    /// sorted run for the merge.
+    /// </summary>
+    private static (int Start, int End)[] SortInParts(T[] records, int count)
+    {
+        int parts = count < (1 << 16) ? 1 : Math.Min(Environment.ProcessorCount, 16);
+        (int Start, int End)[] ranges = new (int, int)[parts];
+
+        for (int i = 0; i < parts; i++)
+        {
+            ranges[i] = ((int)((long)count * i / parts), (int)((long)count * (i + 1) / parts));
+        }
+
+        Parallel.For(0, parts, i => records.AsSpan(ranges[i].Start, ranges[i].End - ranges[i].Start).Sort());
+        return ranges;
+    }
+
+    /// <summary>Drops the records and the buffer.</summary>
+    internal void Release()
+    {
+        _buffer = [];
+        _count = 0;
+    }
 
     internal static async ValueTask WriteAsync(IDerivedStore store, BlobName name, ReadOnlyMemory<T> records, CancellationToken cancellationToken)
     {
@@ -205,21 +245,42 @@ internal sealed class SortedReader<T> : IDisposable
     private readonly int _size = Marshal.SizeOf<T>();
     private int _heapCount;
 
-    private SortedReader(IReadableBlob[] blobs)
+    /// <summary>A reader over parts of one array, each already sorted, merged.</summary>
+    internal static SortedReader<T> Over(T[] records, (int Start, int End)[] parts)
+    {
+        SortedReader<T> reader = new([], parts.Length);
+
+        for (int i = 0; i < parts.Length; i++)
+        {
+            reader._buffers[i] = records;
+            reader._at[i] = parts[i].Start;
+            reader._filled[i] = parts[i].End;
+
+            if (parts[i].End > parts[i].Start)
+            {
+                reader.Push(i);
+            }
+        }
+
+        return reader;
+    }
+
+    private SortedReader(IReadableBlob[] blobs, int memoryRuns = 0)
     {
         _blobs = blobs;
-        _records = new long[blobs.Length];
+        int slots = Math.Max(Math.Max(1, memoryRuns), blobs.Length);
+        _records = new long[slots];
 
         for (int i = 0; i < blobs.Length; i++)
         {
             _records[i] = blobs[i].Length.Value / _size;
         }
 
-        _buffers = new T[blobs.Length][];
-        _read = new long[blobs.Length];
-        _at = new int[blobs.Length];
-        _filled = new int[blobs.Length];
-        _heap = new int[blobs.Length];
+        _buffers = new T[slots][];
+        _read = new long[slots];
+        _at = new int[slots];
+        _filled = new int[slots];
+        _heap = new int[slots];
 
         for (int i = 0; i < blobs.Length; i++)
         {
@@ -295,6 +356,11 @@ internal sealed class SortedReader<T> : IDisposable
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private bool Refill(int run)
     {
+        if (_blobs.Length == 0)
+        {
+            return false;
+        }
+
         int size = _size;
         long remaining = _records[run] - _read[run];
 
