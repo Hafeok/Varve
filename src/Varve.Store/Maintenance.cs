@@ -102,7 +102,7 @@ public sealed partial class Dataset
     private static bool DiskMergeDue(IndexVersion index)
     {
         int disk = LeadingBlobRuns(index);
-        return disk >= 2 && index.Runs[disk - 1].Count * 4 >= index.Runs[disk - 2].Count;
+        return disk >= 2 && index.Runs[disk - 1].Size * 4 >= index.Runs[disk - 2].Size;
     }
 
     private void StartMaintenance()
@@ -229,14 +229,9 @@ public sealed partial class Dataset
             _sequencer.Release();
         }
 
-        Run merged = frozen.Runs[disk];
-
-        for (int i = disk + 1; i < frozen.Runs.Length; i++)
-        {
-            merged = Run.Merge(merged, frozen.Runs[i], dropRetractions: disk == 0);
-        }
-
-        LoadedRun written = await WriteRunAsync(DerivedFormat.SourcesOf(merged), merged.From, merged.To, cancellationToken).ConfigureAwait(false);
+        // Streamed from the frozen runs: a flush holds no merged copy of them.
+        Run[] memtable = frozen.Runs[disk..];
+        LoadedRun written = await WriteRunAsync(DerivedFormat.MergeOf(memtable, dropRetractions: disk == 0), memtable, cancellationToken).ConfigureAwait(false);
         return await SwapAsync(frozen.Runs, disk, frozen.Runs.Length, written, cancellationToken).ConfigureAwait(false);
     }
 
@@ -245,17 +240,20 @@ public sealed partial class Dataset
     {
         Run older = index.Runs[disk - 2];
         Run newer = index.Runs[disk - 1];
-        LoadedRun written = await WriteRunAsync(DerivedFormat.MergeOf(older, newer, dropRetractions: disk == 2), older.From, newer.To, cancellationToken).ConfigureAwait(false);
+        LoadedRun written = await WriteRunAsync(DerivedFormat.MergeOf([older, newer], dropRetractions: disk == 2), [older, newer], cancellationToken).ConfigureAwait(false);
         return await SwapAsync(index.Runs, disk - 2, disk, written, cancellationToken).ConfigureAwait(false);
     }
 
-    private async ValueTask<LoadedRun> WriteRunAsync(IKeySource[] sources, long from, long to, CancellationToken cancellationToken)
+    // Writes the merge of adjacent runs, oldest first, keys and dictionary entries.
+    private async ValueTask<LoadedRun> WriteRunAsync(IKeySource[] sources, Run[] runs, CancellationToken cancellationToken)
     {
+        long from = runs[0].From;
+        long to = runs[^1].To;
         BlobName name = new(RunPrefix + from.ToString("D20", CultureInfo.InvariantCulture) + "-" + to.ToString("D20", CultureInfo.InvariantCulture)
             + "." + Interlocked.Increment(ref _runSequence).ToString(CultureInfo.InvariantCulture));
         byte[] hash = _state.Commits[to - 1].HeaderHash;
 
-        await DerivedFormat.WriteRunAsync(_storage.Derived, name, DerivedFormat.KindRun, Id, from, to, hash, sources, null, cancellationToken).ConfigureAwait(false);
+        await DerivedFormat.WriteRunAsync(_storage.Derived, name, DerivedFormat.KindRun, Id, from, to, hash, sources, TermsOf(runs), _state.Commits[to - 1].BlankCount, cancellationToken).ConfigureAwait(false);
 
         return await DerivedFormat.TryLoadAsync(_storage.Derived, name, Id, DerivedFormat.KindRun, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("A run just written to derived/ does not read back.");
@@ -457,7 +455,9 @@ public sealed partial class Dataset
                 if (loaded is not null
                     && loaded.Header.From == entry.From
                     && loaded.Header.To == entry.To
-                    && loaded.Header.ToHash.AsSpan().SequenceEqual(state.Commits[entry.To - 1].HeaderHash))
+                    && loaded.Header.ToHash.AsSpan().SequenceEqual(state.Commits[entry.To - 1].HeaderHash)
+                    && loaded.Run.Terms.From == state.CanonicalAt(entry.From)
+                    && loaded.Run.Terms.To == state.CanonicalAt(entry.To))
                 {
                     run = loaded.Run;
                 }

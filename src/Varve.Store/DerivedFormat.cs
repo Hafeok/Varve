@@ -49,30 +49,22 @@ internal readonly struct DerivedHeader
 /// <summary>A derived run or checkpoint opened from its blob.</summary>
 internal sealed class LoadedRun
 {
-    internal LoadedRun(Run run, DerivedHeader header, long canonicalCount, long blankCount, long dictionaryOffset, long dictionaryLength, byte[] dictionaryHash)
+    internal LoadedRun(Run run, DerivedHeader header, long blankCount)
     {
         Run = run;
         Header = header;
-        CanonicalCount = canonicalCount;
         BlankCount = blankCount;
-        DictionaryOffset = dictionaryOffset;
-        DictionaryLength = dictionaryLength;
-        DictionaryHash = dictionaryHash;
     }
 
     internal Run Run { get; }
 
     internal DerivedHeader Header { get; }
 
-    internal long CanonicalCount { get; }
+    /// <summary>The canonical counter at the run's last position: its term section's end.</summary>
+    internal long CanonicalCount => Run.Terms.To;
 
+    /// <summary>The blank counter at the run's last position.</summary>
     internal long BlankCount { get; }
-
-    internal long DictionaryOffset { get; }
-
-    internal long DictionaryLength { get; }
-
-    internal byte[] DictionaryHash { get; }
 }
 
 /// <summary>A run's place in the projection's persisted state.</summary>
@@ -93,7 +85,7 @@ internal readonly record struct StateEntry(BlobName Name, long From, long To);
 /// </remarks>
 internal static class DerivedFormat
 {
-    internal const ushort Version = 1;
+    internal const ushort Version = 2;
     internal const ushort KindRun = 1;
     internal const ushort KindCheckpoint = 2;
     internal const ushort KindState = 3;
@@ -101,6 +93,8 @@ internal static class DerivedFormat
 
     private const int Sections = Orders.Count * 2;
     private const int WriteKeys = 2048;
+    private const int TermBuffer = 1 << 16;
+    private const int OffsetsRead = 512;
 
     private static ReadOnlySpan<byte> Magic => "VRVD"u8;
 
@@ -176,25 +170,27 @@ internal static class DerivedFormat
         long to,
         byte[] toHash,
         IKeySource[] sections,
-        CheckpointDictionary? dictionary,
+        TermSection[] terms,
+        long blankCount,
         CancellationToken cancellationToken)
     {
         await using IBlobWriter writer = await store.CreateAsync(name, cancellationToken).ConfigureAwait(false);
-        byte[] buffer = new byte[WriteKeys * QuadKey.Size];
+        QuadKey[] keys = new QuadKey[WriteKeys];
+        KeyBlockWriter blocks = new();
         long offset = 0;
         long[] offsets = new long[Sections];
         long[] counts = new long[Sections];
-        List<QuadKey>[] fences = new List<QuadKey>[Sections];
+        long[] lengths = new long[Sections];
+        QuadKey[][] fences = new QuadKey[Sections][];
+        long[][] starts = new long[Sections][];
 
         for (int section = 0; section < Sections; section++)
         {
             offsets[section] = offset;
-            fences[section] = [];
-            long count = 0;
+            blocks.Begin();
 
             while (true)
             {
-                Span<QuadKey> keys = MemoryMarshal.Cast<byte, QuadKey>(buffer.AsSpan());
                 int produced = sections[section].Next(keys);
 
                 if (produced == 0)
@@ -202,33 +198,30 @@ internal static class DerivedFormat
                     break;
                 }
 
-                Fences(keys[..produced], count, fences[section]);
-                await writer.WriteAsync(buffer.AsMemory(0, produced * QuadKey.Size), cancellationToken).ConfigureAwait(false);
-                count += produced;
-                offset += produced * (long)QuadKey.Size;
+                blocks.Add(keys.AsSpan(0, produced));
+
+                if (blocks.Pending >= KeyBlockWriter.FlushBytes)
+                {
+                    await writer.WriteAsync(blocks.PendingBytes, cancellationToken).ConfigureAwait(false);
+                    blocks.Written();
+                }
             }
 
-            counts[section] = count;
+            blocks.End();
+            counts[section] = blocks.Count;
+            lengths[section] = blocks.Length;
+            fences[section] = [.. blocks.Fences];
+            starts[section] = [.. blocks.Blocks];
+            offset += blocks.Length;
+            sections[section] = null!;
         }
 
-        long dictionaryOffset = offset;
-        long dictionaryLength = 0;
-        byte[] dictionaryHash = new byte[LogFormat.HashLength];
+        await writer.WriteAsync(blocks.PendingBytes, cancellationToken).ConfigureAwait(false);
+        blocks.Written();
 
-        if (dictionary is not null)
-        {
-            using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-
-            foreach (ReadOnlyMemory<byte> chunk in dictionary.Chunks())
-            {
-                hash.AppendData(chunk.Span);
-                await writer.WriteAsync(chunk, cancellationToken).ConfigureAwait(false);
-                dictionaryLength += chunk.Length;
-            }
-
-            dictionaryHash = hash.GetHashAndReset();
-            offset += dictionaryLength;
-        }
+        (long canonicalFrom, long canonicalTo, long entriesAt, long entriesLength, long offsetsAt, long hashesAt, long end) =
+            await WriteTermsAsync(writer, terms, offset, cancellationToken).ConfigureAwait(false);
+        offset = end;
 
         ArrayBufferWriter<byte> directory = new();
         LogFormat.WriteUInt32(directory, KeySection.BlockKeys);
@@ -238,21 +231,26 @@ internal static class DerivedFormat
         {
             LogFormat.WriteUInt64(directory, (ulong)offsets[section]);
             LogFormat.WriteUInt64(directory, (ulong)counts[section]);
+            LogFormat.WriteUInt64(directory, (ulong)lengths[section]);
         }
 
         for (int section = 0; section < Sections; section++)
         {
-            directory.Write(MemoryMarshal.AsBytes(CollectionsMarshal.AsSpan(fences[section])));
+            directory.Write(MemoryMarshal.AsBytes(fences[section].AsSpan()));
         }
 
-        if (dictionary is not null)
+        for (int section = 0; section < Sections; section++)
         {
-            LogFormat.WriteUInt64(directory, (ulong)dictionary.CanonicalCount);
-            LogFormat.WriteUInt64(directory, (ulong)dictionary.BlankCount);
-            LogFormat.WriteUInt64(directory, (ulong)dictionaryOffset);
-            LogFormat.WriteUInt64(directory, (ulong)dictionaryLength);
-            directory.Write(dictionaryHash);
+            directory.Write(MemoryMarshal.AsBytes(starts[section].AsSpan()));
         }
+
+        LogFormat.WriteUInt64(directory, (ulong)canonicalFrom);
+        LogFormat.WriteUInt64(directory, (ulong)canonicalTo);
+        LogFormat.WriteUInt64(directory, (ulong)entriesAt);
+        LogFormat.WriteUInt64(directory, (ulong)entriesLength);
+        LogFormat.WriteUInt64(directory, (ulong)offsetsAt);
+        LogFormat.WriteUInt64(directory, (ulong)hashesAt);
+        LogFormat.WriteUInt64(directory, (ulong)blankCount);
 
         byte[] directoryBytes = directory.WrittenSpan.ToArray();
         await writer.WriteAsync(directoryBytes, cancellationToken).ConfigureAwait(false);
@@ -261,43 +259,125 @@ internal static class DerivedFormat
         await writer.PublishAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    // Per block, not per key: one fence for every block the keys begin.
-    private static void Fences(ReadOnlySpan<QuadKey> keys, long before, List<QuadKey> fences)
+    /// <summary>
+    /// Writes the term sections of adjacent runs, oldest first, as one: their
+    /// entries end to end, the offsets rebased, and the hash indexes merged.
+    /// Streamed: a window of each index and a buffer at a time (ADR 0079).
+    /// </summary>
+    private static async ValueTask<(long From, long To, long EntriesAt, long EntriesLength, long OffsetsAt, long HashesAt, long End)> WriteTermsAsync(
+        IBlobWriter writer, TermSection[] terms, long offset, CancellationToken cancellationToken)
     {
-        long first = before % KeySection.BlockKeys == 0 ? 0 : KeySection.BlockKeys - (before % KeySection.BlockKeys);
+        long from = terms.Length == 0 ? 0 : terms[0].From;
+        long to = from;
 
-        for (long i = first; i < keys.Length; i += KeySection.BlockKeys)
+        foreach (TermSection section in terms)
         {
-            fences.Add(keys[(int)i]);
+            if (section.From != to)
+            {
+                throw new InvalidOperationException("Term sections written together must be adjacent.");
+            }
+
+            to = section.To;
+        }
+
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(TermBuffer);
+
+        try
+        {
+            long entriesAt = offset;
+            long entriesLength = 0;
+
+            foreach (TermSection section in terms)
+            {
+                for (long at = 0; at < section.EntriesLength; at += TermBuffer)
+                {
+                    int length = (int)Math.Min(TermBuffer, section.EntriesLength - at);
+                    section.ReadEntries(at, buffer.AsSpan(0, length));
+                    await writer.WriteAsync(buffer.AsMemory(0, length), cancellationToken).ConfigureAwait(false);
+                }
+
+                entriesLength += section.EntriesLength;
+            }
+
+            long offsetsAt = entriesAt + entriesLength;
+            long rebase = 0;
+            int filled = 0;
+
+            long[] read = new long[OffsetsRead];
+
+            foreach (TermSection section in terms)
+            {
+                for (long i = 0; i < section.Count; i += OffsetsRead)
+                {
+                    int count = (int)Math.Min(OffsetsRead, section.Count - i);
+                    section.ReadOffsets(i, read.AsSpan(0, count));
+
+                    for (int j = 0; j < count; j++)
+                    {
+                        if (filled == TermBuffer)
+                        {
+                            await writer.WriteAsync(buffer.AsMemory(0, filled), cancellationToken).ConfigureAwait(false);
+                            filled = 0;
+                        }
+
+                        BinaryPrimitives.WriteUInt64LittleEndian(buffer.AsSpan(filled), (ulong)(rebase + read[j]));
+                        filled += 8;
+                    }
+                }
+
+                rebase += section.EntriesLength;
+            }
+
+            BinaryPrimitives.WriteUInt64LittleEndian(buffer.AsSpan(filled), (ulong)rebase);
+            filled += 8;
+            await writer.WriteAsync(buffer.AsMemory(0, filled), cancellationToken).ConfigureAwait(false);
+
+            long hashesAt = offsetsAt + ((to - from + 1) * 8);
+            HashMerge merge = new(terms);
+            int produced;
+
+            while ((produced = merge.Next(MemoryMarshal.Cast<byte, TermHash>(buffer.AsSpan(0, TermBuffer)))) > 0)
+            {
+                await writer.WriteAsync(buffer.AsMemory(0, produced * TermHash.Size), cancellationToken).ConfigureAwait(false);
+            }
+
+            return (from, to, entriesAt, entriesLength, offsetsAt, hashesAt, hashesAt + ((to - from) * TermHash.Size));
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
         }
     }
 
-    /// <summary>The twelve sources of a run in memory.</summary>
-    internal static IKeySource[] SourcesOf(Run run)
-    {
-        IKeySource[] sources = new IKeySource[Sections];
 
-        for (int order = 0; order < Orders.Count; order++)
-        {
-            sources[order * 2] = new SectionSource(run.Asserted((IndexOrder)order));
-            sources[(order * 2) + 1] = new SectionSource(run.Retracted((IndexOrder)order));
-        }
-
-        return sources;
-    }
-
-    /// <summary>The twelve sources of two runs merged by ADR 0041's rule, streaming.</summary>
-    internal static IKeySource[] MergeOf(Run older, Run newer, bool dropRetractions)
+    /// <summary>
+    /// The twelve sources of any number of runs, oldest first, merged by ADR
+    /// 0041's rule and streamed: each section is read a block at a time, so
+    /// writing the merge holds one block per input section of the order being
+    /// written and the writer's output buffer, never a run (issue #61).
+    /// Merging into the oldest run drops retractions, because nothing older
+    /// remains for them to cancel; that is how a checkpoint is written.
+    /// </summary>
+    internal static IKeySource[] MergeOf(Run[] runs, bool dropRetractions)
     {
         IKeySource[] sources = new IKeySource[Sections];
 
         for (int order = 0; order < Orders.Count; order++)
         {
             IndexOrder o = (IndexOrder)order;
-            sources[order * 2] = new MergeSource(older.Asserted(o), older.Retracted(o), newer.Asserted(o), newer.Retracted(o), asserted: true);
+            KeySection[] asserted = new KeySection[runs.Length];
+            KeySection[] retracted = new KeySection[runs.Length];
+
+            for (int i = 0; i < runs.Length; i++)
+            {
+                asserted[i] = runs[i].Asserted(o);
+                retracted[i] = runs[i].Retracted(o);
+            }
+
+            sources[order * 2] = new MergeSource(asserted, retracted, wantAsserted: true);
             sources[(order * 2) + 1] = dropRetractions
                 ? new SectionSource(KeySection.Empty)
-                : new MergeSource(older.Asserted(o), older.Retracted(o), newer.Asserted(o), newer.Retracted(o), asserted: false);
+                : new MergeSource(asserted, retracted, wantAsserted: false);
         }
 
         return sources;
@@ -355,7 +435,7 @@ internal static class DerivedFormat
         }
 
         ReadOnlySpan<byte> span = directory;
-        int fixedLength = 8 + (Sections * 16);
+        int fixedLength = 8 + (Sections * 24);
 
         if (span.Length < fixedLength
             || BinaryPrimitives.ReadUInt32LittleEndian(span) != KeySection.BlockKeys
@@ -366,21 +446,47 @@ internal static class DerivedFormat
 
         long[] offsets = new long[Sections];
         long[] counts = new long[Sections];
+        long[] lengths = new long[Sections];
+        long[] blockCounts = new long[Sections];
         int at = 8;
         long keysEnd = 0;
+        long blocksTotal = 0;
 
         for (int section = 0; section < Sections; section++)
         {
             offsets[section] = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[at..]);
             counts[section] = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[(at + 8)..]);
-            at += 16;
+            lengths[section] = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[(at + 16)..]);
+            at += 24;
+            blockCounts[section] = (counts[section] + KeySection.BlockKeys - 1) / KeySection.BlockKeys;
+            blocksTotal += blockCounts[section];
 
-            if (offsets[section] != keysEnd || counts[section] < 0 || counts[section] > (header.DirectoryOffset - keysEnd) / QuadKey.Size)
+            // A key takes at least a byte, and a block at most KeyBlocks.MaxBytes.
+            if (offsets[section] != keysEnd
+                || counts[section] < 0
+                || lengths[section] < 0
+                || lengths[section] > header.DirectoryOffset - keysEnd
+                || counts[section] > lengths[section]
+                || lengths[section] > blockCounts[section] * KeyBlocks.MaxBytes)
             {
                 return null;
             }
 
-            keysEnd += counts[section] * QuadKey.Size;
+            keysEnd += lengths[section];
+        }
+
+        if ((span.Length - at) / (QuadKey.Size + 8) < blocksTotal)
+        {
+            return null;
+        }
+
+        QuadKey[][] fences = new QuadKey[Sections][];
+
+        for (int section = 0; section < Sections; section++)
+        {
+            int bytes = (int)blockCounts[section] * QuadKey.Size;
+            fences[section] = MemoryMarshal.Cast<byte, QuadKey>(span.Slice(at, bytes)).ToArray();
+            at += bytes;
         }
 
         RunBlob owner = new(name, blob);
@@ -389,16 +495,27 @@ internal static class DerivedFormat
 
         for (int section = 0; section < Sections; section++)
         {
-            long blocks = (counts[section] + KeySection.BlockKeys - 1) / KeySection.BlockKeys;
+            long[] starts = new long[blockCounts[section] + 1];
 
-            if (span.Length - at < blocks * QuadKey.Size)
+            for (int b = 0; b < blockCounts[section]; b++)
+            {
+                starts[b] = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[at..]);
+                at += 8;
+
+                if (starts[b] < (b == 0 ? 0 : starts[b - 1] + 1) || (b == 0 && starts[b] != 0))
+                {
+                    return null;
+                }
+            }
+
+            starts[blockCounts[section]] = lengths[section];
+
+            if (blockCounts[section] > 0 && starts[blockCounts[section] - 1] >= lengths[section])
             {
                 return null;
             }
 
-            QuadKey[] fences = MemoryMarshal.Cast<byte, QuadKey>(span.Slice(at, (int)blocks * QuadKey.Size)).ToArray();
-            at += (int)blocks * QuadKey.Size;
-            KeySection keys = KeySection.On(blob, offsets[section], counts[section], fences);
+            KeySection keys = KeySection.On(blob, offsets[section], counts[section], fences[section], starts);
 
             if (section % 2 == 0)
             {
@@ -410,75 +527,33 @@ internal static class DerivedFormat
             }
         }
 
-        long canonical = 0, blank = 0, dictionaryOffset = 0, dictionaryLength = 0;
-        byte[] dictionaryHash = [];
-
-        if (kind == KindCheckpoint)
-        {
-            if (span.Length - at != 32 + LogFormat.HashLength)
-            {
-                return null;
-            }
-
-            canonical = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[at..]);
-            blank = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[(at + 8)..]);
-            dictionaryOffset = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[(at + 16)..]);
-            dictionaryLength = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[(at + 24)..]);
-            dictionaryHash = span.Slice(at + 32, LogFormat.HashLength).ToArray();
-
-            if (dictionaryOffset != keysEnd || dictionaryOffset + dictionaryLength != header.DirectoryOffset || canonical < 0 || blank < 0)
-            {
-                return null;
-            }
-        }
-        else if (span.Length != at || keysEnd != header.DirectoryOffset)
+        if (span.Length - at != 7 * 8)
         {
             return null;
         }
 
-        return new LoadedRun(new Run(asserted, retracted, header.From, header.To, owner), header, canonical, blank, dictionaryOffset, dictionaryLength, dictionaryHash);
-    }
+        long canonicalFrom = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[at..]);
+        long canonicalTo = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[(at + 8)..]);
+        long entriesAt = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[(at + 16)..]);
+        long entriesLength = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[(at + 24)..]);
+        long offsetsAt = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[(at + 32)..]);
+        long hashesAt = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[(at + 40)..]);
+        long blank = (long)BinaryPrimitives.ReadUInt64LittleEndian(span[(at + 48)..]);
+        long terms = canonicalTo - canonicalFrom;
 
-    /// <summary>A checkpoint's dictionary, read and checked against its hash; null when it does not verify.</summary>
-    internal static Allocation[]? ReadDictionary(LoadedRun checkpoint)
-    {
-        if (checkpoint.DictionaryLength > int.MaxValue)
+        if (canonicalFrom < 0 || terms < 0 || blank < 0 || entriesLength < 0
+            || terms > header.DirectoryOffset / TermHash.Size
+            || entriesAt != keysEnd
+            || offsetsAt != entriesAt + entriesLength
+            || hashesAt != offsetsAt + ((terms + 1) * 8)
+            || hashesAt + (terms * TermHash.Size) != header.DirectoryOffset
+            || (kind == KindCheckpoint && (canonicalFrom != 0 || header.From != 0)))
         {
             return null;
         }
 
-        byte[] bytes = new byte[checkpoint.DictionaryLength];
-
-        if (checkpoint.Run.Blob!.Blob.Read(new ByteOffset(checkpoint.DictionaryOffset), bytes) != bytes.Length
-            || !LogFormat.HashMatches(bytes, checkpoint.DictionaryHash))
-        {
-            return null;
-        }
-
-        try
-        {
-            LogFormat.Reader reader = new(bytes, checkpoint.Header.To);
-            Allocation[] entries = new Allocation[checkpoint.CanonicalCount];
-
-            for (long counter = 1; counter <= checkpoint.CanonicalCount; counter++)
-            {
-                Allocation entry = LogFormat.ReadAllocation(ref reader);
-
-                if (entry.Id != TermIds.Canonical(counter))
-                {
-                    return null;
-                }
-
-                entries[counter - 1] = entry;
-            }
-
-            reader.End();
-            return entries;
-        }
-        catch (LogVerificationException)
-        {
-            return null;
-        }
+        TermSection termSection = TermSection.On(blob, canonicalFrom, canonicalTo, entriesAt, entriesLength, offsetsAt, hashesAt);
+        return new LoadedRun(new Run(asserted, retracted, header.From, header.To, termSection, owner), header, blank);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -587,17 +662,20 @@ internal interface IKeySource
 }
 
 /// <summary>A section's keys, a block at a time, in order.</summary>
+/// <remarks>
+/// A section on a blob reads into a block buffer from the shared pool, taken
+/// at the first read and returned by <see cref="Release"/>.
+/// </remarks>
 internal sealed class SectionReader
 {
     private readonly KeySection _section;
-    private readonly QuadKey[]? _buffer;
+    private QuadKey[]? _buffer;
     private ReadOnlyMemory<QuadKey> _block;
     private long _blockStart;
 
     internal SectionReader(KeySection section)
     {
         _section = section;
-        _buffer = section.OnBlob ? new QuadKey[KeySection.BlockKeys] : null;
         _block = section.Memory;
         _blockStart = section.OnBlob ? long.MinValue / 2 : 0;
     }
@@ -615,6 +693,7 @@ internal sealed class SectionReader
 
         if (at < 0 || at >= _block.Length)
         {
+            _buffer ??= ArrayPool<QuadKey>.Shared.Rent(KeySection.BlockKeys);
             long block = Next / KeySection.BlockKeys;
             int count = _section.ReadBlock(block, _buffer);
             _block = new ReadOnlyMemory<QuadKey>(_buffer, 0, count);
@@ -627,6 +706,19 @@ internal sealed class SectionReader
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal void Advance() => Next++;
+
+    /// <summary>Returns the block buffer to the pool; a later read takes another.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal void Release()
+    {
+        if (_buffer is { } buffer)
+        {
+            _buffer = null;
+            _block = _section.Memory;
+            _blockStart = _section.OnBlob ? long.MinValue / 2 : 0;
+            ArrayPool<QuadKey>.Shared.Return(buffer);
+        }
+    }
 }
 
 /// <summary>One section copied as it is.</summary>
@@ -645,20 +737,45 @@ internal sealed class SectionSource(KeySection section) : IKeySource
             _reader.Advance();
         }
 
+        if (produced == 0)
+        {
+            _reader.Release();
+        }
+
         return produced;
     }
 }
 
 /// <summary>
-/// Two runs' sections of one order merged by ADR 0041's rule, streaming: the
+/// Runs' sections of one order merged by ADR 0041's rule, streaming: the
 /// asserted keys or the retracted keys of the merged run.
 /// </summary>
-internal sealed class MergeSource(KeySection olderAsserted, KeySection olderRetracted, KeySection newerAsserted, KeySection newerRetracted, bool asserted) : IKeySource
+/// <remarks>
+/// For each key, the verdicts of the runs that mention it are folded oldest
+/// first by <see cref="RunMerge"/>'s rule for two runs, which composes over a
+/// chain of exact deltas (ADR 0047). A section's block buffers are taken at
+/// its first read and returned when it ends, so a source of twelve holds
+/// buffers only for the section being written.
+/// </remarks>
+internal sealed class MergeSource : IKeySource
 {
-    private readonly SectionReader _olderAsserted = new(olderAsserted);
-    private readonly SectionReader _olderRetracted = new(olderRetracted);
-    private readonly SectionReader _newerAsserted = new(newerAsserted);
-    private readonly SectionReader _newerRetracted = new(newerRetracted);
+    private readonly SectionReader[] _asserted;
+    private readonly SectionReader[] _retracted;
+    private readonly bool _wantAsserted;
+
+    internal MergeSource(KeySection[] asserted, KeySection[] retracted, bool wantAsserted)
+    {
+        _asserted = new SectionReader[asserted.Length];
+        _retracted = new SectionReader[retracted.Length];
+
+        for (int i = 0; i < asserted.Length; i++)
+        {
+            _asserted[i] = new SectionReader(asserted[i]);
+            _retracted[i] = new SectionReader(retracted[i]);
+        }
+
+        _wantAsserted = wantAsserted;
+    }
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public int Next(Span<QuadKey> buffer)
@@ -669,24 +786,46 @@ internal sealed class MergeSource(KeySection olderAsserted, KeySection olderRetr
         {
             QuadKey min = default;
             bool any = false;
-            Pick(_olderAsserted, ref min, ref any);
-            Pick(_olderRetracted, ref min, ref any);
-            Pick(_newerAsserted, ref min, ref any);
-            Pick(_newerRetracted, ref min, ref any);
+
+            for (int i = 0; i < _asserted.Length; i++)
+            {
+                Pick(_asserted[i], ref min, ref any);
+                Pick(_retracted[i], ref min, ref any);
+            }
 
             if (!any)
             {
                 break;
             }
 
-            bool oa = Take(_olderAsserted, in min);
-            bool or = Take(_olderRetracted, in min);
-            bool na = Take(_newerAsserted, in min);
-            bool nr = Take(_newerRetracted, in min);
+            bool asserts = false;
+            bool retracts = false;
 
-            if (asserted ? RunMerge.Asserts(oa, or, na, nr) : !RunMerge.Asserts(oa, or, na, nr) && RunMerge.Retracts(oa, or, na, nr))
+            for (int i = 0; i < _asserted.Length; i++)
+            {
+                bool na = Take(_asserted[i], in min);
+                bool nr = Take(_retracted[i], in min);
+
+                if (na || nr)
+                {
+                    bool a = RunMerge.Asserts(asserts, retracts, na, nr);
+                    retracts = !a && RunMerge.Retracts(asserts, retracts, na, nr);
+                    asserts = a;
+                }
+            }
+
+            if (_wantAsserted ? asserts : retracts)
             {
                 buffer[produced++] = min;
+            }
+        }
+
+        if (produced == 0)
+        {
+            for (int i = 0; i < _asserted.Length; i++)
+            {
+                _asserted[i].Release();
+                _retracted[i].Release();
             }
         }
 
@@ -721,36 +860,83 @@ internal sealed class MergeSource(KeySection olderAsserted, KeySection olderRetr
     }
 }
 
-/// <summary>A checkpoint's dictionary: the term entries of every canonical id up to the counter.</summary>
-internal sealed class CheckpointDictionary(TermDictionary dictionary, long canonicalCount, long blankCount)
+/// <summary>
+/// The hash indexes of term sections merged into one, in (hash, id) order,
+/// a window of each at a time.
+/// </summary>
+internal sealed class HashMerge
 {
-    internal long CanonicalCount => canonicalCount;
+    private const int Window = 256;
 
-    internal long BlankCount => blankCount;
+    private readonly TermSection[] _sections;
+    private readonly TermHash[][] _windows;
+    private readonly long[] _next;
+    private readonly int[] _at;
+    private readonly int[] _filled;
 
-    /// <summary>The entries, encoded as the log encodes them (storage format §4.4), in chunks.</summary>
-    internal IEnumerable<ReadOnlyMemory<byte>> Chunks()
+    internal HashMerge(TermSection[] sections)
     {
-        ArrayBufferWriter<byte> writer = new(1 << 16);
+        _sections = sections;
+        _windows = new TermHash[sections.Length][];
+        _next = new long[sections.Length];
+        _at = new int[sections.Length];
+        _filled = new int[sections.Length];
 
-        for (long counter = 1; counter <= canonicalCount; counter++)
+        for (int i = 0; i < sections.Length; i++)
         {
-            ulong id = TermIds.Canonical(counter);
-            Allocation entry = dictionary.TryComponents(counter, out (ulong S, ulong P, ulong O) parts)
-                ? new Allocation(id, null, parts.S, parts.P, parts.O)
-                : new Allocation(id, dictionary.Term(id));
-            LogFormat.WriteAllocation(writer, in entry);
+            _windows[i] = new TermHash[(int)Math.Min(Window, Math.Max(1, sections[i].Count))];
+        }
+    }
 
-            if (writer.WrittenCount >= 1 << 16)
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal int Next(Span<TermHash> buffer)
+    {
+        int produced = 0;
+
+        while (produced < buffer.Length)
+        {
+            int best = -1;
+
+            for (int i = 0; i < _sections.Length; i++)
             {
-                yield return writer.WrittenSpan.ToArray();
-                writer.ResetWrittenCount();
+                if (Refill(i) && (best < 0 || _windows[i][_at[i]].CompareTo(_windows[best][_at[best]]) < 0))
+                {
+                    best = i;
+                }
             }
+
+            if (best < 0)
+            {
+                break;
+            }
+
+            buffer[produced++] = _windows[best][_at[best]++];
         }
 
-        if (writer.WrittenCount > 0)
+        return produced;
+    }
+
+    // Whether section i has a current entry, reading its next window if needed.
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private bool Refill(int i)
+    {
+        if (_at[i] < _filled[i])
         {
-            yield return writer.WrittenSpan.ToArray();
+            return true;
         }
+
+        long remaining = _sections[i].Count - _next[i];
+
+        if (remaining <= 0)
+        {
+            return false;
+        }
+
+        int count = (int)Math.Min(_windows[i].Length, remaining);
+        _sections[i].ReadHashes(_next[i], _windows[i].AsSpan(0, count));
+        _next[i] += count;
+        _at[i] = 0;
+        _filled[i] = count;
+        return true;
     }
 }

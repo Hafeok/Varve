@@ -5,7 +5,6 @@
 using System;
 using System.Buffers;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Threading;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
@@ -19,10 +18,11 @@ namespace Varve.Store;
 /// derived blob read in blocks through the synchronous blob read (ADR 0071).
 /// </summary>
 /// <remarks>
-/// A section on a blob holds its fences — the first key of every block — in
-/// memory, so a seek is a binary search of the fences and one block read.
-/// The scan code is the same for both: a cursor walks a block at a time, and
-/// an array is one block.
+/// A section on a blob holds its fences — the first key of every block — and
+/// where each compressed block begins in memory, so a seek is a binary search
+/// of the fences and one block read and decoded (ADR 0080). The scan code is
+/// the same for both: a cursor walks a block at a time, and an array is one
+/// block.
 /// </remarks>
 internal sealed class KeySection
 {
@@ -31,17 +31,19 @@ internal sealed class KeySection
     private readonly IReadableBlob? _blob;
     private readonly long _offset;
     private readonly QuadKey[] _fences;
+    private readonly long[] _blocks;
 
-    private KeySection(ReadOnlyMemory<QuadKey> memory, IReadableBlob? blob, long offset, long count, QuadKey[] fences)
+    private KeySection(ReadOnlyMemory<QuadKey> memory, IReadableBlob? blob, long offset, long count, QuadKey[] fences, long[] blocks)
     {
         Memory = memory;
         _blob = blob;
         _offset = offset;
         _fences = fences;
+        _blocks = blocks;
         Count = count;
     }
 
-    internal static KeySection Empty { get; } = new(ReadOnlyMemory<QuadKey>.Empty, null, 0, 0, []);
+    internal static KeySection Empty { get; } = new(ReadOnlyMemory<QuadKey>.Empty, null, 0, 0, [], [0]);
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal long Count { get; }
@@ -53,25 +55,33 @@ internal sealed class KeySection
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool OnBlob => _blob is not null;
 
-    internal static KeySection Of(ReadOnlyMemory<QuadKey> keys) => keys.IsEmpty ? Empty : new(keys, null, 0, keys.Length, []);
+    internal static KeySection Of(ReadOnlyMemory<QuadKey> keys) => keys.IsEmpty ? Empty : new(keys, null, 0, keys.Length, [], [0]);
 
-    internal static KeySection On(IReadableBlob blob, long offset, long count, QuadKey[] fences) =>
-        count == 0 ? Empty : new(ReadOnlyMemory<QuadKey>.Empty, blob, offset, count, fences);
+    /// <summary>
+    /// A section of a blob: <paramref name="count"/> keys in compressed blocks
+    /// from <paramref name="offset"/>, block <c>b</c> spanning
+    /// <c>[blocks[b], blocks[b + 1])</c> bytes from there.
+    /// </summary>
+    internal static KeySection On(IReadableBlob blob, long offset, long count, QuadKey[] fences, long[] blocks) =>
+        count == 0 ? Empty : new(ReadOnlyMemory<QuadKey>.Empty, blob, offset, count, fences, blocks);
 
-    /// <summary>Reads block <paramref name="block"/> into the buffer; returns how many keys it holds.</summary>
-    /// <exception cref="IOException">The blob is shorter than its directory says.</exception>
+    /// <summary>Reads and decodes block <paramref name="block"/> into the buffer; returns how many keys it holds.</summary>
+    /// <exception cref="IOException">The blob is shorter than its directory says, or a block does not decode.</exception>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal int ReadBlock(long block, Span<QuadKey> buffer)
     {
         long start = block * BlockKeys;
         int count = (int)Math.Min(BlockKeys, Count - start);
-        Span<byte> bytes = MemoryMarshal.AsBytes(buffer[..count]);
+        long at = _blocks[block];
+        int length = (int)(_blocks[block + 1] - at);
+        Span<byte> bytes = stackalloc byte[KeyBlocks.MaxBytes];
 
-        if (_blob!.Read(new ByteOffset(_offset + (start * QuadKey.Size)), bytes) != bytes.Length)
+        if (length > bytes.Length || _blob!.Read(new ByteOffset(_offset + at), bytes[..length]) != length)
         {
             throw new IOException("A derived run is shorter than its directory says.");
         }
 
+        KeyBlocks.Decode(bytes[..length], buffer[..count]);
         return count;
     }
 
@@ -200,12 +210,13 @@ internal sealed class Run
     private readonly KeySection[] _asserted;
     private readonly KeySection[] _retracted;
 
-    internal Run(KeySection[] asserted, KeySection[] retracted, long from, long to, RunBlob? blob = null)
+    internal Run(KeySection[] asserted, KeySection[] retracted, long from, long to, TermSection terms, RunBlob? blob = null)
     {
         _asserted = asserted;
         _retracted = retracted;
         From = from;
         To = to;
+        Terms = terms;
         Blob = blob;
     }
 
@@ -218,12 +229,22 @@ internal sealed class Run
     /// <summary>The blob the run is read from, or null for a run in memory.</summary>
     internal RunBlob? Blob { get; }
 
+    /// <summary>
+    /// The dictionary entries of the canonical ids the run's commits allocated
+    /// (ADR 0079); a checkpoint's are every id up to its position.
+    /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal TermSection Terms { get; }
+
     internal bool InMemory => Blob is null;
 
     /// <summary>How many keys it holds in each order, asserted and retracted.</summary>
     internal long Count => _asserted[0].Count + _retracted[0].Count;
 
     internal long AssertedCount => _asserted[0].Count;
+
+    /// <summary>What the tier rule weighs: keys and dictionary entries.</summary>
+    internal long Size => Count + Terms.Count;
 
     internal bool HasRetractions => _retracted[0].Count != 0;
 
@@ -240,22 +261,9 @@ internal sealed class Run
         return sections;
     }
 
-    /// <summary>A run from a delta's two halves: one array per order per half.</summary>
-    internal static Run FromDelta(ReadOnlySpan<Quad> asserted, ReadOnlySpan<Quad> retracted, long from, long to) =>
-        new(Build(asserted), retracted.IsEmpty ? NoRetractions() : Build(retracted), from, to);
-
-    /// <summary>A run of assertions only, in memory, already sorted in every order.</summary>
-    internal static Run FromSorted(ReadOnlyMemory<QuadKey>[] asserted, long from, long to)
-    {
-        KeySection[] sections = new KeySection[Orders.Count];
-
-        for (int order = 0; order < Orders.Count; order++)
-        {
-            sections[order] = KeySection.Of(asserted[order]);
-        }
-
-        return new Run(sections, NoRetractions(), from, to);
-    }
+    /// <summary>A run from a delta's two halves, one array per order per half, and the allocations' entries.</summary>
+    internal static Run FromDelta(ReadOnlySpan<Quad> asserted, ReadOnlySpan<Quad> retracted, TermSection terms, long from, long to) =>
+        new(Build(asserted), retracted.IsEmpty ? NoRetractions() : Build(retracted), from, to, terms);
 
     // The arrays are the run: one per order, kept for as long as the version
     // that holds it. The loop inside is per quad and allocates nothing.
@@ -338,7 +346,7 @@ internal sealed class Run
             }
         }
 
-        return new Run(asserted, retracted, older.From, newer.To);
+        return new Run(asserted, retracted, older.From, newer.To, TermSection.Concat(older.Terms, newer.Terms));
     }
 
     // One pass that either counts or writes. A key both runs mention with
@@ -531,7 +539,7 @@ internal sealed class IndexVersion
             {
                 if (run.InMemory)
                 {
-                    count += run.Count;
+                    count += run.Size;
                 }
             }
 
@@ -543,23 +551,23 @@ internal sealed class IndexVersion
     internal static IndexVersion FromBase(long position, Run run) => new(position, [run], 1);
 
     /// <summary>
-    /// This version with one more commit applied: its delta as a new run,
-    /// then tiered merges of the memtable while the newest run is at least a
-    /// quarter the size of the one below it.
+    /// This version with one more commit applied: its delta and its
+    /// dictionary entries as a new run, then tiered merges of the memtable
+    /// while the newest run is at least a quarter the size of the one below it.
     /// </summary>
-    internal IndexVersion Apply(ReadOnlySpan<Quad> asserted, ReadOnlySpan<Quad> retracted, long position)
+    internal IndexVersion Apply(ReadOnlySpan<Quad> asserted, ReadOnlySpan<Quad> retracted, TermSection terms, long position)
     {
-        if (asserted.IsEmpty && retracted.IsEmpty)
+        if (asserted.IsEmpty && retracted.IsEmpty && terms.Count == 0)
         {
             return new IndexVersion(position, Runs, Frozen);
         }
 
         Run[] runs = new Run[Runs.Length + 1];
         Runs.CopyTo(runs, 0);
-        runs[^1] = Run.FromDelta(asserted, retracted, position - 1, position);
+        runs[^1] = Run.FromDelta(asserted, retracted, terms, position - 1, position);
         int count = runs.Length;
 
-        while (count >= 2 && count - 2 >= Frozen && runs[count - 1].Count * 4 >= runs[count - 2].Count)
+        while (count >= 2 && count - 2 >= Frozen && runs[count - 1].Size * 4 >= runs[count - 2].Size)
         {
             runs[count - 2] = Run.Merge(runs[count - 2], runs[count - 1], dropRetractions: count == 2);
             count--;
@@ -567,7 +575,7 @@ internal sealed class IndexVersion
 
         if (count == 1 && Frozen == 0 && runs[0].HasRetractions)
         {
-            runs[0] = Run.Merge(runs[0], Run.FromDelta([], [], runs[0].To, runs[0].To), dropRetractions: true);
+            runs[0] = Run.Merge(runs[0], Run.FromDelta([], [], TermSection.Empty(runs[0].Terms.To), runs[0].To, runs[0].To), dropRetractions: true);
         }
 
         return new IndexVersion(position, count == runs.Length ? runs : runs.AsSpan(0, count).ToArray(), Frozen);

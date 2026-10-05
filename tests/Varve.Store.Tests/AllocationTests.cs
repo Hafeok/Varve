@@ -149,6 +149,46 @@ public class AllocationTests
         }
     }
 
+    /// <summary>
+    /// The dictionary on disk (ADR 0079): a lookup by term through a run's
+    /// hash index on a blob allocates nothing once its cache slot is filled,
+    /// and a lookup of a term the dataset lacks allocates nothing at all; the
+    /// one allocation a lookup makes is the slot's entry, once. Reading an
+    /// entry by id into a caller's buffer allocates nothing.
+    /// </summary>
+    [Fact]
+    public async Task a_dictionary_lookup_on_disk_allocates_nothing()
+    {
+        await using TemporaryDirectory directory = new();
+
+        foreach (IStorage storage in new IStorage[] { new MemoryStorage(), await directory.OpenAsync() })
+        {
+            await using Dataset dataset = await LoadedOnDisk(storage, Large);
+            using DatasetView view = dataset.Pin();
+            RdfTerm present = T.Iri("s1234");
+            RdfTerm absent = T.Iri("s-absent");
+            Assert.True(view.TryInternalise(present, out TermHandle handle));
+
+            Assert.Equal(0, AllocationMeter.Measure(() => view.TryInternalise(present, out _) ? null : view));
+            Assert.Equal(0, AllocationMeter.Measure(() => view.TryInternalise(absent, out _) ? view : null));
+
+            // Past the cache: the search of a fresh dictionary's sections.
+            Run[] runs = [.. RunsOf(view)];
+            TermDictionary cold = new();
+            Assert.True(AllocationMeter.Measure(() => cold.TryFind(runs, present, long.MaxValue, out _) ? null : view) <= 32);
+            cold = new();
+            Assert.Equal(0, AllocationMeter.Measure(() => cold.TryFind(runs, absent, long.MaxValue, out _) ? view : null));
+            Assert.Equal(0, AllocationMeter.Measure(() => TermDictionary.TryFindTriple(runs, 1, 2, 3, long.MaxValue, out _) ? view : null));
+
+            long counter = TermIds.Counter(handle.Value);
+            TermSection section = Array.Find(runs, r => r.Terms.Holds(counter))!.Terms;
+            byte[] entry = new byte[256];
+            Assert.Equal(0, AllocationMeter.Measure(() => section.ReadEntry(counter, entry) > 0 ? null : view));
+        }
+    }
+
+    private static Run[] RunsOf(DatasetView view) => view.TermsForTests().Runs;
+
     [Fact]
     public async Task a_scan_of_an_as_of_read_allocates_nothing_per_quad()
     {
@@ -173,8 +213,8 @@ public class AllocationTests
         Quad[] large = Quads(Large);
 
         (long smallCost, long largeCost) = AllocationMeter.MeasurePair(
-            () => IndexVersion.Empty.Apply(small, [], 1),
-            () => IndexVersion.Empty.Apply(large, [], 1));
+            () => IndexVersion.Empty.Apply(small, [], TermSection.Empty(0), 1),
+            () => IndexVersion.Empty.Apply(large, [], TermSection.Empty(0), 1));
 
         Assert.Equal((Large - Small) * Orders.Count * QuadKey.Size, largeCost - smallCost);
         TestContext.Current.TestOutputHelper?.WriteLine(
