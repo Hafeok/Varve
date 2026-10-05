@@ -14,6 +14,48 @@ published to nuget.org, so every change below is unreleased and the sections
 are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 ([ADR 0029](docs/adr/0029-publishing-and-versioning.md)).
 
+### Milestone 6c — the dictionary on disk, the bulk loader, the browser backend, the soak's causes
+
+#### Added
+
+- **store**: derived format 2: streamed merges, the dictionary in runs, compressed blocks (24e2cf63)
+- **store**: a checkpoint policy, and runs deleted only once nothing reads them (428762be)
+- **store**: Varve.Store.Browser, OPFS and IndexedDB storage (1c691bb7)
+- **store**: replica bootstrap by copying a checkpoint and the log (3b0e8c2a)
+- **store**: the bulk loader, by sort and merge-join (3acea82a)
+
+#### Changed
+
+- **store**: the storage contract's cases as plain methods (83bc754b)
+- **adr**: 0084, the browser backend (0c427f18)
+- **store**: the browser backends in headless Chromium, and log/ across hosts (97ecbe73)
+- run the browser storage tests in Chromium (339de309)
+- **traceability**: the browser backend session (e3189738)
+- **adr**: 0078-0083, the decisions of milestone 6c (8a0b40b7)
+- **spec**: storage format, derived format version 2 (4cf1629f)
+- **bench**: the soak with causes separable, and the bulk gate (af7cf973)
+- milestone 6c in AGENTS, the roadmap, testing and the store's README (bbbfa573)
+- **store**: a bulk commit's ranks in memory until its allocations are written (7c3c5adf)
+- **bench**: the bulk gate's crash check at every record, torn on a sample (9f5e3cec)
+- **aot**: bulk load, checkpoint and replica ship in the native AOT smoke (d51e08eb)
+- **traceability**: milestone 6c's record, the prompt (the report follows) (97e63aae)
+- **bench**: the bulk gate's post-close check on an empty dataset (97a966b9)
+- **bench**: the bulk gate says when it skipped the record cuts (b922c60b)
+- **adr**: 0080 and 0082, fences in chunks and the dataset's own in the soak band (27e7fff6)
+- **adr**: 0080 and 0082, checkpoints held sparsely; the soak reports their directories apart (d6162208)
+- **store**: a seek decodes the block its range starts in once (6ff6a947)
+- milestone 6c's report and benchmarks (00863f47)
+- **roadmap**: 6c's soak, its four causes and the gate's result (3825a11e)
+
+#### Fixed
+
+- **store**: bulk term references by SHA-256, and sorts in parallel parts (c9a65a5f)
+- **store**: a bulk load deletes each spill as soon as its pass is done (03eceb90)
+- **store**: a bulk commit's passes share its memory without overlapping (617398cb)
+- **store**: bound recovery after a crash during or just after a bulk load (6213757f)
+- **store**: fences in chunks below the large object heap (#61) (7f4b846c)
+- **store**: a checkpoint's sections held sparsely (#61) (87b692ec)
+
 ### Milestone 6a — the file backend, format version 1, failure injection
 
 #### Added
@@ -37,11 +79,18 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - I6 in specification 1.5, the storage follow-up as 6c, durability per platform (5bda9919)
 - **traceability**: the maintainer's decisions on the 6a pull request (aae2f582)
 - **bench**: durability measured on Linux, Windows and macOS (70694b8d)
+- regenerate the changelog (08affd44)
+- **decisions**: accept 0070-0077 (7cd036cf)
+- **decisions**: accept 0070-0077 (fcef6df3)
+- **adr**: the index records 0070-0077 as accepted (3a2bace1)
+- **store**: cut the log on files at its boundaries, not at every byte (9a773ccf)
+- **adr**: 0071 amended for replacing an open blob on Windows (2168209f)
 
 #### Fixed
 
 - **store**: flush a segment before the trailer that seals it (842d3bdf)
 - **store**: bytes covered by a later commit or a sealed trailer refuse (61c0f85d)
+- **store**: replace an open derived blob on Windows (fcf15718)
 
 ### Adopting DecisionDriven.Analyzers — the decision ledger, the DD rules, Varve's own rules only
 
