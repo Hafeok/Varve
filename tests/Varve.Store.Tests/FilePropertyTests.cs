@@ -188,12 +188,22 @@ public sealed class FilePropertyTests
                 foreach (string file in a)
                 {
                     Assert.True(
-                        File.ReadAllBytes(Path.Combine(first.Path, "log", file)).AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(second.Path, "log", file))),
+                        ReadShared(Path.Combine(first.Path, "log", file)).AsSpan().SequenceEqual(ReadShared(Path.Combine(second.Path, "log", file))),
                         file + " differs");
                 }
             },
             iter: ModelTests.Iterations / 4,
             print: script => script.ToString());
+
+        // The storage still holds its active segment open for writing, and on
+        // Windows a reader must share write access to open it beside a writer.
+        static byte[] ReadShared(string path)
+        {
+            using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using MemoryStream copy = new();
+            stream.CopyTo(copy);
+            return copy.ToArray();
+        }
 
         static string[] Files(string root) =>
             [.. Directory.GetFiles(Path.Combine(root, "log")).Select(f => Path.GetFileName(f)!).Order(StringComparer.Ordinal)];

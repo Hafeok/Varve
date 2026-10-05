@@ -493,15 +493,17 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
         {
             string path = PathOf(name);
 
+            // Under the lock that publishing takes, so that a reader never opens
+            // the name in the moment a replacement has moved it aside.
             lock (_gate)
             {
                 if (_deferred.Contains(name.Value) || !_files.FileExists(path))
                 {
                     throw new KeyNotFoundException("No derived blob named '" + name + "'.");
                 }
-            }
 
-            return new ValueTask<IReadableBlob>(new FileBlob(_files.Open(path, FileOpen.Read)));
+                return new ValueTask<IReadableBlob>(new FileBlob(_files.Open(path, FileOpen.Read)));
+            }
         }
 
         public ValueTask<bool> DeleteAsync(BlobName name, CancellationToken cancellationToken)
@@ -519,7 +521,7 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
                 {
                     _files.Delete(path);
                 }
-                catch (IOException)
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
                 {
                     // Open by a reader on a platform that will not delete an open
                     // file: gone from the listing now, deleted when it can be.
@@ -585,8 +587,49 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
         {
             lock (_gate)
             {
-                _files.Move(temporary, path);
+                try
+                {
+                    _files.Move(temporary, path);
+                }
+                catch (Exception e) when (e is UnauthorizedAccessException or IOException && _files.FileExists(path))
+                {
+                    ReplaceOpen(temporary, path);
+                }
+
                 _deferred.Remove(name.Value);
+            }
+        }
+
+        // Windows refuses to rename over a file that is open, and a reader holds
+        // a published blob open for as long as it reads it. Every reader opens
+        // with FileShare.Delete, so the open file can itself be moved: aside,
+        // under a temporary name that nothing lists and the next open deletes,
+        // and then the new blob into place. A reader in this process sees the
+        // old blob or the new one and never neither, because opening takes the
+        // same lock. A crash between the two moves leaves the name absent, which
+        // derived/ reads as a cache miss and rebuilds (ADR 0072).
+        private void ReplaceOpen(string temporary, string path)
+        {
+            string aside = path + "." + Interlocked.Increment(ref _temporaries).ToString(CultureInfo.InvariantCulture) + ".replaced" + TemporarySuffix;
+            _files.Move(path, aside);
+
+            try
+            {
+                _files.Move(temporary, path);
+            }
+            catch (Exception e) when (e is UnauthorizedAccessException or IOException)
+            {
+                _files.Move(aside, path);
+                throw;
+            }
+
+            try
+            {
+                _files.Delete(aside);
+            }
+            catch (Exception e) when (e is UnauthorizedAccessException or IOException)
+            {
+                // Still open: deleted with the other temporaries at the next open.
             }
         }
 
@@ -605,7 +648,7 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
 
                     _deferred.Remove(name);
                 }
-                catch (IOException)
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
                 {
                 }
             }

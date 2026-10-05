@@ -169,6 +169,13 @@ internal sealed class SimulatedFileSystem : IFileSystem
         }
     }
 
+    /// <summary>
+    /// Windows' sharing rules where they differ from POSIX: a rename over a file
+    /// that is open is refused, as <c>MoveFileEx</c> refuses it, so that the
+    /// file backend's path for that platform runs on any machine.
+    /// </summary>
+    public bool RefuseReplacingOpenFiles { get; init; }
+
     public void Move(string from, string to)
     {
         lock (_gate)
@@ -176,6 +183,12 @@ internal sealed class SimulatedFileSystem : IFileSystem
             Live();
             string source = Normalise(from);
             string target = Normalise(to);
+
+            if (RefuseReplacingOpenFiles && _files.TryGetValue(target, out Inode? replaced) && replaced.OpenHandles > 0)
+            {
+                throw new UnauthorizedAccessException("Access to the path '" + to + "' is denied.");
+            }
+
             Inode inode = Get(source);
             Step(new Operation(OperationKind.Move, target, 0));
             _files.Remove(source);
@@ -468,6 +481,8 @@ internal sealed class SimulatedFileSystem : IFileSystem
 
         public bool ReadOnly { get; set; }
 
+        public int OpenHandles { get; set; }
+
         public void Write(long offset, ReadOnlySpan<byte> bytes)
         {
             while (Bytes.Count < offset + bytes.Length)
@@ -527,8 +542,12 @@ internal sealed class SimulatedFileSystem : IFileSystem
         }
     }
 
+    // Created under the file system's lock, which counts it open on its inode.
     private sealed class Handle(SimulatedFileSystem owner, Inode inode, bool writable) : IFileHandle
     {
+        private readonly int _counted = ++inode.OpenHandles;
+        private bool _disposed;
+
         public long Length
         {
             get
@@ -571,6 +590,14 @@ internal sealed class SimulatedFileSystem : IFileSystem
 
         public void Dispose()
         {
+            lock (owner._gate)
+            {
+                if (!_disposed)
+                {
+                    _disposed = true;
+                    inode.OpenHandles--;
+                }
+            }
         }
     }
 

@@ -74,6 +74,22 @@ public sealed class FileStorageContractTests : StorageContractTests, IAsyncDispo
     }
 }
 
+/// <summary>
+/// The storage contract on the file backend under Windows' sharing rules, on any
+/// machine: a file system in memory that refuses to rename over an open file, as
+/// Windows does. Replacing a blob a reader holds open takes the backend's other
+/// path there, and the contract must hold on it too.
+/// </summary>
+public sealed class FileStorageWindowsSharingContractTests : StorageContractTests
+{
+    private static readonly string Root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "varve-simulated-windows", "dataset"));
+
+    protected override Durability Expected => Durability.Synchronised;
+
+    protected override IStorage Create() =>
+        FileStorage.Open(new Faults.SimulatedFileSystem { RefuseReplacingOpenFiles = true }, new DatasetDirectory(Root), TemporaryDirectory.Options);
+}
+
 /// <summary>The file backend's own rules: layout, lease, key store, names.</summary>
 public sealed class FileStorageTests
 {
