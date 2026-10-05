@@ -26,3 +26,4 @@ f62509d  Milestone 5b — the optimiser and evaluator, and the result-format rea
 f51f97b  Milestone 5c — the result writers, SPARQL Update as one commit, RDFC-1.0
 17852ee  Adopting DecisionDriven.Analyzers — the decision ledger, the DD rules, Varve's own rules only
 6ad54c2  Milestone 6a — the file backend, format version 1, failure injection
+24e2cf6  Milestone 6c — the dictionary on disk, the bulk loader, the browser backend, the soak's causes

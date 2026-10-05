@@ -45,6 +45,12 @@ internal static class Program
             return;
         }
 
+        if (args.Length == 1 && args[0] == "--asof-latency")
+        {
+            AsOfLatency.RunAsync().GetAwaiter().GetResult();
+            return;
+        }
+
         if (args.Length >= 2 && args[0] == "--bulk-gate")
         {
             BulkGate.RunAsync(args).GetAwaiter().GetResult();

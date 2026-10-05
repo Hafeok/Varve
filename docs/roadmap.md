@@ -351,26 +351,36 @@ that unblocks them.
   ADR 0027's dated note) are deleted and the harness reads the originals.
 - **`Varve.JsonLd`** (layer 2), JSON-LD 1.1 to its W3C suite.
 
-## 6c — the second storage session: what 6a leaves
+## 6c — the second storage session *(ADRs 0078–0084)*
 
 Called 6b in the 6a brief; renumbered by the maintainer on the 6a pull
-request, since 6b is the RDF 1.2 syntaxes below.
+request, since 6b is the RDF 1.2 syntaxes above. Issues
+[#10](https://github.com/Hafeok/Varve/issues/10) and
+[#61](https://github.com/Hafeok/Varve/issues/61). **Delivered:**
 
-- **The browser backend** (layer 5), deciding ADR 0071's revisit condition — a
-  synchronous read in a browser worker, or the cursor goes asynchronous — and
-  whether a browser host runs maintenance (ADR 0042's amendment).
-- **The bulk loader** of ADRs 0076 and 0077: external sort, merge-join, one
-  multi-record commit, validators over the delta on disk.
-- **A dictionary on disk.** The dictionary is in memory, rebuilt on open from
-  the newest checkpoint and the log after it.
-- **A checkpoint policy**, and checkpoints written by streaming the runs when
-  the position is the projection's, rather than materialised in memory.
-- **The soak's working set**, which grew through the hour in 6a: checkpoints
-  built by streaming, then the soak reported again with the causes separated
-  (issue [#61](https://github.com/Hafeok/Varve/issues/61); it blocks the 1.0
-  soak gate).
-- **Compression of derived runs**, if the locality numbers argue for it: a
-  derived format version, never a `log/` one (ADR 0072).
+- **The soak's working set, separated** (#61): the causes measured one at a
+  time — checkpoints built in memory, and as-of reads replaying the log from
+  far back — and fixed: checkpoints and merges stream from the runs, and a
+  **checkpoint policy** (ADR 0078) bounds as-of distance. The soak gate is a
+  band (ADR 0082), and the soak is reported against it.
+- **The dictionary on disk** (ADR 0079): carried by the runs, read by id and by
+  term through the synchronous blob read; opening loads none.
+- **Derived format 2**: keys compressed in their blocks (ADR 0080), answering
+  6a's compression question.
+- **The bulk loader** (ADRs 0076, 0077, 0081): any parser's quads, sorted
+  outside memory within a stated bound, merged with the dataset in one
+  sequential pass, one commit; validators read the delta on disk; crash-tested
+  at every operation; gated at a hundred million quads.
+- **Replica bootstrap** by copying files (ADR 0083).
+- **The browser backend** (ADR 0084): `Varve.Store.Browser`, OPFS through
+  synchronous access handles in a worker — ADR 0071's revisit condition is
+  not met — and IndexedDB elsewhere, tested in headless Chromium, with
+  `log/` byte-identical to the desktop's. Maintenance stays off by default.
+
+Left for later: archive (T3), which lets a replica leave the log's prefix
+behind; a per-run filter if cold term lookups ever dominate commits (ADR
+0079's revisit condition); and a bulk loader that resolves terms on several
+threads.
 
 ## 7 — Server and CLI
 
