@@ -5,16 +5,28 @@ adr: 0071
 decisions:
   - key: SegmentStoreAndDerivedStore
     statement: "Storage is an append-only segment store for log/ and a derived blob store for derived/; derived blobs are read synchronously and everything else is asynchronous"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-05T07:32:09Z
   - key: StorageContractMembers
     statement: "IStorage exposes an ISegmentStore that lists, creates, appends to, flushes, seals and reads segments and reads and writes once its manifest, and an IDerivedStore that creates a blob writer, opens a readable blob, deletes and lists blobs"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-05T07:32:09Z
   - key: ReadBytesAreImmutable
     statement: "Bytes returned by a segment read are immutable and may be held, and a backend that cannot promise it copies; derived bytes are copied into the reader's buffer"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-05T07:32:09Z
   - key: DerivedReadsAreSynchronous
     statement: "A derived blob is read synchronously through IReadableBlob's Length and Read, and runs and checkpoints are scanned through it by one scan code on every backend"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-05T07:32:09Z
   - key: BlobsArePublishedAtomically
     statement: "A derived blob is written through an IBlobWriter and becomes visible only when published, durable as the backend declares and atomically replacing any blob of that name; an unpublished writer leaves nothing"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-05T07:32:09Z
   - key: ReadPathByBenchmark
     statement: "The file backend reads derived blobs with RandomAccess on a held handle, chosen over a memory-mapped view by milestone 6a's benchmark and recorded in ADR 0071; a mapped view wins only through a raw pointer, and reading through one is a separate decision"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-05T07:32:09Z
 ---
 
 The rulings of [ADR 0071](../adr/0071-synchronous-reads-over-asynchronous-storage.md), filed unaccepted
