@@ -3,9 +3,13 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using CsCheck;
+using Varve.Rdf;
+using Varve.Store.Log;
 using Xunit;
 
 namespace Varve.Store.Tests;
@@ -53,6 +57,72 @@ public class KeyBlockTests
                 Assert.Equal(keys[i], chunked[i]);
             }
         }, iter: 500);
+    }
+
+    /// <summary>
+    /// A checkpoint's sections are held sparsely — every sixteenth fence, the
+    /// block starts read from the directory — and answer every seek and scan
+    /// as the same keys written as a run, held densely, do: lower and upper
+    /// bounds, membership, and every key in order, across stride boundaries
+    /// and at both ends (issue #61, ADR 0080).
+    /// </summary>
+    [Fact]
+    public async Task a_sparse_section_answers_as_a_dense_one()
+    {
+        await Gen.Select(Gen.Int[0, 30_000], Gen.ULong[1, 3], Gen.Int[0, 60_000].Array[1, 40]).SampleAsync(
+            async (count, step, probes) =>
+            {
+                Quad[] quads = [.. Enumerable.Range(0, count).Select(i => new Quad(new TermHandle(((ulong)i * step) + 1), new TermHandle(((ulong)i % 7) + 1), new TermHandle(((ulong)i % 13) + 1)))];
+                Run run = Run.FromDelta(quads, [], TermSection.Of([], 0), 0, 1);
+                MemoryStorage storage = new();
+                await DerivedFormat.WriteRunAsync(storage.Derived, new BlobName("run"), DerivedFormat.KindRun, T.Id, 0, 1, new byte[32], DerivedFormat.MergeOf([run], dropRetractions: false), [run.Terms], 0, T.Ct);
+                await DerivedFormat.WriteRunAsync(storage.Derived, new BlobName("checkpoint"), DerivedFormat.KindCheckpoint, T.Id, 0, 1, new byte[32], DerivedFormat.MergeOf([run], dropRetractions: false), [run.Terms], 0, T.Ct);
+                LoadedRun dense = (await DerivedFormat.TryLoadAsync(storage.Derived, new BlobName("run"), T.Id, DerivedFormat.KindRun, T.Ct))!;
+                LoadedRun sparse = (await DerivedFormat.TryLoadAsync(storage.Derived, new BlobName("checkpoint"), T.Id, DerivedFormat.KindCheckpoint, T.Ct))!;
+
+                foreach (IndexOrder order in Enum.GetValues<IndexOrder>())
+                {
+                    KeySection d = dense.Run.Asserted(order);
+                    KeySection s = sparse.Run.Asserted(order);
+                    Assert.Equal(d.Count, s.Count);
+                    Assert.Equal(Keys(d), Keys(s));
+
+                    foreach (int probe in probes)
+                    {
+                        // A key from the run, its neighbours, and keys between.
+                        QuadKey bound = count > 0 && probe < count
+                            ? Orders.Key(order, in quads[probe])
+                            : new QuadKey((ulong)probe, (ulong)(probe % 5), 0, 0);
+                        QuadKey after = new(bound.K0, bound.K1, bound.K2, bound.K3 + 1);
+
+                        foreach (QuadKey key in new[] { bound, after })
+                        {
+                            Assert.Equal(d.LowerBound(in key), s.LowerBound(in key));
+                            Assert.Equal(d.UpperBound(in key), s.UpperBound(in key));
+                            Assert.Equal(d.Contains(in key), s.Contains(in key));
+                        }
+                    }
+                }
+
+                dense.Run.Blob!.Release();
+                sparse.Run.Blob!.Release();
+            },
+            iter: 60);
+
+        static List<QuadKey> Keys(KeySection section)
+        {
+            List<QuadKey> keys = [];
+            SectionSource source = new(section);
+            QuadKey[] buffer = new QuadKey[300];
+            int produced;
+
+            while ((produced = source.Next(buffer)) > 0)
+            {
+                keys.AddRange(buffer.AsSpan(0, produced).ToArray());
+            }
+
+            return keys;
+        }
     }
 
     [Fact]

@@ -544,23 +544,29 @@ internal static class DerivedFormat
             return null;
         }
 
+        // A checkpoint's sections are held sparsely: only as-of reads seek
+        // them, and kept by the policy's count they were most of the soak's
+        // live heap (issue #61, ADR 0080).
+        int stride = kind == KindCheckpoint ? KeySection.SparseStride : 1;
         Chunked<QuadKey>[] fences = new Chunked<QuadKey>[Sections];
 
         for (int section = 0; section < Sections; section++)
         {
-            fences[section] = new Chunked<QuadKey>(blockCounts[section]);
+            fences[section] = new Chunked<QuadKey>((blockCounts[section] + stride - 1) / stride);
 
-            if (!directory.TryReadKeys(blockCounts[section], fences[section]))
+            if (!directory.TryReadKeys(blockCounts[section], stride, fences[section]))
             {
                 return null;
             }
         }
 
-        Chunked<long>[] starts = new Chunked<long>[Sections];
+        Chunked<long>?[] starts = new Chunked<long>?[Sections];
+        long[] startsAt = new long[Sections];
 
         for (int section = 0; section < Sections; section++)
         {
-            starts[section] = new Chunked<long>(blockCounts[section] + 1);
+            startsAt[section] = directory.Position;
+            starts[section] = stride == 1 ? new Chunked<long>(blockCounts[section] + 1) : null;
 
             if (!directory.TryReadStarts(blockCounts[section], lengths[section], starts[section]))
             {
@@ -601,7 +607,9 @@ internal static class DerivedFormat
 
         for (int section = 0; section < Sections; section++)
         {
-            KeySection keys = KeySection.On(blob, offsets[section], counts[section], fences[section], starts[section]);
+            KeySection keys = starts[section] is { } held
+                ? KeySection.On(blob, offsets[section], counts[section], fences[section], held)
+                : KeySection.Sparse(blob, offsets[section], counts[section], fences[section], startsAt[section], lengths[section]);
 
             if (section % 2 == 0)
             {
@@ -669,7 +677,11 @@ internal static class DerivedFormat
             return true;
         }
 
-        internal bool TryReadKeys(long count, Chunked<QuadKey> keys)
+        /// <summary>Where the next byte read is, in the blob.</summary>
+        internal long Position => offset + _at;
+
+        // Every stride-th of the next count fences, the first included.
+        internal bool TryReadKeys(long count, int stride, Chunked<QuadKey> keys)
         {
             int per = _buffer.Length / QuadKey.Size;
 
@@ -683,9 +695,14 @@ internal static class DerivedFormat
                     return false;
                 }
 
-                foreach (QuadKey key in MemoryMarshal.Cast<byte, QuadKey>(bytes))
+                ReadOnlySpan<QuadKey> read = MemoryMarshal.Cast<byte, QuadKey>(bytes);
+
+                for (int i = 0; i < read.Length; i++)
                 {
-                    keys.Add(key);
+                    if ((done + i) % stride == 0)
+                    {
+                        keys.Add(read[i]);
+                    }
                 }
 
                 done += take;
@@ -696,7 +713,7 @@ internal static class DerivedFormat
 
         // Where each block begins, strictly rising from 0 and below the
         // section's length; the section's length is added as the end.
-        internal bool TryReadStarts(long count, long sectionLength, Chunked<long> starts)
+        internal bool TryReadStarts(long count, long sectionLength, Chunked<long>? starts)
         {
             int per = _buffer.Length / 8;
             long previous = -1;
@@ -720,14 +737,14 @@ internal static class DerivedFormat
                         return false;
                     }
 
-                    starts.Add(start);
+                    starts?.Add(start);
                     previous = start;
                 }
 
                 done += take;
             }
 
-            starts.Add(sectionLength);
+            starts?.Add(sectionLength);
             return true;
         }
 

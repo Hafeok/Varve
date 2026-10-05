@@ -28,25 +28,41 @@ internal sealed class KeySection
 {
     internal const int BlockKeys = 128;
 
-    private readonly IReadableBlob? _blob;
-    private readonly long _offset;
+    /// <summary>A sparse section's fences: the first key of every this-many blocks (ADR 0080).</summary>
+    internal const int SparseStride = 16;
+
     private static readonly Chunked<QuadKey> NoFences = new();
     private static readonly Chunked<long> NoBlocks = new();
 
+    private readonly IReadableBlob? _blob;
+    private readonly long _offset;
     private readonly Chunked<QuadKey> _fences;
     private readonly Chunked<long> _blocks;
 
-    private KeySection(ReadOnlyMemory<QuadKey> memory, IReadableBlob? blob, long offset, long count, Chunked<QuadKey> fences, Chunked<long> blocks)
+    // A sparse section holds the first key of every SparseStride-th block
+    // and none of the block starts: those are read from the directory,
+    // where they begin at _startsAt, and a block's own first key from the
+    // block, whose first 32 bytes it is (ADR 0080).
+    private readonly int _stride;
+    private readonly long _startsAt;
+    private readonly long _blockCount;
+    private readonly long _length;
+
+    private KeySection(ReadOnlyMemory<QuadKey> memory, IReadableBlob? blob, long offset, long count, Chunked<QuadKey> fences, Chunked<long> blocks, int stride, long startsAt, long length)
     {
         Memory = memory;
         _blob = blob;
         _offset = offset;
         _fences = fences;
         _blocks = blocks;
+        _stride = stride;
+        _startsAt = startsAt;
+        _length = length;
+        _blockCount = (count + BlockKeys - 1) / BlockKeys;
         Count = count;
     }
 
-    internal static KeySection Empty { get; } = new(ReadOnlyMemory<QuadKey>.Empty, null, 0, 0, NoFences, NoBlocks);
+    internal static KeySection Empty { get; } = new(ReadOnlyMemory<QuadKey>.Empty, null, 0, 0, NoFences, NoBlocks, 1, 0, 0);
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal long Count { get; }
@@ -58,7 +74,7 @@ internal sealed class KeySection
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool OnBlob => _blob is not null;
 
-    internal static KeySection Of(ReadOnlyMemory<QuadKey> keys) => keys.IsEmpty ? Empty : new(keys, null, 0, keys.Length, NoFences, NoBlocks);
+    internal static KeySection Of(ReadOnlyMemory<QuadKey> keys) => keys.IsEmpty ? Empty : new(keys, null, 0, keys.Length, NoFences, NoBlocks, 1, 0, 0);
 
     /// <summary>
     /// A section of a blob: <paramref name="count"/> keys in compressed blocks
@@ -66,7 +82,19 @@ internal sealed class KeySection
     /// <c>[blocks[b], blocks[b + 1])</c> bytes from there.
     /// </summary>
     internal static KeySection On(IReadableBlob blob, long offset, long count, Chunked<QuadKey> fences, Chunked<long> blocks) =>
-        count == 0 ? Empty : new(ReadOnlyMemory<QuadKey>.Empty, blob, offset, count, fences, blocks);
+        count == 0 ? Empty : new(ReadOnlyMemory<QuadKey>.Empty, blob, offset, count, fences, blocks, 1, 0, 0);
+
+    /// <summary>
+    /// A section of a blob held sparsely: <paramref name="fences"/> the first
+    /// key of every <see cref="SparseStride"/>-th block, the block starts read
+    /// from the directory at <paramref name="startsAt"/>, and
+    /// <paramref name="length"/> the section's bytes. A seek reads the starts
+    /// of one stride and the first keys of a binary search through it, as
+    /// well as the block: a few small reads more, for a twentieth of the
+    /// memory. For checkpoints, which only as-of reads seek (issue #61).
+    /// </summary>
+    internal static KeySection Sparse(IReadableBlob blob, long offset, long count, Chunked<QuadKey> fences, long startsAt, long length) =>
+        count == 0 ? Empty : new(ReadOnlyMemory<QuadKey>.Empty, blob, offset, count, fences, NoBlocks, SparseStride, startsAt, length);
 
     /// <summary>Reads and decodes block <paramref name="block"/> into the buffer; returns how many keys it holds.</summary>
     /// <exception cref="IOException">The blob is shorter than its directory says, or a block does not decode.</exception>
@@ -75,11 +103,25 @@ internal sealed class KeySection
     {
         long start = block * BlockKeys;
         int count = (int)Math.Min(BlockKeys, Count - start);
-        long at = _blocks[block];
-        int length = (int)(_blocks[block + 1] - at);
+        long at;
+        long end;
+
+        if (_stride == 1)
+        {
+            at = _blocks[block];
+            end = _blocks[block + 1];
+        }
+        else
+        {
+            Span<long> starts = stackalloc long[2];
+            ReadStarts(block, starts);
+            (at, end) = (starts[0], starts[1]);
+        }
+
+        int length = (int)(end - at);
         Span<byte> bytes = stackalloc byte[KeyBlocks.MaxBytes];
 
-        if (length > bytes.Length || _blob!.Read(new ByteOffset(_offset + at), bytes[..length]) != length)
+        if (length > bytes.Length || length < 0 || _blob!.Read(new ByteOffset(_offset + at), bytes[..length]) != length)
         {
             throw new IOException("A derived run is shorter than its directory says.");
         }
@@ -97,7 +139,7 @@ internal sealed class KeySection
             return Run.LowerBound(Memory.Span, in bound);
         }
 
-        long block = ChunkedKeys.LowerBound(_fences, in bound) - 1;
+        long block = LastBlockBefore(in bound, inclusive: false);
 
         if (block < 0)
         {
@@ -118,7 +160,7 @@ internal sealed class KeySection
             return Run.UpperBound(Memory.Span, in bound);
         }
 
-        long block = ChunkedKeys.UpperBound(_fences, in bound) - 1;
+        long block = LastBlockBefore(in bound, inclusive: true);
 
         if (block < 0)
         {
@@ -138,7 +180,7 @@ internal sealed class KeySection
             return Run.Search(Memory.Span, in key) >= 0;
         }
 
-        long block = ChunkedKeys.UpperBound(_fences, in key) - 1;
+        long block = LastBlockBefore(in key, inclusive: true);
 
         if (block < 0)
         {
@@ -148,6 +190,89 @@ internal sealed class KeySection
         Span<QuadKey> keys = stackalloc QuadKey[BlockKeys];
         int count = ReadBlock(block, keys);
         return Run.Search(keys[..count], in key) >= 0;
+    }
+
+    // The last block whose first key is below the bound (or at it, when
+    // inclusive); -1 when there is none.
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private long LastBlockBefore(in QuadKey bound, bool inclusive)
+    {
+        long fence = (inclusive ? ChunkedKeys.UpperBound(_fences, in bound) : ChunkedKeys.LowerBound(_fences, in bound)) - 1;
+
+        if (fence < 0 || _stride == 1)
+        {
+            return fence;
+        }
+
+        // Within the stride: its first block qualifies; a binary search of
+        // the others by their first keys, read from the blocks.
+        long first = fence * _stride;
+        int span = (int)Math.Min(_stride, _blockCount - first);
+        Span<long> starts = stackalloc long[SparseStride + 1];
+        ReadStarts(first, starts[..(span + 1)]);
+        int low = 0;
+        int high = span - 1;
+
+        while (low < high)
+        {
+            int middle = low + ((high - low + 1) / 2);
+            QuadKey key = FirstKey(starts[middle]);
+            int order = key.CompareTo(bound);
+
+            if (order < 0 || (inclusive && order == 0))
+            {
+                low = middle;
+            }
+            else
+            {
+                high = middle - 1;
+            }
+        }
+
+        return first + low;
+    }
+
+    // Where blocks first .. first + destination.Length - 1 begin, the last
+    // one's end being the next block's start or the section's length.
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private void ReadStarts(long first, Span<long> destination)
+    {
+        int stored = (int)Math.Min(destination.Length, _blockCount - first);
+        Span<byte> bytes = stackalloc byte[(SparseStride + 1) * 8];
+        Span<byte> read = bytes[..(stored * 8)];
+
+        if (_blob!.Read(new ByteOffset(_startsAt + (first * 8)), read) != read.Length)
+        {
+            throw new IOException("A derived run is shorter than its directory says.");
+        }
+
+        for (int i = 0; i < stored; i++)
+        {
+            destination[i] = (long)System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(read[(i * 8)..]);
+        }
+
+        if (stored < destination.Length)
+        {
+            destination[stored] = _length;
+        }
+    }
+
+    // A block's first key: its first 32 bytes, whole (ADR 0080).
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private QuadKey FirstKey(long blockStart)
+    {
+        Span<byte> bytes = stackalloc byte[QuadKey.Size];
+
+        if (_blob!.Read(new ByteOffset(_offset + blockStart), bytes) != bytes.Length)
+        {
+            throw new IOException("A derived run is shorter than its directory says.");
+        }
+
+        return new QuadKey(
+            System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(bytes),
+            System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(bytes[8..]),
+            System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(bytes[16..]),
+            System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(bytes[24..]));
     }
 }
 
