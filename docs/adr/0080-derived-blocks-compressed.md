@@ -29,7 +29,11 @@ differs from the key before, that id's increase as a varint, and the ids after
 it as varints. A block decodes on its own. The directory holds, per section,
 its byte length and where each block begins, beside the fences; a reader holds
 both in memory (40 bytes per 128 keys) and reads and decodes one block per
-seek. The cursor, the estimate and the merge still count keys by block and
+seek. It holds them in chunks of 64 KiB, below the large object heap, read
+from the directory in pieces and hashed as they are read, and a writer streams
+the directory the same way: as one array per run they were rebuilt larger at
+every merge and checkpoint on a heap that is not compacted, which was the
+soak's remaining growth (issue #61). The cursor, the estimate and the merge still count keys by block and
 index: only the bytes of a block changed. A block that does not decode, or
 does not use exactly its bytes, is refused as damaged.
 

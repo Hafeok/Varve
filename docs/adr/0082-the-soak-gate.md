@@ -32,12 +32,21 @@ scanning and reading as of a position, background maintenance, a memtable of
 sampler of the peak between samples.
 
 **The gate**: over the last 50 minutes, every 30-second sample of the working
-set lies within ±25% of their median, and the median of the last ten minutes
-is within 10% of that of minutes 10 to 20; open file handles and `derived/`
-files stay within fixed bounds. What grows with the dataset is reported per
-quad and per commit beside it, and is not counted against the band only where
-it is the dataset's own: the run fences (40 bytes per 128 keys per section)
-and the table of commit positions (one entry per commit).
+set less the dataset's own lies within ±25% of their median, and the median of
+the last ten minutes is within 10% of that of minutes 10 to 20; open file
+handles and `derived/` files stay within fixed bounds. **The dataset's own** is
+what grows with it and nothing else, and is reported per quad and per commit
+beside the band:
+
+- the directories of its runs and checkpoints — the fences and where each
+  block begins, 40 bytes per 128 keys per section, which a reader holds in
+  memory (ADR 0080) — summed from each derived file's header, so the soak
+  reads them from the files rather than from the store's internals; the
+  policy's `Keep` multiplies them, one set per checkpoint kept;
+- the table of commits, 144 bytes a commit, measured by opening a log of
+  102,000 commits that leave the index empty against one of 2,000.
+
+The raw working set is reported beside it, and its peaks.
 
 The gate is run and reported at each milestone that touches the store; it is
 not in CI.
