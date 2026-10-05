@@ -99,7 +99,7 @@ internal sealed class BulkCommit : IAsyncDisposable
             await CloseOverTriplesAsync(ct).ConfigureAwait(false);
         }
 
-        _ranks = await RankIndex.OpenAsync(_space.Store, _reached, _load.Memory / 4, ct).ConfigureAwait(false);
+        _ranks = await RankIndex.OpenAsync(_space.Store, _reached, _load.Memory / 2, ct).ConfigureAwait(false);
         NewCanonical = _ranks.Canonical;
         _blank = _ranks.Count - _ranks.Canonical;
 
@@ -128,6 +128,10 @@ internal sealed class BulkCommit : IAsyncDisposable
 
         // 4. The allocations' entries, their offsets and their hash index.
         TermSection terms = await WriteTermsAsync(ct).ConfigureAwait(false);
+
+        // From here ranks are wanted only for triple terms' parts: the run's
+        // orders are sorted in the memory the ranks held.
+        _ranks.DropMemory();
 
         return await Dataset.CommitBulkAsync(this, terms, Final(agent), Final(cause), Final(scope), ct).ConfigureAwait(false);
     }
@@ -718,7 +722,7 @@ internal sealed class RankIndex : IDisposable
 
     private readonly IReadableBlob _blob;
     private readonly (BulkRef Ref, long Rank)[] _cache = new (BulkRef, long)[CacheSlots];
-    private readonly BulkRef[]? _memory;
+    private BulkRef[]? _memory;
 
     private RankIndex(IReadableBlob blob, long memoryBytes)
     {
@@ -740,6 +744,9 @@ internal sealed class RankIndex : IDisposable
 
     /// <summary>How many of them are canonical; the rest are blank nodes.</summary>
     internal long Canonical { get; }
+
+    /// <summary>Gives back the memory: later searches read the spill.</summary>
+    internal void DropMemory() => _memory = null;
 
     internal static async ValueTask<RankIndex> OpenAsync(IDerivedStore store, BlobName name, long memoryBytes, CancellationToken cancellationToken) =>
         new(await store.OpenAsync(name, cancellationToken).ConfigureAwait(false), memoryBytes);

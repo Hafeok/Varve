@@ -85,9 +85,9 @@ SHA-256.
 two parts of it are alive at once beyond it: while the input arrives, three
 eighths for the operations' sort buffer, a quarter for the new terms' table
 and a quarter for the term cache; in the commit, an eighth for the reached
-terms' sort and for the hashes' sort, a quarter for the reached terms' ranks —
-held in memory when they fit, a search of their spill when not — and a
-quarter for each order's sort. Beyond it: one 64 KiB buffer per sorted run a
+terms' sort and for the hashes' sort, half for the reached terms' ranks —
+held in memory when they fit, a search of their spill when not, and given
+back once the allocations are written — and a quarter for each order's sort. Beyond it: one 64 KiB buffer per sorted run a
 merge reads (at most 64 at a time; more are merged in passes first); the
 directory of the run being written, which the run's readers hold anyway — 40
 bytes per 128 keys per order, about two bytes per quad of the delta; and the
