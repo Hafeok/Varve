@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by session 6a of #10, 2026-10-02** (ADR 0066).
+**Accepted — filed unaccepted by session 6a of #10, 2026-10-02** (ADR 0066).
 
 It **supersedes** ADR [0045](0045-the-provisional-in-memory-log-encoding.md),
 which was provisional by design and said so. It **discharges** the milestone 6

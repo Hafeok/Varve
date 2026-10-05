@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by session 6a of #10, 2026-10-02** (ADR 0066).
+**Accepted — filed unaccepted by session 6a of #10, 2026-10-02** (ADR 0066).
 
 Closes the specification's **Q3**, owned by ADR
 [0013](0013-records-commits-and-bulk-load.md) with ADR

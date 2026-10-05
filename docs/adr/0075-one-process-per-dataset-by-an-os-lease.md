@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by session 6a of #10, 2026-10-02** (ADR 0066).
+**Accepted — filed unaccepted by session 6a of #10, 2026-10-02** (ADR 0066).
 The maintainer chose this shape over a renewed timestamp on the 6a plan.
 
 ## Context

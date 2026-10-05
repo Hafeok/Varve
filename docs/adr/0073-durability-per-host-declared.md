@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by session 6a of #10, 2026-10-02** (ADR 0066).
+**Accepted — filed unaccepted by session 6a of #10, 2026-10-02** (ADR 0066).
 
 Completes ADR [0018](0018-storage-abstraction.md)'s "durability is declared,
 not assumed" for the file backend, and states, for every level, what survives

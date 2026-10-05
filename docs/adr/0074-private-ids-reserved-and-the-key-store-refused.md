@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by session 6a of #10, 2026-10-02** (ADR 0066).
+**Accepted — filed unaccepted by session 6a of #10, 2026-10-02** (ADR 0066).
 
 Fixes, in format version 1 (ADR 0072), the bytes erasure mode will need at
 milestone 9, so that turning it on is not a format change. Implements the file
