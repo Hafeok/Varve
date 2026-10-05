@@ -13,6 +13,29 @@ using Varve.Store.Log;
 
 namespace Varve.Store;
 
+/// <summary>
+/// When a dataset writes checkpoints on its own (ADR 0078): every so many
+/// commits, or every so many bytes of log, since the newest checkpoint,
+/// whichever comes first, as part of its maintenance — so only when
+/// <see cref="DatasetOptions.Maintenance"/> runs it, or the caller runs
+/// <see cref="Dataset.MaintainAsync"/>. A checkpoint bounds what an as-of read
+/// and an open replay: the log distance to the nearest one (R2).
+/// </summary>
+public sealed class CheckpointPolicy
+{
+    /// <summary>No checkpoint is written but those asked for. The default.</summary>
+    public static CheckpointPolicy Never { get; } = new();
+
+    /// <summary>A checkpoint at the head once it is this many commits past the newest.</summary>
+    public int? EveryCommits { get; init; }
+
+    /// <summary>A checkpoint at the head once this many bytes of log follow the newest.</summary>
+    public ByteCount? EveryLogBytes { get; init; }
+
+    /// <summary>How many checkpoints the policy keeps, dropping the oldest; zero keeps all.</summary>
+    public int Keep { get; init; }
+}
+
 /// <summary>Who runs a dataset's maintenance on <c>derived/</c> (ADR 0070, ADR 0042's amendment).</summary>
 public enum MaintenanceMode
 {
@@ -55,6 +78,7 @@ public sealed partial class Dataset
     private readonly SemaphoreSlim _maintenanceGate = new(1, 1);
     private readonly Lock _maintenanceLock = new();
     private readonly CancellationTokenSource _closing = new();
+    private readonly System.Collections.Concurrent.ConcurrentQueue<BlobName> _closedRuns = new();
     private Task? _maintenanceTask;
     private bool _maintenanceAgain;
     private Exception? _maintenanceFailure;
@@ -83,9 +107,10 @@ public sealed partial class Dataset
         }
     }
 
-    private bool MaintenanceDue(IndexVersion index) =>
-        index.MemtableCount >= _options.MemtableLimit.Value && index.Runs.Length > LeadingBlobRuns(index)
-        || DiskMergeDue(index);
+    private bool MaintenanceDue(State state) =>
+        state.Index.MemtableCount >= _options.MemtableLimit.Value && state.Index.Runs.Length > LeadingBlobRuns(state.Index)
+        || DiskMergeDue(state.Index)
+        || CheckpointDue(state);
 
     private static int LeadingBlobRuns(IndexVersion index)
     {
@@ -180,6 +205,7 @@ public sealed partial class Dataset
     // due. True when it did something.
     private async ValueTask<bool> MaintainOnceAsync(CancellationToken cancellationToken)
     {
+        await DeleteClosedRunsAsync(cancellationToken).ConfigureAwait(false);
         State state = _state;
 
         if (state.Failed is not null || _broken is not null)
@@ -200,7 +226,35 @@ public sealed partial class Dataset
             return await MergeAsync(index, disk, cancellationToken).ConfigureAwait(false);
         }
 
+        if (CheckpointDue(state))
+        {
+            await CheckpointCoreAsync(state.Head, cancellationToken).ConfigureAwait(false);
+
+            while (_options.Checkpoints.Keep > 0 && _state.Checkpoints.Length > _options.Checkpoints.Keep)
+            {
+                await DropCheckpointAsync(new Position(_state.Checkpoints[0].Position), cancellationToken).ConfigureAwait(false);
+            }
+
+            return true;
+        }
+
         return false;
+    }
+
+    // Whether the policy asks for a checkpoint at the head: the newest is
+    // that many commits, or that many bytes of log, behind it (ADR 0078).
+    private bool CheckpointDue(State state)
+    {
+        CheckpointPolicy policy = _options.Checkpoints;
+        long newest = state.Checkpoints.Length > 0 ? state.Checkpoints[^1].Position : 0;
+
+        if (state.Head == newest || state.Head == 0)
+        {
+            return false;
+        }
+
+        return (policy.EveryCommits is int commits && state.Head - newest >= commits)
+            || (policy.EveryLogBytes is ByteCount bytes && state.LogBytesAt(state.Head) - state.LogBytesAt(newest) >= bytes.Value);
     }
 
     // Freezes the memtable, writes it as one run, and swaps the run in.
@@ -309,7 +363,11 @@ public sealed partial class Dataset
     }
 
     // A run the live projection no longer holds: its reference released, and
-    // its blob deleted if it was the projection's own (a checkpoint's stays).
+    // its blob deleted, if it was the projection's own (a checkpoint's stays),
+    // once nothing reads it — at once if no view holds it, else when the last
+    // view that does is disposed and the next round runs. Run names carry a
+    // sequence number and are never reused, so a deferred delete cannot
+    // remove a newer run.
     private async ValueTask RetireRunAsync(Run run, CancellationToken cancellationToken)
     {
         if (run.Blob is not { } blob)
@@ -317,11 +375,24 @@ public sealed partial class Dataset
             return;
         }
 
-        blob.Release();
-
         if (blob.Name.Value.StartsWith(RunPrefix, StringComparison.Ordinal))
         {
-            await _storage.Derived.DeleteAsync(blob.Name, cancellationToken).ConfigureAwait(false);
+            blob.Retire(_closedRuns.Enqueue);
+        }
+        else
+        {
+            blob.Release();
+        }
+
+        await DeleteClosedRunsAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Deletes the retired runs whose last reader has let go.</summary>
+    private async ValueTask DeleteClosedRunsAsync(CancellationToken cancellationToken)
+    {
+        while (_closedRuns.TryDequeue(out BlobName name))
+        {
+            await _storage.Derived.DeleteAsync(name, cancellationToken).ConfigureAwait(false);
         }
     }
 

@@ -59,8 +59,9 @@ internal sealed class LoggedCommit
 /// </summary>
 internal sealed class ScannedCommit
 {
-    internal ScannedCommit(CommitHeader header, byte[] headerHash, CommitLocation location, LoggedCommit? full)
+    internal ScannedCommit(CommitHeader header, byte[] headerHash, CommitLocation location, LoggedCommit? full, long bytes)
     {
+        Bytes = bytes;
         Header = header;
         HeaderHash = headerHash;
         Location = location;
@@ -75,6 +76,9 @@ internal sealed class ScannedCommit
 
     /// <summary>The whole commit, when the scan read its body.</summary>
     internal LoggedCommit? Full { get; }
+
+    /// <summary>The bytes of the commit's records, headers and bodies.</summary>
+    internal long Bytes { get; }
 }
 
 /// <summary>What opening a log found.</summary>
@@ -293,6 +297,7 @@ internal static class LogReader
 
             long bodyAt = at + LogFormat.RecordHeaderLength;
             bool full = expected > bodiesAfter;
+            pending.Bytes += LogFormat.RecordHeaderLength + record.BodyLength;
 
             if (full)
             {
@@ -490,7 +495,7 @@ internal static class LogReader
 
         if (!full)
         {
-            return new ScannedCommit(header, headerHash, pending.Location, null);
+            return new ScannedCommit(header, headerHash, pending.Location, null, pending.Bytes);
         }
 
         byte[] body = pending.Body(headerStart);
@@ -501,7 +506,7 @@ internal static class LogReader
         }
 
         LoggedCommit commit = new(header, headerHash, LogFormat.DecodeBody(body, position), pending.Location);
-        return new ScannedCommit(header, headerHash, pending.Location, commit);
+        return new ScannedCommit(header, headerHash, pending.Location, commit, pending.Bytes);
     }
 
     /// <summary>One segment's header and trailer, and reads of what lies between.</summary>
@@ -579,6 +584,8 @@ internal static class LogReader
 
         internal CommitLocation Location { get; private set; }
 
+        internal long Bytes { get; set; }
+
         internal ReadOnlyMemory<byte> Last => _payloads[^1];
 
         internal void Start(CommitKind kind, CommitLocation location)
@@ -601,6 +608,7 @@ internal static class LogReader
         {
             _payloads.Clear();
             Count = 0;
+            Bytes = 0;
         }
 
         /// <summary>The body: every payload, the last one up to where its header starts.</summary>
@@ -690,6 +698,9 @@ internal sealed class LogWriter
         return new LogWriter(store, dataset, segmentBytes, maxRecordBytes, active, length);
     }
 
+    /// <summary>The bytes of the last commit's records, headers and bodies.</summary>
+    internal long LastCommitBytes { get; private set; }
+
     /// <summary>
     /// Appends one commit's records and makes them durable. <paramref name="previous"/>
     /// is the header hash of the commit before it. Returns where it starts.
@@ -698,6 +709,7 @@ internal sealed class LogWriter
         CommitKind kind, long position, byte[] previous, byte[] body, byte[] header, CancellationToken cancellationToken)
     {
         int closingExtra = header.Length + 4;
+        LastCommitBytes = 0;
         int bodyOffset = 0;
         int index = 0;
         CommitLocation? start = null;
@@ -723,6 +735,7 @@ internal sealed class LogWriter
             start ??= new CommitLocation(_active, _activeLength);
             await _store.AppendAsync(new SegmentId(_active), record, cancellationToken).ConfigureAwait(false);
             _activeLength += record.Length;
+            LastCommitBytes += record.Length;
             bodyOffset += take;
             index++;
 

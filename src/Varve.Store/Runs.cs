@@ -156,6 +156,7 @@ internal sealed class KeySection
 internal sealed class RunBlob
 {
     private int _references = 1;
+    private Action<BlobName>? _closed;
 
     internal RunBlob(BlobName name, IReadableBlob blob)
     {
@@ -191,9 +192,23 @@ internal sealed class RunBlob
         if (Interlocked.Decrement(ref _references) == 0)
         {
             Blob.Dispose();
+            Volatile.Read(ref _closed)?.Invoke(Name);
         }
     }
+
+    /// <summary>
+    /// Releases the owner's reference to a blob nothing current holds any
+    /// more, and has <paramref name="closed"/> called with its name once the
+    /// last reader has let go: a run a pinned or as-of view still reads is
+    /// deleted only after the view is disposed (ADR 0070).
+    /// </summary>
+    internal void Retire(Action<BlobName> closed)
+    {
+        Volatile.Write(ref _closed, closed);
+        Release();
+    }
 }
+
 
 /// <summary>
 /// An immutable sorted run: for each of the six orders, the keys it asserts and

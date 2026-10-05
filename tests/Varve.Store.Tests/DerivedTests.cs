@@ -112,7 +112,7 @@ public sealed class DerivedTests
     }
 
     [Fact]
-    public async Task a_pin_keeps_reading_runs_a_merge_has_replaced_and_deleted()
+    public async Task a_pin_keeps_reading_runs_a_merge_has_replaced_and_they_are_deleted_once_it_lets_go()
     {
         await using TemporaryDirectory directory = new();
         FileStorage storage = await directory.OpenAsync();
@@ -126,7 +126,7 @@ public sealed class DerivedTests
             await dataset.MaintainAsync(T.Ct);
         }
 
-        using DatasetView pinned = dataset.Pin();
+        DatasetView pinned = dataset.Pin();
         List<BlobName> before = await RunsAsync(storage);
 
         for (int i = 10; i < 60; i++)
@@ -135,8 +135,12 @@ public sealed class DerivedTests
             await dataset.MaintainAsync(T.Ct);
         }
 
-        Assert.NotEmpty(before.Except(await RunsAsync(storage)));
+        // Replaced, but still read by the pin: deletion waits (ADR 0070).
+        Assert.Empty(before.Except(await RunsAsync(storage)));
         Assert.Equal(30, T.All(pinned).Count);
+        pinned.Dispose();
+        await dataset.MaintainAsync(T.Ct);
+        Assert.NotEmpty(before.Except(await RunsAsync(storage)));
 
         using DatasetView now = dataset.Pin();
         Assert.Equal(180, T.All(now).Count);

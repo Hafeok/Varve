@@ -56,6 +56,12 @@ public sealed class DatasetOptions
     /// </summary>
     public MaintenanceMode Maintenance { get; init; } = OperatingSystem.IsBrowser() ? MaintenanceMode.Off : MaintenanceMode.Background;
 
+    /// <summary>
+    /// When the dataset writes checkpoints on its own, as maintenance
+    /// (ADR 0078). <see cref="CheckpointPolicy.Never"/> by default.
+    /// </summary>
+    public CheckpointPolicy Checkpoints { get; init; } = CheckpointPolicy.Never;
+
     /// <summary>Test seam: throws from the default projection at the positions it returns true for.</summary>
     internal Func<long, bool>? DefaultProjectionFault { get; set; }
 }
@@ -118,6 +124,9 @@ public sealed partial class Dataset : IAsyncDisposable
 
     /// <summary>The settings at the head.</summary>
     public DatasetSettings Settings => _state.SettingsAt(_state.Head);
+
+    /// <summary>Test seam: the bytes of the log's records after <paramref name="from"/> up to <paramref name="to"/>.</summary>
+    internal long LogBytesBetween(long from, long to) => _state.LogBytesAt(to) - _state.LogBytesAt(from);
 
     /// <summary>The positions that have a checkpoint, ascending.</summary>
     public IReadOnlyList<Position> Checkpoints
@@ -200,6 +209,7 @@ public sealed partial class Dataset : IAsyncDisposable
         long head = scan.Head;
         CommitInfo[] commits = new CommitInfo[Math.Max(16, head)];
         DatasetSettings settings = DatasetSettings.Default;
+        long logBytes = 0;
 
         for (int i = 0; i < head; i++)
         {
@@ -211,7 +221,8 @@ public sealed partial class Dataset : IAsyncDisposable
             }
 
             settings = Fold(settings, commit.Header);
-            commits[i] = new CommitInfo(commit.Header, commit.HeaderHash, commit.Location, settings);
+            logBytes += commit.Bytes;
+            commits[i] = new CommitInfo(commit.Header, commit.HeaderHash, commit.Location, settings, logBytes);
         }
 
         LogWriter writer = await LogWriter.OpenAsync(storage.Log, id, scan, options.SegmentBytes.Value, (int)options.MaxRecordBytes.Value, cancellationToken).ConfigureAwait(false);
@@ -252,6 +263,10 @@ public sealed partial class Dataset : IAsyncDisposable
         ArgumentOutOfRangeException.ThrowIfLessThan(options.MaxRecordBytes.Value, 64L, nameof(options));
         ArgumentOutOfRangeException.ThrowIfGreaterThan(options.MaxRecordBytes.Value, int.MaxValue, nameof(options));
         ArgumentOutOfRangeException.ThrowIfLessThan(options.SegmentBytes.Value, 1024L, nameof(options));
+        ArgumentNullException.ThrowIfNull(options.Checkpoints);
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.Checkpoints.EveryCommits ?? 1, 1, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.Checkpoints.EveryLogBytes?.Value ?? 1, 1L, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfNegative(options.Checkpoints.Keep, nameof(options));
     }
 
     /// <summary>
@@ -710,6 +725,8 @@ public sealed partial class Dataset : IAsyncDisposable
             checkpoint.Run.Blob!.Release();
         }
 
+        // Runs retired while a view still read them, closed since.
+        await DeleteClosedRunsAsync(CancellationToken.None).ConfigureAwait(false);
         _sequencer.Dispose();
 
         if (failure is not null)
@@ -867,7 +884,7 @@ public sealed partial class Dataset : IAsyncDisposable
 
             // The commit is durable and closed: it stands, whatever follows.
             DatasetSettings settings = Fold(state.SettingsAt(head), header);
-            CommitInfo info = new(header, headerHash, location, settings);
+            CommitInfo info = new(header, headerHash, location, settings, state.LogBytesAt(head) + _writer.LastCommitBytes);
             CommitInfo[] commits = Append(state.Commits, head, info);
 
             IndexVersion index = state.Index;
@@ -888,7 +905,7 @@ public sealed partial class Dataset : IAsyncDisposable
             _state = new State(next, commits, index, state.Checkpoints, failed);
             Signal();
 
-            if (failed is null && MaintenanceDue(index))
+            if (failed is null && MaintenanceDue(_state))
             {
                 StartMaintenance();
             }
@@ -1246,8 +1263,9 @@ public sealed partial class Dataset : IAsyncDisposable
     /// <summary>What the store keeps per closed commit, beside the log.</summary>
     private sealed class CommitInfo
     {
-        internal CommitInfo(CommitHeader header, byte[] headerHash, CommitLocation location, DatasetSettings settings)
+        internal CommitInfo(CommitHeader header, byte[] headerHash, CommitLocation location, DatasetSettings settings, long logBytes)
         {
+            LogBytes = logBytes;
             TimestampTicks = header.TimestampTicks;
             HeaderHash = headerHash;
             Location = location;
@@ -1267,6 +1285,9 @@ public sealed partial class Dataset : IAsyncDisposable
         internal long BlankCount { get; }
 
         internal DatasetSettings Settings { get; }
+
+        /// <summary>The bytes of every commit's records up to this one.</summary>
+        internal long LogBytes { get; }
     }
 
     /// <summary>Everything a read needs, published as one reference.</summary>
@@ -1290,6 +1311,8 @@ public sealed partial class Dataset : IAsyncDisposable
         internal Checkpoint[] Checkpoints { get; }
 
         internal string? Failed { get; }
+
+        internal long LogBytesAt(long position) => position == 0 ? 0 : Commits[position - 1].LogBytes;
 
         internal long CanonicalAt(long position) => position == 0 ? 0 : Commits[position - 1].CanonicalCount;
 
