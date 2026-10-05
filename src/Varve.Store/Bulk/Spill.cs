@@ -55,6 +55,13 @@ internal sealed class SpillSpace
         return name;
     }
 
+    /// <summary>Deletes one blob as soon as nothing needs it, so the load's disk stays what one pass needs.</summary>
+    internal async ValueTask DeleteAsync(BlobName name, CancellationToken cancellationToken)
+    {
+        await Store.DeleteAsync(name, cancellationToken).ConfigureAwait(false);
+        Created.Remove(name);
+    }
+
     /// <summary>Deletes every blob the load made; also what open does to a crashed load's.</summary>
     internal async ValueTask DeleteAllAsync(CancellationToken cancellationToken)
     {
@@ -157,7 +164,7 @@ internal sealed class ExternalSort<T>
 
                 foreach (BlobName done in group)
                 {
-                    await _space.Store.DeleteAsync(done, cancellationToken).ConfigureAwait(false);
+                    await _space.DeleteAsync(done, cancellationToken).ConfigureAwait(false);
                 }
             }
 
@@ -193,11 +200,19 @@ internal sealed class ExternalSort<T>
         return ranges;
     }
 
-    /// <summary>Drops the records and the buffer.</summary>
-    internal void Release()
+    /// <summary>Drops the records, the buffer and every run spilled, read or not.</summary>
+    internal async ValueTask DropAsync(CancellationToken cancellationToken)
     {
         _buffer = [];
         _count = 0;
+
+        foreach (BlobName run in (IEnumerable<BlobName>)[.. _runs, .. _final ?? []])
+        {
+            await _space.DeleteAsync(run, cancellationToken).ConfigureAwait(false);
+        }
+
+        _runs.Clear();
+        _final = [];
     }
 
     internal static async ValueTask WriteAsync(IDerivedStore store, BlobName name, ReadOnlyMemory<T> records, CancellationToken cancellationToken)

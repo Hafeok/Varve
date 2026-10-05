@@ -145,6 +145,7 @@ public sealed partial class Dataset
         BlobName runName = new(RunPrefix + head.ToString("D20", CultureInfo.InvariantCulture) + "-" + next.ToString("D20", CultureInfo.InvariantCulture)
             + "." + Interlocked.Increment(ref _runSequence).ToString(CultureInfo.InvariantCulture));
         await DerivedFormat.WriteRunAsync(_storage.Derived, runName, DerivedFormat.KindRun, Id, head, next, headerHash, commit.SectionAsync, [terms], commit.BlankAfter, cancellationToken).ConfigureAwait(false);
+        await commit.DropOrderAsync(cancellationToken).ConfigureAwait(false);
         LoadedRun delta = await DerivedFormat.TryLoadAsync(_storage.Derived, runName, Id, DerivedFormat.KindRun, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("A bulk load's delta run does not read back.");
 

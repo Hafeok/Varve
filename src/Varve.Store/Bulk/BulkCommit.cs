@@ -54,6 +54,7 @@ internal sealed class BulkCommit : IAsyncDisposable
     private long _assertedCount;
     private long _retractedCount;
     private RankIndex? _ranks;
+    private ExternalSort<QuadKey>? _order;
 
     internal BulkCommit(BulkLoad load, SpillSpace space, CancellationToken cancellationToken)
     {
@@ -117,7 +118,8 @@ internal sealed class BulkCommit : IAsyncDisposable
             _retractedCount = retracted.Written;
         }
 
-        _load.Quads.Release();
+        // The operations are read for the last time: their runs go.
+        await _load.Quads.DropAsync(ct).ConfigureAwait(false);
 
         if (_assertedCount == 0 && _retractedCount == 0)
         {
@@ -297,6 +299,8 @@ internal sealed class BulkCommit : IAsyncDisposable
         }
 
         await writer.PublishAsync(ct).ConfigureAwait(false);
+        sorted.Dispose();
+        await sort.DropAsync(ct).ConfigureAwait(false);
         return name;
     }
 
@@ -362,7 +366,7 @@ internal sealed class BulkCommit : IAsyncDisposable
                 after = counted.Count;
             }
 
-            await _space.Store.DeleteAsync(_reached, ct).ConfigureAwait(false);
+            await _space.DeleteAsync(_reached, ct).ConfigureAwait(false);
             _reached = next;
 
             if (after == before)
@@ -449,6 +453,8 @@ internal sealed class BulkCommit : IAsyncDisposable
             await CopyAsync(offsets, writer, ct).ConfigureAwait(false);
         }
 
+        await _space.DeleteAsync(offsetsSpill, ct).ConfigureAwait(false);
+
         using (SortedReader<TermHash> sorted = await hashes.FinishAsync(ct).ConfigureAwait(false))
         {
             TermHash[] chunk = new TermHash[4096];
@@ -460,6 +466,7 @@ internal sealed class BulkCommit : IAsyncDisposable
             }
         }
 
+        await hashes.DropAsync(ct).ConfigureAwait(false);
         await writer.PublishAsync(ct).ConfigureAwait(false);
         IReadableBlob blob = await _space.Store.OpenAsync(termsBlob, ct).ConfigureAwait(false);
         _open.Add(blob);
@@ -643,6 +650,13 @@ internal sealed class BulkCommit : IAsyncDisposable
     /// </summary>
     internal async ValueTask<IKeySource> SectionAsync(int index, CancellationToken ct)
     {
+        // The section before has been written: its sort's runs go.
+        if (_order is { } previous)
+        {
+            _order = null;
+            await previous.DropAsync(ct).ConfigureAwait(false);
+        }
+
         IndexOrder order = (IndexOrder)(index / 2);
         BlobName spill = index % 2 == 0 ? _asserted : _retracted;
 
@@ -666,7 +680,18 @@ internal sealed class BulkCommit : IAsyncDisposable
             }
         }
 
+        _order = sort;
         return new SpillKeySource(await sort.FinishAsync(ct).ConfigureAwait(false));
+    }
+
+    /// <summary>After the run is written: the last order's sort goes.</summary>
+    internal async ValueTask DropOrderAsync(CancellationToken ct)
+    {
+        if (_order is { } last)
+        {
+            _order = null;
+            await last.DropAsync(ct).ConfigureAwait(false);
+        }
     }
 
     public ValueTask DisposeAsync()
