@@ -498,6 +498,50 @@ jobs:
           path: tests/Varve.WasmSmoke/bin/Release/net10.0/browser-wasm/AppBundle
           if-no-files-found: error
 
+  # The browser storage backends, run in a browser (ADR 0084): the storage
+  # contract against the origin private file system in a worker and IndexedDB
+  # on the page's thread, the lease, a dataset with disk runs, and the
+  # deterministic script, whose log/ must be byte-identical to the one
+  # FileStorage writes here. eng/browser-tests.cs drives the runner's Chrome
+  # over the DevTools protocol with the BCL alone. Outside eng/ci.cs for the
+  # reason the wasm job is: the devcontainer has no browser (ADR 0036).
+  # VARVE_CHROME names the browser; a repository variable of that name
+  # replaces the runner's Chrome.
+  browser-tests:
+    name: browser storage in Chromium
+    runs-on: ubuntu-latest
+    env:
+      VARVE_CHROME: ${{ vars.VARVE_CHROME || '/usr/bin/google-chrome' }}
+
+    steps:
+      - name: Line endings
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Install the WebAssembly workloads
+        run: dotnet workload install wasm-tools wasm-experimental
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-wasm-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-wasm-
+
+      - name: Build the test app
+        run: dotnet build tests/Varve.Store.BrowserTests --configuration Release
+
+      - name: Run in headless Chromium
+        run: dotnet run eng/browser-tests.cs
+
   # Does not gate on the raw test result, and still should not now that all 883
   # cases pass: an exempt case is allowed to fail, and a case outside the
   # baseline is allowed to fail while it is being worked on (ADR 0007). The
