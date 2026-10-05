@@ -361,15 +361,17 @@ internal static class FileSizes
         Print("disk run bytes per quad", runBytes / (double)StoreDataset.Quads);
         Print("checkpoint bytes (keys and dictionary)", checkpoint);
         Print("checkpoint bytes per quad", checkpoint / (double)StoreDataset.Quads);
-        Print("fences held in memory per quad (asserted, six orders)", 6 * 32.0 / 128);
+        Print("directory held in memory per quad, a run (fences and block starts, six orders)", 6 * 40.0 / 128);
+        Print("directory held in memory per quad, a checkpoint (every sixteenth fence)", 6 * 32.0 / 128 / 16);
 
         string largest = runs.OrderByDescending(f => new FileInfo(f).Length).First();
-        (ulong[] Keys, long Count)[] sections = ReadSections(largest);
+        (ulong[] Keys, long Count, long Length)[] sections = ReadSections(largest);
 
         for (int order = 0; order < 6; order++)
         {
             ulong[] keys = sections[order * 2].Keys;
             Print("order " + order + ": keys", sections[order * 2].Count);
+            Print("order " + order + ": stored bytes per key, compressed blocks", sections[order * 2].Length / (double)sections[order * 2].Count);
             Print("order " + order + ": delta-encoded bytes per key, counter ids", Delta(keys));
             Print("order " + order + ": delta-encoded bytes per key, scattered ids", Delta(Scatter(keys, order)));
         }
@@ -381,29 +383,90 @@ internal static class FileSizes
     private static void Print(string what, double value) =>
         Console.WriteLine(what + ": " + value.ToString("N2", CultureInfo.InvariantCulture));
 
-    // A run file's twelve sections, as storage-format.md §7 lays them out.
-    private static (ulong[] Keys, long Count)[] ReadSections(string path)
+    // A run file's twelve sections, as storage-format.md §7 lays them out in
+    // derived format 2: the directory's offset, count and length per section,
+    // then the fences, then where each block begins; each block the first key
+    // whole and every later one as the index of the first id that differs,
+    // that id's increase and the ids after it, as varints (ADR 0080).
+    private static (ulong[] Keys, long Count, long Length)[] ReadSections(string path)
     {
         byte[] bytes = File.ReadAllBytes(path);
         ReadOnlySpan<byte> header = bytes.AsSpan(bytes.Length - 160);
-        long directory = (long)BinaryPrimitives.ReadUInt64LittleEndian(header[72..]);
-        (ulong[] Keys, long Count)[] sections = new (ulong[], long)[12];
+        int directory = (int)BinaryPrimitives.ReadUInt64LittleEndian(header[72..]);
+        long[] offsets = new long[12];
+        long[] counts = new long[12];
+        long[] lengths = new long[12];
+        long blocksTotal = 0;
 
         for (int section = 0; section < 12; section++)
         {
-            long offset = (long)BinaryPrimitives.ReadUInt64LittleEndian(bytes.AsSpan((int)directory + 8 + (section * 16)));
-            long count = (long)BinaryPrimitives.ReadUInt64LittleEndian(bytes.AsSpan((int)directory + 16 + (section * 16)));
-            ulong[] keys = new ulong[count * 4];
+            offsets[section] = (long)BinaryPrimitives.ReadUInt64LittleEndian(bytes.AsSpan(directory + 8 + (section * 24)));
+            counts[section] = (long)BinaryPrimitives.ReadUInt64LittleEndian(bytes.AsSpan(directory + 16 + (section * 24)));
+            lengths[section] = (long)BinaryPrimitives.ReadUInt64LittleEndian(bytes.AsSpan(directory + 24 + (section * 24)));
+            blocksTotal += (counts[section] + 127) / 128;
+        }
 
-            for (long i = 0; i < keys.Length; i++)
+        int starts = directory + 8 + (12 * 24) + (int)(blocksTotal * 32);
+        (ulong[] Keys, long Count, long Length)[] sections = new (ulong[], long, long)[12];
+
+        for (int section = 0; section < 12; section++)
+        {
+            long blocks = (counts[section] + 127) / 128;
+            ulong[] keys = new ulong[counts[section] * 4];
+            long k = 0;
+
+            for (long b = 0; b < blocks; b++)
             {
-                keys[i] = BinaryPrimitives.ReadUInt64LittleEndian(bytes.AsSpan((int)(offset + (i * 8))));
+                int at = (int)(offsets[section] + (long)BinaryPrimitives.ReadUInt64LittleEndian(bytes.AsSpan(starts + (int)(b * 8))));
+                long inBlock = Math.Min(128, counts[section] - (b * 128));
+
+                for (int c = 0; c < 4; c++)
+                {
+                    keys[(k * 4) + c] = BinaryPrimitives.ReadUInt64LittleEndian(bytes.AsSpan(at + (c * 8)));
+                }
+
+                at += 32;
+                k++;
+
+                for (long i = 1; i < inBlock; i++, k++)
+                {
+                    int differs = bytes[at++];
+
+                    for (int c = 0; c < differs; c++)
+                    {
+                        keys[(k * 4) + c] = keys[((k - 1) * 4) + c];
+                    }
+
+                    keys[(k * 4) + differs] = keys[((k - 1) * 4) + differs] + Uleb(bytes, ref at);
+
+                    for (int c = differs + 1; c < 4; c++)
+                    {
+                        keys[(k * 4) + c] = Uleb(bytes, ref at);
+                    }
+                }
             }
 
-            sections[section] = (keys, count);
+            starts += (int)(blocks * 8);
+            sections[section] = (keys, counts[section], lengths[section]);
         }
 
         return sections;
+    }
+
+    private static ulong Uleb(byte[] bytes, ref int at)
+    {
+        ulong value = 0;
+
+        for (int shift = 0; ; shift += 7)
+        {
+            byte b = bytes[at++];
+            value |= (ulong)(b & 0x7F) << shift;
+
+            if ((b & 0x80) == 0)
+            {
+                return value;
+            }
+        }
     }
 
     // Each key as: the number of leading components equal to the previous

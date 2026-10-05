@@ -192,6 +192,52 @@ internal sealed class KeySection
         return Run.Search(keys[..count], in key) >= 0;
     }
 
+    /// <summary>
+    /// The indexes of the keys from <paramref name="low"/> through
+    /// <paramref name="high"/>, decoding the block the range starts in once:
+    /// into <paramref name="buffer"/>, which then holds <paramref name="held"/>
+    /// keys from index <paramref name="heldStart"/> for the reader to start
+    /// from, and from which the end is found too when it lies in the same
+    /// block — a point lookup's case, which three decodes made two and a half
+    /// times slower than 6a's raw blocks. Held is zero when nothing was decoded.
+    /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal (long Next, long End) Range(in QuadKey low, in QuadKey high, Span<QuadKey> buffer, out int held, out long heldStart)
+    {
+        held = 0;
+        heldStart = 0;
+
+        if (_blob is null)
+        {
+            long from = Run.LowerBound(Memory.Span, in low);
+            return (from, from < Count ? Run.UpperBound(Memory.Span, in high) : from);
+        }
+
+        long block = LastBlockBefore(in low, inclusive: false);
+        long next = 0;
+
+        if (block >= 0)
+        {
+            held = ReadBlock(block, buffer);
+            heldStart = block * BlockKeys;
+            next = heldStart + Run.LowerBound(buffer[..held], in low);
+        }
+
+        if (next >= Count)
+        {
+            return (next, next);
+        }
+
+        long last = LastBlockBefore(in high, inclusive: true);
+
+        if (held > 0 && last == block)
+        {
+            return (next, heldStart + Run.UpperBound(buffer[..held], in high));
+        }
+
+        return (next, UpperBound(in high));
+    }
+
     // The last block whose first key is below the bound (or at it, when
     // inclusive); -1 when there is none.
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
@@ -1034,15 +1080,22 @@ internal sealed class RunCursor : IQuadCursor
 
         internal static Stream Over(KeySection section, int run, bool asserts, in QuadKey low, in QuadKey high)
         {
-            long next = section.LowerBound(in low);
-            long end = next < section.Count ? section.UpperBound(in high) : next;
+            QuadKey[]? buffer = section.OnBlob ? ArrayPool<QuadKey>.Shared.Rent(KeySection.BlockKeys) : null;
+            (long next, long end) = section.Range(in low, in high, buffer, out int held, out long heldStart);
 
+            if (buffer is not null && next >= end)
+            {
+                ArrayPool<QuadKey>.Shared.Return(buffer);
+                buffer = null;
+            }
+
+            // The block the range starts in, decoded by the seek, is the first one read.
             return new Stream
             {
                 Section = section,
-                Block = section.Memory,
-                Buffer = section.OnBlob && next < end ? ArrayPool<QuadKey>.Shared.Rent(KeySection.BlockKeys) : null,
-                BlockStart = section.OnBlob ? long.MinValue / 2 : 0,
+                Block = buffer is not null && held > 0 ? new ReadOnlyMemory<QuadKey>(buffer, 0, held) : section.Memory,
+                Buffer = buffer,
+                BlockStart = buffer is not null && held > 0 ? heldStart : section.OnBlob ? long.MinValue / 2 : 0,
                 Next = next,
                 End = end,
                 Run = run,
