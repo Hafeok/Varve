@@ -26,4 +26,17 @@ public interface ICommitValidator
     /// <paramref name="proposed"/>'s handles.
     /// </summary>
     ValidationVerdict Validate(IQuadSource proposed, QuadDelta delta);
+
+    /// <summary>
+    /// Decides whether a bulk commit may land (ADR 0077): <paramref name="delta"/>
+    /// is the delta as quad sources over the run on disk. By default it is
+    /// read into memory and given to <see cref="Validate(IQuadSource, QuadDelta)"/>,
+    /// which costs memory in the delta's size; a validator that must not
+    /// implements this and reads the sources.
+    /// </summary>
+    ValidationVerdict Validate(IQuadSource proposed, BulkDelta delta)
+    {
+        System.ArgumentNullException.ThrowIfNull(delta);
+        return Validate(proposed, delta.Materialise());
+    }
 }

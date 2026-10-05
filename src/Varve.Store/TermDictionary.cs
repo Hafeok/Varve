@@ -140,6 +140,11 @@ internal sealed class TermDictionary
         }
     }
 
+    /// <summary>The id of the canonical term with this key — lowercased tag and all — at or below the counter.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal static bool TryFindKey(Run[] runs, ReadOnlySpan<byte> key, long canonicalLimit, out ulong id) =>
+        Search(runs, key, canonicalLimit, out id);
+
     /// <summary>The id a triple term with these components already has, at or below the counter.</summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool TryFindTriple(Run[] runs, ulong subject, ulong predicate, ulong @object, long canonicalLimit, out ulong id)

@@ -473,6 +473,13 @@ public sealed partial class Dataset
 
         foreach (BlobName name in await _storage.Derived.ListAsync(cancellationToken).ConfigureAwait(false))
         {
+            // A bulk load's spills, left by a crash during the load (ADR 0081).
+            if (name.Value.StartsWith(SpillSpace.Prefix, StringComparison.Ordinal))
+            {
+                await _storage.Derived.DeleteAsync(name, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
             if (name.Value.StartsWith(RunPrefix, StringComparison.Ordinal))
             {
                 int dot = name.Value.LastIndexOf('.');

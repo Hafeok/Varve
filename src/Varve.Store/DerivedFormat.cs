@@ -172,6 +172,25 @@ internal static class DerivedFormat
         IKeySource[] sections,
         TermSection[] terms,
         long blankCount,
+        CancellationToken cancellationToken) =>
+        await WriteRunAsync(store, name, kind, dataset, from, to, toHash, (i, _) => new ValueTask<IKeySource>(sections[i]), terms, blankCount, cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
+    /// The same, with each section's source made just before it is written
+    /// and dropped after: a bulk load sorts an order only when its turn comes
+    /// (ADR 0081).
+    /// </summary>
+    internal static async ValueTask WriteRunAsync(
+        IDerivedStore store,
+        BlobName name,
+        ushort kind,
+        DatasetId dataset,
+        long from,
+        long to,
+        byte[] toHash,
+        Func<int, CancellationToken, ValueTask<IKeySource>> sections,
+        TermSection[] terms,
+        long blankCount,
         CancellationToken cancellationToken)
     {
         await using IBlobWriter writer = await store.CreateAsync(name, cancellationToken).ConfigureAwait(false);
@@ -188,10 +207,11 @@ internal static class DerivedFormat
         {
             offsets[section] = offset;
             blocks.Begin();
+            IKeySource source = await sections(section, cancellationToken).ConfigureAwait(false);
 
             while (true)
             {
-                int produced = sections[section].Next(keys);
+                int produced = source.Next(keys);
 
                 if (produced == 0)
                 {
@@ -213,7 +233,11 @@ internal static class DerivedFormat
             fences[section] = [.. blocks.Fences];
             starts[section] = [.. blocks.Blocks];
             offset += blocks.Length;
-            sections[section] = null!;
+
+            if (source is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
         }
 
         await writer.WriteAsync(blocks.PendingBytes, cancellationToken).ConfigureAwait(false);
@@ -381,6 +405,38 @@ internal static class DerivedFormat
         }
 
         return sources;
+    }
+
+    /// <summary>
+    /// Rewrites a derived file with another commit's header hash in its
+    /// derived header, everything else the same: a copy, published over it.
+    /// </summary>
+    internal static async ValueTask RenameToAsync(IDerivedStore store, BlobName name, byte[] toHash, CancellationToken cancellationToken)
+    {
+        using IReadableBlob source = await store.OpenAsync(name, cancellationToken).ConfigureAwait(false);
+        long length = source.Length.Value;
+        byte[] old = new byte[HeaderLength];
+        source.Read(new ByteOffset(length - HeaderLength), old);
+        ushort kind = BinaryPrimitives.ReadUInt16LittleEndian(old.AsSpan(6));
+        DatasetId dataset = DatasetId.Read(old.AsSpan(8, DatasetId.Length));
+        long from = (long)BinaryPrimitives.ReadUInt64LittleEndian(old.AsSpan(24));
+        long to = (long)BinaryPrimitives.ReadUInt64LittleEndian(old.AsSpan(32));
+        long directoryOffset = (long)BinaryPrimitives.ReadUInt64LittleEndian(old.AsSpan(72));
+        long directoryLength = (long)BinaryPrimitives.ReadUInt64LittleEndian(old.AsSpan(80));
+        byte[] header = EncodeHeader(kind, dataset, from, to, toHash, directoryOffset, directoryLength, old.AsSpan(88, LogFormat.HashLength));
+
+        await using IBlobWriter writer = await store.CreateAsync(name, cancellationToken).ConfigureAwait(false);
+        byte[] buffer = new byte[1 << 20];
+
+        for (long at = 0; at < length - HeaderLength; at += buffer.Length)
+        {
+            int count = (int)Math.Min(buffer.Length, length - HeaderLength - at);
+            source.Read(new ByteOffset(at), buffer.AsSpan(0, count));
+            await writer.WriteAsync(buffer.AsMemory(0, count), cancellationToken).ConfigureAwait(false);
+        }
+
+        await writer.WriteAsync(header, cancellationToken).ConfigureAwait(false);
+        await writer.PublishAsync(cancellationToken).ConfigureAwait(false);
     }
 
     // ---------------------------------------------------------------------------------------------

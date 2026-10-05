@@ -404,3 +404,26 @@ static Varve.Store.CheckpointPolicy.Never.get -> Varve.Store.CheckpointPolicy!
 Varve.Store.DatasetOptions.Checkpoints.get -> Varve.Store.CheckpointPolicy!
 Varve.Store.DatasetOptions.Checkpoints.init -> void
 Varve.Store.Dataset.ShipAsync(Varve.Store.IStorage! target, Varve.Store.Log.Position position, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.Position>
+Varve.Store.BulkDelta
+Varve.Store.BulkDelta.Asserted.get -> Varve.Rdf.IQuadSource!
+Varve.Store.BulkDelta.Count.get -> Varve.Rdf.QuadCount
+Varve.Store.BulkDelta.Materialise() -> Varve.Rdf.QuadDelta
+Varve.Store.BulkDelta.Retracted.get -> Varve.Rdf.IQuadSource!
+Varve.Store.BulkLoad
+Varve.Store.BulkLoad.Assert(Varve.Rdf.RdfTerm! subject, Varve.Rdf.RdfTerm! predicate, Varve.Rdf.RdfTerm! object, Varve.Rdf.RdfTerm? graph = null) -> void
+Varve.Store.BulkLoad.Assert(in Varve.Rdf.QuadView quad) -> void
+Varve.Store.BulkLoad.CommitAsync(Varve.Store.Log.CommitMetadata! metadata, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.CommitResult>
+Varve.Store.BulkLoad.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Varve.Store.BulkLoad.Operations.get -> long
+Varve.Store.BulkLoad.Retract(Varve.Rdf.RdfTerm! subject, Varve.Rdf.RdfTerm! predicate, Varve.Rdf.RdfTerm! object, Varve.Rdf.RdfTerm? graph = null) -> void
+Varve.Store.BulkLoad.Retract(in Varve.Rdf.QuadView quad) -> void
+Varve.Store.BulkLoadException
+Varve.Store.BulkLoadException.BulkLoadException() -> void
+Varve.Store.BulkLoadException.BulkLoadException(string! message) -> void
+Varve.Store.BulkLoadException.BulkLoadException(string! message, System.Exception! inner) -> void
+Varve.Store.BulkLoadOptions
+Varve.Store.BulkLoadOptions.BulkLoadOptions() -> void
+Varve.Store.BulkLoadOptions.MemoryBytes.get -> Varve.Store.Log.ByteCount
+Varve.Store.BulkLoadOptions.MemoryBytes.init -> void
+Varve.Store.Dataset.BeginBulkLoadAsync(Varve.Store.BulkLoadOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.BulkLoad!>
+Varve.Store.ICommitValidator.Validate(Varve.Rdf.IQuadSource! proposed, Varve.Store.BulkDelta! delta) -> Varve.Store.Log.ValidationVerdict

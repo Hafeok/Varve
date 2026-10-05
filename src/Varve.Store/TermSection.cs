@@ -17,7 +17,7 @@ namespace Varve.Store;
 /// <summary>One entry of a term section's hash index: a term key's hash and its id.</summary>
 /// <remarks>Ordered by hash, then id. Sixteen bytes, written as the struct's own little-endian bytes.</remarks>
 [StructLayout(LayoutKind.Sequential)]
-internal readonly struct TermHash : IComparable<TermHash>
+internal readonly struct TermHash : IComparable<TermHash>, IOrdered<TermHash>
 {
     internal TermHash(ulong hash, ulong id)
     {
@@ -193,10 +193,14 @@ internal static class TermKey
     /// cryptographic hash; a collision costs one more entry compared.
     /// </summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
-    internal static ulong Hash(ReadOnlySpan<byte> key)
+    internal static ulong Hash(ReadOnlySpan<byte> key) => Hash(key, 0x243F6A8885A308D3UL);
+
+    /// <summary>The same hash from another seed: an independent 64 bits of the same key.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal static ulong Hash(ReadOnlySpan<byte> key, ulong seed)
     {
         const ulong Multiplier = 0x9E3779B97F4A7C15UL;
-        ulong h = 0x243F6A8885A308D3UL ^ (ulong)key.Length;
+        ulong h = seed ^ (ulong)key.Length;
         int at = 0;
 
         while (key.Length - at >= 8)

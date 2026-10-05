@@ -791,6 +791,67 @@ internal sealed class LogWriter
         return start.Value;
     }
 
+    /// <summary>
+    /// Appends one commit whose body arrives in parts, never whole: records of
+    /// at most the record limit are cut from the parts as they come, and the
+    /// closing record carries the rest and the commit header. One flush, after
+    /// the closing record (ADR 0013, ADR 0076). Returns where it starts.
+    /// </summary>
+    internal async ValueTask<CommitLocation> AppendStreamAsync(
+        CommitKind kind, long position, byte[] previous, IAsyncEnumerable<ReadOnlyMemory<byte>> body, byte[] header, CancellationToken cancellationToken)
+    {
+        LastCommitBytes = 0;
+        byte[] payload = new byte[_maxRecordBytes + header.Length + 4];
+        int filled = 0;
+        int index = 0;
+        CommitLocation? start = null;
+
+        async ValueTask EmitAsync(bool closing)
+        {
+            int length = filled;
+
+            if (closing)
+            {
+                header.CopyTo(payload.AsSpan(length));
+                BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(length + header.Length), (uint)header.Length);
+                length += header.Length + 4;
+            }
+
+            byte[] record = new byte[LogFormat.RecordHeaderLength + length];
+            payload.AsSpan(0, length).CopyTo(record.AsSpan(LogFormat.RecordHeaderLength));
+            LogFormat.WriteRecordHeader(record, record.AsSpan(LogFormat.RecordHeaderLength), closing, kind, position, index, previous);
+            await EnsureRoomAsync(record.Length, position, previous, cancellationToken).ConfigureAwait(false);
+            start ??= new CommitLocation(_active, _activeLength);
+            await _store.AppendAsync(new SegmentId(_active), record, cancellationToken).ConfigureAwait(false);
+            _activeLength += record.Length;
+            LastCommitBytes += record.Length;
+            index++;
+            filled = 0;
+        }
+
+        await foreach (ReadOnlyMemory<byte> part in body.WithCancellation(cancellationToken).ConfigureAwait(false))
+        {
+            ReadOnlyMemory<byte> rest = part;
+
+            while (!rest.IsEmpty)
+            {
+                if (filled == _maxRecordBytes)
+                {
+                    await EmitAsync(closing: false).ConfigureAwait(false);
+                }
+
+                int take = Math.Min(rest.Length, _maxRecordBytes - filled);
+                rest.Span[..take].CopyTo(payload.AsSpan(filled));
+                filled += take;
+                rest = rest[take..];
+            }
+        }
+
+        await EmitAsync(closing: true).ConfigureAwait(false);
+        await _store.FlushAsync(new SegmentId(_active), cancellationToken).ConfigureAwait(false);
+        return start!.Value;
+    }
+
     // Seals the active segment, with a closed trailer naming the readable head,
     // and starts the next, whose header continues from it.
     private async ValueTask EnsureRoomAsync(int recordLength, long position, byte[] previous, CancellationToken cancellationToken)

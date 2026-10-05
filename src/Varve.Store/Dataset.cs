@@ -125,6 +125,9 @@ public sealed partial class Dataset : IAsyncDisposable
     /// <summary>The settings at the head.</summary>
     public DatasetSettings Settings => _state.SettingsAt(_state.Head);
 
+    /// <summary>Test seam: the dictionary's counters at the head.</summary>
+    internal (long Canonical, long Blank) CountersForTests() => (_state.CanonicalAt(_state.Head), _state.BlankAt(_state.Head));
+
     /// <summary>Test seam: the storage the dataset was opened on.</summary>
     internal IStorage StorageForTests() => _storage;
 
