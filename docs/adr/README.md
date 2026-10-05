@@ -34,7 +34,7 @@ or depart from `docs/brief.md`, each says so in its Context.
 | [0015](0015-checkpoints-and-reads.md) | Checkpoints, pinned reads, as-of reads, archive horizon | Accepted |
 | [0016](0016-projection-contract-and-subscriptions.md) | Projection contract, synchronous default projection, erasure in projections | Accepted |
 | [0017](0017-validator-contract-and-overlay.md) | Pre-commit validator contract and the overlay quad source | Accepted |
-| [0018](0018-storage-abstraction.md) | Storage abstraction: memory, file, browser | Accepted; "asynchronous throughout" **superseded by 0071** (proposed) |
+| [0018](0018-storage-abstraction.md) | Storage abstraction: memory, file, browser | Accepted; "asynchronous throughout" **superseded by 0071** |
 | [0019](0019-erasure-by-crypto-shredding.md) | Erasure by crypto-shredding | **Superseded by 0023** |
 | [0020](0020-cipher-for-erasure-mode.md) | Cipher for erasure mode | **Superseded by 0028** |
 | [0021](0021-dataset-settings-as-a-commit-kind.md) | Dataset settings as a commit kind | Accepted |
@@ -86,12 +86,12 @@ specification, which moved to version 1.2 with 0046 and to 1.3 with 0047.
 
 | # | Title | Status |
 |---:|---|---|
-| [0040](0040-storage-contract-members-and-the-memory-backend.md) | The storage contract's members, and where the memory backend lives | Accepted; member types **superseded by 0065**; derived members **by 0071** (proposed) |
+| [0040](0040-storage-contract-members-and-the-memory-backend.md) | The storage contract's members, and where the memory backend lives | Accepted; member types **superseded by 0065**; derived members **by 0071** |
 | [0041](0041-sorted-runs-for-the-default-projection-and-checkpoints.md) | Sorted runs for the default projection and for checkpoints | Accepted |
 | [0042](0042-subscriptions-pull-from-the-log.md) | Subscriptions pull from the log | Accepted; amended 2026-10-02 (maintenance is not delivery; proposed) |
 | [0043](0043-the-reference-model-as-a-test-asset.md) | The reference model is a test asset | Accepted |
 | [0044](0044-blank-node-identity-in-process.md) | Blank node identity at the in-process boundary (Q1, split) | Accepted |
-| [0045](0045-the-provisional-in-memory-log-encoding.md) | The provisional log encoding, and the in-memory id layout | Accepted, provisional by design; **superseded by 0072** (proposed) |
+| [0045](0045-the-provisional-in-memory-log-encoding.md) | The provisional log encoding, and the in-memory id layout | Accepted, provisional by design; **superseded by 0072** |
 | [0046](0046-settings-commits-reach-every-subscriber.md) | Settings commits reach every subscriber; specification 1.2 | Accepted; **amends 0016** |
 | [0047](0047-delta-composition-and-closure-over-triple-terms.md) | Delta composition over chains, and dictionary closure over triple terms; specification 1.3 | Accepted |
 
@@ -170,14 +170,14 @@ maintainer on the 6a plan, filed unaccepted (ADR 0066); specification 1.4, and 1
 
 | # | Title | Status |
 |---:|---|---|
-| [0070](0070-the-storage-engine-is-our-own.md) | The storage engine is our own, and it is two different things | **Proposed**; revisit condition |
-| [0071](0071-synchronous-reads-over-asynchronous-storage.md) | Synchronous reads of derived data over asynchronous storage | **Proposed**; supersedes 0018 and 0040 in part; revisit condition |
-| [0072](0072-format-version-1.md) | Format version 1, read forever from the first prerelease that writes it | **Proposed**; supersedes 0045 |
-| [0073](0073-durability-per-host-declared.md) | Durability per host, declared, and what each level survives | **Proposed** |
-| [0074](0074-private-ids-reserved-and-the-key-store-refused.md) | The private id and entry layout, reserved; the key store refused by path | **Proposed** |
-| [0075](0075-one-process-per-dataset-by-an-os-lease.md) | One process per dataset directory, held by an exclusive handle | **Proposed** |
-| [0076](0076-bulk-load-by-sort-and-merge-join.md) | Bulk load and I2: sort into a run, merge-join, one multi-record commit (Q2) | **Proposed**; implemented in 6c |
-| [0077](0077-bulk-load-validators-scan-the-delta-on-disk.md) | Bulk load and validators: the overlay scans the delta on disk (Q3) | **Proposed**; implemented in 6c |
+| [0070](0070-the-storage-engine-is-our-own.md) | The storage engine is our own, and it is two different things | Accepted; revisit condition |
+| [0071](0071-synchronous-reads-over-asynchronous-storage.md) | Synchronous reads of derived data over asynchronous storage | Accepted; supersedes 0018 and 0040 in part; revisit condition |
+| [0072](0072-format-version-1.md) | Format version 1, read forever from the first prerelease that writes it | Accepted; supersedes 0045 |
+| [0073](0073-durability-per-host-declared.md) | Durability per host, declared, and what each level survives | Accepted |
+| [0074](0074-private-ids-reserved-and-the-key-store-refused.md) | The private id and entry layout, reserved; the key store refused by path | Accepted |
+| [0075](0075-one-process-per-dataset-by-an-os-lease.md) | One process per dataset directory, held by an exclusive handle | Accepted |
+| [0076](0076-bulk-load-by-sort-and-merge-join.md) | Bulk load and I2: sort into a run, merge-join, one multi-record commit (Q2) | Accepted; implemented in 6c |
+| [0077](0077-bulk-load-validators-scan-the-delta-on-disk.md) | Bulk load and validators: the overlay scans the delta on disk (Q3) | Accepted; implemented in 6c |
 
 ## Milestone 7 — the server
 
@@ -204,7 +204,7 @@ Built here and moving to a repository of its own; see
 |---:|---|---|
 | [0039](0039-repo-standard.md) | repo-standard: repository settings as code, built here and moving out | Accepted |
 
-**0070–0077 are `Proposed`**, filed by milestone 6a and awaiting acceptance on its pull request. [0069](0069-model-namespaces-for-layers-3-to-5.md) was,
+**0070–0077 were `Proposed`** from their filing by milestone 6a on 2026-10-02 until their acceptance on its pull request on 2026-10-05. [0069](0069-model-namespaces-for-layers-3-to-5.md) was,
 from its filing on 2026-09-29 until its acceptance on 2026-09-30. Three others were
 `Proposed` once, and were completed in place rather than superseded, because
 ADR 0001's no-edit rule binds accepted decisions and they had never been
@@ -238,8 +238,8 @@ falls out of:
 | | Question | Owner | Due |
 |---|---|---|---|
 | **Q1** | External form of store-scoped blank node identity at protocol boundaries. The in-process half is **decided** by [0044](0044-blank-node-identity-in-process.md): by handle | [0012](0012-term-dictionary-and-id-scheme.md) | milestone 7, with the server |
-| **Q2** | Bulk load and I2 — normalising a huge commit against a populated dataset | [0013](0013-records-commits-and-bulk-load.md) | **decided** by [0076](0076-bulk-load-by-sort-and-merge-join.md) (proposed): sort and merge-join; built in 6c |
-| **Q3** | Bulk load and validators — an overlay that does not fit in memory | [0013](0013-records-commits-and-bulk-load.md), with [0017](0017-validator-contract-and-overlay.md) | **decided** by [0077](0077-bulk-load-validators-scan-the-delta-on-disk.md) (proposed): the overlay scans the delta on disk; built in 6c |
+| **Q2** | Bulk load and I2 — normalising a huge commit against a populated dataset | [0013](0013-records-commits-and-bulk-load.md) | **decided** by [0076](0076-bulk-load-by-sort-and-merge-join.md): sort and merge-join; built in 6c |
+| **Q3** | Bulk load and validators — an overlay that does not fit in memory | [0013](0013-records-commits-and-bulk-load.md), with [0017](0017-validator-contract-and-overlay.md) | **decided** by [0077](0077-bulk-load-validators-scan-the-delta-on-disk.md): the overlay scans the delta on disk; built in 6c |
 | **Q4** | How a shredded term appears in SPARQL results and serialisations | [0023](0023-erasure-and-access-requests.md) | milestone 9 |
 | **Q5** | Lookup by private value — scan and decrypt, or a keyed blind index | [0028](0028-deterministic-aead-from-hmac.md) | milestone 9 |
 | **Q6** | Cipher and availability per host | [0028](0028-deterministic-aead-from-hmac.md) | **decided**, subject to 0028's two conditions: the primitives run in a browser (measured, holds) and the construction survives external review (milestone 9) |
