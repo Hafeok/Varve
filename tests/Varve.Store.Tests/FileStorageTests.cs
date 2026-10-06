@@ -127,7 +127,7 @@ public sealed class FileStorageTests
         using DatasetView view = await reopened.AsOfAsync(new Position(7), T.Ct);
         Assert.Equal(7, T.All(view).Count);
         // The checkpoint, and the projection's and the commit index's blobs
-        // under index/: few of the latter, because they are merged (ADR 0085).
+        // under index/: few of the latter, because they are merged (ADR 0089).
         IReadOnlyList<BlobName> blobs = await again.Derived.ListAsync(T.Ct);
         Assert.Contains(new BlobName("checkpoints/00000000000000000005"), blobs);
         Assert.All(blobs, n => Assert.True(n.Value == "checkpoints/00000000000000000005" || n.Value.StartsWith("index/", StringComparison.Ordinal), n.Value));

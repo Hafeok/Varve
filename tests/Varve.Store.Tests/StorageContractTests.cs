@@ -91,7 +91,7 @@ public sealed class ExternalBackendContractTests : StorageContractTests
 /// One lock around everything: the store calls a backend from its sequencer
 /// and from background maintenance at once (ADR 0070), and the commit
 /// index's paging made this test's maintenance run, which found the backend
-/// unsafe for it (ADR 0085).
+/// unsafe for it (ADR 0089).
 /// </summary>
 internal sealed class ListStorage : IStorage, ISegmentStore, IDerivedStore
 {

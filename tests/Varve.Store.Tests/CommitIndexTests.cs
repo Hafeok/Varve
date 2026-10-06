@@ -14,7 +14,7 @@ using Xunit;
 
 namespace Varve.Store.Tests;
 
-/// <summary>The commit index, derived and paged (ADR 0085).</summary>
+/// <summary>The commit index, derived and paged (ADR 0089).</summary>
 public class CommitIndexTests
 {
     private static CommitEntry Entry(long position, long ticks) =>

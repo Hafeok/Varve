@@ -87,7 +87,7 @@ internal sealed class LogScan
     /// <summary>Every closed commit, when the scan keeps them; null when they are handed to a callback instead.</summary>
     internal List<ScannedCommit>? Commits { get; init; } = [];
 
-    /// <summary>Called with each closed commit as the scan passes it, when the scan does not keep them (ADR 0085).</summary>
+    /// <summary>Called with each closed commit as the scan passes it, when the scan does not keep them (ADR 0089).</summary>
     internal Func<ScannedCommit, ValueTask>? OnCommit { get; init; }
 
     /// <summary>Whether a torn or unclosed tail was ignored (ADR 0072).</summary>
@@ -147,7 +147,7 @@ internal static class LogReader
     /// <summary>
     /// The scan, handing each closed commit to <paramref name="onCommit"/> as
     /// it passes rather than keeping them: what opening needs of a log of any
-    /// length is then bounded by what the callback keeps (ADR 0085).
+    /// length is then bounded by what the callback keeps (ADR 0089).
     /// </summary>
     internal static ValueTask<LogScan> ScanAsync(ISegmentStore store, DatasetId dataset, long bodiesAfter, Func<ScannedCommit, ValueTask> onCommit, CancellationToken cancellationToken) =>
         ScanAsync(store, dataset, bodiesAfter, ScanRetains, onCommit, cancellationToken);

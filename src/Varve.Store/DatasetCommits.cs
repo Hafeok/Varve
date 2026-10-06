@@ -11,7 +11,7 @@ using Varve.Store.Log;
 
 namespace Varve.Store;
 
-/// <summary>The commit index: opened against the log, paged out and merged as maintenance (ADR 0085).</summary>
+/// <summary>The commit index: opened against the log, paged out and merged as maintenance (ADR 0089).</summary>
 public sealed partial class Dataset
 {
     private long _commitSequence;
@@ -116,7 +116,7 @@ public sealed partial class Dataset
     /// the first that does not — missing, stale, damaged, or another log's —
     /// the entries are rebuilt from the log, written out as they reach twice
     /// the cache, so that opening holds no more of the index than a running
-    /// dataset does (ADR 0085).
+    /// dataset does (ADR 0089).
     /// </summary>
     private sealed class CommitIndexOpener
     {
@@ -277,7 +277,7 @@ public sealed partial class Dataset
             }
 
             // Only what this open listed and found of no use: a blob written
-            // since is not this open's to judge (ADR 0085).
+            // since is not this open's to judge (ADR 0089).
             foreach (string name in _listed)
             {
                 if (!kept.Contains(name) && !_ahead.Contains(name))

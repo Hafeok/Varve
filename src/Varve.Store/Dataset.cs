@@ -48,7 +48,7 @@ public sealed class DatasetOptions
 
     /// <summary>
     /// How many of the newest commits' entries the commit index holds in
-    /// memory (ADR 0085): between this and twice this, once there are that
+    /// memory (ADR 0089): between this and twice this, once there are that
     /// many; maintenance writes the rest to <c>derived/</c>. 4,096 by default:
     /// 320 KiB to 640 KiB of entries, whatever the length of the log; enough
     /// that what reads near the head — the next commit, a subscriber keeping up,
@@ -143,7 +143,7 @@ public sealed partial class Dataset : IAsyncDisposable
     /// <summary>Test seam: the clock the dataset was opened with.</summary>
     internal TimeProvider ClockForTests() => _options.Clock;
 
-    /// <summary>Test seam: the commit index of the current state (ADR 0085).</summary>
+    /// <summary>Test seam: the commit index of the current state (ADR 0089).</summary>
     internal CommitIndex CommitsForTests() => _state.Commits;
 
     /// <summary>Test seam: the storage the dataset was opened on.</summary>
@@ -230,7 +230,7 @@ public sealed partial class Dataset : IAsyncDisposable
         long bodiesAfter = Math.Max(candidates.Length > 0 ? candidates[0] : 0, claimed?.Header.To ?? 0);
 
         // The commit index is read against the log as the scan passes it:
-        // nothing the size of the log is held (ADR 0085). Its versions read
+        // nothing the size of the log is held (ADR 0089). Its versions read
         // through to the dataset's current one once the dataset exists.
         Dataset? owner = null;
         Func<CommitIndex> current = () => owner!._state.Commits;
@@ -1259,7 +1259,7 @@ public sealed partial class Dataset : IAsyncDisposable
 
         internal long Head { get; }
 
-        /// <summary>The commit index at <see cref="Head"/> (ADR 0085).</summary>
+        /// <summary>The commit index at <see cref="Head"/> (ADR 0089).</summary>
         internal CommitIndex Commits { get; }
 
         internal IndexVersion Index { get; }

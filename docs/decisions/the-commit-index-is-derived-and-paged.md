@@ -1,7 +1,7 @@
 ---
 set: the-commit-index-is-derived-and-paged
 namespace: varve
-adr: 0085
+adr: 0089
 decisions:
   - key: CommitEntriesInDerived
     statement: "The store keeps an eighty-byte entry per closed commit in blobs of derived/index/commits/, in blocks of 128 with each block's first timestamp as its fence, read through the synchronous blob read, a cache miss when another version, kind or dataset, damaged, or not ending at its end hash"
@@ -13,5 +13,5 @@ decisions:
     statement: "Opening checks the commit index's blobs entry by entry against the log as its walk passes each commit and rebuilds from the first that disagrees, holding no more of the index than the cache, and deletes only the blobs it listed and could not use"
 ---
 
-The rulings of [ADR 0085](../adr/0085-the-commit-index-is-derived-and-paged.md),
+The rulings of [ADR 0089](../adr/0089-the-commit-index-is-derived-and-paged.md),
 filed unaccepted by the commit-index slice of #61 (ADR 0066).

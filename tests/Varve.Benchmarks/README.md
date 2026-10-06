@@ -793,7 +793,7 @@ memory is flat at 75–77 MB. The causes and the ablations that separated them
 are in the milestone's
 [traceability record](../../docs/traceability/2026-10-05-issue-10-milestone-6c.md).
 
-### Addendum, 2026-10-06: the commit index, derived and paged (ADR 0085)
+### Addendum, 2026-10-06: the commit index, derived and paged (ADR 0089)
 
 ```bash
 dotnet run -c Release --project tests/Varve.Benchmarks -- --commit-index 100000

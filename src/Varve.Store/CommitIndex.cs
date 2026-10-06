@@ -17,7 +17,7 @@ namespace Varve.Store;
 /// What the store keeps per closed commit, beside the log: its timestamp, the
 /// hash of its header, where its records begin, the dictionary's counters
 /// after it, and the bytes of the log up to its end. Eighty bytes, the same in
-/// memory as on disk (ADR 0085).
+/// memory as on disk (ADR 0089).
 /// </summary>
 internal readonly struct CommitEntry
 {
@@ -106,7 +106,7 @@ internal readonly struct CommitEntry
     }
 }
 
-/// <summary>The settings from a settings commit's position on (ADR 0085).</summary>
+/// <summary>The settings from a settings commit's position on (ADR 0089).</summary>
 internal readonly record struct SettingsPoint(long Position, DatasetSettings Settings);
 
 /// <summary>
@@ -114,7 +114,7 @@ internal readonly record struct SettingsPoint(long Position, DatasetSettings Set
 /// <see cref="From"/> up to <see cref="To"/>, end to end, in blocks of 128
 /// with the first timestamp of each block held as its fence, and the hash of
 /// the header at <see cref="To"/> in the derived header, so that a blob beside
-/// another log is a cache miss (ADR 0085).
+/// another log is a cache miss (ADR 0089).
 /// </summary>
 internal sealed class CommitSegment
 {
@@ -199,7 +199,7 @@ internal sealed class CommitSegment
 /// <summary>
 /// The commit index: an entry per closed commit, the newest in memory and the
 /// rest in blobs of <c>derived/</c>, read through the synchronous blob read
-/// (ADR 0085). Immutable: the sequencer publishes a new version with each
+/// (ADR 0089). Immutable: the sequencer publishes a new version with each
 /// commit, as part of the dataset's state, and readers keep the version they
 /// captured.
 /// </summary>
@@ -515,7 +515,7 @@ internal sealed class CommitIndex
     }
 }
 
-/// <summary>Writing and reading the commit index's blobs (ADR 0085, storage-format.md §7).</summary>
+/// <summary>Writing and reading the commit index's blobs (ADR 0089, storage-format.md §7).</summary>
 internal static class CommitIndexFormat
 {
     internal const string Prefix = "index/commits/";

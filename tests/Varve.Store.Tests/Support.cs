@@ -48,7 +48,7 @@ internal static class T
     public static DatasetOptions Options(TimeProvider? clock = null, int maxRecordBytes = 1 << 20, long segmentBytes = 64L << 20) =>
         new() { Clock = clock ?? ManualClock.Epoch(), MaxRecordBytes = new ByteCount(maxRecordBytes), SegmentBytes = new ByteCount(segmentBytes), CommitCache = CommitCache };
 
-    /// <summary>The commit index's cache in tests: two entries, so that every suite pages the index out, merges it and reads it back (ADR 0085).</summary>
+    /// <summary>The commit index's cache in tests: two entries, so that every suite pages the index out, merges it and reads it back (ADR 0089).</summary>
     public const int CommitCache = 2;
 
     /// <summary>The id every test dataset is created with, so that two runs write the same bytes.</summary>

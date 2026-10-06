@@ -368,7 +368,7 @@ request, since 6b is the RDF 1.2 syntaxes above. Issues
   hour's working set, 153 → 200 MB with peaks to 218 MB where 6a's reached
   2.8 GB, holds the ±25% band and misses the 10% drift (+20.6%), the
   collector's headroom over a commit table of 144 bytes a commit. The commit
-  table then became derived, paged state (ADR 0085): the drift holds
+  table then became derived, paged state (ADR 0089): the drift holds
   (+1.1%), and the band is missed by two samples of a hundred, excursions of
   the collector's committed memory, which a 128 MB heap limit removes. #61
   stays open.

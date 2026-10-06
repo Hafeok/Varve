@@ -1,4 +1,4 @@
-# 0085 — The commit index is derived and paged
+# 0089 — The commit index is derived and paged
 
 ## Status
 
@@ -127,7 +127,7 @@ appeared after it listed, is not its to judge.
 
 ## Checks
 
-- **Checked against the accepted ADRs** (0001–0084) and specification 1.5.
+- **Checked against the accepted ADRs** (0001–0088) and specification 1.5.
   Touches **0011** (the shared state), **0042** (maintenance), **0072**
   (derived/ is a cache; the walk), **0078** (deferred deletion), **0082** (the
   soak gate it serves). No conflict; `log/` is unchanged, so determinism is.

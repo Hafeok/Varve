@@ -50,7 +50,7 @@ storage contract that writes them is ADRs 0018, 0040 and 0071.
     checkpoints/<P>
     index/state
     index/runs/<from>-<to>.<n>
-    index/commits/<from>-<to>.<n>   the commit index (ADR 0085)
+    index/commits/<from>-<to>.<n>   the commit index (ADR 0089)
     bulk/<head>/…       a bulk load's spills (ADR 0081), deleted when it ends and on open
 ```
 
@@ -394,7 +394,7 @@ atomically, which is how the projection's position is persisted with its state
 
 ### 7.4 Commit index — `derived/index/commits/<from>-<to>.<n>`
 
-Kind 4 (ADR 0085). The entries of the commits after *from position* up to *to
+Kind 4 (ADR 0089). The entries of the commits after *from position* up to *to
 position*, end to end from offset 0, 80 bytes each, little-endian:
 
 | Offset | Size | Field |

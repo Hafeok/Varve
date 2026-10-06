@@ -444,7 +444,7 @@ branch off its head and was moved onto `main` when it merged, an hour later.
 
 ### The decision
 
-[ADR 0085](../adr/0085-the-commit-index-is-derived-and-paged.md), filed
+[ADR 0089](../adr/0089-the-commit-index-is-derived-and-paged.md), filed
 unaccepted with its decision set (four rulings).
 
 - **An entry per commit, 80 bytes.** Each commit's entry holds:
