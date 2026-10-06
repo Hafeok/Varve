@@ -1,0 +1,23 @@
+{
+  "humans": [
+    {
+      "id": "emil",
+      "name": "Emil Okkels Klein",
+      "emails": ["hannibal.okkels@gmail.com", "emil@okkels-klein.dk"],
+      "github": "Hafeok",
+      "delegates": []
+    }
+  ],
+  "agents": [
+    {
+      "id": "claude-code",
+      "name": "Claude",
+      "emails": ["noreply@anthropic.com", "claude+emil@okkels-klein.dk"],
+      "responsible": "emil"
+    }
+  ],
+  "exempt": [
+    { "name": "dependabot[bot]" },
+    { "name": "github-actions[bot]" }
+  ]
+}
