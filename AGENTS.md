@@ -90,6 +90,11 @@ severity on every project in `src/`. Every ADR is also a decision set in
   BCL allow-list (`varve_hot_path_allowed_types`) is configuration, by type or
   by member, and every entry is admitted by a decision in `HotPathScope`.
 
+**Every milestone ends in a release** (ADR 0085): `dotnet run eng/changelog.cs
+-- --release <version>`, commit, and the maintainer tags that commit. A change
+that adds a line to `eng/changelog-sections.txt` starts the next milestone and
+is red on **`release pending`** until the previous one is tagged.
+
 **`main` is the trunk** (ADR 0032). Commit directly or open a pull request, your
 choice; work not ready for the trunk lives behind a feature flag or stays local,
 **not on a long-lived branch**. The blocking review is the automated one — every

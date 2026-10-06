@@ -76,6 +76,7 @@ superseding ADR rather than an edit.
 | [0033](0033-commit-traceability.md) | Commit traceability and AI-session records | Accepted |
 | [0034](0034-commit-signing-and-the-sandbox-exception.md) | Commit signing and the sandbox exception | Accepted; revisit condition; **amended by 0066** |
 | [0035](0035-semantic-versioning.md) | Semantic versioning | Accepted; complements 0029 |
+| [0085](0085-a-release-per-milestone.md) | A release per milestone, and the next milestone waits for it | **Proposed**; complements 0029 and 0035 |
 | [0036](0036-containerised-development.md) | Containerised development and the local pipeline | Accepted |
 
 

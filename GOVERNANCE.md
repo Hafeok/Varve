@@ -64,6 +64,12 @@ in the `release` environment, which has the maintainer as a required reviewer.
 Publishing stops and waits for a person, because a version pushed to nuget.org
 cannot be edited, replaced or deleted.
 
+**Every milestone ends in a release** ([ADR 0085](docs/adr/0085-a-release-per-milestone.md)).
+The release is cut with `dotnet run eng/changelog.cs -- --release <version>`,
+committed, and the maintainer tags that commit; `publish.yml` attaches its
+`CHANGELOG.md` section to the GitHub release. Until the tag exists, a change
+that starts the next milestone is red on the `release pending` check.
+
 Pull requests stay welcome, and are the right tool for a change that wants
 discussion or comes from outside. Reviews on them are **non-blocking**: an
 unreviewed pull request whose checks are green is not waiting for anybody.
