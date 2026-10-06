@@ -89,8 +89,14 @@ internal static class TermIds
             return false;
         }
 
-        ReadOnlySpan<byte> datatype = term.DatatypeIri;
-        ReadOnlySpan<byte> lexical = term.Lexical;
+        return TryInline(term.Lexical, term.DatatypeIri, out id);
+    }
+
+    /// <summary>The inline id of a literal given by its lexical form and datatype IRI, when it has one.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal static bool TryInline(ReadOnlySpan<byte> lexical, ReadOnlySpan<byte> datatype, out ulong id)
+    {
+        id = 0;
 
         if (datatype.SequenceEqual(XsdBooleanIri))
         {

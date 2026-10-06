@@ -30,7 +30,7 @@ namespace Varve.Store;
 /// </remarks>
 internal sealed class Resolver
 {
-    private readonly TermDictionary _dictionary;
+    private readonly TermView _view;
     private readonly long _canonicalLimit;
     private readonly long _blankLimit;
     private readonly List<Allocation> _allocations = [];
@@ -41,13 +41,13 @@ internal sealed class Resolver
     private long _nextCanonical;
     private long _nextBlank;
 
-    internal Resolver(TermDictionary dictionary, long canonicalLimit, long blankLimit)
+    internal Resolver(TermView view)
     {
-        _dictionary = dictionary;
-        _canonicalLimit = canonicalLimit;
-        _blankLimit = blankLimit;
-        _nextCanonical = canonicalLimit + 1;
-        _nextBlank = blankLimit + 1;
+        _view = view;
+        _canonicalLimit = view.CanonicalCount;
+        _blankLimit = view.BlankCount;
+        _nextCanonical = _canonicalLimit + 1;
+        _nextBlank = _blankLimit + 1;
     }
 
     /// <summary>The allocations, in id order within each class. Final after <see cref="Finalise"/>.</summary>
@@ -91,7 +91,7 @@ internal sealed class Resolver
                 return Triple(Resolve(term.Subject!), Resolve(term.Predicate!), Resolve(term.Object!));
 
             default:
-                return _dictionary.TryFind(term, _canonicalLimit, out ulong existing) ? existing : Fresh(term);
+                return _view.Dictionary.TryFind(_view.Runs, term, _canonicalLimit, out ulong existing) ? existing : Fresh(term);
         }
     }
 
@@ -113,7 +113,7 @@ internal sealed class Resolver
     [DesignDecision(typeof(StoreHotPathScope.TermLookupsAreHashLookups), Scope = ExceptionScope.HotPath)]
     private ulong Triple(ulong s, ulong p, ulong o)
     {
-        if (_triples.TryGetValue((s, p, o), out ulong triple) || _dictionary.TryFindTriple(s, p, o, out triple))
+        if (_triples.TryGetValue((s, p, o), out ulong triple) || _view.TryFindTriple(s, p, o, out triple))
         {
             return triple;
         }
@@ -247,5 +247,5 @@ internal sealed class Resolver
     private RdfTerm TermOf(ulong id) =>
         _fresh.TryGetValue(id, out RdfTerm? term) ? term
         : TermIds.ClassOf(id) == IdClass.Blank && TermIds.Counter(id) > _blankLimit ? TermDictionary.BlankTerm(TermIds.Counter(id))
-        : _dictionary.Term(id);
+        : _view.Term(id);
 }

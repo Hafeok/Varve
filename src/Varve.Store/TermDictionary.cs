@@ -3,11 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
-using System.Collections.Concurrent;
+using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
-using System.Threading;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
@@ -46,17 +45,25 @@ internal readonly struct Allocation
     internal bool IsTriple => Subject != 0;
 }
 
+
 /// <summary>
-/// The dictionary <c>D</c>: canonical ids injective over terms, blank ids as
-/// their own identity, inline ids with no entry at all (ADR 0012).
+/// The dictionary <c>D</c>, read from the term sections of the runs a view
+/// holds (ADR 0079): canonical ids injective over terms, blank ids as their own
+/// identity, inline ids with no entry at all (ADR 0012).
 /// </summary>
 /// <remarks>
 /// <para>
-/// Written only by the sequencer, and only after a commit is closed; read
-/// concurrently by every view. A view carries the counters of its position —
-/// <c>D_P</c> is a prefix of <c>D</c>, because ids are counters and never
-/// reused — and treats any id above them as unknown, so later commits change
-/// nothing it can see.
+/// **Nothing per term lives here.** Every entry is in some run's term
+/// section — in memory for the memtable's runs, on a derived blob for the
+/// others — and the runs a version holds cover every canonical counter from 1
+/// to its position's, so a view finds every term it can see in the runs it
+/// already holds open. Opening a dataset therefore loads no dictionary.
+/// </para>
+/// <para>
+/// **Two caches**, fixed in size: term to id and id to term, one slot per hash.
+/// A canonical id is never reused and never changes its term, so an entry is
+/// never stale, whichever version filled it; a view checks the id against its
+/// own counter. A lookup that misses reads the sections and fills the slot.
 /// </para>
 /// <para>
 /// Blank nodes are externalised with a label derived from the id, so that two
@@ -66,26 +73,21 @@ internal readonly struct Allocation
 /// </remarks>
 internal sealed class TermDictionary
 {
-    private const int ChunkBits = 12;
-    private const int ChunkSize = 1 << ChunkBits;
+    /// <summary>Slots per cache: 65,536, so the two hold at most 131,072 terms.</summary>
+    internal const int CacheSlots = 1 << 16;
 
-    private readonly ConcurrentDictionary<RdfTerm, ulong> _terms = new(RdfTerm.Comparer);
-    private readonly ConcurrentDictionary<(ulong, ulong, ulong), ulong> _triples = new();
-    private readonly ConcurrentDictionary<long, (ulong S, ulong P, ulong O)> _tripleComponents = new();
-    private RdfTerm[][] _chunks = [];
-    private long _canonicalCount;
-    private long _blankCount;
+    private const int StackBytes = 256;
 
-    internal long CanonicalCount => Volatile.Read(ref _canonicalCount);
-
-    internal long BlankCount => Volatile.Read(ref _blankCount);
+    private readonly Cached?[] _byTerm = new Cached?[CacheSlots];
+    private readonly Cached?[] _byId = new Cached?[CacheSlots];
 
     /// <summary>
-    /// The id a term already has, at or below the given canonical counter.
-    /// A blank node has none: a label is not a store identity (ADR 0044).
+    /// The id a term already has, at or below the given canonical counter, in
+    /// the runs given. A blank node has none: a label is not a store identity
+    /// (ADR 0044).
     /// </summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
-    internal bool TryFind(RdfTerm term, long canonicalLimit, out ulong id)
+    internal bool TryFind(Run[] runs, RdfTerm term, long canonicalLimit, out ulong id)
     {
         switch (term.Kind)
         {
@@ -94,11 +96,10 @@ internal sealed class TermDictionary
                 return false;
 
             case RdfTermKind.TripleTerm:
-                if (TryFind(term.Subject!, canonicalLimit, out ulong s)
-                    && TryFind(term.Predicate!, canonicalLimit, out ulong p)
-                    && TryFind(term.Object!, canonicalLimit, out ulong o)
-                    && TryFindTriple(s, p, o, out id)
-                    && TermIds.Counter(id) <= canonicalLimit)
+                if (TryFind(runs, term.Subject!, canonicalLimit, out ulong s)
+                    && TryFind(runs, term.Predicate!, canonicalLimit, out ulong p)
+                    && TryFind(runs, term.Object!, canonicalLimit, out ulong o)
+                    && TryFindTriple(runs, s, p, o, canonicalLimit, out id))
                 {
                     return true;
                 }
@@ -112,23 +113,110 @@ internal sealed class TermDictionary
                     return true;
                 }
 
-                if (TryFindTerm(term, out id) && TermIds.Counter(id) <= canonicalLimit)
+                if (TryCached(term, out id))
                 {
-                    return true;
+                    return TermIds.Counter(id) <= canonicalLimit;
                 }
 
-                id = 0;
-                return false;
+                Span<byte> stack = stackalloc byte[StackBytes];
+                int length = TermKey.Write(term, stack);
+
+                if (length >= 0)
+                {
+                    return Remember(term, Search(runs, stack[..length], canonicalLimit, out id), id);
+                }
+
+                byte[] rented = ArrayPool<byte>.Shared.Rent(-length);
+
+                try
+                {
+                    length = TermKey.Write(term, rented);
+                    return Remember(term, Search(runs, rented.AsSpan(0, length), canonicalLimit, out id), id);
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(rented);
+                }
         }
     }
 
-    /// <summary>The id a triple term with these components already has.</summary>
-    [DesignDecision(typeof(StoreHotPathScope.TermLookupsAreHashLookups), Scope = ExceptionScope.HotPath)]
-    internal bool TryFindTriple(ulong subject, ulong predicate, ulong @object, out ulong id) =>
-        _triples.TryGetValue((subject, predicate, @object), out id);
+    /// <summary>The id of the canonical term with this key — lowercased tag and all — at or below the counter.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal static bool TryFindKey(Run[] runs, ReadOnlySpan<byte> key, long canonicalLimit, out ulong id) =>
+        Search(runs, key, canonicalLimit, out id);
 
+    /// <summary>The id a triple term with these components already has, at or below the counter.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal static bool TryFindTriple(Run[] runs, ulong subject, ulong predicate, ulong @object, long canonicalLimit, out ulong id)
+    {
+        Span<byte> key = stackalloc byte[32];
+        int length = TermKey.WriteTriple(subject, predicate, @object, key);
+        return Search(runs, key[..length], canonicalLimit, out id);
+    }
+
+    // The sections newest first; an id found above the limit is not one the
+    // caller can see, and since ids are unique, nowhere else holds the term.
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private static bool Search(Run[] runs, ReadOnlySpan<byte> key, long canonicalLimit, out ulong id)
+    {
+        ulong hash = TermKey.Hash(key);
+        int scratchLength = key.Length + LogFormat.MaxUlebLength + 1;
+        byte[]? rented = scratchLength > StackBytes ? ArrayPool<byte>.Shared.Rent(scratchLength) : null;
+        Span<byte> scratch = rented is null ? stackalloc byte[StackBytes] : rented;
+
+        try
+        {
+            for (int i = runs.Length - 1; i >= 0; i--)
+            {
+                TermSection section = runs[i].Terms;
+
+                if (section.Count > 0 && section.From < canonicalLimit && section.TryFind(key, hash, scratch, out id))
+                {
+                    return TermIds.Counter(id) <= canonicalLimit;
+                }
+            }
+
+            id = 0;
+            return false;
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
+        }
+    }
+
+    // The cache's slot for the term: a hash table keyed by term under
+    // RdfTerm's comparer, one entry per slot.
     [DesignDecision(typeof(StoreHotPathScope.TermLookupsAreHashLookups), Scope = ExceptionScope.HotPath)]
-    private bool TryFindTerm(RdfTerm term, out ulong id) => _terms.TryGetValue(term, out id);
+    private bool TryCached(RdfTerm term, out ulong id)
+    {
+        Cached? cached = _byTerm[term.GetHashCode() & (CacheSlots - 1)];
+
+        if (cached is not null && cached.Term.Equals(term))
+        {
+            id = cached.Id;
+            return true;
+        }
+
+        id = 0;
+        return false;
+    }
+
+    // A term found is remembered in its slot. The slot's entry is the one
+    // allocation a lookup makes, and only on a miss that found the term.
+    [DesignDecision(typeof(TheTermDictionaryOnDisk.DictionaryCachesAreBounded), Scope = ExceptionScope.HotPath)]
+    private bool Remember(RdfTerm term, bool found, ulong id)
+    {
+        if (found)
+        {
+            _byTerm[term.GetHashCode() & (CacheSlots - 1)] = new Cached(term, id);
+        }
+
+        return found;
+    }
 
     /// <summary>Whether an id names something in <c>D</c> at the given counters.</summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
@@ -142,7 +230,7 @@ internal sealed class TermDictionary
         };
 
     /// <summary>The term an id stands for, when it is known at the given counters.</summary>
-    internal bool TryTerm(ulong id, long canonicalLimit, long blankLimit, [MaybeNullWhen(false)] out RdfTerm term)
+    internal bool TryTerm(Run[] runs, ulong id, long canonicalLimit, long blankLimit, [MaybeNullWhen(false)] out RdfTerm term)
     {
         if (!IsKnown(id, canonicalLimit, blankLimit))
         {
@@ -150,124 +238,78 @@ internal sealed class TermDictionary
             return false;
         }
 
-        term = Term(id);
+        term = Term(runs, id);
         return true;
     }
 
-    /// <summary>The term for an id known to be in <c>D</c>.</summary>
-    internal RdfTerm Term(ulong id) => TermIds.ClassOf(id) switch
+    /// <summary>The term for an id known to be in <c>D</c> and held by the runs.</summary>
+    internal RdfTerm Term(Run[] runs, ulong id) => TermIds.ClassOf(id) switch
     {
-        IdClass.Canonical => Canonical(TermIds.Counter(id)),
+        IdClass.Canonical => Canonical(runs, id),
         IdClass.Blank => BlankTerm(TermIds.Counter(id)),
         IdClass.Inline => TermIds.InlineTerm(id),
         _ => throw new InvalidOperationException("Private terms are not allocated before erasure mode exists."),
     };
 
-    /// <summary>The components of a canonical triple term, or false for any other entry.</summary>
-    internal bool TryComponents(long counter, out (ulong S, ulong P, ulong O) components) =>
-        _tripleComponents.TryGetValue(counter, out components);
+    /// <summary>The entry of a canonical id: its term, or a triple term's components.</summary>
+    internal static Allocation Entry(Run[] runs, ulong id)
+    {
+        long counter = TermIds.Counter(id);
+
+        for (int i = runs.Length - 1; i >= 0; i--)
+        {
+            TermSection section = runs[i].Terms;
+
+            if (section.Holds(counter))
+            {
+                Span<byte> stack = stackalloc byte[StackBytes];
+                int length = section.ReadEntry(counter, stack);
+                byte[] bytes = length >= 0 ? stack[..length].ToArray() : new byte[-length];
+
+                if (length < 0)
+                {
+                    section.ReadEntry(counter, bytes);
+                }
+
+                LogFormat.Reader reader = new(bytes, 0);
+                Allocation entry = LogFormat.ReadAllocation(ref reader);
+                reader.End();
+
+                if (entry.Id != id)
+                {
+                    throw new InvalidOperationException("A dictionary entry names id " + entry.Id + " where " + id + " was due.");
+                }
+
+                return entry;
+            }
+        }
+
+        throw new InvalidOperationException("No run holds the dictionary entry of id " + id + ".");
+    }
+
+    private RdfTerm Canonical(Run[] runs, ulong id)
+    {
+        int slot = (int)(id & (CacheSlots - 1));
+        Cached? cached = _byId[slot];
+
+        if (cached is not null && cached.Id == id)
+        {
+            return cached.Term;
+        }
+
+        Allocation entry = Entry(runs, id);
+        RdfTerm term = entry.Term ?? RdfTerm.TripleTerm(Term(runs, entry.Subject), Term(runs, entry.Predicate), Term(runs, entry.Object));
+        _byId[slot] = new Cached(term, id);
+        return term;
+    }
 
     internal static RdfTerm BlankTerm(long counter) =>
         RdfTerm.BlankNode(Encoding.UTF8.GetBytes("b" + counter.ToString(CultureInfo.InvariantCulture)));
 
-    /// <summary>
-    /// Adds a closed commit's allocations. Called by the sequencer alone, in id
-    /// order, before the readable head moves past the commit — so a view at the
-    /// new head always finds what the commit refers to.
-    /// </summary>
-    internal void Publish(ReadOnlySpan<Allocation> allocations)
+    private sealed class Cached(RdfTerm term, ulong id)
     {
-        foreach (Allocation allocation in allocations)
-        {
-            switch (TermIds.ClassOf(allocation.Id))
-            {
-                case IdClass.Blank:
-                    if (TermIds.Counter(allocation.Id) != _blankCount + 1)
-                    {
-                        throw new InvalidOperationException("Blank ids must be allocated densely and in order.");
-                    }
+        internal RdfTerm Term { get; } = term;
 
-                    Volatile.Write(ref _blankCount, _blankCount + 1);
-                    break;
-
-                case IdClass.Canonical:
-                    long counter = TermIds.Counter(allocation.Id);
-
-                    if (counter != _canonicalCount + 1)
-                    {
-                        throw new InvalidOperationException("Canonical ids must be allocated densely and in order.");
-                    }
-
-                    // A triple term decoded from the log carries only its component
-                    // ids; its components are published already, being older.
-                    RdfTerm term = allocation.Term
-                        ?? RdfTerm.TripleTerm(Term(allocation.Subject), Term(allocation.Predicate), Term(allocation.Object));
-
-                    Store(counter, term);
-
-                    if (allocation.IsTriple)
-                    {
-                        _tripleComponents[counter] = (allocation.Subject, allocation.Predicate, allocation.Object);
-                        _triples[(allocation.Subject, allocation.Predicate, allocation.Object)] = allocation.Id;
-                    }
-                    else
-                    {
-                        _terms[term] = allocation.Id;
-                    }
-
-                    Volatile.Write(ref _canonicalCount, counter);
-                    break;
-
-                default:
-                    throw new InvalidOperationException("Only canonical and blank ids are allocated.");
-            }
-        }
-    }
-
-    /// <summary>
-    /// Brings the blank counter to <paramref name="count"/>: a checkpoint
-    /// records how many blank nodes exist, and a blank node has no entry
-    /// beyond its id (ADR 0012).
-    /// </summary>
-    internal void PublishBlanks(long count)
-    {
-        if (count < _blankCount)
-        {
-            throw new InvalidOperationException("Blank ids are never taken back.");
-        }
-
-        Volatile.Write(ref _blankCount, count);
-    }
-
-    private RdfTerm Canonical(long counter)
-    {
-        RdfTerm[][] chunks = Volatile.Read(ref _chunks);
-        long index = counter - 1;
-        return chunks[index >> ChunkBits][index & (ChunkSize - 1)];
-    }
-
-    private void Store(long counter, RdfTerm term)
-    {
-        long index = counter - 1;
-        long chunk = index >> ChunkBits;
-        RdfTerm[][] chunks = _chunks;
-
-        if (chunk >= chunks.Length)
-        {
-            // Readers holding the old outer array still see every chunk it had;
-            // the chunks themselves are shared, never copied.
-            RdfTerm[][] larger = new RdfTerm[Math.Max(4, chunks.Length * 2)][];
-            chunks.CopyTo(larger, 0);
-
-            for (int i = chunks.Length; i < larger.Length; i++)
-            {
-                larger[i] = new RdfTerm[ChunkSize];
-            }
-
-            Volatile.Write(ref _chunks, larger);
-            chunks = larger;
-        }
-
-        chunks[chunk][index & (ChunkSize - 1)] = term;
+        internal ulong Id { get; } = id;
     }
 }

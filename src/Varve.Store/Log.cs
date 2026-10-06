@@ -59,8 +59,9 @@ internal sealed class LoggedCommit
 /// </summary>
 internal sealed class ScannedCommit
 {
-    internal ScannedCommit(CommitHeader header, byte[] headerHash, CommitLocation location, LoggedCommit? full)
+    internal ScannedCommit(CommitHeader header, byte[] headerHash, CommitLocation location, LoggedCommit? full, long bytes)
     {
+        Bytes = bytes;
         Header = header;
         HeaderHash = headerHash;
         Location = location;
@@ -75,6 +76,9 @@ internal sealed class ScannedCommit
 
     /// <summary>The whole commit, when the scan read its body.</summary>
     internal LoggedCommit? Full { get; }
+
+    /// <summary>The bytes of the commit's records, headers and bodies.</summary>
+    internal long Bytes { get; }
 }
 
 /// <summary>What opening a log found.</summary>
@@ -121,10 +125,23 @@ internal static class LogReader
     /// below it are read header by header — the chain is still verified — so
     /// that opening reads the log since the newest checkpoint (ADR 0072).
     /// </summary>
-    internal static async ValueTask<LogScan> ScanAsync(ISegmentStore store, DatasetId dataset, long bodiesAfter, CancellationToken cancellationToken)
+    internal static ValueTask<LogScan> ScanAsync(ISegmentStore store, DatasetId dataset, long bodiesAfter, CancellationToken cancellationToken) =>
+        ScanAsync(store, dataset, bodiesAfter, ScanRetains, cancellationToken);
+
+    /// <summary>
+    /// What a scan holds of a commit it reads whole, for replay: past this,
+    /// the payloads are let go and the body is hashed as it passes, so a
+    /// scan's memory is bounded by it and one record whatever the size of a
+    /// commit — a bulk load's, closed or torn (ADR 0081). A commit let go is
+    /// read again if replay needs it.
+    /// </summary>
+    internal const long ScanRetains = 64L << 20;
+
+    /// <summary>The scan, holding at most <paramref name="retain"/> bytes of any one commit's body.</summary>
+    internal static async ValueTask<LogScan> ScanAsync(ISegmentStore store, DatasetId dataset, long bodiesAfter, long retain, CancellationToken cancellationToken)
     {
         LogScan scan = new() { Segments = await store.ListSegmentsAsync(cancellationToken).ConfigureAwait(false) };
-        Pending pending = new();
+        Pending pending = new(retain);
         byte[] headHash = LogFormat.Genesis();
         bool openEnded = false;
         int previousId = -1;
@@ -293,6 +310,7 @@ internal static class LogReader
 
             long bodyAt = at + LogFormat.RecordHeaderLength;
             bool full = expected > bodiesAfter;
+            pending.Bytes += LogFormat.RecordHeaderLength + record.BodyLength;
 
             if (full)
             {
@@ -382,11 +400,51 @@ internal static class LogReader
         return await segment.ReadAsync(bodyAt + bodyLength - 4 - headerLength, headerLength + 4, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Where a closed commit's records end: the segment of its closing record
+    /// and the offset just past it. Headers only; the chain is checked.
+    /// </summary>
+    internal static async ValueTask<CommitLocation> EndAsync(
+        ISegmentStore store, DatasetId dataset, CommitLocation location, long position, byte[] previous, CancellationToken cancellationToken)
+    {
+        int segmentId = location.Segment;
+        long offset = location.Offset;
+        int index = 0;
+        IReadOnlyList<SegmentInfo>? segments = null;
+
+        while (true)
+        {
+            ReadOnlyMemory<byte> headerBytes = await store.ReadRangeAsync(new SegmentId(segmentId), new ByteOffset(offset), new ByteCount(LogFormat.RecordHeaderLength), cancellationToken).ConfigureAwait(false);
+            RecordHeader? record = headerBytes.Length == LogFormat.RecordHeaderLength ? LogFormat.TryReadRecordHeader(headerBytes.Span, position) : null;
+
+            if (record is null || record.Position != position || (index == 0 && record.Index != 0))
+            {
+                segments ??= await store.ListSegmentsAsync(cancellationToken).ConfigureAwait(false);
+                segmentId = await NextContinuingAsync(store, dataset, segments, segmentId, position, previous, cancellationToken).ConfigureAwait(false);
+                offset = LogFormat.SegmentHeaderLength;
+                continue;
+            }
+
+            if (record.Index != index || !record.Previous.AsSpan().SequenceEqual(previous))
+            {
+                throw new LogVerificationException(position, "Position " + position + " no longer reads as it did when the log was opened.");
+            }
+
+            offset += LogFormat.RecordHeaderLength + record.BodyLength;
+            index++;
+
+            if (record.Closing)
+            {
+                return new CommitLocation(segmentId, offset);
+            }
+        }
+    }
+
     /// <summary>Reads one closed commit, whole, from where its first record is, and verifies it.</summary>
     internal static async ValueTask<LoggedCommit> ReadAsync(
         ISegmentStore store, DatasetId dataset, CommitLocation location, long position, byte[] previous, CancellationToken cancellationToken)
     {
-        Pending pending = new();
+        Pending pending = new(long.MaxValue);
         int segmentId = location.Segment;
         long offset = location.Offset;
         IReadOnlyList<SegmentInfo>? segments = null;
@@ -490,18 +548,24 @@ internal static class LogReader
 
         if (!full)
         {
-            return new ScannedCommit(header, headerHash, pending.Location, null);
+            return new ScannedCommit(header, headerHash, pending.Location, null, pending.Bytes);
         }
 
-        byte[] body = pending.Body(headerStart);
-
-        if (!SHA256.HashData(body).AsSpan().SequenceEqual(header.Content))
+        if (!pending.BodyHash(headerStart).AsSpan().SequenceEqual(header.Content))
         {
             throw new LogVerificationException(position, "The body of position " + position + " does not match its content hash.");
         }
 
+        // Verified as it passed; too large to hold, it is read again if replay needs it.
+        if (!pending.Whole)
+        {
+            return new ScannedCommit(header, headerHash, pending.Location, null, pending.Bytes);
+        }
+
+        byte[] body = pending.Body(headerStart);
+
         LoggedCommit commit = new(header, headerHash, LogFormat.DecodeBody(body, position), pending.Location);
-        return new ScannedCommit(header, headerHash, pending.Location, commit);
+        return new ScannedCommit(header, headerHash, pending.Location, commit, pending.Bytes);
     }
 
     /// <summary>One segment's header and trailer, and reads of what lies between.</summary>
@@ -569,9 +633,12 @@ internal static class LogReader
 
     private sealed record Trailer(byte Status, long Head, byte[] HeadHash);
 
-    private sealed class Pending
+    private sealed class Pending(long retain)
     {
         private readonly List<ReadOnlyMemory<byte>> _payloads = [];
+        private readonly IncrementalHash _hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        private long _held;
+        private bool _dropped;
 
         internal int Count { get; private set; }
 
@@ -579,7 +646,12 @@ internal static class LogReader
 
         internal CommitLocation Location { get; private set; }
 
-        internal ReadOnlyMemory<byte> Last => _payloads[^1];
+        internal long Bytes { get; set; }
+
+        internal ReadOnlyMemory<byte> Last { get; private set; }
+
+        /// <summary>Whether every payload is still held, so the body can be built.</summary>
+        internal bool Whole => !_dropped;
 
         internal void Start(CommitKind kind, CommitLocation location)
         {
@@ -590,7 +662,25 @@ internal static class LogReader
 
         internal void Add(ReadOnlyMemory<byte> payload)
         {
-            _payloads.Add(payload);
+            if (Count > 0 && !Last.IsEmpty)
+            {
+                _hash.AppendData(Last.Span);
+            }
+
+            Last = payload;
+            _held += payload.Length;
+
+            if (!_dropped && _held > retain)
+            {
+                _dropped = true;
+                _payloads.Clear();
+            }
+
+            if (!_dropped)
+            {
+                _payloads.Add(payload);
+            }
+
             Count++;
         }
 
@@ -600,7 +690,19 @@ internal static class LogReader
         internal void Clear()
         {
             _payloads.Clear();
+            _hash.GetHashAndReset();
+            Last = default;
+            _held = 0;
+            _dropped = false;
             Count = 0;
+            Bytes = 0;
+        }
+
+        /// <summary>The body's hash: every payload, the last one up to where its header starts.</summary>
+        internal byte[] BodyHash(int lastBodyLength)
+        {
+            _hash.AppendData(Last.Span[..lastBodyLength]);
+            return _hash.GetHashAndReset();
         }
 
         /// <summary>The body: every payload, the last one up to where its header starts.</summary>
@@ -690,6 +792,9 @@ internal sealed class LogWriter
         return new LogWriter(store, dataset, segmentBytes, maxRecordBytes, active, length);
     }
 
+    /// <summary>The bytes of the last commit's records, headers and bodies.</summary>
+    internal long LastCommitBytes { get; private set; }
+
     /// <summary>
     /// Appends one commit's records and makes them durable. <paramref name="previous"/>
     /// is the header hash of the commit before it. Returns where it starts.
@@ -698,6 +803,7 @@ internal sealed class LogWriter
         CommitKind kind, long position, byte[] previous, byte[] body, byte[] header, CancellationToken cancellationToken)
     {
         int closingExtra = header.Length + 4;
+        LastCommitBytes = 0;
         int bodyOffset = 0;
         int index = 0;
         CommitLocation? start = null;
@@ -723,6 +829,7 @@ internal sealed class LogWriter
             start ??= new CommitLocation(_active, _activeLength);
             await _store.AppendAsync(new SegmentId(_active), record, cancellationToken).ConfigureAwait(false);
             _activeLength += record.Length;
+            LastCommitBytes += record.Length;
             bodyOffset += take;
             index++;
 
@@ -736,6 +843,67 @@ internal sealed class LogWriter
         // one flush after the last append orders them (ADR 0013).
         await _store.FlushAsync(new SegmentId(_active), cancellationToken).ConfigureAwait(false);
         return start.Value;
+    }
+
+    /// <summary>
+    /// Appends one commit whose body arrives in parts, never whole: records of
+    /// at most the record limit are cut from the parts as they come, and the
+    /// closing record carries the rest and the commit header. One flush, after
+    /// the closing record (ADR 0013, ADR 0076). Returns where it starts.
+    /// </summary>
+    internal async ValueTask<CommitLocation> AppendStreamAsync(
+        CommitKind kind, long position, byte[] previous, IAsyncEnumerable<ReadOnlyMemory<byte>> body, byte[] header, CancellationToken cancellationToken)
+    {
+        LastCommitBytes = 0;
+        byte[] payload = new byte[_maxRecordBytes + header.Length + 4];
+        int filled = 0;
+        int index = 0;
+        CommitLocation? start = null;
+
+        async ValueTask EmitAsync(bool closing)
+        {
+            int length = filled;
+
+            if (closing)
+            {
+                header.CopyTo(payload.AsSpan(length));
+                BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(length + header.Length), (uint)header.Length);
+                length += header.Length + 4;
+            }
+
+            byte[] record = new byte[LogFormat.RecordHeaderLength + length];
+            payload.AsSpan(0, length).CopyTo(record.AsSpan(LogFormat.RecordHeaderLength));
+            LogFormat.WriteRecordHeader(record, record.AsSpan(LogFormat.RecordHeaderLength), closing, kind, position, index, previous);
+            await EnsureRoomAsync(record.Length, position, previous, cancellationToken).ConfigureAwait(false);
+            start ??= new CommitLocation(_active, _activeLength);
+            await _store.AppendAsync(new SegmentId(_active), record, cancellationToken).ConfigureAwait(false);
+            _activeLength += record.Length;
+            LastCommitBytes += record.Length;
+            index++;
+            filled = 0;
+        }
+
+        await foreach (ReadOnlyMemory<byte> part in body.WithCancellation(cancellationToken).ConfigureAwait(false))
+        {
+            ReadOnlyMemory<byte> rest = part;
+
+            while (!rest.IsEmpty)
+            {
+                if (filled == _maxRecordBytes)
+                {
+                    await EmitAsync(closing: false).ConfigureAwait(false);
+                }
+
+                int take = Math.Min(rest.Length, _maxRecordBytes - filled);
+                rest.Span[..take].CopyTo(payload.AsSpan(filled));
+                filled += take;
+                rest = rest[take..];
+            }
+        }
+
+        await EmitAsync(closing: true).ConfigureAwait(false);
+        await _store.FlushAsync(new SegmentId(_active), cancellationToken).ConfigureAwait(false);
+        return start!.Value;
     }
 
     // Seals the active segment, with a closed trailer naming the readable head,

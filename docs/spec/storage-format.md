@@ -3,7 +3,10 @@
 Format specification, **version 1**.
 
 Status: written by milestone 6a with [ADR 0072](../adr/0072-format-version-1.md),
-which is the reasoning; this document is the layout. **Version 1 of `log/` is
+which is the reasoning; this document is the layout. `log/` is version 1.
+`derived/` is **derived format version 2** since milestone 6c (ADRs 0079 and
+0080): runs carry the dictionary's entries, and keys are compressed in their
+blocks. A derived file of version 1 is a cache miss. **Version 1 of `log/` is
 frozen from the first prerelease tag that writes it** (`v0.1.0-preview.1`, ADR
 0029), and from then on every version of Varve reads it. `derived/` carries its
 own version and is **not** read forever: a derived file this build does not
@@ -44,9 +47,10 @@ storage contract that writes them is ADRs 0018, 0040 and 0071.
     .gitignore          "*", written at creation
     LOCK                the lease (ADR 0075), held open; not a blob
     LOCK.owner          who holds it, for the refusal's message; not a blob
-    checkpoints/<P>.ckpt
+    checkpoints/<P>
     index/state
-    index/runs/<from>-<to>.<n>.run
+    index/runs/<from>-<to>.<n>
+    bulk/<head>/…       a bulk load's spills (ADR 0081), deleted when it ends and on open
 ```
 
 Segment file names are the segment id in eight decimal digits. Positions in
@@ -290,7 +294,7 @@ rename (ADR 0071, ADR 0073), so a reader never sees one half written.
 | Offset | Size | Field |
 |---:|---:|---|
 | 0 | 4 | magic `VRVD` |
-| 4 | 2 | derived format version, `1` |
+| 4 | 2 | derived format version, `2` |
 | 6 | 2 | kind: `1` run, `2` checkpoint, `3` projection state |
 | 8 | 16 | dataset id |
 | 24 | 8 | from position: a run covers the commits after it; 0 for the others |
@@ -302,41 +306,74 @@ rename (ADR 0071, ADR 0073), so a reader never sees one half written.
 | 120 | 8 | reserved |
 | 128 | 32 | self-hash of bytes 0–127 |
 
-A derived file is used only if its header and directory verify, its kind is the
-one expected, its dataset id is the log's, and its *to position*'s header hash
-is the log's. Otherwise it is a cache miss.
+A derived file is used only if its header and directory verify, its version is
+2, its kind is the one expected, its dataset id is the log's, and its *to
+position*'s header hash is the log's. Otherwise it is a cache miss.
 
 ### 7.2 Runs and checkpoints
 
-A **quad key** is 32 bytes: four `u64` ids in the order's permutation. The six
-orders are `SPOG`, `POSG`, `OSPG`, `GSPO`, `GPOS`, `GOSP`, numbered 0–5 (ADR
-0041). A run has twelve **sections**, in this order: for each order, its
-asserted keys, then its retracted keys, each ascending. They start at offset 0
-and follow each other with no gap. A checkpoint is a run with no retractions,
-and its sections are followed by its **dictionary**: the term entries (§4.4) of
-every canonical id from 1 to its counter, in order.
+A **quad key** is four `u64` ids in the order's permutation. The six orders
+are `SPOG`, `POSG`, `OSPG`, `GSPO`, `GPOS`, `GOSP`, numbered 0–5 (ADR 0041). A
+run has twelve **key sections**, in this order: for each order, its asserted
+keys, then its retracted keys, each ascending. After them comes its **term
+section** (ADR 0079): the dictionary entries of the canonical ids its commits
+allocated. A checkpoint is a run from position 0 with no retractions, whose
+term section holds every canonical id from 1 to its counter.
+
+**Key sections** start at offset 0 and follow each other with no gap. Each is
+a sequence of **blocks** of 128 keys (the last may hold fewer), compressed
+(ADR 0080):
+
+| Field | |
+|---|---|
+| `bytes(32)` | the block's first key, four `u64` little-endian |
+| per later key: `u8` *d* | the index, 0–3, of the first id that differs from the key before |
+| `uleb` | that id's increase over the key before's |
+| `uleb` × (3 − *d*) | the ids after it, as they are |
+
+A block uses exactly its bytes and decodes to exactly its keys, or it is
+damaged.
+
+**The term section** follows the key sections:
+
+| Region | |
+|---|---|
+| entries | the entries of counters `From + 1` to `To`, in order, each as storage format §4.4 writes it — the id, then the term |
+| offsets | `To − From + 1` `u64`: where each entry starts within the entries, then their end |
+| hash index | `To − From` pairs of `u64` hash and `u64` id, ascending by hash, then id |
+
+The **hash** is of the entry's **key** — the entry without its id — with a
+language tag's ASCII letters lowercased, since tags compare ignoring case: a
+64-bit hash, eight bytes at a time through SplitMix64's finaliser (see
+`TermKey.Hash`). It orders the index and is searched by interpolation; it is
+not a cryptographic hash, and equal hashes are told apart by comparing keys.
 
 **Directory:**
 
 | Size | Field |
 |---:|---|
 | 4 | keys per block, `128` |
-| 4 | section count, `12` |
-| 16 × 12 | per section: `u64` byte offset, `u64` key count |
-| 32 × Σ⌈count / 128⌉ | fences: the first key of every block, section by section |
-| checkpoint only: 8 | canonical counter |
-| checkpoint only: 8 | blank counter |
-| checkpoint only: 8 | dictionary offset |
-| checkpoint only: 8 | dictionary length |
-| checkpoint only: 32 | SHA-256 of the dictionary |
+| 4 | key section count, `12` |
+| 24 × 12 | per key section: `u64` byte offset, `u64` key count, `u64` byte length |
+| 32 × Σ blocks | fences: the first key of every block, section by section |
+| 8 × Σ blocks | where every block begins within its section, section by section |
+| 8 | term section's `From`: the canonical counter before its first entry |
+| 8 | term section's `To` |
+| 8 | entries' offset |
+| 8 | entries' length |
+| 8 | offsets' offset: the entries' end |
+| 8 | hash index's offset: the offsets' end; the index ends at the directory |
+| 8 | the blank counter at the run's *to position* |
 
-A reader holds the fences in memory and reads a block — 128 keys, 4 KiB — at a
-time through the synchronous blob read. Keys are verified by their directory's
-placement, not hashed one by one: a derived file torn by a crash is never
-published, and bit rot in a published one is outside 6a.
+A reader holds the fences and block starts in memory — 40 bytes per 128 keys —
+and reads a block at a time through the synchronous blob read; a term by id is
+two offsets and an entry, a term by key a window of the index and the entries
+its hash names. Keys and entries are verified by their directory's placement,
+not hashed one by one: a derived file torn by a crash is never published, and
+bit rot in a published one is outside 6a and 6c.
 
 Names: a run is `index/runs/<from>-<to>.<n>`, positions in twenty digits and
-`n` a sequence number; a checkpoint is `checkpoints/<P>`.
+`n` a sequence number never reused; a checkpoint is `checkpoints/<P>`.
 
 ### 7.3 Projection state — `derived/index/state`
 

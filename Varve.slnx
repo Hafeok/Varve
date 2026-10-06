@@ -11,6 +11,7 @@
     <Project Path="src/Varve.Sparql.Results/Varve.Sparql.Results.csproj" />
     <Project Path="src/Varve.Sparql.Store/Varve.Sparql.Store.csproj" />
     <Project Path="src/Varve.Store/Varve.Store.csproj" />
+    <Project Path="src/Varve.Store.Browser/Varve.Store.Browser.csproj" />
     <Project Path="src/Varve.Turtle/Varve.Turtle.csproj" />
     <Project Path="src/Varve.Xsd/Varve.Xsd.csproj" />
   </Folder>

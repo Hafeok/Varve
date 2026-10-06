@@ -25,6 +25,17 @@ a projection of it.
   can be deleted and is rebuilt — and flushes every commit to the device.
   `MemoryStorage` keeps the same bytes in memory. The on-disk format is
   versioned and read for ever from the first release that writes it.
+- **Opens in the time of its tail, not its size.** The term dictionary lives
+  in the projection's runs on disk, read through lookups by id and by term;
+  opening reads the log after the newest persisted state and loads nothing per
+  term. Checkpoints, written on demand or by a `CheckpointPolicy`, bound what
+  an as-of read and an open replay.
+- **Bulk loads.** `BeginBulkLoadAsync` takes any parser's quads as they are
+  parsed, sorts them outside memory within `BulkLoadOptions.MemoryBytes`,
+  merges them with the dataset in one sequential pass, and commits them as one
+  commit — with the dataset's validators reading the delta on disk.
+- **Replicas by copying files.** `ShipAsync` copies the log up to a position
+  and a checkpoint into another storage, which opens at exactly that position.
 - **Recovers from crashes.** A torn or unclosed tail is ignored, a copy taken
   while the dataset was being written opens at its last closed commit, and
   damage that no crash produces refuses rather than guesses.
@@ -45,7 +56,15 @@ CommitResult result = await dataset.CommitAsync(new CommitRequest()
             RdfTerm.Literal("chat"u8, "en"u8)));
 
 using DatasetView view = dataset.Pin();
+
+// A bulk load: the parser's handler is the load's Assert.
+await using BulkLoad load = await dataset.BeginBulkLoadAsync();
+NQuadsParser.Parse(File.OpenRead("data.nq"), load.Assert, new ParseOptions { Syntax = RdfSyntax.NQuads });
+CommitResult loaded = await load.CommitAsync(new CommitMetadata());
 ```
+
+In a browser, `Varve.Store.Browser` provides the storage: OPFS from a worker,
+IndexedDB elsewhere.
 
 Layer 4 of [Varve](https://github.com/Hafeok/Varve), a .NET-native
 event-sourced RDF store and SPARQL toolkit. MPL-2.0.

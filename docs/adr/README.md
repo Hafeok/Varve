@@ -178,6 +178,13 @@ maintainer on the 6a plan, filed unaccepted (ADR 0066); specification 1.4, and 1
 | [0075](0075-one-process-per-dataset-by-an-os-lease.md) | One process per dataset directory, held by an exclusive handle | Accepted |
 | [0076](0076-bulk-load-by-sort-and-merge-join.md) | Bulk load and I2: sort into a run, merge-join, one multi-record commit (Q2) | Accepted; implemented in 6c |
 | [0077](0077-bulk-load-validators-scan-the-delta-on-disk.md) | Bulk load and validators: the overlay scans the delta on disk (Q3) | Accepted; implemented in 6c |
+| [0078](0078-checkpoints-streamed-and-written-by-policy.md) | Checkpoints streamed from the runs, and written by a policy; runs deleted once unread | Accepted |
+| [0079](0079-the-term-dictionary-on-disk.md) | The term dictionary on disk, carried by the runs | Accepted |
+| [0080](0080-derived-blocks-compressed.md) | Derived keys compressed in their blocks; derived format 2 | Accepted; answers 6a's compression question |
+| [0081](0081-the-bulk-loader.md) | The bulk loader: references by content hash, memory bounded, one commit | Accepted; builds 0076 and 0077 |
+| [0082](0082-the-soak-gate.md) | The soak gate: a flat working set within a stated band | Accepted; the gate #61 blocks |
+| [0083](0083-replica-bootstrap-is-a-file-copy.md) | Replica bootstrap is a copy of files | Accepted |
+| [0084](0084-the-browser-backend.md) | The browser backend: OPFS sync access handles in a worker, IndexedDB as the fallback | Accepted; answers 0071's revisit condition for the browser |
 
 ## Milestone 7 — the server
 
@@ -204,7 +211,7 @@ Built here and moving to a repository of its own; see
 |---:|---|---|
 | [0039](0039-repo-standard.md) | repo-standard: repository settings as code, built here and moving out | Accepted |
 
-**0070–0077 were `Proposed`** from their filing by milestone 6a on 2026-10-02 until their acceptance on its pull request on 2026-10-05. [0069](0069-model-namespaces-for-layers-3-to-5.md) was,
+**0078–0084 were `Proposed`** from their filing by milestone 6c on 2026-10-05 until their acceptance on its pull request on 2026-10-06. **0070–0077 were** from their filing by milestone 6a on 2026-10-02 until their acceptance on its pull request on 2026-10-05. [0069](0069-model-namespaces-for-layers-3-to-5.md) was,
 from its filing on 2026-09-29 until its acceptance on 2026-09-30. Three others were
 `Proposed` once, and were completed in place rather than superseded, because
 ADR 0001's no-edit rule binds accepted decisions and they had never been

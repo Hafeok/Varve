@@ -16,15 +16,20 @@ namespace Varve.Store;
 /// <summary><c>D_P</c>: the dictionary seen through one position's counters.</summary>
 internal readonly struct TermView
 {
-    internal TermView(TermDictionary dictionary, long canonicalCount, long blankCount)
+    internal TermView(TermDictionary dictionary, Run[] runs, long canonicalCount, long blankCount)
     {
         Dictionary = dictionary;
+        Runs = runs;
         CanonicalCount = canonicalCount;
         BlankCount = blankCount;
     }
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal TermDictionary Dictionary { get; }
+
+    /// <summary>The runs whose term sections hold every entry up to <see cref="CanonicalCount"/>, held open by the view.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal Run[] Runs { get; }
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal long CanonicalCount { get; }
@@ -36,33 +41,22 @@ internal readonly struct TermView
     internal bool TryInternalise(RdfTerm term, out TermHandle handle)
     {
         ArgumentNullException.ThrowIfNull(term);
-        bool found = Dictionary.TryFind(term, CanonicalCount, out ulong id);
+        bool found = Dictionary.TryFind(Runs, term, CanonicalCount, out ulong id);
         handle = new TermHandle(id);
         return found;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal bool TryFindTriple(ulong subject, ulong predicate, ulong @object, out ulong id) =>
+        TermDictionary.TryFindTriple(Runs, subject, predicate, @object, CanonicalCount, out id);
+
     internal bool TryExternalise(TermHandle handle, [MaybeNullWhen(false)] out RdfTerm term) =>
-        Dictionary.TryTerm(handle.Value, CanonicalCount, BlankCount, out term);
+        Dictionary.TryTerm(Runs, handle.Value, CanonicalCount, BlankCount, out term);
+
+    /// <summary>The term of an id the view knows.</summary>
+    internal RdfTerm Term(ulong id) => Dictionary.Term(Runs, id);
 }
 
-/// <summary>
-/// The store's term equality (spec §6): canonical, blank and inline ids compare
-/// by id. With private terms, a readable one compares by value against private
-/// and canonical terms alike, and a shredded one equals only itself.
-/// </summary>
-/// <remarks>
-/// <para>
-/// Nothing allocates a private id before erasure mode exists, so the store
-/// uses <see cref="ById"/>. The value-comparing form is declared now and tested
-/// against a stub (<see cref="IPrivateTermValues"/>), so that milestone 9 finds
-/// the equality it has to meet already written down.
-/// </para>
-/// <para>
-/// Specification 1.2's note on §6: once a readable private term can equal a
-/// canonical one, every handle must hash by value — a dictionary lookup per
-/// hash. With no private terms, a hash is the id.
-/// </para>
-/// </remarks>
 internal sealed class StoreTermComparer : IEqualityComparer<TermHandle>
 {
     private readonly IPrivateTermValues? _privates;
@@ -275,6 +269,9 @@ public sealed class DatasetView : IQuadSource, IDisposable
 
     /// <summary>The position this view reads.</summary>
     public Position Position { get; }
+
+    /// <summary>Test seam: the dictionary the view reads.</summary>
+    internal TermView TermsForTests() => _terms;
 
     /// <summary>
     /// Id equality: canonical, blank and inline handles compare by id. Private

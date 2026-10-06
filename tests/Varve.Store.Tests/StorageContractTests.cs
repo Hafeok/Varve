@@ -21,6 +21,8 @@ namespace Varve.Store.Tests;
 /// The second backend is the standing proof ADR 0040 asks for: if the contract
 /// ever needs an internal member to be implementable, this file stops
 /// compiling. The file backend at milestone 6 is the real external proof.
+/// The cases themselves are <see cref="StorageContractCases"/>, which the
+/// browser test app runs against the browser backends (ADR 0084).
 /// </remarks>
 public abstract class StorageContractTests
 {
@@ -28,170 +30,43 @@ public abstract class StorageContractTests
 
     protected abstract Durability Expected { get; }
 
-    private static byte[] Bytes(params byte[] bytes) => bytes;
+    private ValueTask<IStorage> CreateAsync() => new(Create());
 
     [Fact]
-    public async Task appended_bytes_read_back_and_a_read_past_the_end_is_short()
-    {
-        IStorage storage = Create();
-        SegmentId segment = await storage.Log.CreateSegmentAsync(T.Ct);
-        await storage.Log.AppendAsync(segment, Bytes(1, 2, 3), T.Ct);
-        await storage.Log.AppendAsync(segment, Bytes(4, 5), T.Ct);
-        await storage.Log.FlushAsync(segment, T.Ct);
-
-        Assert.Equal(Bytes(1, 2, 3, 4, 5), (await storage.Log.ReadRangeAsync(segment, new ByteOffset(0), new ByteCount(100), T.Ct)).ToArray());
-        Assert.Equal(Bytes(3, 4), (await storage.Log.ReadRangeAsync(segment, new ByteOffset(2), new ByteCount(2), T.Ct)).ToArray());
-        Assert.Equal(0, (await storage.Log.ReadRangeAsync(segment, new ByteOffset(5), new ByteCount(10), T.Ct)).Length);
-    }
+    public Task appended_bytes_read_back_and_a_read_past_the_end_is_short() =>
+        StorageContractCases.AppendedBytesReadBack(CreateAsync, T.Ct);
 
     [Fact]
-    public async Task a_sealed_segment_refuses_appends_and_only_the_newest_may_be_open()
-    {
-        IStorage storage = Create();
-        SegmentId first = await storage.Log.CreateSegmentAsync(T.Ct);
-
-        await Assert.ThrowsAnyAsync<InvalidOperationException>(async () => await storage.Log.CreateSegmentAsync(T.Ct));
-
-        await storage.Log.AppendAsync(first, Bytes(9), T.Ct);
-        await storage.Log.SealAsync(first, T.Ct);
-        await Assert.ThrowsAnyAsync<InvalidOperationException>(async () => await storage.Log.AppendAsync(first, Bytes(1), T.Ct));
-
-        SegmentId second = await storage.Log.CreateSegmentAsync(T.Ct);
-        Assert.True(second > first);
-
-        IReadOnlyList<SegmentInfo> segments = await storage.Log.ListSegmentsAsync(T.Ct);
-        Assert.Equal([SegmentInfo.Sealed(first, new ByteCount(1)), SegmentInfo.Open(second, new ByteCount(0))], segments);
-    }
+    public Task a_sealed_segment_refuses_appends_and_only_the_newest_may_be_open() =>
+        StorageContractCases.SealedSegmentRefusesAppends(CreateAsync, T.Ct);
 
     [Fact]
-    public async Task bytes_already_read_never_change()
-    {
-        IStorage storage = Create();
-        SegmentId segment = await storage.Log.CreateSegmentAsync(T.Ct);
-        await storage.Log.AppendAsync(segment, Bytes(1, 2), T.Ct);
-        ReadOnlyMemory<byte> held = await storage.Log.ReadRangeAsync(segment, new ByteOffset(0), new ByteCount(2), T.Ct);
-
-        // Enough appends to force any buffer the backend keeps to grow.
-        for (int i = 0; i < 1000; i++)
-        {
-            await storage.Log.AppendAsync(segment, new byte[64], T.Ct);
-        }
-
-        Assert.Equal(Bytes(1, 2), held.ToArray());
-    }
-
-    private static async Task PutAsync(IStorage storage, string name, params byte[] bytes)
-    {
-        await using IBlobWriter writer = await storage.Derived.CreateAsync(new BlobName(name), T.Ct);
-        await writer.WriteAsync(bytes, T.Ct);
-        await writer.PublishAsync(T.Ct);
-    }
-
-    private static async Task<byte[]> ReadAsync(IStorage storage, string name, long offset = 0, int length = 100)
-    {
-        using IReadableBlob blob = await storage.Derived.OpenAsync(new BlobName(name), T.Ct);
-        byte[] buffer = new byte[length];
-        int read = blob.Read(new ByteOffset(offset), buffer);
-        return buffer.AsSpan(0, read).ToArray();
-    }
+    public Task bytes_already_read_never_change() =>
+        StorageContractCases.BytesAlreadyReadNeverChange(CreateAsync, T.Ct);
 
     [Fact]
-    public async Task derived_blobs_are_published_replaced_listed_in_ordinal_order_and_deleted()
-    {
-        IStorage storage = Create();
-        await PutAsync(storage, "b", 1);
-        await PutAsync(storage, "a", 2, 3);
-        await PutAsync(storage, "b", 4, 5, 6);
-
-        Assert.Equal([new BlobName("a"), new BlobName("b")], await storage.Derived.ListAsync(T.Ct));
-        Assert.Equal(Bytes(5, 6), await ReadAsync(storage, "b", 1, 10));
-        Assert.Equal(Bytes(4, 5, 6), await ReadAsync(storage, "b"));
-        Assert.Empty(await ReadAsync(storage, "b", 3, 10));
-        Assert.True(await storage.Derived.DeleteAsync(new BlobName("a"), T.Ct));
-        Assert.False(await storage.Derived.DeleteAsync(new BlobName("a"), T.Ct));
-        Assert.Equal([new BlobName("b")], await storage.Derived.ListAsync(T.Ct));
-        await Assert.ThrowsAnyAsync<KeyNotFoundException>(async () => await storage.Derived.OpenAsync(new BlobName("a"), T.Ct));
-    }
+    public Task derived_blobs_are_published_replaced_listed_in_ordinal_order_and_deleted() =>
+        StorageContractCases.DerivedBlobsLifecycle(CreateAsync, T.Ct);
 
     [Fact]
-    public async Task a_blob_is_invisible_until_published_and_an_unpublished_writer_leaves_nothing()
-    {
-        IStorage storage = Create();
-        await PutAsync(storage, "kept", 1, 2);
-
-        await using (IBlobWriter writer = await storage.Derived.CreateAsync(new BlobName("kept"), T.Ct))
-        {
-            await writer.WriteAsync(Bytes(9, 9, 9), T.Ct);
-            Assert.Equal(Bytes(1, 2), await ReadAsync(storage, "kept"));
-        }
-
-        await using (IBlobWriter writer = await storage.Derived.CreateAsync(new BlobName("never"), T.Ct))
-        {
-            await writer.WriteAsync(Bytes(7), T.Ct);
-        }
-
-        Assert.Equal(Bytes(1, 2), await ReadAsync(storage, "kept"));
-        Assert.Equal([new BlobName("kept")], await storage.Derived.ListAsync(T.Ct));
-    }
+    public Task a_blob_is_invisible_until_published_and_an_unpublished_writer_leaves_nothing() =>
+        StorageContractCases.UnpublishedLeavesNothing(CreateAsync, T.Ct);
 
     [Fact]
-    public async Task an_open_blob_keeps_its_bytes_when_its_name_is_replaced()
-    {
-        IStorage storage = Create();
-        await PutAsync(storage, "run", 1, 2, 3);
-        using IReadableBlob held = await storage.Derived.OpenAsync(new BlobName("run"), T.Ct);
-
-        await PutAsync(storage, "run", 4, 5, 6, 7);
-
-        byte[] buffer = new byte[8];
-        Assert.Equal(new ByteCount(3), held.Length);
-        Assert.Equal(3, held.Read(new ByteOffset(0), buffer));
-        Assert.Equal(Bytes(1, 2, 3), buffer.AsSpan(0, 3).ToArray());
-        Assert.Equal(Bytes(4, 5, 6, 7), await ReadAsync(storage, "run"));
-    }
+    public Task an_open_blob_keeps_its_bytes_when_its_name_is_replaced() =>
+        StorageContractCases.OpenBlobKeepsItsBytes(CreateAsync, T.Ct);
 
     [Fact]
-    public async Task the_manifest_is_empty_until_written_and_is_written_once_before_any_segment()
-    {
-        IStorage storage = Create();
-        Assert.True((await storage.Log.ReadManifestAsync(T.Ct)).IsEmpty);
-
-        await storage.Log.WriteManifestAsync(Bytes(1, 2, 3), T.Ct);
-        Assert.Equal(Bytes(1, 2, 3), (await storage.Log.ReadManifestAsync(T.Ct)).ToArray());
-        await Assert.ThrowsAnyAsync<InvalidOperationException>(async () => await storage.Log.WriteManifestAsync(Bytes(4), T.Ct));
-
-        IStorage other = Create();
-        await other.Log.CreateSegmentAsync(T.Ct);
-        await Assert.ThrowsAnyAsync<InvalidOperationException>(async () => await other.Log.WriteManifestAsync(Bytes(4), T.Ct));
-    }
+    public Task the_manifest_is_empty_until_written_and_is_written_once_before_any_segment() =>
+        StorageContractCases.ManifestWrittenOnce(CreateAsync, T.Ct);
 
     [Fact]
-    public void the_backend_declares_its_durability() => Assert.Equal(Expected, Create().Log.Durability);
+    public Task the_backend_declares_its_durability() =>
+        StorageContractCases.BackendDeclaresDurability(CreateAsync, Expected, T.Ct);
 
     [Fact]
-    public async Task a_dataset_commits_checkpoints_reopens_and_reads_as_of_over_the_backend()
-    {
-        IStorage storage = Create();
-
-        await using (Dataset dataset = await T.OpenOrCreate(storage, T.Options(segmentBytes: 1024)))
-        {
-            for (int i = 0; i < 20; i++)
-            {
-                await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s" + i), T.Iri("p"), T.Literal(new string('x', 40))), T.Ct);
-            }
-
-            await dataset.CheckpointAsync(new Position(10), T.Ct);
-        }
-
-        Assert.True((await storage.Log.ListSegmentsAsync(T.Ct)).Count > 1, "the small segment size should have forced several segments");
-
-        await using Dataset reopened = await T.OpenOrCreate(storage, T.Options(segmentBytes: 1024));
-        Assert.Equal(new Position(20), reopened.Head);
-        Assert.Equal([new Position(10)], reopened.Checkpoints);
-
-        using DatasetView at12 = await reopened.AsOfAsync(new Position(12), T.Ct);
-        Assert.Equal(12, T.All(at12).Count);
-    }
+    public Task a_dataset_commits_checkpoints_reopens_and_reads_as_of_over_the_backend() =>
+        StorageContractCases.DatasetOverTheBackend(CreateAsync, T.Ct);
 }
 
 public sealed class MemoryStorageContractTests : StorageContractTests

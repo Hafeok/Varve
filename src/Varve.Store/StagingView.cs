@@ -124,8 +124,7 @@ public sealed class StagingView : IQuadSource
         ulong o = Known(@object, nameof(@object));
 
         if (!TermIds.IsProvisional(s) && !TermIds.IsProvisional(p) && !TermIds.IsProvisional(o)
-            && _terms.Dictionary.TryFindTriple(s, p, o, out ulong existing)
-            && TermDictionary.IsKnown(existing, _terms.CanonicalCount, _terms.BlankCount))
+            && _terms.TryFindTriple(s, p, o, out ulong existing))
         {
             return new TermHandle(existing);
         }

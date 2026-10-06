@@ -5,7 +5,6 @@
 using System;
 using System.Buffers;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Threading;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
@@ -19,29 +18,51 @@ namespace Varve.Store;
 /// derived blob read in blocks through the synchronous blob read (ADR 0071).
 /// </summary>
 /// <remarks>
-/// A section on a blob holds its fences — the first key of every block — in
-/// memory, so a seek is a binary search of the fences and one block read.
-/// The scan code is the same for both: a cursor walks a block at a time, and
-/// an array is one block.
+/// A section on a blob holds its fences — the first key of every block — and
+/// where each compressed block begins in memory, so a seek is a binary search
+/// of the fences and one block read and decoded (ADR 0080). The scan code is
+/// the same for both: a cursor walks a block at a time, and an array is one
+/// block.
 /// </remarks>
 internal sealed class KeySection
 {
     internal const int BlockKeys = 128;
 
+    /// <summary>A sparse section's fences: the first key of every this-many blocks (ADR 0080).</summary>
+    internal const int SparseStride = 16;
+
+    private static readonly Chunked<QuadKey> NoFences = new();
+    private static readonly Chunked<long> NoBlocks = new();
+
     private readonly IReadableBlob? _blob;
     private readonly long _offset;
-    private readonly QuadKey[] _fences;
+    private readonly Chunked<QuadKey> _fences;
+    private readonly Chunked<long> _blocks;
 
-    private KeySection(ReadOnlyMemory<QuadKey> memory, IReadableBlob? blob, long offset, long count, QuadKey[] fences)
+    // A sparse section holds the first key of every SparseStride-th block
+    // and none of the block starts: those are read from the directory,
+    // where they begin at _startsAt, and a block's own first key from the
+    // block, whose first 32 bytes it is (ADR 0080).
+    private readonly int _stride;
+    private readonly long _startsAt;
+    private readonly long _blockCount;
+    private readonly long _length;
+
+    private KeySection(ReadOnlyMemory<QuadKey> memory, IReadableBlob? blob, long offset, long count, Chunked<QuadKey> fences, Chunked<long> blocks, int stride, long startsAt, long length)
     {
         Memory = memory;
         _blob = blob;
         _offset = offset;
         _fences = fences;
+        _blocks = blocks;
+        _stride = stride;
+        _startsAt = startsAt;
+        _length = length;
+        _blockCount = (count + BlockKeys - 1) / BlockKeys;
         Count = count;
     }
 
-    internal static KeySection Empty { get; } = new(ReadOnlyMemory<QuadKey>.Empty, null, 0, 0, []);
+    internal static KeySection Empty { get; } = new(ReadOnlyMemory<QuadKey>.Empty, null, 0, 0, NoFences, NoBlocks, 1, 0, 0);
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal long Count { get; }
@@ -53,25 +74,59 @@ internal sealed class KeySection
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool OnBlob => _blob is not null;
 
-    internal static KeySection Of(ReadOnlyMemory<QuadKey> keys) => keys.IsEmpty ? Empty : new(keys, null, 0, keys.Length, []);
+    internal static KeySection Of(ReadOnlyMemory<QuadKey> keys) => keys.IsEmpty ? Empty : new(keys, null, 0, keys.Length, NoFences, NoBlocks, 1, 0, 0);
 
-    internal static KeySection On(IReadableBlob blob, long offset, long count, QuadKey[] fences) =>
-        count == 0 ? Empty : new(ReadOnlyMemory<QuadKey>.Empty, blob, offset, count, fences);
+    /// <summary>
+    /// A section of a blob: <paramref name="count"/> keys in compressed blocks
+    /// from <paramref name="offset"/>, block <c>b</c> spanning
+    /// <c>[blocks[b], blocks[b + 1])</c> bytes from there.
+    /// </summary>
+    internal static KeySection On(IReadableBlob blob, long offset, long count, Chunked<QuadKey> fences, Chunked<long> blocks) =>
+        count == 0 ? Empty : new(ReadOnlyMemory<QuadKey>.Empty, blob, offset, count, fences, blocks, 1, 0, 0);
 
-    /// <summary>Reads block <paramref name="block"/> into the buffer; returns how many keys it holds.</summary>
-    /// <exception cref="IOException">The blob is shorter than its directory says.</exception>
+    /// <summary>
+    /// A section of a blob held sparsely: <paramref name="fences"/> the first
+    /// key of every <see cref="SparseStride"/>-th block, the block starts read
+    /// from the directory at <paramref name="startsAt"/>, and
+    /// <paramref name="length"/> the section's bytes. A seek reads the starts
+    /// of one stride and the first keys of a binary search through it, as
+    /// well as the block: a few small reads more, for a twentieth of the
+    /// memory. For checkpoints, which only as-of reads seek (issue #61).
+    /// </summary>
+    internal static KeySection Sparse(IReadableBlob blob, long offset, long count, Chunked<QuadKey> fences, long startsAt, long length) =>
+        count == 0 ? Empty : new(ReadOnlyMemory<QuadKey>.Empty, blob, offset, count, fences, NoBlocks, SparseStride, startsAt, length);
+
+    /// <summary>Reads and decodes block <paramref name="block"/> into the buffer; returns how many keys it holds.</summary>
+    /// <exception cref="IOException">The blob is shorter than its directory says, or a block does not decode.</exception>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal int ReadBlock(long block, Span<QuadKey> buffer)
     {
         long start = block * BlockKeys;
         int count = (int)Math.Min(BlockKeys, Count - start);
-        Span<byte> bytes = MemoryMarshal.AsBytes(buffer[..count]);
+        long at;
+        long end;
 
-        if (_blob!.Read(new ByteOffset(_offset + (start * QuadKey.Size)), bytes) != bytes.Length)
+        if (_stride == 1)
+        {
+            at = _blocks[block];
+            end = _blocks[block + 1];
+        }
+        else
+        {
+            Span<long> starts = stackalloc long[2];
+            ReadStarts(block, starts);
+            (at, end) = (starts[0], starts[1]);
+        }
+
+        int length = (int)(end - at);
+        Span<byte> bytes = stackalloc byte[KeyBlocks.MaxBytes];
+
+        if (length > bytes.Length || length < 0 || _blob!.Read(new ByteOffset(_offset + at), bytes[..length]) != length)
         {
             throw new IOException("A derived run is shorter than its directory says.");
         }
 
+        KeyBlocks.Decode(bytes[..length], buffer[..count]);
         return count;
     }
 
@@ -84,7 +139,7 @@ internal sealed class KeySection
             return Run.LowerBound(Memory.Span, in bound);
         }
 
-        long block = Run.LowerBound(_fences, in bound) - 1;
+        long block = LastBlockBefore(in bound, inclusive: false);
 
         if (block < 0)
         {
@@ -105,7 +160,7 @@ internal sealed class KeySection
             return Run.UpperBound(Memory.Span, in bound);
         }
 
-        long block = Run.UpperBound(_fences, in bound) - 1;
+        long block = LastBlockBefore(in bound, inclusive: true);
 
         if (block < 0)
         {
@@ -125,7 +180,7 @@ internal sealed class KeySection
             return Run.Search(Memory.Span, in key) >= 0;
         }
 
-        long block = Run.UpperBound(_fences, in key) - 1;
+        long block = LastBlockBefore(in key, inclusive: true);
 
         if (block < 0)
         {
@@ -135,6 +190,135 @@ internal sealed class KeySection
         Span<QuadKey> keys = stackalloc QuadKey[BlockKeys];
         int count = ReadBlock(block, keys);
         return Run.Search(keys[..count], in key) >= 0;
+    }
+
+    /// <summary>
+    /// The indexes of the keys from <paramref name="low"/> through
+    /// <paramref name="high"/>, decoding the block the range starts in once:
+    /// into <paramref name="buffer"/>, which then holds <paramref name="held"/>
+    /// keys from index <paramref name="heldStart"/> for the reader to start
+    /// from, and from which the end is found too when it lies in the same
+    /// block — a point lookup's case, which three decodes made two and a half
+    /// times slower than 6a's raw blocks. Held is zero when nothing was decoded.
+    /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal (long Next, long End) Range(in QuadKey low, in QuadKey high, Span<QuadKey> buffer, out int held, out long heldStart)
+    {
+        held = 0;
+        heldStart = 0;
+
+        if (_blob is null)
+        {
+            long from = Run.LowerBound(Memory.Span, in low);
+            return (from, from < Count ? Run.UpperBound(Memory.Span, in high) : from);
+        }
+
+        long block = LastBlockBefore(in low, inclusive: false);
+        long next = 0;
+
+        if (block >= 0)
+        {
+            held = ReadBlock(block, buffer);
+            heldStart = block * BlockKeys;
+            next = heldStart + Run.LowerBound(buffer[..held], in low);
+        }
+
+        if (next >= Count)
+        {
+            return (next, next);
+        }
+
+        long last = LastBlockBefore(in high, inclusive: true);
+
+        if (held > 0 && last == block)
+        {
+            return (next, heldStart + Run.UpperBound(buffer[..held], in high));
+        }
+
+        return (next, UpperBound(in high));
+    }
+
+    // The last block whose first key is below the bound (or at it, when
+    // inclusive); -1 when there is none.
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private long LastBlockBefore(in QuadKey bound, bool inclusive)
+    {
+        long fence = (inclusive ? ChunkedKeys.UpperBound(_fences, in bound) : ChunkedKeys.LowerBound(_fences, in bound)) - 1;
+
+        if (fence < 0 || _stride == 1)
+        {
+            return fence;
+        }
+
+        // Within the stride: its first block qualifies; a binary search of
+        // the others by their first keys, read from the blocks.
+        long first = fence * _stride;
+        int span = (int)Math.Min(_stride, _blockCount - first);
+        Span<long> starts = stackalloc long[SparseStride + 1];
+        ReadStarts(first, starts[..(span + 1)]);
+        int low = 0;
+        int high = span - 1;
+
+        while (low < high)
+        {
+            int middle = low + ((high - low + 1) / 2);
+            QuadKey key = FirstKey(starts[middle]);
+            int order = key.CompareTo(bound);
+
+            if (order < 0 || (inclusive && order == 0))
+            {
+                low = middle;
+            }
+            else
+            {
+                high = middle - 1;
+            }
+        }
+
+        return first + low;
+    }
+
+    // Where blocks first .. first + destination.Length - 1 begin, the last
+    // one's end being the next block's start or the section's length.
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private void ReadStarts(long first, Span<long> destination)
+    {
+        int stored = (int)Math.Min(destination.Length, _blockCount - first);
+        Span<byte> bytes = stackalloc byte[(SparseStride + 1) * 8];
+        Span<byte> read = bytes[..(stored * 8)];
+
+        if (_blob!.Read(new ByteOffset(_startsAt + (first * 8)), read) != read.Length)
+        {
+            throw new IOException("A derived run is shorter than its directory says.");
+        }
+
+        for (int i = 0; i < stored; i++)
+        {
+            destination[i] = (long)System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(read[(i * 8)..]);
+        }
+
+        if (stored < destination.Length)
+        {
+            destination[stored] = _length;
+        }
+    }
+
+    // A block's first key: its first 32 bytes, whole (ADR 0080).
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private QuadKey FirstKey(long blockStart)
+    {
+        Span<byte> bytes = stackalloc byte[QuadKey.Size];
+
+        if (_blob!.Read(new ByteOffset(_offset + blockStart), bytes) != bytes.Length)
+        {
+            throw new IOException("A derived run is shorter than its directory says.");
+        }
+
+        return new QuadKey(
+            System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(bytes),
+            System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(bytes[8..]),
+            System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(bytes[16..]),
+            System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(bytes[24..]));
     }
 }
 
@@ -146,6 +330,7 @@ internal sealed class KeySection
 internal sealed class RunBlob
 {
     private int _references = 1;
+    private Action<BlobName>? _closed;
 
     internal RunBlob(BlobName name, IReadableBlob blob)
     {
@@ -181,9 +366,23 @@ internal sealed class RunBlob
         if (Interlocked.Decrement(ref _references) == 0)
         {
             Blob.Dispose();
+            Volatile.Read(ref _closed)?.Invoke(Name);
         }
     }
+
+    /// <summary>
+    /// Releases the owner's reference to a blob nothing current holds any
+    /// more, and has <paramref name="closed"/> called with its name once the
+    /// last reader has let go: a run a pinned or as-of view still reads is
+    /// deleted only after the view is disposed (ADR 0070).
+    /// </summary>
+    internal void Retire(Action<BlobName> closed)
+    {
+        Volatile.Write(ref _closed, closed);
+        Release();
+    }
 }
+
 
 /// <summary>
 /// An immutable sorted run: for each of the six orders, the keys it asserts and
@@ -200,12 +399,13 @@ internal sealed class Run
     private readonly KeySection[] _asserted;
     private readonly KeySection[] _retracted;
 
-    internal Run(KeySection[] asserted, KeySection[] retracted, long from, long to, RunBlob? blob = null)
+    internal Run(KeySection[] asserted, KeySection[] retracted, long from, long to, TermSection terms, RunBlob? blob = null)
     {
         _asserted = asserted;
         _retracted = retracted;
         From = from;
         To = to;
+        Terms = terms;
         Blob = blob;
     }
 
@@ -218,12 +418,22 @@ internal sealed class Run
     /// <summary>The blob the run is read from, or null for a run in memory.</summary>
     internal RunBlob? Blob { get; }
 
+    /// <summary>
+    /// The dictionary entries of the canonical ids the run's commits allocated
+    /// (ADR 0079); a checkpoint's are every id up to its position.
+    /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal TermSection Terms { get; }
+
     internal bool InMemory => Blob is null;
 
     /// <summary>How many keys it holds in each order, asserted and retracted.</summary>
     internal long Count => _asserted[0].Count + _retracted[0].Count;
 
     internal long AssertedCount => _asserted[0].Count;
+
+    /// <summary>What the tier rule weighs: keys and dictionary entries.</summary>
+    internal long Size => Count + Terms.Count;
 
     internal bool HasRetractions => _retracted[0].Count != 0;
 
@@ -240,22 +450,9 @@ internal sealed class Run
         return sections;
     }
 
-    /// <summary>A run from a delta's two halves: one array per order per half.</summary>
-    internal static Run FromDelta(ReadOnlySpan<Quad> asserted, ReadOnlySpan<Quad> retracted, long from, long to) =>
-        new(Build(asserted), retracted.IsEmpty ? NoRetractions() : Build(retracted), from, to);
-
-    /// <summary>A run of assertions only, in memory, already sorted in every order.</summary>
-    internal static Run FromSorted(ReadOnlyMemory<QuadKey>[] asserted, long from, long to)
-    {
-        KeySection[] sections = new KeySection[Orders.Count];
-
-        for (int order = 0; order < Orders.Count; order++)
-        {
-            sections[order] = KeySection.Of(asserted[order]);
-        }
-
-        return new Run(sections, NoRetractions(), from, to);
-    }
+    /// <summary>A run from a delta's two halves, one array per order per half, and the allocations' entries.</summary>
+    internal static Run FromDelta(ReadOnlySpan<Quad> asserted, ReadOnlySpan<Quad> retracted, TermSection terms, long from, long to) =>
+        new(Build(asserted), retracted.IsEmpty ? NoRetractions() : Build(retracted), from, to, terms);
 
     // The arrays are the run: one per order, kept for as long as the version
     // that holds it. The loop inside is per quad and allocates nothing.
@@ -338,7 +535,7 @@ internal sealed class Run
             }
         }
 
-        return new Run(asserted, retracted, older.From, newer.To);
+        return new Run(asserted, retracted, older.From, newer.To, TermSection.Concat(older.Terms, newer.Terms));
     }
 
     // One pass that either counts or writes. A key both runs mention with
@@ -531,7 +728,7 @@ internal sealed class IndexVersion
             {
                 if (run.InMemory)
                 {
-                    count += run.Count;
+                    count += run.Size;
                 }
             }
 
@@ -543,23 +740,23 @@ internal sealed class IndexVersion
     internal static IndexVersion FromBase(long position, Run run) => new(position, [run], 1);
 
     /// <summary>
-    /// This version with one more commit applied: its delta as a new run,
-    /// then tiered merges of the memtable while the newest run is at least a
-    /// quarter the size of the one below it.
+    /// This version with one more commit applied: its delta and its
+    /// dictionary entries as a new run, then tiered merges of the memtable
+    /// while the newest run is at least a quarter the size of the one below it.
     /// </summary>
-    internal IndexVersion Apply(ReadOnlySpan<Quad> asserted, ReadOnlySpan<Quad> retracted, long position)
+    internal IndexVersion Apply(ReadOnlySpan<Quad> asserted, ReadOnlySpan<Quad> retracted, TermSection terms, long position)
     {
-        if (asserted.IsEmpty && retracted.IsEmpty)
+        if (asserted.IsEmpty && retracted.IsEmpty && terms.Count == 0)
         {
             return new IndexVersion(position, Runs, Frozen);
         }
 
         Run[] runs = new Run[Runs.Length + 1];
         Runs.CopyTo(runs, 0);
-        runs[^1] = Run.FromDelta(asserted, retracted, position - 1, position);
+        runs[^1] = Run.FromDelta(asserted, retracted, terms, position - 1, position);
         int count = runs.Length;
 
-        while (count >= 2 && count - 2 >= Frozen && runs[count - 1].Count * 4 >= runs[count - 2].Count)
+        while (count >= 2 && count - 2 >= Frozen && runs[count - 1].Size * 4 >= runs[count - 2].Size)
         {
             runs[count - 2] = Run.Merge(runs[count - 2], runs[count - 1], dropRetractions: count == 2);
             count--;
@@ -567,7 +764,7 @@ internal sealed class IndexVersion
 
         if (count == 1 && Frozen == 0 && runs[0].HasRetractions)
         {
-            runs[0] = Run.Merge(runs[0], Run.FromDelta([], [], runs[0].To, runs[0].To), dropRetractions: true);
+            runs[0] = Run.Merge(runs[0], Run.FromDelta([], [], TermSection.Empty(runs[0].Terms.To), runs[0].To, runs[0].To), dropRetractions: true);
         }
 
         return new IndexVersion(position, count == runs.Length ? runs : runs.AsSpan(0, count).ToArray(), Frozen);
@@ -883,15 +1080,22 @@ internal sealed class RunCursor : IQuadCursor
 
         internal static Stream Over(KeySection section, int run, bool asserts, in QuadKey low, in QuadKey high)
         {
-            long next = section.LowerBound(in low);
-            long end = next < section.Count ? section.UpperBound(in high) : next;
+            QuadKey[]? buffer = section.OnBlob ? ArrayPool<QuadKey>.Shared.Rent(KeySection.BlockKeys) : null;
+            (long next, long end) = section.Range(in low, in high, buffer, out int held, out long heldStart);
 
+            if (buffer is not null && next >= end)
+            {
+                ArrayPool<QuadKey>.Shared.Return(buffer);
+                buffer = null;
+            }
+
+            // The block the range starts in, decoded by the seek, is the first one read.
             return new Stream
             {
                 Section = section,
-                Block = section.Memory,
-                Buffer = section.OnBlob && next < end ? ArrayPool<QuadKey>.Shared.Rent(KeySection.BlockKeys) : null,
-                BlockStart = section.OnBlob ? long.MinValue / 2 : 0,
+                Block = buffer is not null && held > 0 ? new ReadOnlyMemory<QuadKey>(buffer, 0, held) : section.Memory,
+                Buffer = buffer,
+                BlockStart = buffer is not null && held > 0 ? heldStart : section.OnBlob ? long.MinValue / 2 : 0,
                 Next = next,
                 End = end,
                 Run = run,

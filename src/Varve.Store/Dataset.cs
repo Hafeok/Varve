@@ -5,7 +5,6 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -56,6 +55,12 @@ public sealed class DatasetOptions
     /// asks.
     /// </summary>
     public MaintenanceMode Maintenance { get; init; } = OperatingSystem.IsBrowser() ? MaintenanceMode.Off : MaintenanceMode.Background;
+
+    /// <summary>
+    /// When the dataset writes checkpoints on its own, as maintenance
+    /// (ADR 0078). <see cref="CheckpointPolicy.Never"/> by default.
+    /// </summary>
+    public CheckpointPolicy Checkpoints { get; init; } = CheckpointPolicy.Never;
 
     /// <summary>Test seam: throws from the default projection at the positions it returns true for.</summary>
     internal Func<long, bool>? DefaultProjectionFault { get; set; }
@@ -119,6 +124,15 @@ public sealed partial class Dataset : IAsyncDisposable
 
     /// <summary>The settings at the head.</summary>
     public DatasetSettings Settings => _state.SettingsAt(_state.Head);
+
+    /// <summary>Test seam: the dictionary's counters at the head.</summary>
+    internal (long Canonical, long Blank) CountersForTests() => (_state.CanonicalAt(_state.Head), _state.BlankAt(_state.Head));
+
+    /// <summary>Test seam: the storage the dataset was opened on.</summary>
+    internal IStorage StorageForTests() => _storage;
+
+    /// <summary>Test seam: the bytes of the log's records after <paramref name="from"/> up to <paramref name="to"/>.</summary>
+    internal long LogBytesBetween(long from, long to) => _state.LogBytesAt(to) - _state.LogBytesAt(from);
 
     /// <summary>The positions that have a checkpoint, ascending.</summary>
     public IReadOnlyList<Position> Checkpoints
@@ -190,12 +204,18 @@ public sealed partial class Dataset : IAsyncDisposable
 
         DatasetId id = LogFormat.DecodeManifest(manifest.Span);
         long[] candidates = await CheckpointPositionsAsync(storage.Derived, cancellationToken).ConfigureAwait(false);
-        long bodiesAfter = candidates.Length > 0 ? candidates[0] : 0;
+
+        // Bodies are read only after what derived/ claims to hold: the
+        // projection's persisted state, or the newest checkpoint. A claim that
+        // turns out stale reads the bodies it needs later, one by one.
+        var claimed = await DerivedFormat.TryReadStateAsync(storage.Derived, StateName, id, cancellationToken).ConfigureAwait(false);
+        long bodiesAfter = Math.Max(candidates.Length > 0 ? candidates[0] : 0, claimed?.Header.To ?? 0);
 
         LogScan scan = await LogReader.ScanAsync(storage.Log, id, bodiesAfter, cancellationToken).ConfigureAwait(false);
         long head = scan.Head;
         CommitInfo[] commits = new CommitInfo[Math.Max(16, head)];
         DatasetSettings settings = DatasetSettings.Default;
+        long logBytes = 0;
 
         for (int i = 0; i < head; i++)
         {
@@ -207,7 +227,8 @@ public sealed partial class Dataset : IAsyncDisposable
             }
 
             settings = Fold(settings, commit.Header);
-            commits[i] = new CommitInfo(commit.Header, commit.HeaderHash, commit.Location, settings);
+            logBytes += commit.Bytes;
+            commits[i] = new CommitInfo(commit.Header, commit.HeaderHash, commit.Location, settings, logBytes);
         }
 
         LogWriter writer = await LogWriter.OpenAsync(storage.Log, id, scan, options.SegmentBytes.Value, (int)options.MaxRecordBytes.Value, cancellationToken).ConfigureAwait(false);
@@ -215,37 +236,20 @@ public sealed partial class Dataset : IAsyncDisposable
         State partial = new(head, commits, IndexVersion.Empty, [], null);
         Dataset dataset = new(storage, id, options, dictionary, writer, partial);
 
-        (Checkpoint[] checkpoints, Allocation[]? newestDictionary) = await dataset.LoadCheckpointsAsync(partial, candidates, cancellationToken).ConfigureAwait(false);
-        Checkpoint? newest = checkpoints.Length > 0 ? checkpoints[^1] : null;
-        long dictionaryFrom = 0;
-
-        if (newest is not null)
-        {
-            dictionary.Publish(newestDictionary!);
-            dictionary.PublishBlanks(newest.BlankCount);
-            dictionaryFrom = newest.Position;
-        }
+        Checkpoint[] checkpoints = await dataset.LoadCheckpointsAsync(partial, candidates, cancellationToken).ConfigureAwait(false);
 
         // The persisted projection, when it names this log; otherwise the
-        // newest checkpoint, or nothing (ADR 0070).
+        // newest checkpoint, or nothing (ADR 0070). Its runs carry the
+        // dictionary up to its position (ADR 0079), so only the log after it
+        // is read: allocations and quads alike.
         IndexVersion index = await dataset.LoadIndexAsync(partial, checkpoints, cancellationToken).ConfigureAwait(false);
 
-        for (long p = dictionaryFrom + 1; p <= head; p++)
+        for (long p = index.Position + 1; p <= head; p++)
         {
             ScannedCommit scanned = scan.Commits[(int)(p - 1)];
             LoggedCommit commit = scanned.Full
                 ?? await dataset.ReadLoggedAsync(partial, p, cancellationToken).ConfigureAwait(false);
-            dictionary.Publish(commit.Allocations);
-
-            if (dictionary.CanonicalCount != commit.Header.CanonicalCount || dictionary.BlankCount != commit.Header.BlankCount)
-            {
-                throw new LogVerificationException(p, "The dictionary's counters after position " + p + " disagree with its header.");
-            }
-
-            if (p > index.Position)
-            {
-                index = index.Apply(commit.Asserted, commit.Retracted, p);
-            }
+            index = index.Apply(commit.Asserted, commit.Retracted, partial.TermsOf(commit, p), p);
         }
 
         if (index.Position != head)
@@ -265,6 +269,10 @@ public sealed partial class Dataset : IAsyncDisposable
         ArgumentOutOfRangeException.ThrowIfLessThan(options.MaxRecordBytes.Value, 64L, nameof(options));
         ArgumentOutOfRangeException.ThrowIfGreaterThan(options.MaxRecordBytes.Value, int.MaxValue, nameof(options));
         ArgumentOutOfRangeException.ThrowIfLessThan(options.SegmentBytes.Value, 1024L, nameof(options));
+        ArgumentNullException.ThrowIfNull(options.Checkpoints);
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.Checkpoints.EveryCommits ?? 1, 1, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.Checkpoints.EveryLogBytes?.Value ?? 1, 1L, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfNegative(options.Checkpoints.Keep, nameof(options));
     }
 
     /// <summary>
@@ -347,8 +355,8 @@ public sealed partial class Dataset : IAsyncDisposable
             state = _state;
         }
 
-        TermView terms = state.TermsAt(_dictionary, state.Head);
         IndexVersion held = state.Index;
+        TermView terms = state.TermsAt(_dictionary, held.Runs, state.Head);
         return new DatasetView(state.Head, new IndexSource(held, terms), terms, held.Release);
     }
 
@@ -379,12 +387,15 @@ public sealed partial class Dataset : IAsyncDisposable
         {
             long from = checkpoint?.Position ?? 0;
             IndexVersion baseIndex = checkpoint is null ? IndexVersion.Empty : IndexVersion.FromBase(from, checkpoint.Run);
-            TermView terms = state.TermsAt(_dictionary, position);
+            (QuadDelta tail, TermSection tailTerms) = await NetAsync(state, from, position, cancellationToken).ConfigureAwait(false);
+
+            // The checkpoint's dictionary, and the entries the tail allocated.
+            Run tailRun = Run.FromDelta([], [], tailTerms, from, position);
+            TermView terms = state.TermsAt(_dictionary, checkpoint is null ? [tailRun] : [checkpoint.Run, tailRun], position);
             IQuadSource source = new IndexSource(baseIndex, terms);
 
             if (position > from)
             {
-                QuadDelta tail = await NetAsync(state, from, position, cancellationToken).ConfigureAwait(false);
                 source = new QuadOverlay(source, tail);
             }
 
@@ -446,8 +457,8 @@ public sealed partial class Dataset : IAsyncDisposable
         ArgumentOutOfRangeException.ThrowIfGreaterThan(to, state.Head);
 
         return from <= to
-            ? await NetAsync(state, from, to, cancellationToken).ConfigureAwait(false)
-            : (await NetAsync(state, to, from, cancellationToken).ConfigureAwait(false)).Inverse();
+            ? (await NetAsync(state, from, to, cancellationToken).ConfigureAwait(false)).Delta
+            : (await NetAsync(state, to, from, cancellationToken).ConfigureAwait(false)).Delta.Inverse();
     }
 
     /// <summary>The settings at a closed position: the fold of the settings commits up to it.</summary>
@@ -471,8 +482,12 @@ public sealed partial class Dataset : IAsyncDisposable
     public ValueTask CheckpointAsync(Position position, CancellationToken cancellationToken = default) =>
         CheckpointCoreAsync(position.Value, cancellationToken);
 
-    // Built and written off the sequencer, so that a checkpoint never blocks a
-    // commit (ADR 0070); published under it.
+    // Written off the sequencer, so that a checkpoint never blocks a commit
+    // (ADR 0070); published under it. The checkpoint is a streaming merge of
+    // the runs that make up the position — the projection's own when the
+    // position is its head, else the nearest checkpoint and the log tail —
+    // written straight to the blob: it holds a block per input section and the
+    // writer's buffer, never the state it materialises (issue #61).
     private async ValueTask CheckpointCoreAsync(long position, CancellationToken cancellationToken)
     {
         State state = _state;
@@ -484,32 +499,29 @@ public sealed partial class Dataset : IAsyncDisposable
             throw new ArgumentOutOfRangeException(nameof(position), "Position 0 is the empty dataset; it needs no checkpoint.");
         }
 
-        List<Quad> quads = [];
-
-        using (DatasetView view = await AsOfCoreAsync(position, cancellationToken).ConfigureAwait(false))
-        using (IQuadCursor cursor = view.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any))
-        {
-            while (cursor.MoveNext())
-            {
-                quads.Add(cursor.Current);
-            }
-        }
-
+        (Run[] runs, Action release) = await RunsAtAsync(position, cancellationToken).ConfigureAwait(false);
         CommitInfo at = state.Commits[position - 1];
-        Run run = Run.FromDelta(CollectionsMarshal.AsSpan(quads), [], 0, position);
         BlobName name = Checkpoint.Name(position);
 
-        await DerivedFormat.WriteRunAsync(
-            _storage.Derived,
-            name,
-            DerivedFormat.KindCheckpoint,
-            Id,
-            0,
-            position,
-            at.HeaderHash,
-            DerivedFormat.SourcesOf(run),
-            new CheckpointDictionary(_dictionary, at.CanonicalCount, at.BlankCount),
-            cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await DerivedFormat.WriteRunAsync(
+                _storage.Derived,
+                name,
+                DerivedFormat.KindCheckpoint,
+                Id,
+                0,
+                position,
+                at.HeaderHash,
+                DerivedFormat.MergeOf(runs, dropRetractions: true),
+                TermsOf(runs),
+                at.BlankCount,
+                cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            release();
+        }
 
         LoadedRun loaded = await DerivedFormat.TryLoadAsync(_storage.Derived, name, Id, DerivedFormat.KindCheckpoint, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("A checkpoint just written does not read back.");
@@ -526,6 +538,50 @@ public sealed partial class Dataset : IAsyncDisposable
         finally
         {
             _sequencer.Release();
+        }
+    }
+
+    // The runs whose merge is the state at a closed position, held until the
+    // release is called: the projection's version when it is at the position,
+    // else the nearest checkpoint at or below it and the log tail as one run.
+    private async ValueTask<(Run[] Runs, Action Release)> RunsAtAsync(long position, CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            State state = _state;
+            IndexVersion index = state.Index;
+
+            if (index.Position == position && state.Failed is null)
+            {
+                if (index.TryAcquire())
+                {
+                    return (index.Runs, index.Release);
+                }
+
+                continue;
+            }
+
+            Checkpoint? checkpoint = state.CheckpointAtOrBelow(position);
+
+            if (checkpoint is not null && !checkpoint.Run.Blob!.TryAcquire())
+            {
+                continue;
+            }
+
+            try
+            {
+                long from = checkpoint?.Position ?? 0;
+                (QuadDelta tail, TermSection tailTerms) = await NetAsync(state, from, position, cancellationToken).ConfigureAwait(false);
+                Run tailRun = Run.FromDelta(tail.Asserted, tail.Retracted, tailTerms, from, position);
+                Run[] runs = checkpoint is null ? [tailRun] : [checkpoint.Run, tailRun];
+                Action release = checkpoint is null ? static () => { } : checkpoint.Run.Blob!.Release;
+                checkpoint = null;
+                return (runs, release);
+            }
+            finally
+            {
+                checkpoint?.Run.Blob!.Release();
+            }
         }
     }
 
@@ -645,7 +701,7 @@ public sealed partial class Dataset : IAsyncDisposable
             {
                 LoggedCommit commit = await ReadLoggedAsync(state, p, cancellationToken).ConfigureAwait(false);
                 ThrowIfFaulted(p);
-                index = index.Apply(commit.Asserted, commit.Retracted, p);
+                index = index.Apply(commit.Asserted, commit.Retracted, state.TermsOf(commit, p), p);
             }
 
             IndexVersion previous = state.Index;
@@ -675,6 +731,8 @@ public sealed partial class Dataset : IAsyncDisposable
             checkpoint.Run.Blob!.Release();
         }
 
+        // Runs retired while a view still read them, closed since.
+        await DeleteClosedRunsAsync(CancellationToken.None).ConfigureAwait(false);
         _sequencer.Dispose();
 
         if (failure is not null)
@@ -720,8 +778,8 @@ public sealed partial class Dataset : IAsyncDisposable
             }
 
             // Step 2.
-            TermView terms = state.TermsAt(_dictionary, head);
-            Resolver resolver = new(_dictionary, terms.CanonicalCount, terms.BlankCount);
+            TermView terms = state.TermsAt(_dictionary, state.Index.Runs, head);
+            Resolver resolver = new(terms);
             ulong agent = resolver.Resolve(metadata.Agent);
             ulong cause = resolver.Resolve(metadata.Cause);
             ulong scope = resolver.Resolve(metadata.GraphScope);
@@ -831,9 +889,8 @@ public sealed partial class Dataset : IAsyncDisposable
             }
 
             // The commit is durable and closed: it stands, whatever follows.
-            _dictionary.Publish(allocations);
             DatasetSettings settings = Fold(state.SettingsAt(head), header);
-            CommitInfo info = new(header, headerHash, location, settings);
+            CommitInfo info = new(header, headerHash, location, settings, state.LogBytesAt(head) + _writer.LastCommitBytes);
             CommitInfo[] commits = Append(state.Commits, head, info);
 
             IndexVersion index = state.Index;
@@ -842,7 +899,7 @@ public sealed partial class Dataset : IAsyncDisposable
             try
             {
                 ThrowIfFaulted(next);
-                index = index.Apply(delta.Asserted, delta.Retracted, next);
+                index = index.Apply(delta.Asserted, delta.Retracted, TermSection.Of(allocations, terms.CanonicalCount), next);
             }
             catch (Exception error) when (error is not OperationCanceledException)
             {
@@ -854,7 +911,7 @@ public sealed partial class Dataset : IAsyncDisposable
             _state = new State(next, commits, index, state.Checkpoints, failed);
             Signal();
 
-            if (failed is null && MaintenanceDue(index))
+            if (failed is null && MaintenanceDue(_state))
             {
                 StartMaintenance();
             }
@@ -1008,12 +1065,10 @@ public sealed partial class Dataset : IAsyncDisposable
         return [.. positions];
     }
 
-    // The checkpoints that name this log, oldest first, and the newest one's
-    // dictionary, from which the dictionary is rebuilt.
-    private async ValueTask<(Checkpoint[] Checkpoints, Allocation[]? NewestDictionary)> LoadCheckpointsAsync(State state, long[] candidates, CancellationToken cancellationToken)
+    // The checkpoints that name this log, oldest first.
+    private async ValueTask<Checkpoint[]> LoadCheckpointsAsync(State state, long[] candidates, CancellationToken cancellationToken)
     {
         List<Checkpoint> loaded = [];
-        Allocation[]? dictionary = null;
 
         foreach (long position in candidates)
         {
@@ -1030,7 +1085,6 @@ public sealed partial class Dataset : IAsyncDisposable
             }
 
             CommitInfo at = state.Commits[position - 1];
-            Allocation[]? entries = loaded.Count == 0 ? DerivedFormat.ReadDictionary(run) : null;
 
             // A checkpoint names the commit it materialises. One copied beside a
             // different log is a cache miss, never a wrong answer (ADR 0041).
@@ -1039,32 +1093,53 @@ public sealed partial class Dataset : IAsyncDisposable
                 || !run.Header.ToHash.AsSpan().SequenceEqual(at.HeaderHash)
                 || run.CanonicalCount != at.CanonicalCount
                 || run.BlankCount != at.BlankCount
-                || run.Run.HasRetractions
-                || (loaded.Count == 0 && entries is null))
+                || run.Run.HasRetractions)
             {
                 run.Run.Blob!.Release();
                 continue;
             }
 
-            dictionary ??= entries;
             loaded.Add(new Checkpoint(run));
         }
 
         loaded.Reverse();
-        return ([.. loaded], dictionary);
+        return [.. loaded];
     }
 
-    private async ValueTask<QuadDelta> NetAsync(State state, long from, long to, CancellationToken cancellationToken)
+    private static TermSection[] TermsOf(Run[] runs)
+    {
+        TermSection[] terms = new TermSection[runs.Length];
+
+        for (int i = 0; i < runs.Length; i++)
+        {
+            terms[i] = runs[i].Terms;
+        }
+
+        return terms;
+    }
+
+    // The net delta of the commits after from up to to, and the dictionary
+    // entries they allocated.
+    private async ValueTask<(QuadDelta Delta, TermSection Terms)> NetAsync(State state, long from, long to, CancellationToken cancellationToken)
     {
         DeltaChain chain = new();
+        List<Allocation> allocations = [];
 
         for (long p = from + 1; p <= to; p++)
         {
             LoggedCommit commit = await ReadLoggedAsync(state, p, cancellationToken).ConfigureAwait(false);
             chain.Add(commit.Asserted, commit.Retracted);
+            allocations.AddRange(commit.Allocations);
         }
 
-        return chain.ToDelta();
+        TermSection terms = TermSection.Of(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(allocations), state.CanonicalAt(from));
+
+        if (terms.To != state.CanonicalAt(to))
+        {
+            throw new LogVerificationException(to, "The dictionary's counters after position " + to + " disagree with its header.");
+        }
+
+        return (chain.ToDelta(), terms);
     }
 
     private ValueTask<LoggedCommit> ReadLoggedAsync(State state, long position, CancellationToken cancellationToken)
@@ -1118,7 +1193,7 @@ public sealed partial class Dataset : IAsyncDisposable
                 mentioned.Add(allocation.Object);
             }
 
-            allocations.Add(new TermAllocation(new TermHandle(allocation.Id), _dictionary.Term(allocation.Id)));
+            allocations.Add(new TermAllocation(new TermHandle(allocation.Id), allocation.Term ?? TermAtHead(state, allocation)));
         }
 
         allocations.Reverse();
@@ -1139,6 +1214,33 @@ public sealed partial class Dataset : IAsyncDisposable
             attachments,
             QuadDelta.Create(asserted, retracted),
             allocations.ToArray());
+    }
+
+    // A blank node's label, or a triple term materialised from its
+    // components' entries, read from the projection's current runs.
+    private RdfTerm TermAtHead(State state, Allocation allocation)
+    {
+        if (TermIds.ClassOf(allocation.Id) == IdClass.Blank)
+        {
+            return TermDictionary.BlankTerm(TermIds.Counter(allocation.Id));
+        }
+
+        while (true)
+        {
+            IndexVersion index = _state.Index;
+
+            if (index.TryAcquire())
+            {
+                try
+                {
+                    return _dictionary.Term(index.Runs, allocation.Id);
+                }
+                finally
+                {
+                    index.Release();
+                }
+            }
+        }
     }
 
     private Task CurrentSignal()
@@ -1167,8 +1269,9 @@ public sealed partial class Dataset : IAsyncDisposable
     /// <summary>What the store keeps per closed commit, beside the log.</summary>
     private sealed class CommitInfo
     {
-        internal CommitInfo(CommitHeader header, byte[] headerHash, CommitLocation location, DatasetSettings settings)
+        internal CommitInfo(CommitHeader header, byte[] headerHash, CommitLocation location, DatasetSettings settings, long logBytes)
         {
+            LogBytes = logBytes;
             TimestampTicks = header.TimestampTicks;
             HeaderHash = headerHash;
             Location = location;
@@ -1188,6 +1291,9 @@ public sealed partial class Dataset : IAsyncDisposable
         internal long BlankCount { get; }
 
         internal DatasetSettings Settings { get; }
+
+        /// <summary>The bytes of every commit's records up to this one.</summary>
+        internal long LogBytes { get; }
     }
 
     /// <summary>Everything a read needs, published as one reference.</summary>
@@ -1212,10 +1318,43 @@ public sealed partial class Dataset : IAsyncDisposable
 
         internal string? Failed { get; }
 
-        internal TermView TermsAt(TermDictionary dictionary, long position) =>
-            position == 0
-                ? new TermView(dictionary, 0, 0)
-                : new TermView(dictionary, Commits[position - 1].CanonicalCount, Commits[position - 1].BlankCount);
+        internal long LogBytesAt(long position) => position == 0 ? 0 : Commits[position - 1].LogBytes;
+
+        internal long CanonicalAt(long position) => position == 0 ? 0 : Commits[position - 1].CanonicalCount;
+
+        internal long BlankAt(long position) => position == 0 ? 0 : Commits[position - 1].BlankCount;
+
+        internal TermView TermsAt(TermDictionary dictionary, Run[] runs, long position) =>
+            new(dictionary, runs, CanonicalAt(position), BlankAt(position));
+
+        /// <summary>
+        /// A commit read from the log's dictionary entries as a term section,
+        /// checked against the counters its header and the one before it name.
+        /// </summary>
+        internal TermSection TermsOf(LoggedCommit commit, long position)
+        {
+            long blanks = 0;
+
+            foreach (Allocation allocation in commit.Allocations)
+            {
+                blanks += TermIds.ClassOf(allocation.Id) == IdClass.Blank ? 1 : 0;
+            }
+
+            try
+            {
+                TermSection terms = TermSection.Of(commit.Allocations, CanonicalAt(position - 1));
+
+                if (terms.To == CanonicalAt(position) && BlankAt(position - 1) + blanks == BlankAt(position))
+                {
+                    return terms;
+                }
+            }
+            catch (InvalidOperationException)
+            {
+            }
+
+            throw new LogVerificationException(position, "The dictionary's counters after position " + position + " disagree with its header.");
+        }
 
         internal DatasetSettings SettingsAt(long position) =>
             position == 0 ? DatasetSettings.Default : Commits[position - 1].Settings;

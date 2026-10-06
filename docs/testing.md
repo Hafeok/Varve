@@ -165,3 +165,14 @@ finds is fixed with the case kept as a named regression, and the injection
 points are counted and reported. `VARVE_FAULT_SEEDS=<n>` runs the same suites
 over many seeds and longer workloads, which is for hunting rather than for the
 gate, and is not in CI.
+
+Milestone 6c adds the bulk loader to it (`BulkLoadTests`): a load is crashed
+before each of its operations — every spill, every derived write, every
+record — and inside every write to a segment at its first, middle and last
+byte, under process crash and power loss, and must reopen at the head before
+the load with exactly its state, or, once the closing record is durable, with
+all of the load. At a hundred million quads, where the simulated file system
+is too small, the bulk gate (`--bulk-gate … --crash-every-record` in
+`tests/Varve.Benchmarks`) opens the real log cut at the start of and one byte
+into every record of the load's commit, with `derived/` as it was before the
+load, without copying it (`CutStorage`).

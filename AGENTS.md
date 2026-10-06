@@ -33,7 +33,7 @@ shared mutable state, no static registries. **High cohesion**: one reason to cha
 | 2 | syntax: `Varve.Turtle`, `Varve.RdfXml`, `Varve.JsonLd`, `Varve.Sparql.Results`, and `Varve.Sparql` (the algebra, parser and serialiser) |
 | 3 | `Varve.Sparql.Evaluation` (optimiser and evaluator, one package — ADR 0048), `Varve.Shacl` |
 | 4 | `Varve.Store` — log, projection contract, pre-commit validator contract |
-| 5 | integrations: `Varve.Sparql.Store` |
+| 5 | integrations: `Varve.Sparql.Store`, `Varve.Store.Browser` |
 | 6 | hosts — every executable, and only executables: the server, the CLI, the smoke apps, the benchmarks (ADR 0060) |
 
 **Same-layer references are violations.** Contracts live in the lowest layer that
@@ -162,10 +162,10 @@ ADR, a rule, a suite and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone 6a. `src/` holds `Varve.Analyzers`, `Varve.Iri` and `Varve.Xsd`
+Milestone 6c. `src/` holds `Varve.Analyzers`, `Varve.Iri` and `Varve.Xsd`
 (0), `Varve.Rdf` (1), `Varve.Turtle`, `Varve.Sparql` and
 `Varve.Sparql.Results` (2), `Varve.Sparql.Evaluation` (3), `Varve.Store` (4)
-and **`Varve.Sparql.Store`** (5). The evaluator answers SPARQL 1.1 queries,
+and **`Varve.Sparql.Store`** and **`Varve.Store.Browser`** (5). The evaluator answers SPARQL 1.1 queries,
 with the 1.2 additions, over any `IQuadSource`; the results package reads and
 **writes** XML, JSON, CSV and TSV; **one SPARQL Update request is one commit**
 — or none when its net effect is empty — evaluated operation by operation over
@@ -185,11 +185,19 @@ canonicalise; they are layer 6 hosts (ADR 0060). **The store is durable**
 that writes it) and the default projection's runs in `derived/`, read through a
 synchronous blob read; the failure-injection suite in
 `tests/Varve.Store.Tests/Faults/` crashes it at every operation and byte, loses
-power with writes reordered, and copies it mid-write, and is a gate. **RDF 1.2
+power with writes reordered, and copies it mid-write, and is a gate. Since
+milestone 6c (ADRs 0078–0084) `derived/` is **derived format 2**: runs carry
+the term dictionary (opening loads none) and their keys compressed in blocks;
+checkpoints and merges are streamed, written by an optional
+`CheckpointPolicy`; **bulk loads** (`Dataset.BeginBulkLoadAsync`) sort
+outside memory and commit once, crash-tested at every operation;
+`Dataset.ShipAsync` bootstraps a replica by copying files; and
+`Varve.Store.Browser` stores a dataset in OPFS through synchronous access
+handles in a worker, or in IndexedDB, tested in headless Chromium with
+`log/` byte-identical to the desktop's. **RDF 1.2
 Turtle and TriG are not accepted at all** — `turtle.md` §9. Nothing is
 published; the first tag is `v0.1.0-preview.1` (ADR 0029). Not built: HTTP for
-`LOAD` and `SERVICE`, the browser backend and the bulk loader (6c), erasure
-mode, SHACL, the server.
+`LOAD` and `SERVICE`, archive, erasure mode, SHACL, the server.
 `docs/roadmap.md` has the rest, an owner and a due milestone per open
 question.
 

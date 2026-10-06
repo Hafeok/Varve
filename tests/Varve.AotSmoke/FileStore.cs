@@ -127,7 +127,62 @@ internal static class FileStore
             return 1;
         }
 
-        return 0;
+        return await BulkAndShipAsync(reopened, directory, quads + 1);
+    }
+
+    /// <summary>
+    /// Milestone 6c under Native AOT: a bulk load that spills and merges in
+    /// passes, a checkpoint, the dictionary read from disk runs after a
+    /// reopen, and a replica shipped by copying files.
+    /// </summary>
+    private static async Task<int> BulkAndShipAsync(Dataset dataset, string directory, int before)
+    {
+        const int Loaded = 20_000;
+        RdfTerm graph = RdfTerm.Iri("http://example.org/g"u8);
+
+        await using (BulkLoad load = await dataset.BeginBulkLoadAsync(new BulkLoadOptions { MemoryBytes = new ByteCount(16L << 20) }))
+        {
+            for (int i = 0; i < Loaded; i++)
+            {
+                load.Assert(RdfTerm.Iri(System.Text.Encoding.UTF8.GetBytes("http://example.org/b" + (i / 4).ToString(CultureInfo.InvariantCulture))), Predicate, RdfTerm.Literal(System.Text.Encoding.UTF8.GetBytes("v" + i.ToString(CultureInfo.InvariantCulture)), "en"u8), graph);
+            }
+
+            CommitResult result = await load.CommitAsync(new CommitMetadata());
+
+            if (result.Outcome != CommitOutcome.Committed)
+            {
+                Console.Error.WriteLine("aot-smoke: the bulk load did not commit: " + result);
+                return 1;
+            }
+        }
+
+        await dataset.CheckpointAsync(dataset.Head);
+        string replica = directory + "-replica";
+        int replicaQuads;
+
+        await using (FileStorage target = await FileStorage.OpenAsync(new DatasetDirectory(replica), StorageOptions))
+        {
+            await dataset.ShipAsync(target, dataset.Head);
+
+            await using Dataset opened = await Dataset.OpenAsync(target, Options);
+            using DatasetView view = opened.Pin();
+            replicaQuads = CountQuads(view);
+
+            if (!view.TryInternalise(RdfTerm.Literal("v12345"u8, "EN"u8), out TermHandle found) || !view.TryExternalise(found, out RdfTerm? term) || term.Lexical.Length != 6)
+            {
+                Console.Error.WriteLine("aot-smoke: the replica's dictionary on disk did not answer.");
+                return 1;
+            }
+        }
+
+        foreach (string file in Directory.GetFiles(replica, "*", SearchOption.AllDirectories))
+        {
+            File.SetAttributes(file, FileAttributes.Normal);
+        }
+
+        Directory.Delete(replica, recursive: true);
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"bulk: {Loaded} quads loaded in one commit, checkpointed, shipped to a replica holding {replicaQuads} quads"));
+        return replicaQuads == before + Loaded ? 0 : 1;
     }
 
     // The child's last acknowledged position, or -1 when the lease or the

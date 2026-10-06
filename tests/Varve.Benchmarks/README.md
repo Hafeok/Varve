@@ -680,3 +680,115 @@ how much is something else; it is reported, not explained. Issue
 [#61](https://github.com/Hafeok/Varve/issues/61) tracks it: 6c streams
 checkpoints and reports the soak again with the causes separated, and it
 blocks the 1.0 soak gate.
+
+## Milestone 6c — derived format 2, the bulk loader, the soak's causes
+
+**Machine.** 6a's: Intel Xeon @ 2.80 GHz, 4 cores, 15 GiB, Ubuntu 24.04,
+kernel 6.18, ext4 on a virtio disk, a cloud container. .NET SDK 10.0.401,
+runtime 10.0.12; BenchmarkDotNet 0.15.8; pyoxigraph 0.5.11.
+
+```bash
+dotnet run -c Release --project tests/Varve.Benchmarks -- --file-sizes
+dotnet run -c Release --project tests/Varve.Benchmarks -- --filter '*FileScanBenchmarks*' \
+  --warmupCount 3 --iterationCount 10
+dotnet run -c Release --project tests/Varve.Benchmarks -- --asof-latency
+dotnet run -c Release --project tests/Varve.Benchmarks -- --soak 60 --policy
+dotnet run -c Release --project tests/Varve.Benchmarks -- --bulk-gate 10000000 --write-file q.nq
+python tests/Varve.Benchmarks/oxigraph/bulk.py q.nq
+DOTNET_GCHeapHardLimit=0x20000000 dotnet run -c Release --project tests/Varve.Benchmarks -- \
+  --bulk-gate 10000000 --memory-mib 256 --from-file q.nq
+DOTNET_GCHeapHardLimit=0x60000000 dotnet run -c Release --project tests/Varve.Benchmarks -- \
+  --bulk-gate 100000000 [--populated 10000000] --memory-mib 1024 --crash-every-record
+```
+
+While decisions are unaccepted the build is red on `CS0618` (ADR 0066), so
+set `WarningsNotAsErrors=CS0618` in the environment: BenchmarkDotNet builds
+the project again itself, and reads it from there.
+
+### Sizes on disk and in memory, a million quads
+
+| | 6a | 6c |
+|---|---:|---:|
+| `log/` per quad | 36.8 B | 36.8 B (format version 1, unchanged) |
+| Disk runs per quad | 193.5 B | 86.4 B |
+| A checkpoint per quad, keys and dictionary | 221.3 B | 86.4 B |
+| In memory per quad, a run's directory | 1.5 B | 1.88 B (fences and block starts) |
+| In memory per quad, a checkpoint's directory | 1.5 B | 0.09 B (every sixteenth fence) |
+
+| Order | Keys stored, bytes per key (ADR 0080) | Delta-coded, counter ids | Delta-coded, scattered ids |
+|---|---:|---:|---:|
+| 0 | 7.28 | 7.09 | 28.48 |
+| 1 | 6.07 | 5.86 | 25.13 |
+| 2 | 6.85 | 6.65 | 33.90 |
+| 3 | 6.78 | 6.59 | 23.99 |
+| 4 | 5.40 | 5.19 | 17.29 |
+| 5 | 5.86 | 5.65 | 25.70 |
+
+### Scans, over a pinned read of 1,000,000 quads in disk runs
+
+| | 6a | 6c |
+|---|---:|---:|
+| Every quad | 44.1 ms | 49.1 ms |
+| One predicate | 2.94 ms | 2.63 ms |
+| The default graph | 8.01 ms | 7.69 ms |
+| 10,000 subject lookups | 28.4 ms | 36.9 ms |
+
+512 bytes allocated a scan, nothing per quad. A seek decodes one compressed
+block where 6a read one raw; before `KeySection.Range` it decoded up to three
+(75.2 ms for the lookups).
+
+### As-of latency (R2)
+
+The median of 21 as-of reads (5 at 10,000), at a log distance from the
+checkpoint, in commits of 50 quads:
+
+| Dataset | 0 | 10 | 100 | 1,000 | 10,000 |
+|---|---:|---:|---:|---:|---:|
+| 100,000 quads | 0.01 ms | 2.15 ms | 22.1 ms | 195 ms | 2,464 ms |
+| 2,000,000 quads | 0.01 ms | 3.32 ms | 26.9 ms | 277 ms | 3,006 ms |
+
+Proportional to the distance, not the dataset.
+
+### The bulk loader
+
+| Load | Time | Quads/s | Peak managed heap | Peak working set | On disk |
+|---|---:|---:|---:|---:|---:|
+| 10M from a file, pyoxigraph `bulk_load`, two runs | 56.6–58.9 s | 169,923–176,656 | | | 269–295 B/quad |
+| 10M from a file, Varve, 256 MiB under a 512 MiB cap, two runs | 71.0–71.2 s | 140,390–140,809 | 374–377 MB | 487–598 MB | 87.0 B/quad |
+| 100M generated, into an empty dataset, 1 GiB under a 1.5 GiB cap, three runs | 874–1,027 s | 97,389–114,399 | 1,397–1,401 MB | 1,556–1,667 MB | 98.5 B/quad |
+| 100M generated, into 10M, 1 GiB under a 1.5 GiB cap, two runs | 737–745 s | 134,309–135,640 | 1,418–1,477 MB | 1,576–1,607 MB | 78.1 B/quad |
+
+The bound is `MemoryBytes` + 2 bytes per quad of the delta + the dataset
+(ADR 0081), and the cap is the runtime's assertion of it.
+
+The 100M crash checks opened the log cut at the start of every record of the
+load's commit, and one byte into a sample of 16. Each was opened over
+`derived/` as it was before the load, and each opened at the previous head
+with its quads:
+
+- into 10M: 1,578 + 15 cuts in 2,546 s;
+- into an empty dataset: 2,197 + 16 cuts in 5,311 s.
+
+A crash after the commit closed and before its state was written opened at
+the load's head in 3.5 s and 5.3 s.
+
+### Soak: one hour, the policy on (ADR 0082)
+
+`--soak 60 --policy`: 6a's workload, with a checkpoint every 1,000 commits,
+keeping 12. Each run reached about 126,000 commits and 3.1 million quads.
+
+| Build | Working set median, min 10–20 → 50–60 | Peak | Large object heap, min 50–60 | Live heap, min 50–60 |
+|---|---|---:|---:|---:|
+| 6a (no policy) | 256 → 730 MB | 2,812 MB | | |
+| Streamed checkpoints and the policy | 254 → 492 MB | 681 MB | 300 MB | 93 MB |
+| … fences in chunks | 186 → 342 MB | 438 MB | 37 MB | 94 MB |
+| … checkpoints held sparsely | 153 → 200 MB | 218 MB | 28 MB | 34 MB |
+
+Last run: handles 73–78 and `derived/` 17–21 files throughout. The working
+set less the dataset's own (27.6 MB at the hour, 8.8 B per quad) is within
+±25% of its median for the last 50 minutes. Its last ten minutes are +20.6%
+over minutes 10–20, against the 10% the gate allows: the collector's headroom
+over a commit table of 144 bytes a commit. The working set less committed
+memory is flat at 75–77 MB. The causes and the ablations that separated them
+are in the milestone's
+[traceability record](../../docs/traceability/2026-10-05-issue-10-milestone-6c.md).

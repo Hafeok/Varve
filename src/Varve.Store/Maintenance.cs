@@ -13,6 +13,29 @@ using Varve.Store.Log;
 
 namespace Varve.Store;
 
+/// <summary>
+/// When a dataset writes checkpoints on its own (ADR 0078): every so many
+/// commits, or every so many bytes of log, since the newest checkpoint,
+/// whichever comes first, as part of its maintenance — so only when
+/// <see cref="DatasetOptions.Maintenance"/> runs it, or the caller runs
+/// <see cref="Dataset.MaintainAsync"/>. A checkpoint bounds what an as-of read
+/// and an open replay: the log distance to the nearest one (R2).
+/// </summary>
+public sealed class CheckpointPolicy
+{
+    /// <summary>No checkpoint is written but those asked for. The default.</summary>
+    public static CheckpointPolicy Never { get; } = new();
+
+    /// <summary>A checkpoint at the head once it is this many commits past the newest.</summary>
+    public int? EveryCommits { get; init; }
+
+    /// <summary>A checkpoint at the head once this many bytes of log follow the newest.</summary>
+    public ByteCount? EveryLogBytes { get; init; }
+
+    /// <summary>How many checkpoints the policy keeps, dropping the oldest; zero keeps all.</summary>
+    public int Keep { get; init; }
+}
+
 /// <summary>Who runs a dataset's maintenance on <c>derived/</c> (ADR 0070, ADR 0042's amendment).</summary>
 public enum MaintenanceMode
 {
@@ -55,6 +78,7 @@ public sealed partial class Dataset
     private readonly SemaphoreSlim _maintenanceGate = new(1, 1);
     private readonly Lock _maintenanceLock = new();
     private readonly CancellationTokenSource _closing = new();
+    private readonly System.Collections.Concurrent.ConcurrentQueue<BlobName> _closedRuns = new();
     private Task? _maintenanceTask;
     private bool _maintenanceAgain;
     private Exception? _maintenanceFailure;
@@ -83,9 +107,10 @@ public sealed partial class Dataset
         }
     }
 
-    private bool MaintenanceDue(IndexVersion index) =>
-        index.MemtableCount >= _options.MemtableLimit.Value && index.Runs.Length > LeadingBlobRuns(index)
-        || DiskMergeDue(index);
+    private bool MaintenanceDue(State state) =>
+        state.Index.MemtableCount >= _options.MemtableLimit.Value && state.Index.Runs.Length > LeadingBlobRuns(state.Index)
+        || DiskMergeDue(state.Index)
+        || CheckpointDue(state);
 
     private static int LeadingBlobRuns(IndexVersion index)
     {
@@ -102,7 +127,7 @@ public sealed partial class Dataset
     private static bool DiskMergeDue(IndexVersion index)
     {
         int disk = LeadingBlobRuns(index);
-        return disk >= 2 && index.Runs[disk - 1].Count * 4 >= index.Runs[disk - 2].Count;
+        return disk >= 2 && index.Runs[disk - 1].Size * 4 >= index.Runs[disk - 2].Size;
     }
 
     private void StartMaintenance()
@@ -180,6 +205,7 @@ public sealed partial class Dataset
     // due. True when it did something.
     private async ValueTask<bool> MaintainOnceAsync(CancellationToken cancellationToken)
     {
+        await DeleteClosedRunsAsync(cancellationToken).ConfigureAwait(false);
         State state = _state;
 
         if (state.Failed is not null || _broken is not null)
@@ -200,7 +226,35 @@ public sealed partial class Dataset
             return await MergeAsync(index, disk, cancellationToken).ConfigureAwait(false);
         }
 
+        if (CheckpointDue(state))
+        {
+            await CheckpointCoreAsync(state.Head, cancellationToken).ConfigureAwait(false);
+
+            while (_options.Checkpoints.Keep > 0 && _state.Checkpoints.Length > _options.Checkpoints.Keep)
+            {
+                await DropCheckpointAsync(new Position(_state.Checkpoints[0].Position), cancellationToken).ConfigureAwait(false);
+            }
+
+            return true;
+        }
+
         return false;
+    }
+
+    // Whether the policy asks for a checkpoint at the head: the newest is
+    // that many commits, or that many bytes of log, behind it (ADR 0078).
+    private bool CheckpointDue(State state)
+    {
+        CheckpointPolicy policy = _options.Checkpoints;
+        long newest = state.Checkpoints.Length > 0 ? state.Checkpoints[^1].Position : 0;
+
+        if (state.Head == newest || state.Head == 0)
+        {
+            return false;
+        }
+
+        return (policy.EveryCommits is int commits && state.Head - newest >= commits)
+            || (policy.EveryLogBytes is ByteCount bytes && state.LogBytesAt(state.Head) - state.LogBytesAt(newest) >= bytes.Value);
     }
 
     // Freezes the memtable, writes it as one run, and swaps the run in.
@@ -229,14 +283,9 @@ public sealed partial class Dataset
             _sequencer.Release();
         }
 
-        Run merged = frozen.Runs[disk];
-
-        for (int i = disk + 1; i < frozen.Runs.Length; i++)
-        {
-            merged = Run.Merge(merged, frozen.Runs[i], dropRetractions: disk == 0);
-        }
-
-        LoadedRun written = await WriteRunAsync(DerivedFormat.SourcesOf(merged), merged.From, merged.To, cancellationToken).ConfigureAwait(false);
+        // Streamed from the frozen runs: a flush holds no merged copy of them.
+        Run[] memtable = frozen.Runs[disk..];
+        LoadedRun written = await WriteRunAsync(DerivedFormat.MergeOf(memtable, dropRetractions: disk == 0), memtable, cancellationToken).ConfigureAwait(false);
         return await SwapAsync(frozen.Runs, disk, frozen.Runs.Length, written, cancellationToken).ConfigureAwait(false);
     }
 
@@ -245,17 +294,20 @@ public sealed partial class Dataset
     {
         Run older = index.Runs[disk - 2];
         Run newer = index.Runs[disk - 1];
-        LoadedRun written = await WriteRunAsync(DerivedFormat.MergeOf(older, newer, dropRetractions: disk == 2), older.From, newer.To, cancellationToken).ConfigureAwait(false);
+        LoadedRun written = await WriteRunAsync(DerivedFormat.MergeOf([older, newer], dropRetractions: disk == 2), [older, newer], cancellationToken).ConfigureAwait(false);
         return await SwapAsync(index.Runs, disk - 2, disk, written, cancellationToken).ConfigureAwait(false);
     }
 
-    private async ValueTask<LoadedRun> WriteRunAsync(IKeySource[] sources, long from, long to, CancellationToken cancellationToken)
+    // Writes the merge of adjacent runs, oldest first, keys and dictionary entries.
+    private async ValueTask<LoadedRun> WriteRunAsync(IKeySource[] sources, Run[] runs, CancellationToken cancellationToken)
     {
+        long from = runs[0].From;
+        long to = runs[^1].To;
         BlobName name = new(RunPrefix + from.ToString("D20", CultureInfo.InvariantCulture) + "-" + to.ToString("D20", CultureInfo.InvariantCulture)
             + "." + Interlocked.Increment(ref _runSequence).ToString(CultureInfo.InvariantCulture));
         byte[] hash = _state.Commits[to - 1].HeaderHash;
 
-        await DerivedFormat.WriteRunAsync(_storage.Derived, name, DerivedFormat.KindRun, Id, from, to, hash, sources, null, cancellationToken).ConfigureAwait(false);
+        await DerivedFormat.WriteRunAsync(_storage.Derived, name, DerivedFormat.KindRun, Id, from, to, hash, sources, TermsOf(runs), _state.Commits[to - 1].BlankCount, cancellationToken).ConfigureAwait(false);
 
         return await DerivedFormat.TryLoadAsync(_storage.Derived, name, Id, DerivedFormat.KindRun, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("A run just written to derived/ does not read back.");
@@ -311,7 +363,11 @@ public sealed partial class Dataset
     }
 
     // A run the live projection no longer holds: its reference released, and
-    // its blob deleted if it was the projection's own (a checkpoint's stays).
+    // its blob deleted, if it was the projection's own (a checkpoint's stays),
+    // once nothing reads it — at once if no view holds it, else when the last
+    // view that does is disposed and the next round runs. Run names carry a
+    // sequence number and are never reused, so a deferred delete cannot
+    // remove a newer run.
     private async ValueTask RetireRunAsync(Run run, CancellationToken cancellationToken)
     {
         if (run.Blob is not { } blob)
@@ -319,11 +375,24 @@ public sealed partial class Dataset
             return;
         }
 
-        blob.Release();
-
         if (blob.Name.Value.StartsWith(RunPrefix, StringComparison.Ordinal))
         {
-            await _storage.Derived.DeleteAsync(blob.Name, cancellationToken).ConfigureAwait(false);
+            blob.Retire(_closedRuns.Enqueue);
+        }
+        else
+        {
+            blob.Release();
+        }
+
+        await DeleteClosedRunsAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Deletes the retired runs whose last reader has let go.</summary>
+    private async ValueTask DeleteClosedRunsAsync(CancellationToken cancellationToken)
+    {
+        while (_closedRuns.TryDequeue(out BlobName name))
+        {
+            await _storage.Derived.DeleteAsync(name, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -402,8 +471,17 @@ public sealed partial class Dataset
             await _storage.Derived.DeleteAsync(StateName, cancellationToken).ConfigureAwait(false);
         }
 
+        loaded = await AdoptRunsAsync(state, loaded, kept, cancellationToken).ConfigureAwait(false);
+
         foreach (BlobName name in await _storage.Derived.ListAsync(cancellationToken).ConfigureAwait(false))
         {
+            // A bulk load's spills, left by a crash during the load (ADR 0081).
+            if (name.Value.StartsWith(SpillSpace.Prefix, StringComparison.Ordinal))
+            {
+                await _storage.Derived.DeleteAsync(name, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
             if (name.Value.StartsWith(RunPrefix, StringComparison.Ordinal))
             {
                 int dot = name.Value.LastIndexOf('.');
@@ -418,6 +496,70 @@ public sealed partial class Dataset
                     await _storage.Derived.DeleteAsync(name, cancellationToken).ConfigureAwait(false);
                 }
             }
+        }
+
+        return loaded;
+    }
+
+    // Runs that continue what was loaded, written before a crash took the
+    // state that would have named them: a bulk load's delta run, published
+    // before its commit and named in the state after it. A run whose header
+    // starts where the index ends and whose end hash is the log's header there
+    // is that commit's projection, as a state's run would be; adopting it is
+    // what keeps a crash in that window from replaying the load in memory
+    // (ADR 0081). The furthest-reaching such run is taken, until none is left.
+    private async ValueTask<IndexVersion> AdoptRunsAsync(State state, IndexVersion loaded, HashSet<string> kept, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<BlobName> names = await _storage.Derived.ListAsync(cancellationToken).ConfigureAwait(false);
+
+        while (loaded.Position < state.Head)
+        {
+            string from = RunPrefix + loaded.Position.ToString("D20", CultureInfo.InvariantCulture) + "-";
+            Run? adopted = null;
+            string? adoptedName = null;
+
+            List<string> candidates = [];
+
+            foreach (BlobName name in names)
+            {
+                if (name.Value.StartsWith(from, StringComparison.Ordinal))
+                {
+                    candidates.Add(name.Value);
+                }
+            }
+
+            candidates.Sort(StringComparer.Ordinal);
+            candidates.Reverse();
+
+            foreach (string candidate in candidates)
+            {
+                BlobName name = new(candidate);
+                LoadedRun? run = await DerivedFormat.TryLoadAsync(_storage.Derived, name, Id, DerivedFormat.KindRun, cancellationToken).ConfigureAwait(false);
+
+                if (run is not null
+                    && run.Header.From == loaded.Position
+                    && run.Header.To > run.Header.From
+                    && run.Header.To <= state.Head
+                    && run.Header.ToHash.AsSpan().SequenceEqual(state.Commits[run.Header.To - 1].HeaderHash)
+                    && run.Run.Terms.From == state.CanonicalAt(run.Header.From)
+                    && run.Run.Terms.To == state.CanonicalAt(run.Header.To))
+                {
+                    adopted = run.Run;
+                    adoptedName = name.Value;
+                    break;
+                }
+
+                run?.Run.Blob!.Release();
+            }
+
+            if (adopted is null)
+            {
+                break;
+            }
+
+            kept.Add(adoptedName!);
+            Run[] runs = [.. loaded.Runs, adopted];
+            loaded = new IndexVersion(adopted.To, runs, runs.Length);
         }
 
         return loaded;
@@ -457,7 +599,9 @@ public sealed partial class Dataset
                 if (loaded is not null
                     && loaded.Header.From == entry.From
                     && loaded.Header.To == entry.To
-                    && loaded.Header.ToHash.AsSpan().SequenceEqual(state.Commits[entry.To - 1].HeaderHash))
+                    && loaded.Header.ToHash.AsSpan().SequenceEqual(state.Commits[entry.To - 1].HeaderHash)
+                    && loaded.Run.Terms.From == state.CanonicalAt(entry.From)
+                    && loaded.Run.Terms.To == state.CanonicalAt(entry.To))
                 {
                     run = loaded.Run;
                 }

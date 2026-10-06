@@ -45,9 +45,21 @@ internal static class Program
             return;
         }
 
-        if (args.Length == 2 && args[0] == "--soak")
+        if (args.Length == 1 && args[0] == "--asof-latency")
         {
-            Soak.RunAsync(TimeSpan.FromMinutes(double.Parse(args[1], CultureInfo.InvariantCulture))).GetAwaiter().GetResult();
+            AsOfLatency.RunAsync().GetAwaiter().GetResult();
+            return;
+        }
+
+        if (args.Length >= 2 && args[0] == "--bulk-gate")
+        {
+            BulkGate.RunAsync(args).GetAwaiter().GetResult();
+            return;
+        }
+
+        if (args.Length >= 2 && args[0] == "--soak")
+        {
+            Soak.RunAsync(TimeSpan.FromMinutes(double.Parse(args[1], CultureInfo.InvariantCulture)), SoakOptions.Parse(args.AsSpan(2))).GetAwaiter().GetResult();
             return;
         }
 
