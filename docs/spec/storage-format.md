@@ -50,6 +50,7 @@ storage contract that writes them is ADRs 0018, 0040 and 0071.
     checkpoints/<P>
     index/state
     index/runs/<from>-<to>.<n>
+    index/commits/<from>-<to>.<n>   the commit index (ADR 0085)
     bulk/<head>/…       a bulk load's spills (ADR 0081), deleted when it ends and on open
 ```
 
@@ -295,9 +296,9 @@ rename (ADR 0071, ADR 0073), so a reader never sees one half written.
 |---:|---:|---|
 | 0 | 4 | magic `VRVD` |
 | 4 | 2 | derived format version, `2` |
-| 6 | 2 | kind: `1` run, `2` checkpoint, `3` projection state |
+| 6 | 2 | kind: `1` run, `2` checkpoint, `3` projection state, `4` commit index |
 | 8 | 16 | dataset id |
-| 24 | 8 | from position: a run covers the commits after it; 0 for the others |
+| 24 | 8 | from position: a run or a commit index blob covers the commits after it; 0 for the others |
 | 32 | 8 | to position |
 | 40 | 32 | the header hash of the commit at *to position* |
 | 72 | 8 | directory offset |
@@ -390,3 +391,34 @@ Runs are listed oldest first; their ranges are contiguous from 0 to *to
 position*. The oldest may be a checkpoint, named as one. The file is replaced
 atomically, which is how the projection's position is persisted with its state
 (ADR 0016). Runs that no valid state names are deleted on open.
+
+### 7.4 Commit index — `derived/index/commits/<from>-<to>.<n>`
+
+Kind 4 (ADR 0085). The entries of the commits after *from position* up to *to
+position*, end to end from offset 0, 80 bytes each, little-endian:
+
+| Offset | Size | Field |
+|---:|---:|---|
+| 0 | 8 | the commit's timestamp, in ticks |
+| 8 | 32 | the hash of its header |
+| 40 | 4 | the segment its first record is in |
+| 44 | 4 | zero |
+| 48 | 8 | the offset of its first record in that segment |
+| 56 | 8 | the canonical counter after it |
+| 64 | 8 | the blank counter after it |
+| 72 | 8 | the bytes of the log's records up to its end |
+
+The directory follows the entries, at *directory offset* = 80 × the count:
+
+| Size | Field |
+|---|---|
+| 4 | entries per block, `128` |
+| 8 | the count, *to position* − *from position* |
+| 8 per block | the first timestamp of each block |
+
+The header's hash at *to position* is the last entry's header hash. A blob is
+used only as §7.1 says and if its last entry's hash is the header's; on open,
+the blobs that continue the chain from position 0 are compared entry by entry
+with the log, and the index is rebuilt from the log from the first that
+differs. The newest entries are not in a blob but in memory; the blobs are
+merged, so there are few. The *n* is a sequence number.

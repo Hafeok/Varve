@@ -9,6 +9,8 @@ using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Store.Log;
 
 namespace Varve.Store;
@@ -221,6 +223,7 @@ internal sealed class CommitSegment
 /// version open until it calls <see cref="Release"/>.
 /// </para>
 /// </remarks>
+[Contract(typeof(TheCommitIndexIsDerivedAndPaged.CapturedVersionsStayReadable), Role = "the commit index readers capture without locks")]
 internal sealed class CommitIndex
 {
     private readonly Tail _tail;
@@ -388,10 +391,13 @@ internal sealed class CommitIndex
 
         if (!segment.Blob.TryAcquire())
         {
+            // The current version may reach further; timestamps never
+            // decrease, so this version's answer is the current one's, capped
+            // at this version's head.
             CommitIndex current = _current();
             return ReferenceEquals(current, this)
                 ? throw new InvalidOperationException("The commit index's own blob is closed.")
-                : current.PositionAt(ticks);
+                : Math.Min(Head, current.PositionAt(ticks));
         }
 
         try
