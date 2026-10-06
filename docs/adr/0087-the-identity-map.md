@@ -110,7 +110,59 @@ forms stand in for: evidence that a particular person approved exactly what
 merges. Neither form can give that, because GitHub records who pressed a
 button, not what they signed.
 
-## Alternatives considered
+### Amendment, 2026-10-06 — the judging script is always main's; approval by comment is not a valid workflow
+
+**The hazard the first amendment left open.** `agent review` ran the pull
+request's own `eng/agent-review.cs`, so a pull request that edited it to pass
+judged itself. Running main's script under `pull_request` is not enough
+either:
+- `pull_request` and `pull_request_review` take their workflow file from the
+  pull request, so a pull request can rewrite the job instead of the script;
+- a required check is matched by name, so any pull request can add a job
+  called `agent review` that passes.
+
+**The rule, from this amendment:**
+
+1. **The judging script is always main's.** The job that judges checks out
+   main by name and runs main's `eng/agent-review.cs`. It runs only on
+   triggers whose workflow is main's: `pull_request_target`, `issue_comment`
+   (a new comment), and a push to `land/**`, which only the maintainer may
+   push (ruleset `land`). It reads the pull request (head, commits, identity
+   map, comments) through the API, as data. Nothing from the pull request is
+   checked out, built or run.
+2. **Check names are spoofable; only App-pinned checks count.** The verdict
+   is a check run `agent review` that the gates GitHub App (checks: write
+   only) creates or updates on the head. The App's key is a secret of the
+   `gates` environment, which only `main` and `land/**` can reach. Ruleset 1
+   requires `agent review` from that App by its integration id.
+   `eng/required-checks.cs` holds the pin: a pinned name must be posted by the
+   App from a `pull_request_target` workflow, and a name the App posts must be
+   pinned. **The other required checks are still matched by name only**, so
+   a pull request could satisfy any of them with a job of the same name.
+   Pinning them is the same work again, gate by gate.
+3. **The approval is a conversation comment** containing
+   `approve <head sha>`, at least **12** characters of the current head, by
+   a holder of Approve for every agent in the pull request: its responsible
+   human or a delegate, read from main's map. Review submissions are not
+   consulted, and `pull_request_review` is not a trigger. This replaces the
+   first amendment's review-comment form and its own-pull-request
+   restriction.
+4. **Approval by pull-request comment is not a valid workflow.** It is
+   tolerated only until the ledger's review gate exists: a signed ledger
+   `Review` over the head SHA by an `Approve` holder, as the first amendment
+   says. The pull request that adopts that gate removes the comment form.
+
+The test is `eng/agent-review-tamper.cs`, a job of `eng/ci.cs`:
+- a pull request that edits `eng/agent-review.cs` to always pass would pass
+  under its own copy;
+- under main's copy, the same pull request fails;
+- the workflow's judging job cannot run anything but main's copy.
+
+Until the pull request after this one, a transitional `pull_request` job
+reports for the pull request that introduces this rule, running the base's
+script. Once this is on main, the pin means that job cannot satisfy ruleset 1.
+
+
 
 - **Exempt agents from the author match.** Leaves every session commit
   unchecked, against 0034's "no exception".
