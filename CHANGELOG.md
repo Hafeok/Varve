@@ -56,6 +56,9 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - the release pending gate (c7968017)
 - **publish**: check the tag's changelog section, notes stop at the links (1631f225)
 - **traceability**: the release tooling and ADR 0085 (b7b31f11)
+- regenerate the changelog (e75a1779)
+- **adr**: 0086, the home of the eng/ gates (176b9f1f)
+- **traceability**: ADR 0086 and the port issues (3d35bc8d)
 
 #### Fixed
 
