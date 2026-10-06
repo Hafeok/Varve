@@ -80,6 +80,14 @@ jobs:
       - name: Dependency register
         run: dotnet run eng/dependency-register.cs
 
+      - name: Decision sets
+        # ADR 0062. Reads the git history, which the full fetch above provides.
+        run: dotnet run eng/decision-sets.cs
+
+      - name: Banned symbols
+        # ADR 0063.
+        run: dotnet run eng/banned-symbols.cs
+
       - name: Licence headers
         # MPL-2.0 is file-level copyleft: a file is Covered Software because it
         # carries the Exhibit A notice (ADR 0031). A package published with a
@@ -147,6 +155,36 @@ jobs:
       - name: Browser WASM
         run: dotnet build tests/Varve.WasmSmoke --configuration Release
 
+      # Varve.Store.Browser is one of the packages this pushes, and these are
+      # its only tests (ADR 0084). Same steps and browser as ci.yml's
+      # browser-tests job.
+      - name: Build the browser storage test app
+        run: dotnet build tests/Varve.Store.BrowserTests --configuration Release
+
+      - name: Browser storage in headless Chromium
+        env:
+          VARVE_CHROME: ${{ vars.VARVE_CHROME || '/usr/bin/google-chrome' }}
+        run: dotnet run eng/browser-tests.cs
+
+      - name: Release notes
+        # The tag's section of CHANGELOG.md, headed "## [<version>]", becomes
+        # the GitHub release's notes. Extracted here, before anything is
+        # pushed, so a tag with no section fails while nothing is permanent;
+        # the release job below publishes it once the push has succeeded.
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p "${{ github.workspace }}/artifacts"
+          awk -v heading="## [$version]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > "${{ github.workspace }}/artifacts/release-notes.md"
+          if ! grep -q '[^[:space:]]' "${{ github.workspace }}/artifacts/release-notes.md"; then
+            echo "::error::CHANGELOG.md has no non-empty section headed '## [$version]'. Regenerate it with eng/changelog.cs at the commit being tagged."
+            exit 1
+          fi
+
       - name: Pack
         run: >
           dotnet pack Varve.slnx
@@ -157,6 +195,23 @@ jobs:
 
       - name: Check the package metadata
         run: dotnet run eng/package-metadata.cs -- ${{ github.workspace }}/artifacts/packages
+
+      - name: Check the package version against the tag
+        # MinVer takes the version from the tag, but only from a tag it
+        # recognises: a missing MinVerTagPrefix or a shallow clone both pack
+        # 0.0.0-alpha.0.N without failing anything. A version cannot be
+        # replaced once pushed, so the file names are checked here.
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          status=0
+          for package in "${{ github.workspace }}"/artifacts/packages/*.nupkg; do
+            case "$(basename "$package")" in
+              *."$version".nupkg) echo "ok  $(basename "$package")" ;;
+              *) echo "::error::$(basename "$package") is not version $version"; status=1 ;;
+            esac
+          done
+          exit $status
 
       - name: Upload the packages
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -183,3 +238,38 @@ jobs:
           --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
+
+  # The GitHub release for the tag, with its changelog section as the notes.
+  # A separate job so that contents: write is never held by the job that runs
+  # the build and the tests, and after publish, so that a release is never
+  # created for a version that did not reach nuget.org. Re-runnable on its own.
+  release:
+    needs: publish
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Create the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v heading="## [$version]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > "$RUNNER_TEMP/release-notes.md"
+          prerelease=()
+          case "$version" in *-*) prerelease=(--prerelease) ;; esac
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            "${prerelease[@]}"
