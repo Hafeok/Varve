@@ -137,3 +137,65 @@ citations are `DD0008`, and asked. The maintainer's answers, verbatim:
   for the ledger gates, generic, naming no consumer; and
   [#65](https://github.com/Hafeok/Varve/issues/65), the ledger gates'
   provenance. AGENTS.md's `eng/` line references all three through ADR 0086.
+
+## The fourth prompt
+
+> DCO: add eng/dco.cs, a file-based check that every commit in the PR range (base..head) carries a Signed-off-by trailer whose name and email match the commit's author, with the same configurable exempt list issue-refs.cs will get; run it in ci.yml as its own job and in ci.cs; prove it with a failing fixture. Add the job name to the required checks list in .github/repo-standard.yaml so ruleset 1 gates on it. Amend the stewardship ADR's dated notes: enforcement existed only on paper until this commit. In how-we-work#1 the line becomes a script to port, not one to write. Same PR as #64 if still open; otherwise a follow-up before the tag.
+
+The session reported two conflicts and asked. First, ADR 0034 point 3 has
+session commits authored by the session and signed off by the human, so a
+strict author match fails all 11 of #64's commits. Second, a required check on
+ruleset 1, which has no bypass, refuses every direct push, which ADR 0032's
+amendment says needs a superseding ADR. The maintainer's answers, verbatim:
+
+> Extend the identity map: human entries may carry delegates: (identities allowed to act for them), editable only by the human's own PR. Rules: a decision first filed in a commit authored by an agent identity may be accepted only by that identity's responsible human or a delegate (decision-sets.cs); a PR containing agent-authored commits requires an approving review from the responsible human or a delegate (new check on pull_request_review, added to required checks via repo-standard.yaml). ADR: the map is the interim form of the ledger's authority model and is replaced by ledger grants when the generator reads the ledger.
+>
+> Supersede ADR 0032 (dated, new number): main accepts only commits whose SHA already has passing required checks; humans push to a short-lived branch, let CI run, then fast-forward main to that SHA or merge a review-free PR; cloud sessions unchanged. Ruleset 1 keeps all gates including dco with no bypass. Record whether ruleset 1 already refused unverified direct pushes for the existing checks or whether the earlier description was wrong. Update AGENTS.md, CONTRIBUTING.md and GOVERNANCE.md; repo-standard.yaml adds dco to the required checks.
+
+## The fourth report
+
+- **No identity map existed**, so "extend" became "create":
+  `eng/identities.json` holds humans (emails, login, delegates), agents
+  (emails, responsible human) and the exempt list; the loader shared by the
+  gates is `eng/lib/Identities.cs`. `eng/issue-refs.cs` now reads its exempt
+  list from it.
+- **The worker restart changed the session's git identity** to
+  `Claude (Emil) <claude+emil@okkels-klein.dk>`, set by the environment.
+  The map lists that email under the agent `claude-code`, with `emil`
+  responsible.
+- **`eng/dco.cs`**:
+  - a human's commit needs a sign-off matching its author, name exactly and
+    email ignoring case;
+  - an agent's commit needs one by its responsible human or a delegate;
+  - exempt automation is skipped.
+
+  The failing fixture (`tests/fixtures/dco/`, five cases) exits 1; the passing
+  one (six cases, including a merge and an unknown author) exits 0. The
+  `dco-fixture` job in `eng/ci.cs` and a step in the `dco` job require both.
+- **`eng/decision-sets.cs`**: a decision filed by an agent's commit is
+  accepted only by its responsible human or a delegate. Proven in a scratch
+  clone: an acceptance by a stranger gives exactly one finding; the
+  maintainer's acceptance passes.
+- **`eng/agent-review.cs`** and `.github/workflows/agent-review.yml`, job
+  `agent review`:
+  - approval on the current head;
+  - approvers and delegate ownership judged from the base's map;
+  - exit 2 when the reviews cannot be read.
+
+  Proven against a local stand-in for the reviews API: approved on the head
+  passes; a stale approval, a stranger's approval, and a delegate change by a
+  non-owner fail.
+- **ADR 0088 supersedes 0032.** It records that **ruleset 1 never refused a
+  direct push for a failing check**: its required list was empty from the
+  first export. 0032's description was wrong, and its "DCO" was not a check
+  at all.
+- **ADR 0034** gets a dated amendment: point 3 was enforced only on paper until
+  `eng/dco.cs`.
+- **`repo-standard.yaml`** requires 14 checks by job name. It leaves out the
+  durability jobs (they measure) and the decision report (it never gates). The
+  schema does not validate keys inside rule parameters, so the names are only
+  as right as their match against `ci.yml`.
+- **Blocker found, not solved**: GitHub refuses a review by a pull request's
+  author, and session pull requests are opened under the maintainer's account.
+  So `agent review` cannot pass on them until the map names a delegate, or
+  session pull requests come from another account (ADR 0087, Consequences).
