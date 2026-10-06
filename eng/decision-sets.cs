@@ -65,12 +65,25 @@
 //     acceptance on the day of filing passes. A shallow clone has no filing
 //     dates, and the gate could not run rather than passing.
 //
+// and one rule that needs the identity map as well (ADR 0087):
+//
+//   - a decision first filed by a commit an agent authored is accepted only by
+//     that agent's responsible human or one of their delegates: accepted-by
+//     names one of their emails. A session cannot accept its own work, and
+//     neither can a human the map does not make responsible for it. A key filed
+//     in the working tree has no author yet and is checked once it is
+//     committed.
+//
 // revoked-at is reported in the summary every run: ADR 0062 reserves it for a
 // ruling withdrawn with no successor, and each use should be visible.
 //
 // Exit codes: 0 conformant, 1 findings, 2 could not run.
 //
 // See docs/adr/0062-adopting-decisiondriven-analyzers.md.
+
+// CA2266 is off for this file only, for the reason eng/dco.cs gives (ADR 0087).
+#:include lib/Identities.cs
+#:property NoWarn=$(NoWarn);CA2266
 
 using System.Globalization;
 using System.Text.RegularExpressions;
@@ -136,7 +149,7 @@ List<string> findings = [];
 Dictionary<string, string> adrOwner = new(StringComparer.Ordinal);
 Dictionary<string, string> setOwner = new(StringComparer.Ordinal);
 List<string> revoked = [];
-List<(string Name, bool Adr, string Key, DateTimeOffset AcceptedAt, int Line)> acceptances = [];
+List<(string Name, bool Adr, string Key, DateTimeOffset AcceptedAt, int Line, string AcceptedBy)> acceptances = [];
 
 int files = 0;
 int decisions = 0;
@@ -424,7 +437,7 @@ foreach (string path in Directory.EnumerateFiles(decisionDirectory, "*.md").Orde
 
         if (key.Value is not null && hasAt && IsDateTime(at.Value))
         {
-            acceptances.Add((name, adr is not null, key.Value, DateTimeOffset.Parse(at.Value, CultureInfo.InvariantCulture), at.Line));
+            acceptances.Add((name, adr is not null, key.Value, DateTimeOffset.Parse(at.Value, CultureInfo.InvariantCulture), at.Line, hasBy ? by.Value : ""));
         }
 
         if (entry.TryGetValue("revoked-at", out (string Value, int Line) revokedAt))
@@ -441,7 +454,20 @@ foreach (string path in Directory.EnumerateFiles(decisionDirectory, "*.md").Orde
 
 // --- acceptance against filing, from history ------------------------------
 
-string? historyProblem = CheckFilingDates(decisionDirectory, acceptances, findings);
+List<string> mapProblems = [];
+IdentityMap? identities = IdentityMap.Load(repositoryRoot, mapProblems);
+
+if (identities is null || mapProblems.Count > 0)
+{
+    foreach (string problem in mapProblems)
+    {
+        Console.Error.WriteLine($"decision-sets: {problem}");
+    }
+
+    return 2;
+}
+
+string? historyProblem = CheckFilingDates(decisionDirectory, acceptances, identities, findings);
 if (historyProblem is not null)
 {
     Console.Error.WriteLine($"decision-sets: {historyProblem}");
@@ -480,7 +506,8 @@ return 1;
 // returns why the history could not be read.
 static string? CheckFilingDates(
     string decisionDirectory,
-    List<(string Name, bool Adr, string Key, DateTimeOffset AcceptedAt, int Line)> acceptances,
+    List<(string Name, bool Adr, string Key, DateTimeOffset AcceptedAt, int Line, string AcceptedBy)> acceptances,
+    IdentityMap identities,
     List<string> findings)
 {
     (int shallowExit, string shallow) = Git(decisionDirectory, "rev-parse", "--is-shallow-repository");
@@ -496,21 +523,22 @@ static string? CheckFilingDates(
 
     Regex keyLine = new(@"^(?<sign>[+-])\s+- key:\s*(?<key>\S+)\s*$", RegexOptions.CultureInvariant);
 
-    foreach (IGrouping<string, (string Name, bool Adr, string Key, DateTimeOffset AcceptedAt, int Line)> file
+    foreach (IGrouping<string, (string Name, bool Adr, string Key, DateTimeOffset AcceptedAt, int Line, string AcceptedBy)> file
         in acceptances.GroupBy(a => a.Name, StringComparer.Ordinal))
     {
         (int exit, string log) = Git(
-            decisionDirectory, "log", "--follow", "--reverse", "--format=commit %h %aI", "-p", "--unified=0", "--", file.Key);
+            decisionDirectory, "log", "--follow", "--reverse", "--format=commit %h %aI %ae", "-p", "--unified=0", "--", file.Key);
         if (exit != 0)
         {
             return $"git log failed for {file.Key}: {log.Trim()}";
         }
 
-        // Key -> filing (commit and day); a null day is a transcription.
-        Dictionary<string, (string Commit, DateTimeOffset? Day)> filed = new(StringComparer.Ordinal);
+        // Key -> filing (commit, day, author); a null day is a transcription.
+        Dictionary<string, (string Commit, DateTimeOffset? Day, string Author)> filed = new(StringComparer.Ordinal);
         Queue<string> removedInHunk = new();
         string commit = "";
         DateTimeOffset date = default;
+        string author = "";
         int commits = 0;
         bool adr = file.First().Adr;
 
@@ -521,6 +549,7 @@ static string? CheckFilingDates(
                 string[] parts = line.Split(' ');
                 commit = parts[1];
                 date = DateTimeOffset.Parse(parts[2], CultureInfo.InvariantCulture);
+                author = parts.Length > 3 ? parts[3] : "";
                 commits++;
                 removedInHunk.Clear();
                 continue;
@@ -556,16 +585,34 @@ static string? CheckFilingDates(
             }
             else
             {
-                filed[key] = (commit, adr && commits == 1 ? null : date);
+                filed[key] = (commit, adr && commits == 1 ? null : date, author);
             }
         }
 
         foreach (var acceptance in file)
         {
             // A key no commit adds yet is being filed in the working tree, today.
-            (string Commit, DateTimeOffset? Day) filing = filed.TryGetValue(acceptance.Key, out var known)
+            (string Commit, DateTimeOffset? Day, string Author) filing = filed.TryGetValue(acceptance.Key, out var known)
                 ? known
-                : ("the working tree", DateTimeOffset.Now);
+                : ("the working tree", DateTimeOffset.Now, "");
+
+            // Authority, transcriptions included: whoever filed it, an agent's
+            // decision is accepted by the humans acting for that agent.
+            if (identities.AgentByEmail(filing.Author) is Agent agent && acceptance.AcceptedBy.Length > 0)
+            {
+                string acceptor = acceptance.AcceptedBy.StartsWith("mailto:", StringComparison.Ordinal)
+                    ? acceptance.AcceptedBy["mailto:".Length..]
+                    : acceptance.AcceptedBy;
+                IReadOnlyList<Human> acting = identities.ActingFor(agent);
+
+                if (!acting.Any(human => human.Emails.Contains(acceptor, StringComparer.OrdinalIgnoreCase)))
+                {
+                    findings.Add(
+                        $"{acceptance.Name}:{acceptance.Line}: '{acceptance.Key}' was filed by the agent '{agent.Id}' ({filing.Commit}) "
+                        + $"and is accepted by {acceptance.AcceptedBy}, who is not its responsible human or a delegate "
+                        + $"({string.Join(", ", acting.Select(human => human.Id))}). ADR 0087.");
+                }
+            }
 
             if (filing.Day is not DateTimeOffset day)
             {
