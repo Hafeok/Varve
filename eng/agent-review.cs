@@ -14,6 +14,16 @@
 //      review, on its current head, from the agent's responsible human or one
 //      of their delegates (eng/identities.json). A review on an earlier head
 //      does not count: what was approved is not what would merge.
+//
+//      GitHub refuses an approving review from a pull request's own author, and
+//      a session's pull requests are opened under its responsible human's
+//      account. So for a pull request opened under the responsible human's own
+//      login, and only then, a review in the comment state by that human whose
+//      body contains "approve <head sha>" counts as their approval (ADR 0087,
+//      amendment of 2026-10-06). The sha is the current head's, in full or at
+//      least seven characters of it; a comment naming an earlier head, or
+//      written by anyone else, counts for nothing. A pull request opened by
+//      anyone else still needs an approving review.
 //   2. A human's delegates change only in that human's own pull request: if
 //      eng/identities.json changes a human's delegates, the pull request's
 //      author is that human.
@@ -186,10 +196,11 @@ foreach (Agent agent in agentsInRange.Values)
     }
 
     HashSet<string> approvers;
+    HashSet<string> commentApprovers;
 
     try
     {
-        approvers = await ApproversOnHead(pullNumber.Value, headSha);
+        (approvers, commentApprovers) = await ApproversOnHead(pullNumber.Value, headSha);
     }
     catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or JsonException or TaskCanceledException)
     {
@@ -199,14 +210,28 @@ foreach (Agent agent in agentsInRange.Values)
 
     Human? approver = acting.FirstOrDefault(human => human.GitHub is not null && approvers.Contains(human.GitHub));
 
-    if (approver is null)
+    // The comment form: only the responsible human, only on a pull request
+    // opened under their own login, which GitHub will not let them approve.
+    Human? responsible = acting.Count > 0 ? acting[0] : null;
+    bool ownPullRequest = responsible?.GitHub is not null
+        && string.Equals(pullAuthor, responsible.GitHub, StringComparison.OrdinalIgnoreCase);
+
+    if (approver is not null)
     {
-        findings.Add($"'{agent.Id}' authored commits in #{pullNumber}, which needs an approving review on {headSha[..Math.Min(8, headSha.Length)]} "
-            + $"from {who}" + (approvers.Count == 0 ? "; it has none" : $"; it has approvals from {string.Join(", ", approvers)} only"));
+        Console.WriteLine($"ok  '{agent.Id}''s commits are approved on the head by {approver.GitHub}");
+    }
+    else if (ownPullRequest && commentApprovers.Contains(responsible!.GitHub!))
+    {
+        Console.WriteLine($"ok  '{agent.Id}''s commits are approved on the head by {responsible.GitHub}, by comment on their own pull request");
     }
     else
     {
-        Console.WriteLine($"ok  '{agent.Id}''s commits are approved on the head by {approver.GitHub}");
+        string shortHead = headSha[..Math.Min(8, headSha.Length)];
+        string how = ownPullRequest
+            ? $"an approving review from {who}, or a comment review by {responsible!.GitHub} containing 'approve {headSha}'"
+            : $"an approving review from {who}";
+        findings.Add($"'{agent.Id}' authored commits in #{pullNumber}, which needs, on {shortHead}, {how}"
+            + (approvers.Count == 0 ? "; it has no approval on this head" : $"; it has approvals from {string.Join(", ", approvers)} only"));
     }
 }
 
@@ -230,8 +255,9 @@ return 1;
 
 // --- helpers ---------------------------------------------------------------
 
-// The logins whose latest review state is APPROVED, on the given head.
-static async Task<HashSet<string>> ApproversOnHead(int pull, string head)
+// The logins whose latest decisive review is APPROVED on the given head, and
+// the logins with a comment review whose body says "approve <sha>" for it.
+static async Task<(HashSet<string> Approvers, HashSet<string> CommentApprovers)> ApproversOnHead(int pull, string head)
 {
     string api = Environment.GetEnvironmentVariable("GITHUB_API_URL") ?? "https://api.github.com";
     string repository = Environment.GetEnvironmentVariable("GITHUB_REPOSITORY")
@@ -246,6 +272,10 @@ static async Task<HashSet<string>> ApproversOnHead(int pull, string head)
 
     // Reviews come oldest first; the latest decisive one per login stands.
     Dictionary<string, (string State, string Commit)> latest = new(StringComparer.OrdinalIgnoreCase);
+    HashSet<string> commentApprovers = new(StringComparer.OrdinalIgnoreCase);
+    System.Text.RegularExpressions.Regex approve = new(
+        @"\bapprove\s+(?<sha>[0-9a-fA-F]{7,40})\b",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
     for (int page = 1; ; page++)
     {
@@ -264,9 +294,26 @@ static async Task<HashSet<string>> ApproversOnHead(int pull, string head)
                 ? user.GetProperty("login").GetString()
                 : null;
 
-            // A comment does not change a reviewer's decision.
-            if (login is null || state == "COMMENTED" || state == "PENDING")
+            if (login is null || state == "PENDING")
             {
+                continue;
+            }
+
+            // A comment does not change a reviewer's decision, but its body
+            // can carry "approve <sha>", which counts only where the caller
+            // says it does.
+            if (state == "COMMENTED")
+            {
+                string text = review.TryGetProperty("body", out JsonElement reviewBody) ? reviewBody.GetString() ?? "" : "";
+
+                foreach (System.Text.RegularExpressions.Match match in approve.Matches(text))
+                {
+                    if (head.StartsWith(match.Groups["sha"].Value, StringComparison.OrdinalIgnoreCase))
+                    {
+                        commentApprovers.Add(login);
+                    }
+                }
+
                 continue;
             }
 
@@ -274,7 +321,11 @@ static async Task<HashSet<string>> ApproversOnHead(int pull, string head)
         }
     }
 
-    return [.. latest.Where(entry => entry.Value.State == "APPROVED" && entry.Value.Commit == head).Select(entry => entry.Key)];
+    HashSet<string> approvers = new(
+        latest.Where(entry => entry.Value.State == "APPROVED" && entry.Value.Commit == head).Select(entry => entry.Key),
+        StringComparer.OrdinalIgnoreCase);
+
+    return (approvers, commentApprovers);
 }
 
 static (int ExitCode, string StandardOutput, string StandardError) Git(string root, params string[] arguments)
