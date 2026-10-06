@@ -89,6 +89,12 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("issue-refs", "every commit references a tracked issue",
         () => Run("dotnet", Args("run", "eng/issue-refs.cs", baseRef is null ? null : "--", baseRef is null ? null : "--base", baseRef))),
 
+    ("release-pending", "a milestone starts only once the one before it is released",
+        () => Run("dotnet", Args("run", "eng/release-pending.cs", baseRef is null ? null : "--", baseRef is null ? null : "--base", baseRef))),
+
+    ("changelog", "the newest v* tag has its CHANGELOG.md section",
+        () => Run("dotnet", ["run", "eng/changelog.cs", "--", "--check"])),
+
     ("restore", "restore the solution",
         () => Run("dotnet", ["restore", "Varve.slnx"])),
 
