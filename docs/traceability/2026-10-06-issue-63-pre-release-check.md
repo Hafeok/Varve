@@ -199,3 +199,16 @@ amendment says needs a superseding ADR. The maintainer's answers, verbatim:
   author, and session pull requests are opened under the maintainer's account.
   So `agent review` cannot pass on them until the map names a delegate, or
   session pull requests come from another account (ADR 0087, Consequences).
+
+## Acceptance
+
+The maintainer accepted all 21 decisions of 0085–0088 in 4c7e911 and set
+0085's Status to Accepted. Asked to update the index and the Status lines,
+the session marked 0085–0088 accepted in the index, recorded 0085's
+`Proposed` interval, and brought 0086–0088's Status lines up to date.
+
+`dco` fails on 4c7e911. Its author is `Emil Klein -  Claude Code AI
+<emil@okkels-klein.dk>` and its sign-off `Emil Okkels Klein
+<emil@okkels-klein.dk>`, so the names differ and ADR 0087's human rule
+refuses it. The session does not rewrite the maintainer's commit; how it is
+resolved is the maintainer's choice.

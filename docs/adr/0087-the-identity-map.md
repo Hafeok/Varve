@@ -3,9 +3,9 @@
 ## Status
 
 **Accepted — decided by the maintainer, 2026-10-06, and written by the
-pre-release session of #63.** The decision set is filed without
-`accepted-by`, which a session never writes (ADR 0066); the maintainer adds
-it.
+pre-release session of #63.** The decision set was filed without
+`accepted-by`, which a session never writes (ADR 0066), and the maintainer
+accepted it on the pull request on 2026-10-06.
 
 **Enforces ADR [0034](0034-commit-signing-and-the-sandbox-exception.md) point
 3**, which until this ADR nothing enforced (0034's amendment of 2026-10-06).
