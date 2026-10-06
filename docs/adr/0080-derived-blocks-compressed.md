@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by session 6c of #10, 2026-10-05** (ADR 0066).
+**Accepted — filed unaccepted by session 6c of #10, 2026-10-05** (ADR 0066).
 Acceptance is the maintainer's act on the pull request.
 
 Answers the question the 6a record left for the maintainer, "whether derived

@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by session 6c of #10, 2026-10-05** (ADR 0066).
+**Accepted — filed unaccepted by session 6c of #10, 2026-10-05** (ADR 0066).
 Acceptance is the maintainer's act on the pull request.
 
 Builds what ADRs [0076](0076-bulk-load-by-sort-and-merge-join.md) and

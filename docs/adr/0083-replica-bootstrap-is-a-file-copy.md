@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by session 6c of #10, 2026-10-05** (ADR 0066).
+**Accepted — filed unaccepted by session 6c of #10, 2026-10-05** (ADR 0066).
 Acceptance is the maintainer's act on the pull request.
 
 Decides how a second dataset is started from a first, before milestone 7's

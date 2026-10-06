@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by session 6c of #10, 2026-10-05** (ADR 0066).
+**Accepted — filed unaccepted by session 6c of #10, 2026-10-05** (ADR 0066).
 Acceptance is the maintainer's act on the pull request.
 
 States the 1.0 gate that issue #61 blocks (issue #15), and how it is measured,
