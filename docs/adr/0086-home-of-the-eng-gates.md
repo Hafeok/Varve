@@ -13,7 +13,7 @@ supersedes nothing.
 
 ## Context
 
-`eng/` holds fourteen scripts. Some exist because of what Varve is, such as the
+`eng/` holds the repository's gates as scripts. Some exist because of what Varve is, such as the
 conformance ratchet. Others hold no knowledge of Varve. They make the
 stewardship standard or the decision ledger executable, and every project
 that adopts either would have to write them again. Until now nothing said
@@ -39,7 +39,7 @@ repo-standard, as the stewardship standard made executable:
 | Changelog, with the release cut | `eng/changelog.cs`, `eng/changelog-sections.txt` |
 | Licence headers | `eng/licence-headers.cs` |
 | Issue references | `eng/issue-refs.cs` |
-| DCO sign-off | a workflow, still to be written; **nothing checks it in Varve today** |
+| DCO sign-off | `eng/dco.cs`, with the identity map it reads (`eng/identities.json`, `eng/lib/Identities.cs`; ADR 0087) |
 | Package metadata | `eng/package-metadata.cs` |
 | Native assets | `eng/native-assets.cs` |
 | Release pending (ADR 0085) | `eng/release-pending.cs` |

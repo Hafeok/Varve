@@ -72,12 +72,14 @@ superseding ADR rather than an edit.
 | # | Title | Status |
 |---:|---|---|
 | [0031](0031-licence-mpl-2-0.md) | Licence: MPL-2.0 | Accepted; **supersedes 0002** |
-| [0032](0032-trunk-based-development.md) | Trunk-based development and non-blocking review | Accepted; amended 2026-09-24 (the gate runs after the push); **amended by 0066** |
+| [0032](0032-trunk-based-development.md) | Trunk-based development and non-blocking review | **Superseded by 0088**; amended 2026-09-24 (the gate runs after the push); amended by 0066 |
 | [0033](0033-commit-traceability.md) | Commit traceability and AI-session records | Accepted |
-| [0034](0034-commit-signing-and-the-sandbox-exception.md) | Commit signing and the sandbox exception | Accepted; revisit condition; **amended by 0066** |
+| [0034](0034-commit-signing-and-the-sandbox-exception.md) | Commit signing and the sandbox exception | Accepted; revisit condition; **amended by 0066**; amended 2026-10-06 (DCO enforced from 0087) |
 | [0035](0035-semantic-versioning.md) | Semantic versioning | Accepted; complements 0029 |
 | [0085](0085-a-release-per-milestone.md) | A release per milestone, and the next milestone waits for it | **Proposed**; complements 0029 and 0035 |
 | [0086](0086-home-of-the-eng-gates.md) | Home of the eng/ gates | Accepted; set awaiting `accepted-by`; complements 0036 and 0039 |
+| [0087](0087-the-identity-map.md) | The identity map: who signs off, accepts and approves for an agent | Accepted; set awaiting `accepted-by`; enforces 0034 point 3 |
+| [0088](0088-only-checked-commits-reach-main.md) | Only checked commits reach main | Accepted; set awaiting `accepted-by`; **supersedes 0032** |
 | [0036](0036-containerised-development.md) | Containerised development and the local pipeline | Accepted |
 
 

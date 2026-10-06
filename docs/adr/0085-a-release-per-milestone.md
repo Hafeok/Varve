@@ -55,7 +55,9 @@ milestone 1 to milestone 6c: none of them was released on its own.
    version against the one before it). The links are built from
    `PackageProjectUrl`, the one place the repository's location is written
    (ADR 0029).
-2. The cut is committed as `chore(release): <version>`, with its `Refs #N`.
+2. The cut is committed as `chore(release): <version>`, with its `Refs #N`,
+   and lands like any other commit (ADR 0088): through a pull request, or a
+   `land/` branch whose head `main` is then fast-forwarded to.
 3. The maintainer tags **that commit** `v<version>`; the `v*` ruleset
    restricts tags to the maintainer (GOVERNANCE.md).
 4. `publish.yml` runs every gate, checks with `eng/changelog.cs --check` that
