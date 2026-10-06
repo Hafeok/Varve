@@ -46,6 +46,16 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **store**: a seek decodes the block its range starts in once (6ff6a947)
 - milestone 6c's report and benchmarks (00863f47)
 - **roadmap**: 6c's soak, its four causes and the gate's result (3825a11e)
+- regenerate the changelog (a89181d2)
+- **decisions**: accept 0078-0084 (4d9f800d)
+- **adr**: the index records 0078-0084 as accepted (9778f2a7)
+- **publish**: version from the v tag, release notes, the missing gates (2157a88c)
+- **store**: the id layout is format version 1's, ADR 0072 (044c4945)
+- **adr**: 0085, a release per milestone (d6b555be)
+- **changelog**: --release cuts a version, --check reads the newest tag (00ba4293)
+- the release pending gate (c7968017)
+- **publish**: check the tag's changelog section, notes stop at the links (1631f225)
+- **traceability**: the release tooling and ADR 0085 (b7b31f11)
 
 #### Fixed
 
