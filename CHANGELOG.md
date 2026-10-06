@@ -59,6 +59,15 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - regenerate the changelog (e75a1779)
 - **adr**: 0086, the home of the eng/ gates (176b9f1f)
 - **traceability**: ADR 0086 and the port issues (3d35bc8d)
+- regenerate the changelog (7f64ce2d)
+- **adr**: 0087 the identity map, 0088 only checked commits reach main (01eb25d1)
+- **eng**: the identity map, and issue-refs' exempt list read from it (9ac165eb)
+- the dco gate, with its failing fixture (22f71e56)
+- **decisions**: an agent's decision is accepted by its responsible human (4b2edd72)
+- the agent review check (7cfc5c07)
+- **repo-standard**: every gate a required check on ruleset 1 (4956b7e6)
+- landing on main through checked commits, and the sign-off the dco gate checks (6a7b403d)
+- **traceability**: the dco gate, the identity map, ADRs 0087 and 0088 (50e80192)
 
 #### Fixed
 
