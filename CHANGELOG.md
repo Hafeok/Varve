@@ -69,6 +69,9 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - landing on main through checked commits, and the sign-off the dco gate checks (6a7b403d)
 - **traceability**: the dco gate, the identity map, ADRs 0087 and 0088 (50e80192)
 - regenerate the changelog (f5cc65ee)
+- regenerate the changelog (cdbfd651)
+- **decisions**: accept 0085-0088 (4c7e9119)
+- **adr**: the index records 0085-0088 as accepted (9ff30c05)
 
 #### Fixed
 
