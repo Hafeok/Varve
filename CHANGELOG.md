@@ -23,6 +23,7 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **store**: Varve.Store.Browser, OPFS and IndexedDB storage (1c691bb7)
 - **store**: replica bootstrap by copying a checkpoint and the log (3b0e8c2a)
 - **store**: the bulk loader, by sort and merge-join (3acea82a)
+- **store**: the commit index, derived and paged (#61) (8a1b378c)
 
 #### Changed
 
@@ -46,6 +47,13 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **store**: a seek decodes the block its range starts in once (6ff6a947)
 - milestone 6c's report and benchmarks (00863f47)
 - **roadmap**: 6c's soak, its four causes and the gate's result (3825a11e)
+- regenerate the changelog (a89181d2)
+- **decisions**: accept 0078-0084 (4d9f800d)
+- **adr**: the index records 0078-0084 as accepted (9778f2a7)
+- **adr**: 0085, the commit index is derived and paged; tests and spec (32401323)
+- **store**: the commit index cites no decision in code (6c7681bd)
+- **store**: the naive contract backend locks; the commit index's benchmarks (2d328351)
+- the commit index's addendum to the 6c record, the soak and its ablations (b999fe8e)
 
 #### Fixed
 
