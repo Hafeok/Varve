@@ -9,8 +9,6 @@ using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
-using DecisionDriven;
-using DecisionDriven.Ledger.Varve;
 using Varve.Store.Log;
 
 namespace Varve.Store;
@@ -223,7 +221,6 @@ internal sealed class CommitSegment
 /// version open until it calls <see cref="Release"/>.
 /// </para>
 /// </remarks>
-[Contract(typeof(TheCommitIndexIsDerivedAndPaged.CapturedVersionsStayReadable), Role = "the commit index readers capture without locks")]
 internal sealed class CommitIndex
 {
     private readonly Tail _tail;
