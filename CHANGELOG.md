@@ -68,6 +68,7 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **repo-standard**: every gate a required check on ruleset 1 (4956b7e6)
 - landing on main through checked commits, and the sign-off the dco gate checks (6a7b403d)
 - **traceability**: the dco gate, the identity map, ADRs 0087 and 0088 (50e80192)
+- regenerate the changelog (f5cc65ee)
 
 #### Fixed
 
@@ -77,6 +78,7 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **store**: bound recovery after a crash during or just after a bulk load (6213757f)
 - **store**: fences in chunks below the large object heap (#61) (7f4b846c)
 - **store**: a checkpoint's sections held sparsely (#61) (87b692ec)
+- **decisions**: 0088's key no longer collides with its set's class (DDGEN0005) (32ea8544)
 
 ### Milestone 6a — the file backend, format version 1, failure injection
 
