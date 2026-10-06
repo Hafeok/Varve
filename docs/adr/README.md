@@ -78,8 +78,8 @@ superseding ADR rather than an edit.
 | [0035](0035-semantic-versioning.md) | Semantic versioning | Accepted; complements 0029 |
 | [0085](0085-a-release-per-milestone.md) | A release per milestone, and the next milestone waits for it | Accepted; complements 0029 and 0035 |
 | [0086](0086-home-of-the-eng-gates.md) | Home of the eng/ gates | Accepted; complements 0036 and 0039 |
-| [0087](0087-the-identity-map.md) | The identity map: who signs off, accepts and approves for an agent | Accepted; enforces 0034 point 3 |
-| [0088](0088-only-checked-commits-reach-main.md) | Only checked commits reach main | Accepted; **supersedes 0032** |
+| [0087](0087-the-identity-map.md) | The identity map: who signs off, accepts and approves for an agent | Accepted; enforces 0034 point 3; amended 2026-10-06 (approval by comment on one's own pull request; the exit to a signed ledger Review) |
+| [0088](0088-only-checked-commits-reach-main.md) | Only checked commits reach main | Accepted; **supersedes 0032**; amended 2026-10-06 (required check names are checked) |
 | [0036](0036-containerised-development.md) | Containerised development and the local pipeline | Accepted |
 
 
