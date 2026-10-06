@@ -94,6 +94,26 @@ rulesets:
   - actor_id: 2194785
     actor_type: User
     bypass_mode: always
+# land/** is where a human pushes a commit so that it has its checks before main
+# is fast-forwarded to it (ADR 0088), and the gates environment trusts it
+# (ADR 0087): only the maintainer creates, moves or deletes one.
+- name: land
+  target: branch
+  enforcement: active
+  conditions:
+    ref_name:
+      exclude: []
+      include:
+      - refs/heads/land/**
+  rules:
+  - type: creation
+  - type: update
+  - type: deletion
+  - type: non_fast_forward
+  bypass_actors:
+  - actor_id: 2194785
+    actor_type: User
+    bypass_mode: always
 - name: trunk
   target: branch
   enforcement: active
@@ -140,6 +160,22 @@ environments:
   branch_policies: []
   secrets:
   - NUGET_USER
+# The gates App's key (ADR 0087): only main and land/** can deploy to this
+# environment, so no workflow a pull request defines can mint its token and
+# post a check ruleset 1 pins to the App.
+- name: gates
+  wait_timer: 0
+  prevent_self_review: false
+  reviewers: []
+  deployment_branch_policy:
+    protected_branches: false
+    custom_branch_policies: true
+  branch_policies:
+  - name: main
+  - name: land/**
+  secrets:
+  - GATES_APP_CLIENT_ID
+  - GATES_APP_PRIVATE_KEY
 secrets:
 - REPO_STANDARD_APP_CLIENT_ID
 - REPO_STANDARD_APP_PRIVATE_KEY
