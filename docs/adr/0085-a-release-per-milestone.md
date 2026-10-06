@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by the pre-release session of #63, 2026-10-06**
+**Accepted — filed unaccepted by the pre-release session of #63, 2026-10-06**
 (ADR 0066). Acceptance is the maintainer's act on the pull request.
 
 **Complements [0029](0029-publishing-and-versioning.md) and
