@@ -53,6 +53,13 @@
 
     <PackageTags>rdf;sparql;graph-database;event-sourcing;semantic-web;linked-data</PackageTags>
 
+    <!-- The release tags are v-prefixed (ADR 0029: v0.1.0-preview.1), and
+         MinVer's default prefix is empty, so without this it ignores every
+         release tag as "not a version" and a tagged build packs as
+         0.0.0-alpha.0.N. publish.yml checks the packed version against the
+         tag as well, because this line is the kind that is lost silently. -->
+    <MinVerTagPrefix>v</MinVerTagPrefix>
+
     <!-- A deterministic, restorable symbol package. Sources are embedded, so a
          consumer can step into Varve without a symbol server. -->
     <IncludeSymbols>true</IncludeSymbols>

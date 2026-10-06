@@ -109,7 +109,25 @@ rulesets:
     parameters:
       strict_required_status_checks_policy: false
       do_not_enforce_on_create: false
-      required_status_checks: []
+      # Every gate, by its job name (ADR 0088). Not the durability jobs, which
+      # measure and gate nothing, and not the decision report, which never
+      # gates (ADR 0062). Renaming a job means renaming it here in the same
+      # change, or nothing can land.
+      required_status_checks:
+      - context: pipeline (devcontainer)
+      - context: release pending
+      - context: dco
+      - context: agent review
+      - context: build (ubuntu-latest)
+      - context: build (windows-latest)
+      - context: native aot (ubuntu-latest)
+      - context: native aot (windows-latest)
+      - context: repo-standard native and action (ubuntu-latest)
+      - context: repo-standard native and action (windows-latest)
+      - context: browser wasm
+      - context: browser storage in Chromium
+      - context: conformance (ubuntu-latest)
+      - context: conformance (windows-latest)
   bypass_actors: []
 environments:
 - name: release

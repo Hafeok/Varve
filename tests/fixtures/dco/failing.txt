@@ -1,0 +1,55 @@
+# Each commit here breaks the rule once. eng/dco.cs must exit 1 and name all
+# five; tests/fixtures/dco/README.md says why each fails.
+
+commit 1111111111111111111111111111111111111111
+parents 1
+author Alice Example <alice@example.org>
+message
+feat: no sign-off at all
+
+Refs #1
+end
+
+commit 2222222222222222222222222222222222222222
+parents 1
+author Alice Example <alice@example.org>
+message
+fix: signed off with another of her emails
+
+Refs #1
+
+Signed-off-by: Alice Example <alice@work.example>
+end
+
+commit 3333333333333333333333333333333333333333
+parents 1
+author Alice Example <alice@example.org>
+message
+docs: signed off by somebody else
+
+Refs #1
+
+Signed-off-by: Bob Example <bob@example.org>
+end
+
+commit 4444444444444444444444444444444444444444
+parents 1
+author Helper <helper@agents.example>
+message
+feat: an agent signing itself off
+
+Refs #1
+
+Signed-off-by: Helper <helper@agents.example>
+end
+
+commit 5555555555555555555555555555555555555555
+parents 1
+author Helper <helper@agents.example>
+message
+feat: an agent signed off by a human who is not acting for it
+
+Refs #1
+
+Signed-off-by: Mallory Example <mallory@example.org>
+end

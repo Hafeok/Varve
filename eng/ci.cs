@@ -89,6 +89,29 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("issue-refs", "every commit references a tracked issue",
         () => Run("dotnet", Args("run", "eng/issue-refs.cs", baseRef is null ? null : "--", baseRef is null ? null : "--base", baseRef))),
 
+    ("dco", "every commit is signed off by its author, or by the human responsible for its agent",
+        () => Run("dotnet", Args("run", "eng/dco.cs", baseRef is null ? null : "--", baseRef is null ? null : "--base", baseRef))),
+
+    // The gate's failure path, proven on every run: the failing fixture must
+    // exit 1 and the passing one 0 (tests/fixtures/dco/README.md).
+    ("dco-fixture", "the DCO gate fails its failing fixture and passes its passing one",
+        () => Run("dotnet", ["run", "eng/dco.cs", "--", "--commits", "tests/fixtures/dco/failing.txt", "--identities", "tests/fixtures/dco/identities.json"]) == 1
+            ? Run("dotnet", ["run", "eng/dco.cs", "--", "--commits", "tests/fixtures/dco/passing.txt", "--identities", "tests/fixtures/dco/identities.json"])
+            : 1),
+
+    ("required-checks", "every check ruleset 1 requires is a job that reports on pull requests",
+        () => Run("dotnet", ["run", "eng/required-checks.cs"])),
+
+    // Its failure path, as for the DCO gate (tests/fixtures/required-checks/README.md).
+    ("required-checks-fixture", "the required-checks gate fails its fixture",
+        () => Run("dotnet", ["run", "eng/required-checks.cs", "--", "--declaration", "tests/fixtures/required-checks/repo-standard.yaml", "--workflows", "tests/fixtures/required-checks/workflows"]) == 1 ? 0 : 1),
+
+    ("release-pending", "a milestone starts only once the one before it is released",
+        () => Run("dotnet", Args("run", "eng/release-pending.cs", baseRef is null ? null : "--", baseRef is null ? null : "--base", baseRef))),
+
+    ("changelog", "the newest v* tag has its CHANGELOG.md section",
+        () => Run("dotnet", ["run", "eng/changelog.cs", "--", "--check"])),
+
     ("restore", "restore the solution",
         () => Run("dotnet", ["restore", "Varve.slnx"])),
 

@@ -1,0 +1,13 @@
+# Three required checks. 'build (macos-latest)' is not in the build job's
+# matrix, and 'nightly' is reported only by a workflow that does not run on
+# pull requests; 'build (ubuntu-latest)' and 'lint' are fine.
+rulesets:
+- name: trunk
+  rules:
+  - type: required_status_checks
+    parameters:
+      required_status_checks:
+      - context: build (ubuntu-latest)
+      - context: build (macos-latest)
+      - context: lint
+      - context: nightly

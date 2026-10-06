@@ -54,6 +54,7 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **store**: the commit index cites no decision in code (6c7681bd)
 - **store**: the naive contract backend locks; the commit index's benchmarks (2d328351)
 - the commit index's addendum to the 6c record, the soak and its ablations (b999fe8e)
+- regenerate the changelog (cba3e1a9)
 
 #### Fixed
 

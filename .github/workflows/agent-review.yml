@@ -1,0 +1,57 @@
+# Agent review (ADR 0087): a pull request with an agent's commits needs an
+# approving review on its head from the agent's responsible human or a
+# delegate, and a human's delegates change only in that human's own pull
+# request. eng/agent-review.cs says how.
+#
+# Its own workflow, not a job in ci.yml, because it must run again when a
+# review is submitted or dismissed, and a review should not rebuild
+# everything. The job is named `agent review`, and ruleset 1 requires it by
+# that name (ADR 0088): a review run reports on the pull request's head, so
+# the latest result for the head is the one the ruleset reads.
+
+name: Agent review
+
+on:
+  pull_request:
+    branches: [main]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+  push:
+    branches: [main, "land/**"]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: agent-review-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+
+jobs:
+  agent-review:
+    name: agent review
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # The pull request's head, not the merge ref a review event names,
+          # and the whole history, for the range from the base.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Agent commits are approved, and delegates change only by their human
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: dotnet run eng/agent-review.cs

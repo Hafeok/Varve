@@ -1,0 +1,60 @@
+# Every commit here conforms. eng/dco.cs must exit 0.
+
+commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+parents 1
+author Alice Example <alice@example.org>
+message
+feat: signed off by its author
+
+Refs #1
+
+Signed-off-by: Alice Example <ALICE@example.org>
+end
+
+commit bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+parents 1
+author Helper <helper@agents.example>
+message
+feat: an agent's commit, signed off by its responsible human
+
+Refs #1
+
+Signed-off-by: Alice Example <alice@work.example>
+Co-Authored-By: Helper <helper@agents.example>
+end
+
+commit cccccccccccccccccccccccccccccccccccccccc
+parents 1
+author Helper <helper@agents.example>
+message
+fix: an agent's commit, signed off by a delegate
+
+Refs #1
+
+Signed-off-by: Bob Example <bob@example.org>
+end
+
+commit dddddddddddddddddddddddddddddddddddddddd
+parents 1
+author dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>
+message
+build(deps): exempt automation, no sign-off
+end
+
+commit eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+parents 2
+author Alice Example <alice@example.org>
+message
+Merge pull request #2 from somewhere
+end
+
+commit ffffffffffffffffffffffffffffffffffffffff
+parents 1
+author Carol Unknown <carol@example.net>
+message
+docs: an author the map does not know, held to the human rule
+
+Refs #1
+
+Signed-off-by: Carol Unknown <carol@example.net>
+end
