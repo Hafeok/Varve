@@ -6,38 +6,49 @@
 //
 //   dotnet run eng/agent-review.cs        (in GitHub Actions; reads the event)
 //
-// ADR 0087. Two rules about who stands behind a change, which need the pull
-// request and its reviews and so run only in CI, as the `agent review` job of
-// .github/workflows/agent-review.yml — not in eng/ci.cs, which runs offline.
+// ADR 0087. Two rules about who stands behind a change:
 //
-//   1. A pull request containing a commit an agent authored needs an approving
-//      review, on its current head, from the agent's responsible human or one
-//      of their delegates (eng/identities.json). A review on an earlier head
-//      does not count: what was approved is not what would merge.
+//   1. A pull request containing a commit an agent authored needs an approval
+//      for every agent in it, from a holder of Approve for that agent: its
+//      responsible human or one of their delegates (eng/identities.json).
+//   2. A human's delegates change only in that human's own pull request.
 //
-//      GitHub refuses an approving review from a pull request's own author, and
-//      a session's pull requests are opened under its responsible human's
-//      account. So for a pull request opened under the responsible human's own
-//      login, and only then, a review in the comment state by that human whose
-//      body contains "approve <head sha>" counts as their approval (ADR 0087,
-//      amendment of 2026-10-06). The sha is the current head's, in full or at
-//      least seven characters of it; a comment naming an earlier head, or
-//      written by anyone else, counts for nothing. A pull request opened by
-//      anyone else still needs an approving review.
-//   2. A human's delegates change only in that human's own pull request: if
-//      eng/identities.json changes a human's delegates, the pull request's
-//      author is that human.
+// THE HAZARD. A check that runs the pull request's own code is judged by the
+// pull request: one that edits this file to `return 0;` passes itself. So
+// this file is never taken from the change it judges. The workflow
+// (.github/workflows/agent-review.yml) checks out main and runs main's copy,
+// on trusted triggers only, and this script reads the pull request — its
+// head, its commits, its identity map, its comments — through the API as
+// data. Nothing from the pull request is built or run (ADR 0087, amendments
+// of 2026-10-06).
 //
-// On a push to a branch other than main, neither can be satisfied, since there
-// is no pull request to review or to author: a head with an agent's commit or
-// a delegate change fails, and lands through a pull request instead. A push to
-// main passes, because what reaches main has already passed this on its pull
-// request or its branch (ADR 0088).
+// THE APPROVAL. A pull-request conversation comment whose text contains
+// "approve <sha>", where <sha> is at least 12 characters of the current head,
+// written by a login the identity map makes a holder of Approve for the
+// agent. Review submissions are not consulted. This form is NOT a valid
+// workflow: it is tolerated only until the ledger's review gate exists, and the
+// pull request that adopts that gate removes it (ADR 0087).
 //
-// Outside Actions it lists what rule 1 would ask for and exits 0: approvals
-// are on GitHub, and a local run cannot see them.
+// The paths:
 //
-// Exit codes: 0 conformant, 1 findings, 2 could not run.
+//   pull_request_target, issue_comment
+//                 the trusted paths: main's workflow and main's copy. The
+//                 verdict is a check run named by GATES_CHECK_NAME on the
+//                 head sha, created or updated with the gates App's token
+//                 (GATES_TOKEN), which ruleset 1 pins (ADR 0088).
+//   push to land/**
+//                 a branch only the maintainer may push (ruleset "land"):
+//                 passes when the range from main has no agent commit and no
+//                 delegate change, and posts the same check.
+//   pull_request  transitional, until the pull request that removes it: the
+//                 job's own exit code is the verdict.
+//   none          a local run: says what it would need and exits 0.
+//
+// GITHUB_API_URL points it at a stand-in, which is how eng/agent-review-tamper.cs
+// tests it.
+//
+// Exit codes: 0 conformant (or, on a trusted path, the verdict posted),
+// 1 findings, 2 could not run.
 //
 // See docs/adr/0087-the-identity-map.md.
 
@@ -45,16 +56,22 @@
 #:include lib/Identities.cs
 #:property NoWarn=$(NoWarn);CA2266
 
-using System.Diagnostics;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
+
+const int MinimumShaPrefix = 12;
 
 string repositoryRoot = FindRepositoryRoot();
 
+// The base's map, from the checkout: main's. It decides who may approve and
+// whose delegates changed, so a change cannot authorise itself.
 List<string> problems = [];
-IdentityMap? headMap = IdentityMap.Load(repositoryRoot, problems);
+IdentityMap? baseMap = IdentityMap.Load(repositoryRoot, problems);
 
-if (headMap is null || problems.Count > 0)
+if (baseMap is null || problems.Count > 0)
 {
     foreach (string problem in problems)
     {
@@ -66,105 +83,156 @@ if (headMap is null || problems.Count > 0)
 
 string eventName = Environment.GetEnvironmentVariable("GITHUB_EVENT_NAME") ?? "";
 string? eventPath = Environment.GetEnvironmentVariable("GITHUB_EVENT_PATH");
+string? gatesToken = Environment.GetEnvironmentVariable("GATES_TOKEN");
+string checkName = Environment.GetEnvironmentVariable("GATES_CHECK_NAME") ?? "agent review";
 
-// --- what is being checked ---------------------------------------------------
-
-string baseRef;
-string headSha;
-int? pullNumber = null;
-string? pullAuthor = null;
-
-if (eventName is "pull_request" or "pull_request_review" or "pull_request_target")
+if (eventName.Length == 0)
 {
-    if (eventPath is null || !File.Exists(eventPath))
-    {
-        Console.Error.WriteLine("agent-review: a pull request event without GITHUB_EVENT_PATH.");
-        return 2;
-    }
-
-    using JsonDocument payload = JsonDocument.Parse(File.ReadAllText(eventPath));
-    JsonElement pull = payload.RootElement.GetProperty("pull_request");
-    pullNumber = pull.GetProperty("number").GetInt32();
-    pullAuthor = pull.GetProperty("user").GetProperty("login").GetString();
-    baseRef = "origin/" + pull.GetProperty("base").GetProperty("ref").GetString();
-    headSha = pull.GetProperty("head").GetProperty("sha").GetString() ?? "HEAD";
-}
-else if (eventName == "push")
-{
-    if (Environment.GetEnvironmentVariable("GITHUB_REF") == "refs/heads/main")
-    {
-        Console.WriteLine("ok  a push to main: what it brings passed this on its pull request or its branch (ADR 0088)");
-        return 0;
-    }
-
-    baseRef = "origin/main";
-    headSha = Environment.GetEnvironmentVariable("GITHUB_SHA") ?? "HEAD";
-}
-else
-{
-    baseRef = "origin/main";
-    headSha = "HEAD";
+    Console.WriteLine("note local run: approvals and the pull request are on GitHub; this checks them only in Actions");
+    return 0;
 }
 
-Console.WriteLine($"note {(eventName.Length == 0 ? "local" : eventName)}: {baseRef}..{headSha}{(pullNumber is null ? "" : $", pull request #{pullNumber} by {pullAuthor}")}");
-
-// --- the agents' commits -----------------------------------------------------
-
-(int logExit, string log, string logError) = Git(repositoryRoot, "log", "--no-merges", "--format=%h%x02%ae", $"{baseRef}..{headSha}");
-
-if (logExit != 0)
+if (eventPath is null || !File.Exists(eventPath))
 {
-    Console.Error.WriteLine($"agent-review: could not read {baseRef}..{headSha}: {logError.Trim()}");
+    Console.Error.WriteLine("agent-review: no GITHUB_EVENT_PATH.");
     return 2;
 }
 
-Dictionary<string, Agent> agentsInRange = new(StringComparer.Ordinal);
-int agentCommits = 0;
+using JsonDocument payload = JsonDocument.Parse(File.ReadAllText(eventPath));
 
-foreach (string line in log.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+Api api;
+
+try
 {
-    string[] fields = line.Split('\u0002');
+    api = new Api(Environment.GetEnvironmentVariable("GITHUB_TOKEN"));
+}
+catch (InvalidOperationException exception)
+{
+    Console.Error.WriteLine($"agent-review: {exception.Message}");
+    return 2;
+}
 
-    if (fields.Length == 2 && headMap.AgentByEmail(fields[1].Trim()) is Agent agent)
+// --- what is judged ------------------------------------------------------------
+
+int? pullNumber = null;
+string headSha;
+string? pullAuthor = null;
+List<string> commitEmails = [];
+
+try
+{
+    switch (eventName)
     {
-        agentCommits++;
-        agentsInRange[agent.Id] = agent;
+        case "pull_request" or "pull_request_target":
+            pullNumber = payload.RootElement.GetProperty("pull_request").GetProperty("number").GetInt32();
+            break;
+
+        case "issue_comment":
+            JsonElement issue = payload.RootElement.GetProperty("issue");
+
+            if (!issue.TryGetProperty("pull_request", out _))
+            {
+                Console.WriteLine("ok  a comment on an issue, not a pull request");
+                return 0;
+            }
+
+            pullNumber = issue.GetProperty("number").GetInt32();
+            break;
+
+        case "push":
+            string reference = Environment.GetEnvironmentVariable("GITHUB_REF") ?? "";
+
+            if (!reference.StartsWith("refs/heads/land/", StringComparison.Ordinal))
+            {
+                Console.WriteLine($"ok  a push to {reference}, which this gate does not judge");
+                return 0;
+            }
+
+            break;
+
+        default:
+            Console.Error.WriteLine($"agent-review: '{eventName}' is not a trigger this gate trusts.");
+            return 2;
+    }
+
+    if (pullNumber is int number)
+    {
+        using JsonDocument pull = await api.Get($"pulls/{number}");
+        headSha = pull.RootElement.GetProperty("head").GetProperty("sha").GetString()!;
+        pullAuthor = pull.RootElement.GetProperty("user").GetProperty("login").GetString();
+
+        foreach (JsonElement commit in await api.GetAll($"pulls/{number}/commits"))
+        {
+            AddCommit(commit, commitEmails);
+        }
+    }
+    else
+    {
+        headSha = Environment.GetEnvironmentVariable("GITHUB_SHA") ?? throw new InvalidOperationException("GITHUB_SHA is not set.");
+
+        using JsonDocument compare = await api.Get($"compare/main...{headSha}");
+
+        foreach (JsonElement commit in compare.RootElement.GetProperty("commits").EnumerateArray())
+        {
+            AddCommit(commit, commitEmails);
+        }
     }
 }
-
-// --- delegate changes ----------------------------------------------------------
-
-// The base's map decides whose delegates changed: a change cannot make itself
-// legitimate by also changing the login it is checked against.
-IdentityMap? baseMap = null;
-(int showExit, string baseJson, _) = Git(repositoryRoot, "show", $"{baseRef}:{IdentityMap.RelativePath}");
-
-if (showExit == 0)
+catch (Exception exception) when (exception is HttpRequestException or JsonException or KeyNotFoundException or InvalidOperationException or TaskCanceledException)
 {
-    List<string> baseProblems = [];
-    baseMap = IdentityMap.Parse(baseJson, baseProblems);
+    Console.Error.WriteLine($"agent-review: could not read what is judged: {exception.Message}");
+    return 2;
 }
 
-List<Human> delegatesChanged = [];
+Console.WriteLine($"note {eventName}: head {headSha}{(pullNumber is null ? "" : $", pull request #{pullNumber} by {pullAuthor}")}, {commitEmails.Count} commit(s)");
 
-foreach (Human human in headMap.Humans)
-{
-    Human? before = baseMap?.HumanById(human.Id);
-    IEnumerable<string> was = before?.Delegates ?? [];
-
-    if (!was.Order(StringComparer.Ordinal).SequenceEqual(human.Delegates.Order(StringComparer.Ordinal), StringComparer.Ordinal))
-    {
-        delegatesChanged.Add(before ?? human);
-    }
-}
+// --- the rules -------------------------------------------------------------------
 
 List<string> findings = [];
+
+Dictionary<string, Agent> agents = new(StringComparer.Ordinal);
+int agentCommits = 0;
+
+foreach (string email in commitEmails)
+{
+    if (baseMap.AgentByEmail(email) is Agent agent)
+    {
+        agentCommits++;
+        agents[agent.Id] = agent;
+    }
+}
+
+// Delegate changes: the head's map, read as data, against the base's.
+List<Human> delegatesChanged = [];
+
+try
+{
+    string headJson = await api.GetRaw($"contents/{IdentityMap.RelativePath}?ref={headSha}");
+    List<string> headProblems = [];
+    IdentityMap headMap = IdentityMap.Parse(headJson, headProblems);
+
+    foreach (Human human in headMap.Humans)
+    {
+        Human? before = baseMap.HumanById(human.Id);
+        IEnumerable<string> was = before?.Delegates ?? [];
+
+        if (!was.Order(StringComparer.Ordinal).SequenceEqual(human.Delegates.Order(StringComparer.Ordinal), StringComparer.Ordinal))
+        {
+            delegatesChanged.Add(before ?? human);
+        }
+    }
+}
+catch (Exception exception) when (exception is HttpRequestException or JsonException)
+{
+    Console.Error.WriteLine($"agent-review: could not read the head's identity map: {exception.Message}");
+    return 2;
+}
 
 foreach (Human human in delegatesChanged)
 {
     if (pullAuthor is null)
     {
-        findings.Add($"the delegates of '{human.Id}' change, which only {human.Id}'s own pull request may do; this is not a pull request");
+        findings.Add($"the delegates of '{human.Id}' change, which only {human.Id}'s own pull request may do; this is a push");
     }
     else if (!string.Equals(pullAuthor, human.GitHub, StringComparison.OrdinalIgnoreCase))
     {
@@ -172,22 +240,52 @@ foreach (Human human in delegatesChanged)
     }
 }
 
-// --- approvals -------------------------------------------------------------------
+// Approvals: conversation comments on the pull request, nothing else.
+Dictionary<string, HashSet<string>> approvedBy = new(StringComparer.OrdinalIgnoreCase);
 
-foreach (Agent agent in agentsInRange.Values)
+if (pullNumber is int pr && agents.Count > 0)
 {
-    // Who may approve is the base's answer, as for delegate changes: a pull
-    // request that adds a delegate cannot be approved by that delegate.
-    IReadOnlyList<Human> acting = baseMap?.Agents.Any(known => known.Id == agent.Id) == true
-        ? baseMap.ActingFor(agent)
-        : headMap.ActingFor(agent);
-    string who = string.Join(", ", acting.Select(human => human.GitHub ?? human.Id));
-
-    if (eventName.Length == 0)
+    try
     {
-        Console.WriteLine($"note '{agent.Id}' authored commits here; a pull request needs an approval on its head from {who}");
-        continue;
+        Regex approve = new(@"\bapprove\s+(?<sha>[0-9a-fA-F]{" + MinimumShaPrefix + @",40})\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        foreach (JsonElement comment in await api.GetAll($"issues/{pr}/comments"))
+        {
+            string? login = comment.TryGetProperty("user", out JsonElement user) && user.ValueKind == JsonValueKind.Object
+                ? user.GetProperty("login").GetString()
+                : null;
+            string body = comment.TryGetProperty("body", out JsonElement text) ? text.GetString() ?? "" : "";
+
+            if (login is null)
+            {
+                continue;
+            }
+
+            foreach (Match match in approve.Matches(body))
+            {
+                if (headSha.StartsWith(match.Groups["sha"].Value, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!approvedBy.TryGetValue(login, out HashSet<string>? shas))
+                    {
+                        approvedBy[login] = shas = [];
+                    }
+
+                    shas.Add(headSha);
+                }
+            }
+        }
     }
+    catch (Exception exception) when (exception is HttpRequestException or JsonException)
+    {
+        Console.Error.WriteLine($"agent-review: could not read the comments of #{pr}: {exception.Message}");
+        return 2;
+    }
+}
+
+foreach (Agent agent in agents.Values)
+{
+    IReadOnlyList<Human> holders = baseMap.ActingFor(agent);
+    string who = string.Join(", ", holders.Select(human => human.GitHub ?? human.Id));
 
     if (pullNumber is null)
     {
@@ -195,163 +293,156 @@ foreach (Agent agent in agentsInRange.Values)
         continue;
     }
 
-    HashSet<string> approvers;
-    HashSet<string> commentApprovers;
+    Human? approver = holders.FirstOrDefault(human => human.GitHub is not null && approvedBy.ContainsKey(human.GitHub));
 
-    try
+    if (approver is null)
     {
-        (approvers, commentApprovers) = await ApproversOnHead(pullNumber.Value, headSha);
-    }
-    catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or JsonException or TaskCanceledException)
-    {
-        Console.Error.WriteLine($"agent-review: could not read the reviews of #{pullNumber}: {exception.Message}");
-        return 2;
-    }
-
-    Human? approver = acting.FirstOrDefault(human => human.GitHub is not null && approvers.Contains(human.GitHub));
-
-    // The comment form: only the responsible human, only on a pull request
-    // opened under their own login, which GitHub will not let them approve.
-    Human? responsible = acting.Count > 0 ? acting[0] : null;
-    bool ownPullRequest = responsible?.GitHub is not null
-        && string.Equals(pullAuthor, responsible.GitHub, StringComparison.OrdinalIgnoreCase);
-
-    if (approver is not null)
-    {
-        Console.WriteLine($"ok  '{agent.Id}''s commits are approved on the head by {approver.GitHub}");
-    }
-    else if (ownPullRequest && commentApprovers.Contains(responsible!.GitHub!))
-    {
-        Console.WriteLine($"ok  '{agent.Id}''s commits are approved on the head by {responsible.GitHub}, by comment on their own pull request");
+        findings.Add($"'{agent.Id}' authored commits in #{pullNumber}; it needs a comment 'approve {headSha}' "
+            + $"(at least {MinimumShaPrefix} characters of the head) from {who}");
     }
     else
     {
-        string shortHead = headSha[..Math.Min(8, headSha.Length)];
-        string how = ownPullRequest
-            ? $"an approving review from {who}, or a comment review by {responsible!.GitHub} containing 'approve {headSha}'"
-            : $"an approving review from {who}";
-        findings.Add($"'{agent.Id}' authored commits in #{pullNumber}, which needs, on {shortHead}, {how}"
-            + (approvers.Count == 0 ? "; it has no approval on this head" : $"; it has approvals from {string.Join(", ", approvers)} only"));
+        Console.WriteLine($"ok  '{agent.Id}' is approved on {headSha[..MinimumShaPrefix]} by {approver.GitHub}");
     }
 }
 
+string summary = findings.Count == 0
+    ? $"{agentCommits} agent commit(s), every agent approved on the head; {delegatesChanged.Count} delegate change(s), each by its own human."
+    : string.Join("\n", findings.Select(finding => "- " + finding));
+
 Console.WriteLine($"note {agentCommits} agent commit(s), {delegatesChanged.Count} delegate change(s)");
-
-if (findings.Count == 0)
-{
-    Console.WriteLine("ok  agent review");
-    return 0;
-}
-
-Console.Error.WriteLine();
-Console.Error.WriteLine($"FAIL: agent review (ADR 0087):");
 
 foreach (string finding in findings)
 {
     Console.Error.WriteLine($"  {finding}");
 }
 
-return 1;
+// --- the verdict ---------------------------------------------------------------
+
+if (eventName == "pull_request")
+{
+    // Transitional: the job's exit code is the verdict.
+    Console.WriteLine(findings.Count == 0 ? "ok  agent review" : "FAIL: agent review (ADR 0087)");
+    return findings.Count == 0 ? 0 : 1;
+}
+
+if (string.IsNullOrEmpty(gatesToken))
+{
+    Console.Error.WriteLine("agent-review: a trusted path without GATES_TOKEN; the verdict cannot be posted where the ruleset reads it.");
+    return 2;
+}
+
+try
+{
+    long? pinned = PinnedIntegration(repositoryRoot, checkName);
+    await PostCheck(new Api(gatesToken), checkName, headSha, findings.Count == 0, summary, pinned);
+    Console.WriteLine($"ok  posted '{checkName}' = {(findings.Count == 0 ? "success" : "failure")} on {headSha}");
+    return 0;
+}
+catch (Exception exception) when (exception is HttpRequestException or JsonException or TaskCanceledException)
+{
+    Console.Error.WriteLine($"agent-review: could not post the check run: {exception.Message}");
+    return 2;
+}
 
 // --- helpers ---------------------------------------------------------------
 
-// The logins whose latest decisive review is APPROVED on the given head, and
-// the logins with a comment review whose body says "approve <sha>" for it.
-static async Task<(HashSet<string> Approvers, HashSet<string> CommentApprovers)> ApproversOnHead(int pull, string head)
+static void AddCommit(JsonElement commit, List<string> emails)
 {
-    string api = Environment.GetEnvironmentVariable("GITHUB_API_URL") ?? "https://api.github.com";
-    string repository = Environment.GetEnvironmentVariable("GITHUB_REPOSITORY")
-        ?? throw new InvalidOperationException("GITHUB_REPOSITORY is not set.");
-    string token = Environment.GetEnvironmentVariable("GITHUB_TOKEN")
-        ?? throw new InvalidOperationException("GITHUB_TOKEN is not set; the job passes github.token.");
+    JsonElement inner = commit.GetProperty("commit");
 
-    using HttpClient client = new();
-    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-    client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("varve-agent-review", "1"));
-    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-
-    // Reviews come oldest first; the latest decisive one per login stands.
-    Dictionary<string, (string State, string Commit)> latest = new(StringComparer.OrdinalIgnoreCase);
-    HashSet<string> commentApprovers = new(StringComparer.OrdinalIgnoreCase);
-    System.Text.RegularExpressions.Regex approve = new(
-        @"\bapprove\s+(?<sha>[0-9a-fA-F]{7,40})\b",
-        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
-
-    for (int page = 1; ; page++)
+    // A merge's author is whoever merged; the commits it brings are listed
+    // on their own.
+    if (commit.TryGetProperty("parents", out JsonElement parents) && parents.GetArrayLength() > 1)
     {
-        string body = await client.GetStringAsync($"{api}/repos/{repository}/pulls/{pull}/reviews?per_page=100&page={page}");
-        using JsonDocument reviews = JsonDocument.Parse(body);
-
-        if (reviews.RootElement.GetArrayLength() == 0)
-        {
-            break;
-        }
-
-        foreach (JsonElement review in reviews.RootElement.EnumerateArray())
-        {
-            string state = review.GetProperty("state").GetString() ?? "";
-            string? login = review.TryGetProperty("user", out JsonElement user) && user.ValueKind == JsonValueKind.Object
-                ? user.GetProperty("login").GetString()
-                : null;
-
-            if (login is null || state == "PENDING")
-            {
-                continue;
-            }
-
-            // A comment does not change a reviewer's decision, but its body
-            // can carry "approve <sha>", which counts only where the caller
-            // says it does.
-            if (state == "COMMENTED")
-            {
-                string text = review.TryGetProperty("body", out JsonElement reviewBody) ? reviewBody.GetString() ?? "" : "";
-
-                foreach (System.Text.RegularExpressions.Match match in approve.Matches(text))
-                {
-                    if (head.StartsWith(match.Groups["sha"].Value, StringComparison.OrdinalIgnoreCase))
-                    {
-                        commentApprovers.Add(login);
-                    }
-                }
-
-                continue;
-            }
-
-            latest[login] = (state, review.TryGetProperty("commit_id", out JsonElement commit) ? commit.GetString() ?? "" : "");
-        }
+        return;
     }
 
-    HashSet<string> approvers = new(
-        latest.Where(entry => entry.Value.State == "APPROVED" && entry.Value.Commit == head).Select(entry => entry.Key),
-        StringComparer.OrdinalIgnoreCase);
-
-    return (approvers, commentApprovers);
+    emails.Add(inner.GetProperty("author").GetProperty("email").GetString() ?? "");
 }
 
-static (int ExitCode, string StandardOutput, string StandardError) Git(string root, params string[] arguments)
+// The integration id ruleset 1 pins the check to, read from main's
+// .github/repo-standard.yaml; the check run of that App is the one updated.
+static long? PinnedIntegration(string root, string name)
 {
-    ProcessStartInfo startInfo = new()
-    {
-        FileName = "git",
-        WorkingDirectory = root,
-        RedirectStandardOutput = true,
-        RedirectStandardError = true,
-        UseShellExecute = false,
-    };
+    string path = Path.Combine(root, ".github", "repo-standard.yaml");
 
-    foreach (string argument in arguments)
+    if (!File.Exists(path))
     {
-        startInfo.ArgumentList.Add(argument);
+        return null;
     }
 
-    using Process process = Process.Start(startInfo)
-        ?? throw new InvalidOperationException("Could not start git.");
+    string[] lines = File.ReadAllLines(path);
 
-    Task<string> standardError = process.StandardError.ReadToEndAsync();
-    string standardOutput = process.StandardOutput.ReadToEnd();
-    process.WaitForExit();
+    for (int i = 0; i < lines.Length; i++)
+    {
+        Match context = Regex.Match(lines[i], @"^\s*-\s*context:\s*(?<name>.+?)\s*$");
 
-    return (process.ExitCode, standardOutput, standardError.Result);
+        if (!context.Success || context.Groups["name"].Value.Trim('"', '\'') != name)
+        {
+            continue;
+        }
+
+        for (int j = i + 1; j < lines.Length && !Regex.IsMatch(lines[j], @"^\s*-\s"); j++)
+        {
+            Match id = Regex.Match(lines[j], @"^\s*integration_id:\s*(?<id>\d+)\s*$");
+
+            if (id.Success)
+            {
+                return long.Parse(id.Groups["id"].Value, System.Globalization.CultureInfo.InvariantCulture);
+            }
+        }
+    }
+
+    return null;
+}
+
+static async Task PostCheck(Api api, string name, string head, bool success, string summary, long? integration)
+{
+    string conclusion = success ? "success" : "failure";
+    JsonObject Output() => new()
+    {
+        ["title"] = success ? "Approved" : "Not approved",
+        ["summary"] = summary,
+    };
+
+    // Update this App's run for the head if there is one, so the check has
+    // one row; otherwise create it.
+    long? existing = null;
+    using (JsonDocument runs = await api.Get($"commits/{head}/check-runs?check_name={Uri.EscapeDataString(name)}&filter=latest"))
+    {
+        foreach (JsonElement run in runs.RootElement.GetProperty("check_runs").EnumerateArray())
+        {
+            long app = run.GetProperty("app").GetProperty("id").GetInt64();
+
+            if (integration is null || app == integration)
+            {
+                existing = run.GetProperty("id").GetInt64();
+                break;
+            }
+        }
+    }
+
+    if (existing is long id)
+    {
+        await api.Send(HttpMethod.Patch, $"check-runs/{id}", new JsonObject
+        {
+            ["status"] = "completed",
+            ["conclusion"] = conclusion,
+            ["output"] = Output(),
+        });
+    }
+    else
+    {
+        await api.Send(HttpMethod.Post, "check-runs", new JsonObject
+        {
+            ["name"] = name,
+            ["head_sha"] = head,
+            ["status"] = "completed",
+            ["conclusion"] = conclusion,
+            ["output"] = Output(),
+        });
+    }
 }
 
 static string FindRepositoryRoot()
@@ -369,4 +460,72 @@ static string FindRepositoryRoot()
     }
 
     throw new InvalidOperationException("Could not find the repository root (no Varve.slnx above the current directory).");
+}
+
+// The repository's REST API, as data. Nothing it returns is executed.
+sealed class Api
+{
+    private readonly HttpClient client = new();
+    private readonly string root;
+
+    public Api(string? token)
+    {
+        string api = Environment.GetEnvironmentVariable("GITHUB_API_URL") ?? "https://api.github.com";
+        string repository = Environment.GetEnvironmentVariable("GITHUB_REPOSITORY")
+            ?? throw new InvalidOperationException("GITHUB_REPOSITORY is not set.");
+
+        if (string.IsNullOrEmpty(token))
+        {
+            throw new InvalidOperationException("no token; the job passes github.token as GITHUB_TOKEN.");
+        }
+
+        root = $"{api.TrimEnd('/')}/repos/{repository}/";
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("varve-agent-review", "2"));
+        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+    }
+
+    public async Task<JsonDocument> Get(string path) =>
+        JsonDocument.Parse(await client.GetStringAsync(root + path));
+
+    public async Task<string> GetRaw(string path)
+    {
+        using HttpRequestMessage request = new(HttpMethod.Get, root + path);
+        request.Headers.Accept.Clear();
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github.raw+json"));
+        using HttpResponseMessage response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsStringAsync();
+    }
+
+    public async Task<List<JsonElement>> GetAll(string path)
+    {
+        List<JsonElement> all = [];
+        string separator = path.Contains('?', StringComparison.Ordinal) ? "&" : "?";
+
+        for (int page = 1; ; page++)
+        {
+            using JsonDocument document = await Get($"{path}{separator}per_page=100&page={page}");
+
+            if (document.RootElement.GetArrayLength() == 0)
+            {
+                return all;
+            }
+
+            foreach (JsonElement element in document.RootElement.EnumerateArray())
+            {
+                all.Add(element.Clone());
+            }
+        }
+    }
+
+    public async Task Send(HttpMethod method, string path, JsonObject body)
+    {
+        using HttpRequestMessage request = new(method, root + path)
+        {
+            Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json"),
+        };
+        using HttpResponseMessage response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+    }
 }
