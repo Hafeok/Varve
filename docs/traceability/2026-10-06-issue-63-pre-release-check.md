@@ -100,3 +100,40 @@ without, and passing a change that adds no section.
 trusted-publishing policy naming `release` (the maintainer's, as stated);
 `dotnet run eng/changelog.cs -- --release 0.1.0-preview.1` on `main`,
 committed with its `Refs`; the tag on that commit.
+
+## The third prompt
+
+> Yes, watch #64. Also open the two port issues the ADR expects as exit criteria: one in how-we-work for the process gates (changelog with release cut, licence headers, issue references, DCO, package metadata, native assets, release-pending) and one in the analyzer repository for the ledger gates (register citations, suppression citations), each listing the eng/ scripts and the Varve commit they come from. Reference both from AGENTS.md's eng/ line.
+
+The session reported that no ADR named such exit criteria, that the analyzer
+repository never names Varve, that nothing checks DCO, and that suppression
+citations are `DD0008`, and asked. The maintainer's answers, verbatim:
+
+> Write a short ADR, Accepted, "Home of the eng/ gates": eng/ holds Varve-specific gates (conformance ratchet, exemptions, guard counts, benchmarks, ci.cs as orchestrator) and temporarily hosts generic ones pending their port. Two destinations: process gates (changelog with release cut, licence headers, issue references, DCO, package metadata, native assets, release-pending) to mindovermachine-dev/how-we-work beside repo-standard, as the stewardship standard made executable; ledger gates (register citations, suppression citations, decision-set checks not already covered by DDGEN) to the analyzer repository beside DecisionDriven.Report. Exit criteria: one issue in each destination listing the scripts and the Varve commit they come from; a script leaves eng/ when its port is released and Varve consumes it from there. Alternatives: keep everything in Varve (rejected: every adopter re-implements the standard), port now (rejected: blocks the release). Then open the two issues citing the ADR, and reference it from AGENTS.md's eng/ line. Same PR as #64 if it is still open, otherwise a small follow-up.
+>
+> Correction: the analyzer repository never names Varve, so its issue describes the ledger gates generically and carries no consumer, commit or link back. Provenance (scripts, commits, the link to the analyzer issue) goes in a Varve issue. Check how-we-work for an equivalent rule before writing its issue; if it has one, split the same way.
+>
+> Correction to the ADR and issues: DCO is a workflow check, not a script; list it in the how-we-work issue as a workflow to port, on its own line. Suppression citations are DD0008 and already live in the analyzer repository; remove them from the ledger-gates list. If the register-citation gate is the only ledger gate left, the analyzer issue covers that one; if DDGEN already covers the decision-set checks, say so in the ADR.
+>
+> Ledger gates for the analyzer issue: eng/dependency-register.cs (every package version cites an ADR; bump classification), plus eng/banned-symbols.cs only if it enforces ADR citations on entries. State generically that the ported form should cite decision keys rather than ADR numbers.
+
+## The third report
+
+- **ADR 0086, "Home of the eng/ gates"**, in #64. Its status says Accepted, as
+  decided; its decision set carries no `accepted-by`, which a session never
+  writes, so the maintainer adds it.
+- **Facts checked before writing:**
+  - how-we-work has no rule against naming a consumer, so its issue carries
+    the provenance itself;
+  - `banned-symbols.cs` does enforce ADR citations, so it is a ledger gate;
+  - DDGEN covers only duplicate, non-identifier and colliding keys (0001,
+    0002, 0005), so `decision-sets.cs`'s other generic checks are ported too;
+  - **no workflow checks DCO in Varve**: the issue lists it as a workflow to
+    write, not one to port.
+- **Issues:**
+  [how-we-work#1](https://github.com/mindovermachine-dev/how-we-work/issues/1)
+  for the process gates, with scripts and commits;
+  [decision-driven-analyzers#84](https://github.com/Hafeok/decision-driven-analyzers/issues/84)
+  for the ledger gates, generic, naming no consumer; and
+  [#65](https://github.com/Hafeok/Varve/issues/65), the ledger gates'
+  provenance. AGENTS.md's `eng/` line references all three through ADR 0086.
