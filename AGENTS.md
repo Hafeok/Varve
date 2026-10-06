@@ -99,7 +99,9 @@ is red on **`release pending`** until the previous one is tagged.
 requires every gate by job name, `dco` and `agent review` included, with no
 bypass. A session lands through a pull request from its branch, which needs an
 approving review on its head from the session's responsible human or a
-delegate (ADR 0087). A human pushes to a `land/` branch and fast-forwards `main`
+delegate (ADR 0087). On a pull request opened under the responsible human's own
+account, which GitHub will not let them approve, their comment review
+`approve <head sha>` is the approval. A human pushes to a `land/` branch and fast-forwards `main`
 to its checked head, or merges a review-free pull request. Work not ready for
 the trunk lives behind a feature flag or stays local, **not on a long-lived
 branch**. Human review gates a *release*, via the `release` environment.
