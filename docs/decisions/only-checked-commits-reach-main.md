@@ -31,6 +31,10 @@ decisions:
     statement: "Only the maintainer merges a pull request and only the maintainer releases"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-06T00:00:00Z
+  - key: RequiredCheckNamesAreReportedJobs
+    statement: "Every check ruleset 1 requires is a job name some workflow running on pull requests reports, and eng/required-checks.cs fails a change where one is not"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-06T00:00:00Z
 ---
 
 The rulings of [ADR 0088](../adr/0088-only-checked-commits-reach-main.md), which supersedes ADR 0032,

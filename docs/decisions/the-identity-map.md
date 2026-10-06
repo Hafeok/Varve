@@ -23,6 +23,14 @@ decisions:
     statement: "A pull request containing an agent's commits needs an approving review on its current head from the agent's responsible human or a delegate"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-06T00:00:00Z
+  - key: OwnPullRequestApprovedByComment
+    statement: "For a pull request opened under the responsible human's own login, a comment review by that human containing approve and the current head sha counts as their approval; an earlier head or another author counts for nothing"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-06T00:00:00Z
+  - key: ApprovalBecomesASignedLedgerReview
+    statement: "When the ledger gates ship, an approval is a signed ledger Review over the head sha by an identity holding Approve, and the GitHub review and comment forms are retired with the identity map"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-06T00:00:00Z
 ---
 
 The rulings of [ADR 0087](../adr/0087-the-identity-map.md), written by the pre-release session of

@@ -99,6 +99,13 @@ List<(string Name, string Description, Func<int> Run)> jobs =
             ? Run("dotnet", ["run", "eng/dco.cs", "--", "--commits", "tests/fixtures/dco/passing.txt", "--identities", "tests/fixtures/dco/identities.json"])
             : 1),
 
+    ("required-checks", "every check ruleset 1 requires is a job that reports on pull requests",
+        () => Run("dotnet", ["run", "eng/required-checks.cs"])),
+
+    // Its failure path, as for the DCO gate (tests/fixtures/required-checks/README.md).
+    ("required-checks-fixture", "the required-checks gate fails its fixture",
+        () => Run("dotnet", ["run", "eng/required-checks.cs", "--", "--declaration", "tests/fixtures/required-checks/repo-standard.yaml", "--workflows", "tests/fixtures/required-checks/workflows"]) == 1 ? 0 : 1),
+
     ("release-pending", "a milestone starts only once the one before it is released",
         () => Run("dotnet", Args("run", "eng/release-pending.cs", baseRef is null ? null : "--", baseRef is null ? null : "--base", baseRef))),
 

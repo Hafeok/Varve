@@ -54,7 +54,10 @@ pushes it to a `land/` branch, lets CI run, and fast-forwards `main` to it, or
 merges a pull request. An AI session lands through a pull request, and that
 pull request needs an approving review on its head from the session's
 responsible human or one of their delegates, as listed in `eng/identities.json`
-([ADR 0087](docs/adr/0087-the-identity-map.md)). A change not ready for the
+([ADR 0087](docs/adr/0087-the-identity-map.md)). On a pull request opened under
+the responsible human's own account, which GitHub will not let them approve,
+their comment review `approve <head sha>` counts instead (0087's amendment of
+2026-10-06). A change not ready for the
 trunk lives behind a feature flag or stays local — **not on a long-lived
 branch**.
 

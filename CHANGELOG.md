@@ -72,6 +72,12 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - regenerate the changelog (cdbfd651)
 - **decisions**: accept 0085-0088 (4c7e9119)
 - **adr**: the index records 0085-0088 as accepted (9ff30c05)
+- regenerate the changelog (1ccfacc0)
+- **agent review**: a comment approval on the responsible human's own pull request (28ed70bd)
+- every required check is a job that reports on pull requests (b497f58c)
+- **adr**: 0087 approval by comment and the exit to a ledger Review; 0088 the required-checks gate (57ef9692)
+- approval by comment on one's own pull request (8abb2e1c)
+- **traceability**: the fifth round of #63's session (3a017f99)
 
 #### Fixed
 

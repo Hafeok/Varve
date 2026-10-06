@@ -81,6 +81,35 @@ human's delegates change **only in that human's own pull request**.
 `dco` and `agent review` are required checks on ruleset 1 (ADR 0088). Rule 2
 runs in the `decision-sets` job, which is already a gate.
 
+### Amendment, 2026-10-06 — approval by comment on one's own pull request, and the exit to the ledger
+
+**The Consequences' first point came true at once.** GitHub refuses an
+approving review from a pull request's author. #64 was opened under the
+responsible human's account, so nobody could approve it, and it was merged
+with `agent review` red, before ruleset 1 required the check.
+
+**So rule 3 gains one form of approval, for one case.**
+- For a pull request **opened under the responsible human's own GitHub
+  login**, a review in the comment state by that human whose body contains
+  `approve <head sha>` counts as that human's approval.
+- The sha is the current head's, in full or at least seven characters of it.
+- A comment naming an earlier head counts for nothing, and so does the same
+  comment by anyone else, delegates included.
+- A pull request opened by anyone else still needs an approving review from
+  the responsible human or a delegate, as before.
+
+The comment is the approval GitHub would not let that human give, made on the
+same head and recorded on the same pull request.
+
+**The exit.** When the ledger gates ship (ADR 0086,
+[decision-driven-analyzers#84](https://github.com/Hafeok/decision-driven-analyzers/issues/84)),
+an approval becomes a **signed ledger `Review` over the head SHA by an identity
+holding `Approve`**, and both GitHub forms, the approving review and the
+comment, are retired with this map. A signature over the head is what both
+forms stand in for: evidence that a particular person approved exactly what
+merges. Neither form can give that, because GitHub records who pressed a
+button, not what they signed.
+
 ## Alternatives considered
 
 - **Exempt agents from the author match.** Leaves every session commit

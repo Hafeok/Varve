@@ -212,3 +212,40 @@ the session marked 0085–0088 accepted in the index, recorded 0085's
 <emil@okkels-klein.dk>`, so the names differ and ADR 0087's human rule
 refuses it. The session does not rewrite the maintainer's commit; how it is
 resolved is the maintainer's choice.
+
+## The fifth prompt
+
+> Merge #64 with agent review red; the ruleset applies on merge. Next PR: the agent review check accepts, for a PR opened under the responsible human's own GitHub account, a comment review by that human whose body contains "approve <head sha>"; approving reviews remain required for PRs opened by anyone else; old-head and stranger cases keep failing. ADR 0087 gains the exit: approval becomes a signed ledger Review over the head SHA by an Approve holder when the ledger gates ship. Add a test that every required check name in repo-standard.yaml is a job name in ci.yml. I accept 0086–0088 on the branch and do the first land/ fast-forward myself.
+
+## The fifth report
+
+- **#64 merged** as 4f2230c with `agent review` red, as instructed. The
+  `Repository settings` workflow applied the declaration on that push and
+  succeeded, so ruleset 1 now requires the 14 checks.
+- **`agent review`**: on a pull request opened under the responsible human's
+  login, a comment review by that human containing `approve <sha>` counts as
+  approval, if the sha is the head in full or at least seven characters.
+  Tested against a local stand-in for the reviews API:
+  - own pull request with the full sha, or seven characters of it: pass;
+  - an earlier head's sha, six characters, or the comment by a stranger: fail;
+  - a pull request by someone else with the human's comment: fail;
+  - with an approving review: pass.
+- **`eng/required-checks.cs`** checks every required name against the job
+  names every workflow reports, matrix-expanded, and against pull-request
+  triggers.
+  - Every workflow and not `ci.yml` alone, because `agent review` lives in
+    `agent-review.yml`; reading only `ci.yml` would fail it.
+  - The live declaration passes, which also confirms the 14 names now in force.
+  - The fixture fails on a name outside the matrix and on one reported only by
+    a workflow that does not run on pull requests.
+- **ADR 0087** amended (the comment form; the exit to a signed ledger
+  `Review`), and **ADR 0088** amended (the required-checks gate). Their three
+  new keys are filed unaccepted.
+- **Session error, recovered:** a `git reset --hard` used to clean up a
+  throwaway test commit also discarded the uncommitted edit to
+  `eng/agent-review.cs`. Nothing had been pushed. The edit was reapplied,
+  committed, and the eight cases re-run on top of it.
+- **Found, not fixed:** `agent-review.yml` runs the pull request's own
+  `eng/agent-review.cs`, so a pull request can change the gate that judges it.
+  Running the base's script would deadlock this pull request, which needs its
+  own new rule to pass. It is a follow-up once this rule is on `main`.

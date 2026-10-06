@@ -78,6 +78,22 @@ reason to build it first, not a reason to skip the checks.
    - a branch's name is its author's business, except that `land/` marks a
      branch whose head is meant for `main`.
 
+### Amendment, 2026-10-06 — a required check's name is checked
+
+The Consequences say a required check's name is part of the ruleset, and that
+a name no job reports leaves `main` unable to accept anything. That was a
+sentence, and repo-standard's schema does not look inside a rule's
+parameters. **`eng/required-checks.cs` makes it a gate**, run as a job of
+`eng/ci.cs`:
+- every `context` under `required_status_checks` in `repo-standard.yaml` must
+  be a job name some workflow reports, with matrix names expanded;
+- that workflow must run on pull requests.
+
+Its failure path is `tests/fixtures/required-checks/`, which the
+`required-checks-fixture` job requires to fail. The names are read from every
+workflow, not from `ci.yml` alone, because `agent review` has its own
+(ADR 0087).
+
 ## Alternatives considered
 
 - **Keep 0032**: checks after the push, fixed forward. Rejected: it cannot
