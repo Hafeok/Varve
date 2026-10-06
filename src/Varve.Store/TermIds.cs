@@ -21,8 +21,8 @@ internal enum IdClass
 }
 
 /// <summary>
-/// The in-memory id layout. Provisional by ADR 0045: the durable layout is
-/// milestone 6's.
+/// The id layout, frozen by ADR 0072 as format version 1's: the same in
+/// memory and on disk, and changed only by a new format version.
 /// </summary>
 /// <remarks>
 /// Canonical and blank ids are counters from 1 within their class, so no id is
