@@ -166,6 +166,11 @@ jobs:
           VARVE_CHROME: ${{ vars.VARVE_CHROME || '/usr/bin/google-chrome' }}
         run: dotnet run eng/browser-tests.cs
 
+      - name: Changelog
+        # ADR 0085: the tag is on the commit eng/changelog.cs --release cut,
+        # so the tagged CHANGELOG.md has the version's section.
+        run: dotnet run eng/changelog.cs -- --check
+
       - name: Release notes
         # The tag's section of CHANGELOG.md, headed "## [<version>]", becomes
         # the GitHub release's notes. Extracted here, before anything is
@@ -177,11 +182,11 @@ jobs:
           mkdir -p "${{ github.workspace }}/artifacts"
           awk -v heading="## [$version]" '
             index($0, heading) == 1 { found = 1; next }
-            found && /^## / { exit }
+            found && (/^## / || /^\[[^]]+\]: /) { exit }
             found { print }
           ' CHANGELOG.md > "${{ github.workspace }}/artifacts/release-notes.md"
           if ! grep -q '[^[:space:]]' "${{ github.workspace }}/artifacts/release-notes.md"; then
-            echo "::error::CHANGELOG.md has no non-empty section headed '## [$version]'. Regenerate it with eng/changelog.cs at the commit being tagged."
+            echo "::error::CHANGELOG.md has no non-empty section headed '## [$version]'. Cut it with eng/changelog.cs --release $version and tag that commit (ADR 0085)."
             exit 1
           fi
 
@@ -262,7 +267,7 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           awk -v heading="## [$version]" '
             index($0, heading) == 1 { found = 1; next }
-            found && /^## / { exit }
+            found && (/^## / || /^\[[^]]+\]: /) { exit }
             found { print }
           ' CHANGELOG.md > "$RUNNER_TEMP/release-notes.md"
           prerelease=()
