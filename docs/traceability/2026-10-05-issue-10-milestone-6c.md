@@ -399,3 +399,22 @@ disk footprint 2.2 times smaller.
 - **A browser content security policy.** The OPFS worker loads a JavaScript
   module. A host with a strict CSP needs to allow it, and the package should
   say how (ADR 0084).
+
+## After the pull request opened
+
+### The maintainer's decisions on the pull request
+
+> Accepting 0078–0084 on the branch; merge follows. Yes, watch #62.
+>
+> Soak drift: the commit table becomes derived, paged state (position-to-offset index in derived/, read through the blob contract, bounded recent-entry cache). Own slice after #62 merges, before milestone 7, with the one-hour soak re-run. #61 stays open and the gate is not restated. Report the working set less collector headroom alongside, but the criterion stays the working set.
+
+### What was done
+
+- **The acceptances** are the maintainer's, in `4d9f800`: all 27 rulings of
+  the seven sets, and the seven ADRs' status lines. Without the `CS0618`
+  override the solution then builds with no warning and no error, and
+  `eng/decision-sets.cs` counts 579 decisions, all accepted.
+- **The index** records 0078–0084 as accepted.
+- **The soak's drift** is left to its own slice, as decided. ADR 0082 is not
+  restated, its criterion stays the working set, and #61 stays open.
+
