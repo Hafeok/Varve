@@ -1,0 +1,17 @@
+name: Gates
+
+on:
+  pull_request_target:
+    types: [opened, synchronize]
+
+jobs:
+  judge:
+    name: judge
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GATES_CHECK_NAME: approved
+        run: echo approved
+      - env:
+          GATES_CHECK_NAME: reviewed
+        run: echo reviewed

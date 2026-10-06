@@ -22,6 +22,15 @@
 // writes them: jobs two spaces in, their keys four, a matrix's values eight
 // or ten. A name it cannot resolve is "could not run", never a pass.
 //
+// A required check may be pinned to an App with `integration_id` (ADR 0087,
+// amendment of 2026-10-06). A pinned check is not a job: it is posted by the
+// gates App, which a workflow declares with `GATES_CHECK_NAME: <name>` on the
+// step that posts it. So a pinned name must be posted that way by a workflow
+// that runs on pull_request_target, whose definition comes from main. And a
+// required name the App posts must be pinned: unpinned, any job a pull
+// request adds under that name satisfies it, which is the spoofing the pin
+// exists to stop.
+//
 // --declaration and --workflows aim it elsewhere, which is how its failure path
 // is proven: tests/fixtures/required-checks/ names a job that does not exist.
 //
@@ -56,8 +65,9 @@ if (!File.Exists(declaration) || !Directory.Exists(workflows))
 
 // --- the required names ------------------------------------------------------
 
-List<string> required = [];
+List<(string Name, long? Integration)> required = [];
 Regex context = new(@"^\s*-\s*context:\s*(?<name>.+?)\s*$", RegexOptions.CultureInvariant);
+Regex integration = new(@"^\s+integration_id:\s*(?<id>\d+)\s*$", RegexOptions.CultureInvariant);
 
 foreach (string line in File.ReadAllLines(declaration))
 {
@@ -65,20 +75,38 @@ foreach (string line in File.ReadAllLines(declaration))
 
     if (match.Success)
     {
-        required.Add(Unquote(match.Groups["name"].Value));
+        required.Add((Unquote(match.Groups["name"].Value), null));
+    }
+    else if (required.Count > 0 && (match = integration.Match(line)).Success)
+    {
+        required[^1] = (required[^1].Name, long.Parse(match.Groups["id"].Value, System.Globalization.CultureInfo.InvariantCulture));
     }
 }
 
 // --- the reported names ------------------------------------------------------
 
 Dictionary<string, (string Workflow, bool OnPullRequest)> reported = new(StringComparer.Ordinal);
+Dictionary<string, (string Workflow, bool OnTarget)> appPosted = new(StringComparer.Ordinal);
 List<string> problems = [];
+Regex gatesCheck = new(@"^\s+GATES_CHECK_NAME:\s*(?<name>.+?)\s*$", RegexOptions.CultureInvariant);
 
 foreach (string file in Directory.EnumerateFiles(workflows, "*.yml").Concat(Directory.EnumerateFiles(workflows, "*.yaml")).Order(StringComparer.Ordinal))
 {
     string workflow = Path.GetFileName(file);
     string[] lines = File.ReadAllLines(file);
     bool onPullRequest = RunsOnPullRequests(lines);
+
+    bool onTarget = lines.Any(line => Regex.IsMatch(line, @"^\s+pull_request_target\s*:"));
+
+    foreach (string line in lines)
+    {
+        Match posted = gatesCheck.Match(line);
+
+        if (posted.Success && (!appPosted.TryGetValue(Unquote(posted.Groups["name"].Value), out var seen) || (!seen.OnTarget && onTarget)))
+        {
+            appPosted[Unquote(posted.Groups["name"].Value)] = (workflow, onTarget);
+        }
+    }
 
     foreach (string name in JobNames(lines, workflow, problems))
     {
@@ -104,9 +132,27 @@ if (problems.Count > 0)
 
 List<string> findings = [];
 
-foreach (string name in required)
+foreach ((string name, long? pin) in required)
 {
-    if (!reported.TryGetValue(name, out var source))
+    if (pin is long id)
+    {
+        if (!appPosted.TryGetValue(name, out var poster))
+        {
+            findings.Add($"'{name}' is pinned to App {id}, and no workflow posts it as the gates App (GATES_CHECK_NAME)");
+        }
+        else if (!poster.OnTarget)
+        {
+            findings.Add($"'{name}' is pinned to App {id}, and only {poster.Workflow} posts it, which does not run on pull_request_target");
+        }
+
+        continue;
+    }
+
+    if (appPosted.ContainsKey(name))
+    {
+        findings.Add($"'{name}' is posted by the gates App but required without integration_id, so any job named '{name}' satisfies it; pin it");
+    }
+    else if (!reported.TryGetValue(name, out var source))
     {
         findings.Add($"'{name}' is required, and no job in {Path.GetFileName(workflows)}/ reports it");
     }
@@ -116,16 +162,22 @@ foreach (string name in required)
     }
 }
 
-Console.WriteLine($"note {required.Count} required check(s); {reported.Count} job name(s) across the workflows");
+int pinnedCount = required.Count(check => check.Integration is not null);
+Console.WriteLine($"note {required.Count} required check(s), {pinnedCount} pinned to an App; {reported.Count} job name(s) and {appPosted.Count} App-posted name(s) across the workflows");
+
+foreach ((string name, long? pin) in required.Where(check => check.Integration is not null))
+{
+    Console.WriteLine($"note pinned: '{name}' to App {pin}");
+}
 
 if (findings.Count == 0)
 {
-    Console.WriteLine("ok  every required check is a job that reports on pull requests");
+    Console.WriteLine("ok  every required check is a job that reports on pull requests, or a pinned check the gates App posts");
     return 0;
 }
 
 Console.Error.WriteLine();
-Console.Error.WriteLine($"FAIL: {findings.Count} required check(s) no job reports (ADR 0088):");
+Console.Error.WriteLine($"FAIL: {findings.Count} required check(s) nothing can satisfy, or anything can (ADR 0088):");
 
 foreach (string finding in findings)
 {
@@ -133,7 +185,7 @@ foreach (string finding in findings)
 }
 
 Console.Error.WriteLine();
-Console.Error.WriteLine("Rename the job or the required check, in the same change, or nothing can land on main.");
+Console.Error.WriteLine("Fix the job, the posted name or the required check in the same change, or main accepts nothing (or anything).");
 return 1;
 
 // --- helpers ---------------------------------------------------------------
