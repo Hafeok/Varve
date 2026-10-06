@@ -819,3 +819,15 @@ The same machine and the same session, before (the 6c head) and after:
 
 An old commit's entry is now an 80-byte read through the blob read where it
 was an array access. Scans do not read the commit index.
+
+`--soak 60 --policy` on the final code:
+- working set median 140–142 MB from minute 10, a dataset's own of 9.4 MB at
+  the hour;
+- handles 74–83, `derived/` 18–25 files;
+- drift +1.1%;
+- the band missed by two samples of a hundred, +27.3% and +27.0%, both
+  excursions of the collector's committed memory.
+
+With as-of reads off, the working set is worse: median 194 MB, drift +25.8%.
+Under a 128 MB heap hard limit the same run holds the band (−14.6%/+12.0%)
+and the drift (+7.6%). The traceability record's addendum has the tables.

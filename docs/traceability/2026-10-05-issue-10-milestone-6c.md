@@ -418,3 +418,249 @@ disk footprint 2.2 times smaller.
 - **The soak's drift** is left to its own slice, as decided. ADR 0082 is not
   restated, its criterion stays the working set, and #61 stays open.
 
+## Addendum, 2026-10-06 — the commit index, derived and paged
+
+> **Recorded contemporaneously** by the same session, in the same record,
+> under [ADR 0033](../adr/0033-commit-traceability.md). Tool, model and
+> session identifier are as above: Claude Code 2.1.289, `claude-opus-5-5`,
+> `session_01JZjxTGanMjuGR2KWbPjWRi`. Developed with AI assistance under human
+> review.
+
+### The prompt
+
+> Slice: paged commit index (Refs #61, #10). Milestone 6c is merged. The commit table held in memory (144 bytes per commit, growing without bound) becomes derived, paged state:
+>
+> - A position-to-record-offset index under derived/, written in the same block-and-fence form as runs, versioned under the derived rule (unknown version is a cache miss), rebuilt from the log on open when missing or stale, and extended incrementally by the default projection as commits close.
+> - Read through the synchronous blob contract; a bounded in-memory cache of the newest entries (size an option; state the default and the reason); every store path that consulted the table (as-of resolution, Diff, subscriptions resuming from a position, replay) reads through the index.
+> - The lock-free shared-state change gets an ADR: what readers see during an index extension, and the test that a pin opened before an extension still resolves every position it could before.
+> - Properties re-run: I5 (as-of by timestamp), R2, R3, subscriptions from arbitrary positions, recovery with the index missing, stale, or from another dataset; the determinism test unchanged since log/ does not change.
+> - The one-hour soak re-run on the final code: working set, handles, derived/ counts, and the working set less collector headroom alongside. The pass criterion is the working set within the band and under the drift limit. If it still fails, report the remaining cause with its ablation rather than restating the gate.
+> - Allocation and lookup benchmarks before and after; point lookup must not regress from 6c's 36.9 ms.
+>
+> One PR, red only on CS0618; report as a dated addendum to the 6c traceability record and close #61 only if the gate passes.
+
+When the prompt arrived, #62 had not yet merged; the work began on a local
+branch off its head and was moved onto `main` when it merged, an hour later.
+
+### The decision
+
+[ADR 0085](../adr/0085-the-commit-index-is-derived-and-paged.md), filed
+unaccepted with its decision set (four rulings).
+
+- **An entry per commit, 80 bytes.** Each commit's entry holds:
+  - its timestamp;
+  - its header hash;
+  - its location;
+  - the two dictionary counters after it;
+  - the log's bytes to its end.
+
+  Settings are not in it. They change only at settings commits, and the
+  index keeps those positions apart.
+- **Blobs.** The entries live in blobs under `derived/index/commits/`, kind 4
+  of the derived header (storage-format.md §7.4). Each blob is organised in
+  blocks of 128, with each block's first timestamp as its fence: 8 bytes in
+  memory per 128 commits. A timestamp is found by the fences, then at most
+  seven entries read.
+- **The cache.** `DatasetOptions.CommitCache` sets how many of the newest
+  entries stay in memory, **4,096 by default**, holding between that and
+  twice that. That is 320 to 640 KiB whatever the length of the log, and
+  what reads near the head reads memory. Maintenance writes the oldest half
+  out at twice the cache, and merges the newest two blobs while the newer is
+  as large as the older, so the blob count stays logarithmic.
+- **Readers keep the version they captured.** Entries in memory are written
+  before the version that reaches them is published. A blob is taken for the
+  length of a read. A blob merged away is deleted only once no reader holds
+  it. A reader that finds one closed reads the current version, capped at its
+  own head.
+- **Open.** The log walk hands each commit to the index instead of keeping
+  them all. Blobs continuing the chain are checked entry by entry against the
+  log. From the first that disagrees, the index is rebuilt and written out as
+  it goes.
+
+Every reader of the old table reads through the index: `AsOfAsync`,
+`PositionAt` and `AsOfTimestampAsync`, `DiffAsync`, subscriptions,
+`CatchUpAsync` and `RebuildAsync`, replay on open, checkpoints and their
+checks against the log, the projection's run checks, shipping a replica, and
+the bulk loader.
+
+`log/` is unchanged, and the determinism test passes unchanged: browser and
+desktop `log/` are byte-identical across 12 files.
+
+### Defects found
+
+| # | Defect | Found by | Fixed in |
+|---|---|---|---|
+| 1 | A version whose blob had been merged away fell back to the current version to resolve a timestamp, and could answer a position past its own head | the new model property, seed `bRQn6DRNs2j4` | `3240132`: capped at the version's head |
+| 2 | Two datasets open on one storage — the model harness reopens a live dataset — deleted each other's index blobs: the new one's open deleted every blob its chain did not use, including one the live one had just written and not yet opened again | the file-backed model properties at a cache of 2, under background maintenance | `8a1b378`: an open deletes only blobs it listed and could not use, never one reaching past its head |
+| 3 | The same two datasets number their blobs from the same sequence, so one retiring a blob deletes the other's just written under the same name | the same, once 2 was fixed | `8a1b378`: a page or merge that does not read back is done again on the next round, not failed |
+| 4 | The contract suite's naive backend was not safe for the store's own concurrency; nothing in its dataset case had run maintenance in the background before (test defect) | one full run, once | `2d32835`: a lock in `ListStorage` |
+
+The collisions in 2 and 3 cost nothing but a retry:
+- both instances read the same log, so colliding blobs hold the same entries;
+- the storage contract keeps a deleted blob readable to whoever has it open.
+
+### Tests and iteration counts
+
+- **New:**
+  - the index answers as the list of its entries, for random appends, pages
+    and merges, through versions captured before their blobs were merged away
+    and deleted: 200 iterations;
+  - a version held across an extension resolves every position it could
+    before. Its blobs survive 180 more commits of paging and merging and are
+    deleted only once it lets go. A version captured without holding resolves
+    every position too, through the current one;
+  - an index missing, damaged, stale beside a log that diverged after 30
+    commits, or another dataset's is rebuilt from the log. Each case checks
+    every entry, `PositionAt` at every timestamp, `DiffAsync` and a
+    subscription from position 41.
+- **Re-run with a cache of 2,** so that every one pages out, merges and
+  reads back: every suite of `Varve.Store.Tests`, at 6a's and 6c's
+  iteration counts:
+  - the model property (I5 resolved at every timestamp, R2, R3, I7/I8 on
+    reopen, subscriptions from arbitrary positions), 1,000 on files;
+  - many records, 333;
+  - disk runs, 333;
+  - the log cut at every byte, and at every boundary on files, 40 each;
+  - determinism, 250;
+  - the fault-injection suites, crashing now inside index writes, merges and
+    deletes too;
+  - the storage contract cases, in Chromium as well.
+- **Store suite:** 157 tests, three full runs, none failed (one skipped, the
+  existing skip). Ten runs of the file-backed properties also passed after
+  defects 2 and 3.
+
+One storage-contract case,
+`a_dataset_commits_checkpoints_reopens_and_reads_as_of_over_the_backend`,
+failed once, in a full run after defects 2 and 3 were fixed. **Defect 4**
+was in the test, not the store. `ListStorage`, the contract suite's
+deliberately naive backend, had no lock. Nothing in that case had run
+maintenance in the background before, and the commit index paging at a cache
+of 2 now did, writing blobs while the test thread wrote a checkpoint. The
+store calls a backend from its sequencer and its maintenance at once (ADR
+0070), so a backend must allow it. `ListStorage` now takes one lock around
+everything (`2d32835`). The case has not failed since: 20 runs of the
+contract suites, and every full run.
+
+### Benchmarks, before and after
+
+The same machine as 6c, the same session. `--commit-index 100000` opens
+100,000 single-quad commits on files, then reads through the public members
+that use the table:
+
+| | Before (6c) | After |
+|---|---:|---:|
+| Managed heap held by the open dataset | 15.5 MB, 154.6 B a commit | 1.4 MB, 14.1 B a commit |
+| Open | 0.58 s | 0.62 s |
+| `PositionAt` | 1.37 µs, 0 B | 3.07 µs, 0 B |
+| `SettingsAtAsync` | 0.76 µs, 0 B | 0.69 µs, 0 B |
+| `DiffAsync`, 10 commits | 80.3 µs, 29,213 B | 88.9 µs, 29,772 B |
+| A subscription from a position, 10 commits | 75.1 µs, 33,636 B | 97.6 µs, 34,196 B |
+
+An old position's entry is now a read of 80 bytes through the blob read,
+where it was an array access:
+- a timestamp reads up to seven entries;
+- a commit read reads its own entry and the one before, for its predecessor's
+  hash;
+- each read hash is a 32-byte array, about 56 bytes allocated.
+
+| `FileScanBenchmarks` | 6c (record) | Before, this session | After |
+|---|---:|---:|---:|
+| Every quad | 49.1 ms | 36.7 ms | 43.6 ± 9.8 ms |
+| One predicate | 2.63 ms | 2.55 ms | 2.29 ms |
+| The default graph | 7.69 ms | 6.45 ms | 7.19 ms |
+| **10,000 subject lookups** | **36.9 ms** | 33.8 ms | **29.5 ms** |
+
+The point lookup does not regress from 6c's 36.9 ms. Scans do not read the
+commit index; the full scan's spread in the after run is its error bar.
+
+### The soak, on the final code
+
+`--soak 60 --policy`, as ADR 0082 states it: 125,498 commits and 3.1 million
+quads in the hour, reopened at its last commit in 0.99 s. Samples every
+30 seconds after a full collection.
+
+| Minutes | Commits | Live heap | Fragmented | LOH | Working set, median (max) | The dataset's own | Handles | `derived/` files |
+|---|---:|---:|---:|---:|---|---:|---|---|
+| 0–10 | 20,941 | 10 MB | 18 MB | 22 MB | 162 MB (246) | 0.8 MB | 60–77 | 6–21 |
+| 10–20 | 41,873 | 11 MB | 13 MB | 17 MB | 140 MB (203) | 2.8 MB | 74–80 | 18–22 |
+| 20–30 | 62,839 | 13 MB | 9 MB | 14 MB | 138 MB (219) | 4.5 MB | 77–80 | 20–22 |
+| 30–40 | 83,757 | 14 MB | 11 MB | 14 MB | 138 MB (213) | 6.1 MB | 77–82 | 19–24 |
+| 40–50 | 104,670 | 16 MB | 13 MB | 17 MB | 142 MB (192) | 7.6 MB | 79–81 | 21–23 |
+| 50–60 | 125,498 | 17 MB | 12 MB | 15 MB | 142 MB (212) | 9.0 MB | 78–83 | 20–25 |
+
+The criterion is the working set's 30-second samples over the last 50
+minutes. Beside it, as the maintainer asked, the working set less the
+collector's headroom: less committed memory, plus the heap.
+
+| | Median | Band (±25%) | Drift (≤10%), the last 10 minutes against 10–20 |
+|---|---:|---|---|
+| **Working set** | 141 MB | **no**: −13.3%/**+27.3%** | **yes**: +1.1% |
+| Working set less the dataset's own | 133 MB | no: −12.0%/+31.0% | yes: −3.0% |
+| Working set less the collector's headroom | 100 MB | yes: −13.4%/+16.3% | yes: +7.7% |
+
+**The gate is not met, by two samples of a hundred.**
+- **Drift holds now.** Before this slice it failed at +20.6%. The commit
+  table was the dataset's own growth, and it is gone. The dataset's own at
+  the hour is 9.4 MB, 3.0 B a quad, against 27.6 MB in 6c: 6.0 MB of run
+  directories and 3.4 MB of sparse checkpoints, with the commit index's
+  fences in the first.
+- **The band fails at two samples:** minute 28 (180 MB, +27.3%) and minute
+  55 (179 MB, +27.0%). At both, the live heap is 12 and 24 MB, as
+  everywhere. The
+  collector's committed memory, at 64–67 MB in most samples, was 111 and
+  105 MB. Working set less committed memory is 73–75 MB in every ten-minute
+  window.
+
+**The remaining cause, with its ablation.** The one-hour run again, as-of
+reads off (`--no-asof`):
+
+| One hour, the policy on | With as-of reads | Without |
+|---|---:|---:|
+| Allocation | 9–16 GB/min | 0.3 GB/min |
+| Working set median | 141 MB | 194 MB |
+| Band | −13.3%/+27.3% | −24.5%/+31.1% |
+| Drift | +1.1% | +25.8% |
+| GC committed memory, minutes 10–20 → 50–60 | 68 → 67 MB | 101 → 143 MB |
+| Live heap, minutes 10–20 → 50–60 | 11 → 17 MB | 9 → 16 MB |
+| Working set less committed memory | 73–75 MB | 72–80 MB |
+
+The as-of reads are not the cause: without them the working set is worse.
+What moves the working set in both runs is memory the collector holds
+committed and not live, and it moves against the allocation rate:
+- allocating 10 GB a minute, the collector runs often and keeps its
+  commitment near 65 MB, with an occasional excursion — the two samples;
+- allocating 0.3 GB a minute, it seldom collects, and what it holds
+  committed rises 42 MB in the hour over a heap of 10–20 MB.
+
+The store's live memory is small and close to flat in both, and what grows
+of it is the dataset's own. The confirming run is the gate's workload unchanged, under
+`DOTNET_GCHeapHardLimit=0x8000000`: a bound of 128 MB on what the collector
+may hold, about four times the live heap. It completed 125,048 commits, with
+no out-of-memory and no exception:
+
+| One hour, the policy on | Default runtime | Heap hard limit 128 MB |
+|---|---:|---:|
+| Working set median | 141 MB | 116 MB |
+| **Band (±25%)** | **−13.3%/+27.3%** | **−14.6%/+12.0%** |
+| **Drift (≤10%)** | **+1.1%** | **+7.6%** |
+| GC committed memory, per ten minutes | 63–89 MB | 37–50 MB |
+| Working set less committed memory | 73–75 MB | 70–73 MB |
+| Handles; `derived/` files | 74–83; 18–25 | 74–83; 18–26 |
+
+Bounded by the runtime, the same store holds the band and the drift with
+room to spare. So the last two samples are the collector's choice of how
+much to keep committed, not memory the store holds.
+
+The gate as ADR 0082 states it is the default runtime's working set, and it
+is not met. Three ways to meet it, for the maintainer:
+- the store could declare a recommended host configuration (a heap limit,
+  or `GCConserveMemory`);
+- it could allocate less in as-of reads, so that the collector's excursions
+  are smaller;
+- the gate could be judged on the working set a host is expected to run
+  with.
+
+This session did not pick one: the last is a restatement, and the first two
+are decisions.
+
+#61 stays open. The gate is not restated.
