@@ -88,9 +88,14 @@ public sealed class ExternalBackendContractTests : StorageContractTests
 /// public members only (ADR 0040). It copies on every read, which the contract
 /// allows, and declares <see cref="Durability.Committed"/> to prove that the
 /// store takes the declaration from the backend rather than assuming it.
+/// One lock around everything: the store calls a backend from its sequencer
+/// and from background maintenance at once (ADR 0070), and the commit
+/// index's paging made this test's maintenance run, which found the backend
+/// unsafe for it (ADR 0085).
 /// </summary>
 internal sealed class ListStorage : IStorage, ISegmentStore, IDerivedStore
 {
+    private readonly Lock _gate = new();
     private readonly List<(List<byte> Bytes, bool Sealed)> _segments = [];
     private readonly SortedDictionary<BlobName, byte[]> _blobs = [];
     private byte[]? _manifest;
@@ -101,69 +106,112 @@ internal sealed class ListStorage : IStorage, ISegmentStore, IDerivedStore
 
     public Durability Durability => Durability.Committed;
 
-    public ValueTask<IReadOnlyList<SegmentInfo>> ListSegmentsAsync(CancellationToken cancellationToken) =>
-        new(_segments.Select((s, i) => s.Sealed
-            ? SegmentInfo.Sealed(new SegmentId(i), new ByteCount(s.Bytes.Count))
-            : SegmentInfo.Open(new SegmentId(i), new ByteCount(s.Bytes.Count))).ToArray());
+    public ValueTask<IReadOnlyList<SegmentInfo>> ListSegmentsAsync(CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            return new(_segments.Select((s, i) => s.Sealed
+                ? SegmentInfo.Sealed(new SegmentId(i), new ByteCount(s.Bytes.Count))
+                : SegmentInfo.Open(new SegmentId(i), new ByteCount(s.Bytes.Count))).ToArray());
+        }
+    }
 
     public ValueTask<SegmentId> CreateSegmentAsync(CancellationToken cancellationToken)
     {
-        if (_segments.Count > 0 && !_segments[^1].Sealed)
+        lock (_gate)
         {
-            throw new InvalidOperationException("The newest segment is open.");
-        }
+            if (_segments.Count > 0 && !_segments[^1].Sealed)
+            {
+                throw new InvalidOperationException("The newest segment is open.");
+            }
 
-        _segments.Add(([], false));
-        return new(new SegmentId(_segments.Count - 1));
+            _segments.Add(([], false));
+            return new(new SegmentId(_segments.Count - 1));
+        }
     }
 
     public ValueTask AppendAsync(SegmentId segment, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
     {
-        if (_segments[segment.Value].Sealed)
+        lock (_gate)
         {
-            throw new InvalidOperationException("Sealed.");
-        }
+            if (_segments[segment.Value].Sealed)
+            {
+                throw new InvalidOperationException("Sealed.");
+            }
 
-        _segments[segment.Value].Bytes.AddRange(bytes.ToArray());
-        return ValueTask.CompletedTask;
+            _segments[segment.Value].Bytes.AddRange(bytes.ToArray());
+            return ValueTask.CompletedTask;
+        }
     }
 
     public ValueTask FlushAsync(SegmentId segment, CancellationToken cancellationToken) => ValueTask.CompletedTask;
 
     public ValueTask SealAsync(SegmentId segment, CancellationToken cancellationToken)
     {
-        _segments[segment.Value] = (_segments[segment.Value].Bytes, true);
-        return ValueTask.CompletedTask;
+        lock (_gate)
+        {
+            _segments[segment.Value] = (_segments[segment.Value].Bytes, true);
+            return ValueTask.CompletedTask;
+        }
     }
 
     public ValueTask<ReadOnlyMemory<byte>> ReadRangeAsync(SegmentId segment, ByteOffset offset, ByteCount length, CancellationToken cancellationToken)
     {
-        List<byte> bytes = _segments[segment.Value].Bytes;
-        int start = (int)Math.Min(offset.Value, bytes.Count);
-        return new(bytes.GetRange(start, (int)Math.Min(length.Value, bytes.Count - start)).ToArray());
+        lock (_gate)
+        {
+            List<byte> bytes = _segments[segment.Value].Bytes;
+            int start = (int)Math.Min(offset.Value, bytes.Count);
+            return new(bytes.GetRange(start, (int)Math.Min(length.Value, bytes.Count - start)).ToArray());
+        }
     }
 
-    public ValueTask<ReadOnlyMemory<byte>> ReadManifestAsync(CancellationToken cancellationToken) => new(_manifest ?? ReadOnlyMemory<byte>.Empty);
+    public ValueTask<ReadOnlyMemory<byte>> ReadManifestAsync(CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            return new(_manifest ?? ReadOnlyMemory<byte>.Empty);
+        }
+    }
 
     public ValueTask WriteManifestAsync(ReadOnlyMemory<byte> manifest, CancellationToken cancellationToken)
     {
-        if (_manifest is not null || _segments.Count > 0)
+        lock (_gate)
         {
-            throw new InvalidOperationException("The manifest is written once, before any segment.");
-        }
+            if (_manifest is not null || _segments.Count > 0)
+            {
+                throw new InvalidOperationException("The manifest is written once, before any segment.");
+            }
 
-        _manifest = manifest.ToArray();
-        return ValueTask.CompletedTask;
+            _manifest = manifest.ToArray();
+            return ValueTask.CompletedTask;
+        }
     }
 
     public ValueTask<IBlobWriter> CreateAsync(BlobName name, CancellationToken cancellationToken) => new(new ListWriter(this, name));
 
-    public ValueTask<IReadableBlob> OpenAsync(BlobName name, CancellationToken cancellationToken) =>
-        _blobs.TryGetValue(name, out byte[]? blob) ? new(new ListBlob(blob)) : throw new KeyNotFoundException(name.Value);
+    public ValueTask<IReadableBlob> OpenAsync(BlobName name, CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            return _blobs.TryGetValue(name, out byte[]? blob) ? new(new ListBlob(blob)) : throw new KeyNotFoundException(name.Value);
+        }
+    }
 
-    public ValueTask<bool> DeleteAsync(BlobName name, CancellationToken cancellationToken) => new(_blobs.Remove(name));
+    public ValueTask<bool> DeleteAsync(BlobName name, CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            return new(_blobs.Remove(name));
+        }
+    }
 
-    public ValueTask<IReadOnlyList<BlobName>> ListAsync(CancellationToken cancellationToken) => new(_blobs.Keys.ToArray());
+    public ValueTask<IReadOnlyList<BlobName>> ListAsync(CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            return new(_blobs.Keys.ToArray());
+        }
+    }
 
     private sealed class ListWriter(ListStorage storage, BlobName name) : IBlobWriter
     {
@@ -177,7 +225,11 @@ internal sealed class ListStorage : IStorage, ISegmentStore, IDerivedStore
 
         public ValueTask PublishAsync(CancellationToken cancellationToken)
         {
-            storage._blobs[name] = [.. _bytes];
+            lock (storage._gate)
+            {
+                storage._blobs[name] = [.. _bytes];
+            }
+
             return ValueTask.CompletedTask;
         }
 

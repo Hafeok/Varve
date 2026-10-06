@@ -792,3 +792,30 @@ over a commit table of 144 bytes a commit. The working set less committed
 memory is flat at 75–77 MB. The causes and the ablations that separated them
 are in the milestone's
 [traceability record](../../docs/traceability/2026-10-05-issue-10-milestone-6c.md).
+
+### Addendum, 2026-10-06: the commit index, derived and paged (ADR 0085)
+
+```bash
+dotnet run -c Release --project tests/Varve.Benchmarks -- --commit-index 100000
+```
+
+The same machine and the same session, before (the 6c head) and after:
+
+| 100,000 single-quad commits on files | Before | After |
+|---|---:|---:|
+| Managed heap held by the open dataset | 15.5 MB, 154.6 B a commit | 1.4 MB, 14.1 B a commit |
+| Open | 0.58 s | 0.62 s |
+| `PositionAt` | 1.37 µs, 0 B | 3.07 µs, 0 B |
+| `SettingsAtAsync` | 0.76 µs, 0 B | 0.69 µs, 0 B |
+| `DiffAsync`, 10 commits | 80.3 µs, 29,213 B | 88.9 µs, 29,772 B |
+| A subscription from a position, 10 commits | 75.1 µs, 33,636 B | 97.6 µs, 34,196 B |
+
+| `FileScanBenchmarks` | Before | After |
+|---|---:|---:|
+| Every quad | 36.7 ms | 43.6 ± 9.8 ms |
+| One predicate | 2.55 ms | 2.29 ms |
+| The default graph | 6.45 ms | 7.19 ms |
+| 10,000 subject lookups | 33.8 ms | 29.5 ms |
+
+An old commit's entry is now an 80-byte read through the blob read where it
+was an array access. Scans do not read the commit index.
