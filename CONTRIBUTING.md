@@ -44,21 +44,27 @@ scaffolding that compiles and does nothing.
 
 ## Trunk-based development
 
-**`main` is the trunk, and pull requests are optional**
-([ADR 0032](docs/adr/0032-trunk-based-development.md)). Commit to `main`
-directly or open a pull request — your choice, and neither is the lesser form.
+**`main` is the trunk, and accepts only commits whose checks have already
+passed** ([ADR 0088](docs/adr/0088-only-checked-commits-reach-main.md)). Land a
+change in one of two ways, your choice:
+
+- **Push it to a `land/<anything>` branch**, let CI run there, then fast-forward
+  `main` to that commit: `git push origin <sha>:main`. CI on a `land/` branch
+  checks everything the branch would bring to `main`.
+- **Open a pull request** and merge it. It needs no review when every commit is
+  yours. A pull request with an AI session's commits needs an approving review
+  on its head from the session's responsible human or a delegate
+  ([ADR 0087](docs/adr/0087-the-identity-map.md)).
 
 - **Small, frequent commits.** A change not ready for the trunk lives behind a
   feature flag or stays local. **Not on a long-lived branch**: `milestone/3b`
   brought 883 conformance cases in one movement and no review of it was a
   review in any useful sense.
-- **The trunk is always releasable.** That is what the gates are protecting, and
-  it is the one thing a direct push must not break.
-- **The blocking review is the automated one.** Every gate must pass; there is
-  no bypass. Human review is required for a *release*, through the `release`
-  environment, not for a merge.
-- Reviews on pull requests are welcome and **non-blocking**. A green pull
-  request is not waiting for anybody.
+- **The trunk is always releasable.** That is what the gates are protecting:
+  every one is a required check on the `trunk` ruleset, with no bypass.
+- Human review is required for a *release*, through the `release` environment,
+  and for a pull request carrying an AI session's commits. Otherwise reviews
+  are welcome and **non-blocking**.
 - Only the maintainer merges a pull request.
 
 Run `dotnet run eng/ci.cs` before you push. A push that turns the trunk red
@@ -96,6 +102,11 @@ code under this project's licence — an assertion about rights, which no
 cryptography can make true for you. **Required from every commit, including
 every commit made by an AI session**, because a session cannot assert anything
 and the sign-off names the person who can.
+
+The `dco` check (`eng/dco.cs`, [ADR 0087](docs/adr/0087-the-identity-map.md))
+requires your sign-off to match the commit's author, name and email exactly.
+An AI session's commit is signed off by the human `eng/identities.json` makes
+responsible for that session, or one of their delegates.
 
 ### 3. A signature
 

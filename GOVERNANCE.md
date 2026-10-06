@@ -44,20 +44,23 @@ writing.
 
 ## How work reaches the trunk
 
-**`main` is the trunk. Pull requests are optional.**
-([ADR 0032](docs/adr/0032-trunk-based-development.md))
+**`main` is the trunk, and accepts only checked commits.**
+([ADR 0088](docs/adr/0088-only-checked-commits-reach-main.md), superseding
+ADR 0032)
 
-Anyone with write access commits to `main` directly or through a pull request,
-their choice. Neither is the lesser form of the other. A change not ready for
-the trunk lives behind a feature flag or stays local — **not on a long-lived
+Every gate is a required check on the `trunk` ruleset, by job name, with **no
+bypass**. A commit reaches `main` only once its own checks have passed: a human
+pushes it to a `land/` branch, lets CI run, and fast-forwards `main` to it, or
+merges a pull request. An AI session lands through a pull request, and that
+pull request needs an approving review on its head from the session's
+responsible human or one of their delegates, as listed in `eng/identities.json`
+([ADR 0087](docs/adr/0087-the-identity-map.md)). A change not ready for the
+trunk lives behind a feature flag or stays local — **not on a long-lived
 branch**.
 
-**The blocking review is the automated one.** Every gate runs in CI on every
-push to `main` and every pull request, and a red trunk is fixed forward before
-anything else lands. The gates are not required checks on the `trunk` ruleset:
-GitHub would then refuse every direct push, because a pushed commit has not been
-built yet ([ADR 0032](docs/adr/0032-trunk-based-development.md), amendment of
-2026-09-24). A human would not catch what the ratchet catches.
+Until ADR 0088, ruleset 1 required no check at all, despite ADR 0032's
+description of it, and the DCO sign-off was checked by nothing (ADR 0034,
+amendment of 2026-10-06).
 
 **Human review is required for a release, not for a merge.** `publish.yml` runs
 in the `release` environment, which has the maintainer as a required reviewer.
@@ -71,8 +74,10 @@ committed, and the maintainer tags that commit; `publish.yml` attaches its
 that starts the next milestone is red on the `release pending` check.
 
 Pull requests stay welcome, and are the right tool for a change that wants
-discussion or comes from outside. Reviews on them are **non-blocking**: an
-unreviewed pull request whose checks are green is not waiting for anybody.
+discussion or comes from outside. Reviews on them are **non-blocking**, except
+that a pull request with an AI session's commits waits for its responsible
+human's approval (`agent review`). Otherwise an unreviewed pull request whose
+checks are green is not waiting for anybody.
 
 ## Repository settings
 
@@ -84,7 +89,7 @@ file and follows it.
 
 | | What |
 |---|---|
-| **`trunk`** ruleset on `main` | no deletion, no force push, **no bypass**; no required status checks (see above) |
+| **`trunk`** ruleset on `main` | no deletion, no force push, **no bypass**; every gate a required status check, `dco` and `agent review` included ([ADR 0088](docs/adr/0088-only-checked-commits-reach-main.md)) |
 | **`Signed Commits`** ruleset on `main` | required signed commits, with the admin role and the Claude GitHub App on the **bypass list** ([ADR 0034](docs/adr/0034-commit-signing-and-the-sandbox-exception.md)) |
 | **`Varve Release Approval`** ruleset on `v*` tags | creating, deleting or force-moving a `v*` tag is restricted to the maintainer |
 | **Environment** `release` | maintainer as required reviewer; referenced by `publish.yml` |
