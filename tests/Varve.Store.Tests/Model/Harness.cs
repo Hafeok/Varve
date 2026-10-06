@@ -72,6 +72,7 @@ internal sealed class Harness : IAsyncDisposable
                 SegmentBytes = options.SegmentBytes,
                 MemtableLimit = new QuadCount(limit),
                 Maintenance = MaintenanceMode.Off,
+                CommitCache = T.CommitCache,
             };
         }
 

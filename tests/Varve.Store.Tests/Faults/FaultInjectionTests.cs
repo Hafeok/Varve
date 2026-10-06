@@ -35,6 +35,7 @@ public sealed class FaultInjectionTests
         SegmentBytes = new ByteCount(1024),
         MemtableLimit = new QuadCount(4),
         Maintenance = MaintenanceMode.Off,
+        CommitCache = T.CommitCache,
     };
 
     private static FileStorageOptions StorageOptions => new() { Clock = ManualClock.Epoch() };

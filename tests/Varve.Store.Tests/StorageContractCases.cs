@@ -182,7 +182,7 @@ internal static class StorageContractCases
     }
 
     public static DatasetOptions Options(long segmentBytes = 64L << 20, TimeProvider? clock = null) =>
-        new() { Clock = clock ?? new FixedClock(), SegmentBytes = new ByteCount(segmentBytes) };
+        new() { Clock = clock ?? new FixedClock(), SegmentBytes = new ByteCount(segmentBytes), CommitCache = 2 };
 
     /// <summary>Opens the dataset in the storage, creating it with <see cref="Id"/> when the storage is empty.</summary>
     public static async ValueTask<Dataset> OpenOrCreateAsync(IStorage storage, DatasetOptions options, CancellationToken ct) =>

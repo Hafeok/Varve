@@ -24,6 +24,7 @@ public sealed class DerivedTests
     {
         Clock = ManualClock.Epoch(),
         MemtableLimit = new QuadCount(memtableLimit),
+        CommitCache = T.CommitCache,
         Maintenance = mode,
     };
 

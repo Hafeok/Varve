@@ -427,3 +427,5 @@ Varve.Store.BulkLoadOptions.MemoryBytes.get -> Varve.Store.Log.ByteCount
 Varve.Store.BulkLoadOptions.MemoryBytes.init -> void
 Varve.Store.Dataset.BeginBulkLoadAsync(Varve.Store.BulkLoadOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.BulkLoad!>
 Varve.Store.ICommitValidator.Validate(Varve.Rdf.IQuadSource! proposed, Varve.Store.BulkDelta! delta) -> Varve.Store.Log.ValidationVerdict
+Varve.Store.DatasetOptions.CommitCache.get -> int
+Varve.Store.DatasetOptions.CommitCache.init -> void

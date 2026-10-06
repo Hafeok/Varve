@@ -47,6 +47,18 @@ public sealed class DatasetOptions
     public QuadCount MemtableLimit { get; init; } = new(1_000_000);
 
     /// <summary>
+    /// How many of the newest commits' entries the commit index holds in
+    /// memory (ADR 0085): between this and twice this, once there are that
+    /// many; maintenance writes the rest to <c>derived/</c>. 4,096 by default:
+    /// 320 KiB to 640 KiB of entries, whatever the length of the log; enough
+    /// that what reads near the head — the next commit, a subscriber keeping up,
+    /// as-of reads within the soak's checkpoint interval of 1,000 — reads memory,
+    /// and few enough that a blob of the oldest half is written once in every
+    /// 4,096 commits.
+    /// </summary>
+    public int CommitCache { get; init; } = 4096;
+
+    /// <summary>
     /// Whether the dataset runs its own maintenance — memtable flushes and
     /// disk merges — on a task it owns, off the sequencer (ADR 0070, ADR 0042's
     /// amendment). <see cref="MaintenanceMode.Background"/> by default, except
@@ -127,6 +139,12 @@ public sealed partial class Dataset : IAsyncDisposable
 
     /// <summary>Test seam: the dictionary's counters at the head.</summary>
     internal (long Canonical, long Blank) CountersForTests() => (_state.CanonicalAt(_state.Head), _state.BlankAt(_state.Head));
+
+    /// <summary>Test seam: the clock the dataset was opened with.</summary>
+    internal TimeProvider ClockForTests() => _options.Clock;
+
+    /// <summary>Test seam: the commit index of the current state (ADR 0085).</summary>
+    internal CommitIndex CommitsForTests() => _state.Commits;
 
     /// <summary>Test seam: the storage the dataset was opened on.</summary>
     internal IStorage StorageForTests() => _storage;
@@ -211,30 +229,28 @@ public sealed partial class Dataset : IAsyncDisposable
         var claimed = await DerivedFormat.TryReadStateAsync(storage.Derived, StateName, id, cancellationToken).ConfigureAwait(false);
         long bodiesAfter = Math.Max(candidates.Length > 0 ? candidates[0] : 0, claimed?.Header.To ?? 0);
 
-        LogScan scan = await LogReader.ScanAsync(storage.Log, id, bodiesAfter, cancellationToken).ConfigureAwait(false);
+        // The commit index is read against the log as the scan passes it:
+        // nothing the size of the log is held (ADR 0085). Its versions read
+        // through to the dataset's current one once the dataset exists.
+        Dataset? owner = null;
+        Func<CommitIndex> current = () => owner!._state.Commits;
+        CommitIndexOpener opener = await CommitIndexOpener.StartAsync(storage.Derived, id, options.CommitCache, current, cancellationToken).ConfigureAwait(false);
+        LogScan scan = await LogReader.ScanAsync(
+            storage.Log, id, bodiesAfter, commit => opener.AddAsync(commit, bodiesAfter, cancellationToken), cancellationToken).ConfigureAwait(false);
         long head = scan.Head;
-        CommitInfo[] commits = new CommitInfo[Math.Max(16, head)];
-        DatasetSettings settings = DatasetSettings.Default;
-        long logBytes = 0;
+        CommitIndex commits = await opener.FinishAsync(cancellationToken).ConfigureAwait(false);
 
-        for (int i = 0; i < head; i++)
+        if (commits.Head != head)
         {
-            ScannedCommit commit = scan.Commits[i];
-
-            if (commit.Header.Kind == CommitKind.Erasure)
-            {
-                throw new LogVerificationException(i + 1, "Position " + (i + 1) + " is an erasure commit, which needs erasure mode, and this version of Varve does not support erasure mode.");
-            }
-
-            settings = Fold(settings, commit.Header);
-            logBytes += commit.Bytes;
-            commits[i] = new CommitInfo(commit.Header, commit.HeaderHash, commit.Location, settings, logBytes);
+            throw new InvalidOperationException("The commit index was not brought to the head.");
         }
 
         LogWriter writer = await LogWriter.OpenAsync(storage.Log, id, scan, options.SegmentBytes.Value, (int)options.MaxRecordBytes.Value, cancellationToken).ConfigureAwait(false);
         TermDictionary dictionary = new();
         State partial = new(head, commits, IndexVersion.Empty, [], null);
         Dataset dataset = new(storage, id, options, dictionary, writer, partial);
+        owner = dataset;
+        dataset._commitSequence = opener.Sequence;
 
         Checkpoint[] checkpoints = await dataset.LoadCheckpointsAsync(partial, candidates, cancellationToken).ConfigureAwait(false);
 
@@ -246,9 +262,9 @@ public sealed partial class Dataset : IAsyncDisposable
 
         for (long p = index.Position + 1; p <= head; p++)
         {
-            ScannedCommit scanned = scan.Commits[(int)(p - 1)];
-            LoggedCommit commit = scanned.Full
-                ?? await dataset.ReadLoggedAsync(partial, p, cancellationToken).ConfigureAwait(false);
+            LoggedCommit commit = opener.Bodies.TryGetValue(p, out LoggedCommit? read)
+                ? read
+                : await dataset.ReadLoggedAsync(partial, p, cancellationToken).ConfigureAwait(false);
             index = index.Apply(commit.Asserted, commit.Retracted, partial.TermsOf(commit, p), p);
         }
 
@@ -269,6 +285,7 @@ public sealed partial class Dataset : IAsyncDisposable
         ArgumentOutOfRangeException.ThrowIfLessThan(options.MaxRecordBytes.Value, 64L, nameof(options));
         ArgumentOutOfRangeException.ThrowIfGreaterThan(options.MaxRecordBytes.Value, int.MaxValue, nameof(options));
         ArgumentOutOfRangeException.ThrowIfLessThan(options.SegmentBytes.Value, 1024L, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.CommitCache, 1, nameof(options));
         ArgumentNullException.ThrowIfNull(options.Checkpoints);
         ArgumentOutOfRangeException.ThrowIfLessThan(options.Checkpoints.EveryCommits ?? 1, 1, nameof(options));
         ArgumentOutOfRangeException.ThrowIfLessThan(options.Checkpoints.EveryLogBytes?.Value ?? 1, 1L, nameof(options));
@@ -414,31 +431,7 @@ public sealed partial class Dataset : IAsyncDisposable
         AsOfAsync(PositionAt(timestamp), cancellationToken);
 
     /// <summary>The greatest position whose timestamp is at or before <paramref name="timestamp"/>; 0 when none is.</summary>
-    public Position PositionAt(CommitTimestamp timestamp)
-    {
-        State state = _state;
-        long ticks = timestamp.Value.UtcTicks;
-        long low = 1;
-        long high = state.Head;
-        long found = 0;
-
-        while (low <= high)
-        {
-            long middle = low + ((high - low) / 2);
-
-            if (state.Commits[middle - 1].TimestampTicks <= ticks)
-            {
-                found = middle;
-                low = middle + 1;
-            }
-            else
-            {
-                high = middle - 1;
-            }
-        }
-
-        return new Position(found);
-    }
+    public Position PositionAt(CommitTimestamp timestamp) => new(_state.Commits.PositionAt(timestamp.Value.UtcTicks));
 
     /// <summary>
     /// R3: <c>(G_to \ G_from, G_from \ G_to)</c>, computed from the log alone.
@@ -500,7 +493,7 @@ public sealed partial class Dataset : IAsyncDisposable
         }
 
         (Run[] runs, Action release) = await RunsAtAsync(position, cancellationToken).ConfigureAwait(false);
-        CommitInfo at = state.Commits[position - 1];
+        CommitEntry at = state.Commits.Entry(position);
         BlobName name = Checkpoint.Name(position);
 
         try
@@ -512,7 +505,7 @@ public sealed partial class Dataset : IAsyncDisposable
                 Id,
                 0,
                 position,
-                at.HeaderHash,
+                at.HeaderHash(),
                 DerivedFormat.MergeOf(runs, dropRetractions: true),
                 TermsOf(runs),
                 at.BlankCount,
@@ -725,6 +718,7 @@ public sealed partial class Dataset : IAsyncDisposable
         Exception? failure = await StopMaintenanceAsync().ConfigureAwait(false);
         State state = _state;
         state.Index.Release();
+        state.Commits.Release();
 
         foreach (Checkpoint checkpoint in state.Checkpoints)
         {
@@ -862,12 +856,12 @@ public sealed partial class Dataset : IAsyncDisposable
             // Step 7.
             long next = head + 1;
             long now = _options.Clock.GetUtcNow().UtcTicks;
-            long last = head == 0 ? long.MinValue : state.Commits[head - 1].TimestampTicks;
+            long last = head == 0 ? long.MinValue : state.Commits.Entry(head).TimestampTicks;
             long timestamp = Math.Max(now, last);
 
             Allocation[] allocations = [.. resolver.Allocations];
             byte[] body = LogFormat.EncodeBody(allocations, delta.Asserted, delta.Retracted);
-            byte[] previous = head == 0 ? LogFormat.Genesis() : state.Commits[head - 1].HeaderHash;
+            byte[] previous = head == 0 ? LogFormat.Genesis() : state.Commits.Entry(head).HeaderHash();
             (long canonical, long blank) = Counters(terms, allocations);
             CommitHeader header = new(kind, next, timestamp, agent, cause, scope, canonical, blank, 0, [.. attachments], kindPayload, previous, SHA256.HashData(body));
             byte[] headerBytes = LogFormat.EncodeHeader(in header);
@@ -889,9 +883,9 @@ public sealed partial class Dataset : IAsyncDisposable
             }
 
             // The commit is durable and closed: it stands, whatever follows.
-            DatasetSettings settings = Fold(state.SettingsAt(head), header);
-            CommitInfo info = new(header, headerHash, location, settings, state.LogBytesAt(head) + _writer.LastCommitBytes);
-            CommitInfo[] commits = Append(state.Commits, head, info);
+            DatasetSettings? changed = header.Kind == CommitKind.Settings ? Fold(state.SettingsAt(head), header) : null;
+            CommitEntry closed = new(header.TimestampTicks, headerHash, location, header.CanonicalCount, header.BlankCount, state.LogBytesAt(head) + _writer.LastCommitBytes);
+            CommitIndex commits = state.Commits.Append(in closed, changed);
 
             IndexVersion index = state.Index;
             string? failed = null;
@@ -1023,21 +1017,6 @@ public sealed partial class Dataset : IAsyncDisposable
         return result;
     }
 
-    private static CommitInfo[] Append(CommitInfo[] commits, long head, CommitInfo info)
-    {
-        CommitInfo[] target = commits;
-
-        if (head >= commits.Length)
-        {
-            // Readers holding the old array still see every commit it had.
-            target = new CommitInfo[commits.Length * 2];
-            Array.Copy(commits, target, head);
-        }
-
-        target[head] = info;
-        return target;
-    }
-
     private static DatasetSettings Fold(DatasetSettings before, in CommitHeader header) =>
         header.Kind == CommitKind.Settings ? LogFormat.ApplySettings(before, header.KindPayload, header.Position) : before;
 
@@ -1084,13 +1063,13 @@ public sealed partial class Dataset : IAsyncDisposable
                 continue;
             }
 
-            CommitInfo at = state.Commits[position - 1];
+            CommitEntry at = state.Commits.Entry(position);
 
             // A checkpoint names the commit it materialises. One copied beside a
             // different log is a cache miss, never a wrong answer (ADR 0041).
             if (run.Header.From != 0
                 || run.Header.To != position
-                || !run.Header.ToHash.AsSpan().SequenceEqual(at.HeaderHash)
+                || !at.HashEquals(run.Header.ToHash)
                 || run.CanonicalCount != at.CanonicalCount
                 || run.BlankCount != at.BlankCount
                 || run.Run.HasRetractions)
@@ -1144,9 +1123,9 @@ public sealed partial class Dataset : IAsyncDisposable
 
     private ValueTask<LoggedCommit> ReadLoggedAsync(State state, long position, CancellationToken cancellationToken)
     {
-        CommitInfo info = state.Commits[position - 1];
-        byte[] previous = position == 1 ? LogFormat.Genesis() : state.Commits[position - 2].HeaderHash;
-        return LogReader.ReadAsync(_storage.Log, Id, info.Location, position, previous, cancellationToken);
+        CommitLocation location = state.Commits.Entry(position).Location;
+        byte[] previous = position == 1 ? LogFormat.Genesis() : state.Commits.Entry(position - 1).HeaderHash();
+        return LogReader.ReadAsync(_storage.Log, Id, location, position, previous, cancellationToken);
     }
 
     private async ValueTask<Commit?> ReadCommitAsync(State state, long position, SubscriptionFilter filter, CancellationToken cancellationToken)
@@ -1266,40 +1245,10 @@ public sealed partial class Dataset : IAsyncDisposable
 
     private static TaskCompletionSource NewSignal() => new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    /// <summary>What the store keeps per closed commit, beside the log.</summary>
-    private sealed class CommitInfo
-    {
-        internal CommitInfo(CommitHeader header, byte[] headerHash, CommitLocation location, DatasetSettings settings, long logBytes)
-        {
-            LogBytes = logBytes;
-            TimestampTicks = header.TimestampTicks;
-            HeaderHash = headerHash;
-            Location = location;
-            CanonicalCount = header.CanonicalCount;
-            BlankCount = header.BlankCount;
-            Settings = settings;
-        }
-
-        internal long TimestampTicks { get; }
-
-        internal byte[] HeaderHash { get; }
-
-        internal CommitLocation Location { get; }
-
-        internal long CanonicalCount { get; }
-
-        internal long BlankCount { get; }
-
-        internal DatasetSettings Settings { get; }
-
-        /// <summary>The bytes of every commit's records up to this one.</summary>
-        internal long LogBytes { get; }
-    }
-
     /// <summary>Everything a read needs, published as one reference.</summary>
     private sealed class State
     {
-        internal State(long head, CommitInfo[] commits, IndexVersion index, Checkpoint[] checkpoints, string? failed)
+        internal State(long head, CommitIndex commits, IndexVersion index, Checkpoint[] checkpoints, string? failed)
         {
             Head = head;
             Commits = commits;
@@ -1310,7 +1259,8 @@ public sealed partial class Dataset : IAsyncDisposable
 
         internal long Head { get; }
 
-        internal CommitInfo[] Commits { get; }
+        /// <summary>The commit index at <see cref="Head"/> (ADR 0085).</summary>
+        internal CommitIndex Commits { get; }
 
         internal IndexVersion Index { get; }
 
@@ -1318,11 +1268,11 @@ public sealed partial class Dataset : IAsyncDisposable
 
         internal string? Failed { get; }
 
-        internal long LogBytesAt(long position) => position == 0 ? 0 : Commits[position - 1].LogBytes;
+        internal long LogBytesAt(long position) => position == 0 ? 0 : Commits.Entry(position).LogBytes;
 
-        internal long CanonicalAt(long position) => position == 0 ? 0 : Commits[position - 1].CanonicalCount;
+        internal long CanonicalAt(long position) => position == 0 ? 0 : Commits.Entry(position).CanonicalCount;
 
-        internal long BlankAt(long position) => position == 0 ? 0 : Commits[position - 1].BlankCount;
+        internal long BlankAt(long position) => position == 0 ? 0 : Commits.Entry(position).BlankCount;
 
         internal TermView TermsAt(TermDictionary dictionary, Run[] runs, long position) =>
             new(dictionary, runs, CanonicalAt(position), BlankAt(position));
@@ -1356,8 +1306,7 @@ public sealed partial class Dataset : IAsyncDisposable
             throw new LogVerificationException(position, "The dictionary's counters after position " + position + " disagree with its header.");
         }
 
-        internal DatasetSettings SettingsAt(long position) =>
-            position == 0 ? DatasetSettings.Default : Commits[position - 1].Settings;
+        internal DatasetSettings SettingsAt(long position) => Commits.SettingsAt(position);
 
         internal Checkpoint? CheckpointAtOrBelow(long position)
         {
@@ -1375,5 +1324,7 @@ public sealed partial class Dataset : IAsyncDisposable
         internal State WithCheckpoints(Checkpoint[] checkpoints) => new(Head, Commits, Index, checkpoints, Failed);
 
         internal State WithIndex(IndexVersion index, string? failed) => new(Head, Commits, index, Checkpoints, failed);
+
+        internal State WithCommits(CommitIndex commits) => new(Head, commits, Index, Checkpoints, Failed);
     }
 }

@@ -32,7 +32,7 @@ public static class LogChain
 
         LogScan left = await ScanAsync(first, cancellationToken).ConfigureAwait(false);
         LogScan right = await ScanAsync(second, cancellationToken).ConfigureAwait(false);
-        int common = Math.Min(left.Commits.Count, right.Commits.Count);
+        int common = Math.Min(left.Commits!.Count, right.Commits!.Count);
 
         for (int i = 0; i < common; i++)
         {

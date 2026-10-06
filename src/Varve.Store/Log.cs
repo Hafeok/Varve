@@ -84,7 +84,11 @@ internal sealed class ScannedCommit
 /// <summary>What opening a log found.</summary>
 internal sealed class LogScan
 {
-    internal List<ScannedCommit> Commits { get; } = [];
+    /// <summary>Every closed commit, when the scan keeps them; null when they are handed to a callback instead.</summary>
+    internal List<ScannedCommit>? Commits { get; init; } = [];
+
+    /// <summary>Called with each closed commit as the scan passes it, when the scan does not keep them (ADR 0085).</summary>
+    internal Func<ScannedCommit, ValueTask>? OnCommit { get; init; }
 
     /// <summary>Whether a torn or unclosed tail was ignored (ADR 0072).</summary>
     internal bool DiscardedTail { get; set; }
@@ -103,9 +107,21 @@ internal sealed class LogScan
     /// <summary>Whether that segment ends with bytes the walk discarded: torn, or an unclosed commit.</summary>
     internal bool EndHasTail { get; set; }
 
-    internal long Head => Commits.Count;
+    internal long Head { get; private set; }
 
-    internal byte[] HeadHash => Commits.Count == 0 ? LogFormat.Genesis() : Commits[^1].HeaderHash;
+    internal byte[] HeadHash { get; private set; } = LogFormat.Genesis();
+
+    internal async ValueTask AddAsync(ScannedCommit commit)
+    {
+        Head++;
+        HeadHash = commit.HeaderHash;
+        Commits?.Add(commit);
+
+        if (OnCommit is not null)
+        {
+            await OnCommit(commit).ConfigureAwait(false);
+        }
+    }
 }
 
 /// <summary>
@@ -126,7 +142,19 @@ internal static class LogReader
     /// that opening reads the log since the newest checkpoint (ADR 0072).
     /// </summary>
     internal static ValueTask<LogScan> ScanAsync(ISegmentStore store, DatasetId dataset, long bodiesAfter, CancellationToken cancellationToken) =>
-        ScanAsync(store, dataset, bodiesAfter, ScanRetains, cancellationToken);
+        ScanAsync(store, dataset, bodiesAfter, ScanRetains, null, cancellationToken);
+
+    /// <summary>
+    /// The scan, handing each closed commit to <paramref name="onCommit"/> as
+    /// it passes rather than keeping them: what opening needs of a log of any
+    /// length is then bounded by what the callback keeps (ADR 0085).
+    /// </summary>
+    internal static ValueTask<LogScan> ScanAsync(ISegmentStore store, DatasetId dataset, long bodiesAfter, Func<ScannedCommit, ValueTask> onCommit, CancellationToken cancellationToken) =>
+        ScanAsync(store, dataset, bodiesAfter, ScanRetains, onCommit, cancellationToken);
+
+    /// <summary>The scan, holding at most <paramref name="retain"/> bytes of any one commit's body.</summary>
+    internal static ValueTask<LogScan> ScanAsync(ISegmentStore store, DatasetId dataset, long bodiesAfter, long retain, CancellationToken cancellationToken) =>
+        ScanAsync(store, dataset, bodiesAfter, retain, null, cancellationToken);
 
     /// <summary>
     /// What a scan holds of a commit it reads whole, for replay: past this,
@@ -137,10 +165,15 @@ internal static class LogReader
     /// </summary>
     internal const long ScanRetains = 64L << 20;
 
-    /// <summary>The scan, holding at most <paramref name="retain"/> bytes of any one commit's body.</summary>
-    internal static async ValueTask<LogScan> ScanAsync(ISegmentStore store, DatasetId dataset, long bodiesAfter, long retain, CancellationToken cancellationToken)
+    private static async ValueTask<LogScan> ScanAsync(
+        ISegmentStore store, DatasetId dataset, long bodiesAfter, long retain, Func<ScannedCommit, ValueTask>? onCommit, CancellationToken cancellationToken)
     {
-        LogScan scan = new() { Segments = await store.ListSegmentsAsync(cancellationToken).ConfigureAwait(false) };
+        LogScan scan = new()
+        {
+            Segments = await store.ListSegmentsAsync(cancellationToken).ConfigureAwait(false),
+            Commits = onCommit is null ? [] : null,
+            OnCommit = onCommit,
+        };
         Pending pending = new(retain);
         byte[] headHash = LogFormat.Genesis();
         bool openEnded = false;
@@ -334,7 +367,7 @@ internal static class LogReader
                 ReadOnlyMemory<byte> tail = full
                     ? pending.Last
                     : await ReadClosingTailAsync(segment, bodyAt, record.BodyLength, expected, cancellationToken).ConfigureAwait(false);
-                scan.Commits.Add(Close(pending, tail, expected, headHash, full));
+                await scan.AddAsync(Close(pending, tail, expected, headHash, full)).ConfigureAwait(false);
                 headHash = scan.HeadHash;
                 pending.Clear();
             }
