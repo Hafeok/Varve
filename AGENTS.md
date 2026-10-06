@@ -90,10 +90,19 @@ severity on every project in `src/`. Every ADR is also a decision set in
   BCL allow-list (`varve_hot_path_allowed_types`) is configuration, by type or
   by member, and every entry is admitted by a decision in `HotPathScope`.
 
-**`main` is the trunk** (ADR 0032). Commit directly or open a pull request, your
-choice; work not ready for the trunk lives behind a feature flag or stays local,
-**not on a long-lived branch**. The blocking review is the automated one — every
-gate, no bypass. Human review gates a *release*, via the `release` environment.
+**Every milestone ends in a release** (ADR 0085): `dotnet run eng/changelog.cs
+-- --release <version>`, commit, and the maintainer tags that commit. A change
+that adds a line to `eng/changelog-sections.txt` starts the next milestone and
+is red on **`release pending`** until the previous one is tagged.
+
+**`main` is the trunk, and accepts only checked commits** (ADR 0088): ruleset 1
+requires every gate by job name, `dco` and `agent review` included, with no
+bypass. A session lands through a pull request from its branch, which needs an
+approving review on its head from the session's responsible human or a
+delegate (ADR 0087). A human pushes to a `land/` branch and fast-forwards `main`
+to its checked head, or merges a review-free pull request. Work not ready for
+the trunk lives behind a feature flag or stays local, **not on a long-lived
+branch**. Human review gates a *release*, via the `release` environment.
 
 ## Every commit
 
@@ -102,7 +111,9 @@ Conventional commits, one logical change each, and three things in each:
 - **`Refs #N` or `Closes #N`** in the body — enforced by `eng/issue-refs.cs`
   (ADR 0033). No issue covers the work? Open one first.
 - **`Signed-off-by:`** — DCO, from every session without exception; it names the
-  human who may contribute the code.
+  human who may contribute the code: for a session's commit, its responsible
+  human in `eng/identities.json` or a delegate. Enforced by `eng/dco.cs`
+  (ADR 0087).
 - **A signature**, for human committers. Cloud AI sessions are exempt by ruleset
   bypass; ADR 0034 records why, as a stated deviation.
 
@@ -157,8 +168,13 @@ dotnet run eng/dependency-register.cs -- --base origin/main
 git submodule update --init --recursive            # needed for conformance
 ```
 
-Every gate is also a job in `eng/ci.cs`. `CONTRIBUTING.md` has the shape of an
-ADR, a rule, a suite and a dependency; `GOVERNANCE.md` has who decides.
+Every gate is also a job in `eng/ci.cs`. `eng/` is the home of the Varve-specific
+gates and hosts the generic ones until they are ported (ADR 0086): process gates
+to [how-we-work#1](https://github.com/mindovermachine-dev/how-we-work/issues/1),
+ledger gates to
+[decision-driven-analyzers#84](https://github.com/Hafeok/decision-driven-analyzers/issues/84)
+(provenance in #65). `CONTRIBUTING.md` has the shape of an ADR, a rule, a suite
+and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 

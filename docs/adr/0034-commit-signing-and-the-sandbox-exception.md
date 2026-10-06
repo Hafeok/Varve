@@ -130,6 +130,23 @@ AI commits differently. Nothing else in this ADR changes. The commits are
 signed with the sandbox key, are unverified for the reason recorded above, carry
 the DCO sign-off, and have a traceability record.
 
+### Amendment, 2026-10-06 — point 3 was enforced only on paper until this commit
+
+Point 3 has required a DCO sign-off on every commit since 2026-09-22, and
+0032's Context counted "DCO" among the gates ruleset 1 required. **Nothing
+checked it.** No script, no workflow and no ruleset read a `Signed-off-by`
+trailer, and ruleset 1 required no check at all (0032's amendment of
+2026-09-24). Every sign-off on `main` before this amendment is there because
+its author wrote it, not because anything would have refused its absence.
+
+From the commit that adds `eng/dco.cs` (ADR [0087](0087-the-identity-map.md)),
+point 3 is enforced. It runs as the `dco` job, required on ruleset 1 (ADR
+[0088](0088-only-checked-commits-reach-main.md)), and as a job in
+`eng/ci.cs`, with a failing fixture. "The directing human" of point 3 is
+now named rather than assumed: it is the agent's responsible human in
+`eng/identities.json`, or one of that human's delegates. History before it is
+not re-checked, for point 2's reasons.
+
 ## Alternatives considered
 
 - **Register the sandbox's SSH public key as a signing key on the maintainer's

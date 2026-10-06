@@ -27,7 +27,9 @@
 // commits carry "Refs #N". The choice is between exempting them and refusing
 // automated dependency updates altogether, and the pull request Dependabot
 // opens is a tracking artefact of its own. The list is closed and explicit:
-// widening it is how this gate would stop meaning anything.
+// widening it is how this gate would stop meaning anything. It is the
+// identity map's `exempt` list (eng/identities.json, ADR 0087), shared with
+// eng/dco.cs, so the two gates exempt the same automation.
 //
 // Exactly two forms are accepted, and a bare "#N" is not one of them: "#N"
 // appears in ordinary prose often enough ("as #12 describes") that accepting it
@@ -55,6 +57,10 @@
 // Exit codes: 0 conformant, 1 findings, 2 could not run.
 //
 // See docs/adr/0033-commit-traceability.md.
+
+// CA2266 is off for this file only, for the reason eng/dco.cs gives (ADR 0087).
+#:include lib/Identities.cs
+#:property NoWarn=$(NoWarn);CA2266
 
 using System.Diagnostics;
 using System.Text;
@@ -104,11 +110,18 @@ if (exitCode != 0)
 Regex reference = new(@"\b(?:Refs|Closes)\s+#\d+\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
 // Closed and explicit. See the note above before adding to it.
-HashSet<string> exemptAuthors = new(StringComparer.OrdinalIgnoreCase)
+List<string> mapProblems = [];
+IdentityMap? identities = IdentityMap.Load(repositoryRoot, mapProblems);
+
+if (identities is null || mapProblems.Count > 0)
 {
-    "dependabot[bot]",
-    "github-actions[bot]",
-};
+    foreach (string problem in mapProblems)
+    {
+        Console.Error.WriteLine($"issue-refs: {problem}");
+    }
+
+    return 2;
+}
 
 List<(string Sha, string Subject)> missing = [];
 int checkedCommits = 0;
@@ -146,7 +159,7 @@ foreach (string record in stdout.Split('\u0001', StringSplitOptions.RemoveEmptyE
         continue;
     }
 
-    if (exemptAuthors.Contains(author))
+    if (identities.IsExempt(author))
     {
         automated++;
         continue;
@@ -251,7 +264,12 @@ static string ResolveRange(string root, string? baseRef, string? headRef)
     // where there is no before to compare against.
     string? before = Environment.GetEnvironmentVariable("GITHUB_EVENT_BEFORE");
 
-    if (!string.IsNullOrEmpty(before) && before.Trim('0').Length > 0 && Exists(root, before))
+    // A push to any branch but main is checked from main: its head is what
+    // main will be fast-forwarded to, and a required check on it vouches for
+    // everything it brings (ADR 0088).
+    bool toMain = Environment.GetEnvironmentVariable("GITHUB_REF") == "refs/heads/main";
+
+    if (toMain && !string.IsNullOrEmpty(before) && before.Trim('0').Length > 0 && Exists(root, before))
     {
         return $"{before}..{head}";
     }

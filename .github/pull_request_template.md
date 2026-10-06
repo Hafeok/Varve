@@ -56,6 +56,8 @@ often the most valuable one, and it is the one most often left empty.
 - [ ] **`dotnet run eng/ci.cs` passes locally**
 
 <!--
-Only the maintainer merges. Reviews are non-blocking: a green pull request is
-not waiting for anybody.
+Only the maintainer merges. Reviews are non-blocking, except that a pull request
+with an AI session's commits needs its responsible human's approval on its head
+(`agent review`, ADR 0087). Otherwise a green pull request is not waiting for
+anybody.
 -->

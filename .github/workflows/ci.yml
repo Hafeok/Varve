@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # land/** is the short-lived branch a human pushes to so that a commit has
+    # its checks before main is fast-forwarded to it (ADR 0088).
+    branches: [main, "land/**"]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -61,9 +63,72 @@ jobs:
           GITHUB_BASE_REF: ${{ github.base_ref }}
           GITHUB_EVENT_BEFORE: ${{ github.event.before }}
           GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
         with:
           push: never
           runCmd: dotnet run eng/ci.cs
+
+  # ADR 0085: a change that starts a milestone (adds a line to
+  # eng/changelog-sections.txt) waits until the milestone before it has a v*
+  # tag. Also a job in eng/ci.cs; a job of its own here so that the check a
+  # pull request shows is named for what it waits on.
+  release-pending:
+    name: release pending
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # The base, the section's first commit, and the tags.
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: The previous milestone is released
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+        run: dotnet run eng/release-pending.cs
+
+  # ADR 0034 point 3, enforced since ADR 0087: every commit in the range
+  # carries a DCO sign-off by its author, or, for an agent's commit, by the
+  # human the identity map makes responsible for it. Also a job in eng/ci.cs,
+  # with its failing fixture; a job of its own here so that ruleset 1 can
+  # require it by name.
+  dco:
+    name: dco
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # The range runs from the base, which a shallow clone does not have.
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Every commit is signed off
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+        run: dotnet run eng/dco.cs
+
+      - name: The failing fixture fails
+        run: |
+          set +e
+          dotnet run eng/dco.cs -- --commits tests/fixtures/dco/failing.txt --identities tests/fixtures/dco/identities.json
+          code=$?
+          set -e
+          if [ "$code" -ne 1 ]; then echo "::error::the failing DCO fixture exited $code, not 1"; exit 1; fi
+          dotnet run eng/dco.cs -- --commits tests/fixtures/dco/passing.txt --identities tests/fixtures/dco/identities.json
 
   # Gates merges. Everything here must be green.
   build:

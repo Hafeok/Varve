@@ -1,0 +1,12 @@
+{
+  "humans": [
+    { "id": "alice", "name": "Alice Example", "emails": ["alice@example.org", "alice@work.example"], "github": "alice-example", "delegates": ["bob"] },
+    { "id": "bob", "name": "Bob Example", "emails": ["bob@example.org"], "github": "bob-example", "delegates": [] }
+  ],
+  "agents": [
+    { "id": "helper", "name": "Helper", "emails": ["helper@agents.example"], "responsible": "alice" }
+  ],
+  "exempt": [
+    { "name": "dependabot[bot]" }
+  ]
+}

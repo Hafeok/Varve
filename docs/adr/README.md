@@ -72,10 +72,14 @@ superseding ADR rather than an edit.
 | # | Title | Status |
 |---:|---|---|
 | [0031](0031-licence-mpl-2-0.md) | Licence: MPL-2.0 | Accepted; **supersedes 0002** |
-| [0032](0032-trunk-based-development.md) | Trunk-based development and non-blocking review | Accepted; amended 2026-09-24 (the gate runs after the push); **amended by 0066** |
+| [0032](0032-trunk-based-development.md) | Trunk-based development and non-blocking review | **Superseded by 0088**; amended 2026-09-24 (the gate runs after the push); amended by 0066 |
 | [0033](0033-commit-traceability.md) | Commit traceability and AI-session records | Accepted |
-| [0034](0034-commit-signing-and-the-sandbox-exception.md) | Commit signing and the sandbox exception | Accepted; revisit condition; **amended by 0066** |
+| [0034](0034-commit-signing-and-the-sandbox-exception.md) | Commit signing and the sandbox exception | Accepted; revisit condition; **amended by 0066**; amended 2026-10-06 (DCO enforced from 0087) |
 | [0035](0035-semantic-versioning.md) | Semantic versioning | Accepted; complements 0029 |
+| [0085](0085-a-release-per-milestone.md) | A release per milestone, and the next milestone waits for it | Accepted; complements 0029 and 0035 |
+| [0086](0086-home-of-the-eng-gates.md) | Home of the eng/ gates | Accepted; complements 0036 and 0039 |
+| [0087](0087-the-identity-map.md) | The identity map: who signs off, accepts and approves for an agent | Accepted; enforces 0034 point 3 |
+| [0088](0088-only-checked-commits-reach-main.md) | Only checked commits reach main | Accepted; **supersedes 0032** |
 | [0036](0036-containerised-development.md) | Containerised development and the local pipeline | Accepted |
 
 
@@ -211,7 +215,7 @@ Built here and moving to a repository of its own; see
 |---:|---|---|
 | [0039](0039-repo-standard.md) | repo-standard: repository settings as code, built here and moving out | Accepted |
 
-**0078–0084 were `Proposed`** from their filing by milestone 6c on 2026-10-05 until their acceptance on its pull request on 2026-10-06. **0070–0077 were** from their filing by milestone 6a on 2026-10-02 until their acceptance on its pull request on 2026-10-05. [0069](0069-model-namespaces-for-layers-3-to-5.md) was,
+**0085 was `Proposed`** from its filing by the pre-release session of #63 until its acceptance on its pull request, both on 2026-10-06; the decision sets of 0086–0088, decided by the maintainer in that session, were accepted in the same commit (4c7e911). **0078–0084 were `Proposed`** from their filing by milestone 6c on 2026-10-05 until their acceptance on its pull request on 2026-10-06. **0070–0077 were** from their filing by milestone 6a on 2026-10-02 until their acceptance on its pull request on 2026-10-05. [0069](0069-model-namespaces-for-layers-3-to-5.md) was,
 from its filing on 2026-09-29 until its acceptance on 2026-09-30. Three others were
 `Proposed` once, and were completed in place rather than superseded, because
 ADR 0001's no-edit rule binds accepted decisions and they had never been

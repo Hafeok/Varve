@@ -46,6 +46,32 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **store**: a seek decodes the block its range starts in once (6ff6a947)
 - milestone 6c's report and benchmarks (00863f47)
 - **roadmap**: 6c's soak, its four causes and the gate's result (3825a11e)
+- regenerate the changelog (a89181d2)
+- **decisions**: accept 0078-0084 (4d9f800d)
+- **adr**: the index records 0078-0084 as accepted (9778f2a7)
+- **publish**: version from the v tag, release notes, the missing gates (2157a88c)
+- **store**: the id layout is format version 1's, ADR 0072 (044c4945)
+- **adr**: 0085, a release per milestone (d6b555be)
+- **changelog**: --release cuts a version, --check reads the newest tag (00ba4293)
+- the release pending gate (c7968017)
+- **publish**: check the tag's changelog section, notes stop at the links (1631f225)
+- **traceability**: the release tooling and ADR 0085 (b7b31f11)
+- regenerate the changelog (e75a1779)
+- **adr**: 0086, the home of the eng/ gates (176b9f1f)
+- **traceability**: ADR 0086 and the port issues (3d35bc8d)
+- regenerate the changelog (7f64ce2d)
+- **adr**: 0087 the identity map, 0088 only checked commits reach main (01eb25d1)
+- **eng**: the identity map, and issue-refs' exempt list read from it (9ac165eb)
+- the dco gate, with its failing fixture (22f71e56)
+- **decisions**: an agent's decision is accepted by its responsible human (4b2edd72)
+- the agent review check (7cfc5c07)
+- **repo-standard**: every gate a required check on ruleset 1 (4956b7e6)
+- landing on main through checked commits, and the sign-off the dco gate checks (6a7b403d)
+- **traceability**: the dco gate, the identity map, ADRs 0087 and 0088 (50e80192)
+- regenerate the changelog (f5cc65ee)
+- regenerate the changelog (cdbfd651)
+- **decisions**: accept 0085-0088 (4c7e9119)
+- **adr**: the index records 0085-0088 as accepted (9ff30c05)
 
 #### Fixed
 
@@ -55,6 +81,7 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **store**: bound recovery after a crash during or just after a bulk load (6213757f)
 - **store**: fences in chunks below the large object heap (#61) (7f4b846c)
 - **store**: a checkpoint's sections held sparsely (#61) (87b692ec)
+- **decisions**: 0088's key no longer collides with its set's class (DDGEN0005) (32ea8544)
 
 ### Milestone 6a — the file backend, format version 1, failure injection
 
