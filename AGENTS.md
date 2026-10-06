@@ -162,8 +162,13 @@ dotnet run eng/dependency-register.cs -- --base origin/main
 git submodule update --init --recursive            # needed for conformance
 ```
 
-Every gate is also a job in `eng/ci.cs`. `CONTRIBUTING.md` has the shape of an
-ADR, a rule, a suite and a dependency; `GOVERNANCE.md` has who decides.
+Every gate is also a job in `eng/ci.cs`. `eng/` is the home of the Varve-specific
+gates and hosts the generic ones until they are ported (ADR 0086): process gates
+to [how-we-work#1](https://github.com/mindovermachine-dev/how-we-work/issues/1),
+ledger gates to
+[decision-driven-analyzers#84](https://github.com/Hafeok/decision-driven-analyzers/issues/84)
+(provenance in #65). `CONTRIBUTING.md` has the shape of an ADR, a rule, a suite
+and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 

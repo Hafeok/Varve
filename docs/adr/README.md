@@ -77,6 +77,7 @@ superseding ADR rather than an edit.
 | [0034](0034-commit-signing-and-the-sandbox-exception.md) | Commit signing and the sandbox exception | Accepted; revisit condition; **amended by 0066** |
 | [0035](0035-semantic-versioning.md) | Semantic versioning | Accepted; complements 0029 |
 | [0085](0085-a-release-per-milestone.md) | A release per milestone, and the next milestone waits for it | **Proposed**; complements 0029 and 0035 |
+| [0086](0086-home-of-the-eng-gates.md) | Home of the eng/ gates | Accepted; set awaiting `accepted-by`; complements 0036 and 0039 |
 | [0036](0036-containerised-development.md) | Containerised development and the local pipeline | Accepted |
 
 
