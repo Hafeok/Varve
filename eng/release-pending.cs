@@ -141,7 +141,12 @@ static string? ResolveBase(string root)
     // GITHUB_EVENT_BEFORE is all zeroes for a branch's first push.
     string? before = Environment.GetEnvironmentVariable("GITHUB_EVENT_BEFORE");
 
-    if (!string.IsNullOrEmpty(before))
+    // A push to main is compared with the before sha. A push to any other
+    // branch is compared with main: its head is what main will be
+    // fast-forwarded to (ADR 0088).
+    bool toMain = Environment.GetEnvironmentVariable("GITHUB_REF") == "refs/heads/main";
+
+    if (toMain && !string.IsNullOrEmpty(before))
     {
         return before.Trim('0').Length > 0 && Exists(root, before) ? before : null;
     }
