@@ -165,7 +165,22 @@ Until the pull request after this one, a transitional `pull_request` job
 reports for the pull request that introduces this rule, running the base's
 script. Once this is on main, the pin means that job cannot satisfy ruleset 1.
 
+### Amendment, 2026-10-07 — the transitional job is gone
 
+The pull request after the second amendment removes the `pull_request`
+trigger and the transitional job from `.github/workflows/agent-review.yml`,
+with the base-script mode of `eng/agent-review.cs` that served it. `agent
+review` now comes only from the gates App's check run, posted by main's
+script on `pull_request_target`, `issue_comment` and `land/**` pushes. A
+failing verdict is a posted failure, not a failing job. The tamper test
+gains two parts: the workflow has no `pull_request` trigger, and no job in it
+is named `agent review`.
+
+This amendment also restores the heading `Alternatives considered`, which
+the second amendment's commit dropped by mistake. The list below it is
+unchanged.
+
+## Alternatives considered
 
 - **Exempt agents from the author match.** Leaves every session commit
   unchecked, against 0034's "no exception".

@@ -29,17 +29,12 @@
 # not a valid workflow, only tolerated until the ledger's review gate exists;
 # the pull request that adopts it removes it (ADR 0087).
 #
-# TRANSITIONAL. The `pull_request` job below exists only so that the pull
-# request introducing this file can report on itself before main has it; it
-# runs the base's script, and a pull request that follows removes it. After
-# this file is on main, ruleset 1 reads only the App's check, which that job
-# cannot post.
+# No job here runs on `pull_request`, and none may: its workflow would come
+# from the pull request (eng/agent-review-tamper.cs holds this).
 
 name: Agent review
 
 on:
-  pull_request:
-    branches: [main]
   pull_request_target:
     types: [opened, synchronize, reopened]
     branches: [main]
@@ -104,33 +99,4 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GATES_TOKEN: ${{ steps.gates.outputs.token }}
           GATES_CHECK_NAME: agent review
-        run: dotnet run eng/agent-review.cs
-
-  # Transitional; removed by the pull request that follows this one.
-  bootstrap:
-    name: agent review
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-      pull-requests: read
-      issues: read
-
-    steps:
-      - name: Checkout the base
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
-
-      - name: Judge with the base's eng/agent-review.cs
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
         run: dotnet run eng/agent-review.cs

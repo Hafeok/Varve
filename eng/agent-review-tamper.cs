@@ -20,8 +20,9 @@
 //      consulted;
 //   3. the workflow cannot run the tampered copy: the job that posts the
 //      check in .github/workflows/agent-review.yml checks out main by name,
-//      never a pull request ref, and runs on no trigger whose workflow comes
-//      from the pull request.
+//      never a pull request ref; the workflow runs on no trigger whose
+//      workflow comes from the pull request (pull_request,
+//      pull_request_review), and no job in it is itself named `agent review`.
 //
 // Exit codes: 0 every part holds, 1 one did not, 2 could not run.
 
@@ -31,6 +32,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 string root = FindRepositoryRoot();
 List<string> failures = [];
@@ -69,6 +71,10 @@ else
 string triggers = TopLevelBlock(workflow, "on");
 Require(triggers.Length > 0 && !triggers.Contains("pull_request_review", StringComparison.Ordinal),
     "pull_request_review is not a trigger: its workflow would come from the pull request");
+Require(triggers.Length > 0 && !Regex.IsMatch(triggers, @"^\s+pull_request\s*:", RegexOptions.Multiline),
+    "pull_request is not a trigger: its workflow would come from the pull request");
+Require(!Regex.IsMatch(workflow, @"^    name:\s*[""']?agent review[""']?\s*$", RegexOptions.Multiline),
+    "no job is named `agent review`: that name is the gates App's check, posted, never a job's");
 
 // --- 1. the tampered copy --------------------------------------------------------
 

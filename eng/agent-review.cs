@@ -40,15 +40,14 @@
 //                 a branch only the maintainer may push (ruleset "land"):
 //                 passes when the range from main has no agent commit and no
 //                 delegate change, and posts the same check.
-//   pull_request  transitional, until the pull request that removes it: the
-//                 job's own exit code is the verdict.
 //   none          a local run: says what it would need and exits 0.
 //
 // GITHUB_API_URL points it at a stand-in, which is how eng/agent-review-tamper.cs
 // tests it.
 //
-// Exit codes: 0 conformant (or, on a trusted path, the verdict posted),
-// 1 findings, 2 could not run.
+// Exit codes: 0 the verdict posted (or nothing to judge, or a local run): a
+// failing verdict is a posted failure, not an exit code;
+// 2 could not run.
 //
 // See docs/adr/0087-the-identity-map.md.
 
@@ -123,7 +122,7 @@ try
 {
     switch (eventName)
     {
-        case "pull_request" or "pull_request_target":
+        case "pull_request_target":
             pullNumber = payload.RootElement.GetProperty("pull_request").GetProperty("number").GetInt32();
             break;
 
@@ -318,13 +317,6 @@ foreach (string finding in findings)
 }
 
 // --- the verdict ---------------------------------------------------------------
-
-if (eventName == "pull_request")
-{
-    // Transitional: the job's exit code is the verdict.
-    Console.WriteLine(findings.Count == 0 ? "ok  agent review" : "FAIL: agent review (ADR 0087)");
-    return findings.Count == 0 ? 0 : 1;
-}
 
 if (string.IsNullOrEmpty(gatesToken))
 {
