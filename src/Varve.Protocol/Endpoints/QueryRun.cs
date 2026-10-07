@@ -169,10 +169,12 @@ internal static class QueryRun
         writer.WriteEnd();
     }
 
-    // Per row: the writer costs nothing (sparql-results.md §4); TryGetTerm
-    // externalises each binding through the source, which the allocation test
-    // measures. Not [HotPath]: TryGetTerm materialises, and a mark would claim
-    // what the code does not do.
+    // Per row: the writer costs nothing (sparql-results.md §4), and TryGetTerm
+    // names a term the store's cache holds without allocating. The allocation
+    // test measures the whole request: 56 bytes a solution, the evaluator's
+    // row. Not [HotPath]: TryGetTerm and the writer's members are not marked
+    // in their packages, and a cold term costs its term once when the cache
+    // loads it.
     private static void WriteRow(SolutionResults solutions, SparqlResultsWriter writer, int width)
     {
         writer.StartSolution();

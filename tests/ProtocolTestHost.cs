@@ -54,11 +54,22 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
     /// mounts the endpoints; the default is the server's own layout for one
     /// dataset, under <c>/datasets/{dataset}</c>.
     /// </summary>
-    internal static async Task<ProtocolTestHost> StartAsync(
+    internal static Task<ProtocolTestHost> StartAsync(
         Dataset dataset,
         Action<WebApplication, ProtocolOptions>? map = null,
         ProtocolLimits? limits = null,
         TimeProvider? clock = null,
+        ICallerIdentity? identity = null,
+        CancellationToken stopping = default) =>
+        StartAsync(new OneDataset(dataset), map, limits, clock, identity, stopping);
+
+    /// <summary>Starts a server whose datasets <paramref name="datasets"/> names.</summary>
+    internal static async Task<ProtocolTestHost> StartAsync(
+        IDatasetResolver datasets,
+        Action<WebApplication, ProtocolOptions>? map = null,
+        ProtocolLimits? limits = null,
+        TimeProvider? clock = null,
+        ICallerIdentity? identity = null,
         CancellationToken stopping = default)
     {
         WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
@@ -67,9 +78,9 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         WebApplication app = builder.Build();
         ProtocolOptions options = new()
         {
-            Datasets = new OneDataset(dataset),
+            Datasets = datasets,
             Updates = new StoreUpdates(clock ?? TimeProvider.System),
-            Identity = new NoOne(),
+            Identity = identity ?? new NoOne(),
             Authorization = new EveryoneMay(),
             Clock = clock ?? TimeProvider.System,
             Limits = limits ?? ProtocolLimits.Default,
@@ -122,6 +133,16 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
     private sealed class NoOne : ICallerIdentity
     {
         public RequestTerm AgentOf(ClaimsPrincipal caller) => RequestTerm.None;
+    }
+
+    /// <summary>Datasets by name, added while the server runs.</summary>
+    internal sealed class Datasets : IDatasetResolver
+    {
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, Dataset> _datasets = new(StringComparer.Ordinal);
+
+        internal void Add(string name, Dataset dataset) => _datasets[name] = dataset;
+
+        public bool TryResolve(DatasetName name, [NotNullWhen(true)] out Dataset? dataset) => _datasets.TryGetValue(name.Value, out dataset);
     }
 
     /// <summary>The update executor, as the server binds it: no retries, the expected position passed through.</summary>
