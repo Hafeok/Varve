@@ -26,7 +26,7 @@ CommitResult result = await SparqlUpdate.ExecuteAsync(dataset, update, options, 
 - **`dataset`** is a `Varve.Store.Dataset`; **`update`** is a parsed
   `Varve.Sparql.Algebra.Update`. The package pins, evaluates and commits; the
   caller holds nothing.
-- **`UpdateOptions`** is immutable and has four members, none with an
+- **`UpdateOptions`** is immutable and has five members, none with an
   ambient default (ADR 0056's rule):
   - `Evaluation` — the `EvaluationOptions` every `WHERE` is evaluated with,
     and templates too: its clock and random source serve `NOW()`, `RAND()`,
@@ -37,6 +37,11 @@ CommitResult result = await SparqlUpdate.ExecuteAsync(dataset, update, options, 
   - `ConflictRetries` — how many times a request that met a `Conflict` is
     executed again from a fresh pin. Default **0**: a `Conflict` is returned,
     not retried (§4).
+  - `ExpectedPosition` — the position the request must be evaluated at, or
+    none. When the pinned head is elsewhere the request is not evaluated and
+    the result is `Conflict(head)`; when it matches, it is the commit's
+    expected position and `ConflictRetries` does not apply. It is HTTP's
+    `If-Match` (ADR 0094, milestone 7a).
 - **Validators come from the dataset** (`DatasetOptions.Validators`, ADR
   0058), and run as part of the commit as always (T1 step 5).
 - **The result is the commit's**: `Committed(P)`, `NoChange(head)`,
