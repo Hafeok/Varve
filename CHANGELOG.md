@@ -94,6 +94,8 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **repo-standard**: the land ruleset's update rule with its parameter (57391e7e)
 - regenerate the changelog (dcafd4f7)
 - **agent-review**: remove the pull_request trigger and the transitional job (dc074495)
+- regenerate the changelog (a1271e92)
+- the PR template states ADR 0088's landing rules, not ADR 0032's (8c3ac610)
 
 #### Fixed
 
