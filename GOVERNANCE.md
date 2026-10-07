@@ -52,12 +52,13 @@ Every gate is a required check on the `trunk` ruleset, by job name, with **no
 bypass**. A commit reaches `main` only once its own checks have passed: a human
 pushes it to a `land/` branch, lets CI run, and fast-forwards `main` to it, or
 merges a pull request. An AI session lands through a pull request, and that
-pull request needs an approving review on its head from the session's
-responsible human or one of their delegates, as listed in `eng/identities.json`
-([ADR 0087](docs/adr/0087-the-identity-map.md)). On a pull request opened under
-the responsible human's own account, which GitHub will not let them approve,
-their comment review `approve <head sha>` counts instead (0087's amendment of
-2026-10-06). A change not ready for the
+pull request needs an approval on its head from the session's responsible
+human or one of their delegates, as listed in `eng/identities.json`
+([ADR 0087](docs/adr/0087-the-identity-map.md)): a conversation comment
+`approve <head sha>`, at least 12 characters of it. That form is tolerated
+until the ledger's review gate exists, and is not a valid workflow. The verdict
+is the `agent review` check the gates App posts from main's script, and
+ruleset 1 accepts it only from that App. A change not ready for the
 trunk lives behind a feature flag or stays local — **not on a long-lived
 branch**.
 

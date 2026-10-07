@@ -249,3 +249,95 @@ resolved is the maintainer's choice.
   `eng/agent-review.cs`, so a pull request can change the gate that judges it.
   Running the base's script would deadlock this pull request, which needs its
   own new rule to pass. It is a follow-up once this rule is on `main`.
+
+## The sixth prompt
+
+> Follow-up PR after #66: agent-review.yml becomes pull_request_target, checking out the base ref's eng/agent-review.cs only, never building or running PR content, reading head SHA and reviews via the API; header comment states the hazard and the rule. Minimum SHA prefix in the comment form becomes 12 characters. ADR 0087 dated amendment records that the judging script is always main's. Test: a PR that edits agent-review.cs to always pass still fails under main's copy.
+
+The session raised three problems and asked:
+- landing a `pull_request_target`-only workflow deadlocks, because main has
+  no such trigger yet;
+- `pull_request_review` runs take their workflow from the pull request;
+- required checks are matched by name.
+
+The maintainer's answers, verbatim:
+
+> Land in two PRs. PR 1: keep pull_request, add pull_request_target (base-ref script only, API reads only) and a push trigger for land/** that passes when the range has no agent-authored commits and fails otherwise; the check run "agent review" is created or updated on the head SHA on all three paths. PR 2, after merge: remove pull_request. Test the land/ path with the first fast-forward.
+>
+> Trusted triggers only: pull_request_target, issue_comment (PR comments, created), push on land/**. Approval is a PR conversation comment "approve <sha ≥12>" by a holder of Approve for every agent identity in the PR, resolved via the API from the comment's author; review submissions are not consulted; pull_request_review and pull_request_review_comment are not triggers. Same check run "agent review" updated on the head SHA from all three paths. ADR 0087 amendment notes the change and that the ledger form replaces it.
+>
+> This PR: the agent review check run is created and updated with an installation token of a dedicated gates GitHub App (checks: write only), minted from an environment restricted to main, so no PR-defined workflow can report it; ruleset 1 requires "agent review" from that app; required-checks.cs records the app pinning; ADR 0087 amendment records that check names are spoofable and only app-pinned checks count. If repo-standard cannot declare the app on a required check, add that first.
+
+And, mid-turn:
+
+> Amend ADR 0087 (dated): approval by PR comment is not a valid workflow; it is tolerated only until the ledger review gate exists and is removed in the PR that adopts it. File the decision so the ledger project can cite it.
+
+## The sixth report
+
+- **`eng/agent-review.cs`**, rewritten. It reads the pull request (head,
+  commits, head identity map, conversation comments) and, for a `land/`
+  push, the compare range, through the API only.
+  - Approval: `approve <sha>`, at least 12 characters, by a holder of Approve
+    for each agent, judged against main's map.
+  - On the trusted paths it posts the check run `agent review` with the gates
+    App's token, updating that App's run on the head if one exists.
+  - The JSON request bodies use `JsonObject`, because file-based apps are
+    AOT-analysed and reflection serialisation is refused.
+- **`agent-review.yml`**:
+  - the `judge` job runs on `pull_request_target`, `issue_comment` (a PR
+    comment containing "approve") and `land/**` pushes;
+  - it checks out main by name, mints the token in the `gates` environment
+    and posts the check;
+  - a transitional `bootstrap` job, named `agent review`, runs on
+    `pull_request` with the base's script, and PR 2 removes it.
+- **`eng/agent-review-tamper.cs`**, a job of `eng/ci.cs`, 17 parts:
+  - the tampered copy passes on its own;
+  - main's copy posts failure for it;
+  - the approval cases: 12 characters pass; 11, an earlier head, a stranger
+    and a review submission alone fail;
+  - the `issue_comment` and `land/` paths;
+  - the workflow structure.
+
+  Its failure path was proven by pointing the judge's checkout at the pull
+  request head, which fails two parts.
+- **`repo-standard.yaml`**: the `gates` environment, with branch policies
+  `main` and `land/**`, and the ruleset `land`, which restricts `land/**` to
+  the maintainer.
+  - **The departure from the instruction:** the environment also admits
+    `land/**`, not `main` alone. Otherwise the `land/` path could never post
+    the check, and no human landing could pass.
+  - The integration id of the App is not known, so the pin is not declared.
+    Without a pin, `eng/required-checks.cs` fails on purpose.
+- **`eng/required-checks.cs`**: a pinned name must be posted by the gates App
+  from a `pull_request_target` workflow, and a name the App posts must be
+  pinned. Its fixture gained one case of each.
+- **ADR 0087**, second amendment of 2026-10-06, with four new rulings, among
+  them `CommentApprovalIsNotAValidWorkflow` for the ledger project to cite.
+  - `OwnPullRequestApprovedByComment` is revoked.
+  - `AgentPullRequestsApprovedOnTheHead` has its statement changed and its
+    acceptance withdrawn.
+- **Still name-spoofable:** the 13 other required checks. The amendment says
+  so, rather than claiming more than holds.
+
+## The seventh prompt
+
+> Gates app created and installed on Varve; environment gates exists, restricted to main, with GATES_APP_CLIENT_ID and GATES_APP_PRIVATE_KEY. App ID: 5220446. Pin "agent review" to it in repo-standard.yaml and take #68 out of draft. Also: the repo-standard app's secrets now live in a main-restricted environment named gates; make repo-apply use it, in #68 or a follow-up, whichever is cleaner.
+
+## The seventh report
+
+- **`agent review` is pinned to App 5220446** in `repo-standard.yaml`.
+  `eng/required-checks.cs` passes: 14 required, 1 pinned.
+- **The repo-standard App's secrets: in #68, not a follow-up.** Merging #68
+  makes `repo-standard.yml` apply the declaration, and that run must mint the
+  repo-standard App's token. With the secrets only in `gates`, it can do so
+  only if the workflow names the environment. So #68 makes three changes
+  together:
+  - the job runs with `environment: gates`;
+  - repository-level `secrets` is `[]`;
+  - the `gates` environment declares all four secrets.
+
+  repo-standard reports a secret mismatch in either direction, so the lists
+  must match where the secrets actually are.
+- **Unchanged from the earlier report:** the declaration gives `gates` the
+  branch policies `main` and `land/**`, so applying #68 adds `land/**` to the
+  environment, which was created with `main` only.

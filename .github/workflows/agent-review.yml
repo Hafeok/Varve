@@ -1,31 +1,58 @@
-# Agent review (ADR 0087): a pull request with an agent's commits needs an
-# approving review on its head from the agent's responsible human or a
-# delegate, and a human's delegates change only in that human's own pull
-# request. eng/agent-review.cs says how.
+# Agent review (ADR 0087).
 #
-# Its own workflow, not a job in ci.yml, because it must run again when a
-# review is submitted or dismissed, and a review should not rebuild
-# everything. The job is named `agent review`, and ruleset 1 requires it by
-# that name (ADR 0088): a review run reports on the pull request's head, so
-# the latest result for the head is the one the ruleset reads.
+# THE HAZARD. A pull request that can change the code judging it judges
+# itself: one that edits eng/agent-review.cs to `return 0;`, or this file to
+# skip it, passes. A `pull_request` or `pull_request_review` run takes its
+# workflow and its checkout from the pull request, so neither can be trusted
+# with this check. And a required check is matched by name, so any pull
+# request can add a job called `agent review` that passes.
+#
+# THE RULE. The verdict is a check run named `agent review`, created or
+# updated on the pull request's head by the gates GitHub App (checks: write
+# only), and ruleset 1 requires that name *from that App* (ADR 0088). Its
+# token is minted from the `gates` environment, whose secrets only `main` and
+# the maintainer-only `land/**` branches can reach, so no workflow a pull
+# request defines can post it. The job that posts it:
+#
+#   - runs only on triggers whose workflow comes from main:
+#     pull_request_target, issue_comment (a new comment), and a push to
+#     land/**, which only the maintainer may push (ruleset `land`);
+#   - checks out main and runs main's eng/agent-review.cs, never the pull
+#     request's: no ref from the pull request is checked out, fetched, built
+#     or run;
+#   - reads the pull request (head, commits, identity map, comments) through
+#     the API, as data.
+#
+# Review submissions are not a trigger and are not consulted: the approval is
+# a conversation comment "approve <sha>", at least 12 characters of the head,
+# by a holder of Approve for every agent in the pull request. That form is
+# not a valid workflow, only tolerated until the ledger's review gate exists;
+# the pull request that adopts it removes it (ADR 0087).
+#
+# TRANSITIONAL. The `pull_request` job below exists only so that the pull
+# request introducing this file can report on itself before main has it; it
+# runs the base's script, and a pull request that follows removes it. After
+# this file is on main, ruleset 1 reads only the App's check, which that job
+# cannot post.
 
 name: Agent review
 
 on:
   pull_request:
     branches: [main]
-  pull_request_review:
-    types: [submitted, edited, dismissed]
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+  issue_comment:
+    types: [created]
   push:
-    branches: [main, "land/**"]
+    branches: ["land/**"]
 
-permissions:
-  contents: read
-  pull-requests: read
+permissions: {}
 
 concurrency:
-  group: agent-review-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: agent-review-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}
+  cancel-in-progress: false
 
 env:
   DOTNET_NOLOGO: "true"
@@ -33,25 +60,77 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
 
 jobs:
-  agent-review:
-    name: agent review
+  # The verdict ruleset 1 reads: the gates App's check run `agent review`.
+  judge:
+    name: agent review (judge)
+    if: >
+      github.event_name == 'pull_request_target'
+      || github.event_name == 'push'
+      || (github.event_name == 'issue_comment'
+          && github.event.issue.pull_request
+          && contains(github.event.comment.body, 'approve'))
     runs-on: ubuntu-latest
+    environment: gates
+
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
 
     steps:
-      - name: Checkout
+      - name: Checkout main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          # The pull request's head, not the merge ref a review event names,
-          # and the whole history, for the range from the base.
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
+          # main, by name, on every path: never the pull request's head or
+          # merge ref, and never the pushed land/ commit.
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+          persist-credentials: false
 
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           global-json-file: global.json
 
-      - name: Agent commits are approved, and delegates change only by their human
+      - name: Mint the gates App's token
+        id: gates
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.GATES_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GATES_APP_PRIVATE_KEY }}
+
+      - name: Judge with main's eng/agent-review.cs, and post the check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GATES_TOKEN: ${{ steps.gates.outputs.token }}
+          GATES_CHECK_NAME: agent review
+        run: dotnet run eng/agent-review.cs
+
+  # Transitional; removed by the pull request that follows this one.
+  bootstrap:
+    name: agent review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+
+    steps:
+      - name: Checkout the base
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Judge with the base's eng/agent-review.cs
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: dotnet run eng/agent-review.cs

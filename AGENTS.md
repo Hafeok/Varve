@@ -98,10 +98,12 @@ is red on **`release pending`** until the previous one is tagged.
 **`main` is the trunk, and accepts only checked commits** (ADR 0088): ruleset 1
 requires every gate by job name, `dco` and `agent review` included, with no
 bypass. A session lands through a pull request from its branch, which needs an
-approving review on its head from the session's responsible human or a
-delegate (ADR 0087). On a pull request opened under the responsible human's own
-account, which GitHub will not let them approve, their comment review
-`approve <head sha>` is the approval. A human pushes to a `land/` branch and fast-forwards `main`
+approval on its head from the session's responsible human or a delegate (ADR
+0087): a conversation comment `approve <head sha>`, at least 12 characters. That
+form is **not a valid workflow**, only tolerated until the ledger's review gate
+replaces it. `agent review` is judged by main's script on trusted triggers and
+posted by the gates App; a required check is spoofable by name unless pinned to
+an App. A human pushes to a `land/` branch and fast-forwards `main`
 to its checked head, or merges a review-free pull request. Work not ready for
 the trunk lives behind a feature flag or stays local, **not on a long-lived
 branch**. Human review gates a *release*, via the `release` environment.
