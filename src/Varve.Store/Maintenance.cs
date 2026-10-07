@@ -110,7 +110,9 @@ public sealed partial class Dataset
     private bool MaintenanceDue(State state) =>
         state.Index.MemtableCount >= _options.MemtableLimit.Value && state.Index.Runs.Length > LeadingBlobRuns(state.Index)
         || DiskMergeDue(state.Index)
-        || CheckpointDue(state);
+        || CheckpointDue(state)
+        || CommitPagingDue(state)
+        || CommitMergeDue(state.Commits);
 
     private static int LeadingBlobRuns(IndexVersion index)
     {
@@ -226,6 +228,16 @@ public sealed partial class Dataset
             return await MergeAsync(index, disk, cancellationToken).ConfigureAwait(false);
         }
 
+        if (CommitPagingDue(state) && await PageCommitsAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return true;
+        }
+
+        if (CommitMergeDue(state.Commits) && await MergeCommitsAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return true;
+        }
+
         if (CheckpointDue(state))
         {
             await CheckpointCoreAsync(state.Head, cancellationToken).ConfigureAwait(false);
@@ -305,9 +317,9 @@ public sealed partial class Dataset
         long to = runs[^1].To;
         BlobName name = new(RunPrefix + from.ToString("D20", CultureInfo.InvariantCulture) + "-" + to.ToString("D20", CultureInfo.InvariantCulture)
             + "." + Interlocked.Increment(ref _runSequence).ToString(CultureInfo.InvariantCulture));
-        byte[] hash = _state.Commits[to - 1].HeaderHash;
+        byte[] hash = _state.Commits.Entry(to).HeaderHash();
 
-        await DerivedFormat.WriteRunAsync(_storage.Derived, name, DerivedFormat.KindRun, Id, from, to, hash, sources, TermsOf(runs), _state.Commits[to - 1].BlankCount, cancellationToken).ConfigureAwait(false);
+        await DerivedFormat.WriteRunAsync(_storage.Derived, name, DerivedFormat.KindRun, Id, from, to, hash, sources, TermsOf(runs), _state.Commits.Entry(to).BlankCount, cancellationToken).ConfigureAwait(false);
 
         return await DerivedFormat.TryLoadAsync(_storage.Derived, name, Id, DerivedFormat.KindRun, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("A run just written to derived/ does not read back.");
@@ -428,7 +440,7 @@ public sealed partial class Dataset
 
         long position = index.Runs[disk - 1].To;
         await DerivedFormat.WriteStateAsync(
-            _storage.Derived, StateName, Id, position, _state.Commits[position - 1].HeaderHash, Interlocked.Read(ref _runSequence) + 1, runs, cancellationToken).ConfigureAwait(false);
+            _storage.Derived, StateName, Id, position, _state.Commits.Entry(position).HeaderHash(), Interlocked.Read(ref _runSequence) + 1, runs, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -448,7 +460,7 @@ public sealed partial class Dataset
         if (persisted is { } read
             && read.Header.To >= Math.Max(1, floor)
             && read.Header.To <= state.Head
-            && read.Header.ToHash.AsSpan().SequenceEqual(state.Commits[read.Header.To - 1].HeaderHash))
+            && state.Commits.Entry(read.Header.To).HashEquals(read.Header.ToHash))
         {
             _runSequence = Math.Max(_runSequence, read.Sequence);
             loaded = await LoadRunsAsync(state, checkpoints, read.Runs, read.Header.To, cancellationToken).ConfigureAwait(false);
@@ -540,7 +552,7 @@ public sealed partial class Dataset
                     && run.Header.From == loaded.Position
                     && run.Header.To > run.Header.From
                     && run.Header.To <= state.Head
-                    && run.Header.ToHash.AsSpan().SequenceEqual(state.Commits[run.Header.To - 1].HeaderHash)
+                    && state.Commits.Entry(run.Header.To).HashEquals(run.Header.ToHash)
                     && run.Run.Terms.From == state.CanonicalAt(run.Header.From)
                     && run.Run.Terms.To == state.CanonicalAt(run.Header.To))
                 {
@@ -599,7 +611,7 @@ public sealed partial class Dataset
                 if (loaded is not null
                     && loaded.Header.From == entry.From
                     && loaded.Header.To == entry.To
-                    && loaded.Header.ToHash.AsSpan().SequenceEqual(state.Commits[entry.To - 1].HeaderHash)
+                    && state.Commits.Entry(entry.To).HashEquals(loaded.Header.ToHash)
                     && loaded.Run.Terms.From == state.CanonicalAt(entry.From)
                     && loaded.Run.Terms.To == state.CanonicalAt(entry.To))
                 {

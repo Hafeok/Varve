@@ -93,6 +93,7 @@ public class BulkLoadTests
         MaxRecordBytes = new ByteCount(64),
         SegmentBytes = new ByteCount(1024),
         MemtableLimit = new QuadCount(8),
+        CommitCache = T.CommitCache,
         Maintenance = MaintenanceMode.Off,
         Validators = validators ?? [],
     };
@@ -412,13 +413,13 @@ public class BulkLoadTests
                 LogScan bounded = LogReader.ScanAsync(storage.Log, T.Id, 0, retain, T.Ct).AsTask().GetAwaiter().GetResult();
                 Assert.Equal(whole.Head, bounded.Head);
 
-                for (int i = 0; i < whole.Commits.Count; i++)
+                for (int i = 0; i < whole.Commits!.Count; i++)
                 {
-                    Assert.Equal(whole.Commits[i].HeaderHash, bounded.Commits[i].HeaderHash);
-                    Assert.Equal(whole.Commits[i].Bytes, bounded.Commits[i].Bytes);
-                    Assert.NotNull(whole.Commits[i].Full);
+                    Assert.Equal(whole.Commits![i].HeaderHash, bounded.Commits![i].HeaderHash);
+                    Assert.Equal(whole.Commits[i].Bytes, bounded.Commits![i].Bytes);
+                    Assert.NotNull(whole.Commits![i].Full);
 
-                    if (bounded.Commits[i].Full is { } full)
+                    if (bounded.Commits![i].Full is { } full)
                     {
                         Assert.Equal(whole.Commits[i].Full!.Asserted, full.Asserted);
                         Assert.Equal(whole.Commits[i].Full!.Retracted, full.Retracted);

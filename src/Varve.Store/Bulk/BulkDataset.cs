@@ -133,9 +133,9 @@ public sealed partial class Dataset
         State state = _state;
         long head = commit.Head;
         long next = head + 1;
-        byte[] previous = head == 0 ? LogFormat.Genesis() : state.Commits[head - 1].HeaderHash;
+        byte[] previous = head == 0 ? LogFormat.Genesis() : state.Commits.Entry(head).HeaderHash();
         long now = _options.Clock.GetUtcNow().UtcTicks;
-        long timestamp = Math.Max(now, head == 0 ? long.MinValue : state.Commits[head - 1].TimestampTicks);
+        long timestamp = Math.Max(now, head == 0 ? long.MinValue : state.Commits.Entry(head).TimestampTicks);
         byte[] content = await commit.ContentHashAsync(cancellationToken).ConfigureAwait(false);
 
         CommitHeader header = new(CommitKind.Data, next, timestamp, agent, cause, scope, commit.CanonicalAfter, commit.BlankAfter, 0, [], [], previous, content);
@@ -205,11 +205,11 @@ public sealed partial class Dataset
                 throw;
             }
 
-            CommitInfo info = new(header, headerHash, location, state.SettingsAt(head), state.LogBytesAt(head) + _writer.LastCommitBytes);
+            CommitEntry info = new(header.TimestampTicks, headerHash, location, header.CanonicalCount, header.BlankCount, state.LogBytesAt(head) + _writer.LastCommitBytes);
             Run[] runs = [.. state.Index.Runs, delta.Run];
             IndexVersion index = new(next, runs, runs.Length);
             delta = null!;
-            _state = new State(next, Append(state.Commits, head, info), index, state.Checkpoints, null);
+            _state = new State(next, state.Commits.Append(in info, null), index, state.Checkpoints, null);
             Signal();
             await PersistStateAsync(index, cancellationToken).ConfigureAwait(false);
 

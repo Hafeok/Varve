@@ -49,9 +49,9 @@ public sealed partial class Dataset
 
         if (at > 0)
         {
-            CommitInfo last = state.Commits[at - 1];
-            byte[] previous = at == 1 ? LogFormat.Genesis() : state.Commits[at - 2].HeaderHash;
-            CommitLocation end = await LogReader.EndAsync(_storage.Log, Id, last.Location, at, previous, cancellationToken).ConfigureAwait(false);
+            CommitLocation last = state.Commits.Entry(at).Location;
+            byte[] previous = at == 1 ? LogFormat.Genesis() : state.Commits.Entry(at - 1).HeaderHash();
+            CommitLocation end = await LogReader.EndAsync(_storage.Log, Id, last, at, previous, cancellationToken).ConfigureAwait(false);
 
             foreach (SegmentInfo segment in await _storage.Log.ListSegmentsAsync(cancellationToken).ConfigureAwait(false))
             {

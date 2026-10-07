@@ -308,7 +308,7 @@ public class BehaviourTests
                 for (long p = 1; p <= head; p++)
                 {
                     await harness.Dataset.CheckpointAsync(new Position(p), T.Ct);
-                    BlobName name = (await harness.Storage.Derived.ListAsync(T.Ct)).Single();
+                    BlobName name = (await harness.Storage.Derived.ListAsync(T.Ct)).Single(n => n.Value.StartsWith("checkpoints/", StringComparison.Ordinal));
                     ReadOnlyMemory<byte> blob = await T.ReadBlobAsync(harness.Storage, name);
                     await harness.Dataset.DropCheckpointAsync(new Position(p), T.Ct);
 

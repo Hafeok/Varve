@@ -23,6 +23,7 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **store**: Varve.Store.Browser, OPFS and IndexedDB storage (1c691bb7)
 - **store**: replica bootstrap by copying a checkpoint and the log (3b0e8c2a)
 - **store**: the bulk loader, by sort and merge-join (3acea82a)
+- **store**: the commit index, derived and paged (#61) (8a1b378c)
 
 #### Changed
 
@@ -50,6 +51,8 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **decisions**: accept 0078-0084 (4d9f800d)
 - **adr**: the index records 0078-0084 as accepted (9778f2a7)
 - **publish**: version from the v tag, release notes, the missing gates (2157a88c)
+- **adr**: 0085, the commit index is derived and paged; tests and spec (32401323)
+- **store**: the commit index cites no decision in code (6c7681bd)
 - **store**: the id layout is format version 1's, ADR 0072 (044c4945)
 - **adr**: 0085, a release per milestone (d6b555be)
 - **changelog**: --release cuts a version, --check reads the newest tag (00ba4293)
@@ -57,6 +60,7 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **publish**: check the tag's changelog section, notes stop at the links (1631f225)
 - **traceability**: the release tooling and ADR 0085 (b7b31f11)
 - regenerate the changelog (e75a1779)
+- **store**: the naive contract backend locks; the commit index's benchmarks (2d328351)
 - **adr**: 0086, the home of the eng/ gates (176b9f1f)
 - **traceability**: ADR 0086 and the port issues (3d35bc8d)
 - regenerate the changelog (7f64ce2d)
@@ -80,6 +84,8 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **traceability**: the fifth round of #63's session (3a017f99)
 - regenerate the changelog (c8ac6371)
 - **decisions**: accept the 2026-10-06 amendments of 0087 and 0088 (38eb29a9)
+- the commit index's addendum to the 6c record, the soak and its ablations (b999fe8e)
+- regenerate the changelog (cba3e1a9)
 - **agent review**: judge through the API only, approve by conversation comment, post the check as the gates App (f33f16e6)
 - **agent review**: main's script on trusted triggers only, and the tamper test (39f8ddc1)
 - **repo-standard**: the gates environment, and land/** for the maintainer only (f86005b8)
@@ -88,14 +94,17 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - approval by conversation comment, judged by main's script (a6842aa6)
 - **traceability**: the sixth round of #63's session (ec2d14e9)
 - regenerate the changelog (9d11b1b4)
+- **adr**: the commit index's ADR is 0089 (b8696a65)
 - **repo-standard**: pin agent review to the gates App; the repo-standard App's key from the gates environment (c0e4563b)
 - **traceability**: the seventh round of #63's session (d638a0f4)
 - regenerate the changelog (cf0d11ca)
 - **repo-standard**: the land ruleset's update rule with its parameter (57391e7e)
 - regenerate the changelog (dcafd4f7)
+- **adr**: accept 0089, the commit index is derived and paged (d0102f09)
 - **agent-review**: remove the pull_request trigger and the transitional job (dc074495)
 - regenerate the changelog (a1271e92)
 - the PR template states ADR 0088's landing rules, not ADR 0032's (8c3ac610)
+- regenerate the changelog (f76ed53f)
 
 #### Fixed
 

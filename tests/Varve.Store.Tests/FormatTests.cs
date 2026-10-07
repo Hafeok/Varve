@@ -130,7 +130,7 @@ public sealed class FormatTests
 
         Assert.True(counting.LogBytesRead < logBytes / 2, "open read " + counting.LogBytesRead + " of " + logBytes + " log bytes");
 
-        await memory.Derived.DeleteAsync((await memory.Derived.ListAsync(T.Ct)).Single(), T.Ct);
+        await memory.Derived.DeleteAsync((await memory.Derived.ListAsync(T.Ct)).Single(n => n.Value.StartsWith("checkpoints/", StringComparison.Ordinal)), T.Ct);
         counting.Reset();
 
         await using (Dataset reopened = await Dataset.OpenAsync(counting, options, T.Ct))

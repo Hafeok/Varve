@@ -23,6 +23,7 @@ public class DictionaryTests
     {
         Clock = ManualClock.Epoch(),
         MemtableLimit = new QuadCount(memtable),
+        CommitCache = T.CommitCache,
         Maintenance = MaintenanceMode.Off,
     };
 

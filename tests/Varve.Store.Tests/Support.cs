@@ -46,7 +46,10 @@ internal static class T
         RdfTerm.Literal(Encoding.UTF8.GetBytes(lexical), Encoding.UTF8.GetBytes(language));
 
     public static DatasetOptions Options(TimeProvider? clock = null, int maxRecordBytes = 1 << 20, long segmentBytes = 64L << 20) =>
-        new() { Clock = clock ?? ManualClock.Epoch(), MaxRecordBytes = new ByteCount(maxRecordBytes), SegmentBytes = new ByteCount(segmentBytes) };
+        new() { Clock = clock ?? ManualClock.Epoch(), MaxRecordBytes = new ByteCount(maxRecordBytes), SegmentBytes = new ByteCount(segmentBytes), CommitCache = CommitCache };
+
+    /// <summary>The commit index's cache in tests: two entries, so that every suite pages the index out, merges it and reads it back (ADR 0089).</summary>
+    public const int CommitCache = 2;
 
     /// <summary>The id every test dataset is created with, so that two runs write the same bytes.</summary>
     public static DatasetId Id { get; } = new(new Guid("6a0e7b3c-1d2f-4a5b-8c9d-0e1f2a3b4c5d"));

@@ -367,8 +367,11 @@ request, since 6b is the RDF 1.2 syntaxes above. Issues
   checkpoint's sparsely (ADR 0080). The soak gate is a band (ADR 0082): the
   hour's working set, 153 → 200 MB with peaks to 218 MB where 6a's reached
   2.8 GB, holds the ±25% band and misses the 10% drift (+20.6%), the
-  collector's headroom over a commit table of 144 bytes a commit. Closing it
-  is put to the maintainer.
+  collector's headroom over a commit table of 144 bytes a commit. The commit
+  table then became derived, paged state (ADR 0089): the drift holds
+  (+1.1%), and the band is missed by two samples of a hundred, excursions of
+  the collector's committed memory, which a 128 MB heap limit removes. #61
+  stays open.
 - **The dictionary on disk** (ADR 0079): carried by the runs, read by id and by
   term through the synchronous blob read; opening loads none.
 - **Derived format 2**: keys compressed in their blocks (ADR 0080), answering

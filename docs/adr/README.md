@@ -189,6 +189,7 @@ maintainer on the 6a plan, filed unaccepted (ADR 0066); specification 1.4, and 1
 | [0082](0082-the-soak-gate.md) | The soak gate: a flat working set within a stated band | Accepted; the gate #61 blocks |
 | [0083](0083-replica-bootstrap-is-a-file-copy.md) | Replica bootstrap is a copy of files | Accepted |
 | [0084](0084-the-browser-backend.md) | The browser backend: OPFS sync access handles in a worker, IndexedDB as the fallback | Accepted; answers 0071's revisit condition for the browser |
+| [0089](0089-the-commit-index-is-derived-and-paged.md) | The commit index is derived and paged | Accepted; the soak's drift (#61) |
 
 ## Milestone 7 — the server
 
