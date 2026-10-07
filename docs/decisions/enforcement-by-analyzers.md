@@ -51,6 +51,8 @@ decisions:
     statement: "The repository-wide System.Uri ban is narrowed before layer 5 needs System.Uri, by a per-project banned-symbols file and not by call-site suppressions"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-20T00:00:00Z
+  - key: UriAllowedInProtocolAndServer
+    statement: "System.Uri is allowed in Varve.Protocol and Varve.Server only, by eng/BannedSymbols.Http.txt selected with VarveSpeaksHttp, for transport addresses and never for an RDF IRI"
 ---
 
 The rulings of [ADR 0004](../adr/0004-enforcement-by-analyzers.md) still in force, one line each. The ADR is the

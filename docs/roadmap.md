@@ -396,6 +396,21 @@ threads.
 SPARQL 1.1 Protocol, Graph Store Protocol, service description, federation, and
 the endpoints for the event-sourced features.
 
+**Split in two.**
+
+- **7a** (ADRs 0091–0101): `Varve.Protocol` and `Varve.Server`;
+  - the SPARQL 1.1 Protocol, the Graph Store Protocol and the service
+    description;
+  - time travel over HTTP, the change feed and the diff;
+  - authentication tested in three layers;
+  - the server's configuration, Native AOT, graceful shutdown and readiness.
+- **7b**: the admin API, the CLI, and `SERVICE` and `LOAD` over HTTP. The
+  release `0.1.0-preview.2` follows 7b, not 7a.
+
+Q1's protocol half is **closed by ADR 0098** (spec 1.6): stable labels out,
+fresh labels in, no skolem IRIs. The paragraph below is kept as the record of
+what was due.
+
 **Q1's protocol half is due here** (ADR 0044): the skolem IRI scheme by which a
 store blank node crosses a protocol boundary, decided with the server that is
 its first consumer.
@@ -521,6 +536,30 @@ the following are true.
 - **No branching or merging of datasets.** Milestone 2 was required not to
   block it. That is not the same as building it, and conflating the two is how
   a 1.0 acquires a feature nobody designed.
+
+## Replication — after 1.0
+
+Not built and not in 1.0 (*Excluded from 1.0* above). Recorded at milestone 7a
+so the protocol it will need is not designed by accident.
+
+- **Replica bootstrap over HTTP follows Delta Sharing's split between a control
+  plane and a data plane.**
+  - `GET /datasets/{name}/snapshot?at=<position>` returns a **manifest**: the
+    checkpoint at or below the position and the log segments after it, each
+    with its size, its hash and a URL. The URL is direct, or presigned when the
+    files sit in object storage.
+  - The client fetches the files itself and opens them as ADR 0083's file copy
+    does.
+  - **The server streams nothing.** A bootstrap of a large dataset then costs
+    the server one manifest, not the bytes, and the data plane can be a CDN or
+    a storage account.
+  - Delta Sharing does the same for tables: its *Read Data from a Table*
+    answers with file URLs, not rows.
+  - Tailing after the bootstrap is the change feed (ADR 0097), from the
+    manifest's position.
+- **Why not now:** it presupposes an archive horizon (T3) and a storage layout
+  addressable by URL. Neither exists, and 7a's change feed already serves a
+  replica that starts from position 0.
 
 ## Not scheduled
 

@@ -19,6 +19,8 @@ decisions:
     statement: "A layer 6 assembly may be packable, and nothing references layer 6"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-25T00:00:00Z
+  - key: ProtocolSeamRevisitCondition
+    statement: "Protocols stay at layer 5 behind host-bound seams until a third integration must be reached the same way, when the table is superseded with protocols at 6 and hosts at 7"
 ---
 
 The rulings of [ADR 0060](../adr/0060-hosts-at-layer-6-the-composition-root.md) still in force, one line each. The ADR is the

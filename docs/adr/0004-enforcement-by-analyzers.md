@@ -8,7 +8,9 @@ reservation table is retired, `VARVE0001` and `VARVE0002` are retired, and
 `VARVE0003`–`VARVE0008` are released to their `DD` successors; the hot-path
 rule is renumbered by [0064](0064-varve-configuration-and-hot-path-rules.md).
 Off-the-shelf first, the id scheme, severity, and the suppression policy for
-rules that are neither `DD` nor `VARVE` stand.
+rules that are neither `DD` nor `VARVE` stand. **Amended 2026-10-07** (ADR
+[0068](0068-dated-amendments.md)), by milestone 7a of #11: the `System.Uri`
+ban's narrowing is discharged; see *Amendment, 2026-10-07* at the end.
 
 ## Context
 
@@ -199,3 +201,26 @@ BannedApiAnalyzers apply to packable projects, and milestone 1 has none by
 design. They are configured and unexercised until `Varve.Iri` exists at
 milestone 3. Configured is not the same as proven, and this ADR says so rather
 than letting the configuration read as coverage.
+
+## Amendment, 2026-10-07 — the `System.Uri` ban is narrowed for layer 5 and 6 protocol code
+
+Filed by milestone 7a of #11, unaccepted until the maintainer accepts it
+(ADR 0066). It discharges the consequence above, *the `System.Uri` ban is
+currently wider than the brief supports*, in the form that consequence
+prescribed: a per-project banned-symbols file, not a suppression at each call
+site. What this ADR decided is unchanged.
+
+- **`Varve.Protocol` (layer 5) and `Varve.Server` (layer 6)** take their banned
+  symbols from `eng/BannedSymbols.Http.txt`. It is `eng/BannedSymbols.txt`
+  without the `T:System.Uri` line, and is selected by the project property
+  `VarveSpeaksHttp`. Each project sets it in its own file, citing ADR 0091.
+- **Everywhere else the ban stands**, layers 0 to 5 included: `Varve.Sparql.Store`,
+  the store and every syntax keep `eng/BannedSymbols.txt`. A third project that
+  sets `VarveSpeaksHttp` is a change to this amendment's list, made by its own
+  decision.
+- **Inside the two packages an IRI is still a `Varve.Iri` value.** `System.Uri`
+  is for transport addresses only: an OIDC authority and its metadata address,
+  and a request's own address where direct graph identification needs it
+  (ADR 0093). Review is the check that a `Uri` never stands for an RDF IRI.
+  `UriBanNarrowedPerProject` is the ruling, already accepted. The new ruling is
+  `UriAllowedInProtocolAndServer`.

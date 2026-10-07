@@ -1,7 +1,11 @@
 # 0037 — Authentication and authorisation for the server
 
 Status: Accepted (2026-09-22). Number assigned on merge: it follows 0036, the
-last ADR in `docs/adr/` at that point.
+last ADR in `docs/adr/` at that point. **Amended 2026-10-07** (ADR
+[0068](0068-dated-amendments.md)), by milestone 7a of #11: the consequence
+"`JwtBearer` is in the shared framework" was wrong; see the end. **Refined by
+[0100](0100-authentication-tested-in-three-layers.md)** (filed 2026-10-07): the
+test consequence.
 
 ## Context
 
@@ -41,3 +45,30 @@ Constraints that bear on the choice: constraint 4 (every third-party package nee
 - No revisit condition for the credential model: OIDC bearer tokens are the only accepted credential, and this ADR is not to be superseded by one that adds API keys or another secret-based scheme. The claim mapping and the anonymous development mode may be amended.
 
 Checked against ADRs 0001 to 0027 and the log and projection model, version 1.1. Touches 0003 (layer ownership), 0005 (store stays free of host concerns) and the spec's definition of commit metadata.
+
+## Amendment, 2026-10-07 — `JwtBearer` is a package, not part of the shared framework
+
+Filed by milestone 7a of #11, unaccepted until the maintainer accepts it (ADR
+0066). It corrects this ADR's own reasoning, not its decision (ADR 0068, point
+2).
+
+The first two bullets under *Consequences*, "No new runtime package.
+`JwtBearer` is in the shared framework; the register gains no entry.", are
+**wrong**. `Microsoft.AspNetCore.Authentication.JwtBearer` has been a NuGet
+package, outside `Microsoft.AspNetCore.App`, since ASP.NET Core 3.0. It brings
+`Microsoft.IdentityModel.Protocols.OpenIdConnect` and that package's
+`Microsoft.IdentityModel.*` closure. The text above stays as written; this
+block is the correction.
+
+- **The decision stands**: OIDC bearer tokens validated by `JwtBearer`, no
+  `Microsoft.Identity.Web`, no MSAL.
+- **The register gains entries**, admitted by ADR
+  [0099](0099-register-jwtbearer-and-the-workflows-containers.md), in
+  `Varve.Server` only. They are admitted on the condition that the server's
+  Native AOT publish stays green.
+- The ruling `OidcBearerTokensViaJwtBearer` says "the shared framework's
+  JwtBearer". Its statement is left as accepted. The corrected ruling is the
+  new key `JwtBearerIsAPackageInTheServer` in this ADR's set, unaccepted until
+  the maintainer accepts it.
+- **Layer**: the ADR says `Varve.Server` is layer 5. ADR 0060 made it layer 6,
+  as this ADR's set already records.

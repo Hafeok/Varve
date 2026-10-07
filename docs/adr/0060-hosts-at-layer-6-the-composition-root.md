@@ -10,7 +10,9 @@ mechanism, and both open questions. Enforced by `VARVE0001` and `VARVE0002`;
 see [`docs/rules/VARVE0002.md`](../rules/VARVE0002.md). **Enforcement moves** to `DD0001` and
 `VARVE0005` ([0062](0062-adopting-decisiondriven-analyzers.md),
 [0064](0064-varve-configuration-and-hot-path-rules.md), 2026-09-25); the
-rulings are unchanged.
+rulings are unchanged. **Amended 2026-10-07** (ADR
+[0068](0068-dated-amendments.md)), by milestone 7a of #11: a revisit condition
+for protocol packages at layer 5; see the end.
 
 ## Context
 
@@ -118,3 +120,23 @@ tool. Packing does not change the rules: nothing references layer 6.
 - The number of layers is now seven. ADR 0003's rationale does not depend on
   the count. The stability argument gets one more step, and it is the step
   with nothing above it.
+
+## Amendment, 2026-10-07 — protocols at layer 5, and when that stops being right
+
+Filed by milestone 7a of #11, unaccepted until the maintainer accepts it (ADR
+0066). It records evidence and adds a revisit condition, as the maintainer
+decided on the 7a plan. The table is unchanged.
+
+`Varve.Protocol` (ADR [0091](0091-varve-protocol-and-varve-server.md)) is a
+library that composes layers 2 to 4 for HTTP, so it is layer 5. It needs SPARQL
+Update, which `Varve.Sparql.Store` implements at the same layer. The table
+forbids that reference. ADR 0091 answers with a seam: `Varve.Protocol`
+declares `ISparqlUpdateExecutor`, and the host, at layer 6, binds it to
+`Varve.Sparql.Store`. That is this ADR's own rule — the composition root wires
+the concrete choices — applied to one more choice.
+
+**Revisit condition:** a **third** integration has to be reached from protocol
+code the same way. One seam is a binding; two are bookkeeping. A third means
+protocols are a layer of their own between integrations and hosts, and this
+ADR's table should then be superseded with protocols at 6 and hosts at 7. The
+ruling is `ProtocolSeamRevisitCondition`.

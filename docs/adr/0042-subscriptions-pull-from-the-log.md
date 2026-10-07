@@ -4,7 +4,10 @@
 
 **Accepted.** 2026-09-23. **Amended 2026-10-02** (ADR
 [0068](0068-dated-amendments.md)), by a note scoping it to delivery and
-allowing dataset-owned maintenance; see the end of *Decision*.
+allowing dataset-owned maintenance; see the end of *Decision*. **Amended
+2026-10-07** (ADR [0068](0068-dated-amendments.md)), by milestone 7a of #11: a
+delivered commit externalises its handles; see *Amendment, 2026-10-07* at the
+end.
 
 Decides the delivery mechanism behind §8's `Subscribe(from, filter)` and §7's
 asynchronous projections. ADR 0016 fixed the promises — closed commits, in
@@ -126,3 +129,37 @@ A subscriber or projection still never runs on a task the store owns.
   `Varve.Store`, **layer 4**.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-07 — a delivered commit externalises its handles
+
+Filed by milestone 7a of #11, unaccepted until the maintainer accepts it (ADR
+0066). It states a consequence a later decision needs (ADR 0068, point 2): the
+change feed over HTTP (ADR 0097) reads through the subscription contract and
+nothing else.
+
+**The gap.** A delivered commit carries the allocations its delivered delta and
+metadata refer to — the ones *this* commit made. A consumer that keeps a
+dictionary of its own from position 0 can name every handle. A consumer that
+resumes at a later position, or whose filter skipped the commit that allocated
+a term, receives handles it has no term for. The HTTP feed is exactly such a
+consumer: each request starts from whatever position the client gives.
+
+**The addition.** `Commit.TryExternalise(TermHandle handle, out RdfTerm term)`
+names any handle the commit carries — in its delta, its metadata or its
+attachments — by reading the dataset's dictionary.
+
+- **Why this is safe: the dictionary is append-only.** `D_P = D_{P−1} ∪
+  alloc_P` (spec §3), and no transition removes an entry. Erasure destroys a
+  key, not an entry (§9). A handle a closed commit carries is therefore in
+  `D_head` for every later head, with the same term. The commit can read the
+  dataset's current dictionary without a pin and without ever seeing a
+  different answer.
+- **What it is not.** It is not a read of the dataset's state: it gives no
+  access to quads, only names for handles the commit already carries. A handle
+  the commit does not carry is answered `false`, not looked up, so the method
+  cannot be used to enumerate the dictionary.
+- **In erasure mode (milestone 9)**, a private term externalises only while
+  its key is readable, as everywhere else (§6). A filtered subscription
+  still never carries plaintext it was not given (I9).
+- `DeliveredAllocationsFiltered` stands unchanged. The new ruling is
+  `DeliveredCommitExternalisesItsHandles`.
