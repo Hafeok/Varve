@@ -97,7 +97,7 @@ public sealed partial class Dataset
                 }
             }
 
-            await _sequencer.WaitAsync(cancellationToken).ConfigureAwait(false);
+            await EnterSequencerAsync(cancellationToken).ConfigureAwait(false);
             State state = _state;
 
             if (state.Failed is not null || _broken is not null)

@@ -275,7 +275,7 @@ public sealed partial class Dataset
         IndexVersion frozen;
         int disk;
 
-        await _sequencer.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await EnterSequencerAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
@@ -332,7 +332,7 @@ public sealed partial class Dataset
     {
         IndexVersion swapped;
 
-        await _sequencer.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await EnterSequencerAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {

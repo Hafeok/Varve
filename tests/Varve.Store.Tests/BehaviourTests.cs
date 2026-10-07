@@ -270,6 +270,84 @@ public class BehaviourTests
         Assert.Equal(new Position(2), got.Single().Position);
     }
 
+    [Fact]
+    public async Task a_delivered_commit_names_every_handle_it_carries_whichever_commit_allocated_it()
+    {
+        await using Dataset dataset = await T.Open(new MemoryStorage());
+        RdfTerm g = T.Iri("g");
+        await dataset.CommitAsync(new CommitRequest { Metadata = new CommitMetadata { Agent = T.Iri("alice") } }.Assert(T.Iri("s"), T.Iri("p"), T.Blank("x"), g), T.Ct); // 1
+        await dataset.CommitAsync(One("other"), T.Ct); // 2: filtered out
+        await dataset.CommitAsync(new CommitRequest { Metadata = new CommitMetadata { Agent = T.Iri("alice") } }.Assert(T.Iri("s"), T.Iri("q"), T.Iri("o"), g), T.Ct); // 3
+
+        using DatasetView pin = dataset.Pin();
+        Assert.True(pin.TryInternalise(g, out TermHandle gh));
+
+        // Resumed after the commit that allocated s, alice and g: none is among 3's allocations.
+        Commit third = (await Take(dataset.Subscribe(new Position(2), SubscriptionFilter.ForGraph(GraphPattern.Named(gh)), T.Ct), 1)).Single();
+        Assert.Equal(new Position(3), third.Position);
+        Quad quad = third.Delta.Asserted[0];
+        Assert.DoesNotContain(third.Allocations.ToArray(), a => a.Handle == quad.Subject);
+
+        Assert.True(third.TryExternalise(quad.Subject, out RdfTerm? subject));
+        Assert.Equal(T.Render(T.Iri("s")), T.Render(subject!));
+        Assert.True(third.TryExternalise(quad.Graph, out RdfTerm? graph));
+        Assert.Equal(T.Render(g), T.Render(graph!));
+        Assert.True(third.TryExternalise(third.Agent, out RdfTerm? agent));
+        Assert.Equal(T.Render(T.Iri("alice")), T.Render(agent!));
+        Assert.True(third.TryExternalise(quad.Object, out RdfTerm? fresh));
+        Assert.Equal(T.Render(T.Iri("o")), T.Render(fresh!));
+
+        // The same as the pin says, and nothing it does not carry.
+        Assert.True(pin.TryExternalise(quad.Subject, out RdfTerm? pinned));
+        Assert.Equal(T.Render(pinned!), T.Render(subject!));
+        Assert.True(pin.TryInternalise(T.Iri("other"), out TermHandle other));
+        Assert.False(third.TryExternalise(other, out _));
+        Assert.False(third.TryExternalise(TermHandle.None, out _));
+
+        // A blank node carried by a commit is named by its stable label (ADR 0098).
+        Commit first = (await Take(dataset.Subscribe(new Position(0), SubscriptionFilter.All, T.Ct), 1)).Single();
+        Assert.True(first.TryExternalise(first.Delta.Asserted[0].Object, out RdfTerm? blank));
+        Assert.True(pin.TryExternalise(first.Delta.Asserted[0].Object, out RdfTerm? pinnedBlank));
+        Assert.Equal(T.Render(pinnedBlank!), T.Render(blank!));
+    }
+
+    [Fact]
+    public async Task disposing_waits_for_the_commit_in_the_sequencer_and_later_commits_are_unavailable()
+    {
+        Dataset dataset = await T.Open(new MemoryStorage());
+        await dataset.CommitAsync(One("a"), T.Ct);
+        using ManualResetEventSlim entered = new();
+        using ManualResetEventSlim proceed = new();
+        BlockingValidator blocking = new(entered, proceed);
+
+        Task<CommitResult> inFlight = Task.Run(async () =>
+            await dataset.CommitAsync(new CommitRequest { Validators = [blocking] }.Assert(T.Iri("b"), T.Iri("p"), T.Iri("o")), T.Ct), T.Ct);
+        Assert.True(entered.Wait(TimeSpan.FromSeconds(10), T.Ct));
+
+        Task disposing = dataset.DisposeAsync().AsTask();
+        await Task.Delay(100, T.Ct);
+        Assert.False(disposing.IsCompleted, "The dataset closed under a commit in progress.");
+
+        proceed.Set();
+        CommitResult result = await inFlight.WaitAsync(TimeSpan.FromSeconds(10), T.Ct);
+        await disposing.WaitAsync(TimeSpan.FromSeconds(10), T.Ct);
+
+        Assert.Equal(CommitOutcome.Committed, result.Outcome);
+        Assert.Equal(new Position(2), result.Position);
+        CommitResult after = await dataset.CommitAsync(One("c"), T.Ct);
+        Assert.Equal(CommitOutcome.Unavailable, after.Outcome);
+    }
+
+    private sealed class BlockingValidator(ManualResetEventSlim entered, ManualResetEventSlim proceed) : ICommitValidator
+    {
+        public ValidationVerdict Validate(IQuadSource proposed, QuadDelta delta)
+        {
+            entered.Set();
+            proceed.Wait(TimeSpan.FromSeconds(30));
+            return ValidationVerdict.Accept();
+        }
+    }
+
     private static async Task<List<Commit>> Take(IAsyncEnumerable<Commit> feed, int count)
     {
         List<Commit> taken = [];
