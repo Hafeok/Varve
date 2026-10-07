@@ -370,3 +370,19 @@ The second half of the sixth prompt's plan:
   amendment's commit dropped.
 - **The land/ path** is tested by the maintainer's first fast-forward, not by
   this session.
+
+## The ninth prompt
+
+> Fix the PR template's opening comment (cites ADR 0032; replace with 0088's landing rules) in #69 if still open, otherwise in the next small PR.
+
+## The ninth report
+
+- **#69 was still open**, so the fix is in #69.
+- **The template's opening comment** now states ADR 0088's rules:
+  - `main` accepts only a commit with passing required checks;
+  - a human lands either through a `land/` branch, fast-forwarding `main`, or
+    through a pull request;
+  - a cloud session lands only through a pull request, and that pull request
+    needs `agent review` (ADR 0087).
+- **The closing comment** already described review per ADR 0087 and is
+  unchanged.

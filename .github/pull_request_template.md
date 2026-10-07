@@ -1,7 +1,10 @@
 <!--
-Pull requests are optional here. `main` is the trunk and you may commit to it
-directly (ADR 0032) — a pull request is the right tool when a change wants
-discussion, comes from outside, or you want it read before it lands.
+`main` is the trunk, and it accepts only a commit whose SHA already has
+passing required checks (ADR 0088). A human lands a change either by pushing
+it to a `land/<anything>` branch, letting CI run there and fast-forwarding
+`main` to that SHA, or by a pull request like this one. A cloud session always
+lands through a pull request, and that pull request needs its responsible
+human's approval on its head (`agent review`, ADR 0087).
 
 The body is the report: what was decided, what was measured, what was found,
 what is left. Not a changelog — the commits are the changelog. A reader should
