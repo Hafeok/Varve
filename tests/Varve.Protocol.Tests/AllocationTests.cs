@@ -17,8 +17,12 @@ namespace Varve.Protocol.Tests;
 /// between two answers of different sizes, divided by the difference in
 /// solutions (<c>docs/testing.md</c> §4). Process-wide, because the request
 /// crosses Kestrel's threads; each size is measured several times and the
-/// least reading kept, since another thread can only add.
+/// least reading kept, since another thread can only add. Process-wide also
+/// means another test class's allocations count, so the class runs alone,
+/// after every parallel test has finished: least-of-six is no defence against
+/// a neighbour that allocates during every reading.
 /// </summary>
+[Collection(nameof(AllocationTests))]
 public class AllocationTests
 {
     private const int Small = 2_000;
@@ -107,3 +111,7 @@ public class AllocationTests
         return dataset;
     }
 }
+
+/// <summary>The collection that runs <see cref="AllocationTests"/> alone.</summary>
+[CollectionDefinition(nameof(AllocationTests), DisableParallelization = true)]
+public sealed class AllocationTestsRunAlone;
