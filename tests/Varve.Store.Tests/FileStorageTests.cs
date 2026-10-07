@@ -17,9 +17,18 @@ namespace Varve.Store.Tests;
 internal sealed class TemporaryDirectory : IAsyncDisposable
 {
     private readonly List<FileStorage> _opened = [];
+    private readonly bool _flushes;
 
-    public TemporaryDirectory() =>
+    /// <param name="flushes">
+    /// False opens its storages on <see cref="UnflushedFileSystem"/>: real files
+    /// without the device flush, for the suites whose subject is not
+    /// durability (ADR 0090).
+    /// </param>
+    public TemporaryDirectory(bool flushes = true)
+    {
+        _flushes = flushes;
         Path = System.IO.Directory.CreateTempSubdirectory("varve-6a-").FullName;
+    }
 
     public string Path { get; }
 
@@ -29,10 +38,16 @@ internal sealed class TemporaryDirectory : IAsyncDisposable
 
     public async Task<FileStorage> OpenAsync(FileStorageOptions? options = null)
     {
-        FileStorage storage = await FileStorage.OpenAsync(Directory, options ?? Options, T.Ct);
+        FileStorage storage = await OpenForCallerAsync(options);
         _opened.Add(storage);
         return storage;
     }
+
+    /// <summary>A storage on this directory that the caller disposes, not the directory.</summary>
+    public async Task<FileStorage> OpenForCallerAsync(FileStorageOptions? options = null) =>
+        _flushes
+            ? await FileStorage.OpenAsync(Directory, options ?? Options, T.Ct)
+            : FileStorage.Open(new UnflushedFileSystem(), Directory, options ?? Options);
 
     public FileStorage Open() => OpenAsync().GetAwaiter().GetResult();
 
@@ -60,7 +75,7 @@ public sealed class FileStorageContractTests : StorageContractTests, IAsyncDispo
 
     protected override IStorage Create()
     {
-        TemporaryDirectory directory = new();
+        TemporaryDirectory directory = new(flushes: false);
         _directories.Add(directory);
         return directory.Open();
     }
