@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by the commit-index slice of #61, 2026-10-06**
+**Accepted — filed unaccepted by the commit-index slice of #61, 2026-10-06**
 (ADR 0066). Acceptance is the maintainer's act on the pull request.
 
 Decided by the maintainer on the milestone 6c pull request: "the commit table
