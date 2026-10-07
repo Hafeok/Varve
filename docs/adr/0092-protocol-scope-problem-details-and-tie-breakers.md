@@ -105,7 +105,18 @@ TriG, `turtle.md` §9). It has no RDF/XML or JSON-LD package.
    its own guard count, catalogued as deprecated. `service-description`'s three
    names are checks written by us, each stated as such. All four run against an
    in-process server over the memory store and the file store, under the
-   ratchet. Exemptions are expected to be none.
+   ratchet.
+   - **Every case of `protocol` and `graph-store-protocol`, and every
+     service-description check, passes without an exemption.**
+   - **Six cases of the deprecated `http-rdf-update` are exempt on both
+     stores**, each a flaw of the deprecated suite, each answered as its
+     successor and Oxigraph answer it. They are listed in
+     `baseline/exemptions.txt`:
+     - two bodies in Turtle with no final `.` (Turtle 1.1 §2.4), so `400`;
+     - the two `GET`s that depend on those bodies;
+     - a `DELETE` of a graph no step creates, so `404` (GSP §5.4);
+     - a `HEAD` and a `GET` without `Accept` that expect Turtle, where GSP
+       §5.2 allows RDF/XML, Turtle or N-Triples and Varve writes N-Triples.
 
 ## Alternatives considered
 

@@ -12,11 +12,13 @@ decisions:
   - key: DatasetResolverSeam
     statement: "Varve.Protocol asks an IDatasetResolver the host implements for the dataset a request names"
   - key: PermissionsArePolicyNames
-    statement: "Endpoints carry the policy names varve:read, varve:write and varve:admin, which the host binds and decides per dataset on the route's dataset value"
+    statement: "Every endpoint authorises imperatively and first, through the host's IAuthorizationService given in ProtocolOptions, by the policy names varve:read, varve:write and varve:admin with the DatasetName as resource; a refusal is a challenge or a forbid with no detail"
   - key: CallerIdentitySeam
     statement: "The caller's identity reaches the protocol through ICallerIdentity, which the host implements from the token"
   - key: ProtocolContractVocabulary
     statement: "Varve.Protocol's contract vocabulary adds Varve.Store and Varve.Sparql in its own project file, and the global value is unchanged"
+  - key: ProtocolModelNamespace
+    statement: "Varve.Protocol.Model holds the protocol's public data: dataset names, as-of selectors, limits, problem types and the change feed's records; the root namespace holds the endpoints, the options, the seams and the reader"
 ---
 
 The rulings of [ADR 0091](../adr/0091-varve-protocol-and-varve-server.md), filed unaccepted by milestone 7a of #11

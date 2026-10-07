@@ -51,13 +51,28 @@ implements, and a same-layer reference is a violation (ADR 0003, `DD0001`).
    ADR 0052 is written once in `Varve.Protocol` over layers 3 and 4.
 3. **The datasets are the host's.** `Varve.Protocol` asks an `IDatasetResolver`
    for the dataset a request names, and the host owns the mapping (ADR 0093).
-4. **Authorisation is three policy names** that the endpoints carry as metadata:
-   `varve:read`, `varve:write` and `varve:admin`. The host registers policies
-   under those names and decides what satisfies them. Per-dataset rules read
-   the route's `dataset` value as the resource. The caller's identity reaches
-   the protocol through `ICallerIdentity`, which the host implements from the
-   token (ADR 0094). In anonymous mode the host binds an identity that names no
-   one.
+4. **Authorisation is three policy names**: `varve:read`, `varve:write` and
+   `varve:admin`. The host registers policies under those names and decides
+   what satisfies them; the resource each is decided on is the request's
+   `DatasetName`.
+   - **The endpoints ask, rather than carry metadata.** `POST /sparql` is a
+     query (read) or an update (write) depending on its body, which endpoint
+     metadata cannot express. So every endpoint authorises imperatively, first
+     and before anything is read or resolved, through the host's
+     `IAuthorizationService`. It is given in `ProtocolOptions` and is
+     required: there is no default that would leave a host open by omission.
+   - A refusal is a challenge when the caller is not authenticated (`401`
+     through the host's default scheme) and a forbid otherwise (`403`). Both
+     come with no body that names the dataset or the permission.
+   - A host with no authentication — the conformance host, anonymous mode —
+     registers the three policies as allowing everyone.
+   - The caller's identity reaches the protocol through `ICallerIdentity`,
+     which the host implements from the token (ADR 0094). In anonymous mode
+     the host binds an identity that names no one.
+
+   These are authorisation types (`Microsoft.AspNetCore.Authorization`) and the
+   abstractions' challenge and forbid. No authentication scheme, handler or
+   token type is referenced.
 5. **The contract vocabulary of `Varve.Protocol` is widened in its project
    file** to `Varve.Store` and `Varve.Sparql`, with the reason given there. Its
    contracts name a `Dataset`, a `CommitResult` and an `Update`. The global
