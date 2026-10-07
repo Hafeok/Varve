@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by the Windows test-time slice of #10,
+**Accepted — filed unaccepted by the Windows test-time slice of #10,
 2026-10-07** (ADR 0066). Acceptance is the maintainer's act on the pull
 request.
 
