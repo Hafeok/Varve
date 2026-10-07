@@ -125,6 +125,16 @@ public sealed class AuthTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task a_role_claim_that_is_an_object_grants_by_its_property_names()
+    {
+        // Zitadel's project roles: {"writer": {"<org id>": "<org domain>"}}.
+        System.Text.Json.Nodes.JsonObject roles = new() { ["writer"] = new System.Text.Json.Nodes.JsonObject { ["1234"] = "org.example" } };
+        string token = _issuer.Mint(new Dictionary<string, object> { ["sub"] = "subject-1", ["roles"] = roles });
+        Assert.Equal(HttpStatusCode.NoContent, (await SendAsync("POST", "datasets/d/sparql", token)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync("GET", "datasets/d/status", token)).StatusCode);
+    }
+
+    [Fact]
     public async Task a_commit_names_the_issuer_and_the_percent_encoded_subject_as_its_agent()
     {
         string token = _issuer.Mint(Claims("writer", subject: "alice@example.org/ü"));

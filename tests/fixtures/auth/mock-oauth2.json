@@ -1,0 +1,30 @@
+{
+  "interactiveLogin": true,
+  "httpServer": "NettyWrapper",
+  "tokenCallbacks": [
+    {
+      "issuerId": "varve",
+      "tokenExpiry": 300,
+      "requestMappings": [
+        {
+          "requestParam": "client_id",
+          "match": "varve-writer",
+          "claims": {
+            "sub": "varve-writer",
+            "aud": [ "api://varve" ],
+            "roles": [ "varve.write" ]
+          }
+        },
+        {
+          "requestParam": "client_id",
+          "match": "varve-cli",
+          "claims": {
+            "sub": "${subject}",
+            "aud": [ "api://varve" ],
+            "roles": [ "varve.read" ]
+          }
+        }
+      ]
+    }
+  ]
+}

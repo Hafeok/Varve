@@ -27,3 +27,4 @@ packages/
 # OS
 .DS_Store
 Thumbs.db
+.github/zitadel/bootstrap/

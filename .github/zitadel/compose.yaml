@@ -1,0 +1,70 @@
+# Zitadel and PostgreSQL for auth test layer (c) (ADR 0100): a real provider,
+# started by the workflow and by the devcontainer, never by a test or a package
+# (ADR 0099). eng/zitadel-seed.cs seeds it through its API.
+#
+#   docker compose -f .github/zitadel/compose.yaml up -d --wait
+#
+# Only the API: a device-code request is approved through the OIDC service's
+# API with the login client's token, as a custom login UI approves it, so
+# neither the login UI nor a proxy is needed. HTTP on localhost:8081, no TLS.
+#
+# Images are pinned by digest, resolved from the registries when this file was
+# written (2026-10-07); the tag beside each is for the reader. Every image comes
+# from a registry without an anonymous pull limit — ghcr.io, and ECR Public's
+# mirror of the official PostgreSQL image — and none from Docker Hub, whose
+# limit a shared runner's address exhausts. Dependabot's docker-compose
+# ecosystem bumps them.
+#
+# The bootstrap directory receives two personal access tokens, written by
+# Zitadel's first-instance setup: the administrator's, which the seed uses, and
+# the login client's, which approves a device code. Throwaway instance,
+# throwaway tokens, never committed (.gitignore).
+
+name: varve-zitadel
+
+services:
+  postgres:
+    image: public.ecr.aws/docker/library/postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: zitadel
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d zitadel -U postgres" ]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  zitadel:
+    image: ghcr.io/zitadel/zitadel:v4.19.4@sha256:90a3045b80a2b5b395e1e770302076906af3a5911225af7c464b4f3bd00d0a1b
+    user: "0"
+    command: start-from-init --masterkey "MasterkeyNeedsToHave32Characters" --tlsMode disabled
+    environment:
+      ZITADEL_PORT: 8080
+      ZITADEL_EXTERNALDOMAIN: localhost
+      ZITADEL_EXTERNALPORT: 8081
+      ZITADEL_EXTERNALSECURE: "false"
+      ZITADEL_TLS_ENABLED: "false"
+      ZITADEL_DATABASE_POSTGRES_DSN: postgresql://postgres:postgres@postgres:5432/zitadel?sslmode=disable
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORDCHANGEREQUIRED: "false"
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_USERNAME: varve-seed
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_NAME: Varve seed
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_PAT_EXPIRATIONDATE: "2099-01-01T00:00:00Z"
+      ZITADEL_FIRSTINSTANCE_PATPATH: /zitadel/bootstrap/admin.pat
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_USERNAME: login-client
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_NAME: Varve login client
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_PAT_EXPIRATIONDATE: "2099-01-01T00:00:00Z"
+      ZITADEL_FIRSTINSTANCE_LOGINCLIENTPATPATH: /zitadel/bootstrap/login-client.pat
+    ports:
+      - "8081:8080"
+    volumes:
+      - ${VARVE_ZITADEL_BOOTSTRAP:-./bootstrap}:/zitadel/bootstrap:rw
+    healthcheck:
+      test: [ "CMD", "/app/zitadel", "ready" ]
+      interval: 3s
+      timeout: 30s
+      retries: 60
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy

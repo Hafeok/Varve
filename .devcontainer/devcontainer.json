@@ -29,7 +29,14 @@
     // than a convenience.
     "ghcr.io/devcontainers/features/dotnet:2": {
       "version": "10.0.401"
-    }
+    },
+
+    // Auth test layers (b) and (c) (ADR 0100): mock-oauth2-server and Zitadel
+    // run here as they run in CI, from the same compose files, by
+    // .devcontainer/auth-legs.sh. A daemon inside the container rather than
+    // the host's socket, so that the compose files' bind mounts resolve
+    // against this checkout's paths.
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
 
   "onCreateCommand": "bash .devcontainer/post-create.sh",

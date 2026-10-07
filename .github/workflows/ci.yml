@@ -406,6 +406,115 @@ jobs:
             dotnet run eng/server-smoke.cs -- "${{ github.workspace }}/artifacts/server-aot/Varve.Server"
           fi
 
+  # Auth test layer (b) (ADR 0100): a standards mock, real OAuth 2.0 flows —
+  # client credentials, and the authorization code with PKCE through the mock's
+  # login form — against the real middleware with discovery over HTTP. The
+  # container is the workflow's, never a test's (ADR 0099), pinned by digest on
+  # a registry without an anonymous pull limit. VARVE_AUTH_LEGS_REQUIRED turns
+  # the leg's skip into a failure, so a broken container cannot pass.
+  auth-mock-oauth2:
+    name: auth (mock-oauth2)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Start mock-oauth2-server
+        run: |
+          docker compose --file .github/mock-oauth2/compose.yaml up --detach
+          for attempt in $(seq 1 60); do
+            curl --silent --fail http://localhost:8080/varve/.well-known/openid-configuration > /dev/null && exit 0
+            sleep 1
+          done
+          docker compose --file .github/mock-oauth2/compose.yaml logs
+          exit 1
+
+      - name: Test against it
+        env:
+          VARVE_MOCK_OAUTH2: http://localhost:8080
+          VARVE_AUTH_LEGS_REQUIRED: mock-oauth2
+        run: >
+          dotnet test
+          --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
+          --configuration Release
+          --filter-class Varve.Server.Tests.ProviderTests
+
+  # Auth test layer (c) (ADR 0100): Zitadel and PostgreSQL, a real provider,
+  # started by compose and seeded through its API by eng/zitadel-seed.cs. One
+  # test per flow: client credentials, and device code approved through the
+  # API a login UI uses.
+  auth-zitadel:
+    name: auth (zitadel)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Start Zitadel
+        run: docker compose --file .github/zitadel/compose.yaml up --detach --wait
+
+      - name: Seed it
+        run: dotnet run eng/zitadel-seed.cs -- --output ${{ github.workspace }}/artifacts/zitadel-seed.json
+
+      - name: Test against it
+        env:
+          VARVE_ZITADEL_SEED: ${{ github.workspace }}/artifacts/zitadel-seed.json
+          VARVE_AUTH_LEGS_REQUIRED: zitadel
+        run: >
+          dotnet test
+          --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
+          --configuration Release
+          --filter-class Varve.Server.Tests.ProviderTests
+
+      - name: Zitadel's log
+        if: failure()
+        run: docker compose --file .github/zitadel/compose.yaml logs zitadel
+
+  # The real-provider legs (ADR 0100): one test each for Entra ID and Google,
+  # with secrets from the auth-providers environment, which only main can
+  # deploy to — so no pull request, and no fork, ever sees them. Not a required
+  # check: a pull request cannot run it. Each leg skips while its secrets are
+  # not configured.
+  auth-providers:
+    name: auth (providers)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: auth-providers
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Test against Entra ID and Google
+        env:
+          VARVE_ENTRA_TENANT: ${{ secrets.VARVE_ENTRA_TENANT }}
+          VARVE_ENTRA_CLIENT_ID: ${{ secrets.VARVE_ENTRA_CLIENT_ID }}
+          VARVE_ENTRA_CLIENT_SECRET: ${{ secrets.VARVE_ENTRA_CLIENT_SECRET }}
+          VARVE_ENTRA_AUDIENCE: ${{ secrets.VARVE_ENTRA_AUDIENCE }}
+          VARVE_GOOGLE_SERVICE_ACCOUNT: ${{ secrets.VARVE_GOOGLE_SERVICE_ACCOUNT }}
+        run: >
+          dotnet test
+          --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
+          --configuration Release
+          --filter-class Varve.Server.Tests.ProviderTests
+
   # Durability, measured per platform (ADR 0073): what an append and a flush
   # to the device cost on each runner, with the calls the file backend makes.
   # A measurement, not a gate (ADR 0027): eng/durability.cs exits 0 whatever

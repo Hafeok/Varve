@@ -11,6 +11,8 @@ decisions:
     statement: "The tests host the server and the OIDC issuer on Kestrel on loopback and sign tokens with the BCL, taking no TestHost or JWT package"
   - key: ContainersAreTheWorkflows
     statement: "The identity providers of the CI legs are containers pinned by digest that the workflow starts, and no test or package starts a container"
+  - key: ImagesFromUnlimitedRegistries
+    statement: "The test images are pinned by digest in compose files and pulled from registries without an anonymous pull limit, never from Docker Hub"
 ---
 
 The rulings of [ADR 0099](../adr/0099-register-jwtbearer-and-the-workflows-containers.md), filed unaccepted by milestone 7a of #11

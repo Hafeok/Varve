@@ -122,6 +122,10 @@ internal sealed class TestIssuer : IAsyncDisposable
 
                         json.WriteEndArray();
                         break;
+                    case System.Text.Json.Nodes.JsonNode node:
+                        json.WritePropertyName(name);
+                        node.WriteTo(json);
+                        break;
                 }
             }
         });

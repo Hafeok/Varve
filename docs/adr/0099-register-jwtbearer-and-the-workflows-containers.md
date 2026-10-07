@@ -68,12 +68,15 @@ need to stand up identity providers.
    - `ghcr.io/navikt/mock-oauth2-server`;
    - Zitadel and PostgreSQL;
 
-   each pinned by digest. They are not packages, and the register lists them as
-   images, with digest and licence. **There is no Testcontainers** or other
-   package that starts a container from a test: a test that needs a provider
-   reads its address from the environment and skips when it is absent. The
-   workflow, and the devcontainer through its Docker socket, start them (ADR
-   0100).
+   each pinned by digest in a compose file, from a registry without an
+   anonymous pull limit (ghcr.io, and ECR Public's mirror of the official
+   PostgreSQL image; never Docker Hub, whose limit a shared runner's address
+   exhausts). They are not packages: the register lists them in a comment,
+   with tag and licence, and the compose files hold the digests, which
+   Dependabot watches. **There is no Testcontainers** or other package that
+   starts a container from a test: a test that needs a provider reads its
+   address from the environment and skips when it is absent. The workflow,
+   and the devcontainer through Docker-in-Docker, start them (ADR 0100).
 
 ## Alternatives considered
 

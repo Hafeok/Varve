@@ -80,6 +80,21 @@
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" Adr="0099" />
   </ItemGroup>
 
+  <!--
+    Container images of the auth test legs (ADRs 0099, 0100). Not packages, so
+    not PackageVersion items and not counted by the gate; listed here because
+    this file is the register of every dependency. Started by the workflow and
+    the devcontainer, never by a test. The digests live in the compose files,
+    which are the source of truth and which Dependabot watches; a bump changes
+    the line here in the same commit.
+
+    | Image | Tag | Licence | Pinned in |
+    |=======|=====|=========|===========|
+    | ghcr.io/navikt/mock-oauth2-server | 6.0.4 | MIT | .github/mock-oauth2/compose.yaml |
+    | ghcr.io/zitadel/zitadel | v4.19.4 | AGPL-3.0 (run, never linked or shipped) | .github/zitadel/compose.yaml |
+    | public.ecr.aws/docker/library/postgres | 18.6-alpine | PostgreSQL | .github/zitadel/compose.yaml |
+  -->
+
   <ItemGroup Label="Test-time">
     <PackageVersion Include="xunit.v3" Version="4.0.1" Adr="0009" />
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" Adr="0007" />
