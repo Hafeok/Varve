@@ -831,3 +831,77 @@ was an array access. Scans do not read the commit index.
 With as-of reads off, the working set is worse: median 194 MB, drift +25.8%.
 Under a 128 MB heap hard limit the same run holds the band (−14.6%/+12.0%)
 and the drift (+7.6%). The traceability record's addendum has the tables.
+
+## Milestone 7a — the protocol over HTTP, against Oxigraph's server
+
+**Machine.** Intel Xeon @ 2.10 GHz, 4 logical cores, 15 GiB RAM, Ubuntu 24.04,
+a cloud container rather than dedicated hardware, 2026-10-07. .NET SDK
+10.0.401, runtime 10.0.12. The client and the server share the four cores,
+so every number is the pair's, not the server's alone.
+
+**What runs.** `HttpLoad.cs`, a closed-loop load generator: each client sends
+its next request when the last is answered, two seconds of warm-up are
+discarded, then ten seconds are measured. It talks to a server through
+loopback and references neither.
+
+- **Varve**: the Native AOT `Varve.Server` binary (19.0 MiB), anonymous, with
+  logging at `Warning`, one memory and one file dataset.
+- **Oxigraph**: `ghcr.io/oxigraph/oxigraph:0.5.11` (pinned by digest
+  `sha256:7532c1f9…11767`), `serve --location /data`, in a container, fresh
+  store.
+
+```bash
+dotnet publish src/Varve.Server -c Release -o artifacts/server-aot
+dotnet run -c Release --project tests/Varve.Benchmarks -- --http varve:artifacts/server-aot/Varve.Server
+docker run -d -p 7878:7878 ghcr.io/oxigraph/oxigraph:0.5.11@sha256:7532c1f9aa5f28c0dc6a4243198f7f6144017fab7429bf6c164a89fec9411767 serve --location /data --bind 0.0.0.0:7878
+dotnet run -c Release --project tests/Varve.Benchmarks -- --http oxigraph:http://127.0.0.1:7878
+```
+
+**Data.** 100,000 triples, ten per subject, loaded through each server's own
+Graph Store endpoint as N-Triples. A point query is
+`SELECT ?p ?o WHERE { <s_k> ?p ?o }` for a random subject, ten rows, answered
+as SPARQL JSON. A commit is `INSERT DATA` of one new triple.
+
+| Server | Store | Workload | Clients | Operations/s | p50 | p99 |
+|---|---|---|---:|---:|---:|---:|
+| Varve | memory | point query | 1 | 4,969 | 0.17 ms | 0.62 ms |
+| Varve | memory | point query | 8 | 23,910 | 0.25 ms | 1.99 ms |
+| Varve | file | point query | 1 | 4,412 | 0.19 ms | 0.82 ms |
+| Varve | file | point query | 8 | 23,685 | 0.25 ms | 2.02 ms |
+| Oxigraph | RocksDB | point query | 1 | 3,020 | 0.29 ms | 0.79 ms |
+| Oxigraph | RocksDB | point query | 8 | 13,612 | 0.49 ms | 2.03 ms |
+| Varve | memory | `INSERT DATA` | 1 | 3,102 | 0.27 ms | 0.95 ms |
+| Varve | memory | `INSERT DATA` | 8 | 6,863 | 0.73 ms | 5.88 ms |
+| Varve | file, flushed | `INSERT DATA` | 1 | 1,337 | 0.70 ms | 1.91 ms |
+| Varve | file, flushed | `INSERT DATA` | 8 | 1,221 | 1.08 ms | 53.83 ms |
+| Oxigraph | RocksDB, unsynced | `INSERT DATA` | 1 | 3,845 | 0.24 ms | 0.62 ms |
+| Oxigraph | RocksDB, unsynced | `INSERT DATA` | 8 | 11,382 | 0.64 ms | 2.00 ms |
+
+**Reads.** Varve answers point queries 1.6× (one client) to 1.8× (eight)
+faster than Oxigraph here. The file store reads as fast as memory under
+concurrency, because the pages are cached.
+
+**Writes: the rows time different guarantees**, as in 6a. A Varve file commit
+returns after its records are flushed to the device (`Synchronised`, ADR
+0073). Oxigraph's RocksDB store does not sync its write-ahead log per
+transaction by default. The like-for-like row for Oxigraph is Varve's memory
+row, and it is slower: 3,102 against 3,845 for one client.
+
+**At eight writers, most of Varve's work is conflicts.** An update runs
+against a pin and commits expecting the pinned position, with
+`ConflictRetries` 0 (ADRs 0057, 0094). With eight clients the pin is usually
+overtaken, so the server answers `409` and the client sends the request
+again. Over the twelve seconds of each eight-client run:
+- memory: 179,049 `409`s for about 82,000 commits;
+- file: 97,891 `409`s for about 14,600 commits.
+
+The p99 of 53.8 ms on files is that retry loop. `INSERT DATA` reads nothing,
+so its meaning cannot depend on the head it lands on. The proposed change is
+in the 7a record: an update made only of `INSERT DATA` and `DELETE DATA`, sent
+without `If-Match`, commits with no expected position, as a Graph Store `POST`
+already does. Until then, these rows are what a naïve retrying client gets.
+
+**What is not measured.** Large results, CONSTRUCT, the feed, the diff, pinned
+reads under writes, authentication's cost, and TLS. One machine, one run per
+row, no repetition: an order of magnitude, as ADR 0027 asks of a shared
+machine.

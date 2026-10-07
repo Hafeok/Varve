@@ -69,6 +69,12 @@ internal static class Program
             return;
         }
 
+        if (args.Length is 2 or 3 && args[0] == "--http")
+        {
+            HttpLoad.RunAsync(args[1], args.Length == 3 ? int.Parse(args[2], CultureInfo.InvariantCulture) : 10).GetAwaiter().GetResult();
+            return;
+        }
+
         if (args.Length == 2 && args[0] == "--bsbm-export")
         {
             Bsbm.Export(args[1]);
