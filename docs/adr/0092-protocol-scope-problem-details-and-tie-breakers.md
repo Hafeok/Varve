@@ -115,8 +115,8 @@ TriG, `turtle.md` §9). It has no RDF/XML or JSON-LD package.
      - two bodies in Turtle with no final `.` (Turtle 1.1 §2.4), so `400`;
      - the two `GET`s that depend on those bodies;
      - a `DELETE` of a graph no step creates, so `404` (GSP §5.4);
-     - a `HEAD` and a `GET` without `Accept` that expect Turtle, where GSP
-       §5.2 allows RDF/XML, Turtle or N-Triples and Varve writes N-Triples.
+     - a `HEAD` without `Accept` that expects Turtle, where GSP §5.2 allows
+       RDF/XML, Turtle or N-Triples and Varve writes N-Triples.
 
 ## Alternatives considered
 
