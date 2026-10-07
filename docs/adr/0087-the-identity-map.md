@@ -137,7 +137,10 @@ either:
    requires `agent review` from that App by its integration id.
    `eng/required-checks.cs` holds the pin: a pinned name must be posted by the
    App from a `pull_request_target` workflow, and a name the App posts must be
-   pinned. **The other required checks are still matched by name only**, so
+   pinned. The repo-standard App's key moved to the same environment, so the
+   workflow that applies `.github/repo-standard.yaml` mints its token there
+   too, and the repository has no Actions secrets of its own.
+   **The other required checks are still matched by name only**, so
    a pull request could satisfy any of them with a job of the same name.
    Pinning them is the same work again, gate by gate.
 3. **The approval is a conversation comment** containing

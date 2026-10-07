@@ -138,6 +138,9 @@ rulesets:
       - context: release pending
       - context: dco
       - context: agent review
+        # The gates App (ADR 0087): only its check run counts, so no job a
+        # pull request adds under this name can satisfy it.
+        integration_id: 5220446
       - context: build (ubuntu-latest)
       - context: build (windows-latest)
       - context: native aot (ubuntu-latest)
@@ -160,9 +163,10 @@ environments:
   branch_policies: []
   secrets:
   - NUGET_USER
-# The gates App's key (ADR 0087): only main and land/** can deploy to this
-# environment, so no workflow a pull request defines can mint its token and
-# post a check ruleset 1 pins to the App.
+# The Apps' keys (ADR 0087): the gates App, which posts the pinned check
+# `agent review`, and the repo-standard App, which applies this file. Only main
+# and land/** can deploy to this environment, so no workflow a pull request
+# defines can mint either token.
 - name: gates
   wait_timer: 0
   prevent_self_review: false
@@ -176,9 +180,12 @@ environments:
   secrets:
   - GATES_APP_CLIENT_ID
   - GATES_APP_PRIVATE_KEY
-secrets:
-- REPO_STANDARD_APP_CLIENT_ID
-- REPO_STANDARD_APP_PRIVATE_KEY
+  - REPO_STANDARD_APP_CLIENT_ID
+  - REPO_STANDARD_APP_PRIVATE_KEY
+# The repository has no Actions secrets of its own: a repository secret is
+# readable by any workflow a same-repository pull request defines. Both Apps'
+# keys are in the gates environment above.
+secrets: []
 # projects: left out on purpose. The boards are owned by a user account, which an
 # App's installation token cannot reach (ADR 0039); they are not managed here.
 actions:
