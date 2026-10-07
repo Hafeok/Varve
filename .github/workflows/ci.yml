@@ -293,6 +293,20 @@ jobs:
           --project tests/Varve.Sparql.Store.Tests/Varve.Sparql.Store.Tests.csproj
           --configuration Release
 
+      - name: Test Varve.Protocol
+        run: >
+          dotnet test
+          --project tests/Varve.Protocol.Tests/Varve.Protocol.Tests.csproj
+          --configuration Release
+
+      # Layer (a) of ADR 0100: the permission matrix and every way a token can
+      # be wrong, against an issuer in the test, on every platform.
+      - name: Test Varve.Server
+        run: >
+          dotnet test
+          --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
+          --configuration Release
+
       # tools/repo-standard: its own solution, built and tested on both
       # platforms (ADR 0039). Not packed: it is not published from here.
       - name: Build repo-standard
@@ -372,6 +386,24 @@ jobs:
             "${{ github.workspace }}/artifacts/aot/Varve.AotSmoke.exe"
           else
             "${{ github.workspace }}/artifacts/aot/Varve.AotSmoke"
+          fi
+
+      # The server (ADR 0101): zero trim and AOT warnings, then the binary run
+      # as an operator runs it — ready, an update, a query, a feed read, a stop.
+      # Its size and time to ready go to the step summary.
+      - name: Publish the server
+        run: >
+          dotnet publish src/Varve.Server
+          --configuration Release
+          --output ${{ github.workspace }}/artifacts/server-aot
+
+      - name: Run the server
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            dotnet run eng/server-smoke.cs -- "${{ github.workspace }}/artifacts/server-aot/Varve.Server.exe"
+          else
+            dotnet run eng/server-smoke.cs -- "${{ github.workspace }}/artifacts/server-aot/Varve.Server"
           fi
 
   # Durability, measured per platform (ADR 0073): what an append and a flush

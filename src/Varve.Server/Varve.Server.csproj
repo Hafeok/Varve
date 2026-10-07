@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <!-- Layer 6: the executable, the composition root (ADRs 0060, 0091,
+         0101). Configuration, hosting, authentication, and the wiring of
+         datasets, clocks and the update executor. -->
+    <OutputType>Exe</OutputType>
+    <ArchLayer>6</ArchLayer>
+    <ArchCompositionRoot>true</ArchCompositionRoot>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Varve.Server</RootNamespace>
+
+    <!-- Native AOT is a gate (ADR 0101): minimal APIs only, no MVC, JSON
+         without reflection, configuration bound by the source generator. -->
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <IlcTreatWarningsAsErrors>true</IlcTreatWarningsAsErrors>
+    <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Protocol/Varve.Protocol.csproj" />
+    <ProjectReference Include="../Varve.Sparql.Store/Varve.Sparql.Store.csproj" />
+    <ProjectReference Include="../Varve.Store/Varve.Store.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The server's tests run its composition root in process (ADR 0100). -->
+    <InternalsVisibleTo Include="Varve.Server.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ADR 0099: the server's alone. -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+  </ItemGroup>
+
+</Project>

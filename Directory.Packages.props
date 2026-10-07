@@ -68,6 +68,18 @@
     <PackageVersion Include="YamlDotNet" Version="18.1.0" Adr="0039" />
   </ItemGroup>
 
+  <ItemGroup Label="Runtime of Varve.Server only — never of a library">
+    <!-- OIDC bearer-token validation (ADR 0037). Not in the ASP.NET Core
+         shared framework, whatever ADR 0037's consequences said: a NuGet
+         package since 3.0, admitted by ADR 0099 in Varve.Server alone, on the
+         condition that the server's Native AOT publish stays green. Its
+         Microsoft.IdentityModel.Protocols.OpenIdConnect closure (Protocols,
+         Tokens, JsonWebTokens, Logging, Abstractions) comes with it, MIT and
+         managed; the register cites the decision for the direct package and
+         the gate counts the closure in Varve.Server's assets. -->
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" Adr="0099" />
+  </ItemGroup>
+
   <ItemGroup Label="Test-time">
     <PackageVersion Include="xunit.v3" Version="4.0.1" Adr="0009" />
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" Adr="0007" />

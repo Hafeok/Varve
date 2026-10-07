@@ -7,6 +7,8 @@ decisions:
     statement: "Configuration is bound by the source generator and validated at start, and an invalid configuration lists every error and refuses to start"
   - key: AnonymousRefusedInProduction
     statement: "Auth:Mode has no default, and anonymous mode with Auth:Production refuses to start"
+  - key: PermissionsAreCumulative
+    statement: "A claim value granting write grants read, one granting admin grants all three, and a grant names a configured dataset"
   - key: ServerIsNativeAot
     statement: "Varve.Server publishes Native AOT with minimal APIs only and source-generated JSON, and the publish is a CI gate"
   - key: ClockInjectedAtTheRoot

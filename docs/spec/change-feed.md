@@ -104,8 +104,9 @@ data: + <http://ex/s> <http://ex/p> "o"
 
 - `id` is the record's position, so a browser's automatic reconnection sends
   it back as `Last-Event-ID`, which the endpoint takes as `from` (§4).
-- `event` is `commit`, `error`, or `shutdown` (ADR 0101). A shutdown event's
-  data is the last position delivered.
+- `event` is `commit`, `error`, or `shutdown` (ADR 0101). An `error` or
+  `shutdown` event's `id` is the last position delivered, so a reconnection
+  resumes after it, and its data is §2.3's error record.
 - Each line of the record is one `data:` line. The record's terminating empty
   line is the event's.
 - A comment line `:` is the heartbeat.

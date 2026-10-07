@@ -164,6 +164,9 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-protocol", "Varve.Protocol: the endpoints over a real socket, the feed reader's chunk-boundary oracle, the protocol properties",
         () => Test("Varve.Protocol.Tests")),
 
+    ("test-server", "Varve.Server: configuration, anonymous mode, readiness, shutdown, and the permission matrix against an issuer in the test (ADR 0100 layer (a))",
+        () => Test("Varve.Server.Tests")),
+
     // tools/repo-standard is its own solution, outside Varve.slnx, and moves to
     // its own repository (ADR 0039). Its jobs are separate so that the move
     // deletes them rather than untangling them. The Native AOT publish and the

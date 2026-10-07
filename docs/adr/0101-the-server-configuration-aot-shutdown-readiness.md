@@ -33,7 +33,7 @@ durable.
      "Varve": {
        "DatasetsRoot": "/var/lib/varve",
        "Datasets": {
-         "people": { "Storage": "File", "Durability": "Synchronised" },
+         "people": { "Storage": "File" },
          "scratch": { "Storage": "Memory" }
        },
        "Auth": {
@@ -57,6 +57,14 @@ durable.
    }
    ```
 
+   - A dataset's durability is its backend's (ADR 0073): `File` is
+     `Synchronised` and `Memory` is `Volatile`. There is no per-dataset
+     durability setting.
+   - **Permissions are cumulative.** A claim value listed under `Write` grants
+     `read` too, and one under `Admin` grants all three. A grant names a
+     configured dataset, or the server does not start.
+   - `RequireHttpsMetadata` defaults to `true`; it is turned off only for an
+     issuer on loopback, as the tests' is.
    - Environment variables map with `__`, so `VARVE__AUTH__MODE=Anonymous`.
    - **An invalid configuration refuses to start.** The server lists every
      error and exits with code 2. It never falls back to a default for a value
@@ -73,9 +81,11 @@ durable.
    - Problem details and the status body are JSON through a
      `System.Text.Json` source-generated context. There is no reflection-based
      serialisation.
-   - The `native aot` CI job publishes it on Linux, Windows and macOS with
-     zero trim and AOT warnings, runs it, waits for readiness, makes a query,
-     an update and a feed read, and records the size and the time to ready.
+   - The `native aot` CI job publishes it on Linux and Windows, the job's
+     existing matrix, with zero trim and AOT warnings. `eng/server-smoke.cs`
+     then runs it with a file dataset, waits for readiness, makes an update, a
+     query and a feed read, stops it (`SIGTERM` and exit 0 where there is
+     one), and records the size and the time to ready.
 3. **The composition root wires the clock and the random source**:
    `TimeProvider.System` and the store's and evaluator's injected randomness,
    as ADR 0056 requires. Nothing below it reads an ambient clock.
@@ -131,8 +141,8 @@ durable.
 - An operator learns about a mistaken configuration at start, all at once.
 - `Dataset.DisposeAsync`'s drain is a store fix with its own regression test,
   and it changes no format.
-- The AOT job runs on three runners. Its size and startup time are reported in
-  the 7a record.
+- The AOT job runs on its two runners. Its size and startup time are reported
+  in the 7a record.
 
 ## Checks
 
