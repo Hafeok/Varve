@@ -341,3 +341,48 @@ And, mid-turn:
 - **Unchanged from the earlier report:** the declaration gives `gates` the
   branch policies `main` and `land/**`, so applying #68 adds `land/**` to the
   environment, which was created with `main` only.
+
+## The eighth prompt
+
+The second half of the sixth prompt's plan:
+
+> PR 2, after merge: remove pull_request. Test the land/ path with the first fast-forward.
+
+## The eighth report
+
+- **#68's settings apply on main** (run 37587597100):
+  - it applied the `land` ruleset, the pinned `trunk` ruleset and the `gates`
+    environment;
+  - it ended red only on secrets, which repo-standard never writes. The
+    `REPO_STANDARD_APP_*` secrets are still at repository level, not in
+    `gates`;
+  - its token step worked only because an environment job also sees
+    repository secrets;
+  - the maintainer's hand move of the secrets is what converges it.
+- **`agent-review.yml`** loses the `pull_request` trigger and the transitional
+  `bootstrap` job. `eng/agent-review.cs` loses its `pull_request` mode, so a
+  failing verdict is always a posted check, never an exit code.
+- **`eng/agent-review-tamper.cs`** has two new parts, 19 in all: no
+  `pull_request` trigger, and no job named `agent review`. Both fail against
+  main's workflow before this change and pass after it.
+- **ADR 0087** gets a dated amendment recording the removal. The amendment
+  also restores the `Alternatives considered` heading, which the second
+  amendment's commit dropped.
+- **The land/ path** is tested by the maintainer's first fast-forward, not by
+  this session.
+
+## The ninth prompt
+
+> Fix the PR template's opening comment (cites ADR 0032; replace with 0088's landing rules) in #69 if still open, otherwise in the next small PR.
+
+## The ninth report
+
+- **#69 was still open**, so the fix is in #69.
+- **The template's opening comment** now states ADR 0088's rules:
+  - `main` accepts only a commit with passing required checks;
+  - a human lands either through a `land/` branch, fast-forwarding `main`, or
+    through a pull request;
+  - a cloud session lands only through a pull request, and that pull request
+    needs `agent review` (ADR 0087).
+- **The closing comment** already described review per ADR 0087 and is
+  unchanged.
