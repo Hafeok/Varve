@@ -52,11 +52,13 @@ change in one of two ways, your choice:
   `main` to that commit: `git push origin <sha>:main`. CI on a `land/` branch
   checks everything the branch would bring to `main`.
 - **Open a pull request** and merge it. It needs no review when every commit is
-  yours. A pull request with an AI session's commits needs an approving review
-  on its head from the session's responsible human or a delegate
-  ([ADR 0087](docs/adr/0087-the-identity-map.md)). If the pull request was
-  opened under your own account, GitHub will not let you approve it: submit a
-  review as a comment whose text is `approve <head sha>` instead.
+  yours. A pull request with an AI session's commits needs an approval on its
+  head from the session's responsible human or a delegate
+  ([ADR 0087](docs/adr/0087-the-identity-map.md)): a comment in the pull
+  request's conversation whose text contains `approve <head sha>`, with at
+  least 12 characters of the sha. Review submissions do not count. This is
+  tolerated, not a valid workflow, and goes when the ledger's review gate
+  arrives.
 
 - **Small, frequent commits.** A change not ready for the trunk lives behind a
   feature flag or stays local. **Not on a long-lived branch**: `milestone/3b`

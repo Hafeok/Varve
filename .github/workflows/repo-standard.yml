@@ -66,6 +66,13 @@ env:
 jobs:
   repo-standard:
     runs-on: ubuntu-latest
+
+    # The App's key is a secret of the gates environment, which only main can
+    # reach (ADR 0087): every trigger here runs on main, and a workflow a pull
+    # request defines cannot mint the token that rewrites this repository's
+    # settings.
+    environment: gates
+
     permissions:
       contents: read
       issues: write

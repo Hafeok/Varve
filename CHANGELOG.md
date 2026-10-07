@@ -78,6 +78,20 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **adr**: 0087 approval by comment and the exit to a ledger Review; 0088 the required-checks gate (57ef9692)
 - approval by comment on one's own pull request (8abb2e1c)
 - **traceability**: the fifth round of #63's session (3a017f99)
+- regenerate the changelog (c8ac6371)
+- **decisions**: accept the 2026-10-06 amendments of 0087 and 0088 (38eb29a9)
+- **agent review**: judge through the API only, approve by conversation comment, post the check as the gates App (f33f16e6)
+- **agent review**: main's script on trusted triggers only, and the tamper test (39f8ddc1)
+- **repo-standard**: the gates environment, and land/** for the maintainer only (f86005b8)
+- required-checks records App pinning (75b6de28)
+- **adr**: 0087, the judging script is always main's; approval by comment is not a valid workflow (4fef5117)
+- approval by conversation comment, judged by main's script (a6842aa6)
+- **traceability**: the sixth round of #63's session (ec2d14e9)
+- regenerate the changelog (9d11b1b4)
+- **repo-standard**: pin agent review to the gates App; the repo-standard App's key from the gates environment (c0e4563b)
+- **traceability**: the seventh round of #63's session (d638a0f4)
+- regenerate the changelog (cf0d11ca)
+- **repo-standard**: the land ruleset's update rule with its parameter (57391e7e)
 
 #### Fixed
 

@@ -1,6 +1,4 @@
-# Three required checks. 'build (macos-latest)' is not in the build job's
-# matrix, and 'nightly' is reported only by a workflow that does not run on
-# pull requests; 'build (ubuntu-latest)' and 'lint' are fine.
+# Six required checks; see README.md for which fail and why.
 rulesets:
 - name: trunk
   rules:
@@ -11,3 +9,8 @@ rulesets:
       - context: build (macos-latest)
       - context: lint
       - context: nightly
+      - context: approved
+        integration_id: 99
+      - context: signed
+        integration_id: 99
+      - context: reviewed

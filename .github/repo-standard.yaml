@@ -94,6 +94,31 @@ rulesets:
   - actor_id: 2194785
     actor_type: User
     bypass_mode: always
+# land/** is where a human pushes a commit so that it has its checks before main
+# is fast-forwarded to it (ADR 0088), and the gates environment trusts it
+# (ADR 0087): only the maintainer creates, moves or deletes one.
+- name: land
+  target: branch
+  enforcement: active
+  conditions:
+    ref_name:
+      exclude: []
+      include:
+      - refs/heads/land/**
+  rules:
+  - type: creation
+  # Pushes to an existing land/ branch, the step before main is
+  # fast-forwarded to its head. Declared with its parameter, as GitHub's
+  # export writes it, so a whole-ruleset comparison does not read it as drift.
+  - type: update
+    parameters:
+      update_allows_fetch_and_merge: false
+  - type: deletion
+  - type: non_fast_forward
+  bypass_actors:
+  - actor_id: 2194785
+    actor_type: User
+    bypass_mode: always
 - name: trunk
   target: branch
   enforcement: active
@@ -118,6 +143,9 @@ rulesets:
       - context: release pending
       - context: dco
       - context: agent review
+        # The gates App (ADR 0087): only its check run counts, so no job a
+        # pull request adds under this name can satisfy it.
+        integration_id: 5220446
       - context: build (ubuntu-latest)
       - context: build (windows-latest)
       - context: native aot (ubuntu-latest)
@@ -140,9 +168,29 @@ environments:
   branch_policies: []
   secrets:
   - NUGET_USER
-secrets:
-- REPO_STANDARD_APP_CLIENT_ID
-- REPO_STANDARD_APP_PRIVATE_KEY
+# The Apps' keys (ADR 0087): the gates App, which posts the pinned check
+# `agent review`, and the repo-standard App, which applies this file. Only main
+# and land/** can deploy to this environment, so no workflow a pull request
+# defines can mint either token.
+- name: gates
+  wait_timer: 0
+  prevent_self_review: false
+  reviewers: []
+  deployment_branch_policy:
+    protected_branches: false
+    custom_branch_policies: true
+  branch_policies:
+  - name: main
+  - name: land/**
+  secrets:
+  - GATES_APP_CLIENT_ID
+  - GATES_APP_PRIVATE_KEY
+  - REPO_STANDARD_APP_CLIENT_ID
+  - REPO_STANDARD_APP_PRIVATE_KEY
+# The repository has no Actions secrets of its own: a repository secret is
+# readable by any workflow a same-repository pull request defines. Both Apps'
+# keys are in the gates environment above.
+secrets: []
 # projects: left out on purpose. The boards are owned by a user account, which an
 # App's installation token cannot reach (ADR 0039); they are not managed here.
 actions:

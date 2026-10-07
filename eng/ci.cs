@@ -106,6 +106,9 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("required-checks-fixture", "the required-checks gate fails its fixture",
         () => Run("dotnet", ["run", "eng/required-checks.cs", "--", "--declaration", "tests/fixtures/required-checks/repo-standard.yaml", "--workflows", "tests/fixtures/required-checks/workflows"]) == 1 ? 0 : 1),
 
+    ("agent-review-tamper", "a pull request that edits eng/agent-review.cs to always pass still fails under main's copy",
+        () => Run("dotnet", ["run", "eng/agent-review-tamper.cs"])),
+
     ("release-pending", "a milestone starts only once the one before it is released",
         () => Run("dotnet", Args("run", "eng/release-pending.cs", baseRef is null ? null : "--", baseRef is null ? null : "--base", baseRef))),
 
