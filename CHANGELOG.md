@@ -92,6 +92,8 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - **traceability**: the seventh round of #63's session (d638a0f4)
 - regenerate the changelog (cf0d11ca)
 - **repo-standard**: the land ruleset's update rule with its parameter (57391e7e)
+- regenerate the changelog (dcafd4f7)
+- **agent-review**: remove the pull_request trigger and the transitional job (dc074495)
 
 #### Fixed
 
