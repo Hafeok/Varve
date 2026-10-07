@@ -9,6 +9,15 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Milestone 6c — the dictionary on disk, the bulk loader, the browser backend, the soak's causes
+
+#### Changed
+
+- **store**: the file suites run on real files without the device flush (cf74146d)
+- **adr**: 0090, the file suites run without the device flush (8c210e0b)
+- **build**: exclude the workspace and the temporary folder from Defender on Windows (db4edaf2)
+- ADR 0090's measurements, and the traceability record (4bf39538)
+
 ## [0.1.0-preview.1] - 2026-10-07
 
 ### Milestone 6c — the dictionary on disk, the bulk loader, the browser backend, the soak's causes
