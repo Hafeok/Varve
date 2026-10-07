@@ -107,7 +107,12 @@ rulesets:
       - refs/heads/land/**
   rules:
   - type: creation
+  # Pushes to an existing land/ branch, the step before main is
+  # fast-forwarded to its head. Declared with its parameter, as GitHub's
+  # export writes it, so a whole-ruleset comparison does not read it as drift.
   - type: update
+    parameters:
+      update_allows_fetch_and_merge: false
   - type: deletion
   - type: non_fast_forward
   bypass_actors:
