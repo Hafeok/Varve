@@ -37,7 +37,7 @@ public class OffTheShelfAnalyzerFixtureTests
 
         Assert.True(
             result.ExitCode != 0,
-            "Varve.Fixture.BannedSymbol uses System.Uri, which eng/BannedSymbols.txt bans, and must not build."
+            "Varve.Fixture.BannedSymbol uses System.Uri, which eng/BannedSymbols.Uri.txt bans, and must not build."
             + Environment.NewLine + result.Output);
 
         Assert.Contains("RS0030", result.Output, StringComparison.Ordinal);

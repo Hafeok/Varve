@@ -94,9 +94,17 @@
     <AdditionalFiles Include="PublicAPI.Shipped.txt" Condition="Exists('$(MSBuildProjectDirectory)/PublicAPI.Shipped.txt')" />
     <AdditionalFiles Include="PublicAPI.Unshipped.txt" Condition="Exists('$(MSBuildProjectDirectory)/PublicAPI.Unshipped.txt')" />
 
-    <!-- One banned-symbol list for the whole repository. ADR 0004 records that
-         its System.Uri entry must be narrowed before layer 5 exists. -->
+    <!-- One banned-symbol list for the whole repository. -->
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)eng/BannedSymbols.txt" />
+  </ItemGroup>
+
+  <!--
+    ADR 0004, amended 2026-10-07 — System.Uri is banned in every packable
+    project except one that speaks HTTP and says so with VarveSpeaksHttp, in
+    its own project file, citing its decision. Varve.Protocol does (ADR 0091).
+  -->
+  <ItemGroup Condition="'$(IsPackable)' == 'true' and '$(VarveSpeaksHttp)' != 'true'">
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)eng/BannedSymbols.Uri.txt" />
   </ItemGroup>
 
   <!--

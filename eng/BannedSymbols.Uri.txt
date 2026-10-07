@@ -1,0 +1,12 @@
+// Banned symbols: System.Uri. Applies to every packable project except one
+// that sets VarveSpeaksHttp; see Directory.Build.targets. Its own file, so that
+// the protocol package can speak HTTP without a suppression at each call site
+// and without a second copy of the repository-wide list (ADR 0004, amended
+// 2026-10-07).
+//
+// System.Uri implements RFC 3986 with its own normalisation, and is not RFC 3987.
+// It lowercases schemes and hosts, resolves dot segments eagerly, and rejects
+// IRIs that RDF requires us to round-trip byte for byte. Use Varve.Iri.
+// ADR 0004. Varve.Protocol sets VarveSpeaksHttp (ADR 0091): it needs System.Uri
+// for transport addresses, and still uses Varve.Iri for every IRI.
+T:System.Uri; Use Varve.Iri. System.Uri is RFC 3986 with its own normalisation and cannot round-trip an IRI. ADR 0004.
