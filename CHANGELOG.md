@@ -9,10 +9,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-**Nothing has been released.** No `v*` tag exists and no package has been
-published to nuget.org, so every change below is unreleased and the sections
-are milestones rather than versions. The first tag is `v0.1.0-preview.1`
-([ADR 0029](docs/adr/0029-publishing-and-versioning.md)).
+## [0.1.0-preview.1] - 2026-10-07
 
 ### Milestone 6c — the dictionary on disk, the bulk loader, the browser backend, the soak's causes
 
@@ -105,6 +102,7 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - regenerate the changelog (a1271e92)
 - the PR template states ADR 0088's landing rules, not ADR 0032's (8c3ac610)
 - regenerate the changelog (f76ed53f)
+- accepted (8a109048)
 
 #### Fixed
 
@@ -499,4 +497,7 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - pin the analyzer's Roslyn to the 10.0.100 floor, not the latest (605c5fa8)
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
+
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.1...HEAD
+[0.1.0-preview.1]: https://github.com/Hafeok/Varve/releases/tag/v0.1.0-preview.1
 
