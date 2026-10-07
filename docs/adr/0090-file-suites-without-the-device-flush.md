@@ -87,9 +87,26 @@ the job's record; `ubuntu-latest` beside it.
 | Before: `main`, #66 merged | `777fb22` | 9 min 37 s | 3 min 22 s |
 | Before: `main`, #68 merged | `9f06f2c` | 11 min 26 s | 2 min 7 s |
 | Before: #67 | `b8696a6` | 11 min 59 s | 3 min 48 s |
-| Before: `main`, #67 merged | | | |
-| After the wrapper | | | |
-| After the wrapper and Defender | | | |
+| Before: #67, its last head | `85d6df9` | 10 min 52 s | 3 min 6 s |
+| **Before: `main`, #67 merged** | `50045b2` | **11 min 42 s** | 3 min 45 s |
+| **After the wrapper** | `8c210e0` | **5 min 31 s** | 3 min 39 s |
+| **After the wrapper and Defender** | `db4edaf` | **6 min 1 s** | 3 min 37 s |
+
+The whole `build (windows-latest)` job: 15 min 13 s on `main` after #67,
+11 min 7 s with the wrapper, 11 min 24 s with both; the Defender step itself
+takes 7 s.
+
+**The wrapper halves the Windows store tests** (11 min 42 s to 5 min 31 s,
+against a before spread of 9 min 37 s to 11 min 59 s over five runs), and
+Ubuntu's does not move (3 min 37–45 s, against 2 min 7 s to 3 min 48 s
+before), as expected where a flush is cheap.
+**Defender's exclusion shows no gain** on its own run: 6 min 1 s against the
+wrapper's 5 min 31 s, inside the runner's spread. One run each; the maintainer
+may keep it or drop it at acceptance, and this ADR's third ruling goes with it.
+What remains of the gap to Ubuntu, about 2.5 minutes, was not measured by
+suite; the candidates are the suites still on the real, flushed disk
+(`FileStorageTests`, `ReplicaTests`, `MaintenanceTests`, `AllocationTests`)
+and the runner itself.
 
 ## Alternatives considered
 
@@ -107,7 +124,8 @@ the job's record; `ubuntu-latest` beside it.
 - The file property tests, the storage contract on files and the derived
   index on disk no longer prove that a commit was flushed; the fault-injection
   suites and the durability job do, as before.
-- `Test Varve.Store` on Windows costs what the table's last row says.
+- `Test Varve.Store` on Windows takes about half what it did; the build job
+  about four minutes less.
 - The Defender exclusion applies to the build job's runner only, which is
   discarded with it.
 
