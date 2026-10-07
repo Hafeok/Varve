@@ -21,6 +21,8 @@ decisions:
     accepted-at: 2026-10-06T00:00:00Z
   - key: AgentPullRequestsApprovedOnTheHead
     statement: "A pull request containing an agent's commits needs, for every agent in it, an approval on its current head by a holder of Approve for that agent, its responsible human or a delegate"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-07T00:00:00Z
   - key: OwnPullRequestApprovedByComment
     statement: "For a pull request opened under the responsible human's own login, a comment review by that human containing approve and the current head sha counts as their approval; an earlier head or another author counts for nothing"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -32,12 +34,20 @@ decisions:
     accepted-at: 2026-10-06T00:00:00Z
   - key: JudgingScriptIsMains
     statement: "Agent review is judged by main's eng/agent-review.cs, on triggers whose workflow is main's, reading the pull request through the API as data; nothing from the pull request is checked out, built or run"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-07T00:00:00Z
   - key: OnlyAppPinnedChecksCount
     statement: "A required check is matched by name and so is spoofable by any workflow a pull request adds; it holds against a pull request only when pinned to an App whose key no such workflow can reach, and agent review is pinned to the gates App"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-07T00:00:00Z
   - key: ApprovalIsAConversationComment
     statement: "The approval is a pull request conversation comment containing approve and at least twelve characters of the current head, by a holder of Approve for every agent in the pull request; review submissions are not consulted"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-07T00:00:00Z
   - key: CommentApprovalIsNotAValidWorkflow
     statement: "Approval by pull request comment is not a valid workflow: it is tolerated only until the ledger's review gate exists, and the pull request that adopts that gate removes it"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-07T00:00:00Z
 ---
 
 The rulings of [ADR 0087](../adr/0087-the-identity-map.md), written by the pre-release session of
