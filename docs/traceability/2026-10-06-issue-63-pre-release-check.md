@@ -318,3 +318,26 @@ And, mid-turn:
     acceptance withdrawn.
 - **Still name-spoofable:** the 13 other required checks. The amendment says
   so, rather than claiming more than holds.
+
+## The seventh prompt
+
+> Gates app created and installed on Varve; environment gates exists, restricted to main, with GATES_APP_CLIENT_ID and GATES_APP_PRIVATE_KEY. App ID: 5220446. Pin "agent review" to it in repo-standard.yaml and take #68 out of draft. Also: the repo-standard app's secrets now live in a main-restricted environment named gates; make repo-apply use it, in #68 or a follow-up, whichever is cleaner.
+
+## The seventh report
+
+- **`agent review` is pinned to App 5220446** in `repo-standard.yaml`.
+  `eng/required-checks.cs` passes: 14 required, 1 pinned.
+- **The repo-standard App's secrets: in #68, not a follow-up.** Merging #68
+  makes `repo-standard.yml` apply the declaration, and that run must mint the
+  repo-standard App's token. With the secrets only in `gates`, it can do so
+  only if the workflow names the environment. So #68 makes three changes
+  together:
+  - the job runs with `environment: gates`;
+  - repository-level `secrets` is `[]`;
+  - the `gates` environment declares all four secrets.
+
+  repo-standard reports a secret mismatch in either direction, so the lists
+  must match where the secrets actually are.
+- **Unchanged from the earlier report:** the declaration gives `gates` the
+  branch policies `main` and `land/**`, so applying #68 adds `land/**` to the
+  environment, which was created with `main` only.
