@@ -51,7 +51,7 @@ public sealed class FilePropertyTests
 
     private static async Task<T2> WithCopyAsync<T2>(ReadOnlyMemory<byte> manifest, IReadOnlyList<ReadOnlyMemory<byte>> segments, Func<FileStorage, Task<T2>> body)
     {
-        await using TemporaryDirectory copy = new();
+        await using TemporaryDirectory copy = new(flushes: false);
         WriteLog(copy.Path, manifest, segments);
         FileStorage storage = await copy.OpenAsync();
         return await body(storage);
@@ -63,7 +63,7 @@ public sealed class FilePropertyTests
         await Generators.Scripts.SampleAsync(
             async script =>
             {
-                await using TemporaryDirectory directory = new();
+                await using TemporaryDirectory directory = new(flushes: false);
                 await using Harness harness = await Harness.StartAsync(storage: await directory.OpenAsync());
                 await harness.RunAsync(script);
                 await harness.VerifyRunAsync(T.Ct);
@@ -78,7 +78,7 @@ public sealed class FilePropertyTests
         await Generators.Scripts.SampleAsync(
             async script =>
             {
-                await using TemporaryDirectory directory = new();
+                await using TemporaryDirectory directory = new(flushes: false);
                 await using Harness harness = await Harness.StartAsync(maxRecordBytes: 64, segmentBytes: 1024, storage: await directory.OpenAsync());
                 await harness.RunAsync(script);
                 await harness.VerifyRunAsync(T.Ct);
@@ -93,7 +93,7 @@ public sealed class FilePropertyTests
         await Generators.Scripts.SampleAsync(
             async script =>
             {
-                await using TemporaryDirectory directory = new();
+                await using TemporaryDirectory directory = new(flushes: false);
                 await using Harness harness = await Harness.StartAsync(storage: await directory.OpenAsync(), memtableLimit: 4);
                 await harness.RunAsync(script);
                 await harness.VerifyRunAsync(T.Ct);
@@ -128,7 +128,7 @@ public sealed class FilePropertyTests
         await Generators.CommitsOnly.SampleAsync(
             async script =>
             {
-                await using TemporaryDirectory directory = new();
+                await using TemporaryDirectory directory = new(flushes: false);
                 await using Harness harness = await Harness.StartAsync(maxRecordBytes, segmentBytes, await directory.OpenAsync());
                 await harness.RunAsync(script);
                 (ReadOnlyMemory<byte> manifest, List<byte[]> segments) = await T.CopyLogAsync(harness.Storage);
@@ -249,8 +249,8 @@ public sealed class FilePropertyTests
         await Generators.Scripts.SampleAsync(
             async script =>
             {
-                await using TemporaryDirectory first = new();
-                await using TemporaryDirectory second = new();
+                await using TemporaryDirectory first = new(flushes: false);
+                await using TemporaryDirectory second = new(flushes: false);
 
                 foreach (TemporaryDirectory directory in new[] { first, second })
                 {
@@ -293,7 +293,7 @@ public sealed class FilePropertyTests
         await Generators.CommitsOnly.SampleAsync(
             async script =>
             {
-                await using TemporaryDirectory directory = new();
+                await using TemporaryDirectory directory = new(flushes: false);
                 await using Harness harness = await Harness.StartAsync(storage: await directory.OpenAsync());
                 await harness.RunAsync(script);
                 (ReadOnlyMemory<byte> manifest, List<byte[]> segments) = await T.CopyLogAsync(harness.Storage);
@@ -327,8 +327,8 @@ public sealed class FilePropertyTests
         await Gen.Select(Generators.CommitsOnly, Gen.Int[1, 3]).SampleAsync(
             async (script, extra) =>
             {
-                await using TemporaryDirectory directory = new();
-                await using TemporaryDirectory copyDirectory = new();
+                await using TemporaryDirectory directory = new(flushes: false);
+                await using TemporaryDirectory copyDirectory = new(flushes: false);
                 await using Harness harness = await Harness.StartAsync(storage: await directory.OpenAsync());
                 await harness.RunAsync(script);
                 long prefix = harness.Dataset.Head.Value;
@@ -358,7 +358,7 @@ public sealed class FilePropertyTests
     [Fact]
     public async Task the_failed_state_on_files_holds_until_a_rebuild()
     {
-        await using TemporaryDirectory directory = new();
+        await using TemporaryDirectory directory = new(flushes: false);
         FileStorage storage = await directory.OpenAsync();
         DatasetOptions options = T.Options();
         await using Dataset dataset = await Dataset.CreateAsync(storage, T.Id, options, T.Ct);

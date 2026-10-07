@@ -115,7 +115,7 @@ public sealed class DerivedTests
     [Fact]
     public async Task a_pin_keeps_reading_runs_a_merge_has_replaced_and_they_are_deleted_once_it_lets_go()
     {
-        await using TemporaryDirectory directory = new();
+        await using TemporaryDirectory directory = new(flushes: false);
         FileStorage storage = await directory.OpenAsync();
         DatasetOptions options = Options(memtableLimit: 3);
 
@@ -176,11 +176,11 @@ public sealed class DerivedTests
     [Fact]
     public async Task a_missing_derived_directory_is_rebuilt_from_the_log()
     {
-        await using TemporaryDirectory directory = new();
+        await using TemporaryDirectory directory = new(flushes: false);
         DatasetOptions options = Options(memtableLimit: 5);
         SortedSet<string> expected;
 
-        await using (FileStorage storage = await FileStorage.OpenAsync(directory.Directory, TemporaryDirectory.Options, T.Ct))
+        await using (FileStorage storage = await directory.OpenForCallerAsync())
         await using (Dataset dataset = await Dataset.CreateAsync(storage, T.Id, options, T.Ct))
         {
             for (int i = 0; i < 30; i++)
@@ -196,7 +196,7 @@ public sealed class DerivedTests
 
         Directory.Delete(Path.Combine(directory.Path, "derived"), recursive: true);
 
-        await using FileStorage reopenedStorage = await FileStorage.OpenAsync(directory.Directory, TemporaryDirectory.Options, T.Ct);
+        await using FileStorage reopenedStorage = await directory.OpenForCallerAsync();
         Assert.True(File.Exists(Path.Combine(directory.Path, "derived", ".gitignore")));
         await using Dataset reopened = await Dataset.OpenAsync(reopenedStorage, options, T.Ct);
         Assert.Empty(reopened.Checkpoints);
