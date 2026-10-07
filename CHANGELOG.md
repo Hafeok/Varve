@@ -90,6 +90,8 @@ are milestones rather than versions. The first tag is `v0.1.0-preview.1`
 - regenerate the changelog (9d11b1b4)
 - **repo-standard**: pin agent review to the gates App; the repo-standard App's key from the gates environment (c0e4563b)
 - **traceability**: the seventh round of #63's session (d638a0f4)
+- regenerate the changelog (cf0d11ca)
+- **repo-standard**: the land ruleset's update rule with its parameter (57391e7e)
 
 #### Fixed
 
