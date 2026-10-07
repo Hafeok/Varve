@@ -153,6 +153,15 @@ jobs:
         shell: bash
         run: git config --global core.autocrlf false
 
+      - name: Defender exclusions
+        # ADR 0090. The runner's real-time scan opens every file the build and
+        # the store's file suites create and delete; the workspace (sources,
+        # packages, build output) and the temporary folder (every test
+        # dataset directory) are this job's own, so they are not scanned.
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Add-MpPreference -ExclusionPath $env:GITHUB_WORKSPACE, $env:RUNNER_TEMP, ([System.IO.Path]::GetTempPath())
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
