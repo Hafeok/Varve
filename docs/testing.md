@@ -166,6 +166,13 @@ points are counted and reported. `VARVE_FAULT_SEEDS=<n>` runs the same suites
 over many seeds and longer workloads, which is for hunting rather than for the
 gate, and is not in CI.
 
+The suites on real files that are not about durability — the model
+properties on files, the storage contract on files, the derived tests on
+disk — run on `UnflushedFileSystem`, the real file system with a flush that
+does nothing (ADR 0090): a flush on the Windows runner is milliseconds, once
+a commit. The crash suites here keep the simulated file system's flushes, and
+the durability job flushes the device.
+
 Milestone 6c adds the bulk loader to it (`BulkLoadTests`): a load is crashed
 before each of its operations — every spill, every derived write, every
 record — and inside every write to a segment at its first, middle and last

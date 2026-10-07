@@ -190,6 +190,7 @@ maintainer on the 6a plan, filed unaccepted (ADR 0066); specification 1.4, and 1
 | [0083](0083-replica-bootstrap-is-a-file-copy.md) | Replica bootstrap is a copy of files | Accepted |
 | [0084](0084-the-browser-backend.md) | The browser backend: OPFS sync access handles in a worker, IndexedDB as the fallback | Accepted; answers 0071's revisit condition for the browser |
 | [0089](0089-the-commit-index-is-derived-and-paged.md) | The commit index is derived and paged | Accepted; the soak's drift (#61) |
+| [0090](0090-file-suites-without-the-device-flush.md) | The file suites run without the device flush; Defender skips the build's files | Proposed (filed unaccepted, ADR 0066); Windows test time |
 
 ## Milestone 7 — the server
 
