@@ -66,8 +66,9 @@ change in one of two ways, your choice:
   review in any useful sense.
 - **The trunk is always releasable.** That is what the gates are protecting:
   every one is a required check on the `trunk` ruleset, with no bypass.
-- Human review is required for a *release*, through the `release` environment,
-  and for a pull request carrying an AI session's commits. Otherwise reviews
+- Human review is required for a *release*, as the approval of the pull request
+  that adds its descriptor (`docs/releases.md`, ADR 0102), and for a pull
+  request carrying an AI session's commits. Otherwise reviews
   are welcome and **non-blocking**.
 - Only the maintainer merges a pull request.
 
