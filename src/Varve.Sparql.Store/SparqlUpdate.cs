@@ -20,7 +20,10 @@ public static class SparqlUpdate
     /// <summary>
     /// Pins the head, evaluates each operation in order over the overlay of
     /// the ones before it, and submits the composed change as one commit that
-    /// expects the pinned position.
+    /// expects the pinned position. A request of <c>INSERT DATA</c> and
+    /// <c>DELETE DATA</c> alone reads no state, so it expects no position
+    /// unless <see cref="UpdateOptions.ExpectedPosition"/> gives one (ADR
+    /// 0057, amended 2026-10-08): it commits at whatever head it meets.
     /// </summary>
     /// <remarks>
     /// <para>

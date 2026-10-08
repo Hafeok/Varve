@@ -905,3 +905,33 @@ already does. Until then, these rows are what a naïve retrying client gets.
 reads under writes, authentication's cost, and TLS. One machine, one run per
 row, no repetition: an order of magnitude, as ADR 0027 asks of a shared
 machine.
+
+### Addendum, 2026-10-08: a data-only request expects no position (ADR 0057, amended)
+
+The proposed change above was made by milestone 7b, as a dated amendment to
+ADR 0057: an update of `INSERT DATA` and `DELETE DATA` alone, sent without
+`If-Match`, now submits with no expected position, and the sequencer
+normalises its delta against the head it meets. The eight-writer rows,
+re-run on the same machine with nothing else running, the Native AOT binary
+before and after the change, each pair one run:
+
+| Store | Clients | | Operations/s | p50 | p99 | `409`s in 12 s |
+|---|---:|---|---:|---:|---:|---:|
+| memory | 1 | before | 2,450 | 0.37 ms | 1.01 ms | 0 |
+| memory | 1 | after | 2,414 | 0.38 ms | 1.00 ms | 0 |
+| memory | 8 | before | 5,980 | 0.84 ms | 6.77 ms | 147,760 |
+| memory | 8 | **after** | **10,794** | 0.62 ms | 2.70 ms | **0** |
+| file, flushed | 1 | before | 1,116 | 0.80 ms | 2.60 ms | 0 |
+| file, flushed | 1 | after | 1,183 | 0.76 ms | 2.25 ms | 0 |
+| file, flushed | 8 | before | 1,081 | 1.08 ms | 70.53 ms | 86,222 |
+| file, flushed | 8 | **after** | **2,106** | 3.67 ms | 6.56 ms | **0** |
+
+The retry loop is gone: eight writers of `INSERT DATA` serialise in the
+sequencer without a `409` on either store, and the memory row that was 40%
+behind Oxigraph's unsynced eight-writer row (11,382) is now 5% behind it,
+on this run of a shared machine. The one-writer rows are unchanged within
+the noise, as they should be: a single writer never met a conflict. The file
+rows' p50 rises with eight writers because each commit now waits its turn
+in the sequencer for the flush of the one before, rather than being
+answered `409` at once; the p99 falls by a factor of ten for the same
+reason.

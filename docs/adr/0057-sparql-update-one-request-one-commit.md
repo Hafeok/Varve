@@ -7,6 +7,10 @@ Answers the brief's tension "SPARQL Update semantics (DELETE/INSERT WHERE
 evaluated against which position) and how one update request maps to one
 atomic commit", which ADR 0005 placed in a layer 5 package without deciding.
 Specification: [`docs/spec/sparql-update-store.md`](../spec/sparql-update-store.md).
+**Amended 2026-10-08** (ADR [0068](0068-dated-amendments.md)), by milestone 7b
+of #11 on the maintainer's decision on the 7a report: a request of
+`INSERT DATA` and `DELETE DATA` alone expects no position; see *Amendment,
+2026-10-08* at the end.
 
 > **Amended 2026-09-25**, by the maintainer's decision on the milestone 5c
 > report. **Execution's steps 3 and 4 are swapped: the pin is released, then
@@ -166,3 +170,53 @@ CancellationToken)` returning the `CommitResult` — with `UpdateOptions`,
   for layer 5 is the server's, at milestone 7.
 - **Open questions owned.** None of the specification's. Q1's protocol half
   (skolem IRIs) stays with milestone 7.
+
+## Amendment, 2026-10-08 — a data-only request expects no position
+
+Filed by milestone 7b of #11, unaccepted until the maintainer accepts it (ADR
+0066). Decided by the maintainer on the 7a report's first proposed
+specification change, as an amendment rather than a supersession: the
+*Execution* above stands for every request that evaluates a pattern, and this
+block adds the case it did not consider.
+
+**The decision.** A request whose every operation is `INSERT DATA` or
+`DELETE DATA` is submitted with **no expected position**, unless the caller
+gives one (`UpdateOptions.ExpectedPosition`, HTTP's `If-Match`, ADR 0094),
+which is always honoured. Its delta is composed from the request's text alone
+— a `DELETE DATA` quad goes in whether or not the pin holds it, and a later
+operation on a quad wins over an earlier one — and is not normalised against
+the pinned state. A request with any other operation keeps the check exactly
+as decided above.
+
+**The reason.** The expected position protects a delta that was computed
+against a pinned state: a `DELETE WHERE` evaluated at `P` may mean something
+else at `P + 1`, and ADR 0011's optimistic concurrency exists for that case. A
+data-only request read no state, so there is nothing for a later head to
+invalidate. The sequencer normalises every delta against the head it meets
+(I2): an assertion the head already holds and a retraction of a quad it does
+not hold are dropped at commit time, which is the same normalisation the
+executor performed against `G_P`. The commit is therefore the same at any
+head, and the `Conflict` such a request met under the accepted text was a
+retry for nothing. Milestone 7a measured it: with eight concurrent writers of
+`INSERT DATA` over HTTP, 179,049 `409`s for about 82,000 commits in memory
+and 97,891 for about 14,600 on files. ADR 0094 already applies this reasoning
+to a Graph Store `POST`.
+
+**What stays as it was.** A Graph Store `PUT` or `DELETE` reads the graph it
+replaces or removes — its retractions are computed from the pinned state — so
+it keeps its expected position, as ADR 0094 decided; the maintainer's wording
+on the 7a report listed them, and this amendment records why they do not
+qualify: a `PUT` submitted at a later head would leave quads it never read.
+`LOAD` is not data-only either: its document is fetched, not written in the
+request.
+
+**The property**, tested in `Varve.Sparql.Store.Tests`: a data-only request
+submitted against two histories that differ only in the contended tail yields
+the same effective delta — built before the tail and landing after it, it
+commits with the same outcome, head, state and `Diff` as the request evaluated
+after the tail.
+
+**The ledger.** `UpdateIsAtMostOneCommit` says "with the expected position
+P"; its statement is left as accepted. The ruling of this amendment is the new
+key `DataOnlyRequestExpectsNoPosition` in this ADR's set, unaccepted until the
+maintainer accepts it.

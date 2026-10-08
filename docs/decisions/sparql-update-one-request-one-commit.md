@@ -35,6 +35,8 @@ decisions:
     statement: "SparqlUpdate.ExecuteAsync over a Dataset is the one entry point, with UpdateOptions, ILoadSource, LoadedDocument and SparqlUpdateException"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-25T00:00:00Z
+  - key: DataOnlyRequestExpectsNoPosition
+    statement: "A request of INSERT DATA and DELETE DATA alone is composed from its text without normalisation against the pin and submitted with no expected position unless the caller gives one, which is always honoured; a request with any other operation keeps the check"
 ---
 
 The rulings of [ADR 0057](../adr/0057-sparql-update-one-request-one-commit.md) still in force, one line each. The ADR is the
@@ -42,3 +44,7 @@ narrative; this is what code cites. Acceptance is transcribed from the ADR's Sta
 
 ADR 0005's `SparqlUpdateIsLayer5Integration` stands; this ADR decides what it left open, and
 `UpdateIsAtMostOneCommit` states the empty case 0005 did not.
+
+`DataOnlyRequestExpectsNoPosition` is the amendment of 2026-10-08, filed by milestone 7b of
+#11 and unaccepted until the maintainer accepts it (ADR 0066); `UpdateIsAtMostOneCommit`'s
+statement is left as accepted, and the amendment says which requests it still describes.

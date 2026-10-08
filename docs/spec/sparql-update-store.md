@@ -6,7 +6,8 @@ SPARQL 1.1 Update request against a `Varve.Store` dataset, as one commit.
 Status: Accepted. Changes only together with the ADR that motivates the
 change. Decisions: [ADR 0057](../adr/0057-sparql-update-one-request-one-commit.md)
 (the execution model) and [ADR 0058](../adr/0058-staging-view-and-dataset-validators.md)
-(what the store provides for it).
+(what the store provides for it). Amended 2026-10-08 with ADR 0057's
+amendment of that date: a data-only request expects no position (§3, §4, §7).
 
 ## 1. Normative references
 
@@ -80,6 +81,24 @@ and "a result of failure from any operation MUST abort the sequence". ADR
    A failing operation throws before this step, and the pin is released on
    that path too.
 
+**A data-only request expects no position** (ADR 0057, amended 2026-10-08).
+A request whose every operation is `INSERT DATA` or `DELETE DATA` reads no
+state: its delta is the request's own text. For such a request, and only when
+the caller gave no `ExpectedPosition`, step 2 composes the operations as a
+chain without consulting `G_P` — a `DELETE DATA` quad goes in whether or not
+the pin holds it, its unknown terms staged like an `INSERT DATA` quad's, and
+a later operation on a quad wins over an earlier one — and step 4 submits with
+**no expected position**. The sequencer normalises the delta against the head
+it meets (I2): an assertion the head holds and a retraction it does not are
+dropped there, so what commits is exactly what evaluating the request at that
+head would have committed, and a request whose whole delta normalises away is
+`NoChange`. An expected position protects a delta computed against a pinned
+state; a data-only request computed none, so the protection buys nothing and
+costs every concurrent writer a `Conflict`. A request with any other operation
+— `LOAD` included, since its document is not the request's text — is
+unchanged. `ExpectedPosition`, when given, is always honoured, for every
+request.
+
 **Consequences, which the tests assert.**
 
 - A request whose net effect is empty — deleting absent data, clearing an
@@ -90,6 +109,9 @@ and "a result of failure from any operation MUST abort the sequence". ADR
   view's terms never reached the dictionary (I3).
 - Later operations see earlier ones' effects, including terms the earlier ones
   created, because they are evaluated over the overlay of the staging view.
+- A data-only request built against one history and submitted after a
+  contended tail commits the same effective delta, and leaves the same state,
+  as the same request evaluated after the tail.
 
 ## 4. Concurrency
 
@@ -100,6 +122,12 @@ the caller's decision, and `ConflictRetries` is how the caller states it.
 Each retry starts again at §3 step 1 — a fresh pin, a fresh evaluation — and
 the result after the last attempt is returned. There is no lock; a caller
 never holds anything across the decision.
+
+A data-only request without an `ExpectedPosition` cannot meet a `Conflict`
+(§3): it expects no position, and the question "does it still mean the same
+against the new head" has one answer, yes, because it read nothing. Concurrent
+unconditional writers of `INSERT DATA` and `DELETE DATA` therefore serialise
+in the sequencer without a retry on either side.
 
 ## 5. The operations
 
@@ -249,11 +277,19 @@ The operation's index in the request, its kind, and the cause.
   the deltas a term-level reference model computes by hand, give the same
   as-of state at every position and the same number of commits. A stated
   number of iterations, every counterexample reported.
+- **The data-only property** (ADR 0057, amended 2026-10-08). For a generated
+  history, a generated request of `INSERT DATA` and `DELETE DATA` alone, and
+  a generated tail of such requests: the request built at the head before the
+  tail and submitted after it commits with the same outcome, the same head,
+  the same state and the same effective delta as the request evaluated after
+  the tail. A stated number of iterations.
 - **Unit tests** for what the suites do not reach: a `Conflict` returned and
   not retried, and retried under `ConflictRetries`; a failing operation
   leaving the log and dictionary untouched; a later operation matching a term
   an earlier one created; `LOAD` through a test source, with `SILENT`; a
-  dataset validator rejecting.
+  dataset validator rejecting; a data-only request landing after another
+  writer, a pattern request still expecting its pin, and a given
+  `ExpectedPosition` honoured on both.
 
 ## 8. Open questions
 
