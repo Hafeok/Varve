@@ -50,7 +50,8 @@ decisions:
     accepted-at: 2026-10-07T00:00:00Z
   - key: ApprovedHeadLandsThroughLand
     statement: "On a push to land/, an agent's commits are admitted when the pushed head is a pull request's head carrying the gates App's successful agent review check run; any other sha is not"
-
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-08T00:00:00Z
 ---
 
 The rulings of [ADR 0087](../adr/0087-the-identity-map.md), written by the pre-release session of
