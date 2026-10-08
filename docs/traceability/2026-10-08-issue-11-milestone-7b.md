@@ -336,6 +336,12 @@ In `tests/Varve.Benchmarks/README.md`, the 7b section:
   cross-references were renumbered 0103–0109 in one commit (8731edb) after
   `main` was merged, and `eng/decision-sets.cs` and the build confirm no
   citation was lost.
+- **The soak's own meter misread the commit index.** The dataset's-own
+  figure adds a format-3 run's filter length, read as its directory's last
+  word; the projection state and the commit index (ADR 0089) carry version
+  3 headers too, with no filter, so the first hour-long run on the final
+  code reported directories of 10¹² MB. The meter now reads the kind field
+  and adds the filter for runs and checkpoints only; the hour was run again.
 - **The 100M commit stage varied by 10% between two runs** (670 → 734 s)
   with no change to its code; the before and after rows are one session on
   one machine, and the input stage's halving is the signal, not the

@@ -306,8 +306,12 @@ internal static class Soak
             }
 
             long directory = (long)BinaryPrimitives.ReadUInt64LittleEndian(header[80..]);
+            ushort kind = BinaryPrimitives.ReadUInt16LittleEndian(header[6..]);
 
-            if (BinaryPrimitives.ReadUInt16LittleEndian(header[4..]) < 3 || directory < 8)
+            // Only a run or a checkpoint (kinds 1 and 2) carries a filter; the
+            // projection state and the commit index are version 3 too, and
+            // their directory's last word is something else.
+            if (BinaryPrimitives.ReadUInt16LittleEndian(header[4..]) < 3 || kind > 2 || directory < 8)
             {
                 return directory;
             }
