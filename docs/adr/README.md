@@ -76,10 +76,11 @@ superseding ADR rather than an edit.
 | [0033](0033-commit-traceability.md) | Commit traceability and AI-session records | Accepted |
 | [0034](0034-commit-signing-and-the-sandbox-exception.md) | Commit signing and the sandbox exception | Accepted; revisit condition; **amended by 0066**; amended 2026-10-06 (DCO enforced from 0087) |
 | [0035](0035-semantic-versioning.md) | Semantic versioning | Accepted; complements 0029 |
-| [0085](0085-a-release-per-milestone.md) | A release per milestone, and the next milestone waits for it | Accepted; complements 0029 and 0035 |
+| [0085](0085-a-release-per-milestone.md) | A release per milestone, and the next milestone waits for it | **Superseded by 0102**; complemented 0029 and 0035 |
 | [0086](0086-home-of-the-eng-gates.md) | Home of the eng/ gates | Accepted; complements 0036 and 0039 |
-| [0087](0087-the-identity-map.md) | The identity map: who signs off, accepts and approves for an agent | Accepted; enforces 0034 point 3; amended 2026-10-06 (approval by comment on one's own pull request; the exit to a signed ledger Review); amended again 2026-10-06 (the judging script is always main's; only App-pinned checks count; approval by comment is not a valid workflow) |
-| [0088](0088-only-checked-commits-reach-main.md) | Only checked commits reach main | Accepted; **supersedes 0032**; amended 2026-10-06 (required check names are checked) |
+| [0087](0087-the-identity-map.md) | The identity map: who signs off, accepts and approves for an agent | Accepted; enforces 0034 point 3; amended 2026-10-06 (approval by comment on one's own pull request; the exit to a signed ledger Review); amended again 2026-10-06 (the judging script is always main's; only App-pinned checks count; approval by comment is not a valid workflow); amended 2026-10-08 (an approved head lands through land/) |
+| [0088](0088-only-checked-commits-reach-main.md) | Only checked commits reach main | Accepted; **supersedes 0032**; amended 2026-10-06 (required check names are checked); amended 2026-10-08 (a release's review is its descriptor's approval; `HumanReviewGatesReleases` superseded by 0102) |
+| [0102](0102-a-release-is-a-descriptor.md) | A release is a descriptor, and landing it cuts it | **Proposed** (filed unaccepted, ADR 0066); **supersedes 0085** and 0088's `HumanReviewGatesReleases`; amends 0087 rule 3 |
 | [0036](0036-containerised-development.md) | Containerised development and the local pipeline | Accepted |
 
 

@@ -48,6 +48,9 @@ decisions:
     statement: "Approval by pull request comment is not a valid workflow: it is tolerated only until the ledger's review gate exists, and the pull request that adopts that gate removes it"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-07T00:00:00Z
+  - key: ApprovedHeadLandsThroughLand
+    statement: "On a push to land/, an agent's commits are admitted when the pushed head is a pull request's head carrying the gates App's successful agent review check run; any other sha is not"
+
 ---
 
 The rulings of [ADR 0087](../adr/0087-the-identity-map.md), written by the pre-release session of
@@ -60,3 +63,7 @@ the same one restated. `AgentPullRequestsApprovedOnTheHead` keeps its key with i
 statement changed by that amendment, so its acceptance is withdrawn until the
 maintainer gives it again. `CommentApprovalIsNotAValidWorkflow` is the ruling the
 ledger project cites for why the comment form exists at all.
+
+`ApprovedHeadLandsThroughLand` is the amendment of 2026-10-08, filed without `accepted-by` by the
+release-descriptor session of #73 (ADR 0066), so that an approved head can be fast-forwarded to
+`main` and a release cut at it (ADR 0102).
