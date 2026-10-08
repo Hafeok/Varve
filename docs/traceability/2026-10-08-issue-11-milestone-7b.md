@@ -313,6 +313,38 @@ In `tests/Varve.Benchmarks/README.md`, the 7b section:
 - 10,000 lookups of absent terms over three disk runs: 48.8 ms → 2.9 ms;
 - the soak: running on the final code as this is written; its figures are in the closing commit's revision of this record and of the README.
 
+### What was found
+
+- **The `@protocol` subject found the evaluator's minted labels.** Fresh
+  blank nodes were labelled `.b<n>`, which no RDF syntax carries; in process
+  nothing parsed them, over HTTP a `CONSTRUCT` answer with one was not
+  N-Triples. They are `q<n>` now (§7.9).
+- **A worker's blank-node key was the whole scratch array**, not the slice
+  it had written, so two workers resolving the same label could disagree.
+  The worker-count property (the same dataset and ids at 1, 2 and 3 workers)
+  found it on its first run; the fix is the slice.
+- **`AccessScope` already existed**: `Varve.Store.AccessScope` is a
+  dataset's history setting, so ADR 0107's type is `CallerScope`.
+- **`GraphNotWritableException` could not live at layer 5**: the executor
+  that throws it (`Varve.Sparql.Store`) and the protocol that answers it are
+  both layer 5, and a 5→5 reference is refused, so it is `Varve.Rdf`'s.
+- **BenchmarkDotNet rebuilds the benchmark project itself** and that build
+  has warnings as errors, so every row here ran `--inProcess` while the 7b
+  ADRs are `CS0618`; the README's commands say so.
+- **The releases-as-code session took ADR number 0102** while this one
+  ran with 0102–0108 filed; the seven ADRs, their sets, citations and
+  cross-references were renumbered 0103–0109 in one commit (8731edb) after
+  `main` was merged, and `eng/decision-sets.cs` and the build confirm no
+  citation was lost.
+- **The 100M commit stage varied by 10% between two runs** (670 → 734 s)
+  with no change to its code; the before and after rows are one session on
+  one machine, and the input stage's halving is the signal, not the
+  commit's drift.
+- **The 7a eight-writer `409`s were the pin, not contention**: with data-only
+  requests submitting against the head they meet, the counts went from
+  147,760 and 86,222 to 0 and throughput roughly doubled, with the same
+  one-commit-per-request guarantee.
+
 ### Proposed spec changes
 
 - `sparql-evaluation.md` §7.9: minted blank nodes are `q<n>` (made).
