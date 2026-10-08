@@ -108,7 +108,7 @@ internal static class BulkGate
         BulkLoadOptions bulk = workers is int threads
             ? new BulkLoadOptions { MemoryBytes = new ByteCount(memory), Workers = threads }
             : new BulkLoadOptions { MemoryBytes = new ByteCount(memory) };
-        Console.WriteLine("# workers: " + bulk.Workers.ToString(CultureInfo.InvariantCulture) + " of " + Environment.ProcessorCount.ToString(CultureInfo.InvariantCulture) + " processors (ADR 0107)");
+        Console.WriteLine("# workers: " + bulk.Workers.ToString(CultureInfo.InvariantCulture) + " of " + Environment.ProcessorCount.ToString(CultureInfo.InvariantCulture) + " processors (ADR 0108)");
         long start = 0;
 
         if (populated > 0)

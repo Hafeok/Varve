@@ -14,9 +14,9 @@ using System.Threading.Tasks;
 namespace Varve.Protocol.Client;
 
 /// <summary>
-/// One dataset's endpoints over HTTP (ADR 0102): queries and updates by the
+/// One dataset's endpoints over HTTP (ADR 0103): queries and updates by the
 /// SPARQL 1.1 Protocol, the Graph Store's reads, the change feed, and the
-/// admin calls of ADR 0105, each carrying the bearer token the caller set
+/// admin calls of ADR 0106, each carrying the bearer token the caller set
 /// and the headers of ADRs 0094 and 0096. Every call answers the response
 /// with its headers read and its body still to stream; the caller owns it.
 /// The limits bound the time to the headers; the body is the caller's to
@@ -108,11 +108,11 @@ public sealed class SparqlHttpClient
         return SendAsync(request, cancellationToken);
     }
 
-    /// <summary>The dataset's status (ADRs 0101, 0105), JSON.</summary>
+    /// <summary>The dataset's status (ADRs 0101, 0106), JSON.</summary>
     public Task<HttpResponseMessage> StatusAsync(CancellationToken cancellationToken) =>
         SendAsync(new HttpRequestMessage(HttpMethod.Get, new Uri(Dataset, "status")), cancellationToken);
 
-    /// <summary>A checkpoint at the head, or at <paramref name="at"/> (ADR 0105).</summary>
+    /// <summary>A checkpoint at the head, or at <paramref name="at"/> (ADR 0106).</summary>
     public Task<HttpResponseMessage> CheckpointAsync(long? at, CancellationToken cancellationToken) =>
         SendAsync(new HttpRequestMessage(HttpMethod.Post, new Uri(Dataset, at is long position ? "checkpoints?at=" + position.ToString(CultureInfo.InvariantCulture) : "checkpoints")), cancellationToken);
 

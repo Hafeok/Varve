@@ -1,7 +1,7 @@
 ---
 set: per-run-term-filters
 namespace: varve
-adr: 0108
+adr: 0109
 decisions:
   - key: PerRunTermFilter
     statement: "Each run carries a blocked Bloom filter over its terms' content hashes, eight bits a term, consulted before the run's hash index on a lookup by term"
@@ -11,5 +11,5 @@ decisions:
     statement: "A filter is loaded with the run's directory, held while the reader holds the run, and counted in the soak's dataset's-own figure"
 ---
 
-The rulings of [ADR 0108](../adr/0108-per-run-term-filters.md), filed unaccepted by milestone 7b of #11
+The rulings of [ADR 0109](../adr/0109-per-run-term-filters.md), filed unaccepted by milestone 7b of #11
 (ADR 0066). Every citation is `CS0618` until the maintainer accepts them.

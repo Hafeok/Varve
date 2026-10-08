@@ -100,7 +100,7 @@ internal static class ServiceDescriptionEndpoint
             }
 
             // Federation is advertised when the host answers SERVICE (ADR
-            // 0103): the handler's default refuses, and a refusing endpoint
+            // 0104): the handler's default refuses, and a refusing endpoint
             // claiming sd:BasicFederatedQuery would be a lie.
             if (exchange.Options.Evaluation.ServiceHandler is not RefusingServiceHandler)
             {

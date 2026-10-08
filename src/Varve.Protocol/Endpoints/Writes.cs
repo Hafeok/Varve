@@ -112,7 +112,7 @@ internal static class Writes
         }
     }
 
-    /// <summary><c>403</c> <c>graph-not-writable</c> (ADR 0106): the request changes a graph outside the caller's writable scope; nothing was committed.</summary>
+    /// <summary><c>403</c> <c>graph-not-writable</c> (ADR 0107): the request changes a graph outside the caller's writable scope; nothing was committed.</summary>
     internal static Task GraphNotWritableAsync(Exchange exchange, RdfTerm? graph)
     {
         string name = graph is null ? "the default graph" : "<" + Encoding.UTF8.GetString(graph.Lexical) + ">";

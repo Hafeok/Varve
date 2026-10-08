@@ -12,15 +12,15 @@ public enum AdminAccess : byte
     /// <summary>Not an administrator: the scopes bound the caller.</summary>
     None,
 
-    /// <summary>An administrator, dataset-wide (ADR 0106): reads and writes every graph.</summary>
+    /// <summary>An administrator, dataset-wide (ADR 0107): reads and writes every graph.</summary>
     Admin,
 }
 
 /// <summary>
-/// What one caller may do with one dataset (ADR 0106): the graphs it reads,
+/// What one caller may do with one dataset (ADR 0107): the graphs it reads,
 /// the graphs it writes, and whether it administers the dataset. Resolved by
 /// a host from its grants; <c>Varve.Protocol</c> and <c>Varve.Sparql.Store</c>
-/// take it as a value and know no claim. (ADR 0106 calls it the access
+/// take it as a value and know no claim. (ADR 0107 calls it the access
 /// scope; <c>Varve.Store.AccessScope</c> already names a dataset's history
 /// setting, so the type is the caller's scope.)
 /// </summary>

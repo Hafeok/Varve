@@ -28,15 +28,15 @@ internal sealed class ServerSettings
 
     public ForwardedSettings ForwardedHeaders { get; set; } = new();
 
-    /// <summary><c>SERVICE</c> over HTTP (ADR 0103): where a query may federate to.</summary>
+    /// <summary><c>SERVICE</c> over HTTP (ADR 0104): where a query may federate to.</summary>
     public FederationSettings Federation { get; set; } = new();
 
-    /// <summary><c>LOAD</c> over HTTP (ADR 0103): where an update may fetch a document from.</summary>
+    /// <summary><c>LOAD</c> over HTTP (ADR 0104): where an update may fetch a document from.</summary>
     public LoadSettings Load { get; set; } = new();
 }
 
 /// <summary>
-/// The endpoint policy and limits of <c>SERVICE</c> (ADRs 0102, 0103). With
+/// The endpoint policy and limits of <c>SERVICE</c> (ADRs 0103, 0104). With
 /// no allowed endpoint, every <c>SERVICE</c> is refused, as the evaluator's
 /// default refuses it.
 /// </summary>
@@ -53,7 +53,7 @@ internal sealed class FederationSettings
     public long MaxResponseBytes { get; set; } = 100L << 20;
 }
 
-/// <summary>The endpoint policy and limits of <c>LOAD</c> (ADRs 0102, 0103). With no allowed source, every <c>LOAD</c> is refused.</summary>
+/// <summary>The endpoint policy and limits of <c>LOAD</c> (ADRs 0103, 0104). With no allowed source, every <c>LOAD</c> is refused.</summary>
 internal sealed class LoadSettings
 {
     /// <summary>The IRI prefixes a document's address may start with; empty allows none.</summary>
@@ -101,11 +101,11 @@ internal sealed class AuthSettings
     /// <summary>Per dataset, the claim values that grant each permission.</summary>
     public Dictionary<string, PermissionSettings> Datasets { get; set; } = new(StringComparer.Ordinal);
 
-    /// <summary>The server-wide grant (ADR 0105): who may create, open, close and delete datasets, and administers every one.</summary>
+    /// <summary>The server-wide grant (ADR 0106): who may create, open, close and delete datasets, and administers every one.</summary>
     public ServerPermissionSettings Server { get; set; } = new();
 }
 
-/// <summary>The claim values of the server admin (ADR 0105), cumulative above every dataset's <c>admin</c>.</summary>
+/// <summary>The claim values of the server admin (ADR 0106), cumulative above every dataset's <c>admin</c>.</summary>
 internal sealed class ServerPermissionSettings
 {
     public List<string> Admin { get; set; } = [];
@@ -127,11 +127,11 @@ internal sealed class PermissionSettings
     /// <summary>Claim values that administer the dataset: every permission, every graph.</summary>
     public List<string> Admin { get; set; } = [];
 
-    /// <summary>Grants scoped to graphs (ADR 0106); the lists above are the <c>all</c> case.</summary>
+    /// <summary>Grants scoped to graphs (ADR 0107); the lists above are the <c>all</c> case.</summary>
     public List<GrantSettings> Grants { get; set; } = [];
 }
 
-/// <summary>One scoped grant (ADR 0106): a claim value, <c>read</c> or <c>write</c>, and the graphs it reaches.</summary>
+/// <summary>One scoped grant (ADR 0107): a claim value, <c>read</c> or <c>write</c>, and the graphs it reaches.</summary>
 internal sealed class GrantSettings
 {
     /// <summary>The claim value the grant is for.</summary>

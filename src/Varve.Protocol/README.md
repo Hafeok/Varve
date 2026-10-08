@@ -21,8 +21,8 @@ ASP.NET Core endpoint groups any host mounts.
   and formats, the named graphs the caller may see, the event-sourced
   extensions under `https://w3id.org/varve/ns#` — `position`, the headers,
   `graphStore`, `changeFeed`, `diff`, `status`, `settings`, `checkpoints` —
-  and `sd:BasicFederatedQuery` when the host answers `SERVICE` (ADR 0103).
-- **The admin API** (ADR 0105): `MapVarveAdministration` mounts
+  and `sd:BasicFederatedQuery` when the host answers `SERVICE` (ADR 0104).
+- **The admin API** (ADR 0106): `MapVarveAdministration` mounts
   `GET /datasets`, `PUT` and `DELETE` of `/datasets/{name}`, and
   `POST …/open` and `…/close`, over the host's `IDatasetAdministration`; each
   dataset group has `POST /settings` (a `Settings` commit) and
@@ -30,7 +30,7 @@ ASP.NET Core endpoint groups any host mounts.
 - **Authorisation is four policy names**, `varve:read`, `varve:write`,
   `varve:admin` and `varve:server-admin`. The host decides what satisfies
   them. Nothing here authenticates.
-- **Graph-level scope** (ADR 0106): after the policy, the host's
+- **Graph-level scope** (ADR 0107): after the policy, the host's
   `IAccessScopes` answers what the caller reads and writes, by graph. A read
   evaluates over `GraphScopedQuadSource`, so an unreadable graph is absent
   from every answer — a `FROM` naming it names an empty graph, a Graph Store

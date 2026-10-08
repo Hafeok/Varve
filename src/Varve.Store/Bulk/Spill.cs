@@ -55,7 +55,7 @@ internal sealed class SpillSpace
         return name;
     }
 
-    /// <summary>A run named by the sequence of the buffer it holds (ADR 0107): the same name at any worker count.</summary>
+    /// <summary>A run named by the sequence of the buffer it holds (ADR 0108): the same name at any worker count.</summary>
     internal BlobName Named(string kind, ulong sequence)
     {
         BlobName name = new(_root + kind + ".s" + sequence.ToString(CultureInfo.InvariantCulture));
@@ -140,7 +140,7 @@ internal sealed class ExternalSort<T>
         return _count == _buffer.Length;
     }
 
-    /// <summary>A run written elsewhere — by a bulk load's worker (ADR 0107) — with its record count.</summary>
+    /// <summary>A run written elsewhere — by a bulk load's worker (ADR 0108) — with its record count.</summary>
     internal void Adopt(BlobName run, long records)
     {
         lock (_runs)

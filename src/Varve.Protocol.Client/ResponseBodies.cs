@@ -13,7 +13,7 @@ using Varve.Store.Log;
 namespace Varve.Protocol.Client;
 
 /// <summary>
-/// Reads a response body up to a cap (ADR 0102): the bytes, or null and the
+/// Reads a response body up to a cap (ADR 0103): the bytes, or null and the
 /// reason when the body is longer than the cap. A body that is cut is never
 /// handed on as whole.
 /// </summary>

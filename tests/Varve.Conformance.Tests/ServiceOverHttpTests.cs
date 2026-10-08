@@ -17,7 +17,7 @@ using Xunit;
 namespace Varve.Conformance.Tests;
 
 /// <summary>
-/// <c>sparql11/service</c> end to end over HTTP (ADR 0103): each
+/// <c>sparql11/service</c> end to end over HTTP (ADR 0104): each
 /// <c>qt:serviceData</c> endpoint of a case is an in-process server over a
 /// memory dataset loaded with that data, the handler under test is
 /// <see cref="HttpServiceHandler"/>, the policy allows the manifest's

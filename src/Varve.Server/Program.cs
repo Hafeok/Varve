@@ -10,7 +10,7 @@ using Varve.Server.Commands;
 namespace Varve.Server;
 
 /// <summary>
-/// The entry point of the one executable (ADR 0104): <c>varve serve</c> and
+/// The entry point of the one executable (ADR 0105): <c>varve serve</c> and
 /// a bare <c>varve</c> run the server of ADR 0101; every other command is the
 /// CLI's.
 /// </summary>

@@ -477,7 +477,7 @@ internal sealed class BulkCommit : IAsyncDisposable
         long offsetsAt = entriesLength;
         long hashesAt = offsetsAt + ((count + 1) * 8);
         // The load's own term section, read once while its run is written;
-        // the run gets its filter from the writer (ADR 0108).
+        // the run gets its filter from the writer (ADR 0109).
         return TermSection.On(blob, CanonicalBefore, CanonicalBefore + count, 0, entriesLength, offsetsAt, hashesAt, null);
     }
 

@@ -16,7 +16,7 @@ using Xunit;
 
 namespace Varve.Protocol.Client.Tests;
 
-/// <summary>The document fetch behind <c>LOAD</c> (ADR 0103): negotiation, the syntax, the base, the cap, the refusals.</summary>
+/// <summary>The document fetch behind <c>LOAD</c> (ADR 0104): negotiation, the syntax, the base, the cap, the refusals.</summary>
 public class RdfDocumentClientTests
 {
     private static readonly HttpClient Http = OutboundHttp.CreateClient();

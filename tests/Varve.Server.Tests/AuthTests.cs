@@ -15,7 +15,7 @@ using Xunit;
 namespace Varve.Server.Tests;
 
 /// <summary>
-/// Authentication and authorisation (ADRs 0037, 0100 layer (a), 0105): every
+/// Authentication and authorisation (ADRs 0037, 0100 layer (a), 0106): every
 /// endpoint against every way a token can be wrong and every permission,
 /// with tokens from an issuer in the test; the admin API's endpoints under
 /// the dataset and server-admin grants.
@@ -27,7 +27,7 @@ public sealed class AuthTests : IAsyncLifetime
 
     /// <summary>
     /// Each endpoint, and the permission it needs (ADR 0093's table, ADR
-    /// 0105's). The list answers any authenticated caller, filtered, so it
+    /// 0106's). The list answers any authenticated caller, filtered, so it
     /// needs no more than read; the server-admin rows run in an order that
     /// succeeds for the one role that may: create, open, close, delete.
     /// </summary>
@@ -145,7 +145,7 @@ public sealed class AuthTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync("GET", "datasets/d/status", token)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync("GET", "datasets/nowhere/sparql?query=ASK%7B%7D", token)).StatusCode);
 
-        // The list shows what the caller administers: e for "reader", both for a server admin (ADR 0105).
+        // The list shows what the caller administers: e for "reader", both for a server admin (ADR 0106).
         string listed = await (await SendAsync("GET", "datasets", token)).Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.Contains("\"name\":\"e\"", listed, StringComparison.Ordinal);
         Assert.DoesNotContain("\"name\":\"d\"", listed, StringComparison.Ordinal);
@@ -177,7 +177,7 @@ public sealed class AuthTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// A graph-scoped user (ADR 0106): "people" writes the default graph and
+    /// A graph-scoped user (ADR 0107): "people" writes the default graph and
     /// one named graph; "public" reads by prefix. Each passes the dataset's
     /// policy for its permission and is then bounded by its scope: the
     /// query shows its graphs, the Graph Store answers 404 for a graph it
@@ -217,7 +217,7 @@ public sealed class AuthTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NoContent, (await SendUpdateAsync(people, "INSERT DATA { GRAPH <http://ex/g/people> { <http://ex/b> <http://ex/p> 2 } }")).StatusCode);
 
         // CLEAR ALL clears what the caller reads, and the secret graph is
-        // not that: it survives, unseen (ADR 0106).
+        // not that: it survives, unseen (ADR 0107).
         Assert.Equal(HttpStatusCode.NoContent, (await SendUpdateAsync(people, "CLEAR ALL")).StatusCode);
         Assert.Contains("secret", await BodyAsync("GET", "datasets/d/sparql?query=" + Uri.EscapeDataString("SELECT ?o WHERE { GRAPH ?g { ?s ?p ?o } }"), admin), StringComparison.Ordinal);
         Assert.DoesNotContain("people", await BodyAsync("GET", "datasets/d/sparql?query=" + Uri.EscapeDataString("SELECT ?o WHERE { GRAPH ?g { ?s ?p ?o } }"), admin), StringComparison.Ordinal);

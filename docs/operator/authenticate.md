@@ -13,15 +13,15 @@ Each request names a dataset and needs one permission on it:
 |---|---|
 | `read` | queries, Graph Store reads, the service description, the feed, the diff |
 | `write` | updates and Graph Store writes; grants `read` |
-| `admin` | the dataset's status, settings and checkpoints; grants both; dataset-wide, every graph (ADR 0106) |
-| server admin | `Auth:Server:Admin`: creating, opening, closing and deleting datasets, and every permission on every dataset (ADR 0105) |
+| `admin` | the dataset's status, settings and checkpoints; grants both; dataset-wide, every graph (ADR 0107) |
+| server admin | `Auth:Server:Admin`: creating, opening, closing and deleting datasets, and every permission on every dataset (ADR 0106) |
 
 A caller holds a permission when one of the values of its role claim
 (`Auth:RoleClaimType`, `roles` by default) is listed for it. The claim is a
 string, several strings, or an object whose property names are the roles, as
 Zitadel's project roles are.
 
-**Graph-scoped grants** (ADR 0106) bound a `read` or `write` to graphs:
+**Graph-scoped grants** (ADR 0107) bound a `read` or `write` to graphs:
 
 ```json
 "Datasets": {
@@ -87,7 +87,7 @@ and the server warns at every start. `Production: true` refuses it.
 
 ## The command line
 
-`varve` against a URL carries a bearer token in one of three ways (ADR 0104):
+`varve` against a URL carries a bearer token in one of three ways (ADR 0105):
 
 1. **`--token`, or `VARVE_TOKEN`**: a token obtained elsewhere — a CI job's,
    a managed identity's. Nothing is stored.

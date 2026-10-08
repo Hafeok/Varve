@@ -16,7 +16,7 @@ using Varve.Store.Log;
 namespace Varve.Server;
 
 /// <summary>
-/// What the server reaches out to (ADRs 0102, 0103), wired at the composition
+/// What the server reaches out to (ADRs 0103, 0104), wired at the composition
 /// root (ADR 0060): the <c>SERVICE</c> handler and the <c>LOAD</c> source over
 /// one outbound client, each under its configured policy and limits. With no
 /// allowed endpoint or source, the refusing defaults stay.
@@ -53,7 +53,7 @@ internal sealed class Outbound
         return new Outbound(service, source);
     }
 
-    /// <summary>The one-line binding of ADR 0103: a fetched document is a loaded document.</summary>
+    /// <summary>The one-line binding of ADR 0104: a fetched document is a loaded document.</summary>
     private sealed class HttpLoadSource(RdfDocumentClient client) : ILoadSource
     {
         public async ValueTask<LoadedDocument> LoadAsync(RdfTerm iri, CancellationToken cancellationToken)

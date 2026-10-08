@@ -40,7 +40,7 @@ public sealed class UpdateOptions
     public ILoadSource LoadSource { get; init; } = RefusingLoadSource.Instance;
 
     /// <summary>
-    /// The graphs every pattern of the request reads (ADR 0106): a
+    /// The graphs every pattern of the request reads (ADR 0107): a
     /// <c>DELETE WHERE</c>, a <c>DELETE/INSERT … WHERE</c>, <c>CLEAR</c>,
     /// <c>COPY</c> and the rest evaluate over the staging view seen through
     /// this scope, so a caller cannot delete, copy or move what it cannot
@@ -49,7 +49,7 @@ public sealed class UpdateOptions
     public GraphScope ReadScope { get; init; } = GraphScope.All;
 
     /// <summary>
-    /// The graphs the request may change (ADR 0106). The composed delta is
+    /// The graphs the request may change (ADR 0107). The composed delta is
     /// checked against it before the submit: one quad outside it fails the
     /// whole request with <see cref="Varve.Rdf.GraphNotWritableException"/>, and
     /// nothing is committed. Every graph by default.

@@ -208,7 +208,7 @@ public class ScanBenchmarks
 
     /// <summary>
     /// Every quad through a <see cref="GraphScopedQuadSource"/> whose scope
-    /// lists four of the five graphs by IRI (ADR 0106): the filter's cost per
+    /// lists four of the five graphs by IRI (ADR 0107): the filter's cost per
     /// quad against <see cref="FullScan"/>, the wrapper built per request as
     /// the protocol builds it.
     /// </summary>

@@ -70,7 +70,7 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
     /// <summary>
     /// Starts a server whose datasets <paramref name="datasets"/> names.
     /// <paramref name="serviceHandler"/>, when given, federates the server's own
-    /// queries (ADR 0103's suite run); the default refuses.
+    /// queries (ADR 0104's suite run); the default refuses.
     /// </summary>
     internal static async Task<ProtocolTestHost> StartAsync(
         IDatasetResolver datasets,
@@ -148,7 +148,7 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         public RequestTerm AgentOf(ClaimsPrincipal caller) => RequestTerm.None;
     }
 
-    /// <summary>Datasets by name, added while the server runs, each with the scope every caller gets on it (ADR 0106's properties).</summary>
+    /// <summary>Datasets by name, added while the server runs, each with the scope every caller gets on it (ADR 0107's properties).</summary>
     internal sealed class Datasets : IDatasetResolver, IAsyncDisposable
     {
         private readonly System.Collections.Concurrent.ConcurrentDictionary<string, Dataset> _datasets = new(StringComparer.Ordinal);

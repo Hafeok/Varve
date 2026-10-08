@@ -230,20 +230,20 @@ bearer tokens through `JwtBearer` (ADR 0099), per-dataset `read`, `write` and
 `admin`, an explicit anonymous mode refused in production, readiness, and a
 draining shutdown; auth is tested against an issuer in the test everywhere, and
 against mock-oauth2-server and Zitadel on Linux CI (ADR 0100). **Since
-milestone 7b (ADRs 0102–0108, filed unaccepted)**: `Varve.Protocol.Client`
+milestone 7b (ADRs 0103–0109, filed unaccepted)**: `Varve.Protocol.Client`
 speaks to a dataset over HTTP and gives the evaluator `SERVICE` and the
 executor `LOAD` over HTTP under an endpoint allow-list the host sets (ADRs
-0102, 0103); `Varve.Server` is the `varve` command line too — create, info,
+0103, 0104); `Varve.Server` is the `varve` command line too — create, info,
 load, query, update, export, checkpoint, feed, serve — as a .NET tool and the
 AOT single file, embedded over a directory or remote over a URL with OIDC
-device-code or client-credentials tokens and a credential file (ADR 0104); the
+device-code or client-credentials tokens and a credential file (ADR 0105); the
 admin API lists, creates, opens, closes and deletes datasets and takes a
-dataset's settings and checkpoints (ADR 0105); grants are scoped by graph,
+dataset's settings and checkpoints (ADR 0106); grants are scoped by graph,
 through `GraphScopedQuadSource` at layer 1 and the `IAccessScopes` seam, so
 an unreadable graph is unobservable and an unwritable one refuses the write
-(ADR 0106); the bulk loader resolves and spills on worker threads (ADR 0107);
+(ADR 0107); the bulk loader resolves and spills on worker threads (ADR 0108);
 runs carry a term filter in **derived format 3**, format 2 read and migrated
-by maintenance (ADR 0108); data-only update requests expect no position (ADR
+by maintenance (ADR 0109); data-only update requests expect no position (ADR
 0057, amended). The query suites run over four subjects and the update suites
 through the protocol too, and the ratchet holds **4,122** lines.
 `docs/operator/` is the operator's guide. Not built: the container image,

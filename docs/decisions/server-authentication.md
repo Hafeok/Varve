@@ -51,5 +51,5 @@ narrative; this is what code cites. Acceptance is transcribed from the ADR's Sta
 The ADR places `Varve.Server` at layer 5; ADR 0060's table, in its set, moved hosts to layer 6.
 The statements here therefore name the package and not the layer.
 
-Moved to a later set: `RemoteCliUsesBearerTokens`, whose storage clause ADR 0104 supersedes in
+Moved to a later set: `RemoteCliUsesBearerTokens`, whose storage clause ADR 0105 supersedes in
 part (filed 2026-10-08, unaccepted); it keeps its key in `the-cli.md`.

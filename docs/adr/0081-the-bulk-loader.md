@@ -134,7 +134,7 @@ term with another case is found and kept as it is.
 - **A background thread that spills while the parser fills a second buffer.**
   Faster on a machine with idle cores; the same bound with two buffers. Left
   for when the throughput row said it was needed — which the 6c record's row
-  did: **built by ADR [0107](0107-bulk-resolve-on-worker-threads.md)**
+  did: **built by ADR [0108](0108-bulk-resolve-on-worker-threads.md)**
   (2026-10-08, milestone 7b of #11, ADR 0068's dated note) as a ring of
   operation buffers that workers resolve and spill, the parser's thread
   copying terms and nothing more.

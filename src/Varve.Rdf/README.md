@@ -29,7 +29,7 @@ RDF Dataset Canonicalization (RDFC-1.0).
   `(B \ R) ∪ A`, merged at scan time. One implementation serves a store's
   as-of reads and the view a pre-commit validator gets.
 
-- **`GraphScope`, `GraphScopedQuadSource` and `CallerScope`** (ADR 0106): a
+- **`GraphScope`, `GraphScopedQuadSource` and `CallerScope`** (ADR 0107): a
   set of graphs — every graph, or the default graph and named graphs by IRI
   or by IRI prefix — and a source seen through one, which filters every
   `Match`, `Contains` and `Estimate` by graph so that a graph outside the

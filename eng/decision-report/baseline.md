@@ -1,6 +1,6 @@
 # Decision-driven report
 
-DecisionDriven.Report 0.1.0-preview.7 at `68d356956de1`. Nothing here gates a build: a metric becomes a gate only by a decision that names its threshold and baseline.
+DecisionDriven.Report 0.1.0-preview.7 at `1836c326a1b1`. Nothing here gates a build: a metric becomes a gate only by a decision that names its threshold and baseline.
 
 ## Layers
 
@@ -10,17 +10,17 @@ Instability should fall as the layer does. An assembly marked ⚠ is less stable
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | `Varve.Iri` | 0 | 6 | 0 | 0.00 | 0.00 | 1.00 |  |
 | `Varve.Xsd` | 0 | 2 | 0 | 0.00 | 0.00 | 1.00 |  |
-| `Varve.Rdf` | 1 | 9 | 0 | 0.00 | 0.05 | 0.95 |  |
+| `Varve.Rdf` | 1 | 9 | 0 | 0.00 | 0.04 | 0.96 |  |
 | `Varve.Sparql` | 2 | 5 | 2 | 0.29 | 0.08 | 0.64 |  |
-| `Varve.Sparql.Results` | 2 | 2 | 1 | 0.33 | 0.07 | 0.59 | ⚠ |
+| `Varve.Sparql.Results` | 2 | 3 | 1 | 0.25 | 0.07 | 0.68 |  |
 | `Varve.Turtle` | 2 | 4 | 2 | 0.33 | 0.00 | 0.67 | ⚠ |
 | `Varve.Sparql.Evaluation` | 3 | 4 | 4 | 0.50 | 0.08 | 0.42 | ⚠ |
 | `Varve.Store` | 4 | 5 | 2 | 0.29 | 0.08 | 0.63 |  |
-| `Varve.Protocol` | 5 | 1 | 7 | 0.88 | 0.05 | 0.07 |  |
+| `Varve.Protocol` | 5 | 1 | 7 | 0.88 | 0.07 | 0.05 |  |
 | `Varve.Protocol.Client` | 5 | 1 | 7 | 0.88 | 0.00 | 0.13 |  |
 | `Varve.Sparql.Store` | 5 | 1 | 5 | 0.83 | 0.08 | 0.08 |  |
 | `Varve.Store.Browser` | 5 | 0 | 1 | 1.00 | 0.06 | 0.06 |  |
-| `Varve.Server` | 6 | 0 | 9 | 1.00 | 0.00 | 0.00 |  |
+| `Varve.Server` | 6 | 0 | 10 | 1.00 | 0.02 | 0.02 |  |
 
 ## Contracts
 
@@ -28,15 +28,17 @@ Members offered against members each caller takes. A contract every caller uses 
 
 | Contract | Members | Implementers | Callers |
 | --- | ---: | ---: | --- |
+| `Varve.Protocol.IAccessScopes` | 1 | 2 | `Varve.Protocol.Endpoints.Exchange` uses 1 of 1: ScopesOf |
 | `Varve.Protocol.ICallerIdentity` | 1 | 2 | `Varve.Protocol.Endpoints.Writes` uses 1 of 1: AgentOf |
+| `Varve.Protocol.IDatasetAdministration` | 5 | 1 | `Varve.Protocol.Endpoints.AdminEndpoints` uses 5 of 5: CloseAsync, CreateAsync, DeleteAsync, List, OpenAsync |
 | `Varve.Protocol.IDatasetResolver` | 1 | 1 | `Varve.Protocol.Endpoints.Exchange` uses 1 of 1: TryResolve |
 | `Varve.Protocol.ISparqlUpdateExecutor` | 1 | 1 | `Varve.Protocol.Endpoints.UpdateRun` uses 1 of 1: ExecuteAsync |
-| `Varve.Rdf.IQuadCursor` | 2 | 6 | `Varve.Protocol.Endpoints.GraphStoreEndpoint` uses 2 of 2: Current, MoveNext<br>`Varve.Rdf.QuadOverlay.Cursor` uses 2 of 2: Current, MoveNext<br>`Varve.Rdf.RdfCanonicaliser.Run` uses 2 of 2: Current, MoveNext<br>`Varve.Sparql.Evaluation.Execution.Exec` uses 2 of 2: Current, MoveNext<br>`Varve.Sparql.Evaluation.Operators.ScanCursor` uses 2 of 2: Current, MoveNext<br>`Varve.Sparql.Store.DefaultGraphView.Concatenated` uses 2 of 2: Current, MoveNext<br>`Varve.Sparql.Store.DefaultGraphView.Regraphed` uses 2 of 2: Current, MoveNext<br>`Varve.Sparql.Store.RequestExecution` uses 2 of 2: Current, MoveNext<br>`Varve.Store.BulkCommit` uses 2 of 2: Current, MoveNext<br>`Varve.Store.BulkDelta` uses 2 of 2: Current, MoveNext<br>`Varve.Store.IndexVersion` uses 1 of 2: MoveNext |
-| `Varve.Rdf.IQuadSource` | 7 | 7 | `Varve.Rdf.QuadOverlay` uses 7 of 7: Contains, Estimate, Match, TermComparer, TryExternalise, TryGetInlineValue, TryInternalise<br>`Varve.Rdf.RdfCanonicaliser.Run` uses 3 of 7: Match, TermComparer, TryExternalise<br>`Varve.Sparql.Evaluation.Compile.Compiler` uses 1 of 7: TryInternalise<br>`Varve.Sparql.Evaluation.Execution.Exec` uses 4 of 7: Match, TermComparer, TryExternalise, TryInternalise<br>`Varve.Sparql.Evaluation.Expressions.Semantics` uses 1 of 7: TryGetInlineValue<br>`Varve.Sparql.Evaluation.Operators.BgpCursor` uses 1 of 7: TryExternalise<br>`Varve.Sparql.Evaluation.Operators.GraphOperator` uses 1 of 7: TryInternalise<br>`Varve.Sparql.Evaluation.Operators.OrderByOperator` uses 1 of 7: TryGetInlineValue<br>`Varve.Sparql.Evaluation.Operators.PathOperator` uses 1 of 7: TryInternalise<br>`Varve.Sparql.Evaluation.Operators.ScanCursor` uses 1 of 7: Match<br>`Varve.Sparql.Evaluation.Optimisation.Optimiser.Estimates` uses 2 of 7: Estimate, TryInternalise<br>`Varve.Sparql.Evaluation.SparqlEvaluator` uses 2 of 7: TermComparer, TryInternalise<br>`Varve.Sparql.Store.DefaultGraphView` uses 7 of 7: Contains, Estimate, Match, TermComparer, TryExternalise, TryGetInlineValue, TryInternalise<br>`Varve.Sparql.Store.RequestExecution` uses 2 of 7: Match, TryInternalise<br>`Varve.Store.BulkDelta` uses 1 of 7: Match<br>`Varve.Store.DatasetView` uses 4 of 7: Contains, Estimate, Match, TryGetInlineValue<br>`Varve.Turtle.NQuadsWriter` uses 1 of 7: TryExternalise<br>`Varve.Turtle.TurtleWriter` uses 1 of 7: TryExternalise |
+| `Varve.Rdf.IQuadCursor` | 2 | 8 | `Varve.Protocol.Endpoints.GraphStoreEndpoint` uses 2 of 2: Current, MoveNext<br>`Varve.Rdf.GraphScopedQuadSource.Cursor` uses 2 of 2: Current, MoveNext<br>`Varve.Rdf.QuadOverlay.Cursor` uses 2 of 2: Current, MoveNext<br>`Varve.Rdf.RdfCanonicaliser.Run` uses 2 of 2: Current, MoveNext<br>`Varve.Server.Commands.Export` uses 2 of 2: Current, MoveNext<br>`Varve.Sparql.Evaluation.Execution.Exec` uses 2 of 2: Current, MoveNext<br>`Varve.Sparql.Evaluation.Operators.ScanCursor` uses 2 of 2: Current, MoveNext<br>`Varve.Sparql.Store.DefaultGraphView.Concatenated` uses 2 of 2: Current, MoveNext<br>`Varve.Sparql.Store.DefaultGraphView.Regraphed` uses 2 of 2: Current, MoveNext<br>`Varve.Sparql.Store.RequestExecution` uses 2 of 2: Current, MoveNext<br>`Varve.Store.BulkCommit` uses 2 of 2: Current, MoveNext<br>`Varve.Store.BulkDelta` uses 2 of 2: Current, MoveNext<br>`Varve.Store.IndexVersion` uses 1 of 2: MoveNext |
+| `Varve.Rdf.IQuadSource` | 7 | 8 | `Varve.Protocol.ChangeFeedWriter` uses 1 of 7: TryExternalise<br>`Varve.Protocol.Endpoints.GraphStoreEndpoint` uses 2 of 7: Match, TryInternalise<br>`Varve.Rdf.GraphScopedQuadSource` uses 7 of 7: Contains, Estimate, Match, TermComparer, TryExternalise, TryGetInlineValue, TryInternalise<br>`Varve.Rdf.QuadOverlay` uses 7 of 7: Contains, Estimate, Match, TermComparer, TryExternalise, TryGetInlineValue, TryInternalise<br>`Varve.Rdf.RdfCanonicaliser.Run` uses 3 of 7: Match, TermComparer, TryExternalise<br>`Varve.Sparql.Evaluation.Compile.Compiler` uses 1 of 7: TryInternalise<br>`Varve.Sparql.Evaluation.Execution.Exec` uses 4 of 7: Match, TermComparer, TryExternalise, TryInternalise<br>`Varve.Sparql.Evaluation.Expressions.Semantics` uses 1 of 7: TryGetInlineValue<br>`Varve.Sparql.Evaluation.Operators.BgpCursor` uses 1 of 7: TryExternalise<br>`Varve.Sparql.Evaluation.Operators.GraphOperator` uses 1 of 7: TryInternalise<br>`Varve.Sparql.Evaluation.Operators.OrderByOperator` uses 1 of 7: TryGetInlineValue<br>`Varve.Sparql.Evaluation.Operators.PathOperator` uses 1 of 7: TryInternalise<br>`Varve.Sparql.Evaluation.Operators.ScanCursor` uses 1 of 7: Match<br>`Varve.Sparql.Evaluation.Optimisation.Optimiser.Estimates` uses 2 of 7: Estimate, TryInternalise<br>`Varve.Sparql.Evaluation.SparqlEvaluator` uses 2 of 7: TermComparer, TryInternalise<br>`Varve.Sparql.Store.DefaultGraphView` uses 7 of 7: Contains, Estimate, Match, TermComparer, TryExternalise, TryGetInlineValue, TryInternalise<br>`Varve.Sparql.Store.RequestExecution` uses 3 of 7: Contains, Match, TryInternalise<br>`Varve.Store.BulkDelta` uses 1 of 7: Match<br>`Varve.Store.DatasetView` uses 4 of 7: Contains, Estimate, Match, TryGetInlineValue<br>`Varve.Turtle.NQuadsWriter` uses 1 of 7: TryExternalise<br>`Varve.Turtle.TurtleWriter` uses 1 of 7: TryExternalise |
 | `Varve.Sparql.Evaluation.IAggregateAccumulator` | 2 | 0 | `Varve.Sparql.Evaluation.Operators.GroupOperator.Accumulator` uses 2 of 2: Add, TryGetResult |
 | `Varve.Sparql.Evaluation.IExtensionAggregate` | 1 | 0 | `Varve.Sparql.Evaluation.Operators.GroupOperator.Accumulator` uses 1 of 1: CreateAccumulator |
 | `Varve.Sparql.Evaluation.IExtensionFunction` | 1 | 0 | `Varve.Sparql.Evaluation.Expressions.ExtensionExpr` uses 1 of 1: TryEvaluate |
-| `Varve.Sparql.Evaluation.IRandomSource` | 1 | 1 | `Varve.Sparql.Evaluation.Execution.Exec` uses 1 of 1: NextBytes |
+| `Varve.Sparql.Evaluation.IRandomSource` | 1 | 2 | `Varve.Sparql.Evaluation.Execution.Exec` uses 1 of 1: NextBytes |
 | `Varve.Sparql.Evaluation.IServiceHandler` | 1 | 2 | `Varve.Sparql.Evaluation.Operators.ServiceOperator` uses 1 of 1: Execute |
 | `Varve.Sparql.Store.ILoadSource` | 1 | 2 | `Varve.Sparql.Store.RequestExecution` uses 1 of 1: LoadAsync |
 | `Varve.Store.IBlobWriter` | 2 | 4 | `Varve.Store.BulkCommit` uses 2 of 2: PublishAsync, WriteAsync<br>`Varve.Store.CommitIndexFormat` uses 2 of 2: PublishAsync, WriteAsync<br>`Varve.Store.Dataset` uses 2 of 2: PublishAsync, WriteAsync<br>`Varve.Store.DerivedFormat` uses 2 of 2: PublishAsync, WriteAsync<br>`Varve.Store.DerivedFormat.DirectoryWriter` uses 1 of 2: WriteAsync<br>`Varve.Store.ExternalSort`1` uses 2 of 2: PublishAsync, WriteAsync<br>`Varve.Store.RecordWriter`1` uses 2 of 2: PublishAsync, WriteAsync<br>`Varve.Store.TermTable` uses 2 of 2: PublishAsync, WriteAsync |
@@ -68,6 +70,8 @@ The number of groups a type's methods fall into, where methods sharing a field o
 | `Varve.Rdf.CanonicalNQuads` | 1 | 3 |
 | `Varve.Rdf.CardinalityEstimate` | 3 | 8 |
 | `Varve.Rdf.GraphPattern` | 2 | 7 |
+| `Varve.Rdf.GraphScope` | 2 | 4 |
+| `Varve.Rdf.GraphScopedQuadSource` | 2 | 11 |
 | `Varve.Rdf.InMemoryDataset` | 5 | 7 |
 | `Varve.Rdf.InMemoryDatasetBuilder` | 1 | 6 |
 | `Varve.Rdf.InlineValue` | 3 | 7 |
@@ -149,7 +153,7 @@ The number of groups a type's methods fall into, where methods sharing a field o
 
 ## Citations
 
-788 citations of 87 decisions.
+799 citations of 91 decisions.
 
 ### Decisions with no citation
 
@@ -161,8 +165,6 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/AccessByKeyId` — Access(K) is every dictionary entry under K, every quad of any commit mentioning one with the positions and timestamps it was asserted and retracted, and the metadata of commits whose agent is under K
 - `dec:varve/AccessOmitsOthersAgents` — Agents of other commits appear in Access(K) only when canonical or under K, per GDPR Article 15(4)
 - `dec:varve/AccessScopeSetting` — Access scope is AllHistory or Current, stated per request or taken from a dataset setting that defaults to AllHistory
-- `dec:varve/AccessScopesSeam` — Varve.Protocol receives the resolved scope per request through IAccessScopes, a host-implemented seam answering a readable GraphScope, a writable GraphScope and whether the caller is admin, and knows no claim
-- `dec:varve/AdminEndpoints` — The admin API is GET /datasets, PUT and DELETE /datasets/{name}, POST /datasets/{name}/open and /close, POST /datasets/{name}/settings, POST /datasets/{name}/checkpoints, and /status extended with the projection and the state
 - `dec:varve/AdminIsDatasetWide` — Admin is dataset-wide and reads and writes every graph; there is no graph-scoped admin
 - `dec:varve/AdrFiveSections` — Every ADR has Status, Context, Decision, Alternatives considered and Consequences, in that order, and an ADR with no alternatives is a note, not a decision
 - `dec:varve/AdrStatusValues` — An ADR's Status is Proposed, Accepted, Superseded by NNNN or Rejected, with the date it reached that status
@@ -769,7 +771,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/UpdateIsAtMostOneCommit` — An update request is one commit of its composed delta with the expected position P, or none when its net effect is empty
 - `dec:varve/UpdateOperations` — Updates are served by form POST and direct POST, with using-graph-uri and using-named-graph-uri per section 2.2.3, and naming them beside USING or WITH is 400
 - `dec:varve/UpdateOverChainedOverlays` — Each update operation is evaluated in order against the overlay of the pinned staging view and the deltas before it, each delta exact against that source
-- `dec:varve/UpdateSeamCarriesAccessScope` — ISparqlUpdateExecutor.ExecuteAsync takes the caller's AccessScope and the host passes it to the update options
+- `dec:varve/UpdateSeamCarriesAccessScope` — ISparqlUpdateExecutor.ExecuteAsync takes the caller's CallerScope and the host passes it to the update options
 - `dec:varve/UpdateSingleEntryPoint` — SparqlUpdate.ExecuteAsync over a Dataset is the one entry point, with UpdateOptions, ILoadSource, LoadedDocument and SparqlUpdateException
 - `dec:varve/UpstreamDestination` — Upstream defects go to Oxigraph's tracker one per issue, spec gaps to the W3C suites or the working group, and design findings to Oxigraph Discussions, each linked from a Varve issue
 - `dec:varve/UpstreamLicensing` — Code crosses into Oxigraph only from its copyright holders contributing directly, tests go to the W3C suites under their terms, and shared tooling stays in Varve under MPL-2.0
@@ -809,15 +811,8 @@ Implicit somewhere, or dead. The report does not say which.
 The decision changed after the code that cites it was written.
 
 - `M:Varve.Store.DiskFileSystem.DiskFile.Read(System.Int64,System.Span{System.Byte})` [DesignDecision] cites `dec:varve/ReadPathByBenchmark` in `src/Varve.Store/FileSystem.cs`
+- `N:Varve.Protocol.Client.Model` [DomainModel] cites `dec:varve/ClientModelNamespace`
 - `T:Varve.Store.IDerivedStore` [Contract] cites `dec:varve/StorageContractMembers` in `src/Varve.Store/IStorage.cs`
 - `T:Varve.Store.ISegmentStore` [Contract] cites `dec:varve/StorageContractMembers` in `src/Varve.Store/IStorage.cs`
 - `T:Varve.Store.IStorage` [Contract] cites `dec:varve/SegmentStoreAndDerivedStore` in `src/Varve.Store/IStorage.cs`
-
-### Citations with no introducing commit
-
-Not committed yet, or written in a file the assembly's PDB does not name.
-
-- `N:Varve.Protocol.Client.Model` [DomainModel] cites `dec:varve/ClientModelNamespace`
-- `P:Varve.Protocol.Client.Model.EndpointRefusedException.Reason` [DesignDecision] cites `dec:varve/FailureTextIsDisplayText` in `src/Varve.Protocol.Client/Model/EndpointRefusedException.cs`
-- `P:Varve.Protocol.Client.Model.RdfDocument.Failure` [DesignDecision] cites `dec:varve/FailureTextIsDisplayText` in `src/Varve.Protocol.Client/Model/RdfDocument.cs`
 

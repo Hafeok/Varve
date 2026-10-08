@@ -27,7 +27,7 @@ internal sealed class Exchange
         Scope = scope;
     }
 
-    /// <summary>What the caller may see and change of this dataset, by graph (ADR 0106).</summary>
+    /// <summary>What the caller may see and change of this dataset, by graph (ADR 0107).</summary>
     internal CallerScope Scope { get; }
 
     internal HttpContext Context { get; }
@@ -72,14 +72,14 @@ internal sealed class Exchange
     /// <summary>
     /// <paramref name="view"/> as the caller sees it: through the readable
     /// scope, or the view itself when the caller reads every graph, so that
-    /// an unscoped request costs what it did (ADR 0106).
+    /// an unscoped request costs what it did (ADR 0107).
     /// </summary>
     internal IQuadSource Readable(IQuadSource view) => GraphScopedQuadSource.Wrap(view, Scope.Readable);
 
     /// <summary>Authorises this request for another permission, as an update inside a <c>POST</c> needs.</summary>
     internal Task<bool> AuthorizeAsync(string permission) => AuthorizeAsync(Context, Options, permission, Name);
 
-    /// <summary>Authorises for a server-wide permission, decided on no dataset (ADR 0105); writes the refusal itself.</summary>
+    /// <summary>Authorises for a server-wide permission, decided on no dataset (ADR 0106); writes the refusal itself.</summary>
     internal static Task<bool> AuthorizeServerAsync(HttpContext context, ProtocolOptions options, string permission) =>
         AuthorizeAsync(context, options, permission, null);
 

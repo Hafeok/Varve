@@ -12,7 +12,7 @@ using System.Text.Json;
 namespace Varve.Server.Commands;
 
 /// <summary>
-/// The credential file (ADR 0104): nothing but refresh tokens, each with
+/// The credential file (ADR 0105): nothing but refresh tokens, each with
 /// the server, the issuer and the client it was obtained for. One file under
 /// the user's profile, mode 0600 on Unix and refused when wider, protected
 /// with DPAPI on Windows. On macOS it is weaker than the Keychain, which the

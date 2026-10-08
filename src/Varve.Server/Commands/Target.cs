@@ -18,7 +18,7 @@ using Varve.Store.Log;
 namespace Varve.Server.Commands;
 
 /// <summary>
-/// What a command's dataset argument resolves to (ADR 0104): a directory,
+/// What a command's dataset argument resolves to (ADR 0105): a directory,
 /// opened with the file storage and no authentication, or a URL, reached
 /// through the client with the token the options obtain.
 /// </summary>
@@ -179,7 +179,7 @@ internal sealed class Target
     }
 
     // The token: given, or obtained from the issuer by the flow the options
-    // name, a stored refresh token first (ADR 0104).
+    // name, a stored refresh token first (ADR 0105).
     private async Task<string?> TokenAsync(ParseResult parsed, Io io, Uri dataset, HttpClient http, CancellationToken cancellationToken)
     {
         string? token = parsed.GetValue(Token) ?? Environment.GetEnvironmentVariable("VARVE_TOKEN");

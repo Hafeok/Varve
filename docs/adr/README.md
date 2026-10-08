@@ -200,7 +200,7 @@ has written one.
 
 | # | Title | Status |
 |---:|---|---|
-| [0037](0037-server-authentication.md) | Authentication and authorisation for the server | Accepted; amended 2026-10-07 (`JwtBearer` is a package, ADR 0099); test consequence refined by 0100; point 8's storage clause **superseded in part by 0104**; point 3 refined by 0106 |
+| [0037](0037-server-authentication.md) | Authentication and authorisation for the server | Accepted; amended 2026-10-07 (`JwtBearer` is a package, ADR 0099); test consequence refined by 0100; point 8's storage clause **superseded in part by 0105**; point 3 refined by 0107 |
 
 Filed by milestone 7a ([#11](https://github.com/Hafeok/Varve/issues/11)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by 7a, likewise unaccepted: 0004 (the `System.Uri` ban narrowed), 0042 (a delivered commit externalises its handles), 0060 (the protocol seam's revisit condition).
 
@@ -208,7 +208,7 @@ Filed by milestone 7a ([#11](https://github.com/Hafeok/Varve/issues/11)), unacce
 |---:|---|---|
 | [0091](0091-varve-protocol-and-varve-server.md) | `Varve.Protocol` and `Varve.Server`: endpoint groups, the update seam, policy names | Accepted; amended 2026-10-08 (the 7b seams) |
 | [0092](0092-protocol-scope-problem-details-and-tie-breakers.md) | Protocol scope, problem details, and the Oxigraph tie-breakers | Accepted |
-| [0093](0093-datasets-are-the-routing-unit.md) | Datasets are the routing unit; the name is the host's | Accepted; refined by 0105 |
+| [0093](0093-datasets-are-the-routing-unit.md) | Datasets are the routing unit; the name is the host's | Accepted; refined by 0106 |
 | [0094](0094-a-write-over-http-is-one-commit.md) | A write over HTTP is one commit: agent, cause, `Varve-Position`, `409`, `412` | Accepted |
 | [0095](0095-a-read-over-http-is-pinned-for-its-response.md) | A read over HTTP is pinned for its response, bounded, and cut visibly | Accepted; refines 0052 |
 | [0096](0096-time-travel-over-http.md) | Time travel over HTTP: `Varve-As-Of`, `ETag`, `304` | Accepted |
@@ -222,13 +222,13 @@ Filed by milestone 7b ([#11](https://github.com/Hafeok/Varve/issues/11)), unacce
 
 | # | Title | Status |
 |---:|---|---|
-| [0102](0102-varve-protocol-client.md) | `Varve.Protocol.Client`: the HTTP client at layer 5, and the endpoint policy | Accepted |
-| [0103](0103-service-and-load-over-http.md) | `SERVICE` and `LOAD` over HTTP | Accepted; discharges 0055's and 0057's reservations |
-| [0104](0104-the-cli.md) | The CLI `varve`: one executable with the server, embedded and remote modes, the credential file, `System.CommandLine` | Accepted; supersedes 0037 point 8's storage clause in part |
-| [0105](0105-the-admin-api.md) | The admin API | Accepted; refines 0093 |
-| [0106](0106-graph-level-authorisation.md) | Graph-level authorisation | Accepted; refines 0037; amends 0091 |
-| [0107](0107-bulk-resolve-on-worker-threads.md) | The bulk load resolves and spills on worker threads | Accepted; builds 0081's last alternative |
-| [0108](0108-per-run-term-filters.md) | Per-run term filters: derived format 3 | Accepted; discharges 0079's revisit condition |
+| [0103](0103-varve-protocol-client.md) | `Varve.Protocol.Client`: the HTTP client at layer 5, and the endpoint policy | Accepted |
+| [0104](0104-service-and-load-over-http.md) | `SERVICE` and `LOAD` over HTTP | Accepted; discharges 0055's and 0057's reservations |
+| [0105](0105-the-cli.md) | The CLI `varve`: one executable with the server, embedded and remote modes, the credential file, `System.CommandLine` | Accepted; supersedes 0037 point 8's storage clause in part |
+| [0106](0106-the-admin-api.md) | The admin API | Accepted; refines 0093 |
+| [0107](0107-graph-level-authorisation.md) | Graph-level authorisation | Accepted; refines 0037; amends 0091 |
+| [0108](0108-bulk-resolve-on-worker-threads.md) | The bulk load resolves and spills on worker threads | Accepted; builds 0081's last alternative |
+| [0109](0109-per-run-term-filters.md) | Per-run term filters: derived format 3 | Accepted; discharges 0079's revisit condition |
 
 ## Conformance — differential testing against Oxigraph
 

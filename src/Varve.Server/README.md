@@ -1,6 +1,6 @@
 # Varve.Server
 
-The Varve executable: the server, and the `varve` command line (ADR 0104).
+The Varve executable: the server, and the `varve` command line (ADR 0105).
 Install it as a .NET tool, or take the native single file from a release.
 
 ```sh

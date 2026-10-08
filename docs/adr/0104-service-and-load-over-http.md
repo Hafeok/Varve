@@ -1,4 +1,4 @@
-# 0103 — `SERVICE` and `LOAD` over HTTP
+# 0104 — `SERVICE` and `LOAD` over HTTP
 
 ## Status
 
@@ -16,7 +16,7 @@ pull request.
 incoming solutions, and answers solutions or a failure; the evaluator joins.
 `ILoadSource` is a contract in `Varve.Sparql.Store` (layer 5, ADR 0057): it
 is given an IRI and answers a document, its syntax and its base. The HTTP
-client package is layer 5 (ADR 0102), so it can implement the first and
+client package is layer 5 (ADR 0103), so it can implement the first and
 cannot reference the second: a same-layer reference is a violation.
 
 SPARQL 1.1 Federated Query §2.3 and §3.2 say what `SERVICE` means: the
@@ -42,7 +42,7 @@ error, and with `SILENT` one empty solution. §2.4 is informative: a handler
    - The incoming solutions are not pushed to the endpoint. §2.4's `VALUES`
      interplay is recorded as the extension to make when a workload shows it
      pays; correctness does not depend on it, because the evaluator joins.
-   - The endpoint is checked against the policy (ADR 0102) before anything is
+   - The endpoint is checked against the policy (ADR 0103) before anything is
      sent; a refusal is a failure like any other, naming the reason.
    - The handler is synchronous, as the contract is, over `HttpClient.Send`.
 2. **`RdfDocumentClient`** fetches an RDF document by IRI: `GET` with
@@ -59,7 +59,7 @@ error, and with `SILENT` one empty solution. §2.4 is informative: a handler
    the revisit condition of ADR 0091: no protocol code reaches an
    integration; a host adapts a client to an integration's contract.
 4. **Configuration**, in the server (ADR 0101's shape) and as flags in the
-   CLI (ADR 0104):
+   CLI (ADR 0105):
 
    ```json
    "Federation": { "AllowedEndpoints": [ "https://query.wikidata.org/" ], "AllowPrivateAddresses": false, "Timeout": "00:00:30", "MaxResponseBytes": 104857600 },
@@ -106,7 +106,7 @@ error, and with `SILENT` one empty solution. §2.4 is informative: a handler
 - `LOAD` works in the server and the CLI for listed sources; the suites'
   `LOAD` cases are unchanged.
 - The service-description's `sd:feature sd:BasicFederatedQuery` is advertised
-  only when the server's federation section lists an endpoint (ADR 0106's
+  only when the server's federation section lists an endpoint (ADR 0107's
   description change).
 
 ## Checks
@@ -117,7 +117,7 @@ error, and with `SILENT` one empty solution. §2.4 is informative: a handler
   - **0057**: `ILoadSource` unchanged; its HTTP source arrives by adapter;
   - **0060**: the host binds the choice;
   - **0091**: not its revisit condition, as point 3 argues;
-  - **0102**: the policy.
+  - **0103**: the policy.
 
   No conflict.
 - **Layer ownership.** `Varve.Protocol.Client` (5); the adapters are the

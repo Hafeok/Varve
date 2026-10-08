@@ -45,7 +45,7 @@ public static class VarveEndpoints
     }
 
     /// <summary>
-    /// The admin API over the host's datasets (ADR 0105), under
+    /// The admin API over the host's datasets (ADR 0106), under
     /// <paramref name="pattern"/>, the prefix the dataset groups are mounted
     /// under (<c>/datasets</c>): <c>GET</c> lists; <c>PUT</c> and <c>DELETE</c>
     /// of <c>{pattern}/{dataset}</c> create and delete; <c>POST</c> to

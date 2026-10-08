@@ -1,7 +1,7 @@
 ---
 set: the-cli
 namespace: varve
-adr: 0104
+adr: 0105
 decisions:
   - key: OneExecutableIsServerAndCli
     statement: "Varve.Server is the tool varve: one executable, one composition root, one AOT publish; varve serve and a bare varve run the server of ADR 0101 unchanged"
@@ -23,9 +23,9 @@ decisions:
     statement: "A second executable moves the host wiring both would share into a layer-5 Varve.Hosting package and supersedes the one-executable ruling"
 ---
 
-The rulings of [ADR 0104](../adr/0104-the-cli.md), filed unaccepted by milestone 7b of #11
+The rulings of [ADR 0105](../adr/0105-the-cli.md), filed unaccepted by milestone 7b of #11
 (ADR 0066). Every citation is `CS0618` until the maintainer accepts them.
 
-`RemoteCliUsesBearerTokens` moved here from ADR 0037's set: ADR 0104 supersedes point 8's
+`RemoteCliUsesBearerTokens` moved here from ADR 0037's set: ADR 0105 supersedes point 8's
 storage clause in part, and the ruling keeps its key with the new clause and this ADR's
 acceptance.

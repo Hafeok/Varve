@@ -10,7 +10,7 @@ using Varve.Rdf;
 
 namespace Varve.Protocol.Client.Model;
 
-/// <summary>An address the <see cref="EndpointPolicy"/> refused (ADR 0102), with the address and the reason.</summary>
+/// <summary>An address the <see cref="EndpointPolicy"/> refused (ADR 0103), with the address and the reason.</summary>
 public sealed class EndpointRefusedException : Exception
 {
     /// <summary>Creates one for <paramref name="iri"/>, refused for <paramref name="reason"/>.</summary>

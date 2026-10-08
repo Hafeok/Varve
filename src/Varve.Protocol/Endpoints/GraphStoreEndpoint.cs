@@ -84,7 +84,7 @@ internal static class GraphStoreEndpoint
             target = new Target(TargetKind.Named, RdfTerm.Iri(Encoding.UTF8.GetBytes(minted)), minted);
 
             // A name the server just made reveals nothing: the one question
-            // is whether the caller may write it (ADR 0106).
+            // is whether the caller may write it (ADR 0107).
             if (!exchange.Scope.Writable.Allows(target.Graph))
             {
                 await Writes.GraphNotWritableAsync(exchange, target.Graph).ConfigureAwait(false);
@@ -184,7 +184,7 @@ internal static class GraphStoreEndpoint
 
     // A graph the caller cannot read is answered as a graph that is not
     // there, whatever the write; one it reads but may not write is 403
-    // (ADR 0106). Asked before the body is read for a PUT or POST, and
+    // (ADR 0107). Asked before the body is read for a PUT or POST, and
     // before the view is pinned: the answers cost nothing.
     private static async Task<bool> MayWriteAsync(Exchange exchange, Target target)
     {

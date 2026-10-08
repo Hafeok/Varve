@@ -1,7 +1,7 @@
 ---
 set: service-and-load-over-http
 namespace: varve
-adr: 0103
+adr: 0104
 decisions:
   - key: HttpServiceHandlerSendsSelectStar
     statement: "HttpServiceHandler implements IServiceHandler by POSTing SELECT * WHERE { P } serialised with SparqlWriter as application/sparql-query, after the endpoint policy has allowed the endpoint"
@@ -17,5 +17,5 @@ decisions:
     statement: "sparql11/service runs end to end over HTTP against one in-process server per qt:serviceData endpoint, through HttpServiceHandler with the manifests' endpoint IRIs allowed and mapped to loopback by a test-side handler, beside its in-process run"
 ---
 
-The rulings of [ADR 0103](../adr/0103-service-and-load-over-http.md), filed unaccepted by milestone 7b of #11
+The rulings of [ADR 0104](../adr/0104-service-and-load-over-http.md), filed unaccepted by milestone 7b of #11
 (ADR 0066). Every citation is `CS0618` until the maintainer accepts them.

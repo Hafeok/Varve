@@ -14,7 +14,7 @@ namespace Varve.Protocol.Client;
 
 /// <summary>
 /// Which outbound addresses a <c>SERVICE</c>, a <c>LOAD</c> or a client call
-/// may reach (ADR 0102). Decided on the IRI as written, before any connection
+/// may reach (ADR 0103). Decided on the IRI as written, before any connection
 /// is opened: an allow-list of IRI prefixes that is empty by default, only
 /// <c>http</c> and <c>https</c>, no credentials in the authority, and no
 /// loopback, link-local, private or unspecified address unless the operator
@@ -54,7 +54,7 @@ public sealed class EndpointPolicy
         AllowPrivateAddresses = allowPrivateAddresses;
     }
 
-    /// <summary>The policy that allows nothing: the default of every host (ADRs 0055, 0057, 0102).</summary>
+    /// <summary>The policy that allows nothing: the default of every host (ADRs 0055, 0057, 0103).</summary>
     public static EndpointPolicy None { get; } = new([], allowPrivateAddresses: false);
 
     /// <summary>The prefixes an endpoint may start with.</summary>

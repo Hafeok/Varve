@@ -6,7 +6,7 @@
 //
 //   dotnet run eng/server-smoke.cs -- <path to the published Varve.Server binary>
 //
-// First the command line (ADR 0104): create, update, query, export, checkpoint
+// First the command line (ADR 0105): create, update, query, export, checkpoint
 // and feed against a directory in a temporary root. Then the binary serves that
 // root in anonymous mode; the smoke waits for GET /ready, makes an update, a
 // query and a feed read over HTTP, runs one CLI query against the server's URL,

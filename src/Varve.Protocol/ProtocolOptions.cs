@@ -26,7 +26,7 @@ public sealed class ProtocolOptions
     public required ICallerIdentity Identity { get; init; }
 
     /// <summary>
-    /// What a caller may see and change of a dataset, by graph (ADR 0106),
+    /// What a caller may see and change of a dataset, by graph (ADR 0107),
     /// asked once per request after the policy allowed it. Required: a host
     /// without graph-level grants answers <see cref="Varve.Rdf.CallerScope.Everything"/>.
     /// </summary>
@@ -53,7 +53,7 @@ public sealed class ProtocolOptions
     public ProtocolLimits Limits { get; init; } = ProtocolLimits.Default;
 
     /// <summary>
-    /// The write side of the dataset map (ADR 0105), for the admin API's
+    /// The write side of the dataset map (ADR 0106), for the admin API's
     /// <c>GET /datasets</c>, <c>PUT</c>, <c>DELETE</c>, <c>open</c> and
     /// <c>close</c>. Null in a host that administers no dataset: those
     /// endpoints then answer <c>404</c>, and the per-dataset admin endpoints

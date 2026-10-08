@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 namespace Varve.Server.Commands;
 
 /// <summary>
-/// The <c>varve</c> command line (ADR 0104): one executable with the server.
+/// The <c>varve</c> command line (ADR 0105): one executable with the server.
 /// A dataset is a directory, opened directly with no authentication, or a
 /// URL, reached through <c>Varve.Protocol.Client</c> with a bearer token.
 /// </summary>

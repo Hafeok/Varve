@@ -8,7 +8,7 @@
 - **`derived/` carries its own version and is a cache.** Each build states
   the derived versions it reads; a file of another version is a cache miss
   and is rebuilt from the log (ADR 0072). This build writes **derived
-  format 3** (ADR 0108: runs carry a term filter) and reads **2 and 3**: a
+  format 3** (ADR 0109: runs carry a term filter) and reads **2 and 3**: a
   format-2 dataset opens as it did and migrates as maintenance rewrites its
   runs, with no step for the operator.
 - **An older build does not read a newer derived format**: a downgrade sees

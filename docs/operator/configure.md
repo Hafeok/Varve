@@ -32,7 +32,7 @@ A dataset name is 1 to 63 characters of `[A-Za-z0-9._-]`, starting with a
 letter or a digit (ADR 0093). Durability is the backend's (ADR 0073): `File`
 flushes every commit to the device, `Memory` keeps nothing. Directories under
 the root that are not configured are discovered and served; the admin API's
-`PUT /datasets/{name}` creates a new one there (ADR 0105), and
+`PUT /datasets/{name}` creates a new one there (ADR 0106), and
 `DELETE` of a closed dataset removes its directory.
 
 ## Authentication — `Auth`
@@ -47,8 +47,8 @@ the root that are not configured are discovered and served; the admin API's
 | `RequireHttpsMetadata` | `true` | refuse an authority whose metadata is not served over HTTPS; off only for a loopback issuer in a test |
 | `Production` | `false` | refuse anonymous mode |
 | `Datasets:{name}:Read`, `Write`, `Admin` | `[]` | claim values granting each permission on every graph of the dataset; cumulative — write grants read, admin grants both |
-| `Datasets:{name}:Grants:{i}:Claim`, `Permission`, `Graphs`, `GraphPrefixes` | — | a grant scoped to graphs (ADR 0106): `Permission` is `read` or `write`; `Graphs` lists IRIs and `default`; `GraphPrefixes` lists IRI prefixes; at least one of the two |
-| `Server:Admin` | `[]` | claim values that administer the server: create, open, close and delete datasets, and every permission on every dataset (ADR 0105) |
+| `Datasets:{name}:Grants:{i}:Claim`, `Permission`, `Graphs`, `GraphPrefixes` | — | a grant scoped to graphs (ADR 0107): `Permission` is `read` or `write`; `Graphs` lists IRIs and `default`; `GraphPrefixes` lists IRI prefixes; at least one of the two |
+| `Server:Admin` | `[]` | claim values that administer the server: create, open, close and delete datasets, and every permission on every dataset (ADR 0106) |
 
 A grant that names a dataset not configured refuses to start.
 [Authenticate](authenticate.md) explains the model and shows provider
@@ -66,7 +66,7 @@ examples.
 
 Every duration is positive, or the server does not start.
 
-## `SERVICE` over HTTP — `Federation` (ADR 0103)
+## `SERVICE` over HTTP — `Federation` (ADR 0104)
 
 | Setting | Default | Meaning |
 |---|---|---|
@@ -76,10 +76,10 @@ Every duration is positive, or the server does not start.
 | `MaxResponseBytes` | 100 MiB | the most the endpoint may answer |
 
 Only `http` and `https`, never a redirect, never credentials in the address
-(ADR 0102). A refused endpoint is a failed `SERVICE`, and `SILENT` turns it
+(ADR 0103). A refused endpoint is a failed `SERVICE`, and `SILENT` turns it
 into an empty result as the evaluator decides (ADR 0055).
 
-## `LOAD` over HTTP — `Load` (ADR 0103)
+## `LOAD` over HTTP — `Load` (ADR 0104)
 
 | Setting | Default | Meaning |
 |---|---|---|

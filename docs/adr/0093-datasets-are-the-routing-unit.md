@@ -4,7 +4,7 @@
 
 **Accepted — filed unaccepted by milestone 7a of #11, 2026-10-07** (ADR 0066).
 Acceptance is the maintainer's act on the pull request. **Refined by
-[0105](0105-the-admin-api.md)** (filed 2026-10-08): point 4's admin API
+[0106](0106-the-admin-api.md)** (filed 2026-10-08): point 4's admin API
 arrives, and datasets under the root are discovered at start.
 
 ## Context

@@ -79,16 +79,16 @@
          the gate counts the closure in Varve.Server's assets. -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" Adr="0099" />
 
-    <!-- The CLI's command line (ADR 0104): stable, MIT, Microsoft, no native
+    <!-- The CLI's command line (ADR 0105): stable, MIT, Microsoft, no native
          asset, trimming- and AOT-annotated; in Varve.Server alone, on the
          same condition as JwtBearer, that the server's Native AOT publish
          stays green. -->
-    <PackageVersion Include="System.CommandLine" Version="2.0.12" Adr="0104" />
+    <PackageVersion Include="System.CommandLine" Version="2.0.12" Adr="0105" />
 
-    <!-- The CLI's credential file on Windows (ADR 0104): DPAPI through the
+    <!-- The CLI's credential file on Windows (ADR 0105): DPAPI through the
          managed wrapper, CurrentUser scope. Elsewhere the file's mode is the
          protection, and the package is linked but never called. -->
-    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" Adr="0104" />
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" Adr="0105" />
   </ItemGroup>
 
   <!--

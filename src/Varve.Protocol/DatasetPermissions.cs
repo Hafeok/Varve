@@ -21,7 +21,7 @@ public static class DatasetPermissions
     public const string Admin = "varve:admin";
 
     /// <summary>
-    /// Creating, opening, closing and deleting datasets (ADR 0105), decided on
+    /// Creating, opening, closing and deleting datasets (ADR 0106), decided on
     /// no dataset: the resource is null. A server admin administers every
     /// dataset too, which the host's policy for <see cref="Admin"/> decides.
     /// </summary>

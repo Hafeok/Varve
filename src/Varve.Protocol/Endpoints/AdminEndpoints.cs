@@ -17,7 +17,7 @@ using Varve.Store.Log;
 namespace Varve.Protocol.Endpoints;
 
 /// <summary>
-/// The admin API (ADR 0105): the datasets a host knows, created, opened,
+/// The admin API (ADR 0106): the datasets a host knows, created, opened,
 /// closed and deleted by a server admin; a dataset's settings commit and
 /// checkpoint by its admin. Every answer is JSON or an RFC 9457 problem.
 /// </summary>

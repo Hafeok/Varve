@@ -16,7 +16,7 @@ using Varve.Store.Log;
 namespace Varve.Server;
 
 /// <summary>
-/// The server's datasets (ADRs 0093, 0101, 0105): the configured ones, opened
+/// The server's datasets (ADRs 0093, 0101, 0106): the configured ones, opened
 /// before the server listens, and every directory directly under the root
 /// that holds a dataset, discovered at start — a directory that fails to
 /// open is kept as <see cref="DatasetState.Failed"/> with its reason, never
@@ -223,7 +223,7 @@ internal sealed class OpenDatasets : IDatasetResolver, IDatasetAdministration, I
 
             if (Directory.Exists(directory))
             {
-                // The log, the derived data and the lease file: all of it, and not undoable (ADR 0105).
+                // The log, the derived data and the lease file: all of it, and not undoable (ADR 0106).
                 Directory.Delete(directory, recursive: true);
             }
         }

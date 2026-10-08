@@ -224,7 +224,7 @@ internal static partial class ServerHost
     }
 
     // Ready when every dataset that should be open is open and not failed
-    // (ADRs 0101, 0105): datasets are opened, their default projections
+    // (ADRs 0101, 0106): datasets are opened, their default projections
     // replayed to the head, before the server listens, so a failure to open
     // — a directory under the root that is leased elsewhere, or does not
     // parse — and a projection failure are what remain to report. A dataset
@@ -287,7 +287,7 @@ internal static partial class ServerHost
         await context.Response.Body.WriteAsync(body.WrittenMemory, context.RequestAborted).ConfigureAwait(false);
     }
 
-    /// <summary>The update executor (ADR 0091): Varve.Sparql.Store, no retries, the expected position passed through, SERVICE and LOAD through the outbound client (ADR 0103).</summary>
+    /// <summary>The update executor (ADR 0091): Varve.Sparql.Store, no retries, the expected position passed through, SERVICE and LOAD through the outbound client (ADR 0104).</summary>
     private sealed class StoreUpdates(TimeProvider clock, Outbound outbound) : ISparqlUpdateExecutor
     {
         public ValueTask<CommitResult> ExecuteAsync(Dataset dataset, Update update, CommitMetadata metadata, Position? expectedPosition, Varve.Rdf.CallerScope scope, CancellationToken cancellationToken) =>

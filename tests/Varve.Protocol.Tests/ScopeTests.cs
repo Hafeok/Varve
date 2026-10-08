@@ -25,7 +25,7 @@ using Xunit;
 namespace Varve.Protocol.Tests;
 
 /// <summary>
-/// Graph-level authorisation through the protocol (ADR 0106), with the host's
+/// Graph-level authorisation through the protocol (ADR 0107), with the host's
 /// scope seam answering a fixed scope: what each endpoint shows and refuses
 /// for a caller who reads some graphs, and the two properties — the scoped
 /// answer equals the answer over the sub-dataset of the readable graphs, and
@@ -158,7 +158,7 @@ public class ScopeTests
     }
 
     /// <summary>
-    /// ADR 0106's first property: for any dataset, scope and query, the answer
+    /// ADR 0107's first property: for any dataset, scope and query, the answer
     /// through the scope equals the answer over the dataset holding only the
     /// scope's graphs.
     /// </summary>
@@ -221,7 +221,7 @@ public class ScopeTests
     }
 
     /// <summary>
-    /// ADR 0106's second property: no response to a caller without read on a
+    /// ADR 0107's second property: no response to a caller without read on a
     /// graph — query, graph store, service description, feed, diff, with
     /// their headers and problem bodies — carries an IRI that occurs only in
     /// that graph.

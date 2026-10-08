@@ -173,7 +173,7 @@ public class DictionaryTests
 }
 
 /// <summary>
-/// The per-run term filter (ADR 0108): a format-3 run carries a filter that
+/// The per-run term filter (ADR 0109): a format-3 run carries a filter that
 /// admits every term it holds and few others; a format-2 run is read with
 /// no filter and answers as before; maintenance writes what it merges in
 /// format 3.

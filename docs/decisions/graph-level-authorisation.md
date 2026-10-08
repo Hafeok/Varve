@@ -1,7 +1,7 @@
 ---
 set: graph-level-authorisation
 namespace: varve
-adr: 0106
+adr: 0107
 decisions:
   - key: GrantsAreScopedByGraphSet
     statement: "A grant is (dataset, permission, graph set), the set all, an explicit list of graph IRIs with default naming the default graph, or a set of IRI prefixes; 7a's Read and Write lists are the all case; the mapping from claims lives in the host's configuration"
@@ -33,5 +33,5 @@ decisions:
     statement: "Graph-level is what the index key gives for free; row-level access per subject or classifier is milestone 9's beside erasure and is not approximated here"
 ---
 
-The rulings of [ADR 0106](../adr/0106-graph-level-authorisation.md), filed unaccepted by milestone 7b of #11
+The rulings of [ADR 0107](../adr/0107-graph-level-authorisation.md), filed unaccepted by milestone 7b of #11
 (ADR 0066). Every citation is `CS0618` until the maintainer accepts them.

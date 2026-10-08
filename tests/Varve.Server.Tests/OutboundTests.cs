@@ -15,7 +15,7 @@ using Xunit;
 namespace Varve.Server.Tests;
 
 /// <summary>
-/// <c>SERVICE</c> and <c>LOAD</c> over HTTP in the server (ADR 0103): the
+/// <c>SERVICE</c> and <c>LOAD</c> over HTTP in the server (ADR 0104): the
 /// configured policy and limits reach the evaluator and the update executor,
 /// and with no section configured both are refused.
 /// </summary>

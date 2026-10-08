@@ -4,7 +4,7 @@ Format specification, **version 1**.
 
 Status: written by milestone 6a with [ADR 0072](../adr/0072-format-version-1.md),
 which is the reasoning; this document is the layout. `log/` is version 1.
-`derived/` is **derived format version 3** since milestone 7b (ADR 0108): a
+`derived/` is **derived format version 3** since milestone 7b (ADR 0109): a
 run carries a filter over its terms' hashes after its hash index. Version 2
 (milestone 6c, ADRs 0079 and 0080: runs carry the dictionary's entries, and
 keys are compressed in their blocks) is read as before, with no filter; a
@@ -351,7 +351,7 @@ language tag's ASCII letters lowercased, since tags compare ignoring case: a
 `TermKey.Hash`). It orders the index and is searched by interpolation; it is
 not a cryptographic hash, and equal hashes are told apart by comparing keys.
 
-**The term filter** (version 3, ADR 0108) follows the hash index: a blocked
+**The term filter** (version 3, ADR 0109) follows the hash index: a blocked
 Bloom filter over the same hashes, `max(1, ⌈(To − From) / 64⌉)` blocks of 64
 bytes — eight bits a term. A hash's block is `((hash >> 32) × blocks) >> 32`;
 its three bits in the block are `hash & 511`, `(hash >> 9) & 511` and

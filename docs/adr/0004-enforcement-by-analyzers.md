@@ -236,7 +236,7 @@ site. What this ADR decided is unchanged.
 Filed by milestone 7b of #11, unaccepted until the maintainer accepts it (ADR
 0066). The amendment of 2026-10-07 said a third project setting
 `VarveSpeaksHttp` "is a change to this amendment's list, made by its own
-decision". ADR [0102](0102-varve-protocol-client.md) is that decision:
+decision". ADR [0103](0103-varve-protocol-client.md) is that decision:
 **`Varve.Protocol.Client` (layer 5)** sets `VarveSpeaksHttp` in its own
 project file, for transport addresses only — the endpoint of a `SERVICE`,
 the address of a `LOAD` document, a server's base address — and an IRI in it

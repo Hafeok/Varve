@@ -89,7 +89,7 @@ The W3C suites are the acceptance gate, from
 | `sparql12/syntax`, `version`, `codepoint-escapes`, `lang-basedir` | 25 |
 | `sparql10` query evaluation, 24 directories (under 1.1), × 4 subjects | 1,132 |
 | `sparql11` query evaluation, 15 directories with `service`, × 4 subjects | 968 |
-| `sparql11/service` with the endpoints over HTTP (ADR 0103) | 7 |
+| `sparql11/service` with the endpoints over HTTP (ADR 0104) | 7 |
 | `sparql12` query evaluation, 6 directories, × 4 subjects | 88 |
 | `sparql11/csv-tsv-res`, `json-res`, written by the results writers | 10 |
 | `sparql11` update evaluation, 11 directories, one commit or none each, in process and through the protocol | 188 |
@@ -106,7 +106,7 @@ absorbs churn (`docs/spec/sparql-grammar.md` §1).
 
 Each query evaluation case runs over four subjects — `InMemoryDataset`, the
 store's pinned view, that view through a graph scope naming every graph of
-the case (ADR 0106), and the protocol over HTTP with an `all` grant — and is
+the case (ADR 0107), and the protocol over HTTP with an `all` grant — and is
 one ratchet line per subject; a guard runs every case again in ADR 0050's two
 other value-access arms. **41 SPARQL 1.2
 evaluation cases are blocked**, not exempt: their data is RDF 1.2 Turtle,
@@ -185,7 +185,7 @@ SPARQL 1.2 is accepted in full, triple terms, reifiers, annotations and
 `SELECT`, `ASK`, `CONSTRUCT` and `DESCRIBE` over any quad source, and
 `Varve.Sparql.Store` executes an update request against a `Dataset` as one
 commit. `LOAD` reads through a source the caller supplies, and the server
-binds it, and `SERVICE`, to HTTP under an allow-list (ADR 0103). `NOW()` and the
+binds it, and `SERVICE`, to HTTP under an allow-list (ADR 0104). `NOW()` and the
 random functions read a clock and a random source the caller supplies —
 `Clock = TimeProvider.System` for the system clock — and fail by the option's
 name without one (ADR 0056).

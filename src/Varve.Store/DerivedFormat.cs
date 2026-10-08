@@ -32,7 +32,7 @@ internal readonly struct DerivedHeader
         DirectoryHash = directoryHash;
     }
 
-    /// <summary>The derived format version the file was written in: 2 or 3 (ADR 0108).</summary>
+    /// <summary>The derived format version the file was written in: 2 or 3 (ADR 0109).</summary>
     internal ushort Version { get; }
 
     internal ushort Kind { get; }
@@ -89,7 +89,7 @@ internal readonly record struct StateEntry(BlobName Name, long From, long To);
 /// </remarks>
 internal static class DerivedFormat
 {
-    /// <summary>What this build writes: 3, runs with a term filter (ADR 0108).</summary>
+    /// <summary>What this build writes: 3, runs with a term filter (ADR 0109).</summary>
     internal const ushort Version = 3;
 
     /// <summary>The oldest derived version this build reads: 2, a run without a filter (ADR 0080).</summary>
@@ -317,7 +317,7 @@ internal static class DerivedFormat
 
         if (version >= 3)
         {
-            // Format 3 (ADR 0108): where the filter lies and how long it is.
+            // Format 3 (ADR 0109): where the filter lies and how long it is.
             LogFormat.WriteUInt64(part, (ulong)filterAt);
             LogFormat.WriteUInt64(part, (ulong)filterLength);
         }
@@ -334,7 +334,7 @@ internal static class DerivedFormat
     /// entries end to end, the offsets rebased, and the hash indexes merged.
     /// Streamed: a window of each index and a buffer at a time (ADR 0079).
     /// With <paramref name="filtered"/>, the filter over every hash follows
-    /// the index (ADR 0108): eight bits a term, built as the hashes stream by.
+    /// the index (ADR 0109): eight bits a term, built as the hashes stream by.
     /// </summary>
     private static async ValueTask<(long From, long To, long EntriesAt, long EntriesLength, long OffsetsAt, long HashesAt, long FilterAt, long FilterLength)> WriteTermsAsync(
         IBlobWriter writer, TermSection[] terms, long offset, bool filtered, CancellationToken cancellationToken)
@@ -659,7 +659,7 @@ internal static class DerivedFormat
             return null;
         }
 
-        // Format 3's filter (ADR 0108): a section between the index and the
+        // Format 3's filter (ADR 0109): a section between the index and the
         // directory, loaded with the directory and held with the run.
         TermFilter? filter = null;
 

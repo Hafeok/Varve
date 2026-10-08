@@ -4,7 +4,7 @@
     <!-- Layer 5: the HTTP client of the SPARQL Protocol, the Graph Store
          Protocol, the change feed and the admin API, and the SERVICE handler
          and the document fetch LOAD needs, over the BCL's HttpClient (ADRs
-         0102, 0103). It references neither Varve.Protocol nor
+         0103, 0104). It references neither Varve.Protocol nor
          Varve.Sparql.Store: both are layer 5 (ADR 0060). -->
     <ArchLayer>5</ArchLayer>
     <IsPackable>true</IsPackable>
@@ -16,7 +16,7 @@
 
     <!-- System.Uri for transport addresses only: the endpoint a request goes
          to, built after the endpoint policy has checked the IRI's bytes. Every
-         IRI is still Varve.Iri. ADR 0004, amended 2026-10-08; ADR 0102. -->
+         IRI is still Varve.Iri. ADR 0004, amended 2026-10-08; ADR 0103. -->
     <VarveSpeaksHttp>true</VarveSpeaksHttp>
 
     <Description>The HTTP client for a Varve server: SPARQL Protocol queries and updates, the Graph Store Protocol, the change feed and the admin API, with the SERVICE handler and the document fetch that federate a query and a LOAD under an endpoint policy.</Description>

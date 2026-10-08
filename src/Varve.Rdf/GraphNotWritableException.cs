@@ -8,7 +8,7 @@ using System.Text;
 namespace Varve.Rdf;
 
 /// <summary>
-/// A change reaches a graph outside the caller's writable scope (ADR 0106):
+/// A change reaches a graph outside the caller's writable scope (ADR 0107):
 /// the whole request fails before the submit, nothing is committed, and the
 /// graph is named so that the caller knows which. Defined beside
 /// <see cref="GraphScope"/>, at layer 1, because the executor that throws it

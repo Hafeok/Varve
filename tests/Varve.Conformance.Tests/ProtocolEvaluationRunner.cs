@@ -22,7 +22,7 @@ using Varve.Turtle;
 namespace Varve.Conformance.Tests;
 
 /// <summary>
-/// The evaluation and update suites through the protocol (ADR 0106): the
+/// The evaluation and update suites through the protocol (ADR 0107): the
 /// case's data in a store behind an in-process server whose caller holds an
 /// <c>all</c> grant, the query or request <c>POST</c>ed to <c>/sparql</c>,
 /// and the answer read back and compared as the in-process run compares it.

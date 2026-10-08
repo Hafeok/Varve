@@ -1,4 +1,4 @@
-# 0106 — Graph-level authorisation: scoped grants, the scoped quad source, and the row-level boundary
+# 0107 — Graph-level authorisation: scoped grants, the scoped quad source, and the row-level boundary
 
 ## Status
 

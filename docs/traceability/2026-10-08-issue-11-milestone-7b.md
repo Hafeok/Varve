@@ -15,7 +15,11 @@
 | **Commits** | 68d3569, 48e91ca, b3325cf, 53b4a73, b68ab19, aa75ade, 84813d7, fa38aac, 3242096, 79cfbc5, and the closing commits carrying this record and the release |
 
 The session ran out of context once and continued from a summary; the work
-and this record are continuous across it. No .NET SDK was on the machine; the
+and this record are continuous across it. **The ADRs were filed as 0102–0108
+and renumbered 0103–0109 at close-out**: the release-descriptor session (#73)
+landed on `main` while this one ran and took 0102. The brief, the plan and
+the approval below quote the original numbers, as do the commit messages up
+to the renumbering commit; everything else in the tree uses the final ones. No .NET SDK was on the machine; the
 session installed 10.0.401 under its home directory and worked from there.
 
 ## The prompts
@@ -148,7 +152,7 @@ not settle was the session's, and is marked as such.
    interleaved readings for the baseline and the candidate; the two-rounds
    loop is gone; `docs/testing.md` §4 says why. The three-platform re-run is
    the pull request's CI.
-4. **ADRs 0102–0108** and the dated amendments (53b4a73), all filed
+4. **ADRs 0103–0109** and the dated amendments (53b4a73), all filed
    unaccepted; the ledger's only red is `CS0618`.
 5. **`Varve.Protocol.Client`** (b68ab19): `SparqlHttpClient`,
    `HttpServiceHandler` (`SERVICE` over HTTP: `SELECT vars WHERE { P }` by
@@ -157,29 +161,29 @@ not settle was the session's, and is marked as such.
    by IRI prefix checked first, then `http`/`https` only, no userinfo, no
    redirects, loopback and private ranges refused unless allowed),
    `ClientLimits`. The server binds `Varve:Federation` and `Varve:Load`
-   (ADR 0103). The W3C `sparql11/service` suite runs its seven cases end to
+   (ADR 0104). The W3C `sparql11/service` suite runs its seven cases end to
    end over HTTP against in-process servers that share one handler, seven new
    `@http` ratchet lines.
-6. **The admin API** (aa75ade, ADR 0105): list, create, open, close, delete;
+6. **The admin API** (aa75ade, ADR 0106): list, create, open, close, delete;
    settings commits; checkpoints on demand; `/status` with the projection;
    `Varve:Auth:Server:Admin`; datasets discovered under the root, a failed
    one listed with its reason; `DELETE` of a closed dataset removes its
    directory.
-7. **The `varve` command line** (84813d7, ADR 0104): one executable, the
+7. **The `varve` command line** (84813d7, ADR 0105): one executable, the
    nine commands, embedded over a directory and remote over a URL;
    `--token`/`VARVE_TOKEN`, client credentials, the device code flow; the
    credential file (0600, DPAPI, `--no-store`); `System.CommandLine` 2.0.12
    and `ProtectedData` registered in `Varve.Server` alone; the tool package
    (`PackAsTool`, command `varve`) and the AOT single file; `eng/server-smoke.cs`
    runs the commands against the AOT binary before serving.
-8. **Graph-level authorisation** (fa38aac, ADR 0106): `GraphScope`,
+8. **Graph-level authorisation** (fa38aac, ADR 0107): `GraphScope`,
    `CallerScope`, `GraphScopedQuadSource` and `GraphNotWritableException` in
    `Varve.Rdf`; `ReadScope` and `WriteScope` in `UpdateOptions`; the
    `IAccessScopes` seam; reads through the scoped view, `FROM` of an
    unreadable graph an empty graph, Graph Store `404`/`403`, the feed and the
    diff cut, `Vary: Authorization`; `Varve:Auth:Datasets:{name}:Grants`.
 9. **The loader on worker threads and per-run term filters** (3242096,
-   ADRs 0107 and 0108): `BulkLoadOptions.Workers`, a ring of operation
+   ADRs 0108 and 0109): `BulkLoadOptions.Workers`, a ring of operation
    buffers the parser fills and workers resolve, sort and spill as runs named
    by their sequence; `TermFilter`, derived format **3** read beside 2, the
    soak counting it.
@@ -209,28 +213,28 @@ New problem types: `dataset-exists`, `dataset-open`, `agent-required`,
 
 | ADR | Title | Status |
 |---|---|---|
-| 0102 | `Varve.Protocol.Client`: the HTTP client, the endpoint policy, the limits | filed unaccepted |
-| 0103 | `SERVICE` and `LOAD` over HTTP, under an allow-list the host sets | filed unaccepted |
-| 0104 | The CLI `varve`: one executable, the credential file, `System.CommandLine` | filed unaccepted; supersedes 0037 point 8's storage clause in part |
-| 0105 | The admin API | filed unaccepted |
-| 0106 | Graph-level authorisation | filed unaccepted; refines 0037 point 3 |
-| 0107 | The bulk load resolves and spills on worker threads | filed unaccepted |
-| 0108 | Per-run term filters: derived format 3 | filed unaccepted; discharges 0079's revisit condition |
+| 0103 | `Varve.Protocol.Client`: the HTTP client, the endpoint policy, the limits | filed unaccepted |
+| 0104 | `SERVICE` and `LOAD` over HTTP, under an allow-list the host sets | filed unaccepted |
+| 0105 | The CLI `varve`: one executable, the credential file, `System.CommandLine` | filed unaccepted; supersedes 0037 point 8's storage clause in part |
+| 0106 | The admin API | filed unaccepted |
+| 0107 | Graph-level authorisation | filed unaccepted; refines 0037 point 3 |
+| 0108 | The bulk load resolves and spills on worker threads | filed unaccepted |
+| 0109 | Per-run term filters: derived format 3 | filed unaccepted; discharges 0079's revisit condition |
 
 Dated amendments (ADR 0068): **0057** (data-only requests), **0004**
 (`System.Uri` admitted in `Varve.Protocol.Client` for transport addresses),
 **0091** (the seam carries the scope, a fourth seam, a fourth policy name,
 the resolver's write side), **0093** (datasets under the root), **0037**
 (status), **0079** and **0081** (their revisit condition and alternative
-taken by 0108 and 0107).
+taken by 0109 and 0108).
 
 Decisions the session made within the approved plan:
 
-- `CallerScope` is the name of what ADR 0106 calls the access scope, because
+- `CallerScope` is the name of what ADR 0107 calls the access scope, because
   `Varve.Store.AccessScope` already names a dataset's history setting.
 - `GraphNotWritableException` is `Varve.Rdf`'s, not `Varve.Sparql.Store`'s:
   the executor that throws it and the protocol that answers it are both
-  layer 5 (ADR 0091). ADR 0106's consequences say so.
+  layer 5 (ADR 0091). ADR 0107's consequences say so.
 - A `POST` to the Graph Store's root with a minted graph name outside the
   writable set is `403`, not `404`: a name the server just made reveals
   nothing.
@@ -267,10 +271,10 @@ a `CONSTRUCT` answer with one did not parse as N-Triples. Minted labels are
 | Property | Iterations | Where |
 |---|---:|---|
 | A data-only request against two histories differing in the contended tail commits the same effective delta (ADR 0057) | 1,000 | `Varve.Sparql.Store.Tests` |
-| The scoped source equals the sub-dataset of the scope's graphs for every pattern (ADR 0106, layer 1) | 300 | `Varve.Rdf.Tests` |
+| The scoped source equals the sub-dataset of the scope's graphs for every pattern (ADR 0107, layer 1) | 300 | `Varve.Rdf.Tests` |
 | The scoped answer over HTTP equals the answer over the sub-dataset of the readable graphs | 1,000 | `Varve.Protocol.Tests` |
 | No response to a caller without `read` on `G` — query, graph store, service description, feed, diff, problem bodies, headers — carries an IRI only `G` holds | 200 | `Varve.Protocol.Tests` |
-| A bulk load leaves the same dataset and the same ids at any worker count (ADR 0107) | 60 | `Varve.Store.Tests` |
+| A bulk load leaves the same dataset and the same ids at any worker count (ADR 0108) | 60 | `Varve.Store.Tests` |
 | The 7a properties, unchanged | | |
 
 ### Allocation
@@ -314,7 +318,7 @@ In `tests/Varve.Benchmarks/README.md`, the 7b section:
 
 ### What the operability milestone needs from the maintainer
 
-1. **Accept ADRs 0102–0108** and the seven dated amendments, which turns
+1. **Accept ADRs 0103–0109** and the seven dated amendments, which turns
    `CS0618` green.
 2. **The container registries.** GHCR and Docker Hub are decided; the image
    is not built here. What it needs: the AOT single file as the entry point

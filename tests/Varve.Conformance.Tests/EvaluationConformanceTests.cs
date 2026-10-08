@@ -14,7 +14,7 @@ namespace Varve.Conformance.Tests;
 /// case that is not blocked, over <see cref="InMemoryDataset"/>, over the
 /// store's default projection, over the store through a graph scope naming
 /// every graph of the case, and through the protocol with an <c>all</c>
-/// grant (ADR 0106), one ratchet line per case per subject —
+/// grant (ADR 0107), one ratchet line per case per subject —
 /// <c>&lt;test IRI&gt;@dataset</c>, <c>@store</c>, <c>@scoped</c> and
 /// <c>@protocol</c>.
 /// </summary>

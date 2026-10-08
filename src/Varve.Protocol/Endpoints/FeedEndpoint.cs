@@ -142,7 +142,7 @@ internal static class FeedEndpoint
                     return;
                 }
 
-                // The caller's scope (ADR 0106): a data commit's delta cut
+                // The caller's scope (ADR 0107): a data commit's delta cut
                 // to the readable graphs, dropped when nothing is left; a
                 // settings or erasure commit for an admin alone. The next
                 // record delivered carries its true position, so a client

@@ -255,7 +255,7 @@ internal static class TermKey
 /// </para>
 /// </remarks>
 /// <summary>
-/// A blocked Bloom filter over a run's term hashes (ADR 0108): 512-bit
+/// A blocked Bloom filter over a run's term hashes (ADR 0109): 512-bit
 /// blocks, eight bits a term, three probes in one block, so that a lookup
 /// touches one cache line. About two percent of absent terms pass, and pay
 /// what every lookup paid before: one window of the hash index.
@@ -344,7 +344,7 @@ internal sealed class TermSection
         Filter = filter;
     }
 
-    /// <summary>The run's filter over its terms (ADR 0108), or null for a section in memory or a format-2 run.</summary>
+    /// <summary>The run's filter over its terms (ADR 0109), or null for a section in memory or a format-2 run.</summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal TermFilter? Filter { get; }
 
@@ -456,7 +456,7 @@ internal sealed class TermSection
         return new TermSection(older.From, newer.To, entries.Length, entries, offsets, hashes, null, 0, 0, 0, null);
     }
 
-    /// <summary>A section of a derived blob, laid out as storage format §7 says, with its filter when the run carries one (ADR 0108).</summary>
+    /// <summary>A section of a derived blob, laid out as storage format §7 says, with its filter when the run carries one (ADR 0109).</summary>
     internal static TermSection On(IReadableBlob blob, long from, long to, long entriesAt, long entriesLength, long offsetsAt, long hashesAt, TermFilter? filter) =>
         new(from, to, entriesLength, null, null, null, blob, entriesAt, offsetsAt, hashesAt, filter);
 
@@ -549,7 +549,7 @@ internal sealed class TermSection
 
         if (count == 0 || (Filter is not null && !Filter.MayContain(hash)))
         {
-            // The filter first (ADR 0108): a miss skips the run's index.
+            // The filter first (ADR 0109): a miss skips the run's index.
             return false;
         }
 

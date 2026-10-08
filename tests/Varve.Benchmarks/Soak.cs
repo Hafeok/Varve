@@ -279,7 +279,7 @@ internal static class Soak
     // The directory of a derived run or checkpoint: what its reader holds in
     // memory, the fences and where each block begins (ADR 0080), read from
     // the header at the file's end (storage-format.md §7), and, in a
-    // format-3 file, its term filter, eight bits a term (ADR 0108), whose
+    // format-3 file, its term filter, eight bits a term (ADR 0109), whose
     // length is the directory's last word. What ADR 0082 counts as the
     // dataset's own; zero for a file that is not a run.
     private static bool IsCheckpoint(string path) =>

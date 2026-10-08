@@ -1,4 +1,4 @@
-# 0105 — The admin API: datasets created, listed, opened, closed and deleted; settings; checkpoints; projection status
+# 0106 — The admin API: datasets created, listed, opened, closed and deleted; settings; checkpoints; projection status
 
 ## Status
 
@@ -82,7 +82,7 @@ grants yet, and listing is a decision about several.
 ## Alternatives considered
 
 - **Create a dataset with its grants in the body.** Grants are the host's
-  configuration (ADRs 0037, 0091, 0106), and a grant written through the API
+  configuration (ADRs 0037, 0091, 0107), and a grant written through the API
   would be the second place a permission lives. A server admin creates; the
   configuration grants; a restart is not needed for the first and is for
   the second.
@@ -107,7 +107,7 @@ grants yet, and listing is a decision about several.
   store addition.
 - `Varve.Server`'s configuration gains `Auth:Server:Admin`.
 - The CLI's `info`, `checkpoint` and `feed` in remote mode call these (ADR
-  0104).
+  0105).
 - `GET /ready` reports a discovered directory that failed to open, as it
   reports a configured one.
 

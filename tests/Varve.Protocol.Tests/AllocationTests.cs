@@ -45,7 +45,7 @@ public class AllocationTests
     /// </summary>
     /// <remarks>
     /// With a caller whose scope is every graph the view is not wrapped (ADR
-    /// 0106); with a scope that names the default graph the request runs
+    /// 0107); with a scope that names the default graph the request runs
     /// through <see cref="Rdf.GraphScopedQuadSource"/>, which decides each
     /// graph once and not per quad: the same 56 bytes a solution.
     /// </remarks>

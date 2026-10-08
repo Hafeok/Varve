@@ -13,7 +13,7 @@ using Varve.Rdf;
 namespace Varve.Store;
 
 /// <summary>
-/// The operations a parser handed over, as their terms' bytes (ADR 0107):
+/// The operations a parser handed over, as their terms' bytes (ADR 0108):
 /// what the parser's thread writes and a worker resolves. A term is a kind
 /// byte and its fields, each a length and its bytes; a triple term nests;
 /// the default graph is one byte.
@@ -254,7 +254,7 @@ internal sealed class OperationBuffer
     }
 }
 
-/// <summary>A worker's own cache of the terms it has resolved, and its scratch key (ADR 0107).</summary>
+/// <summary>A worker's own cache of the terms it has resolved, and its scratch key (ADR 0108).</summary>
 internal sealed class WorkerCache
 {
     private readonly Dictionary<byte[], BulkRef> _cache = new(KeyComparer.Instance);
@@ -310,7 +310,7 @@ internal sealed class WorkerCache
 
 /// <summary>
 /// The ring of operation buffers and the workers that resolve and spill
-/// them (ADR 0107). The parser takes a free buffer, fills it, and submits
+/// them (ADR 0108). The parser takes a free buffer, fills it, and submits
 /// it; a worker resolves its terms with a cache of its own, sorts the
 /// resolved operations and writes them as a run named by the buffer's
 /// sequence number, and returns the buffer to the ring. The parser blocks

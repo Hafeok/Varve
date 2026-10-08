@@ -12,7 +12,7 @@ namespace Varve.Rdf;
 
 /// <summary>
 /// A quad source that shows only the graphs of a <see cref="GraphScope"/>
-/// (ADR 0106): every <see cref="Match"/>, <see cref="Contains"/> and
+/// (ADR 0107): every <see cref="Match"/>, <see cref="Contains"/> and
 /// <see cref="Estimate"/> is filtered by graph, so that a graph outside the
 /// scope is unobservable through any pattern or enumeration, and a dataset
 /// clause naming it names an empty graph. Terms pass through unfiltered: a

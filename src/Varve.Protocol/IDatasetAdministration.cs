@@ -12,7 +12,7 @@ using Varve.Protocol.Model;
 namespace Varve.Protocol;
 
 /// <summary>
-/// The write side of the host's dataset map (ADR 0105; ADR 0091, amended
+/// The write side of the host's dataset map (ADR 0106; ADR 0091, amended
 /// 2026-10-08): the datasets it knows with their state, and creating,
 /// opening, closing and deleting one by name. The host owns the directories
 /// under its root; the protocol never touches a file.

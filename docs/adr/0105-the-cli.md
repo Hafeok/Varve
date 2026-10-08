@@ -1,4 +1,4 @@
-# 0104 — The CLI `varve`: one executable with the server, embedded and remote modes, the credential file, `System.CommandLine`
+# 0105 — The CLI `varve`: one executable with the server, embedded and remote modes, the credential file, `System.CommandLine`
 
 ## Status
 
@@ -49,7 +49,7 @@ publish runner, so a tool package and an AOT binary are two artefacts.
 
    | Command | Does | Embedded | Remote |
    |---|---|:-:|:-:|
-   | `create <dir>` | creates a file dataset | yes | — (ADR 0105's `PUT` is the admin call) |
+   | `create <dir>` | creates a file dataset | yes | — (ADR 0106's `PUT` is the admin call) |
    | `info <dir\|url>` | id, head, durability, settings, checkpoints, projection, as `/status`'s JSON | yes | `/status` |
    | `load <dir> <files…>` | the bulk loader (ADR 0081), `--graph` | yes | — |
    | `query <dir\|url>` | `--query`/`--file`, `--format json\|xml\|csv\|tsv\|nt\|ttl\|nq\|trig`, `--as-of`; a local graph result is N-Triples | yes | `/sparql` |
@@ -63,9 +63,9 @@ publish runner, so a tool package and an AOT binary are two artefacts.
      no authentication (ADR 0037, point 6): the file permissions are the
      boundary and the lease (ADR 0075) refuses a directory a server holds.
      `SERVICE` and `LOAD` take the policy from `--allow-endpoint` and
-     `--allow-source` flags, empty by default (ADR 0103).
+     `--allow-source` flags, empty by default (ADR 0104).
    - **Remote mode** talks to a server through `Varve.Protocol.Client` (ADR
-     0102) with a bearer token.
+     0103) with a bearer token.
    - `load` is embedded only: the bulk loader holds the sequencer, which no
      protocol endpoint exposes. A remote load is a Graph Store `PUT` or
      `POST`, and `update` and the Graph Store calls of the client cover it.

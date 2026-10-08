@@ -19,7 +19,7 @@ using Varve.Sparql.Results;
 namespace Varve.Protocol.Client;
 
 /// <summary>
-/// <c>SERVICE</c> over HTTP (ADR 0103): the pattern sent to the endpoint as
+/// <c>SERVICE</c> over HTTP (ADR 0104): the pattern sent to the endpoint as
 /// <c>SELECT … WHERE { … }</c> by the SPARQL 1.1 Protocol, the answer read
 /// back as SPARQL results JSON or XML. The endpoint is checked against the
 /// policy first. A failure is returned, never thrown: the evaluator errors

@@ -8,7 +8,7 @@ using Xunit;
 
 namespace Varve.Protocol.Client.Tests;
 
-/// <summary>The endpoint policy (ADR 0102): the allow-list, the schemes, the authority, the private ranges.</summary>
+/// <summary>The endpoint policy (ADR 0103): the allow-list, the schemes, the authority, the private ranges.</summary>
 public class EndpointPolicyTests
 {
     private static readonly EndpointPolicy Public = new(["https://example.org/sparql", "http://data.example/"], allowPrivateAddresses: false);

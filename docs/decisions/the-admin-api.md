@@ -1,7 +1,7 @@
 ---
 set: the-admin-api
 namespace: varve
-adr: 0105
+adr: 0106
 decisions:
   - key: AdminEndpoints
     statement: "The admin API is GET /datasets, PUT and DELETE /datasets/{name}, POST /datasets/{name}/open and /close, POST /datasets/{name}/settings, POST /datasets/{name}/checkpoints, and /status extended with the projection and the state"
@@ -23,5 +23,5 @@ decisions:
     statement: "/status reports the default projection's position, its lag behind the head and its failed state, beside 7a's fields and the dataset's state"
 ---
 
-The rulings of [ADR 0105](../adr/0105-the-admin-api.md), filed unaccepted by milestone 7b of #11
+The rulings of [ADR 0106](../adr/0106-the-admin-api.md), filed unaccepted by milestone 7b of #11
 (ADR 0066). Every citation is `CS0618` until the maintainer accepts them.

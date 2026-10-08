@@ -13,7 +13,7 @@ using Xunit;
 namespace Varve.Server.Tests;
 
 /// <summary>
-/// The <c>varve</c> command line (ADR 0104): the embedded flow over a
+/// The <c>varve</c> command line (ADR 0105): the embedded flow over a
 /// directory with no authentication, the same commands against a running
 /// server with a token from each of the three ways a token is had, and the
 /// credential file's refresh-first path and its mode check.

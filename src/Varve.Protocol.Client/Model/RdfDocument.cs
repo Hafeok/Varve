@@ -12,7 +12,7 @@ namespace Varve.Protocol.Client.Model;
 /// <summary>
 /// A document <see cref="RdfDocumentClient"/> fetched: its bytes, the syntax
 /// its media type named, and the IRI its relative references resolve against
-/// — or why there is none (ADR 0103). A host turns it into the update
+/// — or why there is none (ADR 0104). A host turns it into the update
 /// executor's <c>LoadedDocument</c>.
 /// </summary>
 public sealed class RdfDocument

@@ -60,7 +60,7 @@ curl -X POST -H "Authorization: Bearer $ADMIN" https://varve.example/datasets/pe
 ```
 
 `open` finds a directory copied under the root since the server started,
-and the next start discovers it too (ADR 0105); `PUT` is for a new, empty
+and the next start discovers it too (ADR 0106); `PUT` is for a new, empty
 dataset and answers `409 dataset-exists` for one that is there.
 The restored dataset is the one that was copied — same dataset id, same log
 bytes up to the copied position — so a client that kept a position resumes

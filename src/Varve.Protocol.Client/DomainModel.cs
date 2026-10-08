@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 // The data the client answers with is the model: a fetched document, a
-// refusal, the admin API's responses (ADR 0102). The clients, the handler and
+// refusal, the admin API's responses (ADR 0103). The clients, the handler and
 // the policy are not.
 
 using DecisionDriven;

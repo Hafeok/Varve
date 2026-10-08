@@ -26,7 +26,7 @@ public sealed class BulkLoadOptions
 
     /// <summary>
     /// The threads that resolve and spill the operations the parser fills
-    /// (ADR 0107): the processor count less one by default, at least one.
+    /// (ADR 0108): the processor count less one by default, at least one.
     /// The parser's own thread is never a worker; one worker is the 6c
     /// pipeline with one buffer of overlap.
     /// </summary>
@@ -92,7 +92,7 @@ public sealed class BulkLoadException : Exception
 /// copies each operation's terms into a buffer; when the buffer fills it is
 /// handed to a worker, which resolves the terms — the cache, the dictionary,
 /// the table of new terms — sorts the buffer and writes it as a run, while
-/// the parser fills the next (ADR 0107). The parser blocks only when every
+/// the parser fills the next (ADR 0108). The parser blocks only when every
 /// buffer is busy, so a host with no threads to block — a browser — cannot
 /// bulk-load (ADR 0081).
 /// </para>
@@ -122,7 +122,7 @@ public sealed class BulkLoad : IAsyncDisposable
         Memory = options.MemoryBytes.Value;
         Space = new SpillSpace(derived, head.ToString(CultureInfo.InvariantCulture));
 
-        // The memory (ADR 0081, 0107): three eighths to the operation buffers
+        // The memory (ADR 0081, 0108): three eighths to the operation buffers
         // and the sorted runs the workers make of them, a quarter to the
         // table of new terms, a quarter to the caches, one per worker; the
         // rest is read buffers. The test seam SortRecords bounds a buffer by
@@ -233,7 +233,7 @@ public sealed class BulkLoad : IAsyncDisposable
     }
 
     // The buffer that filled goes to a worker; the parser takes a free one,
-    // waiting when every buffer is busy (ADR 0107).
+    // waiting when every buffer is busy (ADR 0108).
     private void End()
     {
         if (_current.IsFull)
@@ -302,7 +302,7 @@ public sealed class BulkLoad : IAsyncDisposable
 
     // Each term a worker meets: once in its cache, and once in the shared
     // table if it is new. The table is the one structure every worker
-    // writes, so it is written under a lock (ADR 0107); a spill happens
+    // writes, so it is written under a lock (ADR 0108); a spill happens
     // inside it, and the other workers wait for the write.
     private BulkRef Remember(ReadOnlySpan<byte> key, BulkRef reference, bool isNew, WorkerCache cache)
     {

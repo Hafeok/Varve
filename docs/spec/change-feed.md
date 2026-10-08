@@ -140,7 +140,7 @@ data: + <http://ex/s> <http://ex/p> "o"
   skipped, and the next record carries its true position. A term in a filter
   that the dataset does not yet know matches nothing until a commit allocates
   it, and from then on matches it.
-- **The caller's scope** (ADR 0106) is a filter the caller did not write: a
+- **The caller's scope** (ADR 0107) is a filter the caller did not write: a
   `Data` record's changes are cut to the graphs the caller reads, a record
   that becomes empty is skipped as above, and `Settings` and `Erasure`
   records go to a dataset admin alone. The diff is cut the same way. A

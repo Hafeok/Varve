@@ -1,4 +1,4 @@
-# 0102 — `Varve.Protocol.Client`: the HTTP client at layer 5, and the endpoint policy
+# 0103 — `Varve.Protocol.Client`: the HTTP client at layer 5, and the endpoint policy
 
 ## Status
 
@@ -28,16 +28,16 @@ whose address the caller chose: the classic server-side request forgery. The
 1. **`Varve.Protocol.Client`, layer 5**, a packable library over `HttpClient`
    from the BCL. It references `Varve.Sparql` (to serialise), `Varve.Sparql.Results`
    and `Varve.Turtle` (to parse), `Varve.Sparql.Evaluation` (the `SERVICE`
-   contract, ADR 0103), `Varve.Store` (`ByteCount`), `Varve.Rdf` and
+   contract, ADR 0104), `Varve.Store` (`ByteCount`), `Varve.Rdf` and
    `Varve.Iri`. It references neither `Varve.Protocol` nor
    `Varve.Sparql.Store`: both are layer 5 (ADR 0060). Its public types:
    - `SparqlHttpClient`: query (`GET` or `POST`, the results format asked
      for), update (`application/sparql-update`), the Graph Store's `GET`,
      `PUT`, `POST` and `DELETE`, the change feed as a byte stream, and the
-     admin calls of ADR 0105, each over a dataset's base address, each
+     admin calls of ADR 0106, each over a dataset's base address, each
      carrying a bearer token the caller supplies and the `If-Match`,
      `Varve-As-Of` and `Accept` headers of ADRs 0094 and 0096;
-   - `HttpServiceHandler` and `RdfDocumentClient` (ADR 0103);
+   - `HttpServiceHandler` and `RdfDocumentClient` (ADR 0104);
    - `EndpointPolicy` and `ClientLimits`, below;
    - `Varve.Protocol.Client.Model`: `RdfDocument`, `EndpointRefusedException`,
      and the responses the admin calls return.
@@ -97,7 +97,7 @@ whose address the caller chose: the classic server-side request forgery. The
 ## Consequences
 
 - The server and the CLI reach other endpoints through one client, one
-  policy and one set of limits, configured in one place (ADR 0103).
+  policy and one set of limits, configured in one place (ADR 0104).
 - A `SERVICE` or `LOAD` refused by the policy is refused with a message that
   names the IRI and the reason, so an operator can add the prefix.
 - The package starts a public API baseline, like every packable package.

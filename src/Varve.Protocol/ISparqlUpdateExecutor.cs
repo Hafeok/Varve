@@ -31,7 +31,7 @@ namespace Varve.Protocol;
 /// An operation that fails throws; the protocol answers it with
 /// <c>operation-failed</c> and nothing is committed. A change outside the
 /// caller's writable scope throws <see cref="GraphNotWritableException"/>,
-/// answered with <c>403</c> and <c>graph-not-writable</c> (ADR 0106).
+/// answered with <c>403</c> and <c>graph-not-writable</c> (ADR 0107).
 /// </para>
 /// </remarks>
 [Contract(typeof(VarveProtocolAndVarveServer.UpdateExecutorSeam), Role = "the host-bound execution of a SPARQL Update request as one commit")]

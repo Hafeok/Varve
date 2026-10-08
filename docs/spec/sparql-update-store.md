@@ -44,7 +44,7 @@ CommitResult result = await SparqlUpdate.ExecuteAsync(dataset, update, options, 
     expected position and `ConflictRetries` does not apply. It is HTTP's
     `If-Match` (ADR 0094, milestone 7a).
   - `ReadScope` — the `GraphScope` every pattern of the request reads through
-    (ADR 0106, milestone 7b): `S_k` of §3 is the overlay over the staging
+    (ADR 0107, milestone 7b): `S_k` of §3 is the overlay over the staging
     view *seen through this scope*, so a `DELETE WHERE`, a `DELETE/INSERT …
     WHERE`, `CLEAR`, `DROP`, `ADD`, `COPY` and `MOVE` see, and so change,
     only the graphs the caller reads. Every graph by default, which wraps
@@ -83,7 +83,7 @@ and "a result of failure from any operation MUST abort the sequence". ADR
 3. **Release** the pin. Nothing after this step reads it: the request is
    built, and what ties it to the pin is the position it expects.
 4. **Check, then submit** the composed delta `Δ`. Every quad of `Δ` is in
-   `WriteScope` (ADR 0106), each graph decided once, or the request fails
+   `WriteScope` (ADR 0107), each graph decided once, or the request fails
    with `GraphNotWritableException` naming the first graph that is not;
    nothing is submitted on that path. Then `Δ` goes as one commit with
    `expectedPosition = P`: each retraction and assertion of `Δ` becomes an
@@ -244,7 +244,7 @@ The entry point of §2, and the only way in.
 
 ### 6.2 `UpdateOptions`
 
-As §2. `ReadScope` and `WriteScope` are `Varve.Rdf.GraphScope` (ADR 0106);
+As §2. `ReadScope` and `WriteScope` are `Varve.Rdf.GraphScope` (ADR 0107);
 the exception they can raise, `GraphNotWritableException`, is `Varve.Rdf`'s
 too, because this package and `Varve.Protocol`, which answers it with `403`,
 are both layer 5.

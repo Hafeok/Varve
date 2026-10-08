@@ -11,7 +11,7 @@ using Varve.Protocol.Model;
 
 namespace Varve.Server;
 
-/// <summary>Which permission a policy asks for (ADRs 0037, 0105), in cumulative order.</summary>
+/// <summary>Which permission a policy asks for (ADRs 0037, 0106), in cumulative order.</summary>
 internal enum Permission : byte
 {
     Read = 0,
@@ -27,7 +27,7 @@ internal sealed class DatasetPermission(Permission permission) : IAuthorizationR
 }
 
 /// <summary>
-/// Decides a <see cref="DatasetPermission"/> (ADRs 0037, 0091, 0105): the
+/// Decides a <see cref="DatasetPermission"/> (ADRs 0037, 0091, 0106): the
 /// caller is authenticated, and one of its role claims is a value the
 /// configuration maps to that permission, or to a higher one. A dataset
 /// permission is decided on the dataset the request names, and a server
@@ -68,7 +68,7 @@ internal sealed class DatasetPermissionHandler(AuthSettings settings) : Authoriz
                 }
 
                 // A scoped grant passes the dataset-level policy for its
-                // permission; the scope then bounds the request (ADR 0106).
+                // permission; the scope then bounds the request (ADR 0107).
                 foreach (GrantSettings grant in granted.Grants)
                 {
                     if (grant.Claim is { } claim && (requirement.Permission == Permission.Read || (requirement.Permission == Permission.Write && grant.Permission == "write")))

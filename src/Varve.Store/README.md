@@ -32,12 +32,12 @@ a projection of it.
   an as-of read and an open replay.
 - **Bulk loads.** `BeginBulkLoadAsync` takes any parser's quads as they are
   parsed; `BulkLoadOptions.Workers` threads resolve and spill them while the
-  parser reads (ADR 0107), sorted outside memory within
+  parser reads (ADR 0108), sorted outside memory within
   `BulkLoadOptions.MemoryBytes`, merged with the dataset in one sequential
   pass, and committed as one commit — with the dataset's validators reading
   the delta on disk. The result is the same at any worker count.
 - **Lookups by term probe a filter first.** Each run on disk carries a
-  blocked Bloom filter over its terms (ADR 0108, derived format 3), so a
+  blocked Bloom filter over its terms (ADR 0109, derived format 3), so a
   commit's new term costs one probe per run and an index read only where the
   filter says maybe; a format-2 dataset is read as before and migrates as
   maintenance rewrites its runs.

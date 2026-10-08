@@ -39,7 +39,7 @@ internal static class EvaluationSubjects
 
     internal static IEvaluationSubject Store { get; } = new StoreSubject();
 
-    /// <summary>The store's view through a <see cref="GraphScopedQuadSource"/> whose scope names every graph of the case (ADR 0106).</summary>
+    /// <summary>The store's view through a <see cref="GraphScopedQuadSource"/> whose scope names every graph of the case (ADR 0107).</summary>
     internal static IEvaluationSubject Scoped { get; } = new ScopedSubject();
 
     internal static IEvaluationSubject ByName(string name) => name switch

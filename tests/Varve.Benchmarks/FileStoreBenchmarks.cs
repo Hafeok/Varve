@@ -559,7 +559,7 @@ internal static class FileSizes
 }
 
 /// <summary>
-/// Lookups by term over the disk runs of a million-quad dataset (ADR 0108):
+/// Lookups by term over the disk runs of a million-quad dataset (ADR 0109):
 /// a term the dataset does not hold is looked up in every run — one filter
 /// probe per run in format 3, one hash-index window per run before — and a
 /// term it holds is found in the run that has it. 10,000 of each, as a

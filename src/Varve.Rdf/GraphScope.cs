@@ -19,7 +19,7 @@ public enum DefaultGraphAccess : byte
 }
 
 /// <summary>
-/// A set of graphs (ADR 0106): every graph, or the default graph and named
+/// A set of graphs (ADR 0107): every graph, or the default graph and named
 /// graphs listed by IRI or by IRI prefix. The unit of a grant's scope, and
 /// what <see cref="GraphScopedQuadSource"/> filters by. Immutable; two scopes
 /// combine by <see cref="Union"/>.

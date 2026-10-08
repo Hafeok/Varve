@@ -23,7 +23,7 @@ internal static class Load
         Argument<string[]> files = new("files") { Description = "N-Triples (.nt), N-Quads (.nq), Turtle (.ttl) or TriG (.trig) files, by extension." };
         Option<string?> graph = new("--graph") { Description = "Load every triple into this named graph; a document's own graphs are replaced." };
         Option<int> memory = new("--memory") { Description = "MiB the load may hold in memory.", DefaultValueFactory = _ => 256 };
-        Option<int?> workers = new("--workers") { Description = "Threads that resolve and spill while the parser reads (ADR 0107); the processor count less one by default." };
+        Option<int?> workers = new("--workers") { Description = "Threads that resolve and spill while the parser reads (ADR 0108); the processor count less one by default." };
         Command command = new("load", "Bulk-load files into a local dataset as one commit.");
         command.Arguments.Add(directory);
         command.Arguments.Add(files);

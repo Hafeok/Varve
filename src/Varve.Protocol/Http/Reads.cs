@@ -119,7 +119,7 @@ internal static class Reads
     internal static bool IsAsOf(HttpContext context) => !StringValues.IsNullOrEmpty(context.Request.Headers[Preconditions.AsOfHeader]);
 
     // Authorization: a response's content is per caller once grants are by
-    // graph (ADR 0106), so a cache keyed by the address alone is wrong.
+    // graph (ADR 0107), so a cache keyed by the address alone is wrong.
     private static void SetVary(HttpResponse response) =>
         response.Headers.Vary = new StringValues([HeaderNames.Accept, Preconditions.AsOfHeader, HeaderNames.Authorization]);
 }

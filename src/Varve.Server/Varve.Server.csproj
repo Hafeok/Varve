@@ -10,7 +10,7 @@
     <RootNamespace>Varve.Server</RootNamespace>
     <VarveSpeaksHttp>true</VarveSpeaksHttp>
 
-    <!-- ADR 0104: the one executable is the server and the `varve` command
+    <!-- ADR 0105: the one executable is the server and the `varve` command
          line, shipped as a .NET tool and as a native single file. -->
     <IsPackable>true</IsPackable>
     <PackAsTool>true</PackAsTool>
@@ -43,7 +43,7 @@
   <ItemGroup>
     <!-- ADR 0099: the server's alone. -->
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
-    <!-- ADR 0104: the command line and the Windows credential store. -->
+    <!-- ADR 0105: the command line and the Windows credential store. -->
     <PackageReference Include="System.CommandLine" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
   </ItemGroup>

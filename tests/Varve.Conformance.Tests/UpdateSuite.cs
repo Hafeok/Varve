@@ -113,7 +113,7 @@ internal static class UpdateCatalogue
 /// <summary>What one update case came to: the failure, if any, and the commit count it made.</summary>
 internal sealed record UpdateOutcome(string? Failure, CommitOutcome Result, long Commits);
 
-/// <summary>How a case's request reaches the store: in process, or as a <c>POST</c> to the protocol's endpoint (ADR 0106).</summary>
+/// <summary>How a case's request reaches the store: in process, or as a <c>POST</c> to the protocol's endpoint (ADR 0107).</summary>
 internal enum UpdateSubject
 {
     Store,

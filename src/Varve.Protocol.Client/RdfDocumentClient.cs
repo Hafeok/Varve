@@ -16,7 +16,7 @@ using Varve.Turtle;
 namespace Varve.Protocol.Client;
 
 /// <summary>
-/// Fetches an RDF document by IRI (ADR 0103): <c>GET</c> with content
+/// Fetches an RDF document by IRI (ADR 0104): <c>GET</c> with content
 /// negotiation over N-Triples, N-Quads, Turtle and TriG, the syntax from the
 /// response's media type or the path's extension, the base the request's IRI
 /// without its fragment, the bytes capped, the endpoint policy consulted

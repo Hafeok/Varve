@@ -11,7 +11,7 @@ using Xunit;
 namespace Varve.Rdf.Tests;
 
 /// <summary>
-/// <see cref="GraphScopedQuadSource"/> (ADR 0106): every way of reaching a
+/// <see cref="GraphScopedQuadSource"/> (ADR 0107): every way of reaching a
 /// quad — a named pattern, the default graph, an enumeration over every
 /// graph, <c>Contains</c>, <c>Estimate</c> — sees exactly the scope's graphs,
 /// for explicit and prefix scopes, and the scope of every graph is not a
@@ -98,7 +98,7 @@ public class ScopedSourceTests
 
     /// <summary>
     /// The scoped view of a dataset equals the dataset holding only the
-    /// scope's graphs, for every pattern: ADR 0106's first property, at the
+    /// scope's graphs, for every pattern: ADR 0107's first property, at the
     /// source where the evaluator reads.
     /// </summary>
     [Fact]

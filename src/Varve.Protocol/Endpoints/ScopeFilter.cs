@@ -12,7 +12,7 @@ namespace Varve.Protocol.Endpoints;
 internal delegate bool TryName(TermHandle handle, [MaybeNullWhen(false)] out RdfTerm term);
 
 /// <summary>
-/// The readable scope applied to a delta (ADR 0106): the feed's and the
+/// The readable scope applied to a delta (ADR 0107): the feed's and the
 /// diff's. A graph is decided once per handle for the filter's lifetime —
 /// a feed names few graphs and many quads — by naming it and asking the
 /// scope; a handle the namer cannot name is hidden.

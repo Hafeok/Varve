@@ -404,7 +404,7 @@ the endpoints for the event-sourced features.
   - time travel over HTTP, the change feed and the diff;
   - authentication tested in three layers;
   - the server's configuration, Native AOT, graceful shutdown and readiness.
-- **7b** (ADRs 0102–0108): `Varve.Protocol.Client`, `SERVICE` and `LOAD`
+- **7b** (ADRs 0103–0109): `Varve.Protocol.Client`, `SERVICE` and `LOAD`
   over HTTP, the `varve` command line, the admin API, graph-level
   authorisation, the bulk loader on worker threads and per-run term filters
   (derived format 3), the operator's guide. The release `0.1.0-preview.2`
@@ -465,7 +465,7 @@ server existing, and none of them should wait for a validator.
 - **Container image** for the server. *Open*: the AOT single file is the
   entry point; the registries (GHCR, Docker Hub) and the base image are the
   maintainer's to choose.
-- **CLI as a `dotnet tool`**. *Done at 7b* (ADR 0104: `Varve.Server` is the
+- **CLI as a `dotnet tool`**. *Done at 7b* (ADR 0105: `Varve.Server` is the
   tool, command `varve`).
 - **The operator's guide** — `docs/operator/`: run, configure, authenticate,
   back up and restore, upgrade. *Written at 7b.*

@@ -8,7 +8,7 @@ using Varve.Store.Log;
 
 namespace Varve.Protocol.Model;
 
-/// <summary>What a dataset is kept in (ADR 0105): a directory under the host's root, or memory.</summary>
+/// <summary>What a dataset is kept in (ADR 0106): a directory under the host's root, or memory.</summary>
 public enum DatasetStorage : byte
 {
     /// <summary>A directory under the host's root; durable.</summary>
@@ -18,7 +18,7 @@ public enum DatasetStorage : byte
     Memory = 1,
 }
 
-/// <summary>How the host came to know a dataset (ADR 0105).</summary>
+/// <summary>How the host came to know a dataset (ADR 0106).</summary>
 public enum DatasetOrigin : byte
 {
     /// <summary>Named in the host's configuration.</summary>
@@ -31,7 +31,7 @@ public enum DatasetOrigin : byte
     Created = 2,
 }
 
-/// <summary>A dataset's state in the host (ADR 0105).</summary>
+/// <summary>A dataset's state in the host (ADR 0106).</summary>
 public enum DatasetState : byte
 {
     /// <summary>Open and served.</summary>
@@ -40,11 +40,11 @@ public enum DatasetState : byte
     /// <summary>Closed by the admin API: its directory is there, it answers nothing, and a restart or <c>open</c> serves it again.</summary>
     Closed = 1,
 
-    /// <summary>A directory that did not open, with the reason; never skipped (ADR 0105).</summary>
+    /// <summary>A directory that did not open, with the reason; never skipped (ADR 0106).</summary>
     Failed = 2,
 }
 
-/// <summary>The answer to an admin operation on a dataset (ADR 0105).</summary>
+/// <summary>The answer to an admin operation on a dataset (ADR 0106).</summary>
 public enum AdminOutcome : byte
 {
     /// <summary>Done.</summary>
@@ -63,7 +63,7 @@ public enum AdminOutcome : byte
     Failed = 4,
 }
 
-/// <summary>One dataset the host knows: its name, state, storage, origin, and when open its id and head (ADR 0105).</summary>
+/// <summary>One dataset the host knows: its name, state, storage, origin, and when open its id and head (ADR 0106).</summary>
 public sealed class DatasetEntry
 {
     /// <summary>An entry.</summary>

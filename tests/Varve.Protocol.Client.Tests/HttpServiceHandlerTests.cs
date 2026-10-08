@@ -19,7 +19,7 @@ using Xunit;
 namespace Varve.Protocol.Client.Tests;
 
 /// <summary>
-/// <c>SERVICE</c> over HTTP (ADR 0103): a query over a local dataset whose
+/// <c>SERVICE</c> over HTTP (ADR 0104): a query over a local dataset whose
 /// <c>SERVICE</c> pattern is answered by an in-process server; the join, the
 /// failures, and <c>SILENT</c>.
 /// </summary>

@@ -1,7 +1,7 @@
 ---
 set: varve-protocol-client
 namespace: varve
-adr: 0102
+adr: 0103
 decisions:
   - key: ClientIsALayer5Library
     statement: "Varve.Protocol.Client, layer 5, is the HTTP client over the BCL's HttpClient: SparqlHttpClient, HttpServiceHandler, RdfDocumentClient, EndpointPolicy and ClientLimits, referencing neither Varve.Protocol nor Varve.Sparql.Store"
@@ -17,5 +17,5 @@ decisions:
     statement: "Varve.Protocol.Client.Model holds the client's public data: RdfDocument and EndpointRefusedException; the root namespace holds the clients, the handler and the policy, and SparqlHttpClient answers raw responses the caller streams"
 ---
 
-The rulings of [ADR 0102](../adr/0102-varve-protocol-client.md), filed unaccepted by milestone 7b of #11
+The rulings of [ADR 0103](../adr/0103-varve-protocol-client.md), filed unaccepted by milestone 7b of #11
 (ADR 0066). Every citation is `CS0618` until the maintainer accepts them.

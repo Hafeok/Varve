@@ -13,7 +13,7 @@ using Varve.Rdf;
 namespace Varve.Server;
 
 /// <summary>
-/// The host's <see cref="IAccessScopes"/> (ADR 0106): a caller's readable
+/// The host's <see cref="IAccessScopes"/> (ADR 0107): a caller's readable
 /// graphs are the union of the graph sets of every <c>read</c> and
 /// <c>write</c> grant one of its role claims matches, its writable graphs
 /// the union of the <c>write</c> grants'; the 7a lists are the <c>all</c>

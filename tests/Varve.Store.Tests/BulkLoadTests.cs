@@ -166,7 +166,7 @@ public class BulkLoadTests
     }
 
     /// <summary>
-    /// ADR 0107: the load's result is the same at any worker count — the
+    /// ADR 0108: the load's result is the same at any worker count — the
     /// quads, and the ids the new terms get, since those follow the merged
     /// term runs and not the workers' order of arrival.
     /// </summary>

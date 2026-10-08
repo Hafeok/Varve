@@ -938,7 +938,7 @@ reason.
 
 ## Milestone 7b — the graph scope, the bulk loader on workers, per-run term filters
 
-### The scoped quad source (ADR 0106)
+### The scoped quad source (ADR 0107)
 
 ```bash
 dotnet run -c Release --project tests/Varve.Benchmarks -- --filter 'Varve.Benchmarks.ScanBenchmarks.*' \
@@ -963,7 +963,7 @@ the wrapper, its set of handles and one cursor — per request, never per quad
 the view). A request whose scope is every graph is served by the view itself
 and pays nothing.
 
-### The bulk loader on worker threads (ADR 0107)
+### The bulk loader on worker threads (ADR 0108)
 
 ```bash
 dotnet run -c Release --project tests/Varve.Benchmarks -- --bulk-gate 10000000 --memory-mib 256 [--workers 1]
@@ -994,7 +994,7 @@ with one buffer of overlap, and is already faster than the parser doing the
 work itself. The result is the same at any worker count, which
 `BulkLoadTests` asserts for the quads and the ids alike.
 
-### Per-run term filters (ADR 0108)
+### Per-run term filters (ADR 0109)
 
 ```bash
 dotnet run -c Release --project tests/Varve.Benchmarks -- --filter 'Varve.Benchmarks.TermLookupBenchmarks.*' \

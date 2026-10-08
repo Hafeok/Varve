@@ -2,7 +2,7 @@
 
 ## Install
 
-Two artefacts carry the same executable (ADR 0104):
+Two artefacts carry the same executable (ADR 0105):
 
 - **The .NET tool**, framework-dependent, for a machine with the .NET 10 SDK
   or runtime:
@@ -44,7 +44,7 @@ a default for a value that was given and is wrong.
 
 Datasets configured as `File` live under `Varve:DatasetsRoot`, one directory
 each, named after the dataset. A directory under the root that is not
-configured is **discovered** and served too (ADR 0105); one that fails to
+configured is **discovered** and served too (ADR 0106); one that fails to
 open is listed as failed with a reason, and the server still starts for the
 others. `Varve:Datasets` may be empty when a root is given: the admin API
 creates datasets under it.
@@ -64,7 +64,7 @@ The routes, per dataset:
 |---|---|
 | `GET /live` | liveness: `200` once the process serves |
 | `GET /ready` | readiness: `200` when every dataset that should be open is open and not failed, `503` with each dataset's state and reason otherwise |
-| `/datasets` | the admin API: list, create, open, close, delete (ADR 0105) |
+| `/datasets` | the admin API: list, create, open, close, delete (ADR 0106) |
 | `/datasets/{name}/sparql` | SPARQL 1.1 Protocol query and update; `GET` with an RDF `Accept` is the service description |
 | `/datasets/{name}/graphs` | the Graph Store Protocol |
 | `/datasets/{name}/feed`, `/diff` | the change feed and the diff (`docs/spec/change-feed.md`) |

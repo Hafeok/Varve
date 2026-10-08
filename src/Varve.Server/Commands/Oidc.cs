@@ -19,7 +19,7 @@ internal sealed record OidcTokens(string AccessToken, string? RefreshToken);
 internal sealed class OidcException(string message) : Exception(message);
 
 /// <summary>
-/// The CLI's OIDC client (ADRs 0037, 0104): discovery, the client credentials
+/// The CLI's OIDC client (ADRs 0037, 0105): discovery, the client credentials
 /// flow, the device code flow, and refresh, over <see cref="HttpClient"/>
 /// and <c>System.Text.Json</c>'s document reader. No package, no reflection.
 /// </summary>

@@ -136,7 +136,7 @@ Filed by milestone 7b of #11, unaccepted until the maintainer accepts it (ADR
 this ADR decided is unchanged.
 
 - **`ISparqlUpdateExecutor.ExecuteAsync` takes the caller's `CallerScope`**
-  (ADR [0106](0106-graph-level-authorisation.md)), which the host passes to
+  (ADR [0107](0107-graph-level-authorisation.md)), which the host passes to
   `UpdateOptions.ReadScope` and `WriteScope`. The seam is still one member,
   still bound by the host.
 - **A fourth seam, `IAccessScopes`**, answers the readable and writable graph
@@ -145,10 +145,10 @@ this ADR decided is unchanged.
   authentication type: the seam takes a `ClaimsPrincipal`, as
   `ICallerIdentity` does.
 - **A fourth policy name, `varve:server-admin`** (ADR
-  [0105](0105-the-admin-api.md)), decided on no dataset, for the calls that
+  [0106](0106-the-admin-api.md)), decided on no dataset, for the calls that
   create, open, close and delete one.
 - **The dataset resolver gains a write side**: create, open, close and delete
   by name, implemented by the host's `OpenDatasets`.
 
 The rulings are `UpdateSeamCarriesAccessScope` and `AccessScopesSeam` in ADR
-0106's set and `ServerAdminGrant` in ADR 0105's.
+0107's set and `ServerAdminGrant` in ADR 0106's.

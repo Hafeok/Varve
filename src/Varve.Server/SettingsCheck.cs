@@ -57,7 +57,7 @@ internal static class SettingsCheck
         }
 
         // A server with no configured dataset serves what the admin API
-        // creates under its root (ADR 0105), so a root is enough.
+        // creates under its root (ADR 0106), so a root is enough.
         if (settings.Datasets.Count == 0 && string.IsNullOrWhiteSpace(settings.DatasetsRoot))
         {
             errors.Add("Varve:Datasets names at least one dataset, or Varve:DatasetsRoot names the directory datasets are created under.");
@@ -111,7 +111,7 @@ internal static class SettingsCheck
 
                 if (grant.Permission is not ("read" or "write"))
                 {
-                    errors.Add(at + ":Permission is read or write; admin is dataset-wide (ADR 0106).");
+                    errors.Add(at + ":Permission is read or write; admin is dataset-wide (ADR 0107).");
                 }
 
                 if (grant.Graphs.Count == 0 && grant.GraphPrefixes.Count == 0)
@@ -169,7 +169,7 @@ internal static class SettingsCheck
     }
 
     // An endpoint policy's prefixes are absolute http or https IRIs, and its
-    // limits positive (ADRs 0102, 0103): checked here so that a wrong prefix is
+    // limits positive (ADRs 0103, 0104): checked here so that a wrong prefix is
     // a listed error at start, not an exception at the first SERVICE.
     private static void CheckOutbound(List<string> errors, string section, List<string> prefixes, TimeSpan timeout, long maxResponseBytes)
     {

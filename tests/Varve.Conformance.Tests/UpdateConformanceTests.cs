@@ -12,7 +12,7 @@ namespace Varve.Conformance.Tests;
 /// The W3C SPARQL 1.1 update evaluation suites (<c>sparql-update-store.md</c>
 /// §7), each case over a fresh store through <c>Varve.Sparql.Store</c>, one
 /// ratchet line per case, named by its test IRI; and each case again through
-/// the protocol with an <c>all</c> grant (ADR 0106), <c>&lt;test IRI&gt;@protocol</c>.
+/// the protocol with an <c>all</c> grant (ADR 0107), <c>&lt;test IRI&gt;@protocol</c>.
 /// </summary>
 public class UpdateConformanceTests
 {

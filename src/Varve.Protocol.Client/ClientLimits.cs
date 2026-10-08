@@ -8,7 +8,7 @@ using Varve.Store.Log;
 namespace Varve.Protocol.Client;
 
 /// <summary>
-/// What bounds an outbound request (ADR 0102): how long the whole exchange
+/// What bounds an outbound request (ADR 0103): how long the whole exchange
 /// may take, and how many bytes of response are read before the answer is a
 /// failure rather than a truncated result.
 /// </summary>

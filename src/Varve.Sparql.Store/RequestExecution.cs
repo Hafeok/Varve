@@ -195,7 +195,7 @@ internal sealed class RequestExecution
 
     /// <summary>
     /// Every quad of the composed delta is in the writable scope, or the
-    /// request fails naming the first graph that is not (ADR 0106). A graph
+    /// request fails naming the first graph that is not (ADR 0107). A graph
     /// is decided once: the delta names few graphs and many quads.
     /// </summary>
     private void CheckWritable()

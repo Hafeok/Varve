@@ -19,7 +19,7 @@ using Xunit;
 namespace Varve.Server.Tests;
 
 /// <summary>
-/// The admin API (ADR 0105) through the real host: create, list, status,
+/// The admin API (ADR 0106) through the real host: create, list, status,
 /// settings, checkpoint, close, delete; discovery under the root, a directory
 /// that fails to open listed as failed; and readiness reporting it.
 /// </summary>

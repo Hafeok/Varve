@@ -6,9 +6,9 @@ last ADR in `docs/adr/` at that point. **Amended 2026-10-07** (ADR
 "`JwtBearer` is in the shared framework" was wrong; see the end. **Refined by
 [0100](0100-authentication-tested-in-three-layers.md)** (filed 2026-10-07): the
 test consequence. **Superseded in part by
-[0104](0104-the-cli.md)** (filed 2026-10-08): point 8's storage clause, "in the
+[0105](0105-the-cli.md)** (filed 2026-10-08): point 8's storage clause, "in the
 platform credential store", becomes a credential file; the flows and "nothing
-but the refresh token" stand. **Refined by [0106](0106-graph-level-authorisation.md)**
+but the refresh token" stand. **Refined by [0107](0107-graph-level-authorisation.md)**
 (filed 2026-10-08): point 3's three permissions per dataset are the `all` case
 of a graph-scoped grant.
 

@@ -29,7 +29,7 @@ internal static class EvaluationRunner
     internal static Task<string?> RunAsync(EvaluationEntry entry, IEvaluationSubject subject, CancellationToken cancellationToken) =>
         RunAsync(entry, subject, ValueAccess.InlineAccessor, null, cancellationToken);
 
-    /// <summary>Runs one case with <paramref name="serviceHandler"/> answering its <c>SERVICE</c> patterns (ADR 0103's run over HTTP).</summary>
+    /// <summary>Runs one case with <paramref name="serviceHandler"/> answering its <c>SERVICE</c> patterns (ADR 0104's run over HTTP).</summary>
     internal static Task<string?> RunAsync(EvaluationEntry entry, IEvaluationSubject subject, IServiceHandler serviceHandler, CancellationToken cancellationToken) =>
         EvaluateAsync(entry, subject, ValueAccess.InlineAccessor, serviceHandler, (query, results) => Compare(entry, query, results, null), cancellationToken);
 
