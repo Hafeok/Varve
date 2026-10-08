@@ -1,0 +1,23 @@
+format: 1
+version: v0.1.0-preview.1
+title: A fixture, valid but for the one flaw its case names
+date: 2026-10-08
+basis:
+  - issue: 73
+  - storage-format: 1
+  - adr: "0090"
+  - adr: "0091"
+  - adr: "0092"
+  - adr: "0093"
+  - adr: "0094"
+  - adr: "0095"
+  - adr: "0096"
+  - adr: "0097"
+  - adr: "0098"
+  - adr: "0099"
+  - adr: "0100"
+  - adr: "0101"
+  - adr: "0102"
+accepted-by: mailto:emil@okkels-klein.dk
+summary: |
+  Fixture notes. Not a release.

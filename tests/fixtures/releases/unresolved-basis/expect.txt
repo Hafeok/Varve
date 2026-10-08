@@ -1,0 +1,3 @@
+# An issue nothing in the range closes, and an ADR that does not exist.
+999999 is not closed by a commit in
+ADR 0999 does not exist at

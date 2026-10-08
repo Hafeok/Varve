@@ -1,0 +1,2 @@
+# Varve.Store writes format version 1 (ADR 0072); the descriptor says 99.
+storage format 99 is not Varve.Store's, 1

@@ -109,11 +109,21 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("agent-review-tamper", "a pull request that edits eng/agent-review.cs to always pass still fails under main's copy",
         () => Run("dotnet", ["run", "eng/agent-review-tamper.cs"])),
 
-    ("release-pending", "a milestone starts only once the one before it is released",
+    ("release-pending", "a change that closes a milestone issue carries the release descriptor naming it",
         () => Run("dotnet", Args("run", "eng/release-pending.cs", baseRef is null ? null : "--", baseRef is null ? null : "--base", baseRef))),
 
-    ("changelog", "the newest v* tag has its CHANGELOG.md section",
+    ("changelog", "CHANGELOG.md is the projection of releases/",
         () => Run("dotnet", ["run", "eng/changelog.cs", "--", "--check"])),
+
+    // ADR 0102: every descriptor valid, and every proposed one resolved at the
+    // commit under release; it prints how a proposed release lands.
+    ("release", "every release descriptor is well formed, and a proposed one's basis resolves",
+        () => Run("dotnet", Args("run", "eng/release.cs", "--", "--check", baseRef is null ? null : "--base", baseRef))),
+
+    // Its failure paths, proven on every run: each case must fail, and say why
+    // (tests/fixtures/releases/README.md).
+    ("release-fixtures", "the release validator fails each of its fixtures, for its own reason",
+        () => Run("dotnet", ["run", "eng/release.cs", "--", "--fixtures", "tests/fixtures/releases"])),
 
     ("restore", "restore the solution",
         () => Run("dotnet", ["restore", "Varve.slnx"])),
