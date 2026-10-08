@@ -211,6 +211,14 @@ commit under release) checks four statements against what they describe:
    the pending one included: it is the one being cut, and the files must say
    so at the commit that is tagged.
 
+**So *(complete)* means "in a descriptor", not "tagged".** A descriptor
+landed by a merge commit is not cut (§3), yet the roadmap already shows its
+milestone *(complete)* and the README already names its version, with no tag
+behind either. That state is not a resting place: **the retro-cut is the
+required next step**, a pull request adding `commit: <approved head>` to the
+same descriptor, and until it lands `main` describes a release that does not
+exist yet.
+
 The failure paths are `tests/fixtures/status/`.
 
 ## 8. Why the descriptor and not the tag
