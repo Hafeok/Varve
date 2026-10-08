@@ -113,6 +113,13 @@ internal static class UpdateCatalogue
 /// <summary>What one update case came to: the failure, if any, and the commit count it made.</summary>
 internal sealed record UpdateOutcome(string? Failure, CommitOutcome Result, long Commits);
 
+/// <summary>How a case's request reaches the store: in process, or as a <c>POST</c> to the protocol's endpoint (ADR 0106).</summary>
+internal enum UpdateSubject
+{
+    Store,
+    Protocol,
+}
+
 internal static class UpdateRunner
 {
     /// <summary>
@@ -121,7 +128,10 @@ internal static class UpdateRunner
     /// Asserts on the way that the request made exactly one commit when it
     /// changed something and none when it did not (ADR 0057).
     /// </summary>
-    internal static async Task<UpdateOutcome> RunAsync(UpdateEntry entry, CancellationToken cancellationToken)
+    internal static Task<UpdateOutcome> RunAsync(UpdateEntry entry, CancellationToken cancellationToken) =>
+        RunAsync(entry, UpdateSubject.Store, cancellationToken);
+
+    internal static async Task<UpdateOutcome> RunAsync(UpdateEntry entry, UpdateSubject subject, CancellationToken cancellationToken)
     {
         await using Dataset dataset = await Dataset.CreateAsync(new MemoryStorage(), new Varve.Store.Log.DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = FixedClock.Instance }, cancellationToken);
 
@@ -132,37 +142,53 @@ internal static class UpdateRunner
 
         Position before = dataset.Head;
         byte[] text = File.ReadAllBytes(EvaluationSuite.PathOf(entry.RequestIri));
-        Update update = SparqlParser.ParseUpdate(text, new SparqlParseOptions(Encoding.UTF8.GetBytes(entry.RequestIri), SparqlVersion.Sparql11));
-        UpdateOptions options = new()
-        {
-            Evaluation = new EvaluationOptions { Clock = FixedClock.Instance, Randomness = new SeededRandom() },
-            LoadSource = new SuiteLoadSource(),
-        };
+        CommitOutcome outcome;
 
-        CommitResult result;
-
-        try
+        if (subject == UpdateSubject.Protocol)
         {
-            result = await SparqlUpdate.ExecuteAsync(dataset, update, options, cancellationToken);
+            string? failed = await ProtocolEvaluationRunner.UpdateAsync(dataset, text, entry.RequestIri, cancellationToken);
+
+            if (failed is not null)
+            {
+                return new UpdateOutcome("the request failed: " + failed, CommitOutcome.Rejected, 0);
+            }
+
+            // The protocol answers 204 for a commit and for no change alike;
+            // the log says which.
+            outcome = dataset.Head.Value > before.Value ? CommitOutcome.Committed : CommitOutcome.NoChange;
         }
-        catch (SparqlUpdateException error)
+        else
         {
-            return new UpdateOutcome("the request failed: " + error.Message, CommitOutcome.Rejected, 0);
+            Update update = SparqlParser.ParseUpdate(text, new SparqlParseOptions(Encoding.UTF8.GetBytes(entry.RequestIri), SparqlVersion.Sparql11));
+            UpdateOptions options = new()
+            {
+                Evaluation = new EvaluationOptions { Clock = FixedClock.Instance, Randomness = new SeededRandom() },
+                LoadSource = new SuiteLoadSource(),
+            };
+
+            try
+            {
+                outcome = (await SparqlUpdate.ExecuteAsync(dataset, update, options, cancellationToken)).Outcome;
+            }
+            catch (SparqlUpdateException error)
+            {
+                return new UpdateOutcome("the request failed: " + error.Message, CommitOutcome.Rejected, 0);
+            }
         }
 
         long commits = dataset.Head.Value - before.Value;
-        string? commitFailure = result.Outcome switch
+        string? commitFailure = outcome switch
         {
             CommitOutcome.Committed when commits != 1 => "Committed, but the log grew by " + commits + " commit(s)",
             CommitOutcome.Committed when (await dataset.DiffAsync(before, dataset.Head, cancellationToken)).IsEmpty => "Committed an empty delta",
             CommitOutcome.NoChange when commits != 0 => "NoChange, but the log grew by " + commits + " commit(s)",
             CommitOutcome.Committed or CommitOutcome.NoChange => null,
-            _ => "the request returned " + result.Outcome,
+            _ => "the request returned " + outcome,
         };
 
         if (commitFailure is not null)
         {
-            return new UpdateOutcome(commitFailure, result.Outcome, commits);
+            return new UpdateOutcome(commitFailure, outcome, commits);
         }
 
         List<DataQuad> actual = [];
@@ -189,7 +215,7 @@ internal static class UpdateRunner
         }
 
         string? failure = DatasetComparison.Compare(actual, expected);
-        return new UpdateOutcome(failure, result.Outcome, commits);
+        return new UpdateOutcome(failure, outcome, commits);
     }
 
     private static RdfTerm Term(DatasetView source, TermHandle handle) =>

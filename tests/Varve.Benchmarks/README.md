@@ -935,3 +935,30 @@ rows' p50 rises with eight writers because each commit now waits its turn
 in the sequencer for the flush of the one before, rather than being
 answered `409` at once; the p99 falls by a factor of ten for the same
 reason.
+
+## Milestone 7b — the graph scope, the bulk loader on workers, per-run term filters
+
+### The scoped quad source (ADR 0106)
+
+```bash
+dotnet run -c Release --project tests/Varve.Benchmarks -- --filter 'Varve.Benchmarks.ScanBenchmarks.*' \
+  --inProcess --warmupCount 3 --iterationCount 10
+```
+
+The million-quad scan of milestone 4, through a `GraphScopedQuadSource`
+built per request as the protocol builds it, against the unwrapped view in
+the same run (in-process toolchain, so the absolute times are not the 6c
+table's; the ratio is what this measures):
+
+| Every quad, every graph | Mean | Per quad over the unwrapped scan | Allocated |
+|---|---:|---:|---:|
+| The view itself | 39.5 ms ± 4.1 | — | 512 B |
+| Through a scope listing four of the five graphs by IRI | 53.1 ms ± 2.0 | 13.6 ns | 2,905 B |
+| Through a scope of one IRI prefix | 54.1 ms ± 4.6 | 14.6 ns | 1,720 B |
+
+A scoped scan pays a hash-set lookup per quad; a prefix scope decides each
+graph once and then pays the same lookup. What a scoped source allocates is
+the wrapper, its set of handles and one cursor — per request, never per quad
+(`AllocationTests` asserts 56 bytes a solution through a scope, as through
+the view). A request whose scope is every graph is served by the view itself
+and pays nothing.

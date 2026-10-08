@@ -20,11 +20,15 @@ decisions:
   - key: PatternsEvaluateOverReadableScope
     statement: "A DELETE WHERE, a DELETE/INSERT WHERE and every other pattern of an update evaluate over the readable scope, so a caller cannot delete what it cannot read; UpdateOptions carries ReadScope and WriteScope"
   - key: UpdateSeamCarriesAccessScope
-    statement: "ISparqlUpdateExecutor.ExecuteAsync takes the caller's AccessScope and the host passes it to the update options"
+    statement: "ISparqlUpdateExecutor.ExecuteAsync takes the caller's CallerScope and the host passes it to the update options"
   - key: GspOnUnreadableIs404OnUnwritableIs403
     statement: "A Graph Store PUT or DELETE of an unwritable graph is 403 and of an unreadable one 404, the same as a missing graph"
   - key: AdminIsDatasetWide
     statement: "Admin is dataset-wide and reads and writes every graph; there is no graph-scoped admin"
+  - key: ScopeFilterIsASetLookup
+    statement: "The scoped source decides an explicitly granted graph by a hash set lookup of its handle under the source's term equality, resolved once when the source is wrapped, which allocates nothing per quad"
+  - key: PrefixDecisionMemoisedPerGraph
+    statement: "A prefix grant is decided once per distinct graph handle the scoped source meets, by externalising the graph and comparing its IRI with the prefixes, and the decision is kept in a map for the source's lifetime, so a prefix check costs its allocation once per graph and never per quad"
   - key: RowLevelIsMilestone9
     statement: "Graph-level is what the index key gives for free; row-level access per subject or classifier is milestone 9's beside erasure and is not approximated here"
 ---

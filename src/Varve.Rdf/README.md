@@ -29,6 +29,15 @@ RDF Dataset Canonicalization (RDFC-1.0).
   `(B \ R) ∪ A`, merged at scan time. One implementation serves a store's
   as-of reads and the view a pre-commit validator gets.
 
+- **`GraphScope`, `GraphScopedQuadSource` and `CallerScope`** (ADR 0106): a
+  set of graphs — every graph, or the default graph and named graphs by IRI
+  or by IRI prefix — and a source seen through one, which filters every
+  `Match`, `Contains` and `Estimate` by graph so that a graph outside the
+  scope is unobservable. `CallerScope` is what a host resolves for one
+  caller on one dataset: a readable scope, a writable scope, and whether it
+  administers the dataset. `GraphNotWritableException` is the refusal a
+  write outside the writable scope raises.
+
 ```csharp
 InMemoryDataset dataset = new();
 dataset.Add(RdfTerm.Iri("http://example.org/s"u8), RdfTerm.Iri("http://example.org/p"u8),

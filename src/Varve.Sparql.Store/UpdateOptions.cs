@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using Varve.Rdf;
 using Varve.Sparql.Evaluation;
 using Varve.Store.Log;
 
@@ -37,6 +38,23 @@ public sealed class UpdateOptions
 
     /// <summary>Where <c>LOAD</c> reads documents. The default refuses every IRI.</summary>
     public ILoadSource LoadSource { get; init; } = RefusingLoadSource.Instance;
+
+    /// <summary>
+    /// The graphs every pattern of the request reads (ADR 0106): a
+    /// <c>DELETE WHERE</c>, a <c>DELETE/INSERT … WHERE</c>, <c>CLEAR</c>,
+    /// <c>COPY</c> and the rest evaluate over the staging view seen through
+    /// this scope, so a caller cannot delete, copy or move what it cannot
+    /// read. Every graph by default; the scope of every graph costs nothing.
+    /// </summary>
+    public GraphScope ReadScope { get; init; } = GraphScope.All;
+
+    /// <summary>
+    /// The graphs the request may change (ADR 0106). The composed delta is
+    /// checked against it before the submit: one quad outside it fails the
+    /// whole request with <see cref="Varve.Rdf.GraphNotWritableException"/>, and
+    /// nothing is committed. Every graph by default.
+    /// </summary>
+    public GraphScope WriteScope { get; init; } = GraphScope.All;
 
     /// <summary>
     /// How many times a request that met a <c>Conflict</c> is executed again

@@ -43,24 +43,33 @@ public class AllocationTests
     /// so the store's term cache holds them (ADR 0079); a term read cold from
     /// disk costs its term once, when the cache loads it, and not per solution.
     /// </summary>
+    /// <remarks>
+    /// With a caller whose scope is every graph the view is not wrapped (ADR
+    /// 0106); with a scope that names the default graph the request runs
+    /// through <see cref="Rdf.GraphScopedQuadSource"/>, which decides each
+    /// graph once and not per quad: the same 56 bytes a solution.
+    /// </remarks>
     [Theory]
-    [InlineData("SELECT ?p ?o { ?s ?p ?o }")]
-    [InlineData("SELECT ?s ?o { ?s ?p ?o }")]
-    public async Task a_solution_costs_the_evaluators_row_and_nothing_else(string query)
+    [InlineData("SELECT ?p ?o { ?s ?p ?o }", "all")]
+    [InlineData("SELECT ?s ?o { ?s ?p ?o }", "all")]
+    [InlineData("SELECT ?s ?o { ?s ?p ?o }", "scoped")]
+    public async Task a_solution_costs_the_evaluators_row_and_nothing_else(string query, string scope)
     {
-        long perSolution = await PerSolutionAsync(query);
-        TestContext.Current.TestOutputHelper?.WriteLine(query + ": " + perSolution + " bytes a solution");
+        long perSolution = await PerSolutionAsync(query, scope == "scoped");
+        TestContext.Current.TestOutputHelper?.WriteLine(query + " (" + scope + "): " + perSolution + " bytes a solution");
         Assert.Equal(RowBytes, perSolution);
     }
 
-    private static async Task<long> PerSolutionAsync(string query)
+    private static async Task<long> PerSolutionAsync(string query, bool scoped)
     {
         await using Dataset small = await StoreOf(Small);
         await using Dataset large = await StoreOf(Large);
         ProtocolTestHost.Datasets datasets = new();
         datasets.Add("small", small);
         datasets.Add("large", large);
-        await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(datasets, stopping: P.Ct);
+        Rdf.GraphScope readable = Rdf.GraphScope.Of([Rdf.RdfTerm.Iri("http://ex/g"u8)], [], Rdf.DefaultGraphAccess.Included);
+        IAccessScopes scopes = scoped ? new DefaultGraphOnly(new Rdf.CallerScope(readable, readable, Rdf.AdminAccess.None)) : EveryoneEverything.Instance;
+        await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(datasets, accessScopes: scopes, stopping: P.Ct);
         byte[] buffer = new byte[64 * 1024];
 
         async Task<long> Measure(string name)
@@ -110,6 +119,12 @@ public class AllocationTests
         await dataset.CommitAsync(request, P.Ct);
         return dataset;
     }
+}
+
+/// <summary>The scope seam answering one fixed scope, for the scoped reading.</summary>
+internal sealed class DefaultGraphOnly(Rdf.CallerScope scope) : IAccessScopes
+{
+    public Rdf.CallerScope ScopesOf(System.Security.Claims.ClaimsPrincipal caller, Model.DatasetName dataset) => scope;
 }
 
 /// <summary>The collection that runs <see cref="AllocationTests"/> alone.</summary>

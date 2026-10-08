@@ -201,11 +201,18 @@ internal sealed class Exec
     [DesignDecision(typeof(QuadSourceTermHandle.SourceSuppliesEquality), Scope = ExceptionScope.HotPath)]
     private int SourceHash(ulong raw) => Comparer.GetHashCode(new TermHandle(raw));
 
-    /// <summary>A fresh blank node for this execution (§7.9). Its label cannot come from a parse: it begins with a dot.</summary>
+    /// <summary>
+    /// A fresh blank node for this execution (§7.9): <c>q&lt;n&gt;</c>, a
+    /// label every RDF syntax can carry and no store writes — a store's
+    /// labels are <c>b&lt;n&gt;</c> (ADR 0098) — so it never internalises
+    /// to a source term. (It began with a dot until milestone 7b's
+    /// protocol run found that a <c>CONSTRUCT</c> answer carrying one did
+    /// not parse as N-Triples.)
+    /// </summary>
     internal RdfTerm MintBlankNode()
     {
         int n = ++_blankNodes;
-        return RdfTerm.BlankNode(Encoding.UTF8.GetBytes(string.Create(CultureInfo.InvariantCulture, $".b{n}")));
+        return RdfTerm.BlankNode(Encoding.UTF8.GetBytes(string.Create(CultureInfo.InvariantCulture, $"q{n}")));
     }
 
     /// <summary>BNODE(label): one node per label per solution, the solution recognised by its array (§17.4.2.9).</summary>

@@ -48,7 +48,7 @@ claim.
    dataset-wide**: there is no graph-scoped admin, and a dataset admin reads
    and writes every graph.
 2. **The scope reaches `Varve.Protocol` as a value, resolved by the host.** A
-   fourth seam, `IAccessScopes`, answers `AccessScope ScopesOf(ClaimsPrincipal,
+   fourth seam, `IAccessScopes`, answers `CallerScope ScopesOf(ClaimsPrincipal,
    DatasetName)`: a readable `GraphScope`, a writable `GraphScope`, and whether
    the caller is admin. `Varve.Protocol` knows no claim. The conformance host
    and anonymous mode answer `all`, `all`, admin.
@@ -62,7 +62,10 @@ claim.
    not a graph's. The filter is `[HotPath]`: an explicit set is a lookup of
    the graph handle in a set of handles resolved once; a prefix set is a
    decision per distinct graph handle, memoised, so a prefix check runs once
-   per graph per source, not per quad.
+   per graph per source, not per quad. The two are this ADR's hot-path
+   exceptions, `ScopeFilterIsASetLookup` and `PrefixDecisionMemoisedPerGraph`
+   in its set, cited where `VARVE0003` would otherwise report the set lookup
+   and the map.
 4. **Reads.** When the readable scope is not `all`, the request's view is
    `GraphScopedQuadSource(pinned, readable)`; **when it is `all`, the wrapper
    is not built**, so a request with an `all` grant allocates and costs what
@@ -85,12 +88,17 @@ claim.
      `GraphScopedQuadSource(staging overlay, readable)`, so a caller cannot
      delete what it cannot read, and the check before the submit throws
      `GraphNotWritableException`, which the protocol turns into the `403`.
-   - `ISparqlUpdateExecutor.ExecuteAsync` gains the `AccessScope` parameter;
+   - `ISparqlUpdateExecutor.ExecuteAsync` gains the `CallerScope` parameter;
      the host passes it to the options. ADR 0091 records it by amendment.
    - Graph Store `PUT`, `POST` and `DELETE`: a quad of the body or of the
      target graph outside the writable set is `403`; a `PUT` or `DELETE` of a
      graph **outside the readable set is `404`**, the same answer as for a
      missing graph, because a caller who cannot read it cannot know it exists.
+     A `POST` to the store, whose graph the server just named, reveals
+     nothing and is `403` alone when that name is outside the writable set.
+   - A `CLEAR ALL`, `DROP ALL` or `DELETE WHERE` over every graph clears
+     what the caller reads: a graph outside the readable set is untouched
+     and unmentioned, which is the same rule as for a `FROM`.
    - `LOAD` and `CLEAR`/`DROP`/`ADD`/`COPY`/`MOVE` produce quads like any
      operation, and the same check applies to the composed delta.
 7. **The tests.** Every W3C query and update evaluation case re-run through
@@ -131,9 +139,12 @@ claim.
 
 - A user without `read` on `G` cannot observe `G` through any endpoint,
   which the second property states and tests.
-- `Varve.Rdf`'s baseline gains `GraphScope`, `GraphScopedQuadSource` and
-  `AccessScope`; `Varve.Sparql.Store`'s gains the two options and the
-  exception; `Varve.Protocol`'s the seam and the parameter.
+- `Varve.Rdf`'s baseline gains `GraphScope`, `GraphScopedQuadSource`,
+  `CallerScope` and `GraphNotWritableException` — the exception at layer 1
+  beside the scope, because the executor that throws it and the protocol
+  that answers it are both layer 5 and cannot reference each other (ADR
+  0091); `Varve.Sparql.Store`'s gains the two options; `Varve.Protocol`'s the
+  seam and the parameter.
 - A scoped request pays a lookup per quad of an unrestricted pattern; the
   benchmark row says how much.
 - The service description's named-graph list is per caller, so its `ETag`

@@ -475,8 +475,10 @@ version (4) and variant bits.
 
 ### 7.9 `BNODE`, and blank nodes the evaluator mints
 
-A minted blank node is a local term with a label of the form `b<n>` unique in
-the execution; it never equals a blank node of the source (§4.1). `BNODE(s)`
+A minted blank node is a local term with a label of the form `q<n>` unique in
+the execution; it never equals a blank node of the source (§4.1), and the
+label is one a store never writes (a store's are `b<n>`, ADR 0098) and every
+syntax can carry, so a `CONSTRUCT` answer that holds one parses back. `BNODE(s)`
 returns the same node for the same `s` within one solution and different
 nodes across solutions (§17.4.2.9).
 

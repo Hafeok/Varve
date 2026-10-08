@@ -60,6 +60,7 @@ internal static class DiffEndpoint
             // The dictionary is append-only: the head names every handle a
             // diff between two earlier positions carries.
             using DatasetView names = dataset.Pin();
+            delta = new ScopeFilter(exchange.Scope.Readable).Apply(delta, names.TryExternalise);
             DeltaLines.WriteDiff(output, range.From, to, delta, names.TryExternalise);
         }).ConfigureAwait(false);
     }

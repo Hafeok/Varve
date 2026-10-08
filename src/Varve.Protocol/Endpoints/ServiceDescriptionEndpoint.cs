@@ -90,6 +90,7 @@ internal static class ServiceDescriptionEndpoint
 
         string service = ServiceAddress(exchange);
         SparqlEvaluator evaluator = new(exchange.Options.Evaluation);
+        IQuadSource source = exchange.Readable(view);
 
         await BoundedReads.RunAsync(context, exchange.Options, async (output, cancellationToken) =>
         {
@@ -100,7 +101,7 @@ internal static class ServiceDescriptionEndpoint
 
             RdfTerm dataset = RdfTerm.BlankNode("dataset"u8);
             int index = 0;
-            using QueryResults graphs = evaluator.Evaluate(NamedGraphs, view, cancellationToken);
+            using QueryResults graphs = evaluator.Evaluate(NamedGraphs, source, cancellationToken);
             SolutionResults solutions = (SolutionResults)graphs;
 
             while (solutions.MoveNext())

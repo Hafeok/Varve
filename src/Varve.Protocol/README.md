@@ -25,6 +25,14 @@ ASP.NET Core endpoint groups any host mounts.
 - **Authorisation is four policy names**, `varve:read`, `varve:write`,
   `varve:admin` and `varve:server-admin`. The host decides what satisfies
   them. Nothing here authenticates.
+- **Graph-level scope** (ADR 0106): after the policy, the host's
+  `IAccessScopes` answers what the caller reads and writes, by graph. A read
+  evaluates over `GraphScopedQuadSource`, so an unreadable graph is absent
+  from every answer — a `FROM` naming it names an empty graph, a Graph Store
+  `GET`, `PUT` or `DELETE` of it is `404` — and a write that changes a graph
+  outside the writable set is `403 graph-not-writable` with nothing
+  committed. The feed and the diff are cut to the readable graphs. A caller
+  whose scope is every graph is served by the unwrapped view.
 
 ```csharp
 app.MapGroup("/datasets/{dataset}").MapVarveDataset(new ProtocolOptions
@@ -32,6 +40,7 @@ app.MapGroup("/datasets/{dataset}").MapVarveDataset(new ProtocolOptions
     Datasets = resolver,
     Updates = executor,
     Identity = identity,
+    AccessScopes = EveryoneEverything.Instance,
     Authorization = app.Services.GetRequiredService<IAuthorizationService>(),
     Clock = TimeProvider.System,
 });

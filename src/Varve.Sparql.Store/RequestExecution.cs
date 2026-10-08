@@ -31,6 +31,7 @@ namespace Varve.Sparql.Store;
 internal sealed class RequestExecution
 {
     private readonly StagingView _staging;
+    private readonly IQuadSource _readable;
     private readonly Update _update;
     private readonly UpdateOptions _options;
     private readonly CancellationToken _cancellationToken;
@@ -51,6 +52,7 @@ internal sealed class RequestExecution
     internal RequestExecution(StagingView staging, Update update, UpdateOptions options, CancellationToken cancellationToken)
     {
         _staging = staging;
+        _readable = GraphScopedQuadSource.Wrap(staging, options.ReadScope);
         _update = update;
         _options = options;
         _cancellationToken = cancellationToken;
@@ -168,6 +170,7 @@ internal sealed class RequestExecution
     /// </summary>
     internal CommitRequest ToCommitRequest()
     {
+        CheckWritable();
         CommitRequest request = new() { ExpectedPosition = _dataOnly ? null : _staging.Position, Metadata = _options.Metadata };
 
         try
@@ -189,6 +192,53 @@ internal sealed class RequestExecution
 
         return request;
     }
+
+    /// <summary>
+    /// Every quad of the composed delta is in the writable scope, or the
+    /// request fails naming the first graph that is not (ADR 0106). A graph
+    /// is decided once: the delta names few graphs and many quads.
+    /// </summary>
+    private void CheckWritable()
+    {
+        GraphScope writable = _options.WriteScope;
+
+        if (writable.IsAll)
+        {
+            return;
+        }
+
+        Dictionary<TermHandle, bool> decided = [];
+        Check(_retracted, writable, decided);
+        Check(_asserted, writable, decided);
+    }
+
+    private void Check(HashSet<Quad> quads, GraphScope writable, Dictionary<TermHandle, bool> decided)
+    {
+        foreach (Quad quad in quads)
+        {
+            if (decided.TryGetValue(quad.Graph, out bool allowed))
+            {
+                if (!allowed)
+                {
+                    throw new GraphNotWritableException(GraphOf(quad.Graph));
+                }
+
+                continue;
+            }
+
+            RdfTerm? graph = GraphOf(quad.Graph);
+            allowed = writable.Allows(graph);
+            decided[quad.Graph] = allowed;
+
+            if (!allowed)
+            {
+                throw new GraphNotWritableException(graph);
+            }
+        }
+    }
+
+    private RdfTerm? GraphOf(TermHandle graph) =>
+        graph.IsNone ? null : _staging.TryExternalise(graph, out RdfTerm? term) ? term : throw new InvalidOperationException("A graph handle the staging view cannot name.");
 
     private void Add(CommitRequest request, Quad quad, bool assert)
     {
@@ -227,11 +277,11 @@ internal sealed class RequestExecution
     /// <summary>The state operation <c>k</c> reads: the staging view with the deltas before it.</summary>
     private IQuadSource Current() =>
         _asserted.Count == 0 && _retracted.Count == 0
-            ? _staging
-            : new QuadOverlay(_staging, QuadDelta.Create([.. _asserted], [.. _retracted]));
+            ? _readable
+            : new QuadOverlay(_readable, QuadDelta.Create([.. _asserted], [.. _retracted]));
 
     private bool InState(in Quad quad) =>
-        _asserted.Contains(quad) || (!_retracted.Contains(quad) && _staging.Contains(in quad));
+        _asserted.Contains(quad) || (!_retracted.Contains(quad) && _readable.Contains(in quad));
 
     /// <summary>
     /// Composes this operation's change onto the request's: its deletions

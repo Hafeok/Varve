@@ -11,13 +11,16 @@ namespace Varve.Conformance.Tests;
 
 /// <summary>
 /// The W3C query evaluation suites (<c>sparql-evaluation.md</c> §12.1): every
-/// case that is not blocked, over <see cref="InMemoryDataset"/> and over the
-/// store's default projection, one ratchet line per case per subject —
-/// <c>&lt;test IRI&gt;@dataset</c> and <c>&lt;test IRI&gt;@store</c>.
+/// case that is not blocked, over <see cref="InMemoryDataset"/>, over the
+/// store's default projection, over the store through a graph scope naming
+/// every graph of the case, and through the protocol with an <c>all</c>
+/// grant (ADR 0106), one ratchet line per case per subject —
+/// <c>&lt;test IRI&gt;@dataset</c>, <c>@store</c>, <c>@scoped</c> and
+/// <c>@protocol</c>.
 /// </summary>
 public class EvaluationConformanceTests
 {
-    internal static readonly string[] SubjectNames = ["dataset", "store"];
+    internal static readonly string[] SubjectNames = ["dataset", "store", "scoped", "protocol"];
 
     public static IEnumerable<TheoryDataRow<string>> Cases()
     {
@@ -47,7 +50,16 @@ public class EvaluationConformanceTests
     {
         int at = testIri.LastIndexOf('@');
         EvaluationEntry entry = EvaluationCatalogue.ByIri[testIri[..at]];
-        IEvaluationSubject subject = EvaluationSubjects.ByName(testIri[(at + 1)..]);
+        string name = testIri[(at + 1)..];
+
+        if (name == "protocol")
+        {
+            string? overHttp = await ProtocolEvaluationRunner.RunAsync(entry, TestContext.Current.CancellationToken);
+            Assert.True(overHttp is null, entry.Suite + " " + entry.Name + " (protocol): " + overHttp);
+            return;
+        }
+
+        IEvaluationSubject subject = EvaluationSubjects.ByName(name);
         string? failure = await EvaluationRunner.RunAsync(entry, subject, TestContext.Current.CancellationToken);
         Assert.True(failure is null, entry.Suite + " " + entry.Name + " (" + subject.Name + "): " + failure);
     }

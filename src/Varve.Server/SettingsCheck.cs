@@ -92,11 +92,48 @@ internal static class SettingsCheck
             }
         }
 
-        foreach (string name in auth.Datasets.Keys)
+        foreach ((string name, PermissionSettings permissions) in auth.Datasets)
         {
             if (!settings.Datasets.ContainsKey(name))
             {
                 errors.Add("Varve:Auth:Datasets:" + name + " grants permissions on a dataset that is not configured.");
+            }
+
+            for (int i = 0; i < permissions.Grants.Count; i++)
+            {
+                string at = "Varve:Auth:Datasets:" + name + ":Grants:" + i.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                GrantSettings grant = permissions.Grants[i];
+
+                if (string.IsNullOrWhiteSpace(grant.Claim))
+                {
+                    errors.Add(at + ":Claim names the claim value the grant is for.");
+                }
+
+                if (grant.Permission is not ("read" or "write"))
+                {
+                    errors.Add(at + ":Permission is read or write; admin is dataset-wide (ADR 0106).");
+                }
+
+                if (grant.Graphs.Count == 0 && grant.GraphPrefixes.Count == 0)
+                {
+                    errors.Add(at + " names at least one graph or graph prefix.");
+                }
+
+                foreach (string graph in grant.Graphs)
+                {
+                    if (graph != "default" && !Uri.TryCreate(graph, UriKind.Absolute, out _))
+                    {
+                        errors.Add(at + ":Graphs holds an absolute IRI or `default`, not " + graph + ".");
+                    }
+                }
+
+                foreach (string prefix in grant.GraphPrefixes)
+                {
+                    if (string.IsNullOrEmpty(prefix))
+                    {
+                        errors.Add(at + ":GraphPrefixes holds no empty prefix.");
+                    }
+                }
             }
         }
 

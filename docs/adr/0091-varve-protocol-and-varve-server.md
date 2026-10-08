@@ -135,7 +135,7 @@ Filed by milestone 7b of #11, unaccepted until the maintainer accepts it (ADR
 0066). It states consequences later decisions need (ADR 0068, point 2); what
 this ADR decided is unchanged.
 
-- **`ISparqlUpdateExecutor.ExecuteAsync` takes the caller's `AccessScope`**
+- **`ISparqlUpdateExecutor.ExecuteAsync` takes the caller's `CallerScope`**
   (ADR [0106](0106-graph-level-authorisation.md)), which the host passes to
   `UpdateOptions.ReadScope` and `WriteScope`. The seam is still one member,
   still bound by the host.

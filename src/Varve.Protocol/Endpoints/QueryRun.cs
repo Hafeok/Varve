@@ -109,10 +109,11 @@ internal static class QueryRun
         }
 
         SparqlEvaluator evaluator = new(exchange.Options.Evaluation);
+        IQuadSource source = exchange.Readable(view);
 
         await BoundedReads.RunAsync(context, exchange.Options, async (output, cancellationToken) =>
         {
-            using QueryResults answer = evaluator.Evaluate(query, view, cancellationToken);
+            using QueryResults answer = evaluator.Evaluate(query, source, cancellationToken);
 
             switch (answer)
             {

@@ -66,24 +66,44 @@ internal sealed class DatasetPermissionHandler(AuthSettings settings) : Authoriz
                 {
                     values.UnionWith(granted.Read);
                 }
+
+                // A scoped grant passes the dataset-level policy for its
+                // permission; the scope then bounds the request (ADR 0106).
+                foreach (GrantSettings grant in granted.Grants)
+                {
+                    if (grant.Claim is { } claim && (requirement.Permission == Permission.Read || (requirement.Permission == Permission.Write && grant.Permission == "write")))
+                    {
+                        values.Add(claim);
+                    }
+                }
             }
         }
 
-        foreach (System.Security.Claims.Claim claim in context.User.FindAll(settings.RoleClaimType))
+        if (HoldsAny(context.User, settings.RoleClaimType, values))
         {
-            if (Grants(claim.Value, values))
-            {
-                context.Succeed(requirement);
-                break;
-            }
+            context.Succeed(requirement);
         }
 
         return Task.CompletedTask;
     }
 
+    /// <summary>Whether one of the caller's role claims is a value in <paramref name="values"/>.</summary>
+    internal static bool HoldsAny(System.Security.Claims.ClaimsPrincipal user, string roleClaimType, HashSet<string> values)
+    {
+        foreach (System.Security.Claims.Claim claim in user.FindAll(roleClaimType))
+        {
+            if (Grants(claim.Value, values))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // A role claim is a string (Entra's app roles, Keycloak's), or a JSON
     // object whose property names are the roles (Zitadel's project roles).
-    private static bool Grants(string value, HashSet<string> granted)
+    internal static bool Grants(string value, HashSet<string> granted)
     {
         if (!value.StartsWith('{'))
         {

@@ -15,7 +15,6 @@ Varve.Protocol.ICallerIdentity.AgentOf(System.Security.Claims.ClaimsPrincipal! c
 Varve.Protocol.IDatasetResolver
 Varve.Protocol.IDatasetResolver.TryResolve(Varve.Protocol.Model.DatasetName name, out Varve.Store.Dataset? dataset) -> bool
 Varve.Protocol.ISparqlUpdateExecutor
-Varve.Protocol.ISparqlUpdateExecutor.ExecuteAsync(Varve.Store.Dataset! dataset, Varve.Sparql.Algebra.Update! update, Varve.Store.Log.CommitMetadata! metadata, Varve.Store.Log.Position? expectedPosition, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.CommitResult>
 Varve.Protocol.Model.AsOf
 Varve.Protocol.Model.AsOf.AsOf() -> void
 Varve.Protocol.Model.AsOf.Equals(Varve.Protocol.Model.AsOf other) -> bool
@@ -209,3 +208,13 @@ Varve.Protocol.ChangeFeedWriter
 static Varve.Protocol.ChangeFeedWriter.WriteCommit(System.Buffers.IBufferWriter<byte>! output, Varve.Store.Log.Commit! commit) -> void
 static Varve.Protocol.ChangeFeedWriter.WriteCommit(System.Buffers.IBufferWriter<byte>! output, Varve.Store.Log.Commit! commit, Varve.Rdf.QuadDelta delta) -> void
 static Varve.Protocol.ChangeFeedWriter.WriteDiff(System.Buffers.IBufferWriter<byte>! output, Varve.Store.Log.Position from, Varve.Store.Log.Position to, Varve.Rdf.QuadDelta delta, Varve.Rdf.IQuadSource! source) -> void
+Varve.Protocol.EveryoneEverything
+Varve.Protocol.EveryoneEverything.EveryoneEverything() -> void
+Varve.Protocol.EveryoneEverything.ScopesOf(System.Security.Claims.ClaimsPrincipal! caller, Varve.Protocol.Model.DatasetName dataset) -> Varve.Rdf.CallerScope!
+Varve.Protocol.IAccessScopes
+Varve.Protocol.IAccessScopes.ScopesOf(System.Security.Claims.ClaimsPrincipal! caller, Varve.Protocol.Model.DatasetName dataset) -> Varve.Rdf.CallerScope!
+Varve.Protocol.ISparqlUpdateExecutor.ExecuteAsync(Varve.Store.Dataset! dataset, Varve.Sparql.Algebra.Update! update, Varve.Store.Log.CommitMetadata! metadata, Varve.Store.Log.Position? expectedPosition, Varve.Rdf.CallerScope! scope, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.CommitResult>
+Varve.Protocol.ProtocolOptions.AccessScopes.get -> Varve.Protocol.IAccessScopes!
+Varve.Protocol.ProtocolOptions.AccessScopes.init -> void
+static Varve.Protocol.EveryoneEverything.Instance.get -> Varve.Protocol.EveryoneEverything!
+static Varve.Protocol.Model.ProblemType.GraphNotWritable.get -> Varve.Protocol.Model.ProblemType

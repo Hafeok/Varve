@@ -118,11 +118,33 @@ internal sealed class ServerPermissionSettings
 /// </summary>
 internal sealed class PermissionSettings
 {
+    /// <summary>Claim values that read every graph.</summary>
     public List<string> Read { get; set; } = [];
 
+    /// <summary>Claim values that write, and so read, every graph.</summary>
     public List<string> Write { get; set; } = [];
 
+    /// <summary>Claim values that administer the dataset: every permission, every graph.</summary>
     public List<string> Admin { get; set; } = [];
+
+    /// <summary>Grants scoped to graphs (ADR 0106); the lists above are the <c>all</c> case.</summary>
+    public List<GrantSettings> Grants { get; set; } = [];
+}
+
+/// <summary>One scoped grant (ADR 0106): a claim value, <c>read</c> or <c>write</c>, and the graphs it reaches.</summary>
+internal sealed class GrantSettings
+{
+    /// <summary>The claim value the grant is for.</summary>
+    public string? Claim { get; set; }
+
+    /// <summary><c>read</c> or <c>write</c>; write grants read.</summary>
+    public string? Permission { get; set; }
+
+    /// <summary>Graph IRIs, and <c>default</c> for the default graph.</summary>
+    public List<string> Graphs { get; set; } = [];
+
+    /// <summary>IRI prefixes: every named graph whose IRI starts with one.</summary>
+    public List<string> GraphPrefixes { get; set; } = [];
 }
 
 /// <summary>The limits (ADR 0095); an absent one takes its documented default.</summary>

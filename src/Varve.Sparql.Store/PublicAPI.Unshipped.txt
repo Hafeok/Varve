@@ -29,3 +29,7 @@ static Varve.Sparql.Store.Model.LoadedDocument.Of(System.ReadOnlyMemory<byte> co
 static Varve.Sparql.Store.SparqlUpdate.ExecuteAsync(Varve.Store.Dataset! dataset, Varve.Sparql.Algebra.Update! update, Varve.Sparql.Store.UpdateOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.CommitResult>
 Varve.Sparql.Store.UpdateOptions.ExpectedPosition.get -> Varve.Store.Log.Position?
 Varve.Sparql.Store.UpdateOptions.ExpectedPosition.init -> void
+Varve.Sparql.Store.UpdateOptions.ReadScope.get -> Varve.Rdf.GraphScope!
+Varve.Sparql.Store.UpdateOptions.ReadScope.init -> void
+Varve.Sparql.Store.UpdateOptions.WriteScope.get -> Varve.Rdf.GraphScope!
+Varve.Sparql.Store.UpdateOptions.WriteScope.init -> void

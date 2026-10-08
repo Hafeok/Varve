@@ -112,6 +112,15 @@ internal static class Writes
         }
     }
 
+    /// <summary><c>403</c> <c>graph-not-writable</c> (ADR 0106): the request changes a graph outside the caller's writable scope; nothing was committed.</summary>
+    internal static Task GraphNotWritableAsync(Exchange exchange, RdfTerm? graph)
+    {
+        string name = graph is null ? "the default graph" : "<" + Encoding.UTF8.GetString(graph.Lexical) + ">";
+        return HttpProblems.WriteAsync(exchange.Context, StatusCodes.Status403Forbidden, ProblemType.GraphNotWritable,
+            "The request changes a graph outside the caller's writable scope.", "Nothing was committed; the graph is " + name + ".",
+            json => json.WriteString("graph", graph is null ? "default" : Encoding.UTF8.GetString(graph.Lexical)));
+    }
+
     /// <summary><c>412</c>: the expected position is not the head.</summary>
     internal static Task PreconditionFailedAsync(Exchange exchange, Position head)
     {

@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Varve.Protocol.Http;
 using Varve.Protocol.Model;
+using Varve.Rdf;
 using Varve.Store;
 
 namespace Varve.Protocol.Endpoints;
@@ -17,13 +18,17 @@ internal sealed class Exchange
 {
     internal const string DatasetRouteValue = "dataset";
 
-    private Exchange(HttpContext context, ProtocolOptions options, DatasetName name, Dataset dataset)
+    private Exchange(HttpContext context, ProtocolOptions options, DatasetName name, Dataset dataset, CallerScope scope)
     {
         Context = context;
         Options = options;
         Name = name;
         Dataset = dataset;
+        Scope = scope;
     }
+
+    /// <summary>What the caller may see and change of this dataset, by graph (ADR 0106).</summary>
+    internal CallerScope Scope { get; }
 
     internal HttpContext Context { get; }
 
@@ -61,8 +66,15 @@ internal sealed class Exchange
             return null;
         }
 
-        return new Exchange(context, options, name, dataset);
+        return new Exchange(context, options, name, dataset, options.AccessScopes.ScopesOf(context.User, name));
     }
+
+    /// <summary>
+    /// <paramref name="view"/> as the caller sees it: through the readable
+    /// scope, or the view itself when the caller reads every graph, so that
+    /// an unscoped request costs what it did (ADR 0106).
+    /// </summary>
+    internal IQuadSource Readable(IQuadSource view) => GraphScopedQuadSource.Wrap(view, Scope.Readable);
 
     /// <summary>Authorises this request for another permission, as an update inside a <c>POST</c> needs.</summary>
     internal Task<bool> AuthorizeAsync(string permission) => AuthorizeAsync(Context, Options, permission, Name);

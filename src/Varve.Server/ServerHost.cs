@@ -204,6 +204,7 @@ internal static partial class ServerHost
             Administration = datasets,
             Updates = new StoreUpdates(clock, outbound),
             Identity = anonymous ? new NoAgent() : new TokenIdentity(settings.Auth.SubjectClaim),
+            AccessScopes = anonymous ? EveryoneEverything.Instance : new GrantedScopes(settings.Auth),
             Authorization = app.Services.GetRequiredService<IAuthorizationService>(),
             Clock = clock,
             Limits = new ProtocolLimits(
@@ -289,13 +290,15 @@ internal static partial class ServerHost
     /// <summary>The update executor (ADR 0091): Varve.Sparql.Store, no retries, the expected position passed through, SERVICE and LOAD through the outbound client (ADR 0103).</summary>
     private sealed class StoreUpdates(TimeProvider clock, Outbound outbound) : ISparqlUpdateExecutor
     {
-        public ValueTask<CommitResult> ExecuteAsync(Dataset dataset, Update update, CommitMetadata metadata, Position? expectedPosition, CancellationToken cancellationToken) =>
+        public ValueTask<CommitResult> ExecuteAsync(Dataset dataset, Update update, CommitMetadata metadata, Position? expectedPosition, Varve.Rdf.CallerScope scope, CancellationToken cancellationToken) =>
             SparqlUpdate.ExecuteAsync(dataset, update, new UpdateOptions
             {
                 Metadata = metadata,
                 ExpectedPosition = expectedPosition,
                 Evaluation = new EvaluationOptions { Clock = clock, Randomness = new SystemRandomness(), ServiceHandler = outbound.Service },
                 LoadSource = outbound.Load,
+                ReadScope = scope.Readable,
+                WriteScope = scope.Writable,
             }, cancellationToken);
     }
 

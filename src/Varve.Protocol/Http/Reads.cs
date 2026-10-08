@@ -118,6 +118,8 @@ internal static class Reads
     /// <summary>Whether the request carried <c>Varve-As-Of</c>.</summary>
     internal static bool IsAsOf(HttpContext context) => !StringValues.IsNullOrEmpty(context.Request.Headers[Preconditions.AsOfHeader]);
 
+    // Authorization: a response's content is per caller once grants are by
+    // graph (ADR 0106), so a cache keyed by the address alone is wrong.
     private static void SetVary(HttpResponse response) =>
-        response.Headers.Vary = new StringValues([HeaderNames.Accept, Preconditions.AsOfHeader]);
+        response.Headers.Vary = new StringValues([HeaderNames.Accept, Preconditions.AsOfHeader, HeaderNames.Authorization]);
 }

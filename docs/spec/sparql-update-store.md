@@ -27,7 +27,7 @@ CommitResult result = await SparqlUpdate.ExecuteAsync(dataset, update, options, 
 - **`dataset`** is a `Varve.Store.Dataset`; **`update`** is a parsed
   `Varve.Sparql.Algebra.Update`. The package pins, evaluates and commits; the
   caller holds nothing.
-- **`UpdateOptions`** is immutable and has five members, none with an
+- **`UpdateOptions`** is immutable and has seven members, none with an
   ambient default (ADR 0056's rule):
   - `Evaluation` — the `EvaluationOptions` every `WHERE` is evaluated with,
     and templates too: its clock and random source serve `NOW()`, `RAND()`,
@@ -43,6 +43,16 @@ CommitResult result = await SparqlUpdate.ExecuteAsync(dataset, update, options, 
     the result is `Conflict(head)`; when it matches, it is the commit's
     expected position and `ConflictRetries` does not apply. It is HTTP's
     `If-Match` (ADR 0094, milestone 7a).
+  - `ReadScope` — the `GraphScope` every pattern of the request reads through
+    (ADR 0106, milestone 7b): `S_k` of §3 is the overlay over the staging
+    view *seen through this scope*, so a `DELETE WHERE`, a `DELETE/INSERT …
+    WHERE`, `CLEAR`, `DROP`, `ADD`, `COPY` and `MOVE` see, and so change,
+    only the graphs the caller reads. Every graph by default, which wraps
+    nothing and costs nothing.
+  - `WriteScope` — the `GraphScope` the composed delta is checked against
+    before the submit (§3 step 4): one quad in a graph outside it fails the
+    whole request with `GraphNotWritableException`, which names the graph,
+    and nothing is committed. Every graph by default.
 - **Validators come from the dataset** (`DatasetOptions.Validators`, ADR
   0058), and run as part of the commit as always (T1 step 5).
 - **The result is the commit's**: `Committed(P)`, `NoChange(head)`,
@@ -72,7 +82,10 @@ and "a result of failure from any operation MUST abort the sequence". ADR
    ADR 0047), so the composed delta is exact against `G_P`.
 3. **Release** the pin. Nothing after this step reads it: the request is
    built, and what ties it to the pin is the position it expects.
-4. **Submit** the composed delta `Δ` as one commit with
+4. **Check, then submit** the composed delta `Δ`. Every quad of `Δ` is in
+   `WriteScope` (ADR 0106), each graph decided once, or the request fails
+   with `GraphNotWritableException` naming the first graph that is not;
+   nothing is submitted on that path. Then `Δ` goes as one commit with
    `expectedPosition = P`: each retraction and assertion of `Δ` becomes an
    operation of one `CommitRequest`, a term the pin holds as
    `RequestTerm.Existing(handle)` and a staged term as a request term the
@@ -231,7 +244,10 @@ The entry point of §2, and the only way in.
 
 ### 6.2 `UpdateOptions`
 
-As §2.
+As §2. `ReadScope` and `WriteScope` are `Varve.Rdf.GraphScope` (ADR 0106);
+the exception they can raise, `GraphNotWritableException`, is `Varve.Rdf`'s
+too, because this package and `Varve.Protocol`, which answers it with `403`,
+are both layer 5.
 
 ### 6.3 `ILoadSource`
 

@@ -64,6 +64,13 @@ public sealed class AuthTests : IAsyncLifetime
             ["Varve:Auth:Datasets:d:Admin:0"] = "administrator",
             ["Varve:Auth:Datasets:e:Admin:0"] = "reader",
             ["Varve:Auth:Server:Admin:0"] = "operator",
+            ["Varve:Auth:Datasets:d:Grants:0:Claim"] = "people",
+            ["Varve:Auth:Datasets:d:Grants:0:Permission"] = "write",
+            ["Varve:Auth:Datasets:d:Grants:0:Graphs:0"] = "default",
+            ["Varve:Auth:Datasets:d:Grants:0:Graphs:1"] = "http://ex/g/people",
+            ["Varve:Auth:Datasets:d:Grants:1:Claim"] = "public",
+            ["Varve:Auth:Datasets:d:Grants:1:Permission"] = "read",
+            ["Varve:Auth:Datasets:d:Grants:1:GraphPrefixes:0"] = "http://ex/g/public/",
             ["Varve:Datasets:d:Storage"] = "Memory",
             ["Varve:Datasets:e:Storage"] = "Memory",
         });
@@ -167,6 +174,81 @@ public sealed class AuthTests : IAsyncLifetime
         HttpResponseMessage feed = await SendAsync("GET", "datasets/d/feed?to=1", _issuer.Mint(Claims("reader")));
         string body = await feed.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.Contains("agent <" + _issuer.Issuer + "#alice%40example.org%2F%C3%BC>", body, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A graph-scoped user (ADR 0106): "people" writes the default graph and
+    /// one named graph; "public" reads by prefix. Each passes the dataset's
+    /// policy for its permission and is then bounded by its scope: the
+    /// query shows its graphs, the Graph Store answers 404 for a graph it
+    /// cannot read and 403 for one it cannot write, an update outside the
+    /// scope commits nothing, and the feed is filtered.
+    /// </summary>
+    [Fact]
+    public async Task a_graph_scoped_user_sees_and_changes_its_graphs_alone()
+    {
+        string admin = _issuer.Mint(Claims("administrator"));
+        string people = _issuer.Mint(Claims("people"));
+        string @public = _issuer.Mint(Claims("public"));
+        await SendUpdateAsync(admin, "INSERT DATA { GRAPH <http://ex/g/secret> { <http://ex/s> <http://ex/p> \"secret\" } . GRAPH <http://ex/g/public/1> { <http://ex/u> <http://ex/p> \"public\" } . GRAPH <http://ex/g/people> { <http://ex/a> <http://ex/p> \"people\" } }");
+
+        // The query: each caller's graphs, and no error for an unreadable FROM.
+        string graphs = await BodyAsync("GET", "datasets/d/sparql?query=" + Uri.EscapeDataString("SELECT ?g WHERE { GRAPH ?g {} }"), people);
+        Assert.Contains("http://ex/g/people", graphs, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret", graphs, StringComparison.Ordinal);
+        Assert.DoesNotContain("public", graphs, StringComparison.Ordinal);
+        string prefixed = await BodyAsync("GET", "datasets/d/sparql?query=" + Uri.EscapeDataString("SELECT ?g WHERE { GRAPH ?g {} }"), @public);
+        Assert.Contains("http://ex/g/public/1", prefixed, StringComparison.Ordinal);
+        Assert.DoesNotContain("people", prefixed, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret", prefixed, StringComparison.Ordinal);
+
+        // The Graph Store: 404 unreadable, 403 unwritable, 204 within the scope.
+        Assert.Equal(HttpStatusCode.NotFound, (await SendAsync("GET", "datasets/d/graphs?graph=" + Uri.EscapeDataString("http://ex/g/secret"), people)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await SendAsync("PUT", "datasets/d/graphs?graph=" + Uri.EscapeDataString("http://ex/g/secret"), people)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync("PUT", "datasets/d/graphs?default", @public)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync("PUT", "datasets/d/graphs?graph=" + Uri.EscapeDataString("http://ex/g/public/1"), @public)).StatusCode);
+        Assert.True((await SendAsync("PUT", "datasets/d/graphs?default", people)).StatusCode is HttpStatusCode.Created or HttpStatusCode.NoContent);
+
+        // An update: one quad outside the writable scope fails the request.
+        HttpResponseMessage refused = await SendUpdateAsync(people, "INSERT DATA { <http://ex/x> <http://ex/p> 1 . GRAPH <http://ex/g/secret> { <http://ex/y> <http://ex/p> 1 } }");
+        Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+        Assert.Contains("graph-not-writable", await refused.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendUpdateAsync(@public, "INSERT DATA { GRAPH <http://ex/g/public/1> { <http://ex/x> <http://ex/p> 1 } }")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await SendUpdateAsync(people, "INSERT DATA { GRAPH <http://ex/g/people> { <http://ex/b> <http://ex/p> 2 } }")).StatusCode);
+
+        // CLEAR ALL clears what the caller reads, and the secret graph is
+        // not that: it survives, unseen (ADR 0106).
+        Assert.Equal(HttpStatusCode.NoContent, (await SendUpdateAsync(people, "CLEAR ALL")).StatusCode);
+        Assert.Contains("secret", await BodyAsync("GET", "datasets/d/sparql?query=" + Uri.EscapeDataString("SELECT ?o WHERE { GRAPH ?g { ?s ?p ?o } }"), admin), StringComparison.Ordinal);
+        Assert.DoesNotContain("people", await BodyAsync("GET", "datasets/d/sparql?query=" + Uri.EscapeDataString("SELECT ?o WHERE { GRAPH ?g { ?s ?p ?o } }"), admin), StringComparison.Ordinal);
+
+        // The feed: the caller's graphs alone, and the secret never named.
+        // Four commits so far: the fill, the PUT, the insert, the CLEAR.
+        string feed = await BodyAsync("GET", "datasets/d/feed?from=0&to=4", people);
+        Assert.Contains("http://ex/g/people", feed, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret", feed, StringComparison.Ordinal);
+        Assert.DoesNotContain("http://ex/g/public", feed, StringComparison.Ordinal);
+
+        // Admin and status stay dataset-wide: a scoped user holds neither.
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync("GET", "datasets/d/status", people)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await SendAsync("GET", "datasets/d/status", admin)).StatusCode);
+    }
+
+    private async Task<HttpResponseMessage> SendUpdateAsync(string token, string update)
+    {
+        HttpRequestMessage request = new(HttpMethod.Post, new Uri("datasets/d/sparql", UriKind.Relative))
+        {
+            Content = new StringContent(update, Encoding.UTF8, "application/sparql-update"),
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return await _server.Client.SendAsync(request, TestContext.Current.CancellationToken);
+    }
+
+    private async Task<string> BodyAsync(string method, string path, string token)
+    {
+        HttpResponseMessage response = await SendAsync(method, path, token);
+        Assert.True(response.StatusCode < HttpStatusCode.BadRequest, method + " " + path + ": " + response.StatusCode);
+        return await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
     }
 
     private static Dictionary<string, object> Claims(string role, string subject = "subject-1") =>

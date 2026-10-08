@@ -112,7 +112,7 @@ internal static class EvaluationRunner
             : throw new InvalidOperationException("The query does not parse: " + error);
     }
 
-    private static string? Compare(EvaluationEntry entry, Query query, QueryResults results, string? expectedPath)
+    internal static string? Compare(EvaluationEntry entry, Query query, QueryResults results, string? expectedPath)
     {
         if (entry.ResultIri is null && expectedPath is null)
         {
@@ -178,7 +178,7 @@ internal static class EvaluationRunner
     }
 
     /// <summary>Whether the query orders its solutions, and the ORDER BY keys that are plain variables.</summary>
-    private static (bool Ordered, List<string> Keys) OrderOf(QueryPattern pattern)
+    internal static (bool Ordered, List<string> Keys) OrderOf(QueryPattern pattern)
     {
         while (true)
         {

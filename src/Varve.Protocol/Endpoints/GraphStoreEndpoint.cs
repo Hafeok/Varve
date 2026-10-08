@@ -82,6 +82,18 @@ internal static class GraphStoreEndpoint
             // §5.5: a POST to the store makes a new graph, named by the server.
             string minted = exchange.Address().TrimEnd('/') + "/" + context.TraceIdentifier.Replace(':', '-');
             target = new Target(TargetKind.Named, RdfTerm.Iri(Encoding.UTF8.GetBytes(minted)), minted);
+
+            // A name the server just made reveals nothing: the one question
+            // is whether the caller may write it (ADR 0106).
+            if (!exchange.Scope.Writable.Allows(target.Graph))
+            {
+                await Writes.GraphNotWritableAsync(exchange, target.Graph).ConfigureAwait(false);
+                return;
+            }
+        }
+        else if (!await MayWriteAsync(exchange, target).ConfigureAwait(false))
+        {
+            return;
         }
 
         List<BodyTriple>? triples = await ReadBodyAsync(exchange, target, allowMultipart: HttpMethods.IsPost(method)).ConfigureAwait(false);
@@ -128,7 +140,8 @@ internal static class GraphStoreEndpoint
             return;
         }
 
-        IQuadCursor? cursor = Open(view, target);
+        IQuadSource source = exchange.Readable(view);
+        IQuadCursor? cursor = Open(source, target);
 
         if (cursor is null || !cursor.MoveNext())
         {
@@ -162,15 +175,44 @@ internal static class GraphStoreEndpoint
                 cancellationToken.ThrowIfCancellationRequested();
                 Quad current = cursor.Current;
                 Quad triple = new(current.Subject, current.Predicate, current.Object);
-                NQuadsWriter.Write(output, in triple, view, in lines);
+                NQuadsWriter.Write(output, in triple, source, in lines);
                 await output.FlushIfDueAsync(cancellationToken).ConfigureAwait(false);
             }
             while (cursor.MoveNext());
         }).ConfigureAwait(false);
     }
 
+    // A graph the caller cannot read is answered as a graph that is not
+    // there, whatever the write; one it reads but may not write is 403
+    // (ADR 0106). Asked before the body is read for a PUT or POST, and
+    // before the view is pinned: the answers cost nothing.
+    private static async Task<bool> MayWriteAsync(Exchange exchange, Target target)
+    {
+        RdfTerm? graph = target.Kind == TargetKind.Default ? null : target.Graph;
+
+        if (!exchange.Scope.Readable.Allows(graph))
+        {
+            Preconditions.Describe(exchange.Response, exchange.Dataset.Head);
+            await HttpProblems.WriteAsync(exchange.Context, StatusCodes.Status404NotFound, ProblemType.GraphNotFound, "No graph by that name holds a quad.").ConfigureAwait(false);
+            return false;
+        }
+
+        if (!exchange.Scope.Writable.Allows(graph))
+        {
+            await Writes.GraphNotWritableAsync(exchange, graph).ConfigureAwait(false);
+            return false;
+        }
+
+        return true;
+    }
+
     private static async Task DeleteAsync(Exchange exchange, Target target, WritePlan plan)
     {
+        if (!await MayWriteAsync(exchange, target).ConfigureAwait(false))
+        {
+            return;
+        }
+
         CommitRequest request;
         bool exists;
 
@@ -265,7 +307,7 @@ internal static class GraphStoreEndpoint
         return cursor is not null && cursor.MoveNext();
     }
 
-    private static IQuadCursor? Open(DatasetView view, Target target)
+    private static IQuadCursor? Open(IQuadSource view, Target target)
     {
         if (target.Kind == TargetKind.Default)
         {

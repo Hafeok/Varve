@@ -105,6 +105,8 @@ internal static class FeedEndpoint
         ArrayBufferWriter<byte> record = new(4096);
         long written = 0;
         Position last = range.From;
+        ScopeFilter scope = new(exchange.Scope.Readable);
+        bool admin = exchange.Scope.IsAdmin;
 
         try
         {
@@ -140,9 +142,15 @@ internal static class FeedEndpoint
                     return;
                 }
 
-                QuadDelta delta = storeFilters ? commit.Delta : filter.Apply(commit);
+                // The caller's scope (ADR 0106): a data commit's delta cut
+                // to the readable graphs, dropped when nothing is left; a
+                // settings or erasure commit for an admin alone. The next
+                // record delivered carries its true position, so a client
+                // resumes as before (change-feed.md §8).
+                QuadDelta delta = scope.Apply(storeFilters ? commit.Delta : filter.Apply(commit), commit.TryExternalise);
+                bool deliver = commit.Kind == CommitKind.Data ? !delta.IsEmpty : admin;
 
-                if (commit.Kind != CommitKind.Data || !delta.IsEmpty)
+                if (deliver)
                 {
                     record.ResetWrittenCount();
                     DeltaLines.WriteCommit(record, commit, delta, commit.TryExternalise);
