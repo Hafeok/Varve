@@ -99,6 +99,14 @@ internal static class ServiceDescriptionEndpoint
                 TermLines.WriteTriple(output, s, p, o);
             }
 
+            // Federation is advertised when the host answers SERVICE (ADR
+            // 0103): the handler's default refuses, and a refusing endpoint
+            // claiming sd:BasicFederatedQuery would be a lie.
+            if (exchange.Options.Evaluation.ServiceHandler is not RefusingServiceHandler)
+            {
+                TermLines.WriteTriple(output, Iri(service), Iri(Sd + "feature"), Iri(Sd + "BasicFederatedQuery"));
+            }
+
             RdfTerm dataset = RdfTerm.BlankNode("dataset"u8);
             int index = 0;
             using QueryResults graphs = evaluator.Evaluate(NamedGraphs, source, cancellationToken);
@@ -180,6 +188,9 @@ internal static class ServiceDescriptionEndpoint
         triples.Add((self, Iri(Varve + "graphStore"), Iri(prefix + "graphs")));
         triples.Add((self, Iri(Varve + "changeFeed"), Iri(prefix + "feed")));
         triples.Add((self, Iri(Varve + "diff"), Iri(prefix + "diff")));
+        triples.Add((self, Iri(Varve + "status"), Iri(prefix + "status")));
+        triples.Add((self, Iri(Varve + "settings"), Iri(prefix + "settings")));
+        triples.Add((self, Iri(Varve + "checkpoints"), Iri(prefix + "checkpoints")));
         triples.Add((self, Iri(Varve + "feedFormat"), Literal(MediaTypes.Delta + "; version=1")));
         triples.Add((self, Iri(Varve + "feedFormat"), Literal(MediaTypes.EventStream)));
         return triples;

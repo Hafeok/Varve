@@ -182,11 +182,11 @@ and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone 7a. `src/` holds `Varve.Analyzers`, `Varve.Iri` and `Varve.Xsd`
+Milestone 7b. `src/` holds `Varve.Analyzers`, `Varve.Iri` and `Varve.Xsd`
 (0), `Varve.Rdf` (1), `Varve.Turtle`, `Varve.Sparql` and
 `Varve.Sparql.Results` (2), `Varve.Sparql.Evaluation` (3), `Varve.Store` (4),
-`Varve.Sparql.Store`, `Varve.Store.Browser` and **`Varve.Protocol`** (5), and
-**`Varve.Server`** (6), the first host. The evaluator answers SPARQL 1.1 queries,
+`Varve.Sparql.Store`, `Varve.Store.Browser`, `Varve.Protocol` and
+**`Varve.Protocol.Client`** (5), and `Varve.Server` (6), the one host. The evaluator answers SPARQL 1.1 queries,
 with the 1.2 additions, over any `IQuadSource`; the results package reads and
 **writes** XML, JSON, CSV and TSV; **one SPARQL Update request is one commit**
 — or none when its net effect is empty — evaluated operation by operation over
@@ -229,9 +229,25 @@ the ratchet holds **2,927** lines. `Varve.Server` is the Native AOT host: OIDC
 bearer tokens through `JwtBearer` (ADR 0099), per-dataset `read`, `write` and
 `admin`, an explicit anonymous mode refused in production, readiness, and a
 draining shutdown; auth is tested against an issuer in the test everywhere, and
-against mock-oauth2-server and Zitadel on Linux CI (ADR 0100). Not built: HTTP
-for `LOAD` and `SERVICE`, the admin API, the CLI, the container image,
-archive, erasure mode, SHACL.
+against mock-oauth2-server and Zitadel on Linux CI (ADR 0100). **Since
+milestone 7b (ADRs 0102–0108, filed unaccepted)**: `Varve.Protocol.Client`
+speaks to a dataset over HTTP and gives the evaluator `SERVICE` and the
+executor `LOAD` over HTTP under an endpoint allow-list the host sets (ADRs
+0102, 0103); `Varve.Server` is the `varve` command line too — create, info,
+load, query, update, export, checkpoint, feed, serve — as a .NET tool and the
+AOT single file, embedded over a directory or remote over a URL with OIDC
+device-code or client-credentials tokens and a credential file (ADR 0104); the
+admin API lists, creates, opens, closes and deletes datasets and takes a
+dataset's settings and checkpoints (ADR 0105); grants are scoped by graph,
+through `GraphScopedQuadSource` at layer 1 and the `IAccessScopes` seam, so
+an unreadable graph is unobservable and an unwritable one refuses the write
+(ADR 0106); the bulk loader resolves and spills on worker threads (ADR 0107);
+runs carry a term filter in **derived format 3**, format 2 read and migrated
+by maintenance (ADR 0108); data-only update requests expect no position (ADR
+0057, amended). The query suites run over four subjects and the update suites
+through the protocol too, and the ratchet holds **4,122** lines.
+`docs/operator/` is the operator's guide. Not built: the container image,
+telemetry, archive, erasure mode, SHACL.
 `docs/roadmap.md` has the rest, an owner and a due milestone per open
 question.
 

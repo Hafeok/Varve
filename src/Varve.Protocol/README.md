@@ -17,6 +17,11 @@ ASP.NET Core endpoint groups any host mounts.
 - **The change feed** is `application/vnd.varve.delta; version=1`, or
   server-sent events for a live tail. `ChangeFeedReader` reads it with Varve's
   own terms.
+- **The service description** says what the endpoint does: its languages
+  and formats, the named graphs the caller may see, the event-sourced
+  extensions under `https://w3id.org/varve/ns#` — `position`, the headers,
+  `graphStore`, `changeFeed`, `diff`, `status`, `settings`, `checkpoints` —
+  and `sd:BasicFederatedQuery` when the host answers `SERVICE` (ADR 0103).
 - **The admin API** (ADR 0105): `MapVarveAdministration` mounts
   `GET /datasets`, `PUT` and `DELETE` of `/datasets/{name}`, and
   `POST …/open` and `…/close`, over the host's `IDatasetAdministration`; each

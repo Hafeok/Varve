@@ -404,8 +404,11 @@ the endpoints for the event-sourced features.
   - time travel over HTTP, the change feed and the diff;
   - authentication tested in three layers;
   - the server's configuration, Native AOT, graceful shutdown and readiness.
-- **7b**: the admin API, the CLI, and `SERVICE` and `LOAD` over HTTP. The
-  release `0.1.0-preview.2` follows 7b, not 7a.
+- **7b** (ADRs 0102–0108): `Varve.Protocol.Client`, `SERVICE` and `LOAD`
+  over HTTP, the `varve` command line, the admin API, graph-level
+  authorisation, the bulk loader on worker threads and per-run term filters
+  (derived format 3), the operator's guide. The release `0.1.0-preview.2`
+  follows 7b, not 7a.
 
 Q1's protocol half is **closed by ADR 0098** (spec 1.6): stable labels out,
 fresh labels in, no skolem IRIs. The paragraph below is kept as the record of
@@ -446,18 +449,26 @@ server existing, and none of them should wait for a validator.
 - **Query and resource governance** — timeouts, result-size limits, memory
   ceilings per request, and a defined answer for what happens when one is hit.
   On an event-sourced store an as-of read can touch an unbounded amount of log,
-  so this is not a nicety.
+  so this is not a nicety. *Done at 7a* (ADR 0095: `Varve:Limits`, every read
+  pinned and bounded, cut with an error trailer).
 - **OpenTelemetry** — traces, metrics and logs, to the semantic conventions for
-  a database server.
+  a database server. *Open.*
 - **Health and readiness**, which are different questions here: the process
   being up is not the dataset being open and the projections having caught up.
+  *Done at 7a* (`/live`, `/ready` with each dataset's state and reason).
 - **Graceful shutdown** — in-flight requests drained, the sequencer quiesced,
   the lease file in `derived/` released. A lease left behind by a killed process
-  is an operator's problem on the next start.
+  is an operator's problem on the next start. *Done at 7a* (ADR 0101).
 - **Configuration** — ADR 0037's surface, plus dataset paths and limits, from
-  file, environment and command line.
-- **Container image** for the server.
-- **CLI as a `dotnet tool`**.
+  file, environment and command line. *Done at 7a and 7b*
+  (`docs/operator/configure.md`).
+- **Container image** for the server. *Open*: the AOT single file is the
+  entry point; the registries (GHCR, Docker Hub) and the base image are the
+  maintainer's to choose.
+- **CLI as a `dotnet tool`**. *Done at 7b* (ADR 0104: `Varve.Server` is the
+  tool, command `varve`).
+- **The operator's guide** — `docs/operator/`: run, configure, authenticate,
+  back up and restore, upgrade. *Written at 7b.*
 
 ## 8 — SHACL
 
