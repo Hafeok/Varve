@@ -80,7 +80,7 @@ superseding ADR rather than an edit.
 | [0086](0086-home-of-the-eng-gates.md) | Home of the eng/ gates | Accepted; complements 0036 and 0039 |
 | [0087](0087-the-identity-map.md) | The identity map: who signs off, accepts and approves for an agent | Accepted; enforces 0034 point 3; amended 2026-10-06 (approval by comment on one's own pull request; the exit to a signed ledger Review); amended again 2026-10-06 (the judging script is always main's; only App-pinned checks count; approval by comment is not a valid workflow); amended 2026-10-08 (an approved head lands through land/) |
 | [0088](0088-only-checked-commits-reach-main.md) | Only checked commits reach main | Accepted; **supersedes 0032**; amended 2026-10-06 (required check names are checked); amended 2026-10-08 (a release's review is its descriptor's approval; `HumanReviewGatesReleases` superseded by 0102) |
-| [0102](0102-a-release-is-a-descriptor.md) | A release is a descriptor, and landing it cuts it | **Proposed** (filed unaccepted, ADR 0066); **supersedes 0085** and 0088's `HumanReviewGatesReleases`; amends 0087 rule 3 |
+| [0102](0102-a-release-is-a-descriptor.md) | A release is a descriptor, and landing it cuts it | **Accepted** (filed unaccepted, ADR 0066); **supersedes 0085** and 0088's `HumanReviewGatesReleases`; amends 0087 rule 3 |
 | [0036](0036-containerised-development.md) | Containerised development and the local pipeline | Accepted |
 
 

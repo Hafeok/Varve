@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by the release-descriptor session of #73,
+**Accepted — filed unaccepted by the release-descriptor session of #73,
 2026-10-08** (ADR 0066). Decided by the maintainer on the plan for #73;
 acceptance is the maintainer's act on the pull request.
 
