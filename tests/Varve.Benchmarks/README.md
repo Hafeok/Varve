@@ -962,3 +962,61 @@ the wrapper, its set of handles and one cursor — per request, never per quad
 (`AllocationTests` asserts 56 bytes a solution through a scope, as through
 the view). A request whose scope is every graph is served by the view itself
 and pays nothing.
+
+### The bulk loader on worker threads (ADR 0107)
+
+```bash
+dotnet run -c Release --project tests/Varve.Benchmarks -- --bulk-gate 10000000 --memory-mib 256 [--workers 1]
+dotnet run -c Release --project tests/Varve.Benchmarks -- --bulk-gate 100000000 --memory-mib 1024
+```
+
+The 6c gate, before (the 7b head before item 6) and after, on the same
+four-core machine in one session, no heap limit. "Input" is the parse,
+resolve and spill of the operations; "commit" is the merge-join and the six
+orders, unchanged.
+
+| Load | Workers | Input | Commit | Total | Quads/s | Peak managed heap | Peak working set |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 10M generated, 256 MiB, before | parser's thread | 31.6 s | 51.1 s | 82.7 s | 120,863 | 435 MB | 793 MB |
+| 10M generated, 256 MiB, after | 1 | 24.0 s | 49.3 s | 73.3 s | 136,407 | 393 MB | 762 MB |
+| 10M generated, 256 MiB, after | 3 (default) | 15.4 s | 52.8 s | 68.2 s | 146,643 | 533 MB | 739 MB |
+| 100M generated, 1 GiB, before | parser's thread | 377.2 s | 670.1 s | 1,047.4 s | 95,478 | 1,309 MB | 2,272 MB |
+| 100M generated, 1 GiB, after | 3 (default) | 172.9 s | 734.0 s | 906.9 s | 110,268 | 1,346 MB | 1,978 MB |
+
+The input stage halves with three workers at both sizes: the parser copies
+terms and nothing more, and the hash lookups, the dictionary reads and the
+spills run beside it. The commit — unchanged in code — is the larger part
+now, and its 670 → 734 s at 100M is the machine's variance between two
+seventeen-minute runs, not the change's. The 100-million row stays the gate
+(ADR 0081); it was run without a heap limit here, and the 10M row again
+under a 512 MiB `DOTNET_GCHeapHardLimit` (below). One worker is the 6c pipeline
+with one buffer of overlap, and is already faster than the parser doing the
+work itself. The result is the same at any worker count, which
+`BulkLoadTests` asserts for the quads and the ids alike.
+
+### Per-run term filters (ADR 0108)
+
+```bash
+dotnet run -c Release --project tests/Varve.Benchmarks -- --filter 'Varve.Benchmarks.TermLookupBenchmarks.*' \
+  --inProcess --warmupCount 3 --iterationCount 10
+```
+
+10,000 lookups by term over a pinned view of a million quads whose
+projection lies in three disk runs, before (derived format 2) and after
+(format 3, a blocked Bloom filter of eight bits a term in each run):
+
+| 10,000 lookups | Before | After |
+|---|---:|---:|
+| Terms no run holds: a filter probe per run, where it was a hash-index window per run | 48.8 ms ± 5.2 | **2.9 ms ± 0.4** |
+| Terms the dataset holds, each in one run | 9.1 ms ± 0.4 | 6.3 ms ± 1.3 |
+
+An absent term costs 0.3 µs where it cost 4.9 µs; a present one skips the
+runs that do not hold it. `FileCommitBenchmarks`' thousand single-quad
+commits of new terms into 100,000 quads moved from 309 ± 42 ms to 332 ± 35 ms
+— within the error either way: that row is the device's flush, 0.23 ms a
+commit, not the lookups. The filter is a byte a term per run on disk and in
+memory while the run is held; the soak below counts it.
+
+### Soak: one hour, the policy on, on the final code (ADR 0082)
+
+Running as this revision is written; the figures follow in the closing commit.
