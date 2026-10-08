@@ -197,6 +197,19 @@ at that commit."
 on `main`, and only `main` and `land/**` reach the `gates` environment. That
 run is reported on the pull request when it has happened.
 
+One effect is expected in that run. The `land/` push also runs `agent
+review` with **main's** script, from before the amendment, which fails a
+`land/` range with an agent's commits. It updates the App's run on the same
+sha to failure, so:
+- the plan's head guard probably reports that failure;
+- the dry run, which goes on past findings, still runs every gate and mints
+  and shows the tagging identity;
+- the pull request's own `agent review` is restored by commenting `approve
+  <sha>` again.
+
+From the merge of this change on, main's script admits an approved head, and
+the effect is gone.
+
 ### What 7b must change in its close-out
 
 1. Add `releases/v0.1.0-preview.2.yaml`, starting from `dotnet run
