@@ -72,6 +72,7 @@ jobs:
 
     outputs:
       count: ${{ steps.plan.outputs.count }}
+      problems: ${{ steps.plan.outputs.problems }}
       version: ${{ steps.plan.outputs.version }}
       sha: ${{ steps.plan.outputs.sha }}
       message: ${{ steps.plan.outputs.message }}
@@ -169,6 +170,7 @@ jobs:
           SHA: ${{ needs.plan.outputs.sha }}
           MESSAGE: ${{ needs.plan.outputs.message }}
           PRERELEASE: ${{ needs.plan.outputs.prerelease }}
+          PROBLEMS: ${{ needs.plan.outputs.problems }}
           TAGGER: ${{ steps.identity.outputs.name }} <${{ steps.identity.outputs.email }}>
         run: |
           set -euo pipefail
@@ -176,8 +178,13 @@ jobs:
             echo "::error::$VERSION is tagged already"
             exit 1
           fi
+          if [ "$PROBLEMS" != "0" ]; then
+            verdict="would **not** have been tagged: the plan found $PROBLEMS problem(s), listed in its summary above; everything else below ran"
+          else
+            verdict="would have been tagged"
+          fi
           {
-            echo "### Dry run: \`$VERSION\` would have been tagged; nothing was created"
+            echo "### Dry run: \`$VERSION\` $verdict. Nothing was created"
             echo
             echo "| | |"
             echo "|---|---|"
@@ -193,6 +200,10 @@ jobs:
             echo "start no workflow, and nothing would be published. \`publish.yml\` then pushes to nuget.org and"
             echo "creates the GitHub Release with the same token."
           } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$PROBLEMS" != "0" ]; then
+            echo "::error::the dry run found $PROBLEMS problem(s) that would stop the cut; see the plan's summary"
+            exit 1
+          fi
 
       - name: Create and push the annotated tag
         if: env.DRY_RUN != 'true'

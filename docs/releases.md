@@ -154,7 +154,9 @@ by milestone, as material for the next summary.
 
 The dry run creates nothing. It runs every gate at the commit under release,
 and the step summary says which tag would have been created, on which commit,
-by whom and with what message. It runs on:
+by whom and with what message. It does not stop at a finding: the plan lists
+what would stop the cut and the gates and the tagging identity still run, so
+one run shows everything in the way. Then it fails. It runs on:
 - `workflow_dispatch` of **Release** with `dry_run: true`;
 - every push to `land/release-**`, on the head about to become `main`.
 

@@ -55,13 +55,16 @@
 // (a push's before) plans only when the push changed releases/, which is what
 // a workflow `paths` filter would do were the land/ dry run not on the same
 // trigger. --landing is a land/release-** push: the head is not on main yet,
-// so it must descend from main instead. --dry-run changes nothing here (this
-// step never creates anything) except the words, and with --fallback <dir> it
-// plans that directory's descriptor when releases/ has nothing pending, so the
-// path is exercised before the first real release.
+// so it must descend from main instead. A dry run (--dry-run, or --landing)
+// does not stop at its findings: it reports them as `problems` and still
+// plans, so the workflow runs the gates and shows the tagging identity, and
+// its last step fails when anything stood in the way. With --fallback <dir> a
+// dry run plans that directory's descriptor when releases/ has nothing
+// pending, so the path is exercised before the first real release.
 //
-// Writes the plan to GITHUB_OUTPUT (count, version, sha, message, prerelease,
-// previous) and the table to GITHUB_STEP_SUMMARY when they are set.
+// Writes the plan to GITHUB_OUTPUT (count, problems, version, sha, message,
+// prerelease, previous) and the table to GITHUB_STEP_SUMMARY when they are
+// set.
 //
 // --- --draft, --notes, --fixtures ----------------------------------------------
 //
@@ -646,13 +649,23 @@ static async Task<int> Plan(Repository repository, string releasesPath, string? 
         }
 
         Summary();
-        Output("count", "0");
-        return result;
+
+        // A real cut stops here. A dry run goes on to the gates and the
+        // tagging identity, so that one run shows everything that stands in
+        // the way; its last step fails on `problems` (release.yml).
+        if (!(dryRun || landing) || resolution is null)
+        {
+            Output("count", "0");
+            return result;
+        }
+    }
+    else
+    {
+        summary.Append(CultureInfo.InvariantCulture, $"\nThe descriptor is valid; `{release.Version}` {verb} tagged on `{resolution!.Sha[..12]}` once every gate passes at that commit.\n");
+        Summary();
     }
 
-    summary.Append(CultureInfo.InvariantCulture, $"\nThe descriptor is valid; `{release.Version}` {verb} tagged on `{resolution!.Sha[..12]}` once every gate passes at that commit.\n");
-    Summary();
-
+    Output("problems", problems.Count.ToString(CultureInfo.InvariantCulture));
     Output("count", "1");
     Output("version", release.Version!);
     Output("sha", resolution.Sha);
