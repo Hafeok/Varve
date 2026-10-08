@@ -35,10 +35,6 @@ decisions:
     statement: "TLS termination is the deployment's job, and the server serves a supplied certificate but manages none"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-22T00:00:00Z
-  - key: RemoteCliUsesBearerTokens
-    statement: "The CLI talking to a remote server uses bearer tokens from the device code or client credentials flow and stores only the issuer's refresh token, in the platform credential store"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-09-22T00:00:00Z
   - key: NoApiKeysEver
     statement: "OIDC bearer tokens are the only accepted credential, and no later decision adds API keys or another secret scheme"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -54,3 +50,6 @@ narrative; this is what code cites. Acceptance is transcribed from the ADR's Sta
 
 The ADR places `Varve.Server` at layer 5; ADR 0060's table, in its set, moved hosts to layer 6.
 The statements here therefore name the package and not the layer.
+
+Moved to a later set: `RemoteCliUsesBearerTokens`, whose storage clause ADR 0104 supersedes in
+part (filed 2026-10-08, unaccepted); it keeps its key in `the-cli.md`.

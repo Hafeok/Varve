@@ -6,7 +6,10 @@
 Decided by the maintainer on the 7a plan: "ISparqlUpdateExecutor in
 Varve.Protocol bound by the host; note in 0060 the revisit condition (a third
 integration needing the same)". Acceptance is the maintainer's act on the pull
-request.
+request. **Amended 2026-10-08** (ADR [0068](0068-dated-amendments.md)), by
+milestone 7b of #11: the update seam carries the caller's access scope, a
+fourth seam resolves it, and a fourth policy name is added; see *Amendment,
+2026-10-08* at the end.
 
 **Revisit condition:** a third integration needs to be called from protocol
 code the way `Varve.Sparql.Store` is. Two seams of this shape are bookkeeping.
@@ -125,3 +128,27 @@ implements, and a same-layer reference is a violation (ADR 0003, `DD0001`).
 - **Analyzer rule.** None new. `DD0001` enforces the layer, and the banned
   symbols enforce `System.Uri` below layer 5.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-08 — the seams of milestone 7b
+
+Filed by milestone 7b of #11, unaccepted until the maintainer accepts it (ADR
+0066). It states consequences later decisions need (ADR 0068, point 2); what
+this ADR decided is unchanged.
+
+- **`ISparqlUpdateExecutor.ExecuteAsync` takes the caller's `AccessScope`**
+  (ADR [0106](0106-graph-level-authorisation.md)), which the host passes to
+  `UpdateOptions.ReadScope` and `WriteScope`. The seam is still one member,
+  still bound by the host.
+- **A fourth seam, `IAccessScopes`**, answers the readable and writable graph
+  scope and the admin flag for a caller and a dataset. The conformance host
+  and anonymous mode answer `all`. `Varve.Protocol` still references no
+  authentication type: the seam takes a `ClaimsPrincipal`, as
+  `ICallerIdentity` does.
+- **A fourth policy name, `varve:server-admin`** (ADR
+  [0105](0105-the-admin-api.md)), decided on no dataset, for the calls that
+  create, open, close and delete one.
+- **The dataset resolver gains a write side**: create, open, close and delete
+  by name, implemented by the host's `OpenDatasets`.
+
+The rulings are `UpdateSeamCarriesAccessScope` and `AccessScopesSeam` in ADR
+0106's set and `ServerAdminGrant` in ADR 0105's.

@@ -55,6 +55,8 @@ decisions:
     statement: "The System.Uri ban moves to eng/BannedSymbols.Uri.txt, added to every packable project except one setting VarveSpeaksHttp, which Varve.Protocol alone sets; System.Uri there is for transport addresses and never for an RDF IRI"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-08T00:00:00Z
+  - key: UriAllowedInProtocolClient
+    statement: "Varve.Protocol.Client sets VarveSpeaksHttp too, for transport addresses only, with every IRI still a Varve.Iri value checked on its bytes before a Uri is built"
 ---
 
 The rulings of [ADR 0004](../adr/0004-enforcement-by-analyzers.md) still in force, one line each. The ADR is the
