@@ -190,7 +190,9 @@ not settle was the session's, and is marked as such.
 10. **Close-out**: the service description advertises `sd:BasicFederatedQuery`
     when the host answers `SERVICE` and names the admin endpoints;
     `docs/operator/` (run, configure, authenticate, back up and restore,
-    upgrade); AGENTS.md, the roadmap, the README; the release.
+    upgrade); AGENTS.md, the roadmap, the README; `main` merged and the ADRs
+    renumbered; `releases/v0.1.0-preview.2.yaml` (ADR 0102), `CHANGELOG.md`
+    folded from it, the roadmap's heading *(complete)*.
 
 ### The endpoints, as shipped
 
@@ -305,6 +307,9 @@ In `tests/Varve.Benchmarks/README.md`, the 7b section:
   1,047 s → 907 s (95,478 → 110,268 quads/s), the input stage 377 s → 173 s,
   the commit 670 s → 734 s (the serial part, unchanged in code; the
   difference is the machine's), peak working set 2,272 → 1,978 MB;
+- the 10M gate again under 6c's 512 MiB `DOTNET_GCHeapHardLimit`: 73.6 s
+  (135,801 quads/s), peak managed heap 490 MB, within 4% of 6c's 71 s on the
+  same cap;
 - 10,000 lookups of absent terms over three disk runs: 48.8 ms → 2.9 ms;
 - the soak: running on the final code as this is written; its figures are in the closing commit's revision of this record and of the README.
 
@@ -339,7 +344,16 @@ In `tests/Varve.Benchmarks/README.md`, the 7b section:
    beside `Varve.Server`, as `Varve.Aspire.Hosting` in `src/`, or in `tools/`
    if it is not shipped on NuGet. It must not live in `Varve.Protocol.Client`
    (layer 5), which stays free of hosting packages. The maintainer's call.
-5. **The release.** The releases-as-code pull request had not merged when this closed, so the ADR 0085 fallback applies: `eng/changelog.cs --release 0.1.0-preview.2` cut the section, committed as `chore(release): 0.1.0-preview.2`; the maintainer tags that commit `v0.1.0-preview.2`.
+5. **The release.** The releases-as-code pull request (#73, ADR 0102) had
+   merged, so `releases/v0.1.0-preview.2.yaml` proposes the release: basis
+   #11, `storage-format: 1`, ADRs 0090–0109 (every ADR since the
+   `v0.1.0-preview.1` tag, as `eng/release.cs --draft` lists them);
+   `CHANGELOG.md` is its projection; README's Status and the roadmap's
+   heading pass `eng/status.cs`. `eng/release.cs --check` is red until the
+   seven 7b ADRs are accepted and until the `Closes #11` trailer is in the
+   range, which the descriptor's commit carries. It lands at its approved
+   head through `land/`, never by the merge button (`docs/releases.md` §3);
+   nothing is tagged by hand.
 
 ### Recorded for later
 

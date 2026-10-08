@@ -982,6 +982,7 @@ orders, unchanged.
 | 10M generated, 256 MiB, after | 3 (default) | 15.4 s | 52.8 s | 68.2 s | 146,643 | 533 MB | 739 MB |
 | 100M generated, 1 GiB, before | parser's thread | 377.2 s | 670.1 s | 1,047.4 s | 95,478 | 1,309 MB | 2,272 MB |
 | 100M generated, 1 GiB, after | 3 (default) | 172.9 s | 734.0 s | 906.9 s | 110,268 | 1,346 MB | 1,978 MB |
+| 10M generated, 256 MiB, after, under a 512 MiB `DOTNET_GCHeapHardLimit` | 3 (default) | 17.4 s | 56.2 s | 73.6 s | 135,801 | 490 MB | 496 MB |
 
 The input stage halves with three workers at both sizes: the parser copies
 terms and nothing more, and the hash lookups, the dictionary reads and the
@@ -989,7 +990,10 @@ spills run beside it. The commit — unchanged in code — is the larger part
 now, and its 670 → 734 s at 100M is the machine's variance between two
 seventeen-minute runs, not the change's. The 100-million row stays the gate
 (ADR 0081); it was run without a heap limit here, and the 10M row again
-under a 512 MiB `DOTNET_GCHeapHardLimit` (below). One worker is the 6c pipeline
+under a 512 MiB `DOTNET_GCHeapHardLimit`, the 6c configuration: the three
+workers' buffers fit the cap, the sample check and the reopen passed, and the
+run is within 4% of 6c's 71 s on the same cap with the input stage half of
+what it was. One worker is the 6c pipeline
 with one buffer of overlap, and is already faster than the parser doing the
 work itself. The result is the same at any worker count, which
 `BulkLoadTests` asserts for the quads and the ids alike.

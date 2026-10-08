@@ -1,0 +1,87 @@
+format: 1
+version: v0.1.0-preview.2
+title: The server, the protocols, authentication, the command line, federation
+date: 2026-10-08
+basis:
+  - issue: 11
+  - storage-format: 1
+  - adr: "0090"
+  - adr: "0091"
+  - adr: "0092"
+  - adr: "0093"
+  - adr: "0094"
+  - adr: "0095"
+  - adr: "0096"
+  - adr: "0097"
+  - adr: "0098"
+  - adr: "0099"
+  - adr: "0100"
+  - adr: "0101"
+  - adr: "0102"
+  - adr: "0103"
+  - adr: "0104"
+  - adr: "0105"
+  - adr: "0106"
+  - adr: "0107"
+  - adr: "0108"
+  - adr: "0109"
+accepted-by: mailto:emil@okkels-klein.dk
+summary: |
+  ### Milestone 7 — the server, the protocols, authentication, the command line, federation
+
+  Varve speaks HTTP. This release closes milestone 7 (#11) in its two halves,
+  7a and 7b, and brings the packages on nuget.org from ten to thirteen, the
+  last of them an executable. The storage format is unchanged: a dataset written by
+  `v0.1.0-preview.1` opens as it is. The derived format moves from 2 to 3;
+  a format-2 run is read as before and migrates when maintenance rewrites it.
+
+  #### Added
+
+  - **`Varve.Protocol`** (layer 5): the SPARQL 1.1 Protocol, the Graph Store
+    Protocol and the service description mounted on any ASP.NET Core host,
+    one commit per write with `Varve-Position`, `If-Match` and `409`/`412`,
+    every read pinned for its response and bounded by `Varve:Limits`, time
+    travel by `Varve-As-Of` and `ETag`, the change feed
+    (`application/vnd.varve.delta; version=1`) and the diff, RFC 9457
+    problem details everywhere, and the admin API: `/status`, `/datasets`
+    with create, open, close and delete, settings, checkpoints and
+    projection status (ADRs 0091–0098, 0106).
+  - **`Varve.Protocol.Client`** (layer 5): the HTTP client, with the
+    endpoint policy that refuses private addresses and follows no redirect
+    unless told, and every request bounded (ADR 0103).
+  - **`SERVICE` and `LOAD` over HTTP**, through the client, under the same
+    endpoint policy; a server without a `ServiceHandler` keeps refusing
+    `SERVICE` and says so in its service description (ADR 0104).
+  - **`Varve.Server`** (layer 6): the host, as a Native AOT single file and
+    as the .NET tool `varve`. OIDC bearer authentication, cumulative
+    permissions, graph-level grants by graph list or prefix (ADR 0107),
+    `/live` and `/ready`, graceful shutdown, configuration validated at
+    start (ADRs 0099–0101, 0105).
+  - **The `varve` command line**: `serve`, `create`, `info`, `load`,
+    `query`, `update`, `export`, `checkpoint` and `feed`, embedded over a
+    directory or remote against a server, with the device-code and
+    client-credential flows and a credential file; `--no-store` for CI
+    (ADR 0105).
+  - **The operator's guide**, `docs/operator/`: run, configure,
+    authenticate, back up and restore, upgrade.
+  - **`Varve.Store`**: the bulk load resolves and spills on worker threads,
+    `BulkLoadOptions.Workers` (ADR 0108); each run carries a term filter
+    consulted before its hash index, derived format 3 (ADR 0109). On the
+    10 M-quad gate the load went from 82.7 s to 68.2 s, and a lookup of
+    an absent term from 48.8 ms to 2.9 ms per 10,000.
+  - **Releases as code** (ADR 0102): a release is `releases/<version>.yaml`,
+    `CHANGELOG.md` is its projection, and README's Status section is
+    checked against what it describes.
+
+  #### Changed
+
+  - **`Varve.Sparql.Store`**: `UpdateOptions.ExpectedPosition`, and a
+    data-only request expects no position (ADR 0057, amended). The
+    evaluator's minted blank nodes are labelled `q<n>`.
+  - **`Varve.Store`**: a delivered commit externalises its handles and
+    dispose drains the sequencer (ADR 0042, amended); the file suites run
+    without the device flush (ADR 0090).
+  - The W3C `protocol`, `graph-store-protocol` and `service-description`
+    suites pass whole on both stores and through the graph-scoped source;
+    `http-rdf-update` with six justified exemptions a store; the
+    conformance baseline holds 4,122 lines.

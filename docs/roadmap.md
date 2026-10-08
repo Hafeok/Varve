@@ -391,7 +391,7 @@ behind; a per-run filter if cold term lookups ever dominate commits (ADR
 0079's revisit condition); and a bulk loader that resolves terms on several
 threads.
 
-## 7 — Server and CLI
+## 7 — Server and CLI *(complete)*
 
 SPARQL 1.1 Protocol, Graph Store Protocol, service description, federation, and
 the endpoints for the event-sourced features.

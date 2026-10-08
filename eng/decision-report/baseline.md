@@ -1,6 +1,6 @@
 # Decision-driven report
 
-DecisionDriven.Report 0.1.0-preview.7 at `1836c326a1b1`. Nothing here gates a build: a metric becomes a gate only by a decision that names its threshold and baseline.
+DecisionDriven.Report 0.1.0-preview.7 at `2f89035bf619`. Nothing here gates a build: a metric becomes a gate only by a decision that names its threshold and baseline.
 
 ## Layers
 
@@ -159,6 +159,7 @@ The number of groups a type's methods fall into, where methods sharing a field o
 
 Implicit somewhere, or dead. The report does not say which.
 
+- `dec:varve/AMilestoneIsCompleteWhenReleased` — A milestone is complete when a release descriptor names its issue in basis; the cut closes the issues its basis names, with the gates App's token
 - `dec:varve/AcceptanceTranscription` — A transcribed acceptance is mailto:emil@okkels-klein.dk at the ADR's date, or at a dated amendment's own date for a ruling the amendment changed
 - `dec:varve/AcceptedAdrNotEdited` — An accepted ADR's text is never edited or deleted: a change of decision is a superseding ADR, and additions are dated amendment blocks beside the text
 - `dec:varve/AcceptedWhenSettledOrAgreed` — An ADR is Accepted when docs/brief.md already settles the matter or the project owner has agreed it, and Proposed otherwise
@@ -192,6 +193,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/AppTokenForVarvesWorkflow` — Varve's own repo-standard workflow uses only a GitHub App installation token, and no long-lived credential is added
 - `dec:varve/ApprovalBecomesASignedLedgerReview` — When the ledger gates ship, an approval is a signed ledger Review over the head sha by an identity holding Approve, and the GitHub review and comment forms are retired with the identity map
 - `dec:varve/ApprovalIsAConversationComment` — The approval is a pull request conversation comment containing approve and at least twelve characters of the current head, by a holder of Approve for every agent in the pull request; review submissions are not consulted
+- `dec:varve/ApprovedHeadLandsThroughLand` — On a push to land/, an agent's commits are admitted when the pushed head is a pull request's head carrying the gates App's successful agent review check run; any other sha is not
 - `dec:varve/ArchFamilyIsVarve` — ArchFamily is Varve, set once in Directory.Build.props
 - `dec:varve/ArchitecturalRulesAreErrors` — A rule that protects the package graph or a constraint of the brief is error severity, not warning
 - `dec:varve/AsOfHeader` — A read may carry Varve-As-Of as position:n or time:RFC 3339 normalised to UTC with at most seven fractional digits; on a write it is 400
@@ -206,6 +208,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/BannedDynamicAndReflectionMembers` — The banned-symbols list bans Microsoft.CSharp.RuntimeBinder and the reflection members that inspect or invoke, and not the System.Reflection namespace
 - `dec:varve/BannedSymbolEntriesCiteAnAdr` — Every banned-symbols entry cites an ADR in its comment and ends its message with the ADR number, gated in eng/ once session 2 of issue 43 touches the file
 - `dec:varve/BannedSymbolsFile` — Banned symbols are declared in eng/BannedSymbols.txt and enforced by BannedApiAnalyzers
+- `dec:varve/BasisResolvesAtTheCommitUnderRelease` — A descriptor's basis resolves at the commit under release: each milestone issue it names closed by a trailer in the range, exactly the ADRs first shipped and each Accepted, and the storage format equal to Varve.Store's
 - `dec:varve/BelowArchiveHorizonFailsLoudly` — An as-of read or diff below the archive horizon without the archive attached fails explicitly and never returns a partial answer
 - `dec:varve/BenchmarkDataReproducible` — A benchmark dataset is generated from a stated seed and generator, never a downloaded corpus
 - `dec:varve/BenchmarkDotNetConfined` — BenchmarkDotNet is admitted for a non-packable benchmark project only, where its native and Reflection.Emit dependencies reach no published artifact
@@ -244,6 +247,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/CauseIsTheRequestId` — The commit cause is the request's TraceIdentifier as an xsd:string literal, echoed as Varve-Request-Id
 - `dec:varve/ChainDetectsDoesNotAuthenticate` — The header chain detects accidental divergence; it does not prevent a fork and does not authenticate who wrote a commit
 - `dec:varve/ChangeOfMeaningIsSupersession` — An amendment never changes what its ADR decided; a change of meaning is a superseding ADR, and doubt counts as a change of meaning
+- `dec:varve/ChangelogIsTheProjectionOfReleases` — CHANGELOG.md is rendered from releases/ alone, a descriptor's date, title and summary per version, and is checked byte for byte; it is never edited by hand
 - `dec:varve/CheckpointIsFoldOfLog` — A checkpoint at P is a fold of L[1..P] and nothing else (I7): immutable, directly queryable sorted runs under derived/, never a log entry
 - `dec:varve/CheckpointIsOneMergedRun` — A checkpoint is the runs at P merged to one and written as one derived blob: a versioned header with the position, commit P's header hash and dictionary watermarks, the six key arrays and the dictionary entries
 - `dec:varve/CheckpointNamesItsCommit` — A checkpoint whose recorded header hash differs from the log's at its position is ignored as a cache miss
@@ -262,6 +266,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/ClientLimitsBoundEveryRequest` — Every request is bounded by a host-configured timeout and a cap on response bytes, beyond which the response is a failure and never a truncated answer
 - `dec:varve/ClockInjectedAtTheRoot` — The server injects TimeProvider.System and the random source at the composition root
 - `dec:varve/ClosingFlagInTheLog` — The closing flag is in the log, so a copy of log/ made at any moment is a valid log up to its last closed commit
+- `dec:varve/ClosingKeywordsOnlyAsTrailers` — A closing keyword with an issue number stands only as a trailer line of its own in a commit message, and eng/issue-refs.cs refuses it anywhere else
 - `dec:varve/ClosureStartsFromBoundEnds` — A closure searches from its bound end, stops at a bound other end, and with both ends unbound starts from every node of the active graph
 - `dec:varve/ColumnIndexIsAWrapper` — A column of a SELECT's solutions is a ColumnIndex, a readonly record struct over its position in SolutionResults.Variables in Varve.Sparql.Evaluation.Model, and SolutionResults takes it where it took an int
 - `dec:varve/CommentApprovalIsNotAValidWorkflow` — Approval by pull request comment is not a valid workflow: it is tolerated only until the ledger's review gate exists, and the pull request that adopts that gate removes it
@@ -287,6 +292,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/CrLfTestedOnOwnDocuments` — CR LF handling in parsers is tested on documents this repository owns, never on whatever a checkout produced
 - `dec:varve/CredentialFileSupersedesPlatformStore` — The refresh token is kept in one file under the user's profile, mode 0600 on Unix and refused when wider, DPAPI-protected on Windows through System.Security.Cryptography.ProtectedData, and weaker than the macOS Keychain, which the operator guide says
 - `dec:varve/CsCheckForProperties` — Property-based tests use CsCheck, a test-only package chosen for having no dependencies
+- `dec:varve/CutOnlyAtAnApprovedHead` — A release is cut only at a commit carrying the gates App's successful agent review check run; a descriptor landed by a merge commit is recovered by a retro-cut naming the approved head
 - `dec:varve/CutReadsAreVisible` — A cut read is a 503 problem before the response starts, a Varve-Error trailer where trailers are supported, an error record in the line format, and an aborted connection otherwise
 - `dec:varve/DataOnlyRequestExpectsNoPosition` — A request of INSERT DATA and DELETE DATA alone is composed from its text without normalisation against the pin and submitted with no expected position unless the caller gives one, which is always honoured; a request with any other operation keeps the check
 - `dec:varve/DatasetBoundValidators` — DatasetOptions.Validators run on every Data commit in order, before the request's own validators, both seeing the overlay and the delta, and either may reject
@@ -367,7 +373,8 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/EvaluatorNeverPins` — The evaluator receives a quad source it does not own, never calls Pin() and never disposes what it is given
 - `dec:varve/EvaluatorUnderDeterministicBan` — Varve.Sparql.Evaluation is under the ambient clock and randomness ban, as Varve.Store is
 - `dec:varve/EveryAdrIsADecisionSet` — Every ADR is enumerated into docs/decisions as an interim set file in ledger namespace varve, one key per ruling in force, with its acceptance transcribed from the ADR
-- `dec:varve/EveryMilestoneEndsInARelease` — A milestone is a section of eng/changelog-sections.txt, started when its line is added, and the milestone before it is finished by a v* tag on main published by publish.yml
+- `dec:varve/EveryGateRunsAtTheCommitUnderRelease` — Every gate of ci.yml runs at the commit under release before it is tagged, and a valid descriptor whose gates fail is not cut and leaves no tag
+- `dec:varve/EveryMilestoneEndsInARelease` — Every milestone ends in a release: the pull request that closes a milestone issue carries the release descriptor whose basis names it
 - `dec:varve/ExactEstimateIsExact` — An estimate marked exact equals the number of quads Match would yield for the pattern at the source's current state
 - `dec:varve/ExecutableLayerAndRootAgree` — VARVE0005: an executable not at layer 6, a library at layer 6, and an ArchCompositionRoot that disagrees with layer 6 are each reported
 - `dec:varve/ExecutablesAreLayer6` — An executable declares layer 6 unless it is a test assembly, only an executable declares layer 6, and benchmark assemblies are layer 6 like any host
@@ -429,7 +436,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/HttpServiceHandlerIsTheServers` — The HTTP service handler is the server's, at milestone 7
 - `dec:varve/HttpServiceHandlerSendsSelectStar` — HttpServiceHandler implements IServiceHandler by POSTing SELECT * WHERE { P } serialised with SparqlWriter as application/sparql-query, after the endpoint policy has allowed the endpoint
 - `dec:varve/HumanCommitsSigned` — Commits on main by human committers are signed, with GPG or SSH
-- `dec:varve/HumanReviewGatesReleases` — Human review is required for a release, through the release environment, and for a pull request with an agent's commits, and not otherwise for a merge
+- `dec:varve/HumanReviewGatesReleases` — Human review gates a release through the approval, on its head, of the pull request that adds its descriptor, and a pull request with an agent's commits; it is not otherwise required for a merge, and the release environment has no reviewer
 - `dec:varve/HumansLandThroughALandBranchOrAPullRequest` — A human lands a change by pushing it to a land/ branch and fast-forwarding main to its checked head, or through a pull request, which needs no review when every commit is the human's own
 - `dec:varve/IdentityMapNamesWhoActsForAnAgent` — eng/identities.json lists humans with their emails, login and delegates, agents with their responsible human, and exempt automation; it is the interim form of the ledger's authority model, replaced by the ledger's grants
 - `dec:varve/IeeeWithXsdGrammar` — XsdDouble and XsdFloat are IEEE binary64 and binary32 with XML Schema's lexical grammar and canonical forms
@@ -523,7 +530,6 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/NetOfOrderedOperations` — The sequencer applies a request's operations in order to an overlay on the pinned state and commits the net result
 - `dec:varve/NewestEntriesInMemory` — The commit index holds the newest DatasetOptions.CommitCache entries in memory, 4,096 by default, and maintenance writes the oldest half out when twice that is held and merges the newest two blobs while the newer is as large as the older
 - `dec:varve/NewestRunDecides` — A scan merges the runs' ranges, and for equal keys the newest run decides
-- `dec:varve/NextMilestoneWaitsForTheRelease` — The release pending gate fails a change that adds a section while the base's newest section has no v* tag at or after its first commit; a change adding no section passes
 - `dec:varve/NoAmbientClockOrRandomness` — Varve.Store reads no ambient clock and no ambient random source, enforced by a banned-symbols list scoped to the deterministic projects
 - `dec:varve/NoApiKeysEver` — OIDC bearer tokens are the only accepted credential, and no later decision adds API keys or another secret scheme
 - `dec:varve/NoBufferPerSubscriber` — There is no buffer per subscriber: the log is the buffer, and a slow subscriber costs reads, not memory
@@ -653,10 +659,10 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/RefuseRatherThanGuess` — A store refuses to open a log whose chain does not verify, and refuses to continue from a head that is not its own
 - `dec:varve/RegisterCitesAdr` — Every PackageVersion carries Adr naming the decision that admits it, transitive pins included, and eng/dependency-register.cs fails on a missing or dangling citation
 - `dec:varve/RejectedRequestLeavesNoTrace` — A rejected or empty request leaves no commit, no dictionary allocation and no gap in positions
-- `dec:varve/ReleaseCutByTheChangelogTool` — A release is cut by eng/changelog.cs --release, which moves Unreleased into a dated section with compare links; the cut is committed and that commit is tagged
-- `dec:varve/ReleaseNotesAreTheChangelogSection` — publish.yml checks that the tagged CHANGELOG.md has the version's section and, after the push, creates the GitHub release with that section as its notes
+- `dec:varve/ReleaseNotesAreTheDescriptorSummary` — The GitHub Release's notes are the descriptor's summary and its title is the tag message, read by publish.yml before anything is pushed and published after the NuGet push
 - `dec:varve/ReleasePlaintextOnlyAfterVerify` — Decryption recomputes the tag, compares it with FixedTimeEquals and releases the plaintext only on equality
-- `dec:varve/ReleasedSectionsAreFixed` — A released section of CHANGELOG.md is copied as it stands by every later run, and only Unreleased is regenerated, from the commits after the newest release
+- `dec:varve/ReleaseProposedByItsDescriptor` — A release is proposed by adding releases/<version>.yaml to a pull request, format 1 in docs/releases.md, and cut by landing that pull request at its approved head; no other step, credential or person is in the path
+- `dec:varve/ReleasesBeforeDescriptorsAreRecorded` — A version tagged before descriptors existed is recorded by a descriptor pinned to its tagged commit, which is checked for its shape and storage format and never cut
 - `dec:varve/RemoteCliUsesBearerTokens` — The CLI talking to a remote server uses bearer tokens from the device code or client credentials flow of ADR 0037 and stores nothing but the issuer's refresh token and what identifies its issuer, in the credential file of this ADR
 - `dec:varve/ReplayIsOverCommits` — Replay is over commits, never over requests, because a commit's delta depends on the state it was applied to
 - `dec:varve/RepoStandardBuiltHere` — tools/repo-standard holds a CLI over a YAML declaration of repository settings and a composite GitHub Action, built here and not published from this repository
@@ -720,6 +726,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/StagingRefusesBlankTerms` — Stage refuses a blank node term and a triple term containing one, and StageBlank gives a fresh provisional blank node
 - `dec:varve/StaleExemption` — An exempted differential disagreement that no longer reproduces fails the harness, and its entry is removed
 - `dec:varve/StatementIsTheRecoveryUnit` — On a syntax error the Turtle parser resumes after the next full stop at nesting depth zero outside strings and IRIs, and the failed statement yields no quads
+- `dec:varve/StatusIsACheckedProjection` — README.md's Status section and docs/roadmap.md's milestone headings are checked against the release descriptors, the conformance baseline and the projects, in CI and at the commit under release
 - `dec:varve/StatusIsTheAdminEndpoint` — GET /datasets/{name}/status, the one admin endpoint of 7a, reports the dataset's id, head, durability, settings, checkpoints and failure
 - `dec:varve/StatusLineNamesAmendments` — An ADR's Status line names each of its amendments and each ADR superseding it, with dates
 - `dec:varve/StorageMemberTypes` — The storage contract's segment ids, offsets and lengths are SegmentId, ByteOffset and ByteCount
@@ -741,6 +748,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/TermComparerIsTermEquality` — TermComparer is RDF term equality, never value equality, which is the evaluator's at layer 3
 - `dec:varve/TermIdClassInHighBits` — A TermId is 64 bits with its class carried in the high bits, read with a mask, so a reader knows the class without a lookup
 - `dec:varve/TestsRunOnTestingPlatform` — dotnet test runs on Microsoft.Testing.Platform, selected in global.json, so Microsoft.NET.Test.Sdk and the VSTest adapter are deliberately absent
+- `dec:varve/TheGatesAppTags` — The tag and the GitHub Release are created by the gates App with an installation token, never by GITHUB_TOKEN and never under a person's or a composite identity
 - `dec:varve/TheLogIsTheWriteAheadLog` — derived/ has no write-ahead log of its own and recovers by replaying the log from the projection's persisted position
 - `dec:varve/ThreeDependencyClasses` — Dependencies are runtime, build-time or test-only, admitted on different bars, and a test-only stopgap states its exit criterion
 - `dec:varve/TieredRunMerging` — Runs are merged in tiers so a version holds O(log n) runs, and a merge into the oldest run drops its retractions
@@ -790,6 +798,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/VersionFromTagByMinVer` — A package's version comes from its git tag through MinVer, and no Version property exists
 - `dec:varve/VersionParameterAdopted` — SPARQL 1.2's version is accepted as a request parameter and as a media-type parameter, values 1.1, 1.2-basic and 1.2, the parameter winning over the text and an unknown value being 400
 - `dec:varve/VersionedKeySeparation` — The MAC and encryption keys are derived from the subject key by HKDF-SHA-256 under distinct, versioned info strings
+- `dec:varve/VersionsAreNeverReused` — A version comes after every v* tag by precedence and is never reused; a cut descriptor is immutable, and a correction is a new version
 - `dec:varve/VersionsCentralAndResolved` — Every version lives in Directory.Packages.props, resolved from nuget.org when added or changed, and the default is the latest stable
 - `dec:varve/W3cSuitesPinnedSubmodule` — W3C test data is a pinned git submodule, advanced only by a commit that says so, and never vendored or fetched at test time
 - `dec:varve/WarningsAreErrors` — TreatWarningsAsErrors, AnalysisLevel latest-recommended and EnforceCodeStyleInBuild are on repository-wide
