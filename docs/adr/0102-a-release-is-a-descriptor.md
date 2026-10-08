@@ -99,8 +99,9 @@ summary: |
   ancestor of `main`.
 - **`basis`**: mandatory, and every line is resolved at the commit under
   release.
-  - `issue: N`, exactly one: a commit in the range from the previous `v*` tag
-    closes it (`Closes #N`), and the release workflow confirms it exists.
+  - `issue: N`, one per milestone issue the release closes, at least one:
+    a commit in the range from the previous `v*` tag closes it with a
+    trailer line (`Closes #N`), and the release workflow confirms it exists.
   - `adr: NNNN`, **complete both ways**: exactly the ADRs added since the
     previous tag, each with status Accepted. Ledger keys are not basis lines;
     `--draft` prints them as information.
@@ -127,8 +128,9 @@ The format, the rules and why the descriptor rather than the tag are in
 
 1. **plan** (`eng/release.cs --plan`): validates every descriptor, finds the
    one with no tag (one at a time), resolves its basis at the commit under
-   release, and applies **the head guard**: that commit carries a successful
-   `agent review` check run from the gates App.
+   release, checks the project's status there (below), and applies **the
+   head guard**: that commit carries a successful `agent review` check run
+   from the gates App.
 2. **gates**: `ci.yml`, called at the commit under release, which may be
    older than `main`'s head when `commit` is set. Every gate CI runs on a pull
    request, the AOT publishes and the public API baselines included, and the
@@ -136,7 +138,8 @@ The format, the rules and why the descriptor rather than the tag are in
    (`dco`, `release pending`, issue references) are skipped: the range landed
    through them already, and its base is not this event's.
 3. **cut**: the gates App, with a token minted from the `gates` environment,
-   creates the annotated tag and pushes it.
+   creates the annotated tag and pushes it, then closes the issues its basis
+   names.
 
 **A valid descriptor whose gates fail is not cut, and leaves no tag.** It is
 retried by dispatching the workflow once the fix has landed.
@@ -201,9 +204,8 @@ were relaxed, and 0088 is already that relaxed.
 
 The descriptor is the one place a version's notes are written.
 `eng/changelog.cs` renders `CHANGELOG.md` from `releases/` and nothing else:
-each descriptor's date, title and summary, newest first by precedence, and
-`v0.1.0-preview.1`'s section, which predates descriptors, verbatim from
-`releases/v0.1.0-preview.1.md`. `--release <version>` folds a descriptor in;
+each descriptor's date, title and summary, newest first by precedence.
+`--release <version>` folds a descriptor in;
 `--check` compares byte for byte and fails on a hand edit or on a descriptor
 not folded in. What is unreleased is a view of the commits, `--unreleased`,
 printed and not committed.
@@ -217,6 +219,50 @@ descriptor whose basis names `issue: N`**, or the `release pending` check
 fails. ADR 0085's reminder, a milestone held until the one before it was
 tagged, is gone: the release is no longer a step after the merge that can
 slip.
+
+### A milestone is complete when it is released
+
+**A milestone is complete when a release names its issue in `basis`**, not
+when its issue is closed. The issue is closed to match, by the cut, with the
+gates App's token. The `Closes #N` trailer keeps one job: it is the signal
+`release pending` reads to require the descriptor in the same pull request.
+
+**`v0.1.0-preview.1` is recorded, not cut.** It was tagged by hand before
+descriptors existed. `releases/v0.1.0-preview.1.yaml` records it:
+- pinned to the tagged commit, `a9f0c24`;
+- with the milestone issues it completed, #4 to #9;
+- with its `CHANGELOG.md` section as the summary.
+
+A descriptor whose tag exists and whose `commit` is that tag's commit is a
+record. The cut skips it, and only its shape and storage format are checked:
+its issues were closed by hand, and its ADRs predate any basis.
+
+**A closing keyword stands only as a trailer line.** GitHub acts on a
+closing keyword and a number anywhere in a message that reaches `main`, and
+milestone Operability (#12) was closed by a commit quoting one in prose.
+`eng/issue-refs.cs` refuses one anywhere but a line of its own (`Closes #N`).
+#12 is reopened by hand.
+
+### Status is a checked projection
+
+`README.md` ships inside every package (`eng/package-metadata.cs`), and
+`v0.1.0-preview.1` shipped one two milestones stale: "Milestone 5c",
+"Nothing is published yet", 2,803 conformance cases where the baseline held
+2,927. `eng/status.cs --check` runs in `eng/ci.cs`, and in the plan at the
+commit under release. It checks four statements against what they describe:
+- **The Status section's opening line** names the latest release (the newest
+  descriptor, cut or being cut) and the last milestone it closed.
+- **The conformance total** equals the baseline's line count.
+- **The package table** has every packable project with its declared
+  `<ArchLayer>`, and no "not built" row names a project that exists.
+- **A roadmap heading says *(complete)*** exactly when every issue the
+  roadmap's table gives it is in a release's basis.
+
+The pending descriptor counts as released. It is the one being cut, and the
+files must say so at the commit that is tagged; counting only tagged
+descriptors would turn `main` red at every cut until a follow-up edit.
+
+Its failure paths are `tests/fixtures/status/`.
 
 ### The dry run
 
@@ -255,8 +301,12 @@ first used.
   maintainer approves the descriptor's pull request and fast-forwards `main`
   through `land/`; the App tags, `publish.yml` publishes, and the App creates
   the GitHub Release.
-- **The maintainer grants the gates App Contents: read & write.** Until
-  then, the cut fails when its token is minted, before anything is created.
+- **The maintainer grants the gates App Contents and Issues: read & write.**
+  Until then, the cut fails when its token is minted, before anything is
+  created.
+- **A close-out brings `README.md`'s Status section and the roadmap heading
+  current**, or the plan refuses the cut. A README is never published that
+  describes another release.
 - **A milestone's close-out pull request carries its descriptor**, and lands
   through `land/` at its approved head. Milestone 7b is the first:
   `releases/v0.1.0-preview.2.yaml`, `Closes #11`, `eng/changelog.cs

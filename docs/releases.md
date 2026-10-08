@@ -24,7 +24,7 @@ title: The protocols and the server   # one line; the tag message is "<version> 
 date: 2026-10-20                # the preparation date; CHANGELOG.md's heading
 commit: 0123…cdef               # optional; a retro-cut only (§3). Omitted is normal
 basis:                          # mandatory; resolved at the commit under release
-  - issue: 11                   # the milestone issue, exactly one
+  - issue: 11                   # each milestone issue it closes, at least one
   - storage-format: 1           # Varve.Store's FormatVersion.Current, exactly one
   - adr: "0091"                 # every ADR first shipped by this release, and no other
   - adr: "0092"
@@ -66,9 +66,11 @@ takes them for numbers.
    lands this file". When set, it must be a full sha and an ancestor of
    `main`; its one legitimate use is the retro-cut in §3.
 5. **`basis` must resolve**, at the commit under release:
-   - **`issue: N`**: a commit in the range from the previous `v*` tag closes
-     `#N` (a `Closes #N` line), and the release workflow confirms the issue
-     exists.
+   - **`issue: N`**, one line per milestone issue the release closes, at
+     least one: a commit in the range from the previous `v*` tag closes `#N`
+     with a trailer line, `Closes #N`, and the release workflow confirms the
+     issue exists. The release is what completes the milestone (§7); the
+     trailer is what makes the descriptor necessary (§3).
    - **`adr: NNNN`**: **complete both ways**. The `adr:` lines are exactly
      the ADRs added since the previous `v*` tag, and each has status
      Accepted. A missing one fails with the line to add.
@@ -87,14 +89,24 @@ takes them for numbers.
    request that edits its descriptor fails. Corrections ship as a new version.
 10. **One release at a time.** Two pending descriptors are refused.
 
-`v0.1.0-preview.1` was cut before descriptors existed (ADR 0085). Its notes
-are `releases/v0.1.0-preview.1.md`, its `CHANGELOG.md` section verbatim, and
-no later version may have a `.md` instead of a descriptor.
+**A release cut before descriptors is recorded, not cut.**
+`v0.1.0-preview.1` was tagged by hand under ADR 0085. Its descriptor was added
+afterwards:
+- `commit` names the tagged commit, `a9f0c24`;
+- `basis` names the milestone issues it completed, #4 to #9;
+- its `CHANGELOG.md` section, as cut, is its summary.
+
+A descriptor whose tag exists and whose `commit` is that tag's commit is such
+a record. Its shape and its storage format are checked, it is never cut, and
+it is immutable like any other. Only a version tagged before ADR 0102 needs
+one.
 
 ## 3. How a release lands
 
 1. **Propose.** The milestone's close-out pull request adds the descriptor,
-   with a commit that says `Closes #<milestone issue>`. It also runs `dotnet
+   with a commit whose trailer line says `Closes #<milestone issue>`. It
+   brings `README.md`'s Status section and the roadmap's heading current to
+   the release (§7). It also runs `dotnet
    run eng/changelog.cs -- --release <version>` and commits `CHANGELOG.md`.
    The `release pending` check fails a pull request that closes a milestone
    issue without a descriptor naming it, and `eng/release.cs --check` (the
@@ -119,7 +131,8 @@ no later version may have a `.md` instead of a descriptor.
    - **plan** validates and resolves the descriptor and applies the head
      guard;
    - **gates** runs all of `ci.yml` at the commit under release;
-   - **cut** has the gates App create the annotated tag.
+   - **cut** has the gates App create the annotated tag, then close the
+     issues its basis names.
 
    The tag starts `publish.yml`, which runs its gates, reads the notes from
    the descriptor, publishes to nuget.org, and has the gates App create the
@@ -163,7 +176,44 @@ one run shows everything in the way. Then it fails. It runs on:
 With nothing pending in `releases/`, it plans `tests/fixtures/releases/dry-run/`
 instead, so that the path is exercised before a release needs it.
 
-## 6. Why the descriptor and not the tag
+## 6. Closing keywords
+
+GitHub closes an issue when a closing keyword (close, fix or resolve, in any
+tense) and a number reach the default branch, wherever they stand in a commit
+message. That is how milestone Operability (#12) was closed by a commit
+describing the issue-reference gate. So **a closing keyword with an issue
+number stands only as a trailer line of its own**, `Closes #N`, and
+`eng/issue-refs.cs` refuses it anywhere else, the subject and prose
+included. In prose, write a bare #N.
+
+## 7. Status is a checked projection
+
+`README.md` ships inside every package, so what it says about the project is
+published with each version and cannot be corrected afterwards.
+`v0.1.0-preview.1` shipped one two milestones stale: "Milestone 5c", "Nothing
+is published yet", 2,803 conformance cases where the baseline held 2,927.
+`eng/status.cs --check` (in `eng/ci.cs`, and in `eng/release.cs --plan` at the
+commit under release) checks four statements against what they describe:
+
+1. **The Status section's opening line names the latest release**, which is
+   the newest descriptor in `releases/`, cut or being cut. It also names the
+   last milestone that release closed: of its basis issues, the latest in the
+   roadmap's table, written as "milestone(s) … N".
+2. **The conformance table's total** equals the line count of
+   `tests/Varve.Conformance.Tests/baseline/passing.txt`.
+3. **The package table has a row for every packable project**, with the layer
+   its project declares (`<ArchLayer>`), and no "not built" row names a
+   project that exists.
+4. **A milestone heading in `docs/roadmap.md` says *(complete)* exactly when
+   every issue the roadmap's table gives it is in a release's basis.** A
+   milestone is complete when it is released, not when its issue is closed;
+   the cut closes the issue to match. Every descriptor in `releases/` counts,
+   the pending one included: it is the one being cut, and the files must say
+   so at the commit that is tagged.
+
+The failure paths are `tests/fixtures/status/`.
+
+## 8. Why the descriptor and not the tag
 
 The tag is the artifact; the descriptor is the decision that produced it. A
 release cut by a command is a decision taken outside the record: nothing

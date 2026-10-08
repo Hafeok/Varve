@@ -57,6 +57,24 @@ head and a head guard is needed now. The maintainer's answer:
 > 6. release environment drops its reviewer, keeps the main and v* restriction. Yes.
 > 7. I will grant the app Contents read & write before you reach the dry run, and push land/release-dry-run when you ask.
 
+### During the work: item 10
+
+> One addition, item 10: project status is a checked projection. README.md ships inside every nupkg (eng/package-metadata.cs), and preview.1 shipped a README two milestones stale ("Milestone 5c", "Nothing is published yet", 2,803 cases against 2,927). Add eng/status.cs --check, run in ci.cs and in release --plan at the commit under release:
+> - README's "## Status" opening line names the latest release (git tag or the descriptor being cut) and the milestone it closed.
+> - The conformance table total equals the line count of baseline/passing.txt.
+> - The package table lists every packable project with its declared layer (the CompilerVisibleProperty), and no "not built" row names a project that exists.
+> - docs/roadmap.md: every milestone whose issue is closed (by a Closes trailer in history, as release-pending resolves it) has "(complete)" in its heading; none that is open does.
+> Failure paths as fixtures like the others. In the same PR, bring README and the roadmap headings current to the merged state (milestones 6 and 7a, preview.1 published, 2,927), so the check passes on main. AGENTS.md's close-out list gains README and the roadmap heading.
+
+The session found that no milestone issue had ever been closed by a trailer:
+- #4, #5, #6 and #7 were closed by hand;
+- #12 was closed by accident, by prose quoting a closing keyword (cd0217e);
+- #8 was open although the roadmap marked milestone 4 complete.
+
+It asked which source of "closed" to use. The maintainer's answer:
+
+> Source of "complete" is releases/: a heading says (complete) iff a descriptor whose tag exists names its issue in basis, and must say it then. Backfill releases/v0.1.0-preview.1.yaml at commit a9f0c24 with basis #4–#9 and storage-format: 1, summary from the changelog section; the existing tag means the cut skips it. The cut job closes the issues its basis names with the app token. release-pending keeps the Closes trailer as the signal that forces a descriptor into the PR. issue-refs.cs refuses a closing keyword plus #N outside a trailer line. I reopen #12 by hand.
+
 ## The report
 
 **ADR [0102](../adr/0102-a-release-is-a-descriptor.md)**, *A release is a
@@ -212,6 +230,9 @@ the effect is gone.
 
 ### What 7b must change in its close-out
 
+0. Bring `README.md`'s Status opening line to name `v0.1.0-preview.2` and
+   milestone 7, and mark the roadmap's `## 7` heading *(complete)*; the plan
+   refuses the cut otherwise.
 1. Add `releases/v0.1.0-preview.2.yaml`, starting from `dotnet run
    eng/release.cs -- --draft v0.1.0-preview.2`. It needs:
    - `issue: 11`;
@@ -226,6 +247,88 @@ the effect is gone.
 5. Land by fast-forward at the approved head (`land/<name>`, then `git push
    origin <head>:main`), not by the merge button. A merge commit is not cut,
    and is recovered by a retro-cut.
+
+### Item 10, as built
+
+- **`eng/status.cs`** with **`eng/lib/Status.cs`** checks four statements:
+  - the Status opening line names the newest descriptor and the last
+    milestone it closed;
+  - the conformance total is the baseline's line count;
+  - every packable project has a row with its `<ArchLayer>`, and no
+    "not built" row names an existing project;
+  - a roadmap heading says *(complete)* exactly when its issues are in a
+    release's basis.
+
+  It runs as `status` and `status-fixtures` in `eng/ci.cs`, and in
+  `eng/release.cs --plan` on the tree of the commit under release.
+- **One departure from the answer, and why.** "Released" counts every
+  descriptor in `releases/`, the pending one included, not only those with a
+  tag. Counting only tagged ones would make `main` red at every cut: the plan
+  needs the heading unmarked before the tag exists, and status on `main`
+  needs it marked after. The pending descriptor is the one being cut, so the
+  files say *complete* at the tagged commit itself.
+- **Several issues per basis.** A basis now has at least one `issue:` line
+  rather than exactly one. **`releases/v0.1.0-preview.1.yaml`** records
+  preview.1:
+  - `commit: a9f0c24`;
+  - issues #4 to #9, and `storage-format: 1`;
+  - its changelog section as the summary.
+
+  A descriptor whose tag exists and whose `commit` is the tag's commit is a
+  record: its shape and storage format are checked, and it is never cut. The
+  `.md` notes form is gone.
+- **The cut closes the basis's issues** with the App's token, minted with
+  `permission-issues: write` beside `permission-contents: write`. The App
+  needs **Issues: read & write** as well as Contents.
+- **`eng/issue-refs.cs`** refuses a closing keyword with a number anywhere
+  but a trailer line of its own.
+- **README** is current:
+  - "`v0.1.0-preview.1` is the latest release, and it closed milestones 1 to
+    5; milestones 6a, 6c and 7a are on `main` since";
+  - the package table gains `Varve.Store.Browser` (5), `Varve.Protocol` (5)
+    and `Varve.Server` (6, a host, not packed), and its "not built" row is
+    "SHACL, CLI";
+  - the conformance table gains the four protocol suites, totalling 2,927 of
+    2,939 with twelve exemptions;
+  - "Nothing is published yet" now says preview.1 is on nuget.org, verified
+    against the nuget.org flat container.
+- **The roadmap** headings 3 and 5 gain *(complete)*; 1, 2 and 4 keep it.
+  Milestone 6 (#10) is not complete: 6b is not built and no release names
+  it.
+
+**Failure paths:**
+
+```
+$ dotnet run eng/status.cs -- --fixtures tests/fixtures/status
+ok   not-built-exists: fails, saying 'is not built, and Varve.Server exists'
+ok   package-table: fails, saying 'Varve.Protocol, packable at layer 5, has no row'; 'gives Varve.Iri layer '1', and its project declares 0'
+ok   roadmap-headings: fails, saying ''## 5 — SPARQL' must say *(complete)*'; ''## 6 — Durable storage *(complete)*' says *(complete)*, and #10 is in no release's basis'
+ok   stale-status-line: fails, saying 'does not name the latest release, v0.1.0-preview.1'; 'does not name milestone 5 (#9)'
+ok   wrong-total: fails, saying 'the conformance total is 2, and'
+ok  every one of 5 failing status fixture(s) fails, for its own reason
+```
+
+The same fixture base with no flaw reports nothing, so each case fails for
+its own reason.
+
+Run against `main`'s README before this change, the check reports eight
+findings: both parts of the opening line, 2,803 against 2,927, the two
+missing packages, the "server" not-built row, and headings 3 and 5.
+
+`issue-refs` over the 2026-09-22 range refuses the two commits that quoted a
+closing keyword in prose, among them cd0217e, which closed #12:
+
+```
+FAIL: 2 closing keyword(s) outside a trailer line. …
+  1cfad663  subject line, and illustrated it with a quoted "Closes #12" where the number
+  cd0217e7  "Closes #12" as an entire commit message does not satisfy a rule about bodies.
+```
+
+**For the maintainer, from item 10:**
+- grant the App Issues: read & write;
+- reopen #12;
+- close #8 and #9, or leave them: preview.1's record names them, and the
+  cut skips a record, so nothing closes them for you.
 
 ### Recorded for later
 

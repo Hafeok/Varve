@@ -8,7 +8,7 @@ decisions:
   - key: ReleaseProposedByItsDescriptor
     statement: "A release is proposed by adding releases/<version>.yaml to a pull request, format 1 in docs/releases.md, and cut by landing that pull request at its approved head; no other step, credential or person is in the path"
   - key: BasisResolvesAtTheCommitUnderRelease
-    statement: "A descriptor's basis resolves at the commit under release: its milestone issue closed in the range, exactly the ADRs first shipped and each Accepted, and the storage format equal to Varve.Store's"
+    statement: "A descriptor's basis resolves at the commit under release: each milestone issue it names closed by a trailer in the range, exactly the ADRs first shipped and each Accepted, and the storage format equal to Varve.Store's"
   - key: VersionsAreNeverReused
     statement: "A version comes after every v* tag by precedence and is never reused; a cut descriptor is immutable, and a correction is a new version"
   - key: CutOnlyAtAnApprovedHead
@@ -23,6 +23,14 @@ decisions:
     statement: "The GitHub Release's notes are the descriptor's summary and its title is the tag message, read by publish.yml before anything is pushed and published after the NuGet push"
   - key: HumanReviewGatesReleases
     statement: "Human review gates a release through the approval, on its head, of the pull request that adds its descriptor, and a pull request with an agent's commits; it is not otherwise required for a merge, and the release environment has no reviewer"
+  - key: AMilestoneIsCompleteWhenReleased
+    statement: "A milestone is complete when a release descriptor names its issue in basis; the cut closes the issues its basis names, with the gates App's token"
+  - key: ReleasesBeforeDescriptorsAreRecorded
+    statement: "A version tagged before descriptors existed is recorded by a descriptor pinned to its tagged commit, which is checked for its shape and storage format and never cut"
+  - key: ClosingKeywordsOnlyAsTrailers
+    statement: "A closing keyword with an issue number stands only as a trailer line of its own in a commit message, and eng/issue-refs.cs refuses it anywhere else"
+  - key: StatusIsACheckedProjection
+    statement: "README.md's Status section and docs/roadmap.md's milestone headings are checked against the release descriptors, the conformance baseline and the projects, in CI and at the commit under release"
 ---
 
 The rulings of [ADR 0102](../adr/0102-a-release-is-a-descriptor.md), filed without
