@@ -121,9 +121,13 @@ allocation context and the counter keeps its unused tail, up to one 8 KB
 quantum, so a reading is taken inside a no-GC region and discarded if the
 region broke. Tiered compilation can stack-allocate an object the caller
 discards once the call is inlined, so the measured action returns what it
-made and the meter keeps it alive; and a pair of readings counts only when
-the next round reproduces it, so a tier-up between the two sides of one round
-is not used. There is no warm-up count to tune: the rounds are the warm-up.
+made and the meter keeps it alive. Everything else — a pool miss, a cache
+filling on its first call — only ever adds bytes, so **every figure is the
+minimum of a fixed number of readings** (`AllocationMeter.Readings`, with its
+reason beside it), the baseline and the candidate alike, interleaved so that
+whatever the process does over time falls on both. No two readings have to
+agree: the loop that waited for two rounds to agree exactly never ended on a
+Windows run whose pool missed on alternate readings (7d43295, milestone 7b).
 
 ## 5. Fitness tests for the things a review forgets
 
