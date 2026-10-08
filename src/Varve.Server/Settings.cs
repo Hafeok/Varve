@@ -27,6 +27,44 @@ internal sealed class ServerSettings
     public LimitSettings Limits { get; set; } = new();
 
     public ForwardedSettings ForwardedHeaders { get; set; } = new();
+
+    /// <summary><c>SERVICE</c> over HTTP (ADR 0103): where a query may federate to.</summary>
+    public FederationSettings Federation { get; set; } = new();
+
+    /// <summary><c>LOAD</c> over HTTP (ADR 0103): where an update may fetch a document from.</summary>
+    public LoadSettings Load { get; set; } = new();
+}
+
+/// <summary>
+/// The endpoint policy and limits of <c>SERVICE</c> (ADRs 0102, 0103). With
+/// no allowed endpoint, every <c>SERVICE</c> is refused, as the evaluator's
+/// default refuses it.
+/// </summary>
+internal sealed class FederationSettings
+{
+    /// <summary>The IRI prefixes an endpoint may start with; empty allows none.</summary>
+    public List<string> AllowedEndpoints { get; set; } = [];
+
+    /// <summary>Whether loopback, link-local and private addresses may be reached.</summary>
+    public bool AllowPrivateAddresses { get; set; }
+
+    public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(30);
+
+    public long MaxResponseBytes { get; set; } = 100L << 20;
+}
+
+/// <summary>The endpoint policy and limits of <c>LOAD</c> (ADRs 0102, 0103). With no allowed source, every <c>LOAD</c> is refused.</summary>
+internal sealed class LoadSettings
+{
+    /// <summary>The IRI prefixes a document's address may start with; empty allows none.</summary>
+    public List<string> AllowedSources { get; set; } = [];
+
+    /// <summary>Whether loopback, link-local and private addresses may be reached.</summary>
+    public bool AllowPrivateAddresses { get; set; }
+
+    public TimeSpan Timeout { get; set; } = TimeSpan.FromMinutes(1);
+
+    public long MaxResponseBytes { get; set; } = 1L << 30;
 }
 
 /// <summary>One dataset.</summary>

@@ -60,16 +60,22 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         ProtocolLimits? limits = null,
         TimeProvider? clock = null,
         ICallerIdentity? identity = null,
+        IServiceHandler? serviceHandler = null,
         CancellationToken stopping = default) =>
-        StartAsync(new OneDataset(dataset), map, limits, clock, identity, stopping);
+        StartAsync(new OneDataset(dataset), map, limits, clock, identity, serviceHandler, stopping);
 
-    /// <summary>Starts a server whose datasets <paramref name="datasets"/> names.</summary>
+    /// <summary>
+    /// Starts a server whose datasets <paramref name="datasets"/> names.
+    /// <paramref name="serviceHandler"/>, when given, federates the server's own
+    /// queries (ADR 0103's suite run); the default refuses.
+    /// </summary>
     internal static async Task<ProtocolTestHost> StartAsync(
         IDatasetResolver datasets,
         Action<WebApplication, ProtocolOptions>? map = null,
         ProtocolLimits? limits = null,
         TimeProvider? clock = null,
         ICallerIdentity? identity = null,
+        IServiceHandler? serviceHandler = null,
         CancellationToken stopping = default)
     {
         WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
@@ -84,7 +90,7 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
             Authorization = new EveryoneMay(),
             Clock = clock ?? TimeProvider.System,
             Limits = limits ?? ProtocolLimits.Default,
-            Evaluation = new EvaluationOptions { Clock = clock ?? TimeProvider.System },
+            Evaluation = new EvaluationOptions { Clock = clock ?? TimeProvider.System, ServiceHandler = serviceHandler ?? RefusingServiceHandler.Instance },
             Stopping = stopping,
         };
 

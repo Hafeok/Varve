@@ -29,6 +29,10 @@ internal static class EvaluationRunner
     internal static Task<string?> RunAsync(EvaluationEntry entry, IEvaluationSubject subject, CancellationToken cancellationToken) =>
         RunAsync(entry, subject, ValueAccess.InlineAccessor, null, cancellationToken);
 
+    /// <summary>Runs one case with <paramref name="serviceHandler"/> answering its <c>SERVICE</c> patterns (ADR 0103's run over HTTP).</summary>
+    internal static Task<string?> RunAsync(EvaluationEntry entry, IEvaluationSubject subject, IServiceHandler serviceHandler, CancellationToken cancellationToken) =>
+        EvaluateAsync(entry, subject, ValueAccess.InlineAccessor, serviceHandler, (query, results) => Compare(entry, query, results, null), cancellationToken);
+
     /// <summary>
     /// Runs one case with the given arm (ADR 0050); with <paramref name="expectedPath"/>,
     /// against that result file rather than the manifest's — the differential run's Oxigraph answer.
@@ -40,10 +44,20 @@ internal static class EvaluationRunner
     /// Loads the case's data into the subject, evaluates its query, and hands
     /// the results to <paramref name="use"/> while the source is still open.
     /// </summary>
+    internal static Task<T> EvaluateAsync<T>(
+        EvaluationEntry entry,
+        IEvaluationSubject subject,
+        ValueAccess access,
+        Func<Query, QueryResults, T> use,
+        CancellationToken cancellationToken) =>
+        EvaluateAsync(entry, subject, access, new TestServiceHandler(entry.ServiceData), use, cancellationToken);
+
+    /// <summary>As above, with the <c>SERVICE</c> handler given: the suite's in-process one, or the HTTP one over in-process servers.</summary>
     internal static async Task<T> EvaluateAsync<T>(
         EvaluationEntry entry,
         IEvaluationSubject subject,
         ValueAccess access,
+        IServiceHandler serviceHandler,
         Func<Query, QueryResults, T> use,
         CancellationToken cancellationToken)
     {
@@ -81,7 +95,7 @@ internal static class EvaluationRunner
             Clock = FixedClock.Instance,
             ValueAccess = access,
             Randomness = new SeededRandom(),
-            ServiceHandler = new TestServiceHandler(entry.ServiceData),
+            ServiceHandler = serviceHandler,
         };
 
         await using LoadedSource loaded = await subject.LoadAsync(graphs);

@@ -6,6 +6,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Net;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
@@ -22,6 +23,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Varve.Protocol;
+using Varve.Protocol.Client;
 using Varve.Sparql.Algebra;
 using Varve.Sparql.Evaluation;
 using Varve.Sparql.Store;
@@ -85,7 +87,8 @@ internal static partial class ServerHost
         TimeProvider clock = TimeProvider.System;
         await using OpenDatasets datasets = await OpenDatasets.OpenAsync(settings, clock, CancellationToken.None).ConfigureAwait(false);
         IHostApplicationLifetime lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
-        Map(app, settings, datasets, clock, anonymous, lifetime.ApplicationStopping);
+        using HttpClient outbound = OutboundHttp.CreateClient();
+        Map(app, settings, datasets, clock, anonymous, Outbound.Of(settings, outbound), lifetime.ApplicationStopping);
 
         if (ready is null)
         {
@@ -164,7 +167,7 @@ internal static partial class ServerHost
         });
     }
 
-    private static void Map(WebApplication app, ServerSettings settings, OpenDatasets datasets, TimeProvider clock, bool anonymous, CancellationToken stopping)
+    private static void Map(WebApplication app, ServerSettings settings, OpenDatasets datasets, TimeProvider clock, bool anonymous, Outbound outbound, CancellationToken stopping)
     {
         if (settings.ForwardedHeaders.Enabled)
         {
@@ -197,7 +200,7 @@ internal static partial class ServerHost
         ProtocolOptions options = new()
         {
             Datasets = datasets,
-            Updates = new StoreUpdates(clock),
+            Updates = new StoreUpdates(clock, outbound),
             Identity = anonymous ? new NoAgent() : new TokenIdentity(settings.Auth.SubjectClaim),
             Authorization = app.Services.GetRequiredService<IAuthorizationService>(),
             Clock = clock,
@@ -207,7 +210,7 @@ internal static partial class ServerHost
                 new ByteCount(settings.Limits.ResultSizeCap),
                 new ByteCount(settings.Limits.MaxRequestBody),
                 settings.Limits.FeedHeartbeat),
-            Evaluation = new EvaluationOptions { Clock = clock, Randomness = new SystemRandomness() },
+            Evaluation = new EvaluationOptions { Clock = clock, Randomness = new SystemRandomness(), ServiceHandler = outbound.Service },
             Stopping = stopping,
         };
 
@@ -262,15 +265,16 @@ internal static partial class ServerHost
         await context.Response.Body.WriteAsync(body.WrittenMemory, context.RequestAborted).ConfigureAwait(false);
     }
 
-    /// <summary>The update executor (ADR 0091): Varve.Sparql.Store, no retries, the expected position passed through.</summary>
-    private sealed class StoreUpdates(TimeProvider clock) : ISparqlUpdateExecutor
+    /// <summary>The update executor (ADR 0091): Varve.Sparql.Store, no retries, the expected position passed through, SERVICE and LOAD through the outbound client (ADR 0103).</summary>
+    private sealed class StoreUpdates(TimeProvider clock, Outbound outbound) : ISparqlUpdateExecutor
     {
         public ValueTask<CommitResult> ExecuteAsync(Dataset dataset, Update update, CommitMetadata metadata, Position? expectedPosition, CancellationToken cancellationToken) =>
             SparqlUpdate.ExecuteAsync(dataset, update, new UpdateOptions
             {
                 Metadata = metadata,
                 ExpectedPosition = expectedPosition,
-                Evaluation = new EvaluationOptions { Clock = clock, Randomness = new SystemRandomness() },
+                Evaluation = new EvaluationOptions { Clock = clock, Randomness = new SystemRandomness(), ServiceHandler = outbound.Service },
+                LoadSource = outbound.Load,
             }, cancellationToken);
     }
 

@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Varve.Protocol/Varve.Protocol.csproj" />
+    <ProjectReference Include="../Varve.Protocol.Client/Varve.Protocol.Client.csproj" />
     <ProjectReference Include="../Varve.Sparql.Store/Varve.Sparql.Store.csproj" />
     <ProjectReference Include="../Varve.Store/Varve.Store.csproj" />
   </ItemGroup>

@@ -105,6 +105,9 @@ internal static class SettingsCheck
             errors.Add("Varve:Limits sizes are positive.");
         }
 
+        CheckOutbound(errors, "Varve:Federation:AllowedEndpoints", settings.Federation.AllowedEndpoints, settings.Federation.Timeout, settings.Federation.MaxResponseBytes);
+        CheckOutbound(errors, "Varve:Load:AllowedSources", settings.Load.AllowedSources, settings.Load.Timeout, settings.Load.MaxResponseBytes);
+
         foreach (string proxy in settings.ForwardedHeaders.KnownProxies)
         {
             if (!IPAddress.TryParse(proxy, out _))
@@ -119,5 +122,25 @@ internal static class SettingsCheck
         }
 
         return errors;
+    }
+
+    // An endpoint policy's prefixes are absolute http or https IRIs, and its
+    // limits positive (ADRs 0102, 0103): checked here so that a wrong prefix is
+    // a listed error at start, not an exception at the first SERVICE.
+    private static void CheckOutbound(List<string> errors, string section, List<string> prefixes, TimeSpan timeout, long maxResponseBytes)
+    {
+        foreach (string prefix in prefixes)
+        {
+            if (string.IsNullOrWhiteSpace(prefix)
+                || !(prefix.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || prefix.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
+            {
+                errors.Add(section + " holds an absolute http or https IRI prefix, not '" + prefix + "'.");
+            }
+        }
+
+        if (timeout <= TimeSpan.Zero || maxResponseBytes <= 0)
+        {
+            errors.Add(section[..section.LastIndexOf(':')] + " has a positive Timeout and MaxResponseBytes.");
+        }
     }
 }

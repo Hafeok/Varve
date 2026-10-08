@@ -1,0 +1,42 @@
+#nullable enable
+Varve.Protocol.Client.ClientLimits
+Varve.Protocol.Client.ClientLimits.ClientLimits() -> void
+Varve.Protocol.Client.ClientLimits.ClientLimits(System.TimeSpan timeout, Varve.Store.Log.ByteCount maxResponseBytes) -> void
+Varve.Protocol.Client.ClientLimits.Equals(Varve.Protocol.Client.ClientLimits other) -> bool
+Varve.Protocol.Client.ClientLimits.MaxResponseBytes.get -> Varve.Store.Log.ByteCount
+Varve.Protocol.Client.ClientLimits.Timeout.get -> System.TimeSpan
+Varve.Protocol.Client.EndpointPolicy
+Varve.Protocol.Client.EndpointPolicy.AllowPrivateAddresses.get -> bool
+Varve.Protocol.Client.EndpointPolicy.AllowedPrefixes.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Varve.Protocol.Client.EndpointPolicy.Allows(System.ReadOnlySpan<byte> iri, out string? reason) -> bool
+Varve.Protocol.Client.EndpointPolicy.EndpointPolicy(System.Collections.Generic.IReadOnlyList<string!>! allowedPrefixes, bool allowPrivateAddresses) -> void
+Varve.Protocol.Client.HttpServiceHandler
+Varve.Protocol.Client.HttpServiceHandler.Execute(Varve.Sparql.Evaluation.Model.ServiceRequest! request, System.Threading.CancellationToken cancellationToken) -> Varve.Sparql.Evaluation.Model.ServiceResult!
+Varve.Protocol.Client.HttpServiceHandler.HttpServiceHandler(System.Net.Http.HttpClient! http, Varve.Protocol.Client.EndpointPolicy! policy, Varve.Protocol.Client.ClientLimits limits) -> void
+Varve.Protocol.Client.Model.EndpointRefusedException
+Varve.Protocol.Client.Model.EndpointRefusedException.EndpointRefusedException() -> void
+Varve.Protocol.Client.Model.EndpointRefusedException.EndpointRefusedException(Varve.Rdf.RdfTerm! iri, string! reason) -> void
+Varve.Protocol.Client.Model.EndpointRefusedException.EndpointRefusedException(string! message) -> void
+Varve.Protocol.Client.Model.EndpointRefusedException.EndpointRefusedException(string! message, System.Exception! inner) -> void
+Varve.Protocol.Client.Model.EndpointRefusedException.Iri.get -> Varve.Rdf.RdfTerm?
+Varve.Protocol.Client.Model.EndpointRefusedException.Reason.get -> string!
+Varve.Protocol.Client.Model.RdfDocument
+Varve.Protocol.Client.Model.RdfDocument.BaseIri.get -> System.ReadOnlyMemory<byte>
+Varve.Protocol.Client.Model.RdfDocument.Content.get -> System.ReadOnlyMemory<byte>
+Varve.Protocol.Client.Model.RdfDocument.Failure.get -> string?
+Varve.Protocol.Client.Model.RdfDocument.IsFailure.get -> bool
+Varve.Protocol.Client.Model.RdfDocument.Syntax.get -> Varve.Turtle.RdfSyntax
+Varve.Protocol.Client.OutboundHttp
+Varve.Protocol.Client.RdfDocumentClient
+Varve.Protocol.Client.RdfDocumentClient.FetchAsync(Varve.Rdf.RdfTerm! iri, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Client.Model.RdfDocument!>
+Varve.Protocol.Client.RdfDocumentClient.RdfDocumentClient(System.Net.Http.HttpClient! http, Varve.Protocol.Client.EndpointPolicy! policy, Varve.Protocol.Client.ClientLimits limits) -> void
+override Varve.Protocol.Client.ClientLimits.GetHashCode() -> int
+static Varve.Protocol.Client.ClientLimits.Default.get -> Varve.Protocol.Client.ClientLimits
+static Varve.Protocol.Client.ClientLimits.operator !=(Varve.Protocol.Client.ClientLimits left, Varve.Protocol.Client.ClientLimits right) -> bool
+static Varve.Protocol.Client.ClientLimits.operator ==(Varve.Protocol.Client.ClientLimits left, Varve.Protocol.Client.ClientLimits right) -> bool
+static Varve.Protocol.Client.EndpointPolicy.None.get -> Varve.Protocol.Client.EndpointPolicy!
+static Varve.Protocol.Client.Model.RdfDocument.Failed(string! reason) -> Varve.Protocol.Client.Model.RdfDocument!
+static Varve.Protocol.Client.Model.RdfDocument.Of(System.ReadOnlyMemory<byte> content, Varve.Turtle.RdfSyntax syntax, System.ReadOnlyMemory<byte> baseIri) -> Varve.Protocol.Client.Model.RdfDocument!
+static Varve.Protocol.Client.OutboundHttp.CreateClient() -> System.Net.Http.HttpClient!
+~override Varve.Protocol.Client.ClientLimits.Equals(object obj) -> bool
+~override Varve.Protocol.Client.ClientLimits.ToString() -> string

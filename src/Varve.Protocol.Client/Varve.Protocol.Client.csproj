@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 5: the HTTP client of the SPARQL Protocol, the Graph Store
+         Protocol, the change feed and the admin API, and the SERVICE handler
+         and the document fetch LOAD needs, over the BCL's HttpClient (ADRs
+         0102, 0103). It references neither Varve.Protocol nor
+         Varve.Sparql.Store: both are layer 5 (ADR 0060). -->
+    <ArchLayer>5</ArchLayer>
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+
+    <!-- Nothing here reads an ambient clock: a timeout is a cancellation the
+         caller's token and the limits produce (ADR 0056). -->
+    <VarveDeterministic>true</VarveDeterministic>
+
+    <!-- System.Uri for transport addresses only: the endpoint a request goes
+         to, built after the endpoint policy has checked the IRI's bytes. Every
+         IRI is still Varve.Iri. ADR 0004, amended 2026-10-08; ADR 0102. -->
+    <VarveSpeaksHttp>true</VarveSpeaksHttp>
+
+    <Description>The HTTP client for a Varve server: SPARQL Protocol queries and updates, the Graph Store Protocol, the change feed and the admin API, with the SERVICE handler and the document fetch that federate a query and a LOAD under an endpoint policy.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Store/Varve.Store.csproj" />
+    <ProjectReference Include="../Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
+    <ProjectReference Include="../Varve.Sparql.Results/Varve.Sparql.Results.csproj" />
+    <ProjectReference Include="../Varve.Sparql/Varve.Sparql.csproj" />
+    <ProjectReference Include="../Varve.Turtle/Varve.Turtle.csproj" />
+    <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
+    <ProjectReference Include="../Varve.Iri/Varve.Iri.csproj" />
+  </ItemGroup>
+
+</Project>
