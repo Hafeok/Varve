@@ -557,3 +557,73 @@ internal static class FileSizes
         return z ^ (z >> 31);
     }
 }
+
+/// <summary>
+/// Lookups by term over the disk runs of a million-quad dataset (ADR 0108):
+/// a term the dataset does not hold is looked up in every run — one filter
+/// probe per run in format 3, one hash-index window per run before — and a
+/// term it holds is found in the run that has it. 10,000 of each, as a
+/// commit of new terms looks its terms up before allocating them.
+/// </summary>
+[MemoryDiagnoser]
+public class TermLookupBenchmarks
+{
+    private FileDataset? _dataset;
+    private DatasetView? _view;
+    private RdfTerm[] _absent = [];
+    private RdfTerm[] _present = [];
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        (RdfTerm S, RdfTerm P, RdfTerm O, RdfTerm? G)[] quads = StoreDataset.Build(StoreDataset.Quads);
+        _dataset = FileDataset.CreateAsync(memtableLimit: 10_000).GetAwaiter().GetResult();
+        _dataset.LoadAsync(quads, 10_000).GetAwaiter().GetResult();
+        _view = _dataset.Dataset.Pin();
+        _absent = [.. Enumerable.Range(0, 10_000).Select(i => StoreDataset.Iri("absent/" + i.ToString(CultureInfo.InvariantCulture)))];
+        _present = [.. Enumerable.Range(0, 10_000).Select(i => quads[i * 97].S)];
+        int runs = Directory.GetFiles(Path.Combine(_dataset.Directory, "derived", "index", "runs")).Length;
+        Console.WriteLine("// " + runs.ToString(CultureInfo.InvariantCulture) + " disk run(s) under the pinned view");
+    }
+
+    [GlobalCleanup]
+    public void Cleanup()
+    {
+        _view?.Dispose();
+        _dataset?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+    }
+
+    /// <summary>10,000 terms no run holds: every run's filter, or every run's index.</summary>
+    [Benchmark]
+    public int AbsentTerms()
+    {
+        int found = 0;
+
+        foreach (RdfTerm term in _absent)
+        {
+            if (_view!.TryInternalise(term, out _))
+            {
+                found++;
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>10,000 terms the dataset holds, each in one run.</summary>
+    [Benchmark]
+    public int PresentTerms()
+    {
+        int found = 0;
+
+        foreach (RdfTerm term in _present)
+        {
+            if (_view!.TryInternalise(term, out _))
+            {
+                found++;
+            }
+        }
+
+        return found;
+    }
+}

@@ -431,3 +431,5 @@ Varve.Store.DatasetOptions.CommitCache.get -> int
 Varve.Store.DatasetOptions.CommitCache.init -> void
 Varve.Store.Log.Commit.TryExternalise(Varve.Rdf.TermHandle handle, out Varve.Rdf.RdfTerm! term) -> bool
 Varve.Store.Dataset.ProjectionPosition.get -> Varve.Store.Log.Position
+Varve.Store.BulkLoadOptions.Workers.get -> int
+Varve.Store.BulkLoadOptions.Workers.init -> void

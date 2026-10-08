@@ -15,7 +15,11 @@ classes and counters are unchanged.
 
 **Revisit condition:** a workload where lookups by term on a cold cache
 dominate commit latency — the per-run hash index searched run by run would
-then need a filter in memory, which this decision declined.
+then need a filter in memory, which this decision declined. **Discharged
+2026-10-08** by ADR [0108](0108-per-run-term-filters.md) (ADR 0068's dated
+note; milestone 7b of #11): each run carries a blocked Bloom filter over its
+term hashes, eight bits a term, in derived format 3. The ids, classes and
+counters here are unchanged.
 
 ## Context
 

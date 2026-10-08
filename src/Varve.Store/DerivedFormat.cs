@@ -20,8 +20,9 @@ namespace Varve.Store;
 /// <summary>What a derived file's header says (storage format §7).</summary>
 internal readonly struct DerivedHeader
 {
-    internal DerivedHeader(ushort kind, long from, long to, byte[] toHash, long directoryOffset, long directoryLength, byte[] directoryHash)
+    internal DerivedHeader(ushort version, ushort kind, long from, long to, byte[] toHash, long directoryOffset, long directoryLength, byte[] directoryHash)
     {
+        Version = version;
         Kind = kind;
         From = from;
         To = to;
@@ -30,6 +31,9 @@ internal readonly struct DerivedHeader
         DirectoryLength = directoryLength;
         DirectoryHash = directoryHash;
     }
+
+    /// <summary>The derived format version the file was written in: 2 or 3 (ADR 0108).</summary>
+    internal ushort Version { get; }
 
     internal ushort Kind { get; }
 
@@ -85,7 +89,11 @@ internal readonly record struct StateEntry(BlobName Name, long From, long To);
 /// </remarks>
 internal static class DerivedFormat
 {
-    internal const ushort Version = 2;
+    /// <summary>What this build writes: 3, runs with a term filter (ADR 0108).</summary>
+    internal const ushort Version = 3;
+
+    /// <summary>The oldest derived version this build reads: 2, a run without a filter (ADR 0080).</summary>
+    internal const ushort OldestRead = 2;
     internal const ushort KindRun = 1;
     internal const ushort KindCheckpoint = 2;
     internal const ushort KindState = 3;
@@ -99,12 +107,15 @@ internal static class DerivedFormat
 
     private static ReadOnlySpan<byte> Magic => "VRVD"u8;
 
-    internal static byte[] EncodeHeader(ushort kind, DatasetId dataset, long from, long to, ReadOnlySpan<byte> toHash, long directoryOffset, long directoryLength, ReadOnlySpan<byte> directoryHash)
+    internal static byte[] EncodeHeader(ushort kind, DatasetId dataset, long from, long to, ReadOnlySpan<byte> toHash, long directoryOffset, long directoryLength, ReadOnlySpan<byte> directoryHash) =>
+        EncodeHeader(Version, kind, dataset, from, to, toHash, directoryOffset, directoryLength, directoryHash);
+
+    internal static byte[] EncodeHeader(ushort version, ushort kind, DatasetId dataset, long from, long to, ReadOnlySpan<byte> toHash, long directoryOffset, long directoryLength, ReadOnlySpan<byte> directoryHash)
     {
         byte[] bytes = new byte[HeaderLength];
         Span<byte> span = bytes;
         Magic.CopyTo(span);
-        BinaryPrimitives.WriteUInt16LittleEndian(span[4..], Version);
+        BinaryPrimitives.WriteUInt16LittleEndian(span[4..], version);
         BinaryPrimitives.WriteUInt16LittleEndian(span[6..], kind);
         dataset.WriteTo(span.Slice(8, DatasetId.Length));
         BinaryPrimitives.WriteUInt64LittleEndian(span[24..], (ulong)from);
@@ -133,9 +144,17 @@ internal static class DerivedFormat
         if (blob.Read(new ByteOffset(length - HeaderLength), bytes) != HeaderLength
             || !bytes[..4].SequenceEqual(Magic)
             || !LogFormat.HashMatches(bytes[..128], bytes.Slice(128, LogFormat.HashLength))
-            || BinaryPrimitives.ReadUInt16LittleEndian(bytes[4..]) != Version
             || BinaryPrimitives.ReadUInt16LittleEndian(bytes[6..]) != kind
             || DatasetId.Read(bytes.Slice(8, DatasetId.Length)) != dataset)
+        {
+            return false;
+        }
+
+        // A version this build does not read is a cache miss (ADR 0072): the
+        // file is rebuilt. Versions 2 and 3 differ by the filter section alone.
+        ushort version = BinaryPrimitives.ReadUInt16LittleEndian(bytes[4..]);
+
+        if (version < OldestRead || version > Version)
         {
             return false;
         }
@@ -150,7 +169,7 @@ internal static class DerivedFormat
             return false;
         }
 
-        header = new DerivedHeader(kind, from, to, bytes.Slice(40, LogFormat.HashLength).ToArray(), directoryOffset, directoryLength, bytes.Slice(88, LogFormat.HashLength).ToArray());
+        header = new DerivedHeader(version, kind, from, to, bytes.Slice(40, LogFormat.HashLength).ToArray(), directoryOffset, directoryLength, bytes.Slice(88, LogFormat.HashLength).ToArray());
         return true;
     }
 
@@ -173,8 +192,9 @@ internal static class DerivedFormat
         IKeySource[] sections,
         TermSection[] terms,
         long blankCount,
-        CancellationToken cancellationToken) =>
-        await WriteRunAsync(store, name, kind, dataset, from, to, toHash, (i, _) => new ValueTask<IKeySource>(sections[i]), terms, blankCount, cancellationToken).ConfigureAwait(false);
+        CancellationToken cancellationToken,
+        ushort version = Version) =>
+        await WriteRunAsync(store, name, kind, dataset, from, to, toHash, (i, _) => new ValueTask<IKeySource>(sections[i]), terms, blankCount, cancellationToken, version).ConfigureAwait(false);
 
     /// <summary>
     /// The same, with each section's source made just before it is written
@@ -192,8 +212,14 @@ internal static class DerivedFormat
         Func<int, CancellationToken, ValueTask<IKeySource>> sections,
         TermSection[] terms,
         long blankCount,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ushort version = Version)
     {
+        if (version is < OldestRead or > Version)
+        {
+            throw new ArgumentOutOfRangeException(nameof(version), version, "A run is written in derived format 2 or 3.");
+        }
+
         await using IBlobWriter writer = await store.CreateAsync(name, cancellationToken).ConfigureAwait(false);
         QuadKey[] keys = new QuadKey[WriteKeys];
         KeyBlockWriter blocks = new();
@@ -244,9 +270,9 @@ internal static class DerivedFormat
         await writer.WriteAsync(blocks.PendingBytes, cancellationToken).ConfigureAwait(false);
         blocks.Written();
 
-        (long canonicalFrom, long canonicalTo, long entriesAt, long entriesLength, long offsetsAt, long hashesAt, long end) =
-            await WriteTermsAsync(writer, terms, offset, cancellationToken).ConfigureAwait(false);
-        offset = end;
+        (long canonicalFrom, long canonicalTo, long entriesAt, long entriesLength, long offsetsAt, long hashesAt, long filterAt, long filterLength) =
+            await WriteTermsAsync(writer, terms, offset, version >= 3, cancellationToken).ConfigureAwait(false);
+        offset = filterAt + filterLength;
 
         // The directory streams to the blob, hashed as it goes: its fences
         // grow with the run, and are never gathered into one buffer (issue #61).
@@ -288,9 +314,17 @@ internal static class DerivedFormat
         LogFormat.WriteUInt64(part, (ulong)offsetsAt);
         LogFormat.WriteUInt64(part, (ulong)hashesAt);
         LogFormat.WriteUInt64(part, (ulong)blankCount);
+
+        if (version >= 3)
+        {
+            // Format 3 (ADR 0108): where the filter lies and how long it is.
+            LogFormat.WriteUInt64(part, (ulong)filterAt);
+            LogFormat.WriteUInt64(part, (ulong)filterLength);
+        }
+
         await directory.WriteAsync(part.WrittenMemory, cancellationToken).ConfigureAwait(false);
 
-        byte[] header = EncodeHeader(kind, dataset, from, to, toHash, offset, directory.Length, directory.Hash());
+        byte[] header = EncodeHeader(version, kind, dataset, from, to, toHash, offset, directory.Length, directory.Hash());
         await writer.WriteAsync(header, cancellationToken).ConfigureAwait(false);
         await writer.PublishAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -299,9 +333,11 @@ internal static class DerivedFormat
     /// Writes the term sections of adjacent runs, oldest first, as one: their
     /// entries end to end, the offsets rebased, and the hash indexes merged.
     /// Streamed: a window of each index and a buffer at a time (ADR 0079).
+    /// With <paramref name="filtered"/>, the filter over every hash follows
+    /// the index (ADR 0108): eight bits a term, built as the hashes stream by.
     /// </summary>
-    private static async ValueTask<(long From, long To, long EntriesAt, long EntriesLength, long OffsetsAt, long HashesAt, long End)> WriteTermsAsync(
-        IBlobWriter writer, TermSection[] terms, long offset, CancellationToken cancellationToken)
+    private static async ValueTask<(long From, long To, long EntriesAt, long EntriesLength, long OffsetsAt, long HashesAt, long FilterAt, long FilterLength)> WriteTermsAsync(
+        IBlobWriter writer, TermSection[] terms, long offset, bool filtered, CancellationToken cancellationToken)
     {
         long from = terms.Length == 0 ? 0 : terms[0].From;
         long to = from;
@@ -370,14 +406,33 @@ internal static class DerivedFormat
 
             long hashesAt = offsetsAt + ((to - from + 1) * 8);
             HashMerge merge = new(terms);
+            TermFilter? filter = filtered ? TermFilter.Empty(to - from) : null;
             int produced;
 
             while ((produced = merge.Next(MemoryMarshal.Cast<byte, TermHash>(buffer.AsSpan(0, TermBuffer)))) > 0)
             {
+                if (filter is not null)
+                {
+                    ReadOnlySpan<TermHash> hashes = MemoryMarshal.Cast<byte, TermHash>(buffer.AsSpan(0, produced * TermHash.Size));
+
+                    foreach (TermHash hash in hashes)
+                    {
+                        filter.Add(hash.Hash);
+                    }
+                }
+
                 await writer.WriteAsync(buffer.AsMemory(0, produced * TermHash.Size), cancellationToken).ConfigureAwait(false);
             }
 
-            return (from, to, entriesAt, entriesLength, offsetsAt, hashesAt, hashesAt + ((to - from) * TermHash.Size));
+            long filterAt = hashesAt + ((to - from) * TermHash.Size);
+
+            if (filter is null)
+            {
+                return (from, to, entriesAt, entriesLength, offsetsAt, hashesAt, filterAt, 0);
+            }
+
+            await writer.WriteAsync(filter.Bytes.ToArray(), cancellationToken).ConfigureAwait(false);
+            return (from, to, entriesAt, entriesLength, offsetsAt, hashesAt, filterAt, filter.Length);
         }
         finally
         {
@@ -499,9 +554,10 @@ internal static class DerivedFormat
         // into one buffer the size of the directory (issue #61).
         using DirectoryReader directory = new(blob, header.DirectoryOffset, header.DirectoryLength);
         int fixedLength = 8 + (Sections * 24);
+        int tailWords = header.Version >= 3 ? 9 : 7;
         Span<byte> span = stackalloc byte[8 + (Sections * 24)];
 
-        if (header.DirectoryLength < fixedLength + (7 * 8)
+        if (header.DirectoryLength < fixedLength + (tailWords * 8)
             || !directory.TryRead(span)
             || BinaryPrimitives.ReadUInt32LittleEndian(span) != KeySection.BlockKeys
             || BinaryPrimitives.ReadUInt32LittleEndian(span[4..]) != Sections)
@@ -540,7 +596,7 @@ internal static class DerivedFormat
             keysEnd += lengths[section];
         }
 
-        if (header.DirectoryLength != fixedLength + (blocksTotal * (QuadKey.Size + 8)) + (7 * 8))
+        if (header.DirectoryLength != fixedLength + (blocksTotal * (QuadKey.Size + 8)) + (tailWords * 8))
         {
             return null;
         }
@@ -575,7 +631,8 @@ internal static class DerivedFormat
             }
         }
 
-        Span<byte> tail = stackalloc byte[7 * 8];
+        Span<byte> tail = stackalloc byte[9 * 8];
+        tail = tail[..(tailWords * 8)];
 
         if (!directory.TryRead(tail) || !directory.HashMatches(header.DirectoryHash))
         {
@@ -590,14 +647,42 @@ internal static class DerivedFormat
         long hashesAt = (long)BinaryPrimitives.ReadUInt64LittleEndian(tail[40..]);
         long blank = (long)BinaryPrimitives.ReadUInt64LittleEndian(tail[48..]);
         long terms = canonicalTo - canonicalFrom;
+        long hashesEnd = hashesAt + (terms * TermHash.Size);
 
         if (canonicalFrom < 0 || terms < 0 || blank < 0 || entriesLength < 0
             || terms > header.DirectoryOffset / TermHash.Size
             || entriesAt != keysEnd
             || offsetsAt != entriesAt + entriesLength
             || hashesAt != offsetsAt + ((terms + 1) * 8)
-            || hashesAt + (terms * TermHash.Size) != header.DirectoryOffset
             || (kind == KindCheckpoint && (canonicalFrom != 0 || header.From != 0)))
+        {
+            return null;
+        }
+
+        // Format 3's filter (ADR 0108): a section between the index and the
+        // directory, loaded with the directory and held with the run.
+        TermFilter? filter = null;
+
+        if (header.Version >= 3)
+        {
+            long filterAt = (long)BinaryPrimitives.ReadUInt64LittleEndian(tail[56..]);
+            long filterLength = (long)BinaryPrimitives.ReadUInt64LittleEndian(tail[64..]);
+
+            if (filterAt != hashesEnd || filterLength != TermFilter.LengthFor(terms) || filterAt + filterLength != header.DirectoryOffset)
+            {
+                return null;
+            }
+
+            byte[] bits = new byte[filterLength];
+
+            if (blob.Read(new ByteOffset(filterAt), bits) != bits.Length)
+            {
+                return null;
+            }
+
+            filter = new TermFilter(bits);
+        }
+        else if (hashesEnd != header.DirectoryOffset)
         {
             return null;
         }
@@ -622,7 +707,7 @@ internal static class DerivedFormat
             }
         }
 
-        TermSection termSection = TermSection.On(blob, canonicalFrom, canonicalTo, entriesAt, entriesLength, offsetsAt, hashesAt);
+        TermSection termSection = TermSection.On(blob, canonicalFrom, canonicalTo, entriesAt, entriesLength, offsetsAt, hashesAt, filter);
         return new LoadedRun(new Run(asserted, retracted, header.From, header.To, termSection, owner), header, blank);
     }
 

@@ -23,11 +23,13 @@ internal static class Load
         Argument<string[]> files = new("files") { Description = "N-Triples (.nt), N-Quads (.nq), Turtle (.ttl) or TriG (.trig) files, by extension." };
         Option<string?> graph = new("--graph") { Description = "Load every triple into this named graph; a document's own graphs are replaced." };
         Option<int> memory = new("--memory") { Description = "MiB the load may hold in memory.", DefaultValueFactory = _ => 256 };
+        Option<int?> workers = new("--workers") { Description = "Threads that resolve and spill while the parser reads (ADR 0107); the processor count less one by default." };
         Command command = new("load", "Bulk-load files into a local dataset as one commit.");
         command.Arguments.Add(directory);
         command.Arguments.Add(files);
         command.Options.Add(graph);
         command.Options.Add(memory);
+        command.Options.Add(workers);
         Target target = new();
         command.Options.Add(target.AllowEndpoint);
         command.SetAction((parsed, cancellationToken) => Cli.GuardAsync(async () =>
@@ -41,7 +43,10 @@ internal static class Load
 
             RdfTerm? into = parsed.GetValue(graph) is { } iri ? RdfTerm.Iri(Encoding.UTF8.GetBytes(iri)) : null;
             await using Local local = await target.OpenLocalAsync(parsed.GetValue(directory)!, parsed, mustExist: true, cancellationToken).ConfigureAwait(false);
-            BulkLoadOptions options = new() { MemoryBytes = new ByteCount((long)Math.Max(16, parsed.GetValue(memory)) << 20) };
+            ByteCount budget = new((long)Math.Max(16, parsed.GetValue(memory)) << 20);
+            BulkLoadOptions options = parsed.GetValue(workers) is int count
+                ? new BulkLoadOptions { MemoryBytes = budget, Workers = Math.Max(1, count) }
+                : new BulkLoadOptions { MemoryBytes = budget };
             await using BulkLoad load = await local.Dataset.BeginBulkLoadAsync(options, cancellationToken).ConfigureAwait(false);
 
             foreach (string path in paths)
