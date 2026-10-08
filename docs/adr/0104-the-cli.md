@@ -39,8 +39,10 @@ publish runner, so a tool package and an AOT binary are two artefacts.
 
 1. **One executable.** `Varve.Server` is the tool: package id `Varve.Server`,
    tool command `varve`. `varve serve` runs the host of ADR 0101 unchanged,
-   and so does `varve` with no command, so `eng/server-smoke.cs` and a
-   container image's entry point need no change. One composition root
+   and so does `varve` with no command, or with nothing but host
+   configuration (`--Varve:…`, `--urls=…`, as the 7a host took), so
+   `eng/server-smoke.cs`, the in-process tests and a container image's
+   entry point need no change. One composition root
    (ADR 0060), one AOT publish, one package.
 2. **The commands**, each taking a dataset **directory** or a dataset **URL**
    where both make sense:
@@ -48,9 +50,9 @@ publish runner, so a tool package and an AOT binary are two artefacts.
    | Command | Does | Embedded | Remote |
    |---|---|:-:|:-:|
    | `create <dir>` | creates a file dataset | yes | — (ADR 0105's `PUT` is the admin call) |
-   | `info <dir\|url>` | id, head, head time, durability, settings, checkpoints, projection | yes | `/status` |
+   | `info <dir\|url>` | id, head, durability, settings, checkpoints, projection, as `/status`'s JSON | yes | `/status` |
    | `load <dir> <files…>` | the bulk loader (ADR 0081), `--graph` | yes | — |
-   | `query <dir\|url>` | `--query`/`--file`, `--format json\|xml\|csv\|tsv\|nt\|ttl\|nq\|trig`, `--as-of` | yes | `/sparql` |
+   | `query <dir\|url>` | `--query`/`--file`, `--format json\|xml\|csv\|tsv\|nt\|ttl\|nq\|trig`, `--as-of`; a local graph result is N-Triples | yes | `/sparql` |
    | `update <dir\|url>` | `--update`/`--file`, `--if-match` | yes | `/sparql` |
    | `export <dir\|url>` | the dataset as N-Quads or TriG, `--graph` for one graph | yes | a query, written as quads |
    | `checkpoint <dir\|url>` | a checkpoint at the head or `--at` | yes | `/checkpoints` |
@@ -67,6 +69,12 @@ publish runner, so a tool package and an AOT binary are two artefacts.
    - `load` is embedded only: the bulk loader holds the sequencer, which no
      protocol endpoint exposes. A remote load is a Graph Store `PUT` or
      `POST`, and `update` and the Graph Store calls of the client cover it.
+   - **Streams and exit codes.** Results, quads and feed records go to
+     standard output as bytes; a command's own words (`committed, position
+     3`) go there as text; a failure is one line on standard error, `varve:
+     …`. Exit `0` is done, `1` a command that ran and failed, `2` a usage
+     error or, for `serve`, a configuration that does not validate (ADR
+     0101).
 3. **Remote authentication** is ADR 0037's: the **device code** flow for a
    person (`--authority`, `--client-id`; the CLI prints the verification URI
    and the code, polls the token endpoint, and keeps the refresh token), or

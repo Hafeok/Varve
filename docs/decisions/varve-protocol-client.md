@@ -14,7 +14,7 @@ decisions:
   - key: ClientLimitsBoundEveryRequest
     statement: "Every request is bounded by a host-configured timeout and a cap on response bytes, beyond which the response is a failure and never a truncated answer"
   - key: ClientModelNamespace
-    statement: "Varve.Protocol.Client.Model holds the client's public data: RdfDocument, EndpointRefusedException and the admin responses; the root namespace holds the clients, the handler and the policy"
+    statement: "Varve.Protocol.Client.Model holds the client's public data: RdfDocument and EndpointRefusedException; the root namespace holds the clients, the handler and the policy, and SparqlHttpClient answers raw responses the caller streams"
 ---
 
 The rulings of [ADR 0102](../adr/0102-varve-protocol-client.md), filed unaccepted by milestone 7b of #11

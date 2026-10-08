@@ -6,16 +6,19 @@
 //
 //   dotnet run eng/server-smoke.cs -- <path to the published Varve.Server binary>
 //
-// Starts the binary in anonymous mode with one file dataset in a temporary
-// directory, waits for GET /ready, then makes an update, a query and a feed
-// read, and stops it. On Linux and macOS the stop is SIGTERM and the exit code
-// must be 0; Windows has no SIGTERM to send a console process, so there the
-// process is killed and the graceful stop is the in-process tests' alone.
+// First the command line (ADR 0104): create, update, query, export, checkpoint
+// and feed against a directory in a temporary root. Then the binary serves that
+// root in anonymous mode; the smoke waits for GET /ready, makes an update, a
+// query and a feed read over HTTP, runs one CLI query against the server's URL,
+// and stops it. On Linux and macOS the stop is SIGTERM and the exit code must
+// be 0; Windows has no SIGTERM to send a console process, so there the process
+// is killed and the graceful stop is the in-process tests' alone.
 //
 // The interesting AOT failures are at run time and silent — a trimmed type, a
 // missing generic instantiation — so every path that serialises or binds runs
 // here: the configuration binder, the JSON of /ready, a SPARQL JSON result, the
-// delta format. Exit 1 is a failure, 2 a smoke run that could not start.
+// delta format, the command line's parser and its HTTP client. Exit 1 is a
+// failure, 2 a smoke run that could not start.
 //
 // It writes the binary's size and its time to ready to the step summary when
 // there is one. A shared runner is a noisy machine (ADR 0027): the time is an
@@ -34,6 +37,63 @@ if (args.Length != 1 || !File.Exists(args[0]))
 
 string binary = Path.GetFullPath(args[0]);
 string root = Directory.CreateTempSubdirectory("varve-smoke-").FullName;
+string directory = Path.Combine(root, "smoke");
+
+async Task<(int Exit, string Output, string Error)> VarveAsync(params string[] arguments)
+{
+    ProcessStartInfo command = new(binary) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
+
+    foreach (string argument in arguments)
+    {
+        command.ArgumentList.Add(argument);
+    }
+
+    using Process process = Process.Start(command)!;
+    Task<string> output = process.StandardOutput.ReadToEndAsync();
+    Task<string> error = process.StandardError.ReadToEndAsync();
+    await process.WaitForExitAsync();
+    return (process.ExitCode, await output, await error);
+}
+
+async Task<string?> CliAsync(string expected, params string[] arguments)
+{
+    (int exit, string output, string error) = await VarveAsync(arguments);
+
+    if (exit != 0)
+    {
+        return "`varve " + string.Join(' ', arguments) + "` exited " + exit + ": " + error.Trim();
+    }
+
+    if (!output.Replace("\r\n", "\n", StringComparison.Ordinal).Contains(expected, StringComparison.Ordinal))
+    {
+        return "`varve " + string.Join(' ', arguments) + "` wrote " + output.Trim() + " and not " + expected.Trim();
+    }
+
+    return null;
+}
+
+try
+{
+    string? failed = await CliAsync("created ", "create", directory)
+        ?? await CliAsync("committed, position 1", "update", directory, "-u", "INSERT DATA { <http://ex/a> <http://ex/p> \"cli\" }")
+        ?? await CliAsync("o\ncli\n", "query", directory, "-q", "SELECT ?o WHERE { <http://ex/a> <http://ex/p> ?o }", "-f", "csv")
+        ?? await CliAsync("<http://ex/a> <http://ex/p> \"cli\" .\n", "export", directory)
+        ?? await CliAsync("checkpoint at 1", "checkpoint", directory)
+        ?? await CliAsync("commit 1 Data ", "feed", directory, "--to", "1")
+        ?? await CliAsync("\"head\": 1", "info", directory);
+
+    if (failed is not null)
+    {
+        Console.Error.WriteLine("server smoke: " + failed);
+        return 1;
+    }
+}
+catch (Exception error) when (error is IOException or InvalidOperationException)
+{
+    Console.Error.WriteLine("server smoke: the command line could not run: " + error.Message);
+    return 2;
+}
+
 ProcessStartInfo start = new(binary)
 {
     RedirectStandardOutput = true,
@@ -132,11 +192,20 @@ try
         return Fail("the query answered " + query);
     }
 
-    string feed = await client.GetStringAsync("datasets/smoke/feed?to=1");
+    string feed = await client.GetStringAsync("datasets/smoke/feed?from=1&to=2");
 
-    if (!feed.StartsWith("commit 1 Data ", StringComparison.Ordinal) || !feed.Contains("+ <http://ex/a> <http://ex/p> \"smoke\"\n", StringComparison.Ordinal))
+    if (!feed.StartsWith("commit 2 Data ", StringComparison.Ordinal) || !feed.Contains("+ <http://ex/a> <http://ex/p> \"smoke\"\n", StringComparison.Ordinal))
     {
         return Fail("the feed answered " + feed);
+    }
+
+    // The command line against the server: the HTTP client and the results
+    // reader under AOT, with no token in anonymous mode.
+    string? remote = await CliAsync("o\ncli\nsmoke\n", "query", await address.Task + "datasets/smoke/", "-q", "SELECT ?o WHERE { <http://ex/a> <http://ex/p> ?o } ORDER BY ?o", "-f", "csv");
+
+    if (remote is not null)
+    {
+        return Fail(remote);
     }
 
     if (OperatingSystem.IsWindows())

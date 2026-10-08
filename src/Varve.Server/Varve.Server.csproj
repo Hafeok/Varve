@@ -7,8 +7,16 @@
     <OutputType>Exe</OutputType>
     <ArchLayer>6</ArchLayer>
     <ArchCompositionRoot>true</ArchCompositionRoot>
-    <IsPackable>false</IsPackable>
     <RootNamespace>Varve.Server</RootNamespace>
+    <VarveSpeaksHttp>true</VarveSpeaksHttp>
+
+    <!-- ADR 0104: the one executable is the server and the `varve` command
+         line, shipped as a .NET tool and as a native single file. -->
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>varve</ToolCommandName>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <Description>Varve: the server and the varve command line. An event-sourced RDF store with SPARQL 1.1 Query, Update, Graph Store Protocol and a change feed over HTTP.</Description>
 
     <!-- Native AOT is a gate (ADR 0101): minimal APIs only, no MVC, JSON
          without reflection, configuration bound by the source generator. -->
@@ -35,6 +43,9 @@
   <ItemGroup>
     <!-- ADR 0099: the server's alone. -->
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <!-- ADR 0104: the command line and the Windows credential store. -->
+    <PackageReference Include="System.CommandLine" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
   </ItemGroup>
 
 </Project>

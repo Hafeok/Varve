@@ -50,8 +50,43 @@ internal sealed class TestIssuer : IAsyncDisposable
 
     private TestIssuer(WebApplication app) => _app = app;
 
+    private readonly Dictionary<string, (string ClientId, bool Approved)> _deviceCodes = [];
+    private readonly HashSet<string> _refreshTokens = [];
+
     /// <summary>The issuer's identifier and authority: <c>http://127.0.0.1:port/</c>.</summary>
     internal string Issuer { get; private set; } = string.Empty;
+
+    /// <summary>The one confidential client the token endpoint knows, and its secret.</summary>
+    internal const string ClientId = "varve-cli";
+
+    internal const string ClientSecret = "s3cret";
+
+    /// <summary>The claims a token minted by the token endpoint carries: the roles the test wants the CLI's caller to have.</summary>
+    internal IReadOnlyDictionary<string, object> IssuedClaims { get; set; } = new Dictionary<string, object> { ["sub"] = "cli", ["roles"] = new[] { "writer" } };
+
+    /// <summary>How many device codes were approved: the test "enters the code" by calling <see cref="Approve"/>.</summary>
+    internal int DeviceCodesIssued { get; private set; }
+
+    /// <summary>Approves every pending device code, as the person at the verification page would.</summary>
+    internal void Approve()
+    {
+        lock (_deviceCodes)
+        {
+            foreach (string code in _deviceCodes.Keys.ToArray())
+            {
+                _deviceCodes[code] = (_deviceCodes[code].ClientId, true);
+            }
+        }
+    }
+
+    /// <summary>Whether the token endpoint has issued this refresh token and not seen it revoked.</summary>
+    internal bool Knows(string refreshToken)
+    {
+        lock (_refreshTokens)
+        {
+            return _refreshTokens.Contains(refreshToken);
+        }
+    }
 
     internal static async Task<TestIssuer> StartAsync()
     {
@@ -64,6 +99,8 @@ internal sealed class TestIssuer : IAsyncDisposable
         {
             json.WriteString("issuer", issuer.Issuer);
             json.WriteString("jwks_uri", issuer.Issuer + "jwks");
+            json.WriteString("token_endpoint", issuer.Issuer + "token");
+            json.WriteString("device_authorization_endpoint", issuer.Issuer + "device");
             json.WriteStartArray("id_token_signing_alg_values_supported");
             json.WriteStringValue("RS256");
             json.WriteEndArray();
@@ -82,6 +119,89 @@ internal sealed class TestIssuer : IAsyncDisposable
             json.WriteEndObject();
             json.WriteEndArray();
         })));
+        app.MapPost("/device", (RequestDelegate)(async context =>
+        {
+            Microsoft.AspNetCore.Http.IFormCollection form = await context.Request.ReadFormAsync(context.RequestAborted);
+            string code = Convert.ToHexString(RandomNumberGenerator.GetBytes(8));
+
+            lock (issuer._deviceCodes)
+            {
+                issuer._deviceCodes[code] = (form["client_id"].ToString(), false);
+                issuer.DeviceCodesIssued++;
+            }
+
+            await WriteJson(context, json =>
+            {
+                json.WriteString("device_code", code);
+                json.WriteString("user_code", "ABCD-EFGH");
+                json.WriteString("verification_uri", issuer.Issuer + "activate");
+                json.WriteNumber("interval", 1);
+                json.WriteNumber("expires_in", 300);
+            });
+        }));
+        app.MapPost("/token", (RequestDelegate)(async context =>
+        {
+            Microsoft.AspNetCore.Http.IFormCollection form = await context.Request.ReadFormAsync(context.RequestAborted);
+            string grant = form["grant_type"].ToString();
+            string? error = null;
+
+            switch (grant)
+            {
+                case "client_credentials":
+                    error = form["client_id"] == ClientId && form["client_secret"] == ClientSecret ? null : "invalid_client";
+                    break;
+                case "refresh_token":
+                    lock (issuer._refreshTokens)
+                    {
+                        error = issuer._refreshTokens.Remove(form["refresh_token"].ToString()) ? null : "invalid_grant";
+                    }
+
+                    break;
+                case "urn:ietf:params:oauth:grant-type:device_code":
+                    lock (issuer._deviceCodes)
+                    {
+                        error = issuer._deviceCodes.TryGetValue(form["device_code"].ToString(), out (string ClientId, bool Approved) pending)
+                            ? pending.Approved ? null : "authorization_pending"
+                            : "invalid_grant";
+
+                        if (error is null)
+                        {
+                            issuer._deviceCodes.Remove(form["device_code"].ToString());
+                        }
+                    }
+
+                    break;
+                default:
+                    error = "unsupported_grant_type";
+                    break;
+            }
+
+            if (error is not null)
+            {
+                context.Response.StatusCode = 400;
+                await WriteJson(context, json => json.WriteString("error", error));
+                return;
+            }
+
+            string refresh = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+
+            lock (issuer._refreshTokens)
+            {
+                issuer._refreshTokens.Add(refresh);
+            }
+
+            await WriteJson(context, json =>
+            {
+                json.WriteString("access_token", issuer.Mint(issuer.IssuedClaims));
+                json.WriteString("token_type", "Bearer");
+                json.WriteNumber("expires_in", 300);
+
+                if (grant != "client_credentials")
+                {
+                    json.WriteString("refresh_token", refresh);
+                }
+            });
+        }));
         await app.StartAsync(CancellationToken.None);
         string address = ((IApplicationBuilder)app).ServerFeatures.Get<IServerAddressesFeature>()!.Addresses.First();
         issuer.Issuer = address.TrimEnd('/') + "/";
