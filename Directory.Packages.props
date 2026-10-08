@@ -97,7 +97,7 @@
 
   <ItemGroup Label="Test-time">
     <PackageVersion Include="xunit.v3" Version="4.0.1" Adr="0009" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" Adr="0007" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.5.1" Adr="0007" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" Version="1.1.4" Adr="0004" />
     <!-- Follows the analyzer's floor: the harness compiles against the same
          Roslyn the analyzer does, so a test cannot pass against an API the
