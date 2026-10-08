@@ -75,18 +75,19 @@
     diagnostic. A project that needs more appends it in its own file, with its
     reason (Varve.Sparql.Evaluation does).
 
-    The list is comma-separated. The package documents ';' with commas also
-    accepted, but a ';' in a CompilerVisibleProperty is cut off in the
-    generated .editorconfig, so only the first entry ever reached DD0010 (found
-    by milestone 7a, whose contracts were the first to name a widened assembly;
-    to be filed against the analyzer). Commas reach it whole.
+    The list is ';'-separated, the package's documented form. Until preview.7
+    a ';' in a CompilerVisibleProperty was cut off in the generated
+    .editorconfig, so only the first entry ever reached DD0010 (found by
+    milestone 7a, filed as decision-driven-analyzers#85, fixed in preview.7,
+    taken by milestone 7b); the comma-separated workaround of 7a is gone with
+    it.
 
     The ledger is docs/decisions/, one set file per ADR (ADR 0062). The package
     targets glob it into AdditionalFiles with DdLedger="decision-set".
   -->
   <PropertyGroup>
     <ArchFamily>Varve</ArchFamily>
-    <ArchContractTypeAssemblies>Varve.Rdf,Varve.Iri,Varve.Xsd</ArchContractTypeAssemblies>
+    <ArchContractTypeAssemblies>Varve.Rdf;Varve.Iri;Varve.Xsd</ArchContractTypeAssemblies>
     <DdLedgerDirectory>$(MSBuildThisFileDirectory)docs/decisions</DdLedgerDirectory>
   </PropertyGroup>
 

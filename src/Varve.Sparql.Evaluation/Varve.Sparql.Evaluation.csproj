@@ -9,7 +9,7 @@
          Query (ADR 0048), and IServiceHandler receives a Service node (ADR
          0055). The widening is here and never global, because Varve.Store's
          contracts are SPARQL-free (ADR 0005, ADR 0064). -->
-    <ArchContractTypeAssemblies>$(ArchContractTypeAssemblies),Varve.Sparql</ArchContractTypeAssemblies>
+    <ArchContractTypeAssemblies>$(ArchContractTypeAssemblies);Varve.Sparql</ArchContractTypeAssemblies>
     <IsPackable>true</IsPackable>
 
     <!-- ADR 0056: no ambient clock and no ambient randomness. NOW(), RAND(),
