@@ -139,6 +139,28 @@ try
         (int exit, _) = RunJudge(root, server, "push", "{}", "refs/heads/land/first");
         Require(exit == 0 && server.Posted is ["success"], "main's copy, a land/ push of the maintainer's own commits: posts success");
     }
+
+    // ADR 0087, amended 2026-10-08: an agent's commits land through land/ when
+    // the head is an approved pull request's head, unchanged.
+    const long GatesApp = 5220446;
+
+    using (StandIn server = StandIn.Start(identities, Head, "Hafeok", [], [], approvedBy: GatesApp, pullHead: true))
+    {
+        (int exit, _) = RunJudge(root, server, "push", "{}", "refs/heads/land/first");
+        Require(exit == 0 && server.Posted is ["success"], "main's copy, a land/ push of an approved pull request's head: posts success");
+    }
+
+    using (StandIn server = StandIn.Start(identities, Head, "Hafeok", [], [], approvedBy: 42, pullHead: true))
+    {
+        (int exit, _) = RunJudge(root, server, "push", "{}", "refs/heads/land/first");
+        Require(exit == 0 && server.Posted is ["failure"], "main's copy, a land/ push whose 'success' is another App's run: posts failure");
+    }
+
+    using (StandIn server = StandIn.Start(identities, Head, "Hafeok", [], [], approvedBy: GatesApp, pullHead: false))
+    {
+        (int exit, _) = RunJudge(root, server, "push", "{}", "refs/heads/land/first");
+        Require(exit == 0 && server.Posted is ["failure"], "main's copy, a land/ push of an approved sha that is no pull request's head: posts failure");
+    }
 }
 finally
 {
@@ -304,14 +326,18 @@ sealed class StandIn : IDisposable
     private readonly JsonArray comments;
     private readonly JsonArray reviews;
     private readonly string commitEmail;
+    private readonly long? approvedBy;
+    private readonly bool pullHead;
 
     public List<string> Posted { get; } = [];
 
     public string Url { get; }
 
-    private StandIn(string identities, string head, string author, JsonArray comments, JsonArray reviews, string commitEmail)
+    private StandIn(string identities, string head, string author, JsonArray comments, JsonArray reviews, string commitEmail, long? approvedBy, bool pullHead)
     {
         this.commitEmail = commitEmail;
+        this.approvedBy = approvedBy;
+        this.pullHead = pullHead;
         this.identities = identities;
         this.head = head;
         this.author = author;
@@ -328,9 +354,10 @@ sealed class StandIn : IDisposable
     }
 
     public static StandIn Start(
-        string identities, string head, string author, JsonArray comments, JsonArray reviews, string commitEmail = "noreply@anthropic.com")
+        string identities, string head, string author, JsonArray comments, JsonArray reviews, string commitEmail = "noreply@anthropic.com",
+        long? approvedBy = null, bool pullHead = false)
     {
-        StandIn server = new(identities, head, author, comments, reviews, commitEmail);
+        StandIn server = new(identities, head, author, comments, reviews, commitEmail, approvedBy, pullHead);
         server.listener.Start();
         _ = Task.Run(server.Serve);
         return server;
@@ -391,9 +418,34 @@ sealed class StandIn : IDisposable
             {
                 body = identities;
             }
+            else if (context.Request.HttpMethod == "PATCH" && path.Contains("/check-runs/", StringComparison.Ordinal))
+            {
+                using StreamReader reader = new(context.Request.InputStream);
+                JsonNode? patched = JsonNode.Parse(await reader.ReadToEndAsync());
+                Posted.Add(patched?["conclusion"]?.GetValue<string>() ?? "?");
+                body = "{}";
+            }
             else if (path.Contains("/check-runs", StringComparison.Ordinal))
             {
-                body = """{"total_count":0,"check_runs":[]}""";
+                // The pull request's own verdict on its head, when the case has one.
+                body = approvedBy is long app
+                    ? new JsonObject
+                    {
+                        ["total_count"] = 1,
+                        ["check_runs"] = new JsonArray(new JsonObject
+                        {
+                            ["id"] = 1,
+                            ["conclusion"] = "success",
+                            ["app"] = new JsonObject { ["id"] = app },
+                        }),
+                    }.ToJsonString()
+                    : """{"total_count":0,"check_runs":[]}""";
+            }
+            else if (path.EndsWith($"/commits/{head}/pulls", StringComparison.Ordinal))
+            {
+                body = firstPage && pullHead
+                    ? new JsonArray(new JsonObject { ["number"] = 7, ["head"] = new JsonObject { ["sha"] = head } }).ToJsonString()
+                    : "[]";
             }
             else
             {

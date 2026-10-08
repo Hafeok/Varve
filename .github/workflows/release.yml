@@ -1,0 +1,220 @@
+# Release (ADR 0102, docs/releases.md).
+#
+# A release is a decision, and this repository files decisions. Adding
+# releases/<version>.yaml to a pull request proposes the release; landing that
+# pull request at its approved head cuts it. There is no second, out-of-band
+# step, and no credential of a person in the path. The shape is taken from
+# mindovermachine-dev/actor-indexed-determination (spec/release-format.md and
+# its release workflow), rewritten for this repository.
+#
+#   plan   eng/release.cs --plan: validates every descriptor, finds the one
+#          with no tag, resolves its basis at the commit under release, and
+#          applies the head guard (the commit carries the gates App's
+#          successful `agent review`, so it is an approved head, never a merge
+#          commit). Read-only.
+#   gates  ci.yml, called at the commit under release: every gate, the AOT
+#          publishes, the API baselines, decision-sets, dependency-register,
+#          licence-headers. A valid descriptor whose gates fail is not cut and
+#          leaves no tag.
+#   cut    the gates App, with a token minted from the `gates` environment,
+#          creates the annotated tag "<version> — <title>" and pushes it. Never
+#          GITHUB_TOKEN: a tag pushed with GITHUB_TOKEN triggers no workflow,
+#          so publish.yml would never run; the App's push does. The GitHub
+#          Release is publish.yml's, after the NuGet push.
+#
+# Triggers:
+#   push to main           cuts, when the push changed releases/ (--since).
+#   push to land/release-** a dry run of the head the maintainer is about to
+#                          fast-forward main to. Only the maintainer pushes
+#                          land/ (ruleset `land`), and the gates environment
+#                          admits land/**.
+#   workflow_dispatch      dry_run true: every gate, nothing created. false:
+#                          cut what is pending at main's head (the retry of a
+#                          cut whose gates failed once the fix has landed).
+#
+# A dry run with nothing pending plans tests/fixtures/releases/dry-run/, so
+# the path is exercised before the first release made this way.
+
+name: Release
+
+on:
+  push:
+    branches: [main, "land/release-**"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: run every gate, create nothing"
+        type: boolean
+        default: true
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+  # A push to land/ is always a dry run: main has not moved yet.
+  DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) || startsWith(github.ref, 'refs/heads/land/') }}
+
+jobs:
+  plan:
+    name: release plan
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      issues: read
+      checks: read
+
+    outputs:
+      count: ${{ steps.plan.outputs.count }}
+      version: ${{ steps.plan.outputs.version }}
+      sha: ${{ steps.plan.outputs.sha }}
+      message: ${{ steps.plan.outputs.message }}
+      prerelease: ${{ steps.plan.outputs.prerelease }}
+      previous: ${{ steps.plan.outputs.previous }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # The previous tag, the range, the ADRs at both ends: all history.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Plan
+        id: plan
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BEFORE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.before || '' }}
+        run: |
+          set -euo pipefail
+          flags=()
+          if [ "$DRY_RUN" = "true" ]; then flags+=(--dry-run --fallback tests/fixtures/releases/dry-run); fi
+          case "$GITHUB_REF" in refs/heads/land/*) flags+=(--landing) ;; esac
+          if [ -n "$BEFORE" ] && [ -n "${BEFORE//0/}" ]; then flags+=(--since "$BEFORE"); fi
+          dotnet run eng/release.cs -- --plan "${flags[@]}"
+
+  gates:
+    name: gates
+    needs: plan
+    if: needs.plan.outputs.count == '1'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.plan.outputs.sha }}
+    secrets: inherit
+
+  cut:
+    name: cut
+    needs: [plan, gates]
+    if: needs.plan.outputs.count == '1'
+    runs-on: ubuntu-latest
+
+    # The gates App's key is here, reachable from main and land/** only.
+    environment: gates
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Mint the gates App's token
+        id: gates
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.GATES_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GATES_APP_PRIVATE_KEY }}
+          # Asked for explicitly, so that minting fails here, before anything,
+          # if the App was not granted Contents: read & write.
+          permission-contents: write
+
+      - name: The tagging identity
+        id: identity
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.gates.outputs.token }}
+          SLUG: ${{ steps.gates.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+          id=$(gh api "/users/${SLUG}%5Bbot%5D" --jq .id)
+          echo "name=${SLUG}[bot]" >> "$GITHUB_OUTPUT"
+          echo "email=${id}+${SLUG}[bot]@users.noreply.github.com" >> "$GITHUB_OUTPUT"
+          # An installation token is ghs_; GITHUB_TOKEN is one too, so the
+          # identity is shown by what the token can read about itself.
+          gh api /installation/repositories --jq '"installation token: \(.total_count) repository(ies), " + ([.repositories[].full_name] | join(", "))'
+
+      - name: Checkout the commit under release
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Dry run, stop here
+        if: env.DRY_RUN == 'true'
+        shell: bash
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+          SHA: ${{ needs.plan.outputs.sha }}
+          MESSAGE: ${{ needs.plan.outputs.message }}
+          PRERELEASE: ${{ needs.plan.outputs.prerelease }}
+          TAGGER: ${{ steps.identity.outputs.name }} <${{ steps.identity.outputs.email }}>
+        run: |
+          set -euo pipefail
+          if git rev-parse --verify --quiet "refs/tags/$VERSION" >/dev/null; then
+            echo "::error::$VERSION is tagged already"
+            exit 1
+          fi
+          {
+            echo "### Dry run: \`$VERSION\` would have been tagged; nothing was created"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Tag | \`$VERSION\`, annotated |"
+            echo "| On | \`$SHA\` |"
+            echo "| Message | $MESSAGE |"
+            echo "| Tagger | $TAGGER |"
+            echo "| Pushed with | the gates App's installation token (minted with contents: write) |"
+            echo "| Prerelease | $PRERELEASE (derived from the version) |"
+            echo
+            echo "Every gate in \`ci.yml\` passed at that commit. A tag pushed with the App's token is a push by"
+            echo "the App, which starts \`publish.yml\` (\`on: push: tags: [v*]\`); one pushed with \`GITHUB_TOKEN\` would"
+            echo "start no workflow, and nothing would be published. \`publish.yml\` then pushes to nuget.org and"
+            echo "creates the GitHub Release with the same token."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create and push the annotated tag
+        if: env.DRY_RUN != 'true'
+        shell: bash
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+          SHA: ${{ needs.plan.outputs.sha }}
+          MESSAGE: ${{ needs.plan.outputs.message }}
+          TOKEN: ${{ steps.gates.outputs.token }}
+          TAGGER_NAME: ${{ steps.identity.outputs.name }}
+          TAGGER_EMAIL: ${{ steps.identity.outputs.email }}
+        run: |
+          set -euo pipefail
+          if git rev-parse --verify --quiet "refs/tags/$VERSION" >/dev/null; then
+            echo "::error::$VERSION is tagged already; versions are never reused"
+            exit 1
+          fi
+          git -c user.name="$TAGGER_NAME" -c user.email="$TAGGER_EMAIL" tag -a "$VERSION" "$SHA" -m "$MESSAGE"
+          git push "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "refs/tags/$VERSION"
+          {
+            echo "### Tagged \`$VERSION\`"
+            echo
+            echo "- On \`$SHA\`, by $TAGGER_NAME: $MESSAGE"
+            echo "- \`publish.yml\` runs on the tag, publishes, and creates the GitHub Release."
+          } >> "$GITHUB_STEP_SUMMARY"

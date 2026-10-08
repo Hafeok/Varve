@@ -71,6 +71,9 @@ jobs:
       contents: read
       pull-requests: read
       issues: read
+      # A land/ push of agent commits is admitted when its head is an
+      # approved pull request's: its check runs and pull requests are read.
+      checks: read
 
     steps:
       - name: Checkout main

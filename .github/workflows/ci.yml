@@ -8,12 +8,23 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  # The release workflow runs every gate at the commit under release, which
+  # may be older than main's head when a descriptor names a retro-cut
+  # (ADR 0102). Every checkout below takes this ref; on any other event it is
+  # empty, which is the checkout's own default.
+  workflow_call:
+    inputs:
+      ref:
+        description: The commit under release
+        type: string
+        required: true
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # A call from the release workflow is its own run, not main's push.
+  group: ci-${{ inputs.ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -48,6 +59,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ inputs.ref }}
           submodules: recursive
 
           # eng/issue-refs.cs walks the commits this push or pull request adds,
@@ -66,20 +78,25 @@ jobs:
           GITHUB_REF: ${{ github.ref }}
         with:
           push: never
-          runCmd: dotnet run eng/ci.cs
+          # Called for a release, the jobs that judge a range rather than a
+          # tree are skipped: the range under release landed through them
+          # already, and its base is not this event's (ADR 0102).
+          runCmd: dotnet run eng/ci.cs ${{ inputs.ref && '-- --skip issue-refs --skip dco --skip release-pending --skip release' || '' }}
 
-  # ADR 0085: a change that starts a milestone (adds a line to
-  # eng/changelog-sections.txt) waits until the milestone before it has a v*
-  # tag. Also a job in eng/ci.cs; a job of its own here so that the check a
-  # pull request shows is named for what it waits on.
+  # ADR 0102: a change that closes a milestone issue carries the release
+  # descriptor whose basis names it. Also a job in eng/ci.cs; a job of its own
+  # here so that the check a pull request shows is named for what it needs.
+  # It judges a range, so a release's call (inputs.ref) skips it.
   release-pending:
     name: release pending
+    if: ${{ !inputs.ref }}
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ inputs.ref }}
           # The base, the section's first commit, and the tags.
           fetch-depth: 0
 
@@ -88,7 +105,7 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: The previous milestone is released
+      - name: A closed milestone issue carries its release descriptor
         env:
           GITHUB_BASE_REF: ${{ github.base_ref }}
           GITHUB_EVENT_BEFORE: ${{ github.event.before }}
@@ -101,12 +118,15 @@ jobs:
   # require it by name.
   dco:
     name: dco
+    # A range gate, as release-pending: not run for a release's call.
+    if: ${{ !inputs.ref }}
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ inputs.ref }}
           # The range runs from the base, which a shallow clone does not have.
           fetch-depth: 0
 
@@ -165,6 +185,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ inputs.ref }}
           submodules: recursive
 
           # eng/decision-sets.cs reads when each decision was filed from the
@@ -358,6 +379,8 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
@@ -419,6 +442,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
@@ -456,6 +481,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
@@ -496,6 +523,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
@@ -524,6 +553,8 @@ jobs:
   # is the one property whose answer depends on the operating system's flush.
   durability:
     name: durability (${{ matrix.os }})
+    # A measurement, so not one of a release's gates.
+    if: ${{ !inputs.ref }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -533,6 +564,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
@@ -570,6 +603,8 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
@@ -687,6 +722,8 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
@@ -735,6 +772,8 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
@@ -784,6 +823,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ inputs.ref }}
           submodules: recursive
 
       - name: Set up .NET
@@ -832,6 +872,8 @@ jobs:
   # runs the same script as its last job; this one is where the files are kept.
   decision-report:
     name: decision report (never gates)
+    # Never gates, so not run for a release's call.
+    if: ${{ !inputs.ref }}
     runs-on: ubuntu-latest
     continue-on-error: true
 
@@ -843,6 +885,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ inputs.ref }}
           submodules: recursive
 
           # The report dates each citation by the commit that introduced it,

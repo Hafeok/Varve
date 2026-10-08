@@ -27,18 +27,14 @@ jobs:
   publish:
     runs-on: ubuntu-latest
 
-    # The one place a human is required. ADR 0032 moved review off the path to
-    # the trunk and onto this: the `release` environment has the maintainer as
-    # a required reviewer, so a tag does not publish until a person approves it.
-    # Merging is gated by the checks; publishing is gated by a person, because
-    # a version pushed to nuget.org cannot be edited, replaced or deleted.
-    #
-    # MAINTAINER, BEFORE THE FIRST v* TAG: the trusted-publishing policy on
-    # nuget.org was created naming this workflow with *no* environment (ADR
-    # 0029). Adding the environment changes the OIDC claim the policy is
-    # matched against, so the policy has to be updated to name `release` or the
-    # push step fails authentication in a way that looks like a bad credential.
-    # Nothing is published yet, so nothing is broken today.
+    # ADR 0102. The human decision is the release descriptor, reviewed and
+    # approved on its pull request and landed at its approved head; the tag
+    # that started this run was created from it by the gates App, after every
+    # gate passed at that commit. The `release` environment keeps its branch
+    # and tag restriction (main and v*) and has no reviewer: a second approval
+    # here would be a human step after the decision, which is what ADR 0102
+    # removes. The environment's name stays in the OIDC claim, so the
+    # trusted-publishing policy on nuget.org is unchanged (ADR 0029).
     environment: release
 
     permissions:
@@ -167,28 +163,17 @@ jobs:
         run: dotnet run eng/browser-tests.cs
 
       - name: Changelog
-        # ADR 0085: the tag is on the commit eng/changelog.cs --release cut,
-        # so the tagged CHANGELOG.md has the version's section.
+        # ADR 0102: CHANGELOG.md is the projection of releases/, the tagged
+        # version's descriptor folded in.
         run: dotnet run eng/changelog.cs -- --check
 
       - name: Release notes
-        # The tag's section of CHANGELOG.md, headed "## [<version>]", becomes
-        # the GitHub release's notes. Extracted here, before anything is
-        # pushed, so a tag with no section fails while nothing is permanent;
-        # the release job below publishes it once the push has succeeded.
-        shell: bash
-        run: |
-          version="${GITHUB_REF_NAME#v}"
-          mkdir -p "${{ github.workspace }}/artifacts"
-          awk -v heading="## [$version]" '
-            index($0, heading) == 1 { found = 1; next }
-            found && (/^## / || /^\[[^]]+\]: /) { exit }
-            found { print }
-          ' CHANGELOG.md > "${{ github.workspace }}/artifacts/release-notes.md"
-          if ! grep -q '[^[:space:]]' "${{ github.workspace }}/artifacts/release-notes.md"; then
-            echo "::error::CHANGELOG.md has no non-empty section headed '## [$version]'. Cut it with eng/changelog.cs --release $version and tag that commit (ADR 0085)."
-            exit 1
-          fi
+        # The tag's descriptor, releases/<version>.yaml: its summary is the
+        # GitHub Release's notes and "<version> — <title>" its title. Read here,
+        # before anything is pushed, so a tag with no descriptor fails while
+        # nothing is permanent; the release job below publishes them once the
+        # push has succeeded.
+        run: dotnet run eng/release.cs -- --notes "$GITHUB_REF_NAME" --into "${{ github.workspace }}/artifacts/release"
 
       - name: Pack
         run: >
@@ -244,37 +229,56 @@ jobs:
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
 
-  # The GitHub release for the tag, with its changelog section as the notes.
+  # The GitHub release for the tag, with its descriptor's summary as the notes.
   # A separate job so that contents: write is never held by the job that runs
   # the build and the tests, and after publish, so that a release is never
   # created for a version that did not reach nuget.org. Re-runnable on its own.
+  # Created by the gates App, never by GITHUB_TOKEN (ADR 0102): the App made
+  # the tag, and the identity map says the maintainer decides, the App
+  # executes (ADR 0087). The gates environment admits v* tags for this job.
   release:
     needs: publish
     runs-on: ubuntu-latest
+    environment: gates
 
     permissions:
-      contents: write
+      contents: read
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # The previous tag, for the notes' compare link.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Release notes
+        run: dotnet run eng/release.cs -- --notes "$GITHUB_REF_NAME" --into "$RUNNER_TEMP/release"
+
+      - name: Mint the gates App's token
+        id: gates
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.GATES_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GATES_APP_PRIVATE_KEY }}
+          permission-contents: write
 
       - name: Create the release
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.gates.outputs.token }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          awk -v heading="## [$version]" '
-            index($0, heading) == 1 { found = 1; next }
-            found && (/^## / || /^\[[^]]+\]: /) { exit }
-            found { print }
-          ' CHANGELOG.md > "$RUNNER_TEMP/release-notes.md"
+          set -euo pipefail
           prerelease=()
-          case "$version" in *-*) prerelease=(--prerelease) ;; esac
+          if [ "$(cat "$RUNNER_TEMP/release/prerelease.txt")" = "true" ]; then prerelease=(--prerelease); fi
           gh release create "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
-            --title "$GITHUB_REF_NAME" \
-            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --title "$(cat "$RUNNER_TEMP/release/title.txt")" \
+            --notes-file "$RUNNER_TEMP/release/notes.md" \
             "${prerelease[@]}"
