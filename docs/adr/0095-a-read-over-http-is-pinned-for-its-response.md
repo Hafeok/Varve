@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by milestone 7a of #11, 2026-10-07** (ADR 0066).
+**Accepted — filed unaccepted by milestone 7a of #11, 2026-10-07** (ADR 0066).
 Acceptance is the maintainer's act on the pull request. Refines ADR 0052's
 fourth point, which left the bound to "the server, at milestone 7".
 

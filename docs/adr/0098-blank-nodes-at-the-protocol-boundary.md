@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by milestone 7a of #11, 2026-10-07** (ADR 0066).
+**Accepted — filed unaccepted by milestone 7a of #11, 2026-10-07** (ADR 0066).
 Decided by the maintainer on the 7a plan: "Q1 closed with stable labels out,
 fresh in, no skolem, spec 1.6". Closes **Q1**'s protocol half, which ADR 0044
 moved to milestone 7. Specification version 1.6 records the closure.

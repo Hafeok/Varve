@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by milestone 7a of #11, 2026-10-07** (ADR 0066).
+**Accepted — filed unaccepted by milestone 7a of #11, 2026-10-07** (ADR 0066).
 Decided by the maintainer on the 7a plan: "application/vnd.varve.delta;
 version=1". The format is specified in
 [`docs/spec/change-feed.md`](../spec/change-feed.md). Acceptance is the

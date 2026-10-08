@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by milestone 7a of #11, 2026-10-07** (ADR 0066).
+**Accepted — filed unaccepted by milestone 7a of #11, 2026-10-07** (ADR 0066).
 Decided by the maintainer in the 7a prompt (A9). Acceptance is the maintainer's
 act on the pull request. **Refines ADR 0037**'s testing consequence, which
 named a local issuer and an Entra leg skipped without secrets; this ADR keeps

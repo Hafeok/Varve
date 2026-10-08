@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by milestone 7a of #11, 2026-10-07** (ADR 0066).
+**Accepted — filed unaccepted by milestone 7a of #11, 2026-10-07** (ADR 0066).
 Decided by the maintainer on the 7a plan: "JwtBearer in Varve.Server only with
 a register ADR and a 0037 amendment, conditional on the server's AOT publish
 staying green". Acceptance is the maintainer's act on the pull request.
