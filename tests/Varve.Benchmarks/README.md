@@ -1023,4 +1023,33 @@ memory while the run is held; the soak below counts it.
 
 ### Soak: one hour, the policy on, on the final code (ADR 0082)
 
-Running as this revision is written; the figures follow in the closing commit.
+```bash
+dotnet run -c Release --project tests/Varve.Benchmarks -- --soak 60 --policy
+```
+
+The 6c workload on the 7b head (derived format 3, the loader on worker
+threads, the admin and protocol packages beside it), the default runtime, no
+heap limit: 125,351 commits and 3.10 million quads in the hour, a checkpoint
+every 1,000 commits keeping 12.
+
+| | 6c, final | 7b, final |
+|---|---:|---:|
+| Working set median, minutes 10–20 → 50–60 | 140–142 MB | 115 → 126 MB |
+| Peak working set | | 166 MB |
+| The dataset's own at the hour | 9.4 MB | 9.4 MB (3.2 B a quad): run directories and filters 6.0 MB, a twentieth of the checkpoints' 67.7 MB |
+| Working set less the dataset's own, median of minutes 10–60 | | 113 MB |
+| Band, ±25% of that median over the last 50 minutes | missed by 2 samples of 100 | **held, 0 of 101** |
+| Drift, median of minutes 50–60 over 10–20, 10% allowed | +1.1% | **+3.8%** |
+| Open handles | 74–83 | 59–83 |
+| `derived/` files | 18–25 | 5–25 |
+
+The gate holds. The filters are counted in the dataset's own: a byte a term
+in each held run, 6.0 MB of run directories at the hour against the 6c
+figure's few, and the hour's figure lands where 6c's did. The live managed
+heap stays at 15 MB and the large object heap at 12 MB over the last ten
+minutes; what moves the working set is the collector's committed memory,
+between 101 and 139 MB raw from minute 10. The run's first hour on this code
+reported the dataset's own as 10¹² MB: the soak's meter read a format-3
+run's filter length from its directory's last word and applied that to the
+commit index's and the state's directories too. It reads the kind field now;
+the figures above are the second hour.

@@ -311,7 +311,13 @@ In `tests/Varve.Benchmarks/README.md`, the 7b section:
   (135,801 quads/s), peak managed heap 490 MB, within 4% of 6c's 71 s on the
   same cap;
 - 10,000 lookups of absent terms over three disk runs: 48.8 ms → 2.9 ms;
-- the soak: running on the final code as this is written; its figures are in the closing commit's revision of this record and of the README.
+- the one-hour soak with the policy on, on the final code, the default
+  runtime: 125,351 commits, 3.10 million quads; the working set less the
+  dataset's own within ±25% of its median for every one of the 101 samples
+  of the last 50 minutes, drift +3.8% against the 10% allowed; raw working
+  set median 115 → 126 MB, peak 166 MB; the dataset's own 9.4 MB at the hour
+  with the filters counted; handles 59–83, `derived/` files 5–25. The gate
+  holds (ADR 0082).
 
 ### What was found
 
