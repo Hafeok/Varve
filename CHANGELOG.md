@@ -14,6 +14,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [0.1.0-preview.1] - 2026-10-07
 
+**The first release, milestones 1 to 6c, from the foundation to the durable store**
+
 ### Milestone 6c — the dictionary on disk, the bulk loader, the browser backend, the soak's causes
 
 #### Added

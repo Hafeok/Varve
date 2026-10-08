@@ -14,9 +14,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [0.1.0-preview.1] - 2026-10-07
 
-### Milestone 6c — a fixture
-
-#### Added
+**A fixture, a record of the first release**
 
 - the line a hand edit changed (00000000)
 

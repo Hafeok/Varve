@@ -35,10 +35,6 @@ sealed record Descriptor(
     string? AcceptedBy,
     string? Summary);
 
-// A version cut before descriptors existed: its CHANGELOG.md section, kept
-// verbatim as releases/<version>.md (only v0.1.0-preview.1).
-sealed record LegacyNotes(string Path, string Version, string Section);
-
 static class ReleaseFormat
 {
     public const string Directory = "releases";
@@ -293,7 +289,7 @@ static class ReleaseFormat
 
         if (descriptor.Basis.Count == 0)
         {
-            problems.Add($"{path}: no basis; a release names the milestone issue, the ADRs it first ships and the storage format");
+            problems.Add($"{path}: no basis; a release names the milestone issues it closes, the ADRs it first ships and the storage format");
         }
 
         foreach (BasisLine line in descriptor.Basis)
@@ -312,19 +308,21 @@ static class ReleaseFormat
             }
         }
 
-        foreach (string single in (string[])["issue", "storage-format"])
+        if (!descriptor.Basis.Any(line => line.Kind == "issue"))
         {
-            int count = descriptor.Basis.Count(line => line.Kind == single);
-
-            if (count != 1)
-            {
-                problems.Add($"{path}: basis has {count} '{single}' line(s); it has exactly one");
-            }
+            problems.Add($"{path}: basis has no 'issue' line; a release closes at least one milestone issue");
         }
 
-        foreach (IGrouping<string, BasisLine> duplicate in descriptor.Basis.Where(line => line.Kind == "adr").GroupBy(line => line.Value).Where(group => group.Count() > 1))
+        int formats = descriptor.Basis.Count(line => line.Kind == "storage-format");
+
+        if (formats != 1)
         {
-            problems.Add($"{path}: adr {duplicate.Key} is listed {duplicate.Count()} times");
+            problems.Add($"{path}: basis has {formats} 'storage-format' line(s); it has exactly one");
+        }
+
+        foreach (IGrouping<(string, string), BasisLine> duplicate in descriptor.Basis.Where(line => line.Kind is "adr" or "issue").GroupBy(line => (line.Kind, line.Value)).Where(group => group.Count() > 1))
+        {
+            problems.Add($"{path}: {duplicate.Key.Item1} {duplicate.Key.Item2} is listed {duplicate.Count()} times");
         }
 
         if (descriptor.AcceptedBy is null)
@@ -344,14 +342,13 @@ static class ReleaseFormat
 
     // --- reading releases/ ----------------------------------------------------------------
 
-    public static (List<Descriptor> Descriptors, List<LegacyNotes> Legacy) ReadDirectory(string directory, List<string> problems)
+    public static List<Descriptor> ReadDirectory(string directory, List<string> problems)
     {
         List<Descriptor> descriptors = [];
-        List<LegacyNotes> legacy = [];
 
         if (!System.IO.Directory.Exists(directory))
         {
-            return (descriptors, legacy);
+            return descriptors;
         }
 
         foreach (string file in System.IO.Directory.GetFiles(directory).Order(StringComparer.Ordinal))
@@ -362,30 +359,13 @@ static class ReleaseFormat
             {
                 descriptors.Add(Parse(file, File.ReadAllText(file), problems));
             }
-            else if (name.EndsWith(".md", StringComparison.Ordinal) && name != "README.md")
-            {
-                string version = System.IO.Path.GetFileNameWithoutExtension(file);
-
-                if (!Version.IsMatch(version))
-                {
-                    problems.Add($"{file}: '{version}' is not a version; releases/ holds <version>.yaml, and <version>.md for a release cut before descriptors");
-                    continue;
-                }
-
-                legacy.Add(new LegacyNotes(file, version, File.ReadAllText(file).ReplaceLineEndings("\n").Trim('\n')));
-            }
             else if (name != "README.md")
             {
                 problems.Add($"{file}: releases/ holds <version>.yaml descriptors and nothing else (a .yml is refused, so that one spelling exists)");
             }
         }
 
-        foreach (IGrouping<string, string> twice in descriptors.Select(d => d.Version ?? "").Concat(legacy.Select(l => l.Version)).Where(v => v.Length > 0).GroupBy(v => v).Where(g => g.Count() > 1))
-        {
-            problems.Add($"{directory}: {twice.Key} is described twice");
-        }
-
-        return (descriptors, legacy);
+        return descriptors;
     }
 
     // --- SemVer precedence (semver.org §11) ----------------------------------------------
@@ -460,10 +440,9 @@ static class ReleaseFormat
 
     // --- CHANGELOG.md, the projection of releases/ --------------------------------------
 
-    // Every version, newest first by precedence: a descriptor's section is its
-    // date, title and summary; a legacy version's is its notes file, verbatim.
+    // Every version, newest first by precedence: its date, title and summary.
     // Nothing else is in the file, so it can be checked byte for byte.
-    public static string RenderChangelog(IReadOnlyList<Descriptor> descriptors, IReadOnlyList<LegacyNotes> legacy, string projectUrl)
+    public static string RenderChangelog(IReadOnlyList<Descriptor> descriptors, string projectUrl)
     {
         List<(string Version, string Section)> sections = [];
 
@@ -476,11 +455,6 @@ static class ReleaseFormat
             section.Append('\n');
             section.Append(descriptor.Summary!.Trim('\n'));
             sections.Add((descriptor.Version!, section.ToString()));
-        }
-
-        foreach (LegacyNotes notes in legacy)
-        {
-            sections.Add((notes.Version, notes.Section));
         }
 
         sections.Sort((left, right) => Compare(right.Version, left.Version));

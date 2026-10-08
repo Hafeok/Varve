@@ -42,8 +42,10 @@
 //
 // --- --plan (the release workflow) ---------------------------------------------
 //
-// The same, for the descriptors with no tag, at main's head, plus two online
-// checks: the issue exists, and the head guard. The guard is why the
+// The same, for the descriptors with no tag, at main's head, plus the
+// project's status at the commit under release (lib/Status.cs: the README
+// that ships in the packages names this release, and the roadmap marks what it
+// closes), and two online checks: the issues exist, and the head guard. The guard is why the
 // descriptor needs no other: **the commit under release carries a successful
 // `agent review` check run from the gates App**, which that App posts only on
 // an approved pull request's head or a land/ head (ADR 0087). A merge commit
@@ -82,6 +84,7 @@
 // CA2266 is off for this file only, for the reason eng/dco.cs gives (ADR 0087).
 #:include lib/Identities.cs
 #:include lib/Releases.cs
+#:include lib/Status.cs
 #:property NoWarn=$(NoWarn);CA2266
 
 using System.Diagnostics;
@@ -182,18 +185,12 @@ static int Usage()
 static async Task<int> Check(Repository repository, string releasesPath, string changelogPath, string? baseRef, bool isFixture, TextWriter output)
 {
     List<string> problems = [];
-    (List<Descriptor> descriptors, List<LegacyNotes> legacy) = ReleaseFormat.ReadDirectory(repository.Relative(releasesPath), problems);
+    List<Descriptor> descriptors = ReleaseFormat.ReadDirectory(repository.Relative(releasesPath), problems);
     HashSet<string> tags = repository.Tags();
 
     foreach (Descriptor descriptor in descriptors)
     {
         ReleaseFormat.CheckShape(descriptor, problems);
-    }
-
-    // A version cut before descriptors: its notes exist only because its tag does.
-    foreach (LegacyNotes notes in legacy.Where(notes => !tags.Contains(notes.Version)))
-    {
-        problems.Add($"{notes.Path}: {notes.Version} has no tag; a notes file is for a release cut before descriptors, and every later one is a descriptor");
     }
 
     // CHANGELOG.md is the projection of releases/ (eng/changelog.cs).
@@ -209,7 +206,7 @@ static async Task<int> Check(Repository repository, string releasesPath, string 
         {
             string committed = File.ReadAllText(changelogPath).ReplaceLineEndings("\n");
 
-            if (committed != ReleaseFormat.RenderChangelog(descriptors, legacy, projectUrl))
+            if (committed != ReleaseFormat.RenderChangelog(descriptors, projectUrl))
             {
                 problems.Add($"{repository.Relative(changelogPath)} is not the projection of {repository.Relative(releasesPath)}: it was edited by hand, "
                     + "or a descriptor was not folded in (dotnet run eng/changelog.cs)");
@@ -229,7 +226,7 @@ static async Task<int> Check(Repository repository, string releasesPath, string 
         {
             string version = Path.GetFileNameWithoutExtension(file);
 
-            if (!file.EndsWith(".yaml", StringComparison.Ordinal) && !file.EndsWith(".md", StringComparison.Ordinal))
+            if (!file.EndsWith(".yaml", StringComparison.Ordinal))
             {
                 continue;
             }
@@ -250,6 +247,15 @@ static async Task<int> Check(Repository repository, string releasesPath, string 
 
     foreach (Descriptor descriptor in proposed)
     {
+        // A release cut before descriptors, recorded afterwards: pinned to its
+        // tag's commit, it is checked for what it can be, and never cut again.
+        if (IsRecord(repository, descriptor, tags))
+        {
+            CheckRecord(repository, descriptor, problems);
+            output.WriteLine($"note {descriptor.Version} records a release cut before descriptors, at {descriptor.Commit![..12]}; the cut skips it");
+            continue;
+        }
+
         Resolution? resolution = Resolve(repository, descriptor, tags, problems, landing: false);
 
         if (resolution is null)
@@ -266,11 +272,11 @@ static async Task<int> Check(Repository repository, string releasesPath, string 
 
             if (!string.IsNullOrEmpty(token) && !string.IsNullOrEmpty(name))
             {
-                await CheckIssueExists(new Api(token, name), resolution.Issue, descriptor, problems);
+                await CheckIssuesExist(new Api(token, name), resolution.Issues, descriptor, problems);
             }
             else
             {
-                output.WriteLine($"note offline: that #{resolution.Issue} exists, and the head guard, are checked by the release workflow");
+                output.WriteLine($"note offline: that {string.Join(", ", resolution.Issues.Select(issue => $"#{issue}"))} exist, and the head guard, are checked by the release workflow");
             }
 
             output.WriteLine();
@@ -283,7 +289,7 @@ static async Task<int> Check(Repository repository, string releasesPath, string 
         }
     }
 
-    return Report(problems, $"{descriptors.Count} descriptor(s), {legacy.Count} earlier release(s), {proposed.Count} proposed", output);
+    return Report(problems, $"{descriptors.Count} descriptor(s), {proposed.Count} proposed", output);
 }
 
 static int Report(List<string> problems, string what, TextWriter output)
@@ -355,17 +361,22 @@ static Resolution? Resolve(Repository repository, Descriptor descriptor, HashSet
     string range = previous is null ? sha : $"{previous}..{sha}";
     List<CommitInfo> commits = repository.Commits(range);
 
-    // issue: closed by a commit in the range.
-    BasisLine? issueLine = descriptor.Basis.FirstOrDefault(line => line.Kind == "issue");
-    int issue = 0;
+    // issue: each closed by a commit in the range.
+    List<int> issues = [];
 
-    if (issueLine is not null && int.TryParse(issueLine.Value, NumberStyles.None, CultureInfo.InvariantCulture, out issue))
+    foreach (BasisLine issueLine in descriptor.Basis.Where(line => line.Kind == "issue"))
     {
-        Regex closes = new(@"(?im)^\s*(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:[\w.-]+/[\w.-]+)?#" + issue + @"\b", RegexOptions.CultureInvariant);
+        if (!int.TryParse(issueLine.Value, NumberStyles.None, CultureInfo.InvariantCulture, out int issue))
+        {
+            continue;
+        }
+
+        issues.Add(issue);
+        Regex closes = new(@"(?im)^\s*(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:[\w.-]+/[\w.-]+)?#" + issue + @"\s*$", RegexOptions.CultureInvariant);
 
         if (!commits.Any(commit => closes.IsMatch(commit.Message)))
         {
-            problems.Add($"{path}:{issueLine.Line}: #{issue} is not closed by a commit in {range} (no 'Closes #{issue}'); the release closes its milestone");
+            problems.Add($"{path}:{issueLine.Line}: #{issue} is not closed by a commit in {range} (no 'Closes #{issue}' trailer); the release closes its milestone");
         }
     }
 
@@ -434,28 +445,43 @@ static Resolution? Resolve(Repository repository, Descriptor descriptor, HashSet
         }
     }
 
-    return new Resolution(sha, previous, issue);
+    return new Resolution(sha, previous, issues);
 }
 
-static async Task CheckIssueExists(Api api, int issue, Descriptor descriptor, List<string> problems)
+// A descriptor for a version tagged before descriptors existed: its tag
+// exists, and its commit is that tag's commit.
+static bool IsRecord(Repository repository, Descriptor descriptor, HashSet<string> tags) =>
+    descriptor.Version is not null && descriptor.Commit is not null && tags.Contains(descriptor.Version)
+    && repository.ResolveCommit($"refs/tags/{descriptor.Version}") == descriptor.Commit;
+
+// What a record can be checked for: the storage format its commit writes. Its
+// issues were closed by hand and its ADRs predate any basis; it is never cut.
+static void CheckRecord(Repository repository, Descriptor descriptor, List<string> problems)
 {
-    if (issue <= 0)
-    {
-        return;
-    }
+    BasisLine? formatLine = descriptor.Basis.FirstOrDefault(line => line.Kind == "storage-format");
+    int? storage = repository.StorageFormat(descriptor.Commit!);
 
-    JsonDocument? found = await api.TryGet($"issues/{issue}");
-
-    if (found is null)
+    if (formatLine is not null && storage is not null && formatLine.Value != storage.Value.ToString(CultureInfo.InvariantCulture))
     {
-        problems.Add($"{descriptor.Path}: #{issue} does not exist");
+        problems.Add($"{descriptor.Path}:{formatLine.Line}: storage format {formatLine.Value} is not the one {descriptor.Version} wrote, {storage}");
     }
-    else if (found.RootElement.TryGetProperty("pull_request", out _))
-    {
-        problems.Add($"{descriptor.Path}: #{issue} is a pull request, not the milestone's issue");
-    }
+}
 
-    found?.Dispose();
+static async Task CheckIssuesExist(Api api, IReadOnlyList<int> issues, Descriptor descriptor, List<string> problems)
+{
+    foreach (int issue in issues)
+    {
+        using JsonDocument? found = await api.TryGet($"issues/{issue}");
+
+        if (found is null)
+        {
+            problems.Add($"{descriptor.Path}: #{issue} does not exist");
+        }
+        else if (found.RootElement.TryGetProperty("pull_request", out _))
+        {
+            problems.Add($"{descriptor.Path}: #{issue} is a pull request, not a milestone's issue");
+        }
+    }
 }
 
 // The head guard: the gates App's `agent review` succeeded on this very commit.
@@ -529,7 +555,7 @@ static async Task<int> Plan(Repository repository, string releasesPath, string? 
         return 0;
     }
 
-    (List<Descriptor> descriptors, _) = ReleaseFormat.ReadDirectory(repository.Relative(releasesPath), problems);
+    List<Descriptor> descriptors = ReleaseFormat.ReadDirectory(repository.Relative(releasesPath), problems);
     HashSet<string> tags = repository.Tags();
 
     foreach (Descriptor descriptor in descriptors)
@@ -548,7 +574,7 @@ static async Task<int> Plan(Repository repository, string releasesPath, string? 
 
     if (pending.Count == 0 && fallback is not null && dryRun)
     {
-        (List<Descriptor> fallbackDescriptors, _) = ReleaseFormat.ReadDirectory(repository.Relative(fallback), problems);
+        List<Descriptor> fallbackDescriptors = ReleaseFormat.ReadDirectory(repository.Relative(fallback), problems);
 
         foreach (Descriptor descriptor in fallbackDescriptors)
         {
@@ -584,6 +610,16 @@ static async Task<int> Plan(Repository repository, string releasesPath, string? 
 
     Resolution? resolution = problems.Count == 0 ? Resolve(repository, release, tags, problems, landing) : null;
 
+    // The project's status, at the commit under release: the README that
+    // ships in the packages names this release, and the roadmap marks what it
+    // closes (eng/status.cs).
+    if (resolution is not null)
+    {
+        List<string> statusProblems = [];
+        ProjectStatus.Check(repository.TreeAt(resolution.Sha), statusProblems);
+        problems.AddRange(statusProblems.Select(problem => $"status at {resolution.Sha[..12]}: {problem}"));
+    }
+
     // The online checks.
     List<string> notes = [];
 
@@ -604,7 +640,7 @@ static async Task<int> Plan(Repository repository, string releasesPath, string? 
         else
         {
             Api api = new(token, name);
-            await CheckIssueExists(api, resolution.Issue, release, problems);
+            await CheckIssuesExist(api, resolution.Issues, release, problems);
 
             if (await HeadGuard(api, repository, resolution.Sha) is string guard)
             {
@@ -628,7 +664,7 @@ static async Task<int> Plan(Repository repository, string releasesPath, string? 
         summary.Append(CultureInfo.InvariantCulture, $"| Commit under release | `{resolution.Sha}`{(release.Commit is null ? "" : " (retro-cut)")} |\n");
         summary.Append(CultureInfo.InvariantCulture, $"| Previous release | {(resolution.Previous is null ? "none" : $"`{resolution.Previous}`")} |\n");
         summary.Append(CultureInfo.InvariantCulture, $"| Tag message | {ReleaseFormat.TagMessage(release)} |\n");
-        summary.Append(CultureInfo.InvariantCulture, $"| Basis | #{resolution.Issue}; {release.Basis.Count(line => line.Kind == "adr")} ADR(s); storage format {release.Basis.FirstOrDefault(line => line.Kind == "storage-format")?.Value} |\n");
+        summary.Append(CultureInfo.InvariantCulture, $"| Basis | {string.Join(", ", resolution.Issues.Select(issue => $"#{issue}"))}; {release.Basis.Count(line => line.Kind == "adr")} ADR(s); storage format {release.Basis.FirstOrDefault(line => line.Kind == "storage-format")?.Value} |\n");
         summary.Append(CultureInfo.InvariantCulture, $"| Accepted by | {release.AcceptedBy} |\n");
     }
 
@@ -672,6 +708,7 @@ static async Task<int> Plan(Repository repository, string releasesPath, string? 
     Output("message", ReleaseFormat.TagMessage(release));
     Output("prerelease", ReleaseFormat.IsPrerelease(release.Version!) ? "true" : "false");
     Output("previous", resolution.Previous ?? "");
+    Output("issues", string.Join(' ', resolution.Issues));
     return 0;
 }
 
@@ -851,7 +888,7 @@ static string FindRepositoryRoot()
     throw new InvalidOperationException("Could not find the repository root (no Varve.slnx above the current directory).");
 }
 
-sealed record Resolution(string Sha, string? Previous, int Issue);
+sealed record Resolution(string Sha, string? Previous, IReadOnlyList<int> Issues);
 
 sealed record CommitInfo(string Sha, string AuthorEmail, string Message);
 
@@ -901,6 +938,13 @@ sealed class Repository(string root)
             .Select(record => record.Split('\u0002'))
             .Where(parts => parts.Length == 3)
             .Select(parts => new CommitInfo(parts[0].Trim(), parts[1].Trim(), parts[2]))];
+
+    // The tree of a commit, for the status check.
+    public StatusTree TreeAt(string commit) => new(
+        path => Show(commit, path),
+        directory => Try("ls-tree", "-r", "--name-only", commit, "--", directory) is (0, string listed)
+            ? listed.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            : []);
 
     public string? Show(string commit, string path)
     {

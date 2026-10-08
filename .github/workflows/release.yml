@@ -17,7 +17,8 @@
 #          licence-headers. A valid descriptor whose gates fail is not cut and
 #          leaves no tag.
 #   cut    the gates App, with a token minted from the `gates` environment,
-#          creates the annotated tag "<version> — <title>" and pushes it. Never
+#          creates the annotated tag "<version> — <title>", pushes it, and
+#          closes the issues the basis names. Never
 #          GITHUB_TOKEN: a tag pushed with GITHUB_TOKEN triggers no workflow,
 #          so publish.yml would never run; the App's push does. The GitHub
 #          Release is publish.yml's, after the NuGet push.
@@ -78,6 +79,7 @@ jobs:
       message: ${{ steps.plan.outputs.message }}
       prerelease: ${{ steps.plan.outputs.prerelease }}
       previous: ${{ steps.plan.outputs.previous }}
+      issues: ${{ steps.plan.outputs.issues }}
 
     steps:
       - name: Checkout
@@ -137,8 +139,9 @@ jobs:
           client-id: ${{ secrets.GATES_APP_CLIENT_ID }}
           private-key: ${{ secrets.GATES_APP_PRIVATE_KEY }}
           # Asked for explicitly, so that minting fails here, before anything,
-          # if the App was not granted Contents: read & write.
+          # if the App was not granted Contents and Issues: read & write.
           permission-contents: write
+          permission-issues: write
 
       - name: The tagging identity
         id: identity
@@ -171,6 +174,7 @@ jobs:
           MESSAGE: ${{ needs.plan.outputs.message }}
           PRERELEASE: ${{ needs.plan.outputs.prerelease }}
           PROBLEMS: ${{ needs.plan.outputs.problems }}
+          ISSUES: ${{ needs.plan.outputs.issues }}
           TAGGER: ${{ steps.identity.outputs.name }} <${{ steps.identity.outputs.email }}>
         run: |
           set -euo pipefail
@@ -194,6 +198,7 @@ jobs:
             echo "| Tagger | $TAGGER |"
             echo "| Pushed with | the gates App's installation token (minted with contents: write) |"
             echo "| Prerelease | $PRERELEASE (derived from the version) |"
+            echo "| Would close | $(for n in $ISSUES; do printf '#%s ' "$n"; done)(the basis's issues) |"
             echo
             echo "Every gate in \`ci.yml\` passed at that commit. A tag pushed with the App's token is a push by"
             echo "the App, which starts \`publish.yml\` (\`on: push: tags: [v*]\`); one pushed with \`GITHUB_TOKEN\` would"
@@ -229,3 +234,25 @@ jobs:
             echo "- On \`$SHA\`, by $TAGGER_NAME: $MESSAGE"
             echo "- \`publish.yml\` runs on the tag, publishes, and creates the GitHub Release."
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # A milestone is complete when a release names it (docs/releases.md §7),
+      # so the release closes the issues its basis names, as the App: the
+      # commit trailers only made the descriptor necessary (release pending).
+      - name: Close the issues its basis names
+        if: env.DRY_RUN != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.gates.outputs.token }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          ISSUES: ${{ needs.plan.outputs.issues }}
+        run: |
+          set -euo pipefail
+          for n in $ISSUES; do
+            if [ "$(gh api "repos/$GITHUB_REPOSITORY/issues/$n" --jq .state)" = "closed" ]; then
+              echo "#$n is closed already"
+              continue
+            fi
+            gh issue close "$n" --repo "$GITHUB_REPOSITORY" --reason completed \
+              --comment "Released in [$VERSION](https://github.com/$GITHUB_REPOSITORY/releases/tag/$VERSION) (docs/releases.md)."
+            echo "- closed #$n" >> "$GITHUB_STEP_SUMMARY"
+          done

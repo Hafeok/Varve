@@ -18,8 +18,8 @@
 // else, newest version first by SemVer precedence, so it can be checked byte
 // for byte: `--check` fails on any hand edit, and on a descriptor not folded
 // in. One place to write. v0.1.0-preview.1 was cut before descriptors
-// existed (ADR 0085); its section is releases/v0.1.0-preview.1.md, copied
-// verbatim, and no later version may have one.
+// existed (ADR 0085); its descriptor was recorded afterwards, pinned to the
+// tagged commit, with its changelog section as the summary.
 //
 // `--release <version>` is the same rendering, after checking that the
 // descriptor exists and is well formed; it is the step a milestone's close-out
@@ -112,7 +112,7 @@ if (projectUrl is null)
 }
 
 List<string> problems = [];
-(List<Descriptor> descriptors, List<LegacyNotes> legacy) = ReleaseFormat.ReadDirectory(Relative(repositoryRoot, releasesPath), problems);
+List<Descriptor> descriptors = ReleaseFormat.ReadDirectory(Relative(repositoryRoot, releasesPath), problems);
 
 foreach (Descriptor descriptor in descriptors)
 {
@@ -142,7 +142,7 @@ if (problems.Count > 0)
     return check ? 1 : 2;
 }
 
-string rendered = ReleaseFormat.RenderChangelog(descriptors, legacy, projectUrl);
+string rendered = ReleaseFormat.RenderChangelog(descriptors, projectUrl);
 
 if (check)
 {
@@ -150,7 +150,7 @@ if (check)
 
     if (committed == rendered)
     {
-        Console.WriteLine($"ok  {Relative(repositoryRoot, changelogPath)} is the projection of {Relative(repositoryRoot, releasesPath)} ({descriptors.Count} descriptor(s), {legacy.Count} earlier release(s))");
+        Console.WriteLine($"ok  {Relative(repositoryRoot, changelogPath)} is the projection of {Relative(repositoryRoot, releasesPath)} ({descriptors.Count} descriptor(s))");
         return 0;
     }
 
@@ -180,7 +180,7 @@ if (toStandardOut)
 File.WriteAllText(outputPath ?? changelogPath, rendered);
 
 Console.WriteLine(releaseVersion is null
-    ? $"ok  wrote {Relative(repositoryRoot, outputPath ?? changelogPath)} from {descriptors.Count} descriptor(s) and {legacy.Count} earlier release(s)"
+    ? $"ok  wrote {Relative(repositoryRoot, outputPath ?? changelogPath)} from {descriptors.Count} descriptor(s)"
     : $"ok  folded {releaseVersion} into {Relative(repositoryRoot, outputPath ?? changelogPath)}; it is cut when the pull request lands at its approved head (docs/releases.md)");
 return 0;
 
