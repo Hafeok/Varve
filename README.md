@@ -40,11 +40,18 @@ dataset directory.
 
 ## Status
 
-**Milestone 5c.** Nine packages: reading and writing four syntaxes, the XSD
-value spaces, RDFC-1.0 canonicalisation, the SPARQL algebra with its parser
-and serialiser, the SPARQL results formats read and written, a query
-evaluator with an optimiser, an event-sourced store in memory, and SPARQL
-Update over that store, one request as one commit.
+**`v0.1.0-preview.1` is the latest release, and it closed milestones 1 to 5**;
+milestones 6a, 6c and 7a are on `main` since. Ten packages and a server:
+reading and writing four syntaxes, the XSD value spaces, RDFC-1.0
+canonicalisation, the SPARQL algebra with its parser and serialiser, the
+SPARQL results formats read and written, a query evaluator with an optimiser,
+an event-sourced store that is durable on disk and in the browser, SPARQL
+Update over that store, one request as one commit, and the SPARQL protocols
+over HTTP with `Varve.Server`, a Native AOT host.
+
+This section is checked (`eng/status.cs`): its first line names the latest
+release, the tables below match the projects and the conformance baseline,
+and it ships inside every package.
 
 | Package | Layer | What it is | State |
 |---|---:|---|---|
@@ -56,9 +63,12 @@ Update over that store, one request as one commit.
 | `Varve.Sparql.Results` | 2 | the SPARQL results formats — XML, JSON, CSV, TSV — as pull readers and streaming writers | working |
 | `Varve.Sparql.Evaluation` | 3 | the optimiser and evaluator: every operator, the function library, aggregates, property paths, `SERVICE` through a handler, over any quad source | working |
 | `Varve.Analyzers` | — | the layer rules, at build time | working, never shipped |
-| `Varve.Store` | 4 | the log, the default projection, pinned and as-of reads, checkpoints, subscriptions, dataset validators, the staging view | working, in memory; file and browser backends at milestone 6 |
+| `Varve.Store` | 4 | the log, the default projection, pinned and as-of reads, checkpoints, subscriptions, dataset validators, the staging view; in memory, or durable on disk in format version 1, with the bulk loader and replica bootstrap | working |
 | `Varve.Sparql.Store` | 5 | SPARQL Update over the store: one request, one commit, `LOAD` through a caller's source | working |
-| SHACL, server, CLI | 3–6 | | not built |
+| `Varve.Store.Browser` | 5 | the store in a browser: the origin private file system through synchronous access handles in a worker, or IndexedDB | working |
+| `Varve.Protocol` | 5 | the SPARQL 1.1 Protocol, the Graph Store Protocol, the service description, time travel, the change feed and the diff, on any ASP.NET Core host | working |
+| `Varve.Server` | 6 | the Native AOT server: OIDC bearer tokens, per-dataset permissions, readiness, a draining shutdown | working, a host, not packed |
+| SHACL, CLI | 3, 6 | | not built |
 
 ### Conformance
 
@@ -85,7 +95,11 @@ The W3C suites are the acceptance gate, from
 | `sparql11/csv-tsv-res`, `json-res`, written by the results writers | 10 |
 | `sparql11` update evaluation, 11 directories, one commit or none each | 94 |
 | `rdf-canon`, RDFC-1.0: 64 canonical forms, 21 issued maps, 1 refusal | 86 |
-| **Total** | **2,803 of 2,803** |
+| `sparql11/protocol`, over HTTP, × 2 stores | 68 |
+| `sparql11/graph-store-protocol`, × 2 stores | 26 |
+| `sparql11/http-rdf-update` (deprecated), × 2 stores, 6 exempt each | 24 |
+| `sparql11/service-description`, three checks we wrote, × 2 stores | 6 |
+| **Total** | **2,927 of 2,939** |
 
 Each SPARQL suite is parsed at its own version, so the 1.0 and 1.1 suites
 never see the 1.2 grammar; the 1.2 default is for API callers only. The six
@@ -100,12 +114,15 @@ evaluation cases are blocked**, not exempt: their data is RDF 1.2 Turtle,
 which `turtle.md` §9 refuses, and roadmap slice 6b unblocks them. The guard
 pins their count.
 
-**`baseline/exemptions.txt` is empty**, and that is a result rather than a
-default: no SPARQL 1.0 negative case turned out to be relaxed by 1.1, and no
-evaluation, update or canonicalisation case needs one — including none for
-empty graphs, which the store does not record (SPARQL 1.1 Update §3.2 allows
-it). `eng/ratchet.cs` fails the build if any of those 2,803 stops passing, and an exemption with no written justification fails the
-run too.
+**`baseline/exemptions.txt` holds twelve exemptions, all in the deprecated
+`http-rdf-update` suite**, six a store, each with the section it rests on: two
+bodies in Turtle with no final `.` (Turtle 1.1 §2.4), the two `GET`s that
+depend on them, a `DELETE` of a graph no step creates (Graph Store Protocol
+§5.4), and a `HEAD` without `Accept` that expects Turtle (§5.2 allows
+N-Triples). No query, update or canonicalisation case needs one, including
+none for empty graphs, which the store does not record (SPARQL 1.1 Update §3.2
+allows it). `eng/ratchet.cs` fails the build if any of those 2,927 stops
+passing, and an exemption with no written justification fails the run too.
 
 Also true today, and measured rather than asserted:
 
@@ -174,8 +191,9 @@ random functions read a clock and a random source the caller supplies —
 `Clock = TimeProvider.System` for the system clock — and fail by the option's
 name without one (ADR 0056).
 
-**Nothing is published yet.** The package metadata and the trusted-publishing
-workflow are in place and await the first `v0.1.0-preview.1` tag.
+**`v0.1.0-preview.1` is on nuget.org**, published through trusted
+publishing. Every later release is a descriptor in `releases/`, cut when its
+pull request lands (`docs/releases.md`, ADR 0102).
 
 ## Quick start
 
