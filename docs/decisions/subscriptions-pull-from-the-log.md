@@ -33,6 +33,8 @@ decisions:
     accepted-at: 2026-10-05T07:32:09Z
   - key: DeliveredCommitExternalisesItsHandles
     statement: "Commit.TryExternalise names any handle the commit carries from the dataset's append-only dictionary, and answers false for a handle it does not carry"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-08T07:32:09Z
 ---
 
 The rulings of [ADR 0042](../adr/0042-subscriptions-pull-from-the-log.md) still in force, one line each. The ADR is the
