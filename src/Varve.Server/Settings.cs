@@ -100,6 +100,15 @@ internal sealed class AuthSettings
 
     /// <summary>Per dataset, the claim values that grant each permission.</summary>
     public Dictionary<string, PermissionSettings> Datasets { get; set; } = new(StringComparer.Ordinal);
+
+    /// <summary>The server-wide grant (ADR 0105): who may create, open, close and delete datasets, and administers every one.</summary>
+    public ServerPermissionSettings Server { get; set; } = new();
+}
+
+/// <summary>The claim values of the server admin (ADR 0105), cumulative above every dataset's <c>admin</c>.</summary>
+internal sealed class ServerPermissionSettings
+{
+    public List<string> Admin { get; set; } = [];
 }
 
 /// <summary>

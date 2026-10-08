@@ -46,6 +46,15 @@ public sealed class ProtocolOptions
     public ProtocolLimits Limits { get; init; } = ProtocolLimits.Default;
 
     /// <summary>
+    /// The write side of the dataset map (ADR 0105), for the admin API's
+    /// <c>GET /datasets</c>, <c>PUT</c>, <c>DELETE</c>, <c>open</c> and
+    /// <c>close</c>. Null in a host that administers no dataset: those
+    /// endpoints then answer <c>404</c>, and the per-dataset admin endpoints
+    /// still serve.
+    /// </summary>
+    public IDatasetAdministration? Administration { get; init; }
+
+    /// <summary>
     /// The options every query is evaluated with: the clock and random source
     /// <c>NOW()</c> and <c>RAND()</c> read, and the <c>SERVICE</c> handler.
     /// </summary>

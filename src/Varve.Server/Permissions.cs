@@ -11,12 +11,13 @@ using Varve.Protocol.Model;
 
 namespace Varve.Server;
 
-/// <summary>Which of the three permissions a policy asks for (ADR 0037).</summary>
+/// <summary>Which permission a policy asks for (ADRs 0037, 0105), in cumulative order.</summary>
 internal enum Permission : byte
 {
     Read = 0,
     Write = 1,
     Admin = 2,
+    ServerAdmin = 3,
 }
 
 /// <summary>The requirement behind each of <see cref="DatasetPermissions"/>' policy names.</summary>
@@ -26,33 +27,46 @@ internal sealed class DatasetPermission(Permission permission) : IAuthorizationR
 }
 
 /// <summary>
-/// Decides a <see cref="DatasetPermission"/> on the dataset the request names
-/// (ADRs 0037, 0091): the caller is authenticated, and one of its role
-/// claims is a value the configuration maps to that permission, or to a
-/// higher one, on that dataset. No dataset, no permission.
+/// Decides a <see cref="DatasetPermission"/> (ADRs 0037, 0091, 0105): the
+/// caller is authenticated, and one of its role claims is a value the
+/// configuration maps to that permission, or to a higher one. A dataset
+/// permission is decided on the dataset the request names, and a server
+/// admin holds every one of them on every dataset; the server-admin
+/// permission is decided on no dataset. No dataset, no dataset permission.
 /// </summary>
 internal sealed class DatasetPermissionHandler(AuthSettings settings) : AuthorizationHandler<DatasetPermission>
 {
     protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, DatasetPermission requirement)
     {
-        if (context.User.Identity?.IsAuthenticated != true
-            || context.Resource is not DatasetName name
-            || !settings.Datasets.TryGetValue(name.Value, out PermissionSettings? granted))
+        if (context.User.Identity?.IsAuthenticated != true)
         {
             return Task.CompletedTask;
         }
 
         HashSet<string> values = new(StringComparer.Ordinal);
-        values.UnionWith(granted.Admin);
+        values.UnionWith(settings.Server.Admin);
 
-        if (requirement.Permission <= Permission.Write)
+        if (requirement.Permission != Permission.ServerAdmin)
         {
-            values.UnionWith(granted.Write);
-        }
+            if (context.Resource is not DatasetName name || !settings.Datasets.TryGetValue(name.Value, out PermissionSettings? granted))
+            {
+                granted = null;
+            }
 
-        if (requirement.Permission == Permission.Read)
-        {
-            values.UnionWith(granted.Read);
+            if (granted is not null)
+            {
+                values.UnionWith(granted.Admin);
+
+                if (requirement.Permission <= Permission.Write)
+                {
+                    values.UnionWith(granted.Write);
+                }
+
+                if (requirement.Permission == Permission.Read)
+                {
+                    values.UnionWith(granted.Read);
+                }
+            }
         }
 
         foreach (System.Security.Claims.Claim claim in context.User.FindAll(settings.RoleClaimType))

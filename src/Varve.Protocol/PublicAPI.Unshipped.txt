@@ -166,3 +166,42 @@ static Varve.Protocol.VarveEndpoints.MapVarveDataset(this Microsoft.AspNetCore.R
 ~override Varve.Protocol.Model.ProblemType.Equals(object obj) -> bool
 ~override Varve.Protocol.ProtocolLimits.Equals(object obj) -> bool
 ~override Varve.Protocol.ProtocolLimits.ToString() -> string
+Varve.Protocol.IDatasetAdministration
+Varve.Protocol.IDatasetAdministration.CloseAsync(Varve.Protocol.Model.DatasetName name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.AdminOutcome>
+Varve.Protocol.IDatasetAdministration.CreateAsync(Varve.Protocol.Model.DatasetName name, Varve.Protocol.Model.DatasetStorage storage, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.AdminOutcome>
+Varve.Protocol.IDatasetAdministration.DeleteAsync(Varve.Protocol.Model.DatasetName name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.AdminOutcome>
+Varve.Protocol.IDatasetAdministration.List() -> System.Collections.Generic.IReadOnlyList<Varve.Protocol.Model.DatasetEntry!>!
+Varve.Protocol.IDatasetAdministration.OpenAsync(Varve.Protocol.Model.DatasetName name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.AdminOutcome>
+Varve.Protocol.Model.AdminOutcome
+Varve.Protocol.Model.AdminOutcome.Done = 0 -> Varve.Protocol.Model.AdminOutcome
+Varve.Protocol.Model.AdminOutcome.Exists = 2 -> Varve.Protocol.Model.AdminOutcome
+Varve.Protocol.Model.AdminOutcome.Failed = 4 -> Varve.Protocol.Model.AdminOutcome
+Varve.Protocol.Model.AdminOutcome.NotFound = 1 -> Varve.Protocol.Model.AdminOutcome
+Varve.Protocol.Model.AdminOutcome.Open = 3 -> Varve.Protocol.Model.AdminOutcome
+Varve.Protocol.Model.DatasetEntry
+Varve.Protocol.Model.DatasetEntry.DatasetEntry(Varve.Protocol.Model.DatasetName name, Varve.Protocol.Model.DatasetState state, Varve.Protocol.Model.DatasetStorage storage, Varve.Protocol.Model.DatasetOrigin origin, string? reason, Varve.Store.Log.DatasetId? id, Varve.Store.Log.Position? head) -> void
+Varve.Protocol.Model.DatasetEntry.Head.get -> Varve.Store.Log.Position?
+Varve.Protocol.Model.DatasetEntry.Id.get -> Varve.Store.Log.DatasetId?
+Varve.Protocol.Model.DatasetEntry.Name.get -> Varve.Protocol.Model.DatasetName
+Varve.Protocol.Model.DatasetEntry.Origin.get -> Varve.Protocol.Model.DatasetOrigin
+Varve.Protocol.Model.DatasetEntry.Reason.get -> string?
+Varve.Protocol.Model.DatasetEntry.State.get -> Varve.Protocol.Model.DatasetState
+Varve.Protocol.Model.DatasetEntry.Storage.get -> Varve.Protocol.Model.DatasetStorage
+Varve.Protocol.Model.DatasetOrigin
+Varve.Protocol.Model.DatasetOrigin.Configured = 0 -> Varve.Protocol.Model.DatasetOrigin
+Varve.Protocol.Model.DatasetOrigin.Created = 2 -> Varve.Protocol.Model.DatasetOrigin
+Varve.Protocol.Model.DatasetOrigin.Discovered = 1 -> Varve.Protocol.Model.DatasetOrigin
+Varve.Protocol.Model.DatasetState
+Varve.Protocol.Model.DatasetState.Closed = 1 -> Varve.Protocol.Model.DatasetState
+Varve.Protocol.Model.DatasetState.Failed = 2 -> Varve.Protocol.Model.DatasetState
+Varve.Protocol.Model.DatasetState.Open = 0 -> Varve.Protocol.Model.DatasetState
+Varve.Protocol.Model.DatasetStorage
+Varve.Protocol.Model.DatasetStorage.File = 0 -> Varve.Protocol.Model.DatasetStorage
+Varve.Protocol.Model.DatasetStorage.Memory = 1 -> Varve.Protocol.Model.DatasetStorage
+Varve.Protocol.ProtocolOptions.Administration.get -> Varve.Protocol.IDatasetAdministration?
+Varve.Protocol.ProtocolOptions.Administration.init -> void
+const Varve.Protocol.DatasetPermissions.ServerAdmin = "varve:server-admin" -> string!
+static Varve.Protocol.Model.ProblemType.AgentRequired.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.DatasetExists.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.DatasetOpen.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.VarveEndpoints.MapVarveAdministration(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Routing.IEndpointRouteBuilder!

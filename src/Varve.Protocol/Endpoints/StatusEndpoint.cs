@@ -45,6 +45,15 @@ internal static class StatusEndpoint
             json.WriteNumber("head", head.Value);
             json.WriteString("durability", dataset.Durability.ToString());
             json.WriteBoolean("failed", dataset.IsFailed);
+            json.WriteString("state", "open");
+
+            // The default projection (spec §7, ADR 0105): where it is, how far
+            // behind the head, and whether it failed.
+            json.WriteStartObject("projection");
+            json.WriteNumber("position", dataset.ProjectionPosition.Value);
+            json.WriteNumber("lag", head.Value - dataset.ProjectionPosition.Value);
+            json.WriteBoolean("failed", dataset.IsFailed);
+            json.WriteEndObject();
             json.WriteStartObject("settings");
             json.WriteString("defaultAccessScope", dataset.Settings.DefaultAccessScope.ToString());
             json.WriteEndObject();

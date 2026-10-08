@@ -60,6 +60,7 @@ public sealed class HostTests
         [
             "Varve:Auth:Authority",
             "Varve:Auth:Audiences",
+            "Varve:DatasetsRoot is an absolute path",
             "Varve:Datasets:-bad is not a dataset name",
             "Varve:Datasets:files is a File dataset",
             "Varve:Datasets:odd:Storage",

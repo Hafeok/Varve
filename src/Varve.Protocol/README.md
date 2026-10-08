@@ -17,9 +17,14 @@ ASP.NET Core endpoint groups any host mounts.
 - **The change feed** is `application/vnd.varve.delta; version=1`, or
   server-sent events for a live tail. `ChangeFeedReader` reads it with Varve's
   own terms.
-- **Authorisation is three policy names**, `varve:read`, `varve:write` and
-  `varve:admin`. The host decides what satisfies them. Nothing here
-  authenticates.
+- **The admin API** (ADR 0105): `MapVarveAdministration` mounts
+  `GET /datasets`, `PUT` and `DELETE` of `/datasets/{name}`, and
+  `POST …/open` and `…/close`, over the host's `IDatasetAdministration`; each
+  dataset group has `POST /settings` (a `Settings` commit) and
+  `POST /checkpoints`, and `/status` reports the projection.
+- **Authorisation is four policy names**, `varve:read`, `varve:write`,
+  `varve:admin` and `varve:server-admin`. The host decides what satisfies
+  them. Nothing here authenticates.
 
 ```csharp
 app.MapGroup("/datasets/{dataset}").MapVarveDataset(new ProtocolOptions

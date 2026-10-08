@@ -77,6 +77,15 @@ public readonly record struct ProblemType
     /// <summary>The server is shutting down.</summary>
     public static ProblemType ShuttingDown { get; } = new("shutting-down");
 
+    /// <summary>A dataset to create already exists, in some state (ADR 0105).</summary>
+    public static ProblemType DatasetExists { get; } = new("dataset-exists");
+
+    /// <summary>A dataset to delete is open; close it first (ADR 0105).</summary>
+    public static ProblemType DatasetOpen { get; } = new("dataset-open");
+
+    /// <summary>A commit that records its agent — a settings change — from a caller with none (ADRs 0094, 0105).</summary>
+    public static ProblemType AgentRequired { get; } = new("agent-required");
+
     /// <summary>
     /// The problem type an IRI under <see cref="Namespace"/> names, known or
     /// not: a client reading a newer server's error keeps its type.

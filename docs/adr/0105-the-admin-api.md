@@ -70,7 +70,11 @@ grants yet, and listing is a decision about several.
    `Dataset.ChangeSettingsAsync` and `Dataset.CheckpointAsync` — with the
    caller as agent and the request id as cause (ADR 0094). A `Settings`
    commit is a commit: it has a position, it reaches the feed (ADR 0046), and
-   `If-Match` applies.
+   `If-Match` applies. The store refuses a settings commit with no agent
+   (spec §9: every settings change has an agent and a position), and in
+   anonymous mode no caller is named (ADR 0094), so there the endpoint
+   answers `403` with the problem `agent-required` rather than inventing a
+   name. A checkpoint of an empty dataset is `400`.
 6. **Projection status** is the default projection's position, the head
    minus it as `lag`, and the failed state (spec §7). Readiness already
    requires lag zero at start; the status shows it after.
@@ -92,10 +96,15 @@ grants yet, and listing is a decision about several.
 
 ## Consequences
 
-- `Varve.Protocol` gains the endpoints and two seams: the dataset
-  resolver's write side (create, open, close, delete), implemented by the
-  host's `OpenDatasets`, and the server-admin decision, a fourth policy name
-  `varve:server-admin` the host registers.
+- `Varve.Protocol` gains the endpoints and two seams: the dataset map's
+  write side, `IDatasetAdministration` (list, create, open, close, delete;
+  an entry carries its name, state, storage, origin — configured, discovered
+  or created — reason, id and head), implemented by the host's
+  `OpenDatasets` and optional in `ProtocolOptions`, and the server-admin
+  decision, a fourth policy name `varve:server-admin` the host registers,
+  decided on no dataset. `MapVarveAdministration` mounts the server-level
+  routes beside the dataset groups; `Dataset.ProjectionPosition` is the one
+  store addition.
 - `Varve.Server`'s configuration gains `Auth:Server:Admin`.
 - The CLI's `info`, `checkpoint` and `feed` in remote mode call these (ADR
   0104).

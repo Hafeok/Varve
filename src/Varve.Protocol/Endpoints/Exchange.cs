@@ -67,6 +67,14 @@ internal sealed class Exchange
     /// <summary>Authorises this request for another permission, as an update inside a <c>POST</c> needs.</summary>
     internal Task<bool> AuthorizeAsync(string permission) => AuthorizeAsync(Context, Options, permission, Name);
 
+    /// <summary>Authorises for a server-wide permission, decided on no dataset (ADR 0105); writes the refusal itself.</summary>
+    internal static Task<bool> AuthorizeServerAsync(HttpContext context, ProtocolOptions options, string permission) =>
+        AuthorizeAsync(context, options, permission, null);
+
+    /// <summary>Whether the caller holds <paramref name="permission"/> on <paramref name="resource"/>, writing nothing.</summary>
+    internal static async Task<bool> MayAsync(HttpContext context, ProtocolOptions options, string permission, DatasetName? resource) =>
+        (await options.Authorization.AuthorizeAsync(context.User, resource, permission).ConfigureAwait(false)).Succeeded;
+
     private static async Task<bool> AuthorizeAsync(HttpContext context, ProtocolOptions options, string permission, DatasetName? resource)
     {
         AuthorizationResult result = await options.Authorization.AuthorizeAsync(context.User, resource, permission).ConfigureAwait(false);

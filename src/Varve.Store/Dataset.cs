@@ -132,6 +132,14 @@ public sealed partial class Dataset : IAsyncDisposable
     /// </summary>
     public bool IsFailed => _state.Failed is not null;
 
+    /// <summary>
+    /// The position the default projection has applied (spec §7): the head,
+    /// since a commit's records and its projection are one step of the
+    /// sequencer, except where the projection failed and the head went on
+    /// to be refused. The admin API reports it beside the head (ADR 0105).
+    /// </summary>
+    public Position ProjectionPosition => new(_state.Index.Position);
+
     /// <summary>What the storage promises once a commit returns.</summary>
     public Durability Durability => _storage.Log.Durability;
 

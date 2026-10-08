@@ -128,7 +128,7 @@ internal static partial class ServerHost
         {
             services.AddAuthorization(authorization =>
             {
-                foreach (string permission in (ReadOnlySpan<string>)[DatasetPermissions.Read, DatasetPermissions.Write, DatasetPermissions.Admin])
+                foreach (string permission in (ReadOnlySpan<string>)[DatasetPermissions.Read, DatasetPermissions.Write, DatasetPermissions.Admin, DatasetPermissions.ServerAdmin])
                 {
                     authorization.AddPolicy(permission, policy => policy.RequireAssertion(_ => true));
                 }
@@ -164,6 +164,7 @@ internal static partial class ServerHost
             authorization.AddPolicy(DatasetPermissions.Read, policy => policy.AddRequirements(new DatasetPermission(Permission.Read)));
             authorization.AddPolicy(DatasetPermissions.Write, policy => policy.AddRequirements(new DatasetPermission(Permission.Write)));
             authorization.AddPolicy(DatasetPermissions.Admin, policy => policy.AddRequirements(new DatasetPermission(Permission.Admin)));
+            authorization.AddPolicy(DatasetPermissions.ServerAdmin, policy => policy.AddRequirements(new DatasetPermission(Permission.ServerAdmin)));
         });
     }
 
@@ -200,6 +201,7 @@ internal static partial class ServerHost
         ProtocolOptions options = new()
         {
             Datasets = datasets,
+            Administration = datasets,
             Updates = new StoreUpdates(clock, outbound),
             Identity = anonymous ? new NoAgent() : new TokenIdentity(settings.Auth.SubjectClaim),
             Authorization = app.Services.GetRequiredService<IAuthorizationService>(),
@@ -215,23 +217,32 @@ internal static partial class ServerHost
         };
 
         app.MapGroup("/datasets/{dataset}").MapVarveDataset(options);
+        app.MapVarveAdministration("/datasets", options);
         app.MapGet("/live", (RequestDelegate)(context => WriteJsonAsync(context, StatusCodes.Status200OK, "application/json", json => json.WriteString("status", "live"))));
         app.MapGet("/ready", (RequestDelegate)(context => ReadyAsync(context, datasets)));
     }
 
-    // Ready when every dataset is open and not failed (ADR 0101): datasets are
-    // opened, their default projections replayed to the head, before the
-    // server listens, so failure is what remains to report.
+    // Ready when every dataset that should be open is open and not failed
+    // (ADRs 0101, 0105): datasets are opened, their default projections
+    // replayed to the head, before the server listens, so a failure to open
+    // — a directory under the root that is leased elsewhere, or does not
+    // parse — and a projection failure are what remain to report. A dataset
+    // closed by the admin API is reported and does not count against readiness.
     private static Task ReadyAsync(HttpContext context, OpenDatasets datasets)
     {
         bool ready = true;
-        List<(string, bool)> states = [];
+        List<(string Name, string State, string? Reason)> states = [];
 
-        foreach ((string name, Dataset dataset) in datasets.All)
+        foreach (Varve.Protocol.Model.DatasetEntry entry in datasets.List())
         {
-            bool failed = dataset.IsFailed;
-            ready &= !failed;
-            states.Add((name, failed));
+            string state = entry.State switch
+            {
+                Varve.Protocol.Model.DatasetState.Open => datasets.TryResolve(entry.Name, out Dataset? dataset) && dataset.IsFailed ? "failed" : "ready",
+                Varve.Protocol.Model.DatasetState.Closed => "closed",
+                _ => "failed",
+            };
+            ready &= state != "failed";
+            states.Add((entry.Name.Value, state, entry.Reason));
         }
 
         return WriteJsonAsync(context, ready ? StatusCodes.Status200OK : StatusCodes.Status503ServiceUnavailable, "application/json", json =>
@@ -239,9 +250,19 @@ internal static partial class ServerHost
             json.WriteString("status", ready ? "ready" : "failed");
             json.WriteStartObject("datasets");
 
-            foreach ((string name, bool failed) in states)
+            foreach ((string name, string state, string? reason) in states)
             {
-                json.WriteString(name, failed ? "failed" : "ready");
+                if (reason is null)
+                {
+                    json.WriteString(name, state);
+                }
+                else
+                {
+                    json.WriteStartObject(name);
+                    json.WriteString("state", state);
+                    json.WriteString("reason", reason);
+                    json.WriteEndObject();
+                }
             }
 
             json.WriteEndObject();

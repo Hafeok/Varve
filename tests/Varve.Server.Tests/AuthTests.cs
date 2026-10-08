@@ -15,16 +15,22 @@ using Xunit;
 namespace Varve.Server.Tests;
 
 /// <summary>
-/// Authentication and authorisation (ADRs 0037, 0100 layer (a)): every
+/// Authentication and authorisation (ADRs 0037, 0100 layer (a), 0105): every
 /// endpoint against every way a token can be wrong and every permission,
-/// with tokens from an issuer in the test.
+/// with tokens from an issuer in the test; the admin API's endpoints under
+/// the dataset and server-admin grants.
 /// </summary>
 public sealed class AuthTests : IAsyncLifetime
 {
     private TestIssuer _issuer = null!;
     private RunningServer _server = null!;
 
-    /// <summary>Each endpoint, and the permission it needs (ADR 0093's table).</summary>
+    /// <summary>
+    /// Each endpoint, and the permission it needs (ADR 0093's table, ADR
+    /// 0105's). The list answers any authenticated caller, filtered, so it
+    /// needs no more than read; the server-admin rows run in an order that
+    /// succeeds for the one role that may: create, open, close, delete.
+    /// </summary>
     public static TheoryData<string, string, string> Endpoints() => new()
     {
         { "GET", "datasets/d/", "read" },
@@ -35,6 +41,13 @@ public sealed class AuthTests : IAsyncLifetime
         { "GET", "datasets/d/feed?to=0", "read" },
         { "GET", "datasets/d/diff?from=0&to=0", "read" },
         { "GET", "datasets/d/status", "admin" },
+        { "POST", "datasets/d/settings", "admin" },
+        { "POST", "datasets/d/checkpoints", "admin" },
+        { "GET", "datasets", "read" },
+        { "PUT", "datasets/x", "server-admin" },
+        { "POST", "datasets/x/open", "server-admin" },
+        { "POST", "datasets/x/close", "server-admin" },
+        { "DELETE", "datasets/x", "server-admin" },
     };
 
     public async ValueTask InitializeAsync()
@@ -50,6 +63,7 @@ public sealed class AuthTests : IAsyncLifetime
             ["Varve:Auth:Datasets:d:Write:0"] = "writer",
             ["Varve:Auth:Datasets:d:Admin:0"] = "administrator",
             ["Varve:Auth:Datasets:e:Admin:0"] = "reader",
+            ["Varve:Auth:Server:Admin:0"] = "operator",
             ["Varve:Datasets:d:Storage"] = "Memory",
             ["Varve:Datasets:e:Storage"] = "Memory",
         });
@@ -99,9 +113,10 @@ public sealed class AuthTests : IAsyncLifetime
     [InlineData("reader", "read")]
     [InlineData("writer", "write")]
     [InlineData("administrator", "admin")]
+    [InlineData("operator", "server-admin")]
     public async Task each_role_reaches_exactly_its_permission_and_those_below_it(string role, string granted)
     {
-        string[] order = ["read", "write", "admin"];
+        string[] order = ["read", "write", "admin", "server-admin"];
         string token = _issuer.Mint(Claims(role));
 
         foreach ((string method, string path, string needs) in Endpoints().Select(r => r.Data))
@@ -122,6 +137,14 @@ public sealed class AuthTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, (await SendAsync("GET", "datasets/e/status", token)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync("GET", "datasets/d/status", token)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync("GET", "datasets/nowhere/sparql?query=ASK%7B%7D", token)).StatusCode);
+
+        // The list shows what the caller administers: e for "reader", both for a server admin (ADR 0105).
+        string listed = await (await SendAsync("GET", "datasets", token)).Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.Contains("\"name\":\"e\"", listed, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"name\":\"d\"", listed, StringComparison.Ordinal);
+        string all = await (await SendAsync("GET", "datasets", _issuer.Mint(Claims("operator")))).Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.Contains("\"name\":\"d\"", all, StringComparison.Ordinal);
+        Assert.Contains("\"name\":\"e\"", all, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -158,7 +181,15 @@ public sealed class AuthTests : IAsyncLifetime
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
 
-        if (method == "POST")
+        if (path.EndsWith("/settings", StringComparison.Ordinal))
+        {
+            request.Content = new StringContent("{\"defaultAccessScope\":\"AllHistory\"}", Encoding.UTF8, "application/json");
+        }
+        else if (method == "PUT" && path == "datasets/x")
+        {
+            request.Content = new StringContent("{\"storage\":\"Memory\"}", Encoding.UTF8, "application/json");
+        }
+        else if (method == "POST" && path.EndsWith("/sparql", StringComparison.Ordinal))
         {
             request.Content = new StringContent("INSERT DATA { <http://ex/a> <http://ex/p> 1 }", Encoding.UTF8, "application/sparql-update");
         }

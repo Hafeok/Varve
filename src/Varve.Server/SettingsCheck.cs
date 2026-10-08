@@ -56,9 +56,16 @@ internal static class SettingsCheck
                 break;
         }
 
-        if (settings.Datasets.Count == 0)
+        // A server with no configured dataset serves what the admin API
+        // creates under its root (ADR 0105), so a root is enough.
+        if (settings.Datasets.Count == 0 && string.IsNullOrWhiteSpace(settings.DatasetsRoot))
         {
-            errors.Add("Varve:Datasets names at least one dataset.");
+            errors.Add("Varve:Datasets names at least one dataset, or Varve:DatasetsRoot names the directory datasets are created under.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(settings.DatasetsRoot) && !Path.IsPathFullyQualified(settings.DatasetsRoot))
+        {
+            errors.Add("Varve:DatasetsRoot is an absolute path.");
         }
 
         foreach ((string name, DatasetSettings dataset) in settings.Datasets)

@@ -16,61 +16,63 @@ using Varve.Store.Log;
 namespace Varve.Server;
 
 /// <summary>
-/// The configured datasets, opened before the server listens and closed after
-/// it stops (ADRs 0093, 0101). The name is the host's: a File dataset is the
-/// directory of that name under the root, created on first open.
+/// The server's datasets (ADRs 0093, 0101, 0105): the configured ones, opened
+/// before the server listens, and every directory directly under the root
+/// that holds a dataset, discovered at start — a directory that fails to
+/// open is kept as <see cref="DatasetState.Failed"/> with its reason, never
+/// skipped. The admin API creates, opens, closes and deletes through this
+/// map. The name is the host's: a File dataset is the directory of that name
+/// under the root.
 /// </summary>
-internal sealed class OpenDatasets : IDatasetResolver, IAsyncDisposable
+internal sealed class OpenDatasets : IDatasetResolver, IDatasetAdministration, IAsyncDisposable
 {
-    private readonly Dictionary<string, (Dataset Dataset, FileStorage? Files)> _open = new(StringComparer.Ordinal);
+    private readonly Lock _gate = new();
+    private readonly SortedDictionary<string, Entry> _entries = new(StringComparer.Ordinal);
+    private readonly string? _root;
+    private readonly TimeProvider _clock;
 
-    private OpenDatasets()
+    private OpenDatasets(string? root, TimeProvider clock)
     {
-    }
-
-    /// <summary>The datasets by name, for readiness.</summary>
-    internal IEnumerable<(string Name, Dataset Dataset)> All
-    {
-        get
-        {
-            foreach ((string name, (Dataset dataset, _)) in _open)
-            {
-                yield return (name, dataset);
-            }
-        }
+        _root = root;
+        _clock = clock;
     }
 
     internal static async Task<OpenDatasets> OpenAsync(ServerSettings settings, TimeProvider clock, CancellationToken cancellationToken)
     {
-        OpenDatasets opened = new();
+        OpenDatasets opened = new(string.IsNullOrWhiteSpace(settings.DatasetsRoot) ? null : settings.DatasetsRoot, clock);
 
         try
         {
             foreach ((string name, DatasetSettings configured) in settings.Datasets)
             {
-                DatasetOptions options = new() { Clock = clock };
+                Entry entry = new(configured.Storage == "Memory" ? DatasetStorage.Memory : DatasetStorage.File, DatasetOrigin.Configured);
+                opened._entries[name] = entry;
+                await opened.OpenEntryAsync(name, entry, cancellationToken).ConfigureAwait(false);
 
-                if (configured.Storage == "Memory")
+                if (entry.State == DatasetState.Failed)
                 {
-                    opened._open[name] = (await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), options, cancellationToken).ConfigureAwait(false), null);
-                    continue;
+                    // A configured dataset that does not open is the 7a
+                    // behaviour: the server does not start.
+                    throw new InvalidOperationException("The dataset '" + name + "' did not open: " + entry.Reason);
                 }
+            }
 
-                string directory = Path.Combine(settings.DatasetsRoot!, name);
-                bool exists = Directory.Exists(Path.Combine(directory, "log"));
-                FileStorage files = await FileStorage.OpenAsync(new DatasetDirectory(directory), new FileStorageOptions { Clock = clock }, cancellationToken).ConfigureAwait(false);
+            if (opened._root is { } root)
+            {
+                Directory.CreateDirectory(root);
 
-                try
+                foreach (string directory in Directory.EnumerateDirectories(root))
                 {
-                    Dataset dataset = exists
-                        ? await Dataset.OpenAsync(files, options, cancellationToken).ConfigureAwait(false)
-                        : await Dataset.CreateAsync(files, new DatasetId(Guid.NewGuid()), options, cancellationToken).ConfigureAwait(false);
-                    opened._open[name] = (dataset, files);
-                }
-                catch
-                {
-                    await files.DisposeAsync().ConfigureAwait(false);
-                    throw;
+                    string name = Path.GetFileName(directory);
+
+                    if (opened._entries.ContainsKey(name) || !DatasetName.TryParse(name, out _) || !Directory.Exists(Path.Combine(directory, "log")))
+                    {
+                        continue;
+                    }
+
+                    Entry entry = new(DatasetStorage.File, DatasetOrigin.Discovered);
+                    opened._entries[name] = entry;
+                    await opened.OpenEntryAsync(name, entry, cancellationToken).ConfigureAwait(false);
                 }
             }
         }
@@ -85,14 +87,148 @@ internal sealed class OpenDatasets : IDatasetResolver, IAsyncDisposable
 
     public bool TryResolve(DatasetName name, [NotNullWhen(true)] out Dataset? dataset)
     {
-        if (_open.TryGetValue(name.Value, out (Dataset Dataset, FileStorage? Files) entry))
+        lock (_gate)
         {
-            dataset = entry.Dataset;
-            return true;
+            if (_entries.TryGetValue(name.Value, out Entry? entry) && entry.State == DatasetState.Open)
+            {
+                dataset = entry.Dataset;
+                return dataset is not null;
+            }
         }
 
         dataset = null;
         return false;
+    }
+
+    public IReadOnlyList<DatasetEntry> List()
+    {
+        List<DatasetEntry> list = [];
+
+        lock (_gate)
+        {
+            foreach ((string name, Entry entry) in _entries)
+            {
+                Dataset? dataset = entry.Dataset;
+                list.Add(new DatasetEntry(
+                    new DatasetName(name),
+                    entry.State,
+                    entry.Storage,
+                    entry.Origin,
+                    entry.Reason,
+                    dataset?.Id,
+                    dataset?.Head));
+            }
+        }
+
+        return list;
+    }
+
+    public async ValueTask<AdminOutcome> CreateAsync(DatasetName name, DatasetStorage storage, CancellationToken cancellationToken)
+    {
+        Entry entry = new(storage, DatasetOrigin.Created);
+
+        lock (_gate)
+        {
+            if (_entries.ContainsKey(name.Value) || (storage == DatasetStorage.File && _root is { } root && Directory.Exists(Path.Combine(root, name.Value))))
+            {
+                return AdminOutcome.Exists;
+            }
+
+            if (storage == DatasetStorage.File && _root is null)
+            {
+                entry.Fail("Varve:DatasetsRoot is not configured, so a File dataset has nowhere to be created.");
+                return AdminOutcome.Failed;
+            }
+
+            _entries[name.Value] = entry;
+        }
+
+        await OpenEntryAsync(name.Value, entry, cancellationToken).ConfigureAwait(false);
+        return entry.State == DatasetState.Open ? AdminOutcome.Done : AdminOutcome.Failed;
+    }
+
+    public async ValueTask<AdminOutcome> OpenAsync(DatasetName name, CancellationToken cancellationToken)
+    {
+        Entry? entry;
+
+        lock (_gate)
+        {
+            if (!_entries.TryGetValue(name.Value, out entry))
+            {
+                // A directory an operator copied under the root since the start.
+                if (_root is { } root && Directory.Exists(Path.Combine(root, name.Value, "log")))
+                {
+                    entry = new Entry(DatasetStorage.File, DatasetOrigin.Discovered);
+                    _entries[name.Value] = entry;
+                }
+                else
+                {
+                    return AdminOutcome.NotFound;
+                }
+            }
+
+            if (entry.State == DatasetState.Open)
+            {
+                return AdminOutcome.Done;
+            }
+        }
+
+        await OpenEntryAsync(name.Value, entry, cancellationToken).ConfigureAwait(false);
+        return entry.State == DatasetState.Open ? AdminOutcome.Done : AdminOutcome.Failed;
+    }
+
+    public async ValueTask<AdminOutcome> CloseAsync(DatasetName name, CancellationToken cancellationToken)
+    {
+        Entry? entry;
+
+        lock (_gate)
+        {
+            if (!_entries.TryGetValue(name.Value, out entry) || entry.State != DatasetState.Open)
+            {
+                return AdminOutcome.NotFound;
+            }
+
+            // Closed first, so that no new request resolves it while it drains.
+            entry.Closing();
+        }
+
+        await entry.ReleaseAsync().ConfigureAwait(false);
+        return AdminOutcome.Done;
+    }
+
+    public async ValueTask<AdminOutcome> DeleteAsync(DatasetName name, CancellationToken cancellationToken)
+    {
+        Entry? entry;
+
+        lock (_gate)
+        {
+            if (!_entries.TryGetValue(name.Value, out entry))
+            {
+                return AdminOutcome.NotFound;
+            }
+
+            if (entry.State == DatasetState.Open)
+            {
+                return AdminOutcome.Open;
+            }
+
+            _entries.Remove(name.Value);
+        }
+
+        await entry.ReleaseAsync().ConfigureAwait(false);
+
+        if (entry.Storage == DatasetStorage.File && _root is { } root)
+        {
+            string directory = Path.Combine(root, name.Value);
+
+            if (Directory.Exists(directory))
+            {
+                // The log, the derived data and the lease file: all of it, and not undoable (ADR 0105).
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+
+        return AdminOutcome.Done;
     }
 
     /// <summary>
@@ -102,16 +238,113 @@ internal sealed class OpenDatasets : IDatasetResolver, IAsyncDisposable
     /// </summary>
     public async ValueTask DisposeAsync()
     {
-        foreach ((Dataset dataset, FileStorage? files) in _open.Values)
+        List<Entry> entries;
+
+        lock (_gate)
         {
-            await dataset.DisposeAsync().ConfigureAwait(false);
+            entries = [.. _entries.Values];
+            _entries.Clear();
+        }
+
+        foreach (Entry entry in entries)
+        {
+            await entry.ReleaseAsync().ConfigureAwait(false);
+        }
+    }
+
+    // Opens the entry's dataset; on failure the entry is Failed with the
+    // reason and nothing is held.
+    private async Task OpenEntryAsync(string name, Entry entry, CancellationToken cancellationToken)
+    {
+        DatasetOptions options = new() { Clock = _clock };
+
+        try
+        {
+            if (entry.Storage == DatasetStorage.Memory)
+            {
+                entry.Opened(await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), options, cancellationToken).ConfigureAwait(false), null);
+                return;
+            }
+
+            string directory = Path.Combine(_root!, name);
+            bool exists = Directory.Exists(Path.Combine(directory, "log"));
+            FileStorage files = await FileStorage.OpenAsync(new DatasetDirectory(directory), new FileStorageOptions { Clock = _clock }, cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                Dataset dataset = exists
+                    ? await Dataset.OpenAsync(files, options, cancellationToken).ConfigureAwait(false)
+                    : await Dataset.CreateAsync(files, new DatasetId(Guid.NewGuid()), options, cancellationToken).ConfigureAwait(false);
+                entry.Opened(dataset, files);
+            }
+            catch
+            {
+                await files.DisposeAsync().ConfigureAwait(false);
+                throw;
+            }
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            entry.Fail(error.Message);
+        }
+    }
+
+    /// <summary>One dataset's slot: its storage, its state, and what it holds while open.</summary>
+    private sealed class Entry(DatasetStorage storage, DatasetOrigin origin)
+    {
+        internal DatasetStorage Storage { get; } = storage;
+
+        internal DatasetOrigin Origin { get; } = origin;
+
+        internal DatasetState State { get; private set; } = DatasetState.Closed;
+
+        internal string? Reason { get; private set; }
+
+        internal Dataset? Dataset { get; private set; }
+
+        private FileStorage? Files { get; set; }
+
+        internal void Opened(Dataset dataset, FileStorage? files)
+        {
+            Dataset = dataset;
+            Files = files;
+            State = DatasetState.Open;
+            Reason = null;
+        }
+
+        internal void Fail(string reason)
+        {
+            State = DatasetState.Failed;
+            Reason = reason;
+        }
+
+        internal void Closing()
+        {
+            State = DatasetState.Closed;
+            Reason = null;
+        }
+
+        internal async ValueTask ReleaseAsync()
+        {
+            Dataset? dataset = Dataset;
+            FileStorage? files = Files;
+            Dataset = null;
+            Files = null;
+
+            if (dataset is not null)
+            {
+                await dataset.DisposeAsync().ConfigureAwait(false);
+            }
 
             if (files is not null)
             {
                 await files.DisposeAsync().ConfigureAwait(false);
             }
-        }
 
-        _open.Clear();
+            if (State == DatasetState.Open)
+            {
+                State = DatasetState.Closed;
+            }
+        }
     }
 }
