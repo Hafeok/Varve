@@ -12,7 +12,7 @@
 | **Model** | `claude-fable-5-1`, configured and served for every turn, from the session's own metadata (`get_session`: `configured_model`, `session_context.model` and `last_served_model` all `claude-fable-5-1`) |
 | **Session identifier** | `session_01BTAMTgvpiWwJZKFGbXdmto` |
 | **Branch** | `claude/relaxed-newton-9rvd9m`, from `main` at 510ea64 |
-| **Commits** | 68d3569, 48e91ca, b3325cf, 53b4a73, b68ab19, aa75ade, 84813d7, fa38aac, 3242096, 79cfbc5, and the closing commits carrying this record and the release |
+| **Commits** | 68d3569, 48e91ca, b3325cf, 53b4a73, b68ab19, aa75ade, 84813d7, fa38aac, 3242096, 79cfbc5, 1836c32, 8731edb (the renumbering), 2f89035 (`main` merged), aaa0f7a (the release, `Closes #11`), 4e5c066, and the closing commit carrying the soak's figures |
 
 The session ran out of context once and continued from a summary; the work
 and this record are continuous across it. **The ADRs were filed as 0102–0108
