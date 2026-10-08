@@ -156,6 +156,8 @@ rulesets:
       - context: browser storage in Chromium
       - context: conformance (ubuntu-latest)
       - context: conformance (windows-latest)
+      - context: auth (mock-oauth2)
+      - context: auth (zitadel)
   bypass_actors: []
 environments:
 - name: release
@@ -187,6 +189,23 @@ environments:
   - GATES_APP_PRIVATE_KEY
   - REPO_STANDARD_APP_CLIENT_ID
   - REPO_STANDARD_APP_PRIVATE_KEY
+# The real-provider auth legs (ADR 0100): Entra ID and Google credentials for
+# test tenants, readable only by a job on main, so never by a pull request.
+- name: auth-providers
+  wait_timer: 0
+  prevent_self_review: false
+  reviewers: []
+  deployment_branch_policy:
+    protected_branches: false
+    custom_branch_policies: true
+  branch_policies:
+  - name: main
+  secrets:
+  - VARVE_ENTRA_TENANT
+  - VARVE_ENTRA_CLIENT_ID
+  - VARVE_ENTRA_CLIENT_SECRET
+  - VARVE_ENTRA_AUDIENCE
+  - VARVE_GOOGLE_SERVICE_ACCOUNT
 # The repository has no Actions secrets of its own: a repository secret is
 # readable by any workflow a same-repository pull request defines. Both Apps'
 # keys are in the gates environment above.

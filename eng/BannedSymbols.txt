@@ -6,13 +6,8 @@
 // Documented at https://github.com/dotnet/roslyn-analyzers/blob/main/src/Microsoft.CodeAnalysis.BannedApiAnalyzers/BannedApiAnalyzers.Help.md
 
 // --- IRIs -------------------------------------------------------------------
-// System.Uri implements RFC 3986 with its own normalisation, and is not RFC 3987.
-// It lowercases schemes and hosts, resolves dot segments eagerly, and rejects
-// IRIs that RDF requires us to round-trip byte for byte. Use Varve.Iri.
-// ADR 0004. Scope note: this ban is repository-wide today because nothing
-// consumes System.Uri yet. It must be narrowed before layer 5 exists — a server
-// speaks HTTP and will need it. See ADR 0004, "Consequences".
-T:System.Uri; Use Varve.Iri. System.Uri is RFC 3986 with its own normalisation and cannot round-trip an IRI. ADR 0004.
+// The System.Uri ban is in eng/BannedSymbols.Uri.txt, which every packable
+// project reads except one that speaks HTTP (ADR 0004, amended 2026-10-07).
 
 // --- constraint 2: no runtime code generation -------------------------------
 // Reflection.Emit does not exist under Native AOT and is unavailable in WASM.

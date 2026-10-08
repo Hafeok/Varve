@@ -107,6 +107,7 @@ public sealed partial class Dataset : IAsyncDisposable
     private TaskCompletionSource _headAdvanced = NewSignal();
     private volatile State _state;
     private string? _broken;
+    private volatile bool _disposing;
 
     private Dataset(IStorage storage, DatasetId id, DatasetOptions options, TermDictionary dictionary, LogWriter writer, State state)
     {
@@ -520,7 +521,7 @@ public sealed partial class Dataset : IAsyncDisposable
             ?? throw new InvalidOperationException("A checkpoint just written does not read back.");
         Checkpoint checkpoint = new(loaded);
 
-        await _sequencer.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await EnterSequencerAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
@@ -581,7 +582,7 @@ public sealed partial class Dataset : IAsyncDisposable
     /// <summary>Drops a checkpoint. Nothing is lost: an as-of read at that position is slower, never wrong.</summary>
     public async ValueTask DropCheckpointAsync(Position position, CancellationToken cancellationToken = default)
     {
-        await _sequencer.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await EnterSequencerAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
@@ -677,7 +678,7 @@ public sealed partial class Dataset : IAsyncDisposable
     /// </summary>
     public async ValueTask RebuildDefaultProjectionAsync(CancellationToken cancellationToken = default)
     {
-        await _sequencer.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await EnterSequencerAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
@@ -716,6 +717,12 @@ public sealed partial class Dataset : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         Exception? failure = await StopMaintenanceAsync().ConfigureAwait(false);
+
+        // The drain (ADR 0101): a commit inside the sequencer finishes, durable
+        // and closed, before anything is torn down. Every later entrant sees
+        // the flag: a commit is Unavailable, anything else is disposed.
+        _disposing = true;
+        await _sequencer.WaitAsync(CancellationToken.None).ConfigureAwait(false);
         State state = _state;
         state.Index.Release();
         state.Commits.Release();
@@ -727,7 +734,10 @@ public sealed partial class Dataset : IAsyncDisposable
 
         // Runs retired while a view still read them, closed since.
         await DeleteClosedRunsAsync(CancellationToken.None).ConfigureAwait(false);
-        _sequencer.Dispose();
+
+        // Released, not disposed: a waiter queued behind the drain enters,
+        // sees the flag and leaves. A disposed semaphore would never wake it.
+        _sequencer.Release();
 
         if (failure is not null)
         {
@@ -749,6 +759,11 @@ public sealed partial class Dataset : IAsyncDisposable
         {
             State state = _state;
             long head = state.Head;
+
+            if (_disposing)
+            {
+                return CommitResult.Unavailable(head, "The dataset is closing.");
+            }
 
             if (_broken is not null)
             {
@@ -1172,7 +1187,7 @@ public sealed partial class Dataset : IAsyncDisposable
                 mentioned.Add(allocation.Object);
             }
 
-            allocations.Add(new TermAllocation(new TermHandle(allocation.Id), allocation.Term ?? TermAtHead(state, allocation)));
+            allocations.Add(new TermAllocation(new TermHandle(allocation.Id), allocation.Term ?? TermAtHead(allocation.Id)));
         }
 
         allocations.Reverse();
@@ -1192,16 +1207,20 @@ public sealed partial class Dataset : IAsyncDisposable
             new TermHandle(header.GraphScope),
             attachments,
             QuadDelta.Create(asserted, retracted),
-            allocations.ToArray());
+            allocations.ToArray(),
+            this);
     }
 
-    // A blank node's label, or a triple term materialised from its
-    // components' entries, read from the projection's current runs.
-    private RdfTerm TermAtHead(State state, Allocation allocation)
+    // The term of an id in D_head: a blank node's label, an inline value, or
+    // a canonical entry (a triple term materialised from its components'),
+    // read from the projection's current runs. The dictionary is append-only,
+    // so any id a closed commit carries resolves here (ADR 0042, amended
+    // 2026-10-07).
+    internal RdfTerm TermAtHead(ulong id)
     {
-        if (TermIds.ClassOf(allocation.Id) == IdClass.Blank)
+        if (TermIds.ClassOf(id) != IdClass.Canonical)
         {
-            return TermDictionary.BlankTerm(TermIds.Counter(allocation.Id));
+            return _dictionary.Term([], id);
         }
 
         while (true)
@@ -1212,13 +1231,26 @@ public sealed partial class Dataset : IAsyncDisposable
             {
                 try
                 {
-                    return _dictionary.Term(index.Runs, allocation.Id);
+                    return _dictionary.Term(index.Runs, id);
                 }
                 finally
                 {
                     index.Release();
                 }
             }
+        }
+    }
+
+    // Enters the sequencer for work other than a commit; after DisposeAsync
+    // has begun, it leaves at once and reports the dataset disposed.
+    private async ValueTask EnterSequencerAsync(CancellationToken cancellationToken)
+    {
+        await _sequencer.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        if (_disposing)
+        {
+            _sequencer.Release();
+            throw new ObjectDisposedException(nameof(Dataset));
         }
     }
 

@@ -68,6 +68,33 @@
     <PackageVersion Include="YamlDotNet" Version="18.1.0" Adr="0039" />
   </ItemGroup>
 
+  <ItemGroup Label="Runtime of Varve.Server only — never of a library">
+    <!-- OIDC bearer-token validation (ADR 0037). Not in the ASP.NET Core
+         shared framework, whatever ADR 0037's consequences said: a NuGet
+         package since 3.0, admitted by ADR 0099 in Varve.Server alone, on the
+         condition that the server's Native AOT publish stays green. Its
+         Microsoft.IdentityModel.Protocols.OpenIdConnect closure (Protocols,
+         Tokens, JsonWebTokens, Logging, Abstractions) comes with it, MIT and
+         managed; the register cites the decision for the direct package and
+         the gate counts the closure in Varve.Server's assets. -->
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" Adr="0099" />
+  </ItemGroup>
+
+  <!--
+    Container images of the auth test legs (ADRs 0099, 0100). Not packages, so
+    not PackageVersion items and not counted by the gate; listed here because
+    this file is the register of every dependency. Started by the workflow and
+    the devcontainer, never by a test. The digests live in the compose files,
+    which are the source of truth and which Dependabot watches; a bump changes
+    the line here in the same commit.
+
+    | Image | Tag | Licence | Pinned in |
+    |=======|=====|=========|===========|
+    | ghcr.io/navikt/mock-oauth2-server | 6.0.4 | MIT | .github/mock-oauth2/compose.yaml |
+    | ghcr.io/zitadel/zitadel | v4.19.4 | AGPL-3.0 (run, never linked or shipped) | .github/zitadel/compose.yaml |
+    | public.ecr.aws/docker/library/postgres | 18.6-alpine | PostgreSQL | .github/zitadel/compose.yaml |
+  -->
+
   <ItemGroup Label="Test-time">
     <PackageVersion Include="xunit.v3" Version="4.0.1" Adr="0009" />
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" Adr="0007" />

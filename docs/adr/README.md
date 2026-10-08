@@ -15,7 +15,7 @@ or depart from `docs/brief.md`, each says so in its Context.
 | [0001](0001-record-architecture-decisions.md) | Record architecture decisions | Accepted; **amended by 0068** |
 | [0002](0002-licence.md) | Licence: Apache-2.0 | **Superseded by 0031** |
 | [0003](0003-package-layering.md) | Package layering and the strictly downward reference rule | Accepted; layer table **superseded by 0060**; declaration **by 0064**; suppression escape **by 0062** |
-| [0004](0004-enforcement-by-analyzers.md) | Enforcement by analyzers | Accepted; reservation table **superseded by 0062** |
+| [0004](0004-enforcement-by-analyzers.md) | Enforcement by analyzers | Accepted; reservation table **superseded by 0062**; amended 2026-10-07 (the `System.Uri` ban narrowed) |
 | [0005](0005-store-is-sparql-free.md) | `Varve.Store` is SPARQL-free | Accepted |
 | [0006](0006-build-and-test-dependencies.md) | Build-time and test-time dependencies | **Superseded by 0009** |
 | [0007](0007-w3c-conformance-harness.md) | W3C conformance harness | Accepted |
@@ -92,7 +92,7 @@ specification, which moved to version 1.2 with 0046 and to 1.3 with 0047.
 |---:|---|---|
 | [0040](0040-storage-contract-members-and-the-memory-backend.md) | The storage contract's members, and where the memory backend lives | Accepted; member types **superseded by 0065**; derived members **by 0071** |
 | [0041](0041-sorted-runs-for-the-default-projection-and-checkpoints.md) | Sorted runs for the default projection and for checkpoints | Accepted |
-| [0042](0042-subscriptions-pull-from-the-log.md) | Subscriptions pull from the log | Accepted; amended 2026-10-02 (maintenance is not delivery; proposed) |
+| [0042](0042-subscriptions-pull-from-the-log.md) | Subscriptions pull from the log | Accepted; amended 2026-10-02 (maintenance is not delivery; proposed); amended 2026-10-07 (a delivered commit externalises its handles; proposed) |
 | [0043](0043-the-reference-model-as-a-test-asset.md) | The reference model is a test asset | Accepted |
 | [0044](0044-blank-node-identity-in-process.md) | Blank node identity at the in-process boundary (Q1, split) | Accepted |
 | [0045](0045-the-provisional-in-memory-log-encoding.md) | The provisional log encoding, and the in-memory id layout | Accepted, provisional by design; **superseded by 0072** |
@@ -147,7 +147,7 @@ Decided by the maintainer on the 5c report.
 
 | # | Title | Status |
 |---:|---|---|
-| [0060](0060-hosts-at-layer-6-the-composition-root.md) | Hosts at layer 6: the composition root, reserved to executables | Accepted; supersedes 0003's layer table |
+| [0060](0060-hosts-at-layer-6-the-composition-root.md) | Hosts at layer 6: the composition root, reserved to executables | Accepted; supersedes 0003's layer table; amended 2026-10-07 (the protocol seam's revisit condition; proposed) |
 | [0061](0061-canonical-n-triples-is-rdf-1-2s.md) | Canonical N-Triples and N-Quads follow RDF 1.2; where 1.1 and 1.2 differ, 1.2 wins | Accepted |
 
 ## Adopting `DecisionDriven.Analyzers`
@@ -200,7 +200,23 @@ has written one.
 
 | # | Title | Status |
 |---:|---|---|
-| [0037](0037-server-authentication.md) | Authentication and authorisation for the server | Accepted |
+| [0037](0037-server-authentication.md) | Authentication and authorisation for the server | Accepted; amended 2026-10-07 (`JwtBearer` is a package, ADR 0099); test consequence refined by 0100 |
+
+Filed by milestone 7a ([#11](https://github.com/Hafeok/Varve/issues/11)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by 7a, likewise unaccepted: 0004 (the `System.Uri` ban narrowed), 0042 (a delivered commit externalises its handles), 0060 (the protocol seam's revisit condition).
+
+| # | Title | Status |
+|---:|---|---|
+| [0091](0091-varve-protocol-and-varve-server.md) | `Varve.Protocol` and `Varve.Server`: endpoint groups, the update seam, policy names | Accepted |
+| [0092](0092-protocol-scope-problem-details-and-tie-breakers.md) | Protocol scope, problem details, and the Oxigraph tie-breakers | Accepted |
+| [0093](0093-datasets-are-the-routing-unit.md) | Datasets are the routing unit; the name is the host's | Accepted |
+| [0094](0094-a-write-over-http-is-one-commit.md) | A write over HTTP is one commit: agent, cause, `Varve-Position`, `409`, `412` | Accepted |
+| [0095](0095-a-read-over-http-is-pinned-for-its-response.md) | A read over HTTP is pinned for its response, bounded, and cut visibly | Accepted; refines 0052 |
+| [0096](0096-time-travel-over-http.md) | Time travel over HTTP: `Varve-As-Of`, `ETag`, `304` | Accepted |
+| [0097](0097-the-change-feed-and-the-diff.md) | The change feed and the diff: a line format, SSE for tailing | Accepted; `docs/spec/change-feed.md` |
+| [0098](0098-blank-nodes-at-the-protocol-boundary.md) | Blank nodes at the protocol boundary: stable labels out, fresh in, no skolem IRIs | Accepted; closes Q1, spec 1.6 |
+| [0099](0099-register-jwtbearer-and-the-workflows-containers.md) | Register: `JwtBearer` in the server; no Testcontainers; the shared framework | Accepted; conditional on the server's AOT publish |
+| [0100](0100-authentication-tested-in-three-layers.md) | Authentication tested in three layers | Accepted; refines 0037 |
+| [0101](0101-the-server-configuration-aot-shutdown-readiness.md) | The server: configuration, Native AOT, shutdown, readiness, status | Accepted |
 
 ## Conformance — differential testing against Oxigraph
 

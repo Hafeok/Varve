@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 5: the SPARQL Protocol, the Graph Store Protocol, the service
+         description, the change feed and the diff, as endpoint groups any
+         ASP.NET Core host mounts (ADR 0091). docs/spec/change-feed.md. -->
+    <ArchLayer>5</ArchLayer>
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+
+    <!-- The clock every limit is measured with is the host's (ADR 0056,
+         ADR 0101): nothing here reads an ambient clock or random source. -->
+    <VarveDeterministic>true</VarveDeterministic>
+
+    <!-- System.Uri for transport addresses only: a request's own address for
+         direct graph identification (ADR 0093). Every IRI is still Varve.Iri.
+         ADR 0004, amended 2026-10-07; ADR 0091. -->
+    <VarveSpeaksHttp>true</VarveSpeaksHttp>
+
+    <!-- Its contracts name a Dataset, a CommitResult and an Update: the seams
+         the host binds (ADR 0091, ProtocolContractVocabulary). Widened here and
+         nowhere else, as ADR 0064 requires. -->
+    <ArchContractTypeAssemblies>$(ArchContractTypeAssemblies),Varve.Store,Varve.Sparql</ArchContractTypeAssemblies>
+
+    <Description>SPARQL 1.1 Protocol, Graph Store Protocol, service description, time travel, change feed and diff over HTTP for a Varve store, as ASP.NET Core endpoint groups.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Store/Varve.Store.csproj" />
+    <ProjectReference Include="../Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
+    <ProjectReference Include="../Varve.Sparql.Results/Varve.Sparql.Results.csproj" />
+    <ProjectReference Include="../Varve.Sparql/Varve.Sparql.csproj" />
+    <ProjectReference Include="../Varve.Turtle/Varve.Turtle.csproj" />
+    <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
+    <ProjectReference Include="../Varve.Iri/Varve.Iri.csproj" />
+  </ItemGroup>
+
+</Project>

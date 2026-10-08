@@ -71,6 +71,20 @@ internal sealed class ManifestGraph
     internal IReadOnlyList<RdfTerm> Objects(RdfTerm subject, string predicate) =>
         _objects.TryGetValue(new Key(Text(subject), predicate), out List<RdfTerm>? found) ? found : [];
 
+    /// <summary>The predicates <paramref name="subject"/> has.</summary>
+    internal IEnumerable<string> Predicates(RdfTerm subject)
+    {
+        string text = Text(subject);
+
+        foreach (Key key in _objects.Keys)
+        {
+            if (string.Equals(key.Node, text, StringComparison.Ordinal))
+            {
+                yield return key.Predicate;
+            }
+        }
+    }
+
     /// <summary>The single object, or null when there is none.</summary>
     internal RdfTerm? Object(RdfTerm subject, string predicate)
     {

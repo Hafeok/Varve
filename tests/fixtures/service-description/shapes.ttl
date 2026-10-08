@@ -1,0 +1,42 @@
+# Shapes for a Varve service description (milestone 7a, ADR 0092).
+#
+# The SHACL validator is milestone 8. Until it exists these shapes are checked
+# by a hand-written validator in the conformance harness
+# (ServiceDescriptionShapes.cs), which reads only the constraints used here:
+# sh:targetClass, sh:property, sh:path (a predicate IRI), sh:minCount,
+# sh:maxCount, sh:class, sh:in and sh:nodeKind (sh:IRI, sh:Literal,
+# sh:BlankNodeOrIRI). It says so, and it is replaced by the real validator
+# when one exists.
+
+@prefix sh:    <http://www.w3.org/ns/shacl#> .
+@prefix sd:    <http://www.w3.org/ns/sparql-service-description#> .
+@prefix varve: <https://w3id.org/varve/ns#> .
+@prefix ex:    <https://w3id.org/varve/shapes/service-description#> .
+
+ex:Service a sh:NodeShape ;
+    sh:targetClass sd:Service ;
+    sh:property [ sh:path sd:endpoint ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
+    sh:property [ sh:path sd:supportedLanguage ; sh:minCount 1 ;
+                  sh:in ( sd:SPARQL10Query sd:SPARQL11Query sd:SPARQL11Update ) ] ;
+    sh:property [ sh:path sd:resultFormat ; sh:minCount 1 ; sh:nodeKind sh:IRI ] ;
+    sh:property [ sh:path sd:inputFormat ; sh:minCount 1 ; sh:nodeKind sh:IRI ] ;
+    sh:property [ sh:path sd:feature ; sh:nodeKind sh:IRI ] ;
+    sh:property [ sh:path sd:defaultEntailmentRegime ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
+    sh:property [ sh:path sd:defaultDataset ; sh:minCount 1 ; sh:maxCount 1 ; sh:class sd:Dataset ] ;
+    sh:property [ sh:path varve:position ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:Literal ] ;
+    sh:property [ sh:path varve:positionHeader ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:Literal ] ;
+    sh:property [ sh:path varve:asOfHeader ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:Literal ] ;
+    sh:property [ sh:path varve:asOfSelector ; sh:minCount 2 ; sh:in ( varve:PositionSelector varve:TimeSelector ) ] ;
+    sh:property [ sh:path varve:graphStore ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
+    sh:property [ sh:path varve:changeFeed ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
+    sh:property [ sh:path varve:diff ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
+    sh:property [ sh:path varve:feedFormat ; sh:minCount 1 ; sh:nodeKind sh:Literal ] .
+
+ex:Dataset a sh:NodeShape ;
+    sh:targetClass sd:Dataset ;
+    sh:property [ sh:path sd:defaultGraph ; sh:maxCount 1 ; sh:class sd:Graph ] ;
+    sh:property [ sh:path sd:namedGraph ; sh:class sd:NamedGraph ] .
+
+ex:NamedGraph a sh:NodeShape ;
+    sh:targetClass sd:NamedGraph ;
+    sh:property [ sh:path sd:name ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] .

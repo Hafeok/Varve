@@ -9,7 +9,7 @@ namespace Varve.Fixture.BannedSymbol;
 internal sealed class Marker
 {
     /// <summary>
-    /// Uses <c>System.Uri</c>, which eng/BannedSymbols.txt bans (ADR 0004).
+    /// Uses <c>System.Uri</c>, which eng/BannedSymbols.Uri.txt bans (ADR 0004).
     /// This must not compile.
     /// </summary>
     internal static bool IsAbsolute(string text) =>

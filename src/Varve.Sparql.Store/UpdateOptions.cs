@@ -22,6 +22,16 @@ public sealed class UpdateOptions
     /// </summary>
     public EvaluationOptions Evaluation { get; init; } = new();
 
+    /// <summary>
+    /// The position the request must be evaluated at, or <see langword="null"/>
+    /// for whatever the head is. When given and the pinned head is elsewhere,
+    /// the request is not evaluated and the result is the store's
+    /// <see cref="CommitOutcome.Conflict"/> with the head; when it matches, it
+    /// is the commit's expected position, and <see cref="ConflictRetries"/>
+    /// does not apply. HTTP's <c>If-Match</c> (ADR 0094).
+    /// </summary>
+    public Position? ExpectedPosition { get; init; }
+
     /// <summary>The commit's agent, cause and graph scope, passed to the store as given.</summary>
     public CommitMetadata Metadata { get; init; } = new();
 

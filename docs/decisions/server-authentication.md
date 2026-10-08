@@ -43,6 +43,10 @@ decisions:
     statement: "OIDC bearer tokens are the only accepted credential, and no later decision adds API keys or another secret scheme"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-22T00:00:00Z
+  - key: JwtBearerIsAPackageInTheServer
+    statement: "JwtBearer is a NuGet package outside the shared framework, taken by Varve.Server alone under ADR 0099"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-08T00:00:00Z
 ---
 
 The rulings of [ADR 0037](../adr/0037-server-authentication.md) still in force, one line each. The ADR is the

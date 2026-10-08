@@ -133,7 +133,7 @@ tool's co-author trailer naming the product is not one (ADR 0033, amended
 
 ## `Varve.Store` behaviour
 
-**`docs/spec/log-and-projection-model.md` is the authority** (version 1.5) and
+**`docs/spec/log-and-projection-model.md` is the authority** (version 1.6) and
 beats the brief where they differ. ADRs 0010–0023 record what it presupposes and
 **none is `Proposed`**. The cipher is [0028](docs/adr/0028-deterministic-aead-from-hmac.md),
 superseding 0020, conditional on external review. Vocabulary that must not drift:
@@ -182,10 +182,11 @@ and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone 6c. `src/` holds `Varve.Analyzers`, `Varve.Iri` and `Varve.Xsd`
+Milestone 7a. `src/` holds `Varve.Analyzers`, `Varve.Iri` and `Varve.Xsd`
 (0), `Varve.Rdf` (1), `Varve.Turtle`, `Varve.Sparql` and
-`Varve.Sparql.Results` (2), `Varve.Sparql.Evaluation` (3), `Varve.Store` (4)
-and **`Varve.Sparql.Store`** and **`Varve.Store.Browser`** (5). The evaluator answers SPARQL 1.1 queries,
+`Varve.Sparql.Results` (2), `Varve.Sparql.Evaluation` (3), `Varve.Store` (4),
+`Varve.Sparql.Store`, `Varve.Store.Browser` and **`Varve.Protocol`** (5), and
+**`Varve.Server`** (6), the first host. The evaluator answers SPARQL 1.1 queries,
 with the 1.2 additions, over any `IQuadSource`; the results package reads and
 **writes** XML, JSON, CSV and TSV; **one SPARQL Update request is one commit**
 — or none when its net effect is empty — evaluated operation by operation over
@@ -216,8 +217,21 @@ outside memory and commit once, crash-tested at every operation;
 handles in a worker, or in IndexedDB, tested in headless Chromium with
 `log/` byte-identical to the desktop's. **RDF 1.2
 Turtle and TriG are not accepted at all** — `turtle.md` §9. Nothing is
-published; the first tag is `v0.1.0-preview.1` (ADR 0029). Not built: HTTP for
-`LOAD` and `SERVICE`, archive, erasure mode, SHACL, the server.
+published; the first tag is `v0.1.0-preview.1` (ADR 0029). **Since milestone
+7a (ADRs 0091–0101, filed unaccepted) Varve speaks HTTP**: `Varve.Protocol`
+mounts the SPARQL 1.1 Protocol, the Graph Store Protocol, the service
+description, time travel by `Varve-As-Of` and `If-Match`, the change feed
+(`docs/spec/change-feed.md`, `application/vnd.varve.delta; version=1`) and the
+diff on any ASP.NET Core host, with RFC 9457 problems everywhere; the
+`protocol`, `graph-store-protocol` and `service-description` suites pass whole
+on both stores, `http-rdf-update` with six justified exemptions a store, and
+the ratchet holds **2,927** lines. `Varve.Server` is the Native AOT host: OIDC
+bearer tokens through `JwtBearer` (ADR 0099), per-dataset `read`, `write` and
+`admin`, an explicit anonymous mode refused in production, readiness, and a
+draining shutdown; auth is tested against an issuer in the test everywhere, and
+against mock-oauth2-server and Zitadel on Linux CI (ADR 0100). Not built: HTTP
+for `LOAD` and `SERVICE`, the admin API, the CLI, the container image,
+archive, erasure mode, SHACL.
 `docs/roadmap.md` has the rest, an owner and a due milestone per open
 question.
 

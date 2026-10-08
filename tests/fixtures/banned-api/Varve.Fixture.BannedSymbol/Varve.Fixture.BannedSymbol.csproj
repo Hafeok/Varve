@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- Packable, so BannedApiAnalyzers and eng/BannedSymbols.txt apply. The
+    <!-- Packable, so BannedApiAnalyzers and eng/BannedSymbols*.txt apply. The
          project exists to fail. -->
     <IsPackable>true</IsPackable>
     <ArchLayer>0</ArchLayer>

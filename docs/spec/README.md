@@ -20,7 +20,7 @@ The order is specification, then ADR, then code.
   visibly in separating a pinned read from an as-of read, which the brief merges
   — the specification takes precedence and the relevant ADR says so.
 
-  Version 1.5. Its §11 lists eight open questions and its §12 lists the ADRs it presupposes.
+  Version 1.6. Its §11 lists eight open questions, Q1 closed by ADR 0098, and its §12 lists the ADRs it presupposes.
   [`docs/adr/README.md`](../adr/README.md) tracks both, with an owner and a due
   milestone for every question.
 
@@ -73,6 +73,11 @@ The order is specification, then ADR, then code.
   datasets of §13, the function library by §17.4, the order of `ORDER BY`,
   the optimiser's rewrites and the property that keeps them honest, and
   ADR 0050's three arms.
+- **[`change-feed.md`](change-feed.md)** — the change feed and the diff over
+  HTTP: the `application/vnd.varve.delta; version=1` line format, its
+  server-sent-events framing, range resolution (start at or after, end at or
+  before), filters, and the properties the implementation is tested against.
+  Proposed with ADR 0097.
 - **[`sparql-results.md`](sparql-results.md)** — the four result formats'
   readers and writers: one pull reader over UTF-8 with term views, a
   non-validating XML subset reader, positions on error; one push writer to

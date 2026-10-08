@@ -27,3 +27,5 @@ Varve.Sparql.Store.UpdateOptions.UpdateOptions() -> void
 static Varve.Sparql.Store.Model.LoadedDocument.Failed(string! reason) -> Varve.Sparql.Store.Model.LoadedDocument!
 static Varve.Sparql.Store.Model.LoadedDocument.Of(System.ReadOnlyMemory<byte> content, Varve.Turtle.RdfSyntax syntax, System.ReadOnlyMemory<byte> baseIri) -> Varve.Sparql.Store.Model.LoadedDocument!
 static Varve.Sparql.Store.SparqlUpdate.ExecuteAsync(Varve.Store.Dataset! dataset, Varve.Sparql.Algebra.Update! update, Varve.Sparql.Store.UpdateOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.CommitResult>
+Varve.Sparql.Store.UpdateOptions.ExpectedPosition.get -> Varve.Store.Log.Position?
+Varve.Sparql.Store.UpdateOptions.ExpectedPosition.init -> void

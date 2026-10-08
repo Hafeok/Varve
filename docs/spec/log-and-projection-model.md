@@ -1,8 +1,10 @@
 # Log and projection model
 
-Functional specification, version 1.5.
+Functional specification, version 1.6.
 
 Status: Accepted. This document is the authority for the behaviour of `Varve.Store`. It changes only together with the ADR that motivates the change, and each change is listed at the top with its date. Section 12 maps the decisions to ADRs.
+
+Changes in version 1.6 (2026-10-07), with ADR 0098, proposed by milestone 7a and unaccepted until the maintainer accepts it: **Q1 is closed.** A store blank node crosses a protocol boundary as a blank node whose label is derived from its identity, stable for the dataset's lifetime; a label in a request is always fresh; no skolem IRIs (sections 1 and 11). Section 12 lists ADR 0098, and ADR 0042's amendment, which lets a delivered commit name its handles from the append-only dictionary (section 8).
 
 Changes in version 1.5 (2026-10-02), decided by the maintainer on the milestone 6a pull request: I6 is stated for logs as they are found on disk. A byte changed anywhere a later closed commit or a sealed segment trailer covers refuses; only a byte of the newest commit's records may instead read as a torn write and open at the position before it, and never at the same head with other content (sections 4 and 10). The two cases are tested separately.
 
@@ -24,7 +26,7 @@ Scope: the abstract state machine of `Varve.Store`. No byte-level format, no API
 - **TermId**: an opaque 64-bit identifier with a class carried in its high bits: *canonical*, *blank*, *private*, or *inline* for small values encoded in the id itself, which have no dictionary entry. Ids of the first three classes are counter-allocated by the sequencer (ADR 0012). A literal may take an inline id **only when its lexical form is the canonical one for its datatype**: term identity is lexical (RDF 1.1 Concepts §3.3), and encoding `"1"` and `"01"` as one inline id would make two terms into one.
 - **Dictionary** `D`: a partial map from `TermId` to an entry.
   - A canonical entry is a term. `D` restricted to canonical ids is injective: one id per term.
-  - A blank id is its own identity. Two blank nodes are equal iff their ids are equal.
+  - A blank id is its own identity. Two blank nodes are equal iff their ids are equal. At a protocol boundary a blank id is written as a blank node whose label is derived from the id, the same in every response; a label received in a request is a fresh node (Q1, ADR 0098).
   - A private entry is `(KeyId, ciphertext)`, where the ciphertext covers the whole term encoding (kind, datatype, language, lexical form). Private ids are allocated independently of content and are not interned: two occurrences of the same term under different keys, or under the same key, may have different ids. Private entries exist only in datasets with erasure mode on.
 - **KeyId**: an identifier of a data-subject key, assigned by the key store. It carries no information about the subject. The mapping from data subject to `KeyId`, and the key material, live in the key store (section 9), never in the dataset.
 - **Quad**: `(s, p, o, g) ∈ TermId⁴`, where `g` may be the reserved default-graph id.
@@ -142,7 +144,7 @@ The default quad projection is updated synchronously in T1 step 7. Synchronous m
 
 ## 8. Subscriptions
 
-`Subscribe(from: P, filter)` delivers closed commits with position `> P`, in order, at-least-once. The consumer owns its position. A filter (graph or quad pattern) restricts each delivered delta; commits whose filtered delta is empty are skipped, and the next delivered commit carries its true position, so resumption is unaffected. `Settings` and `Erasure` commits are always delivered, regardless of filter.
+`Subscribe(from: P, filter)` delivers closed commits with position `> P`, in order, at-least-once. The consumer owns its position. A delivered commit can name every handle it carries, because the dictionary is append-only (§3): an entry, once allocated, is in `D` at every later position with the same term (ADR 0042, amended 2026-10-07). A filter (graph or quad pattern) restricts each delivered delta; commits whose filtered delta is empty are skipped, and the next delivered commit carries its true position, so resumption is unaffected. `Settings` and `Erasure` commits are always delivered, regardless of filter.
 
 ## 9. Erasure by crypto-shredding
 
@@ -186,7 +188,7 @@ Erasure mode is a per-dataset setting, off by default. When off, no private ids 
 
 ## 11. Open questions
 
-- **Q1** External form of store-scoped blank node identity at protocol boundaries (a skolem IRI scheme per RDF 1.1 Concepts 3.5 is the obvious candidate). Due at milestone 7, with the server. The in-process form is decided by ADR 0044: an existing blank node is addressed by its handle.
+- **Q1** External form of store-scoped blank node identity at protocol boundaries. **Decided by ADR 0098** (version 1.6): a blank node with a label derived from its id, stable for the dataset's lifetime, out; a fresh node for every label, in; no skolem IRIs, whose cost (a blank node becoming an IRI to every client, and erasure's residue becoming addressable) is recorded there. The in-process form is decided by ADR 0044: an existing blank node is addressed by its handle.
 - **Q2** Bulk load and I2: normalising a multi-billion-quad commit needs an index lookup per quad. Loading into an empty dataset is trivial; loading into a populated one needs a stated strategy. **Decided by ADR 0076**: sort into a run and merge-join against the pinned state's runs; implemented at milestone 6c.
 - **Q3** Bulk load and validators: the overlay of a multi-record commit does not fit in memory. Either validators are disabled for bulk commits, or the overlay spills. **Decided by ADR 0077**: the overlay scans the delta as a run on disk, and validators are never disabled; implemented at milestone 6c.
 - **Q4** How a shredded term appears in SPARQL results and serialisations: unbound, or an opaque IRI in a reserved scheme.
@@ -230,5 +232,6 @@ All Accepted. Three carry a stated condition under which they are to be supersed
 | One process per dataset directory, by an exclusive handle | 0075 | |
 | Bulk load by sort and merge-join (Q2) | 0076 | |
 | Bulk load validators scan the delta on disk (Q3) | 0077 | |
+| Blank nodes at the protocol boundary: stable labels out, fresh in, no skolem IRIs (Q1); version 1.6 | 0098 | Proposed until the maintainer accepts it on the 7a pull request. |
 
 Milestone placement: the first durable format (milestone 6) reserves the private id class, the private entry layout and the refusal of a key store path inside the dataset directory. Erasure mode itself is milestone 9, after the SHACL validator, because the shape-derived classifier and the classification gate depend on it.

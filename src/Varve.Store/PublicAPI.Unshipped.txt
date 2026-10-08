@@ -429,3 +429,4 @@ Varve.Store.Dataset.BeginBulkLoadAsync(Varve.Store.BulkLoadOptions? options = nu
 Varve.Store.ICommitValidator.Validate(Varve.Rdf.IQuadSource! proposed, Varve.Store.BulkDelta! delta) -> Varve.Store.Log.ValidationVerdict
 Varve.Store.DatasetOptions.CommitCache.get -> int
 Varve.Store.DatasetOptions.CommitCache.init -> void
+Varve.Store.Log.Commit.TryExternalise(Varve.Rdf.TermHandle handle, out Varve.Rdf.RdfTerm! term) -> bool

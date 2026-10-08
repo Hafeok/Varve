@@ -377,8 +377,17 @@ public sealed class BulkLoad : IAsyncDisposable
         }
         finally
         {
-            await _space.DeleteAllAsync(CancellationToken.None).ConfigureAwait(false);
-            Dataset.EndBulkLoad();
+            // The sequencer is released whatever the spill's cleanup does: a
+            // cleanup that throws (a crashed disk) must not leave the dataset
+            // unable to commit or to close (found by ADR 0101's drain).
+            try
+            {
+                await _space.DeleteAllAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+            finally
+            {
+                Dataset.EndBulkLoad();
+            }
         }
     }
 

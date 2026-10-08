@@ -116,6 +116,28 @@ public class UpdateTests
     }
 
     [Fact]
+    public async Task An_expected_position_elsewhere_is_a_conflict_without_evaluation_and_a_match_commits()
+    {
+        await using Dataset dataset = await Open();
+        await Run(dataset, "INSERT DATA { :a :p :o }");
+        await Run(dataset, "INSERT DATA { :b :p :o }");
+
+        // A LOAD that would fail proves the request was not evaluated.
+        CommitResult stale = await Run(dataset, "LOAD <http://example.org/nowhere> ; INSERT DATA { :c :p :o }",
+            new UpdateOptions { ExpectedPosition = new Position(1), ConflictRetries = 3 });
+        Assert.Equal(CommitOutcome.Conflict, stale.Outcome);
+        Assert.Equal(new Position(2), stale.Position);
+        Assert.Equal(new Position(2), dataset.Head);
+
+        CommitResult beyond = await Run(dataset, "INSERT DATA { :c :p :o }", new UpdateOptions { ExpectedPosition = new Position(9) });
+        Assert.Equal(CommitOutcome.Conflict, beyond.Outcome);
+
+        CommitResult matched = await Run(dataset, "INSERT DATA { :c :p :o }", new UpdateOptions { ExpectedPosition = new Position(2) });
+        Assert.Equal(CommitOutcome.Committed, matched.Outcome);
+        Assert.Equal(new Position(3), matched.Position);
+    }
+
+    [Fact]
     public async Task A_failing_operation_fails_the_request_and_leaves_no_trace()
     {
         await using Dataset dataset = await Open();
