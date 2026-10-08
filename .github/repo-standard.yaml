@@ -78,6 +78,10 @@ rulesets:
   - actor_id: 1236702
     actor_type: Integration
     bypass_mode: always
+# v* tags are created by the gates App, from a release descriptor landed at its
+# approved head (ADR 0102, .github/workflows/release.yml). The maintainer's
+# bypass stays to repair a tag; a tag made by hand publishes nothing, because
+# publish.yml reads its notes from the version's descriptor and fails without.
 - name: Varve Release Approval
   target: tag
   enforcement: active
@@ -93,6 +97,9 @@ rulesets:
   bypass_actors:
   - actor_id: 2194785
     actor_type: User
+    bypass_mode: always
+  - actor_id: 5220446
+    actor_type: Integration
     bypass_mode: always
 # land/** is where a human pushes a commit so that it has its checks before main
 # is fast-forwarded to it (ADR 0088), and the gates environment trusts it
@@ -160,20 +167,30 @@ rulesets:
       - context: auth (zitadel)
   bypass_actors: []
 environments:
+# publish.yml's environment, named in nuget.org's trusted-publishing claim
+# (ADR 0029). No reviewer since ADR 0102: the decision is the descriptor,
+# approved on its pull request; a second approval here would be a human step
+# after it. Only main and v* tags deploy to it.
 - name: release
   wait_timer: 0
   prevent_self_review: false
-  reviewers:
-  - type: User
-    login: Hafeok
-  deployment_branch_policy: null
-  branch_policies: []
+  reviewers: []
+  deployment_branch_policy:
+    protected_branches: false
+    custom_branch_policies: true
+  branch_policies:
+  - name: main
+  - name: v*
+    type: tag
   secrets:
   - NUGET_USER
 # The Apps' keys (ADR 0087): the gates App, which posts the pinned check
-# `agent review`, and the repo-standard App, which applies this file. Only main
-# and land/** can deploy to this environment, so no workflow a pull request
-# defines can mint either token.
+# `agent review` and, since ADR 0102, creates v* tags and GitHub Releases
+# (Contents: read & write), and the repo-standard App, which applies this
+# file. Only main, land/** and v* tags can deploy to this environment, so no
+# workflow a pull request defines can mint either token; a v* tag is created
+# only by the gates App or the maintainer (ruleset above), and publish.yml's
+# release job, on the tag, mints the token that creates the GitHub Release.
 - name: gates
   wait_timer: 0
   prevent_self_review: false
@@ -184,6 +201,8 @@ environments:
   branch_policies:
   - name: main
   - name: land/**
+  - name: v*
+    type: tag
   secrets:
   - GATES_APP_CLIENT_ID
   - GATES_APP_PRIVATE_KEY

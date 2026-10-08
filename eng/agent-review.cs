@@ -38,8 +38,14 @@
 //                 (GATES_TOKEN), which ruleset 1 pins (ADR 0088).
 //   push to land/**
 //                 a branch only the maintainer may push (ruleset "land"):
-//                 passes when the range from main has no agent commit and no
-//                 delegate change, and posts the same check.
+//                 passes when the range from main has no delegate change and
+//                 either no agent commit, or a head that is an approved pull
+//                 request's: the head of a pull request, carrying this App's
+//                 successful check from that pull request's own verdict
+//                 (ADR 0087, amended 2026-10-08). So the maintainer lands an
+//                 approved head by pushing it to land/<name> and fast-forwarding
+//                 main to it, and the merged head is the reviewed head. Posts
+//                 the same check.
 //   none          a local run: says what it would need and exits 0.
 //
 // GITHUB_API_URL points it at a stand-in, which is how eng/agent-review-tamper.cs
@@ -281,6 +287,26 @@ if (pullNumber is int pr && agents.Count > 0)
     }
 }
 
+// A land/ push of agent commits: admitted only when its head is an approved
+// pull request's head (ADR 0087, amended 2026-10-08). The approval is the
+// pull request's own verdict, this App's successful check run on that very
+// sha, which only the pull_request_target and issue_comment paths post for an
+// approved head; nothing on the land/ branch can add one.
+int? approvedPull = null;
+
+if (pullNumber is null && agents.Count > 0)
+{
+    try
+    {
+        approvedPull = await ApprovedPullRequestHead(api, headSha, PinnedIntegration(repositoryRoot, checkName), checkName);
+    }
+    catch (Exception exception) when (exception is HttpRequestException or JsonException or KeyNotFoundException or InvalidOperationException or TaskCanceledException)
+    {
+        Console.Error.WriteLine($"agent-review: could not read whether {headSha} is an approved pull request's head: {exception.Message}");
+        return 2;
+    }
+}
+
 foreach (Agent agent in agents.Values)
 {
     IReadOnlyList<Human> holders = baseMap.ActingFor(agent);
@@ -288,7 +314,14 @@ foreach (Agent agent in agents.Values)
 
     if (pullNumber is null)
     {
-        findings.Add($"'{agent.Id}' authored commits on this branch; they land through a pull request approved by {who}");
+        if (approvedPull is int approved)
+        {
+            Console.WriteLine($"ok  '{agent.Id}' authored commits here, and {headSha[..MinimumShaPrefix]} is the approved head of #{approved}");
+            continue;
+        }
+
+        findings.Add($"'{agent.Id}' authored commits on this branch, and {headSha[..MinimumShaPrefix]} is not the head of a pull request "
+            + $"approved by {who}; push an approved pull request's head, unchanged");
         continue;
     }
 
@@ -351,6 +384,42 @@ static void AddCommit(JsonElement commit, List<string> emails)
     }
 
     emails.Add(inner.GetProperty("author").GetProperty("email").GetString() ?? "");
+}
+
+// The pull request whose head is this sha and whose verdict on it, this App's
+// check run, succeeded; null when there is none.
+static async Task<int?> ApprovedPullRequestHead(Api api, string head, long? integration, string name)
+{
+    if (integration is null)
+    {
+        return null;
+    }
+
+    bool approved = false;
+
+    using (JsonDocument runs = await api.Get($"commits/{head}/check-runs?check_name={Uri.EscapeDataString(name)}&filter=all"))
+    {
+        foreach (JsonElement run in runs.RootElement.GetProperty("check_runs").EnumerateArray())
+        {
+            approved |= run.GetProperty("app").GetProperty("id").GetInt64() == integration
+                && run.TryGetProperty("conclusion", out JsonElement conclusion) && conclusion.GetString() == "success";
+        }
+    }
+
+    if (!approved)
+    {
+        return null;
+    }
+
+    foreach (JsonElement pull in await api.GetAll($"commits/{head}/pulls"))
+    {
+        if (pull.GetProperty("head").GetProperty("sha").GetString() == head)
+        {
+            return pull.GetProperty("number").GetInt32();
+        }
+    }
+
+    return null;
 }
 
 // The integration id ruleset 1 pins the check to, read from main's

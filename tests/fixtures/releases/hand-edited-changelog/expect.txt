@@ -1,0 +1,2 @@
+# CHANGELOG.md is the projection of releases/ with one line edited by hand.
+CHANGELOG.md is not the projection of

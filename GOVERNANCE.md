@@ -66,16 +66,19 @@ Until ADR 0088, ruleset 1 required no check at all, despite ADR 0032's
 description of it, and the DCO sign-off was checked by nothing (ADR 0034,
 amendment of 2026-10-06).
 
-**Human review is required for a release, not for a merge.** `publish.yml` runs
-in the `release` environment, which has the maintainer as a required reviewer.
-Publishing stops and waits for a person, because a version pushed to nuget.org
-cannot be edited, replaced or deleted.
+**Human review is required for a release, not for a merge.** A release is a
+decision, filed as a descriptor, `releases/<version>.yaml`, in a pull request
+([ADR 0102](docs/adr/0102-a-release-is-a-descriptor.md), `docs/releases.md`).
+The maintainer's approval of that pull request's head is the review; a version
+pushed to nuget.org cannot be edited, replaced or deleted, so it comes before
+anything is created, not after.
 
-**Every milestone ends in a release** ([ADR 0085](docs/adr/0085-a-release-per-milestone.md)).
-The release is cut with `dotnet run eng/changelog.cs -- --release <version>`,
-committed, and the maintainer tags that commit; `publish.yml` attaches its
-`CHANGELOG.md` section to the GitHub release. Until the tag exists, a change
-that starts the next milestone is red on the `release pending` check.
+**Every milestone ends in a release.** The pull request that closes a milestone
+issue carries its descriptor, or it is red on the `release pending` check. The
+maintainer lands it at its approved head, through `land/` and a fast-forward of
+`main`. The release workflow then runs every gate at that commit, and the gates
+App tags it; `publish.yml` publishes, and the App creates the GitHub Release
+from the descriptor's summary. No step after the approval is a person's.
 
 Pull requests stay welcome, and are the right tool for a change that wants
 discussion or comes from outside. Reviews on them are **non-blocking**, except

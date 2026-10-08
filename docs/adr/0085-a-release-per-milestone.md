@@ -2,6 +2,11 @@
 
 ## Status
 
+**Superseded by [0102](0102-a-release-is-a-descriptor.md)** (2026-10-08): a
+release is proposed by a descriptor in a pull request and cut by landing it;
+the changelog is its projection, and `release pending` gates a closed
+milestone issue on its descriptor instead of reminding.
+
 **Accepted — filed unaccepted by the pre-release session of #63, 2026-10-06**
 (ADR 0066). Acceptance is the maintainer's act on the pull request.
 

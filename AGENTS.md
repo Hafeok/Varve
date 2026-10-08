@@ -90,10 +90,25 @@ severity on every project in `src/`. Every ADR is also a decision set in
   BCL allow-list (`varve_hot_path_allowed_types`) is configuration, by type or
   by member, and every entry is admitted by a decision in `HotPathScope`.
 
-**Every milestone ends in a release** (ADR 0085): `dotnet run eng/changelog.cs
--- --release <version>`, commit, and the maintainer tags that commit. A change
-that adds a line to `eng/changelog-sections.txt` starts the next milestone and
-is red on **`release pending`** until the previous one is tagged.
+**Every milestone ends in a release, and a milestone PR carries its
+descriptor** (ADR 0102, `docs/releases.md`). The close-out:
+- adds `releases/<version>.yaml` (`dotnet run eng/release.cs -- --draft
+  <version>` starts it), with a commit whose trailer line says `Closes
+  #<milestone issue>`;
+- runs `dotnet run eng/changelog.cs -- --release <version>`, because
+  `CHANGELOG.md` is the projection of `releases/` and never edited by hand;
+- brings `README.md`'s **Status** section current: its opening line names the
+  release and the milestone it closes, and the package and conformance tables
+  match;
+- marks the milestone's heading in `docs/roadmap.md` *(complete)*.
+
+`eng/status.cs` checks the last two in CI and at the commit under release, so
+the README that ships in the packages is never stale. A change that closes a
+milestone issue without a descriptor naming it is red on **`release
+pending`**. The maintainer lands it at its approved head, by pushing that head
+to `land/<name>` and fast-forwarding `main`, never by the merge button: a merge
+commit is not cut. The release workflow runs every gate there and the gates
+App tags it. A session never tags.
 
 **`main` is the trunk, and accepts only checked commits** (ADR 0088): ruleset 1
 requires every gate by job name, `dco` and `agent review` included, with no
@@ -106,14 +121,17 @@ posted by the gates App; a required check is spoofable by name unless pinned to
 an App. A human pushes to a `land/` branch and fast-forwards `main`
 to its checked head, or merges a review-free pull request. Work not ready for
 the trunk lives behind a feature flag or stays local, **not on a long-lived
-branch**. Human review gates a *release*, via the `release` environment.
+branch**. Human review gates a *release*, as the approval of its descriptor's
+pull request.
 
 ## Every commit
 
 Conventional commits, one logical change each, and three things in each:
 
 - **`Refs #N` or `Closes #N`** in the body — enforced by `eng/issue-refs.cs`
-  (ADR 0033). No issue covers the work? Open one first.
+  (ADR 0033). A closing keyword with a number stands only as a trailer line of
+  its own; anywhere else, prose included, it is refused, because GitHub closes
+  the issue wherever it stands (ADR 0102). In prose, write a bare #N. No issue covers the work? Open one first.
 - **`Signed-off-by:`** — DCO, from every session without exception; it names the
   human who may contribute the code: for a session's commit, its responsible
   human in `eng/identities.json` or a delegate. Enforced by `eng/dco.cs`
@@ -216,8 +234,8 @@ outside memory and commit once, crash-tested at every operation;
 `Varve.Store.Browser` stores a dataset in OPFS through synchronous access
 handles in a worker, or in IndexedDB, tested in headless Chromium with
 `log/` byte-identical to the desktop's. **RDF 1.2
-Turtle and TriG are not accepted at all** — `turtle.md` §9. Nothing is
-published; the first tag is `v0.1.0-preview.1` (ADR 0029). **Since milestone
+Turtle and TriG are not accepted at all** — `turtle.md` §9. `v0.1.0-preview.1`
+is published on nuget.org; it closed milestones 1 to 5 (`releases/`). **Since milestone
 7a (ADRs 0091–0101, filed unaccepted) Varve speaks HTTP**: `Varve.Protocol`
 mounts the SPARQL 1.1 Protocol, the Graph Store Protocol, the service
 description, time travel by `Varve-As-Of` and `If-Match`, the change feed

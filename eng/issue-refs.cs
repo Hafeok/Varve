@@ -50,6 +50,14 @@
 // Operability milestone by describing it. Use a bare #N in prose, and never a
 // real number after a closing keyword unless the closure is meant.
 //
+// Since ADR 0102 that warning is a rule. A closing keyword (close, fix or
+// resolve, in any tense, GitHub's list) followed by an issue number is
+// accepted only as a trailer line: the whole line is the keyword and the
+// reference, `Closes #N`. Anywhere else, in the subject, in a sentence, in a
+// quotation, it is refused, because GitHub would act on it all the same, and a
+// milestone issue is closed by its release (the release workflow closes what a
+// descriptor's basis names), never by prose.
+//
 // The range, when not given, is worked out from the environment: a pull request
 // gives GITHUB_BASE_REF, a push gives the before and after shas, and a local
 // run falls back to origin/main..HEAD.
@@ -108,6 +116,11 @@ if (exitCode != 0)
 }
 
 Regex reference = new(@"\b(?:Refs|Closes)\s+#\d+\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+// GitHub's closing keywords, and the one place they may stand.
+Regex closingKeyword = new(@"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:[\w.-]+/[\w.-]+)?#\d+\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+Regex closingTrailer = new(@"^\s*(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+(?:[\w.-]+/[\w.-]+)?#\d+\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+List<(string Sha, string Line)> strayKeywords = [];
 
 // Closed and explicit. See the note above before adding to it.
 List<string> mapProblems = [];
@@ -179,6 +192,14 @@ foreach (string record in stdout.Split('\u0001', StringSplitOptions.RemoveEmptyE
     {
         missing.Add((sha[..Math.Min(8, sha.Length)], subject));
     }
+
+    foreach (string line in lines.Select(line => line.TrimEnd('\r')))
+    {
+        if (closingKeyword.IsMatch(line) && !closingTrailer.IsMatch(line))
+        {
+            strayKeywords.Add((sha[..Math.Min(8, sha.Length)], line.Trim()));
+        }
+    }
 }
 
 // --- report ----------------------------------------------------------------
@@ -199,9 +220,30 @@ if (checkedCommits == 0 && merges == 0 && automated == 0)
     return 0;
 }
 
+if (strayKeywords.Count > 0)
+{
+    Console.Error.WriteLine();
+    Console.Error.WriteLine($"FAIL: {strayKeywords.Count} closing keyword(s) outside a trailer line. GitHub closes the issue");
+    Console.Error.WriteLine("      wherever the keyword stands; here it may stand only as a line of its own,");
+    Console.Error.WriteLine("      'Closes #N' (ADR 0102). In prose, write a bare #N.");
+    Console.Error.WriteLine();
+
+    foreach ((string sha, string line) in strayKeywords)
+    {
+        Console.Error.WriteLine($"  {sha}  {line}");
+    }
+
+    Console.Error.WriteLine();
+
+    if (missing.Count == 0)
+    {
+        return 1;
+    }
+}
+
 if (missing.Count == 0)
 {
-    Console.WriteLine($"ok  {checkedCommits} commit(s) reference an issue");
+    Console.WriteLine($"ok  {checkedCommits} commit(s) reference an issue, and every closing keyword is a trailer");
     return 0;
 }
 

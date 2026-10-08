@@ -1,7 +1,10 @@
 # Changelog
 
-Generated from the conventional commits by `dotnet run eng/changelog.cs`.
-Do not edit by hand — the commits are the record and this is a view of them.
+Projected from `releases/` by `dotnet run eng/changelog.cs`. Do not edit by
+hand: a version's notes are written in its descriptor, `releases/<version>.yaml`,
+and reviewed in the pull request that proposes it
+([ADR 0102](docs/adr/0102-a-release-is-a-descriptor.md), `docs/releases.md`).
+What is not yet released is `dotnet run eng/changelog.cs -- --unreleased`.
 
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
@@ -9,38 +12,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-### Milestone 7a — the protocols, the server, authentication, the change feed
-
-#### Added
-
-- **store**: a delivered commit names its handles; dispose drains the sequencer (79fb0dac)
-- **sparql-store**: UpdateOptions.ExpectedPosition, HTTP's If-Match (84f50a55)
-- **protocol**: Varve.Protocol, with the protocol suites gated (a8a44752)
-- **server**: Varve.Server, the Native AOT host, with auth test layer (a) (5d4eeed6)
-
-#### Changed
-
-- **adr**: milestone 7a's decisions, 0091-0101, and spec 1.6 (510ea642)
-- the System.Uri ban in its own list; contract vocabularies comma-separated (a75d41e9)
-- **protocol**: behaviour, the 7a properties, the feed reader's oracle, allocation (60d77ed0)
-- **server**: auth layers (b) and (c), mock-oauth2-server and Zitadel (c56a9f4f)
-- the protocol over HTTP, Varve's AOT server against Oxigraph's (7b29bb04)
-- **protocol**: the allocation test runs alone (8eb0d778)
-- milestone 7a's record, the state, the changelog section (8491230f)
-
-### Milestone 6c — the dictionary on disk, the bulk loader, the browser backend, the soak's causes
-
-#### Changed
-
-- **store**: the file suites run on real files without the device flush (cf74146d)
-- **adr**: 0090, the file suites run without the device flush (8c210e0b)
-- **build**: exclude the workspace and the temporary folder from Defender on Windows (db4edaf2)
-- ADR 0090's measurements, and the traceability record (4bf39538)
-- regenerate the changelog (5819162c)
-- Accept ADR 0090 (231f7958)
-- **adr**: the index lists 0090 as accepted (fa9d58ff)
-
 ## [0.1.0-preview.1] - 2026-10-07
+
+**The first release, milestones 1 to 6c, from the foundation to the durable store**
 
 ### Milestone 6c — the dictionary on disk, the bulk loader, the browser backend, the soak's causes
 
@@ -531,4 +505,3 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 [Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.1...HEAD
 [0.1.0-preview.1]: https://github.com/Hafeok/Varve/releases/tag/v0.1.0-preview.1
-

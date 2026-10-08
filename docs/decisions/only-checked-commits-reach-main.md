@@ -15,10 +15,6 @@ decisions:
     statement: "A human lands a change by pushing it to a land/ branch and fast-forwarding main to its checked head, or through a pull request, which needs no review when every commit is the human's own"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-06T00:00:00Z
-  - key: HumanReviewGatesReleases
-    statement: "Human review is required for a release, through the release environment, and for a pull request with an agent's commits, and not otherwise for a merge"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-06T00:00:00Z
   - key: NoLongLivedBranches
     statement: "Work not ready for the trunk lives behind a feature flag or stays local, never on a long-lived branch"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -43,3 +39,6 @@ written by the pre-release session of #63 at the maintainer's decision and filed
 them with their statements changed by the supersession. `GatesRunAfterThePush` is not carried:
 `MainAcceptsOnlyCheckedCommits` replaces it, and 0032 now has no ruling in force, so it has no
 set file.
+
+`HumanReviewGatesReleases` moved to [ADR 0102](../adr/0102-a-release-is-a-descriptor.md)'s set on
+2026-10-08, which supersedes it with its statement changed (0088's amendment of that date).

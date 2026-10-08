@@ -94,6 +94,20 @@ Its failure path is `tests/fixtures/required-checks/`, which the
 workflow, not from `ci.yml` alone, because `agent review` has its own
 (ADR 0087).
 
+### Amendment, 2026-10-08 — a release's human review is its descriptor's approval
+
+ADR [0102](0102-a-release-is-a-descriptor.md) supersedes point 4's "human
+review gates a release" as this ADR meant it, through the `release`
+environment's reviewer. **Human review still gates a release**: it is the
+approval, on its head, of the pull request that adds the release's
+descriptor, which the release workflow checks by the gates App's `agent
+review` run on the commit it tags. The `release` environment keeps its
+restriction to `main` and `v*` tags and has no reviewer. The ruling,
+`HumanReviewGatesReleases`, moves to 0102's decision set under its key.
+
+The same ADR relies on point 2's `land/` route for an approved pull request's
+head, which ADR 0087's amendment of 2026-10-08 opens to agent commits.
+
 ## Alternatives considered
 
 - **Keep 0032**: checks after the push, fixed forward. Rejected: it cannot

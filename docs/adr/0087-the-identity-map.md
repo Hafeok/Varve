@@ -180,6 +180,33 @@ This amendment also restores the heading `Alternatives considered`, which
 the second amendment's commit dropped by mistake. The list below it is
 unchanged.
 
+### Amendment, 2026-10-08 — an approved head lands through land/
+
+**Why.** ADR [0102](0102-a-release-is-a-descriptor.md) cuts a release at the
+commit that lands its descriptor, and only at an approved head: the merged
+head must be the reviewed head. A session's pull request could reach `main`
+only by the merge button, whose merge commit is not the approved head,
+because a `land/` push with an agent's commits failed rule 3 outright.
+
+**The rule, from this amendment:** on a push to `land/**`, an agent's
+commits are admitted **when the pushed head is a pull request's head that
+carries the gates App's successful `agent review` check run**. That run is
+the pull request's own verdict on that exact sha, posted only by the trusted
+paths (`pull_request_target`, `issue_comment`) after the approval comment;
+nothing pushed to `land/` can add one, and a push of any other sha, a rebased
+or merged one included, is not admitted. The maintainer pushes the approved
+head to `land/<name>`, and fast-forwards `main` to it (ADR 0088).
+
+- The delegate rule is unchanged: a delegate change on a push still fails.
+- Every other pull request lands as before; using `land/` for one is the
+  maintainer's choice.
+- The judge reads the head's check runs and pull requests, so its job holds
+  `checks: read`.
+
+`eng/agent-review-tamper.cs` gains three cases: an approved pull request's
+head passes; a `success` from another App fails; an approved sha that is no
+pull request's head fails.
+
 ## Alternatives considered
 
 - **Exempt agents from the author match.** Leaves every session commit

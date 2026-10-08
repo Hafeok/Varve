@@ -54,7 +54,7 @@ until milestone 8, and the key store, classifier and selector contracts are
 specified here even though erasure is not implemented until the milestone
 proposed below.
 
-## 3 — RDF model, IRI, XSD datatypes, N-Triples and N-Quads
+## 3 — RDF model, IRI, XSD datatypes, N-Triples and N-Quads *(complete)*
 
 **3a** *(complete)*: `Varve.Iri`, `Varve.Rdf`, and N-Triples and N-Quads in
 `Varve.Turtle`, to a full suite pass. **3b** *(complete)*: Turtle and TriG,
@@ -201,7 +201,7 @@ banned-symbols entry for ambient clock and randomness under `Varve.Store` that
 §10's determinism test depends on (ADR 0011). Q1 was **split** by ADR 0044: the
 in-process form is decided here, and the protocol form moves to milestone 7.
 
-## 5 — The SPARQL parser and algebra, then the evaluator
+## 5 — The SPARQL parser and algebra, then the evaluator *(complete)*
 
 The evaluator runs over the in-memory projection through the abstract quad
 source contract. Too large for one session, so it is three slices, each

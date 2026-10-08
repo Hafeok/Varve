@@ -1,0 +1,11 @@
+format: 1
+version: v0.1.0-preview.1
+title: A fixture, a record of the first release
+date: 2026-10-07
+commit: a9f0c24a95b8e7d5c6dd46b3b1e697d826881cfe
+basis:
+  - issue: 4
+  - storage-format: 1
+accepted-by: mailto:emil@okkels-klein.dk
+summary: |
+  - the line a hand edit changes below (00000000)

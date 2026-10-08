@@ -1,0 +1,3 @@
+# Milestone 5 released and not marked; milestone 6 marked and not released.
+'## 5 — SPARQL' must say *(complete)*
+'## 6 — Durable storage *(complete)*' says *(complete)*, and #10 is in no release's basis

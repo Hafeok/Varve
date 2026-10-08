@@ -6,35 +6,42 @@
 //
 //   dotnet run eng/release-pending.cs -- [--base <ref>] [--head <ref>]
 //
-// ADR 0085: every milestone ends in a release, and the next milestone does not
-// start until it has one. A milestone starts when its line is added to
-// eng/changelog-sections.txt, so this fails a change that adds a section while
-// the section before it — the base's newest — has no v* tag at or after its
-// first commit. Its release is pending, and the change waits for it.
+// ADR 0102, which supersedes ADR 0085's reminder with a gate: every milestone
+// ends in a release, so **a change that closes a milestone issue carries the
+// release descriptor whose basis names that issue**. Closing the issue and
+// proposing the release are one pull request, and landing it at its approved
+// head cuts the release (docs/releases.md).
 //
-// A change that adds no section passes whatever the release state is: fixes
-// to the milestone being released, and the release commit itself, are what
-// has to land while it is pending.
+// A milestone issue is one in the table at the top of docs/roadmap.md, read
+// at the base, so a change cannot take its own issue off the list. A change
+// closes it when a commit in the range says so: a line `Closes #N`, `Fixes
+// #N` or `Resolves #N` (any tense), which is what GitHub acts on when the
+// commit reaches main. The descriptor is a releases/<version>.yaml the range
+// adds, with `- issue: N` in its basis; eng/release.cs checks everything else
+// about it.
 //
-// Why a tag and not the CHANGELOG.md section. eng/changelog.cs --release cuts
-// the section, and the tag is what publishes it (ADR 0029: the tag is the
-// record). A cut that was never tagged is exactly the pending state this gate
-// is for, so the tag is the only thing that ends it.
+// A change that closes no milestone issue passes. The reminder this gate used
+// to be, a milestone held until the one before it was tagged, is gone: the
+// release is no longer a step after the merge that can slip.
 //
 // The base, when not given, is worked out as eng/issue-refs.cs does: a pull
 // request gives GITHUB_BASE_REF, a push gives the before sha, and a local run
-// falls back to origin/main. Tags are read from the clone, so it needs them:
-// a full fetch has them, and a shallow clone that cannot resolve the section's
-// commit is "could not run", never a pass.
+// falls back to origin/main.
 //
-// Exit codes: 0 conformant, 1 the previous milestone's release is pending,
-// 2 could not run.
+// Exit codes: 0 conformant, 1 a milestone issue closed without its
+// descriptor, 2 could not run.
 //
-// See docs/adr/0085-a-release-per-milestone.md.
+// See docs/adr/0102-a-release-is-a-descriptor.md.
+
+// The descriptor reader is shared with eng/release.cs. CA2266 is off for this
+// file only, for the reason eng/dco.cs gives (ADR 0087).
+#:include lib/Releases.cs
+#:property NoWarn=$(NoWarn);CA2266
 
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 
-const string SectionsPath = "eng/changelog-sections.txt";
+const string RoadmapPath = "docs/roadmap.md";
 
 string repositoryRoot = FindRepositoryRoot();
 
@@ -59,75 +66,153 @@ string? resolvedBase = baseRef ?? ResolveBase(repositoryRoot);
 
 if (resolvedBase is null)
 {
-    Console.WriteLine("note no base to compare against (a first push); nothing can have started");
+    Console.WriteLine("ok  no base to compare with (a first push); nothing is closed here");
     return 0;
 }
 
 Console.WriteLine($"note base: {resolvedBase}, head: {head}");
 
-List<(string Reference, string Title)>? before = ReadSections(repositoryRoot, resolvedBase);
-List<(string Reference, string Title)>? after = ReadSections(repositoryRoot, head);
+// The milestone issues, from the base's roadmap.
+(int roadmapExit, string roadmap, string roadmapError) = Git(repositoryRoot, "show", $"{resolvedBase}:{RoadmapPath}");
 
-if (before is null || after is null)
+if (roadmapExit != 0)
 {
+    Console.Error.WriteLine($"release-pending: could not read {RoadmapPath} at '{resolvedBase}': {roadmapError.Trim()}");
     return 2;
 }
 
-// What the change adds: the head's sections that the base does not have, by
-// commit. A retitled line is not a new milestone.
-HashSet<string> known = [.. before.Select(section => section.Reference)];
-List<(string Reference, string Title)> added = [.. after.Where(section => !known.Contains(section.Reference))];
+HashSet<int> milestones = MilestoneIssues(roadmap);
 
-if (added.Count == 0)
+if (milestones.Count == 0)
 {
-    Console.WriteLine("ok  no milestone starts here");
-    return 0;
-}
-
-if (before.Count == 0)
-{
-    Console.WriteLine("ok  the base has no milestone, so none is pending");
-    return 0;
-}
-
-(string previousReference, string previousTitle) = before[^1];
-
-(int resolved, string previousSha, string resolveError) = Git(repositoryRoot, "rev-parse", "--verify", previousReference + "^{commit}");
-
-if (resolved != 0)
-{
-    Console.Error.WriteLine($"release-pending: '{previousReference}' does not resolve: {resolveError.Trim()}");
-    Console.Error.WriteLine("release-pending: in a shallow clone it may not be present. Fetch the full history and the tags.");
+    Console.Error.WriteLine($"release-pending: {RoadmapPath} at '{resolvedBase}' has no milestone table with issue links; nothing would ever be gated.");
     return 2;
 }
 
-previousSha = previousSha.Trim();
+// What the range closes.
+(int logExit, string log, string logError) = Git(repositoryRoot, "log", "--no-merges", "--format=%x01%h%x02%B", $"{resolvedBase}..{head}");
 
-(int tagExit, string tags, string tagError) = Git(repositoryRoot, "tag", "--list", "v*", "--contains", previousSha);
-
-if (tagExit != 0)
+if (logExit != 0)
 {
-    Console.Error.WriteLine($"release-pending: could not read the tags: {tagError.Trim()}");
+    Console.Error.WriteLine($"release-pending: could not read {resolvedBase}..{head}: {logError.Trim()}");
+    Console.Error.WriteLine("release-pending: in a shallow clone the base may not be present. Fetch the full history.");
     return 2;
 }
 
-string[] releases = tags.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+Regex closing = new(@"(?im)^\s*(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:[\w.-]+/[\w.-]+)?#(?<issue>\d+)\b", RegexOptions.CultureInvariant);
+Dictionary<int, string> closed = [];
 
-if (releases.Length > 0)
+foreach (string record in log.Split('\u0001', StringSplitOptions.RemoveEmptyEntries))
 {
-    Console.WriteLine($"ok  '{previousTitle}' is released ({string.Join(", ", releases)}); '{added[0].Title}' may start");
+    string[] parts = record.Split('\u0002');
+
+    if (parts.Length < 2)
+    {
+        continue;
+    }
+
+    foreach (Match match in closing.Matches(parts[1]))
+    {
+        int issue = int.Parse(match.Groups["issue"].Value, System.Globalization.CultureInfo.InvariantCulture);
+
+        if (milestones.Contains(issue))
+        {
+            closed.TryAdd(issue, parts[0].Trim());
+        }
+    }
+}
+
+if (closed.Count == 0)
+{
+    Console.WriteLine("ok  no milestone issue is closed here, so no release is due");
     return 0;
 }
 
-Console.Error.WriteLine();
-Console.Error.WriteLine($"FAIL: release pending. '{added[0].Title}' starts here, and '{previousTitle}'");
-Console.Error.WriteLine($"      (from {previousSha[..8]}) has no v* tag at or after its first commit.");
-Console.Error.WriteLine();
-Console.Error.WriteLine("Release it first (ADR 0085): dotnet run eng/changelog.cs -- --release <version>,");
-Console.Error.WriteLine("commit, tag that commit v<version>, and let publish.yml run. Then this change can land.");
-return 1;
+// The descriptors the range adds, and the issue each names.
+(int diffExit, string diff, string diffError) = Git(repositoryRoot, "diff", "--name-only", "--diff-filter=A", $"{resolvedBase}...{head}", "--", ReleaseFormat.Directory);
+
+if (diffExit != 0)
+{
+    Console.Error.WriteLine($"release-pending: could not list what {resolvedBase}...{head} adds: {diffError.Trim()}");
+    return 2;
+}
+
+Dictionary<int, string> carried = [];
+
+foreach (string file in diff.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(file => file.EndsWith(".yaml", StringComparison.Ordinal)))
+{
+    (int showExit, string text, _) = Git(repositoryRoot, "show", $"{head}:{file}");
+
+    if (showExit != 0)
+    {
+        continue;
+    }
+
+    Descriptor descriptor = ReleaseFormat.Parse(file, text, []);
+
+    foreach (BasisLine line in descriptor.Basis.Where(line => line.Kind == "issue"))
+    {
+        if (int.TryParse(line.Value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int issue))
+        {
+            carried.TryAdd(issue, file);
+        }
+    }
+}
+
+int failures = 0;
+
+foreach ((int issue, string commit) in closed.OrderBy(pair => pair.Key))
+{
+    if (carried.TryGetValue(issue, out string? file))
+    {
+        Console.WriteLine($"ok  #{issue}, a milestone issue, is closed by {commit} and released by {file}");
+    }
+    else
+    {
+        Console.Error.WriteLine($"FAIL: #{issue} is a milestone issue ({RoadmapPath}), and {commit} closes it, but this change adds no");
+        Console.Error.WriteLine($"      releases/<version>.yaml whose basis names it ('  - issue: {issue}').");
+        failures++;
+    }
+}
+
+if (failures > 0)
+{
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("A milestone ends in a release, proposed in the same pull request (ADR 0102):");
+    Console.Error.WriteLine("dotnet run eng/release.cs -- --draft <version> starts the descriptor, and docs/releases.md says the rest.");
+    return 1;
+}
+
+return 0;
 
 // --- helpers ---------------------------------------------------------------
+
+// Every issue linked from the first table under the roadmap's heading: the
+// milestone table, two milestones to a row.
+static HashSet<int> MilestoneIssues(string roadmap)
+{
+    HashSet<int> issues = [];
+    bool inTable = false;
+
+    foreach (string line in roadmap.ReplaceLineEndings("\n").Split('\n'))
+    {
+        if (line.StartsWith('|'))
+        {
+            inTable = true;
+
+            foreach (Match match in Regex.Matches(line, @"\[#(?<issue>\d+)\]\([^)]*/issues/\k<issue>\)", RegexOptions.CultureInvariant))
+            {
+                issues.Add(int.Parse(match.Groups["issue"].Value, System.Globalization.CultureInfo.InvariantCulture));
+            }
+        }
+        else if (inTable)
+        {
+            break;
+        }
+    }
+
+    return issues;
+}
 
 static string? ResolveBase(string root)
 {
@@ -152,41 +237,6 @@ static string? ResolveBase(string root)
     }
 
     return Exists(root, "origin/main") ? "origin/main" : "main";
-}
-
-static List<(string Reference, string Title)>? ReadSections(string root, string revision)
-{
-    (int exitCode, string text, string error) = Git(root, "show", $"{revision}:{SectionsPath}");
-
-    if (exitCode != 0)
-    {
-        // A revision from before the file existed has no milestones.
-        if (error.Contains("does not exist", StringComparison.Ordinal) || error.Contains("exists on disk, but not in", StringComparison.Ordinal))
-        {
-            return [];
-        }
-
-        Console.Error.WriteLine($"release-pending: could not read {SectionsPath} at '{revision}': {error.Trim()}");
-        return null;
-    }
-
-    List<(string Reference, string Title)> sections = [];
-
-    foreach (string line in text.Split('\n'))
-    {
-        string trimmed = line.Trim();
-
-        if (trimmed.Length == 0 || trimmed.StartsWith('#'))
-        {
-            continue;
-        }
-
-        int space = trimmed.IndexOf(' ');
-
-        sections.Add(space < 0 ? (trimmed, trimmed) : (trimmed[..space], trimmed[(space + 1)..].Trim()));
-    }
-
-    return sections;
 }
 
 static bool Exists(string root, string reference) =>

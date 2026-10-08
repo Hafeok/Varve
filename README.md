@@ -40,15 +40,21 @@ dataset directory.
 
 ## Status
 
-**Milestone 7b.** Thirteen packages and one executable: reading and writing
-four syntaxes, the XSD value spaces, RDFC-1.0 canonicalisation, the SPARQL
-algebra with its parser and serialiser, the SPARQL results formats read and
-written, a query evaluator with an optimiser, an event-sourced store on
-files, in memory and in the browser, SPARQL Update over it as one commit per
-request, the SPARQL 1.1 and Graph Store protocols with a change feed over
-HTTP, an HTTP client with `SERVICE` and `LOAD`, and `Varve.Server`: the
-server, with OIDC and graph-level grants, and the `varve` command line, as a
-.NET tool and a Native AOT single file. `docs/operator/` says how to run it.
+**`v0.1.0-preview.2` is the latest release, and it closed milestone 7**;
+it is the first release of the server. Thirteen packages and one executable:
+reading and writing four syntaxes, the XSD value spaces, RDFC-1.0
+canonicalisation, the SPARQL algebra with its parser and serialiser, the
+SPARQL results formats read and written, a query evaluator with an optimiser,
+an event-sourced store on files, in memory and in the browser, SPARQL Update
+over it as one commit per request, the SPARQL 1.1 and Graph Store protocols
+with a change feed over HTTP, an HTTP client with `SERVICE` and `LOAD`, and
+`Varve.Server`: the server, with OIDC and graph-level grants, and the `varve`
+command line, as a .NET tool and a Native AOT single file. `docs/operator/`
+says how to run it.
+
+This section is checked (`eng/status.cs`): its first line names the latest
+release, the tables below match the projects and the conformance baseline,
+and it ships inside every package.
 
 | Package | Layer | What it is | State |
 |---|---:|---|---|
@@ -62,7 +68,7 @@ server, with OIDC and graph-level grants, and the `varve` command line, as a
 | `Varve.Analyzers` | — | the layer rules, at build time | working, never shipped |
 | `Varve.Store` | 4 | the log, the default projection, pinned and as-of reads, checkpoints, subscriptions, dataset validators, the staging view, the bulk loader, replicas by file copy; `log/` format 1 on files, `derived/` format 3 | working |
 | `Varve.Sparql.Store` | 5 | SPARQL Update over the store: one request, one commit, `LOAD` through a caller's source, read and write scopes by graph | working |
-| `Varve.Store.Browser` | 5 | the store in the browser: OPFS through synchronous access handles in a worker, or IndexedDB | working |
+| `Varve.Store.Browser` | 5 | the store in a browser: the origin private file system through synchronous access handles in a worker, or IndexedDB | working |
 | `Varve.Protocol` | 5 | the SPARQL 1.1 Protocol, the Graph Store Protocol, the service description, time travel by `Varve-As-Of`, the change feed and the diff, the admin API, and graph-level authorisation, on any ASP.NET Core host | working |
 | `Varve.Protocol.Client` | 5 | the HTTP client of a dataset, `SERVICE` over HTTP for the evaluator and the document fetch `LOAD` needs, under an endpoint policy | working |
 | `Varve.Server` | 6 | the executable: the server with OIDC bearer tokens, and the `varve` command line — create, info, load, query, update, export, checkpoint, feed, serve | working, Native AOT |
@@ -113,15 +119,15 @@ evaluation cases are blocked**, not exempt: their data is RDF 1.2 Turtle,
 which `turtle.md` §9 refuses, and roadmap slice 6b unblocks them. The guard
 pins their count.
 
-**`baseline/exemptions.txt` holds twelve lines, all `http-rdf-update`**, each
-with its justification (ADR 0092: the suite's expectations the Graph Store
-Protocol's own text contradicts). No SPARQL 1.0 negative case turned out to be
-relaxed by 1.1, and no evaluation, update or canonicalisation case needs one —
-including none for empty graphs, which the store does not record (SPARQL 1.1
-Update §3.2 allows it). `eng/ratchet.cs` fails the build if any of those 4,122 stops passing, and an
-exemption with no written justification fails the run too. The twelve
-exemptions are `http-rdf-update` cases whose expectations the Graph Store
-Protocol's own text contradicts (ADR 0092).
+**`baseline/exemptions.txt` holds twelve exemptions, all in the deprecated
+`http-rdf-update` suite**, six a store, each with the section it rests on: two
+bodies in Turtle with no final `.` (Turtle 1.1 §2.4), the two `GET`s that
+depend on them, a `DELETE` of a graph no step creates (Graph Store Protocol
+§5.4), and a `HEAD` without `Accept` that expects Turtle (§5.2 allows
+N-Triples). No query, update or canonicalisation case needs one, including
+none for empty graphs, which the store does not record (SPARQL 1.1 Update §3.2
+allows it). `eng/ratchet.cs` fails the build if any of those 4,122 stops
+passing, and an exemption with no written justification fails the run too.
 
 Also true today, and measured rather than asserted:
 
@@ -190,8 +196,9 @@ random functions read a clock and a random source the caller supplies —
 `Clock = TimeProvider.System` for the system clock — and fail by the option's
 name without one (ADR 0056).
 
-**Nothing is published yet.** The package metadata and the trusted-publishing
-workflow are in place and await the first `v0.1.0-preview.1` tag.
+**`v0.1.0-preview.1` is on nuget.org**, published through trusted
+publishing. Every later release is a descriptor in `releases/`, cut when its
+pull request lands (`docs/releases.md`, ADR 0102).
 
 ## Quick start
 

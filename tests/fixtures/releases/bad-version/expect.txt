@@ -1,0 +1,2 @@
+# A numeric prerelease identifier with a leading zero is not SemVer 2.0.0 (§9).
+version 'v0.1.0-preview.02' is not v<SemVer 2.0.0>
