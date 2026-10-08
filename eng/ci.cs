@@ -120,6 +120,14 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("release", "every release descriptor is well formed, and a proposed one's basis resolves",
         () => Run("dotnet", Args("run", "eng/release.cs", "--", "--check", baseRef is null ? null : "--base", baseRef))),
 
+    // README.md ships in every package; its Status section and the roadmap's
+    // headings are a checked projection (ADR 0102).
+    ("status", "README.md's status and docs/roadmap.md's headings match the releases, the baseline and the projects",
+        () => Run("dotnet", ["run", "eng/status.cs", "--", "--check"])),
+
+    ("status-fixtures", "the status check fails each of its fixtures, for its own reason",
+        () => Run("dotnet", ["run", "eng/status.cs", "--", "--fixtures", "tests/fixtures/status"])),
+
     // Its failure paths, proven on every run: each case must fail, and say why
     // (tests/fixtures/releases/README.md).
     ("release-fixtures", "the release validator fails each of its fixtures, for its own reason",

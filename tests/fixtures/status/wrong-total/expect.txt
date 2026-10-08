@@ -1,0 +1,2 @@
+# The baseline holds three lines; the table says two.
+the conformance total is 2, and

@@ -1,0 +1,3 @@
+# A packable project with no row, and one with the wrong layer.
+Varve.Protocol, packable at layer 5, has no row
+gives Varve.Iri layer '1', and its project declares 0
