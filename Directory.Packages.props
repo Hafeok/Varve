@@ -102,6 +102,26 @@
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" Adr="0112" />
   </ItemGroup>
 
+  <ItemGroup Label="Varve.Aspire and its sample (ADR 0117)">
+    <!-- The hosting integration's one reference: Aspire's hosting model, MIT,
+         managed, which it extends with AddVarve; it references nothing from
+         Varve. The sample AppHost and its test under samples/ take the SDK,
+         the AppHost package and the testing package at the same version;
+         they are outside the packable set and never shipped (ADR 0009 as
+         amended), so the platform binaries the orchestration and the
+         dashboard carry are never in an artefact of ours. -->
+    <PackageVersion Include="Aspire.Hosting" Version="13.6.1" Adr="0117" />
+    <!-- Aspire.Hosting's own dependency: the Aspire CLI's terminal interop,
+         which ships native binaries for every platform. Varve.Aspire
+         references it with ExcludeAssets="native" so that no native asset is
+         in its restore graph or its package (the gate's definition of
+         shipped, ADR 0009 as amended); an AppHost gets Hex1b whole from
+         Aspire.Hosting itself, as every AppHost does. -->
+    <PackageVersion Include="Hex1b" Version="0.168.0" Adr="0117" />
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.6.1" Adr="0117" />
+    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.6.1" Adr="0117" />
+  </ItemGroup>
+
   <!--
     Container images of the auth test legs (ADRs 0099, 0100). Not packages, so
     not PackageVersion items and not counted by the gate; listed here because

@@ -788,6 +788,53 @@ jobs:
           path: ${{ github.workspace }}/artifacts/container-protocol
           if-no-files-found: warn
 
+  # The Aspire sample (ADR 0117): the AppHost starts the server's container
+  # beside the test issuer and its test passes a token, an update and a
+  # query. The image is the one the container job just pushed for this
+  # commit; the daemon is logged in to GHCR so the orchestrator can pull it.
+  aspire:
+    name: aspire sample
+    needs: container
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-aspire-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-aspire-
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run the sample's test
+        env:
+          Varve__ImageTag: pr-${{ github.sha }}-linux-x64
+          ASPIRE_ALLOW_UNSECURED_TRANSPORT: "true"
+        run: >
+          dotnet test
+          --project samples/Varve.Aspire.Sample.Tests/Varve.Aspire.Sample.Tests.csproj
+          --configuration Release
+
   # Durability, measured per platform (ADR 0073): what an append and a flush
   # to the device cost on each runner, with the calls the file backend makes.
   # A measurement, not a gate (ADR 0027): eng/durability.cs exits 0 whatever

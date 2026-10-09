@@ -158,8 +158,12 @@ static void Collect(JsonProperty library, SortedDictionary<string, SortedSet<str
     {
         foreach (JsonProperty asset in runtimeTargets.EnumerateObject())
         {
+            // `_._` is NuGet's placeholder for "nothing here": what a reference
+            // with ExcludeAssets="native" leaves in place of the assets it
+            // excluded. It is not a file anybody deploys.
             if (asset.Value.TryGetProperty("assetType", out JsonElement assetType)
-                && string.Equals(assetType.GetString(), "native", StringComparison.Ordinal))
+                && string.Equals(assetType.GetString(), "native", StringComparison.Ordinal)
+                && !asset.Name.EndsWith("/_._", StringComparison.Ordinal))
             {
                 Add(byPackage, library.Name, asset.Name);
             }

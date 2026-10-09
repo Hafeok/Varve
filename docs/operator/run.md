@@ -69,6 +69,15 @@ Tags are the release descriptor's version, and `latest` for a version with
 no prerelease part. A `pr-<sha>-<arch>` tag is a pull request's own build
 for its suites, not a release.
 
+## With .NET Aspire
+
+`Varve.Aspire` (ADR 0117) adds the same container to an AppHost:
+`builder.AddVarve("varve").WithOidc(…).WithDataset("people", …)`, with the
+volume, the endpoint, the health check and OTLP to the dashboard wired.
+`src/Varve.Aspire/README.md` has the three methods; `samples/` runs it beside
+a test issuer. Without `WithOidc` the server is anonymous in run mode and
+refuses to publish.
+
 ## Start the server
 
 `varve serve`, a bare `varve`, or any command line of nothing but

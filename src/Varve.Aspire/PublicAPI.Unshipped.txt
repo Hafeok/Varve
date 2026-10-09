@@ -1,0 +1,10 @@
+#nullable enable
+Varve.Aspire.VarveResourceBuilderExtensions
+const Varve.Aspire.VarveResourceBuilderExtensions.Image = "ghcr.io/hafeok/varve" -> string!
+static Varve.Aspire.VarveResourceBuilderExtensions.AddVarve(this Aspire.Hosting.IDistributedApplicationBuilder! builder, string! name, string? tag = null) -> Aspire.Hosting.ApplicationModel.IResourceBuilder<Varve.Aspire.VarveResource!>!
+static Varve.Aspire.VarveResourceBuilderExtensions.WithDataset(this Aspire.Hosting.ApplicationModel.IResourceBuilder<Varve.Aspire.VarveResource!>! builder, string! name, System.Collections.Generic.IReadOnlyList<string!>? read = null, System.Collections.Generic.IReadOnlyList<string!>? write = null, System.Collections.Generic.IReadOnlyList<string!>? admin = null) -> Aspire.Hosting.ApplicationModel.IResourceBuilder<Varve.Aspire.VarveResource!>!
+static Varve.Aspire.VarveResourceBuilderExtensions.WithOidc(this Aspire.Hosting.ApplicationModel.IResourceBuilder<Varve.Aspire.VarveResource!>! builder, Aspire.Hosting.ApplicationModel.ReferenceExpression! authority, string! audience, string? roleClaimType = null, string? subjectClaim = null, bool requireHttpsMetadata = true) -> Aspire.Hosting.ApplicationModel.IResourceBuilder<Varve.Aspire.VarveResource!>!
+Varve.Aspire.VarveResource
+Varve.Aspire.VarveResource.HttpEndpoint.get -> Aspire.Hosting.ApplicationModel.EndpointReference!
+Varve.Aspire.VarveResource.VarveResource(string! name) -> void
+const Varve.Aspire.VarveResource.HttpEndpointName = "http" -> string!

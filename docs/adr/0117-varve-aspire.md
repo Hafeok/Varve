@@ -41,10 +41,13 @@ over an `HttpClient` the application already configures is the integration.
    resource runs **anonymous in run mode and refuses to publish**: the
    manifest step fails with a message naming `WithOidc`, which is ADR 0037
    point 4 made executable.
-3. **`.WithDataset(name)`** creates the dataset at start through the admin
-   API's `PUT /datasets/{name}` (ADR 0106) once the resource is ready, with a
-   token when OIDC is on (a parameter) and none when anonymous; a dataset
-   that exists is `204` and the step is idempotent (ADR 0118).
+3. **`.WithDataset(name, read, write, admin)`** declares the dataset in the
+   server's configuration (`Varve:Datasets:{name}:Storage=File`) with the
+   roles that may read, write and administer it (ADR 0107): the server
+   creates a configured dataset under its root at start when it is not
+   there and opens it as it is when it is (ADR 0106), so the step is
+   idempotent and needs no token. The admin API's `PUT` (ADR 0118) stays
+   the way to add a dataset to a running server.
 4. **A sample AppHost under `samples/Varve.Aspire.Sample/`** runs the server
    with the mock issuer of ADR 0100's layer (b) as a second container,
    `WithOidc` pointing at it, and one dataset. Its test
@@ -57,7 +60,13 @@ over an `HttpClient` the application already configures is the integration.
    outside `Varve.slnx`'s packable set, so ADR 0009's amendment on shipped
    artefacts covers them as it covers the benchmark harness, and
    `eng/native-assets.cs` never sees them. `Varve.Aspire` itself references
-   `Aspire.Hosting`, which is managed, and the gate checks its closure.
+   `Aspire.Hosting`, which is managed, and the gate checks its closure. One
+   dependency of `Aspire.Hosting`'s, `Hex1b`, the Aspire CLI's terminal
+   interop, ships native binaries for every platform; `Varve.Aspire`
+   references it with `ExcludeAssets="native"`, so that no native asset is
+   in its restore graph or its package, which is the gate's definition of
+   shipped (ADR 0009 as amended). An AppHost gets `Hex1b` whole from
+   `Aspire.Hosting`, as every AppHost does; nothing of Varve's needs it.
 
 ## Alternatives considered
 

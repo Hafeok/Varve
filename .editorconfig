@@ -158,6 +158,12 @@ dotnet_diagnostic.CS1591.severity = none
 # not an identifier anyone calls, and CA1707 is written for the latter.
 dotnet_diagnostic.CA1707.severity = none
 
+[samples/Varve.Aspire.Sample.Tests/**.cs]
+# The sample's test, outside tests/ because the sample is (ADR 0117): the
+# same two rules as every test assembly.
+dotnet_diagnostic.CS1591.severity = none
+dotnet_diagnostic.CA1707.severity = none
+
 [tests/fixtures/**/*.cs]
 # The layer-rule fixtures exist to exercise DD0001 and VARVE0005 through a
 # real build. Their content is one empty type each; style rules are quieted

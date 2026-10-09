@@ -178,6 +178,7 @@ rulesets:
       - context: auth (zitadel)
       - context: container (linux-x64)
       - context: container (linux-arm64)
+      - context: aspire sample
   bypass_actors: []
 environments:
 # publish.yml's environment, named in nuget.org's trusted-publishing claim

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- The .NET Aspire hosting integration (ADR 0117): AddVarve, WithOidc
+         and WithDataset on an AppHost. Layer 0 by dependency, since it
+         references nothing from Varve; a host concern by purpose, since it
+         names the image of ADR 0111 and the configuration of ADRs 0101 and
+         0115. Packable; the sample AppHost under samples/ is not. -->
+    <ArchLayer>0</ArchLayer>
+    <IsPackable>true</IsPackable>
+
+    <!-- System.Uri for the addresses Aspire hands out and the admin API's
+         one request (ADR 0004, amended 2026-10-08); no IRI is handled here. -->
+    <VarveSpeaksHttp>true</VarveSpeaksHttp>
+
+    <Description>The .NET Aspire hosting integration for Varve: AddVarve adds the server's container, WithOidc its authentication, WithDataset a dataset created at start.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting" />
+    <!-- Aspire.Hosting's terminal interop, whose native binaries are the
+         AppHost's to carry, not this package's (ADR 0117). -->
+    <PackageReference Include="Hex1b" ExcludeAssets="native" />
+  </ItemGroup>
+
+</Project>

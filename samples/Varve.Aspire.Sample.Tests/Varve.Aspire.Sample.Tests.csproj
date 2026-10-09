@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The sample's test (ADR 0117): starts the AppHost, waits for the
+       server to be healthy, takes a token from the issuer and passes one
+       update and one query. Runs in CI on Linux, where Docker is; outside
+       Varve.slnx, like the sample. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Testing" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+    <ProjectReference Include="../Varve.Aspire.Sample/Varve.Aspire.Sample.csproj" />
+  </ItemGroup>
+
+</Project>

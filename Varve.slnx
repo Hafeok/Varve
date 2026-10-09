@@ -4,6 +4,7 @@
        driven directly by Varve.Analyzers.Tests. -->
   <Folder Name="/src/">
     <Project Path="src/Varve.Analyzers/Varve.Analyzers.csproj" />
+    <Project Path="src/Varve.Aspire/Varve.Aspire.csproj" />
     <Project Path="src/Varve.Iri/Varve.Iri.csproj" />
     <Project Path="src/Varve.Protocol/Varve.Protocol.csproj" />
     <Project Path="src/Varve.Protocol.Client/Varve.Protocol.Client.csproj" />
