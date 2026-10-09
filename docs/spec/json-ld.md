@@ -272,6 +272,10 @@ segments and this package owes above it.
 **A quad's terms are spans valid for the duration of the callback**, as in
 every Varve reader (`TheQuadHandlerIsTheCallers`).
 
+**The browser** carries `Varve.JsonLd.wasm` at 295,701 bytes, 88,439
+compressed, over the `System.Text.Json` the results package already shipped
+(ADR 0111 has the measurement).
+
 ## 8. Out of scope, and why
 
 - **Compaction, flattening and framing** (`CompactFlattenAndFrameAreOut`):

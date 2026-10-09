@@ -266,8 +266,9 @@ positions are the reader's and do not move with the split.
 **A quad's terms are spans valid for the duration of the callback**, as in
 every Varve reader; the view is a `ref struct` and cannot be stored.
 
-**The browser pays for `System.Private.Xml`**, which joins the WASM build
-through this package. The measured growth and the size at which the decision
+**The browser already carried `System.Private.Xml`** for the SPARQL XML
+results format; this package adds its own assembly, 72,790 bytes compressed,
+measured by the browser smoke. The figures and the size at which the decision
 is reopened (1.5 MB compressed) are in ADR 0111.
 
 ## 8. What this replaced

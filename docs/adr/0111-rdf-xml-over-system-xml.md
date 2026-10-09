@@ -122,16 +122,22 @@ the analyzer refuse every allocation that *is* this package's.
 ### The browser pays for `System.Private.Xml`, up to a stated size
 
 `Varve.RdfXml` is built for the browser like every layer-2 package, and the
-browser smoke parses an RDF/XML document. `System.Private.Xml` joins the
-published WASM through it, and its growth, measured by the browser smoke of
-this milestone against the previous published size, is **stated in
-`rdf-xml.md` §7 and here once the smoke of this pull request has run** (the
-figure is filled in the same pull request; a pull request that leaves it blank
-is not done). **The revisit size is 1.5 MB compressed.** A measured growth
-above it reopens the alternative this ADR rejected — a hand-written XML
+browser smoke parses an RDF/XML document. **Measured 2026-10-09** by building
+`tests/Varve.WasmSmoke` with and without the two milestone 6b packages, .NET
+10 Release, `_framework/` gzip-compressed file by file: `System.Private.Xml`
+**was already in the bundle** — `Varve.Sparql.Results` reads and writes the
+SPARQL XML results format through it, 3,096,345 bytes trimmed, 1,049,734
+compressed — so RDF/XML adds no BCL assembly. What the two packages add is
+themselves: `Varve.RdfXml.wasm` 258,837 bytes (72,790 compressed) and
+`Varve.JsonLd.wasm` 295,701 bytes (88,439 compressed), with their symbol
+files; the bundle grows from 11,717,386 to 12,154,221 bytes compressed,
+**436,835 bytes**, 3.7 %. **The revisit size is 1.5 MB compressed** of
+growth attributable to RDF/XML. A measured growth above it, which a future
+runtime that drops `System.Private.Xml` from the results package could
+produce, reopens the alternative this ADR rejected — a hand-written XML
 reader restricted to what RDF/XML needs — as its own ADR, because at that
-size the browser is paying for the two thirds of `System.Private.Xml` (XSD
-validation, XSLT, XPath, serialisation) that RDF/XML never touches.
+size the browser would be paying for the two thirds of `System.Private.Xml`
+(XSD validation, XSLT, XPath, serialisation) that RDF/XML never touches.
 
 ### Two decisions of the reader's own, where the specification leaves a choice
 
