@@ -31,6 +31,7 @@ namespace Varve.Sparql.Store;
 internal sealed class RequestExecution
 {
     private readonly StagingView _staging;
+    private readonly IQuadSource _readable;
     private readonly Update _update;
     private readonly UpdateOptions _options;
     private readonly CancellationToken _cancellationToken;
@@ -41,13 +42,36 @@ internal sealed class RequestExecution
     // INSERT DATA's blank nodes: one per label per request (§3.1.1).
     private readonly Dictionary<string, TermHandle> _dataBlanks = new(StringComparer.Ordinal);
 
+    // A request of INSERT DATA and DELETE DATA alone reads no state (ADR 0057,
+    // amended 2026-10-08; §3): its delta is composed as a chain but never
+    // normalised against the pin, and it expects no position unless the
+    // caller gave one. The sequencer normalises it against the head it meets
+    // (I2), so the commit is the same at any head.
+    private readonly bool _dataOnly;
+
     internal RequestExecution(StagingView staging, Update update, UpdateOptions options, CancellationToken cancellationToken)
     {
         _staging = staging;
+        _readable = GraphScopedQuadSource.Wrap(staging, options.ReadScope);
         _update = update;
         _options = options;
         _cancellationToken = cancellationToken;
         _evaluator = new SparqlEvaluator(options.Evaluation);
+        _dataOnly = options.ExpectedPosition is null && IsDataOnly(update);
+    }
+
+    /// <summary>Whether every operation of <paramref name="update"/> is <c>INSERT DATA</c> or <c>DELETE DATA</c>.</summary>
+    internal static bool IsDataOnly(Update update)
+    {
+        for (int i = 0; i < update.Operations.Count; i++)
+        {
+            if (update.Operations[i] is not (InsertData or DeleteData))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Executes every operation; the first failure fails the request (§2.2).</summary>
@@ -75,7 +99,14 @@ internal sealed class RequestExecution
                     case DeleteData data:
                         foreach (QuadPattern quad in data.Quads)
                         {
-                            if (TryResolveGround(quad, out Quad resolved))
+                            if (_dataOnly)
+                            {
+                                // Staged where the pin has no handle: the
+                                // sequencer resolves it, and a term no quad
+                                // holds retracts nothing (I2).
+                                AddData(quad, delete);
+                            }
+                            else if (TryResolveGround(quad, out Quad resolved))
                             {
                                 delete.Add(resolved);
                             }
@@ -134,11 +165,13 @@ internal sealed class RequestExecution
 
     /// <summary>
     /// The composed delta as one request: retractions and assertions in a
-    /// fixed order, the pinned position expected (§3 step 3).
+    /// fixed order, the pinned position expected (§3 step 4), or none for a
+    /// request of data operations alone.
     /// </summary>
     internal CommitRequest ToCommitRequest()
     {
-        CommitRequest request = new() { ExpectedPosition = _staging.Position, Metadata = _options.Metadata };
+        CheckWritable();
+        CommitRequest request = new() { ExpectedPosition = _dataOnly ? null : _staging.Position, Metadata = _options.Metadata };
 
         try
         {
@@ -159,6 +192,53 @@ internal sealed class RequestExecution
 
         return request;
     }
+
+    /// <summary>
+    /// Every quad of the composed delta is in the writable scope, or the
+    /// request fails naming the first graph that is not (ADR 0107). A graph
+    /// is decided once: the delta names few graphs and many quads.
+    /// </summary>
+    private void CheckWritable()
+    {
+        GraphScope writable = _options.WriteScope;
+
+        if (writable.IsAll)
+        {
+            return;
+        }
+
+        Dictionary<TermHandle, bool> decided = [];
+        Check(_retracted, writable, decided);
+        Check(_asserted, writable, decided);
+    }
+
+    private void Check(HashSet<Quad> quads, GraphScope writable, Dictionary<TermHandle, bool> decided)
+    {
+        foreach (Quad quad in quads)
+        {
+            if (decided.TryGetValue(quad.Graph, out bool allowed))
+            {
+                if (!allowed)
+                {
+                    throw new GraphNotWritableException(GraphOf(quad.Graph));
+                }
+
+                continue;
+            }
+
+            RdfTerm? graph = GraphOf(quad.Graph);
+            allowed = writable.Allows(graph);
+            decided[quad.Graph] = allowed;
+
+            if (!allowed)
+            {
+                throw new GraphNotWritableException(graph);
+            }
+        }
+    }
+
+    private RdfTerm? GraphOf(TermHandle graph) =>
+        graph.IsNone ? null : _staging.TryExternalise(graph, out RdfTerm? term) ? term : throw new InvalidOperationException("A graph handle the staging view cannot name.");
 
     private void Add(CommitRequest request, Quad quad, bool assert)
     {
@@ -197,19 +277,38 @@ internal sealed class RequestExecution
     /// <summary>The state operation <c>k</c> reads: the staging view with the deltas before it.</summary>
     private IQuadSource Current() =>
         _asserted.Count == 0 && _retracted.Count == 0
-            ? _staging
-            : new QuadOverlay(_staging, QuadDelta.Create([.. _asserted], [.. _retracted]));
+            ? _readable
+            : new QuadOverlay(_readable, QuadDelta.Create([.. _asserted], [.. _retracted]));
 
     private bool InState(in Quad quad) =>
-        _asserted.Contains(quad) || (!_retracted.Contains(quad) && _staging.Contains(in quad));
+        _asserted.Contains(quad) || (!_retracted.Contains(quad) && _readable.Contains(in quad));
 
     /// <summary>
     /// Composes this operation's change onto the request's: its deletions
     /// before its insertions (§3.1.3), each only where it changes something,
     /// so that every step is exact and their composition a chain (ADR 0047).
+    /// A data-only request composes the chain without the state: the later
+    /// operation wins, and exactness is the sequencer's against the head.
     /// </summary>
     private void Apply(List<Quad> delete, List<Quad> insert)
     {
+        if (_dataOnly)
+        {
+            foreach (Quad quad in delete)
+            {
+                _asserted.Remove(quad);
+                _retracted.Add(quad);
+            }
+
+            foreach (Quad quad in insert)
+            {
+                _retracted.Remove(quad);
+                _asserted.Add(quad);
+            }
+
+            return;
+        }
+
         foreach (Quad quad in delete)
         {
             if (InState(in quad) && !_asserted.Remove(quad))
@@ -229,13 +328,13 @@ internal sealed class RequestExecution
 
     // ---- INSERT DATA and DELETE DATA.
 
-    private void AddData(QuadPattern pattern, List<Quad> insert)
+    private void AddData(QuadPattern pattern, List<Quad> quads)
     {
         TermHandle s = Data(pattern.Subject);
         TermHandle p = Data(pattern.Predicate);
         TermHandle o = Data(pattern.Object);
         TermHandle g = pattern.Graph is null ? TermHandle.None : Data(pattern.Graph);
-        insert.Add(new Quad(s, p, o, g));
+        quads.Add(new Quad(s, p, o, g));
     }
 
     private TermHandle Data(PatternTerm term) => term switch

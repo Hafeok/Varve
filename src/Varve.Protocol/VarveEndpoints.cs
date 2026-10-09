@@ -4,6 +4,7 @@
 
 using System;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Varve.Protocol.Endpoints;
 
@@ -38,6 +39,30 @@ public static class VarveEndpoints
         routes.MapChangeFeed("/feed", options);
         routes.MapDiff("/diff", options);
         routes.MapDatasetStatus("/status", options);
+        routes.Map("/settings", context => AdminEndpoints.SettingsAsync(context, options));
+        routes.Map("/checkpoints", context => AdminEndpoints.CheckpointAsync(context, options));
+        return routes;
+    }
+
+    /// <summary>
+    /// The admin API over the host's datasets (ADR 0106), under
+    /// <paramref name="pattern"/>, the prefix the dataset groups are mounted
+    /// under (<c>/datasets</c>): <c>GET</c> lists; <c>PUT</c> and <c>DELETE</c>
+    /// of <c>{pattern}/{dataset}</c> create and delete; <c>POST</c> to
+    /// <c>{pattern}/{dataset}/open</c> and <c>/close</c> attach and detach.
+    /// The dataset groups' own routes keep <c>GET</c> of <c>{pattern}/{dataset}</c>.
+    /// </summary>
+    public static IEndpointRouteBuilder MapVarveAdministration(this IEndpointRouteBuilder routes, string pattern, ProtocolOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(routes);
+        ArgumentNullException.ThrowIfNull(pattern);
+        ArgumentNullException.ThrowIfNull(options);
+        string prefix = pattern.TrimEnd('/');
+        routes.MapMethods(prefix, ["GET"], context => AdminEndpoints.ListAsync(context, options));
+        routes.MapMethods(prefix + "/{" + Exchange.DatasetRouteValue + "}", ["PUT"], context => AdminEndpoints.CreateAsync(context, options));
+        routes.MapMethods(prefix + "/{" + Exchange.DatasetRouteValue + "}", ["DELETE"], context => AdminEndpoints.DeleteAsync(context, options));
+        routes.MapPost(prefix + "/{" + Exchange.DatasetRouteValue + "}/open", (RequestDelegate)(context => AdminEndpoints.OpenAsync(context, options)));
+        routes.MapPost(prefix + "/{" + Exchange.DatasetRouteValue + "}/close", (RequestDelegate)(context => AdminEndpoints.CloseAsync(context, options)));
         return routes;
     }
 

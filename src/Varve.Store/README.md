@@ -31,9 +31,16 @@ a projection of it.
   term. Checkpoints, written on demand or by a `CheckpointPolicy`, bound what
   an as-of read and an open replay.
 - **Bulk loads.** `BeginBulkLoadAsync` takes any parser's quads as they are
-  parsed, sorts them outside memory within `BulkLoadOptions.MemoryBytes`,
-  merges them with the dataset in one sequential pass, and commits them as one
-  commit — with the dataset's validators reading the delta on disk.
+  parsed; `BulkLoadOptions.Workers` threads resolve and spill them while the
+  parser reads (ADR 0108), sorted outside memory within
+  `BulkLoadOptions.MemoryBytes`, merged with the dataset in one sequential
+  pass, and committed as one commit — with the dataset's validators reading
+  the delta on disk. The result is the same at any worker count.
+- **Lookups by term probe a filter first.** Each run on disk carries a
+  blocked Bloom filter over its terms (ADR 0109, derived format 3), so a
+  commit's new term costs one probe per run and an index read only where the
+  filter says maybe; a format-2 dataset is read as before and migrates as
+  maintenance rewrites its runs.
 - **Replicas by copying files.** `ShipAsync` copies the log up to a position
   and a checkpoint into another storage, which opens at exactly that position.
 - **Recovers from crashes.** A torn or unclosed tail is ignored, a copy taken

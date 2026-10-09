@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Varve.Protocol.Http;
 using Varve.Protocol.Model;
+using Varve.Rdf;
 using Varve.Sparql;
 using Varve.Sparql.Algebra;
 using Varve.Store.Log;
@@ -74,8 +75,13 @@ internal static class UpdateRun
         try
         {
             result = await exchange.Options.Updates
-                .ExecuteAsync(exchange.Dataset, update!, Writes.Metadata(exchange), plan.Expected, context.RequestAborted)
+                .ExecuteAsync(exchange.Dataset, update!, Writes.Metadata(exchange), plan.Expected, exchange.Scope, context.RequestAborted)
                 .ConfigureAwait(false);
+        }
+        catch (GraphNotWritableException refused)
+        {
+            await Writes.GraphNotWritableAsync(exchange, refused.Graph).ConfigureAwait(false);
+            return;
         }
         catch (Exception failed) when (failed is not OperationCanceledException)
         {

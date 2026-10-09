@@ -20,7 +20,7 @@
     <!-- Its contracts name a Dataset, a CommitResult and an Update: the seams
          the host binds (ADR 0091, ProtocolContractVocabulary). Widened here and
          nowhere else, as ADR 0064 requires. -->
-    <ArchContractTypeAssemblies>$(ArchContractTypeAssemblies),Varve.Store,Varve.Sparql</ArchContractTypeAssemblies>
+    <ArchContractTypeAssemblies>$(ArchContractTypeAssemblies);Varve.Store;Varve.Sparql</ArchContractTypeAssemblies>
 
     <Description>SPARQL 1.1 Protocol, Graph Store Protocol, service description, time travel, change feed and diff over HTTP for a Varve store, as ASP.NET Core endpoint groups.</Description>
   </PropertyGroup>

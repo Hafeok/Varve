@@ -11,6 +11,8 @@ Off-the-shelf first, the id scheme, severity, and the suppression policy for
 rules that are neither `DD` nor `VARVE` stand. **Amended 2026-10-07** (ADR
 [0068](0068-dated-amendments.md)), by milestone 7a of #11: the `System.Uri`
 ban's narrowing is discharged; see *Amendment, 2026-10-07* at the end.
+**Amended 2026-10-08**, by milestone 7b of #11: `Varve.Protocol.Client`
+speaks HTTP too; see *Amendment, 2026-10-08* at the end.
 
 ## Context
 
@@ -228,3 +230,17 @@ site. What this ADR decided is unchanged.
   (ADR 0093). Review is the check that a `Uri` never stands for an RDF IRI.
   `UriBanNarrowedPerProject` is the ruling, already accepted. The new ruling is
   `UriAllowedInProtocolAndServer`.
+
+## Amendment, 2026-10-08 — `Varve.Protocol.Client` speaks HTTP too
+
+Filed by milestone 7b of #11, unaccepted until the maintainer accepts it (ADR
+0066). The amendment of 2026-10-07 said a third project setting
+`VarveSpeaksHttp` "is a change to this amendment's list, made by its own
+decision". ADR [0103](0103-varve-protocol-client.md) is that decision:
+**`Varve.Protocol.Client` (layer 5)** sets `VarveSpeaksHttp` in its own
+project file, for transport addresses only — the endpoint of a `SERVICE`,
+the address of a `LOAD` document, a server's base address — and an IRI in it
+is still a `Varve.Iri` value, checked by the endpoint policy on its bytes
+before any `Uri` is built. The list is now `Varve.Protocol`,
+`Varve.Protocol.Client` and the executable `Varve.Server`. Everywhere else the
+ban stands. The ruling is the new key `UriAllowedInProtocolClient`.

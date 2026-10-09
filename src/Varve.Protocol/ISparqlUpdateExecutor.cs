@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
+using Varve.Rdf;
 using Varve.Sparql.Algebra;
 using Varve.Store;
 using Varve.Store.Log;
@@ -28,17 +29,20 @@ namespace Varve.Protocol;
 /// </para>
 /// <para>
 /// An operation that fails throws; the protocol answers it with
-/// <c>operation-failed</c> and nothing is committed.
+/// <c>operation-failed</c> and nothing is committed. A change outside the
+/// caller's writable scope throws <see cref="GraphNotWritableException"/>,
+/// answered with <c>403</c> and <c>graph-not-writable</c> (ADR 0107).
 /// </para>
 /// </remarks>
 [Contract(typeof(VarveProtocolAndVarveServer.UpdateExecutorSeam), Role = "the host-bound execution of a SPARQL Update request as one commit")]
 public interface ISparqlUpdateExecutor
 {
-    /// <summary>Executes <paramref name="update"/> as one commit, or none.</summary>
+    /// <summary>Executes <paramref name="update"/> as one commit, or none, reading and writing within <paramref name="scope"/>.</summary>
     ValueTask<CommitResult> ExecuteAsync(
         Dataset dataset,
         Update update,
         CommitMetadata metadata,
         Position? expectedPosition,
+        CallerScope scope,
         CancellationToken cancellationToken);
 }

@@ -60,16 +60,28 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         ProtocolLimits? limits = null,
         TimeProvider? clock = null,
         ICallerIdentity? identity = null,
+        IServiceHandler? serviceHandler = null,
+        IAccessScopes? accessScopes = null,
+        ILoadSource? loadSource = null,
+        IRandomSource? randomness = null,
         CancellationToken stopping = default) =>
-        StartAsync(new OneDataset(dataset), map, limits, clock, identity, stopping);
+        StartAsync(new OneDataset(dataset), map, limits, clock, identity, serviceHandler, accessScopes, loadSource, randomness, stopping);
 
-    /// <summary>Starts a server whose datasets <paramref name="datasets"/> names.</summary>
+    /// <summary>
+    /// Starts a server whose datasets <paramref name="datasets"/> names.
+    /// <paramref name="serviceHandler"/>, when given, federates the server's own
+    /// queries (ADR 0104's suite run); the default refuses.
+    /// </summary>
     internal static async Task<ProtocolTestHost> StartAsync(
         IDatasetResolver datasets,
         Action<WebApplication, ProtocolOptions>? map = null,
         ProtocolLimits? limits = null,
         TimeProvider? clock = null,
         ICallerIdentity? identity = null,
+        IServiceHandler? serviceHandler = null,
+        IAccessScopes? accessScopes = null,
+        ILoadSource? loadSource = null,
+        IRandomSource? randomness = null,
         CancellationToken stopping = default)
     {
         WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
@@ -79,12 +91,13 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         ProtocolOptions options = new()
         {
             Datasets = datasets,
-            Updates = new StoreUpdates(clock ?? TimeProvider.System),
+            Updates = new StoreUpdates(Evaluation(clock ?? TimeProvider.System, serviceHandler, randomness), loadSource),
             Identity = identity ?? new NoOne(),
+            AccessScopes = accessScopes ?? EveryoneEverything.Instance,
             Authorization = new EveryoneMay(),
             Clock = clock ?? TimeProvider.System,
             Limits = limits ?? ProtocolLimits.Default,
-            Evaluation = new EvaluationOptions { Clock = clock ?? TimeProvider.System },
+            Evaluation = Evaluation(clock ?? TimeProvider.System, serviceHandler, randomness),
             Stopping = stopping,
         };
 
@@ -135,25 +148,61 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         public RequestTerm AgentOf(ClaimsPrincipal caller) => RequestTerm.None;
     }
 
-    /// <summary>Datasets by name, added while the server runs.</summary>
-    internal sealed class Datasets : IDatasetResolver
+    /// <summary>Datasets by name, added while the server runs, each with the scope every caller gets on it (ADR 0107's properties).</summary>
+    internal sealed class Datasets : IDatasetResolver, IAsyncDisposable
     {
         private readonly System.Collections.Concurrent.ConcurrentDictionary<string, Dataset> _datasets = new(StringComparer.Ordinal);
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, Varve.Rdf.CallerScope> _scopes = new(StringComparer.Ordinal);
 
         internal void Add(string name, Dataset dataset) => _datasets[name] = dataset;
+
+        internal void Add(string name, Dataset dataset, Varve.Rdf.CallerScope scope)
+        {
+            _datasets[name] = dataset;
+            _scopes[name] = scope;
+        }
+
+        internal void Remove(string name)
+        {
+            _datasets.TryRemove(name, out _);
+            _scopes.TryRemove(name, out _);
+        }
+
+        internal Varve.Rdf.CallerScope? ScopeOf(string name) => _scopes.TryGetValue(name, out Varve.Rdf.CallerScope? scope) ? scope : null;
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         public bool TryResolve(DatasetName name, [NotNullWhen(true)] out Dataset? dataset) => _datasets.TryGetValue(name.Value, out dataset);
     }
 
-    /// <summary>The update executor, as the server binds it: no retries, the expected position passed through.</summary>
-    internal sealed class StoreUpdates(TimeProvider clock) : ISparqlUpdateExecutor
+    /// <summary>The update executor, as the server binds it: no retries, the expected position and the scope passed through.</summary>
+    // Randomness is left unset when none is given: the options' own default
+    // refuses RAND() and UUID(), as before.
+    private static EvaluationOptions Evaluation(TimeProvider clock, IServiceHandler? serviceHandler, IRandomSource? randomness) =>
+        randomness is null
+            ? new EvaluationOptions { Clock = clock, ServiceHandler = serviceHandler ?? RefusingServiceHandler.Instance }
+            : new EvaluationOptions { Clock = clock, ServiceHandler = serviceHandler ?? RefusingServiceHandler.Instance, Randomness = randomness };
+
+    internal sealed class StoreUpdates(EvaluationOptions evaluation, ILoadSource? loadSource) : ISparqlUpdateExecutor
     {
-        public ValueTask<CommitResult> ExecuteAsync(Dataset dataset, Update update, CommitMetadata metadata, Position? expectedPosition, CancellationToken cancellationToken) =>
-            SparqlUpdate.ExecuteAsync(dataset, update, new UpdateOptions
-            {
-                Metadata = metadata,
-                ExpectedPosition = expectedPosition,
-                Evaluation = new EvaluationOptions { Clock = clock },
-            }, cancellationToken);
+        public ValueTask<CommitResult> ExecuteAsync(Dataset dataset, Update update, CommitMetadata metadata, Position? expectedPosition, Varve.Rdf.CallerScope scope, CancellationToken cancellationToken) =>
+            SparqlUpdate.ExecuteAsync(dataset, update, loadSource is null
+                ? new UpdateOptions
+                {
+                    Metadata = metadata,
+                    ExpectedPosition = expectedPosition,
+                    Evaluation = evaluation,
+                    ReadScope = scope.Readable,
+                    WriteScope = scope.Writable,
+                }
+                : new UpdateOptions
+                {
+                    Metadata = metadata,
+                    ExpectedPosition = expectedPosition,
+                    Evaluation = evaluation,
+                    LoadSource = loadSource,
+                    ReadScope = scope.Readable,
+                    WriteScope = scope.Writable,
+                }, cancellationToken);
     }
 }

@@ -412,7 +412,8 @@ jobs:
           fi
 
       # The server (ADR 0101): zero trim and AOT warnings, then the binary run
-      # as an operator runs it — ready, an update, a query, a feed read, a stop.
+      # as an operator runs it — the command line first, then ready, an update,
+      # a query, a feed read, a stop (ADR 0105).
       # Its size and time to ready go to the step summary.
       - name: Publish the server
         run: >

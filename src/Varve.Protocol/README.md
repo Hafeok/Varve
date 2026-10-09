@@ -17,9 +17,27 @@ ASP.NET Core endpoint groups any host mounts.
 - **The change feed** is `application/vnd.varve.delta; version=1`, or
   server-sent events for a live tail. `ChangeFeedReader` reads it with Varve's
   own terms.
-- **Authorisation is three policy names**, `varve:read`, `varve:write` and
-  `varve:admin`. The host decides what satisfies them. Nothing here
-  authenticates.
+- **The service description** says what the endpoint does: its languages
+  and formats, the named graphs the caller may see, the event-sourced
+  extensions under `https://w3id.org/varve/ns#` — `position`, the headers,
+  `graphStore`, `changeFeed`, `diff`, `status`, `settings`, `checkpoints` —
+  and `sd:BasicFederatedQuery` when the host answers `SERVICE` (ADR 0104).
+- **The admin API** (ADR 0106): `MapVarveAdministration` mounts
+  `GET /datasets`, `PUT` and `DELETE` of `/datasets/{name}`, and
+  `POST …/open` and `…/close`, over the host's `IDatasetAdministration`; each
+  dataset group has `POST /settings` (a `Settings` commit) and
+  `POST /checkpoints`, and `/status` reports the projection.
+- **Authorisation is four policy names**, `varve:read`, `varve:write`,
+  `varve:admin` and `varve:server-admin`. The host decides what satisfies
+  them. Nothing here authenticates.
+- **Graph-level scope** (ADR 0107): after the policy, the host's
+  `IAccessScopes` answers what the caller reads and writes, by graph. A read
+  evaluates over `GraphScopedQuadSource`, so an unreadable graph is absent
+  from every answer — a `FROM` naming it names an empty graph, a Graph Store
+  `GET`, `PUT` or `DELETE` of it is `404` — and a write that changes a graph
+  outside the writable set is `403 graph-not-writable` with nothing
+  committed. The feed and the diff are cut to the readable graphs. A caller
+  whose scope is every graph is served by the unwrapped view.
 
 ```csharp
 app.MapGroup("/datasets/{dataset}").MapVarveDataset(new ProtocolOptions
@@ -27,6 +45,7 @@ app.MapGroup("/datasets/{dataset}").MapVarveDataset(new ProtocolOptions
     Datasets = resolver,
     Updates = executor,
     Identity = identity,
+    AccessScopes = EveryoneEverything.Instance,
     Authorization = app.Services.GetRequiredService<IAuthorizationService>(),
     Clock = TimeProvider.System,
 });

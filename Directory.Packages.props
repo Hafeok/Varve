@@ -46,13 +46,13 @@
          in its commit body (ADR 0063). Referenced from Directory.Build.props
          with PrivateAssets="all", so it is never in a published package's
          dependencies. -->
-    <PackageVersion Include="DecisionDriven.Analyzers" Version="0.1.0-preview.6" Adr="0063" />
+    <PackageVersion Include="DecisionDriven.Analyzers" Version="0.1.0-preview.7" Adr="0063" />
 
     <!-- The whole-graph report, a .NET tool run in CI and never a gate. No
          project references it: .config/dotnet-tools.json installs it, at the
          same version, which a bump changes in both places. Registered here
          because this file is the register of every dependency (ADR 0009). -->
-    <PackageVersion Include="DecisionDriven.Report" Version="0.1.0-preview.6" Adr="0063" />
+    <PackageVersion Include="DecisionDriven.Report" Version="0.1.0-preview.7" Adr="0063" />
   </ItemGroup>
 
   <ItemGroup Label="Off-the-shelf enforcement — build-time only, never shipped">
@@ -78,6 +78,17 @@
          managed; the register cites the decision for the direct package and
          the gate counts the closure in Varve.Server's assets. -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" Adr="0099" />
+
+    <!-- The CLI's command line (ADR 0105): stable, MIT, Microsoft, no native
+         asset, trimming- and AOT-annotated; in Varve.Server alone, on the
+         same condition as JwtBearer, that the server's Native AOT publish
+         stays green. -->
+    <PackageVersion Include="System.CommandLine" Version="2.0.12" Adr="0105" />
+
+    <!-- The CLI's credential file on Windows (ADR 0105): DPAPI through the
+         managed wrapper, CurrentUser scope. Elsewhere the file's mode is the
+         protection, and the package is linked but never called. -->
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" Adr="0105" />
   </ItemGroup>
 
   <!--

@@ -476,7 +476,9 @@ internal sealed class BulkCommit : IAsyncDisposable
         _open.Add(blob);
         long offsetsAt = entriesLength;
         long hashesAt = offsetsAt + ((count + 1) * 8);
-        return TermSection.On(blob, CanonicalBefore, CanonicalBefore + count, 0, entriesLength, offsetsAt, hashesAt);
+        // The load's own term section, read once while its run is written;
+        // the run gets its filter from the writer (ADR 0109).
+        return TermSection.On(blob, CanonicalBefore, CanonicalBefore + count, 0, entriesLength, offsetsAt, hashesAt, null);
     }
 
     private static async ValueTask CopyAsync(RecordReader<long> records, IBlobWriter writer, CancellationToken ct)

@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Varve.Protocol.Client/Varve.Protocol.Client.csproj" />
+    <ProjectReference Include="../../src/Varve.Protocol/Varve.Protocol.csproj" />
+    <ProjectReference Include="../../src/Varve.Sparql.Store/Varve.Sparql.Store.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The in-process server the client is tested against (ADR 0099). -->
+    <Compile Include="../ProtocolTestHost.cs" Link="ProtocolTestHost.cs" />
+  </ItemGroup>
+
+</Project>

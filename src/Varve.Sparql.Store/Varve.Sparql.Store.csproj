@@ -21,4 +21,12 @@
     <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- ADR 0003 permits InternalsVisibleTo toward *.Tests only: the tests
+         drive one request's execution between its pin and its submit, which
+         is the window a concurrent writer lands in (ADR 0057, amended
+         2026-10-08). -->
+    <InternalsVisibleTo Include="Varve.Sparql.Store.Tests" />
+  </ItemGroup>
+
 </Project>

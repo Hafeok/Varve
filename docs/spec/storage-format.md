@@ -4,9 +4,11 @@ Format specification, **version 1**.
 
 Status: written by milestone 6a with [ADR 0072](../adr/0072-format-version-1.md),
 which is the reasoning; this document is the layout. `log/` is version 1.
-`derived/` is **derived format version 2** since milestone 6c (ADRs 0079 and
-0080): runs carry the dictionary's entries, and keys are compressed in their
-blocks. A derived file of version 1 is a cache miss. **Version 1 of `log/` is
+`derived/` is **derived format version 3** since milestone 7b (ADR 0109): a
+run carries a filter over its terms' hashes after its hash index. Version 2
+(milestone 6c, ADRs 0079 and 0080: runs carry the dictionary's entries, and
+keys are compressed in their blocks) is read as before, with no filter; a
+derived file of version 1 is a cache miss. **Version 1 of `log/` is
 frozen from the first prerelease tag that writes it** (`v0.1.0-preview.1`, ADR
 0029), and from then on every version of Varve reads it. `derived/` carries its
 own version and is **not** read forever: a derived file this build does not
@@ -295,7 +297,7 @@ rename (ADR 0071, ADR 0073), so a reader never sees one half written.
 | Offset | Size | Field |
 |---:|---:|---|
 | 0 | 4 | magic `VRVD` |
-| 4 | 2 | derived format version, `2` |
+| 4 | 2 | derived format version, `3`; `2` is read (§7.2) |
 | 6 | 2 | kind: `1` run, `2` checkpoint, `3` projection state, `4` commit index |
 | 8 | 16 | dataset id |
 | 24 | 8 | from position: a run or a commit index blob covers the commits after it; 0 for the others |
@@ -308,7 +310,7 @@ rename (ADR 0071, ADR 0073), so a reader never sees one half written.
 | 128 | 32 | self-hash of bytes 0–127 |
 
 A derived file is used only if its header and directory verify, its version is
-2, its kind is the one expected, its dataset id is the log's, and its *to
+2 or 3, its kind is the one expected, its dataset id is the log's, and its *to
 position*'s header hash is the log's. Otherwise it is a cache miss.
 
 ### 7.2 Runs and checkpoints
@@ -349,6 +351,15 @@ language tag's ASCII letters lowercased, since tags compare ignoring case: a
 `TermKey.Hash`). It orders the index and is searched by interpolation; it is
 not a cryptographic hash, and equal hashes are told apart by comparing keys.
 
+**The term filter** (version 3, ADR 0109) follows the hash index: a blocked
+Bloom filter over the same hashes, `max(1, ⌈(To − From) / 64⌉)` blocks of 64
+bytes — eight bits a term. A hash's block is `((hash >> 32) × blocks) >> 32`;
+its three bits in the block are `hash & 511`, `(hash >> 9) & 511` and
+`(hash >> 18) & 511`, each a bit index in the block's 512, least significant
+bit first. A lookup by key probes the filter before the index and skips the
+run when any of the three bits is clear. A version-2 run has no filter
+section, and a reader looks up its index for every key.
+
 **Directory:**
 
 | Size | Field |
@@ -363,13 +374,16 @@ not a cryptographic hash, and equal hashes are told apart by comparing keys.
 | 8 | entries' offset |
 | 8 | entries' length |
 | 8 | offsets' offset: the entries' end |
-| 8 | hash index's offset: the offsets' end; the index ends at the directory |
+| 8 | hash index's offset: the offsets' end; in version 2 the index ends at the directory |
 | 8 | the blank counter at the run's *to position* |
+| 8 | version 3: the filter's offset, the index's end |
+| 8 | version 3: the filter's length; the filter ends at the directory |
 
 A reader holds the fences and block starts in memory — 40 bytes per 128 keys —
-and reads a block at a time through the synchronous blob read; a term by id is
-two offsets and an entry, a term by key a window of the index and the entries
-its hash names. Keys and entries are verified by their directory's placement,
+and the filter — eight bits a term — and reads a block at a time through the
+synchronous blob read; a term by id is two offsets and an entry, a term by key
+a filter probe and, when it may be there, a window of the index and the
+entries its hash names. Keys and entries are verified by their directory's placement,
 not hashed one by one: a derived file torn by a crash is never published, and
 bit rot in a published one is outside 6a and 6c.
 

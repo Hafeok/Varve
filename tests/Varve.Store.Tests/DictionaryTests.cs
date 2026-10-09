@@ -3,7 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using CsCheck;
@@ -167,5 +169,118 @@ public class DictionaryTests
                 loaded.Run.Blob!.Release();
             },
             iter: 40);
+    }
+}
+
+/// <summary>
+/// The per-run term filter (ADR 0109): a format-3 run carries a filter that
+/// admits every term it holds and few others; a format-2 run is read with
+/// no filter and answers as before; maintenance writes what it merges in
+/// format 3.
+/// </summary>
+public class TermFilterTests
+{
+    [Fact]
+    public async Task a_format_3_run_carries_a_filter_that_admits_every_term_and_about_two_percent_of_others()
+    {
+        const int Count = 20_000;
+        Allocation[] allocations = new Allocation[Count];
+
+        for (int i = 0; i < Count; i++)
+        {
+            allocations[i] = new Allocation(TermIds.Canonical(i + 1), T.Iri("k" + i.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        MemoryStorage storage = new();
+        Run run = Run.FromDelta([], [], TermSection.Of(allocations, 0), 0, 1);
+        await DerivedFormat.WriteRunAsync(storage.Derived, new BlobName("r"), DerivedFormat.KindRun, T.Id, 0, 1, new byte[32], DerivedFormat.MergeOf([run], dropRetractions: false), [run.Terms], 0, T.Ct);
+        LoadedRun loaded = (await DerivedFormat.TryLoadAsync(storage.Derived, new BlobName("r"), T.Id, DerivedFormat.KindRun, T.Ct))!;
+        Assert.Equal(3, loaded.Header.Version);
+        TermFilter filter = Assert.IsType<TermFilter>(loaded.Run.Terms.Filter);
+        Assert.Equal(TermFilter.LengthFor(Count), filter.Length);
+
+        byte[] key = new byte[64];
+
+        for (int i = 0; i < Count; i++)
+        {
+            int length = TermKey.Write(allocations[i].Term!, key);
+            Assert.True(filter.MayContain(TermKey.Hash(key.AsSpan(0, length))));
+        }
+
+        int passed = 0;
+        const int Absent = 100_000;
+
+        for (int i = 0; i < Absent; i++)
+        {
+            int length = TermKey.Write(T.Iri("absent" + i.ToString(CultureInfo.InvariantCulture)), key);
+
+            if (filter.MayContain(TermKey.Hash(key.AsSpan(0, length))))
+            {
+                passed++;
+            }
+        }
+
+        // Eight bits a term, three probes in one 512-bit block: about two percent.
+        Assert.InRange(passed, 0, Absent * 5 / 100);
+        TermDictionary dictionary = new();
+        Assert.True(dictionary.TryFind([loaded.Run], allocations[7].Term!, Count, out ulong id));
+        Assert.Equal(allocations[7].Id, id);
+        Assert.False(dictionary.TryFind([loaded.Run], T.Iri("absent"), Count, out _));
+        loaded.Run.Blob!.Release();
+    }
+
+    [Fact]
+    public async Task a_format_2_run_is_read_with_no_filter_and_answers_as_before()
+    {
+        Allocation[] allocations = [.. Enumerable.Range(0, 500).Select(i => new Allocation(TermIds.Canonical(i + 1), T.Iri("k" + i.ToString(CultureInfo.InvariantCulture))))];
+        MemoryStorage storage = new();
+        Run run = Run.FromDelta([], [], TermSection.Of(allocations, 0), 0, 1);
+        await DerivedFormat.WriteRunAsync(storage.Derived, new BlobName("two"), DerivedFormat.KindRun, T.Id, 0, 1, new byte[32], DerivedFormat.MergeOf([run], dropRetractions: false), [run.Terms], 0, T.Ct, version: 2);
+        await DerivedFormat.WriteRunAsync(storage.Derived, new BlobName("three"), DerivedFormat.KindRun, T.Id, 0, 1, new byte[32], DerivedFormat.MergeOf([run], dropRetractions: false), [run.Terms], 0, T.Ct);
+        LoadedRun two = (await DerivedFormat.TryLoadAsync(storage.Derived, new BlobName("two"), T.Id, DerivedFormat.KindRun, T.Ct))!;
+        LoadedRun three = (await DerivedFormat.TryLoadAsync(storage.Derived, new BlobName("three"), T.Id, DerivedFormat.KindRun, T.Ct))!;
+        Assert.Equal(2, two.Header.Version);
+        Assert.Null(two.Run.Terms.Filter);
+        Assert.NotNull(three.Run.Terms.Filter);
+        Assert.Equal((await storage.Derived.OpenAsync(new BlobName("two"), T.Ct)).Length.Value + TermFilter.LengthFor(500) + 16, (await storage.Derived.OpenAsync(new BlobName("three"), T.Ct)).Length.Value);
+        TermDictionary dictionary = new();
+
+        foreach (LoadedRun loaded in new[] { two, three })
+        {
+            for (int i = 0; i < allocations.Length; i++)
+            {
+                Assert.True(dictionary.TryFind([loaded.Run], allocations[i].Term!, allocations.Length, out ulong id));
+                Assert.Equal(allocations[i].Id, id);
+            }
+
+            Assert.False(dictionary.TryFind([loaded.Run], T.Iri("absent"), allocations.Length, out _));
+            loaded.Run.Blob!.Release();
+        }
+    }
+
+    [Fact]
+    public async Task maintenance_and_checkpoints_write_format_3()
+    {
+        MemoryStorage storage = new();
+        await using Dataset dataset = await T.OpenOrCreate(storage, new DatasetOptions { Clock = ManualClock.Epoch(), MemtableLimit = new QuadCount(4), CommitCache = T.CommitCache, Maintenance = MaintenanceMode.Off });
+
+        for (int i = 0; i < 6; i++)
+        {
+            CommitRequest request = new();
+            request.Assert(T.Iri("s" + i.ToString(CultureInfo.InvariantCulture)), T.Iri("p"), T.Literal("o" + i.ToString(CultureInfo.InvariantCulture)));
+            await dataset.CommitAsync(request, T.Ct);
+            await dataset.MaintainAsync(T.Ct);
+        }
+
+        await dataset.CheckpointAsync(dataset.Head, T.Ct);
+        List<string> derived = [.. (await storage.Derived.ListAsync(T.Ct)).Select(n => n.Value).Where(n => n.StartsWith("index/runs/", StringComparison.Ordinal) || n.StartsWith("checkpoints/", StringComparison.Ordinal))];
+        Assert.NotEmpty(derived);
+
+        foreach (string name in derived)
+        {
+            using IReadableBlob blob = await storage.Derived.OpenAsync(new BlobName(name), T.Ct);
+            Assert.True(DerivedFormat.TryReadHeader(blob, T.Id, name.StartsWith("checkpoints/", StringComparison.Ordinal) ? DerivedFormat.KindCheckpoint : DerivedFormat.KindRun, out DerivedHeader header), name);
+            Assert.Equal(3, header.Version);
+        }
     }
 }

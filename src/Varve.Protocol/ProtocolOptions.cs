@@ -12,7 +12,7 @@ namespace Varve.Protocol;
 /// <summary>
 /// What the host wires into the endpoints (ADRs 0060, 0091). Immutable, and
 /// nothing is ambient: the clock every limit is measured by, the evaluation
-/// options every query runs with, and the three seams.
+/// options every query runs with, and the four seams.
 /// </summary>
 public sealed class ProtocolOptions
 {
@@ -24,6 +24,13 @@ public sealed class ProtocolOptions
 
     /// <summary>Who a commit names as its agent.</summary>
     public required ICallerIdentity Identity { get; init; }
+
+    /// <summary>
+    /// What a caller may see and change of a dataset, by graph (ADR 0107),
+    /// asked once per request after the policy allowed it. Required: a host
+    /// without graph-level grants answers <see cref="Varve.Rdf.CallerScope.Everything"/>.
+    /// </summary>
+    public required IAccessScopes AccessScopes { get; init; }
 
     /// <summary>
     /// The host's authorisation, asked for <see cref="DatasetPermissions"/>
@@ -44,6 +51,15 @@ public sealed class ProtocolOptions
 
     /// <summary>What bounds a request.</summary>
     public ProtocolLimits Limits { get; init; } = ProtocolLimits.Default;
+
+    /// <summary>
+    /// The write side of the dataset map (ADR 0106), for the admin API's
+    /// <c>GET /datasets</c>, <c>PUT</c>, <c>DELETE</c>, <c>open</c> and
+    /// <c>close</c>. Null in a host that administers no dataset: those
+    /// endpoints then answer <c>404</c>, and the per-dataset admin endpoints
+    /// still serve.
+    /// </summary>
+    public IDatasetAdministration? Administration { get; init; }
 
     /// <summary>
     /// The options every query is evaluated with: the clock and random source

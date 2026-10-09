@@ -39,12 +39,51 @@ internal static class EvaluationSubjects
 
     internal static IEvaluationSubject Store { get; } = new StoreSubject();
 
+    /// <summary>The store's view through a <see cref="GraphScopedQuadSource"/> whose scope names every graph of the case (ADR 0107).</summary>
+    internal static IEvaluationSubject Scoped { get; } = new ScopedSubject();
+
     internal static IEvaluationSubject ByName(string name) => name switch
     {
         "dataset" => Dataset,
         "store" => Store,
+        "scoped" => Scoped,
         _ => throw new ArgumentException("Unknown subject " + name, nameof(name)),
     };
+
+    /// <summary>A fresh in-memory store with the files committed one per file, as <see cref="Store"/> loads them.</summary>
+    internal static async ValueTask<Dataset> LoadStoreAsync(IReadOnlyList<(IReadOnlyList<DataQuad> Quads, RdfTerm? Graph)> files)
+    {
+        Dataset dataset = await Varve.Store.Dataset.CreateAsync(new MemoryStorage(), new Varve.Store.Log.DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = FixedClock.Instance });
+        foreach ((IReadOnlyList<DataQuad> quads, RdfTerm? graph) in files)
+        {
+            if (quads.Count == 0)
+            {
+                continue;
+            }
+
+            CommitRequest request = new();
+            foreach (DataQuad quad in quads)
+            {
+                RdfTerm? g = graph ?? quad.Graph;
+                if (g is null)
+                {
+                    request.Assert(RequestTerm.FromTerm(quad.Subject), RequestTerm.FromTerm(quad.Predicate), RequestTerm.FromTerm(quad.Object));
+                }
+                else
+                {
+                    request.Assert(RequestTerm.FromTerm(quad.Subject), RequestTerm.FromTerm(quad.Predicate), RequestTerm.FromTerm(quad.Object), RequestTerm.FromTerm(g));
+                }
+            }
+
+            CommitResult result = await dataset.CommitAsync(request);
+            if (result.Outcome != CommitOutcome.Committed && result.Outcome != CommitOutcome.NoChange)
+            {
+                throw new InvalidOperationException("The store refused the test data: " + result.Outcome);
+            }
+        }
+
+        return dataset;
+    }
 
     /// <summary>A blank node's label, prefixed by the file it came from, so two files' _:a are two nodes.</summary>
     internal static RdfTerm Scope(RdfTerm term, int file) =>
@@ -86,37 +125,49 @@ internal static class EvaluationSubjects
 
         public async ValueTask<LoadedSource> LoadAsync(IReadOnlyList<(IReadOnlyList<DataQuad> Quads, RdfTerm? Graph)> files)
         {
-            Dataset dataset = await Varve.Store.Dataset.CreateAsync(new MemoryStorage(), new Varve.Store.Log.DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = FixedClock.Instance });
+            Dataset dataset = await LoadStoreAsync(files);
+            DatasetView view = dataset.Pin();
+            return new LoadedSource(view, async () =>
+            {
+                view.Dispose();
+                await dataset.DisposeAsync();
+            });
+        }
+    }
+
+    /// <summary>
+    /// The store subject's view wrapped in a scope that lists every graph
+    /// the case loaded, the default graph included: the wrapper must be
+    /// transparent for the whole suite, FROM, FROM NAMED and GRAPH alike.
+    /// </summary>
+    private sealed class ScopedSubject : IEvaluationSubject
+    {
+        public string Name => "scoped";
+
+        public async ValueTask<LoadedSource> LoadAsync(IReadOnlyList<(IReadOnlyList<DataQuad> Quads, RdfTerm? Graph)> files)
+        {
+            Dataset dataset = await LoadStoreAsync(files);
+            List<RdfTerm> graphs = [];
+
             foreach ((IReadOnlyList<DataQuad> quads, RdfTerm? graph) in files)
             {
-                if (quads.Count == 0)
+                if (graph is not null && !graphs.Contains(graph))
                 {
-                    continue;
+                    graphs.Add(graph);
                 }
 
-                CommitRequest request = new();
                 foreach (DataQuad quad in quads)
                 {
-                    RdfTerm? g = graph ?? quad.Graph;
-                    if (g is null)
+                    if (quad.Graph is not null && !graphs.Contains(quad.Graph))
                     {
-                        request.Assert(RequestTerm.FromTerm(quad.Subject), RequestTerm.FromTerm(quad.Predicate), RequestTerm.FromTerm(quad.Object));
+                        graphs.Add(quad.Graph);
                     }
-                    else
-                    {
-                        request.Assert(RequestTerm.FromTerm(quad.Subject), RequestTerm.FromTerm(quad.Predicate), RequestTerm.FromTerm(quad.Object), RequestTerm.FromTerm(g));
-                    }
-                }
-
-                CommitResult result = await dataset.CommitAsync(request);
-                if (result.Outcome != CommitOutcome.Committed && result.Outcome != CommitOutcome.NoChange)
-                {
-                    throw new InvalidOperationException("The store refused the test data: " + result.Outcome);
                 }
             }
 
             DatasetView view = dataset.Pin();
-            return new LoadedSource(view, async () =>
+            GraphScopedQuadSource scoped = new(view, GraphScope.Of([.. graphs], [], DefaultGraphAccess.Included));
+            return new LoadedSource(scoped, async () =>
             {
                 view.Dispose();
                 await dataset.DisposeAsync();

@@ -244,3 +244,43 @@ static Varve.Rdf.QuadCount.operator !=(Varve.Rdf.QuadCount left, Varve.Rdf.QuadC
 static Varve.Rdf.QuadCount.operator ==(Varve.Rdf.QuadCount left, Varve.Rdf.QuadCount right) -> bool
 ~override Varve.Rdf.QuadCount.Equals(object obj) -> bool
 ~override Varve.Rdf.QuadCount.ToString() -> string
+Varve.Rdf.CallerScope
+Varve.Rdf.CallerScope.CallerScope(Varve.Rdf.GraphScope! readable, Varve.Rdf.GraphScope! writable, Varve.Rdf.AdminAccess admin) -> void
+Varve.Rdf.CallerScope.IsAdmin.get -> bool
+Varve.Rdf.CallerScope.Readable.get -> Varve.Rdf.GraphScope!
+Varve.Rdf.CallerScope.Writable.get -> Varve.Rdf.GraphScope!
+Varve.Rdf.AdminAccess
+Varve.Rdf.AdminAccess.Admin = 1 -> Varve.Rdf.AdminAccess
+Varve.Rdf.AdminAccess.None = 0 -> Varve.Rdf.AdminAccess
+Varve.Rdf.DefaultGraphAccess
+Varve.Rdf.DefaultGraphAccess.Excluded = 0 -> Varve.Rdf.DefaultGraphAccess
+Varve.Rdf.DefaultGraphAccess.Included = 1 -> Varve.Rdf.DefaultGraphAccess
+Varve.Rdf.GraphScope
+Varve.Rdf.GraphScope.Allows(Varve.Rdf.RdfTerm? graph) -> bool
+Varve.Rdf.GraphScope.Graphs.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Rdf.GraphScope.HasPrefixes.get -> bool
+Varve.Rdf.GraphScope.IncludesDefault.get -> bool
+Varve.Rdf.GraphScope.IsAll.get -> bool
+Varve.Rdf.GraphScope.Union(Varve.Rdf.GraphScope! other) -> Varve.Rdf.GraphScope!
+Varve.Rdf.GraphScopedQuadSource
+Varve.Rdf.GraphScopedQuadSource.Allows(Varve.Rdf.TermHandle graph) -> bool
+Varve.Rdf.GraphScopedQuadSource.Contains(in Varve.Rdf.Quad quad) -> bool
+Varve.Rdf.GraphScopedQuadSource.Estimate(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object, Varve.Rdf.GraphPattern graph) -> Varve.Rdf.CardinalityEstimate
+Varve.Rdf.GraphScopedQuadSource.GraphScopedQuadSource(Varve.Rdf.IQuadSource! inner, Varve.Rdf.GraphScope! scope) -> void
+Varve.Rdf.GraphScopedQuadSource.Match(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object, Varve.Rdf.GraphPattern graph) -> Varve.Rdf.IQuadCursor!
+Varve.Rdf.GraphScopedQuadSource.Scope.get -> Varve.Rdf.GraphScope!
+Varve.Rdf.GraphScopedQuadSource.TermComparer.get -> System.Collections.Generic.IEqualityComparer<Varve.Rdf.TermHandle>!
+Varve.Rdf.GraphScopedQuadSource.TryExternalise(Varve.Rdf.TermHandle handle, out Varve.Rdf.RdfTerm! term) -> bool
+Varve.Rdf.GraphScopedQuadSource.TryGetInlineValue(Varve.Rdf.TermHandle handle, out Varve.Rdf.InlineValue value) -> bool
+Varve.Rdf.GraphScopedQuadSource.TryInternalise(Varve.Rdf.RdfTerm! term, out Varve.Rdf.TermHandle handle) -> bool
+static Varve.Rdf.CallerScope.Everything.get -> Varve.Rdf.CallerScope!
+static Varve.Rdf.GraphScope.All.get -> Varve.Rdf.GraphScope!
+static Varve.Rdf.GraphScope.None.get -> Varve.Rdf.GraphScope!
+static Varve.Rdf.GraphScope.Of(System.ReadOnlySpan<Varve.Rdf.RdfTerm!> graphs, System.ReadOnlySpan<string!> prefixes, Varve.Rdf.DefaultGraphAccess defaultGraph) -> Varve.Rdf.GraphScope!
+static Varve.Rdf.GraphScopedQuadSource.Wrap(Varve.Rdf.IQuadSource! inner, Varve.Rdf.GraphScope! scope) -> Varve.Rdf.IQuadSource!
+Varve.Rdf.GraphNotWritableException
+Varve.Rdf.GraphNotWritableException.Graph.get -> Varve.Rdf.RdfTerm?
+Varve.Rdf.GraphNotWritableException.GraphNotWritableException() -> void
+Varve.Rdf.GraphNotWritableException.GraphNotWritableException(Varve.Rdf.RdfTerm? graph) -> void
+Varve.Rdf.GraphNotWritableException.GraphNotWritableException(string! message) -> void
+Varve.Rdf.GraphNotWritableException.GraphNotWritableException(string! message, System.Exception! innerException) -> void

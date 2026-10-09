@@ -254,6 +254,68 @@ internal static class TermKey
 /// index beside it.
 /// </para>
 /// </remarks>
+/// <summary>
+/// A blocked Bloom filter over a run's term hashes (ADR 0109): 512-bit
+/// blocks, eight bits a term, three probes in one block, so that a lookup
+/// touches one cache line. About two percent of absent terms pass, and pay
+/// what every lookup paid before: one window of the hash index.
+/// </summary>
+internal sealed class TermFilter
+{
+    /// <summary>A block: 512 bits.</summary>
+    internal const int BlockBytes = 64;
+
+    private readonly byte[] _bits;
+    private readonly ulong _blocks;
+
+    internal TermFilter(byte[] bits)
+    {
+        if (bits.Length == 0 || bits.Length % BlockBytes != 0)
+        {
+            throw new ArgumentException("A term filter is a whole number of 64-byte blocks, at least one.", nameof(bits));
+        }
+
+        _bits = bits;
+        _blocks = (ulong)(bits.Length / BlockBytes);
+    }
+
+    /// <summary>The filter's bytes: a section of the run file.</summary>
+    internal ReadOnlySpan<byte> Bytes => _bits;
+
+    /// <summary>The filter's length in bytes.</summary>
+    internal int Length => _bits.Length;
+
+    /// <summary>An empty filter sized for <paramref name="terms"/> terms: eight bits each, one block at least.</summary>
+    internal static TermFilter Empty(long terms) => new(new byte[LengthFor(terms)]);
+
+    /// <summary>The bytes a filter for <paramref name="terms"/> terms takes.</summary>
+    internal static long LengthFor(long terms) => Math.Max(1, (terms + 63) / 64) * BlockBytes;
+
+    /// <summary>Records a term's hash.</summary>
+    internal void Add(ulong hash)
+    {
+        int block = Block(hash);
+        _bits[block + ((int)(hash & 511) >> 3)] |= (byte)(1 << (int)(hash & 7));
+        _bits[block + ((int)((hash >> 9) & 511) >> 3)] |= (byte)(1 << (int)((hash >> 9) & 7));
+        _bits[block + ((int)((hash >> 18) & 511) >> 3)] |= (byte)(1 << (int)((hash >> 18) & 7));
+    }
+
+    /// <summary>False when no term with this hash is in the run; true when one may be.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal bool MayContain(ulong hash)
+    {
+        int block = Block(hash);
+        return (_bits[block + ((int)(hash & 511) >> 3)] & (byte)(1 << (int)(hash & 7))) != 0
+            && (_bits[block + ((int)((hash >> 9) & 511) >> 3)] & (byte)(1 << (int)((hash >> 9) & 7))) != 0
+            && (_bits[block + ((int)((hash >> 18) & 511) >> 3)] & (byte)(1 << (int)((hash >> 18) & 7))) != 0;
+    }
+
+    // The block from the hash's high bits, which the probes do not use: a
+    // multiply-and-shift in place of a modulo (the block count is below 2^32).
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private int Block(ulong hash) => (int)(((hash >> 32) * _blocks) >> 32) * BlockBytes;
+}
+
 internal sealed class TermSection
 {
     /// <summary>Hash index entries read per window: 512 bytes.</summary>
@@ -267,7 +329,7 @@ internal sealed class TermSection
     private readonly long _offsetsAt;
     private readonly long _hashesAt;
 
-    private TermSection(long from, long to, long entriesLength, byte[]? entries, long[]? offsets, TermHash[]? hashes, IReadableBlob? blob, long entriesAt, long offsetsAt, long hashesAt)
+    private TermSection(long from, long to, long entriesLength, byte[]? entries, long[]? offsets, TermHash[]? hashes, IReadableBlob? blob, long entriesAt, long offsetsAt, long hashesAt, TermFilter? filter)
     {
         From = from;
         To = to;
@@ -279,7 +341,12 @@ internal sealed class TermSection
         _entriesAt = entriesAt;
         _offsetsAt = offsetsAt;
         _hashesAt = hashesAt;
+        Filter = filter;
     }
+
+    /// <summary>The run's filter over its terms (ADR 0109), or null for a section in memory or a format-2 run.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal TermFilter? Filter { get; }
 
     /// <summary>The canonical counter before the section's first entry.</summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
@@ -298,7 +365,7 @@ internal sealed class TermSection
     internal bool OnBlob => _blob is not null;
 
     /// <summary>A section with no entries, at a counter.</summary>
-    internal static TermSection Empty(long at) => new(at, at, 0, [], [0], [], null, 0, 0, 0);
+    internal static TermSection Empty(long at) => new(at, at, 0, [], [0], [], null, 0, 0, 0, null);
 
     /// <summary>
     /// The section of one commit's allocations: the canonical ones, which are
@@ -349,7 +416,7 @@ internal sealed class TermSection
 
         offsets[count] = writer.WrittenCount;
         hashes.AsSpan().Sort();
-        return new TermSection(from, from + count, writer.WrittenCount, writer.WrittenSpan.ToArray(), offsets, hashes, null, 0, 0, 0);
+        return new TermSection(from, from + count, writer.WrittenCount, writer.WrittenSpan.ToArray(), offsets, hashes, null, 0, 0, 0, null);
     }
 
     /// <summary>Two adjacent sections in memory as one.</summary>
@@ -386,12 +453,12 @@ internal sealed class TermSection
         older._hashes.AsSpan().CopyTo(hashes);
         newer._hashes.AsSpan().CopyTo(hashes.AsSpan((int)older.Count));
         hashes.AsSpan().Sort();
-        return new TermSection(older.From, newer.To, entries.Length, entries, offsets, hashes, null, 0, 0, 0);
+        return new TermSection(older.From, newer.To, entries.Length, entries, offsets, hashes, null, 0, 0, 0, null);
     }
 
-    /// <summary>A section of a derived blob, laid out as storage format §7 says.</summary>
-    internal static TermSection On(IReadableBlob blob, long from, long to, long entriesAt, long entriesLength, long offsetsAt, long hashesAt) =>
-        new(from, to, entriesLength, null, null, null, blob, entriesAt, offsetsAt, hashesAt);
+    /// <summary>A section of a derived blob, laid out as storage format §7 says, with its filter when the run carries one (ADR 0109).</summary>
+    internal static TermSection On(IReadableBlob blob, long from, long to, long entriesAt, long entriesLength, long offsetsAt, long hashesAt, TermFilter? filter) =>
+        new(from, to, entriesLength, null, null, null, blob, entriesAt, offsetsAt, hashesAt, filter);
 
     /// <summary>Whether the section holds the entry of a canonical counter.</summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
@@ -480,8 +547,9 @@ internal sealed class TermSection
         id = 0;
         long count = Count;
 
-        if (count == 0)
+        if (count == 0 || (Filter is not null && !Filter.MayContain(hash)))
         {
+            // The filter first (ADR 0109): a miss skips the run's index.
             return false;
         }
 

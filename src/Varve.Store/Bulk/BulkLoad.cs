@@ -24,6 +24,22 @@ public sealed class BulkLoadOptions
     /// </summary>
     public ByteCount MemoryBytes { get; init; } = new(256L << 20);
 
+    /// <summary>
+    /// The threads that resolve and spill the operations the parser fills
+    /// (ADR 0108): the processor count less one by default, at least one.
+    /// The parser's own thread is never a worker; one worker is the 6c
+    /// pipeline with one buffer of overlap.
+    /// </summary>
+    public int Workers
+    {
+        get;
+        init
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(value, 1);
+            field = value;
+        }
+    } = Math.Max(1, Environment.ProcessorCount - 1);
+
     /// <summary>Test seam: operations per sorted run, in place of what the memory gives.</summary>
     internal int? SortRecords { get; init; }
 
@@ -72,10 +88,13 @@ public sealed class BulkLoadException : Exception
 /// <para>
 /// **Feeding it.** <see cref="Assert(in QuadView)"/> and
 /// <see cref="Retract(in QuadView)"/> take a parser's quad as the parser hands
-/// it over, so either is a parser's handler as it stands. When the sort buffer
-/// fills, the call that filled it writes the buffer out before it returns:
-/// the parser's own thread does the disk work, so a host with no threads to
-/// block — a browser — cannot bulk-load (ADR 0081).
+/// it over, so either is a parser's handler as it stands. The parser's thread
+/// copies each operation's terms into a buffer; when the buffer fills it is
+/// handed to a worker, which resolves the terms — the cache, the dictionary,
+/// the table of new terms — sorts the buffer and writes it as a run, while
+/// the parser fills the next (ADR 0108). The parser blocks only when every
+/// buffer is busy, so a host with no threads to block — a browser — cannot
+/// bulk-load (ADR 0081).
 /// </para>
 /// <para>
 /// **The commit** computes the effective delta by merging the sorted
@@ -87,14 +106,12 @@ public sealed class BulkLoadException : Exception
 /// </remarks>
 public sealed class BulkLoad : IAsyncDisposable
 {
-    private readonly SpillSpace _space;
     private readonly TermTable _newTerms;
-    private readonly Dictionary<byte[], BulkRef> _cache = new(KeyComparer.Instance);
-    private readonly Dictionary<byte[], BulkRef>.AlternateLookup<ReadOnlySpan<byte>> _lookup;
+    private readonly object _termsLock = new();
+    private readonly BulkPipeline _pipeline;
+    private OperationBuffer _current;
     private ulong _sequence;
     private bool _finished;
-    private byte[] _scratch = new byte[1024];
-    private readonly int _cacheLimit;
 
     internal BulkLoad(Dataset dataset, IndexVersion version, TermView terms, long head, IDerivedStore derived, BulkLoadOptions options)
     {
@@ -103,13 +120,24 @@ public sealed class BulkLoad : IAsyncDisposable
         Terms = terms;
         Head = head;
         Memory = options.MemoryBytes.Value;
-        _space = new SpillSpace(derived, head.ToString(CultureInfo.InvariantCulture));
-        Quads = new ExternalSort<BulkQuad>(_space, "quads", options.SortRecords ?? (int)Math.Min(int.MaxValue / BulkQuad.Size, Memory * 3 / 8 / BulkQuad.Size));
-        _newTerms = new TermTable(options.TermBytes ?? (int)Math.Min(1 << 30, Memory / 4));
-        _lookup = _cache.GetAlternateLookup<ReadOnlySpan<byte>>();
+        Space = new SpillSpace(derived, head.ToString(CultureInfo.InvariantCulture));
 
-        // A quarter of the memory, at about 128 bytes an entry: the key's array and the table's slot.
-        _cacheLimit = (int)Math.Clamp(Memory / 4 / 128, 1024, 1 << 24);
+        // The memory (ADR 0081, 0108): three eighths to the operation buffers
+        // and the sorted runs the workers make of them, a quarter to the
+        // table of new terms, a quarter to the caches, one per worker; the
+        // rest is read buffers. The test seam SortRecords bounds a buffer by
+        // operations rather than bytes, so that a small load spills many runs.
+        int workers = options.Workers;
+        int ring = workers + 1;
+        long bufferBytes = Math.Max(1 << 16, Memory * 3 / 8 / ring / 2);
+        int bufferOperations = options.SortRecords ?? (int)Math.Min(int.MaxValue / 2, bufferBytes / 64);
+        Quads = new ExternalSort<BulkQuad>(Space, "quads", 1);
+        _newTerms = new TermTable(options.TermBytes ?? (int)Math.Min(1 << 30, Memory / 4));
+
+        // A quarter of the memory over the workers, at about 128 bytes an entry: the key's array and the table's slot.
+        CacheLimit = (int)Math.Clamp(Memory / 4 / 128 / workers, 1024, 1 << 24);
+        _pipeline = new BulkPipeline(this, workers, ring, (int)Math.Min(int.MaxValue / 2, bufferBytes), bufferOperations);
+        _current = _pipeline.TakeFree();
     }
 
     internal Dataset Dataset { get; }
@@ -131,134 +159,115 @@ public sealed class BulkLoad : IAsyncDisposable
     /// <summary>Operations taken so far.</summary>
     public long Operations => (long)(_sequence >> 1);
 
+    internal SpillSpace Space { get; }
+
+    internal int CacheLimit { get; }
+
     /// <summary>Asserts a quad: a parser's handler as it stands.</summary>
-    /// <exception cref="BulkLoadException">A triple term is nested deeper than the load can order.</exception>
+    /// <exception cref="BulkLoadException">A triple term is nested deeper than the load can order, or a worker refused the load.</exception>
     public void Assert(in QuadView quad) => Add(in quad, assert: true);
 
     /// <summary>Retracts a quad: a parser's handler as it stands.</summary>
     public void Retract(in QuadView quad) => Add(in quad, assert: false);
 
     /// <summary>Asserts a quad given as terms; a null graph is the default graph.</summary>
-    public void Assert(RdfTerm subject, RdfTerm predicate, RdfTerm @object, RdfTerm? graph = null) =>
-        Add(Resolve(subject), Resolve(predicate), Resolve(@object), graph is null ? BulkRef.Of(0) : Resolve(graph), assert: true);
+    public void Assert(RdfTerm subject, RdfTerm predicate, RdfTerm @object, RdfTerm? graph = null) => Add(subject, predicate, @object, graph, assert: true);
 
     /// <summary>Retracts a quad given as terms; a null graph is the default graph.</summary>
-    public void Retract(RdfTerm subject, RdfTerm predicate, RdfTerm @object, RdfTerm? graph = null) =>
-        Add(Resolve(subject), Resolve(predicate), Resolve(@object), graph is null ? BulkRef.Of(0) : Resolve(graph), assert: false);
+    public void Retract(RdfTerm subject, RdfTerm predicate, RdfTerm @object, RdfTerm? graph = null) => Add(subject, predicate, @object, graph, assert: false);
 
-    private void Add(in QuadView quad, bool assert) =>
-        Add(Resolve(quad.Subject), Resolve(quad.Predicate), Resolve(quad.Object), quad.HasGraph ? Resolve(quad.Graph) : BulkRef.Of(0), assert);
+    private void Add(in QuadView quad, bool assert)
+    {
+        Begin();
+        _current.Begin(Next(assert));
+        _current.Write(quad.Subject);
+        _current.Write(quad.Predicate);
+        _current.Write(quad.Object);
 
-    private void Add(BulkRef s, BulkRef p, BulkRef o, BulkRef g, bool assert)
+        if (quad.HasGraph)
+        {
+            _current.Write(quad.Graph);
+        }
+        else
+        {
+            _current.WriteDefaultGraph();
+        }
+
+        End();
+    }
+
+    private void Add(RdfTerm subject, RdfTerm predicate, RdfTerm @object, RdfTerm? graph, bool assert)
+    {
+        ArgumentNullException.ThrowIfNull(subject);
+        ArgumentNullException.ThrowIfNull(predicate);
+        ArgumentNullException.ThrowIfNull(@object);
+        Begin();
+        _current.Begin(Next(assert));
+        _current.Write(subject);
+        _current.Write(predicate);
+        _current.Write(@object);
+
+        if (graph is null)
+        {
+            _current.WriteDefaultGraph();
+        }
+        else
+        {
+            _current.Write(graph);
+        }
+
+        End();
+    }
+
+    private void Begin()
     {
         ObjectDisposedException.ThrowIf(_finished, this);
+        _pipeline.ThrowIfFailed();
+    }
+
+    private ulong Next(bool assert)
+    {
         ulong sequence = _sequence + (assert ? 1UL : 0UL);
         _sequence += 2;
+        return sequence;
+    }
 
-        if (Quads.Add(new BulkQuad(s, p, o, g, sequence)))
+    // The buffer that filled goes to a worker; the parser takes a free one,
+    // waiting when every buffer is busy (ADR 0108).
+    private void End()
+    {
+        if (_current.IsFull)
         {
-            // The parser's thread writes the full buffer before it goes on.
-            Quads.SpillAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult();
+            _pipeline.Submit(_current);
+            _current = _pipeline.TakeFree();
         }
     }
 
     // -----------------------------------------------------------------------------------------
-    // Terms to references.
+    // Terms to references: what a worker does with a buffer.
 
-    private BulkRef Resolve(RdfTermView term)
+    /// <summary>A term the dictionary knows, or a new one for the table, decided by a worker with its own cache.</summary>
+    internal BulkRef Known(ReadOnlySpan<byte> key, byte segment, WorkerCache cache)
     {
-        switch (term.Kind)
-        {
-            case RdfTermKind.TripleTerm:
-                return Triple(Resolve(term.Subject), Resolve(term.Predicate), Resolve(term.Object));
-
-            case RdfTermKind.BlankNode:
-                return Blank(term.Lexical);
-
-            case RdfTermKind.Iri:
-                return Plain(TermKey.Iri, term.Lexical, default, default, TextDirection.None);
-
-            default:
-                if (term.HasDatatype && !term.HasLanguage && TermIds.TryInline(term.Lexical, term.Datatype, out ulong inline))
-                {
-                    return BulkRef.Of(inline);
-                }
-
-                ReadOnlySpan<byte> datatype = term.HasLanguage || !term.HasDatatype || term.Datatype.SequenceEqual(RdfVocabulary.XsdString) ? default : term.Datatype;
-                return Plain(TermKey.Literal, term.Lexical, datatype, term.HasLanguage ? term.Language : default, term.Direction);
-        }
-    }
-
-    private BulkRef Resolve(RdfTerm term)
-    {
-        switch (term.Kind)
-        {
-            case RdfTermKind.TripleTerm:
-                return Triple(Resolve(term.Subject!), Resolve(term.Predicate!), Resolve(term.Object!));
-
-            case RdfTermKind.BlankNode:
-                return Blank(term.Lexical);
-
-            case RdfTermKind.Iri:
-                return Plain(TermKey.Iri, term.Lexical, default, default, TextDirection.None);
-
-            default:
-                if (TermIds.TryInline(term, out ulong inline))
-                {
-                    return BulkRef.Of(inline);
-                }
-
-                return Plain(TermKey.Literal, term.Lexical, term.Datatype is null ? default : term.Datatype.Lexical, term.Language, term.Direction);
-        }
-    }
-
-    // An IRI or a literal: its key, then the cache, then the dataset's
-    // dictionary, and otherwise a new term.
-    private BulkRef Plain(byte kind, ReadOnlySpan<byte> lexical, ReadOnlySpan<byte> datatype, ReadOnlySpan<byte> language, TextDirection direction)
-    {
-        int needed = 2 + (3 * LogFormat.MaxUlebLength) + lexical.Length + datatype.Length + language.Length;
-
-        if (_scratch.Length < needed)
-        {
-            _scratch = new byte[needed * 2];
-        }
-
-        Span<byte> key = _scratch;
-        key[0] = kind;
-        int at = 1 + Field(key[1..], lexical);
-
-        if (kind == TermKey.Literal)
-        {
-            at += Field(key[at..], datatype);
-            at += Field(key[at..], language);
-            key[at++] = (byte)direction;
-            TermKey.LowerLanguage(key[..at]);
-        }
-
-        return Known(key[..at], BulkRef.NewCanonical);
-    }
-
-    private BulkRef Blank(ReadOnlySpan<byte> label)
-    {
-        if (_scratch.Length < label.Length + 1)
-        {
-            _scratch = new byte[(label.Length + 1) * 2];
-        }
-
-        _scratch[0] = 1;
-        label.CopyTo(_scratch.AsSpan(1));
-        ReadOnlySpan<byte> key = _scratch.AsSpan(0, label.Length + 1);
-
-        if (_lookup.TryGetValue(key, out BulkRef found))
+        if (cache.TryGet(key, out BulkRef found))
         {
             return found;
         }
 
-        // A label is scoped to the load: every one is a new node (ADR 0044).
-        return Remember(key, BulkRef.New(BulkRef.NewBlank, key), isNew: true);
+        if (key[0] != TermKey.Triple && TermDictionary.TryFindKey(Version.Runs, key, Terms.CanonicalCount, out ulong id))
+        {
+            return Remember(key, BulkRef.Of(id), isNew: false, cache);
+        }
+
+        return Remember(key, BulkRef.New(segment, key), isNew: true, cache);
     }
 
-    private BulkRef Triple(BulkRef s, BulkRef p, BulkRef o)
+    /// <summary>A blank node: its label is scoped to the load, so every one is a new node (ADR 0044).</summary>
+    internal BulkRef Blank(ReadOnlySpan<byte> key, WorkerCache cache) =>
+        cache.TryGet(key, out BulkRef found) ? found : Remember(key, BulkRef.New(BulkRef.NewBlank, key), isNew: true, cache);
+
+    /// <summary>A triple term over resolved components: the dataset's when it has one, a new one otherwise.</summary>
+    internal BulkRef Triple(BulkRef s, BulkRef p, BulkRef o, WorkerCache cache)
     {
         if (!s.IsNew && !p.IsNew && !o.IsNew
             && Terms.TryFindTriple(s.Lo, p.Lo, o.Lo, out ulong existing))
@@ -279,7 +288,7 @@ public sealed class BulkLoad : IAsyncDisposable
         }
 
         HasTriples = true;
-        return Known(key, (byte)(BulkRef.NewCanonical + depth));
+        return Known(key, (byte)(BulkRef.NewCanonical + depth), cache);
     }
 
     private static int Depth(BulkRef reference) =>
@@ -291,52 +300,50 @@ public sealed class BulkLoad : IAsyncDisposable
         BinaryPrimitives.WriteUInt64LittleEndian(destination[8..], reference.Lo);
     }
 
-    private BulkRef Known(ReadOnlySpan<byte> key, byte segment)
+    // Each term a worker meets: once in its cache, and once in the shared
+    // table if it is new. The table is the one structure every worker
+    // writes, so it is written under a lock (ADR 0108); a spill happens
+    // inside it, and the other workers wait for the write.
+    private BulkRef Remember(ReadOnlySpan<byte> key, BulkRef reference, bool isNew, WorkerCache cache)
     {
-        if (_lookup.TryGetValue(key, out BulkRef found))
+        cache.Set(key, reference);
+
+        if (!isNew)
         {
-            return found;
+            return reference;
         }
 
-        if (key[0] != TermKey.Triple && TermDictionary.TryFindKey(Version.Runs, key, Terms.CanonicalCount, out ulong id))
+        lock (_termsLock)
         {
-            return Remember(key, BulkRef.Of(id), isNew: false);
-        }
-
-        return Remember(key, BulkRef.New(segment, key), isNew: true);
-    }
-
-    // Each term a batch meets: once in the cache, and once in the table if it is new.
-    private BulkRef Remember(ReadOnlySpan<byte> key, BulkRef reference, bool isNew)
-    {
-        if (_cache.Count >= _cacheLimit)
-        {
-            _cache.Clear();
-        }
-
-        _lookup[key] = reference;
-
-        if (isNew && _newTerms.Add(reference, key))
-        {
-            BlobName? spilled = _newTerms.SpillAsync(_space, CancellationToken.None).AsTask().GetAwaiter().GetResult();
-
-            if (spilled is { } name)
+            if (_newTerms.Add(reference, key))
             {
-                TermRuns.Add(name);
-            }
+                // A term met again after the spill stays in its worker's
+                // cache and is not written again: the merge of the term runs
+                // takes a term that two spills hold once (TermMerge).
+                BlobName? spilled = _newTerms.SpillAsync(Space, CancellationToken.None).AsTask().GetAwaiter().GetResult();
 
-            // Every term of the next batch is written to its table again.
-            _cache.Clear();
+                if (spilled is { } name)
+                {
+                    TermRuns.Add(name);
+                }
+            }
         }
 
         return reference;
     }
 
-    private static int Field(Span<byte> destination, ReadOnlySpan<byte> bytes)
+    /// <summary>A resolved buffer, sorted and written as a run by its worker.</summary>
+    internal async ValueTask SpillAsync(BulkQuad[] quads, int count, ulong sequence, CancellationToken cancellationToken)
     {
-        int at = LogFormat.Uleb(destination, (ulong)bytes.Length);
-        bytes.CopyTo(destination[at..]);
-        return at + bytes.Length;
+        if (count == 0)
+        {
+            return;
+        }
+
+        quads.AsSpan(0, count).Sort();
+        BlobName name = Space.Named("quads", sequence);
+        await ExternalSort<BulkQuad>.WriteAsync(Space.Store, name, quads.AsMemory(0, count), cancellationToken).ConfigureAwait(false);
+        Quads.Adopt(name, count);
     }
 
     // -----------------------------------------------------------------------------------------
@@ -354,25 +361,30 @@ public sealed class BulkLoad : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(metadata);
         ObjectDisposedException.ThrowIf(_finished, this);
 
-        BulkRef agent = Resolve(metadata.Agent);
-        BulkRef cause = Resolve(metadata.Cause);
-        BulkRef scope = Resolve(metadata.GraphScope);
+        _pipeline.ThrowIfFailed();
         _finished = true;
 
         try
         {
-            BlobName? spilled = await _newTerms.SpillAsync(_space, cancellationToken).ConfigureAwait(false);
+            // The last buffer goes to the workers, and every worker finishes
+            // before the metadata's terms are resolved on this thread.
+            _pipeline.Submit(_current);
+            await _pipeline.CompleteAsync(cancellationToken).ConfigureAwait(false);
+            WorkerCache cache = new(this);
+            BulkRef agent = Resolve(metadata.Agent, cache);
+            BulkRef cause = Resolve(metadata.Cause, cache);
+            BulkRef scope = Resolve(metadata.GraphScope, cache);
+            BlobName? spilled = await _newTerms.SpillAsync(Space, cancellationToken).ConfigureAwait(false);
 
             if (spilled is { } name)
             {
                 TermRuns.Add(name);
             }
 
-            // The input is over: its table and cache give their memory to the commit's passes.
+            // The input is over: its table and caches give their memory to the commit's passes.
             _newTerms.Release();
-            _cache.Clear();
-            _cache.TrimExcess();
-            await using BulkCommit commit = new(this, _space, cancellationToken);
+            _pipeline.Release();
+            await using BulkCommit commit = new(this, Space, cancellationToken);
             return await commit.RunAsync(agent, cause, scope).ConfigureAwait(false);
         }
         finally
@@ -382,7 +394,7 @@ public sealed class BulkLoad : IAsyncDisposable
             // unable to commit or to close (found by ADR 0101's drain).
             try
             {
-                await _space.DeleteAllAsync(CancellationToken.None).ConfigureAwait(false);
+                await Space.DeleteAllAsync(CancellationToken.None).ConfigureAwait(false);
             }
             finally
             {
@@ -391,7 +403,7 @@ public sealed class BulkLoad : IAsyncDisposable
         }
     }
 
-    private BulkRef Resolve(RequestTerm term)
+    private BulkRef Resolve(RequestTerm term, WorkerCache cache)
     {
         if (term.IsNone)
         {
@@ -408,7 +420,10 @@ public sealed class BulkLoad : IAsyncDisposable
             return BulkRef.Of(term.Handle.Value);
         }
 
-        return Resolve(term.Term!);
+        OperationBuffer one = new(1 << 12, 1);
+        one.Begin(0);
+        one.Write(term.Term!);
+        return one.ResolveFirstTerm(this, cache);
     }
 
     /// <summary>Abandons the load if it has not committed: nothing was written to the log, and its spills are deleted.</summary>
@@ -423,27 +438,12 @@ public sealed class BulkLoad : IAsyncDisposable
 
         try
         {
-            await _space.DeleteAllAsync(CancellationToken.None).ConfigureAwait(false);
+            await _pipeline.AbandonAsync().ConfigureAwait(false);
+            await Space.DeleteAllAsync(CancellationToken.None).ConfigureAwait(false);
         }
         finally
         {
             Dataset.EndBulkLoad();
         }
-    }
-
-    /// <summary>Byte-array keys compared by content, and looked up by span without a copy.</summary>
-    private sealed class KeyComparer : IEqualityComparer<byte[]>, IAlternateEqualityComparer<ReadOnlySpan<byte>, byte[]>
-    {
-        internal static KeyComparer Instance { get; } = new();
-
-        public bool Equals(byte[]? x, byte[]? y) => x.AsSpan().SequenceEqual(y);
-
-        public int GetHashCode(byte[] obj) => (int)TermKey.Hash(obj);
-
-        public bool Equals(ReadOnlySpan<byte> alternate, byte[] other) => alternate.SequenceEqual(other);
-
-        public int GetHashCode(ReadOnlySpan<byte> alternate) => (int)TermKey.Hash(alternate);
-
-        public byte[] Create(ReadOnlySpan<byte> alternate) => alternate.ToArray();
     }
 }

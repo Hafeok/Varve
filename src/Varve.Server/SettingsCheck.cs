@@ -56,9 +56,16 @@ internal static class SettingsCheck
                 break;
         }
 
-        if (settings.Datasets.Count == 0)
+        // A server with no configured dataset serves what the admin API
+        // creates under its root (ADR 0106), so a root is enough.
+        if (settings.Datasets.Count == 0 && string.IsNullOrWhiteSpace(settings.DatasetsRoot))
         {
-            errors.Add("Varve:Datasets names at least one dataset.");
+            errors.Add("Varve:Datasets names at least one dataset, or Varve:DatasetsRoot names the directory datasets are created under.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(settings.DatasetsRoot) && !Path.IsPathFullyQualified(settings.DatasetsRoot))
+        {
+            errors.Add("Varve:DatasetsRoot is an absolute path.");
         }
 
         foreach ((string name, DatasetSettings dataset) in settings.Datasets)
@@ -85,11 +92,48 @@ internal static class SettingsCheck
             }
         }
 
-        foreach (string name in auth.Datasets.Keys)
+        foreach ((string name, PermissionSettings permissions) in auth.Datasets)
         {
             if (!settings.Datasets.ContainsKey(name))
             {
                 errors.Add("Varve:Auth:Datasets:" + name + " grants permissions on a dataset that is not configured.");
+            }
+
+            for (int i = 0; i < permissions.Grants.Count; i++)
+            {
+                string at = "Varve:Auth:Datasets:" + name + ":Grants:" + i.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                GrantSettings grant = permissions.Grants[i];
+
+                if (string.IsNullOrWhiteSpace(grant.Claim))
+                {
+                    errors.Add(at + ":Claim names the claim value the grant is for.");
+                }
+
+                if (grant.Permission is not ("read" or "write"))
+                {
+                    errors.Add(at + ":Permission is read or write; admin is dataset-wide (ADR 0107).");
+                }
+
+                if (grant.Graphs.Count == 0 && grant.GraphPrefixes.Count == 0)
+                {
+                    errors.Add(at + " names at least one graph or graph prefix.");
+                }
+
+                foreach (string graph in grant.Graphs)
+                {
+                    if (graph != "default" && !Uri.TryCreate(graph, UriKind.Absolute, out _))
+                    {
+                        errors.Add(at + ":Graphs holds an absolute IRI or `default`, not " + graph + ".");
+                    }
+                }
+
+                foreach (string prefix in grant.GraphPrefixes)
+                {
+                    if (string.IsNullOrEmpty(prefix))
+                    {
+                        errors.Add(at + ":GraphPrefixes holds no empty prefix.");
+                    }
+                }
             }
         }
 
@@ -105,6 +149,9 @@ internal static class SettingsCheck
             errors.Add("Varve:Limits sizes are positive.");
         }
 
+        CheckOutbound(errors, "Varve:Federation:AllowedEndpoints", settings.Federation.AllowedEndpoints, settings.Federation.Timeout, settings.Federation.MaxResponseBytes);
+        CheckOutbound(errors, "Varve:Load:AllowedSources", settings.Load.AllowedSources, settings.Load.Timeout, settings.Load.MaxResponseBytes);
+
         foreach (string proxy in settings.ForwardedHeaders.KnownProxies)
         {
             if (!IPAddress.TryParse(proxy, out _))
@@ -119,5 +166,25 @@ internal static class SettingsCheck
         }
 
         return errors;
+    }
+
+    // An endpoint policy's prefixes are absolute http or https IRIs, and its
+    // limits positive (ADRs 0103, 0104): checked here so that a wrong prefix is
+    // a listed error at start, not an exception at the first SERVICE.
+    private static void CheckOutbound(List<string> errors, string section, List<string> prefixes, TimeSpan timeout, long maxResponseBytes)
+    {
+        foreach (string prefix in prefixes)
+        {
+            if (string.IsNullOrWhiteSpace(prefix)
+                || !(prefix.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || prefix.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
+            {
+                errors.Add(section + " holds an absolute http or https IRI prefix, not '" + prefix + "'.");
+            }
+        }
+
+        if (timeout <= TimeSpan.Zero || maxResponseBytes <= 0)
+        {
+            errors.Add(section[..section.LastIndexOf(':')] + " has a positive Timeout and MaxResponseBytes.");
+        }
     }
 }

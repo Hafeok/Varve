@@ -51,26 +51,53 @@ internal sealed class SpillSpace
     internal BlobName Next(string kind)
     {
         BlobName name = new(_root + kind + "." + Interlocked.Increment(ref _next).ToString(CultureInfo.InvariantCulture));
-        Created.Add(name);
+        Record(name);
         return name;
+    }
+
+    /// <summary>A run named by the sequence of the buffer it holds (ADR 0108): the same name at any worker count.</summary>
+    internal BlobName Named(string kind, ulong sequence)
+    {
+        BlobName name = new(_root + kind + ".s" + sequence.ToString(CultureInfo.InvariantCulture));
+        Record(name);
+        return name;
+    }
+
+    // Workers record their runs from their own threads.
+    private void Record(BlobName name)
+    {
+        lock (Created)
+        {
+            Created.Add(name);
+        }
     }
 
     /// <summary>Deletes one blob as soon as nothing needs it, so the load's disk stays what one pass needs.</summary>
     internal async ValueTask DeleteAsync(BlobName name, CancellationToken cancellationToken)
     {
         await Store.DeleteAsync(name, cancellationToken).ConfigureAwait(false);
-        Created.Remove(name);
+
+        lock (Created)
+        {
+            Created.Remove(name);
+        }
     }
 
     /// <summary>Deletes every blob the load made; also what open does to a crashed load's.</summary>
     internal async ValueTask DeleteAllAsync(CancellationToken cancellationToken)
     {
-        foreach (BlobName name in Created)
+        BlobName[] names;
+
+        lock (Created)
+        {
+            names = [.. Created];
+            Created.Clear();
+        }
+
+        foreach (BlobName name in names)
         {
             await Store.DeleteAsync(name, cancellationToken).ConfigureAwait(false);
         }
-
-        Created.Clear();
     }
 }
 
@@ -111,6 +138,16 @@ internal sealed class ExternalSort<T>
         _buffer[_count++] = record;
         Total++;
         return _count == _buffer.Length;
+    }
+
+    /// <summary>A run written elsewhere — by a bulk load's worker (ADR 0108) — with its record count.</summary>
+    internal void Adopt(BlobName run, long records)
+    {
+        lock (_runs)
+        {
+            _runs.Add(run);
+            Total += records;
+        }
     }
 
     /// <summary>Sorts the buffer and writes it as a run.</summary>

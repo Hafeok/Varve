@@ -84,7 +84,7 @@ internal static class StoreDataset
         return dataset;
     }
 
-    private static RdfTerm Iri(string local, bool absolute = false) =>
+    internal static RdfTerm Iri(string local, bool absolute = false) =>
         RdfTerm.Iri(Encoding.UTF8.GetBytes(absolute ? local : "http://example.org/store/" + local));
 }
 
@@ -178,11 +178,13 @@ public class ScanBenchmarks
     [GlobalCleanup]
     public void Cleanup() => _view?.Dispose();
 
-    private long Count(TermHandle subject, TermHandle predicate, GraphPattern graph)
+    private long Count(TermHandle subject, TermHandle predicate, GraphPattern graph) => Count(_view!, subject, predicate, graph);
+
+    private static long Count(IQuadSource source, TermHandle subject, TermHandle predicate, GraphPattern graph)
     {
         long count = 0;
 
-        using IQuadCursor cursor = _view!.Match(subject, predicate, TermHandle.None, graph);
+        using IQuadCursor cursor = source.Match(subject, predicate, TermHandle.None, graph);
 
         while (cursor.MoveNext())
         {
@@ -203,6 +205,27 @@ public class ScanBenchmarks
     /// <summary>The default graph only: a graph-first range.</summary>
     [Benchmark]
     public long DefaultGraph() => Count(TermHandle.None, TermHandle.None, GraphPattern.DefaultGraph);
+
+    /// <summary>
+    /// Every quad through a <see cref="GraphScopedQuadSource"/> whose scope
+    /// lists four of the five graphs by IRI (ADR 0107): the filter's cost per
+    /// quad against <see cref="FullScan"/>, the wrapper built per request as
+    /// the protocol builds it.
+    /// </summary>
+    [Benchmark]
+    public long FullScanScopedByList()
+    {
+        GraphScope scope = GraphScope.Of([.. Enumerable.Range(0, 4).Select(i => StoreDataset.Iri("graph/" + i.ToString(CultureInfo.InvariantCulture)))], [], DefaultGraphAccess.Included);
+        return Count(new GraphScopedQuadSource(_view!, scope), TermHandle.None, TermHandle.None, GraphPattern.Any);
+    }
+
+    /// <summary>The same scan with the scope given as one IRI prefix: a decision per graph, memoised, then a lookup per quad.</summary>
+    [Benchmark]
+    public long FullScanScopedByPrefix()
+    {
+        GraphScope scope = GraphScope.Of([], ["http://example.org/dataset/graph/"], DefaultGraphAccess.Included);
+        return Count(new GraphScopedQuadSource(_view!, scope), TermHandle.None, TermHandle.None, GraphPattern.Any);
+    }
 
     /// <summary>10,000 subject lookups, ten quads each: SPOG ranges.</summary>
     [Benchmark]

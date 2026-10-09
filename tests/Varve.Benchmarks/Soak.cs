@@ -278,8 +278,10 @@ internal static class Soak
 
     // The directory of a derived run or checkpoint: what its reader holds in
     // memory, the fences and where each block begins (ADR 0080), read from
-    // the header at the file's end (storage-format.md §7). What ADR 0082
-    // counts as the dataset's own; zero for a file that is not a run.
+    // the header at the file's end (storage-format.md §7), and, in a
+    // format-3 file, its term filter, eight bits a term (ADR 0109), whose
+    // length is the directory's last word. What ADR 0082 counts as the
+    // dataset's own; zero for a file that is not a run.
     private static bool IsCheckpoint(string path) =>
         path.Replace('\\', '/').Contains("/derived/checkpoints/", StringComparison.Ordinal);
 
@@ -297,7 +299,27 @@ internal static class Soak
             Span<byte> header = stackalloc byte[160];
             file.Seek(-160, SeekOrigin.End);
             file.ReadExactly(header);
-            return header[..4].SequenceEqual("VRVD"u8) ? (long)BinaryPrimitives.ReadUInt64LittleEndian(header[80..]) : 0;
+
+            if (!header[..4].SequenceEqual("VRVD"u8))
+            {
+                return 0;
+            }
+
+            long directory = (long)BinaryPrimitives.ReadUInt64LittleEndian(header[80..]);
+            ushort kind = BinaryPrimitives.ReadUInt16LittleEndian(header[6..]);
+
+            // Only a run or a checkpoint (kinds 1 and 2) carries a filter; the
+            // projection state and the commit index are version 3 too, and
+            // their directory's last word is something else.
+            if (BinaryPrimitives.ReadUInt16LittleEndian(header[4..]) < 3 || kind > 2 || directory < 8)
+            {
+                return directory;
+            }
+
+            Span<byte> last = stackalloc byte[8];
+            file.Seek(-160 - 8, SeekOrigin.End);
+            file.ReadExactly(last);
+            return directory + (long)BinaryPrimitives.ReadUInt64LittleEndian(last);
         }
         catch (IOException)
         {

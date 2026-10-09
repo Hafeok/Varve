@@ -15,7 +15,7 @@ or depart from `docs/brief.md`, each says so in its Context.
 | [0001](0001-record-architecture-decisions.md) | Record architecture decisions | Accepted; **amended by 0068** |
 | [0002](0002-licence.md) | Licence: Apache-2.0 | **Superseded by 0031** |
 | [0003](0003-package-layering.md) | Package layering and the strictly downward reference rule | Accepted; layer table **superseded by 0060**; declaration **by 0064**; suppression escape **by 0062** |
-| [0004](0004-enforcement-by-analyzers.md) | Enforcement by analyzers | Accepted; reservation table **superseded by 0062**; amended 2026-10-07 (the `System.Uri` ban narrowed) |
+| [0004](0004-enforcement-by-analyzers.md) | Enforcement by analyzers | Accepted; reservation table **superseded by 0062**; amended 2026-10-07 (the `System.Uri` ban narrowed); amended 2026-10-08 (`Varve.Protocol.Client`) |
 | [0005](0005-store-is-sparql-free.md) | `Varve.Store` is SPARQL-free | Accepted |
 | [0006](0006-build-and-test-dependencies.md) | Build-time and test-time dependencies | **Superseded by 0009** |
 | [0007](0007-w3c-conformance-harness.md) | W3C conformance harness | Accepted |
@@ -138,7 +138,7 @@ Decided by the maintainer on the 5c plan.
 
 | # | Title | Status |
 |---:|---|---|
-| [0057](0057-sparql-update-one-request-one-commit.md) | SPARQL Update over the store: one request, one commit | Accepted; amended 2026-09-25 (release before submit) |
+| [0057](0057-sparql-update-one-request-one-commit.md) | SPARQL Update over the store: one request, one commit | Accepted; amended 2026-09-25 (release before submit); amended 2026-10-08 (a data-only request expects no position) |
 | [0058](0058-staging-view-and-dataset-validators.md) | A staging view over a pinned read, and validators bound to a dataset | Accepted; refines 0017 |
 | [0059](0059-rdfc-in-varve-rdf-and-its-work-limit.md) | RDFC-1.0 in `Varve.Rdf`, bounded by a work limit; the isomorphism check stays as a cross-check | Accepted; supersedes 0030's deletion clause |
 
@@ -201,15 +201,15 @@ has written one.
 
 | # | Title | Status |
 |---:|---|---|
-| [0037](0037-server-authentication.md) | Authentication and authorisation for the server | Accepted; amended 2026-10-07 (`JwtBearer` is a package, ADR 0099); test consequence refined by 0100 |
+| [0037](0037-server-authentication.md) | Authentication and authorisation for the server | Accepted; amended 2026-10-07 (`JwtBearer` is a package, ADR 0099); test consequence refined by 0100; point 8's storage clause **superseded in part by 0105**; point 3 refined by 0107 |
 
 Filed by milestone 7a ([#11](https://github.com/Hafeok/Varve/issues/11)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by 7a, likewise unaccepted: 0004 (the `System.Uri` ban narrowed), 0042 (a delivered commit externalises its handles), 0060 (the protocol seam's revisit condition).
 
 | # | Title | Status |
 |---:|---|---|
-| [0091](0091-varve-protocol-and-varve-server.md) | `Varve.Protocol` and `Varve.Server`: endpoint groups, the update seam, policy names | Accepted |
+| [0091](0091-varve-protocol-and-varve-server.md) | `Varve.Protocol` and `Varve.Server`: endpoint groups, the update seam, policy names | Accepted; amended 2026-10-08 (the 7b seams) |
 | [0092](0092-protocol-scope-problem-details-and-tie-breakers.md) | Protocol scope, problem details, and the Oxigraph tie-breakers | Accepted |
-| [0093](0093-datasets-are-the-routing-unit.md) | Datasets are the routing unit; the name is the host's | Accepted |
+| [0093](0093-datasets-are-the-routing-unit.md) | Datasets are the routing unit; the name is the host's | Accepted; refined by 0106 |
 | [0094](0094-a-write-over-http-is-one-commit.md) | A write over HTTP is one commit: agent, cause, `Varve-Position`, `409`, `412` | Accepted |
 | [0095](0095-a-read-over-http-is-pinned-for-its-response.md) | A read over HTTP is pinned for its response, bounded, and cut visibly | Accepted; refines 0052 |
 | [0096](0096-time-travel-over-http.md) | Time travel over HTTP: `Varve-As-Of`, `ETag`, `304` | Accepted |
@@ -218,6 +218,18 @@ Filed by milestone 7a ([#11](https://github.com/Hafeok/Varve/issues/11)), unacce
 | [0099](0099-register-jwtbearer-and-the-workflows-containers.md) | Register: `JwtBearer` in the server; no Testcontainers; the shared framework | Accepted; conditional on the server's AOT publish |
 | [0100](0100-authentication-tested-in-three-layers.md) | Authentication tested in three layers | Accepted; refines 0037 |
 | [0101](0101-the-server-configuration-aot-shutdown-readiness.md) | The server: configuration, Native AOT, shutdown, readiness, status | Accepted |
+
+Filed by milestone 7b ([#11](https://github.com/Hafeok/Varve/issues/11)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by 7b, likewise unaccepted: 0004 (`Varve.Protocol.Client` speaks HTTP), 0057 (a data-only request expects no position), 0091 (the 7b seams).
+
+| # | Title | Status |
+|---:|---|---|
+| [0103](0103-varve-protocol-client.md) | `Varve.Protocol.Client`: the HTTP client at layer 5, and the endpoint policy | Accepted |
+| [0104](0104-service-and-load-over-http.md) | `SERVICE` and `LOAD` over HTTP | Accepted; discharges 0055's and 0057's reservations |
+| [0105](0105-the-cli.md) | The CLI `varve`: one executable with the server, embedded and remote modes, the credential file, `System.CommandLine` | Accepted; supersedes 0037 point 8's storage clause in part |
+| [0106](0106-the-admin-api.md) | The admin API | Accepted; refines 0093 |
+| [0107](0107-graph-level-authorisation.md) | Graph-level authorisation | Accepted; refines 0037; amends 0091 |
+| [0108](0108-bulk-resolve-on-worker-threads.md) | The bulk load resolves and spills on worker threads | Accepted; builds 0081's last alternative |
+| [0109](0109-per-run-term-filters.md) | Per-run term filters: derived format 3 | Accepted; discharges 0079's revisit condition |
 
 ## Conformance — differential testing against Oxigraph
 

@@ -6,6 +6,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Net;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
@@ -22,6 +23,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Varve.Protocol;
+using Varve.Protocol.Client;
 using Varve.Sparql.Algebra;
 using Varve.Sparql.Evaluation;
 using Varve.Sparql.Store;
@@ -85,7 +87,8 @@ internal static partial class ServerHost
         TimeProvider clock = TimeProvider.System;
         await using OpenDatasets datasets = await OpenDatasets.OpenAsync(settings, clock, CancellationToken.None).ConfigureAwait(false);
         IHostApplicationLifetime lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
-        Map(app, settings, datasets, clock, anonymous, lifetime.ApplicationStopping);
+        using HttpClient outbound = OutboundHttp.CreateClient();
+        Map(app, settings, datasets, clock, anonymous, Outbound.Of(settings, outbound), lifetime.ApplicationStopping);
 
         if (ready is null)
         {
@@ -125,7 +128,7 @@ internal static partial class ServerHost
         {
             services.AddAuthorization(authorization =>
             {
-                foreach (string permission in (ReadOnlySpan<string>)[DatasetPermissions.Read, DatasetPermissions.Write, DatasetPermissions.Admin])
+                foreach (string permission in (ReadOnlySpan<string>)[DatasetPermissions.Read, DatasetPermissions.Write, DatasetPermissions.Admin, DatasetPermissions.ServerAdmin])
                 {
                     authorization.AddPolicy(permission, policy => policy.RequireAssertion(_ => true));
                 }
@@ -161,10 +164,11 @@ internal static partial class ServerHost
             authorization.AddPolicy(DatasetPermissions.Read, policy => policy.AddRequirements(new DatasetPermission(Permission.Read)));
             authorization.AddPolicy(DatasetPermissions.Write, policy => policy.AddRequirements(new DatasetPermission(Permission.Write)));
             authorization.AddPolicy(DatasetPermissions.Admin, policy => policy.AddRequirements(new DatasetPermission(Permission.Admin)));
+            authorization.AddPolicy(DatasetPermissions.ServerAdmin, policy => policy.AddRequirements(new DatasetPermission(Permission.ServerAdmin)));
         });
     }
 
-    private static void Map(WebApplication app, ServerSettings settings, OpenDatasets datasets, TimeProvider clock, bool anonymous, CancellationToken stopping)
+    private static void Map(WebApplication app, ServerSettings settings, OpenDatasets datasets, TimeProvider clock, bool anonymous, Outbound outbound, CancellationToken stopping)
     {
         if (settings.ForwardedHeaders.Enabled)
         {
@@ -197,8 +201,10 @@ internal static partial class ServerHost
         ProtocolOptions options = new()
         {
             Datasets = datasets,
-            Updates = new StoreUpdates(clock),
+            Administration = datasets,
+            Updates = new StoreUpdates(clock, outbound),
             Identity = anonymous ? new NoAgent() : new TokenIdentity(settings.Auth.SubjectClaim),
+            AccessScopes = anonymous ? EveryoneEverything.Instance : new GrantedScopes(settings.Auth),
             Authorization = app.Services.GetRequiredService<IAuthorizationService>(),
             Clock = clock,
             Limits = new ProtocolLimits(
@@ -207,28 +213,37 @@ internal static partial class ServerHost
                 new ByteCount(settings.Limits.ResultSizeCap),
                 new ByteCount(settings.Limits.MaxRequestBody),
                 settings.Limits.FeedHeartbeat),
-            Evaluation = new EvaluationOptions { Clock = clock, Randomness = new SystemRandomness() },
+            Evaluation = new EvaluationOptions { Clock = clock, Randomness = new SystemRandomness(), ServiceHandler = outbound.Service },
             Stopping = stopping,
         };
 
         app.MapGroup("/datasets/{dataset}").MapVarveDataset(options);
+        app.MapVarveAdministration("/datasets", options);
         app.MapGet("/live", (RequestDelegate)(context => WriteJsonAsync(context, StatusCodes.Status200OK, "application/json", json => json.WriteString("status", "live"))));
         app.MapGet("/ready", (RequestDelegate)(context => ReadyAsync(context, datasets)));
     }
 
-    // Ready when every dataset is open and not failed (ADR 0101): datasets are
-    // opened, their default projections replayed to the head, before the
-    // server listens, so failure is what remains to report.
+    // Ready when every dataset that should be open is open and not failed
+    // (ADRs 0101, 0106): datasets are opened, their default projections
+    // replayed to the head, before the server listens, so a failure to open
+    // — a directory under the root that is leased elsewhere, or does not
+    // parse — and a projection failure are what remain to report. A dataset
+    // closed by the admin API is reported and does not count against readiness.
     private static Task ReadyAsync(HttpContext context, OpenDatasets datasets)
     {
         bool ready = true;
-        List<(string, bool)> states = [];
+        List<(string Name, string State, string? Reason)> states = [];
 
-        foreach ((string name, Dataset dataset) in datasets.All)
+        foreach (Varve.Protocol.Model.DatasetEntry entry in datasets.List())
         {
-            bool failed = dataset.IsFailed;
-            ready &= !failed;
-            states.Add((name, failed));
+            string state = entry.State switch
+            {
+                Varve.Protocol.Model.DatasetState.Open => datasets.TryResolve(entry.Name, out Dataset? dataset) && dataset.IsFailed ? "failed" : "ready",
+                Varve.Protocol.Model.DatasetState.Closed => "closed",
+                _ => "failed",
+            };
+            ready &= state != "failed";
+            states.Add((entry.Name.Value, state, entry.Reason));
         }
 
         return WriteJsonAsync(context, ready ? StatusCodes.Status200OK : StatusCodes.Status503ServiceUnavailable, "application/json", json =>
@@ -236,9 +251,19 @@ internal static partial class ServerHost
             json.WriteString("status", ready ? "ready" : "failed");
             json.WriteStartObject("datasets");
 
-            foreach ((string name, bool failed) in states)
+            foreach ((string name, string state, string? reason) in states)
             {
-                json.WriteString(name, failed ? "failed" : "ready");
+                if (reason is null)
+                {
+                    json.WriteString(name, state);
+                }
+                else
+                {
+                    json.WriteStartObject(name);
+                    json.WriteString("state", state);
+                    json.WriteString("reason", reason);
+                    json.WriteEndObject();
+                }
             }
 
             json.WriteEndObject();
@@ -262,15 +287,18 @@ internal static partial class ServerHost
         await context.Response.Body.WriteAsync(body.WrittenMemory, context.RequestAborted).ConfigureAwait(false);
     }
 
-    /// <summary>The update executor (ADR 0091): Varve.Sparql.Store, no retries, the expected position passed through.</summary>
-    private sealed class StoreUpdates(TimeProvider clock) : ISparqlUpdateExecutor
+    /// <summary>The update executor (ADR 0091): Varve.Sparql.Store, no retries, the expected position passed through, SERVICE and LOAD through the outbound client (ADR 0104).</summary>
+    private sealed class StoreUpdates(TimeProvider clock, Outbound outbound) : ISparqlUpdateExecutor
     {
-        public ValueTask<CommitResult> ExecuteAsync(Dataset dataset, Update update, CommitMetadata metadata, Position? expectedPosition, CancellationToken cancellationToken) =>
+        public ValueTask<CommitResult> ExecuteAsync(Dataset dataset, Update update, CommitMetadata metadata, Position? expectedPosition, Varve.Rdf.CallerScope scope, CancellationToken cancellationToken) =>
             SparqlUpdate.ExecuteAsync(dataset, update, new UpdateOptions
             {
                 Metadata = metadata,
                 ExpectedPosition = expectedPosition,
-                Evaluation = new EvaluationOptions { Clock = clock, Randomness = new SystemRandomness() },
+                Evaluation = new EvaluationOptions { Clock = clock, Randomness = new SystemRandomness(), ServiceHandler = outbound.Service },
+                LoadSource = outbound.Load,
+                ReadScope = scope.Readable,
+                WriteScope = scope.Writable,
             }, cancellationToken);
     }
 

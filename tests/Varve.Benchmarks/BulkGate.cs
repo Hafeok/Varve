@@ -48,6 +48,7 @@ internal static class BulkGate
         string? write = null;
         bool crashes = false;
         bool closedOnly = false;
+        int? workers = null;
 
         for (int i = 2; i < args.Length; i++)
         {
@@ -71,6 +72,9 @@ internal static class BulkGate
                 case "--crash-closed-only":
                     crashes = true;
                     closedOnly = true;
+                    break;
+                case "--workers":
+                    workers = int.Parse(args[++i], CultureInfo.InvariantCulture);
                     break;
                 default:
                     throw new ArgumentException("Unknown option " + args[i]);
@@ -101,7 +105,10 @@ internal static class BulkGate
         FileStorage storage = await FileStorage.OpenAsync(new DatasetDirectory(directory), new FileStorageOptions { Clock = TimeProvider.System });
         DatasetOptions options = new() { Clock = TimeProvider.System, Maintenance = MaintenanceMode.Off };
         StoreDatasetType dataset = await StoreDatasetType.CreateAsync(storage, new DatasetId(Guid.NewGuid()), options);
-        BulkLoadOptions bulk = new() { MemoryBytes = new ByteCount(memory) };
+        BulkLoadOptions bulk = workers is int threads
+            ? new BulkLoadOptions { MemoryBytes = new ByteCount(memory), Workers = threads }
+            : new BulkLoadOptions { MemoryBytes = new ByteCount(memory) };
+        Console.WriteLine("# workers: " + bulk.Workers.ToString(CultureInfo.InvariantCulture) + " of " + Environment.ProcessorCount.ToString(CultureInfo.InvariantCulture) + " processors (ADR 0108)");
         long start = 0;
 
         if (populated > 0)

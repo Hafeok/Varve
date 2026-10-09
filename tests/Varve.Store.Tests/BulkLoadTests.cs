@@ -99,7 +99,12 @@ public class BulkLoadTests
     };
 
     // Small enough that every load spills many runs, and merges more than 64 of them in passes.
-    private static BulkLoadOptions Tiny => new() { SortRecords = 3, TermBytes = 64 };
+    // One worker: the simulated file system numbers its operations in
+    // sequence, and a crash "before operation N" names the same write in
+    // every run only when one thread writes (ADR 0108). With more workers the
+    // interleaving, and how many terms reach the shared table before a spill,
+    // vary run to run. The worker-count test below sets its own.
+    private static BulkLoadOptions Tiny => new() { SortRecords = 3, TermBytes = 64, Workers = 1 };
 
     private static async Task<Dataset> PriorAsync(IStorage storage, Op[][] prior, IReadOnlyList<ICommitValidator>? validators = null)
     {
@@ -163,6 +168,58 @@ public class BulkLoadTests
                 Assert.Equal(Canonical(reference), Canonical(again));
             },
             iter: 150);
+    }
+
+    /// <summary>
+    /// ADR 0108: the load's result is the same at any worker count — the
+    /// quads, and the ids the new terms get, since those follow the merged
+    /// term runs and not the workers' order of arrival.
+    /// </summary>
+    [Fact]
+    public async Task a_load_leaves_the_same_dataset_and_the_same_ids_at_any_worker_count()
+    {
+        await Gen.Select(Ops.Array[0, 400], Gen.Int[1, 4]).SampleAsync(
+            async sample =>
+            {
+                (Op[] ops, int workers) = sample;
+                string[] canonical = new string[2];
+                string[] feeds = new string[2];
+
+                for (int round = 0; round < 2; round++)
+                {
+                    MemoryStorage storage = new();
+                    await using Dataset dataset = await Dataset.CreateAsync(storage, T.Id, Options(), T.Ct);
+                    BulkLoadOptions options = new() { SortRecords = 3, TermBytes = 64, Workers = round == 0 ? 1 : workers };
+
+                    await using (BulkLoad load = await dataset.BeginBulkLoadAsync(options, T.Ct))
+                    {
+                        Feed(load, ops);
+                        await load.CommitAsync(new CommitMetadata(), T.Ct);
+                    }
+
+                    using DatasetView view = dataset.Pin();
+                    canonical[round] = Canonical(view);
+                    System.Text.StringBuilder handles = new();
+
+                    using (IQuadCursor cursor = view.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any))
+                    {
+                        List<string> keys = [];
+
+                        while (cursor.MoveNext())
+                        {
+                            Quad quad = cursor.Current;
+                            keys.Add(quad.Subject.Value + " " + quad.Predicate.Value + " " + quad.Object.Value + " " + quad.Graph.Value);
+                        }
+
+                        keys.Sort(StringComparer.Ordinal);
+                        feeds[round] = string.Join("\n", keys);
+                    }
+                }
+
+                Assert.Equal(canonical[0], canonical[1]);
+                Assert.Equal(feeds[0], feeds[1]);
+            },
+            iter: 60);
     }
 
     [Fact]
