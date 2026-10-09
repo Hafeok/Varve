@@ -35,6 +35,8 @@ decisions:
     statement: "Varve.Sparql.Store's UpdateOptions gains ExpectedPosition, which returns Conflict without evaluation when the pin is elsewhere"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-08T00:00:00Z
+  - key: TraceIdIsNeverTheCause
+    statement: "W3C Trace Context is honoured and propagated and never written into the log; the cause stays the server-minted request id because a trace id is client-chosen and spans several requests; amended 2026-10-09 under ADR 0119"
 ---
 
 The rulings of [ADR 0094](../adr/0094-a-write-over-http-is-one-commit.md), filed unaccepted by milestone 7a of #11

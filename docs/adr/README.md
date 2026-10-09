@@ -187,7 +187,7 @@ maintainer on the 6a plan, filed unaccepted (ADR 0066); specification 1.4, and 1
 | [0079](0079-the-term-dictionary-on-disk.md) | The term dictionary on disk, carried by the runs | Accepted |
 | [0080](0080-derived-blocks-compressed.md) | Derived keys compressed in their blocks; derived format 2 | Accepted; answers 6a's compression question |
 | [0081](0081-the-bulk-loader.md) | The bulk loader: references by content hash, memory bounded, one commit | Accepted; builds 0076 and 0077 |
-| [0082](0082-the-soak-gate.md) | The soak gate: a flat working set within a stated band | Accepted; the gate #61 blocks |
+| [0082](0082-the-soak-gate.md) | The soak gate: a flat working set within a stated band | Accepted; the gate #61 blocks; amended 2026-10-09 (judged under the shipped configuration) |
 | [0083](0083-replica-bootstrap-is-a-file-copy.md) | Replica bootstrap is a copy of files | Accepted |
 | [0084](0084-the-browser-backend.md) | The browser backend: OPFS sync access handles in a worker, IndexedDB as the fallback | Accepted; answers 0071's revisit condition for the browser |
 | [0089](0089-the-commit-index-is-derived-and-paged.md) | The commit index is derived and paged | Accepted; the soak's drift (#61) |
@@ -208,16 +208,16 @@ Filed by milestone 7a ([#11](https://github.com/Hafeok/Varve/issues/11)), unacce
 | # | Title | Status |
 |---:|---|---|
 | [0091](0091-varve-protocol-and-varve-server.md) | `Varve.Protocol` and `Varve.Server`: endpoint groups, the update seam, policy names | Accepted; amended 2026-10-08 (the 7b seams) |
-| [0092](0092-protocol-scope-problem-details-and-tie-breakers.md) | Protocol scope, problem details, and the Oxigraph tie-breakers | Accepted |
-| [0093](0093-datasets-are-the-routing-unit.md) | Datasets are the routing unit; the name is the host's | Accepted; refined by 0106 |
-| [0094](0094-a-write-over-http-is-one-commit.md) | A write over HTTP is one commit: agent, cause, `Varve-Position`, `409`, `412` | Accepted |
+| [0092](0092-protocol-scope-problem-details-and-tie-breakers.md) | Protocol scope, problem details, and the Oxigraph tie-breakers | Accepted; amended 2026-10-09 (the problem catalogue) |
+| [0093](0093-datasets-are-the-routing-unit.md) | Datasets are the routing unit; the name is the host's | Accepted; refined by 0106; amended 2026-10-09 (the route table) |
+| [0094](0094-a-write-over-http-is-one-commit.md) | A write over HTTP is one commit: agent, cause, `Varve-Position`, `409`, `412` | Accepted; amended 2026-10-09 (the cause is never a trace id) |
 | [0095](0095-a-read-over-http-is-pinned-for-its-response.md) | A read over HTTP is pinned for its response, bounded, and cut visibly | Accepted; refines 0052 |
-| [0096](0096-time-travel-over-http.md) | Time travel over HTTP: `Varve-As-Of`, `ETag`, `304` | Accepted |
-| [0097](0097-the-change-feed-and-the-diff.md) | The change feed and the diff: a line format, SSE for tailing | Accepted; `docs/spec/change-feed.md` |
+| [0096](0096-time-travel-over-http.md) | Time travel over HTTP: `Varve-As-Of`, `ETag`, `304` | Accepted; amended 2026-10-09 (the cache headers) |
+| [0097](0097-the-change-feed-and-the-diff.md) | The change feed and the diff: a line format, SSE for tailing | Accepted; `docs/spec/change-feed.md`; amended 2026-10-09 (the commits resource) |
 | [0098](0098-blank-nodes-at-the-protocol-boundary.md) | Blank nodes at the protocol boundary: stable labels out, fresh in, no skolem IRIs | Accepted; closes Q1, spec 1.6 |
 | [0099](0099-register-jwtbearer-and-the-workflows-containers.md) | Register: `JwtBearer` in the server; no Testcontainers; the shared framework | Accepted; conditional on the server's AOT publish |
 | [0100](0100-authentication-tested-in-three-layers.md) | Authentication tested in three layers | Accepted; refines 0037 |
-| [0101](0101-the-server-configuration-aot-shutdown-readiness.md) | The server: configuration, Native AOT, shutdown, readiness, status | Accepted |
+| [0101](0101-the-server-configuration-aot-shutdown-readiness.md) | The server: configuration, Native AOT, shutdown, readiness, status | Accepted; amended 2026-10-09 (health paths, unknown keys) |
 
 Filed by milestone 7b ([#11](https://github.com/Hafeok/Varve/issues/11)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by 7b, likewise unaccepted: 0004 (`Varve.Protocol.Client` speaks HTTP), 0057 (a data-only request expects no position), 0091 (the 7b seams).
 
@@ -226,10 +226,28 @@ Filed by milestone 7b ([#11](https://github.com/Hafeok/Varve/issues/11)), unacce
 | [0103](0103-varve-protocol-client.md) | `Varve.Protocol.Client`: the HTTP client at layer 5, and the endpoint policy | Accepted |
 | [0104](0104-service-and-load-over-http.md) | `SERVICE` and `LOAD` over HTTP | Accepted; discharges 0055's and 0057's reservations |
 | [0105](0105-the-cli.md) | The CLI `varve`: one executable with the server, embedded and remote modes, the credential file, `System.CommandLine` | Accepted; supersedes 0037 point 8's storage clause in part |
-| [0106](0106-the-admin-api.md) | The admin API | Accepted; refines 0093 |
+| [0106](0106-the-admin-api.md) | The admin API | Accepted; refines 0093; amended 2026-10-09 (state and settings as resources) |
 | [0107](0107-graph-level-authorisation.md) | Graph-level authorisation | Accepted; refines 0037; amends 0091 |
 | [0108](0108-bulk-resolve-on-worker-threads.md) | The bulk load resolves and spills on worker threads | Accepted; builds 0081's last alternative |
 | [0109](0109-per-run-term-filters.md) | Per-run term filters: derived format 3 | Accepted; discharges 0079's revisit condition |
+
+## Milestone Operability — a server somebody can run
+
+Filed by milestone Operability ([#12](https://github.com/Hafeok/Varve/issues/12)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by it, likewise unaccepted: 0082 (judged under the shipped configuration), 0092 (the problem catalogue), 0093 (the route table), 0094 (the cause is never a trace id), 0096 (the cache headers; `410` reversed), 0097 (the commits resource), 0101 (health paths, unknown keys), 0106 (state and settings as resources).
+
+| # | Title | Status |
+|---:|---|---|
+| [0110](0110-the-shipped-runtime-configuration.md) | The shipped runtime configuration: workstation concurrent GC, `ConserveMemory`, no heap limit of our own | Proposed; amends 0082; closes #61 |
+| [0111](0111-the-container-image.md) | The container image: `ghcr.io/hafeok/varve`, Native AOT per architecture, attested | Proposed |
+| [0112](0112-telemetry-in-two-layers.md) | Telemetry in two layers: the BCL instruments, the server exports | Proposed; admits the OpenTelemetry packages to `Varve.Server` |
+| [0113](0113-health-and-readiness.md) | Health and readiness are different questions: `/health/live`, `/health/ready` | Proposed; amends 0101 |
+| [0114](0114-resource-governance.md) | Resource governance: a stated answer for every limit | Proposed; refines 0095 |
+| [0115](0115-configuration-precedence-and-print-config.md) | Configuration from file, environment and command line; `--print-config`; an unknown key refuses to start | Proposed; amends 0101 |
+| [0116](0116-the-lease-policy-and-varve-lease.md) | The lease at start: a bounded wait, never a forced takeover; `varve lease` | Proposed; refines 0075 |
+| [0117](0117-varve-aspire.md) | `Varve.Aspire`: the hosting integration | Proposed; admits `Aspire.Hosting` |
+| [0118](0118-api-alignment-while-everything-is-preview.md) | API alignment while everything is preview | Proposed; amends 0093, 0097, 0106; `410` reversed, 0096 stands |
+| [0119](0119-headers-and-the-problem-catalogue.md) | Headers by read kind, and a catalogue of every problem the server can emit | Proposed; amends 0092, 0094, 0096 |
+| [0120](0120-the-insert-data-fast-path.md) | The `INSERT DATA` fast path: ground quads to the commit request | Proposed; answers #35 |
 
 ## Conformance — differential testing against Oxigraph
 

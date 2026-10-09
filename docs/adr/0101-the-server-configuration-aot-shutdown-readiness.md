@@ -9,6 +9,11 @@ Decided by the maintainer on the 7a plan:
 
 Acceptance is the maintainer's act on the pull request.
 
+**Amended 2026-10-09** (ADR 0068), by milestone Operability of #12 under ADRs
+[0113](0113-health-and-readiness.md) and
+[0115](0115-configuration-precedence-and-print-config.md): point 5's paths
+and body, point 1's precedence and unknown keys; see the end.
+
 ## Context
 
 A server cannot be tested without configuration it validates, a way to stop
@@ -158,3 +163,29 @@ durable.
 - **Layer ownership.** `Varve.Server` (6). The drain is `Varve.Store` (4).
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-09 — health under `/health/`, configuration refuses unknown keys
+
+Filed by milestone Operability of #12, unaccepted until the maintainer
+accepts it (ADR 0066). Two blocks, each adding to a point above.
+
+**Point 5** (ADR 0113). `GET /live` and `GET /ready` are `GET /health/live`
+and `GET /health/ready`. Liveness consults no dataset. Readiness is `200`
+when every dataset that should be open is open, no default projection is
+failed, and each is within `Varve:Health:ReadyLag` of its head (default 0,
+which is the rule above), and otherwise `503` with a `not-ready` problem
+listing the datasets that fail and why; it becomes false from
+`ApplicationStopping`, before the listener closes, which is the step before
+"new writes are refused" in point 4. Both are rate-limited.
+
+**Point 1** (ADR 0115). The precedence is file, environment, command line,
+later winning; `varve serve` maps typed options onto the same keys and
+`--print-config` prints the effective configuration with secrets redacted;
+and **an unknown key under `Varve:` refuses to start**, listed with the
+other errors, so that a misspelt setting is an error and not a silently
+applied default, which is what "it never substitutes a default for a value
+that was given and is wrong" meant and did not yet do.
+
+**The ledger.** `ReadinessIsProjectionAtHead` and
+`ConfigurationValidatedAtStart` stand; the rulings are ADR 0113's and ADR
+0115's sets.

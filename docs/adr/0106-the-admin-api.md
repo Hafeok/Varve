@@ -11,6 +11,11 @@ reserved creation "through the admin API (milestone 7b)", and extends ADR
 [0101](0101-the-server-configuration-aot-shutdown-readiness.md)'s `/status`.
 Acceptance is the maintainer's act on the pull request.
 
+**Amended 2026-10-09** (ADR 0068), by milestone Operability of #12 under ADR
+[0118](0118-api-alignment-while-everything-is-preview.md): `open`, `close` and
+`POST settings` become the `state` and `settings` resources, `PUT` is
+idempotent; see the end.
+
 ## Context
 
 7a's one `admin` endpoint reports a dataset's status. ADR 0037 gave `admin`
@@ -127,3 +132,21 @@ grants yet, and listing is a decision about several.
   system under the root and the grant are `Varve.Server` (6).
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-09 — state and settings are resources; `PUT` is idempotent
+
+Filed by milestone Operability of #12, unaccepted until the maintainer
+accepts it (ADR 0066). The grants, the discovery, the close-before-delete
+rule and the checkpoint endpoint stand. The table in point 1 is left as
+written; these rows replace three of its paths (ADR 0118):
+
+| Path | Method | Grant | What |
+|---|---|---|---|
+| `/datasets/{name}` | `PUT` | server admin | as above, and **idempotent**: the same body again is `204`, a different body `409 dataset-exists` |
+| `/datasets/{name}/state` | `GET`, `PUT` | server admin | `{"state":"open"|"closed"}`; `PUT` is idempotent, `204`; a failed dataset asked to open is `503` with the reason |
+| `/datasets/{name}/settings` | `GET`, `PUT`, `PATCH` | dataset `admin` | the settings at the head with the position as `ETag`; `PUT` replaces, `PATCH` (`application/merge-patch+json`) merges, both under `If-Match`, the `Settings` commit being the effect |
+
+`POST …/open`, `…/close` and `POST …/settings` are removed, not aliased.
+
+**The ledger.** `AdminEndpoints` and `SettingsCommitOverHttp` stand as
+accepted; the rulings of this block are ADR 0118's set.

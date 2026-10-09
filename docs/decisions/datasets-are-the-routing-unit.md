@@ -23,6 +23,8 @@ decisions:
     statement: "Direct graph identification takes the request's own scheme, host and path, behind a proxy only through configured forwarded headers"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-08T00:00:00Z
+  - key: DatasetRoutesAfterAlignment
+    statement: "The dataset routes are the service description, sparql, graphs, commits and commits/{position}, diff, status, state, settings and checkpoints, with health outside every dataset under /health/; amended 2026-10-09 under ADR 0118"
 ---
 
 The rulings of [ADR 0093](../adr/0093-datasets-are-the-routing-unit.md), filed unaccepted by milestone 7a of #11
