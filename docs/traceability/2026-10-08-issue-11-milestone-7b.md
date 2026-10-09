@@ -361,6 +361,11 @@ In `tests/Varve.Benchmarks/README.md`, the 7b section:
   `FROM NAMED` query answer nothing where the sub-dataset had a row, and
   the seed did not reproduce it alone. The counter is `Interlocked` now, as
   the 7a properties' already was.
+- **The CLI tests had not run on Windows until CI's third round**, the
+  earlier rounds stopping at the store tests. Two assertions were Linux's:
+  `info`'s indented JSON has the platform's line ending, and the credential
+  file is DPAPI-protected on Windows and not readable as text. The test
+  normalises the one and reads the other through `CredentialFile`.
 - **The status fixture `stale-status-line` read the repository's
   `releases/`**, so the descriptor changed what it expected to be told. It
   carries its own `releases/` now, with preview.1 alone.

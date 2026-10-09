@@ -78,7 +78,7 @@ public sealed class CliTests : IDisposable
         Run info = await RunAsync("info", dataset);
         Assert.Equal(0, info.Exit);
         Assert.Contains("\"head\": 2", info.Data, StringComparison.Ordinal);
-        Assert.Contains("\"checkpoints\": [\n    2\n  ]", info.Data, StringComparison.Ordinal);
+        Assert.Contains("\"checkpoints\": [\n    2\n  ]", info.Data.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
 
         Run feed = await RunAsync("feed", dataset, "--graph", "default");
         Assert.Equal(0, feed.Exit);
@@ -152,8 +152,10 @@ public sealed class CliTests : IDisposable
         Assert.Contains("Open " + issuer.Issuer + "activate and enter the code ABCD-EFGH.", approved.Out, StringComparison.Ordinal);
         Assert.Contains("<http://ex/a> <http://ex/p> \"1\"^^<http://www.w3.org/2001/XMLSchema#integer> .", approved.Data, StringComparison.Ordinal);
         Assert.True(File.Exists(credentials));
-        string stored = await File.ReadAllTextAsync(credentials, TestContext.Current.CancellationToken);
-        Assert.Contains("\"refreshToken\"", stored, StringComparison.Ordinal);
+        // Read back through the file's own reader: on Windows the bytes are DPAPI-protected (ADR 0105).
+        CredentialFile file = new(credentials);
+        string? stored = file.TryRead(new Uri(url, UriKind.Absolute), issuer.Issuer, TestIssuer.ClientId);
+        Assert.NotNull(stored);
 
         if (!OperatingSystem.IsWindows())
         {
@@ -164,7 +166,7 @@ public sealed class CliTests : IDisposable
         Run refreshed = await RunAsync("query", url, "-q", "ASK { <http://ex/a> ?p ?o }", "--authority", issuer.Issuer, "--client-id", TestIssuer.ClientId, "--credentials", credentials);
         Assert.Equal(0, refreshed.Exit);
         Assert.Equal(1, issuer.DeviceCodesIssued);
-        Assert.NotEqual(stored, await File.ReadAllTextAsync(credentials, TestContext.Current.CancellationToken));
+        Assert.NotEqual(stored, file.TryRead(new Uri(url, UriKind.Absolute), issuer.Issuer, TestIssuer.ClientId));
 
         // --no-store keeps nothing: a second device code flow, and the file is as it was.
         string before = await File.ReadAllTextAsync(credentials, TestContext.Current.CancellationToken);
