@@ -26,7 +26,23 @@
     <TrimmerSingleWarn>false</TrimmerSingleWarn>
     <IlcTreatWarningsAsErrors>true</IlcTreatWarningsAsErrors>
     <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
+
+    <!-- ADR 0110: the shipped runtime configuration. The Web SDK defaults to
+         server GC, which keeps committed memory proportional to what every
+         core allocated; the server's live heap is small and allocates in
+         bursts, which the workstation collector with concurrent collections
+         fits, and ConserveMemory compacts the large object heap that 6c found
+         fragmenting. No heap hard limit of our own: in a container the runtime
+         bounds the heap to the cgroup limit. The tool's runtimeconfig and the
+         AOT binary carry the same three settings. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- ADR 0110. -->
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="5" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../Varve.Protocol/Varve.Protocol.csproj" />
