@@ -239,6 +239,7 @@ Filed by milestone 6b ([#10](https://github.com/Hafeok/Varve/issues/10)), unacce
 |---:|---|---|
 | [0110](0110-rdf-1-2-turtle-and-trig.md) | RDF 1.2 Turtle and TriG are accepted; the edition decides a surrogate escape | Accepted; supersedes `turtle.md` §9's refusal; amends 0030 |
 | [0111](0111-rdf-xml-over-system-xml.md) | RDF/XML over `System.Xml`, with its cost measured and a size at which to revisit | Accepted; closes 0027's fixture note |
+| [0112](0112-json-ld-over-utf8-json.md) | JSON-LD 1.1 over `Utf8JsonReader`, as a tree in an arena; the direction is RDF 1.2's by default | Accepted |
 
 ## Conformance — differential testing against Oxigraph
 

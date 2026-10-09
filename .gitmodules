@@ -4,3 +4,7 @@
 [submodule "tests/w3c/rdf-canon"]
 	path = tests/w3c/rdf-canon
 	url = https://github.com/w3c/rdf-canon
+[submodule "tests/w3c/json-ld-api"]
+	path = tests/w3c/json-ld-api
+	url = https://github.com/w3c/json-ld-api.git
+	branch = main
