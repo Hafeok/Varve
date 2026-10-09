@@ -355,6 +355,12 @@ In `tests/Varve.Benchmarks/README.md`, the 7b section:
   vary, so the first CI run found no operation 296 (Linux) or 293 (Windows)
   to crash at. The simulated tests pin `Workers = 1`; the worker-count
   property keeps covering the rest.
+- **The two scope properties named their datasets with a plain `++`.**
+  CsCheck samples in parallel, so two samples could take one name and one
+  sample's request be served by the other's dataset and scope; CI saw a
+  `FROM NAMED` query answer nothing where the sub-dataset had a row, and
+  the seed did not reproduce it alone. The counter is `Interlocked` now, as
+  the 7a properties' already was.
 - **The status fixture `stale-status-line` read the repository's
   `releases/`**, so the descriptor changed what it expected to be told. It
   carries its own `releases/` now, with preview.1 alone.

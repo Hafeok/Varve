@@ -10,6 +10,7 @@ using System.Net;
 using System.Net.Http;
 using System.Security.Claims;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using CsCheck;
 using Varve.Protocol.Model;
@@ -208,7 +209,7 @@ public class ScopeTests
             await using Dataset sub = await P.NewDatasetAsync();
             await CommitAsync(whole, quads);
             await CommitAsync(sub, quads.Where(q => readable.Allows(q.StartsWith("GRAPH", StringComparison.Ordinal) ? RdfTerm.Iri(Encoding.UTF8.GetBytes(q[7..q.IndexOf('>', StringComparison.Ordinal)])) : null)).ToList());
-            string name = "p" + (++next).ToString(CultureInfo.InvariantCulture);
+            string name = "p" + Interlocked.Increment(ref next).ToString(CultureInfo.InvariantCulture);
             datasets.Add(name, whole, new CallerScope(readable, GraphScope.None, AdminAccess.None));
 
             HttpResponseMessage response = await host.Client.SendAsync(P.Query("datasets/" + name + "/sparql", text, text.StartsWith("CONSTRUCT", StringComparison.Ordinal) ? "application/n-triples" : "application/sparql-results+json"), P.Ct);
@@ -237,7 +238,7 @@ public class ScopeTests
         await Gen.Select(count, count, Gen.Bool, (hidden, shown, defaultGraph) => (hidden, shown, defaultGraph)).SampleAsync(async sample =>
         {
             (int hidden, int shown, bool defaultGraph) = sample;
-            string name = "l" + (++next).ToString(CultureInfo.InvariantCulture);
+            string name = "l" + Interlocked.Increment(ref next).ToString(CultureInfo.InvariantCulture);
             await using Dataset dataset = await P.NewDatasetAsync();
             List<string> quads = [];
             List<string> marks = [];
