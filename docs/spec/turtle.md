@@ -10,11 +10,18 @@ Status: Accepted. Changes only together with the ADR that motivates the change.
 - **RDF 1.1 Turtle** — W3C Recommendation, 25 February 2014. §6 the grammar,
   §6.3 IRI resolution, §7 parsing.
 - **RDF 1.1 TriG** — W3C Recommendation, 25 February 2014. §2.6 the grammar.
+- **RDF 1.2 Turtle** — W3C Working Draft, 07 October 2026. §6.5 the grammar,
+  §7.3 the parsing of reifiers, reified triples, triple terms and
+  annotations, §2.4 the version directive (ADR 0110).
+- **RDF 1.2 TriG** — W3C Working Draft, 07 October 2026. §4.5 the grammar.
 - **RFC 3986 §5.2** for relative resolution, through `Varve.Iri`.
 
 Conformance is measured by `rdf/rdf11/rdf-turtle` (**313** cases: 74
-positive-syntax, 94 negative-syntax, 145 evaluation) and `rdf/rdf11/rdf-trig`
-(**357**: 99, 115, 143) in the pinned `w3c/rdf-tests` submodule.
+positive-syntax, 94 negative-syntax, 145 evaluation), `rdf/rdf11/rdf-trig`
+(**357**: 99, 115, 143), and since milestone 6b `rdf/rdf12/rdf-turtle`
+(**106**: 41 positive-syntax, 33 negative-syntax, 32 evaluation, wired as
+two suites) and `rdf/rdf12/rdf-trig` (**61**: 24, 11, 26), in the pinned
+`w3c/rdf-tests` submodule.
 
 **Unlike the N-Triples suites, most of these are evaluation tests.** An
 evaluation test names an input and an expected result — N-Triples for Turtle,
@@ -23,13 +30,14 @@ some bijection of blank nodes. So these suites test the quads produced and not
 only which documents are accepted, which is what makes them the first real
 check on the term model.
 
-**RDF 1.2 Turtle and TriG are not implemented.** Their suites exist in the
-submodule and are not wired. `rdf12-turtle` is a W3C Working Draft of
-**14 September 2026** and `rdf12-trig` of **15 September 2026**; they add
-reifiers, annotation syntax and a version directive. Implementing a grammar
-that recent against a ratchet is churn a later milestone should absorb. The
-1.2 constructs already in `Varve.Turtle` — base direction and triple terms in
-N-Triples and N-Quads — are gated by their own suites (`n-triples.md` §1).
+**RDF 1.2 Turtle and TriG are read and written** (ADR 0110, superseding
+the refusal §9 recorded at milestone 3b). The grammar is one: RDF 1.2 is RDF
+1.1's superset everywhere but one point, a character written as two `\u`
+escapes forming a surrogate pair, which RDF 1.1 Turtle's `test-38` requires
+to be read and RDF 1.2's `surrogate-pair-bad-01` requires to be refused.
+`TurtleOptions.Version` decides that point and nothing else, and the default
+is RDF 1.2 (§9). The rdf11 suites run under `Rdf11`, the rdf12 suites under
+`Rdf12`, and both pass whole.
 
 ## 2. Grammar
 
@@ -101,6 +109,51 @@ TriG (§2.6) replaces the document production and adds graphs:
 [7g]   labelOrSubject        ::= iri | BlankNode
 ```
 
+**RDF 1.2 Turtle** (§6.5 of the Working Draft, its own numbering) changes
+five productions and adds nine. Where the two editions number a production
+differently, the 1.1 number above stands for the rest of this document and
+the 1.2 number is given in brackets here.
+
+```
+[3]    directive             ::= prefixID | base | version | sparqlPrefix | sparqlBase | sparqlVersion
+[6]    version               ::= '@version' VersionSpecifier '.'
+[9]    sparqlVersion         ::= "VERSION" VersionSpecifier
+[10]   VersionSpecifier      ::= STRING_LITERAL_QUOTE | STRING_LITERAL_SINGLE_QUOTE
+[11]   triples               ::= subject predicateObjectList
+                              | blankNodePropertyList predicateObjectList?
+                              | reifiedTriple predicateObjectList?
+[13]   objectList            ::= object annotation (',' object annotation)*
+[17]   object                ::= iri | BlankNode | collection | blankNodePropertyList
+                              | literal | tripleTerm | reifiedTriple
+[28]   reifier               ::= '~' (iri | BlankNode)?
+[29]   reifiedTriple         ::= '<<' rtSubject verb rtObject reifier? '>>'
+[30]   rtSubject             ::= iri | BlankNode | reifiedTriple
+[31]   rtObject              ::= iri | BlankNode | literal | tripleTerm | reifiedTriple
+[32]   tripleTerm            ::= '<<(' ttSubject verb ttObject ')>>'
+[33]   ttSubject             ::= iri | BlankNode
+[34]   ttObject              ::= iri | BlankNode | literal | tripleTerm
+[35]   annotation            ::= (reifier | annotationBlock)*
+[36]   annotationBlock       ::= '{|' predicateObjectList '|}'
+[42]   LANG_DIR              ::= '@' [a-zA-Z]+ ('-' [a-zA-Z0-9]+)* ('--' [a-zA-Z]+)?
+```
+
+`subject` [15] is unchanged: a triple term is an object and nothing else, and
+a reified triple in subject position comes through [11]. RDF 1.2 TriG adds the
+same productions and lets a block start with a reified triple ([3]
+`triplesOrGraph`); a graph label is still `iri | BlankNode` ([7]).
+
+**The parsing rules are §7.3's.** A reified triple yields
+`reifier rdf:reifies <<( s p o )>>`, minting a fresh blank node when no
+reifier is written, and **asserts nothing else**: the triple inside the
+brackets is not stated, and the node the production denotes is the reifier.
+An annotation clears the current reifier; each `~` sets it and yields the
+`rdf:reifies` triple at once; each `{| … |}` takes the current reifier or
+mints one (yielding the triple), makes it the block's subject, and clears it.
+So `:s :p :o ~ :r {| :a :b |} {| :c :d |}` describes `:r` and one fresh node,
+both reifying the same term, and `:s :p :o` is asserted by the object list
+that carries the annotation. The direction after `--` is `ltr` or `rtl`,
+lowercase, and nothing else (RDF 1.2 Concepts §3.3).
+
 **One parser reads both**, as it already reads N-Triples and N-Quads, with the
 syntax as an option.
 
@@ -131,6 +184,21 @@ syntax as an option.
   the statement that uses it.
 - **Comments are whitespace** (§6.2), outside an `IRIREF` or a String, to the
   end of the line — so `#` inside `<...>` or `"..."` is content.
+- **`<` opens three things in RDF 1.2**: an `IRIREF`, a reified triple `<<`,
+  and a triple term `<<(`. Which one is not known until the third byte, and at
+  the end of a growable buffer it waits (§8). Likewise `{` opens a TriG graph
+  or an annotation `{|`.
+- **A `~` need not be followed by a term.** `:s :p :o ~ .` and `<< :s :p :o ~ >>`
+  are both well-formed and mint a fresh reifier; a `~` followed by a literal
+  or a collection is an error, not a term.
+- **A `;` may end an annotation block's list**: `{| :q1 :r1 ; :q2 :r2 ; |}`
+  is well-formed, as `[ :p :o ; ]` is, so the trailing-semicolon rule stops at
+  `|}` as well as at `.`, `]` and `}`.
+- **`<< s p o >>` asserts nothing** but its reification. A reader that
+  emitted `s p o` for it would be stating a triple the document did not.
+- **`VERSION` is a keyword only as a whole token**: `VERSION:x` is a prefixed
+  name, and the byte after the keyword settles which, so at the end of a
+  growable buffer it waits.
 
 ## 3. Prefixes and base
 
@@ -158,8 +226,9 @@ syntax as an option.
 
 - **A `BLANK_NODE_LABEL` is document-scoped.** Two occurrences of `_:b` in one
   document are the same node; the same label in another document is not.
-- **`[]`, `[ … ]` and each `(` … `)` element position produce a fresh node**,
-  distinguishable from every label and from each other.
+- **`[]`, `[ … ]`, each `(` … `)` element position, a reified triple or an
+  annotation block without a named reifier, and a bare `~` produce a fresh
+  node**, distinguishable from every label and from each other.
 - **Labels are not preserved across a parse.** A blank node's identity is the
   document's, and `Varve.Rdf` blank nodes carry the label as written for
   diagnostics only — which is why the evaluation tests compare up to
@@ -201,7 +270,8 @@ structure, so N-Triples' rule does not transfer.
 
 - On an error, the parser reports it and **resumes after the next `.` that is
   at nesting depth zero and outside a String and an `IRIREF`** — depth counted
-  over `[ ]`, `( )` and TriG's `{ }`.
+  over `[ ]`, `( )`, TriG's `{ }`, and RDF 1.2's `<< >>`, `<<( )>>` and
+  `{| |}` (ADR 0030, amended by ADR 0110).
 - Everything from the start of the failed statement to that point produces **no
   quads**, including the triples a blank node property list or a collection
   inside it had already generated. A statement is all-or-nothing.
@@ -259,6 +329,22 @@ Both syntaxes, streaming, from a view or from a quad and its source.
   block per graph; a caller whose quads are interleaved gets several. Both
   denote the same dataset. Declaring a prefix or a base also closes an open
   block, because a directive inside one is not Turtle.
+- **RDF 1.2 terms are written, and the version directive is never silently
+  absent** (ADR 0110). A triple term is written `<<( s p o )>>`, spaced as RDF
+  1.2's canonical N-Triples spaces it (ADR 0061); a directional literal is
+  written `"x"@en--ltr`. **`VERSION "1.2"` is written once, immediately before
+  the first statement whose object is a triple term or a directional
+  literal**, which the grammar allows because a directive may stand wherever
+  a statement may ([2]), and in TriG it closes an open block first, as a
+  prefix declaration does. A document needing no RDF 1.2 construct gets no
+  directive and is read by every RDF 1.1 reader; `AlwaysDeclareVersion` puts
+  it at the top regardless. The alternative, buffering the document to decide
+  its first line, is the one thing this writer will not do.
+- **A triple term in subject or predicate position is refused by name.** RDF
+  1.2 gives a triple term one position, the object; a writer that spelt one
+  elsewhere would produce a document no reader accepts, and one that dropped
+  it would write a different dataset. No annotation or reified-triple syntax
+  is written: an `rdf:reifies` triple is a statement like any other.
 - **A local name is used when the remainder can be spelt as one**, escaping
   with `PN_LOCAL_ESC` where the grammar allows it, and the full IRI is written
   when it cannot. The check is on the bytes, not on an assumption about what
@@ -272,8 +358,10 @@ back naming them something else. Byte stability is an N-Triples property, and
 
 **Writing is a fixed point.** Whatever the writer produces, reading it back and
 writing it again produces the same bytes. It holds because the writer emits
-every blank node as an explicit label and never as `[]` or `()`, so re-reading
-its output invents no nodes and §4's rule 1 passes every label through. The
+every blank node as an explicit label and never as `[]`, `()`, `<< >>` or
+`{| |}`, so re-reading its output invents no nodes and §4's rule 1 passes
+every label through; and the version directive falls in the same place on
+every pass, because the first RDF 1.2 object is the same quad. The
 property is asserted twice: over every input in every wired manifest, and over
 generated documents that mix named and anonymous nodes so that §4's rule 3 is
 exercised rather than avoided.
@@ -293,9 +381,11 @@ documents, so every statement is stitched from a dozen pieces and the stitching
 is included in the zero.
 
 **What a parse costs once is larger here than for N-Triples**, and the
-difference is this design rather than a defect: about 6.3 KB against 2 KB,
-because the arena holds a statement and not a line and grows to the largest
-statement in the document. The number is fixed — it does not move with the
+difference is this design rather than a defect: about 10.4 KB against 2 KB
+on the allocation test's document, whose statements carry fourteen quads
+each since milestone 6b (6.3 KB when they carried nine), because the arena
+holds a statement and not a line and grows to the largest statement in the
+document. The number is fixed — it does not move with the
 document's length — and that is what the test asserts beside the zero.
 
 Turtle is harder than N-Triples here and the difference is worth stating. A
@@ -319,7 +409,10 @@ integer and a statement's dot, or the start of `1.5`), a language tag, a
 prefixed name's local part, a blank node label, the `@` or `^^` that may follow
 a string, a keyword (`@prefix`, `PREFIX`, `BASE`, `GRAPH`, `true`, `false`, `a`),
 an `ANON`'s closing `]`, a multi-byte character, a comment with no newline
-yet — and the **line ending itself**, since `CR LF` is one ending and a `CR` at
+yet, and since RDF 1.2 the third byte after `<` that tells an `IRIREF` from
+`<<` from `<<(`, the `|` after `{`, the term that may or may not follow `~`,
+the direction after `--`, the `VERSION` keyword's boundary and the `>>` or
+`|}` that closes a bracket — and the **line ending itself**, since `CR LF` is one ending and a `CR` at
 a buffer's end does not yet know whether an `LF` follows it. Each of them, cut in the wrong place, has a plausible wrong answer — and
 for a number the wrong answer is a **quad nobody wrote** rather than an error,
 which is the worst kind.
@@ -384,26 +477,38 @@ read push and pull, and must give the same quads and the same rejection. That
 is the same argument as the oracle's above — the expected value is computed
 from the other path rather than authored.
 
-## 9. RDF 1.2 is not accepted here
+## 9. RDF 1.2 is accepted here, and the edition decides one escape
 
-This is RDF 1.1 Turtle and TriG. The reader rejects every RDF 1.2 construct:
-triple terms `<<( … )>>` [30], reifiers `~` [29], annotations `{| … |}` [27],
-both spellings of the version directive [4], and `LANG_DIR` [154s] — the
-`--ltr` and `--rtl` suffix on a language tag.
+This is RDF 1.2 Turtle and TriG (ADR 0110), read as one grammar over RDF 1.1's:
+reified triples `<< … >>` [29], triple terms `<<( … )>>` [32], annotations
+`{| … |}` [36], reifiers `~` [28], both spellings of the version directive [6]
+[9], and `LANG_DIR` [42] with its `--ltr` and `--rtl`. Until milestone 6b this
+section refused all of them, for a reason that has expired: at milestone 3b
+the drafts were days old. The suites that gate them are in §1.
 
-**The term model is a separate matter.** `Varve.Rdf` carries base direction and
-triple terms, and N-Triples and N-Quads read and write both, where the `rdf12`
-syntax suites gate them. What a term can be and what a syntax can spell are not
-the same question, and the RDF 1.2 Turtle drafts are days old
-(`docs/roadmap.md`).
+**There is no RDF 1.1 mode, and one RDF 1.1 option.** RDF 1.2 extends 1.1
+everywhere but one point, on which the editions contradict each other: RDF
+1.1 Turtle's `test-38` requires `"\ud801\udc69"`, a character written as two
+`\u` escapes forming a surrogate pair, to be read as that character; RDF 1.2
+requires every escape naming a surrogate code point to be refused, because a
+surrogate is not a character. `TurtleOptions.Version` (and `ParseOptions.Version`
+for N-Triples and N-Quads) is `Rdf12` by default and refuses the pair with
+`InvalidUnicodeEscape`; `Rdf11` reads it. A lone surrogate is `UnpairedSurrogate`
+in both. The option decides nothing else: a document announcing `VERSION
+"1.1"` is read like any other, since the announcement is a hint (RDF 1.2
+Turtle §2.4), and the value is reported through `OnVersion` for a tool that
+wants to reproduce it. Oxigraph refuses the pair in both editions, and fails
+`test-38`; Varve passes both suites, each under its own edition.
 
-So the Turtle **writer refuses** a literal carrying a base direction rather
-than emitting one: a writer that produced `"x"@en--ltr` would produce a
-document this reader rejects, and one that dropped the direction would write a
-different term. A caller with such a term wants N-Triples or N-Quads.
+**The term model was never the question.** `Varve.Rdf` carried base direction
+and triple terms from milestone 3a, and N-Triples and N-Quads read and wrote
+both, gated by the `rdf12` syntax suites. What changed here is only what this
+syntax can spell. The writer therefore writes a directional literal and a
+triple term where it refused the first and could not place the second (§7),
+and refuses by name the one thing the grammar has no place for: a triple term
+as a subject or a predicate.
 
 ## 10. Open questions
 
-None. RDF 1.2 Turtle and TriG are deferred rather than open: the decision and
-its cost — 167 cases, of which 123 positive — are in `docs/roadmap.md`, and the
-reason is the age of the drafts.
+None. The deferral this section recorded until milestone 6b — RDF 1.2 Turtle
+and TriG, 167 cases — is closed by ADR 0110, and the suites pass whole.

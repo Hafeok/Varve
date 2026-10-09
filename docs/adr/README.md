@@ -61,7 +61,7 @@ or depart from `docs/brief.md`, each says so in its Context.
 
 | # | Title | Status |
 |---:|---|---|
-| [0030](0030-turtle-recovery-and-prefixes.md) | Turtle's recovery unit, prefix exposure, and where isomorphism lives | Accepted; deletion clause **superseded by 0059** |
+| [0030](0030-turtle-recovery-and-prefixes.md) | Turtle's recovery unit, prefix exposure, and where isomorphism lives | Accepted; deletion clause **superseded by 0059**; amended 2026-10-09 (depth over the RDF 1.2 brackets, ADR 0110) |
 
 ## Stewardship — the Mind Over Machine standard
 
@@ -230,6 +230,14 @@ Filed by milestone 7b ([#11](https://github.com/Hafeok/Varve/issues/11)), unacce
 | [0107](0107-graph-level-authorisation.md) | Graph-level authorisation | Accepted; refines 0037; amends 0091 |
 | [0108](0108-bulk-resolve-on-worker-threads.md) | The bulk load resolves and spills on worker threads | Accepted; builds 0081's last alternative |
 | [0109](0109-per-run-term-filters.md) | Per-run term filters: derived format 3 | Accepted; discharges 0079's revisit condition |
+
+## Milestone 6b — RDF 1.2 Turtle and TriG, RDF/XML, JSON-LD
+
+Filed by milestone 6b ([#10](https://github.com/Hafeok/Varve/issues/10)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by 6b, likewise unaccepted: 0030 (the recovery depth counts the RDF 1.2 brackets).
+
+| # | Title | Status |
+|---:|---|---|
+| [0110](0110-rdf-1-2-turtle-and-trig.md) | RDF 1.2 Turtle and TriG are accepted; the edition decides a surrogate escape | Accepted; supersedes `turtle.md` §9's refusal; amends 0030 |
 
 ## Conformance — differential testing against Oxigraph
 
