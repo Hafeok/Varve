@@ -141,10 +141,7 @@ public sealed class CliTests : IDisposable
         // test approves as the person would; the refresh token lands in the file.
         Task<Run> device = RunAsync("export", url, "--graph", "default", "--authority", issuer.Issuer, "--client-id", TestIssuer.ClientId, "--credentials", credentials);
 
-        while (issuer.DeviceCodesIssued == 0)
-        {
-            await Task.Delay(50, TestContext.Current.CancellationToken);
-        }
+        await DeviceCodeAsync(issuer, 1, device);
 
         issuer.Approve();
         Run approved = await device;
@@ -169,33 +166,29 @@ public sealed class CliTests : IDisposable
         Assert.NotEqual(stored, file.TryRead(new Uri(url, UriKind.Absolute), issuer.Issuer, TestIssuer.ClientId));
 
         // --no-store keeps nothing: a second device code flow, and the file is as it was.
-        string before = await File.ReadAllTextAsync(credentials, TestContext.Current.CancellationToken);
+        byte[] before = await File.ReadAllBytesAsync(credentials, TestContext.Current.CancellationToken);
         Task<Run> ci = RunAsync("info", url, "--authority", issuer.Issuer, "--client-id", TestIssuer.ClientId, "--credentials", Path.Combine(_root, "other.json"), "--no-store");
 
-        while (issuer.DeviceCodesIssued < 2)
-        {
-            await Task.Delay(50, TestContext.Current.CancellationToken);
-        }
+        await DeviceCodeAsync(issuer, 2, ci);
 
         issuer.Approve();
         Run kept = await ci;
         Assert.True(kept.Exit == 0, kept.Error);
         Assert.False(File.Exists(Path.Combine(_root, "other.json")));
-        Assert.Equal(before, await File.ReadAllTextAsync(credentials, TestContext.Current.CancellationToken));
+        Assert.Equal(before, await File.ReadAllBytesAsync(credentials, TestContext.Current.CancellationToken));
 
-        // A refresh token the issuer no longer knows is dropped and the flow starts over.
-        await File.WriteAllTextAsync(credentials, before.Replace(ExtractToken(before), "stale", StringComparison.Ordinal), TestContext.Current.CancellationToken);
+        // A refresh token the issuer no longer knows is dropped and the flow
+        // starts over. Written through the file's own writer: on Windows the
+        // bytes are DPAPI-protected and not text to edit.
+        file.Write(new Uri(url, UriKind.Absolute), issuer.Issuer, TestIssuer.ClientId, "stale");
         Task<Run> again = RunAsync("info", url, "--authority", issuer.Issuer, "--client-id", TestIssuer.ClientId, "--credentials", credentials);
 
-        while (issuer.DeviceCodesIssued < 3)
-        {
-            await Task.Delay(50, TestContext.Current.CancellationToken);
-        }
+        await DeviceCodeAsync(issuer, 3, again);
 
         issuer.Approve();
         Run recovered = await again;
         Assert.True(recovered.Exit == 0, recovered.Error);
-        Assert.DoesNotContain("stale", await File.ReadAllTextAsync(credentials, TestContext.Current.CancellationToken), StringComparison.Ordinal);
+        Assert.NotEqual("stale", file.TryRead(new Uri(url, UriKind.Absolute), issuer.Issuer, TestIssuer.ClientId));
 
         // The remote feed and checkpoint go through the server's endpoints.
         string token = issuer.Mint(Claims("administrator"));
@@ -227,11 +220,27 @@ public sealed class CliTests : IDisposable
 
     private static Dictionary<string, object> Claims(string role) => new() { ["sub"] = "x", ["roles"] = new[] { role } };
 
-    private static string ExtractToken(string json)
+    /// <summary>
+    /// Waits for the issuer's <paramref name="count"/>th device code. A command
+    /// that ends first, or thirty seconds with no code, fails the test with the
+    /// command's output: a wait on the count alone hung a Windows build for an
+    /// hour when the command failed before asking.
+    /// </summary>
+    private static async Task DeviceCodeAsync(TestIssuer issuer, int count, Task<Run> command)
     {
-        const string Key = "\"refreshToken\":\"";
-        int start = json.IndexOf(Key, StringComparison.Ordinal) + Key.Length;
-        return json[start..json.IndexOf('"', start)];
+        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+
+        while (issuer.DeviceCodesIssued < count)
+        {
+            if (command.IsCompleted)
+            {
+                Run run = await command;
+                Assert.Fail("The command ended with exit " + run.Exit + " before asking for device code " + count + ": " + run.Error + run.Out);
+            }
+
+            Assert.True(DateTime.UtcNow < deadline, "No device code " + count + " within thirty seconds.");
+            await Task.Delay(50, TestContext.Current.CancellationToken);
+        }
     }
 
     private static Task<RunningServer> StartServerAsync(TestIssuer issuer) => RunningServer.StartAsync(new Dictionary<string, string>

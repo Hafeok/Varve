@@ -403,6 +403,15 @@ In `tests/Varve.Benchmarks/README.md`, the 7b section:
   three minutes of the `build` job where `main` spent forty seconds. The
   count is incremental now, from the last position asked for; 8,000
   solutions read in 75 ms, and the suite is back to seconds.
+- **A CLI test could hang a build for an hour.** Its three device-code
+  waits looped on the issuer's count alone; a command that failed before
+  asking for a code left the loop waiting until the job's limit, which a
+  Windows build did on 63071c7 after the same test had passed on the head
+  before. The waits now watch the command and give up after thirty seconds
+  with its output. The stale-token step, which edited the credential file
+  as text, goes through `CredentialFile.Write`, because on Windows the
+  bytes are DPAPI-protected; and a credential file the user cannot read is
+  a command error naming the file, not a stack trace.
 - **The status fixture `stale-status-line` read the repository's
   `releases/`**, so the descriptor changed what it expected to be told. It
   carries its own `releases/` now, with preview.1 alone.

@@ -83,19 +83,32 @@ internal sealed class CredentialFile(string? path)
         }
 
         byte[] bytes = File.ReadAllBytes(Path);
+        JsonDocument document;
 
-        if (OperatingSystem.IsWindows())
+        try
         {
-            bytes = ProtectedData.Unprotect(bytes, null, DataProtectionScope.CurrentUser);
+            if (OperatingSystem.IsWindows())
+            {
+                bytes = ProtectedData.Unprotect(bytes, null, DataProtectionScope.CurrentUser);
+            }
+
+            document = JsonDocument.Parse(bytes);
+        }
+        catch (Exception unreadable) when (unreadable is System.Security.Cryptography.CryptographicException or JsonException)
+        {
+            // Another user's protection, or not this file's format: say which
+            // file, rather than a stack trace, and leave the fix to the person.
+            throw new Cli.CommandException(Path + " is not a credential file this user can read (" + unreadable.Message + "); delete it to sign in again.");
         }
 
-        using JsonDocument document = JsonDocument.Parse(bytes);
-
-        if (document.RootElement.TryGetProperty("refreshTokens", out JsonElement list))
+        using (document)
         {
-            foreach (JsonElement entry in list.EnumerateArray())
+            if (document.RootElement.TryGetProperty("refreshTokens", out JsonElement list))
             {
-                entries.Add((entry.GetProperty("server").GetString()!, entry.GetProperty("authority").GetString()!, entry.GetProperty("clientId").GetString()!, entry.GetProperty("refreshToken").GetString()!));
+                foreach (JsonElement entry in list.EnumerateArray())
+                {
+                    entries.Add((entry.GetProperty("server").GetString()!, entry.GetProperty("authority").GetString()!, entry.GetProperty("clientId").GetString()!, entry.GetProperty("refreshToken").GetString()!));
+                }
             }
         }
 
