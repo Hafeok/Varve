@@ -2,6 +2,9 @@ format: 1
 version: v0.1.0-preview.2
 title: The server, the protocols, authentication, the command line, federation
 date: 2026-10-08
+# Retro-cut (docs/releases.md §3): the pull request landed by the merge button,
+# so the release is cut at the head the maintainer approved, 92b1188's parent.
+commit: f89b11f40f9e3a2562b974c66ab3e8de803c986f
 basis:
   - issue: 11
   - storage-format: 1
