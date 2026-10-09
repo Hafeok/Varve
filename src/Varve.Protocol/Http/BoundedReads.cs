@@ -40,6 +40,7 @@ internal static class BoundedReads
         ResponseOutput output = new(response, limits.ResultSizeCap.Value);
         ProblemType? cut = null;
         string? detail = null;
+        Action<ProblemMembers>? members = null;
 
         try
         {
@@ -63,6 +64,18 @@ internal static class BoundedReads
             cut = ProblemType.ReadLimitExceeded;
             detail = error.Message;
         }
+        catch (MemoryBudgetExceededException error)
+        {
+            // Counted, not collected (ADR 0114): the operators hold what they
+            // charged, and the request fails before the process pays for more.
+            cut = ProblemType.MemoryLimitExceeded;
+            detail = error.Message;
+            members = m =>
+            {
+                m.Number("limit", error.Limit.Bytes);
+                m.Number("actual", error.Actual.Bytes);
+            };
+        }
         catch (QueryEvaluationException error)
         {
             cut = ProblemType.OperationFailed;
@@ -72,7 +85,7 @@ internal static class BoundedReads
         if (!output.HasStarted && !response.HasStarted)
         {
             output.Discard();
-            await HttpProblems.WriteAsync(context, cut.Value, detail).ConfigureAwait(false);
+            await HttpProblems.WriteAsync(context, cut.Value, detail, members).ConfigureAwait(false);
         }
         else if (trailers)
         {

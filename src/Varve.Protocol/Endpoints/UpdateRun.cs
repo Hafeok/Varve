@@ -83,6 +83,16 @@ internal static class UpdateRun
             await Writes.GraphNotWritableAsync(exchange, refused.Graph).ConfigureAwait(false);
             return;
         }
+        catch (Varve.Sparql.Evaluation.MemoryBudgetExceededException over)
+        {
+            // A pattern's evaluation over the bound (ADR 0114): nothing was committed.
+            await HttpProblems.WriteAsync(context, ProblemType.MemoryLimitExceeded, over.Message, members =>
+            {
+                members.Number("limit", over.Limit.Bytes);
+                members.Number("actual", over.Actual.Bytes);
+            }).ConfigureAwait(false);
+            return;
+        }
         catch (Exception failed) when (failed is not OperationCanceledException)
         {
             // The executor's operation failure (an update that names a graph

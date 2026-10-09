@@ -3,14 +3,18 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using Varve.Sparql.Evaluation;
 using Varve.Store.Log;
 
 namespace Varve.Protocol;
 
 /// <summary>
-/// What bounds a request (ADR 0095): how long a query may evaluate, how long a
-/// pin may be held, how many bytes a read may write, how large a request body
-/// may be, and how often a live feed sends a heartbeat.
+/// What bounds a request (ADRs 0095, 0114): how long a query may evaluate,
+/// how long a pin may be held, how many bytes a read may write, how large a
+/// request body may be, how often a live tail sends a heartbeat; and the
+/// governance bounds: the memory an evaluation may hold, the log distance an
+/// as-of read may replay, the live tails one client may hold open, and the
+/// page a bounded commits range serves.
 /// </summary>
 public readonly record struct ProtocolLimits
 {
@@ -52,4 +56,16 @@ public readonly record struct ProtocolLimits
 
     /// <summary>How often a live feed writes a heartbeat.</summary>
     public TimeSpan FeedHeartbeat { get; }
+
+    /// <summary>The most an evaluation's materialising operators may hold, counted (ADR 0114); 256 MiB by default, null unbounded.</summary>
+    public MemoryBytes? MaxQueryMemory { get; init; } = new MemoryBytes(256L << 20);
+
+    /// <summary>The most commits an as-of position may lie above its nearest checkpoint (ADR 0114); 10,000 by default.</summary>
+    public long MaxAsOfDistance { get; init; } = 10_000;
+
+    /// <summary>The most live tails one client may hold open (ADR 0114); 16 by default.</summary>
+    public int MaxLiveTailsPerClient { get; init; } = 16;
+
+    /// <summary>The most commits a bounded commits range serves before <c>Link rel="next"</c> (ADR 0114); 1,000 by default.</summary>
+    public int CommitsPageSize { get; init; } = 1_000;
 }

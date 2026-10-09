@@ -43,11 +43,16 @@ public class ProblemCatalogueTests
 
     /// <summary>
     /// Types no request can trigger yet: the archive horizon (spec T3) does
-    /// not exist, and the governance limits of ADR 0114 land with their own
-    /// tests. Each is removed from here by the slice that makes it emittable.
+    /// not exist. Removed from here by the slice that makes it emittable.
     /// </summary>
-    private static readonly ImmutableArray<ProblemType> NotYetEmittable =
-        [ProblemType.BelowArchiveHorizon, ProblemType.ServerBusy, ProblemType.MemoryLimitExceeded, ProblemType.AsOfDistanceExceeded, ProblemType.TooManyLiveTails];
+    private static readonly ImmutableArray<ProblemType> NotYetEmittable = [ProblemType.BelowArchiveHorizon];
+
+    /// <summary>
+    /// Types whose trigger holds state across requests, exercised in
+    /// <c>GovernanceTests</c> (the live-tail bound) and <c>Varve.Server.Tests</c>
+    /// (the concurrent-read limit, which is the host's rate limiter).
+    /// </summary>
+    private static readonly ImmutableArray<ProblemType> TestedElsewhere = [ProblemType.TooManyLiveTails, ProblemType.ServerBusy];
 
     [Fact]
     public void every_problem_type_is_catalogued_with_a_page_stating_the_same_shape()
@@ -86,7 +91,11 @@ public class ProblemCatalogueTests
             new DatasetOptions { Clock = TimeProvider.System, Validators = [new RefusesSecret()] }, P.Ct);
         ProtocolTestHost.Datasets datasets = new();
         datasets.Add("d", dataset);
-        ProtocolLimits limits = new(TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1), new ByteCount(200), new ByteCount(2048), TimeSpan.FromSeconds(15));
+        ProtocolLimits limits = new(TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1), new ByteCount(200), new ByteCount(2048), TimeSpan.FromSeconds(15))
+        {
+            MaxQueryMemory = new Varve.Sparql.Evaluation.MemoryBytes(1024),
+            MaxAsOfDistance = 1,
+        };
         GraphScope people = GraphScope.Of([RdfTerm.Iri("http://ex/people"u8)], [], DefaultGraphAccess.Included);
         TestAdministration administration = new();
 
@@ -128,6 +137,8 @@ public class ProblemCatalogueTests
                 [ProblemType.Rejected] = () => P.Update(Sparql, "INSERT DATA { <http://ex/secret> <http://ex/p> 1 }"),
                 [ProblemType.Unavailable] = () => Put("datasets/broken/state", "{\"state\":\"open\"}", "application/json"),
                 [ProblemType.ReadLimitExceeded] = () => P.Query(Sparql, "SELECT * { ?s ?p ?o } "),
+                [ProblemType.MemoryLimitExceeded] = () => P.Query(Sparql, "SELECT * { ?s ?p ?o } ORDER BY ?s"),
+                [ProblemType.AsOfDistanceExceeded] = () => P.Query(Sparql, "ASK {}", asOf: "position:2"),
             };
 
             // The dataset the admin triggers need: created first.
@@ -166,7 +177,7 @@ public class ProblemCatalogueTests
             }
 
             // The catalogue is covered: by these, by the host's own, or not yet.
-            HashSet<string> covered = [.. triggers.Keys.Select(t => t.Value), .. ServerEmitted.Select(t => t.Value), .. NotYetEmittable.Select(t => t.Value)];
+            HashSet<string> covered = [.. triggers.Keys.Select(t => t.Value), .. ServerEmitted.Select(t => t.Value), .. NotYetEmittable.Select(t => t.Value), .. TestedElsewhere.Select(t => t.Value)];
             Assert.Equal(ProblemCatalogue.All.Select(s => s.Type.Value).Order(StringComparer.Ordinal), covered.Order(StringComparer.Ordinal));
         }
     }

@@ -154,6 +154,11 @@ internal static class SettingsCheck
 
         LimitSettings limits = settings.Limits;
 
+        if (limits.MaxConcurrentReads < 1 || limits.ReadQueueLength < 0 || limits.MaxQueryMemory < 1 || limits.MaxAsOfDistance < 0 || limits.MaxLiveTailsPerClient < 1 || limits.CommitsPageSize < 1)
+        {
+            errors.Add("Varve:Limits: MaxConcurrentReads, MaxQueryMemory, MaxLiveTailsPerClient and CommitsPageSize are positive, and ReadQueueLength and MaxAsOfDistance are zero or more (ADR 0114).");
+        }
+
         if (limits.QueryTimeout <= TimeSpan.Zero || limits.PinnedReadLifetime <= TimeSpan.Zero || limits.FeedHeartbeat <= TimeSpan.Zero)
         {
             errors.Add("Varve:Limits durations are positive.");

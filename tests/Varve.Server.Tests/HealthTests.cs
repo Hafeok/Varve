@@ -87,6 +87,59 @@ public class HealthTests
         Assert.Equal(0, await stopping);
     }
 
+    /// <summary>
+    /// The concurrent-read limit (ADR 0114): with one permit and no queue,
+    /// overlapping reads are refused with 503 server-busy and Retry-After,
+    /// never queued without end; a write is not counted.
+    /// </summary>
+    [Fact]
+    public async Task reads_over_the_concurrency_limit_are_503_server_busy_with_retry_after_and_writes_are_not_counted()
+    {
+        await using RunningServer server = await RunningServer.StartAsync(new Dictionary<string, string>
+        {
+            ["Varve:Auth:Mode"] = "Anonymous",
+            ["Varve:Datasets:d:Storage"] = "Memory",
+            ["Varve:Limits:MaxConcurrentReads"] = "1",
+            ["Varve:Limits:ReadQueueLength"] = "0",
+        });
+        System.Text.StringBuilder data = new("INSERT DATA { ");
+
+        for (int i = 0; i < 3_000; i++)
+        {
+            data.Append("<http://ex/s").Append(i).Append("> <http://ex/p> \"").Append(new string('x', 64)).Append("\" . ");
+        }
+
+        data.Append('}');
+        Assert.Equal(HttpStatusCode.NoContent, (await server.Client.PostAsync(new Uri("datasets/d/sparql", UriKind.Relative), new StringContent(data.ToString(), System.Text.Encoding.UTF8, "application/sparql-update"), Ct)).StatusCode);
+
+        Task<HttpResponseMessage>[] reads = [.. Enumerable.Range(0, 32).Select(_ => server.Client.GetAsync(new Uri("datasets/d/sparql?query=" + Uri.EscapeDataString("SELECT * WHERE { ?s ?p ?o }"), UriKind.Relative), Ct))];
+        Task<HttpResponseMessage> write = server.Client.PostAsync(new Uri("datasets/d/sparql", UriKind.Relative), new StringContent("INSERT DATA { <http://ex/w> <http://ex/p> 1 }", System.Text.Encoding.UTF8, "application/sparql-update"), Ct);
+        HttpResponseMessage[] answers = await Task.WhenAll(reads);
+        Assert.Equal(HttpStatusCode.NoContent, (await write).StatusCode);
+
+        int busy = 0;
+
+        foreach (HttpResponseMessage answer in answers)
+        {
+            if (answer.StatusCode == HttpStatusCode.ServiceUnavailable)
+            {
+                busy++;
+                Assert.Equal("application/problem+json", answer.Content.Headers.ContentType?.MediaType);
+                Assert.NotNull(answer.Headers.RetryAfter);
+                using JsonDocument problem = JsonDocument.Parse(await answer.Content.ReadAsStringAsync(Ct));
+                Assert.Equal(ProblemType.ServerBusy.Value, problem.RootElement.GetProperty("type").GetString());
+                Assert.Equal(1, problem.RootElement.GetProperty("limit").GetInt64());
+            }
+            else
+            {
+                Assert.Equal(HttpStatusCode.OK, answer.StatusCode);
+            }
+        }
+
+        Assert.True(busy > 0, "no read was refused: the reads did not overlap");
+        Assert.True(busy < answers.Length, "every read was refused");
+    }
+
     [Fact]
     public async Task the_probes_are_rate_limited_per_client_address()
     {

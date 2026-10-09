@@ -175,6 +175,24 @@ internal sealed class LimitSettings
     public TimeSpan PinnedReadLifetime { get; set; } = TimeSpan.FromMinutes(2);
 
     public TimeSpan FeedHeartbeat { get; set; } = TimeSpan.FromSeconds(15);
+
+    /// <summary>Reads in flight at once, server-wide (ADR 0114).</summary>
+    public int MaxConcurrentReads { get; set; } = 64;
+
+    /// <summary>Reads waiting for a slot before the next is <c>503 server-busy</c> (ADR 0114).</summary>
+    public int ReadQueueLength { get; set; } = 256;
+
+    /// <summary>The most an evaluation's materialising operators may hold, in bytes, counted (ADR 0114).</summary>
+    public long MaxQueryMemory { get; set; } = 256L << 20;
+
+    /// <summary>The most commits an as-of position may lie above its nearest checkpoint (ADR 0114).</summary>
+    public long MaxAsOfDistance { get; set; } = 10_000;
+
+    /// <summary>The most live tails one client may hold open (ADR 0114).</summary>
+    public int MaxLiveTailsPerClient { get; set; } = 16;
+
+    /// <summary>The most commits a bounded commits range serves before <c>Link rel="next"</c> (ADR 0114).</summary>
+    public int CommitsPageSize { get; set; } = 1_000;
 }
 
 /// <summary>Forwarded headers, honoured only when enabled and only from the listed proxies (ADR 0101).</summary>

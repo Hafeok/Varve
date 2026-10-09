@@ -46,7 +46,10 @@ timeout or a disconnect.
    - Before the first byte (ORDER BY, GROUP BY, a hash join's build side,
      which all materialise before any row is written) the answer is the
      problem alone. After it (DISTINCT, which accumulates while streaming)
-     the cut is ADR 0095's: the `Varve-Error` trailer names the type.
+     the cut is ADR 0095's: over HTTP/2 the `Varve-Error` trailer names the
+     type and the stream completes; over HTTP/1.1 Kestrel sends no trailers,
+     with or without `TE: trailers`, so the connection is aborted, which is
+     the visible cut 0095 chose over a document that looks whole.
    - The property: a request over the bound fails before the process's
      working set has grown by more than the bound plus a stated constant
      (64 MiB, the test's allowance for the collector and the response

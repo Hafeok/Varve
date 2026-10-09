@@ -91,3 +91,22 @@ Varve.Sparql.Evaluation.EvaluationOptions.ImplicitTimezoneOffset.init -> void
 Varve.Sparql.Evaluation.Model.ColumnIndex.ColumnIndex(int value) -> void
 Varve.Sparql.Evaluation.Model.ColumnIndex.Value.get -> int
 override Varve.Sparql.Evaluation.Model.ColumnIndex.ToString() -> string!
+Varve.Sparql.Evaluation.EvaluationOptions.MemoryBudget.get -> Varve.Sparql.Evaluation.MemoryBytes?
+Varve.Sparql.Evaluation.EvaluationOptions.MemoryBudget.init -> void
+Varve.Sparql.Evaluation.MemoryBytes
+Varve.Sparql.Evaluation.MemoryBytes.Bytes.get -> long
+Varve.Sparql.Evaluation.MemoryBytes.MemoryBytes() -> void
+Varve.Sparql.Evaluation.MemoryBytes.MemoryBytes(long bytes) -> void
+override Varve.Sparql.Evaluation.MemoryBytes.ToString() -> string!
+Varve.Sparql.Evaluation.MemoryBudgetExceededException
+Varve.Sparql.Evaluation.MemoryBudgetExceededException.MemoryBudgetExceededException() -> void
+Varve.Sparql.Evaluation.MemoryBudgetExceededException.MemoryBudgetExceededException(string! message) -> void
+Varve.Sparql.Evaluation.MemoryBudgetExceededException.MemoryBudgetExceededException(string! message, System.Exception! innerException) -> void
+Varve.Sparql.Evaluation.MemoryBudgetExceededException.MemoryBudgetExceededException(Varve.Sparql.Evaluation.MemoryBytes limit, Varve.Sparql.Evaluation.MemoryBytes actual) -> void
+Varve.Sparql.Evaluation.MemoryBudgetExceededException.Limit.get -> Varve.Sparql.Evaluation.MemoryBytes
+Varve.Sparql.Evaluation.MemoryBudgetExceededException.Actual.get -> Varve.Sparql.Evaluation.MemoryBytes
+Varve.Sparql.Evaluation.MemoryBytes.Equals(Varve.Sparql.Evaluation.MemoryBytes other) -> bool
+override Varve.Sparql.Evaluation.MemoryBytes.GetHashCode() -> int
+static Varve.Sparql.Evaluation.MemoryBytes.operator !=(Varve.Sparql.Evaluation.MemoryBytes left, Varve.Sparql.Evaluation.MemoryBytes right) -> bool
+static Varve.Sparql.Evaluation.MemoryBytes.operator ==(Varve.Sparql.Evaluation.MemoryBytes left, Varve.Sparql.Evaluation.MemoryBytes right) -> bool
+~override Varve.Sparql.Evaluation.MemoryBytes.Equals(object obj) -> bool

@@ -116,6 +116,7 @@ internal sealed class JoinTable
             while (source.MoveNext())
             {
                 exec.Check();
+                exec.Charge(exec.RowCost + (table._buckets is null ? 0 : Exec.HashEntryCost));
                 table.Rows.Add(source.Current);
                 if (table._buckets is not null)
                 {
@@ -593,7 +594,7 @@ internal sealed class DistinctOperator(Operator inner) : Operator
         while (solutions.MoveNext())
         {
             exec.Check();
-            if (FirstTime(seen, solutions.Current))
+            if (FirstTime(exec, seen, solutions.Current))
             {
                 yield return solutions.Current;
             }
@@ -615,6 +616,20 @@ internal sealed class DistinctOperator(Operator inner) : Operator
 
     [DesignDecision(typeof(EvaluationHotPathScope.BlockingOperatorsHoldTheirInput), Scope = ExceptionScope.HotPath)]
     private static bool FirstTime(HashSet<ulong[]> seen, ulong[] row) => seen.Add(row);
+
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private static bool FirstTime(Exec exec, HashSet<ulong[]> seen, ulong[] row)
+    {
+        if (!FirstTime(seen, row))
+        {
+            return false;
+        }
+
+        // Charged after the add so that a repeat costs nothing; the row the
+        // budget refuses is the one just kept, and the set is abandoned.
+        exec.Charge(exec.RowCost + Exec.HashEntryCost);
+        return true;
+    }
 }
 
 /// <summary>§18.5 <c>Slice</c>: the input is not read past the limit.</summary>
@@ -659,6 +674,7 @@ internal sealed class OrderByOperator(Operator inner, Expr[] keys, bool[] descen
             while (solutions.MoveNext())
             {
                 exec.Check();
+                exec.Charge(exec.RowCost + (keys.Length * Exec.KeyCost));
                 ulong[] row = solutions.Current;
                 table.Hold(row);
                 for (int i = 0; i < keys.Length; i++)

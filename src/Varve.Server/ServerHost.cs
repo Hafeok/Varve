@@ -124,10 +124,34 @@ internal static partial class ServerHost
         services.AddRateLimiter(limiter =>
         {
             limiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-            limiter.OnRejected = (rejected, cancellationToken) => new ValueTask(WriteProblemAsync(rejected.HttpContext, ProblemType.TooManyRequests, "The health endpoints answer " + settings.Health.RateLimit.ToString(CultureInfo.InvariantCulture) + " probes a minute per client address."));
+            limiter.OnRejected = (rejected, cancellationToken) =>
+            {
+                if (rejected.HttpContext.Request.Path.StartsWithSegments("/health"))
+                {
+                    return new ValueTask(WriteProblemAsync(rejected.HttpContext, ProblemType.TooManyRequests, "The health endpoints answer " + settings.Health.RateLimit.ToString(CultureInfo.InvariantCulture) + " probes a minute per client address."));
+                }
+
+                rejected.HttpContext.Response.Headers.RetryAfter = "1";
+                return new ValueTask(WriteProblemAsync(rejected.HttpContext, ProblemType.ServerBusy,
+                    "The server has " + settings.Limits.MaxConcurrentReads.ToString(CultureInfo.InvariantCulture) + " reads in flight and " + settings.Limits.ReadQueueLength.ToString(CultureInfo.InvariantCulture) + " waiting.",
+                    json => json.WriteNumber("limit", settings.Limits.MaxConcurrentReads)));
+            };
             limiter.AddPolicy("health", context => RateLimitPartition.GetFixedWindowLimiter(
                 context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = settings.Health.RateLimit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+
+            // The concurrent-read limit with its bounded queue (ADR 0114): a
+            // read is a GET or HEAD, or a POST of application/sparql-query; a
+            // write waits on the sequencer instead, and a live tail holds no
+            // read slot (ADR 0095), so neither is counted.
+            limiter.AddPolicy("reads", context => IsCountedRead(context)
+                ? RateLimitPartition.GetConcurrencyLimiter("reads", _ => new ConcurrencyLimiterOptions
+                {
+                    PermitLimit = settings.Limits.MaxConcurrentReads,
+                    QueueLimit = settings.Limits.ReadQueueLength,
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                })
+                : RateLimitPartition.GetNoLimiter("unbounded"));
         });
 
         if (settings.ForwardedHeaders.Enabled)
@@ -260,22 +284,17 @@ internal static partial class ServerHost
         {
             Datasets = datasets,
             Administration = datasets,
-            Updates = new StoreUpdates(clock, outbound),
+            Updates = new StoreUpdates(clock, outbound, new MemoryBytes(settings.Limits.MaxQueryMemory)),
             Identity = anonymous ? new NoAgent() : new TokenIdentity(settings.Auth.SubjectClaim),
             AccessScopes = anonymous ? EveryoneEverything.Instance : new GrantedScopes(settings.Auth),
             Authorization = app.Services.GetRequiredService<IAuthorizationService>(),
             Clock = clock,
-            Limits = new ProtocolLimits(
-                settings.Limits.QueryTimeout,
-                settings.Limits.PinnedReadLifetime,
-                new ByteCount(settings.Limits.ResultSizeCap),
-                new ByteCount(settings.Limits.MaxRequestBody),
-                settings.Limits.FeedHeartbeat),
-            Evaluation = new EvaluationOptions { Clock = clock, Randomness = new SystemRandomness(), ServiceHandler = outbound.Service },
+            Limits = Limits(settings),
+            Evaluation = new EvaluationOptions { Clock = clock, Randomness = new SystemRandomness(), ServiceHandler = outbound.Service, MemoryBudget = new MemoryBytes(settings.Limits.MaxQueryMemory) },
             Stopping = stopping,
         };
 
-        app.MapGroup("/datasets/{dataset}").MapVarveDataset(options);
+        app.MapGroup("/datasets/{dataset}").RequireRateLimiting("reads").MapVarveDataset(options);
         app.MapVarveAdministration("/datasets", options);
         app.MapGet("/health/live", (RequestDelegate)(context => WriteJsonAsync(context, StatusCodes.Status200OK, "application/json", json => json.WriteString("status", "live")))).RequireRateLimiting("health");
         app.MapGet("/health/ready", (RequestDelegate)(context => ReadyAsync(context, datasets, settings.Health.ReadyLag, drain))).RequireRateLimiting("health");
@@ -393,15 +412,44 @@ internal static partial class ServerHost
         await context.Response.Body.WriteAsync(body.WrittenMemory, context.RequestAborted).ConfigureAwait(false);
     }
 
-    /// <summary>The update executor (ADR 0091): Varve.Sparql.Store, no retries, the expected position passed through, SERVICE and LOAD through the outbound client (ADR 0104).</summary>
-    private sealed class StoreUpdates(TimeProvider clock, Outbound outbound) : ISparqlUpdateExecutor
+    /// <summary>The protocol's limits from the configuration (ADRs 0095, 0114).</summary>
+    private static ProtocolLimits Limits(ServerSettings settings) => new(
+        settings.Limits.QueryTimeout,
+        settings.Limits.PinnedReadLifetime,
+        new ByteCount(settings.Limits.ResultSizeCap),
+        new ByteCount(settings.Limits.MaxRequestBody),
+        settings.Limits.FeedHeartbeat)
+    {
+        MaxQueryMemory = new MemoryBytes(settings.Limits.MaxQueryMemory),
+        MaxAsOfDistance = settings.Limits.MaxAsOfDistance,
+        MaxLiveTailsPerClient = settings.Limits.MaxLiveTailsPerClient,
+        CommitsPageSize = settings.Limits.CommitsPageSize,
+    };
+
+    // A read for the concurrency limit (ADR 0114): a GET or HEAD that is not
+    // an open commits range, or a POSTed query.
+    private static bool IsCountedRead(HttpContext context)
+    {
+        HttpRequest request = context.Request;
+
+        if (HttpMethods.IsGet(request.Method) || HttpMethods.IsHead(request.Method))
+        {
+            bool commits = request.Path.Value?.EndsWith("/commits", StringComparison.Ordinal) == true;
+            return !commits || request.Query.ContainsKey("to") || request.Query.ContainsKey("toTime");
+        }
+
+        return HttpMethods.IsPost(request.Method) && request.ContentType?.StartsWith("application/sparql-query", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    /// <summary>The update executor (ADR 0091): Varve.Sparql.Store, no retries, the expected position passed through, SERVICE and LOAD through the outbound client (ADR 0104), the memory budget of ADR 0114.</summary>
+    private sealed class StoreUpdates(TimeProvider clock, Outbound outbound, MemoryBytes budget) : ISparqlUpdateExecutor
     {
         public ValueTask<CommitResult> ExecuteAsync(Dataset dataset, Update update, CommitMetadata metadata, Position? expectedPosition, Varve.Rdf.CallerScope scope, CancellationToken cancellationToken) =>
             SparqlUpdate.ExecuteAsync(dataset, update, new UpdateOptions
             {
                 Metadata = metadata,
                 ExpectedPosition = expectedPosition,
-                Evaluation = new EvaluationOptions { Clock = clock, Randomness = new SystemRandomness(), ServiceHandler = outbound.Service },
+                Evaluation = new EvaluationOptions { Clock = clock, Randomness = new SystemRandomness(), ServiceHandler = outbound.Service, MemoryBudget = budget },
                 LoadSource = outbound.Load,
                 ReadScope = scope.Readable,
                 WriteScope = scope.Writable,

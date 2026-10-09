@@ -238,3 +238,11 @@ static Varve.Protocol.Model.ProblemType.MemoryLimitExceeded.get -> Varve.Protoco
 static Varve.Protocol.Model.ProblemType.AsOfDistanceExceeded.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.TooManyLiveTails.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.TooManyRequests.get -> Varve.Protocol.Model.ProblemType
+Varve.Protocol.ProtocolLimits.MaxQueryMemory.get -> Varve.Sparql.Evaluation.MemoryBytes?
+Varve.Protocol.ProtocolLimits.MaxQueryMemory.init -> void
+Varve.Protocol.ProtocolLimits.MaxAsOfDistance.get -> long
+Varve.Protocol.ProtocolLimits.MaxAsOfDistance.init -> void
+Varve.Protocol.ProtocolLimits.MaxLiveTailsPerClient.get -> int
+Varve.Protocol.ProtocolLimits.MaxLiveTailsPerClient.init -> void
+Varve.Protocol.ProtocolLimits.CommitsPageSize.get -> int
+Varve.Protocol.ProtocolLimits.CommitsPageSize.init -> void

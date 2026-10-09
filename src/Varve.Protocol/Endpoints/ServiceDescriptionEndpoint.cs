@@ -69,15 +69,20 @@ internal static class ServiceDescriptionEndpoint
             return;
         }
 
-        DatasetView view;
+        DatasetView? opened;
 
         try
         {
-            view = await Reads.OpenAsync(context, exchange.Dataset, position, Reads.IsAsOf(context), context.RequestAborted).ConfigureAwait(false);
+            opened = await Reads.OpenAsync(context, exchange.Dataset, position, Reads.IsAsOf(context), exchange.Options.Limits, context.RequestAborted).ConfigureAwait(false);
         }
         catch (DatasetUnavailableException failed)
         {
             await QueryRun.WriteUnavailableAsync(exchange, failed.Message).ConfigureAwait(false);
+            return;
+        }
+
+        if (opened is not { } view)
+        {
             return;
         }
 
@@ -94,7 +99,7 @@ internal static class ServiceDescriptionEndpoint
 
         await BoundedReads.RunAsync(context, exchange.Options, async (output, cancellationToken) =>
         {
-            foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in Describe(service, view.Position))
+            foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in Describe(service, view.Position, exchange.Options.Limits))
             {
                 TermLines.WriteTriple(output, s, p, o);
             }
@@ -141,7 +146,7 @@ internal static class ServiceDescriptionEndpoint
     }
 
     /// <summary>The description's fixed part: everything but the named graphs.</summary>
-    internal static List<(RdfTerm, RdfTerm, RdfTerm)> Describe(string service, Position position)
+    internal static List<(RdfTerm, RdfTerm, RdfTerm)> Describe(string service, Position position, ProtocolLimits limits)
     {
         string prefix = service[..^"sparql".Length];
         RdfTerm self = Iri(service);
@@ -194,10 +199,19 @@ internal static class ServiceDescriptionEndpoint
         triples.Add((self, Iri(Varve + "checkpoints"), Iri(prefix + "checkpoints")));
         triples.Add((self, Iri(Varve + "feedFormat"), Literal(MediaTypes.Delta + "; version=1")));
         triples.Add((self, Iri(Varve + "feedFormat"), Literal(MediaTypes.EventStream)));
+
+        // The limits that shape a client's expectations (ADR 0114): what a
+        // read may answer, how far back an as-of read may go, and the page.
+        triples.Add((self, Iri(Varve + "resultSizeCap"), Integer(limits.ResultSizeCap.Value)));
+        triples.Add((self, Iri(Varve + "maxAsOfDistance"), Integer(limits.MaxAsOfDistance)));
+        triples.Add((self, Iri(Varve + "commitsPageSize"), Integer(limits.CommitsPageSize)));
         return triples;
     }
 
     private static RdfTerm Iri(string iri) => RdfTerm.Iri(Encoding.UTF8.GetBytes(iri));
+
+    private static RdfTerm Integer(long value) =>
+        RdfTerm.Literal(Encoding.UTF8.GetBytes(value.ToString(CultureInfo.InvariantCulture)), Iri("http://www.w3.org/2001/XMLSchema#integer"));
 
     private static RdfTerm Literal(string text) => RdfTerm.Literal(Encoding.UTF8.GetBytes(text));
 }

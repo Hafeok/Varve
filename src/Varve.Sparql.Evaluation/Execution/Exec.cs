@@ -29,6 +29,8 @@ internal sealed class Exec
     private ulong[]? _blankNodeRow;
     private Dictionary<RdfTerm, TermRef>? _blankNodesByLabel;
     private int _steps;
+    private readonly long _budget;
+    private long _charged;
 
     internal Exec(IQuadSource source, EvaluationOptions options, int width, CancellationToken cancellationToken)
     {
@@ -39,6 +41,34 @@ internal sealed class Exec
         RowLength = Rows.Length(width);
         Token = cancellationToken;
         Materialising = options.ValueAccess == ValueAccess.Materialise;
+        _budget = options.MemoryBudget?.Bytes ?? long.MaxValue;
+        RowCost = (RowLength * 8L) + 32;
+    }
+
+    /// <summary>The bytes a held row costs (ADR 0114): its slots, the array's header, and its slot in the list that holds it.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal long RowCost { get; }
+
+    /// <summary>The bytes a hashed entry adds to a held row: the bucket and the entry.</summary>
+    internal const long HashEntryCost = 24;
+
+    /// <summary>The bytes one sort key or group key slot costs.</summary>
+    internal const long KeyCost = 32;
+
+    /// <summary>
+    /// Charges <paramref name="bytes"/> to the memory budget (ADR 0114): an
+    /// addition per row a materialising operator holds, and a throw when the
+    /// sum passes the budget, before the row is kept.
+    /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal void Charge(long bytes)
+    {
+        _charged += bytes;
+
+        if (_charged > _budget)
+        {
+            throw new MemoryBudgetExceededException(new MemoryBytes(_budget), new MemoryBytes(_charged));
+        }
     }
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]

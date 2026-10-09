@@ -52,6 +52,9 @@ public sealed class ProtocolOptions
     /// <summary>What bounds a request.</summary>
     public ProtocolLimits Limits { get; init; } = ProtocolLimits.Default;
 
+    /// <summary>The live tails open per client, bounded by <see cref="ProtocolLimits.MaxLiveTailsPerClient"/> (ADR 0114); one registry per host.</summary>
+    internal Endpoints.LiveTails Tails { get; } = new();
+
     /// <summary>
     /// The write side of the dataset map (ADR 0106), for the admin API's
     /// <c>GET /datasets</c>, <c>PUT</c>, <c>DELETE</c>, <c>open</c> and

@@ -128,15 +128,20 @@ internal static class GraphStoreEndpoint
             return;
         }
 
-        DatasetView view;
+        DatasetView? opened;
 
         try
         {
-            view = await Reads.OpenAsync(context, exchange.Dataset, position, Reads.IsAsOf(context), context.RequestAborted).ConfigureAwait(false);
+            opened = await Reads.OpenAsync(context, exchange.Dataset, position, Reads.IsAsOf(context), exchange.Options.Limits, context.RequestAborted).ConfigureAwait(false);
         }
         catch (DatasetUnavailableException failed)
         {
             await QueryRun.WriteUnavailableAsync(exchange, failed.Message).ConfigureAwait(false);
+            return;
+        }
+
+        if (opened is not { } view)
+        {
             return;
         }
 

@@ -161,10 +161,32 @@ internal static class Reads
     /// The view for a read at <paramref name="position"/>: a pin when that is
     /// the head, an as-of view otherwise. It is registered with the response,
     /// which disposes it after the last byte or an abort (ADR 0095). The
-    /// response describes the position the view is at.
+    /// response describes the position the view is at. An as-of position
+    /// further from its nearest checkpoint than <see cref="ProtocolLimits.MaxAsOfDistance"/>
+    /// is refused here, before any log is read (ADR 0114): the problem is
+    /// written and the answer is null.
     /// </summary>
-    internal static async Task<DatasetView> OpenAsync(HttpContext context, Dataset dataset, Position position, bool asOf, CancellationToken cancellationToken)
+    internal static async Task<DatasetView?> OpenAsync(HttpContext context, Dataset dataset, Position position, bool asOf, ProtocolLimits limits, CancellationToken cancellationToken)
     {
+        if (asOf && position != dataset.Head)
+        {
+            long distance = AsOfDistance(dataset, position);
+
+            if (distance > limits.MaxAsOfDistance)
+            {
+                Preconditions.Describe(context.Response, dataset.Head);
+                await HttpProblems.WriteAsync(context, ProblemType.AsOfDistanceExceeded,
+                    "The position is " + distance.ToString(System.Globalization.CultureInfo.InvariantCulture) + " commits above its nearest checkpoint; the server replays at most "
+                    + limits.MaxAsOfDistance.ToString(System.Globalization.CultureInfo.InvariantCulture) + ". Take a checkpoint, or read a position one covers.",
+                    members =>
+                    {
+                        members.Number("limit", limits.MaxAsOfDistance);
+                        members.Number("actual", distance);
+                    }).ConfigureAwait(false);
+                return null;
+            }
+        }
+
         DatasetView view = asOf
             ? await dataset.AsOfAsync(position, cancellationToken).ConfigureAwait(false)
             : dataset.Pin();
@@ -188,6 +210,26 @@ internal static class Reads
         {
             response.Headers.LastModified = HeaderUtilities.FormatDate(modified);
         }
+    }
+
+    /// <summary>
+    /// The log distance an as-of read at <paramref name="position"/> replays
+    /// (R2): the commits above the nearest checkpoint at or below it, or above
+    /// position 0 when there is none.
+    /// </summary>
+    internal static long AsOfDistance(Dataset dataset, Position position)
+    {
+        long nearest = 0;
+
+        foreach (Position checkpoint in dataset.Checkpoints)
+        {
+            if (checkpoint <= position && checkpoint.Value > nearest)
+            {
+                nearest = checkpoint.Value;
+            }
+        }
+
+        return position.Value - nearest;
     }
 
     /// <summary>Whether the request carried <c>Varve-As-Of</c>.</summary>

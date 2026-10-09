@@ -130,6 +130,7 @@ internal sealed class GroupOperator(Operator inner, GroupKeySpec[] keys, List<Ag
                 return state;
             }
 
+            exec.Charge((Probe.Length * Exec.KeyCost) + Exec.HashEntryCost + (aggregates.Count * Exec.KeyCost));
             TermRef[] key = (TermRef[])Probe.Clone();
             state = new Accumulator[aggregates.Count];
             for (int i = 0; i < state.Length; i++)

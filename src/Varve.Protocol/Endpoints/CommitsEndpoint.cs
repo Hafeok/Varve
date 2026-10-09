@@ -136,20 +136,74 @@ internal static class CommitsEndpoint
         HttpResponse response = context.Response;
         response.Headers[Preconditions.PositionHeader] = range.From.Value.ToString(CultureInfo.InvariantCulture);
         response.Headers.CacheControl = "no-store";
-        response.ContentType = framing.Format == FeedFraming.EventStream ? MediaTypes.EventStream : DeltaContentType;
 
         if (range.To is Position empty && empty <= range.From)
         {
+            response.ContentType = framing.Format == FeedFraming.EventStream ? MediaTypes.EventStream : DeltaContentType;
             return;
         }
 
-        if (!filter.IsAll)
+        IDisposable? slot = null;
+
+        if (range.To is null)
         {
-            using DatasetView pin = exchange.Dataset.Pin();
-            filter.Resolve(pin);
+            // A live tail per client, bounded (ADR 0114); the slot is held
+            // for the tail's life.
+            slot = options.Tails.TryOpen(context, options, options.Limits.MaxLiveTailsPerClient);
+
+            if (slot is null)
+            {
+                await HttpProblems.WriteAsync(context, ProblemType.TooManyLiveTails,
+                    "The client holds " + options.Limits.MaxLiveTailsPerClient.ToString(CultureInfo.InvariantCulture) + " live tails open already; close one before opening another.",
+                    members => members.Number("limit", options.Limits.MaxLiveTailsPerClient)).ConfigureAwait(false);
+                return;
+            }
+        }
+        else if (range.To.Value.Value - range.From.Value > options.Limits.CommitsPageSize)
+        {
+            // A page of the range, decided before the first byte, so that the
+            // header can say where the next one starts (ADRs 0114, 0118).
+            Position last = new(range.From.Value + options.Limits.CommitsPageSize);
+            response.Headers.Append("Link", "<" + NextPage(context, last) + ">; rel=\"next\"");
+            range = range with { To = last };
         }
 
-        await StreamAsync(exchange, range, filter, framing.Format).ConfigureAwait(false);
+        response.ContentType = framing.Format == FeedFraming.EventStream ? MediaTypes.EventStream : DeltaContentType;
+
+        using (slot)
+        {
+            if (!filter.IsAll)
+            {
+                using DatasetView pin = exchange.Dataset.Pin();
+                filter.Resolve(pin);
+            }
+
+            await StreamAsync(exchange, range, filter, framing.Format).ConfigureAwait(false);
+        }
+    }
+
+    // The request's own address with from replaced by the page's last
+    // position, every other parameter kept, so the next page is the same
+    // request continued.
+    private static string NextPage(HttpContext context, Position from)
+    {
+        System.Text.StringBuilder next = new();
+        next.Append(context.Request.PathBase.ToUriComponent()).Append(context.Request.Path.ToUriComponent()).Append("?from=").Append(from.Value.ToString(CultureInfo.InvariantCulture));
+
+        foreach (KeyValuePair<string, StringValues> parameter in context.Request.Query)
+        {
+            if (parameter.Key is "from" or "fromTime")
+            {
+                continue;
+            }
+
+            foreach (string? value in parameter.Value)
+            {
+                next.Append('&').Append(Uri.EscapeDataString(parameter.Key)).Append('=').Append(Uri.EscapeDataString(value ?? string.Empty));
+            }
+        }
+
+        return next.ToString();
     }
 
     private static async Task StreamAsync(Exchange exchange, FeedRange range, FeedFilter filter, FeedFraming framing)
