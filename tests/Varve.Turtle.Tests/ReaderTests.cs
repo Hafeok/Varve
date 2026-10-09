@@ -149,12 +149,31 @@ public class ReaderTests
     }
 
     [Fact]
-    public void unicode_escapes_are_resolved_including_surrogate_pairs()
+    public void unicode_escapes_are_resolved_including_a_surrogate_pair_under_rdf_11()
     {
-        (_, List<Row> rows) = Parse(
-            "<http://a/s> <http://a/p> \"\\u00E9 \\U0001F600 \\uD83D\\uDE00\" .\n");
+        // RDF 1.1 reads a surrogate pair written as two \u escapes as the
+        // character it encodes (its Turtle test-38); RDF 1.2 refuses it, and
+        // is the default (RdfVersion, ADR 0110).
+        List<Row> rows = [];
+        ParseOptions options = new() { Version = RdfVersion.Rdf11 };
+        ParseResult result = NQuadsParser.Parse(
+            U("<http://a/s> <http://a/p> \"\\u00E9 \\U0001F600 \\uD83D\\uDE00\" .\n"), rows.Collect(), in options);
 
+        Assert.True(result.Succeeded, result.FirstError.ToString());
         Assert.Equal(RdfTerm.Literal(U("é \U0001F600 \U0001F600")), rows[0].Object);
+    }
+
+    [Fact]
+    public void a_surrogate_pair_of_escapes_is_refused_by_default()
+    {
+        (ParseResult result, _) = Parse("<http://a/s> <http://a/p> \"\\uD83D\\uDE00\" .\n");
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ParseErrorKind.InvalidUnicodeEscape, result.FirstError.Kind);
+
+        (result, List<Row> rows) = Parse("<http://a/s> <http://a/p> \"\\u00E9 \\U0001F600\" .\n");
+        Assert.True(result.Succeeded, result.FirstError.ToString());
+        Assert.Equal(RdfTerm.Literal(U("é \U0001F600")), rows[0].Object);
     }
 
     [Fact]

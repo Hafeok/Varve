@@ -42,14 +42,15 @@ public class TurtleAllocationTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The measured figure is about 6.3 KB for the span path and 6.6 KB for
-    /// the chunked ones, against N-Triples' 2 KB, and the difference is the
-    /// point of ADR 0030 rather than a defect: the arena holds a whole
+    /// The measured figure is about 10.4 KB for the span path and 10.7 KB for
+    /// the chunked ones (6.3 and 6.6 KB before milestone 6b made the
+    /// statement fourteen quads), against N-Triples' 2 KB, and the difference
+    /// is the point of ADR 0030 rather than a defect: the arena holds a whole
     /// <em>statement</em> and not a line, so it grows to the largest statement
     /// in the document (`turtle.md` §8). The statements here carry a
     /// predicate-object list, an object list, a nested blank node property
-    /// list and a collection, which is a good deal more than one line's worth
-    /// of terms.
+    /// list, a collection, an annotation, a triple term and a reified triple,
+    /// which is a good deal more than one line's worth of terms.
     /// </para>
     /// <para>
     /// <strong>It is fixed, and that is what the test is about.</strong> The
@@ -59,7 +60,7 @@ public class TurtleAllocationTests
     /// unrelated runtime change and teaches everyone to raise it.
     /// </para>
     /// </remarks>
-    private const int FixedCostLimit = 8192;
+    private const int FixedCostLimit = 12288;
 
     private static readonly byte[] SmallDocument = Document(Small, trig: false);
     private static readonly byte[] LargeDocument = Document(Large, trig: false);
@@ -104,9 +105,13 @@ public class TurtleAllocationTests
             // per-quad cost.
             string n = i.ToString("D6", CultureInfo.InvariantCulture);
 
+            // Since milestone 6b each statement also carries RDF 1.2: a
+            // directional literal, an annotation with a fresh reifier, a
+            // triple term object and a reified triple object (ADR 0110).
             builder.Append("p:s").Append(n)
-                .Append(" p:p \"value ").Append(n).Append(" with an escape \\u00E9\"@en , 1.5e3 ;\n")
+                .Append(" p:p \"value ").Append(n).Append(" with an escape \\u00E9\"@en--ltr , 1.5e3 {| p:w p:z |} ;\n")
                 .Append("  p:q [ p:r ( <rel").Append(n).Append("> p:t ) ] ;\n")
+                .Append("  p:u <<( p:a p:b p:c )>> , << p:a p:b \"c\" ~ p:i").Append(n).Append(" >> ;\n")
                 .Append("  a p:C .\n");
 
             if (trig)
@@ -285,6 +290,9 @@ public class TurtleAllocationTests
         TurtleParser.Parse(in sequence, Count, in options);
 
         Assert.Equal(whole, quadsSeen);
-        Assert.Equal(Large * 9, whole);
+        // Fourteen quads a statement: two objects, the annotation's two, the
+        // property list's one and its collection's five, the triple term's
+        // one, the reified triple's two, and the type.
+        Assert.Equal(Large * 14, whole);
     }
 }

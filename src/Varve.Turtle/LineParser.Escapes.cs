@@ -40,7 +40,7 @@ internal ref partial struct LineParser
             : EscapeDecoder.Allowed.UcharOnly;
 
         if (!EscapeDecoder.TryDecode(
-            _line, start, end, allowed, _arena, out span, out ParseErrorKind error, out int at))
+            _line, start, end, allowed, _arena, _surrogatePairs, out span, out ParseErrorKind error, out int at))
         {
             return Fail(error, at);
         }

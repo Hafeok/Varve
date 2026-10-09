@@ -156,6 +156,7 @@ internal static class EscapeDecoder
         int end,
         Allowed allowed,
         TermArena arena,
+        bool surrogatePairs,
         out TermSpan span,
         out ParseErrorKind error,
         out int errorAt)
@@ -214,6 +215,19 @@ internal static class EscapeDecoder
                 {
                     error = ParseErrorKind.UnpairedSurrogate;
                     errorAt = i;
+                    return false;
+                }
+
+                // A well-formed pair. RDF 1.2 (N-Triples §2.1, Turtle §2.5): a
+                // surrogate code point is not a character, so an escape naming
+                // one is an error even when its partner follows; RDF 1.1
+                // Turtle's test-38 requires the pair to be read as the
+                // character it encodes. The edition decides (RdfVersion, ADR
+                // 0110). A lone surrogate is unpaired in both.
+                if (!surrogatePairs)
+                {
+                    error = ParseErrorKind.InvalidUnicodeEscape;
+                    errorAt = i - (2 + digits);
                     return false;
                 }
 

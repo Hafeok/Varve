@@ -15,59 +15,60 @@ namespace Varve.Conformance.Tests;
 /// <summary>
 /// The guards on the evaluation suites: each wired suite enumerates the cases
 /// its manifest lists — a count that changes is looked at, not absorbed — and
-/// the cases blocked on RDF 1.2 Turtle are pinned, by count and by suite, with
-/// the slice that unblocks them named.
+/// the other value-access arms answer every case the default arm does. Until
+/// milestone 6b the cases whose data was RDF 1.2 Turtle were pinned here as
+/// blocked; ADR 0110 opened the reader and they run.
 /// </summary>
 public class EvaluationGuardTests
 {
-    /// <summary>Per suite: the query evaluation cases its manifest lists, and how many of them are blocked.</summary>
-    public static TheoryData<string, int, int> ExpectedCounts() => new()
+    /// <summary>Per suite: the query evaluation cases its manifest lists.</summary>
+    public static TheoryData<string, int> ExpectedCounts() => new()
     {
-        { "sparql10/basic", 27, 0 },
-        { "sparql10/triple-match", 4, 0 },
-        { "sparql10/open-world", 18, 0 },
-        { "sparql10/algebra", 14, 0 },
-        { "sparql10/bnode-coreference", 1, 0 },
-        { "sparql10/optional", 7, 0 },
-        { "sparql10/optional-filter", 5, 0 },
-        { "sparql10/graph", 17, 0 },
-        { "sparql10/dataset", 12, 0 },
-        { "sparql10/type-promotion", 30, 0 },
-        { "sparql10/cast", 7, 0 },
-        { "sparql10/boolean-effective-value", 7, 0 },
-        { "sparql10/bound", 1, 0 },
-        { "sparql10/expr-builtin", 25, 0 },
-        { "sparql10/expr-ops", 18, 0 },
-        { "sparql10/expr-equals", 15, 0 },
-        { "sparql10/regex", 21, 0 },
-        { "sparql10/i18n", 5, 0 },
-        { "sparql10/construct", 5, 0 },
-        { "sparql10/ask", 4, 0 },
-        { "sparql10/distinct", 11, 0 },
-        { "sparql10/sort", 14, 0 },
-        { "sparql10/solution-seq", 13, 0 },
-        { "sparql10/reduced", 2, 0 },
-        { "sparql11/aggregates", 42, 0 },
-        { "sparql11/bind", 10, 0 },
-        { "sparql11/bindings", 11, 0 },
-        { "sparql11/cast", 6, 0 },
-        { "sparql11/construct", 5, 0 },
-        { "sparql11/csv-tsv-res", 6, 0 },
-        { "sparql11/exists", 6, 0 },
-        { "sparql11/functions", 75, 0 },
-        { "sparql11/grouping", 4, 0 },
-        { "sparql11/json-res", 4, 0 },
-        { "sparql11/negation", 12, 0 },
-        { "sparql11/project-expression", 7, 0 },
-        { "sparql11/property-path", 33, 0 },
-        { "sparql11/service", 7, 0 },
-        { "sparql11/subquery", 14, 0 },
-        { "sparql12/codepoint-escapes", 5, 0 },
-        { "sparql12/eval-triple-terms", 38, 37 },
-        { "sparql12/expression", 5, 0 },
-        { "sparql12/grouping", 2, 0 },
-        { "sparql12/lang-basedir", 10, 4 },
-        { "sparql12/rdf11", 3, 0 },
+        { "sparql10/basic", 27 },
+        { "sparql10/triple-match", 4 },
+        { "sparql10/open-world", 18 },
+        { "sparql10/algebra", 14 },
+        { "sparql10/bnode-coreference", 1 },
+        { "sparql10/optional", 7 },
+        { "sparql10/optional-filter", 5 },
+        { "sparql10/graph", 17 },
+        { "sparql10/dataset", 12 },
+        { "sparql10/type-promotion", 30 },
+        { "sparql10/cast", 7 },
+        { "sparql10/boolean-effective-value", 7 },
+        { "sparql10/bound", 1 },
+        { "sparql10/expr-builtin", 25 },
+        { "sparql10/expr-ops", 18 },
+        { "sparql10/expr-equals", 15 },
+        { "sparql10/regex", 21 },
+        { "sparql10/i18n", 5 },
+        { "sparql10/construct", 5 },
+        { "sparql10/ask", 4 },
+        { "sparql10/distinct", 11 },
+        { "sparql10/sort", 14 },
+        { "sparql10/solution-seq", 13 },
+        { "sparql10/reduced", 2 },
+        { "sparql11/aggregates", 42 },
+        { "sparql11/bind", 10 },
+        { "sparql11/bindings", 11 },
+        { "sparql11/cast", 6 },
+        { "sparql11/construct", 5 },
+        { "sparql11/csv-tsv-res", 6 },
+        { "sparql11/exists", 6 },
+        { "sparql11/functions", 75 },
+        { "sparql11/grouping", 4 },
+        { "sparql11/json-res", 4 },
+        { "sparql11/negation", 12 },
+        { "sparql11/project-expression", 7 },
+        { "sparql11/property-path", 33 },
+        { "sparql11/service", 7 },
+        { "sparql11/subquery", 14 },
+        { "sparql12/codepoint-escapes", 5 },
+        { "sparql12/eval-triple-terms", 38 },
+        { "sparql12/expression", 5 },
+        { "sparql12/grouping", 2 },
+        { "sparql12/lang-basedir", 10 },
+        { "sparql12/rdf11", 3 },
     };
 
     [Fact]
@@ -84,41 +85,24 @@ public class EvaluationGuardTests
     public void Every_wired_evaluation_suite_enumerates_the_cases_its_manifest_lists()
     {
         Assert.True(TestData.IsCheckedOut, "The W3C test data is missing; see SubmoduleGuardTests.");
-        Dictionary<string, (int Cases, int Blocked)> expected = [];
-        foreach (TheoryDataRow<string, int, int> row in ExpectedCounts())
+        Dictionary<string, int> expected = [];
+        foreach (TheoryDataRow<string, int> row in ExpectedCounts())
         {
-            expected[row.Data.Item1] = (row.Data.Item2, row.Data.Item3);
+            expected[row.Data.Item1] = row.Data.Item2;
         }
 
         List<string> wrong = [];
         foreach (EvaluationSuite suite in EvaluationSuite.All)
         {
             IReadOnlyList<EvaluationEntry> entries = EvaluationCatalogue.Of(suite);
-            int blocked = entries.Count(EvaluationCatalogue.IsBlocked);
-            if (!expected.TryGetValue(suite.Id, out (int Cases, int Blocked) pinned) || pinned != (entries.Count, blocked))
+            if (!expected.TryGetValue(suite.Id, out int pinned) || pinned != entries.Count)
             {
-                wrong.Add($"        {{ \"{suite.Id}\", {entries.Count}, {blocked} }},");
+                wrong.Add($"        {{ \"{suite.Id}\", {entries.Count} }},");
             }
         }
 
         Assert.True(wrong.Count == 0, "Suites whose counts are not the pinned ones (the lines as measured):\n" + string.Join("\n", wrong));
     }
-
-    /// <summary>
-    /// The blocked cases, all of whose data is RDF 1.2 Turtle or TriG that
-    /// turtle.md §9 refuses. The slice that unblocks them is the roadmap's 6b —
-    /// RDF 1.2 Turtle and TriG, with RDF/XML and JSON-LD — before milestone 7.
-    /// </summary>
-    [Fact]
-    public void The_cases_blocked_on_rdf_12_turtle_are_the_pinned_ones()
-    {
-        IReadOnlyList<EvaluationEntry> blocked = EvaluationCatalogue.Blocked;
-        Assert.All(blocked, entry => Assert.StartsWith("sparql12/", entry.Suite, StringComparison.Ordinal));
-        Assert.True(blocked.Count == BlockedCount, $"{blocked.Count} cases are blocked on RDF 1.2 Turtle (turtle.md §9; unblocked by roadmap slice 6b), pinned {BlockedCount}:\n"
-            + string.Join("\n", blocked.Select(e => e.TestIri + " — " + string.Join("; ", EvaluationData.RefusedFiles(e)))));
-    }
-
-    private const int BlockedCount = 41;
 
     /// <summary>
     /// Every RDF/XML translation in <c>tests/fixtures/w3c-rdfxml/</c> was made
@@ -157,7 +141,10 @@ public class EvaluationGuardTests
         List<string> failures = [];
         foreach (EvaluationEntry entry in EvaluationCatalogue.Entries)
         {
-            if (!EvaluationCatalogue.IsBlocked(entry)
+            // A case the baseline exempts over the store is not required of
+            // the other arms either: the exemption's justification covers the
+            // source, and the arms differ only in how they read its values.
+            if (!Exemptions.Covers(entry.TestIri + "@store")
                 && await EvaluationRunner.RunAsync(entry, EvaluationSubjects.Store, arm, null, TestContext.Current.CancellationToken) is { } failure)
             {
                 failures.Add(entry.TestIri + ": " + failure.Split('\n')[0]);

@@ -96,7 +96,7 @@ public class WriterFixedPointTests
     /// </summary>
     private static RdfSyntax Syntax(RdfFormat format) => format switch
     {
-        RdfFormat.TriG or RdfFormat.NQuads => RdfSyntax.TriG,
+        RdfFormat.TriG or RdfFormat.NQuads or RdfFormat.TriG12 or RdfFormat.NQuads12 => RdfSyntax.TriG,
         _ => RdfSyntax.Turtle,
     };
 
@@ -121,6 +121,11 @@ public class WriterFixedPointTests
             {
                 Syntax = syntax == RdfSyntax.TriG ? RdfSyntax.TriG : RdfSyntax.Turtle,
                 BaseIri = Encoding.UTF8.GetBytes("http://example/base"),
+
+                // The widest reading: an rdf11 input may spell a character as a
+                // surrogate pair, which the writer then writes as the
+                // character, so the second read needs no edition at all.
+                Version = RdfVersion.Rdf11,
             };
 
             result = TurtleParser.Parse(

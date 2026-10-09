@@ -49,6 +49,13 @@ public readonly struct ParseOptions
     public ErrorHandler? OnError { get; init; }
 
     /// <summary>
+    /// Which edition's grammar decides where the two differ: a surrogate pair
+    /// written as two <c>\u</c> escapes (<see cref="RdfVersion"/>). RDF 1.2 by
+    /// default.
+    /// </summary>
+    public RdfVersion Version { get; init; }
+
+    /// <summary>
     /// Whether each IRI is checked against RFC 3987 and required to have a
     /// scheme. True by default: N-Triples requires absolute IRIs, and a parser
     /// that accepted relative ones would produce terms no RDF consumer can use.

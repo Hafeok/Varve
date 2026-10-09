@@ -31,11 +31,6 @@ public class EvaluationConformanceTests
 
         foreach (EvaluationEntry entry in EvaluationCatalogue.Entries)
         {
-            if (EvaluationCatalogue.IsBlocked(entry))
-            {
-                continue;
-            }
-
             foreach (string subject in SubjectNames)
             {
                 string id = entry.TestIri + "@" + subject;

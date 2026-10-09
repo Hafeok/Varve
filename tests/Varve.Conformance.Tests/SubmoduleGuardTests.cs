@@ -84,6 +84,10 @@ public class SubmoduleGuardTests
         { "rdf12/n-quads-c14n", 41 },
         { "rdf11/turtle", 313 },
         { "rdf11/trig", 357 },
+        { "rdf12/turtle-syntax", 74 },
+        { "rdf12/turtle-eval", 32 },
+        { "rdf12/trig-syntax", 35 },
+        { "rdf12/trig-eval", 26 },
     };
 
     [Theory]
@@ -151,6 +155,10 @@ public class SubmoduleGuardTests
     {
         { "rdf11/turtle", 313 },
         { "rdf11/trig", 357 },
+        { "rdf12/turtle-syntax", 74 },
+        { "rdf12/turtle-eval", 32 },
+        { "rdf12/trig-syntax", 35 },
+        { "rdf12/trig-eval", 26 },
         { "rdf11/n-triples", 70 },
         { "rdf11/n-quads", 87 },
     };
@@ -263,8 +271,9 @@ public class SubmoduleGuardTests
             }
         }
 
-        // Turtle 145 and TriG 143, as the manifests list them.
-        Assert.Equal(288, evaluations);
+        // Turtle 145 and TriG 143, and RDF 1.2 Turtle 32 and TriG 26, as the
+        // manifests list them.
+        Assert.Equal(346, evaluations);
     }
 
     /// <summary>

@@ -62,11 +62,16 @@ internal sealed class VarveParserSubject : IParserSubject
     }
 
     private static bool IsLineBased(RdfFormat format) =>
-        format is RdfFormat.NTriples or RdfFormat.NQuads;
+        format is RdfFormat.NTriples or RdfFormat.NQuads or RdfFormat.NTriples12 or RdfFormat.NQuads12;
+
+    /// <summary>The edition a format is read as: the rdf12 suites under RDF 1.2, the rdf11 suites under RDF 1.1 (ADR 0110).</summary>
+    internal static RdfVersion VersionOf(RdfFormat format) =>
+        format is RdfFormat.NTriples12 or RdfFormat.NQuads12 or RdfFormat.Turtle12 or RdfFormat.TriG12 ? RdfVersion.Rdf12 : RdfVersion.Rdf11;
 
     private static ParseOptions LineOptions(RdfFormat format) => new()
     {
-        Syntax = format == RdfFormat.NQuads ? RdfSyntax.NQuads : RdfSyntax.NTriples,
+        Syntax = format is RdfFormat.NQuads or RdfFormat.NQuads12 ? RdfSyntax.NQuads : RdfSyntax.NTriples,
+        Version = VersionOf(format),
     };
 
     /// <remarks>
@@ -76,8 +81,9 @@ internal sealed class VarveParserSubject : IParserSubject
     /// </remarks>
     private static TurtleOptions TurtleOptionsFor(RdfFormat format, string baseIri) => new()
     {
-        Syntax = format == RdfFormat.TriG ? RdfSyntax.TriG : RdfSyntax.Turtle,
+        Syntax = format is RdfFormat.TriG or RdfFormat.TriG12 ? RdfSyntax.TriG : RdfSyntax.Turtle,
         BaseIri = Encoding.UTF8.GetBytes(baseIri),
+        Version = VersionOf(format),
     };
 
     private static ParseOutcome Outcome(ParseResult result, Collector collector) =>

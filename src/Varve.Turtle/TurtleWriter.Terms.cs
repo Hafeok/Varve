@@ -24,13 +24,13 @@ public sealed partial class TurtleWriter
                 return;
 
             case RdfTermKind.TripleTerm:
-                writer.Bytes("<<("u8);
+                writer.Bytes("<<( "u8);
                 WriteTerm(ref writer, term.Subject);
                 writer.Byte((byte)' ');
                 WriteTerm(ref writer, term.Predicate);
                 writer.Byte((byte)' ');
                 WriteTerm(ref writer, term.Object);
-                writer.Bytes(")>>"u8);
+                writer.Bytes(" )>>"u8);
                 return;
 
             default:
@@ -59,13 +59,13 @@ public sealed partial class TurtleWriter
                 return;
 
             case RdfTermKind.TripleTerm:
-                writer.Bytes("<<("u8);
+                writer.Bytes("<<( "u8);
                 WriteTerm(ref writer, term.Subject!);
                 writer.Byte((byte)' ');
                 WriteTerm(ref writer, term.Predicate!);
                 writer.Byte((byte)' ');
                 WriteTerm(ref writer, term.Object!);
-                writer.Bytes(")>>"u8);
+                writer.Bytes(" )>>"u8);
                 return;
 
             default:
@@ -94,22 +94,20 @@ public sealed partial class TurtleWriter
 
         if (hasLanguage)
         {
-            if (direction != TextDirection.None)
-            {
-                // RDF 1.1 Turtle has no syntax for a base direction: it is RDF
-                // 1.2's LANG_DIR, which this reader does not accept
-                // (`turtle.md` §9). Writing it would produce a document this
-                // library's own reader rejects, and dropping it would write a
-                // different term — so neither, and the caller is told which
-                // syntaxes can carry one.
-                throw new InvalidOperationException(
-                    "This literal carries a base direction, and RDF 1.1 Turtle and TriG have no "
-                    + "syntax for one. Write it as N-Triples or N-Quads, where RDF 1.2's LANG_DIR "
-                    + "is gated by the rdf12 suites; RDF 1.2 Turtle is on the roadmap.");
-            }
-
+            // [42] LANG_DIR: the tag, and "--ltr" or "--rtl" for a base
+            // direction (RDF 1.2 Turtle; ADR 0110).
             writer.Byte((byte)'@');
             writer.Bytes(language);
+
+            if (direction == TextDirection.LeftToRight)
+            {
+                writer.Bytes("--ltr"u8);
+            }
+            else if (direction == TextDirection.RightToLeft)
+            {
+                writer.Bytes("--rtl"u8);
+            }
+
             return;
         }
 

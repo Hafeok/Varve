@@ -284,3 +284,6 @@ Varve.Rdf.GraphNotWritableException.GraphNotWritableException() -> void
 Varve.Rdf.GraphNotWritableException.GraphNotWritableException(Varve.Rdf.RdfTerm? graph) -> void
 Varve.Rdf.GraphNotWritableException.GraphNotWritableException(string! message) -> void
 Varve.Rdf.GraphNotWritableException.GraphNotWritableException(string! message, System.Exception! innerException) -> void
+Varve.Rdf.IQuadSource.TryGetTripleTermComponents(Varve.Rdf.TermHandle handle, out Varve.Rdf.TermHandle subject, out Varve.Rdf.TermHandle predicate, out Varve.Rdf.TermHandle object) -> bool
+Varve.Rdf.GraphScopedQuadSource.TryGetTripleTermComponents(Varve.Rdf.TermHandle handle, out Varve.Rdf.TermHandle subject, out Varve.Rdf.TermHandle predicate, out Varve.Rdf.TermHandle object) -> bool
+Varve.Rdf.QuadOverlay.TryGetTripleTermComponents(Varve.Rdf.TermHandle handle, out Varve.Rdf.TermHandle subject, out Varve.Rdf.TermHandle predicate, out Varve.Rdf.TermHandle object) -> bool

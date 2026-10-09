@@ -108,4 +108,29 @@ public enum ParseErrorKind : byte
 
     /// <summary>A <c>[</c> was not closed by a <c>]</c>.</summary>
     UnterminatedBlankNodeList,
+
+    /// <summary>
+    /// A reified triple <c>&lt;&lt; s p o &gt;&gt;</c> was not closed, or
+    /// carried more than a subject, a verb, an object and a reifier. RDF 1.2
+    /// Turtle [29].
+    /// </summary>
+    UnterminatedReifiedTriple,
+
+    /// <summary>
+    /// An annotation block <c>{| … |}</c> was not closed. RDF 1.2 Turtle [36].
+    /// </summary>
+    UnterminatedAnnotation,
+
+    /// <summary>
+    /// A <c>~</c> was followed by something that is neither an IRI nor a blank
+    /// node. RDF 1.2 Turtle [28].
+    /// </summary>
+    ExpectedReifier,
+
+    /// <summary>
+    /// A version directive's value is not a short-form string. RDF 1.2 Turtle
+    /// [10]: <c>VersionSpecifier</c> is <c>STRING_LITERAL_QUOTE</c> or
+    /// <c>STRING_LITERAL_SINGLE_QUOTE</c>, and never a long form.
+    /// </summary>
+    InvalidVersion,
 }

@@ -104,12 +104,31 @@ internal static class TurtleHarness
                 text.Append("_:").Append(Harness.S(term.Lexical));
                 break;
 
+            case RdfTermKind.TripleTerm:
+                text.Append("<<( ");
+                Append(text, term.Subject!);
+                text.Append(' ');
+                Append(text, term.Predicate!);
+                text.Append(' ');
+                Append(text, term.Object!);
+                text.Append(" )>>");
+                break;
+
             default:
                 text.Append('"').Append(Harness.S(term.Lexical)).Append('"');
 
                 if (!term.Language.IsEmpty)
                 {
                     text.Append('@').Append(Harness.S(term.Language));
+
+                    if (term.Direction == TextDirection.LeftToRight)
+                    {
+                        text.Append("--ltr");
+                    }
+                    else if (term.Direction == TextDirection.RightToLeft)
+                    {
+                        text.Append("--rtl");
+                    }
                 }
                 else if (term.Datatype is not null)
                 {

@@ -22,7 +22,7 @@ internal ref partial struct TurtleScanner
             return StatementStatus.Incomplete;
         }
 
-        if (Peek == (byte)'@' || LooksIgnoringCase("PREFIX"u8) || LooksIgnoringCase("BASE"u8))
+        if (Peek == (byte)'@' || LooksIgnoringCase("PREFIX"u8) || LooksIgnoringCase("BASE"u8) || IsVersionKeyword())
         {
             return Directive() ? StatementStatus.Complete : Rejected();
         }
@@ -31,12 +31,29 @@ internal ref partial struct TurtleScanner
     }
 
     /// <summary>
+    /// Whether the cursor is at the keyword <c>VERSION</c> [9] and not at a
+    /// prefixed name that happens to start with those letters: the byte after
+    /// it must be whitespace, a comment or the opening quote of its value.
+    /// </summary>
+    private readonly bool IsVersionKeyword()
+    {
+        if (!LooksIgnoringCase("VERSION"u8))
+        {
+            return false;
+        }
+
+        int after = Consumed + 7;
+        return after >= _text.Length || _text[after] is 0x20 or 0x09 or 0x0A or 0x0D or (byte)'#' or (byte)'"' or (byte)'\'';
+    }
+
+    /// <summary>
     /// Whether the buffer ends part-way through what could be a SPARQL-style
     /// keyword. <c>PRE</c> is either <c>PREFIX</c> or the start of a prefixed
     /// name, and nothing here can tell which, so the statement waits.
     /// </summary>
     private readonly bool MightBeADirective() =>
-        MightBeIgnoringCase("PREFIX"u8) || MightBeIgnoringCase("BASE"u8);
+        MightBeIgnoringCase("PREFIX"u8) || MightBeIgnoringCase("BASE"u8) || MightBeIgnoringCase("VERSION"u8)
+        || (LooksIgnoringCase("VERSION"u8) && Consumed + 7 >= _text.Length);
 
     /// <summary>
     /// TriG [2g]. The awkward one: a leading IRI or blank node is a graph label
@@ -50,7 +67,7 @@ internal ref partial struct TurtleScanner
             return StatementStatus.Incomplete;
         }
 
-        if (Peek == (byte)'@' || LooksIgnoringCase("PREFIX"u8) || LooksIgnoringCase("BASE"u8))
+        if (Peek == (byte)'@' || LooksIgnoringCase("PREFIX"u8) || LooksIgnoringCase("BASE"u8) || IsVersionKeyword())
         {
             return Directive() ? StatementStatus.Complete : Rejected();
         }
@@ -110,10 +127,22 @@ internal ref partial struct TurtleScanner
                 : TriplesFromSubject(anon, graph: -1) ? StatementStatus.Complete : Rejected();
         }
 
-        // [4g] triples2's two shapes.
+        // [4g] triples2's two shapes, and [3]'s reifiedTriple predicateObjectList? '.'
+        // (RDF 1.2 TriG), which TrySubject reads.
         if (Peek is (byte)'[' or (byte)'(')
         {
             return Triples(graph: -1) ? StatementStatus.Complete : Rejected();
+        }
+
+        if (AtDoubleAngle(out _, out bool angleIncomplete))
+        {
+            return Triples(graph: -1) ? StatementStatus.Complete : Rejected();
+        }
+
+        if (angleIncomplete)
+        {
+            IsTruncated = true;
+            return StatementStatus.Incomplete;
         }
 
         if (!TryLabelOrSubject(out int term))
@@ -188,7 +217,7 @@ internal ref partial struct TurtleScanner
     /// <summary>Triples inside <c>{ }</c>, which are terminated by <c>.</c> or by the brace.</summary>
     private bool TriplesInGraph(int graph)
     {
-        if (Peek is (byte)'[' or (byte)'(')
+        if (Peek is (byte)'[' or (byte)'(' || AtDoubleAngle(out _, out _))
         {
             return SubjectAndPredicates(graph, terminated: false);
         }
@@ -225,9 +254,10 @@ internal ref partial struct TurtleScanner
 
     private bool SubjectAndPredicates(int graph, bool terminated)
     {
-        // [6] triples ::= subject predicateObjectList
-        //               | blankNodePropertyList predicateObjectList?
-        bool bareBlankNodeList = Peek == (byte)'[' && !IsAnon();
+        // [11] triples ::= subject predicateObjectList
+        //                | blankNodePropertyList predicateObjectList?
+        //                | reifiedTriple predicateObjectList?
+        bool bareBlankNodeList = (Peek == (byte)'[' && !IsAnon()) || AtDoubleAngle(out _, out _);
 
         if (!TrySubject(out int subject))
         {
@@ -321,7 +351,7 @@ internal ref partial struct TurtleScanner
                 return Truncated();
             }
 
-            if (Peek is (byte)'.' or (byte)']' or (byte)'}')
+            if (Peek is (byte)'.' or (byte)']' or (byte)'}' or (byte)'|')
             {
                 return true;
             }
@@ -346,6 +376,12 @@ internal ref partial struct TurtleScanner
             }
 
             _state.Add(subject, verb, obj, graph);
+
+            // [13] objectList ::= object annotation (',' object annotation)*
+            if (!Annotation(subject, verb, obj))
+            {
+                return false;
+            }
 
             SkipIgnorable();
 
@@ -397,7 +433,7 @@ internal ref partial struct TurtleScanner
         b is 0x20 or 0x09 or 0x0A or 0x0D or (byte)'<' or (byte)'"' or (byte)'\''
             or (byte)'_' or (byte)'[' or (byte)'(' or (byte)'#';
 
-    /// <summary>[3] the four directive forms.</summary>
+    /// <summary>[3] the six directive forms: prefix, base and version, each in two spellings.</summary>
     [DesignDecision(typeof(HotPathScope.DirectivesAreNotPerQuad), Scope = ExceptionScope.HotPath)]
     private bool Directive()
     {
@@ -416,7 +452,12 @@ internal ref partial struct TurtleScanner
                 Consumed += 5;
                 isPrefix = false;
             }
-            else if (MayGrow && (MightBe("@prefix"u8) || MightBe("@base"u8)))
+            else if (Looks("@version"u8))
+            {
+                Consumed += 8;
+                return VersionDirective(sparqlStyle: false);
+            }
+            else if (MayGrow && (MightBe("@prefix"u8) || MightBe("@base"u8) || MightBe("@version"u8)))
             {
                 return Truncated();
             }
@@ -432,6 +473,11 @@ internal ref partial struct TurtleScanner
             Consumed += 6;
             isPrefix = true;
             sparqlStyle = true;
+        }
+        else if (IsVersionKeyword())
+        {
+            Consumed += 7;
+            return VersionDirective(sparqlStyle: true);
         }
         else
         {

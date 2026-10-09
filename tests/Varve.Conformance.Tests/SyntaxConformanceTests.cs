@@ -117,7 +117,16 @@ public class SyntaxConformanceTests
             entry.ResultPath is not null,
             Describe(entry) + " is an evaluation test with no mf:result to compare against.");
 
-        RdfFormat resultFormat = entry.Format == RdfFormat.TriG ? RdfFormat.NQuads : RdfFormat.NTriples;
+        // The result is N-Triples or N-Quads of the suite's own edition: an
+        // rdf11 result may carry what RDF 1.1 allowed and 1.2 refuses (test-38's
+        // surrogate pair), and an rdf12 result carries triple terms.
+        RdfFormat resultFormat = entry.Format switch
+        {
+            RdfFormat.TriG => RdfFormat.NQuads,
+            RdfFormat.TriG12 => RdfFormat.NQuads12,
+            RdfFormat.Turtle12 => RdfFormat.NTriples12,
+            _ => RdfFormat.NTriples,
+        };
         ParseOutcome expected = subject.Parse(resultFormat, entry.ResultPath!, entry.ActionIri);
 
         Assert.True(
@@ -160,14 +169,14 @@ public class SyntaxConformanceTests
             entry.ResultPath is not null,
             Describe(entry) + " is a canonical-form test with no mf:result to compare against.");
 
-        Varve.Turtle.RdfSyntax syntax = entry.Format == RdfFormat.NQuads ? Varve.Turtle.RdfSyntax.NQuads : Varve.Turtle.RdfSyntax.NTriples;
+        Varve.Turtle.RdfSyntax syntax = entry.Format is RdfFormat.NQuads or RdfFormat.NQuads12 ? Varve.Turtle.RdfSyntax.NQuads : Varve.Turtle.RdfSyntax.NTriples;
         Varve.Turtle.WriteOptions options = new() { Syntax = syntax };
         ArrayBufferWriter written = new();
 
         Varve.Turtle.ParseResult parsed = Varve.Turtle.NQuadsParser.Parse(
             File.ReadAllBytes(entry.ActionPath),
             (in Varve.Rdf.QuadView quad) => Varve.Turtle.NQuadsWriter.Write(written, in quad, in options),
-            new Varve.Turtle.ParseOptions { Syntax = syntax });
+            new Varve.Turtle.ParseOptions { Syntax = syntax, Version = VarveParserSubject.VersionOf(entry.Format) });
 
         Assert.True(parsed.Succeeded, Describe(entry) + " did not parse: " + parsed.FirstError);
 

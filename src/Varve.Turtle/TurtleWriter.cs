@@ -50,6 +50,7 @@ public sealed partial class TurtleWriter : IDisposable
     private readonly PrefixTable _prefixes = new();
     private byte[] _openGraph = [];
     private bool _graphIsOpen;
+    private bool _versionDeclared;
     private bool _disposed;
 
     /// <summary>Creates a writer over <paramref name="output"/>.</summary>
@@ -74,6 +75,7 @@ public sealed partial class TurtleWriter : IDisposable
     public void DeclarePrefix(ReadOnlySpan<byte> prefix, ReadOnlySpan<byte> iri)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        DeclareVersionIfForced();
 
         if (!prefix.IsEmpty && !TurtleChars.IsPrefixName(prefix))
         {
@@ -102,14 +104,35 @@ public sealed partial class TurtleWriter : IDisposable
     public void DeclareBase(ReadOnlySpan<byte> iri)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        DeclareVersionIfForced();
         CloseGraph();
         WriteDirective("@base "u8, default, hasName: false, iri);
     }
 
     /// <summary>Writes one quad.</summary>
+    /// <remarks>
+    /// A quad whose object is a triple term or a literal with a base direction
+    /// is RDF 1.2 Turtle, and the first such quad is preceded by
+    /// <c>VERSION "1.2"</c> unless the directive has been written already
+    /// (<c>turtle.md</c> §7). A triple term in subject or predicate position
+    /// is refused by name: RDF 1.2 Turtle [15] and [17] give a triple term one
+    /// position, the object, and a writer that spelt one elsewhere would
+    /// produce a document no reader accepts.
+    /// </remarks>
     public void Write(in QuadView quad)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        DeclareVersionIfForced();
+
+        if (quad.Subject.Kind == RdfTermKind.TripleTerm || quad.Predicate.Kind == RdfTermKind.TripleTerm)
+        {
+            ThrowTripleTermOutOfPlace();
+        }
+
+        if (!_versionDeclared && IsRdf12(quad.Object.Kind, quad.Object.Direction))
+        {
+            DeclareVersion();
+        }
 
         if (_options.Syntax == RdfSyntax.TriG)
         {
@@ -151,11 +174,22 @@ public sealed partial class TurtleWriter : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(source);
+        DeclareVersionIfForced();
 
         RdfTerm subject = Externalise(source, quad.Subject);
         RdfTerm predicate = Externalise(source, quad.Predicate);
         RdfTerm obj = Externalise(source, quad.Object);
         RdfTerm? graph = quad.IsDefaultGraph ? null : Externalise(source, quad.Graph);
+
+        if (subject.Kind == RdfTermKind.TripleTerm || predicate.Kind == RdfTermKind.TripleTerm)
+        {
+            ThrowTripleTermOutOfPlace();
+        }
+
+        if (!_versionDeclared && IsRdf12(obj.Kind, obj.Direction))
+        {
+            DeclareVersion();
+        }
 
         if (_options.Syntax == RdfSyntax.TriG)
         {
@@ -223,6 +257,40 @@ public sealed partial class TurtleWriter : IDisposable
 
         CloseGraph();
         _disposed = true;
+    }
+
+    /// <summary>Whether an object term can only be spelt in RDF 1.2 Turtle.</summary>
+    private static bool IsRdf12(RdfTermKind kind, TextDirection direction) =>
+        kind == RdfTermKind.TripleTerm || (kind == RdfTermKind.Literal && direction != TextDirection.None);
+
+    private static void ThrowTripleTermOutOfPlace() =>
+        throw new InvalidOperationException(
+            "A triple term is an object and nothing else in RDF 1.2 Turtle and TriG ([15], [17]). "
+            + "This quad carries one as its subject or predicate, and no document could spell it.");
+
+    private void DeclareVersionIfForced()
+    {
+        if (_options.AlwaysDeclareVersion && !_versionDeclared)
+        {
+            DeclareVersion();
+        }
+    }
+
+    /// <summary>
+    /// Writes <c>VERSION "1.2"</c>, once. A directive may stand wherever a
+    /// statement may (RDF 1.2 Turtle [2]), so it goes immediately before the
+    /// first statement that needs it; in TriG that closes an open block first,
+    /// as a prefix declaration does.
+    /// </summary>
+    private void DeclareVersion()
+    {
+        CloseGraph();
+        _versionDeclared = true;
+
+        ReadOnlySpan<byte> directive = "VERSION \"1.2\"\n"u8;
+        Span<byte> span = _output.GetSpan(directive.Length);
+        directive.CopyTo(span);
+        _output.Advance(directive.Length);
     }
 
     private static RdfTerm Externalise(IQuadSource source, TermHandle handle) =>

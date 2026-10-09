@@ -60,6 +60,11 @@ public sealed class QuadOverlay : IQuadSource
 
     /// <inheritdoc />
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    public bool TryGetTripleTermComponents(TermHandle handle, out TermHandle subject, out TermHandle predicate, out TermHandle @object) =>
+        _base.TryGetTripleTermComponents(handle, out subject, out predicate, out @object);
+
+    /// <inheritdoc />
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool Contains(in Quad quad) =>
         _delta.Asserts(in quad) || (!_delta.Retracts(in quad) && _base.Contains(in quad));
 

@@ -46,6 +46,8 @@ internal ref partial struct TurtleScanner
     private readonly bool _validateIris;
     private readonly PrefixHandler? _onPrefix;
     private readonly BaseHandler? _onBase;
+    private readonly VersionHandler? _onVersion;
+    private readonly bool _surrogatePairs;
 
     internal TurtleScanner(
         ReadOnlySpan<byte> text, TurtleState state, in TurtleOptions options, bool mayGrow)
@@ -56,6 +58,8 @@ internal ref partial struct TurtleScanner
         _validateIris = options.ValidateIris;
         _onPrefix = options.OnPrefix;
         _onBase = options.OnBase;
+        _onVersion = options.OnVersion;
+        _surrogatePairs = options.Version == RdfVersion.Rdf11;
         MayGrow = mayGrow;
         Consumed = 0;
         IsTruncated = false;
@@ -282,8 +286,10 @@ internal ref partial struct TurtleScanner
 
     /// <summary>
     /// Skips to just past the next <c>.</c> at nesting depth zero, outside a
-    /// String and an IRIREF — ADR 0030's recovery rule. Returns false when
-    /// there is no such point, which ends the parse.
+    /// String and an IRIREF — ADR 0030's recovery rule, with depth counted
+    /// over RDF 1.2's <c>&lt;&lt; &gt;&gt;</c> and <c>{| |}</c> as well (ADR
+    /// 0030, amended by ADR 0110). Returns false when there is no such point,
+    /// which ends the parse.
     /// </summary>
     internal bool Resynchronise()
     {
@@ -304,8 +310,45 @@ internal ref partial struct TurtleScanner
                     continue;
 
                 case (byte)'<':
+                    if (Consumed + 1 < _text.Length && _text[Consumed + 1] == (byte)'<')
+                    {
+                        // A reified triple or a triple term opens; "<<(" is
+                        // "<<" and a "(" that the next step counts.
+                        depth++;
+                        Consumed += 2;
+                        continue;
+                    }
+
                     SkipQuoted((byte)'>');
                     continue;
+
+                case (byte)'>':
+                    if (Consumed + 1 < _text.Length && _text[Consumed + 1] == (byte)'>')
+                    {
+                        if (depth > 0)
+                        {
+                            depth--;
+                        }
+
+                        Consumed += 2;
+                        continue;
+                    }
+
+                    break;
+
+                case (byte)'|':
+                    if (Consumed + 1 < _text.Length && _text[Consumed + 1] == (byte)'}')
+                    {
+                        if (depth > 0)
+                        {
+                            depth--;
+                        }
+
+                        Consumed += 2;
+                        continue;
+                    }
+
+                    break;
 
                 case (byte)'"':
                 case (byte)'\'':

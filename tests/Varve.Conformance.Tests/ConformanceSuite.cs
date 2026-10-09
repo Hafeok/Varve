@@ -20,6 +20,18 @@ internal enum RdfFormat
 
     /// <summary>RDF 1.1 TriG.</summary>
     TriG,
+
+    /// <summary>RDF 1.2 N-Triples (ADR 0110): the edition decides how a surrogate escape is read.</summary>
+    NTriples12,
+
+    /// <summary>RDF 1.2 N-Quads.</summary>
+    NQuads12,
+
+    /// <summary>RDF 1.2 Turtle.</summary>
+    Turtle12,
+
+    /// <summary>RDF 1.2 TriG.</summary>
+    TriG12,
 }
 
 /// <summary>
@@ -52,15 +64,15 @@ internal sealed record ConformanceSuite(string Id, string ManifestPath, string B
         // RDF 1.2. The reader and writer carry base direction and triple terms,
         // so by our own rule those features are not done until their manifest
         // entries pass.
-        Suite("rdf12/n-triples", "rdf/rdf12/rdf-n-triples/syntax/manifest.ttl", RdfFormat.NTriples),
-        Suite("rdf12/n-quads", "rdf/rdf12/rdf-n-quads/syntax/manifest.ttl", RdfFormat.NQuads),
+        Suite("rdf12/n-triples", "rdf/rdf12/rdf-n-triples/syntax/manifest.ttl", RdfFormat.NTriples12),
+        Suite("rdf12/n-quads", "rdf/rdf12/rdf-n-quads/syntax/manifest.ttl", RdfFormat.NQuads12),
 
         // RDF 1.2's canonical N-Triples and N-Quads (ADR 0061): each input
         // parsed and written canonically must give its expected file byte for
         // byte. The canonical form is the writer's, not RDFC-1.0's, which has
         // a suite of its own (CanonSuite).
-        Suite("rdf12/n-triples-c14n", "rdf/rdf12/rdf-n-triples/c14n/manifest.ttl", RdfFormat.NTriples),
-        Suite("rdf12/n-quads-c14n", "rdf/rdf12/rdf-n-quads/c14n/manifest.ttl", RdfFormat.NQuads),
+        Suite("rdf12/n-triples-c14n", "rdf/rdf12/rdf-n-triples/c14n/manifest.ttl", RdfFormat.NTriples12),
+        Suite("rdf12/n-quads-c14n", "rdf/rdf12/rdf-n-quads/c14n/manifest.ttl", RdfFormat.NQuads12),
 
         // Milestone 3b. Both carry evaluation entries as well as syntax ones,
         // which is why they could not be wired until the dataset comparison
@@ -68,8 +80,14 @@ internal sealed record ConformanceSuite(string Id, string ManifestPath, string B
         Suite("rdf11/turtle", "rdf/rdf11/rdf-turtle/manifest.ttl", RdfFormat.Turtle),
         Suite("rdf11/trig", "rdf/rdf11/rdf-trig/manifest.ttl", RdfFormat.TriG),
 
-        // Later: rdf/rdf11/rdf-xml and the RDF 1.2 Turtle and TriG suites.
-        // Each is one line.
+        // Milestone 6b (ADR 0110). RDF 1.2 Turtle and TriG: reified triples,
+        // triple terms, annotations, reifiers, the version directive and
+        // LANG_DIR. Each has a syntax and an evaluation manifest, wired as two
+        // suites because the top-level manifest only includes them.
+        Suite("rdf12/turtle-syntax", "rdf/rdf12/rdf-turtle/syntax/manifest.ttl", RdfFormat.Turtle12),
+        Suite("rdf12/turtle-eval", "rdf/rdf12/rdf-turtle/eval/manifest.ttl", RdfFormat.Turtle12),
+        Suite("rdf12/trig-syntax", "rdf/rdf12/rdf-trig/syntax/manifest.ttl", RdfFormat.TriG12),
+        Suite("rdf12/trig-eval", "rdf/rdf12/rdf-trig/eval/manifest.ttl", RdfFormat.TriG12),
     ];
 
     /// <summary>

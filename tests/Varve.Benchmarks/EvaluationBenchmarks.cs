@@ -30,8 +30,7 @@ internal static class SuiteTime
     internal static void Run(int repetitions)
     {
         List<EvaluationEntry> entries = [.. EvaluationCatalogue.Entries.Where(e =>
-            (e.Suite.StartsWith("sparql10/", StringComparison.Ordinal) || e.Suite.StartsWith("sparql11/", StringComparison.Ordinal))
-            && !EvaluationCatalogue.IsBlocked(e))];
+            (e.Suite.StartsWith("sparql10/", StringComparison.Ordinal) || e.Suite.StartsWith("sparql11/", StringComparison.Ordinal)))];
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{entries.Count} cases of the SPARQL 1.0 and 1.1 suites, over the store, {repetitions} runs per arm, interleaved, after three warm-up rounds"));
 
         // The arms are interleaved run by run, after three warm-up rounds of

@@ -31,25 +31,6 @@ internal static class EvaluationData
 
     internal static string FixtureRoot => Path.Combine(TestData.RdfTestsRoot, "..", "..", "fixtures", "w3c-rdfxml");
 
-    /// <summary>
-    /// The Turtle and TriG data files of a case that Varve.Turtle refuses — RDF
-    /// 1.2 syntax, which turtle.md §9 does not accept — with why. Any other
-    /// file that fails to load is not a block but a failure, and fails its case.
-    /// </summary>
-    internal static IReadOnlyList<string> RefusedFiles(EvaluationEntry entry)
-    {
-        List<string> refused = [];
-        foreach (string iri in Files(entry))
-        {
-            if (Path.GetExtension(iri) is ".ttl" or ".trig" && Read(iri).Error is { } error)
-            {
-                refused.Add(iri + ": " + error);
-            }
-        }
-
-        return refused;
-    }
-
     internal static IEnumerable<string> Files(EvaluationEntry entry)
     {
         foreach (string iri in entry.Data)

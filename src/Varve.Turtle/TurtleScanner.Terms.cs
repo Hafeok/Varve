@@ -60,6 +60,18 @@ internal ref partial struct TurtleScanner
             return Truncated();
         }
 
+        // [15] subject, and [11]'s reifiedTriple in subject position. A triple
+        // term "<<(" is an object-only form (RDF 1.2 Turtle [17]).
+        if (AtDoubleAngle(out bool tripleTerm, out bool incomplete))
+        {
+            return tripleTerm ? Fail(ParseErrorKind.ExpectedSubject, Consumed) : TryReifiedTriple(out slot);
+        }
+
+        if (incomplete)
+        {
+            return Truncated();
+        }
+
         return Peek switch
         {
             (byte)'(' => TryCollection(out slot),
@@ -69,7 +81,7 @@ internal ref partial struct TurtleScanner
         };
     }
 
-    /// <summary>[12] <c>iri | BlankNode | collection | blankNodePropertyList | literal</c>.</summary>
+    /// <summary>[17] <c>iri | BlankNode | collection | blankNodePropertyList | literal | tripleTerm | reifiedTriple</c>.</summary>
     private bool TryObject(out int slot)
     {
         slot = -1;
@@ -99,6 +111,22 @@ internal ref partial struct TurtleScanner
         if (b is (byte)'"' or (byte)'\'')
         {
             return TryLiteral(out slot);
+        }
+
+        // [17] object's two RDF 1.2 forms: a triple term "<<( ... )>>" and a
+        // reified triple "<< ... >>". One "<" is an IRIREF, and which of the
+        // three it is may not be visible yet at the end of a growable buffer.
+        if (b == (byte)'<')
+        {
+            if (AtDoubleAngle(out bool tripleTerm, out bool incomplete))
+            {
+                return tripleTerm ? TryTripleTerm(out slot) : TryReifiedTriple(out slot);
+            }
+
+            if (incomplete)
+            {
+                return Truncated();
+            }
         }
 
         if (b == (byte)'.' && Consumed + 1 >= _text.Length && MayGrow)
@@ -207,7 +235,7 @@ internal ref partial struct TurtleScanner
         if (escaped)
         {
             if (!EscapeDecoder.TryDecode(
-                _text, open + 1, i, EscapeDecoder.Allowed.UcharOnly, _state.Arena,
+                _text, open + 1, i, EscapeDecoder.Allowed.UcharOnly, _state.Arena, _surrogatePairs,
                 out raw, out ParseErrorKind error, out int at))
             {
                 return Fail(error, at);

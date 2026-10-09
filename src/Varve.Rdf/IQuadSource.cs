@@ -103,4 +103,39 @@ public interface IQuadSource
     /// </summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     bool TryGetInlineValue(TermHandle handle, out InlineValue value);
+
+    /// <summary>
+    /// The handles of a triple term's three components, when
+    /// <paramref name="handle"/> names a triple term this source can take
+    /// apart (ADR 0110). False means the handle is not a triple term, or that
+    /// the source cannot hand out handles for its parts — nothing more, and
+    /// the consumer externalises as it would have anyway.
+    /// </summary>
+    /// <remarks>
+    /// A consumer matching a triple term pattern with variables inside needs
+    /// the parts as <em>handles</em>: a blank node inside a triple term has no
+    /// identity but the source's (ADR 0044), so externalising it and asking
+    /// for it back is a question the source refuses by design. The default
+    /// answers through <see cref="TryExternalise"/> and
+    /// <see cref="TryInternalise"/>, which is right for a source that
+    /// internalises every term it holds; a source with a dictionary of
+    /// composite terms answers from the entry instead.
+    /// </remarks>
+    [DesignDecision(typeof(Rdf12TurtleAndTrig.TripleTermComponentsByHandle), Scope = ExceptionScope.HotPath)]
+    bool TryGetTripleTermComponents(TermHandle handle, out TermHandle subject, out TermHandle predicate, out TermHandle @object)
+    {
+        if (TryExternalise(handle, out RdfTerm? term)
+            && term.Kind == RdfTermKind.TripleTerm
+            && TryInternalise(term.Subject!, out subject)
+            && TryInternalise(term.Predicate!, out predicate)
+            && TryInternalise(term.Object!, out @object))
+        {
+            return true;
+        }
+
+        subject = default;
+        predicate = default;
+        @object = default;
+        return false;
+    }
 }
