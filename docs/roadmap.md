@@ -439,12 +439,14 @@ layer 5, and the layer rule already prevents the alternative.
 is not to be superseded by a decision that adds one. A caller that cannot obtain
 an OIDC token is not a supported caller.
 
-## Operability — what a server needs before anyone runs it
+## Operability *(complete)* — what a server needs before anyone runs it
 
 Between 7 and 8, and new with the adoption of the Mind Over Machine stewardship
 standard. Milestone 7 produces a server that answers queries; it does not
 produce a server anyone should operate. Every item here is a consequence of the
-server existing, and none of them should wait for a validator.
+server existing, and none of them should wait for a validator. Closed by
+[#12](https://github.com/Hafeok/Varve/issues/12) with ADRs 0110–0120 and the
+release `v0.1.0-preview.3`.
 
 - **Query and resource governance** — timeouts, result-size limits, memory
   ceilings per request, and a defined answer for what happens when one is hit.
@@ -452,23 +454,43 @@ server existing, and none of them should wait for a validator.
   so this is not a nicety. *Done at 7a* (ADR 0095: `Varve:Limits`, every read
   pinned and bounded, cut with an error trailer).
 - **OpenTelemetry** — traces, metrics and logs, to the semantic conventions for
-  a database server. *Open.*
+  a database server. *Done at Operability* (ADR 0112: the BCL instruments in
+  the libraries, the server exports over OTLP when an `OTEL_*` endpoint is
+  set; `docs/operator/observe.md`).
 - **Health and readiness**, which are different questions here: the process
   being up is not the dataset being open and the projections having caught up.
-  *Done at 7a* (`/live`, `/ready` with each dataset's state and reason).
+  *Done at 7a*, moved under `/health/` with a readiness property, a lag
+  tolerance and a drain at Operability (ADR 0113).
 - **Graceful shutdown** — in-flight requests drained, the sequencer quiesced,
   the lease file in `derived/` released. A lease left behind by a killed process
-  is an operator's problem on the next start. *Done at 7a* (ADR 0101).
+  is an operator's problem on the next start. *Done at 7a* (ADR 0101); the
+  lease waited for, never broken, and `varve lease` at Operability (ADR 0116).
 - **Configuration** — ADR 0037's surface, plus dataset paths and limits, from
-  file, environment and command line. *Done at 7a and 7b*
-  (`docs/operator/configure.md`).
-- **Container image** for the server. *Open*: the AOT single file is the
-  entry point; the registries (GHCR, Docker Hub) and the base image are the
-  maintainer's to choose.
+  file, environment and command line. *Done at 7a and 7b*; precedence
+  stated, `--print-config`, unknown keys refused at Operability (ADR 0115;
+  `docs/operator/configure.md`).
+- **Container image** for the server. *Done at Operability* (ADR 0111:
+  `ghcr.io/hafeok/varve`, Native AOT per architecture on the chiseled
+  `runtime-deps` base, non-root and read-only, the suites and the auth legs
+  run against it in CI, provenance and an SBOM attested on release; Docker
+  Hub a mirror on demand, never a second source of truth).
+- **Resource governance, the rest** — a memory ceiling per query by counting
+  rows, a bound on as-of distance, live tails per client, concurrent reads
+  with a queue, each with its problem type. *Done at Operability* (ADR 0114).
+- **The shipped runtime configuration** — workstation concurrent GC with
+  `ConserveMemory` 5, and the soak gate judged under it. *Done at
+  Operability* (ADR 0110; ADR 0082 amended).
+- **`Varve.Aspire`** — `AddVarve`, `WithOidc`, `WithDataset`; a sample
+  AppHost tested in CI. *Done at Operability* (ADR 0117).
+- **API alignment while everything is preview** — state, settings and commits
+  as resources, idempotent `PUT`; headers by read kind and the problem
+  catalogue. *Done at Operability* (ADRs 0118, 0119).
 - **CLI as a `dotnet tool`**. *Done at 7b* (ADR 0105: `Varve.Server` is the
   tool, command `varve`).
 - **The operator's guide** — `docs/operator/`: run, configure, authenticate,
-  back up and restore, upgrade. *Written at 7b.*
+  back up and restore, upgrade. *Written at 7b*; observe, the container, the
+  systemd unit, the full Entra and generic-issuer examples, the limits and
+  the stale lease at Operability.
 
 ## 8 — SHACL
 

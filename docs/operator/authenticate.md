@@ -49,11 +49,39 @@ survives the provider.
 
 ## Microsoft Entra ID
 
-Register an application for the API with an application ID URI (the
-audience), define app roles — `Varve.Read`, `Varve.Write`, `Varve.Admin`, or
-any names — and assign them to users, groups or the client applications and
-managed identities that call. Tokens must be v2 tokens; `oid` is the stable
-subject.
+**The API's registration.** Register an application for the server, set an
+application ID URI (`api://varve`, the audience), and under *Token
+configuration* set `accessTokenAcceptedVersion` to `2` in the manifest, so
+that tokens are v2 and `iss` is `https://login.microsoftonline.com/{tenant}/v2.0`.
+Define **app roles** on it, allowed for users/groups and for applications:
+`Varve.Read`, `Varve.Write`, `Varve.Admin`, or any names you choose; they
+arrive in the `roles` claim. Assign them to users and groups under
+*Enterprise applications → Users and groups*, and to calling applications by
+granting the application permission and consenting.
+
+**A daemon or a service**, with its own registration and a secret or a
+certificate, takes a token by client credentials with
+`scope=api://varve/.default`; the app roles granted to it as application
+permissions are its `roles`. **A managed identity** (a VM, a container app,
+a function) does the same through the instance metadata endpoint with
+`resource=api://varve`, and is assigned app roles by its object id:
+
+```sh
+az ad app show --id api://varve --query appRoles        # the role ids
+az rest --method POST --uri "https://graph.microsoft.com/v1.0/servicePrincipals/{identity-object-id}/appRoleAssignments" \
+  --body '{"principalId":"{identity-object-id}","resourceId":"{api-service-principal-id}","appRoleId":"{Varve.Write role id}"}'
+```
+
+**A person** at the `varve` command line signs in by device code with a
+public client registration that has `api://varve/.default` as a delegated
+permission (`varve … --authority https://login.microsoftonline.com/{tenant}/v2.0
+--client-id {cli-app-id}`); the roles the person holds through assignment
+arrive in `roles`. `oid` is the stable subject across tokens and client
+applications, so `SubjectClaim` is `oid`, and a commit's agent is
+`https://login.microsoftonline.com/{tenant}/v2.0#{oid}`.
+
+CI runs this leg against a real tenant on `main` (ADR 0100, the
+`auth (providers)` job), with the secrets the maintainer holds.
 
 ```json
 "Auth": {
@@ -69,12 +97,53 @@ subject.
 
 ## Any other issuer
 
-Keycloak, Zitadel, Google and the rest work with the same code: the
-authority is the issuer, the audience is what the issuer puts in `aud` for
-the API, and `RoleClaimType` names the claim that carries roles (Keycloak's
-`realm_access.roles` needs a mapper to a flat claim; Zitadel's project roles
-arrive as an object, which is read as above). Zitadel and mock-oauth2-server
-are exercised in CI (ADR 0100).
+Keycloak, Zitadel, Google, Auth0, Okta and the rest work with the same code.
+What the server needs of an issuer:
+
+1. **Discovery** at `{Authority}/.well-known/openid-configuration`, whose
+   `issuer` equals `Authority` exactly (trailing slash included) and whose
+   `jwks_uri` serves the signing keys; keys are refreshed as the middleware
+   does. `RequireHttpsMetadata` is on unless the issuer is a loopback test
+   issuer.
+2. **JWT access tokens** (not opaque ones), signed with an asymmetric key,
+   with `iss`, `aud`, `exp` and `sub`; `aud` is one of `Audiences`. An
+   issuer that puts the client id in `aud` by default needs an *audience*
+   (Keycloak: an audience mapper on the client scope; Zitadel: the project's
+   `…:aud` scope; Auth0 and Okta: an API/authorization server whose
+   identifier is the audience).
+3. **Roles as a flat claim of strings** named by `RoleClaimType`: Keycloak's
+   `realm_access.roles` is nested, so add a *User Realm Role* mapper with a
+   flat claim name such as `roles`; Zitadel's project roles arrive as an
+   object keyed by role under `urn:zitadel:iam:org:project:{id}:roles`, which
+   the server reads by its keys. Groups work the same way when the issuer
+   emits them as strings.
+4. **A subject** that is stable: `sub` by default; `SubjectClaim` picks
+   another (`oid` for Entra, `email` where that is what is stable).
+
+```json
+"Auth": {
+  "Mode": "Oidc",
+  "Authority": "https://login.example/realms/varve",
+  "Audiences": [ "varve-api" ],
+  "RoleClaimType": "roles",
+  "Datasets": { "people": { "Read": [ "reader" ], "Write": [ "writer" ] } },
+  "Server": { "Admin": [ "operator" ] }
+}
+```
+
+Zitadel and mock-oauth2-server are exercised in CI on every pull request,
+in process and against the container image (ADR 0100, ADR 0111).
+
+### What a refusal looks like
+
+A request without a usable token is `401 unauthorized` with
+`WWW-Authenticate: Bearer`, or `Bearer error="invalid_token"` when a token
+was sent and failed (expired, wrong audience, unknown key), and a thin
+problem body; a token that lacks the permission is `403 forbidden` with
+`Bearer error="insufficient_scope"` (RFC 6750, ADR 0119). Neither says which
+datasets exist. The request id in `Varve-Request-Id` and the problem's
+`instance` finds the refusal in the server's log, where the middleware's
+reason is at `Information` under `Microsoft.AspNetCore.Authentication`.
 
 ## Anonymous mode
 

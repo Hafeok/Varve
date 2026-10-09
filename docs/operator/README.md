@@ -12,6 +12,10 @@ the `varve` command line (ADR 0105). Six pages, each a task:
 | [Back up and restore](backup-and-restore.md) | what the files are, taking a copy, checkpoints, restoring, and the change feed as an incremental copy |
 | [Upgrade](upgrade.md) | what a new build reads, what it rewrites, and the order of a rolling upgrade |
 
+Every refusal the server answers is an RFC 9457 problem of a type listed in
+[`docs/problems/`](../problems/README.md), one page per type with its status
+and its members (ADR 0119).
+
 The decisions behind the pages are ADRs 0101 (the host), 0105 (the command
 line), 0106 (the admin API), 0107 (graph-level authorisation), 0104 (`SERVICE`
 and `LOAD` over HTTP), 0112 (telemetry), and 0037 and 0100 (authentication). The protocol a

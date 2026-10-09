@@ -121,13 +121,17 @@ The routes, per dataset:
 
 | Route | What |
 |---|---|
-| `GET /live` | liveness: `200` once the process serves |
-| `GET /ready` | readiness: `200` when every dataset that should be open is open and not failed, `503` with each dataset's state and reason otherwise |
-| `/datasets` | the admin API: list, create, open, close, delete (ADR 0106) |
+| `GET /health/live` | liveness: `200` once the process serves (ADR 0113) |
+| `GET /health/ready` | readiness: `200` when every dataset that should be open is open, not failed and within `Varve:Health:ReadyLag` of its head, `503 not-ready` with each dataset's state and reason otherwise, and during the drain |
+| `/datasets` | the admin API: list, create (`PUT`, idempotent), delete; `/datasets/{name}/state` reads and sets `open` or `closed` (ADRs 0106, 0118) |
 | `/datasets/{name}/sparql` | SPARQL 1.1 Protocol query and update; `GET` with an RDF `Accept` is the service description |
 | `/datasets/{name}/graphs` | the Graph Store Protocol |
-| `/datasets/{name}/feed`, `/diff` | the change feed and the diff (`docs/spec/change-feed.md`) |
-| `/datasets/{name}/status`, `/settings`, `/checkpoints` | the dataset's admin endpoints |
+| `/datasets/{name}/commits`, `/commits/{position}`, `/diff` | the commits resource, a range or a live tail, one commit, and the diff (`docs/spec/change-feed.md`, ADR 0118) |
+| `/datasets/{name}/status`, `/settings`, `/checkpoints` | the dataset's status, its settings (`GET`, `PUT`, `PATCH` merge patch) and its checkpoints |
+
+Both probes are rate-limited per client address (`Varve:Health:RateLimit`),
+and every refusal anywhere is an RFC 9457 problem whose type is one of
+`docs/problems/` (ADR 0119).
 
 ## Stop it
 

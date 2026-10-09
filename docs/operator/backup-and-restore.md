@@ -72,6 +72,42 @@ into any storage: the manifest, the segments up to the position, and a
 checkpoint. There is no `varve ship` yet; the roadmap has replica bootstrap
 over HTTP.
 
+## A stale lease
+
+A file dataset is leased by the process that has it open: `derived/LOCK`,
+held by an OS lock, and `derived/LOCK.owner`, which says whose it is
+(process id, machine, since when; ADR 0075). The lock goes with the process:
+a crash releases it, and a start after a crash opens the dataset as usual.
+What a start does meet is a **predecessor still draining** (a rolling
+restart, a stop that is taking its thirty seconds), and ADR 0116 says what
+happens then:
+
+- the server retries the open every second for `Varve:Lease:WaitFor`
+  (30 s by default), logging who holds it each time;
+- when the wait ends, the dataset is **failed** with the holder as its
+  reason, which `GET /health/ready` and `GET /datasets` report, and the
+  server starts for the others. A configured dataset that does not open
+  still refuses the start (ADR 0101).
+- **Nothing ever forces a held lock.** A lock the OS still holds has a live
+  holder; a timer that broke it would be deciding a slow process is dead.
+
+`varve lease <dir>` says what the lease is now: it prints the owner file and
+tries to take the lock, releasing it at once; exit 0 free, 1 held.
+
+```sh
+$ varve lease /var/lib/varve/people
+held by pid 4242 on db-1 since 2026-10-09T15:02:11Z
+```
+
+`varve lease --break <dir>` is for the one case the OS does not handle: a
+filesystem that did not release a dead process's lock. It takes the lock to
+prove the lease free; when it can, it removes `LOCK.owner`, reports whose it
+was and exits 0. When the lock is held it **refuses**, names the holder and
+exits 1, so that `--break` can never let a second process in on a filesystem
+whose locks work. On a filesystem where locking fails for every caller, it
+says so and names the filesystem as the problem: the dataset must move to one
+that locks.
+
 ## The change feed as an incremental copy
 
 A consumer that persists the last position it applied misses nothing by

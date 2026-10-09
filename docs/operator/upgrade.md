@@ -47,7 +47,9 @@ stays valid for as long as the issuer says.
 
 ## Configuration
 
-A setting this build does not know is ignored by the binder; a setting whose
-value is wrong refuses to start, with the error named. Read the changelog's
-section for the release before upgrading: a renamed setting is listed there,
-and the server's start-up errors say which value it refused.
+A setting this build does not know **refuses to start**, naming the key
+(ADR 0115); a setting whose value is wrong refuses to start too, with the
+error named. Read the changelog's section for the release before upgrading:
+a renamed setting is listed there, and `varve serve --print-config` with the
+new build and the old configuration shows every effective value and its
+source, and lists what the build refuses, before anything serves.
