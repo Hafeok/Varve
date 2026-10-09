@@ -24,9 +24,12 @@ N-Triples, N-Quads, Turtle and TriG, read and written over UTF-8, allocating
   gate it. A Turtle round trip is isomorphic rather than
   byte-identical, because blank node labels are the parser's; **writing what
   was written reproduces it exactly**.
-- **RDF 1.2** base direction and triple terms are read and written in
-  N-Triples and N-Quads, where the `rdf12` suites gate them. RDF 1.2 Turtle and
-  TriG are not accepted at all — not half-accepted.
+- **RDF 1.2** throughout: base directions and triple terms in N-Triples and
+  N-Quads, and in Turtle and TriG the reified triples, triple terms,
+  annotations, reifiers and version directive of the Working Drafts (ADR
+  0110), where the `rdf12` suites gate them. The writer declares
+  `VERSION "1.2"` on its own the moment it writes a construct RDF 1.1 cannot
+  read, never silently.
 
 ```csharp
 TurtleOptions options = new() { Syntax = RdfSyntax.Turtle };
