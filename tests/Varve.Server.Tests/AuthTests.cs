@@ -38,15 +38,17 @@ public sealed class AuthTests : IAsyncLifetime
         { "POST", "datasets/d/sparql", "write" },
         { "GET", "datasets/d/graphs?default", "read" },
         { "PUT", "datasets/d/graphs?default", "write" },
-        { "GET", "datasets/d/feed?to=0", "read" },
+        { "GET", "datasets/d/commits?to=0", "read" },
         { "GET", "datasets/d/diff?from=0&to=0", "read" },
         { "GET", "datasets/d/status", "admin" },
-        { "POST", "datasets/d/settings", "admin" },
+        { "GET", "datasets/d/settings", "admin" },
+        { "PUT", "datasets/d/settings", "admin" },
+        { "PATCH", "datasets/d/settings", "admin" },
         { "POST", "datasets/d/checkpoints", "admin" },
         { "GET", "datasets", "read" },
         { "PUT", "datasets/x", "server-admin" },
-        { "POST", "datasets/x/open", "server-admin" },
-        { "POST", "datasets/x/close", "server-admin" },
+        { "GET", "datasets/x/state", "server-admin" },
+        { "PUT", "datasets/x/state", "server-admin" },
         { "DELETE", "datasets/x", "server-admin" },
     };
 
@@ -171,9 +173,14 @@ public sealed class AuthTests : IAsyncLifetime
         HttpResponseMessage response = await SendAsync("POST", "datasets/d/sparql", token);
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
-        HttpResponseMessage feed = await SendAsync("GET", "datasets/d/feed?to=1", _issuer.Mint(Claims("reader")));
+        HttpResponseMessage feed = await SendAsync("GET", "datasets/d/commits?to=1", _issuer.Mint(Claims("reader")));
         string body = await feed.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.Contains("agent <" + _issuer.Issuer + "#alice%40example.org%2F%C3%BC>", body, StringComparison.Ordinal);
+
+        // The one commit, by its own address (ADR 0118), for a reader too.
+        HttpResponseMessage one = await SendAsync("GET", "datasets/d/commits/1", _issuer.Mint(Claims("reader")));
+        Assert.Equal(HttpStatusCode.OK, one.StatusCode);
+        Assert.Equal(body, await one.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -224,7 +231,7 @@ public sealed class AuthTests : IAsyncLifetime
 
         // The feed: the caller's graphs alone, and the secret never named.
         // Four commits so far: the fill, the PUT, the insert, the CLEAR.
-        string feed = await BodyAsync("GET", "datasets/d/feed?from=0&to=4", people);
+        string feed = await BodyAsync("GET", "datasets/d/commits?from=0&to=4", people);
         Assert.Contains("http://ex/g/people", feed, StringComparison.Ordinal);
         Assert.DoesNotContain("secret", feed, StringComparison.Ordinal);
         Assert.DoesNotContain("http://ex/g/public", feed, StringComparison.Ordinal);
@@ -263,9 +270,14 @@ public sealed class AuthTests : IAsyncLifetime
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
 
-        if (path.EndsWith("/settings", StringComparison.Ordinal))
+        if (path.EndsWith("/settings", StringComparison.Ordinal) && method != "GET")
         {
-            request.Content = new StringContent("{\"defaultAccessScope\":\"AllHistory\"}", Encoding.UTF8, "application/json");
+            request.Content = new StringContent("{\"defaultAccessScope\":\"AllHistory\"}", Encoding.UTF8, method == "PATCH" ? "application/merge-patch+json" : "application/json");
+        }
+        else if (path.EndsWith("/state", StringComparison.Ordinal) && method == "PUT")
+        {
+            // Closed, so that the delete that follows in the matrix succeeds.
+            request.Content = new StringContent("{\"state\":\"closed\"}", Encoding.UTF8, "application/json");
         }
         else if (method == "PUT" && path == "datasets/x")
         {

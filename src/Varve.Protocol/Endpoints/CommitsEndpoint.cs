@@ -20,15 +20,85 @@ using Varve.Store.Log;
 namespace Varve.Protocol.Endpoints;
 
 /// <summary>
-/// <c>GET /feed</c> (ADR 0097, <c>change-feed.md</c> §4): closed commits in a
-/// range, read through the subscription contract and nothing else. A bounded
-/// range is a finite body; no end tails live, with heartbeats, until the
-/// client leaves or the host stops.
+/// The commits resource (ADRs 0097, 0118; <c>change-feed.md</c> §4):
+/// <c>GET /commits</c> is the closed commits in a range, read through the
+/// subscription contract and nothing else, a bounded range a finite body and
+/// an open one a live tail with heartbeats until the client leaves or the
+/// host stops; <c>GET /commits/{position}</c> is one commit as one record.
 /// </summary>
-internal static class FeedEndpoint
+internal static class CommitsEndpoint
 {
     internal const string DeltaContentType = MediaTypes.Delta + "; version=1";
+    internal const string PositionRouteValue = "position";
 
+    /// <summary><c>GET /commits/{position}</c>: one commit, <c>404</c> above the head.</summary>
+    internal static async Task HandleOneAsync(HttpContext context, ProtocolOptions options)
+    {
+        if (!HttpMethods.IsGet(context.Request.Method))
+        {
+            await HttpProblems.MethodNotAllowed(context, "GET").ConfigureAwait(false);
+            return;
+        }
+
+        if (await Exchange.BeginAsync(context, options, DatasetPermissions.Read).ConfigureAwait(false) is not { } exchange)
+        {
+            return;
+        }
+
+        if (!Negotiation.TryChoose(context.Request.Headers.Accept, MediaTypes.Feeds, out Offer<FeedFraming> framing) || framing.Format != FeedFraming.Delta)
+        {
+            await HttpProblems.NotAcceptable(context, "A commit is application/vnd.varve.delta.").ConfigureAwait(false);
+            return;
+        }
+
+        if (!context.Request.RouteValues.TryGetValue(PositionRouteValue, out object? value)
+            || value is not string text || !Instants.IsDecimal(text) || !long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out long number) || number < 1)
+        {
+            await HttpProblems.BadRequest(context, "A commit is named by its position, a positive integer.").ConfigureAwait(false);
+            return;
+        }
+
+        Position position = new(number);
+        Dataset dataset = exchange.Dataset;
+        Position head = dataset.Head;
+
+        if (position > head)
+        {
+            Preconditions.Describe(context.Response, head);
+            await HttpProblems.WriteAsync(context, StatusCodes.Status404NotFound, ProblemType.PositionNotReached,
+                "The position is after the head.", "The head is " + head.ToString() + ".").ConfigureAwait(false);
+            return;
+        }
+
+        if (await Reads.NotModifiedAsync(context, position).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        // A closed position never changes: the commit is immutable (ADR 0119).
+        Preconditions.Describe(context.Response, position);
+        Reads.DescribeClosed(context.Response);
+        context.Response.ContentType = DeltaContentType;
+        ScopeFilter scope = new(exchange.Scope.Readable);
+
+        await BoundedReads.RunAsync(context, options, async (output, cancellationToken) =>
+        {
+            await using IAsyncEnumerator<Commit> commits = dataset.Subscribe(new Position(number - 1), SubscriptionFilter.All, cancellationToken).GetAsyncEnumerator(cancellationToken);
+
+            if (await commits.MoveNextAsync().ConfigureAwait(false) && commits.Current.Position == position)
+            {
+                Commit commit = commits.Current;
+                QuadDelta delta = scope.Apply(commit.Delta, commit.TryExternalise);
+
+                if (commit.Kind == CommitKind.Data || exchange.Scope.IsAdmin)
+                {
+                    DeltaLines.WriteCommit(output, commit, delta, commit.TryExternalise);
+                }
+            }
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary><c>GET /commits</c>: a bounded range, or a live tail.</summary>
     internal static async Task HandleAsync(HttpContext context, ProtocolOptions options)
     {
         if (!HttpMethods.IsGet(context.Request.Method))
@@ -44,7 +114,7 @@ internal static class FeedEndpoint
 
         if (!Negotiation.TryChoose(context.Request.Headers.Accept, MediaTypes.Feeds, out Offer<FeedFraming> framing))
         {
-            await HttpProblems.NotAcceptable(context, "The feed is application/vnd.varve.delta, or text/event-stream.").ConfigureAwait(false);
+            await HttpProblems.NotAcceptable(context, "The commits are application/vnd.varve.delta, or text/event-stream for a live tail.").ConfigureAwait(false);
             return;
         }
 

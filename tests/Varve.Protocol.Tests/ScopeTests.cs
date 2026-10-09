@@ -140,7 +140,7 @@ public class ScopeTests
         await FillAsync(dataset);
         await dataset.ChangeSettingsAsync(new SettingsChange { DefaultAccessScope = AccessScope.Current }, new CommitMetadata { Agent = RdfTerm.Iri("http://ex/admin"u8), Cause = RdfTerm.Literal("test"u8) }, cancellationToken: P.Ct);
 
-        HttpResponseMessage feed = await host.Client.SendAsync(P.Get("datasets/d/feed?from=0&to=4"), P.Ct);
+        HttpResponseMessage feed = await host.Client.SendAsync(P.Get("datasets/d/commits?from=0&to=4"), P.Ct);
         Assert.Equal(HttpStatusCode.OK, feed.StatusCode);
         List<FeedRecord> records = await P.ReadFeedAsync(feed);
         Assert.Equal([2L], records.Select(r => r.Position.Value));
@@ -268,7 +268,7 @@ public class ScopeTests
                 P.Query(prefix + "/sparql", "DESCRIBE <" + marks[0] + ">", "text/turtle"),
                 P.Get(prefix + "/graphs?graph=" + Uri.EscapeDataString(Secret), "application/n-triples"),
                 P.Get(prefix + "/sparql", "application/trig"),
-                P.Get(prefix + "/feed?from=0&to=1"),
+                P.Get(prefix + "/commits?from=0&to=1"),
                 P.Get(prefix + "/diff?from=0&to=1"),
                 P.Update(prefix + "/sparql", "DELETE WHERE { GRAPH <" + Secret + "> { ?s ?p ?o } }"),
                 P.Update(prefix + "/sparql", "INSERT DATA { GRAPH <" + Secret + "> { <http://ex/n> <http://ex/p> <http://ex/o> } }"),

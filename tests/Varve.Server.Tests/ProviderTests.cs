@@ -46,7 +46,7 @@ public sealed class ProviderTests
 
         await using RunningServer server = await StartAsync(issuer, "api://varve", "roles", "sub", read: [], write: ["varve.write"]);
         Assert.Equal(HttpStatusCode.NoContent, (await UpdateAsync(server, token)).StatusCode);
-        string feed = await (await SendAsync(server, HttpMethod.Get, "datasets/d/feed?to=1", token)).Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        string feed = await (await SendAsync(server, HttpMethod.Get, "datasets/d/commits?to=1", token)).Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.Contains("agent <" + issuer + "#varve-writer>", feed, StringComparison.Ordinal);
     }
 

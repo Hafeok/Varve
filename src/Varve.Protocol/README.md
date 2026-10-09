@@ -5,7 +5,8 @@ description, time travel, the change feed and the diff, for a Varve store, as
 ASP.NET Core endpoint groups any host mounts.
 
 - **One endpoint group per dataset.** `MapVarveDataset` maps `/`, `/sparql`,
-  `/graphs`, `/feed`, `/diff` and `/status` under a prefix the host chooses. The
+  `/graphs`, `/commits`, `/diff`, `/status`, `/settings` and `/checkpoints`
+  under a prefix the host chooses. The
   host says which dataset a request names (`IDatasetResolver`), how an update
   executes (`ISparqlUpdateExecutor`), and who the caller is (`ICallerIdentity`).
 - **Every write is one commit**, with the caller as its agent. `If-Match`
@@ -14,18 +15,22 @@ ASP.NET Core endpoint groups any host mounts.
   `Varve-As-Of: position:<n>` or `time:<RFC 3339>` reads the past.
   `Varve-Position` and `ETag` name the position read, and `If-None-Match` polls
   for `304`.
-- **The change feed** is `application/vnd.varve.delta; version=1`, or
-  server-sent events for a live tail. `ChangeFeedReader` reads it with Varve's
-  own terms.
+- **The commits resource** (ADR 0118) is the change feed: `GET /commits?from=&to=`
+  is a range in `application/vnd.varve.delta; version=1`, `GET /commits/{position}`
+  is one commit, and an open range tails live, as server-sent events when
+  `Accept` asks for `text/event-stream`. `ChangeFeedReader` reads it with
+  Varve's own terms.
 - **The service description** says what the endpoint does: its languages
   and formats, the named graphs the caller may see, the event-sourced
   extensions under `https://w3id.org/varve/ns#` — `position`, the headers,
-  `graphStore`, `changeFeed`, `diff`, `status`, `settings`, `checkpoints` —
+  `graphStore`, `commits`, `state`, `diff`, `status`, `settings`, `checkpoints` —
   and `sd:BasicFederatedQuery` when the host answers `SERVICE` (ADR 0104).
-- **The admin API** (ADR 0106): `MapVarveAdministration` mounts
-  `GET /datasets`, `PUT` and `DELETE` of `/datasets/{name}`, and
-  `POST …/open` and `…/close`, over the host's `IDatasetAdministration`; each
-  dataset group has `POST /settings` (a `Settings` commit) and
+- **The admin API** (ADRs 0106, 0118): `MapVarveAdministration` mounts
+  `GET /datasets`, `PUT` and `DELETE` of `/datasets/{name}`, and `GET` and
+  `PUT` of `/datasets/{name}/state` (`open` or `closed`, idempotent), over the
+  host's `IDatasetAdministration`; each dataset group has `/settings` as a
+  resource (`GET` with the position as `ETag`, `PUT` replaces, `PATCH`
+  merges, both under `If-Match`, each a `Settings` commit) and
   `POST /checkpoints`, and `/status` reports the projection.
 - **Authorisation is four policy names**, `varve:read`, `varve:write`,
   `varve:admin` and `varve:server-admin`. The host decides what satisfies

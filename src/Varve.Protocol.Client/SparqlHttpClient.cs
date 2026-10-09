@@ -15,8 +15,8 @@ namespace Varve.Protocol.Client;
 
 /// <summary>
 /// One dataset's endpoints over HTTP (ADR 0103): queries and updates by the
-/// SPARQL 1.1 Protocol, the Graph Store's reads, the change feed, and the
-/// admin calls of ADR 0106, each carrying the bearer token the caller set
+/// SPARQL 1.1 Protocol, the Graph Store's reads, the commits resource, and
+/// the admin calls of ADRs 0106 and 0118, each carrying the bearer token the caller set
 /// and the headers of ADRs 0094 and 0096. Every call answers the response
 /// with its headers read and its body still to stream; the caller owns it.
 /// The limits bound the time to the headers; the body is the caller's to
@@ -87,10 +87,14 @@ public sealed class SparqlHttpClient
         return SendAsync(request, cancellationToken);
     }
 
-    /// <summary>The change feed from <paramref name="from"/> (exclusive) to <paramref name="to"/> (inclusive, or live with null), in the line format or as events.</summary>
-    public Task<HttpResponseMessage> FeedAsync(long from, long? to, string? graph, bool eventStream, CancellationToken cancellationToken)
+    /// <summary>
+    /// The commits from <paramref name="from"/> (exclusive) to <paramref name="to"/>
+    /// (inclusive, or a live tail with null), in the line format or as events
+    /// (ADRs 0097, 0118).
+    /// </summary>
+    public Task<HttpResponseMessage> CommitsAsync(long from, long? to, string? graph, bool eventStream, CancellationToken cancellationToken)
     {
-        StringBuilder query = new("feed?from=");
+        StringBuilder query = new("commits?from=");
         query.Append(from.ToString(CultureInfo.InvariantCulture));
 
         if (to is long end)
@@ -105,6 +109,50 @@ public sealed class SparqlHttpClient
 
         HttpRequestMessage request = new(HttpMethod.Get, new Uri(Dataset, query.ToString()));
         request.Headers.TryAddWithoutValidation("Accept", eventStream ? "text/event-stream" : "application/vnd.varve.delta");
+        return SendAsync(request, cancellationToken);
+    }
+
+    /// <summary>One commit, as one record of the line format (ADR 0118).</summary>
+    public Task<HttpResponseMessage> CommitAsync(long position, CancellationToken cancellationToken)
+    {
+        HttpRequestMessage request = new(HttpMethod.Get, new Uri(Dataset, "commits/" + position.ToString(CultureInfo.InvariantCulture)));
+        request.Headers.TryAddWithoutValidation("Accept", "application/vnd.varve.delta");
+        return SendAsync(request, cancellationToken);
+    }
+
+    /// <summary>The dataset's state, <c>open</c>, <c>closed</c> or <c>failed</c>, JSON (ADR 0118); a server admin's call.</summary>
+    public Task<HttpResponseMessage> StateAsync(CancellationToken cancellationToken) =>
+        SendAsync(new HttpRequestMessage(HttpMethod.Get, new Uri(Dataset, "state")), cancellationToken);
+
+    /// <summary>Asks for the dataset to be <paramref name="open"/> or closed, idempotently (ADR 0118); a server admin's call.</summary>
+    public Task<HttpResponseMessage> SetStateAsync(bool open, CancellationToken cancellationToken) =>
+        SendAsync(new HttpRequestMessage(HttpMethod.Put, new Uri(Dataset, "state"))
+        {
+            Content = new StringContent(open ? "{\"state\":\"open\"}" : "{\"state\":\"closed\"}", Encoding.UTF8, "application/json"),
+        }, cancellationToken);
+
+    /// <summary>The settings at the head, JSON, with the position as <c>ETag</c> (ADR 0118).</summary>
+    public Task<HttpResponseMessage> SettingsAsync(CancellationToken cancellationToken) =>
+        SendAsync(new HttpRequestMessage(HttpMethod.Get, new Uri(Dataset, "settings")), cancellationToken);
+
+    /// <summary>Replaces the settings with <paramref name="json"/>, the whole of them, under <paramref name="ifMatch"/> (ADR 0118).</summary>
+    public Task<HttpResponseMessage> PutSettingsAsync(string json, long? ifMatch, CancellationToken cancellationToken) =>
+        SettingsWriteAsync(HttpMethod.Put, json, "application/json", ifMatch, cancellationToken);
+
+    /// <summary>Merges <paramref name="json"/> into the settings (RFC 7396) under <paramref name="ifMatch"/> (ADR 0118).</summary>
+    public Task<HttpResponseMessage> PatchSettingsAsync(string json, long? ifMatch, CancellationToken cancellationToken) =>
+        SettingsWriteAsync(HttpMethod.Patch, json, "application/merge-patch+json", ifMatch, cancellationToken);
+
+    private Task<HttpResponseMessage> SettingsWriteAsync(HttpMethod method, string json, string mediaType, long? ifMatch, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(json);
+        HttpRequestMessage request = new(method, new Uri(Dataset, "settings")) { Content = new StringContent(json, Encoding.UTF8, mediaType) };
+
+        if (ifMatch is long expected)
+        {
+            request.Headers.TryAddWithoutValidation("If-Match", "\"" + expected.ToString(CultureInfo.InvariantCulture) + "\"");
+        }
+
         return SendAsync(request, cancellationToken);
     }
 

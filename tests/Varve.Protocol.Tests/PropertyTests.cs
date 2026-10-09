@@ -385,7 +385,7 @@ public class PropertyTests
 
         internal async Task<List<FeedRecord>> FeedAsync(string name, string query)
         {
-            HttpResponseMessage response = await Client.SendAsync(P.Get("datasets/" + name + "/feed?" + query), P.Ct);
+            HttpResponseMessage response = await Client.SendAsync(P.Get("datasets/" + name + "/commits?" + query), P.Ct);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             return await P.ReadFeedAsync(response);
         }

@@ -176,7 +176,7 @@ internal static class ServiceDescriptionEndpoint
         triples.Add((dataset, Iri(Sd + "defaultGraph"), defaultGraph));
         triples.Add((defaultGraph, type, Iri(Sd + "Graph")));
 
-        // The event-sourced extensions (ADRs 0096, 0097).
+        // The event-sourced extensions (ADRs 0096, 0097, 0118).
         triples.Add((self, type, Iri(Varve + "EventSourcedService")));
         triples.Add((self, Iri(Varve + "position"), RdfTerm.Literal(Encoding.UTF8.GetBytes(position.Value.ToString(CultureInfo.InvariantCulture)), Iri("http://www.w3.org/2001/XMLSchema#integer"))));
         triples.Add((self, Iri(Varve + "positionHeader"), Literal(Preconditions.PositionHeader)));
@@ -186,7 +186,8 @@ internal static class ServiceDescriptionEndpoint
         triples.Add((self, Iri(Varve + "conditionalRequest"), Literal("If-Match")));
         triples.Add((self, Iri(Varve + "conditionalRequest"), Literal("If-None-Match")));
         triples.Add((self, Iri(Varve + "graphStore"), Iri(prefix + "graphs")));
-        triples.Add((self, Iri(Varve + "changeFeed"), Iri(prefix + "feed")));
+        triples.Add((self, Iri(Varve + "commits"), Iri(prefix + "commits")));
+        triples.Add((self, Iri(Varve + "state"), Iri(prefix + "state")));
         triples.Add((self, Iri(Varve + "diff"), Iri(prefix + "diff")));
         triples.Add((self, Iri(Varve + "status"), Iri(prefix + "status")));
         triples.Add((self, Iri(Varve + "settings"), Iri(prefix + "settings")));

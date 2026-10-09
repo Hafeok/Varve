@@ -192,11 +192,11 @@ try
         return Fail("the query answered " + query);
     }
 
-    string feed = await client.GetStringAsync("datasets/smoke/feed?from=1&to=2");
+    string feed = await client.GetStringAsync("datasets/smoke/commits?from=1&to=2");
 
     if (!feed.StartsWith("commit 2 Data ", StringComparison.Ordinal) || !feed.Contains("+ <http://ex/a> <http://ex/p> \"smoke\"\n", StringComparison.Ordinal))
     {
-        return Fail("the feed answered " + feed);
+        return Fail("the commits answered " + feed);
     }
 
     // The command line against the server: the HTTP client and the results

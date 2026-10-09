@@ -387,7 +387,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/FailingOperationThrowsBeforeSubmit` — A failing update operation throws before the submit, releasing the pin, and nothing reaches the log or the dictionary
 - `dec:varve/FederationAndLoadConfigurationSections` — The server's Federation and Load sections each hold one policy (AllowedEndpoints or AllowedSources, AllowPrivateAddresses) and one set of limits (Timeout, MaxResponseBytes); with neither, the refusing defaults stay
 - `dec:varve/FeedAndDiffFilteredPerGraph` — The feed and the diff filter each delta to the readable graphs, drop commits that become empty, and deliver Settings and Erasure commits to admin only
-- `dec:varve/FeedEndpoint` — GET /datasets/{name}/feed takes from or fromTime, to or toTime, graph and pattern; from is exclusive, to inclusive, and no end tails live
+- `dec:varve/CommitsEndpoint` — GET /datasets/{name}/feed takes from or fromTime, to or toTime, graph and pattern; from is exclusive, to inclusive, and no end tails live
 - `dec:varve/FeedReaderShips` — Varve.Protocol ships ChangeFeedReader, a pull reader of the format over UTF-8 that runs the chunk-boundary oracle
 - `dec:varve/FeedReadsTheSubscriptionOnly` — The feed reads through Dataset.Subscribe and Commit.TryExternalise and nothing else, filtering by handle itself only while a filter term is not yet known
 - `dec:varve/FeedResolutionIsAsymmetric` — A start time resolves to the earliest commit at or after it and an end time to the latest at or before it

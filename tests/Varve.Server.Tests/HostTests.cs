@@ -144,7 +144,7 @@ public sealed class HostTests
                     Ct);
                 Assert.Equal(HttpStatusCode.NoContent, update.StatusCode);
 
-                using HttpRequestMessage tail = new(HttpMethod.Get, new Uri("datasets/d/feed", UriKind.Relative));
+                using HttpRequestMessage tail = new(HttpMethod.Get, new Uri("datasets/d/commits", UriKind.Relative));
                 tail.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
                 using HttpResponseMessage feed = await first.Client.SendAsync(tail, HttpCompletionOption.ResponseHeadersRead, Ct);
                 Assert.Equal(HttpStatusCode.OK, feed.StatusCode);

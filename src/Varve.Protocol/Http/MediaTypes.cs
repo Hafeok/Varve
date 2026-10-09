@@ -27,6 +27,7 @@ internal static class MediaTypes
     internal const string Delta = "application/vnd.varve.delta";
     internal const string EventStream = "text/event-stream";
     internal const string Json = "application/json";
+    internal const string MergePatch = "application/merge-patch+json";
 
     /// <summary>Solution and boolean results: JSON first (Oxigraph's default).</summary>
     internal static readonly ImmutableArray<Offer<SparqlResultsFormat>> Results =

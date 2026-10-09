@@ -151,7 +151,7 @@ static Varve.Protocol.Model.ProblemType.operator ==(Varve.Protocol.Model.Problem
 static Varve.Protocol.ProtocolLimits.Default.get -> Varve.Protocol.ProtocolLimits
 static Varve.Protocol.ProtocolLimits.operator !=(Varve.Protocol.ProtocolLimits left, Varve.Protocol.ProtocolLimits right) -> bool
 static Varve.Protocol.ProtocolLimits.operator ==(Varve.Protocol.ProtocolLimits left, Varve.Protocol.ProtocolLimits right) -> bool
-static Varve.Protocol.VarveEndpoints.MapChangeFeed(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
+static Varve.Protocol.VarveEndpoints.MapCommits(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Routing.IEndpointRouteBuilder!
 static Varve.Protocol.VarveEndpoints.MapDatasetStatus(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
 static Varve.Protocol.VarveEndpoints.MapDiff(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
 static Varve.Protocol.VarveEndpoints.MapGraphStore(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Routing.IEndpointRouteBuilder!

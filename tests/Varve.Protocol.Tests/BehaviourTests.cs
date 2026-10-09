@@ -65,7 +65,7 @@ public class BehaviourTests
         string? id = P.Header(response, "Varve-Request-Id");
         Assert.NotNull(id);
 
-        List<FeedRecord> feed = await P.ReadFeedAsync(await host.Client.SendAsync(P.Get("datasets/d/feed?to=1"), P.Ct));
+        List<FeedRecord> feed = await P.ReadFeedAsync(await host.Client.SendAsync(P.Get("datasets/d/commits?to=1"), P.Ct));
         FeedRecord commit = Assert.Single(feed);
         Assert.Equal("<https://issuer.example/#alice>", P.TermText(commit.Agent!));
         Assert.Equal("\"" + id + "\"", P.TermText(commit.Cause!));
@@ -209,7 +209,7 @@ public class BehaviourTests
         Assert.Equal(new Position(0), dataset.Head);
     }
 
-    // --- the feed and the diff (ADR 0097) ------------------------------------------
+    // --- the commits and the diff (ADRs 0097, 0118) ------------------------------------------
 
     [Fact]
     public async Task a_bounded_feed_is_finite_and_filters_by_graph_with_settings_always_delivered()
@@ -222,7 +222,7 @@ public class BehaviourTests
             new CommitMetadata { Agent = RdfTerm.Iri("http://ex/admin"u8), Cause = RdfTerm.Literal("test"u8) }, cancellationToken: P.Ct);
         await host.Client.SendAsync(P.Update(Sparql, "INSERT DATA { GRAPH <http://ex/g> { <http://ex/c> <http://ex/p> 3 } }"), P.Ct);
 
-        HttpResponseMessage response = await host.Client.SendAsync(P.Get("datasets/d/feed?from=0&to=4&graph=" + Uri.EscapeDataString("http://ex/g")), P.Ct);
+        HttpResponseMessage response = await host.Client.SendAsync(P.Get("datasets/d/commits?from=0&to=4&graph=" + Uri.EscapeDataString("http://ex/g")), P.Ct);
         Assert.Equal("application/vnd.varve.delta", response.Content.Headers.ContentType?.MediaType);
         Assert.Equal("0", P.Header(response, "Varve-Position"));
         List<FeedRecord> records = await P.ReadFeedAsync(response);
@@ -240,7 +240,7 @@ public class BehaviourTests
         await host.Client.SendAsync(P.Update(Sparql, "INSERT DATA { <http://ex/a> <http://ex/new> \"x y\" ; <http://ex/p> 2 }"), P.Ct);
 
         string pattern = Uri.EscapeDataString("?s <http://ex/new> \"x y\"");
-        List<FeedRecord> records = await P.ReadFeedAsync(await host.Client.SendAsync(P.Get("datasets/d/feed?to=2&pattern=" + pattern), P.Ct));
+        List<FeedRecord> records = await P.ReadFeedAsync(await host.Client.SendAsync(P.Get("datasets/d/commits?to=2&pattern=" + pattern), P.Ct));
         FeedRecord record = Assert.Single(records);
         Assert.Equal(new Position(2), record.Position);
         Assert.Equal("<http://ex/a> <http://ex/new> \"x y\"", P.Line(Assert.Single(record.Changes)));
@@ -254,7 +254,7 @@ public class BehaviourTests
         await host.Client.SendAsync(P.Update(Sparql, "INSERT DATA { <http://ex/a> <http://ex/p> 1 }"), P.Ct);
         await host.Client.SendAsync(P.Update(Sparql, "INSERT DATA { <http://ex/b> <http://ex/p> 2 }"), P.Ct);
 
-        HttpRequestMessage request = P.Get("datasets/d/feed", "text/event-stream");
+        HttpRequestMessage request = P.Get("datasets/d/commits", "text/event-stream");
         request.Headers.TryAddWithoutValidation("Last-Event-ID", "1");
         using HttpResponseMessage response = await host.Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, P.Ct);
         Assert.Equal("text/event-stream", response.Content.Headers.ContentType?.MediaType);

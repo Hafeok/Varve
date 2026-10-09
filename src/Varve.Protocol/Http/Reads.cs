@@ -115,6 +115,12 @@ internal static class Reads
         return view;
     }
 
+    /// <summary>
+    /// The cache headers of a representation at a closed position (ADR 0119):
+    /// immutable by the model, private because the content is per caller.
+    /// </summary>
+    internal static void DescribeClosed(HttpResponse response) => response.Headers.CacheControl = "private, max-age=31536000, immutable";
+
     /// <summary>Whether the request carried <c>Varve-As-Of</c>.</summary>
     internal static bool IsAsOf(HttpContext context) => !StringValues.IsNullOrEmpty(context.Request.Headers[Preconditions.AsOfHeader]);
 

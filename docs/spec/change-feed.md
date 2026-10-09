@@ -4,8 +4,10 @@ Functional specification for the change-feed and diff endpoints of
 `Varve.Protocol` (layer 5), and for the `application/vnd.varve.delta` format
 they write and `ChangeFeedReader` reads.
 
-Status: **Proposed** with [ADR 0097](../adr/0097-the-change-feed-and-the-diff.md)
-(milestone 7a, filed unaccepted). It changes only together with the ADR that
+Status: **Accepted** with [ADR 0097](../adr/0097-the-change-feed-and-the-diff.md)
+(milestone 7a); §4 follows its amendment of 2026-10-09 and
+[ADR 0118](../adr/0118-api-alignment-while-everything-is-preview.md), the feed
+as the commits resource. It changes only together with the ADR that
 motivates the change. Format version **1**.
 
 ## 1. Normative references
@@ -111,14 +113,20 @@ data: + <http://ex/s> <http://ex/p> "o"
   line is the event's.
 - A comment line `:` is the heartbeat.
 
-## 4. `GET /feed`
+## 4. `GET /commits`
+
+The commits resource (ADR 0118; ADR 0097 as amended 2026-10-09). `GET
+/datasets/{name}/commits` answers a range of closed commits, or tails live;
+`GET /datasets/{name}/commits/{position}` answers one commit as one record of
+§2, `404` (`position-not-reached`) above the head, with the immutable cache
+headers of ADR 0119.
 
 | Parameter | Meaning |
 |---|---|
-| `from` | a position; the feed starts **after** it (exclusive). Default 0. |
-| `fromTime` | an RFC 3339 instant; resolves to the **earliest** closed commit whose timestamp is at or after it, and the feed starts at that commit. |
-| `to` | a position; the feed ends **at** it (inclusive). |
-| `toTime` | an RFC 3339 instant; resolves to the **latest** closed commit whose timestamp is at or before it, and the feed ends there. |
+| `from` | a position; the range starts **after** it (exclusive). Default 0. |
+| `fromTime` | an RFC 3339 instant; resolves to the **earliest** closed commit whose timestamp is at or after it, and the range starts at that commit. |
+| `to` | a position; the range ends **at** it (inclusive). |
+| `toTime` | an RFC 3339 instant; resolves to the **latest** closed commit whose timestamp is at or before it, and the range ends there. |
 | `graph` | an absolute IRI, or `default`: only changes in that graph. |
 | `pattern` | three terms in N-Triples syntax separated by spaces, each a term or `?name` for any term: only changes whose subject, predicate and object match. |
 
@@ -128,12 +136,15 @@ data: + <http://ex/s> <http://ex/p> "o"
 - **With `to` or `toTime`** the range is bounded. The response is finite and
   ends after the record at `to`, or at once if the range is empty. A `to`
   after the head is `404` (`position-not-reached`). A `toTime` after the head's
-  time resolves to the head.
-- **With neither**, the feed tails live: it delivers every closed commit up to
-  the head, then each new one as it closes, until the client leaves or the
-  server shuts down.
+  time resolves to the head. A bounded range serves at most the server's
+  page of commits (`Limits:CommitsPageSize`, ADR 0114) and, when the range
+  holds more, carries `Link: <…?from=<last>&to=…>; rel="next"`, decided
+  before the first byte.
+- **With neither**, the range is open and tails live: it delivers every
+  closed commit up to the head, then each new one as it closes, until the
+  client leaves or the server shuts down.
 - **Resolution is asymmetric**, as in Delta Sharing's change data feed. A start
-  instant with no commit at or after it starts the feed at the head, where it
+  instant with no commit at or after it starts the tail at the head, where it
   waits. An end instant before the first commit gives an empty range.
 - **Filters** restrict change lines. `Settings` and `Erasure` records are always
   present (spec §8). A `Data` commit whose filtered changes are empty is
@@ -143,15 +154,15 @@ data: + <http://ex/s> <http://ex/p> "o"
 - **The caller's scope** (ADR 0107) is a filter the caller did not write: a
   `Data` record's changes are cut to the graphs the caller reads, a record
   that becomes empty is skipped as above, and `Settings` and `Erasure`
-  records go to a dataset admin alone. The diff is cut the same way. A
-  client resumes by position as before, because the positions delivered are
-  the commits' own.
+  records go to a dataset admin alone. The diff and a single commit are cut
+  the same way. A client resumes by position as before, because the
+  positions delivered are the commits' own.
 - **Delivery is at-least-once, resumable by position**: a client that persists
   the last position it applied and resumes from it misses nothing and sees
   nothing twice.
 - `Accept` chooses the framing. `application/vnd.varve.delta` (also the
-  default) writes §2's format. `text/event-stream` writes §3's. Anything else
-  is `406`.
+  default) writes §2's format. `text/event-stream` writes §3's, and is how a
+  browser tails an open range. Anything else is `406`.
 - The response carries `Varve-Position` with the **start**: the exclusive
   starting position after resolution.
 

@@ -50,7 +50,7 @@ internal static class DiffEndpoint
         }
 
         Preconditions.Describe(context.Response, to);
-        context.Response.ContentType = FeedEndpoint.DeltaContentType;
+        context.Response.ContentType = CommitsEndpoint.DeltaContentType;
         Dataset dataset = exchange.Dataset;
 
         await BoundedReads.RunAsync(context, options, async (output, cancellationToken) =>
