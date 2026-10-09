@@ -65,6 +65,7 @@ internal enum ExpectedOutcome
 /// and compared at the isomorphism step; carrying it early is what makes the
 /// guard against ratcheting an unchecked evaluation possible.
 /// </param>
+/// <param name="JsonLd">The options and expectation of a json-ld-api entry; null for an rdf-tests entry.</param>
 internal sealed record ManifestEntry(
     string TestIri,
     string Suite,
@@ -74,4 +75,36 @@ internal sealed record ManifestEntry(
     string ActionIri,
     RdfFormat Format,
     ExpectedOutcome Expected,
-    string? ResultPath = null);
+    string? ResultPath = null,
+    JsonLdCase? JsonLd = null);
+
+/// <summary>Which of the JSON-LD API's operations a json-ld-api entry exercises.</summary>
+internal enum JsonLdOperation
+{
+    ToRdf,
+    Expand,
+    FromRdf,
+}
+
+/// <summary>
+/// The options a json-ld-api manifest entry states (its <c>option</c> map),
+/// and what it expects: the entries run with each one's stated option, and
+/// the specification's default where none is stated (ADR 0112).
+/// </summary>
+/// <param name="Operation">toRdf, expand or fromRdf.</param>
+/// <param name="BaseIri">The <c>base</c> option, or the input document's IRI.</param>
+/// <param name="ExpandContextPath">The file of the <c>expandContext</c> option, or null.</param>
+/// <param name="ExpandContextIri">That file's IRI, for its relative references.</param>
+/// <param name="Direction">The <c>rdfDirection</c> option; <see cref="Varve.JsonLd.RdfDirection.None"/>, the specification's default, when unstated.</param>
+/// <param name="UseNativeTypes">The fromRdf <c>useNativeTypes</c> option.</param>
+/// <param name="UseRdfType">The fromRdf <c>useRdfType</c> option.</param>
+/// <param name="ExpectErrorCode">The specification's error code a negative test expects, or null.</param>
+internal sealed record JsonLdCase(
+    JsonLdOperation Operation,
+    string BaseIri,
+    string? ExpandContextPath,
+    string? ExpandContextIri,
+    Varve.JsonLd.RdfDirection Direction,
+    bool UseNativeTypes,
+    bool UseRdfType,
+    string? ExpectErrorCode);

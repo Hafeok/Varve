@@ -85,13 +85,13 @@ public class ChunkBoundaryOracleTests
         IParserSubject subject = ParserSubjects.Current
             ?? throw new InvalidOperationException("no parser registered");
 
-        ParseOutcome whole = subject.Parse(entry.Format, entry.ActionPath, entry.ActionIri);
+        ParseOutcome whole = subject.Parse(entry);
         int length = (int)new FileInfo(entry.ActionPath).Length;
         List<string> disagreements = [];
 
         foreach (int at in Offsets(length))
         {
-            ParseOutcome split = subject.ParseSplit(entry.Format, entry.ActionPath, entry.ActionIri, at);
+            ParseOutcome split = subject.ParseSplit(entry, at);
 
             if (!Same(whole, split))
             {

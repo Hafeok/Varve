@@ -27,6 +27,9 @@ internal enum RdfFormat
     /// <summary>RDF 1.2 N-Quads.</summary>
     NQuads12,
 
+    /// <summary>JSON-LD 1.1 (ADR 0112): the json-ld-api toRdf entries, whose expected datasets are N-Quads.</summary>
+    JsonLd,
+
     /// <summary>RDF 1.2 Turtle.</summary>
     Turtle12,
 
@@ -54,9 +57,13 @@ internal enum RdfFormat
 /// the repository happens to be checked out.
 /// </param>
 /// <param name="Format">The syntax the entries are written in.</param>
-internal sealed record ConformanceSuite(string Id, string ManifestPath, string BaseIri, RdfFormat Format)
+/// <param name="ManifestFile">The manifest on disk, under whichever submodule publishes the suite.</param>
+internal sealed record ConformanceSuite(string Id, string ManifestPath, string BaseIri, RdfFormat Format, string ManifestFile)
 {
     private const string PublishedRoot = "https://w3c.github.io/rdf-tests/";
+
+    /// <summary>Where the json-ld-api suite publishes its tests, and the base of every entry's IRI.</summary>
+    internal const string JsonLdPublishedRoot = TestData.JsonLdPublishedRoot;
 
     /// <summary>
     /// Every suite wired in. Adding one is a line here — which is the point of
@@ -100,7 +107,28 @@ internal sealed record ConformanceSuite(string Id, string ManifestPath, string B
         // its:dir.
         Suite("rdf11/rdf-xml", "rdf/rdf11/rdf-xml/manifest.ttl", RdfFormat.RdfXml),
         Suite("rdf12/rdf-xml", "rdf/rdf12/rdf-xml/eval/manifest.ttl", RdfFormat.RdfXml12),
+
+        // Milestone 6b (ADR 0112). JSON-LD 1.1's toRdf suite, from the
+        // json-ld-api submodule: each entry runs under its stated options,
+        // its expected dataset is N-Quads, and a negative entry names the
+        // specification's error code.
+        JsonLdSuite("json-ld/toRdf", "toRdf-manifest.jsonld", JsonLdOperation.ToRdf),
     ];
+
+    /// <summary>
+    /// The json-ld-api suites whose results are JSON documents rather than
+    /// datasets: expand and fromRdf (ADR 0112). They are ratcheted by
+    /// <c>JsonLdApiConformanceTests</c>, not by the syntax tests, and are
+    /// not corpus for the chunk-boundary oracle, which wants quads.
+    /// </summary>
+    internal static IReadOnlyList<ConformanceSuite> JsonLdApi { get; } =
+    [
+        JsonLdSuite("json-ld/expand", "expand-manifest.jsonld", JsonLdOperation.Expand),
+        JsonLdSuite("json-ld/fromRdf", "fromRdf-manifest.jsonld", JsonLdOperation.FromRdf),
+    ];
+
+    /// <summary>The operation a json-ld-api suite exercises; <c>null</c> for an rdf-tests suite.</summary>
+    internal JsonLdOperation? Operation { get; init; }
 
     /// <summary>
     /// Suites whose inputs are read but whose results are not yet ratcheted.
@@ -120,7 +148,13 @@ internal sealed record ConformanceSuite(string Id, string ManifestPath, string B
     internal static IReadOnlyList<ConformanceSuite> OracleCorpus { get; } = Union(All, NotYetRatcheted);
 
     private static ConformanceSuite Suite(string id, string manifestPath, RdfFormat format) =>
-        new(id, manifestPath, PublishedRoot + manifestPath, format);
+        new(id, manifestPath, PublishedRoot + manifestPath, format, TestData.ResolveFromRoot(manifestPath));
+
+    private static ConformanceSuite JsonLdSuite(string id, string manifestFile, JsonLdOperation operation) =>
+        new(id, manifestFile, JsonLdPublishedRoot + manifestFile[..^".jsonld".Length], RdfFormat.JsonLd, System.IO.Path.Combine(TestData.JsonLdRoot, "tests", manifestFile))
+        {
+            Operation = operation,
+        };
 
     private static List<ConformanceSuite> Union(
         IReadOnlyList<ConformanceSuite> first, IReadOnlyList<ConformanceSuite> second)

@@ -42,7 +42,7 @@ public class PullReaderAgreementTests
         {
             // RDF/XML has one shape, push over XmlReader (rdf-xml.md §4); the
             // agreement is between Varve.Turtle's two.
-            if (VarveParserSubject.IsRdfXml(entry.Format))
+            if (VarveParserSubject.IsRdfXml(entry.Format) || entry.Format == RdfFormat.JsonLd)
             {
                 continue;
             }

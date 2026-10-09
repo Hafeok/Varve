@@ -48,7 +48,12 @@ internal static class ManifestReader
     /// </remarks>
     internal static IReadOnlyList<ManifestEntry> Read(ConformanceSuite suite)
     {
-        string manifestPath = TestData.ResolveFromRoot(suite.ManifestPath);
+        if (suite.Operation is JsonLdOperation operation)
+        {
+            return JsonLdManifestReader.Read(suite, operation);
+        }
+
+        string manifestPath = suite.ManifestFile;
         string manifestDirectory = Path.GetDirectoryName(manifestPath)
             ?? throw new InvalidOperationException("Manifest has no directory: " + manifestPath);
 

@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Varve.Rdf;
+using Varve.JsonLd;
 using Varve.RdfXml;
 using Varve.Turtle;
 using Xunit;
@@ -76,6 +77,27 @@ public class WriterFixedPointTests
     {
         ManifestEntry entry = OracleCatalogue.ByIri[testIri];
         byte[] source = File.ReadAllBytes(entry.ActionPath);
+
+        if (entry.Format == RdfFormat.JsonLd)
+        {
+            // The round trip of the fromRdf writer (json-ld.md §6): the quads
+            // of a toRdf input, written as expanded JSON-LD, read back as the
+            // same dataset; and written again from that reading, the same
+            // bytes. A toRdf input this reader rejects is the suite's business.
+            if (!TryReadJsonLd(source, entry, out List<string> quads))
+            {
+                return;
+            }
+
+            byte[] firstJson = WriteJsonLd(quads);
+            Assert.True(TryReadJsonLdBytes(firstJson, entry.ActionIri, out List<string> again), Text(firstJson));
+            IsomorphismResult comparison = Isomorphism.Compare(Parsed(quads), Parsed(again));
+            Assert.True(comparison.IsSame, entry.TestIri + ": the dataset written as JSON-LD read back differently — " + comparison.Reason + "\n" + Text(firstJson));
+            // Up to blank node labels, which toRdf renumbers (ADR 0112).
+            byte[] secondJson = WriteJsonLd(again);
+            Assert.Equal(NumberBlankLabels(Text(firstJson)), NumberBlankLabels(Text(secondJson)));
+            return;
+        }
 
         if (VarveParserSubject.IsRdfXml(entry.Format))
         {
@@ -151,6 +173,86 @@ public class WriterFixedPointTests
 
         written = output.Written.ToArray();
         return result.Succeeded;
+    }
+
+    private static string NumberBlankLabels(string json)
+    {
+        Dictionary<string, int> seen = new(System.StringComparer.Ordinal);
+        return System.Text.RegularExpressions.Regex.Replace(json, "_:[A-Za-z0-9]+", m =>
+        {
+            if (!seen.TryGetValue(m.Value, out int index))
+            {
+                index = seen.Count;
+                seen[m.Value] = index;
+            }
+
+            return "_:n" + index.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        });
+    }
+
+    private static bool TryReadJsonLd(byte[] source, ManifestEntry entry, out List<string> quads)
+    {
+        List<string> lines = [];
+        JsonLdResult result = JsonLdParser.Parse(source, (in QuadView quad) => lines.Add(NQuadsLine(in quad)), VarveParserSubject.JsonLdOptionsFor(entry.ActionIri, entry.JsonLd));
+        quads = lines;
+        return result.Succeeded;
+    }
+
+    private static bool TryReadJsonLdBytes(byte[] source, string baseIri, out List<string> quads)
+    {
+        List<string> lines = [];
+        JsonLdResult result = JsonLdParser.Parse(source, (in QuadView quad) => lines.Add(NQuadsLine(in quad)), new JsonLdOptions { BaseIri = Encoding.UTF8.GetBytes(baseIri) });
+        quads = lines;
+        return result.Succeeded;
+    }
+
+    /// <summary>Writes N-Quads lines as expanded JSON-LD through <see cref="JsonLdWriter"/>.</summary>
+    private static byte[] WriteJsonLd(List<string> quads)
+    {
+        ArrayBufferWriter output = new();
+        JsonLdWriteOptions options = default;
+
+        using (JsonLdWriter writer = new(output, in options))
+        {
+            byte[] document = Encoding.UTF8.GetBytes(string.Join('\n', quads) + "\n");
+            ParseResult parsed = NQuadsParser.Parse(document, (in QuadView quad) => writer.Write(in quad), new ParseOptions { Syntax = RdfSyntax.NQuads, Version = RdfVersion.Rdf11 });
+            Assert.True(parsed.Succeeded, parsed.FirstError.ToString());
+        }
+
+        return output.Written.ToArray();
+    }
+
+    private static List<ParsedQuad> Parsed(List<string> quads)
+    {
+        List<ParsedQuad> parsed = [];
+        byte[] document = Encoding.UTF8.GetBytes(string.Join('\n', quads) + "\n");
+        WriteOptions canonical = new() { Syntax = RdfSyntax.NQuads };
+        NQuadsParser.Parse(
+            document,
+            (in QuadView quad) => parsed.Add(new ParsedQuad(Term(quad.Subject, canonical), Term(quad.Predicate, canonical), Term(quad.Object, canonical), quad.HasGraph ? Term(quad.Graph, canonical) : null)),
+            new ParseOptions { Syntax = RdfSyntax.NQuads, Version = RdfVersion.Rdf11 });
+        return parsed;
+    }
+
+    private static string NQuadsLine(in QuadView quad)
+    {
+        WriteOptions options = new() { Syntax = RdfSyntax.NQuads };
+        string line = Term(quad.Subject, options) + " " + Term(quad.Predicate, options) + " " + Term(quad.Object, options);
+        return (quad.HasGraph ? line + " " + Term(quad.Graph, options) : line) + " .";
+    }
+
+    private static string Term(in RdfTermView view, in WriteOptions options)
+    {
+        RdfTerm term = view.Materialise();
+        byte[] buffer = new byte[256];
+
+        while (!NQuadsWriter.TryWriteTerm(term, buffer, out _, in options))
+        {
+            buffer = new byte[buffer.Length * 2];
+        }
+
+        NQuadsWriter.TryWriteTerm(term, buffer, out int written, in options);
+        return Encoding.UTF8.GetString(buffer, 0, written);
     }
 
     private static bool TryWriteXml(byte[] source, string baseIri, out byte[] written)

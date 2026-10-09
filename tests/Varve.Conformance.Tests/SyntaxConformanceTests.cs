@@ -67,7 +67,7 @@ public class SyntaxConformanceTests
             return;
         }
 
-        ParseOutcome outcome = subject.Parse(entry.Format, entry.ActionPath, entry.ActionIri);
+        ParseOutcome outcome = subject.Parse(entry);
 
         switch (entry.Expected)
         {
@@ -81,6 +81,16 @@ public class SyntaxConformanceTests
                 Assert.False(
                     outcome.Succeeded,
                     Describe(entry) + " is ill-formed and must be rejected, but it parsed.");
+
+                // A json-ld-api negative test names the specification's error
+                // code, and the reason given must be that one.
+                if (entry.JsonLd?.ExpectErrorCode is string code)
+                {
+                    Assert.True(
+                        outcome.Error is not null && outcome.Error.StartsWith(code + ":", StringComparison.Ordinal),
+                        Describe(entry) + " must fail with '" + code + "' but failed with: " + (outcome.Error ?? "(no reason given)"));
+                }
+
                 break;
 
             case ExpectedOutcome.Evaluates:
@@ -125,6 +135,7 @@ public class SyntaxConformanceTests
             RdfFormat.TriG => RdfFormat.NQuads,
             RdfFormat.TriG12 => RdfFormat.NQuads12,
             RdfFormat.Turtle12 or RdfFormat.RdfXml12 => RdfFormat.NTriples12,
+            RdfFormat.JsonLd => RdfFormat.NQuads,
             _ => RdfFormat.NTriples,
         };
         ParseOutcome expected = subject.Parse(resultFormat, entry.ResultPath!, entry.ActionIri);

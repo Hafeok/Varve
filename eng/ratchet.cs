@@ -354,8 +354,15 @@ static string BuildSummary(
 static string ShortSuiteName(string manifestIri)
 {
     const string Marker = "/rdf/";
+    const string JsonLdMarker = "/json-ld-api/tests/";
     int start = manifestIri.IndexOf(Marker, StringComparison.Ordinal);
     string path = start < 0 ? manifestIri : manifestIri[(start + Marker.Length)..];
+
+    if (start < 0)
+    {
+        int jsonLd = manifestIri.IndexOf(JsonLdMarker, StringComparison.Ordinal);
+        path = jsonLd < 0 ? path : "json-ld/" + manifestIri[(jsonLd + JsonLdMarker.Length)..];
+    }
 
     return path.EndsWith("/manifest.ttl", StringComparison.Ordinal)
         ? path[..^"/manifest.ttl".Length]

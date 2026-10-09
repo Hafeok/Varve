@@ -9,6 +9,7 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Varve.Rdf;
+using Varve.JsonLd;
 using Varve.RdfXml;
 using Varve.Turtle;
 
@@ -48,6 +49,12 @@ internal sealed class VarveParserSubject : IParserSubject
             return xml.Succeeded ? ParseOutcome.Parsed(collector.Quads) : ParseOutcome.Rejected(xml.Error!.ToString());
         }
 
+        if (format == RdfFormat.JsonLd)
+        {
+            JsonLdResult jsonLd = JsonLdParser.Parse(bytes, collector.JsonLdHandler, JsonLdOptionsFor(baseIri, null));
+            return jsonLd.Succeeded ? ParseOutcome.Parsed(collector.Quads) : ParseOutcome.Rejected(jsonLd.Error!.ToString());
+        }
+
         ParseResult result = IsLineBased(format)
             ? NQuadsParser.Parse(bytes, collector.Handler, LineOptions(format))
             : TurtleParser.Parse(bytes, collector.Handler, TurtleOptionsFor(format, baseIri));
@@ -55,16 +62,37 @@ internal sealed class VarveParserSubject : IParserSubject
         return Outcome(result, collector);
     }
 
-    public ParseOutcome ParseSplit(RdfFormat format, string path, string baseIri, int at)
+    public ParseOutcome Parse(ManifestEntry entry)
     {
-        byte[] bytes = File.ReadAllBytes(path);
+        if (entry.Format != RdfFormat.JsonLd)
+        {
+            return Parse(entry.Format, entry.ActionPath, entry.ActionIri);
+        }
+
+        byte[] bytes = File.ReadAllBytes(entry.ActionPath);
+        Collector collector = new();
+        JsonLdResult jsonLd = JsonLdParser.Parse(bytes, collector.JsonLdHandler, JsonLdOptionsFor(entry.ActionIri, entry.JsonLd));
+        return jsonLd.Succeeded ? ParseOutcome.Parsed(collector.Quads) : ParseOutcome.Rejected(jsonLd.Error!.ToString());
+    }
+
+    public ParseOutcome ParseSplit(ManifestEntry entry, int at)
+    {
+        byte[] bytes = File.ReadAllBytes(entry.ActionPath);
         Collector collector = new();
         ReadOnlySequence<byte> sequence = Split(bytes, at);
+        RdfFormat format = entry.Format;
+        string baseIri = entry.ActionIri;
 
         if (IsRdfXml(format))
         {
             RdfXmlParseResult xml = RdfXmlParser.Parse(in sequence, collector.XmlHandler, RdfXmlOptionsFor(baseIri));
             return xml.Succeeded ? ParseOutcome.Parsed(collector.Quads) : ParseOutcome.Rejected(xml.Error!.ToString());
+        }
+
+        if (format == RdfFormat.JsonLd)
+        {
+            JsonLdResult jsonLd = JsonLdParser.Parse(in sequence, collector.JsonLdHandler, JsonLdOptionsFor(baseIri, entry.JsonLd));
+            return jsonLd.Succeeded ? ParseOutcome.Parsed(collector.Quads) : ParseOutcome.Rejected(jsonLd.Error!.ToString());
         }
 
         ParseResult result = IsLineBased(format)
@@ -73,6 +101,21 @@ internal sealed class VarveParserSubject : IParserSubject
 
         return Outcome(result, collector);
     }
+
+    /// <summary>
+    /// The options a json-ld-api entry runs under: its stated base or the
+    /// input's IRI, its expandContext, its rdfDirection or the
+    /// specification's default of none, and the suite's document loader
+    /// (ADR 0112; json-ld.md §1).
+    /// </summary>
+    internal static JsonLdOptions JsonLdOptionsFor(string baseIri, JsonLdCase? options) => new()
+    {
+        BaseIri = Encoding.UTF8.GetBytes(options?.BaseIri ?? baseIri),
+        ExpandContext = options?.ExpandContextPath is null ? default : File.ReadAllBytes(options.ExpandContextPath),
+        ExpandContextIri = options?.ExpandContextIri is null ? default : Encoding.UTF8.GetBytes(options.ExpandContextIri),
+        RdfDirection = options?.Direction ?? RdfDirection.None,
+        DocumentLoader = TestData.LoadJsonLdDocument,
+    };
 
     private static bool IsLineBased(RdfFormat format) =>
         format is RdfFormat.NTriples or RdfFormat.NQuads or RdfFormat.NTriples12 or RdfFormat.NQuads12;
@@ -132,6 +175,8 @@ internal sealed class VarveParserSubject : IParserSubject
         internal QuadHandler Handler => Collect;
 
         internal RdfXmlQuadHandler XmlHandler => Collect;
+
+        internal JsonLdQuadHandler JsonLdHandler => Collect;
 
         private void Collect(in QuadView quad)
         {
