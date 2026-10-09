@@ -65,8 +65,9 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         ILoadSource? loadSource = null,
         IRandomSource? randomness = null,
         bool http2 = false,
+        TelemetryOptions? telemetry = null,
         CancellationToken stopping = default) =>
-        StartAsync(new OneDataset(dataset), map, limits, clock, identity, serviceHandler, accessScopes, loadSource, randomness, null, null, http2, stopping);
+        StartAsync(new OneDataset(dataset), map, limits, clock, identity, serviceHandler, accessScopes, loadSource, randomness, null, null, http2, telemetry, stopping);
 
     /// <summary>
     /// Starts a server whose datasets <paramref name="datasets"/> names.
@@ -86,6 +87,7 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         IDatasetAdministration? administration = null,
         Func<ISparqlUpdateExecutor, ISparqlUpdateExecutor>? updates = null,
         bool http2 = false,
+        TelemetryOptions? telemetry = null,
         CancellationToken stopping = default)
     {
         WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
@@ -109,6 +111,7 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
             Limits = bounds,
             Evaluation = Evaluation(clock ?? TimeProvider.System, serviceHandler, randomness, bounds),
             Stopping = stopping,
+            Telemetry = telemetry ?? TelemetryOptions.Default,
         };
 
         if (map is null)

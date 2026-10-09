@@ -261,7 +261,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     // reason and nothing is held.
     private async Task OpenEntryAsync(string name, Entry entry, CancellationToken cancellationToken)
     {
-        DatasetOptions options = new() { Clock = _clock };
+        DatasetOptions options = new() { Clock = _clock, Name = name };
 
         try
         {

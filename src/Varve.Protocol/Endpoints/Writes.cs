@@ -91,6 +91,7 @@ internal static class Writes
         {
             case CommitOutcome.Committed:
                 context.Response.StatusCode = created;
+                ProtocolLog.Committed(exchange.Options.Logger, context.Request.Method + " " + context.Request.Path.Value, exchange.Name.Value, result.Position.Value, context.TraceIdentifier);
                 return Task.CompletedTask;
 
             case CommitOutcome.NoChange:

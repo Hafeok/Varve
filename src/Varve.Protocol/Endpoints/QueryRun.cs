@@ -61,6 +61,8 @@ internal static class QueryRun
             query = query! with { Dataset = dataset };
         }
 
+        Tracing.Operation(query switch { ConstructQuery => "CONSTRUCT", DescribeQuery => "DESCRIBE", AskQuery => "ASK", _ => "SELECT" });
+        Tracing.QueryText(exchange.Options, request);
         await AnswerAsync(exchange, query!).ConfigureAwait(false);
     }
 
@@ -164,15 +166,18 @@ internal static class QueryRun
 
         using SparqlResultsWriter writer = new(output, format);
         writer.WriteHead(names);
+        long rows = 0;
 
         while (solutions.MoveNext())
         {
             cancellationToken.ThrowIfCancellationRequested();
             WriteRow(solutions, writer, names.Length);
+            rows++;
             await output.FlushIfDueAsync(cancellationToken).ConfigureAwait(false);
         }
 
         writer.WriteEnd();
+        Tracing.ReturnedRows(rows);
     }
 
     // Per row: the writer costs nothing (sparql-results.md §4), and TryGetTerm

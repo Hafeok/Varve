@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Sockets;
 using System.Threading.Tasks;
@@ -52,14 +53,19 @@ public class AllocationTests
     /// With a caller whose scope is every graph the view is not wrapped (ADR
     /// 0107); with a scope that names the default graph the request runs
     /// through <see cref="Rdf.GraphScopedQuadSource"/>, which decides each
-    /// graph once and not per quad: the same 56 bytes a solution.
+    /// graph once and not per quad: the same 56 bytes a solution. With an
+    /// <see cref="ActivityListener"/> on <c>Varve.Protocol</c> the request
+    /// runs inside a span whose attributes are set once, and the row count it
+    /// records is a local incremented per solution (ADR 0112): the same 56.
     /// </remarks>
     [Theory]
     [InlineData("SELECT ?p ?o { ?s ?p ?o }", "all")]
     [InlineData("SELECT ?s ?o { ?s ?p ?o }", "all")]
     [InlineData("SELECT ?s ?o { ?s ?p ?o }", "scoped")]
+    [InlineData("SELECT ?s ?o { ?s ?p ?o }", "traced")]
     public async Task a_solution_costs_the_evaluators_row_and_nothing_else(string query, string scope)
     {
+        using ActivityListener? listener = scope == "traced" ? Listening() : null;
         long perSolution = await PerSolutionAsync(query, scope == "scoped");
         TestContext.Current.TestOutputHelper?.WriteLine(query + " (" + scope + "): " + perSolution + " bytes a solution");
         Assert.Equal(RowBytes, perSolution);
@@ -110,6 +116,19 @@ public class AllocationTests
         }
 
         return (largeCost - smallCost) / (Large - Small);
+    }
+
+    // A listener that records every span of the protocol's source, as the
+    // server's exporter would.
+    private static ActivityListener Listening()
+    {
+        ActivityListener listener = new()
+        {
+            ShouldListenTo = source => source.Name == TelemetryOptions.ActivitySourceName,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+        };
+        ActivitySource.AddActivityListener(listener);
+        return listener;
     }
 
     private static async Task<Dataset> StoreOf(int count)

@@ -95,6 +95,15 @@ into an empty result as the evaluator decides (ADR 0055).
 | `Enabled` | `false` | honour `X-Forwarded-For`, `-Proto` and `-Host` |
 | `KnownProxies` | `[]` | the addresses the headers are honoured from; with none listed, from none |
 
+## Telemetry — `Telemetry` (ADR 0112)
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Telemetry:QueryText` | `false` | record `db.query.text`, the query or update as sent, on the request span; off because a query can carry data |
+
+The exporter itself is configured by the standard `OTEL_*` environment
+variables, not under `Varve:`; see [Observe](observe.md).
+
 ## The runtime
 
 The server is a .NET process: `DOTNET_GCHeapHardLimit`, `DOTNET_gcServer`

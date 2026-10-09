@@ -36,21 +36,31 @@ and are what the SDK listens to.
      store, the attribute is `varve.`-prefixed: `varve.request_id` (the
      request id that is also the commit's cause), `varve.position` (the
      position the response describes, the committed position for a write),
-     `varve.as_of` (the selector as sent). The operator guide lists them.
-   - **`Varve.Store`** owns the `Meter` `Varve.Store`, every instrument with
-     `db.namespace` as its dimension, which the host supplies when it opens a
-     dataset (`DatasetOptions.Name`): `varve.store.commit.duration`
-     (histogram, seconds), `varve.store.sequencer.queue_depth`
-     (up-down counter), `varve.store.pinned_reads` (up-down counter),
-     `varve.store.projection.lag` (observable gauge, positions),
+     `varve.as_of` (the selector as sent). `http.response.status_code` closes
+     the span, whose status is an error at `5xx`. The operator guide lists
+     them.
+   - **`Varve.Store`** owns the `Meter` `Varve.Store`, one per process, every
+     instrument with `db.namespace` as its dimension, which the host supplies
+     when it opens a dataset (`DatasetOptions.Name`; the id otherwise):
+     `varve.store.commit.duration` (histogram, seconds, with
+     `varve.outcome`: `committed`, `no_change`, `conflict`, `rejected`,
+     `unavailable`), `varve.store.sequencer.queue_depth` (up-down counter),
+     `varve.store.pinned_reads` (up-down counter),
+     `varve.store.projection.lag` (gauge, positions),
      `varve.store.checkpoint.duration` (histogram, seconds),
-     `varve.store.log.bytes` and `varve.store.derived.bytes` (observable
-     gauges). Every measurement is per commit, per checkpoint or on
-     observation, never per quad: the hot path is untouched and the
-     allocation tests say so.
-   - **Logs** go through `ILogger`, which the libraries already take from
-     the host, with the request id and the position as scopes on every
-     request.
+     `varve.store.log.bytes` and `varve.store.derived.bytes` (gauges). Every
+     measurement is per commit, per checkpoint or per maintenance step, never
+     per quad: the hot path is untouched and the allocation tests say so. The
+     gauges are recorded at those moments rather than observed on a callback,
+     because a callback holds its dataset for the life of the meter, which is
+     the process's, and a dataset a host abandoned without disposing would
+     never be collected.
+   - **Logs** go through the `ILogger` the host gives the protocol
+     (`ProtocolOptions.Logger`): one line per commit with the operation, the
+     dataset, the position and the request id, one per refusal with the
+     status and the request id, and ASP.NET Core's hosting scope puts the
+     request id on every line a request writes. Nothing is logged per
+     solution.
 2. **The exporter lives in `Varve.Server` alone**: `OpenTelemetry`,
    `OpenTelemetry.Extensions.Hosting` and
    `OpenTelemetry.Exporter.OpenTelemetryProtocol`, all 1.19.1 (resolved from
@@ -83,16 +93,21 @@ and are what the SDK listens to.
   metrics.** The BCL's `Meter` is the abstraction; the SDK is one listener.
 - **The trace id as the commit's cause.** Rejected in point 3; it would make
   provenance depend on a value the caller chose.
-- **An `IMeterFactory` per dataset.** The host's factory is used where there
-  is one, and the dimension carries the dataset; one meter per process is
-  what the conventions expect.
+- **The host's `IMeterFactory`, or a meter per dataset.** A factory's meters
+  live as long as the factory, and a meter of our own is registered
+  process-wide until disposed; either keeps an abandoned dataset's
+  instruments, and through them the dataset, alive. One meter per process
+  with the dataset as a tag costs nothing to abandon, and is what the
+  conventions expect.
 
 ## Consequences
 
 - A `Varve.Protocol` host that wants telemetry attaches a listener; a host
   that does not pays nothing.
 - `Varve.Store`'s `DatasetOptions` gains `Name`, the dimension; `Dataset`
-  exposes nothing new.
+  exposes nothing new. `Varve.Protocol`'s `ProtocolOptions` gains
+  `Telemetry` (the opt-in) and `Logger`; `TelemetryOptions` names the source
+  and the meter.
 - `docs/operator/observe.md` lists every span and metric by name and shows
   the OTLP collector's debug exporter as the Grafana-free example.
 - The register grows by three lines, each conditional on the AOT gate, and

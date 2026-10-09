@@ -47,6 +47,7 @@ internal static class GraphStoreEndpoint
             return;
         }
 
+        Tracing.Operation(method + " graph");
         Target target = await TargetOfAsync(exchange).ConfigureAwait(false);
 
         if (target.Kind == TargetKind.Invalid)

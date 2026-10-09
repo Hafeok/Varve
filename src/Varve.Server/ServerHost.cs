@@ -259,6 +259,7 @@ internal static partial class ServerHost
     {
         builder.WebHost.ConfigureKestrel(kestrel => kestrel.Limits.MaxRequestBodySize = settings.Limits.MaxRequestBody);
         IServiceCollection services = builder.Services;
+        Telemetry.Configure(builder);
 
         // The drain (ADR 0113): registered after the web host's own hosted
         // service, so it stops first; readiness turns false and the stop
@@ -439,6 +440,8 @@ internal static partial class ServerHost
             Limits = Limits(settings),
             Evaluation = new EvaluationOptions { Clock = clock, Randomness = new SystemRandomness(), ServiceHandler = outbound.Service, MemoryBudget = new MemoryBytes(settings.Limits.MaxQueryMemory) },
             Stopping = stopping,
+            Telemetry = new TelemetryOptions { QueryText = settings.Telemetry.QueryText },
+            Logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Varve.Protocol"),
         };
 
         app.MapGroup("/datasets/{dataset}").RequireRateLimiting("reads").MapVarveDataset(options);

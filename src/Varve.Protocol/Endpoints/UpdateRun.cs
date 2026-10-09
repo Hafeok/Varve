@@ -58,6 +58,9 @@ internal static class UpdateRun
             return;
         }
 
+        Tracing.Operation("UPDATE");
+        Tracing.QueryText(exchange.Options, request);
+
         if (dataset is not null)
         {
             if (!TryApply(update!, dataset, out Update? applied))

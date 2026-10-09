@@ -39,8 +39,8 @@ public static class VarveEndpoints
         routes.MapCommits("/commits", options);
         routes.MapDiff("/diff", options);
         routes.MapDatasetStatus("/status", options);
-        routes.Map("/settings", context => AdminEndpoints.SettingsAsync(context, options));
-        routes.Map("/checkpoints", context => AdminEndpoints.CheckpointAsync(context, options));
+        routes.Map("/settings", Tracing.Traced("settings", options, context => AdminEndpoints.SettingsAsync(context, options)));
+        routes.Map("/checkpoints", Tracing.Traced("checkpoints", options, context => AdminEndpoints.CheckpointAsync(context, options)));
         return routes;
     }
 
@@ -59,10 +59,10 @@ public static class VarveEndpoints
         ArgumentNullException.ThrowIfNull(pattern);
         ArgumentNullException.ThrowIfNull(options);
         string prefix = pattern.TrimEnd('/');
-        routes.MapMethods(prefix, ["GET"], context => AdminEndpoints.ListAsync(context, options));
-        routes.MapMethods(prefix + "/{" + Exchange.DatasetRouteValue + "}", ["PUT"], context => AdminEndpoints.CreateAsync(context, options));
-        routes.MapMethods(prefix + "/{" + Exchange.DatasetRouteValue + "}", ["DELETE"], context => AdminEndpoints.DeleteAsync(context, options));
-        routes.Map(prefix + "/{" + Exchange.DatasetRouteValue + "}/state", context => AdminEndpoints.StateAsync(context, options));
+        routes.MapMethods(prefix, ["GET"], Tracing.Traced("datasets", options, context => AdminEndpoints.ListAsync(context, options)));
+        routes.MapMethods(prefix + "/{" + Exchange.DatasetRouteValue + "}", ["PUT"], Tracing.Traced("create dataset", options, context => AdminEndpoints.CreateAsync(context, options)));
+        routes.MapMethods(prefix + "/{" + Exchange.DatasetRouteValue + "}", ["DELETE"], Tracing.Traced("delete dataset", options, context => AdminEndpoints.DeleteAsync(context, options)));
+        routes.Map(prefix + "/{" + Exchange.DatasetRouteValue + "}/state", Tracing.Traced("state", options, context => AdminEndpoints.StateAsync(context, options)));
         return routes;
     }
 
@@ -71,7 +71,7 @@ public static class VarveEndpoints
     {
         ArgumentNullException.ThrowIfNull(routes);
         ArgumentNullException.ThrowIfNull(options);
-        return routes.Map(pattern, context => SparqlEndpoint.HandleAsync(context, options));
+        return routes.Map(pattern, Tracing.Traced("sparql", options, context => SparqlEndpoint.HandleAsync(context, options)));
     }
 
     /// <summary>
@@ -83,8 +83,8 @@ public static class VarveEndpoints
         ArgumentNullException.ThrowIfNull(routes);
         ArgumentNullException.ThrowIfNull(pattern);
         ArgumentNullException.ThrowIfNull(options);
-        routes.Map(pattern, context => GraphStoreEndpoint.HandleAsync(context, options));
-        routes.Map(pattern.TrimEnd('/') + "/{**" + GraphStoreEndpoint.PathValue + "}", context => GraphStoreEndpoint.HandleAsync(context, options));
+        routes.Map(pattern, Tracing.Traced("graph", options, context => GraphStoreEndpoint.HandleAsync(context, options)));
+        routes.Map(pattern.TrimEnd('/') + "/{**" + GraphStoreEndpoint.PathValue + "}", Tracing.Traced("graph", options, context => GraphStoreEndpoint.HandleAsync(context, options)));
         return routes;
     }
 
@@ -93,7 +93,7 @@ public static class VarveEndpoints
     {
         ArgumentNullException.ThrowIfNull(routes);
         ArgumentNullException.ThrowIfNull(options);
-        return routes.Map(pattern, context => ServiceDescriptionEndpoint.HandleAsync(context, options));
+        return routes.Map(pattern, Tracing.Traced("service description", options, context => ServiceDescriptionEndpoint.HandleAsync(context, options)));
     }
 
     /// <summary>
@@ -105,8 +105,8 @@ public static class VarveEndpoints
         ArgumentNullException.ThrowIfNull(routes);
         ArgumentNullException.ThrowIfNull(pattern);
         ArgumentNullException.ThrowIfNull(options);
-        routes.Map(pattern, context => CommitsEndpoint.HandleAsync(context, options));
-        routes.Map(pattern.TrimEnd('/') + "/{" + CommitsEndpoint.PositionRouteValue + "}", context => CommitsEndpoint.HandleOneAsync(context, options));
+        routes.Map(pattern, Tracing.Traced("commits", options, context => CommitsEndpoint.HandleAsync(context, options)));
+        routes.Map(pattern.TrimEnd('/') + "/{" + CommitsEndpoint.PositionRouteValue + "}", Tracing.Traced("commit", options, context => CommitsEndpoint.HandleOneAsync(context, options)));
         return routes;
     }
 
@@ -115,7 +115,7 @@ public static class VarveEndpoints
     {
         ArgumentNullException.ThrowIfNull(routes);
         ArgumentNullException.ThrowIfNull(options);
-        return routes.Map(pattern, context => DiffEndpoint.HandleAsync(context, options));
+        return routes.Map(pattern, Tracing.Traced("diff", options, context => DiffEndpoint.HandleAsync(context, options)));
     }
 
     /// <summary>The dataset's status, for <c>admin</c> (ADR 0101).</summary>
@@ -123,6 +123,6 @@ public static class VarveEndpoints
     {
         ArgumentNullException.ThrowIfNull(routes);
         ArgumentNullException.ThrowIfNull(options);
-        return routes.Map(pattern, context => StatusEndpoint.HandleAsync(context, options));
+        return routes.Map(pattern, Tracing.Traced("status", options, context => StatusEndpoint.HandleAsync(context, options)));
     }
 }

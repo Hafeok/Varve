@@ -70,6 +70,7 @@ internal sealed class Exchange
             return null;
         }
 
+        Tracing.Dataset(context, name.Value);
         return new Exchange(context, options, name, dataset, options.AccessScopes.ScopesOf(context.User, name));
     }
 

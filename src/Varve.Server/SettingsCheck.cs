@@ -41,6 +41,7 @@ internal static class SettingsCheck
         "Load:AllowedSources:*", "Load:AllowPrivateAddresses", "Load:Timeout", "Load:MaxResponseBytes",
         "Health:ReadyLag", "Health:RateLimit", "Health:StopDelay",
         "Lease:WaitFor",
+        "Telemetry:QueryText",
     ];
 
     /// <summary>The leaf keys under <paramref name="section"/> that match no known pattern, as <c>Varve:…</c> paths.</summary>

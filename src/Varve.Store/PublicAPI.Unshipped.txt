@@ -434,3 +434,5 @@ Varve.Store.Log.Commit.TryExternalise(Varve.Rdf.TermHandle handle, out Varve.Rdf
 Varve.Store.Dataset.ProjectionPosition.get -> Varve.Store.Log.Position
 Varve.Store.BulkLoadOptions.Workers.get -> int
 Varve.Store.BulkLoadOptions.Workers.init -> void
+Varve.Store.DatasetOptions.Name.get -> string?
+Varve.Store.DatasetOptions.Name.init -> void

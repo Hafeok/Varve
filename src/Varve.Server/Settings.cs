@@ -39,6 +39,16 @@ internal sealed class ServerSettings
 
     /// <summary>The lease at start (ADR 0116).</summary>
     public LeaseSettings Lease { get; set; } = new();
+
+    /// <summary>What the request span records (ADR 0112); the exporter is configured by <c>OTEL_*</c>.</summary>
+    public TelemetrySettings Telemetry { get; set; } = new();
+}
+
+/// <summary>Telemetry (ADR 0112): what the request span records beyond its defaults. The exporter itself is the standard <c>OTEL_*</c> environment's.</summary>
+internal sealed class TelemetrySettings
+{
+    /// <summary>Record <c>db.query.text</c>, the query or update as sent, on the request span. Off by default: a query can carry data.</summary>
+    public bool QueryText { get; set; }
 }
 
 /// <summary>The lease at start (ADR 0116): how long a refused lease is waited for before the dataset is failed.</summary>

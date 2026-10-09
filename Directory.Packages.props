@@ -89,6 +89,17 @@
          managed wrapper, CurrentUser scope. Elsewhere the file's mode is the
          protection, and the package is linked but never called. -->
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" Adr="0105" />
+
+    <!-- The OpenTelemetry exporter (ADR 0112): the SDK, its hosting
+         integration and the OTLP exporter, Apache-2.0, managed, trimming- and
+         AOT-annotated; in Varve.Server alone, on the condition that the
+         server's Native AOT publish stays green. The libraries instrument
+         through the BCL's ActivitySource and Meter and reference none of
+         these; the server builds the SDK only when an OTEL_EXPORTER_OTLP_*
+         endpoint is configured. -->
+    <PackageVersion Include="OpenTelemetry" Version="1.19.1" Adr="0112" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" Adr="0112" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" Adr="0112" />
   </ItemGroup>
 
   <!--

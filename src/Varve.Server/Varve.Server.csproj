@@ -62,6 +62,10 @@
     <!-- ADR 0105: the command line and the Windows credential store. -->
     <PackageReference Include="System.CommandLine" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+    <!-- ADR 0112: the exporter, the server's alone. -->
+    <PackageReference Include="OpenTelemetry" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
   </ItemGroup>
 
 </Project>

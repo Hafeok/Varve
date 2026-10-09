@@ -5,6 +5,8 @@
 using System;
 using System.Threading;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Varve.Sparql.Evaluation;
 
 namespace Varve.Protocol;
@@ -51,6 +53,15 @@ public sealed class ProtocolOptions
 
     /// <summary>What bounds a request.</summary>
     public ProtocolLimits Limits { get; init; } = ProtocolLimits.Default;
+
+    /// <summary>What the request span records beyond its defaults (ADR 0112).</summary>
+    public TelemetryOptions Telemetry { get; init; } = TelemetryOptions.Default;
+
+    /// <summary>
+    /// Where a commit and a refusal are logged, with the request id and the
+    /// position (ADR 0112). Silent by default.
+    /// </summary>
+    public ILogger Logger { get; init; } = NullLogger.Instance;
 
     /// <summary>The live tails open per client, bounded by <see cref="ProtocolLimits.MaxLiveTailsPerClient"/> (ADR 0114); one registry per host.</summary>
     internal Endpoints.LiveTails Tails { get; } = new();

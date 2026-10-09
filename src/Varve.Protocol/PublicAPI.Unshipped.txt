@@ -246,3 +246,14 @@ Varve.Protocol.ProtocolLimits.MaxLiveTailsPerClient.get -> int
 Varve.Protocol.ProtocolLimits.MaxLiveTailsPerClient.init -> void
 Varve.Protocol.ProtocolLimits.CommitsPageSize.get -> int
 Varve.Protocol.ProtocolLimits.CommitsPageSize.init -> void
+Varve.Protocol.ProtocolOptions.Telemetry.get -> Varve.Protocol.TelemetryOptions!
+Varve.Protocol.ProtocolOptions.Telemetry.init -> void
+Varve.Protocol.ProtocolOptions.Logger.get -> Microsoft.Extensions.Logging.ILogger!
+Varve.Protocol.ProtocolOptions.Logger.init -> void
+Varve.Protocol.TelemetryOptions
+Varve.Protocol.TelemetryOptions.TelemetryOptions() -> void
+static Varve.Protocol.TelemetryOptions.Default.get -> Varve.Protocol.TelemetryOptions!
+Varve.Protocol.TelemetryOptions.QueryText.get -> bool
+Varve.Protocol.TelemetryOptions.QueryText.init -> void
+const Varve.Protocol.TelemetryOptions.ActivitySourceName = "Varve.Protocol" -> string!
+const Varve.Protocol.TelemetryOptions.MeterName = "Varve.Store" -> string!
