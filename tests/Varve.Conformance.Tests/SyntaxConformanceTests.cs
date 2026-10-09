@@ -124,7 +124,7 @@ public class SyntaxConformanceTests
         {
             RdfFormat.TriG => RdfFormat.NQuads,
             RdfFormat.TriG12 => RdfFormat.NQuads12,
-            RdfFormat.Turtle12 => RdfFormat.NTriples12,
+            RdfFormat.Turtle12 or RdfFormat.RdfXml12 => RdfFormat.NTriples12,
             _ => RdfFormat.NTriples,
         };
         ParseOutcome expected = subject.Parse(resultFormat, entry.ResultPath!, entry.ActionIri);

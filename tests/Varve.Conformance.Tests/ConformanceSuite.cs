@@ -32,6 +32,12 @@ internal enum RdfFormat
 
     /// <summary>RDF 1.2 TriG.</summary>
     TriG12,
+
+    /// <summary>RDF/XML, the rdf11 suite (ADR 0111): its results are RDF 1.1 N-Triples.</summary>
+    RdfXml,
+
+    /// <summary>RDF/XML, the rdf12 evaluation suite: its results are RDF 1.2 N-Triples.</summary>
+    RdfXml12,
 }
 
 /// <summary>
@@ -88,6 +94,12 @@ internal sealed record ConformanceSuite(string Id, string ManifestPath, string B
         Suite("rdf12/turtle-eval", "rdf/rdf12/rdf-turtle/eval/manifest.ttl", RdfFormat.Turtle12),
         Suite("rdf12/trig-syntax", "rdf/rdf12/rdf-trig/syntax/manifest.ttl", RdfFormat.TriG12),
         Suite("rdf12/trig-eval", "rdf/rdf12/rdf-trig/eval/manifest.ttl", RdfFormat.TriG12),
+
+        // Milestone 6b (ADR 0111). RDF/XML: the rdf11 suite, and the rdf12
+        // evaluation suite with rdf:parseType="Triple", rdf:annotation and
+        // its:dir.
+        Suite("rdf11/rdf-xml", "rdf/rdf11/rdf-xml/manifest.ttl", RdfFormat.RdfXml),
+        Suite("rdf12/rdf-xml", "rdf/rdf12/rdf-xml/eval/manifest.ttl", RdfFormat.RdfXml12),
     ];
 
     /// <summary>

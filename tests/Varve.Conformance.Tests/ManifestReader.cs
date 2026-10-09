@@ -242,6 +242,8 @@ internal static class ManifestReader
         "http://www.w3.org/ns/rdftest#TestTrigNegativeSyntax" => ExpectedOutcome.IsRejected,
         "http://www.w3.org/ns/rdftest#TestTrigEval" => ExpectedOutcome.Evaluates,
         "http://www.w3.org/ns/rdftest#TestTrigNegativeEval" => ExpectedOutcome.IsRejected,
+        "http://www.w3.org/ns/rdftest#TestXMLEval" => ExpectedOutcome.Evaluates,
+        "http://www.w3.org/ns/rdftest#TestXMLNegativeSyntax" => ExpectedOutcome.IsRejected,
         _ => null,
     };
 

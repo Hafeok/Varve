@@ -13,6 +13,7 @@
     <ProjectReference Include="../../src/Varve.Protocol/Varve.Protocol.csproj" />
     <ProjectReference Include="../../src/Varve.Protocol.Client/Varve.Protocol.Client.csproj" />
     <ProjectReference Include="../../src/Varve.Turtle/Varve.Turtle.csproj" />
+    <ProjectReference Include="../../src/Varve.RdfXml/Varve.RdfXml.csproj" />
     <ProjectReference Include="../../src/Varve.Sparql/Varve.Sparql.csproj" />
     <ProjectReference Include="../../src/Varve.Sparql.Results/Varve.Sparql.Results.csproj" />
     <ProjectReference Include="../../src/Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />

@@ -9,6 +9,7 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Varve.Rdf;
+using Varve.RdfXml;
 using Varve.Turtle;
 
 namespace Varve.Conformance.Tests;
@@ -41,6 +42,12 @@ internal sealed class VarveParserSubject : IParserSubject
         byte[] bytes = File.ReadAllBytes(path);
         Collector collector = new();
 
+        if (IsRdfXml(format))
+        {
+            RdfXmlParseResult xml = RdfXmlParser.Parse(bytes, collector.XmlHandler, RdfXmlOptionsFor(baseIri));
+            return xml.Succeeded ? ParseOutcome.Parsed(collector.Quads) : ParseOutcome.Rejected(xml.Error!.ToString());
+        }
+
         ParseResult result = IsLineBased(format)
             ? NQuadsParser.Parse(bytes, collector.Handler, LineOptions(format))
             : TurtleParser.Parse(bytes, collector.Handler, TurtleOptionsFor(format, baseIri));
@@ -54,6 +61,12 @@ internal sealed class VarveParserSubject : IParserSubject
         Collector collector = new();
         ReadOnlySequence<byte> sequence = Split(bytes, at);
 
+        if (IsRdfXml(format))
+        {
+            RdfXmlParseResult xml = RdfXmlParser.Parse(in sequence, collector.XmlHandler, RdfXmlOptionsFor(baseIri));
+            return xml.Succeeded ? ParseOutcome.Parsed(collector.Quads) : ParseOutcome.Rejected(xml.Error!.ToString());
+        }
+
         ParseResult result = IsLineBased(format)
             ? NQuadsParser.Parse(in sequence, collector.Handler, LineOptions(format))
             : TurtleParser.Parse(in sequence, collector.Handler, TurtleOptionsFor(format, baseIri));
@@ -63,6 +76,10 @@ internal sealed class VarveParserSubject : IParserSubject
 
     private static bool IsLineBased(RdfFormat format) =>
         format is RdfFormat.NTriples or RdfFormat.NQuads or RdfFormat.NTriples12 or RdfFormat.NQuads12;
+
+    internal static bool IsRdfXml(RdfFormat format) => format is RdfFormat.RdfXml or RdfFormat.RdfXml12;
+
+    private static RdfXmlOptions RdfXmlOptionsFor(string baseIri) => new() { BaseIri = Encoding.UTF8.GetBytes(baseIri) };
 
     /// <summary>The edition a format is read as: the rdf12 suites under RDF 1.2, the rdf11 suites under RDF 1.1 (ADR 0110).</summary>
     internal static RdfVersion VersionOf(RdfFormat format) =>
@@ -113,6 +130,8 @@ internal sealed class VarveParserSubject : IParserSubject
         internal List<ParsedQuad> Quads { get; } = [];
 
         internal QuadHandler Handler => Collect;
+
+        internal RdfXmlQuadHandler XmlHandler => Collect;
 
         private void Collect(in QuadView quad)
         {

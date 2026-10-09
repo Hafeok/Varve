@@ -105,26 +105,6 @@ public class EvaluationGuardTests
     }
 
     /// <summary>
-    /// Every RDF/XML translation in <c>tests/fixtures/w3c-rdfxml/</c> was made
-    /// from the original now in the submodule, and none is left over from a
-    /// file that is gone (ADR 0027's dated note).
-    /// </summary>
-    [Fact]
-    public void Every_rdfxml_translation_matches_its_original()
-    {
-        Assert.True(TestData.IsCheckedOut, "The W3C test data is missing; see SubmoduleGuardTests.");
-        string[] translations = Directory.GetFiles(EvaluationData.FixtureRoot, "*.rdf.nt", SearchOption.AllDirectories);
-        Assert.NotEmpty(translations);
-        foreach (string translation in translations)
-        {
-            string relative = Path.GetRelativePath(EvaluationData.FixtureRoot, translation)[..^".nt".Length];
-            string original = Path.Combine(TestData.RdfTestsRoot, relative);
-            Assert.True(File.Exists(original), "A translation with no original: " + relative);
-            Assert.Null(EvaluationData.Translation(original).Problem);
-        }
-    }
-
-    /// <summary>
     /// ADR 0050's other two arms answer every case the default arm does, over
     /// the store, whose handles are the ones the arms differ on. The ratchet
     /// carries the default arm case by case; this gates the others whole. The

@@ -40,6 +40,13 @@ public class PullReaderAgreementTests
 
         foreach (ManifestEntry entry in Catalogue.Entries)
         {
+            // RDF/XML has one shape, push over XmlReader (rdf-xml.md §4); the
+            // agreement is between Varve.Turtle's two.
+            if (VarveParserSubject.IsRdfXml(entry.Format))
+            {
+                continue;
+            }
+
             yield return new TheoryDataRow<string>(entry.TestIri) { TestDisplayName = entry.TestIri };
         }
     }

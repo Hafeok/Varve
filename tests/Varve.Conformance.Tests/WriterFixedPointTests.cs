@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Varve.Rdf;
+using Varve.RdfXml;
 using Varve.Turtle;
 using Xunit;
 
@@ -74,9 +75,25 @@ public class WriterFixedPointTests
     public void writing_what_was_written_reproduces_it(string testIri)
     {
         ManifestEntry entry = OracleCatalogue.ByIri[testIri];
-        RdfSyntax syntax = Syntax(entry.Format);
-
         byte[] source = File.ReadAllBytes(entry.ActionPath);
+
+        if (VarveParserSubject.IsRdfXml(entry.Format))
+        {
+            // The same property of the RDF/XML writer (rdf-xml.md §6): read,
+            // write, read, write, same bytes. A document the writer refuses —
+            // a predicate with no NCName suffix — is not this property's
+            // business either, and the suites hold none.
+            if (!TryWriteXml(source, entry.ActionIri, out byte[] firstXml))
+            {
+                return;
+            }
+
+            Assert.True(TryWriteXml(firstXml, entry.ActionIri, out byte[] secondXml), Text(firstXml));
+            Assert.Equal(Text(firstXml), Text(secondXml));
+            return;
+        }
+
+        RdfSyntax syntax = Syntax(entry.Format);
 
         if (!TryWrite(source, syntax, out byte[] first))
         {
@@ -130,6 +147,27 @@ public class WriterFixedPointTests
 
             result = TurtleParser.Parse(
                 source, (in QuadView quad) => writer.Write(in quad), in readOptions);
+        }
+
+        written = output.Written.ToArray();
+        return result.Succeeded;
+    }
+
+    private static bool TryWriteXml(byte[] source, string baseIri, out byte[] written)
+    {
+        ArrayBufferWriter output = new();
+        RdfXmlWriteOptions writeOptions = default;
+        RdfXmlParseResult result;
+
+        using (RdfXmlWriter writer = new(output, in writeOptions))
+        {
+            foreach ((string prefix, string iri) in Prefixes)
+            {
+                writer.DeclarePrefix(Encoding.UTF8.GetBytes(prefix), Encoding.UTF8.GetBytes(iri));
+            }
+
+            result = RdfXmlParser.Parse(
+                source, (in QuadView quad) => writer.Write(in quad), new RdfXmlOptions { BaseIri = Encoding.UTF8.GetBytes(baseIri) });
         }
 
         written = output.Written.ToArray();

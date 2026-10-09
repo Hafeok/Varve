@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 2: RDF/XML over the BCL's XmlReader and XmlWriter (ADR 0111).
+         docs/spec/rdf-xml.md. -->
+    <ArchLayer>2</ArchLayer>
+    <IsPackable>true</IsPackable>
+    <Description>RDF/XML, read and written over System.Xml's streaming reader and writer, with RDF 1.2's triple terms, annotations and base directions.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
+    <ProjectReference Include="../Varve.Iri/Varve.Iri.csproj" />
+  </ItemGroup>
+
+</Project>
