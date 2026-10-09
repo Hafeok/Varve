@@ -19,10 +19,10 @@ namespace Varve.Server.Tests;
 /// </summary>
 internal sealed class RunningServer : IAsyncDisposable
 {
-    private readonly WebApplication _app;
+    private readonly WebApplication? _app;
     private readonly Task<int> _run;
 
-    private RunningServer(WebApplication app, Task<int> run, Uri address)
+    private RunningServer(WebApplication? app, Task<int> run, Uri address)
     {
         _app = app;
         _run = run;
@@ -33,6 +33,13 @@ internal sealed class RunningServer : IAsyncDisposable
     internal Uri Address { get; }
 
     internal HttpClient Client { get; }
+
+    /// <summary>
+    /// A server somebody else runs, at <paramref name="address"/>, configured
+    /// as the test expects: the container CI built (ADR 0111). Stopping it is
+    /// not this object's to do.
+    /// </summary>
+    internal static RunningServer External(Uri address) => new(null, Task.FromResult(0), address);
 
     internal static async Task<RunningServer> StartAsync(IReadOnlyDictionary<string, string> settings)
     {
@@ -54,7 +61,7 @@ internal sealed class RunningServer : IAsyncDisposable
     /// <summary>Stops the server as SIGTERM does, and answers its exit code.</summary>
     internal async Task<int> StopAsync()
     {
-        _app.Lifetime.StopApplication();
+        _app?.Lifetime.StopApplication();
         return await _run;
     }
 

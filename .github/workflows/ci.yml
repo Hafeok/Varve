@@ -545,6 +545,249 @@ jobs:
           --configuration Release
           --filter-class Varve.Server.Tests.ProviderTests
 
+  # The container image (ADR 0111): the Native AOT binary published on a
+  # native runner for its architecture, built into the chiseled image, pushed
+  # to GHCR as pr-<sha>-<arch>, pulled back, and exercised as an operator runs
+  # it: read-only root filesystem, the non-root user, datasets on a volume.
+  # The W3C protocol suites run against it over HTTP, ratcheted against the
+  # memory subject's baseline; the two auth legs (ADR 0100) run against it
+  # with the issuer's roles granted, on the x64 runner. A pr- tag is not a
+  # release and may be deleted.
+  container:
+    name: container (${{ matrix.rid }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [linux-x64, linux-arm64]
+        include:
+          - rid: linux-x64
+            os: ubuntu-24.04
+            platform: linux/amd64
+          - rid: linux-arm64
+            os: ubuntu-24.04-arm
+            platform: linux/arm64
+
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      IMAGE: ghcr.io/hafeok/varve
+      TAG: pr-${{ github.sha }}-${{ matrix.rid }}
+
+    steps:
+      - name: Line endings
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+          submodules: recursive
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ matrix.rid }}-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-${{ matrix.rid }}-
+
+      - name: Publish the server
+        # The binary the gate runs, for this runner's architecture; no
+        # cross-compilation (ADR 0111 point 2).
+        run: >
+          dotnet publish src/Varve.Server
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --output ${{ github.workspace }}/artifacts/server-aot
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the image
+        run: |
+          docker build \
+            --platform ${{ matrix.platform }} \
+            --file src/Varve.Server/container/Dockerfile \
+            --tag "$IMAGE:$TAG" \
+            "${{ github.workspace }}/artifacts/server-aot"
+          docker push "$IMAGE:$TAG"
+          docker image rm "$IMAGE:$TAG"
+
+      - name: Pull it back and start it for the suites
+        # As an operator runs it: read-only, the image's user, a volume for
+        # the datasets, anonymous mode so the harness can create its dataset.
+        run: |
+          docker pull "$IMAGE:$TAG"
+          docker run --detach --name varve-suites --read-only \
+            --volume varve-suites:/var/lib/varve --publish 8080:8080 \
+            "$IMAGE:$TAG" serve --anonymous
+          test "$(docker inspect --format '{{.Config.User}}' varve-suites)" = "1654"
+          test "$(docker inspect --format '{{.HostConfig.ReadonlyRootfs}}' varve-suites)" = "true"
+          for attempt in $(seq 1 60); do
+            curl --silent --fail http://localhost:8080/health/ready > /dev/null && exit 0
+            sleep 1
+          done
+          docker logs varve-suites
+          exit 1
+
+      - name: Run the W3C protocol suites against the container
+        continue-on-error: true
+        env:
+          VARVE_SERVER_URL: http://localhost:8080
+        run: >
+          dotnet test
+          --project tests/Varve.Conformance.Tests/Varve.Conformance.Tests.csproj
+          --configuration Release
+          --filter-class Varve.Conformance.Tests.ProtocolConformanceTests
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/container-protocol
+
+      - name: Ratchet
+        # The memory subject's baseline, read as the server's: what passes in
+        # process passes over the network, or the gate says which case does not.
+        run: |
+          sed -n 's/@memory$/@server/p' tests/Varve.Conformance.Tests/baseline/passing.txt > "$RUNNER_TEMP/server-baseline.txt"
+          dotnet run eng/ratchet.cs -- "${{ github.workspace }}/artifacts/container-protocol" \
+            --baseline "$RUNNER_TEMP/server-baseline.txt" --label container-${{ matrix.rid }}
+
+      - name: The container's log
+        if: failure()
+        run: docker logs varve-suites
+
+      - name: Stop it
+        if: always()
+        run: docker rm --force varve-suites
+
+      # Auth leg (b) against the container (ADR 0100, ADR 0111 point 8): the
+      # mock on the host's 8080, the container on the host network at 8090,
+      # configured for the mock's issuer with both roles granted; the same
+      # provider tests, pointed at it by VARVE_SERVER_URL.
+      - name: Start mock-oauth2-server
+        if: matrix.rid == 'linux-x64'
+        run: |
+          docker compose --file .github/mock-oauth2/compose.yaml up --detach
+          for attempt in $(seq 1 60); do
+            curl --silent --fail http://localhost:8080/varve/.well-known/openid-configuration > /dev/null && exit 0
+            sleep 1
+          done
+          docker compose --file .github/mock-oauth2/compose.yaml logs
+          exit 1
+
+      - name: Start the container against the mock
+        if: matrix.rid == 'linux-x64'
+        run: |
+          docker run --detach --name varve-mock --read-only --network host \
+            --volume varve-mock:/var/lib/varve \
+            --env ASPNETCORE_URLS=http://+:8090 \
+            --env VARVE__AUTH__MODE=Oidc \
+            --env VARVE__AUTH__AUTHORITY=http://localhost:8080/varve \
+            --env VARVE__AUTH__AUDIENCES__0=api://varve \
+            --env VARVE__AUTH__ROLECLAIMTYPE=roles \
+            --env VARVE__AUTH__SUBJECTCLAIM=sub \
+            --env VARVE__AUTH__REQUIREHTTPSMETADATA=false \
+            --env VARVE__DATASETS__D__STORAGE=Memory \
+            --env VARVE__AUTH__DATASETS__D__READ__0=varve.read \
+            --env VARVE__AUTH__DATASETS__D__WRITE__0=varve.write \
+            "$IMAGE:$TAG" serve
+          for attempt in $(seq 1 60); do
+            curl --silent --fail http://localhost:8090/health/ready > /dev/null && exit 0
+            sleep 1
+          done
+          docker logs varve-mock
+          exit 1
+
+      - name: Test the mock-oauth2 leg against the container
+        if: matrix.rid == 'linux-x64'
+        env:
+          VARVE_MOCK_OAUTH2: http://localhost:8080
+          VARVE_SERVER_URL: http://localhost:8090
+          VARVE_AUTH_LEGS_REQUIRED: mock-oauth2
+        run: >
+          dotnet test
+          --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
+          --configuration Release
+          --filter-class Varve.Server.Tests.ProviderTests
+
+      - name: Stop the mock and its container
+        if: always() && matrix.rid == 'linux-x64'
+        run: |
+          docker logs varve-mock || true
+          docker rm --force varve-mock || true
+          docker compose --file .github/mock-oauth2/compose.yaml down || true
+
+      # Auth leg (c) against the container: Zitadel on 8081, seeded as the
+      # in-process leg is; the container at 8090 with the project's roles.
+      - name: Start Zitadel
+        if: matrix.rid == 'linux-x64'
+        run: docker compose --file .github/zitadel/compose.yaml up --detach --wait
+
+      - name: Seed it
+        if: matrix.rid == 'linux-x64'
+        run: dotnet run eng/zitadel-seed.cs -- --output ${{ github.workspace }}/artifacts/zitadel-seed.json
+
+      - name: Start the container against Zitadel
+        if: matrix.rid == 'linux-x64'
+        run: |
+          seed="${{ github.workspace }}/artifacts/zitadel-seed.json"
+          docker run --detach --name varve-zitadel --read-only --network host \
+            --volume varve-zitadel:/var/lib/varve \
+            --env ASPNETCORE_URLS=http://+:8090 \
+            --env VARVE__AUTH__MODE=Oidc \
+            --env "VARVE__AUTH__AUTHORITY=$(jq -r .issuer "$seed")" \
+            --env "VARVE__AUTH__AUDIENCES__0=$(jq -r .audience "$seed")" \
+            --env "VARVE__AUTH__ROLECLAIMTYPE=$(jq -r .roleClaim "$seed")" \
+            --env VARVE__AUTH__SUBJECTCLAIM=sub \
+            --env VARVE__AUTH__REQUIREHTTPSMETADATA=false \
+            --env VARVE__DATASETS__D__STORAGE=Memory \
+            --env VARVE__AUTH__DATASETS__D__READ__0=read \
+            --env VARVE__AUTH__DATASETS__D__WRITE__0=write \
+            "$IMAGE:$TAG" serve
+          for attempt in $(seq 1 60); do
+            curl --silent --fail http://localhost:8090/health/ready > /dev/null && exit 0
+            sleep 1
+          done
+          docker logs varve-zitadel
+          exit 1
+
+      - name: Test the Zitadel leg against the container
+        if: matrix.rid == 'linux-x64'
+        env:
+          VARVE_ZITADEL_SEED: ${{ github.workspace }}/artifacts/zitadel-seed.json
+          VARVE_SERVER_URL: http://localhost:8090
+          VARVE_AUTH_LEGS_REQUIRED: zitadel
+        run: >
+          dotnet test
+          --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
+          --configuration Release
+          --filter-class Varve.Server.Tests.ProviderTests
+
+      - name: Stop Zitadel and its container
+        if: always() && matrix.rid == 'linux-x64'
+        run: |
+          docker logs varve-zitadel || true
+          docker rm --force varve-zitadel || true
+          docker compose --file .github/zitadel/compose.yaml down || true
+
+      - name: Upload the suite results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: container-protocol-trx-${{ matrix.rid }}
+          path: ${{ github.workspace }}/artifacts/container-protocol
+          if-no-files-found: warn
+
   # Durability, measured per platform (ADR 0073): what an append and a flush
   # to the device cost on each runner, with the calls the file backend makes.
   # A measurement, not a gate (ADR 0027): eng/durability.cs exits 0 whatever

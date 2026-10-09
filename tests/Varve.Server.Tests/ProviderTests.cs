@@ -255,6 +255,14 @@ public sealed class ProviderTests
 
     private static Task<RunningServer> StartAsync(string issuer, string audience, string roleClaim, string subjectClaim, string[] read, string[] write)
     {
+        // The container leg (ADR 0111): the server CI started from the image,
+        // configured for this issuer with both roles granted; the settings
+        // below are then the workflow's, not this process's.
+        if (Environment.GetEnvironmentVariable("VARVE_SERVER_URL") is { Length: > 0 } external)
+        {
+            return Task.FromResult(RunningServer.External(new Uri(external.TrimEnd('/') + "/")));
+        }
+
         Dictionary<string, string> settings = new()
         {
             ["Varve:Auth:Mode"] = "Oidc",

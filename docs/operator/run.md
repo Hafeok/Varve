@@ -16,8 +16,58 @@ Two artefacts carry the same executable (ADR 0105):
   installed: `Varve.Server` on Linux and macOS, `Varve.Server.exe` on Windows.
   Rename it `varve` or call it by its name; the commands are the same.
 
+- **The container image**, `ghcr.io/hafeok/varve` (ADR 0111): the Native AOT
+  binary on the chiseled `runtime-deps` base, one image per architecture
+  (`linux/amd64`, `linux/arm64`) joined into one manifest, with build
+  provenance and an SPDX SBOM attested through GitHub. See
+  [The container](#the-container).
+
 Nothing is published to a registry yet; until it is, build from the
-repository with `dotnet publish src/Varve.Server -c Release`.
+repository with `dotnet publish src/Varve.Server -c Release`, or build the
+image with `src/Varve.Server/container/Dockerfile` from that output.
+
+## The container
+
+```sh
+docker run --detach --name varve \
+  --read-only \
+  --volume varve:/var/lib/varve \
+  --publish 8080:8080 \
+  --env VARVE__AUTH__MODE=Oidc \
+  --env VARVE__AUTH__AUTHORITY=https://login.example/ \
+  --env VARVE__AUTH__AUDIENCES__0=api://varve \
+  --env VARVE__DATASETS__PEOPLE__STORAGE=File \
+  ghcr.io/hafeok/varve:v0.1.0-preview.3 serve
+```
+
+What the image fixes, and what it leaves to you:
+
+- It runs as the non-root `app` user (uid 1654) and writes nothing outside
+  the datasets root, so `--read-only` holds; the pull request's CI runs the
+  W3C protocol suites and both auth legs against the container that way.
+- `Varve:DatasetsRoot` is `/var/lib/varve` in the image, by
+  `VARVE__DATASETSROOT`; mount a volume there. Datasets are directories under
+  it, discovered at start (ADR 0106) or created through the admin API.
+- It listens on 8080 (`ASPNETCORE_URLS=http://+:8080`); TLS is the proxy's.
+- The entry point is the executable; the arguments are its command line:
+  `serve` and its options, or any `varve` command. Configuration is the
+  `VARVE__*` environment, as everywhere.
+- There is no `HEALTHCHECK` (ADR 0111): probe `GET /health/ready` from the
+  orchestrator, at the interval it decides.
+- Stop with the runtime's stop signal and give it the shutdown timeout
+  (`docker stop --time 30`): the drain finishes requests in flight, ends
+  live tails and closes the datasets.
+
+Verify what you pulled: the manifest's digest carries a build provenance
+attestation and an SBOM, signed with the publishing workflow's identity.
+
+```sh
+gh attestation verify oci://ghcr.io/hafeok/varve:v0.1.0-preview.3 --owner hafeok
+```
+
+Tags are the release descriptor's version, and `latest` for a version with
+no prerelease part. A `pr-<sha>-<arch>` tag is a pull request's own build
+for its suites, not a release.
 
 ## Start the server
 
@@ -76,6 +126,42 @@ The routes, per dataset:
 a `shutdown` event, datasets close, and the process exits 0 (ADR 0101). A
 container runtime's stop signal is enough; give it the ASP.NET Core shutdown
 timeout (30 s by default) before it kills.
+
+## As a systemd service
+
+The Native AOT binary, a dedicated user, the datasets root on a path that
+user owns, and the configuration in the unit's environment or a file
+`--config` names:
+
+```ini
+# /etc/systemd/system/varve.service
+[Unit]
+Description=Varve
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=varve
+Group=varve
+ExecStart=/usr/local/bin/varve serve --config /etc/varve/varve.json --urls http://127.0.0.1:8080
+Environment=VARVE__DATASETSROOT=/var/lib/varve
+Environment=OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+Restart=on-failure
+TimeoutStopSec=40
+KillSignal=SIGTERM
+StateDirectory=varve
+ProtectSystem=strict
+ReadWritePaths=/var/lib/varve
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+```
+
+`TimeoutStopSec` is longer than the host's shutdown timeout (30 s), so a
+drain is never cut short by systemd. `ProtectSystem=strict` with
+`ReadWritePaths` on the datasets root is the same property the container
+proves: the server writes nowhere else. `journalctl -u varve` is the log.
 
 ## Logs
 

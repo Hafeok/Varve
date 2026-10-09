@@ -9,7 +9,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Varve.Rdf;
-using Varve.Store.Log;
 using Varve.Turtle;
 
 namespace Varve.Conformance.Tests;
@@ -33,16 +32,17 @@ internal static class ServiceDescriptionChecks
         await using ProtocolRunner.Store store = await ProtocolRunner.Store.OpenAsync(subject, cancellationToken);
 
         // Two named graphs, so the description has a dataset to describe.
-        CommitRequest data = new();
-        data.Assert(Iri("http://example.org/s"), Iri("http://example.org/p"), Iri("http://example.org/o"), Iri("http://example.org/g1"));
-        data.Assert(Iri("http://example.org/s"), Iri("http://example.org/p"), Iri("http://example.org/o"), Iri("http://example.org/g2"));
-        await store.Dataset.CommitAsync(data, cancellationToken);
+        DataQuad quad = new(Iri("http://example.org/s"), Iri("http://example.org/p"), Iri("http://example.org/o"), null);
+        await store.LoadAsync([quad], Iri("http://example.org/g1"), cancellationToken);
+        await store.LoadAsync([quad], Iri("http://example.org/g2"), cancellationToken);
 
-        await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(store.Dataset, ProtocolRunner.Mount, stopping: cancellationToken);
-        using HttpRequestMessage request = new(HttpMethod.Get, new System.Uri("sparql", System.UriKind.Relative));
+        await using Endpoint endpoint = await store.EndpointAsync(cancellationToken);
+        string path = endpoint.Rewrite("/sparql");
+        string endpointIri = "http://" + ProtocolCatalogue.Host + path;
+        using HttpRequestMessage request = new(HttpMethod.Get, new System.Uri(path.TrimStart('/'), System.UriKind.Relative));
         request.Headers.Host = ProtocolCatalogue.Host;
         request.Headers.TryAddWithoutValidation("Accept", "text/turtle");
-        using HttpResponseMessage response = await host.Client.SendAsync(request, cancellationToken);
+        using HttpResponseMessage response = await endpoint.Client.SendAsync(request, cancellationToken);
         byte[] body = await response.Content.ReadAsByteArrayAsync(cancellationToken);
 
         if ((int)response.StatusCode != 200 || response.Content.Headers.ContentType?.MediaType != "text/turtle")
@@ -52,7 +52,7 @@ internal static class ServiceDescriptionChecks
 
         List<DataQuad> quads = [];
         ParseResult parsed = TurtleParser.Parse(body, (in QuadView q) => quads.Add(new DataQuad(q.Subject.Materialise(), q.Predicate.Materialise(), q.Object.Materialise(), null)),
-            new TurtleOptions { Syntax = RdfSyntax.Turtle, BaseIri = "http://www.example/sparql"u8.ToArray() });
+            new TurtleOptions { Syntax = RdfSyntax.Turtle, BaseIri = Encoding.UTF8.GetBytes(endpointIri) });
 
         if (!parsed.Succeeded)
         {
@@ -64,9 +64,9 @@ internal static class ServiceDescriptionChecks
             case "returns-rdf":
                 return quads.Count > 0 ? null : "the description is empty";
             case "has-endpoint-triple":
-                return quads.Any(q => ManifestGraph.Text(q.Predicate) == Sd + "endpoint" && ManifestGraph.Text(q.Object) == "http://www.example/sparql")
+                return quads.Any(q => ManifestGraph.Text(q.Predicate) == Sd + "endpoint" && ManifestGraph.Text(q.Object) == endpointIri)
                     ? null
-                    : "no sd:endpoint <http://www.example/sparql>";
+                    : "no sd:endpoint <" + endpointIri + ">";
             default:
                 List<string> violations = ServiceDescriptionShapes.Validate(quads);
 

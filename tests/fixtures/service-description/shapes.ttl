@@ -28,7 +28,7 @@ ex:Service a sh:NodeShape ;
     sh:property [ sh:path varve:asOfHeader ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:Literal ] ;
     sh:property [ sh:path varve:asOfSelector ; sh:minCount 2 ; sh:in ( varve:PositionSelector varve:TimeSelector ) ] ;
     sh:property [ sh:path varve:graphStore ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
-    sh:property [ sh:path varve:changeFeed ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
+    sh:property [ sh:path varve:commits ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
     sh:property [ sh:path varve:diff ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
     sh:property [ sh:path varve:feedFormat ; sh:minCount 1 ; sh:nodeKind sh:Literal ] .
 

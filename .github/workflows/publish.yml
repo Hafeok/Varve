@@ -229,6 +229,168 @@ jobs:
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
 
+  # The container image (ADR 0111), after the gates: the Native AOT binary
+  # published on a native runner per architecture, built into the chiseled
+  # image and pushed by digest; the manifest job joins the two, tags the
+  # release's version (and latest for a version with no prerelease part),
+  # attests build provenance and an SPDX SBOM for the manifest's digest, and
+  # verifies both as an operator would.
+  image:
+    name: image (${{ matrix.rid }})
+    needs: publish
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [linux-x64, linux-arm64]
+        include:
+          - rid: linux-x64
+            os: ubuntu-24.04
+            platform: linux/amd64
+          - rid: linux-arm64
+            os: ubuntu-24.04-arm
+            platform: linux/arm64
+
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      IMAGE: ghcr.io/hafeok/varve
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Publish the server
+        run: >
+          dotnet publish src/Varve.Server
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --output ${{ github.workspace }}/artifacts/server-aot
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ github.workspace }}/artifacts/server-aot
+          file: src/Varve.Server/container/Dockerfile
+          platforms: ${{ matrix.platform }}
+          provenance: false
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Keep the digest
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "$RUNNER_TEMP/digests/${digest#sha256:}"
+
+      - name: Upload the digest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: image-digest-${{ matrix.rid }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  manifest:
+    name: image manifest, attested
+    needs: image
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+
+    env:
+      IMAGE: ghcr.io/hafeok/varve
+
+    steps:
+      - name: Download the digests
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: image-digest-*
+          merge-multiple: true
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create the manifest
+        # The tag is the release descriptor's version (ADR 0102); latest only
+        # for a version with no prerelease part (ADR 0111 point 6).
+        id: manifest
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          tags=(--tag "$IMAGE:$GITHUB_REF_NAME")
+          case "$GITHUB_REF_NAME" in
+            *-*) ;;
+            *) tags+=(--tag "$IMAGE:latest") ;;
+          esac
+          docker buildx imagetools create "${tags[@]}" $(printf "$IMAGE@sha256:%s " *)
+          digest=$(docker buildx imagetools inspect "$IMAGE:$GITHUB_REF_NAME" --format '{{json .Manifest.Digest}}' | tr -d '"')
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "### Image" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$IMAGE:$GITHUB_REF_NAME\` is \`$digest\`" >> "$GITHUB_STEP_SUMMARY"
+          docker buildx imagetools inspect "$IMAGE:$GITHUB_REF_NAME"
+
+      - name: Attest the build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.manifest.outputs.digest }}
+          push-to-registry: true
+
+      - name: Generate the SBOM
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: ${{ env.IMAGE }}@${{ steps.manifest.outputs.digest }}
+          format: spdx-json
+          output-file: ${{ runner.temp }}/sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Attest the SBOM
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.manifest.outputs.digest }}
+          sbom-path: ${{ runner.temp }}/sbom.spdx.json
+          push-to-registry: true
+
+      - name: Verify, as an operator would
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh attestation verify "oci://$IMAGE@${{ steps.manifest.outputs.digest }}" --owner hafeok | tee -a "$GITHUB_STEP_SUMMARY"
+          gh attestation verify "oci://$IMAGE@${{ steps.manifest.outputs.digest }}" --owner hafeok --predicate-type https://spdx.dev/Document/v2.3 | tee -a "$GITHUB_STEP_SUMMARY"
+
   # The GitHub release for the tag, with its descriptor's summary as the notes.
   # A separate job so that contents: write is never held by the job that runs
   # the build and the tests, and after publish, so that a release is never

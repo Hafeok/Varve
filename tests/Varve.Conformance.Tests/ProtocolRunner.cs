@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -21,11 +22,107 @@ using Varve.Turtle;
 
 namespace Varve.Conformance.Tests;
 
-/// <summary>The store a protocol case runs over: the memory backend, or the file backend in a fresh directory.</summary>
+/// <summary>
+/// The store a protocol case runs over: the memory backend, the file backend
+/// in a fresh directory, or a server already running (ADR 0111: the
+/// container CI built), named by <c>VARVE_SERVER_URL</c>.
+/// </summary>
 internal enum ProtocolSubject
 {
     Memory,
     File,
+    Server,
+}
+
+/// <summary>Which subjects a run covers: the two in-process ones, or the server <c>VARVE_SERVER_URL</c> names and nothing else.</summary>
+internal static class ProtocolSubjects
+{
+    internal const string ServerVariable = "VARVE_SERVER_URL";
+
+    /// <summary>The one dataset the server cases use, created and deleted per case through the admin API.</summary>
+    internal const string ServerDataset = "gsp";
+
+    internal static Uri? ServerAddress { get; } = Environment.GetEnvironmentVariable(ServerVariable) is { Length: > 0 } url ? new Uri(url.TrimEnd('/') + "/") : null;
+
+    internal static IReadOnlyList<string> Names { get; } = ServerAddress is null ? ["memory", "file"] : ["server"];
+
+    internal static ProtocolSubject Parse(string name) => name switch
+    {
+        "file" => ProtocolSubject.File,
+        "server" => ProtocolSubject.Server,
+        _ => ProtocolSubject.Memory,
+    };
+}
+
+/// <summary>
+/// Where a case's requests go: an in-process host, or the running server
+/// with the manifests' paths moved under its dataset.
+/// </summary>
+internal sealed class Endpoint : IAsyncDisposable
+{
+    private readonly ProtocolTestHost? _host;
+
+    private Endpoint(HttpClient client, ProtocolTestHost? host)
+    {
+        Client = client;
+        _host = host;
+    }
+
+    internal HttpClient Client { get; }
+
+    internal static Endpoint InProcess(ProtocolTestHost host) => new(host.Client, host);
+
+    internal static Endpoint Server(HttpClient client) => new(client, null);
+
+    /// <summary>
+    /// The manifests' path on this endpoint. In process the endpoints are
+    /// mounted where the manifests address them: <c>/sparql</c>, <c>/gsp</c>,
+    /// <c>/</c>. On the server they are the dataset's: <c>/datasets/gsp/sparql</c>,
+    /// <c>/datasets/gsp/graphs</c>, <c>/datasets/gsp/</c>; and a graph the
+    /// manifests name by the store's address, <c>http://www.example/gsp/…</c>,
+    /// is named by the server's, which is what it mints for a directly
+    /// identified graph. A path captured from a <c>Location</c> is the
+    /// server's already.
+    /// </summary>
+    internal string Rewrite(string path)
+    {
+        if (_host is not null)
+        {
+            return path;
+        }
+
+        string prefix = "/datasets/" + ProtocolSubjects.ServerDataset;
+
+        if (path.StartsWith(prefix + "/", StringComparison.Ordinal) || path == prefix)
+        {
+            return RewriteText(path);
+        }
+
+        string moved = path is "" or "/"
+            ? prefix + "/"
+            : path == "/" + ProtocolCatalogue.GraphStore || path.StartsWith("/" + ProtocolCatalogue.GraphStore + "/", StringComparison.Ordinal) || path.StartsWith("/" + ProtocolCatalogue.GraphStore + "?", StringComparison.Ordinal)
+                ? prefix + "/graphs" + path[(ProtocolCatalogue.GraphStore.Length + 1)..]
+                : prefix + (path.StartsWith('/') ? path : "/" + path);
+        return RewriteText(moved);
+    }
+
+    /// <summary>The store's address in <paramref name="text"/>, a body or a query string, as the server's; unchanged in process.</summary>
+    [return: System.Diagnostics.CodeAnalysis.NotNullIfNotNull(nameof(text))]
+    internal string? RewriteText(string? text)
+    {
+        if (_host is not null || text is null)
+        {
+            return text;
+        }
+
+        string store = "http://" + ProtocolCatalogue.Host + "/" + ProtocolCatalogue.GraphStore;
+        string graphs = "http://" + ProtocolCatalogue.Host + "/datasets/" + ProtocolSubjects.ServerDataset + "/graphs";
+        return text
+            .Replace(store, graphs, StringComparison.Ordinal)
+            .Replace(Uri.EscapeDataString(store), Uri.EscapeDataString(graphs), StringComparison.Ordinal);
+    }
+
+    public ValueTask DisposeAsync() => _host?.DisposeAsync() ?? ValueTask.CompletedTask;
 }
 
 /// <summary>
@@ -55,11 +152,11 @@ internal static class ProtocolRunner
 
         foreach ((string file, string graph) in entry.GraphData)
         {
-            await LoadAsync(store.Dataset, EvaluationData.Quads(file), RdfTerm.Iri(Encoding.UTF8.GetBytes(graph)), cancellationToken).ConfigureAwait(false);
+            await store.LoadAsync(EvaluationData.Quads(file), RdfTerm.Iri(Encoding.UTF8.GetBytes(graph)), cancellationToken).ConfigureAwait(false);
         }
 
-        await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(store.Dataset, Mount, stopping: cancellationToken).ConfigureAwait(false);
-        return await RunRequestsAsync(host, entry, [], cancellationToken).ConfigureAwait(false);
+        await using Endpoint endpoint = await store.EndpointAsync(cancellationToken).ConfigureAwait(false);
+        return await RunRequestsAsync(endpoint, entry, [], cancellationToken).ConfigureAwait(false);
     }
 
     internal static void Mount(WebApplication app, ProtocolOptions options)
@@ -72,19 +169,19 @@ internal static class ProtocolRunner
     private static async Task<Dictionary<string, string?>> RunSequenceAsync(ProtocolSubject subject, CancellationToken cancellationToken)
     {
         await using Store store = await Store.OpenAsync(subject, cancellationToken).ConfigureAwait(false);
-        await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(store.Dataset, Mount, stopping: cancellationToken).ConfigureAwait(false);
+        await using Endpoint endpoint = await store.EndpointAsync(cancellationToken).ConfigureAwait(false);
         Dictionary<string, string> variables = [];
         Dictionary<string, string?> results = new(StringComparer.Ordinal);
 
         foreach (ProtocolEntry entry in ProtocolCatalogue.Entries.Where(e => e.Sequential))
         {
-            results[entry.TestIri] = await RunRequestsAsync(host, entry, variables, cancellationToken).ConfigureAwait(false);
+            results[entry.TestIri] = await RunRequestsAsync(endpoint, entry, variables, cancellationToken).ConfigureAwait(false);
         }
 
         return results;
     }
 
-    private static async Task<string?> RunRequestsAsync(ProtocolTestHost host, ProtocolEntry entry, Dictionary<string, string> variables, CancellationToken cancellationToken)
+    private static async Task<string?> RunRequestsAsync(Endpoint endpoint, ProtocolEntry entry, Dictionary<string, string> variables, CancellationToken cancellationToken)
     {
         int index = 0;
 
@@ -100,12 +197,14 @@ internal static class ProtocolRunner
                     .Replace(name, new Uri(value).PathAndQuery, StringComparison.Ordinal);
             }
 
+            path = endpoint.Rewrite(path);
             using HttpRequestMessage message = new(new HttpMethod(request.Method), new Uri(path.TrimStart('/'), UriKind.Relative));
             message.Headers.Host = ProtocolCatalogue.Host;
 
             if (request.Body is not null)
             {
-                message.Content = new ByteArrayContent(request.Body);
+                // The body names the store's address where the manifests do; on the server, the server's.
+                message.Content = new ByteArrayContent(endpoint.RewriteText(Encoding.UTF8.GetString(request.Body)) is var text && text.Length == request.Body.Length ? request.Body : Encoding.UTF8.GetBytes(text));
             }
 
             foreach ((string name, string value) in request.Headers)
@@ -115,13 +214,14 @@ internal static class ProtocolRunner
                     message.Content ??= new ByteArrayContent([]);
                     message.Content.Headers.TryAddWithoutValidation("Content-Type", value);
                 }
-                else if (!name.Equals("host", StringComparison.OrdinalIgnoreCase))
+                else if (!name.Equals("host", StringComparison.OrdinalIgnoreCase) && !name.Equals("content-length", StringComparison.OrdinalIgnoreCase))
                 {
+                    // Content-Length is the content's, computed; a transcript's is "...".
                     message.Headers.TryAddWithoutValidation(name, value);
                 }
             }
 
-            using HttpResponseMessage response = await host.Client.SendAsync(message, cancellationToken).ConfigureAwait(false);
+            using HttpResponseMessage response = await endpoint.Client.SendAsync(message, cancellationToken).ConfigureAwait(false);
             int status = (int)response.StatusCode;
             byte[] body = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
             string where = "request " + index + " (" + request.Method + " " + request.Path + "): ";
@@ -150,7 +250,9 @@ internal static class ProtocolRunner
                 return where + "Content-Type " + mediaType + ", expected " + expectedType;
             }
 
-            if (Check(request.Expect, mediaType, body, path) is { } failure)
+            ProtocolExpectation expect = request.Expect.Body is null ? request.Expect : request.Expect with { Body = endpoint.RewriteText(request.Expect.Body) };
+
+            if (Check(expect, mediaType, body, path) is { } failure)
             {
                 return where + failure;
             }
@@ -267,55 +369,153 @@ internal static class ProtocolRunner
         return result.Succeeded ? null : "the RDF does not parse: " + result.FirstError;
     }
 
-    private static async Task LoadAsync(Dataset dataset, IReadOnlyList<DataQuad> quads, RdfTerm graph, CancellationToken cancellationToken)
-    {
-        CommitRequest request = new();
-
-        foreach (DataQuad quad in quads)
-        {
-            request.Assert(quad.Subject, quad.Predicate, quad.Object, graph);
-        }
-
-        await dataset.CommitAsync(request, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>A fresh dataset over the subject's backend, and what to clean up after it.</summary>
+    /// <summary>
+    /// A fresh dataset over the subject's backend, and what to clean up after
+    /// it: a memory or file dataset in process, or the server's one dataset,
+    /// deleted and created again through the admin API.
+    /// </summary>
     internal sealed class Store : IAsyncDisposable
     {
         private readonly FileStorage? _files;
         private readonly string? _directory;
+        private readonly HttpClient? _server;
 
-        private Store(Dataset dataset, FileStorage? files, string? directory)
+        private Store(Dataset? dataset, FileStorage? files, string? directory, HttpClient? server)
         {
-            Dataset = dataset;
+            InProcess = dataset;
             _files = files;
             _directory = directory;
+            _server = server;
         }
 
-        internal Dataset Dataset { get; }
+        /// <summary>The in-process dataset, when the subject has one; the server's is reached over HTTP alone.</summary>
+        internal Dataset? InProcess { get; }
+
+        /// <summary>The in-process dataset.</summary>
+        internal Dataset Dataset => InProcess ?? throw new InvalidOperationException("The server subject has no in-process dataset.");
 
         internal static async Task<Store> OpenAsync(ProtocolSubject subject, CancellationToken cancellationToken)
         {
+            if (subject == ProtocolSubject.Server)
+            {
+                HttpClient server = new() { BaseAddress = ProtocolSubjects.ServerAddress ?? throw new InvalidOperationException(ProtocolSubjects.ServerVariable + " is not set.") };
+                await RemoveAsync(server, cancellationToken).ConfigureAwait(false);
+                using HttpResponseMessage created = await server.PutAsync("datasets/" + ProtocolSubjects.ServerDataset, new StringContent("{\"storage\":\"File\"}", Encoding.UTF8, "application/json"), cancellationToken).ConfigureAwait(false);
+
+                if (!created.IsSuccessStatusCode)
+                {
+                    throw new InvalidOperationException("The server did not create the dataset: " + (int)created.StatusCode + " " + await created.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+                }
+
+                return new Store(null, null, null, server);
+            }
+
             DatasetOptions options = new() { Clock = FixedClock.Instance };
 
             if (subject == ProtocolSubject.Memory)
             {
-                return new Store(await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), options, cancellationToken).ConfigureAwait(false), null, null);
+                return new Store(await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), options, cancellationToken).ConfigureAwait(false), null, null, null);
             }
 
             string directory = Path.Combine(Path.GetTempPath(), "varve-protocol", Guid.NewGuid().ToString("N"));
             FileStorage files = await FileStorage.OpenAsync(new DatasetDirectory(directory), new FileStorageOptions { Clock = FixedClock.Instance }, cancellationToken).ConfigureAwait(false);
-            return new Store(await Dataset.CreateAsync(files, new DatasetId(Guid.NewGuid()), options, cancellationToken).ConfigureAwait(false), files, directory);
+            return new Store(await Dataset.CreateAsync(files, new DatasetId(Guid.NewGuid()), options, cancellationToken).ConfigureAwait(false), files, directory, null);
         }
+
+        /// <summary>The case's data into <paramref name="graph"/>: one commit in process, one Graph Store <c>PUT</c> on the server.</summary>
+        internal async Task LoadAsync(IReadOnlyList<DataQuad> quads, RdfTerm graph, CancellationToken cancellationToken)
+        {
+            if (_server is null)
+            {
+                CommitRequest request = new();
+
+                foreach (DataQuad quad in quads)
+                {
+                    request.Assert(quad.Subject, quad.Predicate, quad.Object, graph);
+                }
+
+                await Dataset.CommitAsync(request, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            ArrayBufferWriter<byte> triples = new();
+            WriteOptions options = new() { Syntax = RdfSyntax.NTriples };
+
+            foreach (DataQuad quad in quads)
+            {
+                WriteTerm(triples, quad.Subject, options);
+                triples.Write(" "u8);
+                WriteTerm(triples, quad.Predicate, options);
+                triples.Write(" "u8);
+                WriteTerm(triples, quad.Object, options);
+                triples.Write(" .\n"u8);
+            }
+
+            string target = "datasets/" + ProtocolSubjects.ServerDataset + "/graphs?graph=" + Uri.EscapeDataString(Encoding.UTF8.GetString(graph.Lexical));
+            using ByteArrayContent body = new(triples.WrittenSpan.ToArray());
+            body.Headers.TryAddWithoutValidation("Content-Type", "application/n-triples");
+            using HttpResponseMessage response = await _server.PutAsync(target, body, cancellationToken).ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException("The server did not load the case's data: " + (int)response.StatusCode + " " + await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+            }
+        }
+
+        /// <summary>Where the case's requests go: a host started over the dataset, or the server.</summary>
+        internal async Task<Endpoint> EndpointAsync(CancellationToken cancellationToken) =>
+            _server is null
+                ? Endpoint.InProcess(await ProtocolTestHost.StartAsync(Dataset, Mount, stopping: cancellationToken).ConfigureAwait(false))
+                : Endpoint.Server(_server);
 
         public async ValueTask DisposeAsync()
         {
+            if (_server is not null)
+            {
+                await RemoveAsync(_server, CancellationToken.None).ConfigureAwait(false);
+                _server.Dispose();
+                return;
+            }
+
             await Dataset.DisposeAsync().ConfigureAwait(false);
 
             if (_files is not null)
             {
                 await _files.DisposeAsync().ConfigureAwait(false);
                 Directory.Delete(_directory!, recursive: true);
+            }
+        }
+
+        // The dataset, closed then deleted (ADR 0106: an open dataset is not
+        // deleted), so that the next case starts empty; nothing to remove
+        // is fine.
+        private static async Task RemoveAsync(HttpClient server, CancellationToken cancellationToken)
+        {
+            string dataset = "datasets/" + ProtocolSubjects.ServerDataset;
+            using HttpResponseMessage closed = await server.PutAsync(dataset + "/state", new StringContent("{\"state\":\"closed\"}", Encoding.UTF8, "application/json"), cancellationToken).ConfigureAwait(false);
+            using HttpResponseMessage deleted = await server.DeleteAsync(dataset, cancellationToken).ConfigureAwait(false);
+
+            if (!deleted.IsSuccessStatusCode && deleted.StatusCode != System.Net.HttpStatusCode.NotFound)
+            {
+                throw new InvalidOperationException("The server did not delete the dataset: " + (int)deleted.StatusCode + " " + await deleted.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+            }
+        }
+
+        private static void WriteTerm(ArrayBufferWriter<byte> output, RdfTerm term, in WriteOptions options)
+        {
+            int size = 256;
+
+            while (true)
+            {
+                Span<byte> span = output.GetSpan(size);
+
+                if (NQuadsWriter.TryWriteTerm(term, span, out int written, options))
+                {
+                    output.Advance(written);
+                    return;
+                }
+
+                size *= 2;
             }
         }
     }

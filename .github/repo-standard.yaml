@@ -176,6 +176,8 @@ rulesets:
       - context: conformance (windows-latest)
       - context: auth (mock-oauth2)
       - context: auth (zitadel)
+      - context: container (linux-x64)
+      - context: container (linux-arm64)
   bypass_actors: []
 environments:
 # publish.yml's environment, named in nuget.org's trusted-publishing claim
