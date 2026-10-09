@@ -51,6 +51,14 @@ public static class SparqlUpdate
         ArgumentNullException.ThrowIfNull(update);
         ArgumentNullException.ThrowIfNull(options);
 
+        // The fast path (ADR 0120): nothing to evaluate, so nothing is pinned
+        // or staged; the ground quads go to the sequencer as request terms,
+        // and there is no position to conflict with.
+        if (options.ExpectedPosition is null && RequestExecution.IsDataOnly(update))
+        {
+            return await dataset.CommitAsync(RequestExecution.DataOnly(update, options), cancellationToken).ConfigureAwait(false);
+        }
+
         for (int attempt = 0; ; attempt++)
         {
             CommitRequest request;
