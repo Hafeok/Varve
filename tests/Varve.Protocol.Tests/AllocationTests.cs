@@ -16,17 +16,22 @@ namespace Varve.Protocol.Tests;
 /// definition of done): the difference in bytes the whole process allocates
 /// between two answers of different sizes, divided by the difference in
 /// solutions (<c>docs/testing.md</c> §4). Process-wide, because the request
-/// crosses Kestrel's threads; each size is measured several times and the
-/// least reading kept, since another thread can only add. Process-wide also
-/// means another test class's allocations count, so the class runs alone,
-/// after every parallel test has finished: least-of-six is no defence against
-/// a neighbour that allocates during every reading.
+/// crosses Kestrel's threads; the two sizes are read interleaved, so that what
+/// the process does over time falls on both, and each is the least of
+/// <see cref="AllocationMeter.Readings"/> readings, since another thread can
+/// only add. The sizes are 16,000 solutions apart, so that one buffer block
+/// a side (a pool miss, an 8 KB allocation quantum) is under a byte a
+/// solution and not, as at 4,000, the byte the 7b runs saw once each on
+/// Windows and Linux. Process-wide also means another test class's
+/// allocations count, so the class runs alone, after every parallel test has
+/// finished: a minimum is no defence against a neighbour that allocates
+/// during every reading.
 /// </summary>
 [Collection(nameof(AllocationTests))]
 public class AllocationTests
 {
     private const int Small = 2_000;
-    private const int Large = 6_000;
+    private const int Large = 18_000;
 
     /// <summary>
     /// The evaluator's row, <c>8 × (w + ⌈w/64⌉)</c> bytes and a 24-byte array
@@ -72,37 +77,38 @@ public class AllocationTests
         await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(datasets, accessScopes: scopes, stopping: P.Ct);
         byte[] buffer = new byte[64 * 1024];
 
-        async Task<long> Measure(string name)
+        async Task<long> ReadOnce(string name)
         {
-            long least = long.MaxValue;
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            long before = GC.GetTotalAllocatedBytes(precise: true);
+            // A raw socket, not HttpClient: the client shares the process,
+            // and only the server's bytes are the query path's.
+            using TcpClient client = new();
+            await client.ConnectAsync(host.Address.Host, host.Address.Port, P.Ct);
+            using NetworkStream stream = client.GetStream();
+            await stream.WriteAsync(System.Text.Encoding.ASCII.GetBytes(
+                "GET /datasets/" + name + "/sparql?query=" + Uri.EscapeDataString(query) + " HTTP/1.1\r\nHost: x\r\nAccept: application/sparql-results+json\r\nConnection: close\r\n\r\n"), P.Ct);
 
-            for (int i = 0; i < 6; i++)
+            while (await stream.ReadAsync(buffer, P.Ct) > 0)
             {
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-                long before = GC.GetTotalAllocatedBytes(precise: true);
-                // A raw socket, not HttpClient: the client shares the process,
-                // and only the server's bytes are the query path's.
-                using TcpClient client = new();
-                await client.ConnectAsync(host.Address.Host, host.Address.Port, P.Ct);
-                using NetworkStream stream = client.GetStream();
-                await stream.WriteAsync(System.Text.Encoding.ASCII.GetBytes(
-                    "GET /datasets/" + name + "/sparql?query=" + Uri.EscapeDataString(query) + " HTTP/1.1\r\nHost: x\r\nAccept: application/sparql-results+json\r\nConnection: close\r\n\r\n"), P.Ct);
-
-                while (await stream.ReadAsync(buffer, P.Ct) > 0)
-                {
-                }
-
-                long after = GC.GetTotalAllocatedBytes(precise: true);
-                least = Math.Min(least, after - before);
             }
 
-            return least;
+            long after = GC.GetTotalAllocatedBytes(precise: true);
+            return after - before;
         }
 
-        await Measure("small");
-        long smallCost = await Measure("small");
-        long largeCost = await Measure("large");
+        // Warm both paths once, then the readings, interleaved (§4).
+        await ReadOnce("small");
+        await ReadOnce("large");
+        long smallCost = long.MaxValue, largeCost = long.MaxValue;
+
+        for (int reading = 0; reading < AllocationMeter.Readings; reading++)
+        {
+            smallCost = Math.Min(smallCost, await ReadOnce("small"));
+            largeCost = Math.Min(largeCost, await ReadOnce("large"));
+        }
+
         return (largeCost - smallCost) / (Large - Small);
     }
 

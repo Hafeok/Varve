@@ -384,6 +384,14 @@ In `tests/Varve.Benchmarks/README.md`, the 7b section:
   `ssh-keygen`, which git needs for SSH signing. The hook had not run in a
   cloud session before; this is its first measurement, for the ADR 0034
   successor the record of #79 defers.
+- **The protocol allocation test read its two sizes one after the other.**
+  Six readings of the small response, then six of the large, 4,000 solutions
+  apart: whatever the process did between the two sides fell on the large
+  one, and one 4 KB block there is already a byte a solution. It answered 57
+  against 56 once on Windows CI and once each way on the development
+  machine, never in the meter's `Measure` tests. It now reads the two sides
+  interleaved, the least of `AllocationMeter.Readings` each, 16,000
+  solutions apart, as `docs/testing.md` §4 has said since 0(c).
 - **The status fixture `stale-status-line` read the repository's
   `releases/`**, so the descriptor changed what it expected to be told. It
   carries its own `releases/` now, with preview.1 alone.
