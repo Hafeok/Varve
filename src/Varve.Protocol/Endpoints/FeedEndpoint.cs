@@ -112,57 +112,75 @@ internal static class FeedEndpoint
                 .Subscribe(range.From, subscription, cancellationToken)
                 .GetAsyncEnumerator(cancellationToken);
 
-            if (live)
-            {
-                // Headers out at once, so that a client sees the stream open.
-                await body.FlushAsync(cancellationToken).ConfigureAwait(false);
-            }
+            // An enumerator is not disposed while a MoveNextAsync is in flight:
+            // the store refuses it, and its exception would replace the one
+            // that ended the stream (a heartbeat's flush cancelled at shutdown,
+            // say), so the stream would end with no record saying why.
+            Task<bool>? pending = null;
 
-            while (true)
+            try
             {
-                Task<bool> next = commits.MoveNextAsync().AsTask();
-
-                while (live && await Task.WhenAny(next, Task.Delay(options.Limits.FeedHeartbeat, options.Clock, cancellationToken)).ConfigureAwait(false) != next)
+                if (live)
                 {
-                    TermLines.Write(body, framing == FeedFraming.EventStream ? ":\n\n"u8 : "#\n"u8);
+                    // Headers out at once, so that a client sees the stream open.
                     await body.FlushAsync(cancellationToken).ConfigureAwait(false);
                 }
 
-                if (!await next.ConfigureAwait(false))
+                while (true)
                 {
-                    return;
-                }
+                    Task<bool> next = commits.MoveNextAsync().AsTask();
+                    pending = next;
 
-                Commit commit = commits.Current;
-
-                if (range.To is Position end && commit.Position > end)
-                {
-                    return;
-                }
-
-                QuadDelta delta = storeFilters ? commit.Delta : filter.Apply(commit);
-
-                if (commit.Kind != CommitKind.Data || !delta.IsEmpty)
-                {
-                    record.ResetWrittenCount();
-                    DeltaLines.WriteCommit(record, commit, delta, commit.TryExternalise);
-                    written += Frame(body, framing, commit.Position, record.WrittenSpan);
-                    last = commit.Position;
-
-                    if (!live && written > options.Limits.ResultSizeCap.Value)
+                    while (live && await Task.WhenAny(next, Task.Delay(options.Limits.FeedHeartbeat, options.Clock, cancellationToken)).ConfigureAwait(false) != next)
                     {
-                        throw new ReadLimitExceededException();
-                    }
-
-                    if (live || written >= ResponseOutput.Threshold)
-                    {
+                        TermLines.Write(body, framing == FeedFraming.EventStream ? ":\n\n"u8 : "#\n"u8);
                         await body.FlushAsync(cancellationToken).ConfigureAwait(false);
                     }
-                }
 
-                if (range.To is Position to && commit.Position >= to)
+                    if (!await next.ConfigureAwait(false))
+                    {
+                        return;
+                    }
+
+                    Commit commit = commits.Current;
+
+                    if (range.To is Position end && commit.Position > end)
+                    {
+                        return;
+                    }
+
+                    QuadDelta delta = storeFilters ? commit.Delta : filter.Apply(commit);
+
+                    if (commit.Kind != CommitKind.Data || !delta.IsEmpty)
+                    {
+                        record.ResetWrittenCount();
+                        DeltaLines.WriteCommit(record, commit, delta, commit.TryExternalise);
+                        written += Frame(body, framing, commit.Position, record.WrittenSpan);
+                        last = commit.Position;
+
+                        if (!live && written > options.Limits.ResultSizeCap.Value)
+                        {
+                            throw new ReadLimitExceededException();
+                        }
+
+                        if (live || written >= ResponseOutput.Threshold)
+                        {
+                            await body.FlushAsync(cancellationToken).ConfigureAwait(false);
+                        }
+                    }
+
+                    if (range.To is Position to && commit.Position >= to)
+                    {
+                        return;
+                    }
+                }
+            }
+            finally
+            {
+                if (pending is { IsCompleted: false })
                 {
-                    return;
+                    await linked.CancelAsync().ConfigureAwait(false);
+                    await ((Task)pending).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
                 }
             }
         }
