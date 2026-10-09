@@ -14,7 +14,8 @@ the `varve` command line (ADR 0105). Six pages, each a task:
 
 Every refusal the server answers is an RFC 9457 problem of a type listed in
 [`docs/problems/`](../problems/README.md), one page per type with its status
-and its members (ADR 0119).
+and its members (ADR 0119). Every term the service description coins under
+`https://w3id.org/varve/ns#` is in [`docs/vocabulary.md`](../vocabulary.md).
 
 The decisions behind the pages are ADRs 0101 (the host), 0105 (the command
 line), 0106 (the admin API), 0107 (graph-level authorisation), 0104 (`SERVICE`
