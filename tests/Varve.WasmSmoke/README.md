@@ -1,7 +1,8 @@
 # Varve.WasmSmoke
 
-A `browser-wasm` app that does six things on one page: parses N-Quads, reads
-and writes Turtle and TriG, opens an in-memory `Varve.Store` dataset — commit,
+A `browser-wasm` app that does seven things on one page: parses N-Quads, reads
+and writes Turtle and TriG, reads and writes RDF 1.2 Turtle, RDF/XML and
+JSON-LD (milestone 6b), opens an in-memory `Varve.Store` dataset — commit,
 pin, checkpoint, as-of, and a reopen from its own log — parses a SPARQL query
 and an update, prints the algebra through the serialiser and parses it back,
 evaluates queries over a store loaded from Turtle, and probes the

@@ -349,7 +349,7 @@ internal static class Program
             return 1;
         }
 
-        return 0;
+        return Syntaxes.Run();
     }
 
     private static int CountQuads(Varve.Store.DatasetView source)

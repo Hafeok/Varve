@@ -166,6 +166,12 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-turtle", "Varve.Turtle",
         () => Test("Varve.Turtle.Tests")),
 
+    ("test-rdfxml", "Varve.RdfXml: the reader and writer, the round trip, allocation",
+        () => Test("Varve.RdfXml.Tests")),
+
+    ("test-jsonld", "Varve.JsonLd: toRdf, expand and fromRdf, the round trip, allocation",
+        () => Test("Varve.JsonLd.Tests")),
+
     ("test-xsd", "Varve.Xsd, and its properties; the evaluation suites gate it too",
         () => Test("Varve.Xsd.Tests")),
 
