@@ -1053,3 +1053,54 @@ reported the dataset's own as 10¹² MB: the soak's meter read a format-3
 run's filter length from its directory's last word and applied that to the
 commit index's and the state's directories too. It reads the kind field now;
 the figures above are the second hour.
+
+## Milestone Operability — the shipped runtime, the fast path, the soak gate
+
+**Machine.** A cloud container: Intel Xeon @ 2.10 GHz, 4 logical cores,
+15 GiB, Ubuntu 24.04, 2026-10-09. .NET SDK 10.0.401, runtime 10.0.12;
+BenchmarkDotNet 0.15.8; pyoxigraph 0.5.11. The client and the server share
+the four cores in every HTTP row.
+
+```bash
+dotnet run -c Release --project tests/Varve.Benchmarks -- --update-export update/
+dotnet run -c Release --project tests/Varve.Benchmarks -- --filter '*UpdateBenchmarks.Varve*'
+python tests/Varve.Benchmarks/oxigraph/update.py update/
+dotnet publish src/Varve.Server -c Release -o artifacts/server-aot
+dotnet run -c Release --project tests/Varve.Benchmarks -- --http varve:artifacts/server-aot/Varve.Server
+DOTNET_gcServer=1 DOTNET_GCConserveMemory=0 dotnet run -c Release --project tests/Varve.Benchmarks -- --http varve:artifacts/server-aot/Varve.Server
+DOTNET_GCConserveMemory=5 dotnet run -c Release --project tests/Varve.Benchmarks -- --soak 60 --policy
+dotnet run -c Release --project tests/Varve.Benchmarks -- --soak 60 --policy
+```
+
+### INSERT DATA of N quads, into an empty store, after the fast path (ADR 0120, #35)
+
+The 5c workload again: the first N quads of `StoreDataset` as one
+`INSERT DATA`, parsing inside the time, one invocation an iteration into an
+empty store, pyoxigraph in the same run on the same machine. The staged
+path's row is the commit before ADR 0120, run in a worktree beside it.
+
+{{INSERT_TABLE}}
+
+{{INSERT_PROSE}}
+
+### The protocol over HTTP, server GC against the shipped configuration (ADR 0110)
+
+7a's `--http` workload, the Native AOT binary as published (workstation,
+concurrent, `ConserveMemory` 5) and the same binary with the Web SDK's
+default forced by the environment (`DOTNET_gcServer=1`,
+`DOTNET_GCConserveMemory=0`), one after the other on the same machine. The
+8-client rows are the ones that show a collector's cost, if there is one.
+
+{{HTTP_TABLE}}
+
+{{HTTP_PROSE}}
+
+### Soak: one hour under the shipped runtime configuration, and the default's hour beside it (ADR 0082, amended; #61)
+
+`--soak 60 --policy`, the 6c workload: the shipped configuration's hour
+(`DOTNET_GCConserveMemory=5`; the harness is a workstation-GC process
+already, as the server now is) and the default runtime's hour.
+
+{{SOAK_TABLE}}
+
+{{SOAK_PROSE}}

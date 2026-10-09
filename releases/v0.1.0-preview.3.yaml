@@ -1,0 +1,120 @@
+format: 1
+version: v0.1.0-preview.3
+title: Operability — the container, telemetry, governance, configuration, Aspire
+date: 2026-10-09
+basis:
+  - issue: 12
+  - storage-format: 1
+  - adr: "0110"
+  - adr: "0111"
+  - adr: "0112"
+  - adr: "0113"
+  - adr: "0114"
+  - adr: "0115"
+  - adr: "0116"
+  - adr: "0117"
+  - adr: "0118"
+  - adr: "0119"
+  - adr: "0120"
+accepted-by: mailto:emil@okkels-klein.dk
+summary: |
+  ### Milestone Operability — a server somebody can run
+
+  This release closes milestone Operability (#12): what `Varve.Server`
+  needed before anyone operates it, in eleven ADRs (0110–0120). The storage
+  format is unchanged: a dataset written by `v0.1.0-preview.1` opens as it
+  is. **The HTTP API changes while everything is preview** (ADR 0118); the
+  renamed routes are listed under *Changed*, and the old paths are gone, not
+  aliased. One package is added, the fourteenth: `Varve.Aspire`.
+
+  #### Added
+
+  - **The container image**, `ghcr.io/hafeok/varve` (ADR 0111): the Native
+    AOT binary on `mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled`,
+    one image per architecture (`linux/amd64`, `linux/arm64`) built on a
+    native runner and joined by digest into one manifest, non-root, a
+    read-only root filesystem, datasets on a volume at `/var/lib/varve`,
+    port 8080, no `HEALTHCHECK`. Build provenance and an SPDX SBOM are
+    attested for the manifest's digest and verified with
+    `gh attestation verify`. CI runs the W3C protocol suites and both auth
+    legs against the container it built, on every pull request.
+  - **Telemetry in two layers** (ADR 0112): `Varve.Protocol` owns the
+    `ActivitySource` `Varve.Protocol`, one span per request named by its
+    operation with the database semantic-convention attributes
+    (`db.query.text` only by opt-in); `Varve.Store` owns the `Meter`
+    `Varve.Store`, with commit and checkpoint durations, the sequencer's
+    queue, pinned reads, projection lag, log and derived bytes, every
+    measurement tagged with the dataset. The server exports all three
+    signals over OTLP when an `OTEL_EXPORTER_OTLP_*` endpoint is set, and
+    builds no SDK otherwise. `docs/operator/observe.md` lists every name.
+  - **Health and readiness** under `/health/live` and `/health/ready`
+    (ADR 0113): ready when every dataset that should be open is open, not
+    failed and within `Varve:Health:ReadyLag` of its head; `503 not-ready`
+    with each dataset's state and reason otherwise, and during the drain,
+    for `Varve:Health:StopDelay` before the listener closes. Both probes
+    are rate-limited per client address.
+  - **A stated answer for every limit** (ADR 0114): query memory bounded by
+    counting rows in joins, sorts, groups and `DISTINCT`
+    (`422 memory-limit-exceeded`, before the first byte or as a trailer),
+    the as-of distance (`422 as-of-distance-exceeded`), live tails per
+    client (`429 too-many-live-tails`), concurrent reads with a queue
+    (`503 server-busy` with `Retry-After`), and paged commit ranges
+    (`Link rel="next"`). The service description states the client-facing
+    limits.
+  - **Configuration precedence** (ADR 0115): file, environment, command
+    line, later winning; `varve serve` takes typed options and `--config`,
+    `--set`; `--print-config` prints every effective value with its source,
+    secrets redacted; **an unknown key under `Varve:` refuses to start**.
+  - **The lease** (ADR 0116): a lease another process holds is waited for
+    (`Varve:Lease:WaitFor`, 30 s) and never broken; `varve lease <dir>`
+    reports it, `--break` frees one a dead process left on a filesystem
+    that did not.
+  - **`Varve.Aspire`** (layer 0, ADR 0117): `AddVarve`, `WithOidc` and
+    `WithDataset` on an Aspire AppHost; an anonymous server runs in run
+    mode and refuses to publish. A sample AppHost with a test issuer is
+    tested in CI.
+  - **The problem catalogue** (ADR 0119): `ProblemCatalogue` fixes every
+    type's title, status and members; `docs/problems/` has one page per
+    type, which its IRI resolves to; `Vary`, `Varve-Request-Id` and
+    `Link rel="service-desc"` on every dataset response; `Cache-Control`
+    by read kind (`immutable` for a position, `no-cache` for the head);
+    `Last-Modified` and `If-Modified-Since`; RFC 6750 `error` codes on
+    `401` and `403`.
+  - **The shipped runtime configuration** (ADR 0110): the workstation
+    collector, concurrent, with `System.GC.ConserveMemory` 5, in the tool
+    and the AOT binary alike; the soak gate (ADR 0082, amended) is judged
+    under it.
+  - **`Varve.Store`**: `DatasetOptions.Name`, the `db.namespace` of every
+    measurement.
+  - **`Varve.Protocol`**: `ProtocolOptions.Telemetry` and `Logger`;
+    `ProtocolLimits.MaxQueryMemory`, `MaxAsOfDistance`,
+    `MaxLiveTailsPerClient`, `CommitsPageSize`; `Dataset.TimestampAt`.
+  - **`Varve.Sparql.Evaluation`**: `EvaluationOptions.MemoryBudget` and
+    `MemoryBudgetExceededException`.
+  - **The operator's guide** gains *Observe*, the container and a systemd
+    unit under *Run*, the full Entra and generic-issuer examples under
+    *Authenticate*, every limit under *Configure*, and the stale lease.
+
+  #### Changed
+
+  - **Routes, while everything is preview** (ADR 0118): `/live` and
+    `/ready` are `/health/live` and `/health/ready`; `/datasets/{name}/feed`
+    is `/datasets/{name}/commits`, with `/commits/{position}` for one
+    commit; `POST …/open` and `…/close` are `GET`/`PUT /datasets/{name}/state`
+    with `{"state":"open"|"closed"}`; `/datasets/{name}/settings` is a
+    resource (`GET` with `ETag`, `PUT` whole, `PATCH` merge patch, under
+    `If-Match`); `PUT /datasets/{name}` is idempotent (`204` for one that
+    exists with the same storage, `409` otherwise). The service description
+    says `varve:commits` and `varve:state` where it said `varve:changeFeed`.
+  - **`Varve.Protocol.Client`**: `FeedAsync` is `CommitsAsync`;
+    `CommitAsync(position)`, `StateAsync`, `SetStateAsync`, `SettingsAsync`,
+    `PutSettingsAsync`, `PatchSettingsAsync` added.
+  - **`Varve.Sparql.Store`**: a request of `INSERT DATA` and `DELETE DATA`
+    alone with no expected position goes straight to the commit request,
+    with no pin and no staging (ADR 0120); `INSERT DATA` of 100,000 quads
+    into an empty store, parsing included, is 1.3× faster and allocates a
+    fifth less. #35 stays open on the ADR's own terms: the median is not
+    yet at or below pyoxigraph's on the same machine.
+  - **Problems** carry `instance`, the request id, and only the members
+    their type declares; the `410` for the archive horizon stays `404`
+    (RFC 9110 §15.5.9).

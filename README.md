@@ -40,17 +40,19 @@ dataset directory.
 
 ## Status
 
-**`v0.1.0-preview.2` is the latest release, and it closed milestone 7**;
-it is the first release of the server. Thirteen packages and one executable:
+**`v0.1.0-preview.3` is the latest release, and it closed milestone Operability ([#12](https://github.com/Hafeok/Varve/issues/12))**:
+the server somebody can run. Fourteen packages and one executable:
 reading and writing four syntaxes, the XSD value spaces, RDFC-1.0
 canonicalisation, the SPARQL algebra with its parser and serialiser, the
 SPARQL results formats read and written, a query evaluator with an optimiser,
 an event-sourced store on files, in memory and in the browser, SPARQL Update
 over it as one commit per request, the SPARQL 1.1 and Graph Store protocols
 with a change feed over HTTP, an HTTP client with `SERVICE` and `LOAD`, and
-`Varve.Server`: the server, with OIDC and graph-level grants, and the `varve`
-command line, as a .NET tool and a Native AOT single file. `docs/operator/`
-says how to run it.
+`Varve.Server`: the server, with OIDC and graph-level grants, health and
+readiness, telemetry over OTLP, a stated answer for every limit, and the
+`varve` command line, as a .NET tool, a Native AOT single file and the
+container image `ghcr.io/hafeok/varve`; and `Varve.Aspire`, the AppHost
+integration. `docs/operator/` says how to run it.
 
 This section is checked (`eng/status.cs`): its first line names the latest
 release, the tables below match the projects and the conformance baseline,
@@ -65,13 +67,14 @@ and it ships inside every package.
 | `Varve.Sparql` | 2 | SPARQL 1.1 Query and Update as an immutable algebra, with the 1.2 additions; the parser and the serialiser | working |
 | `Varve.Sparql.Results` | 2 | the SPARQL results formats — XML, JSON, CSV, TSV — as pull readers and streaming writers | working |
 | `Varve.Sparql.Evaluation` | 3 | the optimiser and evaluator: every operator, the function library, aggregates, property paths, `SERVICE` through a handler, over any quad source | working |
+| `Varve.Aspire` | 0 | the .NET Aspire hosting integration: `AddVarve`, `WithOidc`, `WithDataset` on an AppHost; references nothing from Varve | working |
 | `Varve.Analyzers` | — | the layer rules, at build time | working, never shipped |
 | `Varve.Store` | 4 | the log, the default projection, pinned and as-of reads, checkpoints, subscriptions, dataset validators, the staging view, the bulk loader, replicas by file copy; `log/` format 1 on files, `derived/` format 3 | working |
 | `Varve.Sparql.Store` | 5 | SPARQL Update over the store: one request, one commit, `LOAD` through a caller's source, read and write scopes by graph | working |
 | `Varve.Store.Browser` | 5 | the store in a browser: the origin private file system through synchronous access handles in a worker, or IndexedDB | working |
 | `Varve.Protocol` | 5 | the SPARQL 1.1 Protocol, the Graph Store Protocol, the service description, time travel by `Varve-As-Of`, the change feed and the diff, the admin API, and graph-level authorisation, on any ASP.NET Core host | working |
 | `Varve.Protocol.Client` | 5 | the HTTP client of a dataset, `SERVICE` over HTTP for the evaluator and the document fetch `LOAD` needs, under an endpoint policy | working |
-| `Varve.Server` | 6 | the executable: the server with OIDC bearer tokens, and the `varve` command line — create, info, load, query, update, export, checkpoint, feed, serve | working, Native AOT |
+| `Varve.Server` | 6 | the executable: the server with OIDC bearer tokens, health and readiness, telemetry, governed limits, and the `varve` command line — create, info, load, query, update, export, checkpoint, feed, lease, serve | working, Native AOT, container image |
 | SHACL | 3 | | not built |
 
 ### Conformance
