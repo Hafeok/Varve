@@ -54,7 +54,7 @@ internal static class Writes
 
                 if (expected != head)
                 {
-                    await PreconditionFailedAsync(exchange, head).ConfigureAwait(false);
+                    await PreconditionFailedAsync(exchange, head, expected).ConfigureAwait(false);
                     return default;
                 }
 
@@ -82,7 +82,7 @@ internal static class Writes
     /// <c>201</c>) for a commit or no change, <c>409</c>, <c>422</c>, <c>503</c>.
     /// Every one carries the position it leaves the dataset at.
     /// </summary>
-    internal static Task AnswerAsync(Exchange exchange, CommitResult result, int created = StatusCodes.Status204NoContent)
+    internal static Task AnswerAsync(Exchange exchange, CommitResult result, int created = StatusCodes.Status204NoContent, Position? expected = null)
     {
         HttpContext context = exchange.Context;
         Preconditions.Describe(context.Response, result.Position);
@@ -98,14 +98,19 @@ internal static class Writes
                 return Task.CompletedTask;
 
             case CommitOutcome.Conflict:
-                return HttpProblems.WriteAsync(context, StatusCodes.Status409Conflict, ProblemType.Conflict,
-                    "Another commit came first.", "The head is " + result.Position.ToString() + ".",
-                    json => json.WriteNumber("head", result.Position.Value));
+                return HttpProblems.WriteAsync(context, ProblemType.Conflict, "The head is " + result.Position.ToString() + ".", members =>
+                {
+                    members.Number("position", result.Position.Value);
+                    members.Number("headPosition", result.Position.Value);
+
+                    if (expected is Position wanted)
+                    {
+                        members.Number("expectedPosition", wanted.Value);
+                    }
+                });
 
             case CommitOutcome.Rejected:
-                return HttpProblems.WriteAsync(context, StatusCodes.Status422UnprocessableEntity, ProblemType.Rejected,
-                    "A validator rejected the commit.", result.Reason,
-                    json => json.WriteString("report", Report(result)));
+                return HttpProblems.WriteAsync(context, ProblemType.Rejected, result.Reason, members => members.String("report", Report(result)));
 
             default:
                 return QueryRun.WriteUnavailableAsync(exchange, result.Reason ?? "The dataset cannot commit now.");
@@ -116,18 +121,20 @@ internal static class Writes
     internal static Task GraphNotWritableAsync(Exchange exchange, RdfTerm? graph)
     {
         string name = graph is null ? "the default graph" : "<" + Encoding.UTF8.GetString(graph.Lexical) + ">";
-        return HttpProblems.WriteAsync(exchange.Context, StatusCodes.Status403Forbidden, ProblemType.GraphNotWritable,
-            "The request changes a graph outside the caller's writable scope.", "Nothing was committed; the graph is " + name + ".",
-            json => json.WriteString("graph", graph is null ? "default" : Encoding.UTF8.GetString(graph.Lexical)));
+        return HttpProblems.WriteAsync(exchange.Context, ProblemType.GraphNotWritable, "Nothing was committed; the graph is " + name + ".",
+            members => members.String("graph", graph is null ? "default" : Encoding.UTF8.GetString(graph.Lexical)));
     }
 
     /// <summary><c>412</c>: the expected position is not the head.</summary>
-    internal static Task PreconditionFailedAsync(Exchange exchange, Position head)
+    internal static Task PreconditionFailedAsync(Exchange exchange, Position head, Position expected)
     {
         Preconditions.Describe(exchange.Response, head);
-        return HttpProblems.WriteAsync(exchange.Context, StatusCodes.Status412PreconditionFailed, ProblemType.PreconditionFailed,
-            "If-Match does not name the head.", "The head is " + head.ToString() + ".",
-            json => json.WriteNumber("head", head.Value));
+        return HttpProblems.WriteAsync(exchange.Context, ProblemType.PreconditionFailed, "The head is " + head.ToString() + ".", members =>
+        {
+            members.Number("position", head.Value);
+            members.Number("headPosition", head.Value);
+            members.Number("expectedPosition", expected.Value);
+        });
     }
 
     // The validator's report, as N-Triples-style term lines.

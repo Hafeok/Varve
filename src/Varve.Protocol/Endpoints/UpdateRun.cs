@@ -87,14 +87,13 @@ internal static class UpdateRun
         {
             // The executor's operation failure (an update that names a graph
             // CREATE finds, a LOAD that is refused): nothing was committed.
-            await HttpProblems.WriteAsync(context, StatusCodes.Status400BadRequest, ProblemType.OperationFailed,
-                "An operation of the update failed; nothing was committed.", failed.Message).ConfigureAwait(false);
+            await HttpProblems.WriteAsync(context, ProblemType.OperationFailed, failed.Message).ConfigureAwait(false);
             return;
         }
 
         // A Conflict here lost the race inside the sequencer after If-Match
         // was checked, or met a writer that came first: 409 either way (ADR 0094).
-        await Writes.AnswerAsync(exchange, result).ConfigureAwait(false);
+        await Writes.AnswerAsync(exchange, result, expected: plan.Expected).ConfigureAwait(false);
     }
 
     // The protocol's dataset becomes every Modify's USING; DELETE WHERE and the

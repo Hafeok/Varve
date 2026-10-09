@@ -24,6 +24,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Varve.Protocol;
 using Varve.Protocol.Client;
+using Varve.Protocol.Model;
 using Varve.Sparql.Algebra;
 using Varve.Sparql.Evaluation;
 using Varve.Sparql.Store;
@@ -145,7 +146,25 @@ internal static partial class ServerHost
 
             // A refusal says nothing about why: no error description in
             // WWW-Authenticate, so a probe learns nothing (7a's auth tests).
+            // RFC 6750 §3's error codes are set here (ADR 0119): invalid_token
+            // when a token was presented and failed, none when none was, and
+            // insufficient_scope on a forbid; the bodies are the thin
+            // unauthorized problem and the forbidden problem.
             bearer.IncludeErrorDetails = false;
+            bearer.Events = new JwtBearerEvents
+            {
+                OnChallenge = async challenge =>
+                {
+                    challenge.HandleResponse();
+                    challenge.Response.Headers.WWWAuthenticate = challenge.AuthenticateFailure is not null ? "Bearer error=\"invalid_token\"" : "Bearer";
+                    await WriteProblemAsync(challenge.HttpContext, ProblemType.Unauthorized, null).ConfigureAwait(false);
+                },
+                OnForbidden = forbidden =>
+                {
+                    forbidden.Response.Headers.WWWAuthenticate = "Bearer error=\"insufficient_scope\"";
+                    return WriteProblemAsync(forbidden.HttpContext, ProblemType.Forbidden, null);
+                },
+            };
             bearer.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
@@ -181,16 +200,33 @@ internal static partial class ServerHost
         {
             if (stopping.IsCancellationRequested && !HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
             {
-                await WriteJsonAsync(context, StatusCodes.Status503ServiceUnavailable, "application/problem+json", json =>
-                {
-                    json.WriteString("type", "https://w3id.org/varve/problems/shutting-down");
-                    json.WriteString("title", "The server is shutting down.");
-                    json.WriteNumber("status", StatusCodes.Status503ServiceUnavailable);
-                }).ConfigureAwait(false);
+                await WriteProblemAsync(context, ProblemType.ShuttingDown, null).ConfigureAwait(false);
                 return;
             }
 
             await next(context).ConfigureAwait(false);
+        });
+
+        // Every non-2xx is a problem (ADR 0119): a route nobody serves, and a
+        // method the router refused, which it answers with an empty body.
+        app.UseStatusCodePages(async statusCode =>
+        {
+            HttpContext context = statusCode.HttpContext;
+
+            switch (context.Response.StatusCode)
+            {
+                case StatusCodes.Status404NotFound:
+                    await WriteProblemAsync(context, ProblemType.NotFound, null).ConfigureAwait(false);
+                    break;
+                case StatusCodes.Status405MethodNotAllowed:
+                    await WriteProblemAsync(context, ProblemType.MethodNotAllowed, null).ConfigureAwait(false);
+                    break;
+                case StatusCodes.Status415UnsupportedMediaType:
+                    await WriteProblemAsync(context, ProblemType.UnsupportedMediaType, null).ConfigureAwait(false);
+                    break;
+                default:
+                    break;
+            }
         });
 
         if (!anonymous)
@@ -268,6 +304,26 @@ internal static partial class ServerHost
 
             json.WriteEndObject();
         });
+    }
+
+    /// <summary>
+    /// A problem the host writes outside the protocol's endpoints (ADR 0119),
+    /// from the catalogue: the request id as instance, except on the
+    /// deliberately thin <c>401</c>.
+    /// </summary>
+    private static async Task WriteProblemAsync(HttpContext context, ProblemType type, string? detail)
+    {
+        ArrayBufferWriter<byte> body = new(256);
+
+        using (Utf8JsonWriter json = new(body))
+        {
+            ProblemCatalogue.Write(json, type, type == ProblemType.Unauthorized ? null : context.TraceIdentifier, detail);
+        }
+
+        context.Response.StatusCode = ProblemCatalogue.Of(type).Status;
+        context.Response.ContentType = "application/problem+json";
+        context.Response.ContentLength = body.WrittenCount;
+        await context.Response.Body.WriteAsync(body.WrittenMemory, context.RequestAborted).ConfigureAwait(false);
     }
 
     private static async Task WriteJsonAsync(HttpContext context, int status, string contentType, Action<Utf8JsonWriter> write)

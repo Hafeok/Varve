@@ -19,6 +19,8 @@ decisions:
     statement: "ProblemCatalogue fixes each problem type's title, status and extension members, the writer emits only from it, instance is the request id, and every non-2xx is application/problem+json with 401 deliberately thin"
   - key: OnePagePerProblemType
     statement: "Each problem type has a page in docs/problems/ stating its title, status, members and when it is emitted, which its IRI under https://w3id.org/varve/problems/ resolves to"
+  - key: ProblemShapeBoundaryPrimitives
+    statement: "ProblemShape.Status is the int status code HttpResponse.StatusCode takes, Title and Name are the display text and page name a person reads, and ProblemCatalogue.Write takes the request id and the detail as the strings the response carries; none is compared or routed on, so they stay primitives at the HTTP boundary"
   - key: CatalogueAndImmutabilityTested
     statement: "A test enumerates every problem the server can emit and asserts it is in the catalogue with exactly its declared members and its page; a property asserts two as-of reads at one closed position return byte-identical bodies and validators"
 ---

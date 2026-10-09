@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
@@ -53,8 +54,8 @@ internal static class Reads
             if (asOf.Position > head)
             {
                 Preconditions.Describe(context.Response, head);
-                await HttpProblems.WriteAsync(context, StatusCodes.Status404NotFound, ProblemType.PositionNotReached,
-                    "The position is after the head.", "The head is " + head.ToString() + ".").ConfigureAwait(false);
+                await HttpProblems.WriteAsync(context, ProblemType.PositionNotReached, "The head is " + head.ToString() + ".",
+                    members => members.Number("headPosition", head.Value)).ConfigureAwait(false);
                 return null;
             }
 
@@ -65,8 +66,7 @@ internal static class Reads
 
         if (resolved.Value == 0)
         {
-            await HttpProblems.WriteAsync(context, StatusCodes.Status404NotFound, ProblemType.BeforeFirstCommit,
-                "The time is before the first commit.").ConfigureAwait(false);
+            await HttpProblems.WriteAsync(context, ProblemType.BeforeFirstCommit).ConfigureAwait(false);
             return null;
         }
 
@@ -74,28 +74,87 @@ internal static class Reads
     }
 
     /// <summary>
-    /// Answers <c>If-None-Match</c>: <see langword="true"/> when the response
-    /// has been written, as a <c>304</c> or a <c>400</c>. Asked before any pin
-    /// is taken (ADR 0096).
+    /// Answers <c>If-None-Match</c>, and <c>If-Modified-Since</c> when there is
+    /// no <c>If-None-Match</c> (RFC 9110 §13.1.3): <see langword="true"/> when
+    /// the response has been written, as a <c>304</c> or a <c>400</c>. Asked
+    /// before any pin is taken (ADRs 0096, 0119).
     /// </summary>
-    internal static async Task<bool> NotModifiedAsync(HttpContext context, Position described)
+    internal static async Task<bool> NotModifiedAsync(HttpContext context, Dataset dataset, Position described)
     {
-        switch (Preconditions.Read(context.Request.Headers.IfNoneMatch, out Preconditions.TagList tags))
+        HttpRequest request = context.Request;
+
+        switch (Preconditions.Read(request.Headers.IfNoneMatch, out Preconditions.TagList tags))
         {
             case TagCondition.Absent:
-                return false;
+                break;
             case TagCondition.Malformed:
                 await HttpProblems.BadRequest(context, "If-None-Match names positions, as the ETag of every response does.").ConfigureAwait(false);
                 return true;
             case TagCondition.Any:
             case TagCondition.Positions when tags.Contains(described):
-                Preconditions.Describe(context.Response, described);
-                SetVary(context.Response);
-                context.Response.StatusCode = StatusCodes.Status304NotModified;
+                NotModified(context, dataset, described);
                 return true;
             default:
                 return false;
         }
+
+        if (request.Headers.IfModifiedSince.Count == 1
+            && HeaderUtilities.TryParseDate(request.Headers.IfModifiedSince[0], out DateTimeOffset since)
+            && LastModified(dataset, described) is DateTimeOffset modified
+            && modified <= since)
+        {
+            NotModified(context, dataset, described);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static void NotModified(HttpContext context, Dataset dataset, Position described)
+    {
+        Preconditions.Describe(context.Response, described);
+        DescribeFreshness(context, dataset, described);
+        context.Response.StatusCode = StatusCodes.Status304NotModified;
+    }
+
+    /// <summary>
+    /// The commit timestamp of <paramref name="position"/>, to the second, as
+    /// <c>Last-Modified</c> carries it; none for position 0, which no commit made.
+    /// </summary>
+    internal static DateTimeOffset? LastModified(Dataset dataset, Position position)
+    {
+        if (position.Value == 0 || position > dataset.Head)
+        {
+            return null;
+        }
+
+        DateTimeOffset at = dataset.TimestampAt(position).Value.ToUniversalTime();
+        return new DateTimeOffset(at.Ticks - (at.Ticks % TimeSpan.TicksPerSecond), TimeSpan.Zero);
+    }
+
+    /// <summary>
+    /// <c>Cache-Control</c> and <c>Last-Modified</c> for a response at
+    /// <paramref name="position"/> (ADR 0119): a read selected by position is
+    /// at a closed position and never changes, so it is immutable; a head
+    /// read, or one selected by time, which a later commit at or before the
+    /// instant could move, revalidates.
+    /// </summary>
+    internal static void DescribeFreshness(HttpContext context, Dataset dataset, Position position)
+    {
+        HttpResponse response = context.Response;
+        response.Headers.CacheControl = IsClosedSelector(context) ? "private, max-age=31536000, immutable" : "no-cache";
+
+        if (LastModified(dataset, position) is DateTimeOffset modified)
+        {
+            response.Headers.LastModified = HeaderUtilities.FormatDate(modified);
+        }
+    }
+
+    // A Varve-As-Of of the form position:<n> names a closed position.
+    private static bool IsClosedSelector(HttpContext context)
+    {
+        StringValues header = context.Request.Headers[Preconditions.AsOfHeader];
+        return header.Count == 1 && AsOf.TryParse(header[0], out AsOf asOf) && asOf.Kind == AsOfKind.Position;
     }
 
     /// <summary>
@@ -111,21 +170,27 @@ internal static class Reads
             : dataset.Pin();
         context.Response.RegisterForDispose(view);
         Preconditions.Describe(context.Response, view.Position);
-        SetVary(context.Response);
+        DescribeFreshness(context, dataset, view.Position);
         return view;
     }
 
     /// <summary>
-    /// The cache headers of a representation at a closed position (ADR 0119):
-    /// immutable by the model, private because the content is per caller.
+    /// The cache headers of a representation at a closed position named in
+    /// the path (ADR 0119): immutable by the model, private because the
+    /// content is per caller.
     /// </summary>
-    internal static void DescribeClosed(HttpResponse response) => response.Headers.CacheControl = "private, max-age=31536000, immutable";
+    internal static void DescribeClosed(HttpContext context, Dataset dataset, Position position)
+    {
+        HttpResponse response = context.Response;
+        response.Headers.CacheControl = "private, max-age=31536000, immutable";
+
+        if (LastModified(dataset, position) is DateTimeOffset modified)
+        {
+            response.Headers.LastModified = HeaderUtilities.FormatDate(modified);
+        }
+    }
 
     /// <summary>Whether the request carried <c>Varve-As-Of</c>.</summary>
     internal static bool IsAsOf(HttpContext context) => !StringValues.IsNullOrEmpty(context.Request.Headers[Preconditions.AsOfHeader]);
 
-    // Authorization: a response's content is per caller once grants are by
-    // graph (ADR 0107), so a cache keyed by the address alone is wrong.
-    private static void SetVary(HttpResponse response) =>
-        response.Headers.Vary = new StringValues([HeaderNames.Accept, Preconditions.AsOfHeader, HeaderNames.Authorization]);
 }

@@ -64,7 +64,7 @@ internal static class ServiceDescriptionEndpoint
         }
 
         if (await Reads.ResolveAsync(context, exchange.Dataset).ConfigureAwait(false) is not Position position
-            || await Reads.NotModifiedAsync(context, position).ConfigureAwait(false))
+            || await Reads.NotModifiedAsync(context, exchange.Dataset, position).ConfigureAwait(false))
         {
             return;
         }

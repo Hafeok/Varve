@@ -84,7 +84,7 @@ internal static class QueryRun
         }
 
         if (await Reads.ResolveAsync(context, exchange.Dataset).ConfigureAwait(false) is not Position position
-            || await Reads.NotModifiedAsync(context, position).ConfigureAwait(false))
+            || await Reads.NotModifiedAsync(context, exchange.Dataset, position).ConfigureAwait(false))
         {
             return;
         }
@@ -144,7 +144,7 @@ internal static class QueryRun
     internal static Task WriteUnavailableAsync(Exchange exchange, string detail)
     {
         exchange.Response.Headers.RetryAfter = "1";
-        return HttpProblems.WriteAsync(exchange.Context, StatusCodes.Status503ServiceUnavailable, ProblemType.Unavailable, "The dataset cannot answer now.", detail);
+        return HttpProblems.WriteAsync(exchange.Context, ProblemType.Unavailable, detail);
     }
 
     private static async ValueTask WriteSolutionsAsync(SolutionResults solutions, SparqlResultsFormat format, ResponseOutput output, CancellationToken cancellationToken)

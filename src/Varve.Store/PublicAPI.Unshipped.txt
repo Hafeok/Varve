@@ -170,6 +170,7 @@ Varve.Store.Dataset.DiffAsync(Varve.Store.Log.Position from, Varve.Store.Log.Pos
 Varve.Store.Dataset.DropCheckpointAsync(Varve.Store.Log.Position position, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 Varve.Store.Dataset.Head.get -> Varve.Store.Log.Position
 Varve.Store.Dataset.PositionAt(Varve.Store.Log.CommitTimestamp timestamp) -> Varve.Store.Log.Position
+Varve.Store.Dataset.TimestampAt(Varve.Store.Log.Position position) -> Varve.Store.Log.CommitTimestamp
 Varve.Store.Dataset.SettingsAtAsync(Varve.Store.Log.Position position, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.DatasetSettings!>
 Varve.Store.Dataset.Subscribe(Varve.Store.Log.Position from, Varve.Store.Log.SubscriptionFilter filter, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Varve.Store.Log.Commit!>!
 Varve.Store.DatasetOptions.SegmentBytes.get -> Varve.Store.Log.ByteCount

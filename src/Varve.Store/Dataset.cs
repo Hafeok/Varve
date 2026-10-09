@@ -442,6 +442,11 @@ public sealed partial class Dataset : IAsyncDisposable
     /// <summary>The greatest position whose timestamp is at or before <paramref name="timestamp"/>; 0 when none is.</summary>
     public Position PositionAt(CommitTimestamp timestamp) => new(_state.Commits.PositionAt(timestamp.Value.UtcTicks));
 
+    /// <summary>The timestamp of the closed commit at <paramref name="position"/>, from 1 to the head (ADR 0119: a response's <c>Last-Modified</c>).</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The position is 0 or after the head.</exception>
+    public CommitTimestamp TimestampAt(Position position) =>
+        new(new DateTimeOffset(_state.Commits.Entry(position.Value).TimestampTicks, TimeSpan.Zero));
+
     /// <summary>
     /// R3: <c>(G_to \ G_from, G_from \ G_to)</c>, computed from the log alone.
     /// When <paramref name="from"/> is after <paramref name="to"/> the answer is

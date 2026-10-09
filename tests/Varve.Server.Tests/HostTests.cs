@@ -111,6 +111,21 @@ public sealed class HostTests
     }
 
     [Fact]
+    public async Task An_address_nobody_serves_and_a_method_the_router_refuses_are_problems()
+    {
+        await using RunningServer server = await RunningServer.StartAsync(new Dictionary<string, string> { ["Varve:Auth:Mode"] = "Anonymous", ["Varve:Datasets:d:Storage"] = "Memory" });
+        HttpResponseMessage nowhere = await server.Client.GetAsync(new Uri("nowhere/at/all", UriKind.Relative), Ct);
+        Assert.Equal(HttpStatusCode.NotFound, nowhere.StatusCode);
+        Assert.Equal("application/problem+json", nowhere.Content.Headers.ContentType?.MediaType);
+        Assert.Contains("\"type\":\"https://w3id.org/varve/problems/not-found\"", await nowhere.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+
+        HttpResponseMessage method = await server.Client.PostAsync(new Uri("datasets/d", UriKind.Relative), new StringContent("{}", System.Text.Encoding.UTF8, "application/json"), Ct);
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, method.StatusCode);
+        Assert.Equal("application/problem+json", method.Content.Headers.ContentType?.MediaType);
+        Assert.Contains("method-not-allowed", await method.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Live_and_ready_answer_without_a_token()
     {
         await using RunningServer server = await RunningServer.StartAsync(OidcWithNoIssuer());

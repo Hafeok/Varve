@@ -72,8 +72,7 @@ internal static class BoundedReads
         if (!output.HasStarted && !response.HasStarted)
         {
             output.Discard();
-            int status = cut == ProblemType.OperationFailed ? StatusCodes.Status400BadRequest : StatusCodes.Status503ServiceUnavailable;
-            await HttpProblems.WriteAsync(context, status, cut.Value, "The read was cut.", detail).ConfigureAwait(false);
+            await HttpProblems.WriteAsync(context, cut.Value, detail).ConfigureAwait(false);
         }
         else if (trailers)
         {

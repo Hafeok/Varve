@@ -78,7 +78,7 @@ internal static class AdminEndpoints
 
         if (body.TooLarge)
         {
-            await HttpProblems.RequestTooLarge(context).ConfigureAwait(false);
+            await HttpProblems.RequestTooLarge(context, options.Limits.MaxRequestBody.Value).ConfigureAwait(false);
             return;
         }
 
@@ -102,7 +102,7 @@ internal static class AdminEndpoints
                 context.Response.StatusCode = StatusCodes.Status204NoContent;
                 break;
             case AdminOutcome.Exists:
-                await HttpProblems.WriteAsync(context, StatusCodes.Status409Conflict, ProblemType.DatasetExists, "A dataset by that name exists.",
+                await HttpProblems.WriteAsync(context, ProblemType.DatasetExists,
                     "It is kept in " + (StorageOf(administration, name) == DatasetStorage.Memory ? "Memory" : "File") + " storage, and the body asks for another.").ConfigureAwait(false);
                 break;
             default:
@@ -125,7 +125,7 @@ internal static class AdminEndpoints
                 context.Response.StatusCode = StatusCodes.Status204NoContent;
                 break;
             case AdminOutcome.Open:
-                await HttpProblems.WriteAsync(context, StatusCodes.Status409Conflict, ProblemType.DatasetOpen, "The dataset is open; close it first.").ConfigureAwait(false);
+                await HttpProblems.WriteAsync(context, ProblemType.DatasetOpen).ConfigureAwait(false);
                 break;
             case AdminOutcome.NotFound:
                 await HttpProblems.DatasetNotFound(context).ConfigureAwait(false);
@@ -184,7 +184,7 @@ internal static class AdminEndpoints
 
         if (body.TooLarge)
         {
-            await HttpProblems.RequestTooLarge(context).ConfigureAwait(false);
+            await HttpProblems.RequestTooLarge(context, options.Limits.MaxRequestBody.Value).ConfigureAwait(false);
             return;
         }
 
@@ -244,7 +244,7 @@ internal static class AdminEndpoints
         {
             Position head = exchange.Dataset.Head;
 
-            if (await Reads.NotModifiedAsync(context, head).ConfigureAwait(false))
+            if (await Reads.NotModifiedAsync(context, exchange.Dataset, head).ConfigureAwait(false))
             {
                 return;
             }
@@ -281,7 +281,7 @@ internal static class AdminEndpoints
 
         if (body.TooLarge)
         {
-            await HttpProblems.RequestTooLarge(context).ConfigureAwait(false);
+            await HttpProblems.RequestTooLarge(context, options.Limits.MaxRequestBody.Value).ConfigureAwait(false);
             return;
         }
 
@@ -297,14 +297,13 @@ internal static class AdminEndpoints
 
         if (metadata.Agent.IsNone)
         {
-            await HttpProblems.WriteAsync(context, StatusCodes.Status403Forbidden, ProblemType.AgentRequired,
-                "A settings commit records its agent, and the caller has none.",
+            await HttpProblems.WriteAsync(context, ProblemType.AgentRequired,
                 "In anonymous mode no caller is named (ADR 0094); a settings change needs an authenticated caller.").ConfigureAwait(false);
             return;
         }
 
         CommitResult result = await exchange.Dataset.ChangeSettingsAsync(change, metadata, plan.Expected, context.RequestAborted).ConfigureAwait(false);
-        await Writes.AnswerAsync(exchange, result).ConfigureAwait(false);
+        await Writes.AnswerAsync(exchange, result, expected: plan.Expected).ConfigureAwait(false);
     }
 
     /// <summary><c>POST {dataset}/checkpoints?at=</c>: a checkpoint at the head or at a position, <c>201</c> with the position.</summary>
@@ -338,7 +337,8 @@ internal static class AdminEndpoints
             if (at > dataset.Head)
             {
                 Preconditions.Describe(context.Response, dataset.Head);
-                await HttpProblems.WriteAsync(context, StatusCodes.Status404NotFound, ProblemType.PositionNotReached, "The position is after the head.").ConfigureAwait(false);
+                await HttpProblems.WriteAsync(context, ProblemType.PositionNotReached, "The head is " + dataset.Head.ToString() + ".",
+                    members => members.Number("headPosition", dataset.Head.Value)).ConfigureAwait(false);
                 return;
             }
         }
@@ -412,7 +412,7 @@ internal static class AdminEndpoints
     }
 
     private static Task Failed(HttpContext context, IDatasetAdministration administration, DatasetName name) =>
-        HttpProblems.WriteAsync(context, StatusCodes.Status503ServiceUnavailable, ProblemType.Unavailable, "The dataset could not be opened.", EntryOf(administration, name)?.Reason);
+        HttpProblems.WriteAsync(context, ProblemType.Unavailable, "The dataset could not be opened: " + (EntryOf(administration, name)?.Reason ?? "no reason was recorded."));
 
     private static DatasetEntry? EntryOf(IDatasetAdministration administration, DatasetName name)
     {

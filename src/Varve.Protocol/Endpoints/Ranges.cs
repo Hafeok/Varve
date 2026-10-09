@@ -69,8 +69,8 @@ internal static class Ranges
             if (end > head)
             {
                 Preconditions.Describe(context.Response, head);
-                await HttpProblems.WriteAsync(context, StatusCodes.Status404NotFound, ProblemType.PositionNotReached,
-                    "to is after the head.", "The head is " + head.ToString() + ".").ConfigureAwait(false);
+                await HttpProblems.WriteAsync(context, ProblemType.PositionNotReached, "to is after the head, " + head.ToString() + ".",
+                    members => members.Number("headPosition", head.Value)).ConfigureAwait(false);
                 return null;
             }
 

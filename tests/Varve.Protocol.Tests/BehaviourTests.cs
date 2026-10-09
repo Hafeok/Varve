@@ -290,6 +290,66 @@ public class BehaviourTests
         Assert.All(backward.Changes, c => Assert.Equal(FeedChangeKind.Retract, c.Kind));
     }
 
+    // --- headers (ADR 0119) ----------------------------------------------------------
+
+    [Fact]
+    public async Task every_dataset_response_carries_vary_the_request_id_and_the_service_description_link()
+    {
+        await using Dataset dataset = await P.NewDatasetAsync();
+        await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(dataset, stopping: P.Ct);
+
+        foreach (HttpRequestMessage request in (HttpRequestMessage[])[P.Query(Sparql, "ASK {}"), P.Get("datasets/d/graphs?graph=" + Uri.EscapeDataString("http://ex/none"), "application/n-triples"), P.Get("datasets/d/", "text/turtle")])
+        {
+            HttpResponseMessage response = await host.Client.SendAsync(request, P.Ct);
+            Assert.Equal("Accept,Varve-As-Of,Authorization", string.Join(",", response.Headers.Vary));
+            Assert.NotNull(P.Header(response, "Varve-Request-Id"));
+            Assert.Equal("</datasets/d/>; rel=\"service-desc\"", P.Header(response, "Link"));
+        }
+    }
+
+    [Fact]
+    public async Task a_read_at_a_closed_position_is_immutable_and_a_head_read_revalidates()
+    {
+        ManualClock clock = ManualClock.Epoch();
+        await using Dataset dataset = await P.NewDatasetAsync(clock);
+        await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(dataset, clock: clock, stopping: P.Ct);
+        await host.Client.SendAsync(P.Update(Sparql, "INSERT DATA { <http://ex/a> <http://ex/p> 1 }"), P.Ct);
+        clock.Now = clock.Now.AddSeconds(90);
+        await host.Client.SendAsync(P.Update(Sparql, "INSERT DATA { <http://ex/b> <http://ex/p> 2 }"), P.Ct);
+
+        HttpResponseMessage closed = await host.Client.SendAsync(P.Query(Sparql, "ASK {}", asOf: "position:1"), P.Ct);
+        Assert.Equal("private, max-age=31536000, immutable", closed.Headers.NonValidated["Cache-Control"].ToString());
+        Assert.Equal(new DateTimeOffset(2026, 10, 7, 12, 0, 0, TimeSpan.Zero), closed.Content.Headers.LastModified);
+
+        HttpResponseMessage head = await host.Client.SendAsync(P.Query(Sparql, "ASK {}"), P.Ct);
+        Assert.Equal("no-cache", head.Headers.NonValidated["Cache-Control"].ToString());
+        Assert.Equal(new DateTimeOffset(2026, 10, 7, 12, 1, 30, TimeSpan.Zero), head.Content.Headers.LastModified);
+        Assert.Equal("\"2\"", head.Headers.ETag?.Tag);
+
+        // If-Modified-Since: 304 at or after the commit's second, 200 before it.
+        HttpRequestMessage since = P.Query(Sparql, "ASK {}");
+        since.Headers.IfModifiedSince = new DateTimeOffset(2026, 10, 7, 12, 1, 30, TimeSpan.Zero);
+        HttpResponseMessage notModified = await host.Client.SendAsync(since, P.Ct);
+        Assert.Equal(HttpStatusCode.NotModified, notModified.StatusCode);
+        Assert.Equal("\"2\"", notModified.Headers.ETag?.Tag);
+
+        HttpRequestMessage earlier = P.Query(Sparql, "ASK {}");
+        earlier.Headers.IfModifiedSince = new DateTimeOffset(2026, 10, 7, 12, 1, 29, TimeSpan.Zero);
+        Assert.Equal(HttpStatusCode.OK, (await host.Client.SendAsync(earlier, P.Ct)).StatusCode);
+
+        // If-None-Match wins over If-Modified-Since (RFC 9110 §13.1.3).
+        HttpRequestMessage both = P.Query(Sparql, "ASK {}");
+        both.Headers.IfModifiedSince = new DateTimeOffset(2026, 10, 7, 12, 1, 30, TimeSpan.Zero);
+        both.Headers.TryAddWithoutValidation("If-None-Match", "\"1\"");
+        Assert.Equal(HttpStatusCode.OK, (await host.Client.SendAsync(both, P.Ct)).StatusCode);
+
+        // One commit by its address is immutable too, and 404 above the head.
+        HttpResponseMessage one = await host.Client.SendAsync(P.Get("datasets/d/commits/1"), P.Ct);
+        Assert.Equal("private, max-age=31536000, immutable", one.Headers.NonValidated["Cache-Control"].ToString());
+        Assert.StartsWith("commit 1 Data ", await one.Content.ReadAsStringAsync(P.Ct), StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.NotFound, (await host.Client.SendAsync(P.Get("datasets/d/commits/3"), P.Ct)).StatusCode);
+    }
+
     // --- limits (ADR 0095) ---------------------------------------------------------
 
     [Fact]
@@ -351,7 +411,11 @@ public class BehaviourTests
         HttpResponseMessage invalid = await host.Client.SendAsync(P.Get(path), P.Ct);
         HttpResponseMessage unknown = await host.Client.SendAsync(P.Get("datasets/nothere/sparql"), P.Ct);
         Assert.Equal(HttpStatusCode.NotFound, invalid.StatusCode);
-        Assert.Equal(await unknown.Content.ReadAsStringAsync(P.Ct), await invalid.Content.ReadAsStringAsync(P.Ct));
+
+        // The same answer but for the request id each carries as its instance (ADR 0119).
+        Assert.Equal(WithoutInstance(await unknown.Content.ReadAsStringAsync(P.Ct)), WithoutInstance(await invalid.Content.ReadAsStringAsync(P.Ct)));
+
+        static string WithoutInstance(string body) => System.Text.RegularExpressions.Regex.Replace(body, ",\"instance\":\"[^\"]*\"", string.Empty);
     }
 
     private sealed class Fixed(string agent) : ICallerIdentity

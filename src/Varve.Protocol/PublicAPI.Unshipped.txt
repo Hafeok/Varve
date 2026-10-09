@@ -218,3 +218,22 @@ Varve.Protocol.ProtocolOptions.AccessScopes.get -> Varve.Protocol.IAccessScopes!
 Varve.Protocol.ProtocolOptions.AccessScopes.init -> void
 static Varve.Protocol.EveryoneEverything.Instance.get -> Varve.Protocol.EveryoneEverything!
 static Varve.Protocol.Model.ProblemType.GraphNotWritable.get -> Varve.Protocol.Model.ProblemType
+Varve.Protocol.Model.ProblemShape
+Varve.Protocol.Model.ProblemShape.Members.get -> System.Collections.Immutable.ImmutableArray<string!>
+Varve.Protocol.Model.ProblemShape.Name.get -> string!
+Varve.Protocol.Model.ProblemShape.Status.get -> int
+Varve.Protocol.Model.ProblemShape.Title.get -> string!
+Varve.Protocol.Model.ProblemShape.Type.get -> Varve.Protocol.Model.ProblemType
+Varve.Protocol.Model.ProblemCatalogue
+static Varve.Protocol.Model.ProblemCatalogue.All.get -> System.Collections.Immutable.ImmutableArray<Varve.Protocol.Model.ProblemShape!>
+static Varve.Protocol.Model.ProblemCatalogue.Of(Varve.Protocol.Model.ProblemType type) -> Varve.Protocol.Model.ProblemShape!
+static Varve.Protocol.Model.ProblemCatalogue.TryGet(Varve.Protocol.Model.ProblemType type, out Varve.Protocol.Model.ProblemShape? shape) -> bool
+static Varve.Protocol.Model.ProblemCatalogue.Write(System.Text.Json.Utf8JsonWriter! json, Varve.Protocol.Model.ProblemType type, string? instance, string? detail) -> void
+static Varve.Protocol.Model.ProblemType.Unauthorized.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.Forbidden.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.NotFound.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.NotReady.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.ServerBusy.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.MemoryLimitExceeded.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.AsOfDistanceExceeded.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.TooManyLiveTails.get -> Varve.Protocol.Model.ProblemType

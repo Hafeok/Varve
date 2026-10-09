@@ -65,19 +65,19 @@ internal static class CommitsEndpoint
         if (position > head)
         {
             Preconditions.Describe(context.Response, head);
-            await HttpProblems.WriteAsync(context, StatusCodes.Status404NotFound, ProblemType.PositionNotReached,
-                "The position is after the head.", "The head is " + head.ToString() + ".").ConfigureAwait(false);
+            await HttpProblems.WriteAsync(context, ProblemType.PositionNotReached, "The head is " + head.ToString() + ".",
+                members => members.Number("headPosition", head.Value)).ConfigureAwait(false);
             return;
         }
 
-        if (await Reads.NotModifiedAsync(context, position).ConfigureAwait(false))
+        if (await Reads.NotModifiedAsync(context, exchange.Dataset, position).ConfigureAwait(false))
         {
             return;
         }
 
         // A closed position never changes: the commit is immutable (ADR 0119).
         Preconditions.Describe(context.Response, position);
-        Reads.DescribeClosed(context.Response);
+        Reads.DescribeClosed(context, dataset, position);
         context.Response.ContentType = DeltaContentType;
         ScopeFilter scope = new(exchange.Scope.Readable);
 

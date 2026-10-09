@@ -12,40 +12,95 @@ using Varve.Protocol.Model;
 namespace Varve.Protocol.Http;
 
 /// <summary>
-/// RFC 9457 problem details on every error response (ADR 0092), written with
-/// <see cref="Utf8JsonWriter"/>: no reflection, nothing for trimming to keep.
+/// The extension members of one problem, written through the catalogue: a
+/// name the type does not declare is a defect, thrown rather than written
+/// (ADR 0119).
+/// </summary>
+internal readonly struct ProblemMembers
+{
+    private readonly Utf8JsonWriter _json;
+    private readonly ProblemShape _shape;
+
+    internal ProblemMembers(Utf8JsonWriter json, ProblemShape shape)
+    {
+        _json = json;
+        _shape = shape;
+    }
+
+    internal void Number(string name, long value)
+    {
+        Check(name);
+        _json.WriteNumber(name, value);
+    }
+
+    internal void String(string name, string value)
+    {
+        Check(name);
+        _json.WriteString(name, value);
+    }
+
+    /// <summary>An array or object member, written by the caller between its start and end.</summary>
+    internal Utf8JsonWriter Raw(string name)
+    {
+        Check(name);
+        return _json;
+    }
+
+    private void Check(string name)
+    {
+        if (!_shape.Allows(name))
+        {
+            throw new InvalidOperationException("The problem type " + _shape.Name + " declares no member '" + name + "' (ADR 0119).");
+        }
+    }
+}
+
+/// <summary>
+/// RFC 9457 problem details on every error response (ADRs 0092, 0119), the
+/// status and the title from the catalogue, <c>instance</c> the request id,
+/// written with <see cref="Utf8JsonWriter"/>: no reflection, nothing for
+/// trimming to keep.
 /// </summary>
 internal static class HttpProblems
 {
     internal const string MediaType = "application/problem+json";
 
-    /// <summary>Writes a problem as the whole response.</summary>
+    /// <summary>Writes a problem of <paramref name="type"/> as the whole response.</summary>
     internal static async Task WriteAsync(
         HttpContext context,
-        int status,
         ProblemType type,
-        string title,
         string? detail = null,
-        Action<Utf8JsonWriter>? extensions = null)
+        Action<ProblemMembers>? members = null)
     {
+        ProblemShape shape = ProblemCatalogue.Of(type);
         HttpResponse response = context.Response;
-        response.StatusCode = status;
+        response.StatusCode = shape.Status;
         response.ContentType = MediaType;
+        response.Headers[Preconditions.RequestIdHeader] = context.TraceIdentifier;
+
+        // Every dataset response varies by these, problems included (ADR
+        // 0119), and a problem written before the exchange began — a 405 on
+        // the method alone — has not been described yet.
+        if (response.Headers.Vary.Count == 0)
+        {
+            response.Headers.Vary = new Microsoft.Extensions.Primitives.StringValues([Microsoft.Net.Http.Headers.HeaderNames.Accept, Preconditions.AsOfHeader, Microsoft.Net.Http.Headers.HeaderNames.Authorization]);
+        }
         ArrayBufferWriter<byte> body = new(512);
 
         using (Utf8JsonWriter json = new(body))
         {
             json.WriteStartObject();
             json.WriteString("type", type.Value);
-            json.WriteString("title", title);
-            json.WriteNumber("status", status);
+            json.WriteString("title", shape.Title);
+            json.WriteNumber("status", shape.Status);
 
             if (detail is not null)
             {
                 json.WriteString("detail", detail);
             }
 
-            extensions?.Invoke(json);
+            json.WriteString("instance", context.TraceIdentifier);
+            members?.Invoke(new ProblemMembers(json, shape));
             json.WriteEndObject();
         }
 
@@ -53,24 +108,20 @@ internal static class HttpProblems
         await response.Body.WriteAsync(body.WrittenMemory, context.RequestAborted).ConfigureAwait(false);
     }
 
-    internal static Task BadRequest(HttpContext context, string detail) =>
-        WriteAsync(context, StatusCodes.Status400BadRequest, ProblemType.BadRequest, "The request is not one the protocol accepts.", detail);
+    internal static Task BadRequest(HttpContext context, string detail) => WriteAsync(context, ProblemType.BadRequest, detail);
 
-    internal static Task UnsupportedMediaType(HttpContext context, string detail) =>
-        WriteAsync(context, StatusCodes.Status415UnsupportedMediaType, ProblemType.UnsupportedMediaType, "The request body is in a media type or charset this endpoint does not read.", detail);
+    internal static Task UnsupportedMediaType(HttpContext context, string detail) => WriteAsync(context, ProblemType.UnsupportedMediaType, detail);
 
-    internal static Task NotAcceptable(HttpContext context, string detail) =>
-        WriteAsync(context, StatusCodes.Status406NotAcceptable, ProblemType.NotAcceptable, "Nothing in Accept is a format this endpoint writes.", detail);
+    internal static Task NotAcceptable(HttpContext context, string detail) => WriteAsync(context, ProblemType.NotAcceptable, detail);
 
     internal static Task MethodNotAllowed(HttpContext context, string allow)
     {
         context.Response.Headers.Allow = allow;
-        return WriteAsync(context, StatusCodes.Status405MethodNotAllowed, ProblemType.MethodNotAllowed, "The endpoint does not serve this method.", "Allowed: " + allow + ".");
+        return WriteAsync(context, ProblemType.MethodNotAllowed, "Allowed: " + allow + ".");
     }
 
-    internal static Task DatasetNotFound(HttpContext context) =>
-        WriteAsync(context, StatusCodes.Status404NotFound, ProblemType.DatasetNotFound, "No dataset by that name.");
+    internal static Task DatasetNotFound(HttpContext context) => WriteAsync(context, ProblemType.DatasetNotFound);
 
-    internal static Task RequestTooLarge(HttpContext context) =>
-        WriteAsync(context, StatusCodes.Status413PayloadTooLarge, ProblemType.RequestTooLarge, "The request body is over the server's limit.");
+    internal static Task RequestTooLarge(HttpContext context, long limit) =>
+        WriteAsync(context, ProblemType.RequestTooLarge, null, members => members.Number("limit", limit));
 }

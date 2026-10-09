@@ -2,10 +2,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Primitives;
+using Microsoft.Net.Http.Headers;
 using Varve.Protocol.Http;
 using Varve.Protocol.Model;
 using Varve.Rdf;
@@ -54,6 +57,7 @@ internal sealed class Exchange
         DatasetName name = DatasetName.Default;
         bool named = context.Request.RouteValues.TryGetValue(DatasetRouteValue, out object? value);
         bool valid = !named || DatasetName.TryParse(value as string, out name);
+        Describe(context, named ? value as string : null);
 
         if (!await AuthorizeAsync(context, options, permission, valid ? name : null).ConfigureAwait(false))
         {
@@ -80,8 +84,44 @@ internal sealed class Exchange
     internal Task<bool> AuthorizeAsync(string permission) => AuthorizeAsync(Context, Options, permission, Name);
 
     /// <summary>Authorises for a server-wide permission, decided on no dataset (ADR 0106); writes the refusal itself.</summary>
-    internal static Task<bool> AuthorizeServerAsync(HttpContext context, ProtocolOptions options, string permission) =>
-        AuthorizeAsync(context, options, permission, null);
+    internal static Task<bool> AuthorizeServerAsync(HttpContext context, ProtocolOptions options, string permission)
+    {
+        Describe(context, null);
+        return AuthorizeAsync(context, options, permission, null);
+    }
+
+    /// <summary>
+    /// What every dataset response carries, problems included (ADR 0119):
+    /// <c>Vary</c>, because the content is per caller, per selector and per
+    /// format; <c>Varve-Request-Id</c>, the id a problem's <c>instance</c>
+    /// and a commit's cause repeat; and <c>Link rel="service-desc"</c> to
+    /// the dataset's description when the request names a dataset.
+    /// </summary>
+    internal static void Describe(HttpContext context, string? datasetSegment)
+    {
+        HttpResponse response = context.Response;
+        response.Headers.Vary = new StringValues([HeaderNames.Accept, Preconditions.AsOfHeader, HeaderNames.Authorization]);
+        response.Headers[Preconditions.RequestIdHeader] = context.TraceIdentifier;
+
+        if (datasetSegment is null)
+        {
+            return;
+        }
+
+        // The dataset's base: the request's path up to and including the
+        // segment that names it, which is the description's address.
+        string path = context.Request.Path.Value ?? "/";
+        int at = path.IndexOf("/" + datasetSegment + "/", StringComparison.Ordinal);
+        int end = at >= 0 ? at + datasetSegment.Length + 2 : (path.EndsWith("/" + datasetSegment, StringComparison.Ordinal) ? path.Length + 1 : -1);
+
+        if (end < 0)
+        {
+            return;
+        }
+
+        string prefix = at >= 0 ? path[..end] : path + "/";
+        response.Headers.Link = "<" + context.Request.PathBase.ToUriComponent() + prefix + ">; rel=\"service-desc\"";
+    }
 
     /// <summary>Whether the caller holds <paramref name="permission"/> on <paramref name="resource"/>, writing nothing.</summary>
     internal static async Task<bool> MayAsync(HttpContext context, ProtocolOptions options, string permission, DatasetName? resource) =>

@@ -8,7 +8,9 @@ namespace Varve.Protocol.Model;
 
 /// <summary>
 /// An RFC 9457 problem type: an IRI under <c>https://w3id.org/varve/problems/</c>
-/// (ADR 0092). Every error the protocol answers carries one.
+/// (ADR 0092). Every error the protocol answers carries one, and
+/// <see cref="ProblemCatalogue"/> fixes each one's status, title and members
+/// (ADR 0119).
 /// </summary>
 public readonly record struct ProblemType
 {
@@ -88,6 +90,30 @@ public readonly record struct ProblemType
 
     /// <summary><c>403</c>: the request changes a graph outside the caller's writable scope (ADR 0107).</summary>
     public static ProblemType GraphNotWritable { get; } = new("graph-not-writable");
+
+    /// <summary><c>401</c>, deliberately thin: no valid bearer token (ADR 0119).</summary>
+    public static ProblemType Unauthorized { get; } = new("unauthorized");
+
+    /// <summary><c>403</c>: the caller is authenticated and holds no permission the request needs (ADR 0119).</summary>
+    public static ProblemType Forbidden { get; } = new("forbidden");
+
+    /// <summary><c>404</c> for an address nothing is served at (ADR 0119).</summary>
+    public static ProblemType NotFound { get; } = new("not-found");
+
+    /// <summary><c>503</c> from readiness: a dataset is not open, failed, or behind (ADR 0113); the body lists them.</summary>
+    public static ProblemType NotReady { get; } = new("not-ready");
+
+    /// <summary><c>503</c>: as many reads in flight and queued as the server allows (ADR 0114).</summary>
+    public static ProblemType ServerBusy { get; } = new("server-busy");
+
+    /// <summary><c>422</c>: an evaluation over the per-request memory bound (ADR 0114).</summary>
+    public static ProblemType MemoryLimitExceeded { get; } = new("memory-limit-exceeded");
+
+    /// <summary><c>422</c>: an as-of position too far from its nearest checkpoint (ADR 0114).</summary>
+    public static ProblemType AsOfDistanceExceeded { get; } = new("as-of-distance-exceeded");
+
+    /// <summary><c>429</c>: the client holds too many live tails open (ADR 0114).</summary>
+    public static ProblemType TooManyLiveTails { get; } = new("too-many-live-tails");
 
     /// <summary>
     /// The problem type an IRI under <see cref="Namespace"/> names, known or

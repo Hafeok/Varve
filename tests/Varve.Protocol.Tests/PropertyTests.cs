@@ -117,6 +117,51 @@ public class PropertyTests
         Assert.All(kinds, kind => Assert.True(kind.Value > 0, kind.Key + " never occurred"));
     }
 
+    /// <summary>
+    /// What <c>immutable</c> promises (ADR 0119): two as-of reads at the same
+    /// closed position answer byte-identical bodies and the same validators,
+    /// whatever was committed between them.
+    /// </summary>
+    [Fact]
+    public async Task two_as_of_reads_at_one_closed_position_are_byte_identical_with_the_same_validators()
+    {
+        await using Harness harness = await Harness.StartAsync();
+
+        await Gen.Select(History, Gen.Int[1, 8]).SampleAsync(async pair =>
+        {
+            ((string Text, int Seconds)[] history, int pick) = pair;
+            (Dataset dataset, string name, ManualClock clock) = await harness.RunAsync(history);
+
+            if (dataset.Head.Value == 0)
+            {
+                // A history that changed nothing has no closed position to read.
+                await dataset.DisposeAsync();
+                return;
+            }
+
+            long position = 1 + (pick % (int)dataset.Head.Value);
+            string asOf = "position:" + position.ToString(CultureInfo.InvariantCulture);
+
+            (byte[] firstBody, string firstValidators) = await ReadAsync(harness, name, asOf);
+            clock.Now = clock.Now.AddSeconds(5);
+            await harness.Client.SendAsync(P.Update("datasets/" + name + "/sparql", Prefix + "INSERT DATA { :later :p :o }"), P.Ct);
+            (byte[] secondBody, string secondValidators) = await ReadAsync(harness, name, asOf);
+
+            Assert.Equal(firstBody, secondBody);
+            Assert.Equal(firstValidators, secondValidators);
+            await dataset.DisposeAsync();
+        }, iter: 200);
+
+        static async Task<(byte[] Body, string Validators)> ReadAsync(Harness harness, string name, string asOf)
+        {
+            HttpResponseMessage response = await harness.Client.SendAsync(P.Query("datasets/" + name + "/sparql", "SELECT * WHERE { { ?s ?p ?o } UNION { GRAPH ?g { ?s ?p ?o } } } ORDER BY ?g ?s ?p ?o", asOf: asOf), P.Ct);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            string validators = response.Headers.ETag?.Tag + "|" + response.Content.Headers.LastModified?.ToString("o", CultureInfo.InvariantCulture) + "|" + response.Headers.NonValidated["Cache-Control"].ToString() + "|" + P.Header(response, "Varve-Position");
+            Assert.Equal("private, max-age=31536000, immutable", response.Headers.NonValidated["Cache-Control"].ToString());
+            return (await response.Content.ReadAsByteArrayAsync(P.Ct), validators);
+        }
+    }
+
     [Fact]
     public async Task a_feed_from_zero_replays_to_the_as_of_state_at_the_head()
     {

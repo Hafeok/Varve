@@ -65,7 +65,7 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         ILoadSource? loadSource = null,
         IRandomSource? randomness = null,
         CancellationToken stopping = default) =>
-        StartAsync(new OneDataset(dataset), map, limits, clock, identity, serviceHandler, accessScopes, loadSource, randomness, stopping);
+        StartAsync(new OneDataset(dataset), map, limits, clock, identity, serviceHandler, accessScopes, loadSource, randomness, null, null, stopping);
 
     /// <summary>
     /// Starts a server whose datasets <paramref name="datasets"/> names.
@@ -82,16 +82,20 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         IAccessScopes? accessScopes = null,
         ILoadSource? loadSource = null,
         IRandomSource? randomness = null,
+        IDatasetAdministration? administration = null,
+        Func<ISparqlUpdateExecutor, ISparqlUpdateExecutor>? updates = null,
         CancellationToken stopping = default)
     {
         WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
         builder.WebHost.UseKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, 0));
         builder.Logging.ClearProviders();
         WebApplication app = builder.Build();
+        ISparqlUpdateExecutor executor = new StoreUpdates(Evaluation(clock ?? TimeProvider.System, serviceHandler, randomness), loadSource);
         ProtocolOptions options = new()
         {
             Datasets = datasets,
-            Updates = new StoreUpdates(Evaluation(clock ?? TimeProvider.System, serviceHandler, randomness), loadSource),
+            Administration = administration,
+            Updates = updates is null ? executor : updates(executor),
             Identity = identity ?? new NoOne(),
             AccessScopes = accessScopes ?? EveryoneEverything.Instance,
             Authorization = new EveryoneMay(),

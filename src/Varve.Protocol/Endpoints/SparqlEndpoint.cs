@@ -105,7 +105,7 @@ internal static class SparqlEndpoint
 
         if (body.TooLarge)
         {
-            await HttpProblems.RequestTooLarge(context).ConfigureAwait(false);
+            await HttpProblems.RequestTooLarge(context, options.Limits.MaxRequestBody.Value).ConfigureAwait(false);
             return;
         }
 

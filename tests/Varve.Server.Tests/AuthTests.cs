@@ -91,9 +91,12 @@ public sealed class AuthTests : IAsyncLifetime
         _ = permission;
         HttpResponseMessage response = await SendAsync(method, path, token: null);
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+
+        // No token: no error code (RFC 6750 §3.1), and the thin problem (ADR 0119).
         Assert.Equal("Bearer", response.Headers.WwwAuthenticate.Single().Scheme);
         Assert.Null(response.Headers.WwwAuthenticate.Single().Parameter);
-        Assert.Equal(string.Empty, await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("{\"type\":\"https://w3id.org/varve/problems/unauthorized\",\"title\":\"The request carries no valid bearer token.\",\"status\":401}", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
     }
 
     [Theory]
@@ -111,10 +114,12 @@ public sealed class AuthTests : IAsyncLifetime
             string token = _issuer.Mint(Claims("administrator"), flaw);
             HttpResponseMessage response = await SendAsync(method, path, token);
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+
+            // A token was presented and failed: the error code, never a reason (RFC 6750 §3.1; ADR 0119).
             AuthenticationHeaderValue challenge = response.Headers.WwwAuthenticate.Single();
             Assert.Equal("Bearer", challenge.Scheme);
-            Assert.Null(challenge.Parameter);
-            Assert.Equal(string.Empty, await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+            Assert.Equal("error=\"invalid_token\"", challenge.Parameter);
+            Assert.Equal("{\"type\":\"https://w3id.org/varve/problems/unauthorized\",\"title\":\"The request carries no valid bearer token.\",\"status\":401}", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
         }
     }
 
@@ -144,7 +149,10 @@ public sealed class AuthTests : IAsyncLifetime
         // "reader" administers e and only reads d; an unknown dataset grants nothing.
         string token = _issuer.Mint(Claims("reader"));
         Assert.Equal(HttpStatusCode.OK, (await SendAsync("GET", "datasets/e/status", token)).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync("GET", "datasets/d/status", token)).StatusCode);
+        HttpResponseMessage forbidden = await SendAsync("GET", "datasets/d/status", token);
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+        Assert.Equal("error=\"insufficient_scope\"", forbidden.Headers.WwwAuthenticate.Single().Parameter);
+        Assert.Contains("\"type\":\"https://w3id.org/varve/problems/forbidden\"", await forbidden.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
         Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync("GET", "datasets/nowhere/sparql?query=ASK%7B%7D", token)).StatusCode);
 
         // The list shows what the caller administers: e for "reader", both for a server admin (ADR 0106).
