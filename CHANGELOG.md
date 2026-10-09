@@ -75,6 +75,13 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
   `http-rdf-update` with six justified exemptions a store; the
   conformance baseline holds 4,122 lines.
 
+#### Fixed
+
+- **`Varve.Sparql.Results`**: the JSON results reader counted line ends
+  from the document's start at every term, so reading was quadratic in the
+  document: 10,000 solutions took twenty seconds, and `SERVICE` negotiates
+  JSON first. The count is incremental; 8,000 solutions read in 75 ms.
+
 ## [0.1.0-preview.1] - 2026-10-07
 
 **The first release, milestones 1 to 6c, from the foundation to the durable store**

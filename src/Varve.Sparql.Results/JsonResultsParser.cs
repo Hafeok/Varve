@@ -25,6 +25,15 @@ internal sealed class JsonResultsParser : FormatParser
     private bool _done;
     private byte[] _unescaped = new byte[64];
 
+    // The line count so far, so that a position costs the bytes since the last
+    // one and not the document from its start: positions are asked for at
+    // every binding and every term, and a scan from the start at each made
+    // reading quadratic in the document (a 10,000-solution document took
+    // twenty seconds; the 7b allocation readings found it).
+    private long _scanned;
+    private int _scannedLine = 1;
+    private long _scannedLineStart;
+
     internal JsonResultsParser(ReadOnlySequence<byte> input)
     {
         _input = input;
@@ -407,28 +416,45 @@ internal sealed class JsonResultsParser : FormatParser
 
     private ResultsPosition PositionAt(long offset)
     {
-        int line = 1;
-        long lineStart = 0;
-        long at = 0;
+        if (offset < _scanned)
+        {
+            // Behind the last position asked for (the results came before the
+            // head, and the reader went back to them): count again from the start.
+            _scanned = 0;
+            _scannedLine = 1;
+            _scannedLineStart = 0;
+        }
+
+        long segmentStart = 0;
         foreach (ReadOnlyMemory<byte> segment in _input)
         {
             ReadOnlySpan<byte> span = segment.Span;
-            for (int i = 0; i < span.Length && at < offset; i++, at++)
+            long segmentEnd = segmentStart + span.Length;
+
+            if (segmentEnd > _scanned)
             {
-                if (span[i] == (byte)'\n')
+                int from = (int)(Math.Max(_scanned, segmentStart) - segmentStart);
+                int to = (int)(Math.Min(offset, segmentEnd) - segmentStart);
+
+                for (int i = from; i < to; i++)
                 {
-                    line++;
-                    lineStart = at + 1;
+                    if (span[i] == (byte)'\n')
+                    {
+                        _scannedLine++;
+                        _scannedLineStart = segmentStart + i + 1;
+                    }
                 }
             }
 
-            if (at >= offset)
+            segmentStart = segmentEnd;
+            if (segmentStart >= offset)
             {
                 break;
             }
         }
 
-        return new ResultsPosition(offset, line, (int)(offset - lineStart) + 1);
+        _scanned = Math.Max(_scanned, offset);
+        return new ResultsPosition(offset, _scannedLine, (int)(offset - _scannedLineStart) + 1);
     }
 
     private ResultsSyntaxException Structure(ref Utf8JsonReader reader, string message) =>

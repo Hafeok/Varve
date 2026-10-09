@@ -85,3 +85,10 @@ summary: |
     suites pass whole on both stores and through the graph-scoped source;
     `http-rdf-update` with six justified exemptions a store; the
     conformance baseline holds 4,122 lines.
+
+  #### Fixed
+
+  - **`Varve.Sparql.Results`**: the JSON results reader counted line ends
+    from the document's start at every term, so reading was quadratic in the
+    document: 10,000 solutions took twenty seconds, and `SERVICE` negotiates
+    JSON first. The count is incremental; 8,000 solutions read in 75 ms.

@@ -392,6 +392,17 @@ In `tests/Varve.Benchmarks/README.md`, the 7b section:
   machine, never in the meter's `Measure` tests. It now reads the two sides
   interleaved, the least of `AllocationMeter.Readings` each, 16,000
   solutions apart, as `docs/testing.md` §4 has said since 0(c).
+- **The JSON results reader was quadratic in the document.** It asked
+  for a position at every binding and every term, and `PositionAt` counted
+  line ends from the document's start each time: 1,000 solutions in 0.3 s,
+  2,000 in 0.8, 4,000 in 3.5, 8,000 in 13. XML, TSV and CSV count as they
+  go. The reader shipped so in `v0.1.0-preview.1`, and `SERVICE` negotiates
+  JSON first (ADR 0104), so a federated answer of 10,000 rows cost twenty
+  seconds to read. Nothing noticed until 0(c)'s ten readings made the
+  results-format suite's two JSON allocation tests take 227 and 186 s,
+  three minutes of the `build` job where `main` spent forty seconds. The
+  count is incremental now, from the last position asked for; 8,000
+  solutions read in 75 ms, and the suite is back to seconds.
 - **The status fixture `stale-status-line` read the repository's
   `releases/`**, so the descriptor changed what it expected to be told. It
   carries its own `releases/` now, with preview.1 alone.
