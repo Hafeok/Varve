@@ -110,7 +110,41 @@ them.
 
 ### Measured
 
-{{MEASURED}}
+**The soak, one hour each** (`tests/Varve.Benchmarks/README.md`,
+Operability): under the shipped configuration the working set ran 122 →
+152 MB by ten-minute medians, peak 215 MB, the band held (0 of 101 outside
+±25%), the drift measure read **+22.1%** against the 10% ADR 0082 allows
+(+4.1% from minute 30); under the default runtime 159 → 152 MB, peak
+247 MB, the band missed by 2 of 101, drift +7.4%. Both end at a live heap
+of 18 MB; the difference is the collector's committed memory, which the
+default over-commits early and the shipped one grows with the heap. **The
+gate as worded does not hold under the shipped configuration by its drift
+measure**, while every absolute figure is better there; the maintainer
+decides whether the measure or the configuration moves, and the
+descriptor's `Closes #61` stands as the brief asked, to be re-opened if
+that is the decision.
+
+**The protocol over HTTP, both collectors** (the 7a workload, the same
+binary, one after the other): no throughput cost to the memory gate; the
+shipped configuration leads in every row but one tie, by 11% and 26% on
+the 8-client point queries (26,347 and 24,999 operations a second against
+23,737 and 19,831), with lower p99s.
+
+**`INSERT DATA` of 100,000 quads** (#35, ADR 0120): 539.7 → 416.8 ms
+(means) in the first run against pyoxigraph's 394.2 and 402.4 ms; 489.8 ms
+median in the final run against 453.6 ms in the same run; 1.37× → 1.04–1.08×;
+allocation 322 → 259 MB. Not at or below: #35 stays open, with a third of
+the time in parsing.
+
+**The suites and the tests.** The 188 W3C update cases pass; the protocol
+suites against a running server over HTTP pass every case the memory
+subject passes (62 of 62 in the baseline, 6 exempt as before); the store's
+163 tests, the protocol's 72 (the traced allocation reading at the same 56
+bytes a solution as the untraced), the server's 70 (the collector test
+receiving spans, metrics and the commit log line over OTLP/HTTP), and the
+update library's 20 pass; the Native AOT publish is clean with the
+OpenTelemetry packages. The full gates run (`eng/ci.cs`) is in the pull
+request's checks, red on `CS0618` alone.
 
 ### Every limit, its default and its problem type
 

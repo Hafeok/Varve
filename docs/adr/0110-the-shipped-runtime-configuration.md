@@ -23,8 +23,10 @@ configuration is ahead in every row but one tie, by 11% and 26% on the
 configuration keeps the working set below the default runtime's in every
 ten-minute window and holds the band; the drift measure as ADR 0082 words
 it reads +22% because `ConserveMemory` starts small and the collector
-commits as the live heap grows, and +4% from minute 30; the maintainer
-judges whether the measure or the configuration is what moves.
+commits as the live heap grows, and +4% from minute 30; the default
+runtime's hour beside it reads +7.4% with the band missed by 2 samples of
+101. The maintainer judges whether the measure or the configuration is
+what moves.
 
 ## Context
 

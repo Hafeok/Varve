@@ -1148,6 +1148,41 @@ both columns.
 (`DOTNET_GCConserveMemory=5`; the harness is a workstation-GC process
 already, as the server now is) and the default runtime's hour.
 
-{{SOAK_TABLE}}
+| | Shipped (workstation, concurrent, `ConserveMemory` 5) | Default runtime |
+|---|---:|---:|
+| Commits, quads in the hour | 125,920; 3.11 M | 126,435; 3.12 M |
+| Pinned scans, as-of reads | 335,132; 292,612 | 355,634; 322,526 |
+| Working set median, minutes 0–10 → 10–20 → 20–30 → 30–40 → 40–50 → 50–60 | 122 → 124 → 129 → 146 → 149 → 152 MB | 159 → 142 → 141 → 148 → 150 → 152 MB |
+| Peak working set | **215 MB** | 247 MB |
+| Collector's committed memory, median per window | 46 → 45 → 49 → 56 → 58 → 61 MB | 93 → 72 → 69 → 65 → 67 → 69 MB |
+| Live managed heap, median of the last ten minutes | 17.5 MB | 18.1 MB |
+| Large object heap, median of the last ten minutes | 12.6 MB | 15.9 MB |
+| The dataset's own at the hour | 9.4 MB: run directories 6.0, a twentieth of the checkpoints' 67.7 | the same |
+| Band, ±25% of the median of minutes 10–60 over the last 50 minutes | **held, 0 of 101** | missed by 2 samples of 101 |
+| Drift, median of minutes 50–60 over 10–20, 10% allowed | **+22.1%** | +7.4% |
+| Drift, median of minutes 50–60 over 30–40 | +4.1% | +2.8% |
+| Open handles | 64–87 | 64–87 |
+| `derived/` files | 6–26 | 6–26 |
+| Reopened at the hour | 125,920 of 125,920 in 0.83 s | 126,435 of 126,435 in 0.87 s |
 
-{{SOAK_PROSE}}
+**Read the two columns together.** The shipped configuration keeps the
+working set at or below the default's in every window, peaks 32 MB lower,
+and holds the band where the default's hour misses it by two samples (as
+6c's did). Both hours end at the same 152 MB and the same 18 MB live heap:
+the dataset is the same and so is what lives in it. What differs is the
+collector's committed memory, the gap between the two: the default
+collector commits 93 MB in the first ten minutes and trims toward 69; with
+`ConserveMemory` 5 it commits 46 MB and grows with the live heap to 61.
+That is what the gate's drift measure sees: the shipped configuration's
+first window is the smaller one, so the median of minutes 50–60 over 10–20
+reads **+22%**, over the 10% ADR 0082 allows, while the same measure taken
+from minute 30, when committed memory has caught up with the live heap,
+reads +4%. **The gate as ADR 0082 words it does not hold under the shipped
+configuration on this run, and holds, by its drift, under the default**;
+the band, the handles, the files and the live heap hold under both, and
+every absolute figure is better under the shipped one. Whether the drift
+measure should start at minute 10 for a collector that commits as it
+goes, or the configuration should change, is the maintainer's call on the
+amendment to 0082; the figures are here either way. The hour is the 6c
+workload on the Operability head: the fast path (ADR 0120) in the writer,
+the store's meter (ADR 0112) with no listener attached.
