@@ -50,7 +50,9 @@ change in one of two ways, your choice:
 
 - **Push it to a `land/<anything>` branch**, let CI run there, then fast-forward
   `main` to that commit: `git push origin <sha>:main`. CI on a `land/` branch
-  checks everything the branch would bring to `main`.
+  checks everything the branch would bring to `main`. `dotnet run
+  eng/land.cs -- --commit <sha>`, then the same with `--main`, does both, and
+  `dotnet run eng/land.cs -- <pr>` lands a pull request's approved head.
 - **Open a pull request** and merge it. It needs no review when every commit is
   yours. A pull request with an AI session's commits needs an approval on its
   head from the session's responsible human or a delegate

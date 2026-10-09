@@ -185,6 +185,8 @@ version-controlled and **never fetched at test time**.
 ```bash
 dotnet run eng/ci.cs                               # the whole pipeline, as CI runs it
 dotnet run eng/ci.cs -- --list                     # and what it consists of, to run one
+dotnet run eng/land.cs -- <pr>                     # maintainer: push an approved head to land/
+dotnet run eng/land.cs -- <pr> --main              # then fast-forward main to it
 dotnet build Varve.slnx -c Release                 # zero warnings, or it is broken
 dotnet run eng/dependency-register.cs -- --base origin/main
 git submodule update --init --recursive            # needed for conformance

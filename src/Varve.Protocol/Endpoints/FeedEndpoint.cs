@@ -114,19 +114,24 @@ internal static class FeedEndpoint
                 .Subscribe(range.From, subscription, cancellationToken)
                 .GetAsyncEnumerator(cancellationToken);
 
-            if (live)
-            {
-                // Headers out at once, so that a client sees the stream open.
-                await body.FlushAsync(cancellationToken).ConfigureAwait(false);
-            }
-
-            Task<bool>? next = null;
+            // An enumerator is not disposed while a MoveNextAsync is in flight:
+            // the store refuses it, and its exception would replace the one
+            // that ended the stream (a heartbeat's flush cancelled at shutdown,
+            // say), so the stream would end with no record saying why.
+            Task<bool>? pending = null;
 
             try
             {
+                if (live)
+                {
+                    // Headers out at once, so that a client sees the stream open.
+                    await body.FlushAsync(cancellationToken).ConfigureAwait(false);
+                }
+
                 while (true)
                 {
-                    next = commits.MoveNextAsync().AsTask();
+                    Task<bool> next = commits.MoveNextAsync().AsTask();
+                    pending = next;
 
                     while (live && await Task.WhenAny(next, Task.Delay(options.Limits.FeedHeartbeat, options.Clock, cancellationToken)).ConfigureAwait(false) != next)
                     {
@@ -180,21 +185,10 @@ internal static class FeedEndpoint
             }
             finally
             {
-                // The heartbeat's cancellation can win the race against the
-                // advance the same token is cancelling, and an async iterator
-                // refuses to be disposed while it advances: the advance is
-                // waited out first. It ends promptly, the subscription waits
-                // on the token.
-                if (next is { IsCompleted: false })
+                if (pending is { IsCompleted: false })
                 {
-                    try
-                    {
-                        await next.ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        // Expected: the token that ended the loop ended the advance.
-                    }
+                    await linked.CancelAsync().ConfigureAwait(false);
+                    await ((Task)pending).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
                 }
             }
         }

@@ -61,6 +61,17 @@ labels:
   color: ffffff
   description: This will not be worked on
 rulesets:
+# main requires signed commits, with two bypass actors (ADR 0034,
+# GOVERNANCE.md):
+#   RepositoryRole 5     the admin role, the maintainer's.
+#   Integration 1236702  the Claude GitHub App, which pushes cloud AI
+#                        sessions' commits; those cannot be signed, which
+#                        ADR 0034 records as a stated deviation.
+# A land/ fast-forward of `main` to an approved pull request's head is the
+# maintainer's own push, under the admin bypass, so the head's unsigned agent
+# commits pass this rule (ADR 0087 as amended 2026-10-08, ADR 0102). The gates
+# App (5220446) is not here and needs no place: it pushes only v* tags, which
+# this branch rule does not cover (the tag ruleset below bypasses it for that).
 - name: Signed Commits
   target: branch
   enforcement: active

@@ -373,8 +373,17 @@ In `tests/Varve.Benchmarks/README.md`, the 7b section:
   subscription's `MoveNextAsync` is still pending, which an async iterator's
   `DisposeAsync` refuses (`NotSupportedException`), so the shutdown event
   went out and the chunked body never closed. Linux CI caught it once on the
-  7a code the PR touches; the loop now waits the advance out before the
-  disposal. It ends promptly: the subscription waits on the same token.
+  7a code the PR touches, and the maintainer's own fix (#81, 6141948) landed
+  on `main` the same morning; the merge takes `main`'s, which cancels the
+  linked token and awaits the advance with its exception suppressed, with
+  7b's scope lines inside the loop.
+- **The sandbox has no `ssh-keygen`.** `main`'s session-start hook (#79)
+  signs cloud commits with the maintainer's agent key when
+  `CLAUDE_GIT_SIGNING_KEY` is set; it was set here, `CLAUDE_CODE_REMOTE` was
+  `true`, and the hook would have declined, because the image carries no
+  `ssh-keygen`, which git needs for SSH signing. The hook had not run in a
+  cloud session before; this is its first measurement, for the ADR 0034
+  successor the record of #79 defers.
 - **The status fixture `stale-status-line` read the repository's
   `releases/`**, so the descriptor changed what it expected to be told. It
   carries its own `releases/` now, with preview.1 alone.

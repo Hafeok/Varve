@@ -133,6 +133,11 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("release-fixtures", "the release validator fails each of its fixtures, for its own reason",
         () => Run("dotnet", ["run", "eng/release.cs", "--", "--fixtures", "tests/fixtures/releases"])),
 
+    // Not a gate: the maintainer's landing helper (ADR 0088). Built here so
+    // that it does not rot between landings.
+    ("land", "the landing helper builds and prints its usage",
+        () => Run("dotnet", ["run", "eng/land.cs", "--", "--help"])),
+
     ("restore", "restore the solution",
         () => Run("dotnet", ["restore", "Varve.slnx"])),
 
