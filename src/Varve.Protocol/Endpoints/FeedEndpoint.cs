@@ -120,57 +120,81 @@ internal static class FeedEndpoint
                 await body.FlushAsync(cancellationToken).ConfigureAwait(false);
             }
 
-            while (true)
+            Task<bool>? next = null;
+
+            try
             {
-                Task<bool> next = commits.MoveNextAsync().AsTask();
-
-                while (live && await Task.WhenAny(next, Task.Delay(options.Limits.FeedHeartbeat, options.Clock, cancellationToken)).ConfigureAwait(false) != next)
+                while (true)
                 {
-                    TermLines.Write(body, framing == FeedFraming.EventStream ? ":\n\n"u8 : "#\n"u8);
-                    await body.FlushAsync(cancellationToken).ConfigureAwait(false);
-                }
+                    next = commits.MoveNextAsync().AsTask();
 
-                if (!await next.ConfigureAwait(false))
-                {
-                    return;
-                }
-
-                Commit commit = commits.Current;
-
-                if (range.To is Position end && commit.Position > end)
-                {
-                    return;
-                }
-
-                // The caller's scope (ADR 0107): a data commit's delta cut
-                // to the readable graphs, dropped when nothing is left; a
-                // settings or erasure commit for an admin alone. The next
-                // record delivered carries its true position, so a client
-                // resumes as before (change-feed.md §8).
-                QuadDelta delta = scope.Apply(storeFilters ? commit.Delta : filter.Apply(commit), commit.TryExternalise);
-                bool deliver = commit.Kind == CommitKind.Data ? !delta.IsEmpty : admin;
-
-                if (deliver)
-                {
-                    record.ResetWrittenCount();
-                    DeltaLines.WriteCommit(record, commit, delta, commit.TryExternalise);
-                    written += Frame(body, framing, commit.Position, record.WrittenSpan);
-                    last = commit.Position;
-
-                    if (!live && written > options.Limits.ResultSizeCap.Value)
+                    while (live && await Task.WhenAny(next, Task.Delay(options.Limits.FeedHeartbeat, options.Clock, cancellationToken)).ConfigureAwait(false) != next)
                     {
-                        throw new ReadLimitExceededException();
-                    }
-
-                    if (live || written >= ResponseOutput.Threshold)
-                    {
+                        TermLines.Write(body, framing == FeedFraming.EventStream ? ":\n\n"u8 : "#\n"u8);
                         await body.FlushAsync(cancellationToken).ConfigureAwait(false);
                     }
-                }
 
-                if (range.To is Position to && commit.Position >= to)
+                    if (!await next.ConfigureAwait(false))
+                    {
+                        return;
+                    }
+
+                    Commit commit = commits.Current;
+
+                    if (range.To is Position end && commit.Position > end)
+                    {
+                        return;
+                    }
+
+                    // The caller's scope (ADR 0107): a data commit's delta cut
+                    // to the readable graphs, dropped when nothing is left; a
+                    // settings or erasure commit for an admin alone. The next
+                    // record delivered carries its true position, so a client
+                    // resumes as before (change-feed.md §8).
+                    QuadDelta delta = scope.Apply(storeFilters ? commit.Delta : filter.Apply(commit), commit.TryExternalise);
+                    bool deliver = commit.Kind == CommitKind.Data ? !delta.IsEmpty : admin;
+
+                    if (deliver)
+                    {
+                        record.ResetWrittenCount();
+                        DeltaLines.WriteCommit(record, commit, delta, commit.TryExternalise);
+                        written += Frame(body, framing, commit.Position, record.WrittenSpan);
+                        last = commit.Position;
+
+                        if (!live && written > options.Limits.ResultSizeCap.Value)
+                        {
+                            throw new ReadLimitExceededException();
+                        }
+
+                        if (live || written >= ResponseOutput.Threshold)
+                        {
+                            await body.FlushAsync(cancellationToken).ConfigureAwait(false);
+                        }
+                    }
+
+                    if (range.To is Position to && commit.Position >= to)
+                    {
+                        return;
+                    }
+                }
+            }
+            finally
+            {
+                // The heartbeat's cancellation can win the race against the
+                // advance the same token is cancelling, and an async iterator
+                // refuses to be disposed while it advances: the advance is
+                // waited out first. It ends promptly, the subscription waits
+                // on the token.
+                if (next is { IsCompleted: false })
                 {
-                    return;
+                    try
+                    {
+                        await next.ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Expected: the token that ended the loop ended the advance.
+                    }
                 }
             }
         }

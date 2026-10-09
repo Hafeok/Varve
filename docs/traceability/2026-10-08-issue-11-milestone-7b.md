@@ -366,6 +366,15 @@ In `tests/Varve.Benchmarks/README.md`, the 7b section:
   `info`'s indented JSON has the platform's line ending, and the credential
   file is DPAPI-protected on Windows and not readable as text. The test
   normalises the one and reads the other through `CredentialFile`.
+- **A live feed could end a shutdown with a broken response.** The feed
+  loop waits on whichever comes first of the next commit and a heartbeat,
+  both under one token; when shutdown cancels it, the heartbeat's
+  cancellation can win and the loop leaves the `await using` while the
+  subscription's `MoveNextAsync` is still pending, which an async iterator's
+  `DisposeAsync` refuses (`NotSupportedException`), so the shutdown event
+  went out and the chunked body never closed. Linux CI caught it once on the
+  7a code the PR touches; the loop now waits the advance out before the
+  disposal. It ends promptly: the subscription waits on the same token.
 - **The status fixture `stale-status-line` read the repository's
   `releases/`**, so the descriptor changed what it expected to be told. It
   carries its own `releases/` now, with preview.1 alone.
