@@ -21,7 +21,7 @@ if [ -z "${CLAUDE_GIT_SIGNING_KEY:-}" ]; then
 fi
 
 if ! command -v ssh-keygen >/dev/null 2>&1; then
-    echo "cloud-git-identity: ssh-keygen is missing, which git needs for SSH signing; commits in this session are unsigned." >&2
+    echo "cloud-git-identity: ssh-keygen is missing, which git needs for SSH signing; commits in this session are unsigned. The environment's setup script, .claude/cloud-setup.sh, installs it." >&2
     exit 0
 fi
 

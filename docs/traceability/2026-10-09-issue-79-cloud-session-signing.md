@@ -83,3 +83,52 @@ the evidence in its context. When it comes, it also changes `GOVERNANCE.md`,
 
 One commit, authored as the agent and signed off by the maintainer, carrying
 this record and the two files above.
+
+## Follow-up, the same day and session: the setup script
+
+After the hook landed (e07eabf), the maintainer ran a cloud session and found
+what the hook's guard is for.
+
+### The prompt
+
+> the cloud sandbox for claude is missing  ssh-keygen, which the new signing hook requires. - i think we should create a setup script for Varve for Claude cloud environments
+
+### The report
+
+**Measured.** The sandbox has no `ssh-keygen`, so git cannot make an SSH
+signature there, and the hook left the session unsigned and said so. The
+platform's documentation, read for this: a cloud environment has a **setup
+script**, configured in the environment dialog rather than in the repository,
+which runs as root on the fresh Ubuntu 24.04 VM before Claude Code launches,
+once per environment cache (about seven days, rebuilt when the field changes).
+It must exit zero or the session does not start, and finish within about five
+minutes or nothing is cached. The same page lists the pre-installed toolchains
+and says in words that the .NET SDK is not among them.
+
+**Added.** `.claude/cloud-setup.sh`, the setup script, kept in the repository
+as the one source. It installs `openssh-client` and the SDK that `global.json`
+pins (10.0.401, the same exact version the devcontainer pins), each step
+guarded so that a failed install is reported rather than fatal. The WebAssembly
+workloads are left out on the time budget, and the file says so. The hook's
+message for a missing `ssh-keygen` now names the script.
+
+**Installing it** is the maintainer's step: set the environment's *Setup
+script* field to
+
+```
+curl -fsSL https://raw.githubusercontent.com/Hafeok/Varve/main/.claude/cloud-setup.sh | bash
+```
+
+`raw.githubusercontent.com` is on the platform's default allowlist.
+
+**Not measured, and what the next cloud session measures.** Whether the
+proxy admits `dot.net` and the SDK's download host, which the allowlist does
+not name; whether the install fits the five-minute budget; and, once
+`CLAUDE_GIT_SIGNING_KEY` is set, whether the commit comes back
+`verified: true`. If the SDK download is refused, the fallback is Ubuntu's
+`dotnet-sdk` package, whose feature band must then be checked against
+`global.json`.
+
+### Commits
+
+One further commit, same shape as the first.
