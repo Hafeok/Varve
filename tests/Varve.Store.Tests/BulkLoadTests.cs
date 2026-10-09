@@ -99,7 +99,12 @@ public class BulkLoadTests
     };
 
     // Small enough that every load spills many runs, and merges more than 64 of them in passes.
-    private static BulkLoadOptions Tiny => new() { SortRecords = 3, TermBytes = 64 };
+    // One worker: the simulated file system numbers its operations in
+    // sequence, and a crash "before operation N" names the same write in
+    // every run only when one thread writes (ADR 0108). With more workers the
+    // interleaving, and how many terms reach the shared table before a spill,
+    // vary run to run. The worker-count test below sets its own.
+    private static BulkLoadOptions Tiny => new() { SortRecords = 3, TermBytes = 64, Workers = 1 };
 
     private static async Task<Dataset> PriorAsync(IStorage storage, Op[][] prior, IReadOnlyList<ICommitValidator>? validators = null)
     {

@@ -348,6 +348,16 @@ In `tests/Varve.Benchmarks/README.md`, the 7b section:
   3 headers too, with no filter, so the first hour-long run on the final
   code reported directories of 10¹² MB. The meter now reads the kind field
   and adds the filter for runs and checkpoints only; the hour was run again.
+- **The crash-at-every-operation test needs one worker.** The simulated
+  file system numbers its operations in sequence and the test cuts the run
+  before operation N of the reference run; with three workers the
+  interleaving, and how many terms reach the shared table before a spill,
+  vary, so the first CI run found no operation 296 (Linux) or 293 (Windows)
+  to crash at. The simulated tests pin `Workers = 1`; the worker-count
+  property keeps covering the rest.
+- **The status fixture `stale-status-line` read the repository's
+  `releases/`**, so the descriptor changed what it expected to be told. It
+  carries its own `releases/` now, with preview.1 alone.
 - **The 100M commit stage varied by 10% between two runs** (670 → 734 s)
   with no change to its code; the before and after rows are one session on
   one machine, and the input stage's halving is the signal, not the
