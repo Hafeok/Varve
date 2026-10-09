@@ -14,6 +14,18 @@ under it.
 configuration costing throughput that an operator would notice, or the
 runtime changing what `ConserveMemory` does.
 
+**Measured at filing, 2026-10-09** (`tests/Varve.Benchmarks/README.md`,
+Operability). The throughput cost of the memory gate, on the 7a protocol
+workload with the same Native AOT binary under the shipped configuration and
+under `DOTNET_gcServer=1`, one after the other: **none**; the shipped
+configuration is ahead in every row but one tie, by 11% and 26% on the
+8-client point queries, with lower p99s. The one-hour soak under the shipped
+configuration keeps the working set below the default runtime's in every
+ten-minute window and holds the band; the drift measure as ADR 0082 words
+it reads +22% because `ConserveMemory` starts small and the collector
+commits as the live heap grows, and +4% from minute 30; the maintainer
+judges whether the measure or the configuration is what moves.
+
 ## Context
 
 Milestone 6c separated the causes of the soak's working-set growth and found

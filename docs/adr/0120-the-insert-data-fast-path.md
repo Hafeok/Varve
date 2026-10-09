@@ -7,6 +7,16 @@
 #35; builds on ADR 0057 as amended 2026-10-08 (a data-only request expects no
 position).
 
+**Measured at filing, 2026-10-09** (`tests/Varve.Benchmarks/README.md`,
+Operability): on a 4-core cloud machine, `INSERT DATA` of 100,000 quads went
+from 539.7 ms to 416.8 ms (means) in the first run and measured 489.8 ms
+(median) in the final run, against pyoxigraph 0.5.11 at 394–402 ms and
+453.6 ms in the same runs: 1.04–1.08×, from 1.37×. Allocation fell from
+322 MB to 259 MB. **Point 5 is not met**: #35 stays open, and the report
+says where the remaining time is — a third is parsing, about 175 ms the
+store's commit, the rest the terms' crossing and the sequencer's
+resolution.
+
 ## Context
 
 #35 measured `INSERT DATA` of 100,000 quads into an empty store at 475 ms

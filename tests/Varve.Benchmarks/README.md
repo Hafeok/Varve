@@ -1079,9 +1079,33 @@ The 5c workload again: the first N quads of `StoreDataset` as one
 empty store, pyoxigraph in the same run on the same machine. The staged
 path's row is the commit before ADR 0120, run in a worktree beside it.
 
-{{INSERT_TABLE}}
+| N | Varve, staged path (before 0120) | Varve, fast path | pyoxigraph, same run | Varve allocates |
+|---:|---:|---:|---:|---:|
+| 10,000 | 59.8 ms (mean) | 68.9 ms median, 43.9 min | **39.1 ms** | 28.9 MB, from 35.7 |
+| 100,000 | 539.7 ms (mean) | 489.8 ms median, 474.1 min | **453.6 ms** | 258.9 MB, from 322.1 |
 
-{{INSERT_PROSE}}
+The same pair in the first run of the day, on a quieter machine, means of 8:
+
+| N | Varve, staged path | Varve, fast path | pyoxigraph, same run (two runs) |
+|---:|---:|---:|---:|
+| 10,000 | 59.8 ms | 45.2 ms | 33.0 ms, 34.8 ms |
+| 100,000 | 539.7 ms | 416.8 ms | 394.2 ms, 402.4 ms |
+
+**The fast path took a fifth off the request and a fifth off its
+allocation, and did not reach pyoxigraph**: 1.08× at 100,000 by the final
+run's medians (489.8 against 453.6 ms), 1.04–1.06× by the first run's means
+(416.8 against 394.2 and 402.4), from 1.37× before. The machine's own speed
+moved by a sixth between the two runs, which is why each row names the
+pyoxigraph figure from its own run. Where the remaining time is, by the
+final run: parsing is 165.7 ms of the 489.8 (a third, `VarveParseOnly` in
+the same run, 98 MB); the store's commit of 100,000 quads in one request
+is about 175 ms on 4's clock and was not re-measured here; the rest, about
+150 ms, is the request's terms crossing from the algebra into the commit
+request and the sequencer's resolution of 100,000 terms against an empty
+dictionary. The 10,000 row's standard deviation (24 ms on a 69 ms median)
+is garbage collection in one-invocation iterations, as 5c noted. **#35
+stays open on ADR 0120's own terms**; the next place to look is the
+parser's share, which the fast path left as it was.
 
 ### The protocol over HTTP, server GC against the shipped configuration (ADR 0110)
 
@@ -1091,9 +1115,32 @@ default forced by the environment (`DOTNET_gcServer=1`,
 `DOTNET_GCConserveMemory=0`), one after the other on the same machine. The
 8-client rows are the ones that show a collector's cost, if there is one.
 
-{{HTTP_TABLE}}
+| Store | Workload | Clients | Shipped: ops/s, p50, p99 | Server GC: ops/s, p50, p99 |
+|---|---|---:|---|---|
+| memory | point query, 10 rows | 1 | 5,196, 0.17 ms, 0.59 ms | 4,973, 0.16 ms, 0.71 ms |
+| memory | point query, 10 rows | 8 | **26,347**, 0.25 ms, 0.81 ms | 23,737, 0.26 ms, 1.16 ms |
+| memory | `INSERT DATA`, 1 quad | 1 | 2,564, 0.33 ms, 1.03 ms | 2,233, 0.41 ms, 1.18 ms |
+| memory | `INSERT DATA`, 1 quad | 8 | 11,159, 0.64 ms, 2.21 ms | 11,096, 0.65 ms, 2.09 ms |
+| file | point query, 10 rows | 1 | 4,675, 0.17 ms, 0.67 ms | 2,444, 0.32 ms, 1.23 ms |
+| file | point query, 10 rows | 8 | **24,999**, 0.25 ms, 1.05 ms | 19,831, 0.29 ms, 1.48 ms |
+| file, flushed | `INSERT DATA`, 1 quad | 1 | 711, 1.25 ms, 2.99 ms | 712, 1.30 ms, 2.82 ms |
+| file, flushed | `INSERT DATA`, 1 quad | 8 | 2,339, 3.19 ms, 6.70 ms | 1,192, 6.30 ms, 13.25 ms |
 
-{{HTTP_PROSE}}
+**There is no throughput cost to the memory gate on this machine; the
+shipped configuration is the faster of the two in every row but the one
+that is a tie.** The point-query rows at 8 clients are 11% and 26% ahead
+under the workstation collector, and the p99s are lower throughout, which
+is what a concurrent collector on four shared cores does for a server
+whose live heap is small: the server collector's per-core heaps and its
+blocking gen0 collections cost more here than they save. The flushed file
+rows are the disk's, not the collector's (the 1-client rows are equal); the
+8-client file row's 2× is one run each and within what the disk's flush
+latency varies by. 7a's memory point-query figures (23,910 at 8 clients)
+were measured before the fast path and the catalogue, on a different day
+of the same cloud machine; the two columns above are the same binary on
+the same afternoon, one after the other, and that is the comparison the
+ADR asked for. The `INSERT DATA` rows carry the fast path (ADR 0120) in
+both columns.
 
 ### Soak: one hour under the shipped runtime configuration, and the default's hour beside it (ADR 0082, amended; #61)
 

@@ -150,6 +150,21 @@ open, and #35 stays open until the median meets pyoxigraph's.
 
 ### Commits
 
-{{COMMITS}}
+| Commit | What |
+|---|---|
+| 572575b | `docs(adr)`: 0110–0120 filed, eight dated amendments |
+| c2628c9 | `build(server)`: workstation concurrent GC, `ConserveMemory` 5 |
+| 4bff575 | `feat(protocol)`: state, settings and commits as resources; idempotent `PUT` |
+| 3eee6dc | `feat(protocol)`: the problem catalogue, headers by read kind, `docs/problems/` |
+| fa6d3c7 | `feat(server)`: `/health/live`, `/health/ready`, the drain, rate limits |
+| c91d6aa | `feat(governance)`: memory by counting, as-of distance, live tails, read queue, paged commits |
+| ee4ab5b | `feat(server)`: configuration precedence, `--print-config`, unknown keys, the lease and `varve lease` |
+| 953142f | `feat(telemetry)`: the sources in the libraries, the exporter in the server |
+| 14ff704 | `perf(update)`: the `INSERT DATA` fast path |
+| e87056b | `build(container)`: the image, the CI jobs, the attestations, the harness's server subject |
+| be47cb6 | `feat(aspire)`: `Varve.Aspire`, the sample AppHost, its test in CI |
+| 376b222 | `docs(operator)`: the guide |
+| f02ed07 | `chore(release)`: the descriptor, the changelog, the status, this record |
+| the commits after | the measurements folded in, the full gates run, `main` merged |
 
 Developed with AI assistance under human review.
