@@ -121,12 +121,15 @@ one.
    fast-forwards `main` to it:
 
    ```bash
-   git push origin <approved head>:land/release-<version>
-   git push origin <approved head>:main
+   dotnet run eng/land.cs -- <pr>          # pushes the head to land/release-<version>
+   dotnet run eng/land.cs -- <pr> --main   # once its checks are green
    ```
 
-   A `land/release-**` branch name also dry-runs the release on that head
-   (§5).
+   `eng/land.cs` names the branch `release-<version>` when the head adds a
+   descriptor, and that name also dry-runs the release on that head (§5). It
+   is `git push origin <approved head>:land/release-<version>`, then `git push
+   origin <approved head>:main`, with the checks that make either fail
+   later.
 4. **Cut.** The push to `main` starts `.github/workflows/release.yml`:
    - **plan** validates and resolves the descriptor and applies the head
      guard;
