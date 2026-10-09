@@ -37,6 +37,8 @@ decisions:
     accepted-at: 2026-09-25T00:00:00Z
   - key: DataOnlyRequestExpectsNoPosition
     statement: "A request of INSERT DATA and DELETE DATA alone is composed from its text without normalisation against the pin and submitted with no expected position unless the caller gives one, which is always honoured; a request with any other operation keeps the check"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-09T00:00:00Z
 ---
 
 The rulings of [ADR 0057](../adr/0057-sparql-update-one-request-one-commit.md) still in force, one line each. The ADR is the
