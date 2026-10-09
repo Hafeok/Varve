@@ -129,8 +129,8 @@ public sealed class HostTests
     public async Task Live_and_ready_answer_without_a_token()
     {
         await using RunningServer server = await RunningServer.StartAsync(OidcWithNoIssuer());
-        HttpResponseMessage live = await server.Client.GetAsync(new Uri("live", UriKind.Relative), Ct);
-        HttpResponseMessage ready = await server.Client.GetAsync(new Uri("ready", UriKind.Relative), Ct);
+        HttpResponseMessage live = await server.Client.GetAsync(new Uri("health/live", UriKind.Relative), Ct);
+        HttpResponseMessage ready = await server.Client.GetAsync(new Uri("health/ready", UriKind.Relative), Ct);
         Assert.Equal(HttpStatusCode.OK, live.StatusCode);
         Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
         Assert.Equal("""{"status":"ready","datasets":{"d":"ready"}}""", await ready.Content.ReadAsStringAsync(Ct));
@@ -190,7 +190,7 @@ public sealed class HostTests
         Auth = { Mode = "Anonymous" },
     };
 
-    // An OIDC server whose issuer is never contacted: /live and /ready take no token.
+    // An OIDC server whose issuer is never contacted: /health/live and /health/ready take no token.
     private static Dictionary<string, string> OidcWithNoIssuer() => new()
     {
         ["Varve:Auth:Mode"] = "Oidc",

@@ -8,7 +8,7 @@
 //
 // First the command line (ADR 0105): create, update, query, export, checkpoint
 // and feed against a directory in a temporary root. Then the binary serves that
-// root in anonymous mode; the smoke waits for GET /ready, makes an update, a
+// root in anonymous mode; the smoke waits for GET /health/ready, makes an update, a
 // query and a feed read over HTTP, runs one CLI query against the server's URL,
 // and stops it. On Linux and macOS the stop is SIGTERM and the exit code must
 // be 0; Windows has no SIGTERM to send a console process, so there the process
@@ -16,7 +16,7 @@
 //
 // The interesting AOT failures are at run time and silent — a trimmed type, a
 // missing generic instantiation — so every path that serialises or binds runs
-// here: the configuration binder, the JSON of /ready, a SPARQL JSON result, the
+// here: the configuration binder, the JSON of /health/ready, a SPARQL JSON result, the
 // delta format, the command line's parser and its HTTP client. Exit 1 is a
 // failure, 2 a smoke run that could not start.
 //
@@ -167,7 +167,7 @@ try
 
     do
     {
-        ready = await client.GetAsync("ready");
+        ready = await client.GetAsync("health/ready");
     }
     while (ready.StatusCode != HttpStatusCode.OK && clock.Elapsed < TimeSpan.FromSeconds(60));
 
@@ -175,7 +175,7 @@ try
 
     if (ready.StatusCode != HttpStatusCode.OK)
     {
-        return Fail("/ready is " + (int)ready.StatusCode);
+        return Fail("/health/ready is " + (int)ready.StatusCode);
     }
 
     HttpResponseMessage update = await client.PostAsync("datasets/smoke/sparql", new StringContent("INSERT DATA { <http://ex/a> <http://ex/p> \"smoke\" }", Encoding.UTF8, "application/sparql-update"));
@@ -234,7 +234,7 @@ try
         | Varve.Server, Native AOT | {Environment.OSVersion.Platform} {System.Runtime.InteropServices.RuntimeInformation.OSArchitecture} |
         |---|---:|
         | binary | {size:N0} bytes ({size / 1048576.0:F1} MiB) |
-        | process start to `/ready` 200 | {toReady.TotalMilliseconds:F0} ms |
+        | process start to `/health/ready` 200 | {toReady.TotalMilliseconds:F0} ms |
 
         """);
     Console.WriteLine(table);

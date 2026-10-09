@@ -39,7 +39,7 @@ public class ProblemCatalogueTests
     /// readiness, and the drain.
     /// </summary>
     private static readonly ImmutableArray<ProblemType> ServerEmitted =
-        [ProblemType.Unauthorized, ProblemType.Forbidden, ProblemType.NotFound, ProblemType.NotReady, ProblemType.ShuttingDown];
+        [ProblemType.Unauthorized, ProblemType.Forbidden, ProblemType.NotFound, ProblemType.NotReady, ProblemType.ShuttingDown, ProblemType.TooManyRequests];
 
     /// <summary>
     /// Types no request can trigger yet: the archive horizon (spec T3) does

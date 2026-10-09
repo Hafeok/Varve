@@ -16,6 +16,8 @@
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+    <!-- The readiness property (ADR 0113). -->
+    <PackageReference Include="CsCheck" />
   </ItemGroup>
 
 </Project>

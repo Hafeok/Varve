@@ -56,6 +56,21 @@ internal static class SettingsCheck
                 break;
         }
 
+        if (settings.Health.ReadyLag < 0)
+        {
+            errors.Add("Varve:Health:ReadyLag is a number of positions, zero or more.");
+        }
+
+        if (settings.Health.RateLimit < 1)
+        {
+            errors.Add("Varve:Health:RateLimit is at least one probe a minute.");
+        }
+
+        if (settings.Health.StopDelay < TimeSpan.Zero || settings.Health.StopDelay > TimeSpan.FromMinutes(5))
+        {
+            errors.Add("Varve:Health:StopDelay is between zero and five minutes.");
+        }
+
         // A server with no configured dataset serves what the admin API
         // creates under its root (ADR 0106), so a root is enough.
         if (settings.Datasets.Count == 0 && string.IsNullOrWhiteSpace(settings.DatasetsRoot))

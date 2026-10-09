@@ -35,6 +35,7 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`memory-limit-exceeded`](memory-limit-exceeded.md) | 422 | `limit`, `actual` | The request needs more memory than the server allows one request. |
 | [`as-of-distance-exceeded`](as-of-distance-exceeded.md) | 422 | `limit`, `actual` | The as-of position is too far from its nearest checkpoint. |
 | [`too-many-live-tails`](too-many-live-tails.md) | 429 | `limit` | The client holds too many live tails open. |
+| [`too-many-requests`](too-many-requests.md) | 429 |  | The client sent more requests than the endpoint allows in its window. |
 | [`unavailable`](unavailable.md) | 503 |  | The dataset cannot answer now. |
 | [`read-limit-exceeded`](read-limit-exceeded.md) | 503 |  | The read was cut by a server limit. |
 | [`shutting-down`](shutting-down.md) | 503 |  | The server is shutting down. |

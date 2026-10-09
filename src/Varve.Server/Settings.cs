@@ -33,6 +33,22 @@ internal sealed class ServerSettings
 
     /// <summary><c>LOAD</c> over HTTP (ADR 0104): where an update may fetch a document from.</summary>
     public LoadSettings Load { get; set; } = new();
+
+    /// <summary>Health and readiness (ADR 0113).</summary>
+    public HealthSettings Health { get; set; } = new();
+}
+
+/// <summary>Health and readiness (ADR 0113): the lag readiness tolerates, the probes' rate limit, and the drain's head start.</summary>
+internal sealed class HealthSettings
+{
+    /// <summary>How many positions a default projection may be behind its head and the server still ready; 0 is at head.</summary>
+    public long ReadyLag { get; set; }
+
+    /// <summary>Probes per minute per client address before <c>429</c>.</summary>
+    public int RateLimit { get; set; } = 60;
+
+    /// <summary>How long readiness answers 503 before the listener closes on a stop, so a load balancer notices.</summary>
+    public TimeSpan StopDelay { get; set; }
 }
 
 /// <summary>

@@ -228,7 +228,7 @@ Varve.Protocol.Model.ProblemCatalogue
 static Varve.Protocol.Model.ProblemCatalogue.All.get -> System.Collections.Immutable.ImmutableArray<Varve.Protocol.Model.ProblemShape!>
 static Varve.Protocol.Model.ProblemCatalogue.Of(Varve.Protocol.Model.ProblemType type) -> Varve.Protocol.Model.ProblemShape!
 static Varve.Protocol.Model.ProblemCatalogue.TryGet(Varve.Protocol.Model.ProblemType type, out Varve.Protocol.Model.ProblemShape? shape) -> bool
-static Varve.Protocol.Model.ProblemCatalogue.Write(System.Text.Json.Utf8JsonWriter! json, Varve.Protocol.Model.ProblemType type, string? instance, string? detail) -> void
+static Varve.Protocol.Model.ProblemCatalogue.Write(System.Text.Json.Utf8JsonWriter! json, Varve.Protocol.Model.ProblemType type, string? instance, string? detail, System.Action<System.Text.Json.Utf8JsonWriter!>? members = null) -> void
 static Varve.Protocol.Model.ProblemType.Unauthorized.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.Forbidden.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.NotFound.get -> Varve.Protocol.Model.ProblemType
@@ -237,3 +237,4 @@ static Varve.Protocol.Model.ProblemType.ServerBusy.get -> Varve.Protocol.Model.P
 static Varve.Protocol.Model.ProblemType.MemoryLimitExceeded.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.AsOfDistanceExceeded.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.TooManyLiveTails.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.TooManyRequests.get -> Varve.Protocol.Model.ProblemType

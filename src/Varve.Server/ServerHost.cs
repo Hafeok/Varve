@@ -6,10 +6,12 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Net;
+using System.Globalization;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.RateLimiting;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -88,8 +90,9 @@ internal static partial class ServerHost
         TimeProvider clock = TimeProvider.System;
         await using OpenDatasets datasets = await OpenDatasets.OpenAsync(settings, clock, CancellationToken.None).ConfigureAwait(false);
         IHostApplicationLifetime lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
+        Drain drain = app.Services.GetRequiredService<Drain>();
         using HttpClient outbound = OutboundHttp.CreateClient();
-        Map(app, settings, datasets, clock, anonymous, Outbound.Of(settings, outbound), lifetime.ApplicationStopping);
+        Map(app, settings, datasets, clock, anonymous, Outbound.Of(settings, outbound), drain, lifetime.ApplicationStopping);
 
         if (ready is null)
         {
@@ -109,6 +112,23 @@ internal static partial class ServerHost
     {
         builder.WebHost.ConfigureKestrel(kestrel => kestrel.Limits.MaxRequestBodySize = settings.Limits.MaxRequestBody);
         IServiceCollection services = builder.Services;
+
+        // The drain (ADR 0113): registered after the web host's own hosted
+        // service, so it stops first; readiness turns false and the stop
+        // waits the configured delay before the listener closes.
+        services.AddSingleton(provider => new Drain(settings.Health.StopDelay, provider.GetRequiredService<IHostApplicationLifetime>()));
+        services.AddHostedService(provider => provider.GetRequiredService<Drain>());
+
+        // The health probes are unauthenticated, so they are rate-limited per
+        // client address (ADR 0113); a rejection is a problem like any other.
+        services.AddRateLimiter(limiter =>
+        {
+            limiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            limiter.OnRejected = (rejected, cancellationToken) => new ValueTask(WriteProblemAsync(rejected.HttpContext, ProblemType.TooManyRequests, "The health endpoints answer " + settings.Health.RateLimit.ToString(CultureInfo.InvariantCulture) + " probes a minute per client address."));
+            limiter.AddPolicy("health", context => RateLimitPartition.GetFixedWindowLimiter(
+                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = settings.Health.RateLimit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+        });
 
         if (settings.ForwardedHeaders.Enabled)
         {
@@ -187,12 +207,14 @@ internal static partial class ServerHost
         });
     }
 
-    private static void Map(WebApplication app, ServerSettings settings, OpenDatasets datasets, TimeProvider clock, bool anonymous, Outbound outbound, CancellationToken stopping)
+    private static void Map(WebApplication app, ServerSettings settings, OpenDatasets datasets, TimeProvider clock, bool anonymous, Outbound outbound, Drain drain, CancellationToken stopping)
     {
         if (settings.ForwardedHeaders.Enabled)
         {
             app.UseForwardedHeaders();
         }
+
+        app.UseRateLimiter();
 
         // On SIGTERM: a new write is refused, while what is in flight drains
         // (ADR 0101). Reads still answer until the host stops listening.
@@ -255,54 +277,82 @@ internal static partial class ServerHost
 
         app.MapGroup("/datasets/{dataset}").MapVarveDataset(options);
         app.MapVarveAdministration("/datasets", options);
-        app.MapGet("/live", (RequestDelegate)(context => WriteJsonAsync(context, StatusCodes.Status200OK, "application/json", json => json.WriteString("status", "live"))));
-        app.MapGet("/ready", (RequestDelegate)(context => ReadyAsync(context, datasets)));
+        app.MapGet("/health/live", (RequestDelegate)(context => WriteJsonAsync(context, StatusCodes.Status200OK, "application/json", json => json.WriteString("status", "live")))).RequireRateLimiting("health");
+        app.MapGet("/health/ready", (RequestDelegate)(context => ReadyAsync(context, datasets, settings.Health.ReadyLag, drain))).RequireRateLimiting("health");
     }
 
-    // Ready when every dataset that should be open is open and not failed
-    // (ADRs 0101, 0106): datasets are opened, their default projections
-    // replayed to the head, before the server listens, so a failure to open
+    // Ready when every dataset that should be open is open, no default
+    // projection is failed or behind the allowed lag, and the host is not
+    // draining (ADRs 0101, 0106, 0113). Datasets are opened and their
+    // projections replayed before the server listens, so a failure to open
     // — a directory under the root that is leased elsewhere, or does not
-    // parse — and a projection failure are what remain to report. A dataset
-    // closed by the admin API is reported and does not count against readiness.
-    private static Task ReadyAsync(HttpContext context, OpenDatasets datasets)
+    // parse — a projection failure and the drain are what remain to report.
+    // A dataset closed by the admin API is reported and does not count.
+    private static Task ReadyAsync(HttpContext context, OpenDatasets datasets, long allowedLag, Drain drain)
     {
-        bool ready = true;
-        List<(string Name, string State, string? Reason)> states = [];
+        List<DatasetHealth> health = [];
 
-        foreach (Varve.Protocol.Model.DatasetEntry entry in datasets.List())
+        foreach (DatasetEntry entry in datasets.List())
         {
-            string state = entry.State switch
-            {
-                Varve.Protocol.Model.DatasetState.Open => datasets.TryResolve(entry.Name, out Dataset? dataset) && dataset.IsFailed ? "failed" : "ready",
-                Varve.Protocol.Model.DatasetState.Closed => "closed",
-                _ => "failed",
-            };
-            ready &= state != "failed";
-            states.Add((entry.Name.Value, state, entry.Reason));
+            Dataset? dataset = null;
+            bool open = entry.State == DatasetState.Open && datasets.TryResolve(entry.Name, out dataset);
+            health.Add(new DatasetHealth(
+                entry.Name.Value,
+                entry.State,
+                entry.Reason,
+                open ? dataset!.Head.Value : 0,
+                open ? dataset!.ProjectionPosition.Value : 0,
+                open && dataset!.IsFailed));
         }
 
-        return WriteJsonAsync(context, ready ? StatusCodes.Status200OK : StatusCodes.Status503ServiceUnavailable, "application/json", json =>
-        {
-            json.WriteString("status", ready ? "ready" : "failed");
-            json.WriteStartObject("datasets");
+        (bool ready, List<DatasetReadiness> states) = Readiness.Evaluate(health, allowedLag, drain.Draining);
+        context.Response.Headers.CacheControl = "no-store";
 
-            foreach ((string name, string state, string? reason) in states)
+        if (ready)
+        {
+            return WriteJsonAsync(context, StatusCodes.Status200OK, "application/json", json =>
             {
-                if (reason is null)
+                json.WriteString("status", "ready");
+                json.WriteStartObject("datasets");
+
+                foreach (DatasetReadiness state in states)
                 {
-                    json.WriteString(name, state);
+                    json.WriteString(state.Name, state.State);
                 }
-                else
+
+                json.WriteEndObject();
+            });
+        }
+
+        return WriteProblemAsync(context, ProblemType.NotReady, drain.Draining ? "The server is draining." : null, json =>
+        {
+            json.WriteStartArray("datasets");
+
+            foreach (DatasetReadiness state in states)
+            {
+                if (state.State is "ready" or "closed")
                 {
-                    json.WriteStartObject(name);
-                    json.WriteString("state", state);
-                    json.WriteString("reason", reason);
-                    json.WriteEndObject();
+                    continue;
                 }
+
+                json.WriteStartObject();
+                json.WriteString("name", state.Name);
+                json.WriteString("state", state.State);
+
+                if (state.Reason is not null)
+                {
+                    json.WriteString("reason", state.Reason);
+                }
+
+                if (state.Lag is long lag)
+                {
+                    json.WriteNumber("lag", lag);
+                }
+
+                json.WriteEndObject();
             }
 
-            json.WriteEndObject();
+            json.WriteEndArray();
         });
     }
 
@@ -311,13 +361,13 @@ internal static partial class ServerHost
     /// from the catalogue: the request id as instance, except on the
     /// deliberately thin <c>401</c>.
     /// </summary>
-    private static async Task WriteProblemAsync(HttpContext context, ProblemType type, string? detail)
+    private static async Task WriteProblemAsync(HttpContext context, ProblemType type, string? detail, Action<Utf8JsonWriter>? members = null)
     {
         ArrayBufferWriter<byte> body = new(256);
 
         using (Utf8JsonWriter json = new(body))
         {
-            ProblemCatalogue.Write(json, type, type == ProblemType.Unauthorized ? null : context.TraceIdentifier, detail);
+            ProblemCatalogue.Write(json, type, type == ProblemType.Unauthorized ? null : context.TraceIdentifier, detail, members);
         }
 
         context.Response.StatusCode = ProblemCatalogue.Of(type).Status;

@@ -86,6 +86,7 @@ public static class ProblemCatalogue
         new(ProblemType.MemoryLimitExceeded, 422, "The request needs more memory than the server allows one request.", "limit", "actual"),
         new(ProblemType.AsOfDistanceExceeded, 422, "The as-of position is too far from its nearest checkpoint.", "limit", "actual"),
         new(ProblemType.TooManyLiveTails, 429, "The client holds too many live tails open.", "limit"),
+        new(ProblemType.TooManyRequests, 429, "The client sent more requests than the endpoint allows in its window."),
         new(ProblemType.Unavailable, 503, "The dataset cannot answer now."),
         new(ProblemType.ReadLimitExceeded, 503, "The read was cut by a server limit."),
         new(ProblemType.ShuttingDown, 503, "The server is shutting down."),
@@ -110,7 +111,7 @@ public static class ProblemCatalogue
     /// caller) outside the protocol's endpoints.
     /// </summary>
     [DesignDecision(typeof(HeadersAndTheProblemCatalogue.ProblemShapeBoundaryPrimitives), Scope = ExceptionScope.Boundary)]
-    public static void Write(Utf8JsonWriter json, ProblemType type, string? instance, string? detail)
+    public static void Write(Utf8JsonWriter json, ProblemType type, string? instance, string? detail, Action<Utf8JsonWriter>? members = null)
     {
         ArgumentNullException.ThrowIfNull(json);
         ProblemShape shape = Of(type);
@@ -129,6 +130,7 @@ public static class ProblemCatalogue
             json.WriteString("instance", instance);
         }
 
+        members?.Invoke(json);
         json.WriteEndObject();
     }
 

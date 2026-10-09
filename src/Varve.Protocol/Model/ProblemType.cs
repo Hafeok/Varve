@@ -115,6 +115,9 @@ public readonly record struct ProblemType
     /// <summary><c>429</c>: the client holds too many live tails open (ADR 0114).</summary>
     public static ProblemType TooManyLiveTails { get; } = new("too-many-live-tails");
 
+    /// <summary><c>429</c>: more probes of a rate-limited endpoint than its window allows (ADR 0113).</summary>
+    public static ProblemType TooManyRequests { get; } = new("too-many-requests");
+
     /// <summary>
     /// The problem type an IRI under <see cref="Namespace"/> names, known or
     /// not: a client reading a newer server's error keeps its type.

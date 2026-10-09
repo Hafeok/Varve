@@ -161,17 +161,22 @@ public class AdminTests
                 Assert.Equal("failed", byName["held"].GetProperty("state").GetString());
                 Assert.Contains("held", byName["held"].GetProperty("reason").GetString(), StringComparison.Ordinal);
 
-                HttpResponseMessage ready = await Send(second, HttpMethod.Get, "ready");
+                // Readiness is a not-ready problem listing the dataset that fails and why (ADR 0113).
+                HttpResponseMessage ready = await Send(second, HttpMethod.Get, "health/ready");
                 Assert.Equal(HttpStatusCode.ServiceUnavailable, ready.StatusCode);
+                Assert.Equal("application/problem+json", ready.Content.Headers.ContentType?.MediaType);
                 JsonDocument readiness = await Json(ready);
-                Assert.Equal("failed", readiness.RootElement.GetProperty("datasets").GetProperty("held").GetProperty("state").GetString());
-                Assert.Equal("ready", readiness.RootElement.GetProperty("datasets").GetProperty("kept").GetString());
+                Assert.Equal("https://w3id.org/varve/problems/not-ready", readiness.RootElement.GetProperty("type").GetString());
+                JsonElement failing = Assert.Single(readiness.RootElement.GetProperty("datasets").EnumerateArray());
+                Assert.Equal("held", failing.GetProperty("name").GetString());
+                Assert.Equal("failed", failing.GetProperty("state").GetString());
+                Assert.Contains("held", failing.GetProperty("reason").GetString(), StringComparison.Ordinal);
 
                 // Released by its holder, it opens on request.
                 await holding.DisposeAsync();
                 await holder.DisposeAsync();
                 Assert.Equal(HttpStatusCode.NoContent, (await Send(second, HttpMethod.Put, "datasets/held/state", Open)).StatusCode);
-                Assert.Equal(HttpStatusCode.OK, (await Send(second, HttpMethod.Get, "ready")).StatusCode);
+                Assert.Equal(HttpStatusCode.OK, (await Send(second, HttpMethod.Get, "health/ready")).StatusCode);
             }
         }
         finally
