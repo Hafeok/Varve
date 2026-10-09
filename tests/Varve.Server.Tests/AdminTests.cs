@@ -145,7 +145,8 @@ public class AdminTests
             FileStorage holder = await FileStorage.OpenAsync(new DatasetDirectory(held), new FileStorageOptions { Clock = TimeProvider.System }, Ct);
             await using Dataset holding = await Dataset.CreateAsync(holder, new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, Ct);
 
-            await using (RunningServer second = await Start(root))
+            // The lease is waited for one second (ADR 0116), then the directory is listed failed with its holder.
+            await using (RunningServer second = await Start(root, ("Varve:Lease:WaitFor", "00:00:01")))
             {
                 JsonDocument list = await Json(await Send(second, HttpMethod.Get, "datasets"));
                 Dictionary<string, JsonElement> byName = [];

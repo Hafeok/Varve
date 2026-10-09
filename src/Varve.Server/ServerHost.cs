@@ -5,8 +5,9 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
-using System.Net;
 using System.Globalization;
+using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -48,14 +49,30 @@ internal static partial class ServerHost
     /// Runs the server. <paramref name="ready"/>, when given, is completed
     /// with the server's address once it listens: the tests' handle.
     /// </summary>
-    internal static async Task<int> RunAsync(string[] args, TaskCompletionSource<WebApplication>? ready)
+    internal static Task<int> RunAsync(string[] args, TaskCompletionSource<WebApplication>? ready) =>
+        RunAsync(new ServeOptions { Arguments = args }, ready);
+
+    /// <summary>Runs the server as <c>varve serve</c> asks (ADR 0115).</summary>
+    internal static async Task<int> RunAsync(ServeOptions serve, TaskCompletionSource<WebApplication>? ready)
     {
-        WebApplicationBuilder builder = WebApplication.CreateSlimBuilder(args);
-        ServerSettings settings = new();
+        WebApplicationBuilder builder = WebApplication.CreateSlimBuilder(serve.Arguments);
 
         try
         {
-            builder.Configuration.GetSection("Varve").Bind(settings);
+            AddConfigurationFiles(builder.Configuration, serve.ConfigurationFiles);
+        }
+        catch (FileNotFoundException missing)
+        {
+            await Console.Error.WriteLineAsync("varve: " + missing.Message).ConfigureAwait(false);
+            return 2;
+        }
+
+        ServerSettings settings = new();
+        IConfigurationSection section = builder.Configuration.GetSection("Varve");
+
+        try
+        {
+            section.Bind(settings);
         }
         catch (InvalidOperationException error)
         {
@@ -64,6 +81,18 @@ internal static partial class ServerHost
         }
 
         List<string> errors = SettingsCheck.Errors(settings);
+
+        // A key the server does not know is an error, not a silently applied
+        // default (ADR 0115): a misspelt setting would otherwise be ignored.
+        foreach (string unknown in SettingsCheck.UnknownKeys(section))
+        {
+            errors.Add(unknown + " is not a setting the server knows; see docs/operator/configure.md for every key.");
+        }
+
+        if (serve.PrintConfiguration)
+        {
+            await PrintConfigurationAsync(builder.Configuration, section).ConfigureAwait(false);
+        }
 
         if (errors.Count > 0)
         {
@@ -77,6 +106,11 @@ internal static partial class ServerHost
             return 2;
         }
 
+        if (serve.PrintConfiguration)
+        {
+            return 0;
+        }
+
         bool anonymous = settings.Auth.Mode == "Anonymous";
         Configure(builder, settings, anonymous);
         WebApplication app = builder.Build();
@@ -88,7 +122,7 @@ internal static partial class ServerHost
         }
 
         TimeProvider clock = TimeProvider.System;
-        await using OpenDatasets datasets = await OpenDatasets.OpenAsync(settings, clock, CancellationToken.None).ConfigureAwait(false);
+        await using OpenDatasets datasets = await OpenDatasets.OpenAsync(settings, clock, logger, CancellationToken.None).ConfigureAwait(false);
         IHostApplicationLifetime lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
         Drain drain = app.Services.GetRequiredService<Drain>();
         using HttpClient outbound = OutboundHttp.CreateClient();
@@ -107,6 +141,119 @@ internal static partial class ServerHost
 
         return 0;
     }
+
+    // The files --config named go below the environment and the command line
+    // (ADR 0115): file, then environment, then command line, later winning.
+    // The default appsettings.json sources stay where the builder put them;
+    // the named files are inserted before the environment's source.
+    private static void AddConfigurationFiles(ConfigurationManager configuration, IReadOnlyList<string> files)
+    {
+        if (files.Count == 0)
+        {
+            return;
+        }
+
+        int at = configuration.Sources.Count;
+
+        for (int i = 0; i < configuration.Sources.Count; i++)
+        {
+            if (configuration.Sources[i] is Microsoft.Extensions.Configuration.EnvironmentVariables.EnvironmentVariablesConfigurationSource)
+            {
+                at = i;
+                break;
+            }
+        }
+
+        foreach (string file in files)
+        {
+            string full = Path.GetFullPath(file);
+            configuration.Sources.Insert(at++, new Microsoft.Extensions.Configuration.Json.JsonConfigurationSource
+            {
+                FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(Path.GetDirectoryName(full)!),
+                Path = Path.GetFileName(full),
+                Optional = false,
+                ReloadOnChange = false,
+            });
+        }
+    }
+
+    // The effective configuration under Varve:, each leaf with the value
+    // that applies and the provider it came from, secrets redacted (ADR
+    // 0115): a key whose last segment is Secret, Password, Token or Key.
+    private static async Task PrintConfigurationAsync(IConfigurationRoot root, IConfigurationSection section)
+    {
+        ArrayBufferWriter<byte> buffer = new(1024);
+
+        using (Utf8JsonWriter json = new(buffer, new JsonWriterOptions { Indented = true }))
+        {
+            json.WriteStartObject();
+            json.WriteStartObject("Varve");
+            WriteLeaves(json, root, section, string.Empty);
+            json.WriteEndObject();
+            json.WriteEndObject();
+        }
+
+        await Console.Out.WriteLineAsync(System.Text.Encoding.UTF8.GetString(buffer.WrittenSpan)).ConfigureAwait(false);
+    }
+
+    private static void WriteLeaves(Utf8JsonWriter json, IConfigurationRoot root, IConfigurationSection section, string prefix)
+    {
+        foreach (IConfigurationSection child in section.GetChildren())
+        {
+            string path = prefix.Length == 0 ? child.Key : prefix + ":" + child.Key;
+            bool leaf = true;
+
+            foreach (IConfigurationSection _ in child.GetChildren())
+            {
+                leaf = false;
+                break;
+            }
+
+            if (!leaf)
+            {
+                WriteLeaves(json, root, child, path);
+                continue;
+            }
+
+            json.WriteStartObject(SettingsCheck.Canonical(path) ?? path);
+            json.WriteString("value", IsSecret(child.Key) ? "***" : child.Value);
+            json.WriteString("from", ProviderOf(root, "Varve:" + path));
+            json.WriteEndObject();
+        }
+    }
+
+    private static bool IsSecret(string key) =>
+        key.EndsWith("Secret", StringComparison.OrdinalIgnoreCase) || key.EndsWith("Password", StringComparison.OrdinalIgnoreCase)
+        || key.EndsWith("Token", StringComparison.OrdinalIgnoreCase) || key.EndsWith("Key", StringComparison.OrdinalIgnoreCase);
+
+    // The last provider that holds the key is the one whose value applies.
+    private static string ProviderOf(IConfigurationRoot root, string key)
+    {
+        IConfigurationProvider[] providers = [.. root.Providers];
+
+        for (int i = providers.Length - 1; i >= 0; i--)
+        {
+            if (providers[i].TryGet(key, out _))
+            {
+                return providers[i] switch
+                {
+                    Microsoft.Extensions.Configuration.CommandLine.CommandLineConfigurationProvider => "command line",
+                    Microsoft.Extensions.Configuration.EnvironmentVariables.EnvironmentVariablesConfigurationProvider => "environment",
+                    Microsoft.Extensions.Configuration.Json.JsonConfigurationProvider json => "file " + FileOf(json.Source),
+                    _ => providers[i].ToString() ?? "unknown",
+                };
+            }
+        }
+
+        return "default";
+    }
+
+    // The file as the operator named it, made absolute: the source keeps the
+    // directory in its provider and the name in its path.
+    private static string FileOf(Microsoft.Extensions.Configuration.FileConfigurationSource source) =>
+        source.FileProvider is Microsoft.Extensions.FileProviders.PhysicalFileProvider physical && source.Path is not null
+            ? Path.Combine(physical.Root, source.Path)
+            : source.Path ?? "appsettings.json";
 
     private static void Configure(WebApplicationBuilder builder, ServerSettings settings, bool anonymous)
     {

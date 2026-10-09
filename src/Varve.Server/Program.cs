@@ -17,17 +17,18 @@ namespace Varve.Server;
 internal static class Program
 {
     /// <summary>
-    /// Runs the server or a command. The server is <c>serve</c>, a bare
-    /// <c>varve</c>, or a line of nothing but host configuration
-    /// (<c>--Varve:…</c>, <c>--urls=…</c>), as the host took before the CLI
-    /// existed. Exit code 2 is a configuration that does not validate, or a
-    /// usage error.
+    /// Runs the server or a command. The server is a bare <c>varve</c>, or a
+    /// line of nothing but host configuration (<c>--Varve:…</c>, <c>--urls=…</c>),
+    /// as the host took before the CLI existed, straight to the host;
+    /// <c>varve serve</c> goes through the command line, whose options map
+    /// onto the same configuration (ADR 0115). Exit code 2 is a
+    /// configuration that does not validate, or a usage error.
     /// </summary>
     internal static async Task<int> Main(string[] args)
     {
         if (Serves(args))
         {
-            return await ServerHost.RunAsync(args.Length > 0 && args[0] == "serve" ? args[1..] : args, ready: null).ConfigureAwait(false);
+            return await ServerHost.RunAsync(args, ready: null).ConfigureAwait(false);
         }
 
         using CancellationTokenSource stopping = new();
@@ -41,6 +42,5 @@ internal static class Program
 
     private static bool Serves(string[] args) =>
         args.Length == 0
-        || args[0] == "serve"
         || (args[0].StartsWith("--", StringComparison.Ordinal) && args[0] is not ("--help" or "--version"));
 }

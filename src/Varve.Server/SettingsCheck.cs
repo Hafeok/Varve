@@ -4,8 +4,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO;
 using System.Net;
+using Microsoft.Extensions.Configuration;
 using Varve.Protocol.Model;
 
 namespace Varve.Server;
@@ -17,6 +19,110 @@ namespace Varve.Server;
 /// </summary>
 internal static class SettingsCheck
 {
+    /// <summary>
+    /// Every key under <c>Varve:</c> the server knows, as patterns where
+    /// <c>*</c> is one segment (ADR 0115): a key the configuration holds
+    /// that matches none is a startup error, so a misspelt setting is an
+    /// error and not a silently applied default. A test holds this list
+    /// complete against the settings classes.
+    /// </summary>
+    internal static ImmutableArray<string> KnownKeys { get; } =
+    [
+        "DatasetsRoot",
+        "Datasets:*:Storage",
+        "Auth:Mode", "Auth:Authority", "Auth:Audiences:*", "Auth:SubjectClaim", "Auth:RoleClaimType", "Auth:RequireHttpsMetadata", "Auth:Production",
+        "Auth:Datasets:*:Read:*", "Auth:Datasets:*:Write:*", "Auth:Datasets:*:Admin:*",
+        "Auth:Datasets:*:Grants:*:Claim", "Auth:Datasets:*:Grants:*:Permission", "Auth:Datasets:*:Grants:*:Graphs:*", "Auth:Datasets:*:Grants:*:GraphPrefixes:*",
+        "Auth:Server:Admin:*",
+        "Limits:QueryTimeout", "Limits:ResultSizeCap", "Limits:MaxRequestBody", "Limits:PinnedReadLifetime", "Limits:FeedHeartbeat",
+        "Limits:MaxConcurrentReads", "Limits:ReadQueueLength", "Limits:MaxQueryMemory", "Limits:MaxAsOfDistance", "Limits:MaxLiveTailsPerClient", "Limits:CommitsPageSize",
+        "ForwardedHeaders:Enabled", "ForwardedHeaders:KnownProxies:*",
+        "Federation:AllowedEndpoints:*", "Federation:AllowPrivateAddresses", "Federation:Timeout", "Federation:MaxResponseBytes",
+        "Load:AllowedSources:*", "Load:AllowPrivateAddresses", "Load:Timeout", "Load:MaxResponseBytes",
+        "Health:ReadyLag", "Health:RateLimit", "Health:StopDelay",
+        "Lease:WaitFor",
+    ];
+
+    /// <summary>The leaf keys under <paramref name="section"/> that match no known pattern, as <c>Varve:…</c> paths.</summary>
+    internal static List<string> UnknownKeys(IConfigurationSection section)
+    {
+        List<string> unknown = [];
+        Walk(section, string.Empty, unknown);
+        return unknown;
+    }
+
+    private static void Walk(IConfigurationSection section, string prefix, List<string> unknown)
+    {
+        foreach (IConfigurationSection child in section.GetChildren())
+        {
+            string path = prefix.Length == 0 ? child.Key : prefix + ":" + child.Key;
+            bool leaf = true;
+
+            foreach (IConfigurationSection _ in child.GetChildren())
+            {
+                leaf = false;
+                break;
+            }
+
+            if (leaf)
+            {
+                if (!IsKnown(path))
+                {
+                    unknown.Add("Varve:" + path);
+                }
+            }
+            else
+            {
+                Walk(child, path, unknown);
+            }
+        }
+    }
+
+    internal static bool IsKnown(string path) => Canonical(path) is not null;
+
+    /// <summary>
+    /// The path in the casing the settings classes spell it, with the names
+    /// the operator chose kept where a pattern has <c>*</c>; null when no
+    /// pattern matches. Configuration keys are case-insensitive, so an
+    /// environment variable's upper case prints as the setting it set.
+    /// </summary>
+    internal static string? Canonical(string path)
+    {
+        string[] segments = path.Split(':');
+
+        foreach (string pattern in KnownKeys)
+        {
+            string[] expected = pattern.Split(':');
+
+            if (expected.Length != segments.Length)
+            {
+                continue;
+            }
+
+            bool matches = true;
+
+            for (int i = 0; i < segments.Length && matches; i++)
+            {
+                matches = expected[i] == "*" || string.Equals(expected[i], segments[i], StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (matches)
+            {
+                for (int i = 0; i < segments.Length; i++)
+                {
+                    if (expected[i] != "*")
+                    {
+                        segments[i] = expected[i];
+                    }
+                }
+
+                return string.Join(':', segments);
+            }
+        }
+
+        return null;
+    }
+
     internal static List<string> Errors(ServerSettings settings)
     {
         List<string> errors = [];
@@ -69,6 +175,11 @@ internal static class SettingsCheck
         if (settings.Health.StopDelay < TimeSpan.Zero || settings.Health.StopDelay > TimeSpan.FromMinutes(5))
         {
             errors.Add("Varve:Health:StopDelay is between zero and five minutes.");
+        }
+
+        if (settings.Lease.WaitFor < TimeSpan.Zero || settings.Lease.WaitFor > TimeSpan.FromMinutes(10))
+        {
+            errors.Add("Varve:Lease:WaitFor is between zero and ten minutes (ADR 0116).");
         }
 
         // A server with no configured dataset serves what the admin API

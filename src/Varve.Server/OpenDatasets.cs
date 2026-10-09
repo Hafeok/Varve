@@ -8,6 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Varve.Protocol;
 using Varve.Protocol.Model;
 using Varve.Store;
@@ -24,22 +25,26 @@ namespace Varve.Server;
 /// map. The name is the host's: a File dataset is the directory of that name
 /// under the root.
 /// </summary>
-internal sealed class OpenDatasets : IDatasetResolver, IDatasetAdministration, IAsyncDisposable
+internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministration, IAsyncDisposable
 {
     private readonly Lock _gate = new();
     private readonly SortedDictionary<string, Entry> _entries = new(StringComparer.Ordinal);
     private readonly string? _root;
     private readonly TimeProvider _clock;
+    private readonly TimeSpan _leaseWait;
+    private readonly ILogger _logger;
 
-    private OpenDatasets(string? root, TimeProvider clock)
+    private OpenDatasets(string? root, TimeProvider clock, TimeSpan leaseWait, ILogger logger)
     {
         _root = root;
         _clock = clock;
+        _leaseWait = leaseWait;
+        _logger = logger;
     }
 
-    internal static async Task<OpenDatasets> OpenAsync(ServerSettings settings, TimeProvider clock, CancellationToken cancellationToken)
+    internal static async Task<OpenDatasets> OpenAsync(ServerSettings settings, TimeProvider clock, ILogger logger, CancellationToken cancellationToken)
     {
-        OpenDatasets opened = new(string.IsNullOrWhiteSpace(settings.DatasetsRoot) ? null : settings.DatasetsRoot, clock);
+        OpenDatasets opened = new(string.IsNullOrWhiteSpace(settings.DatasetsRoot) ? null : settings.DatasetsRoot, clock, settings.Lease.WaitFor, logger);
 
         try
         {
@@ -268,7 +273,7 @@ internal sealed class OpenDatasets : IDatasetResolver, IDatasetAdministration, I
 
             string directory = Path.Combine(_root!, name);
             bool exists = Directory.Exists(Path.Combine(directory, "log"));
-            FileStorage files = await FileStorage.OpenAsync(new DatasetDirectory(directory), new FileStorageOptions { Clock = _clock }, cancellationToken).ConfigureAwait(false);
+            FileStorage files = await LeaseAsync(name, directory, cancellationToken).ConfigureAwait(false);
 
             try
             {
@@ -287,6 +292,34 @@ internal sealed class OpenDatasets : IDatasetResolver, IDatasetAdministration, I
         {
             entry.Fail(error.Message);
         }
+    }
+
+    // A refused lease is waited for, never taken (ADR 0116): a predecessor
+    // may still be draining. Retried each second for Varve:Lease:WaitFor,
+    // logging who holds it; then the exception stands and the entry fails
+    // with the holder as its reason.
+    private async Task<FileStorage> LeaseAsync(string name, string directory, CancellationToken cancellationToken)
+    {
+        DateTimeOffset started = _clock.GetUtcNow();
+
+        while (true)
+        {
+            try
+            {
+                return await FileStorage.OpenAsync(new DatasetDirectory(directory), new FileStorageOptions { Clock = _clock }, cancellationToken).ConfigureAwait(false);
+            }
+            catch (DatasetLeasedException held) when (_clock.GetUtcNow() - started < _leaseWait)
+            {
+                LeaseLog.Waiting(_logger, name, held.Message);
+                await Task.Delay(TimeSpan.FromSeconds(1), _clock, cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private static partial class LeaseLog
+    {
+        [LoggerMessage(EventId = 2, Level = LogLevel.Warning, Message = "The dataset '{Name}' is leased elsewhere; waiting for it to be released (ADR 0116): {Holder}")]
+        internal static partial void Waiting(ILogger logger, string name, string holder);
     }
 
     /// <summary>One dataset's slot: its storage, its state, and what it holds while open.</summary>

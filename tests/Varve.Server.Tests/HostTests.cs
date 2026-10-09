@@ -10,8 +10,11 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Varve.Store;
+using Varve.Store.Log;
 using Xunit;
 
 namespace Varve.Server.Tests;
@@ -111,6 +114,152 @@ public sealed class HostTests
     }
 
     [Fact]
+    public async Task An_unknown_key_under_Varve_refuses_to_start()
+    {
+        (int exit, string _, string errors) = await RunProcessAsync(stopAfterReady: false, "--Varve:Auth:Mode=Anonymous", "--Varve:Datasets:d:Storage=Memory", "--Varve:Limit:QueryTimeout=00:00:10");
+        Assert.Equal(2, exit);
+        Assert.Contains("Varve:Limit:QueryTimeout is not a setting the server knows", errors, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// ADR 0115: file, then environment, then command line, later winning;
+    /// the serve options map onto the same keys; --print-config shows each
+    /// value with its source, redacts a secret, and exits without serving.
+    /// </summary>
+    [Fact]
+    public async Task Serve_options_map_onto_configuration_in_precedence_and_print_config_names_each_source()
+    {
+        string file = Path.Combine(Path.GetTempPath(), "varve-config-" + Guid.NewGuid().ToString("N") + ".json");
+        await File.WriteAllTextAsync(file, """{"Varve":{"Limits":{"QueryTimeout":"00:00:05","MaxRequestBody":777}}}""", Ct);
+
+        try
+        {
+            (int exit, string output, string errors) = await RunProcessAsync(
+                stopAfterReady: false,
+                new Dictionary<string, string> { ["VARVE__LIMITS__RESULTSIZECAP"] = "12345", ["VARVE__LIMITS__QUERYTIMEOUT"] = "00:00:07" },
+                "serve", "--print-config", "--anonymous", "--dataset", "d=Memory", "--config", file, "--set", "Limits:QueryTimeout=00:00:10", "--set", "Auth:ClientSecret=hunter2");
+
+            // The command line beat the environment, which beat the file, for QueryTimeout.
+            using JsonDocument printed = JsonDocument.Parse(output);
+            JsonElement varve = printed.RootElement.GetProperty("Varve");
+            Assert.Equal(("00:00:10", "command line"), Setting(varve, "Limits:QueryTimeout"));
+            Assert.Equal(("12345", "environment"), Setting(varve, "Limits:ResultSizeCap"));
+            Assert.Equal(("777", "file " + file), Setting(varve, "Limits:MaxRequestBody"));
+            Assert.Equal(("Memory", "command line"), Setting(varve, "Datasets:d:Storage"));
+            Assert.Equal(("Anonymous", "command line"), Setting(varve, "Auth:Mode"));
+
+            // The secret is redacted in the print, and as an unknown key it refuses the start.
+            Assert.Equal(("***", "command line"), Setting(varve, "Auth:ClientSecret"));
+            Assert.DoesNotContain("hunter2", output, StringComparison.Ordinal);
+            Assert.Equal(2, exit);
+            Assert.Contains("Varve:Auth:ClientSecret is not a setting the server knows", errors, StringComparison.Ordinal);
+            Assert.DoesNotContain("Now listening", output, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
+    [Fact]
+    public async Task Print_config_of_a_valid_configuration_exits_0_without_serving()
+    {
+        (int exit, string output, string _) = await RunProcessAsync(stopAfterReady: false, "serve", "--print-config", "--anonymous", "--dataset", "d=Memory");
+        Assert.Equal(0, exit);
+        using JsonDocument printed = JsonDocument.Parse(output);
+        Assert.Equal(("Memory", "command line"), Setting(printed.RootElement.GetProperty("Varve"), "Datasets:d:Storage"));
+        Assert.DoesNotContain("Now listening", output, StringComparison.Ordinal);
+    }
+
+    private static (string Value, string From) Setting(JsonElement varve, string key)
+    {
+        JsonElement setting = varve.GetProperty(key);
+        return (setting.GetProperty("value").GetString()!, setting.GetProperty("from").GetString()!);
+    }
+
+    /// <summary>
+    /// Every property of the settings classes is a known key, and every known
+    /// key is a property (ADR 0115): the list that refuses unknown keys cannot
+    /// drift from the classes the binder fills.
+    /// </summary>
+    [Fact]
+    public void The_known_keys_are_exactly_the_settings_classes_properties()
+    {
+        SortedSet<string> fromTypes = new(StringComparer.Ordinal);
+        Collect(typeof(ServerSettings), string.Empty, fromTypes);
+        SortedSet<string> known = new(SettingsCheck.KnownKeys, StringComparer.Ordinal);
+        Assert.Equal(fromTypes, known);
+
+        static void Collect(Type type, string prefix, SortedSet<string> into)
+        {
+            foreach (System.Reflection.PropertyInfo property in type.GetProperties())
+            {
+                string path = prefix.Length == 0 ? property.Name : prefix + ":" + property.Name;
+                Type kind = property.PropertyType;
+
+                if (kind.IsGenericType && kind.GetGenericTypeDefinition() == typeof(Dictionary<,>))
+                {
+                    Collect(kind.GetGenericArguments()[1], path + ":*", into);
+                }
+                else if (kind.IsGenericType && kind.GetGenericTypeDefinition() == typeof(List<>))
+                {
+                    Type element = kind.GetGenericArguments()[0];
+
+                    if (element == typeof(string))
+                    {
+                        into.Add(path + ":*");
+                    }
+                    else
+                    {
+                        Collect(element, path + ":*", into);
+                    }
+                }
+                else if (kind.IsClass && kind != typeof(string))
+                {
+                    Collect(kind, path, into);
+                }
+                else
+                {
+                    into.Add(path);
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public async Task A_lease_held_at_start_is_waited_for_and_the_server_starts_once_it_is_released()
+    {
+        string root = Directory.CreateTempSubdirectory("varve-lease-").FullName;
+
+        try
+        {
+            string held = Path.Combine(root, "d");
+            FileStorage holder = await FileStorage.OpenAsync(new DatasetDirectory(held), new FileStorageOptions { Clock = TimeProvider.System }, Ct);
+            Dataset holding = await Dataset.CreateAsync(holder, new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, Ct);
+
+            Task<RunningServer> starting = RunningServer.StartAsync(new Dictionary<string, string>
+            {
+                ["Varve:Auth:Mode"] = "Anonymous",
+                ["Varve:DatasetsRoot"] = root,
+                ["Varve:Datasets:d:Storage"] = "File",
+                ["Varve:Lease:WaitFor"] = "00:00:20",
+            });
+
+            await Task.Delay(TimeSpan.FromSeconds(2), Ct);
+            Assert.False(starting.IsCompleted, "the server started while the lease was held");
+            await holding.DisposeAsync();
+            await holder.DisposeAsync();
+
+            await using RunningServer server = await starting;
+            Assert.Equal(HttpStatusCode.OK, (await server.Client.GetAsync(new Uri("health/ready", UriKind.Relative), Ct)).StatusCode);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task An_address_nobody_serves_and_a_method_the_router_refuses_are_problems()
     {
         await using RunningServer server = await RunningServer.StartAsync(new Dictionary<string, string> { ["Varve:Auth:Mode"] = "Anonymous", ["Varve:Datasets:d:Storage"] = "Memory" });
@@ -205,7 +354,10 @@ public sealed class HostTests
     /// <paramref name="stopAfterReady"/> it is killed once it listens: the
     /// graceful stop is the in-process tests' and the AOT smoke run's.
     /// </summary>
-    private static async Task<(int Exit, string Output, string Errors)> RunProcessAsync(bool stopAfterReady, params string[] args)
+    private static Task<(int Exit, string Output, string Errors)> RunProcessAsync(bool stopAfterReady, params string[] args) =>
+        RunProcessAsync(stopAfterReady, null, args);
+
+    private static async Task<(int Exit, string Output, string Errors)> RunProcessAsync(bool stopAfterReady, IReadOnlyDictionary<string, string>? environment, params string[] args)
     {
         ProcessStartInfo start = new("dotnet")
         {
@@ -214,11 +366,29 @@ public sealed class HostTests
             UseShellExecute = false,
         };
         start.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "Varve.Server.dll"));
-        start.ArgumentList.Add("--urls=http://127.0.0.1:0");
+
+        // The serve command takes --urls as an option; the bare host takes it
+        // as configuration. Both spell it the same.
+        if (args.Length > 0 && args[0] == "serve")
+        {
+            start.ArgumentList.Add("serve");
+            start.ArgumentList.Add("--urls");
+            start.ArgumentList.Add("http://127.0.0.1:0");
+            args = args[1..];
+        }
+        else
+        {
+            start.ArgumentList.Add("--urls=http://127.0.0.1:0");
+        }
 
         foreach (string arg in args)
         {
             start.ArgumentList.Add(arg);
+        }
+
+        foreach ((string name, string value) in environment ?? new Dictionary<string, string>())
+        {
+            start.Environment[name] = value;
         }
 
         using Process process = Process.Start(start)!;

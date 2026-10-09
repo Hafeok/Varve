@@ -36,6 +36,16 @@ internal sealed class ServerSettings
 
     /// <summary>Health and readiness (ADR 0113).</summary>
     public HealthSettings Health { get; set; } = new();
+
+    /// <summary>The lease at start (ADR 0116).</summary>
+    public LeaseSettings Lease { get; set; } = new();
+}
+
+/// <summary>The lease at start (ADR 0116): how long a refused lease is waited for before the dataset is failed.</summary>
+internal sealed class LeaseSettings
+{
+    /// <summary>How long to retry a lease another process holds, logging the holder each second; the dataset is then failed with the holder as its reason.</summary>
+    public TimeSpan WaitFor { get; set; } = TimeSpan.FromSeconds(30);
 }
 
 /// <summary>Health and readiness (ADR 0113): the lag readiness tolerates, the probes' rate limit, and the drain's head start.</summary>
