@@ -237,7 +237,7 @@ Filed by milestone Operability ([#12](https://github.com/Hafeok/Varve/issues/12)
 
 | # | Title | Status |
 |---:|---|---|
-| [0110](0110-the-shipped-runtime-configuration.md) | The shipped runtime configuration: workstation concurrent GC, `ConserveMemory`, no heap limit of our own | Proposed; amends 0082; closes #61 |
+| [0110](0110-the-shipped-runtime-configuration.md) | The shipped runtime configuration: workstation concurrent GC, `ConserveMemory`, no heap limit of our own | Proposed; amends 0082 and supersedes it in part (the drift's window); the two-hour soak did not hold, #61 stays open |
 | [0111](0111-the-container-image.md) | The container image: `ghcr.io/hafeok/varve`, Native AOT per architecture, attested | Proposed |
 | [0112](0112-telemetry-in-two-layers.md) | Telemetry in two layers: the BCL instruments, the server exports | Proposed; admits the OpenTelemetry packages to `Varve.Server` |
 | [0113](0113-health-and-readiness.md) | Health and readiness are different questions: `/health/live`, `/health/ready` | Proposed; amends 0101 |

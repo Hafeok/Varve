@@ -38,8 +38,13 @@ Operability).
   which is the measure point 5 replaces and why; the default runtime's hour
   reads +2.8% and +7.4%.
 - **The two-hour soak** under the shipped configuration, run 2026-10-10 for
-  point 5's evidence, is reported in the Operability traceability record:
-  minutes 110–120 over 30–40, within 10% or not.
+  point 5's evidence, **does not hold**: minutes 110–120 over 30–40 read
+  +20.3%, +17.1% net of the dataset's own, against 10%. The live heap
+  (14.7 → 22.9 MB) and the committed memory over it (52.7 → 77.5 MB) climb
+  with a dataset that more than doubles in the window (2.03 M → 4.68 M
+  quads); handles and `derived/` files stay bounded, and the band holds over
+  the last fifty minutes. **#61 stays open** with the tables
+  (`tests/Varve.Benchmarks/README.md`, Operability).
 
 ## Context
 

@@ -1186,3 +1186,52 @@ goes, or the configuration should change, is the maintainer's call on the
 amendment to 0082; the figures are here either way. The hour is the 6c
 workload on the Operability head: the fast path (ADR 0120) in the writer,
 the store's meter (ADR 0112) with no listener attached.
+
+### Soak: two hours under the shipped runtime configuration (ADR 0110 point 5; #61)
+
+`DOTNET_gcServer=0 DOTNET_gcConcurrent=1 DOTNET_GCConserveMemory=5 dotnet run
+-c Release --project tests/Varve.Benchmarks -- --soak 120 --policy`: the
+same workload for two hours, the evidence ADR 0110 point 5 asks for that
+measuring drift against minutes 30–40 hides no growth: minutes 110–120
+within 10% of 30–40.
+
+| Minutes | Working set, median (max) | Less the dataset's own | Collector's committed | Live heap | LOH | Quads | Handles | `derived/` files |
+|---|---:|---:|---:|---:|---:|---:|---|---|
+| 0–10 | 121 (140) MB | | 48.3 MB | 9.6 MB | 5.5 MB | | 64–81 | 6–21 |
+| 10–20 | 116 (128) | 114.5 | 43.0 | 11.1 | 10.6 | 0.94 M | 79–84 | 19–22 |
+| 20–30 | 124 (139) | | 50.0 | 13.6 | 11.4 | | 82–85 | 20–23 |
+| 30–40 | **130** (143) | **126.2** | 52.7 | 14.7 | 12.2 | 2.03 M | 81–86 | 19–25 |
+| 40–50 | 136 (148) | | 58.6 | 16.1 | 13.1 | | 82–85 | 20–25 |
+| 50–60 | 140 (148) | 133.7 | 61.6 | 17.8 | 15.1 | 2.92 M | 82–87 | 20–25 |
+| 60–70 | 143 (154) | | 64.6 | 18.1 | 14.2 | | 83–86 | 21–24 |
+| 70–80 | 147 (160) | | 68.2 | 19.9 | 14.1 | | 84–87 | 21–26 |
+| 80–90 | 149 (159) | | 71.1 | 21.1 | 16.6 | | 86–89 | 23–27 |
+| 90–100 | 151 (164) | | 72.2 | 21.3 | 14.8 | | 86–89 | 23–28 |
+| 100–110 | 155 (168) | | 76.1 | 22.5 | 14.9 | | 82–92 | 19–29 |
+| 110–120 | **157** (171) | **147.9** | 77.5 | 22.9 | 15.5 | 4.68 M | 83–86 | 20–25 |
+
+| ADR 0110 point 5's measures, two hours | Result |
+|---|---:|
+| Drift, minutes 110–120 over 30–40, 10% allowed | **+20.3%** (157 / 130 MB); **+17.1%** less the dataset's own (147.9 / 126.2) |
+| Drift, minutes 50–60 over 30–40 (the one-hour criterion) | +6.9%; +5.9% less the dataset's own |
+| Band, ±25% of the median, minutes 70–120 | held, 0 of 101 |
+| Band, minutes 10–120 | 1 of 221 outside |
+| Peak working set | 210 MB |
+| Commits, quads, pinned scans, as-of reads | 252,696; 4.78 M; 435,971; 422,899 |
+| Reopened at the end | 252,696 of 252,696 in 1.87 s |
+
+**The two-hour criterion does not hold: +20.3%, +17.1% net of the
+dataset's own, against 10%.** The working set does not level off after the
+collector reaches its working size; it keeps climbing at about 3 MB every
+ten minutes through the second hour. What climbs with it is the live
+managed heap (14.7 → 22.9 MB from minutes 30–40 to 110–120) and the
+collector's committed memory over it (52.7 → 77.5 MB): the dataset in
+this workload is not bounded in the window, more than doubling from 2.03 M
+to 4.68 M quads, and the live heap follows the dataset. Handles and
+`derived/` files stay bounded, and the band holds over the last fifty
+minutes. Whether the remaining growth is the live heap tracking a growing
+dataset as it should, or something the store holds per quad that it
+should not, is not separated here; it is what #61 stays open for. Run
+2026-10-10 06:00–08:01 UTC on `38d2361`, the shipped configuration's three
+knobs as environment variables, the machine otherwise idle after its
+first ten minutes.

@@ -98,7 +98,8 @@ benchmark process run with the same three knobs as environment variables
 The default-runtime hour is reported beside it for comparison, and the
 128 MB `DOTNET_GCHeapHardLimit` of the 6c addendum stays a harness setting.
 The one-hour soak is re-run under exactly the shipped configuration, and
-that run closes #61.
+that run closes #61 if it holds the gate. It did not, by ADR 0110 point 5's
+two-hour evidence (2026-10-10), and #61 stays open.
 
 **The reason.** 6c separated the causes and found the store's live heap
 flat and the working set the collector's choice: the large object heap

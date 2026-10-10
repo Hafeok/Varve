@@ -8,7 +8,7 @@
 
 | | |
 |---|---|
-| **Issue** | [#12](https://github.com/Hafeok/Varve/issues/12), milestone Operability; [#61](https://github.com/Hafeok/Varve/issues/61) closed with it; [#35](https://github.com/Hafeok/Varve/issues/35) measured and left open |
+| **Issue** | [#12](https://github.com/Hafeok/Varve/issues/12), milestone Operability; [#61](https://github.com/Hafeok/Varve/issues/61) measured under the shipped configuration and left open; [#35](https://github.com/Hafeok/Varve/issues/35) measured and left open |
 | **Date** | 2026-10-09 to 2026-10-10 |
 | **Tool** | Claude Code 2.1.295, then 2.1.296 after the container restarted on 2026-10-10, a cloud session started from the desktop app |
 | **Model** | `claude-fable-5-1`, configured and served, through the pull request's opening; `claude-opus-5-5` from the maintainer's decisions of 2026-10-10, switched by the maintainer; both from the session's own metadata (`configured_model`, `user_switched_model`, `last_served_model`) |
@@ -152,12 +152,25 @@ Operability): under the shipped configuration the working set ran 122 →
 (+4.1% from minute 30); under the default runtime 159 → 152 MB, peak
 247 MB, the band missed by 2 of 101, drift +7.4%. Both end at a live heap
 of 18 MB; the difference is the collector's committed memory, which the
-default over-commits early and the shipped one grows with the heap. **The
-gate as worded does not hold under the shipped configuration by its drift
-measure**, while every absolute figure is better there; the maintainer
-decides whether the measure or the configuration moves, and the
-descriptor's `Closes #61` stands as the brief asked, to be re-opened if
-that is the decision.
+default over-commits early and the shipped one grows with the heap. By
+0082's first drift measure (over minutes 10–20) the shipped hour read
++22.1%; by ADR 0110 point 5's (over 30–40), decided by the maintainer on
+2026-10-10, +4.1%.
+
+**The two-hour soak under the shipped configuration** (2026-10-10,
+06:00–08:01 UTC, on `38d2361`), the evidence point 5 asks for: **minutes
+110–120 over 30–40 read +20.3%, +17.1% net of the dataset's own, against
+10%: the criterion does not hold.** The working set climbs about 3 MB every
+ten minutes through the second hour (130 → 157 MB by ten-minute medians,
+peak 210 MB), with the live heap (14.7 → 22.9 MB) and the committed memory
+over it (52.7 → 77.5 MB), while the dataset more than doubles (2.03 M →
+4.68 M quads). Handles (81–92) and `derived/` files (19–29) stay bounded;
+the band holds over minutes 70–120 (0 of 101). By the maintainer's
+decision the descriptor commit's `Closes #61` trailer was removed and **#61
+stays open** with the tables (`tests/Varve.Benchmarks/README.md`,
+Operability). Whether the growth is the live heap following a growing
+dataset or something held per quad that should not be is not separated
+here.
 
 **The protocol over HTTP, both collectors** (the 7a workload, the same
 binary, one after the other): no throughput cost to the memory gate; the
@@ -211,8 +224,11 @@ Of the roadmap's 1.0 definition after this milestone: the public API freeze
 (`PublicAPI.Shipped.txt` as the contract), package-manager distribution of
 the CLI (`winget`, Homebrew), the docs site with Mermaid, erasure mode's
 review, and the acceptance of ADRs 0110–0120. Signed multi-arch images with
-an SBOM, the operator guide with the complete Entra and generic-issuer
-examples, and the soak gate under the shipped configuration are done here.
+an SBOM and the operator guide with the complete Entra and generic-issuer
+examples are done here. **The soak gate is not**: judged under the shipped
+configuration with the drift against minutes 30–40, its one-hour run holds
+and its two-hour evidence does not (+20.3%), so #61 stays open and blocks
+the 1.0 soak gate.
 The soak's dataset is bounded by its vocabulary and not by a retention
 policy; a retention or archiving decision (ADR 0096's horizon) is still
 open, and #35 stays open until the median meets pyoxigraph's.

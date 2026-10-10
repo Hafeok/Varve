@@ -478,8 +478,10 @@ release `v0.1.0-preview.3`.
   rows, a bound on as-of distance, live tails per client, concurrent reads
   with a queue, each with its problem type. *Done at Operability* (ADR 0114).
 - **The shipped runtime configuration** — workstation concurrent GC with
-  `ConserveMemory` 5, and the soak gate judged under it. *Done at
-  Operability* (ADR 0110; ADR 0082 amended).
+  `ConserveMemory` 5, and the soak gate judged under it, its drift against
+  minutes 30–40. *Done at Operability* (ADR 0110, superseding ADR 0082 in
+  part); the gate itself does not yet hold over two hours (+20.3%), and
+  [#61](https://github.com/Hafeok/Varve/issues/61) stays open.
 - **`Varve.Aspire`** — `AddVarve`, `WithOidc`, `WithDataset`; a sample
   AppHost tested in CI. *Done at Operability* (ADR 0117).
 - **API alignment while everything is preview** — state, settings and commits
