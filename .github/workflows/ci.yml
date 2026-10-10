@@ -697,9 +697,9 @@ jobs:
             --env VARVE__AUTH__ROLECLAIMTYPE=roles \
             --env VARVE__AUTH__SUBJECTCLAIM=sub \
             --env VARVE__AUTH__REQUIREHTTPSMETADATA=false \
-            --env VARVE__DATASETS__D__STORAGE=Memory \
-            --env VARVE__AUTH__DATASETS__D__READ__0=varve.read \
-            --env VARVE__AUTH__DATASETS__D__WRITE__0=varve.write \
+            --env VARVE__DATASETS__d__STORAGE=Memory \
+            --env VARVE__AUTH__DATASETS__d__READ__0=varve.read \
+            --env VARVE__AUTH__DATASETS__d__WRITE__0=varve.write \
             "$IMAGE:$TAG" serve
           for attempt in $(seq 1 60); do
             curl --silent --fail http://localhost:8090/health/ready > /dev/null && exit 0
@@ -750,9 +750,9 @@ jobs:
             --env "VARVE__AUTH__ROLECLAIMTYPE=$(jq -r .roleClaim "$seed")" \
             --env VARVE__AUTH__SUBJECTCLAIM=sub \
             --env VARVE__AUTH__REQUIREHTTPSMETADATA=false \
-            --env VARVE__DATASETS__D__STORAGE=Memory \
-            --env VARVE__AUTH__DATASETS__D__READ__0=read \
-            --env VARVE__AUTH__DATASETS__D__WRITE__0=write \
+            --env VARVE__DATASETS__d__STORAGE=Memory \
+            --env VARVE__AUTH__DATASETS__d__READ__0=read \
+            --env VARVE__AUTH__DATASETS__d__WRITE__0=write \
             "$IMAGE:$TAG" serve
           for attempt in $(seq 1 60); do
             curl --silent --fail http://localhost:8090/health/ready > /dev/null && exit 0

@@ -36,7 +36,7 @@ docker run --detach --name varve \
   --env VARVE__AUTH__MODE=Oidc \
   --env VARVE__AUTH__AUTHORITY=https://login.example/ \
   --env VARVE__AUTH__AUDIENCES__0=api://varve \
-  --env VARVE__DATASETS__PEOPLE__STORAGE=File \
+  --env VARVE__DATASETS__people__STORAGE=File \
   ghcr.io/hafeok/varve:v0.1.0-preview.3 serve
 ```
 

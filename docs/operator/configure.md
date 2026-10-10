@@ -11,6 +11,9 @@ Settings come from, later sources winning:
 1. `appsettings.json` in the working directory, when there is one;
 2. the files `--config <path>` names, in order;
 3. the environment: `VARVE__AUTH__MODE=Oidc`, two underscores for each colon;
+   a segment that names a dataset keeps its case, so the dataset `people` is
+   `VARVE__DATASETS__people__STORAGE`, and `VARVE__DATASETS__PEOPLE__STORAGE`
+   is another dataset, `PEOPLE`;
 4. the command line: `--Varve:Auth:Mode=Oidc`, or `--set Auth:Mode=Oidc`, or
    the typed options of `varve serve` (`--auth-mode Oidc`, `--authority`,
    `--audience`, `--datasets-root`, `--dataset name[=File|Memory]`,
