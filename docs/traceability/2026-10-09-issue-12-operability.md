@@ -9,9 +9,9 @@
 | | |
 |---|---|
 | **Issue** | [#12](https://github.com/Hafeok/Varve/issues/12), milestone Operability; [#61](https://github.com/Hafeok/Varve/issues/61) closed with it; [#35](https://github.com/Hafeok/Varve/issues/35) measured and left open |
-| **Date** | 2026-10-09 |
-| **Tool** | Claude Code 2.1.295, a cloud session started from the desktop app |
-| **Model** | `claude-fable-5-1`, configured and served, from the session's own metadata |
+| **Date** | 2026-10-09 to 2026-10-10 |
+| **Tool** | Claude Code 2.1.295, then 2.1.296 after the container restarted on 2026-10-10, a cloud session started from the desktop app |
+| **Model** | `claude-fable-5-1`, configured and served, through the pull request's opening; `claude-opus-5-5` from the maintainer's decisions of 2026-10-10, switched by the maintainer; both from the session's own metadata (`configured_model`, `user_switched_model`, `last_served_model`) |
 | **Session identifier** | `session_017bvHPyUJm8PB3FPctbwbHq` |
 | **Branch** | `claude/eloquent-cannon-rb29y9`, from `main` at d02e0f1 |
 | **Machine** | a cloud container: Intel Xeon @ 2.10 GHz, 4 logical cores, 15 GiB, Ubuntu 24.04; .NET SDK 10.0.401; no Docker daemon |
@@ -56,6 +56,23 @@ The maintainer's approval of the plan, verbatim:
 > w3id redirect pull request is mine; tell me when docs/problems/ is on the
 > branch.
 
+The maintainer's decisions on the opened pull request, verbatim:
+
+> 1. ADR 0082 amendment: band over the last 50 minutes unchanged; drift
+> measured 50–60 over 30–40, justified by the collector's committed-memory
+> plateau between 20 and 30 minutes under the shipped configuration; plus
+> one two-hour soak under the shipped configuration, run now on the branch,
+> with 110–120 over 30–40 within 10%, reported in the record. Passes: keep
+> Closes #61. Fails: drop the trailer, #61 stays open with the tables.
+> 2. Hex1b: drop ExcludeAssets="native"; add Varve.Aspire to the
+> native-assets gate's allow-list with ADR 0117 as the citation and the
+> reason (AppHost-only, outside the three hosts of constraint 1, Aspire's
+> natives present regardless). Keep the _._ placeholder fix.
+> 3. I make the GHCR package public after the first push and file the w3id
+> redirect.
+> ADR 0110 records the protocol result: no throughput cost for the memory
+> gate, a gain at 8 clients on both stores.
+
 ## The report
 
 ### What shipped, by ADR
@@ -92,9 +109,27 @@ them.
   configured dataset at start when it is absent and opens it when present,
   which is idempotent and needs no token.
 - **`Hex1b`**, a dependency of `Aspire.Hosting`, ships native binaries.
-  `Varve.Aspire` references it with `ExcludeAssets="native"`, the gate no
-  longer counts NuGet's `_._` placeholder, and the ADR says so; the
-  maintainer may prefer another answer.
+  First excluded with `ExcludeAssets="native"`; by the maintainer's
+  decision, `Varve.Aspire` is instead on `eng/native-assets.cs`'s new
+  allow-list citing ADR 0117 (AppHost-only, outside the three hosts of
+  constraint 1, Aspire's natives in every AppHost regardless). The gate
+  prints an allowed project's native packages, fails a citation of an ADR
+  that does not exist and an entry whose project ships no native asset;
+  both failure paths were run on scratch copies of the gate and exited 1.
+  The fix that stops the gate counting NuGet's `_._` placeholder stays.
+- **The drift window is a supersession, not an amendment.** The decision
+  came as an amendment of 0082, but the accepted ruling `FlatWithinABand`
+  states the drift against minutes 10–20, and ADR 0068 point 2 makes a
+  change of what a gate decides a supersession. It is carried as ADR 0110
+  point 5, superseding 0082 in part, with `FlatWithinABand` moved to 0110's
+  set under the same key and unaccepted until the maintainer accepts it;
+  0082's Status line names it. The content is the maintainer's decision
+  unchanged.
+- **The container restarted on 2026-10-10** with `GIT_CONFIG_COUNT=4` and
+  three of its four keys missing, which made every git command fail; the
+  session's commands set `GIT_CONFIG_COUNT=0`, which drops only the SSH
+  signing program the session does not use (its commits are unsigned, as
+  ADR 0034 exempts).
 - **Kestrel sends no HTTP/1.1 response trailers.** A memory limit met after
   the first byte ends the response with an abort over HTTP/1.1 and a trailer
   over HTTP/2; ADR 0114 says so, and the test host has an HTTP/2 cleartext

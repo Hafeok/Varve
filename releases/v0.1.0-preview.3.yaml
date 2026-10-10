@@ -82,8 +82,9 @@ summary: |
     `401` and `403`.
   - **The shipped runtime configuration** (ADR 0110): the workstation
     collector, concurrent, with `System.GC.ConserveMemory` 5, in the tool
-    and the AOT binary alike; the soak gate (ADR 0082, amended) is judged
-    under it.
+    and the AOT binary alike; the soak gate is judged under it, its drift
+    measured against minutes 30–40 (ADR 0082 amended, and superseded in
+    part by 0110).
   - **`Varve.Store`**: `DatasetOptions.Name`, the `db.namespace` of every
     measurement.
   - **`Varve.Protocol`**: `ProtocolOptions.Telemetry` and `Logger`;

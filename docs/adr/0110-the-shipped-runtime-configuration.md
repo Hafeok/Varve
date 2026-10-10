@@ -7,26 +7,39 @@
 the maintainer's act on the pull request.
 
 **Amends [0082](0082-the-soak-gate.md)** by a dated block: the gate is judged
-under the configuration this ADR ships. Closes #61 with the soak reported
-under it.
+under the configuration this ADR ships. **Supersedes 0082 in part,
+2026-10-10**: the drift's reference window, minutes 30–40 in place of 10–20
+(point 5); the band, the workload, the samples and the bounds on handles
+and files stand. `FlatWithinABand` moves to this ADR's set under the same
+key (ADR 0068 point 4). Closes #61 when the soak under the shipped
+configuration holds the gate as point 5 states it.
 
 **Revisit condition:** a soak or a benchmark showing the shipped
 configuration costing throughput that an operator would notice, or the
 runtime changing what `ConserveMemory` does.
 
 **Measured at filing, 2026-10-09** (`tests/Varve.Benchmarks/README.md`,
-Operability). The throughput cost of the memory gate, on the 7a protocol
-workload with the same Native AOT binary under the shipped configuration and
-under `DOTNET_gcServer=1`, one after the other: **none**; the shipped
-configuration is ahead in every row but one tie, by 11% and 26% on the
-8-client point queries, with lower p99s. The one-hour soak under the shipped
-configuration keeps the working set below the default runtime's in every
-ten-minute window and holds the band; the drift measure as ADR 0082 words
-it reads +22% because `ConserveMemory` starts small and the collector
-commits as the live heap grows, and +4% from minute 30; the default
-runtime's hour beside it reads +7.4% with the band missed by 2 samples of
-101. The maintainer judges whether the measure or the configuration is
-what moves.
+Operability).
+
+- **The throughput cost of the memory gate is none.** On the 7a protocol
+  workload, the same Native AOT binary under the shipped configuration and
+  under `DOTNET_gcServer=1`, one after the other, the shipped configuration
+  **gains at 8 clients on both stores**: point queries 26,347 against 23,737
+  operations a second on the memory store (+11%) and 24,999 against 19,831
+  on the file store (+26%), with lower p99s; flushed file commits at 8
+  clients 2,339 against 1,192. The memory store's 8-client commits are a tie
+  (11,159 against 11,096), and so is the flushed single client (711 against
+  712). Point 4's revisit condition is not met.
+- **The one-hour soak under the shipped configuration** keeps the working
+  set at or below the default runtime's in every ten-minute window, peaks at
+  215 MB against 247 MB, and holds the band (0 of 101 samples outside ±25%,
+  the default's hour 2 of 101). Its drift is **+4.1%** by point 5's measure
+  (minutes 50–60 over 30–40) and +22.1% by 0082's first one (over 10–20),
+  which is the measure point 5 replaces and why; the default runtime's hour
+  reads +2.8% and +7.4%.
+- **The two-hour soak** under the shipped configuration, run 2026-10-10 for
+  point 5's evidence, is reported in the Operability traceability record:
+  minutes 110–120 over 30–40, within 10% or not.
 
 ## Context
 
@@ -74,6 +87,27 @@ fits, and the one the measurements were taken under.
    Operability traceability record states the cost of the memory gate, or
    that there is none. Point 1 is revisited if the cost is one an operator
    would notice.
+5. **The soak gate's drift is measured against minutes 30–40**: the median
+   of minutes 50–60 within 10% of the median of minutes 30–40, where ADR
+   0082 measured it against minutes 10–20. The band over the last fifty
+   minutes, the workload, the samples and the bounds on handles and
+   `derived/` files are 0082's, unchanged. **The reason** is the
+   collector's committed memory under the shipped configuration: with
+   `ConserveMemory` it does not commit ahead of the live heap, so it climbs
+   through the first half hour and settles between minutes 20 and 30
+   (47.5 MB in minutes 20–25, 54.5 MB in 25–30, 55–57 MB from 30 to 45 by
+   five-minute medians), after which it moves with the live heap. Minutes
+   10–20 fall inside the climb, so a drift against them measures the
+   collector reaching its working size, not the store growing; minutes
+   30–40 are the first window after it has. The default collector, which
+   commits ahead and trims (93 MB in its first ten minutes, 65–69 MB from
+   minute 20), never showed the difference, which is why 0082's window was
+   right for the runtime it was first judged under. **The evidence that the
+   later window is not hiding growth** is one two-hour soak under the
+   shipped configuration, its minutes 110–120 within 10% of 30–40; that run
+   is in the record, and #61 is closed by it or stays open with its tables.
+   **This supersedes 0082 in part** (ADR 0068 point 2): the reference window
+   is a change of what the gate decided, not detail added to it.
 
 ## Alternatives considered
 
@@ -88,6 +122,9 @@ fits, and the one the measurements were taken under.
 
 ## Consequences
 
+- The soak gate's ruling, `FlatWithinABand`, is this ADR's, restated with
+  point 5's window; ADR 0082's set keeps the amendment's ruling.
+
 - The working set of a Varve server is the live heap plus the collector's
   modest headroom, and the soak gate is a number an operator can expect.
 - A `Varve.Server` process on a dedicated machine with many cores leaves
@@ -98,8 +135,9 @@ fits, and the one the measurements were taken under.
 ## Checks
 
 - **Checked against the accepted ADRs** (0001–0109) and specification 1.6.
-  Touches **0082** (amended), **0101** (the host), **0105** (the tool carries
-  the same runtimeconfig). No conflict.
+  Touches **0082** (amended, and superseded in part by point 5), **0101**
+  (the host), **0105** (the tool carries the same runtimeconfig). No
+  conflict.
 - **Layer ownership.** `Varve.Server`, layer 6; the soak is a host
   measurement.
 - **Analyzer rule.** None.

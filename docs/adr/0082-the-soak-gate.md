@@ -16,6 +16,12 @@ named for 1.0.
 the shipped runtime configuration, the default-runtime figures beside it; see
 the end.
 
+**Superseded in part 2026-10-10 by ADR
+[0110](0110-the-shipped-runtime-configuration.md)** (its point 5): the
+drift's reference window is minutes 30–40, not 10–20. The band, the
+workload, the samples and the bounds on handles and files stand.
+`FlatWithinABand` is in 0110's set.
+
 ## Context
 
 6a ran a one-hour soak and found the working set not flat (median 168 → 730
@@ -81,7 +87,8 @@ not in CI.
 Filed by milestone Operability of #12, unaccepted until the maintainer
 accepts it (ADR 0066). Decided by the maintainer on the 7b report and the
 Operability plan. It adds the configuration the gate is judged under; the
-workload, the samples, the band and the drift above stand.
+workload, the samples and the band above stand, and the drift's reference
+window is superseded by ADR 0110 point 5 (2026-10-10, see the Status line).
 
 **The decision.** The gate is judged under the runtime configuration
 `Varve.Server` ships (ADR 0110: workstation concurrent GC,
@@ -103,6 +110,7 @@ runs. The alternative, "the working set a host is expected to run with",
 was the restatement the 6c report declined to make; this is not a
 restatement: the criterion, the band and the drift are unchanged.
 
-**The ledger.** `FlatWithinABand` stands. The ruling of this amendment is
-the new key `JudgedUnderTheShippedConfiguration` in this ADR's set,
-unaccepted until the maintainer accepts it.
+**The ledger.** `FlatWithinABand` moves to ADR 0110's set under the same
+key, restated with the later window (the supersession in part). The ruling
+of this amendment is the new key `JudgedUnderTheShippedConfiguration` in
+this ADR's set, unaccepted until the maintainer accepts it.
