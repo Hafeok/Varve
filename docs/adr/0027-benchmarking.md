@@ -110,7 +110,7 @@ measured against.
 > the translations are a third party's reading of RDF/XML, which is what an
 > independent fixture should be.
 
-> **Closed 2026-10-09** (milestone 6b, ADR 0111). `Varve.RdfXml` passes
+> **Closed 2026-10-09** (milestone 6b, ADR 0122). `Varve.RdfXml` passes
 > `rdf11/rdf-xml` (166 cases) and `rdf12/rdf-xml` (31) with no exemption, so
 > the exit the note above set has arrived: `tests/fixtures/w3c-rdfxml/` is
 > deleted with its hash guard, the harness reads the SPARQL suites' RDF/XML

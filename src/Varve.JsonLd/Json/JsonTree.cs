@@ -35,7 +35,7 @@ internal readonly record struct TextRange(int Start, int Length)
 
 /// <summary>
 /// A JSON document as index-linked nodes in pooled arrays, every string in
-/// one UTF-8 arena (ADR 0112, <c>Utf8JsonReaderBuildsTheTree</c>). The
+/// one UTF-8 arena (ADR 0123, <c>Utf8JsonReaderBuildsTheTree</c>). The
 /// expansion algorithm appends its result to the same tree
 /// (<c>ExpansionWritesIntoTheTree</c>); nothing is an object per node.
 /// </summary>

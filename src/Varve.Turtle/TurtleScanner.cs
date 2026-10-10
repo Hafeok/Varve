@@ -288,7 +288,7 @@ internal ref partial struct TurtleScanner
     /// Skips to just past the next <c>.</c> at nesting depth zero, outside a
     /// String and an IRIREF — ADR 0030's recovery rule, with depth counted
     /// over RDF 1.2's <c>&lt;&lt; &gt;&gt;</c> and <c>{| |}</c> as well (ADR
-    /// 0030, amended by ADR 0110). Returns false when there is no such point,
+    /// 0030, amended by ADR 0121). Returns false when there is no such point,
     /// which ends the parse.
     /// </summary>
     internal bool Resynchronise()

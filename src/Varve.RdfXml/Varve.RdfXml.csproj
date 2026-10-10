@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- Layer 2: RDF/XML over the BCL's XmlReader and XmlWriter (ADR 0111).
+    <!-- Layer 2: RDF/XML over the BCL's XmlReader and XmlWriter (ADR 0122).
          docs/spec/rdf-xml.md. -->
     <ArchLayer>2</ArchLayer>
     <IsPackable>true</IsPackable>

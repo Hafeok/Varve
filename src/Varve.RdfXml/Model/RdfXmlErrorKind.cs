@@ -15,7 +15,7 @@ public enum RdfXmlErrorKind : byte
     /// <summary>No error.</summary>
     None,
 
-    /// <summary>The XML itself is not well-formed, or uses a DTD, which is refused (ADR 0111).</summary>
+    /// <summary>The XML itself is not well-formed, or uses a DTD, which is refused (ADR 0122).</summary>
     MalformedXml,
 
     /// <summary>The document ended before its RDF did, or holds no element at all.</summary>

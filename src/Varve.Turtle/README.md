@@ -27,7 +27,7 @@ N-Triples, N-Quads, Turtle and TriG, read and written over UTF-8, allocating
 - **RDF 1.2** throughout: base directions and triple terms in N-Triples and
   N-Quads, and in Turtle and TriG the reified triples, triple terms,
   annotations, reifiers and version directive of the Working Drafts (ADR
-  0110), where the `rdf12` suites gate them. The writer declares
+  0121), where the `rdf12` suites gate them. The writer declares
   `VERSION "1.2"` on its own the moment it writes a construct RDF 1.1 cannot
   read, never silently.
 

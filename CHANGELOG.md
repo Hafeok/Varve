@@ -12,7 +12,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-## [0.1.0-preview.3] - 2026-10-09
+## [0.1.0-preview.4] - 2026-10-09
 
 **RDF 1.2 Turtle and TriG, RDF/XML, JSON-LD**
 
@@ -26,7 +26,7 @@ request (ADR 0066).
 
 #### Added
 
-- **RDF 1.2 Turtle and TriG** in `Varve.Turtle` (ADR 0110,
+- **RDF 1.2 Turtle and TriG** in `Varve.Turtle` (ADR 0121,
   `docs/spec/turtle.md` §9 rewritten): reified triples, triple terms,
   annotations, reifiers, `@version` and `VERSION`, and directional
   language tags, read and written. The writer declares `VERSION "1.2"` on
@@ -36,7 +36,7 @@ request (ADR 0066).
   other, a surrogate pair written as two `\u` escapes; the default is RDF
   1.2. The four `rdf12` Turtle and TriG suites pass whole, and the 41
   SPARQL 1.2 evaluation cases they had blocked run.
-- **`Varve.RdfXml`** (layer 2, ADR 0111, `docs/spec/rdf-xml.md`): RDF/XML
+- **`Varve.RdfXml`** (layer 2, ADR 0122, `docs/spec/rdf-xml.md`): RDF/XML
   over `System.Xml`'s `XmlReader` and `XmlWriter`, with
   `rdf:parseType="Triple"`, `rdf:annotation` and `its:dir`, the RDF 1.2
   forms read where `rdf:version` announces 1.2. Both W3C suites pass whole
@@ -44,7 +44,7 @@ request (ADR 0066).
   and 34 written, measured and stated. The N-Triples translations of the
   SPARQL suites' RDF/XML files are deleted and the harness reads the
   originals.
-- **`Varve.JsonLd`** (layer 2, ADR 0112, `docs/spec/json-ld.md`): JSON-LD
+- **`Varve.JsonLd`** (layer 2, ADR 0123, `docs/spec/json-ld.md`): JSON-LD
   1.1 over `Utf8JsonReader` and `Utf8JsonWriter` — expansion, toRdf and
   fromRdf — as an index-linked tree in pooled arrays, zero bytes per quad
   in a steady state. `rdf:JSON` literals are written in RFC 8785 form,
@@ -632,7 +632,7 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.3...HEAD
-[0.1.0-preview.3]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.2...v0.1.0-preview.3
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.4...HEAD
+[0.1.0-preview.4]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.2...v0.1.0-preview.4
 [0.1.0-preview.2]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.1...v0.1.0-preview.2
 [0.1.0-preview.1]: https://github.com/Hafeok/Varve/releases/tag/v0.1.0-preview.1

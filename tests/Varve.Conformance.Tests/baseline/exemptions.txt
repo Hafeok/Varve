@@ -25,16 +25,16 @@ http://www.w3.org/2009/sparql/docs/tests/data-sparql11/http-rdf-update/manifest#
 http://www.w3.org/2009/sparql/docs/tests/data-sparql11/http-rdf-update/manifest#head_on_an_existing_graph@memory Deprecated suite. It expects Turtle for a HEAD without Accept; GSP §5.2 allows RDF/XML, Turtle or N-Triples, and Varve writes N-Triples (ADR 0092). The successor sends Accept and passes.
 http://www.w3.org/2009/sparql/docs/tests/data-sparql11/http-rdf-update/manifest#head_on_an_existing_graph@file Deprecated suite. It expects Turtle for a HEAD without Accept; GSP §5.2 allows RDF/XML, Turtle or N-Triples, and Varve writes N-Triples (ADR 0092). The successor sends Accept and passes.
 #
-# Milestone 6b (ADR 0110): four sparql12/eval-triple-terms cases over the
+# Milestone 6b (ADR 0121): four sparql12/eval-triple-terms cases over the
 # store, its graph scope and the protocol (12 lines). Each matches a triple
 # term pattern with a variable or a blank node inside the term, over data
 # the RDF 1.2 Turtle reader now loads. A blank node inside a triple term has
 # no identity but the store's (ADR 0044: a label is never internalised back
 # to a handle), so the evaluator asks the source for the term's component
 # handles (IQuadSource.TryGetTripleTermComponents). Varve.Store does not
-# implement it yet: that package is session O's in parallel with 6b, and the
+# implement it yet: that is #87, due before milestone 8, and the
 # implementation is one dictionary-entry read in Views.IndexSource and
-# Views.PendingSource (the traceability record has the patch). Over
+# Views.PendingSource. Over
 # InMemoryDataset the same four cases pass. pyoxigraph 0.5.11 answers each
 # exactly as the suite expects. Removed when the store answers.
 https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-6@store Nested reified triple with a fresh reifier inside: the inner reifier is a blank node inside a triple term, whose handle the store does not yet hand out (see above). Oxigraph answers the one expected row.

@@ -6,7 +6,7 @@ namespace Varve.Turtle;
 
 /// <summary>
 /// Which edition of RDF a document is read as, where the two editions'
-/// grammars disagree (ADR 0110).
+/// grammars disagree (ADR 0121).
 /// </summary>
 /// <remarks>
 /// <para>

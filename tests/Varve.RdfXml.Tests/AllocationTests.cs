@@ -20,7 +20,7 @@ namespace Varve.RdfXml.Tests;
 /// reader's atomised strings, values are read in chunks into one arena. What
 /// <c>XmlReader</c> and <c>XmlWriter</c> allocate per element is theirs, and
 /// the honest figure is what these tests assert and <c>rdf-xml.md</c> §7
-/// states — a bound, not a zero (ADR 0111). The bound is set with headroom
+/// states — a bound, not a zero (ADR 0122). The bound is set with headroom
 /// over the measurement, so that an unrelated runtime change does not teach
 /// everyone to raise it, and tightened when the measurement moves down.
 /// </para>

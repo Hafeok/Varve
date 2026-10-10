@@ -17,7 +17,7 @@ namespace Varve.Conformance.Tests;
 /// its manifest lists — a count that changes is looked at, not absorbed — and
 /// the other value-access arms answer every case the default arm does. Until
 /// milestone 6b the cases whose data was RDF 1.2 Turtle were pinned here as
-/// blocked; ADR 0110 opened the reader and they run.
+/// blocked; ADR 0121 opened the reader and they run.
 /// </summary>
 public class EvaluationGuardTests
 {

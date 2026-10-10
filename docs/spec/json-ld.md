@@ -2,7 +2,7 @@
 
 What `Varve.JsonLd` reads and writes, under which specification, and the
 places where the specification leaves a choice and this package makes one.
-Written at milestone 6b (#10), against the suites named in §1. ADR 0112 is
+Written at milestone 6b (#10), against the suites named in §1. ADR 0123 is
 the decision; this page is what it decided, in enough detail that a reader
 of the code can check it line by line.
 
@@ -32,7 +32,7 @@ The suites, from the pinned `w3c/json-ld-api` submodule (revision `5551473`,
 | `json-ld/expand` | `expand-manifest.jsonld` | 386 | **368** | 18 |
 | `json-ld/fromRdf` | `fromRdf-manifest.jsonld` | 54 | **53** | 1 |
 
-**The rule** (ADR 0112, `ProcessingModeIsOnePointOne`): an entry whose
+**The rule** (ADR 0123, `ProcessingModeIsOnePointOne`): an entry whose
 `specVersion` is `json-ld-1.0` tests behaviour JSON-LD 1.1 changed; an entry
 whose `processingMode` is `json-ld-1.0` tests the 1.0 mode this processor
 does not have; an entry with `produceGeneralizedRdf` asks for a blank node
@@ -57,7 +57,7 @@ specification's error code (§4).
 `JsonLdExpander.Expand` writes the expanded document (§5.1) as JSON;
 `JsonLdParser.Parse` expands and then deserializes to RDF (§8.3) without
 writing it. The algorithms are the specification's, over the tree of ADR
-0112, with these points made explicit:
+0123, with these points made explicit:
 
 - **Keys are processed in lexicographical order**, which the algorithm
   allows and which makes the output a function of the document and not of
@@ -88,7 +88,7 @@ writing it. The algorithms are the specification's, over the tree of ADR
 
 **An active context is an object**, allocated once per `@context` met —
 scoped contexts, type-scoped contexts and `@import` included — and its term
-definitions likewise (ADR 0112, `ContextsAreNotPerQuad`). Every IRI in it
+definitions likewise (ADR 0123, `ContextsAreNotPerQuad`). Every IRI in it
 is a range of the tree's text; no `string` is made for a term or a key.
 
 **Remote contexts come only through `JsonLdOptions.DocumentLoader`**: a
@@ -274,7 +274,7 @@ every Varve reader (`TheQuadHandlerIsTheCallers`).
 
 **The browser** carries `Varve.JsonLd.wasm` at 295,701 bytes, 88,439
 compressed, over the `System.Text.Json` the results package already shipped
-(ADR 0111 has the measurement).
+(ADR 0122 has the measurement).
 
 ## 8. Out of scope, and why
 
@@ -294,4 +294,4 @@ Two, each with its trigger. **Compaction** when a milestone wants JSON for
 people out of Varve, with the inverse context as its first piece. **A
 streaming subset** if a caller ever needs the first quad before the last
 byte, which no one has asked for and which the language does not generally
-allow (ADR 0112, alternatives).
+allow (ADR 0123, alternatives).

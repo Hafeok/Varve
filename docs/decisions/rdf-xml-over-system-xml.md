@@ -1,7 +1,7 @@
 ---
 set: rdf-xml-over-system-xml
 namespace: varve
-adr: 0111
+adr: 0122
 decisions:
   - key: XmlReaderDoesTheXml
     statement: "Varve.RdfXml reads RDF/XML over System.Xml.XmlReader with DTD processing prohibited, no resolver, comments and processing instructions kept and characters checked, and does the RDF/XML grammar over the events it reports"
@@ -35,6 +35,6 @@ decisions:
     statement: "System.Private.Xml joins the browser build through this package; the measured growth is stated in the ADR, and a growth above 1.5 MB compressed reopens the hand-written reader the ADR rejected"
 ---
 
-The rulings of [ADR 0111](../adr/0111-rdf-xml-over-system-xml.md), one line each. The ADR is the
+The rulings of [ADR 0122](../adr/0122-rdf-xml-over-system-xml.md), one line each. The ADR is the
 narrative; this is what code cites. Filed unaccepted by milestone 6b of #10 (ADR 0066); acceptance
 is the maintainer's act on the pull request.

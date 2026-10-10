@@ -12,7 +12,7 @@ namespace Varve.JsonLd.Json;
 
 /// <summary>
 /// RFC 8785, the JSON Canonicalization Scheme: the lexical form of an
-/// <c>rdf:JSON</c> literal (JSON-LD 1.1 API §8.6, step 3; ADR 0112,
+/// <c>rdf:JSON</c> literal (JSON-LD 1.1 API §8.6, step 3; ADR 0123,
 /// <c>JsonLiteralsAreCanonical</c>). Members sorted by UTF-16 code units, no
 /// whitespace, strings escaped only where JSON requires it, numbers in
 /// ECMAScript's <c>Number::toString</c> form.

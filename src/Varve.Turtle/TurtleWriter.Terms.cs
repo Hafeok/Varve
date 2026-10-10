@@ -95,7 +95,7 @@ public sealed partial class TurtleWriter
         if (hasLanguage)
         {
             // [42] LANG_DIR: the tag, and "--ltr" or "--rtl" for a base
-            // direction (RDF 1.2 Turtle; ADR 0110).
+            // direction (RDF 1.2 Turtle; ADR 0121).
             writer.Byte((byte)'@');
             writer.Bytes(language);
 

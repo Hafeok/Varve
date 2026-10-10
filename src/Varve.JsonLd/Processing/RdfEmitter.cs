@@ -17,7 +17,7 @@ namespace Varve.JsonLd.Processing;
 /// Deserializes an expanded document to RDF (JSON-LD 1.1 API §8.3–§8.6) by
 /// walking the expanded tree and handing each quad to the caller as it is
 /// found, which gives the same dataset as the specification's node map does,
-/// as a set (ADR 0112). Blank nodes are relabelled <c>_:b0</c>, <c>_:b1</c>, …
+/// as a set (ADR 0123). Blank nodes are relabelled <c>_:b0</c>, <c>_:b1</c>, …
 /// (<c>BlankNodesAreRelabelled</c>).
 /// </summary>
 [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]

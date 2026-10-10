@@ -266,14 +266,14 @@ by maintenance (ADR 0109); data-only update requests expect no position (ADR
 0057, amended). The query suites run over four subjects and the update suites
 through the protocol too, and the ratchet holds **4,122** lines.
 `docs/operator/` is the operator's guide. **Since milestone 6b (ADRs
-0110–0112, filed unaccepted)**: RDF 1.2 Turtle and TriG are read and written
-in full (ADR 0110), the 41 SPARQL 1.2 cases they blocked run, and
+0121–0123, filed unaccepted)**: RDF 1.2 Turtle and TriG are read and written
+in full (ADR 0121), the 41 SPARQL 1.2 cases they blocked run, and
 `RdfVersion` decides the one escape the editions contradict each other on;
 `Varve.RdfXml` reads and writes RDF/XML over `System.Xml`, both suites whole,
-its cost per triple `XmlReader`'s and stated (ADR 0111); `Varve.JsonLd`
+its cost per triple `XmlReader`'s and stated (ADR 0122); `Varve.JsonLd`
 expands, reads and writes JSON-LD 1.1 over `Utf8JsonReader` as a tree in an
 arena, the toRdf, expand and fromRdf suites whole under a stated rule for the
-1.0-only cases, with `@direction` RDF 1.2's by default (ADR 0112); AOT and
+1.0-only cases, with `@direction` RDF 1.2's by default (ADR 0123); AOT and
 the browser read and write all three, and the ratchet holds **5,507** lines.
 Not built: the container image, telemetry, archive, erasure mode, SHACL,
 JSON-LD compaction and framing.

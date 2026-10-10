@@ -28,7 +28,7 @@ internal sealed record EvaluationSuite(string Id, string ManifestPath, string Ba
     /// official query manifest, the two result-format directories that hold
     /// query evaluation entries, and <c>service</c> through a test handler; and
     /// the SPARQL 1.2 directories, whose RDF 1.2 Turtle and TriG data has been
-    /// read since milestone 6b (ADR 0110).
+    /// read since milestone 6b (ADR 0121).
     /// </summary>
     internal static ImmutableArray<EvaluationSuite> All { get; } =
     [

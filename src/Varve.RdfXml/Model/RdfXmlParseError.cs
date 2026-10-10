@@ -17,7 +17,7 @@ namespace Varve.RdfXml.Model;
 /// <strong>counted in UTF-16 characters</strong>, with no byte offset. That
 /// is a departure from the other syntax packages, whose positions are byte
 /// offsets and byte columns (<c>syntax-model-surfaces</c>), and it is the
-/// stated cost of reading through <c>System.Xml.XmlReader</c> (ADR 0111):
+/// stated cost of reading through <c>System.Xml.XmlReader</c> (ADR 0122):
 /// the reader decodes the document's encoding before this package sees a
 /// character, so a byte offset would be a number this package would have to
 /// invent. A column in characters is what an XML editor shows, which is

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- Layer 2: JSON-LD 1.1 over the BCL's Utf8JsonReader and Utf8JsonWriter (ADR 0112).
+    <!-- Layer 2: JSON-LD 1.1 over the BCL's Utf8JsonReader and Utf8JsonWriter (ADR 0123).
          docs/spec/json-ld.md. -->
     <ArchLayer>2</ArchLayer>
     <IsPackable>true</IsPackable>

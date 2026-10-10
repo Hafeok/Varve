@@ -13,7 +13,7 @@ namespace Varve.JsonLd.Json;
 /// <summary>
 /// Interns UTF-8 names to small integers, so that a member name, a term and a
 /// keyword are compared and looked up as integers and no string is made for
-/// them (ADR 0112, <c>Utf8JsonReaderBuildsTheTree</c>).
+/// them (ADR 0123, <c>Utf8JsonReaderBuildsTheTree</c>).
 /// </summary>
 /// <remarks>
 /// The keywords are interned first, in the order of <see cref="Keyword"/>, so

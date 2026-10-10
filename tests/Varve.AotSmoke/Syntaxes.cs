@@ -14,9 +14,9 @@ using Varve.Turtle;
 namespace Varve.AotSmoke;
 
 /// <summary>
-/// The milestone 6b syntaxes under Native AOT: RDF 1.2 Turtle (ADR 0110),
-/// RDF/XML over System.Xml (ADR 0111) and JSON-LD over System.Text.Json (ADR
-/// 0112), each read, written and read back. XmlReader and Utf8JsonReader
+/// The milestone 6b syntaxes under Native AOT: RDF 1.2 Turtle (ADR 0121),
+/// RDF/XML over System.Xml (ADR 0122) and JSON-LD over System.Text.Json (ADR
+/// 0123), each read, written and read back. XmlReader and Utf8JsonReader
 /// lean on things a trimmer can remove without a build warning, which is why
 /// a real ILC run and not an analyzer is what proves them.
 /// </summary>

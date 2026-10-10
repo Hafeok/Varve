@@ -153,7 +153,7 @@ public class ReaderTests
     {
         // RDF 1.1 reads a surrogate pair written as two \u escapes as the
         // character it encodes (its Turtle test-38); RDF 1.2 refuses it, and
-        // is the default (RdfVersion, ADR 0110).
+        // is the default (RdfVersion, ADR 0121).
         List<Row> rows = [];
         ParseOptions options = new() { Version = RdfVersion.Rdf11 };
         ParseResult result = NQuadsParser.Parse(

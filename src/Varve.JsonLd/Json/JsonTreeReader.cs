@@ -15,7 +15,7 @@ namespace Varve.JsonLd.Json;
 /// <summary>
 /// Reads a JSON document into a <see cref="JsonTree"/> with
 /// <see cref="Utf8JsonReader"/>, which does the grammar, the escapes and the
-/// chunk boundaries of a <see cref="ReadOnlySequence{T}"/> (ADR 0112).
+/// chunk boundaries of a <see cref="ReadOnlySequence{T}"/> (ADR 0123).
 /// </summary>
 [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal static class JsonTreeReader

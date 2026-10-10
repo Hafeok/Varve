@@ -16,7 +16,7 @@ namespace Varve.JsonLd;
 /// <summary>
 /// Reads a JSON-LD 1.1 document as RDF: expansion (JSON-LD 1.1 API §5.1) and
 /// deserialization to RDF (§8.3), the <c>toRdf</c> of the specification's
-/// API, each quad handed to the caller as a view (ADR 0112).
+/// API, each quad handed to the caller as a view (ADR 0123).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -46,7 +46,7 @@ public static class JsonLdParser
         return Processor.Run(in utf8, in options, handler, null);
     }
 
-    /// <summary>Reads a document from a stream, whole, before processing it (ADR 0112, <c>TheWholeStreamIsRead</c>).</summary>
+    /// <summary>Reads a document from a stream, whole, before processing it (ADR 0123, <c>TheWholeStreamIsRead</c>).</summary>
     public static JsonLdResult Parse(Stream stream, JsonLdQuadHandler handler, in JsonLdOptions options)
     {
         ArgumentNullException.ThrowIfNull(stream);

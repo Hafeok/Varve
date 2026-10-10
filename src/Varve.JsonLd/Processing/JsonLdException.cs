@@ -10,7 +10,7 @@ using Varve.JsonLd.Model;
 namespace Varve.JsonLd.Processing;
 
 /// <summary>
-/// The first error ends the processing (ADR 0112,
+/// The first error ends the processing (ADR 0123,
 /// <c>TheFirstErrorEndsTheParse</c>): the algorithms throw this and the entry
 /// point turns it into a result. Only the error path allocates.
 /// </summary>

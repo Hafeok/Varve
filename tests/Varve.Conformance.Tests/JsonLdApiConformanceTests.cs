@@ -76,7 +76,7 @@ internal static class JsonLdCatalogue
 }
 
 /// <summary>
-/// The json-ld-api expand and fromRdf suites (ADR 0112): each entry's result
+/// The json-ld-api expand and fromRdf suites (ADR 0123): each entry's result
 /// is a JSON document, compared by the suite's JSON-LD object comparison —
 /// members in any order, arrays as sets except under <c>@list</c>, language
 /// tags without regard to case. The toRdf suite is a dataset comparison and

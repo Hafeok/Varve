@@ -16,7 +16,7 @@ namespace Varve.RdfXml;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Over <see cref="XmlReader"/> (ADR 0111): the BCL's streaming reader does
+/// Over <see cref="XmlReader"/> (ADR 0122): the BCL's streaming reader does
 /// the XML — encodings, entities, namespaces, well-formedness — and this
 /// package does the RDF/XML grammar over the events it reports. A DTD is
 /// refused, which is also what keeps entity expansion out; nothing is

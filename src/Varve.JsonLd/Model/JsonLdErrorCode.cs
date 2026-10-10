@@ -10,7 +10,7 @@ namespace Varve.JsonLd.Model;
 /// <summary>
 /// The specification's <c>JsonLdErrorCode</c> enumeration (JSON-LD 1.1 API
 /// §9.2), one value per code, so that a caller and the W3C suite name the
-/// same thing (ADR 0112). <see cref="JsonLdErrorCodes.Text"/> gives the
+/// same thing (ADR 0123). <see cref="JsonLdErrorCodes.Text"/> gives the
 /// specification's spelling.
 /// </summary>
 public enum JsonLdErrorCode
@@ -150,7 +150,7 @@ public enum JsonLdErrorCode
     /// <summary>A document that could not be loaded.</summary>
     LoadingDocumentFailed,
 
-    /// <summary>A remote context that could not be loaded; with no document loader, every remote context (ADR 0112).</summary>
+    /// <summary>A remote context that could not be loaded; with no document loader, every remote context (ADR 0123).</summary>
     LoadingRemoteContextFailed,
 
     /// <summary>More than one context link header.</summary>

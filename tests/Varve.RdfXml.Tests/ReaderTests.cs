@@ -69,7 +69,7 @@ public class ReaderTests
     public void a_node_id_passes_through_and_a_fresh_node_is_a_number()
     {
         // rdf:nodeID is an NCName, which cannot begin with a digit, so a
-        // document's label and the parser's can never collide (ADR 0111).
+        // document's label and the parser's can never collide (ADR 0122).
         Read read = Parse(Open + "<rdf:Description rdf:nodeID=\"a\"><ex:p><rdf:Description><ex:q>x</ex:q></rdf:Description></ex:p></rdf:Description>" + Close);
 
         Assert.True(read.Result.Succeeded, read.Result.Error?.ToString());

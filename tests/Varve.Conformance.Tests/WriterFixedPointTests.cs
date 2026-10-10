@@ -93,7 +93,7 @@ public class WriterFixedPointTests
             Assert.True(TryReadJsonLdBytes(firstJson, entry.ActionIri, out List<string> again), Text(firstJson));
             IsomorphismResult comparison = Isomorphism.Compare(Parsed(quads), Parsed(again));
             Assert.True(comparison.IsSame, entry.TestIri + ": the dataset written as JSON-LD read back differently — " + comparison.Reason + "\n" + Text(firstJson));
-            // Up to blank node labels, which toRdf renumbers (ADR 0112).
+            // Up to blank node labels, which toRdf renumbers (ADR 0123).
             byte[] secondJson = WriteJsonLd(again);
             Assert.Equal(NumberBlankLabels(Text(firstJson)), NumberBlankLabels(Text(secondJson)));
             return;

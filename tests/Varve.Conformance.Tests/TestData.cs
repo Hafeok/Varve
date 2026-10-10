@@ -41,7 +41,7 @@ internal static class TestData
     /// <summary>Where the json-ld-api suite publishes its tests, and the base of every entry's IRI.</summary>
     internal const string JsonLdPublishedRoot = "https://w3c.github.io/json-ld-api/tests/";
 
-    /// <summary>The third submodule, <c>w3c/json-ld-api</c> (ADR 0112): the JSON-LD 1.1 API test suite.</summary>
+    /// <summary>The third submodule, <c>w3c/json-ld-api</c> (ADR 0123): the JSON-LD 1.1 API test suite.</summary>
     internal static string JsonLdRoot { get; } =
         Path.Combine(RepositoryRoot(), "tests", "w3c", "json-ld-api");
 
@@ -51,7 +51,7 @@ internal static class TestData
     /// <summary>
     /// The document loader the suite runs with: a published test IRI is read
     /// from the submodule, and anything else is not available. Remote
-    /// contexts only ever come from the caller (ADR 0112).
+    /// contexts only ever come from the caller (ADR 0123).
     /// </summary>
     internal static bool LoadJsonLdDocument(ReadOnlySpan<byte> iri, out ReadOnlyMemory<byte> document)
     {

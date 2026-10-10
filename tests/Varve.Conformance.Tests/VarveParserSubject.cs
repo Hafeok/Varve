@@ -106,7 +106,7 @@ internal sealed class VarveParserSubject : IParserSubject
     /// The options a json-ld-api entry runs under: its stated base or the
     /// input's IRI, its expandContext, its rdfDirection or the
     /// specification's default of none, and the suite's document loader
-    /// (ADR 0112; json-ld.md §1).
+    /// (ADR 0123; json-ld.md §1).
     /// </summary>
     internal static JsonLdOptions JsonLdOptionsFor(string baseIri, JsonLdCase? options) => new()
     {
@@ -124,7 +124,7 @@ internal sealed class VarveParserSubject : IParserSubject
 
     private static RdfXmlOptions RdfXmlOptionsFor(string baseIri) => new() { BaseIri = Encoding.UTF8.GetBytes(baseIri) };
 
-    /// <summary>The edition a format is read as: the rdf12 suites under RDF 1.2, the rdf11 suites under RDF 1.1 (ADR 0110).</summary>
+    /// <summary>The edition a format is read as: the rdf12 suites under RDF 1.2, the rdf11 suites under RDF 1.1 (ADR 0121).</summary>
     internal static RdfVersion VersionOf(RdfFormat format) =>
         format is RdfFormat.NTriples12 or RdfFormat.NQuads12 or RdfFormat.Turtle12 or RdfFormat.TriG12 ? RdfVersion.Rdf12 : RdfVersion.Rdf11;
 

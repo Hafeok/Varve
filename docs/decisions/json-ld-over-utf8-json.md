@@ -1,7 +1,7 @@
 ---
 set: json-ld-over-utf8-json
 namespace: varve
-adr: 0112
+adr: 0123
 decisions:
   - key: Utf8JsonReaderBuildsTheTree
     statement: "Varve.JsonLd reads a document with Utf8JsonReader into its own index-linked tree in pooled arrays, strings unescaped into one UTF-8 arena and names interned by their bytes, never through JsonDocument or JsonNode: expansion needs the whole document and the tree is its one copy"
@@ -14,7 +14,7 @@ decisions:
   - key: BlankNodesAreRelabelled
     statement: "Every blank node the toRdf path emits is labelled _:b followed by a counter, a document's own labels mapped to fresh ones in order of first appearance, as the specification's node map does; the dataset is the same up to isomorphism"
   - key: DirectionDefaultIsNative
-    statement: "RdfDirection.Native is the default: a value with @direction and @language becomes RDF 1.2's directional language-tagged string, and one with @direction alone a plain string; the specification's i18n-datatype and compound-literal modes and its default of dropping the direction are options, a departure from the specification's default stated in json-ld.md and ADR 0112"
+    statement: "RdfDirection.Native is the default: a value with @direction and @language becomes RDF 1.2's directional language-tagged string, and one with @direction alone a plain string; the specification's i18n-datatype and compound-literal modes and its default of dropping the direction are options, a departure from the specification's default stated in json-ld.md and ADR 0123"
   - key: JsonLiteralsAreCanonical
     statement: "The lexical form of an rdf:JSON literal is the value in RFC 8785 JSON Canonicalization Scheme, and the sort of each object's members and the ECMAScript number formatting are the one allocation in proportion to a JSON literal, which is not a quad"
   - key: NumbersAreXsdCanonical
@@ -41,6 +41,6 @@ decisions:
     statement: "The processor is JSON-LD 1.1 only: there is no json-ld-1.0 processing mode, @version 1.1 is accepted and never conflicts, and the suite's 1.0-only and generalized-RDF cases are excluded by a stated rule rather than exempted one by one"
 ---
 
-The rulings of [ADR 0112](../adr/0112-json-ld-over-utf8-json.md), one line each. The ADR is the
+The rulings of [ADR 0123](../adr/0123-json-ld-over-utf8-json.md), one line each. The ADR is the
 narrative; this is what code cites. Filed unaccepted by milestone 6b of #10 (ADR 0066); acceptance
 is the maintainer's act on the pull request.

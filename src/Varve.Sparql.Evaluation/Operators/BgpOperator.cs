@@ -265,7 +265,7 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
     /// <summary>
     /// A triple term found, against a nested pattern. By handles when the
     /// source can take the term apart (<see cref="IQuadSource.TryGetTripleTermComponents"/>,
-    /// ADR 0110) — the only way a blank node inside a triple term keeps its
+    /// ADR 0121) — the only way a blank node inside a triple term keeps its
     /// identity over a source that never internalises a label (ADR 0044) — and
     /// as an externalised term otherwise.
     /// </summary>

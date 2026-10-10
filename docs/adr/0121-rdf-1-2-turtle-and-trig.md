@@ -1,4 +1,4 @@
-# 0110 — RDF 1.2 Turtle and TriG are accepted; the edition decides a surrogate escape
+# 0121 — RDF 1.2 Turtle and TriG are accepted; the edition decides a surrogate escape
 
 ## Status
 
@@ -136,13 +136,14 @@ Wiring the suites found two things the plan had not foreseen.
    answers and as an externalised term when it does not. Over
    `InMemoryDataset`, which internalises every term it holds, the default
    suffices and the four cases pass. **`Varve.Store` does not implement it in
-   this milestone**: that package is session O's in parallel with 6b, and the
-   implementation is one dictionary-entry read in `Views.IndexSource` and
-   `Views.PendingSource` (and a forward in `StagingView`), which the
-   traceability record spells out. Until it lands, the four cases over the
-   store, its graph scope and the protocol are **twelve justified exemptions**
-   in `baseline/exemptions.txt`, with pyoxigraph 0.5.11's agreement with the
-   suite recorded as the tie-breaker.
+   this milestone**: the package was another session's in parallel with 6b,
+   and the implementation is one dictionary-entry read in `Views.IndexSource`
+   and `Views.PendingSource` (and a forward in `StagingView`). It is
+   [#87](https://github.com/Hafeok/Varve/issues/87), due before milestone 8.
+   Until it lands, the four cases over the store, its graph scope and the
+   protocol are **twelve justified exemptions** in `baseline/exemptions.txt`,
+   with pyoxigraph 0.5.11's agreement with the suite recorded as the
+   tie-breaker.
 
 ## Alternatives considered
 
@@ -221,5 +222,5 @@ Wiring the suites found two things the plan had not foreseen.
   `Rdf12TurtleAndTrig.TripleTermComponentsByHandle` under `VARVE0003`'s hot
   path scope; the forwarders are `[HotPath]`.
 - **Open questions owned.** None. The store's implementation of point 5 is
-  owed work with an owner (session O or the maintainer), not an open
-  question.
+  owed work, [#87](https://github.com/Hafeok/Varve/issues/87), due before
+  milestone 8, not an open question.

@@ -16,7 +16,7 @@ namespace Varve.JsonLd.Processing;
 /// <summary>
 /// The expansion algorithm (JSON-LD 1.1 API §5.1.2) and value expansion
 /// (§5.3.2), writing the expanded document as new nodes of the same tree
-/// (ADR 0112, <c>ExpansionWritesIntoTheTree</c>).
+/// (ADR 0123, <c>ExpansionWritesIntoTheTree</c>).
 /// </summary>
 /// <remarks>
 /// Node indices stand for JSON values and -1 for null. An active property is

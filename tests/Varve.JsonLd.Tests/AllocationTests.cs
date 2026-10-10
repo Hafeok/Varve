@@ -21,7 +21,7 @@ namespace Varve.JsonLd.Tests;
 /// read into one index-linked tree, expanded into the same tree, and only
 /// then walked for quads. So the figure per quad is not the emitter's, which
 /// allocates nothing, but the tree's growth per node — pooled arrays and one
-/// UTF-8 arena — and it is a bound rather than zero (ADR 0112). The honest
+/// UTF-8 arena — and it is a bound rather than zero (ADR 0123). The honest
 /// row is the first one in <c>json-ld.md</c> §7. The bound is set with
 /// headroom over the measurement and tightened when the measurement moves.
 /// </para>

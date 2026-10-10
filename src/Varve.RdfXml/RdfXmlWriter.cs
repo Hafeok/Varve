@@ -16,7 +16,7 @@ using Varve.Rdf;
 namespace Varve.RdfXml;
 
 /// <summary>
-/// Writes RDF/XML, one triple at a time, over <see cref="XmlWriter"/> (ADR 0111).
+/// Writes RDF/XML, one triple at a time, over <see cref="XmlWriter"/> (ADR 0122).
 /// </summary>
 /// <remarks>
 /// <para>

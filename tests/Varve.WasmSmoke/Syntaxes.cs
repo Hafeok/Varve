@@ -13,11 +13,11 @@ using Varve.Turtle;
 namespace Varve.WasmSmoke;
 
 /// <summary>
-/// The milestone 6b syntaxes in the browser: RDF 1.2 Turtle (ADR 0110),
-/// RDF/XML over System.Xml (ADR 0111) and JSON-LD over System.Text.Json (ADR
-/// 0112), each read, written and read back. The bundle's System.Private.Xml
+/// The milestone 6b syntaxes in the browser: RDF 1.2 Turtle (ADR 0121),
+/// RDF/XML over System.Xml (ADR 0122) and JSON-LD over System.Text.Json (ADR
+/// 0123), each read, written and read back. The bundle's System.Private.Xml
 /// was already there for the SPARQL XML results format; what RDF/XML and
-/// JSON-LD add is their own two assemblies, which ADR 0111 states.
+/// JSON-LD add is their own two assemblies, which ADR 0122 states.
 /// </summary>
 internal static partial class Smoke
 {

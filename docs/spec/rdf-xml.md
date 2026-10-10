@@ -2,7 +2,7 @@
 
 What `Varve.RdfXml` reads and writes, under which specification, and the
 places where the specification leaves a choice and this package makes one.
-Written at milestone 6b (#10), against the suites named in §1. ADR 0111 is the
+Written at milestone 6b (#10), against the suites named in §1. ADR 0122 is the
 decision; this page is what it decided, in enough detail that a reader of the
 code can check it line by line.
 
@@ -146,7 +146,7 @@ characters** of the decoded document after line-end normalisation. **There
 is no byte offset**, because the reader has decoded the document's encoding
 before this package sees a character, and a byte offset computed from a
 character count would be wrong for every multi-byte character before the
-error (ADR 0111, "Byte offsets by re-encoding"). The other Varve syntaxes
+error (ADR 0122, "Byte offsets by re-encoding"). The other Varve syntaxes
 report a byte offset because they own their bytes; this one says so rather
 than guess.
 
@@ -269,7 +269,7 @@ every Varve reader; the view is a `ref struct` and cannot be stored.
 **The browser already carried `System.Private.Xml`** for the SPARQL XML
 results format; this package adds its own assembly, 72,790 bytes compressed,
 measured by the browser smoke. The figures and the size at which the decision
-is reopened (1.5 MB compressed) are in ADR 0111.
+is reopened (1.5 MB compressed) are in ADR 0122.
 
 ## 8. What this replaced
 
@@ -283,5 +283,5 @@ are read from their originals.
 
 ## 9. Open questions
 
-None. The hand-written XML reader ADR 0111 rejected is a revisit with a
+None. The hand-written XML reader ADR 0122 rejected is a revisit with a
 stated trigger, not an open question.

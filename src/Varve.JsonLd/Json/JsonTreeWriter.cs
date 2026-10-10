@@ -10,7 +10,7 @@ using DecisionDriven.Ledger.Varve;
 
 namespace Varve.JsonLd.Json;
 
-/// <summary>Writes a <see cref="JsonTree"/> subtree with <see cref="Utf8JsonWriter"/> (ADR 0112).</summary>
+/// <summary>Writes a <see cref="JsonTree"/> subtree with <see cref="Utf8JsonWriter"/> (ADR 0123).</summary>
 [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal static class JsonTreeWriter
 {

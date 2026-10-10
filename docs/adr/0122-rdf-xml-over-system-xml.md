@@ -1,4 +1,4 @@
-# 0111 — RDF/XML over `System.Xml`, with its cost measured and a size at which to revisit
+# 0122 — RDF/XML over `System.Xml`, with its cost measured and a size at which to revisit
 
 ## Status
 
@@ -217,7 +217,7 @@ and each is a decision key the analyzer can cite (`XmlReaderAdmittedOnTheHotPath
 `StringNamesAreCompared`). The place this could erode is a later package
 taking the entries as precedent for `System.Text.Json`'s document model or a
 `StreamReader`; it is not one, and the JSON-LD reader of the same milestone
-(ADR 0112) is over `Utf8JsonReader`, which allocates nothing.
+(ADR 0123) is over `Utf8JsonReader`, which allocates nothing.
 
 **`tests/fixtures/w3c-rdfxml/` is gone, with its guard and its generator.**
 The conformance harness reads the SPARQL suites' `.rdf` files with
@@ -228,7 +228,7 @@ dotNetRDF is back to the one use ADR 0027 left it: the benchmark baseline.
 the number at which this is reopened written here rather than remembered.
 
 **RDF 1.2 in RDF/XML is gated by a declaration, which no other Varve syntax
-is.** Turtle (ADR 0110) and N-Triples read the 1.2 forms unconditionally and
+is.** Turtle (ADR 0121) and N-Triples read the 1.2 forms unconditionally and
 use the version only to decide one escape. RDF/XML's suite decides otherwise
 for triple terms and directions, and this ADR follows the suite; a document
 that wants them says `rdf:version="1.2"`, and the writer puts that attribute

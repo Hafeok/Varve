@@ -12,7 +12,7 @@ using static Varve.Turtle.Tests.TurtleHarness;
 namespace Varve.Turtle.Tests;
 
 /// <summary>
-/// RDF 1.2 syntax is accepted by the Turtle and TriG reader (ADR 0110).
+/// RDF 1.2 syntax is accepted by the Turtle and TriG reader (ADR 0121).
 /// </summary>
 /// <remarks>
 /// <para>

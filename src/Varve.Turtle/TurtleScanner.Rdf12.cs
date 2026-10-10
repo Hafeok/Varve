@@ -11,7 +11,7 @@ using Varve.Turtle.Model;
 namespace Varve.Turtle;
 
 /// <summary>
-/// RDF 1.2's additions (ADR 0110): reified triples [29], triple terms [32],
+/// RDF 1.2's additions (ADR 0121): reified triples [29], triple terms [32],
 /// annotations [35] and the version directive [6], [9].
 /// </summary>
 /// <remarks>

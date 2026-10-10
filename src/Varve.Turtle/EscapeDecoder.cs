@@ -223,7 +223,7 @@ internal static class EscapeDecoder
                 // one is an error even when its partner follows; RDF 1.1
                 // Turtle's test-38 requires the pair to be read as the
                 // character it encodes. The edition decides (RdfVersion, ADR
-                // 0110). A lone surrogate is unpaired in both.
+                // 0121). A lone surrogate is unpaired in both.
                 if (!surrogatePairs)
                 {
                     error = ParseErrorKind.InvalidUnicodeEscape;

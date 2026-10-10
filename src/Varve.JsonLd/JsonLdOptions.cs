@@ -9,7 +9,7 @@ using Varve.Rdf;
 
 namespace Varve.JsonLd;
 
-/// <summary>Receives one quad; the view is valid for the duration of the call (ADR 0112, <c>TheQuadHandlerIsTheCallers</c>).</summary>
+/// <summary>Receives one quad; the view is valid for the duration of the call (ADR 0123, <c>TheQuadHandlerIsTheCallers</c>).</summary>
 [Contract(typeof(RdfTermRepresentation.TermViewIsARefStruct), Role = "receives each quad as a view valid for the call")]
 public delegate void JsonLdQuadHandler(in QuadView quad);
 
@@ -19,7 +19,7 @@ public delegate void JsonLdQuadHandler(in QuadView quad);
 /// available, which is the error <c>loading remote context failed</c>.
 /// </summary>
 /// <remarks>
-/// The package never opens a connection of its own (ADR 0112,
+/// The package never opens a connection of its own (ADR 0123,
 /// <c>RemoteContextsNeedALoader</c>): with no loader, every remote context
 /// fails. A loader returns the document's bytes; relative IRIs in the context
 /// resolve against <paramref name="iri"/>.

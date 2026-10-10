@@ -6,7 +6,7 @@ namespace Varve.JsonLd;
 
 /// <summary>
 /// How a value's <c>@direction</c> crosses into RDF and back (JSON-LD 1.1 API
-/// §6.1 <c>rdfDirection</c>; ADR 0112, <c>DirectionDefaultIsNative</c>).
+/// §6.1 <c>rdfDirection</c>; ADR 0123, <c>DirectionDefaultIsNative</c>).
 /// </summary>
 public enum RdfDirection
 {

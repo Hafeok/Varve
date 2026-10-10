@@ -12,7 +12,7 @@ Status: Accepted. Changes only together with the ADR that motivates the change.
 - **RDF 1.1 TriG** — W3C Recommendation, 25 February 2014. §2.6 the grammar.
 - **RDF 1.2 Turtle** — W3C Working Draft, 07 October 2026. §6.5 the grammar,
   §7.3 the parsing of reifiers, reified triples, triple terms and
-  annotations, §2.4 the version directive (ADR 0110).
+  annotations, §2.4 the version directive (ADR 0121).
 - **RDF 1.2 TriG** — W3C Working Draft, 07 October 2026. §4.5 the grammar.
 - **RFC 3986 §5.2** for relative resolution, through `Varve.Iri`.
 
@@ -30,7 +30,7 @@ some bijection of blank nodes. So these suites test the quads produced and not
 only which documents are accepted, which is what makes them the first real
 check on the term model.
 
-**RDF 1.2 Turtle and TriG are read and written** (ADR 0110, superseding
+**RDF 1.2 Turtle and TriG are read and written** (ADR 0121, superseding
 the refusal §9 recorded at milestone 3b). The grammar is one: RDF 1.2 is RDF
 1.1's superset everywhere but one point, a character written as two `\u`
 escapes forming a surrogate pair, which RDF 1.1 Turtle's `test-38` requires
@@ -271,7 +271,7 @@ structure, so N-Triples' rule does not transfer.
 - On an error, the parser reports it and **resumes after the next `.` that is
   at nesting depth zero and outside a String and an `IRIREF`** — depth counted
   over `[ ]`, `( )`, TriG's `{ }`, and RDF 1.2's `<< >>`, `<<( )>>` and
-  `{| |}` (ADR 0030, amended by ADR 0110).
+  `{| |}` (ADR 0030, amended by ADR 0121).
 - Everything from the start of the failed statement to that point produces **no
   quads**, including the triples a blank node property list or a collection
   inside it had already generated. A statement is all-or-nothing.
@@ -330,7 +330,7 @@ Both syntaxes, streaming, from a view or from a quad and its source.
   denote the same dataset. Declaring a prefix or a base also closes an open
   block, because a directive inside one is not Turtle.
 - **RDF 1.2 terms are written, and the version directive is never silently
-  absent** (ADR 0110). A triple term is written `<<( s p o )>>`, spaced as RDF
+  absent** (ADR 0121). A triple term is written `<<( s p o )>>`, spaced as RDF
   1.2's canonical N-Triples spaces it (ADR 0061); a directional literal is
   written `"x"@en--ltr`. **`VERSION "1.2"` is written once, immediately before
   the first statement whose object is a triple term or a directional
@@ -479,7 +479,7 @@ from the other path rather than authored.
 
 ## 9. RDF 1.2 is accepted here, and the edition decides one escape
 
-This is RDF 1.2 Turtle and TriG (ADR 0110), read as one grammar over RDF 1.1's:
+This is RDF 1.2 Turtle and TriG (ADR 0121), read as one grammar over RDF 1.1's:
 reified triples `<< … >>` [29], triple terms `<<( … )>>` [32], annotations
 `{| … |}` [36], reifiers `~` [28], both spellings of the version directive [6]
 [9], and `LANG_DIR` [42] with its `--ltr` and `--rtl`. Until milestone 6b this
@@ -511,4 +511,4 @@ as a subject or a predicate.
 ## 10. Open questions
 
 None. The deferral this section recorded until milestone 6b — RDF 1.2 Turtle
-and TriG, 167 cases — is closed by ADR 0110, and the suites pass whole.
+and TriG, 167 cases — is closed by ADR 0121, and the suites pass whole.

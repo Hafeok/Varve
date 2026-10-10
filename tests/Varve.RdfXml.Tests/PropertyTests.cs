@@ -14,7 +14,7 @@ using static Varve.RdfXml.Tests.Harness;
 namespace Varve.RdfXml.Tests;
 
 /// <summary>
-/// The RDF/XML writer against its reader over generated datasets (ADR 0111,
+/// The RDF/XML writer against its reader over generated datasets (ADR 0122,
 /// <c>rdf-xml.md</c> §6): write, read back, same dataset up to blank node
 /// labels; write, read, write, same bytes. And the datasets the syntax cannot
 /// express, which the writer must refuse by name rather than mangle.

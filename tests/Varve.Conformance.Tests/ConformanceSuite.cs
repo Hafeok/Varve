@@ -21,13 +21,13 @@ internal enum RdfFormat
     /// <summary>RDF 1.1 TriG.</summary>
     TriG,
 
-    /// <summary>RDF 1.2 N-Triples (ADR 0110): the edition decides how a surrogate escape is read.</summary>
+    /// <summary>RDF 1.2 N-Triples (ADR 0121): the edition decides how a surrogate escape is read.</summary>
     NTriples12,
 
     /// <summary>RDF 1.2 N-Quads.</summary>
     NQuads12,
 
-    /// <summary>JSON-LD 1.1 (ADR 0112): the json-ld-api toRdf entries, whose expected datasets are N-Quads.</summary>
+    /// <summary>JSON-LD 1.1 (ADR 0123): the json-ld-api toRdf entries, whose expected datasets are N-Quads.</summary>
     JsonLd,
 
     /// <summary>RDF 1.2 Turtle.</summary>
@@ -36,7 +36,7 @@ internal enum RdfFormat
     /// <summary>RDF 1.2 TriG.</summary>
     TriG12,
 
-    /// <summary>RDF/XML, the rdf11 suite (ADR 0111): its results are RDF 1.1 N-Triples.</summary>
+    /// <summary>RDF/XML, the rdf11 suite (ADR 0122): its results are RDF 1.1 N-Triples.</summary>
     RdfXml,
 
     /// <summary>RDF/XML, the rdf12 evaluation suite: its results are RDF 1.2 N-Triples.</summary>
@@ -93,7 +93,7 @@ internal sealed record ConformanceSuite(string Id, string ManifestPath, string B
         Suite("rdf11/turtle", "rdf/rdf11/rdf-turtle/manifest.ttl", RdfFormat.Turtle),
         Suite("rdf11/trig", "rdf/rdf11/rdf-trig/manifest.ttl", RdfFormat.TriG),
 
-        // Milestone 6b (ADR 0110). RDF 1.2 Turtle and TriG: reified triples,
+        // Milestone 6b (ADR 0121). RDF 1.2 Turtle and TriG: reified triples,
         // triple terms, annotations, reifiers, the version directive and
         // LANG_DIR. Each has a syntax and an evaluation manifest, wired as two
         // suites because the top-level manifest only includes them.
@@ -102,13 +102,13 @@ internal sealed record ConformanceSuite(string Id, string ManifestPath, string B
         Suite("rdf12/trig-syntax", "rdf/rdf12/rdf-trig/syntax/manifest.ttl", RdfFormat.TriG12),
         Suite("rdf12/trig-eval", "rdf/rdf12/rdf-trig/eval/manifest.ttl", RdfFormat.TriG12),
 
-        // Milestone 6b (ADR 0111). RDF/XML: the rdf11 suite, and the rdf12
+        // Milestone 6b (ADR 0122). RDF/XML: the rdf11 suite, and the rdf12
         // evaluation suite with rdf:parseType="Triple", rdf:annotation and
         // its:dir.
         Suite("rdf11/rdf-xml", "rdf/rdf11/rdf-xml/manifest.ttl", RdfFormat.RdfXml),
         Suite("rdf12/rdf-xml", "rdf/rdf12/rdf-xml/eval/manifest.ttl", RdfFormat.RdfXml12),
 
-        // Milestone 6b (ADR 0112). JSON-LD 1.1's toRdf suite, from the
+        // Milestone 6b (ADR 0123). JSON-LD 1.1's toRdf suite, from the
         // json-ld-api submodule: each entry runs under its stated options,
         // its expected dataset is N-Quads, and a negative entry names the
         // specification's error code.
@@ -117,7 +117,7 @@ internal sealed record ConformanceSuite(string Id, string ManifestPath, string B
 
     /// <summary>
     /// The json-ld-api suites whose results are JSON documents rather than
-    /// datasets: expand and fromRdf (ADR 0112). They are ratcheted by
+    /// datasets: expand and fromRdf (ADR 0123). They are ratcheted by
     /// <c>JsonLdApiConformanceTests</c>, not by the syntax tests, and are
     /// not corpus for the chunk-boundary oracle, which wants quads.
     /// </summary>

@@ -40,7 +40,7 @@ dataset directory.
 
 ## Status
 
-**`v0.1.0-preview.3` is the latest release, and it closed milestone 6**, with
+**`v0.1.0-preview.4` is the latest release, and it closed milestone 6**, with
 its last slice, 6b: RDF 1.2 Turtle and TriG, RDF/XML and JSON-LD. Fifteen
 packages and one executable: reading and writing seven syntaxes, the XSD
 value spaces, RDFC-1.0
@@ -91,7 +91,7 @@ The W3C suites are the acceptance gate, from
 | `rdf12/rdf-n-triples` (syntax) | 29 |
 | `rdf12/rdf-n-quads` (syntax) | 27 |
 | `rdf12/rdf-n-triples`, `rdf-n-quads` (canonical form, ADR 0061) | 82 |
-| `rdf12/rdf-turtle`, `rdf-trig` (syntax and evaluation, ADR 0110) | 167 |
+| `rdf12/rdf-turtle`, `rdf-trig` (syntax and evaluation, ADR 0121) | 167 |
 | `rdf11/rdf-xml` | 166 |
 | `rdf12/rdf-xml` (evaluation) | 31 |
 | `json-ld-api/toRdf` (448 of 467; the rest 1.0-only or generalized RDF, by rule) | 448 |
@@ -124,8 +124,8 @@ store's pinned view, that view through a graph scope naming every graph of
 the case (ADR 0107), and the protocol over HTTP with an `all` grant — and is
 one ratchet line per subject; a guard runs every case again in ADR 0050's two
 other value-access arms. The 41 SPARQL 1.2 evaluation cases whose data is RDF
-1.2 Turtle or TriG run since milestone 6b (ADR 0110); 29 pass over every
-subject.
+1.2 Turtle or TriG run since milestone 6b (ADR 0121); 37 pass over every
+subject, and the other four over `InMemoryDataset`.
 
 **`baseline/exemptions.txt` holds twenty-four exemptions.** Twelve are in the
 deprecated `http-rdf-update` suite, six a store, each with the section it
@@ -135,8 +135,10 @@ Protocol §5.4), and a `HEAD` without `Accept` that expects Turtle (§5.2 allows
 N-Triples). Twelve are four SPARQL 1.2 `eval-triple-terms` cases over the
 store, its graph scope and the protocol: they match a blank node inside a
 triple term, which the store cannot yet answer by handle
-(`IQuadSource.TryGetTripleTermComponents`, ADR 0110; the store's blank node
-identity is ADR 0044's), and Oxigraph agrees with the suite on each. No
+(`IQuadSource.TryGetTripleTermComponents`, ADR 0121; the store's blank node
+identity is ADR 0044's), and Oxigraph agrees with the suite on each. They
+leave with [#87](https://github.com/Hafeok/Varve/issues/87), due before
+milestone 8. No
 syntax, canonicalisation or update case needs one, including none for empty
 graphs, which the store does not record (SPARQL 1.1 Update §3.2 allows it).
 `eng/ratchet.cs` fails the build if any of those 5,507 stops passing, and an
@@ -148,9 +150,9 @@ Also true today, and measured rather than asserted:
   N-Quads, Turtle and TriG — measured as the difference between a 500-quad
   and a 4,000-quad parse, because an absolute figure measures the harness as
   much as the parser. RDF/XML costs what `XmlReader` costs, 16 bytes a
-  triple, stated rather than hidden (ADR 0111); JSON-LD is a tree before it
+  triple, stated rather than hidden (ADR 0122); JSON-LD is a tree before it
   is a dataset, zero per quad in a steady state and the tree's growth on the
-  first document of a size, and 286 bytes a quad to write (ADR 0112).
+  first document of a size, and 286 bytes a quad to write (ADR 0123).
 - **Native AOT and browser WebAssembly** both read and write Turtle and TriG
   with RDF 1.2, RDF/XML and JSON-LD. CI publishes the AOT binary and *runs*
   it; the interesting AOT failures are at run time and silent.
@@ -201,7 +203,7 @@ Also true today, and measured rather than asserted:
 
 **RDF 1.2 is accepted in every syntax.** Turtle and TriG read and write
 reified triples, triple terms, annotations, reifiers, the version directive
-and directional language tags (ADR 0110); `docs/spec/turtle.md` §9 says how
+and directional language tags (ADR 0121); `docs/spec/turtle.md` §9 says how
 the two editions' one contradiction is decided. SPARQL 1.2 is accepted in
 full, triple terms, reifiers, annotations and `VERSION` included, because the
 algebra was built with 1.2 from the start.

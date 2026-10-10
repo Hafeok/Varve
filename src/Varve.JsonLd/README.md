@@ -13,7 +13,7 @@ directions and `rdf:JSON` literals in RFC 8785 canonical form.
   into one index-linked tree in pooled arrays, expanded into the same tree,
   and walked for quads. The figure per quad is the tree's growth, measured
   and stated in the specification page rather than hidden, and the emitter
-  itself allocates nothing (ADR 0112).
+  itself allocates nothing (ADR 0123).
 - **Remote contexts come only through the caller's document loader**; with
   none, the default, a remote context is the error `loading remote context
   failed`. Nothing in this package opens a connection.

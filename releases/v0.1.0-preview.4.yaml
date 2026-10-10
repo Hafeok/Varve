@@ -1,13 +1,13 @@
 format: 1
-version: v0.1.0-preview.3
+version: v0.1.0-preview.4
 title: RDF 1.2 Turtle and TriG, RDF/XML, JSON-LD
 date: 2026-10-09
 basis:
   - issue: 10
   - storage-format: 1
-  - adr: "0110"
-  - adr: "0111"
-  - adr: "0112"
+  - adr: "0121"
+  - adr: "0122"
+  - adr: "0123"
 accepted-by: mailto:emil@okkels-klein.dk
 summary: |
   ### Milestone 6b — RDF 1.2 Turtle and TriG, RDF/XML, JSON-LD
@@ -20,7 +20,7 @@ summary: |
 
   #### Added
 
-  - **RDF 1.2 Turtle and TriG** in `Varve.Turtle` (ADR 0110,
+  - **RDF 1.2 Turtle and TriG** in `Varve.Turtle` (ADR 0121,
     `docs/spec/turtle.md` §9 rewritten): reified triples, triple terms,
     annotations, reifiers, `@version` and `VERSION`, and directional
     language tags, read and written. The writer declares `VERSION "1.2"` on
@@ -30,7 +30,7 @@ summary: |
     other, a surrogate pair written as two `\u` escapes; the default is RDF
     1.2. The four `rdf12` Turtle and TriG suites pass whole, and the 41
     SPARQL 1.2 evaluation cases they had blocked run.
-  - **`Varve.RdfXml`** (layer 2, ADR 0111, `docs/spec/rdf-xml.md`): RDF/XML
+  - **`Varve.RdfXml`** (layer 2, ADR 0122, `docs/spec/rdf-xml.md`): RDF/XML
     over `System.Xml`'s `XmlReader` and `XmlWriter`, with
     `rdf:parseType="Triple"`, `rdf:annotation` and `its:dir`, the RDF 1.2
     forms read where `rdf:version` announces 1.2. Both W3C suites pass whole
@@ -38,7 +38,7 @@ summary: |
     and 34 written, measured and stated. The N-Triples translations of the
     SPARQL suites' RDF/XML files are deleted and the harness reads the
     originals.
-  - **`Varve.JsonLd`** (layer 2, ADR 0112, `docs/spec/json-ld.md`): JSON-LD
+  - **`Varve.JsonLd`** (layer 2, ADR 0123, `docs/spec/json-ld.md`): JSON-LD
     1.1 over `Utf8JsonReader` and `Utf8JsonWriter` — expansion, toRdf and
     fromRdf — as an index-linked tree in pooled arrays, zero bytes per quad
     in a steady state. `rdf:JSON` literals are written in RFC 8785 form,

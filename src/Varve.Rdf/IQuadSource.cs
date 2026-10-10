@@ -107,7 +107,7 @@ public interface IQuadSource
     /// <summary>
     /// The handles of a triple term's three components, when
     /// <paramref name="handle"/> names a triple term this source can take
-    /// apart (ADR 0110). False means the handle is not a triple term, or that
+    /// apart (ADR 0121). False means the handle is not a triple term, or that
     /// the source cannot hand out handles for its parts — nothing more, and
     /// the consumer externalises as it would have anyway.
     /// </summary>

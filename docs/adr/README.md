@@ -48,7 +48,7 @@ or depart from `docs/brief.md`, each says so in its Context.
 | [0024](0024-rdf-term-representation.md) | RDF term representation | Accepted |
 | [0025](0025-property-based-testing.md) | CsCheck for property-based testing | Accepted |
 | [0026](0026-hotpath-attribute.md) | Where the `[HotPath]` attribute lives | Accepted; placement **superseded by 0064** |
-| [0027](0027-benchmarking.md) | Benchmarking | Accepted; dotNetRDF's fixture use (note of 2026-09-25) closed 2026-10-09 by ADR 0111 |
+| [0027](0027-benchmarking.md) | Benchmarking | Accepted; dotNetRDF's fixture use (note of 2026-09-25) closed 2026-10-09 by ADR 0122 |
 
 ## Milestone 3a close-out
 
@@ -61,7 +61,7 @@ or depart from `docs/brief.md`, each says so in its Context.
 
 | # | Title | Status |
 |---:|---|---|
-| [0030](0030-turtle-recovery-and-prefixes.md) | Turtle's recovery unit, prefix exposure, and where isomorphism lives | Accepted; deletion clause **superseded by 0059**; amended 2026-10-09 (depth over the RDF 1.2 brackets, ADR 0110) |
+| [0030](0030-turtle-recovery-and-prefixes.md) | Turtle's recovery unit, prefix exposure, and where isomorphism lives | Accepted; deletion clause **superseded by 0059**; amended 2026-10-09 (depth over the RDF 1.2 brackets, ADR 0121) |
 
 ## Stewardship — the Mind Over Machine standard
 
@@ -237,9 +237,9 @@ Filed by milestone 6b ([#10](https://github.com/Hafeok/Varve/issues/10)), unacce
 
 | # | Title | Status |
 |---:|---|---|
-| [0110](0110-rdf-1-2-turtle-and-trig.md) | RDF 1.2 Turtle and TriG are accepted; the edition decides a surrogate escape | Accepted; supersedes `turtle.md` §9's refusal; amends 0030 |
-| [0111](0111-rdf-xml-over-system-xml.md) | RDF/XML over `System.Xml`, with its cost measured and a size at which to revisit | Accepted; closes 0027's fixture note |
-| [0112](0112-json-ld-over-utf8-json.md) | JSON-LD 1.1 over `Utf8JsonReader`, as a tree in an arena; the direction is RDF 1.2's by default | Accepted |
+| [0121](0121-rdf-1-2-turtle-and-trig.md) | RDF 1.2 Turtle and TriG are accepted; the edition decides a surrogate escape | Accepted; supersedes `turtle.md` §9's refusal; amends 0030 |
+| [0122](0122-rdf-xml-over-system-xml.md) | RDF/XML over `System.Xml`, with its cost measured and a size at which to revisit | Accepted; closes 0027's fixture note |
+| [0123](0123-json-ld-over-utf8-json.md) | JSON-LD 1.1 over `Utf8JsonReader`, as a tree in an arena; the direction is RDF 1.2's by default | Accepted |
 
 ## Conformance — differential testing against Oxigraph
 

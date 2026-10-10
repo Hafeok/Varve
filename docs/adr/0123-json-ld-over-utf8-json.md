@@ -1,4 +1,4 @@
-# 0112 — JSON-LD 1.1 over `Utf8JsonReader`, as a tree in an arena; the direction is RDF 1.2's by default
+# 0123 — JSON-LD 1.1 over `Utf8JsonReader`, as a tree in an arena; the direction is RDF 1.2's by default
 
 ## Status
 
@@ -33,7 +33,7 @@ document has been seen, whichever way the bytes arrive.
 
 Every other Varve reader is a scanner over `ReadOnlySequence<byte>` that
 emits a quad per statement with zero allocation per quad (ADRs 0030, 0061,
-0111). The brief holds JSON-LD to the same constraints: zero allocation per
+0122). The brief holds JSON-LD to the same constraints: zero allocation per
 quad measured honestly, the chunk-boundary oracle, Native AOT and the
 browser, the DD rules from the first line, and "no `JsonDocument` on the hot
 path". The brief also fixes the scope — `toRdf`, `fromRdf`, `expand`; not
@@ -226,11 +226,11 @@ the one that loses nothing.
 
 ## Checks
 
-- **Checked against the accepted ADRs** (0001–0111). Touches **0009** (no
+- **Checked against the accepted ADRs** (0001–0122). Touches **0009** (no
   package added: `System.Text.Json` is the BCL), **0061** (the canonical
   N-Quads rendering of directional literals is what the round-trip tests
-  compare), **0110** (the `RdfVersion` option is Turtle's; JSON-LD has no
-  edition), **0111** (the allow-list gains BCL types for the same reason and
+  compare), **0121** (the `RdfVersion` option is Turtle's; JSON-LD has no
+  edition), **0122** (the allow-list gains BCL types for the same reason and
   under the same honesty rule), and **0066** (filed unaccepted; `CS0618` red
   by design until acceptance). No conflict with any.
 - **Layer ownership.** `Varve.JsonLd` is layer 2 and references `Varve.Rdf`,

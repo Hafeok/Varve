@@ -1,7 +1,7 @@
 ---
 set: rdf-1-2-turtle-and-trig
 namespace: varve
-adr: 0110
+adr: 0121
 decisions:
   - key: Rdf12SyntaxIsAccepted
     statement: "The Turtle and TriG reader accepts RDF 1.2 as one grammar that is RDF 1.1's superset: reified triples, triple terms, annotations, reifiers, the version directive and LANG_DIR, gated by the rdf12 rdf-turtle and rdf-trig suites"
@@ -17,6 +17,6 @@ decisions:
     statement: "IQuadSource answers a triple term's component handles through TryGetTripleTermComponents; the default answers through TryExternalise and TryInternalise, which is the path a consumer took before, and a source whose dictionary holds composite entries answers from the entry, so a blank node inside a triple term keeps the identity ADR 0044 gives it"
 ---
 
-The rulings of [ADR 0110](../adr/0110-rdf-1-2-turtle-and-trig.md), one line each. The ADR is the
+The rulings of [ADR 0121](../adr/0121-rdf-1-2-turtle-and-trig.md), one line each. The ADR is the
 narrative; this is what code cites. Filed unaccepted by milestone 6b of #10 (ADR 0066); acceptance
 is the maintainer's act on the pull request.

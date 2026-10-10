@@ -14,7 +14,7 @@ namespace Varve.JsonLd.Tests;
 
 /// <summary>
 /// The fromRdf writer against the toRdf reader over generated datasets (ADR
-/// 0112, json-ld.md §6): write, read back, same dataset up to blank node
+/// 0123, json-ld.md §6): write, read back, same dataset up to blank node
 /// labels; write, read, write, same bytes. And the one dataset the writer
 /// cannot express, which it refuses by name.
 /// </summary>
@@ -77,7 +77,7 @@ public class PropertyTests
         Dataset.Sample(
             nquads =>
             {
-                // Up to blank node labels: toRdf renumbers them (ADR 0112,
+                // Up to blank node labels: toRdf renumbers them (ADR 0123,
                 // BlankNodesAreRelabelled), so the second document names
                 // the same nodes differently and nothing else.
                 string first = FromRdf(nquads, new JsonLdWriteOptions { Indent = false });
@@ -127,7 +127,7 @@ public class PropertyTests
     private static bool Same(List<string> left, List<string> right)
     {
         // Language tags are compared without regard to case: the processor
-        // lowercases them (ADR 0112, LanguageTagsAreLowercased).
+        // lowercases them (ADR 0123, LanguageTagsAreLowercased).
         HashSet<string> leftSet = new(left.ConvertAll(LowercaseTag), StringComparer.Ordinal);
         HashSet<string> rightSet = new(right.ConvertAll(LowercaseTag), StringComparer.Ordinal);
         List<string> leftLabels = Labels(leftSet);

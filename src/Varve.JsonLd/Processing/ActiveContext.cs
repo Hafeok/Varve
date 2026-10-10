@@ -35,7 +35,7 @@ internal enum Mapping : byte
 
 /// <summary>
 /// A term definition (JSON-LD 1.1 API §4.2). One object per term per context
-/// met (ADR 0112, <c>ContextsAreNotPerQuad</c>); every string in it is a
+/// met (ADR 0123, <c>ContextsAreNotPerQuad</c>); every string in it is a
 /// range of the tree's text.
 /// </summary>
 [DesignDecision(typeof(JsonLdOverUtf8Json.ContextsAreNotPerQuad), Scope = ExceptionScope.HotPath)]
@@ -93,7 +93,7 @@ internal sealed class TermDefinition
 /// An active context (JSON-LD 1.1 API §4.1): the term definitions, the base
 /// IRI, the vocabulary mapping, the default language and direction, and the
 /// previous context a non-propagating one remembers. Allocated once per
-/// <c>@context</c> processed (ADR 0112, <c>ContextsAreNotPerQuad</c>).
+/// <c>@context</c> processed (ADR 0123, <c>ContextsAreNotPerQuad</c>).
 /// </summary>
 [DesignDecision(typeof(JsonLdOverUtf8Json.ContextsAreNotPerQuad), Scope = ExceptionScope.HotPath)]
 internal sealed class ActiveContext

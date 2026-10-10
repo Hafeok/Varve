@@ -235,7 +235,7 @@ public class TurtlePropertyTests
         "_:a p:p _:b .",
         "p:s a p:C ; p:p p:o , p:o2 ; p:q () .",
         "<http://a/s> <http://a/p> \"a\\\"b\\\\c\" .",
-        // RDF 1.2 (ADR 0110): a directional literal, a triple term object, a
+        // RDF 1.2 (ADR 0121): a directional literal, a triple term object, a
         // reified triple in both positions, an annotation with a named and
         // with a fresh reifier, and a nested triple term.
         "p:s p:p \"x\"@en--ltr , \"y\"@ar--rtl .",

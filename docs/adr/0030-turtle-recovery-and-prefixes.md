@@ -40,7 +40,7 @@ the difference between a triple the author wrote and one a confused parser
 invented.
 
 > **Amended 2026-10-09** (milestone 6b, ADR
-> [0110](0110-rdf-1-2-turtle-and-trig.md)). The depth is counted over three
+> [0121](0121-rdf-1-2-turtle-and-trig.md)). The depth is counted over three
 > more pairs of brackets: RDF 1.2's reified triple `<< >>`, triple term
 > `<<( )>>` and annotation block `{| |}`. A `.` inside any of them — in a
 > reified triple's literal, in an annotation's object list — is not a

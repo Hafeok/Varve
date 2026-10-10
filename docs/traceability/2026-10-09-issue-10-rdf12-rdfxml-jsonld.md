@@ -9,15 +9,15 @@
 | **Issue** | [#10](https://github.com/Hafeok/Varve/issues/10), milestone 6b |
 | **Date** | 2026-10-09 |
 | **Tool** | Claude Code 2.1.295, a cloud session started from the desktop app |
-| **Model** | `claude-fable-5-1`, configured and served, from the session's own metadata |
+| **Model** | `claude-fable-5-1`, configured and served, from the session's own metadata, through the first pull request; `claude-opus-5-5` from 2026-10-10, switched by the maintainer, for the addendum below |
 | **Session identifier** | `session_01F7hRfABzhAc7PaB87cNbU5` |
 | **Branch** | `claude/affectionate-goodall-k5bmez`, from `main` at d02e0f1 |
-| **ADRs** | 0110, 0111, 0112, filed unaccepted; 0027 and 0030 carry dated notes |
+| **ADRs** | 0121, 0122, 0123, filed unaccepted; 0027 and 0030 carry dated notes |
 
 ## The prompt
 
 > Session 6b: RDF 1.2 Turtle and TriG, RDF/XML, JSON-LD
-> 6b completes syntax conformance and unblocks the 41 SPARQL 1.2 evaluation cases the guard pins. Read `docs/roadmap.md` §6b, `docs/spec/turtle.md` (§9 above all), ADRs 0027 and 0061, the 3b and 5b traceability records, and the conformance harness. `AGENTS.md` applies in full; every new reader and writer is zero-allocation per quad, runs the chunk-boundary oracle, and is under the DD rules from its first line. Plan first, wait for approval; one PR, red only on `CS0618`; the descriptor `releases/v0.1.0-preview.3.yaml` is in the PR with `issue: 10` (rename to the next number if session O lands first); land through `land/`. Do not touch `Varve.Server`, `Varve.Protocol`, `Varve.Store` or `docs/operator/`; session O owns those in parallel. Merge `main` before close-out.
+> 6b completes syntax conformance and unblocks the 41 SPARQL 1.2 evaluation cases the guard pins. Read `docs/roadmap.md` §6b, `docs/spec/turtle.md` (§9 above all), ADRs 0027 and 0061, the 3b and 5b traceability records, and the conformance harness. `AGENTS.md` applies in full; every new reader and writer is zero-allocation per quad, runs the chunk-boundary oracle, and is under the DD rules from its first line. Plan first, wait for approval; one PR, red only on `CS0618`; the descriptor `releases/v0.1.0-preview.4.yaml` is in the PR with `issue: 10` (rename to the next number if session O lands first); land through `land/`. Do not touch `Varve.Server`, `Varve.Protocol`, `Varve.Store` or `docs/operator/`; session O owns those in parallel. Merge `main` before close-out.
 > A. Decisions
 >
 > 1. RDF 1.2 Turtle and TriG are accepted, superseding the decision `turtle.md` §9 records by a dated ADR: reifiers, annotations, triple terms and directional language tags in reader and writer, to the `rdf12/rdf-turtle` and `rdf12/rdf-trig` suites. The reason §9 gave (both drafts days old) has expired; the ADR cites the draft dates it was written against. Triple terms map onto the model's existing RDF 1.2 triple terms (milestone 3a); nothing in `Varve.Rdf` changes. The RDF 1.1 suites keep passing unchanged, since 1.2 syntax is a superset, and the ratchet guard that pinned the 41 blocked cases is deleted when they pass.
@@ -50,10 +50,10 @@ the maintainer approved it:
 
 ## The report
 
-**ADRs.** 0110 (RDF 1.2 Turtle and TriG are accepted; the edition decides a
-surrogate escape; supersedes `turtle.md` §9; amends 0030), 0111 (RDF/XML
+**ADRs.** 0121 (RDF 1.2 Turtle and TriG are accepted; the edition decides a
+surrogate escape; supersedes `turtle.md` §9; amends 0030), 0122 (RDF/XML
 over `System.Xml`, its cost measured, a revisit size of 1.5 MB compressed;
-closes 0027's fixture note), 0112 (JSON-LD 1.1 over `Utf8JsonReader` as a
+closes 0027's fixture note), 0123 (JSON-LD 1.1 over `Utf8JsonReader` as a
 tree in an arena; the direction is RDF 1.2's by default). Three decision sets,
 filed unaccepted; `CS0618` is the one red.
 
@@ -70,7 +70,8 @@ ones unchanged and **twelve new**: `eval-triple-terms` `pattern-6`,
 the protocol. Each matches a blank node inside a triple term; over
 `InMemoryDataset` they pass through the new
 `IQuadSource.TryGetTripleTermComponents`, and over the store they cannot until
-the store implements it, which is session O's package. pyoxigraph 0.5.11 gives
+the store implements it ([#87](https://github.com/Hafeok/Varve/issues/87),
+see the addendum). pyoxigraph 0.5.11 gives
 the suite's expected rows on all four. The `rdf12/rdf-xml` `tt-01` expected
 file is empty on purpose — RDF 1.2 XML reads `rdf:parseType="Triple"` only
 where `rdf:version` announces 1.2 — so no ADR 0038 tracking issue is owed for
@@ -112,19 +113,42 @@ follows; and the json-ld-api `expand-0081` family expects a `@graph`
 container to wrap a value that is already a graph object, which §5.1.2 step
 13.12 does say.
 
-**What milestone 8 needs from the maintainer.** Accept ADRs 0110–0112 on the
-pull request. The store's `TryGetTripleTermComponents` is session O's: the
+**What milestone 8 needs from the maintainer.** Accept ADRs 0121–0123 on the
+pull request. The store's `TryGetTripleTermComponents` is
+[#87](https://github.com/Hafeok/Varve/issues/87), due before milestone 8: the
 twelve exemptions leave when `Views.IndexSource`, `PendingSource` and the
 staging view answer it, and the patch is a lookup of the term's components by
-handle in the term table. Whichever of the two sessions lands second adds
-`application/rdf+xml` and `application/ld+json` to `Varve.Protocol`'s media
-type table and amends ADR 0092; `main` had not moved when this session closed,
-so that falls to session O. JSON-LD compaction, flattening and framing are
+handle in the term table. The media types in `Varve.Protocol` and the ADR
+0092 amendment are this session's, as the one landing second (addendum). JSON-LD compaction, flattening and framing are
 recorded as out of scope with the trigger that reopens them.
 
 **Commits.** `5d1e6fb` docs(adr) 0110; `ec9553d` feat(turtle); `acf385b`
 docs(adr) 0111; `7f80500` feat(rdfxml); `4485932` docs(adr) 0112; `2101ea2`
 feat(jsonld); and the close-out commit carrying the smokes, the CI jobs, the
-status, the roadmap, this record and `releases/v0.1.0-preview.3.yaml`.
+status, the roadmap, this record and `releases/v0.1.0-preview.4.yaml`.
+
+## Addendum, 2026-10-10: renumbered, and landing second
+
+The Operability session (#12, pull request #86) filed ADRs from 0110 in
+parallel and lands first. The maintainer, after #85 was opened:
+
+> Hold for session O: both sessions filed ADRs from 0110, and O lands first. Renumber yours to 0121–0123 (and every reference, set file and the descriptor), take v0.1.0-preview.4, and merge main once #86 is in; at that close-out add the two media types to Varve.Protocol's table and the 0092 amendment, since you are the session landing second. The twelve triple-term exemptions stay as exemptions; open an issue for IQuadSource.TryGetTripleTermComponents due before milestone 8 rather than handing it to session O. Yes, watch #85.
+
+Done in this order:
+
+- **0110, 0111 and 0112 are 0121, 0122 and 0123**, in the files, the three
+  decision sets, every reference in code, tests and documents, the ADR index,
+  and the dated notes in 0027 and 0030. The commit subjects above keep the
+  numbers they were written with. The release is **`v0.1.0-preview.4`**.
+- **[#87](https://github.com/Hafeok/Varve/issues/87)** is the store's
+  `TryGetTripleTermComponents`, due before milestone 8; the twelve
+  exemptions, ADR 0121, README and the roadmap cite it.
+- **A count corrected**: of the 41 cases unblocked, 37 pass over every
+  subject and the other four over `InMemoryDataset` only. README and the
+  roadmap had said 29.
+- **CI on #85's first head** failed in every build-dependent job with
+  `CS0618` and nothing else, as intended.
+- The merge of `main` once #86 lands, and the two media types with the ADR
+  0092 amendment, follow in the same pull request.
 
 Developed with AI assistance under human review.

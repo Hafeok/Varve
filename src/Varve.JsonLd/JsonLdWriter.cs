@@ -21,7 +21,7 @@ namespace Varve.JsonLd;
 /// whole dataset must be seen before a list can be detected or a subject
 /// grouped, so quads are buffered as indices into one term arena and the
 /// document is written on <see cref="Flush"/> or <see cref="Dispose"/>
-/// (ADR 0112, <c>FromRdfBuffersTheDataset</c>).
+/// (ADR 0123, <c>FromRdfBuffersTheDataset</c>).
 /// </summary>
 [DesignDecision(typeof(JsonLdOverUtf8Json.FromRdfBuffersTheDataset), Scope = ExceptionScope.HotPath)]
 public sealed class JsonLdWriter : IDisposable

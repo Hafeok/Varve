@@ -107,7 +107,7 @@ public class TurtleAllocationTests
 
             // Since milestone 6b each statement also carries RDF 1.2: a
             // directional literal, an annotation with a fresh reifier, a
-            // triple term object and a reified triple object (ADR 0110).
+            // triple term object and a reified triple object (ADR 0121).
             builder.Append("p:s").Append(n)
                 .Append(" p:p \"value ").Append(n).Append(" with an escape \\u00E9\"@en--ltr , 1.5e3 {| p:w p:z |} ;\n")
                 .Append("  p:q [ p:r ( <rel").Append(n).Append("> p:t ) ] ;\n")

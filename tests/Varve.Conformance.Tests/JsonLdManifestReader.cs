@@ -21,7 +21,7 @@ namespace Varve.Conformance.Tests;
 /// <remarks>
 /// <para>
 /// Three kinds of entry are excluded by rule rather than exempted one by
-/// one (ADR 0112, <c>ProcessingModeIsOnePointOne</c>): those whose
+/// one (ADR 0123, <c>ProcessingModeIsOnePointOne</c>): those whose
 /// <c>specVersion</c> is <c>json-ld-1.0</c> (they test behaviour JSON-LD 1.1
 /// changed), those whose <c>processingMode</c> is <c>json-ld-1.0</c> (they
 /// test the 1.0 mode this processor does not have), and those with

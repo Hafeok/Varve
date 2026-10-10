@@ -8,7 +8,7 @@ directions (`its:dir`).
   `rdf12` evaluation suite pass, with no exemption, under the same ratchet as
   every other syntax; `docs/spec/rdf-xml.md` says what is refused and why.
   Per triple it costs what `XmlReader` costs, and the figure is stated there
-  rather than hidden (ADR 0111).
+  rather than hidden (ADR 0122).
 - **The BCL does the XML**: encodings, entities, namespaces and
   well-formedness are `XmlReader`'s, with DTDs refused. This package does the
   RDF/XML grammar over the events it reports, and an `rdf:XMLLiteral` is the

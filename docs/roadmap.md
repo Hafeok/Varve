@@ -335,25 +335,27 @@ Issue [#10](https://github.com/Hafeok/Varve/issues/10). **Delivered:**
 
 ## 6b — RDF 1.2 Turtle and TriG, RDF/XML, JSON-LD *(complete)*
 
-Issue [#10](https://github.com/Hafeok/Varve/issues/10), ADRs 0110–0112, filed
+Issue [#10](https://github.com/Hafeok/Varve/issues/10), ADRs 0121–0123, filed
 unaccepted. Added at milestone 5b, when the SPARQL 1.2 evaluation suites
 turned out to need it: 41 of their cases loaded their data from RDF 1.2
 Turtle or TriG, which `turtle.md` §9 refused. **Delivered:**
 
-- **RDF 1.2 Turtle and TriG** (ADR 0110): reified triples, triple terms,
+- **RDF 1.2 Turtle and TriG** (ADR 0121): reified triples, triple terms,
   annotations, reifiers, both spellings of the version directive and
   directional language tags, read and written; `turtle.md` §9 rewritten; the
   four `rdf12` suites pass whole; the 41 blocked cases run over all four
-  subjects, 29 passing everywhere and 12 over the store exempt with
-  Oxigraph's agreement until the store answers
-  `IQuadSource.TryGetTripleTermComponents` (ADR 0044's blank node identity).
+  subjects, 37 passing everywhere and the other four exempt over the store,
+  its scope and the protocol, with Oxigraph's agreement, until the store
+  answers `IQuadSource.TryGetTripleTermComponents` (ADR 0044's blank node
+  identity), which is [#87](https://github.com/Hafeok/Varve/issues/87), due
+  before milestone 8.
   The one contradiction between the editions, a surrogate pair as two
   escapes, is an `RdfVersion` option.
-- **`Varve.RdfXml`** (ADR 0111, `docs/spec/rdf-xml.md`): RDF/XML over
+- **`Varve.RdfXml`** (ADR 0122, `docs/spec/rdf-xml.md`): RDF/XML over
   `System.Xml`, both suites whole with no exemption, the cost of `XmlReader`
   measured and stated; `tests/fixtures/w3c-rdfxml/` deleted and the harness
   reads the originals, closing ADR 0027's note.
-- **`Varve.JsonLd`** (ADR 0112, `docs/spec/json-ld.md`): JSON-LD 1.1 over
+- **`Varve.JsonLd`** (ADR 0123, `docs/spec/json-ld.md`): JSON-LD 1.1 over
   `Utf8JsonReader` as a tree in an arena — expand, toRdf and fromRdf, the
   three suites whole under a stated rule for the 1.0-only cases; the
   direction is RDF 1.2's by default. Compaction, flattening and framing are

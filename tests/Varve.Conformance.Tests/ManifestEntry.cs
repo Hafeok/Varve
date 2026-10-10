@@ -89,7 +89,7 @@ internal enum JsonLdOperation
 /// <summary>
 /// The options a json-ld-api manifest entry states (its <c>option</c> map),
 /// and what it expects: the entries run with each one's stated option, and
-/// the specification's default where none is stated (ADR 0112).
+/// the specification's default where none is stated (ADR 0123).
 /// </summary>
 /// <param name="Operation">toRdf, expand or fromRdf.</param>
 /// <param name="BaseIri">The <c>base</c> option, or the input document's IRI.</param>

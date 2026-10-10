@@ -17,7 +17,7 @@ namespace Varve.JsonLd.Processing;
 /// <summary>
 /// Context processing (JSON-LD 1.1 API §4.1.2), create term definition
 /// (§4.2.2) and IRI expansion (§5.2.2), over the tree. Every allocation here
-/// is per context met, never per quad (ADR 0112,
+/// is per context met, never per quad (ADR 0123,
 /// <c>ContextsAreNotPerQuad</c>).
 /// </summary>
 [DesignDecision(typeof(JsonLdOverUtf8Json.ContextsAreNotPerQuad), Scope = ExceptionScope.HotPath)]
@@ -327,7 +327,7 @@ internal sealed class ContextProcessor
         return false;
     }
 
-    /// <summary>Dereferences a remote context through the caller's loader (ADR 0112, <c>RemoteContextsNeedALoader</c>); returns the <c>@context</c> value node.</summary>
+    /// <summary>Dereferences a remote context through the caller's loader (ADR 0123, <c>RemoteContextsNeedALoader</c>); returns the <c>@context</c> value node.</summary>
     [DesignDecision(typeof(JsonLdOverUtf8Json.RemoteContextsNeedALoader), Scope = ExceptionScope.Boundary)]
     private int LoadContext(TextRange iri, out TextRange documentIri)
     {
