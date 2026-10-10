@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by milestone Operability of #12, 2026-10-09**
+**Accepted — filed unaccepted by milestone Operability of #12, 2026-10-09**
 (ADR 0066). Decided by the maintainer on the Operability plan ("your
 refinement"). Acceptance is the maintainer's act on the pull request.
 **Refines [0075](0075-one-process-per-dataset-by-an-os-lease.md)**: the lock

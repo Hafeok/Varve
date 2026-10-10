@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by milestone Operability of #12, 2026-10-09**
+**Accepted — filed unaccepted by milestone Operability of #12, 2026-10-09**
 (ADR 0066). Acceptance is the maintainer's act on the pull request. Admits
 three packages to the register, in `Varve.Server` alone, on the condition
 that the server's Native AOT publish stays green (as ADR 0099 admitted

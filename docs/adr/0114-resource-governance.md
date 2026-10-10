@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by milestone Operability of #12, 2026-10-09**
+**Accepted — filed unaccepted by milestone Operability of #12, 2026-10-09**
 (ADR 0066). Acceptance is the maintainer's act on the pull request. Refines
 [0095](0095-a-read-over-http-is-pinned-bounded-and-cut-visibly.md) (the 7a
 limits) and ADR 0052's "the server enforces".

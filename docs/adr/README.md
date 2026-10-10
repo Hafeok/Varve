@@ -237,17 +237,17 @@ Filed by milestone Operability ([#12](https://github.com/Hafeok/Varve/issues/12)
 
 | # | Title | Status |
 |---:|---|---|
-| [0110](0110-the-shipped-runtime-configuration.md) | The shipped runtime configuration: workstation concurrent GC, `ConserveMemory`, no heap limit of our own | Proposed; amends 0082 and supersedes it in part (the drift's window); the two-hour soak did not hold, #61 stays open |
-| [0111](0111-the-container-image.md) | The container image: `ghcr.io/hafeok/varve`, Native AOT per architecture, attested | Proposed |
-| [0112](0112-telemetry-in-two-layers.md) | Telemetry in two layers: the BCL instruments, the server exports | Proposed; admits the OpenTelemetry packages to `Varve.Server` |
-| [0113](0113-health-and-readiness.md) | Health and readiness are different questions: `/health/live`, `/health/ready` | Proposed; amends 0101 |
-| [0114](0114-resource-governance.md) | Resource governance: a stated answer for every limit | Proposed; refines 0095 |
-| [0115](0115-configuration-precedence-and-print-config.md) | Configuration from file, environment and command line; `--print-config`; an unknown key refuses to start | Proposed; amends 0101 |
-| [0116](0116-the-lease-policy-and-varve-lease.md) | The lease at start: a bounded wait, never a forced takeover; `varve lease` | Proposed; refines 0075 |
-| [0117](0117-varve-aspire.md) | `Varve.Aspire`: the hosting integration | Proposed; admits `Aspire.Hosting` |
-| [0118](0118-api-alignment-while-everything-is-preview.md) | API alignment while everything is preview | Proposed; amends 0093, 0097, 0106; `410` reversed, 0096 stands |
-| [0119](0119-headers-and-the-problem-catalogue.md) | Headers by read kind, and a catalogue of every problem the server can emit | Proposed; amends 0092, 0094, 0096 |
-| [0120](0120-the-insert-data-fast-path.md) | The `INSERT DATA` fast path: ground quads to the commit request | Proposed; answers #35 |
+| [0110](0110-the-shipped-runtime-configuration.md) | The shipped runtime configuration: workstation concurrent GC, `ConserveMemory`, no heap limit of our own | Accepted; amends 0082 and supersedes it in part (the drift's window); the two-hour soak did not hold, #61 stays open |
+| [0111](0111-the-container-image.md) | The container image: `ghcr.io/hafeok/varve`, Native AOT per architecture, attested | Accepted |
+| [0112](0112-telemetry-in-two-layers.md) | Telemetry in two layers: the BCL instruments, the server exports | Accepted; admits the OpenTelemetry packages to `Varve.Server` |
+| [0113](0113-health-and-readiness.md) | Health and readiness are different questions: `/health/live`, `/health/ready` | Accepted; amends 0101 |
+| [0114](0114-resource-governance.md) | Resource governance: a stated answer for every limit | Accepted; refines 0095 |
+| [0115](0115-configuration-precedence-and-print-config.md) | Configuration from file, environment and command line; `--print-config`; an unknown key refuses to start | Accepted; amends 0101 |
+| [0116](0116-the-lease-policy-and-varve-lease.md) | The lease at start: a bounded wait, never a forced takeover; `varve lease` | Accepted; refines 0075 |
+| [0117](0117-varve-aspire.md) | `Varve.Aspire`: the hosting integration | Accepted; admits `Aspire.Hosting` |
+| [0118](0118-api-alignment-while-everything-is-preview.md) | API alignment while everything is preview | Accepted; amends 0093, 0097, 0106; `410` reversed, 0096 stands |
+| [0119](0119-headers-and-the-problem-catalogue.md) | Headers by read kind, and a catalogue of every problem the server can emit | Accepted; amends 0092, 0094, 0096 |
+| [0120](0120-the-insert-data-fast-path.md) | The `INSERT DATA` fast path: ground quads to the commit request | Accepted; answers #35 |
 
 ## Conformance — differential testing against Oxigraph
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by milestone Operability of #12, 2026-10-09**
+**Accepted — filed unaccepted by milestone Operability of #12, 2026-10-09**
 (ADR 0066). Decided by the maintainer on the Operability plan; the proposed
 `410 Gone` for the archive horizon was **reversed** on review (RFC 9110
 §15.5.9 reserves `410` for conditions likely to be permanent; archiving is

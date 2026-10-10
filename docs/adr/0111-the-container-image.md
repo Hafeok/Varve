@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by milestone Operability of #12, 2026-10-09**
+**Accepted — filed unaccepted by milestone Operability of #12, 2026-10-09**
 (ADR 0066). Decided by the maintainer on the Operability plan: GHCR only,
 Docker Hub a roadmap note. Acceptance is the maintainer's act on the pull
 request.

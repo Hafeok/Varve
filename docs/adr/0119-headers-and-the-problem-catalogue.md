@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by milestone Operability of #12, 2026-10-09**
+**Accepted — filed unaccepted by milestone Operability of #12, 2026-10-09**
 (ADR 0066). Acceptance is the maintainer's act on the pull request.
 
 **Amends by dated block** [0092](0092-protocol-scope-problem-details-and-tie-breakers.md)

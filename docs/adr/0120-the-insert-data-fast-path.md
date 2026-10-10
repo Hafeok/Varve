@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by milestone Operability of #12, 2026-10-09**
+**Accepted — filed unaccepted by milestone Operability of #12, 2026-10-09**
 (ADR 0066). Acceptance is the maintainer's act on the pull request. Answers
 #35; builds on ADR 0057 as amended 2026-10-08 (a data-only request expects no
 position).
