@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -12,6 +13,7 @@ using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Aspire.Hosting;
+using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Testing;
 using Xunit;
 
@@ -21,12 +23,13 @@ namespace Varve.Aspire.Sample.Tests;
 /// The sample AppHost end to end (ADR 0117): the server comes up healthy
 /// beside the issuer, a writer's token writes, a reader's reads and may not
 /// write. The issuer names itself by the host it was asked for, so the token
-/// request carries the host the server sees it by on the container network.
+/// request carries the host the server sees it by on the container network:
+/// the authority Aspire gave the server, read from its environment, which is
+/// <c>mock-oauth2.dev.internal</c> under Aspire 13 rather than the resource's
+/// bare name.
 /// </summary>
 public class SampleTests
 {
-    private const string IssuerHost = "mock-oauth2:8080";
-
     [Fact]
     public async Task The_server_comes_up_behind_the_issuer_and_takes_its_tokens()
     {
@@ -34,12 +37,13 @@ public class SampleTests
         IDistributedApplicationTestingBuilder builder = await DistributedApplicationTestingBuilder.CreateAsync<Projects.Varve_Aspire_Sample>(cancellationToken);
         await using DistributedApplication app = await builder.BuildAsync(cancellationToken);
         await app.StartAsync(cancellationToken);
-        await app.ResourceNotifications.WaitForResourceHealthyAsync("varve", cancellationToken).WaitAsync(TimeSpan.FromMinutes(5), cancellationToken);
+        ResourceEvent healthy = await app.ResourceNotifications.WaitForResourceHealthyAsync("varve", cancellationToken).WaitAsync(TimeSpan.FromMinutes(5), cancellationToken);
+        string issuerHost = new Uri(healthy.Snapshot.EnvironmentVariables.Single(variable => variable.Name == "VARVE__AUTH__AUTHORITY").Value!).Authority;
 
         Uri issuer = app.GetEndpoint("mock-oauth2", "http");
         using HttpClient provider = new(new HttpClientHandler { UseProxy = false });
-        string writer = await TokenAsync(provider, issuer, "varve-writer", cancellationToken);
-        string reader = await TokenAsync(provider, issuer, "varve-cli", cancellationToken);
+        string writer = await TokenAsync(provider, issuer, issuerHost, "varve-writer", cancellationToken);
+        string reader = await TokenAsync(provider, issuer, issuerHost, "varve-cli", cancellationToken);
 
         using HttpClient varve = app.CreateHttpClient("varve", "http");
         using HttpResponseMessage unauthenticated = await varve.GetAsync("datasets/people/sparql?query=ASK%7B%7D", cancellationToken);
@@ -58,7 +62,7 @@ public class SampleTests
         Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
     }
 
-    private static async Task<string> TokenAsync(HttpClient provider, Uri issuer, string client, CancellationToken cancellationToken)
+    private static async Task<string> TokenAsync(HttpClient provider, Uri issuer, string issuerHost, string client, CancellationToken cancellationToken)
     {
         using HttpRequestMessage request = new(HttpMethod.Post, new Uri(issuer, "varve/token"))
         {
@@ -70,7 +74,7 @@ public class SampleTests
                 ["scope"] = "api://varve",
             }),
         };
-        request.Headers.Host = IssuerHost;
+        request.Headers.Host = issuerHost;
         using HttpResponseMessage response = await provider.SendAsync(request, cancellationToken);
         string body = await response.Content.ReadAsStringAsync(cancellationToken);
         Assert.True(response.IsSuccessStatusCode, (int)response.StatusCode + " from the issuer: " + body);
