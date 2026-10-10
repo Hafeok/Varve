@@ -36,6 +36,14 @@
 //
 // Exit codes: 0 conformant, 1 findings, 2 could not run.
 //
+// **The allow-list** below names the packable projects that may carry native
+// assets, each with the ADR that admits it and the reason. It is for a
+// project outside the three hosts constraint 1 is about, never for a
+// library those hosts load. An allowed project's native packages are still
+// printed, so that a new one is seen; the cited ADR must exist; and an entry
+// whose project ships no native asset fails as stale, so the list cannot
+// outlive its reason.
+//
 // See docs/adr/0009-dependency-policy-and-register.md.
 
 using System.Text.Json;
@@ -53,6 +61,28 @@ for (int i = 0; i < args.Length; i++)
 
 string repositoryRoot = FindRepositoryRoot();
 List<(string Project, string Assets)> toCheck = [];
+
+// Projects that may carry native assets, by repository-relative path: the
+// ADR that admits each, and why (see the header).
+Dictionary<string, (string Adr, string Reason)> allowed = new(StringComparer.Ordinal)
+{
+    ["src/Varve.Aspire/Varve.Aspire.csproj"] = ("0117",
+        "an AppHost-only package, outside the three hosts of constraint 1: Aspire.Hosting brings Hex1b's terminal "
+        + "interop, whose natives every AppHost carries regardless of Varve"),
+};
+
+foreach ((string project, (string adr, _)) in allowed)
+{
+    string adrDirectory = Path.Combine(repositoryRoot, "docs", "adr");
+
+    if (!Directory.Exists(adrDirectory) || Directory.GetFiles(adrDirectory, adr + "-*.md").Length == 0)
+    {
+        Console.Error.WriteLine($"FAIL: the allow-list entry for {project} cites ADR {adr}, which does not exist.");
+        return 1;
+    }
+}
+
+HashSet<string> allowedWithNatives = new(StringComparer.Ordinal);
 
 if (assetsOverride is not null)
 {
@@ -100,6 +130,19 @@ foreach ((string project, string assets) in toCheck)
         continue;
     }
 
+    if (allowed.TryGetValue(Relative(repositoryRoot, project).Replace('\\', '/'), out (string Adr, string Reason) entry))
+    {
+        allowedWithNatives.Add(Relative(repositoryRoot, project).Replace('\\', '/'));
+        Console.WriteLine($"allowed  {Relative(repositoryRoot, project)}, ADR {entry.Adr}: {entry.Reason}");
+
+        foreach ((string package, List<string> files) in findings)
+        {
+            Console.WriteLine($"  {package}, {files.Count} native file(s)");
+        }
+
+        continue;
+    }
+
     failed = true;
     Console.Error.WriteLine();
     Console.Error.WriteLine(
@@ -114,6 +157,17 @@ foreach ((string project, string assets) in toCheck)
         {
             Console.Error.WriteLine($"    {file}");
         }
+    }
+}
+
+// A stale entry: the project is gone, or ships no native asset any more.
+if (assetsOverride is null)
+{
+    foreach (string project in allowed.Keys.Where(project => !allowedWithNatives.Contains(project)))
+    {
+        failed = true;
+        Console.Error.WriteLine();
+        Console.Error.WriteLine($"FAIL: the allow-list names {project}, which ships no native asset in a shipped closure. Remove the entry.");
     }
 }
 

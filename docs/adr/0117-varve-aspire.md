@@ -60,13 +60,17 @@ over an `HttpClient` the application already configures is the integration.
    outside `Varve.slnx`'s packable set, so ADR 0009's amendment on shipped
    artefacts covers them as it covers the benchmark harness, and
    `eng/native-assets.cs` never sees them. `Varve.Aspire` itself references
-   `Aspire.Hosting`, which is managed, and the gate checks its closure. One
-   dependency of `Aspire.Hosting`'s, `Hex1b`, the Aspire CLI's terminal
-   interop, ships native binaries for every platform; `Varve.Aspire`
-   references it with `ExcludeAssets="native"`, so that no native asset is
-   in its restore graph or its package, which is the gate's definition of
-   shipped (ADR 0009 as amended). An AppHost gets `Hex1b` whole from
-   `Aspire.Hosting`, as every AppHost does; nothing of Varve's needs it.
+   `Aspire.Hosting`, and the gate checks its closure. One dependency of
+   `Aspire.Hosting`'s, `Hex1b`, the Aspire CLI's terminal interop, ships
+   native binaries for every platform. **`Varve.Aspire` is on
+   `eng/native-assets.cs`'s allow-list, citing this ADR**, for the reason the
+   list records: it is an AppHost-only package, outside the three hosts of
+   constraint 1 (desktop, Native AOT, the browser), and Aspire's natives are
+   in every AppHost regardless of Varve, so excluding them from our
+   reference would remove nothing from any process. The gate still prints
+   the allowed project's native packages, so that a new one is seen, and an
+   entry whose project ships no native asset fails as stale. No library the
+   three hosts load is on the list.
 
 ## Alternatives considered
 

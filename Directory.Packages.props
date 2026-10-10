@@ -111,13 +111,6 @@
          amended), so the platform binaries the orchestration and the
          dashboard carry are never in an artefact of ours. -->
     <PackageVersion Include="Aspire.Hosting" Version="13.6.1" Adr="0117" />
-    <!-- Aspire.Hosting's own dependency: the Aspire CLI's terminal interop,
-         which ships native binaries for every platform. Varve.Aspire
-         references it with ExcludeAssets="native" so that no native asset is
-         in its restore graph or its package (the gate's definition of
-         shipped, ADR 0009 as amended); an AppHost gets Hex1b whole from
-         Aspire.Hosting itself, as every AppHost does. -->
-    <PackageVersion Include="Hex1b" Version="0.168.0" Adr="0117" />
     <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.6.1" Adr="0117" />
     <PackageVersion Include="Aspire.Hosting.Testing" Version="13.6.1" Adr="0117" />
   </ItemGroup>

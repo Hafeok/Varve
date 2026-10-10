@@ -17,10 +17,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Brings Hex1b, the Aspire CLI's terminal interop, with native
+         binaries for every platform; eng/native-assets.cs allows this
+         project by ADR 0117, as an AppHost-only package. -->
     <PackageReference Include="Aspire.Hosting" />
-    <!-- Aspire.Hosting's terminal interop, whose native binaries are the
-         AppHost's to carry, not this package's (ADR 0117). -->
-    <PackageReference Include="Hex1b" ExcludeAssets="native" />
   </ItemGroup>
 
 </Project>
