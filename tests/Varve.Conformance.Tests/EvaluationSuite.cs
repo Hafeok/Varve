@@ -27,8 +27,8 @@ internal sealed record EvaluationSuite(string Id, string ManifestPath, string Ba
     /// suite extends, parsed under 1.1; the 1.1 query directories of the
     /// official query manifest, the two result-format directories that hold
     /// query evaluation entries, and <c>service</c> through a test handler; and
-    /// the SPARQL 1.2 directories, whose cases with RDF 1.2 Turtle data are
-    /// blocked (<see cref="EvaluationCatalogue.IsBlocked"/>).
+    /// the SPARQL 1.2 directories, whose RDF 1.2 Turtle and TriG data has been
+    /// read since milestone 6b (ADR 0121).
     /// </summary>
     internal static ImmutableArray<EvaluationSuite> All { get; } =
     [
@@ -94,16 +94,6 @@ internal static class EvaluationCatalogue
 
     internal static IReadOnlyList<EvaluationEntry> Of(EvaluationSuite suite) =>
         [.. Entries.Where(e => string.Equals(e.Suite, suite.Id, StringComparison.Ordinal))];
-
-    /// <summary>
-    /// A case is blocked when one of its data files is RDF 1.2 Turtle or TriG,
-    /// which <c>turtle.md</c> §9 refuses: the loader reports it, and the guard
-    /// pins how many there are and names the slice that unblocks them.
-    /// </summary>
-    internal static bool IsBlocked(EvaluationEntry entry) => EvaluationData.RefusedFiles(entry).Count > 0;
-
-    /// <summary>The blocked cases, which the guard pins by count and by suite.</summary>
-    internal static ImmutableArray<EvaluationEntry> Blocked => [.. Entries.Where(IsBlocked)];
 
     private static List<EvaluationEntry> ReadAll()
     {

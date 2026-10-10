@@ -1,0 +1,55 @@
+#nullable enable
+Varve.RdfXml.Model.RdfXmlErrorKind
+Varve.RdfXml.Model.RdfXmlErrorKind.ConflictingAttributes = 5 -> Varve.RdfXml.Model.RdfXmlErrorKind
+Varve.RdfXml.Model.RdfXmlErrorKind.DuplicateId = 7 -> Varve.RdfXml.Model.RdfXmlErrorKind
+Varve.RdfXml.Model.RdfXmlErrorKind.ForbiddenAttribute = 4 -> Varve.RdfXml.Model.RdfXmlErrorKind
+Varve.RdfXml.Model.RdfXmlErrorKind.ForbiddenElementName = 3 -> Varve.RdfXml.Model.RdfXmlErrorKind
+Varve.RdfXml.Model.RdfXmlErrorKind.InvalidBaseDirection = 13 -> Varve.RdfXml.Model.RdfXmlErrorKind
+Varve.RdfXml.Model.RdfXmlErrorKind.InvalidIri = 9 -> Varve.RdfXml.Model.RdfXmlErrorKind
+Varve.RdfXml.Model.RdfXmlErrorKind.InvalidLanguageTag = 12 -> Varve.RdfXml.Model.RdfXmlErrorKind
+Varve.RdfXml.Model.RdfXmlErrorKind.InvalidName = 6 -> Varve.RdfXml.Model.RdfXmlErrorKind
+Varve.RdfXml.Model.RdfXmlErrorKind.InvalidTripleTerm = 14 -> Varve.RdfXml.Model.RdfXmlErrorKind
+Varve.RdfXml.Model.RdfXmlErrorKind.MalformedXml = 1 -> Varve.RdfXml.Model.RdfXmlErrorKind
+Varve.RdfXml.Model.RdfXmlErrorKind.None = 0 -> Varve.RdfXml.Model.RdfXmlErrorKind
+Varve.RdfXml.Model.RdfXmlErrorKind.RelativeIri = 8 -> Varve.RdfXml.Model.RdfXmlErrorKind
+Varve.RdfXml.Model.RdfXmlErrorKind.UnexpectedContent = 11 -> Varve.RdfXml.Model.RdfXmlErrorKind
+Varve.RdfXml.Model.RdfXmlErrorKind.UnexpectedEnd = 2 -> Varve.RdfXml.Model.RdfXmlErrorKind
+Varve.RdfXml.Model.RdfXmlErrorKind.UnexpectedText = 10 -> Varve.RdfXml.Model.RdfXmlErrorKind
+Varve.RdfXml.Model.RdfXmlParseError
+Varve.RdfXml.Model.RdfXmlParseError.Column.get -> int
+Varve.RdfXml.Model.RdfXmlParseError.Kind.get -> Varve.RdfXml.Model.RdfXmlErrorKind
+Varve.RdfXml.Model.RdfXmlParseError.Line.get -> int
+Varve.RdfXml.Model.RdfXmlParseError.Message.get -> string!
+Varve.RdfXml.NamespaceHandler
+Varve.RdfXml.RdfXmlOptions
+Varve.RdfXml.RdfXmlOptions.BaseIri.get -> System.ReadOnlyMemory<byte>
+Varve.RdfXml.RdfXmlOptions.BaseIri.init -> void
+Varve.RdfXml.RdfXmlOptions.OnNamespace.get -> Varve.RdfXml.NamespaceHandler?
+Varve.RdfXml.RdfXmlOptions.OnNamespace.init -> void
+Varve.RdfXml.RdfXmlOptions.RdfXmlOptions() -> void
+Varve.RdfXml.RdfXmlOptions.ValidateIris.get -> bool
+Varve.RdfXml.RdfXmlOptions.ValidateIris.init -> void
+Varve.RdfXml.RdfXmlParseResult
+Varve.RdfXml.RdfXmlParseResult.Error.get -> Varve.RdfXml.Model.RdfXmlParseError?
+Varve.RdfXml.RdfXmlParseResult.QuadCount.get -> long
+Varve.RdfXml.RdfXmlParseResult.RdfXmlParseResult() -> void
+Varve.RdfXml.RdfXmlParseResult.Succeeded.get -> bool
+Varve.RdfXml.RdfXmlParser
+Varve.RdfXml.RdfXmlQuadHandler
+Varve.RdfXml.RdfXmlWriteOptions
+Varve.RdfXml.RdfXmlWriteOptions.Indent.get -> bool
+Varve.RdfXml.RdfXmlWriteOptions.Indent.init -> void
+Varve.RdfXml.RdfXmlWriteOptions.RdfXmlWriteOptions() -> void
+Varve.RdfXml.RdfXmlWriter
+Varve.RdfXml.RdfXmlWriter.DeclarePrefix(System.ReadOnlySpan<byte> prefix, System.ReadOnlySpan<byte> iri) -> void
+Varve.RdfXml.RdfXmlWriter.Dispose() -> void
+Varve.RdfXml.RdfXmlWriter.Flush() -> void
+Varve.RdfXml.RdfXmlWriter.RdfXmlWriter(System.Buffers.IBufferWriter<byte>! output, in Varve.RdfXml.RdfXmlWriteOptions options) -> void
+Varve.RdfXml.RdfXmlWriter.Write(in Varve.Rdf.Quad quad, Varve.Rdf.IQuadSource! source) -> void
+Varve.RdfXml.RdfXmlWriter.Write(in Varve.Rdf.QuadView quad) -> void
+override Varve.RdfXml.Model.RdfXmlParseError.ToString() -> string!
+static Varve.RdfXml.RdfXmlParser.Parse(System.IO.Stream! stream, Varve.RdfXml.RdfXmlQuadHandler! handler, in Varve.RdfXml.RdfXmlOptions options) -> Varve.RdfXml.RdfXmlParseResult
+static Varve.RdfXml.RdfXmlParser.Parse(System.ReadOnlyMemory<byte> utf8, Varve.RdfXml.RdfXmlQuadHandler! handler, in Varve.RdfXml.RdfXmlOptions options) -> Varve.RdfXml.RdfXmlParseResult
+static Varve.RdfXml.RdfXmlParser.Parse(in System.Buffers.ReadOnlySequence<byte> utf8, Varve.RdfXml.RdfXmlQuadHandler! handler, in Varve.RdfXml.RdfXmlOptions options) -> Varve.RdfXml.RdfXmlParseResult
+virtual Varve.RdfXml.NamespaceHandler.Invoke(System.ReadOnlySpan<byte> prefix, System.ReadOnlySpan<byte> iri) -> void
+virtual Varve.RdfXml.RdfXmlQuadHandler.Invoke(in Varve.Rdf.QuadView quad) -> void

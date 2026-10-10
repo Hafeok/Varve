@@ -88,8 +88,14 @@ internal static class Isomorphism
     /// Compares two datasets, reporting why they differ when they do.
     /// </summary>
     internal static IsomorphismResult Compare(
-        IReadOnlyList<ParsedQuad> actual, IReadOnlyList<ParsedQuad> expected)
+        IReadOnlyList<ParsedQuad> actualQuads, IReadOnlyList<ParsedQuad> expectedQuads)
     {
+        // A dataset is a set: a document that states a triple twice states
+        // it once, and the RDF 1.2 Turtle suite's annotation-07 does exactly
+        // that.
+        List<ParsedQuad> actual = Distinct(actualQuads);
+        List<ParsedQuad> expected = Distinct(expectedQuads);
+
         if (actual.Count != expected.Count)
         {
             return IsomorphismResult.Different($"{actual.Count} quad(s), expected {expected.Count}");
@@ -246,10 +252,34 @@ internal static class Isomorphism
         return renamed.Count == expected.Count && renamed.SetEquals(expected);
     }
 
-    private static bool FullyMapped(ParsedQuad quad, Dictionary<string, string> mapping) =>
-        (!quad.SubjectIsBlank || mapping.ContainsKey(quad.Subject))
-        && (!quad.ObjectIsBlank || mapping.ContainsKey(quad.Object))
-        && (!quad.GraphIsBlank || mapping.ContainsKey(quad.Graph!));
+    private static bool FullyMapped(ParsedQuad quad, Dictionary<string, string> mapping)
+    {
+        foreach (string blank in quad.BlankNodes())
+        {
+            if (!mapping.ContainsKey(blank))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static List<ParsedQuad> Distinct(IReadOnlyList<ParsedQuad> quads)
+    {
+        HashSet<ParsedQuad> seen = [];
+        List<ParsedQuad> result = [];
+
+        foreach (ParsedQuad quad in quads)
+        {
+            if (seen.Add(quad))
+            {
+                result.Add(quad);
+            }
+        }
+
+        return result;
+    }
 
     /// <summary>
     /// Which expected blank nodes each actual one could be, by signature.
@@ -300,18 +330,24 @@ internal static class Isomorphism
 
         foreach (ParsedQuad quad in quads)
         {
-            ParsedQuad shape = new(
-                Anonymise(quad.Subject),
-                quad.Predicate,
-                Anonymise(quad.Object),
-                quad.Graph is null ? null : Anonymise(quad.Graph));
+            ParsedQuad shape = quad.Shape();
 
-            Record(parts, quad.Subject, "s|" + shape);
-            Record(parts, quad.Object, "o|" + shape);
+            foreach (string blank in ParsedQuad.BlankNodesIn(quad.Subject))
+            {
+                parts[blank].Add("s|" + shape);
+            }
+
+            foreach (string blank in ParsedQuad.BlankNodesIn(quad.Object))
+            {
+                parts[blank].Add("o|" + shape);
+            }
 
             if (quad.Graph is not null)
             {
-                Record(parts, quad.Graph, "g|" + shape);
+                foreach (string blank in ParsedQuad.BlankNodesIn(quad.Graph))
+                {
+                    parts[blank].Add("g|" + shape);
+                }
             }
         }
 
@@ -326,18 +362,7 @@ internal static class Isomorphism
         return signatures;
     }
 
-    private static void Record(Dictionary<string, List<string>> parts, string term, string part)
-    {
-        if (ParsedQuad.IsBlank(term))
-        {
-            parts[term].Add(part);
-        }
-    }
-
-    private static string Anonymise(string term) => ParsedQuad.IsBlank(term) ? "_:*" : term;
-
-    private static bool HasBlank(ParsedQuad quad) =>
-        quad.SubjectIsBlank || quad.ObjectIsBlank || quad.GraphIsBlank;
+    private static bool HasBlank(ParsedQuad quad) => quad.HasBlank;
 
     private static List<string> BlankNodes(IReadOnlyList<ParsedQuad> quads)
     {
@@ -345,23 +370,12 @@ internal static class Isomorphism
 
         foreach (ParsedQuad quad in quads)
         {
-            Add(seen, quad.Subject);
-            Add(seen, quad.Object);
-
-            if (quad.Graph is not null)
+            foreach (string blank in quad.BlankNodes())
             {
-                Add(seen, quad.Graph);
+                seen.Add(blank);
             }
         }
 
         return [.. seen];
-    }
-
-    private static void Add(HashSet<string> seen, string term)
-    {
-        if (ParsedQuad.IsBlank(term))
-        {
-            seen.Add(term);
-        }
     }
 }

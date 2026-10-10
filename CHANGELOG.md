@@ -12,6 +12,65 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.0-preview.4] - 2026-10-09
+
+**RDF 1.2 Turtle and TriG, RDF/XML, JSON-LD**
+
+### Milestone 6b — RDF 1.2 Turtle and TriG, RDF/XML, JSON-LD
+
+Varve reads and writes every W3C RDF syntax. This release closes milestone
+6b (#10) and brings the packages on nuget.org from thirteen to fifteen. The
+storage format is unchanged: a dataset written by `v0.1.0-preview.1` opens
+as it is. The three ADRs are filed unaccepted and accepted on the pull
+request (ADR 0066).
+
+#### Added
+
+- **RDF 1.2 Turtle and TriG** in `Varve.Turtle` (ADR 0121,
+  `docs/spec/turtle.md` §9 rewritten): reified triples, triple terms,
+  annotations, reifiers, `@version` and `VERSION`, and directional
+  language tags, read and written. The writer declares `VERSION "1.2"` on
+  its own the moment it writes a construct RDF 1.1 cannot read, and
+  `TurtleWriteOptions.AlwaysDeclareVersion` forces it. `RdfVersion` on the
+  read options decides the one point where the editions contradict each
+  other, a surrogate pair written as two `\u` escapes; the default is RDF
+  1.2. The four `rdf12` Turtle and TriG suites pass whole, and the 41
+  SPARQL 1.2 evaluation cases they had blocked run.
+- **`Varve.RdfXml`** (layer 2, ADR 0122, `docs/spec/rdf-xml.md`): RDF/XML
+  over `System.Xml`'s `XmlReader` and `XmlWriter`, with
+  `rdf:parseType="Triple"`, `rdf:annotation` and `its:dir`, the RDF 1.2
+  forms read where `rdf:version` announces 1.2. Both W3C suites pass whole
+  with no exemption; the cost per triple is `XmlReader`'s, 16 bytes read
+  and 34 written, measured and stated. The N-Triples translations of the
+  SPARQL suites' RDF/XML files are deleted and the harness reads the
+  originals.
+- **`Varve.JsonLd`** (layer 2, ADR 0123, `docs/spec/json-ld.md`): JSON-LD
+  1.1 over `Utf8JsonReader` and `Utf8JsonWriter` — expansion, toRdf and
+  fromRdf — as an index-linked tree in pooled arrays, zero bytes per quad
+  in a steady state. `rdf:JSON` literals are written in RFC 8785 form,
+  numbers in XSD canonical form, and `@direction` is RDF 1.2's directional
+  literal by default, with the specification's `i18n-datatype`,
+  `compound-literal` and `null` as options. Remote contexts come only
+  through the caller's document loader. The toRdf, expand and fromRdf
+  suites pass whole under a stated rule for the 1.0-only cases.
+  Compaction, flattening and framing are not implemented.
+- **`IQuadSource.TryGetTripleTermComponents`** (`Varve.Rdf`, default
+  implementation): a source may answer the components of a triple term by
+  handle, which is what matching a blank node inside one needs; the BGP
+  operator uses it. `InMemoryDataset` answers; the store does not yet, and
+  its twelve lines are exempt with Oxigraph's agreement recorded.
+- The AOT and browser smokes read and write all three syntaxes. The
+  conformance baseline holds 5,507 lines, up from 4,122, with 24 justified
+  exemptions.
+
+#### Changed
+
+- **`Varve.Turtle`**: `TurtleOptions.OnVersion` reports a version
+  directive; a triple term as subject or predicate is refused by name by
+  the writer; the recovery rule counts the RDF 1.2 brackets (ADR 0030,
+  amended).
+- The `json-ld-api` repository is the third test submodule.
+
 ## [0.1.0-preview.2] - 2026-10-08
 
 **The server, the protocols, authentication, the command line, federation**
@@ -573,6 +632,7 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.2...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.4...HEAD
+[0.1.0-preview.4]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.2...v0.1.0-preview.4
 [0.1.0-preview.2]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.1...v0.1.0-preview.2
 [0.1.0-preview.1]: https://github.com/Hafeok/Varve/releases/tag/v0.1.0-preview.1

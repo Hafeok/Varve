@@ -75,6 +75,11 @@ public sealed class GraphScopedQuadSource : IQuadSource
     /// <inheritdoc />
     public bool TryExternalise(TermHandle handle, [MaybeNullWhen(false)] out RdfTerm term) => _inner.TryExternalise(handle, out term);
 
+    /// <inheritdoc/>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    public bool TryGetTripleTermComponents(TermHandle handle, out TermHandle subject, out TermHandle predicate, out TermHandle @object) =>
+        _inner.TryGetTripleTermComponents(handle, out subject, out predicate, out @object);
+
     /// <inheritdoc />
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool Contains(in Quad quad) => Allows(quad.Graph) && _inner.Contains(in quad);

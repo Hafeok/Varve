@@ -40,9 +40,10 @@ dataset directory.
 
 ## Status
 
-**`v0.1.0-preview.2` is the latest release, and it closed milestone 7**;
-it is the first release of the server. Thirteen packages and one executable:
-reading and writing four syntaxes, the XSD value spaces, RDFC-1.0
+**`v0.1.0-preview.4` is the latest release, and it closed milestone 6**, with
+its last slice, 6b: RDF 1.2 Turtle and TriG, RDF/XML and JSON-LD. Fifteen
+packages and one executable: reading and writing seven syntaxes, the XSD
+value spaces, RDFC-1.0
 canonicalisation, the SPARQL algebra with its parser and serialiser, the
 SPARQL results formats read and written, a query evaluator with an optimiser,
 an event-sourced store on files, in memory and in the browser, SPARQL Update
@@ -61,7 +62,9 @@ and it ships inside every package.
 | `Varve.Iri` | 0 | IRI parsing, resolution and normalisation over UTF-8 | working |
 | `Varve.Xsd` | 0 | the XSD 1.1 value spaces with SPARQL operator semantics: exact decimal, the integer family, IEEE double and float, boolean, string, the date and time family, durations | working |
 | `Varve.Rdf` | 1 | terms, triples, quads, and the abstract quad source contract — with cardinality estimates and an inline-value accessor | working |
-| `Varve.Turtle` | 2 | N-Triples, N-Quads, Turtle, TriG — reader and writer | working |
+| `Varve.Turtle` | 2 | N-Triples, N-Quads, Turtle, TriG — reader and writer, RDF 1.2 throughout | working |
+| `Varve.RdfXml` | 2 | RDF/XML over `System.Xml`'s reader and writer, with RDF 1.2's triple terms, annotations and directions | working |
+| `Varve.JsonLd` | 2 | JSON-LD 1.1 over `Utf8JsonReader`: expansion, toRdf and fromRdf, `rdf:JSON` in canonical form | working |
 | `Varve.Sparql` | 2 | SPARQL 1.1 Query and Update as an immutable algebra, with the 1.2 additions; the parser and the serialiser | working |
 | `Varve.Sparql.Results` | 2 | the SPARQL results formats — XML, JSON, CSV, TSV — as pull readers and streaming writers | working |
 | `Varve.Sparql.Evaluation` | 3 | the optimiser and evaluator: every operator, the function library, aggregates, property paths, `SERVICE` through a handler, over any quad source | working |
@@ -88,6 +91,12 @@ The W3C suites are the acceptance gate, from
 | `rdf12/rdf-n-triples` (syntax) | 29 |
 | `rdf12/rdf-n-quads` (syntax) | 27 |
 | `rdf12/rdf-n-triples`, `rdf-n-quads` (canonical form, ADR 0061) | 82 |
+| `rdf12/rdf-turtle`, `rdf-trig` (syntax and evaluation, ADR 0121) | 167 |
+| `rdf11/rdf-xml` | 166 |
+| `rdf12/rdf-xml` (evaluation) | 31 |
+| `json-ld-api/toRdf` (448 of 467; the rest 1.0-only or generalized RDF, by rule) | 448 |
+| `json-ld-api/expand` (368 of 386, likewise) | 368 |
+| `json-ld-api/fromRdf` (53 of 54, likewise) | 53 |
 | `sparql10/syntax-sparql1` … `5` (parsed under 1.1) | 199 |
 | `sparql11/syntax-query` | 94 |
 | `sparql11/syntax-update-1`, `-2`, `syntax-fed` | 58 |
@@ -96,13 +105,13 @@ The W3C suites are the acceptance gate, from
 | `sparql10` query evaluation, 24 directories (under 1.1), × 4 subjects | 1,132 |
 | `sparql11` query evaluation, 15 directories with `service`, × 4 subjects | 968 |
 | `sparql11/service` with the endpoints over HTTP (ADR 0104) | 7 |
-| `sparql12` query evaluation, 6 directories, × 4 subjects | 88 |
+| `sparql12` query evaluation, 6 directories, × 4 subjects | 193 |
 | `sparql11/csv-tsv-res`, `json-res`, written by the results writers | 10 |
 | `sparql11` update evaluation, 11 directories, one commit or none each, in process and through the protocol | 188 |
 | `sparql11/protocol`, `service-description`, over both stores | 74 |
 | `sparql11/http-rdf-update`, over both stores, 6 justified exemptions each | 50 |
 | `rdf-canon`, RDFC-1.0: 64 canonical forms, 21 issued maps, 1 refusal | 86 |
-| **Total** | **4,122 of 4,122** |
+| **Total** | **5,507 of 5,507** |
 
 Each SPARQL suite is parsed at its own version, so the 1.0 and 1.1 suites
 never see the 1.2 grammar; the 1.2 default is for API callers only. The six
@@ -114,29 +123,39 @@ Each query evaluation case runs over four subjects — `InMemoryDataset`, the
 store's pinned view, that view through a graph scope naming every graph of
 the case (ADR 0107), and the protocol over HTTP with an `all` grant — and is
 one ratchet line per subject; a guard runs every case again in ADR 0050's two
-other value-access arms. **41 SPARQL 1.2
-evaluation cases are blocked**, not exempt: their data is RDF 1.2 Turtle,
-which `turtle.md` §9 refuses, and roadmap slice 6b unblocks them. The guard
-pins their count.
+other value-access arms. The 41 SPARQL 1.2 evaluation cases whose data is RDF
+1.2 Turtle or TriG run since milestone 6b (ADR 0121); 37 pass over every
+subject, and the other four over `InMemoryDataset`.
 
-**`baseline/exemptions.txt` holds twelve exemptions, all in the deprecated
-`http-rdf-update` suite**, six a store, each with the section it rests on: two
-bodies in Turtle with no final `.` (Turtle 1.1 §2.4), the two `GET`s that
-depend on them, a `DELETE` of a graph no step creates (Graph Store Protocol
-§5.4), and a `HEAD` without `Accept` that expects Turtle (§5.2 allows
-N-Triples). No query, update or canonicalisation case needs one, including
-none for empty graphs, which the store does not record (SPARQL 1.1 Update §3.2
-allows it). `eng/ratchet.cs` fails the build if any of those 4,122 stops
-passing, and an exemption with no written justification fails the run too.
+**`baseline/exemptions.txt` holds twenty-four exemptions.** Twelve are in the
+deprecated `http-rdf-update` suite, six a store, each with the section it
+rests on: two bodies in Turtle with no final `.` (Turtle 1.1 §2.4), the two
+`GET`s that depend on them, a `DELETE` of a graph no step creates (Graph Store
+Protocol §5.4), and a `HEAD` without `Accept` that expects Turtle (§5.2 allows
+N-Triples). Twelve are four SPARQL 1.2 `eval-triple-terms` cases over the
+store, its graph scope and the protocol: they match a blank node inside a
+triple term, which the store cannot yet answer by handle
+(`IQuadSource.TryGetTripleTermComponents`, ADR 0121; the store's blank node
+identity is ADR 0044's), and Oxigraph agrees with the suite on each. They
+leave with [#87](https://github.com/Hafeok/Varve/issues/87), due before
+milestone 8. No
+syntax, canonicalisation or update case needs one, including none for empty
+graphs, which the store does not record (SPARQL 1.1 Update §3.2 allows it).
+`eng/ratchet.cs` fails the build if any of those 5,507 stops passing, and an
+exemption with no written justification fails the run too.
 
 Also true today, and measured rather than asserted:
 
-- **Zero bytes allocated per quad**, on every entry point in every syntax —
-  measured as the difference between a 500-quad and a 4,000-quad parse, because
-  an absolute figure measures the harness as much as the parser.
-- **Native AOT and browser WebAssembly** both read and write Turtle. CI
-  publishes the AOT binary and *runs* it; the interesting AOT failures are at
-  run time and silent.
+- **Zero bytes allocated per quad**, on every entry point of N-Triples,
+  N-Quads, Turtle and TriG — measured as the difference between a 500-quad
+  and a 4,000-quad parse, because an absolute figure measures the harness as
+  much as the parser. RDF/XML costs what `XmlReader` costs, 16 bytes a
+  triple, stated rather than hidden (ADR 0122); JSON-LD is a tree before it
+  is a dataset, zero per quad in a steady state and the tree's growth on the
+  first document of a size, and 286 bytes a quad to write (ADR 0123).
+- **Native AOT and browser WebAssembly** both read and write Turtle and TriG
+  with RDF 1.2, RDF/XML and JSON-LD. CI publishes the AOT binary and *runs*
+  it; the interesting AOT failures are at run time and silent.
 - **Every reader runs the chunk-boundary oracle**: parse whole, parse again
   split at every byte offset, require the same answer. It has found nine defect
   classes, two of which produced *wrong quads rather than errors*.
@@ -182,10 +201,12 @@ Also true today, and measured rather than asserted:
   — pyoxigraph gives the same two forms — which `docs/spec/rdf-canon.md` §6
   states; with IRI graph names the equivalence holds.
 
-**RDF 1.2 Turtle and TriG are not accepted at all** — deliberately, rather than
-half-accepted. `docs/spec/turtle.md` §9 lists the constructs and the reasoning.
-SPARQL 1.2 is accepted in full, triple terms, reifiers, annotations and
-`VERSION` included, because the algebra was built with 1.2 from the start.
+**RDF 1.2 is accepted in every syntax.** Turtle and TriG read and write
+reified triples, triple terms, annotations, reifiers, the version directive
+and directional language tags (ADR 0121); `docs/spec/turtle.md` §9 says how
+the two editions' one contradiction is decided. SPARQL 1.2 is accepted in
+full, triple terms, reifiers, annotations and `VERSION` included, because the
+algebra was built with 1.2 from the start.
 
 **Queries evaluate and updates commit.** `Varve.Sparql.Evaluation` answers
 `SELECT`, `ASK`, `CONSTRUCT` and `DESCRIBE` over any quad source, and

@@ -103,5 +103,5 @@ internal static class Differential
     }
 
     private static IEnumerable<EvaluationEntry> Cases() =>
-        EvaluationCatalogue.Entries.Where(e => !EvaluationCatalogue.IsBlocked(e) && e.ServiceData.Count == 0 && !e.Suite.EndsWith("/service", StringComparison.Ordinal));
+        EvaluationCatalogue.Entries.Where(e => e.ServiceData.Count == 0 && !e.Suite.EndsWith("/service", StringComparison.Ordinal));
 }

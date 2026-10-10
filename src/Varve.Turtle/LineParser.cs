@@ -40,14 +40,16 @@ internal ref partial struct LineParser
     private readonly TermArena _arena;
     private readonly RdfSyntax _syntax;
     private readonly bool _validateIris;
+    private readonly bool _surrogatePairs;
     private int _at;
 
-    internal LineParser(ReadOnlySpan<byte> line, TermArena arena, RdfSyntax syntax, bool validateIris)
+    internal LineParser(ReadOnlySpan<byte> line, TermArena arena, RdfSyntax syntax, bool validateIris, RdfVersion version)
     {
         _line = line;
         _arena = arena;
         _syntax = syntax;
         _validateIris = validateIris;
+        _surrogatePairs = version == RdfVersion.Rdf11;
         _at = 0;
         Error = ParseErrorKind.None;
         IriError = IriErrorKind.None;

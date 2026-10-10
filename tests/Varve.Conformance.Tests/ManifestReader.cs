@@ -48,7 +48,12 @@ internal static class ManifestReader
     /// </remarks>
     internal static IReadOnlyList<ManifestEntry> Read(ConformanceSuite suite)
     {
-        string manifestPath = TestData.ResolveFromRoot(suite.ManifestPath);
+        if (suite.Operation is JsonLdOperation operation)
+        {
+            return JsonLdManifestReader.Read(suite, operation);
+        }
+
+        string manifestPath = suite.ManifestFile;
         string manifestDirectory = Path.GetDirectoryName(manifestPath)
             ?? throw new InvalidOperationException("Manifest has no directory: " + manifestPath);
 
@@ -242,6 +247,8 @@ internal static class ManifestReader
         "http://www.w3.org/ns/rdftest#TestTrigNegativeSyntax" => ExpectedOutcome.IsRejected,
         "http://www.w3.org/ns/rdftest#TestTrigEval" => ExpectedOutcome.Evaluates,
         "http://www.w3.org/ns/rdftest#TestTrigNegativeEval" => ExpectedOutcome.IsRejected,
+        "http://www.w3.org/ns/rdftest#TestXMLEval" => ExpectedOutcome.Evaluates,
+        "http://www.w3.org/ns/rdftest#TestXMLNegativeSyntax" => ExpectedOutcome.IsRejected,
         _ => null,
     };
 

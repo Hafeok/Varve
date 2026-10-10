@@ -21,6 +21,15 @@ public delegate void PrefixHandler(ReadOnlySpan<byte> prefix, ReadOnlySpan<byte>
 [Contract(typeof(TurtleRecoveryAndPrefixes.PrefixesReportedAsDeclared), Role = "receives each base IRI as the document declares it")]
 public delegate void BaseHandler(ReadOnlySpan<byte> iri);
 
+/// <summary>Receives a version directive's value as the document declares it (RDF 1.2 Turtle §2.4).</summary>
+/// <remarks>
+/// The value is a hint and the parser refuses nothing on it: a reader of RDF
+/// 1.2 reads every announced version, and the directive is reported for the
+/// same reason prefixes are, so that a tool can reproduce it.
+/// </remarks>
+[Contract(typeof(TurtleRecoveryAndPrefixes.PrefixesReportedAsDeclared), Role = "receives each version directive as the document declares it")]
+public delegate void VersionHandler(ReadOnlySpan<byte> version);
+
 /// <summary>How to parse Turtle or TriG.</summary>
 /// <remarks>
 /// <c>default(TurtleOptions)</c> is Turtle with IRIs validated, no recovery and
@@ -60,6 +69,18 @@ public readonly struct TurtleOptions
     /// <summary>Called for each base directive, in document order.</summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public BaseHandler? OnBase { get; init; }
+
+    /// <summary>
+    /// Which edition's grammar decides where the two differ: a surrogate pair
+    /// written as two <c>\u</c> escapes (<see cref="RdfVersion"/>). RDF 1.2 by
+    /// default.
+    /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    public RdfVersion Version { get; init; }
+
+    /// <summary>Called for each version directive, in document order.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    public VersionHandler? OnVersion { get; init; }
 
     /// <summary>
     /// Whether each IRI is checked against RFC 3987 and required to have a

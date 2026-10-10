@@ -40,6 +40,13 @@ public class PullReaderAgreementTests
 
         foreach (ManifestEntry entry in Catalogue.Entries)
         {
+            // RDF/XML has one shape, push over XmlReader (rdf-xml.md §4); the
+            // agreement is between Varve.Turtle's two.
+            if (VarveParserSubject.IsRdfXml(entry.Format) || entry.Format == RdfFormat.JsonLd)
+            {
+                continue;
+            }
+
             yield return new TheoryDataRow<string>(entry.TestIri) { TestDisplayName = entry.TestIri };
         }
     }
@@ -101,14 +108,16 @@ public class PullReaderAgreementTests
         return (turtle.Result.Succeeded, turtle.Result.FirstError.ToString(), quads);
     }
 
-    private static bool IsLineBased(RdfFormat format) => format is RdfFormat.NTriples or RdfFormat.NQuads;
+    private static bool IsLineBased(RdfFormat format) =>
+        format is RdfFormat.NTriples or RdfFormat.NQuads or RdfFormat.NTriples12 or RdfFormat.NQuads12;
 
     private static ParseOptions LineOptions(RdfFormat format) =>
-        new() { Syntax = format == RdfFormat.NQuads ? RdfSyntax.NQuads : RdfSyntax.NTriples };
+        new() { Syntax = format is RdfFormat.NQuads or RdfFormat.NQuads12 ? RdfSyntax.NQuads : RdfSyntax.NTriples, Version = VarveParserSubject.VersionOf(format) };
 
     private static TurtleOptions TurtleOptionsFor(ManifestEntry entry) => new()
     {
-        Syntax = entry.Format == RdfFormat.TriG ? RdfSyntax.TriG : RdfSyntax.Turtle,
+        Syntax = entry.Format is RdfFormat.TriG or RdfFormat.TriG12 ? RdfSyntax.TriG : RdfSyntax.Turtle,
+        Version = VarveParserSubject.VersionOf(entry.Format),
         BaseIri = Encoding.UTF8.GetBytes(entry.ActionIri),
     };
 

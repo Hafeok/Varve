@@ -75,7 +75,7 @@ internal static class ParseEngine
         ref ParseState state)
     {
         arena.Reset();
-        LineParser parser = new(line, arena, options.Syntax, options.ValidateIris);
+        LineParser parser = new(line, arena, options.Syntax, options.ValidateIris, options.Version);
 
         switch (parser.Parse(out int subject, out int predicate, out int obj, out int graph))
         {

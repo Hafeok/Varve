@@ -164,3 +164,20 @@ virtual Varve.Turtle.BaseHandler.Invoke(System.ReadOnlySpan<byte> iri) -> void
 virtual Varve.Turtle.ErrorHandler.Invoke(in Varve.Turtle.Model.ParseError error) -> Varve.Turtle.Model.ErrorAction
 virtual Varve.Turtle.PrefixHandler.Invoke(System.ReadOnlySpan<byte> prefix, System.ReadOnlySpan<byte> iri) -> void
 virtual Varve.Turtle.QuadHandler.Invoke(in Varve.Rdf.QuadView quad) -> void
+Varve.Turtle.Model.ParseErrorKind.UnterminatedReifiedTriple = 30 -> Varve.Turtle.Model.ParseErrorKind
+Varve.Turtle.Model.ParseErrorKind.UnterminatedAnnotation = 31 -> Varve.Turtle.Model.ParseErrorKind
+Varve.Turtle.Model.ParseErrorKind.ExpectedReifier = 32 -> Varve.Turtle.Model.ParseErrorKind
+Varve.Turtle.Model.ParseErrorKind.InvalidVersion = 33 -> Varve.Turtle.Model.ParseErrorKind
+Varve.Turtle.TurtleOptions.OnVersion.get -> Varve.Turtle.VersionHandler?
+Varve.Turtle.TurtleOptions.OnVersion.init -> void
+Varve.Turtle.TurtleWriteOptions.AlwaysDeclareVersion.get -> bool
+Varve.Turtle.TurtleWriteOptions.AlwaysDeclareVersion.init -> void
+Varve.Turtle.VersionHandler
+virtual Varve.Turtle.VersionHandler.Invoke(System.ReadOnlySpan<byte> version) -> void
+Varve.Turtle.RdfVersion
+Varve.Turtle.RdfVersion.Rdf11 = 1 -> Varve.Turtle.RdfVersion
+Varve.Turtle.RdfVersion.Rdf12 = 0 -> Varve.Turtle.RdfVersion
+Varve.Turtle.TurtleOptions.Version.get -> Varve.Turtle.RdfVersion
+Varve.Turtle.TurtleOptions.Version.init -> void
+Varve.Turtle.ParseOptions.Version.get -> Varve.Turtle.RdfVersion
+Varve.Turtle.ParseOptions.Version.init -> void

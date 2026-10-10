@@ -29,6 +29,17 @@ tree or the same error at the same offset. A positive case also passes only
 if the serialiser's text parses back to the identical tree, which is the
 corpus half of the round-trip property (§3). Same baseline, same ratchet.
 
+**The JSON-LD API suites are a third list, read as JSON.** `ConformanceSuite`
+wires the `json-ld-api` submodule's `toRdf` manifest beside the rdf-tests
+suites — its results are datasets, compared by isomorphism — and
+`ConformanceSuite.JsonLdApi` holds `expand` and `fromRdf`, whose results are
+JSON documents compared by the suite's own JSON-LD object comparison
+(`JsonLdApiConformanceTests`): members in any order, arrays as sets except
+under `@list`, language tags without regard to case. Each entry runs under
+its stated options; the 1.0-only and generalized-RDF entries are excluded by a
+rule `docs/spec/json-ld.md` §1 states, and `SubmoduleGuardTests` pins the
+counts run and excluded. Same baseline, same ratchet.
+
 ## 2. The chunk-boundary oracle — for every streaming reader
 
 **Standing rule: every syntax package runs the chunk-boundary oracle over its

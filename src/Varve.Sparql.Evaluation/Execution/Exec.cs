@@ -198,6 +198,10 @@ internal sealed class Exec
     [DesignDecision(typeof(QuadSourceTermHandle.SourceSuppliesEquality), Scope = ExceptionScope.HotPath)]
     private bool SourceEquals(ulong left, ulong right) => Comparer.Equals(new TermHandle(left), new TermHandle(right));
 
+    /// <summary>Two source handles compared by the source's own equality.</summary>
+    [DesignDecision(typeof(QuadSourceTermHandle.SourceSuppliesEquality), Scope = ExceptionScope.HotPath)]
+    internal bool HandleEquals(TermHandle left, TermHandle right) => Comparer.Equals(left, right);
+
     [DesignDecision(typeof(QuadSourceTermHandle.SourceSuppliesEquality), Scope = ExceptionScope.HotPath)]
     private int SourceHash(ulong raw) => Comparer.GetHashCode(new TermHandle(raw));
 

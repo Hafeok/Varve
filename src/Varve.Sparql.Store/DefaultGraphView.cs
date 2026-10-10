@@ -4,6 +4,8 @@
 
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Sparql.Store;
@@ -32,6 +34,10 @@ internal sealed class DefaultGraphView : IQuadSource
     public bool TryInternalise(RdfTerm term, out TermHandle handle) => _inner.TryInternalise(term, out handle);
 
     public bool TryExternalise(TermHandle handle, [MaybeNullWhen(false)] out RdfTerm term) => _inner.TryExternalise(handle, out term);
+
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    public bool TryGetTripleTermComponents(TermHandle handle, out TermHandle subject, out TermHandle predicate, out TermHandle @object) =>
+        _inner.TryGetTripleTermComponents(handle, out subject, out predicate, out @object);
 
     public bool TryGetInlineValue(TermHandle handle, out InlineValue value) => _inner.TryGetInlineValue(handle, out value);
 

@@ -40,30 +40,14 @@ internal sealed record ParseOutcome(bool Succeeded, string? Error, IReadOnlyList
 /// </remarks>
 internal interface IParserSubject
 {
-    /// <summary>
-    /// Parses <paramref name="path"/> as <paramref name="format"/>, reporting
-    /// whether it was accepted rather than throwing.
-    /// </summary>
-    /// <param name="format">The syntax to read it as.</param>
-    /// <param name="path">The file on disk.</param>
-    /// <param name="baseIri">
-    /// The IRI the file is published at. Several suite inputs are relative
-    /// throughout and do not parse without it.
-    /// </param>
+    /// <summary>Parses a file of a format, with no options but the base; what an expected result is read with.</summary>
     ParseOutcome Parse(RdfFormat format, string path, string baseIri);
 
-    /// <summary>
-    /// The same parse, with the input delivered as two segments split at
-    /// <paramref name="at"/>.
-    /// </summary>
-    /// <remarks>
-    /// The answer must not depend on where the split falls, and a subject that
-    /// cannot be fed in pieces has no business claiming to stream. Separate
-    /// from <see cref="Parse"/> so that a subject which genuinely has only a
-    /// whole-document API can say so by throwing, rather than by quietly
-    /// reporting agreement it never tested.
-    /// </remarks>
-    ParseOutcome ParseSplit(RdfFormat format, string path, string baseIri, int at);
+    /// <summary>Parses an entry's action, under the options the entry states.</summary>
+    ParseOutcome Parse(ManifestEntry entry);
+
+    /// <summary>Parses an entry's action as a sequence split at <paramref name="at"/>, for the chunk-boundary oracle.</summary>
+    ParseOutcome ParseSplit(ManifestEntry entry, int at);
 }
 
 /// <summary>

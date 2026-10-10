@@ -10,7 +10,7 @@
 *.snk     binary
 *.nupkg   binary
 
-# The W3C test data under tests/w3c/ — rdf-tests and rdf-canon — are
+# The W3C test data under tests/w3c/ — rdf-tests, rdf-canon and json-ld-api — are
 # submodules and carry their own .gitattributes. Their byte content is the
 # thing under test (rdf-canon's expected outputs are compared byte for byte);
 # do not normalise it.

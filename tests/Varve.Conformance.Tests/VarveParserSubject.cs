@@ -9,6 +9,8 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Varve.Rdf;
+using Varve.JsonLd;
+using Varve.RdfXml;
 using Varve.Turtle;
 
 namespace Varve.Conformance.Tests;
@@ -41,6 +43,18 @@ internal sealed class VarveParserSubject : IParserSubject
         byte[] bytes = File.ReadAllBytes(path);
         Collector collector = new();
 
+        if (IsRdfXml(format))
+        {
+            RdfXmlParseResult xml = RdfXmlParser.Parse(bytes, collector.XmlHandler, RdfXmlOptionsFor(baseIri));
+            return xml.Succeeded ? ParseOutcome.Parsed(collector.Quads) : ParseOutcome.Rejected(xml.Error!.ToString());
+        }
+
+        if (format == RdfFormat.JsonLd)
+        {
+            JsonLdResult jsonLd = JsonLdParser.Parse(bytes, collector.JsonLdHandler, JsonLdOptionsFor(baseIri, null));
+            return jsonLd.Succeeded ? ParseOutcome.Parsed(collector.Quads) : ParseOutcome.Rejected(jsonLd.Error!.ToString());
+        }
+
         ParseResult result = IsLineBased(format)
             ? NQuadsParser.Parse(bytes, collector.Handler, LineOptions(format))
             : TurtleParser.Parse(bytes, collector.Handler, TurtleOptionsFor(format, baseIri));
@@ -48,11 +62,38 @@ internal sealed class VarveParserSubject : IParserSubject
         return Outcome(result, collector);
     }
 
-    public ParseOutcome ParseSplit(RdfFormat format, string path, string baseIri, int at)
+    public ParseOutcome Parse(ManifestEntry entry)
     {
-        byte[] bytes = File.ReadAllBytes(path);
+        if (entry.Format != RdfFormat.JsonLd)
+        {
+            return Parse(entry.Format, entry.ActionPath, entry.ActionIri);
+        }
+
+        byte[] bytes = File.ReadAllBytes(entry.ActionPath);
+        Collector collector = new();
+        JsonLdResult jsonLd = JsonLdParser.Parse(bytes, collector.JsonLdHandler, JsonLdOptionsFor(entry.ActionIri, entry.JsonLd));
+        return jsonLd.Succeeded ? ParseOutcome.Parsed(collector.Quads) : ParseOutcome.Rejected(jsonLd.Error!.ToString());
+    }
+
+    public ParseOutcome ParseSplit(ManifestEntry entry, int at)
+    {
+        byte[] bytes = File.ReadAllBytes(entry.ActionPath);
         Collector collector = new();
         ReadOnlySequence<byte> sequence = Split(bytes, at);
+        RdfFormat format = entry.Format;
+        string baseIri = entry.ActionIri;
+
+        if (IsRdfXml(format))
+        {
+            RdfXmlParseResult xml = RdfXmlParser.Parse(in sequence, collector.XmlHandler, RdfXmlOptionsFor(baseIri));
+            return xml.Succeeded ? ParseOutcome.Parsed(collector.Quads) : ParseOutcome.Rejected(xml.Error!.ToString());
+        }
+
+        if (format == RdfFormat.JsonLd)
+        {
+            JsonLdResult jsonLd = JsonLdParser.Parse(in sequence, collector.JsonLdHandler, JsonLdOptionsFor(baseIri, entry.JsonLd));
+            return jsonLd.Succeeded ? ParseOutcome.Parsed(collector.Quads) : ParseOutcome.Rejected(jsonLd.Error!.ToString());
+        }
 
         ParseResult result = IsLineBased(format)
             ? NQuadsParser.Parse(in sequence, collector.Handler, LineOptions(format))
@@ -61,12 +102,36 @@ internal sealed class VarveParserSubject : IParserSubject
         return Outcome(result, collector);
     }
 
+    /// <summary>
+    /// The options a json-ld-api entry runs under: its stated base or the
+    /// input's IRI, its expandContext, its rdfDirection or the
+    /// specification's default of none, and the suite's document loader
+    /// (ADR 0123; json-ld.md §1).
+    /// </summary>
+    internal static JsonLdOptions JsonLdOptionsFor(string baseIri, JsonLdCase? options) => new()
+    {
+        BaseIri = Encoding.UTF8.GetBytes(options?.BaseIri ?? baseIri),
+        ExpandContext = options?.ExpandContextPath is null ? default : File.ReadAllBytes(options.ExpandContextPath),
+        ExpandContextIri = options?.ExpandContextIri is null ? default : Encoding.UTF8.GetBytes(options.ExpandContextIri),
+        RdfDirection = options?.Direction ?? RdfDirection.None,
+        DocumentLoader = TestData.LoadJsonLdDocument,
+    };
+
     private static bool IsLineBased(RdfFormat format) =>
-        format is RdfFormat.NTriples or RdfFormat.NQuads;
+        format is RdfFormat.NTriples or RdfFormat.NQuads or RdfFormat.NTriples12 or RdfFormat.NQuads12;
+
+    internal static bool IsRdfXml(RdfFormat format) => format is RdfFormat.RdfXml or RdfFormat.RdfXml12;
+
+    private static RdfXmlOptions RdfXmlOptionsFor(string baseIri) => new() { BaseIri = Encoding.UTF8.GetBytes(baseIri) };
+
+    /// <summary>The edition a format is read as: the rdf12 suites under RDF 1.2, the rdf11 suites under RDF 1.1 (ADR 0121).</summary>
+    internal static RdfVersion VersionOf(RdfFormat format) =>
+        format is RdfFormat.NTriples12 or RdfFormat.NQuads12 or RdfFormat.Turtle12 or RdfFormat.TriG12 ? RdfVersion.Rdf12 : RdfVersion.Rdf11;
 
     private static ParseOptions LineOptions(RdfFormat format) => new()
     {
-        Syntax = format == RdfFormat.NQuads ? RdfSyntax.NQuads : RdfSyntax.NTriples,
+        Syntax = format is RdfFormat.NQuads or RdfFormat.NQuads12 ? RdfSyntax.NQuads : RdfSyntax.NTriples,
+        Version = VersionOf(format),
     };
 
     /// <remarks>
@@ -76,8 +141,9 @@ internal sealed class VarveParserSubject : IParserSubject
     /// </remarks>
     private static TurtleOptions TurtleOptionsFor(RdfFormat format, string baseIri) => new()
     {
-        Syntax = format == RdfFormat.TriG ? RdfSyntax.TriG : RdfSyntax.Turtle,
+        Syntax = format is RdfFormat.TriG or RdfFormat.TriG12 ? RdfSyntax.TriG : RdfSyntax.Turtle,
         BaseIri = Encoding.UTF8.GetBytes(baseIri),
+        Version = VersionOf(format),
     };
 
     private static ParseOutcome Outcome(ParseResult result, Collector collector) =>
@@ -107,6 +173,10 @@ internal sealed class VarveParserSubject : IParserSubject
         internal List<ParsedQuad> Quads { get; } = [];
 
         internal QuadHandler Handler => Collect;
+
+        internal RdfXmlQuadHandler XmlHandler => Collect;
+
+        internal JsonLdQuadHandler JsonLdHandler => Collect;
 
         private void Collect(in QuadView quad)
         {

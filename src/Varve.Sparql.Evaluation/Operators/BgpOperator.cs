@@ -262,10 +262,51 @@ internal sealed class BgpCursor : IEnumerator<ulong[]>
         }
     }
 
-    // A triple term is matched against a nested pattern as a term: the source
-    // is asked for it.
+    /// <summary>
+    /// A triple term found, against a nested pattern. By handles when the
+    /// source can take the term apart (<see cref="IQuadSource.TryGetTripleTermComponents"/>,
+    /// ADR 0121) — the only way a blank node inside a triple term keeps its
+    /// identity over a source that never internalises a label (ADR 0044) — and
+    /// as an externalised term otherwise.
+    /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private bool UnifyExternalised(int level, NestedPattern nested, TermHandle found)
+    {
+        if (Exec.Source.TryGetTripleTermComponents(found, out TermHandle s, out TermHandle p, out TermHandle o))
+        {
+            return UnifyComponent(level, nested.Subject, s)
+                && UnifyComponent(level, nested.Predicate, p)
+                && UnifyComponent(level, nested.Object, o);
+        }
+
+        return UnifyMaterialised(level, nested, found);
+    }
+
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private bool UnifyComponent(int level, in PatternPosition position, TermHandle handle)
+    {
+        switch (position.Kind)
+        {
+            case PositionKind.Constant:
+                return Exec.HandleEquals(handle, position.Handle);
+            case PositionKind.Never:
+                return false;
+            case PositionKind.Slot:
+                if (_boundCount[level] == 8)
+                {
+                    throw new NotSupportedException("A triple term pattern binds more than eight variables in one position.");
+                }
+
+                return UnifySlot(level, position.Slot, Exec.FromSource(handle));
+            default:
+                return UnifyExternalised(level, position.Nested!, handle);
+        }
+    }
+
+    // A triple term the source cannot take apart is matched as a term: the
+    // source is asked for it.
     [DesignDecision(typeof(EvaluationHotPathScope.NestedPatternsExternalise), Scope = ExceptionScope.HotPath)]
-    private bool UnifyExternalised(int level, NestedPattern nested, TermHandle found) =>
+    private bool UnifyMaterialised(int level, NestedPattern nested, TermHandle found) =>
         Exec.Source.TryExternalise(found, out RdfTerm? term) && UnifyNested(level, nested, term);
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]

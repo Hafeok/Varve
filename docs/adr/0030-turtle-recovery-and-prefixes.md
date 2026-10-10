@@ -39,6 +39,14 @@ restart the parser in the middle of a construct and emit triples nobody wrote
 the difference between a triple the author wrote and one a confused parser
 invented.
 
+> **Amended 2026-10-09** (milestone 6b, ADR
+> [0121](0121-rdf-1-2-turtle-and-trig.md)). The depth is counted over three
+> more pairs of brackets: RDF 1.2's reified triple `<< >>`, triple term
+> `<<( )>>` and annotation block `{| |}`. A `.` inside any of them — in a
+> reified triple's literal, in an annotation's object list — is not a
+> statement's end, and resuming there would emit the triple nobody wrote that
+> this rule exists to prevent. The unit stays the statement.
+
 **Why a statement and not something smaller.** Turtle's smaller units are not
 self-delimiting: a predicate-object list continues across `;`, an object list
 across `,`, and both may nest. There is no shorter prefix of the input whose

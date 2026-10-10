@@ -31,14 +31,27 @@ public class SubmoduleGuardTests
     }
 
     [Fact]
+    public void The_json_ld_api_submodule_is_checked_out()
+    {
+        Assert.True(
+            TestData.IsJsonLdCheckedOut,
+            "The JSON-LD API test suite is missing at " + TestData.JsonLdRoot
+            + ". Run: git submodule update --init --recursive");
+    }
+
+    [Fact]
     public void Every_wired_suite_has_its_manifest()
     {
         Assert.True(TestData.IsCheckedOut, "The W3C test data is missing; see the previous failure.");
 
         foreach (ConformanceSuite suite in ConformanceSuite.All)
         {
-            string path = TestData.ResolveFromRoot(suite.ManifestPath);
-            Assert.True(File.Exists(path), "Suite '" + suite.Id + "' has no manifest at " + path + ".");
+            Assert.True(File.Exists(suite.ManifestFile), "Suite '" + suite.Id + "' has no manifest at " + suite.ManifestFile + ".");
+        }
+
+        foreach (ConformanceSuite suite in ConformanceSuite.JsonLdApi)
+        {
+            Assert.True(File.Exists(suite.ManifestFile), "Suite '" + suite.Id + "' has no manifest at " + suite.ManifestFile + ".");
         }
     }
 
@@ -84,7 +97,57 @@ public class SubmoduleGuardTests
         { "rdf12/n-quads-c14n", 41 },
         { "rdf11/turtle", 313 },
         { "rdf11/trig", 357 },
+        { "rdf12/turtle-syntax", 74 },
+        { "rdf12/turtle-eval", 32 },
+        { "rdf12/trig-syntax", 35 },
+        { "rdf12/trig-eval", 26 },
+        { "rdf11/rdf-xml", 166 },
+        { "rdf12/rdf-xml", 31 },
+        { "json-ld/toRdf", 448 },
     };
+
+    /// <summary>
+    /// The json-ld-api suites: the entries enumerated after the rule of
+    /// json-ld.md §1 excluded the 1.0-only and generalized-RDF ones, and how
+    /// many it excluded, so that a submodule bump that moves either number
+    /// is seen.
+    /// </summary>
+    public static TheoryData<string, int, int> ExpectedJsonLdCounts() => new()
+    {
+        { "json-ld/toRdf", 448, 19 },
+        { "json-ld/expand", 368, 18 },
+        { "json-ld/fromRdf", 53, 1 },
+    };
+
+    [Theory]
+    [MemberData(nameof(ExpectedJsonLdCounts))]
+    public void Every_json_ld_suite_enumerates_the_cases_its_manifest_lists_less_the_rule(string suiteId, int expected, int excluded)
+    {
+        Assert.True(TestData.IsJsonLdCheckedOut, "The JSON-LD API test suite is missing; see the first failure.");
+
+        ConformanceSuite? suite = null;
+
+        foreach (ConformanceSuite candidate in ConformanceSuite.All)
+        {
+            if (string.Equals(candidate.Id, suiteId, StringComparison.Ordinal))
+            {
+                suite = candidate;
+            }
+        }
+
+        foreach (ConformanceSuite candidate in ConformanceSuite.JsonLdApi)
+        {
+            if (string.Equals(candidate.Id, suiteId, StringComparison.Ordinal))
+            {
+                suite = candidate;
+            }
+        }
+
+        Assert.True(suite is not null, "No suite is wired with id '" + suiteId + "'.");
+        int count = JsonLdCatalogue.Of(suite).Count;
+        Assert.Equal(expected, count);
+        Assert.Equal(excluded, JsonLdManifestReader.Excluded(suiteId));
+    }
 
     [Theory]
     [MemberData(nameof(ExpectedCounts))]
@@ -151,6 +214,12 @@ public class SubmoduleGuardTests
     {
         { "rdf11/turtle", 313 },
         { "rdf11/trig", 357 },
+        { "rdf12/turtle-syntax", 74 },
+        { "rdf12/turtle-eval", 32 },
+        { "rdf12/trig-syntax", 35 },
+        { "rdf12/trig-eval", 26 },
+        { "rdf11/rdf-xml", 166 },
+        { "rdf12/rdf-xml", 31 },
         { "rdf11/n-triples", 70 },
         { "rdf11/n-quads", 87 },
     };
@@ -263,8 +332,9 @@ public class SubmoduleGuardTests
             }
         }
 
-        // Turtle 145 and TriG 143, as the manifests list them.
-        Assert.Equal(288, evaluations);
+        // Turtle 145 and TriG 143, RDF 1.2 Turtle 32 and TriG 26, RDF/XML 132
+        // and RDF 1.2 RDF/XML 29, as the manifests list them.
+        Assert.Equal(840, evaluations);
     }
 
     /// <summary>

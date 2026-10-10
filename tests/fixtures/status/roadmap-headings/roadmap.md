@@ -21,4 +21,6 @@
 
 ## 6 — Durable storage *(complete)*
 
-## 7 — Server and CLI
+## 7 — Server and CLI *(complete)*
+
+## 8 — SHACL *(complete)*

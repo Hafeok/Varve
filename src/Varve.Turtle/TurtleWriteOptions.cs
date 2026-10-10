@@ -26,6 +26,17 @@ public readonly struct TurtleWriteOptions
     public RdfSyntax Syntax { get; init; }
 
     /// <summary>
+    /// Whether to write <c>VERSION "1.2"</c> at the top of the document whatever
+    /// it holds. False by default: the directive is then written automatically,
+    /// immediately before the first statement that carries a construct RDF 1.1
+    /// Turtle cannot spell — a triple term or a literal with a base direction
+    /// — and never otherwise, so a document that needs no 1.2 syntax is read by
+    /// every RDF 1.1 reader (<c>turtle.md</c> §7). It is never silently absent
+    /// from a document that needs it.
+    /// </summary>
+    public bool AlwaysDeclareVersion { get; init; }
+
+    /// <summary>
     /// Whether to write canonical form: a character directly rather than as a
     /// <c>UCHAR</c>, and <c>ECHAR</c> only where one is required
     /// (<c>turtle.md</c> §7). True by default.

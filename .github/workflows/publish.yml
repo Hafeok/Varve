@@ -112,6 +112,12 @@ jobs:
       - name: Test Varve.Turtle
         run: dotnet test --project tests/Varve.Turtle.Tests/Varve.Turtle.Tests.csproj --configuration Release
 
+      - name: Test Varve.RdfXml
+        run: dotnet test --project tests/Varve.RdfXml.Tests/Varve.RdfXml.Tests.csproj --configuration Release
+
+      - name: Test Varve.JsonLd
+        run: dotnet test --project tests/Varve.JsonLd.Tests/Varve.JsonLd.Tests.csproj --configuration Release
+
       - name: Test Varve.Store
         run: dotnet test --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj --configuration Release
 

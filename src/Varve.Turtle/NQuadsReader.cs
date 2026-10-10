@@ -114,7 +114,7 @@ public ref struct NQuadsReader
             Consume();
 
             _arena.Reset();
-            LineParser parser = new(_line, _arena, _options.Syntax, _options.ValidateIris);
+            LineParser parser = new(_line, _arena, _options.Syntax, _options.ValidateIris, _options.Version);
 
             switch (parser.Parse(out _subject, out _predicate, out _object, out _graph))
             {

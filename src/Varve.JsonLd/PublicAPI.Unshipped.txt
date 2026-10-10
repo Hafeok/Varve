@@ -1,0 +1,111 @@
+#nullable enable
+Varve.JsonLd.JsonLdDocumentLoader
+Varve.JsonLd.JsonLdExpander
+Varve.JsonLd.JsonLdOptions
+Varve.JsonLd.JsonLdOptions.BaseIri.get -> System.ReadOnlyMemory<byte>
+Varve.JsonLd.JsonLdOptions.BaseIri.init -> void
+Varve.JsonLd.JsonLdOptions.DocumentLoader.get -> Varve.JsonLd.JsonLdDocumentLoader?
+Varve.JsonLd.JsonLdOptions.DocumentLoader.init -> void
+Varve.JsonLd.JsonLdOptions.ExpandContext.get -> System.ReadOnlyMemory<byte>
+Varve.JsonLd.JsonLdOptions.ExpandContext.init -> void
+Varve.JsonLd.JsonLdOptions.ExpandContextIri.get -> System.ReadOnlyMemory<byte>
+Varve.JsonLd.JsonLdOptions.ExpandContextIri.init -> void
+Varve.JsonLd.JsonLdOptions.Indent.get -> bool
+Varve.JsonLd.JsonLdOptions.Indent.init -> void
+Varve.JsonLd.JsonLdOptions.JsonLdOptions() -> void
+Varve.JsonLd.JsonLdOptions.RdfDirection.get -> Varve.JsonLd.RdfDirection
+Varve.JsonLd.JsonLdOptions.RdfDirection.init -> void
+Varve.JsonLd.JsonLdParser
+Varve.JsonLd.JsonLdQuadHandler
+Varve.JsonLd.JsonLdResult
+Varve.JsonLd.JsonLdResult.Error.get -> Varve.JsonLd.Model.JsonLdError?
+Varve.JsonLd.JsonLdResult.JsonLdResult() -> void
+Varve.JsonLd.JsonLdResult.QuadCount.get -> long
+Varve.JsonLd.JsonLdResult.Succeeded.get -> bool
+Varve.JsonLd.JsonLdWriteOptions
+Varve.JsonLd.JsonLdWriteOptions.Indent.get -> bool
+Varve.JsonLd.JsonLdWriteOptions.Indent.init -> void
+Varve.JsonLd.JsonLdWriteOptions.JsonLdWriteOptions() -> void
+Varve.JsonLd.JsonLdWriteOptions.RdfDirection.get -> Varve.JsonLd.RdfDirection
+Varve.JsonLd.JsonLdWriteOptions.RdfDirection.init -> void
+Varve.JsonLd.JsonLdWriteOptions.UseNativeTypes.get -> bool
+Varve.JsonLd.JsonLdWriteOptions.UseNativeTypes.init -> void
+Varve.JsonLd.JsonLdWriteOptions.UseRdfType.get -> bool
+Varve.JsonLd.JsonLdWriteOptions.UseRdfType.init -> void
+Varve.JsonLd.JsonLdWriter
+Varve.JsonLd.JsonLdWriter.Dispose() -> void
+Varve.JsonLd.JsonLdWriter.Flush() -> void
+Varve.JsonLd.JsonLdWriter.JsonLdWriter(System.Buffers.IBufferWriter<byte>! output, in Varve.JsonLd.JsonLdWriteOptions options) -> void
+Varve.JsonLd.JsonLdWriter.Write(in Varve.Rdf.QuadView quad) -> void
+Varve.JsonLd.Model.JsonLdError
+Varve.JsonLd.Model.JsonLdError.Code.get -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdError.Message.get -> string!
+Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.CollidingKeywords = 1 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.ConflictingIndexes = 2 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.ContextOverflow = 3 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.CyclicIriMapping = 4 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidBaseDirection = 15 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidBaseIri = 16 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidContainerMapping = 17 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidContextEntry = 18 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidContextNullification = 19 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidDefaultLanguage = 20 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidIdValue = 5 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidImportValue = 6 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidIncludedValue = 7 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidIndexValue = 8 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidIriMapping = 21 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidJson = 51 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidJsonLiteral = 22 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidKeywordAlias = 23 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidLanguageMapValue = 24 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidLanguageMapping = 25 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidLanguageTaggedString = 26 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidLanguageTaggedValue = 27 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidLocalContext = 28 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidNestValue = 9 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidPrefixValue = 10 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidPropagateValue = 11 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidProtectedValue = 12 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidRemoteContext = 29 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidReverseProperty = 30 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidReversePropertyMap = 31 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidReversePropertyValue = 32 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidReverseValue = 13 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidScopedContext = 33 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidSetOrListObject = 34 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidTermDefinition = 35 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidTypeMapping = 36 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidTypeValue = 37 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidTypedValue = 38 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidValueObject = 39 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidValueObjectValue = 40 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidVersionValue = 14 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.InvalidVocabMapping = 41 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.IriConfusedWithPrefix = 42 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.KeywordRedefinition = 43 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.ListOfLists = 50 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.LoadingDocumentFailed = 44 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.LoadingRemoteContextFailed = 45 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.MultipleContextLinkHeaders = 46 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.None = 0 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.ProcessingModeConflict = 47 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.ProtectedTermRedefinition = 48 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCode.RecursiveContextInclusion = 49 -> Varve.JsonLd.Model.JsonLdErrorCode
+Varve.JsonLd.Model.JsonLdErrorCodes
+Varve.JsonLd.RdfDirection
+Varve.JsonLd.RdfDirection.CompoundLiteral = 2 -> Varve.JsonLd.RdfDirection
+Varve.JsonLd.RdfDirection.I18nDatatype = 1 -> Varve.JsonLd.RdfDirection
+Varve.JsonLd.RdfDirection.Native = 0 -> Varve.JsonLd.RdfDirection
+Varve.JsonLd.RdfDirection.None = 3 -> Varve.JsonLd.RdfDirection
+override Varve.JsonLd.Model.JsonLdError.ToString() -> string!
+static Varve.JsonLd.JsonLdExpander.Expand(System.IO.Stream! stream, System.Buffers.IBufferWriter<byte>! output, in Varve.JsonLd.JsonLdOptions options) -> Varve.JsonLd.JsonLdResult
+static Varve.JsonLd.JsonLdExpander.Expand(System.ReadOnlyMemory<byte> utf8, System.Buffers.IBufferWriter<byte>! output, in Varve.JsonLd.JsonLdOptions options) -> Varve.JsonLd.JsonLdResult
+static Varve.JsonLd.JsonLdExpander.Expand(in System.Buffers.ReadOnlySequence<byte> utf8, System.Buffers.IBufferWriter<byte>! output, in Varve.JsonLd.JsonLdOptions options) -> Varve.JsonLd.JsonLdResult
+static Varve.JsonLd.JsonLdParser.Parse(System.IO.Stream! stream, Varve.JsonLd.JsonLdQuadHandler! handler, in Varve.JsonLd.JsonLdOptions options) -> Varve.JsonLd.JsonLdResult
+static Varve.JsonLd.JsonLdParser.Parse(System.ReadOnlyMemory<byte> utf8, Varve.JsonLd.JsonLdQuadHandler! handler, in Varve.JsonLd.JsonLdOptions options) -> Varve.JsonLd.JsonLdResult
+static Varve.JsonLd.JsonLdParser.Parse(in System.Buffers.ReadOnlySequence<byte> utf8, Varve.JsonLd.JsonLdQuadHandler! handler, in Varve.JsonLd.JsonLdOptions options) -> Varve.JsonLd.JsonLdResult
+static Varve.JsonLd.Model.JsonLdErrorCodes.Text(Varve.JsonLd.Model.JsonLdErrorCode code) -> string!
+virtual Varve.JsonLd.JsonLdDocumentLoader.Invoke(System.ReadOnlySpan<byte> iri, out System.ReadOnlyMemory<byte> document) -> bool
+virtual Varve.JsonLd.JsonLdQuadHandler.Invoke(in Varve.Rdf.QuadView quad) -> void

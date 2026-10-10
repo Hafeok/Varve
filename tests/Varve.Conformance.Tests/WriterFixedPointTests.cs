@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Varve.Rdf;
+using Varve.JsonLd;
+using Varve.RdfXml;
 using Varve.Turtle;
 using Xunit;
 
@@ -74,9 +76,46 @@ public class WriterFixedPointTests
     public void writing_what_was_written_reproduces_it(string testIri)
     {
         ManifestEntry entry = OracleCatalogue.ByIri[testIri];
-        RdfSyntax syntax = Syntax(entry.Format);
-
         byte[] source = File.ReadAllBytes(entry.ActionPath);
+
+        if (entry.Format == RdfFormat.JsonLd)
+        {
+            // The round trip of the fromRdf writer (json-ld.md §6): the quads
+            // of a toRdf input, written as expanded JSON-LD, read back as the
+            // same dataset; and written again from that reading, the same
+            // bytes. A toRdf input this reader rejects is the suite's business.
+            if (!TryReadJsonLd(source, entry, out List<string> quads))
+            {
+                return;
+            }
+
+            byte[] firstJson = WriteJsonLd(quads);
+            Assert.True(TryReadJsonLdBytes(firstJson, entry.ActionIri, out List<string> again), Text(firstJson));
+            IsomorphismResult comparison = Isomorphism.Compare(Parsed(quads), Parsed(again));
+            Assert.True(comparison.IsSame, entry.TestIri + ": the dataset written as JSON-LD read back differently — " + comparison.Reason + "\n" + Text(firstJson));
+            // Up to blank node labels, which toRdf renumbers (ADR 0123).
+            byte[] secondJson = WriteJsonLd(again);
+            Assert.Equal(NumberBlankLabels(Text(firstJson)), NumberBlankLabels(Text(secondJson)));
+            return;
+        }
+
+        if (VarveParserSubject.IsRdfXml(entry.Format))
+        {
+            // The same property of the RDF/XML writer (rdf-xml.md §6): read,
+            // write, read, write, same bytes. A document the writer refuses —
+            // a predicate with no NCName suffix — is not this property's
+            // business either, and the suites hold none.
+            if (!TryWriteXml(source, entry.ActionIri, out byte[] firstXml))
+            {
+                return;
+            }
+
+            Assert.True(TryWriteXml(firstXml, entry.ActionIri, out byte[] secondXml), Text(firstXml));
+            Assert.Equal(Text(firstXml), Text(secondXml));
+            return;
+        }
+
+        RdfSyntax syntax = Syntax(entry.Format);
 
         if (!TryWrite(source, syntax, out byte[] first))
         {
@@ -96,7 +135,7 @@ public class WriterFixedPointTests
     /// </summary>
     private static RdfSyntax Syntax(RdfFormat format) => format switch
     {
-        RdfFormat.TriG or RdfFormat.NQuads => RdfSyntax.TriG,
+        RdfFormat.TriG or RdfFormat.NQuads or RdfFormat.TriG12 or RdfFormat.NQuads12 => RdfSyntax.TriG,
         _ => RdfSyntax.Turtle,
     };
 
@@ -121,10 +160,116 @@ public class WriterFixedPointTests
             {
                 Syntax = syntax == RdfSyntax.TriG ? RdfSyntax.TriG : RdfSyntax.Turtle,
                 BaseIri = Encoding.UTF8.GetBytes("http://example/base"),
+
+                // The widest reading: an rdf11 input may spell a character as a
+                // surrogate pair, which the writer then writes as the
+                // character, so the second read needs no edition at all.
+                Version = RdfVersion.Rdf11,
             };
 
             result = TurtleParser.Parse(
                 source, (in QuadView quad) => writer.Write(in quad), in readOptions);
+        }
+
+        written = output.Written.ToArray();
+        return result.Succeeded;
+    }
+
+    private static string NumberBlankLabels(string json)
+    {
+        Dictionary<string, int> seen = new(System.StringComparer.Ordinal);
+        return System.Text.RegularExpressions.Regex.Replace(json, "_:[A-Za-z0-9]+", m =>
+        {
+            if (!seen.TryGetValue(m.Value, out int index))
+            {
+                index = seen.Count;
+                seen[m.Value] = index;
+            }
+
+            return "_:n" + index.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        });
+    }
+
+    private static bool TryReadJsonLd(byte[] source, ManifestEntry entry, out List<string> quads)
+    {
+        List<string> lines = [];
+        JsonLdResult result = JsonLdParser.Parse(source, (in QuadView quad) => lines.Add(NQuadsLine(in quad)), VarveParserSubject.JsonLdOptionsFor(entry.ActionIri, entry.JsonLd));
+        quads = lines;
+        return result.Succeeded;
+    }
+
+    private static bool TryReadJsonLdBytes(byte[] source, string baseIri, out List<string> quads)
+    {
+        List<string> lines = [];
+        JsonLdResult result = JsonLdParser.Parse(source, (in QuadView quad) => lines.Add(NQuadsLine(in quad)), new JsonLdOptions { BaseIri = Encoding.UTF8.GetBytes(baseIri) });
+        quads = lines;
+        return result.Succeeded;
+    }
+
+    /// <summary>Writes N-Quads lines as expanded JSON-LD through <see cref="JsonLdWriter"/>.</summary>
+    private static byte[] WriteJsonLd(List<string> quads)
+    {
+        ArrayBufferWriter output = new();
+        JsonLdWriteOptions options = default;
+
+        using (JsonLdWriter writer = new(output, in options))
+        {
+            byte[] document = Encoding.UTF8.GetBytes(string.Join('\n', quads) + "\n");
+            ParseResult parsed = NQuadsParser.Parse(document, (in QuadView quad) => writer.Write(in quad), new ParseOptions { Syntax = RdfSyntax.NQuads, Version = RdfVersion.Rdf11 });
+            Assert.True(parsed.Succeeded, parsed.FirstError.ToString());
+        }
+
+        return output.Written.ToArray();
+    }
+
+    private static List<ParsedQuad> Parsed(List<string> quads)
+    {
+        List<ParsedQuad> parsed = [];
+        byte[] document = Encoding.UTF8.GetBytes(string.Join('\n', quads) + "\n");
+        WriteOptions canonical = new() { Syntax = RdfSyntax.NQuads };
+        NQuadsParser.Parse(
+            document,
+            (in QuadView quad) => parsed.Add(new ParsedQuad(Term(quad.Subject, canonical), Term(quad.Predicate, canonical), Term(quad.Object, canonical), quad.HasGraph ? Term(quad.Graph, canonical) : null)),
+            new ParseOptions { Syntax = RdfSyntax.NQuads, Version = RdfVersion.Rdf11 });
+        return parsed;
+    }
+
+    private static string NQuadsLine(in QuadView quad)
+    {
+        WriteOptions options = new() { Syntax = RdfSyntax.NQuads };
+        string line = Term(quad.Subject, options) + " " + Term(quad.Predicate, options) + " " + Term(quad.Object, options);
+        return (quad.HasGraph ? line + " " + Term(quad.Graph, options) : line) + " .";
+    }
+
+    private static string Term(in RdfTermView view, in WriteOptions options)
+    {
+        RdfTerm term = view.Materialise();
+        byte[] buffer = new byte[256];
+
+        while (!NQuadsWriter.TryWriteTerm(term, buffer, out _, in options))
+        {
+            buffer = new byte[buffer.Length * 2];
+        }
+
+        NQuadsWriter.TryWriteTerm(term, buffer, out int written, in options);
+        return Encoding.UTF8.GetString(buffer, 0, written);
+    }
+
+    private static bool TryWriteXml(byte[] source, string baseIri, out byte[] written)
+    {
+        ArrayBufferWriter output = new();
+        RdfXmlWriteOptions writeOptions = default;
+        RdfXmlParseResult result;
+
+        using (RdfXmlWriter writer = new(output, in writeOptions))
+        {
+            foreach ((string prefix, string iri) in Prefixes)
+            {
+                writer.DeclarePrefix(Encoding.UTF8.GetBytes(prefix), Encoding.UTF8.GetBytes(iri));
+            }
+
+            result = RdfXmlParser.Parse(
+                source, (in QuadView quad) => writer.Write(in quad), new RdfXmlOptions { BaseIri = Encoding.UTF8.GetBytes(baseIri) });
         }
 
         written = output.Written.ToArray();

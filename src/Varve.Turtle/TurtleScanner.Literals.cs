@@ -140,7 +140,7 @@ internal ref partial struct TurtleScanner
         if (escaped)
         {
             if (!EscapeDecoder.TryDecode(
-                _text, start, i, EscapeDecoder.Allowed.UcharAndEchar, _state.Arena,
+                _text, start, i, EscapeDecoder.Allowed.UcharAndEchar, _state.Arena, _surrogatePairs,
                 out span, out ParseErrorKind error, out int at))
             {
                 return Fail(error, at);
@@ -160,7 +160,7 @@ internal ref partial struct TurtleScanner
         return true;
     }
 
-    /// <summary>[144s] LANGTAG, with RDF 1.2's base direction where present.</summary>
+    /// <summary>[42] LANG_DIR: a language tag, with RDF 1.2's base direction where present.</summary>
     private bool TryLanguage(out TermSpan span, out TextDirection direction)
     {
         span = TermSpan.None;
@@ -227,13 +227,39 @@ internal ref partial struct TurtleScanner
             return true;
         }
 
-        // A base direction is RDF 1.2's LANG_DIR, and this reader is RDF 1.1
-        // Turtle and TriG (`turtle.md` §9). [144s] LANGTAG requires each
-        // subtag after a '-' to be alphanumeric, so "en--ltr" is not a tag this
-        // syntax has — the term model carries a direction, and the syntaxes
-        // that can write one are N-Triples and N-Quads, where the rdf12 suites
-        // gate it. Accepting it here would be a feature with no suite behind
-        // it, which is the defect that gating rdf12 found at 3a.
-        return Fail(ParseErrorKind.InvalidLanguageTag, i);
+        // [42] LANG_DIR: "--" and a base direction, which RDF 1.2 Concepts
+        // §3.3 restricts to the two lowercase values. "--LTR" and "--unk" are
+        // the suite's negative cases, and a direction cut at a chunk boundary
+        // waits, because "--lt" may yet become "--ltr".
+        int at = i + 2;
+        int d = at;
+
+        while (d < _text.Length && NTriplesChars.IsAsciiLetter(_text[d]))
+        {
+            d++;
+        }
+
+        if (d >= _text.Length && MayGrow)
+        {
+            return Truncated();
+        }
+
+        ReadOnlySpan<byte> name = _text[at..d];
+
+        if (name.SequenceEqual("ltr"u8))
+        {
+            direction = TextDirection.LeftToRight;
+        }
+        else if (name.SequenceEqual("rtl"u8))
+        {
+            direction = TextDirection.RightToLeft;
+        }
+        else
+        {
+            return Fail(ParseErrorKind.InvalidBaseDirection, at);
+        }
+
+        Consumed = d;
+        return true;
     }
 }

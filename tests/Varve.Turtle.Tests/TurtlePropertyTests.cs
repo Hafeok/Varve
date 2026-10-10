@@ -234,7 +234,18 @@ public class TurtlePropertyTests
         "[] p:p [] .",
         "_:a p:p _:b .",
         "p:s a p:C ; p:p p:o , p:o2 ; p:q () .",
-        "<http://a/s> <http://a/p> \"a\\\"b\\\\c\" .");
+        "<http://a/s> <http://a/p> \"a\\\"b\\\\c\" .",
+        // RDF 1.2 (ADR 0121): a directional literal, a triple term object, a
+        // reified triple in both positions, an annotation with a named and
+        // with a fresh reifier, and a nested triple term.
+        "p:s p:p \"x\"@en--ltr , \"y\"@ar--rtl .",
+        "p:s p:p <<( p:a p:b p:c )>> .",
+        "<< p:s p:p p:o >> p:q p:z .",
+        "p:x p:y << p:s p:p \"o\" ~ p:r >> .",
+        "p:s p:p p:o {| p:q p:z |} .",
+        "p:s p:p p:o ~ p:r1 {| p:a p:b |} ~ {| p:c p:d |} .",
+        "p:s p:p <<( p:a p:b <<( p:c p:d \"e\"@de--ltr )>> )>> .",
+        "<< << p:a p:b p:c >> p:p << p:d p:e p:f >> >> p:q p:z .");
 
     private static readonly Gen<string> Document =
         Statement.List[1, 10].Select(s => "@prefix p: <http://a/> .\n" + string.Join('\n', s));

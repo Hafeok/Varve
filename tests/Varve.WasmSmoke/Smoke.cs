@@ -57,6 +57,7 @@ internal static partial class Smoke
         {
             report.Append(Parse()).Append('\n');
             report.Append(Turtle()).Append('\n');
+            report.Append(Syntaxes()).Append('\n');
             report.Append(await Store()).Append('\n');
             report.Append(Sparql()).Append('\n');
             report.Append(await Evaluate()).Append('\n');

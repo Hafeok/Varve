@@ -202,9 +202,9 @@ and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone 7b. `src/` holds `Varve.Analyzers`, `Varve.Iri` and `Varve.Xsd`
-(0), `Varve.Rdf` (1), `Varve.Turtle`, `Varve.Sparql` and
-`Varve.Sparql.Results` (2), `Varve.Sparql.Evaluation` (3), `Varve.Store` (4),
+Milestone 6b. `src/` holds `Varve.Analyzers`, `Varve.Iri` and `Varve.Xsd`
+(0), `Varve.Rdf` (1), `Varve.Turtle`, **`Varve.RdfXml`**, **`Varve.JsonLd`**,
+`Varve.Sparql` and `Varve.Sparql.Results` (2), `Varve.Sparql.Evaluation` (3), `Varve.Store` (4),
 `Varve.Sparql.Store`, `Varve.Store.Browser`, `Varve.Protocol` and
 **`Varve.Protocol.Client`** (5), and `Varve.Server` (6), the one host. The evaluator answers SPARQL 1.1 queries,
 with the 1.2 additions, over any `IQuadSource`; the results package reads and
@@ -235,8 +235,7 @@ outside memory and commit once, crash-tested at every operation;
 `Dataset.ShipAsync` bootstraps a replica by copying files; and
 `Varve.Store.Browser` stores a dataset in OPFS through synchronous access
 handles in a worker, or in IndexedDB, tested in headless Chromium with
-`log/` byte-identical to the desktop's. **RDF 1.2
-Turtle and TriG are not accepted at all** — `turtle.md` §9. `v0.1.0-preview.1`
+`log/` byte-identical to the desktop's. `v0.1.0-preview.1`
 is published on nuget.org; it closed milestones 1 to 5 (`releases/`). **Since milestone
 7a (ADRs 0091–0101, filed unaccepted) Varve speaks HTTP**: `Varve.Protocol`
 mounts the SPARQL 1.1 Protocol, the Graph Store Protocol, the service
@@ -266,8 +265,18 @@ runs carry a term filter in **derived format 3**, format 2 read and migrated
 by maintenance (ADR 0109); data-only update requests expect no position (ADR
 0057, amended). The query suites run over four subjects and the update suites
 through the protocol too, and the ratchet holds **4,122** lines.
-`docs/operator/` is the operator's guide. Not built: the container image,
-telemetry, archive, erasure mode, SHACL.
+`docs/operator/` is the operator's guide. **Since milestone 6b (ADRs
+0121–0123, filed unaccepted)**: RDF 1.2 Turtle and TriG are read and written
+in full (ADR 0121), the 41 SPARQL 1.2 cases they blocked run, and
+`RdfVersion` decides the one escape the editions contradict each other on;
+`Varve.RdfXml` reads and writes RDF/XML over `System.Xml`, both suites whole,
+its cost per triple `XmlReader`'s and stated (ADR 0122); `Varve.JsonLd`
+expands, reads and writes JSON-LD 1.1 over `Utf8JsonReader` as a tree in an
+arena, the toRdf, expand and fromRdf suites whole under a stated rule for the
+1.0-only cases, with `@direction` RDF 1.2's by default (ADR 0123); AOT and
+the browser read and write all three, and the ratchet holds **5,507** lines.
+Not built: the container image, telemetry, archive, erasure mode, SHACL,
+JSON-LD compaction and framing.
 `docs/roadmap.md` has the rest, an owner and a due milestone per open
 question.
 
