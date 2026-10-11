@@ -252,4 +252,64 @@ open, and #35 stays open until the median meets pyoxigraph's.
 | f02ed07 | `chore(release)`: the descriptor, the changelog, the status, this record |
 | the commits after | the measurements folded in, the full gates run, `main` merged |
 
+## After acceptance and after the merge
+
+Added 2026-10-11 by the same session, model `claude-opus-5-5` (the
+session's `last_served_model`), Claude Code 2.1.296.
+
+### CI on the accepted head
+
+The maintainer's message after accepting the ADRs on a54cd48, verbatim:
+"pushed, check the PR checks". Three failures followed, each fixed on the
+branch before the merge:
+
+| Commit | Failure | Cause |
+|---|---|---|
+| fc8d056 | `container (linux-x64)`: the mock-oauth2 leg answered `403` to every request | the job's `VARVE__DATASETS__D__…` named a dataset `D`; the environment provider keeps a segment's case and the tests address `d`. The run and configure pages had the same mistake and now say so |
+| f904717 | `aspire sample`, its first run: the writer's token answered `401`, IDX10205 | Aspire 13 hands one container another's endpoint as `mock-oauth2.dev.internal`, not the bare name the test set as its token request's `Host`. The test reads the authority from the server resource's environment |
+| 9b6449b | `container (linux-x64)`: `docker push` ended in `unknown blob` before any test ran | GHCR, not the change; this session cannot re-run a job (`403`), so the push is tried three times |
+
+The Aspire failure was reproduced here: this container does have a Docker
+daemon, which had not been started (the record's "no Docker daemon" above
+was wrong in that). Started, it ran the sample test against the pull
+request's image, the failure and then the fix.
+
+### The release that did not cut
+
+The maintainer, verbatim:
+
+> The release did not cut: both Release runs on 9b6449b ended in
+> startup_failure. Cause: release.yml's gates job calls ci.yml with
+> permissions contents: read, and ci.yml's container job now needs packages:
+> write (aspire packages: read); a called workflow cannot exceed its caller's
+> job permissions, so the run never starts. Fix the gates job's permissions in
+> release.yml (contents: read, packages: write), confirm against the run's
+> annotation, and tell me the commit; I land it through land/ and dispatch the
+> release if the paths filter does not fire it.
+
+f6c3ce6 grants the gates job `contents: read` and `packages: write`, the
+union of `ci.yml`'s job permissions; `release.yml`'s gates job is the only
+caller of `ci.yml`, and no `ci.yml` job asks for more. The annotation itself
+could not be read from this session: the run page and GraphQL are refused to
+it, and the REST API has no check run for a run that never started. The
+diagnosis was confirmed against the files instead.
+
+The commit first went up as 1b10a89, the right diff under the previous
+commit's message: the step that wrote the message was refused with the force
+push it was chained to, and the commit that followed reused the old file.
+The maintainer allowed the force push, and f6c3ce6 replaced it with the tree
+unchanged.
+
+The maintainer, verbatim:
+
+> Force push allowed: git push --force-with-lease origin
+> claude/eloquent-cannon-rb29y9 with f6c3ce6. Open a PR for it so the head
+> carries a review, I approve and land through land/. Yes, file the issue: a
+> gate that compares every job's permissions in a called workflow with the
+> calling job's, in eng/required-checks.cs, with a failing fixture. The dry
+> run on #74 could not have caught this because ci.yml had no packages
+> permission then; the gate is what catches the next one.
+
+The gate is [#89](https://github.com/Hafeok/Varve/issues/89).
+
 Developed with AI assistance under human review.
