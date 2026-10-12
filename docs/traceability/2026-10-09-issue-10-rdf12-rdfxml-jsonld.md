@@ -151,4 +151,47 @@ Done in this order:
 - The merge of `main` once #86 lands, and the two media types with the ADR
   0092 amendment, follow in the same pull request.
 
+## Addendum, 2026-10-12: the merge, the media types, the close-out
+
+Operability landed on `main` as `v0.1.0-preview.3`. The maintainer, before
+landing 6b:
+
+> Operability is cut as `preview.3` and on `main`. Before landing 6b:
+>
+> 1. Merge `main` into the 6b branch. Keep ADRs 0121–0123 and the descriptor `v0.1.0-preview.4`. Check there’s no collision with 0110–0120 or with `releases/v0.1.0-preview.3.yaml`.
+> 2. Media types are yours. Add Turtle, TriG, RDF/XML and JSON-LD (with RDF 1.2 handling where it applies) to `Varve.Protocol`’s content negotiation and to the service description. Then run the protocol suites and the operability header tests (Vary, problem types, 406) against them.
+> 3. Status projection. Make the README status, the conformance total, the packages table and the “(complete)” roadmap heading for 6b agree with the preview.4 descriptor. `status.cs` must pass.
+> 4. Exemptions. File the issue for the 12 triple-term exemptions (blocked on `TryGetTripleTermComponents`), and have the exemption file reference it. It must be resolved before M8.
+> 5. Signing. Before pushing, check that every commit since the merge is signed (`git log --show-signature`). If the session resumed, the signing config may be gone (#88); stop and say so rather than pushing unsigned.
+> 6. Get the PR green, wait for the agent review on the exact head SHA, then land through `land/`.
+
+- **The merge** (`1a0ea68`) took both milestones' sections of the ADR index,
+  both states in AGENTS.md, preview.4 as the latest release with preview.3
+  before it in README, and CHANGELOG regenerated from the four descriptors.
+  No ADR number and no descriptor collides. The descriptor's date is the day
+  it is cut, and its package count follows `Varve.Aspire`: sixteen.
+- **The media types** (ADR 0092, amended 2026-10-12). Turtle and TriG were
+  negotiated already; RDF/XML and JSON-LD join them for Graph Store reads
+  and writes, `CONSTRUCT` and `DESCRIBE`, and the service description. What
+  a format cannot spell is a `406 not-acceptable` naming the cause: a triple
+  term in JSON-LD, before the first byte always; a predicate with no
+  qualified name or a character XML 1.0 cannot carry in RDF/XML, before the
+  first byte or as the cut after it. JSON-LD's buffer is charged against
+  `Limits:MaxQueryMemory`. 31 new protocol tests over a real socket check
+  each format, `Vary`, the problem types and the 406s; the protocol and Graph
+  Store cases that ask for a graph, and the nineteen `CONSTRUCT` and
+  `DESCRIBE` evaluation cases through the protocol, pass again in RDF/XML and
+  in JSON-LD, or are refused for exactly what the writer refuses (seven).
+  The server's AOT binary grows by 238,912 bytes, 1.0%.
+- **0121–0123 re-read against 0110–0120**: 0111, 0114 and 0119 are touched
+  and named in their checks; nothing conflicts.
+- **#87** already held the twelve exemptions, and the file cites it.
+- **Signing.** The resumed container carried a consistent
+  `GIT_CONFIG_COUNT=2` (`gpg.ssh.program=ssh-keygen`, `user.signingkey` the
+  agent key's public half), so commits from the merge on are signed with the
+  agent key `SHA256:xDu5Ey…xNHljDY`, verified with `git log
+  --show-signature` against an allowed-signers file before the push. The
+  commits before the merge were signed by the platform's key, because the
+  earlier container's environment had to be cleared to make git run.
+
 Developed with AI assistance under human review.
