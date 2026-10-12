@@ -6,6 +6,10 @@
 Decided by the maintainer on the 7a plan: "agent IRI `<issuer>#<sub>` (sub
 percent-encoded)". Acceptance is the maintainer's act on the pull request.
 
+**Amended 2026-10-09** (ADR 0068), by milestone Operability of #12 under ADR
+[0119](0119-headers-and-the-problem-catalogue.md): point 3's cause and W3C
+Trace Context; the `409` and `412` members; see the end.
+
 ## Context
 
 The store's write contract is one commit per request, an optional expected
@@ -115,3 +119,22 @@ optimistic precondition, `409` for a conflict with the resource's state, and
   `Varve.Sparql.Store` (5).
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-09 — the cause is never a trace id
+
+Filed by milestone Operability of #12, unaccepted until the maintainer
+accepts it (ADR 0066). It adds to point 3 and to the table in point 5.
+
+The server now honours and propagates W3C Trace Context (ADR 0112). **The
+cause stays the server-minted request id** and a trace id is never written
+into the log: a trace id is chosen by the client, so it is forgeable and
+collidable, and one trace spans several requests, so a reader assuming
+either property of `cause` (that it is unique per commit, or that the
+server vouched for it) would be misled. The join between a trace and its
+commits lives in telemetry: the request span carries `varve.request_id` and
+`varve.position`. The problem members of `409` and `412` are `position`,
+`expectedPosition` and `headPosition` (ADR 0119); the `head` member in the
+table above is `headPosition` now.
+
+**The ledger.** `CauseIsTheRequestId` stands; the ruling of this block is
+`TraceIdIsNeverTheCause`, unaccepted until the maintainer accepts it.

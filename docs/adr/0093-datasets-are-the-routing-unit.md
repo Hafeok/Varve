@@ -7,6 +7,10 @@ Acceptance is the maintainer's act on the pull request. **Refined by
 [0106](0106-the-admin-api.md)** (filed 2026-10-08): point 4's admin API
 arrives, and datasets under the root are discovered at start.
 
+**Amended 2026-10-09** (ADR 0068), by milestone Operability of #12 under ADR
+[0118](0118-api-alignment-while-everything-is-preview.md): the route table
+gains `commits`, `state` and `settings` and loses `feed`; see the end.
+
 ## Context
 
 A Varve dataset is a directory with one log, one sequencer, one lease (ADRs
@@ -86,3 +90,26 @@ Protocol has no notion of this: an endpoint *is* a dataset.
   contract is `Varve.Protocol`, layer 5.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-09 — the route table after API alignment
+
+Filed by milestone Operability of #12, unaccepted until the maintainer
+accepts it (ADR 0066). The table in point 1 is left as written; this block
+is its current state (ADR 0118):
+
+| Path | What |
+|---|---|
+| `/datasets/{name}/` | the service description |
+| `/datasets/{name}/sparql` | query and update; a `GET` with neither parameter is the service description |
+| `/datasets/{name}/graphs`, `…/graphs/{**path}` | the Graph Store |
+| `/datasets/{name}/commits`, `…/commits/{position}` | the commits resource: a range, one commit, a live tail by `Accept` (ADR 0118; was `/feed`) |
+| `/datasets/{name}/diff` | the diff (ADR 0097) |
+| `/datasets/{name}/status` | the dataset's status, `admin` (ADR 0106) |
+| `/datasets/{name}/state` | open or closed, `GET` and `PUT`, server admin (ADR 0118; was `POST …/open`, `…/close`) |
+| `/datasets/{name}/settings` | the settings, `GET`, `PUT`, `PATCH`, `admin` (ADR 0118; was `POST`) |
+| `/datasets/{name}/checkpoints` | `POST`, `admin` (ADR 0106) |
+
+`/health/live` and `/health/ready` are the host's (ADR 0113), outside every
+dataset. **The ledger.** `DatasetRoutes` stands as accepted; the ruling of
+this block is `DatasetRoutesAfterAlignment`, unaccepted until the maintainer
+accepts it.

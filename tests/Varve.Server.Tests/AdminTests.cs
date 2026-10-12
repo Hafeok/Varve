@@ -26,6 +26,8 @@ namespace Varve.Server.Tests;
 public class AdminTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    private const string Open = "{\"state\":\"open\"}";
+    private const string Closed = "{\"state\":\"closed\"}";
 
     [Fact]
     public async Task A_dataset_is_created_listed_administered_closed_and_deleted()
@@ -38,7 +40,11 @@ public class AdminTests
 
             // Create, and it serves at once.
             Assert.Equal(HttpStatusCode.Created, (await Send(server, HttpMethod.Put, "datasets/people", "{\"storage\":\"File\"}")).StatusCode);
-            Assert.Equal(HttpStatusCode.Conflict, (await Send(server, HttpMethod.Put, "datasets/people")).StatusCode);
+
+            // The same request again is idempotent; a different body is the conflict (ADR 0118).
+            Assert.Equal(HttpStatusCode.NoContent, (await Send(server, HttpMethod.Put, "datasets/people")).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await Send(server, HttpMethod.Put, "datasets/people", "{\"storage\":\"File\"}")).StatusCode);
+            Assert.Equal(HttpStatusCode.Conflict, (await Send(server, HttpMethod.Put, "datasets/people", "{\"storage\":\"Memory\"}")).StatusCode);
             Assert.Equal(HttpStatusCode.BadRequest, (await Send(server, HttpMethod.Put, "datasets/-bad")).StatusCode);
             Assert.Equal(HttpStatusCode.NoContent, (await Update(server, "people", "INSERT DATA { <http://ex/s> <http://ex/p> \"1\" }")).StatusCode);
             Assert.True(Directory.Exists(Path.Combine(root, "people", "log")));
@@ -74,7 +80,13 @@ public class AdminTests
             status = await Json(await Send(server, HttpMethod.Get, "datasets/people/status"));
             Assert.Equal(1, status.RootElement.GetProperty("checkpoints")[0].GetInt64());
 
-            using HttpRequestMessage stale = new(HttpMethod.Post, new Uri("datasets/people/settings", UriKind.Relative))
+            // The settings resource: read with the position as ETag, then a stale If-Match on a PUT (ADR 0118).
+            HttpResponseMessage settings = await Send(server, HttpMethod.Get, "datasets/people/settings");
+            Assert.Equal(HttpStatusCode.OK, settings.StatusCode);
+            Assert.Equal("\"1\"", settings.Headers.ETag?.Tag);
+            Assert.Equal("AllHistory", (await Json(settings)).RootElement.GetProperty("defaultAccessScope").GetString());
+
+            using HttpRequestMessage stale = new(HttpMethod.Put, new Uri("datasets/people/settings", UriKind.Relative))
             {
                 Content = new StringContent("{\"defaultAccessScope\":\"Current\"}", Encoding.UTF8, "application/json"),
             };
@@ -82,29 +94,32 @@ public class AdminTests
             Assert.Equal(HttpStatusCode.PreconditionFailed, (await server.Client.SendAsync(stale, Ct)).StatusCode);
 
             // Anonymous mode names no agent, and a settings commit needs one (ADR 0094).
-            HttpResponseMessage anonymous = await Send(server, HttpMethod.Post, "datasets/people/settings", "{\"defaultAccessScope\":\"Current\"}");
+            HttpResponseMessage anonymous = await Send(server, HttpMethod.Put, "datasets/people/settings", "{\"defaultAccessScope\":\"Current\"}");
             Assert.Equal(HttpStatusCode.Forbidden, anonymous.StatusCode);
             Assert.Contains("agent-required", await anonymous.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
 
             // Delete refuses an open dataset; close, then delete, and the directory is gone.
             Assert.Equal(HttpStatusCode.Conflict, (await Send(server, HttpMethod.Delete, "datasets/people")).StatusCode);
-            Assert.Equal(HttpStatusCode.NoContent, (await Send(server, HttpMethod.Post, "datasets/people/close")).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await Send(server, HttpMethod.Put, "datasets/people/state", Closed)).StatusCode);
             Assert.Equal(HttpStatusCode.NotFound, (await Send(server, HttpMethod.Get, "datasets/people/status")).StatusCode);
-            Assert.Equal(HttpStatusCode.NotFound, (await Send(server, HttpMethod.Post, "datasets/people/close")).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await Send(server, HttpMethod.Put, "datasets/people/state", Closed)).StatusCode);
+            Assert.Equal("closed", (await Json(await Send(server, HttpMethod.Get, "datasets/people/state"))).RootElement.GetProperty("state").GetString());
             list = await Json(await Send(server, HttpMethod.Get, "datasets"));
             Assert.Contains(list.RootElement.GetProperty("datasets").EnumerateArray(), e => e.GetProperty("name").GetString() == "people" && e.GetProperty("state").GetString() == "closed");
 
             // Reopened, it serves what it held.
-            Assert.Equal(HttpStatusCode.NoContent, (await Send(server, HttpMethod.Post, "datasets/people/open")).StatusCode);
-            Assert.Equal(HttpStatusCode.NoContent, (await Send(server, HttpMethod.Post, "datasets/people/open")).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await Send(server, HttpMethod.Put, "datasets/people/state", Open)).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await Send(server, HttpMethod.Put, "datasets/people/state", Open)).StatusCode);
+            Assert.Equal("open", (await Json(await Send(server, HttpMethod.Get, "datasets/people/state"))).RootElement.GetProperty("state").GetString());
             status = await Json(await Send(server, HttpMethod.Get, "datasets/people/status"));
             Assert.Equal(1, status.RootElement.GetProperty("head").GetInt64());
 
-            Assert.Equal(HttpStatusCode.NoContent, (await Send(server, HttpMethod.Post, "datasets/people/close")).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await Send(server, HttpMethod.Put, "datasets/people/state", Closed)).StatusCode);
             Assert.Equal(HttpStatusCode.NoContent, (await Send(server, HttpMethod.Delete, "datasets/people")).StatusCode);
             Assert.False(Directory.Exists(Path.Combine(root, "people")));
             Assert.Equal(HttpStatusCode.NotFound, (await Send(server, HttpMethod.Delete, "datasets/people")).StatusCode);
-            Assert.Equal(HttpStatusCode.NotFound, (await Send(server, HttpMethod.Post, "datasets/people/open")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await Send(server, HttpMethod.Put, "datasets/people/state", Open)).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await Send(server, HttpMethod.Get, "datasets/people/state")).StatusCode);
         }
         finally
         {
@@ -130,7 +145,8 @@ public class AdminTests
             FileStorage holder = await FileStorage.OpenAsync(new DatasetDirectory(held), new FileStorageOptions { Clock = TimeProvider.System }, Ct);
             await using Dataset holding = await Dataset.CreateAsync(holder, new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, Ct);
 
-            await using (RunningServer second = await Start(root))
+            // The lease is waited for one second (ADR 0116), then the directory is listed failed with its holder.
+            await using (RunningServer second = await Start(root, ("Varve:Lease:WaitFor", "00:00:01")))
             {
                 JsonDocument list = await Json(await Send(second, HttpMethod.Get, "datasets"));
                 Dictionary<string, JsonElement> byName = [];
@@ -146,17 +162,22 @@ public class AdminTests
                 Assert.Equal("failed", byName["held"].GetProperty("state").GetString());
                 Assert.Contains("held", byName["held"].GetProperty("reason").GetString(), StringComparison.Ordinal);
 
-                HttpResponseMessage ready = await Send(second, HttpMethod.Get, "ready");
+                // Readiness is a not-ready problem listing the dataset that fails and why (ADR 0113).
+                HttpResponseMessage ready = await Send(second, HttpMethod.Get, "health/ready");
                 Assert.Equal(HttpStatusCode.ServiceUnavailable, ready.StatusCode);
+                Assert.Equal("application/problem+json", ready.Content.Headers.ContentType?.MediaType);
                 JsonDocument readiness = await Json(ready);
-                Assert.Equal("failed", readiness.RootElement.GetProperty("datasets").GetProperty("held").GetProperty("state").GetString());
-                Assert.Equal("ready", readiness.RootElement.GetProperty("datasets").GetProperty("kept").GetString());
+                Assert.Equal("https://w3id.org/varve/problems/not-ready", readiness.RootElement.GetProperty("type").GetString());
+                JsonElement failing = Assert.Single(readiness.RootElement.GetProperty("datasets").EnumerateArray());
+                Assert.Equal("held", failing.GetProperty("name").GetString());
+                Assert.Equal("failed", failing.GetProperty("state").GetString());
+                Assert.Contains("held", failing.GetProperty("reason").GetString(), StringComparison.Ordinal);
 
                 // Released by its holder, it opens on request.
                 await holding.DisposeAsync();
                 await holder.DisposeAsync();
-                Assert.Equal(HttpStatusCode.NoContent, (await Send(second, HttpMethod.Post, "datasets/held/open")).StatusCode);
-                Assert.Equal(HttpStatusCode.OK, (await Send(second, HttpMethod.Get, "ready")).StatusCode);
+                Assert.Equal(HttpStatusCode.NoContent, (await Send(second, HttpMethod.Put, "datasets/held/state", Open)).StatusCode);
+                Assert.Equal(HttpStatusCode.OK, (await Send(second, HttpMethod.Get, "health/ready")).StatusCode);
             }
         }
         finally
@@ -177,7 +198,7 @@ public class AdminTests
             Assert.Empty(list.RootElement.GetProperty("datasets").EnumerateArray());
             Assert.Equal(HttpStatusCode.Created, (await Send(server, HttpMethod.Put, "datasets/scratch", "{\"storage\":\"Memory\"}")).StatusCode);
             Assert.Equal(HttpStatusCode.NoContent, (await Update(server, "scratch", "INSERT DATA { <http://ex/s> <http://ex/p> \"1\" }")).StatusCode);
-            Assert.Equal(HttpStatusCode.NoContent, (await Send(server, HttpMethod.Post, "datasets/scratch/close")).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await Send(server, HttpMethod.Put, "datasets/scratch/state", Closed)).StatusCode);
             Assert.Equal(HttpStatusCode.NoContent, (await Send(server, HttpMethod.Delete, "datasets/scratch")).StatusCode);
         }
         finally

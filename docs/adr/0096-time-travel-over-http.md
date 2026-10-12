@@ -5,6 +5,11 @@
 **Accepted — filed unaccepted by milestone 7a of #11, 2026-10-07** (ADR 0066).
 Acceptance is the maintainer's act on the pull request.
 
+**Amended 2026-10-09** (ADR 0068), by milestone Operability of #12 under ADR
+[0119](0119-headers-and-the-problem-catalogue.md): point 4 gains
+`Cache-Control`, `Last-Modified` and `Link`; see the end. The `410`
+alternative was proposed again and reversed: this ADR stands.
+
 ## Context
 
 The store answers an as-of read at any closed position at or above the archive
@@ -97,3 +102,23 @@ that asymmetry in ADR 0097.
 - **Layer ownership.** `Varve.Protocol`, layer 5.
 - **Analyzer rule.** None.
 - **Open questions owned.** None. T3's horizon is the storage roadmap's.
+
+## Amendment, 2026-10-09 — the cache headers an as-of read earns
+
+Filed by milestone Operability of #12, unaccepted until the maintainer
+accepts it (ADR 0066). It adds to point 4 (ADR 0119).
+
+An as-of read at a closed position is immutable by the model, so it
+carries `Cache-Control: private, max-age=31536000, immutable`; a head read
+carries `no-cache` with its `ETag`. `Last-Modified` is the resolved
+position's commit timestamp and `If-Modified-Since` is honoured before any
+pin is taken, after `If-None-Match` when both are present. `Vary` is
+`Accept, Varve-As-Of, Authorization` (ADR 0107 added the third). Every
+dataset response carries `Link rel="service-desc"`. The Operability plan
+proposed `410 Gone` below the archive horizon and the maintainer reversed
+it: RFC 9110 §15.5.9 reserves `410` for conditions likely to be permanent
+and archiving is undecided, so point 3 stands and `below-archive-horizon`
+keeps its `horizon` member.
+
+**The ledger.** `ETagIsThePosition` stands; the ruling of this block is
+`CacheHeadersByReadKind`, unaccepted until the maintainer accepts it.

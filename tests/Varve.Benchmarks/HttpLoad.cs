@@ -50,7 +50,7 @@ internal static class HttpLoad
             try
             {
                 Uri address = new("http://127.0.0.1:18080/");
-                await WaitAsync(address, "ready");
+                await WaitAsync(address, "health/ready");
 
                 foreach (string store in (string[])["memory", "file"])
                 {

@@ -45,7 +45,13 @@ Varve.Protocol.Client.SparqlHttpClient.AccessToken.get -> string?
 Varve.Protocol.Client.SparqlHttpClient.AccessToken.set -> void
 Varve.Protocol.Client.SparqlHttpClient.CheckpointAsync(long? at, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
 Varve.Protocol.Client.SparqlHttpClient.Dataset.get -> System.Uri!
-Varve.Protocol.Client.SparqlHttpClient.FeedAsync(long from, long? to, string? graph, bool eventStream, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.CommitsAsync(long from, long? to, string? graph, bool eventStream, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.CommitAsync(long position, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.StateAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.SetStateAsync(bool open, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.SettingsAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.PutSettingsAsync(string! json, long? ifMatch, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.PatchSettingsAsync(string! json, long? ifMatch, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
 Varve.Protocol.Client.SparqlHttpClient.GetGraphAsync(string? graph, string! accept, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
 Varve.Protocol.Client.SparqlHttpClient.QueryAsync(string! query, string! accept, string? asOf, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
 Varve.Protocol.Client.SparqlHttpClient.SparqlHttpClient(System.Net.Http.HttpClient! http, System.Uri! dataset, Varve.Protocol.Client.ClientLimits limits) -> void

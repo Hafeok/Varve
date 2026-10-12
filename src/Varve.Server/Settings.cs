@@ -33,6 +33,42 @@ internal sealed class ServerSettings
 
     /// <summary><c>LOAD</c> over HTTP (ADR 0104): where an update may fetch a document from.</summary>
     public LoadSettings Load { get; set; } = new();
+
+    /// <summary>Health and readiness (ADR 0113).</summary>
+    public HealthSettings Health { get; set; } = new();
+
+    /// <summary>The lease at start (ADR 0116).</summary>
+    public LeaseSettings Lease { get; set; } = new();
+
+    /// <summary>What the request span records (ADR 0112); the exporter is configured by <c>OTEL_*</c>.</summary>
+    public TelemetrySettings Telemetry { get; set; } = new();
+}
+
+/// <summary>Telemetry (ADR 0112): what the request span records beyond its defaults. The exporter itself is the standard <c>OTEL_*</c> environment's.</summary>
+internal sealed class TelemetrySettings
+{
+    /// <summary>Record <c>db.query.text</c>, the query or update as sent, on the request span. Off by default: a query can carry data.</summary>
+    public bool QueryText { get; set; }
+}
+
+/// <summary>The lease at start (ADR 0116): how long a refused lease is waited for before the dataset is failed.</summary>
+internal sealed class LeaseSettings
+{
+    /// <summary>How long to retry a lease another process holds, logging the holder each second; the dataset is then failed with the holder as its reason.</summary>
+    public TimeSpan WaitFor { get; set; } = TimeSpan.FromSeconds(30);
+}
+
+/// <summary>Health and readiness (ADR 0113): the lag readiness tolerates, the probes' rate limit, and the drain's head start.</summary>
+internal sealed class HealthSettings
+{
+    /// <summary>How many positions a default projection may be behind its head and the server still ready; 0 is at head.</summary>
+    public long ReadyLag { get; set; }
+
+    /// <summary>Probes per minute per client address before <c>429</c>.</summary>
+    public int RateLimit { get; set; } = 60;
+
+    /// <summary>How long readiness answers 503 before the listener closes on a stop, so a load balancer notices.</summary>
+    public TimeSpan StopDelay { get; set; }
 }
 
 /// <summary>
@@ -159,6 +195,24 @@ internal sealed class LimitSettings
     public TimeSpan PinnedReadLifetime { get; set; } = TimeSpan.FromMinutes(2);
 
     public TimeSpan FeedHeartbeat { get; set; } = TimeSpan.FromSeconds(15);
+
+    /// <summary>Reads in flight at once, server-wide (ADR 0114).</summary>
+    public int MaxConcurrentReads { get; set; } = 64;
+
+    /// <summary>Reads waiting for a slot before the next is <c>503 server-busy</c> (ADR 0114).</summary>
+    public int ReadQueueLength { get; set; } = 256;
+
+    /// <summary>The most an evaluation's materialising operators may hold, in bytes, counted (ADR 0114).</summary>
+    public long MaxQueryMemory { get; set; } = 256L << 20;
+
+    /// <summary>The most commits an as-of position may lie above its nearest checkpoint (ADR 0114).</summary>
+    public long MaxAsOfDistance { get; set; } = 10_000;
+
+    /// <summary>The most live tails one client may hold open (ADR 0114).</summary>
+    public int MaxLiveTailsPerClient { get; set; } = 16;
+
+    /// <summary>The most commits a bounded commits range serves before <c>Link rel="next"</c> (ADR 0114).</summary>
+    public int CommitsPageSize { get; set; } = 1_000;
 }
 
 /// <summary>Forwarded headers, honoured only when enabled and only from the listed proxies (ADR 0101).</summary>

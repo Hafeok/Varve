@@ -93,6 +93,39 @@ public sealed class CliTests : IDisposable
     }
 
     [Fact]
+    public async Task the_lease_command_reports_the_holder_and_breaks_only_a_lock_that_proves_free()
+    {
+        string dataset = Path.Combine(_root, "leased");
+        Assert.Equal(0, (await RunAsync("create", dataset)).Exit);
+
+        Run free = await RunAsync("lease", dataset);
+        Assert.Equal(0, free.Exit);
+        Assert.Contains("lock: free", free.Out, StringComparison.Ordinal);
+        Assert.Contains("owner: process ", free.Out, StringComparison.Ordinal);
+
+        // Held: by this process, which the command reports and never breaks (ADR 0116).
+        Varve.Store.FileStorage holder = await Varve.Store.FileStorage.OpenAsync(new Varve.Store.Log.DatasetDirectory(dataset), new Varve.Store.FileStorageOptions { Clock = TimeProvider.System }, TestContext.Current.CancellationToken);
+        Run held = await RunAsync("lease", dataset);
+        Assert.Equal(1, held.Exit);
+        Assert.Contains("lock: held", held.Out, StringComparison.Ordinal);
+        Run refused = await RunAsync("lease", dataset, "--break");
+        Assert.Equal(1, refused.Exit);
+        Assert.Contains("never broken", refused.Error, StringComparison.Ordinal);
+        Assert.True(File.Exists(Path.Combine(dataset, "derived", "LOCK.owner")));
+        await holder.DisposeAsync();
+
+        // Free again: --break clears the owner file of the lock that proved free.
+        Run broken = await RunAsync("lease", dataset, "--break");
+        Assert.Equal(0, broken.Exit);
+        Assert.Contains("cleared the owner file", broken.Out, StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(dataset, "derived", "LOCK.owner")));
+
+        Run notADataset = await RunAsync("lease", _root);
+        Assert.Equal(1, notADataset.Exit);
+        Assert.Contains("not a dataset directory", notADataset.Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task a_failure_is_one_line_on_standard_error_and_exit_1_and_a_usage_error_exit_2()
     {
         Run missing = await RunAsync("query", Path.Combine(_root, "nowhere"), "-q", "ASK {}");

@@ -78,7 +78,7 @@ internal static class AdminEndpoints
 
         if (body.TooLarge)
         {
-            await HttpProblems.RequestTooLarge(context).ConfigureAwait(false);
+            await HttpProblems.RequestTooLarge(context, options.Limits.MaxRequestBody.Value).ConfigureAwait(false);
             return;
         }
 
@@ -96,8 +96,14 @@ internal static class AdminEndpoints
             case AdminOutcome.Done:
                 context.Response.StatusCode = StatusCodes.Status201Created;
                 break;
+            case AdminOutcome.Exists when StorageOf(administration, name) == storage:
+                // The same request again (ADR 0118): the dataset asked for is
+                // the dataset there, and a deployment script may re-run.
+                context.Response.StatusCode = StatusCodes.Status204NoContent;
+                break;
             case AdminOutcome.Exists:
-                await HttpProblems.WriteAsync(context, StatusCodes.Status409Conflict, ProblemType.DatasetExists, "A dataset by that name exists.").ConfigureAwait(false);
+                await HttpProblems.WriteAsync(context, ProblemType.DatasetExists,
+                    "It is kept in " + (StorageOf(administration, name) == DatasetStorage.Memory ? "Memory" : "File") + " storage, and the body asks for another.").ConfigureAwait(false);
                 break;
             default:
                 await Failed(context, administration, name).ConfigureAwait(false);
@@ -119,7 +125,7 @@ internal static class AdminEndpoints
                 context.Response.StatusCode = StatusCodes.Status204NoContent;
                 break;
             case AdminOutcome.Open:
-                await HttpProblems.WriteAsync(context, StatusCodes.Status409Conflict, ProblemType.DatasetOpen, "The dataset is open; close it first.").ConfigureAwait(false);
+                await HttpProblems.WriteAsync(context, ProblemType.DatasetOpen).ConfigureAwait(false);
                 break;
             case AdminOutcome.NotFound:
                 await HttpProblems.DatasetNotFound(context).ConfigureAwait(false);
@@ -130,17 +136,75 @@ internal static class AdminEndpoints
         }
     }
 
-    /// <summary><c>POST /datasets/{name}/open</c>: a closed or failed dataset is opened, <c>204</c>.</summary>
-    internal static async Task OpenAsync(HttpContext context, ProtocolOptions options)
+    /// <summary>
+    /// <c>GET</c> and <c>PUT /datasets/{name}/state</c> (ADR 0118): the dataset's
+    /// state, and the state asked for. <c>PUT</c> is idempotent: <c>open</c> or
+    /// <c>closed</c> is answered <c>204</c> whether or not anything changed; a
+    /// failed dataset asked to open is <c>503</c> with its reason.
+    /// </summary>
+    internal static async Task StateAsync(HttpContext context, ProtocolOptions options)
     {
+        bool get = HttpMethods.IsGet(context.Request.Method);
+
+        if (!get && !HttpMethods.IsPut(context.Request.Method))
+        {
+            await HttpProblems.MethodNotAllowed(context, "GET, PUT").ConfigureAwait(false);
+            return;
+        }
+
         if (await BeginServerAsync(context, options).ConfigureAwait(false) is not (IDatasetAdministration administration, DatasetName name))
         {
             return;
         }
 
-        switch (await administration.OpenAsync(name, context.RequestAborted).ConfigureAwait(false))
+        if (get)
+        {
+            DatasetEntry? entry = EntryOf(administration, name);
+
+            if (entry is null)
+            {
+                await HttpProblems.DatasetNotFound(context).ConfigureAwait(false);
+                return;
+            }
+
+            context.Response.Headers.CacheControl = "no-store";
+            await WriteJsonAsync(context, StatusCodes.Status200OK, json =>
+            {
+                json.WriteString("state", StateName(entry.State));
+
+                if (entry.Reason is not null)
+                {
+                    json.WriteString("reason", entry.Reason);
+                }
+            }).ConfigureAwait(false);
+            return;
+        }
+
+        Body body = await RequestBodies.ReadAsync(context, options.Limits).ConfigureAwait(false);
+
+        if (body.TooLarge)
+        {
+            await HttpProblems.RequestTooLarge(context, options.Limits.MaxRequestBody.Value).ConfigureAwait(false);
+            return;
+        }
+
+        if (body.Bytes is not { Length: > 0 } bytes || !TryReadState(bytes, out bool open))
+        {
+            await HttpProblems.BadRequest(context, "The body is {\"state\": \"open\"} or {\"state\": \"closed\"}.").ConfigureAwait(false);
+            return;
+        }
+
+        AdminOutcome outcome = open
+            ? await administration.OpenAsync(name, context.RequestAborted).ConfigureAwait(false)
+            : await administration.CloseAsync(name, context.RequestAborted).ConfigureAwait(false);
+
+        switch (outcome)
         {
             case AdminOutcome.Done:
+                context.Response.StatusCode = StatusCodes.Status204NoContent;
+                break;
+            case AdminOutcome.NotFound when !open && EntryOf(administration, name) is { State: DatasetState.Closed }:
+                // Closed already: the state asked for is the state there.
                 context.Response.StatusCode = StatusCodes.Status204NoContent;
                 break;
             case AdminOutcome.NotFound:
@@ -152,34 +216,22 @@ internal static class AdminEndpoints
         }
     }
 
-    /// <summary><c>POST /datasets/{name}/close</c>: an open dataset is drained and closed, <c>204</c>.</summary>
-    internal static async Task CloseAsync(HttpContext context, ProtocolOptions options)
-    {
-        if (await BeginServerAsync(context, options).ConfigureAwait(false) is not (IDatasetAdministration administration, DatasetName name))
-        {
-            return;
-        }
-
-        switch (await administration.CloseAsync(name, context.RequestAborted).ConfigureAwait(false))
-        {
-            case AdminOutcome.Done:
-                context.Response.StatusCode = StatusCodes.Status204NoContent;
-                break;
-            case AdminOutcome.NotFound:
-                await HttpProblems.DatasetNotFound(context).ConfigureAwait(false);
-                break;
-            default:
-                await Failed(context, administration, name).ConfigureAwait(false);
-                break;
-        }
-    }
-
-    /// <summary><c>POST {dataset}/settings</c>: a <c>Settings</c> commit with the caller as agent, <c>If-Match</c> as the expected position.</summary>
+    /// <summary>
+    /// <c>/settings</c> as a resource (ADR 0118): <c>GET</c> answers the
+    /// settings at the head with the position as <c>ETag</c>; <c>PUT</c>
+    /// replaces them whole and <c>PATCH</c> (<c>application/merge-patch+json</c>)
+    /// merges, both under <c>If-Match</c> as the expected position (ADR 0094),
+    /// the <c>Settings</c> commit being the effect rather than the verb.
+    /// </summary>
     internal static async Task SettingsAsync(HttpContext context, ProtocolOptions options)
     {
-        if (!HttpMethods.IsPost(context.Request.Method))
+        string method = context.Request.Method;
+        bool get = HttpMethods.IsGet(method) || HttpMethods.IsHead(method);
+        bool patch = HttpMethods.IsPatch(method);
+
+        if (!get && !patch && !HttpMethods.IsPut(method))
         {
-            await HttpProblems.MethodNotAllowed(context, "POST").ConfigureAwait(false);
+            await HttpProblems.MethodNotAllowed(context, "GET, HEAD, PUT, PATCH").ConfigureAwait(false);
             return;
         }
 
@@ -188,8 +240,40 @@ internal static class AdminEndpoints
             return;
         }
 
+        if (get)
+        {
+            Position head = exchange.Dataset.Head;
+
+            if (await Reads.NotModifiedAsync(context, exchange.Dataset, head).ConfigureAwait(false))
+            {
+                return;
+            }
+
+            Preconditions.Describe(context.Response, head);
+            context.Response.Headers.CacheControl = "no-cache";
+
+            if (HttpMethods.IsHead(method))
+            {
+                context.Response.ContentType = MediaTypes.Json;
+                return;
+            }
+
+            DatasetSettings settings = exchange.Dataset.Settings;
+            await WriteJsonAsync(context, StatusCodes.Status200OK, json => json.WriteString("defaultAccessScope", settings.DefaultAccessScope.ToString())).ConfigureAwait(false);
+            return;
+        }
+
         if (await Writes.CheckAsync(exchange).ConfigureAwait(false) is not { Proceed: true } plan)
         {
+            return;
+        }
+
+        if (!MediaTypes.TryReadContentType(context.Request.ContentType, out string mediaType, out bool utf8) || !utf8
+            || mediaType != (patch ? MediaTypes.MergePatch : MediaTypes.Json))
+        {
+            await HttpProblems.UnsupportedMediaType(context, patch
+                ? "A PATCH of the settings is application/merge-patch+json."
+                : "A PUT of the settings is application/json.").ConfigureAwait(false);
             return;
         }
 
@@ -197,13 +281,15 @@ internal static class AdminEndpoints
 
         if (body.TooLarge)
         {
-            await HttpProblems.RequestTooLarge(context).ConfigureAwait(false);
+            await HttpProblems.RequestTooLarge(context, options.Limits.MaxRequestBody.Value).ConfigureAwait(false);
             return;
         }
 
-        if (body.Bytes is not { Length: > 0 } bytes || !TryReadSettings(bytes, out SettingsChange change))
+        if (body.Bytes is not { Length: > 0 } bytes || !TryReadSettings(bytes, whole: !patch, out SettingsChange change))
         {
-            await HttpProblems.BadRequest(context, "The body is {\"defaultAccessScope\": \"AllHistory\"} or {\"defaultAccessScope\": \"Current\"}.").ConfigureAwait(false);
+            await HttpProblems.BadRequest(context, patch
+                ? "The body merges into the settings: {\"defaultAccessScope\": \"AllHistory\" | \"Current\"}; a setting cannot be removed."
+                : "The body is the whole settings: {\"defaultAccessScope\": \"AllHistory\" | \"Current\"}.").ConfigureAwait(false);
             return;
         }
 
@@ -211,14 +297,13 @@ internal static class AdminEndpoints
 
         if (metadata.Agent.IsNone)
         {
-            await HttpProblems.WriteAsync(context, StatusCodes.Status403Forbidden, ProblemType.AgentRequired,
-                "A settings commit records its agent, and the caller has none.",
+            await HttpProblems.WriteAsync(context, ProblemType.AgentRequired,
                 "In anonymous mode no caller is named (ADR 0094); a settings change needs an authenticated caller.").ConfigureAwait(false);
             return;
         }
 
         CommitResult result = await exchange.Dataset.ChangeSettingsAsync(change, metadata, plan.Expected, context.RequestAborted).ConfigureAwait(false);
-        await Writes.AnswerAsync(exchange, result).ConfigureAwait(false);
+        await Writes.AnswerAsync(exchange, result, expected: plan.Expected).ConfigureAwait(false);
     }
 
     /// <summary><c>POST {dataset}/checkpoints?at=</c>: a checkpoint at the head or at a position, <c>201</c> with the position.</summary>
@@ -252,7 +337,8 @@ internal static class AdminEndpoints
             if (at > dataset.Head)
             {
                 Preconditions.Describe(context.Response, dataset.Head);
-                await HttpProblems.WriteAsync(context, StatusCodes.Status404NotFound, ProblemType.PositionNotReached, "The position is after the head.").ConfigureAwait(false);
+                await HttpProblems.WriteAsync(context, ProblemType.PositionNotReached, "The head is " + dataset.Head.ToString() + ".",
+                    members => members.Number("headPosition", dataset.Head.Value)).ConfigureAwait(false);
                 return;
             }
         }
@@ -281,7 +367,7 @@ internal static class AdminEndpoints
     internal static void WriteEntry(Utf8JsonWriter json, DatasetEntry entry)
     {
         json.WriteString("name", entry.Name.Value);
-        json.WriteString("state", entry.State switch { DatasetState.Open => "open", DatasetState.Closed => "closed", _ => "failed" });
+        json.WriteString("state", StateName(entry.State));
         json.WriteString("storage", entry.Storage == DatasetStorage.Memory ? "Memory" : "File");
         json.WriteString("origin", entry.Origin switch { DatasetOrigin.Configured => "configured", DatasetOrigin.Discovered => "discovered", _ => "created" });
 
@@ -325,19 +411,54 @@ internal static class AdminEndpoints
         return (administration, name);
     }
 
-    private static Task Failed(HttpContext context, IDatasetAdministration administration, DatasetName name)
-    {
-        string? reason = null;
+    private static Task Failed(HttpContext context, IDatasetAdministration administration, DatasetName name) =>
+        HttpProblems.WriteAsync(context, ProblemType.Unavailable, "The dataset could not be opened: " + (EntryOf(administration, name)?.Reason ?? "no reason was recorded."));
 
+    private static DatasetEntry? EntryOf(IDatasetAdministration administration, DatasetName name)
+    {
         foreach (DatasetEntry entry in administration.List())
         {
             if (entry.Name == name)
             {
-                reason = entry.Reason;
+                return entry;
             }
         }
 
-        return HttpProblems.WriteAsync(context, StatusCodes.Status503ServiceUnavailable, ProblemType.Unavailable, "The dataset could not be opened.", reason);
+        return null;
+    }
+
+    private static DatasetStorage? StorageOf(IDatasetAdministration administration, DatasetName name) => EntryOf(administration, name)?.Storage;
+
+    internal static string StateName(DatasetState state) => state switch { DatasetState.Open => "open", DatasetState.Closed => "closed", _ => "failed" };
+
+    private static bool TryReadState(byte[] body, out bool open)
+    {
+        open = false;
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(body);
+
+            if (document.RootElement.ValueKind != JsonValueKind.Object || !document.RootElement.TryGetProperty("state", out JsonElement value))
+            {
+                return false;
+            }
+
+            switch (value.GetString())
+            {
+                case "open":
+                    open = true;
+                    return true;
+                case "closed":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     private static bool TryReadStorage(byte[] body, out DatasetStorage storage)
@@ -376,7 +497,9 @@ internal static class AdminEndpoints
         }
     }
 
-    private static bool TryReadSettings(byte[] body, out SettingsChange change)
+    // A PUT carries every setting; a PATCH carries the ones it changes, and
+    // may not remove one (RFC 7396's null), since every setting has a value.
+    private static bool TryReadSettings(byte[] body, bool whole, out SettingsChange change)
     {
         change = new SettingsChange();
 
@@ -384,9 +507,22 @@ internal static class AdminEndpoints
         {
             using JsonDocument document = JsonDocument.Parse(body);
 
-            if (document.RootElement.ValueKind != JsonValueKind.Object || !document.RootElement.TryGetProperty("defaultAccessScope", out JsonElement value))
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
             {
                 return false;
+            }
+
+            foreach (JsonProperty property in document.RootElement.EnumerateObject())
+            {
+                if (property.Name != "defaultAccessScope")
+                {
+                    return false;
+                }
+            }
+
+            if (!document.RootElement.TryGetProperty("defaultAccessScope", out JsonElement value))
+            {
+                return !whole;
             }
 
             switch (value.GetString())

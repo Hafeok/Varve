@@ -151,7 +151,7 @@ static Varve.Protocol.Model.ProblemType.operator ==(Varve.Protocol.Model.Problem
 static Varve.Protocol.ProtocolLimits.Default.get -> Varve.Protocol.ProtocolLimits
 static Varve.Protocol.ProtocolLimits.operator !=(Varve.Protocol.ProtocolLimits left, Varve.Protocol.ProtocolLimits right) -> bool
 static Varve.Protocol.ProtocolLimits.operator ==(Varve.Protocol.ProtocolLimits left, Varve.Protocol.ProtocolLimits right) -> bool
-static Varve.Protocol.VarveEndpoints.MapChangeFeed(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
+static Varve.Protocol.VarveEndpoints.MapCommits(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Routing.IEndpointRouteBuilder!
 static Varve.Protocol.VarveEndpoints.MapDatasetStatus(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
 static Varve.Protocol.VarveEndpoints.MapDiff(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
 static Varve.Protocol.VarveEndpoints.MapGraphStore(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Routing.IEndpointRouteBuilder!
@@ -218,3 +218,42 @@ Varve.Protocol.ProtocolOptions.AccessScopes.get -> Varve.Protocol.IAccessScopes!
 Varve.Protocol.ProtocolOptions.AccessScopes.init -> void
 static Varve.Protocol.EveryoneEverything.Instance.get -> Varve.Protocol.EveryoneEverything!
 static Varve.Protocol.Model.ProblemType.GraphNotWritable.get -> Varve.Protocol.Model.ProblemType
+Varve.Protocol.Model.ProblemShape
+Varve.Protocol.Model.ProblemShape.Members.get -> System.Collections.Immutable.ImmutableArray<string!>
+Varve.Protocol.Model.ProblemShape.Name.get -> string!
+Varve.Protocol.Model.ProblemShape.Status.get -> int
+Varve.Protocol.Model.ProblemShape.Title.get -> string!
+Varve.Protocol.Model.ProblemShape.Type.get -> Varve.Protocol.Model.ProblemType
+Varve.Protocol.Model.ProblemCatalogue
+static Varve.Protocol.Model.ProblemCatalogue.All.get -> System.Collections.Immutable.ImmutableArray<Varve.Protocol.Model.ProblemShape!>
+static Varve.Protocol.Model.ProblemCatalogue.Of(Varve.Protocol.Model.ProblemType type) -> Varve.Protocol.Model.ProblemShape!
+static Varve.Protocol.Model.ProblemCatalogue.TryGet(Varve.Protocol.Model.ProblemType type, out Varve.Protocol.Model.ProblemShape? shape) -> bool
+static Varve.Protocol.Model.ProblemCatalogue.Write(System.Text.Json.Utf8JsonWriter! json, Varve.Protocol.Model.ProblemType type, string? instance, string? detail, System.Action<System.Text.Json.Utf8JsonWriter!>? members = null) -> void
+static Varve.Protocol.Model.ProblemType.Unauthorized.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.Forbidden.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.NotFound.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.NotReady.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.ServerBusy.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.MemoryLimitExceeded.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.AsOfDistanceExceeded.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.TooManyLiveTails.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.TooManyRequests.get -> Varve.Protocol.Model.ProblemType
+Varve.Protocol.ProtocolLimits.MaxQueryMemory.get -> Varve.Sparql.Evaluation.MemoryBytes?
+Varve.Protocol.ProtocolLimits.MaxQueryMemory.init -> void
+Varve.Protocol.ProtocolLimits.MaxAsOfDistance.get -> long
+Varve.Protocol.ProtocolLimits.MaxAsOfDistance.init -> void
+Varve.Protocol.ProtocolLimits.MaxLiveTailsPerClient.get -> int
+Varve.Protocol.ProtocolLimits.MaxLiveTailsPerClient.init -> void
+Varve.Protocol.ProtocolLimits.CommitsPageSize.get -> int
+Varve.Protocol.ProtocolLimits.CommitsPageSize.init -> void
+Varve.Protocol.ProtocolOptions.Telemetry.get -> Varve.Protocol.TelemetryOptions!
+Varve.Protocol.ProtocolOptions.Telemetry.init -> void
+Varve.Protocol.ProtocolOptions.Logger.get -> Microsoft.Extensions.Logging.ILogger!
+Varve.Protocol.ProtocolOptions.Logger.init -> void
+Varve.Protocol.TelemetryOptions
+Varve.Protocol.TelemetryOptions.TelemetryOptions() -> void
+static Varve.Protocol.TelemetryOptions.Default.get -> Varve.Protocol.TelemetryOptions!
+Varve.Protocol.TelemetryOptions.QueryText.get -> bool
+Varve.Protocol.TelemetryOptions.QueryText.init -> void
+const Varve.Protocol.TelemetryOptions.ActivitySourceName = "Varve.Protocol" -> string!
+const Varve.Protocol.TelemetryOptions.MeterName = "Varve.Store" -> string!

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The sample AppHost (ADR 0117): the server beside a test issuer, with
+       WithOidc pointing at it and one dataset. Not shipped: the AppHost SDK's
+       orchestration and dashboard carry platform binaries, and this project
+       is outside Varve.slnx's packable set, as the benchmark harness is. The
+       SDK's version is the register's (Directory.Packages.props, ADR 0117). -->
+  <Sdk Name="Aspire.AppHost.Sdk" Version="13.6.1" />
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsAspireHost>true</IsAspireHost>
+    <!-- Layer 6 (ADR 0060): an executable that composes, as the server is;
+         it references Varve.Aspire (layer 0) and nothing else of Varve. -->
+    <ArchLayer>6</ArchLayer>
+    <ArchCompositionRoot>true</ArchCompositionRoot>
+    <IsPackable>false</IsPackable>
+    <UserSecretsId>varve-aspire-sample</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" />
+    <!-- A library the AppHost compiles against, not a project it orchestrates. -->
+    <ProjectReference Include="../../src/Varve.Aspire/Varve.Aspire.csproj" IsAspireProjectResource="false" />
+  </ItemGroup>
+
+</Project>

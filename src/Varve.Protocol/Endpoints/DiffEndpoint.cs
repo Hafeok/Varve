@@ -44,13 +44,23 @@ internal static class DiffEndpoint
 
         Position to = range.To!.Value;
 
-        if (await Reads.NotModifiedAsync(context, to).ConfigureAwait(false))
+        if (await Reads.NotModifiedAsync(context, exchange.Dataset, to).ConfigureAwait(false))
         {
             return;
         }
 
         Preconditions.Describe(context.Response, to);
-        context.Response.ContentType = FeedEndpoint.DeltaContentType;
+
+        if (context.Request.Query.ContainsKey("to"))
+        {
+            Reads.DescribeClosed(context, exchange.Dataset, to);
+        }
+        else
+        {
+            context.Response.Headers.CacheControl = "no-cache";
+        }
+
+        context.Response.ContentType = CommitsEndpoint.DeltaContentType;
         Dataset dataset = exchange.Dataset;
 
         await BoundedReads.RunAsync(context, options, async (output, cancellationToken) =>

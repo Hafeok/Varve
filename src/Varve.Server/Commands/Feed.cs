@@ -24,7 +24,7 @@ internal static class Feed
         Option<long?> to = new("--to") { Description = "End at this position; the head by default, or never with --follow." };
         Option<string?> graph = new("--graph") { Description = "Only changes in this graph: its IRI, or `default`." };
         Option<bool> follow = new("--follow") { Description = "Keep tailing after the head." };
-        Command command = new("feed", "Write a dataset's change feed to standard output (ADR 0097).");
+        Command command = new("feed", "Write a dataset's change feed, its commits in order, to standard output (ADRs 0097, 0118).");
         target.AddTo(command);
         command.Options.Add(from);
         command.Options.Add(to);
@@ -46,7 +46,7 @@ internal static class Feed
 
             if (opened is Remote remote)
             {
-                using HttpResponseMessage response = await remote.Client.FeedAsync(start, live ? null : end ?? await HeadAsync(remote, cancellationToken).ConfigureAwait(false), named, eventStream: false, cancellationToken).ConfigureAwait(false);
+                using HttpResponseMessage response = await remote.Client.CommitsAsync(start, live ? null : end ?? await HeadAsync(remote, cancellationToken).ConfigureAwait(false), named, eventStream: false, cancellationToken).ConfigureAwait(false);
                 return await Commands.CopyAsync(response, io, cancellationToken).ConfigureAwait(false);
             }
 

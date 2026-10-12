@@ -20,15 +20,85 @@ using Varve.Store.Log;
 namespace Varve.Protocol.Endpoints;
 
 /// <summary>
-/// <c>GET /feed</c> (ADR 0097, <c>change-feed.md</c> §4): closed commits in a
-/// range, read through the subscription contract and nothing else. A bounded
-/// range is a finite body; no end tails live, with heartbeats, until the
-/// client leaves or the host stops.
+/// The commits resource (ADRs 0097, 0118; <c>change-feed.md</c> §4):
+/// <c>GET /commits</c> is the closed commits in a range, read through the
+/// subscription contract and nothing else, a bounded range a finite body and
+/// an open one a live tail with heartbeats until the client leaves or the
+/// host stops; <c>GET /commits/{position}</c> is one commit as one record.
 /// </summary>
-internal static class FeedEndpoint
+internal static class CommitsEndpoint
 {
     internal const string DeltaContentType = MediaTypes.Delta + "; version=1";
+    internal const string PositionRouteValue = "position";
 
+    /// <summary><c>GET /commits/{position}</c>: one commit, <c>404</c> above the head.</summary>
+    internal static async Task HandleOneAsync(HttpContext context, ProtocolOptions options)
+    {
+        if (!HttpMethods.IsGet(context.Request.Method))
+        {
+            await HttpProblems.MethodNotAllowed(context, "GET").ConfigureAwait(false);
+            return;
+        }
+
+        if (await Exchange.BeginAsync(context, options, DatasetPermissions.Read).ConfigureAwait(false) is not { } exchange)
+        {
+            return;
+        }
+
+        if (!Negotiation.TryChoose(context.Request.Headers.Accept, MediaTypes.Feeds, out Offer<FeedFraming> framing) || framing.Format != FeedFraming.Delta)
+        {
+            await HttpProblems.NotAcceptable(context, "A commit is application/vnd.varve.delta.").ConfigureAwait(false);
+            return;
+        }
+
+        if (!context.Request.RouteValues.TryGetValue(PositionRouteValue, out object? value)
+            || value is not string text || !Instants.IsDecimal(text) || !long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out long number) || number < 1)
+        {
+            await HttpProblems.BadRequest(context, "A commit is named by its position, a positive integer.").ConfigureAwait(false);
+            return;
+        }
+
+        Position position = new(number);
+        Dataset dataset = exchange.Dataset;
+        Position head = dataset.Head;
+
+        if (position > head)
+        {
+            Preconditions.Describe(context.Response, head);
+            await HttpProblems.WriteAsync(context, ProblemType.PositionNotReached, "The head is " + head.ToString() + ".",
+                members => members.Number("headPosition", head.Value)).ConfigureAwait(false);
+            return;
+        }
+
+        if (await Reads.NotModifiedAsync(context, exchange.Dataset, position).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        // A closed position never changes: the commit is immutable (ADR 0119).
+        Preconditions.Describe(context.Response, position);
+        Reads.DescribeClosed(context, dataset, position);
+        context.Response.ContentType = DeltaContentType;
+        ScopeFilter scope = new(exchange.Scope.Readable);
+
+        await BoundedReads.RunAsync(context, options, async (output, cancellationToken) =>
+        {
+            await using IAsyncEnumerator<Commit> commits = dataset.Subscribe(new Position(number - 1), SubscriptionFilter.All, cancellationToken).GetAsyncEnumerator(cancellationToken);
+
+            if (await commits.MoveNextAsync().ConfigureAwait(false) && commits.Current.Position == position)
+            {
+                Commit commit = commits.Current;
+                QuadDelta delta = scope.Apply(commit.Delta, commit.TryExternalise);
+
+                if (commit.Kind == CommitKind.Data || exchange.Scope.IsAdmin)
+                {
+                    DeltaLines.WriteCommit(output, commit, delta, commit.TryExternalise);
+                }
+            }
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary><c>GET /commits</c>: a bounded range, or a live tail.</summary>
     internal static async Task HandleAsync(HttpContext context, ProtocolOptions options)
     {
         if (!HttpMethods.IsGet(context.Request.Method))
@@ -44,7 +114,7 @@ internal static class FeedEndpoint
 
         if (!Negotiation.TryChoose(context.Request.Headers.Accept, MediaTypes.Feeds, out Offer<FeedFraming> framing))
         {
-            await HttpProblems.NotAcceptable(context, "The feed is application/vnd.varve.delta, or text/event-stream.").ConfigureAwait(false);
+            await HttpProblems.NotAcceptable(context, "The commits are application/vnd.varve.delta, or text/event-stream for a live tail.").ConfigureAwait(false);
             return;
         }
 
@@ -66,20 +136,74 @@ internal static class FeedEndpoint
         HttpResponse response = context.Response;
         response.Headers[Preconditions.PositionHeader] = range.From.Value.ToString(CultureInfo.InvariantCulture);
         response.Headers.CacheControl = "no-store";
-        response.ContentType = framing.Format == FeedFraming.EventStream ? MediaTypes.EventStream : DeltaContentType;
 
         if (range.To is Position empty && empty <= range.From)
         {
+            response.ContentType = framing.Format == FeedFraming.EventStream ? MediaTypes.EventStream : DeltaContentType;
             return;
         }
 
-        if (!filter.IsAll)
+        IDisposable? slot = null;
+
+        if (range.To is null)
         {
-            using DatasetView pin = exchange.Dataset.Pin();
-            filter.Resolve(pin);
+            // A live tail per client, bounded (ADR 0114); the slot is held
+            // for the tail's life.
+            slot = options.Tails.TryOpen(context, options, options.Limits.MaxLiveTailsPerClient);
+
+            if (slot is null)
+            {
+                await HttpProblems.WriteAsync(context, ProblemType.TooManyLiveTails,
+                    "The client holds " + options.Limits.MaxLiveTailsPerClient.ToString(CultureInfo.InvariantCulture) + " live tails open already; close one before opening another.",
+                    members => members.Number("limit", options.Limits.MaxLiveTailsPerClient)).ConfigureAwait(false);
+                return;
+            }
+        }
+        else if (range.To.Value.Value - range.From.Value > options.Limits.CommitsPageSize)
+        {
+            // A page of the range, decided before the first byte, so that the
+            // header can say where the next one starts (ADRs 0114, 0118).
+            Position last = new(range.From.Value + options.Limits.CommitsPageSize);
+            response.Headers.Append("Link", "<" + NextPage(context, last) + ">; rel=\"next\"");
+            range = range with { To = last };
         }
 
-        await StreamAsync(exchange, range, filter, framing.Format).ConfigureAwait(false);
+        response.ContentType = framing.Format == FeedFraming.EventStream ? MediaTypes.EventStream : DeltaContentType;
+
+        using (slot)
+        {
+            if (!filter.IsAll)
+            {
+                using DatasetView pin = exchange.Dataset.Pin();
+                filter.Resolve(pin);
+            }
+
+            await StreamAsync(exchange, range, filter, framing.Format).ConfigureAwait(false);
+        }
+    }
+
+    // The request's own address with from replaced by the page's last
+    // position, every other parameter kept, so the next page is the same
+    // request continued.
+    private static string NextPage(HttpContext context, Position from)
+    {
+        System.Text.StringBuilder next = new();
+        next.Append(context.Request.PathBase.ToUriComponent()).Append(context.Request.Path.ToUriComponent()).Append("?from=").Append(from.Value.ToString(CultureInfo.InvariantCulture));
+
+        foreach (KeyValuePair<string, StringValues> parameter in context.Request.Query)
+        {
+            if (parameter.Key is "from" or "fromTime")
+            {
+                continue;
+            }
+
+            foreach (string? value in parameter.Value)
+            {
+                next.Append('&').Append(Uri.EscapeDataString(parameter.Key)).Append('=').Append(Uri.EscapeDataString(value ?? string.Empty));
+            }
+        }
+
+        return next.ToString();
     }
 
     private static async Task StreamAsync(Exchange exchange, FeedRange range, FeedFilter filter, FeedFraming framing)

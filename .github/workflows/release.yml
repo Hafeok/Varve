@@ -112,8 +112,13 @@ jobs:
     name: gates
     needs: plan
     if: needs.plan.outputs.count == '1'
+    # The union of what ci.yml's jobs ask for: a called workflow's jobs get
+    # no more than this, and a run whose called job asks for more never
+    # starts. The container job pushes the image it tests (packages: write);
+    # the Aspire sample pulls it (packages: read).
     permissions:
       contents: read
+      packages: write
     uses: ./.github/workflows/ci.yml
     with:
       ref: ${{ needs.plan.outputs.sha }}

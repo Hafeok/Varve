@@ -65,7 +65,7 @@ public class BehaviourTests
         string? id = P.Header(response, "Varve-Request-Id");
         Assert.NotNull(id);
 
-        List<FeedRecord> feed = await P.ReadFeedAsync(await host.Client.SendAsync(P.Get("datasets/d/feed?to=1"), P.Ct));
+        List<FeedRecord> feed = await P.ReadFeedAsync(await host.Client.SendAsync(P.Get("datasets/d/commits?to=1"), P.Ct));
         FeedRecord commit = Assert.Single(feed);
         Assert.Equal("<https://issuer.example/#alice>", P.TermText(commit.Agent!));
         Assert.Equal("\"" + id + "\"", P.TermText(commit.Cause!));
@@ -209,7 +209,7 @@ public class BehaviourTests
         Assert.Equal(new Position(0), dataset.Head);
     }
 
-    // --- the feed and the diff (ADR 0097) ------------------------------------------
+    // --- the commits and the diff (ADRs 0097, 0118) ------------------------------------------
 
     [Fact]
     public async Task a_bounded_feed_is_finite_and_filters_by_graph_with_settings_always_delivered()
@@ -222,7 +222,7 @@ public class BehaviourTests
             new CommitMetadata { Agent = RdfTerm.Iri("http://ex/admin"u8), Cause = RdfTerm.Literal("test"u8) }, cancellationToken: P.Ct);
         await host.Client.SendAsync(P.Update(Sparql, "INSERT DATA { GRAPH <http://ex/g> { <http://ex/c> <http://ex/p> 3 } }"), P.Ct);
 
-        HttpResponseMessage response = await host.Client.SendAsync(P.Get("datasets/d/feed?from=0&to=4&graph=" + Uri.EscapeDataString("http://ex/g")), P.Ct);
+        HttpResponseMessage response = await host.Client.SendAsync(P.Get("datasets/d/commits?from=0&to=4&graph=" + Uri.EscapeDataString("http://ex/g")), P.Ct);
         Assert.Equal("application/vnd.varve.delta", response.Content.Headers.ContentType?.MediaType);
         Assert.Equal("0", P.Header(response, "Varve-Position"));
         List<FeedRecord> records = await P.ReadFeedAsync(response);
@@ -240,7 +240,7 @@ public class BehaviourTests
         await host.Client.SendAsync(P.Update(Sparql, "INSERT DATA { <http://ex/a> <http://ex/new> \"x y\" ; <http://ex/p> 2 }"), P.Ct);
 
         string pattern = Uri.EscapeDataString("?s <http://ex/new> \"x y\"");
-        List<FeedRecord> records = await P.ReadFeedAsync(await host.Client.SendAsync(P.Get("datasets/d/feed?to=2&pattern=" + pattern), P.Ct));
+        List<FeedRecord> records = await P.ReadFeedAsync(await host.Client.SendAsync(P.Get("datasets/d/commits?to=2&pattern=" + pattern), P.Ct));
         FeedRecord record = Assert.Single(records);
         Assert.Equal(new Position(2), record.Position);
         Assert.Equal("<http://ex/a> <http://ex/new> \"x y\"", P.Line(Assert.Single(record.Changes)));
@@ -254,7 +254,7 @@ public class BehaviourTests
         await host.Client.SendAsync(P.Update(Sparql, "INSERT DATA { <http://ex/a> <http://ex/p> 1 }"), P.Ct);
         await host.Client.SendAsync(P.Update(Sparql, "INSERT DATA { <http://ex/b> <http://ex/p> 2 }"), P.Ct);
 
-        HttpRequestMessage request = P.Get("datasets/d/feed", "text/event-stream");
+        HttpRequestMessage request = P.Get("datasets/d/commits", "text/event-stream");
         request.Headers.TryAddWithoutValidation("Last-Event-ID", "1");
         using HttpResponseMessage response = await host.Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, P.Ct);
         Assert.Equal("text/event-stream", response.Content.Headers.ContentType?.MediaType);
@@ -288,6 +288,66 @@ public class BehaviourTests
 
         FeedRecord backward = Assert.Single(await P.ReadFeedAsync(await host.Client.SendAsync(P.Get("datasets/d/diff?from=2&to=0"), P.Ct)));
         Assert.All(backward.Changes, c => Assert.Equal(FeedChangeKind.Retract, c.Kind));
+    }
+
+    // --- headers (ADR 0119) ----------------------------------------------------------
+
+    [Fact]
+    public async Task every_dataset_response_carries_vary_the_request_id_and_the_service_description_link()
+    {
+        await using Dataset dataset = await P.NewDatasetAsync();
+        await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(dataset, stopping: P.Ct);
+
+        foreach (HttpRequestMessage request in (HttpRequestMessage[])[P.Query(Sparql, "ASK {}"), P.Get("datasets/d/graphs?graph=" + Uri.EscapeDataString("http://ex/none"), "application/n-triples"), P.Get("datasets/d/", "text/turtle")])
+        {
+            HttpResponseMessage response = await host.Client.SendAsync(request, P.Ct);
+            Assert.Equal("Accept,Varve-As-Of,Authorization", string.Join(",", response.Headers.Vary));
+            Assert.NotNull(P.Header(response, "Varve-Request-Id"));
+            Assert.Equal("</datasets/d/>; rel=\"service-desc\"", P.Header(response, "Link"));
+        }
+    }
+
+    [Fact]
+    public async Task a_read_at_a_closed_position_is_immutable_and_a_head_read_revalidates()
+    {
+        ManualClock clock = ManualClock.Epoch();
+        await using Dataset dataset = await P.NewDatasetAsync(clock);
+        await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(dataset, clock: clock, stopping: P.Ct);
+        await host.Client.SendAsync(P.Update(Sparql, "INSERT DATA { <http://ex/a> <http://ex/p> 1 }"), P.Ct);
+        clock.Now = clock.Now.AddSeconds(90);
+        await host.Client.SendAsync(P.Update(Sparql, "INSERT DATA { <http://ex/b> <http://ex/p> 2 }"), P.Ct);
+
+        HttpResponseMessage closed = await host.Client.SendAsync(P.Query(Sparql, "ASK {}", asOf: "position:1"), P.Ct);
+        Assert.Equal("private, max-age=31536000, immutable", closed.Headers.NonValidated["Cache-Control"].ToString());
+        Assert.Equal(new DateTimeOffset(2026, 10, 7, 12, 0, 0, TimeSpan.Zero), closed.Content.Headers.LastModified);
+
+        HttpResponseMessage head = await host.Client.SendAsync(P.Query(Sparql, "ASK {}"), P.Ct);
+        Assert.Equal("no-cache", head.Headers.NonValidated["Cache-Control"].ToString());
+        Assert.Equal(new DateTimeOffset(2026, 10, 7, 12, 1, 30, TimeSpan.Zero), head.Content.Headers.LastModified);
+        Assert.Equal("\"2\"", head.Headers.ETag?.Tag);
+
+        // If-Modified-Since: 304 at or after the commit's second, 200 before it.
+        HttpRequestMessage since = P.Query(Sparql, "ASK {}");
+        since.Headers.IfModifiedSince = new DateTimeOffset(2026, 10, 7, 12, 1, 30, TimeSpan.Zero);
+        HttpResponseMessage notModified = await host.Client.SendAsync(since, P.Ct);
+        Assert.Equal(HttpStatusCode.NotModified, notModified.StatusCode);
+        Assert.Equal("\"2\"", notModified.Headers.ETag?.Tag);
+
+        HttpRequestMessage earlier = P.Query(Sparql, "ASK {}");
+        earlier.Headers.IfModifiedSince = new DateTimeOffset(2026, 10, 7, 12, 1, 29, TimeSpan.Zero);
+        Assert.Equal(HttpStatusCode.OK, (await host.Client.SendAsync(earlier, P.Ct)).StatusCode);
+
+        // If-None-Match wins over If-Modified-Since (RFC 9110 §13.1.3).
+        HttpRequestMessage both = P.Query(Sparql, "ASK {}");
+        both.Headers.IfModifiedSince = new DateTimeOffset(2026, 10, 7, 12, 1, 30, TimeSpan.Zero);
+        both.Headers.TryAddWithoutValidation("If-None-Match", "\"1\"");
+        Assert.Equal(HttpStatusCode.OK, (await host.Client.SendAsync(both, P.Ct)).StatusCode);
+
+        // One commit by its address is immutable too, and 404 above the head.
+        HttpResponseMessage one = await host.Client.SendAsync(P.Get("datasets/d/commits/1"), P.Ct);
+        Assert.Equal("private, max-age=31536000, immutable", one.Headers.NonValidated["Cache-Control"].ToString());
+        Assert.StartsWith("commit 1 Data ", await one.Content.ReadAsStringAsync(P.Ct), StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.NotFound, (await host.Client.SendAsync(P.Get("datasets/d/commits/3"), P.Ct)).StatusCode);
     }
 
     // --- limits (ADR 0095) ---------------------------------------------------------
@@ -351,7 +411,11 @@ public class BehaviourTests
         HttpResponseMessage invalid = await host.Client.SendAsync(P.Get(path), P.Ct);
         HttpResponseMessage unknown = await host.Client.SendAsync(P.Get("datasets/nothere/sparql"), P.Ct);
         Assert.Equal(HttpStatusCode.NotFound, invalid.StatusCode);
-        Assert.Equal(await unknown.Content.ReadAsStringAsync(P.Ct), await invalid.Content.ReadAsStringAsync(P.Ct));
+
+        // The same answer but for the request id each carries as its instance (ADR 0119).
+        Assert.Equal(WithoutInstance(await unknown.Content.ReadAsStringAsync(P.Ct)), WithoutInstance(await invalid.Content.ReadAsStringAsync(P.Ct)));
+
+        static string WithoutInstance(string body) => System.Text.RegularExpressions.Regex.Replace(body, ",\"instance\":\"[^\"]*\"", string.Empty);
     }
 
     private sealed class Fixed(string agent) : ICallerIdentity

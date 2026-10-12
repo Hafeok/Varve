@@ -82,4 +82,11 @@ public sealed class EvaluationOptions
 
     /// <summary>The longest one <c>REGEX</c> or <c>REPLACE</c> match may take; longer is an expression error.</summary>
     public TimeSpan RegexTimeout { get; init; } = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// The most the materialising operators may hold, counted (ADR 0114);
+    /// null is unbounded, the default for an embedded caller. A server sets
+    /// it from <c>Varve:Limits:MaxQueryMemory</c>.
+    /// </summary>
+    public MemoryBytes? MemoryBudget { get; init; }
 }

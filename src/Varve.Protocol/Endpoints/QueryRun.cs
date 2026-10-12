@@ -61,6 +61,8 @@ internal static class QueryRun
             query = query! with { Dataset = dataset };
         }
 
+        Tracing.Operation(query switch { ConstructQuery => "CONSTRUCT", DescribeQuery => "DESCRIBE", AskQuery => "ASK", _ => "SELECT" });
+        Tracing.QueryText(exchange.Options, request);
         await AnswerAsync(exchange, query!).ConfigureAwait(false);
     }
 
@@ -84,20 +86,25 @@ internal static class QueryRun
         }
 
         if (await Reads.ResolveAsync(context, exchange.Dataset).ConfigureAwait(false) is not Position position
-            || await Reads.NotModifiedAsync(context, position).ConfigureAwait(false))
+            || await Reads.NotModifiedAsync(context, exchange.Dataset, position).ConfigureAwait(false))
         {
             return;
         }
 
-        DatasetView view;
+        DatasetView? opened;
 
         try
         {
-            view = await Reads.OpenAsync(context, exchange.Dataset, position, Reads.IsAsOf(context), context.RequestAborted).ConfigureAwait(false);
+            opened = await Reads.OpenAsync(context, exchange.Dataset, position, Reads.IsAsOf(context), exchange.Options.Limits, context.RequestAborted).ConfigureAwait(false);
         }
         catch (DatasetUnavailableException failed)
         {
             await WriteUnavailableAsync(exchange, failed.Message).ConfigureAwait(false);
+            return;
+        }
+
+        if (opened is not { } view)
+        {
             return;
         }
 
@@ -144,7 +151,7 @@ internal static class QueryRun
     internal static Task WriteUnavailableAsync(Exchange exchange, string detail)
     {
         exchange.Response.Headers.RetryAfter = "1";
-        return HttpProblems.WriteAsync(exchange.Context, StatusCodes.Status503ServiceUnavailable, ProblemType.Unavailable, "The dataset cannot answer now.", detail);
+        return HttpProblems.WriteAsync(exchange.Context, ProblemType.Unavailable, detail);
     }
 
     private static async ValueTask WriteSolutionsAsync(SolutionResults solutions, SparqlResultsFormat format, ResponseOutput output, CancellationToken cancellationToken)
@@ -159,15 +166,18 @@ internal static class QueryRun
 
         using SparqlResultsWriter writer = new(output, format);
         writer.WriteHead(names);
+        long rows = 0;
 
         while (solutions.MoveNext())
         {
             cancellationToken.ThrowIfCancellationRequested();
             WriteRow(solutions, writer, names.Length);
+            rows++;
             await output.FlushIfDueAsync(cancellationToken).ConfigureAwait(false);
         }
 
         writer.WriteEnd();
+        Tracing.ReturnedRows(rows);
     }
 
     // Per row: the writer costs nothing (sparql-results.md §4), and TryGetTerm

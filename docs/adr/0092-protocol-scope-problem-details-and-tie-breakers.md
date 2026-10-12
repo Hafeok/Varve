@@ -9,6 +9,10 @@ Decided by the maintainer on the 7a plan:
 
 Acceptance is the maintainer's act on the pull request.
 
+**Amended 2026-10-09** (ADR 0068), by milestone Operability of #12 under ADR
+[0119](0119-headers-and-the-problem-catalogue.md): point 5's problem types
+are a catalogue with fixed members and a page each; see the end.
+
 ## Context
 
 The brief makes the W3C suites the acceptance gate and Oxigraph the tie-breaker
@@ -153,3 +157,23 @@ TriG, `turtle.md` §9). It has no RDF/XML or JSON-LD package.
 - **Layer ownership.** `Varve.Protocol`, layer 5.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-09 — the problem types are a catalogue
+
+Filed by milestone Operability of #12, unaccepted until the maintainer
+accepts it (ADR 0066). It adds to point 5; nothing above changes.
+
+Point 5 said the types "are listed in the protocol page of the server
+documentation and in the public `ProblemTypes` constants". They are now
+**catalogued** (ADR 0119): `ProblemCatalogue` in `Varve.Protocol` fixes each
+type's `title`, `status` and extension members, the writer emits only from
+it, `instance` is the request id, and every type has a page in
+`docs/problems/` that its IRI resolves to. The parse error's members
+`line`, `column` and `offset` stand; the conflict's `head` member is
+renamed `headPosition`, beside `position` and `expectedPosition`, while
+everything is preview. Every non-2xx is a problem, `404` for an unknown
+dataset or an unserved route, `405` and `415` included, and `401` is
+deliberately thin.
+
+**The ledger.** `ErrorsAreProblemDetails` stands; the catalogue's rulings
+are ADR 0119's set.

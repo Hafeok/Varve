@@ -74,6 +74,81 @@ internal sealed class RequestExecution
         return true;
     }
 
+    /// <summary>
+    /// The fast path (ADR 0120): a request of <c>INSERT DATA</c> and
+    /// <c>DELETE DATA</c> alone, with no expected position, written straight
+    /// to the commit request as request terms in operation order. No staging
+    /// view, no asserted or retracted set, no sort: the sequencer composes the
+    /// chain against the head it meets and drops what the head already holds
+    /// or does not hold (I2), which is the normalisation the staged path did
+    /// against the pin. A blank-node label is one fresh node per label per
+    /// request, which is what a blank <see cref="RdfTerm"/> means to the store
+    /// (ADR 0098). The writable scope is checked on the quads' graphs before
+    /// any is written (ADR 0107).
+    /// </summary>
+    internal static CommitRequest DataOnly(Update update, UpdateOptions options)
+    {
+        CommitRequest request = new() { Metadata = options.Metadata };
+        GraphScope writable = options.WriteScope;
+        Dictionary<RdfTerm, bool>? decided = writable.IsAll ? null : new Dictionary<RdfTerm, bool>(RdfTerm.Comparer);
+        bool defaultDecided = writable.IsAll;
+
+        for (int index = 0; index < update.Operations.Count; index++)
+        {
+            UpdateOperation operation = update.Operations[index];
+            bool assert = operation is InsertData;
+            AlgebraList<QuadPattern> quads = assert ? ((InsertData)operation).Quads : ((DeleteData)operation).Quads;
+
+            foreach (QuadPattern quad in quads)
+            {
+                RdfTerm s = Ground(quad.Subject);
+                RdfTerm p = Ground(quad.Predicate);
+                RdfTerm o = Ground(quad.Object);
+
+                if (quad.Graph is null)
+                {
+                    if (!defaultDecided)
+                    {
+                        defaultDecided = writable.Allows(null) ? true : throw new GraphNotWritableException((RdfTerm?)null);
+                    }
+
+                    _ = assert ? request.Assert(s, p, o) : request.Retract(s, p, o);
+                    continue;
+                }
+
+                RdfTerm g = Ground(quad.Graph);
+
+                if (decided is not null)
+                {
+                    if (!decided.TryGetValue(g, out bool allowed))
+                    {
+                        allowed = writable.Allows(g);
+                        decided[g] = allowed;
+                    }
+
+                    if (!allowed)
+                    {
+                        throw new GraphNotWritableException(g);
+                    }
+                }
+
+                _ = assert ? request.Assert(s, p, o, g) : request.Retract(s, p, o, g);
+            }
+        }
+
+        return request;
+    }
+
+    // A ground pattern term as the store takes it: the term itself, a blank
+    // node by its label, a triple term of its parts.
+    private static RdfTerm Ground(PatternTerm term) => term switch
+    {
+        TermPattern constant => constant.Term,
+        BlankNodePattern blank => RdfTerm.BlankNode(System.Text.Encoding.UTF8.GetBytes(blank.Label)),
+        TripleTermPattern triple => RdfTerm.TripleTerm(Ground(triple.Subject), Ground(triple.Predicate), Ground(triple.Object)),
+        _ => throw new InvalidOperationException("INSERT DATA holds no variables."),
+    };
+
     /// <summary>Executes every operation; the first failure fails the request (§2.2).</summary>
     internal async Task RunAsync()
     {

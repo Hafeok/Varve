@@ -8,6 +8,10 @@ version=1". The format is specified in
 [`docs/spec/change-feed.md`](../spec/change-feed.md). Acceptance is the
 maintainer's act on the pull request.
 
+**Amended 2026-10-09** (ADR 0068), by milestone Operability of #12 under ADR
+[0118](0118-api-alignment-while-everything-is-preview.md): the feed endpoint
+is the commits resource; see the end.
+
 ## Context
 
 A change feed is the second reason the store is event-sourced (the brief's
@@ -108,3 +112,27 @@ applied.
   except `Commit.TryExternalise`.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-09 — the feed is the commits resource
+
+Filed by milestone Operability of #12, unaccepted until the maintainer
+accepts it (ADR 0066). The format (point 1), the resolution (point 2's
+rules), the subscription contract (point 4), the diff (point 5) and the
+reader (point 6) stand. What changes is the address and the framing choice
+(ADR 0118):
+
+- `GET /datasets/{name}/commits?from=&to=` is the bounded range, with the
+  parameters of point 2, paged by `Limits:CommitsPageSize` with
+  `Link rel="next"` (ADR 0114);
+- `GET /datasets/{name}/commits/{position}` is one commit as one record;
+- an open range (no `to`) tails live, as **server-sent events when `Accept`
+  asks for `text/event-stream`** and as the plain format with heartbeats
+  otherwise, as point 3 already allowed; the position is the event id and
+  `Last-Event-ID` resumes;
+- `/feed` is removed, not aliased.
+
+`docs/spec/change-feed.md` §4 is retitled `GET /commits` and says the same.
+
+**The ledger.** `FeedEndpoint` and `LiveTailIsServerSentEvents` stand as
+accepted; the ruling of this block is `FeedIsTheCommitsResource`, unaccepted
+until the maintainer accepts it.

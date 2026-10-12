@@ -262,6 +262,63 @@ public class UpdateTests
         }
     }
 
+    /// <summary>
+    /// The fast path (ADR 0120): a request of data operations alone writes
+    /// its ground quads straight to the commit request. One commit, in
+    /// operation order, the same label one node across the operations, a
+    /// triple term carried whole, and the writable scope checked before
+    /// anything is written.
+    /// </summary>
+    [Fact]
+    public async Task A_data_only_request_takes_the_fast_path_and_behaves_as_the_staged_one_did()
+    {
+        await using Dataset dataset = await Open();
+        await Run(dataset, "INSERT DATA { :keep :p :o . :gone :p :o }");
+
+        CommitResult result = await Run(dataset, """
+            DELETE DATA { :gone :p :o . :absent :p :o } ;
+            INSERT DATA { _:b :p :o . GRAPH :g { _:b :q <<( :s :p :o )>> } } ;
+            INSERT DATA { :keep :p :o . :dup :p :o . :dup :p :o }
+            """);
+
+        Assert.Equal(CommitOutcome.Committed, result.Outcome);
+        Assert.Equal(new Position(2), dataset.Head);
+
+        using (DatasetView view = dataset.Pin())
+        {
+            Assert.True(view.TryInternalise(Iri("p"), out TermHandle p));
+            Assert.True(view.TryInternalise(Iri("q"), out TermHandle q));
+            Assert.True(view.TryInternalise(Iri("g"), out TermHandle g));
+            List<Quad> quads = [.. Drain(view)];
+            Assert.Equal(4, quads.Count);
+            Assert.True(view.TryInternalise(Iri("gone"), out TermHandle gone));
+            Assert.DoesNotContain(quads, x => x.Subject == gone);
+
+            // The label _:b is one node across both operations of the request,
+            // and the triple term arrived whole in the named graph.
+            Quad first = quads.Single(x => x.Predicate == p && x.Graph.IsNone && view.TryExternalise(x.Subject, out RdfTerm? s) && s.Kind == RdfTermKind.BlankNode);
+            Quad second = quads.Single(x => x.Predicate == q);
+            Assert.Equal(first.Subject, second.Subject);
+            Assert.Equal(g, second.Graph);
+            Assert.True(view.TryExternalise(second.Object, out RdfTerm? tripleTerm));
+            Assert.Equal(RdfTermKind.TripleTerm, tripleTerm.Kind);
+        }
+
+        // The same text again: the label is a fresh node, the rest no change.
+        CommitResult again = await Run(dataset, "INSERT DATA { :keep :p :o }");
+        Assert.Equal(CommitOutcome.NoChange, again.Outcome);
+        Assert.Equal(new Position(2), dataset.Head);
+
+        // A scoped writer is refused before anything is written (ADR 0107).
+        GraphScope onlyG = GraphScope.Of([Iri("g")], [], DefaultGraphAccess.Excluded);
+        GraphNotWritableException refused = await Assert.ThrowsAsync<GraphNotWritableException>(async () =>
+            await Run(dataset, "INSERT DATA { GRAPH :g { :a :p :o } } ; INSERT DATA { :b :p :o }", new UpdateOptions { WriteScope = onlyG }));
+        Assert.Null(refused.Graph);
+        Assert.Equal(new Position(2), dataset.Head);
+        CommitResult allowed = await Run(dataset, "INSERT DATA { GRAPH :g { :a :p :o } }", new UpdateOptions { WriteScope = onlyG });
+        Assert.Equal(CommitOutcome.Committed, allowed.Outcome);
+    }
+
     [Fact]
     public async Task A_where_that_binds_an_existing_blank_node_reaches_that_node()
     {

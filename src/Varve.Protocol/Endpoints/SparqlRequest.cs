@@ -122,10 +122,10 @@ internal sealed class SparqlRequest
 
     /// <summary>The <c>400</c> for text that does not parse, with its position (ADR 0092).</summary>
     internal static Task SyntaxErrorAsync(HttpContext context, SparqlParseError error) =>
-        HttpProblems.WriteAsync(context, StatusCodes.Status400BadRequest, ProblemType.SparqlSyntax, "The request does not parse.", error.Message, json =>
+        HttpProblems.WriteAsync(context, ProblemType.SparqlSyntax, error.Message, members =>
         {
-            json.WriteNumber("line", error.Line);
-            json.WriteNumber("column", error.Column);
-            json.WriteNumber("offset", error.Offset);
+            members.Number("line", error.Line);
+            members.Number("column", error.Column);
+            members.Number("offset", error.Offset);
         });
 }

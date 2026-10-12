@@ -1053,3 +1053,185 @@ reported the dataset's own as 10¹² MB: the soak's meter read a format-3
 run's filter length from its directory's last word and applied that to the
 commit index's and the state's directories too. It reads the kind field now;
 the figures above are the second hour.
+
+## Milestone Operability — the shipped runtime, the fast path, the soak gate
+
+**Machine.** A cloud container: Intel Xeon @ 2.10 GHz, 4 logical cores,
+15 GiB, Ubuntu 24.04, 2026-10-09. .NET SDK 10.0.401, runtime 10.0.12;
+BenchmarkDotNet 0.15.8; pyoxigraph 0.5.11. The client and the server share
+the four cores in every HTTP row.
+
+```bash
+dotnet run -c Release --project tests/Varve.Benchmarks -- --update-export update/
+dotnet run -c Release --project tests/Varve.Benchmarks -- --filter '*UpdateBenchmarks.Varve*'
+python tests/Varve.Benchmarks/oxigraph/update.py update/
+dotnet publish src/Varve.Server -c Release -o artifacts/server-aot
+dotnet run -c Release --project tests/Varve.Benchmarks -- --http varve:artifacts/server-aot/Varve.Server
+DOTNET_gcServer=1 DOTNET_GCConserveMemory=0 dotnet run -c Release --project tests/Varve.Benchmarks -- --http varve:artifacts/server-aot/Varve.Server
+DOTNET_GCConserveMemory=5 dotnet run -c Release --project tests/Varve.Benchmarks -- --soak 60 --policy
+dotnet run -c Release --project tests/Varve.Benchmarks -- --soak 60 --policy
+```
+
+### INSERT DATA of N quads, into an empty store, after the fast path (ADR 0120, #35)
+
+The 5c workload again: the first N quads of `StoreDataset` as one
+`INSERT DATA`, parsing inside the time, one invocation an iteration into an
+empty store, pyoxigraph in the same run on the same machine. The staged
+path's row is the commit before ADR 0120, run in a worktree beside it.
+
+| N | Varve, staged path (before 0120) | Varve, fast path | pyoxigraph, same run | Varve allocates |
+|---:|---:|---:|---:|---:|
+| 10,000 | 59.8 ms (mean) | 68.9 ms median, 43.9 min | **39.1 ms** | 28.9 MB, from 35.7 |
+| 100,000 | 539.7 ms (mean) | 489.8 ms median, 474.1 min | **453.6 ms** | 258.9 MB, from 322.1 |
+
+The same pair in the first run of the day, on a quieter machine, means of 8:
+
+| N | Varve, staged path | Varve, fast path | pyoxigraph, same run (two runs) |
+|---:|---:|---:|---:|
+| 10,000 | 59.8 ms | 45.2 ms | 33.0 ms, 34.8 ms |
+| 100,000 | 539.7 ms | 416.8 ms | 394.2 ms, 402.4 ms |
+
+**The fast path took a fifth off the request and a fifth off its
+allocation, and did not reach pyoxigraph**: 1.08× at 100,000 by the final
+run's medians (489.8 against 453.6 ms), 1.04–1.06× by the first run's means
+(416.8 against 394.2 and 402.4), from 1.37× before. The machine's own speed
+moved by a sixth between the two runs, which is why each row names the
+pyoxigraph figure from its own run. Where the remaining time is, by the
+final run: parsing is 165.7 ms of the 489.8 (a third, `VarveParseOnly` in
+the same run, 98 MB); the store's commit of 100,000 quads in one request
+is about 175 ms on 4's clock and was not re-measured here; the rest, about
+150 ms, is the request's terms crossing from the algebra into the commit
+request and the sequencer's resolution of 100,000 terms against an empty
+dictionary. The 10,000 row's standard deviation (24 ms on a 69 ms median)
+is garbage collection in one-invocation iterations, as 5c noted. **#35
+stays open on ADR 0120's own terms**; the next place to look is the
+parser's share, which the fast path left as it was.
+
+### The protocol over HTTP, server GC against the shipped configuration (ADR 0110)
+
+7a's `--http` workload, the Native AOT binary as published (workstation,
+concurrent, `ConserveMemory` 5) and the same binary with the Web SDK's
+default forced by the environment (`DOTNET_gcServer=1`,
+`DOTNET_GCConserveMemory=0`), one after the other on the same machine. The
+8-client rows are the ones that show a collector's cost, if there is one.
+
+| Store | Workload | Clients | Shipped: ops/s, p50, p99 | Server GC: ops/s, p50, p99 |
+|---|---|---:|---|---|
+| memory | point query, 10 rows | 1 | 5,196, 0.17 ms, 0.59 ms | 4,973, 0.16 ms, 0.71 ms |
+| memory | point query, 10 rows | 8 | **26,347**, 0.25 ms, 0.81 ms | 23,737, 0.26 ms, 1.16 ms |
+| memory | `INSERT DATA`, 1 quad | 1 | 2,564, 0.33 ms, 1.03 ms | 2,233, 0.41 ms, 1.18 ms |
+| memory | `INSERT DATA`, 1 quad | 8 | 11,159, 0.64 ms, 2.21 ms | 11,096, 0.65 ms, 2.09 ms |
+| file | point query, 10 rows | 1 | 4,675, 0.17 ms, 0.67 ms | 2,444, 0.32 ms, 1.23 ms |
+| file | point query, 10 rows | 8 | **24,999**, 0.25 ms, 1.05 ms | 19,831, 0.29 ms, 1.48 ms |
+| file, flushed | `INSERT DATA`, 1 quad | 1 | 711, 1.25 ms, 2.99 ms | 712, 1.30 ms, 2.82 ms |
+| file, flushed | `INSERT DATA`, 1 quad | 8 | 2,339, 3.19 ms, 6.70 ms | 1,192, 6.30 ms, 13.25 ms |
+
+**There is no throughput cost to the memory gate on this machine; the
+shipped configuration is the faster of the two in every row but the one
+that is a tie.** The point-query rows at 8 clients are 11% and 26% ahead
+under the workstation collector, and the p99s are lower throughout, which
+is what a concurrent collector on four shared cores does for a server
+whose live heap is small: the server collector's per-core heaps and its
+blocking gen0 collections cost more here than they save. The flushed file
+rows are the disk's, not the collector's (the 1-client rows are equal); the
+8-client file row's 2× is one run each and within what the disk's flush
+latency varies by. 7a's memory point-query figures (23,910 at 8 clients)
+were measured before the fast path and the catalogue, on a different day
+of the same cloud machine; the two columns above are the same binary on
+the same afternoon, one after the other, and that is the comparison the
+ADR asked for. The `INSERT DATA` rows carry the fast path (ADR 0120) in
+both columns.
+
+### Soak: one hour under the shipped runtime configuration, and the default's hour beside it (ADR 0082, amended; #61)
+
+`--soak 60 --policy`, the 6c workload: the shipped configuration's hour
+(`DOTNET_GCConserveMemory=5`; the harness is a workstation-GC process
+already, as the server now is) and the default runtime's hour.
+
+| | Shipped (workstation, concurrent, `ConserveMemory` 5) | Default runtime |
+|---|---:|---:|
+| Commits, quads in the hour | 125,920; 3.11 M | 126,435; 3.12 M |
+| Pinned scans, as-of reads | 335,132; 292,612 | 355,634; 322,526 |
+| Working set median, minutes 0–10 → 10–20 → 20–30 → 30–40 → 40–50 → 50–60 | 122 → 124 → 129 → 146 → 149 → 152 MB | 159 → 142 → 141 → 148 → 150 → 152 MB |
+| Peak working set | **215 MB** | 247 MB |
+| Collector's committed memory, median per window | 46 → 45 → 49 → 56 → 58 → 61 MB | 93 → 72 → 69 → 65 → 67 → 69 MB |
+| Live managed heap, median of the last ten minutes | 17.5 MB | 18.1 MB |
+| Large object heap, median of the last ten minutes | 12.6 MB | 15.9 MB |
+| The dataset's own at the hour | 9.4 MB: run directories 6.0, a twentieth of the checkpoints' 67.7 | the same |
+| Band, ±25% of the median of minutes 10–60 over the last 50 minutes | **held, 0 of 101** | missed by 2 samples of 101 |
+| Drift, median of minutes 50–60 over 10–20, 10% allowed | **+22.1%** | +7.4% |
+| Drift, median of minutes 50–60 over 30–40 | +4.1% | +2.8% |
+| Open handles | 64–87 | 64–87 |
+| `derived/` files | 6–26 | 6–26 |
+| Reopened at the hour | 125,920 of 125,920 in 0.83 s | 126,435 of 126,435 in 0.87 s |
+
+**Read the two columns together.** The shipped configuration keeps the
+working set at or below the default's in every window, peaks 32 MB lower,
+and holds the band where the default's hour misses it by two samples (as
+6c's did). Both hours end at the same 152 MB and the same 18 MB live heap:
+the dataset is the same and so is what lives in it. What differs is the
+collector's committed memory, the gap between the two: the default
+collector commits 93 MB in the first ten minutes and trims toward 69; with
+`ConserveMemory` 5 it commits 46 MB and grows with the live heap to 61.
+That is what the gate's drift measure sees: the shipped configuration's
+first window is the smaller one, so the median of minutes 50–60 over 10–20
+reads **+22%**, over the 10% ADR 0082 allows, while the same measure taken
+from minute 30, when committed memory has caught up with the live heap,
+reads +4%. **The gate as ADR 0082 words it does not hold under the shipped
+configuration on this run, and holds, by its drift, under the default**;
+the band, the handles, the files and the live heap hold under both, and
+every absolute figure is better under the shipped one. Whether the drift
+measure should start at minute 10 for a collector that commits as it
+goes, or the configuration should change, is the maintainer's call on the
+amendment to 0082; the figures are here either way. The hour is the 6c
+workload on the Operability head: the fast path (ADR 0120) in the writer,
+the store's meter (ADR 0112) with no listener attached.
+
+### Soak: two hours under the shipped runtime configuration (ADR 0110 point 5; #61)
+
+`DOTNET_gcServer=0 DOTNET_gcConcurrent=1 DOTNET_GCConserveMemory=5 dotnet run
+-c Release --project tests/Varve.Benchmarks -- --soak 120 --policy`: the
+same workload for two hours, the evidence ADR 0110 point 5 asks for that
+measuring drift against minutes 30–40 hides no growth: minutes 110–120
+within 10% of 30–40.
+
+| Minutes | Working set, median (max) | Less the dataset's own | Collector's committed | Live heap | LOH | Quads | Handles | `derived/` files |
+|---|---:|---:|---:|---:|---:|---:|---|---|
+| 0–10 | 121 (140) MB | | 48.3 MB | 9.6 MB | 5.5 MB | | 64–81 | 6–21 |
+| 10–20 | 116 (128) | 114.5 | 43.0 | 11.1 | 10.6 | 0.94 M | 79–84 | 19–22 |
+| 20–30 | 124 (139) | | 50.0 | 13.6 | 11.4 | | 82–85 | 20–23 |
+| 30–40 | **130** (143) | **126.2** | 52.7 | 14.7 | 12.2 | 2.03 M | 81–86 | 19–25 |
+| 40–50 | 136 (148) | | 58.6 | 16.1 | 13.1 | | 82–85 | 20–25 |
+| 50–60 | 140 (148) | 133.7 | 61.6 | 17.8 | 15.1 | 2.92 M | 82–87 | 20–25 |
+| 60–70 | 143 (154) | | 64.6 | 18.1 | 14.2 | | 83–86 | 21–24 |
+| 70–80 | 147 (160) | | 68.2 | 19.9 | 14.1 | | 84–87 | 21–26 |
+| 80–90 | 149 (159) | | 71.1 | 21.1 | 16.6 | | 86–89 | 23–27 |
+| 90–100 | 151 (164) | | 72.2 | 21.3 | 14.8 | | 86–89 | 23–28 |
+| 100–110 | 155 (168) | | 76.1 | 22.5 | 14.9 | | 82–92 | 19–29 |
+| 110–120 | **157** (171) | **147.9** | 77.5 | 22.9 | 15.5 | 4.68 M | 83–86 | 20–25 |
+
+| ADR 0110 point 5's measures, two hours | Result |
+|---|---:|
+| Drift, minutes 110–120 over 30–40, 10% allowed | **+20.3%** (157 / 130 MB); **+17.1%** less the dataset's own (147.9 / 126.2) |
+| Drift, minutes 50–60 over 30–40 (the one-hour criterion) | +6.9%; +5.9% less the dataset's own |
+| Band, ±25% of the median, minutes 70–120 | held, 0 of 101 |
+| Band, minutes 10–120 | 1 of 221 outside |
+| Peak working set | 210 MB |
+| Commits, quads, pinned scans, as-of reads | 252,696; 4.78 M; 435,971; 422,899 |
+| Reopened at the end | 252,696 of 252,696 in 1.87 s |
+
+**The two-hour criterion does not hold: +20.3%, +17.1% net of the
+dataset's own, against 10%.** The working set does not level off after the
+collector reaches its working size; it keeps climbing at about 3 MB every
+ten minutes through the second hour. What climbs with it is the live
+managed heap (14.7 → 22.9 MB from minutes 30–40 to 110–120) and the
+collector's committed memory over it (52.7 → 77.5 MB): the dataset in
+this workload is not bounded in the window, more than doubling from 2.03 M
+to 4.68 M quads, and the live heap follows the dataset. Handles and
+`derived/` files stay bounded, and the band holds over the last fifty
+minutes. Whether the remaining growth is the live heap tracking a growing
+dataset as it should, or something the store holds per quad that it
+should not, is not separated here; it is what #61 stays open for. Run
+2026-10-10 06:00–08:01 UTC on `38d2361`, the shipped configuration's three
+knobs as environment variables, the machine otherwise idle after its
+first ten minutes.

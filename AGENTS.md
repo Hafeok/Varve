@@ -202,7 +202,26 @@ and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone 6b. `src/` holds `Varve.Analyzers`, `Varve.Iri` and `Varve.Xsd`
+Milestone 6b (#10; ADRs 0121–0123, filed unaccepted), after milestone
+Operability; 6b is described below. Operability (#12; ADRs 0110–0120): `Varve.Server`
+ships the workstation concurrent collector with `ConserveMemory` 5, and the
+soak gate is judged under it (0110, 0082 amended); the container image
+`ghcr.io/hafeok/varve` is Native AOT per architecture on the chiseled base,
+non-root, read-only, exercised by the W3C protocol suites and both auth legs
+in CI and attested with provenance and an SBOM on release (0111);
+telemetry is the BCL's `ActivitySource Varve.Protocol` and `Meter Varve.Store`
+in the libraries and the OpenTelemetry SDK in the server, built only when an
+`OTEL_*` endpoint is set (0112); `/health/live` and `/health/ready`, with a
+drain (0113); every limit has a stated answer and a problem type: query
+memory by counting rows, as-of distance, live tails per client, concurrent
+reads with a queue (0114); configuration from file, environment and command
+line with `--print-config` and unknown keys refused (0115); a lease is waited
+for, never broken, and `varve lease` reports it (0116); `Varve.Aspire` and a
+sample AppHost tested in CI (0117); state, settings and commits are resources
+and `PUT` of a dataset is idempotent (0118); headers by read kind and the
+problem catalogue in `docs/problems/` (0119); and `INSERT DATA` goes straight
+to the commit request (0120, #35 open on its own terms). The operator's guide
+has six pages. Before that, milestone 7b. `src/` holds `Varve.Analyzers`, `Varve.Iri` and `Varve.Xsd`
 (0), `Varve.Rdf` (1), `Varve.Turtle`, **`Varve.RdfXml`**, **`Varve.JsonLd`**,
 `Varve.Sparql` and `Varve.Sparql.Results` (2), `Varve.Sparql.Evaluation` (3), `Varve.Store` (4),
 `Varve.Sparql.Store`, `Varve.Store.Browser`, `Varve.Protocol` and
@@ -275,8 +294,7 @@ expands, reads and writes JSON-LD 1.1 over `Utf8JsonReader` as a tree in an
 arena, the toRdf, expand and fromRdf suites whole under a stated rule for the
 1.0-only cases, with `@direction` RDF 1.2's by default (ADR 0123); AOT and
 the browser read and write all three, and the ratchet holds **5,507** lines.
-Not built: the container image, telemetry, archive, erasure mode, SHACL,
-JSON-LD compaction and framing.
+Not built: archive, erasure mode, SHACL, JSON-LD compaction and framing.
 `docs/roadmap.md` has the rest, an owner and a due milestone per open
 question.
 

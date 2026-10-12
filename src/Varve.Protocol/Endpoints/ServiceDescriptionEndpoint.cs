@@ -64,20 +64,25 @@ internal static class ServiceDescriptionEndpoint
         }
 
         if (await Reads.ResolveAsync(context, exchange.Dataset).ConfigureAwait(false) is not Position position
-            || await Reads.NotModifiedAsync(context, position).ConfigureAwait(false))
+            || await Reads.NotModifiedAsync(context, exchange.Dataset, position).ConfigureAwait(false))
         {
             return;
         }
 
-        DatasetView view;
+        DatasetView? opened;
 
         try
         {
-            view = await Reads.OpenAsync(context, exchange.Dataset, position, Reads.IsAsOf(context), context.RequestAborted).ConfigureAwait(false);
+            opened = await Reads.OpenAsync(context, exchange.Dataset, position, Reads.IsAsOf(context), exchange.Options.Limits, context.RequestAborted).ConfigureAwait(false);
         }
         catch (DatasetUnavailableException failed)
         {
             await QueryRun.WriteUnavailableAsync(exchange, failed.Message).ConfigureAwait(false);
+            return;
+        }
+
+        if (opened is not { } view)
+        {
             return;
         }
 
@@ -94,7 +99,7 @@ internal static class ServiceDescriptionEndpoint
 
         await BoundedReads.RunAsync(context, exchange.Options, async (output, cancellationToken) =>
         {
-            foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in Describe(service, view.Position))
+            foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in Describe(service, view.Position, exchange.Options.Limits))
             {
                 TermLines.WriteTriple(output, s, p, o);
             }
@@ -141,7 +146,7 @@ internal static class ServiceDescriptionEndpoint
     }
 
     /// <summary>The description's fixed part: everything but the named graphs.</summary>
-    internal static List<(RdfTerm, RdfTerm, RdfTerm)> Describe(string service, Position position)
+    internal static List<(RdfTerm, RdfTerm, RdfTerm)> Describe(string service, Position position, ProtocolLimits limits)
     {
         string prefix = service[..^"sparql".Length];
         RdfTerm self = Iri(service);
@@ -176,7 +181,7 @@ internal static class ServiceDescriptionEndpoint
         triples.Add((dataset, Iri(Sd + "defaultGraph"), defaultGraph));
         triples.Add((defaultGraph, type, Iri(Sd + "Graph")));
 
-        // The event-sourced extensions (ADRs 0096, 0097).
+        // The event-sourced extensions (ADRs 0096, 0097, 0118).
         triples.Add((self, type, Iri(Varve + "EventSourcedService")));
         triples.Add((self, Iri(Varve + "position"), RdfTerm.Literal(Encoding.UTF8.GetBytes(position.Value.ToString(CultureInfo.InvariantCulture)), Iri("http://www.w3.org/2001/XMLSchema#integer"))));
         triples.Add((self, Iri(Varve + "positionHeader"), Literal(Preconditions.PositionHeader)));
@@ -186,17 +191,27 @@ internal static class ServiceDescriptionEndpoint
         triples.Add((self, Iri(Varve + "conditionalRequest"), Literal("If-Match")));
         triples.Add((self, Iri(Varve + "conditionalRequest"), Literal("If-None-Match")));
         triples.Add((self, Iri(Varve + "graphStore"), Iri(prefix + "graphs")));
-        triples.Add((self, Iri(Varve + "changeFeed"), Iri(prefix + "feed")));
+        triples.Add((self, Iri(Varve + "commits"), Iri(prefix + "commits")));
+        triples.Add((self, Iri(Varve + "state"), Iri(prefix + "state")));
         triples.Add((self, Iri(Varve + "diff"), Iri(prefix + "diff")));
         triples.Add((self, Iri(Varve + "status"), Iri(prefix + "status")));
         triples.Add((self, Iri(Varve + "settings"), Iri(prefix + "settings")));
         triples.Add((self, Iri(Varve + "checkpoints"), Iri(prefix + "checkpoints")));
         triples.Add((self, Iri(Varve + "feedFormat"), Literal(MediaTypes.Delta + "; version=1")));
         triples.Add((self, Iri(Varve + "feedFormat"), Literal(MediaTypes.EventStream)));
+
+        // The limits that shape a client's expectations (ADR 0114): what a
+        // read may answer, how far back an as-of read may go, and the page.
+        triples.Add((self, Iri(Varve + "resultSizeCap"), Integer(limits.ResultSizeCap.Value)));
+        triples.Add((self, Iri(Varve + "maxAsOfDistance"), Integer(limits.MaxAsOfDistance)));
+        triples.Add((self, Iri(Varve + "commitsPageSize"), Integer(limits.CommitsPageSize)));
         return triples;
     }
 
     private static RdfTerm Iri(string iri) => RdfTerm.Iri(Encoding.UTF8.GetBytes(iri));
+
+    private static RdfTerm Integer(long value) =>
+        RdfTerm.Literal(Encoding.UTF8.GetBytes(value.ToString(CultureInfo.InvariantCulture)), Iri("http://www.w3.org/2001/XMLSchema#integer"));
 
     private static RdfTerm Literal(string text) => RdfTerm.Literal(Encoding.UTF8.GetBytes(text));
 }

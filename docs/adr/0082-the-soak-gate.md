@@ -11,6 +11,17 @@ so that "flat" is a number.
 **Revisit condition:** a host or workload the soak does not represent being
 named for 1.0.
 
+**Amended 2026-10-09** (ADR 0068), by milestone Operability of #12 under ADR
+[0110](0110-the-shipped-runtime-configuration.md): the gate is judged under
+the shipped runtime configuration, the default-runtime figures beside it; see
+the end.
+
+**Superseded in part 2026-10-10 by ADR
+[0110](0110-the-shipped-runtime-configuration.md)** (its point 5): the
+drift's reference window is minutes 30–40, not 10–20. The band, the
+workload, the samples and the bounds on handles and files stand.
+`FlatWithinABand` is in 0110's set.
+
 ## Context
 
 6a ran a one-hour soak and found the working set not flat (median 168 → 730
@@ -70,3 +81,37 @@ not in CI.
 - **Layer ownership.** None; a host's measurement.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-09 — judged under the shipped runtime configuration
+
+Filed by milestone Operability of #12, unaccepted until the maintainer
+accepts it (ADR 0066). Decided by the maintainer on the 7b report and the
+Operability plan. It adds the configuration the gate is judged under; the
+workload, the samples and the band above stand, and the drift's reference
+window is superseded by ADR 0110 point 5 (2026-10-10, see the Status line).
+
+**The decision.** The gate is judged under the runtime configuration
+`Varve.Server` ships (ADR 0110: workstation concurrent GC,
+`System.GC.ConserveMemory=5`, no heap hard limit of Varve's own), the
+benchmark process run with the same three knobs as environment variables
+(`DOTNET_gcServer=0`, `DOTNET_gcConcurrent=1`, `DOTNET_GCConserveMemory=5`).
+The default-runtime hour is reported beside it for comparison, and the
+128 MB `DOTNET_GCHeapHardLimit` of the 6c addendum stays a harness setting.
+The one-hour soak is re-run under exactly the shipped configuration, and
+that run closes #61 if it holds the gate. It did not, by ADR 0110 point 5's
+two-hour evidence (2026-10-10), and #61 stays open.
+
+**The reason.** 6c separated the causes and found the store's live heap
+flat and the working set the collector's choice: the large object heap
+uncompacted and committed memory kept high when allocation is low
+(`docs/traceability/2026-10-05-issue-10-milestone-6c.md`). The gate as first
+stated measured the default runtime's choices as if they were the store's.
+A gate on the configuration the product ships measures what an operator
+runs. The alternative, "the working set a host is expected to run with",
+was the restatement the 6c report declined to make; this is not a
+restatement: the criterion, the band and the drift are unchanged.
+
+**The ledger.** `FlatWithinABand` moves to ADR 0110's set under the same
+key, restated with the later window (the supersession in part). The ruling
+of this amendment is the new key `JudgedUnderTheShippedConfiguration` in
+this ADR's set, unaccepted until the maintainer accepts it.

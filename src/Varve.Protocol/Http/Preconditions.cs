@@ -46,6 +46,7 @@ internal static class Preconditions
         string value = position.Value.ToString(CultureInfo.InvariantCulture);
         response.Headers[PositionHeader] = value;
         response.Headers.ETag = "\"" + value + "\"";
+        Tracing.Position(position);
     }
 
     /// <summary>Reads an <c>If-Match</c> or <c>If-None-Match</c> header.</summary>

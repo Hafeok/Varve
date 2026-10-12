@@ -47,6 +47,7 @@ internal static class GraphStoreEndpoint
             return;
         }
 
+        Tracing.Operation(method + " graph");
         Target target = await TargetOfAsync(exchange).ConfigureAwait(false);
 
         if (target.Kind == TargetKind.Invalid)
@@ -123,20 +124,25 @@ internal static class GraphStoreEndpoint
         }
 
         if (await Reads.ResolveAsync(context, exchange.Dataset).ConfigureAwait(false) is not Position position
-            || await Reads.NotModifiedAsync(context, position).ConfigureAwait(false))
+            || await Reads.NotModifiedAsync(context, exchange.Dataset, position).ConfigureAwait(false))
         {
             return;
         }
 
-        DatasetView view;
+        DatasetView? opened;
 
         try
         {
-            view = await Reads.OpenAsync(context, exchange.Dataset, position, Reads.IsAsOf(context), context.RequestAborted).ConfigureAwait(false);
+            opened = await Reads.OpenAsync(context, exchange.Dataset, position, Reads.IsAsOf(context), exchange.Options.Limits, context.RequestAborted).ConfigureAwait(false);
         }
         catch (DatasetUnavailableException failed)
         {
             await QueryRun.WriteUnavailableAsync(exchange, failed.Message).ConfigureAwait(false);
+            return;
+        }
+
+        if (opened is not { } view)
+        {
             return;
         }
 
@@ -154,7 +160,7 @@ internal static class GraphStoreEndpoint
                 return;
             }
 
-            await HttpProblems.WriteAsync(context, StatusCodes.Status404NotFound, ProblemType.GraphNotFound, "No graph by that name holds a quad.").ConfigureAwait(false);
+            await HttpProblems.WriteAsync(context, ProblemType.GraphNotFound).ConfigureAwait(false);
             return;
         }
 
@@ -193,7 +199,7 @@ internal static class GraphStoreEndpoint
         if (!exchange.Scope.Readable.Allows(graph))
         {
             Preconditions.Describe(exchange.Response, exchange.Dataset.Head);
-            await HttpProblems.WriteAsync(exchange.Context, StatusCodes.Status404NotFound, ProblemType.GraphNotFound, "No graph by that name holds a quad.").ConfigureAwait(false);
+            await HttpProblems.WriteAsync(exchange.Context, ProblemType.GraphNotFound).ConfigureAwait(false);
             return false;
         }
 
@@ -225,12 +231,12 @@ internal static class GraphStoreEndpoint
         if (!exists)
         {
             Preconditions.Describe(exchange.Response, exchange.Dataset.Head);
-            await HttpProblems.WriteAsync(exchange.Context, StatusCodes.Status404NotFound, ProblemType.GraphNotFound, "No graph by that name holds a quad.").ConfigureAwait(false);
+            await HttpProblems.WriteAsync(exchange.Context, ProblemType.GraphNotFound).ConfigureAwait(false);
             return;
         }
 
         CommitResult result = await exchange.Dataset.CommitAsync(request, exchange.Context.RequestAborted).ConfigureAwait(false);
-        await Writes.AnswerAsync(exchange, result).ConfigureAwait(false);
+        await Writes.AnswerAsync(exchange, result, expected: plan.Expected).ConfigureAwait(false);
     }
 
     private static async Task WriteAsync(Exchange exchange, Target target, WritePlan plan, List<BodyTriple> triples, bool replace)
@@ -271,7 +277,7 @@ internal static class GraphStoreEndpoint
             exchange.Response.Headers.Location = location;
         }
 
-        await Writes.AnswerAsync(exchange, result, created ? StatusCodes.Status201Created : StatusCodes.Status204NoContent).ConfigureAwait(false);
+        await Writes.AnswerAsync(exchange, result, created ? StatusCodes.Status201Created : StatusCodes.Status204NoContent, plan.Expected).ConfigureAwait(false);
     }
 
     // Retracts every quad of the target graph, by handle. True when it held one.
@@ -340,7 +346,7 @@ internal static class GraphStoreEndpoint
 
         if (body.TooLarge)
         {
-            await HttpProblems.RequestTooLarge(context).ConfigureAwait(false);
+            await HttpProblems.RequestTooLarge(context, exchange.Options.Limits.MaxRequestBody.Value).ConfigureAwait(false);
             return null;
         }
 
@@ -360,7 +366,7 @@ internal static class GraphStoreEndpoint
 
         if (!RdfBodies.TryParse(body.Bytes, syntax, baseIri, triples, out string? error))
         {
-            await HttpProblems.WriteAsync(context, StatusCodes.Status400BadRequest, ProblemType.RdfSyntax, "The body does not parse.", error).ConfigureAwait(false);
+            await HttpProblems.WriteAsync(context, ProblemType.RdfSyntax, error).ConfigureAwait(false);
             return null;
         }
 
@@ -397,7 +403,7 @@ internal static class GraphStoreEndpoint
 
             if (!RdfBodies.TryParse(part.GetBuffer().AsSpan(0, (int)part.Length), syntax, baseIri, triples, out string? error))
             {
-                await HttpProblems.WriteAsync(context, StatusCodes.Status400BadRequest, ProblemType.RdfSyntax, "A part does not parse.", error).ConfigureAwait(false);
+                await HttpProblems.WriteAsync(context, ProblemType.RdfSyntax, "A part does not parse: " + error).ConfigureAwait(false);
                 return null;
             }
         }

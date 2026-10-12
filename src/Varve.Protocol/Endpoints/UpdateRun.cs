@@ -58,6 +58,9 @@ internal static class UpdateRun
             return;
         }
 
+        Tracing.Operation("UPDATE");
+        Tracing.QueryText(exchange.Options, request);
+
         if (dataset is not null)
         {
             if (!TryApply(update!, dataset, out Update? applied))
@@ -83,18 +86,27 @@ internal static class UpdateRun
             await Writes.GraphNotWritableAsync(exchange, refused.Graph).ConfigureAwait(false);
             return;
         }
+        catch (Varve.Sparql.Evaluation.MemoryBudgetExceededException over)
+        {
+            // A pattern's evaluation over the bound (ADR 0114): nothing was committed.
+            await HttpProblems.WriteAsync(context, ProblemType.MemoryLimitExceeded, over.Message, members =>
+            {
+                members.Number("limit", over.Limit.Bytes);
+                members.Number("actual", over.Actual.Bytes);
+            }).ConfigureAwait(false);
+            return;
+        }
         catch (Exception failed) when (failed is not OperationCanceledException)
         {
             // The executor's operation failure (an update that names a graph
             // CREATE finds, a LOAD that is refused): nothing was committed.
-            await HttpProblems.WriteAsync(context, StatusCodes.Status400BadRequest, ProblemType.OperationFailed,
-                "An operation of the update failed; nothing was committed.", failed.Message).ConfigureAwait(false);
+            await HttpProblems.WriteAsync(context, ProblemType.OperationFailed, failed.Message).ConfigureAwait(false);
             return;
         }
 
         // A Conflict here lost the race inside the sequencer after If-Match
         // was checked, or met a writer that came first: 409 either way (ADR 0094).
-        await Writes.AnswerAsync(exchange, result).ConfigureAwait(false);
+        await Writes.AnswerAsync(exchange, result, expected: plan.Expected).ConfigureAwait(false);
     }
 
     // The protocol's dataset becomes every Modify's USING; DELETE WHERE and the

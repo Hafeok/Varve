@@ -1,7 +1,7 @@
 format: 1
 version: v0.1.0-preview.4
 title: RDF 1.2 Turtle and TriG, RDF/XML, JSON-LD
-date: 2026-10-09
+date: 2026-10-12
 basis:
   - issue: 10
   - storage-format: 1
@@ -13,7 +13,7 @@ summary: |
   ### Milestone 6b — RDF 1.2 Turtle and TriG, RDF/XML, JSON-LD
 
   Varve reads and writes every W3C RDF syntax. This release closes milestone
-  6b (#10) and brings the packages on nuget.org from thirteen to fifteen. The
+  6b (#10) and brings the packages on nuget.org from fourteen to sixteen. The
   storage format is unchanged: a dataset written by `v0.1.0-preview.1` opens
   as it is. The three ADRs are filed unaccepted and accepted on the pull
   request (ADR 0066).
@@ -52,7 +52,8 @@ summary: |
     implementation): a source may answer the components of a triple term by
     handle, which is what matching a blank node inside one needs; the BGP
     operator uses it. `InMemoryDataset` answers; the store does not yet, and
-    its twelve lines are exempt with Oxigraph's agreement recorded.
+    its twelve lines are exempt with Oxigraph's agreement recorded, until
+    #87, due before milestone 8.
   - The AOT and browser smokes read and write all three syntaxes. The
     conformance baseline holds 5,507 lines, up from 4,122, with 24 justified
     exemptions.

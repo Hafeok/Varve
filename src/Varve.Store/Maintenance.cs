@@ -165,6 +165,7 @@ public sealed partial class Dataset
             do
             {
                 await MaintainAsync(_closing.Token).ConfigureAwait(false);
+                _metrics.Observe(this);
 
                 lock (_maintenanceLock)
                 {

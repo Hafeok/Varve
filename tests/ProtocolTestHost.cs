@@ -64,8 +64,10 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         IAccessScopes? accessScopes = null,
         ILoadSource? loadSource = null,
         IRandomSource? randomness = null,
+        bool http2 = false,
+        TelemetryOptions? telemetry = null,
         CancellationToken stopping = default) =>
-        StartAsync(new OneDataset(dataset), map, limits, clock, identity, serviceHandler, accessScopes, loadSource, randomness, stopping);
+        StartAsync(new OneDataset(dataset), map, limits, clock, identity, serviceHandler, accessScopes, loadSource, randomness, null, null, http2, telemetry, stopping);
 
     /// <summary>
     /// Starts a server whose datasets <paramref name="datasets"/> names.
@@ -82,23 +84,34 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         IAccessScopes? accessScopes = null,
         ILoadSource? loadSource = null,
         IRandomSource? randomness = null,
+        IDatasetAdministration? administration = null,
+        Func<ISparqlUpdateExecutor, ISparqlUpdateExecutor>? updates = null,
+        bool http2 = false,
+        TelemetryOptions? telemetry = null,
         CancellationToken stopping = default)
     {
         WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
-        builder.WebHost.UseKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, 0));
+
+        // HTTP/2 over cleartext, for the tests of what only HTTP/2 carries:
+        // response trailers (ADR 0095). Kestrel sends none over HTTP/1.1.
+        builder.WebHost.UseKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, 0, listen => listen.Protocols = http2 ? Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http2 : Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1));
         builder.Logging.ClearProviders();
         WebApplication app = builder.Build();
+        ProtocolLimits bounds = limits ?? ProtocolLimits.Default;
+        ISparqlUpdateExecutor executor = new StoreUpdates(Evaluation(clock ?? TimeProvider.System, serviceHandler, randomness, bounds), loadSource);
         ProtocolOptions options = new()
         {
             Datasets = datasets,
-            Updates = new StoreUpdates(Evaluation(clock ?? TimeProvider.System, serviceHandler, randomness), loadSource),
+            Administration = administration,
+            Updates = updates is null ? executor : updates(executor),
             Identity = identity ?? new NoOne(),
             AccessScopes = accessScopes ?? EveryoneEverything.Instance,
             Authorization = new EveryoneMay(),
             Clock = clock ?? TimeProvider.System,
-            Limits = limits ?? ProtocolLimits.Default,
-            Evaluation = Evaluation(clock ?? TimeProvider.System, serviceHandler, randomness),
+            Limits = bounds,
+            Evaluation = Evaluation(clock ?? TimeProvider.System, serviceHandler, randomness, bounds),
             Stopping = stopping,
+            Telemetry = telemetry ?? TelemetryOptions.Default,
         };
 
         if (map is null)
@@ -178,10 +191,10 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
     /// <summary>The update executor, as the server binds it: no retries, the expected position and the scope passed through.</summary>
     // Randomness is left unset when none is given: the options' own default
     // refuses RAND() and UUID(), as before.
-    private static EvaluationOptions Evaluation(TimeProvider clock, IServiceHandler? serviceHandler, IRandomSource? randomness) =>
+    private static EvaluationOptions Evaluation(TimeProvider clock, IServiceHandler? serviceHandler, IRandomSource? randomness, ProtocolLimits limits) =>
         randomness is null
-            ? new EvaluationOptions { Clock = clock, ServiceHandler = serviceHandler ?? RefusingServiceHandler.Instance }
-            : new EvaluationOptions { Clock = clock, ServiceHandler = serviceHandler ?? RefusingServiceHandler.Instance, Randomness = randomness };
+            ? new EvaluationOptions { Clock = clock, ServiceHandler = serviceHandler ?? RefusingServiceHandler.Instance, MemoryBudget = limits.MaxQueryMemory }
+            : new EvaluationOptions { Clock = clock, ServiceHandler = serviceHandler ?? RefusingServiceHandler.Instance, Randomness = randomness, MemoryBudget = limits.MaxQueryMemory };
 
     internal sealed class StoreUpdates(EvaluationOptions evaluation, ILoadSource? loadSource) : ISparqlUpdateExecutor
     {
