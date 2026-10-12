@@ -16,7 +16,6 @@ using Varve.Sparql.Evaluation;
 using Varve.Sparql.Evaluation.Model;
 using Varve.Store;
 using Varve.Store.Log;
-using Varve.Turtle;
 
 namespace Varve.Protocol.Endpoints;
 
@@ -57,9 +56,9 @@ internal static class ServiceDescriptionEndpoint
     {
         HttpContext context = exchange.Context;
 
-        if (!Negotiation.TryChoose(context.Request.Headers.Accept, MediaTypes.Graphs, out Offer<RdfSyntax> syntax))
+        if (!Negotiation.TryChoose(context.Request.Headers.Accept, MediaTypes.Graphs, out Offer<GraphFormat> syntax))
         {
-            await HttpProblems.NotAcceptable(context, "The service description is written as N-Triples, Turtle, N-Quads or TriG.").ConfigureAwait(false);
+            await HttpProblems.NotAcceptable(context, "The service description is written as N-Triples, Turtle, N-Quads, TriG, RDF/XML or JSON-LD.").ConfigureAwait(false);
             return;
         }
 
@@ -99,9 +98,11 @@ internal static class ServiceDescriptionEndpoint
 
         await BoundedReads.RunAsync(context, exchange.Options, async (output, cancellationToken) =>
         {
+            using GraphOutput written = new(output, syntax.Format, exchange.Options.Limits);
+
             foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in Describe(service, view.Position, exchange.Options.Limits))
             {
-                TermLines.WriteTriple(output, s, p, o);
+                written.Write(s, p, o);
             }
 
             // Federation is advertised when the host answers SERVICE (ADR
@@ -109,7 +110,7 @@ internal static class ServiceDescriptionEndpoint
             // claiming sd:BasicFederatedQuery would be a lie.
             if (exchange.Options.Evaluation.ServiceHandler is not RefusingServiceHandler)
             {
-                TermLines.WriteTriple(output, Iri(service), Iri(Sd + "feature"), Iri(Sd + "BasicFederatedQuery"));
+                written.Write(Iri(service), Iri(Sd + "feature"), Iri(Sd + "BasicFederatedQuery"));
             }
 
             RdfTerm dataset = RdfTerm.BlankNode("dataset"u8);
@@ -123,12 +124,14 @@ internal static class ServiceDescriptionEndpoint
                 {
                     RdfTerm graph = RdfTerm.BlankNode(Encoding.UTF8.GetBytes("graph" + index.ToString(CultureInfo.InvariantCulture)));
                     index++;
-                    TermLines.WriteTriple(output, dataset, Iri(Sd + "namedGraph"), graph);
-                    TermLines.WriteTriple(output, graph, Iri(Rdf + "type"), Iri(Sd + "NamedGraph"));
-                    TermLines.WriteTriple(output, graph, Iri(Sd + "name"), name!);
+                    written.Write(dataset, Iri(Sd + "namedGraph"), graph);
+                    written.Write(graph, Iri(Rdf + "type"), Iri(Sd + "NamedGraph"));
+                    written.Write(graph, Iri(Sd + "name"), name!);
                     await output.FlushIfDueAsync(cancellationToken).ConfigureAwait(false);
                 }
             }
+
+            written.Complete();
         }).ConfigureAwait(false);
     }
 
@@ -166,12 +169,12 @@ internal static class ServiceDescriptionEndpoint
                 "A Varve dataset. Blank nodes are written with labels stable for the dataset's lifetime; a label sent back is a fresh node (ADR 0098). Varve-As-Of reads the past; Varve-Position and ETag name the position every response describes; If-Match on a write is its expected position.")),
         ];
 
-        foreach (string format in (ReadOnlySpan<string>)["SPARQL_Results_JSON", "SPARQL_Results_XML", "SPARQL_Results_CSV", "SPARQL_Results_TSV", "N-Triples", "Turtle", "N-Quads", "TriG"])
+        foreach (string format in (ReadOnlySpan<string>)["SPARQL_Results_JSON", "SPARQL_Results_XML", "SPARQL_Results_CSV", "SPARQL_Results_TSV", "N-Triples", "Turtle", "N-Quads", "TriG", "RDF_XML", "JSON-LD"])
         {
             triples.Add((self, Iri(Sd + "resultFormat"), Iri(Formats + format)));
         }
 
-        foreach (string format in (ReadOnlySpan<string>)["N-Triples", "Turtle", "N-Quads", "TriG"])
+        foreach (string format in (ReadOnlySpan<string>)["N-Triples", "Turtle", "N-Quads", "TriG", "RDF_XML", "JSON-LD"])
         {
             triples.Add((self, Iri(Sd + "inputFormat"), Iri(Formats + format)));
         }

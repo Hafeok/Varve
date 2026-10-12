@@ -6,7 +6,6 @@ using System;
 using System.Collections.Immutable;
 using Microsoft.Net.Http.Headers;
 using Varve.Sparql.Results;
-using Varve.Turtle;
 
 namespace Varve.Protocol.Http;
 
@@ -24,6 +23,8 @@ internal static class MediaTypes
     internal const string NQuads = "application/n-quads";
     internal const string Turtle = "text/turtle";
     internal const string TriG = "application/trig";
+    internal const string RdfXml = "application/rdf+xml";
+    internal const string JsonLd = "application/ld+json";
     internal const string Delta = "application/vnd.varve.delta";
     internal const string EventStream = "text/event-stream";
     internal const string Json = "application/json";
@@ -40,13 +41,19 @@ internal static class MediaTypes
         new("application/xml", SparqlResultsFormat.Xml),
     ];
 
-    /// <summary>Graphs: N-Triples first, the one a streaming writer honours without buffering prefixes.</summary>
-    internal static readonly ImmutableArray<Offer<RdfSyntax>> Graphs =
+    /// <summary>
+    /// Graphs: N-Triples first, the one a streaming writer honours without
+    /// buffering prefixes; RDF/XML and JSON-LD last, since each refuses a
+    /// graph the line syntaxes write (ADR 0092, amended 2026-10-12).
+    /// </summary>
+    internal static readonly ImmutableArray<Offer<GraphFormat>> Graphs =
     [
-        new(NTriples, RdfSyntax.NTriples),
-        new(Turtle, RdfSyntax.Turtle),
-        new(NQuads, RdfSyntax.NQuads),
-        new(TriG, RdfSyntax.TriG),
+        new(NTriples, GraphFormat.NTriples),
+        new(Turtle, GraphFormat.Turtle),
+        new(NQuads, GraphFormat.NQuads),
+        new(TriG, GraphFormat.TriG),
+        new(RdfXml, GraphFormat.RdfXml),
+        new(JsonLd, GraphFormat.JsonLd),
     ];
 
     /// <summary>The change feed and the diff.</summary>
@@ -56,39 +63,36 @@ internal static class MediaTypes
         new(EventStream, FeedFraming.EventStream),
     ];
 
-    /// <summary>The syntax a request body is in, by its media type.</summary>
-    internal static bool TryReadSyntax(string mediaType, out RdfSyntax syntax)
+    /// <summary>The format a request body is in, by its media type.</summary>
+    internal static bool TryReadFormat(string mediaType, out GraphFormat format)
     {
         switch (mediaType.ToLowerInvariant())
         {
             case NTriples:
             case "text/plain":
-                syntax = RdfSyntax.NTriples;
+                format = GraphFormat.NTriples;
                 return true;
             case NQuads:
-                syntax = RdfSyntax.NQuads;
+                format = GraphFormat.NQuads;
                 return true;
             case Turtle:
             case "application/x-turtle":
-                syntax = RdfSyntax.Turtle;
+                format = GraphFormat.Turtle;
                 return true;
             case TriG:
-                syntax = RdfSyntax.TriG;
+                format = GraphFormat.TriG;
+                return true;
+            case RdfXml:
+                format = GraphFormat.RdfXml;
+                return true;
+            case JsonLd:
+                format = GraphFormat.JsonLd;
                 return true;
             default:
-                syntax = default;
+                format = default;
                 return false;
         }
     }
-
-    /// <summary>The media type a response in <paramref name="syntax"/> carries.</summary>
-    internal static string Of(RdfSyntax syntax) => syntax switch
-    {
-        RdfSyntax.NTriples => NTriples,
-        RdfSyntax.NQuads => NQuads,
-        RdfSyntax.Turtle => Turtle,
-        _ => TriG,
-    };
 
     /// <summary>
     /// Reads a <c>Content-Type</c>: its media type, and whether its charset,
@@ -129,6 +133,21 @@ internal static class MediaTypes
 
         return null;
     }
+}
+
+/// <summary>
+/// A syntax a graph is read or written in over HTTP: the four of
+/// <c>Varve.Turtle</c>, RDF/XML (<c>Varve.RdfXml</c>, ADR 0122) and JSON-LD
+/// (<c>Varve.JsonLd</c>, ADR 0123).
+/// </summary>
+internal enum GraphFormat : byte
+{
+    NTriples,
+    Turtle,
+    NQuads,
+    TriG,
+    RdfXml,
+    JsonLd,
 }
 
 /// <summary>How a feed or a diff is framed on the wire (<c>change-feed.md</c> §2, §3).</summary>

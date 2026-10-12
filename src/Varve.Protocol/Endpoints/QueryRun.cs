@@ -17,7 +17,6 @@ using Varve.Sparql.Evaluation.Model;
 using Varve.Sparql.Results;
 using Varve.Store;
 using Varve.Store.Log;
-using Varve.Turtle;
 
 namespace Varve.Protocol.Endpoints;
 
@@ -72,7 +71,7 @@ internal static class QueryRun
         HttpContext context = exchange.Context;
         bool graph = query is ConstructQuery or DescribeQuery;
         Offer<SparqlResultsFormat> results = default;
-        Offer<RdfSyntax> syntax = default;
+        Offer<GraphFormat> syntax = default;
         bool acceptable = graph
             ? Negotiation.TryChoose(context.Request.Headers.Accept, MediaTypes.Graphs, out syntax)
             : Negotiation.TryChoose(context.Request.Headers.Accept, MediaTypes.Results, out results);
@@ -80,7 +79,7 @@ internal static class QueryRun
         if (!acceptable)
         {
             await HttpProblems.NotAcceptable(context, graph
-                ? "A graph result is written as N-Triples, Turtle, N-Quads or TriG."
+                ? "A graph result is written as N-Triples, Turtle, N-Quads, TriG, RDF/XML or JSON-LD."
                 : "A solution or boolean result is written as SPARQL results JSON, XML, CSV or TSV.").ConfigureAwait(false);
             return;
         }
@@ -136,11 +135,16 @@ internal static class QueryRun
 
                     break;
                 case TripleResults triples:
-                    while (triples.MoveNext())
+                    using (GraphOutput written = new(output, syntax.Format, exchange.Options.Limits))
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        TermLines.WriteTriple(output, triples.Subject, triples.Predicate, triples.Object);
-                        await output.FlushIfDueAsync(cancellationToken).ConfigureAwait(false);
+                        while (triples.MoveNext())
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            written.Write(triples.Subject, triples.Predicate, triples.Object);
+                            await output.FlushIfDueAsync(cancellationToken).ConfigureAwait(false);
+                        }
+
+                        written.Complete();
                     }
 
                     break;

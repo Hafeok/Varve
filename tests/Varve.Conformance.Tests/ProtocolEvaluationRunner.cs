@@ -17,7 +17,6 @@ using Varve.Sparql.Algebra;
 using Varve.Sparql.Results;
 using Varve.Sparql.Results.Model;
 using Varve.Store;
-using Varve.Turtle;
 
 namespace Varve.Conformance.Tests;
 
@@ -31,8 +30,13 @@ namespace Varve.Conformance.Tests;
 /// </summary>
 internal static class ProtocolEvaluationRunner
 {
-    /// <summary>Null when the case passes over HTTP, otherwise why not.</summary>
-    internal static async Task<string?> RunAsync(EvaluationEntry entry, CancellationToken cancellationToken)
+    /// <summary>
+    /// Null when the case passes over HTTP, otherwise why not. A graph
+    /// result is asked for as N-Triples, or as <paramref name="graphAccept"/>
+    /// (ADR 0092, amended 2026-10-12); a <c>406</c> to the latter is
+    /// returned as <c>"406 " + the problem</c> for the caller to judge.
+    /// </summary>
+    internal static async Task<string?> RunAsync(EvaluationEntry entry, CancellationToken cancellationToken, string? graphAccept = null)
     {
         Query query = EvaluationRunner.ParseQuery(entry);
         List<(IReadOnlyList<DataQuad>, RdfTerm?)> graphs = [];
@@ -74,9 +78,15 @@ internal static class ProtocolEvaluationRunner
             // request's address would be, so the base travels in the text.
             Content = new StringContent("BASE <" + entry.QueryIri + ">\n" + File.ReadAllText(EvaluationSuite.PathOf(entry.QueryIri)), Encoding.UTF8, "application/sparql-query"),
         };
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(graph ? "application/n-triples" : "application/sparql-results+json"));
+        string graphType = graphAccept ?? "application/n-triples";
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(graph ? graphType : "application/sparql-results+json"));
         using HttpResponseMessage response = await host.Client.SendAsync(request, cancellationToken);
         byte[] body = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+
+        if (graph && graphAccept is not null && (int)response.StatusCode == 406)
+        {
+            return "406 " + Encoding.UTF8.GetString(body);
+        }
 
         if (!response.IsSuccessStatusCode)
         {
@@ -100,16 +110,18 @@ internal static class ProtocolEvaluationRunner
                 return "a graph, but the expected result is a table";
             }
 
-            List<DataQuad> actual = [];
-            ParseResult parsed = NQuadsParser.Parse(body, (in QuadView quad) => actual.Add(new DataQuad(quad.Subject.Materialise(), quad.Predicate.Materialise(), quad.Object.Materialise(), null)), new ParseOptions { Syntax = RdfSyntax.NTriples });
-
-            if (!parsed.Succeeded)
+            if (ProtocolRunner.Graph(graphType, body, entry.QueryIri, out List<DataQuad>? actual) is { } unparsed)
             {
-                return "the N-Triples answer does not parse: " + parsed.FirstError;
+                return graphType + ": " + unparsed;
+            }
+
+            if (actual!.Any(q => q.Graph is not null))
+            {
+                return graphType + ": a graph result names a graph";
             }
 
             List<DataQuad> wanted = [.. expectedGraph.Select(q => q with { Graph = null })];
-            return DatasetComparison.Compare(actual, wanted);
+            return DatasetComparison.Compare(actual!, wanted);
         }
 
         if (expected is null)

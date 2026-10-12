@@ -236,7 +236,15 @@ on every description that needs it.
 
 ## Checks
 
-- **Checked against the accepted ADRs** (0001–0109). Touches **0027** (its
+- **Checked against the accepted ADRs** (0001–0120; 0110–0120 re-read on
+  2026-10-12, when milestone Operability had landed first). Touches **0092**
+  (amended 2026-10-12: `application/rdf+xml` is negotiated, and a graph this
+  writer refuses is `406 not-acceptable`), **0111** (`Varve.Protocol` now
+  references this package, so the server's Native AOT binary, which is the
+  container image's, grows from 23,416,544 to 23,655,456 bytes on Linux x64,
+  +238,912 or 1.0%, for RDF/XML and JSON-LD together, `System.Private.Xml`
+  being linked already for the SPARQL XML results), **0119** (the refusal is
+  a catalogued problem; its page says so) and **0027** (its
   dated note of 2026-09-25 closed by a dated note in that file), **0009**
   (no package added: `System.Xml` is the BCL), **0061** (the N-Triples
   rendering of a triple term and a directional literal is what the round-trip

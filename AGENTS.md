@@ -292,8 +292,11 @@ in full (ADR 0121), the 41 SPARQL 1.2 cases they blocked run, and
 its cost per triple `XmlReader`'s and stated (ADR 0122); `Varve.JsonLd`
 expands, reads and writes JSON-LD 1.1 over `Utf8JsonReader` as a tree in an
 arena, the toRdf, expand and fromRdf suites whole under a stated rule for the
-1.0-only cases, with `@direction` RDF 1.2's by default (ADR 0123); AOT and
-the browser read and write all three, and the ratchet holds **5,507** lines.
+1.0-only cases, with `@direction` RDF 1.2's by default (ADR 0123);
+`Varve.Protocol` negotiates graphs in both beside the four line syntaxes, and a
+graph the chosen format cannot spell is a `406` that says why (ADR 0092,
+amended); AOT and the browser read and write all three, and the ratchet holds
+**5,507** lines.
 Not built: archive, erasure mode, SHACL, JSON-LD compaction and framing.
 `docs/roadmap.md` has the rest, an owner and a due milestone per open
 question.

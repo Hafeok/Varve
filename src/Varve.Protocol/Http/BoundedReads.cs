@@ -76,6 +76,13 @@ internal static class BoundedReads
                 m.Number("actual", error.Actual.Bytes);
             };
         }
+        catch (GraphNotExpressibleException error)
+        {
+            // The format Accept chose cannot spell this graph (ADR 0092,
+            // amended 2026-10-12): before the first byte a 406 that says why.
+            cut = ProblemType.NotAcceptable;
+            detail = error.Message;
+        }
         catch (QueryEvaluationException error)
         {
             cut = ProblemType.OperationFailed;

@@ -13,6 +13,11 @@ Acceptance is the maintainer's act on the pull request.
 [0119](0119-headers-and-the-problem-catalogue.md): point 5's problem types
 are a catalogue with fixed members and a page each; see the end.
 
+**Amended 2026-10-12** (ADR 0068), by milestone 6b of #10 under ADRs
+[0122](0122-rdf-xml-over-system-xml.md) and
+[0123](0123-json-ld-over-utf8-json.md): RDF/XML and JSON-LD join the
+negotiation, as the Consequences said they would; see the end.
+
 ## Context
 
 The brief makes the W3C suites the acceptance gate and Oxigraph the tie-breaker
@@ -177,3 +182,86 @@ deliberately thin.
 
 **The ledger.** `ErrorsAreProblemDetails` stands; the catalogue's rulings
 are ADR 0119's set.
+
+## Amendment, 2026-10-12 — RDF/XML and JSON-LD are negotiated
+
+Filed by milestone 6b of #10, unaccepted until the maintainer accepts it
+(ADR 0066). It replaces one row of point 8's table and adds to point 1;
+nothing else above changes, and it adds no key. The Consequences said this
+table would change when the packages existed; `Varve.RdfXml` (ADR 0122) and
+`Varve.JsonLd` (ADR 0123) exist.
+
+**Point 1.** `CONSTRUCT` and `DESCRIBE`, a Graph Store `GET` and the
+service description are negotiated over N-Triples, Turtle, N-Quads, TriG,
+`application/rdf+xml` and `application/ld+json`, in that order of the
+server's preference; the default is still N-Triples, so an `Accept` that
+leaves the choice open answers as before. A Graph Store `PUT` or `POST`, and
+each part of a multipart `POST`, reads all six. The service description's
+`sd:resultFormat` and `sd:inputFormat` name `formats:RDF_XML` and
+`formats:JSON-LD` beside the four.
+
+**RDF 1.2.** The four line syntaxes write a triple term and a directional
+literal in their RDF 1.2 forms, as they did. RDF/XML writes them as
+`rdf:parseType="Triple"` and `its:dir`, and declares `rdf:version="1.2"` when
+it does (ADR 0122); it reads them where a body's `rdf:version` announces
+1.2. JSON-LD writes a direction natively, as `@direction` (ADR 0123,
+DirectionDefaultIsNative), and has no triple term.
+
+**What a format cannot spell.** Three graphs are refused by the format the
+client chose, by that format's own writer, and the refusal is
+`not-acceptable` with a `detail` naming the cause, not a server fault:
+
+| The graph holds | Refused by | Why |
+|---|---|---|
+| a triple term | JSON-LD | JSON-LD 1.1 has none |
+| a predicate with no NCName suffix, such as `<http://ex/p/>` | RDF/XML | a property element is a qualified name (RDF/XML §2.7) |
+| a character XML 1.0 cannot carry, such as U+0008 | RDF/XML | XML 1.0 §2.2 |
+
+The answer is not renegotiated to another format in `Accept`: the server
+cannot know a graph is unspellable before it reaches the triple that makes
+it so, and a silent change of format is the kind of guess point 8 rules
+out. JSON-LD meets its refusal before the first byte, always, because the
+writer holds the graph until the last triple (ADR 0123,
+FromRdfBuffersTheDataset): the answer is a `406` problem. RDF/XML streams,
+so a refusal before the first byte is a `406` problem and one after it is
+the cut every bounded read takes (ADR 0095): a `Varve-Error: not-acceptable`
+trailer where the response carries trailers, an abort where it does not,
+and never a whole-looking document.
+
+**What JSON-LD holds.** The graph JSON-LD buffers is charged against
+`Limits:MaxQueryMemory` (ADR 0114) at its terms' bytes and sixteen bytes a
+triple, and a graph over it is `422 memory-limit-exceeded` before the first
+byte, as a materialising query is. The streaming syntaxes hold nothing per
+triple and are not charged.
+
+**Point 8's table.** The row
+
+| RDF/XML or JSON-LD requested or sent | `406`, `415` | no such package yet |
+
+is replaced by
+
+| A graph the chosen format cannot spell (above) | `406` before the first byte; the cut after it | point 8: no guessed format |
+
+The deprecated suite's two `HEAD` and `GET` exemptions without `Accept`
+stand: N-Triples is still the default, which GSP §5.2 allows.
+
+**Tests.** `GraphFormatTests` in `Varve.Protocol.Tests`, over a real socket:
+a graph written in each of the six formats reads back the same in each of
+the six; a `CONSTRUCT` and the service description in each, with `Vary:
+Accept, Varve-As-Of, Authorization` on every one; the empty default graph is
+an empty document in RDF/XML and JSON-LD; a triple term travels in five and
+is a `406` in JSON-LD; a predicate with no qualified name is a `406` in
+RDF/XML; JSON-LD over the memory limit is a `422`; a JSON-LD body naming a
+graph or a remote context, and an unclosed RDF/XML body, are `rdf-syntax`
+and commit nothing. `GraphFormatConformanceTests` runs the eleven protocol
+and Graph Store cases that ask for a graph with every graph asked for in
+RDF/XML and then in JSON-LD, and the nineteen `CONSTRUCT` and `DESCRIBE`
+evaluation cases through the protocol likewise: each passes, or is a `406`
+for a graph that format's writer refuses, which seven are (six triple terms
+in JSON-LD, one U+0008 in RDF/XML).
+
+**Not changed.** `Varve.Protocol.Client`'s document fetch for `LOAD` still
+reads the four line syntaxes; it gains RDF/XML and JSON-LD when a milestone
+wants `LOAD` of either, by amendment of ADR 0104. The `varve` command line's
+`load` and `export` are unchanged. The `version` media-type parameter of
+RDF 1.2 is neither read nor written.

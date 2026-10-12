@@ -226,7 +226,14 @@ the one that loses nothing.
 
 ## Checks
 
-- **Checked against the accepted ADRs** (0001–0122). Touches **0009** (no
+- **Checked against the accepted ADRs** (0001–0122; 0110–0120 re-read on
+  2026-10-12, when milestone Operability had landed first). Touches **0092**
+  (amended 2026-10-12: `application/ld+json` is negotiated; a triple term is
+  `406 not-acceptable`, always before the first byte, because the writer
+  holds the graph), **0114** (what the writer holds over HTTP is charged
+  against `Limits:MaxQueryMemory`, and over it is `422
+  memory-limit-exceeded` before the first byte), **0111** (the binary's
+  growth is stated in ADR 0122's checks, for both packages), **0009** (no
   package added: `System.Text.Json` is the BCL), **0061** (the canonical
   N-Quads rendering of directional literals is what the round-trip tests
   compare), **0121** (the `RdfVersion` option is Turtle's; JSON-LD has no

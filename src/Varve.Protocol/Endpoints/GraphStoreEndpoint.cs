@@ -16,7 +16,6 @@ using Varve.Protocol.Model;
 using Varve.Rdf;
 using Varve.Store;
 using Varve.Store.Log;
-using Varve.Turtle;
 
 namespace Varve.Protocol.Endpoints;
 
@@ -117,9 +116,9 @@ internal static class GraphStoreEndpoint
             return;
         }
 
-        if (!Negotiation.TryChoose(context.Request.Headers.Accept, MediaTypes.Graphs, out Offer<RdfSyntax> syntax))
+        if (!Negotiation.TryChoose(context.Request.Headers.Accept, MediaTypes.Graphs, out Offer<GraphFormat> syntax))
         {
-            await HttpProblems.NotAcceptable(context, "A graph is written as N-Triples, Turtle, N-Quads or TriG.").ConfigureAwait(false);
+            await HttpProblems.NotAcceptable(context, "A graph is written as N-Triples, Turtle, N-Quads, TriG, RDF/XML or JSON-LD.").ConfigureAwait(false);
             return;
         }
 
@@ -156,7 +155,20 @@ internal static class GraphStoreEndpoint
             if (target.Kind == TargetKind.Default)
             {
                 // The default graph always exists, empty or not (GSP §5.2).
+                // Empty is no bytes in the line syntaxes, and an empty
+                // document in RDF/XML and JSON-LD, whose grammars have one.
                 context.Response.ContentType = syntax.MediaType;
+
+                if (syntax.Format is GraphFormat.RdfXml or GraphFormat.JsonLd && !HttpMethods.IsHead(context.Request.Method))
+                {
+                    await BoundedReads.RunAsync(context, exchange.Options, (output, _) =>
+                    {
+                        using GraphOutput empty = new(output, syntax.Format, exchange.Options.Limits);
+                        empty.Complete();
+                        return ValueTask.CompletedTask;
+                    }).ConfigureAwait(false);
+                }
+
                 return;
             }
 
@@ -174,17 +186,18 @@ internal static class GraphStoreEndpoint
 
         await BoundedReads.RunAsync(context, exchange.Options, async (output, cancellationToken) =>
         {
-            WriteOptions lines = new() { Syntax = RdfSyntax.NTriples };
+            using GraphOutput graph = new(output, syntax.Format, exchange.Options.Limits);
 
             do
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 Quad current = cursor.Current;
-                Quad triple = new(current.Subject, current.Predicate, current.Object);
-                NQuadsWriter.Write(output, in triple, source, in lines);
+                graph.Write(in current, source);
                 await output.FlushIfDueAsync(cancellationToken).ConfigureAwait(false);
             }
             while (cursor.MoveNext());
+
+            graph.Complete();
         }).ConfigureAwait(false);
     }
 
@@ -358,9 +371,9 @@ internal static class GraphStoreEndpoint
             return await ReadPartsAsync(exchange, contentType!, body.Bytes!, baseIri, triples).ConfigureAwait(false);
         }
 
-        if (!MediaTypes.TryReadSyntax(mediaType, out RdfSyntax syntax))
+        if (!MediaTypes.TryReadFormat(mediaType, out GraphFormat syntax))
         {
-            await HttpProblems.UnsupportedMediaType(context, "A graph is read as N-Triples, Turtle, N-Quads or TriG.").ConfigureAwait(false);
+            await HttpProblems.UnsupportedMediaType(context, "A graph is read as N-Triples, Turtle, N-Quads, TriG, RDF/XML or JSON-LD.").ConfigureAwait(false);
             return null;
         }
 
@@ -392,16 +405,16 @@ internal static class GraphStoreEndpoint
         while (await reader.ReadNextSectionAsync(context.RequestAborted).ConfigureAwait(false) is { } section)
         {
             if (!MediaTypes.TryReadContentType(section.ContentType, out string partType, out bool utf8) || !utf8
-                || !MediaTypes.TryReadSyntax(partType, out RdfSyntax syntax))
+                || !MediaTypes.TryReadFormat(partType, out GraphFormat syntax))
             {
-                await HttpProblems.UnsupportedMediaType(context, "Each part is N-Triples, Turtle, N-Quads or TriG, in UTF-8.").ConfigureAwait(false);
+                await HttpProblems.UnsupportedMediaType(context, "Each part is N-Triples, Turtle, N-Quads, TriG, RDF/XML or JSON-LD, in UTF-8.").ConfigureAwait(false);
                 return null;
             }
 
             using MemoryStream part = new();
             await section.Body.CopyToAsync(part, context.RequestAborted).ConfigureAwait(false);
 
-            if (!RdfBodies.TryParse(part.GetBuffer().AsSpan(0, (int)part.Length), syntax, baseIri, triples, out string? error))
+            if (!RdfBodies.TryParse(part.GetBuffer().AsMemory(0, (int)part.Length), syntax, baseIri, triples, out string? error))
             {
                 await HttpProblems.WriteAsync(context, ProblemType.RdfSyntax, "A part does not parse: " + error).ConfigureAwait(false);
                 return null;

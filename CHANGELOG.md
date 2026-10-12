@@ -66,6 +66,17 @@ request (ADR 0066).
 
 #### Changed
 
+- **`Varve.Protocol`** (ADR 0092, amended): a Graph Store `GET`, a
+  `CONSTRUCT` or `DESCRIBE` and the service description are negotiated
+  over `application/rdf+xml` and `application/ld+json` beside N-Triples,
+  Turtle, N-Quads and TriG, which stays the default; a Graph Store write
+  reads all six, and the service description names them. RDF 1.2's triple
+  terms and directions travel where the syntax has them. A graph the
+  chosen format cannot spell (a triple term in JSON-LD, a predicate with
+  no qualified name in RDF/XML) is `406 not-acceptable`, saying why; the
+  graph JSON-LD holds is charged against `Limits:MaxQueryMemory`. The
+  server's Native AOT binary grows by 1.0%. `Varve.Protocol.Client`'s
+  `LOAD` fetch and the `varve` command line are unchanged.
 - **`Varve.Turtle`**: `TurtleOptions.OnVersion` reports a version
   directive; a triple term as subject or predicate is refused by name by
   the writer; the recovery rule counts the RDF 1.2 brackets (ADR 0030,

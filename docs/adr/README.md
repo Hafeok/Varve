@@ -208,7 +208,7 @@ Filed by milestone 7a ([#11](https://github.com/Hafeok/Varve/issues/11)), unacce
 | # | Title | Status |
 |---:|---|---|
 | [0091](0091-varve-protocol-and-varve-server.md) | `Varve.Protocol` and `Varve.Server`: endpoint groups, the update seam, policy names | Accepted; amended 2026-10-08 (the 7b seams) |
-| [0092](0092-protocol-scope-problem-details-and-tie-breakers.md) | Protocol scope, problem details, and the Oxigraph tie-breakers | Accepted; amended 2026-10-09 (the problem catalogue) |
+| [0092](0092-protocol-scope-problem-details-and-tie-breakers.md) | Protocol scope, problem details, and the Oxigraph tie-breakers | Accepted; amended 2026-10-09 (the problem catalogue) and 2026-10-12 (RDF/XML and JSON-LD negotiated) |
 | [0093](0093-datasets-are-the-routing-unit.md) | Datasets are the routing unit; the name is the host's | Accepted; refined by 0106; amended 2026-10-09 (the route table) |
 | [0094](0094-a-write-over-http-is-one-commit.md) | A write over HTTP is one commit: agent, cause, `Varve-Position`, `409`, `412` | Accepted; amended 2026-10-09 (the cause is never a trace id) |
 | [0095](0095-a-read-over-http-is-pinned-for-its-response.md) | A read over HTTP is pinned for its response, bounded, and cut visibly | Accepted; refines 0052 |
@@ -251,7 +251,7 @@ Filed by milestone Operability ([#12](https://github.com/Hafeok/Varve/issues/12)
 
 ## Milestone 6b — RDF 1.2 Turtle and TriG, RDF/XML, JSON-LD
 
-Filed by milestone 6b ([#10](https://github.com/Hafeok/Varve/issues/10)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by 6b, likewise unaccepted: 0030 (the recovery depth counts the RDF 1.2 brackets); 0027 carries a dated note closing its RDF/XML fixtures.
+Filed by milestone 6b ([#10](https://github.com/Hafeok/Varve/issues/10)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by 6b, likewise unaccepted: 0030 (the recovery depth counts the RDF 1.2 brackets); 0092 (RDF/XML and JSON-LD negotiated); 0027 carries a dated note closing its RDF/XML fixtures.
 
 | # | Title | Status |
 |---:|---|---|

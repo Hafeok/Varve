@@ -15,6 +15,13 @@ ASP.NET Core endpoint groups any host mounts.
   `Varve-As-Of: position:<n>` or `time:<RFC 3339>` reads the past.
   `Varve-Position` and `ETag` name the position read, and `If-None-Match` polls
   for `304`.
+- **Graphs in six formats** (ADR 0092, amended): a Graph Store `GET`, a
+  `CONSTRUCT` or `DESCRIBE`, and the service description are negotiated over
+  N-Triples (the default), Turtle, N-Quads, TriG, RDF/XML and JSON-LD, and a
+  Graph Store write reads all six. RDF 1.2's triple terms and directions
+  travel where the syntax has them; a graph the chosen format cannot spell —
+  a triple term in JSON-LD, a predicate with no qualified name in RDF/XML —
+  is `406 not-acceptable`, saying why.
 - **The commits resource** (ADR 0118) is the change feed: `GET /commits?from=&to=`
   is a range in `application/vnd.varve.delta; version=1`, `GET /commits/{position}`
   is one commit, and an open range tails live, as server-sent events when

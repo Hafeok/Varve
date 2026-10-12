@@ -210,7 +210,10 @@ Wiring the suites found two things the plan had not foreseen.
 
 ## Checks
 
-- **Checked against the accepted ADRs** (0001–0109). Touches **0030**
+- **Checked against the accepted ADRs** (0001–0120; 0110–0120 re-read on
+  2026-10-12, when milestone Operability had landed first: none touches
+  Turtle, and 0120's `INSERT DATA` fast path parses SPARQL, not Turtle).
+  Touches **0030**
   (amended, dated, in that file), **0044** (unchanged: the store still
   refuses a label, and point 5 is how a consumer lives with that), **0061**
   (the spacing of a written triple term follows its form; Turtle keeps its

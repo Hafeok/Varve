@@ -5,7 +5,9 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Varve.JsonLd;
 using Varve.Rdf;
+using Varve.RdfXml;
 using Varve.Turtle;
 using Varve.Turtle.Model;
 
@@ -16,12 +18,15 @@ internal readonly record struct BodyTriple(RdfTerm Subject, RdfTerm Predicate, R
 
 /// <summary>
 /// A Graph Store body, parsed to triples (GSP §5). The body is a graph, so a
-/// quad in a named graph — possible in N-Quads and TriG — is refused rather
-/// than moved into the target graph.
+/// quad in a named graph — possible in N-Quads, TriG and JSON-LD — is refused
+/// rather than moved into the target graph. RDF/XML reads the RDF 1.2 forms
+/// where the document's <c>rdf:version</c> announces them (ADR 0122); JSON-LD
+/// has no document loader here, so a remote context is a syntax error
+/// (ADR 0123, RemoteContextsNeedALoader).
 /// </summary>
 internal static class RdfBodies
 {
-    internal static bool TryParse(ReadOnlySpan<byte> body, RdfSyntax syntax, string baseIri, List<BodyTriple> into, out string? error)
+    internal static bool TryParse(ReadOnlyMemory<byte> body, GraphFormat format, string baseIri, List<BodyTriple> into, out string? error)
     {
         string? failure = null;
         bool named = false;
@@ -44,11 +49,31 @@ internal static class RdfBodies
             return ErrorAction.Stop;
         }
 
-        ParseResult result = syntax is RdfSyntax.Turtle or RdfSyntax.TriG
-            ? TurtleParser.Parse(body, Add, new TurtleOptions { Syntax = syntax, BaseIri = Encoding.UTF8.GetBytes(baseIri), OnError = OnError })
-            : NQuadsParser.Parse(body, Add, new ParseOptions { Syntax = syntax, OnError = OnError });
+        byte[] baseBytes = Encoding.UTF8.GetBytes(baseIri);
+        bool succeeded;
 
-        if (!result.Succeeded || failure is not null)
+        switch (format)
+        {
+            case GraphFormat.RdfXml:
+                RdfXmlParseResult xml = RdfXmlParser.Parse(body, Add, new RdfXmlOptions { BaseIri = baseBytes });
+                succeeded = xml.Succeeded;
+                failure = xml.Error?.ToString();
+                break;
+            case GraphFormat.JsonLd:
+                JsonLdResult json = JsonLdParser.Parse(body, Add, new JsonLdOptions { BaseIri = baseBytes });
+                succeeded = json.Succeeded;
+                failure = json.Error?.ToString();
+                break;
+            case GraphFormat.Turtle:
+            case GraphFormat.TriG:
+                succeeded = TurtleParser.Parse(body.Span, Add, new TurtleOptions { Syntax = SyntaxOf(format), BaseIri = baseBytes, OnError = OnError }).Succeeded;
+                break;
+            default:
+                succeeded = NQuadsParser.Parse(body.Span, Add, new ParseOptions { Syntax = SyntaxOf(format), OnError = OnError }).Succeeded;
+                break;
+        }
+
+        if (!succeeded || failure is not null)
         {
             error = failure ?? "The body does not parse.";
             return false;
@@ -63,4 +88,12 @@ internal static class RdfBodies
         error = null;
         return true;
     }
+
+    private static RdfSyntax SyntaxOf(GraphFormat format) => format switch
+    {
+        GraphFormat.NQuads => RdfSyntax.NQuads,
+        GraphFormat.Turtle => RdfSyntax.Turtle,
+        GraphFormat.TriG => RdfSyntax.TriG,
+        _ => RdfSyntax.NTriples,
+    };
 }

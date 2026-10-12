@@ -13,8 +13,10 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
+using Varve.JsonLd;
 using Varve.Protocol;
 using Varve.Rdf;
+using Varve.RdfXml;
 using Varve.Sparql.Results;
 using Varve.Store;
 using Varve.Store.Log;
@@ -137,8 +139,19 @@ internal static class ProtocolRunner
 {
     private static readonly ConcurrentDictionary<ProtocolSubject, Task<Dictionary<string, string?>>> Sequences = new();
 
-    /// <summary>Null when the case passes, otherwise why not.</summary>
-    internal static async Task<string?> RunAsync(ProtocolEntry entry, ProtocolSubject subject, CancellationToken cancellationToken)
+    /// <summary>The media types a graph is negotiated in (ADR 0092, amended 2026-10-12).</summary>
+    internal static readonly string[] GraphMediaTypes =
+    [
+        "application/n-triples", "text/turtle", "application/n-quads", "application/trig", "application/rdf+xml", "application/ld+json",
+    ];
+
+    /// <summary>
+    /// Null when the case passes, otherwise why not. With
+    /// <paramref name="graphAccept"/>, every request that asks for a graph
+    /// asks for it in that media type instead, and the case's expected
+    /// graph media type is that one.
+    /// </summary>
+    internal static async Task<string?> RunAsync(ProtocolEntry entry, ProtocolSubject subject, CancellationToken cancellationToken, string? graphAccept = null)
     {
         if (entry.Sequential)
         {
@@ -156,8 +169,16 @@ internal static class ProtocolRunner
         }
 
         await using Endpoint endpoint = await store.EndpointAsync(cancellationToken).ConfigureAwait(false);
-        return await RunRequestsAsync(endpoint, entry, [], cancellationToken).ConfigureAwait(false);
+        return await RunRequestsAsync(endpoint, entry, [], cancellationToken, graphAccept).ConfigureAwait(false);
     }
+
+    /// <summary>Whether a case asks for a graph anywhere: a request whose Accept, or whose expected Content-Type, is a graph media type.</summary>
+    internal static bool AsksForAGraph(ProtocolEntry entry) => entry.Requests.Any(r =>
+        r.Headers.Any(h => h.Name.Equals("accept", StringComparison.OrdinalIgnoreCase) && IsGraph(h.Value))
+        || (r.Expect.ContentType is { } type && IsGraph(type)));
+
+    private static bool IsGraph(string mediaType) =>
+        GraphMediaTypes.Contains(mediaType.Split(';')[0].Trim(), StringComparer.OrdinalIgnoreCase);
 
     internal static void Mount(WebApplication app, ProtocolOptions options)
     {
@@ -181,7 +202,7 @@ internal static class ProtocolRunner
         return results;
     }
 
-    private static async Task<string?> RunRequestsAsync(Endpoint endpoint, ProtocolEntry entry, Dictionary<string, string> variables, CancellationToken cancellationToken)
+    private static async Task<string?> RunRequestsAsync(Endpoint endpoint, ProtocolEntry entry, Dictionary<string, string> variables, CancellationToken cancellationToken, string? graphAccept = null)
     {
         int index = 0;
 
@@ -214,12 +235,18 @@ internal static class ProtocolRunner
                     message.Content ??= new ByteArrayContent([]);
                     message.Content.Headers.TryAddWithoutValidation("Content-Type", value);
                 }
+                else if (graphAccept is not null && name.Equals("accept", StringComparison.OrdinalIgnoreCase) && IsGraph(value))
+                {
+                    message.Headers.TryAddWithoutValidation(name, graphAccept);
+                }
                 else if (!name.Equals("host", StringComparison.OrdinalIgnoreCase) && !name.Equals("content-length", StringComparison.OrdinalIgnoreCase))
                 {
                     // Content-Length is the content's, computed; a transcript's is "...".
                     message.Headers.TryAddWithoutValidation(name, value);
                 }
             }
+
+            string? expectedType = graphAccept is not null && request.Expect.ContentType is { } declared && IsGraph(declared) ? graphAccept : request.Expect.ContentType;
 
             using HttpResponseMessage response = await endpoint.Client.SendAsync(message, cancellationToken).ConfigureAwait(false);
             int status = (int)response.StatusCode;
@@ -244,7 +271,7 @@ internal static class ProtocolRunner
 
             string? mediaType = response.Content.Headers.ContentType?.MediaType;
 
-            if (request.Expect.ContentType is { } expectedType && status < 300
+            if (expectedType is not null && status < 300
                 && !string.Equals(mediaType, expectedType.Split(';')[0].Trim(), StringComparison.OrdinalIgnoreCase))
             {
                 return where + "Content-Type " + mediaType + ", expected " + expectedType;
@@ -336,14 +363,24 @@ internal static class ProtocolRunner
         return known;
     }
 
-    private static string? Graph(string? mediaType, byte[] body, string baseIri, out List<DataQuad>? quads)
+    /// <summary>A graph response in <paramref name="mediaType"/>, read by Varve's reader of that format; null when it parses.</summary>
+    internal static string? Graph(string? mediaType, byte[] body, string baseIri, out List<DataQuad>? quads)
     {
         List<DataQuad> parsed = [];
         quads = parsed;
         RdfSyntax syntax;
 
+        void Collect(in QuadView quad) => parsed.Add(new DataQuad(
+            quad.Subject.Materialise(), quad.Predicate.Materialise(), quad.Object.Materialise(), quad.HasGraph ? quad.Graph.Materialise() : null));
+
         switch (mediaType)
         {
+            case "application/rdf+xml":
+                RdfXmlParseResult xml = RdfXmlParser.Parse(body, Collect, new RdfXmlOptions { BaseIri = Encoding.UTF8.GetBytes(baseIri) });
+                return xml.Succeeded ? null : "the RDF/XML does not parse: " + xml.Error;
+            case "application/ld+json":
+                JsonLdResult json = JsonLdParser.Parse(body, Collect, new JsonLdOptions { BaseIri = Encoding.UTF8.GetBytes(baseIri) });
+                return json.Succeeded ? null : "the JSON-LD does not parse: " + json.Error;
             case "application/n-triples":
                 syntax = RdfSyntax.NTriples;
                 break;
@@ -360,12 +397,9 @@ internal static class ProtocolRunner
                 return "an RDF result in " + mediaType;
         }
 
-        void Add(in QuadView quad) => parsed.Add(new DataQuad(
-            quad.Subject.Materialise(), quad.Predicate.Materialise(), quad.Object.Materialise(), quad.HasGraph ? quad.Graph.Materialise() : null));
-
         ParseResult result = syntax is RdfSyntax.Turtle or RdfSyntax.TriG
-            ? TurtleParser.Parse(body, Add, new TurtleOptions { Syntax = syntax, BaseIri = Encoding.UTF8.GetBytes(baseIri) })
-            : NQuadsParser.Parse(body, Add, new ParseOptions { Syntax = syntax });
+            ? TurtleParser.Parse(body, Collect, new TurtleOptions { Syntax = syntax, BaseIri = Encoding.UTF8.GetBytes(baseIri) })
+            : NQuadsParser.Parse(body, Collect, new ParseOptions { Syntax = syntax });
         return result.Succeeded ? null : "the RDF does not parse: " + result.FirstError;
     }
 

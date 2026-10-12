@@ -360,6 +360,11 @@ Turtle or TriG, which `turtle.md` §9 refused. **Delivered:**
   three suites whole under a stated rule for the 1.0-only cases; the
   direction is RDF 1.2's by default. Compaction, flattening and framing are
   out, recorded.
+- **Over HTTP** (ADR 0092, amended 2026-10-12): `Varve.Protocol` negotiates
+  graphs in RDF/XML and JSON-LD beside the four line syntaxes, reads them as
+  Graph Store bodies and names them in the service description; a graph the
+  chosen format cannot spell is a `406` that says why. Landed after
+  milestone Operability, as the session landing second.
 - AOT and the browser read and write all three; the ratchet holds 5,507
   lines.
 
