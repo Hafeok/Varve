@@ -222,9 +222,12 @@ random functions read a clock and a random source the caller supplies —
 `Clock = TimeProvider.System` for the system clock — and fail by the option's
 name without one (ADR 0056).
 
-**`v0.1.0-preview.1` is on nuget.org**, published through trusted
-publishing. Every later release is a descriptor in `releases/`, cut when its
-pull request lands (`docs/releases.md`, ADR 0102).
+**Every release is on nuget.org**, published through trusted publishing,
+and since `v0.1.0-preview.3` the server is also the container image
+`ghcr.io/hafeok/varve`, with its build provenance and an SPDX SBOM attested
+(`gh attestation verify`, `docs/operator/run.md`). A release is a descriptor
+in `releases/`, cut when its pull request lands (`docs/releases.md`,
+ADR 0102).
 
 ## Quick start
 
@@ -265,9 +268,55 @@ symmetric cipher exists in that host, which changed a decision (ADR 0028).
 
 ### Server
 
-Not built. Milestone 7, with OIDC bearer authentication decided ahead of it in
-[ADR 0037](docs/adr/0037-server-authentication.md), followed by an operability
-milestone and a container image.
+`varve` is the server and the command line in one executable. Take it as a
+.NET tool, which needs the .NET 10 runtime, or as the container image, which
+is the Native AOT binary and nothing else:
+
+```bash
+dotnet tool install --global Varve.Server --prerelease
+docker pull ghcr.io/hafeok/varve:v0.1.0-preview.3
+```
+
+Serve one dataset on your machine. `--anonymous` is for development only: a
+real deployment takes OIDC bearer tokens ([ADR 0037](docs/adr/0037-server-authentication.md)).
+
+```bash
+varve serve --anonymous --datasets-root "$PWD/data" --dataset people
+# or, listening on 8080 instead of 5000, with the datasets in the image's volume:
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.3 serve --anonymous --dataset people
+```
+
+The datasets root is an absolute path. Then write, read, go back, and read
+the history:
+
+```bash
+curl -X POST http://localhost:5000/datasets/people/sparql \
+  -H 'Content-Type: application/sparql-update' \
+  --data 'INSERT DATA { <http://example.org/ada> <http://xmlns.com/foaf/0.1/name> "Ada Lovelace" }'
+curl -X POST http://localhost:5000/datasets/people/sparql \
+  -H 'Content-Type: application/sparql-update' \
+  --data 'DELETE DATA { <http://example.org/ada> <http://xmlns.com/foaf/0.1/name> "Ada Lovelace" }'
+
+# No rows: commit 2 deleted her.
+curl -G http://localhost:5000/datasets/people/sparql \
+  -H 'Accept: application/sparql-results+json' \
+  --data-urlencode 'query=SELECT ?name WHERE { ?person <http://xmlns.com/foaf/0.1/name> ?name }'
+
+# "Ada Lovelace": the dataset as commit 1 left it.
+curl -G http://localhost:5000/datasets/people/sparql \
+  -H 'Accept: application/sparql-results+json' -H 'Varve-As-Of: position:1' \
+  --data-urlencode 'query=SELECT ?name WHERE { ?person <http://xmlns.com/foaf/0.1/name> ?name }'
+
+# Both commits, as the changes they made. Without `to` the feed stays open
+# and tails new commits as they close.
+curl 'http://localhost:5000/datasets/people/commits?to=2'
+```
+
+[`docs/operator/`](docs/operator/README.md) is the rest: running it under
+systemd or a container runtime, every configuration key, OIDC with Entra ID
+or any other issuer, health, telemetry, backup and upgrade.
+[`Varve.Aspire`](src/Varve.Aspire/README.md) puts the same container in a
+.NET Aspire AppHost.
 
 ## Building
 
@@ -300,6 +349,11 @@ accurately anywhere else, including here.
 - [`docs/adr/`](docs/adr/) — architecture decisions. Numbered, superseded
   rather than edited.
 - [`docs/spec/`](docs/spec/) — functional specifications, per component.
+- [`docs/operator/`](docs/operator/README.md) — running the server: install,
+  configure, authenticate, observe, back up, upgrade.
+- [`docs/problems/`](docs/problems/README.md) and
+  [`docs/vocabulary.md`](docs/vocabulary.md) — every problem type the server
+  answers, and every term under `https://w3id.org/varve/ns#`.
 - [`docs/rules/`](docs/rules/) — one page per `VARVE` analyzer rule.
 - [`docs/roadmap.md`](docs/roadmap.md) — milestones, the 1.0 definition, and
   what is deferred.

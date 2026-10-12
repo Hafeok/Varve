@@ -391,11 +391,21 @@ jobs:
           push-to-registry: true
 
       - name: Verify, as an operator would
+        # pipefail, or the step's status is tee's and a failed verification
+        # passes. gh prints nothing on success off a terminal, so each
+        # verified statement is printed from its JSON: what, by whom, from
+        # which commit.
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SUBJECT: oci://${{ env.IMAGE }}@${{ steps.manifest.outputs.digest }}
         run: |
-          gh attestation verify "oci://$IMAGE@${{ steps.manifest.outputs.digest }}" --owner hafeok | tee -a "$GITHUB_STEP_SUMMARY"
-          gh attestation verify "oci://$IMAGE@${{ steps.manifest.outputs.digest }}" --owner hafeok --predicate-type https://spdx.dev/Document/v2.3 | tee -a "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          for predicate in https://slsa.dev/provenance/v1 https://spdx.dev/Document/v2.3; do
+            gh attestation verify "$SUBJECT" --owner hafeok --predicate-type "$predicate" --format json \
+              --jq '.[].verificationResult | "verified \(.statement.predicateType) for \(.statement.subject[0].name)@sha256:\(.statement.subject[0].digest.sha256), signed by \(.signature.certificate.buildSignerURI) at \(.signature.certificate.sourceRepositoryDigest)"' \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+          done
 
   # The GitHub release for the tag, with its descriptor's summary as the notes.
   # A separate job so that contents: write is never held by the job that runs

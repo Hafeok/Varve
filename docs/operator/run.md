@@ -2,19 +2,16 @@
 
 ## Install
 
-Two artefacts carry the same executable (ADR 0105):
+The same executable comes three ways (ADRs 0105, 0111):
 
-- **The .NET tool**, framework-dependent, for a machine with the .NET 10 SDK
-  or runtime:
+- **The .NET tool** on nuget.org, framework-dependent, for a machine with the
+  .NET 10 SDK or runtime. While every release is a preview, the install
+  names `--prerelease` or a `--version`:
 
   ```sh
-  dotnet tool install --global Varve.Server
+  dotnet tool install --global Varve.Server --prerelease
   varve --version
   ```
-
-- **The Native AOT single file**, from a release, for a machine with nothing
-  installed: `Varve.Server` on Linux and macOS, `Varve.Server.exe` on Windows.
-  Rename it `varve` or call it by its name; the commands are the same.
 
 - **The container image**, `ghcr.io/hafeok/varve` (ADR 0111): the Native AOT
   binary on the chiseled `runtime-deps` base, one image per architecture
@@ -22,9 +19,12 @@ Two artefacts carry the same executable (ADR 0105):
   provenance and an SPDX SBOM attested through GitHub. See
   [The container](#the-container).
 
-Nothing is published to a registry yet; until it is, build from the
-repository with `dotnet publish src/Varve.Server -c Release`, or build the
-image with `src/Varve.Server/container/Dockerfile` from that output.
+- **The Native AOT single file**, for a machine with nothing installed:
+  `Varve.Server` on Linux and macOS, `Varve.Server.exe` on Windows. No
+  release carries it as a download; build it on the platform it is for, with
+  `dotnet publish src/Varve.Server -c Release -r <rid>` (CI builds
+  `linux-x64`, `linux-arm64` and `win-x64`), and rename it `varve` or call it
+  by its name; the commands are the same. The image is this binary.
 
 ## The container
 

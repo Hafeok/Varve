@@ -1,15 +1,21 @@
 # Varve.Server
 
 The Varve executable: the server, and the `varve` command line (ADR 0105).
-Install it as a .NET tool, or take the native single file from a release.
+Install it as a .NET tool, or run the container image
+`ghcr.io/hafeok/varve`, which is the Native AOT build of the same executable
+(`docs/operator/run.md`).
 
 ```sh
-dotnet tool install --global Varve.Server
+dotnet tool install --global Varve.Server --prerelease
 varve create ./people
 varve load ./people data.nq
 varve query ./people -q 'SELECT (COUNT(*) AS ?n) WHERE { ?s ?p ?o }'
-varve serve --Varve:DatasetsRoot=/var/lib/varve
+varve serve --anonymous --datasets-root "$PWD" --dataset people   # development only
 ```
+
+A served dataset answers at `http://localhost:5000/datasets/people/sparql`.
+`--anonymous` is for a developer's machine; a deployment takes OIDC bearer
+tokens (`--authority`, `--audience`, ADR 0037).
 
 A dataset is a directory on this machine, opened directly with no
 authentication (the lease keeps a server and a command from sharing it), or
