@@ -312,4 +312,35 @@ The maintainer, verbatim:
 
 The gate is [#89](https://github.com/Hafeok/Varve/issues/89).
 
+### The release, and what it showed
+
+Release run 12, the push of 2c00cc4 to `main`, started where runs 10 and 11
+had not, and cut nothing: nothing under `releases/` had changed since
+9b6449b. The maintainer dispatched it with `dry_run: false`; run 13 passed
+the plan's head guard, every gate under the new permissions, and the cut.
+`v0.1.0-preview.3` is the annotated tag on 2c00cc4, and #12 is closed. The
+publish run pushed the fourteen packages to nuget.org, created the GitHub
+release, and joined the two images into
+`ghcr.io/hafeok/varve@sha256:48b01ef755efb92c44021e96a68cf1f6f46c008c2ee39a5c138c20dbc0079c7f`
+with its provenance and SBOM attested. Verified from this session with
+`gh attestation verify … --repo Hafeok/Varve` (the organisation endpoint
+`--owner` uses is refused to it): both statements signed by
+`publish.yml@refs/tags/v0.1.0-preview.3` at 2c00cc4. The package is public;
+an anonymous pull of the tag returned the same digest.
+
+The release's own verification step could not have failed: it piped `gh`
+into `tee` without `pipefail`, and printed nothing. Run against the arm64
+platform manifest, which has no attestation, it exited 0 on two 404s. That
+is aecd234.
+
+The maintainer, verbatim: "yes but also the readme.md says that milestone 7
+isnt done and theres no getting started for the server part ?" The README's
+Server section was the text written before milestone 7. 9089222 replaces it
+with a quick start whose every command was run against the tool and the
+pulled image first, and corrects `run.md` and the server package's README
+on what the release publishes. The Native AOT single file is not attached
+to a release: ADR 0105 calls it the `native aot` job's artefact, and that
+job uploads nothing, so the pages say to build it or take the image.
+Whether a release should carry it is open.
+
 Developed with AI assistance under human review.
