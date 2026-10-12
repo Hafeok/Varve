@@ -204,7 +204,7 @@ jobs:
           exit $status
 
       - name: Upload the packages
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: packages
           path: ${{ github.workspace }}/artifacts/packages
@@ -303,7 +303,7 @@ jobs:
           touch "$RUNNER_TEMP/digests/${digest#sha256:}"
 
       - name: Upload the digest
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: image-digest-${{ matrix.rid }}
           path: ${{ runner.temp }}/digests/*
