@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- The on-behalf-of sample (ADR 0127): a minimal API that validates its own
+       users' tokens, exchanges each for a token whose audience is Varve with
+       MSAL through Microsoft Identity Web, and queries and updates Varve as
+       the signed-in user. Microsoft.Identity.Web is admitted for samples/
+       only (ADR 0133); this project is outside Varve.slnx and never shipped. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Layer 6 (ADR 0060): an executable that composes. -->
+    <ArchLayer>6</ArchLayer>
+    <ArchCompositionRoot>true</ArchCompositionRoot>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Identity.Web" />
+    <ProjectReference Include="../../src/Varve.Protocol.Client/Varve.Protocol.Client.csproj" />
+  </ItemGroup>
+
+</Project>

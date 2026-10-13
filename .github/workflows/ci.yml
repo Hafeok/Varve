@@ -563,6 +563,22 @@ jobs:
           --configuration Release
           --filter-class Varve.Server.Tests.ProviderTests
 
+      # The on-behalf-of sample's real exchange (ADR 0127): skipped until the
+      # caller's registration and a test user are in the environment's secrets.
+      - name: Test the on-behalf-of sample against Entra ID
+        env:
+          VARVE_ENTRA_TENANT: ${{ secrets.VARVE_ENTRA_TENANT }}
+          VARVE_ENTRA_AUDIENCE: ${{ secrets.VARVE_ENTRA_AUDIENCE }}
+          VARVE_ENTRA_OBO_CALLER_ID: ${{ secrets.VARVE_ENTRA_OBO_CALLER_ID }}
+          VARVE_ENTRA_OBO_CALLER_SECRET: ${{ secrets.VARVE_ENTRA_OBO_CALLER_SECRET }}
+          VARVE_ENTRA_OBO_CALLER_AUDIENCE: ${{ secrets.VARVE_ENTRA_OBO_CALLER_AUDIENCE }}
+          VARVE_ENTRA_OBO_USERNAME: ${{ secrets.VARVE_ENTRA_OBO_USERNAME }}
+          VARVE_ENTRA_OBO_PASSWORD: ${{ secrets.VARVE_ENTRA_OBO_PASSWORD }}
+        run: >
+          dotnet test
+          --project samples/Varve.OnBehalfOf.Sample.Tests/Varve.OnBehalfOf.Sample.Tests.csproj
+          --configuration Release
+
   # The container image (ADR 0111): the Native AOT binary published on a
   # native runner for its architecture, built into the chiseled image, pushed
   # to GHCR as pr-<sha>-<arch>, pulled back, and exercised as an operator runs
@@ -890,6 +906,50 @@ jobs:
 
       - name: Measure
         run: dotnet run eng/durability.cs
+
+  # The samples that are not the Aspire AppHost's (ADRs 0127, 0133): built
+  # with warnings as errors and their tests run, which skip a leg whose
+  # provider is not configured, so a sample never rots between releases.
+  samples:
+    name: samples
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Build and test the on-behalf-of sample
+        run: >
+          dotnet test
+          --project samples/Varve.OnBehalfOf.Sample.Tests/Varve.OnBehalfOf.Sample.Tests.csproj
+          --configuration Release
+
+  # The Entra registrations of the on-behalf-of chain build (ADR 0127): the
+  # Bicep CLI the runner's Azure CLI carries, and the Microsoft Graph
+  # extension from mcr.microsoft.com. Nothing is deployed.
+  bicep:
+    name: bicep
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Build deploy/azure
+        run: |
+          az bicep install
+          for template in $(find deploy/azure -name '*.bicep'); do
+            az bicep build --file "$template" --stdout > /dev/null
+          done
 
   # repo-standard's native binary and its Action, end to end (ADR 0039).
   #

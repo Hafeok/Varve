@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The on-behalf-of sample's test (ADRs 0127, 0133): the real exchange,
+       against Entra, on the providers leg when its secrets exist, and skipped
+       without them. Varve's side of the contract is proven on every pull
+       request by tests/Varve.Server.Tests' OnBehalfOfTests, with a minted
+       token; nothing here simulates the exchange. Outside Varve.slnx. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+    <ProjectReference Include="../Varve.OnBehalfOf.Sample/Varve.OnBehalfOf.Sample.csproj" />
+    <!-- The server, run as a process from its own output, as an operator runs it. -->
+    <ProjectReference Include="../../src/Varve.Server/Varve.Server.csproj" />
+  </ItemGroup>
+
+</Project>

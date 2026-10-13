@@ -65,7 +65,7 @@
          dependencies of its own. Only its parser and emitter are used, never
          its reflection-based serializer, which is what keeps the tool's Native
          AOT build clean. ADR 0039. -->
-    <PackageVersion Include="YamlDotNet" Version="18.1.0" Adr="0039" />
+    <PackageVersion Include="YamlDotNet" Version="18.1.0" Adr="0039" Scope="tools/repo-standard/" />
   </ItemGroup>
 
   <ItemGroup Label="Runtime of Varve.Server only — never of a library">
@@ -77,18 +77,18 @@
          Tokens, JsonWebTokens, Logging, Abstractions) comes with it, MIT and
          managed; the register cites the decision for the direct package and
          the gate counts the closure in Varve.Server's assets. -->
-    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" Adr="0099" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" Adr="0099" Scope="src/Varve.Server/" />
 
     <!-- The CLI's command line (ADR 0105): stable, MIT, Microsoft, no native
          asset, trimming- and AOT-annotated; in Varve.Server alone, on the
          same condition as JwtBearer, that the server's Native AOT publish
          stays green. -->
-    <PackageVersion Include="System.CommandLine" Version="2.0.12" Adr="0105" />
+    <PackageVersion Include="System.CommandLine" Version="2.0.12" Adr="0105" Scope="src/Varve.Server/" />
 
     <!-- The CLI's credential file on Windows (ADR 0105): DPAPI through the
          managed wrapper, CurrentUser scope. Elsewhere the file's mode is the
          protection, and the package is linked but never called. -->
-    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" Adr="0105" />
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" Adr="0105" Scope="src/Varve.Server/" />
 
     <!-- The OpenTelemetry exporter (ADR 0112): the SDK, its hosting
          integration and the OTLP exporter, Apache-2.0, managed, trimming- and
@@ -97,9 +97,29 @@
          through the BCL's ActivitySource and Meter and reference none of
          these; the server builds the SDK only when an OTEL_EXPORTER_OTLP_*
          endpoint is configured. -->
-    <PackageVersion Include="OpenTelemetry" Version="1.19.1" Adr="0112" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" Adr="0112" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" Adr="0112" />
+    <PackageVersion Include="OpenTelemetry" Version="1.19.1" Adr="0112" Scope="src/Varve.Server/" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" Adr="0112" Scope="src/Varve.Server/" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" Adr="0112" Scope="src/Varve.Server/" />
+  </ItemGroup>
+
+  <ItemGroup Label="Varve.Protocol.Client's hosting (ADR 0131)">
+    <!-- AddVarve on IServiceCollection and the hosted service that applies a
+         dataset's setup at start: the two abstractions packages every .NET
+         host already loads, MIT, managed, trimming- and AOT-annotated, no
+         native asset. At the runtime's version, as JwtBearer is. -->
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" Adr="0131" Scope="src/Varve.Protocol.Client/" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.12" Adr="0131" Scope="src/Varve.Protocol.Client/" />
+  </ItemGroup>
+
+  <ItemGroup Label="Samples only — never of a shipped package (ADR 0133)">
+    <!-- What an application really uses, for the samples that show how one
+         uses Varve. Scoped to samples/, and the register fails a reference
+         from anywhere else. Microsoft Identity Web, MIT: the on-behalf-of
+         sample's token validation and its exchange through MSAL (ADR 0127);
+         its MSAL and Microsoft.IdentityModel closure comes with it, into the
+         sample alone. Varve's server is a consumer of tokens and never an
+         acquirer (ADR 0037). -->
+    <PackageVersion Include="Microsoft.Identity.Web" Version="4.16.0" Adr="0133" Scope="samples/" />
   </ItemGroup>
 
   <ItemGroup Label="Varve.Aspire and its sample (ADR 0117)">
@@ -110,9 +130,9 @@
          they are outside the packable set and never shipped (ADR 0009 as
          amended), so the platform binaries the orchestration and the
          dashboard carry are never in an artefact of ours. -->
-    <PackageVersion Include="Aspire.Hosting" Version="13.6.1" Adr="0117" />
-    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.6.1" Adr="0117" />
-    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.6.1" Adr="0117" />
+    <PackageVersion Include="Aspire.Hosting" Version="13.6.1" Adr="0117" Scope="src/Varve.Aspire/, samples/" />
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.6.1" Adr="0117" Scope="samples/" />
+    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.6.1" Adr="0117" Scope="samples/" />
   </ItemGroup>
 
   <!--

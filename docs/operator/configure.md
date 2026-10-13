@@ -71,6 +71,7 @@ the root that are not configured are discovered and served; the admin API's
 | `Authority` | — | the OIDC issuer; its discovery document is `/.well-known/openid-configuration` under it; required for `Oidc` |
 | `Audiences` | `[]` | the audiences a token may carry; at least one for `Oidc` |
 | `SubjectClaim` | `sub` | the claim that names the caller as a commit's agent: `oid` for Entra |
+| `ApplicationClaim` | `azp` | the claim that names the application acting for the caller, recorded on the request span as `varve.azp` and never in the log; `appid` for an Entra v1 token (ADR 0127) |
 | `RoleClaimType` | `roles` | the claim whose values are mapped to permissions |
 | `RequireHttpsMetadata` | `true` | refuse an authority whose metadata is not served over HTTPS; off only for a loopback issuer in a test |
 | `Production` | `false` | refuse anonymous mode |

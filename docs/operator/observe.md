@@ -80,6 +80,7 @@ where they do not.
 | `varve.request_id` | the request id: the `Varve-Request-Id` header, a problem's `instance`, and the `cause` of a commit the request made |
 | `varve.position` | the position the response describes: the view's for a read, the committed one for a write |
 | `varve.as_of` | the `Varve-As-Of` selector as sent, when there was one |
+| `varve.azp` | the application that acted for the caller: the token's `Auth:ApplicationClaim` (`azp`), for a token exchanged on a user's behalf as for an application's own (ADR 0127); never in the log or the logger |
 | `http.response.status_code` | the status; the span's status is an error at `5xx` |
 
 W3C Trace Context is honoured: a `traceparent` on the request makes the span

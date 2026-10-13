@@ -237,6 +237,76 @@ if (malformed.Count > 0)
     }
 }
 
+// --- scopes (ADR 0009, amended 2026-10-13; ADR 0133) -------------------------
+//
+// An entry may carry Scope, a comma-separated list of directory prefixes
+// relative to the register's directory: every project that references the
+// package must sit under one of them. A samples-only package referenced from
+// src/ is the failure this exists for. tests/fixtures/ is not scanned when the
+// register is the repository's: those projects exist to fail.
+
+Dictionary<string, string[]> scopes = new(StringComparer.OrdinalIgnoreCase);
+
+foreach (XElement item in register.Descendants().Where(static e => e.Name.LocalName == "PackageVersion"))
+{
+    string? scope = ReadMetadata(item, "Scope");
+
+    if (!string.IsNullOrWhiteSpace(scope))
+    {
+        scopes[item.Attribute("Include")?.Value ?? ""] = [.. scope.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Select(static s => s.Replace('\\', '/'))];
+    }
+}
+
+string scanRoot = Path.GetDirectoryName(Path.GetFullPath(propsPath))!;
+List<string> outOfScope = [];
+
+if (scopes.Count > 0)
+{
+    foreach (string project in Directory.EnumerateFiles(scanRoot, "*.csproj", SearchOption.AllDirectories))
+    {
+        string relative = Relative(scanRoot, project).Replace(Path.DirectorySeparatorChar, '/');
+
+        if (relative.Split('/').Any(static segment => segment is "bin" or "obj" or ".git" or "node_modules")
+            || (string.Equals(scanRoot, repositoryRoot, StringComparison.Ordinal) && relative.StartsWith("tests/fixtures/", StringComparison.Ordinal)))
+        {
+            continue;
+        }
+
+        XDocument document;
+
+        try
+        {
+            document = XDocument.Load(project);
+        }
+        catch (System.Xml.XmlException)
+        {
+            continue;
+        }
+
+        foreach (XElement reference in document.Descendants().Where(static e => e.Name.LocalName == "PackageReference"))
+        {
+            string package = reference.Attribute("Include")?.Value ?? "";
+
+            if (scopes.TryGetValue(package, out string[]? allowedIn) && !allowedIn.Any(prefix => relative.StartsWith(prefix, StringComparison.Ordinal)))
+            {
+                outOfScope.Add($"  {relative} references {package}, which the register scopes to {string.Join(", ", allowedIn)}");
+            }
+        }
+    }
+}
+
+if (outOfScope.Count > 0)
+{
+    failed = true;
+    Console.Error.WriteLine();
+    Console.Error.WriteLine($"FAIL: {outOfScope.Count} reference(s) outside the scope their register entry names (ADR 0133):");
+
+    foreach (string line in outOfScope.Order(StringComparer.Ordinal))
+    {
+        Console.Error.WriteLine(line);
+    }
+}
+
 // --- the Dependabot amendment ----------------------------------------------
 
 if (baseRef is not null)

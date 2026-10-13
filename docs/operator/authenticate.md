@@ -95,6 +95,89 @@ CI runs this leg against a real tenant on `main` (ADR 0100, the
 }
 ```
 
+### An application acting for its users: on-behalf-of
+
+A website or an MCP server holds its user's token for **its own** API. To
+call Varve as that user it exchanges the token at Entra for one whose
+audience is Varve: the on-behalf-of flow (OAuth 2.0 token exchange). Varve
+validates the result like any token. **The commit's agent is the user**
+(`oid`), and the request span names the application (`azp`, as
+`varve.azp`, ADR 0127). One `SparqlHttpClient` serves every user: its
+token provider is called for each request and answers the current user's
+token.
+
+1. **Varve's registration** exposes a delegated scope as well as its app
+   roles. Under *Expose an API*, add `access_as_user` (`api://varve/access_as_user`),
+   consentable by admins. The users' app-role assignments (`Varve.Read`,
+   `Varve.Write`, …) are unchanged, and arrive in the exchanged token's
+   `roles` as they do in any token for Varve.
+2. **The calling application's registration** is a confidential client of
+   its own: its own application ID URI, which is the audience of the tokens
+   its users send it, and a secret, a certificate or a federated credential.
+   Under *API permissions* it is granted Varve's `access_as_user`, delegated,
+   with admin consent.
+3. **The exchange.** For each user, the application posts the user's token
+   to the tenant's token endpoint:
+
+   ```http
+   POST https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token
+   Content-Type: application/x-www-form-urlencoded
+
+   grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer
+   &client_id={calling-app-id}&client_secret={secret}
+   &assertion={the user's token for the calling application}
+   &scope=api://varve/access_as_user
+   &requested_token_use=on_behalf_of
+   ```
+
+   MSAL does this as `AcquireTokenOnBehalfOf`, with a per-user cache, and
+   Microsoft Identity Web wraps it as `ITokenAcquisition`.
+   `samples/Varve.OnBehalfOf.Sample` is a minimal API that does exactly this
+   and passes the result to the client's token provider.
+4. **What Varve reads** from the exchanged token:
+   - `iss` and `aud` (validated);
+   - **`oid`**, the user: the commit's agent, `<issuer>#<oid>`;
+   - `roles`, the user's app roles on Varve's registration: its permissions;
+   - **`azp`**, the calling application: the span attribute `varve.azp`,
+     never written to the log (`Auth:ApplicationClaim`; `appid` for a v1
+     token).
+
+   `scp` (`access_as_user`) is Entra's evidence of the delegation. Varve
+   grants by `roles` alone.
+
+`deploy/azure/entra/` creates both registrations with the Microsoft Graph
+Bicep extension: Varve's API with its roles and scope, and a calling
+application granted the scope.
+
+#### The attribution rule
+
+**A write made through on-behalf-of is recorded with the end user as its
+agent.** A write the application makes **on its own account**, such as an
+import or a scheduled publish, is made with the application's **client
+credentials** token, and is recorded with **the application as its agent**
+(its service principal's `oid`). These are different agents in the history.
+An application that routes its own writes through a user's token attributes
+them to that user. **Which one a write is, is the caller's choice, write by
+write**, and Varve records what the token says.
+
+In the commits list, one application making both kinds of write:
+
+```
+commit 41 Data 2026-10-13T09:12:04.1234567Z
+agent <https://login.microsoftonline.com/{tenant}/v2.0#4e2d…alice-oid>
+cause "0HN7Q4:00000003"
++ <https://shop.example/orders/1001> <https://shop.example/ns#placedBy> <https://shop.example/customers/7>
+
+commit 42 Data 2026-10-13T09:30:00.0000000Z
+agent <https://login.microsoftonline.com/{tenant}/v2.0#9b1f…shop-service-principal-oid>
+cause "0HN7Q4:00000009"
++ <https://shop.example/prices/2026-10/p1> <https://shop.example/ns#amount> "19.90"^^<http://www.w3.org/2001/XMLSchema#decimal>
+```
+
+Commit 41 is Alice placing an order through the shop, on her behalf.
+Commit 42 is the shop's nightly price import, on its own account. Both
+requests' spans carry the shop's `varve.azp`. Only the history says who.
+
 ## Any other issuer
 
 Keycloak, Zitadel, Google, Auth0, Okta and the rest work with the same code.

@@ -1,0 +1,7 @@
+<Project>
+  <!-- A register with one package scoped to samples/ (ADR 0133). -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Identity.Web" Version="4.16.0" Adr="0133" Scope="samples/" />
+    <PackageVersion Include="xunit.v3" Version="4.0.1" Adr="0009" />
+  </ItemGroup>
+</Project>

@@ -77,6 +77,12 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("register", "every package names the ADR that admits it",
         () => Run("dotnet", Args("run", "eng/dependency-register.cs", baseRef is null ? null : "--", baseRef is null ? null : "--base", baseRef))),
 
+    // The scope check's failure path (tests/fixtures/dependency-register/README.md).
+    ("register-fixture", "the register fails a samples-only package referenced from src/ and passes it in a sample",
+        () => Run("dotnet", ["run", "eng/dependency-register.cs", "--", "tests/fixtures/dependency-register/failing/Directory.Packages.props"]) == 1
+            ? Run("dotnet", ["run", "eng/dependency-register.cs", "--", "tests/fixtures/dependency-register/passing/Directory.Packages.props"])
+            : 1),
+
     ("licence-headers", "every .cs file carries the MPL-2.0 notice",
         () => Run("dotnet", ["run", "eng/licence-headers.cs"])),
 
