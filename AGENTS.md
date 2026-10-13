@@ -151,7 +151,7 @@ tool's co-author trailer naming the product is not one (ADR 0033, amended
 
 ## `Varve.Store` behaviour
 
-**`docs/spec/log-and-projection-model.md` is the authority** (version 1.6) and
+**`docs/spec/log-and-projection-model.md` is the authority** (version 1.7) and
 beats the brief where they differ. ADRs 0010–0023 record what it presupposes and
 **none is `Proposed`**. The cipher is [0028](docs/adr/0028-deterministic-aead-from-hmac.md),
 superseding 0020, conditional on external review. Vocabulary that must not drift:

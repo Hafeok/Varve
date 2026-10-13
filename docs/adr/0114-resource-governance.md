@@ -7,6 +7,9 @@
 [0095](0095-a-read-over-http-is-pinned-bounded-and-cut-visibly.md) (the 7a
 limits) and ADR 0052's "the server enforces".
 
+**Amended 2026-10-13** (ADR 0068), by milestone Commit path of #91 under ADR
+[0124](0124-group-commit.md): point 1's sentence on writes; see the end.
+
 ## Context
 
 7a bounded a read by time, pin lifetime and result size, and a request body
@@ -113,3 +116,17 @@ timeout or a disconnect.
 - **Analyzer rule.** None. The counting is not on a `[HotPath]` member: it
   is charged when a table grows, per row materialised.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-13 — a write waits in the sequencer's queue
+
+Filed by milestone Commit path of #91, unaccepted until the maintainer
+accepts it (ADR 0066). Point 1 says a write "is bounded by the sequencer
+already (one at a time per dataset) and is not queued here". Under group
+commit (ADR 0124) the sequencer still decides one request at a time, and
+writes the requests that queued while a write was in flight as one batch,
+bounded by `Varve:Store:GroupCommit:MaxRecords` and `:MaxBytes`. A write is
+still not queued by this limiter; its queue is the sequencer's, whose depth
+is the `varve.store.sequencer.queue_depth` gauge (ADR 0112).
+
+**The ledger.** The ruling of this block is `WritesQueueInTheSequencer`,
+unaccepted until the maintainer accepts it.

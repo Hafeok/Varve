@@ -1,8 +1,10 @@
 # Log and projection model
 
-Functional specification, version 1.6.
+Functional specification, version 1.7.
 
 Status: Accepted. This document is the authority for the behaviour of `Varve.Store`. It changes only together with the ADR that motivates the change, and each change is listed at the top with its date. Section 12 maps the decisions to ADRs.
+
+Changes in version 1.7 (2026-10-13), with ADRs 0124 and 0125, proposed by milestone Commit path and unaccepted until the maintainer accepts them: **group commit** — the sequencer still decides one request at a time (steps 1 to 6), against the state including every earlier request it has decided and not yet written, and writes the requests that queued while a write was in flight as one batch with one flush; no request is acknowledged before its batch is durable (section 5, T1). **An expected position may carry a scope of graphs**: a request conflicts when a commit after its position touched a graph in its scope, every graph when none is given, a `Settings` or `Erasure` commit touching every graph (T1 step 1). The default projection maintains the **graph-version index** (section 7). Section 10 gains the properties; section 12 lists ADRs 0124 and 0125.
 
 Changes in version 1.6 (2026-10-07), with ADR 0098, proposed by milestone 7a and unaccepted until the maintainer accepts it: **Q1 is closed.** A store blank node crosses a protocol boundary as a blank node whose label is derived from its identity, stable for the dataset's lifetime; a label in a request is always fresh; no skolem IRIs (sections 1 and 11). Section 12 lists ADR 0098, and ADR 0042's amendment, which lets a delivered commit name its handles from the append-only dictionary (section 8).
 
@@ -82,13 +84,15 @@ Input: an ordered list of assert and retract operations over terms, metadata, an
 
 There is one sequencer per dataset. It processes requests one at a time. It accepts a request only when the default quad projection is at the readable head, because step 3 reads `G_head`; otherwise it fails with `Unavailable`.
 
-1. If an expected position is given and differs from the readable head: reject with `Conflict(head)`. No state change.
+**Group commit** (version 1.7, ADR 0124). Requests that arrive while a write is in flight queue. The sequencer takes them in arrival order and runs steps 1 to 6 for each in turn, where *head* means the state including every earlier request it has accepted and not yet written: each request sees exactly what it would have seen had every earlier one been written alone. Step 7 is then taken once for the batch: every accepted request's records are appended in position order, each commit with its own records, closing flag, position and header-chain link, and one flush makes them durable. No request is answered `Committed` before that flush returns; a failed write answers none of them. A request withdrawn by its caller before the sequencer takes it is never written. The batch boundary is not observable in the log, the feed or any result.
+
+1. If an expected position `p` is given, with a scope `S` of graphs (every graph when none is given), and some commit in `(p, head]` touched a graph in `S`: reject with `Conflict(head)`. No state change. A `Data` commit touches the graph of every quad in its delta; a `Settings` or `Erasure` commit touches every graph. So with no scope, any commit after `p` conflicts, and a `p` above the head always does (version 1.7, ADR 0125).
 2. Resolve terms to ids. Unknown terms get provisional fresh ids. Blank node labels in the request are scoped to the request: each distinct label maps to one fresh id. An existing blank node is addressed by its store identity (Q1). In erasure mode the classifier assigns term occurrences to `KeyId`s; those occurrences get private ids and encrypted entries.
 3. Apply the operations in order to an overlay on `G_head` and take the net result as `δ`. Asserting a present quad, retracting an absent quad, and assert-then-retract of the same absent quad all contribute nothing. This matches SPARQL 1.1 Update 3.1.1 and 3.1.2, where both are without effect. For private terms, "present" is decided by value under the same key, not by id.
 4. If `δ` is empty: return `NoChange(head)`. No commit, provisional ids discarded.
 5. Run validators against `Overlay(G_head, δ)` and `δ` (R4). A validator may reject, or accept with an attachment.
 6. On reject: return `Rejected(report)`. No commit, provisional ids discarded.
-7. On accept: append the records, make them durable, close the commit. The readable head advances to `head + 1`. Return `Committed(head + 1)`.
+7. On accept: append the records, make them durable, close the commit. The readable head advances to `head + 1`. Return `Committed(head + 1)`. Under group commit this step is taken for a batch of accepted requests at once, as stated above.
 
 A rejected or empty request leaves no trace in the log or the dictionary.
 
@@ -142,6 +146,8 @@ A projection `π` is a state machine `(state, pos)` with `apply(commit)`.
 
 The default quad projection is updated synchronously in T1 step 7. Synchronous means before the commit call returns, not atomically with the append. Once the records are durable and closed the commit stands, whatever happens to the projection; a derived artefact cannot veto a durable fact. If the update fails, the projection catches up by replay. `Pin()` directly after `Committed(P)` observes `P`. If the default projection cannot reach the head, the dataset enters a failed state in which `Pin()` and T1 fail explicitly until the projection is rebuilt; nothing waits indefinitely. All other projections are asynchronous and may lag: `pos(π) ≤ readable head`.
 
+The default projection includes the **graph-version index** (version 1.7, ADR 0125): for each graph, the position of the last commit that touched it, in the sense of T1 step 1. It is maintained, persisted and rebuilt under the same contract as the rest of the projection, and I8 holds for it.
+
 ## 8. Subscriptions
 
 `Subscribe(from: P, filter)` delivers closed commits with position `> P`, in order, at-least-once. The consumer owns its position. A delivered commit can name every handle it carries, because the dictionary is append-only (§3): an entry, once allocated, is in `D` at every later position with the same term (ADR 0042, amended 2026-10-07). A filter (graph or quad pattern) restricts each delivered delta; commits whose filtered delta is empty are skipped, and the next delivered commit carries its true position, so resumption is unaffected. `Settings` and `Erasure` commits are always delivered, regardless of filter.
@@ -177,6 +183,8 @@ Erasure mode is a per-dataset setting, off by default. When off, no private ids 
 | I7 | Checkpoint at `P` plus log tail to `Q` equals full replay to `Q`. |
 | I8 | Rebuilt projection equals incrementally maintained projection at every position. |
 | R1 | A pinned source returns identical results before and after arbitrary later commits. |
+| Group commit | For generated request streams submitted concurrently, the batched history equals the unbatched one commit for commit — positions, deltas, header chain and the bytes of `log/` — under an injected clock, including with a default projection failure injected at a random request; a crash at any byte of a batch's write recovers to the last closed commit; no request is acknowledged before its batch is durable. |
+| Scope | Over generated concurrent histories on disjoint and overlapping graph sets, a request conflicts exactly when an intervening commit touched its scope, and a request that commits has the delta it had at its expected position. |
 | R2, R4 | As-of via overlay equals as-of via full replay. |
 | R3 | `Overlay(G_{P₁}, Diff(P₁, P₂)) = G_{P₂}`; delta composition is associative over chains of exact deltas, and the counterexample in section 6 is not associative. |
 | Records | A crash at any byte offset of any write, with the writes since the last flush barrier persisted in any order or torn, recovers to the last closed commit; so does a copy of the directory taken while it was being written. |
@@ -233,5 +241,7 @@ All Accepted. Three carry a stated condition under which they are to be supersed
 | Bulk load by sort and merge-join (Q2) | 0076 | |
 | Bulk load validators scan the delta on disk (Q3) | 0077 | |
 | Blank nodes at the protocol boundary: stable labels out, fresh in, no skolem IRIs (Q1); version 1.6 | 0098 | Proposed until the maintainer accepts it on the 7a pull request. |
+| Group commit; version 1.7 | 0124 | Proposed until the maintainer accepts it on the Commit path pull request. |
+| Per-graph optimistic concurrency and the graph-version index; version 1.7 | 0125 | Proposed until the maintainer accepts it on the Commit path pull request. |
 
 Milestone placement: the first durable format (milestone 6) reserves the private id class, the private entry layout and the refusal of a key store path inside the dataset directory. Erasure mode itself is milestone 9, after the SHACL validator, because the shape-derived classifier and the classification gate depend on it.

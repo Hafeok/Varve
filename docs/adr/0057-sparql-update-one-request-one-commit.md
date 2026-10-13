@@ -33,6 +33,11 @@ of #11 on the maintainer's decision on the 7a report: a request of
 > released on that path too. The steps below are left as written; read 3
 > and 4 in the swapped order. No code or specification changes.
 
+**Amended 2026-10-13** (ADR 0068), by milestone Commit path of #91 under ADR
+[0125](0125-per-graph-optimistic-concurrency.md): a request that evaluates a
+pattern expects its position over the graphs it read and wrote; see
+*Amendment, 2026-10-13* at the end.
+
 ## Context
 
 ADR 0005 put SPARQL Update in a layer 5 integration package that "evaluates
@@ -220,3 +225,40 @@ after the tail.
 P"; its statement is left as accepted. The ruling of this amendment is the new
 key `DataOnlyRequestExpectsNoPosition` in this ADR's set, unaccepted until the
 maintainer accepts it.
+
+## Amendment, 2026-10-13 — the scope of a request is what it read and wrote
+
+Filed by milestone Commit path of #91, unaccepted until the maintainer
+accepts it (ADR 0066). It narrows step 3 of *Execution*: the expected
+position stands, and gains a scope (ADR 0011 as amended, ADR 0125).
+
+**The decision.** A request that evaluates a pattern is submitted with
+`expectedPosition = P` and a scope: **every graph a pattern of the request
+asked for, and every graph its delta writes.** A graph is recorded when a
+pattern asks for it, whether or not the scan finds anything: `FILTER NOT
+EXISTS { GRAPH <h> { … } }` over an absent `h` is a read of `h`, and a
+concurrent insert into `h` must conflict with it. The graphs a `USING` or
+`WITH` clause names are recorded as named, including one the store has never
+held. **The scope is every graph** when a pattern asks for any graph (`GRAPH
+?g` over the named graphs, or a match over every graph), unless `USING
+NAMED` has declared the named graphs, in which case it is that set. A caller
+may state the scope instead (`UpdateOptions.ExpectedGraphs`, HTTP's
+`Varve-If-Graphs-Match`, ADR 0126), and then nothing is inferred.
+
+**Why it is safe.** The request's composed delta is computed from what its
+patterns read and what its operations name; if no commit after `P` touched
+any of those graphs, every read returns at the head what it returned at `P`,
+and the sequencer's normalisation of the delta reads only quads in the
+graphs it writes. The delta at the head is the delta at `P`. A data-only
+request stays as the 2026-10-08 amendment left it: no expected position.
+
+**The property**, tested in `Varve.Sparql.Store.Tests`: over generated
+concurrent histories of pattern requests on disjoint and overlapping graph
+sets, including reads of absent graphs, a request conflicts exactly when an
+intervening commit touched its scope, and every request that commits has the
+delta it would have had evaluated at the head.
+
+**The ledger.** `UpdateIsAtMostOneCommit` and
+`DataOnlyRequestExpectsNoPosition` stand. The ruling of this block is
+`ScopeIsWhatTheRequestAskedFor`, unaccepted until the maintainer accepts
+it.

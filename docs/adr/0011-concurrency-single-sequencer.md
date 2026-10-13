@@ -11,6 +11,10 @@ the optional expected position and I1/I5 stand.
 Records [`docs/spec/log-and-projection-model.md`](../spec/log-and-projection-model.md)
 §5 T1, and I1 and I5.
 
+**Amended 2026-10-13** (ADR 0068), by milestone Commit path of #91 under ADR
+[0125](0125-per-graph-optimistic-concurrency.md): the expected position may
+carry a scope of graphs; see the end.
+
 ## Context
 
 `docs/brief.md` lists "Single writer per dataset versus optimistic concurrency
@@ -120,3 +124,27 @@ to 7 happens in one place, and a defect there is a defect in every write.
   off-the-shelf mechanism where it suffices, and here it does. Due when the
   project exists, at milestone 4.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-13 — the expected position has a scope
+
+Filed by milestone Commit path of #91, unaccepted until the maintainer
+accepts it (ADR 0066). It generalises *An expected position is optional*;
+everything else above stands, and the sequencer still takes requests one at
+a time for T1 steps 1 to 6 (ADR 0124 batches only the write).
+
+**The decision.** An expected position `p` may come with a scope `S`, a set
+of graphs. The check becomes: *if some commit in `(p, head]` touched a graph
+in `S`, reject with `Conflict(head)`.* A request with no scope has `S` =
+every graph, and since every commit touches some graph (a `Data` commit its
+delta's graphs, a `Settings` or `Erasure` commit every graph), that is
+exactly the check above: any commit after `p` conflicts.
+
+**The property it buys.** If no commit in `(p, head]` touched `S`, and the
+request read and wrote only graphs in `S`, its effective delta at `head`
+equals its effective delta at `p`: serialisability per scope. The index the
+check consults, and why a graph is the unit, are ADR 0125's.
+
+**The ledger.** `OptionalExpectedPosition` stands as accepted, and is the
+case `S` = every graph. The ruling of this block is
+`ExpectedPositionHasAGraphScope`, unaccepted until the maintainer accepts
+it.

@@ -43,6 +43,8 @@ decisions:
     statement: "A test enumerates every problem the server can emit and asserts it is in the catalogue with exactly its declared members and its page; a property asserts two as-of reads at one closed position return byte-identical bodies and validators"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-10T00:00:00Z
+  - key: ConflictListsTheGraphsInScope
+    statement: "409 carries graphs and graphsTruncated, 412 carries graphs, and 412's title says the precondition does not name the current version"
 ---
 
 The rulings of [ADR 0119](../adr/0119-headers-and-the-problem-catalogue.md), filed unaccepted by milestone Operability of #12
