@@ -42,6 +42,23 @@ internal sealed class ServerSettings
 
     /// <summary>What the request span records (ADR 0112); the exporter is configured by <c>OTEL_*</c>.</summary>
     public TelemetrySettings Telemetry { get; set; } = new();
+
+    /// <summary>Cross-origin requests from a browser (ADR 0132); none allowed by default.</summary>
+    public CorsSettings Cors { get; set; } = new();
+}
+
+/// <summary>
+/// CORS (ADR 0132): the origins a browser application may call from, and how
+/// long a preflight may be cached. Credentials mode is never allowed: a
+/// bearer token travels in <c>Authorization</c>.
+/// </summary>
+internal sealed class CorsSettings
+{
+    /// <summary>Origins, scheme, host and optional port, or <c>*</c> for any; empty adds no CORS at all.</summary>
+    public List<string> AllowedOrigins { get; set; } = [];
+
+    /// <summary>The preflight's <c>Access-Control-Max-Age</c>.</summary>
+    public TimeSpan MaxAge { get; set; } = TimeSpan.FromMinutes(10);
 }
 
 /// <summary>Telemetry (ADR 0112): what the request span records beyond its defaults. The exporter itself is the standard <c>OTEL_*</c> environment's.</summary>

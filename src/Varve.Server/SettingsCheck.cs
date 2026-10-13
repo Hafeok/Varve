@@ -42,6 +42,7 @@ internal static class SettingsCheck
         "Health:ReadyLag", "Health:RateLimit", "Health:StopDelay",
         "Lease:WaitFor",
         "Telemetry:QueryText",
+        "Cors:AllowedOrigins:*", "Cors:MaxAge",
     ];
 
     /// <summary>The leaf keys under <paramref name="section"/> that match no known pattern, as <c>Varve:…</c> paths.</summary>
@@ -297,7 +298,47 @@ internal static class SettingsCheck
             errors.Add("Varve:ForwardedHeaders is enabled with no known proxy; forwarded headers are honoured only from configured proxies.");
         }
 
+        foreach (string origin in settings.Cors.AllowedOrigins)
+        {
+            if (!IsOrigin(origin))
+            {
+                errors.Add("Varve:Cors:AllowedOrigins holds an origin, scheme://host[:port] with no path, or *, not '" + origin + "' (ADR 0132).");
+            }
+        }
+
+        if (settings.Cors.MaxAge < TimeSpan.Zero)
+        {
+            errors.Add("Varve:Cors:MaxAge is zero or more.");
+        }
+
         return errors;
+    }
+
+    // An origin as the Fetch standard serialises one (ADR 0132): http or https,
+    // a host, an optional port, and nothing after it, not even a slash; or *.
+    private static bool IsOrigin(string origin)
+    {
+        if (origin == "*")
+        {
+            return true;
+        }
+
+        int authority = origin.StartsWith("https://", StringComparison.Ordinal) ? 8 : origin.StartsWith("http://", StringComparison.Ordinal) ? 7 : -1;
+
+        if (authority < 0 || authority == origin.Length)
+        {
+            return false;
+        }
+
+        foreach (char c in origin.AsSpan(authority))
+        {
+            if (c is '/' or '?' or '#' or '@' or '*' || char.IsWhiteSpace(c) || char.IsControl(c))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // An endpoint policy's prefixes are absolute http or https IRIs, and its

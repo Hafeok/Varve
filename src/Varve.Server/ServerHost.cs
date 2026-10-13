@@ -5,6 +5,7 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.IO;
 using System.Net;
@@ -17,6 +18,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -302,6 +304,11 @@ internal static partial class ServerHost
                 : RateLimitPartition.GetNoLimiter("unbounded"));
         });
 
+        if (settings.Cors.AllowedOrigins.Count > 0)
+        {
+            services.AddCors(cors => cors.AddDefaultPolicy(policy => Cors(policy, settings.Cors)));
+        }
+
         if (settings.ForwardedHeaders.Enabled)
         {
             services.Configure<ForwardedHeadersOptions>(forwarded =>
@@ -379,11 +386,54 @@ internal static partial class ServerHost
         });
     }
 
+    // The one policy (ADR 0132): the configured origins; the methods the API
+    // serves; the request headers it reads and the response headers a client
+    // needs, each named since CORS has no prefix wildcard; never credentials.
+    private static void Cors(CorsPolicyBuilder policy, CorsSettings settings)
+    {
+        if (settings.AllowedOrigins.Contains("*"))
+        {
+            policy.AllowAnyOrigin();
+        }
+        else
+        {
+            policy.WithOrigins([.. settings.AllowedOrigins]);
+        }
+
+        policy
+            .WithMethods("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE")
+            .WithHeaders([.. CorsRequestHeaders])
+            .WithExposedHeaders([.. CorsResponseHeaders])
+            .SetPreflightMaxAge(settings.MaxAge)
+            .DisallowCredentials();
+    }
+
+    /// <summary>The request headers a browser may send (ADR 0132).</summary>
+    internal static ImmutableArray<string> CorsRequestHeaders { get; } =
+    [
+        "Authorization", "Content-Type", "Accept", "If-Match", "If-None-Match", "Last-Event-ID", "Varve-As-Of", "traceparent", "tracestate",
+    ];
+
+    /// <summary>The response headers a browser may read beyond the safelisted ones (ADR 0132).</summary>
+    internal static ImmutableArray<string> CorsResponseHeaders { get; } =
+    [
+        "Varve-Position", "ETag", "Varve-Request-Id", "Link", "Location", "Retry-After", "WWW-Authenticate",
+    ];
+
     private static void Map(WebApplication app, ServerSettings settings, OpenDatasets datasets, TimeProvider clock, bool anonymous, Outbound outbound, Drain drain, CancellationToken stopping)
     {
         if (settings.ForwardedHeaders.Enabled)
         {
             app.UseForwardedHeaders();
+        }
+
+        // CORS first (ADR 0132): a preflight is answered before a token or a
+        // rate limit is asked for, and every response after it, a problem
+        // included, carries the headers a browser needs to show it. With no
+        // origin configured the middleware is not there at all.
+        if (settings.Cors.AllowedOrigins.Count > 0)
+        {
+            app.UseCors();
         }
 
         app.UseRateLimiter();

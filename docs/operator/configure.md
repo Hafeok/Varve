@@ -150,6 +150,33 @@ into an empty result as the evaluator decides (ADR 0055).
 | `Enabled` | `false` | honour `X-Forwarded-For`, `-Proto` and `-Host` |
 | `KnownProxies` | `[]` | the addresses the headers are honoured from; with none listed, from none |
 
+## Browsers from another origin — `Cors` (ADR 0132)
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `AllowedOrigins` | `[]` | the origins a browser application may call from, each `scheme://host[:port]` with no path, or `*` for any; **empty adds no CORS at all**: no response carries an `Access-Control-*` header |
+| `MaxAge` | `00:10:00` | how long a browser may cache a preflight (`Access-Control-Max-Age`) |
+
+```json
+{ "Varve": { "Cors": { "AllowedOrigins": [ "https://console.example.org" ] } } }
+```
+
+A browser application sends its token in `Authorization`, exactly like any
+other client, so credentials mode is never allowed:
+`Access-Control-Allow-Credentials` is never sent, whatever is configured.
+
+- **Allowed methods:** `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE`.
+- **Allowed request headers:** `Authorization`, `Content-Type`, `Accept`,
+  `If-Match`, `If-None-Match`, `Last-Event-ID`, `Varve-As-Of`,
+  `traceparent`, `tracestate`.
+- **Exposed response headers:** `Varve-Position`, `ETag`,
+  `Varve-Request-Id`, `Link`, `Location`, `Retry-After`,
+  `WWW-Authenticate`.
+
+A preflight is answered before authentication and before the read limit, so
+it needs no token. A refusal (`401`, `429`, any problem) carries the CORS
+headers too, so the application can read the problem.
+
 ## Telemetry — `Telemetry` (ADR 0112)
 
 | Key | Default | Meaning |
