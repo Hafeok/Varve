@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Generic;
 using Varve.Rdf;
 using Varve.Sparql.Evaluation;
 using Varve.Store.Log;
@@ -32,6 +33,18 @@ public sealed class UpdateOptions
     /// does not apply. HTTP's <c>If-Match</c> (ADR 0094).
     /// </summary>
     public Position? ExpectedPosition { get; init; }
+
+    /// <summary>
+    /// The graphs the client read, each with the version it read it at (ADR
+    /// 0126, <c>Varve-If-Graphs-Match</c>), or <see langword="null"/>. When
+    /// given, a graph whose version at the pin is another is a
+    /// <see cref="CommitOutcome.Conflict"/> without evaluation; otherwise the
+    /// request commits expecting the pinned position with these graphs as its
+    /// scope, in place of the scope inferred from what it read (ADR 0057,
+    /// amended 2026-10-13), and <see cref="ConflictRetries"/> does not apply.
+    /// Not combined with <see cref="ExpectedPosition"/>.
+    /// </summary>
+    public IReadOnlyList<ExpectedGraphVersion>? ExpectedGraphs { get; init; }
 
     /// <summary>The commit's agent, cause and graph scope, passed to the store as given.</summary>
     public CommitMetadata Metadata { get; init; } = new();

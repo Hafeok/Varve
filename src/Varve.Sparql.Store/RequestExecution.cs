@@ -31,6 +31,7 @@ namespace Varve.Sparql.Store;
 internal sealed class RequestExecution
 {
     private readonly StagingView _staging;
+    private readonly ReadRecorder _recorder;
     private readonly IQuadSource _readable;
     private readonly Update _update;
     private readonly UpdateOptions _options;
@@ -52,12 +53,16 @@ internal sealed class RequestExecution
     internal RequestExecution(StagingView staging, Update update, UpdateOptions options, CancellationToken cancellationToken)
     {
         _staging = staging;
-        _readable = GraphScopedQuadSource.Wrap(staging, options.ReadScope);
+
+        // Below every other view: every graph any of them resolves is asked
+        // for here, and recorded (ADR 0057, amended 2026-10-13).
+        _recorder = new ReadRecorder(staging);
+        _readable = GraphScopedQuadSource.Wrap(_recorder, options.ReadScope);
         _update = update;
         _options = options;
         _cancellationToken = cancellationToken;
         _evaluator = new SparqlEvaluator(options.Evaluation);
-        _dataOnly = options.ExpectedPosition is null && IsDataOnly(update);
+        _dataOnly = options.ExpectedPosition is null && options.ExpectedGraphs is null && IsDataOnly(update);
     }
 
     /// <summary>Whether every operation of <paramref name="update"/> is <c>INSERT DATA</c> or <c>DELETE DATA</c>.</summary>
@@ -246,7 +251,12 @@ internal sealed class RequestExecution
     internal CommitRequest ToCommitRequest()
     {
         CheckWritable();
-        CommitRequest request = new() { ExpectedPosition = _dataOnly ? null : _staging.Position, Metadata = _options.Metadata };
+        CommitRequest request = new()
+        {
+            ExpectedPosition = _dataOnly ? null : _staging.Position,
+            ExpectedGraphs = _dataOnly || _options.ExpectedPosition is not null ? null : Scope(),
+            Metadata = _options.Metadata,
+        };
 
         try
         {
@@ -266,6 +276,41 @@ internal sealed class RequestExecution
         }
 
         return request;
+    }
+
+    /// <summary>
+    /// The expected position's scope (ADR 0125): the graphs the client stated
+    /// with their versions, or every graph the request's patterns asked for
+    /// and its delta writes; null for every graph. An expected position the
+    /// caller gave (<c>If-Match</c>) keeps the whole dataset as its scope.
+    /// </summary>
+    private List<RequestTerm>? Scope()
+    {
+        if (_options.ExpectedGraphs is { } stated)
+        {
+            List<RequestTerm> listed = [];
+
+            foreach (ExpectedGraphVersion graph in stated)
+            {
+                listed.Add(graph.Term);
+            }
+
+            return listed;
+        }
+
+        HashSet<TermHandle> written = [];
+
+        foreach (Quad quad in _asserted)
+        {
+            written.Add(quad.Graph);
+        }
+
+        foreach (Quad quad in _retracted)
+        {
+            written.Add(quad.Graph);
+        }
+
+        return _recorder.Scope(written);
     }
 
     /// <summary>
@@ -500,6 +545,11 @@ internal sealed class RequestExecution
         Collect(insertTemplate, variables, seen);
 
         SelectQuery query = new(_update.Prologue, usingDataset, new Project(where, AlgebraList.From(variables)));
+
+        // What the WHERE asks for, from the pattern (USING wins over WITH);
+        // GRAPH ?g under USING NAMED reads the declared graphs, not every one.
+        _recorder.Asked(where, usingDataset is null ? with : null, usingDataset);
+        _recorder.DeclaredNamed = usingDataset is { NamedGraphs.Count: > 0 } declared ? [.. declared.NamedGraphs] : null;
         using QueryResults results = _evaluator.Evaluate(query, source, _cancellationToken);
         SolutionResults solutions = (SolutionResults)results;
 
@@ -541,6 +591,8 @@ internal sealed class RequestExecution
                 }
             }
         }
+
+        _recorder.DeclaredNamed = null;
     }
 
     private static void Collect(AlgebraList<QuadPattern> template, List<Variable> variables, HashSet<string> seen)

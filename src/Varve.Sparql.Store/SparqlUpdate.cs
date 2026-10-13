@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Varve.Sparql.Algebra;
@@ -54,7 +55,12 @@ public static class SparqlUpdate
         // The fast path (ADR 0120): nothing to evaluate, so nothing is pinned
         // or staged; the ground quads go to the sequencer as request terms,
         // and there is no position to conflict with.
-        if (options.ExpectedPosition is null && RequestExecution.IsDataOnly(update))
+        if (options.ExpectedPosition is not null && options.ExpectedGraphs is not null)
+        {
+            throw new ArgumentException("An update expects a position or graph versions, not both (ADR 0126).", nameof(options));
+        }
+
+        if (options.ExpectedPosition is null && options.ExpectedGraphs is null && RequestExecution.IsDataOnly(update))
         {
             return await dataset.CommitAsync(RequestExecution.DataOnly(update, options), cancellationToken).ConfigureAwait(false);
         }
@@ -65,7 +71,8 @@ public static class SparqlUpdate
 
             using (DatasetView view = dataset.Pin())
             {
-                if (options.ExpectedPosition is Position expected && view.Position != expected)
+                if ((options.ExpectedPosition is Position expected && view.Position != expected)
+                    || (options.ExpectedGraphs is { } graphs && !await AtVersionsAsync(dataset, graphs, view.Position, cancellationToken).ConfigureAwait(false)))
                 {
                     // Not evaluated. The store answers a request expecting a
                     // position no log reaches with Conflict and its head (T1
@@ -81,10 +88,24 @@ public static class SparqlUpdate
 
             CommitResult result = await dataset.CommitAsync(request, cancellationToken).ConfigureAwait(false);
 
-            if (result.Outcome != CommitOutcome.Conflict || attempt >= options.ConflictRetries || options.ExpectedPosition is not null)
+            if (result.Outcome != CommitOutcome.Conflict || attempt >= options.ConflictRetries || options.ExpectedPosition is not null || options.ExpectedGraphs is not null)
             {
                 return result;
             }
         }
+    }
+
+    // Whether every graph is at the version the client read it at, at the pin.
+    private static async ValueTask<bool> AtVersionsAsync(Dataset dataset, IReadOnlyList<ExpectedGraphVersion> graphs, Position at, CancellationToken cancellationToken)
+    {
+        foreach (ExpectedGraphVersion graph in graphs)
+        {
+            if (await dataset.GraphVersionAsync(graph.Term, at, cancellationToken).ConfigureAwait(false) != graph.Version)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
