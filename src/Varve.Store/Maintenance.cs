@@ -36,6 +36,29 @@ public sealed class CheckpointPolicy
     public int Keep { get; init; }
 }
 
+/// <summary>
+/// How the sequencer groups commits into one write (ADR 0124). The requests
+/// that queue while a write is in flight are staged in arrival order and
+/// written together with one flush; a batch stops taking requests once it
+/// holds <see cref="MaxRecords"/> records or <see cref="MaxBytes"/> bytes, so
+/// it exceeds either by at most one commit. A request that finds the
+/// sequencer idle is written at once: there is no timer.
+/// </summary>
+public sealed class GroupCommitOptions
+{
+    /// <summary>1,024 records and 4 MiB.</summary>
+    public static GroupCommitOptions Default { get; } = new();
+
+    /// <summary>Every request written alone: the sequencer without group commit.</summary>
+    public static GroupCommitOptions Off { get; } = new() { MaxRecords = 1, MaxBytes = new ByteCount(1) };
+
+    /// <summary>The records past which a batch takes no more requests.</summary>
+    public int MaxRecords { get; init; } = 1024;
+
+    /// <summary>The bytes of records past which a batch takes no more requests.</summary>
+    public ByteCount MaxBytes { get; init; } = new(4L << 20);
+}
+
 /// <summary>Who runs a dataset's maintenance on <c>derived/</c> (ADR 0070, ADR 0042's amendment).</summary>
 public enum MaintenanceMode
 {

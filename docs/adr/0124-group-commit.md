@@ -8,7 +8,10 @@ by the maintainer on the Commit path plan, with the conditions on timestamps,
 projection failure and cancellation written into the decision below.
 
 Records [`docs/spec/log-and-projection-model.md`](../spec/log-and-projection-model.md)
-version 1.7, §5 T1.
+version 1.7, §5 T1 and I6's write window.
+
+**Amends** ADR [0072](0072-format-version-1.md) by a dated block
+of its own (ADR 0068): the torn tail's rule gains the write window.
 
 ## Context
 
@@ -84,21 +87,38 @@ feed may depend on how commits were grouped for writing.
    it is not withdrawn: the caller may stop waiting, and the commit is
    written with the rest of the batch. The batch's write is not cancellable
    by any one member's token.
-7. **Bounds.** A batch holds at most `GroupCommit.MaxRecords` records
-   (default 1,024) and `GroupCommit.MaxBytes` bytes of records (default
-   4 MiB); a single commit larger than either is a batch of its own. There
+7. **Bounds.** A batch stops taking requests once it holds
+   `GroupCommit.MaxRecords` records (default 1,024), so it exceeds that by at
+   most one commit. Its bytes of records never exceed `GroupCommit.MaxBytes`
+   (default 4 MiB, at most the write window of point 8) once it holds two
+   commits: a member that would take it past is deferred, unstaged, to lead
+   the next batch. A single commit larger than either is a batch of its own. There
    is no timer and no wait for company: a request that finds the sequencer
    idle is a batch of one and is written at once, so an idle dataset's commit
    latency is what it was. `GroupCommitOptions.Off` writes every commit
    alone, which is the unbatched sequencer exactly; it is the reference the
    equivalence property runs against.
-8. **What a caller can observe is latency, and nothing else.** The batch
+8. **The write window, and I6.** A power loss inside a batch's flush window
+   can keep a later member's records and tear an earlier member's, which
+   specification 1.5 read as damage (a byte covered by a later closed
+   commit) and refused. Decided by the maintainer on this milestone's pull
+   request, as a dated change to I6 in specification 1.7: format version 1
+   fixes a **write window of 4 MiB**; the writer never lets a batch of two or
+   more commits have more bytes of records than its `MaxBytes`, which may not
+   exceed the window, and defers a member that would, before it reads the
+   clock; the reader treats a break as torn when every record of a later
+   position after it starts within the window, and refuses as before when
+   one starts further on. A segment sealed *abandoned* by a recovery is read
+   up to the head its trailer names and no further. The cost is stated in the
+   specification: damage within the last window of the active segment opens
+   at the position before it rather than refusing.
+9. **What a caller can observe is latency, and nothing else.** The batch
    boundary is part of no contract: not of the commit result, the feed, a
    subscription, the commit index, the header chain or the files under
    `log/`. Derived data may differ in bytes, because maintenance is
    considered once per batch rather than once per commit, which §2 already
    allows (`derived/` is reproducible in content, not in bytes).
-9. **Telemetry** stays per commit (ADR 0112): `varve.store.commit.duration`
+10. **Telemetry** stays per commit (ADR 0112): `varve.store.commit.duration`
    and the queue depth are recorded per request. One instrument is added,
    `varve.store.commit.batch_size`, a histogram recorded once per write.
 
@@ -142,6 +162,11 @@ feed may depend on how commits were grouped for writing.
   after a leader took the queue waits for that batch's flush, then is
   written in the next. Its latency is at most two writes, against at most
   the length of the queue ahead of it unbatched.
+- **I6 is weaker in one place**: the last write window of the active
+  segment, where damage now reads as a torn batch (point 8). Sealed
+  segments, and everything a window or more before a later commit, refuse
+  as before. The I6 property tests run both readings: the strict one over
+  logs written one commit at a time, and the windowed one.
 - **Replication's tier-1 writer handover and object storage rely on point 3**:
   nothing acknowledged is ever not durable.
 

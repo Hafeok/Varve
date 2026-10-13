@@ -14,6 +14,10 @@ The bytes are tabulated in
 [`docs/spec/storage-format.md`](../spec/storage-format.md), version 1. That file
 is the layout; this ADR is the reasoning.
 
+**Amended 2026-10-13** (ADR 0068), by milestone Commit path of #91 under ADR
+[0124](0124-group-commit.md): the torn tail's rule gains the write window;
+see the end.
+
 ## Context
 
 ADR 0045 wrote bytes so that milestone 4's properties tested something, and
@@ -220,3 +224,28 @@ requests with the same id must write the same bytes (§10).
   `FormatVersion` in `Varve.Store.Log`, and `UnsupportedFormatException`.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-13 — the write window
+
+Filed by milestone Commit path of #91, decided by the maintainer on its pull
+request, unaccepted until the maintainer accepts it (ADR 0066). No byte of
+format version 1 changes; how its bytes are read after a crash does.
+
+Group commit (ADR 0124) writes the records of several commits and flushes
+once, so a power loss can keep a later member's records and tear an earlier
+one's. The rule above ("bytes that do not verify are a torn tail only when no
+record of a later position … verifies after them") read that as damage and
+refused to open a log that a crash, not damage, produced.
+
+**The decision.** Format version 1 has a **write window of 4 MiB**
+(`LogFormat.WriteWindowBytes`). A writer never puts more than that many bytes
+of records of two or more commits into one flush. A reader treats a break as
+a torn tail when every record of a later position after it starts within the
+window of the break's record, and refuses, as before, when one starts further
+on. A segment sealed *abandoned* is read up to the head its trailer names and
+no further: what follows was discarded by the recovery that sealed it.
+
+**The ledger.** `TornTailSealedAndSkipped` stands for everything outside the
+window; the ruling of this block is `TornBatchWithinTheWriteWindow`,
+unaccepted until the maintainer accepts it.
+

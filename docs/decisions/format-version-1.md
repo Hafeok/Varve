@@ -71,6 +71,8 @@ decisions:
     statement: "The default projection's persisted state is one derived blob naming its runs and its position, replaced atomically"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-05T07:32:09Z
+  - key: TornBatchWithinTheWriteWindow
+    statement: "Format version 1 has a write window of 4 MiB that no writer exceeds with two or more commits in one flush; a break followed by later records only within it is a torn tail, an abandoned segment is read up to its trailer's head, and a later record further on is damage"
 ---
 
 The rulings of [ADR 0072](../adr/0072-format-version-1.md), filed unaccepted by session 6a of #10

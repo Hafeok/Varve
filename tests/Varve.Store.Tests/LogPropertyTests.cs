@@ -154,6 +154,10 @@ public class LogPropertyTests
             {
                 await using Harness harness = await Harness.StartAsync();
                 await harness.RunAsync(script);
+
+                // Written one commit at a time, read strictly: only the newest
+                // commit may be torn (I6 as of specification 1.5).
+                harness.Options.TornWindow = 0;
                 byte[] log = (await SegmentsAsync(harness.Storage)).SingleOrDefault() ?? [];
 
                 List<(int Start, int End)> ranges = [.. HeaderRanges(log)];
@@ -200,6 +204,10 @@ public class LogPropertyTests
             {
                 await using Harness harness = await Harness.StartAsync();
                 await harness.RunAsync(script);
+
+                // Written one commit at a time, read strictly: only the newest
+                // commit may be torn (I6 as of specification 1.5).
+                harness.Options.TornWindow = 0;
                 byte[] log = (await SegmentsAsync(harness.Storage)).SingleOrDefault() ?? [];
 
                 for (int at = 0; at < log.Length; at++)
@@ -245,6 +253,10 @@ public class LogPropertyTests
             {
                 await using Harness harness = await Harness.StartAsync(64, 1024L);
                 await harness.RunAsync(script);
+
+                // Written one commit at a time, read strictly: only the newest
+                // commit may be torn (I6 as of specification 1.5).
+                harness.Options.TornWindow = 0;
                 List<byte[]> segments = await SegmentsAsync(harness.Storage);
 
                 if (segments.Count == 0)
@@ -292,6 +304,10 @@ public class LogPropertyTests
             {
                 await using Harness harness = await Harness.StartAsync(64, 1024L);
                 await harness.RunAsync(script);
+
+                // Written one commit at a time, read strictly: only the newest
+                // commit may be torn (I6 as of specification 1.5).
+                harness.Options.TornWindow = 0;
                 List<byte[]> segments = await SegmentsAsync(harness.Storage);
 
                 if (segments.Count == 0 || harness.Model.Head == 0)
@@ -318,6 +334,96 @@ public class LogPropertyTests
             },
             iter: Iterations,
             print: script => script.ToString());
+    }
+
+    /// <summary>
+    /// I6 with the write window (specification 1.7, ADR 0124): a byte changed
+    /// in a record of position <c>k</c> refuses when a record of a later
+    /// position starts a window or more after that record — it was written
+    /// after a flush — and otherwise refuses or opens at a position before
+    /// <c>k</c> with exactly the state there, never at the same head. Run with
+    /// a window of 600 bytes over 4 KiB segments of 64-byte records, so that
+    /// every log has bytes on both sides of it.
+    /// </summary>
+    [Fact]
+    public async Task a_change_within_the_write_window_may_read_as_torn_and_beyond_it_refuses()
+    {
+        const int window = 600;
+        int strict = 0, lenient = 0;
+
+        await Generators.CommitsOnly.SampleAsync(
+            async script =>
+            {
+                await using Harness harness = await Harness.StartAsync(64, 4096L);
+                await harness.RunAsync(script);
+                harness.Options.TornWindow = window;
+                List<byte[]> segments = await SegmentsAsync(harness.Storage);
+
+                if (segments.Count == 0 || harness.Model.Head == 0)
+                {
+                    return;
+                }
+
+                byte[] last = segments[^1];
+                List<(int Start, int End, long Position)> records = [.. Records(last)];
+
+                foreach ((int start, int end, long position) in records)
+                {
+                    bool refuses = records.Any(r => r.Position > position && r.Start >= start + window);
+
+                    for (int at = start; at < end; at += 7)
+                    {
+                        List<ReadOnlyMemory<byte>> changed = Changed(segments, segments.Count - 1, at);
+
+                        if (refuses)
+                        {
+                            await Assert.ThrowsAsync<LogVerificationException>(async () =>
+                            {
+                                await using Dataset opened = await T.OpenOrCreate(MemoryStorage.FromLog(T.Manifest, changed), harness.Options);
+                                throw new InvalidOperationException("A change at byte " + at + " of position " + position + " opened at " + opened.Head + ".");
+                            });
+                            strict++;
+                            continue;
+                        }
+
+                        try
+                        {
+                            await using Dataset opened = await T.OpenOrCreate(MemoryStorage.FromLog(T.Manifest, changed), harness.Options);
+                            Assert.True(opened.Head.Value < position, "a change at byte " + at + " of position " + position + " opened at " + opened.Head);
+                            using DatasetView view = opened.Pin();
+                            Harness.Same(Harness.Rendered(harness.Model.History[(int)opened.Head.Value]), harness.Rendered(view), "change at " + at);
+                            lenient++;
+                        }
+                        catch (LogVerificationException)
+                        {
+                            strict++;
+                        }
+                    }
+                }
+            },
+            iter: Iterations,
+            print: script => script.ToString());
+
+        Assert.True(strict > 0 && lenient > 0, "the window was not exercised on both sides: " + strict + " refused, " + lenient + " read as torn");
+    }
+
+    /// <summary>The records of one segment, found by walking format version 1: where each starts and ends, and its position.</summary>
+    private static IEnumerable<(int Start, int End, long Position)> Records(byte[] segment)
+    {
+        int at = LogFormat.SegmentHeaderLength;
+
+        while (at + LogFormat.RecordHeaderLength <= segment.Length)
+        {
+            int end = at + LogFormat.RecordHeaderLength + (int)BinaryPrimitives.ReadUInt32LittleEndian(segment.AsSpan(at));
+
+            if (end > segment.Length)
+            {
+                yield break;
+            }
+
+            yield return (at, end, (long)BinaryPrimitives.ReadUInt64LittleEndian(segment.AsSpan(at + 8)));
+            at = end;
+        }
     }
 
     private static List<ReadOnlyMemory<byte>> Changed(List<byte[]> segments, int segment, int at)

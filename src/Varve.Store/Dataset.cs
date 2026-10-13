@@ -5,7 +5,6 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using DecisionDriven;
@@ -80,6 +79,21 @@ public sealed class DatasetOptions
     /// 0112). The id when the host gives none.
     /// </summary>
     public string? Name { get; init; }
+
+    /// <summary>
+    /// How the sequencer groups the commits that queue while a write is in
+    /// flight into one write with one flush (ADR 0124).
+    /// <see cref="GroupCommitOptions.Default"/> unless set;
+    /// <see cref="GroupCommitOptions.Off"/> writes every request alone.
+    /// </summary>
+    public GroupCommitOptions GroupCommit { get; init; } = GroupCommitOptions.Default;
+
+    /// <summary>
+    /// Test seam: the write window the reader allows for a torn batch (ADR
+    /// 0124), <see cref="LogFormat.WriteWindowBytes"/> unless a test of I6 on
+    /// logs written one commit at a time asks for the strict reading, 0.
+    /// </summary>
+    internal long TornWindow { get; set; } = LogFormat.WriteWindowBytes;
 
     /// <summary>Test seam: throws from the default projection at the positions it returns true for.</summary>
     internal Func<long, bool>? DefaultProjectionFault { get; set; }
@@ -279,7 +293,7 @@ public sealed partial class Dataset : IAsyncDisposable
         Func<CommitIndex> current = () => owner!._state.Commits;
         CommitIndexOpener opener = await CommitIndexOpener.StartAsync(storage.Derived, id, options.CommitCache, current, cancellationToken).ConfigureAwait(false);
         LogScan scan = await LogReader.ScanAsync(
-            storage.Log, id, bodiesAfter, commit => opener.AddAsync(commit, bodiesAfter, cancellationToken), cancellationToken).ConfigureAwait(false);
+            storage.Log, id, bodiesAfter, commit => opener.AddAsync(commit, bodiesAfter, cancellationToken), options.TornWindow, cancellationToken).ConfigureAwait(false);
         long head = scan.Head;
         CommitIndex commits = await opener.FinishAsync(cancellationToken).ConfigureAwait(false);
 
@@ -330,6 +344,10 @@ public sealed partial class Dataset : IAsyncDisposable
         ArgumentOutOfRangeException.ThrowIfLessThan(options.SegmentBytes.Value, 1024L, nameof(options));
         ArgumentOutOfRangeException.ThrowIfLessThan(options.CommitCache, 1, nameof(options));
         ArgumentNullException.ThrowIfNull(options.Checkpoints);
+        ArgumentNullException.ThrowIfNull(options.GroupCommit);
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.GroupCommit.MaxRecords, 1, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.GroupCommit.MaxBytes.Value, 1L, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(options.GroupCommit.MaxBytes.Value, LogFormat.WriteWindowBytes, nameof(options));
         ArgumentOutOfRangeException.ThrowIfLessThan(options.Checkpoints.EveryCommits ?? 1, 1, nameof(options));
         ArgumentOutOfRangeException.ThrowIfLessThan(options.Checkpoints.EveryLogBytes?.Value ?? 1, 1L, nameof(options));
         ArgumentOutOfRangeException.ThrowIfNegative(options.Checkpoints.Keep, nameof(options));
@@ -794,228 +812,6 @@ public sealed partial class Dataset : IAsyncDisposable
         {
             throw new AggregateException("Background maintenance failed; derived/ is behind, and the log is unaffected.", failure);
         }
-    }
-
-    private async ValueTask<CommitResult> SequenceAsync(
-        CommitKind kind,
-        CommitRequest? request,
-        CommitMetadata metadata,
-        long? expected,
-        byte[] kindPayload,
-        CancellationToken cancellationToken)
-    {
-        long started = _options.Clock.GetTimestamp();
-        _metrics.Queued(1);
-
-        try
-        {
-            await _sequencer.WaitAsync(cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            _metrics.Queued(-1);
-        }
-
-        CommitResult result;
-
-        try
-        {
-            result = await SequenceHeldAsync(kind, request, metadata, expected, kindPayload, cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            _sequencer.Release();
-        }
-
-        _metrics.Committed(_options.Clock.GetElapsedTime(started), result.Outcome switch
-        {
-            CommitOutcome.Committed => "committed",
-            CommitOutcome.NoChange => "no_change",
-            CommitOutcome.Conflict => "conflict",
-            CommitOutcome.Rejected => "rejected",
-            _ => "unavailable",
-        });
-        _metrics.Observe(this);
-        return result;
-    }
-
-    // Inside the sequencer, which the caller holds and releases.
-    private async ValueTask<CommitResult> SequenceHeldAsync(
-        CommitKind kind,
-        CommitRequest? request,
-        CommitMetadata metadata,
-        long? expected,
-        byte[] kindPayload,
-        CancellationToken cancellationToken)
-    {
-        State state = _state;
-        long head = state.Head;
-
-        if (_disposing)
-        {
-            return CommitResult.Unavailable(head, "The dataset is closing.");
-        }
-
-        if (_broken is not null)
-        {
-            return CommitResult.Unavailable(head, _broken);
-        }
-
-        if (state.Failed is not null)
-        {
-            return CommitResult.Unavailable(head, state.Failed);
-        }
-
-        if (state.Index.Position != head)
-        {
-            return CommitResult.Unavailable(head, "The default projection is not at the readable head.");
-        }
-
-        // Step 1.
-        if (expected is long position && position != head)
-        {
-            return CommitResult.Conflict(head);
-        }
-
-        // Step 2.
-        TermView terms = state.TermsAt(_dictionary, state.Index.Runs, head);
-        Resolver resolver = new(terms);
-        ulong agent = resolver.Resolve(metadata.Agent);
-        ulong cause = resolver.Resolve(metadata.Cause);
-        ulong scope = resolver.Resolve(metadata.GraphScope);
-
-        // Step 3: the operations in order over an overlay on the head; the net result.
-        _pending.Clear();
-
-        if (request is not null)
-        {
-            foreach (CommitRequest.Operation operation in request.Operations)
-            {
-                Quad quad = new(
-                    new TermHandle(resolver.Resolve(operation.Subject)),
-                    new TermHandle(resolver.Resolve(operation.Predicate)),
-                    new TermHandle(resolver.Resolve(operation.Object)),
-                    new TermHandle(resolver.Resolve(operation.Graph)));
-                _pending[quad] = operation.IsAssert;
-            }
-        }
-
-        List<Quad> asserted = [];
-        List<Quad> retracted = [];
-
-        foreach (KeyValuePair<Quad, bool> entry in _pending)
-        {
-            Quad quad = entry.Key;
-            bool present = state.Index.Contains(in quad);
-
-            if (entry.Value && !present)
-            {
-                asserted.Add(quad);
-            }
-            else if (!entry.Value && present)
-            {
-                retracted.Add(quad);
-            }
-        }
-
-        _pending.Clear();
-
-        // Step 4.
-        if (kind == CommitKind.Data && asserted.Count == 0 && retracted.Count == 0)
-        {
-            return CommitResult.NoChange(head);
-        }
-
-        HashSet<ulong> referenced = [agent, cause, scope];
-
-        foreach (Quad quad in asserted)
-        {
-            AddIds(referenced, in quad);
-        }
-
-        foreach (Quad quad in retracted)
-        {
-            AddIds(referenced, in quad);
-        }
-
-        Func<ulong, ulong> map = resolver.Finalise(referenced);
-        QuadDelta delta = QuadDelta.Create(Remap(asserted, map), Remap(retracted, map));
-        agent = map(agent);
-        cause = map(cause);
-        scope = map(scope);
-
-        // Steps 5 and 6.
-        List<ulong> attachments = [];
-
-        if (kind == CommitKind.Data && (_options.Validators.Count > 0 || request?.Validators.Count > 0))
-        {
-            QuadOverlay proposed = new(new PendingSource(state.Index, terms, resolver.Allocations), delta);
-
-            // The dataset's validators, then the request's (ADR 0058).
-            if (!Validate(_options.Validators, proposed, delta, resolver, attachments, out ValidationVerdict rejected)
-                || (request is not null && !Validate(request.Validators, proposed, delta, resolver, attachments, out rejected)))
-            {
-                return CommitResult.Rejected(head, rejected.Report);
-            }
-        }
-
-        // Step 7.
-        long next = head + 1;
-        long now = _options.Clock.GetUtcNow().UtcTicks;
-        long last = head == 0 ? long.MinValue : state.Commits.Entry(head).TimestampTicks;
-        long timestamp = Math.Max(now, last);
-
-        Allocation[] allocations = [.. resolver.Allocations];
-        byte[] body = LogFormat.EncodeBody(allocations, delta.Asserted, delta.Retracted);
-        byte[] previous = head == 0 ? LogFormat.Genesis() : state.Commits.Entry(head).HeaderHash();
-        (long canonical, long blank) = Counters(terms, allocations);
-        CommitHeader header = new(kind, next, timestamp, agent, cause, scope, canonical, blank, 0, [.. attachments], kindPayload, previous, SHA256.HashData(body));
-        byte[] headerBytes = LogFormat.EncodeHeader(in header);
-        byte[] headerHash = SHA256.HashData(headerBytes);
-
-        CommitLocation location;
-
-        try
-        {
-            location = await _writer.AppendAsync(kind, next, previous, body, headerBytes, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception)
-        {
-            // The records may be half written. The log is still readable — an
-            // unclosed tail is ignored on open — but this writer's idea of
-            // the active segment can no longer be trusted.
-            _broken = "An append failed; reopen the dataset to recover.";
-            throw;
-        }
-
-        // The commit is durable and closed: it stands, whatever follows.
-        DatasetSettings? changed = header.Kind == CommitKind.Settings ? Fold(state.SettingsAt(head), header) : null;
-        CommitEntry closed = new(header.TimestampTicks, headerHash, location, header.CanonicalCount, header.BlankCount, state.LogBytesAt(head) + _writer.LastCommitBytes);
-        CommitIndex commits = state.Commits.Append(in closed, changed);
-
-        IndexVersion index = state.Index;
-        string? failed = null;
-
-        try
-        {
-            ThrowIfFaulted(next);
-            index = index.Apply(delta.Asserted, delta.Retracted, TermSection.Of(allocations, terms.CanonicalCount), next);
-        }
-        catch (Exception error) when (error is not OperationCanceledException)
-        {
-            // A derived artefact cannot veto a durable fact (§7). The
-            // projection is behind, and the dataset says so rather than wait.
-            failed = "The default projection failed at position " + next + " and must be rebuilt: " + error.Message;
-        }
-
-        _state = new State(next, commits, index, state.Checkpoints, failed);
-        Signal();
-
-        if (failed is null && MaintenanceDue(_state))
-        {
-            StartMaintenance();
-        }
-        return CommitResult.Committed(next);
     }
 
     // Runs validators in order; false with the first rejection.

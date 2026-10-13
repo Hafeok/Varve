@@ -159,6 +159,20 @@ into an empty result as the evaluator decides (ADR 0055).
 The exporter itself is configured by the standard `OTEL_*` environment
 variables, not under `Varve:`; see [Observe](observe.md).
 
+## Writing the log — `Store` (ADR 0124)
+
+Commits that queue while a write of the log is in flight are written
+together, each still its own commit, with one flush: **group commit**. A
+commit that finds the dataset idle is written at once; there is no timer.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Store:GroupCommit:MaxRecords` | `1024` | a batch takes no more commits once it holds this many records; `1` writes every commit alone |
+| `Store:GroupCommit:MaxBytes` | 4 MiB | the most bytes of records a batch of two or more commits may hold; at most 4 MiB, the format's write window |
+
+`varve.store.commit.batch_size` ([Observe](observe.md)) shows how many
+commits each write carried.
+
 ## The runtime (ADR 0110)
 
 The server ships its runtime configuration: the **workstation** garbage

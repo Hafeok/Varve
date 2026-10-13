@@ -28,6 +28,17 @@ internal static class LogFormat
     internal const int SegmentHeaderLength = 104;
     internal const int TrailerLength = 104;
     internal const int RecordHeaderLength = 128;
+
+    /// <summary>
+    /// The write window (ADR 0124, specification 1.7 I6): the most bytes of
+    /// records that more than one commit may have in one flush window. The
+    /// writer never lets a batch of two or more commits exceed it, so a break
+    /// followed by later commits' records within it may be a power loss that
+    /// kept a later write and tore an earlier one, and reads as torn; a later
+    /// commit's record further on was written after a flush, and the break is
+    /// damage. One commit alone may be larger: it is the newest commit's rule.
+    /// </summary>
+    internal const int WriteWindowBytes = 4 << 20;
     internal const byte ClosingFlag = 1;
 
     internal const byte TrailerClosed = 1;

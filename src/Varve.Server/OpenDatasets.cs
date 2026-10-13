@@ -33,9 +33,11 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     private readonly TimeProvider _clock;
     private readonly TimeSpan _leaseWait;
     private readonly ILogger _logger;
+    private readonly GroupCommitOptions _groupCommit;
 
-    private OpenDatasets(string? root, TimeProvider clock, TimeSpan leaseWait, ILogger logger)
+    private OpenDatasets(string? root, TimeProvider clock, TimeSpan leaseWait, GroupCommitOptions groupCommit, ILogger logger)
     {
+        _groupCommit = groupCommit;
         _root = root;
         _clock = clock;
         _leaseWait = leaseWait;
@@ -44,7 +46,12 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
     internal static async Task<OpenDatasets> OpenAsync(ServerSettings settings, TimeProvider clock, ILogger logger, CancellationToken cancellationToken)
     {
-        OpenDatasets opened = new(string.IsNullOrWhiteSpace(settings.DatasetsRoot) ? null : settings.DatasetsRoot, clock, settings.Lease.WaitFor, logger);
+        GroupCommitOptions groupCommit = new()
+        {
+            MaxRecords = settings.Store.GroupCommit.MaxRecords,
+            MaxBytes = new ByteCount(settings.Store.GroupCommit.MaxBytes),
+        };
+        OpenDatasets opened = new(string.IsNullOrWhiteSpace(settings.DatasetsRoot) ? null : settings.DatasetsRoot, clock, settings.Lease.WaitFor, groupCommit, logger);
 
         try
         {
@@ -261,7 +268,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     // reason and nothing is held.
     private async Task OpenEntryAsync(string name, Entry entry, CancellationToken cancellationToken)
     {
-        DatasetOptions options = new() { Clock = _clock, Name = name };
+        DatasetOptions options = new() { Clock = _clock, Name = name, GroupCommit = _groupCommit };
 
         try
         {

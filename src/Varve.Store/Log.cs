@@ -142,19 +142,19 @@ internal static class LogReader
     /// that opening reads the log since the newest checkpoint (ADR 0072).
     /// </summary>
     internal static ValueTask<LogScan> ScanAsync(ISegmentStore store, DatasetId dataset, long bodiesAfter, CancellationToken cancellationToken) =>
-        ScanAsync(store, dataset, bodiesAfter, ScanRetains, null, cancellationToken);
+        ScanAsync(store, dataset, bodiesAfter, ScanRetains, null, LogFormat.WriteWindowBytes, cancellationToken);
 
     /// <summary>
     /// The scan, handing each closed commit to <paramref name="onCommit"/> as
     /// it passes rather than keeping them: what opening needs of a log of any
     /// length is then bounded by what the callback keeps (ADR 0089).
     /// </summary>
-    internal static ValueTask<LogScan> ScanAsync(ISegmentStore store, DatasetId dataset, long bodiesAfter, Func<ScannedCommit, ValueTask> onCommit, CancellationToken cancellationToken) =>
-        ScanAsync(store, dataset, bodiesAfter, ScanRetains, onCommit, cancellationToken);
+    internal static ValueTask<LogScan> ScanAsync(ISegmentStore store, DatasetId dataset, long bodiesAfter, Func<ScannedCommit, ValueTask> onCommit, long window, CancellationToken cancellationToken) =>
+        ScanAsync(store, dataset, bodiesAfter, ScanRetains, onCommit, window, cancellationToken);
 
     /// <summary>The scan, holding at most <paramref name="retain"/> bytes of any one commit's body.</summary>
     internal static ValueTask<LogScan> ScanAsync(ISegmentStore store, DatasetId dataset, long bodiesAfter, long retain, CancellationToken cancellationToken) =>
-        ScanAsync(store, dataset, bodiesAfter, retain, null, cancellationToken);
+        ScanAsync(store, dataset, bodiesAfter, retain, null, LogFormat.WriteWindowBytes, cancellationToken);
 
     /// <summary>
     /// What a scan holds of a commit it reads whole, for replay: past this,
@@ -166,7 +166,7 @@ internal static class LogReader
     internal const long ScanRetains = 64L << 20;
 
     private static async ValueTask<LogScan> ScanAsync(
-        ISegmentStore store, DatasetId dataset, long bodiesAfter, long retain, Func<ScannedCommit, ValueTask>? onCommit, CancellationToken cancellationToken)
+        ISegmentStore store, DatasetId dataset, long bodiesAfter, long retain, Func<ScannedCommit, ValueTask>? onCommit, long window, CancellationToken cancellationToken)
     {
         LogScan scan = new()
         {
@@ -202,7 +202,7 @@ internal static class LogReader
 
                 if (!segment.HeaderValid)
                 {
-                    await RefuseIfWrittenAfterAsync(segment, 1, 0, expected, "after a segment header that does not verify", cancellationToken).ConfigureAwait(false);
+                    await RefuseIfWrittenAfterAsync(segment, 1, 0, expected, "after a segment header that does not verify", 0, cancellationToken).ConfigureAwait(false);
                 }
 
                 // Written beyond the point at which this copy of the log was taken.
@@ -224,7 +224,7 @@ internal static class LogReader
 
             if (segment.HeaderValid)
             {
-                long brokeAt = await ReadRecordsAsync(segment, scan, pending, bodiesAfter, headHash, cancellationToken).ConfigureAwait(false);
+                long brokeAt = await ReadRecordsAsync(segment, scan, pending, bodiesAfter, headHash, window, cancellationToken).ConfigureAwait(false);
                 headHash = scan.HeadHash;
                 torn = brokeAt >= 0;
 
@@ -244,7 +244,7 @@ internal static class LogReader
             }
             else
             {
-                await RefuseIfWrittenAfterAsync(segment, 1, 0, expected, "after a segment header that does not verify", cancellationToken).ConfigureAwait(false);
+                await RefuseIfWrittenAfterAsync(segment, 1, 0, expected, "after a segment header that does not verify", 0, cancellationToken).ConfigureAwait(false);
             }
 
             if (torn)
@@ -291,7 +291,7 @@ internal static class LogReader
 
     // Reads one segment's records. Where they break, or -1 when they do not.
     private static async ValueTask<long> ReadRecordsAsync(
-        SegmentReader segment, LogScan scan, Pending pending, long bodiesAfter, byte[] headHash, CancellationToken cancellationToken)
+        SegmentReader segment, LogScan scan, Pending pending, long bodiesAfter, byte[] headHash, long window, CancellationToken cancellationToken)
     {
         long at = LogFormat.SegmentHeaderLength;
         bool first = true;
@@ -299,6 +299,15 @@ internal static class LogReader
         while (at < segment.RecordsEnd)
         {
             long expected = scan.Head + 1;
+
+            // A segment sealed abandoned names the head its history reached:
+            // what follows was discarded by a recovery and is not read, not
+            // even a header — under group commit a torn member's records may
+            // carry a valid record header over a torn body (ADR 0124).
+            if (segment.Trailer is { Status: LogFormat.TrailerAbandoned } abandoned && expected > abandoned.Head)
+            {
+                return at;
+            }
 
             if (segment.RecordsEnd - at < LogFormat.RecordHeaderLength)
             {
@@ -310,7 +319,7 @@ internal static class LogReader
 
             if (record is null || at + LogFormat.RecordHeaderLength + record.BodyLength > segment.RecordsEnd)
             {
-                await RefuseIfWrittenAfterAsync(segment, at + 1, expected, expected, "after a record header at position " + expected + " that does not verify", cancellationToken).ConfigureAwait(false);
+                await RefuseIfWrittenAfterAsync(segment, at + 1, expected, expected, "after a record header at position " + expected + " that does not verify", window, cancellationToken).ConfigureAwait(false);
                 return at;
             }
 
@@ -351,7 +360,7 @@ internal static class LogReader
 
                 if (!LogFormat.HashMatches(body.Span, record.Content))
                 {
-                    await RefuseIfWrittenAfterAsync(segment, at + 1, expected, expected, "after a record at position " + expected + " whose body does not match its hash", cancellationToken).ConfigureAwait(false);
+                    await RefuseIfWrittenAfterAsync(segment, at + 1, expected, expected, "after a record at position " + expected + " whose body does not match its hash", window, cancellationToken).ConfigureAwait(false);
                     return at;
                 }
 
@@ -384,13 +393,19 @@ internal static class LogReader
     // break belongs to (or, after a segment header that does not verify, any
     // record) was written after a flush that made the broken bytes durable, so
     // no crash leaves it, and a copy takes a file as a prefix (ADR 0072, I6).
+    // Except within the write window (ADR 0124, I6 as of specification 1.7):
+    // the commits of one batch share a flush, so a power loss may keep a later
+    // member and tear an earlier one; a later record that starts less than
+    // `window` bytes after the break may be such a member and is not evidence.
+    // Records further on were written after a flush, as before.
     // A later segment cannot vouch for an earlier one, because a copy may take
     // them at different moments. Every offset is looked at, since a broken
     // length says nothing about where the next record starts; the position is
     // checked before the hash, so the look costs a hash only where one could be.
     private static async ValueTask RefuseIfWrittenAfterAsync(
-        SegmentReader segment, long from, long above, long expected, string after, CancellationToken cancellationToken)
+        SegmentReader segment, long from, long above, long expected, string after, long window, CancellationToken cancellationToken)
     {
+        long within = from - 1 + window;
         const int Window = 1 << 20;
         long end = segment.RecordsEnd;
         long most = expected + ((end - from) / LogFormat.RecordHeaderLength) + 1;
@@ -406,7 +421,7 @@ internal static class LogReader
                 ReadOnlySpan<byte> candidate = bytes.Span[o..];
                 long position = (long)BinaryPrimitives.ReadUInt64LittleEndian(candidate[8..]);
 
-                if (position > above && position <= most && LogFormat.IsRecordHeader(candidate, out _))
+                if (position > above && position <= most && start + o >= within && LogFormat.IsRecordHeader(candidate, out _))
                 {
                     throw new LogVerificationException(expected, "Segment " + segment.Id + " holds a record of position " + position + " " + after + ": the log is damaged, not torn.");
                 }
@@ -828,6 +843,12 @@ internal sealed class LogWriter
     /// <summary>The bytes of the last commit's records, headers and bodies.</summary>
     internal long LastCommitBytes { get; private set; }
 
+    /// <summary>One commit for <see cref="AppendBatchAsync"/>: its kind, position, previous header hash, body and header.</summary>
+    internal readonly record struct Append(CommitKind Kind, long Position, byte[] Previous, byte[] Body, byte[] Header);
+
+    /// <summary>How many records a body of this many bytes is cut into (ADR 0013).</summary>
+    internal int RecordsOf(int bodyLength) => Math.Max(1, (bodyLength + _maxRecordBytes - 1) / _maxRecordBytes);
+
     /// <summary>
     /// Appends one commit's records and makes them durable. <paramref name="previous"/>
     /// is the header hash of the commit before it. Returns where it starts.
@@ -835,8 +856,41 @@ internal sealed class LogWriter
     internal async ValueTask<CommitLocation> AppendAsync(
         CommitKind kind, long position, byte[] previous, byte[] body, byte[] header, CancellationToken cancellationToken)
     {
+        (CommitLocation[] locations, _) = await AppendBatchAsync([new Append(kind, position, previous, body, header)], cancellationToken).ConfigureAwait(false);
+        return locations[0];
+    }
+
+    /// <summary>
+    /// Appends the records of several commits, in order, and makes them all
+    /// durable with one flush after the last (ADR 0124). The bytes are those
+    /// of appending each alone: a segment fills and is sealed where it would
+    /// have been. Returns where each commit starts, and its records' bytes.
+    /// </summary>
+    internal async ValueTask<(CommitLocation[] Locations, long[] Lengths)> AppendBatchAsync(
+        IReadOnlyList<Append> commits, CancellationToken cancellationToken)
+    {
+        CommitLocation[] locations = new CommitLocation[commits.Count];
+        long[] lengths = new long[commits.Count];
+
+        for (int i = 0; i < commits.Count; i++)
+        {
+            (locations[i], lengths[i]) = await AppendRecordsAsync(commits[i], cancellationToken).ConfigureAwait(false);
+        }
+
+        // Every record before the last closing one is durable no later than it
+        // is: one flush after the last append orders them (ADR 0013), and a
+        // segment sealed on the way was flushed before its trailer.
+        await _store.FlushAsync(new SegmentId(_active), cancellationToken).ConfigureAwait(false);
+        LastCommitBytes = lengths.Length == 0 ? 0 : lengths[^1];
+        return (locations, lengths);
+    }
+
+    // One commit's records, appended and not flushed.
+    private async ValueTask<(CommitLocation Start, long Bytes)> AppendRecordsAsync(Append commit, CancellationToken cancellationToken)
+    {
+        (CommitKind kind, long position, byte[] previous, byte[] body, byte[] header) = commit;
         int closingExtra = header.Length + 4;
-        LastCommitBytes = 0;
+        long written = 0;
         int bodyOffset = 0;
         int index = 0;
         CommitLocation? start = null;
@@ -862,20 +916,15 @@ internal sealed class LogWriter
             start ??= new CommitLocation(_active, _activeLength);
             await _store.AppendAsync(new SegmentId(_active), record, cancellationToken).ConfigureAwait(false);
             _activeLength += record.Length;
-            LastCommitBytes += record.Length;
+            written += record.Length;
             bodyOffset += take;
             index++;
 
             if (closing)
             {
-                break;
+                return (start.Value, written);
             }
         }
-
-        // Every record before the closing one is durable no later than it is:
-        // one flush after the last append orders them (ADR 0013).
-        await _store.FlushAsync(new SegmentId(_active), cancellationToken).ConfigureAwait(false);
-        return start.Value;
     }
 
     /// <summary>

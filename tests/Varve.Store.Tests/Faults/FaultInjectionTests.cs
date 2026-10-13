@@ -28,7 +28,28 @@ public sealed class FaultInjectionTests
 {
     private static readonly string Root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "varve-simulated", "dataset"));
 
-    private static DatasetOptions Options => new()
+    private static DatasetOptions Options => OptionsFor(1);
+
+    /// <summary>
+    /// The workload's options. Batched, on 4 KiB segments with a write window
+    /// of 2 KiB that the writer keeps to and the reader allows (ADR 0124), so
+    /// that a segment holds bytes both inside and beyond the window.
+    /// </summary>
+    private static DatasetOptions OptionsFor(int batch) => batch == 1 ? Unbatched : new()
+    {
+        Clock = ManualClock.Epoch(),
+        MaxRecordBytes = new ByteCount(64),
+        SegmentBytes = new ByteCount(4096),
+        MemtableLimit = new QuadCount(4),
+        Maintenance = MaintenanceMode.Off,
+        CommitCache = T.CommitCache,
+        GroupCommit = new GroupCommitOptions { MaxBytes = new ByteCount(Window) },
+        TornWindow = Window,
+    };
+
+    private const int Window = 2048;
+
+    private static DatasetOptions Unbatched => new()
     {
         Clock = ManualClock.Epoch(),
         MaxRecordBytes = new ByteCount(64),
@@ -62,43 +83,46 @@ public sealed class FaultInjectionTests
     /// commit, and a checkpoint every seventh step. The last acknowledged
     /// position is reported as it happens, so a crash knows what must survive.
     /// </summary>
-    private static async Task RunAsync(SimulatedFileSystem files, int seed, int steps, Action<long> acknowledged, Reference? reference)
+    private static async Task RunAsync(SimulatedFileSystem files, int seed, int steps, Action<long> acknowledged, Reference? reference, int batch = 1)
     {
         Random random = new(seed);
         SortedSet<string> state = [];
         FileStorage storage = FileStorage.Open(files, new DatasetDirectory(Root), StorageOptions);
-        Dataset dataset = await Dataset.CreateAsync(storage, T.Id, Options, T.Ct);
+        Dataset dataset = await Dataset.CreateAsync(storage, T.Id, OptionsFor(batch), T.Ct);
 
-        for (int step = 0; step < steps; step++)
+        for (int step = 0; step < steps; step += batch)
         {
-            CommitRequest request = new();
-            SortedSet<string> next = [.. state];
+            // A batch (ADR 0124): the requests are queued while the sequencer
+            // is held, and the first to enter after it writes them all with
+            // one flush. Each one's state follows the one before it.
+            List<(CommitRequest Request, SortedSet<string> Next)> group = [];
 
-            for (int op = random.Next(1, 6); op > 0; op--)
+            for (int member = 0; member < batch && step + member < steps; member++)
             {
-                (int s, int p, int o) = (random.Next(4), random.Next(3), random.Next(4));
-                bool assert = random.Next(3) > 0;
-                RdfTerm subject = T.Iri("s" + s), predicate = T.Iri("p" + p), @object = T.Integer(o.ToString(CultureInfo.InvariantCulture));
+                (CommitRequest request, SortedSet<string> next) = Generate(random, group.Count == 0 ? state : group[^1].Next);
+                group.Add((request, next));
+            }
 
-                if (assert)
+            List<Task<CommitResult>> answers = [];
+
+            using (await dataset.HoldSequencerForTestsAsync(T.Ct))
+            {
+                foreach ((CommitRequest request, _) in group)
                 {
-                    request.Assert(subject, predicate, @object);
-                    next.Add(Render(s, p, o));
-                }
-                else
-                {
-                    request.Retract(subject, predicate, @object);
-                    next.Remove(Render(s, p, o));
+                    answers.Add(dataset.CommitAsync(request, T.Ct).AsTask());
                 }
             }
 
-            CommitResult result = await dataset.CommitAsync(request, T.Ct);
-
-            if (result.Outcome == CommitOutcome.Committed)
+            for (int member = 0; member < group.Count; member++)
             {
-                state = next;
-                reference?.History.Add(state);
-                acknowledged(result.Position.Value);
+                CommitResult result = await answers[member];
+
+                if (result.Outcome == CommitOutcome.Committed)
+                {
+                    state = group[member].Next;
+                    reference?.History.Add(state);
+                    acknowledged(result.Position.Value);
+                }
             }
 
             if (step % 7 == 6 && dataset.Head.Value > 0)
@@ -113,11 +137,38 @@ public sealed class FaultInjectionTests
         await storage.DisposeAsync();
     }
 
-    private static async Task<Reference> ReferenceAsync(int seed, int steps)
+    // One request of a few asserts and retracts, and the state after it.
+    private static (CommitRequest Request, SortedSet<string> Next) Generate(Random random, SortedSet<string> state)
+    {
+            CommitRequest request = new();
+        SortedSet<string> next = [.. state];
+
+        for (int op = random.Next(1, 6); op > 0; op--)
+        {
+            (int s, int p, int o) = (random.Next(4), random.Next(3), random.Next(4));
+            bool assert = random.Next(3) > 0;
+            RdfTerm subject = T.Iri("s" + s), predicate = T.Iri("p" + p), @object = T.Integer(o.ToString(CultureInfo.InvariantCulture));
+
+            if (assert)
+            {
+                request.Assert(subject, predicate, @object);
+                next.Add(Render(s, p, o));
+            }
+            else
+            {
+                request.Retract(subject, predicate, @object);
+                next.Remove(Render(s, p, o));
+            }
+        }
+
+        return (request, next);
+    }
+
+    private static async Task<Reference> ReferenceAsync(int seed, int steps, int batch = 1)
     {
         Reference reference = new();
         SimulatedFileSystem files = new();
-        await RunAsync(files, seed, steps, _ => { }, reference);
+        await RunAsync(files, seed, steps, _ => { }, reference, batch);
         reference.Final = files;
         reference.Operations = files.Operations;
         reference.Writes = files.Writes;
@@ -125,10 +176,10 @@ public sealed class FaultInjectionTests
     }
 
     /// <summary>Runs the workload until it crashes where the injector says; returns the last acknowledged position.</summary>
-    private static Task<(SimulatedFileSystem Files, long Acknowledged)> CrashAsync(int seed, int steps, Func<SimulatedFileSystem.Operation, int?> injector) =>
-        CrashAsync(seed, steps, _ => injector);
+    private static Task<(SimulatedFileSystem Files, long Acknowledged)> CrashAsync(int seed, int steps, Func<SimulatedFileSystem.Operation, int?> injector, int batch = 1) =>
+        CrashAsync(seed, steps, _ => injector, batch);
 
-    private static async Task<(SimulatedFileSystem Files, long Acknowledged)> CrashAsync(int seed, int steps, Func<SimulatedFileSystem, Func<SimulatedFileSystem.Operation, int?>> injectorFor)
+    private static async Task<(SimulatedFileSystem Files, long Acknowledged)> CrashAsync(int seed, int steps, Func<SimulatedFileSystem, Func<SimulatedFileSystem.Operation, int?>> injectorFor, int batch = 1)
     {
         SimulatedFileSystem files = new();
         files.Injector = injectorFor(files);
@@ -136,7 +187,7 @@ public sealed class FaultInjectionTests
 
         try
         {
-            await RunAsync(files, seed, steps, p => acknowledged = p, null);
+            await RunAsync(files, seed, steps, p => acknowledged = p, null, batch);
         }
         catch (SimulatedCrash)
         {
@@ -150,11 +201,11 @@ public sealed class FaultInjectionTests
     /// <paramref name="atLeast"/>, every read equal to the reference at its
     /// position, then a commit continues the log and a reopen finds it.
     /// </summary>
-    private static async Task VerifyAsync(SimulatedFileSystem image, Reference reference, long atLeast, string where, Continuation? continued = null)
+    private static async Task VerifyAsync(SimulatedFileSystem image, Reference reference, long atLeast, string where, Continuation? continued = null, int batch = 1)
     {
         try
         {
-            await VerifyCoreAsync(image, reference, atLeast, where, continued, "after");
+            await VerifyCoreAsync(image, reference, atLeast, where, continued, "after", batch);
         }
         catch (Exception error) when (error is not InvalidOperationException { Message: var m } || !m.StartsWith(where, StringComparison.Ordinal))
         {
@@ -173,8 +224,9 @@ public sealed class FaultInjectionTests
             ? [.. reference.History[(int)continued.At], Continued(continued.Marker)]
             : reference.History[(int)position];
 
-    private static async Task<long> VerifyCoreAsync(SimulatedFileSystem image, Reference reference, long atLeast, string where, Continuation? continued, string marker)
+    private static async Task<long> VerifyCoreAsync(SimulatedFileSystem image, Reference reference, long atLeast, string where, Continuation? continued, string marker, int batch = 1)
     {
+        DatasetOptions options = OptionsFor(batch);
         FileStorage storage = FileStorage.Open(image, new DatasetDirectory(Root), StorageOptions);
         long head;
 
@@ -185,11 +237,11 @@ public sealed class FaultInjectionTests
             if ((await storage.Log.ReadManifestAsync(T.Ct)).IsEmpty && (await storage.Log.ListSegmentsAsync(T.Ct)).Count == 0)
             {
                 Check(atLeast == 0, where + ": the dataset is gone and position " + atLeast + " was acknowledged");
-                dataset = await Dataset.CreateAsync(storage, T.Id, Options, T.Ct);
+                dataset = await Dataset.CreateAsync(storage, T.Id, options, T.Ct);
             }
             else
             {
-                dataset = await Dataset.OpenAsync(storage, Options, T.Ct);
+                dataset = await Dataset.OpenAsync(storage, options, T.Ct);
             }
 
             await using (dataset)
@@ -225,7 +277,7 @@ public sealed class FaultInjectionTests
         }
 
         await using FileStorage again = FileStorage.Open(image, new DatasetDirectory(Root), StorageOptions);
-        await using Dataset reopened = await Dataset.OpenAsync(again, Options, T.Ct);
+        await using Dataset reopened = await Dataset.OpenAsync(again, options, T.Ct);
         Check(reopened.Head.Value == head + 1, where + ": a reopen after recovery lost the continuation");
         using DatasetView view = reopened.Pin();
         SortedSet<string> expected = [.. Expected(reference, head, continued), Continued(marker)];
@@ -298,6 +350,65 @@ public sealed class FaultInjectionTests
         }
 
         Report("process crash, seed " + seed + ": " + reference.Operations + " operations, " + points + " injection points, head " + (reference.History.Count - 1));
+    }
+
+    /// <summary>
+    /// Group commit (ADR 0124): the same workload with the requests queued four
+    /// at a time and written as one batch with one flush. A process crash at
+    /// every operation and inside every write at every byte offset of the
+    /// log's records — so inside every batch, between and within its commits —
+    /// and a power loss with writes reordered up to the flush barrier, each
+    /// recover to a closed commit no earlier than the last one acknowledged:
+    /// no request is acknowledged before its batch is durable.
+    /// </summary>
+    [Theory]
+    [InlineData(6151, 32)]
+    [InlineData(6152, 32)]
+    public async Task a_crash_inside_a_batch_recovers_to_the_last_closed_commit(int seed, int steps)
+    {
+        const int batch = 4;
+        Reference reference = await ReferenceAsync(seed, steps, batch);
+        Dictionary<int, (int Length, string Path)> writes = reference.Writes.ToDictionary(w => w.Operation, w => (w.Length, w.Path));
+        int points = 0;
+
+        for (int operation = 1; operation <= reference.Operations; operation++)
+        {
+            List<int> keeps = [];
+
+            if (writes.TryGetValue(operation, out (int Length, string Path) write))
+            {
+                if (write.Path.Contains(Path.DirectorySeparatorChar + "log" + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                {
+                    keeps.AddRange(Enumerable.Range(0, write.Length));
+                }
+                else
+                {
+                    keeps.AddRange(new[] { 0, write.Length / 2, Math.Max(0, write.Length - 1) }.Distinct());
+                }
+            }
+            else
+            {
+                keeps.Add(0);
+            }
+
+            foreach (int keep in keeps)
+            {
+                int at = operation;
+                (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? keep : null, batch);
+                await VerifyAsync(crashed.Image(CrashKind.Process, new Random(at)), reference, acknowledged, "batched, process crash at operation " + at + ", byte " + keep, batch: batch);
+                points++;
+            }
+
+            for (int image = 0; image < 3; image++)
+            {
+                int at = operation;
+                (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null, batch);
+                await VerifyAsync(crashed.Image(CrashKind.PowerLoss, new Random((at * 31) + image)), reference, acknowledged, "batched, power loss at operation " + at + ", image " + image, batch: batch);
+                points++;
+            }
+        }
+
+        Report("batched crash, seed " + seed + ": " + reference.Operations + " operations, " + points + " injection points, head " + (reference.History.Count - 1));
     }
 
     /// <summary>

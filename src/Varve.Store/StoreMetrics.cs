@@ -22,6 +22,7 @@ internal sealed class StoreMetrics
 {
     private static readonly Meter Meter = new("Varve.Store");
     private static readonly Histogram<double> CommitDuration = Meter.CreateHistogram<double>("varve.store.commit.duration", unit: "s", description: "How long a commit took, from entering the sequencer's queue to its outcome.");
+    private static readonly Histogram<long> BatchSize = Meter.CreateHistogram<long>("varve.store.commit.batch_size", unit: "{commit}", description: "How many commits one write of the log made durable (ADR 0124).");
     private static readonly Histogram<double> CheckpointDuration = Meter.CreateHistogram<double>("varve.store.checkpoint.duration", unit: "s", description: "How long a checkpoint took to write and read back.");
     private static readonly UpDownCounter<long> QueueDepth = Meter.CreateUpDownCounter<long>("varve.store.sequencer.queue_depth", unit: "{commit}", description: "Commits waiting for the sequencer.");
     private static readonly UpDownCounter<long> PinnedReads = Meter.CreateUpDownCounter<long>("varve.store.pinned_reads", unit: "{read}", description: "Views pinned and not yet released.");
@@ -51,6 +52,15 @@ internal sealed class StoreMetrics
         if (CommitDuration.Enabled)
         {
             CommitDuration.Record(elapsed.TotalSeconds, _tag, new KeyValuePair<string, object?>("varve.outcome", outcome));
+        }
+    }
+
+    /// <summary>A batch of commits was written with one flush.</summary>
+    internal void Batched(int commits)
+    {
+        if (BatchSize.Enabled)
+        {
+            BatchSize.Record(commits, _tag);
         }
     }
 

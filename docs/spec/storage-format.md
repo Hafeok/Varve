@@ -242,14 +242,23 @@ its first record.
    a copy takes each file as a prefix. Every offset is looked at, since a broken
    length says nothing about where the next record starts. Bytes of a later
    segment do not count: a copy may take two files at different moments
-   (specification 1.5, I6).
+   (specification 1.5, I6). **The write window** (specification 1.7, ADR
+   0124): a record of a later position that starts less than **4 MiB**
+   (`WriteWindowBytes`) after the start of the record that does not verify is
+   not evidence, since the commits of one batch share a flush and a power loss
+   may keep a later one; the writer never puts more than that many bytes of
+   records of two or more commits into one flush.
 3. **Closed trailer.** The segment must end exactly at a record boundary with no
    torn bytes, and the trailer's head and hash must equal `H` and `h`. The next
    segment must exist with the next id and continue the chain, or, if no later
    segment exists, the log ends. Anything else **refuses**. Records pending at a
    closed trailer continue in the next segment.
 4. **Abandoned trailer.** The segment may end with a torn or unclosed tail,
-   which is discarded; the trailer's head and hash must equal `H` and `h`. The
+   which is discarded; the trailer's head and hash must equal `H` and `h`.
+   Records after the position the trailer names are not read (specification
+   1.7): the recovery that sealed the segment discarded them, and a member of
+   a torn batch may carry a record header that verifies over a body that does
+   not. The
    next segment, if any, must continue the chain.
 5. **No trailer.** The segment is open-ended. Every later segment whose header
    does not continue the chain and whose first position is above `H + 1` is

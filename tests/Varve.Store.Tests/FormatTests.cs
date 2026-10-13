@@ -228,11 +228,31 @@ public sealed class FormatTests
         (ReadOnlyMemory<byte> manifest, List<byte[]> segments) = await T.CopyLogAsync(storage);
         byte[] log = segments.Single();
 
-        // The first record's body, which a later commit follows.
+        // The first record's body, which a later commit follows. Read strictly,
+        // as a log written one commit at a time may be (I6 as of 1.5).
+        int body = LogFormat.SegmentHeaderLength + LogFormat.RecordHeaderLength;
+        log[body + 3] ^= 0x40;
+        options.TornWindow = 0;
+
+        await Assert.ThrowsAsync<LogVerificationException>(async () => await Dataset.OpenAsync(MemoryStorage.FromLog(manifest, [log]), options, T.Ct));
+    }
+
+    /// <summary>
+    /// The price of the write window (ADR 0124, I6 as of 1.7), stated as a
+    /// test: the same damage, with the later commits inside the window, reads
+    /// as a torn batch and opens at the position before the damaged commit.
+    /// </summary>
+    [Fact]
+    public async Task a_damaged_body_within_the_write_window_reads_as_a_torn_batch()
+    {
+        (MemoryStorage storage, DatasetOptions options) = await LogAsync(5);
+        (ReadOnlyMemory<byte> manifest, List<byte[]> segments) = await T.CopyLogAsync(storage);
+        byte[] log = segments.Single();
         int body = LogFormat.SegmentHeaderLength + LogFormat.RecordHeaderLength;
         log[body + 3] ^= 0x40;
 
-        await Assert.ThrowsAsync<LogVerificationException>(async () => await Dataset.OpenAsync(MemoryStorage.FromLog(manifest, [log]), options, T.Ct));
+        await using Dataset opened = await Dataset.OpenAsync(MemoryStorage.FromLog(manifest, [log]), options, T.Ct);
+        Assert.Equal(new Position(0), opened.Head);
     }
 
     /// <summary>Storage that counts the log bytes read through it.</summary>

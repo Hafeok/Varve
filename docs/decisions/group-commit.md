@@ -19,6 +19,8 @@ decisions:
     statement: "A batch is bounded in records and bytes, and a request that finds the sequencer idle is written at once with no timer"
   - key: BatchBoundaryIsInNoContract
     statement: "What a caller can observe of group commit is latency only; the batch boundary is part of no result, feed, index, chain or file under log/"
+  - key: BatchesStayWithinTheWriteWindow
+    statement: "A batch of two or more commits never has more bytes of records than MaxBytes, which never exceeds the write window, and a member that would exceed it is deferred to lead the next batch before it reads the clock"
 ---
 
 The rulings of [ADR 0124](../adr/0124-group-commit.md), filed unaccepted by milestone Commit path of #91
