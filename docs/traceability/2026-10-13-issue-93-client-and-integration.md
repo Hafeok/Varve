@@ -135,6 +135,50 @@ a basis must be closed by a `Closes #N` trailer line in the release's range
 (`docs/releases.md` §2.5, `eng/release.cs`), and a descriptor needs at least
 one. The first part's descriptor therefore waits on a sub-issue of #93.
 
+### The review of the first part
+
+> Sub-issue is #103. Name it in the descriptor, close it with `Closes #103` in the descriptor commit, and keep `Refs #93` on the others. #93 stays open for part 2.
+>
+> ## Your departures
+>
+> - **`Varve.Delta` at layer 3: accepted.** The reason that mattered holds: a feed consumer never ships the store. Removing the client's stray `Varve.Store` reference was the right call. Make sure the dependency register or a test pins it, so it can't come back.
+> - **Stale `If-Match` answers 409 today: noted.** After #91 lands, a Graph Store mismatch is 412 and a lost race is 409 (ADR 0126). Setup retrying on both is fine, with two conditions:
+>   1. **Baselines must add, never replace.** If a baseline goes through a Graph Store `PUT`, then re-applying it, or retrying it, deletes every quad the application wrote to that graph since. Baselines use `POST`, which only adds; retractions happen only through recorded migrations. If you used `PUT`, switch it, and add a test: write data to a baseline graph, re-apply, and the data is still there.
+>   2. **Settings are desired state, last writer wins.** A retry after 412 re-reads settings and applies the declared values again. That is intended, so say it in the setup doc page: setup overwrites manual changes to the settings it declares, and leaves undeclared ones alone. Test the second half.
+>
+> ## Entra secrets: not as listed
+>
+> I'm not storing a user password, and I'm not creating a user without MFA. Two changes:
+>
+> - **Caller app:** use a federated identity credential (GitHub OIDC to the Entra app registration), not `…_SECRET`. That is the same OIDC-only rule the rest of the project follows. The Bicep that creates the registration adds the federated credential, scoped to an environment that only `main` can use.
+> - **The user token:** the optional leg becomes `workflow_dispatch` only, in that environment, run by me with an interactive device-code sign-in. Its result goes into the traceability record. No user credential is stored anywhere. Don't block on this: ship the leg as skipped-without-secrets, as it is now, and I'll run it once the registrations exist.
+>
+> ## Watching #102
+>
+> Yes: subscribe, fix CI failures, and answer review comments from me or the gates App. Anything from anyone else you report to me; you don't act on it. Don't spend CI reruns on the expected `CS0618`. Keep it a draft until the descriptor is in.
+
+The session made each change on the branch:
+
+- **The store reference is pinned** by `ClosureTests`: the client's and
+  `Varve.Delta`'s assembly closures hold no `Varve.Store*` and no
+  `Varve.Protocol`.
+- **Baselines are a Graph Store `POST`, always.** The replace mode is gone,
+  from the API and from the setup file (`mode` is refused as an unknown key).
+  `What_the_application_wrote_to_a_baseline_graph_survives_every_apply`
+  writes to a baseline's graph, applies again, and finds it there.
+- **Settings are desired state.** Only the declared keys are compared and
+  merged; the Datasets page says the setup overwrites a manual change to a
+  declared setting and leaves an undeclared one alone, and
+  `Settings_are_desired_state_a_declared_key_is_restored_and_an_undeclared_one_left_alone`
+  tests both halves.
+- **No user credential and no client secret.** `deploy/azure/entra/` gives
+  the calling application a federated credential for GitHub's OIDC token in
+  the `entra-obo` environment, and a public sign-in client for a device-code
+  sign-in. `entra-obo.yml` is `workflow_dispatch` only, in that environment.
+  The sample's test is skipped without its inputs.
+- **The descriptor** is `releases/v0.1.0-preview.5.yaml`, naming #103; its
+  commit closes #103 and every other commit refers to #93.
+
 ## The report
 
 ### What shipped, by ADR
@@ -306,12 +350,12 @@ All filed unaccepted (ADR 0066); every citation of a new ledger key is
   only, against the image CI builds from this branch.
 - **No Entra registrations yet.** The on-behalf-of sample's exchange is
   skipped here and in CI. It runs in the `entra-obo` workflow, dispatched by
-  the maintainer once `deploy/azure/entra/` is deployed (see the review below).
+  the maintainer once `deploy/azure/entra/` is deployed (see the review above).
 
 ### What the maintainer is asked for
 
-- **A sub-issue of #93 for this part**, which its descriptor closes. The
-  descriptor and the README's Status line follow once it exists.
+- **Acceptance of ADRs 0127–0133** on the pull request (ADR 0066), which turns
+  the build's `CS0618` green.
 - **The Entra registrations**, deployed from `deploy/azure/entra/`, and the `entra-obo` environment, for the hand-run leg.
 - **When #91 lands:**
   - merge it, and take its client API as given (graph versions, `ifMatch` on
