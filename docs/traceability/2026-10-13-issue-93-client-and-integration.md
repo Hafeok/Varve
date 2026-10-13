@@ -304,16 +304,15 @@ All filed unaccepted (ADR 0066); every citation of a new ledger key is
 - **No Docker daemon.** The Aspire sample's test, now waiting for
   `varve-setup-people` and reading its record, runs in CI's `aspire` job
   only, against the image CI builds from this branch.
-- **No Entra secrets.** The on-behalf-of sample's exchange is skipped here.
-  It needs the following in the `auth-providers` environment:
-  - `VARVE_ENTRA_OBO_CALLER_ID`, `…_SECRET`, `…_AUDIENCE`;
-  - a test user without MFA, `VARVE_ENTRA_OBO_USERNAME` and `…_PASSWORD`.
+- **No Entra registrations yet.** The on-behalf-of sample's exchange is
+  skipped here and in CI. It runs in the `entra-obo` workflow, dispatched by
+  the maintainer once `deploy/azure/entra/` is deployed (see the review below).
 
 ### What the maintainer is asked for
 
 - **A sub-issue of #93 for this part**, which its descriptor closes. The
   descriptor and the README's Status line follow once it exists.
-- **The Entra secrets above**, for the optional leg.
+- **The Entra registrations**, deployed from `deploy/azure/entra/`, and the `entra-obo` environment, for the hand-run leg.
 - **When #91 lands:**
   - merge it, and take its client API as given (graph versions, `ifMatch` on
     the Graph Store writes this part added without it);

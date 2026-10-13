@@ -25,7 +25,8 @@ namespace Varve.OnBehalfOf.Sample;
 /// <remarks>
 /// <para>
 /// <c>AzureAd</c> configures the application's registration (its tenant, its
-/// client id, its credential, its own audience); <c>Varve:Dataset</c> is the
+/// client id, its own audience, and its credential: a federated token, never a
+/// secret); <c>Varve:Dataset</c> is the
 /// dataset's address and <c>Varve:Scope</c> the scope the exchange asks for,
 /// <c>api://varve/access_as_user</c>. The registrations are
 /// <c>deploy/azure/entra/</c>'s.
@@ -92,13 +93,13 @@ public static class OrdersApi
             return Results.Content(body, "application/sparql-results+json", null, (int)response.StatusCode);
         }).RequireAuthorization();
 
-        // The dataset's last commit, as the delta format writes it: whose it is
-        // shows on its agent line.
-        app.MapGet("/varve/last-commit", async (SparqlHttpClient varve, CancellationToken cancellationToken) =>
+        // The dataset's commits, as the delta format writes them: whose each
+        // one is shows on its agent line.
+        app.MapGet("/varve/commits", async (SparqlHttpClient varve, CancellationToken cancellationToken) =>
         {
             using HttpResponseMessage head = await varve.QueryAsync("ASK {}", "application/sparql-results+json", null, cancellationToken).ConfigureAwait(false);
-            using HttpResponseMessage commit = await varve.CommitAsync(SparqlHttpClient.PositionOf(head) ?? 0, cancellationToken).ConfigureAwait(false);
-            return Results.Text(await commit.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false), "text/plain", null, (int)commit.StatusCode);
+            using HttpResponseMessage commits = await varve.CommitsAsync(0, SparqlHttpClient.PositionOf(head) ?? 0, null, eventStream: false, cancellationToken).ConfigureAwait(false);
+            return Results.Text(await commits.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false), "text/plain", null, (int)commits.StatusCode);
         }).RequireAuthorization();
 
         return app;

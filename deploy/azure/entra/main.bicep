@@ -10,8 +10,11 @@
 //
 //   az deployment tenant create --location westeurope --template-file main.bicep
 //
-// No secret is created here: give the calling application a federated
-// credential (a managed identity, a workload identity) or a certificate.
+// No secret is created, here or anywhere: the calling application
+// authenticates by a federated credential, GitHub Actions' OIDC token from
+// one environment of one repository (the same OIDC-only rule as everything
+// else, ADR 0037), and the on-behalf-of leg's user signs in interactively
+// by device code through a public client that holds no credential at all.
 
 extension microsoftGraphV1
 
@@ -25,6 +28,12 @@ param callerIdentifierUri string = 'api://varve-caller'
 
 @description('A suffix that keeps the registrations\' unique names apart between environments.')
 param environmentName string = 'default'
+
+@description('The GitHub repository whose Actions may sign in as the calling application, owner/name.')
+param githubRepository string = 'Hafeok/Varve'
+
+@description('The GitHub environment those Actions run in: only the main branch may use it.')
+param githubEnvironment string = 'entra-obo'
 
 // Stable ids, so that a redeployment updates the same roles and scope.
 var readRoleId = guid('varve', 'role', 'Varve.Read')
@@ -151,6 +160,54 @@ resource callerWrites 'Microsoft.Graph/appRoleAssignedTo@v1.0' = {
   principalId: callerPrincipal.id
   resourceId: varvePrincipal.id
 }
+
+// The calling application's only credential: GitHub's OIDC token for one
+// environment of one repository, exchanged for the application's own.
+resource callerFromGitHub 'Microsoft.Graph/applications/federatedIdentityCredentials@v1.0' = {
+  name: '${caller.uniqueName}/github-${githubEnvironment}'
+  audiences: [
+    'api://AzureADTokenExchange'
+  ]
+  issuer: 'https://token.actions.githubusercontent.com'
+  subject: 'repo:${githubRepository}:environment:${githubEnvironment}'
+  description: 'GitHub Actions in ${githubRepository}, environment ${githubEnvironment}: the on-behalf-of leg, run by hand.'
+}
+
+// A public client a person signs in through by device code, for a token to
+// the calling application's API: the user token the on-behalf-of leg starts
+// from. It holds no credential; the person's own sign-in, with their MFA, is
+// the only one.
+resource signIn 'Microsoft.Graph/applications@v1.0' = {
+  uniqueName: 'varve-caller-sign-in-${environmentName}'
+  displayName: 'Varve caller sign-in (device code)'
+  signInAudience: 'AzureADMyOrg'
+  isFallbackPublicClient: true
+  requiredResourceAccess: [
+    {
+      resourceAppId: caller.appId
+      resourceAccess: [
+        {
+          id: callerAccessAsUserId
+          type: 'Scope'
+        }
+      ]
+    }
+  ]
+}
+
+resource signInPrincipal 'Microsoft.Graph/servicePrincipals@v1.0' = {
+  appId: signIn.appId
+}
+
+resource signInConsent 'Microsoft.Graph/oauth2PermissionGrants@v1.0' = {
+  clientId: signInPrincipal.id
+  resourceId: callerPrincipal.id
+  consentType: 'AllPrincipals'
+  scope: 'access_as_user'
+}
+
+@description('The public client the on-behalf-of leg\'s user signs in through by device code.')
+output signInClientId string = signIn.appId
 
 @description('Varve:Auth:Authority is https://login.microsoftonline.com/{tenant}/v2.0; Varve:Auth:Audiences is this URI.')
 output varveAudience string = varveIdentifierUri

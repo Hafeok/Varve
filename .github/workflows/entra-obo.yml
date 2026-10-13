@@ -1,0 +1,111 @@
+# The on-behalf-of exchange against Entra ID (ADR 0127), run by hand.
+#
+# Dispatched by the maintainer, in the `entra-obo` environment, which only
+# `main` may use. No credential is stored anywhere:
+#   - the calling application signs in with GitHub's OIDC token for this
+#     environment, which its registration trusts as a federated credential
+#     (deploy/azure/entra/main.bicep);
+#   - the user signs in interactively, by device code, through a public
+#     client that holds no credential: the code is printed as a notice, the
+#     maintainer enters it, with their own MFA.
+# The environment holds only identifiers, as variables: the tenant, Varve's
+# audience, the calling application's client id and audience, and the
+# sign-in client's id. The run's result goes into the traceability record.
+name: entra-obo
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  entra-obo:
+    name: on-behalf-of against Entra ID
+    runs-on: ubuntu-latest
+    environment: entra-obo
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      VARVE_ENTRA_TENANT: ${{ vars.VARVE_ENTRA_TENANT }}
+      VARVE_ENTRA_AUDIENCE: ${{ vars.VARVE_ENTRA_AUDIENCE }}
+      VARVE_ENTRA_OBO_CALLER_ID: ${{ vars.VARVE_ENTRA_OBO_CALLER_ID }}
+      VARVE_ENTRA_OBO_CALLER_AUDIENCE: ${{ vars.VARVE_ENTRA_OBO_CALLER_AUDIENCE }}
+      VARVE_ENTRA_OBO_SIGN_IN_ID: ${{ vars.VARVE_ENTRA_OBO_SIGN_IN_ID }}
+      VARVE_AUTH_LEGS_REQUIRED: entra-obo
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      # Built before the sign-in, so the tokens are fresh when the test runs.
+      - name: Build the sample and its test
+        run: >
+          dotnet build
+          samples/Varve.OnBehalfOf.Sample.Tests/Varve.OnBehalfOf.Sample.Tests.csproj
+          --configuration Release
+
+      - name: Sign in by device code
+        run: |
+          set -euo pipefail
+          token_endpoint="https://login.microsoftonline.com/$VARVE_ENTRA_TENANT/oauth2/v2.0/token"
+          started=$(curl -sS -X POST "https://login.microsoftonline.com/$VARVE_ENTRA_TENANT/oauth2/v2.0/devicecode" \
+            --data-urlencode "client_id=$VARVE_ENTRA_OBO_SIGN_IN_ID" \
+            --data-urlencode "scope=$VARVE_ENTRA_OBO_CALLER_AUDIENCE/access_as_user")
+          echo "::notice title=Sign in to run the on-behalf-of leg::$(jq -r .message <<<"$started")"
+          device=$(jq -r .device_code <<<"$started")
+          interval=$(jq -r '.interval // 5' <<<"$started")
+          deadline=$((SECONDS + $(jq -r '.expires_in // 900' <<<"$started")))
+
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            sleep "$interval"
+            answer=$(curl -sS -X POST "$token_endpoint" \
+              --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:device_code" \
+              --data-urlencode "client_id=$VARVE_ENTRA_OBO_SIGN_IN_ID" \
+              --data-urlencode "device_code=$device")
+            token=$(jq -r '.access_token // empty' <<<"$answer")
+
+            if [ -n "$token" ]; then
+              echo "::add-mask::$token"
+              printf '%s' "$token" > "$RUNNER_TEMP/user-token"
+              echo "VARVE_ENTRA_OBO_USER_TOKEN_FILE=$RUNNER_TEMP/user-token" >> "$GITHUB_ENV"
+              exit 0
+            fi
+
+            case "$(jq -r .error <<<"$answer")" in
+              authorization_pending) ;;
+              slow_down) interval=$((interval + 5)) ;;
+              *) echo "The sign-in ended: $(jq -r '.error + " " + (.error_description // "")' <<<"$answer")"; exit 1 ;;
+            esac
+          done
+
+          echo "The sign-in was not completed in time."
+          exit 1
+
+      # GitHub's OIDC token for this environment: the calling application's
+      # only credential, exchanged by MSAL for the application's own token.
+      - name: The calling application's federated token
+        run: |
+          set -euo pipefail
+          assertion=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r .value)
+          echo "::add-mask::$assertion"
+          printf '%s' "$assertion" > "$RUNNER_TEMP/assertion"
+          echo "VARVE_ENTRA_OBO_ASSERTION_FILE=$RUNNER_TEMP/assertion" >> "$GITHUB_ENV"
+
+      - name: Test the on-behalf-of sample against Entra ID
+        run: >
+          dotnet test
+          --project samples/Varve.OnBehalfOf.Sample.Tests/Varve.OnBehalfOf.Sample.Tests.csproj
+          --configuration Release
+          --no-build
+
+      - name: Remove the tokens
+        if: always()
+        run: rm -f "$RUNNER_TEMP/user-token" "$RUNNER_TEMP/assertion"

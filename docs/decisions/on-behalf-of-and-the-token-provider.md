@@ -14,7 +14,7 @@ decisions:
   - key: AttributionIsTheCallersChoice
     statement: "A write through on-behalf-of records the user as agent and a write on the application's own account uses its client-credentials token and records the application; the guide states this as the caller's choice per write"
   - key: ExchangeTestedAgainstEntraOnly
-    statement: "The on-behalf-of exchange is exercised only against Entra on the providers leg; CI proves Varve's side with a minted token carrying oid and azp, and no exchange is simulated"
+    statement: "The on-behalf-of exchange is exercised only against Entra, in a workflow_dispatch run in a main-only environment, with the calling application signed in by a GitHub federated credential and the user by an interactive device-code sign-in, so no credential is stored; CI proves Varve's side with a minted token carrying oid and azp, and no exchange is simulated"
   - key: TokenIsOpaqueAtTheBoundary
     statement: "The access token is an opaque string and its expiry an instant, as the issuer gives them; they cross the client's boundary unwrapped, since the client reads neither and a wrapper would only rename them"
 ---

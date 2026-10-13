@@ -5,7 +5,8 @@
 **Accepted — filed unaccepted by milestone Client and integration of #93,
 2026-10-13** (ADR 0066). Acceptance is the maintainer's act on the pull
 request. Decided by the maintainer on the Client and integration plan: the
-exchange is Entra's and runs only on the optional leg; the in-process issuer
+exchange is Entra's and runs only on the optional leg, by hand, with no
+credential stored (amended on the first part's review, below); the in-process issuer
 proves Varve's side with a minted token, and no fake exchange is built.
 
 **Amends** ADR [0103](0103-varve-protocol-client.md) (the fixed token becomes a
@@ -105,8 +106,18 @@ about how Varve accepts a token. It changes three other things.
    that validates its own user's token and exchanges it with MSAL through
    `Microsoft.Identity.Web`. That package is admitted for `samples/` only
    (ADR 0133). The sample queries and updates Varve as the signed-in user.
-   - **Its exchange runs against Entra only**, on the providers leg when its
-     secrets exist (ADR 0100).
+   - **Its exchange runs against Entra only, by hand, and stores no
+     credential.** The `entra-obo` workflow is `workflow_dispatch` only, in
+     the environment of that name, which only `main` may use, and is run by
+     the maintainer.
+     - The calling application's credential is GitHub's OIDC token for that
+       environment, which its registration trusts as a federated credential:
+       OIDC only, as everywhere else.
+     - The user's token comes from an interactive device-code sign-in in the
+       run, through a public client that holds no credential, with the
+       maintainer's own MFA.
+     - The run's result goes into the traceability record. Without its
+       inputs the sample's test is skipped.
    - Varve's side of the contract is proven without the exchange: a token
      the in-process issuer mints with a user's `oid` and an application's
      `azp` is accepted, the commit's agent is the user, and the span carries

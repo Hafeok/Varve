@@ -113,7 +113,9 @@ token.
    `roles` as they do in any token for Varve.
 2. **The calling application's registration** is a confidential client of
    its own: its own application ID URI, which is the audience of the tokens
-   its users send it, and a secret, a certificate or a federated credential.
+   its users send it, and its credential: a federated credential (a managed
+   identity, a workload identity, GitHub Actions' OIDC token) or a
+   certificate, never a secret if it can be helped.
    Under *API permissions* it is granted Varve's `access_as_user`, delegated,
    with admin consent.
 3. **The exchange.** For each user, the application posts the user's token
@@ -124,7 +126,9 @@ token.
    Content-Type: application/x-www-form-urlencoded
 
    grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer
-   &client_id={calling-app-id}&client_secret={secret}
+   &client_id={calling-app-id}
+   &client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer
+   &client_assertion={the application's federated token, or a certificate's signed assertion}
    &assertion={the user's token for the calling application}
    &scope=api://varve/access_as_user
    &requested_token_use=on_behalf_of

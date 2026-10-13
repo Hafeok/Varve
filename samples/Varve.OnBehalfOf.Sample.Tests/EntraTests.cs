@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -21,12 +20,22 @@ using Xunit;
 namespace Varve.OnBehalfOf.Sample.Tests;
 
 /// <summary>
-/// The sample's exchange against Entra (ADR 0127): a user's token for the
-/// calling application, the sample exchanging it on the user's behalf, an
-/// update and a query in Varve as that user, and the commit naming the user's
-/// <c>oid</c>. The secrets are the providers leg's (ADR 0100); without them
-/// the test is skipped, unless <c>VARVE_AUTH_LEGS_REQUIRED</c> names
-/// <c>entra-obo</c>.
+/// The sample's exchange against Entra (ADR 0127), run by hand: the
+/// <c>entra-obo</c> workflow, dispatched by the maintainer in the environment
+/// of that name, which only <c>main</c> may use. No credential is stored:
+/// <list type="bullet">
+/// <item>the calling application's credential is GitHub's OIDC token for that
+/// environment, written to <c>VARVE_ENTRA_OBO_ASSERTION_FILE</c>, which its
+/// registration trusts as a federated credential;</item>
+/// <item>the user's token for the calling application comes from an
+/// interactive device-code sign-in in the workflow, written to
+/// <c>VARVE_ENTRA_OBO_USER_TOKEN_FILE</c>.</item>
+/// </list>
+/// The sample applies its setup with the application's own token, then places
+/// an order and reads it back with the user's; the order's commit names the
+/// user's <c>oid</c>, and the setup's names another agent, the application.
+/// Without the files the test is skipped, unless <c>VARVE_AUTH_LEGS_REQUIRED</c>
+/// names <c>entra-obo</c>.
 /// </summary>
 public sealed class EntraTests
 {
@@ -36,11 +45,11 @@ public sealed class EntraTests
         string tenant = Leg("VARVE_ENTRA_TENANT");
         string varveAudience = Leg("VARVE_ENTRA_AUDIENCE");
         string callerId = Leg("VARVE_ENTRA_OBO_CALLER_ID");
-        string callerSecret = Leg("VARVE_ENTRA_OBO_CALLER_SECRET");
         string callerAudience = Leg("VARVE_ENTRA_OBO_CALLER_AUDIENCE");
-        string username = Leg("VARVE_ENTRA_OBO_USERNAME");
-        string password = Leg("VARVE_ENTRA_OBO_PASSWORD");
+        string assertion = Leg("VARVE_ENTRA_OBO_ASSERTION_FILE");
+        string userToken = (await File.ReadAllTextAsync(Leg("VARVE_ENTRA_OBO_USER_TOKEN_FILE"), TestContext.Current.CancellationToken)).Trim();
         string authority = "https://login.microsoftonline.com/" + tenant + "/v2.0";
+        string oid = Claim(userToken, "oid");
 
         int varvePort = FreePort();
         using Process varve = StartVarve(varvePort, authority, varveAudience);
@@ -50,33 +59,19 @@ public sealed class EntraTests
             using HttpClient http = new();
             await WaitReadyAsync(http, varvePort);
 
-            // A test user signing in to the calling application (resource owner
-            // password: a test tenant's user without MFA, for CI alone).
-            using HttpResponseMessage signedIn = await http.PostAsync(new Uri("https://login.microsoftonline.com/" + tenant + "/oauth2/v2.0/token"), new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["grant_type"] = "password",
-                ["client_id"] = callerId,
-                ["client_secret"] = callerSecret,
-                ["scope"] = callerAudience + "/access_as_user",
-                ["username"] = username,
-                ["password"] = password,
-            }), TestContext.Current.CancellationToken);
-            Assert.True(signedIn.IsSuccessStatusCode, await signedIn.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
-            using JsonDocument tokens = JsonDocument.Parse(await signedIn.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
-            string userToken = tokens.RootElement.GetProperty("access_token").GetString()!;
-            string oid = Claim(userToken, "oid");
-
             WebApplication sample = OrdersApi.Build([
                 "--urls=http://127.0.0.1:0",
                 "--AzureAd:Instance=https://login.microsoftonline.com/",
                 "--AzureAd:TenantId=" + tenant,
                 "--AzureAd:ClientId=" + callerId,
                 "--AzureAd:Audience=" + callerAudience,
-                "--AzureAd:ClientCredentials:0:SourceType=ClientSecret",
-                "--AzureAd:ClientCredentials:0:ClientSecret=" + callerSecret,
+                "--AzureAd:ClientCredentials:0:SourceType=SignedAssertionFilePath",
+                "--AzureAd:ClientCredentials:0:SignedAssertionFileDiskPath=" + assertion,
                 "--Varve:Dataset=http://127.0.0.1:" + varvePort + "/datasets/orders/",
                 "--Varve:Scope=" + varveAudience + "/access_as_user",
             ]);
+
+            // Starting applies the setup, with the application's own token.
             await sample.StartAsync(TestContext.Current.CancellationToken);
 
             try
@@ -90,8 +85,12 @@ public sealed class EntraTests
                 string orders = await http.GetStringAsync(new Uri(address, "orders"), TestContext.Current.CancellationToken);
                 Assert.Contains("https://shop.example/orders/1001", orders, StringComparison.Ordinal);
 
-                string commit = await http.GetStringAsync(new Uri(address, "varve/last-commit"), TestContext.Current.CancellationToken);
-                Assert.Contains("agent <" + authority + "#" + oid + ">", commit, StringComparison.Ordinal);
+                // The attribution rule, in the history: the order is the user's,
+                // the setup before it the application's.
+                string commits = await http.GetStringAsync(new Uri(address, "varve/commits"), TestContext.Current.CancellationToken);
+                string user = "agent <" + authority + "#" + oid + ">";
+                Assert.Contains(user, commits, StringComparison.Ordinal);
+                Assert.Contains(commits.Split('\n'), line => line.StartsWith("agent <" + authority + "#", StringComparison.Ordinal) && line != user);
             }
             finally
             {
@@ -179,7 +178,7 @@ public sealed class EntraTests
 
         string[] required = (Environment.GetEnvironmentVariable("VARVE_AUTH_LEGS_REQUIRED") ?? string.Empty).Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         Assert.False(required.Contains("entra-obo", StringComparer.Ordinal), "The entra-obo leg is required here and " + variable + " is not set.");
-        Assert.Skip(variable + " is not set: the on-behalf-of exchange runs against Entra on the providers leg only.");
+        Assert.Skip(variable + " is not set: the on-behalf-of exchange runs against Entra in the entra-obo workflow only, dispatched by hand.");
         return string.Empty;
     }
 }
