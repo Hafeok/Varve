@@ -10,13 +10,14 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Varve.Protocol.Client.Model;
 
 namespace Varve.Protocol.Client;
 
 /// <summary>
 /// One dataset's endpoints over HTTP (ADR 0103): queries and updates by the
 /// SPARQL 1.1 Protocol, the Graph Store's reads, the commits resource, and
-/// the admin calls of ADRs 0106 and 0118, each carrying the bearer token the caller set
+/// the admin calls of ADRs 0106 and 0118, each carrying the bearer token its provider answers (ADR 0127)
 /// and the headers of ADRs 0094 and 0096. Every call answers the response
 /// with its headers read and its body still to stream; the caller owns it.
 /// The limits bound the time to the headers; the body is the caller's to
@@ -24,10 +25,34 @@ namespace Varve.Protocol.Client;
 /// </summary>
 public sealed class SparqlHttpClient
 {
+    /// <summary>
+    /// How long before its expiry a token is treated as expired (ADR 0127):
+    /// a request takes time to arrive, and a token that expires in flight is a
+    /// <c>401</c> the caller cannot tell from a refusal.
+    /// </summary>
+    public static readonly TimeSpan TokenExpirySkew = TimeSpan.FromSeconds(30);
+
     private readonly HttpClient _http;
     private readonly ClientLimits _limits;
+    private readonly BearerTokenProvider? _tokens;
+    private readonly TimeProvider? _clock;
 
-    /// <summary>A client of the dataset at <paramref name="dataset"/>, an absolute address ending in <c>/</c>.</summary>
+    /// <summary>
+    /// A client of the dataset at <paramref name="dataset"/> whose every request
+    /// carries the token <paramref name="tokens"/> answers for it (ADR 0127), its
+    /// expiry measured on <paramref name="clock"/>.
+    /// </summary>
+    /// <exception cref="ArgumentException">The address is not absolute http or https.</exception>
+    public SparqlHttpClient(HttpClient http, Uri dataset, ClientLimits limits, BearerTokenProvider tokens, TimeProvider clock)
+        : this(http, dataset, limits)
+    {
+        ArgumentNullException.ThrowIfNull(tokens);
+        ArgumentNullException.ThrowIfNull(clock);
+        _tokens = tokens;
+        _clock = clock;
+    }
+
+    /// <summary>An unauthenticated client of the dataset at <paramref name="dataset"/>, an absolute address ending in <c>/</c>.</summary>
     /// <exception cref="ArgumentException">The address is not absolute http or https.</exception>
     public SparqlHttpClient(HttpClient http, Uri dataset, ClientLimits limits)
     {
@@ -46,9 +71,6 @@ public sealed class SparqlHttpClient
 
     /// <summary>The dataset's address, ending in <c>/</c>.</summary>
     public Uri Dataset { get; }
-
-    /// <summary>The bearer token every call carries, or null for none.</summary>
-    public string? AccessToken { get; set; }
 
     /// <summary>A query, <c>POST</c>ed as <c>application/sparql-query</c>, asking for <paramref name="accept"/>; <paramref name="asOf"/> is a <c>Varve-As-Of</c> selector.</summary>
     public Task<HttpResponseMessage> QueryAsync(string query, string accept, string? asOf, CancellationToken cancellationToken)
@@ -166,9 +188,17 @@ public sealed class SparqlHttpClient
 
     private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        if (AccessToken is { Length: > 0 } token)
+        try
         {
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            if (await TokenAsync(cancellationToken).ConfigureAwait(false) is BearerToken token)
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+            }
+        }
+        catch
+        {
+            request.Dispose();
+            throw;
         }
 
         using CancellationTokenSource bounded = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -187,6 +217,34 @@ public sealed class SparqlHttpClient
             request.Dispose();
         }
     }
+
+    // The token for one request (ADR 0127): the provider's answer, asked for
+    // once more when it expires within the skew, and refused when it still
+    // does; the client never sends a token it knows has expired.
+    private async ValueTask<BearerToken?> TokenAsync(CancellationToken cancellationToken)
+    {
+        if (_tokens is null)
+        {
+            return null;
+        }
+
+        BearerToken? token = await _tokens(cancellationToken).ConfigureAwait(false);
+
+        if (token is BearerToken first && Stale(first))
+        {
+            token = await _tokens(cancellationToken).ConfigureAwait(false);
+
+            if (token is BearerToken again && Stale(again))
+            {
+                throw new BearerTokenExpiredException(again.ExpiresOn);
+            }
+        }
+
+        return token;
+    }
+
+    private bool Stale(BearerToken token) =>
+        token.ExpiresOn != DateTimeOffset.MaxValue && token.ExpiresOn - TokenExpirySkew <= _clock!.GetUtcNow();
 
     /// <summary>The <c>Varve-Position</c> a response carries, or null.</summary>
     public static long? PositionOf(HttpResponseMessage response)

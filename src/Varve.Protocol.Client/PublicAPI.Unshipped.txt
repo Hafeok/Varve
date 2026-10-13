@@ -39,8 +39,6 @@ static Varve.Protocol.Client.OutboundHttp.CreateClient() -> System.Net.Http.Http
 ~override Varve.Protocol.Client.ClientLimits.Equals(object obj) -> bool
 ~override Varve.Protocol.Client.ClientLimits.ToString() -> string
 Varve.Protocol.Client.SparqlHttpClient
-Varve.Protocol.Client.SparqlHttpClient.AccessToken.get -> string?
-Varve.Protocol.Client.SparqlHttpClient.AccessToken.set -> void
 Varve.Protocol.Client.SparqlHttpClient.CheckpointAsync(long? at, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
 Varve.Protocol.Client.SparqlHttpClient.Dataset.get -> System.Uri!
 Varve.Protocol.Client.SparqlHttpClient.CommitsAsync(long from, long? to, string? graph, bool eventStream, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
@@ -58,3 +56,24 @@ Varve.Protocol.Client.SparqlHttpClient.UpdateAsync(string! update, long? ifMatch
 static Varve.Protocol.Client.SparqlHttpClient.PositionOf(System.Net.Http.HttpResponseMessage! response) -> long?
 Varve.Protocol.Client.ClientLimits.ClientLimits(System.TimeSpan timeout, long maxResponseBytes) -> void
 Varve.Protocol.Client.ClientLimits.MaxResponseBytes.get -> long
+static readonly Varve.Protocol.Client.SparqlHttpClient.TokenExpirySkew -> System.TimeSpan
+Varve.Protocol.Client.BearerTokenProvider
+Varve.Protocol.Client.SparqlHttpClient.SparqlHttpClient(System.Net.Http.HttpClient! http, System.Uri! dataset, Varve.Protocol.Client.ClientLimits limits, Varve.Protocol.Client.BearerTokenProvider! tokens, System.TimeProvider! clock) -> void
+Varve.Protocol.Client.Model.BearerToken
+Varve.Protocol.Client.Model.BearerToken.BearerToken() -> void
+Varve.Protocol.Client.Model.BearerToken.BearerToken(string! value, System.DateTimeOffset expiresOn) -> void
+Varve.Protocol.Client.Model.BearerToken.Equals(Varve.Protocol.Client.Model.BearerToken other) -> bool
+Varve.Protocol.Client.Model.BearerToken.ExpiresOn.get -> System.DateTimeOffset
+Varve.Protocol.Client.Model.BearerToken.Value.get -> string!
+Varve.Protocol.Client.Model.BearerTokenExpiredException
+Varve.Protocol.Client.Model.BearerTokenExpiredException.BearerTokenExpiredException() -> void
+Varve.Protocol.Client.Model.BearerTokenExpiredException.BearerTokenExpiredException(System.DateTimeOffset expiresOn) -> void
+Varve.Protocol.Client.Model.BearerTokenExpiredException.BearerTokenExpiredException(string! message) -> void
+Varve.Protocol.Client.Model.BearerTokenExpiredException.BearerTokenExpiredException(string! message, System.Exception! inner) -> void
+override Varve.Protocol.Client.Model.BearerToken.GetHashCode() -> int
+override Varve.Protocol.Client.Model.BearerToken.ToString() -> string!
+static Varve.Protocol.Client.Model.BearerToken.Fixed(string! value) -> Varve.Protocol.Client.BearerTokenProvider!
+static Varve.Protocol.Client.Model.BearerToken.operator !=(Varve.Protocol.Client.Model.BearerToken left, Varve.Protocol.Client.Model.BearerToken right) -> bool
+static Varve.Protocol.Client.Model.BearerToken.operator ==(Varve.Protocol.Client.Model.BearerToken left, Varve.Protocol.Client.Model.BearerToken right) -> bool
+virtual Varve.Protocol.Client.BearerTokenProvider.Invoke(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Client.Model.BearerToken?>
+~override Varve.Protocol.Client.Model.BearerToken.Equals(object obj) -> bool

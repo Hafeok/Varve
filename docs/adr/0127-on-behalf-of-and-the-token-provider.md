@@ -60,6 +60,8 @@ about how Varve accepts a token. It changes three other things.
      `BearerTokenExpiredException` before any byte is sent. The client never
      sends a token it knows has expired.
    - A null token means the request goes unauthenticated.
+   - The token is opaque: a string and an instant as the issuer gave them,
+     unwrapped at the client's boundary, since the client reads neither.
    - `AccessToken` is removed, not aliased (ADR 0118). The convenience
      `BearerToken.Fixed(value)` covers the CLI's `--token` and tests.
 2. **The CLI moves onto it.** Remote mode builds a provider over its credential

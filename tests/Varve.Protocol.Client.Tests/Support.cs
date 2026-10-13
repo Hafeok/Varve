@@ -68,6 +68,11 @@ internal static class C
                 context.Response.ContentType = "text/plain";
                 await context.Response.WriteAsync("<http://ex/a> <http://ex/p> <b> .\n", context.RequestAborted);
             }));
+            app.MapGet("/echo/status", (RequestDelegate)(async context =>
+            {
+                context.Response.ContentType = "text/plain";
+                await context.Response.WriteAsync(context.Request.Headers.Authorization.ToString(), context.RequestAborted);
+            }));
             app.MapGet("/json", (RequestDelegate)(async context =>
             {
                 context.Response.ContentType = "application/json";

@@ -165,10 +165,10 @@ internal sealed class Target
 
         try
         {
-            SparqlHttpClient client = new(http, dataset, ClientLimits.Default)
-            {
-                AccessToken = await TokenAsync(parsed, io, dataset, http, cancellationToken).ConfigureAwait(false),
-            };
+            BearerTokenProvider? tokens = await TokensAsync(parsed, io, dataset, http, cancellationToken).ConfigureAwait(false);
+            SparqlHttpClient client = tokens is null
+                ? new(http, dataset, ClientLimits.Default)
+                : new(http, dataset, ClientLimits.Default, tokens, TimeProvider.System);
             return new Remote(client, http);
         }
         catch
@@ -178,15 +178,16 @@ internal sealed class Target
         }
     }
 
-    // The token: given, or obtained from the issuer by the flow the options
-    // name, a stored refresh token first (ADR 0105).
-    private async Task<string?> TokenAsync(ParseResult parsed, Io io, Uri dataset, HttpClient http, CancellationToken cancellationToken)
+    // The tokens (ADRs 0105, 0127): a token given is fixed; one obtained from
+    // the issuer by the flow the options name, a stored refresh token first,
+    // is renewed before it expires, so a long command outlives one token.
+    private async Task<BearerTokenProvider?> TokensAsync(ParseResult parsed, Io io, Uri dataset, HttpClient http, CancellationToken cancellationToken)
     {
         string? token = parsed.GetValue(Token) ?? Environment.GetEnvironmentVariable("VARVE_TOKEN");
 
         if (!string.IsNullOrEmpty(token))
         {
-            return token;
+            return Varve.Protocol.Client.Model.BearerToken.Fixed(token);
         }
 
         string? authority = parsed.GetValue(Authority);
@@ -214,7 +215,7 @@ internal sealed class Target
             {
                 OidcTokens refreshed = await oidc.RefreshAsync(clientId, secret, refresh, cancellationToken).ConfigureAwait(false);
                 credentials.Write(dataset, authority, clientId, refreshed.RefreshToken ?? refresh);
-                return refreshed.AccessToken;
+                return new RenewedTokens(oidc, clientId, secret, scope, store ? Kept(credentials, dataset, authority, clientId) : null, refreshed with { RefreshToken = refreshed.RefreshToken ?? refresh }).GetAsync;
             }
             catch (OidcException)
             {
@@ -232,6 +233,9 @@ internal sealed class Target
             credentials.Write(dataset, authority, clientId, kept);
         }
 
-        return tokens.AccessToken;
+        return new RenewedTokens(oidc, clientId, secret, scope, store ? Kept(credentials, dataset, authority, clientId) : null, tokens).GetAsync;
     }
+
+    private static Action<string> Kept(CredentialFile credentials, Uri dataset, string authority, string clientId) =>
+        refresh => credentials.Write(dataset, authority, clientId, refresh);
 }

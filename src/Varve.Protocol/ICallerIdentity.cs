@@ -5,6 +5,7 @@
 using System.Security.Claims;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
+using Varve.Protocol.Model;
 using Varve.Store.Log;
 
 namespace Varve.Protocol;
@@ -19,4 +20,12 @@ public interface ICallerIdentity
 {
     /// <summary>The agent for a commit made by <paramref name="caller"/>.</summary>
     RequestTerm AgentOf(ClaimsPrincipal caller);
+
+    /// <summary>
+    /// The application that acted for <paramref name="caller"/> (ADR 0127): a
+    /// token's <c>azp</c>, for one exchanged on a user's behalf as for one an
+    /// application holds on its own; null when the host names none. The
+    /// request span carries it as <c>varve.azp</c>; the log never does.
+    /// </summary>
+    ActingApplication? ApplicationOf(ClaimsPrincipal caller) => null;
 }

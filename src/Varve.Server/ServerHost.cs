@@ -483,7 +483,7 @@ internal static partial class ServerHost
             Datasets = datasets,
             Administration = datasets,
             Updates = new StoreUpdates(clock, outbound, new MemoryBytes(settings.Limits.MaxQueryMemory)),
-            Identity = anonymous ? new NoAgent() : new TokenIdentity(settings.Auth.SubjectClaim),
+            Identity = anonymous ? new NoAgent() : new TokenIdentity(settings.Auth.SubjectClaim, settings.Auth.ApplicationClaim),
             AccessScopes = anonymous ? EveryoneEverything.Instance : new GrantedScopes(settings.Auth),
             Authorization = app.Services.GetRequiredService<IAuthorizationService>(),
             Clock = clock,

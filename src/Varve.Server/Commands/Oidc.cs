@@ -12,8 +12,11 @@ using System.Threading.Tasks;
 
 namespace Varve.Server.Commands;
 
-/// <summary>The tokens an issuer handed out: the access token, and a refresh token when it gave one.</summary>
-internal sealed record OidcTokens(string AccessToken, string? RefreshToken);
+/// <summary>
+/// The tokens an issuer handed out: the access token, a refresh token when it
+/// gave one, and how long the access token lives when it said (<c>expires_in</c>).
+/// </summary>
+internal sealed record OidcTokens(string AccessToken, string? RefreshToken, TimeSpan? ExpiresIn = null);
 
 /// <summary>An issuer's refusal, or an answer that is not a token.</summary>
 internal sealed class OidcException(string message) : Exception(message);
@@ -135,7 +138,10 @@ internal sealed class OidcClient(HttpClient http, string authority)
     }
 
     private static OidcTokens Tokens(JsonElement root) =>
-        new(Required(root, "access_token"), root.TryGetProperty("refresh_token", out JsonElement refresh) && refresh.ValueKind == JsonValueKind.String ? refresh.GetString() : null);
+        new(
+            Required(root, "access_token"),
+            root.TryGetProperty("refresh_token", out JsonElement refresh) && refresh.ValueKind == JsonValueKind.String ? refresh.GetString() : null,
+            root.TryGetProperty("expires_in", out JsonElement expires) && expires.TryGetInt64(out long seconds) && seconds > 0 ? TimeSpan.FromSeconds(seconds) : null);
 
     private async Task<JsonDocument> PostAsync(string endpoint, Dictionary<string, string> form, CancellationToken cancellationToken, bool allowError = false)
     {

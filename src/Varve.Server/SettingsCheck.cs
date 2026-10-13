@@ -30,7 +30,7 @@ internal static class SettingsCheck
     [
         "DatasetsRoot",
         "Datasets:*:Storage",
-        "Auth:Mode", "Auth:Authority", "Auth:Audiences:*", "Auth:SubjectClaim", "Auth:RoleClaimType", "Auth:RequireHttpsMetadata", "Auth:Production",
+        "Auth:Mode", "Auth:Authority", "Auth:Audiences:*", "Auth:SubjectClaim", "Auth:ApplicationClaim", "Auth:RoleClaimType", "Auth:RequireHttpsMetadata", "Auth:Production",
         "Auth:Datasets:*:Read:*", "Auth:Datasets:*:Write:*", "Auth:Datasets:*:Admin:*",
         "Auth:Datasets:*:Grants:*:Claim", "Auth:Datasets:*:Grants:*:Permission", "Auth:Datasets:*:Grants:*:Graphs:*", "Auth:Datasets:*:Grants:*:GraphPrefixes:*",
         "Auth:Server:Admin:*",

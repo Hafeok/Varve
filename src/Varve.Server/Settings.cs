@@ -142,6 +142,9 @@ internal sealed class AuthSettings
     /// <summary>The claim that names the caller: <c>oid</c> for Entra, <c>sub</c> otherwise (ADR 0037).</summary>
     public string SubjectClaim { get; set; } = "sub";
 
+    /// <summary>The claim that names the acting application, recorded on the request span as <c>varve.azp</c> and never in the log: <c>azp</c>, or <c>appid</c> for an Entra v1 token (ADR 0127).</summary>
+    public string ApplicationClaim { get; set; } = "azp";
+
     /// <summary>The claim whose values are mapped to permissions.</summary>
     public string RoleClaimType { get; set; } = "roles";
 

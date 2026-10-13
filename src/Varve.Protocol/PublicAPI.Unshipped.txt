@@ -204,3 +204,14 @@ Varve.Protocol.TelemetryOptions.QueryText.get -> bool
 Varve.Protocol.TelemetryOptions.QueryText.init -> void
 const Varve.Protocol.TelemetryOptions.ActivitySourceName = "Varve.Protocol" -> string!
 const Varve.Protocol.TelemetryOptions.MeterName = "Varve.Store" -> string!
+Varve.Protocol.ICallerIdentity.ApplicationOf(System.Security.Claims.ClaimsPrincipal! caller) -> Varve.Protocol.Model.ActingApplication?
+Varve.Protocol.Model.ActingApplication
+Varve.Protocol.Model.ActingApplication.ActingApplication() -> void
+Varve.Protocol.Model.ActingApplication.ActingApplication(string! value) -> void
+Varve.Protocol.Model.ActingApplication.Equals(Varve.Protocol.Model.ActingApplication other) -> bool
+Varve.Protocol.Model.ActingApplication.Value.get -> string!
+override Varve.Protocol.Model.ActingApplication.GetHashCode() -> int
+override Varve.Protocol.Model.ActingApplication.ToString() -> string!
+static Varve.Protocol.Model.ActingApplication.operator !=(Varve.Protocol.Model.ActingApplication left, Varve.Protocol.Model.ActingApplication right) -> bool
+static Varve.Protocol.Model.ActingApplication.operator ==(Varve.Protocol.Model.ActingApplication left, Varve.Protocol.Model.ActingApplication right) -> bool
+~override Varve.Protocol.Model.ActingApplication.Equals(object obj) -> bool

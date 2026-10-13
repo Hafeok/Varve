@@ -6,6 +6,7 @@ using System.Security.Claims;
 using System.Text;
 using Varve.Iri;
 using Varve.Protocol;
+using Varve.Protocol.Model;
 using Varve.Rdf;
 using Varve.Store.Log;
 
@@ -17,8 +18,11 @@ namespace Varve.Server;
 /// configured — percent-encoded to RFC 3986's unreserved characters, so that
 /// any subject makes an IRI and two subjects never make one.
 /// </summary>
-internal sealed class TokenIdentity(string subjectClaim) : ICallerIdentity
+internal sealed class TokenIdentity(string subjectClaim, string applicationClaim) : ICallerIdentity
 {
+    /// <summary>The acting application's identifier, as the token states it (ADR 0127).</summary>
+    public ActingApplication? ApplicationOf(ClaimsPrincipal caller) => caller.FindFirst(applicationClaim)?.Value is { Length: > 0 } application ? new ActingApplication(application) : null;
+
     public RequestTerm AgentOf(ClaimsPrincipal caller)
     {
         string? issuer = caller.FindFirst("iss")?.Value;

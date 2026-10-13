@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Varve.Protocol.Endpoints;
 using Varve.Protocol.Http;
+using Varve.Protocol.Model;
 using Varve.Store.Log;
 
 namespace Varve.Protocol;
@@ -110,6 +111,13 @@ internal static class Tracing
             activity.SetTag("db.system.name", "varve");
             activity.SetTag("db.operation.name", operation);
             activity.SetTag("varve.request_id", context.TraceIdentifier);
+
+            // The application that acted for the caller (ADR 0127): on the
+            // span, for the operator to ask "through what", and nowhere else.
+            if (options.Identity.ApplicationOf(context.User) is ActingApplication application)
+            {
+                activity.SetTag("varve.azp", application.Value);
+            }
         }
 
         try
