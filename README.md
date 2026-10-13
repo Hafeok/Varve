@@ -157,7 +157,7 @@ Also true today, and measured rather than asserted:
   much as the parser. RDF/XML costs what `XmlReader` costs, 16 bytes a
   triple, stated rather than hidden (ADR 0122); JSON-LD is a tree before it
   is a dataset, zero per quad in a steady state and the tree's growth on the
-  first document of a size, and 286 bytes a quad to write (ADR 0123).
+  first document of a size, and at most 533 bytes a quad to write (ADR 0123).
 - **Native AOT and browser WebAssembly** both read and write Turtle and TriG
   with RDF 1.2, RDF/XML and JSON-LD. CI publishes the AOT binary and *runs*
   it; the interesting AOT failures are at run time and silent.

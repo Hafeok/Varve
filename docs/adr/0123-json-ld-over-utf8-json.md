@@ -17,6 +17,15 @@ string. The suites are `toRdf`, `expand` and `fromRdf` of the
 **json-ld-api** repository, pinned as the third submodule at
 `tests/w3c/json-ld-api`, revision `5551473` of 7 October 2026.
 
+
+**Corrected 2026-10-13** (ADR 0068), on #85 before it landed: the fromRdf
+writer's figure below, 286 bytes per quad against a bound of 512, is the
+figure with `ArrayPool.Shared` already warm. Measured cold, as Windows CI ran
+it, it is **533**, the same on every runtime setting tried; the writer rents
+more arrays of one size than a cold pool keeps. The bound is 640, over the
+cold figure, and `json-ld.md` §7 states both. The reading paths are 0 either
+way. Nothing decided here changes.
+
 ## Context
 
 `Varve.JsonLd` has been a named layer-2 package since the layering table was

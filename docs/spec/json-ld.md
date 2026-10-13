@@ -230,7 +230,7 @@ dataset, so the figure per quad is the tree's growth, not the emitter's:
 |---|---:|---:|---:|
 | toRdf: read, expand, emit | **0** | 64 | 14,400 |
 | expand: read, expand, write | **0** | 64 | 2,080 |
-| fromRdf: buffer, serialise, write | **286** | 512 | 56,536 |
+| fromRdf: buffer, serialise, write | **533** cold, about 290 warm | 640 | 56,536 |
 
 Measured 2026-10-09 by `AllocationTests` as the difference between a 64- and
 a 640-node document of six quads each (a type, a plain literal, a
@@ -248,11 +248,16 @@ language-tagged literal, a typed literal, an IRI, a nested blank node), .NET
   quad, is the active context and its term definitions
   (`ContextsAreNotPerQuad`), and per `rdf:JSON` literal its canonical form
   (`JsonLiteralsAreCanonical`).
-- **The fromRdf writer is a bound, 286 bytes per quad**, because it buffers
+- **The fromRdf writer is a bound, 533 bytes per quad**, because it buffers
   the dataset: quads as indices into one term arena, terms interned by their
   bytes, node objects and value objects as tree nodes, usage records for
   list detection, and the written document. Its arrays are rented and
-  returned on `Dispose`.
+  returned on `Dispose`, more of one size than a cold `ArrayPool.Shared`
+  keeps, so the figure is 533 when the measurement runs alone or first and
+  about 290 once other work has warmed the pool. The bound, 640, is over
+  the cold figure. (Corrected 2026-10-13: this page first said 286, the
+  warm figure, and the bound of 512 failed on Windows CI, which ran the
+  test cold.)
 - **The allow-list** admits `Utf8JsonReader`, `Utf8JsonWriter`,
   `JsonTokenType`, `JsonReaderState`, `JsonReaderOptions`,
   `JsonWriterOptions`, `ReadOnlySequence<byte>` and `BuffersExtensions` by

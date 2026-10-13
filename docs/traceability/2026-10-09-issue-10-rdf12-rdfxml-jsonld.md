@@ -194,4 +194,16 @@ landing 6b:
   commits before the merge were signed by the platform's key, because the
   earlier container's environment had to be cleared to make git run.
 
+## Addendum, 2026-10-13: the first green build found a wrong figure
+
+The maintainer accepted ADRs 0121–0123 (4b77f2a, from a script this session
+wrote at his request, which he ran and signed). The first build without
+`CS0618` failed one test, on Windows only: `JsonLdWriter`'s allocation, 533
+bytes per quad against a bound of 512. The figure reported above, 286, was
+the one with `ArrayPool.Shared` already warm from the tests before it. Run
+alone it is 533 on every runtime setting tried: the writer rents more arrays
+of one size than a cold pool keeps. The bound is now 640, over the cold
+figure; `json-ld.md` §7 and README state it, and ADR 0123 carries a dated
+correction. The reading paths are 0 either way.
+
 Developed with AI assistance under human review.
