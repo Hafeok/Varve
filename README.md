@@ -43,9 +43,13 @@ where Varve is the wrong tool: [`docs/why.md`](docs/why.md).
 
 ## Status
 
-**`v0.1.0-preview.4` is the latest release, and it closed milestone 6 ([#10](https://github.com/Hafeok/Varve/issues/10))**,
-with its last slice, 6b: RDF 1.2 Turtle and TriG, RDF/XML and JSON-LD, read,
-written and negotiated over HTTP. `v0.1.0-preview.3` before it closed
+**`v0.1.0-preview.5` is the latest release, and it closed milestone Commit path ([#91](https://github.com/Hafeok/Varve/issues/91))**:
+concurrent commits written together in one flush, and writers that conflict
+only over the graphs they read or write, with graph versions as HTTP tags.
+`v0.1.0-preview.4` before it closed milestone 6
+([#10](https://github.com/Hafeok/Varve/issues/10)) with its last slice, 6b:
+RDF 1.2 Turtle and TriG, RDF/XML and JSON-LD, read, written and negotiated
+over HTTP. `v0.1.0-preview.3` before that closed
 milestone Operability ([#12](https://github.com/Hafeok/Varve/issues/12)): the
 server somebody can run. Sixteen packages and one executable: reading and
 writing seven syntaxes, the XSD value spaces, RDFC-1.0
@@ -277,7 +281,7 @@ is the Native AOT binary and nothing else:
 
 ```bash
 dotnet tool install --global Varve.Server --prerelease
-docker pull ghcr.io/hafeok/varve:v0.1.0-preview.4
+docker pull ghcr.io/hafeok/varve:v0.1.0-preview.5
 ```
 
 Serve one dataset on your machine. `--anonymous` is for development only: a
@@ -286,7 +290,7 @@ real deployment takes OIDC bearer tokens ([ADR 0037](docs/adr/0037-server-authen
 ```bash
 varve serve --anonymous --datasets-root "$PWD/data" --dataset people
 # or, listening on 8080 instead of 5000, with the datasets in the image's volume:
-docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.4 serve --anonymous --dataset people
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.5 serve --anonymous --dataset people
 ```
 
 The datasets root is an absolute path. Then write, read, go back, and read

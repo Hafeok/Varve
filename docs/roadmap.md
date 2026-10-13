@@ -549,7 +549,7 @@ upstream reports #36–#39.
 
 ---
 
-## Commit path — group commit and per-graph concurrency
+## Commit path *(complete)* — group commit and per-graph concurrency
 
 **Why first.** Both change the sequencer, which is the one component whose
 correctness everything else assumes; they are reviewed together and apart

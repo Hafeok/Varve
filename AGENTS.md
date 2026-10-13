@@ -202,8 +202,22 @@ and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone 6b (#10; ADRs 0121–0123, filed unaccepted), after milestone
-Operability; 6b is described below. Operability (#12; ADRs 0110–0120): `Varve.Server`
+Milestone Commit path (#91; ADRs 0124–0126, filed unaccepted), after 6b.
+The sequencer queues writes and writes those that arrive during a flush as
+one batch, each keeping its commit, on every backend by default, and no
+request is answered before its batch is durable; a reader treats a break
+within the 4 MiB write window of the last good record as a torn tail (0124,
+0072 amended). The expected position takes a graph scope: a commit conflicts
+only when one after it touched a graph in the scope, `Settings` and `Erasure`
+touching every graph, and the graph-version index is part of the default
+projection (0125, 0011 amended). `SparqlUpdate` infers the scope from what a
+request asked for and writes (0057 amended), and the server retries an
+inferred conflict up to three times. Over HTTP a Graph Store tag is the
+graph's version, `If-Match`, `If-None-Match` and `Varve-If-Graphs-Match`
+are per graph, and a `409` names the graphs that changed (0126, 0094, 0096,
+0114, 0119 amended); spec 1.7. #35 stays open. Before that, milestone 6b
+(#10; ADRs 0121–0123), after milestone Operability; 6b is described below.
+Operability (#12; ADRs 0110–0120): `Varve.Server`
 ships the workstation concurrent collector with `ConserveMemory` 5, and the
 soak gate is judged under it (0110, 0082 amended); the container image
 `ghcr.io/hafeok/varve` is Native AOT per architecture on the chiseled base,
