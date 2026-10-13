@@ -38,6 +38,9 @@ dataset, encrypts personal terms under a per-subject key, and erasure destroys
 the key — the log is untouched and the data is gone. Keys never live in the
 dataset directory.
 
+What that buys a system of record, against the stack it usually takes, and
+where Varve is the wrong tool: [`docs/why.md`](docs/why.md).
+
 ## Status
 
 **`v0.1.0-preview.4` is the latest release, and it closed milestone 6 ([#10](https://github.com/Hafeok/Varve/issues/10))**,
@@ -274,7 +277,7 @@ is the Native AOT binary and nothing else:
 
 ```bash
 dotnet tool install --global Varve.Server --prerelease
-docker pull ghcr.io/hafeok/varve:v0.1.0-preview.3
+docker pull ghcr.io/hafeok/varve:v0.1.0-preview.4
 ```
 
 Serve one dataset on your machine. `--anonymous` is for development only: a
@@ -283,7 +286,7 @@ real deployment takes OIDC bearer tokens ([ADR 0037](docs/adr/0037-server-authen
 ```bash
 varve serve --anonymous --datasets-root "$PWD/data" --dataset people
 # or, listening on 8080 instead of 5000, with the datasets in the image's volume:
-docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.3 serve --anonymous --dataset people
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.4 serve --anonymous --dataset people
 ```
 
 The datasets root is an absolute path. Then write, read, go back, and read
@@ -345,6 +348,8 @@ accurately anywhere else, including here.
 
 ## Documentation
 
+- [`docs/why.md`](docs/why.md) — why Varve: what it replaces, and where it
+  is the wrong tool.
 - [`docs/brief.md`](docs/brief.md) — the project brief. The authority.
 - [`docs/adr/`](docs/adr/) — architecture decisions. Numbered, superseded
   rather than edited.
