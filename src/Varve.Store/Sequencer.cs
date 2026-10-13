@@ -44,6 +44,7 @@ public sealed partial class Dataset
     private readonly Lock _queueGate = new();
     private readonly Queue<PendingCommit> _queue = new();
     private PendingCommit? _deferred;
+    private bool _leading;
     private long _writes;
 
     /// <summary>Test seam: how many writes of the log the sequencer has made, each one batch.</summary>
@@ -61,16 +62,31 @@ public sealed partial class Dataset
         PendingCommit pending = new(kind, request, metadata, expected, kindPayload, request?.ExpectedGraphs);
         _metrics.Queued(1);
 
+        bool lead;
+
         lock (_queueGate)
         {
             _queue.Enqueue(pending);
+            lead = !_leading;
+            _leading = true;
+        }
+
+        // The request that finds no leader leads: it takes the sequencer and
+        // writes batches until its own is answered, then hands the rest to a
+        // task that leads until the queue is empty. Every other request only
+        // waits for its answer, and never touches the sequencer: a request a
+        // leader wrote has nothing left to do there.
+        if (lead)
+        {
+            await _sequencer.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+            await LeadWhileQueuedAsync(pending).ConfigureAwait(false);
         }
 
         try
         {
-            await _sequencer.WaitAsync(cancellationToken).ConfigureAwait(false);
+            await pending.Answer.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (!pending.Answer.Task.IsCompleted)
         {
             // Withdrawn while still queued, it is never written (ADR 0124
             // point 6). Taken already, it is written with its batch, and the
@@ -81,21 +97,6 @@ public sealed partial class Dataset
             }
 
             throw;
-        }
-
-        try
-        {
-            // A leader before this one may have written it already; otherwise
-            // lead until it is answered: a batch that filled up before
-            // reaching it leaves it at the front of the queue.
-            while (!pending.Answer.Task.IsCompleted)
-            {
-                await LeadAsync().ConfigureAwait(false);
-            }
-        }
-        finally
-        {
-            _sequencer.Release();
         }
 
         CommitResult result = await pending.Answer.Task.ConfigureAwait(false);
@@ -110,6 +111,57 @@ public sealed partial class Dataset
         });
         _metrics.Observe(this);
         return result;
+    }
+
+    // Inside the sequencer: leads batches until `until` is answered — or, for
+    // the task a leader hands over to, until the queue is empty — then lets
+    // the sequencer go when nothing is queued, or hands it on when something
+    // is. The sequencer is held across the hand-over, never released between.
+    private async ValueTask LeadWhileQueuedAsync(PendingCommit? until)
+    {
+        try
+        {
+            while (true)
+            {
+                lock (_queueGate)
+                {
+                    if (_queue.Count == 0 && _deferred is null)
+                    {
+                        _leading = false;
+                        _sequencer.Release();
+                        return;
+                    }
+                }
+
+                if (until is not null && until.Answer.Task.IsCompleted)
+                {
+                    _ = Task.Run(async () => await LeadWhileQueuedAsync(null).ConfigureAwait(false));
+                    return;
+                }
+
+                await LeadAsync().ConfigureAwait(false);
+            }
+        }
+        catch (Exception error)
+        {
+            // A defect in the sequencer itself: nothing queued may wait for
+            // ever. The dataset is broken, and every queued request fails.
+            _broken = "The sequencer failed; reopen the dataset: " + error.Message;
+
+            lock (_queueGate)
+            {
+                while (_queue.TryDequeue(out PendingCommit? queued))
+                {
+                    queued.Answer.TrySetException(error);
+                }
+
+                _deferred?.Answer.TrySetException(error);
+                _deferred = null;
+                _leading = false;
+            }
+
+            _sequencer.Release();
+        }
     }
 
     // Takes queued requests in arrival order, stages each, writes the staged

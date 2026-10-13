@@ -90,13 +90,27 @@ at `p`.
 
 ### The index's size
 
-Measured at filing on the machine the milestone's benchmarks name: the
-memory of the head's map and the time to open a dataset whose `index/graphs`
-holds it, at 10⁵ and 10⁶ graphs. **The numbers are entered here by the
-commit that adds the measurement, before the pull request leaves draft**; a
-dataset with a graph per entity at a million entities is the case to know
-the cost of, and no different structure is adopted before that cost is
-known.
+Measured on 2026-10-13 on the milestone's machine (4-core Xeon @ 2.10 GHz,
+15 GiB, Ubuntu 24.04, .NET 10.0.401), by `--graph-index` in
+`tests/Varve.Benchmarks`: N quads in one bulk commit, each in a graph of its
+own, against a control of the same N terms in the default graph, on files;
+the heap is the managed heap the opened dataset holds after a full
+collection.
+
+| Graphs | Index on the heap | `index/graphs` on disk | Open | Open, index rebuilt from the log | A graph's version at the head | As of the checkpoint below |
+|---:|---:|---:|---:|---:|---:|---:|
+| 100,000 | 6.1 MiB (64 B a graph) | 1.5 MiB | 198 ms | 152 ms | 4.9 µs | 24 µs |
+| 1,000,000 | 61.0 MiB (64 B a graph) | 15.3 MiB | 263 ms | 254 ms | 6.6 µs | 16 µs |
+
+**The limit on record**: the head's map costs 64 bytes a graph for as long
+as the dataset is open, so a dataset of ten million graphs holds about
+610 MiB for it; the persisted index is 16 bytes a graph. Opening loads the
+whole map, and building the immutable map dominates both columns, which is
+why reading it and rebuilding it from a log of one bulk commit cost the
+same; a log of many commits after the persisted index costs their replay.
+No different structure is adopted now; a dataset that outgrows this is the
+condition to revisit, with a paged index of the kind the commit index has
+(ADR 0089).
 
 ## Alternatives considered
 

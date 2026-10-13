@@ -39,8 +39,12 @@ feed may depend on how commits were grouped for writing.
 **Group commit, on every backend, on by default.**
 
 1. **Steps 1–6 per request, in arrival order; step 7 per batch.** Requests
-   that arrive while a write is in flight queue. When the write returns, the
-   next leader takes the queue in arrival order, up to the bounds, and runs
+   that arrive while a write is in flight queue. The request that finds no
+   leader becomes one: it takes the sequencer and writes batches until its
+   own request is answered, then hands the sequencer, still held, to a task
+   that leads until the queue is empty. Every other request only waits for
+   its answer and never touches the sequencer. A leader takes the queue in
+   arrival order, up to the bounds, and runs
    T1 steps 1 to 6 for each request in turn **against the state as that
    request would see it**: the head after every earlier request of the batch
    that committed. Normalisation, term resolution, the expected-position
@@ -132,9 +136,17 @@ feed may depend on how commits were grouped for writing.
   without changing anything here.
 - **A background writer thread** owning the log, with requests posted to it.
   The common shape in server databases. Rejected: the browser host has one
-  thread, and the store has no background thread of its own today
-  (maintenance is a task the sequencer starts). The leader pattern needs no
-  thread: the request that finds the sequencer free does the work.
+  thread, and the store has no thread of its own (maintenance is a task the
+  sequencer starts). The leader is a request; only when it is answered while
+  others still wait does it hand the sequencer to a task, which ends when
+  the queue does — a task, not a thread, and none at all while the dataset
+  is idle.
+- **Every waiting request takes the sequencer in turn**, the leader
+  answering some of them first. The shape this milestone first built: a
+  request a leader had already written still waited its turn on the
+  sequencer, only to give it back, and every such turn delayed the next
+  batch. Measured over HTTP on the memory backend it cost a fifth of the
+  throughput of eight writers.
 - **One commit per batch.** Cheaper still: one header, one position. Rejected
   outright by ADR 0013 and I1: a position is a request's, and two requests
   merged into one commit cannot be told apart in the feed or undone by
@@ -154,6 +166,15 @@ feed may depend on how commits were grouped for writing.
   backend the device's flush is amortised over the queue; on the object
   store (#92) a batch is one object write. The write benchmark before and
   after is in the milestone's record.
+- **On a backend with nothing to flush, batching costs throughput.** On the
+  memory backend (`Durability.None`) the write is a copy, so a batch saves
+  nothing, and answering a batch at once makes requests arrive in bursts:
+  over HTTP with eight writers, `INSERT DATA` of one quad measured 9,753 a
+  second against 12,304 and 12,246 before this milestone, and 11,824 with
+  `GroupCommitOptions.Off`. On files it doubled. The decision stands as the
+  maintainer gave it — every backend, on by default — and the milestone's
+  report puts the alternative, off by default for `Durability.None`, to the
+  maintainer.
 - **One write failure fails up to a batch of requests**, rather than one.
   They fail together and none is acknowledged, so no caller is told a
   falsehood; more callers learn about a failure that was always fatal to the

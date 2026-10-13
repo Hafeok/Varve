@@ -20,7 +20,19 @@ namespace Varve.Protocol.Endpoints;
 /// position the client expects, and, for a graph or the graphs an update
 /// named, the scope it expects it over (ADR 0126).
 /// </summary>
-internal readonly record struct WritePlan(bool Proceed, Position? Expected, IReadOnlyList<GraphPrecondition>? Graphs = null);
+internal readonly record struct WritePlan(bool Proceed, Position? Expected, IReadOnlyList<GraphPrecondition>? Graphs = null, GraphPresence Presence = GraphPresence.Any);
+
+/// <summary>
+/// What a Graph Store write's precondition requires of the graph, decided by
+/// the pin the write itself takes (ADR 0126): <c>If-Match</c> needs a graph
+/// that holds a quad, <c>If-None-Match: *</c> one that does not.
+/// </summary>
+internal enum GraphPresence : byte
+{
+    Any,
+    Present,
+    Absent,
+}
 
 /// <summary>
 /// Where a conflict's evidence is read from (ADR 0126): the commits after
@@ -133,7 +145,7 @@ internal static class Writes
     /// on a <c>PUT</c> creates only, and fails when the graph holds a quad.
     /// A matching tag becomes the expected position, the graph its scope.
     /// </summary>
-    internal static async Task<WritePlan> CheckGraphAsync(Exchange exchange, RdfTerm? graph, bool put, System.Func<bool> exists)
+    internal static async Task<WritePlan> CheckGraphAsync(Exchange exchange, RdfTerm? graph, bool put)
     {
         HttpContext context = exchange.Context;
 
@@ -151,19 +163,14 @@ internal static class Writes
 
         RequestTerm term = Term(graph);
         GraphPrecondition[] scope = [new GraphPrecondition(graph, default)];
+        GraphPresence presence = GraphPresence.Any;
 
         switch (Preconditions.Read(context.Request.Headers.IfNoneMatch, out _))
         {
             case TagCondition.Absent:
                 break;
             case TagCondition.Any when put:
-                if (exists())
-                {
-                    Position version = exchange.Dataset.GraphVersion(term);
-                    await GraphPreconditionFailedAsync(exchange, [(new GraphPrecondition(graph, version), version)]).ConfigureAwait(false);
-                    return default;
-                }
-
+                presence = GraphPresence.Absent;
                 break;
             default:
                 await HttpProblems.BadRequest(context, "A Graph Store write takes If-Match, the graph's version; If-None-Match: * only on PUT, to create a graph.").ConfigureAwait(false);
@@ -173,23 +180,40 @@ internal static class Writes
         switch (Preconditions.Read(context.Request.Headers.IfMatch, out Preconditions.TagList tags))
         {
             case TagCondition.Absent:
-                return new WritePlan(true, null, scope);
+                return new WritePlan(true, null, scope, presence);
             case TagCondition.Any:
             case TagCondition.Positions when tags.TrySingle(out _):
                 Position current = exchange.Dataset.GraphVersion(term);
-                bool present = graph is null || exists();
 
-                if (!present || (tags.Values is { Length: 1 } single && single[0] != current.Value))
+                if (tags.Values is { Length: 1 } single && single[0] != current.Value)
                 {
-                    await GraphPreconditionFailedAsync(exchange, [(new GraphPrecondition(graph, tags.Values is { Length: 1 } named ? new Position(named[0]) : current), current)]).ConfigureAwait(false);
+                    await GraphPreconditionFailedAsync(exchange, [(new GraphPrecondition(graph, new Position(single[0])), current)]).ConfigureAwait(false);
                     return default;
                 }
 
-                return new WritePlan(true, tags.Values is { Length: 1 } ? current : null, scope);
+                // The default graph always has a representation; a named one
+                // only while it holds a quad, which the write's pin decides.
+                return new WritePlan(true, tags.Values is { Length: 1 } ? current : null, scope, graph is null ? GraphPresence.Any : GraphPresence.Present);
             default:
                 await HttpProblems.BadRequest(context, "If-Match names one version, as the ETag of a graph does.").ConfigureAwait(false);
                 return default;
         }
+    }
+
+    /// <summary>
+    /// Whether the graph's presence, as the write's own pin found it, meets
+    /// the plan's precondition; when not, <c>412</c> has been written.
+    /// </summary>
+    internal static async Task<bool> PresenceHoldsAsync(Exchange exchange, WritePlan plan, RdfTerm? graph, bool present)
+    {
+        if (plan.Presence == GraphPresence.Any || (plan.Presence == GraphPresence.Present) == present)
+        {
+            return true;
+        }
+
+        Position version = exchange.Dataset.GraphVersion(Term(graph));
+        await GraphPreconditionFailedAsync(exchange, [(new GraphPrecondition(graph, plan.Expected ?? version), version)]).ConfigureAwait(false);
+        return false;
     }
 
     /// <summary>A graph as the store names it in a scope: <see cref="RequestTerm.None"/> for the default graph.</summary>

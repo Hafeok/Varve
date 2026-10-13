@@ -111,14 +111,9 @@ internal static class GraphStoreEndpoint
     }
 
     // A write's preconditions, against the graph (ADR 0126): before the body
-    // is read; whether the graph holds a quad is asked of a pin taken and
-    // released here.
+    // is read; whether the graph holds a quad is asked of the write's own pin.
     private static Task<WritePlan> CheckAsync(Exchange exchange, Target target, bool put) =>
-        Writes.CheckGraphAsync(exchange, GraphOf(target), put, () =>
-        {
-            using DatasetView view = exchange.Dataset.Pin();
-            return Exists(view, target);
-        });
+        Writes.CheckGraphAsync(exchange, GraphOf(target), put);
 
     private static RdfTerm? GraphOf(Target target) => target.Kind == TargetKind.Default ? null : target.Graph;
 
@@ -277,6 +272,11 @@ internal static class GraphStoreEndpoint
             exists = Retract(view, target, request);
         }
 
+        if (!await Writes.PresenceHoldsAsync(exchange, plan, GraphOf(target), exists).ConfigureAwait(false))
+        {
+            return;
+        }
+
         if (!exists)
         {
             Preconditions.Describe(exchange.Response, exchange.Dataset.Head);
@@ -304,6 +304,11 @@ internal static class GraphStoreEndpoint
                 Metadata = Writes.Metadata(exchange),
             };
             existed = replace ? Retract(view, target, request) : Exists(view, target);
+        }
+
+        if (!await Writes.PresenceHoldsAsync(exchange, plan, GraphOf(target), existed).ConfigureAwait(false))
+        {
+            return;
         }
 
         foreach (BodyTriple triple in triples)

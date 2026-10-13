@@ -145,15 +145,24 @@ internal sealed class GraphVersions
     internal static int Distinct(ReadOnlySpan<Quad> asserted, ReadOnlySpan<Quad> retracted, Span<ulong> into)
     {
         int count = 0;
+        bool one = true;
 
         for (int i = 0; i < asserted.Length; i++)
         {
-            into[count++] = asserted[i].Graph.Value;
+            into[count] = asserted[i].Graph.Value;
+            one &= into[count++] == into[0];
         }
 
         for (int i = 0; i < retracted.Length; i++)
         {
-            into[count++] = retracted[i].Graph.Value;
+            into[count] = retracted[i].Graph.Value;
+            one &= into[count++] == into[0];
+        }
+
+        // Most commits write one graph: a pass, and no sort.
+        if (one)
+        {
+            return Math.Min(count, 1);
         }
 
         Span<ulong> graphs = into[..count];

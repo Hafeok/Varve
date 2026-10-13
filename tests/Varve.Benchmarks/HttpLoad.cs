@@ -146,11 +146,108 @@ internal static class HttpLoad
             });
             Report(endpoint, "INSERT DATA, 1 quad" + (conflicts > 0 ? string.Create(CultureInfo.InvariantCulture, $" ({conflicts:N0} 409s retried)") : string.Empty), clients, result);
         }
+
+        if (endpoint.Server == "Varve")
+        {
+            await ConditionalAsync(endpoint, duration);
+        }
     }
+
+    // The conditional workloads with one graph per writer (ADR 0125, the
+    // Commit path milestone): a read-modify-write of the writer's own graph
+    // by a pattern update, and a Graph Store PUT under If-Match after a GET
+    // of the graph's tag. Before per-graph concurrency every other writer's
+    // commit overtook them; after, only a commit to the same graph does. A
+    // 409 or 412 is retried by the client, as a client must, and counted.
+    private static async Task ConditionalAsync(Endpoint endpoint, TimeSpan duration)
+    {
+        string graphs = endpoint.Load.ToString().Replace("?default", string.Empty, StringComparison.Ordinal);
+        using HttpClient setup = Client(1);
+
+        for (int g = 0; g < 8; g++)
+        {
+            using HttpRequestMessage create = new(HttpMethod.Put, graphs + "?graph=" + Uri.EscapeDataString(Writer(g))) { Content = new StringContent("<http://ex/c> <http://ex/v> \"0\" .\n", Encoding.UTF8, "application/n-triples") };
+            (await setup.SendAsync(create)).EnsureSuccessStatusCode();
+        }
+
+        foreach (int clients in (int[])[1, 8])
+        {
+            int conflicts = 0;
+            (double, double, double) result = await RunAsync(clients, duration, async (client, _, writer) =>
+            {
+                string g = Writer(writer);
+                string update = "DELETE { GRAPH <" + g + "> { <http://ex/c> <http://ex/v> ?x } } INSERT { GRAPH <" + g + "> { <http://ex/c> <http://ex/v> ?y } } "
+                    + "WHERE { OPTIONAL { GRAPH <" + g + "> { <http://ex/c> <http://ex/v> ?x } } BIND (STR(COALESCE(xsd:integer(?x) + 1, 1)) AS ?y) }";
+
+                while (true)
+                {
+                    using HttpRequestMessage request = new(HttpMethod.Post, endpoint.Update) { Content = new StringContent("PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" + update, Encoding.UTF8, "application/sparql-update") };
+                    using HttpResponseMessage response = await client.SendAsync(request);
+
+                    if (response.StatusCode == HttpStatusCode.Conflict)
+                    {
+                        Interlocked.Increment(ref conflicts);
+                        continue;
+                    }
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        throw new HttpRequestException((int)response.StatusCode + " " + await response.Content.ReadAsStringAsync());
+                    }
+
+                    return;
+                }
+            });
+            Report(endpoint, string.Create(CultureInfo.InvariantCulture, $"DELETE/INSERT WHERE, own graph ({conflicts:N0} 409s retried)"), clients, result);
+        }
+
+        foreach (int clients in (int[])[1, 8])
+        {
+            int refused = 0;
+            (double, double, double) result = await RunAsync(clients, duration, async (client, random, writer) =>
+            {
+                string address = graphs + "?graph=" + Uri.EscapeDataString(Writer(writer));
+
+                while (true)
+                {
+                    using HttpRequestMessage get = new(HttpMethod.Get, address);
+                    get.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/n-triples"));
+                    using HttpResponseMessage read = await client.SendAsync(get);
+                    read.EnsureSuccessStatusCode();
+                    _ = await read.Content.ReadAsByteArrayAsync();
+
+                    using HttpRequestMessage put = new(HttpMethod.Put, address) { Content = new StringContent("<http://ex/c> <http://ex/v> \"" + random.Next().ToString(CultureInfo.InvariantCulture) + "\" .\n", Encoding.UTF8, "application/n-triples") };
+                    put.Headers.TryAddWithoutValidation("If-Match", read.Headers.ETag!.Tag);
+                    using HttpResponseMessage written = await client.SendAsync(put);
+
+                    if (written.StatusCode is HttpStatusCode.PreconditionFailed or HttpStatusCode.Conflict)
+                    {
+                        Interlocked.Increment(ref refused);
+                        continue;
+                    }
+
+                    if (!written.IsSuccessStatusCode)
+                    {
+                        throw new HttpRequestException((int)written.StatusCode + " " + await written.Content.ReadAsStringAsync());
+                    }
+
+                    return;
+                }
+            });
+            Report(endpoint, string.Create(CultureInfo.InvariantCulture, $"GET, PUT under If-Match, own graph ({refused:N0} 412s and 409s retried)"), clients, result);
+        }
+    }
+
+    private static string Writer(int writer) => "http://ex/w" + writer.ToString(CultureInfo.InvariantCulture);
 
     // Closed loop: each client sends its next request when the last one is
     // answered. Two seconds of warm-up are run and discarded first.
-    private static async Task<(double PerSecond, double P50, double P99)> RunAsync(int clients, TimeSpan duration, Func<HttpClient, Random, Task> operation)
+    private static Task<(double PerSecond, double P50, double P99)> RunAsync(int clients, TimeSpan duration, Func<HttpClient, Random, Task> operation) =>
+        RunAsync(clients, duration, (client, random, _) => operation(client, random));
+
+    // The same, telling each operation which client it is, for workloads with
+    // a graph per writer.
+    private static async Task<(double PerSecond, double P50, double P99)> RunAsync(int clients, TimeSpan duration, Func<HttpClient, Random, int, Task> operation)
     {
         using HttpClient client = Client(clients);
         await Loop(TimeSpan.FromSeconds(2));
@@ -171,7 +268,7 @@ internal static class HttpLoad
                 while (Stopwatch.GetTimestamp() < end)
                 {
                     long start = Stopwatch.GetTimestamp();
-                    await operation(client, random);
+                    await operation(client, random, c);
                     taken[c].Add(Stopwatch.GetTimestamp() - start);
                 }
             })));
@@ -198,6 +295,13 @@ internal static class HttpLoad
             "--Varve:Datasets:memory:Storage=Memory",
             "--Varve:Datasets:file:Storage=File",
             "--Varve:Limits:MaxRequestBody=1073741824"])
+        {
+            start.ArgumentList.Add(arg);
+        }
+
+        // More of the server's own settings for one run, space-separated:
+        // VARVE_HTTP_LOAD_ARGS="--Varve:Store:GroupCommit:MaxRecords=1".
+        foreach (string arg in (Environment.GetEnvironmentVariable("VARVE_HTTP_LOAD_ARGS") ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries))
         {
             start.ArgumentList.Add(arg);
         }
