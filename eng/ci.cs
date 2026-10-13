@@ -172,6 +172,9 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-jsonld", "Varve.JsonLd: toRdf, expand and fromRdf, the round trip, allocation",
         () => Test("Varve.JsonLd.Tests")),
 
+    ("test-delta", "Varve.Delta: the chunk-boundary oracle, the round trip, version 1 read for ever",
+        () => Test("Varve.Delta.Tests")),
+
     ("test-xsd", "Varve.Xsd, and its properties; the evaluation suites gate it too",
         () => Test("Varve.Xsd.Tests")),
 
@@ -190,7 +193,7 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-sparql-store", "Varve.Sparql.Store: SPARQL Update as one commit, and the reference-model property",
         () => Test("Varve.Sparql.Store.Tests")),
 
-    ("test-protocol", "Varve.Protocol: the endpoints over a real socket, the feed reader's chunk-boundary oracle, the protocol properties",
+    ("test-protocol", "Varve.Protocol: the endpoints over a real socket, the protocol properties",
         () => Test("Varve.Protocol.Tests")),
 
     ("test-server", "Varve.Server: configuration, anonymous mode, readiness, shutdown, and the permission matrix against an issuer in the test (ADR 0100 layer (a))",

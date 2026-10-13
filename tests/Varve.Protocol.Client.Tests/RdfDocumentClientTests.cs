@@ -10,7 +10,6 @@ using System.Threading.Tasks;
 using Varve.Protocol.Client.Model;
 using Varve.Rdf;
 using Varve.Store;
-using Varve.Store.Log;
 using Varve.Turtle;
 using Xunit;
 
@@ -71,7 +70,7 @@ public class RdfDocumentClientTests
     {
         await using Dataset remote = await C.DataAsync();
         await using ProtocolTestHost host = await C.StartAsync(remote);
-        RdfDocumentClient capped = new(Http, C.Allowing(host), new ClientLimits(TimeSpan.FromSeconds(30), new ByteCount(8)));
+        RdfDocumentClient capped = new(Http, C.Allowing(host), new ClientLimits(TimeSpan.FromSeconds(30), 8));
         RdfDocumentClient refusing = new(Http, EndpointPolicy.None, ClientLimits.Default);
         RdfTerm iri = C.Iri(host.Address + "datasets/d/graphs?graph=http://ex/g");
 

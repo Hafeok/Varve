@@ -1,0 +1,2 @@
+# Varve.Delta writes the change feed's format version 1 (ADR 0128); the descriptor says 2.
+delta format 2 is not Varve.Delta's, 1

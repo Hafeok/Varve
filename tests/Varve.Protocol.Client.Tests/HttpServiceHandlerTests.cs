@@ -13,7 +13,6 @@ using Varve.Sparql.Algebra;
 using Varve.Sparql.Evaluation;
 using Varve.Sparql.Evaluation.Model;
 using Varve.Store;
-using Varve.Store.Log;
 using Xunit;
 
 namespace Varve.Protocol.Client.Tests;
@@ -78,7 +77,7 @@ public class HttpServiceHandlerTests
     {
         await using Dataset remote = await C.DataAsync();
         await using ProtocolTestHost host = await C.StartAsync(remote);
-        HttpServiceHandler handler = new(Http, C.Allowing(host), new ClientLimits(TimeSpan.FromSeconds(30), new ByteCount(16)));
+        HttpServiceHandler handler = new(Http, C.Allowing(host), new ClientLimits(TimeSpan.FromSeconds(30), 16));
 
         QueryEvaluationException error = Assert.Throws<QueryEvaluationException>(() =>
             Evaluate(handler, "SELECT ?o WHERE { SERVICE <" + host.Address + "datasets/d/sparql> { <http://ex/s> <http://ex/p> ?o } }"));
@@ -90,7 +89,7 @@ public class HttpServiceHandlerTests
     {
         await using Dataset remote = await C.DataAsync();
         await using ProtocolTestHost host = await C.StartAsync(remote);
-        HttpServiceHandler handler = new(Http, C.Allowing(host), new ClientLimits(TimeSpan.FromMilliseconds(300), new ByteCount(1 << 20)));
+        HttpServiceHandler handler = new(Http, C.Allowing(host), new ClientLimits(TimeSpan.FromMilliseconds(300), 1 << 20));
 
         QueryEvaluationException error = Assert.Throws<QueryEvaluationException>(() =>
             Evaluate(handler, "SELECT ?o WHERE { SERVICE <" + host.Address + "slow> { <http://ex/s> <http://ex/p> ?o } }"));

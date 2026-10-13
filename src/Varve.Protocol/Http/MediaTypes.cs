@@ -25,7 +25,7 @@ internal static class MediaTypes
     internal const string TriG = "application/trig";
     internal const string RdfXml = "application/rdf+xml";
     internal const string JsonLd = "application/ld+json";
-    internal const string Delta = "application/vnd.varve.delta";
+    internal const string Delta = Varve.Delta.DeltaFormat.MediaTypeName;
     internal const string EventStream = "text/event-stream";
     internal const string Json = "application/json";
     internal const string MergePatch = "application/merge-patch+json";

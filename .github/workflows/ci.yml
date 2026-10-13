@@ -290,6 +290,12 @@ jobs:
           --project tests/Varve.JsonLd.Tests/Varve.JsonLd.Tests.csproj
           --configuration Release
 
+      - name: Test Varve.Delta
+        run: >
+          dotnet test
+          --project tests/Varve.Delta.Tests/Varve.Delta.Tests.csproj
+          --configuration Release
+
       - name: Test Varve.Store
         run: >
           dotnet test

@@ -28,7 +28,7 @@ namespace Varve.Protocol.Endpoints;
 /// </summary>
 internal static class CommitsEndpoint
 {
-    internal const string DeltaContentType = MediaTypes.Delta + "; version=1";
+    internal static readonly string DeltaContentType = Varve.Delta.DeltaFormat.Current.MediaType;
     internal const string PositionRouteValue = "position";
 
     /// <summary><c>GET /commits/{position}</c>: one commit, <c>404</c> above the head.</summary>

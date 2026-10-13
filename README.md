@@ -71,6 +71,7 @@ and it ships inside every package.
 | `Varve.JsonLd` | 2 | JSON-LD 1.1 over `Utf8JsonReader`: expansion, toRdf and fromRdf, `rdf:JSON` in canonical form | working |
 | `Varve.Sparql` | 2 | SPARQL 1.1 Query and Update as an immutable algebra, with the 1.2 additions; the parser and the serialiser | working |
 | `Varve.Sparql.Results` | 2 | the SPARQL results formats — XML, JSON, CSV, TSV — as pull readers and streaming writers | working |
+| `Varve.Delta` | 3 | the change feed's format, `application/vnd.varve.delta` version 1, read for ever: the reader, the writer and the record model, with no store in it | working |
 | `Varve.Sparql.Evaluation` | 3 | the optimiser and evaluator: every operator, the function library, aggregates, property paths, `SERVICE` through a handler, over any quad source | working |
 | `Varve.Aspire` | 0 | the .NET Aspire hosting integration: `AddVarve`, `WithOidc`, `WithDataset` on an AppHost; references nothing from Varve | working |
 | `Varve.Analyzers` | — | the layer rules, at build time | working, never shipped |

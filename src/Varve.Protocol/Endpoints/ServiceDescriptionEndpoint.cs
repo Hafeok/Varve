@@ -200,7 +200,7 @@ internal static class ServiceDescriptionEndpoint
         triples.Add((self, Iri(Varve + "status"), Iri(prefix + "status")));
         triples.Add((self, Iri(Varve + "settings"), Iri(prefix + "settings")));
         triples.Add((self, Iri(Varve + "checkpoints"), Iri(prefix + "checkpoints")));
-        triples.Add((self, Iri(Varve + "feedFormat"), Literal(MediaTypes.Delta + "; version=1")));
+        triples.Add((self, Iri(Varve + "feedFormat"), Literal(global::Varve.Delta.DeltaFormat.Current.MediaType)));
         triples.Add((self, Iri(Varve + "feedFormat"), Literal(MediaTypes.EventStream)));
 
         // The limits that shape a client's expectations (ADR 0114): what a

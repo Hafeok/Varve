@@ -34,6 +34,9 @@
 //                    previous v* tag, each with status Accepted
 //   storage-format   equals FormatVersion.Current in Varve.Store, so ADR
 //                    0072's read-forever commitment is a reviewed line
+//   delta-format     equals DeltaFormat.Current in Varve.Delta, required
+//                    whenever the commit carries it (ADR 0128): the change
+//                    feed's read-forever commitment, a reviewed line too
 //   accepted-by      a human in eng/identities.json who may approve for every
 //                    agent that authored a commit in the range (ADR 0087)
 //
@@ -421,6 +424,9 @@ static Resolution? Resolve(Repository repository, Descriptor descriptor, HashSet
             + "a release names the format it writes, read for ever from then on (ADR 0072)");
     }
 
+    // delta-format: Varve.Delta's, required from the first commit that has it.
+    CheckDeltaFormat(repository, descriptor, sha, problems);
+
     // accepted-by: a human who may approve for every agent in the range.
     if (descriptor.AcceptedBy is not null && descriptor.AcceptedBy.StartsWith("mailto:", StringComparison.Ordinal))
     {
@@ -464,6 +470,36 @@ static void CheckRecord(Repository repository, Descriptor descriptor, List<strin
     if (formatLine is not null && storage is not null && formatLine.Value != storage.Value.ToString(CultureInfo.InvariantCulture))
     {
         problems.Add($"{descriptor.Path}:{formatLine.Line}: storage format {formatLine.Value} is not the one {descriptor.Version} wrote, {storage}");
+    }
+
+    CheckDeltaFormat(repository, descriptor, descriptor.Commit!, problems);
+}
+
+// delta-format (ADR 0102, amended 2026-10-13): exactly one line equal to
+// DeltaFormat.Current when the commit carries src/Varve.Delta/DeltaFormat.cs,
+// and none when it does not, so a descriptor cut before the format had a
+// version stays valid as it was cut.
+static void CheckDeltaFormat(Repository repository, Descriptor descriptor, string commit, List<string> problems)
+{
+    BasisLine? line = descriptor.Basis.FirstOrDefault(basis => basis.Kind == "delta-format");
+    int? delta = repository.DeltaFormat(commit);
+
+    if (delta is null && repository.HasDeltaFormat(commit))
+    {
+        problems.Add($"{descriptor.Path}: DeltaFormat.Current could not be read from {Repository.DeltaFormatPath} at {commit[..12]}");
+    }
+    else if (delta is null && line is not null)
+    {
+        problems.Add($"{descriptor.Path}:{line.Line}: delta format {line.Value} is named, and {commit[..12]} has no {Repository.DeltaFormatPath}");
+    }
+    else if (delta is not null && line is null)
+    {
+        problems.Add($"{descriptor.Path}: basis has no 'delta-format' line; add '  - delta-format: {delta}', the change feed's format, read for ever (ADR 0128)");
+    }
+    else if (delta is not null && line is not null && line.Value != delta.Value.ToString(CultureInfo.InvariantCulture))
+    {
+        problems.Add($"{descriptor.Path}:{line.Line}: delta format {line.Value} is not Varve.Delta's, {delta} (DeltaFormat.Current); "
+            + "a release names the change-feed format it writes, read for ever from then on (ADR 0128)");
     }
 }
 
@@ -664,7 +700,7 @@ static async Task<int> Plan(Repository repository, string releasesPath, string? 
         summary.Append(CultureInfo.InvariantCulture, $"| Commit under release | `{resolution.Sha}`{(release.Commit is null ? "" : " (retro-cut)")} |\n");
         summary.Append(CultureInfo.InvariantCulture, $"| Previous release | {(resolution.Previous is null ? "none" : $"`{resolution.Previous}`")} |\n");
         summary.Append(CultureInfo.InvariantCulture, $"| Tag message | {ReleaseFormat.TagMessage(release)} |\n");
-        summary.Append(CultureInfo.InvariantCulture, $"| Basis | {string.Join(", ", resolution.Issues.Select(issue => $"#{issue}"))}; {release.Basis.Count(line => line.Kind == "adr")} ADR(s); storage format {release.Basis.FirstOrDefault(line => line.Kind == "storage-format")?.Value} |\n");
+        summary.Append(CultureInfo.InvariantCulture, $"| Basis | {string.Join(", ", resolution.Issues.Select(issue => $"#{issue}"))}; {release.Basis.Count(line => line.Kind == "adr")} ADR(s); storage format {release.Basis.FirstOrDefault(line => line.Kind == "storage-format")?.Value}; delta format {release.Basis.FirstOrDefault(line => line.Kind == "delta-format")?.Value ?? "none"} |\n");
         summary.Append(CultureInfo.InvariantCulture, $"| Accepted by | {release.AcceptedBy} |\n");
     }
 
@@ -742,6 +778,11 @@ static int Draft(Repository repository, string requested)
     draft.Append("basis:\n");
     draft.Append("  - issue: <the milestone issue, closed by a commit in this release>\n");
     draft.Append(CultureInfo.InvariantCulture, $"  - storage-format: {repository.StorageFormat(sha)}\n");
+
+    if (repository.DeltaFormat(sha) is int deltaFormat)
+    {
+        draft.Append(CultureInfo.InvariantCulture, $"  - delta-format: {deltaFormat}\n");
+    }
 
     foreach (string number in adrs.Keys.Where(number => !before.ContainsKey(number)).Order(StringComparer.Ordinal))
     {
@@ -900,6 +941,8 @@ sealed class Repository(string root)
 {
     public const string FormatVersionPath = "src/Varve.Store/Log/FormatVersion.cs";
 
+    public const string DeltaFormatPath = "src/Varve.Delta/DeltaFormat.cs";
+
     public string Root { get; } = root;
 
     public string Relative(string path) =>
@@ -998,6 +1041,17 @@ sealed class Repository(string root)
         Match match = text is null ? Match.Empty : Regex.Match(text, @"\bCurrent\s*=>\s*new\((?<value>\d+)\)", RegexOptions.CultureInvariant);
         return match.Success ? int.Parse(match.Groups["value"].Value, CultureInfo.InvariantCulture) : null;
     }
+
+    // DeltaFormat.Current at a commit, or null where the file is absent or
+    // says no version (HasDeltaFormat tells the two apart).
+    public int? DeltaFormat(string commit)
+    {
+        string? text = Show(commit, DeltaFormatPath);
+        Match match = text is null ? Match.Empty : Regex.Match(text, @"\bCurrent\s*=>\s*new\((?<value>\d+)\)", RegexOptions.CultureInvariant);
+        return match.Success ? int.Parse(match.Groups["value"].Value, CultureInfo.InvariantCulture) : null;
+    }
+
+    public bool HasDeltaFormat(string commit) => Show(commit, DeltaFormatPath) is not null;
 
     // Every ledger key at a commit, as <set>.<Key>; information for --draft.
     public HashSet<string> LedgerKeys(string commit)

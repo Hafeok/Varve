@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 3 by dependency (ADR 0128): the delta format is an RDF syntax,
+         lines of canonical N-Triples terms, and it reads and writes those
+         terms with Varve.Turtle's line parser and writer rather than a second
+         copy of the grammar. Nothing here knows a store: Varve.Store does not
+         reference it, and a consumer of the feed ships no store. -->
+    <ArchLayer>3</ArchLayer>
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <Description>The application/vnd.varve.delta change-feed format, version 1, read for ever: the reader, the writer and the record model of Varve's commits resource and diff.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Turtle/Varve.Turtle.csproj" />
+    <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
+  </ItemGroup>
+
+</Project>

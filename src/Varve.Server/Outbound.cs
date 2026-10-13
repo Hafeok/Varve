@@ -11,7 +11,6 @@ using Varve.Rdf;
 using Varve.Sparql.Evaluation;
 using Varve.Sparql.Store;
 using Varve.Sparql.Store.Model;
-using Varve.Store.Log;
 
 namespace Varve.Server;
 
@@ -42,13 +41,13 @@ internal sealed class Outbound
             ? RefusingServiceHandler.Instance
             : new HttpServiceHandler(http,
                 new EndpointPolicy(federation.AllowedEndpoints, federation.AllowPrivateAddresses),
-                new ClientLimits(federation.Timeout, new ByteCount(federation.MaxResponseBytes)));
+                new ClientLimits(federation.Timeout, federation.MaxResponseBytes));
 
         ILoadSource source = load.AllowedSources.Count == 0
             ? new UpdateOptions().LoadSource
             : new HttpLoadSource(new RdfDocumentClient(http,
                 new EndpointPolicy(load.AllowedSources, load.AllowPrivateAddresses),
-                new ClientLimits(load.Timeout, new ByteCount(load.MaxResponseBytes))));
+                new ClientLimits(load.Timeout, load.MaxResponseBytes)));
 
         return new Outbound(service, source);
     }

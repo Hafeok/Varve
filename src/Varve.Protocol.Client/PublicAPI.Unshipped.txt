@@ -1,9 +1,7 @@
 #nullable enable
 Varve.Protocol.Client.ClientLimits
 Varve.Protocol.Client.ClientLimits.ClientLimits() -> void
-Varve.Protocol.Client.ClientLimits.ClientLimits(System.TimeSpan timeout, Varve.Store.Log.ByteCount maxResponseBytes) -> void
 Varve.Protocol.Client.ClientLimits.Equals(Varve.Protocol.Client.ClientLimits other) -> bool
-Varve.Protocol.Client.ClientLimits.MaxResponseBytes.get -> Varve.Store.Log.ByteCount
 Varve.Protocol.Client.ClientLimits.Timeout.get -> System.TimeSpan
 Varve.Protocol.Client.EndpointPolicy
 Varve.Protocol.Client.EndpointPolicy.AllowPrivateAddresses.get -> bool
@@ -58,3 +56,5 @@ Varve.Protocol.Client.SparqlHttpClient.SparqlHttpClient(System.Net.Http.HttpClie
 Varve.Protocol.Client.SparqlHttpClient.StatusAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
 Varve.Protocol.Client.SparqlHttpClient.UpdateAsync(string! update, long? ifMatch, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
 static Varve.Protocol.Client.SparqlHttpClient.PositionOf(System.Net.Http.HttpResponseMessage! response) -> long?
+Varve.Protocol.Client.ClientLimits.ClientLimits(System.TimeSpan timeout, long maxResponseBytes) -> void
+Varve.Protocol.Client.ClientLimits.MaxResponseBytes.get -> long

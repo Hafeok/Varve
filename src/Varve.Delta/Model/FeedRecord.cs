@@ -5,9 +5,8 @@
 using System;
 using System.Collections.Generic;
 using Varve.Rdf;
-using Varve.Store.Log;
 
-namespace Varve.Protocol.Model;
+namespace Varve.Delta.Model;
 
 /// <summary>Which record of the delta format this is (<c>change-feed.md</c> §2).</summary>
 public enum FeedRecordKind : byte
@@ -20,6 +19,19 @@ public enum FeedRecordKind : byte
 
     /// <summary>The stream was cut; <see cref="FeedRecord.Problem"/> says why.</summary>
     Error = 2,
+}
+
+/// <summary>A commit's kind, as its header names it (T1, <c>change-feed.md</c> §2.1).</summary>
+public enum FeedCommitKind : byte
+{
+    /// <summary><c>Data</c>: quads asserted and retracted.</summary>
+    Data = 0,
+
+    /// <summary><c>Settings</c>: the dataset's settings changed; no change lines (I4).</summary>
+    Settings = 1,
+
+    /// <summary><c>Erasure</c>: a data subject's key destroyed; no change lines (I4).</summary>
+    Erasure = 2,
 }
 
 /// <summary>Whether a change asserts or retracts its quad.</summary>
@@ -37,7 +49,7 @@ public readonly record struct FeedChange(FeedChangeKind Kind, RdfTerm Subject, R
 
 /// <summary>
 /// One record of <c>application/vnd.varve.delta; version=1</c> as
-/// <see cref="ChangeFeedReader"/> reads it (<c>change-feed.md</c> §2).
+/// <see cref="Varve.Delta.ChangeFeedReader"/> reads it (<c>change-feed.md</c> §2).
 /// </summary>
 /// <remarks>
 /// A commit record has a <see cref="Position"/>, a <see cref="CommitKind"/>, a
@@ -51,16 +63,16 @@ public sealed class FeedRecord
 {
     private FeedRecord(
         FeedRecordKind kind,
-        Position position,
-        Position from,
-        CommitKind commitKind,
-        CommitTimestamp timestamp,
+        FeedPosition position,
+        FeedPosition from,
+        FeedCommitKind commitKind,
+        FeedTimestamp timestamp,
         RdfTerm? agent,
         RdfTerm? cause,
         RdfTerm? scope,
         IReadOnlyList<RdfTerm> attachments,
         IReadOnlyList<FeedChange> changes,
-        ProblemType problem)
+        FeedProblemType problem)
     {
         Kind = kind;
         Position = position;
@@ -79,16 +91,16 @@ public sealed class FeedRecord
     public FeedRecordKind Kind { get; }
 
     /// <summary>A commit's position, or a diff's <c>to</c>.</summary>
-    public Position Position { get; }
+    public FeedPosition Position { get; }
 
     /// <summary>A diff's <c>from</c>.</summary>
-    public Position From { get; }
+    public FeedPosition From { get; }
 
     /// <summary>A commit's kind.</summary>
-    public CommitKind CommitKind { get; }
+    public FeedCommitKind CommitKind { get; }
 
     /// <summary>A commit's timestamp, in UTC.</summary>
-    public CommitTimestamp Timestamp { get; }
+    public FeedTimestamp Timestamp { get; }
 
     /// <summary>A commit's agent, if it has one.</summary>
     public RdfTerm? Agent { get; }
@@ -105,14 +117,14 @@ public sealed class FeedRecord
     /// <summary>The changes, assertions first.</summary>
     public IReadOnlyList<FeedChange> Changes { get; }
 
-    /// <summary>An error record's problem type.</summary>
-    public ProblemType Problem { get; }
+    /// <summary>An error record's problem type; the default for any other record.</summary>
+    public FeedProblemType Problem { get; }
 
     /// <summary>A commit record.</summary>
     public static FeedRecord ForCommit(
-        Position position,
-        CommitKind kind,
-        CommitTimestamp timestamp,
+        FeedPosition position,
+        FeedCommitKind kind,
+        FeedTimestamp timestamp,
         RdfTerm? agent,
         RdfTerm? cause,
         RdfTerm? scope,
@@ -125,13 +137,13 @@ public sealed class FeedRecord
     }
 
     /// <summary>A diff record.</summary>
-    public static FeedRecord ForDiff(Position from, Position to, IReadOnlyList<FeedChange> changes)
+    public static FeedRecord ForDiff(FeedPosition from, FeedPosition to, IReadOnlyList<FeedChange> changes)
     {
         ArgumentNullException.ThrowIfNull(changes);
         return new(FeedRecordKind.Diff, to, from, default, default, null, null, null, [], changes, default);
     }
 
     /// <summary>An error record.</summary>
-    public static FeedRecord ForError(ProblemType problem) =>
+    public static FeedRecord ForError(FeedProblemType problem) =>
         new(FeedRecordKind.Error, default, default, default, default, null, null, null, [], [], problem);
 }

@@ -1,14 +1,4 @@
 #nullable enable
-Varve.Protocol.ChangeFeedFormatException
-Varve.Protocol.ChangeFeedFormatException.ChangeFeedFormatException() -> void
-Varve.Protocol.ChangeFeedFormatException.ChangeFeedFormatException(string! message) -> void
-Varve.Protocol.ChangeFeedFormatException.ChangeFeedFormatException(string! message, System.Exception! innerException) -> void
-Varve.Protocol.ChangeFeedFormatException.ChangeFeedFormatException(string! message, long offset, long line) -> void
-Varve.Protocol.ChangeFeedFormatException.Line.get -> long
-Varve.Protocol.ChangeFeedFormatException.Offset.get -> Varve.Store.Log.ByteOffset
-Varve.Protocol.ChangeFeedReader
-Varve.Protocol.ChangeFeedReader.ChangeFeedReader() -> void
-Varve.Protocol.ChangeFeedReader.TryRead(ref System.Buffers.ReadOnlySequence<byte> buffer, bool isFinalBlock, out Varve.Protocol.Model.FeedRecord? record) -> bool
 Varve.Protocol.DatasetPermissions
 Varve.Protocol.ICallerIdentity
 Varve.Protocol.ICallerIdentity.AgentOf(System.Security.Claims.ClaimsPrincipal! caller) -> Varve.Store.Log.RequestTerm
@@ -29,40 +19,6 @@ Varve.Protocol.Model.DatasetName.DatasetName() -> void
 Varve.Protocol.Model.DatasetName.DatasetName(string! value) -> void
 Varve.Protocol.Model.DatasetName.Equals(Varve.Protocol.Model.DatasetName other) -> bool
 Varve.Protocol.Model.DatasetName.Value.get -> string!
-Varve.Protocol.Model.FeedChange
-Varve.Protocol.Model.FeedChange.Deconstruct(out Varve.Protocol.Model.FeedChangeKind Kind, out Varve.Rdf.RdfTerm! Subject, out Varve.Rdf.RdfTerm! Predicate, out Varve.Rdf.RdfTerm! Object, out Varve.Rdf.RdfTerm? Graph) -> void
-Varve.Protocol.Model.FeedChange.Equals(Varve.Protocol.Model.FeedChange other) -> bool
-Varve.Protocol.Model.FeedChange.FeedChange() -> void
-Varve.Protocol.Model.FeedChange.FeedChange(Varve.Protocol.Model.FeedChangeKind Kind, Varve.Rdf.RdfTerm! Subject, Varve.Rdf.RdfTerm! Predicate, Varve.Rdf.RdfTerm! Object, Varve.Rdf.RdfTerm? Graph) -> void
-Varve.Protocol.Model.FeedChange.Graph.get -> Varve.Rdf.RdfTerm?
-Varve.Protocol.Model.FeedChange.Graph.init -> void
-Varve.Protocol.Model.FeedChange.Kind.get -> Varve.Protocol.Model.FeedChangeKind
-Varve.Protocol.Model.FeedChange.Kind.init -> void
-Varve.Protocol.Model.FeedChange.Object.get -> Varve.Rdf.RdfTerm!
-Varve.Protocol.Model.FeedChange.Object.init -> void
-Varve.Protocol.Model.FeedChange.Predicate.get -> Varve.Rdf.RdfTerm!
-Varve.Protocol.Model.FeedChange.Predicate.init -> void
-Varve.Protocol.Model.FeedChange.Subject.get -> Varve.Rdf.RdfTerm!
-Varve.Protocol.Model.FeedChange.Subject.init -> void
-Varve.Protocol.Model.FeedChangeKind
-Varve.Protocol.Model.FeedChangeKind.Assert = 0 -> Varve.Protocol.Model.FeedChangeKind
-Varve.Protocol.Model.FeedChangeKind.Retract = 1 -> Varve.Protocol.Model.FeedChangeKind
-Varve.Protocol.Model.FeedRecord
-Varve.Protocol.Model.FeedRecord.Agent.get -> Varve.Rdf.RdfTerm?
-Varve.Protocol.Model.FeedRecord.Attachments.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
-Varve.Protocol.Model.FeedRecord.Cause.get -> Varve.Rdf.RdfTerm?
-Varve.Protocol.Model.FeedRecord.Changes.get -> System.Collections.Generic.IReadOnlyList<Varve.Protocol.Model.FeedChange>!
-Varve.Protocol.Model.FeedRecord.CommitKind.get -> Varve.Store.Log.CommitKind
-Varve.Protocol.Model.FeedRecord.From.get -> Varve.Store.Log.Position
-Varve.Protocol.Model.FeedRecord.Kind.get -> Varve.Protocol.Model.FeedRecordKind
-Varve.Protocol.Model.FeedRecord.Position.get -> Varve.Store.Log.Position
-Varve.Protocol.Model.FeedRecord.Problem.get -> Varve.Protocol.Model.ProblemType
-Varve.Protocol.Model.FeedRecord.Scope.get -> Varve.Rdf.RdfTerm?
-Varve.Protocol.Model.FeedRecord.Timestamp.get -> Varve.Store.Log.CommitTimestamp
-Varve.Protocol.Model.FeedRecordKind
-Varve.Protocol.Model.FeedRecordKind.Commit = 0 -> Varve.Protocol.Model.FeedRecordKind
-Varve.Protocol.Model.FeedRecordKind.Diff = 1 -> Varve.Protocol.Model.FeedRecordKind
-Varve.Protocol.Model.FeedRecordKind.Error = 2 -> Varve.Protocol.Model.FeedRecordKind
 Varve.Protocol.Model.Instants
 Varve.Protocol.Model.ProblemType
 Varve.Protocol.Model.ProblemType.Equals(Varve.Protocol.Model.ProblemType other) -> bool
@@ -105,11 +61,9 @@ override Varve.Protocol.Model.AsOf.GetHashCode() -> int
 override Varve.Protocol.Model.AsOf.ToString() -> string!
 override Varve.Protocol.Model.DatasetName.GetHashCode() -> int
 override Varve.Protocol.Model.DatasetName.ToString() -> string!
-override Varve.Protocol.Model.FeedChange.GetHashCode() -> int
 override Varve.Protocol.Model.ProblemType.GetHashCode() -> int
 override Varve.Protocol.Model.ProblemType.ToString() -> string!
 override Varve.Protocol.ProtocolLimits.GetHashCode() -> int
-static Varve.Protocol.ChangeFeedReader.ReadAllAsync(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Varve.Protocol.Model.FeedRecord!>!
 static Varve.Protocol.Model.AsOf.AtPosition(Varve.Store.Log.Position position) -> Varve.Protocol.Model.AsOf
 static Varve.Protocol.Model.AsOf.AtTime(Varve.Store.Log.CommitTimestamp time) -> Varve.Protocol.Model.AsOf
 static Varve.Protocol.Model.AsOf.TryParse(System.ReadOnlySpan<char> text, out Varve.Protocol.Model.AsOf asOf) -> bool
@@ -119,11 +73,6 @@ static Varve.Protocol.Model.DatasetName.Default.get -> Varve.Protocol.Model.Data
 static Varve.Protocol.Model.DatasetName.TryParse(string? text, out Varve.Protocol.Model.DatasetName name) -> bool
 static Varve.Protocol.Model.DatasetName.operator !=(Varve.Protocol.Model.DatasetName left, Varve.Protocol.Model.DatasetName right) -> bool
 static Varve.Protocol.Model.DatasetName.operator ==(Varve.Protocol.Model.DatasetName left, Varve.Protocol.Model.DatasetName right) -> bool
-static Varve.Protocol.Model.FeedChange.operator !=(Varve.Protocol.Model.FeedChange left, Varve.Protocol.Model.FeedChange right) -> bool
-static Varve.Protocol.Model.FeedChange.operator ==(Varve.Protocol.Model.FeedChange left, Varve.Protocol.Model.FeedChange right) -> bool
-static Varve.Protocol.Model.FeedRecord.ForCommit(Varve.Store.Log.Position position, Varve.Store.Log.CommitKind kind, Varve.Store.Log.CommitTimestamp timestamp, Varve.Rdf.RdfTerm? agent, Varve.Rdf.RdfTerm? cause, Varve.Rdf.RdfTerm? scope, System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! attachments, System.Collections.Generic.IReadOnlyList<Varve.Protocol.Model.FeedChange>! changes) -> Varve.Protocol.Model.FeedRecord!
-static Varve.Protocol.Model.FeedRecord.ForDiff(Varve.Store.Log.Position from, Varve.Store.Log.Position to, System.Collections.Generic.IReadOnlyList<Varve.Protocol.Model.FeedChange>! changes) -> Varve.Protocol.Model.FeedRecord!
-static Varve.Protocol.Model.FeedRecord.ForError(Varve.Protocol.Model.ProblemType problem) -> Varve.Protocol.Model.FeedRecord!
 static Varve.Protocol.Model.Instants.Format(Varve.Store.Log.CommitTimestamp time) -> string!
 static Varve.Protocol.Model.Instants.TryParse(System.ReadOnlySpan<char> text, out Varve.Store.Log.CommitTimestamp time) -> bool
 static Varve.Protocol.Model.ProblemType.BadRequest.get -> Varve.Protocol.Model.ProblemType
@@ -160,8 +109,6 @@ static Varve.Protocol.VarveEndpoints.MapSparqlEndpoint(this Microsoft.AspNetCore
 static Varve.Protocol.VarveEndpoints.MapVarveDataset(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Routing.IEndpointRouteBuilder!
 ~override Varve.Protocol.Model.AsOf.Equals(object obj) -> bool
 ~override Varve.Protocol.Model.DatasetName.Equals(object obj) -> bool
-~override Varve.Protocol.Model.FeedChange.Equals(object obj) -> bool
-~override Varve.Protocol.Model.FeedChange.ToString() -> string
 ~override Varve.Protocol.Model.ProblemType.Equals(object obj) -> bool
 ~override Varve.Protocol.ProtocolLimits.Equals(object obj) -> bool
 ~override Varve.Protocol.ProtocolLimits.ToString() -> string

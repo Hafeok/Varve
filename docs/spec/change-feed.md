@@ -2,13 +2,22 @@
 
 Functional specification for the change-feed and diff endpoints of
 `Varve.Protocol` (layer 5), and for the `application/vnd.varve.delta` format
-they write and `ChangeFeedReader` reads.
+they write and `ChangeFeedReader` reads. The format's reader and writer are
+`Varve.Delta`'s, a package with no store in it
+([ADR 0128](../adr/0128-varve-delta-and-the-read-forever-rule.md)).
 
 Status: **Accepted** with [ADR 0097](../adr/0097-the-change-feed-and-the-diff.md)
 (milestone 7a); §4 follows its amendment of 2026-10-09 and
 [ADR 0118](../adr/0118-api-alignment-while-everything-is-preview.md), the feed
 as the commits resource. It changes only together with the ADR that
-motivates the change. Format version **1**.
+motivates the change. Format version **1**, `DeltaFormat.Current`.
+
+**Version 1 is read for ever** (ADR 0128): §2 and §3 specify it, and every
+later release reads a version-1 document with the same meaning. §2 may be
+clarified, never altered; a change a version-1 reader would misread is
+version 2, under the media type's `version` parameter. Every release
+descriptor names the version it writes (`delta-format`, ADR 0102 amended
+2026-10-13).
 
 ## 1. Normative references
 

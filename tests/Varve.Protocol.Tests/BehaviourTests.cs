@@ -10,7 +10,7 @@ using System.Net.Http;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
-using Varve.Protocol.Model;
+using Varve.Delta.Model;
 using Varve.Rdf;
 using Varve.Store;
 using Varve.Store.Log;
@@ -227,7 +227,7 @@ public class BehaviourTests
         Assert.Equal("0", P.Header(response, "Varve-Position"));
         List<FeedRecord> records = await P.ReadFeedAsync(response);
         Assert.Equal([1L, 3, 4], records.Select(r => r.Position.Value));
-        Assert.Equal([CommitKind.Data, CommitKind.Settings, CommitKind.Data], records.Select(r => r.CommitKind));
+        Assert.Equal([FeedCommitKind.Data, FeedCommitKind.Settings, FeedCommitKind.Data], records.Select(r => r.CommitKind));
         Assert.Empty(records[1].Changes);
     }
 
@@ -242,7 +242,7 @@ public class BehaviourTests
         string pattern = Uri.EscapeDataString("?s <http://ex/new> \"x y\"");
         List<FeedRecord> records = await P.ReadFeedAsync(await host.Client.SendAsync(P.Get("datasets/d/commits?to=2&pattern=" + pattern), P.Ct));
         FeedRecord record = Assert.Single(records);
-        Assert.Equal(new Position(2), record.Position);
+        Assert.Equal(new FeedPosition(2), record.Position);
         Assert.Equal("<http://ex/a> <http://ex/new> \"x y\"", P.Line(Assert.Single(record.Changes)));
     }
 

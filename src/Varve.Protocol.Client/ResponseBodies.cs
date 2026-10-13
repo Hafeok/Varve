@@ -8,7 +8,6 @@ using System.IO;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using Varve.Store.Log;
 
 namespace Varve.Protocol.Client;
 
@@ -19,9 +18,9 @@ namespace Varve.Protocol.Client;
 /// </summary>
 internal static class ResponseBodies
 {
-    internal static byte[]? Read(HttpContent content, ByteCount cap, CancellationToken cancellationToken, out string? failure)
+    internal static byte[]? Read(HttpContent content, long cap, CancellationToken cancellationToken, out string? failure)
     {
-        if (content.Headers.ContentLength is long declared && declared > cap.Value)
+        if (content.Headers.ContentLength is long declared && declared > cap)
         {
             failure = TooLong(cap);
             return null;
@@ -43,7 +42,7 @@ internal static class ResponseBodies
 
             body.Advance(read);
 
-            if (body.WrittenCount > cap.Value)
+            if (body.WrittenCount > cap)
             {
                 failure = TooLong(cap);
                 return null;
@@ -51,9 +50,9 @@ internal static class ResponseBodies
         }
     }
 
-    internal static async ValueTask<(byte[]? Body, string? Failure)> ReadAsync(HttpContent content, ByteCount cap, CancellationToken cancellationToken)
+    internal static async ValueTask<(byte[]? Body, string? Failure)> ReadAsync(HttpContent content, long cap, CancellationToken cancellationToken)
     {
-        if (content.Headers.ContentLength is long declared && declared > cap.Value)
+        if (content.Headers.ContentLength is long declared && declared > cap)
         {
             return (null, TooLong(cap));
         }
@@ -73,7 +72,7 @@ internal static class ResponseBodies
 
             body.Advance(read);
 
-            if (body.WrittenCount > cap.Value)
+            if (body.WrittenCount > cap)
             {
                 return (null, TooLong(cap));
             }
@@ -83,6 +82,6 @@ internal static class ResponseBodies
     private static int ContentLengthOr(HttpContent content, int fallback) =>
         content.Headers.ContentLength is long declared && declared > 0 && declared < int.MaxValue ? (int)declared : fallback;
 
-    private static string TooLong(ByteCount cap) =>
-        "the response is longer than the " + cap.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) + "-byte cap";
+    private static string TooLong(long cap) =>
+        "the response is longer than the " + cap.ToString(System.Globalization.CultureInfo.InvariantCulture) + "-byte cap";
 }

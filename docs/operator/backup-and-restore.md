@@ -117,8 +117,9 @@ resuming from it (`docs/spec/change-feed.md` §4):
 varve feed https://varve.example/datasets/people/ --from "$LAST" --token "$TOKEN" >> people.delta
 ```
 
-The records replay in order onto any store, Varve's `ChangeFeedReader`
-reading them with Varve types. It is a copy of the content, not of the log:
+The records replay in order onto any store, `Varve.Delta`'s `ChangeFeedReader`
+reading them with Varve types; version 1 of the format is read by every later
+release (ADR 0128). It is a copy of the content, not of the log:
 positions, agents and timestamps travel with it, but a dataset rebuilt from a
 feed is a new dataset with a new id.
 

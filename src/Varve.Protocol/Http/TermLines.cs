@@ -5,7 +5,7 @@
 using System;
 using System.Buffers;
 using Varve.Rdf;
-using Varve.Turtle;
+using Varve.Delta;
 
 namespace Varve.Protocol.Http;
 
@@ -17,26 +17,8 @@ namespace Varve.Protocol.Http;
 /// </summary>
 internal static class TermLines
 {
-    private static readonly WriteOptions Canonical = new() { Syntax = RdfSyntax.NQuads, Canonical = true };
-
     /// <summary>One term, as N-Triples writes it.</summary>
-    internal static void WriteTerm(IBufferWriter<byte> output, RdfTerm term)
-    {
-        int hint = 256;
-
-        while (true)
-        {
-            Span<byte> span = output.GetSpan(hint);
-
-            if (NQuadsWriter.TryWriteTerm(term, span, out int written, in Canonical))
-            {
-                output.Advance(written);
-                return;
-            }
-
-            hint = Math.Max(hint, span.Length) * 2;
-        }
-    }
+    internal static void WriteTerm(IBufferWriter<byte> output, RdfTerm term) => DeltaWriter.WriteTerm(output, term);
 
     /// <summary><c>s p o .</c> and a line feed.</summary>
     internal static void WriteTriple(IBufferWriter<byte> output, RdfTerm subject, RdfTerm predicate, RdfTerm @object)

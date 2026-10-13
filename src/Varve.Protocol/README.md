@@ -25,8 +25,9 @@ ASP.NET Core endpoint groups any host mounts.
 - **The commits resource** (ADR 0118) is the change feed: `GET /commits?from=&to=`
   is a range in `application/vnd.varve.delta; version=1`, `GET /commits/{position}`
   is one commit, and an open range tails live, as server-sent events when
-  `Accept` asks for `text/event-stream`. `ChangeFeedReader` reads it with
-  Varve's own terms.
+  `Accept` asks for `text/event-stream`. The format is `Varve.Delta`'s, read
+  for ever (ADR 0128): its `ChangeFeedReader` reads it with Varve's own terms
+  and no store.
 - **The service description** says what the endpoint does: its languages
   and formats, the named graphs the caller may see, the event-sourced
   extensions under `https://w3id.org/varve/ns#` — `position`, the headers,

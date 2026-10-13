@@ -1,0 +1,2 @@
+# The commit under release carries DeltaFormat, and the basis does not name it (ADR 0102, amended 2026-10-13).
+basis has no 'delta-format' line

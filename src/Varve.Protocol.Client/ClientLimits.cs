@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
-using Varve.Store.Log;
 
 namespace Varve.Protocol.Client;
 
@@ -16,20 +15,20 @@ public readonly record struct ClientLimits
 {
     /// <summary>The limits.</summary>
     /// <exception cref="ArgumentOutOfRangeException">The timeout or the cap is not positive.</exception>
-    public ClientLimits(TimeSpan timeout, ByteCount maxResponseBytes)
+    public ClientLimits(TimeSpan timeout, long maxResponseBytes)
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(maxResponseBytes.Value, 0);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(maxResponseBytes, 0);
         Timeout = timeout;
         MaxResponseBytes = maxResponseBytes;
     }
 
     /// <summary>Thirty seconds, and 100 MiB of response.</summary>
-    public static ClientLimits Default { get; } = new(TimeSpan.FromSeconds(30), new ByteCount(100L << 20));
+    public static ClientLimits Default { get; } = new(TimeSpan.FromSeconds(30), 100L << 20);
 
     /// <summary>How long the exchange may take, connection to last byte.</summary>
     public TimeSpan Timeout { get; }
 
-    /// <summary>How many bytes of response are read before the response is a failure.</summary>
-    public ByteCount MaxResponseBytes { get; }
+    /// <summary>How many bytes of response are read before the response is a failure: a count of bytes, so that the client needs no store (ADR 0128).</summary>
+    public long MaxResponseBytes { get; }
 }

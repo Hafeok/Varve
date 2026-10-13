@@ -12,6 +12,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using CsCheck;
+using Varve.Delta.Model;
 using Varve.Protocol.Model;
 using Varve.Rdf;
 using Varve.Sparql;

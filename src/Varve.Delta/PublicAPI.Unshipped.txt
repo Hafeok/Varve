@@ -1,0 +1,153 @@
+#nullable enable
+Varve.Delta.ChangeFeedFormatException
+Varve.Delta.ChangeFeedFormatException.ChangeFeedFormatException() -> void
+Varve.Delta.ChangeFeedFormatException.ChangeFeedFormatException(string! message) -> void
+Varve.Delta.ChangeFeedFormatException.ChangeFeedFormatException(string! message, System.Exception! innerException) -> void
+Varve.Delta.ChangeFeedFormatException.ChangeFeedFormatException(string! message, long offset, long line) -> void
+Varve.Delta.ChangeFeedFormatException.Line.get -> long
+Varve.Delta.ChangeFeedFormatException.Offset.get -> long
+Varve.Delta.ChangeFeedReader
+Varve.Delta.ChangeFeedReader.ChangeFeedReader() -> void
+Varve.Delta.ChangeFeedReader.TryRead(ref System.Buffers.ReadOnlySequence<byte> buffer, bool isFinalBlock, out Varve.Delta.Model.FeedRecord? record) -> bool
+Varve.Delta.DeltaFormat
+Varve.Delta.DeltaFormat.CompareTo(Varve.Delta.DeltaFormat other) -> int
+Varve.Delta.DeltaFormat.DeltaFormat() -> void
+Varve.Delta.DeltaFormat.DeltaFormat(int value) -> void
+Varve.Delta.DeltaFormat.Equals(Varve.Delta.DeltaFormat other) -> bool
+Varve.Delta.DeltaFormat.MediaType.get -> string!
+Varve.Delta.DeltaFormat.Value.get -> int
+Varve.Delta.DeltaWriter
+Varve.Delta.Model.FeedChange
+Varve.Delta.Model.FeedChange.Deconstruct(out Varve.Delta.Model.FeedChangeKind Kind, out Varve.Rdf.RdfTerm! Subject, out Varve.Rdf.RdfTerm! Predicate, out Varve.Rdf.RdfTerm! Object, out Varve.Rdf.RdfTerm? Graph) -> void
+Varve.Delta.Model.FeedChange.Equals(Varve.Delta.Model.FeedChange other) -> bool
+Varve.Delta.Model.FeedChange.FeedChange() -> void
+Varve.Delta.Model.FeedChange.FeedChange(Varve.Delta.Model.FeedChangeKind Kind, Varve.Rdf.RdfTerm! Subject, Varve.Rdf.RdfTerm! Predicate, Varve.Rdf.RdfTerm! Object, Varve.Rdf.RdfTerm? Graph) -> void
+Varve.Delta.Model.FeedChange.Graph.get -> Varve.Rdf.RdfTerm?
+Varve.Delta.Model.FeedChange.Graph.init -> void
+Varve.Delta.Model.FeedChange.Kind.get -> Varve.Delta.Model.FeedChangeKind
+Varve.Delta.Model.FeedChange.Kind.init -> void
+Varve.Delta.Model.FeedChange.Object.get -> Varve.Rdf.RdfTerm!
+Varve.Delta.Model.FeedChange.Object.init -> void
+Varve.Delta.Model.FeedChange.Predicate.get -> Varve.Rdf.RdfTerm!
+Varve.Delta.Model.FeedChange.Predicate.init -> void
+Varve.Delta.Model.FeedChange.Subject.get -> Varve.Rdf.RdfTerm!
+Varve.Delta.Model.FeedChange.Subject.init -> void
+Varve.Delta.Model.FeedChangeKind
+Varve.Delta.Model.FeedChangeKind.Assert = 0 -> Varve.Delta.Model.FeedChangeKind
+Varve.Delta.Model.FeedChangeKind.Retract = 1 -> Varve.Delta.Model.FeedChangeKind
+Varve.Delta.Model.FeedCommitHeader
+Varve.Delta.Model.FeedCommitHeader.Agent.get -> Varve.Rdf.TermHandle
+Varve.Delta.Model.FeedCommitHeader.Agent.init -> void
+Varve.Delta.Model.FeedCommitHeader.Attachments.get -> System.ReadOnlyMemory<Varve.Rdf.TermHandle>
+Varve.Delta.Model.FeedCommitHeader.Attachments.init -> void
+Varve.Delta.Model.FeedCommitHeader.Cause.get -> Varve.Rdf.TermHandle
+Varve.Delta.Model.FeedCommitHeader.Cause.init -> void
+Varve.Delta.Model.FeedCommitHeader.Deconstruct(out Varve.Delta.Model.FeedPosition Position, out Varve.Delta.Model.FeedCommitKind Kind, out Varve.Delta.Model.FeedTimestamp Timestamp, out Varve.Rdf.TermHandle Agent, out Varve.Rdf.TermHandle Cause, out Varve.Rdf.TermHandle Scope, out System.ReadOnlyMemory<Varve.Rdf.TermHandle> Attachments) -> void
+Varve.Delta.Model.FeedCommitHeader.Equals(Varve.Delta.Model.FeedCommitHeader other) -> bool
+Varve.Delta.Model.FeedCommitHeader.FeedCommitHeader() -> void
+Varve.Delta.Model.FeedCommitHeader.FeedCommitHeader(Varve.Delta.Model.FeedPosition Position, Varve.Delta.Model.FeedCommitKind Kind, Varve.Delta.Model.FeedTimestamp Timestamp, Varve.Rdf.TermHandle Agent, Varve.Rdf.TermHandle Cause, Varve.Rdf.TermHandle Scope, System.ReadOnlyMemory<Varve.Rdf.TermHandle> Attachments) -> void
+Varve.Delta.Model.FeedCommitHeader.Kind.get -> Varve.Delta.Model.FeedCommitKind
+Varve.Delta.Model.FeedCommitHeader.Kind.init -> void
+Varve.Delta.Model.FeedCommitHeader.Position.get -> Varve.Delta.Model.FeedPosition
+Varve.Delta.Model.FeedCommitHeader.Position.init -> void
+Varve.Delta.Model.FeedCommitHeader.Scope.get -> Varve.Rdf.TermHandle
+Varve.Delta.Model.FeedCommitHeader.Scope.init -> void
+Varve.Delta.Model.FeedCommitHeader.Timestamp.get -> Varve.Delta.Model.FeedTimestamp
+Varve.Delta.Model.FeedCommitHeader.Timestamp.init -> void
+Varve.Delta.Model.FeedCommitKind
+Varve.Delta.Model.FeedCommitKind.Data = 0 -> Varve.Delta.Model.FeedCommitKind
+Varve.Delta.Model.FeedCommitKind.Erasure = 2 -> Varve.Delta.Model.FeedCommitKind
+Varve.Delta.Model.FeedCommitKind.Settings = 1 -> Varve.Delta.Model.FeedCommitKind
+Varve.Delta.Model.FeedPosition
+Varve.Delta.Model.FeedPosition.CompareTo(Varve.Delta.Model.FeedPosition other) -> int
+Varve.Delta.Model.FeedPosition.Equals(Varve.Delta.Model.FeedPosition other) -> bool
+Varve.Delta.Model.FeedPosition.FeedPosition() -> void
+Varve.Delta.Model.FeedPosition.FeedPosition(long value) -> void
+Varve.Delta.Model.FeedPosition.Value.get -> long
+Varve.Delta.Model.FeedProblemType
+Varve.Delta.Model.FeedProblemType.Equals(Varve.Delta.Model.FeedProblemType other) -> bool
+Varve.Delta.Model.FeedProblemType.FeedProblemType() -> void
+Varve.Delta.Model.FeedProblemType.Value.get -> string!
+Varve.Delta.Model.FeedRecord
+Varve.Delta.Model.FeedRecord.Agent.get -> Varve.Rdf.RdfTerm?
+Varve.Delta.Model.FeedRecord.Attachments.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Delta.Model.FeedRecord.Cause.get -> Varve.Rdf.RdfTerm?
+Varve.Delta.Model.FeedRecord.Changes.get -> System.Collections.Generic.IReadOnlyList<Varve.Delta.Model.FeedChange>!
+Varve.Delta.Model.FeedRecord.CommitKind.get -> Varve.Delta.Model.FeedCommitKind
+Varve.Delta.Model.FeedRecord.From.get -> Varve.Delta.Model.FeedPosition
+Varve.Delta.Model.FeedRecord.Kind.get -> Varve.Delta.Model.FeedRecordKind
+Varve.Delta.Model.FeedRecord.Position.get -> Varve.Delta.Model.FeedPosition
+Varve.Delta.Model.FeedRecord.Problem.get -> Varve.Delta.Model.FeedProblemType
+Varve.Delta.Model.FeedRecord.Scope.get -> Varve.Rdf.RdfTerm?
+Varve.Delta.Model.FeedRecord.Timestamp.get -> Varve.Delta.Model.FeedTimestamp
+Varve.Delta.Model.FeedRecordKind
+Varve.Delta.Model.FeedRecordKind.Commit = 0 -> Varve.Delta.Model.FeedRecordKind
+Varve.Delta.Model.FeedRecordKind.Diff = 1 -> Varve.Delta.Model.FeedRecordKind
+Varve.Delta.Model.FeedRecordKind.Error = 2 -> Varve.Delta.Model.FeedRecordKind
+Varve.Delta.Model.FeedTimestamp
+Varve.Delta.Model.FeedTimestamp.CompareTo(Varve.Delta.Model.FeedTimestamp other) -> int
+Varve.Delta.Model.FeedTimestamp.Equals(Varve.Delta.Model.FeedTimestamp other) -> bool
+Varve.Delta.Model.FeedTimestamp.FeedTimestamp() -> void
+Varve.Delta.Model.FeedTimestamp.FeedTimestamp(System.DateTimeOffset value) -> void
+Varve.Delta.Model.FeedTimestamp.Value.get -> System.DateTimeOffset
+Varve.Delta.TermNamer
+const Varve.Delta.DeltaFormat.MediaTypeName = "application/vnd.varve.delta" -> string!
+const Varve.Delta.Model.FeedProblemType.Namespace = "https://w3id.org/varve/problems/" -> string!
+override Varve.Delta.DeltaFormat.GetHashCode() -> int
+override Varve.Delta.DeltaFormat.ToString() -> string!
+override Varve.Delta.Model.FeedChange.GetHashCode() -> int
+override Varve.Delta.Model.FeedCommitHeader.GetHashCode() -> int
+override Varve.Delta.Model.FeedPosition.GetHashCode() -> int
+override Varve.Delta.Model.FeedPosition.ToString() -> string!
+override Varve.Delta.Model.FeedProblemType.GetHashCode() -> int
+override Varve.Delta.Model.FeedProblemType.ToString() -> string!
+override Varve.Delta.Model.FeedTimestamp.GetHashCode() -> int
+override Varve.Delta.Model.FeedTimestamp.ToString() -> string!
+static Varve.Delta.ChangeFeedReader.ReadAllAsync(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Varve.Delta.Model.FeedRecord!>!
+static Varve.Delta.ChangeFeedReader.TryParseTerm(System.ReadOnlySpan<byte> text, out Varve.Rdf.RdfTerm? term) -> bool
+static Varve.Delta.DeltaFormat.Current.get -> Varve.Delta.DeltaFormat
+static Varve.Delta.DeltaFormat.operator !=(Varve.Delta.DeltaFormat left, Varve.Delta.DeltaFormat right) -> bool
+static Varve.Delta.DeltaFormat.operator <(Varve.Delta.DeltaFormat left, Varve.Delta.DeltaFormat right) -> bool
+static Varve.Delta.DeltaFormat.operator <=(Varve.Delta.DeltaFormat left, Varve.Delta.DeltaFormat right) -> bool
+static Varve.Delta.DeltaFormat.operator ==(Varve.Delta.DeltaFormat left, Varve.Delta.DeltaFormat right) -> bool
+static Varve.Delta.DeltaFormat.operator >(Varve.Delta.DeltaFormat left, Varve.Delta.DeltaFormat right) -> bool
+static Varve.Delta.DeltaFormat.operator >=(Varve.Delta.DeltaFormat left, Varve.Delta.DeltaFormat right) -> bool
+static Varve.Delta.DeltaWriter.WriteCommit(System.Buffers.IBufferWriter<byte>! output, in Varve.Delta.Model.FeedCommitHeader header, Varve.Rdf.QuadDelta delta, Varve.Delta.TermNamer! names) -> void
+static Varve.Delta.DeltaWriter.WriteDiff(System.Buffers.IBufferWriter<byte>! output, Varve.Delta.Model.FeedPosition from, Varve.Delta.Model.FeedPosition to, Varve.Rdf.QuadDelta delta, Varve.Delta.TermNamer! names) -> void
+static Varve.Delta.DeltaWriter.WriteError(System.Buffers.IBufferWriter<byte>! output, Varve.Delta.Model.FeedProblemType problem) -> void
+static Varve.Delta.DeltaWriter.WriteEvent(System.Buffers.IBufferWriter<byte>! output, System.ReadOnlySpan<byte> eventName, Varve.Delta.Model.FeedPosition? id, System.ReadOnlySpan<byte> record) -> void
+static Varve.Delta.DeltaWriter.WriteRecord(System.Buffers.IBufferWriter<byte>! output, Varve.Delta.Model.FeedRecord! record) -> void
+static Varve.Delta.DeltaWriter.WriteTerm(System.Buffers.IBufferWriter<byte>! output, Varve.Rdf.RdfTerm! term) -> void
+static Varve.Delta.Model.FeedChange.operator !=(Varve.Delta.Model.FeedChange left, Varve.Delta.Model.FeedChange right) -> bool
+static Varve.Delta.Model.FeedChange.operator ==(Varve.Delta.Model.FeedChange left, Varve.Delta.Model.FeedChange right) -> bool
+static Varve.Delta.Model.FeedCommitHeader.operator !=(Varve.Delta.Model.FeedCommitHeader left, Varve.Delta.Model.FeedCommitHeader right) -> bool
+static Varve.Delta.Model.FeedCommitHeader.operator ==(Varve.Delta.Model.FeedCommitHeader left, Varve.Delta.Model.FeedCommitHeader right) -> bool
+static Varve.Delta.Model.FeedPosition.operator !=(Varve.Delta.Model.FeedPosition left, Varve.Delta.Model.FeedPosition right) -> bool
+static Varve.Delta.Model.FeedPosition.operator <(Varve.Delta.Model.FeedPosition left, Varve.Delta.Model.FeedPosition right) -> bool
+static Varve.Delta.Model.FeedPosition.operator <=(Varve.Delta.Model.FeedPosition left, Varve.Delta.Model.FeedPosition right) -> bool
+static Varve.Delta.Model.FeedPosition.operator ==(Varve.Delta.Model.FeedPosition left, Varve.Delta.Model.FeedPosition right) -> bool
+static Varve.Delta.Model.FeedPosition.operator >(Varve.Delta.Model.FeedPosition left, Varve.Delta.Model.FeedPosition right) -> bool
+static Varve.Delta.Model.FeedPosition.operator >=(Varve.Delta.Model.FeedPosition left, Varve.Delta.Model.FeedPosition right) -> bool
+static Varve.Delta.Model.FeedProblemType.Parse(string! iri) -> Varve.Delta.Model.FeedProblemType
+static Varve.Delta.Model.FeedProblemType.TryParse(string? iri, out Varve.Delta.Model.FeedProblemType type) -> bool
+static Varve.Delta.Model.FeedProblemType.operator !=(Varve.Delta.Model.FeedProblemType left, Varve.Delta.Model.FeedProblemType right) -> bool
+static Varve.Delta.Model.FeedProblemType.operator ==(Varve.Delta.Model.FeedProblemType left, Varve.Delta.Model.FeedProblemType right) -> bool
+static Varve.Delta.Model.FeedRecord.ForCommit(Varve.Delta.Model.FeedPosition position, Varve.Delta.Model.FeedCommitKind kind, Varve.Delta.Model.FeedTimestamp timestamp, Varve.Rdf.RdfTerm? agent, Varve.Rdf.RdfTerm? cause, Varve.Rdf.RdfTerm? scope, System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! attachments, System.Collections.Generic.IReadOnlyList<Varve.Delta.Model.FeedChange>! changes) -> Varve.Delta.Model.FeedRecord!
+static Varve.Delta.Model.FeedRecord.ForDiff(Varve.Delta.Model.FeedPosition from, Varve.Delta.Model.FeedPosition to, System.Collections.Generic.IReadOnlyList<Varve.Delta.Model.FeedChange>! changes) -> Varve.Delta.Model.FeedRecord!
+static Varve.Delta.Model.FeedRecord.ForError(Varve.Delta.Model.FeedProblemType problem) -> Varve.Delta.Model.FeedRecord!
+static Varve.Delta.Model.FeedTimestamp.TryParse(System.ReadOnlySpan<char> text, out Varve.Delta.Model.FeedTimestamp time) -> bool
+static Varve.Delta.Model.FeedTimestamp.operator !=(Varve.Delta.Model.FeedTimestamp left, Varve.Delta.Model.FeedTimestamp right) -> bool
+static Varve.Delta.Model.FeedTimestamp.operator <(Varve.Delta.Model.FeedTimestamp left, Varve.Delta.Model.FeedTimestamp right) -> bool
+static Varve.Delta.Model.FeedTimestamp.operator <=(Varve.Delta.Model.FeedTimestamp left, Varve.Delta.Model.FeedTimestamp right) -> bool
+static Varve.Delta.Model.FeedTimestamp.operator ==(Varve.Delta.Model.FeedTimestamp left, Varve.Delta.Model.FeedTimestamp right) -> bool
+static Varve.Delta.Model.FeedTimestamp.operator >(Varve.Delta.Model.FeedTimestamp left, Varve.Delta.Model.FeedTimestamp right) -> bool
+static Varve.Delta.Model.FeedTimestamp.operator >=(Varve.Delta.Model.FeedTimestamp left, Varve.Delta.Model.FeedTimestamp right) -> bool
+virtual Varve.Delta.TermNamer.Invoke(Varve.Rdf.TermHandle handle, out Varve.Rdf.RdfTerm! term) -> bool
+~override Varve.Delta.DeltaFormat.Equals(object obj) -> bool
+~override Varve.Delta.Model.FeedChange.Equals(object obj) -> bool
+~override Varve.Delta.Model.FeedChange.ToString() -> string
+~override Varve.Delta.Model.FeedCommitHeader.Equals(object obj) -> bool
+~override Varve.Delta.Model.FeedCommitHeader.ToString() -> string
+~override Varve.Delta.Model.FeedPosition.Equals(object obj) -> bool
+~override Varve.Delta.Model.FeedProblemType.Equals(object obj) -> bool
+~override Varve.Delta.Model.FeedTimestamp.Equals(object obj) -> bool

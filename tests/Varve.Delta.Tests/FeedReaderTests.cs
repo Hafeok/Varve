@@ -7,10 +7,10 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Varve.Protocol.Model;
+using Varve.Delta.Model;
 using Xunit;
 
-namespace Varve.Protocol.Tests;
+namespace Varve.Delta.Tests;
 
 /// <summary>
 /// <c>ChangeFeedReader</c>: the chunk-boundary oracle (<c>testing.md</c> §2) —
@@ -73,9 +73,9 @@ public class FeedReaderTests
         Assert.Equal("<http://ex/g>", P.TermText(first.Changes[0].Graph!));
         Assert.Null(first.Changes[2].Graph);
 
-        Assert.Equal(Store.Log.CommitKind.Settings, records[1].CommitKind);
+        Assert.Equal(FeedCommitKind.Settings, records[1].CommitKind);
         Assert.Equal((0L, 2L), (records[2].From.Value, records[2].Position.Value));
-        Assert.Equal(ProblemType.ReadLimitExceeded, records[3].Problem);
+        Assert.Equal("https://w3id.org/varve/problems/read-limit-exceeded", records[3].Problem.Value);
     }
 
     [Theory]

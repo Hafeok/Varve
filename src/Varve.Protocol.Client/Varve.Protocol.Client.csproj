@@ -5,7 +5,9 @@
          Protocol, the change feed and the admin API, and the SERVICE handler
          and the document fetch LOAD needs, over the BCL's HttpClient (ADRs
          0103, 0104). It references neither Varve.Protocol nor
-         Varve.Sparql.Store: both are layer 5 (ADR 0060). -->
+         Varve.Sparql.Store: both are layer 5 (ADR 0060). Nor Varve.Store: a
+         consumer of the API or the feed ships no store; the feed's format is
+         Varve.Delta's (ADR 0128). -->
     <ArchLayer>5</ArchLayer>
     <IsPackable>true</IsPackable>
     <IsAotCompatible>true</IsAotCompatible>
@@ -23,7 +25,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../Varve.Store/Varve.Store.csproj" />
+    <ProjectReference Include="../Varve.Delta/Varve.Delta.csproj" />
     <ProjectReference Include="../Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
     <ProjectReference Include="../Varve.Sparql.Results/Varve.Sparql.Results.csproj" />
     <ProjectReference Include="../Varve.Sparql/Varve.Sparql.csproj" />

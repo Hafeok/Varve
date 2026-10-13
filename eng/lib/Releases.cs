@@ -50,7 +50,7 @@ static class ReleaseFormat
 
     private static readonly string[] Keys = ["format", "version", "title", "date", "commit", "basis", "accepted-by", "summary"];
 
-    private static readonly string[] BasisKinds = ["issue", "adr", "storage-format"];
+    private static readonly string[] BasisKinds = ["issue", "adr", "storage-format", "delta-format"];
 
     public static bool IsPrerelease(string version) => version.Contains('-', StringComparison.Ordinal);
 
@@ -302,7 +302,7 @@ static class ReleaseFormat
             {
                 problems.Add($"{path}:{line.Line}: adr '{line.Value}' is not a four-digit ADR number");
             }
-            else if (line.Kind is "issue" or "storage-format" && !Regex.IsMatch(line.Value, @"^[1-9]\d*$", RegexOptions.CultureInvariant))
+            else if (line.Kind is "issue" or "storage-format" or "delta-format" && !Regex.IsMatch(line.Value, @"^[1-9]\d*$", RegexOptions.CultureInvariant))
             {
                 problems.Add($"{path}:{line.Line}: {line.Kind} '{line.Value}' is not a positive number");
             }
@@ -318,6 +318,16 @@ static class ReleaseFormat
         if (formats != 1)
         {
             problems.Add($"{path}: basis has {formats} 'storage-format' line(s); it has exactly one");
+        }
+
+        // At most one here; whether one is required depends on the commit
+        // under release, which carries DeltaFormat or not (ADR 0102, amended
+        // 2026-10-13), and is release.cs's to resolve.
+        int deltaFormats = descriptor.Basis.Count(line => line.Kind == "delta-format");
+
+        if (deltaFormats > 1)
+        {
+            problems.Add($"{path}: basis has {deltaFormats} 'delta-format' lines; it has at most one");
         }
 
         foreach (IGrouping<(string, string), BasisLine> duplicate in descriptor.Basis.Where(line => line.Kind is "adr" or "issue").GroupBy(line => (line.Kind, line.Value)).Where(group => group.Count() > 1))

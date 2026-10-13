@@ -95,7 +95,7 @@ internal sealed class FeedFilter
                     continue;
                 }
 
-                if (!ChangeFeedReader.TryParseTerm(Encoding.UTF8.GetBytes(tokens[i]), out RdfTerm? term) || term.Kind == RdfTermKind.BlankNode)
+                if (!Varve.Delta.ChangeFeedReader.TryParseTerm(Encoding.UTF8.GetBytes(tokens[i]), out RdfTerm? term) || term.Kind == RdfTermKind.BlankNode)
                 {
                     error = "A pattern term is an IRI, a literal or a triple term in N-Triples syntax; a blank node label addresses nothing (ADR 0098).";
                     return false;

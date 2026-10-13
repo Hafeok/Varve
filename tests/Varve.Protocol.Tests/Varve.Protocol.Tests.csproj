@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Varve.Protocol/Varve.Protocol.csproj" />
+    <ProjectReference Include="../../src/Varve.Delta/Varve.Delta.csproj" />
     <ProjectReference Include="../../src/Varve.Sparql.Store/Varve.Sparql.Store.csproj" />
   </ItemGroup>
 

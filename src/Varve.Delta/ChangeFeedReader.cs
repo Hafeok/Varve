@@ -12,15 +12,14 @@ using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
-using Varve.Protocol.Model;
+using Varve.Delta.Model;
 using Varve.Rdf;
-using Varve.Store.Log;
 using Varve.Turtle;
 
-namespace Varve.Protocol;
+namespace Varve.Delta;
 
 /// <summary>
-/// Reads <c>application/vnd.varve.delta; version=1</c>, the change feed's and
+/// Reads <c>application/vnd.varve.delta; version=1</c> (<see cref="DeltaFormat"/>), the change feed's and
 /// the diff's format (<c>change-feed.md</c> §2), into <see cref="FeedRecord"/>s
 /// with Varve's own terms, so that a client consumes a feed with no parser of
 /// its own (ADR 0097).
@@ -163,7 +162,7 @@ public sealed class ChangeFeedReader
                 return Commit(lines, fields, offset, line);
             case "diff" when fields.Length == 3:
                 return FeedRecord.ForDiff(ReadPosition(fields[1], offset, line), ReadPosition(fields[2], offset, line), Changes(lines, 1, offset, line));
-            case "error" when fields.Length == 2 && lines.Count == 1 && ProblemType.TryParse(fields[1], out ProblemType problem):
+            case "error" when fields.Length == 2 && lines.Count == 1 && FeedProblemType.TryParse(fields[1], out FeedProblemType problem):
                 return FeedRecord.ForError(problem);
             default:
                 throw new ChangeFeedFormatException("A record starts with 'commit <position> <kind> <timestamp>', 'diff <from> <to>' or 'error <problem type>'.", offset, line);
@@ -172,16 +171,16 @@ public sealed class ChangeFeedReader
 
     private static FeedRecord Commit(List<ReadOnlySequence<byte>> lines, string[] header, long offset, long line)
     {
-        Position position = ReadPosition(header[1], offset, line);
-        CommitKind kind = header[2] switch
+        FeedPosition position = ReadPosition(header[1], offset, line);
+        FeedCommitKind kind = header[2] switch
         {
-            "Data" => CommitKind.Data,
-            "Settings" => CommitKind.Settings,
-            "Erasure" => CommitKind.Erasure,
+            "Data" => FeedCommitKind.Data,
+            "Settings" => FeedCommitKind.Settings,
+            "Erasure" => FeedCommitKind.Erasure,
             _ => throw new ChangeFeedFormatException("A commit's kind is Data, Settings or Erasure.", offset, line),
         };
 
-        if (header[3].Length != 28 || !Instants.TryParse(header[3], out CommitTimestamp timestamp))
+        if (header[3].Length != 28 || !FeedTimestamp.TryParse(header[3], out FeedTimestamp timestamp))
         {
             throw new ChangeFeedFormatException("A commit's timestamp is RFC 3339 in UTC with seven fractional digits and Z.", offset, line);
         }
@@ -240,7 +239,7 @@ public sealed class ChangeFeedReader
 
         List<FeedChange> changes = Changes(lines, index, offset, line);
 
-        if (kind != CommitKind.Data && changes.Count > 0)
+        if (kind != FeedCommitKind.Data && changes.Count > 0)
         {
             throw new ChangeFeedFormatException("A Settings or Erasure commit has no changes (I4).", offset, line);
         }
@@ -306,8 +305,8 @@ public sealed class ChangeFeedReader
         return change.Value;
     }
 
-    /// <summary>One term in N-Triples syntax, as a change line or a feed filter writes it.</summary>
-    internal static bool TryParseTerm(ReadOnlySpan<byte> text, [NotNullWhen(true)] out RdfTerm? term)
+    /// <summary>One term in N-Triples syntax, as a metadata line, a change line or a feed filter writes it.</summary>
+    public static bool TryParseTerm(ReadOnlySpan<byte> text, [NotNullWhen(true)] out RdfTerm? term)
     {
         try
         {
@@ -358,15 +357,15 @@ public sealed class ChangeFeedReader
         return Encoding.UTF8.GetString(keyword);
     }
 
-    private static Position ReadPosition(string text, long offset, long line)
+    private static FeedPosition ReadPosition(string text, long offset, long line)
     {
-        if (!Instants.IsDecimal(text) || (text.Length > 1 && text[0] == '0')
+        if (!Digits.IsDecimal(text) || (text.Length > 1 && text[0] == '0')
             || !long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out long value))
         {
             throw new ChangeFeedFormatException("A position is a decimal number with no sign and no leading zero.", offset, line);
         }
 
-        return new Position(value);
+        return new FeedPosition(value);
     }
 
     private static string Utf8(ReadOnlySequence<byte> text, long offset, long line)
@@ -406,12 +405,12 @@ public sealed class ChangeFeedFormatException : Exception
     public ChangeFeedFormatException(string message, long offset, long line)
         : base(message + " (record at byte " + offset.ToString(CultureInfo.InvariantCulture) + ", line " + line.ToString(CultureInfo.InvariantCulture) + ")")
     {
-        Offset = new ByteOffset(offset);
+        Offset = offset;
         Line = line;
     }
 
     /// <summary>The byte offset of the record, from the start of the stream.</summary>
-    public ByteOffset Offset { get; }
+    public long Offset { get; }
 
     /// <summary>The line, from 1, the error is on.</summary>
     public long Line { get; }

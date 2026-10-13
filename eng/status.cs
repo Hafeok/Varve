@@ -88,7 +88,20 @@ else
 
 List<string> problems = [];
 ProjectStatus.Check(tree, problems);
+
+// The two formats under the read-forever rule (ADRs 0072, 0128), reported for
+// the reader of the log: what a release at this commit writes.
+Console.WriteLine($"formats at {at ?? "the working tree"}: storage {FormatOf(tree, "src/Varve.Store/Log/FormatVersion.cs")}, delta {FormatOf(tree, "src/Varve.Delta/DeltaFormat.cs")}");
 return Report(problems, at ?? "the working tree");
+
+static string FormatOf(StatusTree tree, string path)
+{
+    string? text = tree.Read(path);
+    System.Text.RegularExpressions.Match match = text is null
+        ? System.Text.RegularExpressions.Match.Empty
+        : System.Text.RegularExpressions.Regex.Match(text, @"\bCurrent\s*=>\s*new\((?<value>\d+)\)", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+    return match.Success ? match.Groups["value"].Value : "none";
+}
 
 static int Report(List<string> problems, string where)
 {

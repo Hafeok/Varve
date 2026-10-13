@@ -26,6 +26,7 @@ commit: 0123…cdef               # optional; a retro-cut only (§3). Omitted is
 basis:                          # mandatory; resolved at the commit under release
   - issue: 11                   # each milestone issue it closes, at least one
   - storage-format: 1           # Varve.Store's FormatVersion.Current, exactly one
+  - delta-format: 1             # Varve.Delta's DeltaFormat.Current, once the commit has it
   - adr: "0091"                 # every ADR first shipped by this release, and no other
   - adr: "0092"
 accepted-by: mailto:emil@okkels-klein.dk   # the human who approves the pull request
@@ -34,7 +35,7 @@ summary: |                      # mandatory; the release notes, written
 ```
 
 `dotnet run eng/release.cs -- --draft <version>` prints a descriptor with the
-`adr:` lines and the storage format filled in, and the ledger keys first
+`adr:` lines and the storage and delta formats filled in, and the ledger keys first
 shipped listed as comments, for information.
 
 **The YAML is a strict subset**, read by `eng/lib/Releases.cs` without a
@@ -78,6 +79,12 @@ takes them for numbers.
      `src/Varve.Store/Log/FormatVersion.cs`. A release that first writes a
      format version says so in a line a human approved, and from then on that
      format is read for ever ([ADR 0072](adr/0072-format-version-1.md)).
+   - **`delta-format: n`**: equal to `DeltaFormat.Current` in
+     `src/Varve.Delta/DeltaFormat.cs`, exactly one whenever the commit under
+     release carries that file, and none when it does not. The change feed's
+     format is read for ever from the release that first names it
+     ([ADR 0128](adr/0128-varve-delta-and-the-read-forever-rule.md)); a
+     descriptor cut before the file existed stays valid as it was cut.
 6. **`accepted-by`** names a human in `eng/identities.json` who may approve
    for every agent that authored a commit in the range: its responsible human
    or a delegate ([ADR 0087](adr/0087-the-identity-map.md)). The approval on

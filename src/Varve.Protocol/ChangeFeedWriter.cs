@@ -12,7 +12,7 @@ namespace Varve.Protocol;
 
 /// <summary>
 /// Writes <c>application/vnd.varve.delta; version=1</c>
-/// (<c>docs/spec/change-feed.md</c> §2), the format <see cref="ChangeFeedReader"/>
+/// (<c>docs/spec/change-feed.md</c> §2), the format <see cref="Varve.Delta.ChangeFeedReader"/>
 /// reads: a commit record from a delivered commit, a diff record from a
 /// delta. The feed endpoint writes with it, and so does a host that writes
 /// the feed without a server — the CLI's <c>feed</c> on a local dataset
