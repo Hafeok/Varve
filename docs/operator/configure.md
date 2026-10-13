@@ -61,7 +61,8 @@ letter or a digit (ADR 0093). Durability is the backend's (ADR 0073): `File`
 flushes every commit to the device, `Memory` keeps nothing. Directories under
 the root that are not configured are discovered and served; the admin API's
 `PUT /datasets/{name}` creates a new one there (ADR 0106), and
-`DELETE` of a closed dataset removes its directory.
+`DELETE` of a closed dataset removes its directory. Where a dataset's boundary
+goes, and how an application declares its setup, is [Datasets](datasets.md).
 
 ## Authentication — `Auth`
 

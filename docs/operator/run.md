@@ -190,7 +190,12 @@ server in place of a directory:
 ```sh
 varve query https://varve.example/datasets/people/ -q 'SELECT * WHERE { ?s ?p ?o } LIMIT 10' --token "$TOKEN"
 varve feed  https://varve.example/datasets/people/ --from 0 --follow --authority https://login.example/ --client-id varve-cli
+varve apply people.yaml https://varve.example/ --token "$TOKEN"
 ```
+
+`varve apply` takes a setup file and the server's address
+([Datasets](datasets.md)). A token from the issuer is renewed before it
+expires, so a long `feed --follow` outlives one token (ADR 0127).
 
 [Authenticate](authenticate.md) says where the token comes from. A directory
 must not be opened by a command while a server holds it: the lease refuses

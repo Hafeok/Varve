@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.IO;
 using System.Net.Http;
 using System.Threading;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -13,6 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Identity.Client;
 using Microsoft.Identity.Web;
 using Varve.Protocol.Client;
+using Varve.Protocol.Client.Hosting;
 using Varve.Protocol.Client.Model;
 
 namespace Varve.OnBehalfOf.Sample;
@@ -51,12 +53,20 @@ public static class OrdersApi
             .AddInMemoryTokenCaches();
         builder.Services.AddAuthorization();
         builder.Services.AddHttpContextAccessor();
-        builder.Services.AddSingleton(services => new SparqlHttpClient(
-            OutboundHttp.CreateClient(),
-            new Uri(configuration["Varve:Dataset"] ?? throw new InvalidOperationException("Varve:Dataset is the dataset's address.")),
-            ClientLimits.Default,
-            OnBehalfOfTheUser(services, configuration["Varve:Scope"] ?? "api://varve/access_as_user"),
-            TimeProvider.System));
+
+        // The client, and the dataset's setup applied as the host starts
+        // (ADRs 0130, 0131). At start there is no user, so the setup's commits
+        // take the application's own token and name the application; every
+        // request afterwards takes its user's.
+        string scope = configuration["Varve:Scope"] ?? "api://varve/access_as_user";
+        Uri dataset = new(configuration["Varve:Dataset"] ?? throw new InvalidOperationException("Varve:Dataset is the dataset's address."));
+        builder.Services.AddVarve(options =>
+        {
+            options.Server = new Uri(dataset, "../../");
+            options.Setup = DatasetSetupFile.Read(Path.Combine(AppContext.BaseDirectory, "varve", "orders.yaml"));
+            options.Tokens = services => UserOrApplication(services, scope);
+            options.Clock = TimeProvider.System;
+        });
 
         WebApplication app = builder.Build();
         app.UseAuthentication();
@@ -95,13 +105,21 @@ public static class OrdersApi
     }
 
     // The token provider (ADR 0127): the token MSAL holds for the user of the
-    // request in flight, exchanged on behalf of that user on first use.
-    private static BearerTokenProvider OnBehalfOfTheUser(IServiceProvider services, string scope) => async cancellationToken =>
+    // request in flight, exchanged on behalf of that user on first use; with
+    // no request in flight, the application's own, by client credentials.
+    // Which one a write takes is the attribution rule: the user's write names
+    // the user, the application's own names the application.
+    private static BearerTokenProvider UserOrApplication(IServiceProvider services, string scope) => async cancellationToken =>
     {
-        HttpContext context = services.GetRequiredService<IHttpContextAccessor>().HttpContext
-            ?? throw new InvalidOperationException("Varve is called on a user's behalf only while that user's request is in flight.");
-        ITokenAcquisition acquisition = context.RequestServices.GetRequiredService<ITokenAcquisition>();
-        AuthenticationResult result = await acquisition.GetAuthenticationResultForUserAsync([scope], user: context.User).ConfigureAwait(false);
-        return new BearerToken(result.AccessToken, result.ExpiresOn);
+        ITokenAcquisition acquisition = services.GetRequiredService<ITokenAcquisition>();
+
+        if (services.GetRequiredService<IHttpContextAccessor>().HttpContext is { } context)
+        {
+            AuthenticationResult user = await acquisition.GetAuthenticationResultForUserAsync([scope], user: context.User).ConfigureAwait(false);
+            return new BearerToken(user.AccessToken, user.ExpiresOn);
+        }
+
+        AuthenticationResult application = await acquisition.GetAuthenticationResultForAppAsync(scope[..scope.LastIndexOf('/')] + "/.default").ConfigureAwait(false);
+        return new BearerToken(application.AccessToken, application.ExpiresOn);
     };
 }

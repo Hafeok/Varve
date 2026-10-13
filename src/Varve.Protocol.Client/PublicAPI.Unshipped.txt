@@ -105,3 +105,99 @@ Varve.Protocol.Client.IFollowCheckpoint.LoadAsync(System.Threading.CancellationT
 Varve.Protocol.Client.IFollowCheckpoint.SaveAsync(Varve.Delta.Model.FeedPosition position, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
 Varve.Protocol.Client.SparqlHttpClient.FollowAsync(Varve.Delta.Model.FeedPosition from, System.Func<Varve.Delta.Model.FeedRecord!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>! handler, Varve.Protocol.Client.IFollowCheckpoint! checkpoint, Varve.Protocol.Client.FollowOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
 Varve.Protocol.Client.FollowOptions.Jitter.get -> System.Func<double>?
+Varve.Protocol.Client.BaselineMode
+Varve.Protocol.Client.BaselineMode.Merge = 1 -> Varve.Protocol.Client.BaselineMode
+Varve.Protocol.Client.BaselineMode.Replace = 0 -> Varve.Protocol.Client.BaselineMode
+Varve.Protocol.Client.BaselineSource
+Varve.Protocol.Client.BaselineSource.BaselineSource(string! name, string? graph, string! mediaType, System.Func<System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<byte[]!>>! content) -> void
+Varve.Protocol.Client.BaselineSource.Graph.get -> string?
+Varve.Protocol.Client.BaselineSource.MediaType.get -> string!
+Varve.Protocol.Client.BaselineSource.Mode.get -> Varve.Protocol.Client.BaselineMode
+Varve.Protocol.Client.BaselineSource.Mode.init -> void
+Varve.Protocol.Client.BaselineSource.Name.get -> string!
+Varve.Protocol.Client.BaselineSource.ReadAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<byte[]!>
+Varve.Protocol.Client.DatasetSetup
+Varve.Protocol.Client.DatasetSetup.Baselines.get -> System.Collections.Generic.IList<Varve.Protocol.Client.BaselineSource!>!
+Varve.Protocol.Client.DatasetSetup.DatasetSetup(string! name) -> void
+Varve.Protocol.Client.DatasetSetup.Migrations.get -> System.Collections.Generic.IList<Varve.Protocol.Client.SetupMigration!>!
+Varve.Protocol.Client.DatasetSetup.Name.get -> string!
+Varve.Protocol.Client.DatasetSetup.Settings.get -> string?
+Varve.Protocol.Client.DatasetSetup.Settings.init -> void
+Varve.Protocol.Client.DatasetSetup.Storage.get -> Varve.Protocol.Client.SetupStorage
+Varve.Protocol.Client.DatasetSetup.Storage.init -> void
+Varve.Protocol.Client.SetupException
+Varve.Protocol.Client.SetupException.Problem.get -> string?
+Varve.Protocol.Client.SetupException.SetupException() -> void
+Varve.Protocol.Client.SetupException.SetupException(string! message) -> void
+Varve.Protocol.Client.SetupException.SetupException(string! message, System.Exception! inner) -> void
+Varve.Protocol.Client.SetupException.SetupException(string! step, string! message, int? status, string? problem) -> void
+Varve.Protocol.Client.SetupException.Status.get -> int?
+Varve.Protocol.Client.SetupException.Step.get -> string!
+Varve.Protocol.Client.SetupMigration
+Varve.Protocol.Client.SetupMigration.<Clone>$() -> Varve.Protocol.Client.SetupMigration!
+Varve.Protocol.Client.SetupMigration.Deconstruct(out string! Id, out string! Update) -> void
+Varve.Protocol.Client.SetupMigration.Equals(Varve.Protocol.Client.SetupMigration? other) -> bool
+Varve.Protocol.Client.SetupMigration.Id.get -> string!
+Varve.Protocol.Client.SetupMigration.Id.init -> void
+Varve.Protocol.Client.SetupMigration.SetupMigration(string! Id, string! Update) -> void
+Varve.Protocol.Client.SetupMigration.Update.get -> string!
+Varve.Protocol.Client.SetupMigration.Update.init -> void
+Varve.Protocol.Client.SetupResult
+Varve.Protocol.Client.SetupResult.BaselinesCommitted.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Varve.Protocol.Client.SetupResult.Committed.get -> bool
+Varve.Protocol.Client.SetupResult.Created.get -> bool
+Varve.Protocol.Client.SetupResult.MigrationsApplied.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Varve.Protocol.Client.SetupResult.Position.get -> long
+Varve.Protocol.Client.SetupResult.SettingsChanged.get -> bool
+Varve.Protocol.Client.SetupStorage
+Varve.Protocol.Client.SetupStorage.File = 0 -> Varve.Protocol.Client.SetupStorage
+Varve.Protocol.Client.SetupStorage.Memory = 1 -> Varve.Protocol.Client.SetupStorage
+Varve.Protocol.Client.SparqlHttpClient.ApplyAsync(Varve.Protocol.Client.DatasetSetup! setup, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.SetupResult!>!
+Varve.Protocol.Client.SparqlHttpClient.DeleteGraphAsync(string? graph, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.PostGraphAsync(string? graph, byte[]! content, string! mediaType, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.PutDatasetAsync(Varve.Protocol.Client.SetupStorage storage, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.PutGraphAsync(string? graph, byte[]! content, string! mediaType, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+const Varve.Protocol.Client.SparqlHttpClient.SetupGraph = "https://w3id.org/varve/ns#setup" -> string!
+override Varve.Protocol.Client.SetupMigration.Equals(object? obj) -> bool
+override Varve.Protocol.Client.SetupMigration.GetHashCode() -> int
+override Varve.Protocol.Client.SetupMigration.ToString() -> string!
+static Varve.Protocol.Client.BaselineSource.FromBytes(string! name, string? graph, string! mediaType, byte[]! content) -> Varve.Protocol.Client.BaselineSource!
+static Varve.Protocol.Client.BaselineSource.FromFile(string! path, string? graph, string? mediaType = null) -> Varve.Protocol.Client.BaselineSource!
+static Varve.Protocol.Client.BaselineSource.FromStream(string! name, string? graph, string! mediaType, System.Func<System.IO.Stream!>! open) -> Varve.Protocol.Client.BaselineSource!
+static Varve.Protocol.Client.BaselineSource.MediaTypeOf(string! path) -> string?
+static Varve.Protocol.Client.SetupMigration.operator !=(Varve.Protocol.Client.SetupMigration? left, Varve.Protocol.Client.SetupMigration? right) -> bool
+static Varve.Protocol.Client.SetupMigration.operator ==(Varve.Protocol.Client.SetupMigration? left, Varve.Protocol.Client.SetupMigration? right) -> bool
+Varve.Protocol.Client.DatasetSetupFile
+Varve.Protocol.Client.SetupFileException
+Varve.Protocol.Client.SetupFileException.Column.get -> int
+Varve.Protocol.Client.SetupFileException.Line.get -> int
+Varve.Protocol.Client.SetupFileException.SetupFileException() -> void
+Varve.Protocol.Client.SetupFileException.SetupFileException(string! message) -> void
+Varve.Protocol.Client.SetupFileException.SetupFileException(string! message, System.Exception! inner) -> void
+Varve.Protocol.Client.SetupFileException.SetupFileException(string! source, int line, int column, string! message) -> void
+static Varve.Protocol.Client.DatasetSetupFile.Parse(string! text, string! directory, string? source = null) -> Varve.Protocol.Client.DatasetSetup!
+static Varve.Protocol.Client.DatasetSetupFile.Read(string! path) -> Varve.Protocol.Client.DatasetSetup!
+Varve.Protocol.Client.Hosting.DatasetSetupService
+Varve.Protocol.Client.Hosting.DatasetSetupService.DatasetSetupService(Varve.Protocol.Client.SparqlHttpClient! client, Varve.Protocol.Client.DatasetSetup! setup) -> void
+Varve.Protocol.Client.Hosting.DatasetSetupService.Result.get -> Varve.Protocol.Client.SetupResult?
+Varve.Protocol.Client.Hosting.DatasetSetupService.StartAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Varve.Protocol.Client.Hosting.DatasetSetupService.StopAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Varve.Protocol.Client.Hosting.VarveClientOptions
+Varve.Protocol.Client.Hosting.VarveClientOptions.ApplySetupAtStart.get -> bool
+Varve.Protocol.Client.Hosting.VarveClientOptions.ApplySetupAtStart.set -> void
+Varve.Protocol.Client.Hosting.VarveClientOptions.Clock.get -> System.TimeProvider?
+Varve.Protocol.Client.Hosting.VarveClientOptions.Clock.set -> void
+Varve.Protocol.Client.Hosting.VarveClientOptions.Dataset.get -> string?
+Varve.Protocol.Client.Hosting.VarveClientOptions.Dataset.set -> void
+Varve.Protocol.Client.Hosting.VarveClientOptions.Limits.get -> Varve.Protocol.Client.ClientLimits
+Varve.Protocol.Client.Hosting.VarveClientOptions.Limits.set -> void
+Varve.Protocol.Client.Hosting.VarveClientOptions.Server.get -> System.Uri?
+Varve.Protocol.Client.Hosting.VarveClientOptions.Server.set -> void
+Varve.Protocol.Client.Hosting.VarveClientOptions.Setup.get -> Varve.Protocol.Client.DatasetSetup?
+Varve.Protocol.Client.Hosting.VarveClientOptions.Setup.set -> void
+Varve.Protocol.Client.Hosting.VarveClientOptions.Tokens.get -> System.Func<System.IServiceProvider!, Varve.Protocol.Client.BearerTokenProvider!>?
+Varve.Protocol.Client.Hosting.VarveClientOptions.Tokens.set -> void
+Varve.Protocol.Client.Hosting.VarveClientOptions.VarveClientOptions() -> void
+Varve.Protocol.Client.Hosting.VarveServiceCollectionExtensions
+static Varve.Protocol.Client.Hosting.VarveServiceCollectionExtensions.AddVarve(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Varve.Protocol.Client.Hosting.VarveClientOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Varve.Protocol.Client.BaselineSource.WithoutByteOrderMark(byte[]! content) -> byte[]!

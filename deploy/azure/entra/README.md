@@ -8,8 +8,9 @@ application acting for its users"):
   `Varve.Read`, `Varve.Write` and `Varve.Admin`, and the delegated scope
   `access_as_user`.
 - **A calling application**, granted that scope with admin consent for the
-  tenant. It is a website, an MCP server, or any API that holds its users'
-  tokens.
+  tenant, and `Varve.Write` as an application permission for the writes it
+  makes on its own account. It is a website, an MCP server, or any API that
+  holds its users' tokens.
 
 It runs at tenant scope with the Microsoft Graph Bicep extension
 (`bicepconfig.json`, `microsoftgraph/v1.0:1.0.0` from `mcr.microsoft.com`).

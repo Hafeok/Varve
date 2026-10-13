@@ -18,4 +18,8 @@
     <ProjectReference Include="../../src/Varve.Protocol.Client/Varve.Protocol.Client.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="varve/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -143,6 +143,15 @@ resource consent 'Microsoft.Graph/oauth2PermissionGrants@v1.0' = {
   scope: 'access_as_user'
 }
 
+// Varve.Write as an application permission: the calling application's own
+// writes (its setup, an import) take its client-credentials token and name
+// the application as their agent (the attribution rule, ADR 0127).
+resource callerWrites 'Microsoft.Graph/appRoleAssignedTo@v1.0' = {
+  appRoleId: writeRoleId
+  principalId: callerPrincipal.id
+  resourceId: varvePrincipal.id
+}
+
 @description('Varve:Auth:Authority is https://login.microsoftonline.com/{tenant}/v2.0; Varve:Auth:Audiences is this URI.')
 output varveAudience string = varveIdentifierUri
 

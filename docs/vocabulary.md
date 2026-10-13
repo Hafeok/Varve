@@ -6,7 +6,10 @@ here, and `https://w3id.org/varve/problems/<type>` redirects to the problem
 type's page under [`docs/problems/`](problems/README.md), which this page
 does not repeat.
 
-The terms appear in one document: **the service description** a dataset
+The terms appear in two places. Since ADR 0130, the second is **system graphs**:
+graphs named under this namespace that Varve's own components write as
+ordinary data, under ordinary grants, queryable and time-travellable like any
+graph (below). The first is **the service description** a dataset
 answers to `GET /datasets/{name}/sparql` (or `GET /datasets/{name}/`) with
 an RDF `Accept`, as `sparql-service-description` triples about the endpoint
 plus the extensions below (`src/Varve.Protocol/Endpoints/ServiceDescriptionEndpoint.cs`;
@@ -64,6 +67,18 @@ Each an `xsd:integer`, the server's effective value.
 | `varve:resultSizeCap` | the most bytes one read answers before it is cut (`result-too-large`): `Varve:Limits:ResultSizeCap` | on the service |
 | `varve:maxAsOfDistance` | how many positions below the head a `Varve-As-Of` read may go when no checkpoint is at or below the position (`as-of-distance-exceeded`): `Varve:Limits:MaxAsOfDistance` | on the service |
 | `varve:commitsPageSize` | how many commits a `GET …/commits` range answers before a `Link rel="next"`: `Varve:Limits:CommitsPageSize` | on the service |
+
+## System graphs (ADR 0130)
+
+A graph named under `https://w3id.org/varve/ns#` is a system graph: Varve's
+components write it, and nothing in the server treats it differently from
+any other graph.
+
+| Term | Meaning | Where |
+|---|---|---|
+| `varve:setup` | the graph a dataset's setup records its applied migrations in, one node each | a graph name; written by `Varve.Protocol.Client`'s `ApplyAsync` |
+| `varve:Migration` | a migration of a dataset's setup that has been applied; the commit that asserted its node is the one that applied it, and the node is `https://w3id.org/varve/ns#setup/migration/{id}` | `rdf:type` of a node in `varve:setup` |
+| `varve:migrationId` | the migration's id, as its setup names it, an `xsd:string` | on a `varve:Migration` |
 
 ## Names that share the prefix but are not terms
 

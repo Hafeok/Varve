@@ -1,0 +1,12 @@
+# The orders dataset's setup (ADR 0130), applied as the application starts,
+# with the application's own token: these commits name the application as
+# their agent, where an order placed through the API names its user.
+dataset: orders
+baseline:
+  - name: vocabulary
+    file: vocabulary.ttl
+    graph: https://shop.example/vocabulary
+migrations:
+  - id: 2026-10-13-statuses
+    update: |
+      INSERT DATA { GRAPH <https://shop.example/vocabulary> { <https://shop.example/status/placed> <http://www.w3.org/2000/01/rdf-schema#label> "placed" } }

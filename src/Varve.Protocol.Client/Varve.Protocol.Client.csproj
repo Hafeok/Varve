@@ -35,8 +35,18 @@
     <ProjectReference Include="../Varve.Sparql.Results/Varve.Sparql.Results.csproj" />
     <ProjectReference Include="../Varve.Sparql/Varve.Sparql.csproj" />
     <ProjectReference Include="../Varve.Turtle/Varve.Turtle.csproj" />
+    <!-- A setup's baseline is read before it is sent, to refuse a blank node
+         (ADR 0130), in any syntax a Graph Store write takes. -->
+    <ProjectReference Include="../Varve.RdfXml/Varve.RdfXml.csproj" />
+    <ProjectReference Include="../Varve.JsonLd/Varve.JsonLd.csproj" />
     <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
     <ProjectReference Include="../Varve.Iri/Varve.Iri.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- AddVarve and the hosted service that applies a setup at start (ADR 0131). -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
   </ItemGroup>
 
 </Project>

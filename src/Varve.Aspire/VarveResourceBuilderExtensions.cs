@@ -120,17 +120,119 @@ public static class VarveResourceBuilderExtensions
     /// dataset that exists is opened as it is, so declaring it again changes
     /// nothing.
     /// </summary>
+    /// <remarks>
+    /// With <paramref name="setup"/>, a setup file (ADR 0130), the AppHost adds
+    /// a container from the server's own image, <c>{server}-setup-{dataset}</c>,
+    /// that runs <c>varve apply</c> once the server is healthy, with the file's
+    /// directory mounted read-only (ADR 0131). Under <see cref="WithOidc"/> it
+    /// authenticates as <see cref="WithSetupClient"/> says. A resource that
+    /// needs the setup applied waits for it with <see cref="WaitForDatasetSetup"/>.
+    /// In anonymous run mode a setup's settings are refused, since a settings
+    /// commit names an agent (ADR 0106); its baseline and migrations apply.
+    /// </remarks>
     public static IResourceBuilder<VarveResource> WithDataset(
         this IResourceBuilder<VarveResource> builder,
         string name,
         IReadOnlyList<string>? read = null,
         IReadOnlyList<string>? write = null,
-        IReadOnlyList<string>? admin = null)
+        IReadOnlyList<string>? admin = null,
+        string? setup = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         builder.Resource.Datasets.Add(new VarveDataset(name, read ?? [], write ?? [], admin ?? []));
+
+        if (setup is not null)
+        {
+            builder.Resource.Setups[name] = AddSetup(builder, name, setup);
+        }
+
         return builder;
+    }
+
+    /// <summary>
+    /// The client credentials the setup containers of <see cref="WithDataset"/>
+    /// apply their files with, under <see cref="WithOidc"/>: a client of the
+    /// same issuer, granted write on the datasets it sets up (admin too, for a
+    /// setup that changes settings), and the scope to ask for.
+    /// </summary>
+    public static IResourceBuilder<VarveResource> WithSetupClient(
+        this IResourceBuilder<VarveResource> builder,
+        string clientId,
+        IResourceBuilder<ParameterResource> clientSecret,
+        string? scope = null)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
+        ArgumentNullException.ThrowIfNull(clientSecret);
+        builder.Resource.SetupClient = new VarveSetupClient(clientId, clientSecret.Resource, scope);
+        return builder;
+    }
+
+    /// <summary>Waits, before <paramref name="builder"/>'s resource starts, for <paramref name="dataset"/>'s setup on <paramref name="varve"/> to have been applied.</summary>
+    /// <exception cref="InvalidOperationException">The dataset was declared with no setup.</exception>
+    public static IResourceBuilder<T> WaitForDatasetSetup<T>(this IResourceBuilder<T> builder, IResourceBuilder<VarveResource> varve, string dataset)
+        where T : IResourceWithWaitSupport
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(varve);
+        return varve.Resource.Setups.TryGetValue(dataset, out IResourceBuilder<ContainerResource>? setup)
+            ? builder.WaitForCompletion(setup)
+            : throw new InvalidOperationException("The dataset " + dataset + " on " + varve.Resource.Name + " was declared with no setup.");
+    }
+
+    // The setup container (ADR 0131): the server's image, `varve apply`, the
+    // file's directory at /setup, after the server is healthy. Its image is
+    // the server's as it stands when the application starts, so a later
+    // WithImageTag on the server moves it too.
+    private static IResourceBuilder<ContainerResource> AddSetup(IResourceBuilder<VarveResource> varve, string dataset, string file)
+    {
+        string path = System.IO.Path.GetFullPath(file, varve.ApplicationBuilder.AppHostDirectory);
+        string directory = System.IO.Path.GetDirectoryName(path)!;
+        VarveResource server = varve.Resource;
+
+        IResourceBuilder<ContainerResource> setup = varve.ApplicationBuilder.AddContainer(server.Name + "-setup-" + dataset, Image, DefaultTag())
+            .WithBindMount(directory, "/setup", isReadOnly: true)
+            .WithArgs(context =>
+            {
+                context.Args.Add("apply");
+                context.Args.Add("/setup/" + System.IO.Path.GetFileName(path));
+                context.Args.Add(server.HttpEndpoint);
+
+                if (server.Oidc is { } oidc)
+                {
+                    VarveSetupClient client = server.SetupClient
+                        ?? throw new DistributedApplicationException("The Varve resource '" + server.Name + "' authenticates by OIDC and sets up " + dataset + ": give the setup its identity with WithSetupClient(clientId, clientSecret).");
+                    context.Args.Add("--authority");
+                    context.Args.Add(oidc.Authority);
+                    context.Args.Add("--client-id");
+                    context.Args.Add(client.ClientId);
+                    context.Args.Add("--client-secret");
+                    context.Args.Add(client.Secret);
+                    context.Args.Add("--no-store");
+
+                    if (client.Scope is not null)
+                    {
+                        context.Args.Add("--scope");
+                        context.Args.Add(client.Scope);
+                    }
+                }
+            })
+            .WaitFor(varve);
+
+        varve.ApplicationBuilder.Eventing.Subscribe<BeforeStartEvent>((_, _) =>
+        {
+            if (server.TryGetLastAnnotation(out ContainerImageAnnotation? image) && setup.Resource.TryGetLastAnnotation(out ContainerImageAnnotation? own))
+            {
+                own.Registry = image.Registry;
+                own.Image = image.Image;
+                own.Tag = image.Tag;
+            }
+
+            return Task.CompletedTask;
+        });
+
+        return setup;
     }
 
     // Grants as Varve:Auth:Datasets:{dataset}:{Read|Write|Admin}:{i} (ADR 0107).

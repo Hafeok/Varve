@@ -49,14 +49,19 @@ Two details stop "just `PUT` it" from being idempotent.
      and one SPARQL Update request.
 2. **`client.ApplyAsync(setup)`**, on a client addressing that dataset, does
    in order:
-   1. **The dataset.** A status read. When it answers `404`, `PUT /datasets/{name}`
-      with the storage (idempotent, ADR 0118). So a setup run by a caller
-      without server admin works against a dataset that exists.
+   1. **The dataset.** A read (an `ASK` query, which needs `read` alone). When
+      it answers `404`, `PUT /datasets/{name}` with the storage (idempotent,
+      ADR 0118). So a setup run by a caller without server admin works against
+      a dataset that exists.
    2. **The settings.** `GET …/settings` and, when they differ from the
       declared ones as JSON values, `PUT` them under `If-Match` with the
-      `ETag` just read. A `412` is read again and retried once.
+      `ETag` just read. A `409` or `412`, another writer first, is read again
+      and compared again.
    3. **The baselines.** Each in order, by the Graph Store Protocol: one commit
-      the first time, none after, by I2.
+      the first time, none after, by I2. A baseline written with `PUT` owns its
+      graph: what the source does not hold is retracted from it on every
+      apply, so a graph the application or a migration also writes takes
+      `POST` (merge), or is not a baseline's.
    4. **The migrations.** The ones not yet recorded, each as **one request**
       (below).
 
@@ -85,9 +90,11 @@ Two details stop "just `PUT` it" from being idempotent.
      read.
    - **The outcome.** Either both land in one commit (ADR 0057) or neither
      does. A failure leaves the head and the record as they were.
-   - **Concurrent appliers.** A `412` means another applier moved the dataset.
-     The client reads the records again and continues from what is recorded,
-     so two instances starting together apply each migration once.
+   - **Concurrent appliers.** A `409` or `412` means another writer moved the
+     dataset first. The client reads the records again and continues from
+     what is recorded, so two instances starting together apply each
+     migration once. A baseline write that meets one is sent again, since it
+     is idempotent.
    - **The record carries no position.** The migration's position is the
      commit that asserted its record, found by the commits list filtered to
      `varve:setup` or by an as-of query.

@@ -159,7 +159,7 @@ internal sealed class Target
         return Outbound.Of(settings, OutboundHttp.CreateClient());
     }
 
-    private async Task<Remote> OpenRemoteAsync(ParseResult parsed, Io io, Uri dataset, CancellationToken cancellationToken)
+    internal async Task<Remote> OpenRemoteAsync(ParseResult parsed, Io io, Uri dataset, CancellationToken cancellationToken)
     {
         HttpClient http = OutboundHttp.CreateClient();
 

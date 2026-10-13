@@ -57,6 +57,14 @@ public class SampleTests
         Assert.Equal(HttpStatusCode.OK, asked.StatusCode);
         Assert.Contains("\"boolean\":true", await asked.Content.ReadAsStringAsync(cancellationToken), StringComparison.Ordinal);
 
+        // The dataset's setup ran once the server was healthy (ADRs 0130, 0131):
+        // its migration is recorded, and its baseline is in its graph.
+        await app.ResourceNotifications.WaitForResourceAsync("varve-setup-people", KnownResourceStates.Finished, cancellationToken).WaitAsync(TimeSpan.FromMinutes(5), cancellationToken);
+        using HttpResponseMessage recorded = await SendAsync(varve, HttpMethod.Get, "datasets/people/sparql?query=" + Uri.EscapeDataString(
+            "ASK { GRAPH <https://w3id.org/varve/ns#setup> { ?m <https://w3id.org/varve/ns#migrationId> \"2026-10-13-founder\" } GRAPH <https://people.example/vocabulary> { ?class ?p ?o } }"), reader, null, cancellationToken);
+        Assert.Equal(HttpStatusCode.OK, recorded.StatusCode);
+        Assert.Contains("\"boolean\":true", await recorded.Content.ReadAsStringAsync(cancellationToken), StringComparison.Ordinal);
+
         using HttpResponseMessage refused = await SendAsync(varve, HttpMethod.Post, "datasets/people/sparql", reader,
             new StringContent("INSERT DATA { <http://ex/s> <http://ex/p> \"not allowed\" }", Encoding.UTF8, "application/sparql-update"), cancellationToken);
         Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);

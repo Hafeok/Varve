@@ -32,7 +32,16 @@ public sealed class VarveResource : ContainerResource
 
     /// <summary>The datasets <c>WithDataset</c> declared, with the roles each grants.</summary>
     internal List<VarveDataset> Datasets { get; } = [];
+
+    /// <summary>The client credentials <c>WithSetupClient</c> gave the setup containers, under <c>WithOidc</c>.</summary>
+    internal VarveSetupClient? SetupClient { get; set; }
+
+    /// <summary>The setup containers <c>WithDataset</c> added, by dataset (ADR 0131).</summary>
+    internal Dictionary<string, IResourceBuilder<ContainerResource>> Setups { get; } = new(System.StringComparer.Ordinal);
 }
+
+/// <summary>The identity a setup container applies its file with (ADR 0131).</summary>
+internal sealed record VarveSetupClient(string ClientId, ParameterResource Secret, string? Scope);
 
 /// <summary>What <c>WithOidc</c> set (ADR 0037's bearer-token mode).</summary>
 internal sealed record VarveOidc(ReferenceExpression Authority, string Audience, string? RoleClaimType, string? SubjectClaim, bool RequireHttpsMetadata);
