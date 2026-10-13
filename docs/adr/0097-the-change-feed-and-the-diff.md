@@ -12,6 +12,10 @@ maintainer's act on the pull request.
 [0118](0118-api-alignment-while-everything-is-preview.md): the feed endpoint
 is the commits resource; see the end.
 
+**Amended 2026-10-13** (ADR 0068), by milestone Client and integration of #93 under ADR
+[0128](0128-varve-delta-and-the-read-forever-rule.md): the format's reader and
+writer live in `Varve.Delta`, and version 1 is read for ever; see the end.
+
 ## Context
 
 A change feed is the second reason the store is event-sourced (the brief's
@@ -136,3 +140,21 @@ reader (point 6) stand. What changes is the address and the framing choice
 **The ledger.** `FeedEndpoint` and `LiveTailIsServerSentEvents` stand as
 accepted; the ruling of this block is `FeedIsTheCommitsResource`, unaccepted
 until the maintainer accepts it.
+
+## Amendment, 2026-10-13 — the format is `Varve.Delta`'s, and version 1 is read for ever
+
+Filed by milestone Client and integration of #93, unaccepted until the
+maintainer accepts it (ADR 0066).
+
+- **Where it lives.** `ChangeFeedReader`, the record model and the writer move
+  from `Varve.Protocol` to `Varve.Delta`, a layer-3 package over `Varve.Rdf` and
+  `Varve.Turtle` with its own header types. `Varve.Protocol` keeps
+  `ChangeFeedWriter` as the adapter from a store's `Commit`.
+- **How long it lives.** `DeltaFormat.Current` is 1. A document of version 1
+  is read by every later release, and its meaning never changes. A change a
+  version-1 reader would misread is version 2, under the media type's
+  parameter.
+
+The reasoning is ADR 0128's. **The ledger.** The rulings of this ADR stand;
+the ruling of this block is `DeltaFormatIsReadForever`, unaccepted until the
+maintainer accepts it.

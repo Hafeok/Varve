@@ -27,6 +27,8 @@ decisions:
     statement: "Logs go through the ILogger the host gives the protocol: one line per commit with the dataset, the position and the request id, one per refusal with the status, and the request id in the hosting scope of every line; the server exports them through the SDK"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-10T00:00:00Z
+  - key: ActingApplicationIsASpanAttribute
+    statement: "The request span carries varve.azp, the acting application's claim, and it is never written to the log or the logger's request line; amended 2026-10-13 under ADR 0127"
 ---
 
 The rulings of [ADR 0112](../adr/0112-telemetry-in-two-layers.md), filed unaccepted by milestone Operability of #12

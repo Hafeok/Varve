@@ -59,6 +59,8 @@ decisions:
     statement: "README.md's Status section and docs/roadmap.md's milestone headings are checked against the release descriptors, the conformance baseline and the projects, in CI and at the commit under release"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-08T00:00:00Z
+  - key: DeltaFormatIsInTheBasis
+    statement: "The basis carries exactly one delta-format, equal to DeltaFormat.Current at the commit under release, required in every descriptor whose commit carries that constant; amended 2026-10-13 under ADR 0128"
 ---
 
 The rulings of [ADR 0102](../adr/0102-a-release-is-a-descriptor.md), filed without

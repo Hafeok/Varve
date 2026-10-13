@@ -6,6 +6,11 @@
 Decided by the maintainer on the 7b plan. Acceptance is the maintainer's act
 on the pull request.
 
+**Amended 2026-10-13** (ADR 0068), by milestone Client and integration of #93 under ADRs
+[0127](0127-on-behalf-of-and-the-token-provider.md) and
+[0128](0128-varve-delta-and-the-read-forever-rule.md): a token provider in place
+of the fixed token, and no reference to `Varve.Store`; see the end.
+
 ## Context
 
 Milestone 7b has three callers of a SPARQL endpoint over HTTP: the evaluator's
@@ -117,3 +122,22 @@ whose address the caller chose: the classic server-side request forgery. The
 - **Analyzer rule.** None. `DD0001` enforces the layer; the banned-symbols
   file enforces `System.Uri` elsewhere.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-13 — a token provider, and no store in the closure
+
+Filed by milestone Client and integration of #93, unaccepted until the
+maintainer accepts it (ADR 0066).
+
+- **Point 1's token.** "A bearer token the caller supplies" is supplied by a
+  provider called for every request, with its expiry honoured on the client's
+  `TimeProvider` (ADR 0127). The fixed `AccessToken` is removed.
+- **Point 1's references.** The client references `Varve.Delta` (ADR 0128),
+  `Varve.RdfXml` and `Varve.JsonLd` (ADR 0130's baselines), and no longer
+  `Varve.Store`: `ClientLimits.MaxResponseBytes` is a `long`.
+- **The surface.** The client gains the Graph Store's writes and the dataset's
+  `PUT`, which point 1 listed and 7b did not build, plus `FollowAsync`
+  (ADR 0129), `ApplyAsync` (ADR 0130) and `AddVarve` (ADR 0131).
+
+**The ledger.** The rulings of this ADR stand; the rulings of this block are
+`TokenIsProvidedPerRequest` and `ClientShipsNoStore`, unaccepted until the
+maintainer accepts them.

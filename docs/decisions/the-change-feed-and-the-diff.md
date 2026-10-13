@@ -35,6 +35,8 @@ decisions:
     statement: "The feed is GET /datasets/{name}/commits for a range and /commits/{position} for one commit, tailing live by Accept text/event-stream on an open range, and /feed is removed; amended 2026-10-09 under ADR 0118"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-10T00:00:00Z
+  - key: DeltaFormatIsReadForever
+    statement: "The delta format's reader and writer live in Varve.Delta; DeltaFormat.Current is 1, a version-1 document is read by every later release with its meaning unchanged, and a change a version-1 reader would misread is version 2; amended 2026-10-13 under ADR 0128"
 ---
 
 The rulings of [ADR 0097](../adr/0097-the-change-feed-and-the-diff.md), filed unaccepted by milestone 7a of #11

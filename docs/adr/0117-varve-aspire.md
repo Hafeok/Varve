@@ -8,6 +8,10 @@ the maintainer's act on the pull request. Admits `Aspire.Hosting` to the
 register in `Varve.Aspire` alone, and `Aspire.AppHost.Sdk` and
 `Aspire.Hosting.Testing` in the sample and its test.
 
+**Amended 2026-10-13** (ADR 0068), by milestone Client and integration of #93 under ADR
+[0131](0131-hosting-the-client.md): `WithDataset` takes a setup file, and the
+client integration this ADR deferred is built; see the end.
+
 ## Context
 
 ADR 0037 expected the server to run under Aspire in development and said
@@ -94,3 +98,21 @@ over an `HttpClient` the application already configures is the integration.
 - **Layer ownership.** `Varve.Aspire`, declared 0, a host concern by purpose.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-13 — `WithDataset`'s setup, and the client integration
+
+Filed by milestone Client and integration of #93, unaccepted until the
+maintainer accepts it (ADR 0066).
+
+- **Point 3.** `WithDataset(name, read, write, admin, setup)` takes an optional
+  setup file (ADR 0130). Given one, the AppHost adds a container resource from
+  the server's image that runs `varve apply` against the server once it is
+  healthy, with the file's directory mounted read-only. Under `WithOidc`, it
+  authenticates by client credentials given with `WithSetupClient`.
+  `Varve.Aspire` still references nothing from Varve.
+- **The deferred client integration** ("`AddVarveClient`", Consequences) is
+  built as `Varve.Protocol.Client`'s `AddVarve` on `IServiceCollection` (ADR
+  0131), not as a package of Aspire's.
+
+**The ledger.** The rulings of this ADR stand; the ruling of this block is
+`DatasetSetupRunsVarveApply`, unaccepted until the maintainer accepts it.

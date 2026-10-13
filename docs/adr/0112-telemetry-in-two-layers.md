@@ -8,6 +8,10 @@ three packages to the register, in `Varve.Server` alone, on the condition
 that the server's Native AOT publish stays green (as ADR 0099 admitted
 `JwtBearer`).
 
+**Amended 2026-10-13** (ADR 0068), by milestone Client and integration of #93 under ADR
+[0127](0127-on-behalf-of-and-the-token-provider.md): the request span carries
+the acting application as `varve.azp`; see the end.
+
 ## Context
 
 The roadmap asks for traces, metrics and logs to the OpenTelemetry semantic
@@ -123,3 +127,16 @@ and are what the SDK listens to.
   (4); the SDK in `Varve.Server` (6).
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-13 — `varve.azp`
+
+Filed by milestone Client and integration of #93, unaccepted until the
+maintainer accepts it (ADR 0066). The request span gains **`varve.azp`**: the
+value of the claim `Auth:ApplicationClaim` names (`azp` by default, `appid`
+for an Entra v1 token), the application that acted for the token's subject.
+It is a span attribute only: never written to the log, and never in the
+logger's request line. The reasoning is ADR 0127's.
+
+**The ledger.** The rulings of this ADR stand; the ruling of this block is
+`ActingApplicationIsASpanAttribute`, unaccepted until the maintainer accepts
+it.

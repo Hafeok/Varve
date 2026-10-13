@@ -7,6 +7,10 @@ Accepted. 2026-09-21. Supersedes [0006](0006-build-and-test-dependencies.md).
 two `DecisionDriven` packages are admitted as build-time, with a version policy
 for prerelease packages, and every banned-symbol entry cites an ADR.
 
+**Amended 2026-10-13** (ADR 0068), by milestone Client and integration of #93 under ADR
+[0133](0133-packages-scoped-to-samples.md): an entry may carry a scope, which
+the gate enforces; see the end.
+
 ## Context
 
 `docs/brief.md`, constraint 4: minimal dependencies, prefer the BCL, every
@@ -242,3 +246,17 @@ The gate is a text check and knows nothing about what a package does. It cannot
 tell a well-argued ADR from a stub. It catches the omission and the dangling
 citation, which are the failures that actually happen; judging whether the
 argument is good remains review's job.
+
+## Amendment, 2026-10-13 — an entry's scope is checked
+
+Filed by milestone Client and integration of #93, unaccepted until the
+maintainer accepts it (ADR 0066). A `PackageVersion` may carry `Scope`, a
+comma-separated list of repository-relative directory prefixes. Every project
+that references the package must sit under one of them, and
+`eng/dependency-register.cs` fails on any that does not, with
+`tests/fixtures/dependency-register/` as its failing and passing fixture. An
+entry with no scope may be used anywhere, as before. The reasoning is ADR
+0133's.
+
+**The ledger.** The rulings of this ADR stand; the ruling of this block is
+`EntryScopeIsChecked`, unaccepted until the maintainer accepts it.

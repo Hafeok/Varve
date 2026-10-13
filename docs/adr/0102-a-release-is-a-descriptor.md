@@ -34,6 +34,10 @@ repository (the App's permissions, the tag ruleset, nuget.org). That is the
 path this ADR claims has no human step; the first time it needs one, it is
 revisited.
 
+**Amended 2026-10-13** (ADR 0068), by milestone Client and integration of #93 under ADR
+[0128](0128-varve-delta-and-the-read-forever-rule.md): `basis` gains
+`delta-format`; see the end.
+
 ## Context
 
 A release is a decision, and this repository files decisions: an ADR, a
@@ -338,3 +342,20 @@ first used.
   `tests/fixtures/releases/`, run by the `release-fixtures` job of
   `eng/ci.cs`.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-13 — `delta-format` in the basis
+
+Filed by milestone Client and integration of #93, unaccepted until the
+maintainer accepts it (ADR 0066). `basis` gains one more kind,
+**`delta-format: n`**: exactly one, equal to `DeltaFormat.Current` in
+`src/Varve.Delta/DeltaFormat.cs` at the commit under release, resolved as
+`storage-format` is. It is required in every descriptor whose commit carries
+that file. A descriptor already cut has no such file at its commit and stays
+valid unchanged, as rule 9 requires. `--draft` writes the line, and
+`eng/status.cs` reports the value. `docs/releases.md` §1 and §2 say the same.
+The format version of the descriptor stays 1: the change adds a kind, and
+every descriptor that was valid stays valid.
+
+The reasoning is ADR 0128's. **The ledger.** The rulings of this ADR stand;
+the ruling of this block is `DeltaFormatIsInTheBasis`, unaccepted until the
+maintainer accepts it.
