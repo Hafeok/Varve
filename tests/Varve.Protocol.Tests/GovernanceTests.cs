@@ -26,8 +26,11 @@ namespace Varve.Protocol.Tests;
 /// problem type and never a timeout or a disconnect; the memory bound is
 /// counted and fails before the process pays; an as-of read beyond the
 /// distance bound is refused before any log is read; a client's live tails
-/// are bounded; a bounded commits range is paged.
+/// are bounded; a bounded commits range is paged. Run alone: the memory
+/// bound's test reads the process's working set, which any test running
+/// beside it would grow.
 /// </summary>
+[Collection(nameof(GovernanceTests))]
 public class GovernanceTests
 {
     private const string Sparql = "datasets/d/sparql";
@@ -245,3 +248,7 @@ public class GovernanceTests
         }
     }
 }
+
+/// <summary>The collection that runs <see cref="GovernanceTests"/> alone.</summary>
+[CollectionDefinition(nameof(GovernanceTests), DisableParallelization = true)]
+public sealed class GovernanceTestsRunAlone;
