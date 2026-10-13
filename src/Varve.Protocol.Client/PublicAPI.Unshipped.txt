@@ -77,3 +77,31 @@ static Varve.Protocol.Client.Model.BearerToken.operator !=(Varve.Protocol.Client
 static Varve.Protocol.Client.Model.BearerToken.operator ==(Varve.Protocol.Client.Model.BearerToken left, Varve.Protocol.Client.Model.BearerToken right) -> bool
 virtual Varve.Protocol.Client.BearerTokenProvider.Invoke(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Client.Model.BearerToken?>
 ~override Varve.Protocol.Client.Model.BearerToken.Equals(object obj) -> bool
+Varve.Protocol.Client.FileFollowCheckpoint
+Varve.Protocol.Client.FileFollowCheckpoint.FileFollowCheckpoint(string! path) -> void
+Varve.Protocol.Client.FileFollowCheckpoint.LoadAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Delta.Model.FeedPosition?>
+Varve.Protocol.Client.FileFollowCheckpoint.SaveAsync(Varve.Delta.Model.FeedPosition position, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Protocol.Client.FollowOptions
+Varve.Protocol.Client.FollowOptions.Clock.get -> System.TimeProvider!
+Varve.Protocol.Client.FollowOptions.FirstBackoff.get -> System.TimeSpan
+Varve.Protocol.Client.FollowOptions.FirstBackoff.init -> void
+Varve.Protocol.Client.FollowOptions.FollowOptions(System.TimeProvider! clock) -> void
+Varve.Protocol.Client.FollowOptions.Graph.get -> string?
+Varve.Protocol.Client.FollowOptions.Graph.init -> void
+Varve.Protocol.Client.FollowOptions.IdleTimeout.get -> System.TimeSpan
+Varve.Protocol.Client.FollowOptions.IdleTimeout.init -> void
+Varve.Protocol.Client.FollowOptions.Jitter.init -> void
+Varve.Protocol.Client.FollowOptions.MaxBackoff.get -> System.TimeSpan
+Varve.Protocol.Client.FollowOptions.MaxBackoff.init -> void
+Varve.Protocol.Client.FollowRefusedException
+Varve.Protocol.Client.FollowRefusedException.FollowRefusedException() -> void
+Varve.Protocol.Client.FollowRefusedException.FollowRefusedException(int status, string! problem) -> void
+Varve.Protocol.Client.FollowRefusedException.FollowRefusedException(string! message) -> void
+Varve.Protocol.Client.FollowRefusedException.FollowRefusedException(string! message, System.Exception! inner) -> void
+Varve.Protocol.Client.FollowRefusedException.Problem.get -> string!
+Varve.Protocol.Client.FollowRefusedException.Status.get -> int
+Varve.Protocol.Client.IFollowCheckpoint
+Varve.Protocol.Client.IFollowCheckpoint.LoadAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Delta.Model.FeedPosition?>
+Varve.Protocol.Client.IFollowCheckpoint.SaveAsync(Varve.Delta.Model.FeedPosition position, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Protocol.Client.SparqlHttpClient.FollowAsync(Varve.Delta.Model.FeedPosition from, System.Func<Varve.Delta.Model.FeedRecord!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>! handler, Varve.Protocol.Client.IFollowCheckpoint! checkpoint, Varve.Protocol.Client.FollowOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Varve.Protocol.Client.FollowOptions.Jitter.get -> System.Func<double>?

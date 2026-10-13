@@ -23,7 +23,7 @@ namespace Varve.Protocol.Client;
 /// The limits bound the time to the headers; the body is the caller's to
 /// bound.
 /// </summary>
-public sealed class SparqlHttpClient
+public sealed partial class SparqlHttpClient
 {
     /// <summary>
     /// How long before its expiry a token is treated as expired (ADR 0127):

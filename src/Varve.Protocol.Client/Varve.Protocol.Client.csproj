@@ -21,6 +21,11 @@
          IRI is still Varve.Iri. ADR 0004, amended 2026-10-08; ADR 0103. -->
     <VarveSpeaksHttp>true</VarveSpeaksHttp>
 
+    <!-- Its follower's checkpoint names a FeedPosition: the delta format's
+         position, which is what a follower checkpoints (ADR 0129). Widened
+         here and nowhere else, as ADR 0064 requires. -->
+    <ArchContractTypeAssemblies>$(ArchContractTypeAssemblies);Varve.Delta</ArchContractTypeAssemblies>
+
     <Description>The HTTP client for a Varve server: SPARQL Protocol queries and updates, the Graph Store Protocol, the change feed and the admin API, with the SERVICE handler and the document fetch that federate a query and a LOAD under an endpoint policy.</Description>
   </PropertyGroup>
 
