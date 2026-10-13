@@ -69,7 +69,12 @@ can name several.
    before that commit conflicts.
 6. **The scope of an Update without the header** is ADR 0057's, as amended:
    the graphs the request's patterns read and its delta writes, or every
-   graph; a data-only request stays unconditional.
+   graph; a data-only request stays unconditional. With neither header nor
+   `If-Match` the update is retried by the server up to three times before
+   a `409` (ADRs 0057 and 0094, amended 2026-10-13).
+   `ISparqlUpdateExecutor.ExecuteAsync` takes the client's preconditions as
+   `UpdatePreconditions` in place of the expected position: a breaking
+   change of a preview API (ADR 0118), listed in the release's summary.
 7. **`409 conflict` gains `graphs`**: an array of the intervening commits
    that touched the request's scope, newest first, each
    `{"position": n, "graphs": ["<iri>" | "default", …]}`, listing only graphs
@@ -103,11 +108,12 @@ can name several.
 - **Several `If-Match` tags for an update.** `If-Match` lists alternatives
   any of which may match (RFC 9110 §13.1.1), not a conjunction over
   resources; a request naming several graphs needs a header of its own.
-- **Retry a conflicted request on the server when the client gave no
-  precondition.** Proposed on the plan for a request whose only
-  precondition is the server's own inferred scope; ADRs 0057 and 0094 reject
-  server-side retry, and changing that is the maintainer's decision, recorded
-  in the milestone's report, not here.
+- **Never retry on the server.** What ADRs 0057 and 0094 decided. Kept for
+  every request with a precondition from the client and every Graph Store
+  write; amended by the maintainer for an update that stated none, whose
+  only precondition is the scope the server inferred, and which is re-pinned
+  and re-evaluated up to three times before a `409` (both amended
+  2026-10-13).
 
 ## Consequences
 

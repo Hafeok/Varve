@@ -79,9 +79,13 @@ internal static class Reads
     /// the response has been written, as a <c>304</c> or a <c>400</c>. Asked
     /// before any pin is taken (ADRs 0096, 0119).
     /// </summary>
-    internal static async Task<bool> NotModifiedAsync(HttpContext context, Dataset dataset, Position described)
+    internal static async Task<bool> NotModifiedAsync(HttpContext context, Dataset dataset, Position described, Position? graphVersion = null)
     {
         HttpRequest request = context.Request;
+
+        // A graph read's tag, and its last modification, are the graph's
+        // version (ADR 0126); the position described stays Varve-Position.
+        Position tag = graphVersion ?? described;
 
         switch (Preconditions.Read(request.Headers.IfNoneMatch, out Preconditions.TagList tags))
         {
@@ -91,8 +95,8 @@ internal static class Reads
                 await HttpProblems.BadRequest(context, "If-None-Match names positions, as the ETag of every response does.").ConfigureAwait(false);
                 return true;
             case TagCondition.Any:
-            case TagCondition.Positions when tags.Contains(described):
-                NotModified(context, dataset, described);
+            case TagCondition.Positions when tags.Contains(tag):
+                NotModified(context, dataset, described, graphVersion);
                 return true;
             default:
                 return false;
@@ -100,20 +104,26 @@ internal static class Reads
 
         if (request.Headers.IfModifiedSince.Count == 1
             && HeaderUtilities.TryParseDate(request.Headers.IfModifiedSince[0], out DateTimeOffset since)
-            && LastModified(dataset, described) is DateTimeOffset modified
+            && LastModified(dataset, tag) is DateTimeOffset modified
             && modified <= since)
         {
-            NotModified(context, dataset, described);
+            NotModified(context, dataset, described, graphVersion);
             return true;
         }
 
         return false;
     }
 
-    private static void NotModified(HttpContext context, Dataset dataset, Position described)
+    private static void NotModified(HttpContext context, Dataset dataset, Position described, Position? graphVersion)
     {
         Preconditions.Describe(context.Response, described);
         DescribeFreshness(context, dataset, described);
+
+        if (graphVersion is Position version)
+        {
+            Preconditions.DescribeGraph(context.Response, version);
+        }
+
         context.Response.StatusCode = StatusCodes.Status304NotModified;
     }
 

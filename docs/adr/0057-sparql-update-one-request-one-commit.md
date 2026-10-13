@@ -258,7 +258,22 @@ sets, including reads of absent graphs, a request conflicts exactly when an
 intervening commit touched its scope, and every request that commits has the
 delta it would have had evaluated at the head.
 
+**A conflict the client had no part in is retried.** Decided by the
+maintainer on the Commit path pull request. *Concurrency* above returns a
+`Conflict` and does not retry, because whether a request evaluated at `P`
+still means the same at a later head is the caller's question. That holds
+when the caller stated what it read: an `If-Match` (ADR 0094) or
+`Varve-If-Graphs-Match` (ADR 0126). A request that stated nothing has no
+precondition of its own; its only one is the scope inferred above, which
+the server computed and the client cannot act on. Such a request is
+re-pinned and evaluated again from the start, up to three times, before a
+`Conflict` is returned: the server binds `ConflictRetries` to 3 for it and
+0 for any other. Each retry is a new evaluation at the new head, never the
+old delta resubmitted, so what commits is what the request means there.
+`UpdateOptions.ConflictRetries` keeps its default of 0 for an embedded
+caller.
+
 **The ledger.** `UpdateIsAtMostOneCommit` and
-`DataOnlyRequestExpectsNoPosition` stand. The ruling of this block is
-`ScopeIsWhatTheRequestAskedFor`, unaccepted until the maintainer accepts
-it.
+`DataOnlyRequestExpectsNoPosition` stand. The rulings of this block are
+`ScopeIsWhatTheRequestAskedFor` and `AnInferredConflictIsRetried`,
+unaccepted until the maintainer accepts them.

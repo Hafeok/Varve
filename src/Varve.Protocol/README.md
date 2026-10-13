@@ -11,10 +11,14 @@ ASP.NET Core endpoint groups any host mounts.
   executes (`ISparqlUpdateExecutor`), and who the caller is (`ICallerIdentity`).
 - **Every write is one commit**, with the caller as its agent. `If-Match`
   carries an expected position: `412` when it is stale, `409` on a conflict.
+  On a Graph Store write it names the graph's version, so writers of other
+  graphs never conflict; `Varve-If-Graphs-Match: <iri>=<n>, default=<n>`
+  names the graphs an update read (ADR 0126). A `409` lists the commits that
+  caused it under `graphs`.
 - **Every read is pinned for its response** and bounded by the host's limits.
   `Varve-As-Of: position:<n>` or `time:<RFC 3339>` reads the past.
-  `Varve-Position` and `ETag` name the position read, and `If-None-Match` polls
-  for `304`.
+  `Varve-Position` names the position read, and `ETag` the position or, for a
+  graph, the graph's version; `If-None-Match` polls for `304`.
 - **Graphs in six formats** (ADR 0092, amended): a Graph Store `GET`, a
   `CONSTRUCT` or `DESCRIBE`, and the service description are negotiated over
   N-Triples (the default), Turtle, N-Quads, TriG, RDF/XML and JSON-LD, and a

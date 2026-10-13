@@ -58,3 +58,10 @@ Varve.Protocol.Client.SparqlHttpClient.SparqlHttpClient(System.Net.Http.HttpClie
 Varve.Protocol.Client.SparqlHttpClient.StatusAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
 Varve.Protocol.Client.SparqlHttpClient.UpdateAsync(string! update, long? ifMatch, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
 static Varve.Protocol.Client.SparqlHttpClient.PositionOf(System.Net.Http.HttpResponseMessage! response) -> long?
+Varve.Protocol.Client.SparqlHttpClient.CreateGraphAsync(string? graph, string! body, string! contentType, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.DeleteGraphAsync(string? graph, long? ifMatch, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.GetGraphAsync(string? graph, string! accept, long? ifNoneMatch, string? asOf, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.PostGraphAsync(string? graph, string! body, string! contentType, long? ifMatch, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.PutGraphAsync(string? graph, string! body, string! contentType, long? ifMatch, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.UpdateAsync(string! update, System.Collections.Generic.IReadOnlyCollection<System.Collections.Generic.KeyValuePair<string?, long>>! ifGraphsMatch, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+static Varve.Protocol.Client.SparqlHttpClient.VersionOf(System.Net.Http.HttpResponseMessage! response) -> long?

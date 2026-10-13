@@ -32,7 +32,8 @@ its format by media type (`varve:feedFormat`).
 | `varve:asOfSelector` | a selector form `Varve-As-Of` accepts; the service lists each it supports | on the service, one triple per selector |
 | `varve:PositionSelector` | the selector `position:<n>`: a closed position of this dataset | a value of `varve:asOfSelector` |
 | `varve:TimeSelector` | the selector `time:<RFC 3339>`: the greatest position whose commit timestamp is at or before the instant | a value of `varve:asOfSelector` |
-| `varve:conditionalRequest` | a conditional-request header the service honours: `If-Match` on a write is its expected position (`412 precondition-failed` when the head moved), `If-None-Match` on a read is the position the client holds (`304` when unchanged) | on the service, one literal per header |
+| `varve:conditionalRequest` | a conditional-request header the service honours: `If-Match` on a write is its expected position (`412 precondition-failed` when the head moved), or on a Graph Store write the graph's version; `If-None-Match` on a read is the position or graph version the client holds (`304` when unchanged); `Varve-If-Graphs-Match` on an update names the graphs it read and their versions, `<iri>=<n>, default=<n>` (ADR 0126) | on the service, one literal per header |
+| `varve:graphVersionETag` | `true`: a Graph Store response's `ETag` is the graph's version, the position of the last commit that touched it, and a write to one graph conflicts only with commits that touched it (ADRs 0125, 0126) | on the service, an `xsd:boolean` |
 
 ## The resources of a dataset (ADR 0118)
 

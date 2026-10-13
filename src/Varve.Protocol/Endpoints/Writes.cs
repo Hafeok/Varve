@@ -2,7 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using System.Collections.Generic;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
@@ -13,8 +15,19 @@ using Varve.Store.Log;
 
 namespace Varve.Protocol.Endpoints;
 
-/// <summary>What a write's preconditions decided, before anything was read.</summary>
-internal readonly record struct WritePlan(bool Proceed, Position? Expected);
+/// <summary>
+/// What a write's preconditions decided, before anything was read: the
+/// position the client expects, and, for a graph or the graphs an update
+/// named, the scope it expects it over (ADR 0126).
+/// </summary>
+internal readonly record struct WritePlan(bool Proceed, Position? Expected, IReadOnlyList<GraphPrecondition>? Graphs = null);
+
+/// <summary>
+/// Where a conflict's evidence is read from (ADR 0126): the commits after
+/// <see cref="Since"/> that touched <see cref="Scope"/>, or, with no scope,
+/// every commit after it, its graphs the caller may read.
+/// </summary>
+internal readonly record struct ConflictEvidence(Position Since, IReadOnlyList<RequestTerm>? Scope);
 
 /// <summary>
 /// What every write shares (ADR 0094): the preconditions, the commit's
@@ -28,9 +41,30 @@ internal static class Writes
     /// stale <c>If-Match</c> is <c>412</c> with the head, before anything is
     /// read or parsed; a matching one is the commit's expected position.
     /// </summary>
-    internal static async Task<WritePlan> CheckAsync(Exchange exchange)
+    internal static async Task<WritePlan> CheckAsync(Exchange exchange, bool update = false)
     {
         HttpContext context = exchange.Context;
+
+        if (!Preconditions.TryReadGraphs(context.Request.Headers[Preconditions.IfGraphsMatchHeader], out List<GraphPrecondition>? graphs))
+        {
+            await HttpProblems.BadRequest(context, "Varve-If-Graphs-Match names each graph once, as <iri>=<version> or default=<version>, separated by commas.").ConfigureAwait(false);
+            return default;
+        }
+
+        if (graphs is not null)
+        {
+            if (!update)
+            {
+                await HttpProblems.BadRequest(context, "Varve-If-Graphs-Match is for SPARQL Update; a Graph Store write takes If-Match, the graph's version.").ConfigureAwait(false);
+                return default;
+            }
+
+            if (!StringValues.IsNullOrEmpty(context.Request.Headers.IfMatch))
+            {
+                await HttpProblems.BadRequest(context, "An update states If-Match or Varve-If-Graphs-Match, not both (ADR 0126).").ConfigureAwait(false);
+                return default;
+            }
+        }
 
         if (!StringValues.IsNullOrEmpty(context.Request.Headers[Preconditions.AsOfHeader]))
         {
@@ -46,6 +80,8 @@ internal static class Writes
 
         switch (Preconditions.Read(context.Request.Headers.IfMatch, out Preconditions.TagList tags))
         {
+            case TagCondition.Absent when graphs is not null:
+                return await CheckGraphsAsync(exchange, graphs).ConfigureAwait(false);
             case TagCondition.Absent:
             case TagCondition.Any:
                 return new WritePlan(true, null);
@@ -65,6 +101,144 @@ internal static class Writes
         }
     }
 
+    // Every graph the update names is at the version the client read, at the
+    // head, or 412 with the ones that are not — before anything is parsed.
+    private static async Task<WritePlan> CheckGraphsAsync(Exchange exchange, List<GraphPrecondition> graphs)
+    {
+        List<(GraphPrecondition Graph, Position Version)> stale = [];
+
+        foreach (GraphPrecondition graph in graphs)
+        {
+            Position version = exchange.Dataset.GraphVersion(Term(graph.Graph));
+
+            if (version != graph.Version)
+            {
+                stale.Add((graph, version));
+            }
+        }
+
+        if (stale.Count > 0)
+        {
+            await GraphPreconditionFailedAsync(exchange, stale).ConfigureAwait(false);
+            return default;
+        }
+
+        return new WritePlan(true, null, graphs);
+    }
+
+    /// <summary>
+    /// A Graph Store write's preconditions (ADR 0126), checked against the
+    /// graph: <c>If-Match</c> names its version, compared strongly — an empty
+    /// graph has no representation and matches no tag; <c>If-None-Match: *</c>
+    /// on a <c>PUT</c> creates only, and fails when the graph holds a quad.
+    /// A matching tag becomes the expected position, the graph its scope.
+    /// </summary>
+    internal static async Task<WritePlan> CheckGraphAsync(Exchange exchange, RdfTerm? graph, bool put, System.Func<bool> exists)
+    {
+        HttpContext context = exchange.Context;
+
+        if (!StringValues.IsNullOrEmpty(context.Request.Headers[Preconditions.AsOfHeader]))
+        {
+            await HttpProblems.BadRequest(context, "A write is made at the head; Varve-As-Of is for reads.").ConfigureAwait(false);
+            return default;
+        }
+
+        if (!StringValues.IsNullOrEmpty(context.Request.Headers[Preconditions.IfGraphsMatchHeader]))
+        {
+            await HttpProblems.BadRequest(context, "Varve-If-Graphs-Match is for SPARQL Update; a Graph Store write takes If-Match, the graph's version.").ConfigureAwait(false);
+            return default;
+        }
+
+        RequestTerm term = Term(graph);
+        GraphPrecondition[] scope = [new GraphPrecondition(graph, default)];
+
+        switch (Preconditions.Read(context.Request.Headers.IfNoneMatch, out _))
+        {
+            case TagCondition.Absent:
+                break;
+            case TagCondition.Any when put:
+                if (exists())
+                {
+                    Position version = exchange.Dataset.GraphVersion(term);
+                    await GraphPreconditionFailedAsync(exchange, [(new GraphPrecondition(graph, version), version)]).ConfigureAwait(false);
+                    return default;
+                }
+
+                break;
+            default:
+                await HttpProblems.BadRequest(context, "A Graph Store write takes If-Match, the graph's version; If-None-Match: * only on PUT, to create a graph.").ConfigureAwait(false);
+                return default;
+        }
+
+        switch (Preconditions.Read(context.Request.Headers.IfMatch, out Preconditions.TagList tags))
+        {
+            case TagCondition.Absent:
+                return new WritePlan(true, null, scope);
+            case TagCondition.Any:
+            case TagCondition.Positions when tags.TrySingle(out _):
+                Position current = exchange.Dataset.GraphVersion(term);
+                bool present = graph is null || exists();
+
+                if (!present || (tags.Values is { Length: 1 } single && single[0] != current.Value))
+                {
+                    await GraphPreconditionFailedAsync(exchange, [(new GraphPrecondition(graph, tags.Values is { Length: 1 } named ? new Position(named[0]) : current), current)]).ConfigureAwait(false);
+                    return default;
+                }
+
+                return new WritePlan(true, tags.Values is { Length: 1 } ? current : null, scope);
+            default:
+                await HttpProblems.BadRequest(context, "If-Match names one version, as the ETag of a graph does.").ConfigureAwait(false);
+                return default;
+        }
+    }
+
+    /// <summary>A graph as the store names it in a scope: <see cref="RequestTerm.None"/> for the default graph.</summary>
+    internal static RequestTerm Term(RdfTerm? graph) => graph is null ? RequestTerm.None : RequestTerm.FromTerm(graph);
+
+    /// <summary>The store's scope for a plan's graphs.</summary>
+    internal static List<RequestTerm>? Scope(IReadOnlyList<GraphPrecondition>? graphs)
+    {
+        if (graphs is null)
+        {
+            return null;
+        }
+
+        List<RequestTerm> scope = new(graphs.Count);
+
+        foreach (GraphPrecondition graph in graphs)
+        {
+            scope.Add(Term(graph.Graph));
+        }
+
+        return scope;
+    }
+
+    /// <summary><c>412</c> for graphs whose version is not the one named (ADR 0126): each with the version it has.</summary>
+    private static Task GraphPreconditionFailedAsync(Exchange exchange, IReadOnlyList<(GraphPrecondition Graph, Position Version)> stale)
+    {
+        Position head = exchange.Dataset.Head;
+        Preconditions.Describe(exchange.Response, head);
+        return HttpProblems.WriteAsync(exchange.Context, ProblemType.PreconditionFailed, "A graph is not at the version named.", members =>
+        {
+            members.Number("position", head.Value);
+            members.Number("headPosition", head.Value);
+            Utf8JsonWriter json = members.Raw("graphs");
+            json.WriteStartArray("graphs");
+
+            foreach ((GraphPrecondition graph, Position version) in stale)
+            {
+                json.WriteStartObject();
+                json.WriteString("graph", Name(graph.Graph));
+                json.WriteNumber("version", version.Value);
+                json.WriteEndObject();
+            }
+
+            json.WriteEndArray();
+        });
+    }
+
+    private static string Name(RdfTerm? graph) => graph is null ? "default" : Encoding.UTF8.GetString(graph.Lexical);
+
     /// <summary>The commit's agent — the caller, as the host names it — and its cause, the request id.</summary>
     internal static CommitMetadata Metadata(Exchange exchange)
     {
@@ -82,10 +256,31 @@ internal static class Writes
     /// <c>201</c>) for a commit or no change, <c>409</c>, <c>422</c>, <c>503</c>.
     /// Every one carries the position it leaves the dataset at.
     /// </summary>
-    internal static Task AnswerAsync(Exchange exchange, CommitResult result, int created = StatusCodes.Status204NoContent, Position? expected = null)
+    internal static async Task AnswerAsync(
+        Exchange exchange, CommitResult result, int created = StatusCodes.Status204NoContent, Position? expected = null, ConflictEvidence? evidence = null, RdfTerm? taggedGraph = null, bool tagGraph = false)
     {
         HttpContext context = exchange.Context;
         Preconditions.Describe(context.Response, result.Position);
+
+        // A Graph Store response is tagged with the graph's version (ADR 0126).
+        if (tagGraph)
+        {
+            Preconditions.DescribeGraph(context.Response, result.Outcome == CommitOutcome.Committed ? result.Position : exchange.Dataset.GraphVersion(Term(taggedGraph)));
+        }
+
+        CommitConflicts? conflicts = null;
+
+        if (result.Outcome == CommitOutcome.Conflict && evidence is { } read)
+        {
+            conflicts = await exchange.Dataset.ConflictsAsync(read.Since, read.Scope, 100, exchange.Options.Limits.MaxAsOfDistance, context.RequestAborted).ConfigureAwait(false);
+        }
+
+        await AnswerCoreAsync(exchange, result, created, expected, conflicts).ConfigureAwait(false);
+    }
+
+    private static Task AnswerCoreAsync(Exchange exchange, CommitResult result, int created, Position? expected, CommitConflicts? conflicts)
+    {
+        HttpContext context = exchange.Context;
 
         switch (result.Outcome)
         {
@@ -108,6 +303,11 @@ internal static class Writes
                     {
                         members.Number("expectedPosition", wanted.Value);
                     }
+
+                    if (conflicts is not null)
+                    {
+                        WriteConflicts(exchange, members, conflicts);
+                    }
                 });
 
             case CommitOutcome.Rejected:
@@ -116,6 +316,38 @@ internal static class Writes
             default:
                 return QueryRun.WriteUnavailableAsync(exchange, result.Reason ?? "The dataset cannot commit now.");
         }
+    }
+
+    // The commits that caused a conflict (ADR 0126): newest first, each with
+    // the graphs of the scope it touched — or, with no scope, those of its
+    // graphs the caller may read, so the list names no graph it cannot see.
+    private static void WriteConflicts(Exchange exchange, ProblemMembers members, CommitConflicts conflicts)
+    {
+        Utf8JsonWriter json = members.Raw("graphs");
+        json.WriteStartArray("graphs");
+
+        foreach (ConflictingCommit commit in conflicts.Commits)
+        {
+            json.WriteStartObject();
+            json.WriteNumber("position", commit.Position.Value);
+            json.WriteStartArray("graphs");
+
+            foreach (RequestTerm graph in commit.Graphs)
+            {
+                RdfTerm? term = graph.IsNone ? null : graph.Term;
+
+                if (exchange.Scope.Readable.Allows(term))
+                {
+                    json.WriteStringValue(Name(term));
+                }
+            }
+
+            json.WriteEndArray();
+            json.WriteEndObject();
+        }
+
+        json.WriteEndArray();
+        members.Raw("graphsTruncated").WriteBoolean("graphsTruncated", conflicts.Truncated);
     }
 
     /// <summary><c>403</c> <c>graph-not-writable</c> (ADR 0107): the request changes a graph outside the caller's writable scope; nothing was committed.</summary>

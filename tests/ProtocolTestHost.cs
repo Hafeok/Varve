@@ -198,12 +198,16 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
 
     internal sealed class StoreUpdates(EvaluationOptions evaluation, ILoadSource? loadSource) : ISparqlUpdateExecutor
     {
-        public ValueTask<CommitResult> ExecuteAsync(Dataset dataset, Update update, CommitMetadata metadata, Position? expectedPosition, Varve.Rdf.CallerScope scope, CancellationToken cancellationToken) =>
+        // As the server binds it: the client's preconditions passed through and
+        // never retried; an inferred one retried three times (ADR 0126).
+        public ValueTask<CommitResult> ExecuteAsync(Dataset dataset, Update update, CommitMetadata metadata, UpdatePreconditions preconditions, Varve.Rdf.CallerScope scope, CancellationToken cancellationToken) =>
             SparqlUpdate.ExecuteAsync(dataset, update, loadSource is null
                 ? new UpdateOptions
                 {
                     Metadata = metadata,
-                    ExpectedPosition = expectedPosition,
+                    ExpectedPosition = preconditions.ExpectedPosition,
+                    ExpectedGraphs = Expected(preconditions),
+                    ConflictRetries = preconditions.IsImplicit ? 3 : 0,
                     Evaluation = evaluation,
                     ReadScope = scope.Readable,
                     WriteScope = scope.Writable,
@@ -211,11 +215,16 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
                 : new UpdateOptions
                 {
                     Metadata = metadata,
-                    ExpectedPosition = expectedPosition,
+                    ExpectedPosition = preconditions.ExpectedPosition,
+                    ExpectedGraphs = Expected(preconditions),
+                    ConflictRetries = preconditions.IsImplicit ? 3 : 0,
                     Evaluation = evaluation,
                     LoadSource = loadSource,
                     ReadScope = scope.Readable,
                     WriteScope = scope.Writable,
                 }, cancellationToken);
+
+        private static ExpectedGraphVersion[]? Expected(UpdatePreconditions preconditions) =>
+            preconditions.ExpectedGraphs?.Select(g => g.Graph is { } graph ? new ExpectedGraphVersion(graph, g.Version) : new ExpectedGraphVersion(g.Version)).ToArray();
     }
 }

@@ -591,19 +591,43 @@ internal static partial class ServerHost
         return HttpMethods.IsPost(request.Method) && request.ContentType?.StartsWith("application/sparql-query", StringComparison.OrdinalIgnoreCase) == true;
     }
 
-    /// <summary>The update executor (ADR 0091): Varve.Sparql.Store, no retries, the expected position passed through, SERVICE and LOAD through the outbound client (ADR 0104), the memory budget of ADR 0114.</summary>
+    /// <summary>The update executor (ADR 0091): Varve.Sparql.Store, the client's preconditions passed through and never retried, an inferred one retried three times, SERVICE and LOAD through the outbound client (ADR 0104), the memory budget of ADR 0114.</summary>
     private sealed class StoreUpdates(TimeProvider clock, Outbound outbound, MemoryBytes budget) : ISparqlUpdateExecutor
     {
-        public ValueTask<CommitResult> ExecuteAsync(Dataset dataset, Update update, CommitMetadata metadata, Position? expectedPosition, Varve.Rdf.CallerScope scope, CancellationToken cancellationToken) =>
+        public ValueTask<CommitResult> ExecuteAsync(Dataset dataset, Update update, CommitMetadata metadata, UpdatePreconditions preconditions, Varve.Rdf.CallerScope scope, CancellationToken cancellationToken) =>
             SparqlUpdate.ExecuteAsync(dataset, update, new UpdateOptions
             {
                 Metadata = metadata,
-                ExpectedPosition = expectedPosition,
+                ExpectedPosition = preconditions.ExpectedPosition,
+                ExpectedGraphs = Expected(preconditions),
+
+                // A conflict with no precondition from the client is the
+                // executor's own inferred scope's: re-pinned and evaluated
+                // again, up to three times (ADRs 0057, 0094, amended 2026-10-13).
+                ConflictRetries = preconditions.IsImplicit ? 3 : 0,
                 Evaluation = new EvaluationOptions { Clock = clock, Randomness = new SystemRandomness(), ServiceHandler = outbound.Service, MemoryBudget = budget },
                 LoadSource = outbound.Load,
                 ReadScope = scope.Readable,
                 WriteScope = scope.Writable,
             }, cancellationToken);
+    }
+
+    // Varve-If-Graphs-Match, as Varve.Sparql.Store takes it (ADR 0126).
+    private static ExpectedGraphVersion[]? Expected(UpdatePreconditions preconditions)
+    {
+        if (preconditions.ExpectedGraphs is not { } graphs)
+        {
+            return null;
+        }
+
+        ExpectedGraphVersion[] expected = new ExpectedGraphVersion[graphs.Count];
+
+        for (int i = 0; i < expected.Length; i++)
+        {
+            expected[i] = graphs[i].Graph is { } graph ? new ExpectedGraphVersion(graph, graphs[i].Version) : new ExpectedGraphVersion(graphs[i].Version);
+        }
+
+        return expected;
     }
 
     /// <summary>RAND(), UUID() and STRUUID() at the composition root: the operating system's (ADR 0056).</summary>

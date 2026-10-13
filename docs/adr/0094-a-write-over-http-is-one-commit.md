@@ -162,7 +162,21 @@ position.
   position with the graph as its scope, since it read nothing else.
 
 The reasoning, the empty-graph rules and the update header are ADR 0126's.
+
+**Point 1's "`ConflictRetries` 0", for an update with no precondition.**
+Decided by the maintainer on the Commit path pull request. The alternative
+*Retrying conflicts on the server* is rejected above because "the client
+holds the `ETag` and decides". A client that sent neither `If-Match` nor
+`Varve-If-Graphs-Match` holds no tag: the only precondition its update had
+was the scope the server inferred (ADR 0057, amended 2026-10-13), and a
+`409` would hand it a decision it has nothing to make with. The server
+re-pins and re-evaluates such an update up to three times before answering
+`409`. A request with a precondition from the client is never retried, and a
+Graph Store write never is: a `PUT` that retried would replace a graph its
+client never saw, which is the case the rejection was about.
+
 **The ledger.** `IfMatchIsTheExpectedPosition` stands for every request but
 the Graph Store's; the ruling of this block is
-`GraphStoreTagIsTheGraphVersion`, unaccepted until the maintainer accepts
-it.
+`GraphStoreTagIsTheGraphVersion`, and of the paragraph above
+`ServerRetriesOnlyItsOwnPrecondition`, unaccepted until the maintainer
+accepts them.

@@ -233,15 +233,15 @@ public class ProblemCatalogueTests
     {
         private int _n;
 
-        public async ValueTask<CommitResult> ExecuteAsync(Dataset target, Update update, CommitMetadata metadata, Position? expectedPosition, CallerScope scope, CancellationToken cancellationToken)
+        public async ValueTask<CommitResult> ExecuteAsync(Dataset target, Update update, CommitMetadata metadata, UpdatePreconditions preconditions, CallerScope scope, CancellationToken cancellationToken)
         {
-            if (expectedPosition is not null && update.Operations[0] is DeleteWhere)
+            if (preconditions.ExpectedPosition is not null && update.Operations[0] is DeleteWhere)
             {
                 int n = Interlocked.Increment(ref _n);
                 await dataset.CommitAsync(new CommitRequest().Assert(RdfTerm.Iri("http://ex/race"u8), RdfTerm.Iri("http://ex/p"u8), RdfTerm.Literal(Encoding.UTF8.GetBytes("r" + n))), cancellationToken);
             }
 
-            return await inner.ExecuteAsync(target, update, metadata, expectedPosition, scope, cancellationToken);
+            return await inner.ExecuteAsync(target, update, metadata, preconditions, scope, cancellationToken);
         }
     }
 
