@@ -12,6 +12,68 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.0-preview.5] - 2026-10-13
+
+**Client and integration, part 1 — on-behalf-of, the delta format, follow, setup, CORS**
+
+### Milestone Client and integration, part 1 — on-behalf-of, the delta format, follow, setup, CORS
+
+What an application installs to use Varve. This release closes #103, the
+first part of milestone Client and integration (#93); events, the
+catalogue and the schema registry follow in its second part. The storage
+format is unchanged, and the change feed's format, `delta-format: 1`, is
+named in a release for the first time: from here on it is read for ever.
+The seven ADRs are filed unaccepted and accepted on the pull request (ADR
+0066).
+
+#### Added
+
+- **`Varve.Delta`** (layer 3, ADR 0128): the change feed's format,
+  `application/vnd.varve.delta; version=1`, as a package of its own, with
+  the reader, the writer and the record model over `Varve.Rdf` and
+  `Varve.Turtle`. A consumer of the feed ships no store. Version 1 is read
+  for ever, and every release descriptor names the version it writes
+  (`delta-format`, ADR 0102 amended).
+- **On-behalf-of** (ADR 0127): `SparqlHttpClient` takes a
+  `BearerTokenProvider`, called for every request, so one client serves
+  many users; a token past its expiry is never sent. The request span
+  carries the acting application as `varve.azp` (`Auth:ApplicationClaim`),
+  never the log. The operator guide states the attribution rule: a write
+  through on-behalf-of names the user, a write on the application's own
+  account names the application. `deploy/azure/entra/` creates the Entra
+  registrations, with federated credentials and no secret, and
+  `samples/Varve.OnBehalfOf.Sample` exchanges with MSAL.
+- **`FollowAsync`** (ADR 0129): the commits followed from a position, in
+  pages and then live, each commit to a handler and then its position to
+  an `IFollowCheckpoint` the caller owns: at least once, resumable from any
+  position.
+- **Dataset setup** (ADRs 0130, 0131): `DatasetSetup` and `ApplyAsync`
+  declare a dataset, its settings as desired state, a baseline that only
+  adds, and migrations each recorded in the system graph `varve:setup` in
+  its own commit; applying again commits nothing. A setup file in a
+  specified YAML subset; `AddVarve` applies it as an application starts;
+  `varve apply` from a pipeline; `Varve.Aspire`'s `WithDataset(…, setup:)`
+  in an AppHost.
+- **CORS** (ADR 0132): `Varve:Cors:AllowedOrigins` and `MaxAge`, never
+  credentials, the headers a browser application needs; nothing at all
+  when unconfigured.
+- The dependency register checks a package's `Scope` (ADR 0133): a
+  package admitted for `samples/` alone fails the gate anywhere else.
+- The operator guide gains Datasets and Integrate.
+
+#### Changed
+
+- **`Varve.Protocol.Client`** (breaking, ADR 0118): `AccessToken` is
+  removed in favour of the token provider; `ClientLimits.MaxResponseBytes`
+  is a `long`; the package no longer references `Varve.Store`, and
+  references `Varve.Delta`, `Varve.RdfXml`, `Varve.JsonLd` and the two
+  `Microsoft.Extensions` abstractions packages.
+- **`Varve.Protocol`** (breaking): `ChangeFeedReader`, `FeedRecord` and
+  their types move to `Varve.Delta`, with the format's own header types.
+- **`Varve.Aspire`**: `WithDataset` takes a setup file.
+- **The `varve` command line** renews a token from the issuer before it
+  expires, and gains `apply`.
+
 ## [0.1.0-preview.4] - 2026-10-12
 
 **RDF 1.2 Turtle and TriG, RDF/XML, JSON-LD**
@@ -751,7 +813,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.4...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.5...HEAD
+[0.1.0-preview.5]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.4...v0.1.0-preview.5
 [0.1.0-preview.4]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.3...v0.1.0-preview.4
 [0.1.0-preview.3]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.2...v0.1.0-preview.3
 [0.1.0-preview.2]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.1...v0.1.0-preview.2

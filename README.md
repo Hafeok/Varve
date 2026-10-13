@@ -40,17 +40,24 @@ dataset directory.
 
 ## Status
 
-**`v0.1.0-preview.4` is the latest release, and it closed milestone 6 ([#10](https://github.com/Hafeok/Varve/issues/10))**,
-with its last slice, 6b: RDF 1.2 Turtle and TriG, RDF/XML and JSON-LD, read,
-written and negotiated over HTTP. `v0.1.0-preview.3` before it closed
+**`v0.1.0-preview.5` is the latest release, and it closed the first part
+([#103](https://github.com/Hafeok/Varve/issues/103)) of milestone Client and
+integration ([#93](https://github.com/Hafeok/Varve/issues/93))**: on-behalf-of
+through a token provider, the change feed's format as the package
+`Varve.Delta`, `FollowAsync`, declared dataset setup and CORS.
+`v0.1.0-preview.4` before it closed milestone 6
+([#10](https://github.com/Hafeok/Varve/issues/10)), with its last slice, 6b:
+RDF 1.2 Turtle and TriG, RDF/XML and JSON-LD, read, written and negotiated
+over HTTP. `v0.1.0-preview.3` before that closed
 milestone Operability ([#12](https://github.com/Hafeok/Varve/issues/12)): the
-server somebody can run. Sixteen packages and one executable: reading and
+server somebody can run. Seventeen packages and one executable: reading and
 writing seven syntaxes, the XSD value spaces, RDFC-1.0
 canonicalisation, the SPARQL algebra with its parser and serialiser, the
 SPARQL results formats read and written, a query evaluator with an optimiser,
 an event-sourced store on files, in memory and in the browser, SPARQL Update
 over it as one commit per request, the SPARQL 1.1 and Graph Store protocols
-with a change feed over HTTP, an HTTP client with `SERVICE` and `LOAD`, and
+with a change feed over HTTP and its format, an HTTP client with `SERVICE`,
+`LOAD`, following and setup, and
 `Varve.Server`: the server, with OIDC and graph-level grants, health and
 readiness, telemetry over OTLP, a stated answer for every limit, and the
 `varve` command line, as a .NET tool, a Native AOT single file and the
