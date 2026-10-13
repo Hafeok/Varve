@@ -35,7 +35,7 @@ public static class DatasetSetupFile
 {
     private static ImmutableArray<string> TopKeys { get; } = ["dataset", "storage", "settings", "baseline", "migrations"];
 
-    private static ImmutableArray<string> BaselineKeys { get; } = ["name", "graph", "file", "format", "mode"];
+    private static ImmutableArray<string> BaselineKeys { get; } = ["name", "graph", "file", "format"];
 
     private static ImmutableArray<string> MigrationKeys { get; } = ["id", "update", "file"];
 
@@ -87,20 +87,9 @@ public static class DatasetSetupFile
                 string? graph = entry.Optional("graph")?.AsScalar(source).Text is { } named && named != "default" ? named : null;
                 string format = entry.Optional("format")?.AsScalar(source).Text ?? BaselineSource.MediaTypeOf(path)
                     ?? throw file.Error(source, "the media type of " + file.AsScalar(source).Text + " is not known from its extension; give format");
-                BaselineMode mode = entry.Optional("mode") is Node modeNode
-                    ? modeNode.AsScalar(source).Text switch
-                    {
-                        "replace" => BaselineMode.Replace,
-                        "merge" => BaselineMode.Merge,
-                        _ => throw modeNode.Error(source, "mode is replace or merge"),
-                    }
-                    : BaselineMode.Replace;
                 string name = entry.Optional("name")?.AsScalar(source).Text ?? file.AsScalar(source).Text;
                 setup.Baselines.Add(new BaselineSource(name, graph, format, async cancellationToken =>
-                    BaselineSource.WithoutByteOrderMark(await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false)))
-                {
-                    Mode = mode,
-                });
+                    BaselineSource.WithoutByteOrderMark(await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false))));
             }
         }
 

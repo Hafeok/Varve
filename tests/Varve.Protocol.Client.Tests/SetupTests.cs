@@ -55,6 +55,53 @@ public class SetupTests
     }
 
     [Fact]
+    public async Task What_the_application_wrote_to_a_baseline_graph_survives_every_apply()
+    {
+        await using Dataset dataset = await EmptyAsync();
+        await using ProtocolTestHost host = await StartAsync(dataset);
+        SparqlHttpClient client = Client(host);
+        await client.ApplyAsync(Setup(), C.Ct);
+
+        // The application adds to the vocabulary graph a baseline also writes.
+        using (HttpResponseMessage added = await client.UpdateAsync(
+            "INSERT DATA { GRAPH <" + Vocabulary + "> { <https://shop.example/ns#Refund> a <http://www.w3.org/2000/01/rdf-schema#Class> } }", null, C.Ct))
+        {
+            Assert.True(added.IsSuccessStatusCode);
+        }
+
+        long before = dataset.Head.Value;
+        SetupResult again = await client.ApplyAsync(Setup(), C.Ct);
+
+        Assert.False(again.Committed);
+        Assert.Equal(before, dataset.Head.Value);
+        using HttpResponseMessage asked = await client.QueryAsync("ASK { GRAPH <" + Vocabulary + "> { <https://shop.example/ns#Refund> ?p ?o } }", "application/sparql-results+json", null, C.Ct);
+        Assert.Contains("true", await asked.Content.ReadAsStringAsync(C.Ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Settings_are_desired_state_a_declared_key_is_restored_and_an_undeclared_one_left_alone()
+    {
+        await using Dataset dataset = await EmptyAsync();
+        await using ProtocolTestHost host = await StartAsync(dataset);
+        SparqlHttpClient client = Client(host);
+        await client.ApplyAsync(Setup(), C.Ct);
+        Assert.Equal("Current", await ScopeAsync(client));
+
+        // A manual change to a key the setup declares is overwritten on the next apply.
+        await PatchScopeAsync(client, "AllHistory");
+        SetupResult restored = await client.ApplyAsync(Setup(), C.Ct);
+        Assert.True(restored.SettingsChanged);
+        Assert.Equal("Current", await ScopeAsync(client));
+
+        // A setup that declares no settings, or an empty object, leaves them as they are.
+        await PatchScopeAsync(client, "AllHistory");
+        DatasetSetup silent = new("d") { Settings = "{}" };
+        Assert.False((await client.ApplyAsync(silent, C.Ct)).SettingsChanged);
+        Assert.False((await client.ApplyAsync(new DatasetSetup("d"), C.Ct)).SettingsChanged);
+        Assert.Equal("AllHistory", await ScopeAsync(client));
+    }
+
+    [Fact]
     public async Task A_new_migration_applies_alone()
     {
         await using Dataset dataset = await EmptyAsync();
@@ -193,6 +240,20 @@ public class SetupTests
         }
 
         return setup;
+    }
+
+    private static async Task<string> ScopeAsync(SparqlHttpClient client)
+    {
+        using HttpResponseMessage settings = await client.SettingsAsync(C.Ct);
+        using JsonDocument json = JsonDocument.Parse(await settings.Content.ReadAsStringAsync(C.Ct));
+        return json.RootElement.GetProperty("defaultAccessScope").GetString()!;
+    }
+
+    private static async Task PatchScopeAsync(SparqlHttpClient client, string scope)
+    {
+        using HttpResponseMessage head = await client.SettingsAsync(C.Ct);
+        using HttpResponseMessage patched = await client.PatchSettingsAsync("{\"defaultAccessScope\": \"" + scope + "\"}", SparqlHttpClient.PositionOf(head), C.Ct);
+        Assert.True(patched.IsSuccessStatusCode);
     }
 
     private static SetupMigration Migration(string id) =>

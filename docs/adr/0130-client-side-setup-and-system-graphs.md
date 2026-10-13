@@ -10,6 +10,15 @@ request. Decided by the maintainer on the Client and integration plan:
 - the setup file's YAML is a specified subset, refused outside it with a line
   and a column.
 
+Then, on the first part's review:
+- **baselines add and never replace.** A Graph Store `PUT` on every apply, and
+  on every retry, would delete what the application wrote to the graph
+  since, so a baseline is a `POST`, and retractions happen only through
+  recorded migrations;
+- **settings are desired state, last writer wins.** A setup overwrites a
+  manual change to a setting it declares, and leaves one it does not declare
+  alone.
+
 ## Context
 
 An application that uses Varve needs its dataset to exist with known settings
@@ -20,17 +29,17 @@ because their schema is DDL and DDL is not idempotent.
 
 Varve's setup is data, and data writes are idempotent by construction. I2 says
 re-asserting what exists is an empty effective delta, and no commit. A Graph
-Store `PUT` of the same graph twice makes one commit, then none. So most of a
+Store `POST` of the same triples twice makes one commit, then none. So most of a
 setup can be declared and re-applied on every start. Only the non-idempotent
 remainder needs to remember whether it has run, and the natural place to
 remember that is the dataset itself, where it is versioned, time-travellable
 and visible in the commits list like every other fact.
 
-Two details stop "just `PUT` it" from being idempotent.
+Two details stop "just `POST` it" from being idempotent.
 
 1. **Blank nodes.** Labels in a request are fresh nodes (ADR 0098), so a
-   baseline with `[ … ]` in it replaces its graph with new nodes every time,
-   one commit per start, for ever.
+   baseline with `[ … ]` in it adds new nodes every time, one commit per
+   start, for ever.
 2. **A migration's record.** A migration's update and the fact that it ran must
    be one commit. Otherwise a crash between them runs it twice. One commit
    cannot contain its own position, so the record cannot either.
@@ -39,12 +48,14 @@ Two details stop "just `PUT` it" from being idempotent.
 
 1. **`DatasetSetup`** in `Varve.Protocol.Client` declares the following.
    - **The dataset's name and storage** (`File` or `Memory`).
-   - **Its settings**, as the JSON object the settings resource takes (ADR
-     0118), or none to leave them.
+   - **Its settings**, as a JSON object of the keys the settings resource
+     takes (ADR 0118) that the setup means to hold; the keys it omits are
+     not its concern.
    - **Baseline sources**, ordered. Each is a name, a target graph (an IRI or
      the default graph), a media type Varve reads, and the content as bytes,
-     a stream factory, or an embedded resource. Each is written with `PUT`
-     (replace, the default) or `POST` (merge) on the Graph Store Protocol.
+     a stream factory, or an embedded resource. Each is **added** to its
+     graph with the Graph Store Protocol's `POST`, never put: a baseline
+     never retracts.
    - **Migrations**, ordered and named. Each is an id unique within the setup
      and one SPARQL Update request.
 2. **`client.ApplyAsync(setup)`**, on a client addressing that dataset, does
@@ -53,15 +64,19 @@ Two details stop "just `PUT` it" from being idempotent.
       it answers `404`, `PUT /datasets/{name}` with the storage (idempotent,
       ADR 0118). So a setup run by a caller without server admin works against
       a dataset that exists.
-   2. **The settings.** `GET …/settings` and, when they differ from the
-      declared ones as JSON values, `PUT` them under `If-Match` with the
-      `ETag` just read. A `409` or `412`, another writer first, is read again
-      and compared again.
-   3. **The baselines.** Each in order, by the Graph Store Protocol: one commit
-      the first time, none after, by I2. A baseline written with `PUT` owns its
-      graph: what the source does not hold is retracted from it on every
-      apply, so a graph the application or a migration also writes takes
-      `POST` (merge), or is not a baseline's.
+   2. **The settings, as desired state.** `GET …/settings`, and each
+      declared key compared with the dataset's as a JSON value. When one
+      differs, the declared keys alone are merged in (`PATCH`, RFC 7396)
+      under `If-Match` with the `ETag` just read. Last writer wins: a manual
+      change to a declared key is overwritten on the next apply, and a key
+      the setup does not declare is never touched. A `409` or `412`, another
+      writer first, is read again and the declared values applied again.
+   3. **The baselines.** Each in order, added by the Graph Store Protocol's
+      `POST`: one commit the first time, none after, by I2. Nothing a baseline
+      did not write is ever retracted, so what the application wrote to the
+      same graph survives every apply and every retry. A triple a baseline no
+      longer holds stays until a migration retracts it, and that retraction
+      is recorded like any other.
    4. **The migrations.** The ones not yet recorded, each as **one request**
       (below).
 

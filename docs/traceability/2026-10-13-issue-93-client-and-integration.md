@@ -253,7 +253,7 @@ All filed unaccepted (ADR 0066); every citation of a new ledger key is
   - the provider constructor, and `TokenExpirySkew`;
   - `FollowAsync`, `FollowOptions`, `FollowRefusedException`,
     `IFollowCheckpoint`, `FileFollowCheckpoint`;
-  - `DatasetSetup`, `BaselineSource`, `BaselineMode`, `SetupMigration`,
+  - `DatasetSetup`, `BaselineSource`, `SetupMigration`,
     `SetupStorage`, `SetupResult`, `SetupException`;
   - `ApplyAsync`, `PutDatasetAsync`, `PutGraphAsync`, `PostGraphAsync`,
     `DeleteGraphAsync`, `SetupGraph`;

@@ -38,7 +38,12 @@ public sealed class DatasetSetup
     /// <summary>The settings, as the JSON object the settings resource takes (ADR 0118), or null to leave them as they are.</summary>
     public string? Settings { get; init; }
 
-    /// <summary>The baseline, written in order by the Graph Store Protocol: one commit each the first time, none after.</summary>
+    /// <summary>
+    /// The baseline, added in order by the Graph Store Protocol's <c>POST</c>:
+    /// one commit each the first time, none after. A baseline only adds, never
+    /// retracts, so what the application wrote to a baseline's graph survives
+    /// every apply; retractions are migrations, recorded.
+    /// </summary>
     public IList<BaselineSource> Baselines { get; } = [];
 
     /// <summary>The migrations, applied in order, each once: its update and its record are one commit.</summary>
@@ -55,19 +60,9 @@ public enum SetupStorage
     Memory = 1,
 }
 
-/// <summary>How a baseline source is written to its graph.</summary>
-public enum BaselineMode
-{
-    /// <summary>A Graph Store <c>PUT</c>: the graph becomes the source, and what the source no longer holds is retracted.</summary>
-    Replace = 0,
-
-    /// <summary>A Graph Store <c>POST</c>: the source is added, and nothing is retracted.</summary>
-    Merge = 1,
-}
-
 /// <summary>
 /// One source of a dataset's baseline (ADR 0130): RDF in a syntax Varve reads,
-/// written to one graph. A source holding a blank node is refused before any
+/// added to one graph, never replacing it. A source holding a blank node is refused before any
 /// request: its nodes would be new on every write (ADR 0098), and the setup
 /// would commit every time it is applied.
 /// </summary>
@@ -95,9 +90,6 @@ public sealed class BaselineSource
 
     /// <summary>Its media type: <c>text/turtle</c>, <c>application/n-triples</c>, <c>application/rdf+xml</c> or <c>application/ld+json</c>.</summary>
     public string MediaType { get; }
-
-    /// <summary>Replace the graph (the default), or merge into it.</summary>
-    public BaselineMode Mode { get; init; } = BaselineMode.Replace;
 
     /// <summary>The source's bytes.</summary>
     public ValueTask<byte[]> ReadAsync(CancellationToken cancellationToken) => _content(cancellationToken);

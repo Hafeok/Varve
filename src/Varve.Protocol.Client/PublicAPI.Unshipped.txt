@@ -105,15 +105,10 @@ Varve.Protocol.Client.IFollowCheckpoint.LoadAsync(System.Threading.CancellationT
 Varve.Protocol.Client.IFollowCheckpoint.SaveAsync(Varve.Delta.Model.FeedPosition position, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
 Varve.Protocol.Client.SparqlHttpClient.FollowAsync(Varve.Delta.Model.FeedPosition from, System.Func<Varve.Delta.Model.FeedRecord!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>! handler, Varve.Protocol.Client.IFollowCheckpoint! checkpoint, Varve.Protocol.Client.FollowOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
 Varve.Protocol.Client.FollowOptions.Jitter.get -> System.Func<double>?
-Varve.Protocol.Client.BaselineMode
-Varve.Protocol.Client.BaselineMode.Merge = 1 -> Varve.Protocol.Client.BaselineMode
-Varve.Protocol.Client.BaselineMode.Replace = 0 -> Varve.Protocol.Client.BaselineMode
 Varve.Protocol.Client.BaselineSource
 Varve.Protocol.Client.BaselineSource.BaselineSource(string! name, string? graph, string! mediaType, System.Func<System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<byte[]!>>! content) -> void
 Varve.Protocol.Client.BaselineSource.Graph.get -> string?
 Varve.Protocol.Client.BaselineSource.MediaType.get -> string!
-Varve.Protocol.Client.BaselineSource.Mode.get -> Varve.Protocol.Client.BaselineMode
-Varve.Protocol.Client.BaselineSource.Mode.init -> void
 Varve.Protocol.Client.BaselineSource.Name.get -> string!
 Varve.Protocol.Client.BaselineSource.ReadAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<byte[]!>
 Varve.Protocol.Client.DatasetSetup

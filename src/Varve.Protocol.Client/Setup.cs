@@ -97,14 +97,14 @@ public sealed partial class SparqlHttpClient
 
         foreach ((BaselineSource source, byte[] content) in baselines)
         {
-            // A Graph Store write expects the position it read at (ADR 0094); a
-            // 409 or 412 means another writer came first, and the write, being
+            // A baseline is added, never put (ADR 0130, amended on the plan's
+            // review): a PUT would retract, on every apply and every retry,
+            // whatever the application wrote to the graph since. A 409 or 412
+            // means another writer came first, and an addition, being
             // idempotent, is sent again.
             for (int attempt = 0; ; attempt++)
             {
-                using HttpResponseMessage written = source.Mode == BaselineMode.Merge
-                    ? await PostGraphAsync(source.Graph, content, source.MediaType, cancellationToken).ConfigureAwait(false)
-                    : await PutGraphAsync(source.Graph, content, source.MediaType, cancellationToken).ConfigureAwait(false);
+                using HttpResponseMessage written = await PostGraphAsync(source.Graph, content, source.MediaType, cancellationToken).ConfigureAwait(false);
 
                 if (Moved(written) && attempt < MaxRetries)
                 {
@@ -145,41 +145,61 @@ public sealed partial class SparqlHttpClient
         return created.StatusCode == HttpStatusCode.Created;
     }
 
-    // The settings, compared as JSON values and put under If-Match when they
-    // differ; a 409 or 412 means another writer moved the dataset first, so
-    // they are read and compared again.
+    // The settings are desired state, last writer wins (ADR 0130): each key
+    // the setup declares is compared with the dataset's as a JSON value, and
+    // when one differs the declared keys alone are merged in (RFC 7396) under
+    // If-Match. A manual change to a declared key is overwritten on the next
+    // apply; a key the setup does not declare is never touched. A 409 or 412
+    // means another writer came first: the settings are read and compared
+    // again, and the declared values applied again.
     private async Task<bool> EnsureSettingsAsync(string settings, CancellationToken cancellationToken)
     {
-        JsonNode? wanted;
+        JsonObject wanted;
 
         try
         {
-            wanted = JsonNode.Parse(settings);
+            wanted = JsonNode.Parse(settings) as JsonObject
+                ?? throw new SetupException("settings", "the settings are a JSON object", null, null);
         }
         catch (JsonException error)
         {
             throw new SetupException("settings", "the settings are not JSON: " + error.Message, null, null);
         }
 
+        if (wanted.Count == 0)
+        {
+            return false;
+        }
+
         for (int attempt = 0; ; attempt++)
         {
             using HttpResponseMessage current = await SettingsAsync(cancellationToken).ConfigureAwait(false);
             await EnsureSetupStepAsync(current, "settings", cancellationToken).ConfigureAwait(false);
-            JsonNode? held = JsonNode.Parse(await current.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+            JsonObject? held = JsonNode.Parse(await current.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false)) as JsonObject;
+            bool differs = false;
 
-            if (JsonNode.DeepEquals(held, wanted))
+            foreach (KeyValuePair<string, JsonNode?> declared in wanted)
+            {
+                if (held is null || !held.TryGetPropertyValue(declared.Key, out JsonNode? value) || !JsonNode.DeepEquals(value, declared.Value))
+                {
+                    differs = true;
+                    break;
+                }
+            }
+
+            if (!differs)
             {
                 return false;
             }
 
-            using HttpResponseMessage put = await PutSettingsAsync(settings, PositionOf(current), cancellationToken).ConfigureAwait(false);
+            using HttpResponseMessage patched = await PatchSettingsAsync(wanted.ToJsonString(), PositionOf(current), cancellationToken).ConfigureAwait(false);
 
-            if (Moved(put) && attempt < MaxRetries)
+            if (Moved(patched) && attempt < MaxRetries)
             {
                 continue;
             }
 
-            await EnsureSetupStepAsync(put, "settings", cancellationToken).ConfigureAwait(false);
+            await EnsureSetupStepAsync(patched, "settings", cancellationToken).ConfigureAwait(false);
             return true;
         }
     }

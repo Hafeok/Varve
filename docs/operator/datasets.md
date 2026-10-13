@@ -26,7 +26,7 @@ waits for the other's commits.
 
 **Graphs are the partition inside one history**, and the unit of scope. Grants
 are by graph (ADR 0107). A feed can be filtered to a graph (ADR 0097). A
-baseline replaces its graph and no other.
+baseline adds to its graph and no other.
 
 In domain-driven design terms:
 
@@ -44,8 +44,9 @@ In domain-driven design terms:
 `Varve.Protocol.Client`'s `DatasetSetup` declares four things:
 
 1. **The dataset:** its name, and its storage when it is created.
-2. **Its settings**, the JSON the settings resource takes (ADR 0118).
-3. **Its baseline:** sources of RDF, each written to one graph by the Graph
+2. **Its settings:** the keys of the settings resource (ADR 0118) the setup
+   means to hold.
+3. **Its baseline:** sources of RDF, each added to one graph by the Graph
    Store Protocol.
 4. **Its migrations:** the changes that are not idempotent by nature, such as a
    retraction, a rename or a split. Each runs once.
@@ -56,14 +57,21 @@ again commits nothing, since re-asserting what is there is an empty delta (I2).
 - **The dataset** is created with `PUT /datasets/{name}` when a read answers
   `404`, which takes a server admin. A dataset that exists needs only the
   permissions of the steps after it.
-- **The settings** are compared as JSON and put under `If-Match` when they
-  differ, which takes the dataset's `admin`. A settings commit names an agent,
-  so it is refused in anonymous mode.
-- **A baseline source** is written with `PUT`, which replaces its graph, or
-  `POST`, which merges into it.
-  - **A `PUT` baseline owns its graph.** Each apply retracts what the source no
-    longer holds. A graph the application or a migration also writes takes
-    `POST`, or is not a baseline's.
+- **The settings are desired state, and the last writer wins.**
+  - Each key the setup declares is compared with the dataset's. When one
+    differs, the declared keys are merged in under `If-Match`, which takes the
+    dataset's `admin`.
+  - **A setup overwrites a manual change to a setting it declares**, on the next
+    apply.
+  - **It leaves a setting it does not declare alone**, whatever its value. To
+    let operators own a setting, leave it out of the setup.
+  - A settings commit names an agent, so it is refused in anonymous mode.
+- **A baseline source is added**, with the Graph Store Protocol's `POST`,
+  **and never replaces its graph.**
+  - What the application writes to the same graph survives every apply and
+    every retry.
+  - A triple dropped from a baseline's source is not retracted by the next
+    apply. Retract it with a migration, which is recorded.
   - **A source holding a blank node is refused before anything is sent.** A
     blank node in a request is a new node every time (ADR 0098), so the
     baseline would commit on every apply. Name the node with an IRI: one of
@@ -144,7 +152,6 @@ baseline:                        # optional, in order
     file: vocabulary.ttl         # required: relative to this file
     graph: https://shop.example/vocabulary   # an IRI, or `default`
     format: text/turtle          # optional when the extension says it
-    mode: replace                # replace (PUT, default) or merge (POST)
 migrations:                      # optional, in order, each once
   - id: 2026-10-01-statuses      # required, unique, never reused
     update: |                    # one SPARQL Update request…
