@@ -58,7 +58,7 @@ public sealed partial class Dataset
         CancellationToken cancellationToken)
     {
         long started = _options.Clock.GetTimestamp();
-        PendingCommit pending = new(kind, request, metadata, expected, kindPayload);
+        PendingCommit pending = new(kind, request, metadata, expected, kindPayload, request?.ExpectedGraphs);
         _metrics.Queued(1);
 
         lock (_queueGate)
@@ -243,7 +243,7 @@ public sealed partial class Dataset
                 at++;
             }
 
-            _state = new State(staging.Head, commits, staging.Index, state.Checkpoints, staging.Failed);
+            _state = new State(staging.Head, commits, staging.Index, state.Checkpoints, staging.Failed, staging.Graphs);
             Signal();
 
             if (staging.Failed is null && MaintenanceDue(_state))
@@ -342,14 +342,16 @@ public sealed partial class Dataset
             return CommitResult.Unavailable(head, "The default projection is not at the readable head.");
         }
 
-        // Step 1.
-        if (pending.Expected is long position && position != head)
+        TermView terms = new(_dictionary, staging.Index.Runs, staging.Canonical, staging.Blank);
+
+        // Step 1: a commit after the expected position that touched a graph
+        // of its scope conflicts; with no scope, any commit does (ADR 0125).
+        if (pending.Expected is long position && (position > head || (pending.Graphs is null ? position != head : Touched(staging.Graphs, terms, pending.Graphs, position))))
         {
             return CommitResult.Conflict(head);
         }
 
         // Step 2.
-        TermView terms = new(_dictionary, staging.Index.Runs, staging.Canonical, staging.Blank);
         Resolver resolver = new(terms);
         ulong agent = resolver.Resolve(metadata.Agent);
         ulong cause = resolver.Resolve(metadata.Cause);
@@ -470,8 +472,34 @@ public sealed partial class Dataset
         }
 
         staged = new StagedCommit(kind, next, previous, body, header, headerBytes, headerHash);
-        staging.Advance(next, index, canonical, blank, timestamp, headerHash, failed);
+        staging.Advance(next, index, canonical, blank, timestamp, headerHash, failed, staging.Graphs.Apply(kind, delta.Asserted, delta.Retracted, next));
         return CommitResult.Committed(next);
+    }
+
+    // Whether a commit after `since` touched a graph of the scope. A graph the
+    // dictionary has never held was never touched, but by a commit that
+    // touched every graph, which GraphVersions.All answers.
+    private static bool Touched(GraphVersions graphs, TermView terms, IReadOnlyList<RequestTerm> scope, long since)
+    {
+        if (graphs.All > since)
+        {
+            return true;
+        }
+
+        foreach (RequestTerm graph in scope)
+        {
+            ulong id = graph.IsNone ? 0
+                : graph.IsExisting ? graph.Handle.Value
+                : terms.Dictionary.TryFind(terms.Runs, graph.Term!, terms.CanonicalCount, out ulong found) ? found
+                : ulong.MaxValue;
+
+            if (id != ulong.MaxValue && graphs.Touched([id], since))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // The bytes of a commit's records in the log: record headers, body, and
@@ -480,7 +508,7 @@ public sealed partial class Dataset
         ((long)_writer.RecordsOf(bodyLength) * LogFormat.RecordHeaderLength) + bodyLength + headerLength + 4;
 
     /// <summary>A request waiting for the sequencer, and its answer.</summary>
-    private sealed class PendingCommit(CommitKind kind, CommitRequest? request, CommitMetadata metadata, long? expected, byte[] kindPayload)
+    private sealed class PendingCommit(CommitKind kind, CommitRequest? request, CommitMetadata metadata, long? expected, byte[] kindPayload, IReadOnlyList<RequestTerm>? graphs)
     {
         private const int Queued = 0;
         private const int Taken = 1;
@@ -497,6 +525,9 @@ public sealed partial class Dataset
         internal long? Expected { get; } = expected;
 
         internal byte[] KindPayload { get; } = kindPayload;
+
+        /// <summary>The expected position's scope (ADR 0125); null is every graph.</summary>
+        internal IReadOnlyList<RequestTerm>? Graphs { get; } = graphs;
 
         internal TaskCompletionSource<CommitResult> Answer { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -534,7 +565,10 @@ public sealed partial class Dataset
             Timestamp = state.Head == 0 ? long.MinValue : state.Commits.Entry(state.Head).TimestampTicks;
             HeaderHash = state.Head == 0 ? LogFormat.Genesis() : state.Commits.Entry(state.Head).HeaderHash();
             Failed = state.Failed;
+            Graphs = state.Graphs;
         }
+
+        internal GraphVersions Graphs { get; private set; }
 
         internal long Head { get; private set; }
 
@@ -550,8 +584,9 @@ public sealed partial class Dataset
 
         internal string? Failed { get; private set; }
 
-        internal void Advance(long head, IndexVersion index, long canonical, long blank, long timestamp, byte[] headerHash, string? failed)
+        internal void Advance(long head, IndexVersion index, long canonical, long blank, long timestamp, byte[] headerHash, string? failed, GraphVersions graphs)
         {
+            Graphs = graphs;
             Head = head;
             Index = index;
             Canonical = canonical;

@@ -50,7 +50,9 @@ storage contract that writes them is ADRs 0018, 0040 and 0071.
     LOCK                the lease (ADR 0075), held open; not a blob
     LOCK.owner          who holds it, for the refusal's message; not a blob
     checkpoints/<P>
+    checkpoints/<P>.graphs   the graph-version index at P (ADR 0125)
     index/state
+    index/graphs        the graph-version index at its position (ADR 0125)
     index/runs/<from>-<to>.<n>
     index/commits/<from>-<to>.<n>   the commit index (ADR 0089)
     bulk/<head>/…       a bulk load's spills (ADR 0081), deleted when it ends and on open
@@ -414,6 +416,25 @@ Runs are listed oldest first; their ranges are contiguous from 0 to *to
 position*. The oldest may be a checkpoint, named as one. The file is replaced
 atomically, which is how the projection's position is persisted with its state
 (ADR 0016). Runs that no valid state names are deleted on open.
+
+### 7.3a Graph-version index — `derived/index/graphs`, `derived/checkpoints/<P>.graphs`
+
+Kind 5 (ADR 0125, specification 1.7). *To position* is the position the index
+is at, and *to hash* that commit's header hash; *from position* is 0. Its
+contents are its directory, at offset 0, little-endian:
+
+| Size | Field |
+|---|---|
+| 8 | the last position that touched every graph (a `Settings` or `Erasure` commit), 0 if none |
+| 8 | entry count |
+| 16 per entry | `u64` graph id, `u64` the position of the last commit that touched it |
+
+Entries are sorted by graph id, so one graph's version is a binary search of
+a few small reads. `index/graphs` is written at the head by maintenance;
+`checkpoints/<P>.graphs` with the checkpoint at `P`, and dropped with it. Both
+are a cache: one that does not verify, or names another commit than the log
+holds at its position, is a miss, and the index is rebuilt from the log after
+the newest one that verifies.
 
 ### 7.4 Commit index — `derived/index/commits/<from>-<to>.<n>`
 

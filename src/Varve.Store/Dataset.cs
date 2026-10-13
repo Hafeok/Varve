@@ -330,7 +330,8 @@ public sealed partial class Dataset : IAsyncDisposable
             throw new InvalidOperationException("The default projection was not brought to the head.");
         }
 
-        dataset._state = new State(head, commits, index, checkpoints, null);
+        GraphVersions graphs = await dataset.LoadGraphsAsync(new State(head, commits, index, checkpoints, null), opener.Bodies, cancellationToken).ConfigureAwait(false);
+        dataset._state = new State(head, commits, index, checkpoints, null, graphs);
         return dataset;
     }
 
@@ -583,6 +584,11 @@ public sealed partial class Dataset : IAsyncDisposable
             release();
         }
 
+        // The graph-version index at the checkpoint, beside it (ADR 0125): an
+        // as-of graph version starts from the nearest one.
+        GraphVersions graphs = await GraphsAtAsync(state, position, cancellationToken).ConfigureAwait(false);
+        await graphs.WriteAsync(_storage.Derived, GraphVersions.NameAt(position), Id, at.HeaderHash(), cancellationToken).ConfigureAwait(false);
+
         LoadedRun loaded = await DerivedFormat.TryLoadAsync(_storage.Derived, name, Id, DerivedFormat.KindCheckpoint, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("A checkpoint just written does not read back.");
         Checkpoint checkpoint = new(loaded);
@@ -657,6 +663,7 @@ public sealed partial class Dataset : IAsyncDisposable
         {
             long at = position.Value;
             await _storage.Derived.DeleteAsync(Checkpoint.Name(at), cancellationToken).ConfigureAwait(false);
+            await _storage.Derived.DeleteAsync(GraphVersions.NameAt(at), cancellationToken).ConfigureAwait(false);
             Checkpoint? dropped = Array.Find(_state.Checkpoints, c => c.Position == at);
             Checkpoint[] kept = Array.FindAll(_state.Checkpoints, c => c.Position != at);
             _state = _state.WithCheckpoints(kept);
@@ -1162,8 +1169,9 @@ public sealed partial class Dataset : IAsyncDisposable
     /// <summary>Everything a read needs, published as one reference.</summary>
     private sealed class State
     {
-        internal State(long head, CommitIndex commits, IndexVersion index, Checkpoint[] checkpoints, string? failed)
+        internal State(long head, CommitIndex commits, IndexVersion index, Checkpoint[] checkpoints, string? failed, GraphVersions? graphs = null)
         {
+            Graphs = graphs ?? GraphVersions.Empty;
             Head = head;
             Commits = commits;
             Index = index;
@@ -1181,6 +1189,9 @@ public sealed partial class Dataset : IAsyncDisposable
         internal Checkpoint[] Checkpoints { get; }
 
         internal string? Failed { get; }
+
+        /// <summary>The graph-version index at <see cref="Head"/> (ADR 0125).</summary>
+        internal GraphVersions Graphs { get; }
 
         internal long LogBytesAt(long position) => position == 0 ? 0 : Commits.Entry(position).LogBytes;
 
@@ -1235,10 +1246,10 @@ public sealed partial class Dataset : IAsyncDisposable
             return null;
         }
 
-        internal State WithCheckpoints(Checkpoint[] checkpoints) => new(Head, Commits, Index, checkpoints, Failed);
+        internal State WithCheckpoints(Checkpoint[] checkpoints) => new(Head, Commits, Index, checkpoints, Failed, Graphs);
 
-        internal State WithIndex(IndexVersion index, string? failed) => new(Head, Commits, index, Checkpoints, failed);
+        internal State WithIndex(IndexVersion index, string? failed) => new(Head, Commits, index, Checkpoints, failed, Graphs);
 
-        internal State WithCommits(CommitIndex commits) => new(Head, commits, Index, Checkpoints, Failed);
+        internal State WithCommits(CommitIndex commits) => new(Head, commits, Index, Checkpoints, Failed, Graphs);
     }
 }

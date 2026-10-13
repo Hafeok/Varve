@@ -145,7 +145,7 @@ public sealed class FileStorageTests
         // under index/: few of the latter, because they are merged (ADR 0089).
         IReadOnlyList<BlobName> blobs = await again.Derived.ListAsync(T.Ct);
         Assert.Contains(new BlobName("checkpoints/00000000000000000005"), blobs);
-        Assert.All(blobs, n => Assert.True(n.Value == "checkpoints/00000000000000000005" || n.Value.StartsWith("index/", StringComparison.Ordinal), n.Value));
+        Assert.All(blobs, n => Assert.True(n.Value is "checkpoints/00000000000000000005" or "checkpoints/00000000000000000005.graphs" || n.Value.StartsWith("index/", StringComparison.Ordinal), n.Value));
         Assert.InRange(blobs.Count(n => n.Value.StartsWith("index/commits/", StringComparison.Ordinal)), 1, 4);
     }
 

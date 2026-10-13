@@ -447,6 +447,16 @@ public sealed partial class Dataset
     // no persisted state.
     private async ValueTask PersistStateAsync(IndexVersion index, CancellationToken cancellationToken)
     {
+        // The graph-version index at the head of the state this round saw,
+        // naming its own position (ADR 0125): derived, rebuilt from the log
+        // after it when the dataset opens.
+        State seen = _state;
+
+        if (seen.Head > 0)
+        {
+            await seen.Graphs.WriteAsync(_storage.Derived, GraphVersions.HeadName, Id, seen.Commits.Entry(seen.Head).HeaderHash(), cancellationToken).ConfigureAwait(false);
+        }
+
         int disk = LeadingBlobRuns(index);
 
         if (disk == 0)
