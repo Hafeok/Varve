@@ -5,7 +5,6 @@
 using System;
 using System.Diagnostics;
 using System.Linq;
-using System.Net.Sockets;
 using System.Threading.Tasks;
 using Varve.Store;
 using Xunit;
@@ -22,17 +21,29 @@ namespace Varve.Protocol.Tests;
 /// <see cref="AllocationMeter.Readings"/> readings, since another thread can
 /// only add. The sizes are 16,000 solutions apart, so that one buffer block
 /// a side (a pool miss, an 8 KB allocation quantum) is under a byte a
-/// solution and not, as at 4,000, the byte the 7b runs saw once each on
-/// Windows and Linux. Process-wide also means another test class's
-/// allocations count, so the class runs alone, after every parallel test has
-/// finished: a minimum is no defence against a neighbour that allocates
-/// during every reading.
+/// solution. Process-wide also means another test class's allocations count,
+/// so the class runs alone, after every parallel test has finished.
 /// </summary>
+/// <remarks>
+/// The request travels over the host's in-memory transport, not a socket
+/// (2026-10-14, #91). Over a socket the figure read 57 on a loaded machine
+/// and 55 on a Windows runner, on this code and on <c>v0.1.0-preview.4</c>
+/// alike: when the reader falls behind, flushes wait, a waiting await boxes
+/// its state machine, and a woken pipe reader is a thread-pool work item,
+/// so what the transport allocates grows with how far behind the reader is.
+/// The in-memory transport's pipes never make a writer wait and run their
+/// continuations inline, and its blocks are never evicted, so the bytes
+/// counted are the server's code and nothing that depends on timing: 56 in
+/// six runs of four cases on four busy cores, where the socket read 57 in
+/// every one.
+/// </remarks>
 [Collection(nameof(AllocationTests))]
 public class AllocationTests
 {
     private const int Small = 2_000;
     private const int Large = 18_000;
+
+    private static readonly byte[] LastChunk = "0\r\n\r\n"u8.ToArray();
 
     /// <summary>
     /// The evaluator's row, <c>8 × (w + ⌈w/64⌉)</c> bytes and a 24-byte array
@@ -80,25 +91,43 @@ public class AllocationTests
         datasets.Add("large", large);
         Rdf.GraphScope readable = Rdf.GraphScope.Of([Rdf.RdfTerm.Iri("http://ex/g"u8)], [], Rdf.DefaultGraphAccess.Included);
         IAccessScopes scopes = scoped ? new DefaultGraphOnly(new Rdf.CallerScope(readable, readable, Rdf.AdminAccess.None)) : EveryoneEverything.Instance;
-        await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(datasets, accessScopes: scopes, stopping: P.Ct);
-        byte[] buffer = new byte[64 * 1024];
+        await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(datasets, accessScopes: scopes, inMemory: true, stopping: P.Ct);
+
+        byte[] tail = new byte[LastChunk.Length];
 
         async Task<long> ReadOnce(string name)
         {
             GC.Collect();
             GC.WaitForPendingFinalizers();
             long before = GC.GetTotalAllocatedBytes(precise: true);
-            // A raw socket, not HttpClient: the client shares the process,
-            // and only the server's bytes are the query path's.
-            using TcpClient client = new();
-            await client.ConnectAsync(host.Address.Host, host.Address.Port, P.Ct);
-            using NetworkStream stream = client.GetStream();
-            await stream.WriteAsync(System.Text.Encoding.ASCII.GetBytes(
+            // The in-memory transport, not a socket: what a socket allocates
+            // depends on how much is in flight, so on how fast this reader
+            // keeps up with the server, and only the server's code is the
+            // query path's (see the class remarks).
+            System.IO.Pipelines.IDuplexPipe connection = await host.ConnectInMemoryAsync();
+            await connection.Output.WriteAsync(System.Text.Encoding.ASCII.GetBytes(
                 "GET /datasets/" + name + "/sparql?query=" + Uri.EscapeDataString(query) + " HTTP/1.1\r\nHost: x\r\nAccept: application/sparql-results+json\r\nConnection: close\r\n\r\n"), P.Ct);
 
-            while (await stream.ReadAsync(buffer, P.Ct) > 0)
+            // To the chunked body's last chunk: the transport stays open after
+            // it. The last five bytes stay in the pipe, so the end is seen
+            // whole however the response is split.
+            while (true)
             {
+                System.IO.Pipelines.ReadResult read = await connection.Input.ReadAsync(P.Ct);
+                System.Buffers.ReadOnlySequence<byte> buffer = read.Buffer;
+                long keep = Math.Min(buffer.Length, LastChunk.Length);
+                System.Buffers.BuffersExtensions.CopyTo(buffer.Slice(buffer.Length - keep), tail);
+                bool ended = keep == LastChunk.Length && tail.AsSpan().SequenceEqual(LastChunk);
+                connection.Input.AdvanceTo(buffer.GetPosition(buffer.Length - keep), buffer.End);
+
+                if (ended || read.IsCompleted)
+                {
+                    break;
+                }
             }
+
+            await connection.Input.CompleteAsync();
+            await connection.Output.CompleteAsync();
 
             long after = GC.GetTotalAllocatedBytes(precise: true);
             return after - before;

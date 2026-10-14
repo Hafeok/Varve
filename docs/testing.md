@@ -140,6 +140,16 @@ whatever the process does over time falls on both. No two readings have to
 agree: the loop that waited for two rounds to agree exactly never ended on a
 Windows run whose pool missed on alternate readings (7d43295, milestone 7b).
 
+**A measurement across a transport counts no socket.** The protocol's
+per-solution figure crosses Kestrel's threads, so it is read process-wide,
+and a socket allocates by how far the reader falls behind: a flush that
+waits boxes its awaits, a woken reader is a thread-pool work item. Over a
+socket the figure read 57 on four busy cores and 55 on a Windows runner
+against 56 when quiet. The request therefore goes over the test host's
+in-memory transport, whose pipes never make a writer wait, run their
+continuations inline and keep every block, so what is counted is the
+server's code (#91).
+
 ## 5. Fitness tests for the things a review forgets
 
 Layer direction and layer declaration are analyzers (`DD0001`, `VARVE0005`).
