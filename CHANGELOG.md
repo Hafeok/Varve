@@ -86,9 +86,10 @@ accepted on the pull request (ADR 0066).
 
 #### Not met
 
-- **#35** stays open: `INSERT DATA` of 100,000 quads takes 486.7 ms
-  against pyoxigraph's 430.5 ms; the phases are measured in the
-  benchmarks README.
+- **#35** stays open, unchanged by this release: `INSERT DATA` of 100,000
+  quads took 427.8–472.2 ms before it and 447.6–461.2 ms after, in one
+  interleaved run, allocating the same 258.88 MB, against pyoxigraph's
+  393.2 ms; the phases are measured in the benchmarks README.
 
 ## [0.1.0-preview.4] - 2026-10-12
 

@@ -1277,6 +1277,10 @@ measured 11,824. ADR 0124 states it as a consequence; the milestone's report
 puts the alternative (off by default for `Durability.None`) to the
 maintainer.
 
+*Since decided (2026-10-14):* group commit is off by default on
+`Durability.None`. Re-measured with the before binary in one run on a slower
+machine: 10,158 a second before the milestone, 13,887 after (ADR 0124).
+
 **Group commit on files**: eight writers of `INSERT DATA` went from 2,418 to
 5,766 commits a second, p99 6.92 → 3.57 ms (2,457 → 5,171 and 2,538 → 4,954
 in the earlier pairs).
@@ -1330,21 +1334,35 @@ code; one run, four seconds a row after one of warm-up.
 | 100,000 | 6.1 MiB (64 B a graph) | 1.5 MiB | 198 ms | 152 ms | 4.9 µs | 24 µs |
 | 1,000,000 | 61.0 MiB (64 B a graph) | 15.3 MiB | 263 ms | 254 ms | 6.6 µs | 16 µs |
 
-### INSERT DATA of N quads (#35, ADR 0120)
+### INSERT DATA of N quads (#35, ADR 0120): before and after, one run
 
-The same workload as Operability's, the final code, against pyoxigraph 0.5.11
-in the same session:
+The same workload as Operability's: the first N quads of `StoreDataset` as
+one `INSERT DATA`, parsing inside the time, one invocation an iteration into
+an empty store, `--warmupCount 2 --iterationCount 8`. Measured 2026-10-14 on
+the machine above, in one sequence: `main` at `2472e1a` (before), this branch
+(after), pyoxigraph 0.5.11 (median of 10 after 2 warm-up), this branch again,
+`main` again, so that the machine's drift falls on both sides.
 
-| N | Varve (mean ± sd) | parsing alone | pyoxigraph (median) |
-|---:|---:|---:|---:|
-| 10,000 | 70.3 ms ± 17.7 | 21.1 ms | 34.6 ms |
-| 100,000 | 486.7 ms ± 49.6 | 169.6 ms | 430.5 ms |
+| N | Before, 1st | After, 1st | After, 2nd | Before, 2nd | pyoxigraph (median) | Allocated, both |
+|---:|---:|---:|---:|---:|---:|---:|
+| 10,000 | 58.2 ms ± 17.2 | 66.6 ms ± 21.0 | 53.2 ms ± 14.3 | 58.7 ms ± 6.4 | 29.0 ms | 28.87 MB |
+| 100,000 | 427.8 ms ± 25.7 | 447.6 ms ± 9.3 | 461.2 ms ± 24.9 | 472.2 ms ± 53.8 | 393.2 ms | 258.88 MB |
 
-**#35's bar is not met** (1.13×). Inside the sequencer, one 100,000-quad
-commit takes about 237 ms, measured by temporary timers that were not
-committed: resolving the request's terms and the operation map 59 ms,
-finalising the allocations, remapping and building the delta 49 ms,
-encoding and hashing the body 23 ms, the default projection's run in six
-orders and the graph versions 80 ms, the rest 26 ms. Parsing is a third of
-the whole. Group commit changes none of it: a lone request is a batch of
-one.
+**No regression.** The two sides interleave (before 427.8 and 472.2, after
+447.6 and 461.2 at 100,000), and they allocate the same bytes to the
+hundredth of a megabyte: the graph-version update adds nothing per quad. Its
+cost is per commit, one pass over the delta's graph ids into a rented array
+and, when they are one graph, no sort (`GraphVersions.Distinct`). Parsing
+alone took 152.8–160.9 ms on either side.
+
+**#35's bar is not met, before or after:** 1.09–1.20× pyoxigraph in this run
+on both. The 1.04–1.08× of Operability's record was a quieter run of the same
+code (its first run of the day put pyoxigraph at 394.2 ms and the fast path
+at 416.8 ms), and the 486.7 ms this section first recorded, on 2026-10-13,
+was this branch alone, with no before beside it. Inside the sequencer, one 100,000-quad commit takes about
+237 ms, measured by temporary timers that were not committed: resolving the
+request's terms and the operation map 59 ms, finalising the allocations,
+remapping and building the delta 49 ms, encoding and hashing the body 23 ms,
+the default projection's run in six orders and the graph versions 80 ms, the
+rest 26 ms. Parsing is a third of the whole. Group commit changes none of
+it: a lone request is a batch of one.

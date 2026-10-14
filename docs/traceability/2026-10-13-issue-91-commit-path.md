@@ -197,7 +197,8 @@ The graph index: 64 bytes a graph on the heap, 16 on disk, open 198 ms at
 10⁵ graphs and 263 ms at 10⁶.
 
 **#35** is not met and stays open: 486.7 ms for 100,000 quads against
-pyoxigraph's 430.5 ms; the phases are measured in the benchmarks README.
+pyoxigraph's 430.5 ms; the phases are measured in the benchmarks README. (The
+addendum below measures it against the commit before, in one run.)
 
 **What the next milestones can rely on.** *Object storage* (#92): a request
 is answered only after its batch is durable, a batch is one write of at most
@@ -214,7 +215,8 @@ a `409`'s `graphs` member; `UpdatePreconditions` in `Varve.Protocol.Model`.
 
 - Group commit on the memory backend costs about 10% with eight writers.
   The alternative, off by default for `Durability.None`, is one line; the
-  brief said "on every backend by default", so it is on.
+  brief said "on every backend by default", so it is on. (Decided otherwise
+  in review; see the addendum.)
 - The allocation test in `Varve.Protocol.Tests` read 57 against 56 once under
   load from a parallel benchmark, and passed three times alone.
 - A crash between writing a checkpoint's `.graphs` blob and the checkpoint
@@ -223,3 +225,80 @@ a `409`'s `graphs` member; `UpdatePreconditions` in `Varve.Protocol.Model`.
 - `ISparqlUpdateExecutor` changed signature: breaking for an implementation
   outside this repository, stated in the release notes.
 - #15 is left to the maintainer, as asked.
+
+## Addendum, 2026-10-14: the review
+
+The maintainer's review of the pull request, verbatim:
+
+> Yes: watch #104, fix CI failures, and answer review comments from me or the gates App. Report anything from anyone else to me rather than acting on it. Don't spend reruns on the expected `CS0618`.
+>
+> ## Decisions
+>
+> 1. **Group commit is off by default for `Durability.None`.** Batching buys a write one flush, and the in-memory backend has no flush, so on that backend it's pure leader overhead. That's the 10% you measured. Make the default follow durability: off for `None`, on for every durable backend, the browser's included. ADR 0124 is unaccepted, so edit it in place and say why. The equivalence property already sets `GroupCommit` explicitly on both sides, so the mechanism stays proven on every backend. Check that it does, and that no property relies on the default. Re-run the eight-writer memory row to confirm it's back at baseline.
+>
+> 2. **The flaky allocation test gets fixed in this PR.** A gate that reads 57 against 56 depending on what else is running is measuring the process, not the code. If it uses `GC.GetTotalAllocatedBytes`, switch to `GC.GetAllocatedBytesForCurrentThread` around a synchronous section. If the code under test hops threads, move the test into a non-parallel collection. Say in the record which it was.
+>
+> 3. **Orphaned graph-index files: fix in this PR.**
+>    - **Write order:** write the checkpoint first and its graph-index file after. A checkpoint whose index file is missing rebuilds the index from the log, as a missing `index/graphs` does today. The orphan case then can't arise.
+>    - **Sweep:** opening a dataset deletes any unreferenced graph-index file in `derived/`. That's safe because `derived/` is droppable by definition.
+>    - **Proof:** add the crash point to the fault suite.
+>
+> ## #35: one question
+>
+> The 7a and operability records had `INSERT DATA` at 1.04–1.08× pyoxigraph. 486.7 against 430.5 ms is 1.13×. Is that the same workload and machine, and was the row measured before your change in this run? If group commit or the graph-version index made the fast path slower, that's a regression, not "#35 stays open". Put the before and after for this row, same run, in the benchmarks README. If the graph-version update on the fast path is the cost, it needs to be per commit, not per quad.
+
+**1. Group commit follows durability** (`7139315`). Unset,
+`DatasetOptions.GroupCommit` is `GroupCommitOptions.For(durability)`: off on
+`Durability.None`, on for files (`Synchronised`) and the browser's OPFS and
+IndexedDB (`Committed`); set, it applies on every backend. The server passes
+its bounds to durable datasets only. ADR 0124 edited in place. The
+equivalence property did set `GroupCommit` on both sides; four other tests
+relied on the default for their batching — the flush gate, both
+cancellation tests and the concurrent writers — and the serialisability
+property for its batched half; all now set it, and a new test checks the
+default on both kinds of backend. The memory row, re-measured with the
+before binary in the same run: 10,158 a second before the milestone, 13,887
+after.
+
+**2. The allocation flake** (`93e1ce9`). It was neither of the two cases the
+review named. The request crosses Kestrel's threads, so a per-thread counter
+cannot see it, and the class already ran in a non-parallel collection. The
+figure was the socket's: on four busy cores it read 57 on every case, on
+`v0.1.0-preview.4` as on this branch, 56 quiet, and 55 once on a Windows
+runner. A flush that waits for a slow reader boxes its awaits (Varve's
+`ResponseOutput.FlushAsync` among them, and Kestrel's), and a woken pipe
+reader is a thread-pool work item, so the bytes grow with how far behind the
+reader is — at 66,000 rows by up to 4 bytes a solution even when quiet. Two
+probes that did not cure it are recorded so they are not repeated: a
+transport pool that never evicts, and no response-buffer limit. The cure is
+an in-memory Kestrel transport in the test host whose pipes never make a
+writer wait, run continuations inline, and keep every block: 56 in six runs
+of all four cases on four busy cores. Not pursued, and offered: the
+per-flush boxing in `ResponseOutput` could use a pooling builder, which
+would cut what a real slow client costs the server. A size effect seen on
+the way, not timing: at 66,000 rows the distinct-subject shapes read 58.
+
+**3. The orphaned graph index** (`81f8f89`). The write order was already
+checkpoint first, index after; the orphan came from the drop, which deleted
+the checkpoint first. The drop now deletes the index first, and opening
+deletes any `<P>.graphs` whose checkpoint is not one of this log's. A crash
+at every one of 211 operations of a workload that writes and drops
+checkpoints opens with no orphan and every graph version right (199 images
+had a log to open); with the old order the test fails at operation 113.
+
+**#35.** Same workload as Operability's, one interleaved run: before
+(`2472e1a`) 427.8 and 472.2 ms at 100,000 quads, after 447.6 and 461.2 ms,
+allocation 258.88 MB on both sides, pyoxigraph 393.2 ms. No regression; the
+graph-version update is per commit, nothing per quad. The 1.13× of the first
+report was this branch alone on a slower run; today both sides are at
+1.09–1.20×.
+
+**CI on the way.** `container (linux-x64)` and `auth (zitadel)` failed
+pulling images (`toomanyrequests` from the registry), not this pull
+request's; said once on the pull request. `pipeline (devcontainer)` failed
+restoring: the audit data of 2026-10-14 flags
+`System.Security.Cryptography.Pkcs` through 9.0.20 and 10.0.12, which the
+analyzer harness reaches through `NuGet.Packaging`; pinned to 10.0.13 under
+ADR 0004 (`312a3f1`), as `AngleSharp` is pinned; `main`, with the same graph, would fail the same
+way.
+
