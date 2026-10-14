@@ -134,6 +134,17 @@
     <PackageVersion Include="xunit.v3" Version="4.0.1" Adr="0009" />
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" Adr="0007" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" Version="1.1.4" Adr="0004" />
+    <!-- A transitive dependency of the analyzer harness, pinned rather than
+         inherited: Microsoft.CodeAnalysis.Analyzer.Testing asks for
+         NuGet.Packaging 7.0.3, which asks for System.Security.Cryptography.Pkcs
+         9.0.6, and NuGet audit flags every version through 9.0.20 and 10.0.12
+         (GHSA-846f-f764-76mx, high; GHSA-2fmv-rv2c-59x7, moderate; both in
+         the audit data from 2026-10-14). Warnings are errors here. Central
+         transitive pinning raises it to the latest stable, outside both
+         ranges. The harness reaches it through NuGet.Packaging, which it uses
+         to fetch reference assemblies; the pin leaves when the harness's own
+         dependency moves past the advisories. -->
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" Adr="0004" />
     <!-- Follows the analyzer's floor: the harness compiles against the same
          Roslyn the analyzer does, so a test cannot pass against an API the
          shipped analyzer would not have. -->
