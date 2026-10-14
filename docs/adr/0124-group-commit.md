@@ -5,7 +5,9 @@
 **Accepted — filed unaccepted by milestone Commit path of #91, 2026-10-13**
 (ADR 0066). Acceptance is the maintainer's act on the pull request. Decided
 by the maintainer on the Commit path plan, with the conditions on timestamps,
-projection failure and cancellation written into the decision below.
+projection failure and cancellation written into the decision below; the
+default's dependence on durability decided by the maintainer on the pull
+request, 2026-10-14, and edited in place while unaccepted.
 
 Records [`docs/spec/log-and-projection-model.md`](../spec/log-and-projection-model.md)
 version 1.7, §5 T1 and I6's write window.
@@ -36,7 +38,13 @@ feed may depend on how commits were grouped for writing.
 
 ## Decision
 
-**Group commit, on every backend, on by default.**
+**Group commit, on every durable backend by default; available on every
+backend.** The default follows the storage's declared durability (ADR 0018):
+on where a flush exists for a batch to share — files (`Synchronised`) and the
+browser's OPFS and IndexedDB (`Committed`) — and off on `Durability.None`,
+which has no flush, so that a batch there would buy nothing and cost the
+leader's hand-over. `DatasetOptions.GroupCommit`, when set, applies on every
+backend; `GroupCommitOptions.For(durability)` is the default.
 
 1. **Steps 1–6 per request, in arrival order; step 7 per batch.** Requests
    that arrive while a write is in flight queue. The request that finds no
@@ -166,15 +174,19 @@ feed may depend on how commits were grouped for writing.
   backend the device's flush is amortised over the queue; on the object
   store (#92) a batch is one object write. The write benchmark before and
   after is in the milestone's record.
-- **On a backend with nothing to flush, batching costs throughput.** On the
-  memory backend (`Durability.None`) the write is a copy, so a batch saves
-  nothing, and answering a batch at once makes requests arrive in bursts:
-  over HTTP with eight writers, `INSERT DATA` of one quad measured 9,753 a
-  second against 12,304 and 12,246 before this milestone, and 11,824 with
-  `GroupCommitOptions.Off`. On files it doubled. The decision stands as the
-  maintainer gave it — every backend, on by default — and the milestone's
-  report puts the alternative, off by default for `Durability.None`, to the
-  maintainer.
+- **On a backend with nothing to flush, batching costs throughput, which is
+  why it is off there by default.** On the memory backend (`Durability.None`)
+  the write is a copy, so a batch saves nothing, and answering a batch at
+  once makes requests arrive in bursts: over HTTP with eight writers,
+  `INSERT DATA` of one quad measured about 10,200 a second with group commit
+  on, against 11,333–12,304 before this milestone, and 11,824 with it off.
+  On files it doubled. The plan's "every backend, on by default" was first
+  implemented as written; the maintainer then made the default follow
+  durability. Re-measured on 2026-10-14, with the before binary in the same
+  run on a slower machine than the figures above: 10,158 a second before this
+  milestone, 13,887 with the default following durability. The equivalence property sets `GroupCommit` on both of
+  its sides, so the mechanism stays proven on the memory backend, where the
+  property runs.
 - **One write failure fails up to a batch of requests**, rather than one.
   They fail together and none is acknowledged, so no caller is told a
   falsehood; more callers learn about a failure that was always fatal to the

@@ -436,7 +436,7 @@ Varve.Store.BulkLoadOptions.Workers.get -> int
 Varve.Store.BulkLoadOptions.Workers.init -> void
 Varve.Store.DatasetOptions.Name.get -> string?
 Varve.Store.DatasetOptions.Name.init -> void
-Varve.Store.DatasetOptions.GroupCommit.get -> Varve.Store.GroupCommitOptions!
+Varve.Store.DatasetOptions.GroupCommit.get -> Varve.Store.GroupCommitOptions?
 Varve.Store.DatasetOptions.GroupCommit.init -> void
 Varve.Store.GroupCommitOptions
 Varve.Store.GroupCommitOptions.GroupCommitOptions() -> void
@@ -445,6 +445,7 @@ Varve.Store.GroupCommitOptions.MaxBytes.init -> void
 Varve.Store.GroupCommitOptions.MaxRecords.get -> int
 Varve.Store.GroupCommitOptions.MaxRecords.init -> void
 static Varve.Store.GroupCommitOptions.Default.get -> Varve.Store.GroupCommitOptions!
+static Varve.Store.GroupCommitOptions.For(Varve.Store.Log.Durability durability) -> Varve.Store.GroupCommitOptions!
 static Varve.Store.GroupCommitOptions.Off.get -> Varve.Store.GroupCommitOptions!
 Varve.Store.Dataset.ConflictsAsync(Varve.Store.Log.Position since, System.Collections.Generic.IReadOnlyList<Varve.Store.Log.RequestTerm>? scope, int limit, long maxDistance, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.CommitConflicts!>
 Varve.Store.Dataset.GraphVersion(Varve.Store.Log.RequestTerm graph) -> Varve.Store.Log.Position

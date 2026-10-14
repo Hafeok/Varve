@@ -82,11 +82,13 @@ public sealed class DatasetOptions
 
     /// <summary>
     /// How the sequencer groups the commits that queue while a write is in
-    /// flight into one write with one flush (ADR 0124).
-    /// <see cref="GroupCommitOptions.Default"/> unless set;
-    /// <see cref="GroupCommitOptions.Off"/> writes every request alone.
+    /// flight into one write with one flush (ADR 0124). Unset, it follows the
+    /// storage's durability: <see cref="GroupCommitOptions.Default"/> on a
+    /// durable backend, where a batch shares one flush, and
+    /// <see cref="GroupCommitOptions.Off"/> on <see cref="Durability.None"/>,
+    /// which has no flush to share. Set, it applies on every backend.
     /// </summary>
-    public GroupCommitOptions GroupCommit { get; init; } = GroupCommitOptions.Default;
+    public GroupCommitOptions? GroupCommit { get; init; }
 
     /// <summary>
     /// Test seam: the write window the reader allows for a torn batch (ADR
@@ -345,10 +347,10 @@ public sealed partial class Dataset : IAsyncDisposable
         ArgumentOutOfRangeException.ThrowIfLessThan(options.SegmentBytes.Value, 1024L, nameof(options));
         ArgumentOutOfRangeException.ThrowIfLessThan(options.CommitCache, 1, nameof(options));
         ArgumentNullException.ThrowIfNull(options.Checkpoints);
-        ArgumentNullException.ThrowIfNull(options.GroupCommit);
-        ArgumentOutOfRangeException.ThrowIfLessThan(options.GroupCommit.MaxRecords, 1, nameof(options));
-        ArgumentOutOfRangeException.ThrowIfLessThan(options.GroupCommit.MaxBytes.Value, 1L, nameof(options));
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(options.GroupCommit.MaxBytes.Value, LogFormat.WriteWindowBytes, nameof(options));
+        GroupCommitOptions group = options.GroupCommit ?? GroupCommitOptions.Default;
+        ArgumentOutOfRangeException.ThrowIfLessThan(group.MaxRecords, 1, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfLessThan(group.MaxBytes.Value, 1L, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(group.MaxBytes.Value, LogFormat.WriteWindowBytes, nameof(options));
         ArgumentOutOfRangeException.ThrowIfLessThan(options.Checkpoints.EveryCommits ?? 1, 1, nameof(options));
         ArgumentOutOfRangeException.ThrowIfLessThan(options.Checkpoints.EveryLogBytes?.Value ?? 1, 1L, nameof(options));
         ArgumentOutOfRangeException.ThrowIfNegative(options.Checkpoints.Keep, nameof(options));

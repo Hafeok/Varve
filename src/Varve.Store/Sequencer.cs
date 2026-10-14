@@ -170,7 +170,7 @@ public sealed partial class Dataset
     {
         State state = _state;
         Staging staging = new(state);
-        GroupCommitOptions bounds = _options.GroupCommit;
+        GroupCommitOptions bounds = _options.GroupCommit ?? GroupCommitOptions.For(Durability);
         List<Member> members = [];
         int staged = 0;
         long records = 0;

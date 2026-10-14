@@ -52,6 +52,13 @@ public sealed class GroupCommitOptions
     /// <summary>Every request written alone: the sequencer without group commit.</summary>
     public static GroupCommitOptions Off { get; } = new() { MaxRecords = 1, MaxBytes = new ByteCount(1) };
 
+    /// <summary>
+    /// The default for a backend: <see cref="Off"/> on
+    /// <see cref="Durability.None"/>, which has no flush for a batch to share,
+    /// and <see cref="Default"/> on every durable one (ADR 0124).
+    /// </summary>
+    public static GroupCommitOptions For(Durability durability) => durability == Durability.None ? Off : Default;
+
     /// <summary>The records past which a batch takes no more requests.</summary>
     public int MaxRecords { get; init; } = 1024;
 

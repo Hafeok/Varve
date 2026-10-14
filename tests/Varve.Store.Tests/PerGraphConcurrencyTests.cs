@@ -102,7 +102,7 @@ public sealed class PerGraphConcurrencyTests
         for (int history = 0; history < 25; history++)
         {
             Random random = new((seed * 100) + history);
-            await using Dataset dataset = await T.Open(new MemoryStorage());
+            await using Dataset dataset = await T.Open(new MemoryStorage(), groupCommit: GroupCommitOptions.Default);
             int[] increments = new int[Graphs];
 
             for (int round = 0; round < 12; round++)

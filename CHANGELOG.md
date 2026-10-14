@@ -20,8 +20,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 Concurrent writers stop paying for each other. This release closes
 milestone Commit path (#91): the sequencer writes the commits that queued
-behind a flush in one write and one flush, on every backend and by
-default, and a writer conflicts only with commits that touched the graphs
+behind a flush in one write and one flush, by default on every durable
+backend, and a writer conflicts only with commits that touched the graphs
 it read or writes. The log's bytes for a commit are unchanged: a dataset
 written by `v0.1.0-preview.1` opens as it is, and storage format 1 gains
 a reader rule, not a byte. The three ADRs are filed unaccepted and
@@ -36,7 +36,9 @@ accepted on the pull request (ADR 0066).
   together, at most 1,024 records or 4 MiB. No request is answered before
   its batch is durable. A projection failure ends the batch at that
   member; a request cancelled while queued is never written.
-  `DatasetOptions.GroupCommit` (`GroupCommitOptions.Off` turns it off),
+  Unset, `DatasetOptions.GroupCommit` follows the storage's durability:
+  on for files and the browser, off in memory, which has no flush to
+  share (`GroupCommitOptions.For`); set, it applies on every backend.
   `Store:GroupCommit:MaxRecords` and `MaxBytes` in the server, and the
   `varve.store.batch_size` histogram. On files, eight HTTP writers of
   `INSERT DATA` go from 2,418 to 5,766 commits a second.
@@ -87,8 +89,6 @@ accepted on the pull request (ADR 0066).
 - **#35** stays open: `INSERT DATA` of 100,000 quads takes 486.7 ms
   against pyoxigraph's 430.5 ms; the phases are measured in the
   benchmarks README.
-- The memory backend with eight writers of `INSERT DATA` is about 10%
-  slower with group commit on; stated in ADR 0124.
 
 ## [0.1.0-preview.4] - 2026-10-12
 

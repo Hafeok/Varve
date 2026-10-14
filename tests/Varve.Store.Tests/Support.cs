@@ -45,8 +45,8 @@ internal static class T
     public static RdfTerm Lang(string lexical, string language) =>
         RdfTerm.Literal(Encoding.UTF8.GetBytes(lexical), Encoding.UTF8.GetBytes(language));
 
-    public static DatasetOptions Options(TimeProvider? clock = null, int maxRecordBytes = 1 << 20, long segmentBytes = 64L << 20) =>
-        new() { Clock = clock ?? ManualClock.Epoch(), MaxRecordBytes = new ByteCount(maxRecordBytes), SegmentBytes = new ByteCount(segmentBytes), CommitCache = CommitCache };
+    public static DatasetOptions Options(TimeProvider? clock = null, int maxRecordBytes = 1 << 20, long segmentBytes = 64L << 20, GroupCommitOptions? groupCommit = null) =>
+        new() { Clock = clock ?? ManualClock.Epoch(), MaxRecordBytes = new ByteCount(maxRecordBytes), SegmentBytes = new ByteCount(segmentBytes), CommitCache = CommitCache, GroupCommit = groupCommit };
 
     /// <summary>The commit index's cache in tests: two entries, so that every suite pages the index out, merges it and reads it back (ADR 0089).</summary>
     public const int CommitCache = 2;
@@ -57,7 +57,7 @@ internal static class T
     /// <summary>The manifest of a dataset created with <see cref="Id"/>, for copies of a log made from its segments.</summary>
     public static ReadOnlyMemory<byte> Manifest => LogFormat.EncodeManifest(Id);
 
-    public static ValueTask<Dataset> Open(IStorage storage, TimeProvider? clock = null) => OpenOrCreate(storage, Options(clock));
+    public static ValueTask<Dataset> Open(IStorage storage, TimeProvider? clock = null, GroupCommitOptions? groupCommit = null) => OpenOrCreate(storage, Options(clock, groupCommit: groupCommit));
 
     /// <summary>Opens the dataset in the storage, creating it with <see cref="Id"/> when the storage is empty.</summary>
     public static async ValueTask<Dataset> OpenOrCreate(IStorage storage, DatasetOptions options) =>

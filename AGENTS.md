@@ -204,7 +204,8 @@ and a dependency; `GOVERNANCE.md` has who decides.
 
 Milestone Commit path (#91; ADRs 0124–0126, filed unaccepted), after 6b.
 The sequencer queues writes and writes those that arrive during a flush as
-one batch, each keeping its commit, on every backend by default, and no
+one batch, each keeping its commit, by default on every durable backend
+(off in memory, which has no flush to share), and no
 request is answered before its batch is durable; a reader treats a break
 within the 4 MiB write window of the last good record as a torn tail (0124,
 0072 amended). The expected position takes a graph scope: a commit conflicts

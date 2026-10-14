@@ -235,7 +235,7 @@ public sealed class GroupCommitTests
     }
 
     /// <summary>A segment store whose flush waits for the test, or fails.</summary>
-    private sealed class GatedStorage(MemoryStorage inner) : IStorage, ISegmentStore
+    private sealed class GatedStorage(MemoryStorage inner, Durability? durability = null) : IStorage, ISegmentStore
     {
         public TaskCompletionSource Gate { get; set; } = Opened();
 
@@ -247,7 +247,10 @@ public sealed class GroupCommitTests
 
         public IDerivedStore Derived => inner.Derived;
 
-        public Durability Durability => inner.Log.Durability;
+        public Durability Durability => durability ?? inner.Log.Durability;
+
+        /// <summary>How many flushes the log has had.</summary>
+        public int Flushes { get; private set; }
 
         public static TaskCompletionSource Opened()
         {
@@ -258,6 +261,7 @@ public sealed class GroupCommitTests
 
         public async ValueTask FlushAsync(SegmentId segment, CancellationToken cancellationToken)
         {
+            Flushes++;
             Flushing.TrySetResult();
             await Gate.Task.ConfigureAwait(false);
 
@@ -302,7 +306,7 @@ public sealed class GroupCommitTests
         for (int round = 0; round < 20; round++)
         {
             GatedStorage storage = new(new MemoryStorage());
-            await using Dataset dataset = await Dataset.CreateAsync(storage, T.Id, T.Options(), T.Ct);
+            await using Dataset dataset = await Dataset.CreateAsync(storage, T.Id, T.Options(groupCommit: GroupCommitOptions.Default), T.Ct);
             bool fail = round % 2 == 1;
             int size = 1 + (round % 6);
             storage.Gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -354,7 +358,7 @@ public sealed class GroupCommitTests
     [Fact]
     public async Task a_request_cancelled_while_queued_is_never_written()
     {
-        await using Dataset dataset = await T.Open(new MemoryStorage());
+        await using Dataset dataset = await T.Open(new MemoryStorage(), groupCommit: GroupCommitOptions.Default);
         using CancellationTokenSource cancel = new();
         Task<CommitResult> first, withdrawn, last;
 
@@ -379,7 +383,7 @@ public sealed class GroupCommitTests
     public async Task a_request_cancelled_after_it_was_taken_is_written_with_its_batch()
     {
         GatedStorage storage = new(new MemoryStorage());
-        await using Dataset dataset = await Dataset.CreateAsync(storage, T.Id, T.Options(), T.Ct);
+        await using Dataset dataset = await Dataset.CreateAsync(storage, T.Id, T.Options(groupCommit: GroupCommitOptions.Default), T.Ct);
         storage.Gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
         using CancellationTokenSource cancel = new();
         Task<CommitResult> leader, taken;
@@ -404,11 +408,53 @@ public sealed class GroupCommitTests
     [Fact]
     public async Task concurrent_writers_are_answered_once_each_with_dense_positions()
     {
-        await using Dataset dataset = await T.Open(new MemoryStorage());
+        await using Dataset dataset = await T.Open(new MemoryStorage(), groupCommit: GroupCommitOptions.Default);
         CommitResult[] results = await Task.WhenAll(Enumerable.Range(0, 400).Select(i => Task.Run(async () => await dataset.CommitAsync(Quad(i), T.Ct), T.Ct)));
 
         Assert.All(results, result => Assert.Equal(CommitOutcome.Committed, result.Outcome));
         Assert.Equal(Enumerable.Range(1, 400).Select(p => (long)p), results.Select(r => r.Position.Value).Order());
         Assert.Equal(400, T.Terms(dataset.Pin()).Count);
+    }
+
+    /// <summary>
+    /// Unset, group commit follows the storage's durability (ADR 0124): off
+    /// in memory, where there is no flush for a batch to share, on for a
+    /// durable backend. Requests queued behind a held sequencer are written
+    /// one write each in memory and in one write on files.
+    /// </summary>
+    [Fact]
+    public async Task unset_group_commit_follows_the_storage_durability()
+    {
+        Assert.Same(GroupCommitOptions.Off, GroupCommitOptions.For(Durability.None));
+        Assert.Same(GroupCommitOptions.Default, GroupCommitOptions.For(Durability.Committed));
+        Assert.Same(GroupCommitOptions.Default, GroupCommitOptions.For(Durability.Synchronised));
+
+        // Unset writes as Off does in memory and as Default does when durable;
+        // and the two differ, so the comparison sees batching.
+        int alone = await WritesForQueuedAsync(Durability.None, GroupCommitOptions.Off);
+        int batched = await WritesForQueuedAsync(Durability.Synchronised, GroupCommitOptions.Default);
+        Assert.Equal(alone, await WritesForQueuedAsync(Durability.None, null));
+        Assert.Equal(batched, await WritesForQueuedAsync(Durability.Synchronised, null));
+        Assert.Equal(alone - 3, batched);
+    }
+
+    // Four requests queued behind a held sequencer: how many flushes the log had meanwhile.
+    private static async Task<int> WritesForQueuedAsync(Durability durability, GroupCommitOptions? group)
+    {
+        GatedStorage storage = new(new MemoryStorage(), durability);
+        await using Dataset dataset = await Dataset.CreateAsync(storage, T.Id, T.Options(groupCommit: group), T.Ct);
+        int flushesAtCreation = storage.Flushes;
+        List<Task<CommitResult>> answers = [];
+
+        using (await dataset.HoldSequencerForTestsAsync(T.Ct))
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                answers.Add(dataset.CommitAsync(Quad(i), T.Ct).AsTask());
+            }
+        }
+
+        await Task.WhenAll(answers);
+        return storage.Flushes - flushesAtCreation;
     }
 }

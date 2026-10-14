@@ -167,7 +167,7 @@ commit that finds the dataset idle is written at once; there is no timer.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `Store:GroupCommit:MaxRecords` | `1024` | a batch takes no more commits once it holds this many records; `1` writes every commit alone |
+| `Store:GroupCommit:MaxRecords` | `1024` | a batch takes no more commits once it holds this many records; `1` writes every commit alone. A dataset in memory always writes each commit alone: it has no flush for a batch to share |
 | `Store:GroupCommit:MaxBytes` | 4 MiB | the most bytes of records a batch of two or more commits may hold; at most 4 MiB, the format's write window |
 
 `varve.store.commit.batch_size` ([Observe](observe.md)) shows how many

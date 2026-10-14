@@ -268,7 +268,9 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     // reason and nothing is held.
     private async Task OpenEntryAsync(string name, Entry entry, CancellationToken cancellationToken)
     {
-        DatasetOptions options = new() { Clock = _clock, Name = name, GroupCommit = _groupCommit };
+        // The bounds are a durable backend's; the memory backend has no flush
+        // for a batch to share, and writes each request alone (ADR 0124).
+        DatasetOptions options = new() { Clock = _clock, Name = name, GroupCommit = entry.Storage == DatasetStorage.Memory ? null : _groupCommit };
 
         try
         {
