@@ -586,8 +586,10 @@ public sealed partial class Dataset : IAsyncDisposable
             release();
         }
 
-        // The graph-version index at the checkpoint, beside it (ADR 0125): an
-        // as-of graph version starts from the nearest one.
+        // The graph-version index at the checkpoint, beside it and after it
+        // (ADR 0125): an as-of graph version starts from the nearest one. A
+        // crash before it is written leaves a checkpoint without an index,
+        // which reads as an absent index and is rebuilt from the log.
         GraphVersions graphs = await GraphsAtAsync(state, position, cancellationToken).ConfigureAwait(false);
         await graphs.WriteAsync(_storage.Derived, GraphVersions.NameAt(position), Id, at.HeaderHash(), cancellationToken).ConfigureAwait(false);
 
@@ -664,8 +666,11 @@ public sealed partial class Dataset : IAsyncDisposable
         try
         {
             long at = position.Value;
-            await _storage.Derived.DeleteAsync(Checkpoint.Name(at), cancellationToken).ConfigureAwait(false);
+            // The graph-version index first, then its checkpoint: a crash
+            // between leaves a checkpoint whose index is rebuilt from the log,
+            // never an index without its checkpoint (ADR 0125).
             await _storage.Derived.DeleteAsync(GraphVersions.NameAt(at), cancellationToken).ConfigureAwait(false);
+            await _storage.Derived.DeleteAsync(Checkpoint.Name(at), cancellationToken).ConfigureAwait(false);
             Checkpoint? dropped = Array.Find(_state.Checkpoints, c => c.Position == at);
             Checkpoint[] kept = Array.FindAll(_state.Checkpoints, c => c.Position != at);
             _state = _state.WithCheckpoints(kept);

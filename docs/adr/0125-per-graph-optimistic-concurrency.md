@@ -65,7 +65,11 @@ at `p`.
      (`[HotPath]`);
    - **persisted in `derived/`** as `index/graphs`, written with the
      projection's state and naming the same position and header hash, and
-     beside each checkpoint as `checkpoints/<position>.graphs`; it is derived
+     beside each checkpoint as `checkpoints/<position>.graphs`, written after
+     the checkpoint and deleted before it, and swept on open when its
+     checkpoint is gone (edited in place, 2026-10-14, on the maintainer's
+     review: a drop that deleted the checkpoint first could leave the index
+     behind); it is derived
      data, rebuilt from the log when absent, stale, or naming another log,
      like everything else in `derived/` (I8);
    - **consulted by the sequencer in the same step as today's check**: a

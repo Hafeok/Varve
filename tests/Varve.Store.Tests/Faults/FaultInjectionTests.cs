@@ -507,6 +507,110 @@ public sealed class FaultInjectionTests
     }
 
     /// <summary>
+    /// A checkpoint's graph-version index (ADR 0125) is written after its
+    /// checkpoint and deleted before it. A process crash at every operation of
+    /// a workload that writes checkpoints and drops each one's predecessor —
+    /// so inside every checkpoint write, index write and drop — opens with no
+    /// index file whose checkpoint is gone, and with every graph's version at
+    /// every position what the commits say.
+    /// </summary>
+    [Fact]
+    public async Task a_crash_while_checkpoints_and_their_graph_indexes_are_written_or_dropped_leaves_no_orphan()
+    {
+        SimulatedFileSystem reference = new();
+        long[][] versions = await CheckpointWorkloadAsync(reference);
+        string checkpoints = Path.Combine(Root, "derived", "checkpoints");
+        Check(reference.Files(checkpoints).Any(f => f.EndsWith(".graphs", StringComparison.Ordinal)), "the workload wrote no graph-version index");
+        int points = 0;
+
+        for (int operation = 1; operation <= reference.Operations; operation++)
+        {
+            int at = operation;
+            SimulatedFileSystem files = new() { Injector = op => op.Number == at ? 0 : null };
+
+            try
+            {
+                await CheckpointWorkloadAsync(files);
+            }
+            catch (SimulatedCrash)
+            {
+            }
+
+            SimulatedFileSystem image = files.Image(CrashKind.Process, new Random(at));
+            string where = "crash at operation " + at;
+            FileStorage storage = FileStorage.Open(image, new DatasetDirectory(Root), StorageOptions);
+
+            await using (storage)
+            {
+                if ((await storage.Log.ReadManifestAsync(T.Ct)).IsEmpty)
+                {
+                    continue;
+                }
+
+                await using Dataset dataset = await Dataset.OpenAsync(storage, Unbatched, T.Ct);
+
+                foreach (BlobName name in await storage.Derived.ListAsync(T.Ct))
+                {
+                    if (name.Value.EndsWith(".graphs", StringComparison.Ordinal))
+                    {
+                        BlobName checkpoint = new(name.Value[..^".graphs".Length]);
+                        Check((await storage.Derived.ListAsync(T.Ct)).Contains(checkpoint), where + ": " + name.Value + " has no checkpoint");
+                    }
+                }
+
+                for (long p = 0; p <= dataset.Head.Value; p++)
+                {
+                    for (int g = 0; g < CheckpointGraphs; g++)
+                    {
+                        long version = (await dataset.GraphVersionAsync(T.Iri("g" + g), new Position(p), T.Ct)).Value;
+                        Check(version == versions[p][g], where + ": graph " + g + " at " + p + " is version " + version + ", not " + versions[p][g]);
+                    }
+                }
+            }
+
+            points++;
+        }
+
+        Report("checkpoint and graph index crash: " + reference.Operations + " operations, " + points + " recovered images");
+    }
+
+    private const int CheckpointGraphs = 3;
+
+    // Twelve commits, each into one of three graphs; a checkpoint after every
+    // third, and the one before it dropped. Returns each graph's version at
+    // each position.
+    private static async Task<long[][]> CheckpointWorkloadAsync(SimulatedFileSystem files)
+    {
+        List<long[]> versions = [new long[CheckpointGraphs]];
+        await using FileStorage storage = FileStorage.Open(files, new DatasetDirectory(Root), StorageOptions);
+        await using Dataset dataset = await Dataset.CreateAsync(storage, T.Id, Unbatched, T.Ct);
+        long previous = 0;
+
+        for (int i = 0; i < 12; i++)
+        {
+            int g = i % CheckpointGraphs;
+            CommitResult result = await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s" + i), T.Iri("p"), T.Integer(i.ToString(CultureInfo.InvariantCulture)), T.Iri("g" + g)), T.Ct);
+            long[] next = [.. versions[^1]];
+            next[g] = result.Position.Value;
+            versions.Add(next);
+
+            if (i % 3 == 2)
+            {
+                await dataset.CheckpointAsync(dataset.Head, T.Ct);
+
+                if (previous > 0)
+                {
+                    await dataset.DropCheckpointAsync(new Position(previous), T.Ct);
+                }
+
+                previous = dataset.Head.Value;
+            }
+        }
+
+        return [.. versions];
+    }
+
+    /// <summary>
     /// The dataset directory copied while it is being written, as `git add` or
     /// a backup would: the copier lists the directory once, then copies one
     /// file at a time, each as it reads at that moment. The copy opens at a

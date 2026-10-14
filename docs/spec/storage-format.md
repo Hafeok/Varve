@@ -431,7 +431,10 @@ contents are its directory, at offset 0, little-endian:
 
 Entries are sorted by graph id, so one graph's version is a binary search of
 a few small reads. `index/graphs` is written at the head by maintenance;
-`checkpoints/<P>.graphs` with the checkpoint at `P`, and dropped with it. Both
+`checkpoints/<P>.graphs` after the checkpoint at `P`, and deleted before it
+when the checkpoint is dropped, so a crash leaves a checkpoint without its
+index, never the reverse; opening deletes any `<P>.graphs` whose checkpoint
+is not one of this log's. Both
 are a cache: one that does not verify, or names another commit than the log
 holds at its position, is a miss, and the index is rebuilt from the log after
 the newest one that verifies.

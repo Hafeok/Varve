@@ -487,7 +487,8 @@ public sealed partial class Dataset
     /// <summary>
     /// The default projection's base on open: the persisted state when it names
     /// this log and is no older than the newest checkpoint, else the newest
-    /// checkpoint, else nothing. Runs no chosen state names are deleted.
+    /// checkpoint, else nothing. Runs no chosen state names are deleted, and
+    /// so is a checkpoint's graph-version index without its checkpoint.
     /// </summary>
     private async ValueTask<IndexVersion> LoadIndexAsync(State state, Checkpoint[] checkpoints, CancellationToken cancellationToken)
     {
@@ -530,6 +531,17 @@ public sealed partial class Dataset
         {
             // A bulk load's spills, left by a crash during the load (ADR 0081).
             if (name.Value.StartsWith(SpillSpace.Prefix, StringComparison.Ordinal))
+            {
+                await _storage.Derived.DeleteAsync(name, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            // A checkpoint's graph-version index whose checkpoint is not one
+            // of this log's (ADR 0125): left by an older store's drop, or
+            // copied in. Derived, so dropping it loses nothing.
+            if (name.Value.EndsWith(GraphVersions.Suffix, StringComparison.Ordinal)
+                && Checkpoint.TryParseName(new BlobName(name.Value[..^GraphVersions.Suffix.Length]), out long indexed)
+                && Array.FindIndex(checkpoints, c => c.Position == indexed) < 0)
             {
                 await _storage.Derived.DeleteAsync(name, cancellationToken).ConfigureAwait(false);
                 continue;
