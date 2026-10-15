@@ -180,6 +180,8 @@ List<(string Name, string Description, Func<int> Run)> jobs =
 
     ("test-delta", "Varve.Delta: the chunk-boundary oracle, the round trip, version 1 read for ever",
         () => Test("Varve.Delta.Tests")),
+    ("test-rec", "the REC portfolio generator: the vendored release, REC's terms, the same bytes for each seed and size",
+        () => Test("Varve.Rec.Tests")),
 
     ("test-xsd", "Varve.Xsd, and its properties; the evaluation suites gate it too",
         () => Test("Varve.Xsd.Tests")),

@@ -532,6 +532,35 @@ jobs:
           --configuration Release
           --filter-namespace Varve.Store.Tests.Objects
 
+  # The REC generator's bytes on both architectures (ADR 0141): its tests pin
+  # each size's SHA-256, so a pass on each runner is the same bytes on both.
+  rec-generator:
+    name: rec generator (${{ matrix.rid }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [linux-x64, linux-arm64]
+        include:
+          - rid: linux-x64
+            os: ubuntu-24.04
+          - rid: linux-arm64
+            os: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Generate S, M and L and compare
+        run: dotnet test --project tests/Varve.Rec.Tests/Varve.Rec.Tests.csproj --configuration Release
+
   # Auth test layer (c) (ADR 0100): Zitadel and PostgreSQL, a real provider,
   # started by compose and seeded through its API by eng/zitadel-seed.cs. One
   # test per flow: client credentials, and device code approved through the

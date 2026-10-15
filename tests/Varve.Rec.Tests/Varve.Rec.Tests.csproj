@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The RealEstateCore portfolio generator and its tests (ADR 0141): seeded,
+    deterministic, test-only, never shipped. A test assembly, so no ArchLayer;
+    the store's suites and the benchmarks reference it for the generator.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+  </ItemGroup>
+
+</Project>

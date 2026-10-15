@@ -293,6 +293,8 @@ Filed by milestone Object storage ([#92](https://github.com/Hafeok/Varve/issues/
 | [0135](0135-the-log-as-chunk-objects.md) | The log as write-once chunk objects, consolidated on seal | Filed unaccepted (Object storage, #92) |
 | [0136](0136-one-writer-by-an-epoch-and-a-log-slot-fence.md) | One writer by an epoch, fenced by a log slot; no lease, no timer; refines 0075 and 0116 | Filed unaccepted (Object storage, #92) |
 | [0137](0137-storage-credentials-are-workload-identity.md) | Storage credentials are the workload's identity; a key only on loopback | Filed unaccepted (Object storage, #92) |
+| [0140](0140-what-varve-takes-from-azure-data-explorer.md) | What Varve takes from Azure Data Explorer, and what it does not | Filed unaccepted (Object storage, #92), from the maintainer's draft |
+| [0141](0141-realestatecore-as-the-reference-domain.md) | RealEstateCore as the reference domain for learning and testing | Filed unaccepted (Object storage, #92), from the maintainer's draft |
 
 ## Conformance — differential testing against Oxigraph
 
