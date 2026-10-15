@@ -41,8 +41,12 @@ decisions:
     accepted-at: 2026-10-09T00:00:00Z
   - key: ScopeIsWhatTheRequestAskedFor
     statement: "A request that evaluates a pattern expects its position over every graph a pattern asked for, found or not, and every graph its delta writes, or every graph when a pattern asks for any"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-15T00:00:00Z
   - key: AnInferredConflictIsRetried
     statement: "A request with no precondition from its caller, whose conflict came from the inferred scope, is re-pinned and evaluated again from the start up to three times by the server; any request with a caller's precondition is never retried"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-15T00:00:00Z
 ---
 
 The rulings of [ADR 0057](../adr/0057-sparql-update-one-request-one-commit.md) still in force, one line each. The ADR is the

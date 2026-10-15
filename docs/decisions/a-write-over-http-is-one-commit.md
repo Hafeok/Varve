@@ -41,8 +41,12 @@ decisions:
     accepted-at: 2026-10-10T00:00:00Z
   - key: GraphStoreTagIsTheGraphVersion
     statement: "A Graph Store response is tagged with the graph's version and its If-Match is compared with that version, with the graph as the scope"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-15T00:00:00Z
   - key: ServerRetriesOnlyItsOwnPrecondition
     statement: "The server retries an update only when the client sent neither If-Match nor Varve-If-Graphs-Match, up to three times, and never retries a Graph Store write"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-15T00:00:00Z
 ---
 
 The rulings of [ADR 0094](../adr/0094-a-write-over-http-is-one-commit.md), filed unaccepted by milestone 7a of #11

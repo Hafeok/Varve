@@ -33,6 +33,8 @@ decisions:
     accepted-at: 2026-10-10T00:00:00Z
   - key: GraphReadTagIsTheGraphVersionAtTheRead
     statement: "A Graph Store read is tagged with the graph's version at the read's position, at the head or as of it"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-15T00:00:00Z
 ---
 
 The rulings of [ADR 0096](../adr/0096-time-travel-over-http.md), filed unaccepted by milestone 7a of #11
