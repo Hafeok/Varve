@@ -13,6 +13,7 @@ using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Varve.JsonLd;
+using Varve.Protocol.Client.Model;
 using Varve.Rdf;
 using Varve.RdfXml;
 using Varve.Turtle;
@@ -37,18 +38,6 @@ public sealed partial class SparqlHttpClient
         {
             Content = new StringContent(storage == SetupStorage.Memory ? "{\"storage\":\"Memory\"}" : "{\"storage\":\"File\"}", Encoding.UTF8, "application/json"),
         }, cancellationToken);
-
-    /// <summary>Replaces a graph by the Graph Store Protocol (<c>PUT</c>): the default graph for a null <paramref name="graph"/>.</summary>
-    public Task<HttpResponseMessage> PutGraphAsync(string? graph, byte[] content, string mediaType, CancellationToken cancellationToken) =>
-        GraphWriteAsync(HttpMethod.Put, graph, content, mediaType, cancellationToken);
-
-    /// <summary>Merges into a graph by the Graph Store Protocol (<c>POST</c>): the default graph for a null <paramref name="graph"/>.</summary>
-    public Task<HttpResponseMessage> PostGraphAsync(string? graph, byte[] content, string mediaType, CancellationToken cancellationToken) =>
-        GraphWriteAsync(HttpMethod.Post, graph, content, mediaType, cancellationToken);
-
-    /// <summary>Empties a graph by the Graph Store Protocol (<c>DELETE</c>): the default graph for a null <paramref name="graph"/>.</summary>
-    public Task<HttpResponseMessage> DeleteGraphAsync(string? graph, CancellationToken cancellationToken) =>
-        SendAsync(new HttpRequestMessage(HttpMethod.Delete, GraphAddress(graph)), cancellationToken);
 
     /// <summary>
     /// Makes the dataset what <paramref name="setup"/> declares (ADR 0130), in
@@ -104,7 +93,7 @@ public sealed partial class SparqlHttpClient
             // idempotent, is sent again.
             for (int attempt = 0; ; attempt++)
             {
-                using HttpResponseMessage written = await PostGraphAsync(source.Graph, content, source.MediaType, cancellationToken).ConfigureAwait(false);
+                using HttpResponseMessage written = await PostGraphAsync(source.Graph, GraphContent.FromBytes(content, source.MediaType), GraphCondition.None, cancellationToken).ConfigureAwait(false);
 
                 if (Moved(written) && attempt < MaxRetries)
                 {
@@ -453,13 +442,4 @@ public sealed partial class SparqlHttpClient
         { Kind: RdfTermKind.TripleTerm } => Blank(term.Subject) ?? Blank(term.Object),
         _ => null,
     };
-
-    private Task<HttpResponseMessage> GraphWriteAsync(HttpMethod method, string? graph, byte[] content, string mediaType, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(content);
-        ArgumentException.ThrowIfNullOrEmpty(mediaType);
-        ByteArrayContent body = new(content);
-        body.Headers.ContentType = MediaTypeHeaderValue.Parse(mediaType);
-        return SendAsync(new HttpRequestMessage(method, GraphAddress(graph)) { Content = body }, cancellationToken);
-    }
 }

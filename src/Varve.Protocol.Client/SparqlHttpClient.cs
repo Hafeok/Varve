@@ -155,43 +155,40 @@ public sealed partial class SparqlHttpClient
     }
 
     /// <summary>
-    /// Replaces a graph with <paramref name="body"/>, of <paramref name="contentType"/>,
-    /// under <paramref name="ifMatch"/>, the graph's version (ADR 0126): <c>412</c>
-    /// when it has moved; an empty graph matches no version.
+    /// Replaces a graph with <paramref name="content"/> by the Graph Store
+    /// Protocol (<c>PUT</c>), the default graph for a null <paramref name="graph"/>,
+    /// under <paramref name="condition"/> (ADR 0126): <c>412</c> when the graph
+    /// is not at the version named, or holds a quad for <see cref="GraphCondition.IfAbsent"/>.
     /// </summary>
-    public Task<HttpResponseMessage> PutGraphAsync(string? graph, string body, string contentType, long? ifMatch, CancellationToken cancellationToken) =>
-        SendGraphAsync(HttpMethod.Put, GraphAddress(graph), body, contentType, ifMatch is long expected ? ("If-Match", Tag(expected)) : null, cancellationToken);
+    public Task<HttpResponseMessage> PutGraphAsync(string? graph, GraphContent content, GraphCondition condition, CancellationToken cancellationToken) =>
+        SendGraphAsync(HttpMethod.Put, graph, content, condition, cancellationToken);
 
-    /// <summary>Creates a graph that holds no quad, or is <c>412</c>: a <c>PUT</c> with <c>If-None-Match: *</c> (ADR 0126).</summary>
-    public Task<HttpResponseMessage> CreateGraphAsync(string? graph, string body, string contentType, CancellationToken cancellationToken) =>
-        SendGraphAsync(HttpMethod.Put, GraphAddress(graph), body, contentType, ("If-None-Match", "*"), cancellationToken);
+    /// <summary>Adds <paramref name="content"/> to a graph by the Graph Store Protocol (<c>POST</c>), under <paramref name="condition"/> (ADR 0126).</summary>
+    public Task<HttpResponseMessage> PostGraphAsync(string? graph, GraphContent content, GraphCondition condition, CancellationToken cancellationToken) =>
+        SendGraphAsync(HttpMethod.Post, graph, content, condition, cancellationToken);
 
-    /// <summary>Adds <paramref name="body"/> to a graph, under <paramref name="ifMatch"/> when given (ADR 0126).</summary>
-    public Task<HttpResponseMessage> PostGraphAsync(string? graph, string body, string contentType, long? ifMatch, CancellationToken cancellationToken) =>
-        SendGraphAsync(HttpMethod.Post, GraphAddress(graph), body, contentType, ifMatch is long expected ? ("If-Match", Tag(expected)) : null, cancellationToken);
+    /// <summary>Empties a graph by the Graph Store Protocol (<c>DELETE</c>), under <paramref name="condition"/> (ADR 0126).</summary>
+    public Task<HttpResponseMessage> DeleteGraphAsync(string? graph, GraphCondition condition, CancellationToken cancellationToken) =>
+        SendGraphAsync(HttpMethod.Delete, graph, null, condition, cancellationToken);
 
-    /// <summary>Deletes a graph, under <paramref name="ifMatch"/>, its version, when given (ADR 0126).</summary>
-    public Task<HttpResponseMessage> DeleteGraphAsync(string? graph, long? ifMatch, CancellationToken cancellationToken)
+    private Task<HttpResponseMessage> SendGraphAsync(HttpMethod method, string? graph, GraphContent? content, GraphCondition condition, CancellationToken cancellationToken)
     {
-        HttpRequestMessage request = new(HttpMethod.Delete, GraphAddress(graph));
+        HttpRequestMessage request = new(method, GraphAddress(graph));
 
-        if (ifMatch is long expected)
+        if (content is not null)
         {
-            request.Headers.TryAddWithoutValidation("If-Match", Tag(expected));
+            ReadOnlyMemoryContent body = new(content.Bytes);
+            body.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse(content.MediaType);
+            request.Content = body;
         }
 
-        return SendAsync(request, cancellationToken);
-    }
-
-    private Task<HttpResponseMessage> SendGraphAsync(HttpMethod method, Uri address, string body, string contentType, (string Name, string Value)? precondition, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(body);
-        ArgumentNullException.ThrowIfNull(contentType);
-        HttpRequestMessage request = new(method, address) { Content = new StringContent(body, Encoding.UTF8, contentType) };
-
-        if (precondition is { } header)
+        if (condition.Version is long version)
         {
-            request.Headers.TryAddWithoutValidation(header.Name, header.Value);
+            request.Headers.TryAddWithoutValidation("If-Match", Tag(version));
+        }
+        else if (condition.Absent)
+        {
+            request.Headers.TryAddWithoutValidation("If-None-Match", "*");
         }
 
         return SendAsync(request, cancellationToken);

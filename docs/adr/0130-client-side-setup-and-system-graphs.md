@@ -228,3 +228,24 @@ the maintainer accepts it (ADR 0066). It replaces point 4's `If-Match`, part
 
 **The ledger.** The ruling of this block is `MigrationsStateTheirGraphs`,
 unaccepted until the maintainer accepts it.
+
+## Amendment, 2026-10-15 — one Graph Store write API
+
+Filed by milestone Client and integration, part 2, of #93, unaccepted until
+the maintainer accepts it (ADR 0066). Part 1 added Graph Store writes that
+took a `byte[]` for its baselines. Commit path (#91) added conditional ones
+that took a `string`. Part 1 left the two for part 2 to make one.
+
+- **The API.** `PutGraphAsync`, `PostGraphAsync` and `DeleteGraphAsync` take
+  the graph (null for the default graph), a `GraphContent`, and a
+  `GraphCondition`.
+  - A `GraphContent` is bytes in a media type, made by `FromBytes` or
+    `FromText`.
+  - A `GraphCondition` is `None`, `IfMatch(version)`, which is ADR 0126's
+    `If-Match`, or `IfAbsent`, which is `If-None-Match: *`, a create.
+  - `CreateGraphAsync` and the six overloads it replaces are gone.
+- **Breaking, under ADR 0118.** The release descriptor lists it. A baseline
+  is still a `POST` with no condition (point 1).
+
+**The ledger.** The ruling of this block is `OneGraphStoreWriteApi`,
+unaccepted until the maintainer accepts it.

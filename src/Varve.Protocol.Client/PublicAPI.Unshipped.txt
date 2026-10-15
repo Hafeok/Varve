@@ -148,10 +148,7 @@ Varve.Protocol.Client.SetupStorage
 Varve.Protocol.Client.SetupStorage.File = 0 -> Varve.Protocol.Client.SetupStorage
 Varve.Protocol.Client.SetupStorage.Memory = 1 -> Varve.Protocol.Client.SetupStorage
 Varve.Protocol.Client.SparqlHttpClient.ApplyAsync(Varve.Protocol.Client.DatasetSetup! setup, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.SetupResult!>!
-Varve.Protocol.Client.SparqlHttpClient.DeleteGraphAsync(string? graph, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
-Varve.Protocol.Client.SparqlHttpClient.PostGraphAsync(string? graph, byte[]! content, string! mediaType, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
 Varve.Protocol.Client.SparqlHttpClient.PutDatasetAsync(Varve.Protocol.Client.SetupStorage storage, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
-Varve.Protocol.Client.SparqlHttpClient.PutGraphAsync(string? graph, byte[]! content, string! mediaType, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
 const Varve.Protocol.Client.SparqlHttpClient.SetupGraph = "https://w3id.org/varve/ns#setup" -> string!
 override Varve.Protocol.Client.SetupMigration.Equals(object? obj) -> bool
 override Varve.Protocol.Client.SetupMigration.GetHashCode() -> int
@@ -196,11 +193,7 @@ Varve.Protocol.Client.Hosting.VarveClientOptions.VarveClientOptions() -> void
 Varve.Protocol.Client.Hosting.VarveServiceCollectionExtensions
 static Varve.Protocol.Client.Hosting.VarveServiceCollectionExtensions.AddVarve(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Varve.Protocol.Client.Hosting.VarveClientOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static Varve.Protocol.Client.BaselineSource.WithoutByteOrderMark(byte[]! content) -> byte[]!
-Varve.Protocol.Client.SparqlHttpClient.CreateGraphAsync(string? graph, string! body, string! contentType, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
-Varve.Protocol.Client.SparqlHttpClient.DeleteGraphAsync(string? graph, long? ifMatch, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
 Varve.Protocol.Client.SparqlHttpClient.GetGraphAsync(string? graph, string! accept, long? ifNoneMatch, string? asOf, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
-Varve.Protocol.Client.SparqlHttpClient.PostGraphAsync(string? graph, string! body, string! contentType, long? ifMatch, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
-Varve.Protocol.Client.SparqlHttpClient.PutGraphAsync(string? graph, string! body, string! contentType, long? ifMatch, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
 Varve.Protocol.Client.SparqlHttpClient.UpdateAsync(string! update, System.Collections.Generic.IReadOnlyCollection<System.Collections.Generic.KeyValuePair<string?, long>>! ifGraphsMatch, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
 static Varve.Protocol.Client.SparqlHttpClient.VersionOf(System.Net.Http.HttpResponseMessage! response) -> long?
 Varve.Protocol.Client.Model.CommitEvents
@@ -220,3 +213,24 @@ Varve.Protocol.Client.SparqlHttpClient.EventTypesAsync(string? asOf, System.Thre
 Varve.Protocol.Client.SparqlHttpClient.EventsAsync(long from, long? to, string? type, bool eventStream, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
 Varve.Protocol.Client.SparqlHttpClient.FollowEventsAsync(Varve.Delta.Model.FeedPosition from, System.Func<Varve.Protocol.Client.Model.CommitEvents!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>! handler, Varve.Protocol.Client.IFollowCheckpoint! checkpoint, Varve.Protocol.Client.FollowOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
 Varve.Protocol.Client.SparqlHttpClient.ServerEventTypesAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.Model.GraphCondition
+Varve.Protocol.Client.Model.GraphCondition.Absent.get -> bool
+Varve.Protocol.Client.Model.GraphCondition.Equals(Varve.Protocol.Client.Model.GraphCondition other) -> bool
+Varve.Protocol.Client.Model.GraphCondition.GraphCondition() -> void
+Varve.Protocol.Client.Model.GraphCondition.Version.get -> long?
+Varve.Protocol.Client.Model.GraphContent
+Varve.Protocol.Client.Model.GraphContent.Bytes.get -> System.ReadOnlyMemory<byte>
+Varve.Protocol.Client.Model.GraphContent.MediaType.get -> string!
+Varve.Protocol.Client.SparqlHttpClient.DeleteGraphAsync(string? graph, Varve.Protocol.Client.Model.GraphCondition condition, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.PostGraphAsync(string? graph, Varve.Protocol.Client.Model.GraphContent! content, Varve.Protocol.Client.Model.GraphCondition condition, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.PutGraphAsync(string? graph, Varve.Protocol.Client.Model.GraphContent! content, Varve.Protocol.Client.Model.GraphCondition condition, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+override Varve.Protocol.Client.Model.GraphCondition.GetHashCode() -> int
+static Varve.Protocol.Client.Model.GraphCondition.IfAbsent.get -> Varve.Protocol.Client.Model.GraphCondition
+static Varve.Protocol.Client.Model.GraphCondition.IfMatch(long version) -> Varve.Protocol.Client.Model.GraphCondition
+static Varve.Protocol.Client.Model.GraphCondition.None.get -> Varve.Protocol.Client.Model.GraphCondition
+static Varve.Protocol.Client.Model.GraphCondition.operator !=(Varve.Protocol.Client.Model.GraphCondition left, Varve.Protocol.Client.Model.GraphCondition right) -> bool
+static Varve.Protocol.Client.Model.GraphCondition.operator ==(Varve.Protocol.Client.Model.GraphCondition left, Varve.Protocol.Client.Model.GraphCondition right) -> bool
+static Varve.Protocol.Client.Model.GraphContent.FromBytes(System.ReadOnlyMemory<byte> bytes, string! mediaType) -> Varve.Protocol.Client.Model.GraphContent!
+static Varve.Protocol.Client.Model.GraphContent.FromText(string! text, string! mediaType) -> Varve.Protocol.Client.Model.GraphContent!
+~override Varve.Protocol.Client.Model.GraphCondition.Equals(object obj) -> bool
+~override Varve.Protocol.Client.Model.GraphCondition.ToString() -> string
