@@ -66,14 +66,13 @@ internal static class GraphStoreEndpoint
             return;
         }
 
-        if (await Writes.CheckAsync(exchange).ConfigureAwait(false) is not { Proceed: true } plan)
-        {
-            return;
-        }
-
         if (HttpMethods.IsDelete(method))
         {
-            await DeleteAsync(exchange, target, plan).ConfigureAwait(false);
+            if (await CheckAsync(exchange, target, put: false).ConfigureAwait(false) is { Proceed: true } deleting)
+            {
+                await DeleteAsync(exchange, target, deleting).ConfigureAwait(false);
+            }
+
             return;
         }
 
@@ -96,6 +95,11 @@ internal static class GraphStoreEndpoint
             return;
         }
 
+        if (await CheckAsync(exchange, target, put: HttpMethods.IsPut(method)).ConfigureAwait(false) is not { Proceed: true } plan)
+        {
+            return;
+        }
+
         List<BodyTriple>? triples = await ReadBodyAsync(exchange, target, allowMultipart: HttpMethods.IsPost(method)).ConfigureAwait(false);
 
         if (triples is null)
@@ -105,6 +109,13 @@ internal static class GraphStoreEndpoint
 
         await WriteAsync(exchange, target, plan, triples, replace: HttpMethods.IsPut(method)).ConfigureAwait(false);
     }
+
+    // A write's preconditions, against the graph (ADR 0126): before the body
+    // is read; whether the graph holds a quad is asked of the write's own pin.
+    private static Task<WritePlan> CheckAsync(Exchange exchange, Target target, bool put) =>
+        Writes.CheckGraphAsync(exchange, GraphOf(target), put);
+
+    private static RdfTerm? GraphOf(Target target) => target.Kind == TargetKind.Default ? null : target.Graph;
 
     private static async Task GetAsync(Exchange exchange, Target target)
     {
@@ -122,8 +133,19 @@ internal static class GraphStoreEndpoint
             return;
         }
 
-        if (await Reads.ResolveAsync(context, exchange.Dataset).ConfigureAwait(false) is not Position position
-            || await Reads.NotModifiedAsync(context, exchange.Dataset, position).ConfigureAwait(false))
+        if (await Reads.ResolveAsync(context, exchange.Dataset).ConfigureAwait(false) is not Position position)
+        {
+            return;
+        }
+
+        // The graph's version at the read's position is its tag (ADR 0126),
+        // compared before any pin; as of a position, only within the as-of
+        // bound, past which the read itself is refused below.
+        RequestTerm graph = Writes.Term(GraphOf(target));
+        bool withinBound = !Reads.IsAsOf(context) || position == exchange.Dataset.Head || Reads.AsOfDistance(exchange.Dataset, position) <= exchange.Options.Limits.MaxAsOfDistance;
+
+        if (withinBound
+            && await Reads.NotModifiedAsync(context, exchange.Dataset, position, await exchange.Dataset.GraphVersionAsync(graph, position, context.RequestAborted).ConfigureAwait(false)).ConfigureAwait(false))
         {
             return;
         }
@@ -145,6 +167,14 @@ internal static class GraphStoreEndpoint
             return;
         }
 
+        Position version = await exchange.Dataset.GraphVersionAsync(graph, view.Position, context.RequestAborted).ConfigureAwait(false);
+        Preconditions.DescribeGraph(context.Response, version);
+
+        // The graph was last modified by the commit that is its version.
+        if (Reads.LastModified(exchange.Dataset, version) is DateTimeOffset modified)
+        {
+            context.Response.Headers.LastModified = Microsoft.Net.Http.Headers.HeaderUtilities.FormatDate(modified);
+        }
         IQuadSource source = exchange.Readable(view);
         IQuadCursor? cursor = Open(source, target);
 
@@ -237,8 +267,14 @@ internal static class GraphStoreEndpoint
 
         using (DatasetView view = exchange.Dataset.Pin())
         {
-            request = new CommitRequest { ExpectedPosition = plan.Expected ?? view.Position, Metadata = Writes.Metadata(exchange) };
+            // It read the graph alone: the graph is its scope (ADR 0126).
+            request = new CommitRequest { ExpectedPosition = plan.Expected ?? view.Position, ExpectedGraphs = Writes.Scope(plan.Graphs), Metadata = Writes.Metadata(exchange) };
             exists = Retract(view, target, request);
+        }
+
+        if (!await Writes.PresenceHoldsAsync(exchange, plan, GraphOf(target), exists).ConfigureAwait(false))
+        {
+            return;
         }
 
         if (!exists)
@@ -249,7 +285,7 @@ internal static class GraphStoreEndpoint
         }
 
         CommitResult result = await exchange.Dataset.CommitAsync(request, exchange.Context.RequestAborted).ConfigureAwait(false);
-        await Writes.AnswerAsync(exchange, result, expected: plan.Expected).ConfigureAwait(false);
+        await Writes.AnswerAsync(exchange, result, expected: plan.Expected, evidence: new ConflictEvidence(request.ExpectedPosition!.Value, request.ExpectedGraphs), taggedGraph: GraphOf(target), tagGraph: true).ConfigureAwait(false);
     }
 
     private static async Task WriteAsync(Exchange exchange, Target target, WritePlan plan, List<BodyTriple> triples, bool replace)
@@ -264,9 +300,15 @@ internal static class GraphStoreEndpoint
             request = new CommitRequest
             {
                 ExpectedPosition = plan.Expected ?? (replace ? view.Position : null),
+                ExpectedGraphs = plan.Expected is not null || replace ? Writes.Scope(plan.Graphs) : null,
                 Metadata = Writes.Metadata(exchange),
             };
             existed = replace ? Retract(view, target, request) : Exists(view, target);
+        }
+
+        if (!await Writes.PresenceHoldsAsync(exchange, plan, GraphOf(target), existed).ConfigureAwait(false))
+        {
+            return;
         }
 
         foreach (BodyTriple triple in triples)
@@ -290,7 +332,8 @@ internal static class GraphStoreEndpoint
             exchange.Response.Headers.Location = location;
         }
 
-        await Writes.AnswerAsync(exchange, result, created ? StatusCodes.Status201Created : StatusCodes.Status204NoContent, plan.Expected).ConfigureAwait(false);
+        ConflictEvidence? evidence = request.ExpectedPosition is Position since ? new ConflictEvidence(since, request.ExpectedGraphs) : null;
+        await Writes.AnswerAsync(exchange, result, created ? StatusCodes.Status201Created : StatusCodes.Status204NoContent, plan.Expected, evidence, GraphOf(target), tagGraph: true).ConfigureAwait(false);
     }
 
     // Retracts every quad of the target graph, by handle. True when it held one.

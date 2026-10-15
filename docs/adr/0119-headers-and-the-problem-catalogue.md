@@ -10,6 +10,10 @@ point 5 (the catalogue), [0094](0094-a-write-over-http-is-one-commit.md)
 point 3 (the cause and trace context) and [0096](0096-time-travel-over-http.md)
 point 4 (the cache headers).
 
+**Amended 2026-10-13** (ADR 0068), by milestone Commit path of #91 under ADR
+[0126](0126-graph-versions-over-http.md): point 9's members of `409` and
+`412`, and `412`'s title; see the end.
+
 ## Context
 
 ADR 0096 gave every dataset response `ETag` and `Varve-Position` and a
@@ -111,3 +115,18 @@ that two handlers agree.
   and the route fallback `Varve.Server` (6).
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-13 — `graphs` on `409` and `412`
+
+Filed by milestone Commit path of #91, unaccepted until the maintainer
+accepts it (ADR 0066). Point 9 gains: `graphs` and `graphsTruncated` for
+`409 conflict` (the intervening commits that touched the request's scope,
+each with the graphs of the scope it touched; at most 100, read at most the
+as-of bound back), and `graphs` for `412 precondition-failed` (each graph
+whose version differed, with its version). `412`'s title becomes "The
+precondition does not name the current version.", because a graph's
+precondition is not the head's. The catalogue, the two pages and their test
+change with it.
+
+**The ledger.** The ruling of this block is `ConflictListsTheGraphsInScope`,
+unaccepted until the maintainer accepts it.

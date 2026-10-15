@@ -30,10 +30,14 @@ internal static class UpdateRun
             return;
         }
 
-        if (await Writes.CheckAsync(exchange).ConfigureAwait(false) is not { Proceed: true } plan)
+        if (await Writes.CheckAsync(exchange, update: true).ConfigureAwait(false) is not { Proceed: true } plan)
         {
             return;
         }
+
+        // Where a conflict's evidence starts: what the client named, or the
+        // head this request began at (ADR 0126).
+        Position started = exchange.Dataset.Head;
 
         if (!request.TryVersion(out SparqlVersion version))
         {
@@ -78,7 +82,7 @@ internal static class UpdateRun
         try
         {
             result = await exchange.Options.Updates
-                .ExecuteAsync(exchange.Dataset, update!, Writes.Metadata(exchange), plan.Expected, exchange.Scope, context.RequestAborted)
+                .ExecuteAsync(exchange.Dataset, update!, Writes.Metadata(exchange), new UpdatePreconditions { ExpectedPosition = plan.Expected, ExpectedGraphs = plan.Graphs }, exchange.Scope, context.RequestAborted)
                 .ConfigureAwait(false);
         }
         catch (GraphNotWritableException refused)
@@ -105,8 +109,11 @@ internal static class UpdateRun
         }
 
         // A Conflict here lost the race inside the sequencer after If-Match
-        // was checked, or met a writer that came first: 409 either way (ADR 0094).
-        await Writes.AnswerAsync(exchange, result, expected: plan.Expected).ConfigureAwait(false);
+        // was checked, or met a writer that came first: 409 either way (ADR
+        // 0094), with the commits that touched what the client named, or
+        // every commit since the request began (ADR 0126).
+        ConflictEvidence evidence = new(plan.Expected ?? started, Writes.Scope(plan.Graphs));
+        await Writes.AnswerAsync(exchange, result, expected: plan.Expected, evidence: evidence).ConfigureAwait(false);
     }
 
     // The protocol's dataset becomes every Modify's USING; DELETE WHERE and the

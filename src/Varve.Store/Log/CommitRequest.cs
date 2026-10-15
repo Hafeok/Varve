@@ -30,6 +30,16 @@ public sealed class CommitRequest
     /// </summary>
     public Position? ExpectedPosition { get; init; }
 
+    /// <summary>
+    /// The scope of <see cref="ExpectedPosition"/> (ADR 0125): the graphs the
+    /// caller read and writes, <see cref="RequestTerm.None"/> for the default
+    /// graph. When given, the request conflicts only when a commit after the
+    /// expected position touched one of them (a <c>Settings</c> or
+    /// <c>Erasure</c> commit touches every graph); when null, any commit after
+    /// it conflicts. Ignored without an expected position.
+    /// </summary>
+    public IReadOnlyList<RequestTerm>? ExpectedGraphs { get; init; }
+
     /// <summary>What the commit records about itself.</summary>
     public CommitMetadata Metadata { get; init; } = new();
 

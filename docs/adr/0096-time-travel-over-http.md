@@ -10,6 +10,10 @@ Acceptance is the maintainer's act on the pull request.
 `Cache-Control`, `Last-Modified` and `Link`; see the end. The `410`
 alternative was proposed again and reversed: this ADR stands.
 
+**Amended 2026-10-13** (ADR 0068), by milestone Commit path of #91 under ADR
+[0126](0126-graph-versions-over-http.md): point 4's tag on a Graph Store read
+is the graph's version at the read's position; see the end.
+
 ## Context
 
 The store answers an as-of read at any closed position at or above the archive
@@ -122,3 +126,16 @@ keeps its `horizon` member.
 
 **The ledger.** `ETagIsThePosition` stands; the ruling of this block is
 `CacheHeadersByReadKind`, unaccepted until the maintainer accepts it.
+
+## Amendment, 2026-10-13 — a graph read is tagged with the graph's version
+
+Filed by milestone Commit path of #91, unaccepted until the maintainer
+accepts it (ADR 0066). Point 4 stands for every read but a Graph Store `GET`
+or `HEAD`, which is tagged with the graph's version at the read's position
+(ADR 0126): the head's, or as of the resolved position. `Varve-Position` is
+still the read's position, and point 5's `If-None-Match` compares with the
+graph's version, answered before any pin is taken.
+
+**The ledger.** `ETagIsThePosition` stands for every other read; the ruling
+of this block is `GraphReadTagIsTheGraphVersionAtTheRead`, unaccepted until
+the maintainer accepts it.

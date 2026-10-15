@@ -98,6 +98,7 @@ internal static class DerivedFormat
     internal const ushort KindCheckpoint = 2;
     internal const ushort KindState = 3;
     internal const ushort KindCommits = 4;
+    internal const ushort KindGraphs = 5;
     internal const int HeaderLength = 160;
 
     private const int Sections = Orders.Count * 2;

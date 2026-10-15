@@ -33,3 +33,10 @@ Varve.Sparql.Store.UpdateOptions.ReadScope.get -> Varve.Rdf.GraphScope!
 Varve.Sparql.Store.UpdateOptions.ReadScope.init -> void
 Varve.Sparql.Store.UpdateOptions.WriteScope.get -> Varve.Rdf.GraphScope!
 Varve.Sparql.Store.UpdateOptions.WriteScope.init -> void
+Varve.Sparql.Store.ExpectedGraphVersion
+Varve.Sparql.Store.ExpectedGraphVersion.ExpectedGraphVersion(Varve.Rdf.RdfTerm! graph, Varve.Store.Log.Position version) -> void
+Varve.Sparql.Store.ExpectedGraphVersion.ExpectedGraphVersion(Varve.Store.Log.Position version) -> void
+Varve.Sparql.Store.ExpectedGraphVersion.Graph.get -> Varve.Rdf.RdfTerm?
+Varve.Sparql.Store.ExpectedGraphVersion.Version.get -> Varve.Store.Log.Position
+Varve.Sparql.Store.UpdateOptions.ExpectedGraphs.get -> System.Collections.Generic.IReadOnlyList<Varve.Sparql.Store.ExpectedGraphVersion!>?
+Varve.Sparql.Store.UpdateOptions.ExpectedGraphs.init -> void

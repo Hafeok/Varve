@@ -101,6 +101,7 @@ are the value as of the last of those.
 |---|---|---|---|
 | `varve.store.commit.duration` | histogram | s | a commit, from entering the sequencer's queue to its outcome; `varve.outcome` is `committed`, `no_change`, `conflict`, `rejected` or `unavailable` |
 | `varve.store.sequencer.queue_depth` | up-down counter | {commit} | commits waiting for the sequencer |
+| `varve.store.commit.batch_size` | histogram | {commit} | the commits one write of the log made durable, with one flush (ADR 0124) |
 | `varve.store.pinned_reads` | up-down counter | {read} | views pinned and not yet released: open reads, live tails' bases |
 | `varve.store.projection.lag` | gauge | {position} | how far the default projection is behind the head; readiness tolerates `Varve:Health:ReadyLag` of it |
 | `varve.store.checkpoint.duration` | histogram | s | a checkpoint, written and read back |

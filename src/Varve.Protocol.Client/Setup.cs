@@ -410,7 +410,4 @@ public sealed partial class SparqlHttpClient
         body.Headers.ContentType = MediaTypeHeaderValue.Parse(mediaType);
         return SendAsync(new HttpRequestMessage(method, GraphAddress(graph)) { Content = body }, cancellationToken);
     }
-
-    private Uri GraphAddress(string? graph) =>
-        new(Dataset, graph is null ? "graphs?default" : "graphs?graph=" + Uri.EscapeDataString(graph));
 }

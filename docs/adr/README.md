@@ -259,6 +259,16 @@ Filed by milestone 6b ([#10](https://github.com/Hafeok/Varve/issues/10)), unacce
 | [0122](0122-rdf-xml-over-system-xml.md) | RDF/XML over `System.Xml`, with its cost measured and a size at which to revisit | Accepted; closes 0027's fixture note |
 | [0123](0123-json-ld-over-utf8-json.md) | JSON-LD 1.1 over `Utf8JsonReader`, as a tree in an arena; the direction is RDF 1.2's by default | Accepted |
 
+## Milestone Commit path — group commit and per-graph concurrency
+
+Filed by milestone Commit path ([#91](https://github.com/Hafeok/Varve/issues/91)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by Commit path, likewise unaccepted: 0011 (the expected position has a scope); 0057 (a request's scope is what it asked for); 0094 and 0096 (a graph's tag is its version); 0114 (a write waits in the sequencer's queue); 0119 (`graphs` on `409` and `412`).
+
+| # | Title | Status |
+|---:|---|---|
+| [0124](0124-group-commit.md) | Group commit: one storage write and one flush for the requests that wait | Filed unaccepted (Commit path, #91) |
+| [0125](0125-per-graph-optimistic-concurrency.md) | Per-graph optimistic concurrency and the graph-version index; amends 0011 and 0057 | Filed unaccepted (Commit path, #91) |
+| [0126](0126-graph-versions-over-http.md) | Graph versions over HTTP: `ETag` and `If-Match` per graph, `Varve-If-Graphs-Match`; amends 0094, 0096 and 0119 | Filed unaccepted (Commit path, #91) |
+
 ## Milestone Client and integration — on-behalf-of, setup, follow (first part)
 
 Filed by milestone Client and integration ([#93](https://github.com/Hafeok/Varve/issues/93)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by it, likewise unaccepted: 0009 (a register entry's scope is checked); 0097 (the format is `Varve.Delta`'s, read for ever); 0102 (`delta-format` in the basis); 0103 (a token provider; no store in the closure); 0112 (`varve.azp`); 0117 (`WithDataset`'s setup).

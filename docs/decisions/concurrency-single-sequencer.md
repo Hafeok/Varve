@@ -31,6 +31,10 @@ decisions:
     statement: "Varve.Store reads no ambient clock and no ambient random source, enforced by a banned-symbols list scoped to the deterministic projects"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-21T00:00:00Z
+  - key: ExpectedPositionHasAGraphScope
+    statement: "An expected position may carry a scope of graphs, and the request conflicts when some commit after it touched a graph in the scope, every graph when none is given"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-15T00:00:00Z
 ---
 
 The rulings of [ADR 0011](../adr/0011-concurrency-single-sequencer.md) still in force, one line each. The ADR is the

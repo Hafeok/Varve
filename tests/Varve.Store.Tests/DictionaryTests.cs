@@ -273,7 +273,7 @@ public class TermFilterTests
         }
 
         await dataset.CheckpointAsync(dataset.Head, T.Ct);
-        List<string> derived = [.. (await storage.Derived.ListAsync(T.Ct)).Select(n => n.Value).Where(n => n.StartsWith("index/runs/", StringComparison.Ordinal) || n.StartsWith("checkpoints/", StringComparison.Ordinal))];
+        List<string> derived = [.. (await storage.Derived.ListAsync(T.Ct)).Select(n => n.Value).Where(n => n.StartsWith("index/runs/", StringComparison.Ordinal) || (n.StartsWith("checkpoints/", StringComparison.Ordinal) && !n.EndsWith(GraphVersions.Suffix, StringComparison.Ordinal)))];
         Assert.NotEmpty(derived);
 
         foreach (string name in derived)

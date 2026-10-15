@@ -38,15 +38,22 @@ dataset, encrypts personal terms under a per-subject key, and erasure destroys
 the key — the log is untouched and the data is gone. Keys never live in the
 dataset directory.
 
+What that buys a system of record, against the stack it usually takes, and
+where Varve is the wrong tool: [`docs/why.md`](docs/why.md).
+
 ## Status
 
-**`v0.1.0-preview.5` is the latest release, and it closed the first part
+**`v0.1.0-preview.6` is the latest release, and it closed the first part
 ([#103](https://github.com/Hafeok/Varve/issues/103)) of milestone Client and
 integration ([#93](https://github.com/Hafeok/Varve/issues/93))**: on-behalf-of
 through a token provider, the change feed's format as the package
 `Varve.Delta`, `FollowAsync`, declared dataset setup and CORS.
-`v0.1.0-preview.4` before it closed milestone 6
-([#10](https://github.com/Hafeok/Varve/issues/10)), with its last slice, 6b:
+`v0.1.0-preview.5` before it closed milestone Commit path
+([#91](https://github.com/Hafeok/Varve/issues/91)): concurrent commits written
+together in one flush, and writers that conflict only over the graphs they
+read or write, with graph versions as HTTP tags.
+`v0.1.0-preview.4` before that closed milestone 6
+([#10](https://github.com/Hafeok/Varve/issues/10)) with its last slice, 6b:
 RDF 1.2 Turtle and TriG, RDF/XML and JSON-LD, read, written and negotiated
 over HTTP. `v0.1.0-preview.3` before that closed
 milestone Operability ([#12](https://github.com/Hafeok/Varve/issues/12)): the
@@ -282,7 +289,7 @@ is the Native AOT binary and nothing else:
 
 ```bash
 dotnet tool install --global Varve.Server --prerelease
-docker pull ghcr.io/hafeok/varve:v0.1.0-preview.3
+docker pull ghcr.io/hafeok/varve:v0.1.0-preview.6
 ```
 
 Serve one dataset on your machine. `--anonymous` is for development only: a
@@ -291,7 +298,7 @@ real deployment takes OIDC bearer tokens ([ADR 0037](docs/adr/0037-server-authen
 ```bash
 varve serve --anonymous --datasets-root "$PWD/data" --dataset people
 # or, listening on 8080 instead of 5000, with the datasets in the image's volume:
-docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.3 serve --anonymous --dataset people
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.6 serve --anonymous --dataset people
 ```
 
 The datasets root is an absolute path. Then write, read, go back, and read
@@ -353,6 +360,8 @@ accurately anywhere else, including here.
 
 ## Documentation
 
+- [`docs/why.md`](docs/why.md) — why Varve: what it replaces, and where it
+  is the wrong tool.
 - [`docs/brief.md`](docs/brief.md) — the project brief. The authority.
 - [`docs/adr/`](docs/adr/) — architecture decisions. Numbered, superseded
   rather than edited.

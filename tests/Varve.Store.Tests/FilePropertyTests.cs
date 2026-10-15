@@ -296,6 +296,10 @@ public sealed class FilePropertyTests
                 await using TemporaryDirectory directory = new(flushes: false);
                 await using Harness harness = await Harness.StartAsync(storage: await directory.OpenAsync());
                 await harness.RunAsync(script);
+
+                // Written one commit at a time, read strictly: only the newest
+                // commit may be torn (I6 as of specification 1.5).
+                harness.Options.TornWindow = 0;
                 (ReadOnlyMemory<byte> manifest, List<byte[]> segments) = await T.CopyLogAsync(harness.Storage);
 
                 if (segments.Count == 0 || harness.Model.Head < 2)

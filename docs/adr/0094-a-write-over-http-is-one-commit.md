@@ -10,6 +10,10 @@ percent-encoded)". Acceptance is the maintainer's act on the pull request.
 [0119](0119-headers-and-the-problem-catalogue.md): point 3's cause and W3C
 Trace Context; the `409` and `412` members; see the end.
 
+**Amended 2026-10-13** (ADR 0068), by milestone Commit path of #91 under ADR
+[0126](0126-graph-versions-over-http.md): a Graph Store request's `ETag` and
+`If-Match` name the graph's version; see the end.
+
 ## Context
 
 The store's write contract is one commit per request, an optional expected
@@ -138,3 +142,41 @@ table above is `headPosition` now.
 
 **The ledger.** `CauseIsTheRequestId` stands; the ruling of this block is
 `TraceIdIsNeverTheCause`, unaccepted until the maintainer accepts it.
+
+## Amendment, 2026-10-13 — a graph's tag is its version
+
+Filed by milestone Commit path of #91, unaccepted until the maintainer
+accepts it (ADR 0066). It changes points 1, 4 and 6 for the Graph Store
+Protocol only; SPARQL Update and the settings resource keep the dataset's
+position.
+
+- **Point 4.** A response to a Graph Store request carries
+  `Varve-Position` as before and `ETag: "<v>"`, `v` the graph's version (ADR
+  0125): after `Committed`, the commit's position; otherwise the version the
+  graph has.
+- **Point 6.** `If-Match` on a Graph Store `PUT`, `POST` or `DELETE` is
+  compared with the graph's version, not the head; a match becomes the
+  expected position with the graph as its scope. An empty graph matches no
+  tag.
+- **Point 1.** A `PUT` or `DELETE` without `If-Match` expects its pinned
+  position with the graph as its scope, since it read nothing else.
+
+The reasoning, the empty-graph rules and the update header are ADR 0126's.
+
+**Point 1's "`ConflictRetries` 0", for an update with no precondition.**
+Decided by the maintainer on the Commit path pull request. The alternative
+*Retrying conflicts on the server* is rejected above because "the client
+holds the `ETag` and decides". A client that sent neither `If-Match` nor
+`Varve-If-Graphs-Match` holds no tag: the only precondition its update had
+was the scope the server inferred (ADR 0057, amended 2026-10-13), and a
+`409` would hand it a decision it has nothing to make with. The server
+re-pins and re-evaluates such an update up to three times before answering
+`409`. A request with a precondition from the client is never retried, and a
+Graph Store write never is: a `PUT` that retried would replace a graph its
+client never saw, which is the case the rejection was about.
+
+**The ledger.** `IfMatchIsTheExpectedPosition` stands for every request but
+the Graph Store's; the ruling of this block is
+`GraphStoreTagIsTheGraphVersion`, and of the paragraph above
+`ServerRetriesOnlyItsOwnPrecondition`, unaccepted until the maintainer
+accepts them.

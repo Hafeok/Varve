@@ -1,74 +1,86 @@
 format: 1
 version: v0.1.0-preview.5
-title: Client and integration, part 1 — on-behalf-of, the delta format, follow, setup, CORS
+title: Commit path — group commit and per-graph concurrency
 date: 2026-10-13
 basis:
-  - issue: 103
+  - issue: 91
   - storage-format: 1
-  - delta-format: 1
-  - adr: "0127"
-  - adr: "0128"
-  - adr: "0129"
-  - adr: "0130"
-  - adr: "0131"
-  - adr: "0132"
-  - adr: "0133"
+  - adr: "0124"
+  - adr: "0125"
+  - adr: "0126"
 accepted-by: mailto:emil@okkels-klein.dk
 summary: |
-  ### Milestone Client and integration, part 1 — on-behalf-of, the delta format, follow, setup, CORS
+  ### Milestone Commit path — group commit and per-graph concurrency
 
-  What an application installs to use Varve. This release closes #103, the
-  first part of milestone Client and integration (#93); events, the
-  catalogue and the schema registry follow in its second part. The storage
-  format is unchanged, and the change feed's format, `delta-format: 1`, is
-  named in a release for the first time: from here on it is read for ever.
-  The seven ADRs are filed unaccepted and accepted on the pull request (ADR
-  0066).
+  Concurrent writers stop paying for each other. This release closes
+  milestone Commit path (#91): the sequencer writes the commits that queued
+  behind a flush in one write and one flush, by default on every durable
+  backend, and a writer conflicts only with commits that touched the graphs
+  it read or writes. The log's bytes for a commit are unchanged: a dataset
+  written by `v0.1.0-preview.1` opens as it is, and storage format 1 gains
+  a reader rule, not a byte. The three ADRs are filed unaccepted and
+  accepted on the pull request (ADR 0066).
 
   #### Added
 
-  - **`Varve.Delta`** (layer 3, ADR 0128): the change feed's format,
-    `application/vnd.varve.delta; version=1`, as a package of its own, with
-    the reader, the writer and the record model over `Varve.Rdf` and
-    `Varve.Turtle`. A consumer of the feed ships no store. Version 1 is read
-    for ever, and every release descriptor names the version it writes
-    (`delta-format`, ADR 0102 amended).
-  - **On-behalf-of** (ADR 0127): `SparqlHttpClient` takes a
-    `BearerTokenProvider`, called for every request, so one client serves
-    many users; a token past its expiry is never sent. The request span
-    carries the acting application as `varve.azp` (`Auth:ApplicationClaim`),
-    never the log. The operator guide states the attribution rule: a write
-    through on-behalf-of names the user, a write on the application's own
-    account names the application. `deploy/azure/entra/` creates the Entra
-    registrations, with federated credentials and no secret, and
-    `samples/Varve.OnBehalfOf.Sample` exchanges with MSAL.
-  - **`FollowAsync`** (ADR 0129): the commits followed from a position, in
-    pages and then live, each commit to a handler and then its position to
-    an `IFollowCheckpoint` the caller owns: at least once, resumable from any
-    position.
-  - **Dataset setup** (ADRs 0130, 0131): `DatasetSetup` and `ApplyAsync`
-    declare a dataset, its settings as desired state, a baseline that only
-    adds, and migrations each recorded in the system graph `varve:setup` in
-    its own commit; applying again commits nothing. A setup file in a
-    specified YAML subset; `AddVarve` applies it as an application starts;
-    `varve setup apply` from a pipeline; `Varve.Aspire`'s `WithDataset(…, setup:)`
-    in an AppHost.
-  - **CORS** (ADR 0132): `Varve:Cors:AllowedOrigins` and `MaxAge`, never
-    credentials, the headers a browser application needs; nothing at all
-    when unconfigured.
-  - The dependency register checks a package's `Scope` (ADR 0133): a
-    package admitted for `samples/` alone fails the gate anywhere else.
-  - The operator guide gains Datasets and Integrate.
+  - **Group commit** in `Varve.Store` (ADR 0124): requests queue in the
+    sequencer; a lone request is written at once, with no timer, and those
+    that arrive while a flush runs are staged in arrival order, each keeping
+    its own commit, position, timestamp and conflict check, and written
+    together, at most 1,024 records or 4 MiB. No request is answered before
+    its batch is durable. A projection failure ends the batch at that
+    member; a request cancelled while queued is never written.
+    Unset, `DatasetOptions.GroupCommit` follows the storage's durability:
+    on for files and the browser, off in memory, which has no flush to
+    share (`GroupCommitOptions.For`); set, it applies on every backend.
+    `Store:GroupCommit:MaxRecords` and `MaxBytes` in the server, and the
+    `varve.store.batch_size` histogram. On files, eight HTTP writers of
+    `INSERT DATA` go from 2,418 to 5,766 commits a second.
+  - **Per-graph optimistic concurrency** (ADR 0125, amending 0011 and
+    0057): `CommitRequest.ExpectedGraphs` gives the expected position a
+    scope, and the check conflicts only when a commit after it touched a
+    graph in the scope. A `Settings` or `Erasure` commit touches every
+    graph. `SparqlUpdate` infers the scope from what the request asked for —
+    a graph it found absent included — and from what it writes;
+    `UpdateOptions.ExpectedGraphs` states one. The graph-version index is
+    part of the default projection, persisted as `index/graphs` and beside
+    each checkpoint, rebuilt from the log when absent;
+    `Dataset.GraphVersion`, `GraphVersionAsync` and `ConflictsAsync`. Eight
+    writers of a read-modify-write, one graph each, met 87,904 conflicts on
+    files and now meet none.
+  - **Graph versions over HTTP** (ADR 0126, amending 0094, 0096, 0114 and
+    0119): a Graph Store `GET` is tagged with the graph's version, as of
+    the read's position; `If-Match` and `If-None-Match` on a Graph Store
+    write are the graph's, and `If-None-Match: *` on `PUT` creates only;
+    `Varve-If-Graphs-Match` states graph versions for a SPARQL Update. A
+    `409` names the graphs of the request's scope that changed and the
+    commits that changed them, at most 100, with `graphsTruncated`; the
+    server retries an inferred conflict up to three times and never one
+    the client stated. The service description says so.
+  - **`Varve.Protocol.Client`**: `SparqlHttpClient.VersionOf` reads a
+    graph's version from a response; `GetGraphAsync` with `ifNoneMatch`
+    and `asOf`; `PutGraphAsync`, `PostGraphAsync` and `DeleteGraphAsync`
+    with `ifMatch`; `CreateGraphAsync`, create-only; and `UpdateAsync` with
+    `ifGraphsMatch`.
 
   #### Changed
 
-  - **`Varve.Protocol.Client`** (breaking, ADR 0118): `AccessToken` is
-    removed in favour of the token provider; `ClientLimits.MaxResponseBytes`
-    is a `long`; the package no longer references `Varve.Store`, and
-    references `Varve.Delta`, `Varve.RdfXml`, `Varve.JsonLd` and the two
-    `Microsoft.Extensions` abstractions packages.
-  - **`Varve.Protocol`** (breaking): `ChangeFeedReader`, `FeedRecord` and
-    their types move to `Varve.Delta`, with the format's own header types.
-  - **`Varve.Aspire`**: `WithDataset` takes a setup file.
-  - **The `varve` command line** renews a token from the issuer before it
-    expires, and gains `setup apply`.
+  - **Breaking, `Varve.Protocol`**: `ISparqlUpdateExecutor` takes
+    `UpdatePreconditions` (`Varve.Protocol.Model`) in place of an expected
+    position; an implementation outside this repository changes its
+    signature.
+  - **Storage format 1, the reader** (ADR 0072, amended): a record broken
+    within the 4 MiB write window of the log's last good record reads as
+    a torn tail, because a batch is one write; the bytes of a record are
+    unchanged and an older log reads as before.
+  - **The spec** goes to 1.7: T1 step 1 is the scoped check, and the
+    default projection holds the graph-version index.
+  - **`Status`** checks that the README's image tags name the latest
+    release.
+
+  #### Not met
+
+  - **#35** stays open, unchanged by this release: `INSERT DATA` of 100,000
+    quads took 427.8–472.2 ms before it and 447.6–461.2 ms after, in one
+    interleaved run, allocating the same 258.88 MB, against pyoxigraph's
+    393.2 ms; the phases are measured in the benchmarks README.

@@ -50,7 +50,9 @@ storage contract that writes them is ADRs 0018, 0040 and 0071.
     LOCK                the lease (ADR 0075), held open; not a blob
     LOCK.owner          who holds it, for the refusal's message; not a blob
     checkpoints/<P>
+    checkpoints/<P>.graphs   the graph-version index at P (ADR 0125)
     index/state
+    index/graphs        the graph-version index at its position (ADR 0125)
     index/runs/<from>-<to>.<n>
     index/commits/<from>-<to>.<n>   the commit index (ADR 0089)
     bulk/<head>/…       a bulk load's spills (ADR 0081), deleted when it ends and on open
@@ -242,14 +244,23 @@ its first record.
    a copy takes each file as a prefix. Every offset is looked at, since a broken
    length says nothing about where the next record starts. Bytes of a later
    segment do not count: a copy may take two files at different moments
-   (specification 1.5, I6).
+   (specification 1.5, I6). **The write window** (specification 1.7, ADR
+   0124): a record of a later position that starts less than **4 MiB**
+   (`WriteWindowBytes`) after the start of the record that does not verify is
+   not evidence, since the commits of one batch share a flush and a power loss
+   may keep a later one; the writer never puts more than that many bytes of
+   records of two or more commits into one flush.
 3. **Closed trailer.** The segment must end exactly at a record boundary with no
    torn bytes, and the trailer's head and hash must equal `H` and `h`. The next
    segment must exist with the next id and continue the chain, or, if no later
    segment exists, the log ends. Anything else **refuses**. Records pending at a
    closed trailer continue in the next segment.
 4. **Abandoned trailer.** The segment may end with a torn or unclosed tail,
-   which is discarded; the trailer's head and hash must equal `H` and `h`. The
+   which is discarded; the trailer's head and hash must equal `H` and `h`.
+   Records after the position the trailer names are not read (specification
+   1.7): the recovery that sealed the segment discarded them, and a member of
+   a torn batch may carry a record header that verifies over a body that does
+   not. The
    next segment, if any, must continue the chain.
 5. **No trailer.** The segment is open-ended. Every later segment whose header
    does not continue the chain and whose first position is above `H + 1` is
@@ -405,6 +416,28 @@ Runs are listed oldest first; their ranges are contiguous from 0 to *to
 position*. The oldest may be a checkpoint, named as one. The file is replaced
 atomically, which is how the projection's position is persisted with its state
 (ADR 0016). Runs that no valid state names are deleted on open.
+
+### 7.3a Graph-version index — `derived/index/graphs`, `derived/checkpoints/<P>.graphs`
+
+Kind 5 (ADR 0125, specification 1.7). *To position* is the position the index
+is at, and *to hash* that commit's header hash; *from position* is 0. Its
+contents are its directory, at offset 0, little-endian:
+
+| Size | Field |
+|---|---|
+| 8 | the last position that touched every graph (a `Settings` or `Erasure` commit), 0 if none |
+| 8 | entry count |
+| 16 per entry | `u64` graph id, `u64` the position of the last commit that touched it |
+
+Entries are sorted by graph id, so one graph's version is a binary search of
+a few small reads. `index/graphs` is written at the head by maintenance;
+`checkpoints/<P>.graphs` after the checkpoint at `P`, and deleted before it
+when the checkpoint is dropped, so a crash leaves a checkpoint without its
+index, never the reverse; opening deletes any `<P>.graphs` whose checkpoint
+is not one of this log's. Both
+are a cache: one that does not verify, or names another commit than the log
+holds at its position, is a miss, and the index is rebuilt from the log after
+the newest one that verifies.
 
 ### 7.4 Commit index — `derived/index/commits/<from>-<to>.<n>`
 

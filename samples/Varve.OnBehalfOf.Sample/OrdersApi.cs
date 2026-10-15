@@ -77,7 +77,7 @@ public static class OrdersApi
         app.MapPost("/orders/{id}", async (string id, SparqlHttpClient varve, CancellationToken cancellationToken) =>
         {
             string update = "INSERT DATA { <https://shop.example/orders/" + Uri.EscapeDataString(id) + "> <https://shop.example/ns#status> \"placed\" }";
-            using HttpResponseMessage response = await varve.UpdateAsync(update, null, cancellationToken).ConfigureAwait(false);
+            using HttpResponseMessage response = await varve.UpdateAsync(update, ifMatch: null, cancellationToken).ConfigureAwait(false);
             return Results.StatusCode((int)response.StatusCode);
         }).RequireAuthorization();
 

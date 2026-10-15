@@ -36,6 +36,36 @@ public sealed class CheckpointPolicy
     public int Keep { get; init; }
 }
 
+/// <summary>
+/// How the sequencer groups commits into one write (ADR 0124). The requests
+/// that queue while a write is in flight are staged in arrival order and
+/// written together with one flush; a batch stops taking requests once it
+/// holds <see cref="MaxRecords"/> records or <see cref="MaxBytes"/> bytes, so
+/// it exceeds either by at most one commit. A request that finds the
+/// sequencer idle is written at once: there is no timer.
+/// </summary>
+public sealed class GroupCommitOptions
+{
+    /// <summary>1,024 records and 4 MiB.</summary>
+    public static GroupCommitOptions Default { get; } = new();
+
+    /// <summary>Every request written alone: the sequencer without group commit.</summary>
+    public static GroupCommitOptions Off { get; } = new() { MaxRecords = 1, MaxBytes = new ByteCount(1) };
+
+    /// <summary>
+    /// The default for a backend: <see cref="Off"/> on
+    /// <see cref="Durability.None"/>, which has no flush for a batch to share,
+    /// and <see cref="Default"/> on every durable one (ADR 0124).
+    /// </summary>
+    public static GroupCommitOptions For(Durability durability) => durability == Durability.None ? Off : Default;
+
+    /// <summary>The records past which a batch takes no more requests.</summary>
+    public int MaxRecords { get; init; } = 1024;
+
+    /// <summary>The bytes of records past which a batch takes no more requests.</summary>
+    public ByteCount MaxBytes { get; init; } = new(4L << 20);
+}
+
 /// <summary>Who runs a dataset's maintenance on <c>derived/</c> (ADR 0070, ADR 0042's amendment).</summary>
 public enum MaintenanceMode
 {
@@ -424,6 +454,16 @@ public sealed partial class Dataset
     // no persisted state.
     private async ValueTask PersistStateAsync(IndexVersion index, CancellationToken cancellationToken)
     {
+        // The graph-version index at the head of the state this round saw,
+        // naming its own position (ADR 0125): derived, rebuilt from the log
+        // after it when the dataset opens.
+        State seen = _state;
+
+        if (seen.Head > 0)
+        {
+            await seen.Graphs.WriteAsync(_storage.Derived, GraphVersions.HeadName, Id, seen.Commits.Entry(seen.Head).HeaderHash(), cancellationToken).ConfigureAwait(false);
+        }
+
         int disk = LeadingBlobRuns(index);
 
         if (disk == 0)
@@ -447,7 +487,8 @@ public sealed partial class Dataset
     /// <summary>
     /// The default projection's base on open: the persisted state when it names
     /// this log and is no older than the newest checkpoint, else the newest
-    /// checkpoint, else nothing. Runs no chosen state names are deleted.
+    /// checkpoint, else nothing. Runs no chosen state names are deleted, and
+    /// so is a checkpoint's graph-version index without its checkpoint.
     /// </summary>
     private async ValueTask<IndexVersion> LoadIndexAsync(State state, Checkpoint[] checkpoints, CancellationToken cancellationToken)
     {
@@ -490,6 +531,17 @@ public sealed partial class Dataset
         {
             // A bulk load's spills, left by a crash during the load (ADR 0081).
             if (name.Value.StartsWith(SpillSpace.Prefix, StringComparison.Ordinal))
+            {
+                await _storage.Derived.DeleteAsync(name, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            // A checkpoint's graph-version index whose checkpoint is not one
+            // of this log's (ADR 0125): left by an older store's drop, or
+            // copied in. Derived, so dropping it loses nothing.
+            if (name.Value.EndsWith(GraphVersions.Suffix, StringComparison.Ordinal)
+                && Checkpoint.TryParseName(new BlobName(name.Value[..^GraphVersions.Suffix.Length]), out long indexed)
+                && Array.FindIndex(checkpoints, c => c.Position == indexed) < 0)
             {
                 await _storage.Derived.DeleteAsync(name, cancellationToken).ConfigureAwait(false);
                 continue;

@@ -166,7 +166,7 @@ internal static class ServiceDescriptionEndpoint
             (self, Iri(Sd + "defaultEntailmentRegime"), Iri("http://www.w3.org/ns/entailment/Simple")),
             (self, Iri(Sd + "feature"), Iri(Varve + "VersionParameter")),
             (self, Iri(Rdfs + "comment"), Literal(
-                "A Varve dataset. Blank nodes are written with labels stable for the dataset's lifetime; a label sent back is a fresh node (ADR 0098). Varve-As-Of reads the past; Varve-Position and ETag name the position every response describes; If-Match on a write is its expected position.")),
+                "A Varve dataset. Blank nodes are written with labels stable for the dataset's lifetime; a label sent back is a fresh node (ADR 0098). Varve-As-Of reads the past; Varve-Position names the position every response describes, and ETag the position or, for a graph, the graph's version; If-Match on a write is its expected position, on a graph its version; Varve-If-Graphs-Match names the graphs an update read and their versions.")),
         ];
 
         foreach (string format in (ReadOnlySpan<string>)["SPARQL_Results_JSON", "SPARQL_Results_XML", "SPARQL_Results_CSV", "SPARQL_Results_TSV", "N-Triples", "Turtle", "N-Quads", "TriG", "RDF_XML", "JSON-LD"])
@@ -193,6 +193,11 @@ internal static class ServiceDescriptionEndpoint
         triples.Add((self, Iri(Varve + "asOfSelector"), Iri(Varve + "TimeSelector")));
         triples.Add((self, Iri(Varve + "conditionalRequest"), Literal("If-Match")));
         triples.Add((self, Iri(Varve + "conditionalRequest"), Literal("If-None-Match")));
+        triples.Add((self, Iri(Varve + "conditionalRequest"), Literal(Preconditions.IfGraphsMatchHeader)));
+
+        // A graph's tag is its version, and writers of other graphs do not
+        // conflict with a write to it (ADRs 0125, 0126).
+        triples.Add((self, Iri(Varve + "graphVersionETag"), RdfTerm.Literal("true"u8, Iri("http://www.w3.org/2001/XMLSchema#boolean"))));
         triples.Add((self, Iri(Varve + "graphStore"), Iri(prefix + "graphs")));
         triples.Add((self, Iri(Varve + "commits"), Iri(prefix + "commits")));
         triples.Add((self, Iri(Varve + "state"), Iri(prefix + "state")));

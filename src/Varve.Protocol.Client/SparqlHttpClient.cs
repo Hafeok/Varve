@@ -101,13 +101,105 @@ public sealed partial class SparqlHttpClient
         return SendAsync(request, cancellationToken);
     }
 
-    /// <summary>A graph by the Graph Store Protocol: the default graph for a null <paramref name="graph"/>.</summary>
-    public Task<HttpResponseMessage> GetGraphAsync(string? graph, string accept, CancellationToken cancellationToken)
+    /// <summary>
+    /// An update whose client read the graphs named in <paramref name="ifGraphsMatch"/>,
+    /// each at its version — a null key is the default graph — sent as
+    /// <c>Varve-If-Graphs-Match</c> (ADR 0126): <c>412</c> when one has moved,
+    /// <c>409</c> when one moves while it is evaluated, and only then.
+    /// </summary>
+    public Task<HttpResponseMessage> UpdateAsync(string update, IReadOnlyCollection<KeyValuePair<string?, long>> ifGraphsMatch, CancellationToken cancellationToken)
     {
-        HttpRequestMessage request = new(HttpMethod.Get, new Uri(Dataset, graph is null ? "graphs?default" : "graphs?graph=" + Uri.EscapeDataString(graph)));
-        request.Headers.TryAddWithoutValidation("Accept", accept);
+        ArgumentNullException.ThrowIfNull(update);
+        ArgumentNullException.ThrowIfNull(ifGraphsMatch);
+        HttpRequestMessage request = new(HttpMethod.Post, new Uri(Dataset, "sparql")) { Content = new StringContent(update, Encoding.UTF8, "application/sparql-update") };
+        StringBuilder header = new();
+
+        foreach ((string? graph, long version) in ifGraphsMatch)
+        {
+            header.Append(header.Length == 0 ? "" : ", ")
+                .Append(graph is null ? "default" : "<" + graph + ">")
+                .Append('=')
+                .Append(version.ToString(CultureInfo.InvariantCulture));
+        }
+
+        request.Headers.TryAddWithoutValidation("Varve-If-Graphs-Match", header.ToString());
         return SendAsync(request, cancellationToken);
     }
+
+    /// <summary>A graph by the Graph Store Protocol: the default graph for a null <paramref name="graph"/>.</summary>
+    public Task<HttpResponseMessage> GetGraphAsync(string? graph, string accept, CancellationToken cancellationToken) =>
+        GetGraphAsync(graph, accept, null, null, cancellationToken);
+
+    /// <summary>
+    /// A graph by the Graph Store Protocol, as of <paramref name="asOf"/> when
+    /// given; <paramref name="ifNoneMatch"/> is the version the caller holds,
+    /// answered <c>304</c> when the graph has not changed since. The response's
+    /// version is <see cref="VersionOf"/> (ADR 0126).
+    /// </summary>
+    public Task<HttpResponseMessage> GetGraphAsync(string? graph, string accept, long? ifNoneMatch, string? asOf, CancellationToken cancellationToken)
+    {
+        HttpRequestMessage request = new(HttpMethod.Get, GraphAddress(graph));
+        request.Headers.TryAddWithoutValidation("Accept", accept);
+
+        if (ifNoneMatch is long held)
+        {
+            request.Headers.TryAddWithoutValidation("If-None-Match", Tag(held));
+        }
+
+        if (asOf is not null)
+        {
+            request.Headers.TryAddWithoutValidation("Varve-As-Of", asOf);
+        }
+
+        return SendAsync(request, cancellationToken);
+    }
+
+    /// <summary>
+    /// Replaces a graph with <paramref name="body"/>, of <paramref name="contentType"/>,
+    /// under <paramref name="ifMatch"/>, the graph's version (ADR 0126): <c>412</c>
+    /// when it has moved; an empty graph matches no version.
+    /// </summary>
+    public Task<HttpResponseMessage> PutGraphAsync(string? graph, string body, string contentType, long? ifMatch, CancellationToken cancellationToken) =>
+        SendGraphAsync(HttpMethod.Put, GraphAddress(graph), body, contentType, ifMatch is long expected ? ("If-Match", Tag(expected)) : null, cancellationToken);
+
+    /// <summary>Creates a graph that holds no quad, or is <c>412</c>: a <c>PUT</c> with <c>If-None-Match: *</c> (ADR 0126).</summary>
+    public Task<HttpResponseMessage> CreateGraphAsync(string? graph, string body, string contentType, CancellationToken cancellationToken) =>
+        SendGraphAsync(HttpMethod.Put, GraphAddress(graph), body, contentType, ("If-None-Match", "*"), cancellationToken);
+
+    /// <summary>Adds <paramref name="body"/> to a graph, under <paramref name="ifMatch"/> when given (ADR 0126).</summary>
+    public Task<HttpResponseMessage> PostGraphAsync(string? graph, string body, string contentType, long? ifMatch, CancellationToken cancellationToken) =>
+        SendGraphAsync(HttpMethod.Post, GraphAddress(graph), body, contentType, ifMatch is long expected ? ("If-Match", Tag(expected)) : null, cancellationToken);
+
+    /// <summary>Deletes a graph, under <paramref name="ifMatch"/>, its version, when given (ADR 0126).</summary>
+    public Task<HttpResponseMessage> DeleteGraphAsync(string? graph, long? ifMatch, CancellationToken cancellationToken)
+    {
+        HttpRequestMessage request = new(HttpMethod.Delete, GraphAddress(graph));
+
+        if (ifMatch is long expected)
+        {
+            request.Headers.TryAddWithoutValidation("If-Match", Tag(expected));
+        }
+
+        return SendAsync(request, cancellationToken);
+    }
+
+    private Task<HttpResponseMessage> SendGraphAsync(HttpMethod method, Uri address, string body, string contentType, (string Name, string Value)? precondition, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(body);
+        ArgumentNullException.ThrowIfNull(contentType);
+        HttpRequestMessage request = new(method, address) { Content = new StringContent(body, Encoding.UTF8, contentType) };
+
+        if (precondition is { } header)
+        {
+            request.Headers.TryAddWithoutValidation(header.Name, header.Value);
+        }
+
+        return SendAsync(request, cancellationToken);
+    }
+
+    private Uri GraphAddress(string? graph) => new(Dataset, graph is null ? "graphs?default" : "graphs?graph=" + Uri.EscapeDataString(graph));
+
+    private static string Tag(long version) => "\"" + version.ToString(CultureInfo.InvariantCulture) + "\"";
 
     /// <summary>
     /// The commits from <paramref name="from"/> (exclusive) to <paramref name="to"/>
@@ -245,6 +337,20 @@ public sealed partial class SparqlHttpClient
 
     private bool Stale(BearerToken token) =>
         token.ExpiresOn != DateTimeOffset.MaxValue && token.ExpiresOn - TokenExpirySkew <= _clock!.GetUtcNow();
+
+    /// <summary>
+    /// The version a response's strong <c>ETag</c> names, or null: for a Graph
+    /// Store response the graph's version, the position of the last commit
+    /// that touched it; for any other, the position it describes (ADR 0126).
+    /// </summary>
+    public static long? VersionOf(HttpResponseMessage response)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+        return response.Headers.ETag is { IsWeak: false } tag
+            && long.TryParse(tag.Tag.AsSpan().Trim('"'), NumberStyles.None, CultureInfo.InvariantCulture, out long version)
+            ? version
+            : null;
+    }
 
     /// <summary>The <c>Varve-Position</c> a response carries, or null.</summary>
     public static long? PositionOf(HttpResponseMessage response)

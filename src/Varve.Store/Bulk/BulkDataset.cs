@@ -209,7 +209,10 @@ public sealed partial class Dataset
             Run[] runs = [.. state.Index.Runs, delta.Run];
             IndexVersion index = new(next, runs, runs.Length);
             delta = null!;
-            _state = new State(next, state.Commits.Append(in info, null), index, state.Checkpoints, null);
+            List<ulong> graphs = [];
+            GraphVersions.DistinctGraphs(runs[^1].Asserted(IndexOrder.Gspo), graphs);
+            GraphVersions.DistinctGraphs(runs[^1].Retracted(IndexOrder.Gspo), graphs);
+            _state = new State(next, state.Commits.Append(in info, null), index, state.Checkpoints, null, state.Graphs.With(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(graphs), next));
             Signal();
             await PersistStateAsync(index, cancellationToken).ConfigureAwait(false);
 

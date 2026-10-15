@@ -83,7 +83,7 @@ public sealed class OnBehalfOfTests : IAsyncLifetime
         using HttpClient http = OutboundHttp.CreateClient();
         SparqlHttpClient client = new(http, new Uri(_server.Address, "datasets/d/"), ClientLimits.Default, BearerToken.Fixed(token), TimeProvider.System);
 
-        using (HttpResponseMessage update = await client.UpdateAsync("INSERT DATA { <http://ex/order/1> <http://ex/placedBy> <http://ex/customer/7> }", null, TestContext.Current.CancellationToken))
+        using (HttpResponseMessage update = await client.UpdateAsync("INSERT DATA { <http://ex/order/1> <http://ex/placedBy> <http://ex/customer/7> }", ifMatch: null, TestContext.Current.CancellationToken))
         {
             Assert.Equal(HttpStatusCode.NoContent, update.StatusCode);
         }
@@ -125,7 +125,7 @@ public sealed class OnBehalfOfTests : IAsyncLifetime
         using HttpClient http = OutboundHttp.CreateClient();
         SparqlHttpClient client = new(http, new Uri(_server.Address, "datasets/d/"), ClientLimits.Default, BearerToken.Fixed(token), TimeProvider.System);
 
-        using (HttpResponseMessage update = await client.UpdateAsync("INSERT DATA { <http://ex/import/1> <http://ex/p> 1 }", null, TestContext.Current.CancellationToken))
+        using (HttpResponseMessage update = await client.UpdateAsync("INSERT DATA { <http://ex/import/1> <http://ex/p> 1 }", ifMatch: null, TestContext.Current.CancellationToken))
         {
             Assert.Equal(HttpStatusCode.NoContent, update.StatusCode);
         }

@@ -31,6 +31,10 @@ decisions:
     statement: "The service description advertises varve:resultSizeCap, varve:maxAsOfDistance and varve:commitsPageSize"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-10T00:00:00Z
+  - key: WritesQueueInTheSequencer
+    statement: "A write is not queued by the read limiter; it waits in the sequencer's queue and is written in a bounded batch"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-15T00:00:00Z
 ---
 
 The rulings of [ADR 0114](../adr/0114-resource-governance.md), filed unaccepted by milestone Operability of #12

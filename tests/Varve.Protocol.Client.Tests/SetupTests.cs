@@ -64,7 +64,7 @@ public class SetupTests
 
         // The application adds to the vocabulary graph a baseline also writes.
         using (HttpResponseMessage added = await client.UpdateAsync(
-            "INSERT DATA { GRAPH <" + Vocabulary + "> { <https://shop.example/ns#Refund> a <http://www.w3.org/2000/01/rdf-schema#Class> } }", null, C.Ct))
+            "INSERT DATA { GRAPH <" + Vocabulary + "> { <https://shop.example/ns#Refund> a <http://www.w3.org/2000/01/rdf-schema#Class> } }", ifMatch: null, C.Ct))
         {
             Assert.True(added.IsSuccessStatusCode);
         }

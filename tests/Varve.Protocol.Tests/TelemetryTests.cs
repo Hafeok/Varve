@@ -114,6 +114,9 @@ public class TelemetryTests
         // The queue: one in, one out, per commit.
         Assert.Equal([1L, -1L], metrics.Counter("varve.store.sequencer.queue_depth").Select(m => m.Value));
 
+        // One write, of one commit (ADR 0124): the batch size is per write.
+        Assert.Equal([1L], metrics.Counter("varve.store.commit.batch_size").Select(m => m.Value));
+
         using (DatasetView view = dataset.Pin())
         {
             Assert.Equal([1L], metrics.Counter("varve.store.pinned_reads").Select(m => m.Value));

@@ -56,13 +56,13 @@ public sealed class CorsTests
 
         Assert.False(read.Headers.Contains("Access-Control-Allow-Credentials"));
 
-        using HttpResponseMessage preflight = await server.Client.SendAsync(Preflight("datasets/d/sparql", App, "POST", "authorization, if-match, varve-as-of, last-event-id"), TestContext.Current.CancellationToken);
+        using HttpResponseMessage preflight = await server.Client.SendAsync(Preflight("datasets/d/sparql", App, "POST", "authorization, if-match, varve-if-graphs-match, varve-as-of, last-event-id"), TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.NoContent, preflight.StatusCode);
         Assert.Equal(App, Single(preflight, "Access-Control-Allow-Origin"));
         Assert.Contains("POST", Listed(preflight, "Access-Control-Allow-Methods"));
         string[] allowed = Listed(preflight, "Access-Control-Allow-Headers");
 
-        foreach (string header in (string[])["Authorization", "If-Match", "Varve-As-Of", "Last-Event-ID"])
+        foreach (string header in (string[])["Authorization", "If-Match", "Varve-If-Graphs-Match", "Varve-As-Of", "Last-Event-ID"])
         {
             Assert.Contains(header, allowed, StringComparer.OrdinalIgnoreCase);
         }

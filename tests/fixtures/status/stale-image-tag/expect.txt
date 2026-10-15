@@ -1,0 +1,2 @@
+# The quick start pulls the release before the one the descriptors name.
+the image tag 'ghcr.io/hafeok/varve:v0.1.0-preview.1' is not the latest release, v0.1.0-preview.2

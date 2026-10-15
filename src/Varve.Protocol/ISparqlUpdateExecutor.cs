@@ -9,6 +9,7 @@ using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Sparql.Algebra;
 using Varve.Store;
+using Varve.Protocol.Model;
 using Varve.Store.Log;
 
 namespace Varve.Protocol;
@@ -21,11 +22,15 @@ namespace Varve.Protocol;
 /// </summary>
 /// <remarks>
 /// <para>
-/// An implementation commits with the metadata as given, never
-/// retries a <see cref="CommitOutcome.Conflict"/> (ADR 0094), and, when
-/// an expected position is given, evaluates only at that
-/// position: anywhere else the answer is <see cref="CommitOutcome.Conflict"/>
-/// with the head, and nothing is evaluated.
+/// An implementation commits with the metadata as given. When the client
+/// stated a precondition it evaluates only where it holds — at the expected
+/// position, or where every graph named is at its version — and anywhere
+/// else answers <see cref="CommitOutcome.Conflict"/> with the head, having
+/// evaluated nothing; such a request is never retried (ADR 0094). With no
+/// precondition from the client, a conflict can come only from the
+/// executor's own inferred scope, which the client had no part in, and the
+/// executor re-pins and re-evaluates up to three times before answering it
+/// (ADRs 0057 and 0094, amended 2026-10-13).
 /// </para>
 /// <para>
 /// An operation that fails throws; the protocol answers it with
@@ -42,7 +47,7 @@ public interface ISparqlUpdateExecutor
         Dataset dataset,
         Update update,
         CommitMetadata metadata,
-        Position? expectedPosition,
+        UpdatePreconditions preconditions,
         CallerScope scope,
         CancellationToken cancellationToken);
 }

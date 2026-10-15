@@ -10,7 +10,7 @@
 // says about the project is published with each version, and cannot be
 // corrected afterwards. v0.1.0-preview.1 shipped one two milestones stale:
 // "Milestone 5c", "Nothing is published yet", 2,803 conformance cases where
-// the baseline held 2,927. So four statements are checked against what they
+// the baseline held 2,927. So five statements are checked against what they
 // describe, read from one tree (the working tree, or a commit):
 //
 //   1. README.md's "## Status" opens with a line naming the latest release
@@ -23,6 +23,9 @@
 //      exists.
 //   4. A docs/roadmap.md milestone heading says *(complete)* exactly when
 //      every issue the roadmap's table gives it is in a release's basis.
+//   5. Every container image tag README.md names (ghcr.io/hafeok/varve:<tag>)
+//      is the latest release: the quick start ships in the package too, and
+//      preview.4 shipped one pulling preview.3.
 //
 // "Released" counts every descriptor in releases/, not only the tagged ones:
 // at most one is pending, it is the one being cut, and the files must say
@@ -117,6 +120,7 @@ static class ProjectStatus
         string[] section = lines[(status + 1)..(end < 0 ? lines.Length : end)];
 
         CheckOpeningLine(readmePath, section, releases, milestones, problems);
+        CheckImageTags(readmePath, readme, releases, problems);
         CheckConformanceTotal(readmePath, section, passingPath, passing, problems);
         CheckPackageTable(readmePath, section, tree.Projects(), problems);
         CheckRoadmap(roadmapPath, roadmap, milestones, releases, problems);
@@ -127,10 +131,7 @@ static class ProjectStatus
         string readmePath, string[] section, List<Descriptor> releases,
         List<(string Label, string Id, int Issue)> milestones, List<string> problems)
     {
-        Descriptor? latest = releases
-            .Where(release => release.Version is not null && ReleaseFormat.Version.IsMatch(release.Version))
-            .OrderByDescending(release => release.Version!, Comparer<string>.Create(ReleaseFormat.Compare))
-            .FirstOrDefault();
+        Descriptor? latest = Latest(releases);
 
         if (latest is null)
         {
@@ -154,6 +155,31 @@ static class ProjectStatus
                 + $"the last one {latest.Version} closed: '{Clip(opening)}'");
         }
     }
+
+    // 5. Every image tag the README names is the latest release's version.
+    private static void CheckImageTags(string readmePath, string readme, List<Descriptor> releases, List<string> problems)
+    {
+        string? latest = Latest(releases)?.Version;
+
+        if (latest is null)
+        {
+            return;
+        }
+
+        foreach (Match tag in Regex.Matches(readme, @"ghcr\.io/hafeok/varve:(?<tag>[^\s`'""\)]+)", RegexOptions.CultureInvariant).Cast<Match>().DistinctBy(match => match.Groups["tag"].Value))
+        {
+            if (tag.Groups["tag"].Value != latest)
+            {
+                problems.Add($"{readmePath}: the image tag '{tag.Value}' is not the latest release, {latest}");
+            }
+        }
+    }
+
+    // The newest descriptor by version, cut or being cut.
+    private static Descriptor? Latest(List<Descriptor> releases) => releases
+        .Where(release => release.Version is not null && ReleaseFormat.Version.IsMatch(release.Version))
+        .OrderByDescending(release => release.Version!, Comparer<string>.Create(ReleaseFormat.Compare))
+        .FirstOrDefault();
 
     // 2. The conformance total is the baseline's line count.
     private static void CheckConformanceTotal(string readmePath, string[] section, string passingPath, string passing, List<string> problems)

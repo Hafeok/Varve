@@ -16,6 +16,10 @@ describes the flow between the two.
 | 3b — Turtle and TriG | [#7](https://github.com/Hafeok/Varve/issues/7) | | 8 — SHACL | [#13](https://github.com/Hafeok/Varve/issues/13) |
 | 4 — In-memory log | [#8](https://github.com/Hafeok/Varve/issues/8) | | 9 — Erasure mode | [#14](https://github.com/Hafeok/Varve/issues/14) |
 | 5 — SPARQL | [#9](https://github.com/Hafeok/Varve/issues/9) | | 1.0 definition | [#15](https://github.com/Hafeok/Varve/issues/15) |
+| Commit path | [#91](https://github.com/Hafeok/Varve/issues/91) | | Object storage | [#92](https://github.com/Hafeok/Varve/issues/92) |
+| Client and integration | [#93](https://github.com/Hafeok/Varve/issues/93) | | Learning track | [#94](https://github.com/Hafeok/Varve/issues/94) |
+| Inference | [#95](https://github.com/Hafeok/Varve/issues/95) | | Web UI | [#96](https://github.com/Hafeok/Varve/issues/96) |
+| Replication | [#97](https://github.com/Hafeok/Varve/issues/97) | | | |
 
 ## 1 — Foundation *(complete)*
 
@@ -511,47 +515,332 @@ release `v0.1.0-preview.3`.
   systemd unit, the full Entra and generic-issuer examples, the limits and
   the stale lease at Operability.
 
+## From preview.4 to 1.0 and after
+
+Milestones 1 to 7 and Operability above stay as they are, marked complete by
+their release descriptors. Every milestone below is one issue, one or more PRs,
+and one release descriptor naming that issue (ADR 0102); a milestone is
+complete when its descriptor is cut, and not before.
+
+### At a glance
+
+| # | Milestone | Release | Depends on | Status |
+|---|---|---|---|---|
+| 6b | RDF 1.2 Turtle/TriG, RDF/XML, JSON-LD | `0.1.0-preview.4` | — | issue #10, PR #85; released 2026-10-13 |
+| — | **Commit path**: group commit, per-graph concurrency | `preview.5` | 6b landed | issue #91 |
+| — | **Object storage**: the log on any object store, Azure first | `preview.6` | Commit path | issue #92 |
+| — | **Client and integration**: on-behalf-of, setup, follow, events | `preview.7` | Commit path | issue #93 |
+| — | **Learning track**: Varve for SQL developers and DDD practitioners | `preview.8` | Client and integration | issue #94 |
+| 8 | SHACL: validator, commit-time gating, incremental validation | `preview.9` | #87; Learning track (for its chapter 3 update) | issue #13 |
+| — | **Inference**: RDFS by rewriting, OWL 2 RL and rules as a projection | `preview.10` | 8 | issue #95 |
+| — | **Web UI**: operator console, then data explorer | `preview.11` | 8 (explorer); console may come after Object storage | issue #96 |
+| — | **Replication**: three tiers, promotion, fleet-level active-active | `preview.12` | Object storage, Commit path | issue #97 |
+| 9 | Erasure mode and row-level access | `preview.13` | 8, Replication | issue #14 |
+| 1.0 | The definition in #15, amended to include replication and inference | `1.0.0` | all above | issue #15 |
+
+Object storage and Client and integration can run in parallel; they share
+only `deploy/azure/` and `Varve.Aspire`, and the one that lands second merges
+`main` and owns reconciling both.
+
+Standing issues that ride along with whichever milestone touches their area:
+#61 (soak with a bounded vocabulary, decides ADR 0082's "dataset's own"),
+#35 (`INSERT DATA` throughput, with Commit path), #87 (before SHACL), #89 (called-workflow permissions gate), #88 (signing hook on resume), the four
+upstream reports #36–#39.
+
+---
+
+## Commit path *(complete)* — group commit and per-graph concurrency
+
+**Why first.** Both change the sequencer, which is the one component whose
+correctness everything else assumes; they are reviewed together and apart
+from anything that only adds surface. Object storage needs group commit
+(an object write is milliseconds), and the client milestone exposes graph
+versions.
+
+**Scope.** Group commit for every backend: requests arriving while a write is
+in flight are normalised in order and written as one batch; each keeps its
+own commit record and position. Per-graph optimistic concurrency: an expected
+position gains a scope of graphs; "no commit in (p, head] touched any graph
+in S", today's check being S = all graphs; a graph-version index in
+`derived/`; Graph Store `ETag` and `If-Match` per graph;
+`Varve-If-Graphs-Match` for SPARQL Update; inferred scope from what a
+request read and wrote.
+
+**Gate.** A batched history equals the unbatched one commit for commit;
+serialisability per scope over generated concurrent histories (disjoint
+scopes never conflict, overlapping ones always do when they should); the
+eight-writer benchmark with one graph per writer at zero conflicts; the write
+benchmark before and after on the file backend; every existing property and
+the protocol suites unchanged.
+
+## Object storage — the log on any object store, Azure first
+
+**Why.** Container Apps has no block disk, and Azure Files breaks the file
+backend's lease, `fsync` and memory-mapped reads. This is the deployment story
+for Azure, and with a provider-neutral design, for any object store.
+
+**Scope.** `Varve.Store.ObjectStorage` over a five-operation object-store
+contract (create-if-absent, replace-if-unchanged, ranged read, list, delete);
+`Varve.Store.Azure` as the first adapter; MinIO in CI standing in for S3. The
+log as write-once chunk objects, consolidated on seal with the log's bytes
+unchanged; a single writer by an epoch-fenced manifest, no leases;
+`derived/` on ephemeral disk, checkpoints mirrored, cold start as checkpoint
+plus tail. Identity-only credentials. `deploy/azure/` Bicep for Container Apps
+and `Varve.Aspire`'s Azure variant.
+
+**Gate.** The storage contract suite on Azurite and MinIO (real account on an
+optional leg); every milestone 4 and 6a property on the new backend; failure
+injection at every request (errors, throttling, lost responses, a superseded
+writer, a killed process, a bad checkpoint); determinism across backends;
+directory-to-container migration; cold-start time measured and documented.
+
+**Small self-hosted, documented and measured.** A Raspberry Pi 5 (arm64,
+8 GB) as a first-class target: the file backend on an NVMe SSD (not an SD
+card, whose `fsync` and write endurance do not suit a log), and the same Pi
+against MinIO on a NAS with `derived/` local. The operator guide gains the
+setup, the runtime limits for 8 GB, and measured commit latency, query
+throughput and cold start on the device; `linux-arm64` stays a CI target.
+
+## Client and integration — on-behalf-of, setup, follow, events
+
+**Why.** The server is ready to be used by applications; this is what an
+application installs. It also makes the commits resource a contract other
+systems can integrate against, in RDF and in plain JSON.
+
+**Scope.** A per-request token provider in `Varve.Protocol.Client` and the
+on-behalf-of chain in the Entra guide, Bicep and a sample, with the
+attribution rule stated. `DatasetSetup`, migrations recorded as data,
+`AddVarve` and `varve apply`. `FollowAsync` with a checkpoint; the delta
+format under the read-forever rule. Domain events as quads in an events
+graph, rendered as CloudEvents JSON through declared `SELECT` mappings, with
+an event catalogue graph, a JSON types list, AsyncAPI 3.0, a server-wide
+schema registry with versioned schemas and refusal of breaking changes. CORS
+in the server. The Web UI and revised Replication texts placed in the
+roadmap.
+
+**Gate.** Setup idempotence and partial failure; at-least-once resumption from
+every position; byte-identical event rendering on replay and rendering with
+the declaration in force at each position; catalogue, list and AsyncAPI agree
+at every position and respect grants; every breaking schema change refused;
+the on-behalf-of sample through the test issuer in CI.
+
+## Learning track — Varve for SQL developers and DDD practitioners
+
+**Why.** Most users think in SQL; the difficulty is modelling habits, not
+syntax. And Varve's fit with domain-driven design is its strongest argument
+and needs to be shown, not claimed.
+
+**Scope.** Eleven chapters in `docs/learn/`, each with a runnable sample in
+`samples/learn/` that CI executes and whose output the page quotes: rows as
+resources, links and patterns, schema without migrations, commits, deletion
+and history, temporal and audit, CDC and the outbox, multi-tenancy and
+row-level security, named graphs, from embedded to server, and Varve and DDD
+(the order domain built state-first and events-first). An appendix of SQL
+habits that hurt here.
+
+**Gate.** Every sample runs in CI and its output matches the page; the
+maintainer has read chapters 1 and 2 as a first reader and the draft changed
+accordingly; chapters 3 and 5 carry markers updated by milestones 8 and 9.
+
 ## 8 — SHACL
 
-Standalone with a W3C suite pass, then commit-time gating, then the incremental
-validation projection.
+As issue #13 states: the standalone validator to the W3C SHACL suite, then
+commit-time gating through the pre-commit validator, then incremental
+validation as a projection. Close-out adds: the learning track's chapter 3
+gains its SHACL section; event declarations may be validated by shapes.
 
-## 9 — Erasure mode
+## Inference — RDFS by rewriting, OWL 2 RL and rules as a projection
 
-Crypto-shredding: the key store, classifier and selector contracts, private
-terms, `T4 Erase`, access requests by key id, and the classification gate
-(ADRs 0020, 0021, 0023).
+**Why after SHACL.** It reuses SHACL's incremental-maintenance engine and its
+rule language (`sh:rule`), and consistency checking uses the same pre-commit
+hook SHACL gating uses. The reference design is GraphDB's, with the
+differences below.
 
-**After SHACL, not before the server.** The shape-derived classifier and the
-classification gate both depend on the validator, so erasure cannot be honestly
-finished before milestone 8 — a classifier with no shapes to derive from can
-only be hand-written, and the gate that stops unclassified personal data
-reaching the log is validator policy. Most datasets will also never turn
-erasure mode on, which is the second reason it does not belong earlier.
+**Scope.** Ontologies stay ordinary data in a TBox graph, versioned and
+queryable as of any position. Three tiers matched to the OWL 2 profiles:
+(1) query-time rewriting for RDFS and OWL 2 QL, selected through the SPARQL
+1.1 entailment regimes and advertised as `sd:entailmentRegime`, default
+none; (2) OWL 2 RL and custom rules (SPARQL `CONSTRUCT`, SHACL `sh:rule`)
+materialised as a projection: never written to the log, incrementally
+maintained from exact deltas (semi-naive for assertions, DRed or support
+counting for retractions), rebuilt in the background on a TBox change scoped
+to the affected predicates, lag visible on readiness, each entailment
+carrying its rule and premises so "why is this here" is a query; (3) OWL 2 RL
+inconsistency rules as a pre-commit validator. Borrowed from GraphDB:
+`varve:explicit` and `varve:implicit` views so a query can ask for asserted
+or inferred statements only, and `owl:sameAs` as equivalence classes with a
+representative rather than full materialisation. Different from GraphDB on
+purpose: the log stays asserted-only (writes do not pay for the closure; the
+closure is rebuildable and readable as of any position), and rules are
+standards (OWL 2 RL, SPARQL, SHACL), not a proprietary rule language. Out of
+scope: OWL 2 DL and EL, which belong to external reasoners fed from the
+commits stream.
 
-Milestone 6 reserves what a format change would otherwise cost: see there.
+**The decision that needs an ADR first.** Inference against graph-level
+grants: an entailment whose premises span graphs must not reveal its
+conclusion to a caller who cannot read every premise graph. Default:
+inference within a graph, with the TBox graph readable by all; opt-in:
+cross-graph entailments visible only to callers who can read every premise
+graph, checked against the recorded premises.
 
-Due here: **Q4** (how a shredded term appears in SPARQL results and
-serialisations), **Q5** (lookup by private value — scan and decrypt, or a blind
-index that weakens I10), **Q8** (key granularity when one term is about two data
-subjects), and **Q9** (whether the surviving structure counts as anonymous).
+**Gate.** The RDFS and OWL 2 RL entailment test cases (W3C OWL 2 test suite,
+RL profile; SPARQL 1.1 entailment regime tests where applicable) under the
+ratchet; incrementally maintained closure equals a from-scratch closure at
+every position of generated histories with retractions and TBox changes;
+as-of reads of entailments equal the closure computed at that position; the
+grant property: no response to a caller exposes an entailment whose premises
+it cannot all read; the `sameAs` closure bounded on a generated entity-
+resolution dataset.
 
-**Q9 is a legal question and Q4 has a legal edge.** The engineering answer to Q9
-is the classifier's ability to make identifying links private; whether that is
-enough is not an engineering answer at all.
+**Close-out.** The learning track's chapter 12 ("Ontologies and inference") replaces its placeholder; `docs/why.md`'s inference row becomes shipped.
 
-**Q6 is decided by ADR 0028**, after ADR 0020's browser verification failed at
-milestone 3a. `Aes.Create()` throws `PlatformNotSupportedException` on
-browser-wasm under .NET 10, and `AesGcm`, `AesCcm` and `ChaCha20Poly1305` all
-report `IsSupported == false` — no symmetric cipher of any kind runs in a
-browser. `RandomNumberGenerator`, SHA-256, HMAC-SHA-256, HKDF and
-`FixedTimeEquals` do, so 0028 builds a deterministic AEAD from HMAC-SHA-256
-alone in an SIV composition, synchronous on all three hosts. It carries a second
-condition that no build can settle: **external cryptographic review before
-milestone 9 ships**, because it is a custom instantiation of a standard
-composition rather than RFC 5297. If the review rejects it, the fallback is that
-erasure mode does not run in the browser, in its own ADR. Nothing before
-milestone 9 depends on any of this.
+## Web UI — the server seen through a browser
+
+After SHACL (milestone 8); the operator console may come earlier, with the
+Azure backend, since it is small and operators need it first.
+
+The API is the product and the UI is a client of it: every screen reads a
+resource the HTTP API already serves (datasets and their status, the commits
+list with paging and live tail, one commit's delta, as-of reads and diffs,
+settings under `ETag`, the problem catalogue for every error), authenticated
+with the same OIDC application and subject to the same per-graph scope. A
+screen that needs an endpoint the API lacks is an API gap, fixed in the API
+first; the UI never gets a route of its own.
+
+- **Form.** A static Blazor WebAssembly application. Varve's packages already
+  run in the browser (the WASM smoke parses, stores and evaluates), so the UI
+  parses a user's Turtle locally before sending it, renders results with the
+  readers the server uses, and can evaluate SPARQL client-side over a
+  downloaded graph. Served by `Varve.Server` under `/ui` as static files, or
+  from a CDN against the API; one single-page application either way, bearer
+  authentication and CORS from the server.
+- **Operator console** (first): datasets, projections and lag, the failed
+  state, limits, the lease, the settings resource, readiness. Small; it
+  belongs with the server.
+- **Data explorer** (second): a query editor with the results formats, graph
+  browsing under the caller's scope, version history from the commits
+  resource, a time slider over as-of reads, a diff view, and, after
+  milestone 8, validation reports, which are the thing people most want to
+  look at in a UI.
+- **Gate:** every screen's data comes through the public API and is covered
+  by the API's own tests; the UI's tests are about rendering and interaction,
+  run in headless Chromium like the browser smoke; no reflection, trimmed,
+  the bundle size reported.
+
+Needs before it starts: CORS in the server (the Azure backend session adds
+it), the Entra SPA application registration in `deploy/azure/`.
+
+## Replication — before 1.0 (revised: with the object-storage shape)
+
+The log is the unit of replication, and a replica is a projection of a log it
+does not write. Three tiers, each a concrete deployment, the first two
+needing almost no code once the Azure Blob backend exists.
+
+**What a replica is.** A `Varve.Server` opening a dataset in follower mode:
+it holds no writer epoch, refuses every write with `409` and a problem type naming
+the primary, and serves reads, feeds and diffs at the position it has reached,
+which every response carries as `Varve-Position` so a client always knows how
+far behind it is; `/health/ready` reports the lag against a configured bound.
+Pinned and as-of reads on a follower are the same code as on the primary; the
+follower's log is a copy and its `derived/` is its own, rebuilt from the
+checkpoints the primary mirrored. A follower never becomes a primary by
+itself: promotion is an operator's act (take the writer epoch, change the
+configuration), and the ADR says what it costs (the positions after the last
+replicated commit are gone if the old primary is unreachable; the header chain
+detects divergence if it comes back, ADR 0014).
+
+**Tier 1 — followers on the same log (one storage account).** Any number of
+read-only containers open the same blob container as followers. Nothing is
+copied: a follower lists the segments, lists and reads the open segment's new chunk objects
+from the position it has, and rebuilds `derived/` locally. This is the
+read-scaling story for Container Apps: the writer at `maxReplicas: 1`, a
+follower app at 1..n replicas, both against the same container with the
+writer's identity holding the writer epoch. Lag is one polling interval; the ADR
+fixes the interval and the backoff. Nothing here is Azure-specific; the same works on any object store the
+backend has an adapter for.
+
+**Tier 2 — a region away, by the storage account (RA-GRS).** The storage
+account's own geo-redundancy replicates the whole account, every chunk object
+included, to the paired region; with read access to the secondary enabled, a
+follower in that region opens the container at the secondary endpoint and
+tails it exactly as in tier 1. Lag is the account's last-sync time, which the
+follower reads from the account's statistics and reports as its own; nothing
+in Varve moves bytes. Failover is the account's failover: the operator
+initiates it, the secondary becomes primary with the account's stated RPO,
+and a `Varve.Server` in that region takes the writer epoch and becomes the writer.
+Bicep: two Container Apps environments in paired regions, one RA-GRS account,
+Front Door routing reads to the nearest and writes to the primary's region,
+the follower's `/health/ready` as the probe. This is the "concrete Azure
+setup" for a customer who wants a region away without running anything of
+their own; it is also the cheapest, because Azure already does it.
+
+**Tier 3 — log shipping, between accounts, regions, clouds or a disk.** The
+general mechanism, for a replica whose log is its own: a shipper tails the
+source (a container, a directory, or a remote server's commits resource and
+the snapshot manifest 7a recorded) and writes into the target with create-if-absent on the same chunk
+names, so a lost response cannot duplicate and the
+target's bytes equal the source's byte for byte (the determinism property with
+the shipper as the varied dimension). It works between any two object stores with conditional writes, or a
+directory, which is what a file-backend replica on a VM needs, and
+what a customer leaving Azure uses. The replica is a tier-1 follower of its
+own copy. Bicep: the shipper is the same server image with `--ship` in a
+second account or region, identity on both.
+
+**Gate.** Tier 1 and tier 3 under the failure-injection harness: the source
+crashing mid-append, the follower restarting at every position, the shipper
+losing responses; after every fault the follower equals the reference model
+at its reported position and never reports a position it has not reached.
+Tier 2 against a real RA-GRS account in the optional leg, with the lag
+reported from the account's last-sync time. Promotion rehearsed in every
+tier: a follower promoted, the old primary brought back, divergence detected
+by the chain and refused, the operator guide's runbook followed step by step
+in the test.
+
+**Active-active, as far as it goes.** One dataset has one writer, anywhere
+(ADR 0011); there is no multi-master, and this milestone does not add one.
+What the model supports is active-active at the fleet level: partition by
+dataset (one per customer or per specification, which graph-level grants
+already suggest), make each region the primary for its own datasets and a
+tier-1 or tier-2 follower for the others, and route writes by dataset. Every
+region accepts writes, no dataset has two writers, and moving a dataset's
+primary is an epoch takeover. The operator guide shows this shape with two regions
+and two datasets, and says in one sentence what it is not.
+
+**Not in this milestone.** Multi-writer on one dataset and conflict
+resolution: the single sequencer is the model, and a second writer is a
+second dataset. Branching and merging are the later possibility the brief keeps
+open, and they would be built on tier 3's shipped logs, not on this.
+
+### Recorded at milestone 7a: replica bootstrap over HTTP
+
+Recorded so the protocol tier 3 needs is not designed by accident.
+
+- **Replica bootstrap over HTTP follows Delta Sharing's split between a control
+  plane and a data plane.**
+  - `GET /datasets/{name}/snapshot?at=<position>` returns a **manifest**: the
+    checkpoint at or below the position and the log segments after it, each
+    with its size, its hash and a URL. The URL is direct, or presigned when the
+    files sit in object storage.
+  - The client fetches the files itself and opens them as ADR 0083's file copy
+    does.
+  - **The server streams nothing.** A bootstrap of a large dataset then costs
+    the server one manifest, not the bytes, and the data plane can be a CDN or
+    a storage account.
+  - Delta Sharing does the same for tables: its *Read Data from a Table*
+    answers with file URLs, not rows.
+  - Tailing after the bootstrap is the change feed (ADR 0097), from the
+    manifest's position.
+- **Why not now:** it presupposes an archive horizon (T3) and a storage layout
+  addressable by URL. Neither exists, and 7a's change feed already serves a
+  replica that starts from position 0.
+
+## 9 — Erasure mode and row-level access
+
+As issue #14 states, together with row-level access through the erasure
+classifier. Designed with replicas in place: only ciphertext is replicated
+and the key store is outside every dataset, so destroying a key erases on
+every replica at once; the gate proves it on a tier-1 and a tier-3 follower. Gated on ADR 0028's external cryptographic review. Close-out:
+the learning track's chapter 5 gains its erasure section.
 
 ## 1.0 definition
 
@@ -578,45 +867,26 @@ the following are true.
 - **Docs site with Mermaid rendering.** The specifications already carry
   diagrams that only render as source today.
 
+**Amended by the milestones above.** The definition in #15, plus what these milestones added to it (replication moved in on 2026-10-11, inference on 2026-10-12, both by the maintainer; #15 is amended to match): the public API
+freeze covers `Varve.Protocol.Client`; the delta format and the CloudEvents
+rendering are under the read-forever rule; the learning track is complete
+for every shipped feature; the soak gate holds under the shipped
+configuration (#61 closed); replication tiers 1 to 3 with promotion rehearsed; inference tiers 1 to 3 with the grant property; erasure ships as preview (unchanged).
+
 ### Excluded from 1.0, deliberately
 
 - **Erasure mode ships as preview only.** ADR 0028's second condition — external
   cryptographic review of a custom instantiation of a standard composition —
   governs whether it ships at all, and a feature whose cryptography is under
   review is not a feature a major version should promise.
-- **No replication.**
 - **No branching or merging of datasets.** Milestone 2 was required not to
   block it. That is not the same as building it, and conflating the two is how
   a 1.0 acquires a feature nobody designed.
 
-## Replication — after 1.0
-
-Not built and not in 1.0 (*Excluded from 1.0* above). Recorded at milestone 7a
-so the protocol it will need is not designed by accident.
-
-- **Replica bootstrap over HTTP follows Delta Sharing's split between a control
-  plane and a data plane.**
-  - `GET /datasets/{name}/snapshot?at=<position>` returns a **manifest**: the
-    checkpoint at or below the position and the log segments after it, each
-    with its size, its hash and a URL. The URL is direct, or presigned when the
-    files sit in object storage.
-  - The client fetches the files itself and opens them as ADR 0083's file copy
-    does.
-  - **The server streams nothing.** A bootstrap of a large dataset then costs
-    the server one manifest, not the bytes, and the data plane can be a CDN or
-    a storage account.
-  - Delta Sharing does the same for tables: its *Read Data from a Table*
-    answers with file URLs, not rows.
-  - Tailing after the bootstrap is the change feed (ADR 0097), from the
-    manifest's position.
-- **Why not now:** it presupposes an archive horizon (T3) and a storage layout
-  addressable by URL. Neither exists, and 7a's change feed already serves a
-  replica that starts from position 0.
-
 ## Not scheduled
 
-Reasoning, GeoSPARQL and full-text are out of scope until the core passes
-conformance. Branching and merging of datasets is a later possibility that
+GeoSPARQL and full-text are out of scope until the core passes conformance;
+reasoning is the Inference milestone above. Branching and merging of datasets is a later possibility that
 milestone 2 must not block.
 
 Whole-graph coupling metrics (instability, `I = Ce / (Ca + Ce)`) cannot be an

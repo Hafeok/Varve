@@ -25,10 +25,10 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`below-archive-horizon`](below-archive-horizon.md) | 404 | `horizon` | The position is below the archive horizon. |
 | [`method-not-allowed`](method-not-allowed.md) | 405 |  | The endpoint does not serve this method. |
 | [`not-acceptable`](not-acceptable.md) | 406 |  | Nothing in Accept is a format this endpoint writes. |
-| [`conflict`](conflict.md) | 409 | `position`, `expectedPosition`, `headPosition` | Another commit came first. |
+| [`conflict`](conflict.md) | 409 | `position`, `expectedPosition`, `headPosition`, `graphs`, `graphsTruncated` | Another commit came first. |
 | [`dataset-exists`](dataset-exists.md) | 409 |  | A dataset by that name exists. |
 | [`dataset-open`](dataset-open.md) | 409 |  | The dataset is open; close it first. |
-| [`precondition-failed`](precondition-failed.md) | 412 | `position`, `expectedPosition`, `headPosition` | If-Match does not name the head. |
+| [`precondition-failed`](precondition-failed.md) | 412 | `position`, `expectedPosition`, `headPosition`, `graphs` | The precondition does not name the current version. |
 | [`request-too-large`](request-too-large.md) | 413 | `limit` | The request body is over the server's limit. |
 | [`unsupported-media-type`](unsupported-media-type.md) | 415 |  | The request body is in a media type or charset this endpoint does not read. |
 | [`rejected`](rejected.md) | 422 | `report` | A validator rejected the commit. |

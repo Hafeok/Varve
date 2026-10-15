@@ -45,6 +45,9 @@ internal sealed class ServerSettings
 
     /// <summary>Cross-origin requests from a browser (ADR 0132); none allowed by default.</summary>
     public CorsSettings Cors { get; set; } = new();
+
+    /// <summary>How every dataset's store writes (ADR 0124).</summary>
+    public StoreSettings Store { get; set; } = new();
 }
 
 /// <summary>
@@ -59,6 +62,25 @@ internal sealed class CorsSettings
 
     /// <summary>The preflight's <c>Access-Control-Max-Age</c>.</summary>
     public TimeSpan MaxAge { get; set; } = TimeSpan.FromMinutes(10);
+}
+
+/// <summary>How every dataset's store writes (ADR 0124).</summary>
+internal sealed class StoreSettings
+{
+    public GroupCommitSettings GroupCommit { get; set; } = new();
+}
+
+/// <summary>
+/// Group commit (ADR 0124): the bounds of one write of the log. A batch takes
+/// no more requests past <see cref="MaxRecords"/> records, and never more than
+/// <see cref="MaxBytes"/> bytes of records once it holds two commits; at most
+/// the format's write window, 4 MiB.
+/// </summary>
+internal sealed class GroupCommitSettings
+{
+    public int MaxRecords { get; set; } = 1024;
+
+    public long MaxBytes { get; set; } = 4L << 20;
 }
 
 /// <summary>Telemetry (ADR 0112): what the request span records beyond its defaults. The exporter itself is the standard <c>OTEL_*</c> environment's.</summary>

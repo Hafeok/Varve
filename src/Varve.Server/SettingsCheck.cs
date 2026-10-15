@@ -43,6 +43,7 @@ internal static class SettingsCheck
         "Lease:WaitFor",
         "Telemetry:QueryText",
         "Cors:AllowedOrigins:*", "Cors:MaxAge",
+        "Store:GroupCommit:MaxRecords", "Store:GroupCommit:MaxBytes",
     ];
 
     /// <summary>The leaf keys under <paramref name="section"/> that match no known pattern, as <c>Varve:…</c> paths.</summary>
@@ -182,6 +183,11 @@ internal static class SettingsCheck
         if (settings.Lease.WaitFor < TimeSpan.Zero || settings.Lease.WaitFor > TimeSpan.FromMinutes(10))
         {
             errors.Add("Varve:Lease:WaitFor is between zero and ten minutes (ADR 0116).");
+        }
+
+        if (settings.Store.GroupCommit.MaxRecords < 1 || settings.Store.GroupCommit.MaxBytes < 1 || settings.Store.GroupCommit.MaxBytes > 4L << 20)
+        {
+            errors.Add("Varve:Store:GroupCommit: MaxRecords is at least one, and MaxBytes between one byte and the write window, 4 MiB (ADR 0124).");
         }
 
         // A server with no configured dataset serves what the admin API

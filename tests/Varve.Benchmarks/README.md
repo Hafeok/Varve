@@ -1235,3 +1235,134 @@ should not, is not separated here; it is what #61 stays open for. Run
 2026-10-10 06:00–08:01 UTC on `38d2361`, the shipped configuration's three
 knobs as environment variables, the machine otherwise idle after its
 first ten minutes.
+
+## Milestone Commit path — group commit and per-graph concurrency
+
+Measured 2026-10-13 on a 4-core Xeon @ 2.10 GHz, 15 GiB, Ubuntu 24.04 cloud
+container, .NET SDK 10.0.401: the AOT server of `main` at `2472e1a`
+(`v0.1.0-preview.4`, "before") and of this milestone's branch ("after"),
+each driven by this branch's `HttpLoad` — `dotnet run -c Release --project
+tests/Varve.Benchmarks -- --http varve:<binary>` — ten seconds a row after
+two of warm-up, client and server sharing the cores. Three pairs were run;
+the table is the last, before then after, and the spread of the others is
+stated below it. "Retried" is how many `409`s (and, for the Graph Store,
+`412`s) the clients met and sent again.
+
+| Store | Workload | Clients | Before: ops/s, p50, p99, retried | After: ops/s, p50, p99, retried |
+|---|---|---:|---|---|
+| memory | point query, 10 rows | 1 | 4,670, 0.18 ms, 0.51 ms, — | 4,382, 0.19 ms, 0.60 ms, — |
+| memory | point query, 10 rows | 8 | 24,011, 0.27 ms, 0.98 ms, — | 25,398, 0.25 ms, 1.04 ms, — |
+| memory | INSERT DATA, 1 quad | 1 | 3,424, 0.24 ms, 0.76 ms, — | 3,364, 0.24 ms, 0.76 ms, — |
+| memory | INSERT DATA, 1 quad | 8 | 11,333, 0.61 ms, 2.44 ms, — | 10,231, 0.69 ms, 2.34 ms, — |
+| memory | DELETE/INSERT WHERE, own graph | 1 | 2,033, 0.47 ms, 0.98 ms, 0 | 1,868, 0.51 ms, 1.38 ms, 0 |
+| memory | DELETE/INSERT WHERE, own graph | 8 | 5,812, 0.93 ms, 6.42 ms, 151,920 | 8,910, 0.80 ms, 2.43 ms, 0 |
+| memory | GET, PUT under If-Match, own graph | 1 | 2,203, 0.40 ms, 1.08 ms, 0 | 2,015, 0.44 ms, 1.20 ms, 0 |
+| memory | GET, PUT under If-Match, own graph | 8 | 2,040, 1.66 ms, 24.11 ms, 157,821 | 6,754, 1.06 ms, 3.44 ms, 0 |
+| file | point query, 10 rows | 1 | 4,299, 0.19 ms, 0.63 ms, — | 5,069, 0.17 ms, 0.47 ms, — |
+| file | point query, 10 rows | 8 | 25,573, 0.25 ms, 0.92 ms, — | 27,132, 0.24 ms, 0.80 ms, — |
+| file | INSERT DATA, 1 quad | 1 | 1,291, 0.72 ms, 1.84 ms, — | 1,255, 0.73 ms, 1.95 ms, — |
+| file | INSERT DATA, 1 quad | 8 | 2,418, 3.13 ms, 6.92 ms, — | 5,766, 1.25 ms, 3.57 ms, — |
+| file | DELETE/INSERT WHERE, own graph | 1 | 1,137, 0.82 ms, 2.28 ms, 0 | 1,039, 0.88 ms, 2.49 ms, 0 |
+| file | DELETE/INSERT WHERE, own graph | 8 | 1,211, 1.76 ms, 46.84 ms, 87,904 | 5,638, 1.31 ms, 3.83 ms, 0 |
+| file | GET, PUT under If-Match, own graph | 1 | 975, 0.97 ms, 2.56 ms, 0 | 922, 1.02 ms, 2.72 ms, 0 |
+| file | GET, PUT under If-Match, own graph | 8 | 845, 2.11 ms, 65.37 ms, 71,368 | 4,604, 1.62 ms, 4.34 ms, 0 |
+
+**The honest row first: the memory backend with eight writers of
+`INSERT DATA` is slower** — 10,231 a second against 11,333, and 10,122 and
+10,134 against 12,304 and 12,246 in the earlier pairs. The memory backend
+has nothing to flush, so a batch saves nothing, and answering a batch at
+once makes the requests arrive in bursts. With group commit off
+(`--Varve:Store:GroupCommit:MaxRecords=1`, an earlier build) the same row
+measured 11,824. ADR 0124 states it as a consequence; the milestone's report
+puts the alternative (off by default for `Durability.None`) to the
+maintainer.
+
+*Since decided (2026-10-14):* group commit is off by default on
+`Durability.None`. Re-measured with the before binary in one run on a slower
+machine: 10,158 a second before the milestone, 13,887 after (ADR 0124).
+
+**Group commit on files**: eight writers of `INSERT DATA` went from 2,418 to
+5,766 commits a second, p99 6.92 → 3.57 ms (2,457 → 5,171 and 2,538 → 4,954
+in the earlier pairs).
+
+**Per-graph concurrency**: with one graph per writer, eight writers of a
+read-modify-write `DELETE/INSERT … WHERE` met 87,904 conflicts on files and
+151,920 in memory before, and none after; throughput 1,211 → 5,638 and
+5,812 → 8,910. A `GET` then `PUT` under `If-Match` met 71,368 and 157,821
+`412`s and `409`s before, none after: 845 → 4,604 and 2,040 → 6,754.
+
+**One writer**: within the spread of runs. The after binary's one-client
+rows are 3–9% below the before binary's in this pair; across the three
+pairs the before binary's own one-client rows moved by up to 11% (memory
+`GET`/`PUT`: 2,100, 1,974, 2,203). The in-process run below is the cleaner
+reading of a lone commit.
+
+### The write benchmark on files, in process (`FileCommitBenchmarks`)
+
+`--filter '*FileCommitBenchmarks*' --warmupCount 2 --iterationCount 8
+--invocationCount 1 --unrollFactor 1`, before and after on the same machine,
+one after the other. Every commit here is alone in its batch: one writer.
+
+| Workload | Before | After |
+|---|---:|---:|
+| 100,000 quads in one commit | 212.3 ms ± 10.5, 135.7 MB | 216.9 ms ± 13.1, 135.7 MB |
+| 100 commits of 1,000 | 425.3 ms ± 22.0, 279.9 MB | 454.0 ms ± 24.0, 280.2 MB |
+| 1,000 commits of 1 into a loaded store | 243.1 ms ± 21.7, 10.0 MB | 272.6 ms ± 35.9, 11.5 MB |
+
+The idle commit — a lone request, written at once with no timer — costs
+0.27 ms against 0.24 ms here, inside the two runs' error, and 1.5 KB more
+allocated a commit: the queue's entry, its answer and the staging of one
+member. ADR 0124's "no added latency when idle" holds in the sense of no
+wait; the bookkeeping is measured, and small.
+
+### Concurrent writers in process (`--concurrent-commits 4`)
+
+Single-quad commits from 1 and 8 writers, group commit on and off, the final
+code; one run, four seconds a row after one of warm-up.
+
+| Store | Group commit | 1 writer | 8 writers |
+|---|---|---:|---:|
+| memory | on | 60,512 | 53,175 |
+| memory | off | 66,108 | 65,193 |
+| file | on | 4,495 | 10,976 |
+| file | off | 3,991 | 4,427 |
+
+### The graph-version index (`--graph-index`, ADR 0125)
+
+| Graphs | Index on the heap | `index/graphs` | Open | Open, rebuilt from the log | Version at the head | As of the checkpoint below |
+|---:|---:|---:|---:|---:|---:|---:|
+| 100,000 | 6.1 MiB (64 B a graph) | 1.5 MiB | 198 ms | 152 ms | 4.9 µs | 24 µs |
+| 1,000,000 | 61.0 MiB (64 B a graph) | 15.3 MiB | 263 ms | 254 ms | 6.6 µs | 16 µs |
+
+### INSERT DATA of N quads (#35, ADR 0120): before and after, one run
+
+The same workload as Operability's: the first N quads of `StoreDataset` as
+one `INSERT DATA`, parsing inside the time, one invocation an iteration into
+an empty store, `--warmupCount 2 --iterationCount 8`. Measured 2026-10-14 on
+the machine above, in one sequence: `main` at `2472e1a` (before), this branch
+(after), pyoxigraph 0.5.11 (median of 10 after 2 warm-up), this branch again,
+`main` again, so that the machine's drift falls on both sides.
+
+| N | Before, 1st | After, 1st | After, 2nd | Before, 2nd | pyoxigraph (median) | Allocated, both |
+|---:|---:|---:|---:|---:|---:|---:|
+| 10,000 | 58.2 ms ± 17.2 | 66.6 ms ± 21.0 | 53.2 ms ± 14.3 | 58.7 ms ± 6.4 | 29.0 ms | 28.87 MB |
+| 100,000 | 427.8 ms ± 25.7 | 447.6 ms ± 9.3 | 461.2 ms ± 24.9 | 472.2 ms ± 53.8 | 393.2 ms | 258.88 MB |
+
+**No regression.** The two sides interleave (before 427.8 and 472.2, after
+447.6 and 461.2 at 100,000), and they allocate the same bytes to the
+hundredth of a megabyte: the graph-version update adds nothing per quad. Its
+cost is per commit, one pass over the delta's graph ids into a rented array
+and, when they are one graph, no sort (`GraphVersions.Distinct`). Parsing
+alone took 152.8–160.9 ms on either side.
+
+**#35's bar is not met, before or after:** 1.09–1.20× pyoxigraph in this run
+on both. The 1.04–1.08× of Operability's record was a quieter run of the same
+code (its first run of the day put pyoxigraph at 394.2 ms and the fast path
+at 416.8 ms), and the 486.7 ms this section first recorded, on 2026-10-13,
+was this branch alone, with no before beside it. Inside the sequencer, one 100,000-quad commit takes about
+237 ms, measured by temporary timers that were not committed: resolving the
+request's terms and the operation map 59 ms, finalising the allocations,
+remapping and building the delta 49 ms, encoding and hashing the body 23 ms,
+the default projection's run in six orders and the graph versions 80 ms, the
+rest 26 ms. Parsing is a third of the whole. Group commit changes none of
+it: a lone request is a batch of one.

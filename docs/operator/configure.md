@@ -169,8 +169,8 @@ other client, so credentials mode is never allowed:
 
 - **Allowed methods:** `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE`.
 - **Allowed request headers:** `Authorization`, `Content-Type`, `Accept`,
-  `If-Match`, `If-None-Match`, `Last-Event-ID`, `Varve-As-Of`,
-  `traceparent`, `tracestate`.
+  `If-Match`, `If-None-Match`, `Varve-If-Graphs-Match` (ADR 0126),
+  `Last-Event-ID`, `Varve-As-Of`, `traceparent`, `tracestate`.
 - **Exposed response headers:** `Varve-Position`, `ETag`,
   `Varve-Request-Id`, `Link`, `Location`, `Retry-After`,
   `WWW-Authenticate`.
@@ -187,6 +187,20 @@ headers too, so the application can read the problem.
 
 The exporter itself is configured by the standard `OTEL_*` environment
 variables, not under `Varve:`; see [Observe](observe.md).
+
+## Writing the log — `Store` (ADR 0124)
+
+Commits that queue while a write of the log is in flight are written
+together, each still its own commit, with one flush: **group commit**. A
+commit that finds the dataset idle is written at once; there is no timer.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Store:GroupCommit:MaxRecords` | `1024` | a batch takes no more commits once it holds this many records; `1` writes every commit alone. A dataset in memory always writes each commit alone: it has no flush for a batch to share |
+| `Store:GroupCommit:MaxBytes` | 4 MiB | the most bytes of records a batch of two or more commits may hold; at most 4 MiB, the format's write window |
+
+`varve.store.commit.batch_size` ([Observe](observe.md)) shows how many
+commits each write carried.
 
 ## The runtime (ADR 0110)
 
