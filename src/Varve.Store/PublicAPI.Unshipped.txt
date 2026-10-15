@@ -458,3 +458,76 @@ Varve.Store.Log.CommitRequest.ExpectedGraphs.init -> void
 Varve.Store.Log.ConflictingCommit
 Varve.Store.Log.ConflictingCommit.Graphs.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.Log.RequestTerm>!
 Varve.Store.Log.ConflictingCommit.Position.get -> Varve.Store.Log.Position
+Varve.Store.IObjectStore
+Varve.Store.IObjectStore.CreateIfAbsentAsync(Varve.Store.Log.ObjectName name, System.ReadOnlyMemory<byte> content, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.ObjectVersion?>
+Varve.Store.IObjectStore.DeleteAsync(Varve.Store.Log.ObjectName name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
+Varve.Store.IObjectStore.ListAsync(Varve.Store.Log.ObjectName prefix, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Varve.Store.Log.ObjectEntry>!>
+Varve.Store.IObjectStore.ReadAsync(Varve.Store.Log.ObjectName name, Varve.Store.Log.ByteOffset offset, Varve.Store.Log.ByteCount length, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.ObjectRead?>
+Varve.Store.IObjectStore.ReplaceIfUnchangedAsync(Varve.Store.Log.ObjectName name, Varve.Store.Log.ObjectVersion expected, System.ReadOnlyMemory<byte> content, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.ObjectVersion?>
+Varve.Store.Log.Durability.Replicated = 3 -> Varve.Store.Log.Durability
+Varve.Store.Log.ObjectEntry
+Varve.Store.Log.ObjectEntry.Deconstruct(out Varve.Store.Log.ObjectName Name, out Varve.Store.Log.ByteCount Length, out Varve.Store.Log.ObjectVersion Version) -> void
+Varve.Store.Log.ObjectEntry.Equals(Varve.Store.Log.ObjectEntry other) -> bool
+Varve.Store.Log.ObjectEntry.Length.get -> Varve.Store.Log.ByteCount
+Varve.Store.Log.ObjectEntry.Length.init -> void
+Varve.Store.Log.ObjectEntry.Name.get -> Varve.Store.Log.ObjectName
+Varve.Store.Log.ObjectEntry.Name.init -> void
+Varve.Store.Log.ObjectEntry.ObjectEntry() -> void
+Varve.Store.Log.ObjectEntry.ObjectEntry(Varve.Store.Log.ObjectName Name, Varve.Store.Log.ByteCount Length, Varve.Store.Log.ObjectVersion Version) -> void
+Varve.Store.Log.ObjectEntry.Version.get -> Varve.Store.Log.ObjectVersion
+Varve.Store.Log.ObjectEntry.Version.init -> void
+Varve.Store.Log.ObjectName
+Varve.Store.Log.ObjectName.CompareTo(Varve.Store.Log.ObjectName other) -> int
+Varve.Store.Log.ObjectName.Equals(Varve.Store.Log.ObjectName other) -> bool
+Varve.Store.Log.ObjectName.IsPrefix.get -> bool
+Varve.Store.Log.ObjectName.ObjectName() -> void
+Varve.Store.Log.ObjectName.ObjectName(string! value) -> void
+Varve.Store.Log.ObjectName.StartsWith(Varve.Store.Log.ObjectName prefix) -> bool
+Varve.Store.Log.ObjectName.Value.get -> string!
+Varve.Store.Log.ObjectRead
+Varve.Store.Log.ObjectRead.<Clone>$() -> Varve.Store.Log.ObjectRead!
+Varve.Store.Log.ObjectRead.Bytes.get -> System.ReadOnlyMemory<byte>
+Varve.Store.Log.ObjectRead.Bytes.init -> void
+Varve.Store.Log.ObjectRead.Deconstruct(out System.ReadOnlyMemory<byte> Bytes, out Varve.Store.Log.ObjectVersion Version, out Varve.Store.Log.ByteCount Length) -> void
+Varve.Store.Log.ObjectRead.Equals(Varve.Store.Log.ObjectRead? other) -> bool
+Varve.Store.Log.ObjectRead.Length.get -> Varve.Store.Log.ByteCount
+Varve.Store.Log.ObjectRead.Length.init -> void
+Varve.Store.Log.ObjectRead.ObjectRead(System.ReadOnlyMemory<byte> Bytes, Varve.Store.Log.ObjectVersion Version, Varve.Store.Log.ByteCount Length) -> void
+Varve.Store.Log.ObjectRead.Version.get -> Varve.Store.Log.ObjectVersion
+Varve.Store.Log.ObjectRead.Version.init -> void
+Varve.Store.Log.ObjectVersion
+Varve.Store.Log.ObjectVersion.Equals(Varve.Store.Log.ObjectVersion other) -> bool
+Varve.Store.Log.ObjectVersion.ObjectVersion() -> void
+Varve.Store.Log.ObjectVersion.ObjectVersion(string! value) -> void
+Varve.Store.Log.ObjectVersion.Value.get -> string!
+Varve.Store.WriterSupersededException
+Varve.Store.WriterSupersededException.WriterSupersededException() -> void
+Varve.Store.WriterSupersededException.WriterSupersededException(string! message) -> void
+Varve.Store.WriterSupersededException.WriterSupersededException(string! message, System.Exception! innerException) -> void
+override Varve.Store.Log.ObjectEntry.GetHashCode() -> int
+override Varve.Store.Log.ObjectName.GetHashCode() -> int
+override Varve.Store.Log.ObjectName.ToString() -> string!
+override Varve.Store.Log.ObjectRead.Equals(object? obj) -> bool
+override Varve.Store.Log.ObjectRead.GetHashCode() -> int
+override Varve.Store.Log.ObjectRead.ToString() -> string!
+override Varve.Store.Log.ObjectVersion.GetHashCode() -> int
+override Varve.Store.Log.ObjectVersion.ToString() -> string!
+static Varve.Store.Log.ObjectEntry.operator !=(Varve.Store.Log.ObjectEntry left, Varve.Store.Log.ObjectEntry right) -> bool
+static Varve.Store.Log.ObjectEntry.operator ==(Varve.Store.Log.ObjectEntry left, Varve.Store.Log.ObjectEntry right) -> bool
+static Varve.Store.Log.ObjectName.operator !=(Varve.Store.Log.ObjectName left, Varve.Store.Log.ObjectName right) -> bool
+static Varve.Store.Log.ObjectName.operator <(Varve.Store.Log.ObjectName left, Varve.Store.Log.ObjectName right) -> bool
+static Varve.Store.Log.ObjectName.operator <=(Varve.Store.Log.ObjectName left, Varve.Store.Log.ObjectName right) -> bool
+static Varve.Store.Log.ObjectName.operator ==(Varve.Store.Log.ObjectName left, Varve.Store.Log.ObjectName right) -> bool
+static Varve.Store.Log.ObjectName.operator >(Varve.Store.Log.ObjectName left, Varve.Store.Log.ObjectName right) -> bool
+static Varve.Store.Log.ObjectName.operator >=(Varve.Store.Log.ObjectName left, Varve.Store.Log.ObjectName right) -> bool
+static Varve.Store.Log.ObjectRead.operator !=(Varve.Store.Log.ObjectRead? left, Varve.Store.Log.ObjectRead? right) -> bool
+static Varve.Store.Log.ObjectRead.operator ==(Varve.Store.Log.ObjectRead? left, Varve.Store.Log.ObjectRead? right) -> bool
+static Varve.Store.Log.ObjectVersion.operator !=(Varve.Store.Log.ObjectVersion left, Varve.Store.Log.ObjectVersion right) -> bool
+static Varve.Store.Log.ObjectVersion.operator ==(Varve.Store.Log.ObjectVersion left, Varve.Store.Log.ObjectVersion right) -> bool
+~override Varve.Store.Log.ObjectEntry.Equals(object obj) -> bool
+~override Varve.Store.Log.ObjectEntry.ToString() -> string
+~override Varve.Store.Log.ObjectName.Equals(object obj) -> bool
+~override Varve.Store.Log.ObjectVersion.Equals(object obj) -> bool
+Varve.Store.IStorageMaintenance
+Varve.Store.IStorageMaintenance.MaintainStorageAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
+Varve.Store.IStorageMaintenance.MaintenanceDue.get -> bool

@@ -283,6 +283,16 @@ Filed by milestone Client and integration ([#93](https://github.com/Hafeok/Varve
 | [0132](0132-cors.md) | CORS: configured origins, bearer tokens without credentials, and what a browser may read | Filed unaccepted (Client and integration, #93) |
 | [0133](0133-packages-scoped-to-samples.md) | Packages scoped to samples, and the register's scope check; amends 0009 | Filed unaccepted (Client and integration, #93) |
 
+## Milestone Object storage — the log on any object store, Azure first
+
+Filed by milestone Object storage ([#92](https://github.com/Hafeok/Varve/issues/92)), unaccepted until the maintainer accepts them on its pull request (ADR 0066).
+
+| # | Title | Status |
+|---:|---|---|
+| [0134](0134-the-object-store-contract.md) | The object-store contract: five operations, one package per provider, REST over `HttpClient` | Filed unaccepted (Object storage, #92) |
+| [0135](0135-the-log-as-chunk-objects.md) | The log as write-once chunk objects, consolidated on seal | Filed unaccepted (Object storage, #92) |
+| [0136](0136-one-writer-by-an-epoch-and-a-log-slot-fence.md) | One writer by an epoch, fenced by a log slot; no lease, no timer; refines 0075 and 0116 | Filed unaccepted (Object storage, #92) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |

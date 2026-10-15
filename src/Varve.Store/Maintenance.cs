@@ -142,7 +142,8 @@ public sealed partial class Dataset
         || DiskMergeDue(state.Index)
         || CheckpointDue(state)
         || CommitPagingDue(state)
-        || CommitMergeDue(state.Commits);
+        || CommitMergeDue(state.Commits)
+        || _storage is IStorageMaintenance { MaintenanceDue: true };
 
     private static int LeadingBlobRuns(IndexVersion index)
     {
@@ -265,6 +266,12 @@ public sealed partial class Dataset
         }
 
         if (CommitMergeDue(state.Commits) && await MergeCommitsAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return true;
+        }
+
+        if (_storage is IStorageMaintenance { MaintenanceDue: true } storage
+            && await storage.MaintainStorageAsync(cancellationToken).ConfigureAwait(false))
         {
             return true;
         }
