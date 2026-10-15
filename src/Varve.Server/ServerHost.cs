@@ -27,6 +27,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
+using Varve.Events.Model;
 using Varve.Protocol;
 using Varve.Protocol.Client;
 using Varve.Protocol.Model;
@@ -492,10 +493,13 @@ internal static partial class ServerHost
             Stopping = stopping,
             Telemetry = new TelemetryOptions { QueryText = settings.Telemetry.QueryText },
             Logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Varve.Protocol"),
+            EventSource = settings.Events.Source,
+            EventHubs = string.IsNullOrEmpty(settings.Events.EventHubs.Host) ? null : new EventHubsServer(settings.Events.EventHubs.Host, settings.Events.EventHubs.Hub!),
         };
 
         app.MapGroup("/datasets/{dataset}").RequireRateLimiting("reads").MapVarveDataset(options);
         app.MapVarveAdministration("/datasets", options);
+        app.MapVarveEventTypes("/events/types", options).RequireRateLimiting("reads");
         app.MapGet("/health/live", (RequestDelegate)(context => WriteJsonAsync(context, StatusCodes.Status200OK, "application/json", json => json.WriteString("status", "live")))).RequireRateLimiting("health");
         app.MapGet("/health/ready", (RequestDelegate)(context => ReadyAsync(context, datasets, settings.Health.ReadyLag, drain))).RequireRateLimiting("health");
     }

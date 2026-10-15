@@ -50,6 +50,9 @@ Each is the absolute IRI of the resource, under the dataset's base.
 | `varve:diff` | the diff, `…/diff?from=&to=`: the effective change between two positions in the delta format | on the service |
 | `varve:status` | the dataset's status, `…/status`: head, projection position and lag, checkpoints, settings | on the service |
 | `varve:settings` | the dataset's settings resource, `…/settings`: `GET` with an `ETag`, `PUT` whole, `PATCH` as a merge patch, under `If-Match` | on the service |
+| `varve:events` | the events resource, `…/events` (ADR 0143): the dataset's domain events as canonical CloudEvents, a range as `application/cloudevents-batch+json` or an open range as server-sent events | on the service |
+| `varve:eventTypes` | the event types resource, `…/events/types` (ADR 0144), with each type's schemas by version and revision under it and the AsyncAPI document beside it, `…/events/asyncapi` | on the service |
+| `varve:eventCatalogue` | an event catalogue graph the caller reads (ADR 0144); one triple per graph | on the service |
 | `varve:checkpoints` | the checkpoints resource, `…/checkpoints`: `GET` lists, `POST` takes one at a position | on the service |
 | `varve:feedFormat` | a media type the commits resource and the diff write: `application/vnd.varve.delta; version=1` (the delta format) and `text/event-stream` (the live tail's framing); one triple per format | on the service, literals |
 
@@ -72,14 +75,43 @@ Each an `xsd:integer`, the server's effective value.
 ## System graphs (ADR 0130)
 
 A graph named under `https://w3id.org/varve/ns#` is a system graph: Varve's
-components write it, and nothing in the server treats it differently from
-any other graph.
+components write it, and it is ordinary data under ordinary grants. One rule
+is special since ADR 0130's amendment of 2026-10-15: an event catalogue graph
+is governed by its source graph, read with its read and written with its
+write.
 
 | Term | Meaning | Where |
 |---|---|---|
 | `varve:setup` | the graph a dataset's setup records its applied migrations in, one node each | a graph name; written by `Varve.Protocol.Client`'s `ApplyAsync` |
 | `varve:Migration` | a migration of a dataset's setup that has been applied; the commit that asserted its node is the one that applied it, and the node is `https://w3id.org/varve/ns#setup/migration/{id}` | `rdf:type` of a node in `varve:setup` |
 | `varve:migrationId` | the migration's id, as its setup names it, an `xsd:string` | on a `varve:Migration` |
+
+## The event catalogue (ADR 0144)
+
+Declarations of domain events, in catalogue graphs
+`https://w3id.org/varve/ns#events-catalogue/{enc(G)}`, one per source graph
+G: `enc(G)` is `default` for the default graph, or G's IRI percent-encoded as
+one segment. Every node is an IRI. `docs/spec/events.md` §3.2 gives each
+term's count and value. The Management plane (#105) takes the same terms over
+as management declarations.
+
+| Term | Meaning | Where |
+|---|---|---|
+| `varve:events-catalogue/…` | a catalogue graph, governed by its source graph | a graph name |
+| `varve:EventType` | an event type's declaration | `rdf:type` of a type node |
+| `varve:eventName` | the short name, the CloudEvents `type`, unique in the dataset | on a type node, an `xsd:string` |
+| `varve:eventClass` | the class whose assertion in the source graph is the event, matched exactly | on a type node, an IRI |
+| `varve:eventVersion` | the declared version, an `xsd:integer` of at least 1 | on a type node |
+| `varve:eventSelect` | the `SELECT` over the event node, `?event` bound, whose projection is the fields | on a type node, an `xsd:string` |
+| `varve:eventSubject` | the projected variable whose value is the CloudEvents `subject` | on a type node, an `xsd:string`, optional |
+| `varve:eventRetired` | `true`: the type renders no new event; a declaration is retired, never removed | on a type node, optional |
+| `varve:eventField` | a field of the type | on a type node, a field node |
+| `varve:EventField` | a field's declaration | `rdf:type` of a field node |
+| `varve:fieldName` | the `data` member and the projected variable | on a field node, an `xsd:string` |
+| `varve:fieldDatatype` | the field's datatype, which fixes its JSON type | on a field node, an IRI |
+| `varve:fieldRequired` | whether every event carries the field | on a field node, an `xsd:boolean` |
+| `varve:fieldAs` | `"string"`: the member is always a JSON string | on a field node, optional |
+| `varve:fieldKeepLanguage` | `true`: a language-tagged value is an object with its language and direction | on a field node, optional |
 
 ## Names that share the prefix but are not terms
 

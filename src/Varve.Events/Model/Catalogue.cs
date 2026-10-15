@@ -76,6 +76,23 @@ public sealed class EventCatalogueSnapshot
     public bool TryGet(string name, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out CataloguedType? type) =>
         _byName.TryGetValue(name, out type);
 
+    /// <summary>The same position with only the types <paramref name="predicate"/> keeps: a caller's view of the catalogue.</summary>
+    public EventCatalogueSnapshot Where(Func<CataloguedType, bool> predicate)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        List<CataloguedType> kept = [];
+
+        foreach (CataloguedType type in Types)
+        {
+            if (predicate(type))
+            {
+                kept.Add(type);
+            }
+        }
+
+        return new EventCatalogueSnapshot(Position, kept);
+    }
+
     internal IReadOnlyList<CataloguedType> OfClass(RdfTerm? graph, RdfTerm @class) =>
         _byClass.TryGetValue((graph, @class), out List<CataloguedType>? list) ? list : [];
 

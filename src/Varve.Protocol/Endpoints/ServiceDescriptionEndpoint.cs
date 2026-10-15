@@ -8,6 +8,7 @@ using System.Globalization;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Varve.Events;
 using Varve.Protocol.Http;
 using Varve.Rdf;
 using Varve.Sparql;
@@ -127,6 +128,13 @@ internal static class ServiceDescriptionEndpoint
                     written.Write(dataset, Iri(Sd + "namedGraph"), graph);
                     written.Write(graph, Iri(Rdf + "type"), Iri(Sd + "NamedGraph"));
                     written.Write(graph, Iri(Sd + "name"), name!);
+
+                    // A catalogue graph the caller reads is linked as one (ADR 0144).
+                    if (EventCatalogue.TryGetSourceGraph(name!, out _))
+                    {
+                        written.Write(Iri(service), Iri(Varve + "eventCatalogue"), name!);
+                    }
+
                     await output.FlushIfDueAsync(cancellationToken).ConfigureAwait(false);
                 }
             }
@@ -205,6 +213,10 @@ internal static class ServiceDescriptionEndpoint
         triples.Add((self, Iri(Varve + "status"), Iri(prefix + "status")));
         triples.Add((self, Iri(Varve + "settings"), Iri(prefix + "settings")));
         triples.Add((self, Iri(Varve + "checkpoints"), Iri(prefix + "checkpoints")));
+
+        // The events (ADRs 0143, 0144): the rendered stream and the types list.
+        triples.Add((self, Iri(Varve + "events"), Iri(prefix + "events")));
+        triples.Add((self, Iri(Varve + "eventTypes"), Iri(prefix + "events/types")));
         triples.Add((self, Iri(Varve + "feedFormat"), Literal(global::Varve.Delta.DeltaFormat.Current.MediaType)));
         triples.Add((self, Iri(Varve + "feedFormat"), Literal(MediaTypes.EventStream)));
 

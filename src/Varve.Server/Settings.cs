@@ -48,6 +48,31 @@ internal sealed class ServerSettings
 
     /// <summary>How every dataset's store writes (ADR 0124).</summary>
     public StoreSettings Store { get; set; } = new();
+
+    /// <summary>Domain events (ADRs 0143, 0144): the base their URLs are built on, and the Event Hubs server the AsyncAPI document names.</summary>
+    public EventsSettings Events { get; set; } = new();
+}
+
+/// <summary>
+/// Domain events (ADRs 0143, 0144). <see cref="Source"/> is the base of every
+/// event's <c>source</c> and every schema URL, an absolute http or https URL
+/// ending in <c>/</c>; unset, the request's own base is used, and byte
+/// identity then holds per base. <see cref="EventHubs"/> names the Event Hubs
+/// server the AsyncAPI document lists, when events are published there.
+/// </summary>
+internal sealed class EventsSettings
+{
+    public string? Source { get; set; }
+
+    public EventHubsSettings EventHubs { get; set; } = new();
+}
+
+/// <summary>An Event Hubs namespace's host and an event hub's name, both or neither.</summary>
+internal sealed class EventHubsSettings
+{
+    public string? Host { get; set; }
+
+    public string? Hub { get; set; }
 }
 
 /// <summary>
