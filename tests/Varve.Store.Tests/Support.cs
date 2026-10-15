@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -88,17 +89,27 @@ internal static class T
 
     /// <summary>
     /// What a checkpoint is in derived/ (ADR 0139): the catalog and every
-    /// extent set it names, each blob with its bytes.
+    /// blob of the sets it names, each with its bytes. A set no catalog names —
+    /// one an object store keeps for Extent maintenance — is not part of it.
     /// </summary>
-    public static async Task<List<(BlobName Name, ReadOnlyMemory<byte> Bytes)>> CheckpointBlobsAsync(IStorage storage)
+    public static async Task<List<(BlobName Name, ReadOnlyMemory<byte> Bytes)>> CheckpointBlobsAsync(IStorage storage, DatasetId? dataset = null)
     {
         List<(BlobName, ReadOnlyMemory<byte>)> blobs = [];
+        var catalog = await ExtentCatalog.TryReadAsync(storage.Derived, dataset ?? Id, Ct);
 
-        foreach (BlobName name in await storage.Derived.ListAsync(Ct))
+        if (catalog is not { } read)
         {
-            if (name == ExtentCatalog.Name || name.Value.StartsWith(ExtentSet.Prefix, StringComparison.Ordinal))
+            return blobs;
+        }
+
+        blobs.Add((ExtentCatalog.Name, await ReadBlobAsync(storage, ExtentCatalog.Name)));
+        HashSet<BlobName> listed = [.. await storage.Derived.ListAsync(Ct)];
+
+        foreach (CatalogEntry set in read.Sets)
+        {
+            foreach (BlobName part in ExtentSet.BlobsOf(set.Name).Where(listed.Contains))
             {
-                blobs.Add((name, await ReadBlobAsync(storage, name)));
+                blobs.Add((part, await ReadBlobAsync(storage, part)));
             }
         }
 

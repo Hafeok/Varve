@@ -166,7 +166,8 @@ public sealed class ObjectPropertyTests
     /// Determinism across backends (§10, #92's gate): the same requests, with
     /// an injected clock and the same dataset id, give byte-identical logs on
     /// files and in objects, and once maintenance has consolidated them, the
-    /// same segment files as `.seg` objects.
+    /// same segment files as `.seg` objects; and the same checkpoints as the
+    /// same extents and the same catalog, byte for byte (ADR 0139).
     /// </summary>
     [Fact]
     public async Task the_same_requests_give_byte_identical_logs_on_files_and_in_objects()
@@ -178,11 +179,13 @@ public sealed class ObjectPropertyTests
                 await using ObjectHarness objects = new();
                 List<byte[]> onFiles;
                 List<byte[]> inObjects;
+                List<(BlobName Name, ReadOnlyMemory<byte> Bytes)> extentsOnFiles;
 
                 await using (Harness files = await Harness.StartAsync(maxRecordBytes: 256, segmentBytes: 2048, storage: await directory.OpenAsync()))
                 {
                     await files.RunAsync(script);
                     onFiles = (await T.CopyLogAsync(files.Storage)).Segments;
+                    extentsOnFiles = await T.CheckpointBlobsAsync(files.Storage);
                 }
 
                 Backend storage = await objects.OpenAsync();
@@ -208,6 +211,14 @@ public sealed class ObjectPropertyTests
                 }
 
                 Assert.True((await File.ReadAllBytesAsync(Path.Combine(directory.Path, "log", "MANIFEST"), T.Ct)).AsSpan().SequenceEqual(objects.Store.Get("log/MANIFEST")), "the manifests differ");
+
+                List<(BlobName Name, ReadOnlyMemory<byte> Bytes)> extentsInObjects = await T.CheckpointBlobsAsync(storage);
+                Assert.Equal(extentsOnFiles.Select(b => b.Name.Value).Order(StringComparer.Ordinal), extentsInObjects.Select(b => b.Name.Value).Order(StringComparer.Ordinal));
+
+                foreach ((BlobName name, ReadOnlyMemory<byte> bytes) in extentsOnFiles)
+                {
+                    Assert.True(bytes.Span.SequenceEqual(extentsInObjects.Single(b => b.Name == name).Bytes.Span), name.Value + " differs between the backends");
+                }
             },
             iter: ModelTests.Iterations / 4,
             print: script => script.ToString());

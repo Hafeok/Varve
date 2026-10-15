@@ -222,9 +222,15 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDisposable
         List<BlobName> names = [.. await _local.ListAsync(cancellationToken).ConfigureAwait(false)];
         string start = _names.Derived(string.Empty).Value;
 
-        foreach (ObjectEntry entry in await _store.ListAsync(_names.Derived(ExtentPrefix), cancellationToken).ConfigureAwait(false))
+        foreach (ObjectEntry entry in await _store.ListAsync(_names.Derived(string.Empty), cancellationToken).ConfigureAwait(false))
         {
-            names.Add(new BlobName(entry.Name.Value[start.Length..]));
+            string name = entry.Name.Value[start.Length..];
+
+            // An empty catalog — the wrapper alone — stands for none.
+            if (name.StartsWith(ExtentPrefix, StringComparison.Ordinal) || (name == CatalogName && entry.Length.Value > WrapperLength))
+            {
+                names.Add(new BlobName(name));
+            }
         }
 
         return names;
