@@ -923,6 +923,30 @@ Event Hubs server configured. It validates against the vendored AsyncAPI
 }
 ```
 
+### The pipeline
+
+`dotnet run eng/ci.cs`, with `WarningsNotAsErrors=CS0618` so that the run
+gets past the build:
+
+| Run | Result |
+|---|---|
+| 1 | Stopped at `test-events`. A property's oracle was weaker than the specification (above); fixed in the test. |
+| 2 | Stopped at `test-xsd`, on seed `bvKcTbaxJl71`. See below. |
+| 3 | `test-xsd` alone, unseeded: pass. Then every other job: pass. That covers the 44 jobs, conformance (baseline 5,507, 24 exempt, nothing regressed), `pack` and the decision report. |
+
+A plain `dotnet build Varve.slnx -c Release` fails on `CS0618` alone, at 22
+sites citing the new ledger keys. That is the expected red until the ADRs are
+accepted.
+
+**`test-xsd`'s failure is not this change's.**
+`time_on_timeline_agrees_with_the_runtime_calendar` draws years 1–9999 with
+offsets of up to ±14 hours. The pair it drew includes
+`9999-12-31T21:20:56-05:32`, whose UTC instant is in year 10000. The test's own
+conversion to `DateTimeOffset` throws on it, before `Varve.Xsd` is compared.
+No commit here touches `Varve.Xsd` or its tests, which are unchanged since
+6d5da09 (milestone 5), so `main` has the same rare failure. The fix belongs in
+its own change, not this one: narrow the generator's years to 2–9998.
+
 ### What this environment could and could not do
 
 - **Docker ran.** A daemon started in the container, so the Event Hubs
