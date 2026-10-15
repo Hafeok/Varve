@@ -9,6 +9,7 @@ using System.Collections.Immutable;
 using System.Text.Json;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
+using Varve.Events;
 
 namespace Varve.Protocol.Model;
 
@@ -83,6 +84,9 @@ public static class ProblemCatalogue
         new(ProblemType.RequestTooLarge, 413, "The request body is over the server's limit.", "limit"),
         new(ProblemType.UnsupportedMediaType, 415, "The request body is in a media type or charset this endpoint does not read."),
         new(ProblemType.Rejected, 422, "A validator rejected the commit.", "report"),
+        new(ProblemType.EventDeclarationInvalid, 422, "The event declaration is not well formed.", "declaration", "reason"),
+        new(ProblemType.EventSchemaIncompatible, 422, "The declaration change is incompatible with its version.", "declaration", "fields"),
+        new(ProblemType.EventNotRendered, 422, EventRenderer.ProblemTitle, "event", "eventType", "reason"),
         new(ProblemType.MemoryLimitExceeded, 422, "The request needs more memory than the server allows one request.", "limit", "actual"),
         new(ProblemType.AsOfDistanceExceeded, 422, "The as-of position is too far from its nearest checkpoint.", "limit", "actual"),
         new(ProblemType.TooManyLiveTails, 429, "The client holds too many live tails open.", "limit"),
@@ -99,6 +103,14 @@ public static class ProblemCatalogue
     /// <summary>The shape of <paramref name="type"/>.</summary>
     /// <exception cref="KeyNotFoundException">The type is not catalogued, which is a defect: every type the protocol writes is.</exception>
     public static ProblemShape Of(ProblemType type) => ByType[type.Value];
+
+    /// <summary>
+    /// Whether <paramref name="type"/> is one a dataset validator raises, so
+    /// that a rejection naming it is answered as that type (ADR 0119 amended,
+    /// ADR 0145).
+    /// </summary>
+    public static bool IsValidatorType(ProblemType type) =>
+        type == ProblemType.EventDeclarationInvalid || type == ProblemType.EventSchemaIncompatible;
 
     /// <summary>The shape of <paramref name="type"/>, when it is catalogued.</summary>
     public static bool TryGet(ProblemType type, out ProblemShape? shape) => ByType.TryGetValue(type.Value, out shape);

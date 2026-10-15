@@ -227,3 +227,10 @@ Varve.Protocol.Model.UpdatePreconditions.ExpectedPosition.init -> void
 Varve.Protocol.Model.UpdatePreconditions.IsImplicit.get -> bool
 Varve.Protocol.Model.UpdatePreconditions.UpdatePreconditions() -> void
 static Varve.Protocol.Model.UpdatePreconditions.None.get -> Varve.Protocol.Model.UpdatePreconditions!
+Varve.Protocol.EventCatalogueValidator
+Varve.Protocol.EventCatalogueValidator.EventCatalogueValidator() -> void
+Varve.Protocol.EventCatalogueValidator.Validate(Varve.Rdf.IQuadSource! proposed, Varve.Rdf.QuadDelta delta) -> Varve.Store.Log.ValidationVerdict
+static Varve.Protocol.Model.ProblemCatalogue.IsValidatorType(Varve.Protocol.Model.ProblemType type) -> bool
+static Varve.Protocol.Model.ProblemType.EventDeclarationInvalid.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.EventNotRendered.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.EventSchemaIncompatible.get -> Varve.Protocol.Model.ProblemType

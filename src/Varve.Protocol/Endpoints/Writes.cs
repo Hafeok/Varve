@@ -335,7 +335,8 @@ internal static class Writes
                 });
 
             case CommitOutcome.Rejected:
-                return HttpProblems.WriteAsync(context, ProblemType.Rejected, result.Reason, members => members.String("report", Report(result)));
+                return ValidatorProblem.TryWriteAsync(context, result.Report)
+                    ?? HttpProblems.WriteAsync(context, ProblemType.Rejected, result.Reason, members => members.String("report", Report(result)));
 
             default:
                 return QueryRun.WriteUnavailableAsync(exchange, result.Reason ?? "The dataset cannot commit now.");

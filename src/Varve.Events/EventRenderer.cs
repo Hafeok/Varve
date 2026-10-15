@@ -36,7 +36,7 @@ public sealed class EventRenderer
 
     /// <summary>The problem's title, as the protocol's problem catalogue states it.</summary>
     [DesignDecision(typeof(DomainEventsAsCloudevents.EventSurfaceCarriesDeclaredValues), Scope = ExceptionScope.Boundary)]
-    public const string ProblemTitle = "An event could not be rendered";
+    public const string ProblemTitle = "An event could not be rendered.";
 
     private readonly SparqlEvaluator _evaluator;
 

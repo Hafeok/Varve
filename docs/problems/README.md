@@ -32,6 +32,9 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`request-too-large`](request-too-large.md) | 413 | `limit` | The request body is over the server's limit. |
 | [`unsupported-media-type`](unsupported-media-type.md) | 415 |  | The request body is in a media type or charset this endpoint does not read. |
 | [`rejected`](rejected.md) | 422 | `report` | A validator rejected the commit. |
+| [`event-declaration-invalid`](event-declaration-invalid.md) | 422 | `declaration`, `reason` | The event declaration is not well formed. |
+| [`event-schema-incompatible`](event-schema-incompatible.md) | 422 | `declaration`, `fields` | The declaration change is incompatible with its version. |
+| [`event-not-rendered`](event-not-rendered.md) | 422 | `event`, `eventType`, `reason` | An event could not be rendered. |
 | [`memory-limit-exceeded`](memory-limit-exceeded.md) | 422 | `limit`, `actual` | The request needs more memory than the server allows one request. |
 | [`as-of-distance-exceeded`](as-of-distance-exceeded.md) | 422 | `limit`, `actual` | The as-of position is too far from its nearest checkpoint. |
 | [`too-many-live-tails`](too-many-live-tails.md) | 429 | `limit` | The client holds too many live tails open. |
