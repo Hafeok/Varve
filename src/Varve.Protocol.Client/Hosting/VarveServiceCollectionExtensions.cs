@@ -65,7 +65,7 @@ public static class VarveServiceCollectionExtensions
 
 /// <summary>
 /// Applies a dataset's setup as the host starts (ADRs 0130, 0131): the same
-/// <see cref="SparqlHttpClient.ApplyAsync"/> that <c>varve apply</c> and
+/// <see cref="SparqlHttpClient.ApplyAsync"/> that <c>varve setup apply</c> and
 /// <c>Varve.Aspire</c>'s <c>WithDataset</c> run. A setup that cannot be applied
 /// fails the start loudly, with the step, the status and the problem.
 /// </summary>

@@ -1,4 +1,4 @@
-# 0131 — Hosting the client: `AddVarve`, `varve apply`, and `WithDataset`'s setup
+# 0131 — Hosting the client: `AddVarve`, `varve setup apply`, and `WithDataset`'s setup
 
 ## Status
 
@@ -7,8 +7,14 @@
 request. Decided by the maintainer on the Client and integration plan:
 - `AddVarve` lives in `Varve.Protocol.Client`, with two
   `Microsoft.Extensions` abstractions packages admitted;
-- `varve apply` reads the setup file's YAML subset without a package;
-- `Varve.Aspire` runs `varve apply` from the server's image.
+- `varve setup apply` reads the setup file's YAML subset without a package;
+- `Varve.Aspire` runs `varve setup apply` from the server's image.
+
+Then, before reconciling with Commit path (#91), **the command is
+`varve setup apply`, not `varve apply`**: the Management plane
+([#105](https://github.com/Hafeok/Varve/issues/105)) takes `varve apply`, with
+`--plan`, for TriG desired-state convergence, and a name shipped with one
+meaning and given another later is the most expensive way to break a CLI.
 
 **Amends** ADR [0117](0117-varve-aspire.md), whose deferred client integration
 this is, by a dated block (ADR 0068).
@@ -22,7 +28,7 @@ application on the .NET generic host wants three things:
 - startup to fail loudly when the setup cannot be applied.
 
 The same setup is also wanted outside an application: from a deployment
-pipeline (`varve apply`), and from an Aspire AppHost that declares the dataset.
+pipeline (`varve setup apply`), and from an Aspire AppHost that declares the dataset.
 The maintainer asked for one class behind all three, so that "applied" means
 the same thing everywhere.
 
@@ -63,7 +69,10 @@ reserved to executables (ADR 0060).
    and are what every .NET host already loads. The versions are resolved from
    NuGet into the register. Nothing else in `src/` may reference them without
    its own decision.
-3. **`varve apply <setup.yaml>`**, a command of the CLI (ADR 0105).
+3. **`varve setup apply <setup.yaml>`**, a command of the CLI (ADR 0105).
+   - `setup` is a command group; `apply` is its one subcommand today.
+   - **`varve apply` is neither a command nor an alias.** That name is the
+     Management plane's (#105), and a test pins its absence.
    - It takes the target options every remote command takes (the server's URL
      and the token sources).
    - It reads the file with `DatasetSetupFile.Read` (ADR 0130), and calls the
@@ -74,7 +83,7 @@ reserved to executables (ADR 0060).
    - `Varve.Aspire` references nothing from Varve (layer 0, ADR 0117), so it
      cannot call `ApplyAsync`.
    - Instead it adds a container resource from the server's own image that
-     runs `varve apply` once against the server. It waits for the server to
+     runs `varve setup apply` once against the server. It waits for the server to
      be healthy, bind-mounts the file's directory read-only, and is named
      `{server}-setup-{dataset}`.
    - The application resource can `WaitForCompletion` on it.
@@ -111,7 +120,7 @@ reserved to executables (ADR 0060).
 - **Checked against the accepted ADRs** (0001–0130). Touches **0009** (the
   register), **0060** (why it is not a separate package), **0103**, **0105**
   (a new command), **0117** (amended). No conflict.
-- **Layer ownership.** `Varve.Protocol.Client`, layer 5. `varve apply` is
+- **Layer ownership.** `Varve.Protocol.Client`, layer 5. `varve setup apply` is
   `Varve.Server`'s, layer 6. `Varve.Aspire`, layer 0 by dependency.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.

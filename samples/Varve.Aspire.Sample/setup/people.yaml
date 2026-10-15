@@ -1,4 +1,4 @@
-# The people dataset's setup (ADR 0130), applied by `varve apply` from the
+# The people dataset's setup (ADR 0130), applied by `varve setup apply` from the
 # server's image once the server is healthy (ADR 0131). Applying it again
 # commits nothing.
 dataset: people

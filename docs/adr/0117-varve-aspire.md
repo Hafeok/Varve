@@ -106,7 +106,7 @@ maintainer accepts it (ADR 0066).
 
 - **Point 3.** `WithDataset(name, read, write, admin, setup)` takes an optional
   setup file (ADR 0130). Given one, the AppHost adds a container resource from
-  the server's image that runs `varve apply` against the server once it is
+  the server's image that runs `varve setup apply` against the server once it is
   healthy, with the file's directory mounted read-only. Under `WithOidc`, it
   authenticates by client credentials given with `WithSetupClient`.
   `Varve.Aspire` still references nothing from Varve.

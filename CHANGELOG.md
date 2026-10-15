@@ -52,7 +52,7 @@ The seven ADRs are filed unaccepted and accepted on the pull request (ADR
   adds, and migrations each recorded in the system graph `varve:setup` in
   its own commit; applying again commits nothing. A setup file in a
   specified YAML subset; `AddVarve` applies it as an application starts;
-  `varve apply` from a pipeline; `Varve.Aspire`'s `WithDataset(…, setup:)`
+  `varve setup apply` from a pipeline; `Varve.Aspire`'s `WithDataset(…, setup:)`
   in an AppHost.
 - **CORS** (ADR 0132): `Varve:Cors:AllowedOrigins` and `MaxAge`, never
   credentials, the headers a browser application needs; nothing at all
@@ -72,7 +72,7 @@ The seven ADRs are filed unaccepted and accepted on the pull request (ADR
   their types move to `Varve.Delta`, with the format's own header types.
 - **`Varve.Aspire`**: `WithDataset` takes a setup file.
 - **The `varve` command line** renews a token from the issuer before it
-  expires, and gains `apply`.
+  expires, and gains `setup apply`.
 
 ## [0.1.0-preview.4] - 2026-10-12
 

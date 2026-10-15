@@ -179,6 +179,29 @@ The session made each change on the branch:
 - **The descriptor** is `releases/v0.1.0-preview.5.yaml`, naming #103; its
   commit closes #103 and every other commit refers to #93.
 
+### The command's name, before reconciling with #91
+
+> One change before this reconciles with #91: the setup command is `varve setup apply`, not `varve apply`.
+>
+> The Management plane (#105) takes `varve apply` for TriG desired-state convergence, with `--plan`. Shipping `varve apply` now and giving it a different meaning later is the most expensive way to break a CLI, even in a preview. Rename the command, its doc page, the Aspire `WithDataset(setup:)` invocation and the tests. `varve apply` must not exist as a command or an alias.
+>
+> Also, in ADR 0130 (setup), state that settings in `DatasetSetup` are interim: the Management plane's ADR point 10 moves settings, like other declarations, to `/manage/`, and `DatasetSetup` keeps data-shaped work only (seed data, data migrations, the setup graph). One sentence and a link to #105 is enough; no code change for that part.
+>
+> #93's issue text now records both points.
+
+The session made both changes:
+
+- **`varve setup apply`.** `setup` is a command group in `Varve.Server`, and
+  `apply` its one subcommand. The Aspire setup container runs
+  `setup apply`; the Datasets and Run pages, ADRs 0117, 0130 and 0131, the
+  decision sets and the release summary say so.
+  `Varve_apply_is_no_command_and_no_alias` pins the rest: `varve apply` exits
+  2 as a usage error, and the help lists `setup` and no `apply`. The decision
+  set gains the key `VarveApplyIsNotSetup`.
+- **Settings are interim.** ADR 0130's decision on settings says the
+  Management plane's ADR, point 10 (#105), moves them to `/manage/`, and that
+  `DatasetSetup` keeps data-shaped work only. No code changed for it.
+
 ## The report
 
 ### What shipped, by ADR
@@ -238,7 +261,7 @@ All filed unaccepted (ADR 0066); every citation of a new ledger key is
     `Microsoft.Extensions.DependencyInjection.Abstractions` and
     `Microsoft.Extensions.Hosting.Abstractions` 10.0.12 are admitted, scoped
     to the client.
-  - `varve apply`.
+  - `varve setup apply`.
   - `Varve.Aspire`'s `WithDataset(…, setup:)`, `WithSetupClient` and
     `WaitForDatasetSetup`.
   - Both samples use the setup.
@@ -332,8 +355,9 @@ All filed unaccepted (ADR 0066); every citation of a new ledger key is
 - `AddVarve` applies at start, and a broken setup fails the start;
 - the setup file reads to its setup, and 21 constructs outside the subset are
   refused at their line and column;
-- `varve apply` creates, then finds the dataset as declared;
-- `varve apply` exits 2 for a file outside the subset and 1 for a refusal.
+- `varve setup apply` creates, then finds the dataset as declared;
+- `varve setup apply` exits 2 for a file outside the subset and 1 for a refusal;
+- `varve apply` is no command: it exits 2, and the help does not list it.
 
 **Others:**
 - CORS: 10 tests;

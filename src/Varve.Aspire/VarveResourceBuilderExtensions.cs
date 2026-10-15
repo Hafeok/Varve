@@ -123,7 +123,7 @@ public static class VarveResourceBuilderExtensions
     /// <remarks>
     /// With <paramref name="setup"/>, a setup file (ADR 0130), the AppHost adds
     /// a container from the server's own image, <c>{server}-setup-{dataset}</c>,
-    /// that runs <c>varve apply</c> once the server is healthy, with the file's
+    /// that runs <c>varve setup apply</c> once the server is healthy, with the file's
     /// directory mounted read-only (ADR 0131). Under <see cref="WithOidc"/> it
     /// authenticates as <see cref="WithSetupClient"/> says. A resource that
     /// needs the setup applied waits for it with <see cref="WaitForDatasetSetup"/>.
@@ -181,7 +181,7 @@ public static class VarveResourceBuilderExtensions
             : throw new InvalidOperationException("The dataset " + dataset + " on " + varve.Resource.Name + " was declared with no setup.");
     }
 
-    // The setup container (ADR 0131): the server's image, `varve apply`, the
+    // The setup container (ADR 0131): the server's image, `varve setup apply`, the
     // file's directory at /setup, after the server is healthy. Its image is
     // the server's as it stands when the application starts, so a later
     // WithImageTag on the server moves it too.
@@ -195,6 +195,7 @@ public static class VarveResourceBuilderExtensions
             .WithBindMount(directory, "/setup", isReadOnly: true)
             .WithArgs(context =>
             {
+                context.Args.Add("setup");
                 context.Args.Add("apply");
                 context.Args.Add("/setup/" + System.IO.Path.GetFileName(path));
                 context.Args.Add(server.HttpEndpoint);

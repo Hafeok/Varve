@@ -269,7 +269,7 @@ Filed by milestone Client and integration ([#93](https://github.com/Hafeok/Varve
 | [0128](0128-varve-delta-and-the-read-forever-rule.md) | `Varve.Delta`: the delta format as a package of its own, read for ever; amends 0097, 0102 and 0103 | Filed unaccepted (Client and integration, #93) |
 | [0129](0129-following-the-commits-resource.md) | Following the commits resource: `FollowAsync`, a checkpoint the caller owns, at least once | Filed unaccepted (Client and integration, #93) |
 | [0130](0130-client-side-setup-and-system-graphs.md) | Client-side setup: a declared dataset, migrations recorded as data, and the first system graph | Filed unaccepted (Client and integration, #93) |
-| [0131](0131-hosting-the-client.md) | Hosting the client: `AddVarve`, `varve apply`, and `WithDataset`'s setup; amends 0117 | Filed unaccepted (Client and integration, #93) |
+| [0131](0131-hosting-the-client.md) | Hosting the client: `AddVarve`, `varve setup apply`, and `WithDataset`'s setup; amends 0117 | Filed unaccepted (Client and integration, #93) |
 | [0132](0132-cors.md) | CORS: configured origins, bearer tokens without credentials, and what a browser may read | Filed unaccepted (Client and integration, #93) |
 | [0133](0133-packages-scoped-to-samples.md) | Packages scoped to samples, and the register's scope check; amends 0009 | Filed unaccepted (Client and integration, #93) |
 

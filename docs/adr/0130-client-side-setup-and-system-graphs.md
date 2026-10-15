@@ -50,7 +50,11 @@ Two details stop "just `POST` it" from being idempotent.
    - **The dataset's name and storage** (`File` or `Memory`).
    - **Its settings**, as a JSON object of the keys the settings resource
      takes (ADR 0118) that the setup means to hold; the keys it omits are
-     not its concern.
+     not its concern. **Settings here are interim:** the Management plane's
+     ADR, point 10 ([#105](https://github.com/Hafeok/Varve/issues/105)),
+     moves settings, like other declarations, to `/manage/`, and
+     `DatasetSetup` keeps data-shaped work only: seed data, data migrations
+     and the setup graph.
    - **Baseline sources**, ordered. Each is a name, a target graph (an IRI or
      the default graph), a media type Varve reads, and the content as bytes,
      a stream factory, or an embedded resource. Each is **added** to its
@@ -129,7 +133,7 @@ Two details stop "just `POST` it" from being idempotent.
    Grants are the server's configuration (ADR 0107), and the guide says so.
    A setup that needs a permission it lacks fails with the `403` it was given.
 7. **The setup file.** `DatasetSetupFile.Read(path)` reads a declared setup
-   from a YAML file (ADR 0131's `varve apply`).
+   from a YAML file (ADR 0131's `varve setup apply`).
    - **The format is a strict subset, specified on its documentation page:**
      - mappings of plain keys;
      - sequences of mappings;

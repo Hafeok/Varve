@@ -30,7 +30,7 @@ internal static class Cli
         root.Subcommands.Add(Export.Command(target, io));
         root.Subcommands.Add(Checkpoint.Command(target, io));
         root.Subcommands.Add(Feed.Command(target, io));
-        root.Subcommands.Add(Apply.Command(target, io));
+        root.Subcommands.Add(Setup.Command(target, io));
         root.Subcommands.Add(Lease.Command(io));
         root.Subcommands.Add(Serve.Command());
         ParseResult parsed = root.Parse(args);

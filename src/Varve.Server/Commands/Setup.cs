@@ -9,14 +9,23 @@ using Varve.Protocol.Client;
 namespace Varve.Server.Commands;
 
 /// <summary>
-/// <c>varve apply &lt;setup.yaml&gt; &lt;server&gt;</c> (ADRs 0130, 0131): makes a
+/// <c>varve setup apply &lt;setup.yaml&gt; &lt;server&gt;</c> (ADRs 0130, 0131): makes a
 /// dataset on a server what its setup file declares, through the same
 /// <see cref="SparqlHttpClient.ApplyAsync"/> an application's <c>AddVarve</c>
 /// runs at start. Exit 1 on a refusal, 2 on a file outside the subset.
+/// <c>varve apply</c> is not this command, nor an alias of it: the Management
+/// plane (#105) takes that name for TriG desired-state convergence.
 /// </summary>
-internal static class Apply
+internal static class Setup
 {
     internal static Command Command(Target target, Io io)
+    {
+        Command setup = new("setup", "A dataset's setup, as a setup file declares it (ADR 0130).");
+        setup.Subcommands.Add(Apply(target, io));
+        return setup;
+    }
+
+    private static Command Apply(Target target, Io io)
     {
         Argument<string> file = new("setup") { Description = "The setup file: the YAML subset docs/operator/datasets.md specifies." };
         Command command = new("apply", "Make a dataset on a server what a setup file declares: the dataset, its settings, its baseline and its migrations; applying it again commits nothing (ADR 0130).");
@@ -40,7 +49,7 @@ internal static class Apply
 
             if (!Target.IsUrl(server))
             {
-                throw new Cli.CommandException("apply takes the URL of a server, or of the dataset on it (…/datasets/" + setup.Name + "/); a setup is applied over HTTP.");
+                throw new Cli.CommandException("setup apply takes the URL of a server, or of the dataset on it (…/datasets/" + setup.Name + "/); a setup is applied over HTTP.");
             }
 
             await using Remote remote = await target.OpenRemoteAsync(parsed, io, DatasetAddress(server, setup.Name), cancellationToken).ConfigureAwait(false);

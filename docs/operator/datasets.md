@@ -111,10 +111,10 @@ This registers a `SparqlHttpClient` for the dataset, and a hosted service that
 applies the setup as the host starts. **A setup that cannot be applied fails
 the start**, with the step, the status and the problem body (ADR 0131).
 
-### From a pipeline: `varve apply`
+### From a pipeline: `varve setup apply`
 
 ```sh
-varve apply varve/orders.yaml https://varve.example/ --authority https://login.example/ --client-id deployer --client-secret "$SECRET"
+varve setup apply varve/orders.yaml https://varve.example/ --authority https://login.example/ --client-id deployer --client-secret "$SECRET"
 ```
 
 It takes the server's address, or the dataset's on it, and the token options
@@ -131,7 +131,7 @@ builder.AddVarve("varve")
     .WithDataset("orders", read: ["Varve.Read"], write: ["Varve.Write"], setup: "varve/orders.yaml");
 ```
 
-The AppHost runs `varve apply` from the server's own image once the server is
+The AppHost runs `varve setup apply` from the server's own image once the server is
 healthy, as the container `{server}-setup-{dataset}`. Another resource waits
 for it with `.WaitForDatasetSetup(varve, "orders")`.
 
