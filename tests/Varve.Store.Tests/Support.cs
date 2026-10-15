@@ -133,3 +133,49 @@ internal static class T
             + (term.Language.Length > 0 ? "@" + Encoding.UTF8.GetString(term.Language).ToLowerInvariant() + "--" + term.Direction : "^^<" + Encoding.UTF8.GetString(term.DatatypeIri) + ">"),
     };
 }
+
+/// <summary>
+/// A clock whose timers fire at once: for suites that make a backend retry
+/// many times, where how long a retry waits is no part of what is tested
+/// (ADR 0136: a wait decides how soon, never whether).
+/// </summary>
+internal sealed class InstantClock : TimeProvider
+{
+    public InstantClock(DateTimeOffset start) => Now = start;
+
+    public DateTimeOffset Now { get; set; }
+
+    public override DateTimeOffset GetUtcNow() => Now;
+
+    public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period) =>
+        new Instant(callback, state, dueTime);
+
+    private sealed class Instant : ITimer
+    {
+        private readonly TimerCallback _callback;
+        private readonly object? _state;
+
+        public Instant(TimerCallback callback, object? state, TimeSpan dueTime)
+        {
+            _callback = callback;
+            _state = state;
+            Change(dueTime, Timeout.InfiniteTimeSpan);
+        }
+
+        public bool Change(TimeSpan dueTime, TimeSpan period)
+        {
+            if (dueTime != Timeout.InfiniteTimeSpan)
+            {
+                ThreadPool.QueueUserWorkItem(_ => _callback(_state));
+            }
+
+            return true;
+        }
+
+        public void Dispose()
+        {
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+}

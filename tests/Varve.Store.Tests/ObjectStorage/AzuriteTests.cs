@@ -26,6 +26,9 @@ internal static class Azurite
 {
     public static string Account() => ServiceLegs.Require("azurite", "VARVE_AZURITE").TrimEnd('/');
 
+    /// <summary>The container <see cref="ContainerAsync"/> created last, for a test that opens it again with its own handler.</summary>
+    public static Uri? LastContainer { get; private set; }
+
     /// <summary>A fresh container, created with the development key.</summary>
     public static async Task<AzureBlobStore> ContainerAsync()
     {
@@ -39,6 +42,8 @@ internal static class Azurite
             using HttpResponseMessage response = await http.SendAsync(create, T.Ct);
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         }
+
+        LastContainer = container;
 
         return AzureBlobStore.Create(new AzureBlobStoreOptions { ContainerUrl = container, Clock = TimeProvider.System });
     }
