@@ -87,7 +87,7 @@ setup's baselines, which refuse blank nodes (ADR 0130), can carry it.
 | `varve:eventClass` | type node | 1 | an IRI: the class that marks an event node in G |
 | `varve:eventVersion` | type node | 1 | an `xsd:integer` ≥ 1 |
 | `varve:eventSelect` | type node | 1 | an `xsd:string`: a SPARQL `SELECT` query (§5.1) |
-| `varve:eventSubject` | type node | 0–1 | an `xsd:string`, the name of a projected variable whose value is the CloudEvents `subject` |
+| `varve:eventSubject` | type node | 0–1 | an `xsd:string`, the name of a projected variable whose value is the CloudEvents `subject`; not a field's name |
 | `varve:eventRetired` | type node | 0–1 | `true`: the type renders no new events (§3.4) |
 | `rdfs:comment` | type node | 0–1 | an `xsd:string`, the type's description |
 | `varve:eventField` | type node | 0–n | a field node |
@@ -126,12 +126,9 @@ PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
       SELECT ?order ?total ?placedAt WHERE {
         ?event ex:order ?order ; ex:total ?total ; ex:placedAt ?placedAt
       }""" ;
-    varve:eventField <https://example.org/types/OrderPlaced/order> ,
-                     <https://example.org/types/OrderPlaced/total> ,
+    varve:eventField <https://example.org/types/OrderPlaced/total> ,
                      <https://example.org/types/OrderPlaced/placedAt> .
 
-  <https://example.org/types/OrderPlaced/order> a varve:EventField ;
-    varve:fieldName "order" ; varve:fieldDatatype xsd:anyURI ; varve:fieldRequired true .
   <https://example.org/types/OrderPlaced/total> a varve:EventField ;
     varve:fieldName "total" ; varve:fieldDatatype xsd:decimal ; varve:fieldRequired true .
   <https://example.org/types/OrderPlaced/placedAt> a varve:EventField ;
@@ -249,7 +246,8 @@ function of the position and the declaration, and stays correct when I2 empties
 part of the commit's delta because a quad already held.
 
 The query must parse as a SPARQL 1.2 `SELECT` whose projection is exactly the
-field names, plus the subject variable when one is declared; it may use
+field names, plus the subject variable when one is declared, which is not a
+field; it may use
 `DISTINCT`, but not `GROUP BY`, aggregates, `ORDER BY`, `LIMIT`, `OFFSET`,
 `FROM`, `FROM NAMED` or `SERVICE` (§7). Exactly one row renders an event;
 none, or more than one, is a problem (§4.3).
@@ -378,7 +376,7 @@ in question) and `reason`:
 |---|---|
 | `graph` | a triple in a graph under `varve:events-catalogue/` that is not `enc(G)` of a graph |
 | `blank-node` | a blank node in a catalogue graph |
-| `term` | a required term missing, a term given twice, a value of the wrong kind, an unknown `varve:` term on a type or field node |
+| `term` | a required term missing, a term given twice, a value of the wrong kind, an unknown `varve:` term on a type or field node, a subject variable that is also a field |
 | `select` | the query does not parse, or is not of §5.1's form |
 | `field` | a field name twice in a type, a field node of two types, a datatype outside §5.2 |
 | `class-taken` | a class declared twice in one catalogue graph |

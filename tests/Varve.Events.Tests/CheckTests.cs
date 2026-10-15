@@ -77,6 +77,13 @@ public sealed class CheckTests
     }
 
     [Fact]
+    public void the_subject_variable_is_not_a_field()
+    {
+        Assert.Equal("term", Check([], (Placed with { Subject = "order" }).Quads(Terms.EventsGraph)).Reason);
+        Assert.True(Check([], (Placed with { Subject = "subject", Select = "PREFIX ex: <https://example.org/ns#> SELECT ?order ?total ?subject WHERE { ?event ex:order ?order OPTIONAL { ?event ex:total ?total } BIND(?order AS ?subject) }" }).Quads(Terms.EventsGraph)).Accepted);
+    }
+
+    [Fact]
     public void a_version_never_decreases()
     {
         DeclarationVerdict refused = Check((Placed with { Version = 3 }).Quads(Terms.EventsGraph), (Placed with { Version = 2 }).Quads(Terms.EventsGraph));
