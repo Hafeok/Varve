@@ -125,7 +125,10 @@ public sealed class PropertyTests
         {
             FieldSpec? after = now.FirstOrDefault(f => f.Name == before.Name);
 
-            if (after is null || after.Required != before.Required || Json(before) != Json(after))
+            // §7.2: the JSON type or format, and fieldAs and fieldKeepLanguage
+            // themselves, whatever the JSON type they lead to.
+            if (after is null || after.Required != before.Required || Json(before) != Json(after)
+                || after.AsString != before.AsString || after.KeepLanguage != before.KeepLanguage)
             {
                 return false;
             }
