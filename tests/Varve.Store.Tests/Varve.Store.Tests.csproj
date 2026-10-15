@@ -8,6 +8,7 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Varve.Store/Varve.Store.csproj" />
     <ProjectReference Include="../../src/Varve.Store.ObjectStorage/Varve.Store.ObjectStorage.csproj" />
+    <ProjectReference Include="../../src/Varve.Store.Azure/Varve.Store.Azure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

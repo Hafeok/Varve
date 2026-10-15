@@ -292,6 +292,7 @@ Filed by milestone Object storage ([#92](https://github.com/Hafeok/Varve/issues/
 | [0134](0134-the-object-store-contract.md) | The object-store contract: five operations, one package per provider, REST over `HttpClient` | Filed unaccepted (Object storage, #92) |
 | [0135](0135-the-log-as-chunk-objects.md) | The log as write-once chunk objects, consolidated on seal | Filed unaccepted (Object storage, #92) |
 | [0136](0136-one-writer-by-an-epoch-and-a-log-slot-fence.md) | One writer by an epoch, fenced by a log slot; no lease, no timer; refines 0075 and 0116 | Filed unaccepted (Object storage, #92) |
+| [0137](0137-storage-credentials-are-workload-identity.md) | Storage credentials are the workload's identity; a key only on loopback | Filed unaccepted (Object storage, #92) |
 
 ## Conformance — differential testing against Oxigraph
 
