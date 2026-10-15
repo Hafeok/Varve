@@ -27,6 +27,8 @@ decisions:
     statement: "Varve.Events' surface carries a declaration's values as the types the declaration states them in, short names, field names, queries, URLs and descriptions as string, a version and an ordinal as int, required-ness and retirement as bool; positions and timestamps are Varve.Delta's types"
   - key: EventsModelNamespace
     statement: "Varve.Events.Model is the package's model namespace: the declarations, the catalogue at a position, a commit's input, a rendered event, a verdict and the URLs, named by the contracts of Varve.Events"
+  - key: FollowEventsIsFollowAsyncsSibling
+    statement: "Varve.Protocol.Client follows the events resource with FollowEventsAsync, the same loop, checkpoint and at-least-once contract as FollowAsync, handing over one commit's events at a time as the canonical bytes received, with their id, type and sequence; the client never renders, so no evaluator enters its closure"
 ---
 
 The rulings of [ADR 0143](../adr/0143-domain-events-as-cloudevents.md), one line each. The ADR is the

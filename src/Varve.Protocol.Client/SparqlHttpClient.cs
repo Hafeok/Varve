@@ -226,6 +226,86 @@ public sealed partial class SparqlHttpClient
         return SendAsync(request, cancellationToken);
     }
 
+    /// <summary>
+    /// The events from <paramref name="from"/> (exclusive) to <paramref name="to"/>
+    /// (inclusive; a live tail with null, as server-sent events), as a CloudEvents
+    /// batch or as events, of one type when <paramref name="type"/> names one
+    /// (ADR 0143).
+    /// </summary>
+    public Task<HttpResponseMessage> EventsAsync(long from, long? to, string? type, bool eventStream, CancellationToken cancellationToken)
+    {
+        StringBuilder query = new("events?from=");
+        query.Append(from.ToString(CultureInfo.InvariantCulture));
+
+        if (to is long end)
+        {
+            query.Append("&to=").Append(end.ToString(CultureInfo.InvariantCulture));
+        }
+
+        if (type is not null)
+        {
+            query.Append("&type=").Append(Uri.EscapeDataString(type));
+        }
+
+        HttpRequestMessage request = new(HttpMethod.Get, new Uri(Dataset, query.ToString()));
+        request.Headers.TryAddWithoutValidation("Accept", eventStream ? "text/event-stream" : "application/cloudevents-batch+json");
+        return SendAsync(request, cancellationToken);
+    }
+
+    /// <summary>The dataset's event types, JSON, as of <paramref name="asOf"/> when given (ADR 0144).</summary>
+    public Task<HttpResponseMessage> EventTypesAsync(string? asOf, CancellationToken cancellationToken) =>
+        SendAsync(AsOf(new HttpRequestMessage(HttpMethod.Get, new Uri(Dataset, "events/types")), asOf), cancellationToken);
+
+    /// <summary>
+    /// A type's schema (ADR 0145): its latest revision, of its current version
+    /// or of <paramref name="version"/>, or revision <paramref name="revision"/>
+    /// of that version, which never changes.
+    /// </summary>
+    public Task<HttpResponseMessage> EventSchemaAsync(string type, int? version, long? revision, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type);
+        StringBuilder path = new("events/types/");
+        path.Append(Uri.EscapeDataString(type));
+
+        if (version is int n)
+        {
+            path.Append("/versions/").Append(n.ToString(CultureInfo.InvariantCulture));
+
+            if (revision is long r)
+            {
+                path.Append("/revisions/").Append(r.ToString(CultureInfo.InvariantCulture));
+            }
+        }
+        else if (revision is not null)
+        {
+            throw new ArgumentException("A revision is of a version.", nameof(revision));
+        }
+
+        return SendAsync(new HttpRequestMessage(HttpMethod.Get, new Uri(Dataset, path.ToString())), cancellationToken);
+    }
+
+    /// <summary>The dataset's AsyncAPI 3.0 document, as of <paramref name="asOf"/> when given (ADR 0144).</summary>
+    public Task<HttpResponseMessage> AsyncApiAsync(string? asOf, CancellationToken cancellationToken) =>
+        SendAsync(AsOf(new HttpRequestMessage(HttpMethod.Get, new Uri(Dataset, "events/asyncapi")), asOf), cancellationToken);
+
+    /// <summary>
+    /// The server-wide list of event types (ADR 0144): every dataset's types the
+    /// caller reads, each with its dataset, at <c>/events/types</c> on the
+    /// server the dataset is on.
+    /// </summary>
+    public Task<HttpResponseMessage> ServerEventTypesAsync(CancellationToken cancellationToken) =>
+        SendAsync(new HttpRequestMessage(HttpMethod.Get, new Uri(Dataset, "../../events/types")), cancellationToken);
+
+    private static HttpRequestMessage AsOf(HttpRequestMessage request, string? asOf)
+    {
+        if (asOf is not null)
+        {
+            request.Headers.TryAddWithoutValidation("Varve-As-Of", asOf);
+        }
+
+        return request;
+    }
+
     /// <summary>One commit, as one record of the line format (ADR 0118).</summary>
     public Task<HttpResponseMessage> CommitAsync(long position, CancellationToken cancellationToken)
     {

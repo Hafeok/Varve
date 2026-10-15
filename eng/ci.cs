@@ -208,6 +208,9 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-protocol", "Varve.Protocol: the endpoints over a real socket, the protocol properties",
         () => Test("Varve.Protocol.Tests")),
 
+    ("test-protocol-client", "Varve.Protocol.Client: the token provider, FollowAsync and FollowEventsAsync resumed from every position, setup, the client's closure",
+        () => Test("Varve.Protocol.Client.Tests")),
+
     ("test-server", "Varve.Server: configuration, anonymous mode, readiness, shutdown, and the permission matrix against an issuer in the test (ADR 0100 layer (a))",
         () => Test("Varve.Server.Tests")),
 

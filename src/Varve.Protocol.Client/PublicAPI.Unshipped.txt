@@ -203,3 +203,20 @@ Varve.Protocol.Client.SparqlHttpClient.PostGraphAsync(string? graph, string! bod
 Varve.Protocol.Client.SparqlHttpClient.PutGraphAsync(string? graph, string! body, string! contentType, long? ifMatch, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
 Varve.Protocol.Client.SparqlHttpClient.UpdateAsync(string! update, System.Collections.Generic.IReadOnlyCollection<System.Collections.Generic.KeyValuePair<string?, long>>! ifGraphsMatch, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
 static Varve.Protocol.Client.SparqlHttpClient.VersionOf(System.Net.Http.HttpResponseMessage! response) -> long?
+Varve.Protocol.Client.Model.CommitEvents
+Varve.Protocol.Client.Model.CommitEvents.CommitEvents(Varve.Delta.Model.FeedPosition position, System.Collections.Generic.IReadOnlyList<Varve.Protocol.Client.Model.ReceivedEvent!>! events) -> void
+Varve.Protocol.Client.Model.CommitEvents.Events.get -> System.Collections.Generic.IReadOnlyList<Varve.Protocol.Client.Model.ReceivedEvent!>!
+Varve.Protocol.Client.Model.CommitEvents.Position.get -> Varve.Delta.Model.FeedPosition
+Varve.Protocol.Client.Model.ReceivedEvent
+Varve.Protocol.Client.Model.ReceivedEvent.Id.get -> string!
+Varve.Protocol.Client.Model.ReceivedEvent.IsProblem.get -> bool
+Varve.Protocol.Client.Model.ReceivedEvent.Json.get -> System.ReadOnlyMemory<byte>
+Varve.Protocol.Client.Model.ReceivedEvent.ReceivedEvent(string! id, string! type, string! sequence, bool isProblem, System.ReadOnlyMemory<byte> json) -> void
+Varve.Protocol.Client.Model.ReceivedEvent.Sequence.get -> string!
+Varve.Protocol.Client.Model.ReceivedEvent.Type.get -> string!
+Varve.Protocol.Client.SparqlHttpClient.AsyncApiAsync(string? asOf, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.EventSchemaAsync(string! type, int? version, long? revision, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.EventTypesAsync(string? asOf, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.EventsAsync(long from, long? to, string? type, bool eventStream, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.FollowEventsAsync(Varve.Delta.Model.FeedPosition from, System.Func<Varve.Protocol.Client.Model.CommitEvents!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>! handler, Varve.Protocol.Client.IFollowCheckpoint! checkpoint, Varve.Protocol.Client.FollowOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Varve.Protocol.Client.SparqlHttpClient.ServerEventTypesAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!

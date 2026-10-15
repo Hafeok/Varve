@@ -350,6 +350,14 @@ jobs:
           --project tests/Varve.Protocol.Tests/Varve.Protocol.Tests.csproj
           --configuration Release
 
+      # Built with the solution since 7b and never run by CI until the
+      # Client and integration milestone's second part found the gap.
+      - name: Test Varve.Protocol.Client
+        run: >
+          dotnet test
+          --project tests/Varve.Protocol.Client.Tests/Varve.Protocol.Client.Tests.csproj
+          --configuration Release
+
       # Layer (a) of ADR 0100: the permission matrix and every way a token can
       # be wrong, against an issuer in the test, on every platform.
       - name: Test Varve.Server
