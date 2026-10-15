@@ -251,6 +251,47 @@ internal sealed class TermDictionary
         _ => throw new InvalidOperationException("Private terms are not allocated before erasure mode exists."),
     };
 
+    /// <summary>
+    /// The component ids of a triple term the runs hold at
+    /// <paramref name="canonicalLimit"/>, read from its entry without a term
+    /// (ADR 0121). False for every other id: a blank, inline or private one,
+    /// which never names a triple term, a canonical one past the limit, and
+    /// an IRI or a literal.
+    /// </summary>
+    /// <remarks>
+    /// One entry read into a buffer of <see cref="LogFormat.MaxTripleEntryLength"/>
+    /// bytes on the stack: an entry that does not fit is not a triple term,
+    /// and is not read.
+    /// </remarks>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal static bool TryTripleParts(Run[] runs, ulong id, long canonicalLimit, out ulong subject, out ulong predicate, out ulong @object)
+    {
+        subject = 0;
+        predicate = 0;
+        @object = 0;
+
+        if (TermIds.ClassOf(id) != IdClass.Canonical || id == 0 || TermIds.Counter(id) > canonicalLimit)
+        {
+            return false;
+        }
+
+        long counter = TermIds.Counter(id);
+        Span<byte> entry = stackalloc byte[LogFormat.MaxTripleEntryLength];
+
+        for (int i = runs.Length - 1; i >= 0; i--)
+        {
+            TermSection section = runs[i].Terms;
+
+            if (section.Holds(counter))
+            {
+                int length = section.ReadEntry(counter, entry);
+                return length > 0 && LogFormat.TryReadTripleEntry(entry[..length], out subject, out predicate, out @object);
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>The entry of a canonical id: its term, or a triple term's components.</summary>
     internal static Allocation Entry(Run[] runs, ulong id)
     {
