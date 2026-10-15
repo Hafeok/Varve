@@ -29,8 +29,12 @@ decisions:
     accepted-at: 2026-10-09T00:00:00Z
   - key: TokenIsProvidedPerRequest
     statement: "The client's bearer token comes from a provider called for every request, its expiry honoured on the client's TimeProvider; the fixed AccessToken is removed; amended 2026-10-13 under ADR 0127"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-15T00:00:00Z
   - key: ClientShipsNoStore
     statement: "Varve.Protocol.Client references Varve.Delta and not Varve.Store, so a consumer of the API or the feed never ships the store; amended 2026-10-13 under ADR 0128"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-15T00:00:00Z
 ---
 
 The rulings of [ADR 0103](../adr/0103-varve-protocol-client.md), filed unaccepted by milestone 7b of #11

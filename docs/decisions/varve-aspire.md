@@ -21,6 +21,8 @@ decisions:
     accepted-at: 2026-10-10T00:00:00Z
   - key: DatasetSetupRunsVarveApply
     statement: "WithDataset takes an optional setup file and runs varve setup apply from the server's image against the healthy server, authenticated by WithSetupClient under WithOidc; Varve.Aspire still references nothing from Varve; amended 2026-10-13 under ADR 0131"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-15T00:00:00Z
 ---
 
 The rulings of [ADR 0117](../adr/0117-varve-aspire.md), filed unaccepted by milestone Operability of #12

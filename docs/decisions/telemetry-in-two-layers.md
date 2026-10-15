@@ -29,6 +29,8 @@ decisions:
     accepted-at: 2026-10-10T00:00:00Z
   - key: ActingApplicationIsASpanAttribute
     statement: "The request span carries varve.azp, the acting application's claim, and it is never written to the log or the logger's request line; amended 2026-10-13 under ADR 0127"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-15T00:00:00Z
 ---
 
 The rulings of [ADR 0112](../adr/0112-telemetry-in-two-layers.md), filed unaccepted by milestone Operability of #12
