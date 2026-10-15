@@ -249,6 +249,55 @@ public sealed class AuthTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, (await SendAsync("GET", "datasets/d/status", admin)).StatusCode);
     }
 
+    /// <summary>
+    /// An event catalogue graph is governed by its source graph (ADRs 0144,
+    /// 0107 amended): "people" writes the catalogue of the graph it writes,
+    /// "public" reads the catalogue of a graph it reads and writes none, and
+    /// neither sees a catalogue whose source graph it cannot read.
+    /// </summary>
+    [Fact]
+    public async Task a_catalogue_graph_is_read_and_written_with_its_source_graph()
+    {
+        string admin = _issuer.Mint(Claims("administrator"));
+        string people = _issuer.Mint(Claims("people"));
+        string @public = _issuer.Mint(Claims("public"));
+        string peopleCatalogue = "https://w3id.org/varve/ns#events-catalogue/http%3A%2F%2Fex%2Fg%2Fpeople";
+        string publicCatalogue = "https://w3id.org/varve/ns#events-catalogue/http%3A%2F%2Fex%2Fg%2Fpublic%2F1";
+        string secretCatalogue = "https://w3id.org/varve/ns#events-catalogue/http%3A%2F%2Fex%2Fg%2Fsecret";
+
+        Assert.Equal(HttpStatusCode.NoContent, (await SendUpdateAsync(people, Declaration(peopleCatalogue, "Joined"))).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendUpdateAsync(@public, Declaration(publicCatalogue, "Published"))).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendUpdateAsync(people, Declaration(secretCatalogue, "Leaked"))).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await SendUpdateAsync(admin, Declaration(publicCatalogue, "Published"))).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await SendUpdateAsync(admin, Declaration(secretCatalogue, "Leaked"))).StatusCode);
+
+        string query = "datasets/d/sparql?query=" + Uri.EscapeDataString("SELECT ?g ?n WHERE { GRAPH ?g { ?t <https://w3id.org/varve/ns#eventName> ?n } }");
+        string seenByPeople = await BodyAsync("GET", query, people);
+        Assert.Contains("Joined", seenByPeople, StringComparison.Ordinal);
+        Assert.DoesNotContain("Published", seenByPeople, StringComparison.Ordinal);
+        Assert.DoesNotContain("Leaked", seenByPeople, StringComparison.Ordinal);
+        string seenByPublic = await BodyAsync("GET", query, @public);
+        Assert.Contains("Published", seenByPublic, StringComparison.Ordinal);
+        Assert.DoesNotContain("Joined", seenByPublic, StringComparison.Ordinal);
+        Assert.DoesNotContain("Leaked", seenByPublic, StringComparison.Ordinal);
+
+        Assert.Equal(HttpStatusCode.NotFound, (await SendAsync("GET", "datasets/d/graphs?graph=" + Uri.EscapeDataString(peopleCatalogue), @public)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await SendAsync("GET", "datasets/d/graphs?graph=" + Uri.EscapeDataString(publicCatalogue), @public)).StatusCode);
+
+        static string Declaration(string catalogue, string name) =>
+            "INSERT DATA { GRAPH <" + catalogue + "> { "
+            + "<http://ex/types/" + name + "> a <https://w3id.org/varve/ns#EventType> ; "
+            + "<https://w3id.org/varve/ns#eventName> \"" + name + "\" ; "
+            + "<https://w3id.org/varve/ns#eventClass> <http://ex/" + name + "> ; "
+            + "<https://w3id.org/varve/ns#eventVersion> 1 ; "
+            + "<https://w3id.org/varve/ns#eventField> <http://ex/types/" + name + "/at> ; "
+            + "<https://w3id.org/varve/ns#eventSelect> \"SELECT ?at WHERE { ?event <http://ex/at> ?at }\" . "
+            + "<http://ex/types/" + name + "/at> a <https://w3id.org/varve/ns#EventField> ; "
+            + "<https://w3id.org/varve/ns#fieldName> \"at\" ; "
+            + "<https://w3id.org/varve/ns#fieldDatatype> <http://www.w3.org/2001/XMLSchema#dateTime> ; "
+            + "<https://w3id.org/varve/ns#fieldRequired> true } }";
+    }
+
     private async Task<HttpResponseMessage> SendUpdateAsync(string token, string update)
     {
         HttpRequestMessage request = new(HttpMethod.Post, new Uri("datasets/d/sparql", UriKind.Relative))

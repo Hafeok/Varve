@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Security.Claims;
 using System.Text;
+using Varve.Events;
 using Varve.Protocol;
 using Varve.Protocol.Model;
 using Varve.Rdf;
@@ -74,7 +75,10 @@ internal sealed class GrantedScopes : IAccessScopes
             }
         }
 
-        return new CallerScope(readable, writable, AdminAccess.None);
+        // An event catalogue graph is governed by its source graph (ADRs 0144,
+        // 0107 and 0130 as amended): read it with G's read, write it with G's
+        // write, whatever a grant says of the catalogue graph itself.
+        return new CallerScope(readable.WithGovernor(EventCatalogue.TryGetSourceGraph), writable.WithGovernor(EventCatalogue.TryGetSourceGraph), AdminAccess.None);
     }
 
     /// <summary>A dataset's grants with their scopes built.</summary>
