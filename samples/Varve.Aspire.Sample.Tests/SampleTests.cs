@@ -59,7 +59,11 @@ public class SampleTests
 
         // The dataset's setup ran once the server was healthy (ADRs 0130, 0131):
         // its migration is recorded, and its baseline is in its graph.
-        await app.ResourceNotifications.WaitForResourceAsync("varve-setup-people", KnownResourceStates.Finished, cancellationToken).WaitAsync(TimeSpan.FromMinutes(5), cancellationToken);
+        // A container that ran to its end is Exited, not Finished: wait for any
+        // terminal state, then require the command's own success.
+        ResourceEvent setup = await app.ResourceNotifications.WaitForResourceAsync(
+            "varve-setup-people", e => KnownResourceStates.TerminalStates.Contains(e.Snapshot.State?.Text), cancellationToken).WaitAsync(TimeSpan.FromMinutes(5), cancellationToken);
+        Assert.Equal(0, setup.Snapshot.ExitCode);
         using HttpResponseMessage recorded = await SendAsync(varve, HttpMethod.Get, "datasets/people/sparql?query=" + Uri.EscapeDataString(
             "ASK { GRAPH <https://w3id.org/varve/ns#setup> { ?m <https://w3id.org/varve/ns#migrationId> \"2026-10-13-founder\" } GRAPH <https://people.example/vocabulary> { ?class ?p ?o } }"), reader, null, cancellationToken);
         Assert.Equal(HttpStatusCode.OK, recorded.StatusCode);
