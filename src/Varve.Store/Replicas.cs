@@ -65,7 +65,30 @@ public sealed partial class Dataset
             }
 
             Checkpoint checkpoint = _state.CheckpointAtOrBelow(at)!;
-            await CopyBlobAsync(target.Derived, checkpoint.Run.Blob!.Name, cancellationToken).ConfigureAwait(false);
+
+            if (checkpoint.Chain is { } chain)
+            {
+                // The chain's sets, then a catalog that names them (ADR 0139).
+                CatalogEntry[] entries = new CatalogEntry[chain.Length];
+                long sequence = 0;
+
+                for (int i = 0; i < chain.Length; i++)
+                {
+                    foreach (BlobName part in ExtentSet.BlobsOf(chain[i].Name))
+                    {
+                        await CopyBlobIfAnyAsync(target.Derived, part, cancellationToken).ConfigureAwait(false);
+                    }
+
+                    entries[i] = new CatalogEntry(chain[i].Name, chain[i].From, chain[i].To);
+                    sequence = Math.Max(sequence, ExtentSet.SequenceOf(chain[i].Name) + 1);
+                }
+
+                await ExtentCatalog.WriteAsync(target.Derived, Id, checkpoint.Position, checkpoint.HeaderHash, sequence, entries, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await CopyBlobAsync(target.Derived, checkpoint.Loaded!.Run.Blob!.Name, cancellationToken).ConfigureAwait(false);
+            }
         }
 
         return new Position(at);
@@ -92,6 +115,18 @@ public sealed partial class Dataset
         if (seal)
         {
             await target.SealAsync(created, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    // A set's graph-version index may be absent: it is rebuilt from the log.
+    private async ValueTask CopyBlobIfAnyAsync(IDerivedStore target, BlobName name, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await CopyBlobAsync(target, name, cancellationToken).ConfigureAwait(false);
+        }
+        catch (System.Collections.Generic.KeyNotFoundException) when (name == ExtentSet.GraphsOf(name.Value[..(name.Value.LastIndexOf('/') + 1)]))
+        {
         }
     }
 

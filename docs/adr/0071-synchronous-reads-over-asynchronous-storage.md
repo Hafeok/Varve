@@ -231,3 +231,22 @@ contract suite runs on the file backend under that rule
 - **Open questions owned.** None. Closes the roadmap's milestone 6 risk,
   "`IQuadSource` is synchronous and the storage contract is asynchronous", for
   the desktop.
+
+## Amendment, 2026-10-15 — a read may wait on a page fetched from an object store
+
+Filed by milestone Object storage of #92, unaccepted until the maintainer
+accepts it (ADR 0066); ruled in [ADR 0139](0139-extents-and-the-projection-catalog.md).
+What this ADR decided is unchanged: `IReadableBlob.Read` stays synchronous, and
+the quad source stays synchronous over it.
+
+- **On an object store an extent is read through a local page cache.** Its
+  open reads, asynchronously, the pages a load needs — the first and the last.
+  A later `Read` that touches a page the cache does not hold fetches it by a
+  ranged read and **waits for it**: the one place a blob read blocks on I/O
+  that is not a local file's.
+- **Why not prefetch it all on open**, which would keep every read local: the
+  extent set's size would be paid at every cold start and by every follower,
+  which is what extents in a store exist to avoid (ADR 0140, T7).
+- **The ledger.** `ExtentPagesFetchedOnAMiss` of decision set
+  `extents-and-the-projection-catalog` is cited at the blocking read, as the
+  hot path's exception.

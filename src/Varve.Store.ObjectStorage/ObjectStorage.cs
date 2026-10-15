@@ -47,16 +47,19 @@ public sealed class ObjectStorage : IStorage, IStorageMaintenance, IAsyncDisposa
 {
     private const string SegmentCopies = "segments";
     private const string LocalStorage = "local";
+    private const string ExtentPages = "pages";
 
     private readonly IObjectStore _store;
     private readonly ObjectNames _names;
     private readonly TimeProvider _clock;
     private readonly ObjectSegmentStore _log;
     private readonly FileStorage _local;
+    private readonly ObjectDerivedStore _derived;
     private ObjectVersion? _recordVersion;
 
-    private ObjectStorage(IObjectStore store, ObjectNames names, TimeProvider clock, ObjectSegmentStore log, FileStorage local, WriterRecord? record, ObjectVersion? recordVersion, bool supersededAtOpen)
+    private ObjectStorage(IObjectStore store, ObjectNames names, TimeProvider clock, ObjectSegmentStore log, FileStorage local, ObjectDerivedStore derived, WriterRecord? record, ObjectVersion? recordVersion, bool supersededAtOpen)
     {
+        _derived = derived;
         SupersededAtOpen = supersededAtOpen;
         _store = store;
         _names = names;
@@ -71,7 +74,7 @@ public sealed class ObjectStorage : IStorage, IStorageMaintenance, IAsyncDisposa
     public ISegmentStore Log => _log;
 
     /// <inheritdoc />
-    public IDerivedStore Derived => _local.Derived;
+    public IDerivedStore Derived => _derived;
 
     /// <summary>How this storage was opened.</summary>
     public ObjectStorageAccess Access => _log.Writes ? ObjectStorageAccess.Write : ObjectStorageAccess.ReadOnly;
@@ -84,7 +87,7 @@ public sealed class ObjectStorage : IStorage, IStorageMaintenance, IAsyncDisposa
     /// it lost the claim, or a newer writer has taken the log since. Reads
     /// continue; every write is refused with <see cref="WriterSupersededException"/>.
     /// </summary>
-    public bool IsSuperseded => SupersededAtOpen || (_log.Writes && _log.Superseded);
+    public bool IsSuperseded => SupersededAtOpen || (_log.Writes && (_log.Superseded || _derived.CatalogSuperseded));
 
     /// <summary>The writer record as this storage last read or wrote it, or none when the store has none.</summary>
     public WriterRecord? Writer { get; private set; }
@@ -172,6 +175,7 @@ public sealed class ObjectStorage : IStorage, IStorageMaintenance, IAsyncDisposa
         finally
         {
             _log.Dispose();
+            _derived.Dispose();
             await _local.DisposeAsync().ConfigureAwait(false);
         }
     }
@@ -222,11 +226,15 @@ public sealed class ObjectStorage : IStorage, IStorageMaintenance, IAsyncDisposa
 
             long epoch = write && !lost ? record!.Epoch.Value : 0;
             ObjectSegmentStore log = await ObjectSegmentStore.OpenAsync(options.Store, names, options.Clock, copies, epoch, cancellationToken).ConfigureAwait(false);
-            ObjectStorage storage = new(options.Store, names, options.Clock, log, local, record, version, write && lost);
+            ObjectDerivedStore derived = new(options.Store, names, options.Clock, local.Derived, Path.Combine(options.Cache.Value, ExtentPages), options.CacheBytes.Value);
+            ObjectStorage storage = new(options.Store, names, options.Clock, log, local, derived, record, version, write && lost);
 
             if (write && !lost && !log.Superseded && log.Fence is { } fence)
             {
                 await storage.RecordFenceAsync(fence, cancellationToken).ConfigureAwait(false);
+
+                // The catalog under the new epoch, so no older writer swaps it (ADR 0139).
+                await derived.FenceCatalogAsync(epoch, cancellationToken).ConfigureAwait(false);
             }
 
             return storage;

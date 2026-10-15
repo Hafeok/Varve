@@ -33,6 +33,9 @@ internal sealed class ObjectNames(ObjectName? prefix)
 
     public ObjectName Manifest => new(_prefix + LogPart + "MANIFEST");
 
+    /// <summary>A blob of <c>derived/</c> the store holds: an extent, or the catalog (ADR 0139).</summary>
+    public ObjectName Derived(string blob) => new(_prefix + "derived/" + blob);
+
     public ObjectName Segment(int segment) => new(_prefix + LogPart + Number(segment) + SegmentSuffix);
 
     public ObjectName Chunk(int segment, int chunk) => new(_prefix + LogPart + Slot(segment, chunk));

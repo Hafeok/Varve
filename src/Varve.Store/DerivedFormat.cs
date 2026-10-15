@@ -32,7 +32,7 @@ internal readonly struct DerivedHeader
         DirectoryHash = directoryHash;
     }
 
-    /// <summary>The derived format version the file was written in: 2 or 3 (ADR 0109).</summary>
+    /// <summary>The derived format version the file was written in: 2, 3 (ADR 0109) or 4 (ADR 0139).</summary>
     internal ushort Version { get; }
 
     internal ushort Kind { get; }
@@ -53,12 +53,16 @@ internal readonly struct DerivedHeader
 /// <summary>A derived run or checkpoint opened from its blob.</summary>
 internal sealed class LoadedRun
 {
-    internal LoadedRun(Run run, DerivedHeader header, long blankCount)
+    internal LoadedRun(Run run, DerivedHeader header, long blankCount, ExtentInfo? extent = null)
     {
         Run = run;
         Header = header;
         BlankCount = blankCount;
+        Extent = extent;
     }
+
+    /// <summary>What an extent holds beyond a run's sections (ADR 0139): its order, statistics, positions and the intervals within its window.</summary>
+    internal ExtentInfo? Extent { get; }
 
     internal Run Run { get; }
 
@@ -87,10 +91,14 @@ internal readonly record struct StateEntry(BlobName Name, long From, long To);
 /// Keys are written as the struct's own little-endian bytes and read back the
 /// same way, so a big-endian host treats every derived file as absent.
 /// </remarks>
-internal static class DerivedFormat
+internal static partial class DerivedFormat
 {
-    /// <summary>What this build writes: 3, runs with a term filter (ADR 0109).</summary>
-    internal const ushort Version = 3;
+    /// <summary>
+    /// What this build writes: 4 (ADR 0139), which adds extents and the
+    /// catalog; a run, a checkpoint and every other kind are laid out as in 3,
+    /// runs with a term filter (ADR 0109).
+    /// </summary>
+    internal const ushort Version = 4;
 
     /// <summary>The oldest derived version this build reads: 2, a run without a filter (ADR 0080).</summary>
     internal const ushort OldestRead = 2;
@@ -99,6 +107,15 @@ internal static class DerivedFormat
     internal const ushort KindState = 3;
     internal const ushort KindCommits = 4;
     internal const ushort KindGraphs = 5;
+
+    /// <summary>An extent: one order's open and closing keys, their positions, and the intervals within its window (ADR 0139).</summary>
+    internal const ushort KindExtent = 6;
+
+    /// <summary>An extent set's dictionary: a run with no keys and its window's term section (ADR 0139).</summary>
+    internal const ushort KindExtentTerms = 7;
+
+    /// <summary>The projection catalog (ADR 0139).</summary>
+    internal const ushort KindCatalog = 8;
     internal const int HeaderLength = 160;
 
     private const int Sections = Orders.Count * 2;
@@ -198,6 +215,12 @@ internal static class DerivedFormat
         await WriteRunAsync(store, name, kind, dataset, from, to, toHash, (i, _) => new ValueTask<IKeySource>(sections[i]), terms, blankCount, cancellationToken, version).ConfigureAwait(false);
 
     /// <summary>
+    /// What an extent writes after its term section (ADR 0139): its own
+    /// sections from <c>offset</c>, and the directory words that describe them.
+    /// </summary>
+    internal delegate ValueTask<(long End, byte[] Words)> ExtraSections(IBlobWriter writer, long offset, CancellationToken cancellationToken);
+
+    /// <summary>
     /// The same, with each section's source made just before it is written
     /// and dropped after: a bulk load sorts an order only when its turn comes
     /// (ADR 0081).
@@ -214,11 +237,12 @@ internal static class DerivedFormat
         TermSection[] terms,
         long blankCount,
         CancellationToken cancellationToken,
-        ushort version = Version)
+        ushort version = Version,
+        ExtraSections? extra = null)
     {
         if (version is < OldestRead or > Version)
         {
-            throw new ArgumentOutOfRangeException(nameof(version), version, "A run is written in derived format 2 or 3.");
+            throw new ArgumentOutOfRangeException(nameof(version), version, "A run is written in derived format 2 to 4.");
         }
 
         await using IBlobWriter writer = await store.CreateAsync(name, cancellationToken).ConfigureAwait(false);
@@ -274,6 +298,12 @@ internal static class DerivedFormat
         (long canonicalFrom, long canonicalTo, long entriesAt, long entriesLength, long offsetsAt, long hashesAt, long filterAt, long filterLength) =
             await WriteTermsAsync(writer, terms, offset, version >= 3, cancellationToken).ConfigureAwait(false);
         offset = filterAt + filterLength;
+        byte[] extraWords = [];
+
+        if (extra is not null)
+        {
+            (offset, extraWords) = await extra(writer, offset, cancellationToken).ConfigureAwait(false);
+        }
 
         // The directory streams to the blob, hashed as it goes: its fences
         // grow with the run, and are never gathered into one buffer (issue #61).
@@ -323,6 +353,7 @@ internal static class DerivedFormat
             LogFormat.WriteUInt64(part, (ulong)filterLength);
         }
 
+        part.Write(extraWords);
         await directory.WriteAsync(part.WrittenMemory, cancellationToken).ConfigureAwait(false);
 
         byte[] header = EncodeHeader(version, kind, dataset, from, to, toHash, offset, directory.Length, directory.Hash());
@@ -555,7 +586,7 @@ internal static class DerivedFormat
         // into one buffer the size of the directory (issue #61).
         using DirectoryReader directory = new(blob, header.DirectoryOffset, header.DirectoryLength);
         int fixedLength = 8 + (Sections * 24);
-        int tailWords = header.Version >= 3 ? 9 : 7;
+        int tailWords = (header.Version >= 3 ? 9 : 7) + (kind == KindExtent ? ExtentInfo.TailWords : 0);
         Span<byte> span = stackalloc byte[8 + (Sections * 24)];
 
         if (header.DirectoryLength < fixedLength + (tailWords * 8)
@@ -632,7 +663,7 @@ internal static class DerivedFormat
             }
         }
 
-        Span<byte> tail = stackalloc byte[9 * 8];
+        Span<byte> tail = stackalloc byte[(9 + ExtentInfo.TailWords) * 8];
         tail = tail[..(tailWords * 8)];
 
         if (!directory.TryRead(tail) || !directory.HashMatches(header.DirectoryHash))
@@ -664,12 +695,16 @@ internal static class DerivedFormat
         // directory, loaded with the directory and held with the run.
         TermFilter? filter = null;
 
+        // An extent's own sections follow the filter: its first word past the
+        // run's tail is where they begin (ADR 0139).
+        long sectionsEnd = kind == KindExtent ? (long)BinaryPrimitives.ReadUInt64LittleEndian(tail[((9 + 9) * 8)..]) : header.DirectoryOffset;
+
         if (header.Version >= 3)
         {
             long filterAt = (long)BinaryPrimitives.ReadUInt64LittleEndian(tail[56..]);
             long filterLength = (long)BinaryPrimitives.ReadUInt64LittleEndian(tail[64..]);
 
-            if (filterAt != hashesEnd || filterLength != TermFilter.LengthFor(terms) || filterAt + filterLength != header.DirectoryOffset)
+            if (filterAt != hashesEnd || filterLength != TermFilter.LengthFor(terms) || filterAt + filterLength != sectionsEnd)
             {
                 return null;
             }
@@ -708,8 +743,15 @@ internal static class DerivedFormat
             }
         }
 
+        ExtentInfo? extent = null;
+
+        if (kind == KindExtent && (header.Version < 4 || (extent = ExtentInfo.TryRead(blob, tail[(9 * 8)..], header, sectionsEnd)) is null))
+        {
+            return null;
+        }
+
         TermSection termSection = TermSection.On(blob, canonicalFrom, canonicalTo, entriesAt, entriesLength, offsetsAt, hashesAt, filter);
-        return new LoadedRun(new Run(asserted, retracted, header.From, header.To, termSection, owner), header, blank);
+        return new LoadedRun(new Run(asserted, retracted, header.From, header.To, termSection, owner), header, blank, extent);
     }
 
     /// <summary>A run's directory, written to its blob in parts and hashed as it goes.</summary>

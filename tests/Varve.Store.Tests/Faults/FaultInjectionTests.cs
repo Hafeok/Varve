@@ -507,20 +507,21 @@ public sealed class FaultInjectionTests
     }
 
     /// <summary>
-    /// A checkpoint's graph-version index (ADR 0125) is written after its
-    /// checkpoint and deleted before it. A process crash at every operation of
-    /// a workload that writes checkpoints and drops each one's predecessor —
-    /// so inside every checkpoint write, index write and drop — opens with no
-    /// index file whose checkpoint is gone, and with every graph's version at
-    /// every position what the commits say.
+    /// A checkpoint is an extent set with its graph-version index beside it
+    /// (ADR 0125, ADR 0139), named by the catalog only once written whole. A
+    /// process crash at every operation of a workload that writes checkpoints
+    /// and drops each one's predecessor — so inside every extent write, index
+    /// write, catalog swap and merge — opens with every extent belonging to a
+    /// set the catalog names, every named set whole, and every graph's version
+    /// at every position what the commits say.
     /// </summary>
     [Fact]
     public async Task a_crash_while_checkpoints_and_their_graph_indexes_are_written_or_dropped_leaves_no_orphan()
     {
         SimulatedFileSystem reference = new();
         long[][] versions = await CheckpointWorkloadAsync(reference);
-        string checkpoints = Path.Combine(Root, "derived", "checkpoints");
-        Check(reference.Files(checkpoints).Any(f => f.EndsWith(".graphs", StringComparison.Ordinal)), "the workload wrote no graph-version index");
+        string extents = Path.Combine(Root, "derived", "extents");
+        Check(reference.Files(extents).Any(f => f.EndsWith("graphs", StringComparison.Ordinal)), "the workload wrote no graph-version index");
         int points = 0;
 
         for (int operation = 1; operation <= reference.Operations; operation++)
@@ -549,12 +550,21 @@ public sealed class FaultInjectionTests
 
                 await using Dataset dataset = await Dataset.OpenAsync(storage, Unbatched, T.Ct);
 
-                foreach (BlobName name in await storage.Derived.ListAsync(T.Ct))
+                IReadOnlyList<BlobName> names = await storage.Derived.ListAsync(T.Ct);
+                var catalog = await ExtentCatalog.TryReadAsync(storage.Derived, dataset.Id, T.Ct);
+                HashSet<string> named = [.. (catalog?.Sets ?? []).Select(s => s.Name)];
+
+                foreach (BlobName name in names.Where(n => n.Value.StartsWith(ExtentSet.Prefix, StringComparison.Ordinal)))
                 {
-                    if (name.Value.EndsWith(".graphs", StringComparison.Ordinal))
+                    string set = name.Value[..(name.Value.LastIndexOf('/') + 1)];
+                    Check(named.Contains(set), where + ": " + name.Value + " belongs to no set the catalog names");
+                }
+
+                foreach (string set in named)
+                {
+                    foreach (BlobName part in ExtentSet.BlobsOf(set))
                     {
-                        BlobName checkpoint = new(name.Value[..^".graphs".Length]);
-                        Check((await storage.Derived.ListAsync(T.Ct)).Contains(checkpoint), where + ": " + name.Value + " has no checkpoint");
+                        Check(names.Contains(part), where + ": the catalog names " + set + " but " + part.Value + " is missing");
                     }
                 }
 

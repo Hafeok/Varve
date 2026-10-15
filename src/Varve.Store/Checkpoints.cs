@@ -11,28 +11,86 @@ using Varve.Store.Log;
 namespace Varve.Store;
 
 /// <summary>
-/// A checkpoint as the store holds it: a run over the blob's own bytes, read
-/// in blocks where it lies (ADR 0041, ADR 0071), and the dictionary's
-/// watermarks at its position.
+/// A checkpoint as the store holds it: the runs whose merge is the state at
+/// its position. Either a full run over the blob's own bytes, read in blocks
+/// where it lies (ADR 0041, ADR 0071) — derived format 3's, kept and read
+/// until dropped — or the extent sets from position 0 to it (ADR 0139), each
+/// a window's exact delta, the last of them ending at the position.
 /// </summary>
 internal sealed class Checkpoint
 {
     internal Checkpoint(LoadedRun loaded)
     {
         Loaded = loaded;
+        Runs = [loaded.Run];
+        Position = loaded.Header.To;
+        HeaderHash = loaded.Header.ToHash;
+        Graphs = GraphVersions.NameAt(Position);
     }
 
-    internal LoadedRun Loaded { get; }
+    internal Checkpoint(ExtentSet[] chain)
+    {
+        Chain = chain;
+        Runs = new Run[chain.Length];
 
-    internal long Position => Loaded.Header.To;
+        for (int i = 0; i < chain.Length; i++)
+        {
+            Runs[i] = chain[i].Run;
+        }
 
-    internal Run Run => Loaded.Run;
+        Position = chain[^1].To;
+        HeaderHash = chain[^1].ToHash;
+        Graphs = chain[^1].Graphs;
+    }
 
-    internal long CanonicalCount => Loaded.CanonicalCount;
+    /// <summary>The full run, for a checkpoint of derived format 3; null for extents.</summary>
+    internal LoadedRun? Loaded { get; }
 
-    internal long BlankCount => Loaded.BlankCount;
+    /// <summary>The extent sets up to the position, oldest first; null for a full run.</summary>
+    internal ExtentSet[]? Chain { get; }
 
-    internal byte[] HeaderHash => Loaded.Header.ToHash;
+    /// <summary>The newest set: the one this checkpoint owns, and the one it adds to the chain before it.</summary>
+    internal ExtentSet? Set => Chain?[^1];
+
+    internal long Position { get; }
+
+    /// <summary>The runs, oldest first, whose merge is the state at the position.</summary>
+    internal Run[] Runs { get; }
+
+    internal byte[] HeaderHash { get; }
+
+    /// <summary>The graph-version index at the position (ADR 0125).</summary>
+    internal BlobName Graphs { get; }
+
+    /// <summary>The blob this checkpoint owns: its full run, or its newest set.</summary>
+    internal RunBlob Owned => Loaded?.Run.Blob ?? Set!.Run.Blob!;
+
+    /// <summary>Takes a reference to every blob its runs read; false when one has been closed, and the caller looks again.</summary>
+    internal bool TryAcquire()
+    {
+        for (int i = 0; i < Runs.Length; i++)
+        {
+            if (!Runs[i].Blob!.TryAcquire())
+            {
+                for (int j = 0; j < i; j++)
+                {
+                    Runs[j].Blob!.Release();
+                }
+
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    internal void Release()
+    {
+        foreach (Run run in Runs)
+        {
+            run.Blob!.Release();
+        }
+    }
 
     internal const string Prefix = "checkpoints/";
 

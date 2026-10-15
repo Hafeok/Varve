@@ -266,12 +266,13 @@ internal static class StoreSizes
         }
 
         await dataset.CheckpointAsync(dataset.Head);
-        BlobName name = (await storage.Derived.ListAsync(default)).Single(n => n.Value.StartsWith("checkpoints/", StringComparison.Ordinal));
-        long checkpointBytes;
+        // A checkpoint is an extent set (ADR 0139): its eight blobs.
+        long checkpointBytes = 0;
 
-        using (IReadableBlob checkpoint = await storage.Derived.OpenAsync(name, default))
+        foreach (BlobName name in (await storage.Derived.ListAsync(default)).Where(n => n.Value.StartsWith("extents/", StringComparison.Ordinal)))
         {
-            checkpointBytes = checkpoint.Length.Value;
+            using IReadableBlob part = await storage.Derived.OpenAsync(name, default);
+            checkpointBytes += part.Length.Value;
         }
         GC.KeepAlive(quads);
         long after = GC.GetTotalMemory(forceFullCollection: true);
@@ -283,7 +284,7 @@ internal static class StoreSizes
         Print("quads", StoreDataset.Quads);
         Print("distinct terms with a dictionary entry (inline integers excluded)", terms);
         Print("log bytes", logBytes, logBytes / (double)StoreDataset.Quads);
-        Print("checkpoint bytes (six key arrays + dictionary + header)", checkpointBytes, checkpointBytes / (double)StoreDataset.Quads);
+        Print("checkpoint bytes (an extent set: six order extents + dictionary + graph index)", checkpointBytes, checkpointBytes / (double)StoreDataset.Quads);
         Print("of which the six key arrays", keyBytes, 192);
         Print("managed heap growth for the whole store (log, dictionary, runs, checkpoint)", after - before, (after - before) / (double)StoreDataset.Quads);
 

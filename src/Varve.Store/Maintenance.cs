@@ -32,7 +32,10 @@ public sealed class CheckpointPolicy
     /// <summary>A checkpoint at the head once this many bytes of log follow the newest.</summary>
     public ByteCount? EveryLogBytes { get; init; }
 
-    /// <summary>How many checkpoints the policy keeps, dropping the oldest; zero keeps all.</summary>
+    /// <summary>
+    /// How many checkpoints the policy keeps, dropping the oldest — whose
+    /// extent set merges into the next (ADR 0138); zero keeps all.
+    /// </summary>
     public int Keep { get; init; }
 }
 
@@ -442,6 +445,17 @@ public sealed partial class Dataset
     {
         while (_closedRuns.TryDequeue(out BlobName name))
         {
+            // An extent set's name stands for its extents (ADR 0139).
+            if (name.Value.StartsWith(ExtentSet.Prefix, StringComparison.Ordinal))
+            {
+                foreach (BlobName part in ExtentSet.BlobsOf(name.Value))
+                {
+                    await _storage.Derived.DeleteAsync(part, cancellationToken).ConfigureAwait(false);
+                }
+
+                continue;
+            }
+
             await _storage.Derived.DeleteAsync(name, cancellationToken).ConfigureAwait(false);
         }
     }
@@ -525,8 +539,8 @@ public sealed partial class Dataset
 
         if (loaded is null)
         {
-            loaded = newest is not null && newest.Run.Blob!.TryAcquire()
-                ? IndexVersion.FromBase(newest.Position, newest.Run)
+            loaded = newest is not null && newest.TryAcquire()
+                ? new IndexVersion(newest.Position, newest.Runs, newest.Runs.Length)
                 : IndexVersion.Empty;
 
             await _storage.Derived.DeleteAsync(StateName, cancellationToken).ConfigureAwait(false);
@@ -657,11 +671,21 @@ public sealed partial class Dataset
 
             if (Checkpoint.TryParseName(entry.Name, out long at))
             {
-                Checkpoint? checkpoint = Array.Find(checkpoints, c => c.Position == at);
+                Checkpoint? checkpoint = Array.Find(checkpoints, c => c.Position == at && c.Loaded is not null);
 
-                if (checkpoint is not null && entry.From == 0 && entry.To == at && checkpoint.Run.Blob!.TryAcquire())
+                if (checkpoint is not null && entry.From == 0 && entry.To == at && checkpoint.TryAcquire())
                 {
-                    run = checkpoint.Run;
+                    run = checkpoint.Loaded!.Run;
+                }
+            }
+            else if (entry.Name.Value.StartsWith(ExtentSet.Prefix, StringComparison.Ordinal))
+            {
+                // A set of the catalog's chain, by name and window.
+                Checkpoint? checkpoint = Array.Find(checkpoints, c => c.Set is { } set && set.Name == entry.Name.Value && set.From == entry.From && set.To == entry.To);
+
+                if (checkpoint is not null && checkpoint.Set!.Run.Blob!.TryAcquire())
+                {
+                    run = checkpoint.Set.Run;
                 }
             }
             else if (entry.Name.Value.StartsWith(RunPrefix, StringComparison.Ordinal))

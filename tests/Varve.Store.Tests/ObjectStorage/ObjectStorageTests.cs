@@ -37,7 +37,7 @@ internal sealed class ObjectHarness : IAsyncDisposable
 
     public ManualClock Clock { get; } = ManualClock.Epoch();
 
-    public ObjectStorageOptions Options(ObjectStorageAccess access = ObjectStorageAccess.Write, string? instance = null)
+    public ObjectStorageOptions Options(ObjectStorageAccess access = ObjectStorageAccess.Write, string? instance = null, long? cacheBytes = null)
     {
         string cache = Directory.CreateTempSubdirectory("varve-objects-").FullName;
         _caches.Add(cache);
@@ -49,12 +49,13 @@ internal sealed class ObjectHarness : IAsyncDisposable
             Access = access,
             Instance = new WriterInstance(instance ?? "instance-" + ++_instances),
             Clock = Clock,
+            CacheBytes = new ByteCount(cacheBytes ?? 8L << 30),
         };
     }
 
-    public async Task<Backend> OpenAsync(ObjectStorageAccess access = ObjectStorageAccess.Write, string? instance = null)
+    public async Task<Backend> OpenAsync(ObjectStorageAccess access = ObjectStorageAccess.Write, string? instance = null, long? cacheBytes = null)
     {
-        Backend storage = await Backend.OpenAsync(Options(access, instance), T.Ct);
+        Backend storage = await Backend.OpenAsync(Options(access, instance, cacheBytes), T.Ct);
         _opened.Add(storage);
         return storage;
     }

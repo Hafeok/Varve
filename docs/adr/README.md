@@ -31,7 +31,7 @@ or depart from `docs/brief.md`, each says so in its Context.
 | [0012](0012-term-dictionary-and-id-scheme.md) | Term dictionary, id classes, id scheme, blank node identity | Accepted |
 | [0013](0013-records-commits-and-bulk-load.md) | Records versus commits, and bulk load | Accepted |
 | [0014](0014-header-chain-and-divergence.md) | Header chain and divergence detection | Accepted |
-| [0015](0015-checkpoints-and-reads.md) | Checkpoints, pinned reads, as-of reads, archive horizon | Accepted |
+| [0015](0015-checkpoints-and-reads.md) | Checkpoints, pinned reads, as-of reads, archive horizon | Accepted; "No temporal index in the default projection" **superseded in part by 0138** (filed unaccepted) |
 | [0016](0016-projection-contract-and-subscriptions.md) | Projection contract, synchronous default projection, erasure in projections | Accepted |
 | [0017](0017-validator-contract-and-overlay.md) | Pre-commit validator contract and the overlay quad source | Accepted |
 | [0018](0018-storage-abstraction.md) | Storage abstraction: memory, file, browser | Accepted; "asynchronous throughout" **superseded by 0071** |
@@ -293,6 +293,8 @@ Filed by milestone Object storage ([#92](https://github.com/Hafeok/Varve/issues/
 | [0135](0135-the-log-as-chunk-objects.md) | The log as write-once chunk objects, consolidated on seal | Filed unaccepted (Object storage, #92) |
 | [0136](0136-one-writer-by-an-epoch-and-a-log-slot-fence.md) | One writer by an epoch, fenced by a log slot; no lease, no timer; refines 0075 and 0116 | Filed unaccepted (Object storage, #92) |
 | [0137](0137-storage-credentials-are-workload-identity.md) | Storage credentials are the workload's identity; a key only on loopback | Filed unaccepted (Object storage, #92) |
+| [0138](0138-validity-intervals-in-the-default-projection.md) | Validity intervals in the default projection's checkpoints: a checkpoint is a chain of extent sets; supersedes 0015 in part | Filed unaccepted (Object storage, #92) |
+| [0139](0139-extents-and-the-projection-catalog.md) | Extents and the projection catalog; derived format 4, rebuilt not migrated; the page cache | Filed unaccepted (Object storage, #92) |
 | [0140](0140-what-varve-takes-from-azure-data-explorer.md) | What Varve takes from Azure Data Explorer, and what it does not | Filed unaccepted (Object storage, #92), from the maintainer's draft |
 | [0141](0141-realestatecore-as-the-reference-domain.md) | RealEstateCore as the reference domain for learning and testing | Filed unaccepted (Object storage, #92), from the maintainer's draft |
 

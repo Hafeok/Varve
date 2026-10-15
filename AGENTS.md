@@ -162,8 +162,10 @@ superseding 0020, conditional on external review. Vocabulary that must not drift
 | **record** | the physical unit of append. A commit is one or more; the last closes it. |
 | **readable head** | the position of the last *closed* commit. Unclosed records are invisible, not filtered. |
 | **pinned read** | a short-lived engine snapshot, the lifetime of one operation. **Not time travel.** |
-| **as-of read** | time travel: any closed position, nearest checkpoint plus a delta overlay. |
-| **checkpoint** | a derived, immutable, *directly queryable* materialisation of one position. Droppable without loss; **no compaction** destructively. |
+| **as-of read** | time travel: any closed position, served by the extents up to it, plus a delta overlay above the newest checkpoint (ADR 0138). |
+| **checkpoint** | a derived, immutable, *directly queryable* materialisation of one position: the chain of extent sets up to it (ADR 0138). Droppable without loss; **no compaction** destructively. |
+| **extent** | an immutable object of the projection: one index order's intervals over a window of positions, written once (ADR 0139). Never "segment". |
+| **segment** | a log segment, `log/NNNNNNNN.seg`, and nothing else. |
 | **erasure mode** | per-dataset, off by default. On: personal terms encrypted per data subject, erasure destroys the key (ADR 0028). |
 | **private term** | encrypted under a subject key. Counter id in its own class, never interned, never plaintext in `log/`. |
 

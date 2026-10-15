@@ -86,6 +86,25 @@ internal static class T
         return bytes.AsMemory(0, blob.Read(new ByteOffset(0), bytes));
     }
 
+    /// <summary>
+    /// What a checkpoint is in derived/ (ADR 0139): the catalog and every
+    /// extent set it names, each blob with its bytes.
+    /// </summary>
+    public static async Task<List<(BlobName Name, ReadOnlyMemory<byte> Bytes)>> CheckpointBlobsAsync(IStorage storage)
+    {
+        List<(BlobName, ReadOnlyMemory<byte>)> blobs = [];
+
+        foreach (BlobName name in await storage.Derived.ListAsync(Ct))
+        {
+            if (name == ExtentCatalog.Name || name.Value.StartsWith(ExtentSet.Prefix, StringComparison.Ordinal))
+            {
+                blobs.Add((name, await ReadBlobAsync(storage, name)));
+            }
+        }
+
+        return blobs;
+    }
+
     public static List<Quad> Drain(IQuadCursor cursor)
     {
         using (cursor)

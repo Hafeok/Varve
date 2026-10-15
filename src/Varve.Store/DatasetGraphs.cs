@@ -66,7 +66,7 @@ public sealed partial class Dataset
                 continue;
             }
 
-            if (await GraphVersions.TryLookupAsync(_storage.Derived, GraphVersions.NameAt(checkpoint), Id, state.Commits.Entry(checkpoint).HeaderHash(), id, cancellationToken).ConfigureAwait(false) is long found)
+            if (await GraphVersions.TryLookupAsync(_storage.Derived, state.Checkpoints[i].Graphs, Id, state.Commits.Entry(checkpoint).HeaderHash(), id, cancellationToken).ConfigureAwait(false) is long found)
             {
                 (floor, below) = (checkpoint, found);
                 break;
@@ -226,7 +226,7 @@ public sealed partial class Dataset
                 break;
             }
 
-            if (await TryReadGraphsAsync(state, GraphVersions.NameAt(checkpoint), cancellationToken).ConfigureAwait(false) is { } read)
+            if (await TryReadGraphsAsync(state, state.Checkpoints[i].Graphs, cancellationToken).ConfigureAwait(false) is { } read)
             {
                 start = read;
                 break;
@@ -251,7 +251,7 @@ public sealed partial class Dataset
         {
             long checkpoint = state.Checkpoints[i].Position;
 
-            if (checkpoint <= position && await TryReadGraphsAsync(state, GraphVersions.NameAt(checkpoint), cancellationToken).ConfigureAwait(false) is { } read)
+            if (checkpoint <= position && await TryReadGraphsAsync(state, state.Checkpoints[i].Graphs, cancellationToken).ConfigureAwait(false) is { } read)
             {
                 start = read;
                 break;

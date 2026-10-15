@@ -131,3 +131,5 @@ static Varve.Store.ObjectStorage.ObjectStorage.TakeOverAsync(Varve.Store.ObjectS
 ~override Varve.Store.ObjectStorage.Model.LogSlot.Equals(object obj) -> bool
 ~override Varve.Store.ObjectStorage.Model.WriterEpoch.Equals(object obj) -> bool
 ~override Varve.Store.ObjectStorage.Model.WriterInstance.Equals(object obj) -> bool
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.CacheBytes.get -> Varve.Store.Log.ByteCount
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.CacheBytes.init -> void

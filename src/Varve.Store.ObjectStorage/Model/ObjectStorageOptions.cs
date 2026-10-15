@@ -22,6 +22,13 @@ public sealed class ObjectStorageOptions
     /// <summary>The local directory to cache in. One process uses it at a time.</summary>
     public required CacheDirectory Cache { get; init; }
 
+    /// <summary>
+    /// The most the cache holds of extents' pages (ADR 0139); past it the
+    /// least recently read extent's pages are dropped and fetched again when
+    /// read. 8 GiB unless set.
+    /// </summary>
+    public ByteCount CacheBytes { get; init; } = new(8L << 30);
+
     /// <summary>Write, which claims the writer epoch, or read-only, which claims nothing.</summary>
     public ObjectStorageAccess Access { get; init; } = ObjectStorageAccess.Write;
 
