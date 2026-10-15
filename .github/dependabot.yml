@@ -89,6 +89,7 @@ updates:
     directories:
       - "/.github/zitadel"
       - "/.github/mock-oauth2"
+      - "/.github/storage"
     schedule:
       interval: weekly
       day: monday

@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 5: the object-store contract over the S3 REST API, for Amazon S3
+         and S3-compatible servers. It references Varve.Store only, and no SDK
+         (ADR 0134). -->
+    <ArchLayer>5</ArchLayer>
+    <IsPackable>true</IsPackable>
+
+    <!-- No ambient clock and no ambient randomness: a signature's date, a
+         credential's expiry and a retry's wait are read from the caller's
+         clock (ADR 0011). -->
+    <VarveDeterministic>true</VarveDeterministic>
+
+    <!-- System.Uri for the endpoint's address only, a transport address and
+         never an IRI (ADR 0134, AdaptersSpeakHttp; ADR 0004, amended). -->
+    <VarveSpeaksHttp>true</VarveSpeaksHttp>
+
+    <!-- Its contracts name Varve.Store's: it implements them and is nothing
+         without them (ADR 0134, BackendContractsNameTheStore). -->
+    <ArchContractTypeAssemblies>$(ArchContractTypeAssemblies);Varve.Store</ArchContractTypeAssemblies>
+
+    <Description>Amazon S3 and S3-compatible servers for a Varve store's object-storage backend: the five object-store operations over the S3 REST API with conditional writes, signed with SigV4 from the workload's web identity.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Store/Varve.Store.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Varve.Store.Tests" />
+  </ItemGroup>
+
+</Project>

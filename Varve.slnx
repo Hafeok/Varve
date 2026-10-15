@@ -21,6 +21,7 @@
     <Project Path="src/Varve.Store.Browser/Varve.Store.Browser.csproj" />
     <Project Path="src/Varve.Store.ObjectStorage/Varve.Store.ObjectStorage.csproj" />
     <Project Path="src/Varve.Store.Azure/Varve.Store.Azure.csproj" />
+    <Project Path="src/Varve.Store.S3/Varve.Store.S3.csproj" />
     <Project Path="src/Varve.Turtle/Varve.Turtle.csproj" />
     <Project Path="src/Varve.Xsd/Varve.Xsd.csproj" />
   </Folder>

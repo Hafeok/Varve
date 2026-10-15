@@ -124,6 +124,18 @@ pass is CI's S3-compatible server. If neither passes, `Varve.Store.S3` does
 not ship in the release, and the roadmap records the gap: an adapter that
 cannot be tested against a correct server is not shipped.
 
+*The outcome, 2026-10-15.* **RustFS 1.0.1** passed the storage contract
+suite and both race properties five runs in five, in about a second a run,
+with nothing configured but its loopback key. **SeaweedFS 4.48**
+(`ghcr.io/chrislusf/seaweedfs`; `ghcr.io/seaweedfs/seaweedfs` holds only its
+Helm chart) refused every write until given small volumes
+(`-master.volumeSizeLimitMB=16 -volume.max=300`), then passed three runs in
+five at about three minutes a run, and failed the other two with `500`
+because each bucket takes seven volumes and the suite's buckets used them
+all. RustFS is CI's S3-compatible server, pinned by digest in
+`.github/storage/compose.yaml`; the RustFS image and Azurite's are both
+multi-architecture indexes, linux/amd64 and linux/arm64.
+
 **7. The race property is part of the contract.** Of sixteen clients racing
 create-if-absent on one name, exactly one is told it wrote, and the object
 holds its bytes; of sixteen racing replace-if-unchanged against one version,

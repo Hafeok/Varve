@@ -94,6 +94,7 @@ and it ships inside every package.
 | `Varve.Store.Browser` | 5 | the store in a browser: the origin private file system through synchronous access handles in a worker, or IndexedDB | working |
 | `Varve.Store.ObjectStorage` | 5 | the store in any object store with conditional writes: the log as write-once chunk objects, one writer by an epoch fenced in the log, a local cache | in progress |
 | `Varve.Store.Azure` | 5 | Azure Blob Storage for the object-storage backend, over the REST API, authenticated by the workload's identity | in progress |
+| `Varve.Store.S3` | 5 | Amazon S3 and S3-compatible servers for the object-storage backend, with conditional writes, SigV4 from the workload's web identity | in progress |
 | `Varve.Protocol` | 5 | the SPARQL 1.1 Protocol, the Graph Store Protocol with graphs in six formats, the service description, time travel by `Varve-As-Of`, the change feed and the diff, the admin API, and graph-level authorisation, on any ASP.NET Core host | working |
 | `Varve.Protocol.Client` | 5 | the HTTP client of a dataset, `SERVICE` over HTTP for the evaluator and the document fetch `LOAD` needs, under an endpoint policy | working |
 | `Varve.Server` | 6 | the executable: the server with OIDC bearer tokens, health and readiness, telemetry, governed limits, and the `varve` command line — create, info, load, query, update, export, checkpoint, feed, lease, serve | working, Native AOT, container image |
