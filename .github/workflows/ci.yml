@@ -302,6 +302,12 @@ jobs:
           --project tests/Varve.Json.Canonical.Tests/Varve.Json.Canonical.Tests.csproj
           --configuration Release
 
+      - name: Test Varve.Events
+        run: >
+          dotnet test
+          --project tests/Varve.Events.Tests/Varve.Events.Tests.csproj
+          --configuration Release
+
       - name: Test Varve.Store
         run: >
           dotnet test

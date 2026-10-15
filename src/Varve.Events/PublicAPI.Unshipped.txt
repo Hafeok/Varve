@@ -1,0 +1,197 @@
+#nullable enable
+Varve.Events.EventCatalogue
+Varve.Events.EventCatalogueHistory
+Varve.Events.EventCatalogueHistory.Apply(Varve.Delta.Model.FeedPosition position, System.Collections.Generic.IEnumerable<Varve.Delta.Model.FeedChange>! changes) -> void
+Varve.Events.EventCatalogueHistory.At(Varve.Delta.Model.FeedPosition position) -> Varve.Events.Model.EventCatalogueSnapshot!
+Varve.Events.EventCatalogueHistory.Current.get -> Varve.Events.Model.EventCatalogueSnapshot!
+Varve.Events.EventCatalogueHistory.EventCatalogueHistory() -> void
+Varve.Events.EventCatalogueHistory.Position.get -> Varve.Delta.Model.FeedPosition
+Varve.Events.EventDeclarationCheck
+Varve.Events.EventDeclarations
+Varve.Events.EventRenderer
+Varve.Events.EventRenderer.EventRenderer() -> void
+Varve.Events.EventRenderer.Render(Varve.Events.Model.EventCommit! commit, Varve.Events.Model.EventCatalogueSnapshot! catalogue, Varve.Rdf.IQuadSource! asOf, Varve.Events.Model.EventEndpoints! endpoints, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IReadOnlyList<Varve.Events.Model.RenderedEvent!>!
+Varve.Events.EventSchemas
+Varve.Events.EventViews
+Varve.Events.Model.CataloguedType
+Varve.Events.Model.CataloguedType.CatalogueGraph.get -> Varve.Rdf.RdfTerm!
+Varve.Events.Model.CataloguedType.Current.get -> Varve.Events.Model.SchemaRevision
+Varve.Events.Model.CataloguedType.Declaration.get -> Varve.Events.Model.EventTypeDeclaration!
+Varve.Events.Model.CataloguedType.Revisions.get -> System.Collections.Generic.IReadOnlyList<Varve.Events.Model.SchemaRevision>!
+Varve.Events.Model.DeclarationProblem
+Varve.Events.Model.DeclarationProblem.Declaration.get -> Varve.Rdf.RdfTerm!
+Varve.Events.Model.DeclarationProblem.Declaration.init -> void
+Varve.Events.Model.DeclarationProblem.DeclarationProblem() -> void
+Varve.Events.Model.DeclarationProblem.DeclarationProblem(Varve.Rdf.RdfTerm! Declaration, string! Reason, string! Detail) -> void
+Varve.Events.Model.DeclarationProblem.Deconstruct(out Varve.Rdf.RdfTerm! Declaration, out string! Reason, out string! Detail) -> void
+Varve.Events.Model.DeclarationProblem.Detail.get -> string!
+Varve.Events.Model.DeclarationProblem.Detail.init -> void
+Varve.Events.Model.DeclarationProblem.Equals(Varve.Events.Model.DeclarationProblem other) -> bool
+Varve.Events.Model.DeclarationProblem.Reason.get -> string!
+Varve.Events.Model.DeclarationProblem.Reason.init -> void
+Varve.Events.Model.DeclarationSet
+Varve.Events.Model.DeclarationSet.Problems.get -> System.Collections.Generic.IReadOnlyList<Varve.Events.Model.DeclarationProblem>!
+Varve.Events.Model.DeclarationSet.Types.get -> System.Collections.Generic.IReadOnlyList<Varve.Events.Model.EventTypeDeclaration!>!
+Varve.Events.Model.DeclarationVerdict
+Varve.Events.Model.DeclarationVerdict.Accepted.get -> bool
+Varve.Events.Model.DeclarationVerdict.Declaration.get -> Varve.Rdf.RdfTerm?
+Varve.Events.Model.DeclarationVerdict.Detail.get -> string?
+Varve.Events.Model.DeclarationVerdict.Fields.get -> System.Collections.Generic.IReadOnlyList<Varve.Events.Model.FieldChange>!
+Varve.Events.Model.DeclarationVerdict.ProblemType.get -> string?
+Varve.Events.Model.DeclarationVerdict.Reason.get -> string?
+Varve.Events.Model.EventCatalogueSnapshot
+Varve.Events.Model.EventCatalogueSnapshot.Position.get -> Varve.Delta.Model.FeedPosition
+Varve.Events.Model.EventCatalogueSnapshot.TryGet(string! name, out Varve.Events.Model.CataloguedType? type) -> bool
+Varve.Events.Model.EventCatalogueSnapshot.Types.get -> System.Collections.Generic.IReadOnlyList<Varve.Events.Model.CataloguedType!>!
+Varve.Events.Model.EventCommit
+Varve.Events.Model.EventCommit.<Clone>$() -> Varve.Events.Model.EventCommit!
+Varve.Events.Model.EventCommit.Assertions.get -> System.Collections.Generic.IReadOnlyList<Varve.Events.Model.TypeAssertion>!
+Varve.Events.Model.EventCommit.Assertions.init -> void
+Varve.Events.Model.EventCommit.Deconstruct(out Varve.Delta.Model.FeedPosition Position, out Varve.Delta.Model.FeedTimestamp Timestamp, out System.Collections.Generic.IReadOnlyList<Varve.Events.Model.TypeAssertion>! Assertions) -> void
+Varve.Events.Model.EventCommit.Equals(Varve.Events.Model.EventCommit? other) -> bool
+Varve.Events.Model.EventCommit.EventCommit(Varve.Delta.Model.FeedPosition Position, Varve.Delta.Model.FeedTimestamp Timestamp, System.Collections.Generic.IReadOnlyList<Varve.Events.Model.TypeAssertion>! Assertions) -> void
+Varve.Events.Model.EventCommit.Position.get -> Varve.Delta.Model.FeedPosition
+Varve.Events.Model.EventCommit.Position.init -> void
+Varve.Events.Model.EventCommit.Timestamp.get -> Varve.Delta.Model.FeedTimestamp
+Varve.Events.Model.EventCommit.Timestamp.init -> void
+Varve.Events.Model.EventEndpoints
+Varve.Events.Model.EventEndpoints.AsyncApi.get -> string!
+Varve.Events.Model.EventEndpoints.Base.get -> string!
+Varve.Events.Model.EventEndpoints.BasePath.get -> string!
+Varve.Events.Model.EventEndpoints.Dataset.get -> string!
+Varve.Events.Model.EventEndpoints.EventEndpoints(string! baseUrl, string! dataset) -> void
+Varve.Events.Model.EventEndpoints.Events.get -> string!
+Varve.Events.Model.EventEndpoints.Host.get -> string!
+Varve.Events.Model.EventEndpoints.Schema(string! type) -> string!
+Varve.Events.Model.EventEndpoints.Schema(string! type, int version) -> string!
+Varve.Events.Model.EventEndpoints.Schema(string! type, int version, Varve.Delta.Model.FeedPosition revision) -> string!
+Varve.Events.Model.EventEndpoints.Scheme.get -> string!
+Varve.Events.Model.EventEndpoints.Source.get -> string!
+Varve.Events.Model.EventEndpoints.Types.get -> string!
+Varve.Events.Model.EventFieldDeclaration
+Varve.Events.Model.EventFieldDeclaration.AsString.get -> bool
+Varve.Events.Model.EventFieldDeclaration.Datatype.get -> Varve.Rdf.RdfTerm!
+Varve.Events.Model.EventFieldDeclaration.Description.get -> string?
+Varve.Events.Model.EventFieldDeclaration.KeepLanguage.get -> bool
+Varve.Events.Model.EventFieldDeclaration.Name.get -> string!
+Varve.Events.Model.EventFieldDeclaration.Node.get -> Varve.Rdf.RdfTerm!
+Varve.Events.Model.EventFieldDeclaration.Required.get -> bool
+Varve.Events.Model.EventHubsServer
+Varve.Events.Model.EventHubsServer.<Clone>$() -> Varve.Events.Model.EventHubsServer!
+Varve.Events.Model.EventHubsServer.Deconstruct(out string! Host, out string! Hub) -> void
+Varve.Events.Model.EventHubsServer.Equals(Varve.Events.Model.EventHubsServer? other) -> bool
+Varve.Events.Model.EventHubsServer.EventHubsServer(string! Host, string! Hub) -> void
+Varve.Events.Model.EventHubsServer.Host.get -> string!
+Varve.Events.Model.EventHubsServer.Host.init -> void
+Varve.Events.Model.EventHubsServer.Hub.get -> string!
+Varve.Events.Model.EventHubsServer.Hub.init -> void
+Varve.Events.Model.EventTypeDeclaration
+Varve.Events.Model.EventTypeDeclaration.Class.get -> Varve.Rdf.RdfTerm!
+Varve.Events.Model.EventTypeDeclaration.Description.get -> string?
+Varve.Events.Model.EventTypeDeclaration.Fields.get -> System.Collections.Generic.IReadOnlyList<Varve.Events.Model.EventFieldDeclaration!>!
+Varve.Events.Model.EventTypeDeclaration.Name.get -> string!
+Varve.Events.Model.EventTypeDeclaration.Node.get -> Varve.Rdf.RdfTerm!
+Varve.Events.Model.EventTypeDeclaration.Retired.get -> bool
+Varve.Events.Model.EventTypeDeclaration.Select.get -> string!
+Varve.Events.Model.EventTypeDeclaration.SourceGraph.get -> Varve.Rdf.RdfTerm?
+Varve.Events.Model.EventTypeDeclaration.Subject.get -> string?
+Varve.Events.Model.EventTypeDeclaration.Version.get -> int
+Varve.Events.Model.FieldChange
+Varve.Events.Model.FieldChange.Change.get -> string!
+Varve.Events.Model.FieldChange.Change.init -> void
+Varve.Events.Model.FieldChange.Deconstruct(out string! Field, out string! Change) -> void
+Varve.Events.Model.FieldChange.Equals(Varve.Events.Model.FieldChange other) -> bool
+Varve.Events.Model.FieldChange.Field.get -> string!
+Varve.Events.Model.FieldChange.Field.init -> void
+Varve.Events.Model.FieldChange.FieldChange() -> void
+Varve.Events.Model.FieldChange.FieldChange(string! Field, string! Change) -> void
+Varve.Events.Model.ListedType
+Varve.Events.Model.ListedType.<Clone>$() -> Varve.Events.Model.ListedType!
+Varve.Events.Model.ListedType.Deconstruct(out Varve.Events.Model.EventEndpoints! Endpoints, out Varve.Events.Model.CataloguedType! Type) -> void
+Varve.Events.Model.ListedType.Endpoints.get -> Varve.Events.Model.EventEndpoints!
+Varve.Events.Model.ListedType.Endpoints.init -> void
+Varve.Events.Model.ListedType.Equals(Varve.Events.Model.ListedType? other) -> bool
+Varve.Events.Model.ListedType.ListedType(Varve.Events.Model.EventEndpoints! Endpoints, Varve.Events.Model.CataloguedType! Type) -> void
+Varve.Events.Model.ListedType.Type.get -> Varve.Events.Model.CataloguedType!
+Varve.Events.Model.ListedType.Type.init -> void
+Varve.Events.Model.RenderedEvent
+Varve.Events.Model.RenderedEvent.Id.get -> string!
+Varve.Events.Model.RenderedEvent.IsProblem.get -> bool
+Varve.Events.Model.RenderedEvent.Json.get -> System.ReadOnlyMemory<byte>
+Varve.Events.Model.RenderedEvent.Ordinal.get -> int
+Varve.Events.Model.RenderedEvent.Position.get -> Varve.Delta.Model.FeedPosition
+Varve.Events.Model.RenderedEvent.Type.get -> string!
+Varve.Events.Model.SchemaRevision
+Varve.Events.Model.SchemaRevision.Deconstruct(out int Version, out Varve.Delta.Model.FeedPosition Revision) -> void
+Varve.Events.Model.SchemaRevision.Equals(Varve.Events.Model.SchemaRevision other) -> bool
+Varve.Events.Model.SchemaRevision.Revision.get -> Varve.Delta.Model.FeedPosition
+Varve.Events.Model.SchemaRevision.Revision.init -> void
+Varve.Events.Model.SchemaRevision.SchemaRevision() -> void
+Varve.Events.Model.SchemaRevision.SchemaRevision(int Version, Varve.Delta.Model.FeedPosition Revision) -> void
+Varve.Events.Model.SchemaRevision.Version.get -> int
+Varve.Events.Model.SchemaRevision.Version.init -> void
+Varve.Events.Model.TypeAssertion
+Varve.Events.Model.TypeAssertion.Class.get -> Varve.Rdf.RdfTerm!
+Varve.Events.Model.TypeAssertion.Class.init -> void
+Varve.Events.Model.TypeAssertion.Deconstruct(out Varve.Rdf.RdfTerm! Node, out Varve.Rdf.RdfTerm! Class, out Varve.Rdf.RdfTerm? Graph) -> void
+Varve.Events.Model.TypeAssertion.Equals(Varve.Events.Model.TypeAssertion other) -> bool
+Varve.Events.Model.TypeAssertion.Graph.get -> Varve.Rdf.RdfTerm?
+Varve.Events.Model.TypeAssertion.Graph.init -> void
+Varve.Events.Model.TypeAssertion.Node.get -> Varve.Rdf.RdfTerm!
+Varve.Events.Model.TypeAssertion.Node.init -> void
+Varve.Events.Model.TypeAssertion.TypeAssertion() -> void
+Varve.Events.Model.TypeAssertion.TypeAssertion(Varve.Rdf.RdfTerm! Node, Varve.Rdf.RdfTerm! Class, Varve.Rdf.RdfTerm? Graph) -> void
+const Varve.Events.EventCatalogue.Namespace = "https://w3id.org/varve/ns#events-catalogue/" -> string!
+const Varve.Events.EventRenderer.ProblemTitle = "An event could not be rendered" -> string!
+const Varve.Events.EventRenderer.ProblemType = "https://w3id.org/varve/problems/event-not-rendered" -> string!
+const Varve.Events.EventSchemas.Dialect = "https://json-schema.org/draft/2020-12/schema" -> string!
+const Varve.Events.Model.DeclarationVerdict.IncompatibleType = "https://w3id.org/varve/problems/event-schema-incompatible" -> string!
+const Varve.Events.Model.DeclarationVerdict.InvalidType = "https://w3id.org/varve/problems/event-declaration-invalid" -> string!
+override Varve.Events.Model.DeclarationProblem.GetHashCode() -> int
+override Varve.Events.Model.EventCommit.Equals(object? obj) -> bool
+override Varve.Events.Model.EventCommit.GetHashCode() -> int
+override Varve.Events.Model.EventCommit.ToString() -> string!
+override Varve.Events.Model.EventHubsServer.Equals(object? obj) -> bool
+override Varve.Events.Model.EventHubsServer.GetHashCode() -> int
+override Varve.Events.Model.EventHubsServer.ToString() -> string!
+override Varve.Events.Model.FieldChange.GetHashCode() -> int
+override Varve.Events.Model.ListedType.Equals(object? obj) -> bool
+override Varve.Events.Model.ListedType.GetHashCode() -> int
+override Varve.Events.Model.ListedType.ToString() -> string!
+override Varve.Events.Model.SchemaRevision.GetHashCode() -> int
+override Varve.Events.Model.TypeAssertion.GetHashCode() -> int
+static Varve.Events.EventCatalogue.GraphOf(Varve.Rdf.RdfTerm? sourceGraph) -> Varve.Rdf.RdfTerm!
+static Varve.Events.EventCatalogue.IsUnderNamespace(Varve.Rdf.RdfTerm! graph) -> bool
+static Varve.Events.EventCatalogue.TryGetSourceGraph(Varve.Rdf.RdfTerm! graph, out Varve.Rdf.RdfTerm? sourceGraph) -> bool
+static Varve.Events.EventDeclarationCheck.Check(Varve.Rdf.IQuadSource! proposed, System.Collections.Generic.IReadOnlyList<Varve.Delta.Model.FeedChange>! changes) -> Varve.Events.Model.DeclarationVerdict!
+static Varve.Events.EventDeclarationCheck.Incompatibilities(Varve.Events.Model.EventTypeDeclaration! old, Varve.Events.Model.EventTypeDeclaration! now) -> System.Collections.Generic.IReadOnlyList<Varve.Events.Model.FieldChange>!
+static Varve.Events.EventDeclarations.CatalogueGraphs(Varve.Rdf.IQuadSource! source) -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+static Varve.Events.EventDeclarations.Read(Varve.Rdf.IQuadSource! source, System.Collections.Generic.IEnumerable<Varve.Rdf.RdfTerm!>! catalogueGraphs) -> Varve.Events.Model.DeclarationSet!
+static Varve.Events.EventDeclarations.ReadAll(Varve.Rdf.IQuadSource! source) -> Varve.Events.Model.DeclarationSet!
+static Varve.Events.EventRenderer.HasEvents(Varve.Events.Model.EventCommit! commit, Varve.Events.Model.EventCatalogueSnapshot! catalogue) -> bool
+static Varve.Events.EventSchemas.Generate(Varve.Events.Model.EventTypeDeclaration! declaration, string? id) -> byte[]!
+static Varve.Events.EventViews.AsyncApi(Varve.Events.Model.EventEndpoints! endpoints, System.Collections.Generic.IReadOnlyList<Varve.Events.Model.CataloguedType!>! types, Varve.Delta.Model.FeedPosition position, Varve.Events.Model.EventHubsServer? eventHubs) -> byte[]!
+static Varve.Events.EventViews.DatasetList(System.Collections.Generic.IReadOnlyList<Varve.Events.Model.ListedType!>! types) -> byte[]!
+static Varve.Events.EventViews.ServerList(System.Collections.Generic.IReadOnlyList<Varve.Events.Model.ListedType!>! types) -> byte[]!
+static Varve.Events.Model.DeclarationProblem.operator !=(Varve.Events.Model.DeclarationProblem left, Varve.Events.Model.DeclarationProblem right) -> bool
+static Varve.Events.Model.DeclarationProblem.operator ==(Varve.Events.Model.DeclarationProblem left, Varve.Events.Model.DeclarationProblem right) -> bool
+static Varve.Events.Model.EventCommit.operator !=(Varve.Events.Model.EventCommit? left, Varve.Events.Model.EventCommit? right) -> bool
+static Varve.Events.Model.EventCommit.operator ==(Varve.Events.Model.EventCommit? left, Varve.Events.Model.EventCommit? right) -> bool
+static Varve.Events.Model.EventHubsServer.operator !=(Varve.Events.Model.EventHubsServer? left, Varve.Events.Model.EventHubsServer? right) -> bool
+static Varve.Events.Model.EventHubsServer.operator ==(Varve.Events.Model.EventHubsServer? left, Varve.Events.Model.EventHubsServer? right) -> bool
+static Varve.Events.Model.FieldChange.operator !=(Varve.Events.Model.FieldChange left, Varve.Events.Model.FieldChange right) -> bool
+static Varve.Events.Model.FieldChange.operator ==(Varve.Events.Model.FieldChange left, Varve.Events.Model.FieldChange right) -> bool
+static Varve.Events.Model.ListedType.operator !=(Varve.Events.Model.ListedType? left, Varve.Events.Model.ListedType? right) -> bool
+static Varve.Events.Model.ListedType.operator ==(Varve.Events.Model.ListedType? left, Varve.Events.Model.ListedType? right) -> bool
+static Varve.Events.Model.SchemaRevision.operator !=(Varve.Events.Model.SchemaRevision left, Varve.Events.Model.SchemaRevision right) -> bool
+static Varve.Events.Model.SchemaRevision.operator ==(Varve.Events.Model.SchemaRevision left, Varve.Events.Model.SchemaRevision right) -> bool
+static Varve.Events.Model.TypeAssertion.operator !=(Varve.Events.Model.TypeAssertion left, Varve.Events.Model.TypeAssertion right) -> bool
+static Varve.Events.Model.TypeAssertion.operator ==(Varve.Events.Model.TypeAssertion left, Varve.Events.Model.TypeAssertion right) -> bool
+~override Varve.Events.Model.DeclarationProblem.Equals(object obj) -> bool
+~override Varve.Events.Model.DeclarationProblem.ToString() -> string
+~override Varve.Events.Model.FieldChange.Equals(object obj) -> bool
+~override Varve.Events.Model.FieldChange.ToString() -> string
+~override Varve.Events.Model.SchemaRevision.Equals(object obj) -> bool
+~override Varve.Events.Model.SchemaRevision.ToString() -> string
+~override Varve.Events.Model.TypeAssertion.Equals(object obj) -> bool
+~override Varve.Events.Model.TypeAssertion.ToString() -> string

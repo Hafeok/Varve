@@ -1,0 +1,29 @@
+PREFIX varve: <https://w3id.org/varve/ns#>
+PREFIX xsd:   <http://www.w3.org/2001/XMLSchema#>
+PREFIX rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX t:     <https://example.org/types/>
+
+<https://w3id.org/varve/ns#events-catalogue/https%3A%2F%2Fexample.org%2Fevents> {
+  t:Everything a varve:EventType ;
+    varve:eventName "Everything" ;
+    varve:eventClass <https://example.org/ns#Everything> ;
+    varve:eventVersion 1 ;
+    rdfs:comment "Every mapping of docs/spec/events.md §5.2, once." ;
+    varve:eventSelect """SELECT ?i ?l ?dec ?dbl ?b ?dt ?d ?tm ?u ?s ?dur ?ls ?lk ?big WHERE { ?event ?p ?o }""" ;
+    varve:eventField t:i, t:l, t:dec, t:dbl, t:b, t:dt, t:d, t:tm, t:u, t:s, t:dur, t:ls, t:lk, t:big .
+  t:i a varve:EventField ; varve:fieldName "i" ; varve:fieldDatatype xsd:integer ; varve:fieldRequired true ; rdfs:comment "An integer." .
+  t:l a varve:EventField ; varve:fieldName "l" ; varve:fieldDatatype xsd:unsignedShort ; varve:fieldRequired false .
+  t:dec a varve:EventField ; varve:fieldName "dec" ; varve:fieldDatatype xsd:decimal ; varve:fieldRequired true .
+  t:dbl a varve:EventField ; varve:fieldName "dbl" ; varve:fieldDatatype xsd:double ; varve:fieldRequired false .
+  t:b a varve:EventField ; varve:fieldName "b" ; varve:fieldDatatype xsd:boolean ; varve:fieldRequired true .
+  t:dt a varve:EventField ; varve:fieldName "dt" ; varve:fieldDatatype xsd:dateTime ; varve:fieldRequired true .
+  t:d a varve:EventField ; varve:fieldName "d" ; varve:fieldDatatype xsd:date ; varve:fieldRequired false .
+  t:tm a varve:EventField ; varve:fieldName "tm" ; varve:fieldDatatype xsd:time ; varve:fieldRequired false .
+  t:u a varve:EventField ; varve:fieldName "u" ; varve:fieldDatatype xsd:anyURI ; varve:fieldRequired true .
+  t:s a varve:EventField ; varve:fieldName "s" ; varve:fieldDatatype xsd:string ; varve:fieldRequired false .
+  t:dur a varve:EventField ; varve:fieldName "dur" ; varve:fieldDatatype xsd:duration ; varve:fieldRequired false .
+  t:ls a varve:EventField ; varve:fieldName "ls" ; varve:fieldDatatype rdf:langString ; varve:fieldRequired false .
+  t:lk a varve:EventField ; varve:fieldName "lk" ; varve:fieldDatatype rdf:langString ; varve:fieldKeepLanguage true ; varve:fieldRequired false ; rdfs:comment "Kept with its language." .
+  t:big a varve:EventField ; varve:fieldName "big" ; varve:fieldDatatype xsd:integer ; varve:fieldAs "string" ; varve:fieldRequired false .
+}

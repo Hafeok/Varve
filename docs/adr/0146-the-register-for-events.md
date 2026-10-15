@@ -47,7 +47,7 @@ Two packages and two images are needed, and none may reach a shipped closure.
      ADR.
 3. **The AsyncAPI 3.0.0 JSON Schema** is vendored as test data, from
    `asyncapi/spec-json-schemas` (Apache-2.0), under
-   `tests/Varve.Protocol.Tests/fixtures/asyncapi/` with its licence notice.
+   `tests/Varve.Events.Tests/fixtures/asyncapi/` with its licence notice.
    It is never fetched at test time.
 4. **The images**, in the register's image table, are pinned by digest in
    `.github/eventhubs/compose.yaml`:

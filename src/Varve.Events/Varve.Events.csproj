@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 4 by dependency (ADR 0143): domain events rendered from quads,
+         with a SPARQL SELECT per declared type, so it sits above the
+         evaluator. It knows no store and no HTTP: Varve.Protocol maps a
+         store's commits and as-of views to it, and an embedded or browser
+         host can render events with no server. Nothing on layer 4
+         references it, and it references nothing on layer 4. -->
+    <ArchLayer>4</ArchLayer>
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <!-- Positions and timestamps are the delta format's (ADR 0128): an event
+         is addressed by the commits resource's position. -->
+    <ArchContractTypeAssemblies>$(ArchContractTypeAssemblies);Varve.Delta</ArchContractTypeAssemblies>
+    <Description>Domain events as quads: the event catalogue's declarations, their rendering as CloudEvents 1.0 in RFC 8785 canonical JSON through declared SELECT mappings, JSON Schemas with immutable revisions, AsyncAPI 3.0, and the compatibility check of a declaration change.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- ADR 0003 permits InternalsVisibleTo toward *.Tests only: the number
+         rule and the mapping are tested directly, against an oracle of
+         their own. -->
+    <InternalsVisibleTo Include="Varve.Events.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
+    <ProjectReference Include="../Varve.Delta/Varve.Delta.csproj" />
+    <ProjectReference Include="../Varve.Sparql/Varve.Sparql.csproj" />
+    <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
+    <ProjectReference Include="../Varve.Xsd/Varve.Xsd.csproj" />
+    <ProjectReference Include="../Varve.Json.Canonical/Varve.Json.Canonical.csproj" />
+  </ItemGroup>
+
+</Project>

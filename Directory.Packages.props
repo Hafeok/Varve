@@ -122,6 +122,26 @@
     <PackageVersion Include="Microsoft.Identity.Web" Version="4.16.0" Adr="0133" Scope="samples/" />
   </ItemGroup>
 
+  <ItemGroup Label="Events: the Event Hubs sample and the schema validator of the tests (ADR 0146)">
+    <!-- Azure.Messaging.EventHubs, MIT, managed (lib/net8.0 and
+         netstandard2.0, no runtimes/): the Event Hubs bridge sample publishes
+         rendered CloudEvents with it (ADR 0143); its Azure.Core, Azure.Core.Amqp
+         and Microsoft.Azure.Amqp closure, MIT and managed, comes with it into
+         the sample alone. An Event Hubs package in src/ is a non-goal until a
+         second consumer wants one.
+         JsonSchema.Net, MIT: the events tests validate every rendered event
+         against its generated schema (2020-12) and every AsyncAPI document
+         against the AsyncAPI 3.0 schema (draft-07). Pinned at 8.0.5, the last
+         release whose package licence is the MIT expression alone: from 9.0.0
+         the binaries carry the json-everything Open Source Maintenance Fee
+         agreement, so Dependabot's 9.x proposals are declined with ADR 0146.
+         Its lib/ holds net8.0, net9.0, net10.0 and netstandard2.0 and no
+         runtimes/ folder: no native asset. Its closure, JsonPointer.Net 6.0.0,
+         Json.More.Net 2.2.0 and Humanizer.Core 3.0.1, is MIT and managed. -->
+    <PackageVersion Include="Azure.Messaging.EventHubs" Version="5.12.2" Adr="0146" Scope="samples/" />
+    <PackageVersion Include="JsonSchema.Net" Version="8.0.5" Adr="0146" Scope="tests/" />
+  </ItemGroup>
+
   <ItemGroup Label="Varve.Aspire and its sample (ADR 0117)">
     <!-- The hosting integration's one reference: Aspire's hosting model, MIT,
          managed, which it extends with AddVarve; it references nothing from
@@ -148,6 +168,8 @@
     | ghcr.io/navikt/mock-oauth2-server | 6.0.4 | MIT | .github/mock-oauth2/compose.yaml |
     | ghcr.io/zitadel/zitadel | v4.19.4 | AGPL-3.0 (run, never linked or shipped) | .github/zitadel/compose.yaml |
     | public.ecr.aws/docker/library/postgres | 18.6-alpine | PostgreSQL | .github/zitadel/compose.yaml |
+    | mcr.microsoft.com/azure-messaging/eventhubs-emulator | 2.2.1 | Microsoft's emulator licence, accepted by ACCEPT_EULA=Y (run in CI, never linked or shipped; ADR 0146) | .github/eventhubs/compose.yaml |
+    | mcr.microsoft.com/azure-storage/azurite | 3.37.0 | MIT (ADR 0146) | .github/eventhubs/compose.yaml |
   -->
 
   <ItemGroup Label="Test-time">

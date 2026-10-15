@@ -23,6 +23,10 @@ decisions:
     statement: "GET /datasets/{name}/events serves a range with the commits resource's position semantics, a canonical CloudEvents batch when bounded and one server-sent event per commit when open"
   - key: VarveEventsAtLayerFour
     statement: "Varve.Events renders, generates and checks over quads at layer 4 by dependency, referencing no store and no protocol"
+  - key: EventSurfaceCarriesDeclaredValues
+    statement: "Varve.Events' surface carries a declaration's values as the types the declaration states them in, short names, field names, queries, URLs and descriptions as string, a version and an ordinal as int, required-ness and retirement as bool; positions and timestamps are Varve.Delta's types"
+  - key: EventsModelNamespace
+    statement: "Varve.Events.Model is the package's model namespace: the declarations, the catalogue at a position, a commit's input, a rendered event, a verdict and the URLs, named by the contracts of Varve.Events"
 ---
 
 The rulings of [ADR 0143](../adr/0143-domain-events-as-cloudevents.md), one line each. The ADR is the

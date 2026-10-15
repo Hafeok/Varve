@@ -90,6 +90,7 @@ and it ships inside every package.
 | `Varve.Sparql.Evaluation` | 3 | the optimiser and evaluator: every operator, the function library, aggregates, property paths, `SERVICE` through a handler, over any quad source | working |
 | `Varve.Aspire` | 0 | the .NET Aspire hosting integration: `AddVarve`, `WithOidc`, `WithDataset` on an AppHost; references nothing from Varve | working |
 | `Varve.Analyzers` | — | the layer rules, at build time | working, never shipped |
+| `Varve.Events` | 4 | domain events as quads: the event catalogue's declarations, their rendering as canonical CloudEvents through declared `SELECT` mappings, JSON Schemas with immutable revisions, AsyncAPI 3.0, and the compatibility check of a declaration change | working |
 | `Varve.Store` | 4 | the log, the default projection, pinned and as-of reads, checkpoints, subscriptions, dataset validators, the staging view, the bulk loader, replicas by file copy; `log/` format 1 on files, `derived/` format 3 | working |
 | `Varve.Sparql.Store` | 5 | SPARQL Update over the store: one request, one commit, `LOAD` through a caller's source, read and write scopes by graph | working |
 | `Varve.Store.Browser` | 5 | the store in a browser: the origin private file system through synchronous access handles in a worker, or IndexedDB | working |

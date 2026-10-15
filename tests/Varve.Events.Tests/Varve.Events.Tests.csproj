@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Varve.Events/Varve.Events.csproj" />
+    <ProjectReference Include="../../src/Varve.Turtle/Varve.Turtle.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The schema generator's golden files (ADR 0145, read for ever: never
+         regenerated in CI) and the vendored AsyncAPI 3.0.0 schema (ADR 0146). -->
+    <None Include="fixtures/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+    <PackageReference Include="CsCheck" />
+    <PackageReference Include="JsonSchema.Net" />
+  </ItemGroup>
+
+</Project>
