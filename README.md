@@ -78,6 +78,7 @@ and it ships inside every package.
 | Package | Layer | What it is | State |
 |---|---:|---|---|
 | `Varve.Iri` | 0 | IRI parsing, resolution and normalisation over UTF-8 | working |
+| `Varve.Json.Canonical` | 0 | RFC 8785 canonical JSON over UTF-8: string escaping, ECMAScript numbers, member order, and a writer that cannot write anything else; the one implementation `Varve.JsonLd` and `Varve.Events` share | working |
 | `Varve.Xsd` | 0 | the XSD 1.1 value spaces with SPARQL operator semantics: exact decimal, the integer family, IEEE double and float, boolean, string, the date and time family, durations | working |
 | `Varve.Rdf` | 1 | terms, triples, quads, and the abstract quad source contract — with cardinality estimates and an inline-value accessor | working |
 | `Varve.Turtle` | 2 | N-Triples, N-Quads, Turtle, TriG — reader and writer, RDF 1.2 throughout | working |

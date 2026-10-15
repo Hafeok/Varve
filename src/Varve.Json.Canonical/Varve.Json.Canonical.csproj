@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 0: no Varve dependencies at all (ADR 0147). The one RFC 8785
+         implementation in the repository: Varve.JsonLd writes rdf:JSON
+         literals with it, Varve.Events writes CloudEvents and schemas with
+         it, and the bytes of both are read for ever. -->
+    <ArchLayer>0</ArchLayer>
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <Description>RFC 8785, the JSON Canonicalization Scheme, over UTF-8: string escaping, ECMAScript number formatting, member order by UTF-16 code units, and a forward-only writer that refuses anything else.</Description>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,22 @@
+#nullable enable
+const Varve.Json.Canonical.CanonicalJson.MaxNumberLength = 32 -> int
+static Varve.Json.Canonical.CanonicalJson.CompareNames(System.ReadOnlySpan<byte> left, System.ReadOnlySpan<byte> right) -> int
+static Varve.Json.Canonical.CanonicalJson.FormatNumber(double value, System.Span<byte> destination) -> int
+static Varve.Json.Canonical.CanonicalJson.WriteNumber(System.Buffers.IBufferWriter<byte>! output, double value) -> void
+static Varve.Json.Canonical.CanonicalJson.WriteString(System.Buffers.IBufferWriter<byte>! output, System.ReadOnlySpan<byte> utf8) -> void
+Varve.Json.Canonical.CanonicalJson
+Varve.Json.Canonical.CanonicalJsonWriter
+Varve.Json.Canonical.CanonicalJsonWriter.CanonicalJsonWriter(System.Buffers.IBufferWriter<byte>! output) -> void
+Varve.Json.Canonical.CanonicalJsonWriter.EndArray() -> void
+Varve.Json.Canonical.CanonicalJsonWriter.EndObject() -> void
+Varve.Json.Canonical.CanonicalJsonWriter.IsComplete.get -> bool
+Varve.Json.Canonical.CanonicalJsonWriter.StartArray() -> void
+Varve.Json.Canonical.CanonicalJsonWriter.StartObject() -> void
+Varve.Json.Canonical.CanonicalJsonWriter.WriteBoolean(bool value) -> void
+Varve.Json.Canonical.CanonicalJsonWriter.WriteCanonicalValue(System.ReadOnlySpan<byte> canonical) -> void
+Varve.Json.Canonical.CanonicalJsonWriter.WriteName(string! name) -> void
+Varve.Json.Canonical.CanonicalJsonWriter.WriteName(System.ReadOnlySpan<byte> utf8Name) -> void
+Varve.Json.Canonical.CanonicalJsonWriter.WriteNull() -> void
+Varve.Json.Canonical.CanonicalJsonWriter.WriteNumber(double value) -> void
+Varve.Json.Canonical.CanonicalJsonWriter.WriteString(string! value) -> void
+Varve.Json.Canonical.CanonicalJsonWriter.WriteString(System.ReadOnlySpan<byte> utf8) -> void

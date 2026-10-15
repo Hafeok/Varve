@@ -7,6 +7,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
+using Varve.Json.Canonical;
 using Varve.JsonLd.Json;
 using Varve.JsonLd.Model;
 using Varve.JsonLd.Processing;
@@ -819,7 +820,7 @@ public sealed class JsonLdWriter : IDisposable
             else if (_tree.TextEquals(datatype, XsdDoubleIri) && XsdDouble.TryParse(_tree.Bytes(lexical), out XsdDouble value) && !value.IsNaN && !double.IsInfinity(value.Value))
             {
                 Span<byte> digits = _tree.ReserveText(48);
-                int written = Jcs.FormatEcmaScript(value.Value, digits);
+                int written = CanonicalJson.FormatNumber(value.Value, digits);
                 converted = _tree.AddNumber(_tree.CommitText(written));
             }
             else

@@ -7,6 +7,7 @@ using System.Buffers;
 using System.Text;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
+using Varve.Json.Canonical;
 
 namespace Varve.JsonLd.Json;
 
@@ -469,67 +470,8 @@ internal sealed class JsonTree
     }
 
     /// <summary>Compares two UTF-8 strings as sequences of UTF-16 code units.</summary>
-    internal static int CompareUtf16(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
-    {
-        int i = 0, j = 0;
-
-        while (i < left.Length && j < right.Length)
-        {
-            int a = NextUnit(left, ref i, out int aSecond);
-            int b = NextUnit(right, ref j, out int bSecond);
-
-            if (a != b)
-            {
-                return a - b;
-            }
-
-            if (aSecond != bSecond)
-            {
-                return aSecond - bSecond;
-            }
-        }
-
-        return (left.Length - i) - (right.Length - j);
-    }
-
-    /// <summary>The next UTF-16 code unit of a UTF-8 string, with the low surrogate of a supplementary character as the second.</summary>
-    private static int NextUnit(ReadOnlySpan<byte> text, ref int at, out int second)
-    {
-        second = -1;
-        byte b = text[at];
-
-        if (b < 0x80)
-        {
-            at++;
-            return b;
-        }
-
-        if ((b & 0xE0) == 0xC0 && at + 1 < text.Length)
-        {
-            int cp = ((b & 0x1F) << 6) | (text[at + 1] & 0x3F);
-            at += 2;
-            return cp;
-        }
-
-        if ((b & 0xF0) == 0xE0 && at + 2 < text.Length)
-        {
-            int cp = ((b & 0x0F) << 12) | ((text[at + 1] & 0x3F) << 6) | (text[at + 2] & 0x3F);
-            at += 3;
-            return cp;
-        }
-
-        if ((b & 0xF8) == 0xF0 && at + 3 < text.Length)
-        {
-            int cp = ((b & 0x07) << 18) | ((text[at + 1] & 0x3F) << 12) | ((text[at + 2] & 0x3F) << 6) | (text[at + 3] & 0x3F);
-            at += 4;
-            cp -= 0x10000;
-            second = 0xDC00 | (cp & 0x3FF);
-            return 0xD800 | (cp >> 10);
-        }
-
-        at++;
-        return b;
-    }
+    internal static int CompareUtf16(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right) =>
+        CanonicalJson.CompareNames(left, right);
 
     /// <summary>Whether two subtrees are the same JSON value, members in any order.</summary>
     internal bool SameValue(int left, int right)

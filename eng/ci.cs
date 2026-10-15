@@ -181,6 +181,9 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-delta", "Varve.Delta: the chunk-boundary oracle, the round trip, version 1 read for ever",
         () => Test("Varve.Delta.Tests")),
 
+    ("test-json-canonical", "Varve.Json.Canonical: RFC 8785's vectors, Node's numbers as the oracle, the writer's refusals",
+        () => Test("Varve.Json.Canonical.Tests")),
+
     ("test-xsd", "Varve.Xsd, and its properties; the evaluation suites gate it too",
         () => Test("Varve.Xsd.Tests")),
 

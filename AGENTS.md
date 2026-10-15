@@ -28,7 +28,7 @@ shared mutable state, no static registries. **High cohesion**: one reason to cha
 
 | Layer | Packages |
 |---:|---|
-| 0 | `Varve.Iri`, `Varve.Xsd` |
+| 0 | `Varve.Iri`, `Varve.Xsd`, `Varve.Json.Canonical` (ADR 0147) |
 | 1 | `Varve.Rdf` — model and the abstract quad source contract |
 | 2 | syntax: `Varve.Turtle`, `Varve.RdfXml`, `Varve.JsonLd`, `Varve.Sparql.Results`, and `Varve.Sparql` (the algebra, parser and serialiser) |
 | 3 | `Varve.Sparql.Evaluation` (optimiser and evaluator, one package — ADR 0048), `Varve.Shacl`, `Varve.Delta` (the change feed's format, by dependency — ADR 0128) |
