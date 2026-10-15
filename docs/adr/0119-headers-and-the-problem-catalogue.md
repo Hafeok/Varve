@@ -130,3 +130,22 @@ change with it.
 
 **The ledger.** The ruling of this block is `ConflictListsTheGraphsInScope`,
 unaccepted until the maintainer accepts it.
+
+## Amendment, 2026-10-15 — three problem types for events, and the validator's path
+
+Filed by milestone Client and integration, part 2, of #93, unaccepted until
+the maintainer accepts it (ADR 0066).
+
+- **`event-declaration-invalid`** (`422`, members `declaration`, `reason`) and
+  **`event-schema-incompatible`** (`422`, members `declaration`, `fields`):
+  a declaration change refused by ADR 0145's validator.
+- **`event-not-rendered`** (`422`, members `event`, `eventType`, `reason`):
+  never a response, always the data of an in-band CloudEvent (ADR 0143). It is
+  catalogued so that its title, status and members are fixed like every other.
+- **The validator's path.** A dataset validator's rejection whose report
+  starts with the IRI of a type the catalogue marks as a validator's, followed
+  by an `rdf:JSON` literal of its members, is written as that type instead of
+  `rejected`. Every other rejection is `rejected`, as point 9 says.
+
+**The ledger.** The ruling of this block is `EventProblemTypes`, unaccepted
+until the maintainer accepts it.

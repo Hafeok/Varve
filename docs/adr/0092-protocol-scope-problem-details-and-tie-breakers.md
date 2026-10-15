@@ -265,3 +265,20 @@ reads the four line syntaxes; it gains RDF/XML and JSON-LD when a milestone
 wants `LOAD` of either, by amendment of ADR 0104. The `varve` command line's
 `load` and `export` are unchanged. The `version` media-type parameter of
 RDF 1.2 is neither read nor written.
+
+## Amendment, 2026-10-15 — the event vocabulary
+
+Filed by milestone Client and integration, part 2, of #93, unaccepted until
+the maintainer accepts it (ADR 0066).
+
+Point 6's vocabulary gains the terms of ADR 0144: the classes
+`varve:EventType` and `varve:EventField`; the type's `varve:eventName`,
+`varve:eventClass`, `varve:eventVersion`, `varve:eventSelect`,
+`varve:eventSubject`, `varve:eventRetired` and `varve:eventField`; the field's
+`varve:fieldName`, `varve:fieldDatatype`, `varve:fieldRequired`, `varve:fieldAs`
+and `varve:fieldKeepLanguage`; the graph names under
+`varve:events-catalogue/`; and on the service description `varve:events`,
+`varve:eventTypes` and `varve:eventCatalogue`. `docs/vocabulary.md` lists each.
+
+**The ledger.** The ruling of this block is `EventVocabulary`, unaccepted until
+the maintainer accepts it.

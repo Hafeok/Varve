@@ -182,3 +182,21 @@ Two details stop "just `POST` it" from being idempotent.
 - **Layer ownership.** `Varve.Protocol.Client`, layer 5.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-15 — the event catalogue graphs, and the first derived grant
+
+Filed by milestone Client and integration, part 2, of #93, unaccepted until
+the maintainer accepts it (ADR 0066).
+
+- **More system graphs.** The graphs named `varve:events-catalogue/{enc(G)}`
+  (ADR 0144) are system graphs on point 5's terms: ordinary data, in the log,
+  visible to SPARQL, time-travellable, written by any write path.
+- **Point 5's "no special treatment" no longer holds for them.** A catalogue
+  graph is governed by its source graph (ADR 0107's seam, amended the same
+  day): a caller reads it exactly when it reads G and writes it exactly when it
+  writes G, and a grant naming it has no effect. `varve:setup` keeps point 5
+  as written.
+- **They are checked.** A commit that touches one runs ADR 0145's validator.
+
+**The ledger.** The ruling of this block is `CatalogueGraphsGovernedBySource`,
+unaccepted until the maintainer accepts it.

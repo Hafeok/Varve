@@ -59,6 +59,8 @@ decisions:
     statement: "Graph-level is what the index key gives for free; row-level access per subject or classifier is milestone 9's beside erasure and is not approximated here"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-09T00:00:00Z
+  - key: GoverningGraphSeam
+    statement: "GraphScope takes a governing-graph mapping, and a graph with a governor is allowed exactly when its governor is, the decision memoised per graph handle; Varve.Rdf knows no rule that names a governor"
 ---
 
 The rulings of [ADR 0107](../adr/0107-graph-level-authorisation.md), filed unaccepted by milestone 7b of #11
