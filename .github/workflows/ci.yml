@@ -935,6 +935,47 @@ jobs:
           --project samples/Varve.OnBehalfOf.Sample.Tests/Varve.OnBehalfOf.Sample.Tests.csproj
           --configuration Release
 
+  # The Event Hubs bridge sample (ADRs 0143, 0146): the emulator and Azurite
+  # started by compose, and the sample's test, which runs Varve as a process,
+  # writes a history of domain events, stops and resumes the bridge at every
+  # position, and reads the hub back. Required here, so it never skips.
+  samples-eventhubs:
+    name: samples (eventhubs)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Start the Event Hubs emulator
+        run: |
+          docker compose --file .github/eventhubs/compose.yaml up --detach --wait
+          curl --silent --retry 60 --retry-delay 3 --retry-all-errors --fail http://localhost:5300/health
+
+      - name: Build and test the Event Hubs sample
+        env:
+          VARVE_EVENTHUBS_CONNECTION: Endpoint=sb://localhost;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;
+          VARVE_EVENTHUBS_REQUIRED: "1"
+        run: >
+          dotnet test
+          --project samples/Varve.EventHubs.Sample.Tests/Varve.EventHubs.Sample.Tests.csproj
+          --configuration Release
+
+      - name: The emulator's log
+        if: failure()
+        run: docker compose --file .github/eventhubs/compose.yaml logs
+
+      - name: Stop the emulator
+        if: always()
+        run: docker compose --file .github/eventhubs/compose.yaml down || true
+
   # The Entra registrations of the on-behalf-of chain build (ADR 0127): the
   # Bicep CLI the runner's Azure CLI carries, and the Microsoft Graph
   # extension from mcr.microsoft.com. Nothing is deployed.

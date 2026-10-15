@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The Event Hubs bridge sample's test (ADRs 0143, 0146): Varve run as a
+       process from its own output, a generated history of domain events, the
+       bridge stopped and resumed at every position, and a consumer that reads
+       the hub. Against the Event Hubs emulator the samples-eventhubs job
+       starts; skipped without it. Outside Varve.slnx. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+    <ProjectReference Include="../Varve.EventHubs.Sample/Varve.EventHubs.Sample.csproj" />
+    <!-- The server, run as a process from its own output, as an operator runs it. -->
+    <ProjectReference Include="../../src/Varve.Server/Varve.Server.csproj" />
+  </ItemGroup>
+
+</Project>

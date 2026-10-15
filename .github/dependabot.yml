@@ -82,13 +82,15 @@ updates:
       - dependency-name: Microsoft.CodeAnalysis.CSharp
       - dependency-name: Microsoft.CodeAnalysis.CSharp.Workspaces
 
-  # The auth test containers (ADR 0100), pinned by digest in two compose files.
-  # A digest cannot be read for freshness, so something has to watch it, as for
-  # the actions above. Test-time only; nothing shipped runs these images.
+  # The auth test containers (ADR 0100) and the Event Hubs emulator's (ADR
+  # 0146), pinned by digest in compose files. A digest cannot be read for
+  # freshness, so something has to watch it, as for the actions above.
+  # Test-time only; nothing shipped runs these images.
   - package-ecosystem: docker-compose
     directories:
       - "/.github/zitadel"
       - "/.github/mock-oauth2"
+      - "/.github/eventhubs"
     schedule:
       interval: weekly
       day: monday
