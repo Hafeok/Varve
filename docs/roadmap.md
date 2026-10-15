@@ -601,7 +601,7 @@ against MinIO on a NAS with `derived/` local. The operator guide gains the
 setup, the runtime limits for 8 GB, and measured commit latency, query
 throughput and cold start on the device; `linux-arm64` stays a CI target.
 
-## Client and integration — on-behalf-of, setup, follow, events
+## Client and integration *(complete)* — on-behalf-of, setup, follow, events
 
 **Why.** The server is ready to be used by applications; this is what an
 application installs. It also makes the commits resource a contract other
