@@ -610,7 +610,7 @@ systems can integrate against, in RDF and in plain JSON.
 **Scope.** A per-request token provider in `Varve.Protocol.Client` and the
 on-behalf-of chain in the Entra guide, Bicep and a sample, with the
 attribution rule stated. `DatasetSetup`, migrations recorded as data,
-`AddVarve` and `varve apply`. `FollowAsync` with a checkpoint; the delta
+`AddVarve` and `varve setup apply`. `FollowAsync` with a checkpoint; the delta
 format under the read-forever rule. Domain events as quads in an events
 graph, rendered as CloudEvents JSON through declared `SELECT` mappings, with
 an event catalogue graph, a JSON types list, AsyncAPI 3.0, a server-wide
@@ -727,8 +727,9 @@ first; the UI never gets a route of its own.
   run in headless Chromium like the browser smoke; no reflection, trimmed,
   the bundle size reported.
 
-Needs before it starts: CORS in the server (the Azure backend session adds
-it), the Entra SPA application registration in `deploy/azure/`.
+Needs before it starts: CORS in the server (Client and integration adds it,
+ADR 0132, with `Varve-If-Graphs-Match` among the allowed headers), the Entra
+SPA application registration in `deploy/azure/`.
 
 ## Replication — before 1.0 (revised: with the object-storage shape)
 

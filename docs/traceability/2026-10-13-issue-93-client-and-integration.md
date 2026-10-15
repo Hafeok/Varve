@@ -176,8 +176,10 @@ The session made each change on the branch:
   the `entra-obo` environment, and a public sign-in client for a device-code
   sign-in. `entra-obo.yml` is `workflow_dispatch` only, in that environment.
   The sample's test is skipped without its inputs.
-- **The descriptor** is `releases/v0.1.0-preview.5.yaml`, naming #103; its
-  commit closes #103 and every other commit refers to #93.
+- **The descriptor** is `releases/v0.1.0-preview.6.yaml`, naming #103; its
+  commit closes #103 and every other commit refers to #93. It was written as
+  preview.5 and renumbered when Commit path (#91) landed first as that
+  release.
 
 ### The command's name, before reconciling with #91
 
@@ -381,14 +383,18 @@ All filed unaccepted (ADR 0066); every citation of a new ledger key is
 - **Acceptance of ADRs 0127–0133** on the pull request (ADR 0066), which turns
   the build's `CS0618` green.
 - **The Entra registrations**, deployed from `deploy/azure/entra/`, and the `entra-obo` environment, for the hand-run leg.
-- **When #91 lands:**
-  - merge it, and take its client API as given (graph versions, `ifMatch` on
-    the Graph Store writes this part added without it);
-  - add `Varve-If-Graphs-Match` to the CORS request headers;
-  - scope migrations by `Varve-If-Graphs-Match` on `varve:setup`;
-  - reconcile the public API baselines and the problem catalogue;
-  - fix the roadmap's Web UI line ("the Azure backend session adds it");
-  - take the next free release number.
+- **Done when #91 landed** (the merge of `main`, 2026-10-15): its client API
+  taken as given; `Varve-If-Graphs-Match` in the CORS request headers; the
+  public API baselines merged (the problem catalogue had nothing to
+  reconcile); the roadmap's Web UI line and its `varve setup apply`; the
+  release renumbered to `v0.1.0-preview.6`. Three collisions git did not
+  flag were fixed in the merge: the `System.Security.Cryptography.Pkcs` pin
+  on both sides (NU1506), a private `GraphAddress` on both sides (CS0111),
+  and `UpdateAsync(…, null, …)` made ambiguous by #91's overload (CS0121).
+- **Left for part 2:** scoping migrations by `Varve-If-Graphs-Match` on
+  `varve:setup`, in place of the whole-dataset `If-Match` they send today,
+  and one Graph Store write API in place of this part's `byte[]` overloads
+  beside #91's conditional ones.
 
 ### What the learning track can now teach
 
