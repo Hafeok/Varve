@@ -182,3 +182,15 @@ Two details stop "just `POST` it" from being idempotent.
 - **Layer ownership.** `Varve.Protocol.Client`, layer 5.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-15 — `storage: ObjectStorage`
+
+Filed by milestone Object storage of #92, unaccepted until the maintainer
+accepts it (ADR 0066). Point 1's storage takes `ObjectStorage` beside `File`
+and `Memory`, in the setup file's `storage:` and in `DatasetSetup.Storage`.
+Point 2.1's `PUT /datasets/{name}` carries `{"storage": "ObjectStorage"}`,
+and the server creates the dataset in its object store under the prefix of its
+name. Placement — which store, which region — moves to the management plane
+(#105).
+
+**The ledger.** The ruling is ADR 0139's `CatalogNamesTheChain`.

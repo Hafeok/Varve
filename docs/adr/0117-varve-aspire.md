@@ -116,3 +116,16 @@ maintainer accepts it (ADR 0066).
 
 **The ledger.** The rulings of this ADR stand; the ruling of this block is
 `DatasetSetupRunsVarveApply`, unaccepted until the maintainer accepts it.
+
+## Amendment, 2026-10-15 — `WithAzureBlobStorage`
+
+Filed by milestone Object storage of #92, unaccepted until the maintainer
+accepts it (ADR 0066). The integration gains `WithAzureBlobStorage(containerUrl,
+cacheBytes?)`: the datasets go into an Azure Blob Storage container, each
+under its own prefix, instead of files on the volume, which then holds the
+page cache. Point 3 changes with it: `WithDataset` sets `Storage=ObjectStorage`
+when the container is set, `File` otherwise. The address is an expression and
+no credential is passed. Still one package, `Aspire.Hosting`. ADR 0142 says why
+the sample gains no Azurite variant.
+
+**The ledger.** The ruling is ADR 0142's `AspireTakesTheContainerAsAnExpression`.

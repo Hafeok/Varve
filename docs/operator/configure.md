@@ -54,7 +54,7 @@ varve serve --print-config --config /etc/varve/varve.json --set Limits:QueryTime
 | Setting | Default | Meaning |
 |---|---|---|
 | `DatasetsRoot` | none | the directory file datasets live under, one subdirectory per dataset; absolute; required when any dataset is `File`, or when `Datasets` is empty |
-| `Datasets:{name}:Storage` | none | `File` or `Memory`; a `Memory` dataset is volatile and starts empty |
+| `Datasets:{name}:Storage` | none | `File`, `Memory` or `ObjectStorage`; a `Memory` dataset is volatile and starts empty; an `ObjectStorage` dataset is in `ObjectStorage` under the prefix `{name}/` |
 
 A dataset name is 1 to 63 characters of `[A-Za-z0-9._-]`, starting with a
 letter or a digit (ADR 0093). Durability is the backend's (ADR 0073): `File`
@@ -63,6 +63,36 @@ the root that are not configured are discovered and served; the admin API's
 `PUT /datasets/{name}` creates a new one there (ADR 0106), and
 `DELETE` of a closed dataset removes its directory. Where a dataset's boundary
 goes, and how an application declares its setup, is [Datasets](datasets.md).
+
+## The object store — `ObjectStorage`
+
+One container or bucket for the server's `ObjectStorage` datasets, a dataset
+per prefix `{name}/` (ADRs 0134–0139). Datasets the store holds are
+discovered at start; `PUT /datasets/{name}` with `{"storage": "ObjectStorage"}`
+creates one. Opening a dataset claims its next writer epoch (ADR 0136): run
+one instance per dataset, and see [Azure Container Apps](azure-container-apps.md).
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `ObjectStorage:Provider` | none | `Azure` or `S3Compatible` |
+| `ObjectStorage:ContainerUrl` | none | Azure: `https://{account}.blob.core.windows.net/{container}`; `http` only on loopback, for Azurite |
+| `ObjectStorage:Endpoint` | none | S3-compatible: the service's `https` address |
+| `ObjectStorage:Bucket` | none | S3-compatible: the bucket |
+| `ObjectStorage:Region` | none | S3-compatible: the region the signature is for |
+| `ObjectStorage:CachePath` | none | absolute; the local cache, a directory per dataset: extent pages and the derived data any instance rebuilds |
+| `ObjectStorage:CacheBytes` | 8 GiB | the most each dataset's extent page cache holds; at least 64 MiB (ADR 0139) |
+| `ObjectStorage:Instance` | the machine name | who this server is in the writer record that `varve lease` shows |
+
+**No credential is configured, and none is accepted** (ADR 0137). Azure is
+reached as the workload's identity: Container Apps' managed identity, workload
+identity (`AZURE_FEDERATED_TOKEN_FILE`, `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`),
+or on a workstation `az account get-access-token`; it needs Storage Blob Data
+Contributor on the container. An S3-compatible store is reached by
+`AssumeRoleWithWebIdentity` (`AWS_WEB_IDENTITY_TOKEN_FILE`, `AWS_ROLE_ARN`). A
+key named like `AccountKey`, `ConnectionString` or `SecretAccessKey`, or a SAS
+token in the address, refuses the start, naming the rule. Durability is the
+store's: `Replicated`, a commit returns once the store acknowledged its
+chunk.
 
 ## Authentication — `Auth`
 

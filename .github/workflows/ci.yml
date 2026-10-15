@@ -1013,11 +1013,14 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
 
-      - name: Build deploy/azure
+      # Build and lint every template; what-if and a deployment need a
+      # sign-in and run in the optional Azure leg (ADR 0142).
+      - name: Build and lint deploy/azure
         run: |
           az bicep install
           for template in $(find deploy/azure -name '*.bicep'); do
             az bicep build --file "$template" --stdout > /dev/null
+            az bicep lint --file "$template"
           done
 
   # repo-standard's native binary and its Action, end to end (ADR 0039).

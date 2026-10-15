@@ -100,3 +100,29 @@ public class SampleTests
         return await varve.SendAsync(request, cancellationToken);
     }
 }
+
+/// <summary>
+/// <c>WithAzureBlobStorage</c> (ADR 0142): the server's environment names the
+/// container and the cache on the volume, every declared dataset is an
+/// ObjectStorage dataset, and no credential is among the variables (ADR 0137).
+/// </summary>
+public class AzureBlobStorageTests
+{
+    [Fact]
+    public async Task Datasets_go_to_the_container_with_no_credential_in_the_environment()
+    {
+        IDistributedApplicationBuilder builder = DistributedApplication.CreateBuilder();
+        IResourceBuilder<VarveResource> varve = builder.AddVarve("varve")
+            .WithOidc(ReferenceExpression.Create($"https://login.example/"), "api://varve")
+            .WithAzureBlobStorage(ReferenceExpression.Create($"https://account.blob.core.windows.net/datasets"))
+            .WithDataset("people");
+
+        Dictionary<string, string> environment = await varve.Resource.GetEnvironmentVariableValuesAsync(DistributedApplicationOperation.Publish);
+
+        Assert.Equal("Azure", environment["VARVE__OBJECTSTORAGE__PROVIDER"]);
+        Assert.Equal("https://account.blob.core.windows.net/datasets", environment["VARVE__OBJECTSTORAGE__CONTAINERURL"]);
+        Assert.Equal("/var/lib/varve/cache", environment["VARVE__OBJECTSTORAGE__CACHEPATH"]);
+        Assert.Equal("ObjectStorage", environment["VARVE__DATASETS__people__STORAGE"]);
+        Assert.DoesNotContain(environment.Keys, key => key.Contains("KEY", StringComparison.OrdinalIgnoreCase) || key.Contains("CONNECTIONSTRING", StringComparison.OrdinalIgnoreCase) || key.Contains("SAS", StringComparison.OrdinalIgnoreCase));
+    }
+}

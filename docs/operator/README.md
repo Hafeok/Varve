@@ -1,7 +1,7 @@
 # Operating Varve
 
 The operator's guide to `Varve.Server`: one executable that is the server and
-the `varve` command line (ADR 0105). Eight pages, each a task:
+the `varve` command line (ADR 0105). Nine pages, each a task:
 
 | Page | What it covers |
 |---|---|
@@ -13,6 +13,7 @@ the `varve` command line (ADR 0105). Eight pages, each a task:
 | [Observe](observe.md) | the OTLP exporter and the `OTEL_*` variables, every span and metric by name, the log events, what it costs |
 | [Back up and restore](backup-and-restore.md) | what the files are, taking a copy, checkpoints, restoring, and the change feed as an incremental copy |
 | [Upgrade](upgrade.md) | what a new build reads, what it rewrites, and the order of a rolling upgrade |
+| [Azure Container Apps](azure-container-apps.md) | datasets in Blob Storage, the template, one replica and the writer epoch, cold start, costs |
 
 Every refusal the server answers is an RFC 9457 problem of a type listed in
 [`docs/problems/`](../problems/README.md), one page per type with its status

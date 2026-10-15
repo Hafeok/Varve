@@ -30,6 +30,9 @@ public sealed class VarveResource : ContainerResource
     /// <summary>The authentication <c>WithOidc</c> configured, or null while the resource is anonymous.</summary>
     internal VarveOidc? Oidc { get; set; }
 
+    /// <summary>The container <c>WithAzureBlobStorage</c> put the datasets in, or null while they are files on the volume.</summary>
+    internal ReferenceExpression? BlobContainer { get; set; }
+
     /// <summary>The datasets <c>WithDataset</c> declared, with the roles each grants.</summary>
     internal List<VarveDataset> Datasets { get; } = [];
 
