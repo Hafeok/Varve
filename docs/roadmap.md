@@ -531,7 +531,7 @@ complete when its descriptor is cut, and not before.
 | — | **Object storage**: the log on any object store, Azure first | `preview.6` | Commit path | issue #92 |
 | — | **Client and integration**: on-behalf-of, setup, follow, events | `preview.7` | Commit path | issue #93 |
 | — | **Learning track**: Varve for SQL developers and DDD practitioners | `preview.8` | Client and integration | issue #94 |
-| 8 | SHACL: validator, commit-time gating, incremental validation | `preview.9` | #87; Learning track (for its chapter 3 update) | issue #13 |
+| 8 | SHACL: validator, commit-time gating, incremental validation | `preview.9` | Learning track (for its chapter 3 update) | issue #13 |
 | — | **Inference**: RDFS by rewriting, OWL 2 RL and rules as a projection | `preview.10` | 8 | issue #95 |
 | — | **Web UI**: operator console, then data explorer | `preview.11` | 8 (explorer); console may come after Object storage | issue #96 |
 | — | **Replication**: three tiers, promotion, fleet-level active-active | `preview.12` | Object storage, Commit path | issue #97 |
@@ -544,7 +544,7 @@ only `deploy/azure/` and `Varve.Aspire`, and the one that lands second merges
 
 Standing issues that ride along with whichever milestone touches their area:
 #61 (soak with a bounded vocabulary, decides ADR 0082's "dataset's own"),
-#35 (`INSERT DATA` throughput, with Commit path), #87 (before SHACL), #89 (called-workflow permissions gate), #88 (signing hook on resume), the four
+#35 (`INSERT DATA` throughput, with Commit path), #89 (called-workflow permissions gate), #88 (signing hook on resume), the four
 upstream reports #36–#39.
 
 ---

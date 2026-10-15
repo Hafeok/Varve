@@ -227,3 +227,38 @@ Wiring the suites found two things the plan had not foreseen.
 - **Open questions owned.** None. The store's implementation of point 5 is
   owed work, [#87](https://github.com/Hafeok/Varve/issues/87), due before
   milestone 8, not an open question.
+
+## Amendment, 2026-10-15 — the store answers by handle
+
+Filed by [#87](https://github.com/Hafeok/Varve/issues/87), unaccepted until
+the maintainer accepts it (ADR 0066). It records that the consequence on the
+store in point 5 is done; the decision above is unchanged.
+
+`Varve.Store` overrides `IQuadSource.TryGetTripleTermComponents` on every
+source a query or a validator reaches:
+
+- **`IndexSource`** reads the term's entry from the dictionary at its
+  position, through `TermDictionary.TryTripleParts`: a blank, inline or
+  private handle, and a canonical one past the position, answer false without
+  a read; a canonical one reads its entry into a stack buffer of
+  `LogFormat.MaxTripleEntryLength` bytes, 41, which storage format §4.4's
+  longest triple entry fills at §1's ten bytes a `uleb`, and decodes the
+  three component ids without a term. An IRI or a literal answers false.
+  The bulk delta's sources and the proposed state a bulk validator reads are
+  `IndexSource`s and answer with it.
+- **`PendingSource`** answers a triple term the commit creates from the
+  commit's allocation, whose components are already handles, in a table built
+  once per commit and only when the commit creates one; every other handle
+  from the head.
+- **`DatasetView`** forwards, for a head, pinned or as-of read. The
+  dictionary is append-only, so every position that knows a triple term
+  answers the same components, and a position before its allocation answers
+  false.
+- **`StagingView`** answers a staged triple term from its staged parts and
+  forwards every other handle.
+
+Each override is `[HotPath]` and allocates nothing, measured in
+`tests/Varve.Store.Tests/TripleTermTests.cs`. A private term, erasure mode's,
+is never a triple term's handle and answers false. The twelve exemptions of
+point 5 have left `baseline/exemptions.txt` and the four cases pass over the
+store, its graph scope and the protocol.
