@@ -89,12 +89,12 @@ public class GovernanceTests
     }
 
     [Fact]
-    public async Task an_as_of_read_beyond_the_distance_bound_is_422_and_a_checkpoint_admits_it()
+    public async Task an_as_of_read_beyond_the_distance_bound_is_422_and_a_checkpoint_admits_what_its_extents_cover()
     {
         await using Dataset dataset = await P.NewDatasetAsync();
         await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(dataset, limits: Limits(asOfDistance: 3), stopping: P.Ct);
 
-        for (int i = 1; i <= 10; i++)
+        for (int i = 1; i <= 14; i++)
         {
             await host.Client.SendAsync(P.Update(Sparql, "INSERT DATA { <http://ex/s" + i + "> <http://ex/p> " + i + " }"), P.Ct);
         }
@@ -112,13 +112,16 @@ public class GovernanceTests
         // Within the bound of position 0.
         Assert.Equal(HttpStatusCode.OK, (await host.Client.SendAsync(P.Query(Sparql, "ASK {}", asOf: "position:3"), P.Ct)).StatusCode);
 
-        // A checkpoint at 6 brings 8 within two commits of one; 4 stays four above position 0.
+        // A checkpoint at 6 is an extent set over (0, 6] (ADR 0138): 4, inside
+        // it, is answered from its intervals with no log; 8 is two commits
+        // above it; 12 is six, and refused.
         await dataset.CheckpointAsync(new Position(6), P.Ct);
+        Assert.Equal(HttpStatusCode.OK, (await host.Client.SendAsync(P.Query(Sparql, "ASK {}", asOf: "position:4"), P.Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await host.Client.SendAsync(P.Query(Sparql, "ASK {}", asOf: "position:8"), P.Ct)).StatusCode);
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await host.Client.SendAsync(P.Query(Sparql, "ASK {}", asOf: "position:4"), P.Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await host.Client.SendAsync(P.Query(Sparql, "ASK {}", asOf: "position:12"), P.Ct)).StatusCode);
 
         // The head needs no replay and is never refused.
-        Assert.Equal(HttpStatusCode.OK, (await host.Client.SendAsync(P.Query(Sparql, "ASK {}", asOf: "position:10"), P.Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await host.Client.SendAsync(P.Query(Sparql, "ASK {}", asOf: "position:14"), P.Ct)).StatusCode);
     }
 
     [Fact]

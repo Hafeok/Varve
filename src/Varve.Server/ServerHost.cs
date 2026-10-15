@@ -88,7 +88,7 @@ internal static partial class ServerHost
         // default (ADR 0115): a misspelt setting would otherwise be ignored.
         foreach (string unknown in SettingsCheck.UnknownKeys(section))
         {
-            errors.Add(unknown + " is not a setting the server knows; see docs/operator/configure.md for every key.");
+            errors.Add(SettingsCheck.UnknownKeyError(unknown));
         }
 
         if (serve.PrintConfiguration)
@@ -521,7 +521,8 @@ internal static partial class ServerHost
                 entry.Reason,
                 open ? dataset!.Head.Value : 0,
                 open ? dataset!.ProjectionPosition.Value : 0,
-                open && dataset!.IsFailed));
+                open && dataset!.IsFailed,
+                open && datasets.IsSuperseded(entry.Name)));
         }
 
         (bool ready, List<DatasetReadiness> states) = Readiness.Evaluate(health, allowedLag, drain.Draining);

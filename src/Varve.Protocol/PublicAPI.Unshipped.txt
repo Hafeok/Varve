@@ -144,6 +144,7 @@ Varve.Protocol.Model.DatasetState.Open = 0 -> Varve.Protocol.Model.DatasetState
 Varve.Protocol.Model.DatasetStorage
 Varve.Protocol.Model.DatasetStorage.File = 0 -> Varve.Protocol.Model.DatasetStorage
 Varve.Protocol.Model.DatasetStorage.Memory = 1 -> Varve.Protocol.Model.DatasetStorage
+Varve.Protocol.Model.DatasetStorage.ObjectStorage = 2 -> Varve.Protocol.Model.DatasetStorage
 Varve.Protocol.ProtocolOptions.Administration.get -> Varve.Protocol.IDatasetAdministration?
 Varve.Protocol.ProtocolOptions.Administration.init -> void
 const Varve.Protocol.DatasetPermissions.ServerAdmin = "varve:server-admin" -> string!
@@ -227,3 +228,4 @@ Varve.Protocol.Model.UpdatePreconditions.ExpectedPosition.init -> void
 Varve.Protocol.Model.UpdatePreconditions.IsImplicit.get -> bool
 Varve.Protocol.Model.UpdatePreconditions.UpdatePreconditions() -> void
 static Varve.Protocol.Model.UpdatePreconditions.None.get -> Varve.Protocol.Model.UpdatePreconditions!
+static Varve.Protocol.Model.ProblemType.WriterSuperseded.get -> Varve.Protocol.Model.ProblemType

@@ -34,9 +34,11 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     private readonly TimeSpan _leaseWait;
     private readonly ILogger _logger;
     private readonly GroupCommitOptions _groupCommit;
+    private readonly ObjectStores? _objects;
 
-    private OpenDatasets(string? root, TimeProvider clock, TimeSpan leaseWait, GroupCommitOptions groupCommit, ILogger logger)
+    private OpenDatasets(string? root, ObjectStores? objects, TimeProvider clock, TimeSpan leaseWait, GroupCommitOptions groupCommit, ILogger logger)
     {
+        _objects = objects;
         _groupCommit = groupCommit;
         _root = root;
         _clock = clock;
@@ -51,13 +53,19 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             MaxRecords = settings.Store.GroupCommit.MaxRecords,
             MaxBytes = new ByteCount(settings.Store.GroupCommit.MaxBytes),
         };
-        OpenDatasets opened = new(string.IsNullOrWhiteSpace(settings.DatasetsRoot) ? null : settings.DatasetsRoot, clock, settings.Lease.WaitFor, groupCommit, logger);
+        OpenDatasets opened = new(string.IsNullOrWhiteSpace(settings.DatasetsRoot) ? null : settings.DatasetsRoot, ObjectStores.From(settings.ObjectStorage, clock), clock, settings.Lease.WaitFor, groupCommit, logger);
 
         try
         {
             foreach ((string name, DatasetSettings configured) in settings.Datasets)
             {
-                Entry entry = new(configured.Storage == "Memory" ? DatasetStorage.Memory : DatasetStorage.File, DatasetOrigin.Configured);
+                DatasetStorage storage = configured.Storage switch
+                {
+                    "Memory" => DatasetStorage.Memory,
+                    "ObjectStorage" => DatasetStorage.ObjectStorage,
+                    _ => DatasetStorage.File,
+                };
+                Entry entry = new(storage, DatasetOrigin.Configured);
                 opened._entries[name] = entry;
                 await opened.OpenEntryAsync(name, entry, cancellationToken).ConfigureAwait(false);
 
@@ -83,6 +91,22 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
                     }
 
                     Entry entry = new(DatasetStorage.File, DatasetOrigin.Discovered);
+                    opened._entries[name] = entry;
+                    await opened.OpenEntryAsync(name, entry, cancellationToken).ConfigureAwait(false);
+                }
+            }
+
+            // Every dataset the object store holds, as every directory under the root.
+            if (opened._objects is { } objects)
+            {
+                foreach (string name in await objects.DiscoverAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    if (opened._entries.ContainsKey(name))
+                    {
+                        continue;
+                    }
+
+                    Entry entry = new(DatasetStorage.ObjectStorage, DatasetOrigin.Discovered);
                     opened._entries[name] = entry;
                     await opened.OpenEntryAsync(name, entry, cancellationToken).ConfigureAwait(false);
                 }
@@ -138,6 +162,20 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     public async ValueTask<AdminOutcome> CreateAsync(DatasetName name, DatasetStorage storage, CancellationToken cancellationToken)
     {
         Entry entry = new(storage, DatasetOrigin.Created);
+
+        if (storage == DatasetStorage.ObjectStorage)
+        {
+            if (_objects is null)
+            {
+                entry.Fail("Varve:ObjectStorage is not configured, so an ObjectStorage dataset has nowhere to be created.");
+                return AdminOutcome.Failed;
+            }
+
+            if (await _objects.ExistsAsync(name.Value, cancellationToken).ConfigureAwait(false))
+            {
+                return AdminOutcome.Exists;
+            }
+        }
 
         lock (_gate)
         {
@@ -229,6 +267,11 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
         await entry.ReleaseAsync().ConfigureAwait(false);
 
+        if (entry.Storage == DatasetStorage.ObjectStorage && _objects is { } objects)
+        {
+            await objects.DeleteAsync(name.Value, cancellationToken).ConfigureAwait(false);
+        }
+
         if (entry.Storage == DatasetStorage.File && _root is { } root)
         {
             string directory = Path.Combine(root, name.Value);
@@ -262,6 +305,20 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         {
             await entry.ReleaseAsync().ConfigureAwait(false);
         }
+
+        _objects?.Dispose();
+    }
+
+    /// <summary>
+    /// Whether an open dataset's storage no longer holds its writer epoch
+    /// (ADR 0136): readiness reports it <c>superseded</c>.
+    /// </summary>
+    internal bool IsSuperseded(DatasetName name)
+    {
+        lock (_gate)
+        {
+            return _entries.TryGetValue(name.Value, out Entry? entry) && entry.Superseded;
+        }
     }
 
     // Opens the entry's dataset; on failure the entry is Failed with the
@@ -277,6 +334,27 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             if (entry.Storage == DatasetStorage.Memory)
             {
                 entry.Opened(await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), options, cancellationToken).ConfigureAwait(false), null);
+                return;
+            }
+
+            if (entry.Storage == DatasetStorage.ObjectStorage)
+            {
+                Varve.Store.ObjectStorage.ObjectStorage objects = await _objects!.OpenAsync(name, cancellationToken).ConfigureAwait(false);
+
+                try
+                {
+                    bool held = !(await objects.Log.ReadManifestAsync(cancellationToken).ConfigureAwait(false)).IsEmpty;
+                    Dataset dataset = held
+                        ? await Dataset.OpenAsync(objects, options, cancellationToken).ConfigureAwait(false)
+                        : await Dataset.CreateAsync(objects, new DatasetId(Guid.NewGuid()), options, cancellationToken).ConfigureAwait(false);
+                    entry.Opened(dataset, objects);
+                }
+                catch
+                {
+                    await objects.DisposeAsync().ConfigureAwait(false);
+                    throw;
+                }
+
                 return;
             }
 
@@ -344,9 +422,13 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
         internal Dataset? Dataset { get; private set; }
 
-        private FileStorage? Files { get; set; }
+        // The storage the dataset was opened on, released after it: a
+        // directory's lease, or an object store's epoch (ADR 0136).
+        private IAsyncDisposable? Files { get; set; }
 
-        internal void Opened(Dataset dataset, FileStorage? files)
+        internal bool Superseded => Files is Varve.Store.ObjectStorage.ObjectStorage { IsSuperseded: true };
+
+        internal void Opened(Dataset dataset, IAsyncDisposable? files)
         {
             Dataset = dataset;
             Files = files;
@@ -369,7 +451,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         internal async ValueTask ReleaseAsync()
         {
             Dataset? dataset = Dataset;
-            FileStorage? files = Files;
+            IAsyncDisposable? files = Files;
             Dataset = null;
             Files = null;
 

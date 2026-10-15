@@ -58,6 +58,9 @@ public enum SetupStorage
 
     /// <summary>Memory: gone when the server stops.</summary>
     Memory = 1,
+
+    /// <summary>A prefix in the server's object store: durable as the store is (ADR 0139).</summary>
+    ObjectStorage = 2,
 }
 
 /// <summary>

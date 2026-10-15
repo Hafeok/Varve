@@ -11,6 +11,7 @@ using Microsoft.Extensions.Primitives;
 using Varve.Protocol.Http;
 using Varve.Protocol.Model;
 using Varve.Rdf;
+using Varve.Store;
 using Varve.Store.Log;
 
 namespace Varve.Protocol.Endpoints;
@@ -273,6 +274,24 @@ internal static class Writes
             Agent = exchange.Options.Identity.AgentOf(exchange.Context.User),
             Cause = RdfTerm.Literal(Encoding.UTF8.GetBytes(id)),
         };
+    }
+
+    /// <summary>
+    /// Commits the request; null when the dataset's storage no longer holds
+    /// the writer epoch (ADR 0136), after answering <c>503 writer-superseded</c>:
+    /// nothing was committed.
+    /// </summary>
+    internal static async Task<CommitResult?> CommitAsync(Exchange exchange, CommitRequest request)
+    {
+        try
+        {
+            return await exchange.Dataset.CommitAsync(request, exchange.Context.RequestAborted).ConfigureAwait(false);
+        }
+        catch (WriterSupersededException superseded)
+        {
+            await HttpProblems.WriteAsync(exchange.Context, ProblemType.WriterSuperseded, superseded.Message).ConfigureAwait(false);
+            return null;
+        }
     }
 
     /// <summary>

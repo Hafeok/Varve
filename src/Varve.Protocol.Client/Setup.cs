@@ -35,7 +35,15 @@ public sealed partial class SparqlHttpClient
     public Task<HttpResponseMessage> PutDatasetAsync(SetupStorage storage, CancellationToken cancellationToken) =>
         SendAsync(new HttpRequestMessage(HttpMethod.Put, new Uri(Dataset.AbsoluteUri.TrimEnd('/')))
         {
-            Content = new StringContent(storage == SetupStorage.Memory ? "{\"storage\":\"Memory\"}" : "{\"storage\":\"File\"}", Encoding.UTF8, "application/json"),
+            Content = new StringContent(
+                storage switch
+                {
+                    SetupStorage.Memory => "{\"storage\":\"Memory\"}",
+                    SetupStorage.ObjectStorage => "{\"storage\":\"ObjectStorage\"}",
+                    _ => "{\"storage\":\"File\"}",
+                },
+                Encoding.UTF8,
+                "application/json"),
         }, cancellationToken);
 
     /// <summary>Replaces a graph by the Graph Store Protocol (<c>PUT</c>): the default graph for a null <paramref name="graph"/>.</summary>

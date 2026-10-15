@@ -531,3 +531,4 @@ static Varve.Store.Log.ObjectVersion.operator ==(Varve.Store.Log.ObjectVersion l
 Varve.Store.IStorageMaintenance
 Varve.Store.IStorageMaintenance.MaintainStorageAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
 Varve.Store.IStorageMaintenance.MaintenanceDue.get -> bool
+Varve.Store.Dataset.AsOfLogDistance(Varve.Store.Log.Position position) -> long

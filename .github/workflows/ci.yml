@@ -532,6 +532,19 @@ jobs:
           --configuration Release
           --filter-namespace Varve.Store.Tests.Objects
 
+      # A server's datasets in the container: a second server takes one over,
+      # the first answers writes with writer-superseded, and varve lease
+      # shows the record and takes an epoch over (ADR 0136).
+      - name: Test the server against them
+        env:
+          VARVE_AZURITE: http://127.0.0.1:10000/devstoreaccount1
+          VARVE_STORAGE_LEGS_REQUIRED: azurite
+        run: >
+          dotnet test
+          --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
+          --configuration Release
+          --filter-class Varve.Server.Tests.ObjectStorageServerTests
+
   # The REC generator's bytes on both architectures (ADR 0141): its tests pin
   # each size's SHA-256, so a pass on each runner is the same bytes on both.
   rec-generator:

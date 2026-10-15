@@ -19,6 +19,12 @@ internal sealed class ServerSettings
     /// <summary>The directory each file dataset's directory is under.</summary>
     public string? DatasetsRoot { get; set; }
 
+    /// <summary>
+    /// The object store each <c>ObjectStorage</c> dataset is in, under the
+    /// prefix <c>{name}/</c> (ADRs 0134, 0139).
+    /// </summary>
+    public ObjectStorageSettings ObjectStorage { get; set; } = new();
+
     /// <summary>The datasets, by name.</summary>
     public Dictionary<string, DatasetSettings> Datasets { get; set; } = new(StringComparer.Ordinal);
 
@@ -145,8 +151,43 @@ internal sealed class LoadSettings
 /// <summary>One dataset.</summary>
 internal sealed class DatasetSettings
 {
-    /// <summary><c>File</c> (under <see cref="ServerSettings.DatasetsRoot"/>) or <c>Memory</c>.</summary>
+    /// <summary>
+    /// <c>File</c> (under <see cref="ServerSettings.DatasetsRoot"/>), <c>Memory</c>,
+    /// or <c>ObjectStorage</c> (in <see cref="ServerSettings.ObjectStorage"/>).
+    /// </summary>
     public string? Storage { get; set; }
+}
+
+/// <summary>
+/// The object store the server's <c>ObjectStorage</c> datasets are in (ADRs
+/// 0134–0139): one container or bucket, a dataset per prefix. Credentials are
+/// the workload's identity, never a key in configuration (ADR 0137).
+/// </summary>
+internal sealed class ObjectStorageSettings
+{
+    /// <summary><c>Azure</c> or <c>S3Compatible</c>; unset when no dataset is in an object store.</summary>
+    public string? Provider { get; set; }
+
+    /// <summary>Azure: the container's URL, <c>https://{account}.blob.core.windows.net/{container}</c>.</summary>
+    public string? ContainerUrl { get; set; }
+
+    /// <summary>S3-compatible: the service's endpoint.</summary>
+    public string? Endpoint { get; set; }
+
+    /// <summary>S3-compatible: the bucket.</summary>
+    public string? Bucket { get; set; }
+
+    /// <summary>S3-compatible: the region the signature names.</summary>
+    public string? Region { get; set; }
+
+    /// <summary>The local directory datasets cache in, a directory per dataset under it.</summary>
+    public string? CachePath { get; set; }
+
+    /// <summary>The most each dataset's extent page cache holds (ADR 0139).</summary>
+    public long CacheBytes { get; set; } = 8L << 30;
+
+    /// <summary>Who this server is in the writer record (ADR 0136); the machine name when unset.</summary>
+    public string? Instance { get; set; }
 }
 
 /// <summary>Authentication and authorisation (ADR 0037).</summary>

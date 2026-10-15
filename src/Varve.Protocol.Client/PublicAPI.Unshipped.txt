@@ -147,6 +147,7 @@ Varve.Protocol.Client.SetupResult.SettingsChanged.get -> bool
 Varve.Protocol.Client.SetupStorage
 Varve.Protocol.Client.SetupStorage.File = 0 -> Varve.Protocol.Client.SetupStorage
 Varve.Protocol.Client.SetupStorage.Memory = 1 -> Varve.Protocol.Client.SetupStorage
+Varve.Protocol.Client.SetupStorage.ObjectStorage = 2 -> Varve.Protocol.Client.SetupStorage
 Varve.Protocol.Client.SparqlHttpClient.ApplyAsync(Varve.Protocol.Client.DatasetSetup! setup, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.SetupResult!>!
 Varve.Protocol.Client.SparqlHttpClient.DeleteGraphAsync(string? graph, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
 Varve.Protocol.Client.SparqlHttpClient.PostGraphAsync(string? graph, byte[]! content, string! mediaType, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!

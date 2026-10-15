@@ -424,6 +424,25 @@ public sealed partial class Dataset
         }
     }
 
+    /// <summary>
+    /// The commits an as-of read at <paramref name="position"/> replays from
+    /// the log (R2, ADR 0138): none at or below the newest extent set's end,
+    /// where the intervals answer; otherwise those above the nearest
+    /// checkpoint at or below it, or above position 0 when there is none.
+    /// </summary>
+    public long AsOfLogDistance(Position position)
+    {
+        State state = _state;
+        List<ExtentSet> sets = SetsOf(state);
+
+        if (sets.Count > 0 && position.Value <= sets[^1].To)
+        {
+            return 0;
+        }
+
+        return position.Value - (state.CheckpointAtOrBelow(position.Value)?.Position ?? 0);
+    }
+
     // On dispose: the catalog's reference to each set.
     private static void ReleaseOwned(Checkpoint[] checkpoints)
     {

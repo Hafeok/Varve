@@ -103,6 +103,9 @@ public readonly record struct ProblemType
     /// <summary><c>503</c> from readiness: a dataset is not open, failed, or behind (ADR 0113); the body lists them.</summary>
     public static ProblemType NotReady { get; } = new("not-ready");
 
+    /// <summary><c>503</c>: a newer writer holds the dataset's epoch; this instance serves reads only (ADR 0136).</summary>
+    public static ProblemType WriterSuperseded { get; } = new("writer-superseded");
+
     /// <summary><c>503</c>: as many reads in flight and queued as the server allows (ADR 0114).</summary>
     public static ProblemType ServerBusy { get; } = new("server-busy");
 

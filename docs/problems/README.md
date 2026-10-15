@@ -41,6 +41,7 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`shutting-down`](shutting-down.md) | 503 |  | The server is shutting down. |
 | [`not-ready`](not-ready.md) | 503 | `datasets` | The server is not ready. |
 | [`server-busy`](server-busy.md) | 503 | `limit` | The server has as many reads in flight as it allows. |
+| [`writer-superseded`](writer-superseded.md) | 503 |  | A newer writer holds the dataset; this instance serves reads only. |
 
 What each limit's failure looks like to a client is in
 [`docs/operator/limits.md`](../operator/limits.md).

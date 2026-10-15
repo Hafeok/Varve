@@ -11,8 +11,12 @@ using Varve.Protocol.Model;
 
 namespace Varve.Server;
 
-/// <summary>What readiness knows of one dataset: its entry's state and, when open, its head, its projection and whether it failed.</summary>
-internal readonly record struct DatasetHealth(string Name, DatasetState State, string? Reason, long Head, long Projection, bool Failed);
+/// <summary>
+/// What readiness knows of one dataset: its entry's state and, when open, its
+/// head, its projection, whether it failed, and whether its storage no longer
+/// holds the writer epoch (ADR 0136).
+/// </summary>
+internal readonly record struct DatasetHealth(string Name, DatasetState State, string? Reason, long Head, long Projection, bool Failed, bool Superseded = false);
 
 /// <summary>One dataset's line in the readiness answer.</summary>
 internal readonly record struct DatasetReadiness(string Name, string State, string? Reason, long? Lag);
@@ -37,6 +41,12 @@ internal static class Readiness
 
             switch (dataset.State)
             {
+                // Read-only and never claiming again on its own: a newer
+                // writer holds the dataset (ADR 0136). Liveness stays true.
+                case DatasetState.Open when dataset.Superseded:
+                    line = new DatasetReadiness(dataset.Name, "superseded", "a newer writer holds the dataset's epoch; this instance serves reads only", null);
+                    ready = false;
+                    break;
                 case DatasetState.Open when dataset.Failed:
                     line = new DatasetReadiness(dataset.Name, "failed", dataset.Reason ?? "the default projection failed", null);
                     ready = false;

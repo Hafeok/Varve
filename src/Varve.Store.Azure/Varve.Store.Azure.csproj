@@ -27,6 +27,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Varve.Store.Tests" />
+    <InternalsVisibleTo Include="Varve.Server.Tests" />
   </ItemGroup>
 
 </Project>

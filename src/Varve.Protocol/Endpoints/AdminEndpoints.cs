@@ -86,7 +86,7 @@ internal static class AdminEndpoints
         {
             if (!TryReadStorage(bytes, out storage))
             {
-                await HttpProblems.BadRequest(context, "The body, when given, is {\"storage\": \"File\"} or {\"storage\": \"Memory\"}.").ConfigureAwait(false);
+                await HttpProblems.BadRequest(context, "The body, when given, is {\"storage\": \"File\"}, {\"storage\": \"Memory\"} or {\"storage\": \"ObjectStorage\"}.").ConfigureAwait(false);
                 return;
             }
         }
@@ -103,7 +103,7 @@ internal static class AdminEndpoints
                 break;
             case AdminOutcome.Exists:
                 await HttpProblems.WriteAsync(context, ProblemType.DatasetExists,
-                    "It is kept in " + (StorageOf(administration, name) == DatasetStorage.Memory ? "Memory" : "File") + " storage, and the body asks for another.").ConfigureAwait(false);
+                    "It is kept in " + StorageName(StorageOf(administration, name)) + " storage, and the body asks for another.").ConfigureAwait(false);
                 break;
             default:
                 await Failed(context, administration, name).ConfigureAwait(false);
@@ -368,7 +368,7 @@ internal static class AdminEndpoints
     {
         json.WriteString("name", entry.Name.Value);
         json.WriteString("state", StateName(entry.State));
-        json.WriteString("storage", entry.Storage == DatasetStorage.Memory ? "Memory" : "File");
+        json.WriteString("storage", StorageName(entry.Storage));
         json.WriteString("origin", entry.Origin switch { DatasetOrigin.Configured => "configured", DatasetOrigin.Discovered => "discovered", _ => "created" });
 
         if (entry.Reason is not null)
@@ -461,6 +461,13 @@ internal static class AdminEndpoints
         }
     }
 
+    private static string StorageName(DatasetStorage? storage) => storage switch
+    {
+        DatasetStorage.Memory => "Memory",
+        DatasetStorage.ObjectStorage => "ObjectStorage",
+        _ => "File",
+    };
+
     private static bool TryReadStorage(byte[] body, out DatasetStorage storage)
     {
         storage = DatasetStorage.File;
@@ -486,6 +493,9 @@ internal static class AdminEndpoints
                     return true;
                 case "Memory":
                     storage = DatasetStorage.Memory;
+                    return true;
+                case "ObjectStorage":
+                    storage = DatasetStorage.ObjectStorage;
                     return true;
                 default:
                     return false;

@@ -50,9 +50,10 @@ public class ProblemCatalogueTests
     /// <summary>
     /// Types whose trigger holds state across requests, exercised in
     /// <c>GovernanceTests</c> (the live-tail bound) and <c>Varve.Server.Tests</c>
-    /// (the concurrent-read limit, which is the host's rate limiter).
+    /// (the concurrent-read limit, which is the host's rate limiter; and a
+    /// writer superseded by a second server on the same object store, ADR 0136).
     /// </summary>
-    private static readonly ImmutableArray<ProblemType> TestedElsewhere = [ProblemType.TooManyLiveTails, ProblemType.ServerBusy];
+    private static readonly ImmutableArray<ProblemType> TestedElsewhere = [ProblemType.TooManyLiveTails, ProblemType.ServerBusy, ProblemType.WriterSuperseded];
 
     [Fact]
     public void every_problem_type_is_catalogued_with_a_page_stating_the_same_shape()
