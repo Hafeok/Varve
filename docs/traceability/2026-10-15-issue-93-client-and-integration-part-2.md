@@ -525,6 +525,13 @@ alone.
   was in the code and not in the text. The specification now states it in
   §3.2, §5.1 and §7.1, the example drops the field, and a test pins the rule.
   This was found by writing the guide's example to a running server.
+- **A property's oracle was weaker than the specification.** The full
+  pipeline's run of `test-events` found seed `cESpIHVwEkW2`. A field declared
+  `anyURI` with `fieldAs "string"` was redeclared as `rdf:langString` without
+  it. Both render as JSON strings, so the oracle expected the edit to be
+  accepted. §7.2 makes any change of `fieldAs` or `fieldKeepLanguage` a
+  `type` change, and the check refused it. The check was right. The oracle
+  now reads both terms, and the seed and fresh runs pass.
 - **The emulator has no container healthcheck.** Its image has no shell, so
   the job probes `http://localhost:5300/health` from the host after
   `compose up --wait`.
