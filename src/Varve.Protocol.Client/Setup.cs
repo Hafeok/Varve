@@ -204,11 +204,15 @@ public sealed partial class SparqlHttpClient
         }
     }
 
-    // Each migration not yet recorded, with its record, as one request under
-    // If-Match at the position the records were read at. A 409 or 412 means
-    // another writer moved the dataset first (ADR 0094): the records are read
-    // again and the migrations go on from what they say, so two appliers
-    // starting together apply each migration once.
+    // Each migration not yet recorded, with its record, as one request. Its
+    // precondition is Varve-If-Graphs-Match on the graphs it names and
+    // varve:setup (ADR 0130, amended 2026-10-15), so that a writer of other
+    // graphs does not move it; one whose graphs cannot all be named is sent
+    // under If-Match at the position the records were read at, as before. A
+    // 409 or 412 means another writer came first (ADR 0094): the records are
+    // read again and the migrations go on from what they say, so two appliers
+    // starting together apply each migration once. A 412 names the versions
+    // the graphs have, and the next attempt states them.
     private async Task<List<string>> MigrateAsync(IList<SetupMigration> migrations, CancellationToken cancellationToken)
     {
         List<string> applied = [];
@@ -219,6 +223,7 @@ public sealed partial class SparqlHttpClient
         }
 
         (HashSet<string> recorded, long position) = await RecordedAsync(cancellationToken).ConfigureAwait(false);
+        Dictionary<string, long> versions = new(StringComparer.Ordinal);
         int retries = 0;
 
         for (int i = 0; i < migrations.Count; i++)
@@ -230,10 +235,13 @@ public sealed partial class SparqlHttpClient
                 continue;
             }
 
-            using HttpResponseMessage response = await UpdateAsync(WithRecord(migration), position, cancellationToken).ConfigureAwait(false);
+            using HttpResponseMessage response = MigrationScope.TryOf(migration.Update, out HashSet<string?> graphs)
+                ? await UpdateAsync(WithRecord(migration), Preconditions(graphs, versions), cancellationToken).ConfigureAwait(false)
+                : await UpdateAsync(WithRecord(migration), position, cancellationToken).ConfigureAwait(false);
 
             if (Moved(response) && retries++ < MaxRetries)
             {
+                await LearnVersionsAsync(response, versions, cancellationToken).ConfigureAwait(false);
                 (recorded, position) = await RecordedAsync(cancellationToken).ConfigureAwait(false);
                 i--;
                 continue;
@@ -243,9 +251,53 @@ public sealed partial class SparqlHttpClient
             applied.Add(migration.Id);
             recorded.Add(migration.Id);
             position = PositionOf(response) ?? position;
+
+            // The record's commit is varve:setup's version now; the next
+            // migration states it, and its own retries start again.
+            versions[SetupGraph] = position;
+            retries = 0;
         }
 
         return applied;
+    }
+
+    // The versions to state: what a 412 last said, and 0 — never written —
+    // for a graph no answer has named yet.
+    private static List<KeyValuePair<string?, long>> Preconditions(HashSet<string?> graphs, Dictionary<string, long> versions)
+    {
+        List<KeyValuePair<string?, long>> preconditions = [];
+
+        foreach (string? graph in graphs)
+        {
+            preconditions.Add(new(graph, versions.TryGetValue(graph ?? DefaultGraphKey, out long version) ? version : 0));
+        }
+
+        return preconditions;
+    }
+
+    private const string DefaultGraphKey = "default";
+
+    // A 412's graphs member names each stale graph and the version it has
+    // (ADR 0126 point 8).
+    private static async Task LearnVersionsAsync(HttpResponseMessage response, Dictionary<string, long> versions, CancellationToken cancellationToken)
+    {
+        if (response.StatusCode != HttpStatusCode.PreconditionFailed)
+        {
+            return;
+        }
+
+        using JsonDocument problem = JsonDocument.Parse(await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false));
+
+        if (problem.RootElement.TryGetProperty("graphs", out JsonElement graphs) && graphs.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement graph in graphs.EnumerateArray())
+            {
+                if (graph.TryGetProperty("graph", out JsonElement name) && graph.TryGetProperty("version", out JsonElement version) && name.GetString() is { } key)
+                {
+                    versions[key] = version.GetInt64();
+                }
+            }
+        }
     }
 
     // How often a step reads again after another writer came first, before

@@ -200,3 +200,31 @@ the maintainer accepts it (ADR 0066).
 
 **The ledger.** The ruling of this block is `CatalogueGraphsGovernedBySource`,
 unaccepted until the maintainer accepts it.
+
+## Amendment, 2026-10-15 — a migration states the graphs it names
+
+Filed by milestone Client and integration, part 2, of #93, unaccepted until
+the maintainer accepts it (ADR 0066). It replaces point 4's `If-Match`, part
+1's whole-dataset precondition, which part 1 left for part 2 once Commit path
+(#91) had landed.
+
+- **The request.** A migration's request states `Varve-If-Graphs-Match` (ADR
+  0126). It names `varve:setup` and every graph the migration's operations
+  name: the default graph where a pattern or a template stands outside
+  `GRAPH`, a `WITH` or `USING` graph, and the graphs of `CLEAR`, `DROP`,
+  `CREATE`, `ADD`, `MOVE` and `COPY`. A commit to any other graph no longer
+  moves it. A commit to a graph it reads still does: the header is the scope
+  the server checks at commit.
+- **The fallback.** A migration whose graphs cannot all be named is sent under
+  the dataset-wide `If-Match` at the position the records were read at, as
+  point 4 said. That covers `GRAPH ?g`, a `LOAD`, `CLEAR ALL` or `NAMED`, and
+  an `EXISTS`, which may read any graph.
+- **The versions.** A graph never named by an answer is stated at version 0,
+  never written. A `412` names each stale graph's version (ADR 0126 point 8),
+  and the next attempt states it, with the records read again. After a
+  migration commits, its commit is `varve:setup`'s version. Two appliers
+  starting together still apply each migration once, because they conflict on
+  `varve:setup`.
+
+**The ledger.** The ruling of this block is `MigrationsStateTheirGraphs`,
+unaccepted until the maintainer accepts it.
