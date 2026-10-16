@@ -5,6 +5,11 @@ A Varve dataset in an object store with conditional writes (ADRs 0134–0136,
 operations, and a provider is an adapter of its own — `Varve.Store.Azure`,
 `Varve.Store.S3`.
 
+- **A store that enforces conditional writes, or none.** Every open first
+  probes under `probe/` that a second create-if-absent and a replace against
+  a stale version are both refused, and fails with
+  `ConditionalWritesNotEnforcedException`, naming the store, when either is
+  not (ADR 0134). Garage is one such store.
 - **The log as write-once chunk objects.** Each flush is one create-if-absent
   of the next log slot, `log/NNNNNNNN.chunks/CCCCCCCC`; a sealed segment is
   consolidated into `log/NNNNNNNN.seg`, byte for byte the file backend's
@@ -25,7 +30,8 @@ operations, and a provider is an adapter of its own — `Varve.Store.Azure`,
   first use; `CacheBytes` bounds the cache and eviction never changes a
   result.
 - **Followers.** `ObjectStorageAccess.ReadOnly` claims nothing and writes
-  nothing: it attaches the catalog and replays the log after it.
+  nothing but its probe's key: it attaches the catalog and replays the log
+  after its cursor.
 
 ```csharp
 using AzureBlobStore store = AzureBlobStore.Create(new AzureBlobStoreOptions

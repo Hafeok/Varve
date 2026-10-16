@@ -41,6 +41,13 @@ internal sealed class MemoryObjectStore : IObjectStore
     /// </summary>
     public Func<ObjectOperation, ObjectName, Action?>? Hook { get; set; }
 
+    /// <summary>
+    /// Whether the store ignores the conditions of its conditional writes,
+    /// as Garage does with <c>If-None-Match: *</c>: a create overwrites and a
+    /// replace succeeds against any version.
+    /// </summary>
+    public bool IgnoresConditions { get; set; }
+
     public int Count(ObjectOperation operation)
     {
         lock (_gate)
@@ -105,7 +112,7 @@ internal sealed class MemoryObjectStore : IObjectStore
     public ValueTask<ObjectVersion?> CreateIfAbsentAsync(ObjectName name, ReadOnlyMemory<byte> content, CancellationToken cancellationToken) =>
         Run(ObjectOperation.Create, name, () =>
         {
-            if (_objects.ContainsKey(name.Value))
+            if (_objects.ContainsKey(name.Value) && !IgnoresConditions)
             {
                 return (ObjectVersion?)null;
             }
@@ -117,7 +124,7 @@ internal sealed class MemoryObjectStore : IObjectStore
     public ValueTask<ObjectVersion?> ReplaceIfUnchangedAsync(ObjectName name, ObjectVersion expected, ReadOnlyMemory<byte> content, CancellationToken cancellationToken) =>
         Run(ObjectOperation.Replace, name, () =>
         {
-            if (!_objects.TryGetValue(name.Value, out var found) || Version(found.Version) != expected)
+            if (!_objects.TryGetValue(name.Value, out var found) || (Version(found.Version) != expected && !IgnoresConditions))
             {
                 return (ObjectVersion?)null;
             }
@@ -157,6 +164,9 @@ internal sealed class MemoryObjectStore : IObjectStore
 
     public ValueTask<bool> DeleteAsync(ObjectName name, CancellationToken cancellationToken) =>
         Run(ObjectOperation.Delete, name, () => _objects.Remove(name.Value));
+
+    /// <summary>How a message names this store.</summary>
+    public override string ToString() => "memory://objects";
 
     private static ObjectVersion Version(long version) => new("v" + version.ToString(CultureInfo.InvariantCulture));
 

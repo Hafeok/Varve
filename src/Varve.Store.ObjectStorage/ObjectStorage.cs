@@ -99,9 +99,12 @@ public sealed class ObjectStorage : IStorage, IStorageMaintenance, IAsyncDisposa
     private bool SupersededAtOpen { get; }
 
     /// <summary>
-    /// Opens a dataset in an object store. For write, claims the next epoch
-    /// and fences the log with it; read-only, changes nothing in the store.
+    /// Opens a dataset in an object store. First, either way, probes that the
+    /// store enforces conditional writes (ADR 0134). For write, then claims
+    /// the next epoch and fences the log with it; read-only, changes nothing
+    /// in the store beyond the probe's key, which it deletes.
     /// </summary>
+    /// <exception cref="ConditionalWritesNotEnforcedException">The store does not enforce conditional writes.</exception>
     /// <exception cref="DatasetLeasedException">The cache directory is in use by another opener.</exception>
     /// <exception cref="LogVerificationException">A chunk of the log does not verify.</exception>
     public static ValueTask<ObjectStorage> OpenAsync(ObjectStorageOptions options, CancellationToken cancellationToken = default) =>
@@ -210,6 +213,11 @@ public sealed class ObjectStorage : IStorage, IStorageMaintenance, IAsyncDisposa
 
         try
         {
+            // Before anything is read or written: a store that does not refuse
+            // what the fence and the writer record need refused is never
+            // given a log (ADR 0134). The cache directory, locked now, makes
+            // the probe's key this open's alone; a hash, so it is a plain name.
+            await ProbeAsync(options.Store, names, Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes((options.Instance?.Value ?? "reader") + "\n" + Path.GetFullPath(options.Cache.Value))))[..24], options.Clock, cancellationToken).ConfigureAwait(false);
             WriterRecord? record = null;
             ObjectVersion? version = null;
             bool lost = false;
@@ -284,6 +292,56 @@ public sealed class ObjectStorage : IStorage, IStorageMaintenance, IAsyncDisposa
         ObjectVersion? version = await ConditionalWrites.ReplaceAsync(store, names.Writer, read.Version, bytes, clock, cancellationToken).ConfigureAwait(false);
         return version is null ? (current, null) : (claimed, version);
     }
+
+    // The probe (ADR 0134, ConditionalWritesProbedAtOpen): under a key of the
+    // reserved probe/ no other open uses, a create-if-absent, a second one
+    // with other bytes, which must be refused, a replace against the version
+    // the first returned, which must succeed, and the same replace again,
+    // now against a stale version, which must be refused. The key is deleted.
+    private static async ValueTask ProbeAsync(IObjectStore store, ObjectNames names, string opener, TimeProvider clock, CancellationToken cancellationToken)
+    {
+        ObjectName key = names.Probe(opener + "-" + clock.GetUtcNow().UtcTicks.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+        try
+        {
+            await ConditionalWrites.CreateAsync(store, key, "1"u8.ToArray(), clock, cancellationToken).ConfigureAwait(false);
+            ObjectRead first = await ConditionalWrites.ReadWholeAsync(store, key, cancellationToken).ConfigureAwait(false)
+                ?? throw new System.IO.IOException("The object store at " + store + " lost '" + key + "' just after creating it.");
+            (CreateOutcome second, _) = await ConditionalWrites.CreateAsync(store, key, "2"u8.ToArray(), clock, cancellationToken).ConfigureAwait(false);
+
+            if (second == CreateOutcome.Ours)
+            {
+                throw NotEnforced(store, "a second create-if-absent of '" + key + "' succeeded");
+            }
+
+            if (await ConditionalWrites.ReplaceAsync(store, key, first.Version, "3"u8.ToArray(), clock, cancellationToken).ConfigureAwait(false) is null)
+            {
+                throw NotEnforced(store, "a replace-if-unchanged of '" + key + "' against its current version was refused");
+            }
+
+            if (await ConditionalWrites.ReplaceAsync(store, key, first.Version, "4"u8.ToArray(), clock, cancellationToken).ConfigureAwait(false) is not null)
+            {
+                throw NotEnforced(store, "a replace-if-unchanged of '" + key + "' against a stale version succeeded");
+            }
+        }
+        finally
+        {
+            // Best effort: a probe key left behind is never read again.
+            try
+            {
+                await store.DeleteAsync(key, cancellationToken).ConfigureAwait(false);
+            }
+            catch (IOException)
+            {
+            }
+            catch (System.Net.Http.HttpRequestException)
+            {
+            }
+        }
+    }
+
+    private static ConditionalWritesNotEnforcedException NotEnforced(IObjectStore store, string seen) =>
+        new("The object store at " + store + " does not enforce conditional writes: " + seen + ". The epoch fence and the writer record rest on those refusals, so the object-storage backend refuses this store (ADR 0134). Garage is one such store; keep the dataset on the file backend instead.");
 
     private async ValueTask RecordFenceAsync(LogSlot fence, CancellationToken cancellationToken)
     {

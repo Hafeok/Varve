@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Varve.Store.Log;
+using Varve.Store.ObjectStorage;
 using Varve.Store.ObjectStorage.Model;
 using Backend = Varve.Store.ObjectStorage.ObjectStorage;
 using Xunit;
@@ -176,7 +177,19 @@ public sealed class ObjectStorageTests
         await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("o")), T.Ct);
         byte[] record = harness.Store.Get("writer")!;
         IReadOnlyList<string> names = harness.Store.Names();
-        harness.Store.ResetCounts();
+        List<string> written = [];
+        harness.Store.Hook = (operation, name) =>
+        {
+            if (operation is ObjectOperation.Create or ObjectOperation.Replace or ObjectOperation.Delete)
+            {
+                lock (written)
+                {
+                    written.Add(name.Value);
+                }
+            }
+
+            return null;
+        };
 
         Backend reader = await harness.OpenAsync(ObjectStorageAccess.ReadOnly);
         await using (Dataset read = await Dataset.OpenAsync(reader, T.Options(), T.Ct))
@@ -185,9 +198,9 @@ public sealed class ObjectStorageTests
             await Assert.ThrowsAsync<InvalidOperationException>(async () => await read.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("x")), T.Ct));
         }
 
-        Assert.Equal(0, harness.Store.Count(ObjectOperation.Create));
-        Assert.Equal(0, harness.Store.Count(ObjectOperation.Replace));
-        Assert.Equal(0, harness.Store.Count(ObjectOperation.Delete));
+        // The conditional-writes probe's key alone (ADR 0134), gone again.
+        Assert.NotEmpty(written);
+        Assert.All(written, name => Assert.StartsWith("probe/", name, StringComparison.Ordinal));
         Assert.Equal(record, harness.Store.Get("writer"));
         Assert.Equal(names, harness.Store.Names());
         Assert.Null(reader.Epoch);
@@ -358,5 +371,48 @@ public sealed class ObjectStorageTests
         Assert.Equal(before, (await T.CopyLogAsync(reopened)).Segments);
         await using Dataset again = await T.OpenOrCreate(reopened, T.Options(segmentBytes: 2048, maxRecordBytes: 256));
         Assert.Equal(new Position(40), again.Head);
+    }
+
+    /// <summary>
+    /// A store that ignores the conditions of its conditional writes — a
+    /// create that overwrites, a replace against any version, as Garage's —
+    /// is refused at open, writer or follower, by the probe under
+    /// <c>probe/</c>, with a message that names the store; nothing of a
+    /// dataset is written to it, and the probe's key is gone (ADR 0134).
+    /// A store that enforces them is probed and keeps no probe key.
+    /// </summary>
+    [Fact]
+    public async Task a_store_that_does_not_enforce_conditional_writes_is_refused_at_open()
+    {
+        foreach (ObjectStorageAccess access in new[] { ObjectStorageAccess.Write, ObjectStorageAccess.ReadOnly })
+        {
+            await using ObjectHarness harness = new(new MemoryObjectStore { IgnoresConditions = true });
+            ConditionalWritesNotEnforcedException refused = await Assert.ThrowsAsync<ConditionalWritesNotEnforcedException>(() => harness.OpenAsync(access));
+            Assert.Contains("memory://objects", refused.Message, StringComparison.Ordinal);
+            Assert.Contains("does not enforce conditional writes", refused.Message, StringComparison.Ordinal);
+            Assert.Contains("ADR 0134", refused.Message, StringComparison.Ordinal);
+            Assert.Empty(harness.Store.Names());
+        }
+
+        // Only a stale replace let through is enough.
+        await using (ObjectHarness staleOnly = new())
+        {
+            staleOnly.Store.Hook = (operation, name) =>
+            {
+                if (operation == ObjectOperation.Replace && name.Value.Contains("probe/", StringComparison.Ordinal))
+                {
+                    staleOnly.Store.IgnoresConditions = true;
+                }
+
+                return null;
+            };
+            await Assert.ThrowsAsync<ConditionalWritesNotEnforcedException>(() => staleOnly.OpenAsync());
+        }
+
+        await using ObjectHarness enforcing = new();
+        Backend storage = await enforcing.OpenAsync();
+        Assert.DoesNotContain(enforcing.Store.Names(), name => name.StartsWith("probe/", StringComparison.Ordinal));
+        await using Dataset dataset = await T.OpenOrCreate(storage, T.Options());
+        Assert.Equal(new Position(0), dataset.Head);
     }
 }

@@ -15,3 +15,4 @@ Varve.Store.Azure.Model.AzureBlobStoreOptions.ContainerUrl.init -> void
 Varve.Store.Azure.Model.AzureBlobStoreOptions.Handler.get -> System.Net.Http.HttpMessageHandler?
 Varve.Store.Azure.Model.AzureBlobStoreOptions.Handler.init -> void
 static Varve.Store.Azure.AzureBlobStore.Create(Varve.Store.Azure.Model.AzureBlobStoreOptions! options) -> Varve.Store.Azure.AzureBlobStore!
+override Varve.Store.Azure.AzureBlobStore.ToString() -> string!

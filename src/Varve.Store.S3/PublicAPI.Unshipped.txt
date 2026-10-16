@@ -47,3 +47,4 @@ static Varve.Store.S3.Model.S3Region.operator ==(Varve.Store.S3.Model.S3Region l
 static Varve.Store.S3.S3ObjectStore.Create(Varve.Store.S3.Model.S3ObjectStoreOptions! options) -> Varve.Store.S3.S3ObjectStore!
 ~override Varve.Store.S3.Model.S3Bucket.Equals(object obj) -> bool
 ~override Varve.Store.S3.Model.S3Region.Equals(object obj) -> bool
+override Varve.Store.S3.S3ObjectStore.ToString() -> string!

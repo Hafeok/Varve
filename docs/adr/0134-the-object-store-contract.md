@@ -151,6 +151,32 @@ the version for replace-if-unchanged, a ranged GET, a list with `prefix`, and
 DELETE, authenticated by workload identity federation. Nothing in
 `Varve.Store.ObjectStorage` changes for either.
 
+**9. Every open probes that the store enforces conditional writes, and
+refuses one that does not.** A provider can speak the protocol of a
+conditional write and not keep it: **Garage** accepts `If-None-Match: *` and
+ignores it, and its documentation says conditional writes are structurally
+impossible there. On such a store two writers both "win" a create, and a
+superseded writer's next chunk overwrites the new writer's fence instead of
+being refused, so the log could be forked silently. So every open of the
+object-storage backend — writer or follower, before it reads or writes
+anything else — probes once under the reserved key `probe/` of the
+dataset's prefix, a name no other open uses (its instance, its cache
+directory, the time): a create-if-absent; a second create-if-absent of the
+same name with other bytes, **which must be refused**; a replace-if-unchanged
+against the version the first returned, which must succeed; and the same
+replace again, now against a stale version, **which must be refused**. If
+either refusal does not come, the open fails with
+`ConditionalWritesNotEnforcedException`, whose message names the store and
+says it does not enforce conditional writes; nothing of the dataset is read
+or written, and the probe's key is deleted. **This probe is why a store that
+does not enforce conditional writes can never corrupt a log**: the log, the
+fence and the writer record (ADR 0136) are written only after the store has
+shown both refusals to this process. A follower therefore needs write access
+to `probe/`, as a writer does to the whole prefix; the Azure role of ADR 0142
+grants it. The probe goes through the same retrying create and replace as
+the log does, so a lost answer is not taken for a refusal, nor a refusal for
+an overwrite.
+
 ## Alternatives considered
 
 - **The Azure SDK.** Admissible on AOT alone, refused on constraints 1 and 4
@@ -166,6 +192,10 @@ DELETE, authenticated by workload identity federation. Nothing in
 - **The contract inside `Varve.Store.ObjectStorage`.** The adapters would then
   reference the backend at the same layer, a violation, or the backend would
   reference the adapters, so a provider's change would be the backend's.
+- **Trust the provider's documentation, or a list of known-good providers.**
+  A list ages, and a provider that changes its behaviour, or an S3 gateway
+  in front of one, would pass it. The probe asks the store itself, at every
+  open, for the price of five requests.
 - **MinIO built from its archived source, or AIStor Free.** Refused by the
   maintainer: the first would distribute an unmaintained AGPL binary, the
   second's terms were not verified.
@@ -180,6 +210,9 @@ DELETE, authenticated by workload identity federation. Nothing in
 - The adapters' suites run against Azurite and the chosen S3-compatible
   server in CI, and against a real storage account on an optional leg.
 - No package is added to `Directory.Packages.props`.
+- An open costs five more requests, and a store that ignores conditional
+  writes — Garage — is refused by name: the operator guide's small-machine
+  page lists it as unsupported for the object-storage backend.
 
 ## Checks
 

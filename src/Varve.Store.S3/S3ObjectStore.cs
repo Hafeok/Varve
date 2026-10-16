@@ -204,6 +204,9 @@ public sealed class S3ObjectStore : IObjectStore, IDisposable
         };
     }
 
+    /// <summary>The bucket's address: how a message names this store.</summary>
+    public override string ToString() => _bucketAddress;
+
     /// <summary>Releases the connection pool.</summary>
     public void Dispose()
     {

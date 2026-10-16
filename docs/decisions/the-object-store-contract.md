@@ -13,6 +13,8 @@ decisions:
     statement: "Varve.Store.Azure sends one pinned x-ms-version on every request, named in ADR 0134 and changed only by an amendment"
   - key: LostRaceIsMappedPerProvider
     statement: "Each adapter maps its provider's refusal of a condition to the contract's lost race: Azure's 409 BlobAlreadyExists and 412 ConditionNotMet, S3's 412 PreconditionFailed, with S3's 409 ConditionalRequestConflict retried"
+  - key: ConditionalWritesProbedAtOpen
+    statement: "Every open of the object-storage backend, writer or follower, probes under the reserved key probe/ that a second create-if-absent and a replace against a stale version are both refused, and refuses to open a store where either succeeds"
   - key: S3ServerChosenByTheSuite
     statement: "CI's S3-compatible server is the first of SeaweedFS and RustFS to pass the storage contract suite and the conditional-write race property; if neither passes, no S3-compatible adapter ships"
   - key: BackendContractsNameTheStore

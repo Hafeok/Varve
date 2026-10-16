@@ -516,3 +516,44 @@ about 0.2 s of wall time on RustFS and 1.2 s on Azurite. Not tuned, as asked;
 the options are in `tests/Varve.Benchmarks/README.md`.
 
 **Commits**: the cold-start change and this addendum, on the same branch.
+
+## Addendum, 2026-10-16: the conditional-writes probe, and two corrections
+
+The maintainer's message on the pull request:
+
+> One more item for this PR: **the backend refuses a store that does not enforce conditional writes.** On open (writer or follower), probe once under a reserved key: create-if-absent twice, and the second must be refused (412, or the provider's equivalent); then replace-if-unchanged with a stale version, which must be refused as well. If either succeeds, refuse to open, with a problem that names the store and says it does not enforce conditional writes. Garage is the known case: it accepts `If-None-Match: *` and ignores it, and its documentation says conditional writes are structurally impossible there. Test the refusal with an in-memory adapter that ignores conditions, and say in ADR 0134 that this probe is the reason a non-enforcing store can never corrupt a log. The operator guide's small-machine page names Garage as unsupported for the object-storage backend, with the reason; the file backend on NVMe remains the Pi setup.
+> Two corrections. The release: #113 (Client and integration part 2) lands first as `preview.7`, so when you merge `main`, your descriptor becomes `v0.1.0-preview.8`. And `accepted-by`: write it in your descriptor, naming the maintainer. `docs/releases.md` point 6 makes it the descriptor's line, proven by the approval on the head; "a session never writes accepted-by" is about decision sets (ADR 0066). Then `changelog` and `release` pass.
+
+**What changed.** Every open of the object-storage backend, writer or
+follower, first probes under the reserved key `probe/` (ADR 0134 decision 9,
+`ConditionalWritesProbedAtOpen`): a create-if-absent, a second one with other
+bytes that must be refused, a replace against the current version, and the
+same replace against the now-stale version, which must be refused. If either
+refusal does not come, the open fails with
+`ConditionalWritesNotEnforcedException`, whose message names the store — the
+adapters' `ToString` is the container's or the bucket's address — and nothing
+of the dataset is read or written. The key is unique to the open (a hash of its
+instance and its locked cache directory, and the time) and is deleted. The
+small-machine page names Garage as unsupported for the object-storage
+backend, with the reason.
+
+**Found while doing it.** The `varve lease` instance name has spaces, which
+went into the first version of the key unescaped and failed on Azurite; the
+key is now a hash, a plain name always.
+
+**What it changes elsewhere.** A read-only open now writes, and deletes, its
+probe key: `a_read_only_open_changes_nothing_in_the_store` asserts that every
+write it makes is under `probe/` and that the writer record is unchanged. A
+follower's identity needs write access to `probe/`.
+
+**Checks.** An in-memory store that ignores conditions is refused, as writer
+and as follower, with the store named and nothing left in it; one that lets
+only a stale replace through is refused too; an enforcing store keeps no
+probe key.
+
+**The corrections.** The descriptor now carries `accepted-by`, naming the
+maintainer: `docs/releases.md` point 6 makes it the descriptor's line, proven
+by the approval on the head, and the rule that a session never writes
+`accepted-by` is about decision sets (ADR 0066) — the session had read it as
+covering both. The release is the next free number when `main` is merged:
+`v0.1.0-preview.8` once #113 has landed as `preview.7`.

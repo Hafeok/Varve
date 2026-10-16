@@ -133,3 +133,7 @@ static Varve.Store.ObjectStorage.ObjectStorage.TakeOverAsync(Varve.Store.ObjectS
 ~override Varve.Store.ObjectStorage.Model.WriterInstance.Equals(object obj) -> bool
 Varve.Store.ObjectStorage.Model.ObjectStorageOptions.CacheBytes.get -> Varve.Store.Log.ByteCount
 Varve.Store.ObjectStorage.Model.ObjectStorageOptions.CacheBytes.init -> void
+Varve.Store.ObjectStorage.ConditionalWritesNotEnforcedException
+Varve.Store.ObjectStorage.ConditionalWritesNotEnforcedException.ConditionalWritesNotEnforcedException() -> void
+Varve.Store.ObjectStorage.ConditionalWritesNotEnforcedException.ConditionalWritesNotEnforcedException(string! message) -> void
+Varve.Store.ObjectStorage.ConditionalWritesNotEnforcedException.ConditionalWritesNotEnforcedException(string! message, System.Exception! innerException) -> void

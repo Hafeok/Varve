@@ -202,6 +202,9 @@ public sealed class AzureBlobStore : IObjectStore, IDisposable
         };
     }
 
+    /// <summary>The container's address, without a query: how a message names this store.</summary>
+    public override string ToString() => _container;
+
     /// <summary>Releases the connection pool, and the token source's.</summary>
     public void Dispose()
     {
