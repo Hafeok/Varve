@@ -959,6 +959,14 @@ its own change, not this one: narrow the generator's years to 2–9998.
 
 ### What the maintainer is asked for
 
+- **After the acceptance (2026-10-16).** `main` gained #112 (#87), merged
+  here, and NuGet's audit gained GHSA-qhrr-8q5h-9q3h against `MessagePack`
+  2.5.302, which `Aspire.Hosting` brings into `Varve.Aspire`; every restore of
+  the solution failed on it, on `main` too. At the maintainer's choice the fix
+  is in this pull request: a transitive pin to 2.5.303 under a dated amendment
+  to ADR 0117, whose ruling `MessagePackPinnedPastTheAdvisory` is the one key
+  left to accept.
+
 - **Acceptance of ADRs 0143–0147** and the five amendments on the pull
   request (ADR 0066). That turns the build's `CS0618` green.
 - **The four new jobs in ruleset 1's required checks**, once they have run

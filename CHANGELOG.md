@@ -85,6 +85,9 @@ request (ADR 0066).
 - `GraphScope` gains a governing-graph seam (ADR 0107 amended).
 - `Varve.JsonLd` writes `rdf:JSON` through `Varve.Json.Canonical`. Its bytes
   are unchanged.
+- **`Varve.Aspire`**: `MessagePack`, which `Aspire.Hosting` 13.6.1 brings in
+  at 2.5.302, is pinned to 2.5.303, past GHSA-qhrr-8q5h-9q3h (ADR 0117
+  amended).
 
 ## [0.1.0-preview.6] - 2026-10-15
 

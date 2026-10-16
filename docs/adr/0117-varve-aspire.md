@@ -12,6 +12,10 @@ register in `Varve.Aspire` alone, and `Aspire.AppHost.Sdk` and
 [0131](0131-hosting-the-client.md): `WithDataset` takes a setup file, and the
 client integration this ADR deferred is built; see the end.
 
+**Amended 2026-10-16** (ADR 0068), by milestone Client and integration of #93:
+`MessagePack`, which `Aspire.Hosting` brings into this ADR's closures, is pinned
+past an advisory; see the end.
+
 ## Context
 
 ADR 0037 expected the server to run under Aspire in development and said
@@ -116,3 +120,24 @@ maintainer accepts it (ADR 0066).
 
 **The ledger.** The rulings of this ADR stand; the ruling of this block is
 `DatasetSetupRunsVarveApply`, unaccepted until the maintainer accepts it.
+
+## Amendment, 2026-10-16 — `MessagePack` pinned past GHSA-qhrr-8q5h-9q3h
+
+Filed by milestone Client and integration of #93, unaccepted until the
+maintainer accepts it (ADR 0066).
+
+- **The advisory.** NuGet's audit flags `MessagePack` below 2.5.303
+  (GHSA-qhrr-8q5h-9q3h, CVE-2026-92707, moderate: nested arrays allocate past
+  the depth limit when untrusted data is deserialised into `object`). It was
+  added to the advisory database on 2026-10-15. `Aspire.Hosting` 13.6.1 depends
+  on 2.5.302, so `Varve.Aspire`, the sample AppHost and its test fail restore,
+  where warnings are errors.
+- **The pin.** `MessagePack` 2.5.303, the advisory's patched release, is a
+  register entry under this ADR, scoped to `src/Varve.Aspire/` and `samples/`.
+  It is never referenced directly: central transitive pinning lifts it in those
+  closures alone. 2.5.303 is MIT, managed, and has 2.5.302's dependencies.
+- **When it leaves.** The pin is removed when `Aspire.Hosting`'s own
+  dependency moves past the advisory.
+
+**The ledger.** The ruling of this block is `MessagePackPinnedPastTheAdvisory`,
+unaccepted until the maintainer accepts it.

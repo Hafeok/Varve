@@ -153,6 +153,14 @@
     <PackageVersion Include="Aspire.Hosting" Version="13.6.1" Adr="0117" Scope="src/Varve.Aspire/, samples/" />
     <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.6.1" Adr="0117" Scope="samples/" />
     <PackageVersion Include="Aspire.Hosting.Testing" Version="13.6.1" Adr="0117" Scope="samples/" />
+    <!-- Pinned past Aspire.Hosting 13.6.1's own dependency (2.5.302), which
+         NuGet's audit flags: GHSA-qhrr-8q5h-9q3h (moderate; nested arrays
+         allocate past the depth limit when deserialising into object),
+         patched in 2.5.303. Transitive pinning lifts it in the closure of
+         Varve.Aspire and the Aspire sample alone; ADR 0117's amendment of
+         2026-10-16 admits it, and it leaves when Aspire.Hosting's own
+         dependency moves past the advisory. -->
+    <PackageVersion Include="MessagePack" Version="2.5.303" Adr="0117" Scope="src/Varve.Aspire/, samples/" />
   </ItemGroup>
 
   <!--
