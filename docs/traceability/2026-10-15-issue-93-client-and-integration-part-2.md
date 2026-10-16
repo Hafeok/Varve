@@ -554,8 +554,9 @@ closure is managed and MIT:
 - `Json.More.Net` 2.2.0;
 - `Humanizer.Core` 3.0.1.
 
-It is scoped to `tests/`, so nothing shipped carries it. ADR 0146 says that
-Dependabot's proposals for 9.x are declined with this reason.
+It is scoped to `tests/`, so nothing shipped carries it. At the maintainer's
+review, `.github/dependabot.yml` gained an `ignore` for versions `>= 9.0.0`,
+citing ADR 0146, because a rule only in an ADR does not stop the bot.
 
 ### Public API, as the baseline diff
 

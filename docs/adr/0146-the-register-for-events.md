@@ -43,7 +43,8 @@ Two packages and two images are needed, and none may reach a shipped closure.
      the json-everything *Open Source Maintenance Fee* end-user agreement, which
      charges revenue-generating users, not under MIT alone. 8.0.5 is the last
      release whose package licence is the MIT expression. The pin is
-     deliberate, and Dependabot's proposals for 9.x are declined with this
+     deliberate: `.github/dependabot.yml` ignores `JsonSchema.Net` versions
+     `>= 9.0.0`, so the bot never proposes them, and that rule cites this
      ADR.
 3. **The AsyncAPI 3.0.0 JSON Schema** is vendored as test data, from
    `asyncapi/spec-json-schemas` (Apache-2.0), under
