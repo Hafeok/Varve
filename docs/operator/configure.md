@@ -92,7 +92,18 @@ Contributor on the container. An S3-compatible store is reached by
 key named like `AccountKey`, `ConnectionString` or `SecretAccessKey`, or a SAS
 token in the address, refuses the start, naming the rule. Durability is the
 store's: `Replicated`, a commit returns once the store acknowledged its
-chunk.
+chunk. A follower — a read-only open — writes nothing and needs only read
+access (Storage Blob Data Reader on Azure).
+
+**Supported stores.** A writer's open first checks that the store refuses a
+second create of a name and a replace against a stale version, and refuses to
+open on one that does not (ADR 0134). That check catches a store that ignores
+conditional writes; it cannot catch one that enforces them for one request at
+a time but not under concurrency. The evidence for that is the contract
+suite's race property, and the stores it has passed are the supported ones:
+**Azure Blob Storage** (Azurite in CI, a real account on the optional leg) and
+**RustFS**. **Any other S3-compatible store is untested.** Garage is known not
+to enforce conditional writes and is refused.
 
 ## Authentication — `Auth`
 

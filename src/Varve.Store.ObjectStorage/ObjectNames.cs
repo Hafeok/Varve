@@ -29,7 +29,7 @@ internal sealed class ObjectNames(ObjectName? prefix)
 
     public ObjectName Writer => new(_prefix + "writer");
 
-    /// <summary>A key under the reserved <c>probe/</c>, where an open tests that the store enforces conditional writes (ADR 0134).</summary>
+    /// <summary>A key under the reserved <c>probe/</c>, where a writer's open tests that the store enforces conditional writes (ADR 0134).</summary>
     public ObjectName Probe(string id) => new(_prefix + "probe/" + id);
 
     public ObjectName Log => new(_prefix + LogPart);

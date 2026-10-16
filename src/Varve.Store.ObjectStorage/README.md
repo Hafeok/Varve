@@ -5,11 +5,13 @@ A Varve dataset in an object store with conditional writes (ADRs 0134–0136,
 operations, and a provider is an adapter of its own — `Varve.Store.Azure`,
 `Varve.Store.S3`.
 
-- **A store that enforces conditional writes, or none.** Every open first
-  probes under `probe/` that a second create-if-absent and a replace against
-  a stale version are both refused, and fails with
+- **A store that enforces conditional writes, or none.** A writer's open
+  first probes under `probe/{random}` that a second create-if-absent and a
+  replace against a stale version are both refused, and fails with
   `ConditionalWritesNotEnforcedException`, naming the store, when either is
-  not (ADR 0134). Garage is one such store.
+  not (ADR 0134). Garage is one such store. The supported stores are those
+  the contract suite's race property has passed: Azure Blob Storage and
+  RustFS.
 - **The log as write-once chunk objects.** Each flush is one create-if-absent
   of the next log slot, `log/NNNNNNNN.chunks/CCCCCCCC`; a sealed segment is
   consolidated into `log/NNNNNNNN.seg`, byte for byte the file backend's
@@ -30,8 +32,8 @@ operations, and a provider is an adapter of its own — `Varve.Store.Azure`,
   first use; `CacheBytes` bounds the cache and eviction never changes a
   result.
 - **Followers.** `ObjectStorageAccess.ReadOnly` claims nothing and writes
-  nothing but its probe's key: it attaches the catalog and replays the log
-  after its cursor.
+  nothing, so it needs only read access: it attaches the catalog and replays
+  the log after its cursor.
 
 ```csharp
 using AzureBlobStore store = AzureBlobStore.Create(new AzureBlobStoreOptions
@@ -46,7 +48,14 @@ await using ObjectStorage storage = await ObjectStorage.OpenAsync(new ObjectStor
     Cache = new CacheDirectory("/var/cache/varve/dataset"),
     Instance = new WriterInstance(Environment.MachineName),
     Clock = TimeProvider.System,
+    ProbeRandomness = new SystemRandomness(),
 });
 
 await using Dataset dataset = await Dataset.OpenAsync(storage, new DatasetOptions { Clock = TimeProvider.System });
+
+// The probe key's random part: the store draws no randomness of its own.
+sealed class SystemRandomness : IProbeRandomness
+{
+    public void Fill(Span<byte> destination) => RandomNumberGenerator.Fill(destination);
+}
 ```

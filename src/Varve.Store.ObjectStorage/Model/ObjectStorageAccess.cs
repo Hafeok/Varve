@@ -13,6 +13,6 @@ public enum ObjectStorageAccess
     /// </summary>
     Write,
 
-    /// <summary>For reads only: the open claims nothing and changes nothing in the store but its conditional-writes probe under <c>probe/</c>, which it deletes (ADR 0134).</summary>
+    /// <summary>For reads only: the open claims nothing and changes nothing in the store.</summary>
     ReadOnly,
 }

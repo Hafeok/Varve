@@ -151,31 +151,43 @@ the version for replace-if-unchanged, a ranged GET, a list with `prefix`, and
 DELETE, authenticated by workload identity federation. Nothing in
 `Varve.Store.ObjectStorage` changes for either.
 
-**9. Every open probes that the store enforces conditional writes, and
-refuses one that does not.** A provider can speak the protocol of a
+**9. A writer's open probes that the store enforces conditional writes,
+and refuses one that does not.** A provider can speak the protocol of a
 conditional write and not keep it: **Garage** accepts `If-None-Match: *` and
 ignores it, and its documentation says conditional writes are structurally
 impossible there. On such a store two writers both "win" a create, and a
 superseded writer's next chunk overwrites the new writer's fence instead of
 being refused, so the log could be forked silently. So every open of the
-object-storage backend — writer or follower, before it reads or writes
-anything else — probes once under the reserved key `probe/` of the
-dataset's prefix, a name no other open uses (its instance, its cache
-directory, the time): a create-if-absent; a second create-if-absent of the
-same name with other bytes, **which must be refused**; a replace-if-unchanged
+object-storage backend **for write** — before it reads or writes anything
+else — probes once under `probe/{random}` of the dataset's prefix, the
+random part drawn from the host's source (`ProbeRandomness`), so no two
+probes share a key: a create-if-absent; a second create-if-absent of the same
+name with other bytes, **which must be refused**; a replace-if-unchanged
 against the version the first returned, which must succeed; and the same
 replace again, now against a stale version, **which must be refused**. If
 either refusal does not come, the open fails with
 `ConditionalWritesNotEnforcedException`, whose message names the store and
 says it does not enforce conditional writes; nothing of the dataset is read
-or written, and the probe's key is deleted. **This probe is why a store that
-does not enforce conditional writes can never corrupt a log**: the log, the
-fence and the writer record (ADR 0136) are written only after the store has
-shown both refusals to this process. A follower therefore needs write access
-to `probe/`, as a writer does to the whole prefix; the Azure role of ADR 0142
-grants it. The probe goes through the same retrying create and replace as
-the log does, so a lost answer is not taken for a refusal, nor a refusal for
-an overwrite.
+or written. The probe's key is deleted; one a crash leaves behind stays,
+since it is a few bytes and nothing reads it. **This probe is why a store
+that ignores conditional writes can never corrupt a log**: the log, the fence
+and the writer record (ADR 0136) are written only by a writer, and only
+after the store has shown it both refusals. A follower never writes the log,
+so a store cannot be corrupted through it: it does not probe, and its
+identity needs only read access (Storage Blob Data Reader on Azure). The
+probe goes through the same retrying create and replace as the log does, so
+a lost answer is not taken for a refusal, nor a refusal for an overwrite.
+
+**What the probe does not prove.** It detects a store that ignores the
+conditional headers. It cannot detect one that enforces them one request at
+a time but not under concurrency — Garage documents that partial
+`If-None-Match` as possible: two creates that race may both succeed even
+where a create after a create is refused. The evidence against that is the
+contract suite's race property (decision 7): sixteen clients racing one
+create, and sixteen racing one replace, exactly one winning each. **The
+supported stores are those the suite has passed**: Azure Blob Storage,
+through Azurite in CI and a real account on the optional leg, and RustFS.
+Any other S3-compatible store is untested, and the operator guide says so.
 
 ## Alternatives considered
 
@@ -195,7 +207,8 @@ an overwrite.
 - **Trust the provider's documentation, or a list of known-good providers.**
   A list ages, and a provider that changes its behaviour, or an S3 gateway
   in front of one, would pass it. The probe asks the store itself, at every
-  open, for the price of five requests.
+  writer's open, for the price of five requests; the race property covers
+  what one process's probe cannot.
 - **MinIO built from its archived source, or AIStor Free.** Refused by the
   maintainer: the first would distribute an unmaintained AGPL binary, the
   second's terms were not verified.
@@ -210,9 +223,13 @@ an overwrite.
 - The adapters' suites run against Azurite and the chosen S3-compatible
   server in CI, and against a real storage account on an optional leg.
 - No package is added to `Directory.Packages.props`.
-- An open costs five more requests, and a store that ignores conditional
-  writes — Garage — is refused by name: the operator guide's small-machine
-  page lists it as unsupported for the object-storage backend.
+- A writer's open costs five more requests, and a store that ignores
+  conditional writes — Garage — is refused by name: the operator guide's
+  small-machine page lists it as unsupported for the object-storage backend.
+  A follower's open costs nothing more and needs only read access.
+- The supported stores are the ones the contract suite and its race
+  property have passed: Azure Blob Storage and RustFS. Another S3-compatible
+  store may work and is untested.
 
 ## Checks
 

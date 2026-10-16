@@ -457,6 +457,14 @@ internal static class ObjectStorageBench
         }
     }
 
+    /// <summary>A writer's probe key's random part (ADR 0134).</summary>
+    private sealed class BenchRandomness : IProbeRandomness
+    {
+        internal static BenchRandomness Instance { get; } = new();
+
+        public void Fill(Span<byte> destination) => Random.Shared.NextBytes(destination);
+    }
+
     /// <summary>Requests by operation, and bytes each way.</summary>
     internal readonly record struct Counts(long Creates, long Replaces, long Reads, long Lists, long Deletes, long BytesUp, long BytesDown)
     {
@@ -693,6 +701,7 @@ internal static class ObjectStorageBench
                 Cache = new CacheDirectory(cache),
                 Instance = new WriterInstance("bench-" + _kind),
                 Clock = TimeProvider.System,
+                ProbeRandomness = BenchRandomness.Instance,
             });
         }
 

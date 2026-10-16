@@ -56,11 +56,14 @@ summary: |
   - **`Varve.Store.S3`**: SigV4, with web identity as its credential. An
     S3-compatible server (RustFS in CI) passed the full contract suite.
   - **A store that does not enforce conditional writes is refused** (ADR
-    0134). Every open, writer or follower, first probes under the reserved
-    key `probe/` that a second create-if-absent and a replace against a
-    stale version are both refused. If either succeeds, the open fails
-    with `ConditionalWritesNotEnforcedException`, naming the store. Garage
-    is one such store and is unsupported for the object-storage backend.
+    0134). A writer's open first probes under `probe/{random}` that a
+    second create-if-absent and a replace against a stale version are both
+    refused. If either succeeds, the open fails with
+    `ConditionalWritesNotEnforcedException`, naming the store. Garage is
+    one such store. A follower does not probe and needs only read access.
+    The supported stores are those the contract suite's race property has
+    passed, Azure Blob Storage and RustFS; any other S3-compatible store is
+    untested. A writer supplies `ObjectStorageOptions.ProbeRandomness`.
   - **Static keys only on loopback** (ADR 0137): an emulator on
     `127.0.0.1` takes its development key. Anywhere else, a key, a SAS
     token or a connection string is refused at start, by name.

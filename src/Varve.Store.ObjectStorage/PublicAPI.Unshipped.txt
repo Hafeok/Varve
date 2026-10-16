@@ -137,3 +137,7 @@ Varve.Store.ObjectStorage.ConditionalWritesNotEnforcedException
 Varve.Store.ObjectStorage.ConditionalWritesNotEnforcedException.ConditionalWritesNotEnforcedException() -> void
 Varve.Store.ObjectStorage.ConditionalWritesNotEnforcedException.ConditionalWritesNotEnforcedException(string! message) -> void
 Varve.Store.ObjectStorage.ConditionalWritesNotEnforcedException.ConditionalWritesNotEnforcedException(string! message, System.Exception! innerException) -> void
+Varve.Store.ObjectStorage.Model.IProbeRandomness
+Varve.Store.ObjectStorage.Model.IProbeRandomness.Fill(System.Span<byte> destination) -> void
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.ProbeRandomness.get -> Varve.Store.ObjectStorage.Model.IProbeRandomness?
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.ProbeRandomness.init -> void

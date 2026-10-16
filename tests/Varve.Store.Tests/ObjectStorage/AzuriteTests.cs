@@ -78,6 +78,7 @@ public sealed class AzuriteStorageContractTests : StorageContractTests, IAsyncLi
             Cache = new CacheDirectory(cache),
             Instance = new WriterInstance("contract"),
             Clock = TimeProvider.System,
+            ProbeRandomness = TestRandomness.Instance,
         }, T.Ct);
         _opened.Add((store, storage, cache));
         return storage;

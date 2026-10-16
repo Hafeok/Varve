@@ -36,6 +36,12 @@ public sealed class ObjectStorageOptions
     public WriterInstance? Instance { get; init; }
 
     /// <summary>
+    /// Where a writer's open draws the random name of its conditional-writes
+    /// probe (ADR 0134). Required for write; a read-only open does not probe.
+    /// </summary>
+    public IProbeRandomness? ProbeRandomness { get; init; }
+
+    /// <summary>
     /// The clock the writer record's timestamps are read from, and retries
     /// wait on. Required: the store never reads the machine's clock itself
     /// (ADR 0011). Nothing is decided from it (ADR 0136).

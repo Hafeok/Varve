@@ -475,6 +475,7 @@ internal sealed class ObjectFaultRun : IAsyncDisposable
             Cache = new CacheDirectory(cache),
             Instance = new WriterInstance(instance),
             Clock = new InstantClock(ManualClock.Epoch().Now),
+            ProbeRandomness = TestRandomness.Instance,
         };
     }
 }

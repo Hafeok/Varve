@@ -151,6 +151,7 @@ public sealed class ObjectExtentTests
             Cache = new CacheDirectory(Directory.CreateTempSubdirectory("varve-extent-faults-").FullName),
             Instance = new WriterInstance("faulted"),
             Clock = new InstantClock(DateTimeOffset.UnixEpoch),
+            ProbeRandomness = TestRandomness.Instance,
         };
 
         try

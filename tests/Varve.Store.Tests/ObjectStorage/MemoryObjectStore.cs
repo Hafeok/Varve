@@ -191,3 +191,11 @@ internal sealed class MemoryObjectStore : IObjectStore
         return new ValueTask<TResult>(result);
     }
 }
+
+/// <summary>A writer's probe key's random part, for the tests (ADR 0134).</summary>
+internal sealed class TestRandomness : Varve.Store.ObjectStorage.Model.IProbeRandomness
+{
+    public static TestRandomness Instance { get; } = new();
+
+    public void Fill(Span<byte> destination) => Random.Shared.NextBytes(destination);
+}

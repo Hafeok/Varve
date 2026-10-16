@@ -99,10 +99,10 @@ public sealed class ObjectStorage : IStorage, IStorageMaintenance, IAsyncDisposa
     private bool SupersededAtOpen { get; }
 
     /// <summary>
-    /// Opens a dataset in an object store. First, either way, probes that the
-    /// store enforces conditional writes (ADR 0134). For write, then claims
-    /// the next epoch and fences the log with it; read-only, changes nothing
-    /// in the store beyond the probe's key, which it deletes.
+    /// Opens a dataset in an object store. For write, first probes that the
+    /// store enforces conditional writes (ADR 0134), then claims the next
+    /// epoch and fences the log with it; read-only, changes nothing in the
+    /// store.
     /// </summary>
     /// <exception cref="ConditionalWritesNotEnforcedException">The store does not enforce conditional writes.</exception>
     /// <exception cref="DatasetLeasedException">The cache directory is in use by another opener.</exception>
@@ -203,6 +203,11 @@ public sealed class ObjectStorage : IStorage, IStorageMaintenance, IAsyncDisposa
             throw new ArgumentException("A writer names itself: set ObjectStorageOptions.Instance.", nameof(options));
         }
 
+        if (write && options.ProbeRandomness is null)
+        {
+            throw new ArgumentException("A writer probes the store under a random key: set ObjectStorageOptions.ProbeRandomness (ADR 0134).", nameof(options));
+        }
+
         ObjectNames names = new(options.Prefix);
         string copies = Path.Combine(options.Cache.Value, SegmentCopies);
         Directory.CreateDirectory(copies);
@@ -213,11 +218,15 @@ public sealed class ObjectStorage : IStorage, IStorageMaintenance, IAsyncDisposa
 
         try
         {
-            // Before anything is read or written: a store that does not refuse
-            // what the fence and the writer record need refused is never
-            // given a log (ADR 0134). The cache directory, locked now, makes
-            // the probe's key this open's alone; a hash, so it is a plain name.
-            await ProbeAsync(options.Store, names, Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes((options.Instance?.Value ?? "reader") + "\n" + Path.GetFullPath(options.Cache.Value))))[..24], options.Clock, cancellationToken).ConfigureAwait(false);
+            // Before a writer reads or writes anything: a store that does not
+            // refuse what the fence and the writer record need refused is
+            // never given a log (ADR 0134). A follower writes nothing, so a
+            // store cannot be corrupted through it, and it does not probe.
+            if (write)
+            {
+                await ProbeAsync(options.Store, names, options.ProbeRandomness!, options.Clock, cancellationToken).ConfigureAwait(false);
+            }
+
             WriterRecord? record = null;
             ObjectVersion? version = null;
             bool lost = false;
@@ -293,14 +302,18 @@ public sealed class ObjectStorage : IStorage, IStorageMaintenance, IAsyncDisposa
         return version is null ? (current, null) : (claimed, version);
     }
 
-    // The probe (ADR 0134, ConditionalWritesProbedAtOpen): under a key of the
-    // reserved probe/ no other open uses, a create-if-absent, a second one
+    // The probe (ADR 0134, ConditionalWritesProbedAtOpen): under a random key
+    // of the reserved probe/, a create-if-absent, a second one
     // with other bytes, which must be refused, a replace against the version
     // the first returned, which must succeed, and the same replace again,
     // now against a stale version, which must be refused. The key is deleted.
-    private static async ValueTask ProbeAsync(IObjectStore store, ObjectNames names, string opener, TimeProvider clock, CancellationToken cancellationToken)
+    private static async ValueTask ProbeAsync(IObjectStore store, ObjectNames names, IProbeRandomness randomness, TimeProvider clock, CancellationToken cancellationToken)
     {
-        ObjectName key = names.Probe(opener + "-" + clock.GetUtcNow().UtcTicks.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        // A random name per open: two probes on one key could make a correct
+        // store look broken. A key a crash leaves behind stays; nothing reads it.
+        byte[] random = new byte[16];
+        randomness.Fill(random);
+        ObjectName key = names.Probe(Convert.ToHexStringLower(random));
 
         try
         {

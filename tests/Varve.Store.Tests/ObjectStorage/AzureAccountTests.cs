@@ -76,6 +76,7 @@ public sealed class AzureAccountStorageContractTests : StorageContractTests, IAs
             Cache = new CacheDirectory(cache),
             Instance = new WriterInstance("contract"),
             Clock = TimeProvider.System,
+            ProbeRandomness = TestRandomness.Instance,
         }, T.Ct);
         _opened.Add((store, storage, cache, prefix));
         return storage;

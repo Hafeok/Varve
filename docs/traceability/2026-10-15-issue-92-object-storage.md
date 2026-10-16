@@ -557,3 +557,29 @@ by the approval on the head, and the rule that a session never writes
 `accepted-by` is about decision sets (ADR 0066) — the session had read it as
 covering both. The release is the next free number when `main` is merged:
 `v0.1.0-preview.8` once #113 has landed as `preview.7`.
+
+## Addendum, 2026-10-16: the probe narrowed to writers, and what it does not prove
+
+The maintainer's message:
+
+> Yes: watch #116, fix CI failures, answer review comments from me or the gates App (report anything else), and do the `preview.8` rename and changelog when #113 lands.
+>
+> Three changes to the probe:
+> 1. **Writer-mode opens only.** A follower never writes the log, so a store that ignores conditions cannot be corrupted through it, and its identity should need only Storage Blob Data Reader. Remove the probe from follower opens and restore the read-only test to "no writes at all".
+> 2. **A random probe key per open** (`probe/{random}`), not a hash of the instance name and cache directory. The hash repeats when an instance restarts quickly, and two probes on one key can make a correct store look broken. If a crash leaves a probe key behind, it stays: it's tiny, and nothing reads it.
+> 3. **ADR 0134 decision 9 states what the probe doesn't prove.** It detects a store that ignores conditional headers. It can't detect a store that enforces them one request at a time but not under concurrency. Garage documents that partial `If-None-Match` as possible. For that, the evidence is the contract suite's race property, so the ADR lists the stores that suite has passed (Azure Blob through Azurite and the optional real-account leg, and RustFS) as the supported ones, and the operator guide says any other S3-compatible store is untested.
+
+**What changed.** The probe runs only in a writer's open; a follower writes
+nothing, and `a_read_only_open_changes_nothing_in_the_store` again asserts no
+create, replace or delete at all. The key is `probe/{random}`, sixteen bytes
+from `ObjectStorageOptions.ProbeRandomness` (new, `IProbeRandomness`): the
+backend is a deterministic project and draws no randomness of its own, so the
+host supplies it — the server the operating system's generator — and a writer
+without it is refused with an argument error. A key a crash leaves behind
+stays. ADR 0134 decision 9 states what the probe does not prove — a store that
+enforces conditional headers one request at a time but not under concurrency —
+and names the stores the race property has passed, Azure Blob Storage (Azurite,
+the optional real-account leg) and RustFS, as the supported ones;
+`configure.md` and the small-machine page say any other S3-compatible store is
+untested. The previous addendum's "a follower needs write access to `probe/`"
+no longer holds: a follower needs only read access.

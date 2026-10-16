@@ -105,6 +105,7 @@ internal sealed class ObjectStores : IDisposable
             Instance = new WriterInstance(string.IsNullOrWhiteSpace(_settings.Instance) ? Environment.MachineName : _settings.Instance),
             CacheBytes = new ByteCount(_settings.CacheBytes),
             Clock = _clock,
+            ProbeRandomness = SystemProbeRandomness.Instance,
         }, cancellationToken).ConfigureAwait(false);
     }
 
@@ -125,4 +126,12 @@ internal sealed class ObjectStores : IDisposable
     }
 
     public void Dispose() => (_store as IDisposable)?.Dispose();
+}
+
+/// <summary>The operating system's generator, for a writer's probe key (ADR 0134).</summary>
+internal sealed class SystemProbeRandomness : IProbeRandomness
+{
+    internal static SystemProbeRandomness Instance { get; } = new();
+
+    public void Fill(Span<byte> destination) => System.Security.Cryptography.RandomNumberGenerator.Fill(destination);
 }

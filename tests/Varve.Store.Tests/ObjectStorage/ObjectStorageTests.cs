@@ -50,6 +50,7 @@ internal sealed class ObjectHarness : IAsyncDisposable
             Access = access,
             Instance = new WriterInstance(instance ?? "instance-" + ++_instances),
             Clock = Clock,
+            ProbeRandomness = TestRandomness.Instance,
             CacheBytes = new ByteCount(cacheBytes ?? 8L << 30),
         };
     }
@@ -177,19 +178,7 @@ public sealed class ObjectStorageTests
         await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("o")), T.Ct);
         byte[] record = harness.Store.Get("writer")!;
         IReadOnlyList<string> names = harness.Store.Names();
-        List<string> written = [];
-        harness.Store.Hook = (operation, name) =>
-        {
-            if (operation is ObjectOperation.Create or ObjectOperation.Replace or ObjectOperation.Delete)
-            {
-                lock (written)
-                {
-                    written.Add(name.Value);
-                }
-            }
-
-            return null;
-        };
+        harness.Store.ResetCounts();
 
         Backend reader = await harness.OpenAsync(ObjectStorageAccess.ReadOnly);
         await using (Dataset read = await Dataset.OpenAsync(reader, T.Options(), T.Ct))
@@ -198,9 +187,11 @@ public sealed class ObjectStorageTests
             await Assert.ThrowsAsync<InvalidOperationException>(async () => await read.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("x")), T.Ct));
         }
 
-        // The conditional-writes probe's key alone (ADR 0134), gone again.
-        Assert.NotEmpty(written);
-        Assert.All(written, name => Assert.StartsWith("probe/", name, StringComparison.Ordinal));
+        // No write at all: a follower does not probe (ADR 0134), so its
+        // identity needs only read access.
+        Assert.Equal(0, harness.Store.Count(ObjectOperation.Create));
+        Assert.Equal(0, harness.Store.Count(ObjectOperation.Replace));
+        Assert.Equal(0, harness.Store.Count(ObjectOperation.Delete));
         Assert.Equal(record, harness.Store.Get("writer"));
         Assert.Equal(names, harness.Store.Names());
         Assert.Null(reader.Epoch);
@@ -376,22 +367,27 @@ public sealed class ObjectStorageTests
     /// <summary>
     /// A store that ignores the conditions of its conditional writes — a
     /// create that overwrites, a replace against any version, as Garage's —
-    /// is refused at open, writer or follower, by the probe under
-    /// <c>probe/</c>, with a message that names the store; nothing of a
-    /// dataset is written to it, and the probe's key is gone (ADR 0134).
-    /// A store that enforces them is probed and keeps no probe key.
+    /// is refused at a writer's open by the probe under <c>probe/</c>, with a
+    /// message that names the store; nothing of a dataset is written to it,
+    /// and the probe's key is gone (ADR 0134). A follower, which never writes
+    /// the log, does not probe and writes nothing. A store that enforces them
+    /// is probed and keeps no probe key.
     /// </summary>
     [Fact]
-    public async Task a_store_that_does_not_enforce_conditional_writes_is_refused_at_open()
+    public async Task a_store_that_does_not_enforce_conditional_writes_is_refused_at_a_writers_open()
     {
-        foreach (ObjectStorageAccess access in new[] { ObjectStorageAccess.Write, ObjectStorageAccess.ReadOnly })
+        await using (ObjectHarness harness = new(new MemoryObjectStore { IgnoresConditions = true }))
         {
-            await using ObjectHarness harness = new(new MemoryObjectStore { IgnoresConditions = true });
-            ConditionalWritesNotEnforcedException refused = await Assert.ThrowsAsync<ConditionalWritesNotEnforcedException>(() => harness.OpenAsync(access));
+            ConditionalWritesNotEnforcedException refused = await Assert.ThrowsAsync<ConditionalWritesNotEnforcedException>(() => harness.OpenAsync());
             Assert.Contains("memory://objects", refused.Message, StringComparison.Ordinal);
             Assert.Contains("does not enforce conditional writes", refused.Message, StringComparison.Ordinal);
             Assert.Contains("ADR 0134", refused.Message, StringComparison.Ordinal);
             Assert.Empty(harness.Store.Names());
+
+            harness.Store.ResetCounts();
+            Backend follower = await harness.OpenAsync(ObjectStorageAccess.ReadOnly);
+            Assert.Equal(0, harness.Store.Count(ObjectOperation.Create) + harness.Store.Count(ObjectOperation.Replace) + harness.Store.Count(ObjectOperation.Delete));
+            Assert.Null(follower.Epoch);
         }
 
         // Only a stale replace let through is enough.

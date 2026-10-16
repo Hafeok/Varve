@@ -47,10 +47,14 @@ small machines, accepts a conditional write's `If-None-Match: *` and ignores
 it; its documentation says conditional writes are structurally impossible
 there. The object-storage backend's one-writer guarantee rests on a store
 refusing a second create of a name and a replace against a stale version
-(ADRs 0134, 0136), so every open probes for those refusals, and on Garage the
-open fails: *the object store at … does not enforce conditional writes*. Use
-the file backend on the Pi's NVMe SSD, which is the supported small-machine
-setup; Garage, or any store, can still hold its backups as copied files.
+(ADRs 0134, 0136), so every writer's open probes for those refusals, and on
+Garage the open fails: *the object store at … does not enforce conditional
+writes*. Use the file backend on the Pi's NVMe SSD, which is the supported
+small-machine setup; Garage, or any store, can still hold its backups as
+copied files. Any S3-compatible store but RustFS is untested for the
+object-storage backend: the probe catches a store that ignores conditional
+writes, not one that enforces them only one request at a time
+([Configure](configure.md)).
 
 ## Runtime limits for 8 GB
 

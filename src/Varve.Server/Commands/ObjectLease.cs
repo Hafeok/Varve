@@ -68,6 +68,7 @@ internal static class ObjectLease
                     Cache = new CacheDirectory(cache),
                     Instance = new WriterInstance("varve lease on " + Environment.MachineName),
                     Clock = TimeProvider.System,
+                    ProbeRandomness = SystemProbeRandomness.Instance,
                 }, new WriterEpoch(epoch!.Value), cancellationToken).ConfigureAwait(false);
 
                 if (after is null)
