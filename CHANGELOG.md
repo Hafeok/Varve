@@ -34,8 +34,10 @@ ADRs are filed unaccepted and accepted on the pull request (ADR 0066).
   property: of N clients racing one create or one replace, exactly one
   wins.
 - **`Varve.Store.ObjectStorage`** (ADRs 0135, 0136): the backend.
-  - The log is write-once chunk objects, one create per commit batch,
-    consolidated into one segment object on seal.
+  - The log is write-once chunk objects, one create per commit batch. A
+    seal consolidates its segment into one object, and maintenance
+    deletes the chunks off the commit path, so chunks are bounded by the
+    open segment.
   - One writer is enforced by an epoch in a `writer` object, fenced by
     the next log slot, with no lease and no timer. Opening for write
     claims the next epoch, and the writer record lists every claim with
@@ -63,6 +65,14 @@ ADRs are filed unaccepted and accepted on the pull request (ADR 0066).
     instead of a full run per checkpoint. Head reads merge across the
     sets, so the operator guide states a checkpoint budget (at most 20)
     until Extent maintenance lands.
+  - **A cold start reads the log only after the catalog.** The catalog
+    records where the log continues, the backend's slot there and its
+    sets' ends' commit index entries. A backend that keeps its log in
+    parts implements the new `ISegmentCursor` (with `SegmentSlot`), and
+    an open reads only the chunks from that slot on. The commit index
+    below the catalog is read from the log on the first read that needs
+    it, and kept in the local cache. Scale to zero is the deployment's
+    default.
 - **The server**:
   - `Varve:ObjectStorage` names one store, with each dataset under its
     own prefix.

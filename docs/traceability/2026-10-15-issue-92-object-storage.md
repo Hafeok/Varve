@@ -340,7 +340,8 @@ REC S:
 | cold start | — | 2.3 s | 1.3 s |
 | 8 writers | 8,321 commits/s | 2,144 commits/s, 0.16 creates a commit | 1,316 commits/s, 0.14 creates a commit |
 
-REC M (25,000 commits, 5,049,846 quads at the head):
+REC M (25,000 commits, 5,049,846 quads at the head), before the cold start
+changed; the addendum replaces the cold-start rows:
 
 | | files | Azurite | RustFS |
 |---|---:|---:|---:|
@@ -385,8 +386,8 @@ with ten full checkpoints):
 The migration costs one checkpoint, about what a rebuild costs; nothing is
 rewritten at open.
 
-**A finding for the record: cold start reads every chunk of the open
-segment.** At REC S a cold start costs 1,035 requests, 1,025 of them reads;
+**A finding for the record (resolved in the addendum): cold start reads
+every chunk of the open segment.** At REC S a cold start costs 1,035 requests, 1,025 of them reads;
 at M, 19,800 requests, 19,790 of them reads, and 23–29 s on loopback: one a
 chunk not yet consolidated (5,264 of the 25,011 were, at the end of the
 load), since a segment is consolidated only when it seals. The catalog lets the projection skip what it covers, but the log's
@@ -408,9 +409,9 @@ subscription. Aspire gets `WithAzureBlobStorage`.
   (ADR 0137) refuses a key for an emulator in a neighbouring container,
   which is how Aspire runs one. The Azure variant is tested; a local one
   would need the rule bent, and it is not.
-- **Deferred, and stated in ADR 0139**: skipping the log headers below the
-  catalog at cold start (needs a shared commit index), and a follower's
-  refresh other than by reopening.
+- **Deferred, and stated in ADR 0139**: a follower's refresh other than by
+  reopening. Skipping the log headers below the catalog at cold start was
+  deferred here too, and moved into the milestone by the addendum.
 - Issue [#114](https://github.com/Hafeok/Varve/issues/114) is the inline-set
   version 2 issue, filed as the approval asks; nothing of it changed here.
 
@@ -427,8 +428,91 @@ the handover's. *Management plane* (#105): storage settings reach
 - Cold-start and cost figures on a real storage account, and on a Pi 5 with
   an NVMe SSD, are **to be measured by the maintainer**, as accepted; the
   commands are the ones above.
-- The release descriptor takes the next free number when it lands; at the
-  time of writing that was `v0.1.0-preview.7`.
+- The release descriptor takes the next free `0.1.0-preview.N` when it
+  lands; its file name carries the number free when it was written.
 
 **Commits**: 914cd88, c26624a, 73db0a1, 281df0b, cc65031, 1e1f7f5, 01177be,
 0e3e260, c45920b, e7035f8, this record, and the release.
+
+## Addendum, 2026-10-16: cold start from the catalog's cursor
+
+The maintainer's message after the report:
+
+> Good work. One change before you open the PR, then open it.
+>
+> **Cold start is part of this milestone.** The approved design is catalog + lazy attach + log tail; reading every chunk below the catalog position is not that, and the "one replica minimum" advice gives up scale-to-zero, which is half of why this milestone exists. It does not need the shared commit index:
+>
+> 1. **The catalog records its log cursor.** Next to its log position, it records the slot that position falls in: the log segment and the chunk index. A cold start lists and reads only the chunks after that slot. That is the "skip the log headers below the catalog" that ADR 0139 deferred; move it in.
+> 2. **Commit locations below the catalog are found lazily.** The first feed or as-of read that goes below the catalog reads the headers it needs, and the result is cached locally. Say in ADR 0139 that a shared commit index is what Extent maintenance (#110) adds to remove that first-read cost.
+> 3. **Consolidation runs on seal, not only in maintenance.** A sealed log segment becomes one object, and its chunks are deleted except the fence-slot tombstones. Chunks then stay bounded by the open segment.
+>
+> Re-measure cold start at REC M on Azurite and RustFS, with the tail as it stands after the last checkpoint, and replace the table rows. Target a few seconds. If it misses, report where the time goes rather than tuning. Then remove the "one replica minimum" advice, or keep it only as a latency option, not a workaround.
+>
+> **Accepted as you have them:** the Aspire sample without Azurite (the loopback rule is right; a follow-up can try Azurite's OAuth mode), the two other deferrals in ADR 0139, and the checkpoint budget of 20.
+>
+> Then open the PR. Its description has no closing keywords (#108); the descriptor's `Closes #92` trailer is the only one. Name the release as the next free number at landing, not as `preview.7`.
+
+**What changed.**
+
+- **The catalog records the log's cursor** (ADR 0139, decision
+  `CatalogRecordsTheLogCursor`): beside its position, the segment and offset
+  where the next commit starts and the backend's slot for that byte — the
+  chunk number on an object store — and the commit index entry of every
+  set's end, and the settings commits up to its position
+  (`storage-format.md` §7.6). `ISegmentCursor` and `SegmentSlot` are new in
+  `Varve.Store`; the object-storage backend implements them. Its open lists
+  `log/` and reads only the newest chunk, for the fence; the dataset hands it
+  the slot, and it reads the open segment from there. A cursor the log does
+  not bear out is ignored.
+- **The commit index below the catalog is read on first use**
+  (`CommitLocationsBelowTheCatalogReadOnFirstUse`): the pins answer the sets'
+  ends at once; the first read needing anything else — a feed or as-of read
+  below the catalog, a lookup by time before it — reads the headers up to the
+  catalog's position, checks they end at the commit the catalog names, and
+  keeps them as a commit index blob in the local cache. ADR 0139 says that a
+  shared commit index is what Extent maintenance (#110) adds to remove that
+  read.
+- **A seal consolidates its segment** (ADR 0135): the seal writes the
+  segment's one object. **Deviation**: its chunk deletes are not inline but
+  in the maintenance the seal leaves due, which the sequencer starts after the
+  commit. With them inline, one commit on a crowded Azurite waited 531 s for
+  5,264 deletes; now the longest commit waits for the one upload (1.1 s on
+  Azurite, 1.0 s on RustFS at REC M).
+- `deploy/azure/container-apps` scales to zero by default; `minReplicas` 1
+  is described as a latency option only.
+
+**Found while doing it.** A superseded writer that has not yet learned it is
+superseded may consolidate a sealed segment and delete its chunks while the
+new writer has listed them and not yet read them (the concurrent-candidate
+property, seed `dl8hEcmNlov9`). The new writer then takes the segment's object,
+after checking it holds every byte the writer holds of it. The determinism
+property now compares catalogs with the slot set aside: it is the backend's
+own, a chunk number in objects and 0 on a directory.
+
+**Checks.** `ObjectColdStartTests`: 60 generated histories, a cold start as
+writer or follower from an empty cache reads no chunk below the cursor's slot
+and no sealed segment before the cursor's, serves at every position as of,
+by time and from the feed what the whole log serves, and a second pass reads
+nothing from the log; 40 histories after which only the open segment has
+chunks. `Varve.Store.Tests` 287, none failed; the object namespace 102 with
+the Azurite and RustFS legs; `Varve.Server.Tests` 90 with Azurite.
+
+**Re-measured at REC M**, the checkpoint 1,000 commits behind the head,
+Azurite started empty:
+
+| | Azurite | RustFS |
+|---|---:|---:|
+| cold start, open and a first read | **4.3 s** (was 29.1 s) | **7.0 s** (was 23.2 s) |
+| of it, the backend's open (the listing) | 2.2 s | 6.5 s |
+| requests | 1,054: 6 lists, 1,001 chunk reads, 41 `derived/` reads | the same |
+| first as-of read below the catalog | 27.7 s, 18,977 chunk reads | 10.1 s, the same |
+| commit max during the load | 1,088 ms | 971 ms |
+
+**Where the time goes, since RustFS misses "a few seconds"**: listing
+`log/`, 6.4 s on RustFS and 2.1 s on Azurite. The open segment holds 19,745
+chunks at REC M — one per commit batch, and REC M's later commits are small —
+and the listing names them all. Reading the 1,001 chunks of the tail took
+about 0.2 s of wall time on RustFS and 1.2 s on Azurite. Not tuned, as asked;
+the options are in `tests/Varve.Benchmarks/README.md`.
+
+**Commits**: the cold-start change and this addendum, on the same branch.

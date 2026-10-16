@@ -90,7 +90,7 @@ internal static class ObjectStorageBench
         Row("commits", head.ToString("N0", CultureInfo.InvariantCulture));
         Row("quads at the head", quads.ToString("N0", CultureInfo.InvariantCulture));
         Row("load", Seconds(load.Elapsed) + ", " + (head / load.Elapsed.TotalSeconds).ToString("N0", CultureInfo.InvariantCulture) + " commits/s");
-        Row("commit latency p50 / p99", Ms(Percentile(latencies, 0.50)) + " / " + Ms(Percentile(latencies, 0.99)));
+        Row("commit latency p50 / p99 / max", Ms(Percentile(latencies, 0.50)) + " / " + Ms(Percentile(latencies, 0.99)) + " / " + Ms(latencies[^1]));
 
         if (store.Counter is not null)
         {
@@ -98,20 +98,29 @@ internal static class ObjectStorageBench
             Row("requests per commit", (loaded.Total / (double)head).ToString("F2", CultureInfo.InvariantCulture) + " (creates " + (loaded.Creates / (double)head).ToString("F2", CultureInfo.InvariantCulture) + ")");
         }
 
-        // The checkpoint: one extent set for the whole history.
+        if (store.Counter is not null)
+        {
+            Row("the log after the load", await store.Counter.CensusAsync(new ObjectName("dataset/log/")));
+        }
+
+        // The checkpoint: one extent set for the history but its last 4%,
+        // which stay the log's tail, as after a checkpoint policy's last one.
         await dataset.MaintainAsync();
+        long tail = head / 25;
         Counts beforeCheckpoint = store.Counter?.Snapshot() ?? default;
         Stopwatch checkpoint = Stopwatch.StartNew();
-        await dataset.CheckpointAsync(dataset.Head);
+        await dataset.CheckpointAsync(new Position(head - tail));
         checkpoint.Stop();
-        Row("checkpoint at the head", Seconds(checkpoint.Elapsed) + (store.Counter is null ? string.Empty : ", " + ((store.Counter.Snapshot()) - beforeCheckpoint)));
+        Row("checkpoint " + tail.ToString("N0", CultureInfo.InvariantCulture) + " commits behind the head", Seconds(checkpoint.Elapsed) + (store.Counter is null ? string.Empty : ", " + ((store.Counter.Snapshot()) - beforeCheckpoint)));
         await dataset.DisposeAsync();
         await Target.CloseAsync(storage);
 
         // The cold start: a new instance, an empty cache, the catalog and the log.
         Counts beforeOpen = store.Counter?.Snapshot() ?? default;
+        store.Counter?.ResetKinds();
         Stopwatch cold = Stopwatch.StartNew();
         IStorage reopened = await store.OpenAsync(fresh: true);
+        TimeSpan backendTime = cold.Elapsed;
         StoreDatasetType opened = await StoreDatasetType.OpenAsync(reopened, new DatasetOptions { Clock = TimeProvider.System });
         TimeSpan openTime = cold.Elapsed;
         bool found;
@@ -123,13 +132,27 @@ internal static class ObjectStorageBench
 
         cold.Stop();
         Counts coldCounts = (store.Counter?.Snapshot() ?? default) - beforeOpen;
+        Row("cold start: the backend's open", Seconds(backendTime));
         Row("cold start: open", Seconds(openTime));
         Row("cold start: open and a first read", Seconds(cold.Elapsed) + (found ? string.Empty : " (the probe was not found)"));
 
         if (store.Counter is not null)
         {
             Row("cold start requests", coldCounts.ToString());
+            Row("cold start reads by kind", store.Counter.Kinds());
+            Row("cold start time by operation", store.Counter.Times());
         }
+
+        // The first read below the catalog: the log's headers below it, once.
+        Counts beforeBelow = store.Counter?.Snapshot() ?? default;
+        Stopwatch below = Stopwatch.StartNew();
+        using (DatasetView view = await opened.AsOfAsync(new Position(1)))
+        {
+            _ = view.Estimate(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any);
+        }
+
+        below.Stop();
+        Row("first as-of read below the catalog, at position 1", Seconds(below.Elapsed) + (store.Counter is null ? string.Empty : ", " + ((store.Counter.Snapshot()) - beforeBelow)));
 
         await opened.DisposeAsync();
         await Target.CloseAsync(reopened);
@@ -455,41 +478,135 @@ internal static class ObjectStorageBench
         private long _deletes;
         private long _up;
         private long _down;
+        private readonly long[] _kindReads = new long[4];
+        private readonly long[] _kindTicks = new long[4];
+
+        private readonly long[] _operationTicks = new long[5];
+
+        internal void ResetKinds()
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                Interlocked.Exchange(ref _kindReads[i], 0);
+                Interlocked.Exchange(ref _kindTicks[i], 0);
+            }
+
+            for (int i = 0; i < 5; i++)
+            {
+                Interlocked.Exchange(ref _operationTicks[i], 0);
+            }
+        }
+
+        // Time in each operation since ResetKinds, summed over its requests.
+        internal string Times() => string.Create(CultureInfo.InvariantCulture,
+            $"creates {Ms(_operationTicks[0])}, replaces {Ms(_operationTicks[1])}, reads {Ms(_operationTicks[2])}, lists {Ms(_operationTicks[3])}, deletes {Ms(_operationTicks[4])}");
+
+        private static string Ms(long ticks) => Stopwatch.GetElapsedTime(0, ticks).TotalMilliseconds.ToString("N0", CultureInfo.InvariantCulture) + " ms";
+
+        // The objects under a prefix: segments consolidated, and chunks by segment.
+        internal async Task<string> CensusAsync(ObjectName prefix)
+        {
+            IReadOnlyList<ObjectEntry> entries = await inner.ListAsync(prefix, CancellationToken.None);
+            int consolidated = 0;
+            SortedDictionary<string, int> chunks = new(StringComparer.Ordinal);
+
+            foreach (ObjectEntry entry in entries)
+            {
+                string name = entry.Name.Value;
+
+                if (name.EndsWith(".seg", StringComparison.Ordinal))
+                {
+                    consolidated++;
+                }
+                else if (name.IndexOf(".chunks/", StringComparison.Ordinal) is int at and > 0)
+                {
+                    string segment = name[(at - 8)..at];
+                    chunks[segment] = chunks.GetValueOrDefault(segment) + 1;
+                }
+            }
+
+            return string.Create(CultureInfo.InvariantCulture, $"{entries.Count:N0} objects, {consolidated} segments consolidated, chunks by segment: {string.Join(", ", chunks.Select(c => c.Key.TrimStart('0').PadLeft(1, '0') + " " + c.Value.ToString("N0", CultureInfo.InvariantCulture)))}");
+        }
+
+        // Reads since ResetKinds by what they read, with the time each kind's
+        // requests took between them; parallel requests add up past the wall clock.
+        internal string Kinds()
+        {
+            List<string> parts = [];
+
+            for (int i = 0; i < 4; i++)
+            {
+                parts.Add(string.Create(CultureInfo.InvariantCulture, $"{KindName(i)} {Interlocked.Read(ref _kindReads[i]):N0} ({Stopwatch.GetElapsedTime(0, Interlocked.Read(ref _kindTicks[i])).TotalMilliseconds:N0} ms)"));
+            }
+
+            return string.Join(", ", parts);
+        }
+
+        private static string KindName(int kind) => kind switch
+        {
+            0 => "log chunks",
+            1 => "log segments",
+            2 => "derived/",
+            _ => "other",
+        };
+
+        private static int KindOf(ObjectName name) =>
+            name.Value.Contains(".chunks/", StringComparison.Ordinal) ? 0
+            : name.Value.EndsWith(".seg", StringComparison.Ordinal) ? 1
+            : name.Value.Contains("derived/", StringComparison.Ordinal) ? 2
+            : 3;
 
         internal Counts Snapshot() => new(Interlocked.Read(ref _creates), Interlocked.Read(ref _replaces), Interlocked.Read(ref _reads), Interlocked.Read(ref _lists), Interlocked.Read(ref _deletes), Interlocked.Read(ref _up), Interlocked.Read(ref _down));
 
-        public ValueTask<ObjectVersion?> CreateIfAbsentAsync(ObjectName name, ReadOnlyMemory<byte> content, CancellationToken cancellationToken)
+        public async ValueTask<ObjectVersion?> CreateIfAbsentAsync(ObjectName name, ReadOnlyMemory<byte> content, CancellationToken cancellationToken)
         {
             Interlocked.Increment(ref _creates);
             Interlocked.Add(ref _up, content.Length);
-            return inner.CreateIfAbsentAsync(name, content, cancellationToken);
+            long started = Stopwatch.GetTimestamp();
+            ObjectVersion? version = await inner.CreateIfAbsentAsync(name, content, cancellationToken).ConfigureAwait(false);
+            Interlocked.Add(ref _operationTicks[0], Stopwatch.GetTimestamp() - started);
+            return version;
         }
 
-        public ValueTask<ObjectVersion?> ReplaceIfUnchangedAsync(ObjectName name, ObjectVersion expected, ReadOnlyMemory<byte> content, CancellationToken cancellationToken)
+        public async ValueTask<ObjectVersion?> ReplaceIfUnchangedAsync(ObjectName name, ObjectVersion expected, ReadOnlyMemory<byte> content, CancellationToken cancellationToken)
         {
             Interlocked.Increment(ref _replaces);
             Interlocked.Add(ref _up, content.Length);
-            return inner.ReplaceIfUnchangedAsync(name, expected, content, cancellationToken);
+            long started = Stopwatch.GetTimestamp();
+            ObjectVersion? version = await inner.ReplaceIfUnchangedAsync(name, expected, content, cancellationToken).ConfigureAwait(false);
+            Interlocked.Add(ref _operationTicks[1], Stopwatch.GetTimestamp() - started);
+            return version;
         }
 
         public async ValueTask<ObjectRead?> ReadAsync(ObjectName name, ByteOffset offset, ByteCount length, CancellationToken cancellationToken)
         {
             Interlocked.Increment(ref _reads);
+            int kind = KindOf(name);
+            long started = Stopwatch.GetTimestamp();
             ObjectRead? read = await inner.ReadAsync(name, offset, length, cancellationToken).ConfigureAwait(false);
+            Interlocked.Increment(ref _kindReads[kind]);
+            Interlocked.Add(ref _kindTicks[kind], Stopwatch.GetTimestamp() - started);
+            Interlocked.Add(ref _operationTicks[2], Stopwatch.GetTimestamp() - started);
             Interlocked.Add(ref _down, read?.Bytes.Length ?? 0);
             return read;
         }
 
-        public ValueTask<IReadOnlyList<ObjectEntry>> ListAsync(ObjectName prefix, CancellationToken cancellationToken)
+        public async ValueTask<IReadOnlyList<ObjectEntry>> ListAsync(ObjectName prefix, CancellationToken cancellationToken)
         {
             Interlocked.Increment(ref _lists);
-            return inner.ListAsync(prefix, cancellationToken);
+            long started = Stopwatch.GetTimestamp();
+            IReadOnlyList<ObjectEntry> entries = await inner.ListAsync(prefix, cancellationToken).ConfigureAwait(false);
+            Interlocked.Add(ref _operationTicks[3], Stopwatch.GetTimestamp() - started);
+            return entries;
         }
 
-        public ValueTask<bool> DeleteAsync(ObjectName name, CancellationToken cancellationToken)
+        public async ValueTask<bool> DeleteAsync(ObjectName name, CancellationToken cancellationToken)
         {
             Interlocked.Increment(ref _deletes);
-            return inner.DeleteAsync(name, cancellationToken);
+            long started = Stopwatch.GetTimestamp();
+            bool deleted = await inner.DeleteAsync(name, cancellationToken).ConfigureAwait(false);
+            Interlocked.Add(ref _operationTicks[4], Stopwatch.GetTimestamp() - started);
+            return deleted;
         }
 
         public void Dispose() => (inner as IDisposable)?.Dispose();
