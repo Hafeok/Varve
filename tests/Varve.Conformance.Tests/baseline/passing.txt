@@ -5156,6 +5156,9 @@ https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#graph
 https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#graphs-1@scoped
 https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#graphs-1@store
 https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#graphs-2@dataset
+https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#graphs-2@protocol
+https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#graphs-2@scoped
+https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#graphs-2@store
 https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#op-1@dataset
 https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#op-1@protocol
 https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#op-1@scoped
@@ -5173,6 +5176,9 @@ https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#order
 https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#order-2@scoped
 https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#order-2@store
 https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-10@dataset
+https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-10@protocol
+https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-10@scoped
+https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-10@store
 https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-11@dataset
 https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-11@protocol
 https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-11@scoped
@@ -5202,7 +5208,13 @@ https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#patte
 https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-5@scoped
 https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-5@store
 https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-6@dataset
+https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-6@protocol
+https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-6@scoped
+https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-6@store
 https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-7@dataset
+https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-7@protocol
+https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-7@scoped
+https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-7@store
 https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-8-nomatch@dataset
 https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-8-nomatch@protocol
 https://w3c.github.io/rdf-tests/sparql/sparql12/eval-triple-terms/manifest#pattern-8-nomatch@scoped

@@ -133,13 +133,13 @@ The W3C suites are the acceptance gate, from
 | `sparql10` query evaluation, 24 directories (under 1.1), × 4 subjects | 1,132 |
 | `sparql11` query evaluation, 15 directories with `service`, × 4 subjects | 968 |
 | `sparql11/service` with the endpoints over HTTP (ADR 0104) | 7 |
-| `sparql12` query evaluation, 6 directories, × 4 subjects | 193 |
+| `sparql12` query evaluation, 6 directories, × 4 subjects | 205 |
 | `sparql11/csv-tsv-res`, `json-res`, written by the results writers | 10 |
 | `sparql11` update evaluation, 11 directories, one commit or none each, in process and through the protocol | 188 |
 | `sparql11/protocol`, `service-description`, over both stores | 74 |
 | `sparql11/http-rdf-update`, over both stores, 6 justified exemptions each | 50 |
 | `rdf-canon`, RDFC-1.0: 64 canonical forms, 21 issued maps, 1 refusal | 86 |
-| **Total** | **5,507 of 5,507** |
+| **Total** | **5,519 of 5,519** |
 
 Each SPARQL suite is parsed at its own version, so the 1.0 and 1.1 suites
 never see the 1.2 grammar; the 1.2 default is for API callers only. The six
@@ -152,24 +152,24 @@ store's pinned view, that view through a graph scope naming every graph of
 the case (ADR 0107), and the protocol over HTTP with an `all` grant — and is
 one ratchet line per subject; a guard runs every case again in ADR 0050's two
 other value-access arms. The 41 SPARQL 1.2 evaluation cases whose data is RDF
-1.2 Turtle or TriG run since milestone 6b (ADR 0121); 37 pass over every
-subject, and the other four over `InMemoryDataset`.
+1.2 Turtle or TriG run since milestone 6b (ADR 0121), and all 41 pass over
+every subject since the store answers a triple term's components by handle
+([#87](https://github.com/Hafeok/Varve/issues/87)).
 
-**`baseline/exemptions.txt` holds twenty-four exemptions.** Twelve are in the
+**`baseline/exemptions.txt` holds twelve exemptions**, all in the
 deprecated `http-rdf-update` suite, six a store, each with the section it
 rests on: two bodies in Turtle with no final `.` (Turtle 1.1 §2.4), the two
 `GET`s that depend on them, a `DELETE` of a graph no step creates (Graph Store
 Protocol §5.4), and a `HEAD` without `Accept` that expects Turtle (§5.2 allows
-N-Triples). Twelve are four SPARQL 1.2 `eval-triple-terms` cases over the
-store, its graph scope and the protocol: they match a blank node inside a
-triple term, which the store cannot yet answer by handle
-(`IQuadSource.TryGetTripleTermComponents`, ADR 0121; the store's blank node
-identity is ADR 0044's), and Oxigraph agrees with the suite on each. They
-leave with [#87](https://github.com/Hafeok/Varve/issues/87), due before
-milestone 8. No
+N-Triples). The twelve SPARQL 1.2 `eval-triple-terms` exemptions over the
+store, its graph scope and the protocol left with
+[#87](https://github.com/Hafeok/Varve/issues/87): the store answers
+`IQuadSource.TryGetTripleTermComponents` from its dictionary (ADR 0121,
+amended 2026-10-15), so a blank node inside a triple term keeps the identity
+ADR 0044 gives it. No
 syntax, canonicalisation or update case needs one, including none for empty
 graphs, which the store does not record (SPARQL 1.1 Update §3.2 allows it).
-`eng/ratchet.cs` fails the build if any of those 5,507 stops passing, and an
+`eng/ratchet.cs` fails the build if any of those 5,519 stops passing, and an
 exemption with no written justification fails the run too.
 
 Also true today, and measured rather than asserted:

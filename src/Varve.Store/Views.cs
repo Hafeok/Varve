@@ -50,6 +50,21 @@ internal readonly struct TermView
     internal bool TryFindTriple(ulong subject, ulong predicate, ulong @object, out ulong id) =>
         TermDictionary.TryFindTriple(Runs, subject, predicate, @object, CanonicalCount, out id);
 
+    /// <summary>
+    /// A triple term's components as handles, from its entry, when this
+    /// position knows it (ADR 0121). The dictionary is append-only, so every
+    /// position that knows the term answers the same.
+    /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal bool TryTripleParts(TermHandle handle, out TermHandle subject, out TermHandle predicate, out TermHandle @object)
+    {
+        bool found = TermDictionary.TryTripleParts(Runs, handle.Value, CanonicalCount, out ulong s, out ulong p, out ulong o);
+        subject = new TermHandle(s);
+        predicate = new TermHandle(p);
+        @object = new TermHandle(o);
+        return found;
+    }
+
     internal bool TryExternalise(TermHandle handle, [MaybeNullWhen(false)] out RdfTerm term) =>
         Dictionary.TryTerm(Runs, handle.Value, CanonicalCount, BlankCount, out term);
 
@@ -174,6 +189,11 @@ internal sealed class IndexSource : IQuadSource
         _index.Estimate(subject, predicate, @object, graph);
 
     public bool TryGetInlineValue(TermHandle handle, out InlineValue value) => TermIds.TryInlineValue(handle.Value, out value);
+
+    /// <inheritdoc/>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    public bool TryGetTripleTermComponents(TermHandle handle, out TermHandle subject, out TermHandle predicate, out TermHandle @object) =>
+        _terms.TryTripleParts(handle, out subject, out predicate, out @object);
 }
 
 /// <summary>
@@ -188,6 +208,10 @@ internal sealed class PendingSource : IQuadSource
     private readonly Dictionary<ulong, RdfTerm> _fresh;
     private readonly Dictionary<RdfTerm, ulong> _freshByTerm;
 
+    // The components of the triple terms the commit creates, built once per
+    // commit, and only when it creates one.
+    private readonly Dictionary<ulong, (ulong S, ulong P, ulong O)>? _freshTriples;
+
     internal PendingSource(IndexVersion head, TermView terms, IReadOnlyList<Allocation> fresh)
     {
         _head = new IndexSource(head, terms);
@@ -200,7 +224,12 @@ internal sealed class PendingSource : IQuadSource
             RdfTerm term = allocation.Term ?? TermDictionary.BlankTerm(TermIds.Counter(allocation.Id));
             _fresh[allocation.Id] = term;
 
-            if (TermIds.ClassOf(allocation.Id) == IdClass.Canonical && !allocation.IsTriple)
+            if (allocation.IsTriple)
+            {
+                _freshTriples ??= [];
+                _freshTriples[allocation.Id] = (allocation.Subject, allocation.Predicate, allocation.Object);
+            }
+            else if (TermIds.ClassOf(allocation.Id) == IdClass.Canonical)
             {
                 _freshByTerm[term] = allocation.Id;
             }
@@ -232,6 +261,29 @@ internal sealed class PendingSource : IQuadSource
         _head.Estimate(subject, predicate, @object, graph);
 
     public bool TryGetInlineValue(TermHandle handle, out InlineValue value) => _head.TryGetInlineValue(handle, out value);
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// A triple term the commit creates answers from the commit's own
+    /// allocation, whose components are already handles; every other one
+    /// from the head's dictionary.
+    /// </remarks>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    public bool TryGetTripleTermComponents(TermHandle handle, out TermHandle subject, out TermHandle predicate, out TermHandle @object)
+    {
+        if (_freshTriples is not null && TryFindFreshTriple(handle.Value, out (ulong S, ulong P, ulong O) parts))
+        {
+            subject = new TermHandle(parts.S);
+            predicate = new TermHandle(parts.P);
+            @object = new TermHandle(parts.O);
+            return true;
+        }
+
+        return _head.TryGetTripleTermComponents(handle, out subject, out predicate, out @object);
+    }
+
+    [DesignDecision(typeof(StoreHotPathScope.TermLookupsAreHashLookups), Scope = ExceptionScope.HotPath)]
+    private bool TryFindFreshTriple(ulong id, out (ulong S, ulong P, ulong O) parts) => _freshTriples!.TryGetValue(id, out parts);
 }
 
 /// <summary>
@@ -333,6 +385,21 @@ public sealed class DatasetView : IQuadSource, IDisposable
     {
         ThrowIfDisposed();
         return _source.TryGetInlineValue(handle, out value);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// One entry read from the dictionary at this view's position (ADR 0121).
+    /// The dictionary is append-only, so a pinned view and an as-of view
+    /// answer as the head does for every triple term they know, and false
+    /// for one allocated after their position. A blank, inline or private
+    /// handle never names a triple term and answers false without a read.
+    /// </remarks>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    public bool TryGetTripleTermComponents(TermHandle handle, out TermHandle subject, out TermHandle predicate, out TermHandle @object)
+    {
+        ThrowIfDisposed();
+        return _source.TryGetTripleTermComponents(handle, out subject, out predicate, out @object);
     }
 
     /// <summary>
