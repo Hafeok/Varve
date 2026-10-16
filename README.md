@@ -43,12 +43,16 @@ where Varve is the wrong tool: [`docs/why.md`](docs/why.md).
 
 ## Status
 
-**`v0.1.0-preview.6` is the latest release, and it closed the first part
+**`v0.1.0-preview.7` is the latest release; it closed milestone Object storage
+([#92](https://github.com/Hafeok/Varve/issues/92))**: the log and the
+projection in Azure Blob Storage or an S3-compatible store, one writer by an
+epoch, checkpoints as extent sets with validity intervals, and a deployment on
+Azure Container Apps. `v0.1.0-preview.6` before it closed the first part
 ([#103](https://github.com/Hafeok/Varve/issues/103)) of milestone Client and
-integration ([#93](https://github.com/Hafeok/Varve/issues/93))**: on-behalf-of
+integration ([#93](https://github.com/Hafeok/Varve/issues/93)): on-behalf-of
 through a token provider, the change feed's format as the package
 `Varve.Delta`, `FollowAsync`, declared dataset setup and CORS.
-`v0.1.0-preview.5` before it closed milestone Commit path
+`v0.1.0-preview.5` before that closed milestone Commit path
 ([#91](https://github.com/Hafeok/Varve/issues/91)): concurrent commits written
 together in one flush, and writers that conflict only over the graphs they
 read or write, with graph versions as HTTP tags.
@@ -57,11 +61,12 @@ read or write, with graph versions as HTTP tags.
 RDF 1.2 Turtle and TriG, RDF/XML and JSON-LD, read, written and negotiated
 over HTTP. `v0.1.0-preview.3` before that closed
 milestone Operability ([#12](https://github.com/Hafeok/Varve/issues/12)): the
-server somebody can run. Seventeen packages and one executable: reading and
+server somebody can run. Twenty packages and one executable: reading and
 writing seven syntaxes, the XSD value spaces, RDFC-1.0
 canonicalisation, the SPARQL algebra with its parser and serialiser, the
 SPARQL results formats read and written, a query evaluator with an optimiser,
-an event-sourced store on files, in memory and in the browser, SPARQL Update
+an event-sourced store on files, in memory, in the browser and in an object
+store, SPARQL Update
 over it as one commit per request, the SPARQL 1.1 and Graph Store protocols
 with a change feed over HTTP and its format, an HTTP client with `SERVICE`,
 `LOAD`, following and setup, and
@@ -89,12 +94,12 @@ and it ships inside every package.
 | `Varve.Sparql.Evaluation` | 3 | the optimiser and evaluator: every operator, the function library, aggregates, property paths, `SERVICE` through a handler, over any quad source | working |
 | `Varve.Aspire` | 0 | the .NET Aspire hosting integration: `AddVarve`, `WithOidc`, `WithDataset` on an AppHost; references nothing from Varve | working |
 | `Varve.Analyzers` | — | the layer rules, at build time | working, never shipped |
-| `Varve.Store` | 4 | the log, the default projection, pinned and as-of reads, checkpoints, subscriptions, dataset validators, the staging view, the bulk loader, replicas by file copy; `log/` format 1 on files, `derived/` format 3 | working |
+| `Varve.Store` | 4 | the log, the default projection, pinned and as-of reads, checkpoints, subscriptions, dataset validators, the staging view, the bulk loader, replicas by file copy; checkpoints as extent sets with validity intervals; `log/` format 1, `derived/` format 4, reading format 3 | working |
 | `Varve.Sparql.Store` | 5 | SPARQL Update over the store: one request, one commit, `LOAD` through a caller's source, read and write scopes by graph | working |
 | `Varve.Store.Browser` | 5 | the store in a browser: the origin private file system through synchronous access handles in a worker, or IndexedDB | working |
-| `Varve.Store.ObjectStorage` | 5 | the store in any object store with conditional writes: the log as write-once chunk objects, one writer by an epoch fenced in the log, a local cache | in progress |
-| `Varve.Store.Azure` | 5 | Azure Blob Storage for the object-storage backend, over the REST API, authenticated by the workload's identity | in progress |
-| `Varve.Store.S3` | 5 | Amazon S3 and S3-compatible servers for the object-storage backend, with conditional writes, SigV4 from the workload's web identity | in progress |
+| `Varve.Store.ObjectStorage` | 5 | the store in any object store with conditional writes: the log as write-once chunk objects, one writer by an epoch fenced in the log, a local cache | working |
+| `Varve.Store.Azure` | 5 | Azure Blob Storage for the object-storage backend, over the REST API, authenticated by the workload's identity | working |
+| `Varve.Store.S3` | 5 | Amazon S3 and S3-compatible servers for the object-storage backend, with conditional writes, SigV4 from the workload's web identity | working |
 | `Varve.Protocol` | 5 | the SPARQL 1.1 Protocol, the Graph Store Protocol with graphs in six formats, the service description, time travel by `Varve-As-Of`, the change feed and the diff, the admin API, and graph-level authorisation, on any ASP.NET Core host | working |
 | `Varve.Protocol.Client` | 5 | the HTTP client of a dataset, `SERVICE` over HTTP for the evaluator and the document fetch `LOAD` needs, under an endpoint policy | working |
 | `Varve.Server` | 6 | the executable: the server with OIDC bearer tokens, health and readiness, telemetry, governed limits, and the `varve` command line — create, info, load, query, update, export, checkpoint, feed, lease, serve | working, Native AOT, container image |
@@ -292,7 +297,7 @@ is the Native AOT binary and nothing else:
 
 ```bash
 dotnet tool install --global Varve.Server --prerelease
-docker pull ghcr.io/hafeok/varve:v0.1.0-preview.6
+docker pull ghcr.io/hafeok/varve:v0.1.0-preview.7
 ```
 
 Serve one dataset on your machine. `--anonymous` is for development only: a
@@ -301,7 +306,7 @@ real deployment takes OIDC bearer tokens ([ADR 0037](docs/adr/0037-server-authen
 ```bash
 varve serve --anonymous --datasets-root "$PWD/data" --dataset people
 # or, listening on 8080 instead of 5000, with the datasets in the image's volume:
-docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.6 serve --anonymous --dataset people
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.7 serve --anonymous --dataset people
 ```
 
 The datasets root is an absolute path. Then write, read, go back, and read
