@@ -46,7 +46,7 @@
          in its commit body (ADR 0063). Referenced from Directory.Build.props
          with PrivateAssets="all", so it is never in a published package's
          dependencies. -->
-    <PackageVersion Include="DecisionDriven.Analyzers" Version="0.1.0-preview.7" Adr="0063" />
+    <PackageVersion Include="DecisionDriven.Analyzers" Version="0.1.0-preview.8" Adr="0063" />
 
     <!-- The whole-graph report, a .NET tool run in CI and never a gate. No
          project references it: .config/dotnet-tools.json installs it, at the
@@ -181,8 +181,8 @@
   -->
 
   <ItemGroup Label="Test-time">
-    <PackageVersion Include="xunit.v3" Version="4.0.1" Adr="0009" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" Adr="0007" />
+    <PackageVersion Include="xunit.v3" Version="4.0.2" Adr="0009" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.5.1" Adr="0007" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" Version="1.1.4" Adr="0004" />
     <!-- A transitive dependency of the analyzer harness, pinned rather than
          inherited: Microsoft.CodeAnalysis.Analyzer.Testing asks for
