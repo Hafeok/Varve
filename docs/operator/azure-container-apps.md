@@ -54,8 +54,14 @@ varve lease https://{account}.blob.core.windows.net/datasets/people
 ```
 
 which shows the epoch, its holder and every claim, each with its trigger —
-`restart` for a replica's start, `operator` for a takeover. Restarts alternate
-between revisions in the history; that is a handover each time, not a fault.
+`restart` for a replica's start, `operator` for a takeover. **A run of
+`restart` claims alternating between two holders means two writers are
+configured for one dataset**: two apps, or `maxReplicas` above 1, each start
+superseding the other. One claim per revision rollover, each by the new
+revision after a `shutdown` release by the old, is the healthy pattern. A
+superseded instance never claims again on its own: it stays live and serves
+reads, and only a fresh process start claims, which is why liveness stays
+true while readiness reports `superseded`.
 Should a writer have to be stopped from writing without being stopped,
 `varve lease … --take --epoch n` takes epoch n over and releases it for the
 next writer.
@@ -66,11 +72,14 @@ With `minReplicas` 0 a request after an idle period starts a replica. A start
 reads the manifest, the writer record and the catalog, attaches each extent
 lazily — its first and last 1 MiB pages, then only the pages reads touch —
 and replays the log after the catalog's position (ADR 0139). It scans the
-log's record headers from the start to verify the chain, one read per sealed
-segment. The cost at REC size M on a real account, and what a cold start
-costs in requests, are **to be measured by the maintainer** with the optional
-leg (`azure-objects.yml`); the figures for Azurite and RustFS at S, M and L
-are in the milestone's record.
+log's record headers from the start to verify the chain: one read per sealed
+segment, and one per chunk of a segment not yet sealed. That last term grows
+with the open segment: at REC size M on loopback a cold start made 19,790
+reads and took 23–29 s, so a dataset with a long open segment is better kept
+at `minReplicas` 1. The cost on a real account is **to be measured by the
+maintainer** with the optional leg (`azure-objects.yml`); the figures for
+Azurite and RustFS at S and M are in the milestone's record and
+`tests/Varve.Benchmarks/README.md`.
 
 ## Checkpoints
 
@@ -90,3 +99,27 @@ eight writes per set and one catalog replace; reads are ranged reads of 1 MiB
 pages on a cache miss. Blob Storage bills writes and reads per 10,000 and
 storage per GiB-month. The monthly figure for a given workload is **to be
 measured by the maintainer**.
+
+## Pairing with an Eventhouse
+
+Telemetry and the state it is about go to different stores (ADR 0140): the
+readings to an Eventhouse in Fabric Real-Time Intelligence, the buildings,
+points and leases to Varve.
+
+1. **Varve to Event Hubs.** A small follower — any process following the
+   commits resource with `FollowAsync` and its own checkpoint
+   ([Integrate](integrate.md)) — publishes each commit to an Event Hub, with
+   the position as the event's id. Delivery is at least once, so a consumer
+   drops a position it has seen. Varve has no Event Hubs sink of its own; the
+   follower is the application's, and a CloudEvents rendering of the feed is
+   the integration roadmap's.
+2. **Event Hubs to the Eventhouse.** The Eventhouse ingests the hub as any
+   other source; a KQL table of commits and a table of readings sit side by
+   side.
+3. **The join.** A reading carries its point's IRI, as the REC model's points
+   are named. A KQL query joins readings to the commit stream by IRI, or asks
+   Varve, as of the reading's time, which room and asset the point was in.
+4. **Retention.** The Eventhouse's retention is its own. Varve's history moves
+   only by an explicit act: a scheduled task outside Varve may issue it, and
+   nothing in Varve moves because time passed (ADR 0140, N3).
+

@@ -11,7 +11,7 @@ using System.Text;
 namespace Varve.Rec.Tests;
 
 /// <summary>The named portfolio sizes: the stated datasets for benchmarks (ADR 0141).</summary>
-public enum RecSize
+internal enum RecSize
 {
     /// <summary>About 200,000 quads at the head, about 1,000 commits: 25 buildings.</summary>
     S,
@@ -24,10 +24,10 @@ public enum RecSize
 }
 
 /// <summary>A quad as N-Triples terms: <c>&lt;iri&gt;</c> or a quoted literal, and the graph's IRI.</summary>
-public readonly record struct RecQuad(string Subject, string Predicate, string Object, string Graph);
+internal readonly record struct RecQuad(string Subject, string Predicate, string Object, string Graph);
 
 /// <summary>One commit of a generated history: what it is, what it asserts and what it retracts.</summary>
-public sealed class RecCommit(string kind, List<RecQuad> asserted, List<RecQuad> retracted)
+internal sealed class RecCommit(string kind, List<RecQuad> asserted, List<RecQuad> retracted)
 {
     /// <summary>What happened: <c>build</c>, <c>retype</c>, <c>split</c>, <c>merge</c>, <c>move</c>, <c>point-added</c>, <c>point-retired</c>, <c>tenant-in</c>, <c>tenant-out</c>.</summary>
     public string Kind { get; } = kind;
@@ -59,7 +59,7 @@ public sealed class RecCommit(string kind, List<RecQuad> asserted, List<RecQuad>
 /// arithmetic, and every string is built with the invariant culture.
 /// </para>
 /// </remarks>
-public static class RecPortfolio
+internal static class RecPortfolio
 {
     private const string Rec = "https://w3id.org/rec#";
     private const string Brick = "https://brickschema.org/schema/Brick#";

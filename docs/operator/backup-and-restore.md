@@ -59,6 +59,26 @@ set that every read merges until milestone Extent maintenance merges them in
 the background: the read latency after 10, 50 and 100 checkpoints is the
 checkpoint budget below.
 
+### The checkpoint budget
+
+Until Extent maintenance merges sets in the background, every read of the
+present merges one more run per checkpoint kept. Measured on REC size M
+(5,049,846 quads, 25,000 commits) on files, each row after opening again so
+the chain is the projection's base:
+
+| Checkpoints kept | Head: a quad's lookup, p50 | Head: one subject's quads, p50 | Head: an exact count, p50 | As-of inside a set | As-of at a set's end |
+|---:|---:|---:|---:|---:|---:|
+| 10 | 42 µs | 5.7 µs | 28 µs | 30 ms | < 0.1 ms |
+| 50 | 71 µs | 18 µs | 144 µs | 6.8 ms | 0.1 ms |
+| 100 | 99 µs | 78 µs | 354 µs | 6.5 ms | 0.1 ms |
+
+**Keep at most 20 checkpoints** (`CheckpointPolicy.Keep = 20`, or drop them by
+hand) until Extent maintenance lands: head reads then stay within about twice
+the 10-checkpoint figures, and an as-of read inside a set —
+which narrows that one set — costs what one set of a twentieth of the
+history costs. Dropping the oldest merges it into the next, so the budget
+holds at no cost to any answer.
+
 A dataset in an object store is backed up by `ShipAsync` into a directory
 (the migration path is the same call the other way), or by the store's own
 replication; see [Azure Container Apps](azure-container-apps.md).

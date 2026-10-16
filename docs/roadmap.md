@@ -529,6 +529,7 @@ complete when its descriptor is cut, and not before.
 | 6b | RDF 1.2 Turtle/TriG, RDF/XML, JSON-LD | `0.1.0-preview.4` | — | issue #10, PR #85; released 2026-10-13 |
 | — | **Commit path**: group commit, per-graph concurrency | `preview.5` | 6b landed | issue #91 |
 | — | **Object storage**: the log on any object store, Azure first | `preview.6` | Commit path | issue #92 |
+| — | **Extent maintenance**: merges of extent sets, the deletion rule | — | Object storage | not yet filed |
 | — | **Client and integration**: on-behalf-of, setup, follow, events | `preview.7` | Commit path | issue #93 |
 | — | **Learning track**: Varve for SQL developers and DDD practitioners | `preview.8` | Client and integration | issue #94 |
 | 8 | SHACL: validator, commit-time gating, incremental validation | `preview.9` | #87; Learning track (for its chapter 3 update) | issue #13 |
@@ -580,26 +581,51 @@ backend's lease, `fsync` and memory-mapped reads. This is the deployment story
 for Azure, and with a provider-neutral design, for any object store.
 
 **Scope.** `Varve.Store.ObjectStorage` over a five-operation object-store
-contract (create-if-absent, replace-if-unchanged, ranged read, list, delete);
-`Varve.Store.Azure` as the first adapter; MinIO in CI standing in for S3. The
-log as write-once chunk objects, consolidated on seal with the log's bytes
-unchanged; a single writer by an epoch-fenced manifest, no leases;
-`derived/` on ephemeral disk, checkpoints mirrored, cold start as checkpoint
-plus tail. Identity-only credentials. `deploy/azure/` Bicep for Container Apps
-and `Varve.Aspire`'s Azure variant.
+contract (create-if-absent, replace-if-unchanged, ranged read, list, delete;
+ADR 0134), with `Varve.Store.Azure` and `Varve.Store.S3` as REST adapters over
+`HttpClient`, and an S3-compatible server (RustFS, chosen by the contract
+suite) in CI beside Azurite. The log as write-once chunk objects,
+consolidated on seal with the log's bytes unchanged (ADR 0135). One writer by
+an epoch in a writer record and a fence in the log's next slot, no leases and
+no timers (ADR 0136). The default projection's checkpoints as extent sets
+with validity intervals (ADR 0138) — immutable extents per index order and a
+dictionary extent, named by a catalog swapped under the epoch — kept in the
+store, read through a bounded page cache, attached lazily at a cold start
+that replays the log after the catalog's position (ADR 0139). Identity-only
+credentials (ADR 0137). `deploy/azure/container-apps` and `Varve.Aspire`'s
+`WithAzureBlobStorage` (ADR 0142).
 
-**Gate.** The storage contract suite on Azurite and MinIO (real account on an
-optional leg); every milestone 4 and 6a property on the new backend; failure
-injection at every request (errors, throttling, lost responses, a superseded
-writer, a killed process, a bad checkpoint); determinism across backends;
-directory-to-container migration; cold-start time measured and documented.
+**Gate.** The object-store contract and the storage contract on Azurite and
+RustFS (a real account on an optional leg); every milestone 4 and 6a property
+on the new backend; failure injection at every request (errors, throttling,
+lost responses, a superseded writer, a killed process) and at every extent
+write and catalog swap; determinism across backends, for the log and the
+extents; directory-to-container migration; a dataset of the previous
+release's derived format opening unchanged; cold start, request counts and
+read latency after 10, 50 and 100 checkpoints measured at the REC sizes
+(ADR 0141).
 
 **Small self-hosted, documented and measured.** A Raspberry Pi 5 (arm64,
 8 GB) as a first-class target: the file backend on an NVMe SSD (not an SD
-card, whose `fsync` and write endurance do not suit a log), and the same Pi
-against MinIO on a NAS with `derived/` local. The operator guide gains the
-setup, the runtime limits for 8 GB, and measured commit latency, query
-throughput and cold start on the device; `linux-arm64` stays a CI target.
+card, whose `fsync` and write endurance do not suit a log). An object store
+on a NAS is supported only with `AssumeRoleWithWebIdentity` or on the same
+host; a typical NAS, with static keys over the LAN, falls outside both
+(ADR 0142). `linux-arm64` stays a CI target.
+
+## Extent maintenance — merges and the deletion rule
+
+**Why.** Object storage writes a set per checkpoint and never deletes an
+extent from an object store; dropping a checkpoint merges two sets, but in
+the foreground. The chain each head read merges grows with the checkpoints
+kept, and extents no catalog names accumulate.
+
+**Scope.** Background merges of adjacent sets, which never change a result
+at any position (ADR 0138); the rule that deletes an extent once no catalog
+version a live reader may hold still names it, decided by event, never by
+elapsed time — readers announce the catalog version they hold, or a deletion
+waits for a later catalog event; the commit index beside the catalog, so a
+cold start skips the log's headers below it. Before Replication, which
+shares the catalog with its followers.
 
 ## Client and integration — on-behalf-of, setup, follow, events
 
@@ -742,9 +768,9 @@ it holds no writer epoch, refuses every write with `409` and a problem type nami
 the primary, and serves reads, feeds and diffs at the position it has reached,
 which every response carries as `Varve-Position` so a client always knows how
 far behind it is; `/health/ready` reports the lag against a configured bound.
-Pinned and as-of reads on a follower are the same code as on the primary; the
-follower's log is a copy and its `derived/` is its own, rebuilt from the
-checkpoints the primary mirrored. A follower never becomes a primary by
+Pinned and as-of reads on a follower are the same code as on the primary; on
+the same store the follower reads the writer's own log, extents and catalog,
+which Object storage made shared (ADRs 0135, 0136, 0139). A follower never becomes a primary by
 itself: promotion is an operator's act (take the writer epoch, change the
 configuration), and the ADR says what it costs (the positions after the last
 replicated commit are gone if the old primary is unreachable; the header chain
@@ -752,8 +778,9 @@ detects divergence if it comes back, ADR 0014).
 
 **Tier 1 — followers on the same log (one storage account).** Any number of
 read-only containers open the same blob container as followers. Nothing is
-copied: a follower lists the segments, lists and reads the open segment's new chunk objects
-from the position it has, and rebuilds `derived/` locally. This is the
+copied: a follower attaches the writer's catalog and extents (ADR 0139), lists
+and reads the open segment's new chunk objects from the position it has, and
+keeps only its page cache and its own runs locally. This is the
 read-scaling story for Container Apps: the writer at `maxReplicas: 1`, a
 follower app at 1..n replicas, both against the same container with the
 writer's identity holding the writer epoch. Lag is one polling interval; the ADR

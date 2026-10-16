@@ -90,11 +90,12 @@ public sealed class RecPortfolioTests
     /// hashes are pinned, and CI runs this on linux-x64 and linux-arm64.
     /// </summary>
     [Theory]
-    [InlineData(RecSize.S, "c04a57dce9928447819e211ce8ad2247a35b1aa432055926a7f51c20ec01fad8")]
-    [InlineData(RecSize.M, "a6d28c61521255ae578585a104d7f961420522f1942b36fda94407c868e6ce59")]
-    [InlineData(RecSize.L, "799c72181914ad6b65f597abc397810f4770de32bab63bea4c4a7dc324e8750b")]
-    public void the_same_seed_and_size_give_the_same_bytes(RecSize size, string expected)
+    [InlineData("S", "c04a57dce9928447819e211ce8ad2247a35b1aa432055926a7f51c20ec01fad8")]
+    [InlineData("M", "a6d28c61521255ae578585a104d7f961420522f1942b36fda94407c868e6ce59")]
+    [InlineData("L", "799c72181914ad6b65f597abc397810f4770de32bab63bea4c4a7dc324e8750b")]
+    public void the_same_seed_and_size_give_the_same_bytes(string sizeName, string expected)
     {
+        RecSize size = Enum.Parse<RecSize>(sizeName);
         Stats stats = Measure(size, out string hash);
         TestContext.Current.TestOutputHelper?.WriteLine(size + ": " + stats + ", SHA-256 " + hash);
         Assert.Equal(expected, hash);

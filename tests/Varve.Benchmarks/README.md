@@ -1366,3 +1366,85 @@ remapping and building the delta 49 ms, encoding and hashing the body 23 ms,
 the default projection's run in six orders and the graph versions 80 ms, the
 rest 26 ms. Parsing is a third of the whole. Group commit changes none of
 it: a lone request is a batch of one.
+
+
+## Milestone Object storage — the backend, extents, the format-3 migration
+
+Run on the session's container, 2026-10-15, against Azurite 3.37.0 and RustFS
+1.0.1 on loopback, so the object-store figures measure the protocol and the
+request counts, not a cloud's latency. The commands:
+
+```sh
+Varve.Benchmarks --objects <file|azurite|rustfs> <S|M|L>   # VARVE_AZURITE / VARVE_RUSTFS name the services
+Varve.Benchmarks --extent-reads <S|M>                    # reads after 10, 50 and 100 checkpoints
+Varve.Benchmarks --format3-open <dir>                    # a dataset written by preview.6
+```
+
+The workload is the RealEstateCore portfolio of ADR 0141 at size S or M; a
+commit is one generated change. Requests are counted at the adapter.
+
+### REC S (`--objects`)
+
+| | files | Azurite | RustFS |
+|---|---:|---:|---:|
+| load | 482 commits/s | 186 commits/s | 146 commits/s |
+| commit p50 / p99 | 0.24 / 34 ms | 2.48 / 35.5 ms | 4.73 / 38.9 ms |
+| requests a commit | — | 1.00 | 1.00 |
+| checkpoint at the head | 1.5 s | 1.6 s: 9 requests (8 creates, 1 replace), 15 MiB | 1.6 s, the same |
+| cold start | — | 2.3 s | 1.3 s |
+| 8 writers | 8,321 commits/s | 2,144 commits/s, 0.16 creates a commit | 1,316 commits/s, 0.14 creates a commit |
+
+### REC M (`--objects`; 25,000 commits, 5,049,846 quads at the head)
+
+| | files | Azurite | RustFS |
+|---|---:|---:|---:|
+| load | 47.3 s, 528 commits/s | 573.8 s, 44 commits/s | 185.2 s, 135 commits/s |
+| commit p50 / p99 | 0.30 / 13.95 ms | 2.74 / 386.8 ms | 5.10 / 30.2 ms |
+| requests during the load | — | 30,275: 25,011 creates, 5,264 deletes (consolidation), 275.6 MiB up | the same |
+| requests a commit | — | 1.21 (creates 1.00) | 1.21 (creates 1.00) |
+| checkpoint at the head | 33.1 s | 39.6 s: 9 requests (8 creates, 1 replace), 415.1 MiB | 31.0 s, the same requests |
+| cold start, open and a first read | 0.4 s | 29.1 s: 19,800 requests, 19,790 reads, 180 MiB | 23.2 s, the same requests |
+| 8 writers, 2,000 commits of 10 quads | 11,785 commits/s | 1,117 commits/s, 0.17 creates a commit | 1,394 commits/s, 0.14 creates a commit |
+
+Azurite slows as its blob count grows (its p99 at M is ten times its p99 at
+S, with the same requests a commit); RustFS does not. Neither is a cloud's
+latency.
+
+### Reads after checkpoints (`--extent-reads M`)
+
+REC M on files, the load and 100 checkpoints in 70.8 s:
+
+| Checkpoints | Head: lookup p50 | Head: a subject's quads p50 | Head: exact count p50 | As-of inside a set | As-of at a set's end |
+|---:|---:|---:|---:|---:|---:|
+| 10 | 42.0 µs | 5.7 µs | 28.3 µs | 29.8 ms | 0.0 ms |
+| 50 | 71.3 µs | 18.3 µs | 143.6 µs | 6.8 ms | 0.1 ms |
+| 100 | 98.7 µs | 78.1 µs | 354.0 µs | 6.5 ms | 0.1 ms |
+
+Head reads grow with the number of sets, since each read merges across them: a
+subject's quads 14× and an exact count 12.5× from 10 to 100. As-of inside a
+set falls as sets narrow, since it rewrites less of the log. The operator
+guide's budget (`docs/operator/backup-and-restore.md`): keep at most 20
+checkpoints until Extent maintenance lands, which keeps head reads within
+about twice the 10-checkpoint figures.
+
+### A format-3 dataset at M (`--format3-open`)
+
+REC M written by preview.6, with ten full checkpoints:
+
+| | |
+|---|---:|
+| head | 25,000 commits, 5,049,846 quads, full checkpoints every 2,500 |
+| open as it is, and a first read | 0.5 s |
+| the first checkpoint under this release (one extent set over the whole history) | 31.3 s |
+| for reference, a rebuild from the log with `derived/` removed | 24.8 s |
+
+The migration costs one checkpoint, about what a rebuild costs; nothing is
+rewritten at open.
+
+### Cold start reads every chunk not yet consolidated
+
+At REC S a cold start costs 1,035 requests, 1,025 of them reads;
+at M, 19,800 requests, 19,790 of them reads, and 23–29 s on loopback: one a
+chunk not yet consolidated (5,264 of the 25,011 were, at the end of the
+load), since a segment is consolidated only when it seals. Skipping the log's headers
+below the catalog needs a shared commit index, deferred in ADR 0139.
