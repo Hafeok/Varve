@@ -54,6 +54,12 @@ ADRs are filed unaccepted and accepted on the pull request (ADR 0066).
   telemetry.
 - **`Varve.Store.S3`**: SigV4, with web identity as its credential. An
   S3-compatible server (RustFS in CI) passed the full contract suite.
+- **A store that does not enforce conditional writes is refused** (ADR
+  0134). Every open, writer or follower, first probes under the reserved
+  key `probe/` that a second create-if-absent and a replace against a
+  stale version are both refused. If either succeeds, the open fails
+  with `ConditionalWritesNotEnforcedException`, naming the store. Garage
+  is one such store and is unsupported for the object-storage backend.
 - **Static keys only on loopback** (ADR 0137): an emulator on
   `127.0.0.1` takes its development key. Anywhere else, a key, a SAS
   token or a connection string is refused at start, by name.
