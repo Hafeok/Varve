@@ -1,0 +1,17 @@
+PREFIX varve: <https://w3id.org/varve/ns#>
+PREFIX xsd:   <http://www.w3.org/2001/XMLSchema#>
+PREFIX rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX t:     <https://example.org/types/>
+
+<https://w3id.org/varve/ns#events-catalogue/default> {
+  t:Pinged a varve:EventType ; varve:eventName "Pinged" ; varve:eventClass <https://example.org/ns#Ping> ; varve:eventVersion 1 ;
+    varve:eventSelect """SELECT ?n WHERE { ?event <https://example.org/ns#n> ?n }""" ; varve:eventField t:n .
+  t:n a varve:EventField ; varve:fieldName "n" ; varve:fieldDatatype xsd:int ; varve:fieldRequired true .
+}
+<https://w3id.org/varve/ns#events-catalogue/https%3A%2F%2Fexample.org%2Fevents> {
+  t:Ponged a varve:EventType ; varve:eventName "Ponged" ; varve:eventClass <https://example.org/ns#Pong> ; varve:eventVersion 7 ;
+    varve:eventSelect """SELECT ?at ?who WHERE { ?event <https://example.org/ns#at> ?at OPTIONAL { ?event <https://example.org/ns#who> ?who } }""" ; varve:eventField t:at, t:who .
+  t:at a varve:EventField ; varve:fieldName "at" ; varve:fieldDatatype xsd:dateTimeStamp ; varve:fieldRequired true .
+  t:who a varve:EventField ; varve:fieldName "who" ; varve:fieldDatatype xsd:anyURI ; varve:fieldAs "string" ; varve:fieldRequired false .
+}

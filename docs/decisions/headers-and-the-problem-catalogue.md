@@ -47,6 +47,10 @@ decisions:
     statement: "409 carries graphs and graphsTruncated, 412 carries graphs, and 412's title says the precondition does not name the current version"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-15T00:00:00Z
+  - key: EventProblemTypes
+    statement: "event-declaration-invalid, event-schema-incompatible and event-not-rendered are catalogued, and a validator's rejection naming a validator problem type is answered as that type"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-16T00:00:00Z
 ---
 
 The rulings of [ADR 0119](../adr/0119-headers-and-the-problem-catalogue.md), filed unaccepted by milestone Operability of #12

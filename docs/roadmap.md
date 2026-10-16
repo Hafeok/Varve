@@ -652,7 +652,7 @@ write, catalog swap and deletion; a superseded writer's swap refused; read
 latency at REC M after 10, 50 and 100 checkpoints against Object storage's
 table.
 
-## Client and integration — on-behalf-of, setup, follow, events
+## Client and integration *(complete)* — on-behalf-of, setup, follow, events
 
 **Why.** The server is ready to be used by applications; this is what an
 application installs. It also makes the commits resource a contract other

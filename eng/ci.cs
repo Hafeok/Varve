@@ -183,6 +183,12 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-rec", "the REC portfolio generator: the vendored release, REC's terms, the same bytes for each seed and size",
         () => Test("Varve.Rec.Tests")),
 
+    ("test-json-canonical", "Varve.Json.Canonical: RFC 8785's vectors, Node's numbers as the oracle, the writer's refusals",
+        () => Test("Varve.Json.Canonical.Tests")),
+
+    ("test-events", "Varve.Events: rendering replayed byte for byte, the number rule, schema golden files, compatibility, the catalogue's three views, AsyncAPI 3.0",
+        () => Test("Varve.Events.Tests")),
+
     ("test-xsd", "Varve.Xsd, and its properties; the evaluation suites gate it too",
         () => Test("Varve.Xsd.Tests")),
 
@@ -203,6 +209,9 @@ List<(string Name, string Description, Func<int> Run)> jobs =
 
     ("test-protocol", "Varve.Protocol: the endpoints over a real socket, the protocol properties",
         () => Test("Varve.Protocol.Tests")),
+
+    ("test-protocol-client", "Varve.Protocol.Client: the token provider, FollowAsync and FollowEventsAsync resumed from every position, setup, the client's closure",
+        () => Test("Varve.Protocol.Client.Tests")),
 
     ("test-server", "Varve.Server: configuration, anonymous mode, readiness, shutdown, and the permission matrix against an issuer in the test (ADR 0100 layer (a))",
         () => Test("Varve.Server.Tests")),

@@ -28,11 +28,11 @@ shared mutable state, no static registries. **High cohesion**: one reason to cha
 
 | Layer | Packages |
 |---:|---|
-| 0 | `Varve.Iri`, `Varve.Xsd` |
+| 0 | `Varve.Iri`, `Varve.Xsd`, `Varve.Json.Canonical` (ADR 0147) |
 | 1 | `Varve.Rdf` — model and the abstract quad source contract |
 | 2 | syntax: `Varve.Turtle`, `Varve.RdfXml`, `Varve.JsonLd`, `Varve.Sparql.Results`, and `Varve.Sparql` (the algebra, parser and serialiser) |
 | 3 | `Varve.Sparql.Evaluation` (optimiser and evaluator, one package — ADR 0048), `Varve.Shacl`, `Varve.Delta` (the change feed's format, by dependency — ADR 0128) |
-| 4 | `Varve.Store` — log, projection contract, pre-commit validator contract |
+| 4 | `Varve.Store` — log, projection contract, pre-commit validator contract; `Varve.Events` (domain events rendered from quads, by dependency — ADR 0143) |
 | 5 | integrations: `Varve.Sparql.Store`, `Varve.Store.Browser` |
 | 6 | hosts — every executable, and only executables: the server, the CLI, the smoke apps, the benchmarks (ADR 0060) |
 
@@ -204,7 +204,35 @@ and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone Commit path (#91; ADRs 0124–0126, filed unaccepted), after 6b.
+Milestone Client and integration (#93), after Commit path, in two parts.
+Part 2 (ADRs 0143–0147, filed unaccepted) is domain events. They are quads in
+an events graph, written in the same commit as the change. `Varve.Events`
+(layer 4) renders them as CloudEvents 1.0 in RFC 8785 canonical form, through
+declarations in the event catalogue graph `varve:events-catalogue/{enc(G)}`,
+with the declaration in force at each position (0143). A number is written
+only when it survives a double round trip; an event that cannot be rendered is
+a problem CloudEvent in its place. The catalogue graph is governed by its
+source graph through `GraphScope`'s governing-graph seam, composed in the
+server (0144; 0107 and 0130 amended). Schemas are generated on read, versioned
+and revisioned at immutable URLs, held by golden files under read-forever, and
+a breaking change without a higher version is refused by a dataset validator
+(0145, 0119 amended). Canonical JSON is `Varve.Json.Canonical` at layer 0,
+shared with `Varve.JsonLd` (0147, 0123 amended). The routes are
+`/datasets/{name}/events`, `…/events/types`, `…/events/asyncapi` and the
+server-wide `/events/types`. The client gains `FollowEventsAsync`, and
+`samples/Varve.EventHubs.Sample` publishes to Event Hubs, tested against the
+emulator in CI (0146). Migrations name their graphs in
+`Varve-If-Graphs-Match`, and the client's Graph Store writes are one method
+per verb, with `GraphContent` and `GraphCondition` (breaking). Part 1 (#103;
+ADRs 0127–0133) covered:
+- on-behalf-of through a token provider (0127);
+- the change feed's format as `Varve.Delta` (0128);
+- `FollowAsync` (0129);
+- dataset setup and `AddVarve` (0130, 0131);
+- CORS (0132);
+- register scopes (0133).
+
+Before that, milestone Commit path (#91; ADRs 0124–0126), after 6b.
 The sequencer queues writes and writes those that arrive during a flush as
 one batch, each keeping its commit, by default on every durable backend
 (off in memory, which has no flush to share), and no

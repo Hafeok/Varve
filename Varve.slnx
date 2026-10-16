@@ -6,6 +6,8 @@
     <Project Path="src/Varve.Analyzers/Varve.Analyzers.csproj" />
     <Project Path="src/Varve.Aspire/Varve.Aspire.csproj" />
     <Project Path="src/Varve.Delta/Varve.Delta.csproj" />
+    <Project Path="src/Varve.Events/Varve.Events.csproj" />
+    <Project Path="src/Varve.Json.Canonical/Varve.Json.Canonical.csproj" />
     <Project Path="src/Varve.Iri/Varve.Iri.csproj" />
     <Project Path="src/Varve.Protocol/Varve.Protocol.csproj" />
     <Project Path="src/Varve.Protocol.Client/Varve.Protocol.Client.csproj" />
@@ -29,6 +31,8 @@
     <Project Path="tests/Varve.Analyzers.Tests/Varve.Analyzers.Tests.csproj" />
     <Project Path="tests/Varve.Conformance.Tests/Varve.Conformance.Tests.csproj" />
     <Project Path="tests/Varve.Delta.Tests/Varve.Delta.Tests.csproj" />
+    <Project Path="tests/Varve.Events.Tests/Varve.Events.Tests.csproj" />
+    <Project Path="tests/Varve.Json.Canonical.Tests/Varve.Json.Canonical.Tests.csproj" />
     <Project Path="tests/Varve.Iri.Tests/Varve.Iri.Tests.csproj" />
     <Project Path="tests/Varve.Protocol.Client.Tests/Varve.Protocol.Client.Tests.csproj" />
     <Project Path="tests/Varve.Protocol.Tests/Varve.Protocol.Tests.csproj" />

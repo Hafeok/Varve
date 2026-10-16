@@ -30,6 +30,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- ADR 0003 permits InternalsVisibleTo toward *.Tests only: the events
+         batch reader is tested against the bytes the server serves. -->
+    <InternalsVisibleTo Include="Varve.Protocol.Client.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../Varve.Delta/Varve.Delta.csproj" />
     <ProjectReference Include="../Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
     <ProjectReference Include="../Varve.Sparql.Results/Varve.Sparql.Results.csproj" />

@@ -170,3 +170,24 @@ claim.
   the seam and the answers; `Varve.Server` (6) the grants.
 - **Analyzer rule.** None new. `VARVE0003` checks the filter's hot path.
 - **Open questions owned.** None. Row-level access is milestone 9's.
+
+## Amendment, 2026-10-15 — a graph may be governed by another
+
+Filed by milestone Client and integration, part 2, of #93, unaccepted until
+the maintainer accepts it (ADR 0066).
+
+- **The seam.** `GraphScope` takes a governing-graph mapping: a function from a
+  named graph's IRI to the graph that governs it, or none. A graph with a
+  governor is allowed exactly when its governor is, by the scope's own rules;
+  a grant naming the governed graph itself has no effect on it. The `all`
+  scope is unchanged and still not wrapped.
+- **Its cost.** The decision is made once per distinct graph handle a scoped
+  source meets and memoised, like a prefix decision (`PrefixDecisionMemoisedPerGraph`),
+  so it is never per quad.
+- **Who knows the rule.** `Varve.Rdf` knows only that a graph may have a
+  governor. The rule that names one (ADR 0144: an event catalogue graph is
+  governed by its source graph) lives above it and is composed by the host's
+  `IAccessScopes`, where every scope is resolved.
+
+**The ledger.** The ruling of this block is `GoverningGraphSeam`, unaccepted
+until the maintainer accepts it.

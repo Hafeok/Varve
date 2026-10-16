@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Varve.Json.Canonical/Varve.Json.Canonical.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Node 22's Number::toString for 3,015 doubles, generated once and
+         kept: the oracle FormatNumber is held to, never regenerated in CI. -->
+    <None Include="fixtures/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+    <PackageReference Include="CsCheck" />
+  </ItemGroup>
+
+</Project>

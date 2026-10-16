@@ -46,13 +46,20 @@ public sealed class GraphScopedQuadSource : IQuadSource
         // is the feed's to decide by term.
         foreach (RdfTerm graph in scope.Graphs)
         {
+            // A governed graph is decided by its governor, never by its own
+            // grant, so it is not among the explicit handles.
+            if (scope.Governor is not null && scope.Governor(graph, out _))
+            {
+                continue;
+            }
+
             if (inner.TryInternalise(graph, out TermHandle handle))
             {
                 _named.Add(handle);
             }
         }
 
-        _decided = scope.HasPrefixes ? new Dictionary<TermHandle, bool>(inner.TermComparer) : null;
+        _decided = scope.HasPrefixes || scope.Governor is not null ? new Dictionary<TermHandle, bool>(inner.TermComparer) : null;
     }
 
     /// <summary>The scope this source shows.</summary>
@@ -149,7 +156,11 @@ public sealed class GraphScopedQuadSource : IQuadSource
             return decided;
         }
 
-        decided = _inner.TryExternalise(graph, out RdfTerm? term) && term.Kind == RdfTermKind.Iri && Scope.AllowsByPrefix(term.Lexical);
+        // A governed graph asks the scope, which asks its governor; any other
+        // named graph is decided by the prefixes alone, the explicit handles
+        // having been answered already.
+        decided = _inner.TryExternalise(graph, out RdfTerm? term) && term.Kind == RdfTermKind.Iri
+            && (Scope.Governor is not null && Scope.Governor(term, out _) ? Scope.Allows(term) : Scope.AllowsByPrefix(term.Lexical));
         _decided[graph] = decided;
         return decided;
     }

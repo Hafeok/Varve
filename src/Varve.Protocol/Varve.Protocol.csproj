@@ -30,6 +30,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../Varve.Events/Varve.Events.csproj" />
     <ProjectReference Include="../Varve.Store/Varve.Store.csproj" />
     <ProjectReference Include="../Varve.Delta/Varve.Delta.csproj" />
     <ProjectReference Include="../Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />

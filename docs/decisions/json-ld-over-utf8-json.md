@@ -75,6 +75,10 @@ decisions:
     statement: "The processor is JSON-LD 1.1 only: there is no json-ld-1.0 processing mode, @version 1.1 is accepted and never conflicts, and the suite's 1.0-only and generalized-RDF cases are excluded by a stated rule rather than exempted one by one"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-13T00:00:00Z
+  - key: CanonicalFormFromVarveJsonCanonical
+    statement: "Varve.JsonLd writes rdf:JSON literals through Varve.Json.Canonical, byte for byte the form JsonLiteralsAreCanonical states"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-16T00:00:00Z
 ---
 
 The rulings of [ADR 0123](../adr/0123-json-ld-over-utf8-json.md), one line each. The ADR is the

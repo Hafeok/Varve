@@ -8,6 +8,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Varve.Store;
+using Varve.Protocol.Client.Model;
 using Xunit;
 
 namespace Varve.Protocol.Client.Tests;
@@ -32,14 +33,14 @@ public class GraphVersionClientTests
         Assert.Equal(1, SparqlHttpClient.VersionOf(read));
 
         // Another graph moves the head; g's version stays, and a write under it lands.
-        using HttpResponseMessage other = await client.CreateGraphAsync("http://ex/h", "<http://ex/x> <http://ex/p> 1 .", "text/turtle", C.Ct);
+        using HttpResponseMessage other = await client.PutGraphAsync("http://ex/h", GraphContent.FromText("<http://ex/x> <http://ex/p> 1 .", "text/turtle"), GraphCondition.IfAbsent, C.Ct);
         Assert.Equal(HttpStatusCode.Created, other.StatusCode);
-        Assert.Equal(HttpStatusCode.PreconditionFailed, (await client.CreateGraphAsync("http://ex/h", "<http://ex/x> <http://ex/p> 2 .", "text/turtle", C.Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.PreconditionFailed, (await client.PutGraphAsync("http://ex/h", GraphContent.FromText("<http://ex/x> <http://ex/p> 2 .", "text/turtle"), GraphCondition.IfAbsent, C.Ct)).StatusCode);
 
-        using HttpResponseMessage replaced = await client.PutGraphAsync("http://ex/g", "<http://ex/t> <http://ex/p> 4 .", "text/turtle", 1, C.Ct);
+        using HttpResponseMessage replaced = await client.PutGraphAsync("http://ex/g", GraphContent.FromText("<http://ex/t> <http://ex/p> 4 .", "text/turtle"), GraphCondition.IfMatch(1), C.Ct);
         Assert.Equal(HttpStatusCode.NoContent, replaced.StatusCode);
         Assert.Equal(3, SparqlHttpClient.VersionOf(replaced));
-        Assert.Equal(HttpStatusCode.PreconditionFailed, (await client.PutGraphAsync("http://ex/g", "<http://ex/t> <http://ex/p> 5 .", "text/turtle", 1, C.Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.PreconditionFailed, (await client.PutGraphAsync("http://ex/g", GraphContent.FromText("<http://ex/t> <http://ex/p> 5 .", "text/turtle"), GraphCondition.IfMatch(1), C.Ct)).StatusCode);
 
         // A poll with the version held is 304; as of 1, g's version is 1.
         Assert.Equal(HttpStatusCode.NotModified, (await client.GetGraphAsync("http://ex/g", "text/turtle", 3, null, C.Ct)).StatusCode);
@@ -53,7 +54,7 @@ public class GraphVersionClientTests
         Assert.Equal(HttpStatusCode.NoContent, update.StatusCode);
         Assert.Equal(HttpStatusCode.PreconditionFailed, (await client.UpdateAsync("INSERT DATA { <http://ex/z> <http://ex/p> 1 }", [new KeyValuePair<string?, long>("http://ex/g", 3)], C.Ct)).StatusCode);
 
-        using HttpResponseMessage deleted = await client.DeleteGraphAsync("http://ex/h", 2, C.Ct);
+        using HttpResponseMessage deleted = await client.DeleteGraphAsync("http://ex/h", GraphCondition.IfMatch(2), C.Ct);
         Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
     }
 }

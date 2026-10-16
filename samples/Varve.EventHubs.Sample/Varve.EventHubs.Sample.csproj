@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The Event Hubs bridge sample (ADRs 0143, 0146): a worker that follows a
+       dataset's rendered CloudEvents with FollowEventsAsync and publishes each
+       to an event hub, structured, keyed by the dataset's name, and saves its
+       position after the send. Azure.Messaging.EventHubs is admitted for
+       samples/ only (ADR 0146); this project is outside Varve.slnx and never
+       shipped. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Layer 6 (ADR 0060): an executable that composes. -->
+    <ArchLayer>6</ArchLayer>
+    <ArchCompositionRoot>true</ArchCompositionRoot>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The generic host and configuration, from the shared framework. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Azure.Messaging.EventHubs" />
+    <ProjectReference Include="../../src/Varve.Protocol.Client/Varve.Protocol.Client.csproj" />
+  </ItemGroup>
+
+</Project>

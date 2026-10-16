@@ -155,43 +155,40 @@ public sealed partial class SparqlHttpClient
     }
 
     /// <summary>
-    /// Replaces a graph with <paramref name="body"/>, of <paramref name="contentType"/>,
-    /// under <paramref name="ifMatch"/>, the graph's version (ADR 0126): <c>412</c>
-    /// when it has moved; an empty graph matches no version.
+    /// Replaces a graph with <paramref name="content"/> by the Graph Store
+    /// Protocol (<c>PUT</c>), the default graph for a null <paramref name="graph"/>,
+    /// under <paramref name="condition"/> (ADR 0126): <c>412</c> when the graph
+    /// is not at the version named, or holds a quad for <see cref="GraphCondition.IfAbsent"/>.
     /// </summary>
-    public Task<HttpResponseMessage> PutGraphAsync(string? graph, string body, string contentType, long? ifMatch, CancellationToken cancellationToken) =>
-        SendGraphAsync(HttpMethod.Put, GraphAddress(graph), body, contentType, ifMatch is long expected ? ("If-Match", Tag(expected)) : null, cancellationToken);
+    public Task<HttpResponseMessage> PutGraphAsync(string? graph, GraphContent content, GraphCondition condition, CancellationToken cancellationToken) =>
+        SendGraphAsync(HttpMethod.Put, graph, content, condition, cancellationToken);
 
-    /// <summary>Creates a graph that holds no quad, or is <c>412</c>: a <c>PUT</c> with <c>If-None-Match: *</c> (ADR 0126).</summary>
-    public Task<HttpResponseMessage> CreateGraphAsync(string? graph, string body, string contentType, CancellationToken cancellationToken) =>
-        SendGraphAsync(HttpMethod.Put, GraphAddress(graph), body, contentType, ("If-None-Match", "*"), cancellationToken);
+    /// <summary>Adds <paramref name="content"/> to a graph by the Graph Store Protocol (<c>POST</c>), under <paramref name="condition"/> (ADR 0126).</summary>
+    public Task<HttpResponseMessage> PostGraphAsync(string? graph, GraphContent content, GraphCondition condition, CancellationToken cancellationToken) =>
+        SendGraphAsync(HttpMethod.Post, graph, content, condition, cancellationToken);
 
-    /// <summary>Adds <paramref name="body"/> to a graph, under <paramref name="ifMatch"/> when given (ADR 0126).</summary>
-    public Task<HttpResponseMessage> PostGraphAsync(string? graph, string body, string contentType, long? ifMatch, CancellationToken cancellationToken) =>
-        SendGraphAsync(HttpMethod.Post, GraphAddress(graph), body, contentType, ifMatch is long expected ? ("If-Match", Tag(expected)) : null, cancellationToken);
+    /// <summary>Empties a graph by the Graph Store Protocol (<c>DELETE</c>), under <paramref name="condition"/> (ADR 0126).</summary>
+    public Task<HttpResponseMessage> DeleteGraphAsync(string? graph, GraphCondition condition, CancellationToken cancellationToken) =>
+        SendGraphAsync(HttpMethod.Delete, graph, null, condition, cancellationToken);
 
-    /// <summary>Deletes a graph, under <paramref name="ifMatch"/>, its version, when given (ADR 0126).</summary>
-    public Task<HttpResponseMessage> DeleteGraphAsync(string? graph, long? ifMatch, CancellationToken cancellationToken)
+    private Task<HttpResponseMessage> SendGraphAsync(HttpMethod method, string? graph, GraphContent? content, GraphCondition condition, CancellationToken cancellationToken)
     {
-        HttpRequestMessage request = new(HttpMethod.Delete, GraphAddress(graph));
+        HttpRequestMessage request = new(method, GraphAddress(graph));
 
-        if (ifMatch is long expected)
+        if (content is not null)
         {
-            request.Headers.TryAddWithoutValidation("If-Match", Tag(expected));
+            ReadOnlyMemoryContent body = new(content.Bytes);
+            body.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse(content.MediaType);
+            request.Content = body;
         }
 
-        return SendAsync(request, cancellationToken);
-    }
-
-    private Task<HttpResponseMessage> SendGraphAsync(HttpMethod method, Uri address, string body, string contentType, (string Name, string Value)? precondition, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(body);
-        ArgumentNullException.ThrowIfNull(contentType);
-        HttpRequestMessage request = new(method, address) { Content = new StringContent(body, Encoding.UTF8, contentType) };
-
-        if (precondition is { } header)
+        if (condition.Version is long version)
         {
-            request.Headers.TryAddWithoutValidation(header.Name, header.Value);
+            request.Headers.TryAddWithoutValidation("If-Match", Tag(version));
+        }
+        else if (condition.Absent)
+        {
+            request.Headers.TryAddWithoutValidation("If-None-Match", "*");
         }
 
         return SendAsync(request, cancellationToken);
@@ -224,6 +221,86 @@ public sealed partial class SparqlHttpClient
         HttpRequestMessage request = new(HttpMethod.Get, new Uri(Dataset, query.ToString()));
         request.Headers.TryAddWithoutValidation("Accept", eventStream ? "text/event-stream" : "application/vnd.varve.delta");
         return SendAsync(request, cancellationToken);
+    }
+
+    /// <summary>
+    /// The events from <paramref name="from"/> (exclusive) to <paramref name="to"/>
+    /// (inclusive; a live tail with null, as server-sent events), as a CloudEvents
+    /// batch or as events, of one type when <paramref name="type"/> names one
+    /// (ADR 0143).
+    /// </summary>
+    public Task<HttpResponseMessage> EventsAsync(long from, long? to, string? type, bool eventStream, CancellationToken cancellationToken)
+    {
+        StringBuilder query = new("events?from=");
+        query.Append(from.ToString(CultureInfo.InvariantCulture));
+
+        if (to is long end)
+        {
+            query.Append("&to=").Append(end.ToString(CultureInfo.InvariantCulture));
+        }
+
+        if (type is not null)
+        {
+            query.Append("&type=").Append(Uri.EscapeDataString(type));
+        }
+
+        HttpRequestMessage request = new(HttpMethod.Get, new Uri(Dataset, query.ToString()));
+        request.Headers.TryAddWithoutValidation("Accept", eventStream ? "text/event-stream" : "application/cloudevents-batch+json");
+        return SendAsync(request, cancellationToken);
+    }
+
+    /// <summary>The dataset's event types, JSON, as of <paramref name="asOf"/> when given (ADR 0144).</summary>
+    public Task<HttpResponseMessage> EventTypesAsync(string? asOf, CancellationToken cancellationToken) =>
+        SendAsync(AsOf(new HttpRequestMessage(HttpMethod.Get, new Uri(Dataset, "events/types")), asOf), cancellationToken);
+
+    /// <summary>
+    /// A type's schema (ADR 0145): its latest revision, of its current version
+    /// or of <paramref name="version"/>, or revision <paramref name="revision"/>
+    /// of that version, which never changes.
+    /// </summary>
+    public Task<HttpResponseMessage> EventSchemaAsync(string type, int? version, long? revision, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type);
+        StringBuilder path = new("events/types/");
+        path.Append(Uri.EscapeDataString(type));
+
+        if (version is int n)
+        {
+            path.Append("/versions/").Append(n.ToString(CultureInfo.InvariantCulture));
+
+            if (revision is long r)
+            {
+                path.Append("/revisions/").Append(r.ToString(CultureInfo.InvariantCulture));
+            }
+        }
+        else if (revision is not null)
+        {
+            throw new ArgumentException("A revision is of a version.", nameof(revision));
+        }
+
+        return SendAsync(new HttpRequestMessage(HttpMethod.Get, new Uri(Dataset, path.ToString())), cancellationToken);
+    }
+
+    /// <summary>The dataset's AsyncAPI 3.0 document, as of <paramref name="asOf"/> when given (ADR 0144).</summary>
+    public Task<HttpResponseMessage> AsyncApiAsync(string? asOf, CancellationToken cancellationToken) =>
+        SendAsync(AsOf(new HttpRequestMessage(HttpMethod.Get, new Uri(Dataset, "events/asyncapi")), asOf), cancellationToken);
+
+    /// <summary>
+    /// The server-wide list of event types (ADR 0144): every dataset's types the
+    /// caller reads, each with its dataset, at <c>/events/types</c> on the
+    /// server the dataset is on.
+    /// </summary>
+    public Task<HttpResponseMessage> ServerEventTypesAsync(CancellationToken cancellationToken) =>
+        SendAsync(new HttpRequestMessage(HttpMethod.Get, new Uri(Dataset, "../../events/types")), cancellationToken);
+
+    private static HttpRequestMessage AsOf(HttpRequestMessage request, string? asOf)
+    {
+        if (asOf is not null)
+        {
+            request.Headers.TryAddWithoutValidation("Varve-As-Of", asOf);
+        }
+
+        return request;
     }
 
     /// <summary>One commit, as one record of the line format (ADR 0118).</summary>

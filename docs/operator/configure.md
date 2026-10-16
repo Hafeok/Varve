@@ -243,6 +243,22 @@ commit that finds the dataset idle is written at once; there is no timer.
 `varve.store.commit.batch_size` ([Observe](observe.md)) shows how many
 commits each write carried.
 
+## Domain events — `Events` (ADRs 0143, 0144)
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Events:Source` | unset | the base of every event's `source` and every schema URL: an absolute `http` or `https` URL ending in `/`, under which a dataset is `datasets/{name}` |
+| `Events:EventHubs:Host` | unset | the Event Hubs namespace's host, `{namespace}.servicebus.windows.net`, that the AsyncAPI document lists as the `eventhubs` server; with `Hub`, both or neither |
+| `Events:EventHubs:Hub` | unset | the event hub's name |
+
+**Byte identity holds per base.** A rendered event is the same bytes every
+time it is read, and its `source` and `dataschema` name the base. With
+`Events:Source` unset, the base is the request's own scheme, host and path
+base, so a deployment reached under more than one host name renders
+different bytes under each. Set `Events:Source` to the one public URL. The
+Event Hubs server is only named here: publishing to it is an application's
+work, as the Event Hubs sample shows ([Integrate](integrate.md)).
+
 ## The runtime (ADR 0110)
 
 The server ships its runtime configuration: the **workstation** garbage

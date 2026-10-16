@@ -81,15 +81,24 @@ updates:
       # analyzer does.
       - dependency-name: Microsoft.CodeAnalysis.CSharp
       - dependency-name: Microsoft.CodeAnalysis.CSharp.Workspaces
+      # JsonSchema.Net from 9.0.0 is published under the json-everything Open
+      # Source Maintenance Fee end-user agreement, not MIT alone; 8.0.5 is the
+      # last MIT release, and the pin is deliberate (ADR 0146, point 2). The
+      # rule lives here as well as in the ADR, because only this file stops
+      # the bot proposing 9.x.
+      - dependency-name: JsonSchema.Net
+        versions: [">= 9.0.0"]
 
-  # The auth test containers (ADR 0100), pinned by digest in two compose files.
-  # A digest cannot be read for freshness, so something has to watch it, as for
-  # the actions above. Test-time only; nothing shipped runs these images.
+  # The auth test containers (ADR 0100) and the Event Hubs emulator's (ADR
+  # 0146), pinned by digest in compose files. A digest cannot be read for
+  # freshness, so something has to watch it, as for the actions above.
+  # Test-time only; nothing shipped runs these images.
   - package-ecosystem: docker-compose
     directories:
       - "/.github/zitadel"
       - "/.github/mock-oauth2"
       - "/.github/storage"
+      - "/.github/eventhubs"
     schedule:
       interval: weekly
       day: monday

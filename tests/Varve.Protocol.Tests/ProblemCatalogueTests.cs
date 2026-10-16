@@ -15,6 +15,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
+using Varve.Events;
 using Varve.Protocol.Model;
 using Varve.Rdf;
 using Varve.Sparql.Algebra;
@@ -53,7 +54,7 @@ public class ProblemCatalogueTests
     /// (the concurrent-read limit, which is the host's rate limiter; and a
     /// writer superseded by a second server on the same object store, ADR 0136).
     /// </summary>
-    private static readonly ImmutableArray<ProblemType> TestedElsewhere = [ProblemType.TooManyLiveTails, ProblemType.ServerBusy, ProblemType.WriterSuperseded];
+    private static readonly ImmutableArray<ProblemType> TestedElsewhere = [ProblemType.TooManyLiveTails, ProblemType.ServerBusy, ProblemType.WriterSuperseded, ProblemType.EventNotRendered];
 
     [Fact]
     public void every_problem_type_is_catalogued_with_a_page_stating_the_same_shape()
@@ -89,7 +90,7 @@ public class ProblemCatalogueTests
     public async Task every_problem_the_endpoints_emit_has_its_catalogued_shape_and_no_other_member()
     {
         Dataset dataset = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()),
-            new DatasetOptions { Clock = TimeProvider.System, Validators = [new RefusesSecret()] }, P.Ct);
+            new DatasetOptions { Clock = TimeProvider.System, Validators = [new RefusesSecret(), new EventCatalogueValidator()] }, P.Ct);
         ProtocolTestHost.Datasets datasets = new();
         datasets.Add("d", dataset);
         ProtocolLimits limits = new(TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1), new ByteCount(200), new ByteCount(2048), TimeSpan.FromSeconds(15))
@@ -97,7 +98,7 @@ public class ProblemCatalogueTests
             MaxQueryMemory = new Varve.Sparql.Evaluation.MemoryBytes(1024),
             MaxAsOfDistance = 1,
         };
-        GraphScope people = GraphScope.Of([RdfTerm.Iri("http://ex/people"u8)], [], DefaultGraphAccess.Included);
+        GraphScope people = GraphScope.Of([RdfTerm.Iri("http://ex/people"u8)], [], DefaultGraphAccess.Included).WithGovernor(EventCatalogue.TryGetSourceGraph);
         TestAdministration administration = new();
 
         await using (dataset)
@@ -136,6 +137,10 @@ public class ProblemCatalogueTests
                 [ProblemType.RequestTooLarge] = () => P.Update(Sparql, "INSERT DATA { " + string.Concat(Enumerable.Range(0, 200).Select(i => "<http://ex/s" + i + "> <http://ex/p> " + i + " . ")) + "}"),
                 [ProblemType.UnsupportedMediaType] = () => new HttpRequestMessage(HttpMethod.Post, new Uri(Sparql, UriKind.Relative)) { Content = new StringContent("ASK {}", Encoding.UTF8, "text/plain") },
                 [ProblemType.Rejected] = () => P.Update(Sparql, "INSERT DATA { <http://ex/secret> <http://ex/p> 1 }"),
+                [ProblemType.EventDeclarationInvalid] = () => P.Update(Sparql, "INSERT DATA { GRAPH <" + Catalogue + "> { <http://ex/stray> <http://ex/p> 1 } }"),
+                [ProblemType.EventSchemaIncompatible] = () => P.Update(Sparql,
+                    "DELETE DATA { GRAPH <" + Catalogue + "> { <http://ex/types/T/at> <https://w3id.org/varve/ns#fieldDatatype> <http://www.w3.org/2001/XMLSchema#dateTime> } } ; "
+                    + "INSERT DATA { GRAPH <" + Catalogue + "> { <http://ex/types/T/at> <https://w3id.org/varve/ns#fieldDatatype> <http://www.w3.org/2001/XMLSchema#string> } }"),
                 [ProblemType.Unavailable] = () => Put("datasets/broken/state", "{\"state\":\"open\"}", "application/json"),
                 [ProblemType.ReadLimitExceeded] = () => P.Query(Sparql, "SELECT * { ?s ?p ?o } "),
                 [ProblemType.MemoryLimitExceeded] = () => P.Query(Sparql, "SELECT * { ?s ?p ?o } ORDER BY ?s"),
@@ -145,6 +150,16 @@ public class ProblemCatalogueTests
             // The dataset the admin triggers need: created first.
             Assert.Equal(System.Net.HttpStatusCode.Created, (await host.Client.SendAsync(Put("datasets/x", "{\"storage\":\"File\"}", "application/json"), P.Ct)).StatusCode);
             await host.Client.SendAsync(P.Update(Sparql, "INSERT DATA { " + string.Concat(Enumerable.Range(0, 20).Select(i => "<http://ex/s" + i + "> <http://ex/p> " + i + " . ")) + "}"), P.Ct);
+
+            // A declaration the event triggers change, in the default graph's catalogue.
+            Assert.Equal(System.Net.HttpStatusCode.NoContent, (await host.Client.SendAsync(P.Update(Sparql,
+                "INSERT DATA { GRAPH <" + Catalogue + "> { "
+                + "<http://ex/types/T> a <https://w3id.org/varve/ns#EventType> ; <https://w3id.org/varve/ns#eventName> \"T\" ; "
+                + "<https://w3id.org/varve/ns#eventClass> <http://ex/T> ; <https://w3id.org/varve/ns#eventVersion> 1 ; "
+                + "<https://w3id.org/varve/ns#eventField> <http://ex/types/T/at> ; "
+                + "<https://w3id.org/varve/ns#eventSelect> \"SELECT ?at WHERE { ?event <http://ex/at> ?at }\" . "
+                + "<http://ex/types/T/at> a <https://w3id.org/varve/ns#EventField> ; <https://w3id.org/varve/ns#fieldName> \"at\" ; "
+                + "<https://w3id.org/varve/ns#fieldDatatype> <http://www.w3.org/2001/XMLSchema#dateTime> ; <https://w3id.org/varve/ns#fieldRequired> true } }"), P.Ct)).StatusCode);
 
             foreach ((ProblemType type, Func<HttpRequestMessage> trigger) in triggers)
             {
@@ -182,6 +197,8 @@ public class ProblemCatalogueTests
             Assert.Equal(ProblemCatalogue.All.Select(s => s.Type.Value).Order(StringComparer.Ordinal), covered.Order(StringComparer.Ordinal));
         }
     }
+
+    private const string Catalogue = "https://w3id.org/varve/ns#events-catalogue/default";
 
     private static HttpRequestMessage Put(string path, string body, string mediaType) =>
         new(HttpMethod.Put, new Uri(path, UriKind.Relative)) { Content = new StringContent(body, Encoding.UTF8, mediaType) };

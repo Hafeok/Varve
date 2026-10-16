@@ -258,3 +258,19 @@ the one that loses nothing.
   `json-ld.md` §9: compaction, flattening and framing when a milestone wants
   JSON for people; a streaming subset if a caller ever needs the first quad
   before the last byte, which no one has.
+
+## Amendment, 2026-10-15 — RFC 8785 moves to `Varve.Json.Canonical`
+
+Filed by milestone Client and integration, part 2, of #93, unaccepted until
+the maintainer accepts it (ADR 0066).
+
+- **What moves.** The canonical form's three rules — string escaping, the
+  ECMAScript number form and member order by UTF-16 code units — move from the
+  internal `Jcs` to `Varve.Json.Canonical`, a layer-0 package (ADR 0147).
+  `Jcs` keeps the walk over this package's tree and calls it.
+- **What does not.** `JsonLiteralsAreCanonical` stands: an `rdf:JSON` literal's
+  lexical form is the value in RFC 8785 form, byte for byte what it was. The
+  JSON-LD suites and the `rdf:JSON` cases hold it across the move.
+
+**The ledger.** The ruling of this block is `CanonicalFormFromVarveJsonCanonical`,
+unaccepted until the maintainer accepts it.

@@ -4,9 +4,12 @@
 
 using System;
 using System.Threading;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Varve.Events.Model;
 using Varve.Sparql.Evaluation;
 
 namespace Varve.Protocol;
@@ -80,4 +83,20 @@ public sealed class ProtocolOptions
     /// <c>NOW()</c> and <c>RAND()</c> read, and the <c>SERVICE</c> handler.
     /// </summary>
     public EvaluationOptions Evaluation { get; init; } = new();
+
+    /// <summary>
+    /// The base of every event's <c>source</c> and every schema URL (ADR 0143):
+    /// an absolute URL ending in <c>/</c>, under which datasets are
+    /// <c>datasets/{name}</c>. Null takes the request's scheme, host and path
+    /// base, so that byte identity holds per base; a host reached under more
+    /// than one name sets it.
+    /// </summary>
+    [DesignDecision(typeof(DomainEventsAsCloudevents.SourceIsConfiguredOrTheRequestBase), Scope = ExceptionScope.Boundary)]
+    public string? EventSource { get; init; }
+
+    /// <summary>The Event Hubs server the AsyncAPI document names, when the host publishes events there (ADR 0144).</summary>
+    public EventHubsServer? EventHubs { get; init; }
+
+    /// <summary>The catalogue graphs' history of each dataset, replayed once and kept current.</summary>
+    internal Endpoints.EventCatalogues Catalogues { get; } = new();
 }

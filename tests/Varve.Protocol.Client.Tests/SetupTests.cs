@@ -9,10 +9,13 @@ using System.Net.Http;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Varve.Protocol.Client.Hosting;
+using Varve.Protocol.Model;
 using Varve.Rdf;
+using Varve.Sparql.Algebra;
 using Varve.Store;
 using Varve.Store.Log;
 using Xunit;
@@ -185,6 +188,50 @@ public class SetupTests
         Assert.Equal(6L, dataset.Head.Value);
     }
 
+    /// <summary>
+    /// A migration states the versions of the graphs it names and of
+    /// varve:setup (ADR 0130, amended): a writer of another graph that commits
+    /// before every one of its requests does not move it, where the
+    /// dataset-wide If-Match of part 1 would have been 409 on every attempt.
+    /// </summary>
+    [Fact]
+    public async Task A_writer_of_another_graph_does_not_move_a_migration()
+    {
+        await using Dataset dataset = await EmptyAsync();
+        ProtocolTestHost.Datasets datasets = new();
+        datasets.Add("d", dataset);
+        await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(datasets, identity: new Someone(), updates: inner => new RacingElsewhere(inner, dataset), stopping: C.Ct);
+        SparqlHttpClient client = Client(host);
+
+        SetupResult result = await client.ApplyAsync(Setup(Migration("1-statuses"), Migration("2-retire-pending"), Migration("3-rename")), C.Ct);
+
+        Assert.Equal(["1-statuses", "2-retire-pending", "3-rename"], result.MigrationsApplied);
+        Assert.Equal(["1-statuses", "2-retire-pending", "3-rename"], await RecordedAsync(client));
+    }
+
+    [Theory]
+    [InlineData("INSERT DATA { <http://ex/a> <http://ex/p> 1 }", true, "default")]
+    [InlineData("INSERT DATA { GRAPH <http://ex/g> { <http://ex/a> <http://ex/p> 1 } }", true, "http://ex/g")]
+    [InlineData("DELETE { ?s <http://ex/old> ?o } INSERT { GRAPH <http://ex/h> { ?s <http://ex/new> ?o } } WHERE { GRAPH <http://ex/g> { ?s <http://ex/old> ?o } }", true, "default http://ex/g http://ex/h")]
+    [InlineData("WITH <http://ex/g> DELETE { ?s ?p ?o } WHERE { ?s ?p ?o }", true, "http://ex/g")]
+    [InlineData("CLEAR GRAPH <http://ex/g> ; COPY <http://ex/a> TO DEFAULT", true, "default http://ex/a http://ex/g")]
+    [InlineData("DELETE WHERE { GRAPH ?g { ?s ?p ?o } }", false, "")]
+    [InlineData("DELETE { ?s ?p ?o } WHERE { GRAPH ?g { ?s ?p ?o } }", false, "")]
+    [InlineData("DELETE { ?s ?p ?o } WHERE { ?s ?p ?o FILTER EXISTS { GRAPH <http://ex/g> { ?s ?p ?o } } }", false, "")]
+    [InlineData("LOAD <http://ex/data.ttl>", false, "")]
+    [InlineData("CLEAR ALL", false, "")]
+    public void A_migrations_graphs_are_named_or_it_falls_back(string update, bool named, string graphs)
+    {
+        Assert.Equal(named, MigrationScope.TryOf(update, out HashSet<string?> scope));
+
+        if (named)
+        {
+            Assert.Equal(
+                [.. graphs.Split(' ').Order(StringComparer.Ordinal), SparqlHttpClient.SetupGraph],
+                scope.Select(g => g ?? "default").Where(g => g != SparqlHttpClient.SetupGraph).Order(StringComparer.Ordinal).Append(SparqlHttpClient.SetupGraph));
+        }
+    }
+
     [Fact]
     public async Task A_setup_is_refused_for_another_dataset()
     {
@@ -276,6 +323,24 @@ public class SetupTests
     // A settings commit names an agent (ADR 0106): the test's identity has one.
     private static Task<ProtocolTestHost> StartAsync(Dataset dataset) =>
         ProtocolTestHost.StartAsync(dataset, identity: new Someone(), stopping: C.Ct);
+
+    /// <summary>Commits to a graph no migration names before every update: another writer, always first.</summary>
+    private sealed class RacingElsewhere(ISparqlUpdateExecutor inner, Dataset dataset) : ISparqlUpdateExecutor
+    {
+        private int _n;
+
+        public async ValueTask<CommitResult> ExecuteAsync(Dataset target, Update update, CommitMetadata metadata, UpdatePreconditions preconditions, CallerScope scope, CancellationToken cancellationToken)
+        {
+            int n = Interlocked.Increment(ref _n);
+            CommitRequest elsewhere = new CommitRequest().Assert(
+                RequestTerm.FromTerm(RdfTerm.Iri("http://elsewhere.example/s"u8)),
+                RequestTerm.FromTerm(RdfTerm.Iri("http://elsewhere.example/p"u8)),
+                RequestTerm.FromTerm(RdfTerm.Literal(Encoding.UTF8.GetBytes("r" + n.ToString(System.Globalization.CultureInfo.InvariantCulture)))),
+                RequestTerm.FromTerm(RdfTerm.Iri("http://elsewhere.example/g"u8)));
+            await dataset.CommitAsync(elsewhere, cancellationToken);
+            return await inner.ExecuteAsync(target, update, metadata, preconditions, scope, cancellationToken);
+        }
+    }
 
     private sealed class Someone : ICallerIdentity
     {

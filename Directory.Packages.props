@@ -122,6 +122,26 @@
     <PackageVersion Include="Microsoft.Identity.Web" Version="4.16.0" Adr="0133" Scope="samples/" />
   </ItemGroup>
 
+  <ItemGroup Label="Events: the Event Hubs sample and the schema validator of the tests (ADR 0146)">
+    <!-- Azure.Messaging.EventHubs, MIT, managed (lib/net8.0 and
+         netstandard2.0, no runtimes/): the Event Hubs bridge sample publishes
+         rendered CloudEvents with it (ADR 0143); its Azure.Core, Azure.Core.Amqp
+         and Microsoft.Azure.Amqp closure, MIT and managed, comes with it into
+         the sample alone. An Event Hubs package in src/ is a non-goal until a
+         second consumer wants one.
+         JsonSchema.Net, MIT: the events tests validate every rendered event
+         against its generated schema (2020-12) and every AsyncAPI document
+         against the AsyncAPI 3.0 schema (draft-07). Pinned at 8.0.5, the last
+         release whose package licence is the MIT expression alone: from 9.0.0
+         the binaries carry the json-everything Open Source Maintenance Fee
+         agreement, so Dependabot's 9.x proposals are declined with ADR 0146.
+         Its lib/ holds net8.0, net9.0, net10.0 and netstandard2.0 and no
+         runtimes/ folder: no native asset. Its closure, JsonPointer.Net 6.0.0,
+         Json.More.Net 2.2.0 and Humanizer.Core 3.0.1, is MIT and managed. -->
+    <PackageVersion Include="Azure.Messaging.EventHubs" Version="5.12.2" Adr="0146" Scope="samples/" />
+    <PackageVersion Include="JsonSchema.Net" Version="8.0.5" Adr="0146" Scope="tests/" />
+  </ItemGroup>
+
   <ItemGroup Label="Varve.Aspire and its sample (ADR 0117)">
     <!-- The hosting integration's one reference: Aspire's hosting model, MIT,
          managed, which it extends with AddVarve; it references nothing from
@@ -133,6 +153,14 @@
     <PackageVersion Include="Aspire.Hosting" Version="13.6.1" Adr="0117" Scope="src/Varve.Aspire/, samples/" />
     <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.6.1" Adr="0117" Scope="samples/" />
     <PackageVersion Include="Aspire.Hosting.Testing" Version="13.6.1" Adr="0117" Scope="samples/" />
+    <!-- Pinned past Aspire.Hosting 13.6.1's own dependency (2.5.302), which
+         NuGet's audit flags: GHSA-qhrr-8q5h-9q3h (moderate; nested arrays
+         allocate past the depth limit when deserialising into object),
+         patched in 2.5.303. Transitive pinning lifts it in the closure of
+         Varve.Aspire and the Aspire sample alone; ADR 0117's amendment of
+         2026-10-16 admits it, and it leaves when Aspire.Hosting's own
+         dependency moves past the advisory. -->
+    <PackageVersion Include="MessagePack" Version="2.5.303" Adr="0117" Scope="src/Varve.Aspire/, samples/" />
   </ItemGroup>
 
   <!--
@@ -150,6 +178,8 @@
     | public.ecr.aws/docker/library/postgres | 18.6-alpine | PostgreSQL | .github/zitadel/compose.yaml |
     | mcr.microsoft.com/azure-storage/azurite | 3.37.0 | MIT | .github/storage/compose.yaml (ADR 0134) |
     | ghcr.io/rustfs/rustfs | 1.0.1 | Apache-2.0 | .github/storage/compose.yaml (ADR 0134) |
+    | mcr.microsoft.com/azure-messaging/eventhubs-emulator | 2.2.1 | Microsoft's emulator licence, accepted by ACCEPT_EULA=Y (run in CI, never linked or shipped; ADR 0146) | .github/eventhubs/compose.yaml |
+    | mcr.microsoft.com/azure-storage/azurite | 3.37.0 | MIT (ADR 0146) | .github/eventhubs/compose.yaml |
   -->
 
   <ItemGroup Label="Test-time">

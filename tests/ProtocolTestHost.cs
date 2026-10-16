@@ -101,6 +101,7 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         bool http2 = false,
         TelemetryOptions? telemetry = null,
         bool inMemory = false,
+        string? eventSource = null,
         CancellationToken stopping = default)
     {
         WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
@@ -140,6 +141,7 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
             Evaluation = Evaluation(clock ?? TimeProvider.System, serviceHandler, randomness, bounds),
             Stopping = stopping,
             Telemetry = telemetry ?? TelemetryOptions.Default,
+            EventSource = eventSource,
         };
 
         if (map is null)

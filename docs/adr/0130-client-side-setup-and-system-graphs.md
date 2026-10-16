@@ -183,6 +183,73 @@ Two details stop "just `POST` it" from being idempotent.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
 
+## Amendment, 2026-10-15 — the event catalogue graphs, and the first derived grant
+
+Filed by milestone Client and integration, part 2, of #93, unaccepted until
+the maintainer accepts it (ADR 0066).
+
+- **More system graphs.** The graphs named `varve:events-catalogue/{enc(G)}`
+  (ADR 0144) are system graphs on point 5's terms: ordinary data, in the log,
+  visible to SPARQL, time-travellable, written by any write path.
+- **Point 5's "no special treatment" no longer holds for them.** A catalogue
+  graph is governed by its source graph (ADR 0107's seam, amended the same
+  day): a caller reads it exactly when it reads G and writes it exactly when it
+  writes G, and a grant naming it has no effect. `varve:setup` keeps point 5
+  as written.
+- **They are checked.** A commit that touches one runs ADR 0145's validator.
+
+**The ledger.** The ruling of this block is `CatalogueGraphsGovernedBySource`,
+unaccepted until the maintainer accepts it.
+
+## Amendment, 2026-10-15 — a migration states the graphs it names
+
+Filed by milestone Client and integration, part 2, of #93, unaccepted until
+the maintainer accepts it (ADR 0066). It replaces point 4's `If-Match`, part
+1's whole-dataset precondition, which part 1 left for part 2 once Commit path
+(#91) had landed.
+
+- **The request.** A migration's request states `Varve-If-Graphs-Match` (ADR
+  0126). It names `varve:setup` and every graph the migration's operations
+  name: the default graph where a pattern or a template stands outside
+  `GRAPH`, a `WITH` or `USING` graph, and the graphs of `CLEAR`, `DROP`,
+  `CREATE`, `ADD`, `MOVE` and `COPY`. A commit to any other graph no longer
+  moves it. A commit to a graph it reads still does: the header is the scope
+  the server checks at commit.
+- **The fallback.** A migration whose graphs cannot all be named is sent under
+  the dataset-wide `If-Match` at the position the records were read at, as
+  point 4 said. That covers `GRAPH ?g`, a `LOAD`, `CLEAR ALL` or `NAMED`, and
+  an `EXISTS`, which may read any graph.
+- **The versions.** A graph never named by an answer is stated at version 0,
+  never written. A `412` names each stale graph's version (ADR 0126 point 8),
+  and the next attempt states it, with the records read again. After a
+  migration commits, its commit is `varve:setup`'s version. Two appliers
+  starting together still apply each migration once, because they conflict on
+  `varve:setup`.
+
+**The ledger.** The ruling of this block is `MigrationsStateTheirGraphs`,
+unaccepted until the maintainer accepts it.
+
+## Amendment, 2026-10-15 — one Graph Store write API
+
+Filed by milestone Client and integration, part 2, of #93, unaccepted until
+the maintainer accepts it (ADR 0066). Part 1 added Graph Store writes that
+took a `byte[]` for its baselines. Commit path (#91) added conditional ones
+that took a `string`. Part 1 left the two for part 2 to make one.
+
+- **The API.** `PutGraphAsync`, `PostGraphAsync` and `DeleteGraphAsync` take
+  the graph (null for the default graph), a `GraphContent`, and a
+  `GraphCondition`.
+  - A `GraphContent` is bytes in a media type, made by `FromBytes` or
+    `FromText`.
+  - A `GraphCondition` is `None`, `IfMatch(version)`, which is ADR 0126's
+    `If-Match`, or `IfAbsent`, which is `If-None-Match: *`, a create.
+  - `CreateGraphAsync` and the six overloads it replaces are gone.
+- **Breaking, under ADR 0118.** The release descriptor lists it. A baseline
+  is still a `POST` with no condition (point 1).
+
+**The ledger.** The ruling of this block is `OneGraphStoreWriteApi`,
+unaccepted until the maintainer accepts it.
+
 ## Amendment, 2026-10-15 — `storage: ObjectStorage`
 
 Filed by milestone Object storage of #92, unaccepted until the maintainer

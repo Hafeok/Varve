@@ -583,3 +583,21 @@ the optional real-account leg) and RustFS, as the supported ones;
 `configure.md` and the small-machine page say any other S3-compatible store is
 untested. The previous addendum's "a follower needs write access to `probe/`"
 no longer holds: a follower needs only read access.
+
+## Addendum, 2026-10-16: the release is `v0.1.0-preview.8`
+
+The maintainer's message:
+
+> #113 just landed on main
+
+**What changed.** `main` was merged in with #113's `v0.1.0-preview.7`. This
+milestone's descriptor is now `releases/v0.1.0-preview.8.yaml`, with the same
+content under the new version, and `CHANGELOG.md` was projected again from it.
+The README's status names `preview.8` as the latest release and `preview.7` as
+the one before it, counts twenty-two packages (#113 added `Varve.Json.Canonical`
+and `Varve.Events`), and its image tags are `preview.8`. The conflicts were
+additive: ADRs 0117, 0119 and 0130 keep both milestones' amendments, the ADR
+index both milestones' tables, the dependabot and image registers both
+milestones' compose directories, `Varve.Protocol`'s API baseline both
+milestones' entries, and the problem catalogue test lists both
+`writer-superseded` and `event-not-rendered` as tested elsewhere.

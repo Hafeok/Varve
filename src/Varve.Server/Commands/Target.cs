@@ -9,6 +9,7 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using Varve.Protocol;
 using Varve.Protocol.Client;
 using Varve.Sparql.Evaluation;
 using Varve.Sparql.Store;
@@ -133,7 +134,7 @@ internal sealed class Target
 
         try
         {
-            DatasetOptions options = new() { Clock = clock };
+            DatasetOptions options = new() { Clock = clock, Validators = [new EventCatalogueValidator()] };
             Dataset dataset = exists
                 ? await Varve.Store.Dataset.OpenAsync(files, options, cancellationToken).ConfigureAwait(false)
                 : await Varve.Store.Dataset.CreateAsync(files, new DatasetId(Guid.NewGuid()), options, cancellationToken).ConfigureAwait(false);

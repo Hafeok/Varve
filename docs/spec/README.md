@@ -78,6 +78,12 @@ The order is specification, then ADR, then code.
   server-sent-events framing, range resolution (start at or after, end at or
   before), filters, and the properties the implementation is tested against.
   Proposed with ADR 0097.
+- **[`events.md`](events.md)** — domain events: the catalogue graphs and
+  the declaration vocabulary, when an event occurs, its rendering as a
+  canonical CloudEvent through a declared `SELECT` and the XSD-to-JSON mapping
+  with its number rule, problems in the stream, schemas with immutable
+  revisions, AsyncAPI, the checks on a declaration change, and the endpoints.
+  Proposed with ADRs 0143–0145 and 0147.
 - **[`sparql-results.md`](sparql-results.md)** — the four result formats'
   readers and writers: one pull reader over UTF-8 with term views, a
   non-validating XML subset reader, positions on error; one push writer to

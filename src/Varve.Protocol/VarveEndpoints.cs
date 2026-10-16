@@ -41,7 +41,44 @@ public static class VarveEndpoints
         routes.MapDatasetStatus("/status", options);
         routes.Map("/settings", Tracing.Traced("settings", options, context => AdminEndpoints.SettingsAsync(context, options)));
         routes.Map("/checkpoints", Tracing.Traced("checkpoints", options, context => AdminEndpoints.CheckpointAsync(context, options)));
+        routes.MapEvents("/events", options);
         return routes;
+    }
+
+    /// <summary>
+    /// A dataset's events (ADRs 0143–0145): <paramref name="pattern"/> for a
+    /// range of rendered CloudEvents, <c>{pattern}/types</c> for the types,
+    /// <c>{pattern}/types/{type}</c>, <c>…/versions/{n}</c> and
+    /// <c>…/revisions/{r}</c> for a schema, and <c>{pattern}/asyncapi</c>.
+    /// </summary>
+    public static IEndpointRouteBuilder MapEvents(this IEndpointRouteBuilder routes, string pattern, ProtocolOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(routes);
+        ArgumentNullException.ThrowIfNull(pattern);
+        ArgumentNullException.ThrowIfNull(options);
+        string prefix = pattern.TrimEnd('/');
+        string type = prefix + "/types/{" + EventsEndpoints.TypeRouteValue + "}";
+        routes.Map(prefix, Tracing.Traced("events", options, context => EventsEndpoints.HandleAsync(context, options)));
+        routes.Map(prefix + "/types", Tracing.Traced("event types", options, context => EventsEndpoints.TypesAsync(context, options)));
+        routes.Map(type, Tracing.Traced("event schema", options, context => EventsEndpoints.SchemaAsync(context, options)));
+        routes.Map(type + "/versions/{" + EventsEndpoints.VersionRouteValue + "}", Tracing.Traced("event schema", options, context => EventsEndpoints.SchemaAsync(context, options)));
+        routes.Map(type + "/versions/{" + EventsEndpoints.VersionRouteValue + "}/revisions/{" + EventsEndpoints.RevisionRouteValue + "}",
+            Tracing.Traced("event schema", options, context => EventsEndpoints.SchemaAsync(context, options)));
+        routes.Map(prefix + "/asyncapi", Tracing.Traced("asyncapi", options, context => EventsEndpoints.AsyncApiAsync(context, options)));
+        return routes;
+    }
+
+    /// <summary>
+    /// The server-wide list of event types (ADR 0144): every dataset's types
+    /// the caller reads, each with its dataset, under <paramref name="pattern"/>
+    /// (<c>/events/types</c>). Needs <see cref="ProtocolOptions.Administration"/>
+    /// to list the datasets.
+    /// </summary>
+    public static IEndpointConventionBuilder MapVarveEventTypes(this IEndpointRouteBuilder routes, string pattern, ProtocolOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(routes);
+        ArgumentNullException.ThrowIfNull(options);
+        return routes.Map(pattern, Tracing.Traced("server event types", options, context => EventsEndpoints.ServerTypesAsync(context, options)));
     }
 
     /// <summary>

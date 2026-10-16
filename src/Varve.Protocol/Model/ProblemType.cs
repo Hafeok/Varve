@@ -61,6 +61,15 @@ public readonly record struct ProblemType
     /// <summary>A pre-commit validator rejected the commit; the body carries its report.</summary>
     public static ProblemType Rejected { get; } = new("rejected");
 
+    /// <summary>A change to an event catalogue graph is not a well-formed declaration (ADR 0145).</summary>
+    public static ProblemType EventDeclarationInvalid { get; } = new("event-declaration-invalid");
+
+    /// <summary>A declaration change is incompatible with the version it keeps (ADR 0145).</summary>
+    public static ProblemType EventSchemaIncompatible { get; } = new("event-schema-incompatible");
+
+    /// <summary>An event could not be rendered; never a response, always an in-band CloudEvent's data (ADR 0143).</summary>
+    public static ProblemType EventNotRendered { get; } = new("event-not-rendered");
+
     /// <summary>The dataset cannot commit now: failed, closing, or behind.</summary>
     public static ProblemType Unavailable { get; } = new("unavailable");
 

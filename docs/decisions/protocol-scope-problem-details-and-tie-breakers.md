@@ -47,6 +47,10 @@ decisions:
     statement: "sparql11/protocol and sparql11/graph-store-protocol are gates, http-rdf-update runs as deprecated under its own guard, and service-description's three names are our own checks, all over the memory and file stores"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-08T00:00:00Z
+  - key: EventVocabulary
+    statement: "The varve: vocabulary gains the event catalogue's classes, properties and graph names and the service description's event links, each listed in docs/vocabulary.md"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-16T00:00:00Z
 ---
 
 The rulings of [ADR 0092](../adr/0092-protocol-scope-problem-details-and-tie-breakers.md), filed unaccepted by milestone 7a of #11

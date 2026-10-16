@@ -299,6 +299,18 @@ Filed by milestone Object storage ([#92](https://github.com/Hafeok/Varve/issues/
 | [0141](0141-realestatecore-as-the-reference-domain.md) | RealEstateCore as the reference domain for learning and testing | Filed unaccepted (Object storage, #92), from the maintainer's draft |
 | [0142](0142-deployment-on-container-apps-and-small-machines.md) | Deployment: Azure Container Apps with an identity-only store, the Aspire Azure variant, small machines | Filed unaccepted (Object storage, #92) |
 
+## Milestone Client and integration — events, catalogue, schema registry (second part)
+
+Filed by milestone Client and integration, part 2 ([#93](https://github.com/Hafeok/Varve/issues/93)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0143: Object storage ([#92](https://github.com/Hafeok/Varve/issues/92)) holds 0134–0142. Amended by it, likewise unaccepted: 0092 (the event vocabulary); 0107 (a graph may be governed by another); 0119 (three problem types and the validator's path); 0123 (RFC 8785 moves to `Varve.Json.Canonical`); 0130 (the catalogue graphs, the first derived grant).
+
+| # | Title | Status |
+|---:|---|---|
+| [0143](0143-domain-events-as-cloudevents.md) | Domain events as quads, rendered as CloudEvents in canonical JSON | Filed unaccepted (Client and integration, #93) |
+| [0144](0144-the-event-catalogue.md) | The event catalogue: declarations as data, one graph per source graph, governed by it; amends 0107 and 0130 | Filed unaccepted (Client and integration, #93) |
+| [0145](0145-the-event-schema-registry.md) | The event schema registry: versions, immutable revisions, compatibility checked at commit | Filed unaccepted (Client and integration, #93) |
+| [0146](0146-the-register-for-events.md) | The register for events: the Event Hubs SDK in a sample, a schema validator in tests, and the emulator's images | Filed unaccepted (Client and integration, #93) |
+| [0147](0147-varve-json-canonical.md) | `Varve.Json.Canonical`: one RFC 8785 implementation, at layer 0; amends 0123 | Filed unaccepted (Client and integration, #93) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |

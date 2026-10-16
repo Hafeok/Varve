@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../Varve.Json.Canonical/Varve.Json.Canonical.csproj" />
     <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
     <ProjectReference Include="../Varve.Iri/Varve.Iri.csproj" />
     <ProjectReference Include="../Varve.Xsd/Varve.Xsd.csproj" />

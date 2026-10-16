@@ -23,6 +23,10 @@ decisions:
     statement: "WithDataset takes an optional setup file and runs varve setup apply from the server's image against the healthy server, authenticated by WithSetupClient under WithOidc; Varve.Aspire still references nothing from Varve; amended 2026-10-13 under ADR 0131"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-15T00:00:00Z
+  - key: MessagePackPinnedPastTheAdvisory
+    statement: "MessagePack, which Aspire.Hosting brings into Varve.Aspire's and the sample's closures, is pinned by central transitive pinning to 2.5.303, past GHSA-qhrr-8q5h-9q3h, scoped to src/Varve.Aspire/ and samples/, until Aspire.Hosting's own dependency moves past it; amended 2026-10-16"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-16T00:00:00Z
 ---
 
 The rulings of [ADR 0117](../adr/0117-varve-aspire.md), filed unaccepted by milestone Operability of #12

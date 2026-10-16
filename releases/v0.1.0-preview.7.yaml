@@ -1,119 +1,87 @@
 format: 1
 version: v0.1.0-preview.7
-title: Object storage — the log, the projection and the deployment in an object store
-date: 2026-10-16
+title: Client and integration, part 2 — domain events, the event catalogue, the schema registry
+date: 2026-10-15
 basis:
-  - issue: 92
+  - issue: 93
   - storage-format: 1
   - delta-format: 1
-  - adr: "0134"
-  - adr: "0135"
-  - adr: "0136"
-  - adr: "0137"
-  - adr: "0138"
-  - adr: "0139"
-  - adr: "0140"
-  - adr: "0141"
-  - adr: "0142"
+  - adr: "0143"
+  - adr: "0144"
+  - adr: "0145"
+  - adr: "0146"
+  - adr: "0147"
 accepted-by: mailto:emil@okkels-klein.dk
 summary: |
-  ### Milestone Object storage — the log, the projection and the deployment in an object store
+  ### Milestone Client and integration, part 2 — domain events, the event catalogue, the schema registry
 
-  A dataset can live in Azure Blob Storage or an S3-compatible store, with
-  no disk of its own but a cache. This release closes milestone Object
-  storage (#92). The log's bytes are unchanged, so storage format 1 holds
-  and a dataset moves between a directory and a container by copying its
-  objects. The derived files go to format 4: checkpoints become extent
-  sets, and a dataset written in format 3 migrates as it runs. The nine
-  ADRs are filed unaccepted and accepted on the pull request (ADR 0066).
+  The same events for systems that do not speak RDF. This release closes
+  milestone Client and integration (#93); its first part shipped in
+  `v0.1.0-preview.6`. The storage format and the change feed's format are
+  unchanged. The five ADRs are filed unaccepted and accepted on the pull
+  request (ADR 0066).
 
   #### Added
 
-  - **`IObjectStore`** in `Varve.Store` (ADR 0134). Five operations: read a
-    range, create if absent, replace if unchanged, list a prefix, and
-    delete. A contract suite every adapter passes, including a race
-    property: of N clients racing one create or one replace, exactly one
-    wins.
-  - **`Varve.Store.ObjectStorage`** (ADRs 0135, 0136): the backend.
-    - The log is write-once chunk objects, one create per commit batch. A
-      seal consolidates its segment into one object, and maintenance
-      deletes the chunks off the commit path, so chunks are bounded by the
-      open segment.
-    - One writer is enforced by an epoch in a `writer` object, fenced by
-      the next log slot, with no lease and no timer. Opening for write
-      claims the next epoch, and the writer record lists every claim with
-      its trigger, `restart` or `operator`. A read-only open never claims.
-    - A superseded writer stays open read-only and never claims again. A
-      graceful shutdown abdicates.
-    - `Durability.Replicated`.
-    - A page cache on local disk, bounded by `CacheBytes`.
-  - **`Varve.Store.Azure`**: Blob Storage over its REST API, with
-    `x-ms-version` pinned. The credentials are the workload's identity
-    (ADR 0137): the Container Apps managed-identity endpoint, workload
-    identity through `AZURE_FEDERATED_TOKEN_FILE`, or `az` on a
-    workstation. Tokens are never logged, put in a problem body, or put in
-    telemetry.
-  - **`Varve.Store.S3`**: SigV4, with web identity as its credential. An
-    S3-compatible server (RustFS in CI) passed the full contract suite.
-  - **A store that does not enforce conditional writes is refused** (ADR
-    0134). A writer's open first probes under `probe/{random}` that a
-    second create-if-absent and a replace against a stale version are both
-    refused. If either succeeds, the open fails with
-    `ConditionalWritesNotEnforcedException`, naming the store. Garage is
-    one such store. A follower does not probe and needs only read access.
-    The supported stores are those the contract suite's race property has
-    passed, Azure Blob Storage and RustFS; any other S3-compatible store is
-    untested. A writer supplies `ObjectStorageOptions.ProbeRandomness`.
-  - **Static keys only on loopback** (ADR 0137): an emulator on
-    `127.0.0.1` takes its development key. Anywhere else, a key, a SAS
-    token or a connection string is refused at start, by name.
-  - **Extents** (ADRs 0138, 0139):
-    - A checkpoint is a chain of extent sets, each the validity intervals
-      of the quads that changed in its range, with a dictionary, named by a
-      catalog under the writer's fence.
-    - As-of reads inside a checkpoint's range are served from the extents
-      instead of a full run per checkpoint. Head reads merge across the
-      sets, so the operator guide states a checkpoint budget (at most 20)
-      until Extent maintenance lands.
-    - **A cold start reads the log only after the catalog.** The catalog
-      records where the log continues, the backend's slot there and its
-      sets' ends' commit index entries. A backend that keeps its log in
-      parts implements the new `ISegmentCursor` (with `SegmentSlot`), and
-      an open reads only the chunks from that slot on. The commit index
-      below the catalog is read from the log on the first read that needs
-      it, and kept in the local cache. Scale to zero is the deployment's
-      default.
-  - **The server**:
-    - `Varve:ObjectStorage` names one store, with each dataset under its
-      own prefix.
-    - `/health/ready` reports `superseded` and is false for a superseded
-      dataset, while `/health/live` stays true.
-    - A write to it answers `503 writer-superseded`.
-    - `varve lease` shows the writer record, and `--take --epoch <n>` takes
-      the dataset over as an operator.
-  - **Deployment** (ADR 0142):
-    - `deploy/azure/container-apps/`: one replica, a storage account with
-      shared-key access off, and the app's identity granted the container
-      alone.
-    - `Varve.Aspire`'s `WithAzureBlobStorage`.
-    - Operator pages for Azure Container Apps and for a small machine. On a
-      small machine the file backend on an NVMe SSD is the supported setup.
-  - **The reference domain** (ADR 0141): RealEstateCore 4.1.0 is vendored
-    with its SHA-256s. A deterministic portfolio generator gives sizes S, M
-    and L, which drive the benchmarks and the properties.
-  - ADR 0140 records what Varve takes from Azure Data Explorer, and what it
-    does not.
+  - **Domain events as CloudEvents** (ADR 0143). A publisher writes an event
+    as quads in an events graph, in the same commit as the change it
+    describes. `Varve.Events` (layer 4) renders each one as a CloudEvent 1.0
+    in structured JSON, in RFC 8785 canonical form. It uses a declared SPARQL
+    `SELECT` and the declaration in force at the commit's position, so a
+    replay yields the same bytes.
+    - A number is written only when it survives a double round trip
+      exactly.
+    - An event that cannot be rendered stands in its place as a CloudEvent of
+      the problem type `event-not-rendered`, never guessed and never skipped.
+    - Served at `GET /datasets/{name}/events` as a batch,
+      `application/cloudevents-batch+json`, and as server-sent events on an
+      open range, with the commits resource's positions.
+  - **The event catalogue** (ADR 0144). Declarations are data in one catalogue
+    graph per source graph, `varve:events-catalogue/{source}`, readable and
+    writable exactly by the source graph's readers and writers.
+    - The catalogue's views: `GET …/events/types`, an AsyncAPI 3.0 document at
+      `…/events/asyncapi`, and SPARQL over the catalogue graphs. All three
+      agree at every position and under every grant.
+    - The service description links them.
+  - **The schema registry** (ADR 0145). JSON Schema 2020-12, generated from a
+    declaration on read, at immutable versioned and revisioned URLs, held by
+    golden files under the read-forever rule.
+    - A breaking change is refused with `event-schema-incompatible` unless it
+      raises the version.
+    - A malformed declaration is refused with `event-declaration-invalid`.
+    - `GET /events/types` lists the types of every dataset the caller reads.
+  - **`FollowEventsAsync`** in `Varve.Protocol.Client`: `FollowAsync`'s
+    sibling over the events resource, handing over each commit's events as
+    the canonical bytes the server rendered. Also new: `EventsAsync`,
+    `EventTypesAsync`, `EventSchemaAsync`, `AsyncApiAsync` and
+    `ServerEventTypesAsync`.
+  - **`Varve.Json.Canonical`** (layer 0, ADR 0147): RFC 8785 canonical JSON,
+    the one implementation `Varve.JsonLd` and `Varve.Events` share, with a
+    writer that cannot write anything else.
+  - **The Event Hubs bridge**, `samples/Varve.EventHubs.Sample` (ADR 0146). It
+    publishes each event to Azure Event Hubs, partitioned by dataset, and is
+    tested in CI against the Event Hubs emulator, resumed from every
+    position.
+  - `Varve:Events:Source` fixes the base of event and schema URLs, and
+    `Varve:Events:EventHubs` adds an Event Hubs server to the AsyncAPI
+    document. The operator guide's Integrate page shows one type end to end
+    and states what a replay costs.
 
   #### Changed
 
-  - **Derived format 4** (breaking for a reader of `derived/`, which no
-    package exposes). A format-3 dataset opens on its full checkpoints,
-    starts a chain of sets at its first checkpoint under this release, and
-    lets the old checkpoints be dropped, with no change to any answer.
-  - `Varve.Protocol`: `DatasetStorage.ObjectStorage`, and the problem type
-    `writer-superseded`.
-  - `Varve.Protocol.Client`: `SetupStorage.ObjectStorage` in a dataset's
-    setup.
-  - `Dataset.AsOfLogDistance` is public: the commits an as-of read replays
-    from the log, none where the extents answer. ADR 0114's as-of bound
-    is measured with it.
+  - **`Varve.Protocol.Client`, the Graph Store writes** (breaking).
+    `PutGraphAsync`, `PostGraphAsync` and `DeleteGraphAsync` take a
+    `GraphContent` (`FromBytes`, `FromText`) and a `GraphCondition` (`None`,
+    `IfMatch(version)`, `IfAbsent`). The `byte[]` and `string` overloads and
+    `CreateGraphAsync` are removed; `CreateGraphAsync(g, c)` becomes
+    `PutGraphAsync(g, c, GraphCondition.IfAbsent)`.
+  - **Setup migrations** state the graphs they name in `Varve-If-Graphs-Match`
+    instead of the whole dataset's `If-Match`. So a writer of another graph
+    no longer moves a migration; one whose graphs cannot be stated falls back
+    to the whole dataset.
+  - `GraphScope` gains a governing-graph seam (ADR 0107 amended).
+  - `Varve.JsonLd` writes `rdf:JSON` through `Varve.Json.Canonical`. Its bytes
+    are unchanged.
+  - **`Varve.Aspire`**: `MessagePack`, which `Aspire.Hosting` 13.6.1 brings in
+    at 2.5.302, is pinned to 2.5.303, past GHSA-qhrr-8q5h-9q3h (ADR 0117
+    amended).

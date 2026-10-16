@@ -46,6 +46,7 @@ internal static class SettingsCheck
         "Telemetry:QueryText",
         "Cors:AllowedOrigins:*", "Cors:MaxAge",
         "Store:GroupCommit:MaxRecords", "Store:GroupCommit:MaxBytes",
+        "Events:Source", "Events:EventHubs:Host", "Events:EventHubs:Hub",
     ];
 
     /// <summary>The leaf keys under <paramref name="section"/> that match no known pattern, as <c>Varve:…</c> paths.</summary>
@@ -353,6 +354,19 @@ internal static class SettingsCheck
         if (settings.Cors.MaxAge < TimeSpan.Zero)
         {
             errors.Add("Varve:Cors:MaxAge is zero or more.");
+        }
+
+        if (settings.Events.Source is { } source
+            && (!(source.StartsWith("https://", StringComparison.Ordinal) || source.StartsWith("http://", StringComparison.Ordinal))
+                || !source.EndsWith('/')
+                || source.IndexOf('/', source.IndexOf("://", StringComparison.Ordinal) + 3) <= source.IndexOf("://", StringComparison.Ordinal) + 3))
+        {
+            errors.Add("Varve:Events:Source is an absolute http or https URL ending in '/', not '" + source + "' (ADR 0143).");
+        }
+
+        if (string.IsNullOrEmpty(settings.Events.EventHubs.Host) != string.IsNullOrEmpty(settings.Events.EventHubs.Hub))
+        {
+            errors.Add("Varve:Events:EventHubs names a Host and a Hub, both or neither (ADR 0144).");
         }
 
         return errors;

@@ -12,7 +12,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-## [0.1.0-preview.7] - 2026-10-16
+## [0.1.0-preview.8] - 2026-10-16
 
 **Object storage — the log, the projection and the deployment in an object store**
 
@@ -116,6 +116,83 @@ ADRs are filed unaccepted and accepted on the pull request (ADR 0066).
 - `Dataset.AsOfLogDistance` is public: the commits an as-of read replays
   from the log, none where the extents answer. ADR 0114's as-of bound
   is measured with it.
+
+## [0.1.0-preview.7] - 2026-10-15
+
+**Client and integration, part 2 — domain events, the event catalogue, the schema registry**
+
+### Milestone Client and integration, part 2 — domain events, the event catalogue, the schema registry
+
+The same events for systems that do not speak RDF. This release closes
+milestone Client and integration (#93); its first part shipped in
+`v0.1.0-preview.6`. The storage format and the change feed's format are
+unchanged. The five ADRs are filed unaccepted and accepted on the pull
+request (ADR 0066).
+
+#### Added
+
+- **Domain events as CloudEvents** (ADR 0143). A publisher writes an event
+  as quads in an events graph, in the same commit as the change it
+  describes. `Varve.Events` (layer 4) renders each one as a CloudEvent 1.0
+  in structured JSON, in RFC 8785 canonical form. It uses a declared SPARQL
+  `SELECT` and the declaration in force at the commit's position, so a
+  replay yields the same bytes.
+  - A number is written only when it survives a double round trip
+    exactly.
+  - An event that cannot be rendered stands in its place as a CloudEvent of
+    the problem type `event-not-rendered`, never guessed and never skipped.
+  - Served at `GET /datasets/{name}/events` as a batch,
+    `application/cloudevents-batch+json`, and as server-sent events on an
+    open range, with the commits resource's positions.
+- **The event catalogue** (ADR 0144). Declarations are data in one catalogue
+  graph per source graph, `varve:events-catalogue/{source}`, readable and
+  writable exactly by the source graph's readers and writers.
+  - The catalogue's views: `GET …/events/types`, an AsyncAPI 3.0 document at
+    `…/events/asyncapi`, and SPARQL over the catalogue graphs. All three
+    agree at every position and under every grant.
+  - The service description links them.
+- **The schema registry** (ADR 0145). JSON Schema 2020-12, generated from a
+  declaration on read, at immutable versioned and revisioned URLs, held by
+  golden files under the read-forever rule.
+  - A breaking change is refused with `event-schema-incompatible` unless it
+    raises the version.
+  - A malformed declaration is refused with `event-declaration-invalid`.
+  - `GET /events/types` lists the types of every dataset the caller reads.
+- **`FollowEventsAsync`** in `Varve.Protocol.Client`: `FollowAsync`'s
+  sibling over the events resource, handing over each commit's events as
+  the canonical bytes the server rendered. Also new: `EventsAsync`,
+  `EventTypesAsync`, `EventSchemaAsync`, `AsyncApiAsync` and
+  `ServerEventTypesAsync`.
+- **`Varve.Json.Canonical`** (layer 0, ADR 0147): RFC 8785 canonical JSON,
+  the one implementation `Varve.JsonLd` and `Varve.Events` share, with a
+  writer that cannot write anything else.
+- **The Event Hubs bridge**, `samples/Varve.EventHubs.Sample` (ADR 0146). It
+  publishes each event to Azure Event Hubs, partitioned by dataset, and is
+  tested in CI against the Event Hubs emulator, resumed from every
+  position.
+- `Varve:Events:Source` fixes the base of event and schema URLs, and
+  `Varve:Events:EventHubs` adds an Event Hubs server to the AsyncAPI
+  document. The operator guide's Integrate page shows one type end to end
+  and states what a replay costs.
+
+#### Changed
+
+- **`Varve.Protocol.Client`, the Graph Store writes** (breaking).
+  `PutGraphAsync`, `PostGraphAsync` and `DeleteGraphAsync` take a
+  `GraphContent` (`FromBytes`, `FromText`) and a `GraphCondition` (`None`,
+  `IfMatch(version)`, `IfAbsent`). The `byte[]` and `string` overloads and
+  `CreateGraphAsync` are removed; `CreateGraphAsync(g, c)` becomes
+  `PutGraphAsync(g, c, GraphCondition.IfAbsent)`.
+- **Setup migrations** state the graphs they name in `Varve-If-Graphs-Match`
+  instead of the whole dataset's `If-Match`. So a writer of another graph
+  no longer moves a migration; one whose graphs cannot be stated falls back
+  to the whole dataset.
+- `GraphScope` gains a governing-graph seam (ADR 0107 amended).
+- `Varve.JsonLd` writes `rdf:JSON` through `Varve.Json.Canonical`. Its bytes
+  are unchanged.
+- **`Varve.Aspire`**: `MessagePack`, which `Aspire.Hosting` 13.6.1 brings in
+  at 2.5.302, is pinned to 2.5.303, past GHSA-qhrr-8q5h-9q3h (ADR 0117
+  amended).
 
 ## [0.1.0-preview.6] - 2026-10-15
 
@@ -997,7 +1074,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.7...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.8...HEAD
+[0.1.0-preview.8]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.7...v0.1.0-preview.8
 [0.1.0-preview.7]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.6...v0.1.0-preview.7
 [0.1.0-preview.6]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.5...v0.1.0-preview.6
 [0.1.0-preview.5]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.4...v0.1.0-preview.5

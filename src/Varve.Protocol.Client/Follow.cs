@@ -60,6 +60,26 @@ public sealed partial class SparqlHttpClient
         ArgumentNullException.ThrowIfNull(checkpoint);
         ArgumentNullException.ThrowIfNull(options);
 
+        await RunAsync(
+            from,
+            checkpoint,
+            options,
+            (cursor, token) => CatchUpAsync(cursor, handler, checkpoint, options, token),
+            (cursor, delivered, token) => TailAsync(cursor, handler, checkpoint, options, delivered, token),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    // The loop FollowAsync and FollowEventsAsync share (ADR 0129): from the
+    // checkpoint or the start, history then the live tail, transient failures
+    // waited out with backoff, the caller's own failures thrown.
+    private static async Task RunAsync(
+        FeedPosition from,
+        IFollowCheckpoint checkpoint,
+        FollowOptions options,
+        Func<FeedPosition, CancellationToken, Task<FeedPosition>> catchUp,
+        Func<FeedPosition, Action, CancellationToken, Task<FeedPosition>> tail,
+        CancellationToken cancellationToken)
+    {
         FeedPosition cursor = await checkpoint.LoadAsync(cancellationToken).ConfigureAwait(false) ?? from;
         int failures = 0;
 
@@ -69,9 +89,9 @@ public sealed partial class SparqlHttpClient
 
             try
             {
-                cursor = await CatchUpAsync(cursor, handler, checkpoint, options, cancellationToken).ConfigureAwait(false);
+                cursor = await catchUp(cursor, cancellationToken).ConfigureAwait(false);
                 failures = 0;
-                cursor = await TailAsync(cursor, handler, checkpoint, options, () => failures = 0, cancellationToken).ConfigureAwait(false);
+                cursor = await tail(cursor, () => failures = 0, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception failure) when (Transient(failure, cancellationToken))
             {
