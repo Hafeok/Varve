@@ -183,3 +183,48 @@ and count, and the roadmap's milestone 8 row and standing issues, say so.
 - `PendingSource.TryInternalise` still does not find a triple term the
   commit creates by value, as before this change; a validator that has the
   handle takes it apart by handle, which is the path the evaluator uses.
+
+## Addendum, 2026-10-16: the roadmap, #111
+
+After the pull request was up, the maintainer added an item to it, with
+the roadmap as of 2026-10-15 attached (`varve-roadmap-milestones.md`,
+copied into the repository only as the prompt below says):
+
+> @"/root/.claude/uploads/2d4f81d8-8bef-56dd-83d9-4b58c7fac4e8/08cac4c4-varve-roadmap-milestones.md" One more item for this PR, as its own commit: #111.
+>
+> The attached `varve-roadmap-milestones.md` is the maintainer's roadmap as of 2026-10-15. Replace the forward-looking part of `docs/roadmap.md` with it: keep milestones 1–7, Operability, 6b and Commit path as they stand (marked complete by their descriptors), and take everything else from the attachment, including the "After 1.0" section. Then run `eng/status.cs --check` and `--fixtures`; if a status check objects to a heading or a release number in the new text, fix the text, not the check, and say what you changed.
+>
+> The commit references #111 and ends with a `Closes #111` trailer. It touches only `docs/roadmap.md` (and the README only if `eng/status.cs` requires it). Keep closing keywords out of the PR description (#108).
+
+The session took the attachment verbatim and kept the issue table and
+*Not scheduled*, which it does not cover. The only edit was to make *At a
+glance* a level-three heading, under the section's own. A first attempt kept
+the old Web UI and Replication texts beside the new paragraphs and was
+dropped, because they contradicted them. The status check and its six
+fixtures passed with no change to the text. The session reported three
+things in the new text without changing them: the Web UI and Replication
+sections pointed to "attached" texts the file no longer held, #87 was still
+shown as open, and the 1.0 section's base list and exclusions lived only in
+#15. The pull request description named its issues with closing keywords in
+prose; those were reworded, and the commit trailers close the issues.
+
+The maintainer's reply, with a corrected attachment:
+
+> @"/root/.claude/uploads/2d4f81d8-8bef-56dd-83d9-4b58c7fac4e8/948566a1-varve-roadmap-milestones.md" Thanks. You were right to keep the text unchanged; the text had three faults, now fixed in the attached `varve-roadmap-milestones.md`:
+> 1. The Web UI and Replication sections no longer say "As the attached … text states"; they point to #96, #97 and the writer handover ADR.
+> 2. #87 is shown as landed (SHACL's row, the standing issues and the SHACL section), since this PR closes it.
+> 3. The 1.0 section carries #15's full "Must be true" and "Excluded from 1.0" lists again, verbatim from the issue. #15's own Solution puts the definition in `docs/roadmap.md`, so it must not live only in the issue.
+>
+> Replace your roadmap commit's content with this file, by the same rules: keep milestones 1–7, Operability, 6b, Commit path, the issue table and "Not scheduled" as they stand, and take the rest verbatim. Amend 5149972 or add a commit referencing #111; either way only the last roadmap commit carries `Closes #111`. Re-run `eng/status.cs --check` and `--fixtures`.
+>
+> Yes to the traceability addendum, as a separate commit with `Refs #111`.
+>
+> Rewording the PR description was right (#108).
+
+The session amended 5149972, its own unmerged commit, into e4c1002, so
+that one roadmap commit carries `Closes #111`. It then pushed the branch
+with `--force-with-lease`. The forward-looking part is the corrected
+attachment, verbatim apart from the same heading level; a diff against the
+attachment shows that one line. `eng/status.cs --check` passes, and
+`--fixtures` passes with all six fixtures failing for their own reason, so
+no text was changed for the check.
