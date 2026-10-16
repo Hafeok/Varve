@@ -228,6 +228,33 @@ public sealed class StagingView : IQuadSource
     /// <inheritdoc />
     public bool TryGetInlineValue(TermHandle handle, out InlineValue value) => _view.TryGetInlineValue(handle, out value);
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// A staged triple term answers its staged parts, provisional or the
+    /// view's; every other handle is the view's question (ADR 0121).
+    /// </remarks>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    public bool TryGetTripleTermComponents(TermHandle handle, out TermHandle subject, out TermHandle predicate, out TermHandle @object)
+    {
+        if (!TermIds.IsProvisional(handle.Value))
+        {
+            return _view.TryGetTripleTermComponents(handle, out subject, out predicate, out @object);
+        }
+
+        if (TryFindStagedTriple(handle.Value, out (ulong S, ulong P, ulong O) parts))
+        {
+            subject = new TermHandle(parts.S);
+            predicate = new TermHandle(parts.P);
+            @object = new TermHandle(parts.O);
+            return true;
+        }
+
+        subject = TermHandle.None;
+        predicate = TermHandle.None;
+        @object = TermHandle.None;
+        return false;
+    }
+
     // The label a provisional blank node externalises to, and the label it
     // carries into a request: "staged" cannot be a view's own ("b<n>").
     private static RdfTerm StagedBlank(long counter) =>
@@ -283,6 +310,9 @@ public sealed class StagingView : IQuadSource
 
     [DesignDecision(typeof(StoreHotPathScope.TermLookupsAreHashLookups), Scope = ExceptionScope.HotPath)]
     private bool TryFindStagedParts(ulong s, ulong p, ulong o, out ulong id) => _tripleByParts.TryGetValue((s, p, o), out id);
+
+    [DesignDecision(typeof(StoreHotPathScope.TermLookupsAreHashLookups), Scope = ExceptionScope.HotPath)]
+    private bool TryFindStagedTriple(ulong id, out (ulong S, ulong P, ulong O) parts) => _triples.TryGetValue(id, out parts);
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private bool IsStaged(ulong id)

@@ -736,6 +736,39 @@ internal static class LogFormat
 
     internal const int MaxUlebLength = 10;
 
+    /// <summary>
+    /// The longest triple term entry: storage format §4.4's id, kind byte and
+    /// three component ids, each id a <c>uleb</c> of at most
+    /// <see cref="MaxUlebLength"/> bytes (§1). 41 bytes; an entry longer than
+    /// this is not a triple term.
+    /// </summary>
+    internal const int MaxTripleEntryLength = MaxUlebLength + 1 + (3 * MaxUlebLength);
+
+    /// <summary>
+    /// A triple term entry's three component ids (storage format §4.4),
+    /// without reading a term; false for an entry of any other kind.
+    /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal static bool TryReadTripleEntry(ReadOnlySpan<byte> entry, out ulong subject, out ulong predicate, out ulong @object)
+    {
+        Reader reader = new(entry, 0);
+        reader.Uleb();
+
+        if (reader.Byte() != TermTriple)
+        {
+            subject = 0;
+            predicate = 0;
+            @object = 0;
+            return false;
+        }
+
+        subject = reader.Uleb();
+        predicate = reader.Uleb();
+        @object = reader.Uleb();
+        reader.End();
+        return true;
+    }
+
     internal static bool HashMatches(ReadOnlySpan<byte> covered, ReadOnlySpan<byte> stored)
     {
         Span<byte> hash = stackalloc byte[HashLength];
@@ -794,6 +827,7 @@ internal static class LogFormat
         private readonly long _position;
         private int _at;
 
+        [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
         internal Reader(ReadOnlySpan<byte> bytes, long position)
         {
             _bytes = bytes;
