@@ -45,10 +45,16 @@ decisions:
     accepted-at: 2026-10-15T00:00:00Z
   - key: CatalogueGraphsGovernedBySource
     statement: "The event catalogue graphs are system graphs governed by their source graphs, the first system graphs with a derived grant; varve:setup keeps point 5 as written"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-16T00:00:00Z
   - key: MigrationsStateTheirGraphs
     statement: "A migration is sent under Varve-If-Graphs-Match on varve:setup and every graph its operations name, so a writer of another graph does not move it; one whose graphs cannot all be named falls back to the dataset-wide If-Match"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-16T00:00:00Z
   - key: OneGraphStoreWriteApi
     statement: "The client writes a graph through one API: PutGraphAsync, PostGraphAsync and DeleteGraphAsync take the graph, a GraphContent of bytes in a media type and a GraphCondition, none, IfMatch with a version or IfAbsent, in place of the byte[] and string overloads"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-16T00:00:00Z
 ---
 
 The rulings of [ADR 0130](../adr/0130-client-side-setup-and-system-graphs.md), one line each. The ADR is the

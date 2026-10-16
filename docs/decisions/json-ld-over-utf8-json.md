@@ -77,6 +77,8 @@ decisions:
     accepted-at: 2026-10-13T00:00:00Z
   - key: CanonicalFormFromVarveJsonCanonical
     statement: "Varve.JsonLd writes rdf:JSON literals through Varve.Json.Canonical, byte for byte the form JsonLiteralsAreCanonical states"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-16T00:00:00Z
 ---
 
 The rulings of [ADR 0123](../adr/0123-json-ld-over-utf8-json.md), one line each. The ADR is the

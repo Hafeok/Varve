@@ -5,10 +5,16 @@ adr: 0147
 decisions:
   - key: CanonicalJsonAtLayerZero
     statement: "Varve.Json.Canonical, at layer 0 with no Varve reference, is the one RFC 8785 implementation; Varve.JsonLd and Varve.Events use it"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-16T00:00:00Z
   - key: CanonicalBytesReadForever
     statement: "What Varve.Json.Canonical writes for an existing input never changes"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-16T00:00:00Z
   - key: JsonValuesAreBclPrimitives
     statement: "Varve.Json.Canonical's surface takes JSON's own values as the BCL types that hold them, double for a number, bool for true and false, string or UTF-8 bytes for text, and answers lengths and comparison signs as int: they are the values of the format, not quantities that could be swapped"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-16T00:00:00Z
 ---
 
 The rulings of [ADR 0147](../adr/0147-varve-json-canonical.md), one line each. The ADR is the
