@@ -10,7 +10,7 @@ decisions:
   - key: LostResponseReadsBack
     statement: "A create whose outcome is unknown is retried, and a create that finds the object reads it back and compares; the same bytes are the earlier attempt's success"
   - key: ConsolidatedBySealAndMaintenance
-    statement: "A sealed segment is consolidated off the commit path into log/NNNNNNNN.seg, byte-identical to the file backend's segment, after which every chunk of it but its fence chunks is deleted"
+    statement: "A sealed segment is consolidated by the seal itself into log/NNNNNNNN.seg, byte-identical to the file backend's segment; maintenance then deletes every chunk of it but its fence chunks, off the commit path, and does again a consolidation that failed"
   - key: SealedSegmentsReadThroughTheCache
     statement: "A sealed segment is read from a local copy in the cache directory, downloaded whole on first read; the open segment's bytes are held in memory, at most one segment's length"
   - key: ReplicatedDurability

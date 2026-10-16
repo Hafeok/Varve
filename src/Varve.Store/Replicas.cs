@@ -83,7 +83,7 @@ public sealed partial class Dataset
                     sequence = Math.Max(sequence, ExtentSet.SequenceOf(chain[i].Name) + 1);
                 }
 
-                await ExtentCatalog.WriteAsync(target.Derived, Id, checkpoint.Position, checkpoint.HeaderHash, sequence, entries, cancellationToken).ConfigureAwait(false);
+                await ExtentCatalog.WriteAsync(target.Derived, Id, checkpoint.Position, checkpoint.HeaderHash, sequence, entries, null, cancellationToken).ConfigureAwait(false);
             }
             else
             {

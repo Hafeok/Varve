@@ -16,8 +16,8 @@ namespace Varve.Store.ObjectStorage;
 
 /// <summary>
 /// The log as chunk objects (ADR 0135): appends are held in memory, a flush
-/// creates one chunk, a seal creates a chunk marked so, and maintenance
-/// consolidates a sealed segment into one object.
+/// creates one chunk, a seal creates a chunk marked so and consolidates the
+/// segment into one object, and maintenance consolidates one a seal could not.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -33,9 +33,20 @@ namespace Varve.Store.ObjectStorage;
 /// what it would after a crash just before opening a segment. The slots it
 /// holds still count for the fence.
 /// </para>
+/// <para>
+/// **Opening lists names and reads no chunk** but the newest, which the
+/// fence needs (ADR 0139). The dataset says where the catalog's cursor puts
+/// the log's continuation with <see cref="ReadFromAsync"/>; the first use of
+/// the log then reads the cursor's segment from its slot, and every other
+/// segment not yet consolidated whole. A read before a segment's first held
+/// chunk reads the chunks below it then, and checks that they chain into it.
+/// </para>
 /// </remarks>
-internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
+internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDisposable
 {
+    // Requests in flight at once when reading or deleting many chunks.
+    private const int InFlight = 16;
+
     private readonly IObjectStore _store;
     private readonly ObjectNames _names;
     private readonly TimeProvider _clock;
@@ -44,10 +55,13 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
     private readonly Lock _lock = new();
     private readonly SemaphoreSlim _writing = new(1, 1);
     private readonly SemaphoreSlim _downloading = new(1, 1);
+    private readonly SemaphoreSlim _consolidating = new(1, 1);
     private readonly List<Segment> _segments;
     private readonly Dictionary<int, SafeFileHandle> _copies = [];
     private ReadOnlyMemory<byte> _manifest;
     private bool _superseded;
+    private bool _ready;
+    private (int Segment, long Slot)? _start;
 
     private ObjectSegmentStore(IObjectStore store, ObjectNames names, TimeProvider clock, string cache, long epoch, List<Segment> segments, ReadOnlyMemory<byte> manifest)
     {
@@ -87,7 +101,7 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
         {
             lock (_lock)
             {
-                return Writes && !_superseded && _segments.Exists(static segment => segment.Sealed && !segment.Consolidated);
+                return Writes && !_superseded && _segments.Exists(static segment => (segment.Sealed && !segment.Consolidated) || segment.PendingDeletes.Length > 0);
             }
         }
     }
@@ -147,11 +161,9 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
                     {
                         throw new LogVerificationException("Segment " + id + " has chunk " + parts.Chunks[i].Chunk + " where chunk " + i + " was due: a chunk of an open segment is missing.");
                     }
-
-                    ObjectRead read = await ConditionalWrites.ReadWholeAsync(store, names.Chunk(id, i), cancellationToken).ConfigureAwait(false)
-                        ?? throw new LogVerificationException("Chunk " + ObjectNames.Slot(id, i) + " was listed and is gone: the log is being consolidated by another writer.");
-                    segment.Adopt(read.Bytes.Span, i);
                 }
+
+                segment.Listed = parts.Chunks.Count;
             }
 
             segments.Add(segment);
@@ -173,6 +185,12 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
 
         if (epoch > 0)
         {
+            // The fence needs the newest chunk alone: where the log ends and its hash.
+            if (segments.Count > 0 && !segments[^1].Consolidated)
+            {
+                await opened.LoadFromAsync(segments[^1], segments[^1].Listed - 1, cancellationToken).ConfigureAwait(false);
+            }
+
             await opened.FenceAsync(cancellationToken).ConfigureAwait(false);
         }
 
@@ -185,8 +203,10 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
         }
     }
 
-    public ValueTask<IReadOnlyList<SegmentInfo>> ListSegmentsAsync(CancellationToken cancellationToken)
+    public async ValueTask<IReadOnlyList<SegmentInfo>> ListSegmentsAsync(CancellationToken cancellationToken)
     {
+        await EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
+
         lock (_lock)
         {
             List<SegmentInfo> list = [];
@@ -200,12 +220,44 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
                 list.Add(segment.Sealed || i < visible - 1 ? SegmentInfo.Sealed(id, length) : SegmentInfo.Open(id, length));
             }
 
-            return new ValueTask<IReadOnlyList<SegmentInfo>>(list);
+            return list;
         }
+    }
+
+    /// <inheritdoc />
+    public SegmentSlot SlotOf(SegmentId segment, ByteOffset offset)
+    {
+        lock (_lock)
+        {
+            foreach (Segment candidate in _segments)
+            {
+                if (candidate.Id == segment.Value)
+                {
+                    return new SegmentSlot(candidate.Consolidated ? 0 : candidate.SlotOf(offset.Value));
+                }
+            }
+
+            return new SegmentSlot(0);
+        }
+    }
+
+    /// <inheritdoc />
+    public ValueTask ReadFromAsync(SegmentId segment, SegmentSlot slot, CancellationToken cancellationToken)
+    {
+        lock (_lock)
+        {
+            if (!_ready)
+            {
+                _start = (segment.Value, slot.Value);
+            }
+        }
+
+        return ValueTask.CompletedTask;
     }
 
     public async ValueTask<SegmentId> CreateSegmentAsync(CancellationToken cancellationToken)
     {
+        await EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
         await _writing.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
@@ -240,7 +292,8 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
             lock (_lock)
             {
                 next.Opened = true;
-                next.Recorded(0, hash, ChunkFlags.Opens, _epoch);
+                next.LoadedFrom = 0;
+                next.Recorded(0, hash, ChunkFlags.Opens, _epoch, 0);
                 _segments.Add(next);
                 return new SegmentId(next.Id);
             }
@@ -276,17 +329,29 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
 
     public async ValueTask<ReadOnlyMemory<byte>> ReadRangeAsync(SegmentId segment, ByteOffset offset, ByteCount length, CancellationToken cancellationToken)
     {
+        await EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
         Segment source;
+        bool below;
 
         lock (_lock)
         {
             source = Get(segment.Value);
+            below = !source.Consolidated && offset.Value < source.Base;
+        }
 
+        if (below)
+        {
+            // Before the first chunk held: the chunks below it, read now.
+            await ExtendDownAsync(source, 0, cancellationToken).ConfigureAwait(false);
+        }
+
+        lock (_lock)
+        {
             if (!source.Consolidated)
             {
                 // Appended and not yet flushed included, as on every backend.
                 ReadOnlySpan<byte> held = source.Bytes!.WrittenSpan;
-                long start = Math.Min(offset.Value, held.Length);
+                long start = Math.Min(offset.Value - source.Base, held.Length);
                 int count = (int)Math.Min(held.Length - start, Math.Min(length.Value, int.MaxValue));
                 return held.Slice((int)start, count).ToArray();
             }
@@ -358,15 +423,15 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
     }
 
     /// <summary>
-    /// Consolidates the oldest sealed segment that is not yet: its bytes as
-    /// <c>log/NNNNNNNN.seg</c>, then every chunk of it deleted but its fences
-    /// (ADR 0135). True when it did one.
+    /// One step of the log's own maintenance: deletes the chunks of a segment
+    /// a seal consolidated, but its fences; or consolidates the oldest sealed
+    /// segment a seal could not, and deletes its chunks (ADR 0135). True when
+    /// it did something.
     /// </summary>
     public async ValueTask<bool> ConsolidateAsync(CancellationToken cancellationToken)
     {
-        Segment? segment;
-        byte[] bytes;
-        int[] chunks;
+        Segment? pending;
+        Segment? sealedOnly;
 
         lock (_lock)
         {
@@ -375,43 +440,114 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
                 return false;
             }
 
-            segment = _segments.Find(static candidate => candidate.Sealed && !candidate.Consolidated);
+            pending = _segments.Find(static candidate => candidate.PendingDeletes.Length > 0);
+            sealedOnly = _segments.Find(static candidate => candidate.Sealed && !candidate.Consolidated);
+        }
 
-            if (segment is null)
+        if (pending is not null)
+        {
+            await DeleteChunksAsync(pending, cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+
+        if (sealedOnly is not null && await ConsolidateAsync(sealedOnly, cancellationToken).ConfigureAwait(false))
+        {
+            await DeleteChunksAsync(sealedOnly, cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+
+        return false;
+    }
+
+    // Writes a sealed segment as its one object: from then on the segment is
+    // that object, and its chunks wait for maintenance to delete them. True
+    // when it did.
+    private async ValueTask<bool> ConsolidateAsync(Segment segment, CancellationToken cancellationToken)
+    {
+        await _consolidating.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            lock (_lock)
             {
-                return false;
+                if (segment.Consolidated || !segment.Sealed || !Writes || _superseded)
+                {
+                    return false;
+                }
             }
 
-            // Sealed: nothing appends to it again, so these bytes are final.
-            bytes = segment.Bytes!.WrittenSpan.ToArray();
-            chunks = [.. segment.DataChunks];
+            // Every byte, from the segment's first chunk.
+            await ExtendDownAsync(segment, 0, cancellationToken).ConfigureAwait(false);
+            byte[] bytes;
+            int[] chunks;
+
+            lock (_lock)
+            {
+                // Sealed: nothing appends to it again, so these bytes are final.
+                bytes = segment.Bytes!.WrittenSpan.ToArray();
+                chunks = [.. segment.DataChunks];
+            }
+
+            (CreateOutcome outcome, _) = await ConditionalWrites.CreateAsync(_store, _names.Segment(segment.Id), bytes, _clock, cancellationToken).ConfigureAwait(false);
+
+            if (outcome == CreateOutcome.Taken)
+            {
+                ObjectRead? there = await ConditionalWrites.ReadWholeAsync(_store, _names.Segment(segment.Id), cancellationToken).ConfigureAwait(false);
+
+                // Another writer of the same bytes got there first: done.
+                if (there is null || !there.Bytes.Span.SequenceEqual(bytes))
+                {
+                    throw new LogVerificationException("Segment " + segment.Id + " was consolidated with other bytes than its chunks hold: the log is damaged.");
+                }
+            }
+
+            // The local copy, from what is in hand rather than downloaded again.
+            WriteCopy(segment.Id, bytes);
+
+            lock (_lock)
+            {
+                segment.Consolidated = true;
+                segment.ConsolidatedLength = bytes.Length;
+                segment.Bytes = null;
+                segment.PendingDeletes = chunks;
+            }
+
+            return true;
         }
-
-        (CreateOutcome outcome, _) = await ConditionalWrites.CreateAsync(_store, _names.Segment(segment.Id), bytes, _clock, cancellationToken).ConfigureAwait(false);
-
-        if (outcome == CreateOutcome.Taken)
+        finally
         {
-            throw new LogVerificationException("Segment " + segment.Id + " was consolidated with other bytes than its chunks hold: the log is damaged.");
+            _consolidating.Release();
         }
+    }
 
-        // The local copy, from what is in hand rather than downloaded again.
-        WriteCopy(segment.Id, bytes);
+    // A consolidated segment's chunks deleted, a few at a time. A fence chunk
+    // is kept for ever (ADR 0136, FenceChunksAreKept): a superseded writer's
+    // next create would land in it, and must fail.
+    private async ValueTask DeleteChunksAsync(Segment segment, CancellationToken cancellationToken)
+    {
+        int[] chunks;
 
         lock (_lock)
         {
-            segment.Consolidated = true;
-            segment.ConsolidatedLength = bytes.Length;
-            segment.Bytes = null;
+            chunks = segment.PendingDeletes;
         }
 
-        // A fence chunk is kept for ever (ADR 0136, FenceChunksAreKept): a
-        // superseded writer's next create would land in it, and must fail.
-        foreach (int chunk in chunks)
+        for (int at = 0; at < chunks.Length; at += InFlight)
         {
-            await _store.DeleteAsync(_names.Chunk(segment.Id, chunk), cancellationToken).ConfigureAwait(false);
+            Task[] deletes = new Task[Math.Min(InFlight, chunks.Length - at)];
+
+            for (int i = 0; i < deletes.Length; i++)
+            {
+                deletes[i] = _store.DeleteAsync(_names.Chunk(segment.Id, chunks[at + i]), cancellationToken).AsTask();
+            }
+
+            await Task.WhenAll(deletes).ConfigureAwait(false);
         }
 
-        return true;
+        lock (_lock)
+        {
+            segment.PendingDeletes = [];
+        }
     }
 
     public void Dispose()
@@ -428,6 +564,7 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
 
         _writing.Dispose();
         _downloading.Dispose();
+        _consolidating.Dispose();
     }
 
     // The fence (ADR 0136): the slot after the last that exists, in log
@@ -477,7 +614,7 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
 
                 if (outcome == CreateOutcome.Ours)
                 {
-                    target.Recorded(chunk, hash, ChunkFlags.Fence, _epoch);
+                    target.Recorded(chunk, hash, ChunkFlags.Fence, _epoch, offset);
                     Fence = new LogSlot(ObjectNames.Slot(segmentId, chunk));
                     return;
                 }
@@ -496,7 +633,9 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
 
     private async ValueTask WriteChunkAsync(int segmentId, bool seal, CancellationToken cancellationToken)
     {
+        await EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
         await _writing.WaitAsync(cancellationToken).ConfigureAwait(false);
+        Segment? sealedNow = null;
 
         try
         {
@@ -505,6 +644,7 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
             byte[] hash;
             int number;
             int count;
+            long offset;
             ChunkFlags flags = seal ? ChunkFlags.Seal : ChunkFlags.None;
 
             lock (_lock)
@@ -522,7 +662,7 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
                     throw new InvalidOperationException("Segment " + segmentId + " is sealed and never changes again.");
                 }
 
-                count = target.Bytes!.WrittenCount - (int)target.Persisted;
+                count = (int)(target.Length - target.Persisted);
 
                 if (count == 0 && !seal)
                 {
@@ -530,7 +670,8 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
                 }
 
                 number = target.NextChunk;
-                chunk = ChunkHeader.Compose(flags, _epoch, segmentId, number, target.Persisted, target.Bytes.WrittenSpan.Slice((int)target.Persisted, count), target.Previous, out hash);
+                offset = target.Persisted;
+                chunk = ChunkHeader.Compose(flags, _epoch, segmentId, number, offset, target.Bytes!.WrittenSpan.Slice((int)(offset - target.Base), count), target.Previous, out hash);
             }
 
             await CreateChunkAsync(segmentId, number, chunk, cancellationToken).ConfigureAwait(false);
@@ -538,13 +679,211 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
             lock (_lock)
             {
                 target.Persisted += count;
-                target.Recorded(number, hash, flags, _epoch);
+                target.Recorded(number, hash, flags, _epoch, offset);
                 target.Sealed |= seal;
             }
+
+            sealedNow = seal ? target : null;
         }
         finally
         {
             _writing.Release();
+        }
+
+        // Consolidation on seal (ADR 0135): the sealed segment becomes one
+        // object now, and its chunks are deleted by the maintenance this
+        // leaves due, off the commit path, so chunks stay bounded by the open
+        // segment. The seal is durable whatever happens here; a consolidation
+        // that fails is left for maintenance to do again.
+        if (sealedNow is not null)
+        {
+            try
+            {
+                await ConsolidateAsync(sealedNow, cancellationToken).ConfigureAwait(false);
+            }
+            catch (IOException)
+            {
+            }
+            catch (System.Net.Http.HttpRequestException)
+            {
+            }
+        }
+    }
+
+    // The first use of the log: every segment not consolidated held from the
+    // chunk it is to be read from — the cursor's segment from its slot, every
+    // other from its first chunk.
+    private async ValueTask EnsureReadyAsync(CancellationToken cancellationToken)
+    {
+        if (Volatile.Read(ref _ready))
+        {
+            return;
+        }
+
+        Segment[] pending;
+        (int Segment, long Slot)? start;
+
+        lock (_lock)
+        {
+            pending = [.. _segments.FindAll(static segment => !segment.Consolidated)];
+            start = _start;
+        }
+
+        foreach (Segment segment in pending)
+        {
+            int from = start is { } at && at.Segment == segment.Id ? (int)Math.Clamp(at.Slot, 0, Math.Max(0, segment.Listed - 1)) : 0;
+
+            if (segment.LoadedFrom < 0)
+            {
+                await LoadFromAsync(segment, from, cancellationToken).ConfigureAwait(false);
+            }
+            else if (segment.LoadedFrom > from)
+            {
+                await ExtendDownAsync(segment, from, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        Volatile.Write(ref _ready, true);
+    }
+
+    // Reads a segment's listed chunks from `from` on, into a segment that
+    // holds none yet.
+    private async ValueTask LoadFromAsync(Segment segment, int from, CancellationToken cancellationToken)
+    {
+        await _downloading.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            if (segment.LoadedFrom >= 0 || segment.Consolidated)
+            {
+                return;
+            }
+
+            if (await ReadChunksAsync(segment.Id, from, segment.Listed, cancellationToken).ConfigureAwait(false) is not { } chunks)
+            {
+                await AdoptConsolidatedAsync(segment, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            lock (_lock)
+            {
+                for (int i = 0; i < chunks.Length; i++)
+                {
+                    segment.Adopt(chunks[i].Span, from + i);
+                }
+            }
+        }
+        finally
+        {
+            _downloading.Release();
+        }
+    }
+
+    // Reads the chunks below a segment's first held one, down to `to`, checks
+    // that they chain into it, and puts their bytes before its own.
+    private async ValueTask ExtendDownAsync(Segment segment, int to, CancellationToken cancellationToken)
+    {
+        await _downloading.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            int held = segment.LoadedFrom;
+
+            if (held <= to || segment.Consolidated)
+            {
+                return;
+            }
+
+            if (await ReadChunksAsync(segment.Id, to, held, cancellationToken).ConfigureAwait(false) is not { } chunks)
+            {
+                await AdoptConsolidatedAsync(segment, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            Segment below = new(segment.Id);
+
+            for (int i = 0; i < chunks.Length; i++)
+            {
+                below.Adopt(chunks[i].Span, to + i);
+            }
+
+            lock (_lock)
+            {
+                segment.Prepend(below);
+            }
+        }
+        finally
+        {
+            _downloading.Release();
+        }
+    }
+
+    // Chunks [from, to) of a segment, read a few at a time; null when one
+    // listed is gone, which a consolidation since the listing explains.
+    private async ValueTask<ReadOnlyMemory<byte>[]?> ReadChunksAsync(int segment, int from, int to, CancellationToken cancellationToken)
+    {
+        ReadOnlyMemory<byte>[] chunks = new ReadOnlyMemory<byte>[Math.Max(0, to - from)];
+
+        for (int at = 0; at < chunks.Length; at += InFlight)
+        {
+            Task<ObjectRead?>[] reads = new Task<ObjectRead?>[Math.Min(InFlight, chunks.Length - at)];
+
+            for (int i = 0; i < reads.Length; i++)
+            {
+                reads[i] = ConditionalWrites.ReadWholeAsync(_store, _names.Chunk(segment, from + at + i), cancellationToken).AsTask();
+            }
+
+            await Task.WhenAll(reads).ConfigureAwait(false);
+
+            for (int i = 0; i < reads.Length; i++)
+            {
+                if (await reads[i].ConfigureAwait(false) is not { } read)
+                {
+                    return null;
+                }
+
+                chunks[at + i] = read.Bytes;
+            }
+        }
+
+        return chunks;
+    }
+
+    // A chunk the listing showed is gone: a writer consolidated the segment
+    // since — a superseded one that had not yet learned it was. The segment
+    // is then its one object, which must hold every byte this store holds of
+    // it; it is taken as consolidated, its copy written to the cache.
+    private async ValueTask AdoptConsolidatedAsync(Segment segment, CancellationToken cancellationToken)
+    {
+        string slot = ObjectNames.Slot(segment.Id, 0);
+        ObjectRead whole = await ConditionalWrites.ReadWholeAsync(_store, _names.Segment(segment.Id), cancellationToken).ConfigureAwait(false)
+            ?? throw new LogVerificationException("A chunk of segment " + segment.Id + " was listed and is gone, and the segment was not consolidated: the log is damaged (" + slot + ").");
+
+        lock (_lock)
+        {
+            if (segment.Consolidated)
+            {
+                return;
+            }
+
+            ReadOnlySpan<byte> held = segment.LoadedFrom < 0 ? [] : segment.Bytes!.WrittenSpan;
+
+            if (segment.Base + held.Length > whole.Bytes.Length
+                || (held.Length > 0 && !whole.Bytes.Span.Slice((int)segment.Base, held.Length).SequenceEqual(held)))
+            {
+                throw new LogVerificationException("Segment " + segment.Id + " was consolidated with other bytes than its chunks hold: the log is damaged.");
+            }
+        }
+
+        WriteCopy(segment.Id, whole.Bytes.Span);
+
+        lock (_lock)
+        {
+            segment.Consolidated = true;
+            segment.Sealed = true;
+            segment.Opened = true;
+            segment.ConsolidatedLength = whole.Bytes.Length;
+            segment.Bytes = null;
         }
     }
 
@@ -599,7 +938,7 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
             return _segments[^1];
         }
 
-        Segment segment = new(id);
+        Segment segment = new(id) { LoadedFrom = 0 };
         _segments.Add(segment);
         return segment;
     }
@@ -677,7 +1016,8 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
     /// <summary>One segment as this store holds it.</summary>
     private sealed class Segment(int id)
     {
-        private readonly List<int> _dataChunks = [];
+        private List<int> _dataChunks = [];
+        private List<(int Chunk, long Offset)> _offsets = [];
 
         public int Id { get; } = id;
 
@@ -690,29 +1030,45 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
 
         public long ConsolidatedLength { get; set; }
 
-        /// <summary>Every byte of a segment not yet consolidated: those in chunks, then those appended since.</summary>
+        /// <summary>How many chunks the listing at open showed, for a segment not consolidated.</summary>
+        public int Listed { get; set; }
+
+        /// <summary>The first chunk held, or -1 when none is: the chunks before it are not read yet.</summary>
+        public int LoadedFrom { get; set; } = -1;
+
+        /// <summary>Where in the segment the first held byte is: the first held chunk's offset.</summary>
+        public long Base { get; private set; }
+
+        /// <summary>Every byte held of a segment not yet consolidated, from <see cref="Base"/>: those in chunks, then those appended since.</summary>
         public ArrayBufferWriter<byte>? Bytes { get; set; } = new();
 
-        /// <summary>How many of <see cref="Bytes"/> are in chunks.</summary>
+        /// <summary>Where in the segment the bytes in chunks end.</summary>
         public long Persisted { get; set; }
 
         public int NextChunk { get; private set; }
 
         public byte[] Previous { get; private set; } = ChunkHeader.Nothing();
 
+        /// <summary>The hash the first held chunk names as its predecessor's, which the chunks below it must end with.</summary>
+        public byte[] FirstPrevious { get; private set; } = ChunkHeader.Nothing();
+
         public long Epoch { get; private set; }
 
-        /// <summary>Chunks that are not fences: what consolidation deletes.</summary>
+        /// <summary>The chunks of a consolidated segment its consolidation has yet to delete.</summary>
+        public int[] PendingDeletes { get; set; } = [];
+
+        /// <summary>The held chunks that are not fences: what consolidation deletes.</summary>
         public IReadOnlyList<int> DataChunks => _dataChunks;
 
-        public long Length => Consolidated ? ConsolidatedLength : Bytes!.WrittenCount;
+        public long Length => Consolidated ? ConsolidatedLength : Base + Bytes!.WrittenCount;
 
         /// <summary>Notes a chunk this store created.</summary>
-        public void Recorded(int chunk, byte[] hash, ChunkFlags flags, long epoch)
+        public void Recorded(int chunk, byte[] hash, ChunkFlags flags, long epoch, long offset)
         {
             NextChunk = chunk + 1;
             Previous = hash;
             Epoch = epoch;
+            _offsets.Add((chunk, offset));
 
             if ((flags & ChunkFlags.Fence) == 0)
             {
@@ -726,8 +1082,28 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
         }
 
         /// <summary>
-        /// Checks a chunk another writer created and takes in its bytes.
-        /// Returns its epoch.
+        /// The held chunk holding the byte before <paramref name="offset"/>,
+        /// or 0 when that is not held: a slot to read the segment from.
+        /// </summary>
+        public long SlotOf(long offset)
+        {
+            long slot = 0;
+
+            foreach ((int chunk, long at) in _offsets)
+            {
+                if (at <= offset - 1)
+                {
+                    slot = chunk;
+                }
+            }
+
+            return slot;
+        }
+
+        /// <summary>
+        /// Checks a chunk another writer created, or one read back, and takes
+        /// in its bytes. The first chunk a segment holds may be any: it fixes
+        /// where the held bytes start. Returns its epoch.
         /// </summary>
         /// <exception cref="LogVerificationException">The chunk does not verify, or does not follow the one before it.</exception>
         public long Adopt(ReadOnlySpan<byte> bytes, int chunk)
@@ -737,6 +1113,20 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
             if (!ChunkHeader.TryRead(bytes, out ChunkHeader header, out byte[] hash))
             {
                 throw new LogVerificationException("Chunk " + slot + " does not verify: its header or its bytes are damaged.");
+            }
+
+            if (LoadedFrom < 0)
+            {
+                // The first chunk held: the chain is checked from it on, and
+                // the chunks before it, when read, must end where it starts.
+                LoadedFrom = chunk;
+                NextChunk = chunk;
+                Base = header.Offset;
+                Persisted = header.Offset;
+                Previous = header.Previous;
+                FirstPrevious = header.Previous;
+                Epoch = header.Epoch;
+                Opened |= header.Offset > 0;
             }
 
             if (header.Segment != Id || header.Chunk != chunk || chunk != NextChunk)
@@ -749,7 +1139,7 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
                 throw new LogVerificationException("Chunk " + slot + " holds bytes after its segment's seal.");
             }
 
-            if (header.Offset != Bytes!.WrittenCount || !header.Previous.AsSpan().SequenceEqual(Previous))
+            if (header.Offset != Length || !header.Previous.AsSpan().SequenceEqual(Previous))
             {
                 throw new LogVerificationException("Chunk " + slot + " does not follow the chunk before it.");
             }
@@ -759,12 +1149,43 @@ internal sealed class ObjectSegmentStore : ISegmentStore, IDisposable
                 throw new LogVerificationException("Chunk " + slot + " is of epoch " + header.Epoch + " after a chunk of epoch " + Epoch + ".");
             }
 
-            Bytes.Write(bytes[ChunkHeader.Size..]);
-            Persisted = Bytes.WrittenCount;
-            Recorded(chunk, hash, header.Flags, header.Epoch);
+            Bytes!.Write(bytes[ChunkHeader.Size..]);
+            Persisted = Length;
+            Recorded(chunk, hash, header.Flags, header.Epoch, header.Offset);
             Opened |= header.Length > 0;
             Sealed |= (header.Flags & ChunkFlags.Seal) != 0;
             return header.Epoch;
+        }
+
+        /// <summary>
+        /// Puts the chunks of <paramref name="below"/>, read from the store,
+        /// before this segment's first held one, once they are checked to end
+        /// where it starts and with the hash it names.
+        /// </summary>
+        /// <exception cref="LogVerificationException">They do not.</exception>
+        public void Prepend(Segment below)
+        {
+            if (below.NextChunk != LoadedFrom || below.Length != Base || !below.Previous.AsSpan().SequenceEqual(FirstPrevious) || below.Epoch > Epoch)
+            {
+                throw new LogVerificationException("Chunks " + ObjectNames.Slot(Id, below.LoadedFrom) + " to " + ObjectNames.Slot(Id, LoadedFrom - 1) + " do not chain into chunk " + ObjectNames.Slot(Id, LoadedFrom) + ".");
+            }
+
+            if (below.Sealed && Bytes!.WrittenCount > 0)
+            {
+                throw new LogVerificationException("Segment " + Id + " holds bytes after its seal.");
+            }
+
+            ArrayBufferWriter<byte> joined = new(below.Bytes!.WrittenCount + Bytes!.WrittenCount);
+            joined.Write(below.Bytes.WrittenSpan);
+            joined.Write(Bytes.WrittenSpan);
+            Bytes = joined;
+            Base = below.Base;
+            LoadedFrom = below.LoadedFrom;
+            FirstPrevious = below.FirstPrevious;
+            Sealed |= below.Sealed;
+            Opened |= below.Opened;
+            _dataChunks = [.. below._dataChunks, .. _dataChunks];
+            _offsets = [.. below._offsets, .. _offsets];
         }
     }
 }

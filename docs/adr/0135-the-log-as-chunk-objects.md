@@ -76,19 +76,25 @@ A write that fails every attempt without an answer fails the batch, and the
 store's sequencer refuses writes until the dataset is opened again, as on
 every backend (ADR 0124); opening adopts the chunk if it was written.
 
-**4. Sealed segments are consolidated off the commit path.** Once a segment
-is sealed, the dataset's maintenance writes its bytes as one object,
-`log/NNNNNNNN.seg`, by create-if-absent — byte-identical to the file
-backend's segment of the same number — and then deletes every chunk of that
-segment **except its fence chunks**, which are kept for ever (ADR 0136). The
-log's bytes are unchanged by it: before, the segment is its chunks'
-concatenation; after, it is the one object. A consolidation interrupted at
-any step leaves either the chunks or the object or both, and the object, when
-present, is what the segment is. The store calls it through
-`IStorageMaintenance`, a member of the store's contract a backend implements
-when it has maintenance of its own; the dataset calls it from its own
-maintenance, off the sequencer (ADR 0070), and a backend starts nothing of
-its own (ADR 0042).
+**4. A sealed segment is consolidated on seal.** The seal that closes a
+segment then writes its bytes as one object, `log/NNNNNNNN.seg`, by
+create-if-absent — byte-identical to the file backend's segment of the same
+number — and from then on the segment is that object. Its chunks, **except its
+fence chunks**, which are kept for ever (ADR 0136), are deleted by the
+dataset's maintenance, which the seal leaves due and the sequencer starts
+after the commit, sixteen deletes at a time. Chunks in the store are then
+bounded by the open segment. The seal is durable before the consolidation
+starts; the commit that rolled the segment waits for the one upload of a
+segment's length, and not for the deletes, which on Azurite took 531 s for
+one segment's 5,264 chunks when they were inline. A consolidation that fails
+— the store unreachable — is left to the same maintenance, which does it
+again: the store calls it through `IStorageMaintenance`, a member of the
+store's contract a backend implements when it has maintenance of its own,
+off the sequencer (ADR 0070), and a backend starts nothing of its own (ADR
+0042). The log's bytes are unchanged
+by it: before, the segment is its chunks' concatenation; after, it is the
+one object. A consolidation interrupted at any step leaves either the chunks
+or the object or both, and the object, when present, is what the segment is.
 
 **5. Reads.** A consolidated segment is read from a local copy in the cache
 directory, downloaded whole on its first read and kept; the copy is written
@@ -96,7 +102,10 @@ as a temporary file and renamed, so it is whole or absent. A segment not yet
 consolidated — the open one, and a sealed one maintenance has not reached —
 is held in memory, chunks and pending appends together: at most one
 segment's length (64 MiB by default) beyond the sealed segment waiting for
-consolidation. Opening lists `log/` once and reads the open segment's chunks.
+consolidation. Opening lists `log/` once and reads only the newest chunk,
+which the fence needs; the dataset's open then reads the open segment from
+the slot the catalog records, and a read before it reads the chunks below
+then (ADR 0139).
 
 **6. Durability `Replicated`.** A new level of `Durability`: "acknowledged by
 an object store with conditional writes; what that survives is the store's
@@ -127,8 +136,12 @@ and the projection catalog move into the store (ADR 0139).
   hold an object per batch ever written, so listing and cold start would
   grow with history. Only fence chunks need keeping (ADR 0136, which proves
   it).
-- **Consolidate inside `SealAsync`.** Correct, and simpler, but the commit
-  that rolls the segment would wait for a 64 MiB upload.
+- **Consolidate only in maintenance, off the commit path.** The commit that
+  rolls a segment would not wait for its upload, but chunks then pile up
+  while maintenance is behind or off, and every cold start reads them: at REC
+  size M, 19,790 chunk reads and 23–29 s on loopback before this changed.
+  The maintainer ruled that consolidation runs on seal, with maintenance as
+  the retry.
 
 ## Consequences
 

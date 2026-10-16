@@ -167,7 +167,8 @@ public sealed class ObjectPropertyTests
     /// an injected clock and the same dataset id, give byte-identical logs on
     /// files and in objects, and once maintenance has consolidated them, the
     /// same segment files as `.seg` objects; and the same checkpoints as the
-    /// same extents and the same catalog, byte for byte (ADR 0139).
+    /// same extents and the same catalog, byte for byte but for the slot its
+    /// cursor records, which is the backend's own (ADR 0139).
     /// </summary>
     [Fact]
     public async Task the_same_requests_give_byte_identical_logs_on_files_and_in_objects()
@@ -257,7 +258,13 @@ public sealed class ObjectPropertyTests
             print: script => script.ToString());
     }
 
-    /// <summary>A chunk whose bytes or header were changed refuses the open before the store reads a byte (ADR 0135).</summary>
+    /// <summary>
+    /// A chunk whose bytes or header were changed refuses the open, before
+    /// the store reads a byte of the log (ADR 0135): the backend's, which
+    /// reads the newest chunk, or the dataset's, which reads the rest. Only
+    /// chunks of segments not consolidated are read; a consolidated segment
+    /// is its one object.
+    /// </summary>
     [Fact]
     public async Task a_changed_chunk_refuses_to_open()
     {
@@ -270,14 +277,19 @@ public sealed class ObjectPropertyTests
                     await harness.RunAsync(script);
                 }
 
-                string[] chunks = [.. objects.Store.Names().Where(n => n.Contains(".chunks/", StringComparison.Ordinal))];
+                IReadOnlyList<string> names = objects.Store.Names();
+                string[] chunks = [.. names.Where(n => n.Contains(".chunks/", StringComparison.Ordinal) && !names.Contains(n[..n.IndexOf(".chunks/", StringComparison.Ordinal)] + ".seg"))];
                 int seed = script.ToString().Length;
                 string target = chunks[seed % chunks.Length];
                 byte[] bytes = objects.Store.Get(target)!;
                 bytes[(seed * 7) % bytes.Length] ^= 0x10;
                 objects.Store.Put(target, bytes);
 
-                await Assert.ThrowsAsync<LogVerificationException>(() => objects.OpenAsync());
+                await Assert.ThrowsAsync<LogVerificationException>(async () =>
+                {
+                    Backend storage = await objects.OpenAsync();
+                    await using Dataset dataset = await Dataset.OpenAsync(storage, T.Options(), T.Ct);
+                });
             },
             iter: Iterations,
             print: script => script.ToString());

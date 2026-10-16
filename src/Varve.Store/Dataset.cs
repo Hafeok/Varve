@@ -295,8 +295,39 @@ public sealed partial class Dataset : IAsyncDisposable
         Dataset? owner = null;
         Func<CommitIndex> current = () => owner!._state.Commits;
         CommitIndexOpener opener = await CommitIndexOpener.StartAsync(storage.Derived, id, options.CommitCache, current, cancellationToken).ConfigureAwait(false);
-        LogScan scan = await LogReader.ScanAsync(
-            storage.Log, id, bodiesAfter, commit => opener.AddAsync(commit, bodiesAfter, cancellationToken), options.TornWindow, cancellationToken).ConfigureAwait(false);
+
+        // A backend that keeps its log in parts is read from where the catalog
+        // says the log continues, and the commit index below it is read when
+        // first needed (ADR 0139). A cursor the log does not bear out is ignored.
+        LogStart? start = null;
+
+        if (catalog is { Cursor: { } cursor } found && storage.Log is ISegmentCursor parts)
+        {
+            await parts.ReadFromAsync(new SegmentId(cursor.Segment), new SegmentSlot(cursor.Slot), cancellationToken).ConfigureAwait(false);
+            LogStart candidate = new(cursor.Segment, cursor.Offset, found.Header.To, found.Header.ToHash);
+
+            if (await LogReader.ContinuesAtAsync(storage.Log, id, candidate, cancellationToken).ConfigureAwait(false))
+            {
+                start = candidate;
+                Dictionary<long, CommitEntry> pins = [];
+
+                foreach (CatalogPin pin in cursor.Pins)
+                {
+                    pins[pin.Position] = pin.Entry;
+                }
+
+                CommitEntry last = pins[found.Header.To];
+                List<CommitSegment> prefixBlobs = opener.PrefixCandidates;
+                CommitPrefix prefix = new(found.Header.To, pins, prefixBlobs, PrefixLoader(storage, id, last, found.Header.To, prefixBlobs, () => Interlocked.Increment(ref owner!._commitSequence)));
+                opener.BeginAt(prefix, cursor);
+            }
+        }
+
+        LogScan scan = start is { } from
+            ? await LogReader.ScanFromAsync(
+                storage.Log, id, from, bodiesAfter, commit => opener.AddAsync(commit, bodiesAfter, cancellationToken), options.TornWindow, cancellationToken).ConfigureAwait(false)
+            : await LogReader.ScanAsync(
+                storage.Log, id, bodiesAfter, commit => opener.AddAsync(commit, bodiesAfter, cancellationToken), options.TornWindow, cancellationToken).ConfigureAwait(false);
         long head = scan.Head;
         CommitIndex commits = await opener.FinishAsync(cancellationToken).ConfigureAwait(false);
 
@@ -310,6 +341,11 @@ public sealed partial class Dataset : IAsyncDisposable
         State partial = new(head, commits, IndexVersion.Empty, [], null);
         Dataset dataset = new(storage, id, options, dictionary, writer, partial);
         owner = dataset;
+
+        if (start is not null)
+        {
+            dataset._catalogPins = PinsOf(catalog!.Value.Cursor!);
+        }
         dataset._commitSequence = opener.Sequence;
 
         Checkpoint[] checkpoints = await dataset.LoadCheckpointsAsync(partial, candidates, cancellationToken).ConfigureAwait(false);
@@ -742,6 +778,7 @@ public sealed partial class Dataset : IAsyncDisposable
         State state = _state;
         state.Index.Release();
         state.Commits.Release();
+        state.Commits.Prefix?.Dispose();
 
         ReleaseOwned(state.Checkpoints);
 

@@ -21,6 +21,10 @@ decisions:
     statement: "The page cache holds at most its configured bytes; it evicts the least recently read extent's pages, which are fetched again when next read"
   - key: DeletionWaitsForExtentMaintenance
     statement: "An extent no catalog names is not deleted from an object store before milestone Extent maintenance states the rule for live readers; a directory, with one process, deletes it once no view holds it"
+  - key: CatalogRecordsTheLogCursor
+    statement: "The catalog records where the log continues after its position — the segment, the offset and the backend's slot there — and its sets' ends' commit index entries, so an open lists and reads only the log after it"
+  - key: CommitLocationsBelowTheCatalogReadOnFirstUse
+    statement: "An open that began at the catalog's cursor reads the commit index below it from the log's headers on the first read that needs it, and keeps it as a commit index blob in the local cache"
   - key: FollowerAttachesTheCatalog
     statement: "A read-only open reads the catalog and replays the log after it, and never writes the catalog"
 ---

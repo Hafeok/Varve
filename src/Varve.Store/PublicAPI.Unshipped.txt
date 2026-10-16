@@ -532,3 +532,16 @@ Varve.Store.IStorageMaintenance
 Varve.Store.IStorageMaintenance.MaintainStorageAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
 Varve.Store.IStorageMaintenance.MaintenanceDue.get -> bool
 Varve.Store.Dataset.AsOfLogDistance(Varve.Store.Log.Position position) -> long
+Varve.Store.ISegmentCursor
+Varve.Store.ISegmentCursor.ReadFromAsync(Varve.Store.Log.SegmentId segment, Varve.Store.Log.SegmentSlot slot, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Store.ISegmentCursor.SlotOf(Varve.Store.Log.SegmentId segment, Varve.Store.Log.ByteOffset offset) -> Varve.Store.Log.SegmentSlot
+Varve.Store.Log.SegmentSlot
+Varve.Store.Log.SegmentSlot.Equals(Varve.Store.Log.SegmentSlot other) -> bool
+Varve.Store.Log.SegmentSlot.SegmentSlot() -> void
+Varve.Store.Log.SegmentSlot.SegmentSlot(long value) -> void
+Varve.Store.Log.SegmentSlot.Value.get -> long
+~override Varve.Store.Log.SegmentSlot.Equals(object obj) -> bool
+override Varve.Store.Log.SegmentSlot.GetHashCode() -> int
+override Varve.Store.Log.SegmentSlot.ToString() -> string!
+static Varve.Store.Log.SegmentSlot.operator !=(Varve.Store.Log.SegmentSlot left, Varve.Store.Log.SegmentSlot right) -> bool
+static Varve.Store.Log.SegmentSlot.operator ==(Varve.Store.Log.SegmentSlot left, Varve.Store.Log.SegmentSlot right) -> bool

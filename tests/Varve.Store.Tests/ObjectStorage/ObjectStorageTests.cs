@@ -296,14 +296,34 @@ public sealed class ObjectStorageTests
         Assert.Equal(new Position(1), resumed.Head);
     }
 
+    /// <summary>
+    /// A seal consolidates its segment at once (ADR 0135); one whose
+    /// consolidation failed — here every second segment's, the store
+    /// unreachable for its upload — is left to maintenance, which does it.
+    /// </summary>
     [Fact]
     public async Task a_sealed_segment_is_consolidated_byte_for_byte_and_only_fence_chunks_remain()
     {
         await using ObjectHarness harness = new();
         Backend storage = await harness.OpenAsync();
         List<byte[]> before;
+        int failed = 0;
+        harness.Store.Hook = (operation, name) =>
+            operation == ObjectOperation.Create && name.Value.EndsWith(".seg", StringComparison.Ordinal) && int.Parse(name.Value[^12..^4], System.Globalization.CultureInfo.InvariantCulture) % 2 == 1 && ++failed > 0
+                ? throw new IOException("The store is unreachable.")
+                : null;
 
-        await using (Dataset dataset = await T.OpenOrCreate(storage, T.Options(segmentBytes: 2048, maxRecordBytes: 256)))
+        DatasetOptions small = T.Options(segmentBytes: 2048, maxRecordBytes: 256);
+        DatasetOptions options = new()
+        {
+            Clock = small.Clock,
+            MaxRecordBytes = small.MaxRecordBytes,
+            SegmentBytes = small.SegmentBytes,
+            Maintenance = MaintenanceMode.Off,
+            CommitCache = small.CommitCache,
+        };
+
+        await using (Dataset dataset = await T.OpenOrCreate(storage, options))
         {
             for (int i = 0; i < 40; i++)
             {
@@ -311,8 +331,10 @@ public sealed class ObjectStorageTests
             }
 
             before = (await T.CopyLogAsync(storage)).Segments;
-            Assert.True(before.Count > 2);
+            Assert.True(before.Count > 3);
+            Assert.True(failed > 0);
             Assert.True(storage.MaintenanceDue);
+            harness.Store.Hook = null;
             await dataset.MaintainAsync(T.Ct);
             Assert.False(storage.MaintenanceDue);
         }

@@ -25,6 +25,9 @@ public sealed partial class Dataset
     private readonly SemaphoreSlim _checkpointGate = new(1, 1);
     private long _extentSequence;
 
+    // The pins of the catalog the open began at, or last wrote (ADR 0139).
+    private Dictionary<long, CatalogPin> _catalogPins = [];
+
     // The full checkpoints a format-3 directory holds, and the catalog's
     // chain: a full one at a position a set ends at gives way to the set.
     private async ValueTask<Checkpoint[]> WithExtentsAsync(State state, Checkpoint[] full, CancellationToken cancellationToken)
@@ -73,6 +76,7 @@ public sealed partial class Dataset
                 ExtentSet? set = await ExtentSet.TryLoadAsync(_storage.Derived, entry.Name, Id, entry.From, entry.To, cancellationToken).ConfigureAwait(false);
 
                 if (set is null
+                    || !state.Commits.Knows(entry.To) || !state.Commits.Knows(entry.From)
                     || !state.Commits.Entry(entry.To).HashEquals(set.ToHash)
                     || set.Run.Terms.From != state.CanonicalAt(entry.From)
                     || set.Run.Terms.To != state.CanonicalAt(entry.To)
@@ -106,6 +110,58 @@ public sealed partial class Dataset
         }
 
         return Chains(chain);
+    }
+
+    // The catalog's cursor (ADR 0139, CatalogRecordsTheLogCursor): where the
+    // log continues after the newest set's end and the backend's slot there,
+    // every set's end's commit index entry, and the settings commits up to
+    // it. A pin the open read from the previous catalog is reused, so a
+    // dataset opened at its cursor does not read the log below it to write
+    // the next one.
+    private async ValueTask<CatalogCursor?> CursorAsync(State state, List<ExtentSet> sets, CancellationToken cancellationToken)
+    {
+        if (sets.Count == 0)
+        {
+            return null;
+        }
+
+        CatalogPin[] pins = new CatalogPin[sets.Count];
+
+        for (int i = 0; i < sets.Count; i++)
+        {
+            pins[i] = await PinAsync(state, sets[i].To, cancellationToken).ConfigureAwait(false);
+        }
+
+        CatalogPin last = pins[^1];
+        long slot = _storage.Log is ISegmentCursor parts ? parts.SlotOf(new SegmentId(last.EndSegment), new ByteOffset(last.EndOffset)).Value : 0;
+        SettingsPoint[] settings = Array.FindAll(state.Commits.Settings, point => point.Position <= last.Position);
+        return new CatalogCursor(last.EndSegment, last.EndOffset, slot, pins, settings);
+    }
+
+    private async ValueTask<CatalogPin> PinAsync(State state, long position, CancellationToken cancellationToken)
+    {
+        if (_catalogPins.TryGetValue(position, out CatalogPin known))
+        {
+            return known;
+        }
+
+        CommitEntry entry = state.Commits.Entry(position);
+        CommitLocation end = position < state.Head
+            ? state.Commits.Entry(position + 1).Location
+            : await LogReader.EndAsync(_storage.Log, Id, entry.Location, position, position == 1 ? LogFormat.Genesis() : state.Commits.Entry(position - 1).HeaderHash(), cancellationToken).ConfigureAwait(false);
+        return new CatalogPin(position, entry, end.Segment, end.Offset);
+    }
+
+    private static Dictionary<long, CatalogPin> PinsOf(CatalogCursor cursor)
+    {
+        Dictionary<long, CatalogPin> pins = [];
+
+        foreach (CatalogPin pin in cursor.Pins)
+        {
+            pins[pin.Position] = pin;
+        }
+
+        return pins;
     }
 
     // A checkpoint per set: the chain up to and including it.
@@ -317,10 +373,12 @@ public sealed partial class Dataset
 
         long position = sets.Count > 0 ? sets[^1].To : 0;
         byte[] hash = sets.Count > 0 ? sets[^1].ToHash : LogFormat.Genesis();
+        CatalogCursor? cursor;
 
         try
         {
-            await ExtentCatalog.WriteAsync(_storage.Derived, Id, position, hash, Interlocked.Read(ref _extentSequence), entries, cancellationToken).ConfigureAwait(false);
+            cursor = await CursorAsync(_state, sets, cancellationToken).ConfigureAwait(false);
+            await ExtentCatalog.WriteAsync(_storage.Derived, Id, position, hash, Interlocked.Read(ref _extentSequence), entries, cursor, cancellationToken).ConfigureAwait(false);
         }
         catch
         {
@@ -332,6 +390,7 @@ public sealed partial class Dataset
             throw;
         }
 
+        _catalogPins = cursor is null ? [] : PinsOf(cursor);
         await EnterSequencerAsync(cancellationToken).ConfigureAwait(false);
 
         try

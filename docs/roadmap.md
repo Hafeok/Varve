@@ -591,7 +591,8 @@ no timers (ADR 0136). The default projection's checkpoints as extent sets
 with validity intervals (ADR 0138) — immutable extents per index order and a
 dictionary extent, named by a catalog swapped under the epoch — kept in the
 store, read through a bounded page cache, attached lazily at a cold start
-that replays the log after the catalog's position (ADR 0139). Identity-only
+that reads the log only from the cursor the catalog records, the commit index
+below it read on first use (ADR 0139). Identity-only
 credentials (ADR 0137). `deploy/azure/container-apps` and `Varve.Aspire`'s
 `WithAzureBlobStorage` (ADR 0142).
 
@@ -623,8 +624,10 @@ kept, and extents no catalog names accumulate.
 at any position (ADR 0138); the rule that deletes an extent once no catalog
 version a live reader may hold still names it, decided by event, never by
 elapsed time — readers announce the catalog version they hold, or a deletion
-waits for a later catalog event; the commit index beside the catalog, so a
-cold start skips the log's headers below it. Before Replication, which
+waits for a later catalog event; the commit index in the store beside the
+catalog, so the first feed or as-of read below the catalog after a cold start
+no longer reads the log's headers there (a cold start itself already reads
+only the log after the catalog's cursor, ADR 0139). Before Replication, which
 shares the catalog with its followers.
 
 ## Client and integration — on-behalf-of, setup, follow, events

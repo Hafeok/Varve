@@ -102,7 +102,13 @@ internal static class T
             return blobs;
         }
 
-        blobs.Add((ExtentCatalog.Name, await ReadBlobAsync(storage, ExtentCatalog.Name)));
+        // The catalog as written, but for the backend's slot in its cursor:
+        // that is the backend's own place in its log — a chunk number in an
+        // object store, nothing on a directory (ADR 0139) — and every other
+        // byte is the same on every backend.
+        MemoryStorage canonical = new();
+        await ExtentCatalog.WriteAsync(canonical.Derived, dataset ?? Id, read.Header.To, read.Header.ToHash, read.Sequence, read.Sets, read.Cursor is { } cursor ? cursor with { Slot = 0 } : null, Ct);
+        blobs.Add((ExtentCatalog.Name, await ReadBlobAsync(canonical, ExtentCatalog.Name)));
         HashSet<BlobName> listed = [.. await storage.Derived.ListAsync(Ct)];
 
         foreach (CatalogEntry set in read.Sets)

@@ -134,13 +134,37 @@ store. No time-based grace period is used, now or then.
 ### Cold start
 
 Open reads the manifest, the writer record and the catalog, attaches the
-chain's extents lazily, and applies **bodies only after the catalog's
-position**. The scan still reads every record header from the log's start,
-to verify the chain and build the commit index (ADR 0089); on an object store
-that is one read per sealed segment. Skipping the headers below the catalog
-needs the commit index in the store beside the catalog, and is left to Extent
-maintenance with it. The measured cost at REC sizes S, M and L is in the
-milestone's traceability record and the operator guide.
+chain's extents lazily, and reads **the log only after the catalog's
+position**. That needs no shared commit index:
+
+- **The catalog records the log's cursor.** Beside its position it records
+  where the log continues: the segment and the offset where the next commit's
+  records start, and the backend's slot for that byte — on an object store
+  the chunk number (ADR 0135). It also carries the commit index entry of
+  every set's end, and the settings commits up to its position. A backend
+  that keeps its log in parts implements `ISegmentCursor`; an open hands the
+  slot back before reading the log, and the object-storage backend then lists
+  names and reads only the chunks from that slot on. The scan starts at the
+  cursor, its chain at the catalog's position and hash. A cursor the log does
+  not bear out — the record there is not the next position's, chained to the
+  catalog's hash — is ignored, and the open reads the whole log as before.
+- **The commit index below the catalog is read on first use.** The entries a
+  pin carries are known at once. The first read that needs any other — a
+  feed or an as-of read below the catalog, a lookup by time before it — reads
+  the log's headers up to the catalog's position, checks that they end at the
+  commit the catalog names, and keeps them as a commit index blob in the local
+  cache; the read waits for it, as an extent page's miss does. Derived data in
+  the local cache checked against a position it has not read is a cache miss.
+- **A shared commit index is what Extent maintenance (#110) adds**, to remove
+  that first read's cost: the commit index written to the store beside the
+  extents, so no instance reads the log below the catalog at all.
+- **Consolidation runs on seal** (ADR 0135): a sealed segment becomes one
+  object, and its chunks are deleted except the fence slots. Chunks then stay
+  bounded by the open segment, and a cold start reads the open segment from
+  the cursor's slot and no sealed segment at all.
+
+The measured cost at REC sizes S and M is in the milestone's traceability
+record and the operator guide.
 
 ## Alternatives considered
 
@@ -179,3 +203,7 @@ milestone's traceability record and the operator guide.
   results are unchanged.
 - Runs and extents are written as version 4 (`DictionaryTests`); the layout on
   disk (`FileStorageTests`).
+- A cold start from the catalog's cursor reads no chunk below its slot, and
+  serves at every position — feed, as-of, by time — what an open of the whole
+  log serves; the first read below the catalog reads the headers once
+  (`ObjectColdStartTests`).

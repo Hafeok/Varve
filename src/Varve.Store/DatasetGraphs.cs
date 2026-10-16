@@ -272,7 +272,7 @@ public sealed partial class Dataset
 
         // Derived data names the commit it is at; one beside another log is a
         // cache miss, never a wrong answer (ADR 0041).
-        return position >= 1 && position <= state.Head && state.Commits.Entry(position).HashEquals(read.Hash) ? read.Versions : null;
+        return position >= 1 && position <= state.Head && state.Commits.Knows(position) && state.Commits.Entry(position).HashEquals(read.Hash) ? read.Versions : null;
     }
 
     private async ValueTask<GraphVersions> ReplayGraphsAsync(State state, GraphVersions start, long to, Dictionary<long, LoggedCommit>? bodies, CancellationToken cancellationToken)

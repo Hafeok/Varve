@@ -269,6 +269,18 @@ internal sealed class ExtentSet
 /// <summary>An extent set as the catalog names it.</summary>
 internal readonly record struct CatalogEntry(string Name, long From, long To);
 
+/// <summary>A commit index entry the catalog carries, and where the log continues after it.</summary>
+internal readonly record struct CatalogPin(long Position, CommitEntry Entry, int EndSegment, long EndOffset);
+
+/// <summary>
+/// Where the log continues after the catalog's position, and what an open
+/// that begins there needs of the commit index below it (ADR 0139): the
+/// segment and offset where the next commit's records start, the backend's
+/// slot for that byte, the entries of the sets' ends, and the settings
+/// commits up to the position.
+/// </summary>
+internal sealed record CatalogCursor(int Segment, long Offset, long Slot, CatalogPin[] Pins, SettingsPoint[] Settings);
+
 /// <summary>
 /// The projection catalog (ADR 0139): the extent sets that make the default
 /// projection up to its position, oldest first, each a window that starts
@@ -282,7 +294,7 @@ internal static class ExtentCatalog
     internal static readonly BlobName Name = new("catalog");
 
     internal static async ValueTask WriteAsync(
-        IDerivedStore store, DatasetId dataset, long position, byte[] positionHash, long sequence, IReadOnlyList<CatalogEntry> sets, CancellationToken cancellationToken)
+        IDerivedStore store, DatasetId dataset, long position, byte[] positionHash, long sequence, IReadOnlyList<CatalogEntry> sets, CatalogCursor? cursor, CancellationToken cancellationToken)
     {
         ArrayBufferWriter<byte> body = new();
         LogFormat.WriteUInt64(body, (ulong)sequence);
@@ -298,6 +310,33 @@ internal static class ExtentCatalog
             LogFormat.WriteUInt64(body, (ulong)set.To);
         }
 
+        // The cursor (ADR 0139, CatalogRecordsTheLogCursor), after the sets.
+        if (cursor is not null)
+        {
+            LogFormat.WriteUInt32(body, (uint)cursor.Segment);
+            LogFormat.WriteUInt64(body, (ulong)cursor.Offset);
+            LogFormat.WriteUInt64(body, (ulong)cursor.Slot);
+            LogFormat.WriteUInt32(body, (uint)cursor.Pins.Length);
+
+            foreach (CatalogPin pin in cursor.Pins)
+            {
+                LogFormat.WriteUInt64(body, (ulong)pin.Position);
+                pin.Entry.Write(body.GetSpan(CommitEntry.Size));
+                body.Advance(CommitEntry.Size);
+                LogFormat.WriteUInt32(body, (uint)pin.EndSegment);
+                LogFormat.WriteUInt64(body, (ulong)pin.EndOffset);
+            }
+
+            LogFormat.WriteUInt32(body, (uint)cursor.Settings.Length);
+
+            foreach (SettingsPoint point in cursor.Settings)
+            {
+                LogFormat.WriteUInt64(body, (ulong)point.Position);
+                body.GetSpan(1)[0] = (byte)point.Settings.DefaultAccessScope;
+                body.Advance(1);
+            }
+        }
+
         byte[] directory = body.WrittenSpan.ToArray();
         byte[] header = DerivedFormat.EncodeHeader(DerivedFormat.KindCatalog, dataset, 0, position, positionHash, 0, directory.Length, SHA256.HashData(directory));
 
@@ -308,7 +347,7 @@ internal static class ExtentCatalog
     }
 
     /// <summary>The catalog, when there is one that verifies for this dataset and whose windows chain from 0 to its position.</summary>
-    internal static async ValueTask<(DerivedHeader Header, long Sequence, CatalogEntry[] Sets)?> TryReadAsync(
+    internal static async ValueTask<(DerivedHeader Header, long Sequence, CatalogEntry[] Sets, CatalogCursor? Cursor)?> TryReadAsync(
         IDerivedStore store, DatasetId dataset, CancellationToken cancellationToken)
     {
         IReadableBlob blob;
@@ -366,14 +405,65 @@ internal static class ExtentCatalog
                     expected = to;
                 }
 
+                CatalogCursor? cursor = reader.Remaining > 0 ? ReadCursor(ref reader, header) : null;
                 reader.End();
-                return expected == header.To ? (header, sequence, sets) : null;
+                return expected == header.To ? (header, sequence, sets, cursor) : null;
             }
             catch (LogVerificationException)
             {
                 return null;
             }
         }
+    }
+
+    // The cursor, or none when it does not agree with the catalog's position:
+    // its last pin must be the position, with the position's hash.
+    private static CatalogCursor? ReadCursor(ref LogFormat.Reader reader, DerivedHeader header)
+    {
+        int segment = (int)reader.UInt32();
+        long offset = (long)reader.UInt64();
+        long slot = (long)reader.UInt64();
+        uint pins = reader.UInt32();
+
+        if (pins > (uint)reader.Remaining / (8 + CommitEntry.Size + 12))
+        {
+            return null;
+        }
+
+        CatalogPin[] pinned = new CatalogPin[pins];
+
+        for (int i = 0; i < pinned.Length; i++)
+        {
+            long position = (long)reader.UInt64();
+            CommitEntry entry = CommitEntry.Read(reader.Fixed(CommitEntry.Size));
+            pinned[i] = new CatalogPin(position, entry, (int)reader.UInt32(), (long)reader.UInt64());
+        }
+
+        uint count = reader.UInt32();
+
+        if (count > (uint)reader.Remaining / 9)
+        {
+            return null;
+        }
+
+        SettingsPoint[] settings = new SettingsPoint[count];
+
+        for (int i = 0; i < settings.Length; i++)
+        {
+            long position = (long)reader.UInt64();
+            byte scope = reader.Byte();
+
+            if (position > header.To || !Enum.IsDefined((AccessScope)scope))
+            {
+                return null;
+            }
+
+            settings[i] = new SettingsPoint(position, new DatasetSettings((AccessScope)scope));
+        }
+
+        return pinned.Length > 0 && pinned[^1].Position == header.To && pinned[^1].Entry.HashEquals(header.ToHash) && segment >= 0 && offset > 0
+            ? new CatalogCursor(segment, offset, slot, pinned, settings)
+            : null;
     }
 }
 

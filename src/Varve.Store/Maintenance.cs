@@ -523,6 +523,7 @@ public sealed partial class Dataset
         if (persisted is { } read
             && read.Header.To >= Math.Max(1, floor)
             && read.Header.To <= state.Head
+            && state.Commits.Knows(read.Header.To)
             && state.Commits.Entry(read.Header.To).HashEquals(read.Header.ToHash))
         {
             _runSequence = Math.Max(_runSequence, read.Sequence);
@@ -626,6 +627,7 @@ public sealed partial class Dataset
                     && run.Header.From == loaded.Position
                     && run.Header.To > run.Header.From
                     && run.Header.To <= state.Head
+                    && state.Commits.Knows(run.Header.To) && state.Commits.Knows(run.Header.From)
                     && state.Commits.Entry(run.Header.To).HashEquals(run.Header.ToHash)
                     && run.Run.Terms.From == state.CanonicalAt(run.Header.From)
                     && run.Run.Terms.To == state.CanonicalAt(run.Header.To))
@@ -695,6 +697,7 @@ public sealed partial class Dataset
                 if (loaded is not null
                     && loaded.Header.From == entry.From
                     && loaded.Header.To == entry.To
+                    && state.Commits.Knows(entry.To) && state.Commits.Knows(entry.From)
                     && state.Commits.Entry(entry.To).HashEquals(loaded.Header.ToHash)
                     && loaded.Run.Terms.From == state.CanonicalAt(entry.From)
                     && loaded.Run.Terms.To == state.CanonicalAt(entry.To))

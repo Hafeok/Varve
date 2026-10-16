@@ -58,12 +58,12 @@ param cpu string = '1.0'
 @description('Memory for the replica.')
 param memory string = '2Gi'
 
-@description('0 scales to zero between requests: a cold start then reads the catalog and replays the log after it (ADR 0139). 1 keeps one replica.')
+@description('0 scales to zero between requests: a cold start reads the catalog and the log after its cursor (ADR 0139). 1 keeps one replica warm, so no request waits for a start.')
 @allowed([
   0
   1
 ])
-param minReplicas int = 1
+param minReplicas int = 0
 
 // Storage Blob Data Contributor: read, write and delete blobs; nothing else.
 var blobDataContributor = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'

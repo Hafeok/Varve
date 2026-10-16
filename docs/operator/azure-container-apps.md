@@ -33,7 +33,7 @@ server's URL, the container's URL and the app's principal id.
 | `storageSku` | `Standard_ZRS` | `Standard_ZRS` keeps a commit through a zone's loss; `Standard_LRS` is cheaper, one datacentre; `Standard_GZRS` adds a second region asynchronously |
 | `cacheBytes` | 4 GiB | `Varve:ObjectStorage:CacheBytes`, within the replica's ephemeral storage |
 | `cpu`, `memory` | `1.0`, `2Gi` | the replica's size |
-| `minReplicas` | 1 | 0 scales to zero between requests |
+| `minReplicas` | 0 | scales to zero between requests; 1 keeps a replica warm, a latency option |
 
 **The first start can fail** until the role assignment has propagated, which
 takes a few minutes: the configured datasets cannot be opened, the server
@@ -68,17 +68,30 @@ next writer.
 
 ## Cold start and scale to zero
 
-With `minReplicas` 0 a request after an idle period starts a replica. A start
-reads the manifest, the writer record and the catalog, attaches each extent
-lazily — its first and last 1 MiB pages, then only the pages reads touch —
-and replays the log after the catalog's position (ADR 0139). It scans the
-log's record headers from the start to verify the chain: one read per sealed
-segment, and one per chunk of a segment not yet sealed. That last term grows
-with the open segment: at REC size M on loopback a cold start made 19,790
-reads and took 23–29 s, so a dataset with a long open segment is better kept
-at `minReplicas` 1. The cost on a real account is **to be measured by the
-maintainer** with the optional leg (`azure-objects.yml`); the figures for
-Azurite and RustFS at S and M are in the milestone's record and
+With `minReplicas` 0, the default, a request after an idle period starts a
+replica. A start reads the manifest, the writer record and the catalog,
+attaches each extent lazily — its first and last 1 MiB pages, then only the
+pages reads touch — and reads the log **only after the catalog's cursor**
+(ADR 0139): it lists `log/`, and reads the chunks of the open segment from
+the slot the catalog records. A sealed segment is one object, consolidated
+by its seal (ADR 0135), and is not read at all. The commit index below the
+catalog is read from the log by the first read that needs it — a feed or an
+as-of read below the newest checkpoint — and kept in the cache.
+
+What a start costs is the listing of `log/`, which grows with the open
+segment's chunks, one per commit batch; and the chunks after the newest
+checkpoint, read sixteen at a time. So a checkpoint policy keeps the second
+small, and the open segment's length bounds the first. At REC size M on
+loopback, with the newest checkpoint 1,000 commits behind the head:
+**4.3 s on Azurite** (2.1 s listing, 1.2 s reading 1,001 chunks) and **7.0 s
+on RustFS** (6.4 s listing the open segment's 19,745 chunk names), against
+23–29 s before the cursor. The first as-of read below the checkpoint then
+took 10–28 s, once.
+
+`minReplicas` 1 keeps a replica warm, so no request waits for a start: a
+latency option, not a requirement. The cost on a real account is **to be
+measured by the maintainer** with the optional leg (`azure-objects.yml`); the
+figures for Azurite and RustFS are in the milestone's record and
 `tests/Varve.Benchmarks/README.md`.
 
 ## Checkpoints
