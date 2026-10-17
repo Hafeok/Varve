@@ -41,20 +41,29 @@ definition drift unless something holds them together.
    with cycles, and checks for every node of the graph that `Varve.Shacl`'s
    value nodes equal the evaluator's `SELECT DISTINCT ?o { <n> path ?o }`.
    The pull request reports the iteration count and any counterexample found.
-5. **One divergence, by construction, kept and stated.** The differential
-   property found it on its first run (seed `1ApdSFS1VMn4`): from a focus node
-   the data graph does not hold, along `( [ sh:zeroOrOnePath ex:p1 ]
-   [ sh:zeroOrOnePath ex:p0 ] )`, SPARQL gives nothing and `Varve.Shacl` gives
-   the focus node. SPARQL 1.2 §18 rewrites a sequence into a join through a
-   fresh variable, and a zero-length step whose ends are both variables ranges
-   over the graph's nodes only, so the node is lost at the second step. The
-   SHACL value nodes are the nodes reached *from the focus node*, and a
-   zero-length path reaches it whatever the graph holds (point 2), at every
-   step as at the first. Only a node absent from the data graph is affected,
-   since everything a path reaches from a node in the graph is in the graph.
-   The property compares every node of the graph exactly, and at an absent
-   node checks that the divergence is exactly this: SPARQL's answer is a
-   subset of SHACL's, and SHACL's is empty or the focus node alone.
+5. **One divergence, which is SPARQL 1.1's algebra, not a Varve choice.**
+   The differential property found it on its first run (seed
+   `1ApdSFS1VMn4`). From a focus node the data graph does not hold, along
+   `( [ sh:zeroOrOnePath ex:p1 ] [ sh:zeroOrOnePath ex:p0 ] )`, SPARQL gives
+   nothing and `Varve.Shacl` gives the focus node. The cause is SPARQL 1.1's
+   algebra (§18.4): a sequence path is evaluated as a join through a fresh
+   variable, and a zero-length step whose ends are both variables is defined
+   over the graph's nodes only, so the focus node is lost at the second step.
+   Any conforming SPARQL engine gives the same answer. Only a node absent
+   from the data graph can tell the two apart, since everything a path
+   reaches from a node in the graph is in the graph. The maintainer decided,
+   on 2026-10-17:
+   - `Varve.Shacl` keeps SHACL's reading. The value nodes are the nodes
+     reached *from the focus node*, and a zero-length step reaches the node it
+     starts from whatever the graph holds (point 2), at every step as at the
+     first.
+   - `Varve.Sparql.Evaluation` keeps SPARQL's algebra to the letter, as the
+     W3C suites define it.
+   - The differential property compares the two exactly everywhere but in
+     this one case, which it excludes by name
+     (`ZeroLengthStepThroughASequenceFromAnAbsentNode`): a focus node absent
+     from the data, and a path in which a sequence has a step after its first
+     that can match the empty path.
 6. **The step that runs per value node is `[HotPath]`.** A closure's search
    allocates its visited set and frontier per focus node, not per quad, and is
    answered by a `[DesignDecision]` citing this ADR, as `PathOperator.Search`

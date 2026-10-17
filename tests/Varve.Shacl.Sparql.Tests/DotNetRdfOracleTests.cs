@@ -66,7 +66,8 @@ public class DotNetRdfOracleTests
         // result. SPARQL's operator mapping orders no language-tagged string, nor one against
         // a simple literal, so ("x"@fr, "x"@fr) and ("abc"@en, "abc") are results; Varve's
         // evaluator gives the same type error. dotNetRDF orders both pairs and reports
-        // nothing. The suite's lessThan cases cover the components instead.
+        // nothing. The suite's lessThan cases cover the components instead; the upstream
+        // report is tracked in #124, and the two come back when it is fixed.
     ];
 
     private sealed record Case(string Shapes, string Data)

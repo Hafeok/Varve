@@ -428,7 +428,10 @@ its first paragraph.
   `sh:lessThanOrEquals` result where SHACL 1.2 Core §7.6.5 requires one.
   Varve's evaluator gives SPARQL's type error, and Varve.Shacl the result.
   The oracle's generator leaves the two components out, with the reason in
-  the test; the suite covers them.
+  the test; the suite covers them. `sh:lessThan` has the same defect
+  (`("a"@fr, "b"@fr)`). The upstream report is drafted in
+  [#124](https://github.com/Hafeok/Varve/issues/124), for the maintainer to
+  file.
 
 ### Conformance
 
@@ -513,13 +516,40 @@ for the `Closes #120` trailer, which the descriptor's commit adds.
   they were run with `WarningsNotAsErrors=CS0618` passed through, on the
   command line or in the environment.
 
+### After the pull request opened
+
+The maintainer answered the pull request's questions:
+
+> Yes: watch #123, fix CI failures, and answer review comments from me or the gates App. Report anything from anyone else to me rather than acting on it.
+>
+> - **Release number:** Object storage is landing as `preview.8` now. When it is on `main`, merge `main`, rename your descriptor to `v0.1.0-preview.9`, re-project the changelog, and rerun the pipeline. Expect ADR or file overlaps only in README Status, the roadmap and AGENTS.md's State.
+> - **Path semantics:** keep SHACL's reading. In the differential test, exclude only the case "focus node absent from the data, path with a zero-length step reached through a sequence", by name, with a pointer to ADR 0152. The evaluator keeps SPARQL's literal algebra, which the W3C suites define. ADR 0152 should say that this is the SPARQL 1.1 algebra's behaviour for zero-length steps over variables, not a Varve choice.
+> - **dotNetRDF's `sh:lessThanOrEquals`:** add it to the upstream reports like #36–#39: a tracking issue in this repository titled "Upstream (dotNetRDF): …", with a minimal reproduction and the SHACL section. Filing upstream is my act; draft it in the issue.
+> - **`InMemoryDataset` being quadratic:** fine for part 1. Note it in the record; it's the reference implementation, and the indexed one is the "Browser read path" milestone after 1.0.
+
+What was done:
+
+- **The path divergence.** ADR 0152's point 5 says it is SPARQL 1.1's
+  algebra (§18.4), not a Varve choice, and records the decision. The
+  differential property now excludes exactly one case, by name,
+  `ZeroLengthStepThroughASequenceFromAnAbsentNode`: a focus node absent from
+  the data, on a path in which a sequence has a step after its first that can
+  match the empty path. Everywhere else it compares exactly, absent nodes
+  included; it was clean at 100,000 iterations.
+- **dotNetRDF.** [#124](https://github.com/Hafeok/Varve/issues/124), under
+  #13. Its reproduction was run against both engines before it was written,
+  and it covers `sh:lessThan` too, which has the same defect.
+- **`InMemoryDataset`.** It answers every match by a scan, so validating over
+  it is quadratic in the data. That is acceptable for part 1: it is the
+  reference implementation of `IQuadSource`, and the indexed one is the
+  "Browser read path" milestone after 1.0. Part 2 validates the store, which
+  is indexed.
+- **The release number** waits on Object storage's `preview.8`, and is
+  recorded in the commit that renames the descriptor.
+
 ### What the maintainer is asked for
 
 - **Accept the decisions**, so `CS0618` clears. That means the ten sets of
   ADRs 0148–0157 and `shacl-hot-path-scope`.
-- **ADR 0152's divergence.** Keep SHACL's reading, in which a zero-length step
-  reaches the node whatever the graph holds, or follow SPARQL's algebra to the
-  letter? Only a focus node absent from the data graph can tell them apart.
-- **`InMemoryDataset`'s scan.** Validating over it is quadratic. That is
-  outside this milestone, and an index in `InMemoryDataset` would be a
-  change to `Varve.Rdf`. Part 2 validates the store, which is indexed.
+- **ADR 0152's divergence**: answered above.
+- **`InMemoryDataset`'s scan**: answered above.

@@ -22,9 +22,9 @@ namespace Varve.Shacl.Sparql.Tests;
 /// Varve.Sparql.Evaluation's property paths agree. For a generated path and
 /// generated data, the value nodes a property shape sees at each node of the
 /// graph — read off the results of <c>sh:in ()</c>, which every value node
-/// fails — are the solutions of <c>SELECT DISTINCT ?o { focus path ?o }</c>.
-/// At a node the graph does not hold, the one recorded divergence is checked
-/// to be exactly that.
+/// fails — are the solutions of <c>SELECT DISTINCT ?o { focus path ?o }</c>,
+/// at every node, but in one case excluded by name:
+/// <see cref="ZeroLengthStepThroughASequenceFromAnAbsentNode"/>.
 /// </summary>
 public class PathDifferentialTests
 {
@@ -42,7 +42,7 @@ public class PathDifferentialTests
         Gen.Select(Gen.Int[0, 99].Array[1, 12], Edges).Sample((codes, edges) =>
         {
             int at = 0;
-            (string turtle, string sparql) = Path(codes, ref at, 0);
+            (string turtle, string sparql, _, bool zeroLengthThroughSequence) = Path(codes, ref at, 0);
             InMemoryDataset data = Data(edges);
 
             InMemoryDataset shapes = Support.Dataset(
@@ -65,49 +65,58 @@ public class PathDifferentialTests
 
                 SortedSet<string> expected = Select(data, "SELECT DISTINCT ?o WHERE { <http://example.com/ns#n" + n + "> " + sparql + " ?o }");
                 string shown = $"at n{n} over {turtle} ({sparql}): SPARQL [{string.Join(", ", expected)}], SHACL [{string.Join(", ", shacl)}]";
-                if (Array.Exists(edges, e => e.S == n || e.O == n))
+                bool absent = !Array.Exists(edges, e => e.S == n || e.O == n);
+                if (ZeroLengthStepThroughASequenceFromAnAbsentNode(absent, zeroLengthThroughSequence))
                 {
-                    Assert.True(expected.SetEquals(shacl), shown);
+                    continue;
                 }
-                else
-                {
-                    // ADR 0152's recorded divergence: from a node the graph does not hold, a
-                    // zero-length step after the first is SPARQL's variable-to-variable form,
-                    // which ranges over the graph's nodes only and loses the node; SHACL's
-                    // value nodes keep it. Nothing else can be reached from such a node.
-                    Assert.True(expected.IsSubsetOf(shacl), shown);
-                    Assert.True(shacl.Count == 0 || (shacl.Count == 1 && shacl.Contains(Show(focus))), shown);
-                }
+
+                Assert.True(expected.SetEquals(shacl), shown);
             }
         }, iter: Iterations, print: c => Data(c.Item2).Count + " quads, path codes " + string.Join(",", c.Item1));
     }
 
-    /// <summary>A path read off <paramref name="codes"/>: the same path in SHACL's Turtle form and in SPARQL.</summary>
-    private static (string Turtle, string Sparql) Path(int[] codes, ref int at, int depth)
+    /// <summary>
+    /// The one case excluded, by the maintainer's decision of 2026-10-17 (ADR 0152): a
+    /// focus node the data graph does not hold, and a path in which a sequence has a
+    /// step after its first that can match the empty path. SPARQL 1.1's algebra
+    /// (§18.4) evaluates that step with both ends variables, over the graph's nodes
+    /// only, so it loses the focus node; SHACL's value nodes keep it. The evaluator
+    /// keeps the algebra the W3C suites define, and Varve.Shacl keeps SHACL's reading.
+    /// </summary>
+    private static bool ZeroLengthStepThroughASequenceFromAnAbsentNode(bool focusAbsent, bool zeroLengthThroughSequence) =>
+        focusAbsent && zeroLengthThroughSequence;
+
+    /// <summary>
+    /// A path read off <paramref name="codes"/>: the same path in SHACL's Turtle form and in
+    /// SPARQL; whether it can match the empty path; and whether a sequence in it has a step
+    /// after its first that can.
+    /// </summary>
+    private static (string Turtle, string Sparql, bool Nullable, bool ZeroLengthThroughSequence) Path(int[] codes, ref int at, int depth)
     {
         int code = at < codes.Length ? codes[at++] : 0;
         int kind = depth >= 3 ? code % 4 : code % 10;
         if (kind < 4)
         {
             int p = kind % 2;
-            return ("ex:p" + p, "<http://example.com/ns#p" + p + ">");
+            return ("ex:p" + p, "<http://example.com/ns#p" + p + ">", false, false);
         }
 
-        (string t1, string s1) = Path(codes, ref at, depth + 1);
+        (string t1, string s1, bool n1, bool z1) = Path(codes, ref at, depth + 1);
         if (kind is 5 or 6)
         {
-            (string t2, string s2) = Path(codes, ref at, depth + 1);
+            (string t2, string s2, bool n2, bool z2) = Path(codes, ref at, depth + 1);
             return kind == 5
-                ? ("( " + t1 + " " + t2 + " )", "(" + s1 + ")/(" + s2 + ")")
-                : ("[ sh:alternativePath ( " + t1 + " " + t2 + " ) ]", "(" + s1 + ")|(" + s2 + ")");
+                ? ("( " + t1 + " " + t2 + " )", "(" + s1 + ")/(" + s2 + ")", n1 && n2, z1 || z2 || n2)
+                : ("[ sh:alternativePath ( " + t1 + " " + t2 + " ) ]", "(" + s1 + ")|(" + s2 + ")", n1 || n2, z1 || z2);
         }
 
         return kind switch
         {
-            4 => ("[ sh:inversePath " + t1 + " ]", "^(" + s1 + ")"),
-            7 => ("[ sh:zeroOrMorePath " + t1 + " ]", "(" + s1 + ")*"),
-            8 => ("[ sh:oneOrMorePath " + t1 + " ]", "(" + s1 + ")+"),
-            _ => ("[ sh:zeroOrOnePath " + t1 + " ]", "(" + s1 + ")?"),
+            4 => ("[ sh:inversePath " + t1 + " ]", "^(" + s1 + ")", n1, z1),
+            7 => ("[ sh:zeroOrMorePath " + t1 + " ]", "(" + s1 + ")*", true, z1),
+            8 => ("[ sh:oneOrMorePath " + t1 + " ]", "(" + s1 + ")+", n1, z1),
+            _ => ("[ sh:zeroOrOnePath " + t1 + " ]", "(" + s1 + ")?", true, z1),
         };
     }
 
