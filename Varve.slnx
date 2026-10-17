@@ -17,6 +17,7 @@
     <Project Path="src/Varve.Sparql/Varve.Sparql.csproj" />
     <Project Path="src/Varve.Server/Varve.Server.csproj" />
     <Project Path="src/Varve.Shacl/Varve.Shacl.csproj" />
+    <Project Path="src/Varve.Shacl.Sparql/Varve.Shacl.Sparql.csproj" />
     <Project Path="src/Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
     <Project Path="src/Varve.Sparql.Results/Varve.Sparql.Results.csproj" />
     <Project Path="src/Varve.Sparql.Store/Varve.Sparql.Store.csproj" />

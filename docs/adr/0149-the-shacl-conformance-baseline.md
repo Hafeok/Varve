@@ -72,8 +72,8 @@ the submodule, and reports every case whose outcome changed.
 
 ### Where 2017 and 1.2 conflict, 1.2 wins
 
-Three 2017 cases test rules the 1.2 SPARQL document removes, and are exempted
-over both subjects with that reason:
+Four 2017 cases test rules the 1.2 SPARQL document removes or narrows, and
+are exempted over both subjects with that reason:
 
 - `sparql/pre-binding/pre-binding-006` and `sparql/pre-binding/unsupported-sparql-004`
   expect a failure for a sub-`SELECT`. SPARQL-Related Features, Appendix F,
@@ -81,6 +81,10 @@ over both subjects with that reason:
 - `sparql/pre-binding/shapesGraph-001` uses the pre-bound `$shapesGraph` and
   `$currentShape`. Appendix F removes them (Issue 426), and Varve's shapes and
   data are two sources (ADR 0151), so there is no graph name to bind.
+- `sparql/pre-binding/unsupported-sparql-002` expects a failure for any
+  `VALUES`. Appendix A of the 1.2 document forbids only a `VALUES` that
+  mentions a pre-bound variable, which this one does not. Found while
+  implementing, and added here before the pull request.
 
 Any other conflict found while implementing is added here by a dated
 amendment, never decided in passing.
@@ -121,7 +125,7 @@ From SHACL 1.2 Core (TR, 14 October 2026):
   `sh:uniqueValuesFor`.
 
 From SHACL 1.2 SPARQL-Related Features (TR, 11 October 2026): `sh:severity`
-on a SPARQL-based constraint, the annotation properties (§5), the narrowed
+on a SPARQL-based constraint, the narrowed
 pre-binding restrictions of Appendix A (`VALUES` only when it mentions a
 pre-bound variable; sub-`SELECT` allowed; `SERVICE` refused, which the draft
 permits a processor to do with a failure), and prefixes declared on an
@@ -135,6 +139,10 @@ permits a processor to do with a failure), and prefixes declared on an
   own milestone if the maintainer wants it.
 - **SPARQL-based node expressions and functions** (SPARQL-Related Features §6,
   §7), and **`sh:SPARQLTarget`**, which 1.2 drops.
+- **Result annotations** (SPARQL-Related Features §5): optional for a
+  processor (§1.3), no suite case uses them, and they would put arbitrary
+  properties on the typed result; they come with the public shapes model
+  if a consumer needs them (ADR 0155).
 - **`owl:imports` closure** (Core §6.1): not followed, by ADR 0151.
 - **`sh:usedDataGraph`, `sh:usedShapesGraph`, `sh:usedConfiguration`**
   (§6.8.1.5–§6.8.1.8): optional, and Varve's inputs are sources, not graphs
@@ -153,13 +161,21 @@ permits a processor to do with a failure), and prefixes declared on an
   validate.
 - **`sh:rule` and the inference rules document**: Inference (#95).
 
-### The expected outcome
+### The outcome
 
-The 2017 suite: every case passes over both subjects but the three exempted
-above. The 1.2 suite: every case in scope passes; every case out of scope is
-exempted by name with one of the reasons above. The pull request reports the
-counts, and any case that fails for another reason is a defect to fix or a
-new exemption with its reason, never a silent one.
+Over both subjects:
+
+| Suite | Cases | Pass | Exempt |
+|---|---:|---:|---:|
+| 2017 `core` | 98 | 98 | 0 |
+| 2017 `sparql` | 22 | 18 | 4, the conflicts above |
+| 1.2 `core` | 162 | 162 | 0 |
+| 1.2 `sparql` | 43 | 33 | 10: five SPARQL functions (§7), five SPARQL node expressions (§6) |
+
+So 232 of 240 and 390 of 410 ratchet lines pass, and every exemption is
+written with its reason in `baseline/exemptions.txt`. A case that fails for
+another reason is a defect to fix or a new exemption with its reason, never a
+silent one.
 
 ## Alternatives considered
 

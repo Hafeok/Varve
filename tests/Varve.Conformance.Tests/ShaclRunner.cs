@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Varve.Rdf;
 using Varve.Shacl;
 using Varve.Shacl.Model;
+using Varve.Shacl.Sparql;
 using Varve.Store;
 
 namespace Varve.Conformance.Tests;
@@ -34,9 +35,6 @@ internal static class ShaclRunner
 
     internal static readonly string[] SubjectNames = ["dataset", "store"];
 
-    /// <summary>The extensions the harness validates with; the SPARQL suites need SHACL-SPARQL's.</summary>
-    internal static Func<IReadOnlyList<IShaclExtension>> Extensions { get; set; } = () => [];
-
     /// <summary>Null when the case passes, otherwise why not.</summary>
     internal static async Task<string?> RunAsync(ShaclEntry entry, string subject, CancellationToken cancellationToken)
     {
@@ -51,7 +49,7 @@ internal static class ShaclRunner
             IQuadSource shapes = same ? data : await LoadAsync(subject, shapesQuads, releases);
             // The suite's conformance-disallows-001: the framework uses the expected report's set.
             List<RdfTerm>? disallows = entry.ExpectsFailure ? null : ExpectedDisallows(entry);
-            ShaclOptions options = new() { Extensions = Extensions(), ConformanceDisallows = disallows };
+            ShaclOptions options = new() { Extensions = [SparqlConstraints.Extension()], ConformanceDisallows = disallows };
 
             ShapesLoad load = ShapesGraph.Load(shapes, GraphPattern.DefaultGraph, options, cancellationToken);
             ValidationOutcome? outcome = load.Shapes is { } loaded
