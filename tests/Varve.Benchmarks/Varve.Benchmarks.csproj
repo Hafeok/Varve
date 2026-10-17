@@ -33,6 +33,7 @@
     <ProjectReference Include="../../src/Varve.Sparql.Results/Varve.Sparql.Results.csproj" />
     <ProjectReference Include="../../src/Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
     <ProjectReference Include="../../src/Varve.Sparql.Store/Varve.Sparql.Store.csproj" />
+    <ProjectReference Include="../../src/Varve.Shacl/Varve.Shacl.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -49,6 +50,8 @@
     <!-- The baseline. ADR 0027: a throughput number with nothing to compare it
          against says only that the machine is a machine. -->
     <PackageReference Include="dotNetRdf.Core" />
+    <!-- The SHACL baseline (ADR 0156). -->
+    <PackageReference Include="dotNetRdf.Shacl" />
   </ItemGroup>
 
 </Project>
