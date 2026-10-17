@@ -491,6 +491,14 @@ jobs:
 
       - name: Start mock-oauth2-server
         run: |
+          # Until #118's mirror: three pulls with backoff, so one runner address's
+          # exhausted anonymous limit does not fail the job. Only the pull is
+          # retried; a start that fails its health check is a real failure.
+          for attempt in 1 2 3; do
+            docker compose --file .github/mock-oauth2/compose.yaml pull && break
+            [ "$attempt" -lt 3 ] || exit 1
+            sleep $((attempt * 15))
+          done
           docker compose --file .github/mock-oauth2/compose.yaml up --detach
           for attempt in $(seq 1 60); do
             curl --silent --fail http://localhost:8080/varve/.well-known/openid-configuration > /dev/null && exit 0
@@ -529,7 +537,16 @@ jobs:
           global-json-file: global.json
 
       - name: Start Zitadel
-        run: docker compose --file .github/zitadel/compose.yaml up --detach --wait
+        run: |
+          # Until #118's mirror: three pulls with backoff, so one runner address's
+          # exhausted anonymous limit does not fail the job. Only the pull is
+          # retried; a start that fails its health check is a real failure.
+          for attempt in 1 2 3; do
+            docker compose --file .github/zitadel/compose.yaml pull && break
+            [ "$attempt" -lt 3 ] || exit 1
+            sleep $((attempt * 15))
+          done
+          docker compose --file .github/zitadel/compose.yaml up --detach --wait
 
       - name: Seed it
         run: dotnet run eng/zitadel-seed.cs -- --output ${{ github.workspace }}/artifacts/zitadel-seed.json
@@ -722,6 +739,14 @@ jobs:
       - name: Start mock-oauth2-server
         if: matrix.rid == 'linux-x64'
         run: |
+          # Until #118's mirror: three pulls with backoff, so one runner address's
+          # exhausted anonymous limit does not fail the job. Only the pull is
+          # retried; a start that fails its health check is a real failure.
+          for attempt in 1 2 3; do
+            docker compose --file .github/mock-oauth2/compose.yaml pull && break
+            [ "$attempt" -lt 3 ] || exit 1
+            sleep $((attempt * 15))
+          done
           docker compose --file .github/mock-oauth2/compose.yaml up --detach
           for attempt in $(seq 1 60); do
             curl --silent --fail http://localhost:8080/varve/.well-known/openid-configuration > /dev/null && exit 0
@@ -776,7 +801,16 @@ jobs:
       # in-process leg is; the container at 8090 with the project's roles.
       - name: Start Zitadel
         if: matrix.rid == 'linux-x64'
-        run: docker compose --file .github/zitadel/compose.yaml up --detach --wait
+        run: |
+          # Until #118's mirror: three pulls with backoff, so one runner address's
+          # exhausted anonymous limit does not fail the job. Only the pull is
+          # retried; a start that fails its health check is a real failure.
+          for attempt in 1 2 3; do
+            docker compose --file .github/zitadel/compose.yaml pull && break
+            [ "$attempt" -lt 3 ] || exit 1
+            sleep $((attempt * 15))
+          done
+          docker compose --file .github/zitadel/compose.yaml up --detach --wait
 
       - name: Seed it
         if: matrix.rid == 'linux-x64'
@@ -956,6 +990,14 @@ jobs:
 
       - name: Start the Event Hubs emulator
         run: |
+          # Until #118's mirror: three pulls with backoff, so one runner address's
+          # exhausted anonymous limit does not fail the job. Only the pull is
+          # retried; a start that fails its health check is a real failure.
+          for attempt in 1 2 3; do
+            docker compose --file .github/eventhubs/compose.yaml pull && break
+            [ "$attempt" -lt 3 ] || exit 1
+            sleep $((attempt * 15))
+          done
           docker compose --file .github/eventhubs/compose.yaml up --detach --wait
           curl --silent --retry 60 --retry-delay 3 --retry-all-errors --fail http://localhost:5300/health
 

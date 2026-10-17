@@ -15,6 +15,9 @@
 # limit a shared runner's address exhausts. Dependabot's docker-compose
 # ecosystem bumps them.
 #
+# Each digest is also in .github/ci-images.yaml, the list the CI image mirror
+# copies from (#118): a bump changes both.
+#
 # The bootstrap directory receives two personal access tokens, written by
 # Zitadel's first-instance setup: the administrator's, which the seed uses, and
 # the login client's, which approves a device code. Throwaway instance,
