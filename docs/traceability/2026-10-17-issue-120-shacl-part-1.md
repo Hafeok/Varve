@@ -478,7 +478,13 @@ results canonicalised.
 
 ### Benchmarks against dotNetRDF
 
-The run against dotNetRDF on the machine above was in progress when this was written; its table follows in the next commit.
+On the machine above, at the three sizes, with `dotNetRdf.Shacl` 3.5.2, ordered by how close Varve came; **no row is slower**. The workload is in `tests/Varve.Benchmarks/README.md`. Both engines gave the same verdict and result count at every size before timing.
+
+| Triples | Varve, store view | dotNetRDF | Varve's time | Allocated, Varve | Allocated, dotNetRDF | Results, both |
+|---:|---:|---:|---:|---:|---:|---:|
+| 10,000 | 32.4 ms ± 0.4 | 1,215.3 ms ± 112.5 | 0.03× (37× faster) | 6.33 MB | 650.05 MB | 201 |
+| 1,000,000 | 1,759.3 ms ± 90.4 | 131,750.9 ms ± 2,077.8 | 0.013× (75× faster) | 845.89 MB | 65,099.48 MB | 20,061 |
+| 100,000 | 84.3 ms ± 15.4 | 12,288.7 ms ± 316.6 | 0.007× (146× faster) | 72.82 MB | 6,511.92 MB | 2,001 |
 
 ### Public API
 
