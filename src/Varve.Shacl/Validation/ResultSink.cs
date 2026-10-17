@@ -4,6 +4,8 @@
 
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Shacl.Shapes;
 
@@ -63,6 +65,7 @@ internal sealed class ResultSink
     internal bool Disallowed { get; private set; }
 
     /// <summary>A result of <paramref name="constraint"/> at <paramref name="shape"/>, with the shape's path unless one is given.</summary>
+    [DesignDecision(typeof(ShaclHotPathScope.ResultsCostTheirRecord), Scope = ExceptionScope.HotPath)]
     internal void Add(Shape shape, Constraint constraint, Node focus, Node? value, ShapePath? path = null, ImmutableArray<RdfTerm>? messages = null)
     {
         RdfTerm severity = constraint.Severity ?? shape.Severity;
@@ -84,6 +87,7 @@ internal sealed class ResultSink
     }
 
     /// <summary>A result produced elsewhere — by a nested property shape — passed through as it is.</summary>
+    [DesignDecision(typeof(ShaclHotPathScope.ResultsCostTheirRecord), Scope = ExceptionScope.HotPath)]
     internal void Add(in ResultRecord record)
     {
         if (_disallowed is not null)

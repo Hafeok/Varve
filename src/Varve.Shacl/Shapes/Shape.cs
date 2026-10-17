@@ -4,6 +4,8 @@
 
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Shacl.Validation;
 
@@ -43,6 +45,7 @@ internal sealed class Shape(int index, RdfTerm node)
     internal bool HasTargets =>
         TargetNodes.Count > 0 || TargetClasses.Count > 0 || TargetSubjectsOf.Count > 0 || TargetObjectsOf.Count > 0 || TargetWhere.Count > 0;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool Deactivated { get; set; }
 
     /// <summary>§3.1.4: <c>sh:severity</c>, <c>sh:Violation</c> by default.</summary>
@@ -56,6 +59,7 @@ internal sealed class Shape(int index, RdfTerm node)
 
     internal RdfTerm? DefaultValue { get; set; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal List<Constraint> Constraints { get; } = [];
 
     /// <summary>The strongly connected component of the dependency graph it belongs to (ADR 0150).</summary>
@@ -103,6 +107,7 @@ internal abstract class Constraint
     internal ImmutableArray<RdfTerm>? Messages { get; set; }
 
     /// <summary>A reifier's <c>sh:deactivated true</c>.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool Deactivated { get; set; }
 
     /// <summary><c>sh:sourceConstraint</c>, for a constraint with a node of its own.</summary>
@@ -116,5 +121,6 @@ internal abstract class Constraint
     /// <paramref name="shape"/> are <paramref name="values"/>, writing every
     /// result into <paramref name="sink"/>.
     /// </summary>
-    internal abstract void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink);
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal abstract void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink);
 }

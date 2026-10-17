@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Xsd;
 
@@ -16,14 +18,13 @@ namespace Varve.Shacl.Validation;
 internal static class Literals
 {
     private const string Xsd = "http://www.w3.org/2001/XMLSchema#";
-    private const string RdfLangString = "http://www.w3.org/1999/02/22-rdf-syntax-ns#langString";
-    private const string RdfDirLangString = "http://www.w3.org/1999/02/22-rdf-syntax-ns#dirLangString";
 
     /// <summary>
     /// Whether <paramref name="literal"/> matches <paramref name="datatype"/>
     /// (§7.1.2): the same datatype IRI and, for a datatype SPARQL 1.2 supports,
     /// a lexical form in its lexical space.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool Matches(RdfTerm literal, RdfTerm datatype)
     {
         if (literal.Kind != RdfTermKind.Literal || !literal.DatatypeIri.SequenceEqual(datatype.Lexical))
@@ -31,13 +32,13 @@ internal static class Literals
             return false;
         }
 
-        string iri = System.Text.Encoding.UTF8.GetString(datatype.Lexical);
-        if (iri == RdfLangString)
+        ReadOnlySpan<byte> iri = datatype.Lexical;
+        if (iri.SequenceEqual("http://www.w3.org/1999/02/22-rdf-syntax-ns#langString"u8))
         {
             return !literal.Language.IsEmpty;
         }
 
-        if (iri == RdfDirLangString)
+        if (iri.SequenceEqual("http://www.w3.org/1999/02/22-rdf-syntax-ns#dirLangString"u8))
         {
             return !literal.Language.IsEmpty && literal.Direction != TextDirection.None;
         }
@@ -47,6 +48,7 @@ internal static class Literals
     }
 
     /// <summary>Whether a lexical form is in the lexical space of an XSD datatype <c>Varve.Xsd</c> knows.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static bool IsWellTyped(ReadOnlySpan<byte> lexical, XsdDatatype datatype)
     {
         switch (datatype)
@@ -99,6 +101,7 @@ internal static class Literals
     /// <see cref="PartialOrdering.Indeterminate"/> when no operator applies or
     /// the values are incomparable.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static PartialOrdering Compare(RdfTerm left, RdfTerm right)
     {
         if (left.Kind != RdfTermKind.Literal || right.Kind != RdfTermKind.Literal)
@@ -144,6 +147,7 @@ internal static class Literals
     }
 
     /// <summary>The datatype of a literal as <c>Varve.Xsd</c> knows it: a simple literal is <c>xsd:string</c>, a language-tagged one none.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static XsdDatatype DatatypeOf(RdfTerm literal)
     {
         if (!literal.Language.IsEmpty)
@@ -155,6 +159,7 @@ internal static class Literals
         return iri.IsEmpty ? XsdDatatype.String : XsdDatatypes.FromIri(iri);
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool TryNumeric(ReadOnlySpan<byte> lexical, XsdDatatype datatype, out XsdNumeric value)
     {
         value = default;
@@ -202,6 +207,7 @@ internal static class Literals
         }
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool TryDuration(ReadOnlySpan<byte> lexical, XsdDatatype datatype, out XsdDuration value)
     {
         value = default;
@@ -228,9 +234,11 @@ internal static class Literals
         }
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static PartialOrdering Sign(int comparison) =>
         comparison < 0 ? PartialOrdering.Less : comparison > 0 ? PartialOrdering.Greater : PartialOrdering.Equal;
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static Family FamilyOf(XsdDatatype datatype) => datatype switch
     {
         XsdDatatype.String => Family.String,
@@ -248,6 +256,7 @@ internal static class Literals
     };
 
     /// <summary>XML Schema's decimal lexical space, for values beyond <c>Varve.Xsd</c>'s precision.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool IsDecimalLexical(ReadOnlySpan<byte> text)
     {
         int i = text.Length > 0 && text[0] is (byte)'+' or (byte)'-' ? 1 : 0;
@@ -273,6 +282,7 @@ internal static class Literals
     }
 
     /// <summary>The integer types without a bound on one side, whose lexical forms may exceed Int64.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool IsUnboundedIntegerLexical(ReadOnlySpan<byte> text, XsdDatatype datatype)
     {
         if (datatype is not (XsdDatatype.Integer or XsdDatatype.NonNegativeInteger or XsdDatatype.PositiveInteger

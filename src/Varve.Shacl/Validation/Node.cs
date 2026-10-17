@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Shacl.Validation;
@@ -13,6 +15,7 @@ namespace Varve.Shacl.Validation;
 /// target the data does not mention, which matches nothing in the data and
 /// was never added to it (ADR 0151, <c>ShapeConstantsLookedUpOnly</c>).
 /// </summary>
+[HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
 internal readonly struct Node
 {
     private Node(TermHandle handle, RdfTerm? term)
@@ -43,6 +46,7 @@ internal readonly struct Node
 /// </summary>
 internal sealed class NodeComparer(IEqualityComparer<TermHandle> handles) : IEqualityComparer<Node>
 {
+    [DesignDecision(typeof(QuadSourceTermHandle.SourceSuppliesEquality), Scope = ExceptionScope.HotPath)]
     public bool Equals(Node x, Node y)
     {
         if (x.IsHeld != y.IsHeld)

@@ -151,6 +151,7 @@ public readonly struct XsdDateTime : IEquatable<XsdDateTime>
     /// untimezoned value are comparable only when imputing both <c>+14:00</c>
     /// and <c>-14:00</c> gives the same strict answer.
     /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public static PartialOrdering CompareXsd(XsdDateTime left, XsdDateTime right) =>
         SevenPropertyModel.CompareXsd(in left._value, in right._value);
 

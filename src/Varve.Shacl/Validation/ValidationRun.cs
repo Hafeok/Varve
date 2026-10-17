@@ -4,8 +4,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Text.RegularExpressions;
 using System.Threading;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Shacl.Model;
 using Varve.Shacl.Shapes;
@@ -29,6 +32,7 @@ internal sealed class ValidationRun
     private readonly Dictionary<int, List<Node>> _targets = [];
     private readonly Dictionary<string, Regex> _patterns = new(StringComparer.Ordinal);
     private readonly PathEvaluator _paths;
+    private readonly Dictionary<Constraint, object> _constraintState = [];
     private Dictionary<(Node, Node, Node), List<Node>>? _reifiers;
     private int _steps;
 
@@ -45,14 +49,19 @@ internal sealed class ValidationRun
         _paths = new PathEvaluator(data);
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal DataGraph Data { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal ShaclOptions Options { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal CancellationToken CancellationToken { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal ShapesGraph Shapes { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal Shape Shape(int index) => Shapes.Shapes[index];
 
     /// <summary>The validation of the data graph against every shape (§6.6), into <paramref name="results"/>.</summary>
@@ -74,6 +83,7 @@ internal sealed class ValidationRun
     }
 
     /// <summary>The validation of a focus node against a shape (§6.6): every active constraint, over the shape's value nodes.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal void ValidateFocus(Shape shape, Node focus, ResultSink sink)
     {
         if (shape.Deactivated)
@@ -86,18 +96,20 @@ internal sealed class ValidationRun
             CancellationToken.ThrowIfCancellationRequested();
         }
 
-        IReadOnlyList<Node> values = ValueNodes(shape, focus);
-        foreach (Constraint constraint in shape.Constraints)
+        List<Node> values = ValueNodes(shape, focus);
+        List<Constraint> constraints = shape.Constraints;
+        for (int i = 0; i < constraints.Count; i++)
         {
-            if (!constraint.Deactivated)
+            if (!constraints[i].Deactivated)
             {
-                constraint.Validate(this, shape, focus, values, sink);
+                constraints[i].Validate(this, shape, focus, values, sink);
             }
         }
     }
 
     /// <summary>§6.9: the focus node for a node shape; for a property shape, its path's values, then <c>sh:values</c>, then <c>sh:defaultValue</c>.</summary>
-    internal IReadOnlyList<Node> ValueNodes(Shape shape, Node focus)
+    [DesignDecision(typeof(ShaclHotPathScope.ValueNodesAreGatheredPerFocusNode), Scope = ExceptionScope.HotPath)]
+    internal List<Node> ValueNodes(Shape shape, Node focus)
     {
         if (shape.Path is null)
         {
@@ -216,6 +228,10 @@ internal sealed class ValidationRun
 
     // ------------------------------------------------------- SHACL instances
 
+    /// <summary>Whether <paramref name="cls"/> is <paramref name="ancestor"/> or one of its subclasses.</summary>
+    [DesignDecision(typeof(ShaclHotPathScope.ConformanceIsMemoisedPerValidation), Scope = ExceptionScope.HotPath)]
+    internal bool IsSubclassOf(Node cls, Node ancestor) => SuperclassesOf(cls).Contains(ancestor);
+
     /// <summary>The SHACL instances of a class (§1.1): <c>rdf:type/rdfs:subClassOf*</c>, reversed.</summary>
     internal List<Node> Instances(Node cls)
     {
@@ -235,6 +251,7 @@ internal sealed class ValidationRun
     }
 
     /// <summary>Whether <paramref name="node"/> is a SHACL instance of <paramref name="cls"/>.</summary>
+    [DesignDecision(typeof(ShaclHotPathScope.ConformanceIsMemoisedPerValidation), Scope = ExceptionScope.HotPath)]
     internal bool IsInstanceOf(Node node, Node cls)
     {
         foreach (Node type in TypesOf(node))
@@ -335,6 +352,7 @@ internal sealed class ValidationRun
     /// Inside a cyclic component, the greatest fixpoint of ADR 0150, computed
     /// over the pairs reachable from this one.
     /// </summary>
+    [DesignDecision(typeof(ShaclHotPathScope.ConformanceIsMemoisedPerValidation), Scope = ExceptionScope.HotPath)]
     internal bool Conforms(int shapeIndex, Node node)
     {
         if (_conforms.TryGetValue((shapeIndex, node), out bool known))
@@ -406,8 +424,9 @@ internal sealed class ValidationRun
 
     // ---------------------------------------------------------- reifiers
 
-    /// <summary>The reifiers of the triple (§7.8.5): nodes r with <c>r rdf:reifies &lt;&lt;( s p o )&gt;&gt;</c> in the data graph.</summary>
-    internal List<Node> Reifiers(Node subject, Node predicate, Node obj)
+    /// <summary>The reifiers of the triple (§7.8.5): nodes r with <c>r rdf:reifies &lt;&lt;( s p o )&gt;&gt;</c> in the data graph; null when it has none.</summary>
+    [DesignDecision(typeof(ShaclHotPathScope.ConformanceIsMemoisedPerValidation), Scope = ExceptionScope.HotPath)]
+    internal List<Node>? Reifiers(Node subject, Node predicate, Node obj)
     {
         if (_reifiers is null)
         {
@@ -437,12 +456,13 @@ internal sealed class ValidationRun
             }
         }
 
-        return _reifiers.TryGetValue((subject, predicate, obj), out List<Node>? found) ? found : [];
+        return _reifiers.TryGetValue((subject, predicate, obj), out List<Node>? found) ? found : null;
     }
 
     // ----------------------------------------------------------- patterns
 
     /// <summary>A pattern compiled once per validation, under <c>ShaclOptions.RegexTimeout</c>; a pattern .NET refuses is a failure.</summary>
+    [DesignDecision(typeof(ShaclHotPathScope.ConstraintStateIsMadeOncePerValidation), Scope = ExceptionScope.HotPath)]
     internal Regex Pattern(Shape shape, XPathRegexTranslation translation)
     {
         if (_patterns.TryGetValue(translation.Pattern, out Regex? regex))
@@ -458,6 +478,59 @@ internal sealed class ValidationRun
         _patterns[translation.Pattern] = regex;
         return regex;
     }
+
+    // ---------------------------------------------------- constraint state
+
+    /// <summary><c>sh:in</c>: whether the value is a member, the members resolved once per validation.</summary>
+    [DesignDecision(typeof(ShaclHotPathScope.ConstraintStateIsMadeOncePerValidation), Scope = ExceptionScope.HotPath)]
+    internal bool IsMember(Constraint constraint, ImmutableArray<RdfTerm> members, Node value)
+    {
+        if (!_constraintState.TryGetValue(constraint, out object? state))
+        {
+            HashSet<Node> resolved = new(Data.Nodes);
+            foreach (RdfTerm member in members)
+            {
+                resolved.Add(Data.Resolve(member));
+            }
+
+            state = resolved;
+            _constraintState[constraint] = state;
+        }
+
+        return ((HashSet<Node>)state).Contains(value);
+    }
+
+    /// <summary>
+    /// <c>sh:uniqueValuesFor</c>: whether another target of the shape has the
+    /// value's key, the targets' keys counted once per validation.
+    /// </summary>
+    [DesignDecision(typeof(ShaclHotPathScope.ConstraintStateIsMadeOncePerValidation), Scope = ExceptionScope.HotPath)]
+    internal bool SharesKey(UniqueValuesForConstraint constraint, Shape shape, Node value)
+    {
+        if (!_constraintState.TryGetValue(constraint, out object? state))
+        {
+            UniqueKeys made = new(new Dictionary<Node, string?>(Data.Nodes), new Dictionary<string, int>(StringComparer.Ordinal));
+            foreach (Node target in Targets(shape))
+            {
+                string? key = constraint.Key(this, target);
+                made.Keys[target] = key;
+                if (key is not null)
+                {
+                    made.Counts[key] = made.Counts.GetValueOrDefault(key) + 1;
+                }
+            }
+
+            state = made;
+            _constraintState[constraint] = state;
+        }
+
+        UniqueKeys keys = (UniqueKeys)state;
+        bool isTarget = keys.Keys.TryGetValue(value, out string? found);
+        string? valueKey = isTarget ? found : constraint.Key(this, value);
+        return valueKey is not null && keys.Counts.GetValueOrDefault(valueKey) > (isTarget ? 1 : 0);
+    }
+
+    private sealed record UniqueKeys(Dictionary<Node, string?> Keys, Dictionary<string, int> Counts);
 
     private sealed class PairComparer(NodeComparer nodes) : IEqualityComparer<(int Shape, Node Node)>
     {

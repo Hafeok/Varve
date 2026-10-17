@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Shacl.Validation;
@@ -35,13 +37,17 @@ internal sealed class DataGraph
         _terms = new Dictionary<TermHandle, RdfTerm>(source.TermComparer);
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal IQuadSource Source { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal GraphPattern Graph { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal NodeComparer Nodes { get; }
 
     /// <summary>A term as a node: the source's handle if it holds the term, the term otherwise. Never adds it.</summary>
+    [DesignDecision(typeof(ShaclHotPathScope.TermsAreResolvedOncePerValidation), Scope = ExceptionScope.HotPath)]
     internal Node Resolve(RdfTerm term)
     {
         if (_resolved.TryGetValue(term, out Node node))
@@ -59,6 +65,7 @@ internal sealed class DataGraph
     }
 
     /// <summary>The handle of a constant, or false when the data does not hold it.</summary>
+    [DesignDecision(typeof(ShaclHotPathScope.TermsAreResolvedOncePerValidation), Scope = ExceptionScope.HotPath)]
     internal bool TryHandle(RdfTerm term, out TermHandle handle)
     {
         Node node = Resolve(term);
@@ -67,6 +74,7 @@ internal sealed class DataGraph
     }
 
     /// <summary>The node's term, externalised once.</summary>
+    [DesignDecision(typeof(ShaclHotPathScope.TermsAreResolvedOncePerValidation), Scope = ExceptionScope.HotPath)]
     internal RdfTerm Term(Node node)
     {
         if (node.Term is { } known)
@@ -89,6 +97,7 @@ internal sealed class DataGraph
     }
 
     /// <summary>The objects of (<paramref name="subject"/>, <paramref name="predicate"/>), distinct.</summary>
+    [DesignDecision(typeof(ShaclHotPathScope.ValueNodesAreGatheredPerFocusNode), Scope = ExceptionScope.HotPath)]
     internal void Objects(Node subject, TermHandle predicate, List<Node> into, HashSet<Node> seen)
     {
         if (!subject.IsHeld)
@@ -108,6 +117,7 @@ internal sealed class DataGraph
     }
 
     /// <summary>The subjects of (<paramref name="predicate"/>, <paramref name="obj"/>), distinct.</summary>
+    [DesignDecision(typeof(ShaclHotPathScope.ValueNodesAreGatheredPerFocusNode), Scope = ExceptionScope.HotPath)]
     internal void Subjects(TermHandle predicate, Node obj, List<Node> into, HashSet<Node> seen)
     {
         if (!obj.IsHeld)
@@ -127,6 +137,7 @@ internal sealed class DataGraph
     }
 
     /// <summary>Whether the triple is in the data graph.</summary>
+    [DesignDecision(typeof(ShaclHotPathScope.ValueNodesAreGatheredPerFocusNode), Scope = ExceptionScope.HotPath)]
     internal bool Has(Node subject, TermHandle predicate, Node obj)
     {
         if (!subject.IsHeld || !obj.IsHeld)
@@ -139,6 +150,7 @@ internal sealed class DataGraph
     }
 
     /// <summary>Every triple with <paramref name="subject"/> as subject, as (predicate, object).</summary>
+    [DesignDecision(typeof(ShaclHotPathScope.ValueNodesAreGatheredPerFocusNode), Scope = ExceptionScope.HotPath)]
     internal List<(Node Predicate, Node Object)> Triples(Node subject)
     {
         List<(Node, Node)> found = [];

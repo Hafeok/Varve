@@ -4,7 +4,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Threading;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Shacl.Graphs;
 using Varve.Shacl.Model;
@@ -23,14 +26,15 @@ public sealed class ShapesGraph
     private ShapesGraph(ShapesSource source, IReadOnlyList<Shape> shapes, IReadOnlyList<RdfTerm> imports, IReadOnlyList<IShaclExtension> extensions)
     {
         Source = source;
-        Shapes = shapes;
+        Shapes = [.. shapes];
         Imports = imports;
         Extensions = extensions;
     }
 
     internal ShapesSource Source { get; }
 
-    internal IReadOnlyList<Shape> Shapes { get; }
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal ImmutableArray<Shape> Shapes { get; }
 
     /// <summary>The IRIs the shapes graph imports with <c>owl:imports</c>, none of which was followed (ADR 0151).</summary>
     internal IReadOnlyList<RdfTerm> Imports { get; }

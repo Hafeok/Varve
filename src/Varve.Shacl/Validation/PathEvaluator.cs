@@ -21,6 +21,7 @@ internal sealed class PathEvaluator(DataGraph data)
     private readonly Dictionary<RdfTerm, TermHandle?> _predicates = new(RdfTerm.Comparer);
 
     /// <summary>The nodes <paramref name="path"/> reaches from <paramref name="start"/>, distinct.</summary>
+    [DesignDecision(typeof(ShaclHotPathScope.ValueNodesAreGatheredPerFocusNode), Scope = ExceptionScope.HotPath)]
     internal List<Node> Values(ShapePath path, Node start)
     {
         List<Node> result = [];

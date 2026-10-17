@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Shacl.Shapes;
 
@@ -22,7 +24,8 @@ internal sealed class ExtensionConstraint : Constraint
 
     internal override RdfTerm? SourceConstraint => _inner.SourceConstraint;
 
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    [DesignDecision(typeof(ShaclHotPathScope.ExtensionsAreTheCallersCode), Scope = ExceptionScope.HotPath)]
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
         List<RdfTerm> terms = new(values.Count);
         List<TermHandle> handles = new(values.Count);

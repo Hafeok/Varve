@@ -3,10 +3,14 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Text.Unicode;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Shacl.Model;
 using Varve.Shacl.Shapes;
@@ -21,20 +25,17 @@ namespace Varve.Shacl.Validation;
 /// <summary>§7.1.1 <c>sh:class</c>: a list is a union of classes.</summary>
 internal sealed class ClassConstraint(ImmutableArray<RdfTerm> classes) : Constraint(Vocabulary.ClassConstraintComponent)
 {
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
-        foreach (Node value in values)
+        for (int i = 0; i < values.Count; i++)
         {
+            Node value = values[i];
             bool ok = false;
             if (run.Data.Term(value).Kind != RdfTermKind.Literal)
             {
-                foreach (RdfTerm cls in classes)
+                for (int c = 0; c < classes.Length && !ok; c++)
                 {
-                    if (run.IsInstanceOf(value, run.Data.Resolve(cls)))
-                    {
-                        ok = true;
-                        break;
-                    }
+                    ok = run.IsInstanceOf(value, run.Data.Resolve(classes[c]));
                 }
             }
 
@@ -49,19 +50,16 @@ internal sealed class ClassConstraint(ImmutableArray<RdfTerm> classes) : Constra
 /// <summary>§7.1.2 <c>sh:datatype</c>.</summary>
 internal sealed class DatatypeConstraint(ImmutableArray<RdfTerm> datatypes) : Constraint(Vocabulary.DatatypeConstraintComponent)
 {
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
-        foreach (Node value in values)
+        for (int i = 0; i < values.Count; i++)
         {
+            Node value = values[i];
             RdfTerm term = run.Data.Term(value);
             bool ok = false;
-            foreach (RdfTerm datatype in datatypes)
+            for (int d = 0; d < datatypes.Length && !ok; d++)
             {
-                if (Literals.Matches(term, datatype))
-                {
-                    ok = true;
-                    break;
-                }
+                ok = Literals.Matches(term, datatypes[d]);
             }
 
             if (!ok)
@@ -75,19 +73,16 @@ internal sealed class DatatypeConstraint(ImmutableArray<RdfTerm> datatypes) : Co
 /// <summary>§7.1.3 <c>sh:nodeKind</c>.</summary>
 internal sealed class NodeKindConstraint(ImmutableArray<RdfTerm> kinds) : Constraint(Vocabulary.NodeKindConstraintComponent)
 {
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
-        foreach (Node value in values)
+        for (int i = 0; i < values.Count; i++)
         {
+            Node value = values[i];
             RdfTermKind kind = run.Data.Term(value).Kind;
             bool ok = false;
-            foreach (RdfTerm allowed in kinds)
+            for (int k = 0; k < kinds.Length && !ok; k++)
             {
-                if (Matches(kind, allowed))
-                {
-                    ok = true;
-                    break;
-                }
+                ok = Matches(kind, kinds[k]);
             }
 
             if (!ok)
@@ -102,6 +97,7 @@ internal sealed class NodeKindConstraint(ImmutableArray<RdfTerm> kinds) : Constr
         || term.Equals(Vocabulary.BlankNodeOrIRI) || term.Equals(Vocabulary.BlankNodeOrLiteral)
         || term.Equals(Vocabulary.IRIOrLiteral) || term.Equals(Vocabulary.TripleTerm);
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static bool Matches(RdfTermKind kind, RdfTerm allowed) => kind switch
     {
         RdfTermKind.Iri => allowed.Equals(Vocabulary.IRI) || allowed.Equals(Vocabulary.BlankNodeOrIRI) || allowed.Equals(Vocabulary.IRIOrLiteral),
@@ -115,7 +111,7 @@ internal sealed class NodeKindConstraint(ImmutableArray<RdfTerm> kinds) : Constr
 internal sealed class CountConstraint(bool minimum, long bound)
     : Constraint(minimum ? Vocabulary.MinCountConstraintComponent : Vocabulary.MaxCountConstraintComponent)
 {
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
         if (minimum ? values.Count < bound : values.Count > bound)
         {
@@ -127,10 +123,12 @@ internal sealed class CountConstraint(bool minimum, long bound)
 /// <summary>§7.3: the four value range components, by SPARQL's operators.</summary>
 internal sealed class RangeConstraint(RdfTerm component, RdfTerm bound, bool lower, bool inclusive) : Constraint(component)
 {
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
-        foreach (Node value in values)
+        for (int i = 0; i < values.Count; i++)
         {
+            Node value = values[i];
+
             // $min < v, $min <= v, $max > v, $max >= v: v compared with the bound.
             PartialOrdering order = Literals.Compare(run.Data.Term(value), bound);
             bool ok = lower
@@ -148,10 +146,11 @@ internal sealed class RangeConstraint(RdfTerm component, RdfTerm bound, bool low
 internal sealed class LengthConstraint(bool minimum, long bound)
     : Constraint(minimum ? Vocabulary.MinLengthConstraintComponent : Vocabulary.MaxLengthConstraintComponent)
 {
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
-        foreach (Node value in values)
+        for (int i = 0; i < values.Count; i++)
         {
+            Node value = values[i];
             RdfTerm term = run.Data.Term(value);
             bool ok = term.Kind is RdfTermKind.Iri or RdfTermKind.Literal
                 && (minimum ? Strings.Length(term) >= bound : Strings.Length(term) <= bound);
@@ -166,38 +165,42 @@ internal sealed class LengthConstraint(bool minimum, long bound)
 /// <summary>§7.4.3 <c>sh:pattern</c> and <c>sh:flags</c>, by <c>Varve.Xsd</c>'s XPath translation (ADR 0153).</summary>
 internal sealed class PatternConstraint(XPathRegexTranslation translation) : Constraint(Vocabulary.PatternConstraintComponent)
 {
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
         Regex regex = run.Pattern(shape, translation);
-        foreach (Node value in values)
+        for (int i = 0; i < values.Count; i++)
         {
+            Node value = values[i];
             RdfTerm term = run.Data.Term(value);
-            bool ok;
-            if (term.Kind is not (RdfTermKind.Iri or RdfTermKind.Literal))
-            {
-                ok = false;
-            }
-            else
-            {
-                try
-                {
-                    ok = regex.IsMatch(Encoding.UTF8.GetString(term.Lexical));
-                }
-                catch (RegexMatchTimeoutException)
-                {
-                    // ADR 0151: a pattern that runs past the timeout fails the validation.
-                    throw new ShaclFailureException(new ShaclProblem(
-                        ShaclProblemKind.PatternTimeout,
-                        shape.Node,
-                        run.Data.Term(focus),
-                        "sh:pattern (SHACL 1.2 Core §7.4.3) exceeded ShaclOptions.RegexTimeout on one value."));
-                }
-            }
-
-            if (!ok)
+            if (term.Kind is not (RdfTermKind.Iri or RdfTermKind.Literal) || !IsMatch(run, shape, focus, regex, term.Lexical))
             {
                 sink.Add(shape, this, focus, value);
             }
+        }
+    }
+
+    /// <summary>The value's string, transcoded into a pooled buffer, against the pattern; past the timeout, the validation fails (ADR 0151).</summary>
+    [DesignDecision(typeof(ShaclHotPathScope.PatternsMatchThroughTheBclRegex), Scope = ExceptionScope.HotPath)]
+    private static bool IsMatch(ValidationRun run, Shape shape, Node focus, Regex regex, ReadOnlySpan<byte> utf8)
+    {
+        // A UTF-16 string is never longer, in code units, than its UTF-8 bytes.
+        char[] buffer = ArrayPool<char>.Shared.Rent(Math.Max(1, utf8.Length));
+        try
+        {
+            Utf8.ToUtf16(utf8, buffer, out _, out int written);
+            return regex.IsMatch(buffer.AsSpan(0, written));
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            throw new ShaclFailureException(new ShaclProblem(
+                ShaclProblemKind.PatternTimeout,
+                shape.Node,
+                run.Data.Term(focus),
+                "sh:pattern (SHACL 1.2 Core §7.4.3) exceeded ShaclOptions.RegexTimeout on one value."));
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(buffer);
         }
     }
 }
@@ -205,10 +208,11 @@ internal sealed class PatternConstraint(XPathRegexTranslation translation) : Con
 /// <summary>§7.4.4 <c>sh:singleLine</c>.</summary>
 internal sealed class SingleLineConstraint() : Constraint(Vocabulary.SingleLineConstraintComponent)
 {
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
-        foreach (Node value in values)
+        for (int i = 0; i < values.Count; i++)
         {
+            Node value = values[i];
             RdfTerm term = run.Data.Term(value);
             if (term.Kind == RdfTermKind.Literal && term.Lexical.IndexOfAny("\n\v\f\r"u8) >= 0)
             {
@@ -221,22 +225,20 @@ internal sealed class SingleLineConstraint() : Constraint(Vocabulary.SingleLineC
 /// <summary>§7.4.5 <c>sh:languageIn</c>, by SPARQL's <c>langMatches</c> (RFC 4647 basic filtering).</summary>
 internal sealed class LanguageInConstraint(ImmutableArray<string> ranges) : Constraint(Vocabulary.LanguageInConstraintComponent)
 {
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    private readonly byte[][] _ranges = Encode(ranges);
+
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
-        foreach (Node value in values)
+        for (int i = 0; i < values.Count; i++)
         {
+            Node value = values[i];
             RdfTerm term = run.Data.Term(value);
             bool ok = false;
             if (term.Kind == RdfTermKind.Literal && !term.Language.IsEmpty)
             {
-                string tag = Encoding.UTF8.GetString(term.Language);
-                foreach (string range in ranges)
+                for (int r = 0; r < _ranges.Length && !ok; r++)
                 {
-                    if (Strings.LangMatches(tag, range))
-                    {
-                        ok = true;
-                        break;
-                    }
+                    ok = Strings.LangMatches(term.Language, _ranges[r]);
                 }
             }
 
@@ -246,44 +248,58 @@ internal sealed class LanguageInConstraint(ImmutableArray<string> ranges) : Cons
             }
         }
     }
+
+    /// <summary>The ranges as UTF-8, once, when the shape is read.</summary>
+    private static byte[][] Encode(ImmutableArray<string> ranges)
+    {
+        byte[][] encoded = new byte[ranges.Length][];
+        for (int i = 0; i < ranges.Length; i++)
+        {
+            encoded[i] = Encoding.UTF8.GetBytes(ranges[i]);
+        }
+
+        return encoded;
+    }
 }
 
 /// <summary>§7.4.6 <c>sh:uniqueLang</c>: one result per language tag (with its direction) used twice.</summary>
 internal sealed class UniqueLangConstraint() : Constraint(Vocabulary.UniqueLangConstraintComponent)
 {
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
-        Dictionary<string, int> uses = new(StringComparer.Ordinal);
-        List<string> order = [];
-        foreach (Node value in values)
+        // Pairwise over one focus node's values, in place: a result for each tag at its first use, when a later value uses it too.
+        for (int i = 0; i < values.Count; i++)
         {
-            RdfTerm term = run.Data.Term(value);
-            if (term.Kind != RdfTermKind.Literal || term.Language.IsEmpty)
+            RdfTerm term = run.Data.Term(values[i]);
+            if (!IsTagged(term))
             {
                 continue;
             }
 
-            // Language tags compare case-insensitively (BCP 47); the direction counts (1.2).
-            string key = Encoding.UTF8.GetString(term.Language).ToLowerInvariant() + "--" + term.Direction;
-            if (uses.TryGetValue(key, out int count))
+            bool seenBefore = false;
+            for (int j = 0; j < i && !seenBefore; j++)
             {
-                uses[key] = count + 1;
+                seenBefore = SameTag(term, run.Data.Term(values[j]));
             }
-            else
-            {
-                uses[key] = 1;
-                order.Add(key);
-            }
-        }
 
-        foreach (string key in order)
-        {
-            if (uses[key] > 1)
+            for (int j = i + 1; j < values.Count && !seenBefore; j++)
             {
-                sink.Add(shape, this, focus, null);
+                if (SameTag(term, run.Data.Term(values[j])))
+                {
+                    sink.Add(shape, this, focus, null);
+                    break;
+                }
             }
         }
     }
+
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private static bool IsTagged(RdfTerm term) => term.Kind == RdfTermKind.Literal && !term.Language.IsEmpty;
+
+    /// <summary>Language tags compare case-insensitively (BCP 47), and the direction counts (1.2).</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private static bool SameTag(RdfTerm term, RdfTerm other) =>
+        IsTagged(other) && term.Direction == other.Direction && Strings.AsciiEqualsIgnoreCase(term.Language, other.Language);
 }
 
 /// <summary>§7.5: the four list components; a value node that is not a SHACL list is a result for each.</summary>
@@ -292,7 +308,8 @@ internal sealed class ListConstraint(RdfTerm component, int? memberShape, long? 
     internal override IEnumerable<ShapeReference> References =>
         memberShape is int s ? [new ShapeReference(s, Vocabulary.MemberShape, Polarity.Positive)] : [];
 
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    [DesignDecision(typeof(ShaclHotPathScope.ComparisonsGatherTheirOtherSide), Scope = ExceptionScope.HotPath)]
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
         foreach (Node value in values)
         {
@@ -361,7 +378,8 @@ internal sealed class PairConstraint(PairKind kind, ShapePath other) : Constrain
     _ => Vocabulary.LessThanOrEqualsConstraintComponent,
 })
 {
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    [DesignDecision(typeof(ShaclHotPathScope.ComparisonsGatherTheirOtherSide), Scope = ExceptionScope.HotPath)]
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
         List<Node> others = run.PathValues(other, focus);
         HashSet<Node> otherSet = new(others, run.Data.Nodes);
@@ -432,10 +450,11 @@ internal sealed class NotConstraint(int negated) : Constraint(Vocabulary.NotCons
 {
     internal override IEnumerable<ShapeReference> References => [new ShapeReference(negated, Vocabulary.Not, Polarity.Negative)];
 
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
-        foreach (Node value in values)
+        for (int i = 0; i < values.Count; i++)
         {
+            Node value = values[i];
             if (run.Conforms(negated, value))
             {
                 sink.Add(shape, this, focus, value);
@@ -473,14 +492,15 @@ internal sealed class LogicalConstraint(LogicalKind kind, ImmutableArray<int> me
         }
     }
 
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
-        foreach (Node value in values)
+        for (int i = 0; i < values.Count; i++)
         {
+            Node value = values[i];
             int conforming = 0;
-            foreach (int member in members)
+            for (int m = 0; m < members.Length; m++)
             {
-                if (run.Conforms(member, value))
+                if (run.Conforms(members[m], value))
                 {
                     conforming++;
                 }
@@ -505,10 +525,11 @@ internal sealed class NodeConstraint(int target) : Constraint(Vocabulary.NodeCon
 {
     internal override IEnumerable<ShapeReference> References => [new ShapeReference(target, Vocabulary.Node, Polarity.Positive)];
 
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
-        foreach (Node value in values)
+        for (int i = 0; i < values.Count; i++)
         {
+            Node value = values[i];
             if (!run.Conforms(target, value))
             {
                 sink.Add(shape, this, focus, value);
@@ -524,12 +545,12 @@ internal sealed class PropertyConstraint(int property) : Constraint(Vocabulary.P
 
     internal override IEnumerable<ShapeReference> References => [new ShapeReference(property, Vocabulary.Property, Polarity.Positive)];
 
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
         Shape propertyShape = run.Shape(property);
-        foreach (Node value in values)
+        for (int i = 0; i < values.Count; i++)
         {
-            run.ValidateFocus(propertyShape, value, sink);
+            run.ValidateFocus(propertyShape, values[i], sink);
         }
     }
 }
@@ -539,11 +560,11 @@ internal sealed class SomeValueConstraint(int target) : Constraint(Vocabulary.So
 {
     internal override IEnumerable<ShapeReference> References => [new ShapeReference(target, Vocabulary.SomeValue, Polarity.Positive)];
 
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
-        foreach (Node value in values)
+        for (int i = 0; i < values.Count; i++)
         {
-            if (run.Conforms(target, value))
+            if (run.Conforms(target, values[i]))
             {
                 return;
             }
@@ -569,24 +590,21 @@ internal sealed class QualifiedConstraint(int qualified, ImmutableArray<int> sib
         }
     }
 
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
         long count = 0;
-        foreach (Node value in values)
+        for (int i = 0; i < values.Count; i++)
         {
+            Node value = values[i];
             if (!run.Conforms(qualified, value))
             {
                 continue;
             }
 
             bool sibling = false;
-            foreach (int other in siblings)
+            for (int s = 0; s < siblings.Length && !sibling; s++)
             {
-                if (run.Conforms(other, value))
-                {
-                    sibling = true;
-                    break;
-                }
+                sibling = run.Conforms(siblings[s], value);
             }
 
             if (!sibling)
@@ -607,21 +625,26 @@ internal sealed class ReifierShapeConstraint(int reifierShape, bool required, Rd
 {
     internal override IEnumerable<ShapeReference> References => [new ShapeReference(reifierShape, Vocabulary.ReifierShape, Polarity.Positive)];
 
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
         Node p = run.Data.Resolve(predicate);
-        foreach (Node value in values)
+        for (int i = 0; i < values.Count; i++)
         {
-            List<Node> reifiers = run.Reifiers(focus, p, value);
-            if (required && reifiers.Count == 0)
+            Node value = values[i];
+            List<Node>? reifiers = run.Reifiers(focus, p, value);
+            if (reifiers is null)
             {
-                sink.Add(shape, this, focus, value);
+                if (required)
+                {
+                    sink.Add(shape, this, focus, value);
+                }
+
                 continue;
             }
 
-            foreach (Node reifier in reifiers)
+            for (int r = 0; r < reifiers.Count; r++)
             {
-                if (!run.Conforms(reifierShape, reifier))
+                if (!run.Conforms(reifierShape, reifiers[r]))
                 {
                     sink.Add(shape, this, focus, value);
                 }
@@ -633,14 +656,18 @@ internal sealed class ReifierShapeConstraint(int reifierShape, bool required, Rd
 /// <summary>§7.9.1 <c>sh:closed</c> (true or <c>sh:ByTypes</c>) with <c>sh:ignoredProperties</c>.</summary>
 internal sealed class ClosedConstraint(ImmutableArray<RdfTerm> allowed, bool byTypes) : Constraint(Vocabulary.ClosedConstraintComponent)
 {
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    // Read, never written, by validations that may run at once.
+    private readonly HashSet<RdfTerm> _allowed = new(allowed, RdfTerm.Comparer);
+
+    [DesignDecision(typeof(ShaclHotPathScope.ComparisonsGatherTheirOtherSide), Scope = ExceptionScope.HotPath)]
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
         foreach (Node value in values)
         {
-            HashSet<RdfTerm> permitted = new(allowed, RdfTerm.Comparer);
+            HashSet<RdfTerm> permitted = _allowed;
             if (byTypes)
             {
-                permitted.Add(Vocabulary.RdfType);
+                permitted = new(_allowed, RdfTerm.Comparer) { Vocabulary.RdfType };
                 HashSet<RdfTerm> visited = new(RdfTerm.Comparer);
                 foreach (Node type in run.TypesOf(value))
                 {
@@ -705,12 +732,12 @@ internal sealed class ClosedConstraint(ImmutableArray<RdfTerm> allowed, bool byT
 /// <summary>§7.9.2 <c>sh:hasValue</c>.</summary>
 internal sealed class HasValueConstraint(RdfTerm required) : Constraint(Vocabulary.HasValueConstraintComponent)
 {
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
         Node node = run.Data.Resolve(required);
-        foreach (Node value in values)
+        for (int i = 0; i < values.Count; i++)
         {
-            if (run.Data.Nodes.Equals(value, node))
+            if (run.Data.Nodes.Equals(values[i], node))
             {
                 return;
             }
@@ -723,17 +750,12 @@ internal sealed class HasValueConstraint(RdfTerm required) : Constraint(Vocabula
 /// <summary>§7.9.3 <c>sh:in</c>.</summary>
 internal sealed class InConstraint(ImmutableArray<RdfTerm> members) : Constraint(Vocabulary.InConstraintComponent)
 {
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
-        HashSet<Node> allowed = new(run.Data.Nodes);
-        foreach (RdfTerm member in members)
+        for (int i = 0; i < values.Count; i++)
         {
-            allowed.Add(run.Data.Resolve(member));
-        }
-
-        foreach (Node value in values)
-        {
-            if (!allowed.Contains(value))
+            Node value = values[i];
+            if (!run.IsMember(this, members, value))
             {
                 sink.Add(shape, this, focus, value);
             }
@@ -744,21 +766,17 @@ internal sealed class InConstraint(ImmutableArray<RdfTerm> members) : Constraint
 /// <summary>§7.9.4 <c>sh:rootClass</c>: the class itself or a subclass of one of the roots, in the data graph.</summary>
 internal sealed class RootClassConstraint(ImmutableArray<RdfTerm> roots) : Constraint(Vocabulary.RootClassConstraintComponent)
 {
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
-        foreach (Node value in values)
+        for (int i = 0; i < values.Count; i++)
         {
+            Node value = values[i];
             bool ok = false;
             if (run.Data.Term(value).Kind == RdfTermKind.Iri)
             {
-                HashSet<Node> ancestors = run.SuperclassesOf(value);
-                foreach (RdfTerm root in roots)
+                for (int r = 0; r < roots.Length && !ok; r++)
                 {
-                    if (ancestors.Contains(run.Data.Resolve(root)))
-                    {
-                        ok = true;
-                        break;
-                    }
+                    ok = run.IsSubclassOf(value, run.Data.Resolve(roots[r]));
                 }
             }
 
@@ -773,31 +791,20 @@ internal sealed class RootClassConstraint(ImmutableArray<RdfTerm> roots) : Const
 /// <summary>§7.9.5 <c>sh:uniqueValuesFor</c>: no two target nodes of the shape share all the properties' values.</summary>
 internal sealed class UniqueValuesForConstraint(ImmutableArray<RdfTerm> properties) : Constraint(Vocabulary.UniqueValuesForConstraintComponent)
 {
-    internal override void Validate(ValidationRun run, Shape shape, Node focus, IReadOnlyList<Node> values, ResultSink sink)
+    internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
-        List<Node> targets = run.Targets(shape);
-        foreach (Node value in values)
+        for (int i = 0; i < values.Count; i++)
         {
-            string? key = Key(run, value);
-            if (key is null)
+            if (run.SharesKey(this, shape, values[i]))
             {
-                continue;
-            }
-
-            foreach (Node other in targets)
-            {
-                if (!run.Data.Nodes.Equals(other, value) && string.Equals(Key(run, other), key, StringComparison.Ordinal))
-                {
-                    // §7.9.5: "there is a validation result", without a value.
-                    sink.Add(shape, this, focus, null);
-                    break;
-                }
+                // §7.9.5: "there is a validation result", without a value.
+                sink.Add(shape, this, focus, null);
             }
         }
     }
 
     /// <summary>The node's values for the properties, as a comparable key; null when it has none for any.</summary>
-    private string? Key(ValidationRun run, Node node)
+    internal string? Key(ValidationRun run, Node node)
     {
         StringBuilder key = new();
         bool any = false;
@@ -862,20 +869,17 @@ internal static class Lists
 internal static class Strings
 {
     /// <summary>SPARQL's <c>STRLEN(str(t))</c>: characters, not UTF-16 units.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static long Length(RdfTerm term)
     {
-        string text = Encoding.UTF8.GetString(term.Lexical);
+        // A lexical form is well-formed UTF-8, so its characters are the bytes that start a code point.
+        ReadOnlySpan<byte> text = term.Lexical;
         long length = 0;
         for (int i = 0; i < text.Length; i++)
         {
-            if (!char.IsHighSurrogate(text[i]) || i + 1 >= text.Length || !char.IsLowSurrogate(text[i + 1]))
+            if ((text[i] & 0xC0) != 0x80)
             {
                 length++;
-            }
-            else
-            {
-                length++;
-                i++;
             }
         }
 
@@ -883,15 +887,39 @@ internal static class Strings
     }
 
     /// <summary>SPARQL's <c>langMatches</c>: RFC 4647 §3.3.1 basic filtering; <c>*</c> matches any non-empty tag.</summary>
-    internal static bool LangMatches(string tag, string range)
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal static bool LangMatches(ReadOnlySpan<byte> tag, ReadOnlySpan<byte> range)
     {
-        if (range == "*")
+        if (range.Length == 1 && range[0] == (byte)'*')
         {
             return tag.Length > 0;
         }
 
-        return tag.Equals(range, StringComparison.OrdinalIgnoreCase)
-            || (tag.Length > range.Length && tag[range.Length] == '-' && tag.StartsWith(range, StringComparison.OrdinalIgnoreCase));
+        return tag.Length >= range.Length
+            && (tag.Length == range.Length || tag[range.Length] == (byte)'-')
+            && AsciiEqualsIgnoreCase(tag[..range.Length], range);
+    }
+
+    /// <summary>Equality of two byte strings with ASCII letters folded; a language tag and a range are ASCII (BCP 47).</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal static bool AsciiEqualsIgnoreCase(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
+    {
+        if (left.Length != right.Length)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < left.Length; i++)
+        {
+            if (Fold(left[i]) != Fold(right[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+
+        static byte Fold(byte b) => b is >= (byte)'A' and <= (byte)'Z' ? (byte)(b | 0x20) : b;
     }
 
     /// <summary>A term as N-Triples-like text, for keys and the order of results.</summary>
