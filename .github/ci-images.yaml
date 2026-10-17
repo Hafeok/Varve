@@ -1,0 +1,65 @@
+# The third-party container images CI starts, and the single list of them
+# (#118). Each is pinned by the digest of its manifest (an index, for every
+# image here: all platforms) and, unless `mirror: false`, copied by
+# .github/workflows/mirror-ci-images.yml to a private package of this
+# repository, ghcr.io/hafeok/varve-ci/<name>, with that digest unchanged.
+#
+#   name      the mirror's package, under ghcr.io/hafeok/varve-ci/
+#   upstream  the registry, repository and tag it is copied from; the tag is
+#             for the reader and for the weekly comparison, the digest is
+#             what is pulled
+#   digest    the manifest digest, the same upstream and in the mirror
+#   licence   what the image is licensed under, and where that is stated
+#   jobs      the CI jobs that start it, by the name they report
+#   why       what the job needs it for
+#   mirror    false keeps the image upstream; `reason` then says why
+#
+# Bumping an image is a pull request to this file and to the compose file
+# that pulls it, at the same digest; on main, the change re-mirrors.
+#
+# Not here, by decision: the devcontainer's base image and the server
+# Dockerfile's chiseled base. Neither is a test container CI starts, and the
+# chiseled base is the shipped image's, whose provenance names its registry
+# (ADR 0111).
+
+images:
+  - name: postgres
+    upstream: public.ecr.aws/docker/library/postgres:18.6-alpine
+    digest: sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    licence: PostgreSQL Licence (https://www.postgresql.org/about/licence/); the official image's packaging is MIT, and its Alpine base carries its packages' own licences
+    jobs: [auth (zitadel), container (linux-x64)]
+    why: Zitadel's database, for auth test layer (c) (ADR 0100)
+
+  - name: zitadel
+    upstream: ghcr.io/zitadel/zitadel:v4.19.4
+    digest: sha256:90a3045b80a2b5b395e1e770302076906af3a5911225af7c464b4f3bd00d0a1b
+    licence: AGPL-3.0 (https://github.com/zitadel/zitadel/blob/main/LICENSE); mirrored unmodified, in a private package
+    jobs: [auth (zitadel), container (linux-x64)]
+    why: a real OIDC provider, for auth test layer (c) (ADR 0100)
+
+  - name: mock-oauth2-server
+    upstream: ghcr.io/navikt/mock-oauth2-server:6.0.4
+    digest: sha256:47374fe063995d9b6d39ebb6ea21eb5f765025bf0aa08b61b08b439eb91adaf0
+    licence: MIT (https://github.com/navikt/mock-oauth2-server/blob/master/LICENSE)
+    jobs: [auth (mock-oauth2), container (linux-x64)]
+    why: a standards mock issuer, for auth test layer (b) (ADR 0100)
+
+  - name: azurite
+    upstream: mcr.microsoft.com/azure-storage/azurite:3.37.0
+    digest: sha256:830430c1da1a2d537e08f3e6764dd1f5ae00cf0346bcaf625b968ec3f0971fd5
+    licence: MIT (https://github.com/Azure/Azurite/blob/main/LICENSE)
+    jobs: [samples (eventhubs)]
+    why: the Event Hubs emulator's metadata and checkpoint store (ADR 0146)
+
+  - name: eventhubs-emulator
+    upstream: mcr.microsoft.com/azure-messaging/eventhubs-emulator:2.2.1
+    digest: sha256:be413f0d59541621879e6d197d73f64f3b3ac5fa45861641fdc1430252b8b44b
+    licence: Microsoft proprietary EULA (https://github.com/Azure/azure-event-hubs-emulator-installer/blob/main/EMULATOR_EULA.md)
+    jobs: [samples (eventhubs)]
+    why: the Event Hubs bridge sample's test (ADR 0146)
+    mirror: false
+    reason: >-
+      Its licence is a proprietary EULA, and a copy we host, even a private
+      one, is a redistribution question we need not answer: mcr.microsoft.com
+      has no anonymous pull limit and has not failed CI. It is pulled from
+      there, at this digest.

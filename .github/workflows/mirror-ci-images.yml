@@ -1,0 +1,154 @@
+# The CI image mirror (#118): copies every image in .github/ci-images.yaml
+# that is not `mirror: false` from its upstream registry to a private package
+# of this repository, ghcr.io/hafeok/varve-ci/<name>, by digest.
+#
+# `docker buildx imagetools create` with one source and no annotations is a
+# carbon copy: every platform of the index, the manifest's bytes unchanged,
+# so the mirror's digest is upstream's. That is checked after every copy, not
+# assumed; a digest that differs fails the run.
+#
+# Runs only on main: on a push that changes the list, and by dispatch. A
+# workflow a pull request defines never holds packages: write here.
+#
+# A package pushed with GITHUB_TOKEN is linked to this repository. Whether it
+# is private is read as anyone outside would read it, by an anonymous request
+# for the mirrored manifest (the packages REST API does not take
+# GITHUB_TOKEN): a 200 means public, which fails the run. The images are
+# third-party, and their copies are not ours to redistribute.
+
+name: Mirror CI images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/ci-images.yaml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirror-ci-images
+  cancel-in-progress: false
+
+env:
+  LIST: .github/ci-images.yaml
+  MIRROR: ghcr.io/hafeok/varve-ci
+
+jobs:
+  mirror:
+    name: mirror-ci-images
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Copy each image by digest
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Three attempts with backoff, for the upstream registries' limits
+          # on a shared runner's address, which are why this mirror exists.
+          retry() {
+            local attempt
+            for attempt in 1 2 3; do
+              "$@" && return 0
+              [ "$attempt" -lt 3 ] && sleep $((attempt * 15))
+            done
+            return 1
+          }
+
+          # The manifest digest a reference resolves to, as the registry
+          # serves it.
+          digest_of() {
+            docker buildx imagetools inspect "$1" --format '{{json .Manifest.Digest}}' | tr -d '"'
+          }
+
+          # Public when an anonymous client can read the manifest.
+          visibility_of() {
+            local repository="${1#ghcr.io/}" digest="$2" token code
+            token=$(curl --silent --fail "https://ghcr.io/token?service=ghcr.io&scope=repository:${repository}:pull" | jq -r '.token // empty') || token=""
+            code=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+              ${token:+--header "Authorization: Bearer $token"} \
+              --header 'Accept: application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json' \
+              "https://ghcr.io/v2/${repository}/manifests/${digest}")
+            if [ "$code" = "200" ]; then echo public; else echo "private (anonymous read: $code)"; fi
+          }
+
+          {
+            echo "## CI image mirror"
+            echo
+            echo "| package | upstream | digest | this run | visibility |"
+            echo "|---|---|---|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          failed=0
+          count=$(yq -r '.images | length' "$LIST")
+          for i in $(seq 0 $((count - 1))); do
+            name=$(yq -r ".images[$i].name" "$LIST")
+            upstream=$(yq -r ".images[$i].upstream" "$LIST")
+            digest=$(yq -r ".images[$i].digest" "$LIST")
+            mirror=$(yq -r ".images[$i].mirror" "$LIST")
+            tag="${upstream##*:}"
+            source="${upstream%:*}@${digest}"
+            target="${MIRROR}/${name}"
+
+            if [ "$mirror" = "false" ]; then
+              echo "$name: not mirrored (mirror: false), pulled from ${upstream%:*}"
+              echo "| — | \`$upstream\` | \`$digest\` | not mirrored: $(yq -r ".images[$i].reason" "$LIST" | tr '\n' ' ') | — |" >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+
+            if [ "$(digest_of "$target@$digest" 2> /dev/null || true)" = "$digest" ]; then
+              outcome="already present"
+              docker buildx imagetools create --tag "$target:$tag" "$target@$digest"
+            else
+              outcome="copied"
+              if ! retry docker buildx imagetools create --tag "$target:$tag" "$source"; then
+                echo "::error title=$name::could not copy $source"
+                echo "| \`$target\` | \`$upstream\` | \`$digest\` | **copy failed** | — |" >> "$GITHUB_STEP_SUMMARY"
+                failed=1
+                continue
+              fi
+            fi
+
+            mirrored=$(retry digest_of "$target:$tag") || mirrored="unreadable"
+            if [ "$mirrored" != "$digest" ]; then
+              echo "::error title=$name::$target:$tag is $mirrored, not $digest"
+              outcome="**digest $mirrored differs**"
+              failed=1
+            fi
+
+            visibility=$(visibility_of "$target" "$digest")
+            if [ "$visibility" = "public" ]; then
+              echo "::error title=$name::$target is public; make it private in its settings (https://github.com/users/Hafeok/packages/container/varve-ci%2F${name}/settings, Danger Zone, Change visibility) and re-run"
+              visibility="**public**"
+              failed=1
+            fi
+
+            echo "$name: $outcome, $target:$tag@$mirrored, $visibility"
+            settings="https://github.com/users/Hafeok/packages/container/varve-ci%2F${name}/settings"
+            echo "| [\`$target\`]($settings) | \`$upstream\` | \`$digest\` | $outcome | $visibility |" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+          {
+            echo
+            echo "Each package links to its settings: visibility, and the repository it is linked to."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          exit $failed
