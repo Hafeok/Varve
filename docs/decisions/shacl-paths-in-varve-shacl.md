@@ -6,7 +6,7 @@ decisions:
   - key: ShaclPathsInShaclCore
     statement: "Varve.Shacl evaluates SHACL paths over IQuadSource as sets, closures by breadth-first search with a visited set per focus node"
   - key: PathsAgreeByDifferentialProperty
-    statement: "SHACL paths and the evaluator's property paths are held to the same answers by a differential property in a test project"
+    statement: "SHACL paths and the evaluator's property paths are held to the same answers at every node of the data graph by a differential property in a test project, and their one divergence, at a node the graph does not hold, is checked exactly"
 ---
 
 The rulings of [ADR 0152](../adr/0152-shacl-paths-in-varve-shacl.md), one line each. The ADR is the

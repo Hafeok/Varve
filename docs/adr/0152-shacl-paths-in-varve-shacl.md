@@ -41,7 +41,21 @@ definition drift unless something holds them together.
    with cycles, and checks for every node of the graph that `Varve.Shacl`'s
    value nodes equal the evaluator's `SELECT DISTINCT ?o { <n> path ?o }`.
    The pull request reports the iteration count and any counterexample found.
-5. **The step that runs per value node is `[HotPath]`.** A closure's search
+5. **One divergence, by construction, kept and stated.** The differential
+   property found it on its first run (seed `1ApdSFS1VMn4`): from a focus node
+   the data graph does not hold, along `( [ sh:zeroOrOnePath ex:p1 ]
+   [ sh:zeroOrOnePath ex:p0 ] )`, SPARQL gives nothing and `Varve.Shacl` gives
+   the focus node. SPARQL 1.2 §18 rewrites a sequence into a join through a
+   fresh variable, and a zero-length step whose ends are both variables ranges
+   over the graph's nodes only, so the node is lost at the second step. The
+   SHACL value nodes are the nodes reached *from the focus node*, and a
+   zero-length path reaches it whatever the graph holds (point 2), at every
+   step as at the first. Only a node absent from the data graph is affected,
+   since everything a path reaches from a node in the graph is in the graph.
+   The property compares every node of the graph exactly, and at an absent
+   node checks that the divergence is exactly this: SPARQL's answer is a
+   subset of SHACL's, and SHACL's is empty or the focus node alone.
+6. **The step that runs per value node is `[HotPath]`.** A closure's search
    allocates its visited set and frontier per focus node, not per quad, and is
    answered by a `[DesignDecision]` citing this ADR, as `PathOperator.Search`
    cites ADR 0054.

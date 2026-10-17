@@ -42,6 +42,8 @@
     <Project Path="tests/Varve.Sparql.Evaluation.Tests/Varve.Sparql.Evaluation.Tests.csproj" />
     <Project Path="tests/Varve.Sparql.Results.Tests/Varve.Sparql.Results.Tests.csproj" />
     <Project Path="tests/Varve.Sparql.Store.Tests/Varve.Sparql.Store.Tests.csproj" />
+    <Project Path="tests/Varve.Shacl.Sparql.Tests/Varve.Shacl.Sparql.Tests.csproj" />
+    <Project Path="tests/Varve.Shacl.Tests/Varve.Shacl.Tests.csproj" />
     <Project Path="tests/Varve.Sparql.Tests/Varve.Sparql.Tests.csproj" />
     <Project Path="tests/Varve.Store.Tests/Varve.Store.Tests.csproj" />
     <Project Path="tests/Varve.Turtle.Tests/Varve.Turtle.Tests.csproj" />

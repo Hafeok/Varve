@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Varve.Shacl/Varve.Shacl.csproj" />
+    <ProjectReference Include="../../src/Varve.Shacl.Sparql/Varve.Shacl.Sparql.csproj" />
+    <ProjectReference Include="../../src/Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
+    <ProjectReference Include="../../src/Varve.Sparql/Varve.Sparql.csproj" />
+    <ProjectReference Include="../../src/Varve.Turtle/Varve.Turtle.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+    <PackageReference Include="CsCheck" />
+    <!-- The differential oracle (ADR 0156). -->
+    <PackageReference Include="dotNetRdf.Shacl" />
+  </ItemGroup>
+
+</Project>
