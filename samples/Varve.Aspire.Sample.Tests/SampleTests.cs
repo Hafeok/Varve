@@ -117,7 +117,13 @@ public class AzureBlobStorageTests
             .WithAzureBlobStorage(ReferenceExpression.Create($"https://account.blob.core.windows.net/datasets"))
             .WithDataset("people");
 
-        Dictionary<string, string> environment = await varve.Resource.GetEnvironmentVariableValuesAsync(DistributedApplicationOperation.Publish);
+        await using DistributedApplication app = builder.Build();
+        DistributedApplicationExecutionContext publish = new(new DistributedApplicationExecutionContextOptions(DistributedApplicationOperation.Publish) { Services = app.Services });
+        IExecutionConfigurationResult configuration = await ExecutionConfigurationBuilder.Create(varve.Resource)
+            .WithEnvironmentVariablesConfig()
+            .BuildAsync(publish, null, CancellationToken.None);
+        Assert.Null(configuration.Exception);
+        Dictionary<string, string> environment = configuration.EnvironmentVariables.ToDictionary(variable => variable.Key, variable => variable.Value);
 
         Assert.Equal("Azure", environment["VARVE__OBJECTSTORAGE__PROVIDER"]);
         Assert.Equal("https://account.blob.core.windows.net/datasets", environment["VARVE__OBJECTSTORAGE__CONTAINERURL"]);
