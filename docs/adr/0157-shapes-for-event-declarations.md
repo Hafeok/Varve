@@ -21,30 +21,57 @@ shows they agree with the code.
    through `EventDeclarationShapes.Turtle`. `Varve.Events` does not reference
    `Varve.Shacl`: the vocabulary's owner owns its shapes, and a caller who
    validates by shapes composes the two.
-2. **What the shapes state**, by SHACL Core only:
-   - a node typed `varve:EventType` is an IRI, with exactly one
-     `varve:eventName` matching the short-name pattern, exactly one
-     `varve:eventClass` IRI, exactly one positive `varve:eventVersion`, exactly
-     one `varve:eventSelect` string, at most one `varve:eventSubject` and
-     `varve:eventRetired`, and `varve:eventField` values conforming to the
-     field shape;
-   - a node typed `varve:EventField` is an IRI with exactly one
-     `varve:fieldName` matching the field-name pattern and not `event`, at most
-     one each of the optional field properties with their datatypes, and is
-     the field of exactly one type;
-   - field names are unique within one type (`sh:uniqueValuesFor`, SHACL 1.2
-     §7.9.5), and no node is both a type and a field.
+2. **What the shapes state**, by SHACL Core only, checked line by line
+   against docs/spec/events.md §3.2 and `EventDeclarations`, with one
+   catalogue graph as the data graph:
+   - `varve:EventTypeShape`, targeting `varve:EventType`: the node is an IRI,
+     not also a `varve:EventField`, and its only `rdf:type` is
+     `varve:EventType`; exactly one `varve:eventName`, an `xsd:string`
+     matching `^[A-Za-z][A-Za-z0-9._-]{0,127}$`; exactly one
+     `varve:eventClass`, an IRI; exactly one `varve:eventVersion`, an
+     `xsd:integer` from 1 to 2147483647, which is the code's range; exactly
+     one `varve:eventSelect`, an `xsd:string`; at most one
+     `varve:eventSubject`, an `xsd:string` matching the field-name pattern;
+     at most one `varve:eventRetired`, an `xsd:boolean`; at most one
+     `rdfs:comment`, an `xsd:string`; every `varve:eventField` value a
+     `varve:EventField`; and `sh:uniqueValuesFor varve:eventClass` (SHACL 1.2
+     §7.9.5), §3.2's "a class belongs to one type node within one catalogue
+     graph".
+   - `varve:EventFieldShape`, targeting `varve:EventField`: the node is an
+     IRI whose only `rdf:type` is `varve:EventField`; exactly one
+     `varve:fieldName`, an `xsd:string` matching
+     `^[A-Za-z_][A-Za-z0-9_]{0,63}$` and not `"event"`; exactly one
+     `varve:fieldDatatype`, an IRI; exactly one `varve:fieldRequired`, an
+     `xsd:boolean`; at most one `varve:fieldAs`, `"string"`; at most one
+     `varve:fieldKeepLanguage`, an `xsd:boolean`; at most one `rdfs:comment`,
+     an `xsd:string`; and exactly one type node naming it by
+     `varve:eventField`.
+
+   The plan's draft said field names would be unique within a type by
+   `sh:uniqueValuesFor`. That does not hold: §7.9.5 compares a value node
+   with *every target node of the shape*, so on the field shape it would
+   forbid two types from each having a field named `id`. Core has no
+   component scoped to "the fields of one type", so the rule moves to point 3.
+   `fieldDatatype` is an IRI here, as in the code: §5.2's table is applied
+   when an event is rendered, not when a declaration is read.
 3. **What the shapes cannot state**, and the code alone checks: that the
-   `SELECT` parses and projects what the fields name; that the subject
-   variable is a variable of the `SELECT` and not a field; that an event class
-   or a short name is not taken by another catalogue graph; that a graph is
-   the catalogue of its source graph; and the version history across positions
-   (ADR 0145). Each needs SPARQL parsing or more than one graph.
+   `SELECT` parses and projects exactly the fields and the subject; that the
+   subject variable is not a field; that field names are unique within one
+   type (point 2); that the graph holds no blank node anywhere, no unknown
+   `varve:` term, and no node that is neither a type nor a field (Core cannot
+   target every subject, nor every predicate in a namespace); that a short
+   name is not taken across catalogue graphs; that a graph is the catalogue
+   of its source graph; and the version history across positions (ADR 0145).
+   Each needs SPARQL parsing, a whole-graph scan, or more than one graph.
+   Where both flag a class taken twice, the code keeps the first type and the
+   shapes report both; the graph is refused either way.
 4. **The agreement property.** In `tests/Varve.Events.Tests`, over generated
-   declarations, valid and invalid: every declaration the code accepts conforms
-   to the shapes; every declaration the shapes reject, the code rejects; and on
-   the problems both can see — those of point 2 — they reject the same
-   declarations. The pull request reports the iteration count.
+   catalogue graphs, valid and with one fault each: a graph the code reads
+   without a problem conforms to the shapes; a graph that does not conform,
+   the code reports a problem in; a fault of point 2 makes both refuse, and
+   the shapes' results name the node the code names; a fault of point 3 makes
+   the code refuse while the shapes conform, which pins the boundary. The pull
+   request reports the iteration count.
 
 ## Alternatives considered
 
@@ -57,7 +84,9 @@ shows they agree with the code.
 
 ## Consequences
 
-- `Varve.Events` gains one public member and an embedded resource.
+- `Varve.Events` gains one public member and an embedded resource, and the
+  vocabulary two terms, `varve:EventTypeShape` and `varve:EventFieldShape`,
+  listed in `docs/vocabulary.md`.
 - The shapes are versioned with the vocabulary: a change to ADR 0144's
   vocabulary changes them, and the agreement property says whether they still
   agree.

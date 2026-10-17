@@ -8,6 +8,8 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Varve.Events/Varve.Events.csproj" />
     <ProjectReference Include="../../src/Varve.Turtle/Varve.Turtle.csproj" />
+    <!-- The declaration shapes' agreement property (ADR 0157); the package itself does not reference it. -->
+    <ProjectReference Include="../../src/Varve.Shacl/Varve.Shacl.csproj" />
   </ItemGroup>
 
   <ItemGroup>
