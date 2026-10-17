@@ -130,7 +130,8 @@ public sealed class FormatTests
 
         Assert.True(counting.LogBytesRead < logBytes / 2, "open read " + counting.LogBytesRead + " of " + logBytes + " log bytes");
 
-        await memory.Derived.DeleteAsync((await memory.Derived.ListAsync(T.Ct)).Single(n => Checkpoint.TryParseName(n, out _)), T.Ct);
+        // Without the catalog no set is named, and there is no checkpoint (ADR 0139).
+        await memory.Derived.DeleteAsync(ExtentCatalog.Name, T.Ct);
         counting.Reset();
 
         await using (Dataset reopened = await Dataset.OpenAsync(counting, options, T.Ct))

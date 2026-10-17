@@ -544,8 +544,10 @@ What was done:
   reference implementation of `IQuadSource`, and the indexed one is the
   "Browser read path" milestone after 1.0. Part 2 validates the store, which
   is indexed.
-- **The release number** waits on Object storage's `preview.8`, and is
-  recorded in the commit that renames the descriptor.
+- **The release number.** Object storage landed as `v0.1.0-preview.8`. The
+  descriptor was renamed to `v0.1.0-preview.9`, `main` was merged, and the
+  changelog was folded again. The merge's conflicts were in README Status and
+  the benchmarks' project and README, each resolved by keeping both sides.
 
 ### What the maintainer is asked for
 

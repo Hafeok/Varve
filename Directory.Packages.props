@@ -164,7 +164,7 @@
   </ItemGroup>
 
   <!--
-    Container images of the auth test legs (ADRs 0099, 0100). Not packages, so
+    Container images of the auth and storage test legs (ADRs 0099, 0100, 0134). Not packages, so
     not PackageVersion items and not counted by the gate; listed here because
     this file is the register of every dependency. Started by the workflow and
     the devcontainer, never by a test. The digests live in the compose files,
@@ -176,6 +176,8 @@
     | ghcr.io/navikt/mock-oauth2-server | 6.0.4 | MIT | .github/mock-oauth2/compose.yaml |
     | ghcr.io/zitadel/zitadel | v4.19.4 | AGPL-3.0 (run, never linked or shipped) | .github/zitadel/compose.yaml |
     | public.ecr.aws/docker/library/postgres | 18.6-alpine | PostgreSQL | .github/zitadel/compose.yaml |
+    | mcr.microsoft.com/azure-storage/azurite | 3.37.0 | MIT | .github/storage/compose.yaml (ADR 0134) |
+    | ghcr.io/rustfs/rustfs | 1.0.1 | Apache-2.0 | .github/storage/compose.yaml (ADR 0134) |
     | mcr.microsoft.com/azure-messaging/eventhubs-emulator | 2.2.1 | Microsoft's emulator licence, accepted by ACCEPT_EULA=Y (run in CI, never linked or shipped; ADR 0146) | .github/eventhubs/compose.yaml |
     | mcr.microsoft.com/azure-storage/azurite | 3.37.0 | MIT (ADR 0146) | .github/eventhubs/compose.yaml |
   -->

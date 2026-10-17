@@ -521,6 +521,91 @@ jobs:
           --configuration Release
           --filter-class Varve.Server.Tests.ProviderTests
 
+  # The object-storage legs (ADR 0134): the storage contract suite and the
+  # object-store contract, race properties included, against Azurite and the
+  # S3-compatible server the suite chose, both started by compose on loopback
+  # ports and pinned by digest (ADR 0099). VARVE_STORAGE_LEGS_REQUIRED turns a
+  # leg's skip into a failure, so a container that did not start cannot pass.
+  storage-services:
+    name: storage (services)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Start the object stores
+        run: |
+          docker compose --file .github/storage/compose.yaml up --detach
+          for attempt in $(seq 1 60); do
+            azurite=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:10000/devstoreaccount1?comp=list || true)
+            rustfs=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:9000/ || true)
+            [ "$azurite" = 403 ] && [ "$rustfs" = 403 ] && exit 0
+            sleep 1
+          done
+          docker compose --file .github/storage/compose.yaml logs
+          exit 1
+
+      - name: Test against them
+        env:
+          VARVE_AZURITE: http://127.0.0.1:10000/devstoreaccount1
+          VARVE_RUSTFS: http://127.0.0.1:9000,varvetest,varvetestsecret
+          VARVE_STORAGE_LEGS_REQUIRED: azurite,rustfs
+        run: >
+          dotnet test
+          --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj
+          --configuration Release
+          --filter-namespace Varve.Store.Tests.Objects
+
+      # A server's datasets in the container: a second server takes one over,
+      # the first answers writes with writer-superseded, and varve lease
+      # shows the record and takes an epoch over (ADR 0136).
+      - name: Test the server against them
+        env:
+          VARVE_AZURITE: http://127.0.0.1:10000/devstoreaccount1
+          VARVE_STORAGE_LEGS_REQUIRED: azurite
+        run: >
+          dotnet test
+          --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
+          --configuration Release
+          --filter-class Varve.Server.Tests.ObjectStorageServerTests
+
+  # The REC generator's bytes on both architectures (ADR 0141): its tests pin
+  # each size's SHA-256, so a pass on each runner is the same bytes on both.
+  rec-generator:
+    name: rec generator (${{ matrix.rid }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [linux-x64, linux-arm64]
+        include:
+          - rid: linux-x64
+            os: ubuntu-24.04
+          - rid: linux-arm64
+            os: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Generate S, M and L and compare
+        run: dotnet test --project tests/Varve.Rec.Tests/Varve.Rec.Tests.csproj --configuration Release
+
   # Auth test layer (c) (ADR 0100): Zitadel and PostgreSQL, a real provider,
   # started by compose and seeded through its API by eng/zitadel-seed.cs. One
   # test per flow: client credentials, and device code approved through the
@@ -1001,11 +1086,14 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
 
-      - name: Build deploy/azure
+      # Build and lint every template; what-if and a deployment need a
+      # sign-in and run in the optional Azure leg (ADR 0142).
+      - name: Build and lint deploy/azure
         run: |
           az bicep install
           for template in $(find deploy/azure -name '*.bicep'); do
             az bicep build --file "$template" --stdout > /dev/null
+            az bicep lint --file "$template"
           done
 
   # repo-standard's native binary and its Action, end to end (ADR 0039).

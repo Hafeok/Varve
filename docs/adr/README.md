@@ -31,7 +31,7 @@ or depart from `docs/brief.md`, each says so in its Context.
 | [0012](0012-term-dictionary-and-id-scheme.md) | Term dictionary, id classes, id scheme, blank node identity | Accepted |
 | [0013](0013-records-commits-and-bulk-load.md) | Records versus commits, and bulk load | Accepted |
 | [0014](0014-header-chain-and-divergence.md) | Header chain and divergence detection | Accepted |
-| [0015](0015-checkpoints-and-reads.md) | Checkpoints, pinned reads, as-of reads, archive horizon | Accepted |
+| [0015](0015-checkpoints-and-reads.md) | Checkpoints, pinned reads, as-of reads, archive horizon | Accepted; "No temporal index in the default projection" **superseded in part by 0138** (filed unaccepted) |
 | [0016](0016-projection-contract-and-subscriptions.md) | Projection contract, synchronous default projection, erasure in projections | Accepted |
 | [0017](0017-validator-contract-and-overlay.md) | Pre-commit validator contract and the overlay quad source | Accepted |
 | [0018](0018-storage-abstraction.md) | Storage abstraction: memory, file, browser | Accepted; "asynchronous throughout" **superseded by 0071** |
@@ -176,8 +176,8 @@ maintainer on the 6a plan, filed unaccepted (ADR 0066); specification 1.4, and 1
 | # | Title | Status |
 |---:|---|---|
 | [0070](0070-the-storage-engine-is-our-own.md) | The storage engine is our own, and it is two different things | Accepted; revisit condition |
-| [0071](0071-synchronous-reads-over-asynchronous-storage.md) | Synchronous reads of derived data over asynchronous storage | Accepted; amended 2026-10-05 (replacing an open blob on Windows); supersedes 0018 and 0040 in part; revisit condition |
-| [0072](0072-format-version-1.md) | Format version 1, read forever from the first prerelease that writes it | Accepted; supersedes 0045 |
+| [0071](0071-synchronous-reads-over-asynchronous-storage.md) | Synchronous reads of derived data over asynchronous storage | Accepted; amended 2026-10-05 (replacing an open blob on Windows); supersedes 0018 and 0040 in part; revisit condition; amended 2026-10-15 (page fetch on a miss, filed unaccepted) |
+| [0072](0072-format-version-1.md) | Format version 1, read forever from the first prerelease that writes it | Accepted; supersedes 0045; amended 2026-10-15 (derived version 4, filed unaccepted) |
 | [0073](0073-durability-per-host-declared.md) | Durability per host, declared, and what each level survives | Accepted |
 | [0074](0074-private-ids-reserved-and-the-key-store-refused.md) | The private id and entry layout, reserved; the key store refused by path | Accepted |
 | [0075](0075-one-process-per-dataset-by-an-os-lease.md) | One process per dataset directory, held by an exclusive handle | Accepted |
@@ -215,9 +215,9 @@ Filed by milestone 7a ([#11](https://github.com/Hafeok/Varve/issues/11)), unacce
 | [0096](0096-time-travel-over-http.md) | Time travel over HTTP: `Varve-As-Of`, `ETag`, `304` | Accepted; amended 2026-10-09 (the cache headers) |
 | [0097](0097-the-change-feed-and-the-diff.md) | The change feed and the diff: a line format, SSE for tailing | Accepted; `docs/spec/change-feed.md`; amended 2026-10-09 (the commits resource) |
 | [0098](0098-blank-nodes-at-the-protocol-boundary.md) | Blank nodes at the protocol boundary: stable labels out, fresh in, no skolem IRIs | Accepted; closes Q1, spec 1.6 |
-| [0099](0099-register-jwtbearer-and-the-workflows-containers.md) | Register: `JwtBearer` in the server; no Testcontainers; the shared framework | Accepted; conditional on the server's AOT publish |
+| [0099](0099-register-jwtbearer-and-the-workflows-containers.md) | Register: `JwtBearer` in the server; no Testcontainers; the shared framework | Accepted; conditional on the server's AOT publish; amended 2026-10-15 (storage services, filed unaccepted) |
 | [0100](0100-authentication-tested-in-three-layers.md) | Authentication tested in three layers | Accepted; refines 0037 |
-| [0101](0101-the-server-configuration-aot-shutdown-readiness.md) | The server: configuration, Native AOT, shutdown, readiness, status | Accepted; amended 2026-10-09 (health paths, unknown keys) |
+| [0101](0101-the-server-configuration-aot-shutdown-readiness.md) | The server: configuration, Native AOT, shutdown, readiness, status | Accepted; amended 2026-10-09 (health paths, unknown keys); amended 2026-10-15 (ObjectStorage, filed unaccepted) |
 
 Filed by milestone 7b ([#11](https://github.com/Hafeok/Varve/issues/11)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by 7b, likewise unaccepted: 0004 (`Varve.Protocol.Client` speaks HTTP), 0057 (a data-only request expects no position), 0091 (the 7b seams).
 
@@ -240,13 +240,13 @@ Filed by milestone Operability ([#12](https://github.com/Hafeok/Varve/issues/12)
 | [0110](0110-the-shipped-runtime-configuration.md) | The shipped runtime configuration: workstation concurrent GC, `ConserveMemory`, no heap limit of our own | Accepted; amends 0082 and supersedes it in part (the drift's window); the two-hour soak did not hold, #61 stays open |
 | [0111](0111-the-container-image.md) | The container image: `ghcr.io/hafeok/varve`, Native AOT per architecture, attested | Accepted |
 | [0112](0112-telemetry-in-two-layers.md) | Telemetry in two layers: the BCL instruments, the server exports | Accepted; admits the OpenTelemetry packages to `Varve.Server` |
-| [0113](0113-health-and-readiness.md) | Health and readiness are different questions: `/health/live`, `/health/ready` | Accepted; amends 0101 |
+| [0113](0113-health-and-readiness.md) | Health and readiness are different questions: `/health/live`, `/health/ready` | Accepted; amends 0101; amended 2026-10-15 (superseded, filed unaccepted) |
 | [0114](0114-resource-governance.md) | Resource governance: a stated answer for every limit | Accepted; refines 0095 |
-| [0115](0115-configuration-precedence-and-print-config.md) | Configuration from file, environment and command line; `--print-config`; an unknown key refuses to start | Accepted; amends 0101 |
-| [0116](0116-the-lease-policy-and-varve-lease.md) | The lease at start: a bounded wait, never a forced takeover; `varve lease` | Accepted; refines 0075 |
-| [0117](0117-varve-aspire.md) | `Varve.Aspire`: the hosting integration | Accepted; admits `Aspire.Hosting` |
+| [0115](0115-configuration-precedence-and-print-config.md) | Configuration from file, environment and command line; `--print-config`; an unknown key refuses to start | Accepted; amends 0101; amended 2026-10-15 (ObjectStorage keys, filed unaccepted) |
+| [0116](0116-the-lease-policy-and-varve-lease.md) | The lease at start: a bounded wait, never a forced takeover; `varve lease` | Accepted; refines 0075; amended 2026-10-15 (varve lease for an epoch, filed unaccepted) |
+| [0117](0117-varve-aspire.md) | `Varve.Aspire`: the hosting integration | Accepted; admits `Aspire.Hosting`; amended 2026-10-15 (WithAzureBlobStorage, filed unaccepted) |
 | [0118](0118-api-alignment-while-everything-is-preview.md) | API alignment while everything is preview | Accepted; amends 0093, 0097, 0106; `410` reversed, 0096 stands |
-| [0119](0119-headers-and-the-problem-catalogue.md) | Headers by read kind, and a catalogue of every problem the server can emit | Accepted; amends 0092, 0094, 0096 |
+| [0119](0119-headers-and-the-problem-catalogue.md) | Headers by read kind, and a catalogue of every problem the server can emit | Accepted; amends 0092, 0094, 0096; amended 2026-10-15 (writer-superseded, filed unaccepted) |
 | [0120](0120-the-insert-data-fast-path.md) | The `INSERT DATA` fast path: ground quads to the commit request | Accepted; answers #35 |
 
 ## Milestone 6b — RDF 1.2 Turtle and TriG, RDF/XML, JSON-LD
@@ -278,10 +278,26 @@ Filed by milestone Client and integration ([#93](https://github.com/Hafeok/Varve
 | [0127](0127-on-behalf-of-and-the-token-provider.md) | On-behalf-of: the client's token provider, `azp` on the span, and the attribution rule; amends 0103 and 0112 | Filed unaccepted (Client and integration, #93) |
 | [0128](0128-varve-delta-and-the-read-forever-rule.md) | `Varve.Delta`: the delta format as a package of its own, read for ever; amends 0097, 0102 and 0103 | Filed unaccepted (Client and integration, #93) |
 | [0129](0129-following-the-commits-resource.md) | Following the commits resource: `FollowAsync`, a checkpoint the caller owns, at least once | Filed unaccepted (Client and integration, #93) |
-| [0130](0130-client-side-setup-and-system-graphs.md) | Client-side setup: a declared dataset, migrations recorded as data, and the first system graph | Filed unaccepted (Client and integration, #93) |
+| [0130](0130-client-side-setup-and-system-graphs.md) | Client-side setup: a declared dataset, migrations recorded as data, and the first system graph | Filed unaccepted (Client and integration, #93); amended 2026-10-15 (ObjectStorage, filed unaccepted) |
 | [0131](0131-hosting-the-client.md) | Hosting the client: `AddVarve`, `varve setup apply`, and `WithDataset`'s setup; amends 0117 | Filed unaccepted (Client and integration, #93) |
 | [0132](0132-cors.md) | CORS: configured origins, bearer tokens without credentials, and what a browser may read | Filed unaccepted (Client and integration, #93) |
 | [0133](0133-packages-scoped-to-samples.md) | Packages scoped to samples, and the register's scope check; amends 0009 | Filed unaccepted (Client and integration, #93) |
+
+## Milestone Object storage — the log on any object store, Azure first
+
+Filed by milestone Object storage ([#92](https://github.com/Hafeok/Varve/issues/92)), unaccepted until the maintainer accepts them on its pull request (ADR 0066).
+
+| # | Title | Status |
+|---:|---|---|
+| [0134](0134-the-object-store-contract.md) | The object-store contract: five operations, one package per provider, REST over `HttpClient` | Filed unaccepted (Object storage, #92) |
+| [0135](0135-the-log-as-chunk-objects.md) | The log as write-once chunk objects, consolidated on seal | Filed unaccepted (Object storage, #92) |
+| [0136](0136-one-writer-by-an-epoch-and-a-log-slot-fence.md) | One writer by an epoch, fenced by a log slot; no lease, no timer; refines 0075 and 0116 | Filed unaccepted (Object storage, #92) |
+| [0137](0137-storage-credentials-are-workload-identity.md) | Storage credentials are the workload's identity; a key only on loopback | Filed unaccepted (Object storage, #92) |
+| [0138](0138-validity-intervals-in-the-default-projection.md) | Validity intervals in the default projection's checkpoints: a checkpoint is a chain of extent sets; supersedes 0015 in part | Filed unaccepted (Object storage, #92) |
+| [0139](0139-extents-and-the-projection-catalog.md) | Extents and the projection catalog; derived format 4, rebuilt not migrated; the page cache | Filed unaccepted (Object storage, #92) |
+| [0140](0140-what-varve-takes-from-azure-data-explorer.md) | What Varve takes from Azure Data Explorer, and what it does not | Filed unaccepted (Object storage, #92), from the maintainer's draft |
+| [0141](0141-realestatecore-as-the-reference-domain.md) | RealEstateCore as the reference domain for learning and testing | Filed unaccepted (Object storage, #92), from the maintainer's draft |
+| [0142](0142-deployment-on-container-apps-and-small-machines.md) | Deployment: Azure Container Apps with an identity-only store, the Aspire Azure variant, small machines | Filed unaccepted (Object storage, #92) |
 
 ## Milestone Client and integration — events, catalogue, schema registry (second part)
 

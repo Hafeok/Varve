@@ -34,6 +34,15 @@
     <ProjectReference Include="../../src/Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
     <ProjectReference Include="../../src/Varve.Sparql.Store/Varve.Sparql.Store.csproj" />
     <ProjectReference Include="../../src/Varve.Shacl/Varve.Shacl.csproj" />
+    <ProjectReference Include="../../src/Varve.Store.ObjectStorage/Varve.Store.ObjectStorage.csproj" />
+    <ProjectReference Include="../../src/Varve.Store.Azure/Varve.Store.Azure.csproj" />
+    <ProjectReference Include="../../src/Varve.Store.S3/Varve.Store.S3.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The REC portfolio generator (ADR 0141), linked: the object-storage
+         benchmarks load its stated sizes. It depends on no test framework. -->
+    <Compile Include="../Varve.Rec.Tests/RecPortfolio.cs;../Varve.Rec.Tests/SplitMix64.cs" LinkBase="Rec" />
   </ItemGroup>
 
   <ItemGroup>

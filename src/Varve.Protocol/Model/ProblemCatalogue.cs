@@ -96,6 +96,7 @@ public static class ProblemCatalogue
         new(ProblemType.ShuttingDown, 503, "The server is shutting down."),
         new(ProblemType.NotReady, 503, "The server is not ready.", "datasets"),
         new(ProblemType.ServerBusy, 503, "The server has as many reads in flight as it allows.", "limit"),
+        new(ProblemType.WriterSuperseded, 503, "A newer writer holds the dataset; this instance serves reads only."),
     ];
 
     private static readonly FrozenDictionary<string, ProblemShape> ByType = Index();

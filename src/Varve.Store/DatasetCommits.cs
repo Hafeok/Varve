@@ -40,7 +40,7 @@ public sealed partial class Dataset
             return false;
         }
 
-        await EnterSequencerAsync(cancellationToken).ConfigureAwait(false);
+        await EnterOrReleaseAsync(segment, cancellationToken).ConfigureAwait(false);
 
         try
         {
@@ -82,7 +82,7 @@ public sealed partial class Dataset
             return false;
         }
 
-        await EnterSequencerAsync(cancellationToken).ConfigureAwait(false);
+        await EnterOrReleaseAsync(merged, cancellationToken).ConfigureAwait(false);
 
         try
         {
@@ -99,6 +99,22 @@ public sealed partial class Dataset
         return true;
     }
 
+    // Enters the sequencer to swap in a segment just loaded; when it cannot
+    // — the dataset is disposing, or the round was cancelled — closes the
+    // segment, which nothing else holds yet.
+    private async ValueTask EnterOrReleaseAsync(CommitSegment segment, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await EnterSequencerAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            segment.Blob.Release();
+            throw;
+        }
+    }
+
     // The blob written and loaded; null when it is gone before it could be
     // opened again — another dataset opened on the same storage cleared it —
     // and the round is then done again later rather than failed.
@@ -108,6 +124,60 @@ public sealed partial class Dataset
         await CommitIndexFormat.WriteAsync(_storage.Derived, name, Id, from, to, entryAt, cancellationToken).ConfigureAwait(false);
         return await CommitIndexFormat.TryLoadAsync(_storage.Derived, name, Id, cancellationToken).ConfigureAwait(false);
     }
+
+    // The commit index below the catalog's position, read when first needed
+    // (ADR 0139): a blob from position 0 in the local cache that agrees with
+    // the catalog's entry there, or else the log's headers up to it, verified
+    // to end at that entry and kept as a blob.
+    private static Func<CancellationToken, ValueTask<CommitSegment>> PrefixLoader(
+        IStorage storage, DatasetId id, CommitEntry last, long to, List<CommitSegment> candidates, Func<long> nextSequence) =>
+        async cancellationToken =>
+        {
+            CommitSegment? chosen = null;
+
+            foreach (CommitSegment candidate in candidates)
+            {
+                if (chosen is null && candidate.Read(to).SameAs(in last))
+                {
+                    chosen = candidate;
+                }
+                else
+                {
+                    candidate.Blob.Release();
+                }
+            }
+
+            candidates.Clear();
+
+            if (chosen is not null)
+            {
+                return chosen;
+            }
+
+            BlobName name = CommitIndexFormat.Name(0, to, nextSequence());
+            CommitEntry built = default;
+
+            await using (CommitIndexWriter writer = await CommitIndexWriter.StartAsync(storage.Derived, name, id, 0, to, cancellationToken).ConfigureAwait(false))
+            {
+                long logBytes = 0;
+                LogScan scan = await LogReader.ScanToAsync(storage.Log, id, to, async commit =>
+                {
+                    logBytes += commit.Bytes;
+                    built = new CommitEntry(commit.Header.TimestampTicks, commit.HeaderHash, commit.Location, commit.Header.CanonicalCount, commit.Header.BlankCount, logBytes);
+                    await writer.AddAsync(built, cancellationToken).ConfigureAwait(false);
+                }, cancellationToken).ConfigureAwait(false);
+
+                if (scan.Head != to || !built.SameAs(in last))
+                {
+                    throw new LogVerificationException(Math.Min(scan.Head + 1, to), "The log below the catalog's position does not end at the commit the catalog names.");
+                }
+
+                await writer.PublishAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            return await CommitIndexFormat.TryLoadAsync(storage.Derived, name, id, cancellationToken).ConfigureAwait(false)
+                ?? throw new System.IO.IOException("The commit index blob below the catalog's position was written and cannot be read back.");
+        };
 
     /// <summary>
     /// Builds the commit index as the open scan passes each closed commit: the
@@ -130,6 +200,7 @@ public sealed partial class Dataset
         private readonly List<SettingsPoint> _settings = [];
         private readonly HashSet<string> _listed = new(StringComparer.Ordinal);
         private readonly HashSet<string> _ahead = new(StringComparer.Ordinal);
+        private CommitPrefix? _prefix;
         private CommitSegment? _verifying;
         private CommitIndex? _building;
         private DatasetSettings _folded = DatasetSettings.Default;
@@ -192,6 +263,46 @@ public sealed partial class Dataset
             return opener;
         }
 
+        /// <summary>
+        /// Starts the index at the catalog's position, for a scan that begins
+        /// there (ADR 0139): the entries at or below it are the prefix's. The
+        /// blobs from position 0 that reach it are kept for the prefix to try
+        /// before it reads the log; the rest that start below it are of no use.
+        /// </summary>
+        internal void BeginAt(CommitPrefix prefix, CatalogCursor cursor)
+        {
+            _prefix = prefix;
+            _position = prefix.To;
+            _logBytes = prefix.Pins[prefix.To].LogBytes;
+            _settings.AddRange(cursor.Settings);
+            _folded = cursor.Settings.Length > 0 ? cursor.Settings[^1].Settings : DatasetSettings.Default;
+
+            foreach (long from in new List<long>(_candidates.Keys))
+            {
+                if (from >= prefix.To)
+                {
+                    continue;
+                }
+
+                foreach (CommitSegment segment in _candidates[from])
+                {
+                    if (from == 0 && segment.To >= prefix.To)
+                    {
+                        PrefixCandidates.Add(segment);
+                    }
+                    else
+                    {
+                        _rejected.Add(segment);
+                    }
+                }
+
+                _candidates.Remove(from);
+            }
+        }
+
+        /// <summary>The blobs from position 0 that reach the prefix's end, for it to try first; the prefix owns them.</summary>
+        internal List<CommitSegment> PrefixCandidates { get; } = [];
+
         /// <summary>The next closed commit of the scan.</summary>
         internal async ValueTask AddAsync(ScannedCommit commit, long bodiesAfter, CancellationToken cancellationToken)
         {
@@ -238,7 +349,7 @@ public sealed partial class Dataset
                 await RejectVerifyingAsync(p - 1, cancellationToken).ConfigureAwait(false);
             }
 
-            _building ??= CommitIndex.Of([.. _chain], [], _current);
+            _building ??= CommitIndex.Of([.. _chain], [], _current, _prefix);
             await AppendAsync(entry, cancellationToken).ConfigureAwait(false);
         }
 
@@ -251,10 +362,15 @@ public sealed partial class Dataset
                 await RejectVerifyingAsync(_position, cancellationToken).ConfigureAwait(false);
             }
 
-            CommitIndex index = (_building ?? CommitIndex.Of([.. _chain], [], _current)).WithSettings([.. _settings]);
+            CommitIndex index = (_building ?? CommitIndex.Of([.. _chain], [], _current, _prefix)).WithSettings([.. _settings]);
             HashSet<string> kept = new(StringComparer.Ordinal);
 
             foreach (CommitSegment segment in index.Segments)
+            {
+                kept.Add(segment.Blob.Name.Value);
+            }
+
+            foreach (CommitSegment segment in PrefixCandidates)
             {
                 kept.Add(segment.Blob.Name.Value);
             }
@@ -297,7 +413,7 @@ public sealed partial class Dataset
             CommitSegment rejected = _verifying!;
             _verifying = null;
             _rejected.Add(rejected);
-            _building = CommitIndex.Of([.. _chain], [], _current);
+            _building = CommitIndex.Of([.. _chain], [], _current, _prefix);
 
             for (long q = rejected.From + 1; q <= verified; q++)
             {

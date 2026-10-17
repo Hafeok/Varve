@@ -182,7 +182,7 @@ public sealed class FilePropertyTests
     // the segments laid end to end: every structural boundary and the byte
     // either side, and 16 offsets at random, seeded by the log's length so that
     // a run can be repeated. Also where each commit's closing record ends.
-    private static (List<long> Cuts, List<long> Closings) Cuts(List<byte[]> segments)
+    internal static (List<long> Cuts, List<long> Closings) Cuts(List<byte[]> segments)
     {
         SortedSet<long> boundaries = [];
         List<long> closings = [];
@@ -381,7 +381,7 @@ public sealed class FilePropertyTests
         Assert.Equal(2, T.All(view).Count);
     }
 
-    private static List<ReadOnlyMemory<byte>> Prefix(List<byte[]> segments, long length)
+    internal static List<ReadOnlyMemory<byte>> Prefix(List<byte[]> segments, long length)
     {
         List<ReadOnlyMemory<byte>> kept = [];
 

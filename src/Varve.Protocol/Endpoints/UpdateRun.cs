@@ -10,6 +10,7 @@ using Varve.Protocol.Model;
 using Varve.Rdf;
 using Varve.Sparql;
 using Varve.Sparql.Algebra;
+using Varve.Store;
 using Varve.Store.Log;
 
 namespace Varve.Protocol.Endpoints;
@@ -98,6 +99,12 @@ internal static class UpdateRun
                 members.Number("limit", over.Limit.Bytes);
                 members.Number("actual", over.Actual.Bytes);
             }).ConfigureAwait(false);
+            return;
+        }
+        catch (WriterSupersededException superseded)
+        {
+            // A newer writer holds the dataset (ADR 0136): nothing was committed.
+            await HttpProblems.WriteAsync(context, ProblemType.WriterSuperseded, superseded.Message).ConfigureAwait(false);
             return;
         }
         catch (Exception failed) when (failed is not OperationCanceledException)

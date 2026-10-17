@@ -52,6 +52,29 @@ Saying where Varve stops is part of why the list above can be trusted.
   metadata in Varve.
 - **Microsecond key-value caching.** Use a cache.
 
+## Varve and Azure Data Explorer
+
+Azure Data Explorer — Eventhouse in Fabric — is the well-known system nearest
+to parts of Varve: immutable extents in blob storage with local disk as a
+cache, materialised views over a delta, continuous export. Varve takes what
+fits a log of linked state and refuses what does not (ADR 0140):
+
+- **Taken:** checkpoints as immutable extents in the object store, a catalog,
+  a bounded local cache and lazy attach at a cold start (ADRs 0138, 0139);
+  the commit stream as a continuous export with a cursor.
+- **Refused:** a columnar telemetry store and a second query language;
+  sealing, retention or caching driven by elapsed time; derived results
+  written back into the source of truth.
+
+**They pair rather than compete.** High-rate telemetry — a building's
+sensor readings — belongs in an Eventhouse, which ingests it on many nodes
+and scans it with KQL. The building itself — its sites, rooms, assets and
+points, renovated and leased over years — is linked state with a history, and
+belongs in Varve. Varve's commit stream, followed with a checkpoint, feeds
+Event Hubs and so the Eventhouse; each reading carries the IRI of its point,
+which joins it back to Varve's state at the time of the reading. The operator guide
+shows the pairing ([Azure Container Apps](operator/azure-container-apps.md#pairing-with-an-eventhouse)).
+
 ## What it asks of you
 
 You will model data as linked resources rather than tables, and you will

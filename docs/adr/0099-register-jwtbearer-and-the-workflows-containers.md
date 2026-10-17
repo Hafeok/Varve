@@ -117,3 +117,24 @@ need to stand up identity providers.
 - **Layer ownership.** `Varve.Server`, layer 6.
 - **Analyzer rule.** None. The register gate already enforces it.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-15 — the storage services, from MCR and GHCR by digest
+
+Filed by milestone Object storage of #92, unaccepted until the maintainer
+accepts it (ADR 0066). Point 4's list of containers the workflow starts gains
+the storage job's two, in `.github/storage/compose.yaml`, each pinned by
+digest:
+
+- **Azurite** 3.37.0 from `mcr.microsoft.com`. Microsoft Container Registry
+  has no anonymous pull limit; ADR 0111 already takes the base image from it.
+- **RustFS** 1.0.1 from `ghcr.io`, Apache-2.0, anonymous pull. It is the
+  S3-compatible server the contract suite chose over SeaweedFS (ADR 0134).
+  MinIO's images are no longer published for anonymous pull.
+
+Point 1's register gains the server's references to `Varve.Store.ObjectStorage`,
+`Varve.Store.Azure` and `Varve.Store.S3`, all project references; no package
+is added (ADR 0134 decided REST over `HttpClient`). The rule stands: the
+workflow starts a container, and a test reads where it is and skips when it is
+absent, unless `VARVE_STORAGE_LEGS_REQUIRED` names its leg.
+
+**The ledger.** The rulings are ADR 0134's `the-object-store-contract` set.

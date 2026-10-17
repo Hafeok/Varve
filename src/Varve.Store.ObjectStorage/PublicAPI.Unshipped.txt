@@ -1,0 +1,143 @@
+#nullable enable
+Varve.Store.ObjectStorage.Model.CacheDirectory
+Varve.Store.ObjectStorage.Model.CacheDirectory.CacheDirectory() -> void
+Varve.Store.ObjectStorage.Model.CacheDirectory.CacheDirectory(string! value) -> void
+Varve.Store.ObjectStorage.Model.CacheDirectory.Equals(Varve.Store.ObjectStorage.Model.CacheDirectory other) -> bool
+Varve.Store.ObjectStorage.Model.CacheDirectory.Value.get -> string!
+Varve.Store.ObjectStorage.Model.ClaimTime
+Varve.Store.ObjectStorage.Model.ClaimTime.ClaimTime() -> void
+Varve.Store.ObjectStorage.Model.ClaimTime.ClaimTime(System.DateTimeOffset Value) -> void
+Varve.Store.ObjectStorage.Model.ClaimTime.Deconstruct(out System.DateTimeOffset Value) -> void
+Varve.Store.ObjectStorage.Model.ClaimTime.Equals(Varve.Store.ObjectStorage.Model.ClaimTime other) -> bool
+Varve.Store.ObjectStorage.Model.ClaimTime.Value.get -> System.DateTimeOffset
+Varve.Store.ObjectStorage.Model.ClaimTime.Value.init -> void
+Varve.Store.ObjectStorage.Model.ClaimTrigger
+Varve.Store.ObjectStorage.Model.ClaimTrigger.Operator = 1 -> Varve.Store.ObjectStorage.Model.ClaimTrigger
+Varve.Store.ObjectStorage.Model.ClaimTrigger.Restart = 0 -> Varve.Store.ObjectStorage.Model.ClaimTrigger
+Varve.Store.ObjectStorage.Model.EpochClaim
+Varve.Store.ObjectStorage.Model.EpochClaim.<Clone>$() -> Varve.Store.ObjectStorage.Model.EpochClaim!
+Varve.Store.ObjectStorage.Model.EpochClaim.ClaimedAt.get -> Varve.Store.ObjectStorage.Model.ClaimTime
+Varve.Store.ObjectStorage.Model.EpochClaim.ClaimedAt.init -> void
+Varve.Store.ObjectStorage.Model.EpochClaim.Epoch.get -> Varve.Store.ObjectStorage.Model.WriterEpoch
+Varve.Store.ObjectStorage.Model.EpochClaim.Epoch.init -> void
+Varve.Store.ObjectStorage.Model.EpochClaim.EpochClaim() -> void
+Varve.Store.ObjectStorage.Model.EpochClaim.Equals(Varve.Store.ObjectStorage.Model.EpochClaim? other) -> bool
+Varve.Store.ObjectStorage.Model.EpochClaim.Fence.get -> Varve.Store.ObjectStorage.Model.LogSlot?
+Varve.Store.ObjectStorage.Model.EpochClaim.Fence.init -> void
+Varve.Store.ObjectStorage.Model.EpochClaim.Holder.get -> Varve.Store.ObjectStorage.Model.WriterInstance
+Varve.Store.ObjectStorage.Model.EpochClaim.Holder.init -> void
+Varve.Store.ObjectStorage.Model.EpochClaim.Released.get -> Varve.Store.ObjectStorage.Model.ReleaseReason?
+Varve.Store.ObjectStorage.Model.EpochClaim.Released.init -> void
+Varve.Store.ObjectStorage.Model.EpochClaim.Trigger.get -> Varve.Store.ObjectStorage.Model.ClaimTrigger
+Varve.Store.ObjectStorage.Model.EpochClaim.Trigger.init -> void
+Varve.Store.ObjectStorage.Model.LogSlot
+Varve.Store.ObjectStorage.Model.LogSlot.Equals(Varve.Store.ObjectStorage.Model.LogSlot other) -> bool
+Varve.Store.ObjectStorage.Model.LogSlot.LogSlot() -> void
+Varve.Store.ObjectStorage.Model.LogSlot.LogSlot(string! value) -> void
+Varve.Store.ObjectStorage.Model.LogSlot.Value.get -> string!
+Varve.Store.ObjectStorage.Model.ObjectStorageAccess
+Varve.Store.ObjectStorage.Model.ObjectStorageAccess.ReadOnly = 1 -> Varve.Store.ObjectStorage.Model.ObjectStorageAccess
+Varve.Store.ObjectStorage.Model.ObjectStorageAccess.Write = 0 -> Varve.Store.ObjectStorage.Model.ObjectStorageAccess
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.Access.get -> Varve.Store.ObjectStorage.Model.ObjectStorageAccess
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.Access.init -> void
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.Cache.get -> Varve.Store.ObjectStorage.Model.CacheDirectory
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.Cache.init -> void
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.Clock.get -> System.TimeProvider!
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.Clock.init -> void
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.Instance.get -> Varve.Store.ObjectStorage.Model.WriterInstance?
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.Instance.init -> void
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.ObjectStorageOptions() -> void
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.Prefix.get -> Varve.Store.Log.ObjectName?
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.Prefix.init -> void
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.Store.get -> Varve.Store.IObjectStore!
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.Store.init -> void
+Varve.Store.ObjectStorage.Model.ReleaseReason
+Varve.Store.ObjectStorage.Model.ReleaseReason.OperatorTakeover = 1 -> Varve.Store.ObjectStorage.Model.ReleaseReason
+Varve.Store.ObjectStorage.Model.ReleaseReason.Shutdown = 0 -> Varve.Store.ObjectStorage.Model.ReleaseReason
+Varve.Store.ObjectStorage.Model.WriterEpoch
+Varve.Store.ObjectStorage.Model.WriterEpoch.CompareTo(Varve.Store.ObjectStorage.Model.WriterEpoch other) -> int
+Varve.Store.ObjectStorage.Model.WriterEpoch.Equals(Varve.Store.ObjectStorage.Model.WriterEpoch other) -> bool
+Varve.Store.ObjectStorage.Model.WriterEpoch.Next.get -> Varve.Store.ObjectStorage.Model.WriterEpoch
+Varve.Store.ObjectStorage.Model.WriterEpoch.Value.get -> long
+Varve.Store.ObjectStorage.Model.WriterEpoch.WriterEpoch() -> void
+Varve.Store.ObjectStorage.Model.WriterEpoch.WriterEpoch(long value) -> void
+Varve.Store.ObjectStorage.Model.WriterInstance
+Varve.Store.ObjectStorage.Model.WriterInstance.Equals(Varve.Store.ObjectStorage.Model.WriterInstance other) -> bool
+Varve.Store.ObjectStorage.Model.WriterInstance.Value.get -> string!
+Varve.Store.ObjectStorage.Model.WriterInstance.WriterInstance() -> void
+Varve.Store.ObjectStorage.Model.WriterInstance.WriterInstance(string! value) -> void
+Varve.Store.ObjectStorage.Model.WriterRecord
+Varve.Store.ObjectStorage.Model.WriterRecord.<Clone>$() -> Varve.Store.ObjectStorage.Model.WriterRecord!
+Varve.Store.ObjectStorage.Model.WriterRecord.Epoch.get -> Varve.Store.ObjectStorage.Model.WriterEpoch
+Varve.Store.ObjectStorage.Model.WriterRecord.Epoch.init -> void
+Varve.Store.ObjectStorage.Model.WriterRecord.Equals(Varve.Store.ObjectStorage.Model.WriterRecord? other) -> bool
+Varve.Store.ObjectStorage.Model.WriterRecord.History.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.ObjectStorage.Model.EpochClaim!>!
+Varve.Store.ObjectStorage.Model.WriterRecord.History.init -> void
+Varve.Store.ObjectStorage.Model.WriterRecord.Holder.get -> Varve.Store.ObjectStorage.Model.WriterInstance
+Varve.Store.ObjectStorage.Model.WriterRecord.Holder.init -> void
+Varve.Store.ObjectStorage.Model.WriterRecord.Released.get -> Varve.Store.ObjectStorage.Model.ReleaseReason?
+Varve.Store.ObjectStorage.Model.WriterRecord.Released.init -> void
+Varve.Store.ObjectStorage.Model.WriterRecord.WriterRecord() -> void
+Varve.Store.ObjectStorage.ObjectStorage
+Varve.Store.ObjectStorage.ObjectStorage.Access.get -> Varve.Store.ObjectStorage.Model.ObjectStorageAccess
+Varve.Store.ObjectStorage.ObjectStorage.Derived.get -> Varve.Store.IDerivedStore!
+Varve.Store.ObjectStorage.ObjectStorage.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Varve.Store.ObjectStorage.ObjectStorage.Epoch.get -> Varve.Store.ObjectStorage.Model.WriterEpoch?
+Varve.Store.ObjectStorage.ObjectStorage.IsSuperseded.get -> bool
+Varve.Store.ObjectStorage.ObjectStorage.Log.get -> Varve.Store.ISegmentStore!
+Varve.Store.ObjectStorage.ObjectStorage.MaintainStorageAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
+Varve.Store.ObjectStorage.ObjectStorage.MaintenanceDue.get -> bool
+Varve.Store.ObjectStorage.ObjectStorage.Writer.get -> Varve.Store.ObjectStorage.Model.WriterRecord?
+override Varve.Store.ObjectStorage.Model.CacheDirectory.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.CacheDirectory.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.ClaimTime.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.EpochClaim.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.EpochClaim.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.EpochClaim.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.LogSlot.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.LogSlot.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.WriterEpoch.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.WriterEpoch.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.WriterInstance.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.WriterInstance.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.WriterRecord.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.WriterRecord.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.WriterRecord.ToString() -> string!
+static Varve.Store.ObjectStorage.Model.CacheDirectory.operator !=(Varve.Store.ObjectStorage.Model.CacheDirectory left, Varve.Store.ObjectStorage.Model.CacheDirectory right) -> bool
+static Varve.Store.ObjectStorage.Model.CacheDirectory.operator ==(Varve.Store.ObjectStorage.Model.CacheDirectory left, Varve.Store.ObjectStorage.Model.CacheDirectory right) -> bool
+static Varve.Store.ObjectStorage.Model.ClaimTime.operator !=(Varve.Store.ObjectStorage.Model.ClaimTime left, Varve.Store.ObjectStorage.Model.ClaimTime right) -> bool
+static Varve.Store.ObjectStorage.Model.ClaimTime.operator ==(Varve.Store.ObjectStorage.Model.ClaimTime left, Varve.Store.ObjectStorage.Model.ClaimTime right) -> bool
+static Varve.Store.ObjectStorage.Model.EpochClaim.operator !=(Varve.Store.ObjectStorage.Model.EpochClaim? left, Varve.Store.ObjectStorage.Model.EpochClaim? right) -> bool
+static Varve.Store.ObjectStorage.Model.EpochClaim.operator ==(Varve.Store.ObjectStorage.Model.EpochClaim? left, Varve.Store.ObjectStorage.Model.EpochClaim? right) -> bool
+static Varve.Store.ObjectStorage.Model.LogSlot.operator !=(Varve.Store.ObjectStorage.Model.LogSlot left, Varve.Store.ObjectStorage.Model.LogSlot right) -> bool
+static Varve.Store.ObjectStorage.Model.LogSlot.operator ==(Varve.Store.ObjectStorage.Model.LogSlot left, Varve.Store.ObjectStorage.Model.LogSlot right) -> bool
+static Varve.Store.ObjectStorage.Model.WriterEpoch.operator !=(Varve.Store.ObjectStorage.Model.WriterEpoch left, Varve.Store.ObjectStorage.Model.WriterEpoch right) -> bool
+static Varve.Store.ObjectStorage.Model.WriterEpoch.operator <(Varve.Store.ObjectStorage.Model.WriterEpoch left, Varve.Store.ObjectStorage.Model.WriterEpoch right) -> bool
+static Varve.Store.ObjectStorage.Model.WriterEpoch.operator <=(Varve.Store.ObjectStorage.Model.WriterEpoch left, Varve.Store.ObjectStorage.Model.WriterEpoch right) -> bool
+static Varve.Store.ObjectStorage.Model.WriterEpoch.operator ==(Varve.Store.ObjectStorage.Model.WriterEpoch left, Varve.Store.ObjectStorage.Model.WriterEpoch right) -> bool
+static Varve.Store.ObjectStorage.Model.WriterEpoch.operator >(Varve.Store.ObjectStorage.Model.WriterEpoch left, Varve.Store.ObjectStorage.Model.WriterEpoch right) -> bool
+static Varve.Store.ObjectStorage.Model.WriterEpoch.operator >=(Varve.Store.ObjectStorage.Model.WriterEpoch left, Varve.Store.ObjectStorage.Model.WriterEpoch right) -> bool
+static Varve.Store.ObjectStorage.Model.WriterInstance.operator !=(Varve.Store.ObjectStorage.Model.WriterInstance left, Varve.Store.ObjectStorage.Model.WriterInstance right) -> bool
+static Varve.Store.ObjectStorage.Model.WriterInstance.operator ==(Varve.Store.ObjectStorage.Model.WriterInstance left, Varve.Store.ObjectStorage.Model.WriterInstance right) -> bool
+static Varve.Store.ObjectStorage.Model.WriterRecord.operator !=(Varve.Store.ObjectStorage.Model.WriterRecord? left, Varve.Store.ObjectStorage.Model.WriterRecord? right) -> bool
+static Varve.Store.ObjectStorage.Model.WriterRecord.operator ==(Varve.Store.ObjectStorage.Model.WriterRecord? left, Varve.Store.ObjectStorage.Model.WriterRecord? right) -> bool
+static Varve.Store.ObjectStorage.ObjectStorage.OpenAsync(Varve.Store.ObjectStorage.Model.ObjectStorageOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.ObjectStorage.ObjectStorage!>
+static Varve.Store.ObjectStorage.ObjectStorage.ReadWriterAsync(Varve.Store.IObjectStore! store, Varve.Store.Log.ObjectName? prefix, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.ObjectStorage.Model.WriterRecord?>
+static Varve.Store.ObjectStorage.ObjectStorage.TakeOverAsync(Varve.Store.ObjectStorage.Model.ObjectStorageOptions! options, Varve.Store.ObjectStorage.Model.WriterEpoch from, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.ObjectStorage.Model.WriterRecord?>
+~override Varve.Store.ObjectStorage.Model.CacheDirectory.Equals(object obj) -> bool
+~override Varve.Store.ObjectStorage.Model.ClaimTime.Equals(object obj) -> bool
+~override Varve.Store.ObjectStorage.Model.ClaimTime.ToString() -> string
+~override Varve.Store.ObjectStorage.Model.LogSlot.Equals(object obj) -> bool
+~override Varve.Store.ObjectStorage.Model.WriterEpoch.Equals(object obj) -> bool
+~override Varve.Store.ObjectStorage.Model.WriterInstance.Equals(object obj) -> bool
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.CacheBytes.get -> Varve.Store.Log.ByteCount
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.CacheBytes.init -> void
+Varve.Store.ObjectStorage.ConditionalWritesNotEnforcedException
+Varve.Store.ObjectStorage.ConditionalWritesNotEnforcedException.ConditionalWritesNotEnforcedException() -> void
+Varve.Store.ObjectStorage.ConditionalWritesNotEnforcedException.ConditionalWritesNotEnforcedException(string! message) -> void
+Varve.Store.ObjectStorage.ConditionalWritesNotEnforcedException.ConditionalWritesNotEnforcedException(string! message, System.Exception! innerException) -> void
+Varve.Store.ObjectStorage.Model.IProbeRandomness
+Varve.Store.ObjectStorage.Model.IProbeRandomness.Fill(System.Span<byte> destination) -> void
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.ProbeRandomness.get -> Varve.Store.ObjectStorage.Model.IProbeRandomness?
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.ProbeRandomness.init -> void

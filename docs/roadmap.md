@@ -538,7 +538,7 @@ landing decides the number. Only released and in-flight numbers are shown.
 | — | **Client and integration**, part 2: events, catalogue, schema registry, AsyncAPI | next free | part 1 | issue #93 |
 | — | **Management plane**: fleet system dataset, grants as code, `varve apply` | next free | Commit path, Object storage, Client and integration | issue #105 |
 | — | **Learning track**: Varve for SQL developers and DDD practitioners | next free | Client and integration, Management plane | issue #94 |
-| 8 | SHACL, part 1: the standalone validator, SHACL-SPARQL, XPath regular expressions in `Varve.Xsd`, the event declaration shapes | `preview.8` | — (#87 landed) | issue #120 (this pull request) |
+| 8 | SHACL, part 1: the standalone validator, SHACL-SPARQL, XPath regular expressions in `Varve.Xsd`, the event declaration shapes | `preview.9` | — (#87 landed) | issue #120 (this pull request) |
 | 8 | SHACL, part 2: commit-time gating, the validation projection, incremental validation, the REC gate | next free | part 1, Object storage (REC shapes) | issue #13 |
 | — | **Inference**: RDFS by rewriting, OWL 2 RL and rules as a projection | next free | 8 | issue #95 |
 | — | **Web UI**: operator console, then data explorer | next free | Management plane (console); 8 and Inference (explorer) | issue #96 |
@@ -586,7 +586,7 @@ eight-writer benchmark with one graph per writer at zero conflicts; the write
 benchmark before and after on the file backend; every existing property and
 the protocol suites unchanged.
 
-## Object storage — the log and the projections on any object store, Azure first
+## Object storage *(complete)* — the log and the projections on any object store, Azure first
 
 **Why.** Container Apps has no block disk, and Azure Files breaks the file
 backend's lease, `fsync` and memory-mapped reads. This is the deployment story
@@ -748,7 +748,7 @@ adds: chapter 3's SHACL section if the learning track has landed first;
 event declarations may be validated by shapes; management declarations are
 validated by shapes shipped with Varve instead of by code.
 
-**Part 1** (#120; ADRs 0148–0157), `0.1.0-preview.8`: the standalone
+**Part 1** (#120; ADRs 0148–0157), `0.1.0-preview.9`: the standalone
 validator. `Varve.Shacl` (layer 3) and `Varve.Shacl.Sparql` (layer 4) validate
 any quad source against SHACL 1.2 Core and SHACL-SPARQL, with recursive
 shapes as a stratified greatest fixpoint and the report as a canonical value.

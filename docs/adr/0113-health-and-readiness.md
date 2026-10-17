@@ -75,3 +75,15 @@ restart loop waiting for a slow open.
   The problem type is `Varve.Protocol`'s catalogue (ADR 0119).
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-15 — `superseded`
+
+Filed by milestone Object storage of #92, unaccepted until the maintainer
+accepts it (ADR 0066). Point 2's readiness states gain `superseded`: an open
+`ObjectStorage` dataset whose storage no longer holds the writer epoch,
+because another instance claimed it (ADR 0136). It counts as not ready, with
+the reason; the instance serves reads and never claims again on its own.
+Point 3 stands: liveness stays true, since restarting the process would claim
+the epoch back and supersede the newer writer.
+
+**The ledger.** The ruling is ADR 0136's `WriterSupersededProblem`.
