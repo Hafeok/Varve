@@ -40,7 +40,7 @@ public sealed partial class Dataset
             return false;
         }
 
-        await EnterSequencerAsync(cancellationToken).ConfigureAwait(false);
+        await EnterOrReleaseAsync(segment, cancellationToken).ConfigureAwait(false);
 
         try
         {
@@ -82,7 +82,7 @@ public sealed partial class Dataset
             return false;
         }
 
-        await EnterSequencerAsync(cancellationToken).ConfigureAwait(false);
+        await EnterOrReleaseAsync(merged, cancellationToken).ConfigureAwait(false);
 
         try
         {
@@ -97,6 +97,22 @@ public sealed partial class Dataset
         newer.Blob.Retire(_closedRuns.Enqueue);
         await DeleteClosedRunsAsync(cancellationToken).ConfigureAwait(false);
         return true;
+    }
+
+    // Enters the sequencer to swap in a segment just loaded; when it cannot
+    // — the dataset is disposing, or the round was cancelled — closes the
+    // segment, which nothing else holds yet.
+    private async ValueTask EnterOrReleaseAsync(CommitSegment segment, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await EnterSequencerAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            segment.Blob.Release();
+            throw;
+        }
     }
 
     // The blob written and loaded; null when it is gone before it could be

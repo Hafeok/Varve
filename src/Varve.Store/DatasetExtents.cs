@@ -112,6 +112,16 @@ public sealed partial class Dataset
         return Chains(chain);
     }
 
+    // Closes sets written for a catalog that was never swapped in, and has
+    // them deleted once nothing reads them: no catalog names them.
+    private void RetireUnpublished(List<ExtentSet> written)
+    {
+        foreach (ExtentSet set in written)
+        {
+            set.Run.Blob!.Retire(_closedRuns.Enqueue);
+        }
+    }
+
     // The catalog's cursor (ADR 0139, CatalogRecordsTheLogCursor): where the
     // log continues after the newest set's end and the backend's slot there,
     // every set's end's commit index entry, and the settings commits up to
@@ -291,23 +301,31 @@ public sealed partial class Dataset
                 return;
             }
 
-            if (position > end)
+            try
             {
-                ExtentSet set = await WriteSetFromLogAsync(state, end, position, cancellationToken).ConfigureAwait(false);
-                written.Add(set);
-                sets.Add(set);
+                if (position > end)
+                {
+                    ExtentSet set = await WriteSetFromLogAsync(state, end, position, cancellationToken).ConfigureAwait(false);
+                    written.Add(set);
+                    sets.Add(set);
+                }
+                else
+                {
+                    int k = sets.FindIndex(s => s.From < position && position < s.To);
+                    ExtentSet holding = sets[k];
+                    ExtentSet first = await WriteSetFromLogAsync(state, holding.From, position, cancellationToken).ConfigureAwait(false);
+                    written.Add(first);
+                    ExtentSet second = await WriteSetFromLogAsync(state, position, holding.To, cancellationToken).ConfigureAwait(false);
+                    written.Add(second);
+                    sets[k] = first;
+                    sets.Insert(k + 1, second);
+                    replaced.Add(holding);
+                }
             }
-            else
+            catch
             {
-                int k = sets.FindIndex(s => s.From < position && position < s.To);
-                ExtentSet holding = sets[k];
-                ExtentSet first = await WriteSetFromLogAsync(state, holding.From, position, cancellationToken).ConfigureAwait(false);
-                written.Add(first);
-                ExtentSet second = await WriteSetFromLogAsync(state, position, holding.To, cancellationToken).ConfigureAwait(false);
-                written.Add(second);
-                sets[k] = first;
-                sets.Insert(k + 1, second);
-                replaced.Add(holding);
+                RetireUnpublished(written);
+                throw;
             }
 
             await PublishSetsAsync(sets, written, replaced, cancellationToken).ConfigureAwait(false);
@@ -382,16 +400,27 @@ public sealed partial class Dataset
         }
         catch
         {
-            foreach (ExtentSet set in written)
-            {
-                set.Run.Blob!.Retire(_closedRuns.Enqueue);
-            }
-
+            RetireUnpublished(written);
             throw;
         }
 
         _catalogPins = cursor is null ? [] : PinsOf(cursor);
-        await EnterSequencerAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await EnterSequencerAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // The catalog names them now, so they are closed and kept: the
+            // next open reads them from the catalog.
+            foreach (ExtentSet set in written)
+            {
+                set.Run.Blob!.Release();
+            }
+
+            throw;
+        }
 
         try
         {
