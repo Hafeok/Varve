@@ -25,6 +25,12 @@ builder.Build().Run();
   requireHttpsMetadata)`** sets `Varve:Auth`. The authority is a
   `ReferenceExpression`, so it may be another resource's endpoint:
   `ReferenceExpression.Create($"{issuer.GetEndpoint("http")}/realm")`.
+- **`WithAzureBlobStorage(containerUrl, cacheBytes?)`** puts the datasets in
+  an Azure Blob Storage container instead of files on the volume (ADR 0142),
+  each under its own prefix; the server reaches it as its managed identity,
+  with no key or connection string. The volume holds the page cache. For a
+  deployed container: an emulator in a neighbouring container is not on
+  loopback, so its well-known key is refused (ADR 0137).
 - **`WithDataset(name, read?, write?, admin?)`** declares a dataset the
   server opens at start, creating it under its root when it is not there,
   and the roles that may read, write and administer it.

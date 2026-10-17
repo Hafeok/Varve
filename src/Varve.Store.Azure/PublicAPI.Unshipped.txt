@@ -1,0 +1,18 @@
+#nullable enable
+Varve.Store.Azure.AzureBlobStore
+Varve.Store.Azure.AzureBlobStore.CreateIfAbsentAsync(Varve.Store.Log.ObjectName name, System.ReadOnlyMemory<byte> content, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.ObjectVersion?>
+Varve.Store.Azure.AzureBlobStore.DeleteAsync(Varve.Store.Log.ObjectName name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
+Varve.Store.Azure.AzureBlobStore.Dispose() -> void
+Varve.Store.Azure.AzureBlobStore.ListAsync(Varve.Store.Log.ObjectName prefix, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Varve.Store.Log.ObjectEntry>!>
+Varve.Store.Azure.AzureBlobStore.ReadAsync(Varve.Store.Log.ObjectName name, Varve.Store.Log.ByteOffset offset, Varve.Store.Log.ByteCount length, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.ObjectRead?>
+Varve.Store.Azure.AzureBlobStore.ReplaceIfUnchangedAsync(Varve.Store.Log.ObjectName name, Varve.Store.Log.ObjectVersion expected, System.ReadOnlyMemory<byte> content, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.ObjectVersion?>
+Varve.Store.Azure.Model.AzureBlobStoreOptions
+Varve.Store.Azure.Model.AzureBlobStoreOptions.AzureBlobStoreOptions() -> void
+Varve.Store.Azure.Model.AzureBlobStoreOptions.Clock.get -> System.TimeProvider!
+Varve.Store.Azure.Model.AzureBlobStoreOptions.Clock.init -> void
+Varve.Store.Azure.Model.AzureBlobStoreOptions.ContainerUrl.get -> System.Uri!
+Varve.Store.Azure.Model.AzureBlobStoreOptions.ContainerUrl.init -> void
+Varve.Store.Azure.Model.AzureBlobStoreOptions.Handler.get -> System.Net.Http.HttpMessageHandler?
+Varve.Store.Azure.Model.AzureBlobStoreOptions.Handler.init -> void
+static Varve.Store.Azure.AzureBlobStore.Create(Varve.Store.Azure.Model.AzureBlobStoreOptions! options) -> Varve.Store.Azure.AzureBlobStore!
+override Varve.Store.Azure.AzureBlobStore.ToString() -> string!

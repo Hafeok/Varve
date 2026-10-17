@@ -50,6 +50,9 @@
     <ProjectReference Include="../Varve.Protocol.Client/Varve.Protocol.Client.csproj" />
     <ProjectReference Include="../Varve.Sparql.Store/Varve.Sparql.Store.csproj" />
     <ProjectReference Include="../Varve.Store/Varve.Store.csproj" />
+    <ProjectReference Include="../Varve.Store.ObjectStorage/Varve.Store.ObjectStorage.csproj" />
+    <ProjectReference Include="../Varve.Store.Azure/Varve.Store.Azure.csproj" />
+    <ProjectReference Include="../Varve.Store.S3/Varve.Store.S3.csproj" />
   </ItemGroup>
 
   <ItemGroup>

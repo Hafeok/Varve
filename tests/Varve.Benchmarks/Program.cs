@@ -45,6 +45,24 @@ internal static class Program
             return;
         }
 
+        if (args.Length == 3 && args[0] == "--objects")
+        {
+            ObjectStorageBench.RunAsync(args[1], args[2]).GetAwaiter().GetResult();
+            return;
+        }
+
+        if (args.Length == 2 && args[0] == "--format3-open")
+        {
+            ObjectStorageBench.Format3OpenAsync(args[1]).GetAwaiter().GetResult();
+            return;
+        }
+
+        if (args.Length == 2 && args[0] == "--extent-reads")
+        {
+            ObjectStorageBench.ExtentReadsAsync(args[1]).GetAwaiter().GetResult();
+            return;
+        }
+
         if (args.Length == 1 && args[0] == "--asof-latency")
         {
             AsOfLatency.RunAsync().GetAwaiter().GetResult();

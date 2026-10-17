@@ -1,0 +1,103 @@
+# The object-storage backend against a real storage account, and the Container
+# Apps template's what-if (ADR 0142), run by hand.
+#
+# Dispatched by the maintainer, in the `azure-objects` environment, which
+# only `main` may use. No credential is stored anywhere (ADR 0137):
+#   - the tests reach the container as GitHub's OIDC token for this
+#     environment, exchanged by Varve.Store.Azure's workload-identity source
+#     (AZURE_FEDERATED_TOKEN_FILE) for a storage token; the application's
+#     registration trusts that token as a federated credential;
+#   - the what-if signs the Azure CLI in with the same token.
+# The environment holds only identifiers, as variables: the tenant, the
+# application's client id, the subscription, a resource group, and the URL
+# of a container the application holds Storage Blob Data Contributor on.
+# The run's result goes into the traceability record.
+name: azure-objects
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Deploy deploy/azure/container-apps after the what-if'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  azure-objects:
+    name: object storage against a storage account
+    runs-on: ubuntu-latest
+    environment: azure-objects
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      VARVE_AZURE_CONTAINER: ${{ vars.VARVE_AZURE_CONTAINER }}
+      VARVE_STORAGE_LEGS_REQUIRED: azure
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      # Built before the token is taken, so it is fresh when the tests run.
+      - name: Build the store's tests
+        run: dotnet build tests/Varve.Store.Tests/Varve.Store.Tests.csproj --configuration Release
+
+      - name: GitHub's federated token
+        run: |
+          set -euo pipefail
+          assertion=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r .value)
+          echo "::add-mask::$assertion"
+          printf '%s' "$assertion" > "$RUNNER_TEMP/assertion"
+          echo "AZURE_FEDERATED_TOKEN_FILE=$RUNNER_TEMP/assertion" >> "$GITHUB_ENV"
+
+      - name: Test against the storage account
+        run: >
+          dotnet test
+          --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj
+          --configuration Release
+          --no-build
+          --filter-class Varve.Store.Tests.Objects.AzureAccountObjectStoreContractTests
+          --filter-class Varve.Store.Tests.Objects.AzureAccountStorageContractTests
+
+      - name: What-if for the Container Apps template
+        env:
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          VARVE_AZURE_RESOURCE_GROUP: ${{ vars.VARVE_AZURE_RESOURCE_GROUP }}
+          VARVE_AZURE_AUTHORITY: ${{ vars.VARVE_AZURE_AUTHORITY }}
+          VARVE_AZURE_AUDIENCE: ${{ vars.VARVE_AZURE_AUDIENCE }}
+        run: |
+          set -euo pipefail
+          az login --service-principal --username "$AZURE_CLIENT_ID" --tenant "$AZURE_TENANT_ID" \
+            --federated-token "$(cat "$AZURE_FEDERATED_TOKEN_FILE")" --output none
+          az account set --subscription "$AZURE_SUBSCRIPTION_ID"
+          az deployment group what-if --resource-group "$VARVE_AZURE_RESOURCE_GROUP" \
+            --template-file deploy/azure/container-apps/main.bicep \
+            --parameters authority="$VARVE_AZURE_AUTHORITY" audience="$VARVE_AZURE_AUDIENCE"
+
+      - name: Deploy the Container Apps template
+        if: inputs.deploy
+        env:
+          VARVE_AZURE_RESOURCE_GROUP: ${{ vars.VARVE_AZURE_RESOURCE_GROUP }}
+          VARVE_AZURE_AUTHORITY: ${{ vars.VARVE_AZURE_AUTHORITY }}
+          VARVE_AZURE_AUDIENCE: ${{ vars.VARVE_AZURE_AUDIENCE }}
+        run: |
+          set -euo pipefail
+          az deployment group create --resource-group "$VARVE_AZURE_RESOURCE_GROUP" \
+            --template-file deploy/azure/container-apps/main.bicep \
+            --parameters authority="$VARVE_AZURE_AUTHORITY" audience="$VARVE_AZURE_AUDIENCE" \
+            --query properties.outputs
+
+      - name: Remove the token
+        if: always()
+        run: rm -f "$RUNNER_TEMP/assertion"

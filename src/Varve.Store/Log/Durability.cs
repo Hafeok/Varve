@@ -18,4 +18,10 @@ public enum Durability
 
     /// <summary>Written through to durable media — <c>fsync</c> or its equivalent.</summary>
     Synchronised,
+
+    /// <summary>
+    /// Acknowledged by an object store with conditional writes; what that
+    /// survives is the store's own replication (ADR 0135).
+    /// </summary>
+    Replicated,
 }

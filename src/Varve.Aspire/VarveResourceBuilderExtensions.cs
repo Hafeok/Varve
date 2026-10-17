@@ -57,7 +57,7 @@ public static class VarveResourceBuilderExtensions
 
                 foreach (VarveDataset dataset in resource.Datasets)
                 {
-                    context.EnvironmentVariables["VARVE__DATASETS__" + dataset.Name + "__STORAGE"] = "File";
+                    context.EnvironmentVariables["VARVE__DATASETS__" + dataset.Name + "__STORAGE"] = resource.BlobContainer is null ? "File" : "ObjectStorage";
                     Grants(context.EnvironmentVariables, dataset.Name, "READ", dataset.Read);
                     Grants(context.EnvironmentVariables, dataset.Name, "WRITE", dataset.Write);
                     Grants(context.EnvironmentVariables, dataset.Name, "ADMIN", dataset.Admin);
@@ -111,6 +111,38 @@ public static class VarveResourceBuilderExtensions
         }
 
         return builder;
+    }
+
+    /// <summary>
+    /// The server's datasets in an Azure Blob Storage container (ADRs 0134,
+    /// 0139, 0142) instead of files on the volume: <paramref name="containerUrl"/>
+    /// is the container's address, as an expression so that it may come from
+    /// another resource, and each <see cref="WithDataset"/> dataset lives
+    /// under its own prefix in it. The server reaches the container as its
+    /// workload identity — on Azure Container Apps, its managed identity,
+    /// which needs Storage Blob Data Contributor on the container. No key,
+    /// SAS token or connection string is passed, or accepted (ADR 0137). The
+    /// volume holds the page cache, at most <paramref name="cacheBytes"/>.
+    /// </summary>
+    /// <remarks>
+    /// The server reaches a development emulator only on loopback with its
+    /// well-known key (ADR 0137), and a container reaches another container
+    /// by name, never on loopback: so in run mode, an emulator such as
+    /// Azurite in a neighbouring container is refused by design. Run mode
+    /// keeps file datasets; this is for a deployed container.
+    /// </remarks>
+    public static IResourceBuilder<VarveResource> WithAzureBlobStorage(this IResourceBuilder<VarveResource> builder, ReferenceExpression containerUrl, long cacheBytes = 8L << 30)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(containerUrl);
+        ArgumentOutOfRangeException.ThrowIfLessThan(cacheBytes, 64L << 20);
+        builder.Resource.BlobContainer = containerUrl;
+
+        return builder
+            .WithEnvironment("VARVE__OBJECTSTORAGE__PROVIDER", "Azure")
+            .WithEnvironment("VARVE__OBJECTSTORAGE__CONTAINERURL", containerUrl)
+            .WithEnvironment("VARVE__OBJECTSTORAGE__CACHEPATH", "/var/lib/varve/cache")
+            .WithEnvironment("VARVE__OBJECTSTORAGE__CACHEBYTES", cacheBytes.ToString(CultureInfo.InvariantCulture));
     }
 
     /// <summary>

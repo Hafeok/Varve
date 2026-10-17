@@ -249,3 +249,19 @@ no further: what follows was discarded by the recovery that sealed it.
 window; the ruling of this block is `TornBatchWithinTheWriteWindow`,
 unaccepted until the maintainer accepts it.
 
+
+## Amendment, 2026-10-15 — derived version 4 and the catalog
+
+Filed by milestone Object storage of #92, unaccepted until the maintainer
+accepts it (ADR 0066); ruled in [ADR 0139](0139-extents-and-the-projection-catalog.md).
+`log/` is unchanged at storage format 1.
+
+- **Derived files are written as version 4** and read from 2 to 4. Version 4
+  adds three kinds: an extent (6), an extent set's dictionary (7) and the
+  projection catalog (8). Every older kind keeps format 3's layout.
+- **The catalog is derived data** like the projection's state: a header
+  naming the position and the log's hash there, verified against the log on
+  open; one that does not verify is a cache miss, and the chain it names
+  ends at its first set that does not.
+- **Version 4 is not read forever.** A later change to extents is a rebuild
+  from the log.

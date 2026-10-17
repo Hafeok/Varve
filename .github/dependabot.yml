@@ -97,6 +97,7 @@ updates:
     directories:
       - "/.github/zitadel"
       - "/.github/mock-oauth2"
+      - "/.github/storage"
       - "/.github/eventhubs"
     schedule:
       interval: weekly

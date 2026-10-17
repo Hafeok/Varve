@@ -8,7 +8,7 @@ A file dataset is one directory under `Varve:DatasetsRoot` (ADR 0072,
 | Path | What | Loss means |
 |---|---|---|
 | `log/` | the source of truth: a manifest and append-only segments, **format version 1**, never rewritten, read for ever | the dataset |
-| `derived/` | the projection's runs, checkpoints, the commit index and bulk-load spills: rebuilt from the log on a cache miss | a slower open |
+| `derived/` | the projection's runs, the checkpoints — `extents/` and the `catalog` that names them (ADR 0139) — the commit index and bulk-load spills: rebuilt from the log on a cache miss | a slower open, and as-of reads that replay the log |
 | `lock` | the lease of the process that holds the dataset (ADR 0075) | nothing; a stale one is taken over |
 
 **A backup is a copy of the directory.** `log/` alone is enough; `derived/`
@@ -44,10 +44,44 @@ curl -X POST -H "Authorization: Bearer $ADMIN" https://varve.example/datasets/pe
 varve checkpoint /var/lib/varve/people        # the dataset must not be held by a server
 ```
 
-Checkpoints live in `derived/checkpoints/` and are rebuilt if lost. A
-dataset's `CheckpointPolicy` can write them on a schedule of commits; the
+A checkpoint is an **extent set**: the intervals of every quad over the window
+since the previous checkpoint, in `derived/extents/`, named by
+`derived/catalog` (ADRs 0138, 0139). Below the newest checkpoint an as-of read
+replays no log at all; above it, only the log after it. The sets are
+derived and rebuilt if lost; a dataset written by the previous release keeps
+its full checkpoints in `derived/checkpoints/` until they are dropped.
+Dropping a checkpoint merges its set into the next, so no answer changes.
+
+A dataset's `CheckpointPolicy` can write them on a schedule of commits; the
 server's defaults write none, so an operator who wants bounded opens takes
-them, as above, or relies on maintenance's merged runs.
+them, as above, or relies on maintenance's merged runs. Each checkpoint adds a
+set that every read merges until milestone Extent maintenance merges them in
+the background: the read latency after 10, 50 and 100 checkpoints is the
+checkpoint budget below.
+
+### The checkpoint budget
+
+Until Extent maintenance merges sets in the background, every read of the
+present merges one more run per checkpoint kept. Measured on REC size M
+(5,049,846 quads, 25,000 commits) on files, each row after opening again so
+the chain is the projection's base:
+
+| Checkpoints kept | Head: a quad's lookup, p50 | Head: one subject's quads, p50 | Head: an exact count, p50 | As-of inside a set | As-of at a set's end |
+|---:|---:|---:|---:|---:|---:|
+| 10 | 42 µs | 5.7 µs | 28 µs | 30 ms | < 0.1 ms |
+| 50 | 71 µs | 18 µs | 144 µs | 6.8 ms | 0.1 ms |
+| 100 | 99 µs | 78 µs | 354 µs | 6.5 ms | 0.1 ms |
+
+**Keep at most 20 checkpoints** (`CheckpointPolicy.Keep = 20`, or drop them by
+hand) until Extent maintenance lands: head reads then stay within about twice
+the 10-checkpoint figures, and an as-of read inside a set —
+which narrows that one set — costs what one set of a twentieth of the
+history costs. Dropping the oldest merges it into the next, so the budget
+holds at no cost to any answer.
+
+A dataset in an object store is backed up by `ShipAsync` into a directory
+(the migration path is the same call the other way), or by the store's own
+replication; see [Azure Container Apps](azure-container-apps.md).
 
 ## Restoring
 

@@ -30,7 +30,7 @@ public abstract class StorageContractTests
 
     protected abstract Durability Expected { get; }
 
-    private ValueTask<IStorage> CreateAsync() => new(Create());
+    protected virtual ValueTask<IStorage> CreateAsync() => new(Create());
 
     [Fact]
     public Task appended_bytes_read_back_and_a_read_past_the_end_is_short() =>

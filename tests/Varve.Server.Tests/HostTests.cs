@@ -110,7 +110,7 @@ public sealed class HostTests
         (int exit, string _, string errors) = await RunProcessAsync(stopAfterReady: false, "--Varve:Datasets:d:Storage=Tape");
         Assert.Equal(2, exit);
         Assert.Contains("Varve:Auth:Mode is Oidc or Anonymous", errors, StringComparison.Ordinal);
-        Assert.Contains("Varve:Datasets:d:Storage is File or Memory", errors, StringComparison.Ordinal);
+        Assert.Contains("Varve:Datasets:d:Storage is File, Memory or ObjectStorage", errors, StringComparison.Ordinal);
     }
 
     [Fact]

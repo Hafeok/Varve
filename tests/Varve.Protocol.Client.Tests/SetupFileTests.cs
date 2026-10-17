@@ -90,7 +90,7 @@ public class SetupFileTests
     [InlineData("dataset: orders\nretention: forever\n", 2, 1, "'retention' is not a key here")]
     [InlineData("dataset: orders\nbaseline:\n  - file: a.ttl\n    weight: 3\n", 4, 5, "'weight' is not a key here")]
     [InlineData("dataset: orders\nbaseline:\n  - file: a.ttl\n    mode: replace\n", 4, 5, "'mode' is not a key here")]
-    [InlineData("dataset: orders\nstorage: Tape\n", 2, 10, "storage is File or Memory")]
+    [InlineData("dataset: orders\nstorage: Tape\n", 2, 10, "storage is File, Memory or ObjectStorage")]
     [InlineData("dataset: orders\nmigrations:\n  - id: 1\n", 3, 5, "update or file")]
     [InlineData("\"dataset\": orders\n", 1, 1, "a key is plain")]
     [InlineData("dataset:orders\n", 1, 8, "followed by ': '")]

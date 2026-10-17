@@ -30,6 +30,8 @@ internal static class SettingsCheck
     [
         "DatasetsRoot",
         "Datasets:*:Storage",
+        "ObjectStorage:Provider", "ObjectStorage:ContainerUrl", "ObjectStorage:Endpoint", "ObjectStorage:Bucket", "ObjectStorage:Region",
+        "ObjectStorage:CachePath", "ObjectStorage:CacheBytes", "ObjectStorage:Instance",
         "Auth:Mode", "Auth:Authority", "Auth:Audiences:*", "Auth:SubjectClaim", "Auth:ApplicationClaim", "Auth:RoleClaimType", "Auth:RequireHttpsMetadata", "Auth:Production",
         "Auth:Datasets:*:Read:*", "Auth:Datasets:*:Write:*", "Auth:Datasets:*:Admin:*",
         "Auth:Datasets:*:Grants:*:Claim", "Auth:Datasets:*:Grants:*:Permission", "Auth:Datasets:*:Grants:*:Graphs:*", "Auth:Datasets:*:Grants:*:GraphPrefixes:*",
@@ -83,6 +85,33 @@ internal static class SettingsCheck
     }
 
     internal static bool IsKnown(string path) => Canonical(path) is not null;
+
+    // Names a credential goes by in other products' configuration.
+    private static ImmutableArray<string> CredentialNames { get; } =
+        ["AccountKey", "AccessKey", "ConnectionString", "SasToken", "Sas", "SharedAccessSignature", "AccessKeyId", "SecretAccessKey", "SecretKey", "ClientSecret", "Password"];
+
+    /// <summary>
+    /// The error for a key the server does not know. A storage credential under
+    /// <c>ObjectStorage</c> or a dataset —
+    /// an account key, a SAS token, a connection string, a static access key —
+    /// is refused by name, with the rule, rather than as a misspelling: the
+    /// store is reached as the workload's identity (ADR 0137).
+    /// </summary>
+    internal static string UnknownKeyError(string unknown)
+    {
+        string leaf = unknown[(unknown.LastIndexOf(':') + 1)..];
+        bool storage = unknown.StartsWith("Varve:ObjectStorage:", StringComparison.OrdinalIgnoreCase) || unknown.StartsWith("Varve:Datasets:", StringComparison.OrdinalIgnoreCase);
+
+        foreach (string name in storage ? CredentialNames : [])
+        {
+            if (string.Equals(leaf, name, StringComparison.OrdinalIgnoreCase))
+            {
+                return unknown + " is a storage credential, and the server takes none: an object store is reached as the workload's identity — managed identity, workload identity or web identity (ADR 0137).";
+            }
+        }
+
+        return unknown + " is not a setting the server knows; see docs/operator/configure.md for every key.";
+    }
 
     /// <summary>
     /// The path in the casing the settings classes spell it, with the names
@@ -193,9 +222,9 @@ internal static class SettingsCheck
 
         // A server with no configured dataset serves what the admin API
         // creates under its root (ADR 0106), so a root is enough.
-        if (settings.Datasets.Count == 0 && string.IsNullOrWhiteSpace(settings.DatasetsRoot))
+        if (settings.Datasets.Count == 0 && string.IsNullOrWhiteSpace(settings.DatasetsRoot) && string.IsNullOrWhiteSpace(settings.ObjectStorage.Provider))
         {
-            errors.Add("Varve:Datasets names at least one dataset, or Varve:DatasetsRoot names the directory datasets are created under.");
+            errors.Add("Varve:Datasets names at least one dataset, or Varve:DatasetsRoot names the directory datasets are created under, or Varve:ObjectStorage the store they are created in.");
         }
 
         if (!string.IsNullOrWhiteSpace(settings.DatasetsRoot) && !Path.IsPathFullyQualified(settings.DatasetsRoot))
@@ -221,11 +250,20 @@ internal static class SettingsCheck
                     break;
                 case "Memory":
                     break;
+                case "ObjectStorage":
+                    if (string.IsNullOrWhiteSpace(settings.ObjectStorage.Provider))
+                    {
+                        errors.Add("Varve:Datasets:" + name + " is an ObjectStorage dataset, and Varve:ObjectStorage:Provider is not set.");
+                    }
+
+                    break;
                 default:
-                    errors.Add("Varve:Datasets:" + name + ":Storage is File or Memory.");
+                    errors.Add("Varve:Datasets:" + name + ":Storage is File, Memory or ObjectStorage.");
                     break;
             }
         }
+
+        CheckObjectStorage(settings.ObjectStorage, errors);
 
         foreach ((string name, PermissionSettings permissions) in auth.Datasets)
         {
@@ -364,6 +402,64 @@ internal static class SettingsCheck
     // An endpoint policy's prefixes are absolute http or https IRIs, and its
     // limits positive (ADRs 0103, 0104): checked here so that a wrong prefix is
     // a listed error at start, not an exception at the first SERVICE.
+    // The object store (ADRs 0134, 0137): the provider's address, with no
+    // credential in it, and a local cache directory.
+    private static void CheckObjectStorage(ObjectStorageSettings store, List<string> errors)
+    {
+        switch (store.Provider)
+        {
+            case null or "":
+                return;
+            case "Azure":
+                if (!Uri.TryCreate(store.ContainerUrl, UriKind.Absolute, out Uri? container) || !SecureOrLoopback(container) || container.AbsolutePath.Trim('/').Length == 0)
+                {
+                    errors.Add("Varve:ObjectStorage:ContainerUrl is the container's absolute https address, https://{account}.blob.core.windows.net/{container} (http only on loopback, for Azurite).");
+                }
+                else if (container.Query.Length > 0 || container.UserInfo.Length > 0)
+                {
+                    errors.Add("Varve:ObjectStorage:ContainerUrl carries a query or user information: a SAS token or a key is refused; the server reaches the container as the workload's identity (ADR 0137).");
+                }
+
+                break;
+            case "S3Compatible":
+                if (!Uri.TryCreate(store.Endpoint, UriKind.Absolute, out Uri? endpoint) || !SecureOrLoopback(endpoint))
+                {
+                    errors.Add("Varve:ObjectStorage:Endpoint is the service's absolute https address (http only on loopback).");
+                }
+                else if (endpoint.Query.Length > 0 || endpoint.UserInfo.Length > 0)
+                {
+                    errors.Add("Varve:ObjectStorage:Endpoint carries a query or user information: a static key is refused; the server reaches the store by web identity (ADR 0137).");
+                }
+
+                if (string.IsNullOrWhiteSpace(store.Bucket))
+                {
+                    errors.Add("Varve:ObjectStorage:Bucket names the bucket.");
+                }
+
+                if (string.IsNullOrWhiteSpace(store.Region))
+                {
+                    errors.Add("Varve:ObjectStorage:Region names the region the signature is for.");
+                }
+
+                break;
+            default:
+                errors.Add("Varve:ObjectStorage:Provider is Azure or S3Compatible (ADR 0134).");
+                return;
+        }
+
+        if (string.IsNullOrWhiteSpace(store.CachePath) || !Path.IsPathFullyQualified(store.CachePath))
+        {
+            errors.Add("Varve:ObjectStorage:CachePath is an absolute path: the local cache, a directory per dataset under it (ADR 0139).");
+        }
+
+        if (store.CacheBytes < 64L << 20)
+        {
+            errors.Add("Varve:ObjectStorage:CacheBytes is at least 64 MiB (ADR 0139).");
+        }
+
+        static bool SecureOrLoopback(Uri uri) => uri.Scheme == Uri.UriSchemeHttps || (uri.Scheme == Uri.UriSchemeHttp && uri.IsLoopback);
+    }
+
     private static void CheckOutbound(List<string> errors, string section, List<string> prefixes, TimeSpan timeout, long maxResponseBytes)
     {
         foreach (string prefix in prefixes)

@@ -162,7 +162,7 @@ public sealed partial class Dataset : IAsyncDisposable
 
             foreach (Checkpoint checkpoint in state.Checkpoints)
             {
-                bytes += checkpoint.Run.Blob?.Blob.Length.Value ?? 0;
+                bytes += checkpoint.Owned.Blob.Length.Value;
             }
 
             return bytes;
@@ -286,7 +286,8 @@ public sealed partial class Dataset : IAsyncDisposable
         // projection's persisted state, or the newest checkpoint. A claim that
         // turns out stale reads the bodies it needs later, one by one.
         var claimed = await DerivedFormat.TryReadStateAsync(storage.Derived, StateName, id, cancellationToken).ConfigureAwait(false);
-        long bodiesAfter = Math.Max(candidates.Length > 0 ? candidates[0] : 0, claimed?.Header.To ?? 0);
+        var catalog = await ExtentCatalog.TryReadAsync(storage.Derived, id, cancellationToken).ConfigureAwait(false);
+        long bodiesAfter = Math.Max(Math.Max(candidates.Length > 0 ? candidates[0] : 0, claimed?.Header.To ?? 0), catalog?.Header.To ?? 0);
 
         // The commit index is read against the log as the scan passes it:
         // nothing the size of the log is held (ADR 0089). Its versions read
@@ -294,8 +295,39 @@ public sealed partial class Dataset : IAsyncDisposable
         Dataset? owner = null;
         Func<CommitIndex> current = () => owner!._state.Commits;
         CommitIndexOpener opener = await CommitIndexOpener.StartAsync(storage.Derived, id, options.CommitCache, current, cancellationToken).ConfigureAwait(false);
-        LogScan scan = await LogReader.ScanAsync(
-            storage.Log, id, bodiesAfter, commit => opener.AddAsync(commit, bodiesAfter, cancellationToken), options.TornWindow, cancellationToken).ConfigureAwait(false);
+
+        // A backend that keeps its log in parts is read from where the catalog
+        // says the log continues, and the commit index below it is read when
+        // first needed (ADR 0139). A cursor the log does not bear out is ignored.
+        LogStart? start = null;
+
+        if (catalog is { Cursor: { } cursor } found && storage.Log is ISegmentCursor parts)
+        {
+            await parts.ReadFromAsync(new SegmentId(cursor.Segment), new SegmentSlot(cursor.Slot), cancellationToken).ConfigureAwait(false);
+            LogStart candidate = new(cursor.Segment, cursor.Offset, found.Header.To, found.Header.ToHash);
+
+            if (await LogReader.ContinuesAtAsync(storage.Log, id, candidate, cancellationToken).ConfigureAwait(false))
+            {
+                start = candidate;
+                Dictionary<long, CommitEntry> pins = [];
+
+                foreach (CatalogPin pin in cursor.Pins)
+                {
+                    pins[pin.Position] = pin.Entry;
+                }
+
+                CommitEntry last = pins[found.Header.To];
+                List<CommitSegment> prefixBlobs = opener.PrefixCandidates;
+                CommitPrefix prefix = new(found.Header.To, pins, prefixBlobs, PrefixLoader(storage, id, last, found.Header.To, prefixBlobs, () => Interlocked.Increment(ref owner!._commitSequence)));
+                opener.BeginAt(prefix, cursor);
+            }
+        }
+
+        LogScan scan = start is { } from
+            ? await LogReader.ScanFromAsync(
+                storage.Log, id, from, bodiesAfter, commit => opener.AddAsync(commit, bodiesAfter, cancellationToken), options.TornWindow, cancellationToken).ConfigureAwait(false)
+            : await LogReader.ScanAsync(
+                storage.Log, id, bodiesAfter, commit => opener.AddAsync(commit, bodiesAfter, cancellationToken), options.TornWindow, cancellationToken).ConfigureAwait(false);
         long head = scan.Head;
         CommitIndex commits = await opener.FinishAsync(cancellationToken).ConfigureAwait(false);
 
@@ -309,9 +341,15 @@ public sealed partial class Dataset : IAsyncDisposable
         State partial = new(head, commits, IndexVersion.Empty, [], null);
         Dataset dataset = new(storage, id, options, dictionary, writer, partial);
         owner = dataset;
+
+        if (start is not null)
+        {
+            dataset._catalogPins = PinsOf(catalog!.Value.Cursor!);
+        }
         dataset._commitSequence = opener.Sequence;
 
         Checkpoint[] checkpoints = await dataset.LoadCheckpointsAsync(partial, candidates, cancellationToken).ConfigureAwait(false);
+        checkpoints = await dataset.WithExtentsAsync(partial, checkpoints, cancellationToken).ConfigureAwait(false);
 
         // The persisted projection, when it names this log; otherwise the
         // newest checkpoint, or nothing (ADR 0070). Its runs carry the
@@ -457,8 +495,19 @@ public sealed partial class Dataset : IAsyncDisposable
 
         Checkpoint? checkpoint = state.CheckpointAtOrBelow(position);
 
+        // Inside an extent set's window, and no checkpoint at the position
+        // itself: the set's intervals answer it, at a cost that does not grow
+        // with the distance from the set's start (ADR 0138).
+        if (checkpoint?.Position != position
+            && await InsideSetAsync(state, position, cancellationToken).ConfigureAwait(false) is { } inside)
+        {
+            IndexVersion within = new(position, inside.Index, inside.Index.Length);
+            TermView insideTerms = state.TermsAt(_dictionary, inside.Terms, position);
+            return new DatasetView(position, new IndexSource(within, insideTerms), insideTerms, _metrics.Pinned(inside.Release));
+        }
+
         // A checkpoint dropped since the state was read is no longer open.
-        while (checkpoint is not null && !checkpoint.Run.Blob!.TryAcquire())
+        while (checkpoint is not null && !checkpoint.TryAcquire())
         {
             state = _state;
             checkpoint = state.CheckpointAtOrBelow(position);
@@ -467,12 +516,13 @@ public sealed partial class Dataset : IAsyncDisposable
         try
         {
             long from = checkpoint?.Position ?? 0;
-            IndexVersion baseIndex = checkpoint is null ? IndexVersion.Empty : IndexVersion.FromBase(from, checkpoint.Run);
+            Run[] runs = checkpoint?.Runs ?? [];
+            IndexVersion baseIndex = new(from, runs, runs.Length);
             (QuadDelta tail, TermSection tailTerms) = await NetAsync(state, from, position, cancellationToken).ConfigureAwait(false);
 
             // The checkpoint's dictionary, and the entries the tail allocated.
             Run tailRun = Run.FromDelta([], [], tailTerms, from, position);
-            TermView terms = state.TermsAt(_dictionary, checkpoint is null ? [tailRun] : [checkpoint.Run, tailRun], position);
+            TermView terms = state.TermsAt(_dictionary, [.. runs, tailRun], position);
             IQuadSource source = new IndexSource(baseIndex, terms);
 
             if (position > from)
@@ -480,13 +530,13 @@ public sealed partial class Dataset : IAsyncDisposable
                 source = new QuadOverlay(source, tail);
             }
 
-            DatasetView view = new(position, source, terms, _metrics.Pinned(checkpoint is null ? null : checkpoint.Run.Blob!.Release));
+            DatasetView view = new(position, source, terms, _metrics.Pinned(checkpoint is null ? null : checkpoint.Release));
             checkpoint = null;
             return view;
         }
         finally
         {
-            checkpoint?.Run.Blob!.Release();
+            checkpoint?.Release();
         }
     }
 
@@ -545,11 +595,10 @@ public sealed partial class Dataset : IAsyncDisposable
         CheckpointCoreAsync(position.Value, cancellationToken);
 
     // Written off the sequencer, so that a checkpoint never blocks a commit
-    // (ADR 0070); published under it. The checkpoint is a streaming merge of
-    // the runs that make up the position — the projection's own when the
-    // position is its head, else the nearest checkpoint and the log tail —
-    // written straight to the blob: it holds a block per input section and the
-    // writer's buffer, never the state it materialises (issue #61).
+    // (ADR 0070); published under it. A checkpoint is written as extents
+    // (ADR 0139): the window since the newest set, read from the log and
+    // sorted outside memory, so it holds the sorts' buffers, never the state
+    // it materialises (issue #61).
     private async ValueTask CheckpointCoreAsync(long position, CancellationToken cancellationToken)
     {
         long started = _options.Clock.GetTimestamp();
@@ -562,105 +611,25 @@ public sealed partial class Dataset : IAsyncDisposable
             throw new ArgumentOutOfRangeException(nameof(position), "Position 0 is the empty dataset; it needs no checkpoint.");
         }
 
-        (Run[] runs, Action release) = await RunsAtAsync(position, cancellationToken).ConfigureAwait(false);
-        CommitEntry at = state.Commits.Entry(position);
-        BlobName name = Checkpoint.Name(position);
-
-        try
-        {
-            await DerivedFormat.WriteRunAsync(
-                _storage.Derived,
-                name,
-                DerivedFormat.KindCheckpoint,
-                Id,
-                0,
-                position,
-                at.HeaderHash(),
-                DerivedFormat.MergeOf(runs, dropRetractions: true),
-                TermsOf(runs),
-                at.BlankCount,
-                cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            release();
-        }
-
-        // The graph-version index at the checkpoint, beside it and after it
-        // (ADR 0125): an as-of graph version starts from the nearest one. A
-        // crash before it is written leaves a checkpoint without an index,
-        // which reads as an absent index and is rebuilt from the log.
-        GraphVersions graphs = await GraphsAtAsync(state, position, cancellationToken).ConfigureAwait(false);
-        await graphs.WriteAsync(_storage.Derived, GraphVersions.NameAt(position), Id, at.HeaderHash(), cancellationToken).ConfigureAwait(false);
-
-        LoadedRun loaded = await DerivedFormat.TryLoadAsync(_storage.Derived, name, Id, DerivedFormat.KindCheckpoint, cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("A checkpoint just written does not read back.");
-        Checkpoint checkpoint = new(loaded);
-
-        await EnterSequencerAsync(cancellationToken).ConfigureAwait(false);
-
-        try
-        {
-            Checkpoint? replaced = Array.Find(_state.Checkpoints, c => c.Position == position);
-            _state = _state.WithCheckpoints(Insert(_state.Checkpoints, checkpoint));
-            replaced?.Run.Blob!.Release();
-        }
-        finally
-        {
-            _sequencer.Release();
-        }
-
+        await CheckpointExtentsAsync(position, cancellationToken).ConfigureAwait(false);
         _metrics.Checkpointed(_options.Clock.GetElapsedTime(started));
         _metrics.Observe(this);
     }
 
-    // The runs whose merge is the state at a closed position, held until the
-    // release is called: the projection's version when it is at the position,
-    // else the nearest checkpoint at or below it and the log tail as one run.
-    private async ValueTask<(Run[] Runs, Action Release)> RunsAtAsync(long position, CancellationToken cancellationToken)
-    {
-        while (true)
-        {
-            State state = _state;
-            IndexVersion index = state.Index;
-
-            if (index.Position == position && state.Failed is null)
-            {
-                if (index.TryAcquire())
-                {
-                    return (index.Runs, index.Release);
-                }
-
-                continue;
-            }
-
-            Checkpoint? checkpoint = state.CheckpointAtOrBelow(position);
-
-            if (checkpoint is not null && !checkpoint.Run.Blob!.TryAcquire())
-            {
-                continue;
-            }
-
-            try
-            {
-                long from = checkpoint?.Position ?? 0;
-                (QuadDelta tail, TermSection tailTerms) = await NetAsync(state, from, position, cancellationToken).ConfigureAwait(false);
-                Run tailRun = Run.FromDelta(tail.Asserted, tail.Retracted, tailTerms, from, position);
-                Run[] runs = checkpoint is null ? [tailRun] : [checkpoint.Run, tailRun];
-                Action release = checkpoint is null ? static () => { } : checkpoint.Run.Blob!.Release;
-                checkpoint = null;
-                return (runs, release);
-            }
-            finally
-            {
-                checkpoint?.Run.Blob!.Release();
-            }
-        }
-    }
-
     /// <summary>Drops a checkpoint. Nothing is lost: an as-of read at that position is slower, never wrong.</summary>
+    /// <remarks>
+    /// A checkpoint written as extents is one set of a chain (ADR 0139):
+    /// dropping it merges its set into the next one, or drops the set when it
+    /// is the newest.
+    /// </remarks>
     public async ValueTask DropCheckpointAsync(Position position, CancellationToken cancellationToken = default)
     {
+        if (Array.Find(_state.Checkpoints, c => c.Position == position.Value) is { Chain: not null })
+        {
+            await DropExtentCheckpointAsync(position.Value, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         await EnterSequencerAsync(cancellationToken).ConfigureAwait(false);
 
         try
@@ -676,7 +645,7 @@ public sealed partial class Dataset : IAsyncDisposable
             _state = _state.WithCheckpoints(kept);
 
             // Views reading it keep it open until they are disposed.
-            dropped?.Run.Blob!.Release();
+            dropped?.Owned.Release();
         }
         finally
         {
@@ -769,9 +738,9 @@ public sealed partial class Dataset : IAsyncDisposable
             Checkpoint? checkpoint = state.CheckpointAtOrBelow(state.Head);
             IndexVersion index = IndexVersion.Empty;
 
-            if (checkpoint is not null && checkpoint.Run.Blob!.TryAcquire())
+            if (checkpoint is not null && checkpoint.TryAcquire())
             {
-                index = IndexVersion.FromBase(checkpoint.Position, checkpoint.Run);
+                index = new IndexVersion(checkpoint.Position, checkpoint.Runs, checkpoint.Runs.Length);
             }
 
             for (long p = index.Position + 1; p <= state.Head; p++)
@@ -809,11 +778,9 @@ public sealed partial class Dataset : IAsyncDisposable
         State state = _state;
         state.Index.Release();
         state.Commits.Release();
+        state.Commits.Prefix?.Dispose();
 
-        foreach (Checkpoint checkpoint in state.Checkpoints)
-        {
-            checkpoint.Run.Blob!.Release();
-        }
+        ReleaseOwned(state.Checkpoints);
 
         // Runs retired while a view still read them, closed since.
         await DeleteClosedRunsAsync(CancellationToken.None).ConfigureAwait(false);

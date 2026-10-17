@@ -141,12 +141,13 @@ public class MaintenanceTests
     }
 
     /// <summary>
-    /// R2: an as-of read reads the log from the nearest checkpoint at or below
-    /// it to its position, and nothing else — the bytes read are exactly those
-    /// commits' records, whatever the size of the dataset.
+    /// R2 with validity intervals (ADR 0138): an as-of read at or below the
+    /// newest checkpoint reads no log at all, the extents answer it; above it,
+    /// it reads the log from that checkpoint to its position, and nothing else
+    /// — exactly those commits' records, whatever the size of the dataset.
     /// </summary>
     [Fact]
-    public async Task an_as_of_read_reads_exactly_the_log_distance_to_its_checkpoint()
+    public async Task an_as_of_read_reads_the_log_only_past_the_newest_checkpoint()
     {
         await Gen.Select(Gen.Int[2, 60], Gen.Int[1, 30], Gen.Int[0, 59]).SampleAsync(
             async (commits, every, at) =>
@@ -168,11 +169,11 @@ public class MaintenanceTests
                 }
 
                 long position = Math.Min(at, dataset.Head.Value);
-                long checkpoint = dataset.Checkpoints.Select(p => p.Value).Where(p => p <= position).DefaultIfEmpty(0).Max();
+                long newest = dataset.Checkpoints.Select(p => p.Value).DefaultIfEmpty(0).Max();
 
                 storage.Read = 0;
                 using DatasetView view = await dataset.AsOfAsync(new Position(position), T.Ct);
-                Assert.Equal(dataset.LogBytesBetween(checkpoint, position), storage.Read);
+                Assert.Equal(position <= newest ? 0 : dataset.LogBytesBetween(newest, position), storage.Read);
             },
             iter: 60);
     }

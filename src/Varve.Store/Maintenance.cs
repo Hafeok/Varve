@@ -32,7 +32,10 @@ public sealed class CheckpointPolicy
     /// <summary>A checkpoint at the head once this many bytes of log follow the newest.</summary>
     public ByteCount? EveryLogBytes { get; init; }
 
-    /// <summary>How many checkpoints the policy keeps, dropping the oldest; zero keeps all.</summary>
+    /// <summary>
+    /// How many checkpoints the policy keeps, dropping the oldest — whose
+    /// extent set merges into the next (ADR 0138); zero keeps all.
+    /// </summary>
     public int Keep { get; init; }
 }
 
@@ -142,7 +145,8 @@ public sealed partial class Dataset
         || DiskMergeDue(state.Index)
         || CheckpointDue(state)
         || CommitPagingDue(state)
-        || CommitMergeDue(state.Commits);
+        || CommitMergeDue(state.Commits)
+        || _storage is IStorageMaintenance { MaintenanceDue: true };
 
     private static int LeadingBlobRuns(IndexVersion index)
     {
@@ -265,6 +269,12 @@ public sealed partial class Dataset
         }
 
         if (CommitMergeDue(state.Commits) && await MergeCommitsAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return true;
+        }
+
+        if (_storage is IStorageMaintenance { MaintenanceDue: true } storage
+            && await storage.MaintainStorageAsync(cancellationToken).ConfigureAwait(false))
         {
             return true;
         }
@@ -435,6 +445,17 @@ public sealed partial class Dataset
     {
         while (_closedRuns.TryDequeue(out BlobName name))
         {
+            // An extent set's name stands for its extents (ADR 0139).
+            if (name.Value.StartsWith(ExtentSet.Prefix, StringComparison.Ordinal))
+            {
+                foreach (BlobName part in ExtentSet.BlobsOf(name.Value))
+                {
+                    await _storage.Derived.DeleteAsync(part, cancellationToken).ConfigureAwait(false);
+                }
+
+                continue;
+            }
+
             await _storage.Derived.DeleteAsync(name, cancellationToken).ConfigureAwait(false);
         }
     }
@@ -502,6 +523,7 @@ public sealed partial class Dataset
         if (persisted is { } read
             && read.Header.To >= Math.Max(1, floor)
             && read.Header.To <= state.Head
+            && state.Commits.Knows(read.Header.To)
             && state.Commits.Entry(read.Header.To).HashEquals(read.Header.ToHash))
         {
             _runSequence = Math.Max(_runSequence, read.Sequence);
@@ -518,8 +540,8 @@ public sealed partial class Dataset
 
         if (loaded is null)
         {
-            loaded = newest is not null && newest.Run.Blob!.TryAcquire()
-                ? IndexVersion.FromBase(newest.Position, newest.Run)
+            loaded = newest is not null && newest.TryAcquire()
+                ? new IndexVersion(newest.Position, newest.Runs, newest.Runs.Length)
                 : IndexVersion.Empty;
 
             await _storage.Derived.DeleteAsync(StateName, cancellationToken).ConfigureAwait(false);
@@ -605,6 +627,7 @@ public sealed partial class Dataset
                     && run.Header.From == loaded.Position
                     && run.Header.To > run.Header.From
                     && run.Header.To <= state.Head
+                    && state.Commits.Knows(run.Header.To) && state.Commits.Knows(run.Header.From)
                     && state.Commits.Entry(run.Header.To).HashEquals(run.Header.ToHash)
                     && run.Run.Terms.From == state.CanonicalAt(run.Header.From)
                     && run.Run.Terms.To == state.CanonicalAt(run.Header.To))
@@ -650,11 +673,21 @@ public sealed partial class Dataset
 
             if (Checkpoint.TryParseName(entry.Name, out long at))
             {
-                Checkpoint? checkpoint = Array.Find(checkpoints, c => c.Position == at);
+                Checkpoint? checkpoint = Array.Find(checkpoints, c => c.Position == at && c.Loaded is not null);
 
-                if (checkpoint is not null && entry.From == 0 && entry.To == at && checkpoint.Run.Blob!.TryAcquire())
+                if (checkpoint is not null && entry.From == 0 && entry.To == at && checkpoint.TryAcquire())
                 {
-                    run = checkpoint.Run;
+                    run = checkpoint.Loaded!.Run;
+                }
+            }
+            else if (entry.Name.Value.StartsWith(ExtentSet.Prefix, StringComparison.Ordinal))
+            {
+                // A set of the catalog's chain, by name and window.
+                Checkpoint? checkpoint = Array.Find(checkpoints, c => c.Set is { } set && set.Name == entry.Name.Value && set.From == entry.From && set.To == entry.To);
+
+                if (checkpoint is not null && checkpoint.Set!.Run.Blob!.TryAcquire())
+                {
+                    run = checkpoint.Set.Run;
                 }
             }
             else if (entry.Name.Value.StartsWith(RunPrefix, StringComparison.Ordinal))
@@ -664,6 +697,7 @@ public sealed partial class Dataset
                 if (loaded is not null
                     && loaded.Header.From == entry.From
                     && loaded.Header.To == entry.To
+                    && state.Commits.Knows(entry.To) && state.Commits.Knows(entry.From)
                     && state.Commits.Entry(entry.To).HashEquals(loaded.Header.ToHash)
                     && loaded.Run.Terms.From == state.CanonicalAt(entry.From)
                     && loaded.Run.Terms.To == state.CanonicalAt(entry.To))

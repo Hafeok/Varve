@@ -1366,3 +1366,110 @@ remapping and building the delta 49 ms, encoding and hashing the body 23 ms,
 the default projection's run in six orders and the graph versions 80 ms, the
 rest 26 ms. Parsing is a third of the whole. Group commit changes none of
 it: a lone request is a batch of one.
+
+
+## Milestone Object storage — the backend, extents, the format-3 migration
+
+Run on the session's container, 2026-10-15, against Azurite 3.37.0 and RustFS
+1.0.1 on loopback, so the object-store figures measure the protocol and the
+request counts, not a cloud's latency. The commands:
+
+```sh
+Varve.Benchmarks --objects <file|azurite|rustfs> <S|M|L>   # VARVE_AZURITE / VARVE_RUSTFS name the services
+Varve.Benchmarks --extent-reads <S|M>                    # reads after 10, 50 and 100 checkpoints
+Varve.Benchmarks --format3-open <dir>                    # a dataset written by preview.6
+```
+
+The workload is the RealEstateCore portfolio of ADR 0141 at size S or M; a
+commit is one generated change. Requests are counted at the adapter.
+
+### REC S (`--objects`)
+
+| | files | Azurite | RustFS |
+|---|---:|---:|---:|
+| load | 482 commits/s | 186 commits/s | 146 commits/s |
+| commit p50 / p99 | 0.24 / 34 ms | 2.48 / 35.5 ms | 4.73 / 38.9 ms |
+| requests a commit | — | 1.00 | 1.00 |
+| checkpoint at the head | 1.5 s | 1.6 s: 9 requests (8 creates, 1 replace), 15 MiB | 1.6 s, the same |
+| cold start | — | 2.3 s | 1.3 s |
+| 8 writers | 8,321 commits/s | 2,144 commits/s, 0.16 creates a commit | 1,316 commits/s, 0.14 creates a commit |
+
+### REC M (`--objects`; 25,000 commits, 5,049,846 quads at the head)
+
+Run 2026-10-16, after cold start began at the catalog's cursor and a seal
+began consolidating its segment (ADRs 0139, 0135); Azurite started empty for
+the run, since one instance slows as the blobs of earlier runs accumulate in
+it. The checkpoint is 1,000 commits behind the head, so the cold start has
+that tail to read, as after a checkpoint policy's last checkpoint.
+
+| | files | Azurite | RustFS |
+|---|---:|---:|---:|
+| load | 70.1 s, 357 commits/s | 147.5 s, 170 commits/s | 220.9 s, 113 commits/s |
+| commit p50 / p99 / max | 0.37 / 19.8 / 372 ms | 3.16 / 38.7 / 1,088 ms | 6.38 / 31.4 / 971 ms |
+| requests during the load | — | 30,275: 25,011 creates, 5,264 deletes | the same |
+| the log after the load | — | 2 segments consolidated; the open one holds 19,745 chunks | the same |
+| checkpoint 1,000 commits behind the head | 41.2 s | 45.6 s: 9 requests, 414.5 MiB | 43.0 s, the same requests |
+| cold start: the backend's open | 0.0 s | 2.2 s | 6.5 s |
+| cold start: open and a first read | 0.5 s | **4.3 s** | **7.0 s** |
+| cold start requests | — | 1,054: 6 lists, 1,044 reads (1,001 chunks, 41 `derived/`), 4 writes | the same |
+| cold start time by operation, summed | — | lists 2.1 s; reads 19.9 s, 16 in flight | lists 6.4 s; reads 2.7 s, 16 in flight |
+| first as-of read below the catalog | 3.0 s | 27.7 s: 18,977 chunk reads | 10.1 s, the same reads |
+| 8 writers, 2,000 commits of 10 quads | 6,677 commits/s | 1,747 commits/s, 0.15 creates a commit | 1,105 commits/s, 0.14 creates a commit |
+
+Before the change, the same cold start read 19,790 chunks and took 29.1 s on
+Azurite and 23.2 s on RustFS. A commit's longest wait is now a seal's one
+upload of its segment; with the chunk deletes inline as well, one commit on a
+crowded Azurite waited 531 s, so the deletes moved to maintenance.
+
+### Reads after checkpoints (`--extent-reads M`)
+
+REC M on files, the load and 100 checkpoints in 70.8 s:
+
+| Checkpoints | Head: lookup p50 | Head: a subject's quads p50 | Head: exact count p50 | As-of inside a set | As-of at a set's end |
+|---:|---:|---:|---:|---:|---:|
+| 10 | 42.0 µs | 5.7 µs | 28.3 µs | 29.8 ms | 0.0 ms |
+| 50 | 71.3 µs | 18.3 µs | 143.6 µs | 6.8 ms | 0.1 ms |
+| 100 | 98.7 µs | 78.1 µs | 354.0 µs | 6.5 ms | 0.1 ms |
+
+Head reads grow with the number of sets, since each read merges across them: a
+subject's quads 14× and an exact count 12.5× from 10 to 100. As-of inside a
+set falls as sets narrow, since it rewrites less of the log. The operator
+guide's budget (`docs/operator/backup-and-restore.md`): keep at most 20
+checkpoints until Extent maintenance lands, which keeps head reads within
+about twice the 10-checkpoint figures.
+
+### A format-3 dataset at M (`--format3-open`)
+
+REC M written by preview.6, with ten full checkpoints:
+
+| | |
+|---|---:|
+| head | 25,000 commits, 5,049,846 quads, full checkpoints every 2,500 |
+| open as it is, and a first read | 0.5 s |
+| the first checkpoint under this release (one extent set over the whole history) | 31.3 s |
+| for reference, a rebuild from the log with `derived/` removed | 24.8 s |
+
+The migration costs one checkpoint, about what a rebuild costs; nothing is
+rewritten at open.
+
+### Where a cold start's time goes
+
+A cold start reads the catalog, attaches the extents and reads the log after
+the catalog's cursor: the open segment's chunks from the slot the catalog
+records. **It misses "a few seconds" on RustFS, at 7.0 s, and makes 4.3 s on
+Azurite.** The time is:
+
+- **Listing `log/`: 6.4 s on RustFS, 2.1 s on Azurite.** The listing names
+  every chunk of the open segment, 19,745 at REC M: one chunk per commit
+  batch, and REC M's later commits are small, so one 64 MiB segment holds
+  most of the history. The listing is all of the backend's open.
+- **Reading the tail: 1,001 chunks**, the 1,000 commits after the checkpoint
+  and the one the cursor's slot names; about 1.2 s of wall time on Azurite
+  and 0.2 s on RustFS, sixteen in flight.
+- **The extents and the catalog: 41 reads**, about 0.1 s.
+
+So what remains grows with the open segment's chunk count, not with history.
+Not changed here, as the maintainer asked; the options are a listing that
+starts after the cursor's slot (a start-after on the object-store contract,
+ADR 0134), sealing a segment on a chunk count as well as on its bytes, or
+finding the newest chunk by reads rather than by a listing.

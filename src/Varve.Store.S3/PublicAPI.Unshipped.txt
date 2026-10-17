@@ -1,0 +1,50 @@
+#nullable enable
+Varve.Store.S3.Model.S3Bucket
+Varve.Store.S3.Model.S3Bucket.Equals(Varve.Store.S3.Model.S3Bucket other) -> bool
+Varve.Store.S3.Model.S3Bucket.S3Bucket() -> void
+Varve.Store.S3.Model.S3Bucket.S3Bucket(string! value) -> void
+Varve.Store.S3.Model.S3Bucket.Value.get -> string!
+Varve.Store.S3.Model.S3DevelopmentKey
+Varve.Store.S3.Model.S3DevelopmentKey.S3DevelopmentKey(string! accessKeyId, string! secretAccessKey) -> void
+Varve.Store.S3.Model.S3ObjectStoreOptions
+Varve.Store.S3.Model.S3ObjectStoreOptions.Bucket.get -> Varve.Store.S3.Model.S3Bucket
+Varve.Store.S3.Model.S3ObjectStoreOptions.Bucket.init -> void
+Varve.Store.S3.Model.S3ObjectStoreOptions.Clock.get -> System.TimeProvider!
+Varve.Store.S3.Model.S3ObjectStoreOptions.Clock.init -> void
+Varve.Store.S3.Model.S3ObjectStoreOptions.DevelopmentKey.get -> Varve.Store.S3.Model.S3DevelopmentKey?
+Varve.Store.S3.Model.S3ObjectStoreOptions.DevelopmentKey.init -> void
+Varve.Store.S3.Model.S3ObjectStoreOptions.Endpoint.get -> System.Uri!
+Varve.Store.S3.Model.S3ObjectStoreOptions.Endpoint.init -> void
+Varve.Store.S3.Model.S3ObjectStoreOptions.Handler.get -> System.Net.Http.HttpMessageHandler?
+Varve.Store.S3.Model.S3ObjectStoreOptions.Handler.init -> void
+Varve.Store.S3.Model.S3ObjectStoreOptions.Region.get -> Varve.Store.S3.Model.S3Region
+Varve.Store.S3.Model.S3ObjectStoreOptions.Region.init -> void
+Varve.Store.S3.Model.S3ObjectStoreOptions.S3ObjectStoreOptions() -> void
+Varve.Store.S3.Model.S3ObjectStoreOptions.StsEndpoint.get -> System.Uri?
+Varve.Store.S3.Model.S3ObjectStoreOptions.StsEndpoint.init -> void
+Varve.Store.S3.Model.S3Region
+Varve.Store.S3.Model.S3Region.Equals(Varve.Store.S3.Model.S3Region other) -> bool
+Varve.Store.S3.Model.S3Region.S3Region() -> void
+Varve.Store.S3.Model.S3Region.S3Region(string! value) -> void
+Varve.Store.S3.Model.S3Region.Value.get -> string!
+Varve.Store.S3.S3ObjectStore
+Varve.Store.S3.S3ObjectStore.CreateIfAbsentAsync(Varve.Store.Log.ObjectName name, System.ReadOnlyMemory<byte> content, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.ObjectVersion?>
+Varve.Store.S3.S3ObjectStore.DeleteAsync(Varve.Store.Log.ObjectName name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
+Varve.Store.S3.S3ObjectStore.Dispose() -> void
+Varve.Store.S3.S3ObjectStore.ListAsync(Varve.Store.Log.ObjectName prefix, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Varve.Store.Log.ObjectEntry>!>
+Varve.Store.S3.S3ObjectStore.ReadAsync(Varve.Store.Log.ObjectName name, Varve.Store.Log.ByteOffset offset, Varve.Store.Log.ByteCount length, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.ObjectRead?>
+Varve.Store.S3.S3ObjectStore.ReplaceIfUnchangedAsync(Varve.Store.Log.ObjectName name, Varve.Store.Log.ObjectVersion expected, System.ReadOnlyMemory<byte> content, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.ObjectVersion?>
+override Varve.Store.S3.Model.S3Bucket.GetHashCode() -> int
+override Varve.Store.S3.Model.S3Bucket.ToString() -> string!
+override Varve.Store.S3.Model.S3DevelopmentKey.ToString() -> string!
+override Varve.Store.S3.Model.S3Region.GetHashCode() -> int
+override Varve.Store.S3.Model.S3Region.ToString() -> string!
+static Varve.Store.S3.Model.S3Bucket.operator !=(Varve.Store.S3.Model.S3Bucket left, Varve.Store.S3.Model.S3Bucket right) -> bool
+static Varve.Store.S3.Model.S3Bucket.operator ==(Varve.Store.S3.Model.S3Bucket left, Varve.Store.S3.Model.S3Bucket right) -> bool
+static Varve.Store.S3.Model.S3Region.Default.get -> Varve.Store.S3.Model.S3Region
+static Varve.Store.S3.Model.S3Region.operator !=(Varve.Store.S3.Model.S3Region left, Varve.Store.S3.Model.S3Region right) -> bool
+static Varve.Store.S3.Model.S3Region.operator ==(Varve.Store.S3.Model.S3Region left, Varve.Store.S3.Model.S3Region right) -> bool
+static Varve.Store.S3.S3ObjectStore.Create(Varve.Store.S3.Model.S3ObjectStoreOptions! options) -> Varve.Store.S3.S3ObjectStore!
+~override Varve.Store.S3.Model.S3Bucket.Equals(object obj) -> bool
+~override Varve.Store.S3.Model.S3Region.Equals(object obj) -> bool
+override Varve.Store.S3.S3ObjectStore.ToString() -> string!

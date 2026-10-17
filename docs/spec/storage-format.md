@@ -4,8 +4,11 @@ Format specification, **version 1**.
 
 Status: written by milestone 6a with [ADR 0072](../adr/0072-format-version-1.md),
 which is the reasoning; this document is the layout. `log/` is version 1.
-`derived/` is **derived format version 3** since milestone 7b (ADR 0109): a
-run carries a filter over its terms' hashes after its hash index. Version 2
+`derived/` is **derived format version 4** since milestone Object storage
+(ADR 0139): a checkpoint is a chain of extent sets named by a catalog (§7.5,
+§7.6); every older kind keeps version 3's layout. Version 3 (milestone 7b,
+ADR 0109: a run carries a filter over its terms' hashes after its hash index)
+is read as before, its full checkpoints with it. Version 2
 (milestone 6c, ADRs 0079 and 0080: runs carry the dictionary's entries, and
 keys are compressed in their blocks) is read as before, with no filter; a
 derived file of version 1 is a cache miss. **Version 1 of `log/` is
@@ -308,8 +311,8 @@ rename (ADR 0071, ADR 0073), so a reader never sees one half written.
 | Offset | Size | Field |
 |---:|---:|---|
 | 0 | 4 | magic `VRVD` |
-| 4 | 2 | derived format version, `3`; `2` is read (§7.2) |
-| 6 | 2 | kind: `1` run, `2` checkpoint, `3` projection state, `4` commit index |
+| 4 | 2 | derived format version, `4`; `2` and `3` are read (§7.2, §7.5) |
+| 6 | 2 | kind: `1` run, `2` checkpoint, `3` projection state, `4` commit index, `5` graph-version index, `6` extent, `7` extent dictionary, `8` catalog |
 | 8 | 16 | dataset id |
 | 24 | 8 | from position: a run or a commit index blob covers the commits after it; 0 for the others |
 | 32 | 8 | to position |
@@ -321,7 +324,7 @@ rename (ADR 0071, ADR 0073), so a reader never sees one half written.
 | 128 | 32 | self-hash of bytes 0–127 |
 
 A derived file is used only if its header and directory verify, its version is
-2 or 3, its kind is the one expected, its dataset id is the log's, and its *to
+2 to 4, its kind is the one expected, its dataset id is the log's, and its *to
 position*'s header hash is the log's. Otherwise it is a cache miss.
 
 ### 7.2 Runs and checkpoints
@@ -469,3 +472,84 @@ the blobs that continue the chain from position 0 are compared entry by entry
 with the log, and the index is rebuilt from the log from the first that
 differs. The newest entries are not in a blob but in memory; the blobs are
 merged, so there are few. The *n* is a sequence number.
+
+### 7.5 Extents — `derived/extents/<from>-<to>.<n>/`
+
+Version 4 (ADR 0138, ADR 0139). A checkpoint is the chain of **extent sets**
+the catalog (§7.6) names; a set for the window *(from, to]* is eight files
+under one directory name, positions in twenty digits and *n* the catalog's
+sequence, never reused:
+
+| File | Kind | |
+|---|---|---|
+| `order0` … `order5` | 6 | the extent of order *k* |
+| `terms` | 7 | the window's dictionary: a run (§7.2) whose twelve key sections are empty, and whose term section holds the canonical ids allocated in the window |
+| `graphs` | 5 | the graph-version index at *to* (§7.3a) |
+
+An **extent** of order *k* is laid out as a run (§7.2): the twelve key
+sections — only order *k*'s two are not empty — the term section, empty, and
+the filter; then three sections of its own; then the directory, which is a
+run's followed by sixteen `u64` words:
+
+| Word | Field |
+|---:|---|
+| 0 | the order, *k* |
+| 1–4 | the smallest key of any row, `K0`–`K3` |
+| 5–8 | the largest key of any row |
+| 9, 10 | the open positions' offset and length; the offset is where the filter ends |
+| 11, 12 | the closing positions' offset and length |
+| 13, 14 | the rows within: offset and length; they end where the directory begins |
+| 15 | the count of rows within |
+
+A quad's **intervals** in the window are its assertions paired with the
+retractions after them. An interval is **open** if the quad was not asserted at
+*from* and is asserted at *to*, its retraction outside the window; it is
+**closing** if the quad was asserted at *from* and is not at *to*, its
+assertion outside. Every other interval — inside the window, or of a quad
+asserted at both *from* and *to* — is a **row within**. A quad asserted
+throughout has none.
+
+- The open intervals' keys are the order's **asserted** section, the closing
+  intervals' its **retracted** section: the set is the window's exact delta.
+- **Positions**: ULEB128 of a position minus *from*, one per key of the
+  asserted section (its assertion), then one per key of the retracted section
+  (its retraction), in key order.
+- **A row within**: the key's 32 bytes, then ULEB128 of the assertion's
+  position minus *from* and of the retraction's, each `0` for the window's
+  boundary. Rows are sorted by key, then assertion, then retraction.
+
+The `terms` file's *from* and *to* and its counters are the window's; each
+extent's *to hash* is the log's at *to*.
+
+### 7.6 Catalog — `derived/catalog`
+
+Kind 8, version 4. *To position* is the position the chain reaches, and *to
+hash* the log's header hash there (the genesis hash for an empty chain). Its
+contents are its directory, at offset 0:
+
+| Size | Field |
+|---|---|
+| 8 | the next set sequence number |
+| 4 | set count |
+| per set | `u16` name length, UTF-8 set name ending in `/`, `u64` from position, `u64` to position |
+| the cursor | present when the chain is not empty |
+| 4 | the segment where the log continues after *to position* |
+| 8 | the offset in it where the next commit's first record starts |
+| 8 | the backend's slot for the byte before that offset; 0 on a directory |
+| 4 | pin count |
+| per pin | `u64` position, its 80-byte commit index entry (§7.4), `u32` segment and `u64` offset where the log continues after it |
+| 4 | settings count |
+| per settings commit at or below *to position* | `u64` position, `u8` default access scope from it on |
+
+Sets are listed oldest first; their windows are contiguous from 0 to *to
+position*. There is a pin for every set's end, the last at *to position*
+with *to hash*. An open whose backend keeps its log in parts starts its scan
+at the cursor, and reads the commit index below it from the log only when a
+read first needs it; a cursor the log does not bear out is ignored (ADR 0139). The file is replaced whole, after every set it names is written.
+On open each set is checked as §7.1 says and against the log's counters at its
+ends; the chain ends at the first that fails. A backend with one process
+deletes on open the sets no catalog names (ADR 0139).
+
+On an object store, the object `derived/catalog` holds the file behind a
+12-byte wrapper — magic `VRVK`, then the writer's epoch as an `i64` — and an
+object whose file part is empty stands for no catalog (ADR 0136, ADR 0139).
