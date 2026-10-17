@@ -1,0 +1,174 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+using System.Text;
+using Varve.Rdf;
+
+namespace Varve.Shacl;
+
+/// <summary>The SHACL vocabulary (<c>http://www.w3.org/ns/shacl#</c>) and the RDF and RDFS terms SHACL reads.</summary>
+internal static class Vocabulary
+{
+    internal const string ShaclNamespace = "http://www.w3.org/ns/shacl#";
+
+    internal static readonly RdfTerm NodeShapeClass = Sh("NodeShape");
+    internal static readonly RdfTerm PropertyShapeClass = Sh("PropertyShape");
+    internal static readonly RdfTerm ShapeType = Sh("Shape");
+    internal static readonly RdfTerm ShapeClassType = Sh("ShapeClass");
+    internal static readonly RdfTerm ValidationReportClass = Sh("ValidationReport");
+    internal static readonly RdfTerm ValidationResultClass = Sh("ValidationResult");
+    internal static readonly RdfTerm Conforms = Sh("conforms");
+    internal static readonly RdfTerm Result = Sh("result");
+    internal static readonly RdfTerm FocusNode = Sh("focusNode");
+    internal static readonly RdfTerm ResultPath = Sh("resultPath");
+    internal static readonly RdfTerm Value = Sh("value");
+    internal static readonly RdfTerm SourceShape = Sh("sourceShape");
+    internal static readonly RdfTerm SourceConstraint = Sh("sourceConstraint");
+    internal static readonly RdfTerm SourceConstraintComponent = Sh("sourceConstraintComponent");
+    internal static readonly RdfTerm ResultSeverity = Sh("resultSeverity");
+    internal static readonly RdfTerm ResultMessage = Sh("resultMessage");
+    internal static readonly RdfTerm ConformanceDisallows = Sh("conformanceDisallows");
+    internal static readonly RdfTerm Detail = Sh("detail");
+    internal static readonly RdfTerm Violation = Sh("Violation");
+    internal static readonly RdfTerm Warning = Sh("Warning");
+    internal static readonly RdfTerm Info = Sh("Info");
+    internal static readonly RdfTerm Trace = Sh("Trace");
+    internal static readonly RdfTerm Debug = Sh("Debug");
+    internal static readonly RdfTerm TargetNode = Sh("targetNode");
+    internal static readonly RdfTerm TargetClass = Sh("targetClass");
+    internal static readonly RdfTerm TargetSubjectsOf = Sh("targetSubjectsOf");
+    internal static readonly RdfTerm TargetObjectsOf = Sh("targetObjectsOf");
+    internal static readonly RdfTerm TargetWhere = Sh("targetWhere");
+    internal static readonly RdfTerm Shape = Sh("shape");
+    internal static readonly RdfTerm Severity = Sh("severity");
+    internal static readonly RdfTerm Message = Sh("message");
+    internal static readonly RdfTerm Deactivated = Sh("deactivated");
+    internal static readonly RdfTerm Path = Sh("path");
+    internal static readonly RdfTerm Values = Sh("values");
+    internal static readonly RdfTerm DefaultValue = Sh("defaultValue");
+    internal static readonly RdfTerm InversePath = Sh("inversePath");
+    internal static readonly RdfTerm AlternativePath = Sh("alternativePath");
+    internal static readonly RdfTerm ZeroOrMorePath = Sh("zeroOrMorePath");
+    internal static readonly RdfTerm OneOrMorePath = Sh("oneOrMorePath");
+    internal static readonly RdfTerm ZeroOrOnePath = Sh("zeroOrOnePath");
+    internal static readonly RdfTerm Class = Sh("class");
+    internal static readonly RdfTerm Datatype = Sh("datatype");
+    internal static readonly RdfTerm NodeKind = Sh("nodeKind");
+    internal static readonly RdfTerm MinCount = Sh("minCount");
+    internal static readonly RdfTerm MaxCount = Sh("maxCount");
+    internal static readonly RdfTerm MinExclusive = Sh("minExclusive");
+    internal static readonly RdfTerm MinInclusive = Sh("minInclusive");
+    internal static readonly RdfTerm MaxExclusive = Sh("maxExclusive");
+    internal static readonly RdfTerm MaxInclusive = Sh("maxInclusive");
+    internal static readonly RdfTerm MinLength = Sh("minLength");
+    internal static readonly RdfTerm MaxLength = Sh("maxLength");
+    internal static readonly RdfTerm Pattern = Sh("pattern");
+    internal static readonly RdfTerm Flags = Sh("flags");
+    internal static readonly RdfTerm SingleLine = Sh("singleLine");
+    internal static readonly RdfTerm LanguageIn = Sh("languageIn");
+    internal static readonly RdfTerm UniqueLang = Sh("uniqueLang");
+    internal static readonly RdfTerm MemberShape = Sh("memberShape");
+    internal static readonly RdfTerm MinListLength = Sh("minListLength");
+    internal static readonly RdfTerm MaxListLength = Sh("maxListLength");
+    internal static readonly RdfTerm UniqueMembers = Sh("uniqueMembers");
+    internal static readonly RdfTerm EqualsParameter = Sh("equals");
+    internal static readonly RdfTerm Disjoint = Sh("disjoint");
+    internal static readonly RdfTerm SubsetOf = Sh("subsetOf");
+    internal static readonly RdfTerm LessThan = Sh("lessThan");
+    internal static readonly RdfTerm LessThanOrEquals = Sh("lessThanOrEquals");
+    internal static readonly RdfTerm Not = Sh("not");
+    internal static readonly RdfTerm And = Sh("and");
+    internal static readonly RdfTerm Or = Sh("or");
+    internal static readonly RdfTerm Xone = Sh("xone");
+    internal static readonly RdfTerm Node = Sh("node");
+    internal static readonly RdfTerm Property = Sh("property");
+    internal static readonly RdfTerm SomeValue = Sh("someValue");
+    internal static readonly RdfTerm QualifiedValueShape = Sh("qualifiedValueShape");
+    internal static readonly RdfTerm QualifiedMinCount = Sh("qualifiedMinCount");
+    internal static readonly RdfTerm QualifiedMaxCount = Sh("qualifiedMaxCount");
+    internal static readonly RdfTerm QualifiedValueShapesDisjoint = Sh("qualifiedValueShapesDisjoint");
+    internal static readonly RdfTerm ReifierShape = Sh("reifierShape");
+    internal static readonly RdfTerm ReificationRequired = Sh("reificationRequired");
+    internal static readonly RdfTerm Closed = Sh("closed");
+    internal static readonly RdfTerm IgnoredProperties = Sh("ignoredProperties");
+    internal static readonly RdfTerm ByTypes = Sh("ByTypes");
+    internal static readonly RdfTerm HasValue = Sh("hasValue");
+    internal static readonly RdfTerm In = Sh("in");
+    internal static readonly RdfTerm RootClass = Sh("rootClass");
+    internal static readonly RdfTerm UniqueValuesFor = Sh("uniqueValuesFor");
+    internal static readonly RdfTerm IRI = Sh("IRI");
+    internal static readonly RdfTerm BlankNode = Sh("BlankNode");
+    internal static readonly RdfTerm Literal = Sh("Literal");
+    internal static readonly RdfTerm BlankNodeOrIRI = Sh("BlankNodeOrIRI");
+    internal static readonly RdfTerm BlankNodeOrLiteral = Sh("BlankNodeOrLiteral");
+    internal static readonly RdfTerm IRIOrLiteral = Sh("IRIOrLiteral");
+    internal static readonly RdfTerm TripleTerm = Sh("TripleTerm");
+    internal static readonly RdfTerm Entailment = Sh("entailment");
+    internal static readonly RdfTerm Sparql = Sh("sparql");
+    internal static readonly RdfTerm Prefixes = Sh("prefixes");
+    internal static readonly RdfTerm Declare = Sh("declare");
+    internal static readonly RdfTerm Prefix = Sh("prefix");
+    internal static readonly RdfTerm Namespace = Sh("namespace");
+    internal static readonly RdfTerm ClassConstraintComponent = Sh("ClassConstraintComponent");
+    internal static readonly RdfTerm DatatypeConstraintComponent = Sh("DatatypeConstraintComponent");
+    internal static readonly RdfTerm NodeKindConstraintComponent = Sh("NodeKindConstraintComponent");
+    internal static readonly RdfTerm MinCountConstraintComponent = Sh("MinCountConstraintComponent");
+    internal static readonly RdfTerm MaxCountConstraintComponent = Sh("MaxCountConstraintComponent");
+    internal static readonly RdfTerm MinExclusiveConstraintComponent = Sh("MinExclusiveConstraintComponent");
+    internal static readonly RdfTerm MinInclusiveConstraintComponent = Sh("MinInclusiveConstraintComponent");
+    internal static readonly RdfTerm MaxExclusiveConstraintComponent = Sh("MaxExclusiveConstraintComponent");
+    internal static readonly RdfTerm MaxInclusiveConstraintComponent = Sh("MaxInclusiveConstraintComponent");
+    internal static readonly RdfTerm MinLengthConstraintComponent = Sh("MinLengthConstraintComponent");
+    internal static readonly RdfTerm MaxLengthConstraintComponent = Sh("MaxLengthConstraintComponent");
+    internal static readonly RdfTerm PatternConstraintComponent = Sh("PatternConstraintComponent");
+    internal static readonly RdfTerm SingleLineConstraintComponent = Sh("SingleLineConstraintComponent");
+    internal static readonly RdfTerm LanguageInConstraintComponent = Sh("LanguageInConstraintComponent");
+    internal static readonly RdfTerm UniqueLangConstraintComponent = Sh("UniqueLangConstraintComponent");
+    internal static readonly RdfTerm MemberShapeConstraintComponent = Sh("MemberShapeConstraintComponent");
+    internal static readonly RdfTerm MinListLengthConstraintComponent = Sh("MinListLengthConstraintComponent");
+    internal static readonly RdfTerm MaxListLengthConstraintComponent = Sh("MaxListLengthConstraintComponent");
+    internal static readonly RdfTerm UniqueMembersConstraintComponent = Sh("UniqueMembersConstraintComponent");
+    internal static readonly RdfTerm EqualsConstraintComponent = Sh("EqualsConstraintComponent");
+    internal static readonly RdfTerm DisjointConstraintComponent = Sh("DisjointConstraintComponent");
+    internal static readonly RdfTerm SubsetOfConstraintComponent = Sh("SubsetOfConstraintComponent");
+    internal static readonly RdfTerm LessThanConstraintComponent = Sh("LessThanConstraintComponent");
+    internal static readonly RdfTerm LessThanOrEqualsConstraintComponent = Sh("LessThanOrEqualsConstraintComponent");
+    internal static readonly RdfTerm NotConstraintComponent = Sh("NotConstraintComponent");
+    internal static readonly RdfTerm AndConstraintComponent = Sh("AndConstraintComponent");
+    internal static readonly RdfTerm OrConstraintComponent = Sh("OrConstraintComponent");
+    internal static readonly RdfTerm XoneConstraintComponent = Sh("XoneConstraintComponent");
+    internal static readonly RdfTerm NodeConstraintComponent = Sh("NodeConstraintComponent");
+    internal static readonly RdfTerm PropertyConstraintComponent = Sh("PropertyConstraintComponent");
+    internal static readonly RdfTerm SomeValueConstraintComponent = Sh("SomeValueConstraintComponent");
+    internal static readonly RdfTerm QualifiedMinCountConstraintComponent = Sh("QualifiedMinCountConstraintComponent");
+    internal static readonly RdfTerm QualifiedMaxCountConstraintComponent = Sh("QualifiedMaxCountConstraintComponent");
+    internal static readonly RdfTerm ReifierShapeConstraintComponent = Sh("ReifierShapeConstraintComponent");
+    internal static readonly RdfTerm ClosedConstraintComponent = Sh("ClosedConstraintComponent");
+    internal static readonly RdfTerm HasValueConstraintComponent = Sh("HasValueConstraintComponent");
+    internal static readonly RdfTerm InConstraintComponent = Sh("InConstraintComponent");
+    internal static readonly RdfTerm RootClassConstraintComponent = Sh("RootClassConstraintComponent");
+    internal static readonly RdfTerm UniqueValuesForConstraintComponent = Sh("UniqueValuesForConstraintComponent");
+
+    internal static readonly RdfTerm RdfType = Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
+    internal static readonly RdfTerm RdfFirst = Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#first");
+    internal static readonly RdfTerm RdfRest = Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#rest");
+    internal static readonly RdfTerm RdfNil = Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#nil");
+    internal static readonly RdfTerm RdfReifies = Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#reifies");
+    internal static readonly RdfTerm RdfsClass = Iri("http://www.w3.org/2000/01/rdf-schema#Class");
+    internal static readonly RdfTerm RdfsSubClassOf = Iri("http://www.w3.org/2000/01/rdf-schema#subClassOf");
+    internal static readonly RdfTerm OwlImports = Iri("http://www.w3.org/2002/07/owl#imports");
+    internal static readonly RdfTerm SimpleEntailment = Iri("http://www.w3.org/ns/entailment/Simple");
+    internal static readonly RdfTerm XsdBoolean = Iri("http://www.w3.org/2001/XMLSchema#boolean");
+    internal static readonly RdfTerm XsdInteger = Iri("http://www.w3.org/2001/XMLSchema#integer");
+    internal static readonly RdfTerm XsdString = Iri("http://www.w3.org/2001/XMLSchema#string");
+    internal static readonly RdfTerm True = RdfTerm.Literal("true"u8, XsdBoolean);
+    internal static readonly RdfTerm False = RdfTerm.Literal("false"u8, XsdBoolean);
+
+    /// <summary>Varve's own term for an import a shapes graph declares and the validator did not follow (ADR 0151).</summary>
+    internal static readonly RdfTerm ImportNotFollowed = Iri("https://w3id.org/varve/ns#importNotFollowed");
+
+    private static RdfTerm Sh(string localName) => Iri(ShaclNamespace + localName);
+
+    private static RdfTerm Iri(string iri) => RdfTerm.Iri(Encoding.UTF8.GetBytes(iri));
+}

@@ -29,13 +29,17 @@ what it needs without changing what this part made public.
      or constraint.
    - **`ShaclValidator.Validate(ShapesGraph, IQuadSource, GraphPattern,
      ShaclOptions?, CancellationToken)`** returns a `ValidationOutcome`: a
-     `ValidationReport` (ADR 0154) or the problems of a failure. A one-call
-     overload loads and validates.
+     `ValidationReport` (ADR 0154) or the problems of a failure.
    - **`ShaclOptions`** — `Extensions` (ADR 0148), `RegexTimeout`,
      `SubClassOfInShapesGraph`, `ConformanceDisallows`, `Canonicalisation`.
    - **`ShaclProblem`** and **`ShaclProblemKind`**.
    - **The extension contract** (ADR 0148): `IShaclExtension`,
      `IShaclConstraint`, and the sealed context and sink types they are given.
+   The values a validation answers — `ValidationReport`, `ShaclResult`,
+   `ValidationSummary`, `ShaclProblem` — are the package's model namespace,
+   `Varve.Shacl.Model` (ADR 0069's pattern); the rest is not
+   (`ShaclModelNamespace`). Its counts are `int` and a problem's message a
+   `string`: a count and text for a person (`ShaclModelPrimitives`).
 2. **The shapes model is internal**, designed knowing it will become public:
    - Its types are immutable and hold `RdfTerm`s, never handles of any source,
      so a shapes graph is independent of every data source it validates.

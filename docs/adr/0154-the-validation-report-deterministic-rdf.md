@@ -39,7 +39,9 @@ node from one position to the next.
      — keeps the label its data source gives it through `TryExternalise`. The
      report never renames it.
    - **A node of the report** — the report node, each result node, the blank
-     nodes of a `sh:resultPath` structure and of `sh:detail` — is labelled by
+     nodes of a `sh:resultPath` structure (one copy per result, §6.8.2.2) and
+     a shape's or constraint's blank node from a shapes graph that is not
+     the data — is labelled by
      **RDFC-1.0** (ADR 0059) over the report graph with every data blank node
      held fixed: each is replaced, for the canonicalisation only, by an IRI
      no data or report can contain, the report is canonicalised, and the
@@ -47,26 +49,31 @@ node from one position to the next.
      disjoint from every data label the report contains, chosen
      deterministically from those labels, so the two kinds never collide.
    - The work limit is RDFC-1.0's, from `ShaclOptions.Canonicalisation`.
-     Results are a set (point 3), so the report's own nodes are told apart by
-     the fixed terms they carry; a report that exceeds the limit is a
+     A report that exceeds the limit is a
      `CanonicalisationLimitException` from `ToCanonicalNQuads()`, and
      `Conforms`, `Summary` and `Results` are unaffected.
-3. **The results are a set, in a stated order.** Two results with the same
-   focus node, path, value, source shape, source constraint, source constraint
-   component, severity and messages are one. `Results` is ordered by those
-   fields in that order, each compared by its canonical N-Triples form
-   (RDF 1.2, ADR 0061) as UTF-8 bytes, a path by its canonical SPARQL form,
-   and an absent field first. The order depends only on the shapes graph, the
-   data and the data source's labels.
+3. **The results are in a stated order, and equal results are kept.** SHACL
+   1.2 Core §7 says a validator "always produce[s] new result nodes", and the
+   suite holds it to that: two results with the same fields — a pair
+   component over two equal comparisons, a nested property shape reached from
+   two parents — are two result nodes. `Results` is ordered by focus node,
+   path, value, source shape, source constraint, source constraint component,
+   severity and messages, each compared by its canonical N-Triples form
+   (RDF 1.2, ADR 0061) in code point order, a path by its SPARQL form, and an
+   absent field first; equal results are adjacent and interchangeable. The
+   order depends only on the shapes graph, the data and the data source's
+   labels. Equal results do not make RDFC-1.0 expensive: each needs one Hash
+   N-Degree Quads call, related only to the report node, whose first-degree
+   hash is unique, and the work limit scales with the blank nodes that need
+   such calls (ADR 0059).
 4. **What the report graph holds**: `sh:ValidationReport`, `sh:conforms`, and
    per result `sh:focusNode`, `sh:resultPath` (a path written back as SHACL
    path syntax, ADR 0152), `sh:value`, `sh:sourceShape`,
    `sh:sourceConstraint` (for SPARQL-based constraints),
    `sh:sourceConstraintComponent`, `sh:resultSeverity` and `sh:resultMessage`;
    `sh:conformanceDisallows` when it is not the default; and
-   `varve:importNotFollowed` (ADR 0151). A shape's or a result's node from the
-   shapes graph that is a blank node is copied into the report as a report
-   node, by deep copy (§1.1).
+   `varve:importNotFollowed` (ADR 0151). When the shapes graph is the data
+   (the same source), a shape's blank node is a data node and keeps its label.
 5. **The property.** A test (`Varve.Shacl.Tests`) generates shapes and data,
    validates twice — over two sources holding the same quads with the same
    blank node labels, and with the shapes and data given in shuffled order —
