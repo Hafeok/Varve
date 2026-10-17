@@ -112,6 +112,16 @@ as management declarations.
 | `varve:fieldRequired` | whether every event carries the field | on a field node, an `xsd:boolean` |
 | `varve:fieldAs` | `"string"`: the member is always a JSON string | on a field node, optional |
 | `varve:fieldKeepLanguage` | `true`: a language-tagged value is an object with its language and direction | on a field node, optional |
+| `varve:EventTypeShape` | the SHACL node shape of a type node, shipped as `Varve.Events`' `EventDeclarationShapes` (ADR 0157); what it cannot state, the code checks | a shape, in that resource |
+| `varve:EventFieldShape` | the SHACL node shape of a field node, beside it (ADR 0157) | a shape, in that resource |
+
+## Validation reports (ADR 0151)
+
+`Varve.Shacl` adds one statement to a SHACL validation report.
+
+| Term | Meaning | Where |
+|---|---|---|
+| `varve:importNotFollowed` | an IRI the shapes graph names with `owl:imports`, which the validation did not fetch: shapes graphs are read whole from the caller, and nothing is fetched | on the `sh:ValidationReport`, one triple per IRI |
 
 ## Names that share the prefix but are not terms
 

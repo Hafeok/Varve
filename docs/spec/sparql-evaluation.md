@@ -447,12 +447,15 @@ section's definition and no other:
 | 1.2 language | `LANGDIR`, `hasLANG`, `hasLANGDIR`, `STRLANGDIR` | 1.2 §17.4.2.9–11, §17.4.2.17 | |
 | 1.2 triple terms | `isTRIPLE`, `TRIPLE`, `SUBJECT`, `PREDICATE`, `OBJECT` | 1.2 §17.4.2, §17.4.6 | `TRIPLE` refuses a literal subject or a non-IRI predicate |
 
-`REGEX` and `REPLACE` translate XPath's regular-expression syntax and flags
-(F&O §5.6.1: `s`, `m`, `i`, `x`, `q`) to .NET's, culture-invariant, without
-the `Compiled` option (it is ignored under Native AOT and in the browser);
-a constant pattern is compiled once per execution. A pattern .NET rejects, a
-pattern that matches the empty string in `REPLACE` (F&O §5.6.3's
-`FORX0003`), and a match that exceeds `RegexTimeout` are errors.
+`REGEX` and `REPLACE` use `Varve.Xsd`'s translation of F&O 3.1 §5.6
+regular expressions (ADR 0153): the pattern is parsed by §5.6.1's grammar and
+written in .NET's dialect with every flag (`s`, `m`, `i`, `x`, `q`) applied in
+the pattern itself, compiled culture-invariant without the `Compiled` option
+(ignored under Native AOT and in the browser). Each pattern and flags pair is
+compiled once per execution. A pattern or flags §5.6 does not define
+(`FORX0001`, `FORX0002`), a pattern that matches the empty string in
+`REPLACE` (§5.6.3's `FORX0003`), an invalid replacement (`FORX0004`), and a
+match that exceeds `RegexTimeout` are errors.
 
 ### 7.7 Casts — §17.5
 

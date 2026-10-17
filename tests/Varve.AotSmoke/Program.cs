@@ -349,7 +349,30 @@ internal static class Program
             return 1;
         }
 
-        return Syntaxes.Run();
+        int syntaxes = Syntaxes.Run();
+        return syntaxes != 0 ? syntaxes : Shacl().AsTask().GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// SHACL, part 1 (#120) under Native AOT: <see cref="ShaclSmoke"/>, the
+    /// validation of a pinned view with SHACL-SPARQL and an XPath pattern, and
+    /// the evaluator's <c>REGEX</c> and <c>REPLACE</c> through the same
+    /// translator. The browser app runs the same file and must print the same.
+    /// </summary>
+    private static async ValueTask<int> Shacl()
+    {
+        (string shacl, string regex) = await ShaclSmoke.RunAsync();
+        Console.WriteLine(shacl);
+        Console.WriteLine(regex);
+
+        if (!string.Equals(shacl, ShaclSmoke.ExpectedShacl, StringComparison.Ordinal)
+            || !string.Equals(regex, ShaclSmoke.ExpectedRegex, StringComparison.Ordinal))
+        {
+            Console.Error.WriteLine("aot-smoke: SHACL or the XPath regular expressions are not the expected ones.");
+            return 1;
+        }
+
+        return 0;
     }
 
     private static int CountQuads(Varve.Store.DatasetView source)

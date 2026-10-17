@@ -7,3 +7,6 @@
 [submodule "tests/w3c/json-ld-api"]
 	path = tests/w3c/json-ld-api
 	url = https://github.com/w3c/json-ld-api
+[submodule "tests/w3c/data-shapes"]
+	path = tests/w3c/data-shapes
+	url = https://github.com/w3c/data-shapes
