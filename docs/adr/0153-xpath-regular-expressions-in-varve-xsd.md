@@ -42,33 +42,33 @@ translation would drift from the first.
    and `Varve.Shacl`:
    - `XPathRegex.TryTranslate(pattern, flags, out XPathRegexTranslation, out
      XPathRegexError)` parses the pattern by §5.6.1's grammar and writes the
-     .NET equivalent. It returns Varve's own flag set, so translation never
-     touches `System.Text.RegularExpressions`.
-   - `XPathRegex.Compile(translation, timeout)` builds the `Regex`. It is the
+     .NET equivalent, every flag applied in the pattern itself, so translation
+     never touches `System.Text.RegularExpressions` and the result needs no
+     `RegexOptions` but `CultureInvariant`.
+   - `XPathRegex.TryCompile(translation, timeout, …)` builds the `Regex`. It is the
      only member that references `System.Text.RegularExpressions`, so the
      assembly is loaded, and kept by the trimmer, only where a pattern is
      compiled. No `RegexOptions.Compiled` (ignored by Native AOT and the
      browser) and no `NonBacktracking` (it refuses back-references, which
      §5.6.1 allows); every match runs under the caller's timeout.
-   - `XPathRegex.TranslateReplacement(replacement, groups)` translates
+   - `XPathRegex.TryTranslateReplacement(replacement, groups, …)` translates
      `fn:replace`'s replacement string, moved from the evaluator unchanged.
-2. **What the translation does:**
+   - The surface takes F&O's own arguments as the BCL types that hold them —
+     the pattern, flags and replacement as strings, a timeout as `TimeSpan` —
+     and answers F&O's error code, offset and message as `string` and `int`
+     (`RegexArgumentsAreBclPrimitives`).
+2. **What the translation does.** Every construct whose meaning differs is
+   written out, so the result is compiled with `CultureInvariant` and no other
+   option:
 
    | XPath | .NET written |
    |---|---|
-   | `.` without `s` | any character but `\n` and `\r`, a surrogate pair as one character |
-   | `.` with `s` | any character, a surrogate pair as one |
-   | `$` without `m` | end of input only (`\z`) |
-   | `^`, and `$` with `m` | as written, under `Multiline` |
-   | `\s`, `\S` | `[ \t\n\r]`, its complement |
-   | `\w`, `\W` | `[^\p{P}\p{Z}\p{C}]`, its complement |
-   | `\d`, `\D` | `\p{Nd}`, its complement |
-   | `\i`, `\I`, `\c`, `\C` | XML 1.0 (fifth edition) `NameStartChar` and `NameChar` as explicit ranges, and their complements |
-   | `\p{IsBlock}` | as written; a block name .NET does not know is refused |
-   | a character class subtraction `[a-z-[aeiou]]` | as written, the same syntax |
-   | a back-reference `\N` | `\k<N>`, after checking that group N is closed before it (§5.6.1) |
-   | a character outside the BMP, in a class or a range | an alternation of its surrogate pairs beside the class |
-   | flags `i`, `m` | `IgnoreCase` with `CultureInvariant`, `Multiline` |
+   | a character class, `\s`, `\S`, `\d`, `\D`, `\w`, `\W`, `\i`, `\I`, `\c`, `\C`, `\p{Lu}`, `\P{L}`, and class subtraction `[a-z-[aeiou]]` | the exact set of characters, computed: categories from the runtime's Unicode data (`CharUnicodeInfo`) over every plane, `\s` as its four characters, `\w` as every character but `\p{P}`, `\p{Z}` and `\p{C}`, `\i` and `\c` as XML 1.0 (fifth edition) `NameStartChar` and `NameChar`; written as a BMP class beside the surrogate pairs of its supplementary members |
+   | `.` | every character but `\n` and `\r`, or every character under `s`; a surrogate pair as one character |
+   | `^`, `$` | `\A`, `\z`; under `m`, §5.6.2's lines: `^` after a newline that is not the last character, `$` before a newline or at the end when the input does not end with one |
+   | a character or a range, under `i` | the set with every case-variant added (§5.6.2: same `lower-case` or same `upper-case`); escapes gain none, so `\p{Lu}` stays upper-case |
+   | a back-reference `\N` | after checking that group N is closed before it (§5.6.1.4), "group N's text if group N matched, else nothing", case-blind under `i` |
+   | `\p{IsBlock}` | .NET's own block escape, in a class written in .NET's syntax; .NET knows only the blocks of the BMP |
    | flag `x` | whitespace removed outside character classes, before parsing |
    | flag `q` | the whole pattern as literal characters; `i` still applies |
 
@@ -76,13 +76,17 @@ translation would drift from the first.
    (invalid flags), with the position: an unknown flag; an escape §5.6.1 does
    not define (`\b`, `\B`, `\A`, `\z`, `\Z`, `\G`, `\x…`, `\u…`, `\0`, `\a`,
    `\e`, `\k`, octal); any `(?` other than `(?:`; an unescaped `{`, `}`, `[` or
-   `]` outside its construct; a quantifier on nothing or on a quantifier; a
-   back-reference to a group not yet closed; an empty character class; a
-   block name .NET does not know.
-4. **What it does not reach**, stated: .NET evaluates `\p{…}` categories and
-   blocks per UTF-16 code unit, so a character outside the BMP never matches a
-   category escape (a surrogate's category is `Cs`). A pattern is not refused
-   for this, because the divergence is in the data, not the pattern.
+   `]` outside its construct; a quantifier on nothing, on an anchor or on a
+   quantifier; a back-reference to a group not yet closed, or inside a class; a
+   range whose end is below its start; an empty character class; an unknown
+   general category; and, when compiled, a block name .NET does not know
+   (§5.6.1.5).
+4. **What it does not reach**, stated: a class that names a Unicode block is
+   evaluated over the BMP, because .NET's block escapes are, and no
+   supplementary block can be named; its other supplementary members stay
+   exact. Under `i`, case-variants come from the runtime's invariant
+   single-character mappings. Embedding Unicode's block table would reach the
+   rest, and would bring Unicode's data licence into a package that has none.
 5. **The evaluator keeps** what is the evaluator's: its per-execution cache by
    pattern and flags, `EvaluationOptions.RegexTimeout`, the mapping of an
    invalid pattern or a timeout to an expression error, and `REPLACE`'s
@@ -96,12 +100,14 @@ translation would drift from the first.
 ## Alternatives considered
 
 - **Move the existing code as it is.** The move the plan first named. Rejected
-  by the maintainer once read: it would give SHACL the same five
-  divergences, and `sh:pattern` with `\i` would throw.
+  by the maintainer once read: it would give SHACL the same divergences, and
+  `sh:pattern` with `\i` would throw.
+- **Pass categories and `IgnoreCase` to .NET.** Shorter patterns. Rejected:
+  .NET classifies UTF-16 units, so no supplementary character is in any
+  category, and `IgnoreCase` folds `\p{Lu}`, which §5.6.2 forbids.
 - **A regular expression engine of our own.** Exact by construction, and a
-  large thing to own. Rejected: the divergences are in syntax and in a few
-  classes, which translation reaches; the remaining one (category escapes
-  outside the BMP) is stated.
+  large thing to own. Rejected: the divergences are in syntax and in classes,
+  which translation reaches; the remaining one (blocks) is stated.
 - **`NonBacktracking`.** No catastrophic backtracking. Rejected: §5.6.1 has
   back-references, which it refuses. The timeout bounds the cost instead.
 
@@ -109,9 +115,11 @@ translation would drift from the first.
 
 - **Breaking for `REGEX` and `REPLACE`**, recorded in the release notes: a
   pattern that used a .NET-only construct (lookaround, named groups, `\b`,
-  `\A`, `\z`, `\x`, `\u`, inline options) is now an expression error; `.` no
-  longer matches `\r`; `$` no longer matches before a final newline; `\w` and
-  `\s` mean XPath's classes.
+  `\A`, `\z`, `\x`, `\u`, inline options, an unescaped `{` or `}` as a
+  character) is now an expression error; `.` no longer matches `\r`; `$` no
+  longer matches before a final newline; `\w` and `\s` mean XPath's classes;
+  `i` no longer folds category escapes; a character outside the BMP is one
+  character to `.` and to classes.
 - `Varve.Xsd`'s public surface grows by the translator.
 - The AOT smoke runs a `REGEX` query and an `sh:pattern`, so a trimming
   regression in either is caught.
