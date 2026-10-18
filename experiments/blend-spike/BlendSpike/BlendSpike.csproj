@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The spike's host: projector, dataset, rules, as-of question (#128).
+       Not in Varve.slnx. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Varve.Rdf/Varve.Rdf.csproj" />
+    <ProjectReference Include="../../../src/Varve.Turtle/Varve.Turtle.csproj" />
+    <ProjectReference Include="../../../src/Varve.Sparql/Varve.Sparql.csproj" />
+    <ProjectReference Include="../../../src/Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
+    <ProjectReference Include="../../../src/Varve.Store/Varve.Store.csproj" />
+  </ItemGroup>
+
+</Project>
