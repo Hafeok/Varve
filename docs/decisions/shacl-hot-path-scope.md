@@ -5,20 +5,36 @@ origin: "VARVE0003 findings on Varve.Shacl in SHACL, part 1 (#120)"
 decisions:
   - key: ValueNodesAreGatheredPerFocusNode
     statement: "A focus node's value nodes are gathered once per shape and focus node into a list, with the set that keeps a path's values distinct, and every constraint of the shape reads that list; a path step opens the source's cursor once per node it steps from, never once per quad"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-18T09:57:00Z
   - key: ConformanceIsMemoisedPerValidation
     statement: "Whether a node conforms to a shape, a node's types, a class's superclasses and the data graph's reifiers are computed once per validation into tables that grow with what they hold, and a cyclic component's greatest fixpoint keeps its assignment in one; the components that check conformance, class membership or reifiers read the tables"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-18T09:57:00Z
   - key: TermsAreResolvedOncePerValidation
     statement: "A held node's term is externalised the first time a constraint needs it, and a shape constant is looked up in the data source the first time it is used, both kept in tables for the rest of the validation"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-18T09:57:00Z
   - key: ConstraintStateIsMadeOncePerValidation
     statement: "What a constraint needs at every focus node and that does not depend on one — sh:in's resolved members, sh:uniqueValuesFor's keys over the shape's targets, a compiled pattern — is made the first time the constraint runs in a validation and kept on the run"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-18T09:57:00Z
   - key: ComparisonsGatherTheirOtherSide
     statement: "The property pair components gather the other path's values and a set of each side once per focus node; sh:closed reads a value node's triples into a list and, by types, the properties its classes permit; the list components read a value node's list into a list; each grows with what it holds"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-18T09:57:00Z
   - key: ResultsCostTheirRecord
     statement: "A validation result is a record added to the run's list, with the path a sh:closed result names; a value node that conforms costs nothing"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-18T09:57:00Z
   - key: ExtensionsAreTheCallersCode
     statement: "An extension's constraint is given the value nodes as terms and handles in lists made per focus node, with a context whose callbacks report into the run, and runs the extension's code, which Varve.Shacl does not hold to its own rules"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-18T09:57:00Z
   - key: PatternsMatchThroughTheBclRegex
     statement: "sh:pattern transcodes a value's string into a pooled buffer and matches it with System.Text.RegularExpressions.Regex, compiled once per validation per pattern under ShaclOptions.RegexTimeout"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-18T09:57:00Z
 ---
 
 # What the hot-path rules do not cover in Varve.Shacl
