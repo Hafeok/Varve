@@ -284,7 +284,11 @@ internal static class GraphStoreEndpoint
             return;
         }
 
-        CommitResult result = await exchange.Dataset.CommitAsync(request, exchange.Context.RequestAborted).ConfigureAwait(false);
+        if (await Writes.CommitAsync(exchange, request).ConfigureAwait(false) is not CommitResult result)
+        {
+            return;
+        }
+
         await Writes.AnswerAsync(exchange, result, expected: plan.Expected, evidence: new ConflictEvidence(request.ExpectedPosition!.Value, request.ExpectedGraphs), taggedGraph: GraphOf(target), tagGraph: true).ConfigureAwait(false);
     }
 
@@ -323,7 +327,11 @@ internal static class GraphStoreEndpoint
             }
         }
 
-        CommitResult result = await exchange.Dataset.CommitAsync(request, exchange.Context.RequestAborted).ConfigureAwait(false);
+        if (await Writes.CommitAsync(exchange, request).ConfigureAwait(false) is not CommitResult result)
+        {
+            return;
+        }
+
         // §5.3: new graph content is 201, the default graph's included.
         bool created = !existed && triples.Count > 0 && result.Outcome == CommitOutcome.Committed;
 

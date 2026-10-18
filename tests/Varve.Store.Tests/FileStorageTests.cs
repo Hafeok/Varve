@@ -108,6 +108,8 @@ public sealed class FileStorageWindowsSharingContractTests : StorageContractTest
 /// <summary>The file backend's own rules: layout, lease, key store, names.</summary>
 public sealed class FileStorageTests
 {
+    private static readonly string[] SetParts = ["order0", "order1", "order2", "order3", "order4", "order5", "terms", "graphs"];
+
     [Fact]
     public async Task a_dataset_on_disk_has_the_layout_of_the_storage_format()
     {
@@ -128,7 +130,10 @@ public sealed class FileStorageTests
         string derived = Path.Combine(directory.Path, "derived");
         Assert.Equal(96, new FileInfo(Path.Combine(log, "MANIFEST")).Length);
         Assert.Equal("*\n", File.ReadAllText(Path.Combine(derived, ".gitignore")));
-        Assert.True(File.Exists(Path.Combine(derived, "checkpoints", "00000000000000000005")));
+        // The checkpoint as an extent set and the catalog that names it (ADR 0139).
+        Assert.True(File.Exists(Path.Combine(derived, "catalog")));
+        string set = Path.Combine(derived, "extents", "00000000000000000000-00000000000000000005.0");
+        Assert.All(SetParts, part => Assert.True(File.Exists(Path.Combine(set, part)), part));
 
         string[] segments = [.. Directory.GetFiles(log, "*.seg").Select(Path.GetFileName).Order(StringComparer.Ordinal)!];
         Assert.True(segments.Length > 1);
@@ -141,11 +146,12 @@ public sealed class FileStorageTests
         Assert.Equal([new Position(5)], reopened.Checkpoints);
         using DatasetView view = await reopened.AsOfAsync(new Position(7), T.Ct);
         Assert.Equal(7, T.All(view).Count);
-        // The checkpoint, and the projection's and the commit index's blobs
-        // under index/: few of the latter, because they are merged (ADR 0089).
+        // The catalog, the set's extents, and the projection's and the commit
+        // index's blobs under index/: few of the latter, because they are
+        // merged (ADR 0089).
         IReadOnlyList<BlobName> blobs = await again.Derived.ListAsync(T.Ct);
-        Assert.Contains(new BlobName("checkpoints/00000000000000000005"), blobs);
-        Assert.All(blobs, n => Assert.True(n.Value is "checkpoints/00000000000000000005" or "checkpoints/00000000000000000005.graphs" || n.Value.StartsWith("index/", StringComparison.Ordinal), n.Value));
+        Assert.Contains(new BlobName("catalog"), blobs);
+        Assert.All(blobs, n => Assert.True(n.Value is "catalog" || n.Value.StartsWith("extents/00000000000000000000-00000000000000000005.0/", StringComparison.Ordinal) || n.Value.StartsWith("index/", StringComparison.Ordinal), n.Value));
         Assert.InRange(blobs.Count(n => n.Value.StartsWith("index/commits/", StringComparison.Ordinal)), 1, 4);
     }
 

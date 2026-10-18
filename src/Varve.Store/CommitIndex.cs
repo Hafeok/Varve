@@ -9,6 +9,8 @@ using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Store.Log;
 
 namespace Varve.Store;
@@ -226,21 +228,29 @@ internal sealed class CommitIndex
     private readonly Tail _tail;
     private readonly Func<CommitIndex> _current;
 
-    private CommitIndex(CommitSegment[] segments, Tail tail, long head, SettingsPoint[] settings, Func<CommitIndex> current)
+    private CommitIndex(CommitSegment[] segments, Tail tail, long head, SettingsPoint[] settings, Func<CommitIndex> current, CommitPrefix? prefix)
     {
         Segments = segments;
         _tail = tail;
         Head = head;
         Settings = settings;
         _current = current;
+        Prefix = prefix;
     }
 
     internal CommitSegment[] Segments { get; }
 
     internal long Head { get; }
 
+    /// <summary>
+    /// The entries at or below the catalog's position when the open began
+    /// there (ADR 0139), read from the log on first use; the blobs continue
+    /// from its end. None when the open read the whole log.
+    /// </summary>
+    internal CommitPrefix? Prefix { get; }
+
     /// <summary>The position the blobs reach; the entries after it are in memory.</summary>
-    internal long PagedTo => Segments.Length == 0 ? 0 : Segments[^1].To;
+    internal long PagedTo => Segments.Length == 0 ? Prefix?.To ?? 0 : Segments[^1].To;
 
     /// <summary>How many entries are in memory.</summary>
     internal long InMemory => Head - PagedTo;
@@ -249,24 +259,24 @@ internal sealed class CommitIndex
     internal SettingsPoint[] Settings { get; }
 
     /// <summary>An empty index whose readers fall back to <paramref name="current"/>.</summary>
-    internal static CommitIndex Empty(Func<CommitIndex> current) => new([], new Tail(0), 0, [], current);
+    internal static CommitIndex Empty(Func<CommitIndex> current) => new([], new Tail(0), 0, [], current, null);
 
-    /// <summary>An index of <paramref name="segments"/>, and nothing in memory yet.</summary>
-    internal static CommitIndex Of(CommitSegment[] segments, SettingsPoint[] settings, Func<CommitIndex> current)
+    /// <summary>An index of <paramref name="segments"/> after <paramref name="prefix"/>, and nothing in memory yet.</summary>
+    internal static CommitIndex Of(CommitSegment[] segments, SettingsPoint[] settings, Func<CommitIndex> current, CommitPrefix? prefix = null)
     {
-        long pagedTo = segments.Length == 0 ? 0 : segments[^1].To;
-        return new(segments, new Tail(pagedTo), pagedTo, settings, current);
+        long pagedTo = segments.Length == 0 ? prefix?.To ?? 0 : segments[^1].To;
+        return new(segments, new Tail(pagedTo), pagedTo, settings, current, prefix);
     }
 
     /// <summary>This version with the settings points given.</summary>
-    internal CommitIndex WithSettings(SettingsPoint[] settings) => new(Segments, _tail, Head, settings, _current);
+    internal CommitIndex WithSettings(SettingsPoint[] settings) => new(Segments, _tail, Head, settings, _current, Prefix);
 
     /// <summary>The next position's entry, and its settings when it changed them. Only the sequencer appends.</summary>
     internal CommitIndex Append(in CommitEntry entry, DatasetSettings? changed)
     {
         _tail.Append(Head + 1, in entry);
         SettingsPoint[] settings = changed is null ? Settings : [.. Settings, new SettingsPoint(Head + 1, changed)];
-        return new(Segments, _tail, Head + 1, settings, _current);
+        return new(Segments, _tail, Head + 1, settings, _current, Prefix);
     }
 
     /// <summary>This version with <paramref name="segment"/> after its blobs, and the entries it covers let go of.</summary>
@@ -284,7 +294,7 @@ internal sealed class CommitIndex
             tail.Append(p, _tail.Get(p));
         }
 
-        return new([.. Segments, segment], tail, Head, Settings, _current);
+        return new([.. Segments, segment], tail, Head, Settings, _current, Prefix);
     }
 
     /// <summary>This version with its last two blobs replaced by <paramref name="merged"/>, which covers both.</summary>
@@ -295,8 +305,17 @@ internal sealed class CommitIndex
             throw new InvalidOperationException("A merged commit index blob must cover the two it replaces.");
         }
 
-        return new([.. Segments[..^2], merged], _tail, Head, Settings, _current);
+        return new([.. Segments[..^2], merged], _tail, Head, Settings, _current, Prefix);
     }
+
+    /// <summary>
+    /// Whether the entry at <paramref name="position"/> can be had without
+    /// reading the log: false only inside a prefix not yet read, off its pins.
+    /// Checks of derived data at open ask this first, and treat a position
+    /// it denies as a cache miss (ADR 0139).
+    /// </summary>
+    internal bool Knows(long position) =>
+        position <= 0 || Prefix is not { } prefix || position > prefix.To || prefix.Loaded || prefix.Pins.ContainsKey(position);
 
     /// <summary>The entry at <paramref name="position"/>, from 1 to the head.</summary>
     internal CommitEntry Entry(long position)
@@ -307,6 +326,11 @@ internal sealed class CommitIndex
         if (position > PagedTo)
         {
             return _tail.Get(position);
+        }
+
+        if (Prefix is { } prefix && position <= prefix.To)
+        {
+            return prefix.Entry(position);
         }
 
         CommitSegment segment = SegmentOf(position);
@@ -381,7 +405,9 @@ internal sealed class CommitIndex
 
         if (found < 0)
         {
-            return 0;
+            // Below every blob: in the prefix, whose last entry is pinned, so
+            // a time at or after it needs nothing read.
+            return Prefix is { } prefix ? prefix.PositionAt(ticks) : 0;
         }
 
         CommitSegment segment = Segments[found];
@@ -515,6 +541,150 @@ internal sealed class CommitIndex
     }
 }
 
+/// <summary>
+/// The commit index at or below the catalog's position, when an open began
+/// there rather than at the log's start (ADR 0139): the entries the catalog
+/// pins — its sets' ends — are known, and the rest are read from the log's
+/// headers by the first read that needs one, then kept as a commit index
+/// blob in the local cache. Shared by every version of the index, so it is
+/// read once.
+/// </summary>
+internal sealed class CommitPrefix : IDisposable
+{
+    private readonly Dictionary<long, CommitEntry> _pins;
+    private readonly Func<CancellationToken, ValueTask<CommitSegment>> _load;
+    private readonly List<CommitSegment> _candidates;
+    private readonly SemaphoreSlim _gate = new(1, 1);
+    private CommitSegment? _segment;
+
+    /// <summary>
+    /// A prefix to <paramref name="to"/>. <paramref name="candidates"/> are
+    /// blobs it holds for <paramref name="load"/> to try; the load takes them
+    /// out of the list, and a prefix disposed before it loads releases them.
+    /// </summary>
+    internal CommitPrefix(long to, Dictionary<long, CommitEntry> pins, List<CommitSegment> candidates, Func<CancellationToken, ValueTask<CommitSegment>> load)
+    {
+        _candidates = candidates;
+        if (!pins.ContainsKey(to))
+        {
+            throw new ArgumentException("A prefix pins its last entry.", nameof(pins));
+        }
+
+        To = to;
+        _pins = pins;
+        _load = load;
+    }
+
+    /// <summary>The position the prefix reaches: the catalog's.</summary>
+    internal long To { get; }
+
+    /// <summary>Whether the entries have been read from the log.</summary>
+    internal bool Loaded => Volatile.Read(ref _segment) is not null;
+
+    /// <summary>The entries the catalog pins, by position.</summary>
+    internal IReadOnlyDictionary<long, CommitEntry> Pins => _pins;
+
+    /// <summary>The entry at <paramref name="position"/>, read from the log first if it is not pinned and not yet read.</summary>
+    internal CommitEntry Entry(long position)
+    {
+        if (_pins.TryGetValue(position, out CommitEntry pinned))
+        {
+            return pinned;
+        }
+
+        CommitSegment segment = Segment();
+
+        if (!segment.Blob.TryAcquire())
+        {
+            throw new InvalidOperationException("The commit index's prefix blob is closed.");
+        }
+
+        try
+        {
+            return segment.Read(position);
+        }
+        finally
+        {
+            segment.Blob.Release();
+        }
+    }
+
+    /// <summary>The greatest position at or below <see cref="To"/> whose timestamp is at or before <paramref name="ticks"/>; 0 when none is.</summary>
+    internal long PositionAt(long ticks)
+    {
+        if (_pins[To].TimestampTicks <= ticks)
+        {
+            return To;
+        }
+
+        CommitSegment segment = Segment();
+
+        if (!segment.Blob.TryAcquire())
+        {
+            throw new InvalidOperationException("The commit index's prefix blob is closed.");
+        }
+
+        try
+        {
+            return segment.Fences[0] > ticks ? 0 : Math.Min(To, segment.PositionAt(ticks));
+        }
+        finally
+        {
+            segment.Blob.Release();
+        }
+    }
+
+    /// <summary>Reads the entries from the log now, unless they are read already.</summary>
+    internal async ValueTask LoadAsync(CancellationToken cancellationToken)
+    {
+        if (Loaded)
+        {
+            return;
+        }
+
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            if (_segment is null)
+            {
+                Volatile.Write(ref _segment, await _load(cancellationToken).ConfigureAwait(false));
+            }
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public void Dispose()
+    {
+        _segment?.Blob.Release();
+
+        foreach (CommitSegment candidate in _candidates)
+        {
+            candidate.Blob.Release();
+        }
+
+        _candidates.Clear();
+        _gate.Dispose();
+    }
+
+    // The read is synchronous (ADR 0071), as an extent page's miss is; the
+    // first read below the catalog waits for the log's headers.
+    [DesignDecision(typeof(ExtentsAndTheProjectionCatalog.CommitLocationsBelowTheCatalogReadOnFirstUse), Scope = ExceptionScope.HotPath)]
+    private CommitSegment Segment()
+    {
+        if (Volatile.Read(ref _segment) is { } loaded)
+        {
+            return loaded;
+        }
+
+        LoadAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult();
+        return _segment!;
+    }
+}
+
 /// <summary>Writing and reading the commit index's blobs (ADR 0089, storage-format.md §7).</summary>
 internal static class CommitIndexFormat
 {
@@ -529,60 +699,13 @@ internal static class CommitIndexFormat
     internal static async ValueTask WriteAsync(
         IDerivedStore store, BlobName name, DatasetId dataset, long from, long to, Func<long, CommitEntry> entryAt, CancellationToken cancellationToken)
     {
-        if (to <= from)
+        await using CommitIndexWriter writer = await CommitIndexWriter.StartAsync(store, name, dataset, from, to, cancellationToken).ConfigureAwait(false);
+
+        for (long p = from + 1; p <= to; p++)
         {
-            throw new ArgumentException("A commit index blob holds at least one entry.", nameof(to));
+            await writer.AddAsync(entryAt(p), cancellationToken).ConfigureAwait(false);
         }
 
-        await using IBlobWriter writer = await store.CreateAsync(name, cancellationToken).ConfigureAwait(false);
-        const int PerBuffer = 64 * 1024 / CommitEntry.Size;
-        byte[] buffer = ArrayPool<byte>.Shared.Rent(PerBuffer * CommitEntry.Size);
-        List<long> fences = [];
-        CommitEntry last = default;
-
-        try
-        {
-            int filled = 0;
-
-            for (long p = from + 1; p <= to; p++)
-            {
-                CommitEntry entry = entryAt(p);
-
-                if ((p - from - 1) % CommitSegment.BlockEntries == 0)
-                {
-                    fences.Add(entry.TimestampTicks);
-                }
-
-                entry.Write(buffer.AsSpan(filled * CommitEntry.Size, CommitEntry.Size));
-                last = entry;
-
-                if (++filled == PerBuffer)
-                {
-                    await writer.WriteAsync(buffer.AsMemory(0, filled * CommitEntry.Size), cancellationToken).ConfigureAwait(false);
-                    filled = 0;
-                }
-            }
-
-            await writer.WriteAsync(buffer.AsMemory(0, filled * CommitEntry.Size), cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(buffer);
-        }
-
-        byte[] directory = new byte[4 + 8 + (fences.Count * 8)];
-        BinaryPrimitives.WriteUInt32LittleEndian(directory, CommitSegment.BlockEntries);
-        BinaryPrimitives.WriteInt64LittleEndian(directory.AsSpan(4), to - from);
-
-        for (int i = 0; i < fences.Count; i++)
-        {
-            BinaryPrimitives.WriteInt64LittleEndian(directory.AsSpan(12 + (i * 8)), fences[i]);
-        }
-
-        await writer.WriteAsync(directory, cancellationToken).ConfigureAwait(false);
-        byte[] header = DerivedFormat.EncodeHeader(
-            DerivedFormat.KindCommits, dataset, from, to, last.HeaderHash(), (to - from) * CommitEntry.Size, directory.Length, SHA256.HashData(directory));
-        await writer.WriteAsync(header, cancellationToken).ConfigureAwait(false);
         await writer.PublishAsync(cancellationToken).ConfigureAwait(false);
     }
 
@@ -660,4 +783,99 @@ internal static class CommitIndexFormat
     internal static BlobName Name(long from, long to, long sequence) =>
         new(Prefix + from.ToString("D20", System.Globalization.CultureInfo.InvariantCulture) + "-" + to.ToString("D20", System.Globalization.CultureInfo.InvariantCulture)
             + "." + sequence.ToString(System.Globalization.CultureInfo.InvariantCulture));
+}
+
+/// <summary>
+/// A commit index blob written entry by entry, as a scan passes the log, so
+/// nothing the size of the log is held (ADR 0089): the entries end to end,
+/// then the directory of each block's first timestamp, then the derived
+/// header, whose end hash is the last entry's.
+/// </summary>
+internal sealed class CommitIndexWriter : IAsyncDisposable
+{
+    private const int PerBuffer = 64 * 1024 / CommitEntry.Size;
+
+    private readonly IBlobWriter _writer;
+    private readonly DatasetId _dataset;
+    private readonly long _from;
+    private readonly long _to;
+    private readonly byte[] _buffer = ArrayPool<byte>.Shared.Rent(PerBuffer * CommitEntry.Size);
+    private readonly List<long> _fences = [];
+    private CommitEntry _last;
+    private long _added;
+    private int _filled;
+
+    private CommitIndexWriter(IBlobWriter writer, DatasetId dataset, long from, long to)
+    {
+        _writer = writer;
+        _dataset = dataset;
+        _from = from;
+        _to = to;
+    }
+
+    internal static async ValueTask<CommitIndexWriter> StartAsync(IDerivedStore store, BlobName name, DatasetId dataset, long from, long to, CancellationToken cancellationToken)
+    {
+        if (to <= from)
+        {
+            throw new ArgumentException("A commit index blob holds at least one entry.", nameof(to));
+        }
+
+        return new CommitIndexWriter(await store.CreateAsync(name, cancellationToken).ConfigureAwait(false), dataset, from, to);
+    }
+
+    /// <summary>The next position's entry.</summary>
+    internal async ValueTask AddAsync(CommitEntry entry, CancellationToken cancellationToken)
+    {
+        if (_added == _to - _from)
+        {
+            throw new InvalidOperationException("The commit index blob already holds every entry it was started for.");
+        }
+
+        if (_added % CommitSegment.BlockEntries == 0)
+        {
+            _fences.Add(entry.TimestampTicks);
+        }
+
+        entry.Write(_buffer.AsSpan(_filled * CommitEntry.Size, CommitEntry.Size));
+        _last = entry;
+        _added++;
+
+        if (++_filled == PerBuffer)
+        {
+            await _writer.WriteAsync(_buffer.AsMemory(0, _filled * CommitEntry.Size), cancellationToken).ConfigureAwait(false);
+            _filled = 0;
+        }
+    }
+
+    /// <summary>Writes the directory and the header, and publishes the blob; it must hold every entry.</summary>
+    internal async ValueTask PublishAsync(CancellationToken cancellationToken)
+    {
+        if (_added != _to - _from)
+        {
+            throw new InvalidOperationException("The commit index blob holds " + _added + " of its " + (_to - _from) + " entries.");
+        }
+
+        await _writer.WriteAsync(_buffer.AsMemory(0, _filled * CommitEntry.Size), cancellationToken).ConfigureAwait(false);
+        _filled = 0;
+        byte[] directory = new byte[4 + 8 + (_fences.Count * 8)];
+        BinaryPrimitives.WriteUInt32LittleEndian(directory, CommitSegment.BlockEntries);
+        BinaryPrimitives.WriteInt64LittleEndian(directory.AsSpan(4), _to - _from);
+
+        for (int i = 0; i < _fences.Count; i++)
+        {
+            BinaryPrimitives.WriteInt64LittleEndian(directory.AsSpan(12 + (i * 8)), _fences[i]);
+        }
+
+        await _writer.WriteAsync(directory, cancellationToken).ConfigureAwait(false);
+        byte[] header = DerivedFormat.EncodeHeader(
+            DerivedFormat.KindCommits, _dataset, _from, _to, _last.HeaderHash(), (_to - _from) * CommitEntry.Size, directory.Length, SHA256.HashData(directory));
+        await _writer.WriteAsync(header, cancellationToken).ConfigureAwait(false);
+        await _writer.PublishAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        ArrayPool<byte>.Shared.Return(_buffer);
+        await _writer.DisposeAsync().ConfigureAwait(false);
+    }
 }

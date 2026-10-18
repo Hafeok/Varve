@@ -283,7 +283,8 @@ internal static class Soak
     // length is the directory's last word. What ADR 0082 counts as the
     // dataset's own; zero for a file that is not a run.
     private static bool IsCheckpoint(string path) =>
-        path.Replace('\\', '/').Contains("/derived/checkpoints/", StringComparison.Ordinal);
+        path.Replace('\\', '/').Contains("/derived/checkpoints/", StringComparison.Ordinal)
+        || path.Replace('\\', '/').Contains("/derived/extents/", StringComparison.Ordinal);
 
     private static long DirectoryLength(string path)
     {

@@ -189,3 +189,23 @@ that was given and is wrong" meant and did not yet do.
 **The ledger.** `ReadinessIsProjectionAtHead` and
 `ConfigurationValidatedAtStart` stand; the rulings are ADR 0113's and ADR
 0115's sets.
+## Amendment, 2026-10-15 — a third storage, `ObjectStorage`
+
+Filed by milestone Object storage of #92, unaccepted until the maintainer
+accepts it (ADR 0066). Point 1's `Datasets:{name}:Storage` takes a third
+value, `ObjectStorage`. Such a dataset is in the server's one object store,
+`Varve:ObjectStorage` — `Provider`, `ContainerUrl` or `Endpoint`, `Bucket`,
+`Region`, `CachePath`, `CacheBytes`, `Instance` — under the prefix `{name}/`,
+as a `File` dataset is under `DatasetsRoot`. Its durability is `Replicated`:
+a commit returns once the store acknowledged its chunk (ADR 0135).
+
+- At start, the configured datasets open first, then every dataset the store
+  holds. Opening one claims its next writer epoch (ADR 0136), where a `File`
+  dataset takes its lease.
+- On shutdown, closing it releases the epoch with the reason `shutdown`,
+  where a `File` dataset releases its lease.
+- Where the store goes in a management plane is #105's to decide; until
+  then, one store per server.
+
+**The ledger.** The rulings are ADR 0136's `WriterOpenClaimsTheNextEpoch` and
+`ShutdownAbdicates`, and ADR 0139's `CatalogUnderTheEpochFence`.

@@ -147,6 +147,7 @@ Varve.Protocol.Client.SetupResult.SettingsChanged.get -> bool
 Varve.Protocol.Client.SetupStorage
 Varve.Protocol.Client.SetupStorage.File = 0 -> Varve.Protocol.Client.SetupStorage
 Varve.Protocol.Client.SetupStorage.Memory = 1 -> Varve.Protocol.Client.SetupStorage
+Varve.Protocol.Client.SetupStorage.ObjectStorage = 2 -> Varve.Protocol.Client.SetupStorage
 Varve.Protocol.Client.SparqlHttpClient.ApplyAsync(Varve.Protocol.Client.DatasetSetup! setup, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.SetupResult!>!
 Varve.Protocol.Client.SparqlHttpClient.PutDatasetAsync(Varve.Protocol.Client.SetupStorage storage, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
 const Varve.Protocol.Client.SparqlHttpClient.SetupGraph = "https://w3id.org/varve/ns#setup" -> string!

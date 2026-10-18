@@ -83,3 +83,19 @@ divergence, by design).
 - **Layer ownership.** `Varve.Server`, layer 6.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-15 — `varve lease` for a dataset in an object store
+
+Filed by milestone Object storage of #92, unaccepted until the maintainer
+accepts it (ADR 0066). A dataset in an object store has no lock: one writer
+is held by an epoch in its writer record (ADR 0136). `varve lease` takes such
+a dataset's address — `https://{account}.blob.core.windows.net/{container}/{dataset}`,
+or `s3://{bucket}/{dataset}` with `--endpoint` and `--region` — and prints
+the epoch, its holder, whether it was released, and every claim with its
+trigger, fence and release. `--break` is refused for it. `--take --epoch n`
+is the operator's takeover: epoch n+1 is claimed only while the record still
+shows n, the log is fenced with it, and it is released for the next writer.
+No time is consulted, now as before. The file backend's command is
+unchanged, and `--take` is refused for a directory.
+
+**The ledger.** The ruling is ADR 0136's `OperatorTakesOverByEpoch`.

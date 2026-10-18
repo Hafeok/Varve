@@ -181,7 +181,7 @@ public class DictionaryTests
 public class TermFilterTests
 {
     [Fact]
-    public async Task a_format_3_run_carries_a_filter_that_admits_every_term_and_about_two_percent_of_others()
+    public async Task a_run_carries_a_filter_that_admits_every_term_and_about_two_percent_of_others()
     {
         const int Count = 20_000;
         Allocation[] allocations = new Allocation[Count];
@@ -195,7 +195,8 @@ public class TermFilterTests
         Run run = Run.FromDelta([], [], TermSection.Of(allocations, 0), 0, 1);
         await DerivedFormat.WriteRunAsync(storage.Derived, new BlobName("r"), DerivedFormat.KindRun, T.Id, 0, 1, new byte[32], DerivedFormat.MergeOf([run], dropRetractions: false), [run.Terms], 0, T.Ct);
         LoadedRun loaded = (await DerivedFormat.TryLoadAsync(storage.Derived, new BlobName("r"), T.Id, DerivedFormat.KindRun, T.Ct))!;
-        Assert.Equal(3, loaded.Header.Version);
+        // Format 3's layout, under version 4 (ADR 0139).
+        Assert.Equal(4, loaded.Header.Version);
         TermFilter filter = Assert.IsType<TermFilter>(loaded.Run.Terms.Filter);
         Assert.Equal(TermFilter.LengthFor(Count), filter.Length);
 
@@ -259,7 +260,7 @@ public class TermFilterTests
     }
 
     [Fact]
-    public async Task maintenance_and_checkpoints_write_format_3()
+    public async Task maintenance_and_checkpoints_write_format_4()
     {
         MemoryStorage storage = new();
         await using Dataset dataset = await T.OpenOrCreate(storage, new DatasetOptions { Clock = ManualClock.Epoch(), MemtableLimit = new QuadCount(4), CommitCache = T.CommitCache, Maintenance = MaintenanceMode.Off });
@@ -273,14 +274,20 @@ public class TermFilterTests
         }
 
         await dataset.CheckpointAsync(dataset.Head, T.Ct);
-        List<string> derived = [.. (await storage.Derived.ListAsync(T.Ct)).Select(n => n.Value).Where(n => n.StartsWith("index/runs/", StringComparison.Ordinal) || (n.StartsWith("checkpoints/", StringComparison.Ordinal) && !n.EndsWith(GraphVersions.Suffix, StringComparison.Ordinal)))];
-        Assert.NotEmpty(derived);
+        // Runs keep format 3's layout under version 4; a checkpoint is an
+        // extent set, its order extents and its dictionary extent (ADR 0139).
+        List<string> derived = [.. (await storage.Derived.ListAsync(T.Ct)).Select(n => n.Value).Where(n => n.StartsWith("index/runs/", StringComparison.Ordinal) || (n.StartsWith(ExtentSet.Prefix, StringComparison.Ordinal) && !n.EndsWith("/graphs", StringComparison.Ordinal)))];
+        Assert.Contains(derived, n => n.StartsWith("index/runs/", StringComparison.Ordinal));
+        Assert.Equal(7, derived.Count(n => n.StartsWith(ExtentSet.Prefix, StringComparison.Ordinal)));
 
         foreach (string name in derived)
         {
+            ushort kind = name.StartsWith("index/", StringComparison.Ordinal) ? DerivedFormat.KindRun
+                : name.EndsWith("/terms", StringComparison.Ordinal) ? DerivedFormat.KindExtentTerms
+                : DerivedFormat.KindExtent;
             using IReadableBlob blob = await storage.Derived.OpenAsync(new BlobName(name), T.Ct);
-            Assert.True(DerivedFormat.TryReadHeader(blob, T.Id, name.StartsWith("checkpoints/", StringComparison.Ordinal) ? DerivedFormat.KindCheckpoint : DerivedFormat.KindRun, out DerivedHeader header), name);
-            Assert.Equal(3, header.Version);
+            Assert.True(DerivedFormat.TryReadHeader(blob, T.Id, kind, out DerivedHeader header), name);
+            Assert.Equal(4, header.Version);
         }
     }
 }

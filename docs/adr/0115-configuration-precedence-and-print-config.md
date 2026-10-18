@@ -76,3 +76,18 @@ gives every other command typed options and help.
 - **Layer ownership.** `Varve.Server`, layer 6.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-15 — the `ObjectStorage` keys, and a credential refused by name
+
+Filed by milestone Object storage of #92, unaccepted until the maintainer
+accepts it (ADR 0066). Point 4's `SettingsCheck` patterns gain
+`ObjectStorage:Provider`, `ContainerUrl`, `Endpoint`, `Bucket`, `Region`,
+`CachePath`, `CacheBytes` and `Instance`. Under `ObjectStorage` or a dataset,
+an unknown key named like a storage credential — `AccountKey`, `AccessKey`,
+`ConnectionString`, `SasToken`, `SharedAccessSignature`, `AccessKeyId`,
+`SecretAccessKey`, `SecretKey`, `ClientSecret`, `Password` — is refused with a
+message naming ADR 0137, not as a misspelling. So is a container URL or
+endpoint carrying a query string or user information. Point 3's redaction is
+unchanged; there is no storage secret to redact.
+
+**The ledger.** The ruling is ADR 0137's `storage-credentials-are-workload-identity` set.

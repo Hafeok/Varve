@@ -27,6 +27,9 @@ internal readonly struct CommitLocation
     internal long Offset { get; }
 }
 
+/// <summary>Where a scan starts when the catalog says where the log continues (ADR 0139).</summary>
+internal readonly record struct LogStart(int Segment, long Offset, long Head, byte[] HeadHash);
+
 /// <summary>A closed commit, read back and verified, body and all.</summary>
 internal sealed class LoggedCommit
 {
@@ -111,6 +114,16 @@ internal sealed class LogScan
 
     internal byte[] HeadHash { get; private set; } = LogFormat.Genesis();
 
+    /// <summary>Whether the scan stopped at the position it was asked to reach, before the log's end.</summary>
+    internal bool Stopped { get; set; }
+
+    /// <summary>Starts the chain at a position the catalog vouches for, rather than at genesis (ADR 0139).</summary>
+    internal void StartAt(long head, byte[] headHash)
+    {
+        Head = head;
+        HeadHash = headHash;
+    }
+
     internal async ValueTask AddAsync(ScannedCommit commit)
     {
         Head++;
@@ -142,7 +155,73 @@ internal static class LogReader
     /// that opening reads the log since the newest checkpoint (ADR 0072).
     /// </summary>
     internal static ValueTask<LogScan> ScanAsync(ISegmentStore store, DatasetId dataset, long bodiesAfter, CancellationToken cancellationToken) =>
-        ScanAsync(store, dataset, bodiesAfter, ScanRetains, null, LogFormat.WriteWindowBytes, cancellationToken);
+        ScanAsync(store, dataset, bodiesAfter, ScanRetains, null, LogFormat.WriteWindowBytes, null, long.MaxValue, cancellationToken);
+
+    /// <summary>
+    /// The scan from where the catalog says the log continues (ADR 0139): the
+    /// segments before <paramref name="start"/>'s are not read, and the chain
+    /// starts at its position and hash.
+    /// </summary>
+    internal static ValueTask<LogScan> ScanFromAsync(ISegmentStore store, DatasetId dataset, LogStart start, long bodiesAfter, Func<ScannedCommit, ValueTask> onCommit, long window, CancellationToken cancellationToken) =>
+        ScanAsync(store, dataset, bodiesAfter, ScanRetains, onCommit, window, start, long.MaxValue, cancellationToken);
+
+    /// <summary>
+    /// The headers from the log's start up to <paramref name="upTo"/>, each
+    /// commit handed to <paramref name="onCommit"/>, the chain verified; the
+    /// scan stops there (ADR 0139, the commit index below the catalog).
+    /// </summary>
+    internal static ValueTask<LogScan> ScanToAsync(ISegmentStore store, DatasetId dataset, long upTo, Func<ScannedCommit, ValueTask> onCommit, CancellationToken cancellationToken) =>
+        ScanAsync(store, dataset, upTo, ScanRetains, onCommit, LogFormat.WriteWindowBytes, null, upTo, cancellationToken);
+
+    /// <summary>
+    /// Whether the log continues the chain at <paramref name="start"/>: the
+    /// record there is the first of the position after its head, chained to
+    /// its hash, or its segment ends there with nothing after or a trailer
+    /// naming its head. A catalog whose cursor does not is ignored.
+    /// </summary>
+    internal static async ValueTask<bool> ContinuesAtAsync(ISegmentStore store, DatasetId dataset, LogStart start, CancellationToken cancellationToken)
+    {
+        SegmentInfo? found = null;
+
+        foreach (SegmentInfo info in await store.ListSegmentsAsync(cancellationToken).ConfigureAwait(false))
+        {
+            if (info.Id.Value == start.Segment)
+            {
+                found = info;
+            }
+        }
+
+        if (found is not { } segment || start.Offset < LogFormat.SegmentHeaderLength || start.Offset > segment.Length.Value)
+        {
+            return false;
+        }
+
+        long rest = segment.Length.Value - start.Offset;
+
+        if (rest == 0)
+        {
+            return true;
+        }
+
+        if (rest >= LogFormat.RecordHeaderLength)
+        {
+            ReadOnlyMemory<byte> bytes = await store.ReadRangeAsync(segment.Id, new ByteOffset(start.Offset), new ByteCount(LogFormat.RecordHeaderLength), cancellationToken).ConfigureAwait(false);
+
+            if (LogFormat.TryReadRecordHeader(bytes.Span, start.Head + 1) is { } record)
+            {
+                return record.Position == start.Head + 1 && record.Index == 0 && record.Previous.AsSpan().SequenceEqual(start.HeadHash);
+            }
+        }
+
+        if (rest == LogFormat.TrailerLength)
+        {
+            ReadOnlyMemory<byte> bytes = await store.ReadRangeAsync(segment.Id, new ByteOffset(start.Offset), new ByteCount(LogFormat.TrailerLength), cancellationToken).ConfigureAwait(false);
+            return LogFormat.TryDecodeTrailer(bytes.Span, dataset, start.Segment, out _, out long head, out byte[] hash)
+                && head == start.Head && hash.AsSpan().SequenceEqual(start.HeadHash);
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// The scan, handing each closed commit to <paramref name="onCommit"/> as
@@ -150,11 +229,11 @@ internal static class LogReader
     /// length is then bounded by what the callback keeps (ADR 0089).
     /// </summary>
     internal static ValueTask<LogScan> ScanAsync(ISegmentStore store, DatasetId dataset, long bodiesAfter, Func<ScannedCommit, ValueTask> onCommit, long window, CancellationToken cancellationToken) =>
-        ScanAsync(store, dataset, bodiesAfter, ScanRetains, onCommit, window, cancellationToken);
+        ScanAsync(store, dataset, bodiesAfter, ScanRetains, onCommit, window, null, long.MaxValue, cancellationToken);
 
     /// <summary>The scan, holding at most <paramref name="retain"/> bytes of any one commit's body.</summary>
     internal static ValueTask<LogScan> ScanAsync(ISegmentStore store, DatasetId dataset, long bodiesAfter, long retain, CancellationToken cancellationToken) =>
-        ScanAsync(store, dataset, bodiesAfter, retain, null, LogFormat.WriteWindowBytes, cancellationToken);
+        ScanAsync(store, dataset, bodiesAfter, retain, null, LogFormat.WriteWindowBytes, null, long.MaxValue, cancellationToken);
 
     /// <summary>
     /// What a scan holds of a commit it reads whole, for replay: past this,
@@ -166,7 +245,7 @@ internal static class LogReader
     internal const long ScanRetains = 64L << 20;
 
     private static async ValueTask<LogScan> ScanAsync(
-        ISegmentStore store, DatasetId dataset, long bodiesAfter, long retain, Func<ScannedCommit, ValueTask>? onCommit, long window, CancellationToken cancellationToken)
+        ISegmentStore store, DatasetId dataset, long bodiesAfter, long retain, Func<ScannedCommit, ValueTask>? onCommit, long window, LogStart? start, long upTo, CancellationToken cancellationToken)
     {
         LogScan scan = new()
         {
@@ -179,12 +258,29 @@ internal static class LogReader
         bool openEnded = false;
         int previousId = -1;
 
+        if (start is { } from)
+        {
+            scan.StartAt(from.Head, from.HeadHash);
+            headHash = from.HeadHash;
+            previousId = from.Segment - 1;
+        }
+
         for (int s = 0; s < scan.Segments.Count; s++)
         {
             SegmentInfo info = scan.Segments[s];
             int id = info.Id.Value;
             long expected = scan.Head + 1;
-            SegmentReader segment = await SegmentReader.OpenAsync(store, info, dataset, cancellationToken).ConfigureAwait(false);
+
+            // Before the cursor's segment: the catalog vouches for it, and it is not read.
+            if (start is { } skip && id < skip.Segment)
+            {
+                continue;
+            }
+
+            bool resumes = start is { } at && id == at.Segment;
+            SegmentReader segment = resumes
+                ? await SegmentReader.ResumeAsync(store, info, dataset, expected, headHash, cancellationToken).ConfigureAwait(false)
+                : await SegmentReader.OpenAsync(store, info, dataset, cancellationToken).ConfigureAwait(false);
 
             if (!openEnded && id != previousId + 1)
             {
@@ -224,8 +320,14 @@ internal static class LogReader
 
             if (segment.HeaderValid)
             {
-                long brokeAt = await ReadRecordsAsync(segment, scan, pending, bodiesAfter, headHash, window, cancellationToken).ConfigureAwait(false);
+                long brokeAt = await ReadRecordsAsync(segment, scan, pending, bodiesAfter, headHash, window, resumes ? start!.Value.Offset : LogFormat.SegmentHeaderLength, upTo, cancellationToken).ConfigureAwait(false);
                 headHash = scan.HeadHash;
+
+                if (scan.Stopped)
+                {
+                    return scan;
+                }
+
                 torn = brokeAt >= 0;
 
                 // A sealed segment's trailer, changed: what is left after the
@@ -291,9 +393,9 @@ internal static class LogReader
 
     // Reads one segment's records. Where they break, or -1 when they do not.
     private static async ValueTask<long> ReadRecordsAsync(
-        SegmentReader segment, LogScan scan, Pending pending, long bodiesAfter, byte[] headHash, long window, CancellationToken cancellationToken)
+        SegmentReader segment, LogScan scan, Pending pending, long bodiesAfter, byte[] headHash, long window, long from, long upTo, CancellationToken cancellationToken)
     {
-        long at = LogFormat.SegmentHeaderLength;
+        long at = from;
         bool first = true;
 
         while (at < segment.RecordsEnd)
@@ -379,6 +481,12 @@ internal static class LogReader
                 await scan.AddAsync(Close(pending, tail, expected, headHash, full)).ConfigureAwait(false);
                 headHash = scan.HeadHash;
                 pending.Clear();
+
+                if (scan.Head >= upTo)
+                {
+                    scan.Stopped = true;
+                    return -1;
+                }
             }
 
             at = bodyAt + record.BodyLength;
@@ -663,6 +771,34 @@ internal static class LogReader
                 reader.Previous = previous;
             }
 
+            return reader;
+        }
+
+        /// <summary>
+        /// A segment entered at the catalog's cursor rather than at its start:
+        /// its header is not read, and stands as continuing the chain at
+        /// <paramref name="position"/> after <paramref name="previous"/>.
+        /// </summary>
+        internal static async ValueTask<SegmentReader> ResumeAsync(ISegmentStore store, SegmentInfo info, DatasetId dataset, long position, byte[] previous, CancellationToken cancellationToken)
+        {
+            SegmentReader reader = new(store, info.Id);
+            long length = info.Length.Value;
+            reader.RecordsEnd = length;
+
+            if (length >= LogFormat.TrailerLength)
+            {
+                ReadOnlyMemory<byte> end = await reader.ReadAsync(length - LogFormat.TrailerLength, LogFormat.TrailerLength, cancellationToken).ConfigureAwait(false);
+
+                if (LogFormat.TryDecodeTrailer(end.Span, dataset, info.Id.Value, out byte status, out long head, out byte[] hash))
+                {
+                    reader.Trailer = new Trailer(status, head, hash);
+                    reader.RecordsEnd = length - LogFormat.TrailerLength;
+                }
+            }
+
+            reader.HeaderValid = true;
+            reader.FirstPosition = position;
+            reader.Previous = previous;
             return reader;
         }
 

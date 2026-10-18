@@ -585,7 +585,7 @@ eight-writer benchmark with one graph per writer at zero conflicts; the write
 benchmark before and after on the file backend; every existing property and
 the protocol suites unchanged.
 
-## Object storage — the log and the projections on any object store, Azure first
+## Object storage *(complete)* — the log and the projections on any object store, Azure first
 
 **Why.** Container Apps has no block disk, and Azure Files breaks the file
 backend's lease, `fsync` and memory-mapped reads. This is the deployment story

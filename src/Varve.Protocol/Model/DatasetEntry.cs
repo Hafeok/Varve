@@ -16,6 +16,9 @@ public enum DatasetStorage : byte
 
     /// <summary>Memory; gone with the process.</summary>
     Memory = 1,
+
+    /// <summary>A prefix in the host's object store; durable as the store is (ADRs 0134, 0139).</summary>
+    ObjectStorage = 2,
 }
 
 /// <summary>How the host came to know a dataset (ADR 0106).</summary>

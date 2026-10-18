@@ -10,8 +10,10 @@ a projection of it.
 - **One sequencer, optional expected position.** `Conflict(head)` is a normal
   answer, not an error.
 - **Pinned reads and as-of reads are different things.** `Pin()` is a snapshot
-  for one operation. `AsOfAsync(position)` is time travel, served from the
-  nearest checkpoint plus an overlay of the log tail.
+  for one operation. `AsOfAsync(position)` is time travel: below the newest
+  checkpoint it is served from the extents' validity intervals with no log
+  read (ADR 0138); above it, from the checkpoint plus an overlay of the log
+  tail.
 - **A header chain** makes two copies of one dataset that were continued
   independently detectably divergent.
 - **Pre-commit validators** bound to the dataset gate every commit; a request
@@ -29,7 +31,10 @@ a projection of it.
   in the projection's runs on disk, read through lookups by id and by term;
   opening reads the log after the newest persisted state and loads nothing per
   term. Checkpoints, written on demand or by a `CheckpointPolicy`, bound what
-  an as-of read and an open replay.
+  an as-of read and an open replay. A checkpoint is a chain of **extent
+  sets** named by a catalog (ADR 0139, derived format 4): each set holds one
+  window's intervals, written once, so space grows with the changes, not with
+  the number of checkpoints; dropping one merges its set into the next.
 - **Bulk loads.** `BeginBulkLoadAsync` takes any parser's quads as they are
   parsed; `BulkLoadOptions.Workers` threads resolve and spill them while the
   parser reads (ADR 0108), sorted outside memory within
@@ -42,7 +47,8 @@ a projection of it.
   filter says maybe; a format-2 dataset is read as before and migrates as
   maintenance rewrites its runs.
 - **Replicas by copying files.** `ShipAsync` copies the log up to a position
-  and a checkpoint into another storage, which opens at exactly that position.
+  and a checkpoint's extent sets into another storage, which opens at exactly
+  that position.
 - **Recovers from crashes.** A torn or unclosed tail is ignored, a copy taken
   while the dataset was being written opens at its last closed commit, and
   damage that no crash produces refuses rather than guesses.

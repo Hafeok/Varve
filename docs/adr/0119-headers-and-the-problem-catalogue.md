@@ -149,3 +149,17 @@ the maintainer accepts it (ADR 0066).
 
 **The ledger.** The ruling of this block is `EventProblemTypes`, unaccepted
 until the maintainer accepts it.
+
+## Amendment, 2026-10-15 — `writer-superseded`
+
+Filed by milestone Object storage of #92, unaccepted until the maintainer
+accepts it (ADR 0066). The catalogue gains `writer-superseded`, `503`, no
+members, titled "A newer writer holds the dataset; this instance serves reads
+only." A Graph Store write or a SPARQL Update answers with it when the
+dataset's storage no longer holds the writer epoch (ADR 0136); nothing was
+committed. The page is `docs/problems/writer-superseded.md`, and the catalogue
+test lists it as exercised by the server's object-store leg. Point 9's
+`as-of-distance-exceeded` counts the log an as-of read replays, which is none
+below the newest extent set (ADR 0138).
+
+**The ledger.** The ruling is ADR 0136's `WriterSupersededProblem`.

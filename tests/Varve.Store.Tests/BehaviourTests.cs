@@ -386,11 +386,10 @@ public class BehaviourTests
                 for (long p = 1; p <= head; p++)
                 {
                     await harness.Dataset.CheckpointAsync(new Position(p), T.Ct);
-                    BlobName name = (await harness.Storage.Derived.ListAsync(T.Ct)).Single(n => Checkpoint.TryParseName(n, out _));
-                    ReadOnlyMemory<byte> blob = await T.ReadBlobAsync(harness.Storage, name);
+                    List<(BlobName Name, ReadOnlyMemory<byte> Bytes)> blobs = await T.CheckpointBlobsAsync(harness.Storage);
                     await harness.Dataset.DropCheckpointAsync(new Position(p), T.Ct);
 
-                    MemoryStorage alone = MemoryStorage.FromLog(T.Manifest, log.Select(s => (ReadOnlyMemory<byte>)s), [new(name, blob)]);
+                    MemoryStorage alone = MemoryStorage.FromLog(T.Manifest, log.Select(s => (ReadOnlyMemory<byte>)s), blobs.Select(b => new KeyValuePair<BlobName, ReadOnlyMemory<byte>>(b.Name, b.Bytes)));
                     await using Dataset opened = await T.OpenOrCreate(alone, harness.Options);
                     Assert.Equal([new Position(p)], opened.Checkpoints);
 
@@ -424,9 +423,8 @@ public class BehaviourTests
             await dataset.CommitAsync(One("different"), T.Ct);
         }
 
-        BlobName name = (await first.Derived.ListAsync(T.Ct)).Single(n => Checkpoint.TryParseName(n, out _));
-        ReadOnlyMemory<byte> blob = await T.ReadBlobAsync(first, name);
-        MemoryStorage mixed = MemoryStorage.FromLog(T.Manifest, await LogPropertyTests.SegmentsAsync(second) is { } log ? log.Select(s => (ReadOnlyMemory<byte>)s) : [], [new(name, blob)]);
+        List<(BlobName Name, ReadOnlyMemory<byte> Bytes)> blobs = await T.CheckpointBlobsAsync(first);
+        MemoryStorage mixed = MemoryStorage.FromLog(T.Manifest, await LogPropertyTests.SegmentsAsync(second) is { } log ? log.Select(s => (ReadOnlyMemory<byte>)s) : [], blobs.Select(b => new KeyValuePair<BlobName, ReadOnlyMemory<byte>>(b.Name, b.Bytes)));
 
         await using Dataset opened = await T.Open(mixed);
         Assert.Empty(opened.Checkpoints);

@@ -70,7 +70,8 @@ public static class DatasetSetupFile
                 {
                     "File" => SetupStorage.File,
                     "Memory" => SetupStorage.Memory,
-                    _ => throw storage.Error(source, "storage is File or Memory"),
+                    "ObjectStorage" => SetupStorage.ObjectStorage,
+                    _ => throw storage.Error(source, "storage is File, Memory or ObjectStorage"),
                 }
                 : SetupStorage.File,
             Settings = top.Optional("settings")?.AsScalar(source).Text,

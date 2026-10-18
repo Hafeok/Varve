@@ -257,8 +257,8 @@ public class AllocationTests
             await large.CommitAsync(largeAssert, T.Ct);
         }
 
-        long smallCost = await MeasureAsync(small, smallRetract);
-        long largeCost = await MeasureAsync(large, largeRetract);
+        long smallCost = await MeasureAsync(small, smallRetract, smallAssert);
+        long largeCost = await MeasureAsync(large, largeRetract, largeAssert);
         double perQuad = (largeCost - smallCost) / (double)(Large - Small);
 
         TestContext.Current.TestOutputHelper?.WriteLine(
@@ -276,13 +276,29 @@ public class AllocationTests
     /// </summary>
     private const double Budget = 2_048;
 
-    private static async Task<long> MeasureAsync(Dataset dataset, CommitRequest request)
+    // The counter is the thread's, so a commit that resumes on another
+    // thread measures nothing: the difference is between two threads'
+    // counters. Such a reading is discarded, the retracted quads asserted
+    // again unmeasured, and the same retraction measured again.
+    private static async Task<long> MeasureAsync(Dataset dataset, CommitRequest retract, CommitRequest reassert)
     {
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        CommitResult result = await dataset.CommitAsync(request, T.Ct);
-        long cost = GC.GetAllocatedBytesForCurrentThread() - before;
-        Assert.Equal(CommitOutcome.Committed, result.Outcome);
-        return cost;
+        for (int attempt = 0; attempt < 20; attempt++)
+        {
+            int thread = Environment.CurrentManagedThreadId;
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            CommitResult result = await dataset.CommitAsync(retract, T.Ct);
+            long cost = GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.Equal(CommitOutcome.Committed, result.Outcome);
+
+            if (Environment.CurrentManagedThreadId == thread)
+            {
+                return cost;
+            }
+
+            await dataset.CommitAsync(reassert, T.Ct);
+        }
+
+        throw new InvalidOperationException("Every measured commit resumed on another thread.");
     }
 
     private static CommitRequest Request(int quads, bool assert)

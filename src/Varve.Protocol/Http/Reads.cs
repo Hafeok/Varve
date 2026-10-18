@@ -224,23 +224,10 @@ internal static class Reads
 
     /// <summary>
     /// The log distance an as-of read at <paramref name="position"/> replays
-    /// (R2): the commits above the nearest checkpoint at or below it, or above
-    /// position 0 when there is none.
+    /// (R2), as the store computes it: none below its newest extent set's end
+    /// (ADR 0138), else the commits above the nearest checkpoint at or below it.
     /// </summary>
-    internal static long AsOfDistance(Dataset dataset, Position position)
-    {
-        long nearest = 0;
-
-        foreach (Position checkpoint in dataset.Checkpoints)
-        {
-            if (checkpoint <= position && checkpoint.Value > nearest)
-            {
-                nearest = checkpoint.Value;
-            }
-        }
-
-        return position.Value - nearest;
-    }
+    internal static long AsOfDistance(Dataset dataset, Position position) => dataset.AsOfLogDistance(position);
 
     /// <summary>Whether the request carried <c>Varve-As-Of</c>.</summary>
     internal static bool IsAsOf(HttpContext context) => !StringValues.IsNullOrEmpty(context.Request.Headers[Preconditions.AsOfHeader]);

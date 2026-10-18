@@ -95,6 +95,32 @@ public interface ISegmentStore
 }
 
 /// <summary>
+/// A log its backend can open from a point rather than from its start (ADR
+/// 0139): the catalog records the backend's slot for where the log continues
+/// after the catalog's position, and an open hands it back before it reads
+/// the log, so a backend that keeps its log in parts reads only those from
+/// there on. Optional: a backend that reads its whole log cheaply does not
+/// implement it, and an open then reads the whole log.
+/// </summary>
+[Contract(typeof(ExtentsAndTheProjectionCatalog.CatalogRecordsTheLogCursor), Role = "a log opened from the catalog's cursor rather than from its start")]
+public interface ISegmentCursor
+{
+    /// <summary>
+    /// The backend's slot holding the byte just before <paramref name="offset"/>
+    /// of <paramref name="segment"/>, or one before it; 0, the segment's
+    /// first, is always correct.
+    /// </summary>
+    SegmentSlot SlotOf(SegmentId segment, ByteOffset offset);
+
+    /// <summary>
+    /// Says the log will be read from <paramref name="slot"/> of
+    /// <paramref name="segment"/> on. A read of anything before it is still
+    /// answered, by reading it then.
+    /// </summary>
+    ValueTask ReadFromAsync(SegmentId segment, SegmentSlot slot, CancellationToken cancellationToken);
+}
+
+/// <summary>
 /// Derived data: named blobs that may be rebuilt from the log and may be
 /// dropped without loss.
 /// </summary>
