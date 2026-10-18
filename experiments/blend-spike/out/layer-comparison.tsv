@@ -1,0 +1,149 @@
+from	to	L	M	R1	DD0001		project
+BlendSpike	Varve.Rdf		1	no verdict	not checked (no ArchLayer)	agree	experiments/blend-spike/BlendSpike/BlendSpike.csproj
+BlendSpike	Varve.Sparql		2	no verdict	not checked (no ArchLayer)	agree	experiments/blend-spike/BlendSpike/BlendSpike.csproj
+BlendSpike	Varve.Sparql.Evaluation		3	no verdict	not checked (no ArchLayer)	agree	experiments/blend-spike/BlendSpike/BlendSpike.csproj
+BlendSpike	Varve.Store		4	no verdict	not checked (no ArchLayer)	agree	experiments/blend-spike/BlendSpike/BlendSpike.csproj
+BlendSpike	Varve.Turtle		2	no verdict	not checked (no ArchLayer)	agree	experiments/blend-spike/BlendSpike/BlendSpike.csproj
+RepoStandard.Tests	RepoStandard			no verdict	not checked (test assembly)	agree	tools/repo-standard/tests/RepoStandard.Tests/RepoStandard.Tests.csproj
+Varve.Analyzers.Tests	Varve.Analyzers			no verdict	not checked (test assembly)	agree	tests/Varve.Analyzers.Tests/Varve.Analyzers.Tests.csproj
+Varve.AotSmoke	Varve.JsonLd	6	2	conforms	conforms	agree	tests/Varve.AotSmoke/Varve.AotSmoke.csproj
+Varve.AotSmoke	Varve.RdfXml	6	2	conforms	conforms	agree	tests/Varve.AotSmoke/Varve.AotSmoke.csproj
+Varve.AotSmoke	Varve.Sparql	6	2	conforms	conforms	agree	tests/Varve.AotSmoke/Varve.AotSmoke.csproj
+Varve.AotSmoke	Varve.Sparql.Evaluation	6	3	conforms	conforms	agree	tests/Varve.AotSmoke/Varve.AotSmoke.csproj
+Varve.AotSmoke	Varve.Sparql.Results	6	2	conforms	conforms	agree	tests/Varve.AotSmoke/Varve.AotSmoke.csproj
+Varve.AotSmoke	Varve.Sparql.Store	6	5	conforms	conforms	agree	tests/Varve.AotSmoke/Varve.AotSmoke.csproj
+Varve.AotSmoke	Varve.Store	6	4	conforms	conforms	agree	tests/Varve.AotSmoke/Varve.AotSmoke.csproj
+Varve.AotSmoke	Varve.Turtle	6	2	conforms	conforms	agree	tests/Varve.AotSmoke/Varve.AotSmoke.csproj
+Varve.Aspire.Sample	Varve.Aspire	6	0	conforms	conforms	agree	samples/Varve.Aspire.Sample/Varve.Aspire.Sample.csproj
+Varve.Aspire.Sample.Tests	Varve.Aspire.Sample		6	no verdict	not checked (test assembly)	agree	samples/Varve.Aspire.Sample.Tests/Varve.Aspire.Sample.Tests.csproj
+Varve.Benchmarks	Varve.RdfXml	6	2	conforms	conforms	agree	tests/Varve.Benchmarks/Varve.Benchmarks.csproj
+Varve.Benchmarks	Varve.Sparql	6	2	conforms	conforms	agree	tests/Varve.Benchmarks/Varve.Benchmarks.csproj
+Varve.Benchmarks	Varve.Sparql.Evaluation	6	3	conforms	conforms	agree	tests/Varve.Benchmarks/Varve.Benchmarks.csproj
+Varve.Benchmarks	Varve.Sparql.Results	6	2	conforms	conforms	agree	tests/Varve.Benchmarks/Varve.Benchmarks.csproj
+Varve.Benchmarks	Varve.Sparql.Store	6	5	conforms	conforms	agree	tests/Varve.Benchmarks/Varve.Benchmarks.csproj
+Varve.Benchmarks	Varve.Store	6	4	conforms	conforms	agree	tests/Varve.Benchmarks/Varve.Benchmarks.csproj
+Varve.Benchmarks	Varve.Store.Azure	6	5	conforms	conforms	agree	tests/Varve.Benchmarks/Varve.Benchmarks.csproj
+Varve.Benchmarks	Varve.Store.ObjectStorage	6	5	conforms	conforms	agree	tests/Varve.Benchmarks/Varve.Benchmarks.csproj
+Varve.Benchmarks	Varve.Store.S3	6	5	conforms	conforms	agree	tests/Varve.Benchmarks/Varve.Benchmarks.csproj
+Varve.Benchmarks	Varve.Turtle	6	2	conforms	conforms	agree	tests/Varve.Benchmarks/Varve.Benchmarks.csproj
+Varve.Conformance.Tests	Varve.JsonLd		2	no verdict	not checked (test assembly)	agree	tests/Varve.Conformance.Tests/Varve.Conformance.Tests.csproj
+Varve.Conformance.Tests	Varve.Protocol		5	no verdict	not checked (test assembly)	agree	tests/Varve.Conformance.Tests/Varve.Conformance.Tests.csproj
+Varve.Conformance.Tests	Varve.Protocol.Client		5	no verdict	not checked (test assembly)	agree	tests/Varve.Conformance.Tests/Varve.Conformance.Tests.csproj
+Varve.Conformance.Tests	Varve.RdfXml		2	no verdict	not checked (test assembly)	agree	tests/Varve.Conformance.Tests/Varve.Conformance.Tests.csproj
+Varve.Conformance.Tests	Varve.Sparql		2	no verdict	not checked (test assembly)	agree	tests/Varve.Conformance.Tests/Varve.Conformance.Tests.csproj
+Varve.Conformance.Tests	Varve.Sparql.Evaluation		3	no verdict	not checked (test assembly)	agree	tests/Varve.Conformance.Tests/Varve.Conformance.Tests.csproj
+Varve.Conformance.Tests	Varve.Sparql.Results		2	no verdict	not checked (test assembly)	agree	tests/Varve.Conformance.Tests/Varve.Conformance.Tests.csproj
+Varve.Conformance.Tests	Varve.Sparql.Store		5	no verdict	not checked (test assembly)	agree	tests/Varve.Conformance.Tests/Varve.Conformance.Tests.csproj
+Varve.Conformance.Tests	Varve.Store		4	no verdict	not checked (test assembly)	agree	tests/Varve.Conformance.Tests/Varve.Conformance.Tests.csproj
+Varve.Conformance.Tests	Varve.Turtle		2	no verdict	not checked (test assembly)	agree	tests/Varve.Conformance.Tests/Varve.Conformance.Tests.csproj
+Varve.Delta	Varve.Rdf	3	1	conforms	conforms	agree	src/Varve.Delta/Varve.Delta.csproj
+Varve.Delta	Varve.Turtle	3	2	conforms	conforms	agree	src/Varve.Delta/Varve.Delta.csproj
+Varve.Delta.Tests	Varve.Delta		3	no verdict	not checked (test assembly)	agree	tests/Varve.Delta.Tests/Varve.Delta.Tests.csproj
+Varve.EventHubs.Sample	Varve.Protocol.Client	6	5	conforms	conforms	agree	samples/Varve.EventHubs.Sample/Varve.EventHubs.Sample.csproj
+Varve.EventHubs.Sample.Tests	Varve.EventHubs.Sample		6	no verdict	not checked (test assembly)	agree	samples/Varve.EventHubs.Sample.Tests/Varve.EventHubs.Sample.Tests.csproj
+Varve.EventHubs.Sample.Tests	Varve.Server		6	no verdict	not checked (test assembly)	agree	samples/Varve.EventHubs.Sample.Tests/Varve.EventHubs.Sample.Tests.csproj
+Varve.Events	Varve.Delta	4	3	conforms	conforms	agree	src/Varve.Events/Varve.Events.csproj
+Varve.Events	Varve.Json.Canonical	4	0	conforms	conforms	agree	src/Varve.Events/Varve.Events.csproj
+Varve.Events	Varve.Rdf	4	1	conforms	conforms	agree	src/Varve.Events/Varve.Events.csproj
+Varve.Events	Varve.Sparql	4	2	conforms	conforms	agree	src/Varve.Events/Varve.Events.csproj
+Varve.Events	Varve.Sparql.Evaluation	4	3	conforms	conforms	agree	src/Varve.Events/Varve.Events.csproj
+Varve.Events	Varve.Xsd	4	0	conforms	conforms	agree	src/Varve.Events/Varve.Events.csproj
+Varve.Events.Tests	Varve.Events		4	no verdict	not checked (test assembly)	agree	tests/Varve.Events.Tests/Varve.Events.Tests.csproj
+Varve.Events.Tests	Varve.Turtle		2	no verdict	not checked (test assembly)	agree	tests/Varve.Events.Tests/Varve.Events.Tests.csproj
+Varve.Fixture.Consumer	Varve.Fixture.Base	1	0	conforms	conforms	agree	tests/fixtures/layer-rule/conforming/Varve.Fixture.Consumer/Varve.Fixture.Consumer.csproj
+Varve.Fixture.Lower	Varve.Fixture.Upper	1	2	reported	reported	agree	tests/fixtures/layer-rule/violating/Varve.Fixture.Lower/Varve.Fixture.Lower.csproj
+Varve.Iri.Tests	Varve.Iri		0	no verdict	not checked (test assembly)	agree	tests/Varve.Iri.Tests/Varve.Iri.Tests.csproj
+Varve.Json.Canonical.Tests	Varve.Json.Canonical		0	no verdict	not checked (test assembly)	agree	tests/Varve.Json.Canonical.Tests/Varve.Json.Canonical.Tests.csproj
+Varve.JsonLd	Varve.Iri	2	0	conforms	conforms	agree	src/Varve.JsonLd/Varve.JsonLd.csproj
+Varve.JsonLd	Varve.Json.Canonical	2	0	conforms	conforms	agree	src/Varve.JsonLd/Varve.JsonLd.csproj
+Varve.JsonLd	Varve.Rdf	2	1	conforms	conforms	agree	src/Varve.JsonLd/Varve.JsonLd.csproj
+Varve.JsonLd	Varve.Xsd	2	0	conforms	conforms	agree	src/Varve.JsonLd/Varve.JsonLd.csproj
+Varve.JsonLd.Tests	Varve.JsonLd		2	no verdict	not checked (test assembly)	agree	tests/Varve.JsonLd.Tests/Varve.JsonLd.Tests.csproj
+Varve.JsonLd.Tests	Varve.Turtle		2	no verdict	not checked (test assembly)	agree	tests/Varve.JsonLd.Tests/Varve.JsonLd.Tests.csproj
+Varve.OnBehalfOf.Sample	Varve.Protocol.Client	6	5	conforms	conforms	agree	samples/Varve.OnBehalfOf.Sample/Varve.OnBehalfOf.Sample.csproj
+Varve.OnBehalfOf.Sample.Tests	Varve.OnBehalfOf.Sample		6	no verdict	not checked (test assembly)	agree	samples/Varve.OnBehalfOf.Sample.Tests/Varve.OnBehalfOf.Sample.Tests.csproj
+Varve.OnBehalfOf.Sample.Tests	Varve.Server		6	no verdict	not checked (test assembly)	agree	samples/Varve.OnBehalfOf.Sample.Tests/Varve.OnBehalfOf.Sample.Tests.csproj
+Varve.Protocol	Varve.Delta	5	3	conforms	conforms	agree	src/Varve.Protocol/Varve.Protocol.csproj
+Varve.Protocol	Varve.Events	5	4	conforms	conforms	agree	src/Varve.Protocol/Varve.Protocol.csproj
+Varve.Protocol	Varve.Iri	5	0	conforms	conforms	agree	src/Varve.Protocol/Varve.Protocol.csproj
+Varve.Protocol	Varve.JsonLd	5	2	conforms	conforms	agree	src/Varve.Protocol/Varve.Protocol.csproj
+Varve.Protocol	Varve.Rdf	5	1	conforms	conforms	agree	src/Varve.Protocol/Varve.Protocol.csproj
+Varve.Protocol	Varve.RdfXml	5	2	conforms	conforms	agree	src/Varve.Protocol/Varve.Protocol.csproj
+Varve.Protocol	Varve.Sparql	5	2	conforms	conforms	agree	src/Varve.Protocol/Varve.Protocol.csproj
+Varve.Protocol	Varve.Sparql.Evaluation	5	3	conforms	conforms	agree	src/Varve.Protocol/Varve.Protocol.csproj
+Varve.Protocol	Varve.Sparql.Results	5	2	conforms	conforms	agree	src/Varve.Protocol/Varve.Protocol.csproj
+Varve.Protocol	Varve.Store	5	4	conforms	conforms	agree	src/Varve.Protocol/Varve.Protocol.csproj
+Varve.Protocol	Varve.Turtle	5	2	conforms	conforms	agree	src/Varve.Protocol/Varve.Protocol.csproj
+Varve.Protocol.Client	Varve.Delta	5	3	conforms	conforms	agree	src/Varve.Protocol.Client/Varve.Protocol.Client.csproj
+Varve.Protocol.Client	Varve.Iri	5	0	conforms	conforms	agree	src/Varve.Protocol.Client/Varve.Protocol.Client.csproj
+Varve.Protocol.Client	Varve.JsonLd	5	2	conforms	conforms	agree	src/Varve.Protocol.Client/Varve.Protocol.Client.csproj
+Varve.Protocol.Client	Varve.Rdf	5	1	conforms	conforms	agree	src/Varve.Protocol.Client/Varve.Protocol.Client.csproj
+Varve.Protocol.Client	Varve.RdfXml	5	2	conforms	conforms	agree	src/Varve.Protocol.Client/Varve.Protocol.Client.csproj
+Varve.Protocol.Client	Varve.Sparql	5	2	conforms	conforms	agree	src/Varve.Protocol.Client/Varve.Protocol.Client.csproj
+Varve.Protocol.Client	Varve.Sparql.Evaluation	5	3	conforms	conforms	agree	src/Varve.Protocol.Client/Varve.Protocol.Client.csproj
+Varve.Protocol.Client	Varve.Sparql.Results	5	2	conforms	conforms	agree	src/Varve.Protocol.Client/Varve.Protocol.Client.csproj
+Varve.Protocol.Client	Varve.Turtle	5	2	conforms	conforms	agree	src/Varve.Protocol.Client/Varve.Protocol.Client.csproj
+Varve.Protocol.Client.Tests	Varve.Protocol		5	no verdict	not checked (test assembly)	agree	tests/Varve.Protocol.Client.Tests/Varve.Protocol.Client.Tests.csproj
+Varve.Protocol.Client.Tests	Varve.Protocol.Client		5	no verdict	not checked (test assembly)	agree	tests/Varve.Protocol.Client.Tests/Varve.Protocol.Client.Tests.csproj
+Varve.Protocol.Client.Tests	Varve.Sparql.Store		5	no verdict	not checked (test assembly)	agree	tests/Varve.Protocol.Client.Tests/Varve.Protocol.Client.Tests.csproj
+Varve.Protocol.Tests	Varve.Delta		3	no verdict	not checked (test assembly)	agree	tests/Varve.Protocol.Tests/Varve.Protocol.Tests.csproj
+Varve.Protocol.Tests	Varve.Protocol		5	no verdict	not checked (test assembly)	agree	tests/Varve.Protocol.Tests/Varve.Protocol.Tests.csproj
+Varve.Protocol.Tests	Varve.Sparql.Store		5	no verdict	not checked (test assembly)	agree	tests/Varve.Protocol.Tests/Varve.Protocol.Tests.csproj
+Varve.Rdf	Varve.Iri	1	0	conforms	conforms	agree	src/Varve.Rdf/Varve.Rdf.csproj
+Varve.Rdf.Tests	Varve.Rdf		1	no verdict	not checked (test assembly)	agree	tests/Varve.Rdf.Tests/Varve.Rdf.Tests.csproj
+Varve.RdfXml	Varve.Iri	2	0	conforms	conforms	agree	src/Varve.RdfXml/Varve.RdfXml.csproj
+Varve.RdfXml	Varve.Rdf	2	1	conforms	conforms	agree	src/Varve.RdfXml/Varve.RdfXml.csproj
+Varve.RdfXml.Tests	Varve.RdfXml		2	no verdict	not checked (test assembly)	agree	tests/Varve.RdfXml.Tests/Varve.RdfXml.Tests.csproj
+Varve.RdfXml.Tests	Varve.Turtle		2	no verdict	not checked (test assembly)	agree	tests/Varve.RdfXml.Tests/Varve.RdfXml.Tests.csproj
+Varve.Server	Varve.Events	6	4	conforms	conforms	agree	src/Varve.Server/Varve.Server.csproj
+Varve.Server	Varve.Protocol	6	5	conforms	conforms	agree	src/Varve.Server/Varve.Server.csproj
+Varve.Server	Varve.Protocol.Client	6	5	conforms	conforms	agree	src/Varve.Server/Varve.Server.csproj
+Varve.Server	Varve.Sparql.Store	6	5	conforms	conforms	agree	src/Varve.Server/Varve.Server.csproj
+Varve.Server	Varve.Store	6	4	conforms	conforms	agree	src/Varve.Server/Varve.Server.csproj
+Varve.Server	Varve.Store.Azure	6	5	conforms	conforms	agree	src/Varve.Server/Varve.Server.csproj
+Varve.Server	Varve.Store.ObjectStorage	6	5	conforms	conforms	agree	src/Varve.Server/Varve.Server.csproj
+Varve.Server	Varve.Store.S3	6	5	conforms	conforms	agree	src/Varve.Server/Varve.Server.csproj
+Varve.Server.Tests	Varve.Server		6	no verdict	not checked (test assembly)	agree	tests/Varve.Server.Tests/Varve.Server.Tests.csproj
+Varve.Sparql	Varve.Iri	2	0	conforms	conforms	agree	src/Varve.Sparql/Varve.Sparql.csproj
+Varve.Sparql	Varve.Rdf	2	1	conforms	conforms	agree	src/Varve.Sparql/Varve.Sparql.csproj
+Varve.Sparql.Evaluation	Varve.Iri	3	0	conforms	conforms	agree	src/Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj
+Varve.Sparql.Evaluation	Varve.Rdf	3	1	conforms	conforms	agree	src/Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj
+Varve.Sparql.Evaluation	Varve.Sparql	3	2	conforms	conforms	agree	src/Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj
+Varve.Sparql.Evaluation	Varve.Xsd	3	0	conforms	conforms	agree	src/Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj
+Varve.Sparql.Evaluation.Tests	Varve.Sparql.Evaluation		3	no verdict	not checked (test assembly)	agree	tests/Varve.Sparql.Evaluation.Tests/Varve.Sparql.Evaluation.Tests.csproj
+Varve.Sparql.Evaluation.Tests	Varve.Store		4	no verdict	not checked (test assembly)	agree	tests/Varve.Sparql.Evaluation.Tests/Varve.Sparql.Evaluation.Tests.csproj
+Varve.Sparql.Results	Varve.Rdf	2	1	conforms	conforms	agree	src/Varve.Sparql.Results/Varve.Sparql.Results.csproj
+Varve.Sparql.Results.Tests	Varve.Sparql.Results		2	no verdict	not checked (test assembly)	agree	tests/Varve.Sparql.Results.Tests/Varve.Sparql.Results.Tests.csproj
+Varve.Sparql.Store	Varve.Rdf	5	1	conforms	conforms	agree	src/Varve.Sparql.Store/Varve.Sparql.Store.csproj
+Varve.Sparql.Store	Varve.Sparql	5	2	conforms	conforms	agree	src/Varve.Sparql.Store/Varve.Sparql.Store.csproj
+Varve.Sparql.Store	Varve.Sparql.Evaluation	5	3	conforms	conforms	agree	src/Varve.Sparql.Store/Varve.Sparql.Store.csproj
+Varve.Sparql.Store	Varve.Store	5	4	conforms	conforms	agree	src/Varve.Sparql.Store/Varve.Sparql.Store.csproj
+Varve.Sparql.Store	Varve.Turtle	5	2	conforms	conforms	agree	src/Varve.Sparql.Store/Varve.Sparql.Store.csproj
+Varve.Sparql.Store.Tests	Varve.Sparql.Store		5	no verdict	not checked (test assembly)	agree	tests/Varve.Sparql.Store.Tests/Varve.Sparql.Store.Tests.csproj
+Varve.Sparql.Tests	Varve.Sparql		2	no verdict	not checked (test assembly)	agree	tests/Varve.Sparql.Tests/Varve.Sparql.Tests.csproj
+Varve.Spike.SameLayer	Varve.Rdf	1	1	reported	reported	agree	experiments/blend-spike/negative-control/Varve.Spike.SameLayer/Varve.Spike.SameLayer.csproj
+Varve.Spike.Upward	Varve.Rdf	0	1	reported	reported	agree	experiments/blend-spike/negative-control/Varve.Spike.Upward/Varve.Spike.Upward.csproj
+Varve.Store	Varve.Rdf	4	1	conforms	conforms	agree	src/Varve.Store/Varve.Store.csproj
+Varve.Store	Varve.Xsd	4	0	conforms	conforms	agree	src/Varve.Store/Varve.Store.csproj
+Varve.Store.Azure	Varve.Store	5	4	conforms	conforms	agree	src/Varve.Store.Azure/Varve.Store.Azure.csproj
+Varve.Store.Browser	Varve.Store	5	4	conforms	conforms	agree	src/Varve.Store.Browser/Varve.Store.Browser.csproj
+Varve.Store.BrowserTests	Varve.Store	6	4	conforms	unknown (failed:       4 error NETSDK1147 )	not observed	tests/Varve.Store.BrowserTests/Varve.Store.BrowserTests.csproj
+Varve.Store.BrowserTests	Varve.Store.Browser	6	5	conforms	unknown (failed:       4 error NETSDK1147 )	not observed	tests/Varve.Store.BrowserTests/Varve.Store.BrowserTests.csproj
+Varve.Store.ObjectStorage	Varve.Store	5	4	conforms	conforms	agree	src/Varve.Store.ObjectStorage/Varve.Store.ObjectStorage.csproj
+Varve.Store.S3	Varve.Store	5	4	conforms	conforms	agree	src/Varve.Store.S3/Varve.Store.S3.csproj
+Varve.Store.Tests	Varve.Store		4	no verdict	not checked (test assembly)	agree	tests/Varve.Store.Tests/Varve.Store.Tests.csproj
+Varve.Store.Tests	Varve.Store.Azure		5	no verdict	not checked (test assembly)	agree	tests/Varve.Store.Tests/Varve.Store.Tests.csproj
+Varve.Store.Tests	Varve.Store.ObjectStorage		5	no verdict	not checked (test assembly)	agree	tests/Varve.Store.Tests/Varve.Store.Tests.csproj
+Varve.Store.Tests	Varve.Store.S3		5	no verdict	not checked (test assembly)	agree	tests/Varve.Store.Tests/Varve.Store.Tests.csproj
+Varve.Turtle	Varve.Rdf	2	1	conforms	conforms	agree	src/Varve.Turtle/Varve.Turtle.csproj
+Varve.Turtle.Tests	Varve.Turtle		2	no verdict	not checked (test assembly)	agree	tests/Varve.Turtle.Tests/Varve.Turtle.Tests.csproj
+Varve.WasmSmoke	Varve.JsonLd	6	2	conforms	unknown (failed:       4 error NETSDK1147 )	not observed	tests/Varve.WasmSmoke/Varve.WasmSmoke.csproj
+Varve.WasmSmoke	Varve.RdfXml	6	2	conforms	unknown (failed:       4 error NETSDK1147 )	not observed	tests/Varve.WasmSmoke/Varve.WasmSmoke.csproj
+Varve.WasmSmoke	Varve.Sparql	6	2	conforms	unknown (failed:       4 error NETSDK1147 )	not observed	tests/Varve.WasmSmoke/Varve.WasmSmoke.csproj
+Varve.WasmSmoke	Varve.Sparql.Evaluation	6	3	conforms	unknown (failed:       4 error NETSDK1147 )	not observed	tests/Varve.WasmSmoke/Varve.WasmSmoke.csproj
+Varve.WasmSmoke	Varve.Sparql.Results	6	2	conforms	unknown (failed:       4 error NETSDK1147 )	not observed	tests/Varve.WasmSmoke/Varve.WasmSmoke.csproj
+Varve.WasmSmoke	Varve.Sparql.Store	6	5	conforms	unknown (failed:       4 error NETSDK1147 )	not observed	tests/Varve.WasmSmoke/Varve.WasmSmoke.csproj
+Varve.WasmSmoke	Varve.Store	6	4	conforms	unknown (failed:       4 error NETSDK1147 )	not observed	tests/Varve.WasmSmoke/Varve.WasmSmoke.csproj
+Varve.WasmSmoke	Varve.Turtle	6	2	conforms	unknown (failed:       4 error NETSDK1147 )	not observed	tests/Varve.WasmSmoke/Varve.WasmSmoke.csproj
+Varve.Xsd.Tests	Varve.Xsd		0	no verdict	not checked (test assembly)	agree	tests/Varve.Xsd.Tests/Varve.Xsd.Tests.csproj
+Varve.Spike.Upward	Varve.Iri			no verdict (not a direct reference)	reported (transitive)	DISAGREE	?

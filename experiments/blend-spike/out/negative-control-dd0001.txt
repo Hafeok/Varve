@@ -1,0 +1,3 @@
+error DD0001: 'Varve.Spike.Upward' is at layer 0 and references 'Varve.Iri', which is at layer 0
+error DD0001: 'Varve.Spike.Upward' is at layer 0 and references 'Varve.Rdf', which is at layer 1
+error DD0001: 'Varve.Spike.SameLayer' is at layer 1 and references 'Varve.Rdf', which is at layer 1

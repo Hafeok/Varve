@@ -1,0 +1,4 @@
+== FriendItem
+Build succeeded
+== FriendSource
+error DD0002: 'Varve.Spike.FriendSource' grants InternalsVisibleTo to 'Varve.Spike.NotATest', which is not a test assembly. Decide: drop the grant and use the public surface, or move the code that needs the internals into 'Varve.Spike.FriendSource' or into a '*.Tests' assembly | mark it [DesignDecision

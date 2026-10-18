@@ -1,0 +1,12 @@
+ontology committed at 1
+81 git commits projected, positions 2 to 81
+working tree with declarations at 82, 21849 quads
+urn:dec:varve/LayersStrictlyDownward: 970 triples
+urn:dec:spike/R2DeterminismClosure: 121 triples
+urn:dec:spike/R5CostOnlyGrouping: 20 triples
+urn:dec:spike/R6RequestKindComposes: 22 triples
+level committed at 83 (derived at 82)
+urn:dec:spike/R3SubstituteFromTheDeterminant: 48 triples
+urn:dec:spike/R4InjectionLiftsAboveTheBan: 44 triples
+level committed at 84 (derived at 83)
+emergent: 110 constraints, at 85

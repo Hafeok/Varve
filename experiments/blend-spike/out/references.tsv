@@ -1,0 +1,148 @@
+?from	?to	?l	?m
+<urn:varve-spike:pkg:BlendSpike>	<urn:varve-spike:pkg:Varve.Rdf>		"1"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:BlendSpike>	<urn:varve-spike:pkg:Varve.Sparql>		"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:BlendSpike>	<urn:varve-spike:pkg:Varve.Sparql.Evaluation>		"3"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:BlendSpike>	<urn:varve-spike:pkg:Varve.Store>		"4"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:BlendSpike>	<urn:varve-spike:pkg:Varve.Turtle>		"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:RepoStandard.Tests>	<urn:varve-spike:pkg:RepoStandard>		
+<urn:varve-spike:pkg:Varve.Analyzers.Tests>	<urn:varve-spike:pkg:Varve.Analyzers>		
+<urn:varve-spike:pkg:Varve.AotSmoke>	<urn:varve-spike:pkg:Varve.JsonLd>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.AotSmoke>	<urn:varve-spike:pkg:Varve.RdfXml>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.AotSmoke>	<urn:varve-spike:pkg:Varve.Sparql>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.AotSmoke>	<urn:varve-spike:pkg:Varve.Sparql.Evaluation>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"3"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.AotSmoke>	<urn:varve-spike:pkg:Varve.Sparql.Results>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.AotSmoke>	<urn:varve-spike:pkg:Varve.Sparql.Store>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.AotSmoke>	<urn:varve-spike:pkg:Varve.Store>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.AotSmoke>	<urn:varve-spike:pkg:Varve.Turtle>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Aspire.Sample>	<urn:varve-spike:pkg:Varve.Aspire>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"0"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Aspire.Sample.Tests>	<urn:varve-spike:pkg:Varve.Aspire.Sample>		"6"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Benchmarks>	<urn:varve-spike:pkg:Varve.RdfXml>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Benchmarks>	<urn:varve-spike:pkg:Varve.Sparql>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Benchmarks>	<urn:varve-spike:pkg:Varve.Sparql.Evaluation>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"3"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Benchmarks>	<urn:varve-spike:pkg:Varve.Sparql.Results>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Benchmarks>	<urn:varve-spike:pkg:Varve.Sparql.Store>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Benchmarks>	<urn:varve-spike:pkg:Varve.Store>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Benchmarks>	<urn:varve-spike:pkg:Varve.Store.Azure>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Benchmarks>	<urn:varve-spike:pkg:Varve.Store.ObjectStorage>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Benchmarks>	<urn:varve-spike:pkg:Varve.Store.S3>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Benchmarks>	<urn:varve-spike:pkg:Varve.Turtle>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Conformance.Tests>	<urn:varve-spike:pkg:Varve.JsonLd>		"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Conformance.Tests>	<urn:varve-spike:pkg:Varve.Protocol>		"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Conformance.Tests>	<urn:varve-spike:pkg:Varve.Protocol.Client>		"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Conformance.Tests>	<urn:varve-spike:pkg:Varve.RdfXml>		"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Conformance.Tests>	<urn:varve-spike:pkg:Varve.Sparql>		"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Conformance.Tests>	<urn:varve-spike:pkg:Varve.Sparql.Evaluation>		"3"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Conformance.Tests>	<urn:varve-spike:pkg:Varve.Sparql.Results>		"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Conformance.Tests>	<urn:varve-spike:pkg:Varve.Sparql.Store>		"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Conformance.Tests>	<urn:varve-spike:pkg:Varve.Store>		"4"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Conformance.Tests>	<urn:varve-spike:pkg:Varve.Turtle>		"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Delta>	<urn:varve-spike:pkg:Varve.Rdf>	"3"^^<http://www.w3.org/2001/XMLSchema#integer>	"1"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Delta>	<urn:varve-spike:pkg:Varve.Turtle>	"3"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Delta.Tests>	<urn:varve-spike:pkg:Varve.Delta>		"3"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.EventHubs.Sample>	<urn:varve-spike:pkg:Varve.Protocol.Client>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.EventHubs.Sample.Tests>	<urn:varve-spike:pkg:Varve.EventHubs.Sample>		"6"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.EventHubs.Sample.Tests>	<urn:varve-spike:pkg:Varve.Server>		"6"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Events>	<urn:varve-spike:pkg:Varve.Delta>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>	"3"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Events>	<urn:varve-spike:pkg:Varve.Json.Canonical>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>	"0"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Events>	<urn:varve-spike:pkg:Varve.Rdf>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>	"1"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Events>	<urn:varve-spike:pkg:Varve.Sparql>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Events>	<urn:varve-spike:pkg:Varve.Sparql.Evaluation>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>	"3"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Events>	<urn:varve-spike:pkg:Varve.Xsd>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>	"0"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Events.Tests>	<urn:varve-spike:pkg:Varve.Events>		"4"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Events.Tests>	<urn:varve-spike:pkg:Varve.Turtle>		"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Fixture.Consumer>	<urn:varve-spike:pkg:Varve.Fixture.Base>	"1"^^<http://www.w3.org/2001/XMLSchema#integer>	"0"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Fixture.Lower>	<urn:varve-spike:pkg:Varve.Fixture.Upper>	"1"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Iri.Tests>	<urn:varve-spike:pkg:Varve.Iri>		"0"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Json.Canonical.Tests>	<urn:varve-spike:pkg:Varve.Json.Canonical>		"0"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.JsonLd>	<urn:varve-spike:pkg:Varve.Iri>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>	"0"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.JsonLd>	<urn:varve-spike:pkg:Varve.Json.Canonical>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>	"0"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.JsonLd>	<urn:varve-spike:pkg:Varve.Rdf>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>	"1"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.JsonLd>	<urn:varve-spike:pkg:Varve.Xsd>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>	"0"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.JsonLd.Tests>	<urn:varve-spike:pkg:Varve.JsonLd>		"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.JsonLd.Tests>	<urn:varve-spike:pkg:Varve.Turtle>		"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.OnBehalfOf.Sample>	<urn:varve-spike:pkg:Varve.Protocol.Client>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.OnBehalfOf.Sample.Tests>	<urn:varve-spike:pkg:Varve.OnBehalfOf.Sample>		"6"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.OnBehalfOf.Sample.Tests>	<urn:varve-spike:pkg:Varve.Server>		"6"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol>	<urn:varve-spike:pkg:Varve.Delta>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"3"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol>	<urn:varve-spike:pkg:Varve.Events>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol>	<urn:varve-spike:pkg:Varve.Iri>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"0"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol>	<urn:varve-spike:pkg:Varve.JsonLd>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol>	<urn:varve-spike:pkg:Varve.Rdf>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"1"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol>	<urn:varve-spike:pkg:Varve.RdfXml>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol>	<urn:varve-spike:pkg:Varve.Sparql>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol>	<urn:varve-spike:pkg:Varve.Sparql.Evaluation>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"3"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol>	<urn:varve-spike:pkg:Varve.Sparql.Results>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol>	<urn:varve-spike:pkg:Varve.Store>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol>	<urn:varve-spike:pkg:Varve.Turtle>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol.Client>	<urn:varve-spike:pkg:Varve.Delta>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"3"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol.Client>	<urn:varve-spike:pkg:Varve.Iri>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"0"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol.Client>	<urn:varve-spike:pkg:Varve.JsonLd>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol.Client>	<urn:varve-spike:pkg:Varve.Rdf>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"1"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol.Client>	<urn:varve-spike:pkg:Varve.RdfXml>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol.Client>	<urn:varve-spike:pkg:Varve.Sparql>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol.Client>	<urn:varve-spike:pkg:Varve.Sparql.Evaluation>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"3"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol.Client>	<urn:varve-spike:pkg:Varve.Sparql.Results>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol.Client>	<urn:varve-spike:pkg:Varve.Turtle>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol.Client.Tests>	<urn:varve-spike:pkg:Varve.Protocol>		"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol.Client.Tests>	<urn:varve-spike:pkg:Varve.Protocol.Client>		"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol.Client.Tests>	<urn:varve-spike:pkg:Varve.Sparql.Store>		"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol.Tests>	<urn:varve-spike:pkg:Varve.Delta>		"3"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol.Tests>	<urn:varve-spike:pkg:Varve.Protocol>		"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Protocol.Tests>	<urn:varve-spike:pkg:Varve.Sparql.Store>		"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Rdf>	<urn:varve-spike:pkg:Varve.Iri>	"1"^^<http://www.w3.org/2001/XMLSchema#integer>	"0"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Rdf.Tests>	<urn:varve-spike:pkg:Varve.Rdf>		"1"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.RdfXml>	<urn:varve-spike:pkg:Varve.Iri>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>	"0"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.RdfXml>	<urn:varve-spike:pkg:Varve.Rdf>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>	"1"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.RdfXml.Tests>	<urn:varve-spike:pkg:Varve.RdfXml>		"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.RdfXml.Tests>	<urn:varve-spike:pkg:Varve.Turtle>		"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Server>	<urn:varve-spike:pkg:Varve.Events>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Server>	<urn:varve-spike:pkg:Varve.Protocol>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Server>	<urn:varve-spike:pkg:Varve.Protocol.Client>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Server>	<urn:varve-spike:pkg:Varve.Sparql.Store>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Server>	<urn:varve-spike:pkg:Varve.Store>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Server>	<urn:varve-spike:pkg:Varve.Store.Azure>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Server>	<urn:varve-spike:pkg:Varve.Store.ObjectStorage>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Server>	<urn:varve-spike:pkg:Varve.Store.S3>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Server.Tests>	<urn:varve-spike:pkg:Varve.Server>		"6"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Sparql>	<urn:varve-spike:pkg:Varve.Iri>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>	"0"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Sparql>	<urn:varve-spike:pkg:Varve.Rdf>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>	"1"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Sparql.Evaluation>	<urn:varve-spike:pkg:Varve.Iri>	"3"^^<http://www.w3.org/2001/XMLSchema#integer>	"0"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Sparql.Evaluation>	<urn:varve-spike:pkg:Varve.Rdf>	"3"^^<http://www.w3.org/2001/XMLSchema#integer>	"1"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Sparql.Evaluation>	<urn:varve-spike:pkg:Varve.Sparql>	"3"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Sparql.Evaluation>	<urn:varve-spike:pkg:Varve.Xsd>	"3"^^<http://www.w3.org/2001/XMLSchema#integer>	"0"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Sparql.Evaluation.Tests>	<urn:varve-spike:pkg:Varve.Sparql.Evaluation>		"3"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Sparql.Evaluation.Tests>	<urn:varve-spike:pkg:Varve.Store>		"4"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Sparql.Results>	<urn:varve-spike:pkg:Varve.Rdf>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>	"1"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Sparql.Results.Tests>	<urn:varve-spike:pkg:Varve.Sparql.Results>		"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Sparql.Store>	<urn:varve-spike:pkg:Varve.Rdf>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"1"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Sparql.Store>	<urn:varve-spike:pkg:Varve.Sparql>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Sparql.Store>	<urn:varve-spike:pkg:Varve.Sparql.Evaluation>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"3"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Sparql.Store>	<urn:varve-spike:pkg:Varve.Store>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Sparql.Store>	<urn:varve-spike:pkg:Varve.Turtle>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Sparql.Store.Tests>	<urn:varve-spike:pkg:Varve.Sparql.Store>		"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Sparql.Tests>	<urn:varve-spike:pkg:Varve.Sparql>		"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Spike.SameLayer>	<urn:varve-spike:pkg:Varve.Rdf>	"1"^^<http://www.w3.org/2001/XMLSchema#integer>	"1"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Spike.Upward>	<urn:varve-spike:pkg:Varve.Rdf>	"0"^^<http://www.w3.org/2001/XMLSchema#integer>	"1"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Store>	<urn:varve-spike:pkg:Varve.Rdf>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>	"1"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Store>	<urn:varve-spike:pkg:Varve.Xsd>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>	"0"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Store.Azure>	<urn:varve-spike:pkg:Varve.Store>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Store.Browser>	<urn:varve-spike:pkg:Varve.Store>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Store.BrowserTests>	<urn:varve-spike:pkg:Varve.Store>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Store.BrowserTests>	<urn:varve-spike:pkg:Varve.Store.Browser>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Store.ObjectStorage>	<urn:varve-spike:pkg:Varve.Store>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Store.S3>	<urn:varve-spike:pkg:Varve.Store>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Store.Tests>	<urn:varve-spike:pkg:Varve.Store>		"4"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Store.Tests>	<urn:varve-spike:pkg:Varve.Store.Azure>		"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Store.Tests>	<urn:varve-spike:pkg:Varve.Store.ObjectStorage>		"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Store.Tests>	<urn:varve-spike:pkg:Varve.Store.S3>		"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Turtle>	<urn:varve-spike:pkg:Varve.Rdf>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>	"1"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Turtle.Tests>	<urn:varve-spike:pkg:Varve.Turtle>		"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.WasmSmoke>	<urn:varve-spike:pkg:Varve.JsonLd>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.WasmSmoke>	<urn:varve-spike:pkg:Varve.RdfXml>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.WasmSmoke>	<urn:varve-spike:pkg:Varve.Sparql>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.WasmSmoke>	<urn:varve-spike:pkg:Varve.Sparql.Evaluation>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"3"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.WasmSmoke>	<urn:varve-spike:pkg:Varve.Sparql.Results>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.WasmSmoke>	<urn:varve-spike:pkg:Varve.Sparql.Store>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"5"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.WasmSmoke>	<urn:varve-spike:pkg:Varve.Store>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"4"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.WasmSmoke>	<urn:varve-spike:pkg:Varve.Turtle>	"6"^^<http://www.w3.org/2001/XMLSchema#integer>	"2"^^<http://www.w3.org/2001/XMLSchema#integer>
+<urn:varve-spike:pkg:Varve.Xsd.Tests>	<urn:varve-spike:pkg:Varve.Xsd>		"0"^^<http://www.w3.org/2001/XMLSchema#integer>

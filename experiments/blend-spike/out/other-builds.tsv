@@ -1,0 +1,9 @@
+samples/Varve.Aspire.Sample/Varve.Aspire.Sample.csproj	succeeded	
+samples/Varve.EventHubs.Sample/Varve.EventHubs.Sample.csproj	succeeded	
+samples/Varve.OnBehalfOf.Sample/Varve.OnBehalfOf.Sample.csproj	succeeded	
+tests/Varve.AotSmoke/Varve.AotSmoke.csproj	succeeded	
+tests/Varve.Benchmarks/Varve.Benchmarks.csproj	succeeded	
+tests/Varve.WasmSmoke/Varve.WasmSmoke.csproj	failed:       4 error NETSDK1147 	
+tests/Varve.Store.BrowserTests/Varve.Store.BrowserTests.csproj	failed:       4 error NETSDK1147 	
+tests/fixtures/layer-rule/packable/Varve.Fixture.Packaged/Varve.Fixture.Packaged.csproj	succeeded	
+tests/fixtures/layer-rule/packable/Varve.Fixture.PackableNone/Varve.Fixture.PackableNone.csproj	failed:       2 error VARVE0005 	

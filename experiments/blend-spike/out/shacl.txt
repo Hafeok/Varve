@@ -1,0 +1,13 @@
+## layer.ttl: conforms=False, 3 results
+urn:varve-spike:pkg:Varve.Fixture.Lower	urn:varve-spike:pkg:Varve.Fixture.Upper	A reference must point to a strictly lower layer (ADR 0003 LayersStrictlyDownward, SameLayerReferenceIsViolation)
+urn:varve-spike:pkg:Varve.Spike.SameLayer	urn:varve-spike:pkg:Varve.Rdf	A reference must point to a strictly lower layer (ADR 0003 LayersStrictlyDownward, SameLayerReferenceIsViolation)
+urn:varve-spike:pkg:Varve.Spike.Upward	urn:varve-spike:pkg:Varve.Rdf	A reference must point to a strictly lower layer (ADR 0003 LayersStrictlyDownward, SameLayerReferenceIsViolation)
+## internals.ttl: conforms=False, 3 results
+urn:varve-spike:pkg:Varve.Spike.FriendItem	Varve.Spike.NotATest	InternalsVisibleTo is permitted toward *.Tests assemblies only (ADR 0003 InternalsVisibleToTestsOnly)
+urn:varve-spike:pkg:Varve.Store.Azure	Varve.Benchmarks	InternalsVisibleTo is permitted toward *.Tests assemblies only (ADR 0003 InternalsVisibleToTestsOnly)
+urn:varve-spike:pkg:Varve.Store.S3	Varve.Benchmarks	InternalsVisibleTo is permitted toward *.Tests assemblies only (ADR 0003 InternalsVisibleToTestsOnly)
+## level.ttl: conforms=False, 1 results
+urn:varve-spike:attempt-blend/0005-from-0064	urn:dec:varve/ContractTypeVocabulary	A blend's level must be strictly greater than every input's
+## contradiction.ttl: conforms=False, 1 results
+urn:varve-spike:c/adm1	urn:dec:varve/SettingsAreAResource	An accepted ruling says this exists while another accepted ruling says it was removed
+## emergent-computed.ttl: 0 graphs with a hand-written blend:emergent

@@ -1,0 +1,14 @@
+?decision	?target	?blend	?rule	?emergent
+<urn:dec:varve/BatchBoundaryIsInNoContract>	<urn:varve-spike:c/t0124>	<urn:varve-spike:blend/R5/urn%3Avarve-spike%3Alib%23Batch/urn%3Avarve-spike%3Alib%23Contract>	<urn:dec:spike/R5CostOnlyGrouping>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>
+<urn:dec:varve/CompositionRootIsTheExecutable>	<urn:varve-spike:c/t0060a>			
+<urn:dec:varve/CompositionRootIsTheExecutable>	<urn:varve-spike:c/t0060b>			
+<urn:dec:varve/EvaluatorUnderDeterministicBan>	<urn:varve-spike:c/t0056a>	<urn:varve-spike:blend/R2/urn%3Avarve-spike%3Alib%23AmbientClockRead/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Evaluation>	<urn:dec:spike/R2DeterminismClosure>	
+<urn:dec:varve/EvaluatorUnderDeterministicBan>	<urn:varve-spike:c/t0056b>	<urn:varve-spike:blend/R2/urn%3Avarve-spike%3Alib%23AmbientRandomRead/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Evaluation>	<urn:dec:spike/R2DeterminismClosure>	
+<urn:dec:varve/NoAmbientClockOrRandomness>	<urn:varve-spike:c/t0011a>	<urn:varve-spike:blend/R2/urn%3Avarve-spike%3Alib%23AmbientClockRead/urn%3Avarve-spike%3Apkg%3AVarve.Store>	<urn:dec:spike/R2DeterminismClosure>	
+<urn:dec:varve/NoAmbientClockOrRandomness>	<urn:varve-spike:c/t0011b>	<urn:varve-spike:blend/R2/urn%3Avarve-spike%3Alib%23AmbientRandomRead/urn%3Avarve-spike%3Apkg%3AVarve.Store>	<urn:dec:spike/R2DeterminismClosure>	
+<urn:dec:varve/NoLeaseNoTimer>	<urn:varve-spike:c/t0136>			
+<urn:dec:varve/NoWallClockFreshness>	<urn:varve-spike:c/t0140a>	<urn:varve-spike:blend/R2/urn%3Avarve-spike%3Alib%23NOW/urn%3Avarve-spike%3Alib%23StandingQueryResult>	<urn:dec:spike/R2DeterminismClosure>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>
+<urn:dec:varve/NoWallClockFreshness>	<urn:varve-spike:c/t0140b>			
+<urn:dec:varve/SettingsCommitOverHttp>	<urn:varve-spike:c/t0106>	<urn:varve-spike:blend/R6/urn%3Avarve-spike%3Alib%23SettingsChangeOverHttp/urn%3Avarve-spike%3Alib%23SettingsCommit>	<urn:dec:spike/R6RequestKindComposes>	
+<urn:dec:varve/StoreReferencesNoSparql>	<urn:varve-spike:c/t0005a>			
+<urn:dec:varve/StoreReferencesNoSparql>	<urn:varve-spike:c/t0005b>			

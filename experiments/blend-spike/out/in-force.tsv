@@ -1,0 +1,121 @@
+?blend	?inForce	?unaccepted
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.AotSmoke/urn%3Avarve-spike%3Apkg%3AVarve.JsonLd>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.AotSmoke/urn%3Avarve-spike%3Apkg%3AVarve.RdfXml>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.AotSmoke/urn%3Avarve-spike%3Apkg%3AVarve.Sparql>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.AotSmoke/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Evaluation>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.AotSmoke/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Results>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.AotSmoke/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Store>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.AotSmoke/urn%3Avarve-spike%3Apkg%3AVarve.Store>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.AotSmoke/urn%3Avarve-spike%3Apkg%3AVarve.Turtle>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Aspire.Sample/urn%3Avarve-spike%3Apkg%3AVarve.Aspire>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Benchmarks/urn%3Avarve-spike%3Apkg%3AVarve.RdfXml>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Benchmarks/urn%3Avarve-spike%3Apkg%3AVarve.Sparql>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Benchmarks/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Evaluation>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Benchmarks/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Results>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Benchmarks/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Store>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Benchmarks/urn%3Avarve-spike%3Apkg%3AVarve.Store>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Benchmarks/urn%3Avarve-spike%3Apkg%3AVarve.Store.Azure>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Benchmarks/urn%3Avarve-spike%3Apkg%3AVarve.Store.ObjectStorage>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Benchmarks/urn%3Avarve-spike%3Apkg%3AVarve.Store.S3>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Benchmarks/urn%3Avarve-spike%3Apkg%3AVarve.Turtle>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Delta/urn%3Avarve-spike%3Apkg%3AVarve.Rdf>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Delta/urn%3Avarve-spike%3Apkg%3AVarve.Turtle>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.EventHubs.Sample/urn%3Avarve-spike%3Apkg%3AVarve.Protocol.Client>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Events/urn%3Avarve-spike%3Apkg%3AVarve.Delta>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Events/urn%3Avarve-spike%3Apkg%3AVarve.Json.Canonical>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Events/urn%3Avarve-spike%3Apkg%3AVarve.Rdf>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Events/urn%3Avarve-spike%3Apkg%3AVarve.Sparql>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Events/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Evaluation>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Events/urn%3Avarve-spike%3Apkg%3AVarve.Xsd>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Fixture.Consumer/urn%3Avarve-spike%3Apkg%3AVarve.Fixture.Base>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Fixture.Lower/urn%3Avarve-spike%3Apkg%3AVarve.Fixture.Upper>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.JsonLd/urn%3Avarve-spike%3Apkg%3AVarve.Iri>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.JsonLd/urn%3Avarve-spike%3Apkg%3AVarve.Json.Canonical>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.JsonLd/urn%3Avarve-spike%3Apkg%3AVarve.Rdf>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.JsonLd/urn%3Avarve-spike%3Apkg%3AVarve.Xsd>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.OnBehalfOf.Sample/urn%3Avarve-spike%3Apkg%3AVarve.Protocol.Client>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Protocol.Client/urn%3Avarve-spike%3Apkg%3AVarve.Delta>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Protocol.Client/urn%3Avarve-spike%3Apkg%3AVarve.Iri>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Protocol.Client/urn%3Avarve-spike%3Apkg%3AVarve.JsonLd>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Protocol.Client/urn%3Avarve-spike%3Apkg%3AVarve.Rdf>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Protocol.Client/urn%3Avarve-spike%3Apkg%3AVarve.RdfXml>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Protocol.Client/urn%3Avarve-spike%3Apkg%3AVarve.Sparql>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Protocol.Client/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Evaluation>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Protocol.Client/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Results>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Protocol.Client/urn%3Avarve-spike%3Apkg%3AVarve.Turtle>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Protocol/urn%3Avarve-spike%3Apkg%3AVarve.Delta>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Protocol/urn%3Avarve-spike%3Apkg%3AVarve.Events>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Protocol/urn%3Avarve-spike%3Apkg%3AVarve.Iri>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Protocol/urn%3Avarve-spike%3Apkg%3AVarve.JsonLd>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Protocol/urn%3Avarve-spike%3Apkg%3AVarve.Rdf>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Protocol/urn%3Avarve-spike%3Apkg%3AVarve.RdfXml>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Protocol/urn%3Avarve-spike%3Apkg%3AVarve.Sparql>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Protocol/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Evaluation>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Protocol/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Results>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Protocol/urn%3Avarve-spike%3Apkg%3AVarve.Store>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Protocol/urn%3Avarve-spike%3Apkg%3AVarve.Turtle>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Rdf/urn%3Avarve-spike%3Apkg%3AVarve.Iri>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.RdfXml/urn%3Avarve-spike%3Apkg%3AVarve.Iri>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.RdfXml/urn%3Avarve-spike%3Apkg%3AVarve.Rdf>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Server/urn%3Avarve-spike%3Apkg%3AVarve.Events>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Server/urn%3Avarve-spike%3Apkg%3AVarve.Protocol>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Server/urn%3Avarve-spike%3Apkg%3AVarve.Protocol.Client>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Server/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Store>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Server/urn%3Avarve-spike%3Apkg%3AVarve.Store>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Server/urn%3Avarve-spike%3Apkg%3AVarve.Store.Azure>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Server/urn%3Avarve-spike%3Apkg%3AVarve.Store.ObjectStorage>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Server/urn%3Avarve-spike%3Apkg%3AVarve.Store.S3>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Evaluation/urn%3Avarve-spike%3Apkg%3AVarve.Iri>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Evaluation/urn%3Avarve-spike%3Apkg%3AVarve.Rdf>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Evaluation/urn%3Avarve-spike%3Apkg%3AVarve.Sparql>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Evaluation/urn%3Avarve-spike%3Apkg%3AVarve.Xsd>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Results/urn%3Avarve-spike%3Apkg%3AVarve.Rdf>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Store/urn%3Avarve-spike%3Apkg%3AVarve.Rdf>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Store/urn%3Avarve-spike%3Apkg%3AVarve.Sparql>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Store/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Evaluation>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Store/urn%3Avarve-spike%3Apkg%3AVarve.Store>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Store/urn%3Avarve-spike%3Apkg%3AVarve.Turtle>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Sparql/urn%3Avarve-spike%3Apkg%3AVarve.Iri>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Sparql/urn%3Avarve-spike%3Apkg%3AVarve.Rdf>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Spike.SameLayer/urn%3Avarve-spike%3Apkg%3AVarve.Rdf>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Spike.Upward/urn%3Avarve-spike%3Apkg%3AVarve.Rdf>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Store.Azure/urn%3Avarve-spike%3Apkg%3AVarve.Store>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Store.Browser/urn%3Avarve-spike%3Apkg%3AVarve.Store>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Store.BrowserTests/urn%3Avarve-spike%3Apkg%3AVarve.Store>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Store.BrowserTests/urn%3Avarve-spike%3Apkg%3AVarve.Store.Browser>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Store.ObjectStorage/urn%3Avarve-spike%3Apkg%3AVarve.Store>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Store.S3/urn%3Avarve-spike%3Apkg%3AVarve.Store>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Store/urn%3Avarve-spike%3Apkg%3AVarve.Rdf>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Store/urn%3Avarve-spike%3Apkg%3AVarve.Xsd>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.Turtle/urn%3Avarve-spike%3Apkg%3AVarve.Rdf>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.WasmSmoke/urn%3Avarve-spike%3Apkg%3AVarve.JsonLd>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.WasmSmoke/urn%3Avarve-spike%3Apkg%3AVarve.RdfXml>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.WasmSmoke/urn%3Avarve-spike%3Apkg%3AVarve.Sparql>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.WasmSmoke/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Evaluation>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.WasmSmoke/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Results>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.WasmSmoke/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Store>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.WasmSmoke/urn%3Avarve-spike%3Apkg%3AVarve.Store>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R1/urn%3Avarve-spike%3Apkg%3AVarve.WasmSmoke/urn%3Avarve-spike%3Apkg%3AVarve.Turtle>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>	
+<urn:varve-spike:blend/R2/urn%3Avarve-spike%3Alib%23AmbientClockRead/urn%3Avarve-spike%3Alib%23ProjectionState>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/AmbientReads>
+<urn:varve-spike:blend/R2/urn%3Avarve-spike%3Alib%23AmbientClockRead/urn%3Avarve-spike%3Alib%23QueryResult>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/AmbientReads>
+<urn:varve-spike:blend/R2/urn%3Avarve-spike%3Alib%23AmbientClockRead/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Evaluation>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/AmbientReads>
+<urn:varve-spike:blend/R2/urn%3Avarve-spike%3Alib%23AmbientClockRead/urn%3Avarve-spike%3Apkg%3AVarve.Store>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/AmbientReads>
+<urn:varve-spike:blend/R2/urn%3Avarve-spike%3Alib%23AmbientRandomRead/urn%3Avarve-spike%3Alib%23ProjectionState>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/AmbientReads>
+<urn:varve-spike:blend/R2/urn%3Avarve-spike%3Alib%23AmbientRandomRead/urn%3Avarve-spike%3Alib%23QueryResult>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/AmbientReads>
+<urn:varve-spike:blend/R2/urn%3Avarve-spike%3Alib%23AmbientRandomRead/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Evaluation>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/AmbientReads>
+<urn:varve-spike:blend/R2/urn%3Avarve-spike%3Alib%23AmbientRandomRead/urn%3Avarve-spike%3Apkg%3AVarve.Store>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/AmbientReads>
+<urn:varve-spike:blend/R2/urn%3Avarve-spike%3Alib%23NOW/urn%3Avarve-spike%3Alib%23StandingQueryResult>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/WhatComputationsInvoke>
+<urn:varve-spike:blend/R2/urn%3Avarve-spike%3Alib%23RAND/urn%3Avarve-spike%3Alib%23StandingQueryResult>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/WhatComputationsInvoke>
+<urn:varve-spike:blend/R2/urn%3Avarve-spike%3Alib%23UUID/urn%3Avarve-spike%3Alib%23StandingQueryResult>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/WhatComputationsInvoke>
+<urn:varve-spike:blend/R3/urn%3Avarve-spike%3Alib%23AmbientClockRead/urn%3Avarve-spike%3Alib%23CommitTimestamp/urn%3Avarve-spike%3Alib%23ProjectionState>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/AmbientReads>
+<urn:varve-spike:blend/R3/urn%3Avarve-spike%3Alib%23AmbientClockRead/urn%3Avarve-spike%3Alib%23InjectedClock/urn%3Avarve-spike%3Alib%23QueryResult>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/AmbientReads>
+<urn:varve-spike:blend/R3/urn%3Avarve-spike%3Alib%23AmbientRandomRead/urn%3Avarve-spike%3Alib%23InjectedRandomness/urn%3Avarve-spike%3Alib%23QueryResult>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/AmbientReads>
+<urn:varve-spike:blend/R3/urn%3Avarve-spike%3Alib%23NOW/urn%3Avarve-spike%3Alib%23CommitTimestamp/urn%3Avarve-spike%3Alib%23StandingQueryResult>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/WhatComputationsInvoke>
+<urn:varve-spike:blend/R4/urn%3Avarve-spike%3Alib%23Entropy/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Evaluation>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/AmbientReads>
+<urn:varve-spike:blend/R4/urn%3Avarve-spike%3Alib%23Entropy/urn%3Avarve-spike%3Apkg%3AVarve.Store>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/AmbientReads>
+<urn:varve-spike:blend/R4/urn%3Avarve-spike%3Alib%23WallClock/urn%3Avarve-spike%3Apkg%3AVarve.Sparql.Evaluation>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/AmbientReads>
+<urn:varve-spike:blend/R4/urn%3Avarve-spike%3Alib%23WallClock/urn%3Avarve-spike%3Apkg%3AVarve.Store>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/AmbientReads>
+<urn:varve-spike:blend/R5/urn%3Avarve-spike%3Alib%23Batch/urn%3Avarve-spike%3Alib%23Contract>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/R5CostOnlyGrouping>
+<urn:varve-spike:blend/R5/urn%3Avarve-spike%3Alib%23SpillRun/urn%3Avarve-spike%3Alib%23Contract>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/R5CostOnlyGrouping>
+<urn:varve-spike:blend/R6/urn%3Avarve-spike%3Alib%23ErasureOverHttp/urn%3Avarve-spike%3Alib%23ErasureCommit>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/SettingsOverHttpIsAWrite>
+<urn:varve-spike:blend/R6/urn%3Avarve-spike%3Alib%23SettingsChangeOverHttp/urn%3Avarve-spike%3Alib%23SettingsCommit>	"false"^^<http://www.w3.org/2001/XMLSchema#boolean>	<urn:dec:spike/SettingsOverHttpIsAWrite>

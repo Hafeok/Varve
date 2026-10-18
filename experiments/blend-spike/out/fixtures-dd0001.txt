@@ -1,0 +1,4 @@
+== tests/fixtures/layer-rule/violating/Varve.Fixture.Lower/Varve.Fixture.Lower.csproj
+error DD0001: 'Varve.Fixture.Lower' is at layer 1 and references 'Varve.Fixture.Upper', which is at layer 2
+== tests/fixtures/layer-rule/conforming/Varve.Fixture.Consumer/Varve.Fixture.Consumer.csproj
+Build succeeded
