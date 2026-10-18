@@ -1,0 +1,8 @@
+# blend:emergent is only ever computed, here: a constraint for which all three
+# criteria of criteria.rq hold. The host substitutes criteria.rq's SELECT for
+# the marker below, so the two can never disagree.
+CONSTRUCT { ?constraint blend:emergent true }
+WHERE {
+  { #CRITERIA# }
+  FILTER(?c1 && ?c2 && ?c3)
+}

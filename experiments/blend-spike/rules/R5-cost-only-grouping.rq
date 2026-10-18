@@ -1,0 +1,25 @@
+# R5: cost-only grouping.
+# Input 1: a space stating ?g groups ?u and ?g amortises a cost.
+# Input 2: a space stating ?u inContract ?k.
+# Blend: ?g is in no contract.
+CONSTRUCT {
+  ?b a blend:Blend ; blend:level ?lvl ;
+     prov:wasDerivedFrom ?rv, ?v1, ?v2 ;
+     blend:constrains ?c .
+  ?c a blend:Constraint ; lib:subject ?g ; lib:relation lib:inNoContract ; lib:object ?k .
+}
+WHERE {
+  GRAPH <urn:varve-spike:g/spaces> {
+    ?s1 blend:constrains ?c1, ?c1b ; blend:level ?l1 .
+    ?c1 lib:subject ?g ; lib:relation lib:groups ; lib:object ?u .
+    ?c1b lib:subject ?g ; lib:relation lib:amortises .
+    ?s2 blend:constrains ?c2 ; blend:level ?l2 .
+    ?c2 lib:subject ?u ; lib:relation lib:inContract ; lib:object ?k .
+  }
+  GRAPH ?g1 { ?v1 a ledger:DecisionVersion ; ledger:ofDecision ?s1 }
+  GRAPH ?g2 { ?v2 a ledger:DecisionVersion ; ledger:ofDecision ?s2 }
+  BIND(<urn:ver:spike/R5CostOnlyGrouping/1> AS ?rv)
+  BIND((IF(?l1 > ?l2, ?l1, ?l2) + 1) AS ?lvl)
+  BIND(IRI(CONCAT("urn:varve-spike:blend/R5/", ENCODE_FOR_URI(STR(?g)), "/", ENCODE_FOR_URI(STR(?k)))) AS ?b)
+  BIND(IRI(CONCAT(STR(?b), "/c")) AS ?c)
+}

@@ -1,0 +1,11 @@
+# blend:emergent is never written by hand. check/shacl.py runs this shape on
+# every named graph except <urn:varve-spike:g/emergent>, where emergent.rq
+# writes it.
+@prefix sh:    <http://www.w3.org/ns/shacl#> .
+@prefix blend: <urn:varve-spike:blend#> .
+@prefix spike: <urn:varve-spike:shapes#> .
+
+spike:EmergentOnlyComputed a sh:NodeShape ;
+    sh:targetSubjectsOf blend:emergent ;
+    sh:property [ sh:path blend:emergent ; sh:maxCount 0 ;
+                  sh:message "blend:emergent outside the computed graph" ] .

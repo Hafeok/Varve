@@ -1,0 +1,22 @@
+# The derivational ordering (BWA section 3.3): a blend's level is strictly
+# greater than the level of everything it was derived from. A version's level
+# is its decision's.
+@prefix sh:     <http://www.w3.org/ns/shacl#> .
+@prefix blend:  <urn:varve-spike:blend#> .
+@prefix spike:  <urn:varve-spike:shapes#> .
+
+spike:LevelAboveInputs a sh:NodeShape ;
+    sh:targetClass blend:Blend ;
+    sh:sparql [
+        sh:message "A blend's level must be strictly greater than every input's" ;
+        sh:prefixes blend: ;
+        sh:select """
+            SELECT $this ?value WHERE {
+              $this blend:level ?n ; <http://www.w3.org/ns/prov#wasDerivedFrom> ?value .
+              { ?value <urn:ledger:ns#ofDecision> ?d . ?d blend:level ?k }
+              UNION { ?value blend:level ?k }
+              FILTER(?k >= ?n)
+            }""" ;
+    ] .
+
+blend: sh:declare [ sh:prefix "blend" ; sh:namespace "urn:varve-spike:blend#"^^<http://www.w3.org/2001/XMLSchema#anyURI> ] .

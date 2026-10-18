@@ -1,0 +1,28 @@
+<Project>
+
+  <!--
+    The blend spike (#128) is not product: nothing here ships, and nothing in
+    src/ references it. It is outside the DD and VARVE rules by layout: this
+    file does not import the repository's Directory.Build.props, which is
+    where DecisionDriven.Analyzers and Varve.Analyzers are referenced. The
+    maintainer approved this on the plan, as layout and not suppression,
+    because those rules exist for shipped code.
+
+    Kept from the repository's settings: warnings are errors, nullable, the
+    SDK's off-the-shelf analyzers at latest-recommended and code style at
+    build. negative-control/ imports the repository's file instead, because
+    its whole point is to be checked by DD0001.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>

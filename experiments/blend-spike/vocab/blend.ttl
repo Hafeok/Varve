@@ -1,0 +1,118 @@
+# The blend: vocabulary. Twenty terms: seven classes, thirteen properties.
+# A spike artefact (#128): nothing here is a Varve vocabulary or ships.
+#
+# Reused, not counted: ledger: (urn:ledger:ns#, the Decision Ledger export of
+# product-cli's ledger/spec/ledger-protocol.md section 9) and prov: (PROV-O).
+
+@prefix blend:  <urn:varve-spike:blend#> .
+@prefix ledger: <urn:ledger:ns#> .
+@prefix prov:   <http://www.w3.org/ns/prov#> .
+@prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:    <http://www.w3.org/2001/XMLSchema#> .
+
+# --- Classes (7) ------------------------------------------------------------
+
+blend:MentalSpace a rdfs:Class ;
+    rdfs:subClassOf ledger:Decision ;
+    rdfs:comment """An input space: one decision seen as a frame, carrying the
+    constraints it states. A space is a ledger:Decision, so a human accepts it
+    once with a ledger:Acceptance. There is no GenericSpace class: what two
+    inputs share is the Mapping a rule joins them on (the shared slot types
+    are the generic space, implicitly).""" .
+
+blend:BlendRule a rdfs:Class ;
+    rdfs:subClassOf ledger:Decision ;
+    rdfs:comment """A composition of two input spaces. It carries its SPARQL
+    CONSTRUCT in blend:query. A rule is a ledger:Decision and is accepted once;
+    a rule an agent proposes is a proposed decision (no acceptance) until a
+    human accepts it.""" .
+
+blend:Blend a rdfs:Class ;
+    rdfs:subClassOf ledger:Decision ;
+    rdfs:comment """The output of one firing of a rule. A Blend produced by a
+    rule records prov:wasDerivedFrom the rule and each input and
+    blend:atPosition, and carries no ledger:Acceptance of its own: it is in
+    force at a position exactly when the rule and every input have a live
+    acceptance there (check/in-force.rq). A Blend no accepted rule produces is
+    an enumerated decision and needs its own acceptance, as today.""" .
+
+blend:Slot a rdfs:Class ;
+    rdfs:comment "A role a space fills or a rule reads, e.g. determinedBy, reads, layer." .
+
+blend:Mapping a rdfs:Class ;
+    rdfs:comment """A cross-space link: the join a rule makes between a slot of
+    one input and a slot of the other (blend:source, blend:target). The
+    generic space of the paper is this join, not a separate space.""" .
+
+blend:Constraint a rdfs:Class ;
+    rdfs:comment """A ruling carried by a space or a blend, as lib:subject,
+    lib:relation, lib:object (and lib:within for a scoped one), so that rules
+    and checks can read it.""" .
+
+blend:Attempt a rdfs:Class ;
+    rdfs:comment "The recorded outcome of trying to derive one accepted ruling." .
+
+# --- Properties (13) --------------------------------------------------------
+
+blend:slot a rdf:Property ;
+    rdfs:domain blend:MentalSpace ; rdfs:range blend:Slot ;
+    rdfs:comment "A slot a space fills." .
+
+blend:input a rdf:Property ;
+    rdfs:domain blend:BlendRule ; rdfs:range blend:Slot ;
+    rdfs:comment "The slot a rule reads from one of its inputs; a rule has two." .
+
+blend:source a rdf:Property ;
+    rdfs:domain blend:Mapping ; rdfs:range blend:Slot ;
+    rdfs:comment "One end of a cross-space mapping." .
+
+blend:target a rdf:Property ;
+    rdfs:domain blend:Mapping ; rdfs:range blend:Slot ;
+    rdfs:comment "The other end of a cross-space mapping." .
+
+blend:constrains a rdf:Property ;
+    rdfs:range blend:Constraint ;
+    rdfs:comment "A space or a blend carries this constraint." .
+
+blend:emergent a rdf:Property ;
+    rdfs:domain blend:Constraint ; rdfs:range xsd:boolean ;
+    rdfs:comment """True for a constraint present in a blend and absent from both
+    inputs, by the spike's three criteria. Only ever computed by
+    check/emergent.rq; never written by hand. A shape refuses it in any graph
+    but the computed one.""" .
+
+blend:query a rdf:Property ;
+    rdfs:domain blend:BlendRule ; rdfs:range xsd:string ;
+    rdfs:comment "The rule's SPARQL CONSTRUCT, verbatim." .
+
+blend:atPosition a rdf:Property ;
+    rdfs:domain blend:Blend ; rdfs:range xsd:integer ;
+    rdfs:comment "The Varve log position the blend was derived at." .
+
+blend:level a rdf:Property ;
+    rdfs:range xsd:integer ;
+    rdfs:comment """Derivational order, on spaces, rules and blends (BWA,
+    section 3.3): a blend's level is strictly greater than the greatest level
+    of anything it was derived from. shapes/level.ttl checks it. This is the
+    ordering the ledger lacks: ledger:supersedes is temporal, not
+    derivational.""" .
+
+blend:result a rdf:Property ;
+    rdfs:domain blend:Attempt ;
+    rdfs:comment "derived, enumerated or notExpressible." .
+
+blend:forDecision a rdf:Property ;
+    rdfs:domain blend:Attempt ; rdfs:range ledger:Decision ;
+    rdfs:comment "The accepted ruling the attempt tries to derive." .
+
+blend:criterionFailed a rdf:Property ;
+    rdfs:domain blend:Attempt ; rdfs:range xsd:integer ;
+    rdfs:comment """Which of the three criteria the attempt fails (1: the rule
+    is generic and fires on at least two input pairs; 2: the constraint relates
+    terms of both inputs in a way neither relates them; 3: the constraint's
+    content is not in the rule's text). Absent when none fails.""" .
+
+blend:guess a rdf:Property ;
+    rdfs:domain blend:Attempt ;
+    rdfs:comment "The prior guess recorded in the plan, before the attempt." .

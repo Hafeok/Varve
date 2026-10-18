@@ -1,0 +1,27 @@
+# R6: request kinds compose.
+# Input 1: a space stating requests of surface ?surface become one ?commitA.
+# Input 2: a space stating requests of kind ?kind become a ?commitB.
+# Mapping: ?r is a request of ?surface and of ?kind.
+# Blend: ?r becomes one ?commitB.
+CONSTRUCT {
+  ?b a blend:Blend ; blend:level ?lvl ;
+     prov:wasDerivedFrom ?rv, ?v1, ?v2, ?vm ;
+     blend:constrains ?c .
+  ?c a blend:Constraint ; lib:subject ?r ; lib:relation lib:becomes ; lib:object ?commitB .
+}
+WHERE {
+  GRAPH <urn:varve-spike:g/spaces> {
+    ?s1 blend:constrains ?c1 ; blend:level ?l1 .
+    ?c1 lib:subject ?surface ; lib:relation lib:becomes .
+    ?s2 blend:constrains ?c2 ; blend:level ?l2 .
+    ?c2 lib:subject ?kind ; lib:relation lib:becomes ; lib:object ?commitB .
+  }
+  GRAPH <urn:varve-spike:g/facts> { ?r a ?surface ; lib:kindOf ?kind . }
+  GRAPH ?g1 { ?v1 a ledger:DecisionVersion ; ledger:ofDecision ?s1 }
+  GRAPH ?g2 { ?v2 a ledger:DecisionVersion ; ledger:ofDecision ?s2 }
+  BIND(<urn:ver:spike/R6RequestKindComposes/1> AS ?rv)
+  BIND(<urn:ver:spike/SettingsOverHttpIsAWrite/1> AS ?vm)
+  BIND((IF(?l1 > ?l2, ?l1, ?l2) + 1) AS ?lvl)
+  BIND(IRI(CONCAT("urn:varve-spike:blend/R6/", ENCODE_FOR_URI(STR(?r)), "/", ENCODE_FOR_URI(STR(?commitB)))) AS ?b)
+  BIND(IRI(CONCAT(STR(?b), "/c")) AS ?c)
+}

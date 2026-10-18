@@ -1,0 +1,209 @@
+# Every derivation attempt for the ten ADRs (#128), failed ones included.
+#
+# blend:guess is the prior guess recorded in the plan before any attempt.
+# blend:result and blend:criterionFailed for an attempt that names a rule
+# (prov:used) are transcribed from out/report.tsv and out/criteria.tsv after
+# the run, never from expectation; for an attempt with no rule they are the
+# reason given in rdfs:comment. Criteria: 1 the rule is generic (another
+# firing from a different input); 2 the constraint relates a term of one
+# input to a term of another and no input already relates them; 3 the
+# rule's text names neither term.
+
+@prefix blend:  <urn:varve-spike:blend#> .
+@prefix lib:    <urn:varve-spike:lib#> .
+@prefix prov:   <http://www.w3.org/ns/prov#> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix dec:    <urn:dec:varve/> .
+@prefix sdec:   <urn:dec:spike/> .
+@prefix a:      <urn:varve-spike:attempt/> .
+@prefix c:      <urn:varve-spike:c/> .
+
+<urn:varve-spike:g/attempts> {
+
+# --- Row 1: ADR 0003, layering --------------------------------------------
+a:0003-LayersStrictlyDownward a blend:Attempt ;
+    blend:forDecision dec:LayersStrictlyDownward ;
+    blend:guess "derived, without emergence" ;
+    blend:result "enumerated" ; blend:criterionFailed 1 ;
+    rdfs:comment """The ruling is not the output of a rule: it is R1. No rule over
+    other accepted spaces produces 'strictly lower'; it is accepted directly, as
+    a rule. Its firings (one verdict per reference) are derived decisions, and
+    no ADR states any of them.""" .
+a:0003-SameLayerReferenceIsViolation a blend:Attempt ;
+    blend:forDecision dec:SameLayerReferenceIsViolation ;
+    blend:guess "derived, without emergence" ;
+    blend:result "enumerated" ; blend:criterionFailed 2 ;
+    rdfs:comment """Entailed by LayersStrictlyDownward alone ('strictly' excludes
+    equal), so its only input already relates the two terms. Logical
+    consequence inside one ADR, not a blend.""" .
+
+# --- Row 2: ADR 0005, the control -----------------------------------------
+a:0005-by-R1 a blend:Attempt ;
+    blend:forDecision dec:StoreReferencesNoSparql ;
+    blend:guess "enumerated" ;
+    prov:used dec:LayersStrictlyDownward ;
+    blend:result "enumerated" ;
+    rdfs:comment """No criterion is reached: R1 is generic and fires, but on the
+    other side. R1 over the code facts: Varve.Store (4) to Varve.Sparql (2)
+    and to Varve.Sparql.Evaluation (3) are mayReference. Layering permits what
+    0005 forbids; R1 produces the opposite verdict (see out/report.tsv: no
+    blend equals c:t0005a or c:t0005b).""" .
+a:0005-from-0064 a blend:Attempt ;
+    blend:forDecision dec:StoreReferencesNoSparql ;
+    blend:guess "enumerated" ;
+    blend:result "enumerated" ; blend:criterionFailed 2 ;
+    rdfs:comment """Read 0064's ContractTypeVocabulary as a reference ban, its
+    most generous reading. The derivation fails twice. Criterion 2: the input
+    already states the Store/Sparql relation, so nothing is added. The level
+    invariant: 0064 rests on 0005 (its text cites 0005 as the reason the
+    vocabulary is not widened), so 0005 cannot be derived from it. The
+    candidate blend below is kept so shapes/level.ttl can report it.""" .
+a:0005-host-cost a blend:Attempt ;
+    blend:forDecision dec:StoreReferencesNoSparql ;
+    blend:guess "enumerated" ;
+    blend:result "enumerated" ; blend:criterionFailed 3 ;
+    rdfs:comment """Candidate rule: a package every host needs does not depend on
+    a package some host does not need (brief: three hosts, minimal
+    dependencies). It does not fire: the browser host executes SPARQL Update
+    through Varve.Sparql.Store, so every host needs the evaluator. Making it
+    fire needs a 'log-only consumer' space, which is 0005's own Context
+    ('someone replicating it, someone feeding a full-text projection'), or a
+    rule that names Varve.Store or a query language: criterion 3. Not run,
+    because a rule that has to name its one output is enumeration with extra
+    steps.""" .
+
+<urn:varve-spike:attempt-blend/0005-from-0064> a blend:Blend ;
+    blend:level 0 ;
+    prov:wasDerivedFrom dec:ContractTypeVocabulary ;
+    rdfs:comment "The candidate of a:0005-from-0064, at 0005's own level. Not in the blends graph; no rule produced it." .
+
+# --- Row 3: ADR 0060, composition root ------------------------------------
+a:0060-by-R4 a blend:Attempt ;
+    blend:forDecision dec:CompositionRootIsTheExecutable ;
+    blend:guess "derived, candidate emergent: a library takes the clock as a parameter" ;
+    prov:used sdec:R4InjectionLiftsAboveTheBan ;
+    blend:result "enumerated" ; blend:criterionFailed 3 ;
+    rdfs:comment """R4 over R2's bans: the wall clock and entropy are supplied
+    from above layer 4 (Store) and above layer 3 (Evaluation). The ruling says
+    layer 6 executables, for six things (storage, clock, randomness, load
+    source, service handler, validators), four of which no determinism space
+    mentions. Reaching 'layer 6 executable' means naming it in the rule.""" .
+
+# --- Row 4: ADR 0010, commit model ----------------------------------------
+a:0010-EffectiveDeltaInvariant a blend:Attempt ;
+    blend:forDecision dec:EffectiveDeltaInvariant ;
+    blend:guess "enumerated" ;
+    blend:result "enumerated" ; blend:criterionFailed 1 ;
+    rdfs:comment """Set zero: no accepted decision precedes it to be an input, so
+    no rule has anything to fire on. Foundation rulings are level 0 by
+    construction.""" .
+
+# --- Row 5: ADR 0011, single sequencer ------------------------------------
+a:0011-NoAmbientClockOrRandomness a blend:Attempt ;
+    blend:forDecision dec:NoAmbientClockOrRandomness ;
+    blend:guess "enumerated" ;
+    prov:used sdec:R2DeterminismClosure ;
+    blend:result "derived" ; blend:criterionFailed 2 ;
+    rdfs:comment """R2 over 0016's ProjectionRebuildEquivalence and the spike's
+    AmbientReads produces both halves (c:t0011a, c:t0011b), at package scope.
+    Not emergent: Varve.Store enters through the mapping space
+    (WhatComputationsInvoke: Varve.Store computes the projection state), not
+    through either input. The value-level ban (ambient reads forbidden in the
+    projection state) is emergent; the ruling, which bans them in the
+    package, is not.""" .
+a:0011-MonotoneTimestamps a blend:Attempt ;
+    blend:forDecision dec:MonotoneTimestamps ;
+    blend:guess "enumerated" ;
+    blend:result "enumerated" ; blend:criterionFailed 1 ;
+    rdfs:comment """max(clock, ts(head)) is a choice among options (refuse, wait,
+    take the clock); no accepted space selects it, and no rule was found that
+    would fire on a second case.""" .
+
+# --- Row 6: ADR 0124, group commit ----------------------------------------
+a:0124-BatchBoundaryIsInNoContract a blend:Attempt ;
+    blend:forDecision dec:BatchBoundaryIsInNoContract ;
+    blend:guess "derived, candidate emergent: the batch boundary is in no contract" ;
+    prov:used sdec:R5CostOnlyGrouping ;
+    blend:result "derived" ;
+    rdfs:comment """Emergent by all three criteria. R5 over 0124's own StepsPerRequestWritePerBatch and 0011's
+    OneSequencerPerDataset. One input is a sibling ruling of the target in the
+    same ADR.""" .
+a:0124-EachRequestKeepsItsCommit a blend:Attempt ;
+    blend:forDecision dec:EachRequestKeepsItsCommit ;
+    blend:guess "derived" ;
+    blend:result "enumerated" ; blend:criterionFailed 3 ;
+    rdfs:comment """Follows from the batch being in no contract only if the rule
+    also says the units keep their identity, records, header and chain link
+    inside the grouping; that is this ruling's text, so adding it to R5 would
+    be widening R5 to fit.""" .
+
+# --- Row 7: ADR 0028, the cipher ------------------------------------------
+a:0028-SlotBoundAssociatedData a blend:Attempt ;
+    blend:forDecision dec:SlotBoundAssociatedData ;
+    blend:guess "not expressible" ;
+    blend:result "notExpressible" ;
+    rdfs:comment """The ruling can be held as an opaque ledger:statement, but not
+    as a constraint in the layered-library domain: its terms (associated data,
+    synthetic IV, equality oracle) and its reason (removing a field
+    reintroduces an equality oracle) are a cryptographic argument, not
+    structure. Expressing it would need a cryptography ontology written for
+    one ADR, and no code fact checks it without the compiler (the field list
+    is in a method body).""" .
+
+# --- Row 8: ADR 0136, no leases and writer handover -----------------------
+a:0136-NoLeaseNoTimer a blend:Attempt ;
+    blend:forDecision dec:NoLeaseNoTimer ;
+    blend:guess "derived, candidate emergent: the fence is the next slot" ;
+    blend:result "enumerated" ; blend:criterionFailed 2 ;
+    rdfs:comment """Carried, not emergent: 0116's NothingForcesAHeldLock already
+    relates writer handover to elapsed time (c:lk1 equals c:t0136). 0136's
+    Context says exactly this ('exactly the timer ADR 0116 refuses').""" .
+a:0136-FenceIsTheNextSlot a blend:Attempt ;
+    blend:forDecision dec:FenceIsTheNextSlot ;
+    blend:guess "derived, candidate emergent" ;
+    blend:result "enumerated" ; blend:criterionFailed 1 ;
+    rdfs:comment """The fence is design: a rule that yields 'the successor creates
+    the next create-once name' must name slots and fences (criterion 3), and
+    it fires on one input pair only (criterion 1), the object store of 0134
+    with the chunk naming of 0135.""" .
+
+# --- Row 9: ADR 0140, no NOW() in derived results -------------------------
+a:0140-NoWallClockFreshness a blend:Attempt ;
+    blend:forDecision dec:NoWallClockFreshness ;
+    blend:guess "derived, the strongest candidate" ;
+    prov:used sdec:R2DeterminismClosure, sdec:R3SubstituteFromTheDeterminant ;
+    blend:result "derived" ;
+    rdfs:comment """The NOW() half is emergent by all three criteria. R2 over 0140's EveryDerivedResultStatesItsPosition and 0056's
+    NowReadOncePerExecution, for the NOW() half (c:t0140a). The freshness half
+    (c:t0140b) is carried from the same position space: criterion 2. R3 then
+    elaborates the ban into N4's window rule, which is ADR text and not a
+    ruling, so it is reported beside the row.""" .
+
+# --- Row 10: ADR 0106, the management plane -------------------------------
+a:0106-SettingsCommitOverHttp a blend:Attempt ;
+    blend:forDecision dec:SettingsCommitOverHttp ;
+    blend:guess "enumerated" ;
+    prov:used sdec:R6RequestKindComposes ;
+    blend:result "derived" ; blend:criterionFailed 2 ;
+    rdfs:comment """Derived, not emergent: the subject (a settings change made over
+    HTTP) comes from the mapping space, not from either input. A composition.
+    R6 over 0094's WriteIsAtMostOneCommit and 0021's
+    SettingsAreACommitKind, joined by the spike's SettingsOverHttpIsAWrite.
+    The path (POST /settings) and the method (ChangeSettingsAsync) are not
+    attempted: no rule produces a name.""" .
+a:0106-DeleteOnlyWhenClosed a blend:Attempt ;
+    blend:forDecision dec:DeleteOnlyWhenClosed ;
+    blend:guess "enumerated, possibly from 0075" ;
+    blend:result "enumerated" ; blend:criterionFailed 1 ;
+    rdfs:comment """A candidate 'destroying a resource requires its exclusive
+    holder to have released it' over 0075's OneProcessPerDirectory fires once:
+    no second accepted space destroys a held resource. The 409 and its problem
+    type are protocol choices no rule produces.""" .
+
+# --- Not one of the ten: a further firing of R2 ---------------------------
+a:0056-EvaluatorUnderDeterministicBan a blend:Attempt ;
+    blend:forDecision dec:EvaluatorUnderDeterministicBan ;
+    prov:used sdec:R2DeterminismClosure ;
+    blend:result "derived" ; blend:criterionFailed 2 ;
+    rdfs:comment "As row 5: package scope through the mapping. R2 over 0056's own EvaluationOptionsCarryTheOutside and the spike's AmbientReads; recorded because it is R2's third accepted output." .
+}

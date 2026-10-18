@@ -1,0 +1,26 @@
+# Two accepted rulings, one that an endpoint exists and one that it was
+# removed, both in force: the case a supersession that does not move the
+# ruling leaves behind.
+@prefix sh:    <http://www.w3.org/ns/shacl#> .
+@prefix lib:   <urn:varve-spike:lib#> .
+@prefix blend: <urn:varve-spike:blend#> .
+@prefix spike: <urn:varve-spike:shapes#> .
+
+spike:NoLiveContradiction a sh:NodeShape ;
+    sh:targetClass blend:Constraint ;
+    sh:sparql [
+        sh:message "An accepted ruling says this exists while another accepted ruling says it was removed" ;
+        sh:prefixes lib: ;
+        sh:select """
+            SELECT $this ?value WHERE {
+              $this lib:relation lib:exists ; lib:subject ?s ; lib:object ?o .
+              ?other lib:relation lib:removed ; lib:subject ?s ; lib:object ?o .
+              ?d1 <urn:varve-spike:blend#constrains> $this .
+              ?d2 <urn:varve-spike:blend#constrains> ?other .
+              ?v1 <urn:ledger:ns#ofDecision> ?d1 . ?a1 <urn:ledger:ns#signsVersion> ?v1 .
+              ?v2 <urn:ledger:ns#ofDecision> ?d2 . ?a2 <urn:ledger:ns#signsVersion> ?v2 .
+              BIND(?d2 AS ?value)
+            }""" ;
+    ] .
+
+lib: sh:declare [ sh:prefix "lib" ; sh:namespace "urn:varve-spike:lib#"^^<http://www.w3.org/2001/XMLSchema#anyURI> ] .

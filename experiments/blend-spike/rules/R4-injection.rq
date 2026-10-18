@@ -1,0 +1,25 @@
+# R4: injection lifts above the ban (the attempt at ADR 0060).
+# Input 1: a blend stating ?o forbiddenIn ?p, ?p a package.
+# Input 2: the package's layer declaration.
+# Blend: the source ?o reads is supplied from a layer above ?p's.
+CONSTRUCT {
+  ?b a blend:Blend ; blend:level ?lvl ;
+     prov:wasDerivedFrom ?rv, ?b1, ?decl, ?vr ;
+     blend:constrains ?c .
+  ?c a blend:Constraint ; lib:subject ?src ; lib:relation lib:wiredAboveLayer ; lib:object ?l .
+}
+WHERE {
+  GRAPH <urn:varve-spike:g/blends> {
+    ?b1 a blend:Blend ; blend:level ?l1 ; blend:constrains ?c1 .
+    ?c1 lib:subject ?o ; lib:relation lib:forbiddenIn ; lib:object ?p .
+  }
+  GRAPH <urn:varve-spike:g/code> { ?decl code:declares ?p ; code:layer ?l . }
+  GRAPH <urn:varve-spike:g/spaces> {
+    ?sr blend:constrains ?cr . ?cr lib:subject ?o ; lib:relation lib:reads ; lib:object ?src .
+  }
+  GRAPH ?gr { ?vr a ledger:DecisionVersion ; ledger:ofDecision ?sr }
+  BIND(<urn:ver:spike/R4InjectionLiftsAboveTheBan/1> AS ?rv)
+  BIND((?l1 + 1) AS ?lvl)
+  BIND(IRI(CONCAT("urn:varve-spike:blend/R4/", ENCODE_FOR_URI(STR(?src)), "/", ENCODE_FOR_URI(STR(?p)))) AS ?b)
+  BIND(IRI(CONCAT(STR(?b), "/c")) AS ?c)
+}

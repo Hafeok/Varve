@@ -1,0 +1,36 @@
+# R1's violation as SHACL (#128): the shape a reference must satisfy, over
+# the code facts the projector writes.
+@prefix sh:    <http://www.w3.org/ns/shacl#> .
+@prefix code:  <urn:varve-spike:code#> .
+@prefix spike: <urn:varve-spike:shapes#> .
+
+spike:LayerDirection a sh:NodeShape ;
+    sh:targetSubjectsOf code:references ;
+    sh:sparql [
+        sh:message "A reference must point to a strictly lower layer (ADR 0003 LayersStrictlyDownward, SameLayerReferenceIsViolation)" ;
+        sh:prefixes code: ;
+        sh:select """
+            SELECT $this ?value WHERE {
+              $this code:references ?value .
+              ?da code:declares $this ; code:layer ?l .
+              ?db code:declares ?value ; code:layer ?m .
+              FILTER(?l <= ?m)
+            }""" ;
+    ] .
+
+spike:ReferencedLayerDeclared a sh:NodeShape ;
+    sh:targetSubjectsOf code:references ;
+    sh:sparql [
+        sh:message "A referenced Varve project declares no layer (ADR 0003 UndeclaredReferencedLayerIsError)" ;
+        sh:prefixes code: ;
+        sh:select """
+            SELECT $this ?value WHERE {
+              $this code:references ?value .
+              ?da code:declares $this .
+              ?value code:name ?n .
+              FILTER(STRSTARTS(?n, "Varve."))
+              FILTER NOT EXISTS { ?db code:declares ?value }
+            }""" ;
+    ] .
+
+code: sh:declare [ sh:prefix "code" ; sh:namespace "urn:varve-spike:code#"^^<http://www.w3.org/2001/XMLSchema#anyURI> ] .

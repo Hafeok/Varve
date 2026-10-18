@@ -1,0 +1,4 @@
+<Project>
+  <!-- Stops MSBuild reaching the repository's Directory.Build.targets: see
+       Directory.Build.props beside this file. -->
+</Project>

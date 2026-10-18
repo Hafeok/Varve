@@ -1,0 +1,55 @@
+# The three criteria, per constraint a blend carries (#128).
+#   1  the rule is generic: it has another firing from a different input
+#   2  the constraint relates a term of one input to a term of another input,
+#      and no input already states a constraint between the two
+#   3  the rule's text names neither term
+# An input is anything the blend was derived from that is neither the rule
+# nor a mapping space. emergent.rq is the conjunction, as a CONSTRUCT.
+SELECT ?rule ?blend ?constraint ?s ?rel ?o ?c1 ?c2 ?c3
+WHERE {
+  GRAPH <urn:varve-spike:g/blends> {
+    ?blend a blend:Blend ; blend:constrains ?constraint ; prov:wasDerivedFrom ?rv .
+    ?constraint lib:subject ?s ; lib:relation ?rel ; lib:object ?o .
+  }
+  GRAPH ?gr { ?rv ledger:ofDecision ?rule }
+  GRAPH <urn:varve-spike:g/rules> { ?rule a blend:BlendRule ; blend:query ?q }
+
+  BIND(EXISTS {
+    GRAPH <urn:varve-spike:g/blends> {
+      ?other a blend:Blend ; prov:wasDerivedFrom ?rv .
+      ?blend prov:wasDerivedFrom ?i .
+      FILTER(?other != ?blend)
+      FILTER NOT EXISTS { ?other prov:wasDerivedFrom ?i }
+    }
+    FILTER NOT EXISTS { GRAPH ?gi { ?i ledger:ofDecision ?di } GRAPH ?gk { ?di a ?t } FILTER(?t IN (blend:BlendRule, blend:Mapping)) }
+  } AS ?c1)
+
+  BIND(EXISTS {
+    GRAPH <urn:varve-spike:g/blends> { ?blend prov:wasDerivedFrom ?ia, ?ib }
+    OPTIONAL { GRAPH ?ga { ?ia ledger:ofDecision ?da } }
+    OPTIONAL { GRAPH ?gb { ?ib ledger:ofDecision ?db } }
+    BIND(COALESCE(?da, ?ia) AS ?inA)
+    BIND(COALESCE(?db, ?ib) AS ?inB)
+    FILTER(?inA != ?inB)
+    FILTER NOT EXISTS { GRAPH ?g1 { ?inA a ?ta } FILTER(?ta IN (blend:BlendRule, blend:Mapping)) }
+    FILTER NOT EXISTS { GRAPH ?g2 { ?inB a ?tb } FILTER(?tb IN (blend:BlendRule, blend:Mapping)) }
+    { GRAPH ?g3 { ?inA blend:constrains ?ka . ?ka lib:subject|lib:object|lib:within ?s } }
+      UNION { GRAPH ?g3 { ?inA code:declares ?s } }
+    { GRAPH ?g4 { ?inB blend:constrains ?kb . ?kb lib:subject|lib:object|lib:within ?o } }
+      UNION { GRAPH ?g4 { ?inB code:declares ?o } }
+    FILTER NOT EXISTS {
+      GRAPH <urn:varve-spike:g/blends> { ?blend prov:wasDerivedFrom ?ik }
+      OPTIONAL { GRAPH ?g5 { ?ik ledger:ofDecision ?dk } }
+      BIND(COALESCE(?dk, ?ik) AS ?inK)
+      GRAPH ?g6 {
+        ?inK blend:constrains ?kk .
+        { ?kk lib:subject ?s ; lib:object ?o } UNION { ?kk lib:subject ?o ; lib:object ?s }
+      }
+    }
+  } AS ?c2)
+
+  BIND(REPLACE(REPLACE(STR(?s), "^.*[#:/]", ""), "\\.", "[.]") AS ?sl)
+  BIND(REPLACE(REPLACE(STR(?o), "^.*[#:/]", ""), "\\.", "[.]") AS ?ol)
+  BIND(!REGEX(?q, CONCAT("[:/#]", ?sl, "([^A-Za-z0-9_.]|$)")) && !REGEX(?q, CONCAT("[:/#]", ?ol, "([^A-Za-z0-9_.]|$)")) AS ?c3)
+}
+ORDER BY ?rule ?blend

@@ -1,0 +1,21 @@
+# Inherited acceptance, the semantics the plan states: a blend is in force at
+# the position this query reads exactly when every decision version it was
+# derived from (its rule's, its inputs', its mapping's) carries a
+# ledger:Acceptance there, and every blend it was derived from is itself in
+# force. A code-fact input (a layer declaration) is in force by being in
+# <urn:varve-spike:g/code> at the position: the commit that put it there is
+# its authority. Revocation is not modelled: the spike's ledger graph is
+# transcribed from docs/decisions/, which has no revocations.
+SELECT ?blend ?inForce ?unaccepted
+WHERE {
+  GRAPH <urn:varve-spike:g/blends> { ?blend a blend:Blend }
+  OPTIONAL {
+    SELECT ?blend (SAMPLE(?d) AS ?unaccepted) WHERE {
+      GRAPH <urn:varve-spike:g/blends> { ?blend prov:wasDerivedFrom+ ?v }
+      GRAPH ?gv { ?v a ledger:DecisionVersion ; ledger:ofDecision ?d }
+      FILTER NOT EXISTS { GRAPH <urn:varve-spike:g/ledger> { ?acc a ledger:Acceptance ; ledger:signsVersion ?v } }
+    } GROUP BY ?blend
+  }
+  BIND(!BOUND(?unaccepted) AS ?inForce)
+}
+ORDER BY ?blend

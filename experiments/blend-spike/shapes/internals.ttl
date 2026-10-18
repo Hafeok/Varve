@@ -1,0 +1,21 @@
+# ADR 0003 InternalsVisibleToTestsOnly over the code facts (#128). DD0002
+# checks the same ruling in the compiler, and misses a grant written as an
+# MSBuild item (negative-control/Varve.Spike.FriendItem): this shape reads
+# the item from the project file.
+@prefix sh:    <http://www.w3.org/ns/shacl#> .
+@prefix code:  <urn:varve-spike:code#> .
+@prefix spike: <urn:varve-spike:shapes#> .
+
+spike:InternalsVisibleToTestsOnly a sh:NodeShape ;
+    sh:targetSubjectsOf code:internalsVisibleTo ;
+    sh:sparql [
+        sh:message "InternalsVisibleTo is permitted toward *.Tests assemblies only (ADR 0003 InternalsVisibleToTestsOnly)" ;
+        sh:prefixes code: ;
+        sh:select """
+            SELECT $this ?value WHERE {
+              $this code:internalsVisibleTo ?value .
+              FILTER(!STRENDS(STRBEFORE(CONCAT(?value, ","), ","), ".Tests"))
+            }""" ;
+    ] .
+
+code: sh:declare [ sh:prefix "code" ; sh:namespace "urn:varve-spike:code#"^^<http://www.w3.org/2001/XMLSchema#anyURI> ] .

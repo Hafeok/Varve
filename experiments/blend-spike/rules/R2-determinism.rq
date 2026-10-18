@@ -1,0 +1,44 @@
+# R2: determinism closure.
+# Input 1: a space stating ?x determinedBy ?d.
+# Input 2: a space stating ?o reads ?src.
+# Mapping: a computation of ?x's kind can invoke ?o.
+# Blend: ?o is forbidden in ?x (and in the package computing ?x) when no
+# determinant of ?x is, or carries, ?src.
+CONSTRUCT {
+  ?b a blend:Blend ; blend:level ?lvl ;
+     prov:wasDerivedFrom ?rv, ?v1, ?v2, ?vm ;
+     blend:constrains ?c .
+  ?c a blend:Constraint ; lib:subject ?o ; lib:relation lib:forbiddenIn ; lib:object ?target .
+}
+WHERE {
+  GRAPH <urn:varve-spike:g/spaces> {
+    ?s1 blend:constrains ?c1 ; blend:level ?l1 .
+    ?c1 lib:subject ?x ; lib:relation lib:determinedBy .
+    ?s2 blend:constrains ?c2 ; blend:level ?l2 .
+    ?c2 lib:subject ?o ; lib:relation lib:reads ; lib:object ?src .
+  }
+  GRAPH <urn:varve-spike:g/facts> { ?x a ?kind . ?kind lib:canInvoke ?o . }
+  FILTER NOT EXISTS {
+    GRAPH <urn:varve-spike:g/spaces> {
+      ?sx blend:constrains ?cx . ?cx lib:subject ?x ; lib:relation lib:determinedBy ; lib:object ?src .
+    }
+  }
+  FILTER NOT EXISTS {
+    GRAPH <urn:varve-spike:g/spaces> {
+      ?sx blend:constrains ?cx . ?cx lib:subject ?x ; lib:relation lib:determinedBy ; lib:object ?det .
+      ?sy blend:constrains ?cy . ?cy lib:subject ?det ; lib:relation lib:carries ; lib:object ?src .
+    }
+  }
+  # The ban holds in ?x itself and in the package that computes ?x, if any.
+  OPTIONAL { GRAPH <urn:varve-spike:g/facts> { ?package lib:computes ?x } }
+  VALUES ?scope { "value" "package" }
+  BIND(IF(?scope = "value", ?x, ?package) AS ?target)
+  FILTER(BOUND(?target))
+  GRAPH ?g1 { ?v1 a ledger:DecisionVersion ; ledger:ofDecision ?s1 }
+  GRAPH ?g2 { ?v2 a ledger:DecisionVersion ; ledger:ofDecision ?s2 }
+  BIND(<urn:ver:spike/R2DeterminismClosure/1> AS ?rv)
+  BIND(<urn:ver:spike/WhatComputationsInvoke/1> AS ?vm)
+  BIND((IF(?l1 > ?l2, ?l1, ?l2) + 1) AS ?lvl)
+  BIND(IRI(CONCAT("urn:varve-spike:blend/R2/", ENCODE_FOR_URI(STR(?o)), "/", ENCODE_FOR_URI(STR(?target)))) AS ?b)
+  BIND(IRI(CONCAT(STR(?b), "/c")) AS ?c)
+}

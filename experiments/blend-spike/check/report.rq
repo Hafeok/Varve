@@ -1,0 +1,20 @@
+# Each target ruling's constraint, and the blend constraint equal to it, if
+# any rule produced one, with whether that constraint is emergent.
+SELECT ?decision ?target ?blend ?rule ?emergent
+WHERE {
+  GRAPH <urn:varve-spike:g/spaces> {
+    ?decision blend:constrains ?target .
+    ?target lib:subject ?s ; lib:relation ?r ; lib:object ?o .
+  }
+  FILTER(STRSTARTS(STR(?target), "urn:varve-spike:c/t"))
+  OPTIONAL {
+    GRAPH <urn:varve-spike:g/blends> {
+      ?blend blend:constrains ?bc ; prov:wasDerivedFrom ?rv .
+      ?bc lib:subject ?s ; lib:relation ?r ; lib:object ?o .
+    }
+    GRAPH ?g { ?rv ledger:ofDecision ?rule }
+    GRAPH <urn:varve-spike:g/rules> { ?rule a blend:BlendRule }
+    OPTIONAL { GRAPH <urn:varve-spike:g/emergent> { ?bc blend:emergent ?emergent } }
+  }
+}
+ORDER BY ?decision ?target

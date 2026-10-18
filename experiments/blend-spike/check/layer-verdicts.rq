@@ -1,0 +1,10 @@
+# R1's verdict for every project reference at the position read.
+SELECT ?from ?to ?verdict
+WHERE {
+  GRAPH <urn:varve-spike:g/blends> {
+    ?b prov:wasDerivedFrom ?rv ; blend:constrains ?c .
+    ?c lib:subject ?from ; lib:relation ?verdict ; lib:object ?to .
+  }
+  GRAPH <urn:varve-spike:g/ledger> { ?rv a ledger:DecisionVersion ; ledger:ofDecision <urn:dec:varve/LayersStrictlyDownward> }
+}
+ORDER BY ?from ?to

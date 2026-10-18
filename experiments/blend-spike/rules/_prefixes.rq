@@ -1,0 +1,5 @@
+PREFIX blend:  <urn:varve-spike:blend#>
+PREFIX lib:    <urn:varve-spike:lib#>
+PREFIX code:   <urn:varve-spike:code#>
+PREFIX ledger: <urn:ledger:ns#>
+PREFIX prov:   <http://www.w3.org/ns/prov#>

@@ -1,0 +1,30 @@
+# R3: elaboration, at the level above R2.
+# Input 1: a blend stating ?o forbiddenIn ?x.
+# Input 2: a space stating ?d carries ?t, for a determinant ?d of ?x.
+# Mapping: ?o's source and ?t yield the same kind of value.
+# Blend: within ?x, ?o is replaced by ?t.
+CONSTRUCT {
+  ?b a blend:Blend ; blend:level ?lvl ;
+     prov:wasDerivedFrom ?rv, ?b1, ?v3, ?vm ;
+     blend:constrains ?c .
+  ?c a blend:Constraint ; lib:subject ?o ; lib:relation lib:replacedBy ; lib:object ?t ; lib:within ?x .
+}
+WHERE {
+  GRAPH <urn:varve-spike:g/blends> {
+    ?b1 a blend:Blend ; blend:level ?l1 ; blend:constrains ?c1 .
+    ?c1 lib:subject ?o ; lib:relation lib:forbiddenIn ; lib:object ?x .
+  }
+  GRAPH <urn:varve-spike:g/spaces> {
+    ?sd blend:constrains ?cd . ?cd lib:subject ?x ; lib:relation lib:determinedBy ; lib:object ?d .
+    ?s3 blend:constrains ?c3 ; blend:level ?l3 .
+    ?c3 lib:subject ?d ; lib:relation lib:carries ; lib:object ?t .
+    ?sr blend:constrains ?cr . ?cr lib:subject ?o ; lib:relation lib:reads ; lib:object ?src .
+  }
+  GRAPH <urn:varve-spike:g/facts> { ?src lib:yields ?kind . ?t lib:yields ?kind . }
+  GRAPH ?g3 { ?v3 a ledger:DecisionVersion ; ledger:ofDecision ?s3 }
+  BIND(<urn:ver:spike/R3SubstituteFromTheDeterminant/1> AS ?rv)
+  BIND(<urn:ver:spike/SourceKinds/1> AS ?vm)
+  BIND((IF(?l1 > ?l3, ?l1, ?l3) + 1) AS ?lvl)
+  BIND(IRI(CONCAT("urn:varve-spike:blend/R3/", ENCODE_FOR_URI(STR(?o)), "/", ENCODE_FOR_URI(STR(?t)), "/", ENCODE_FOR_URI(STR(?x)))) AS ?b)
+  BIND(IRI(CONCAT(STR(?b), "/c")) AS ?c)
+}

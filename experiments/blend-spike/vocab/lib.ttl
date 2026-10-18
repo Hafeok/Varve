@@ -1,0 +1,43 @@
+# The layered-library domain terms the spaces are written in (#128).
+# Not part of the blend: vocabulary's twenty; these are the domain, the way a
+# real-estate ontology would be the domain of a different blend.
+
+@prefix lib:  <urn:varve-spike:lib#> .
+@prefix code: <urn:varve-spike:code#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# Constraint structure: a blend:Constraint is lib:subject, lib:relation,
+# lib:object, and lib:within when it is scoped to a component.
+lib:subject  a rdf:Property .
+lib:relation a rdf:Property .
+lib:object   a rdf:Property .
+lib:within   a rdf:Property .
+
+# Relations a constraint states.
+lib:mayReference     rdfs:comment "the subject package may reference the object package" .
+lib:mustNotReference rdfs:comment "the subject package must not reference the object package" .
+lib:determinedBy     rdfs:comment "the subject's value is a function of the object (one triple per determinant)" .
+lib:reads            rdfs:comment "the subject operation reads the object source" .
+lib:carries          rdfs:comment "the subject determinant supplies the object source" .
+lib:forbiddenIn      rdfs:comment "the subject operation may not occur in the object computation or component" .
+lib:replacedBy       rdfs:comment "within lib:within, the subject operation's reading is replaced by the object" .
+lib:groups           rdfs:comment "the subject is a grouping of units of the object kind" .
+lib:amortises        rdfs:comment "the subject grouping exists to share the object cost" .
+lib:inContract       rdfs:comment "the subject is observable in the object contract" .
+lib:inNoContract     rdfs:comment "the subject is observable in no result, feed, index, chain or file" .
+lib:becomes          rdfs:comment "a request of the subject kind is answered by one commit of the object kind" .
+lib:wiredAboveLayer  rdfs:comment "the subject is supplied by a layer strictly above the object integer" .
+lib:wiredIn          rdfs:comment "the subject is wired in the object kind of assembly" .
+lib:exists           rdfs:comment "the subject endpoint exists" .
+lib:removed          rdfs:comment "the subject endpoint is removed" .
+lib:noTimeBasedTakeover rdfs:comment "the subject is never decided from elapsed time" .
+
+# Mapping facts: how a computation is related to the operations it can run.
+lib:canInvoke rdfs:comment "a computation of the subject kind can invoke the object operation" .
+lib:computes  rdfs:comment "the subject package computes the object value" .
+lib:yields    rdfs:comment "the subject source yields values of the object kind" .
+
+# Kinds.
+lib:CSharpComputation a rdfs:Class .
+lib:SparqlComputation a rdfs:Class .

@@ -1,0 +1,68 @@
+# Blend rules for the spike (#128). The rule's text is rules/<name>.rq; the
+# host loads it into blend:query when it commits this graph, so the text
+# criterion 3 reads is exactly the text that ran.
+#
+# R1 is ADR 0003's accepted ruling LayersStrictlyDownward itself. Every other
+# rule is proposed by this session: a ledger:Decision with a version and no
+# acceptance, so nothing it derives is in force (check/in-force.rq).
+
+@prefix blend:  <urn:varve-spike:blend#> .
+@prefix lib:    <urn:varve-spike:lib#> .
+@prefix ledger: <urn:ledger:ns#> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix dec:    <urn:dec:varve/> .
+@prefix sdec:   <urn:dec:spike/> .
+
+<urn:varve-spike:g/rules> {
+
+dec:LayersStrictlyDownward a blend:BlendRule ; blend:level 0 ;
+    rdfs:label "R1 layer" ;
+    blend:input <urn:varve-spike:slot/layer-a>, <urn:varve-spike:slot/layer-b> .
+<urn:varve-spike:slot/layer-a> a blend:Slot ; rdfs:label "a package declares layer L" .
+<urn:varve-spike:slot/layer-b> a blend:Slot ; rdfs:label "a package declares layer M" .
+<urn:varve-spike:mapping/references> a blend:Mapping ;
+    rdfs:label "a reference: the generic space of R1" ;
+    blend:source <urn:varve-spike:slot/layer-a> ; blend:target <urn:varve-spike:slot/layer-b> .
+
+sdec:R2DeterminismClosure a ledger:Decision, blend:BlendRule ; blend:level 0 ;
+    rdfs:label "R2 determinism closure" ;
+    rdfs:comment "What is determined by D may not run an operation that reads a source D does not carry; the ban covers the component that computes it." ;
+    blend:input lib:determinedBy, lib:reads .
+<urn:ver:spike/R2DeterminismClosure/1> a ledger:DecisionVersion ; ledger:ofDecision sdec:R2DeterminismClosure ;
+    ledger:statement "A value determined by D may not be computed by an operation that reads a source no determinant in D carries, and the ban holds in the package that computes the value" .
+
+sdec:R3SubstituteFromTheDeterminant a ledger:Decision, blend:BlendRule ; blend:level 0 ;
+    rdfs:label "R3 elaboration" ;
+    rdfs:comment "An operation a blend forbids is replaced by a source the determinant carries that yields the same kind." ;
+    blend:input lib:forbiddenIn, lib:carries .
+<urn:ver:spike/R3SubstituteFromTheDeterminant/1> a ledger:DecisionVersion ; ledger:ofDecision sdec:R3SubstituteFromTheDeterminant ;
+    ledger:statement "Where an operation is forbidden in a value because its source is not determined, a source the value's determinant carries that yields the same kind of value replaces it" .
+
+sdec:R4InjectionLiftsAboveTheBan a ledger:Decision, blend:BlendRule ; blend:level 0 ;
+    rdfs:label "R4 injection lifts" ;
+    blend:input lib:forbiddenIn, lib:layer .
+<urn:ver:spike/R4InjectionLiftsAboveTheBan/1> a ledger:DecisionVersion ; ledger:ofDecision sdec:R4InjectionLiftsAboveTheBan ;
+    ledger:statement "A source an operation reads, forbidden ambiently in a package at layer L, is supplied from a layer above L" .
+
+sdec:R5CostOnlyGrouping a ledger:Decision, blend:BlendRule ; blend:level 0 ;
+    rdfs:label "R5 cost-only grouping" ;
+    rdfs:comment "Based on 0140's NoCorrectnessFromTuning, but not that ruling: N6 speaks of knobs, R5 of groupings." ;
+    blend:input lib:groups, lib:inContract .
+<urn:ver:spike/R5CostOnlyGrouping/1> a ledger:DecisionVersion ; ledger:ofDecision sdec:R5CostOnlyGrouping ;
+    ledger:basedOn "dec:varve/NoCorrectnessFromTuning" ;
+    ledger:statement "A grouping of contract units that exists only to share a cost is itself in no contract" .
+
+sdec:R6RequestKindComposes a ledger:Decision, blend:BlendRule ; blend:level 0 ;
+    rdfs:label "R6 request kinds compose" ;
+    blend:input lib:becomes .
+<urn:ver:spike/R6RequestKindComposes/1> a ledger:DecisionVersion ; ledger:ofDecision sdec:R6RequestKindComposes ;
+    ledger:statement "A request that is both of a surface that becomes one commit and of a kind that becomes a commit of kind K becomes one commit of kind K" .
+}
+
+# The spike's mapping spaces are also blend:Mapping: a rule joins its inputs
+# through them, and they are not inputs (criterion 2 reads only inputs).
+<urn:varve-spike:g/spaces> {
+    sdec:WhatComputationsInvoke a blend:Mapping .
+    sdec:SourceKinds a blend:Mapping .
+    sdec:SettingsOverHttpIsAWrite a blend:Mapping .
+}

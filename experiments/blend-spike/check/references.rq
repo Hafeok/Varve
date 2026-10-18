@@ -1,0 +1,11 @@
+# Every project reference in the code facts at the position read, with each
+# end's declared layer where it has one.
+SELECT ?from ?to ?l ?m
+WHERE {
+  GRAPH <urn:varve-spike:g/code> {
+    ?from code:references ?to .
+    OPTIONAL { ?da code:declares ?from ; code:layer ?l }
+    OPTIONAL { ?db code:declares ?to ; code:layer ?m }
+  }
+}
+ORDER BY ?from ?to

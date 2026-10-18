@@ -1,0 +1,235 @@
+# Input spaces for the blend spike (#128).
+#
+# Every accepted ruling used here is <urn:dec:varve/{Key}>, the node the
+# projector writes into <urn:varve-spike:g/ledger> from docs/decisions/, with
+# its version and its acceptance transcribed. This graph only annotates those
+# decisions as spaces: their level and the constraints they state, encoded by
+# hand from the statement quoted beside each. The encoding is a judgment;
+# each one is here to be checked.
+#
+# Spaces the spike itself proposes (urn:dec:spike/...) are ledger decisions
+# with a version and NO acceptance: proposed until a human accepts them.
+
+@prefix blend:  <urn:varve-spike:blend#> .
+@prefix lib:    <urn:varve-spike:lib#> .
+@prefix ledger: <urn:ledger:ns#> .
+@prefix prov:   <http://www.w3.org/ns/prov#> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix dec:    <urn:dec:varve/> .
+@prefix sdec:   <urn:dec:spike/> .
+@prefix pkg:    <urn:varve-spike:pkg:> .
+@prefix c:      <urn:varve-spike:c/> .
+
+<urn:varve-spike:g/spaces> {
+
+# ---------------------------------------------------------------- inputs --
+
+# 0016 "A projection may be dropped and rebuilt from position 0 or a
+# checkpoint, and a rebuilt projection is observationally equal to a
+# maintained one (I8)"
+dec:ProjectionRebuildEquivalence a blend:MentalSpace ; blend:level 0 ;
+    blend:slot lib:determinedBy ;
+    blend:constrains c:pre1 .
+c:pre1 a blend:Constraint ; lib:subject lib:ProjectionState ; lib:relation lib:determinedBy ; lib:object lib:Log .
+
+# 0011 "The sequencer assigns each commit's timestamp as max(clock, ts(head))"
+# Encoded as: the log, and each position in it, carries a commit timestamp.
+dec:MonotoneTimestamps a blend:MentalSpace ; blend:level 0 ;
+    blend:slot lib:carries ;
+    blend:constrains c:mt1, c:mt2 .
+c:mt1 a blend:Constraint ; lib:subject lib:Log ; lib:relation lib:carries ; lib:object lib:CommitTimestamp .
+c:mt2 a blend:Constraint ; lib:subject lib:Position ; lib:relation lib:carries ; lib:object lib:CommitTimestamp .
+
+# 0056 "Everything the evaluator needs from outside, extension functions,
+# custom aggregates, the clock and randomness, arrives in the immutable
+# EvaluationOptions"
+dec:EvaluationOptionsCarryTheOutside a blend:MentalSpace ; blend:level 0 ;
+    blend:slot lib:determinedBy, lib:carries ;
+    blend:constrains c:eo1, c:eo2, c:eo3, c:eo4, c:eo5 .
+c:eo1 a blend:Constraint ; lib:subject lib:QueryResult ; lib:relation lib:determinedBy ; lib:object lib:Query .
+c:eo2 a blend:Constraint ; lib:subject lib:QueryResult ; lib:relation lib:determinedBy ; lib:object lib:QuadSource .
+c:eo3 a blend:Constraint ; lib:subject lib:QueryResult ; lib:relation lib:determinedBy ; lib:object lib:EvaluationOptions .
+c:eo4 a blend:Constraint ; lib:subject lib:EvaluationOptions ; lib:relation lib:carries ; lib:object lib:InjectedClock .
+c:eo5 a blend:Constraint ; lib:subject lib:EvaluationOptions ; lib:relation lib:carries ; lib:object lib:InjectedRandomness .
+
+# 0056 "NOW() reads EvaluationOptions.Clock once per execution"
+dec:NowReadOncePerExecution a blend:MentalSpace ; blend:level 0 ;
+    blend:slot lib:reads ;
+    blend:constrains c:now1 .
+c:now1 a blend:Constraint ; lib:subject lib:NOW ; lib:relation lib:reads ; lib:object lib:InjectedClock .
+
+# 0056 "Randomness is IRandomSource with one NextBytes member, from which RAND
+# takes 53 bits and UUID and STRUUID take 16 bytes"
+dec:RandomnessIsARandomSource a blend:MentalSpace ; blend:level 0 ;
+    blend:slot lib:reads ;
+    blend:constrains c:rnd1, c:rnd2 .
+c:rnd1 a blend:Constraint ; lib:subject lib:RAND ; lib:relation lib:reads ; lib:object lib:InjectedRandomness .
+c:rnd2 a blend:Constraint ; lib:subject lib:UUID ; lib:relation lib:reads ; lib:object lib:InjectedRandomness .
+
+# 0140 N7 "Every derived result states the position it reflects and is exact
+# there or refused"
+dec:EveryDerivedResultStatesItsPosition a blend:MentalSpace ; blend:level 0 ;
+    blend:slot lib:determinedBy ;
+    blend:constrains c:pos1 .
+c:pos1 a blend:Constraint ; lib:subject lib:StandingQueryResult ; lib:relation lib:determinedBy ; lib:object lib:Position .
+
+# 0124 "Requests that queue while a write is in flight are taken in arrival
+# order, each run through T1 steps 1 to 6 against the state including every
+# earlier member of the batch, and written as one batch with one flush"
+dec:StepsPerRequestWritePerBatch a blend:MentalSpace ; blend:level 0 ;
+    blend:slot lib:groups, lib:amortises ;
+    blend:constrains c:gc1, c:gc2 .
+c:gc1 a blend:Constraint ; lib:subject lib:Batch ; lib:relation lib:groups ; lib:object lib:Commit .
+c:gc2 a blend:Constraint ; lib:subject lib:Batch ; lib:relation lib:amortises ; lib:object lib:Flush .
+
+# 0011 "One sequencer per dataset processes commit requests one at a time and
+# assigns dense, ascending positions (I1)": the commit is the contract's unit.
+dec:OneSequencerPerDataset a blend:MentalSpace ; blend:level 0 ;
+    blend:slot lib:inContract ;
+    blend:constrains c:seq1 .
+c:seq1 a blend:Constraint ; lib:subject lib:Commit ; lib:relation lib:inContract ; lib:object lib:Contract .
+
+# 0108 "Buffers carry sequence numbers, runs are named by them, and the load's
+# result is the same at any worker count" (the second firing of R5's shape)
+dec:WorkersResolveAndSpillBuffers a blend:MentalSpace ; blend:level 0 ;
+    blend:slot lib:groups, lib:amortises ;
+    blend:constrains c:bl1, c:bl2 .
+c:bl1 a blend:Constraint ; lib:subject lib:SpillRun ; lib:relation lib:groups ; lib:object lib:Operation .
+c:bl2 a blend:Constraint ; lib:subject lib:SpillRun ; lib:relation lib:amortises ; lib:object lib:Sort .
+
+# 0010 "The sequencer applies a request's operations in order to an overlay on
+# the pinned state and commits the net result"
+dec:NetOfOrderedOperations a blend:MentalSpace ; blend:level 0 ;
+    blend:slot lib:inContract ;
+    blend:constrains c:op1 .
+c:op1 a blend:Constraint ; lib:subject lib:Operation ; lib:relation lib:inContract ; lib:object lib:Contract .
+
+# 0094 "Every write request is at most one commit"
+dec:WriteIsAtMostOneCommit a blend:MentalSpace ; blend:level 0 ;
+    blend:slot lib:becomes ;
+    blend:constrains c:http1 .
+c:http1 a blend:Constraint ; lib:subject lib:HttpWriteRequest ; lib:relation lib:becomes ; lib:object lib:Commit .
+
+# 0021 "Settings are a commit kind beside Data and Erasure, sequenced like any
+# other commit with an agent, a cause and a position"
+dec:SettingsAreACommitKind a blend:MentalSpace ; blend:level 0 ;
+    blend:slot lib:becomes ;
+    blend:constrains c:set1 .
+c:set1 a blend:Constraint ; lib:subject lib:SettingsChange ; lib:relation lib:becomes ; lib:object lib:SettingsCommit .
+
+# 0023 "Erase(subject) ... appends an Erasure commit carrying the KeyId, agent
+# and cause, then destroys the key"
+dec:EraseRetractsByKeyId a blend:MentalSpace ; blend:level 0 ;
+    blend:slot lib:becomes ;
+    blend:constrains c:er1 .
+c:er1 a blend:Constraint ; lib:subject lib:ErasureRequest ; lib:relation lib:becomes ; lib:object lib:ErasureCommit .
+
+# 0064 "Contracts name only the BCL, the assembly's DomainModel namespaces,
+# Contract types and Varve.Rdf, Varve.Iri and Varve.Xsd, with Varve.Sparql
+# added in layer-3 project files only". Level 1: its own text cites ADR 0005
+# ("Varve.Store's contracts are SPARQL-free"), so it rests on 0005.
+dec:ContractTypeVocabulary a blend:MentalSpace ; blend:level 1 ;
+    blend:constrains c:ctv1 .
+c:ctv1 a blend:Constraint ; lib:subject pkg:Varve.Store ; lib:relation lib:mustNotReference ; lib:object pkg:Varve.Sparql ;
+    rdfs:comment "Only for contract types, and only by the project-file setting; read as a reference ban to give 0005 its best chance." .
+
+# 0116 "No interval, command or setting ever breaks a lock the operating
+# system still holds, because a held lock has a live holder"
+dec:NothingForcesAHeldLock a blend:MentalSpace ; blend:level 0 ;
+    blend:constrains c:lk1 .
+c:lk1 a blend:Constraint ; lib:subject lib:WriterHandover ; lib:relation lib:noTimeBasedTakeover ; lib:object lib:ElapsedTime .
+
+# 0106 / 0118: two accepted rulings about one endpoint.
+dec:SettingsCommitOverHttp a blend:MentalSpace ; blend:level 0 ;
+    blend:constrains c:adm1 .
+c:adm1 a blend:Constraint ; lib:subject lib:PostSettings ; lib:relation lib:exists ; lib:object lib:AdminApi .
+dec:SettingsAreAResource a blend:MentalSpace ; blend:level 0 ;
+    blend:constrains c:adm2 .
+c:adm2 a blend:Constraint ; lib:subject lib:PostSettings ; lib:relation lib:removed ; lib:object lib:AdminApi .
+
+# ----------------------------------------------------- the targets' form --
+# The constraint each attempted ruling states, encoded the same way, so a
+# derived blend can be compared with it by equality (check/report.rq).
+
+dec:StoreReferencesNoSparql a blend:MentalSpace ; blend:level 0 ;
+    blend:constrains c:t0005a, c:t0005b .
+c:t0005a a blend:Constraint ; lib:subject pkg:Varve.Store ; lib:relation lib:mustNotReference ; lib:object pkg:Varve.Sparql .
+c:t0005b a blend:Constraint ; lib:subject pkg:Varve.Store ; lib:relation lib:mustNotReference ; lib:object pkg:Varve.Sparql.Evaluation .
+
+dec:NoAmbientClockOrRandomness a blend:MentalSpace ;
+    blend:constrains c:t0011a, c:t0011b .
+c:t0011a a blend:Constraint ; lib:subject lib:AmbientClockRead ; lib:relation lib:forbiddenIn ; lib:object pkg:Varve.Store .
+c:t0011b a blend:Constraint ; lib:subject lib:AmbientRandomRead ; lib:relation lib:forbiddenIn ; lib:object pkg:Varve.Store .
+
+dec:EvaluatorUnderDeterministicBan a blend:MentalSpace ;
+    blend:constrains c:t0056a, c:t0056b .
+c:t0056a a blend:Constraint ; lib:subject lib:AmbientClockRead ; lib:relation lib:forbiddenIn ; lib:object pkg:Varve.Sparql.Evaluation .
+c:t0056b a blend:Constraint ; lib:subject lib:AmbientRandomRead ; lib:relation lib:forbiddenIn ; lib:object pkg:Varve.Sparql.Evaluation .
+
+dec:NoWallClockFreshness a blend:MentalSpace ;
+    blend:constrains c:t0140a, c:t0140b .
+c:t0140a a blend:Constraint ; lib:subject lib:NOW ; lib:relation lib:forbiddenIn ; lib:object lib:StandingQueryResult .
+c:t0140b a blend:Constraint ; lib:subject lib:Freshness ; lib:relation lib:determinedBy ; lib:object lib:Position .
+
+dec:BatchBoundaryIsInNoContract a blend:MentalSpace ;
+    blend:constrains c:t0124 .
+c:t0124 a blend:Constraint ; lib:subject lib:Batch ; lib:relation lib:inNoContract ; lib:object lib:Contract .
+
+dec:CompositionRootIsTheExecutable a blend:MentalSpace ;
+    blend:constrains c:t0060a, c:t0060b .
+c:t0060a a blend:Constraint ; lib:subject lib:WallClock ; lib:relation lib:wiredIn ; lib:object lib:Layer6Executable .
+c:t0060b a blend:Constraint ; lib:subject lib:Storage ; lib:relation lib:wiredIn ; lib:object lib:Layer6Executable .
+
+dec:NoLeaseNoTimer a blend:MentalSpace ;
+    blend:constrains c:t0136 .
+c:t0136 a blend:Constraint ; lib:subject lib:WriterHandover ; lib:relation lib:noTimeBasedTakeover ; lib:object lib:ElapsedTime .
+
+# The HTTP part of 0106's SettingsCommitOverHttp, without its path and method
+# name (which no rule could produce without naming them).
+c:t0106 a blend:Constraint ; lib:subject lib:SettingsChangeOverHttp ; lib:relation lib:becomes ; lib:object lib:SettingsCommit .
+dec:SettingsCommitOverHttp blend:constrains c:t0106 .
+
+# ------------------------------------------- spaces the spike proposes --
+# Facts about the BCL and about what a computation can invoke. Proposed:
+# no acceptance, so nothing derived from them is in force.
+
+sdec:AmbientReads a ledger:Decision, blend:MentalSpace ; blend:level 0 ;
+    blend:slot lib:reads ;
+    blend:constrains c:amb1, c:amb2 .
+<urn:ver:spike/AmbientReads/1> a ledger:DecisionVersion ; ledger:ofDecision sdec:AmbientReads ;
+    ledger:statement "DateTime.Now and its kind read the wall clock; Random and its kind read ambient entropy" .
+c:amb1 a blend:Constraint ; lib:subject lib:AmbientClockRead ; lib:relation lib:reads ; lib:object lib:WallClock .
+c:amb2 a blend:Constraint ; lib:subject lib:AmbientRandomRead ; lib:relation lib:reads ; lib:object lib:Entropy .
+
+sdec:WhatComputationsInvoke a ledger:Decision, blend:MentalSpace ; blend:level 0 ;
+    blend:slot lib:canInvoke, lib:computes .
+<urn:ver:spike/WhatComputationsInvoke/1> a ledger:DecisionVersion ; ledger:ofDecision sdec:WhatComputationsInvoke ;
+    ledger:statement "C# code can call the ambient reads; a SPARQL query can call NOW, RAND and UUID; Varve.Store computes projection state; Varve.Sparql.Evaluation computes query results" .
+
+sdec:SourceKinds a ledger:Decision, blend:MentalSpace ; blend:level 0 ;
+    blend:slot lib:yields .
+<urn:ver:spike/SourceKinds/1> a ledger:DecisionVersion ; ledger:ofDecision sdec:SourceKinds ;
+    ledger:statement "Clocks and commit timestamps yield instants; entropy and random sources yield bytes" .
+
+sdec:SettingsOverHttpIsAWrite a ledger:Decision, blend:MentalSpace ; blend:level 0 .
+<urn:ver:spike/SettingsOverHttpIsAWrite/1> a ledger:DecisionVersion ; ledger:ofDecision sdec:SettingsOverHttpIsAWrite ;
+    ledger:statement "A settings change made over HTTP is an HTTP write request; so is an erasure request made over HTTP" .
+}
+
+# The mapping facts the proposed spaces state, as plain triples the rules join on.
+<urn:varve-spike:g/facts> {
+    lib:CSharpComputation lib:canInvoke lib:AmbientClockRead, lib:AmbientRandomRead .
+    lib:SparqlComputation lib:canInvoke lib:NOW, lib:RAND, lib:UUID .
+    lib:ProjectionState a lib:CSharpComputation .
+    lib:QueryResult a lib:CSharpComputation, lib:SparqlComputation .
+    lib:StandingQueryResult a lib:SparqlComputation .
+    pkg:Varve.Store lib:computes lib:ProjectionState .
+    pkg:Varve.Sparql.Evaluation lib:computes lib:QueryResult .
+    lib:WallClock lib:yields lib:Instant .
+    lib:InjectedClock lib:yields lib:Instant .
+    lib:CommitTimestamp lib:yields lib:Instant .
+    lib:Entropy lib:yields lib:Bytes .
+    lib:InjectedRandomness lib:yields lib:Bytes .
+    lib:SettingsChangeOverHttp a lib:HttpWriteRequest ; lib:kindOf lib:SettingsChange .
+    lib:ErasureOverHttp a lib:HttpWriteRequest ; lib:kindOf lib:ErasureRequest .
+}

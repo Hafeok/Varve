@@ -1,0 +1,21 @@
+# R1: ADR 0003 LayersStrictlyDownward as a blend rule.
+# Inputs: "a package declares layer L" and "a package declares layer M".
+# Mapping (the generic space): a reference from the first to the second.
+# Blend: the reference is permitted iff L > M.
+CONSTRUCT {
+  ?b a blend:Blend ; blend:level 1 ;
+     prov:wasDerivedFrom ?rv, ?da, ?db ;
+     blend:constrains ?c .
+  ?c a blend:Constraint ; lib:subject ?a ; lib:relation ?verdict ; lib:object ?t .
+}
+WHERE {
+  GRAPH <urn:varve-spike:g/code> {
+    ?a code:references ?t .
+    ?da code:declares ?a ; code:layer ?l .
+    ?db code:declares ?t ; code:layer ?m .
+  }
+  GRAPH <urn:varve-spike:g/ledger> { ?rv a ledger:DecisionVersion ; ledger:ofDecision <urn:dec:varve/LayersStrictlyDownward> }
+  BIND(IF(?l > ?m, lib:mayReference, lib:mustNotReference) AS ?verdict)
+  BIND(IRI(CONCAT("urn:varve-spike:blend/R1/", ENCODE_FOR_URI(STR(?a)), "/", ENCODE_FOR_URI(STR(?t)))) AS ?b)
+  BIND(IRI(CONCAT(STR(?b), "/c")) AS ?c)
+}
