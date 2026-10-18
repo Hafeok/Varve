@@ -539,6 +539,14 @@ jobs:
 
       - name: Start the object stores
         run: |
+          # Until #118's mirror: three pulls with backoff, so one runner address's
+          # exhausted anonymous limit does not fail the job. Only the pull is
+          # retried; a start that fails its health check is a real failure.
+          for attempt in 1 2 3; do
+            docker compose --file .github/storage/compose.yaml pull && break
+            [ "$attempt" -lt 3 ] || exit 1
+            sleep $((attempt * 15))
+          done
           docker compose --file .github/storage/compose.yaml up --detach
           for attempt in $(seq 1 60); do
             azurite=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:10000/devstoreaccount1?comp=list || true)

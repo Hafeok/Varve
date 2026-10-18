@@ -106,3 +106,24 @@ Part 2, after the maintainer's first run of the workflow, as the prompt describe
 - `CONTRIBUTING.md`.
 
 Until then, a Dependabot bump to a compose file must be matched in the list by hand.
+
+## Addendum, 2026-10-18: #116 landed
+
+The maintainer, after the pull request was opened:
+
+> Yes, watch #125 and fix what comes up. First:
+>
+> 1. Merge `main`. #116 has landed as preview.8, so add RustFS to `.github/ci-images.yaml`, mirrored, with its digest from the compose or workflow file that #116 put on `main`, its licence (Apache-2.0), jobs and purpose. Leave nothing for PR 2 except switching the references.
+> 2. If `container (linux-x64)` fails on the six `http-rdf-update` POST/GET/HEAD/DELETE tests, that's #127, a server bug not caused by this PR. Note it in the PR and don't change anything for it. Any other container failure is yours to look at.
+> 3. After pushing, say the new head SHA so the maintainer can approve it.
+>
+> PR 2 starts once the first `mirror-ci-images` run on `main` is green and the packages are confirmed private and linked.
+
+- **`main` merged**, without conflict. #116 added `.github/storage/compose.yaml`, which starts Azurite and RustFS for the `storage (services)` job.
+- **RustFS 1.0.1 is a mirrored row** at the compose file's digest, `sha256:1803faef…6a3c`.
+  - Its licence is Apache-2.0.
+  - On 2026-10-18 `ghcr.io` resolved the tag to that digest, an OCI index.
+- **Azurite's row** now also names `storage (services)`.
+- **The storage compose start** has the same stopgap pull retry as the others: six compose starts in all.
+- **The Aspire sample.** `samples/Varve.Aspire.Sample/Program.cs` starts mock-oauth2-server itself through Aspire's `AddContainer`, by tag and without a digest, in the `aspire sample` job. It is not a compose file and it is not under `.github/`, so the planned gate would not see it. It is now in the list's `jobs` for that image. Switching it is a question for the maintainer, because the sample is code users run and a private mirror is not reachable for them.
+- **Not a container image:** the `bicep` job takes the Microsoft Graph Bicep extension from `mcr.microsoft.com`. It is an OCI artifact the Bicep CLI restores, not a container CI starts, so it is not in the list.

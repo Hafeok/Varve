@@ -18,6 +18,9 @@
 # linux/arm64), resolved when this file was written (2026-10-15):
 # mcr.microsoft.com and ghcr.io have no anonymous pull limit; nothing comes
 # from Docker Hub.
+#
+# Each digest is also in .github/ci-images.yaml, the list the CI image mirror
+# copies from (#118): a bump changes both.
 
 name: varve-storage
 
