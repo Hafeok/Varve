@@ -1,0 +1,5 @@
+<Project>
+  <!-- The negative control (#128) is checked by DD0001, so unlike the rest of
+       the spike it takes the repository's settings whole. -->
+  <Import Project="../../../Directory.Build.props" />
+</Project>

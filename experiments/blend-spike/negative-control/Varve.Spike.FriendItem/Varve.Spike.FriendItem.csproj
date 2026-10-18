@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- An InternalsVisibleTo grant to a non-test assembly, as an MSBuild item:
+       the SDK writes it into the generated AssemblyInfo.cs. DD0002 should
+       report it (ADR 0003 InternalsVisibleToTestsOnly). -->
+  <PropertyGroup>
+    <ArchLayer>0</ArchLayer>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Varve.Spike.NotATest" />
+  </ItemGroup>
+</Project>

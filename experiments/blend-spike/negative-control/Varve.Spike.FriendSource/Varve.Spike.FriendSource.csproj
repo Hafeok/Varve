@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The same grant written in source, for comparison with FriendItem. -->
+  <PropertyGroup>
+    <ArchLayer>0</ArchLayer>
+  </PropertyGroup>
+</Project>

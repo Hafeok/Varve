@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Layer 1 referencing Varve.Rdf at layer 1: same layer, a violation by
+       ADR 0003's SameLayerReferenceIsViolation, and the case an "L >= M"
+       rule gets wrong. Meant to fail with DD0001. -->
+  <PropertyGroup>
+    <ArchLayer>1</ArchLayer>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../../src/Varve.Rdf/Varve.Rdf.csproj" />
+  </ItemGroup>
+</Project>

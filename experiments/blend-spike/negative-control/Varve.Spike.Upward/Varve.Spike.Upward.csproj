@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Layer 0 referencing Varve.Rdf at layer 1: upward. Meant to fail with
+       DD0001; that failure is the observation. -->
+  <PropertyGroup>
+    <ArchLayer>0</ArchLayer>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../../src/Varve.Rdf/Varve.Rdf.csproj" />
+  </ItemGroup>
+</Project>
