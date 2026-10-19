@@ -24,7 +24,12 @@ namespace Varve.Store.Tests.Faults;
 /// read equals the history of a run that never crashed, the derived state is
 /// rebuilt, and the log can be continued and reopened.
 /// </summary>
-public sealed class FaultInjectionTests
+/// <remarks>
+/// One class of tests per kind of fault, nested here beside the workload
+/// they share: xunit runs a class's tests one after another, and as one
+/// class the suite ran its 13 in series for the whole of the step (#126).
+/// </remarks>
+public static class FaultInjectionTests
 {
     private static readonly string Root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "varve-simulated", "dataset"));
 
@@ -313,548 +318,580 @@ public sealed class FaultInjectionTests
             ? [.. Enumerable.Range(0, length)]
             : [.. new[] { 0, length / 2, Math.Max(0, length - 1) }.Distinct()];
 
-    /// <summary>
-    /// The process-crash suites build every cut of a write from one run
-    /// crashed at the write's start (#126). That image is the image a run
-    /// crashed at the cut leaves, with the same acknowledged position, file
-    /// for file and byte for byte, at every cut of every tenth write, batched
-    /// and not.
-    /// </summary>
-    [Theory]
-    [InlineData(6101, 24, 1)]
-    [InlineData(6151, 32, 4)]
-    public async Task an_image_cut_from_one_crash_is_the_image_of_a_crash_at_that_cut(int seed, int steps, int batch)
+    /// <summary>A process crash at every operation and every cut of its write, and the images those cuts are built from.</summary>
+    public sealed class ProcessCrash
     {
-        Reference reference = await ReferenceAsync(seed, steps, batch);
-        int compared = 0;
-
-        foreach ((int operation, int length, string path) in reference.Writes.Where((_, index) => index % 10 == 0))
+        /// <summary>
+        /// The process-crash suites build every cut of a write from one run
+        /// crashed at the write's start (#126). That image is the image a run
+        /// crashed at the cut leaves, with the same acknowledged position, file
+        /// for file and byte for byte, at every cut of every tenth write, batched
+        /// and not.
+        /// </summary>
+        [Theory]
+        [InlineData(6101, 24, 1)]
+        [InlineData(6151, 32, 4)]
+        public async Task an_image_cut_from_one_crash_is_the_image_of_a_crash_at_that_cut(int seed, int steps, int batch)
         {
-            int at = operation;
-            (SimulatedFileSystem once, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null, batch);
+            Reference reference = await ReferenceAsync(seed, steps, batch);
+            int compared = 0;
 
-            foreach (int keep in Cuts(length, path))
+            foreach ((int operation, int length, string path) in reference.Writes.Where((_, index) => index % 10 == 0))
             {
-                int cut = keep;
-                (SimulatedFileSystem replayed, long replayedAcknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? cut : null, batch);
-                string where = "operation " + at + ", byte " + cut + " of " + length + " to " + path;
-                Assert.True(replayedAcknowledged == acknowledged, where + ": acknowledged " + replayedAcknowledged + " against " + acknowledged);
-                SameFiles(replayed.Image(CrashKind.Process, new Random(at)), once.Image(CrashKind.Process, new Random(at), cut), where);
-                compared++;
-            }
-        }
+                int at = operation;
+                (SimulatedFileSystem once, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null, batch);
 
-        Assert.True(compared > 100, "only " + compared + " cuts compared");
-        Report("cut images, seed " + seed + ": " + compared + " cuts compared");
-    }
-
-    private static void SameFiles(SimulatedFileSystem expected, SimulatedFileSystem actual, string where)
-    {
-        IReadOnlyList<string> names = expected.Files(Root);
-        Assert.True(names.SequenceEqual(actual.Files(Root)), where + ": the images hold different files");
-
-        foreach (string name in names)
-        {
-            Assert.True(expected.Read(name).AsSpan().SequenceEqual(actual.Read(name)), where + ": " + name + " differs");
-            Assert.True(expected.IsReadOnly(name) == actual.IsReadOnly(name), where + ": " + name + " is sealed in one image only");
-        }
-    }
-
-    /// <summary>
-    /// A process crash at every operation of the workload, and inside every
-    /// write at every byte offset of the log's records and segment headers and
-    /// trailers, and at the start, middle and end of every write to derived/.
-    /// What a crash keeps is everything written before it: every acknowledged
-    /// commit survives.
-    /// </summary>
-    [Theory]
-    [InlineData(6101, 24)]
-    [InlineData(6102, 24)]
-    public async Task a_process_crash_anywhere_recovers_to_the_last_closed_commit(int seed, int steps)
-    {
-        Reference reference = await ReferenceAsync(seed, steps);
-        Dictionary<int, (int Length, string Path)> writes = reference.Writes.ToDictionary(w => w.Operation, w => (w.Length, w.Path));
-        int points = 0;
-
-        for (int operation = 1; operation <= reference.Operations; operation++)
-        {
-            List<int> keeps = writes.TryGetValue(operation, out (int Length, string Path) write) ? Cuts(write.Length, write.Path) : [0];
-
-            // One run crashed at the operation's start; every cut of its write
-            // is built from it, as a run crashed at that cut would leave it.
-            int at = operation;
-            (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null);
-
-            foreach (int keep in keeps)
-            {
-                await VerifyAsync(crashed.Image(CrashKind.Process, new Random(at), keep), reference, acknowledged, "process crash at operation " + at + ", byte " + keep);
-                points++;
-            }
-        }
-
-        Report("process crash, seed " + seed + ": " + reference.Operations + " operations, " + points + " injection points, head " + (reference.History.Count - 1));
-    }
-
-    /// <summary>
-    /// Group commit (ADR 0124): the same workload with the requests queued four
-    /// at a time and written as one batch with one flush. A process crash at
-    /// every operation and inside every write at every byte offset of the
-    /// log's records — so inside every batch, between and within its commits —
-    /// and a power loss with writes reordered up to the flush barrier, each
-    /// recover to a closed commit no earlier than the last one acknowledged:
-    /// no request is acknowledged before its batch is durable.
-    /// </summary>
-    [Theory]
-    [InlineData(6151, 32)]
-    [InlineData(6152, 32)]
-    public async Task a_crash_inside_a_batch_recovers_to_the_last_closed_commit(int seed, int steps)
-    {
-        const int batch = 4;
-        Reference reference = await ReferenceAsync(seed, steps, batch);
-        Dictionary<int, (int Length, string Path)> writes = reference.Writes.ToDictionary(w => w.Operation, w => (w.Length, w.Path));
-        int points = 0;
-
-        for (int operation = 1; operation <= reference.Operations; operation++)
-        {
-            List<int> keeps = writes.TryGetValue(operation, out (int Length, string Path) write) ? Cuts(write.Length, write.Path) : [0];
-
-            // One run crashed at the operation's start serves every cut of its
-            // write and every power-loss image, as in the unbatched suites.
-            int at = operation;
-            (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null, batch);
-
-            foreach (int keep in keeps)
-            {
-                await VerifyAsync(crashed.Image(CrashKind.Process, new Random(at), keep), reference, acknowledged, "batched, process crash at operation " + at + ", byte " + keep, batch: batch);
-                points++;
-            }
-
-            for (int image = 0; image < 3; image++)
-            {
-                await VerifyAsync(crashed.Image(CrashKind.PowerLoss, new Random((at * 31) + image)), reference, acknowledged, "batched, power loss at operation " + at + ", image " + image, batch: batch);
-                points++;
-            }
-        }
-
-        Report("batched crash, seed " + seed + ": " + reference.Operations + " operations, " + points + " injection points, head " + (reference.History.Count - 1));
-    }
-
-    /// <summary>
-    /// Power lost at every operation: each write since its file's last flush
-    /// kept, dropped or torn at a sector, in every combination the seed draws,
-    /// and metadata cut anywhere after the last flush. Every acknowledged
-    /// commit survives, because a commit is acknowledged only after its flush
-    /// (ADR 0013, ADR 0073).
-    /// </summary>
-    [Theory]
-    [InlineData(6201, 24, 6)]
-    [InlineData(6202, 24, 6)]
-    public async Task a_power_loss_with_writes_reordered_up_to_the_flush_recovers(int seed, int steps, int imagesPerPoint)
-    {
-        Reference reference = await ReferenceAsync(seed, steps);
-        int points = 0;
-
-        for (int operation = 1; operation <= reference.Operations; operation++)
-        {
-            int at = operation;
-            (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null);
-
-            for (int image = 0; image < imagesPerPoint; image++)
-            {
-                await VerifyAsync(crashed.Image(CrashKind.PowerLoss, new Random((at * 31) + image)), reference, acknowledged, "power loss at operation " + at + ", image " + image);
-                points++;
-            }
-        }
-
-        Report("power loss, seed " + seed + ": " + reference.Operations + " operations, " + points + " injection points");
-    }
-
-    /// <summary>
-    /// Power lost on a file system that may drop a new file's directory entry
-    /// even after the file was flushed (ADR 0073's undocumented rows):
-    /// acknowledged commits in a lost segment are lost, which ADR 0073 states,
-    /// but the dataset always opens at a closed commit, consistently.
-    /// </summary>
-    [Fact]
-    public async Task a_lost_directory_entry_is_a_segment_never_created()
-    {
-        const int seed = 6301, steps = 24;
-        Reference reference = await ReferenceAsync(seed, steps);
-        int points = 0;
-
-        for (int operation = 1; operation <= reference.Operations; operation += 2)
-        {
-            int at = operation;
-            (SimulatedFileSystem crashed, _) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null);
-
-            for (int image = 0; image < 4; image++)
-            {
-                await VerifyAsync(crashed.Image(CrashKind.LostDirectoryEntries, new Random((at * 17) + image)), reference, 0, "lost entries at operation " + at + ", image " + image);
-                points++;
-            }
-        }
-
-        Report("lost directory entries: " + points + " injection points");
-    }
-
-    /// <summary>
-    /// After a crash, derived/ deleted, or replaced by the derived/ of the run
-    /// that did not crash — a longer log's, so its state and checkpoints name
-    /// positions this log does not have. Both open, rebuild, and read right.
-    /// </summary>
-    [Fact]
-    public async Task derived_data_deleted_or_stale_after_a_crash_is_rebuilt()
-    {
-        const int seed = 6401, steps = 24;
-        Reference reference = await ReferenceAsync(seed, steps);
-        string derived = Path.Combine(Root, "derived");
-        int points = 0;
-
-        for (int operation = 1; operation <= reference.Operations; operation += 3)
-        {
-            int at = operation;
-            (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null);
-
-            SimulatedFileSystem deleted = crashed.Image(CrashKind.Process, new Random(at));
-            deleted.RemoveTree(derived);
-            await VerifyAsync(deleted, reference, acknowledged, "derived/ deleted after operation " + at);
-
-            SimulatedFileSystem stale = crashed.Image(CrashKind.Process, new Random(at));
-            stale.RemoveTree(derived);
-
-            foreach (string file in reference.Final.Files(derived))
-            {
-                stale.Place(file, reference.Final.Read(file), readOnly: false);
-            }
-
-            await VerifyAsync(stale, reference, acknowledged, "derived/ of a longer log after operation " + at);
-            points += 2;
-        }
-
-        Report("derived/ deleted or stale: " + points + " injection points");
-    }
-
-    /// <summary>
-    /// A checkpoint is an extent set with its graph-version index beside it
-    /// (ADR 0125, ADR 0139), named by the catalog only once written whole. A
-    /// process crash at every operation of a workload that writes checkpoints
-    /// and drops each one's predecessor — so inside every extent write, index
-    /// write, catalog swap and merge — opens with every extent belonging to a
-    /// set the catalog names, every named set whole, and every graph's version
-    /// at every position what the commits say.
-    /// </summary>
-    [Fact]
-    public async Task a_crash_while_checkpoints_and_their_graph_indexes_are_written_or_dropped_leaves_no_orphan()
-    {
-        SimulatedFileSystem reference = new();
-        long[][] versions = await CheckpointWorkloadAsync(reference);
-        string extents = Path.Combine(Root, "derived", "extents");
-        Check(reference.Files(extents).Any(f => f.EndsWith("graphs", StringComparison.Ordinal)), "the workload wrote no graph-version index");
-        int points = 0;
-
-        for (int operation = 1; operation <= reference.Operations; operation++)
-        {
-            int at = operation;
-            SimulatedFileSystem files = new() { Injector = op => op.Number == at ? 0 : null };
-
-            try
-            {
-                await CheckpointWorkloadAsync(files);
-            }
-            catch (SimulatedCrash)
-            {
-            }
-
-            SimulatedFileSystem image = files.Image(CrashKind.Process, new Random(at));
-            string where = "crash at operation " + at;
-            FileStorage storage = FileStorage.Open(image, new DatasetDirectory(Root), StorageOptions);
-
-            await using (storage)
-            {
-                if ((await storage.Log.ReadManifestAsync(T.Ct)).IsEmpty)
+                foreach (int keep in Cuts(length, path))
                 {
-                    continue;
+                    int cut = keep;
+                    (SimulatedFileSystem replayed, long replayedAcknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? cut : null, batch);
+                    string where = "operation " + at + ", byte " + cut + " of " + length + " to " + path;
+                    Assert.True(replayedAcknowledged == acknowledged, where + ": acknowledged " + replayedAcknowledged + " against " + acknowledged);
+                    SameFiles(replayed.Image(CrashKind.Process, new Random(at)), once.Image(CrashKind.Process, new Random(at), cut), where);
+                    compared++;
+                }
+            }
+
+            Assert.True(compared > 100, "only " + compared + " cuts compared");
+            Report("cut images, seed " + seed + ": " + compared + " cuts compared");
+        }
+
+        private static void SameFiles(SimulatedFileSystem expected, SimulatedFileSystem actual, string where)
+        {
+            IReadOnlyList<string> names = expected.Files(Root);
+            Assert.True(names.SequenceEqual(actual.Files(Root)), where + ": the images hold different files");
+
+            foreach (string name in names)
+            {
+                Assert.True(expected.Read(name).AsSpan().SequenceEqual(actual.Read(name)), where + ": " + name + " differs");
+                Assert.True(expected.IsReadOnly(name) == actual.IsReadOnly(name), where + ": " + name + " is sealed in one image only");
+            }
+        }
+
+        /// <summary>
+        /// A process crash at every operation of the workload, and inside every
+        /// write at every byte offset of the log's records and segment headers and
+        /// trailers, and at the start, middle and end of every write to derived/.
+        /// What a crash keeps is everything written before it: every acknowledged
+        /// commit survives.
+        /// </summary>
+        [Theory]
+        [InlineData(6101, 24)]
+        [InlineData(6102, 24)]
+        public async Task a_process_crash_anywhere_recovers_to_the_last_closed_commit(int seed, int steps)
+        {
+            Reference reference = await ReferenceAsync(seed, steps);
+            Dictionary<int, (int Length, string Path)> writes = reference.Writes.ToDictionary(w => w.Operation, w => (w.Length, w.Path));
+            int points = 0;
+
+            for (int operation = 1; operation <= reference.Operations; operation++)
+            {
+                List<int> keeps = writes.TryGetValue(operation, out (int Length, string Path) write) ? Cuts(write.Length, write.Path) : [0];
+
+                // One run crashed at the operation's start; every cut of its write
+                // is built from it, as a run crashed at that cut would leave it.
+                int at = operation;
+                (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null);
+
+                foreach (int keep in keeps)
+                {
+                    await VerifyAsync(crashed.Image(CrashKind.Process, new Random(at), keep), reference, acknowledged, "process crash at operation " + at + ", byte " + keep);
+                    points++;
+                }
+            }
+
+            Report("process crash, seed " + seed + ": " + reference.Operations + " operations, " + points + " injection points, head " + (reference.History.Count - 1));
+        }
+    }
+
+    /// <summary>The same, inside a batch of commits written with one flush.</summary>
+    public sealed class BatchedCrash
+    {
+        /// <summary>
+        /// Group commit (ADR 0124): the same workload with the requests queued four
+        /// at a time and written as one batch with one flush. A process crash at
+        /// every operation and inside every write at every byte offset of the
+        /// log's records — so inside every batch, between and within its commits —
+        /// and a power loss with writes reordered up to the flush barrier, each
+        /// recover to a closed commit no earlier than the last one acknowledged:
+        /// no request is acknowledged before its batch is durable.
+        /// </summary>
+        [Theory]
+        [InlineData(6151, 32)]
+        [InlineData(6152, 32)]
+        public async Task a_crash_inside_a_batch_recovers_to_the_last_closed_commit(int seed, int steps)
+        {
+            const int batch = 4;
+            Reference reference = await ReferenceAsync(seed, steps, batch);
+            Dictionary<int, (int Length, string Path)> writes = reference.Writes.ToDictionary(w => w.Operation, w => (w.Length, w.Path));
+            int points = 0;
+
+            for (int operation = 1; operation <= reference.Operations; operation++)
+            {
+                List<int> keeps = writes.TryGetValue(operation, out (int Length, string Path) write) ? Cuts(write.Length, write.Path) : [0];
+
+                // One run crashed at the operation's start serves every cut of its
+                // write and every power-loss image, as in the unbatched suites.
+                int at = operation;
+                (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null, batch);
+
+                foreach (int keep in keeps)
+                {
+                    await VerifyAsync(crashed.Image(CrashKind.Process, new Random(at), keep), reference, acknowledged, "batched, process crash at operation " + at + ", byte " + keep, batch: batch);
+                    points++;
                 }
 
-                await using Dataset dataset = await Dataset.OpenAsync(storage, Unbatched, T.Ct);
-
-                IReadOnlyList<BlobName> names = await storage.Derived.ListAsync(T.Ct);
-                var catalog = await ExtentCatalog.TryReadAsync(storage.Derived, dataset.Id, T.Ct);
-                HashSet<string> named = [.. (catalog?.Sets ?? []).Select(s => s.Name)];
-
-                foreach (BlobName name in names.Where(n => n.Value.StartsWith(ExtentSet.Prefix, StringComparison.Ordinal)))
+                for (int image = 0; image < 3; image++)
                 {
-                    string set = name.Value[..(name.Value.LastIndexOf('/') + 1)];
-                    Check(named.Contains(set), where + ": " + name.Value + " belongs to no set the catalog names");
+                    await VerifyAsync(crashed.Image(CrashKind.PowerLoss, new Random((at * 31) + image)), reference, acknowledged, "batched, power loss at operation " + at + ", image " + image, batch: batch);
+                    points++;
+                }
+            }
+
+            Report("batched crash, seed " + seed + ": " + reference.Operations + " operations, " + points + " injection points, head " + (reference.History.Count - 1));
+        }
+    }
+
+    /// <summary>Power lost at every operation, with writes reordered up to the flush, and directory entries lost.</summary>
+    public sealed class PowerLoss
+    {
+        /// <summary>
+        /// Power lost at every operation: each write since its file's last flush
+        /// kept, dropped or torn at a sector, in every combination the seed draws,
+        /// and metadata cut anywhere after the last flush. Every acknowledged
+        /// commit survives, because a commit is acknowledged only after its flush
+        /// (ADR 0013, ADR 0073).
+        /// </summary>
+        [Theory]
+        [InlineData(6201, 24, 6)]
+        [InlineData(6202, 24, 6)]
+        public async Task a_power_loss_with_writes_reordered_up_to_the_flush_recovers(int seed, int steps, int imagesPerPoint)
+        {
+            Reference reference = await ReferenceAsync(seed, steps);
+            int points = 0;
+
+            for (int operation = 1; operation <= reference.Operations; operation++)
+            {
+                int at = operation;
+                (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null);
+
+                for (int image = 0; image < imagesPerPoint; image++)
+                {
+                    await VerifyAsync(crashed.Image(CrashKind.PowerLoss, new Random((at * 31) + image)), reference, acknowledged, "power loss at operation " + at + ", image " + image);
+                    points++;
+                }
+            }
+
+            Report("power loss, seed " + seed + ": " + reference.Operations + " operations, " + points + " injection points");
+        }
+
+        /// <summary>
+        /// Power lost on a file system that may drop a new file's directory entry
+        /// even after the file was flushed (ADR 0073's undocumented rows):
+        /// acknowledged commits in a lost segment are lost, which ADR 0073 states,
+        /// but the dataset always opens at a closed commit, consistently.
+        /// </summary>
+        [Fact]
+        public async Task a_lost_directory_entry_is_a_segment_never_created()
+        {
+            const int seed = 6301, steps = 24;
+            Reference reference = await ReferenceAsync(seed, steps);
+            int points = 0;
+
+            for (int operation = 1; operation <= reference.Operations; operation += 2)
+            {
+                int at = operation;
+                (SimulatedFileSystem crashed, _) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null);
+
+                for (int image = 0; image < 4; image++)
+                {
+                    await VerifyAsync(crashed.Image(CrashKind.LostDirectoryEntries, new Random((at * 17) + image)), reference, 0, "lost entries at operation " + at + ", image " + image);
+                    points++;
+                }
+            }
+
+            Report("lost directory entries: " + points + " injection points");
+        }
+    }
+
+    /// <summary>derived/ deleted or stale after a crash, and checkpoints crashed while written or dropped.</summary>
+    public sealed class DerivedAndCheckpoints
+    {
+        /// <summary>
+        /// After a crash, derived/ deleted, or replaced by the derived/ of the run
+        /// that did not crash — a longer log's, so its state and checkpoints name
+        /// positions this log does not have. Both open, rebuild, and read right.
+        /// </summary>
+        [Fact]
+        public async Task derived_data_deleted_or_stale_after_a_crash_is_rebuilt()
+        {
+            const int seed = 6401, steps = 24;
+            Reference reference = await ReferenceAsync(seed, steps);
+            string derived = Path.Combine(Root, "derived");
+            int points = 0;
+
+            for (int operation = 1; operation <= reference.Operations; operation += 3)
+            {
+                int at = operation;
+                (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null);
+
+                SimulatedFileSystem deleted = crashed.Image(CrashKind.Process, new Random(at));
+                deleted.RemoveTree(derived);
+                await VerifyAsync(deleted, reference, acknowledged, "derived/ deleted after operation " + at);
+
+                SimulatedFileSystem stale = crashed.Image(CrashKind.Process, new Random(at));
+                stale.RemoveTree(derived);
+
+                foreach (string file in reference.Final.Files(derived))
+                {
+                    stale.Place(file, reference.Final.Read(file), readOnly: false);
                 }
 
-                foreach (string set in named)
+                await VerifyAsync(stale, reference, acknowledged, "derived/ of a longer log after operation " + at);
+                points += 2;
+            }
+
+            Report("derived/ deleted or stale: " + points + " injection points");
+        }
+
+        /// <summary>
+        /// A checkpoint is an extent set with its graph-version index beside it
+        /// (ADR 0125, ADR 0139), named by the catalog only once written whole. A
+        /// process crash at every operation of a workload that writes checkpoints
+        /// and drops each one's predecessor — so inside every extent write, index
+        /// write, catalog swap and merge — opens with every extent belonging to a
+        /// set the catalog names, every named set whole, and every graph's version
+        /// at every position what the commits say.
+        /// </summary>
+        [Fact]
+        public async Task a_crash_while_checkpoints_and_their_graph_indexes_are_written_or_dropped_leaves_no_orphan()
+        {
+            SimulatedFileSystem reference = new();
+            long[][] versions = await CheckpointWorkloadAsync(reference);
+            string extents = Path.Combine(Root, "derived", "extents");
+            Check(reference.Files(extents).Any(f => f.EndsWith("graphs", StringComparison.Ordinal)), "the workload wrote no graph-version index");
+            int points = 0;
+
+            for (int operation = 1; operation <= reference.Operations; operation++)
+            {
+                int at = operation;
+                SimulatedFileSystem files = new() { Injector = op => op.Number == at ? 0 : null };
+
+                try
                 {
-                    foreach (BlobName part in ExtentSet.BlobsOf(set))
+                    await CheckpointWorkloadAsync(files);
+                }
+                catch (SimulatedCrash)
+                {
+                }
+
+                SimulatedFileSystem image = files.Image(CrashKind.Process, new Random(at));
+                string where = "crash at operation " + at;
+                FileStorage storage = FileStorage.Open(image, new DatasetDirectory(Root), StorageOptions);
+
+                await using (storage)
+                {
+                    if ((await storage.Log.ReadManifestAsync(T.Ct)).IsEmpty)
                     {
-                        Check(names.Contains(part), where + ": the catalog names " + set + " but " + part.Value + " is missing");
+                        continue;
+                    }
+
+                    await using Dataset dataset = await Dataset.OpenAsync(storage, Unbatched, T.Ct);
+
+                    IReadOnlyList<BlobName> names = await storage.Derived.ListAsync(T.Ct);
+                    var catalog = await ExtentCatalog.TryReadAsync(storage.Derived, dataset.Id, T.Ct);
+                    HashSet<string> named = [.. (catalog?.Sets ?? []).Select(s => s.Name)];
+
+                    foreach (BlobName name in names.Where(n => n.Value.StartsWith(ExtentSet.Prefix, StringComparison.Ordinal)))
+                    {
+                        string set = name.Value[..(name.Value.LastIndexOf('/') + 1)];
+                        Check(named.Contains(set), where + ": " + name.Value + " belongs to no set the catalog names");
+                    }
+
+                    foreach (string set in named)
+                    {
+                        foreach (BlobName part in ExtentSet.BlobsOf(set))
+                        {
+                            Check(names.Contains(part), where + ": the catalog names " + set + " but " + part.Value + " is missing");
+                        }
+                    }
+
+                    for (long p = 0; p <= dataset.Head.Value; p++)
+                    {
+                        for (int g = 0; g < CheckpointGraphs; g++)
+                        {
+                            long version = (await dataset.GraphVersionAsync(T.Iri("g" + g), new Position(p), T.Ct)).Value;
+                            Check(version == versions[p][g], where + ": graph " + g + " at " + p + " is version " + version + ", not " + versions[p][g]);
+                        }
                     }
                 }
 
-                for (long p = 0; p <= dataset.Head.Value; p++)
+                points++;
+            }
+
+            Report("checkpoint and graph index crash: " + reference.Operations + " operations, " + points + " recovered images");
+        }
+
+        private const int CheckpointGraphs = 3;
+
+        // Twelve commits, each into one of three graphs; a checkpoint after every
+        // third, and the one before it dropped. Returns each graph's version at
+        // each position.
+        private static async Task<long[][]> CheckpointWorkloadAsync(SimulatedFileSystem files)
+        {
+            List<long[]> versions = [new long[CheckpointGraphs]];
+            await using FileStorage storage = FileStorage.Open(files, new DatasetDirectory(Root), StorageOptions);
+            await using Dataset dataset = await Dataset.CreateAsync(storage, T.Id, Unbatched, T.Ct);
+            long previous = 0;
+
+            for (int i = 0; i < 12; i++)
+            {
+                int g = i % CheckpointGraphs;
+                CommitResult result = await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s" + i), T.Iri("p"), T.Integer(i.ToString(CultureInfo.InvariantCulture)), T.Iri("g" + g)), T.Ct);
+                long[] next = [.. versions[^1]];
+                next[g] = result.Position.Value;
+                versions.Add(next);
+
+                if (i % 3 == 2)
                 {
-                    for (int g = 0; g < CheckpointGraphs; g++)
+                    await dataset.CheckpointAsync(dataset.Head, T.Ct);
+
+                    if (previous > 0)
                     {
-                        long version = (await dataset.GraphVersionAsync(T.Iri("g" + g), new Position(p), T.Ct)).Value;
-                        Check(version == versions[p][g], where + ": graph " + g + " at " + p + " is version " + version + ", not " + versions[p][g]);
+                        await dataset.DropCheckpointAsync(new Position(previous), T.Ct);
                     }
+
+                    previous = dataset.Head.Value;
                 }
             }
 
-            points++;
+            return [.. versions];
         }
-
-        Report("checkpoint and graph index crash: " + reference.Operations + " operations, " + points + " recovered images");
     }
 
-    private const int CheckpointGraphs = 3;
-
-    // Twelve commits, each into one of three graphs; a checkpoint after every
-    // third, and the one before it dropped. Returns each graph's version at
-    // each position.
-    private static async Task<long[][]> CheckpointWorkloadAsync(SimulatedFileSystem files)
+    /// <summary>A directory copied file by file while it is written.</summary>
+    public sealed class CopiedMidWrite
     {
-        List<long[]> versions = [new long[CheckpointGraphs]];
-        await using FileStorage storage = FileStorage.Open(files, new DatasetDirectory(Root), StorageOptions);
-        await using Dataset dataset = await Dataset.CreateAsync(storage, T.Id, Unbatched, T.Ct);
-        long previous = 0;
-
-        for (int i = 0; i < 12; i++)
+        /// <summary>
+        /// The dataset directory copied while it is being written, as `git add` or
+        /// a backup would: the copier lists the directory once, then copies one
+        /// file at a time, each as it reads at that moment. The copy opens at a
+        /// closed commit with no corruption; the copy without derived/ too.
+        /// </summary>
+        [Fact]
+        public async Task a_directory_copied_mid_write_opens_on_the_copy()
         {
-            int g = i % CheckpointGraphs;
-            CommitResult result = await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s" + i), T.Iri("p"), T.Integer(i.ToString(CultureInfo.InvariantCulture)), T.Iri("g" + g)), T.Ct);
-            long[] next = [.. versions[^1]];
-            next[g] = result.Position.Value;
-            versions.Add(next);
+            const int seed = 6501, steps = 30;
+            Reference reference = await ReferenceAsync(seed, steps);
+            int points = 0;
 
-            if (i % 3 == 2)
+            for (int trial = 0; trial < 300; trial++)
             {
-                await dataset.CheckpointAsync(dataset.Head, T.Ct);
+                Random random = new(trial);
+                int listAt = random.Next(1, reference.Operations);
+                List<int> copyAt = [];
+                List<string>? listed = null;
+                Dictionary<string, byte[]> copied = new(StringComparer.Ordinal);
+                // The copier lists at one operation and copies file i at a later
+                // one, in listing order, while the writer carries on.
+                int copied_ = 0;
 
-                if (previous > 0)
+                (SimulatedFileSystem live, _) = await CrashAsync(seed, steps, files => op =>
                 {
-                    await dataset.DropCheckpointAsync(new Position(previous), T.Ct);
-                }
-
-                previous = dataset.Head.Value;
-            }
-        }
-
-        return [.. versions];
-    }
-
-    /// <summary>
-    /// The dataset directory copied while it is being written, as `git add` or
-    /// a backup would: the copier lists the directory once, then copies one
-    /// file at a time, each as it reads at that moment. The copy opens at a
-    /// closed commit with no corruption; the copy without derived/ too.
-    /// </summary>
-    [Fact]
-    public async Task a_directory_copied_mid_write_opens_on_the_copy()
-    {
-        const int seed = 6501, steps = 30;
-        Reference reference = await ReferenceAsync(seed, steps);
-        int points = 0;
-
-        for (int trial = 0; trial < 300; trial++)
-        {
-            Random random = new(trial);
-            int listAt = random.Next(1, reference.Operations);
-            List<int> copyAt = [];
-            List<string>? listed = null;
-            Dictionary<string, byte[]> copied = new(StringComparer.Ordinal);
-            // The copier lists at one operation and copies file i at a later
-            // one, in listing order, while the writer carries on.
-            int copied_ = 0;
-
-            (SimulatedFileSystem live, _) = await CrashAsync(seed, steps, files => op =>
-            {
-                if (op.Number == listAt)
-                {
-                    listed = [.. files.Files(Root).Where(f => !f.EndsWith(".tmp", StringComparison.Ordinal))];
-                    int next = listAt;
-
-                    foreach (string _ in listed)
+                    if (op.Number == listAt)
                     {
-                        next += random.Next(0, 8);
-                        copyAt.Add(next);
+                        listed = [.. files.Files(Root).Where(f => !f.EndsWith(".tmp", StringComparison.Ordinal))];
+                        int next = listAt;
+
+                        foreach (string _ in listed)
+                        {
+                            next += random.Next(0, 8);
+                            copyAt.Add(next);
+                        }
                     }
-                }
 
-                while (listed is not null && copied_ < listed.Count && copyAt[copied_] <= op.Number)
-                {
-                    if (files.FileExists(listed[copied_]))
+                    while (listed is not null && copied_ < listed.Count && copyAt[copied_] <= op.Number)
                     {
-                        copied[listed[copied_]] = files.Read(listed[copied_]);
+                        if (files.FileExists(listed[copied_]))
+                        {
+                            copied[listed[copied_]] = files.Read(listed[copied_]);
+                        }
+
+                        copied_++;
+                    }
+
+                    return null;
+                });
+
+                // Files the writer had finished with before the copier reached them.
+                while (listed is not null && copied_ < listed.Count)
+                {
+                    if (live.FileExists(listed[copied_]))
+                    {
+                        copied[listed[copied_]] = live.Read(listed[copied_]);
                     }
 
                     copied_++;
                 }
 
-                return null;
-            });
-
-            // Files the writer had finished with before the copier reached them.
-            while (listed is not null && copied_ < listed.Count)
-            {
-                if (live.FileExists(listed[copied_]))
+                foreach (bool withDerived in new[] { true, false })
                 {
-                    copied[listed[copied_]] = live.Read(listed[copied_]);
-                }
+                    SimulatedFileSystem copy = new();
 
-                copied_++;
-            }
-
-            foreach (bool withDerived in new[] { true, false })
-            {
-                SimulatedFileSystem copy = new();
-
-                foreach ((string path, byte[] bytes) in copied)
-                {
-                    bool isDerived = path.Contains(Path.DirectorySeparatorChar + "derived" + Path.DirectorySeparatorChar, StringComparison.Ordinal);
-
-                    if (!withDerived && isDerived)
+                    foreach ((string path, byte[] bytes) in copied)
                     {
-                        continue;
+                        bool isDerived = path.Contains(Path.DirectorySeparatorChar + "derived" + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+
+                        if (!withDerived && isDerived)
+                        {
+                            continue;
+                        }
+
+                        if (!path.EndsWith("LOCK", StringComparison.Ordinal))
+                        {
+                            copy.Place(path, bytes, readOnly: false);
+                        }
                     }
 
-                    if (!path.EndsWith("LOCK", StringComparison.Ordinal))
-                    {
-                        copy.Place(path, bytes, readOnly: false);
-                    }
+                    await VerifyAsync(copy, reference, 0, "copy listed at operation " + listAt + (withDerived ? string.Empty : " without derived/"));
+                    points++;
                 }
-
-                await VerifyAsync(copy, reference, 0, "copy listed at operation " + listAt + (withDerived ? string.Empty : " without derived/"));
-                points++;
             }
-        }
 
-        Report("copies mid-write: " + points + " copies opened");
-    }
-
-    /// <summary>
-    /// Defect 1 of milestone 6a, kept as a named case: power lost at operation
-    /// 21 of seed 6201, the first seal, where the closed trailer reached the
-    /// disk and a record of the commit in flight before it did not. The next
-    /// open refused the log as damaged. The writer now flushes the segment
-    /// before the trailer that vouches for it.
-    /// </summary>
-    [Fact]
-    public async Task regression_a_closed_trailer_never_outlives_the_records_before_it()
-    {
-        Reference reference = await ReferenceAsync(6201, 24);
-        (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(6201, 24, op => op.Number == 21 ? 0 : null);
-
-        for (int image = 0; image < 64; image++)
-        {
-            await VerifyAsync(crashed.Image(CrashKind.PowerLoss, new Random((21 * 31) + image)), reference, acknowledged, "power loss at operation 21, image " + image);
+            Report("copies mid-write: " + points + " copies opened");
         }
     }
 
-    /// <summary>
-    /// A crash during recovery itself — while it seals an abandoned tail,
-    /// deletes stale derived files, or continues the log — at every operation
-    /// recovery performs, after a process crash at every 25th operation of the
-    /// workload, or every <c>VARVE_FAULT_RECOVERY_STRIDE</c>th: the nightly
-    /// run's 5 was the gate's until #126, and is about 57,700 points. The
-    /// second restart recovers as the first would have.
-    /// </summary>
-    [Fact]
-    public async Task a_crash_during_recovery_recovers()
+    /// <summary>Defects the suite found, kept by name.</summary>
+    public sealed class Regressions
     {
-        const int seed = 6601, steps = 24;
-        int stride = Depth.Of("VARVE_FAULT_RECOVERY_STRIDE", 25);
-        Reference reference = await ReferenceAsync(seed, steps);
-        int points = 0;
-
-        for (int operation = 1; operation <= reference.Operations; operation += stride)
+        /// <summary>
+        /// Defect 1 of milestone 6a, kept as a named case: power lost at operation
+        /// 21 of seed 6201, the first seal, where the closed trailer reached the
+        /// disk and a record of the commit in flight before it did not. The next
+        /// open refused the log as damaged. The writer now flushes the segment
+        /// before the trailer that vouches for it.
+        /// </summary>
+        [Fact]
+        public async Task regression_a_closed_trailer_never_outlives_the_records_before_it()
         {
-            int at = operation;
-            (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null);
+            Reference reference = await ReferenceAsync(6201, 24);
+            (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(6201, 24, op => op.Number == 21 ? 0 : null);
 
-            // How many operations a whole recovery takes from this image, and
-            // where it continues the log.
-            SimulatedFileSystem counting = crashed.Image(CrashKind.Process, new Random(at));
-            long first = await VerifyCoreAsync(counting, reference, acknowledged, "recovery after operation " + at, null, "after");
-            int recoveryOperations = counting.Operations;
-            Continuation continued = new(first, "after");
-
-            for (int second = 1; second <= recoveryOperations; second++)
+            for (int image = 0; image < 64; image++)
             {
-                int during = second;
-                SimulatedFileSystem image = crashed.Image(CrashKind.Process, new Random(at));
-                image.Injector = op => op.Number == during ? 0 : null;
-
-                try
-                {
-                    await VerifyCoreAsync(image, reference, acknowledged, "recovery after operation " + at, null, "after");
-                }
-                catch (SimulatedCrash)
-                {
-                }
-                catch (InvalidOperationException error) when (error.InnerException is SimulatedCrash || error.Message.Contains("Simulated", StringComparison.Ordinal))
-                {
-                }
-
-                SimulatedFileSystem restarted = image.Image(CrashKind.Process, new Random(during));
-
-                try
-                {
-                    await VerifyCoreAsync(restarted, reference, acknowledged, "a crash at operation " + during + " of the recovery after operation " + at, continued, "again");
-                }
-                catch (Exception error) when (error is not InvalidOperationException)
-                {
-                    throw new InvalidOperationException("a crash at operation " + during + " of the recovery after operation " + at + ": " + error.GetType().Name + ": " + error.Message, error);
-                }
-                points++;
+                await VerifyAsync(crashed.Image(CrashKind.PowerLoss, new Random((21 * 31) + image)), reference, acknowledged, "power loss at operation 21, image " + image);
             }
         }
-
-        Report("crash during recovery, every " + stride + "th operation: " + points + " injection points");
     }
 
-    /// <summary>
-    /// The same suites over many seeds and longer workloads, for hunting
-    /// defects rather than for the gate: set VARVE_FAULT_SEEDS to a count to
-    /// run it. Not in CI.
-    /// </summary>
-    [Fact]
-    public async Task deep_exploration_over_many_seeds()
+    /// <summary>A crash inside recovery itself.</summary>
+    public sealed class CrashDuringRecovery
     {
-        if (!int.TryParse(Environment.GetEnvironmentVariable("VARVE_FAULT_SEEDS"), CultureInfo.InvariantCulture, out int seeds))
+        /// <summary>
+        /// A crash during recovery itself — while it seals an abandoned tail,
+        /// deletes stale derived files, or continues the log — at every operation
+        /// recovery performs, after a process crash at every 25th operation of the
+        /// workload, or every <c>VARVE_FAULT_RECOVERY_STRIDE</c>th: the nightly
+        /// run's 5 was the gate's until #126, and is about 57,700 points. The
+        /// second restart recovers as the first would have.
+        /// </summary>
+        [Fact]
+        public async Task a_crash_during_recovery_recovers()
         {
-            Assert.Skip("Set VARVE_FAULT_SEEDS to run the deep exploration.");
-        }
-
-        long points = 0;
-
-        for (int seed = 7000; seed < 7000 + seeds; seed++)
-        {
-            int steps = 20 + (seed % 25);
+            const int seed = 6601, steps = 24;
+            int stride = Depth.Of("VARVE_FAULT_RECOVERY_STRIDE", 25);
             Reference reference = await ReferenceAsync(seed, steps);
-            Random choose = new(seed);
+            int points = 0;
 
-            for (int operation = 1; operation <= reference.Operations; operation++)
+            for (int operation = 1; operation <= reference.Operations; operation += stride)
             {
                 int at = operation;
-                (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? choose.Next(0, Math.Max(1, op.Length)) : null);
-                await VerifyAsync(crashed.Image(CrashKind.Process, new Random(at)), reference, acknowledged, "seed " + seed + ", process crash at operation " + at);
+                (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null);
 
-                for (int image = 0; image < 3; image++)
+                // How many operations a whole recovery takes from this image, and
+                // where it continues the log.
+                SimulatedFileSystem counting = crashed.Image(CrashKind.Process, new Random(at));
+                long first = await VerifyCoreAsync(counting, reference, acknowledged, "recovery after operation " + at, null, "after");
+                int recoveryOperations = counting.Operations;
+                Continuation continued = new(first, "after");
+
+                for (int second = 1; second <= recoveryOperations; second++)
                 {
-                    await VerifyAsync(crashed.Image(CrashKind.PowerLoss, new Random((at * 31) + image)), reference, acknowledged, "seed " + seed + ", power loss at operation " + at + ", image " + image);
+                    int during = second;
+                    SimulatedFileSystem image = crashed.Image(CrashKind.Process, new Random(at));
+                    image.Injector = op => op.Number == during ? 0 : null;
+
+                    try
+                    {
+                        await VerifyCoreAsync(image, reference, acknowledged, "recovery after operation " + at, null, "after");
+                    }
+                    catch (SimulatedCrash)
+                    {
+                    }
+                    catch (InvalidOperationException error) when (error.InnerException is SimulatedCrash || error.Message.Contains("Simulated", StringComparison.Ordinal))
+                    {
+                    }
+
+                    SimulatedFileSystem restarted = image.Image(CrashKind.Process, new Random(during));
+
+                    try
+                    {
+                        await VerifyCoreAsync(restarted, reference, acknowledged, "a crash at operation " + during + " of the recovery after operation " + at, continued, "again");
+                    }
+                    catch (Exception error) when (error is not InvalidOperationException)
+                    {
+                        throw new InvalidOperationException("a crash at operation " + during + " of the recovery after operation " + at + ": " + error.GetType().Name + ": " + error.Message, error);
+                    }
+                    points++;
                 }
-
-                await VerifyAsync(crashed.Image(CrashKind.LostDirectoryEntries, new Random(at)), reference, 0, "seed " + seed + ", lost entries at operation " + at);
-                points += 5;
             }
-        }
 
-        Report("deep exploration: " + seeds + " seeds, " + points + " injection points");
+            Report("crash during recovery, every " + stride + "th operation: " + points + " injection points");
+        }
+    }
+
+    /// <summary>The deep exploration, for hunting rather than for the gate.</summary>
+    public sealed class DeepExploration
+    {
+        /// <summary>
+        /// The same suites over many seeds and longer workloads, for hunting
+        /// defects rather than for the gate: set VARVE_FAULT_SEEDS to a count to
+        /// run it. Not in CI.
+        /// </summary>
+        [Fact]
+        public async Task deep_exploration_over_many_seeds()
+        {
+            if (!int.TryParse(Environment.GetEnvironmentVariable("VARVE_FAULT_SEEDS"), CultureInfo.InvariantCulture, out int seeds))
+            {
+                Assert.Skip("Set VARVE_FAULT_SEEDS to run the deep exploration.");
+            }
+
+            long points = 0;
+
+            for (int seed = 7000; seed < 7000 + seeds; seed++)
+            {
+                int steps = 20 + (seed % 25);
+                Reference reference = await ReferenceAsync(seed, steps);
+                Random choose = new(seed);
+
+                for (int operation = 1; operation <= reference.Operations; operation++)
+                {
+                    int at = operation;
+                    (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? choose.Next(0, Math.Max(1, op.Length)) : null);
+                    await VerifyAsync(crashed.Image(CrashKind.Process, new Random(at)), reference, acknowledged, "seed " + seed + ", process crash at operation " + at);
+
+                    for (int image = 0; image < 3; image++)
+                    {
+                        await VerifyAsync(crashed.Image(CrashKind.PowerLoss, new Random((at * 31) + image)), reference, acknowledged, "seed " + seed + ", power loss at operation " + at + ", image " + image);
+                    }
+
+                    await VerifyAsync(crashed.Image(CrashKind.LostDirectoryEntries, new Random(at)), reference, 0, "seed " + seed + ", lost entries at operation " + at);
+                    points += 5;
+                }
+            }
+
+            Report("deep exploration: " + seeds + " seeds, " + points + " injection points");
+        }
     }
 }
