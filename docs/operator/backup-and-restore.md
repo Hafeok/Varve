@@ -54,30 +54,73 @@ Dropping a checkpoint merges its set into the next, so no answer changes.
 
 A dataset's `CheckpointPolicy` can write them on a schedule of commits; the
 server's defaults write none, so an operator who wants bounded opens takes
-them, as above, or relies on maintenance's merged runs. Each checkpoint adds a
-set that every read merges until milestone Extent maintenance merges them in
-the background: the read latency after 10, 50 and 100 checkpoints is the
-checkpoint budget below.
+them, as above, or relies on maintenance's merged runs. There is no budget on
+how many to keep: the writer merges sets in the background (ADR 0158).
 
-### The checkpoint budget
+### Merges
 
-Until Extent maintenance merges sets in the background, every read of the
-present merges one more run per checkpoint kept. Measured on REC size M
-(5,049,846 quads, 25,000 commits) on files, each row after opening again so
-the chain is the projection's base:
+Every read of the present merges one run per set, so the writer's maintenance
+merges sets after each checkpoint, by the policy of ADR 0159:
+- **Similar sizes.** The oldest run of `FanOut` adjacent sets whose largest is
+  at most `FanOut` times their smallest merges into one.
+- **Pressure.** Past the bound, the adjacent run with the fewest bytes merges.
+- **The cap.** A set past half of `MaxSetBytes` is not merged again, and no
+  merge makes a set past it. An as-of read inside a set narrows that set, so
+  the cap bounds its cost.
 
-| Checkpoints kept | Head: a quad's lookup, p50 | Head: one subject's quads, p50 | Head: an exact count, p50 | As-of inside a set | As-of at a set's end |
-|---:|---:|---:|---:|---:|---:|
-| 10 | 42 µs | 5.7 µs | 28 µs | 30 ms | < 0.1 ms |
-| 50 | 71 µs | 18 µs | 144 µs | 6.8 ms | 0.1 ms |
-| 100 | 99 µs | 78 µs | 354 µs | 6.5 ms | 0.1 ms |
+At the defaults (`Varve:Store:ExtentMerges`: `FanOut` 4, `MaxSetBytes`
+256 MiB, see [Configure](configure.md)) a chain holds at most 15 sets below
+half the cap, plus the capped ones. Measured on REC size M (5,049,846 quads,
+25,000 commits) on files, a checkpoint every hundredth of the history:
 
-**Keep at most 20 checkpoints** (`CheckpointPolicy.Keep = 20`, or drop them by
-hand) until Extent maintenance lands: head reads then stay within about twice
-the 10-checkpoint figures, and an as-of read inside a set —
-which narrows that one set — costs what one set of a twentieth of the
-history costs. Dropping the oldest merges it into the next, so the budget
-holds at no cost to any answer.
+| | Without merges, 10 checkpoints | With merges, 100 checkpoints |
+|---|---:|---:|
+| Sets in the chain | 10 | 5 |
+| Head: a quad's lookup, p50 / p99 | 58 / 106 µs | 15 / 46 µs |
+| Head: one subject's quads, p50 / p99 | 8.7 / 43 µs | 6.9 / 21 µs |
+| Head: an exact count, p50 / p99 | 37 / 85 µs | 18 / 51 µs |
+| As-of inside the largest set | 2.3 s (183 MiB) | 2.8 s (211 MiB) |
+| As-of at a set's end | < 0.1 ms | < 0.1 ms |
+
+**Write amplification** was 1.77: merges rewrote 746 MB for the 420 MB the
+checkpoints wrote. A higher `FanOut` rewrites less and keeps more sets; a
+smaller `MaxSetBytes` makes an as-of read inside a set cheaper and keeps more
+sets. `CheckpointPolicy.Keep` still drops the oldest sets, merging each into
+the next, at no cost to any answer.
+
+### Readers and retained bytes
+
+On a filesystem the writer deletes a merged set's files once no read of the
+process uses them. In an object store, other instances may still read them,
+so every instance announces the catalog versions it reads in a reader record,
+and the writer deletes a set only when no record holds it (ADR 0160). Until
+then the store keeps it, and its bytes are *retained*.
+
+```sh
+varve storage https://account.blob.core.windows.net/varve/people
+varve storage readers list https://account.blob.core.windows.net/varve/people
+```
+
+`varve storage` prints the catalog's version, the sets per permutation, each
+set's window and bytes, the sets no catalog names that the store still keeps,
+and each record with the bytes it retains. `/health/ready` reports the same as
+`retention`; it never turns unready because of it.
+
+A record holds what it announces until its instance moves on, ends, starts
+again under the same id, or is forgotten. A reader that is gone — a replica
+removed without a clean stop, a killed `varve query` — keeps its record. When
+`readers list` shows one that retains bytes and you know it is gone, forget it
+with the interval list showed:
+
+```sh
+varve storage readers forget https://account.blob.core.windows.net/varve/people \
+  --reader 3f2a… --oldest 41 --newest 42
+```
+
+The forget acts only if the record still announces that interval. The writer
+deletes what it held at its next maintenance round. A reader that was in fact
+alive fails its next read of a deleted set with
+[`reader-forgotten`](../problems/reader-forgotten.md) and attaches again.
 
 A dataset in an object store is backed up by `ShipAsync` into a directory
 (the migration path is the same call the other way), or by the store's own

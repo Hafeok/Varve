@@ -75,8 +75,10 @@ pages reads touch — and reads the log **only after the catalog's cursor**
 (ADR 0139): it lists `log/`, and reads the chunks of the open segment from
 the slot the catalog records. A sealed segment is one object, consolidated
 by its seal (ADR 0135), and is not read at all. The commit index below the
-catalog is read from the log by the first read that needs it — a feed or an
-as-of read below the newest checkpoint — and kept in the cache.
+catalog is read by the first read that needs it — an as-of read below the
+newest checkpoint, or a lookup by time — from the extent sets' own commit
+index blobs in the store (ADR 0161), and kept in the cache; the log's
+headers are read only for a set written before that release.
 
 What a start costs is the listing of `log/`, which grows with the open
 segment's chunks, one per commit batch; and the chunks after the newest
@@ -86,7 +88,9 @@ loopback, with the newest checkpoint 1,000 commits behind the head:
 **4.3 s on Azurite** (2.1 s listing, 1.2 s reading 1,001 chunks) and **7.0 s
 on RustFS** (6.4 s listing the open segment's 19,745 chunk names), against
 23–29 s before the cursor. The first as-of read below the checkpoint then
-took 10–28 s, once.
+took 10–28 s, once, reading the log's headers; with the shared commit index
+it reads the sets' commit index blobs instead (the measured figures are in
+the milestone's record and `tests/Varve.Benchmarks/README.md`).
 
 `minReplicas` 1 keeps a replica warm, so no request waits for a start: a
 latency option, not a requirement. The cost on a real account is **to be
@@ -99,17 +103,65 @@ figures for Azurite and RustFS are in the milestone's record and
 A checkpoint writes an extent set for the window since the previous one and
 swaps the catalog; a follower or the next replica finds it there. Reads at
 any position below the newest checkpoint are served from the extents with no
-log read. The chain grows by a set per checkpoint until milestone Extent
-maintenance merges sets in the background; until then keep it short with
-`Checkpoints:Keep`, which merges the oldest set into the next. The read
-latency after 10, 50 and 100 checkpoints, and the budget it implies, are in
-[Back up and restore](backup-and-restore.md#checkpoints).
+log read. The writer merges adjacent sets in the background, so the chain
+stays short however many checkpoints are taken (ADRs 0158, 0159); the policy,
+its bound and what it costs are in [Back up and restore](backup-and-restore.md#checkpoints).
+
+## Readers, and what the store keeps for them
+
+A set the catalog no longer names is deleted by the writer once no reader
+record holds it (ADR 0160). Every instance that reads the dataset's extents
+writes one, `readers/<id>` under the dataset's prefix, announcing the catalog
+versions it reads: the writer, a second replica serving reads after it lost
+the epoch, and `varve info` or `query` over the store's address.
+
+- **Give each replica its own `Varve:ObjectStorage:ReaderId`**, stable across
+  its restarts: a container's cache does not survive one, and without a
+  configured id every restart leaves its previous record behind, holding
+  sets back until an operator forgets it.
+- **A follower's identity needs write access to `readers/` only.** On Azure,
+  Storage Blob Data Reader on the container, and Storage Blob Data
+  Contributor with a condition on the blob path:
+
+  ```text
+  (
+   (
+    !(ActionMatches{'Microsoft.Storage/storageAccounts/blobServices/containers/blobs/write'})
+    AND
+    !(ActionMatches{'Microsoft.Storage/storageAccounts/blobServices/containers/blobs/add/action'})
+    AND
+    !(ActionMatches{'Microsoft.Storage/storageAccounts/blobServices/containers/blobs/delete'})
+   )
+   OR
+   (
+    @Resource[Microsoft.Storage/storageAccounts/blobServices/containers/blobs:path] StringLike '{dataset}/readers/*'
+   )
+  )
+  ```
+
+  (The form of Microsoft's "Write blobs in named containers with a path"
+  example; the blob path is the blob's name within the container.) On S3, a
+  policy granting `s3:PutObject` and `s3:DeleteObject` on
+  `arn:aws:s3:::{bucket}/{dataset}/readers/*`, beside `s3:GetObject` and
+  `s3:ListBucket`.
+
+  The writer's Storage Blob Data Contributor on the container covers its own.
+  An identity that may only read opens unannounced, explicitly, with
+  `--unannounced` (ADR 0160); such a read fails rather than answer wrong if
+  the writer deletes what it reads.
+- **Retained bytes are on `/health/ready`**, under `retention`, and in
+  `varve storage readers list`. A dead reader's record holds what it
+  announced until the same id starts again, or `varve storage readers
+  forget` removes it; no timer ever does (ADR 0160). See
+  [Back up and restore](backup-and-restore.md#readers-and-retained-bytes).
 
 ## Costs
 
 Every commit is one write (a chunk) per group-commit batch; a checkpoint is
-eight writes per set and one catalog replace; reads are ranged reads of 1 MiB
-pages on a cache miss. Blob Storage bills writes and reads per 10,000 and
+nine writes per set, one reader-record replace and one catalog replace; a
+merge is the same for its one set, and then a delete per blob of the sets it
+replaced once no reader holds them; reads are ranged reads of 1 MiB pages on
+a cache miss. Blob Storage bills writes and reads per 10,000 and
 storage per GiB-month. The monthly figure for a given workload is **to be
 measured by the maintainer**.
 
