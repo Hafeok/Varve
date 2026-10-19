@@ -29,6 +29,13 @@ images:
     licence: PostgreSQL Licence (https://www.postgresql.org/about/licence/); the official image's packaging is MIT, and its Alpine base carries its packages' own licences
     jobs: [auth (zitadel), container (linux-x64)]
     why: Zitadel's database, for auth test layer (c) (ADR 0100)
+    seeded: >-
+      By hand, on 2026-10-19, by the maintainer, from
+      docker.io/library/postgres at this digest: ECR Public's anonymous data
+      cap refused every pull from CI's runners and from the maintainer's
+      machine. The source is not the image's identity, the digest is; the
+      mirror workflow checks this package's digest as it checks any other.
+      CI pulls it from the mirror already (.github/zitadel/compose.yaml).
 
   - name: zitadel
     upstream: ghcr.io/zitadel/zitadel:v4.19.4

@@ -618,6 +618,11 @@ jobs:
     name: auth (zitadel)
     runs-on: ubuntu-latest
 
+    # PostgreSQL is pulled from this repository's private mirror (#118).
+    permissions:
+      contents: read
+      packages: read
+
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -628,6 +633,13 @@ jobs:
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           global-json-file: global.json
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Start Zitadel
         run: |
