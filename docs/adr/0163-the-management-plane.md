@@ -227,6 +227,13 @@ it to the writer of its dataset (ADR 0168).
   - A write in flight across the change is answered, or refused with `503`,
     by the old writer. A forward made after the release reaches the new
     writer.
+  - An instance takes its new role by opening it first, then releasing the
+    old one, so a request always finds one of them.
+  - At start, an instance claims what is placed on it whatever the record
+    says, fencing any predecessor: after a crash, the orchestrator's restart
+    is the recovery.
+- **An idle system writer** reads its writer record on the interval, so a
+  second claim of the system dataset shows in its readiness without a write.
 
 **13. Readiness.**
 - `/health/ready` gains a `management` object: role (`writer`, `follower` or
@@ -237,6 +244,28 @@ it to the writer of its dataset (ADR 0168).
   - its bootstrap is `mismatch`;
   - its management lag exceeds `Varve:Fleet:AllowedLag`;
   - a dataset fails ADR 0113's rule.
+
+**14. A dataset's state is declared.**
+- **Open or closed is a declaration,** `varve:closed`, in the dataset's
+  graph. `PUT …/state` with `{"state": "closed"}` commits it, and every
+  instance converges to it, so a fleet never disagrees about whether a
+  dataset serves.
+- **A dataset is deleted by removing its declaration,** `DELETE
+  /manage/datasets/{name}`, only once it is declared closed (`409
+  dataset-open` before). Its writer deletes its storage when it next
+  converges; the other instances release what they held.
+- **A `PUT` of a dataset is idempotent.** It replaces the graph, and the
+  same declaration again commits nothing. `dataset-exists` is gone with the
+  imperative create.
+- **A system dataset with no root and no store** is in memory: a fleet of
+  one whose declarations last as long as the process. The server logs it at
+  start.
+- **A file or memory dataset placed on another instance** is not held here.
+  Reads and writes for it are answered as for a dataset this instance does
+  not serve: a file is one machine's.
+- **`/manage/sparql`** is the operator's. A query reads the system dataset.
+  An update is checked by the code validator, and goes to the system writer
+  like every management write.
 
 ## Alternatives considered
 

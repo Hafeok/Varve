@@ -45,15 +45,40 @@ validation report.
      position.
 4. **Who attaches it.** Every `Data` and `Settings` commit made through a
    server of a fleet carries one. An embedded commit carries none: it has no
-   management plane (ADR 0163 point 9).
+   management plane (ADR 0163 point 9). The writer's own `Settings` commit
+   names the instance as its agent (`urn:varve:writer:{instance}`) and the
+   position as its cause.
 5. **The positions never decrease along a log.**
    - A dataset's writer refuses a write whose applied management position is
      below the highest one its log already records.
-   - Before refusing, it advances the system follower once.
+   - Before refusing, it advances the system follower once. It does so before
+     it authorises the write, when the dataset's log already records a later
+     position than the one applied, so the write is decided by grants at
+     least that recent.
    - Only then does it answer `503 management-behind`.
+   - The check is a validator that runs under the sequencer, so no two
+     commits race past it. Its watermark is seeded from the head commit's
+     attachment when the writer opens the dataset, and rises when a commit
+     is validated. A commit that then fails leaves the watermark above the
+     log, which refuses more, never less.
+   - A write that fell behind between its authorisation and its commit is
+     refused, and the client retries it.
 
-   So the recorded positions never decrease along each dataset's log. A
-   property over generated histories with writer changes holds it.
+   So the recorded positions never decrease along each dataset's data
+   commits.
+
+   **The residual race: settings commits.** The writer makes a `Settings`
+   commit itself, when the declared settings differ from the dataset's (ADR
+   0163 point 10). It carries the position the writer applied, and is not
+   checked by the validator. On one writer, the applied position only rises,
+   so these commits are ordered too. Across a writer change, a newly placed
+   writer whose system follower lags could record a lower position than its
+   predecessor's last commit, for one commit, until its follower catches
+   up. The settings it commits are the declared ones at that position. The
+   attachment says which position decided them, and the audit query below
+   reads it as it is. Ordering these commits as well would need the system
+   follower to be at the predecessor's position before the first commit. It
+   is a placement concern, left with the handover ADR.
 6. **No audit index.** The commits resource already serves each commit's
    attachments, so "was this write allowed" needs no `derived/` index. It is
    an exact query: read the commit's attachment, then evaluate the grants as
