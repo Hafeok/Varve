@@ -5,6 +5,10 @@ adr: 0166
 decisions:
   - key: ManagementPackageAtLayerFour
     statement: "Varve.Management, at layer 4, references Varve.Iri, Varve.Rdf and Varve.Turtle, reads declarations from any IQuadSource and never sees a dataset"
+  - key: ManagementModelNamespace
+    statement: "Varve.Management's value types live in Varve.Management.Model, the domain model namespace of the package (ADR 0069)"
+  - key: ManagementSurfaceCarriesDeclaredValues
+    statement: "Varve.Management's surface carries a declaration's and a token's values as the types they are stated in: dataset and instance names, claim types and values, agent IRIs, templates, prefixes, N-Quads lines and messages as string, a flag as bool, a saved plan as UTF-8 bytes; a position of the system dataset is ManagementPosition"
   - key: ManagementGraphNames
     statement: "The system dataset's graphs are varve:manage/fleet, varve:manage/dataset/{enc(name)} and varve:manage/bootstrap, the last written only by the system writer"
   - key: ManagementVocabulary

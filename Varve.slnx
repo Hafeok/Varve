@@ -10,6 +10,7 @@
     <Project Path="src/Varve.Json.Canonical/Varve.Json.Canonical.csproj" />
     <Project Path="src/Varve.Iri/Varve.Iri.csproj" />
     <Project Path="src/Varve.Protocol/Varve.Protocol.csproj" />
+    <Project Path="src/Varve.Management/Varve.Management.csproj" />
     <Project Path="src/Varve.Protocol.Client/Varve.Protocol.Client.csproj" />
     <Project Path="src/Varve.Rdf/Varve.Rdf.csproj" />
     <Project Path="src/Varve.RdfXml/Varve.RdfXml.csproj" />
@@ -34,6 +35,7 @@
     <Project Path="tests/Varve.Events.Tests/Varve.Events.Tests.csproj" />
     <Project Path="tests/Varve.Json.Canonical.Tests/Varve.Json.Canonical.Tests.csproj" />
     <Project Path="tests/Varve.Iri.Tests/Varve.Iri.Tests.csproj" />
+    <Project Path="tests/Varve.Management.Tests/Varve.Management.Tests.csproj" />
     <Project Path="tests/Varve.Protocol.Client.Tests/Varve.Protocol.Client.Tests.csproj" />
     <Project Path="tests/Varve.Protocol.Tests/Varve.Protocol.Tests.csproj" />
     <Project Path="tests/Varve.Rdf.Tests/Varve.Rdf.Tests.csproj" />

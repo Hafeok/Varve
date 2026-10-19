@@ -308,6 +308,12 @@ jobs:
           --project tests/Varve.Events.Tests/Varve.Events.Tests.csproj
           --configuration Release
 
+      - name: Test Varve.Management
+        run: >
+          dotnet test
+          --project tests/Varve.Management.Tests/Varve.Management.Tests.csproj
+          --configuration Release
+
       - name: Test Varve.Store
         run: >
           dotnet test
