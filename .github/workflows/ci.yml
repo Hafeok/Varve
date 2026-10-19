@@ -249,6 +249,18 @@ jobs:
         # dotNetRDF is a benchmark-only reference.
         run: dotnet build tests/Varve.Benchmarks/Varve.Benchmarks.csproj --configuration Release
 
+      - name: Temporary folder on the runner's temporary drive
+        # #126: every test dataset, and the object store's cache directories,
+        # are made under the temporary folder. On windows-latest that is the
+        # profile's, on C:, the system drive; the runner's own temporary folder
+        # is on D:, as the workspace is. From here on, the tests' is too.
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          "The temporary folder was $([System.IO.Path]::GetTempPath()); it is now $env:RUNNER_TEMP."
+          "TEMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+          "TMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+
       # Every test project except the conformance one, which has a job of its
       # own because it is gated by the ratchet rather than by its own result.
       # One step each rather than one step over the solution: `dotnet test`
