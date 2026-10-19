@@ -112,6 +112,13 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("required-checks-fixture", "the required-checks gate fails its fixture",
         () => Run("dotnet", ["run", "eng/required-checks.cs", "--", "--declaration", "tests/fixtures/required-checks/repo-standard.yaml", "--workflows", "tests/fixtures/required-checks/workflows"]) == 1 ? 0 : 1),
 
+    ("ci-images", "every test container CI starts comes from the mirror at its listed digest, or is an allowed upstream reference",
+        () => Run("dotnet", ["run", "eng/ci-images.cs"])),
+
+    // Its failure path (tests/fixtures/ci-images/README.md).
+    ("ci-images-fixture", "the CI image gate fails its fixture",
+        () => Run("dotnet", ["run", "eng/ci-images.cs", "--", "--root", "tests/fixtures/ci-images"]) == 1 ? 0 : 1),
+
     ("agent-review-tamper", "a pull request that edits eng/agent-review.cs to always pass still fails under main's copy",
         () => Run("dotnet", ["run", "eng/agent-review-tamper.cs"])),
 
