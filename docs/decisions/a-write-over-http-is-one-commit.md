@@ -15,10 +15,6 @@ decisions:
     statement: "In anonymous mode a commit has no agent"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-08T00:00:00Z
-  - key: CauseIsTheRequestId
-    statement: "The commit cause is the request's TraceIdentifier as an xsd:string literal, echoed as Varve-Request-Id"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-08T00:00:00Z
   - key: PositionOnEveryLogResponse
     statement: "Every response that touched the log carries Varve-Position and an ETag of that position"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -51,3 +47,5 @@ decisions:
 
 The rulings of [ADR 0094](../adr/0094-a-write-over-http-is-one-commit.md), filed unaccepted by milestone 7a of #11
 (ADR 0066). Every citation is `CS0618` until the maintainer accepts them.
+
+Moved to a later set: `CauseIsTheRequestId` is superseded by ADR 0168, whose request ids are unique across a fleet, in its set.

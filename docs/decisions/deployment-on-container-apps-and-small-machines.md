@@ -7,10 +7,6 @@ decisions:
     statement: "deploy/azure/container-apps creates a storage account that refuses shared-key access and grants the app's system-assigned identity Storage Blob Data Contributor on its container alone; no key, SAS token or connection string is created"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-17T00:00:00Z
-  - key: OneReplicaAtMost
-    statement: "The Container Apps template pins maxReplicas to 1 and a single active revision: a second replica would claim the epoch and supersede the first"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-17T00:00:00Z
   - key: ProbesAreTheHealthEndpoints
     statement: "Liveness probes /health/live and readiness /health/ready, so a superseded or draining revision leaves the load balancer before it is stopped"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -35,3 +31,5 @@ decisions:
 
 The rulings of [ADR 0142](../adr/0142-deployment-on-container-apps-and-small-machines.md), filed unaccepted
 by milestone Object storage of #92 (ADR 0066).
+
+Moved to a later set: `OneReplicaAtMost` is superseded by ADR 0168, the two-app layout, in its set.
