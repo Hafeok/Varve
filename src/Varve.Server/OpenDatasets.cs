@@ -263,8 +263,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             {
                 if (entry.State != DatasetState.Open || entry.Role != DatasetRole.Follower)
                 {
-                    await entry.ReleaseAsync().ConfigureAwait(false);
-                    await OpenEntryAsync(name, entry, DatasetRole.Follower, wait: true, cancellationToken).ConfigureAwait(false);
+                    await SwitchAsync(name, entry, DatasetRole.Follower, wait: true, abdicate: false, cancellationToken).ConfigureAwait(false);
                 }
 
                 entry.AwaitingRelease = true;
@@ -274,19 +273,53 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             entry.AwaitingRelease = false;
         }
 
-        if (entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer && role != DatasetRole.Writer)
-        {
-            // Placed elsewhere: abdicate with the reason, so the new writer
-            // claims on seeing it (ADR 0136 point 6).
-            entry.ReleaseFor(ReleaseReason.Placement);
-            ReconcileLog.Abdicated(_logger, name);
-        }
+        // Placed elsewhere: abdicate with the reason, so the new writer
+        // claims on seeing it (ADR 0136 point 6).
+        bool abdicate = entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer && role != DatasetRole.Writer;
 
         // A dataset that failed is tried again every round, without the
         // lease wait its first open had: its holder may have released it.
         bool wait = fresh || entry.State != DatasetState.Failed;
-        await entry.ReleaseAsync().ConfigureAwait(false);
-        await OpenEntryAsync(name, entry, role, wait, cancellationToken).ConfigureAwait(false);
+        await SwitchAsync(name, entry, role, wait, abdicate, cancellationToken).ConfigureAwait(false);
+    }
+
+    // The dataset in its new role is opened first, then takes the entry's
+    // place, and only then is the old one released: a request resolves one
+    // or the other, never neither. A file dataset's lease is one per
+    // directory, so it is released before it is taken again.
+    private async Task SwitchAsync(string name, Entry entry, DatasetRole role, bool wait, bool abdicate, CancellationToken cancellationToken)
+    {
+        if (entry.Storage == DatasetStorage.File)
+        {
+            await entry.ReleaseAsync().ConfigureAwait(false);
+            await OpenEntryAsync(name, entry, role, wait, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        Entry staged = new(entry.Storage);
+        await OpenEntryAsync(name, staged, role, wait, cancellationToken).ConfigureAwait(false);
+
+        if (staged.State == DatasetState.Failed && entry.State == DatasetState.Open && entry.Role != DatasetRole.Elsewhere && role != DatasetRole.Elsewhere)
+        {
+            // The old role keeps serving; the new one is tried next round.
+            ReconcileLog.SwitchFailed(_logger, name, staged.Reason ?? "no reason");
+            return;
+        }
+
+        if (abdicate)
+        {
+            entry.ReleaseFor(ReleaseReason.Placement);
+            ReconcileLog.Abdicated(_logger, name);
+        }
+
+        Entry previous;
+
+        lock (_gate)
+        {
+            previous = entry.Take(staged);
+        }
+
+        await previous.ReleaseAsync().ConfigureAwait(false);
     }
 
     /// <summary>
@@ -511,6 +544,9 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         [LoggerMessage(EventId = 4, Level = LogLevel.Warning, Message = "The dataset '{Name}' is no longer declared; its writer deleted its storage (ADR 0163).")]
         internal static partial void Deleted(ILogger logger, string name);
 
+        [LoggerMessage(EventId = 6, Level = LogLevel.Warning, Message = "The dataset '{Name}' did not open in its new role, and keeps its old one until the next round: {Reason}")]
+        internal static partial void SwitchFailed(ILogger logger, string name, string reason);
+
         [LoggerMessage(EventId = 5, Level = LogLevel.Warning, Message = "The dataset '{Name}' did not take its declared settings; tried again on the next round: {Reason}")]
         internal static partial void SettingsFailed(ILogger logger, string name, string reason);
     }
@@ -551,6 +587,23 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         {
             State = DatasetState.Failed;
             Reason = reason;
+        }
+
+        /// <summary>
+        /// Takes <paramref name="staged"/>'s role, state and what it holds;
+        /// answers an entry holding what this one held, to release.
+        /// </summary>
+        internal Entry Take(Entry staged)
+        {
+            Entry previous = new(Storage) { Dataset = Dataset, Files = Files, State = State, Role = Role };
+            Dataset = staged.Dataset;
+            Files = staged.Files;
+            State = staged.State;
+            Reason = staged.Reason;
+            Role = staged.Role;
+            staged.Dataset = null;
+            staged.Files = null;
+            return previous;
         }
 
         internal void ReleaseFor(ReleaseReason reason)

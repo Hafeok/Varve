@@ -77,7 +77,9 @@ internal sealed class ObjectStores : IDisposable
     /// </summary>
     internal async Task<Backend> OpenAsync(string name, ObjectStorageAccess access, WriterAddress? address, CancellationToken cancellationToken)
     {
-        string cache = Path.Combine(_settings.CachePath!, name);
+        // A follower caches apart from the writer, so that the two can be open
+        // at once while a placement changes; no dataset name starts with '_'.
+        string cache = access == ObjectStorageAccess.Write ? Path.Combine(_settings.CachePath!, name) : Path.Combine(_settings.CachePath!, "_followers", name);
         Directory.CreateDirectory(cache);
 
         return await Backend.OpenAsync(new ObjectStorageOptions

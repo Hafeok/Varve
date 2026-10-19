@@ -55,6 +55,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     private ManagementRole _role;
     private Snapshot _snapshot;
     private bool _placeholder;
+    private bool _superseded;
 
     private Fleet(ServerSettings settings, ObjectStores? objects, TimeProvider clock, ILogger logger, IHttpContextAccessor accessor, Dataset system, IAsyncDisposable? storage, ManagementRole role, bool placeholder)
     {
@@ -379,7 +380,18 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
         DatasetOptions options = new() { Clock = _clock, Name = SystemName };
 
-        if (_role == ManagementRole.Writer && _systemStorage is Backend { IsSuperseded: true })
+        if (_role == ManagementRole.Writer && _systemStorage is Backend { Writer: { } held } writing && !writing.IsSuperseded)
+        {
+            // An idle writer makes no write to learn it was superseded: it
+            // reads its record on the interval (ADR 0136; the handover ADR's
+            // point 9, a mistaken second writer).
+            if (await _objects.ReadWriterAsync(SystemName, cancellationToken).ConfigureAwait(false) is { } record && record.Epoch > held.Epoch)
+            {
+                _superseded = true;
+            }
+        }
+
+        if (_role == ManagementRole.Writer && (_superseded || _systemStorage is Backend { IsSuperseded: true }))
         {
             // A mistaken second writer, or a successor: this instance is
             // superseded, reports it, and follows (ADR 0136).
