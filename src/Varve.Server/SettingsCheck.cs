@@ -8,7 +8,6 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Net;
 using Microsoft.Extensions.Configuration;
-using Varve.Protocol.Model;
 
 namespace Varve.Server;
 
@@ -29,13 +28,12 @@ internal static class SettingsCheck
     internal static ImmutableArray<string> KnownKeys { get; } =
     [
         "DatasetsRoot",
-        "Datasets:*:Storage",
+        "Fleet:Writer", "Fleet:InternalUrl", "Fleet:FollowInterval", "Fleet:AllowedLag",
+        "Manage:BootstrapOperators:*", "Manage:Urls",
         "ObjectStorage:Provider", "ObjectStorage:ContainerUrl", "ObjectStorage:Endpoint", "ObjectStorage:Bucket", "ObjectStorage:Region",
         "ObjectStorage:CachePath", "ObjectStorage:CacheBytes", "ObjectStorage:Instance",
         "Auth:Mode", "Auth:Authority", "Auth:Audiences:*", "Auth:SubjectClaim", "Auth:ApplicationClaim", "Auth:RoleClaimType", "Auth:RequireHttpsMetadata", "Auth:Production",
-        "Auth:Datasets:*:Read:*", "Auth:Datasets:*:Write:*", "Auth:Datasets:*:Admin:*",
-        "Auth:Datasets:*:Grants:*:Claim", "Auth:Datasets:*:Grants:*:Permission", "Auth:Datasets:*:Grants:*:Graphs:*", "Auth:Datasets:*:Grants:*:GraphPrefixes:*",
-        "Auth:Server:Admin:*",
+        "Auth:Management:Audience",
         "Limits:QueryTimeout", "Limits:ResultSizeCap", "Limits:MaxRequestBody", "Limits:PinnedReadLifetime", "Limits:FeedHeartbeat",
         "Limits:MaxConcurrentReads", "Limits:ReadQueueLength", "Limits:MaxQueryMemory", "Limits:MaxAsOfDistance", "Limits:MaxLiveTailsPerClient", "Limits:CommitsPageSize",
         "ForwardedHeaders:Enabled", "ForwardedHeaders:KnownProxies:*",
@@ -99,8 +97,13 @@ internal static class SettingsCheck
     /// </summary>
     internal static string UnknownKeyError(string unknown)
     {
+        if (RemovedKey(unknown) is { } removed)
+        {
+            return removed;
+        }
+
         string leaf = unknown[(unknown.LastIndexOf(':') + 1)..];
-        bool storage = unknown.StartsWith("Varve:ObjectStorage:", StringComparison.OrdinalIgnoreCase) || unknown.StartsWith("Varve:Datasets:", StringComparison.OrdinalIgnoreCase);
+        bool storage = unknown.StartsWith("Varve:ObjectStorage:", StringComparison.OrdinalIgnoreCase);
 
         foreach (string name in storage ? CredentialNames : [])
         {
@@ -111,6 +114,24 @@ internal static class SettingsCheck
         }
 
         return unknown + " is not a setting the server knows; see docs/operator/configure.md for every key.";
+    }
+
+    // The keys the management plane replaced (ADR 0163), refused with what
+    // replaces them rather than as misspellings.
+    private static string? RemovedKey(string key)
+    {
+        if (key.StartsWith("Varve:Datasets:", StringComparison.OrdinalIgnoreCase) || key.StartsWith("Varve:Auth:Datasets:", StringComparison.OrdinalIgnoreCase))
+        {
+            return key + ": " + (key.StartsWith("Varve:Datasets:", StringComparison.OrdinalIgnoreCase) ? "Varve:Datasets" : "Varve:Auth:Datasets")
+                + " is removed; datasets and their grants are declared in the management plane (ADR 0163). `varve apply --from-config <file>` prints the TriG that replaces it.";
+        }
+
+        if (key.StartsWith("Varve:Auth:Server:", StringComparison.OrdinalIgnoreCase))
+        {
+            return key + ": Varve:Auth:Server:Admin is Varve:Manage:BootstrapOperators now (ADR 0163 point 7).";
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -220,95 +241,14 @@ internal static class SettingsCheck
             errors.Add("Varve:Store:GroupCommit: MaxRecords is at least one, and MaxBytes between one byte and the write window, 4 MiB (ADR 0124).");
         }
 
-        // A server with no configured dataset serves what the admin API
-        // creates under its root (ADR 0106), so a root is enough.
-        if (settings.Datasets.Count == 0 && string.IsNullOrWhiteSpace(settings.DatasetsRoot) && string.IsNullOrWhiteSpace(settings.ObjectStorage.Provider))
-        {
-            errors.Add("Varve:Datasets names at least one dataset, or Varve:DatasetsRoot names the directory datasets are created under, or Varve:ObjectStorage the store they are created in.");
-        }
-
         if (!string.IsNullOrWhiteSpace(settings.DatasetsRoot) && !Path.IsPathFullyQualified(settings.DatasetsRoot))
         {
             errors.Add("Varve:DatasetsRoot is an absolute path.");
         }
 
-        foreach ((string name, DatasetSettings dataset) in settings.Datasets)
-        {
-            if (!DatasetName.TryParse(name, out _))
-            {
-                errors.Add("Varve:Datasets:" + name + " is not a dataset name: 1 to 63 characters of [A-Za-z0-9._-], starting with a letter or a digit (ADR 0093).");
-            }
-
-            switch (dataset.Storage)
-            {
-                case "File":
-                    if (string.IsNullOrWhiteSpace(settings.DatasetsRoot) || !Path.IsPathFullyQualified(settings.DatasetsRoot))
-                    {
-                        errors.Add("Varve:Datasets:" + name + " is a File dataset, and Varve:DatasetsRoot is not an absolute path.");
-                    }
-
-                    break;
-                case "Memory":
-                    break;
-                case "ObjectStorage":
-                    if (string.IsNullOrWhiteSpace(settings.ObjectStorage.Provider))
-                    {
-                        errors.Add("Varve:Datasets:" + name + " is an ObjectStorage dataset, and Varve:ObjectStorage:Provider is not set.");
-                    }
-
-                    break;
-                default:
-                    errors.Add("Varve:Datasets:" + name + ":Storage is File, Memory or ObjectStorage.");
-                    break;
-            }
-        }
-
         CheckObjectStorage(settings.ObjectStorage, errors);
 
-        foreach ((string name, PermissionSettings permissions) in auth.Datasets)
-        {
-            if (!settings.Datasets.ContainsKey(name))
-            {
-                errors.Add("Varve:Auth:Datasets:" + name + " grants permissions on a dataset that is not configured.");
-            }
-
-            for (int i = 0; i < permissions.Grants.Count; i++)
-            {
-                string at = "Varve:Auth:Datasets:" + name + ":Grants:" + i.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                GrantSettings grant = permissions.Grants[i];
-
-                if (string.IsNullOrWhiteSpace(grant.Claim))
-                {
-                    errors.Add(at + ":Claim names the claim value the grant is for.");
-                }
-
-                if (grant.Permission is not ("read" or "write"))
-                {
-                    errors.Add(at + ":Permission is read or write; admin is dataset-wide (ADR 0107).");
-                }
-
-                if (grant.Graphs.Count == 0 && grant.GraphPrefixes.Count == 0)
-                {
-                    errors.Add(at + " names at least one graph or graph prefix.");
-                }
-
-                foreach (string graph in grant.Graphs)
-                {
-                    if (graph != "default" && !Uri.TryCreate(graph, UriKind.Absolute, out _))
-                    {
-                        errors.Add(at + ":Graphs holds an absolute IRI or `default`, not " + graph + ".");
-                    }
-                }
-
-                foreach (string prefix in grant.GraphPrefixes)
-                {
-                    if (string.IsNullOrEmpty(prefix))
-                    {
-                        errors.Add(at + ":GraphPrefixes holds no empty prefix.");
-                    }
-                }
-            }
-        }
+        CheckFleet(settings, errors);
 
         LimitSettings limits = settings.Limits;
 
@@ -370,6 +310,75 @@ internal static class SettingsCheck
         }
 
         return errors;
+    }
+
+    // The fleet and the management plane (ADRs 0163, 0164, 0168).
+    private static void CheckFleet(ServerSettings settings, List<string> errors)
+    {
+        FleetSettings fleet = settings.Fleet;
+
+        if (fleet.Writer is { } writer && (writer.Length == 0 || writer.AsSpan().IndexOfAny(" \t\r\n") >= 0))
+        {
+            errors.Add("Varve:Fleet:Writer is true, false, or an instance name.");
+        }
+
+        if (fleet.InternalUrl is { } url
+            && (!Uri.TryCreate(url, UriKind.Absolute, out Uri? address) || (address.Scheme != Uri.UriSchemeHttps && address.Scheme != Uri.UriSchemeHttp) || address.Query.Length > 0 || address.UserInfo.Length > 0))
+        {
+            errors.Add("Varve:Fleet:InternalUrl is the instance's absolute http or https address, with no query and no user information (ADR 0168).");
+        }
+
+        bool mayClaim = !string.Equals(fleet.Writer, "false", StringComparison.OrdinalIgnoreCase);
+
+        if (!string.IsNullOrWhiteSpace(settings.ObjectStorage.Provider) && mayClaim && string.IsNullOrWhiteSpace(fleet.InternalUrl))
+        {
+            errors.Add("Varve:Fleet:InternalUrl is required on an instance that may claim in an object-store fleet: the writer record names it, and other instances forward writes to it (ADR 0168).");
+        }
+
+        if (fleet.FollowInterval <= TimeSpan.Zero || fleet.FollowInterval > TimeSpan.FromMinutes(1))
+        {
+            errors.Add("Varve:Fleet:FollowInterval is positive and at most a minute (ADR 0164).");
+        }
+
+        if (fleet.AllowedLag < 0)
+        {
+            errors.Add("Varve:Fleet:AllowedLag is a number of positions, zero or more.");
+        }
+
+        foreach (string principal in settings.Manage.BootstrapOperators)
+        {
+            if (string.IsNullOrWhiteSpace(principal))
+            {
+                errors.Add("Varve:Manage:BootstrapOperators holds agent IRIs or role values, none empty.");
+            }
+        }
+
+        if (settings.Auth.Mode == "Oidc")
+        {
+            if (settings.Manage.BootstrapOperators.Count == 0)
+            {
+                errors.Add("Varve:Manage:BootstrapOperators names at least one operator: with none, no one can declare the first dataset (ADR 0163 point 7).");
+            }
+
+            string audience = settings.Auth.Management.Audience;
+
+            if (string.IsNullOrWhiteSpace(audience) || settings.Auth.Audiences.Contains(audience))
+            {
+                errors.Add("Varve:Auth:Management:Audience is an audience the data plane's Varve:Auth:Audiences does not name: each plane accepts only its own (ADR 0163 point 1).");
+            }
+        }
+
+        if (settings.Manage.Urls is { } urls)
+        {
+            foreach (string listener in urls.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (!Uri.TryCreate(listener.Replace("*", "localhost", StringComparison.Ordinal).Replace("+", "localhost", StringComparison.Ordinal), UriKind.Absolute, out Uri? parsed)
+                    || (parsed.Scheme != Uri.UriSchemeHttp && parsed.Scheme != Uri.UriSchemeHttps))
+                {
+                    errors.Add("Varve:Manage:Urls is a ';'-separated list of http or https listener URLs, not '" + listener + "'.");
+                }
+            }
+        }
     }
 
     // An origin as the Fetch standard serialises one (ADR 0132): http or https,

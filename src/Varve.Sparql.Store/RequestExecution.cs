@@ -93,7 +93,7 @@ internal sealed class RequestExecution
     /// </summary>
     internal static CommitRequest DataOnly(Update update, UpdateOptions options)
     {
-        CommitRequest request = new() { Metadata = options.Metadata };
+        CommitRequest request = new() { Metadata = options.Metadata, Validators = options.Validators };
         GraphScope writable = options.WriteScope;
         Dictionary<RdfTerm, bool>? decided = writable.IsAll ? null : new Dictionary<RdfTerm, bool>(RdfTerm.Comparer);
         bool defaultDecided = writable.IsAll;
@@ -256,6 +256,7 @@ internal sealed class RequestExecution
             ExpectedPosition = _dataOnly ? null : _staging.Position,
             ExpectedGraphs = _dataOnly || _options.ExpectedPosition is not null ? null : Scope(),
             Metadata = _options.Metadata,
+            Validators = _options.Validators,
         };
 
         try

@@ -4,10 +4,17 @@
 
 using System;
 using System.Collections.Generic;
+using System.Security.Claims;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Varve.Events;
+using Varve.Management;
+using Varve.Management.Model;
 using Varve.Protocol;
 using Varve.Protocol.Model;
+using Varve.Rdf;
 
 namespace Varve.Server;
 
@@ -27,14 +34,25 @@ internal sealed class DatasetPermission(Permission permission) : IAuthorizationR
 }
 
 /// <summary>
-/// Decides a <see cref="DatasetPermission"/> (ADRs 0037, 0091, 0106): the
-/// caller is authenticated, and one of its role claims is a value the
-/// configuration maps to that permission, or to a higher one. A dataset
-/// permission is decided on the dataset the request names, and a server
-/// admin holds every one of them on every dataset; the server-admin
-/// permission is decided on no dataset. No dataset, no dataset permission.
+/// Where the server's grants come from: the fleet, once it has started. The
+/// authorisation services are built before it, and ask through this.
 /// </summary>
-internal sealed class DatasetPermissionHandler(AuthSettings settings) : AuthorizationHandler<DatasetPermission>
+internal sealed class FleetHandle
+{
+    internal Fleet? Fleet { get; set; }
+
+    internal GrantTable Table => Fleet?.Table ?? throw new InvalidOperationException("The fleet has not started.");
+}
+
+/// <summary>
+/// Decides a <see cref="DatasetPermission"/> (ADRs 0163, 0166) from the grants
+/// pinned for the request: <c>read</c> when any grant on the dataset names the
+/// caller, <c>write</c> when a write grant does, <c>admin</c> when an admin
+/// grant does, and the server-admin permission, the operator's, from the
+/// fleet graph and the bootstrap operators. An operator holds every
+/// permission on every dataset.
+/// </summary>
+internal sealed class DatasetPermissionHandler(FleetHandle fleet, AuthSettings settings, IHttpContextAccessor accessor) : AuthorizationHandler<DatasetPermission>
 {
     protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, DatasetPermission requirement)
     {
@@ -43,89 +61,120 @@ internal sealed class DatasetPermissionHandler(AuthSettings settings) : Authoriz
             return Task.CompletedTask;
         }
 
-        HashSet<string> values = new(StringComparer.Ordinal);
-        values.UnionWith(settings.Server.Admin);
-
-        if (requirement.Permission != Permission.ServerAdmin)
+        GrantTable table = fleet.Table;
+        Caller caller = Callers.Of(context.User, settings, accessor.HttpContext);
+        string? dataset = (context.Resource as DatasetName?)?.Value;
+        bool granted = requirement.Permission switch
         {
-            if (context.Resource is not DatasetName name || !settings.Datasets.TryGetValue(name.Value, out PermissionSettings? granted))
-            {
-                granted = null;
-            }
+            Permission.ServerAdmin => table.IsOperator(caller),
+            _ when dataset is null => false,
+            Permission.Admin => table.IsAdmin(caller, dataset),
+            Permission.Write => table.Writes(caller, dataset),
+            _ => table.Reaches(caller, dataset),
+        };
 
-            if (granted is not null)
-            {
-                values.UnionWith(granted.Admin);
-
-                if (requirement.Permission <= Permission.Write)
-                {
-                    values.UnionWith(granted.Write);
-                }
-
-                if (requirement.Permission == Permission.Read)
-                {
-                    values.UnionWith(granted.Read);
-                }
-
-                // A scoped grant passes the dataset-level policy for its
-                // permission; the scope then bounds the request (ADR 0107).
-                foreach (GrantSettings grant in granted.Grants)
-                {
-                    if (grant.Claim is { } claim && (requirement.Permission == Permission.Read || (requirement.Permission == Permission.Write && grant.Permission == "write")))
-                    {
-                        values.Add(claim);
-                    }
-                }
-            }
-        }
-
-        if (HoldsAny(context.User, settings.RoleClaimType, values))
+        if (granted)
         {
             context.Succeed(requirement);
         }
 
         return Task.CompletedTask;
     }
+}
 
-    /// <summary>Whether one of the caller's role claims is a value in <paramref name="values"/>.</summary>
-    internal static bool HoldsAny(System.Security.Claims.ClaimsPrincipal user, string roleClaimType, HashSet<string> values)
+/// <summary>
+/// The host's <see cref="IAccessScopes"/> (ADRs 0107, 0166): the caller's
+/// readable and writable graphs from the grants pinned for the request,
+/// templates expanded; an event catalogue graph governed by its source graph
+/// (ADRs 0130, 0144).
+/// </summary>
+internal sealed class ManagedScopes(FleetHandle fleet, AuthSettings settings, IHttpContextAccessor accessor) : IAccessScopes
+{
+    public CallerScope ScopesOf(ClaimsPrincipal caller, DatasetName dataset)
     {
-        foreach (System.Security.Claims.Claim claim in user.FindAll(roleClaimType))
+        CallerScope scope = fleet.Table.ScopesOf(Callers.Of(caller, settings, accessor.HttpContext), dataset.Value);
+
+        return scope.IsAdmin
+            ? scope
+            : new CallerScope(scope.Readable.WithGovernor(EventCatalogue.TryGetSourceGraph), scope.Writable.WithGovernor(EventCatalogue.TryGetSourceGraph), AdminAccess.None);
+    }
+}
+
+/// <summary>The management model's caller from a validated token, built once per request.</summary>
+internal static class Callers
+{
+    private const string Key = "Varve.Server.Caller";
+
+    internal static Caller Of(ClaimsPrincipal user, AuthSettings settings, HttpContext? context)
+    {
+        if (context?.Items[Key] is Caller cached && ReferenceEquals(context.User, user))
         {
-            if (Grants(claim.Value, values))
+            return cached;
+        }
+
+        Dictionary<string, List<string>> claims = new(StringComparer.Ordinal);
+
+        foreach (Claim claim in user.Claims)
+        {
+            if (!claims.TryGetValue(claim.Type, out List<string>? values))
             {
-                return true;
+                values = [];
+                claims[claim.Type] = values;
+            }
+
+            if (claim.Type == settings.RoleClaimType && claim.Value.StartsWith('{'))
+            {
+                // A role claim is a string (Entra's app roles, Keycloak's), or
+                // a JSON object whose property names are the roles (Zitadel's).
+                values.AddRange(RolesOf(claim.Value));
+            }
+            else
+            {
+                values.Add(claim.Value);
             }
         }
 
-        return false;
+        Dictionary<string, IReadOnlyList<string>> held = new(StringComparer.Ordinal);
+
+        foreach ((string type, List<string> values) in claims)
+        {
+            held[type] = values;
+        }
+
+        string? issuer = user.FindFirst("iss")?.Value;
+        string? subject = user.FindFirst(settings.SubjectClaim)?.Value;
+        string? agent = string.IsNullOrEmpty(issuer) || string.IsNullOrEmpty(subject) || issuer.Contains('#') ? null : issuer + "#" + TokenIdentity.Encode(subject);
+        Caller caller = new(agent, subject, held, settings.RoleClaimType);
+
+        if (context is not null && ReferenceEquals(context.User, user))
+        {
+            context.Items[Key] = caller;
+        }
+
+        return caller;
     }
 
-    // A role claim is a string (Entra's app roles, Keycloak's), or a JSON
-    // object whose property names are the roles (Zitadel's project roles).
-    internal static bool Grants(string value, HashSet<string> granted)
+    private static List<string> RolesOf(string value)
     {
-        if (!value.StartsWith('{'))
-        {
-            return granted.Contains(value);
-        }
+        List<string> roles = [];
 
         try
         {
-            using System.Text.Json.JsonDocument roles = System.Text.Json.JsonDocument.Parse(value);
+            using JsonDocument document = JsonDocument.Parse(value);
 
-            foreach (System.Text.Json.JsonProperty role in roles.RootElement.EnumerateObject())
+            if (document.RootElement.ValueKind == JsonValueKind.Object)
             {
-                if (granted.Contains(role.Name))
+                foreach (JsonProperty role in document.RootElement.EnumerateObject())
                 {
-                    return true;
+                    roles.Add(role.Name);
                 }
             }
         }
-        catch (System.Text.Json.JsonException)
+        catch (JsonException)
         {
+            roles.Add(value);
         }
 
-        return false;
+        return roles;
     }
 }

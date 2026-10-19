@@ -229,3 +229,6 @@ static Varve.Management.Model.Principal.operator ==(Varve.Management.Model.Princ
 ~override Varve.Management.Model.Principal.Equals(object obj) -> bool
 ~override Varve.Management.Model.Principal.ToString() -> string
 static Varve.Management.ManagementTrig.TryParseLines(System.Collections.Generic.IEnumerable<string!>! lines, out string? error) -> Varve.Rdf.InMemoryDataset?
+Varve.Management.Model.DatasetDeclaration.Closed.get -> bool
+Varve.Management.Model.DatasetDeclaration.Closed.init -> void
+Varve.Management.GrantTable.Writes(Varve.Management.Model.Caller! caller, string! dataset) -> bool

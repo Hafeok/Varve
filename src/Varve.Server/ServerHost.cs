@@ -115,7 +115,9 @@ internal static partial class ServerHost
         }
 
         bool anonymous = settings.Auth.Mode == "Anonymous";
-        Configure(builder, settings, anonymous);
+        HttpContextAccessor accessor = new();
+        FleetHandle handle = new();
+        Configure(builder, settings, anonymous, accessor, handle);
         WebApplication app = builder.Build();
         ILogger logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Varve.Server");
 
@@ -125,21 +127,40 @@ internal static partial class ServerHost
         }
 
         TimeProvider clock = TimeProvider.System;
-        await using OpenDatasets datasets = await OpenDatasets.OpenAsync(settings, clock, logger, CancellationToken.None).ConfigureAwait(false);
-        IHostApplicationLifetime lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
-        Drain drain = app.Services.GetRequiredService<Drain>();
-        using HttpClient outbound = OutboundHttp.CreateClient();
-        Map(app, settings, datasets, clock, anonymous, Outbound.Of(settings, outbound), drain, lifetime.ApplicationStopping);
+        Fleet fleet;
 
-        if (ready is null)
+        try
         {
-            await app.RunAsync().ConfigureAwait(false);
+            fleet = await Fleet.StartAsync(settings, serve.RecordBootstrap, clock, logger, accessor, CancellationToken.None).ConfigureAwait(false);
         }
-        else
+        catch (InvalidOperationException refused)
         {
-            await app.StartAsync().ConfigureAwait(false);
-            ready.TrySetResult(app);
-            await app.WaitForShutdownAsync().ConfigureAwait(false);
+            await Console.Error.WriteLineAsync("varve: " + refused.Message).ConfigureAwait(false);
+            return 2;
+        }
+
+        await using (fleet.ConfigureAwait(false))
+        {
+            handle.Fleet = fleet;
+            IHostApplicationLifetime lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
+            Drain drain = app.Services.GetRequiredService<Drain>();
+            using HttpClient outbound = OutboundHttp.CreateClient();
+            using HttpMessageInvoker forwarder = new(new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false, UseProxy = false }, disposeHandler: true);
+            Map(app, settings, fleet, clock, anonymous, Outbound.Of(settings, outbound), forwarder, drain, lifetime.ApplicationStopping);
+            Task following = fleet.RunAsync(lifetime.ApplicationStopping);
+
+            if (ready is null)
+            {
+                await app.RunAsync().ConfigureAwait(false);
+            }
+            else
+            {
+                await app.StartAsync().ConfigureAwait(false);
+                ready.TrySetResult(app);
+                await app.WaitForShutdownAsync().ConfigureAwait(false);
+            }
+
+            await following.ConfigureAwait(false);
         }
 
         return 0;
@@ -258,10 +279,12 @@ internal static partial class ServerHost
             ? Path.Combine(physical.Root, source.Path)
             : source.Path ?? "appsettings.json";
 
-    private static void Configure(WebApplicationBuilder builder, ServerSettings settings, bool anonymous)
+    private static void Configure(WebApplicationBuilder builder, ServerSettings settings, bool anonymous, HttpContextAccessor accessor, FleetHandle handle)
     {
         builder.WebHost.ConfigureKestrel(kestrel => kestrel.Limits.MaxRequestBodySize = settings.Limits.MaxRequestBody);
         IServiceCollection services = builder.Services;
+        services.AddSingleton<IHttpContextAccessor>(accessor);
+        services.AddSingleton(handle);
         Telemetry.Configure(builder);
 
         // The drain (ADR 0113): registered after the web host's own hosted
@@ -337,47 +360,16 @@ internal static partial class ServerHost
             return;
         }
 
+        // A scheme per plane (ADR 0163 point 1), chosen by the path: each
+        // accepts only its own audience, and a token for both is refused by both.
         AuthSettings auth = settings.Auth;
-        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(bearer =>
-        {
-            bearer.Authority = auth.Authority;
-            bearer.RequireHttpsMetadata = auth.RequireHttpsMetadata;
-            bearer.MapInboundClaims = false;
-
-            // A refusal says nothing about why: no error description in
-            // WWW-Authenticate, so a probe learns nothing (7a's auth tests).
-            // RFC 6750 §3's error codes are set here (ADR 0119): invalid_token
-            // when a token was presented and failed, none when none was, and
-            // insufficient_scope on a forbid; the bodies are the thin
-            // unauthorized problem and the forbidden problem.
-            bearer.IncludeErrorDetails = false;
-            bearer.Events = new JwtBearerEvents
-            {
-                OnChallenge = async challenge =>
-                {
-                    challenge.HandleResponse();
-                    challenge.Response.Headers.WWWAuthenticate = challenge.AuthenticateFailure is not null ? "Bearer error=\"invalid_token\"" : "Bearer";
-                    await WriteProblemAsync(challenge.HttpContext, ProblemType.Unauthorized, null).ConfigureAwait(false);
-                },
-                OnForbidden = forbidden =>
-                {
-                    forbidden.Response.Headers.WWWAuthenticate = "Bearer error=\"insufficient_scope\"";
-                    return WriteProblemAsync(forbidden.HttpContext, ProblemType.Forbidden, null);
-                },
-            };
-            bearer.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidAudiences = auth.Audiences,
-                ValidateLifetime = true,
-                RequireExpirationTime = true,
-                RequireSignedTokens = true,
-                NameClaimType = auth.SubjectClaim,
-                RoleClaimType = auth.RoleClaimType,
-            };
-        });
-        services.AddSingleton<IAuthorizationHandler>(new DatasetPermissionHandler(auth));
+        string[] data = [.. auth.Audiences];
+        string[] management = [auth.Management.Audience];
+        services.AddAuthentication(PlaneScheme)
+            .AddPolicyScheme(PlaneScheme, null, plane => plane.ForwardDefaultSelector = context => IsManagement(context.Request.Path) ? ManagementScheme : DataScheme)
+            .AddJwtBearer(DataScheme, bearer => Bearer(bearer, auth, data, management))
+            .AddJwtBearer(ManagementScheme, bearer => Bearer(bearer, auth, management, data));
+        services.AddSingleton<IAuthorizationHandler>(new DatasetPermissionHandler(handle, auth, accessor));
         services.AddAuthorization(authorization =>
         {
             authorization.AddPolicy(DatasetPermissions.Read, policy => policy.AddRequirements(new DatasetPermission(Permission.Read)));
@@ -385,6 +377,72 @@ internal static partial class ServerHost
             authorization.AddPolicy(DatasetPermissions.Admin, policy => policy.AddRequirements(new DatasetPermission(Permission.Admin)));
             authorization.AddPolicy(DatasetPermissions.ServerAdmin, policy => policy.AddRequirements(new DatasetPermission(Permission.ServerAdmin)));
         });
+    }
+
+    private const string PlaneScheme = "varve";
+    private const string DataScheme = "data";
+    private const string ManagementScheme = "manage";
+
+    /// <summary>Whether a path is the management plane's.</summary>
+    internal static bool IsManagement(PathString path) => path.StartsWithSegments("/manage");
+
+    private static void Bearer(JwtBearerOptions bearer, AuthSettings auth, string[] own, string[] other)
+    {
+        bearer.Authority = auth.Authority;
+        bearer.RequireHttpsMetadata = auth.RequireHttpsMetadata;
+        bearer.MapInboundClaims = false;
+
+        // A refusal says nothing about why: no error description in
+        // WWW-Authenticate, so a probe learns nothing (7a's auth tests).
+        // RFC 6750 §3's error codes are set here (ADR 0119): invalid_token
+        // when a token was presented and failed, none when none was, and
+        // insufficient_scope on a forbid; the bodies are the thin
+        // unauthorized problem and the forbidden problem.
+        bearer.IncludeErrorDetails = false;
+        bearer.Events = new JwtBearerEvents
+        {
+            OnChallenge = async challenge =>
+            {
+                challenge.HandleResponse();
+                challenge.Response.Headers.WWWAuthenticate = challenge.AuthenticateFailure is not null ? "Bearer error=\"invalid_token\"" : "Bearer";
+                await WriteProblemAsync(challenge.HttpContext, ProblemType.Unauthorized, null).ConfigureAwait(false);
+            },
+            OnForbidden = forbidden =>
+            {
+                forbidden.Response.Headers.WWWAuthenticate = "Bearer error=\"insufficient_scope\"";
+                return WriteProblemAsync(forbidden.HttpContext, ProblemType.Forbidden, null);
+            },
+        };
+        bearer.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidAudiences = own,
+            AudienceValidator = (audiences, _, _) => IsPlaneAudience(audiences, own, other),
+            ValidateLifetime = true,
+            RequireExpirationTime = true,
+            RequireSignedTokens = true,
+            NameClaimType = auth.SubjectClaim,
+            RoleClaimType = auth.RoleClaimType,
+        };
+    }
+
+    /// <summary>A token's audiences name this plane's and none of the other's (ADR 0163 point 1).</summary>
+    internal static bool IsPlaneAudience(IEnumerable<string> audiences, string[] own, string[] other)
+    {
+        bool mine = false;
+
+        foreach (string audience in audiences)
+        {
+            if (Array.IndexOf(other, audience) >= 0)
+            {
+                return false;
+            }
+
+            mine |= Array.IndexOf(own, audience) >= 0;
+        }
+
+        return mine;
     }
 
     // The one policy (ADR 0132): the configured origins; the methods the API
@@ -412,17 +470,25 @@ internal static partial class ServerHost
     /// <summary>The request headers a browser may send (ADR 0132).</summary>
     internal static ImmutableArray<string> CorsRequestHeaders { get; } =
     [
-        "Authorization", "Content-Type", "Accept", "If-Match", "If-None-Match", "Varve-If-Graphs-Match", "Last-Event-ID", "Varve-As-Of", "traceparent", "tracestate",
+        "Authorization", "Content-Type", "Accept", "If-Match", "If-None-Match", "Varve-If-Graphs-Match", "Last-Event-ID", "Varve-As-Of", "Varve-Min-Position", "Varve-Min-Management-Position", "traceparent", "tracestate",
     ];
 
     /// <summary>The response headers a browser may read beyond the safelisted ones (ADR 0132).</summary>
     internal static ImmutableArray<string> CorsResponseHeaders { get; } =
     [
-        "Varve-Position", "ETag", "Varve-Request-Id", "Link", "Location", "Retry-After", "WWW-Authenticate",
+        "Varve-Position", "Varve-Management-Position", "Varve-Graph-Versions", "ETag", "Varve-Request-Id", "Link", "Location", "Retry-After", "WWW-Authenticate",
     ];
 
-    private static void Map(WebApplication app, ServerSettings settings, OpenDatasets datasets, TimeProvider clock, bool anonymous, Outbound outbound, Drain drain, CancellationToken stopping)
+    private static void Map(WebApplication app, ServerSettings settings, Fleet fleet, TimeProvider clock, bool anonymous, Outbound outbound, HttpMessageInvoker forwarder, Drain drain, CancellationToken stopping)
     {
+        // Request ids are unique across the fleet (ADR 0168 point 7).
+        string instance = fleet.Instance.Value;
+        app.Use((context, next) =>
+        {
+            context.TraceIdentifier = instance + ":" + context.TraceIdentifier;
+            return next(context);
+        });
+
         if (settings.ForwardedHeaders.Enabled)
         {
             app.UseForwardedHeaders();
@@ -479,13 +545,25 @@ internal static partial class ServerHost
             app.UseAuthentication();
         }
 
+        // The grants a request is decided by are pinned at its start, at the
+        // position applied then; a request may ask for a later one (ADR 0163
+        // point 3), and every response names the position it was served at.
+        app.Use(ManagementPositionAsync(fleet));
+
+        OpenDatasets datasets = fleet.Datasets;
+        StoreUpdates updates = new(clock, outbound, new MemoryBytes(settings.Limits.MaxQueryMemory));
+        IAccessScopes scopes = anonymous ? EveryoneEverything.Instance : new ManagedScopes(app.Services.GetRequiredService<FleetHandle>(), settings.Auth, app.Services.GetRequiredService<IHttpContextAccessor>());
         ProtocolOptions options = new()
         {
             Datasets = datasets,
             Administration = datasets,
-            Updates = new StoreUpdates(clock, outbound, new MemoryBytes(settings.Limits.MaxQueryMemory)),
+            Updates = updates,
+            Writers = fleet.IsFleetOfOne ? null : fleet,
+            Forwarder = forwarder,
+            Management = fleet,
+            Following = fleet,
             Identity = anonymous ? new NoAgent() : new TokenIdentity(settings.Auth.SubjectClaim, settings.Auth.ApplicationClaim),
-            AccessScopes = anonymous ? EveryoneEverything.Instance : new GrantedScopes(settings.Auth),
+            AccessScopes = scopes,
             Authorization = app.Services.GetRequiredService<IAuthorizationService>(),
             Clock = clock,
             Limits = Limits(settings),
@@ -498,21 +576,22 @@ internal static partial class ServerHost
         };
 
         app.MapGroup("/datasets/{dataset}").RequireRateLimiting("reads").MapVarveDataset(options);
-        app.MapVarveAdministration("/datasets", options);
+        app.MapVarveManagement(options, fleet);
+        MapManagementSparql(app, options, fleet, updates);
         app.MapVarveEventTypes("/events/types", options).RequireRateLimiting("reads");
         app.MapGet("/health/live", (RequestDelegate)(context => WriteJsonAsync(context, StatusCodes.Status200OK, "application/json", json => json.WriteString("status", "live")))).RequireRateLimiting("health");
-        app.MapGet("/health/ready", (RequestDelegate)(context => ReadyAsync(context, datasets, settings.Health.ReadyLag, drain))).RequireRateLimiting("health");
+        app.MapGet("/health/ready", (RequestDelegate)(context => ReadyAsync(context, fleet, settings, drain))).RequireRateLimiting("health");
     }
 
     // Ready when every dataset that should be open is open, no default
-    // projection is failed or behind the allowed lag, and the host is not
-    // draining (ADRs 0101, 0106, 0113). Datasets are opened and their
-    // projections replayed before the server listens, so a failure to open
-    // — a directory under the root that is leased elsewhere, or does not
-    // parse — a projection failure and the drain are what remain to report.
-    // A dataset closed by the admin API is reported and does not count.
-    private static Task ReadyAsync(HttpContext context, OpenDatasets datasets, long allowedLag, Drain drain)
+    // projection is failed or behind the allowed lag, the host is not
+    // draining (ADRs 0101, 0106, 0113), and the management plane is applied
+    // within its lag, not superseded, with the bootstrap operators recorded
+    // as configured (ADR 0163 point 13). A closed dataset is reported and
+    // does not count.
+    private static Task ReadyAsync(HttpContext context, Fleet fleet, ServerSettings settings, Drain drain)
     {
+        OpenDatasets datasets = fleet.Datasets;
         List<DatasetHealth> health = [];
 
         foreach (DatasetEntry entry in datasets.List())
@@ -526,22 +605,41 @@ internal static partial class ServerHost
                 open ? dataset!.Head.Value : 0,
                 open ? dataset!.ProjectionPosition.Value : 0,
                 open && dataset!.IsFailed,
-                open && datasets.IsSuperseded(entry.Name)));
+                open && datasets.IsSuperseded(entry.Name),
+                entry.Role));
         }
 
-        (bool ready, List<DatasetReadiness> states) = Readiness.Evaluate(health, allowedLag, drain.Draining);
+        ManagementStatus management = fleet.Status;
+        (bool ready, List<DatasetReadiness> states) = Readiness.Evaluate(health, settings.Health.ReadyLag, drain.Draining, management, settings.Fleet.AllowedLag);
         context.Response.Headers.CacheControl = "no-store";
+
+        void Management(Utf8JsonWriter json)
+        {
+            json.WriteStartObject("management");
+            json.WriteString("role", management.Role switch { ManagementRole.Writer => "writer", ManagementRole.Follower => "follower", _ => "superseded" });
+            json.WriteNumber("epoch", management.Epoch);
+            json.WriteNumber("position", management.Applied.Value);
+            json.WriteNumber("lag", management.Lag);
+            json.WriteString("bootstrap", management.Bootstrap switch { BootstrapState.Recorded => "recorded", BootstrapState.Absent => "absent", _ => "mismatch" });
+            json.WriteEndObject();
+        }
+
+        static string Role(DatasetRole role) => role switch { DatasetRole.Writer => "writer", DatasetRole.Follower => "follower", _ => "elsewhere" };
 
         if (ready)
         {
             return WriteJsonAsync(context, StatusCodes.Status200OK, "application/json", json =>
             {
                 json.WriteString("status", "ready");
+                Management(json);
                 json.WriteStartObject("datasets");
 
                 foreach (DatasetReadiness state in states)
                 {
-                    json.WriteString(state.Name, state.State);
+                    json.WriteStartObject(state.Name);
+                    json.WriteString("state", state.State);
+                    json.WriteString("role", Role(state.Role));
+                    json.WriteEndObject();
                 }
 
                 json.WriteEndObject();
@@ -550,6 +648,7 @@ internal static partial class ServerHost
 
         return WriteProblemAsync(context, ProblemType.NotReady, drain.Draining ? "The server is draining." : null, json =>
         {
+            Management(json);
             json.WriteStartArray("datasets");
 
             foreach (DatasetReadiness state in states)
@@ -562,6 +661,7 @@ internal static partial class ServerHost
                 json.WriteStartObject();
                 json.WriteString("name", state.Name);
                 json.WriteString("state", state.State);
+                json.WriteString("role", Role(state.Role));
 
                 if (state.Reason is not null)
                 {
@@ -578,6 +678,127 @@ internal static partial class ServerHost
 
             json.WriteEndArray();
         });
+    }
+
+    /// <summary>The header a request names the least management position it may be served at with (ADR 0163 point 3).</summary>
+    internal const string MinManagementPositionHeader = "Varve-Min-Management-Position";
+
+    /// <summary>The header every response names the management position it was served at with.</summary>
+    internal const string ManagementPositionHeader = "Varve-Management-Position";
+
+    // Pins the grants for the request. Asked for a later position than is
+    // applied, the system follower is advanced once; still behind, the
+    // request is 503 management-behind, with no wait (ADR 0163 point 3).
+    private static Func<HttpContext, RequestDelegate, Task> ManagementPositionAsync(Fleet fleet) => async (context, next) =>
+    {
+        Microsoft.Extensions.Primitives.StringValues asked = context.Request.Headers[MinManagementPositionHeader];
+
+        if (!Microsoft.Extensions.Primitives.StringValues.IsNullOrEmpty(asked))
+        {
+            if (asked.Count != 1 || !long.TryParse(asked[0], NumberStyles.None, CultureInfo.InvariantCulture, out long wanted))
+            {
+                await WriteProblemAsync(context, ProblemType.BadRequest, MinManagementPositionHeader + " is one position.").ConfigureAwait(false);
+                return;
+            }
+
+            if (wanted > fleet.Current.Table.Position.Value)
+            {
+                await fleet.AdvanceAsync(context.RequestAborted).ConfigureAwait(false);
+            }
+
+            long applied = fleet.Current.Table.Position.Value;
+
+            if (wanted > applied)
+            {
+                context.Response.Headers[ManagementPositionHeader] = applied.ToString(CultureInfo.InvariantCulture);
+                await WriteProblemAsync(context, ProblemType.ManagementBehind, "This instance has applied management position " + applied.ToString(CultureInfo.InvariantCulture) + ".", json =>
+                {
+                    json.WriteNumber("position", wanted);
+                    json.WriteNumber("appliedPosition", applied);
+                }).ConfigureAwait(false);
+                return;
+            }
+        }
+
+        Fleet.Snapshot snapshot = fleet.Current;
+        Fleet.Pin(context, snapshot);
+        context.Response.OnStarting(() =>
+        {
+            // A forwarded answer carries the writer's position, which it keeps.
+            if (!context.Response.Headers.ContainsKey(ManagementPositionHeader))
+            {
+                context.Response.Headers[ManagementPositionHeader] = snapshot.Table.Position.Value.ToString(CultureInfo.InvariantCulture);
+            }
+
+            return Task.CompletedTask;
+        });
+        await next(context).ConfigureAwait(false);
+    };
+
+    // /manage/sparql (ADR 0163 point 1): SPARQL over the system dataset, for
+    // an operator. An update runs the code validator, and goes to the system
+    // writer like every management write.
+    private static void MapManagementSparql(WebApplication app, ProtocolOptions options, Fleet fleet, StoreUpdates updates)
+    {
+        ProtocolOptions system = new()
+        {
+            Datasets = new SystemResolver(fleet),
+            Updates = new SystemUpdates(updates, fleet),
+            Writers = options.Writers is null ? null : new SystemDirectory(fleet),
+            Forwarder = options.Forwarder,
+            Identity = options.Identity,
+            AccessScopes = EveryoneEverything.Instance,
+            Authorization = new OperatorsOnly(options.Authorization),
+            Clock = options.Clock,
+            Limits = options.Limits,
+            Evaluation = options.Evaluation,
+            Stopping = options.Stopping,
+            Telemetry = options.Telemetry,
+            Logger = options.Logger,
+        };
+        app.MapSparqlEndpoint("/manage/sparql", system);
+    }
+
+    /// <summary>The system dataset as the one dataset a resolver knows.</summary>
+    private sealed class SystemResolver(Fleet fleet) : IDatasetResolver
+    {
+        public bool TryResolve(DatasetName name, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Dataset? dataset)
+        {
+            dataset = fleet.System;
+            return true;
+        }
+    }
+
+    /// <summary>Every write to the system dataset goes to its writer.</summary>
+    private sealed class SystemDirectory(Fleet fleet) : IWriterDirectory
+    {
+        public WriterName Instance => fleet.Instance;
+
+        public ValueTask<WriterRoute> RouteAsync(WriterTarget target, CancellationToken cancellationToken) => fleet.RouteAsync(WriterTarget.System, cancellationToken);
+
+        public void Stale(WriterTarget target) => fleet.Stale(WriterTarget.System);
+    }
+
+    /// <summary>An update of the system dataset, checked by the code validator (ADR 0166).</summary>
+    private sealed class SystemUpdates(StoreUpdates inner, Fleet fleet) : ISparqlUpdateExecutor
+    {
+        public ValueTask<CommitResult> ExecuteAsync(Dataset dataset, Update update, CommitMetadata metadata, UpdatePreconditions preconditions, Varve.Rdf.CallerScope scope, CancellationToken cancellationToken) =>
+            inner.ExecuteAsync(dataset, update, metadata, new UpdatePreconditions
+            {
+                ExpectedPosition = preconditions.ExpectedPosition,
+                ExpectedGraphs = preconditions.ExpectedGraphs,
+                Validators = [.. preconditions.Validators, fleet.Validator],
+            }, scope, cancellationToken);
+    }
+
+    /// <summary>Every permission on the system dataset is the operator's.</summary>
+    private sealed class OperatorsOnly(IAuthorizationService inner) : IAuthorizationService
+    {
+        public Task<AuthorizationResult> AuthorizeAsync(System.Security.Claims.ClaimsPrincipal user, object? resource, IEnumerable<IAuthorizationRequirement> requirements) =>
+            inner.AuthorizeAsync(user, null, DatasetPermissions.ServerAdmin);
+
+        public Task<AuthorizationResult> AuthorizeAsync(System.Security.Claims.ClaimsPrincipal user, object? resource, string policyName) =>
+            inner.AuthorizeAsync(user, null, DatasetPermissions.ServerAdmin);
     }
 
     /// <summary>
@@ -655,6 +876,7 @@ internal static partial class ServerHost
                 Metadata = metadata,
                 ExpectedPosition = preconditions.ExpectedPosition,
                 ExpectedGraphs = Expected(preconditions),
+                Validators = preconditions.Validators,
 
                 // A conflict with no precondition from the client is the
                 // executor's own inferred scope's: re-pinned and evaluated

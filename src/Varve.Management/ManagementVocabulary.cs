@@ -65,6 +65,7 @@ public static class ManagementVocabulary
     internal static readonly RdfTerm PlacedOn = Term("placedOn");
     internal static readonly RdfTerm DefaultAccessScope = Term("defaultAccessScope");
     internal static readonly RdfTerm AutomaticHandover = Term("automaticHandover");
+    internal static readonly RdfTerm Closed = Term("closed");
     internal static readonly RdfTerm ErasureMode = Term("erasureMode");
     internal static readonly RdfTerm Grantee = Term("grantee");
     internal static readonly RdfTerm Permission = Term("permission");
@@ -112,7 +113,7 @@ public static class ManagementVocabulary
     internal static readonly FrozenSet<string> Known = new[]
     {
         "Dataset", "Grant", "Agent", "Role", "Group", "GraphTemplate", "ShapesBinding", "TBoxBinding",
-        "datasetName", "storage", "placedOn", "defaultAccessScope", "automaticHandover",
+        "datasetName", "storage", "placedOn", "defaultAccessScope", "automaticHandover", "closed",
         "grantee", "permission", "allGraphs", "graph", "graphPrefix", "graphTemplate",
         "claimValue", "claimType", "template", "match", "boundGraph",
         "File", "Memory", "ObjectStorage", "AllHistory", "Current", "read", "write", "admin", "operator", "defaultGraph", "Exact", "Prefix",

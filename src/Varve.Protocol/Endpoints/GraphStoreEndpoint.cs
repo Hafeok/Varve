@@ -41,6 +41,13 @@ internal static class GraphStoreEndpoint
             return;
         }
 
+        // A write to a dataset another instance writes goes there, before it
+        // is authorised here (ADR 0168).
+        if (!read && Exchange.RouteTarget(context) is { } target0 && await Forwarding.RouteAsync(context, options, target0).ConfigureAwait(false))
+        {
+            return;
+        }
+
         if (await Exchange.BeginAsync(context, options, read ? DatasetPermissions.Read : DatasetPermissions.Write).ConfigureAwait(false) is not { } exchange)
         {
             return;
@@ -268,7 +275,7 @@ internal static class GraphStoreEndpoint
         using (DatasetView view = exchange.Dataset.Pin())
         {
             // It read the graph alone: the graph is its scope (ADR 0126).
-            request = new CommitRequest { ExpectedPosition = plan.Expected ?? view.Position, ExpectedGraphs = Writes.Scope(plan.Graphs), Metadata = Writes.Metadata(exchange) };
+            request = new CommitRequest { ExpectedPosition = plan.Expected ?? view.Position, ExpectedGraphs = Writes.Scope(plan.Graphs), Metadata = Writes.Metadata(exchange), Validators = Writes.Validators(exchange) };
             exists = Retract(view, target, request);
         }
 
@@ -306,6 +313,7 @@ internal static class GraphStoreEndpoint
                 ExpectedPosition = plan.Expected ?? (replace ? view.Position : null),
                 ExpectedGraphs = plan.Expected is not null || replace ? Writes.Scope(plan.Graphs) : null,
                 Metadata = Writes.Metadata(exchange),
+                Validators = Writes.Validators(exchange),
             };
             existed = replace ? Retract(view, target, request) : Exists(view, target);
         }

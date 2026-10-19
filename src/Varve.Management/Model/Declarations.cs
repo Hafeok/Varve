@@ -43,6 +43,9 @@ public sealed class DatasetDeclaration
     /// <summary>The standby opt-in, recorded for Replication.</summary>
     public bool AutomaticHandover { get; init; }
 
+    /// <summary>Whether the dataset is declared closed: every instance closes it, and only then may it be deleted (ADR 0163).</summary>
+    public bool Closed { get; init; }
+
     /// <summary>The dataset's grants.</summary>
     public IReadOnlyList<GrantDeclaration> Grants { get; init; } = [];
 

@@ -261,6 +261,7 @@ public static class DeclarationReader
             };
             string? placed = Literal(node, ManagementVocabulary.PlacedOn, required: false);
             bool handover = Boolean(node, ManagementVocabulary.AutomaticHandover) ?? false;
+            bool closed = Boolean(node, ManagementVocabulary.Closed) ?? false;
             List<GrantDeclaration> grants = Grants(name);
             List<BindingDeclaration> bindings = [.. Bindings()];
 
@@ -280,6 +281,7 @@ public static class DeclarationReader
                 PlacedOn = placed,
                 DefaultAccessScope = scope,
                 AutomaticHandover = handover,
+                Closed = closed,
                 Grants = grants.FindAll(static grant => grant.Access != GrantAccess.Operator),
                 Bindings = bindings,
             };

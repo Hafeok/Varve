@@ -17,7 +17,7 @@ namespace Varve.Protocol;
 /// opening, closing and deleting one by name. The host owns the directories
 /// under its root; the protocol never touches a file.
 /// </summary>
-[Contract(typeof(TheAdminApi.AdminEndpoints), Role = "the host's creation, listing, opening, closing and deletion of datasets by name")]
+[Contract(typeof(TheManagementPlane.AdminEndpoints), Role = "the host's creation, listing, opening, closing and deletion of datasets by name")]
 public interface IDatasetAdministration
 {
     /// <summary>Every dataset the host knows, open, closed or failed, in name order.</summary>

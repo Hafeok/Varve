@@ -132,6 +132,31 @@ public sealed class GrantTable
         return false;
     }
 
+    /// <summary>Whether <paramref name="caller"/> may write <paramref name="dataset"/>: it administers it, or a write grant on it names it.</summary>
+    [DesignDecision(typeof(VarveManagementAndTheVocabulary.ManagementSurfaceCarriesDeclaredValues), Scope = ExceptionScope.Boundary)]
+    public bool Writes(Caller caller, string dataset)
+    {
+        ArgumentNullException.ThrowIfNull(caller);
+
+        if (IsAdmin(caller, dataset))
+        {
+            return true;
+        }
+
+        if (_byDataset.TryGetValue(dataset, out List<GrantDeclaration>? grants))
+        {
+            foreach (GrantDeclaration grant in grants)
+            {
+                if (grant.Access == GrantAccess.Write && Matches(grant.Grantee, caller))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// The caller's scope on a dataset: everything for an operator or an
     /// admin; otherwise the union of the read and write grants' graphs, and of

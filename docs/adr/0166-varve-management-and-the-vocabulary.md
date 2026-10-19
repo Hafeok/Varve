@@ -57,6 +57,7 @@ free of grants.
    | `varve:placedOn` | A literal instance name (ADR 0163 point 12). |
    | `varve:defaultAccessScope` | `varve:AllHistory` or `varve:Current` (ADR 0021). |
    | `varve:automaticHandover` | A boolean, default false; it is recorded here and acted on by Replication. |
+   | `varve:closed` | A boolean, default false: the dataset's state. Every instance closes a closed dataset, and only a closed one may be deleted (ADR 0163). |
    | `varve:erasureMode` | Reserved, and refused until #14. |
 
    **Grants and principals:**
