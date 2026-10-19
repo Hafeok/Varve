@@ -15,6 +15,12 @@
 # for the mirrored manifest (the packages REST API does not take
 # GITHUB_TOKEN): a 200 means public, which fails the run. The images are
 # third-party, and their copies are not ours to redistribute.
+#
+# A package a workflow creates in a public repository inherits its
+# visibility, so a new row's first copy is public and its run is red, by
+# design: the maintainer makes the package private in its settings and
+# re-runs this workflow, which then finds it present and passes (ADR 0099,
+# amendment of 2026-10-19; CONTRIBUTING.md).
 
 name: Mirror CI images
 

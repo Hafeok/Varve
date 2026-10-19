@@ -13,9 +13,19 @@
 #   jobs      the CI jobs that start it, by the name they report
 #   why       what the job needs it for
 #   mirror    false keeps the image upstream; `reason` then says why
+#   seeded    a copy made by hand, and why (ADR 0099, amendment 2026-10-19)
+#   allowances  where code outside .github/ names the upstream image: the
+#             file, and the CI job that overrides it to the mirror
 #
-# Bumping an image is a pull request to this file and to the compose file
-# that pulls it, at the same digest; on main, the change re-mirrors.
+# Every reference under .github/ is the mirror's, at the digest here, or the
+# upstream's for a `mirror: false` row; eng/ci-images.cs checks it, and the
+# C# that starts containers (CONTRIBUTING.md, "CI's test containers").
+#
+# Bumping an image is a pull request to this file and to the reference that
+# pulls it, at the same digest; on main, the change re-mirrors. The weekly
+# ci-images-upstream workflow says when an upstream tag has moved. A new row
+# comes out public on its first copy, so that run is red: the maintainer sets
+# the package private and re-runs it.
 #
 # Not here, by decision: the devcontainer's base image and the server
 # Dockerfile's chiseled base. Neither is a test container CI starts, and the
@@ -51,8 +61,11 @@ images:
     jobs: [auth (mock-oauth2), container (linux-x64), aspire sample]
     why: >-
       a standards mock issuer, for auth test layer (b) (ADR 0100); and the
-      Aspire sample's issuer, which the sample's AppHost starts itself, by
-      tag, from samples/Varve.Aspire.Sample/Program.cs (ADR 0117)
+      Aspire sample's issuer, which the sample's AppHost starts itself
+      (ADR 0117)
+    allowances:
+      - file: samples/Varve.Aspire.Sample/Program.cs
+        job: aspire sample
 
   - name: azurite
     upstream: mcr.microsoft.com/azure-storage/azurite:3.37.0
