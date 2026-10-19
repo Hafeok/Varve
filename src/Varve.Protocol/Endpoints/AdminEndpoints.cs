@@ -65,77 +65,6 @@ internal static class AdminEndpoints
         }).ConfigureAwait(false);
     }
 
-    /// <summary><c>PUT /datasets/{name}</c>: a new dataset, <c>201</c>; <c>409</c> when the name is in use.</summary>
-    internal static async Task CreateAsync(HttpContext context, ProtocolOptions options)
-    {
-        if (await BeginServerAsync(context, options).ConfigureAwait(false) is not (IDatasetAdministration administration, DatasetName name))
-        {
-            return;
-        }
-
-        DatasetStorage storage = DatasetStorage.File;
-        Body body = await RequestBodies.ReadAsync(context, options.Limits).ConfigureAwait(false);
-
-        if (body.TooLarge)
-        {
-            await HttpProblems.RequestTooLarge(context, options.Limits.MaxRequestBody.Value).ConfigureAwait(false);
-            return;
-        }
-
-        if (body.Bytes is { Length: > 0 } bytes)
-        {
-            if (!TryReadStorage(bytes, out storage))
-            {
-                await HttpProblems.BadRequest(context, "The body, when given, is {\"storage\": \"File\"}, {\"storage\": \"Memory\"} or {\"storage\": \"ObjectStorage\"}.").ConfigureAwait(false);
-                return;
-            }
-        }
-
-        switch (await administration.CreateAsync(name, storage, context.RequestAborted).ConfigureAwait(false))
-        {
-            case AdminOutcome.Done:
-                context.Response.StatusCode = StatusCodes.Status201Created;
-                break;
-            case AdminOutcome.Exists when StorageOf(administration, name) == storage:
-                // The same request again (ADR 0118): the dataset asked for is
-                // the dataset there, and a deployment script may re-run.
-                context.Response.StatusCode = StatusCodes.Status204NoContent;
-                break;
-            case AdminOutcome.Exists:
-                await HttpProblems.WriteAsync(context, ProblemType.DatasetExists,
-                    "It is kept in " + StorageName(StorageOf(administration, name)) + " storage, and the body asks for another.").ConfigureAwait(false);
-                break;
-            default:
-                await Failed(context, administration, name).ConfigureAwait(false);
-                break;
-        }
-    }
-
-    /// <summary><c>DELETE /datasets/{name}</c>: a closed dataset's directory is removed, <c>204</c>; <c>409</c> while it is open.</summary>
-    internal static async Task DeleteAsync(HttpContext context, ProtocolOptions options)
-    {
-        if (await BeginServerAsync(context, options).ConfigureAwait(false) is not (IDatasetAdministration administration, DatasetName name))
-        {
-            return;
-        }
-
-        switch (await administration.DeleteAsync(name, context.RequestAborted).ConfigureAwait(false))
-        {
-            case AdminOutcome.Done:
-                context.Response.StatusCode = StatusCodes.Status204NoContent;
-                break;
-            case AdminOutcome.Open:
-                await HttpProblems.WriteAsync(context, ProblemType.DatasetOpen).ConfigureAwait(false);
-                break;
-            case AdminOutcome.NotFound:
-                await HttpProblems.DatasetNotFound(context).ConfigureAwait(false);
-                break;
-            default:
-                await Failed(context, administration, name).ConfigureAwait(false);
-                break;
-        }
-    }
-
     /// <summary>
     /// <c>GET</c> and <c>PUT /datasets/{name}/state</c> (ADR 0118): the dataset's
     /// state, and the state asked for. <c>PUT</c> is idempotent: <c>open</c> or
@@ -369,7 +298,8 @@ internal static class AdminEndpoints
         json.WriteString("name", entry.Name.Value);
         json.WriteString("state", StateName(entry.State));
         json.WriteString("storage", StorageName(entry.Storage));
-        json.WriteString("origin", entry.Origin switch { DatasetOrigin.Configured => "configured", DatasetOrigin.Discovered => "discovered", _ => "created" });
+        json.WriteString("origin", entry.Origin switch { DatasetOrigin.Configured => "configured", DatasetOrigin.Discovered => "discovered", DatasetOrigin.Declared => "declared", _ => "created" });
+        json.WriteString("role", entry.Role switch { DatasetRole.Writer => "writer", DatasetRole.Follower => "follower", _ => "elsewhere" });
 
         if (entry.Reason is not null)
         {

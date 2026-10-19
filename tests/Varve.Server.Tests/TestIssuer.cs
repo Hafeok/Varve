@@ -43,6 +43,9 @@ internal sealed class TestIssuer : IAsyncDisposable
 {
     internal const string Audience = "api://varve-tests";
 
+    /// <summary>The management plane's audience, the server's default (ADR 0163 point 1).</summary>
+    internal const string ManagementAudience = "api://varve-manage";
+
     private readonly WebApplication _app;
     private readonly RSA _key = RSA.Create(2048);
     private readonly RSA _stranger = RSA.Create(2048);
@@ -208,8 +211,14 @@ internal sealed class TestIssuer : IAsyncDisposable
         return issuer;
     }
 
-    /// <summary>A token with these claims, valid for five minutes unless it carries a flaw.</summary>
-    internal string Mint(IReadOnlyDictionary<string, object> claims, TokenFlaw flaw = TokenFlaw.None)
+    /// <summary>A token with these claims for the management plane (ADR 0163 point 1).</summary>
+    internal string MintManagement(IReadOnlyDictionary<string, object> claims, TokenFlaw flaw = TokenFlaw.None) => Mint(claims, flaw, [ManagementAudience]);
+
+    /// <summary>
+    /// A token with these claims, valid for five minutes unless it carries a
+    /// flaw, for <paramref name="audiences"/>: the data plane's by default.
+    /// </summary>
+    internal string Mint(IReadOnlyDictionary<string, object> claims, TokenFlaw flaw = TokenFlaw.None, IReadOnlyList<string>? audiences = null)
     {
         long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         string header = Json(json =>
@@ -221,7 +230,26 @@ internal sealed class TestIssuer : IAsyncDisposable
         string payload = Json(json =>
         {
             json.WriteString("iss", flaw == TokenFlaw.WrongIssuer ? "https://elsewhere.example/" : Issuer);
-            json.WriteString("aud", flaw == TokenFlaw.WrongAudience ? "api://someone-else" : Audience);
+            if (flaw == TokenFlaw.WrongAudience)
+            {
+                json.WriteString("aud", "api://someone-else");
+            }
+            else if (audiences is { Count: > 1 })
+            {
+                json.WriteStartArray("aud");
+
+                foreach (string audience in audiences)
+                {
+                    json.WriteStringValue(audience);
+                }
+
+                json.WriteEndArray();
+            }
+            else
+            {
+                json.WriteString("aud", audiences is { Count: 1 } ? audiences[0] : Audience);
+            }
+
             json.WriteNumber("iat", now - 60);
             json.WriteNumber("nbf", flaw == TokenFlaw.NotYetValid ? now + 3600 : now - 60);
             json.WriteNumber("exp", flaw == TokenFlaw.Expired ? now - 3600 : now + 300);

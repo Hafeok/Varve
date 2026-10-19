@@ -102,6 +102,7 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         TelemetryOptions? telemetry = null,
         bool inMemory = false,
         string? eventSource = null,
+        IWriterDirectory? writers = null,
         CancellationToken stopping = default)
     {
         WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
@@ -142,11 +143,14 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
             Stopping = stopping,
             Telemetry = telemetry ?? TelemetryOptions.Default,
             EventSource = eventSource,
+            Writers = writers,
+            Forwarder = writers is null ? null : new System.Net.Http.HttpMessageInvoker(new System.Net.Http.SocketsHttpHandler()),
         };
 
         if (map is null)
         {
             app.MapGroup("/datasets/{dataset}").MapVarveDataset(options);
+            app.MapVarveManagement(options, null);
         }
         else
         {

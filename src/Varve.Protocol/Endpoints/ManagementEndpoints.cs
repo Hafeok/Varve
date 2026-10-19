@@ -607,6 +607,13 @@ internal static class ManagementEndpoints
             return;
         }
 
+        if (result.Outcome == CommitOutcome.Committed && options.Management is { } management)
+        {
+            // The writer applies its own write before it answers: the next
+            // request here is decided by it, and its datasets converge to it.
+            await management.AdvanceAsync(context.RequestAborted).ConfigureAwait(false);
+        }
+
         await Writes.AnswerAsync(exchange, result, result.Outcome == CommitOutcome.Committed ? created : StatusCodes.Status204NoContent, evidence: new ConflictEvidence(request.ExpectedPosition!.Value, request.ExpectedGraphs)).ConfigureAwait(false);
     }
 

@@ -113,8 +113,6 @@ static Varve.Protocol.VarveEndpoints.MapVarveDataset(this Microsoft.AspNetCore.R
 ~override Varve.Protocol.ProtocolLimits.ToString() -> string
 Varve.Protocol.IDatasetAdministration
 Varve.Protocol.IDatasetAdministration.CloseAsync(Varve.Protocol.Model.DatasetName name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.AdminOutcome>
-Varve.Protocol.IDatasetAdministration.CreateAsync(Varve.Protocol.Model.DatasetName name, Varve.Protocol.Model.DatasetStorage storage, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.AdminOutcome>
-Varve.Protocol.IDatasetAdministration.DeleteAsync(Varve.Protocol.Model.DatasetName name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.AdminOutcome>
 Varve.Protocol.IDatasetAdministration.List() -> System.Collections.Generic.IReadOnlyList<Varve.Protocol.Model.DatasetEntry!>!
 Varve.Protocol.IDatasetAdministration.OpenAsync(Varve.Protocol.Model.DatasetName name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.AdminOutcome>
 Varve.Protocol.Model.AdminOutcome
@@ -147,7 +145,6 @@ Varve.Protocol.ProtocolOptions.Administration.get -> Varve.Protocol.IDatasetAdmi
 Varve.Protocol.ProtocolOptions.Administration.init -> void
 const Varve.Protocol.DatasetPermissions.ServerAdmin = "varve:server-admin" -> string!
 static Varve.Protocol.Model.ProblemType.AgentRequired.get -> Varve.Protocol.Model.ProblemType
-static Varve.Protocol.Model.ProblemType.DatasetExists.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.DatasetOpen.get -> Varve.Protocol.Model.ProblemType
 Varve.Protocol.ChangeFeedWriter
 static Varve.Protocol.ChangeFeedWriter.WriteCommit(System.Buffers.IBufferWriter<byte>! output, Varve.Store.Log.Commit! commit) -> void

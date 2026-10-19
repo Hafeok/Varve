@@ -28,7 +28,7 @@ namespace Varve.Server;
 /// declared closed is closed on every instance; one no longer declared is
 /// released, and its writer deletes its storage. A dataset that fails to open
 /// is kept as <see cref="DatasetState.Failed"/> with its reason, and tried
-/// again when the declarations change.
+/// again on every round.
 /// </summary>
 internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministration, IAsyncDisposable
 {
@@ -107,25 +107,20 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         return list;
     }
 
-    // Datasets are declared (ADR 0163), never created, opened, closed or
-    // deleted by an imperative call: the management endpoints commit
+    // Datasets are declared (ADR 0163), never opened or closed by an
+    // imperative call: the management endpoints commit
     // declarations, and every instance converges to them.
-    public ValueTask<AdminOutcome> CreateAsync(DatasetName name, DatasetStorage storage, CancellationToken cancellationToken) => ValueTask.FromResult(AdminOutcome.Failed);
-
     public ValueTask<AdminOutcome> OpenAsync(DatasetName name, CancellationToken cancellationToken) => ValueTask.FromResult(AdminOutcome.Failed);
 
     public ValueTask<AdminOutcome> CloseAsync(DatasetName name, CancellationToken cancellationToken) => ValueTask.FromResult(AdminOutcome.Failed);
 
-    public ValueTask<AdminOutcome> DeleteAsync(DatasetName name, CancellationToken cancellationToken) => ValueTask.FromResult(AdminOutcome.Failed);
-
     /// <summary>
     /// Converges the datasets to <paramref name="declarations"/>, as
-    /// <paramref name="placement"/> places them. <paramref name="changed"/>
-    /// says the declarations are new since the last call, so that a failed
-    /// dataset is tried again; a placement waiting on a release is checked on
-    /// every call.
+    /// <paramref name="placement"/> places them, and their settings to the
+    /// declared ones at <paramref name="applied"/>. A failed dataset is tried
+    /// again, and a placement waiting on a release checked, on every call.
     /// </summary>
-    internal async Task ReconcileAsync(Declarations declarations, Placement placement, bool changed, CancellationToken cancellationToken)
+    internal async Task ReconcileAsync(Declarations declarations, ManagementPosition applied, Placement placement, CancellationToken cancellationToken)
     {
         List<(string Name, Entry Entry)> gone = [];
 
@@ -180,11 +175,59 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
                 }
             }
 
-            await ConvergeAsync(name, entry, role, declared, placement, fresh || changed, fresh, cancellationToken).ConfigureAwait(false);
+            await ConvergeAsync(name, entry, role, declared, placement, fresh, cancellationToken).ConfigureAwait(false);
+
+            if (entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer && entry.Dataset is { } written)
+            {
+                await ConvergeSettingsAsync(new DatasetName(name), written, declared, applied, placement, cancellationToken).ConfigureAwait(false);
+            }
         }
     }
 
-    private async Task ConvergeAsync(string name, Entry entry, DatasetRole role, DatasetDeclaration declared, Placement placement, bool retry, bool fresh, CancellationToken cancellationToken)
+    // Settings stay a commit kind of the dataset (ADR 0021), and its writer
+    // converges them (ADR 0163 point 10): when the declared settings differ
+    // from the dataset's, a Settings commit carries the management position
+    // it converged to (ADR 0165). Its agent is the writer instance; its cause
+    // names the position.
+    private async Task ConvergeSettingsAsync(DatasetName name, Dataset dataset, DatasetDeclaration declared, ManagementPosition applied, Placement placement, CancellationToken cancellationToken)
+    {
+        if (declared.DefaultAccessScope is not { } scope)
+        {
+            return;
+        }
+
+        AccessScope wanted = scope == HistoryScope.Current ? AccessScope.Current : AccessScope.AllHistory;
+
+        if (dataset.Settings.DefaultAccessScope == wanted)
+        {
+            return;
+        }
+
+        string position = applied.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        CommitMetadata metadata = new()
+        {
+            Agent = Varve.Rdf.RdfTerm.Iri(System.Text.Encoding.UTF8.GetBytes("urn:varve:writer:" + Uri.EscapeDataString(placement.Instance.Value))),
+            Cause = Varve.Rdf.RdfTerm.Literal(System.Text.Encoding.UTF8.GetBytes("the declared settings at management position " + position)),
+            Attachments = [Varve.Rdf.RdfTerm.Literal(System.Text.Encoding.UTF8.GetBytes(position), Varve.Rdf.RdfTerm.Iri(System.Text.Encoding.UTF8.GetBytes(ManagementOrder.PositionDatatype)))],
+        };
+
+        try
+        {
+            CommitResult result = await dataset.ChangeSettingsAsync(new SettingsChange { DefaultAccessScope = wanted }, metadata, null, cancellationToken).ConfigureAwait(false);
+
+            if (result.Outcome == CommitOutcome.Committed)
+            {
+                _order.Observe(name, applied);
+            }
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            // Tried again on the next round.
+            ReconcileLog.SettingsFailed(_logger, name.Value, error.Message);
+        }
+    }
+
+    private async Task ConvergeAsync(string name, Entry entry, DatasetRole role, DatasetDeclaration declared, Placement placement, bool fresh, CancellationToken cancellationToken)
     {
         if (declared.Closed)
         {
@@ -202,11 +245,6 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             return;
         }
 
-        // A follower that failed waits on its writer: it is tried each time.
-        if (entry.State == DatasetState.Failed && !retry && entry.Role == role && role != DatasetRole.Follower)
-        {
-            return;
-        }
 
         if (role != DatasetRole.Writer)
         {
@@ -226,7 +264,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
                 if (entry.State != DatasetState.Open || entry.Role != DatasetRole.Follower)
                 {
                     await entry.ReleaseAsync().ConfigureAwait(false);
-                    await OpenEntryAsync(name, entry, DatasetRole.Follower, cancellationToken).ConfigureAwait(false);
+                    await OpenEntryAsync(name, entry, DatasetRole.Follower, wait: true, cancellationToken).ConfigureAwait(false);
                 }
 
                 entry.AwaitingRelease = true;
@@ -244,8 +282,11 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             ReconcileLog.Abdicated(_logger, name);
         }
 
+        // A dataset that failed is tried again every round, without the
+        // lease wait its first open had: its holder may have released it.
+        bool wait = fresh || entry.State != DatasetState.Failed;
         await entry.ReleaseAsync().ConfigureAwait(false);
-        await OpenEntryAsync(name, entry, role, cancellationToken).ConfigureAwait(false);
+        await OpenEntryAsync(name, entry, role, wait, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -283,7 +324,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
     // Opens the entry's dataset in the role; on failure the entry is Failed
     // with the reason and nothing is held.
-    private async Task OpenEntryAsync(string name, Entry entry, DatasetRole role, CancellationToken cancellationToken)
+    private async Task OpenEntryAsync(string name, Entry entry, DatasetRole role, bool wait, CancellationToken cancellationToken)
     {
         entry.Placed(role);
 
@@ -355,7 +396,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
                 string directory = Path.Combine(_root, name);
                 bool exists = Directory.Exists(Path.Combine(directory, "log"));
-                FileStorage files = await LeaseAsync(name, directory, cancellationToken).ConfigureAwait(false);
+                FileStorage files = await LeaseAsync(name, directory, wait ? _leaseWait : TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
 
                 try
                 {
@@ -438,7 +479,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     // may still be draining. Retried each second for Varve:Lease:WaitFor,
     // logging who holds it; then the exception stands and the entry fails
     // with the holder as its reason.
-    private async Task<FileStorage> LeaseAsync(string name, string directory, CancellationToken cancellationToken)
+    private async Task<FileStorage> LeaseAsync(string name, string directory, TimeSpan leaseWait, CancellationToken cancellationToken)
     {
         DateTimeOffset started = _clock.GetUtcNow();
 
@@ -448,7 +489,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             {
                 return await FileStorage.OpenAsync(new DatasetDirectory(directory), new FileStorageOptions { Clock = _clock }, cancellationToken).ConfigureAwait(false);
             }
-            catch (DatasetLeasedException held) when (_clock.GetUtcNow() - started < _leaseWait)
+            catch (DatasetLeasedException held) when (_clock.GetUtcNow() - started < leaseWait)
             {
                 LeaseLog.Waiting(_logger, name, held.Message);
                 await Task.Delay(TimeSpan.FromSeconds(1), _clock, cancellationToken).ConfigureAwait(false);
@@ -469,6 +510,9 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
         [LoggerMessage(EventId = 4, Level = LogLevel.Warning, Message = "The dataset '{Name}' is no longer declared; its writer deleted its storage (ADR 0163).")]
         internal static partial void Deleted(ILogger logger, string name);
+
+        [LoggerMessage(EventId = 5, Level = LogLevel.Warning, Message = "The dataset '{Name}' did not take its declared settings; tried again on the next round: {Reason}")]
+        internal static partial void SettingsFailed(ILogger logger, string name, string reason);
     }
 
     /// <summary>One dataset's slot: its storage, its role, its state, and what it holds while open.</summary>

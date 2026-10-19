@@ -88,10 +88,7 @@ public readonly record struct ProblemType
     /// <summary>The server is shutting down.</summary>
     public static ProblemType ShuttingDown { get; } = new("shutting-down");
 
-    /// <summary>A dataset to create already exists, in some state (ADR 0106).</summary>
-    public static ProblemType DatasetExists { get; } = new("dataset-exists");
-
-    /// <summary>A dataset to delete is open; close it first (ADR 0106).</summary>
+    /// <summary>A dataset to delete is declared open; declare it closed first (ADRs 0106, 0163).</summary>
     public static ProblemType DatasetOpen { get; } = new("dataset-open");
 
     /// <summary>A commit that records its agent — a settings change — from a caller with none (ADRs 0094, 0106).</summary>

@@ -353,7 +353,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         }
 
         Placement placement = new(_instance, _mayClaim, _role == ManagementRole.Writer, IsFleetOfOne);
-        await Datasets.ReconcileAsync(current.Table.Declarations, placement, changed, cancellationToken).ConfigureAwait(false);
+        await Datasets.ReconcileAsync(current.Table.Declarations, current.Table.Position, placement, cancellationToken).ConfigureAwait(false);
     }
 
     private BootstrapState BootstrapOf(IReadOnlyList<string> recorded)

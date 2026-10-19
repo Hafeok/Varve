@@ -67,7 +67,7 @@ internal static class Readiness
                     ready = false;
                     break;
                 case DatasetState.Open:
-                    line = new DatasetReadiness(dataset.Name, "ready", null, null);
+                    line = new DatasetReadiness(dataset.Name, "ready", null, dataset.Head - dataset.Projection);
                     break;
                 case DatasetState.Closed:
                     line = new DatasetReadiness(dataset.Name, "closed", null, null);

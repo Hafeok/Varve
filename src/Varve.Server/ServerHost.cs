@@ -39,6 +39,9 @@ using Varve.Store.Log;
 
 namespace Varve.Server;
 
+/// <summary>A server that listens: its host, and its part in the fleet; the tests' handle.</summary>
+internal sealed record StartedServer(WebApplication App, Fleet Fleet);
+
 /// <summary>
 /// The composition root (ADRs 0060, 0091, 0101): reads and validates the
 /// configuration, opens the datasets, wires authentication, the clock, the
@@ -52,11 +55,11 @@ internal static partial class ServerHost
     /// Runs the server. <paramref name="ready"/>, when given, is completed
     /// with the server's address once it listens: the tests' handle.
     /// </summary>
-    internal static Task<int> RunAsync(string[] args, TaskCompletionSource<WebApplication>? ready) =>
+    internal static Task<int> RunAsync(string[] args, TaskCompletionSource<StartedServer>? ready) =>
         RunAsync(new ServeOptions { Arguments = args }, ready);
 
     /// <summary>Runs the server as <c>varve serve</c> asks (ADR 0115).</summary>
-    internal static async Task<int> RunAsync(ServeOptions serve, TaskCompletionSource<WebApplication>? ready)
+    internal static async Task<int> RunAsync(ServeOptions serve, TaskCompletionSource<StartedServer>? ready)
     {
         WebApplicationBuilder builder = WebApplication.CreateSlimBuilder(serve.Arguments);
 
@@ -156,7 +159,7 @@ internal static partial class ServerHost
             else
             {
                 await app.StartAsync().ConfigureAwait(false);
-                ready.TrySetResult(app);
+                ready.TrySetResult(new StartedServer(app, fleet));
                 await app.WaitForShutdownAsync().ConfigureAwait(false);
             }
 
@@ -639,6 +642,12 @@ internal static partial class ServerHost
                     json.WriteStartObject(state.Name);
                     json.WriteString("state", state.State);
                     json.WriteString("role", Role(state.Role));
+
+                    if (state.Lag is long lag)
+                    {
+                        json.WriteNumber("lag", lag);
+                    }
+
                     json.WriteEndObject();
                 }
 

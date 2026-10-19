@@ -57,8 +57,10 @@ internal static class Feed
 
     private static async Task<long> HeadAsync(Remote remote, CancellationToken cancellationToken)
     {
-        using HttpResponseMessage status = await remote.Client.StatusAsync(cancellationToken).ConfigureAwait(false);
-        return Varve.Protocol.Client.SparqlHttpClient.PositionOf(status) ?? throw new Cli.CommandException("the server did not name the head; give --to.");
+        // A read's Varve-Position is the head it was answered at: the data
+        // plane's, with the reader's token.
+        using HttpResponseMessage asked = await remote.Client.QueryAsync("ASK {}", "application/sparql-results+json", null, cancellationToken).ConfigureAwait(false);
+        return Varve.Protocol.Client.SparqlHttpClient.PositionOf(asked) ?? throw new Cli.CommandException("the server did not name the head; give --to.");
     }
 
     // The feed through the subscription (ADR 0042), each commit a record. The

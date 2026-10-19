@@ -22,7 +22,6 @@ namespace Varve.Server.Tests;
 /// </summary>
 public sealed class SetupApplyTests : IDisposable
 {
-    private static readonly string[] Operator = ["operator"];
     private static readonly string[] Writer = ["writer"];
     private readonly string _root = Path.Combine(Path.GetTempPath(), "varve-apply-" + Guid.NewGuid().ToString("N"));
 
@@ -30,16 +29,18 @@ public sealed class SetupApplyTests : IDisposable
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
+    /// <summary>
+    /// A setup applies data to a dataset the management plane declares (ADR
+    /// 0163 point 10): the baseline and the migrations, once; a second apply
+    /// commits nothing.
+    /// </summary>
     [Fact]
-    public async Task Apply_creates_the_dataset_then_finds_it_as_declared()
+    public async Task Apply_finds_the_declared_dataset_and_applies_its_data_once()
     {
         await using TestIssuer issuer = await TestIssuer.StartAsync();
         await using RunningServer server = await StartServerAsync(issuer);
         string setup = Write("setup.yaml", """
             dataset: orders
-            storage: Memory
-            settings: |
-              {"defaultAccessScope": "Current"}
             baseline:
               - file: vocabulary.ttl
                 graph: https://shop.example/vocabulary
@@ -49,15 +50,15 @@ public sealed class SetupApplyTests : IDisposable
                   INSERT DATA { <https://shop.example/orders/1> <https://shop.example/ns#status> "placed" }
             """);
         Write("vocabulary.ttl", "<https://shop.example/ns#Order> a <http://www.w3.org/2000/01/rdf-schema#Class> .\n");
-        string token = issuer.Mint(new Dictionary<string, object> { ["sub"] = "deployer", ["roles"] = Operator });
+        string token = issuer.Mint(new Dictionary<string, object> { ["sub"] = "deployer", ["roles"] = Writer });
 
         Run first = await RunAsync("setup", "apply", setup, server.Address.ToString(), "--token", token);
         Assert.True(first.Exit == 0, first.Error);
-        Assert.Contains("orders: created; settings changed; baseline vocabulary.ttl committed; migration 2026-10-01-first applied; at position 3", first.Out, StringComparison.Ordinal);
+        Assert.Contains("orders: baseline vocabulary.ttl committed; migration 2026-10-01-first applied; at position 2", first.Out, StringComparison.Ordinal);
 
         Run second = await RunAsync("setup", "apply", setup, server.Address + "datasets/orders/", "--token", token);
         Assert.Equal(0, second.Exit);
-        Assert.Contains("orders: as declared already, at position 3; nothing committed", second.Out, StringComparison.Ordinal);
+        Assert.Contains("orders: as declared already, at position 2; nothing committed", second.Out, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -74,9 +75,10 @@ public sealed class SetupApplyTests : IDisposable
     {
         await using TestIssuer issuer = await TestIssuer.StartAsync();
         await using RunningServer server = await StartServerAsync(issuer);
-        string setup = Write("setup.yaml", "dataset: elsewhere\nstorage: Memory\n");
+        string setup = Write("setup.yaml", "dataset: elsewhere\n");
 
-        // A writer of d is no server admin: the dataset cannot be created.
+        // A setup never creates a dataset: one the management plane does not
+        // declare grants nothing, and is refused before anything is sent.
         Run refused = await RunAsync("setup", "apply", setup, server.Address.ToString(), "--token", issuer.Mint(new Dictionary<string, object> { ["sub"] = "w", ["roles"] = Writer }));
         Assert.Equal(1, refused.Exit);
         Assert.Contains("dataset: the server refused (403", refused.Error, StringComparison.Ordinal);
@@ -109,8 +111,8 @@ public sealed class SetupApplyTests : IDisposable
         ["Varve:Auth:Audiences:0"] = TestIssuer.Audience,
         ["Varve:Auth:RequireHttpsMetadata"] = "false",
         ["Varve:Auth:Server:Admin:0"] = "operator",
-        ["Varve:Auth:Datasets:d:Write:0"] = "writer",
-        ["Varve:Datasets:d:Storage"] = "Memory",
+        ["Varve:Auth:Datasets:orders:Write:0"] = "writer",
+        ["Varve:Datasets:orders:Storage"] = "Memory",
     });
 
     private sealed record Run(int Exit, string Out, string Error);
