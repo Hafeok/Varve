@@ -89,26 +89,10 @@ updates:
       - dependency-name: JsonSchema.Net
         versions: [">= 9.0.0"]
 
-  # The auth test containers (ADR 0100) and the Event Hubs emulator's (ADR
-  # 0146), pinned by digest in compose files. A digest cannot be read for
-  # freshness, so something has to watch it, as for the actions above.
-  # Test-time only; nothing shipped runs these images.
-  - package-ecosystem: docker-compose
-    directories:
-      - "/.github/zitadel"
-      - "/.github/mock-oauth2"
-      - "/.github/storage"
-      - "/.github/eventhubs"
-    schedule:
-      interval: weekly
-      day: monday
-      time: "06:00"
-      timezone: Europe/Copenhagen
-    commit-message:
-      prefix: build(deps)
-    labels:
-      - dependencies
-    groups:
-      auth-containers:
-        patterns:
-          - "*"
+  # The test containers CI starts are not watched here. They are pinned by
+  # digest in .github/ci-images.yaml, the single list of them, and pulled
+  # from this repository's private mirror (#118, ADR 0099's amendment of
+  # 2026-10-19), which Dependabot cannot read. The weekly
+  # ci-images-upstream workflow compares each upstream tag with its pinned
+  # digest and opens an issue when one moves; a bump is a pull request to
+  # the list.
