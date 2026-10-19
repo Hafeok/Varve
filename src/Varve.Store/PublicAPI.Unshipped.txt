@@ -547,3 +547,5 @@ override Varve.Store.Log.SegmentSlot.GetHashCode() -> int
 override Varve.Store.Log.SegmentSlot.ToString() -> string!
 static Varve.Store.Log.SegmentSlot.operator !=(Varve.Store.Log.SegmentSlot left, Varve.Store.Log.SegmentSlot right) -> bool
 static Varve.Store.Log.SegmentSlot.operator ==(Varve.Store.Log.SegmentSlot left, Varve.Store.Log.SegmentSlot right) -> bool
+Varve.Store.Log.CommitMetadata.Attachments.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.Log.RequestTerm>!
+Varve.Store.Log.CommitMetadata.Attachments.init -> void

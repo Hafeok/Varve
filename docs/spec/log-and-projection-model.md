@@ -1,8 +1,10 @@
 # Log and projection model
 
-Functional specification, version 1.7.
+Functional specification, version 1.8.
 
 Status: Accepted. This document is the authority for the behaviour of `Varve.Store`. It changes only together with the ADR that motivates the change, and each change is listed at the top with its date. Section 12 maps the decisions to ADRs.
+
+Changes in version 1.8 (2026-10-19), with ADR 0165, proposed by milestone Management plane and unaccepted until the maintainer accepts it: **an attachment may be the host's.** `meta`'s attachments are a validator's report or metadata the host attaches to the commit, such as the management position it was authorised under; the host's come first, and the datatype `https://w3id.org/varve/ns#managementPosition` is reserved for that position (section 1, T1 step 5). No byte of storage format 1 changes.
 
 Changes in version 1.7 (2026-10-13), with ADRs 0124 and 0125, proposed by milestone Commit path and unaccepted until the maintainer accepts them: **group commit** — the sequencer still decides one request at a time (steps 1 to 6), against the state including every earlier request it has decided and not yet written, and writes the requests that queued while a write was in flight as one batch with one flush; no request is acknowledged before its batch is durable (section 5, T1). **An expected position may carry a scope of graphs**: a request conflicts when a commit after its position touched a graph in its scope, every graph when none is given, a `Settings` or `Erasure` commit touching every graph (T1 step 1). The default projection maintains the **graph-version index** (section 7). **I6 gains the write window** (section 4, decided by the maintainer on the Commit path pull request): the commits of one batch share a flush, so a power loss can keep a later member and tear an earlier one; a break followed by a later commit's records within the write window reads as torn, as the newest commit's records alone did in version 1.5. Section 10 gains the properties; section 12 lists ADRs 0124 and 0125.
 
@@ -36,7 +38,7 @@ Scope: the abstract state machine of `Varve.Store`. No byte-level format, no API
 - **Delta**: `δ = (A, R)` with `A, R ⊆ Quad` and `A ∩ R = ∅`.
 - **Commit**: `c = (header, alloc, A, R)` with `header = (pos, kind, meta, prev, content)`.
   - `kind ∈ {Data, Erasure, Settings}`.
-  - `meta`: timestamp, agent, cause, optional named-graph scope, optional attachments (for example a validation report reference). Agent and any other value that can identify a person is a `TermId`, never an inline string, so that it can be a private term. The named-graph scope is a declaration recorded in metadata and is never enforced by the store; validators may enforce it.
+  - `meta`: timestamp, agent, cause, optional named-graph scope, optional attachments: a validator's (for example a validation report reference) or the host's (for example the management position the commit was authorised under, as a literal of the reserved datatype `varve:managementPosition`; version 1.8, ADR 0165), the host's first. Agent and any other value that can identify a person is a `TermId`, never an inline string, so that it can be a private term. The named-graph scope is a declaration recorded in metadata and is never enforced by the store; validators may enforce it.
   - `prev`: hash of the previous commit's header. `content`: hash of `(alloc, A, R)`.
   - `alloc`: a finite map of fresh `TermId → entry`.
 - **Settings**: the dataset's configuration, a fold over `Settings` commits: erasure mode (off by default) and the default access scope (section 9). Settings travel with the log, so every copy of the dataset agrees on them and every change has an agent and a position.
@@ -90,7 +92,7 @@ There is one sequencer per dataset. It processes requests one at a time. It acce
 2. Resolve terms to ids. Unknown terms get provisional fresh ids. Blank node labels in the request are scoped to the request: each distinct label maps to one fresh id. An existing blank node is addressed by its store identity (Q1). In erasure mode the classifier assigns term occurrences to `KeyId`s; those occurrences get private ids and encrypted entries.
 3. Apply the operations in order to an overlay on `G_head` and take the net result as `δ`. Asserting a present quad, retracting an absent quad, and assert-then-retract of the same absent quad all contribute nothing. This matches SPARQL 1.1 Update 3.1.1 and 3.1.2, where both are without effect. For private terms, "present" is decided by value under the same key, not by id.
 4. If `δ` is empty: return `NoChange(head)`. No commit, provisional ids discarded.
-5. Run validators against `Overlay(G_head, δ)` and `δ` (R4). A validator may reject, or accept with an attachment.
+5. Run validators against `Overlay(G_head, δ)` and `δ` (R4). A validator may reject, or accept with an attachment. The host's attachments, if any, are recorded before every validator's (version 1.8).
 6. On reject: return `Rejected(report)`. No commit, provisional ids discarded.
 7. On accept: append the records, make them durable, close the commit. The readable head advances to `head + 1`. Return `Committed(head + 1)`. Under group commit this step is taken for a batch of accepted requests at once, as stated above.
 
@@ -243,5 +245,6 @@ All Accepted. Three carry a stated condition under which they are to be supersed
 | Blank nodes at the protocol boundary: stable labels out, fresh in, no skolem IRIs (Q1); version 1.6 | 0098 | Proposed until the maintainer accepts it on the 7a pull request. |
 | Group commit; version 1.7 | 0124 | Proposed until the maintainer accepts it on the Commit path pull request. |
 | Per-graph optimistic concurrency and the graph-version index; version 1.7 | 0125 | Proposed until the maintainer accepts it on the Commit path pull request. |
+| Host attachments: the management position on the commit; version 1.8 | 0165 | Proposed until the maintainer accepts it on the Management plane pull request. |
 
 Milestone placement: the first durable format (milestone 6) reserves the private id class, the private entry layout and the refusal of a key store path inside the dataset directory. Erasure mode itself is milestone 9, after the SHACL validator, because the shape-derived classifier and the classification gate depend on it.
