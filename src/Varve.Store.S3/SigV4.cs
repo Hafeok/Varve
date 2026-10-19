@@ -23,12 +23,15 @@ internal static class SigV4
     private const string Service = "s3";
 
     /// <summary>Adds the date, the payload hash, the session token and the signature to a request.</summary>
-    public static void Sign(HttpRequestMessage request, ReadOnlySpan<byte> payload, SigningCredentials credentials, string region, DateTimeOffset now)
+    public static void Sign(HttpRequestMessage request, ReadOnlySpan<byte> payload, SigningCredentials credentials, string region, DateTimeOffset now) =>
+        Sign(request, Hex(SHA256.HashData(payload)), credentials, region, now);
+
+    /// <summary>The same, for a payload whose hash was computed as it was staged.</summary>
+    public static void Sign(HttpRequestMessage request, string payloadHash, SigningCredentials credentials, string region, DateTimeOffset now)
     {
         Uri address = request.RequestUri!;
         string date = now.UtcDateTime.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
         string stamp = now.UtcDateTime.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture);
-        string payloadHash = Hex(SHA256.HashData(payload));
 
         request.Headers.Remove("x-amz-date");
         request.Headers.Remove("x-amz-content-sha256");
@@ -121,5 +124,5 @@ internal static class SigV4
         return string.Join("&", parts.Select(static p => p.Name + "=" + p.Value));
     }
 
-    private static string Hex(byte[] bytes) => Convert.ToHexStringLower(bytes);
+    internal static string Hex(byte[] bytes) => Convert.ToHexStringLower(bytes);
 }

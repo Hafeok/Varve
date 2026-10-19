@@ -74,6 +74,13 @@ public sealed class DatasetOptions
     public CheckpointPolicy Checkpoints { get; init; } = CheckpointPolicy.Never;
 
     /// <summary>
+    /// How the writer merges its extent sets in the background, as maintenance
+    /// (ADR 0158, ADR 0159). <see cref="ExtentMergePolicy.Default"/>: fan-out
+    /// 4, sets capped at <see cref="ExtentMergePolicy.DefaultMaxSetBytes"/>.
+    /// </summary>
+    public ExtentMergePolicy ExtentMerges { get; init; } = ExtentMergePolicy.Default;
+
+    /// <summary>
     /// The dataset's name as the host knows it: the <c>db.namespace</c>
     /// dimension of every measurement on the <c>Varve.Store</c> meter (ADR
     /// 0112). The id when the host gives none.
@@ -96,6 +103,9 @@ public sealed class DatasetOptions
     /// logs written one commit at a time asks for the strict reading, 0.
     /// </summary>
     internal long TornWindow { get; set; } = LogFormat.WriteWindowBytes;
+
+    /// <summary>Test seam: awaited after a merge has written its set and before it takes the gate to swap (ADR 0158).</summary>
+    internal Func<CancellationToken, ValueTask>? BeforeMergeSwap { get; set; }
 
     /// <summary>Test seam: throws from the default projection at the positions it returns true for.</summary>
     internal Func<long, bool>? DefaultProjectionFault { get; set; }
@@ -318,7 +328,7 @@ public sealed partial class Dataset : IAsyncDisposable
 
                 CommitEntry last = pins[found.Header.To];
                 List<CommitSegment> prefixBlobs = opener.PrefixCandidates;
-                CommitPrefix prefix = new(found.Header.To, pins, prefixBlobs, PrefixLoader(storage, id, last, found.Header.To, prefixBlobs, () => Interlocked.Increment(ref owner!._commitSequence)));
+                CommitPrefix prefix = new(found.Header.To, pins, prefixBlobs, PrefixLoader(storage, id, last, found.Header.To, prefixBlobs, found.Sets, pins, () => Interlocked.Increment(ref owner!._commitSequence)));
                 opener.BeginAt(prefix, cursor);
             }
         }
@@ -372,6 +382,14 @@ public sealed partial class Dataset : IAsyncDisposable
 
         GraphVersions graphs = await dataset.LoadGraphsAsync(new State(head, commits, index, checkpoints, null), opener.Bodies, cancellationToken).ConfigureAwait(false);
         dataset._state = new State(head, commits, index, checkpoints, null, graphs);
+
+        // The writer's open is an event of the deletion rule (ADR 0160): what
+        // the last run left unnamed goes now, if no record holds it.
+        if (storage is IExtentReaders { DeletesExtents: true })
+        {
+            await dataset.DeleteUnnamedSetsAsync(poll: true, cancellationToken).ConfigureAwait(false);
+        }
+
         return dataset;
     }
 
@@ -392,6 +410,8 @@ public sealed partial class Dataset : IAsyncDisposable
         ArgumentOutOfRangeException.ThrowIfLessThan(options.Checkpoints.EveryCommits ?? 1, 1, nameof(options));
         ArgumentOutOfRangeException.ThrowIfLessThan(options.Checkpoints.EveryLogBytes?.Value ?? 1, 1L, nameof(options));
         ArgumentOutOfRangeException.ThrowIfNegative(options.Checkpoints.Keep, nameof(options));
+        ArgumentNullException.ThrowIfNull(options.ExtentMerges);
+        options.ExtentMerges.Validate();
     }
 
     /// <summary>

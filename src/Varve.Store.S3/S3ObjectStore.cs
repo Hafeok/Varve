@@ -8,6 +8,7 @@ using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
@@ -43,6 +44,12 @@ namespace Varve.Store.S3;
 public sealed class S3ObjectStore : IObjectStore, IDisposable
 {
     private const int Attempts = 6;
+
+    /// <summary>
+    /// The most one PutObject may upload: 5 GiB (Amazon S3, "Uploading
+    /// objects"). The backend refuses a merge whose output could pass it (ADR 0158).
+    /// </summary>
+    public static ByteCount MaxSingleUploadBytes { get; } = new(5L << 30);
 
     private readonly HttpClient _http;
     private readonly ICredentialSource _credentials;
@@ -102,6 +109,31 @@ public sealed class S3ObjectStore : IObjectStore, IDisposable
     public async ValueTask<ObjectVersion?> CreateIfAbsentAsync(ObjectName name, ReadOnlyMemory<byte> content, CancellationToken cancellationToken)
     {
         using HttpResponseMessage response = await SendAsync(HttpMethod.Put, Address(name), content, ("If-None-Match", "*"), write: true, cancellationToken).ConfigureAwait(false);
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.OK or HttpStatusCode.Created => Version(response),
+            HttpStatusCode.PreconditionFailed => null,
+            _ => throw Failure(response, "PUT", name),
+        };
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<ObjectVersion?> CreateIfAbsentAsync(ObjectName name, ObjectContent content, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+
+        // SigV4 signs the payload's hash: the file is read once for it, then
+        // streamed on each attempt.
+        string hash;
+
+        using (Stream stream = content.OpenRead())
+        {
+            hash = SigV4.Hex(await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false));
+        }
+
+        using HttpResponseMessage response = await SendAsync(
+            HttpMethod.Put, Address(name), () => Streamed(content), hash, ("If-None-Match", "*"), write: true, cancellationToken).ConfigureAwait(false);
 
         return response.StatusCode switch
         {
@@ -239,8 +271,21 @@ public sealed class S3ObjectStore : IObjectStore, IDisposable
 
     private static IOException Failure(HttpResponseMessage response, string operation, ObjectName name)
     {
-        string hint = response.StatusCode is HttpStatusCode.Forbidden ? " The role needs s3:GetObject, s3:PutObject, s3:DeleteObject and s3:ListBucket on the bucket (ADR 0137)." : string.Empty;
-        return new IOException("The S3 store answered " + (int)response.StatusCode + " to " + operation + " '" + name + "'." + hint);
+        string message = "The S3 store answered " + (int)response.StatusCode + " to " + operation + " '" + name + "'.";
+
+        // A refusal for the identity is its own error, so a caller can say
+        // which role the open needs (ADR 0137, ADR 0160).
+        return response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized
+            ? new ObjectStoreAccessDeniedException(message + " The role needs s3:GetObject, s3:PutObject, s3:DeleteObject and s3:ListBucket on the bucket (ADR 0137); a follower needs the writes only on the prefix's readers/ (ADR 0134).")
+            : new IOException(message);
+    }
+
+    // A staged file's content, opened afresh for each attempt.
+    private static StreamContent Streamed(ObjectContent content)
+    {
+        StreamContent body = new(content.OpenRead(), 1 << 16);
+        body.Headers.ContentLength = content.Length.Value;
+        return body;
     }
 
     private static string? ReadListing(Stream body, List<ObjectEntry> entries)
@@ -317,15 +362,18 @@ public sealed class S3ObjectStore : IObjectStore, IDisposable
     // Sends, signing each attempt afresh. Throttling and S3's 409
     // ConditionalRequestConflict are retried for every operation; a server
     // error or a dropped connection only for one that is safe to repeat.
-    private async ValueTask<HttpResponseMessage> SendAsync(HttpMethod method, Uri address, ReadOnlyMemory<byte> content, (string Name, string Value)? header, bool write, CancellationToken cancellationToken)
+    private ValueTask<HttpResponseMessage> SendAsync(HttpMethod method, Uri address, ReadOnlyMemory<byte> content, (string Name, string Value)? header, bool write, CancellationToken cancellationToken) =>
+        SendAsync(method, address, method == HttpMethod.Put ? () => new ReadOnlyMemoryContent(content) : null, SigV4.Hex(SHA256.HashData(content.Span)), header, write, cancellationToken);
+
+    private async ValueTask<HttpResponseMessage> SendAsync(HttpMethod method, Uri address, Func<HttpContent>? body, string payloadHash, (string Name, string Value)? header, bool write, CancellationToken cancellationToken)
     {
         for (int attempt = 1; ; attempt++)
         {
             using HttpRequestMessage request = new(method, address);
 
-            if (method == HttpMethod.Put)
+            if (body is not null)
             {
-                request.Content = new ReadOnlyMemoryContent(content);
+                request.Content = body();
             }
 
             if (header is { } extra)
@@ -334,7 +382,7 @@ public sealed class S3ObjectStore : IObjectStore, IDisposable
             }
 
             SigningCredentials credentials = await _credentials.GetAsync(cancellationToken).ConfigureAwait(false);
-            SigV4.Sign(request, content.Span, credentials, _region, _clock.GetUtcNow());
+            SigV4.Sign(request, payloadHash, credentials, _region, _clock.GetUtcNow());
             HttpResponseMessage response;
 
             try

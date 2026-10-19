@@ -97,9 +97,27 @@ public sealed partial class ObjectColdStartTests
 
                 Assert.Equal(head, opened.Head.Value);
                 await ExtentTests.EveryPositionAsync(harness, opened, "after a cold start");
+                string times = TimesOf(opened);
+
+                // Below the catalog, the sets' own commit indexes answer as-of
+                // reads and lookups by time (ADR 0161): even the first ones
+                // read no log below the cursor. A feed reads the log's records,
+                // which are its data, and comes after.
+                lock (read)
+                {
+                    foreach (string name in read)
+                    {
+                        Assert.False(
+                            BelowCursor(name, cursor),
+                            "A read after the cold start read " + name + " below the cursor, segment " + cursor.Segment + " slot " + cursor.Slot + ".");
+                    }
+
+                    read.Clear();
+                }
+
+                Assert.Equal(expected.Times, times);
                 Assert.Equal(expected, await ServeAsync(opened));
 
-                // Read once: a second pass reads nothing from the log.
                 lock (read)
                 {
                     read.Clear();
@@ -117,6 +135,25 @@ public sealed partial class ObjectColdStartTests
             print: sample => sample.Item1 + " checkpoint choice " + sample.Item2 + (sample.Item3 ? " writer" : " follower"));
 
         Assert.True(cursors > 10, cursors + " cold starts from a cursor");
+    }
+
+    // A log object below the catalog's cursor: a segment before its segment,
+    // or a chunk of it before its slot.
+    private static bool BelowCursor(string name, CatalogCursor cursor)
+    {
+        if (Consolidated().Match(name) is { Success: true } whole)
+        {
+            return int.Parse(whole.Groups[1].Value, CultureInfo.InvariantCulture) < cursor.Segment;
+        }
+
+        if (Chunk().Match(name) is { Success: true } chunk)
+        {
+            int segment = int.Parse(chunk.Groups[1].Value, CultureInfo.InvariantCulture);
+            int number = int.Parse(chunk.Groups[2].Value, CultureInfo.InvariantCulture);
+            return segment < cursor.Segment || (segment == cursor.Segment && number < cursor.Slot);
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -153,7 +190,9 @@ public sealed partial class ObjectColdStartTests
             iter: 40);
     }
 
-    private static async Task<Served> ServeAsync(Dataset dataset)
+    // Each position's timestamp, and the position a lookup by it and by the
+    // tick before it finds.
+    private static string TimesOf(Dataset dataset)
     {
         List<string> times = [];
 
@@ -163,6 +202,12 @@ public sealed partial class ObjectColdStartTests
             times.Add(q + "@" + at.Value.UtcTicks + "→" + dataset.PositionAt(at).Value + "," + dataset.PositionAt(new CommitTimestamp(at.Value.AddTicks(-1))).Value);
         }
 
+        return string.Join(";", times);
+    }
+
+    private static async Task<Served> ServeAsync(Dataset dataset)
+    {
+        string times = TimesOf(dataset);
         List<string> feed = [];
         await using IAsyncEnumerator<Commit> commits = dataset.Subscribe(new Position(0), SubscriptionFilter.All, T.Ct).GetAsyncEnumerator(T.Ct);
 
@@ -172,7 +217,7 @@ public sealed partial class ObjectColdStartTests
             feed.Add(commit.Position.Value + " " + commit.Kind + " @" + commit.Timestamp.Value.UtcTicks + " +" + commit.Delta.Asserted.Length + " -" + commit.Delta.Retracted.Length);
         }
 
-        return new Served(string.Join(";", times), string.Join(";", feed), dataset.Settings.DefaultAccessScope.ToString());
+        return new Served(times, string.Join(";", feed), dataset.Settings.DefaultAccessScope.ToString());
     }
 
     private sealed record Served(string Times, string Feed, string Settings);

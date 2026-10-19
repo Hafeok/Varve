@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
-using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -38,7 +37,7 @@ namespace Varve.Store.ObjectStorage;
 /// superseded writer's next swap fails with <see cref="WriterSupersededException"/>.
 /// </para>
 /// </remarks>
-internal sealed class ObjectDerivedStore : IDerivedStore, IDisposable
+internal sealed class ObjectDerivedStore : IDerivedStore, IDerivedStoreLimits, IDisposable
 {
     internal const int PageBytes = 1 << 20;
 
@@ -53,7 +52,9 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDisposable
     private readonly TimeProvider _clock;
     private readonly IDerivedStore _local;
     private readonly string _pages;
+    private readonly string _staging;
     private readonly long _cacheBytes;
+    private readonly long _maxObjectBytes;
     private readonly ConcurrentDictionary<string, PagedObject> _open = new(StringComparer.Ordinal);
     private ObjectVersion? _catalogVersion;
     private long _epoch;
@@ -61,23 +62,41 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDisposable
     private long _recency;
     private long _files;
 
-    internal ObjectDerivedStore(IObjectStore store, ObjectNames names, TimeProvider clock, IDerivedStore local, string pages, long cacheBytes)
+    internal ObjectDerivedStore(IObjectStore store, ObjectNames names, TimeProvider clock, IDerivedStore local, string pages, string staging, long cacheBytes, long maxObjectBytes)
     {
         _store = store;
         _names = names;
         _clock = clock;
         _local = local;
         _pages = pages;
+        _staging = staging;
         _cacheBytes = cacheBytes;
+        _maxObjectBytes = maxObjectBytes;
 
-        // Pages are this process's: a page file left by another is not trusted.
-        if (Directory.Exists(pages))
+        // Pages and staged uploads are this process's: a file left by another is not trusted.
+        foreach (string directory in (string[])[pages, staging])
         {
-            Directory.Delete(pages, recursive: true);
-        }
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
 
-        Directory.CreateDirectory(pages);
+            Directory.CreateDirectory(directory);
+        }
     }
+
+    /// <inheritdoc />
+    public ByteCount MaxBlobBytes => new(_maxObjectBytes);
+
+    /// <summary>
+    /// What a read that finds an extent gone throws (ADR 0160): the storage
+    /// decides, from its reader record, whether it was forgotten, reads
+    /// unannounced, or found damage.
+    /// </summary>
+    internal Func<ObjectName, Exception> Gone { get; set; } = name => new IOException("The extent '" + name + "' is gone from the store; a catalog names it.");
+
+    /// <summary>Whether this store holds the epoch's catalog: the writer's, which alone writes and deletes extents.</summary>
+    internal bool Writes => _catalogVersion is not null && !CatalogSuperseded;
 
     /// <summary>Whether a claim found the catalog under a newer epoch than its own.</summary>
     internal bool CatalogSuperseded { get; private set; }
@@ -148,9 +167,9 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDisposable
             return await _local.CreateAsync(name, cancellationToken).ConfigureAwait(false);
         }
 
-        return _catalogVersion is null || CatalogSuperseded
+        return !Writes
             ? throw new WriterSupersededException("This storage holds no epoch: extents and the catalog are written only by the dataset's writer (ADR 0139).")
-            : new ObjectWriter(this, name);
+            : new ObjectWriter(this, name, Path.Combine(_staging, Interlocked.Increment(ref _files).ToString(System.Globalization.CultureInfo.InvariantCulture)));
     }
 
     public async ValueTask<IReadableBlob> OpenAsync(BlobName name, CancellationToken cancellationToken)
@@ -181,8 +200,22 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDisposable
                 continue;
             }
 
-            PagedObject? fetched = await PagedObject.OpenAsync(this, name, cancellationToken).ConfigureAwait(false)
-                ?? throw new KeyNotFoundException("No extent '" + name + "'.");
+            PagedObject? fetched;
+
+            try
+            {
+                fetched = await PagedObject.OpenAsync(this, name, cancellationToken).ConfigureAwait(false);
+            }
+            catch (ExtentGoneException)
+            {
+                // Deleted between its first page and its last: as if absent.
+                fetched = null;
+            }
+
+            if (fetched is null)
+            {
+                throw new KeyNotFoundException("No extent '" + name + "'.");
+            }
 
             // The table holds one reference and the open another.
             if (fetched.TryAcquire() && _open.TryAdd(name.Value, fetched))
@@ -197,11 +230,11 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDisposable
     }
 
     /// <summary>
-    /// A blob under <c>derived/</c>. An extent is not deleted from the store:
-    /// a follower may hold a catalog that names it, and the rule for that is
-    /// milestone Extent maintenance's (ADR 0139); its pages are dropped.
+    /// A blob under <c>derived/</c>. An extent is deleted from the store only
+    /// by the writer, which asks only once the deletion rule of reader
+    /// announcements allows it (ADR 0160); anywhere else its pages are dropped.
     /// </summary>
-    [DesignDecision(typeof(ExtentsAndTheProjectionCatalog.DeletionWaitsForExtentMaintenance), Scope = ExceptionScope.Boundary)]
+    [DesignDecision(typeof(ExtentDeletionByReaderAnnouncements.DeletionWaitsForExtentMaintenance), Scope = ExceptionScope.Boundary)]
     public async ValueTask<bool> DeleteAsync(BlobName name, CancellationToken cancellationToken)
     {
         if (!Shared(name))
@@ -214,7 +247,7 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDisposable
             held.Release();
         }
 
-        return false;
+        return Writes && name.Value != CatalogName && await _store.DeleteAsync(_names.Derived(name.Value), cancellationToken).ConfigureAwait(false);
     }
 
     public async ValueTask<IReadOnlyList<BlobName>> ListAsync(CancellationToken cancellationToken)
@@ -265,35 +298,49 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDisposable
         return (BinaryPrimitives.ReadInt64LittleEndian(bytes.Span[4..]), bytes[WrapperLength..]);
     }
 
-    // Publishes a blob written under derived/: the catalog by a replace
-    // against the version this writer holds, an extent by create-if-absent.
-    private async ValueTask PublishAsync(BlobName name, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
+    // Publishes the catalog by a replace against the version this writer
+    // holds (ADR 0139); an extent is published from its staged file.
+    private async ValueTask PublishCatalogAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
     {
-        if (name.Value == CatalogName)
+        if (_catalogVersion is not { } expected || CatalogSuperseded)
         {
-            if (_catalogVersion is not { } expected || CatalogSuperseded)
-            {
-                throw new WriterSupersededException("This storage holds no epoch's catalog: it is read-only, or superseded.");
-            }
-
-            ObjectVersion? version = await ConditionalWrites.ReplaceAsync(_store, _names.Derived(CatalogName), expected, Wrap(_epoch, bytes.Span), _clock, cancellationToken).ConfigureAwait(false);
-
-            if (version is null)
-            {
-                _catalogVersion = null;
-                CatalogSuperseded = true;
-                throw new WriterSupersededException("The catalog was replaced by a newer writer; this writer's swap is refused (ADR 0136).");
-            }
-
-            _catalogVersion = version;
-            return;
+            throw new WriterSupersededException("This storage holds no epoch's catalog: it is read-only, or superseded.");
         }
 
-        (CreateOutcome outcome, _) = await ConditionalWrites.CreateAsync(_store, _names.Derived(name.Value), bytes, _clock, cancellationToken).ConfigureAwait(false);
+        ObjectVersion? version = await ConditionalWrites.ReplaceAsync(_store, _names.Derived(CatalogName), expected, Wrap(_epoch, bytes.Span), _clock, cancellationToken).ConfigureAwait(false);
+
+        if (version is null)
+        {
+            _catalogVersion = null;
+            CatalogSuperseded = true;
+            throw new WriterSupersededException("The catalog was replaced by a newer writer; this writer's swap is refused (ADR 0136).");
+        }
+
+        _catalogVersion = version;
+    }
+
+    [DesignDecision(typeof(BackgroundExtentMerges.UploadsStagedThroughTheCache), Scope = ExceptionScope.Boundary)]
+    private async ValueTask PublishStagedAsync(BlobName name, string staged, CancellationToken cancellationToken)
+    {
+        ObjectContent content = new(new FileInfo(staged));
+
+        if (content.Length.Value > _maxObjectBytes)
+        {
+            throw new IOException("The extent '" + name + "' is " + content.Length + " bytes, more than one upload to this store may hold (" + _maxObjectBytes + "); multipart upload is not supported (ADR 0158).");
+        }
+
+        if (!Writes)
+        {
+            throw new WriterSupersededException("This storage holds no epoch's catalog: it is read-only, or superseded.");
+        }
+
+        CreateOutcome outcome = await ConditionalWrites.CreateAsync(_store, _names.Derived(name.Value), content, _clock, cancellationToken).ConfigureAwait(false);
 
         if (outcome == CreateOutcome.Taken)
         {
-            throw new IOException("The extent '" + name + "' already exists with other bytes; an extent's name is never reused.");
+            // A superseded writer's: names are never reused, so the set is
+            // written again under the next sequence (ADR 0158).
+            throw new DerivedNameTakenException("The extent '" + name + "' already exists with other bytes; an extent's name is never reused.");
         }
     }
 
@@ -323,38 +370,71 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDisposable
 
     private long NextRecency() => Interlocked.Increment(ref _recency);
 
-    /// <summary>A blob under <c>derived/</c> in the store, buffered and published whole.</summary>
-    private sealed class ObjectWriter(ObjectDerivedStore owner, BlobName name) : IBlobWriter
+    /// <summary>
+    /// A blob under <c>derived/</c> in the store, staged in a file of the
+    /// cache and published from it (ADR 0158): an extent is uploaded streamed
+    /// and its file becomes its page cache file, every page held; the catalog,
+    /// small, is replaced from memory.
+    /// </summary>
+    private sealed class ObjectWriter(ObjectDerivedStore owner, BlobName name, string staged) : IBlobWriter
     {
-        private readonly ArrayBufferWriter<byte> _bytes = new();
+        private FileStream? _file = new(staged, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.Read, 1 << 16);
 
-        public ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
+        public async ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
         {
-            _bytes.Write(bytes.Span);
-            return ValueTask.CompletedTask;
+            ObjectDisposedException.ThrowIf(_file is null, this);
+            await _file.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
         }
 
         public async ValueTask PublishAsync(CancellationToken cancellationToken)
         {
-            await owner.PublishAsync(name, _bytes.WrittenMemory, cancellationToken).ConfigureAwait(false);
+            ObjectDisposedException.ThrowIf(_file is null, this);
+            await _file.FlushAsync(cancellationToken).ConfigureAwait(false);
+            long length = _file.Length;
+            await _file.DisposeAsync().ConfigureAwait(false);
+            _file = null;
 
-            // An extent just written is in the cache already.
-            if (name.Value != CatalogName && !owner._open.ContainsKey(name.Value))
+            if (name.Value == CatalogName)
             {
-                PagedObject written = PagedObject.Of(owner, name, _bytes.WrittenSpan);
+                byte[] bytes = await File.ReadAllBytesAsync(staged, cancellationToken).ConfigureAwait(false);
+                File.Delete(staged);
+                await owner.PublishCatalogAsync(bytes, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            await owner.PublishStagedAsync(name, staged, cancellationToken).ConfigureAwait(false);
+
+            // An extent just written is in the cache already: its staged file.
+            if (!owner._open.ContainsKey(name.Value))
+            {
+                PagedObject written = PagedObject.Adopt(owner, name, staged, length);
 
                 if (owner._open.TryAdd(name.Value, written))
                 {
                     owner.Evict(written);
+                    return;
                 }
-                else
-                {
-                    written.Release();
-                }
+
+                written.Release();
+                return;
             }
+
+            File.Delete(staged);
         }
 
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        public async ValueTask DisposeAsync()
+        {
+            if (_file is not null)
+            {
+                await _file.DisposeAsync().ConfigureAwait(false);
+                _file = null;
+            }
+
+            if (File.Exists(staged))
+            {
+                File.Delete(staged);
+            }
+        }
     }
 
     /// <summary>The catalog's payload, held in memory.</summary>
@@ -413,14 +493,24 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDisposable
         private readonly Lock _lock = new();
         private int _references = 1;
 
-        private PagedObject(ObjectDerivedStore owner, BlobName name, long length)
+        private PagedObject(ObjectDerivedStore owner, BlobName name, long length, string? adopted = null)
         {
             _owner = owner;
             _object = owner._names.Derived(name.Value);
             Length = length;
             _present = new bool[(int)((length + PageBytes - 1) / PageBytes)];
             _path = Path.Combine(owner._pages, Interlocked.Increment(ref owner._files).ToString(System.Globalization.CultureInfo.InvariantCulture));
-            _file = File.OpenHandle(_path, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, FileOptions.None, length);
+
+            if (adopted is not null)
+            {
+                File.Move(adopted, _path);
+                _file = File.OpenHandle(_path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            }
+            else
+            {
+                _file = File.OpenHandle(_path, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, FileOptions.None, length);
+            }
+
             LastRead = owner.NextRecency();
         }
 
@@ -431,18 +521,16 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDisposable
 
         internal long LastRead { get; private set; }
 
-        /// <summary>An extent just written: every page held from its bytes.</summary>
-        internal static PagedObject Of(ObjectDerivedStore owner, BlobName name, ReadOnlySpan<byte> bytes)
+        /// <summary>An extent just written: its staged file becomes the page file, every page held.</summary>
+        internal static PagedObject Adopt(ObjectDerivedStore owner, BlobName name, string staged, long length)
         {
-            PagedObject paged = new(owner, name, bytes.Length);
+            PagedObject paged = new(owner, name, length, staged);
 
             lock (paged._lock)
             {
-                for (int page = 0; page < paged._present.Length; page++)
-                {
-                    (long start, int count) = paged.Page(page);
-                    paged.Hold(page, bytes.Slice((int)start, count));
-                }
+                Array.Fill(paged._present, true);
+                paged.Fetched = length;
+                Interlocked.Add(ref owner._cached, length);
             }
 
             return paged;
@@ -533,7 +621,17 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDisposable
                     if (!_present[page])
                     {
                         // The read is synchronous (ADR 0071); the miss waits for the store.
-                        ReadOnlyMemory<byte> bytes = FetchAsync(page, CancellationToken.None).AsTask().GetAwaiter().GetResult();
+                        ReadOnlyMemory<byte> bytes;
+
+                        try
+                        {
+                            bytes = FetchAsync(page, CancellationToken.None).AsTask().GetAwaiter().GetResult();
+                        }
+                        catch (ExtentGoneException)
+                        {
+                            throw _owner.Gone(_object);
+                        }
+
                         Hold(page, bytes.Span);
                     }
                 }

@@ -94,9 +94,11 @@ public static class ProblemCatalogue
         new(ProblemType.Unavailable, 503, "The dataset cannot answer now."),
         new(ProblemType.ReadLimitExceeded, 503, "The read was cut by a server limit."),
         new(ProblemType.ShuttingDown, 503, "The server is shutting down."),
-        new(ProblemType.NotReady, 503, "The server is not ready.", "datasets"),
+        new(ProblemType.NotReady, 503, "The server is not ready.", "datasets", "retention"),
         new(ProblemType.ServerBusy, 503, "The server has as many reads in flight as it allows.", "limit"),
         new(ProblemType.WriterSuperseded, 503, "A newer writer holds the dataset; this instance serves reads only."),
+        new(ProblemType.ReaderForgotten, 503, "This instance's reader record was forgotten; it attaches again."),
+        new(ProblemType.ReadUnannouncedExtentGone, 503, "An unannounced read found an extent gone."),
     ];
 
     private static readonly FrozenDictionary<string, ProblemShape> ByType = Index();

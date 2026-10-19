@@ -35,7 +35,7 @@ namespace Varve.Benchmarks;
 /// S3-compatible server on loopback (VARVE_AZURITE, VARVE_RUSTFS, as the
 /// tests read them), or a directory.
 /// </summary>
-internal static class ObjectStorageBench
+internal static partial class ObjectStorageBench
 {
     private const ulong Seed = 20261015;
 
@@ -198,7 +198,7 @@ internal static class ObjectStorageBench
     {
         RecSize size = Enum.Parse<RecSize>(sizeName);
         string directory = Directory.CreateTempSubdirectory("varve-extent-reads-").FullName;
-        DatasetOptions options = new() { Clock = TimeProvider.System };
+        DatasetOptions options = new() { Clock = TimeProvider.System, ExtentMerges = ExtentMergePolicy.Off };
         int commits = RecPortfolio.Shape(size).Commits;
         int every = commits / 100;
         Terms terms = new();

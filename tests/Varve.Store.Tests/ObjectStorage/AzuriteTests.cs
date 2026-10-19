@@ -49,6 +49,17 @@ internal static class Azurite
     }
 }
 
+public sealed class AzuriteExtentMaintenanceTests
+{
+    /// <summary>A follower keeps serving across the writer's merges and deletions, on Azurite (ADRs 0158, 0160).</summary>
+    [Fact]
+    public async Task a_follower_keeps_serving_across_merges_and_deletions_on_azurite()
+    {
+        using AzureBlobStore store = await Azurite.ContainerAsync();
+        await ExtentMaintenanceCases.FollowerAcrossMergesAndDeletionsAsync(store);
+    }
+}
+
 public sealed class AzuriteObjectStoreContractTests
 {
     public static TheoryData<string> Cases() => [.. ObjectStoreContractCases.All().Select(c => c.Name)];

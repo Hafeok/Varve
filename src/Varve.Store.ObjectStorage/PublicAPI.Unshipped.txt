@@ -141,3 +141,97 @@ Varve.Store.ObjectStorage.Model.IProbeRandomness
 Varve.Store.ObjectStorage.Model.IProbeRandomness.Fill(System.Span<byte> destination) -> void
 Varve.Store.ObjectStorage.Model.ObjectStorageOptions.ProbeRandomness.get -> Varve.Store.ObjectStorage.Model.IProbeRandomness?
 Varve.Store.ObjectStorage.Model.ObjectStorageOptions.ProbeRandomness.init -> void
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.Announcing.get -> Varve.Store.ObjectStorage.Model.ReaderAnnouncing
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.Announcing.init -> void
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.MaxObjectBytes.get -> Varve.Store.Log.ByteCount
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.MaxObjectBytes.init -> void
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.Reader.get -> Varve.Store.Log.ReaderId?
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.Reader.init -> void
+Varve.Store.ObjectStorage.Model.ReaderAnnouncing
+Varve.Store.ObjectStorage.Model.ReaderAnnouncing.Required = 0 -> Varve.Store.ObjectStorage.Model.ReaderAnnouncing
+Varve.Store.ObjectStorage.Model.ReaderAnnouncing.Unannounced = 1 -> Varve.Store.ObjectStorage.Model.ReaderAnnouncing
+Varve.Store.ObjectStorage.Model.ReaderHolding
+Varve.Store.ObjectStorage.Model.ReaderHolding.<Clone>$() -> Varve.Store.ObjectStorage.Model.ReaderHolding!
+Varve.Store.ObjectStorage.Model.ReaderHolding.Deconstruct(out Varve.Store.ObjectStorage.Model.ReaderRecord! Record, out Varve.Store.Log.ByteCount RetainedBytes) -> void
+Varve.Store.ObjectStorage.Model.ReaderHolding.Equals(Varve.Store.ObjectStorage.Model.ReaderHolding? other) -> bool
+Varve.Store.ObjectStorage.Model.ReaderHolding.ReaderHolding(Varve.Store.ObjectStorage.Model.ReaderRecord! Record, Varve.Store.Log.ByteCount RetainedBytes) -> void
+Varve.Store.ObjectStorage.Model.ReaderHolding.Record.get -> Varve.Store.ObjectStorage.Model.ReaderRecord!
+Varve.Store.ObjectStorage.Model.ReaderHolding.Record.init -> void
+Varve.Store.ObjectStorage.Model.ReaderHolding.RetainedBytes.get -> Varve.Store.Log.ByteCount
+Varve.Store.ObjectStorage.Model.ReaderHolding.RetainedBytes.init -> void
+Varve.Store.ObjectStorage.Model.ReaderRecord
+Varve.Store.ObjectStorage.Model.ReaderRecord.<Clone>$() -> Varve.Store.ObjectStorage.Model.ReaderRecord!
+Varve.Store.ObjectStorage.Model.ReaderRecord.AnnouncedAt.get -> Varve.Store.ObjectStorage.Model.ClaimTime?
+Varve.Store.ObjectStorage.Model.ReaderRecord.AnnouncedAt.init -> void
+Varve.Store.ObjectStorage.Model.ReaderRecord.Announcement.get -> Varve.Store.Log.ReaderAnnouncement!
+Varve.Store.ObjectStorage.Model.ReaderRecord.Equals(Varve.Store.ObjectStorage.Model.ReaderRecord? other) -> bool
+Varve.Store.ObjectStorage.Model.ReaderRecord.Holder.get -> Varve.Store.ObjectStorage.Model.WriterInstance?
+Varve.Store.ObjectStorage.Model.ReaderRecord.Holder.init -> void
+Varve.Store.ObjectStorage.Model.ReaderRecord.Newest.get -> Varve.Store.Log.CatalogVersion
+Varve.Store.ObjectStorage.Model.ReaderRecord.Newest.init -> void
+Varve.Store.ObjectStorage.Model.ReaderRecord.Oldest.get -> Varve.Store.Log.CatalogVersion
+Varve.Store.ObjectStorage.Model.ReaderRecord.Oldest.init -> void
+Varve.Store.ObjectStorage.Model.ReaderRecord.Reader.get -> Varve.Store.Log.ReaderId
+Varve.Store.ObjectStorage.Model.ReaderRecord.Reader.init -> void
+Varve.Store.ObjectStorage.Model.ReaderRecord.ReaderRecord() -> void
+Varve.Store.ObjectStorage.Model.ReaderRecord.State.get -> Varve.Store.ObjectStorage.Model.ReaderRecordState
+Varve.Store.ObjectStorage.Model.ReaderRecord.State.init -> void
+Varve.Store.ObjectStorage.Model.ReaderRecord.Understood.get -> bool
+Varve.Store.ObjectStorage.Model.ReaderRecord.Understood.init -> void
+Varve.Store.ObjectStorage.Model.ReaderRecordState
+Varve.Store.ObjectStorage.Model.ReaderRecordState.Announced = 0 -> Varve.Store.ObjectStorage.Model.ReaderRecordState
+Varve.Store.ObjectStorage.Model.ReaderRecordState.Forgotten = 1 -> Varve.Store.ObjectStorage.Model.ReaderRecordState
+Varve.Store.ObjectStorage.Model.StorageReport
+Varve.Store.ObjectStorage.Model.StorageReport.<Clone>$() -> Varve.Store.ObjectStorage.Model.StorageReport!
+Varve.Store.ObjectStorage.Model.StorageReport.Catalog.get -> Varve.Store.CatalogSummary?
+Varve.Store.ObjectStorage.Model.StorageReport.Catalog.init -> void
+Varve.Store.ObjectStorage.Model.StorageReport.Equals(Varve.Store.ObjectStorage.Model.StorageReport? other) -> bool
+Varve.Store.ObjectStorage.Model.StorageReport.Readers.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.ObjectStorage.Model.ReaderHolding!>!
+Varve.Store.ObjectStorage.Model.StorageReport.Readers.init -> void
+Varve.Store.ObjectStorage.Model.StorageReport.RetainedBytes.get -> Varve.Store.Log.ByteCount
+Varve.Store.ObjectStorage.Model.StorageReport.RetainedBytes.init -> void
+Varve.Store.ObjectStorage.Model.StorageReport.Sets.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.ObjectStorage.Model.StoredSet!>!
+Varve.Store.ObjectStorage.Model.StorageReport.Sets.init -> void
+Varve.Store.ObjectStorage.Model.StorageReport.StorageReport() -> void
+Varve.Store.ObjectStorage.Model.StorageReport.UnnamedSets.init -> void
+Varve.Store.ObjectStorage.Model.StoredSet
+Varve.Store.ObjectStorage.Model.StoredSet.<Clone>$() -> Varve.Store.ObjectStorage.Model.StoredSet!
+Varve.Store.ObjectStorage.Model.StoredSet.Deconstruct(out Varve.Store.CatalogSet! Set, out System.Collections.Generic.IReadOnlyList<Varve.Store.Log.ByteCount>! Orders, out Varve.Store.Log.ByteCount Rest) -> void
+Varve.Store.ObjectStorage.Model.StoredSet.Equals(Varve.Store.ObjectStorage.Model.StoredSet? other) -> bool
+Varve.Store.ObjectStorage.Model.StoredSet.Orders.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.Log.ByteCount>!
+Varve.Store.ObjectStorage.Model.StoredSet.Orders.init -> void
+Varve.Store.ObjectStorage.Model.StoredSet.Rest.get -> Varve.Store.Log.ByteCount
+Varve.Store.ObjectStorage.Model.StoredSet.Rest.init -> void
+Varve.Store.ObjectStorage.Model.StoredSet.Set.get -> Varve.Store.CatalogSet!
+Varve.Store.ObjectStorage.Model.StoredSet.Set.init -> void
+Varve.Store.ObjectStorage.Model.StoredSet.StoredSet(Varve.Store.CatalogSet! Set, System.Collections.Generic.IReadOnlyList<Varve.Store.Log.ByteCount>! Orders, Varve.Store.Log.ByteCount Rest) -> void
+Varve.Store.ObjectStorage.ObjectStorage.AnnounceAsync(Varve.Store.Log.CatalogVersion oldest, Varve.Store.Log.CatalogVersion newest, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Store.ObjectStorage.ObjectStorage.Announcing.get -> Varve.Store.ObjectStorage.Model.ReaderAnnouncing
+Varve.Store.ObjectStorage.ObjectStorage.DeletesExtents.get -> bool
+Varve.Store.ObjectStorage.ObjectStorage.ExtentBytesAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyDictionary<string!, long>!>
+Varve.Store.ObjectStorage.ObjectStorage.ReadAnnouncementsAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Varve.Store.Log.ReaderAnnouncement!>!>
+Varve.Store.ObjectStorage.ObjectStorage.Reader.get -> Varve.Store.Log.ReaderId
+override Varve.Store.ObjectStorage.Model.ReaderHolding.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.ReaderHolding.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.ReaderHolding.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.ReaderRecord.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.ReaderRecord.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.ReaderRecord.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.StorageReport.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.StorageReport.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.StorageReport.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.StoredSet.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.StoredSet.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.StoredSet.ToString() -> string!
+static Varve.Store.ObjectStorage.Model.ReaderHolding.operator !=(Varve.Store.ObjectStorage.Model.ReaderHolding? left, Varve.Store.ObjectStorage.Model.ReaderHolding? right) -> bool
+static Varve.Store.ObjectStorage.Model.ReaderHolding.operator ==(Varve.Store.ObjectStorage.Model.ReaderHolding? left, Varve.Store.ObjectStorage.Model.ReaderHolding? right) -> bool
+static Varve.Store.ObjectStorage.Model.ReaderRecord.operator !=(Varve.Store.ObjectStorage.Model.ReaderRecord? left, Varve.Store.ObjectStorage.Model.ReaderRecord? right) -> bool
+static Varve.Store.ObjectStorage.Model.ReaderRecord.operator ==(Varve.Store.ObjectStorage.Model.ReaderRecord? left, Varve.Store.ObjectStorage.Model.ReaderRecord? right) -> bool
+static Varve.Store.ObjectStorage.Model.StorageReport.operator !=(Varve.Store.ObjectStorage.Model.StorageReport? left, Varve.Store.ObjectStorage.Model.StorageReport? right) -> bool
+static Varve.Store.ObjectStorage.Model.StorageReport.operator ==(Varve.Store.ObjectStorage.Model.StorageReport? left, Varve.Store.ObjectStorage.Model.StorageReport? right) -> bool
+static Varve.Store.ObjectStorage.Model.StoredSet.operator !=(Varve.Store.ObjectStorage.Model.StoredSet? left, Varve.Store.ObjectStorage.Model.StoredSet? right) -> bool
+static Varve.Store.ObjectStorage.Model.StoredSet.operator ==(Varve.Store.ObjectStorage.Model.StoredSet? left, Varve.Store.ObjectStorage.Model.StoredSet? right) -> bool
+static Varve.Store.ObjectStorage.ObjectStorage.ForgetReaderAsync(Varve.Store.IObjectStore! store, Varve.Store.Log.ObjectName? prefix, Varve.Store.Log.ReaderId reader, Varve.Store.Log.CatalogVersion oldest, Varve.Store.Log.CatalogVersion newest, System.TimeProvider! clock, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
+static Varve.Store.ObjectStorage.ObjectStorage.ReadReadersAsync(Varve.Store.IObjectStore! store, Varve.Store.Log.ObjectName? prefix, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Varve.Store.ObjectStorage.Model.ReaderRecord!>!>
+static Varve.Store.ObjectStorage.ObjectStorage.ReadReportAsync(Varve.Store.IObjectStore! store, Varve.Store.Log.ObjectName? prefix, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.ObjectStorage.Model.StorageReport!>
+Varve.Store.ObjectStorage.Model.StorageReport.UnnamedSets.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.Log.BlobName>!

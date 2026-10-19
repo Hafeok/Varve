@@ -55,11 +55,17 @@ internal sealed class Harness : IAsyncDisposable
 
     public RecordingProjection Recorder { get; } = new();
 
-    public static async Task<Harness> StartAsync(int maxRecordBytes = 1 << 20, long segmentBytes = 64L << 20, IStorage? storage = null, long? memtableLimit = null)
+    public static async Task<Harness> StartAsync(int maxRecordBytes = 1 << 20, long segmentBytes = 64L << 20, IStorage? storage = null, long? memtableLimit = null, Func<DatasetOptions, DatasetOptions>? configure = null)
     {
         storage ??= new MemoryStorage();
         ManualClock clock = ManualClock.Epoch();
         DatasetOptions options = T.Options(clock, maxRecordBytes, segmentBytes);
+
+        if (configure is not null)
+        {
+            options = configure(options);
+            return new Harness(storage, clock, await T.OpenOrCreate(storage, options), options, maintain: false);
+        }
 
         if (memtableLimit is long limit)
         {

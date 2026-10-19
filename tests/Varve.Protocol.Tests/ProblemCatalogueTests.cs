@@ -44,9 +44,12 @@ public class ProblemCatalogueTests
 
     /// <summary>
     /// Types no request can trigger yet: the archive horizon (spec T3) does
-    /// not exist. Removed from here by the slice that makes it emittable.
+    /// not exist; and a read that finds an extent gone, as a forgotten or an
+    /// unannounced reader may (ADR 0160), needs a server that only reads a
+    /// dataset in an object store, which is the Management plane's follower
+    /// (#105). Removed from here by the slice that makes each emittable.
     /// </summary>
-    private static readonly ImmutableArray<ProblemType> NotYetEmittable = [ProblemType.BelowArchiveHorizon];
+    private static readonly ImmutableArray<ProblemType> NotYetEmittable = [ProblemType.BelowArchiveHorizon, ProblemType.ReaderForgotten, ProblemType.ReadUnannouncedExtentGone];
 
     /// <summary>
     /// Types whose trigger holds state across requests, exercised in
