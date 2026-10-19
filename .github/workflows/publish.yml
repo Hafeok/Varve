@@ -101,43 +101,43 @@ jobs:
         run: dotnet build Varve.slnx --configuration Release --no-restore
 
       - name: Test the analyzers
-        run: dotnet test --project tests/Varve.Analyzers.Tests/Varve.Analyzers.Tests.csproj --configuration Release
+        run: dotnet test --project tests/Varve.Analyzers.Tests/Varve.Analyzers.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Analyzers.Tests
 
       - name: Test Varve.Iri
-        run: dotnet test --project tests/Varve.Iri.Tests/Varve.Iri.Tests.csproj --configuration Release
+        run: dotnet test --project tests/Varve.Iri.Tests/Varve.Iri.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Iri.Tests
 
       - name: Test Varve.Rdf
-        run: dotnet test --project tests/Varve.Rdf.Tests/Varve.Rdf.Tests.csproj --configuration Release
+        run: dotnet test --project tests/Varve.Rdf.Tests/Varve.Rdf.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Rdf.Tests
 
       - name: Test Varve.Turtle
-        run: dotnet test --project tests/Varve.Turtle.Tests/Varve.Turtle.Tests.csproj --configuration Release
+        run: dotnet test --project tests/Varve.Turtle.Tests/Varve.Turtle.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Turtle.Tests
 
       - name: Test Varve.RdfXml
-        run: dotnet test --project tests/Varve.RdfXml.Tests/Varve.RdfXml.Tests.csproj --configuration Release
+        run: dotnet test --project tests/Varve.RdfXml.Tests/Varve.RdfXml.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.RdfXml.Tests
 
       - name: Test Varve.JsonLd
-        run: dotnet test --project tests/Varve.JsonLd.Tests/Varve.JsonLd.Tests.csproj --configuration Release
+        run: dotnet test --project tests/Varve.JsonLd.Tests/Varve.JsonLd.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.JsonLd.Tests
 
       - name: Test Varve.Delta
-        run: dotnet test --project tests/Varve.Delta.Tests/Varve.Delta.Tests.csproj --configuration Release
+        run: dotnet test --project tests/Varve.Delta.Tests/Varve.Delta.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Delta.Tests
 
       - name: Test Varve.Store
-        run: dotnet test --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj --configuration Release
+        run: dotnet test --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Store.Tests
 
       - name: Test Varve.Xsd
-        run: dotnet test --project tests/Varve.Xsd.Tests/Varve.Xsd.Tests.csproj --configuration Release
+        run: dotnet test --project tests/Varve.Xsd.Tests/Varve.Xsd.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Xsd.Tests
 
       - name: Test Varve.Sparql
-        run: dotnet test --project tests/Varve.Sparql.Tests/Varve.Sparql.Tests.csproj --configuration Release
+        run: dotnet test --project tests/Varve.Sparql.Tests/Varve.Sparql.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Sparql.Tests
 
       - name: Test Varve.Sparql.Results
-        run: dotnet test --project tests/Varve.Sparql.Results.Tests/Varve.Sparql.Results.Tests.csproj --configuration Release
+        run: dotnet test --project tests/Varve.Sparql.Results.Tests/Varve.Sparql.Results.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Sparql.Results.Tests
 
       - name: Test Varve.Sparql.Evaluation
-        run: dotnet test --project tests/Varve.Sparql.Evaluation.Tests/Varve.Sparql.Evaluation.Tests.csproj --configuration Release
+        run: dotnet test --project tests/Varve.Sparql.Evaluation.Tests/Varve.Sparql.Evaluation.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Sparql.Evaluation.Tests
 
       - name: Test Varve.Sparql.Store
-        run: dotnet test --project tests/Varve.Sparql.Store.Tests/Varve.Sparql.Store.Tests.csproj --configuration Release
+        run: dotnet test --project tests/Varve.Sparql.Store.Tests/Varve.Sparql.Store.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Sparql.Store.Tests
 
       - name: Run the W3C suites
         continue-on-error: true
@@ -237,6 +237,16 @@ jobs:
           --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
+
+      - name: Upload the test results
+        # #126: every run keeps its TRX, pass or fail, so a slow or red run
+        # can be explained test by test from its own artifacts.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-publish
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
 
   # The container image (ADR 0111), after the gates: the Native AOT binary
   # published on a native runner per architecture, built into the chiseled

@@ -259,96 +259,137 @@ jobs:
           dotnet test
           --project tests/Varve.Analyzers.Tests/Varve.Analyzers.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Analyzers.Tests
 
       - name: Test Varve.Iri
         run: >
           dotnet test
           --project tests/Varve.Iri.Tests/Varve.Iri.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Iri.Tests
 
       - name: Test Varve.Rdf
         run: >
           dotnet test
           --project tests/Varve.Rdf.Tests/Varve.Rdf.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Rdf.Tests
 
       - name: Test Varve.Turtle
         run: >
           dotnet test
           --project tests/Varve.Turtle.Tests/Varve.Turtle.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Turtle.Tests
 
       - name: Test Varve.RdfXml
         run: >
           dotnet test
           --project tests/Varve.RdfXml.Tests/Varve.RdfXml.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.RdfXml.Tests
 
       - name: Test Varve.JsonLd
         run: >
           dotnet test
           --project tests/Varve.JsonLd.Tests/Varve.JsonLd.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.JsonLd.Tests
 
       - name: Test Varve.Delta
         run: >
           dotnet test
           --project tests/Varve.Delta.Tests/Varve.Delta.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Delta.Tests
 
       - name: Test Varve.Json.Canonical
         run: >
           dotnet test
           --project tests/Varve.Json.Canonical.Tests/Varve.Json.Canonical.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Json.Canonical.Tests
 
       - name: Test Varve.Events
         run: >
           dotnet test
           --project tests/Varve.Events.Tests/Varve.Events.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Events.Tests
 
       - name: Test Varve.Store
         run: >
           dotnet test
           --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Store.Tests
+
+      - name: Store test durations
+        # #126: the slowest tests and the classes that held the parallel slots,
+        # in the job summary, from the step's own TRX.
+        if: always()
+        run: >
+          dotnet run eng/test-durations.cs --
+          ${{ github.workspace }}/artifacts/test-results/Varve.Store.Tests
+          --label "Varve.Store.Tests on ${{ matrix.os }}"
 
       - name: Test Varve.Xsd
         run: >
           dotnet test
           --project tests/Varve.Xsd.Tests/Varve.Xsd.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Xsd.Tests
 
       - name: Test Varve.Sparql
         run: >
           dotnet test
           --project tests/Varve.Sparql.Tests/Varve.Sparql.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Sparql.Tests
 
       - name: Test Varve.Sparql.Results
         run: >
           dotnet test
           --project tests/Varve.Sparql.Results.Tests/Varve.Sparql.Results.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Sparql.Results.Tests
 
       - name: Test Varve.Sparql.Evaluation
         run: >
           dotnet test
           --project tests/Varve.Sparql.Evaluation.Tests/Varve.Sparql.Evaluation.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Sparql.Evaluation.Tests
 
       - name: Test Varve.Sparql.Store
         run: >
           dotnet test
           --project tests/Varve.Sparql.Store.Tests/Varve.Sparql.Store.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Sparql.Store.Tests
 
       - name: Test Varve.Protocol
         run: >
           dotnet test
           --project tests/Varve.Protocol.Tests/Varve.Protocol.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Protocol.Tests
 
       # Built with the solution since 7b and never run by CI until the
       # Client and integration milestone's second part found the gap.
@@ -357,6 +398,8 @@ jobs:
           dotnet test
           --project tests/Varve.Protocol.Client.Tests/Varve.Protocol.Client.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Protocol.Client.Tests
 
       # Layer (a) of ADR 0100: the permission matrix and every way a token can
       # be wrong, against an issuer in the test, on every platform.
@@ -365,6 +408,8 @@ jobs:
           dotnet test
           --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Server.Tests
 
       # tools/repo-standard: its own solution, built and tested on both
       # platforms (ADR 0039). Not packed: it is not published from here.
@@ -376,6 +421,8 @@ jobs:
           dotnet test
           --project tools/repo-standard/tests/RepoStandard.Tests/RepoStandard.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/RepoStandard.Tests
 
       # The publish dry run. A version pushed to nuget.org cannot be edited,
       # replaced or deleted, so the pack step and its output are exercised on
@@ -391,6 +438,16 @@ jobs:
 
       - name: Check the package metadata
         run: dotnet run eng/package-metadata.cs -- ${{ github.workspace }}/artifacts/packages
+
+      - name: Upload the test results
+        # #126: every run keeps its TRX, pass or fail, so a slow or red run
+        # can be explained test by test from its own artifacts.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-build-${{ matrix.os }}
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
 
   # Constraint 2, proven rather than configured. An analyzer only sees what it
   # can see statically; only an ILC run shows the packages publish, and only
@@ -516,6 +573,18 @@ jobs:
           --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
           --configuration Release
           --filter-class Varve.Server.Tests.ProviderTests
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Server.Tests
+
+      - name: Upload the test results
+        # #126: every run keeps its TRX, pass or fail, so a slow or red run
+        # can be explained test by test from its own artifacts.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-auth-mock-oauth2
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
 
   # The object-storage legs (ADR 0134): the storage contract suite and the
   # object-store contract, race properties included, against Azurite and the
@@ -567,6 +636,15 @@ jobs:
           --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj
           --configuration Release
           --filter-namespace Varve.Store.Tests.Objects
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Store.Tests
+
+      - name: Store test durations
+        if: always()
+        run: >
+          dotnet run eng/test-durations.cs --
+          ${{ github.workspace }}/artifacts/test-results/Varve.Store.Tests
+          --label "Varve.Store.Tests.Objects against the services"
 
       # A server's datasets in the container: a second server takes one over,
       # the first answers writes with writer-superseded, and varve lease
@@ -580,6 +658,18 @@ jobs:
           --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
           --configuration Release
           --filter-class Varve.Server.Tests.ObjectStorageServerTests
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Server.Tests
+
+      - name: Upload the test results
+        # #126: every run keeps its TRX, pass or fail, so a slow or red run
+        # can be explained test by test from its own artifacts.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-storage-services
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
 
   # The REC generator's bytes on both architectures (ADR 0141): its tests pin
   # each size's SHA-256, so a pass on each runner is the same bytes on both.
@@ -608,7 +698,17 @@ jobs:
           global-json-file: global.json
 
       - name: Generate S, M and L and compare
-        run: dotnet test --project tests/Varve.Rec.Tests/Varve.Rec.Tests.csproj --configuration Release
+        run: dotnet test --project tests/Varve.Rec.Tests/Varve.Rec.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Rec.Tests
+
+      - name: Upload the test results
+        # #126: every run keeps its TRX, pass or fail, so a slow or red run
+        # can be explained test by test from its own artifacts.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-rec-generator-${{ matrix.rid }}
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
 
   # Auth test layer (c) (ADR 0100): Zitadel and PostgreSQL, a real provider,
   # started by compose and seeded through its API by eng/zitadel-seed.cs. One
@@ -665,10 +765,22 @@ jobs:
           --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
           --configuration Release
           --filter-class Varve.Server.Tests.ProviderTests
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Server.Tests
 
       - name: Zitadel's log
         if: failure()
         run: docker compose --file .github/zitadel/compose.yaml logs zitadel
+
+      - name: Upload the test results
+        # #126: every run keeps its TRX, pass or fail, so a slow or red run
+        # can be explained test by test from its own artifacts.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-auth-zitadel
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
 
   # The real-provider legs (ADR 0100): one test each for Entra ID and Google,
   # with secrets from the auth-providers environment, which only main can
@@ -704,6 +816,18 @@ jobs:
           --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
           --configuration Release
           --filter-class Varve.Server.Tests.ProviderTests
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Server.Tests
+
+      - name: Upload the test results
+        # #126: every run keeps its TRX, pass or fail, so a slow or red run
+        # can be explained test by test from its own artifacts.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-auth-providers
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
 
   # The container image (ADR 0111): the Native AOT binary published on a
   # native runner for its architecture, built into the chiseled image, pushed
@@ -894,6 +1018,8 @@ jobs:
           --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
           --configuration Release
           --filter-class Varve.Server.Tests.ProviderTests
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Server.Tests
 
       - name: Stop the mock and its container
         if: always() && matrix.rid == 'linux-x64'
@@ -956,6 +1082,8 @@ jobs:
           --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
           --configuration Release
           --filter-class Varve.Server.Tests.ProviderTests
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Server.Tests
 
       - name: Stop Zitadel and its container
         if: always() && matrix.rid == 'linux-x64'
@@ -970,6 +1098,16 @@ jobs:
         with:
           name: container-protocol-trx-${{ matrix.rid }}
           path: ${{ github.workspace }}/artifacts/container-protocol
+          if-no-files-found: warn
+
+      - name: Upload the test results
+        # #126: every run keeps its TRX, pass or fail, so a slow or red run
+        # can be explained test by test from its own artifacts.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-container-${{ matrix.rid }}
+          path: ${{ github.workspace }}/artifacts/test-results
           if-no-files-found: warn
 
   # The Aspire sample (ADR 0117): the AppHost starts the server's container
@@ -1018,6 +1156,18 @@ jobs:
           dotnet test
           --project samples/Varve.Aspire.Sample.Tests/Varve.Aspire.Sample.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Aspire.Sample.Tests
+
+      - name: Upload the test results
+        # #126: every run keeps its TRX, pass or fail, so a slow or red run
+        # can be explained test by test from its own artifacts.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-aspire
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
 
   # Durability, measured per platform (ADR 0073): what an append and a flush
   # to the device cost on each runner, with the calls the file backend makes.
@@ -1073,6 +1223,18 @@ jobs:
           dotnet test
           --project samples/Varve.OnBehalfOf.Sample.Tests/Varve.OnBehalfOf.Sample.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.OnBehalfOf.Sample.Tests
+
+      - name: Upload the test results
+        # #126: every run keeps its TRX, pass or fail, so a slow or red run
+        # can be explained test by test from its own artifacts.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-samples
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
 
   # The Event Hubs bridge sample (ADRs 0143, 0146): the emulator and Azurite
   # started by compose, and the sample's test, which runs Varve as a process,
@@ -1114,6 +1276,8 @@ jobs:
           dotnet test
           --project samples/Varve.EventHubs.Sample.Tests/Varve.EventHubs.Sample.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.EventHubs.Sample.Tests
 
       - name: The emulator's log
         if: failure()
@@ -1122,6 +1286,16 @@ jobs:
       - name: Stop the emulator
         if: always()
         run: docker compose --file .github/eventhubs/compose.yaml down || true
+
+      - name: Upload the test results
+        # #126: every run keeps its TRX, pass or fail, so a slow or red run
+        # can be explained test by test from its own artifacts.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-samples-eventhubs
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
 
   # The Entra registrations of the on-behalf-of chain build (ADR 0127): the
   # Bicep CLI the runner's Azure CLI carries, and the Microsoft Graph
