@@ -169,8 +169,15 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IAsync
     public ValueTask<bool> MaintainStorageAsync(CancellationToken cancellationToken) => _log.ConsolidateAsync(cancellationToken);
 
     /// <summary>
+    /// The reason a close releases the epoch with: <see cref="ReleaseReason.Shutdown"/>
+    /// unless the host says otherwise, as it does when the dataset was placed
+    /// on another instance (<see cref="ReleaseReason.Placement"/>, ADR 0163).
+    /// </summary>
+    public ReleaseReason ReleaseOnClose { get; set; } = ReleaseReason.Shutdown;
+
+    /// <summary>
     /// Releases the writer epoch, when this storage holds it, with the reason
-    /// <see cref="ReleaseReason.Shutdown"/>; then closes the cache. A release
+    /// <see cref="ReleaseOnClose"/>; then closes the cache. A release
     /// that cannot be written is left undone: the next writer's claim
     /// supersedes instead.
     /// </summary>
@@ -180,7 +187,7 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IAsync
         {
             if (_log.Writes && !IsSuperseded && _recordVersion is not null)
             {
-                await ReleaseAsync(ReleaseReason.Shutdown, CancellationToken.None).ConfigureAwait(false);
+                await ReleaseAsync(ReleaseOnClose, CancellationToken.None).ConfigureAwait(false);
             }
         }
         catch (IOException)
@@ -244,7 +251,7 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IAsync
 
             if (write)
             {
-                (record, version) = await ClaimAsync(options.Store, names, options.Instance!.Value, trigger, from, options.Clock, cancellationToken).ConfigureAwait(false);
+                (record, version) = await ClaimAsync(options.Store, names, options.Instance!.Value, options.Address, trigger, from, options.Clock, cancellationToken).ConfigureAwait(false);
                 lost = version is null;
             }
             else if (await ConditionalWrites.ReadWholeAsync(options.Store, names.Writer, cancellationToken).ConfigureAwait(false) is { } read)
@@ -280,7 +287,7 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IAsync
     // operator named. A lost claim is not retried (ADR 0136): retrying would
     // supersede the winner.
     private static async ValueTask<(WriterRecord? Record, ObjectVersion? Version)> ClaimAsync(
-        IObjectStore store, ObjectNames names, WriterInstance instance, ClaimTrigger trigger, WriterEpoch? from, TimeProvider clock, CancellationToken cancellationToken)
+        IObjectStore store, ObjectNames names, WriterInstance instance, WriterAddress? address, ClaimTrigger trigger, WriterEpoch? from, TimeProvider clock, CancellationToken cancellationToken)
     {
         ObjectRead? read = await ConditionalWrites.ReadWholeAsync(store, names.Writer, cancellationToken).ConfigureAwait(false);
         WriterRecord? current = read is null ? null : WriterRecordFormat.Read(read.Bytes.Span);
@@ -292,7 +299,7 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IAsync
 
         WriterEpoch epoch = current?.Epoch.Next ?? new WriterEpoch(1);
         List<EpochClaim> history = current is null ? [] : [.. current.History];
-        history.Add(new EpochClaim { Epoch = epoch, Holder = instance, Trigger = trigger, ClaimedAt = new ClaimTime(clock.GetUtcNow()) });
+        history.Add(new EpochClaim { Epoch = epoch, Holder = instance, Trigger = trigger, ClaimedAt = new ClaimTime(clock.GetUtcNow()), Address = address });
         WriterRecord claimed = new() { Epoch = epoch, Holder = instance, History = history };
         byte[] bytes = WriterRecordFormat.Write(claimed);
 

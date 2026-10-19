@@ -141,7 +141,48 @@ public sealed class ObjectStorageTests
         record = Assert.IsType<WriterRecord>(await Backend.ReadWriterAsync(harness.Store, null, T.Ct));
         Assert.Equal(ReleaseReason.Shutdown, record.Released);
         Assert.Equal(ReleaseReason.Shutdown, Assert.Single(record.History).Released);
+        Assert.Null(record.History[0].Address);
     }
+
+    /// <summary>
+    /// A claim records the claimant's internal address, a close placed
+    /// elsewhere releases with the reason placement, and the next claim keeps
+    /// both in the history (ADRs 0168 and 0163).
+    /// </summary>
+    [Fact]
+    public async Task a_claim_records_its_address_and_a_placement_release_is_kept()
+    {
+        await using ObjectHarness harness = new();
+        ObjectStorageOptions basis = harness.Options(instance: "varve-0");
+        ObjectStorageOptions options = new()
+        {
+            Store = basis.Store,
+            Cache = basis.Cache,
+            Clock = basis.Clock,
+            Instance = basis.Instance,
+            ProbeRandomness = basis.ProbeRandomness,
+            Address = new WriterAddress("http://varve-0.varve-headless:8080"),
+        };
+        Backend first = await Backend.OpenAsync(options, T.Ct);
+        first.ReleaseOnClose = ReleaseReason.Placement;
+        await first.DisposeAsync();
+
+        Backend second = await harness.OpenAsync(instance: "varve-1");
+        WriterRecord record = Assert.IsType<WriterRecord>(await Backend.ReadWriterAsync(harness.Store, null, T.Ct));
+        Assert.Equal(new WriterEpoch(2), record.Epoch);
+        Assert.Equal(new WriterAddress("http://varve-0.varve-headless:8080"), record.History[0].Address);
+        Assert.Equal(ReleaseReason.Placement, record.History[0].Released);
+        Assert.Null(record.History[1].Address);
+        Assert.Equal(new WriterEpoch(2), second.Epoch);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("ftp://varve")]
+    [InlineData("varve-writer")]
+    [InlineData("http://varve writer")]
+    public void a_writer_address_is_an_absolute_http_url(string value) =>
+        Assert.Throws<ArgumentException>(() => new WriterAddress(value));
 
     [Fact]
     public async Task a_commit_is_one_create_and_reopens_from_the_chunks()

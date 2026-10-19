@@ -12,4 +12,10 @@ public enum ReleaseReason
 
     /// <summary>An operator took the epoch over and released it for the next writer.</summary>
     OperatorTakeover,
+
+    /// <summary>
+    /// The dataset was placed on another instance, which claims after it
+    /// observes this release (ADR 0163 point 12).
+    /// </summary>
+    Placement,
 }
