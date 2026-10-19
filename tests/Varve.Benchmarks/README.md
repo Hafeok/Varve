@@ -1473,3 +1473,56 @@ Not changed here, as the maintainer asked; the options are a listing that
 starts after the cursor's slot (a start-after on the object-store contract,
 ADR 0134), sealing a segment on a chunk count as well as on its bytes, or
 finding the newest chunk by reads rather than by a listing.
+
+## Milestone Extent maintenance — merges, retention, the shared commit index
+
+Run on the session's container, 2026-10-19. The commands:
+
+```sh
+Varve.Benchmarks --extent-maintenance <S|M> [fanOut] [maxSetMiB]   # 10, 50 and 100 checkpoints, with merges and without
+Varve.Benchmarks --objects <azurite|rustfs> M                        # cold start and the first read below the catalog
+```
+
+### Reads with merges (`--extent-maintenance M`, fan-out 4, 256 MiB)
+
+REC M on files, a checkpoint every hundredth of the history and
+maintenance to quiescence after each, then the chain reopened so it is the
+projection's base. Both halves in one run (ADR 0159's gate is relative,
+within a run); the load with checkpoints and maintenance took 157.5 s.
+
+| Checkpoints | Merges | Sets | Lookup p50 / p99 | A subject's quads p50 / p99 | Exact count p50 / p99 | As-of inside a set | As-of inside the largest set | As-of at a set's end |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|
+| 10 | without | 10 | 59.0 / 123.8 µs | 9.0 / 40.9 µs | 37.7 / 86.7 µs | 33.3 ms | 2,358 ms (182.8 MiB) | 0.0 ms |
+| 50 | without | 50 | 98.9 / 162.1 µs | 21.1 / 56.8 µs | 168.2 / 281.8 µs | 7.6 ms | 459 ms (37.8 MiB) | 0.1 ms |
+| 100 | without | 100 | 125.1 / 301.6 µs | 73.3 / 267.2 µs | 396.2 / 834.9 µs | 8.7 ms | 260 ms (18.6 MiB) | 0.2 ms |
+| 10 | with | 4 | 2.2 / 13.9 µs | 4.3 / 18.7 µs | 5.1 / 18.9 µs | 381.7 ms | 960 ms (70.1 MiB) | 0.0 ms |
+| 50 | with | 6 | 15.5 / 48.1 µs | 4.9 / 18.2 µs | 19.6 / 50.3 µs | 54.8 ms | 2,827 ms (210.8 MiB) | 0.0 ms |
+| 100 | with | 5 | 12.1 / 37.8 µs | 4.6 / 13.2 µs | 14.9 / 31.3 µs | 1,372.6 ms | 2,736 ms (210.8 MiB) | 0.0 ms |
+
+- **The gate** (ADR 0159): every head read at 100 checkpoints with merges is
+  within 1.5× of the 10-checkpoint row without, at p50 and p99 — below it;
+  the as-of read inside the largest set is 1.16× the 10-checkpoint chain's
+  largest set, within 2×. "As-of inside a set" reads a middle set, which in
+  REC M's front-loaded history is a small one; that column is not the gate.
+- **Write amplification:** 746,104,875 bytes rewritten for 420,451,740
+  checkpointed, 1.77 per byte.
+- **Sets after each tenth of the checkpoints:** 4, 3, 4, 8, 6, 10, 8, 6, 7,
+  5; the bound below half the cap is 15.
+- For reference, #92's absolute figures at 10 / 100 checkpoints without
+  merges: lookup p50 42.0 / 98.7 µs, a subject's quads 5.7 / 78.1 µs, an
+  exact count 28.3 / 354.0 µs (the table above).
+
+### Cold start and the first read below the catalog (`--objects`, M)
+
+| | Azurite | RustFS | #92: Azurite | #92: RustFS |
+|---|---:|---:|---:|---:|
+| cold start: open and a first read | 4.2 s | 6.4 s | 4.3 s | 7.0 s |
+| cold start requests | 1,066 | 1,066 | 1,054 | 1,054 |
+| first as-of read below the catalog | **6.0 s, 233 reads** | **3.5 s, 233 reads** | 27.7 s, 18,977 chunk reads | 10.1 s, the same |
+
+The first read below the catalog now reads the sets' commits blobs and the
+extents, not the log's chunks below the catalog (ADR 0161). The cold start is
+unchanged, as expected: its cost is still the listing of the open segment's
+19,745 chunks (5.7 s on RustFS, 1.5 s on Azurite). The Azurite load ran at
+64 commits/s against #92's 170: this Azurite was not started empty, and slows
+as earlier runs' blobs accumulate in it.

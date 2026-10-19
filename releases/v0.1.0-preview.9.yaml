@@ -38,7 +38,7 @@ summary: |
       `Varve:Store:ExtentMerges`.
     - At REC M after 100 checkpoints, head reads are faster than after 10
       without merges, and an as-of read inside the largest set is within
-      1.2× of it. Write amplification was 1.77.
+      1.16× of it. Write amplification was 1.77.
   - **Extent deletion by reader announcements** (ADR 0160). Every
     instance on an object store, the writer included, announces the oldest
     and newest catalog versions it reads in a reader record,

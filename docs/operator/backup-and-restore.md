@@ -76,10 +76,10 @@ half the cap, plus the capped ones. Measured on REC size M (5,049,846 quads,
 | | Without merges, 10 checkpoints | With merges, 100 checkpoints |
 |---|---:|---:|
 | Sets in the chain | 10 | 5 |
-| Head: a quad's lookup, p50 / p99 | 58 / 106 µs | 15 / 46 µs |
-| Head: one subject's quads, p50 / p99 | 8.7 / 43 µs | 6.9 / 21 µs |
-| Head: an exact count, p50 / p99 | 37 / 85 µs | 18 / 51 µs |
-| As-of inside the largest set | 2.3 s (183 MiB) | 2.8 s (211 MiB) |
+| Head: a quad's lookup, p50 / p99 | 59 / 124 µs | 12 / 38 µs |
+| Head: one subject's quads, p50 / p99 | 9.0 / 41 µs | 4.6 / 13 µs |
+| Head: an exact count, p50 / p99 | 38 / 87 µs | 15 / 31 µs |
+| As-of inside the largest set | 2.4 s (183 MiB) | 2.7 s (211 MiB) |
 | As-of at a set's end | < 0.1 ms | < 0.1 ms |
 
 **Write amplification** was 1.77: merges rewrote 746 MB for the 420 MB the

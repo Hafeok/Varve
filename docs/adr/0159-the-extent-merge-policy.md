@@ -90,13 +90,17 @@ gate.**
 
   | | Without merges, 10 sets | With merges, 100 checkpoints (5 sets) |
   |---|---:|---:|
-  | Head: a quad's lookup, p50 / p99 | 57.8 / 105.8 µs | 15.4 / 45.6 µs |
-  | Head: a subject's quads, p50 / p99 | 8.7 / 42.9 µs | 6.9 / 20.8 µs |
-  | Head: an exact count, p50 / p99 | 37.0 / 84.7 µs | 18.0 / 50.5 µs |
-  | As-of inside the largest set | 2,337 ms (183 MiB) | 2,760 ms (211 MiB) |
+  | Head: a quad's lookup, p50 / p99 | 59.0 / 123.8 µs | 12.1 / 37.8 µs |
+  | Head: a subject's quads, p50 / p99 | 9.0 / 40.9 µs | 4.6 / 13.2 µs |
+  | Head: an exact count, p50 / p99 | 37.7 / 86.7 µs | 14.9 / 31.3 µs |
+  | As-of inside the largest set | 2,358 ms (183 MiB) | 2,736 ms (211 MiB) |
 
   Every head read is within 1.5× of the 10-set row — below it, in fact — and
-  the as-of read inside the largest set is within 2× (1.18×).
+  the as-of read inside the largest set is within 2× (1.16×). The gate
+  compares the largest set of each chain: REC M's history is front-loaded, so
+  the 10-checkpoint chain's "inside a set" figure, at a middle set, reads a
+  small set (33 ms), and against it the merged chain's largest set would not
+  be within 2×. The first run of the same benchmark gave 1.18×.
 - **Write amplification:** merges rewrote 746 MB for 420 MB checkpointed over
   REC M's history, **1.77 bytes per byte**.
 - The as-of read at a set's end stays under 0.1 ms. An as-of read inside a
