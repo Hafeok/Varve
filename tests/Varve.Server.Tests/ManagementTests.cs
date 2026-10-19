@@ -224,6 +224,36 @@ public class ManagementTests
         }
     }
 
+    /// <summary>
+    /// <c>Varve:Manage:Urls</c> (ADR 0163 point 1): the management plane on a
+    /// listener of its own, and on it alone; the data plane not on it.
+    /// </summary>
+    [Fact]
+    public async Task A_management_listener_serves_the_management_plane_alone()
+    {
+        int port;
+
+        using (System.Net.Sockets.TcpListener probe = new(IPAddress.Loopback, 0))
+        {
+            probe.Start();
+            port = ((IPEndPoint)probe.LocalEndpoint).Port;
+        }
+
+        await using RunningServer server = await RunningServer.StartAsync(new Dictionary<string, string>
+        {
+            ["Varve:Auth:Mode"] = "Anonymous",
+            ["Varve:Datasets:d:Storage"] = "Memory",
+            ["Varve:Manage:Urls"] = "http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        });
+        using HttpClient manage = new() { BaseAddress = new Uri("http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/") };
+
+        Assert.Equal(HttpStatusCode.OK, (await manage.GetAsync(new Uri("manage/system", UriKind.Relative), Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await server.Client.GetAsync(new Uri("manage/system", UriKind.Relative), Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await manage.GetAsync(new Uri("datasets/d/sparql?query=ASK%7B%7D", UriKind.Relative), Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await server.Client.GetAsync(new Uri("datasets/d/sparql?query=ASK%7B%7D", UriKind.Relative), Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await manage.GetAsync(new Uri("health/live", UriKind.Relative), Ct)).StatusCode);
+    }
+
     /// <summary>A dataset's declaration, as TriG in its graph.</summary>
     internal static string Declaration(string name, string storage) =>
         "<urn:varve:from-config:" + name + "> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> \"" + name + "\" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#" + storage + "> .";

@@ -285,6 +285,15 @@ internal static partial class ServerHost
     private static void Configure(WebApplicationBuilder builder, ServerSettings settings, bool anonymous, HttpContextAccessor accessor, FleetHandle handle)
     {
         builder.WebHost.ConfigureKestrel(kestrel => kestrel.Limits.MaxRequestBodySize = settings.Limits.MaxRequestBody);
+
+        // The management plane's own listener (ADR 0163 point 1), beside the
+        // host's: the listeners are the host's URLs and these.
+        if (ManagementPorts(settings) is { Count: > 0 })
+        {
+            string listening = builder.Configuration["urls"] ?? builder.Configuration["ASPNETCORE_URLS"] ?? "http://localhost:5000";
+            builder.WebHost.UseUrls([.. listening.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries), .. settings.Manage.Urls!.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)]);
+        }
+
         IServiceCollection services = builder.Services;
         services.AddSingleton<IHttpContextAccessor>(accessor);
         services.AddSingleton(handle);
@@ -386,6 +395,22 @@ internal static partial class ServerHost
     private const string DataScheme = "data";
     private const string ManagementScheme = "manage";
 
+    // The ports of Varve:Manage:Urls; none when it is unset.
+    private static HashSet<int> ManagementPorts(ServerSettings settings)
+    {
+        HashSet<int> ports = [];
+
+        foreach (string url in (settings.Manage.Urls ?? string.Empty).Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (Uri.TryCreate(url.Replace("*", "localhost", StringComparison.Ordinal).Replace("+", "localhost", StringComparison.Ordinal), UriKind.Absolute, out Uri? parsed))
+            {
+                ports.Add(parsed.Port);
+            }
+        }
+
+        return ports;
+    }
+
     /// <summary>Whether a path is the management plane's.</summary>
     internal static bool IsManagement(PathString path) => path.StartsWithSegments("/manage");
 
@@ -484,6 +509,26 @@ internal static partial class ServerHost
 
     private static void Map(WebApplication app, ServerSettings settings, Fleet fleet, TimeProvider clock, bool anonymous, Outbound outbound, HttpMessageInvoker forwarder, Drain drain, CancellationToken stopping)
     {
+        // With a management listener, the management plane is served on it
+        // alone, and nothing else is (ADR 0163 point 1); health answers on both.
+        HashSet<int> managementPorts = ManagementPorts(settings);
+
+        if (managementPorts.Count > 0)
+        {
+            app.Use((context, next) =>
+            {
+                bool management = IsManagement(context.Request.Path);
+                bool health = context.Request.Path.StartsWithSegments("/health");
+
+                if (!health && management != managementPorts.Contains(context.Connection.LocalPort))
+                {
+                    return WriteProblemAsync(context, ProblemType.NotFound, null);
+                }
+
+                return next(context);
+            });
+        }
+
         // Request ids are unique across the fleet (ADR 0168 point 7).
         string instance = fleet.Instance.Value;
         app.Use((context, next) =>
