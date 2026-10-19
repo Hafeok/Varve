@@ -165,4 +165,65 @@ whole blob in memory before uploading it. The maintainer's answer:
 
 ## The report
 
-REPORT-PLACEHOLDER
+**ADRs.** Five, filed unaccepted (ADR 0066), with their decision sets:
+- **0158**: background merges, by the writer only. A merge writes, then swaps once under the fence, rebases onto a catalog swapped meanwhile, and is a pure function of its inputs. A taken name takes the next sequence. Uploads are staged through the cache, and a merge past the single-upload limit is refused.
+- **0159**: the merge policy, size-tiered with a fan-out of 4 and `MaxSetBytes` of 256 MiB.
+- **0160**: extent deletion by reader announcements. It covers the interval record, announce-then-confirm, and the writer's order: swap, then read the records, then delete. It also covers polling, a forgotten reader, an unannounced read, and a record of an unknown format.
+- **0161**: the shared commit index, the ninth blob in derived format 4.
+- **0162**: `varve storage`, the readers command and retention on readiness.
+
+`CS0618` is the one red.
+
+**What else changed**, by dated amendment (ADR 0068):
+- **0134**: a follower writes its reader record; the streamed create; the refusals for the identity.
+- **0138**: the chain is bounded by merges, and the checkpoint budget is removed.
+- **0139**: deletion and merges move to 0158 and 0160; the shared commit index; the catalog's sequence as its version. `DeletionWaitsForExtentMaintenance` moves to 0160's set.
+- `storage-format.md` gains the commits row in §7.5, the version note in §7.6, and the reader record as its own format with a version in §8.
+- Two problem types, both `503`: `reader-forgotten` and `read-unannounced-extent-gone`. `not-ready` gains `retention`.
+- The operator guide replaces the checkpoint budget with merges, retained bytes and the readers command. The Azure ABAC condition and the S3 prefix policy for `readers/` are in the Azure Container Apps page.
+
+**The departure from the plan.** The plan's tier rule needed a run of `F` sets in one tier. The policy property found chains it never merged: sizes alternating either side of a tier's edge. The rule became "similar sizes" (largest at most `F` times the smallest), plus a pressure rule past the bound. ADR 0159 records both and the alternative.
+
+**The gate's as-of reading, for the maintainer.** Ruling 4 compares "an as-of read inside the largest set" with "that run's 10-checkpoint as-of row". REC M's history is front-loaded, so the 10-checkpoint chain's "inside a set" column, at a middle set, reads a small set: 33 ms. Against it the merged chain's largest set, 2,736 ms, is not within 2×. The benchmark and ADR 0159 compare the largest set of each chain instead: 2,736 ms against 2,358 ms, 1.16×. If the ruling meant the middle-set column, the cap must come down, to near the 10-checkpoint chain's middle set, and the chain grows.
+
+**The properties and gates**, with counts and durations on this session's container:
+- **The policy** (`ExtentMergeTests.the_policy_keeps_its_bound_over_any_sequence_of_sets`): 500 generated sequences of sizes and fan-outs, merged to exhaustion after each arrival, never past the bound. 0.2 s.
+- **Merged projection equals the model** at every position across any schedule of checkpoints, drops and merges: 40 schedules (`VARVE_EXTENT_SCHEDULES` raises it), 0.9 s. A checkpoint or drop during a merge (above, split and drop) is kept, or abandons it, and the projection's runs are rebased. Under 0.1 s each.
+- **The reader schedule** (`ObjectReaderScheduleTests`): 60 schedules (`VARVE_READER_SCHEDULES`) of three readers, each holding several catalog versions at once. Readers announce, confirm, pin and release; the writer checkpoints, merges, drops and deletes; a writer is superseded and the superseded one keeps creating, checkpointing and merging. The checks: no extent a live announced version names is ever deleted, and every unnamed one is deleted once no record holds it. None of the superseded writer's sets is ever named, and none makes the new writer's checkpoint or merge fail (finding 1's property). 5.2 s. 1,200 schedules ran clean on demand.
+- **Faults at every extent write, catalog swap, record write and deletion**: 117 writes and 234 injection points. Structural checks run at each point, and the full comparison every 8th point (`VARVE_EXTENT_FAULTS_FULL=1` runs it at all). No reader is ever shown a catalog naming a missing extent. 37.7 s here; 20 s alone, and 31 s with every point in full.
+- **Reader records** (`ObjectExtentMaintenanceTests`), each under 0.3 s:
+  - a follower writes only its record, and an unannounced one writes nothing;
+  - a dead reader's record holds deletion until it restarts or is forgotten;
+  - a forgotten reader fails with `reader-forgotten`, and an unannounced read fails on a gone extent with `read-unannounced-extent-gone`, never with a wrong result;
+  - a `403` on the record fails the open, naming the role;
+  - a record of an unknown format holds every version;
+  - a taken name takes the next sequence.
+- **A follower across merges and deletions** on Azurite (12.2 s) and RustFS (3.1 s).
+- **A cold start reads no log header below the catalog's slot** and serves feed, as-of and by-time reads at every position, as an open of the whole log does (`ObjectColdStartTests`, 6.9 s).
+- **The server**: the storage command against Azurite, reporting sets and readers and forgetting only what it was shown (2.9 s). Readiness reports retention and never turns unready.
+- **Totals at the last run**, on the rebased head:
+  - `Varve.Store.Tests`: 320, 303 passed, 17 skipped (the real Azure account and the deep fault exploration, env-gated), 24 min 42 s.
+  - `Varve.Server.Tests`: 93, 87 passed, 6 skipped (the identity providers), 11.7 s.
+  - `Varve.Protocol.Tests`: 108 passed, 30.6 s.
+  - None failed. The new store tests add about 70 s on Linux here, 38 s of it the fault test. Windows was not measured in this session: its duration per OS is CI's to report on the pull request, and with #126's 53-minute Windows store step that figure is the one to watch.
+
+**Defects found by the properties, and fixed:**
+- **The policy stranded alternating sizes**: the tier rule above.
+- **An abandoned merge's output was not deleted promptly.** It now goes straight to deletion.
+- **A split's index held the replaced set**, so retention stayed high. The index's rebase now replaces the projection's base runs on a merge, a split or a drop-merge.
+- **Maintenance failed permanently when an announce failed with an `IOException`.** Maintenance and deletion now tolerate it, and the next round retries.
+- **A test-harness artifact**: two `Dataset`s writing one `MemoryStorage` while merges ran in the background ("does not read back"). Tests that open a second dataset run with merges off.
+- **`ExtentMergePolicy.DefaultMaxSetBytes` read as 0**, from static initialisation order.
+
+**Benchmarks** (`tests/Varve.Benchmarks/README.md`, the Extent maintenance section):
+- **REC M on files, one run.** Head reads at 100 checkpoints with merges (5 sets) beat the 10-checkpoint row without merges at p50 and p99: lookup 12.1 / 37.8 µs against 59.0 / 123.8 µs. The as-of read inside the largest set is 1.16× (above).
+- **Write amplification:** 1.77.
+- **The chain** held 3 to 10 sets after each tenth of the checkpoints; the bound is 15.
+- **The first as-of read below the catalog** now takes 233 reads: 6.0 s on Azurite and 3.5 s on RustFS, against #92's 27.7 s and 10.1 s over 18,977 chunk reads.
+- **The cold start** is unchanged, at 4.2 s and 6.4 s, and is still the listing of the open segment's chunks.
+
+**Not done here:**
+- `varve storage verify` waits for #117; ADR 0162 point 7 states its two checks.
+- Multipart uploads are a later decision (finding 4).
+
+**The release** is `v0.1.0-preview.9`. SHACL's #123 also claims preview.9; whichever lands second takes preview.10.
