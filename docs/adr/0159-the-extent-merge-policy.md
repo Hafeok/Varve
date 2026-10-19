@@ -103,9 +103,12 @@ gate.**
   be within 2×. The first run of the same benchmark gave 1.18×.
 - **Write amplification:** merges rewrote 746 MB for 420 MB checkpointed over
   REC M's history, **1.77 bytes per byte**.
-- The as-of read at a set's end stays under 0.1 ms. An as-of read inside a
-  merged set narrows a larger set than before. That is the trade the cap
-  bounds.
+- **The absolute cost.** An as-of read inside the largest set at REC M takes
+  **2,736 ms**. Narrowing rewrites the set's rows restricted to the window, so
+  it is O(set size), and the figure grows with `MaxSetBytes`: the cap is what
+  bounds it. Narrowing in O(matches) is a separate issue the maintainer is
+  taking; `MaxSetBytes` is not lowered for it here.
+- The as-of read at a set's end stays under 0.1 ms.
 
 ## Alternatives considered
 

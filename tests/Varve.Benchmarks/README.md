@@ -1504,6 +1504,9 @@ within a run); the load with checkpoints and maintenance took 157.5 s.
   the as-of read inside the largest set is 1.16× the 10-checkpoint chain's
   largest set, within 2×. "As-of inside a set" reads a middle set, which in
   REC M's front-loaded history is a small one; that column is not the gate.
+- **The absolute cost:** an as-of read inside the largest set at REC M takes
+  2,736 ms. Narrowing is O(set size), so it grows with `MaxSetBytes`; O(matches)
+  narrowing is a separate issue.
 - **Write amplification:** 746,104,875 bytes rewritten for 420,451,740
   checkpointed, 1.77 per byte.
 - **Sets after each tenth of the checkpoints:** 4, 3, 4, 8, 6, 10, 8, 6, 7,

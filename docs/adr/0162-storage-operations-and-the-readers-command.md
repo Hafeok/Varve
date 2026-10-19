@@ -119,6 +119,11 @@ lands, it gains two checks:
 - The settings gain `Varve:ObjectStorage:ReaderId` and
   `Varve:Store:ExtentMerges:{Enabled,FanOut,MaxSetBytes}`.
 - `docs/operator/` changes as point 6 says.
+- **Not in this milestone:**
+  - `varve storage verify` waits for #117 (point 7);
+  - multipart uploads stay a later decision. Until then a merge whose output
+    would pass the store's single-upload limit is refused before it starts
+    (ADR 0158).
 
 ## Checks
 

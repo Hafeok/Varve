@@ -186,6 +186,13 @@ whole blob in memory before uploading it. The maintainer's answer:
 
 **The gate's as-of reading, for the maintainer.** Ruling 4 compares "an as-of read inside the largest set" with "that run's 10-checkpoint as-of row". REC M's history is front-loaded, so the 10-checkpoint chain's "inside a set" column, at a middle set, reads a small set: 33 ms. Against it the merged chain's largest set, 2,736 ms, is not within 2×. The benchmark and ADR 0159 compare the largest set of each chain instead: 2,736 ms against 2,358 ms, 1.16×. If the ruling meant the middle-set column, the cap must come down, to near the 10-checkpoint chain's middle set, and the chain grows.
 
+The benchmark's gate fails visibly. The first run compared against the
+middle-set column and printed:
+
+```
+- as-of inside the largest set: 2760.2 against 31.1 × 2.0 = 62.1: OVER
+```
+
 **The properties and gates**, with counts and durations on this session's container:
 - **The policy** (`ExtentMergeTests.the_policy_keeps_its_bound_over_any_sequence_of_sets`): 500 generated sequences of sizes and fan-outs, merged to exhaustion after each arrival, never past the bound. 0.2 s.
 - **Merged projection equals the model** at every position across any schedule of checkpoints, drops and merges: 40 schedules (`VARVE_EXTENT_SCHEDULES` raises it), 0.9 s. A checkpoint or drop during a merge (above, split and drop) is kept, or abandons it, and the projection's runs are rebased. Under 0.1 s each.
@@ -226,4 +233,25 @@ whole blob in memory before uploading it. The maintainer's answer:
 - `varve storage verify` waits for #117; ADR 0162 point 7 states its two checks.
 - Multipart uploads are a later decision (finding 4).
 
-**The release** is `v0.1.0-preview.9`. SHACL's #123 also claims preview.9; whichever lands second takes preview.10.
+**The release** is the next free `0.1.0-preview.N` at landing; the
+descriptor says `v0.1.0-preview.9`. #123 holds preview.9, and whichever of
+#123, #110 and #131 lands later renumbers its descriptor (ADR 0102).
+
+**The reader contract with #105.** #105 part 1 (#131) has a no-op hook,
+`OnCatalogHeld`, where its follower holds a catalog version. Whichever of the
+two lands second wires it into `IExtentReaders.AnnounceAsync(oldest, newest)`.
+
+## Addendum, 2026-10-19: the maintainer's approval
+
+The maintainer approved and asked for the pull request:
+- **The as-of gate** reads like for like, the largest set against the largest
+  set (1.16×). ADR 0159 and the benchmarks README also state the absolute
+  figure, 2,736 ms at REC M, which grows with `MaxSetBytes` since narrowing
+  is O(set size). O(matches) narrowing is a separate issue; `MaxSetBytes` is
+  unchanged.
+- **The release number** is the next free one at landing.
+- **Windows time:** CI's per-OS durations for the store step are quoted on
+  the pull request and here once CI has run, against #126's figures: 8 min
+  before #116, 29 min on #116's pull request run, 53 min at its land.
+- **`varve storage verify`** and multipart uploads are stated in ADR 0162's
+  consequences.
