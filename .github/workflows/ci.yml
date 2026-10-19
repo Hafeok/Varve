@@ -327,12 +327,19 @@ jobs:
           --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Events.Tests
 
       - name: Test Varve.Store
+        # #126: about twice the slowest green run, so a hang fails in an hour
+        # rather than at the six-hour job limit; the hang dump fires first,
+        # when no test has ended for 15 minutes, and names the tests in flight.
+        # The longest gap between two tests ending was 9.0 minutes on Windows.
+        timeout-minutes: ${{ matrix.os == 'windows-latest' && 65 || 35 }}
         run: >
           dotnet test
           --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj
           --configuration Release
           --report-trx
           --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Store.Tests
+          --hangdump
+          --hangdump-timeout 15m
 
       - name: Store test durations
         # #126: the slowest tests and the classes that held the parallel slots,
@@ -627,6 +634,8 @@ jobs:
           exit 1
 
       - name: Test against them
+        # #126: about twice its slowest green run, with the hang dump below it.
+        timeout-minutes: 10
         env:
           VARVE_AZURITE: http://127.0.0.1:10000/devstoreaccount1
           VARVE_RUSTFS: http://127.0.0.1:9000,varvetest,varvetestsecret
@@ -638,6 +647,8 @@ jobs:
           --filter-namespace Varve.Store.Tests.Objects
           --report-trx
           --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Store.Tests
+          --hangdump
+          --hangdump-timeout 5m
 
       - name: Store test durations
         if: always()

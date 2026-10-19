@@ -122,7 +122,9 @@ jobs:
         run: dotnet test --project tests/Varve.Delta.Tests/Varve.Delta.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Delta.Tests
 
       - name: Test Varve.Store
-        run: dotnet test --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Store.Tests
+        # #126: the build job's Ubuntu limit and hang dump, for the same suite.
+        timeout-minutes: 35
+        run: dotnet test --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Store.Tests --hangdump --hangdump-timeout 15m
 
       - name: Test Varve.Xsd
         run: dotnet test --project tests/Varve.Xsd.Tests/Varve.Xsd.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Xsd.Tests

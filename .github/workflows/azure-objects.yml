@@ -62,6 +62,9 @@ jobs:
           echo "AZURE_FEDERATED_TOKEN_FILE=$RUNNER_TEMP/assertion" >> "$GITHUB_ENV"
 
       - name: Test against the storage account
+        # #126: two contract classes against a real account; the services
+        # leg's limit and hang dump, which run the same classes on emulators.
+        timeout-minutes: 10
         run: >
           dotnet test
           --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj
@@ -71,6 +74,8 @@ jobs:
           --filter-class Varve.Store.Tests.Objects.AzureAccountStorageContractTests
           --report-trx
           --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Store.Tests
+          --hangdump
+          --hangdump-timeout 5m
 
       - name: What-if for the Container Apps template
         env:
