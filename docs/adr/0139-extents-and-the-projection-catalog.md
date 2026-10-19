@@ -8,6 +8,15 @@
 named milestone, Extent maintenance — were decided by the maintainer on the
 Object storage plan, 2026-10-15.
 
+**Amended 2026-10-19** (ADR [0068](0068-dated-amendments.md)), by milestone
+Extent maintenance of #110, unaccepted until the maintainer accepts it
+(ADR 0066):
+- its section "Deletion waits for Extent maintenance" is superseded by
+  [ADR 0160](0160-extent-deletion-by-reader-announcements.md);
+- its deferral of merges by [ADR 0158](0158-background-extent-merges.md);
+- its cold start reads the shared commit index of
+  [ADR 0161](0161-the-shared-commit-index.md).
+
 Builds on [ADR 0138](0138-validity-intervals-in-the-default-projection.md),
 whose sets this ADR lays out, and on ADR 0140's T7. **Amends**
 [ADR 0071](0071-synchronous-reads-over-asynchronous-storage.md) (a blob read
@@ -207,3 +216,28 @@ record and the operator guide.
   serves at every position — feed, as-of, by time — what an open of the whole
   log serves; the first read below the catalog reads the headers once
   (`ObjectColdStartTests`).
+
+## Amendment, 2026-10-19 — merges, deletion and the shared commit index
+
+Filed by milestone Extent maintenance of #110, unaccepted until the
+maintainer accepts it (ADR 0066). No byte of derived format 4 changes.
+
+- **The catalog's sequence is its version.** Every swap advances it, a swap
+  that only drops the newest set included, so a set with sequence `s` is
+  named only by catalog versions after `s` (ADR 0160). A set's name and the
+  catalog version share the counter, so sequences have gaps.
+- **Merges run in the background** (ADR 0158). A set no catalog names is
+  deleted, on an object store, by the rule of reader announcements: after the
+  swap that removed it, once no reader record's interval meets the versions
+  that named it (ADR 0160). The ruling `DeletionWaitsForExtentMaintenance`
+  moves to ADR 0160's set under the same key, restated. No time-based grace
+  period is used, as this ADR promised.
+- **A set carries its window's commit index**, a ninth blob `commits` of
+  kind 4, in the store with the set's other blobs (ADR 0161). The commit
+  index of a set's window is then no longer "rebuilt by any instance and
+  never shared". The cold start reads the commit index below the catalog
+  from the sets' blobs, and the log's headers only for a set written without
+  one.
+- **A follower writes its reader record** under `readers/`, and nothing else
+  (ADR 0134, amended). "Followers read it and never write it" still holds of
+  the catalog.

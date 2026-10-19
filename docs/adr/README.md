@@ -311,6 +311,18 @@ Filed by milestone Client and integration, part 2 ([#93](https://github.com/Hafe
 | [0146](0146-the-register-for-events.md) | The register for events: the Event Hubs SDK in a sample, a schema validator in tests, and the emulator's images | Filed unaccepted (Client and integration, #93) |
 | [0147](0147-varve-json-canonical.md) | `Varve.Json.Canonical`: one RFC 8785 implementation, at layer 0; amends 0123 | Filed unaccepted (Client and integration, #93) |
 
+## Milestone Extent maintenance — background merges and extent deletion
+
+Filed by milestone Extent maintenance ([#110](https://github.com/Hafeok/Varve/issues/110)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered 0158–0162: SHACL holds 0148–0157 and the Management plane 0163 onward. Amended by it, likewise unaccepted: 0134 (a follower writes its reader record; the streamed create; refusals for the identity); 0138 (the chain bounded by merges, the checkpoint budget removed); 0139 (deletion and merges superseded, the shared commit index, the catalog's sequence as its version).
+
+| # | Title | Status |
+|---:|---|---|
+| [0158](0158-background-extent-merges.md) | Background merges of extent sets: only the writer merges, and a merge rebases on the catalog | Filed unaccepted (Extent maintenance, #110) |
+| [0159](0159-the-extent-merge-policy.md) | The extent merge policy: size-tiered with a fan-out and a cap, its bound and its write amplification | Filed unaccepted (Extent maintenance, #110) |
+| [0160](0160-extent-deletion-by-reader-announcements.md) | Extent deletion by reader announcements: readers announce an interval, and no timer; supersedes 0139 in part | Filed unaccepted (Extent maintenance, #110) |
+| [0161](0161-the-shared-commit-index.md) | The shared commit index: each extent set carries its window's commit index | Filed unaccepted (Extent maintenance, #110) |
+| [0162](0162-storage-operations-and-the-readers-command.md) | Storage operations: `varve storage`, the readers command, readiness, and the operator guide | Filed unaccepted (Extent maintenance, #110) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |
