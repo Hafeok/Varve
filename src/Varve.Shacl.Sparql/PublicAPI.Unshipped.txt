@@ -1,0 +1,3 @@
+#nullable enable
+Varve.Shacl.Sparql.SparqlConstraints
+static Varve.Shacl.Sparql.SparqlConstraints.Extension(Varve.Sparql.Evaluation.EvaluationOptions? options = null) -> Varve.Shacl.IShaclExtension!

@@ -18,6 +18,9 @@ namespace Varve.Conformance.Tests;
 /// </remarks>
 internal static class TestData
 {
+    /// <summary>The repository's root directory.</summary>
+    internal static string RepositoryRootPath => RepositoryRoot();
+
     /// <summary>The submodule root, whether or not it has been checked out.</summary>
     internal static string RdfTestsRoot { get; } =
         Path.Combine(RepositoryRoot(), "tests", "w3c", "rdf-tests");

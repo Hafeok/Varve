@@ -1473,3 +1473,44 @@ Not changed here, as the maintainer asked; the options are a listing that
 starts after the cursor's slot (a start-after on the object-store contract,
 ADR 0134), sealing a segment on a chunk count as well as on its bytes, or
 finding the newest chunk by reads rather than by a listing.
+
+## Milestone 8, part 1 — SHACL validation, against dotNetRDF
+
+**Machine.** Intel Xeon @ 2.10 GHz, 4 logical and 4 physical cores, 15 GiB RAM,
+Ubuntu 24.04.5 LTS, a cloud container. .NET SDK 10.0.401, runtime 10.0.12, X64
+RyuJIT `x86-64-v4`. BenchmarkDotNet 0.15.8, one warm-up and five iterations of
+one invocation each. Baseline: `dotNetRdf.Shacl` 3.5.2 (ADR 0156). Measured
+2026-10-17.
+
+**Workload.** `ShaclBenchmarks.cs` generates the data: people and companies,
+about six triples a person. One name in fifty is lower-case, ages run past
+the allowed range, and one person in a hundred knows a company, so every size
+has results. The shapes use SHACL Core only, components both engines
+implement: `sh:pattern`, `sh:datatype`, the ranges, the counts, `sh:nodeKind`,
+`sh:class` and a nested `sh:node`. The shapes are read inside the measurement
+for both engines. The data is loaded outside it: Varve's into a store, as one
+commit, validated through the store's pinned view; dotNetRDF's into a `Graph`.
+Before anything is timed, both engines must give the same verdict and the
+same number of results at each size.
+
+Rows are ordered by how close Varve came to dotNetRDF, as the slower-first rule
+asks; **no row is slower**.
+
+| Triples | Varve, store view | dotNetRDF | Varve's time | Allocated, Varve | Allocated, dotNetRDF | Results, both |
+|---:|---:|---:|---:|---:|---:|---:|
+| 10,000 | 32.4 ms ± 0.4 | 1,215.3 ms ± 112.5 | 0.03× (37× faster) | 6.33 MB | 650.05 MB | 201 |
+| 1,000,000 | 1,759.3 ms ± 90.4 | 131,750.9 ms ± 2,077.8 | 0.013× (75× faster) | 845.89 MB | 65,099.48 MB | 20,061 |
+| 100,000 | 84.3 ms ± 15.4 | 12,288.7 ms ± 316.6 | 0.007× (146× faster) | 72.82 MB | 6,511.92 MB | 2,001 |
+
+**The smallest size is the closest because Varve's fixed costs dominate it**:
+reading the shapes graph and the first touch of the store's dictionary.
+dotNetRDF grows about linearly with the data, roughly 12 s per 100,000
+triples. Varve's 1,000,000 row is twenty times its 100,000 row for ten times
+the data. That row allocates 846 MB: the value-node lists, the memo tables of
+`shacl-hot-path-scope`, and the 20,061 results with their report.
+
+**Not measured here: validation over an `InMemoryDataset`.** That source
+answers every match by a scan, so validation over it is quadratic in the
+data: 200 ms at 10,000 triples, against 17 ms over the store view in a dry
+run. `ShaclBenchmarks` checks its agreement at the smallest size and does not
+time it.

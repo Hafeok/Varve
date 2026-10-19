@@ -84,6 +84,7 @@ public readonly struct XsdBoolean : IEquatable<XsdBoolean>, IComparable<XsdBoole
     public override string ToString() => Value ? "true" : "false";
 
     /// <summary><c>op:boolean-less-than</c>: <c>false &lt; true</c>.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public int CompareTo(XsdBoolean other) => Value.CompareTo(other.Value);
 
     /// <inheritdoc />

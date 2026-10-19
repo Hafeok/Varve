@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 3 (ADR 0148): SHACL Core over the quad source contract, beside
+         the evaluator and never referencing it. SHACL-SPARQL is
+         Varve.Shacl.Sparql, one layer up, through the extension contract
+         this package defines; the store integration is a layer 5 package. -->
+    <ArchLayer>3</ArchLayer>
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <Description>A SHACL 1.2 Core validator over any IQuadSource: targets, paths, the core constraint components, recursive shapes by a stated fixpoint, and a deterministic validation report; SHACL-SPARQL plugs in through Varve.Shacl.Sparql.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
+    <ProjectReference Include="../Varve.Iri/Varve.Iri.csproj" />
+    <ProjectReference Include="../Varve.Xsd/Varve.Xsd.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Varve.Shacl.Tests" />
+  </ItemGroup>
+
+</Project>

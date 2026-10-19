@@ -350,6 +350,18 @@ jobs:
           --project tests/Varve.Sparql.Store.Tests/Varve.Sparql.Store.Tests.csproj
           --configuration Release
 
+      - name: Test Varve.Shacl
+        run: >
+          dotnet test
+          --project tests/Varve.Shacl.Tests/Varve.Shacl.Tests.csproj
+          --configuration Release
+
+      - name: Test Varve.Shacl.Sparql
+        run: >
+          dotnet test
+          --project tests/Varve.Shacl.Sparql.Tests/Varve.Shacl.Sparql.Tests.csproj
+          --configuration Release
+
       - name: Test Varve.Protocol
         run: >
           dotnet test

@@ -28,12 +28,18 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Varve.Store/Varve.Store.csproj" />
     <ProjectReference Include="../../src/Varve.Store.Browser/Varve.Store.Browser.csproj" />
+    <!-- SHACL, part 1 (#120): the AOT smoke's SHACL file, run here too. -->
+    <ProjectReference Include="../../src/Varve.Turtle/Varve.Turtle.csproj" />
+    <ProjectReference Include="../../src/Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
+    <ProjectReference Include="../../src/Varve.Shacl/Varve.Shacl.csproj" />
+    <ProjectReference Include="../../src/Varve.Shacl.Sparql/Varve.Shacl.Sparql.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- The storage contract's cases, the same file xunit runs on the
          desktop backends. -->
     <Compile Include="../Varve.Store.Tests/StorageContractCases.cs" Link="StorageContractCases.cs" />
+    <Compile Include="../Varve.AotSmoke/Shacl.cs" Link="ShaclSmoke.cs" />
   </ItemGroup>
 
   <ItemGroup>

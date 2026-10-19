@@ -1,0 +1,127 @@
+# SHACL shapes for the event declaration vocabulary (ADR 0157), against
+# docs/spec/events.md §3.2, with one catalogue graph as the data graph.
+#
+# SHACL Core only. What Core cannot state, EventDeclarations checks alone: the
+# SELECT parses and projects exactly the fields and the subject; the subject is
+# not a field; field names are unique within one type; the graph holds no
+# blank node, no unknown varve: term and no node that is neither a type nor a
+# field; a short name is not taken across catalogue graphs; the graph is a
+# source graph's catalogue; and the version history (ADR 0145).
+
+@prefix sh:    <http://www.w3.org/ns/shacl#> .
+@prefix varve: <https://w3id.org/varve/ns#> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+
+varve:EventTypeShape
+    a sh:NodeShape ;
+    rdfs:comment "A type node: an event type's declaration (docs/spec/events.md §3.2)." ;
+    sh:targetClass varve:EventType ;
+    sh:nodeKind sh:IRI ;
+    sh:not [ sh:class varve:EventField ] ;
+    # §3.2: a class belongs to one type node within one catalogue graph.
+    sh:uniqueValuesFor varve:eventClass ;
+    sh:property [
+        sh:path rdf:type ;
+        sh:in ( varve:EventType ) ;
+    ] ;
+    sh:property [
+        sh:path varve:eventName ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:pattern "^[A-Za-z][A-Za-z0-9._-]{0,127}$" ;
+    ] ;
+    sh:property [
+        sh:path varve:eventClass ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+    ] ;
+    sh:property [
+        sh:path varve:eventVersion ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 1 ;
+        sh:maxInclusive 2147483647 ;
+    ] ;
+    sh:property [
+        sh:path varve:eventSelect ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path varve:eventSubject ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:pattern "^[A-Za-z_][A-Za-z0-9_]{0,63}$" ;
+    ] ;
+    sh:property [
+        sh:path varve:eventRetired ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:boolean ;
+    ] ;
+    sh:property [
+        sh:path rdfs:comment ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path varve:eventField ;
+        sh:class varve:EventField ;
+    ] .
+
+varve:EventFieldShape
+    a sh:NodeShape ;
+    rdfs:comment "A field node: one field of one event type (docs/spec/events.md §3.2)." ;
+    sh:targetClass varve:EventField ;
+    sh:nodeKind sh:IRI ;
+    sh:property [
+        sh:path rdf:type ;
+        sh:in ( varve:EventField ) ;
+    ] ;
+    sh:property [
+        sh:path varve:fieldName ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:pattern "^[A-Za-z_][A-Za-z0-9_]{0,63}$" ;
+        # "event" is the event node's variable.
+        sh:not [ sh:in ( "event" ) ] ;
+    ] ;
+    sh:property [
+        sh:path varve:fieldDatatype ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+    ] ;
+    sh:property [
+        sh:path varve:fieldRequired ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:boolean ;
+    ] ;
+    sh:property [
+        sh:path varve:fieldAs ;
+        sh:maxCount 1 ;
+        sh:in ( "string" ) ;
+    ] ;
+    sh:property [
+        sh:path varve:fieldKeepLanguage ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:boolean ;
+    ] ;
+    sh:property [
+        sh:path rdfs:comment ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+    ] ;
+    # §3.2: a field node belongs to one type node.
+    sh:property [
+        sh:path [ sh:inversePath varve:eventField ] ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] .
