@@ -964,9 +964,18 @@ jobs:
             <urn:ci:writers> a varve:Grant ; varve:grantee <urn:ci:write> ; varve:permission varve:write ; varve:allGraphs true .
           }
           TRIG
+          # mock-oauth2-server takes a client assertion only when its subject is
+          # the client id (RFC 7523 §3), where Entra maps the subject through a
+          # federated credential to its own client id. So the client here is
+          # named by the job token's subject, read from that token, and the
+          # fixture's management mapping matches on the scope instead.
+          subject=$(curl --silent --fail \
+            --header "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://varve-ci" \
+            | python3 -c 'import base64, json, sys; p = json.load(sys.stdin)["value"].split(".")[1]; print(json.loads(base64.urlsafe_b64decode(p + "=" * (-len(p) % 4)))["sub"])')
           "${{ github.workspace }}/artifacts/server-aot/Varve.Server" apply "$RUNNER_TEMP/d.trig" \
             --server http://localhost:8090 \
-            --authority http://localhost:8080/varve --client-id varve-deployer \
+            --authority http://localhost:8080/varve --client-id "$subject" \
             --client-assertion github --assertion-audience api://varve-ci \
             --scope api://varve-manage
 

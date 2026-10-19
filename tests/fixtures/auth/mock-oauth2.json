@@ -16,10 +16,10 @@
           }
         },
         {
-          "requestParam": "client_id",
-          "match": "varve-deployer",
+          "requestParam": "scope",
+          "match": "api://varve-manage",
           "claims": {
-            "sub": "varve-deployer",
+            "sub": "${clientId}",
             "aud": [ "api://varve-manage" ],
             "roles": [ "varve.operator" ]
           }
