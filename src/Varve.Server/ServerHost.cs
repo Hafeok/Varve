@@ -734,6 +734,18 @@ internal static partial class ServerHost
         });
     }
 
+    // The dataset a data-plane path names: /datasets/{name}/….
+    private static DatasetName? DatasetOf(PathString path)
+    {
+        if (!path.StartsWithSegments("/datasets", out PathString rest) || rest.Value is not { Length: > 1 } tail)
+        {
+            return null;
+        }
+
+        int end = tail.IndexOf('/', 1);
+        return DatasetName.TryParse(end < 0 ? tail[1..] : tail[1..end], out DatasetName name) ? name : null;
+    }
+
     /// <summary>The header a request names the least management position it may be served at with (ADR 0163 point 3).</summary>
     internal const string MinManagementPositionHeader = "Varve-Min-Management-Position";
 
@@ -772,6 +784,17 @@ internal static partial class ServerHost
                 }).ConfigureAwait(false);
                 return;
             }
+        }
+
+        // A write to a dataset whose log already records a later management
+        // position than this instance applied: the system follower is
+        // advanced once before the write is authorised, so it is decided by
+        // grants at least that recent (ADR 0165 point 5).
+        if (!HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method)
+            && DatasetOf(context.Request.Path) is { } written
+            && fleet.Recorded(written).Value > fleet.Current.Table.Position.Value)
+        {
+            await fleet.AdvanceAsync(context.RequestAborted).ConfigureAwait(false);
         }
 
         Fleet.Snapshot snapshot = fleet.Current;

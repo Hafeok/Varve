@@ -313,6 +313,9 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
     public ICommitValidator OrderOf(DatasetName dataset, ManagementPosition authorised) => _order.Validator(dataset, authorised);
 
+    /// <summary>The highest management position <paramref name="dataset"/>'s log records, as this writer knows (ADR 0165).</summary>
+    internal ManagementPosition Recorded(DatasetName dataset) => _order.Highest(dataset);
+
     /// <summary>
     /// Advances the system dataset once, when this instance follows it,
     /// compiles the grants at the position reached when it moved, and converges
