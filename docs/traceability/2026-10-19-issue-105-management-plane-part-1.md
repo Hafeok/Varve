@@ -251,3 +251,26 @@ session's own runs; other operating systems are CI's.
 | `Varve.Events.Tests` | 64 | 6 s |
 | `Varve.Store.Tests`, without the services | 258 (54 skipped) | 1,420 s |
 | `Varve.Conformance.Tests` | 10,428, the 12 exemptions failing as listed; the ratchet: 0 regressed | 31 s |
+
+**CI, at 12af650 (main merged in, the decisions accepted).** The jobs the
+session could not run here, on CI's services (ubuntu-24.04 runners):
+
+| Job | Tests | Duration |
+|---|---:|---:|
+| fleet (services): `FleetTests` on Azurite | 4 | 11 s |
+| storage (services): `Varve.Store.Tests` objects, Azurite and RustFS | 99 (16 skipped: the real-cloud legs) | 201 s |
+| storage (services): `ObjectStorageServerTests` | 4 | 3 s |
+| auth (mock-oauth2): `ProviderTests` | 2 (4 skipped: other providers) | 1 s |
+| auth (zitadel): `ProviderTests` | 2 (4 skipped: other providers) | 7 s |
+
+The container leg's `varve apply` by workload identity federation failed
+there on its first run: mock-oauth2-server takes a client assertion only
+when its subject is the client id (RFC 7523 §3), and a job token's subject
+is `repo:…`. The leg now names the client by the token's subject, reproduced
+and fixed against the pinned mock image before the push.
+
+build (ubuntu-latest), the unit suites with the decisions accepted:
+`Varve.Store.Tests` 258 (54 skipped) in 606 s; `Varve.Server.Tests` 88
+(1 skipped) in 8 s; `Varve.Protocol.Tests` 113 in 15 s;
+`Varve.Protocol.Client.Tests` 117 in 3 s; `Varve.Management.Tests` 25;
+`Varve.Events.Tests` 97; every other suite passing.
