@@ -208,3 +208,28 @@ is too small, the bulk gate (`--bulk-gate … --crash-every-record` in
 `tests/Varve.Benchmarks`) opens the real log cut at the start of and one byte
 into every record of the load's commit, with `derived/` as it was before the
 load, without copying it (`CutStorage`).
+
+## 7. How long the tests take
+
+Every `dotnet test` step in CI writes a TRX and uploads it, pass or fail,
+and the store's steps write their slowest tests, and the classes that held
+the parallel slots, to the job summary (`eng/test-durations.cs`, #126). A
+slow run is explained from its own artifacts; two runs compare test by test.
+Each store step has a time limit at about twice its slowest green run, and a
+hang dump below it that names the tests in flight.
+
+Some searches are wider than a pull request can wait for. Each such test
+explores a pull request's share of its space by default, and the whole of
+it when its variable is set. **The property is the same at either depth**;
+only how much of the space is searched changes, and the pull request's share
+is a subset of the nightly's. The nightly run (`.github/workflows/nightly.yml`,
+on `main`) sets every variable below.
+
+| Variable | Test | Pull request | Nightly |
+|---|---|---:|---:|
+| `VARVE_FAULT_RECOVERY_STRIDE` | `FaultInjectionTests.a_crash_during_recovery_recovers`: crashes the workload at every *n*th operation, then crashes its recovery at every operation | 25 (11,753 points) | 5 (57,679 points) |
+
+The variables of §6 that hunt rather than gate (`VARVE_FAULT_SEEDS`,
+`VARVE_OBJECT_FAULT_SEEDS`, `VARVE_OBJECT_FAULT_STEPS`,
+`VARVE_HTTP_FAULT_STEPS`) stay what they were: the nightly run sets some of
+them too, and none of them is a pull request's gate.

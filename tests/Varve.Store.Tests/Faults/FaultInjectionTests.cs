@@ -759,17 +759,20 @@ public sealed class FaultInjectionTests
     /// <summary>
     /// A crash during recovery itself — while it seals an abandoned tail,
     /// deletes stale derived files, or continues the log — at every operation
-    /// recovery performs, after a process crash at every fifth operation of
-    /// the workload. The second restart recovers as the first would have.
+    /// recovery performs, after a process crash at every 25th operation of the
+    /// workload, or every <c>VARVE_FAULT_RECOVERY_STRIDE</c>th: the nightly
+    /// run's 5 was the gate's until #126, and is about 57,700 points. The
+    /// second restart recovers as the first would have.
     /// </summary>
     [Fact]
     public async Task a_crash_during_recovery_recovers()
     {
         const int seed = 6601, steps = 24;
+        int stride = Depth.Of("VARVE_FAULT_RECOVERY_STRIDE", 25);
         Reference reference = await ReferenceAsync(seed, steps);
         int points = 0;
 
-        for (int operation = 1; operation <= reference.Operations; operation += 5)
+        for (int operation = 1; operation <= reference.Operations; operation += stride)
         {
             int at = operation;
             (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null);
@@ -812,7 +815,7 @@ public sealed class FaultInjectionTests
             }
         }
 
-        Report("crash during recovery: " + points + " injection points");
+        Report("crash during recovery, every " + stride + "th operation: " + points + " injection points");
     }
 
     /// <summary>

@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -24,6 +25,19 @@ internal sealed class ManualClock : TimeProvider
     public override DateTimeOffset GetUtcNow() => Now;
 
     public static ManualClock Epoch() => new(new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.Zero));
+}
+
+/// <summary>
+/// How much of a long search a run makes: the pull request's amount, or the
+/// one its variable names, which the nightly run sets (#126; docs/testing.md,
+/// "How long the tests take"). The property searched is the same at either.
+/// </summary>
+internal static class Depth
+{
+    public static int Of(string variable, int pullRequest) =>
+        int.TryParse(Environment.GetEnvironmentVariable(variable), NumberStyles.None, CultureInfo.InvariantCulture, out int value) && value > 0
+            ? value
+            : pullRequest;
 }
 
 internal static class T
