@@ -236,6 +236,18 @@ The follower property over generated histories runs 60 iterations
   released the old role before opening the new one, so a write between them
   was answered 404; and an idle system writer did not learn it had been
   superseded until it wrote.
+- **A third, found by CI under load** (`fleet (services)` at 5cd2775, about
+  one run in twelve): a mistaken second system writer left the dataset it
+  was placed on superseded for good. A failed open tried again claimed
+  without reading the writer record, so it could fence a writer placed
+  since; and a writer superseded where it is placed never took the dataset
+  back when the newer holder released it for placement, as the mistaken
+  writer does once it learns of its supersession. A retried open now claims
+  from a release, as a placement change does; a superseded writer claims on
+  a placement release (never on an operator's, ADR 0136), releasing its
+  cache's lease first. The test also polled readiness above the health
+  endpoints' 60 a minute. Four concurrent loops of the fleet tests, 40 runs:
+  no failure, against one in 30 before the lease fix.
 
 **Durations, Linux x64 (the session's container).** Recorded from the
 session's own runs; other operating systems are CI's.

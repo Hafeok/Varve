@@ -240,8 +240,29 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             return;
         }
 
-        if (entry.State == DatasetState.Open && entry.Role == role && !entry.AwaitingRelease)
+        if (entry.State == DatasetState.Open && entry.Role == role && !entry.AwaitingRelease && !(role == DatasetRole.Writer && entry.Superseded))
         {
+            return;
+        }
+
+        if (entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer && role == DatasetRole.Writer && entry.Superseded)
+        {
+            // Superseded where it is placed: it stays superseded, serving
+            // reads, and never claims on its own (ADR 0136), unless the newer
+            // holder handed the dataset over by releasing it for placement
+            // (ADR 0163 point 12), as a mistaken system writer does once it
+            // learns it was superseded.
+            WriterRecord? handed = await _objects!.ReadWriterAsync(name, cancellationToken).ConfigureAwait(false);
+
+            if (handed is not { Released: ReleaseReason.Placement } || handed.Holder == placement.Instance)
+            {
+                return;
+            }
+
+            // The superseded writer holds the local cache's lease, which the
+            // claim needs, and serves only reads: it is released first.
+            await entry.ReleaseAsync().ConfigureAwait(false);
+            await OpenEntryAsync(name, entry, DatasetRole.Writer, wait: true, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -250,13 +271,15 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         {
             entry.AwaitingRelease = false;
         }
-        else if (entry.Storage == DatasetStorage.ObjectStorage && ((!fresh && entry.Role != DatasetRole.Writer) || entry.AwaitingRelease))
+        else if (entry.Storage == DatasetStorage.ObjectStorage && (!fresh || entry.AwaitingRelease))
         {
             // A placement change, by events (ADR 0163 point 12): the newly
             // placed instance claims once it observes the old writer's
             // release. Until then it follows. At start an instance claims
             // its placement whatever the record says, fencing any
-            // predecessor: the orchestrator's restart is the recovery.
+            // predecessor: the orchestrator's restart is the recovery. A
+            // failed open tried again is not a start: it claims only from a
+            // release too, or it would fence a writer placed since.
             WriterRecord? record = await _objects!.ReadWriterAsync(name, cancellationToken).ConfigureAwait(false);
 
             if (record is { Released: null } && record.Holder != placement.Instance)

@@ -129,7 +129,7 @@ public sealed class FleetTests : IAsyncDisposable
 
         JsonDocument? management = null;
 
-        for (int attempt = 0; attempt < 100; attempt++)
+        for (int attempt = 0; attempt < 40; attempt++)
         {
             HttpResponseMessage ready = await a.Http.GetAsync(new Uri(a.Address, "health/ready"), Ct);
             using JsonDocument body = JsonDocument.Parse(await ready.Content.ReadAsStringAsync(Ct));
@@ -140,11 +140,14 @@ public sealed class FleetTests : IAsyncDisposable
                 break;
             }
 
-            await Task.Delay(100, Ct);
+            await Task.Delay(1000, Ct);
         }
 
         Assert.NotNull(management);
-        Assert.Equal(HttpStatusCode.OK, (await b.Http.GetAsync(new Uri(b.Address, "health/ready"), Ct)).StatusCode);
+
+        // b is ready once it has opened what the system dataset declares,
+        // which can follow a's supersession by a reconcile round.
+        await WaitReadyAsync(b, a, container);
 
         StringWriter output = new() { NewLine = "\n" };
         Assert.Equal(0, await Varve.Server.Commands.Cli.RunAsync(["lease", container + "/_fleet"], new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct));
@@ -256,6 +259,29 @@ public sealed class FleetTests : IAsyncDisposable
         }
 
         Assert.Fail(server.Instance + " did not hold " + dataset + " as " + role + " at system position " + position + ":\n" + server.Log);
+    }
+
+    private static async Task WaitReadyAsync(Server server, Server other, Uri container)
+    {
+        string last = string.Empty;
+
+        // Within the health endpoints' 60 probes a minute (ADR 0113).
+        for (int attempt = 0; attempt < 40; attempt++)
+        {
+            HttpResponseMessage ready = await server.Http.GetAsync(new Uri(server.Address, "health/ready"), Ct);
+
+            if (ready.StatusCode == HttpStatusCode.OK)
+            {
+                return;
+            }
+
+            last = await ready.Content.ReadAsStringAsync(Ct);
+            await Task.Delay(1000, Ct);
+        }
+
+        StringWriter lease = new() { NewLine = "\n" };
+        await Varve.Server.Commands.Cli.RunAsync(["lease", container + "/d"], new Varve.Server.Commands.Io(lease, new StringWriter(), new MemoryStream()), Ct);
+        Assert.Fail(server.Instance + " did not become ready: " + last + "\nd's writer record:\n" + lease + "\n" + server.Instance + ":\n" + server.Log + "\n" + other.Instance + ":\n" + other.Log);
     }
 
     private static Task<HttpResponseMessage> Update(Server server, string dataset, string update) =>
