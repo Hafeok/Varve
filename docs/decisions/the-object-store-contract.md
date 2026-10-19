@@ -41,6 +41,8 @@ decisions:
     accepted-at: 2026-10-17T00:00:00Z
   - key: AFollowerWritesOnlyItsReaderRecord
     statement: "A follower writes one object, its reader record under readers/, and its identity's write access is scoped to that prefix; it still never writes the log, the writer record, the catalog or an extent"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-19T18:03:53Z
 ---
 
 The rulings of [ADR 0134](../adr/0134-the-object-store-contract.md), filed unaccepted by milestone
