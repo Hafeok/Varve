@@ -19,7 +19,7 @@ describes the flow between the two.
 | Commit path | [#91](https://github.com/Hafeok/Varve/issues/91) | | Object storage | [#92](https://github.com/Hafeok/Varve/issues/92) |
 | Client and integration | [#93](https://github.com/Hafeok/Varve/issues/93) | | Learning track | [#94](https://github.com/Hafeok/Varve/issues/94) |
 | Inference | [#95](https://github.com/Hafeok/Varve/issues/95) | | Web UI | [#96](https://github.com/Hafeok/Varve/issues/96) |
-| Replication | [#97](https://github.com/Hafeok/Varve/issues/97) | | | |
+| Replication | [#97](https://github.com/Hafeok/Varve/issues/97) | | Management plane | [#105](https://github.com/Hafeok/Varve/issues/105) |
 
 ## 1 — Foundation *(complete)*
 
@@ -536,7 +536,8 @@ landing decides the number. Only released and in-flight numbers are shown.
 | — | **Object storage**: the log and the projections on any object store, Azure first | next free | Commit path | issue #92 (built; PR pending) |
 | — | **Extent maintenance**: background merges and extent deletion | next free | Object storage | issue #110 |
 | — | **Client and integration**, part 2: events, catalogue, schema registry, AsyncAPI | next free | part 1 | issue #93 |
-| — | **Management plane**: fleet system dataset, grants as code, `varve apply` | next free | Commit path, Object storage, Client and integration | issue #105 |
+| — | **Management plane**, part 1: fleet system dataset, grants as code, `varve apply`, forwarding | `preview.10` | Commit path, Object storage, Client and integration | issue #131 (part 1 landed) |
+| — | **Management plane**, part 2: event schemas in the management plane | next free | part 1 | issue #105 |
 | — | **Learning track**: Varve for SQL developers and DDD practitioners | next free | Client and integration, Management plane | issue #94 |
 | 8 | SHACL: validator, commit-time gating, incremental validation | next free | — (#87 landed) | issue #13 |
 | — | **Inference**: RDFS by rewriting, OWL 2 RL and rules as a projection | next free | 8 | issue #95 |
@@ -704,10 +705,11 @@ IRIs, roles or groups, graph sets as IRIs or caller templates.
 `varve apply --plan` and `apply` as an RDFC-1.0 diff committed under
 `Varve-If-Graphs-Match`, drift checked in CI with workload identity
 federation. Bootstrap operators in host configuration, recorded on first
-write. Embedded hosts have no management plane. In two releases: part 1 is
-everything above (ADRs 0163–0166, 0168), with event schemas still in the
-catalogue graphs and refused in management graphs; part 2 moves them to the
-management plane (ADR 0167) and closes the milestone.
+write. Embedded hosts have no management plane. In two releases: part 1
+(#131, `preview.10`, landed) is everything above (ADRs 0163–0166, 0168),
+with event schemas still in the catalogue graphs and refused in management
+graphs; part 2 moves them to the management plane (ADR 0167) and closes the
+milestone.
 
 **Gate.** `apply` idempotent; stale saved plans refused; disjoint applies
 never conflict; over generated grant histories, no response at position p
