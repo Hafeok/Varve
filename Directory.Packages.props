@@ -175,7 +175,7 @@
     |=======|=====|=========|===========|
     | ghcr.io/navikt/mock-oauth2-server | 6.0.4 | MIT | .github/mock-oauth2/compose.yaml |
     | ghcr.io/zitadel/zitadel | v4.19.4 | AGPL-3.0 (run, never linked or shipped) | .github/zitadel/compose.yaml |
-    | public.ecr.aws/docker/library/postgres | 18.6-alpine | PostgreSQL | .github/zitadel/compose.yaml |
+    | public.ecr.aws/docker/library/postgres | 18.6-alpine | PostgreSQL | .github/zitadel/compose.yaml, which pulls the same digest from ghcr.io/hafeok/varve-ci/postgres (#118) |
     | mcr.microsoft.com/azure-storage/azurite | 3.37.0 | MIT | .github/storage/compose.yaml (ADR 0134) |
     | ghcr.io/rustfs/rustfs | 1.0.1 | Apache-2.0 | .github/storage/compose.yaml (ADR 0134) |
     | mcr.microsoft.com/azure-messaging/eventhubs-emulator | 2.2.1 | Microsoft's emulator licence, accepted by ACCEPT_EULA=Y (run in CI, never linked or shipped; ADR 0146) | .github/eventhubs/compose.yaml |

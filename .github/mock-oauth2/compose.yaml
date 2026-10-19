@@ -6,6 +6,9 @@
 # Its issuer is http://localhost:8080/varve, configured by the committed
 # tests/fixtures/auth/mock-oauth2.json. Pinned by digest, resolved from ghcr.io
 # when this file was written (2026-10-07); ghcr.io has no anonymous pull limit.
+#
+# Each digest is also in .github/ci-images.yaml, the list the CI image mirror
+# copies from (#118): a bump changes both.
 
 name: varve-mock-oauth2
 
