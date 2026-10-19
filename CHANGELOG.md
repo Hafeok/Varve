@@ -12,7 +12,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-## [0.1.0-preview.9] - 2026-10-19
+## [0.1.0-preview.10] - 2026-10-19
 
 **Extent maintenance — background merges and extent deletion**
 
@@ -87,6 +87,80 @@ and accepted on the pull request (ADR 0066).
   `read-unannounced-extent-gone`; the `not-ready` problem gains
   `retention`.
 - The operator guide's checkpoint budget is removed.
+
+## [0.1.0-preview.9] - 2026-10-17
+
+**SHACL, part 1 — the standalone validator**
+
+### Milestone 8, SHACL, part 1 — the standalone validator
+
+A SHACL validator over any quad source. This release completes the first
+part of milestone 8 (#120, under #13). Commit-time gating, the validation
+projection, incremental validation and the REC gate are part 2. The storage
+format and the change feed's format are unchanged. The ten ADRs are filed
+unaccepted and accepted on the pull request (ADR 0066).
+
+#### Added
+
+- **`Varve.Shacl`** (layer 3, ADR 0148): SHACL 1.2 Core, as of the Working
+  Draft of 2026-10-14, over any `IQuadSource`, with the shapes graph read
+  from any `IQuadSource` (ADR 0155).
+  - Every target and every core component, SHACL paths, and SHACL
+    instances without entailment.
+  - Where SHACL 2017 and the 1.2 draft conflict, 1.2 is followed, and the
+    cases are exempted by name (ADR 0149). The W3C suites of both run under
+    the ratchet: every Core case passes.
+  - `ShapesGraph.Load` reads a shapes graph once and refuses an ill-formed
+    one with a `ShaclProblem` naming the shape and the rule.
+    `ShaclValidator.Validate` answers a `ValidationReport` or the problems
+    that stopped it. A failure is never a validation result (ADR 0151).
+  - Recursive shapes are stratified, each stratum the greatest fixpoint. A
+    cycle through `sh:not`, `sh:xone`, a qualified maximum or a target is
+    refused statically, with the cycle named (ADR 0150).
+  - A shape constant is looked up in the data, never added to it, and
+    validating a store leaves its dictionary as it was. `owl:imports` is
+    reported (`varve:importNotFollowed`) and never fetched (ADR 0151).
+  - The report is a value: results in a stated order, kept with their
+    duplicates, `ToDataset()` and `ToCanonicalNQuads()` by RDFC-1.0 over the
+    report's own nodes. A data blank node keeps the label its source gives
+    it, so the report joins back to the data (ADR 0154).
+  - `ShaclOptions.RegexTimeout` (one second) bounds `sh:pattern` on one
+    value; past it, the validation fails with a problem.
+- **`Varve.Shacl.Sparql`** (layer 4, ADR 0148): SHACL-SPARQL, SPARQL-based
+  constraints and constraint components, evaluated by
+  `Varve.Sparql.Evaluation` with SHACL 1.2's pre-binding by Values
+  Insertion. It plugs into `ShaclOptions.Extensions` as
+  `SparqlConstraints.Extension()`.
+- **XPath regular expressions in `Varve.Xsd`** (ADR 0153): `XPathRegex`
+  translates a pattern and its flags (F&O 3.1 §5.6) to .NET's `Regex`, with
+  character classes computed over every plane. It refuses what XPath
+  forbids with the error code and position. `sh:pattern` and the
+  evaluator's `REGEX` and `REPLACE` share it.
+- **`EventDeclarationShapes`** in `Varve.Events` (ADR 0157): the event
+  declaration vocabulary's SHACL shapes, `varve:EventTypeShape` and
+  `varve:EventFieldShape`, as Turtle. A property holds them to
+  `EventDeclarations` on everything SHACL Core can state.
+
+#### Changed
+
+- **`REGEX` and `REPLACE` follow XPath, and are stricter** (breaking, ADR
+  0153). The pattern used to reach .NET unchanged. A pattern that used a
+  .NET-only construct is now an expression error: lookahead or lookbehind,
+  a named group, an inline option such as `(?i)`, any `(?` but `(?:`, the
+  escapes `\b`, `\B`, `\A`, `\z`, `\Z`, `\G`, `\x…`, `\u…`, `\0`, `\a`,
+  `\e`, `\k` and octal ones, and an unescaped `{`, `}`, `[` or `]` used as a
+  character. Also:
+  - `.` no longer matches `\r`, and `$` no longer matches before a final
+    newline.
+  - `\w`, `\s`, `\i` and `\c` mean XPath's classes.
+  - Flag `i` no longer folds a category escape such as `\p{Lu}`.
+  - A character outside the Basic Multilingual Plane is one character to
+    `.` and to every class.
+
+  The W3C SPARQL query and update suites are unchanged by it, case for
+  case.
+- `XsdDateTime.CompareXsd` and `XsdBoolean.CompareTo` are held to the
+  hot-path rule; their behaviour is unchanged.
 
 ## [0.1.0-preview.8] - 2026-10-16
 
@@ -1150,7 +1224,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.9...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.10...HEAD
+[0.1.0-preview.10]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.9...v0.1.0-preview.10
 [0.1.0-preview.9]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.8...v0.1.0-preview.9
 [0.1.0-preview.8]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.7...v0.1.0-preview.8
 [0.1.0-preview.7]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.6...v0.1.0-preview.7

@@ -31,15 +31,16 @@ shared mutable state, no static registries. **High cohesion**: one reason to cha
 | 0 | `Varve.Iri`, `Varve.Xsd`, `Varve.Json.Canonical` (ADR 0147) |
 | 1 | `Varve.Rdf` — model and the abstract quad source contract |
 | 2 | syntax: `Varve.Turtle`, `Varve.RdfXml`, `Varve.JsonLd`, `Varve.Sparql.Results`, and `Varve.Sparql` (the algebra, parser and serialiser) |
-| 3 | `Varve.Sparql.Evaluation` (optimiser and evaluator, one package — ADR 0048), `Varve.Shacl`, `Varve.Delta` (the change feed's format, by dependency — ADR 0128) |
-| 4 | `Varve.Store` — log, projection contract, pre-commit validator contract; `Varve.Events` (domain events rendered from quads, by dependency — ADR 0143) |
+| 3 | `Varve.Sparql.Evaluation` (optimiser and evaluator, one package — ADR 0048), `Varve.Shacl` (SHACL Core, with no SPARQL — ADR 0148), `Varve.Delta` (the change feed's format, by dependency — ADR 0128) |
+| 4 | `Varve.Store` — log, projection contract, pre-commit validator contract; `Varve.Events` (domain events rendered from quads, by dependency — ADR 0143); `Varve.Shacl.Sparql` (SHACL-SPARQL over the evaluator, through `Varve.Shacl`'s extension contract — ADR 0148) |
 | 5 | integrations: `Varve.Sparql.Store`, `Varve.Store.Browser` |
 | 6 | hosts — every executable, and only executables: the server, the CLI, the smoke apps, the benchmarks (ADR 0060) |
 
 **Same-layer references are violations.** Contracts live in the lowest layer that
 can define them without knowing their implementers; `Varve.Store` is SPARQL-free
-(ADR 0005). ADR 0003's open question 1 (`Varve.Shacl` and the evaluator) is
-**not resolved** — do not resolve it in passing; question 2 was closed by ADR 0048. Each project declares `<ArchLayer>` (0–6; a test assembly declares none), and a layer-6 host also sets `<ArchCompositionRoot>` (ADR 0064).
+(ADR 0005). ADR 0003's open questions are closed: question 1 by ADR 0148
+(`Varve.Shacl` beside the evaluator at layer 3 references no SPARQL, and
+SHACL-SPARQL is `Varve.Shacl.Sparql` at layer 4), question 2 by ADR 0048. Each project declares `<ArchLayer>` (0–6; a test assembly declares none), and a layer-6 host also sets `<ArchCompositionRoot>` (ADR 0064).
 
 ## How we work
 
@@ -204,8 +205,7 @@ and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone Extent maintenance (#110; ADRs 0158–0162, filed unaccepted), after
-Object storage. The writer's maintenance merges extent sets — `FanOut`
+Milestone Extent maintenance (#110; ADRs 0158–0162), after Object storage. The writer's maintenance merges extent sets — `FanOut`
 adjacent sets of similar size, or the smallest run past the bound, never past
 `MaxSetBytes` — writes the merged set, then swaps the catalog once under the
 epoch fence, rebasing onto a catalog a checkpoint swapped meanwhile; a taken
@@ -220,6 +220,30 @@ amended). Each set carries its commit index, so a cold start reads no log
 below the catalog (0161). Uploads are staged through the cache and refused
 past the store's single-upload limit. `varve storage`, `readers list` and
 `forget`, and readiness's `retention`, which never turns it unready (0162).
+
+Before that, milestone 8, SHACL (#13), in two parts. Part 1 (#120; ADRs 0148–0157, filed
+unaccepted) is the standalone validator. `Varve.Shacl` (layer 3) validates any
+quad source against a shapes graph read from any quad source: SHACL 1.2 Core
+as of the Working Draft of 2026-10-14, the 2017 Recommendation where the two
+agree, and 1.2 where they conflict, with the conflicts exempted by name (0149,
+which pins the drafts and the data-shapes commit and is revisited at Candidate
+Recommendation). SHACL-SPARQL is `Varve.Shacl.Sparql` (layer 4) through an
+extension contract in `Varve.Shacl`, pre-binding by Values Insertion (0148;
+0003's OQ1 closed). Recursive shapes are stratified, each stratum the greatest
+fixpoint, a cycle through negation or a target refused statically with the
+cycle named (0150). Inputs are read, never added to: a shape constant is looked
+up, `owl:imports` is reported and never fetched, a failure is a `ShaclProblem`
+and never a result (0151). Paths are `Varve.Shacl`'s own, held to the
+evaluator's by a differential property, with one divergence stated (0152).
+The XPath regular expression translator moved to `Varve.Xsd`, and the
+evaluator's `REGEX` and `REPLACE` became stricter (0153, breaking). The report
+is a value with its results in a stated order, the data's blank nodes keep
+their labels and only its own nodes are canonicalised (0154). The public API
+is `ShapesGraph`, `ShaclValidator`, `ShaclOptions`, the report model and the
+extension contract (0155). `dotNetRdf.Shacl` is the benchmark baseline and a
+test-only oracle (0156). `Varve.Events` ships the declaration vocabulary's
+shapes (0157). Part 2 is commit-time gating, the validation projection,
+incremental validation and the REC gate.
 
 Before that, milestone Object storage (#92; ADRs 0134–0142) put the log and
 the projection in an object store, and before it milestone Client and

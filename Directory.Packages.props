@@ -234,6 +234,12 @@
          The_harness_does_not_reference_another_rdf_implementation. -->
     <PackageVersion Include="dotNetRdf.Core" Version="3.5.2" Adr="0027" />
 
+    <!-- dotNetRDF's SHACL validator, MIT, on dotNetRdf.Core 3.5.2 and no
+         native asset: the SHACL benchmark's baseline and a differential oracle
+         in Varve.Shacl.Sparql.Tests, never src/ (ADR 0156). A disagreement is
+         judged against the specification, never settled by matching it. -->
+    <PackageVersion Include="dotNetRdf.Shacl" Version="3.5.2" Adr="0156" Scope="tests/" />
+
     <!-- A transitive dependency of dotNetRdf.Core, pinned rather than
          inherited. dotNetRdf.Core asks for AngleSharp 1.4.0, which NuGet audit
          flags as GHSA-pgww-w46g-26qg, and warnings are errors here. Central

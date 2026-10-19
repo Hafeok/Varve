@@ -24,6 +24,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The declaration vocabulary's shapes (ADR 0157), read through EventDeclarationShapes.Turtle. -->
+    <EmbeddedResource Include="EventDeclarationShapes.ttl" LogicalName="Varve.Events.EventDeclarationShapes.ttl" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
     <ProjectReference Include="../Varve.Delta/Varve.Delta.csproj" />
     <ProjectReference Include="../Varve.Sparql/Varve.Sparql.csproj" />

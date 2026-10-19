@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 4 (ADR 0148): SHACL-SPARQL, the extension contract of
+         Varve.Shacl (layer 3) implemented over Varve.Sparql.Evaluation
+         (layer 3). It references no store: Varve.Store and Varve.Events are
+         beside it at layer 4, and neither is referenced. -->
+    <ArchLayer>4</ArchLayer>
+
+    <!-- Its contracts implement Varve.Shacl's extension contract and take the
+         evaluator's options; the widening is here and never global. -->
+    <ArchContractTypeAssemblies>$(ArchContractTypeAssemblies);Varve.Shacl;Varve.Sparql.Evaluation</ArchContractTypeAssemblies>
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <Description>SHACL-SPARQL for Varve.Shacl: SPARQL-based constraints and SPARQL-based constraint components, evaluated by Varve.Sparql.Evaluation over any IQuadSource, with SHACL 1.2's pre-binding.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Shacl/Varve.Shacl.csproj" />
+    <ProjectReference Include="../Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
+    <ProjectReference Include="../Varve.Sparql/Varve.Sparql.csproj" />
+    <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Varve.Shacl.Sparql.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -311,6 +311,23 @@ Filed by milestone Client and integration, part 2 ([#93](https://github.com/Hafe
 | [0146](0146-the-register-for-events.md) | The register for events: the Event Hubs SDK in a sample, a schema validator in tests, and the emulator's images | Filed unaccepted (Client and integration, #93) |
 | [0147](0147-varve-json-canonical.md) | `Varve.Json.Canonical`: one RFC 8785 implementation, at layer 0; amends 0123 | Filed unaccepted (Client and integration, #93) |
 
+## Milestone 8 — SHACL (first part, the standalone validator)
+
+Filed by SHACL, part 1 ([#120](https://github.com/Hafeok/Varve/issues/120), under milestone 8, [#13](https://github.com/Hafeok/Varve/issues/13)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0148: Object storage ([#116](https://github.com/Hafeok/Varve/issues/116)) holds 0134–0142 and Client and integration, part 2, 0143–0147. Amended by it, likewise unaccepted: 0003 (open question 1 closed); 0007 (the SHACL suites); 0027 (dotNetRDF's SHACL validator); 0051 (XPath regular expressions in `Varve.Xsd`).
+
+| # | Title | Status |
+|---:|---|---|
+| [0148](0148-varve-shacl-and-varve-shacl-sparql.md) | `Varve.Shacl` at layer 3, `Varve.Shacl.Sparql` at layer 4; closes 0003's open question 1 | Filed unaccepted (SHACL part 1, #120) |
+| [0149](0149-the-shacl-conformance-baseline.md) | The SHACL conformance baseline: the 2017 suites gate, the 1.2 drafts pinned | Filed unaccepted (SHACL part 1, #120) |
+| [0150](0150-recursive-shapes-stratified-greatest-fixpoint.md) | Recursive shapes: stratified, the greatest fixpoint in each stratum, refused statically otherwise | Filed unaccepted (SHACL part 1, #120) |
+| [0151](0151-shacl-inputs-failures-and-instances.md) | SHACL inputs, failures and SHACL instances | Filed unaccepted (SHACL part 1, #120) |
+| [0152](0152-shacl-paths-in-varve-shacl.md) | SHACL paths are evaluated in `Varve.Shacl`, and agree with the evaluator's | Filed unaccepted (SHACL part 1, #120) |
+| [0153](0153-xpath-regular-expressions-in-varve-xsd.md) | XPath regular expressions are translated once, in `Varve.Xsd`; amends 0051 | Filed unaccepted (SHACL part 1, #120) |
+| [0154](0154-the-validation-report-deterministic-rdf.md) | The validation report is deterministic RDF, and keeps the data's blank nodes | Filed unaccepted (SHACL part 1, #120) |
+| [0155](0155-a-minimal-public-shacl-api.md) | A minimal public SHACL API, and the shapes model kept internal | Filed unaccepted (SHACL part 1, #120) |
+| [0156](0156-dotnetrdf-shacl-for-benchmarks-and-as-an-oracle.md) | `dotNetRdf.Shacl` for the benchmarks and as a differential oracle; amends 0027 | Filed unaccepted (SHACL part 1, #120) |
+| [0157](0157-shapes-for-event-declarations.md) | SHACL shapes for the event declaration vocabulary, shipped with `Varve.Events` | Filed unaccepted (SHACL part 1, #120) |
+
 ## Milestone Extent maintenance — background merges and extent deletion
 
 Filed by milestone Extent maintenance ([#110](https://github.com/Hafeok/Varve/issues/110)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered 0158–0162: SHACL holds 0148–0157 and the Management plane 0163 onward. Amended by it, likewise unaccepted: 0134 (a follower writes its reader record; the streamed create; refusals for the identity); 0138 (the chain bounded by merges, the checkpoint budget removed); 0139 (deletion and merges superseded, the shared commit index, the catalog's sequence as its version).

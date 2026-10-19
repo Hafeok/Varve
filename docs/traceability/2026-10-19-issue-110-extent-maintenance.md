@@ -255,3 +255,11 @@ The maintainer approved and asked for the pull request:
   before #116, 29 min on #116's pull request run, 53 min at its land.
 - **`varve storage verify`** and multipart uploads are stated in ADR 0162's
   consequences.
+
+## Addendum, 2026-10-19: the release is `v0.1.0-preview.10`
+
+SHACL, part 1 (#123) landed first as `v0.1.0-preview.9`, so this milestone's
+descriptor is renumbered to `v0.1.0-preview.10` (ADR 0102), with `main`
+merged into the branch: the README's status, AGENTS.md's state, the ADR index
+and the benchmarks README carry both milestones, and the changelog is
+projected again.

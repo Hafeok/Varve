@@ -534,11 +534,12 @@ landing decides the number. Only released and in-flight numbers are shown.
 | — | **Commit path**: group commit, per-graph concurrency | `preview.5` | 6b landed | released |
 | — | **Client and integration**, part 1: token provider, on-behalf-of, `Varve.Delta`, follow, setup, CORS | `preview.6` | Commit path | issue #103, PR #102 (landed) |
 | — | **Object storage**: the log and the projections on any object store, Azure first | next free | Commit path | issue #92 (built; PR pending) |
-| — | **Extent maintenance**: background merges and extent deletion | `preview.9` | Object storage | issue #110 (built; PR pending) |
+| — | **Extent maintenance**: background merges and extent deletion | `preview.10` | Object storage | issue #110 (built; PR pending) |
 | — | **Client and integration**, part 2: events, catalogue, schema registry, AsyncAPI | next free | part 1 | issue #93 |
 | — | **Management plane**: fleet system dataset, grants as code, `varve apply` | next free | Commit path, Object storage, Client and integration | issue #105 |
 | — | **Learning track**: Varve for SQL developers and DDD practitioners | next free | Client and integration, Management plane | issue #94 |
-| 8 | SHACL: validator, commit-time gating, incremental validation | next free | — (#87 landed) | issue #13 |
+| 8 | SHACL, part 1: the standalone validator, SHACL-SPARQL, XPath regular expressions in `Varve.Xsd`, the event declaration shapes | `preview.9` | — (#87 landed) | issue #120 (this pull request) |
+| 8 | SHACL, part 2: commit-time gating, the validation projection, incremental validation, the REC gate | next free | part 1, Object storage (REC shapes) | issue #13 |
 | — | **Inference**: RDFS by rewriting, OWL 2 RL and rules as a projection | next free | 8 | issue #95 |
 | — | **Web UI**: operator console, then data explorer | next free | Management plane (console); 8 and Inference (explorer) | issue #96 |
 | — | **Replication**: three tiers, handover, promotion, fleet-level active-active | next free | Object storage, Extent maintenance, Commit path, Management plane | issue #97 |
@@ -757,6 +758,25 @@ incrementally; the session reports which SHACL features REC uses. Close-out
 adds: chapter 3's SHACL section if the learning track has landed first;
 event declarations may be validated by shapes; management declarations are
 validated by shapes shipped with Varve instead of by code.
+
+**Part 1** (#120; ADRs 0148–0157), `0.1.0-preview.9`: the standalone
+validator. `Varve.Shacl` (layer 3) and `Varve.Shacl.Sparql` (layer 4) validate
+any quad source against SHACL 1.2 Core and SHACL-SPARQL, with recursive
+shapes as a stratified greatest fixpoint and the report as a canonical value.
+Gate:
+
+- the W3C 2017 and 1.2 suites under the ratchet over two subjects, 622
+  lines, every Core case passing and fourteen SHACL-SPARQL cases exempted with
+  their reasons;
+- the recursion, path differential and report-determinism properties;
+- dotNetRDF as a differential oracle and a benchmark baseline;
+- the AOT and Chromium smokes.
+
+The XPath regular expression translator moved to `Varve.Xsd`, and the
+evaluator's `REGEX` became stricter. `Varve.Events` ships the declaration
+vocabulary's shapes, held to the code by a property. Part 2 (#13) is what
+remains of the first paragraph: gating, the projection, incremental
+validation, and the REC gate.
 
 ## Inference — RDFS by rewriting, OWL 2 RL and rules as a projection
 

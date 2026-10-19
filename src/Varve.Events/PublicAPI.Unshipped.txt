@@ -196,3 +196,5 @@ static Varve.Events.Model.TypeAssertion.operator ==(Varve.Events.Model.TypeAsser
 ~override Varve.Events.Model.TypeAssertion.ToString() -> string
 const Varve.Events.EventRenderer.ProblemTitle = "An event could not be rendered." -> string!
 Varve.Events.Model.EventCatalogueSnapshot.Where(System.Func<Varve.Events.Model.CataloguedType!, bool>! predicate) -> Varve.Events.Model.EventCatalogueSnapshot!
+Varve.Events.EventDeclarationShapes
+static Varve.Events.EventDeclarationShapes.Turtle.get -> string!

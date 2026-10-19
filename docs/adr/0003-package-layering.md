@@ -148,3 +148,21 @@ layer 2 algebra and parser package `Varve.Sparql`. The layer table above is
 unchanged in substance; its "SPARQL optimiser and evaluator" and "SPARQL
 algebra and parser" entries now have package names. Open question 1 remains
 open, due at milestone 8.
+
+### Amendment, 2026-10-17 — open question 1 is closed
+
+Filed by SHACL, part 1 (#120, under milestone 8, #13), unaccepted until the
+maintainer accepts it (ADR 0066).
+
+Closed by [ADR 0148](0148-varve-shacl-and-varve-shacl-sparql.md), by the
+candidate resolution recorded above: **`Varve.Shacl`** (SHACL Core) stays at
+layer 3, referencing `Varve.Rdf`, `Varve.Iri` and `Varve.Xsd`, and defines a
+small contract for constraints it does not define itself; **`Varve.Shacl.Sparql`**
+sits at layer 4 and implements that contract over `Varve.Sparql.Evaluation`,
+without referencing `Varve.Store`. The contract is not "given a query, yield
+bindings", as sketched above, but constraints over `Varve.Rdf` types, so no
+SPARQL vocabulary crosses layer 3. The SHACL store integration is
+`Varve.Shacl.Store`, layer 5. The layer table (ADR 0060's) gains the two
+packages; nothing else here changes. Both open questions are now closed.
+
+**The ledger.** The rulings are ADR 0148's set; this amendment adds none here.
