@@ -127,3 +127,52 @@ The maintainer, after the pull request was opened:
 - **The storage compose start** has the same stopgap pull retry as the others: six compose starts in all.
 - **The Aspire sample.** `samples/Varve.Aspire.Sample/Program.cs` starts mock-oauth2-server itself through Aspire's `AddContainer`, by tag and without a digest, in the `aspire sample` job. It is not a compose file and it is not under `.github/`, so the planned gate would not see it. It is now in the list's `jobs` for that image. Switching it is a question for the maintainer, because the sample is code users run and a private mirror is not reachable for them.
 - **Not a container image:** the `bicep` job takes the Microsoft Graph Bicep extension from `mcr.microsoft.com`. It is an OCI artifact the Bicep CLI restores, not a container CI starts, so it is not in the list.
+
+## Addendum, 2026-10-19: ECR's cap, and PostgreSQL seeded by hand
+
+`auth (zitadel)`, a required check, failed on `85639f0` and on every re-run, from 2026-10-18 10:16 to 2026-10-19 06:41: five runs, all three pulls of each refused with `toomanyrequests: Data limit exceeded` from `public.ecr.aws`. The session's container got `429` from ECR Public for the same digest. This PR could not land while the check was red, and the mirror it adds could not copy PostgreSQL from ECR once it had landed.
+
+The maintainer, on the Aspire sample, between those runs:
+
+> Agreed on the Aspire sample. Do it in PR 2, not #125:
+> - `samples/Varve.Aspire.Sample` reads the issuer image from configuration. The default is the upstream reference pinned with `WithImageSHA256` to the row's digest, and the `aspire sample` job sets the mirror reference.
+> - `eng/ci-images.cs` also finds container images started from C# (`AddContainer` and test fixtures), not only compose and workflow files. An upstream reference is allowed outside `.github/` only when its digest matches a row and the CI job that runs it overrides it to the mirror. Each allowance names that job.
+> - Check whether the shipped `Varve.Aspire` package starts any third-party container. If it does, treat it like the sample, and say so in the PR.
+> - Leaving the Bicep Graph extension out is right: it's a downloaded file, not a container.
+>
+> Nothing more on #125. Carry on watching it.
+
+The session proposed three ways out: seed the mirror's PostgreSQL by hand and point CI at it, copy it from Docker Hub at the same digest, or wait. It found that Docker Hub's `library/postgres:18.6-alpine` has the pinned digest exactly. The maintainer:
+
+> Option 1, done. The maintainer seeded `ghcr.io/hafeok/varve-ci/postgres:18.6-alpine` by hand at `sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873`.
+> - **Source:** copied from `docker.io/library/postgres` at that digest, because ECR Public answered 429 from the maintainer's machine too.
+> - **Credential:** a `gh` sign-in scoped to `write:packages` for the push, then narrowed again. No PAT.
+> - **Package settings:** private, connected to Hafeok/Varve, and Hafeok/Varve has Read under Manage Actions access.
+>
+> Push to #125:
+> 1. The Zitadel compose file uses `ghcr.io/hafeok/varve-ci/postgres@sha256:77f5…a1873`.
+> 2. `auth (zitadel)` and `container` get `packages: read` and log in to GHCR with `GITHUB_TOKEN` before pulling. No other credential.
+> 3. Check that `required-checks` (#89) accepts the new permission, including on any called workflow.
+> 4. On the postgres row in `ci-images.yaml`, note that it was seeded by hand on 2026-10-19 from Docker Hub at the pinned digest, because ECR Public's anonymous cap blocked CI and the maintainer's machine. The mirror workflow verifies the digest of a package that already exists, so the hand copy is checked like any other.
+> 5. Record the hand seeding in the traceability record, and add a sentence to PR 2's ADR 0099 amendment: a mirror may be seeded by hand from any registry at the pinned digest, because the digest is the image's identity and the source isn't. CI itself still never pulls from Docker Hub.
+>
+> Then give the new head SHA.
+
+What changed:
+- **`.github/zitadel/compose.yaml`** pulls PostgreSQL as `ghcr.io/hafeok/varve-ci/postgres:18.6-alpine@sha256:77f58511…a1873`. Its header says why, and that a run must be logged in to read the private package.
+- **`auth (zitadel)`** gets job permissions `contents: read, packages: read`, and logs in to `ghcr.io` with `GITHUB_TOKEN` through the `docker/login-action` pin `ci.yml` already uses.
+- **`container`** already had `packages: write`, which includes read, and already logs in to `ghcr.io` before its compose starts. It is unchanged.
+- **The permission against callers.** #89's gate is not built yet: `eng/required-checks.cs` has no permissions logic and the issue is open. Checked by hand instead:
+  - `ci.yml`'s one caller is `release.yml`'s `gates` job;
+  - that job grants `contents: read, packages: write`;
+  - `auth (zitadel)` asks `contents: read, packages: read`, within the grant;
+  - `required-checks.cs` passes on the change.
+- **The postgres row** in `.github/ci-images.yaml` gains `seeded:`, recording the hand copy. In the mirror workflow, a package already at the pinned digest takes the "already present" branch. That branch reads the package's digest, re-tags it from itself, and checks the digest and the visibility, so it never contacts ECR.
+- **The register** in `Directory.Packages.props` names the mirror the compose file pulls PostgreSQL from.
+- The session read the package anonymously: `401`, so it is not public.
+
+**For part 2's ADR 0099 amendment.** It carries this sentence: a mirror may be seeded by hand from any registry at the pinned digest, because the digest is the image's identity and the source is not; CI itself still never pulls from Docker Hub.
+
+**Found.**
+- `.devcontainer/auth-legs.sh` starts the same compose file, so a local run now needs a `docker login ghcr.io` with an account that can read the package. Part 2's `CONTRIBUTING.md` and local-run mechanism, the upstream reference at the same digest, resolves that.
+- Dependabot's docker-compose ecosystem watches this file and cannot read the private package. Part 2 switches that ecosystem off for these files.
