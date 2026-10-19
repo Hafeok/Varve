@@ -141,3 +141,4 @@ Varve.Store.ObjectStorage.Model.IProbeRandomness
 Varve.Store.ObjectStorage.Model.IProbeRandomness.Fill(System.Span<byte> destination) -> void
 Varve.Store.ObjectStorage.Model.ObjectStorageOptions.ProbeRandomness.get -> Varve.Store.ObjectStorage.Model.IProbeRandomness?
 Varve.Store.ObjectStorage.Model.ObjectStorageOptions.ProbeRandomness.init -> void
+Varve.Store.ObjectStorage.ObjectStorage.RefreshAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>

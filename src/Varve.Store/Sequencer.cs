@@ -58,6 +58,11 @@ public sealed partial class Dataset
         byte[] kindPayload,
         CancellationToken cancellationToken)
     {
+        if (IsFollower)
+        {
+            return CommitResult.Unavailable(_state.Head, "This dataset is a follower: its writer commits, and a follower only reads (ADR 0164).");
+        }
+
         long started = _options.Clock.GetTimestamp();
         PendingCommit pending = new(kind, request, metadata, expected, kindPayload, request?.ExpectedGraphs);
         _metrics.Queued(1);

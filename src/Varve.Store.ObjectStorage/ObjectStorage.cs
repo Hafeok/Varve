@@ -43,7 +43,7 @@ namespace Varve.Store.ObjectStorage;
 /// </para>
 /// </remarks>
 [Contract(typeof(TheLogAsChunkObjects.ChunkPerFlush), Role = "a dataset's storage in an object store with conditional writes")]
-public sealed class ObjectStorage : IStorage, IStorageMaintenance, IAsyncDisposable
+public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IAsyncDisposable
 {
     private const string SegmentCopies = "segments";
     private const string LocalStorage = "local";
@@ -94,6 +94,9 @@ public sealed class ObjectStorage : IStorage, IStorageMaintenance, IAsyncDisposa
 
     /// <inheritdoc />
     public bool MaintenanceDue => _log.ConsolidationDue;
+
+    /// <summary>Test seam: the catalog version a follower holds (ADR 0164, #110's hook).</summary>
+    internal ObjectVersion? HeldCatalogForTests => _derived.HeldCatalog;
 
     // Opened for write and lost the claim: read-only from the start.
     private bool SupersededAtOpen { get; }
@@ -153,6 +156,14 @@ public sealed class ObjectStorage : IStorage, IStorageMaintenance, IAsyncDisposa
         ObjectRead? read = await ConditionalWrites.ReadWholeAsync(store, new ObjectNames(prefix).Writer, cancellationToken).ConfigureAwait(false);
         return read is null ? null : WriterRecordFormat.Read(read.Bytes.Span);
     }
+
+    /// <summary>
+    /// A follower's refresh (ADR 0164): probes the next log slot, and adopts
+    /// what the writer has appended since. Never lists, and never writes.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">This storage was opened for write.</exception>
+    /// <exception cref="LogVerificationException">A chunk does not verify or does not follow.</exception>
+    public ValueTask<bool> RefreshAsync(CancellationToken cancellationToken) => _log.RefreshAsync(cancellationToken);
 
     /// <inheritdoc />
     public ValueTask<bool> MaintainStorageAsync(CancellationToken cancellationToken) => _log.ConsolidateAsync(cancellationToken);

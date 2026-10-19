@@ -5,7 +5,7 @@
 **Accepted — filed unaccepted by milestone Management plane of #105,
 2026-10-19** (ADR 0066). Acceptance is the maintainer's act on the pull
 request. Decided by the maintainer on the plan of #105, 2026-10-19:
-- a follower refreshes by probing the next slot, with no LIST polling;
+- a follower refreshes by probing the next slot, with no LIST polling (it needs none);
 - it follows on demand, except the system dataset, which it follows on an
   interval.
 
@@ -57,20 +57,23 @@ interval, forever.
    A refresh **probes the next slot with a GET**: chunk *k*+1 of the newest
    segment it holds, or chunk 0 of the next segment once it holds a seal.
    - **A found chunk** is adopted, and the probe goes on to the slot after it.
-   - **A chunk carrying a seal moves the probe to the next segment.** Adopting
-     across the seal is the one case that **lists** `log/`, because the next
-     segment may already be consolidated.
-   - **A 404 is nothing new, after one check.** A refresh that has not seen
-     its segment's seal also probes for that segment's consolidated object.
+   - **A 404 is nothing new, after one check.** On a 404 the refresh also
+     probes for the probed segment's consolidated object.
      - **Why the check.** Consolidation deletes every chunk of a sealed
-       segment but its fences (ADR 0136 point 4). So a seal the follower has
-       not seen can disappear, together with the chunks before it, and then
-       the slot probe answers 404 for ever.
+       segment but its fences, and it deletes them only after the
+       consolidated object exists (ADR 0136 point 4, ADR 0135). So a seal the
+       follower has not seen can disappear, together with the chunks before
+       it. When it has, the consolidated object is there.
+     - **What a found object does.** It is adopted whole, checked against
+       every byte the follower already holds of the segment, and the probe
+       moves to the next segment.
      - **What it costs.** An idle refresh is two GETs that both answer 404.
        This is the one deviation from "a 404 means nothing new", and the
        operator guide states the cost.
-   - **The writer's catalog is re-read only when a probe found commits,** to
-     attach its new extents (ADR 0139).
+   - **Nothing is listed.** The maintainer's rule allowed a LIST to adopt
+     across a seal. The consolidated-object probe makes it unnecessary.
+   - **The writer's catalog** is attached when the follower opens or
+     re-opens (point 5), and is not re-read on a refresh.
    - **Like every read-only open, a refresh never probes conditional writes,
      claims, or writes** (ADR 0136 point 5).
 4. **A follower advances on demand.** The host advances a follower in three
@@ -109,6 +112,8 @@ interval, forever.
   question.
 - **One GET per refresh, trusting a 404.** It is wrong across a seal that
   consolidation removed before the follower saw it.
+- **A LIST to adopt across a seal.** It is allowed by the maintainer's rule
+  and not needed: a consolidated segment is found by its name.
 - **Follow every dataset on a timer.** An idle fleet would pay requests for
   ever.
 - **Store change notifications** (Event Grid, S3 events). Faster, but they
@@ -134,7 +139,7 @@ interval, forever.
   - **0018** (the backend still does not parse the log; the store's reader
     does);
   - **0072** (the follower verifies the chain as an open does);
-  - **0134** (GETs and the one LIST);
+  - **0134** (GETs only);
   - **0135** (consolidation);
   - **0136** (refined as above);
   - **0139** (the catalog attached, then re-read).

@@ -549,3 +549,8 @@ static Varve.Store.Log.SegmentSlot.operator !=(Varve.Store.Log.SegmentSlot left,
 static Varve.Store.Log.SegmentSlot.operator ==(Varve.Store.Log.SegmentSlot left, Varve.Store.Log.SegmentSlot right) -> bool
 Varve.Store.Log.CommitMetadata.Attachments.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.Log.RequestTerm>!
 Varve.Store.Log.CommitMetadata.Attachments.init -> void
+Varve.Store.ITailingStorage
+Varve.Store.ITailingStorage.RefreshAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
+Varve.Store.Dataset.IsFollower.get -> bool
+Varve.Store.Dataset.AdvanceAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.Position>
+static Varve.Store.Dataset.OpenFollowerAsync(Varve.Store.ITailingStorage! storage, Varve.Store.DatasetOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Dataset!>

@@ -8,7 +8,7 @@ decisions:
   - key: FollowerIsAnOrdinaryDataset
     statement: "Dataset.OpenFollowerAsync opens a dataset whose AdvanceAsync applies the commits closed since its head, verified as an open verifies them; reads work as on any open, and every write and checkpoint is refused"
   - key: ProbeTheNextSlot
-    statement: "A refresh GETs the next deterministic slot; a seal moves the probe to the next segment and is the one case that lists log/, and a 404 is nothing new once the segment's consolidated object is also absent"
+    statement: "A refresh GETs the next deterministic slot, and a seal moves the probe to the next segment; a 404 is nothing new once the probed segment's consolidated object is also absent, so an idle refresh is two GETs and a refresh never lists"
   - key: FollowOnDemand
     statement: "A follower advances when a read arrives after Varve:Fleet:FollowInterval since its last advance, or on a minimum-position header above it; only the system dataset is advanced on the interval, so an idle dataset makes no requests"
   - key: FollowerReopensFromTheCatalog
