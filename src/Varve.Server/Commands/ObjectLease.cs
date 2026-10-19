@@ -28,6 +28,27 @@ namespace Varve.Server.Commands;
 /// </summary>
 internal static class ObjectLease
 {
+    /// <summary>
+    /// Whether a read command's dataset is in an object store rather than on
+    /// a server: <c>s3://</c>, an Azure Blob Storage host, or Azurite's
+    /// development account on a loopback address.
+    /// </summary>
+    internal static bool IsObjectStore(string dataset)
+    {
+        if (dataset.StartsWith("s3://", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (!Uri.TryCreate(dataset, UriKind.Absolute, out Uri? uri) || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
+        {
+            return false;
+        }
+
+        return uri.Host.EndsWith(".blob.core.windows.net", StringComparison.OrdinalIgnoreCase)
+            || (uri.IsLoopback && uri.AbsolutePath.StartsWith("/devstoreaccount1/", StringComparison.Ordinal));
+    }
+
     internal static bool IsAddress(string dataset) =>
         dataset.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
         || dataset.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
@@ -89,7 +110,7 @@ internal static class ObjectLease
         }
     }
 
-    private static (IObjectStore Store, ObjectName Prefix) Open(string address, string? endpoint, string? region)
+    internal static (IObjectStore Store, ObjectName Prefix) Open(string address, string? endpoint, string? region)
     {
         Uri uri = new(address);
         string[] parts = uri.AbsolutePath.Trim('/').Split('/', 2);

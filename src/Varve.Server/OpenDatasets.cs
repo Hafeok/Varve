@@ -34,6 +34,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     private readonly TimeSpan _leaseWait;
     private readonly ILogger _logger;
     private readonly GroupCommitOptions _groupCommit;
+    private ExtentMergePolicy _merges = ExtentMergePolicy.Default;
     private readonly ObjectStores? _objects;
 
     private OpenDatasets(string? root, ObjectStores? objects, TimeProvider clock, TimeSpan leaseWait, GroupCommitOptions groupCommit, ILogger logger)
@@ -53,7 +54,15 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             MaxRecords = settings.Store.GroupCommit.MaxRecords,
             MaxBytes = new ByteCount(settings.Store.GroupCommit.MaxBytes),
         };
-        OpenDatasets opened = new(string.IsNullOrWhiteSpace(settings.DatasetsRoot) ? null : settings.DatasetsRoot, ObjectStores.From(settings.ObjectStorage, clock), clock, settings.Lease.WaitFor, groupCommit, logger);
+        OpenDatasets opened = new(string.IsNullOrWhiteSpace(settings.DatasetsRoot) ? null : settings.DatasetsRoot, ObjectStores.From(settings.ObjectStorage, clock), clock, settings.Lease.WaitFor, groupCommit, logger)
+        {
+            _merges = new ExtentMergePolicy
+            {
+                Enabled = settings.Store.ExtentMerges.Enabled,
+                FanOut = settings.Store.ExtentMerges.FanOut,
+                MaxSetBytes = new ByteCount(settings.Store.ExtentMerges.MaxSetBytes),
+            },
+        };
 
         try
         {
@@ -328,7 +337,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         // The bounds are a durable backend's; the memory backend has no flush
         // for a batch to share, and writes each request alone (ADR 0124).
         // The event catalogue's check gates every write path (ADR 0145).
-        DatasetOptions options = new() { Clock = _clock, Name = name, GroupCommit = entry.Storage == DatasetStorage.Memory ? null : _groupCommit, Validators = [new EventCatalogueValidator()] };
+        DatasetOptions options = new() { Clock = _clock, Name = name, GroupCommit = entry.Storage == DatasetStorage.Memory ? null : _groupCommit, ExtentMerges = _merges, Validators = [new EventCatalogueValidator()] };
 
         try
         {

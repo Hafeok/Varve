@@ -526,7 +526,8 @@ internal static partial class ServerHost
                 open ? dataset!.Head.Value : 0,
                 open ? dataset!.ProjectionPosition.Value : 0,
                 open && dataset!.IsFailed,
-                open && datasets.IsSuperseded(entry.Name)));
+                open && datasets.IsSuperseded(entry.Name),
+                open ? dataset!.Retention : null));
         }
 
         (bool ready, List<DatasetReadiness> states) = Readiness.Evaluate(health, allowedLag, drain.Draining);
@@ -545,6 +546,7 @@ internal static partial class ServerHost
                 }
 
                 json.WriteEndObject();
+                Readiness.WriteRetention(json, health);
             });
         }
 
@@ -577,6 +579,7 @@ internal static partial class ServerHost
             }
 
             json.WriteEndArray();
+            Readiness.WriteRetention(json, health);
         });
     }
 

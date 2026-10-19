@@ -155,6 +155,113 @@ public sealed class ObjectStorageServerTests
         }
     }
 
+    /// <summary>
+    /// Readiness reports what the store keeps for readers, per dataset with
+    /// reader records, and stays ready whatever it is (ADR 0162).
+    /// </summary>
+    [Fact]
+    public void readiness_reports_retention_and_never_turns_unready_for_it()
+    {
+        Varve.Store.ExtentRetention retention = new(
+            new Varve.Store.Log.CatalogVersion(9), 3, 2, 4096,
+            [new Varve.Store.ReaderRetention(new Varve.Store.Log.ReaderAnnouncement(new Varve.Store.Log.ReaderId("follower"), new Varve.Store.Log.CatalogVersion(4), new Varve.Store.Log.CatalogVersion(4)), 4096)]);
+        DatasetHealth[] health = [new DatasetHealth("d", DatasetState.Open, null, 4, 4, false, Retention: retention), new DatasetHealth("e", DatasetState.Open, null, 2, 2, false)];
+        (bool ready, List<DatasetReadiness> states) = Readiness.Evaluate(health, allowedLag: 0, draining: false);
+        Assert.True(ready);
+        Assert.All(states, state => Assert.Equal("ready", state.State));
+
+        System.Buffers.ArrayBufferWriter<byte> body = new();
+
+        using (System.Text.Json.Utf8JsonWriter json = new(body))
+        {
+            json.WriteStartObject();
+            Readiness.WriteRetention(json, health);
+            json.WriteEndObject();
+        }
+
+        Assert.Equal(
+            """{"retention":{"d":{"catalogVersion":9,"sets":3,"unnamedSets":2,"retainedBytes":4096,"readers":[{"reader":"follower","oldest":4,"newest":4,"retainedBytes":4096}]}}}""",
+            Encoding.UTF8.GetString(body.WrittenSpan));
+    }
+
+    /// <summary>
+    /// On Azurite: <c>varve info</c> reads a dataset in the store read-only,
+    /// announced in a record it deletes when it ends, or unannounced on
+    /// request; <c>varve storage</c> reports the sets per permutation and the
+    /// reader records; <c>forget</c> acts only on the interval list showed
+    /// (ADRs 0160, 0162).
+    /// </summary>
+    [Fact]
+    public async Task the_storage_command_reports_sets_and_readers_and_forgets_only_what_it_was_shown()
+    {
+        string account = Environment.GetEnvironmentVariable("VARVE_AZURITE") ?? string.Empty;
+
+        if (account.Length == 0)
+        {
+            if ((Environment.GetEnvironmentVariable("VARVE_STORAGE_LEGS_REQUIRED") ?? string.Empty).Split(',').Contains("azurite"))
+            {
+                Assert.Fail("The azurite leg is required here (VARVE_STORAGE_LEGS_REQUIRED) and VARVE_AZURITE is not set.");
+            }
+
+            Assert.Skip("The azurite leg needs VARVE_AZURITE (ADR 0134).");
+        }
+
+        Uri container = new(account.TrimEnd('/') + "/s" + Guid.NewGuid().ToString("N")[..20]);
+        await CreateContainerAsync(container);
+        string caches = Directory.CreateTempSubdirectory("varve-server-objects-").FullName;
+        string dataset = container + "/d";
+
+        try
+        {
+            await using RunningServer server = await RunningServer.StartAsync(Settings(container, Path.Combine(caches, "a"), "writer"));
+
+            for (int i = 0; i < 4; i++)
+            {
+                Assert.Equal(HttpStatusCode.NoContent, (await UpdateAsync(server, "INSERT DATA { <http://ex/s" + i + "> <http://ex/p> " + i + " }")).StatusCode);
+                Assert.True((await server.Client.PostAsync(new Uri("datasets/d/checkpoints", UriKind.Relative), null, Ct)).IsSuccessStatusCode);
+            }
+
+            // A read of the store itself, announced, and its record gone after.
+            (int info, string status) = await CliAsync("info", dataset);
+            Assert.Equal(0, info);
+            Assert.Contains("\"head\": 4", status, StringComparison.Ordinal);
+            (int unannounced, string quiet) = await CliAsync("info", dataset, "--unannounced");
+            Assert.Equal(0, unannounced);
+            Assert.Contains("\"head\": 4", quiet, StringComparison.Ordinal);
+
+            (int shown, string report) = await CliAsync("storage", dataset);
+            Assert.Equal(0, shown);
+            Assert.Contains("extent sets per permutation:", report, StringComparison.Ordinal);
+            Assert.Contains("  SPOG: ", report, StringComparison.Ordinal);
+            Assert.Contains("readers: 1", report, StringComparison.Ordinal);
+
+            (int listed, string readers) = await CliAsync("storage", "readers", "list", dataset);
+            Assert.Equal(0, listed);
+            string line = readers.Split('\n').Single(l => l.Contains("announced", StringComparison.Ordinal));
+            string id = line.Split("  ")[0];
+            string[] versions = line.Split("versions ")[1].Split("  ")[0].Split(" to ");
+
+            Assert.Equal(1, (await CliAsync("storage", "readers", "forget", dataset, "--reader", id, "--oldest", versions[0], "--newest", (long.Parse(versions[1], System.Globalization.CultureInfo.InvariantCulture) + 1).ToString(System.Globalization.CultureInfo.InvariantCulture))).Exit);
+            (int forgot, string done) = await CliAsync("storage", "readers", "forget", dataset, "--reader", id, "--oldest", versions[0], "--newest", versions[1]);
+            Assert.Equal(0, forgot);
+            Assert.Contains("forgot reader " + id, done, StringComparison.Ordinal);
+            Assert.Contains("readers: none", (await CliAsync("storage", "readers", "list", dataset)).Out, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(caches, recursive: true);
+        }
+    }
+
+    private static async Task<(int Exit, string Out)> CliAsync(params string[] args)
+    {
+        StringWriter output = new() { NewLine = "\n" };
+        StringWriter error = new() { NewLine = "\n" };
+        MemoryStream data = new();
+        int exit = await Varve.Server.Commands.Cli.RunAsync(args, new Varve.Server.Commands.Io(output, error, data), Ct);
+        return (exit, output + error.ToString() + Encoding.UTF8.GetString(data.ToArray()));
+    }
+
     private static Dictionary<string, string> Settings(Uri container, string cache, string instance) => new()
     {
         ["Varve:Auth:Mode"] = "Anonymous",

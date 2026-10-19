@@ -32,6 +32,7 @@ internal static class Cli
         root.Subcommands.Add(Feed.Command(target, io));
         root.Subcommands.Add(Setup.Command(target, io));
         root.Subcommands.Add(Lease.Command(io));
+        root.Subcommands.Add(Storage.Command(io));
         root.Subcommands.Add(Serve.Command());
         ParseResult parsed = root.Parse(args);
         InvocationConfiguration configuration = new() { Output = io.Out, Error = io.Error };
@@ -56,7 +57,7 @@ internal static class Cli
             await error.WriteLineAsync("varve: " + failure.Message).ConfigureAwait(false);
             return 1;
         }
-        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or System.Net.Http.HttpRequestException or Varve.Store.DatasetLeasedException)
+        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or System.Net.Http.HttpRequestException or Varve.Store.DatasetLeasedException or Varve.Store.WriterSupersededException)
         {
             await error.WriteLineAsync("varve: " + failure.Message).ConfigureAwait(false);
             return 1;

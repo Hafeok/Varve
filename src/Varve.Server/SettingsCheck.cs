@@ -31,7 +31,7 @@ internal static class SettingsCheck
         "DatasetsRoot",
         "Datasets:*:Storage",
         "ObjectStorage:Provider", "ObjectStorage:ContainerUrl", "ObjectStorage:Endpoint", "ObjectStorage:Bucket", "ObjectStorage:Region",
-        "ObjectStorage:CachePath", "ObjectStorage:CacheBytes", "ObjectStorage:Instance",
+        "ObjectStorage:CachePath", "ObjectStorage:CacheBytes", "ObjectStorage:Instance", "ObjectStorage:ReaderId",
         "Auth:Mode", "Auth:Authority", "Auth:Audiences:*", "Auth:SubjectClaim", "Auth:ApplicationClaim", "Auth:RoleClaimType", "Auth:RequireHttpsMetadata", "Auth:Production",
         "Auth:Datasets:*:Read:*", "Auth:Datasets:*:Write:*", "Auth:Datasets:*:Admin:*",
         "Auth:Datasets:*:Grants:*:Claim", "Auth:Datasets:*:Grants:*:Permission", "Auth:Datasets:*:Grants:*:Graphs:*", "Auth:Datasets:*:Grants:*:GraphPrefixes:*",
@@ -46,6 +46,7 @@ internal static class SettingsCheck
         "Telemetry:QueryText",
         "Cors:AllowedOrigins:*", "Cors:MaxAge",
         "Store:GroupCommit:MaxRecords", "Store:GroupCommit:MaxBytes",
+        "Store:ExtentMerges:Enabled", "Store:ExtentMerges:FanOut", "Store:ExtentMerges:MaxSetBytes",
         "Events:Source", "Events:EventHubs:Host", "Events:EventHubs:Hub",
     ];
 
@@ -218,6 +219,16 @@ internal static class SettingsCheck
         if (settings.Store.GroupCommit.MaxRecords < 1 || settings.Store.GroupCommit.MaxBytes < 1 || settings.Store.GroupCommit.MaxBytes > 4L << 20)
         {
             errors.Add("Varve:Store:GroupCommit: MaxRecords is at least one, and MaxBytes between one byte and the write window, 4 MiB (ADR 0124).");
+        }
+
+        if (settings.Store.ExtentMerges.FanOut is < 2 or > 16 || settings.Store.ExtentMerges.MaxSetBytes < 1L << 20)
+        {
+            errors.Add("Varve:Store:ExtentMerges: FanOut is 2 to 16, and MaxSetBytes 1 MiB or more (ADR 0159).");
+        }
+
+        if (settings.ObjectStorage.ReaderId is { } reader && !Varve.Store.Log.ReaderId.IsValid(reader))
+        {
+            errors.Add("Varve:ObjectStorage:ReaderId is 1 to 128 ASCII letters, digits, '-', '_' or '.', not starting with '.' (ADR 0160).");
         }
 
         // A server with no configured dataset serves what the admin API

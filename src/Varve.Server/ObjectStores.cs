@@ -104,6 +104,8 @@ internal sealed class ObjectStores : IDisposable
             Access = ObjectStorageAccess.Write,
             Instance = new WriterInstance(string.IsNullOrWhiteSpace(_settings.Instance) ? Environment.MachineName : _settings.Instance),
             CacheBytes = new ByteCount(_settings.CacheBytes),
+            Reader = string.IsNullOrWhiteSpace(_settings.ReaderId) ? null : new ReaderId(_settings.ReaderId),
+            MaxObjectBytes = _settings.Provider == "Azure" ? AzureBlobStore.MaxSingleUploadBytes : S3ObjectStore.MaxSingleUploadBytes,
             Clock = _clock,
             ProbeRandomness = SystemProbeRandomness.Instance,
         }, cancellationToken).ConfigureAwait(false);

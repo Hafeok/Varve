@@ -16,7 +16,7 @@ namespace Varve.Server;
 /// head, its projection, whether it failed, and whether its storage no longer
 /// holds the writer epoch (ADR 0136).
 /// </summary>
-internal readonly record struct DatasetHealth(string Name, DatasetState State, string? Reason, long Head, long Projection, bool Failed, bool Superseded = false);
+internal readonly record struct DatasetHealth(string Name, DatasetState State, string? Reason, long Head, long Projection, bool Failed, bool Superseded = false, Varve.Store.ExtentRetention? Retention = null);
 
 /// <summary>One dataset's line in the readiness answer.</summary>
 internal readonly record struct DatasetReadiness(string Name, string State, string? Reason, long? Lag);
@@ -30,6 +30,54 @@ internal readonly record struct DatasetReadiness(string Name, string State, stri
 /// </summary>
 internal static class Readiness
 {
+    /// <summary>
+    /// What the store keeps for readers, per dataset that has reader records
+    /// (ADR 0162): reported beside readiness, and never a reason to be unready.
+    /// </summary>
+    internal static void WriteRetention(System.Text.Json.Utf8JsonWriter json, IEnumerable<DatasetHealth> datasets)
+    {
+        bool any = false;
+
+        foreach (DatasetHealth dataset in datasets)
+        {
+            if (dataset.Retention is not { } retention)
+            {
+                continue;
+            }
+
+            if (!any)
+            {
+                json.WriteStartObject("retention");
+                any = true;
+            }
+
+            json.WriteStartObject(dataset.Name);
+            json.WriteNumber("catalogVersion", retention.Version.Value);
+            json.WriteNumber("sets", retention.Sets);
+            json.WriteNumber("unnamedSets", retention.UnnamedSets);
+            json.WriteNumber("retainedBytes", retention.RetainedBytes);
+            json.WriteStartArray("readers");
+
+            foreach (Varve.Store.ReaderRetention reader in retention.Readers)
+            {
+                json.WriteStartObject();
+                json.WriteString("reader", reader.Announcement.Reader.Value);
+                json.WriteNumber("oldest", reader.Announcement.Oldest.Value);
+                json.WriteNumber("newest", reader.Announcement.Newest.Value);
+                json.WriteNumber("retainedBytes", reader.RetainedBytes);
+                json.WriteEndObject();
+            }
+
+            json.WriteEndArray();
+            json.WriteEndObject();
+        }
+
+        if (any)
+        {
+            json.WriteEndObject();
+        }
+    }
+
     internal static (bool Ready, List<DatasetReadiness> Datasets) Evaluate(IEnumerable<DatasetHealth> datasets, long allowedLag, bool draining)
     {
         bool ready = !draining;
