@@ -270,6 +270,14 @@ public static class VarveResourceBuilderExtensions
         VarveResource server = varve.Resource;
         server.DeclarationsDirectory = System.IO.Directory.CreateTempSubdirectory("varve-aspire-" + server.Name + "-").FullName;
 
+        // A temporary directory is the owner's alone on Unix (0700), and the
+        // image runs as a non-root user, so it could not read the file. The
+        // declarations hold no secret: the credentials go as arguments.
+        if (!OperatingSystem.IsWindows())
+        {
+            System.IO.File.SetUnixFileMode(server.DeclarationsDirectory, ReadableDirectory);
+        }
+
         IResourceBuilder<ContainerResource> declare = varve.ApplicationBuilder.AddContainer(server.Name + "-declare", Image, DefaultTag())
             .WithBindMount(server.DeclarationsDirectory, "/declarations", isReadOnly: true)
             .WithArgs(context =>
@@ -331,10 +339,27 @@ public static class VarveResourceBuilderExtensions
         return trig.ToString();
     }
 
-    private static Task WriteDeclarationsAsync(VarveResource resource) =>
-        resource.DeclarationsDirectory is { } directory
-            ? System.IO.File.WriteAllTextAsync(System.IO.Path.Combine(directory, DeclarationsFile), Declarations(resource))
-            : Task.CompletedTask;
+    private static async Task WriteDeclarationsAsync(VarveResource resource)
+    {
+        if (resource.DeclarationsDirectory is not { } directory)
+        {
+            return;
+        }
+
+        string path = System.IO.Path.Combine(directory, DeclarationsFile);
+        await System.IO.File.WriteAllTextAsync(path, Declarations(resource)).ConfigureAwait(false);
+
+        if (!OperatingSystem.IsWindows())
+        {
+            System.IO.File.SetUnixFileMode(path, ReadableFile);
+        }
+    }
+
+    private const System.IO.UnixFileMode ReadableFile =
+        System.IO.UnixFileMode.UserRead | System.IO.UnixFileMode.UserWrite | System.IO.UnixFileMode.GroupRead | System.IO.UnixFileMode.OtherRead;
+
+    private const System.IO.UnixFileMode ReadableDirectory =
+        ReadableFile | System.IO.UnixFileMode.UserExecute | System.IO.UnixFileMode.GroupExecute | System.IO.UnixFileMode.OtherExecute;
 
     // A container of the server's image follows the server's image as it
     // stands when the application starts, so a later WithImageTag moves it too.
