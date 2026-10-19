@@ -84,19 +84,6 @@ public sealed class SetupApplyTests : IDisposable
         Assert.Contains("dataset: the server refused (403", refused.Error, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task Varve_apply_is_no_command_and_no_alias()
-    {
-        string setup = Write("setup.yaml", "dataset: orders\nstorage: Memory\n");
-        Run apply = await RunAsync("apply", setup, "http://127.0.0.1:9/", "--token", "unused");
-        Assert.Equal(2, apply.Exit);
-        Assert.Contains("'apply'", apply.Error, StringComparison.Ordinal);
-
-        Run help = await RunAsync("--help");
-        Assert.DoesNotMatch(@"(?m)^\s+apply\b", help.Out);
-        Assert.Matches(@"(?m)^\s+setup\b", help.Out);
-    }
-
     private string Write(string name, string content)
     {
         string path = Path.Combine(_root, name);

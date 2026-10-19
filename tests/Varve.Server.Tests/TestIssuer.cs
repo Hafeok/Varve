@@ -70,6 +70,9 @@ internal sealed class TestIssuer : IAsyncDisposable
     /// <summary>How many device codes were approved: the test "enters the code" by calling <see cref="Approve"/>.</summary>
     internal int DeviceCodesIssued { get; private set; }
 
+    /// <summary>The platform token the issuer trusts as a client assertion, as a federated credential names one.</summary>
+    internal string? FederatedAssertion { get; set; }
+
     /// <summary>Approves every pending device code, as the person at the verification page would.</summary>
     internal void Approve()
     {
@@ -150,6 +153,15 @@ internal sealed class TestIssuer : IAsyncDisposable
 
             switch (grant)
             {
+                case "client_credentials" when form.ContainsKey("client_assertion"):
+                    // Workload identity federation (RFC 7523): the platform's
+                    // token is the client's credential; no secret anywhere.
+                    error = form["client_id"] == ClientId
+                        && form["client_assertion_type"] == "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+                        && issuer.FederatedAssertion is { } federated && form["client_assertion"] == federated
+                            ? null
+                            : "invalid_client";
+                    break;
                 case "client_credentials":
                     error = form["client_id"] == ClientId && form["client_secret"] == ClientSecret ? null : "invalid_client";
                     break;
@@ -195,7 +207,8 @@ internal sealed class TestIssuer : IAsyncDisposable
 
             await WriteJson(context, json =>
             {
-                json.WriteString("access_token", issuer.Mint(issuer.IssuedClaims));
+                // The scope names the audience: the management plane's when asked for.
+                json.WriteString("access_token", issuer.Mint(issuer.IssuedClaims, audiences: [form["scope"] == ManagementAudience ? ManagementAudience : Audience]));
                 json.WriteString("token_type", "Bearer");
                 json.WriteNumber("expires_in", 300);
 
