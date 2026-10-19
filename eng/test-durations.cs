@@ -131,7 +131,7 @@ int rank = 0;
 foreach (Result r in results.OrderByDescending(r => r.Duration).Take(top))
 {
     output.AppendLine(CultureInfo.InvariantCulture,
-        $"| {++rank} | {Minutes(r.Duration)} | {r.Outcome} | {Cell(Short(r.Class))} | {Cell(r.Name)} |");
+        $"| {++rank} | {Minutes(r.Duration)} | {r.Outcome} | {Cell(Short(r.Class))} | {Cell(Method(r))} |");
 }
 
 output.AppendLine();
@@ -172,6 +172,10 @@ string Short(string className) =>
 
 // The longest run of whole namespace segments, with its trailing dot, that
 // every class's namespace starts with.
+// The platform names a test by its class and method; the class has a column.
+static string Method(Result r) =>
+    r.Name.StartsWith(r.Class + ".", StringComparison.Ordinal) ? r.Name[(r.Class.Length + 1)..] : r.Name;
+
 static string SharedNamespace(List<string> classes)
 {
     if (classes.Count == 0)
