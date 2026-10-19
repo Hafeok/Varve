@@ -305,6 +305,62 @@ public sealed class FaultInjectionTests
     private static void Report(string line) => TestContext.Current.TestOutputHelper?.WriteLine(line);
 
     /// <summary>
+    /// Where a process crash cuts a write: at every byte of a write to the log,
+    /// and at the start, middle and end of any other.
+    /// </summary>
+    private static List<int> Cuts(int length, string path) =>
+        path.Contains(Path.DirectorySeparatorChar + "log" + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+            ? [.. Enumerable.Range(0, length)]
+            : [.. new[] { 0, length / 2, Math.Max(0, length - 1) }.Distinct()];
+
+    /// <summary>
+    /// The process-crash suites build every cut of a write from one run
+    /// crashed at the write's start (#126). That image is the image a run
+    /// crashed at the cut leaves, with the same acknowledged position, file
+    /// for file and byte for byte, at every cut of every tenth write, batched
+    /// and not.
+    /// </summary>
+    [Theory]
+    [InlineData(6101, 24, 1)]
+    [InlineData(6151, 32, 4)]
+    public async Task an_image_cut_from_one_crash_is_the_image_of_a_crash_at_that_cut(int seed, int steps, int batch)
+    {
+        Reference reference = await ReferenceAsync(seed, steps, batch);
+        int compared = 0;
+
+        foreach ((int operation, int length, string path) in reference.Writes.Where((_, index) => index % 10 == 0))
+        {
+            int at = operation;
+            (SimulatedFileSystem once, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null, batch);
+
+            foreach (int keep in Cuts(length, path))
+            {
+                int cut = keep;
+                (SimulatedFileSystem replayed, long replayedAcknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? cut : null, batch);
+                string where = "operation " + at + ", byte " + cut + " of " + length + " to " + path;
+                Assert.True(replayedAcknowledged == acknowledged, where + ": acknowledged " + replayedAcknowledged + " against " + acknowledged);
+                SameFiles(replayed.Image(CrashKind.Process, new Random(at)), once.Image(CrashKind.Process, new Random(at), cut), where);
+                compared++;
+            }
+        }
+
+        Assert.True(compared > 100, "only " + compared + " cuts compared");
+        Report("cut images, seed " + seed + ": " + compared + " cuts compared");
+    }
+
+    private static void SameFiles(SimulatedFileSystem expected, SimulatedFileSystem actual, string where)
+    {
+        IReadOnlyList<string> names = expected.Files(Root);
+        Assert.True(names.SequenceEqual(actual.Files(Root)), where + ": the images hold different files");
+
+        foreach (string name in names)
+        {
+            Assert.True(expected.Read(name).AsSpan().SequenceEqual(actual.Read(name)), where + ": " + name + " differs");
+            Assert.True(expected.IsReadOnly(name) == actual.IsReadOnly(name), where + ": " + name + " is sealed in one image only");
+        }
+    }
+
+    /// <summary>
     /// A process crash at every operation of the workload, and inside every
     /// write at every byte offset of the log's records and segment headers and
     /// trailers, and at the start, middle and end of every write to derived/.
@@ -322,29 +378,16 @@ public sealed class FaultInjectionTests
 
         for (int operation = 1; operation <= reference.Operations; operation++)
         {
-            List<int> keeps = [];
+            List<int> keeps = writes.TryGetValue(operation, out (int Length, string Path) write) ? Cuts(write.Length, write.Path) : [0];
 
-            if (writes.TryGetValue(operation, out (int Length, string Path) write))
-            {
-                if (write.Path.Contains(Path.DirectorySeparatorChar + "log" + Path.DirectorySeparatorChar, StringComparison.Ordinal))
-                {
-                    keeps.AddRange(Enumerable.Range(0, write.Length));
-                }
-                else
-                {
-                    keeps.AddRange(new[] { 0, write.Length / 2, Math.Max(0, write.Length - 1) }.Distinct());
-                }
-            }
-            else
-            {
-                keeps.Add(0);
-            }
+            // One run crashed at the operation's start; every cut of its write
+            // is built from it, as a run crashed at that cut would leave it.
+            int at = operation;
+            (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null);
 
             foreach (int keep in keeps)
             {
-                int at = operation;
-                (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? keep : null);
-                await VerifyAsync(crashed.Image(CrashKind.Process, new Random(at)), reference, acknowledged, "process crash at operation " + at + ", byte " + keep);
+                await VerifyAsync(crashed.Image(CrashKind.Process, new Random(at), keep), reference, acknowledged, "process crash at operation " + at + ", byte " + keep);
                 points++;
             }
         }
@@ -373,36 +416,21 @@ public sealed class FaultInjectionTests
 
         for (int operation = 1; operation <= reference.Operations; operation++)
         {
-            List<int> keeps = [];
+            List<int> keeps = writes.TryGetValue(operation, out (int Length, string Path) write) ? Cuts(write.Length, write.Path) : [0];
 
-            if (writes.TryGetValue(operation, out (int Length, string Path) write))
-            {
-                if (write.Path.Contains(Path.DirectorySeparatorChar + "log" + Path.DirectorySeparatorChar, StringComparison.Ordinal))
-                {
-                    keeps.AddRange(Enumerable.Range(0, write.Length));
-                }
-                else
-                {
-                    keeps.AddRange(new[] { 0, write.Length / 2, Math.Max(0, write.Length - 1) }.Distinct());
-                }
-            }
-            else
-            {
-                keeps.Add(0);
-            }
+            // One run crashed at the operation's start serves every cut of its
+            // write and every power-loss image, as in the unbatched suites.
+            int at = operation;
+            (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null, batch);
 
             foreach (int keep in keeps)
             {
-                int at = operation;
-                (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? keep : null, batch);
-                await VerifyAsync(crashed.Image(CrashKind.Process, new Random(at)), reference, acknowledged, "batched, process crash at operation " + at + ", byte " + keep, batch: batch);
+                await VerifyAsync(crashed.Image(CrashKind.Process, new Random(at), keep), reference, acknowledged, "batched, process crash at operation " + at + ", byte " + keep, batch: batch);
                 points++;
             }
 
             for (int image = 0; image < 3; image++)
             {
-                int at = operation;
-                (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null, batch);
                 await VerifyAsync(crashed.Image(CrashKind.PowerLoss, new Random((at * 31) + image)), reference, acknowledged, "batched, power loss at operation " + at + ", image " + image, batch: batch);
                 points++;
             }

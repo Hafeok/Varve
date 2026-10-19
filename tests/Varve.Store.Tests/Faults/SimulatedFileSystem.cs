@@ -79,6 +79,10 @@ internal sealed class SimulatedFileSystem : IFileSystem
     private readonly Lock _gate = new();
     private int _durableJournal;
 
+    // The write a crash stopped: its file, where it began and all it would
+    // have written, so that one crash builds the image of every cut of it.
+    private (Inode Inode, long Offset, byte[] Bytes)? _inFlight;
+
     /// <summary>Called before each mutating operation with its number; returns the bytes of a write to keep when it crashes there, or null to go on.</summary>
     public Func<Operation, int?>? Injector { get; set; }
 
@@ -265,10 +269,25 @@ internal sealed class SimulatedFileSystem : IFileSystem
     /// chooses, for a power loss, which unflushed writes survive and where
     /// metadata is cut.
     /// </summary>
-    public SimulatedFileSystem Image(CrashKind kind, Random random)
+    public SimulatedFileSystem Image(CrashKind kind, Random random) => Image(kind, random, inFlightBytes: 0);
+
+    /// <summary>
+    /// What a restart finds after a process crash inside the write the crash
+    /// stopped, had that write kept its first <paramref name="inFlightBytes"/>
+    /// bytes. A run crashed at a write's start keeps none of it; this is the
+    /// image a run crashed there keeping <paramref name="inFlightBytes"/> would
+    /// leave, byte for byte, without replaying the run to the same operation
+    /// once per cut (#126).
+    /// </summary>
+    public SimulatedFileSystem Image(CrashKind kind, Random random, int inFlightBytes)
     {
         lock (_gate)
         {
+            if (inFlightBytes != 0 && (kind != CrashKind.Process || _inFlight is null))
+            {
+                throw new InvalidOperationException("Only a process crash inside a write keeps part of the write in flight.");
+            }
+
             SimulatedFileSystem image = new();
 
             foreach (string directory in _directories)
@@ -313,6 +332,13 @@ internal sealed class SimulatedFileSystem : IFileSystem
                 {
                     copy = new Inode { ReadOnly = sealedAt.ContainsKey(inode) };
                     copy.Bytes.AddRange(kind == CrashKind.Process ? inode.Bytes : inode.Survivors(random));
+
+                    if (inFlightBytes != 0 && _inFlight is { } inFlight && ReferenceEquals(inode, inFlight.Inode))
+                    {
+                        copy.Write(inFlight.Offset, inFlight.Bytes.AsSpan(0, Math.Min(inFlightBytes, inFlight.Bytes.Length)));
+                        copy.Pending.Clear();
+                    }
+
                     copy.Durable = [.. copy.Bytes];
                     copies[inode] = copy;
                 }
@@ -409,6 +435,7 @@ internal sealed class SimulatedFileSystem : IFileSystem
 
             if (keep is not null)
             {
+                _inFlight = (inode, offset, bytes.ToArray());
                 Crashed = true;
                 throw new SimulatedCrash("Crashed after " + written.Length + " of " + bytes.Length + " bytes to " + path + ".");
             }
