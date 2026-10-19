@@ -249,3 +249,5 @@ session's own runs; other operating systems are CI's.
 | `Varve.Server.Tests`, without the services | 103 (11 skipped) | 12 s |
 | `Varve.Server.Tests`, `FleetTests` on Azurite | 4 | 22 s |
 | `Varve.Events.Tests` | 64 | 6 s |
+| `Varve.Store.Tests`, without the services | 258 (54 skipped) | 1,420 s |
+| `Varve.Conformance.Tests` | 10,428, the 12 exemptions failing as listed; the ratchet: 0 regressed | 31 s |
