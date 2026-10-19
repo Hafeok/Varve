@@ -12,6 +12,82 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.0-preview.9] - 2026-10-19
+
+**Extent maintenance — background merges and extent deletion**
+
+### Milestone Extent maintenance — background merges and extent deletion
+
+The writer merges extent sets in the background, so a read of the present
+merges a bounded number of sets however many checkpoints a dataset takes,
+and deletes a merged set only when no reader may still read it. This
+release closes milestone Extent maintenance (#110). The log's bytes are
+unchanged and derived format 4 holds: a set gains an optional ninth blob,
+of a kind format 4 already defines. The five ADRs are filed unaccepted
+and accepted on the pull request (ADR 0066).
+
+#### Added
+
+- **Background merges** (ADRs 0158, 0159). The writer's maintenance
+  merges adjacent sets into one, writes it, then swaps the catalog once
+  under the epoch fence. A merge never blocks a commit or a checkpoint, is
+  a pure function of its inputs, and rebases onto the catalog if a
+  checkpoint or a drop swapped it meanwhile.
+  - The policy is size-tiered: `FanOut` adjacent sets of similar size
+    merge, and past a bound the smallest run merges. `MaxSetBytes` caps
+    a set, and so the cost of an as-of read inside one. At the defaults
+    (4, 256 MiB) a chain holds at most 15 sets below half the cap.
+  - `DatasetOptions.ExtentMerges` (`ExtentMergePolicy`), on the server
+    `Varve:Store:ExtentMerges`.
+  - At REC M after 100 checkpoints, head reads are faster than after 10
+    without merges, and an as-of read inside the largest set is within
+    1.2× of it. Write amplification was 1.77.
+- **Extent deletion by reader announcements** (ADR 0160). Every
+  instance on an object store, the writer included, announces the oldest
+  and newest catalog versions it reads in a reader record,
+  `readers/<id>`. The writer deletes a set only when no record's interval
+  overlaps the versions that named it.
+  - `IExtentReaders` in `Varve.Store`; `ObjectStorageOptions.Reader` and
+    `Announcing`. The catalog version is the catalog's set sequence.
+  - Announcing is required. A follower's identity needs write access to
+    `readers/` only (ADR 0134 amended); the operator guide gives the Azure
+    ABAC condition and the S3 policy. `ReaderAnnouncing.Unannounced` reads
+    without a record, and fails a read that finds an extent gone with
+    `read-unannounced-extent-gone`.
+  - A reader whose record was forgotten fails with `reader-forgotten`
+    and attaches again.
+  - A record of a format this build does not read holds every version.
+  - The reader record is specified as its own format (storage format §8).
+- **The shared commit index** (ADR 0161). Each set carries its window's
+  commit index as `extents/<set>/commits`, so a cold start reads no log
+  below the catalog.
+- **Uploads are staged through the cache.** An extent is written to a
+  file in the cache and uploaded in one streamed create, and the file is
+  kept as its cached copy. A merge whose output would pass the store's
+  single-upload limit is refused before it starts.
+- **The server** (ADR 0162):
+  - `varve storage <address>` prints the catalog's version, the sets per
+    permutation, the unnamed sets the store keeps, and the bytes each
+    reader record retains.
+  - `varve storage readers list` and `forget --reader --oldest --newest`.
+  - `varve info`, `query`, `export` and `feed` read a dataset in an object
+    store, announced, or with `--unannounced`.
+  - `/health/ready` reports `retention`, and never turns unready because
+    of it.
+  - `Varve:ObjectStorage:ReaderId`.
+
+#### Changed
+
+- `IObjectStore` gains a streamed `CreateIfAbsentAsync(ObjectName,
+  ObjectContent, CancellationToken)`, with a default implementation. The
+  Azure and S3 adapters implement it, and raise
+  `ObjectStoreAccessDeniedException` on a 401 or 403, which is never
+  retried.
+- `Varve.Protocol`: the problem types `reader-forgotten` and
+  `read-unannounced-extent-gone`; the `not-ready` problem gains
+  `retention`.
+- The operator guide's checkpoint budget is removed.
+
 ## [0.1.0-preview.8] - 2026-10-16
 
 **Object storage — the log, the projection and the deployment in an object store**
@@ -1074,7 +1150,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.8...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.9...HEAD
+[0.1.0-preview.9]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.8...v0.1.0-preview.9
 [0.1.0-preview.8]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.7...v0.1.0-preview.8
 [0.1.0-preview.7]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.6...v0.1.0-preview.7
 [0.1.0-preview.6]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.5...v0.1.0-preview.6

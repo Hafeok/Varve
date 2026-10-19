@@ -43,8 +43,15 @@ where Varve is the wrong tool: [`docs/why.md`](docs/why.md).
 
 ## Status
 
-**`v0.1.0-preview.8` is the latest release; it closed milestone Object storage
-([#92](https://github.com/Hafeok/Varve/issues/92))**: the log and the
+**`v0.1.0-preview.9` is the latest release; it closed milestone Extent
+maintenance ([#110](https://github.com/Hafeok/Varve/issues/110))**: the writer
+merges extent sets in the background by a size-tiered policy with a cap, so
+reads stay bounded however many checkpoints a dataset takes, and deletes a
+merged set only when no instance's reader record still holds it; each set
+carries its commit index, so a cold start reads no log below the catalog; and
+`varve storage` shows what the store keeps and for whom. `v0.1.0-preview.8`
+before it closed milestone Object storage
+([#92](https://github.com/Hafeok/Varve/issues/92)): the log and the
 projection in Azure Blob Storage or an S3-compatible store, one writer by an
 epoch, checkpoints as extent sets with validity intervals, and a deployment on
 Azure Container Apps. `v0.1.0-preview.7` before it closed milestone Client and
@@ -304,7 +311,7 @@ is the Native AOT binary and nothing else:
 
 ```bash
 dotnet tool install --global Varve.Server --prerelease
-docker pull ghcr.io/hafeok/varve:v0.1.0-preview.8
+docker pull ghcr.io/hafeok/varve:v0.1.0-preview.9
 ```
 
 Serve one dataset on your machine. `--anonymous` is for development only: a
@@ -313,7 +320,7 @@ real deployment takes OIDC bearer tokens ([ADR 0037](docs/adr/0037-server-authen
 ```bash
 varve serve --anonymous --datasets-root "$PWD/data" --dataset people
 # or, listening on 8080 instead of 5000, with the datasets in the image's volume:
-docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.8 serve --anonymous --dataset people
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.9 serve --anonymous --dataset people
 ```
 
 The datasets root is an absolute path. Then write, read, go back, and read
