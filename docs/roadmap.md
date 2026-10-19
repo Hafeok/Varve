@@ -692,8 +692,10 @@ maintainer on 2026-10-13, per fleet from the start.
 **Scope.** Management routes under `/manage/` with a separate token audience
 and the operator or dataset-admin role; the dataset state and settings routes
 move there. A system dataset per fleet on the fleet's store, one writer, the
-other servers tier-1 followers, `307` to the writer for management writes. A
-read-only tier-1 follower that Replication builds on. Grants evaluated at the
+other servers tier-1 followers; any instance accepts a write and forwards it
+to the writer of its dataset (ADR 0168, which superseded the `307` of the
+first draft). A read-only tier-1 follower that Replication builds on, and
+placement of each dataset's writer changed by events. Grants evaluated at the
 server's applied management position, stated on every response, with
 `Varve-Min-Management-Position` and `503 management-behind`; each commit
 records the position that authorised it. TriG declarations in the `varve:`
@@ -702,7 +704,10 @@ IRIs, roles or groups, graph sets as IRIs or caller templates.
 `varve apply --plan` and `apply` as an RDFC-1.0 diff committed under
 `Varve-If-Graphs-Match`, drift checked in CI with workload identity
 federation. Bootstrap operators in host configuration, recorded on first
-write. Embedded hosts have no management plane.
+write. Embedded hosts have no management plane. In two releases: part 1 is
+everything above (ADRs 0163–0166, 0168), with event schemas still in the
+catalogue graphs and refused in management graphs; part 2 moves them to the
+management plane (ADR 0167) and closes the milestone.
 
 **Gate.** `apply` idempotent; stale saved plans refused; disjoint applies
 never conflict; over generated grant histories, no response at position p

@@ -254,7 +254,7 @@ time:
 
 `Limits:MaxAsOfDistance` (10,000 by default) bounds how far that replay may
 go. A range beyond it ends with the stream's `error` event. A checkpoint
-(`POST /datasets/{name}/checkpoints`) brings the cost back down for the
+(`POST /manage/datasets/{name}/checkpoints`) brings the cost back down for the
 positions above it. A consumer that follows the live tail pays the near-head
 cost. A full replay of a long history pays the distance, until Object
 storage's extents (ADR 0138) make an as-of read independent of it.

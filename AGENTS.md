@@ -204,7 +204,25 @@ and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone Client and integration (#93), after Commit path, in two parts.
+Milestone Management plane (#105), part 1 (ADRs 0163–0166 and 0168, filed
+unaccepted); part 2 moves event schemas (ADR 0167). A fleet of servers on one
+store shares one **system dataset** at `_fleet/`: one instance writes it
+(`Varve:Fleet:Writer`), the others follow it as **tier-1 followers** (ADR
+0164: a read-only open that probes the next log slot, never lists, and is
+advanced only when a read arrives; the system dataset on the interval).
+Datasets, settings, placement and grants are **TriG declarations** in the
+`varve:` vocabulary, read and checked by `Varve.Management` (layer 4, ADR
+0166), and the grants in force are those at the instance's applied
+management position, which every response names and every commit records as
+a header attachment (ADR 0165, spec 1.8). The management plane is
+`/manage/…`, with its own token audience; `varve apply` plans and commits
+declarations as code; `Varve:Datasets`, `Varve:Auth:Datasets` and
+`Varve:Auth:Server:Admin` are refused at start. Any instance accepts a write
+and **forwards** it once to its writer's internal address (ADR 0168). The
+admin routes, setup's storage and settings, and `dataset-exists` are gone;
+setups apply data only. Fleet tests run two server processes on Azurite.
+
+Before that, milestone Client and integration (#93), after Commit path, in two parts.
 Part 2 (ADRs 0143–0147, filed unaccepted) is domain events. They are quads in
 an events graph, written in the same commit as the change. `Varve.Events`
 (layer 4) renders them as CloudEvents 1.0 in RFC 8785 canonical form, through

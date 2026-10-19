@@ -312,9 +312,13 @@ Serve one dataset on your machine. `--anonymous` is for development only: a
 real deployment takes OIDC bearer tokens ([ADR 0037](docs/adr/0037-server-authentication.md)).
 
 ```bash
-varve serve --anonymous --datasets-root "$PWD/data" --dataset people
+varve serve --anonymous --datasets-root "$PWD/data"
 # or, listening on 8080 instead of 5000, with the datasets in the image's volume:
-docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.8 serve --anonymous --dataset people
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.8 serve --anonymous
+
+# then declare the dataset in the management plane (ADR 0163):
+curl -X PUT http://localhost:5000/manage/datasets/people -H 'Content-Type: application/trig' \
+  --data '<urn:people> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> "people" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#File> .'
 ```
 
 The datasets root is an absolute path. Then write, read, go back, and read
