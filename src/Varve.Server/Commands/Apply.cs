@@ -74,7 +74,7 @@ internal static class Apply
             string address = parsed.GetValue(server) ?? throw new Cli.CommandException("--server names the server to apply to.");
             Uri manage = new(address.TrimEnd('/') + "/manage/", UriKind.Absolute);
             using HttpClient http = OutboundHttp.CreateClient();
-            string bearer = await TokenAsync(parsed, http, token, authority, clientId, clientSecret, clientAssertion, assertionAudience, scope, cancellationToken).ConfigureAwait(false);
+            string? bearer = await TokenAsync(parsed, http, token, authority, clientId, clientSecret, clientAssertion, assertionAudience, scope, cancellationToken).ConfigureAwait(false);
             ManagementPlan computed;
 
             if (parsed.GetValue(fromPlan) is { } saved)
@@ -123,7 +123,7 @@ internal static class Apply
 
     // The files' declarations against the server's graphs, at the system
     // position the read answered at.
-    private static async Task<ManagementPlan> PlanAsync(HttpClient http, Uri manage, string bearer, string[] files, CancellationToken cancellationToken)
+    private static async Task<ManagementPlan> PlanAsync(HttpClient http, Uri manage, string? bearer, string[] files, CancellationToken cancellationToken)
     {
         if (files.Length == 0)
         {
@@ -166,7 +166,7 @@ internal static class Apply
 
         InMemoryDataset desired = ManagementTrig.TryParseLines(lines, out string? merged) ?? throw new Cli.CommandException(merged ?? "the declarations do not combine.");
         using HttpRequestMessage read = new(HttpMethod.Get, new Uri(manage, "graphs"));
-        read.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
+        read.Headers.Authorization = bearer is null ? null : new AuthenticationHeaderValue("Bearer", bearer);
         using HttpResponseMessage answered = await http.SendAsync(read, cancellationToken).ConfigureAwait(false);
         byte[] body = await answered.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
 
@@ -182,7 +182,7 @@ internal static class Apply
         return ManagementPlan.Compute(desired, owners.Keys, current, versions, new ManagementPosition(position));
     }
 
-    private static async Task<int> CommitAsync(HttpClient http, Uri manage, string bearer, ManagementPlan plan, Io io, CancellationToken cancellationToken)
+    private static async Task<int> CommitAsync(HttpClient http, Uri manage, string? bearer, ManagementPlan plan, Io io, CancellationToken cancellationToken)
     {
         List<string> lines = [];
         StringBuilder owned = new();
@@ -200,7 +200,7 @@ internal static class Apply
             Content = new ByteArrayContent(ManagementTrig.Write(desired, [.. plan.Graphs.Select(graph => graph.Graph)])),
         };
         request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/trig") { CharSet = "utf-8" };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
+        request.Headers.Authorization = bearer is null ? null : new AuthenticationHeaderValue("Bearer", bearer);
         request.Headers.TryAddWithoutValidation("Varve-If-Graphs-Match", owned.ToString());
         using HttpResponseMessage response = await http.SendAsync(request, cancellationToken).ConfigureAwait(false);
 
@@ -280,7 +280,7 @@ internal static class Apply
     // The token (ADR 0163 point 5): given; or obtained by workload identity
     // federation, the platform's own token as the client's assertion; or by
     // a client secret, which a deployment should not need.
-    private static async Task<string> TokenAsync(
+    private static async Task<string?> TokenAsync(
         ParseResult parsed,
         HttpClient http,
         Option<string?> token,
@@ -297,7 +297,12 @@ internal static class Apply
             return given;
         }
 
-        string issuer = parsed.GetValue(authority) ?? throw new Cli.CommandException("give --token, or --authority and --client-id with --client-assertion.");
+        if (parsed.GetValue(authority) is not { } issuer)
+        {
+            // No credential at all: a server in anonymous mode (ADR 0037).
+            return parsed.GetValue(clientId) is null ? null : throw new Cli.CommandException("--authority and --client-id go together.");
+        }
+
         string client = parsed.GetValue(clientId) ?? throw new Cli.CommandException("--authority and --client-id go together.");
         OidcClient oidc = new(http, issuer);
 

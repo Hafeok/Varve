@@ -17,6 +17,15 @@
         },
         {
           "requestParam": "client_id",
+          "match": "varve-deployer",
+          "claims": {
+            "sub": "varve-deployer",
+            "aud": [ "api://varve-manage" ],
+            "roles": [ "varve.operator" ]
+          }
+        },
+        {
+          "requestParam": "client_id",
           "match": "varve-cli",
           "claims": {
             "sub": "${subject}",

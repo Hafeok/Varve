@@ -36,6 +36,18 @@ public sealed class VarveResource : ContainerResource
     /// <summary>The datasets <c>WithDataset</c> declared, with the roles each grants.</summary>
     internal List<VarveDataset> Datasets { get; } = [];
 
+    /// <summary>The bootstrap operators <c>WithOperators</c> named: agent IRIs or role values (ADR 0163 point 7).</summary>
+    internal List<string> Operators { get; } = [];
+
+    /// <summary>The client credentials <c>WithManagementClient</c> gave the declarations container, under <c>WithOidc</c>.</summary>
+    internal VarveSetupClient? ManagementClient { get; set; }
+
+    /// <summary>The container that applies the declarations with <c>varve apply</c>, once a dataset is declared.</summary>
+    internal IResourceBuilder<ContainerResource>? Declare { get; set; }
+
+    /// <summary>The directory the declarations file is written to, mounted into <see cref="Declare"/>.</summary>
+    internal string? DeclarationsDirectory { get; set; }
+
     /// <summary>The client credentials <c>WithSetupClient</c> gave the setup containers, under <c>WithOidc</c>.</summary>
     internal VarveSetupClient? SetupClient { get; set; }
 
@@ -47,7 +59,7 @@ public sealed class VarveResource : ContainerResource
 internal sealed record VarveSetupClient(string ClientId, ParameterResource Secret, string? Scope);
 
 /// <summary>What <c>WithOidc</c> set (ADR 0037's bearer-token mode).</summary>
-internal sealed record VarveOidc(ReferenceExpression Authority, string Audience, string? RoleClaimType, string? SubjectClaim, bool RequireHttpsMetadata);
+internal sealed record VarveOidc(ReferenceExpression Authority, string Audience, string? RoleClaimType, string? SubjectClaim, bool RequireHttpsMetadata, string ManagementAudience);
 
 /// <summary>A dataset the server opens at start, and the roles that may read and write it (ADR 0107).</summary>
 internal sealed record VarveDataset(string Name, IReadOnlyList<string> Read, IReadOnlyList<string> Write, IReadOnlyList<string> Admin);

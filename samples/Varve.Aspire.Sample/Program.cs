@@ -10,7 +10,8 @@ using Aspire.Hosting.ApplicationModel;
 // the issuer of the auth tests' layer (b) (ADR 0100), configured by the same
 // file, and the server's WithOidc pointing at it over the container network.
 // A token from the mock for client varve-writer writes; one for varve-cli
-// reads. The people dataset's setup, setup/people.yaml, is applied by
+// reads. The people dataset is declared by varve-declare, as varve-deployer,
+// an operator (ADR 0163); its setup, setup/people.yaml, is applied by
 // varve-setup-people with the writer's identity once the server is healthy. Varve:ImageTag picks another image tag, as CI does for the one it
 // just built.
 namespace Varve.Aspire.Sample;
@@ -34,6 +35,8 @@ internal static class Program
 
         IResourceBuilder<VarveResource> varve = builder.AddVarve("varve")
             .WithOidc(ReferenceExpression.Create($"{issuer.GetEndpoint("http")}/varve"), "api://varve", roleClaimType: "roles", requireHttpsMetadata: false)
+            .WithOperators("varve.operator")
+            .WithManagementClient("varve-deployer", setupSecret, scope: "api://varve-manage")
             .WithSetupClient("varve-writer", setupSecret, scope: "api://varve")
             .WithDataset("people", read: ["varve.read"], write: ["varve.write"], setup: "setup/people.yaml")
             .WaitFor(issuer);
