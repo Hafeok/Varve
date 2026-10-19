@@ -585,7 +585,7 @@ internal sealed class FunctionExpr : Expr
         Value[] patternAndFlags = values.Length > 3 ? [values[0], values[1], values[3]] : [values[0], values[1]];
         Regex? regex = Pattern(exec, patternAndFlags);
         if (regex is null || !Terms.IsStringLiteral(text) || !IsPlainString(replacement)
-            || XPathRegex.TranslateReplacement(Utf8.GetString(replacement.Lexical), regex) is not { } dotnet)
+            || !XPathRegex.TryTranslateReplacement(Utf8.GetString(replacement.Lexical), regex.GetGroupNumbers().Length - 1, out string? dotnet, out _))
         {
             return Value.Error;
         }
@@ -621,7 +621,8 @@ internal sealed class FunctionExpr : Expr
         return exec.Regex(
             Utf8.GetString(pattern.Lexical),
             flags is null ? string.Empty : Utf8.GetString(flags.Lexical),
-            (p, f) => XPathRegex.Compile(p, f, timeout));
+            (p, f) => XPathRegex.TryTranslate(p, f, out XPathRegexTranslation translation, out _)
+                && XPathRegex.TryCompile(translation, timeout, out Regex? regex, out _) ? regex : null);
     }
 
     // ---------------------------------------------------------------- dates

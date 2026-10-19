@@ -173,3 +173,17 @@ so rather than quietly dropping it.
 - **Analyzer rule.** None.
 - **Open questions owned.** None. The Oxigraph comparison is deferred work, not
   an open question — it has an answer, and nobody has done it.
+
+## Amendment, 2026-10-17 — dotNetRDF's SHACL validator
+
+Filed by SHACL, part 1 (#120, under milestone 8, #13), unaccepted until the
+maintainer accepts it (ADR 0066).
+
+`dotNetRdf.Shacl`, from the same project and on the same version as
+`dotNetRdf.Core`, is admitted by [ADR 0156](0156-dotnetrdf-shacl-for-benchmarks-and-as-an-oracle.md):
+to `tests/Varve.Benchmarks` for the SHACL comparison, and to one test project
+as a differential oracle. `DotNetRdfIsTheBaseline` holds as written: an
+oracle's disagreement is investigated against the specification and never
+adopted as the answer, so nothing depends on dotNetRDF for one.
+
+**The ledger.** No ruling here changes; ADR 0156's set holds the new one.

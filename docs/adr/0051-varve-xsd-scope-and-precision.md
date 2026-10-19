@@ -237,3 +237,19 @@ library enters the register.
 - **Analyzer rule.** None.
 - **Open questions owned.** None. The dateTime comparison carries a
   verification obligation in 5b, recorded above, not an open question.
+
+## Amendment, 2026-10-17 — XPath regular expressions
+
+Filed by SHACL, part 1 (#120, under milestone 8, #13), unaccepted until the
+maintainer accepts it (ADR 0066).
+
+`Varve.Xsd`'s scope gains the regular expressions of XPath and XQuery
+Functions and Operators 3.1 §5.6, by [ADR 0153](0153-xpath-regular-expressions-in-varve-xsd.md):
+a translator to .NET's dialect, shared by the evaluator's `REGEX` and
+`REPLACE` and by `sh:pattern`. It belongs here for the reason the rest of the
+package does: it is part of the XPath and XML Schema value layer both SPARQL
+and SHACL are defined over, and layer 0 is the one both can reach. It has no
+Varve dependency; the package still has none.
+
+**The ledger.** `XsdScope` is unchanged, as it lists datatypes; ADR 0153's set
+holds the new rulings.

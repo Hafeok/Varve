@@ -488,3 +488,27 @@ static Varve.Xsd.XsdYearMonthDuration.operator <=(Varve.Xsd.XsdYearMonthDuration
 static Varve.Xsd.XsdYearMonthDuration.operator ==(Varve.Xsd.XsdYearMonthDuration left, Varve.Xsd.XsdYearMonthDuration right) -> bool
 static Varve.Xsd.XsdYearMonthDuration.operator >(Varve.Xsd.XsdYearMonthDuration left, Varve.Xsd.XsdYearMonthDuration right) -> bool
 static Varve.Xsd.XsdYearMonthDuration.operator >=(Varve.Xsd.XsdYearMonthDuration left, Varve.Xsd.XsdYearMonthDuration right) -> bool
+Varve.Xsd.XPathRegex
+Varve.Xsd.XPathRegexError
+Varve.Xsd.XPathRegexError.Code.get -> string!
+Varve.Xsd.XPathRegexError.Equals(Varve.Xsd.XPathRegexError other) -> bool
+Varve.Xsd.XPathRegexError.Message.get -> string!
+Varve.Xsd.XPathRegexError.Position.get -> int
+Varve.Xsd.XPathRegexError.XPathRegexError() -> void
+Varve.Xsd.XPathRegexTranslation
+Varve.Xsd.XPathRegexTranslation.Equals(Varve.Xsd.XPathRegexTranslation other) -> bool
+Varve.Xsd.XPathRegexTranslation.GroupCount.get -> int
+Varve.Xsd.XPathRegexTranslation.Pattern.get -> string!
+Varve.Xsd.XPathRegexTranslation.XPathRegexTranslation() -> void
+override Varve.Xsd.XPathRegexError.Equals(object? obj) -> bool
+override Varve.Xsd.XPathRegexError.GetHashCode() -> int
+override Varve.Xsd.XPathRegexError.ToString() -> string!
+override Varve.Xsd.XPathRegexTranslation.Equals(object? obj) -> bool
+override Varve.Xsd.XPathRegexTranslation.GetHashCode() -> int
+static Varve.Xsd.XPathRegex.TryCompile(Varve.Xsd.XPathRegexTranslation translation, System.TimeSpan timeout, out System.Text.RegularExpressions.Regex? regex, out Varve.Xsd.XPathRegexError error) -> bool
+static Varve.Xsd.XPathRegex.TryTranslate(string! pattern, string! flags, out Varve.Xsd.XPathRegexTranslation translation, out Varve.Xsd.XPathRegexError error) -> bool
+static Varve.Xsd.XPathRegex.TryTranslateReplacement(string! replacement, int groupCount, out string? translated, out Varve.Xsd.XPathRegexError error) -> bool
+static Varve.Xsd.XPathRegexError.operator !=(Varve.Xsd.XPathRegexError left, Varve.Xsd.XPathRegexError right) -> bool
+static Varve.Xsd.XPathRegexError.operator ==(Varve.Xsd.XPathRegexError left, Varve.Xsd.XPathRegexError right) -> bool
+static Varve.Xsd.XPathRegexTranslation.operator !=(Varve.Xsd.XPathRegexTranslation left, Varve.Xsd.XPathRegexTranslation right) -> bool
+static Varve.Xsd.XPathRegexTranslation.operator ==(Varve.Xsd.XPathRegexTranslation left, Varve.Xsd.XPathRegexTranslation right) -> bool

@@ -43,18 +43,25 @@ where Varve is the wrong tool: [`docs/why.md`](docs/why.md).
 
 ## Status
 
-**`v0.1.0-preview.8` is the latest release; it closed milestone Object storage
-([#92](https://github.com/Hafeok/Varve/issues/92))**: the log and the
+**`v0.1.0-preview.9` is the latest release, and it completed the first part of milestone 8, SHACL ([#120](https://github.com/Hafeok/Varve/issues/120), under [#13](https://github.com/Hafeok/Varve/issues/13))**:
+the standalone validator, SHACL 1.2 Core and SHACL-SPARQL over any quad
+source, recursive shapes as a stratified greatest fixpoint, the report as a
+canonical value that joins back to the data, XPath regular expressions in
+`Varve.Xsd` for SHACL and the evaluator alike, and shapes for the event
+declaration vocabulary. Commit-time gating and incremental validation are
+part 2. `v0.1.0-preview.8` before it closed milestone Object storage
+([#92](https://github.com/Hafeok/Varve/issues/92)): the log and the
 projection in Azure Blob Storage or an S3-compatible store, one writer by an
 epoch, checkpoints as extent sets with validity intervals, and a deployment on
-Azure Container Apps. `v0.1.0-preview.7` before it closed milestone Client and
-integration ([#93](https://github.com/Hafeok/Varve/issues/93)) with its second
-part: domain events written as quads and rendered as canonical CloudEvents,
-their catalogue as graphs governed by the graphs they describe, versioned JSON
-Schemas with breaking changes refused, AsyncAPI 3.0, `FollowEventsAsync`, and
-an Event Hubs bridge sample. `v0.1.0-preview.6` before that closed the first
-part ([#103](https://github.com/Hafeok/Varve/issues/103)): on-behalf-of through
-a token provider, the change feed's format as the package `Varve.Delta`,
+Azure Container Apps. `v0.1.0-preview.7` before that closed milestone Client
+and integration ([#93](https://github.com/Hafeok/Varve/issues/93)) with its
+second part: domain events written as quads and rendered as canonical
+CloudEvents, their catalogue as graphs governed by the graphs they describe,
+versioned JSON Schemas with breaking changes refused, AsyncAPI 3.0,
+`FollowEventsAsync`, and an Event Hubs bridge sample. `v0.1.0-preview.6` before
+that closed the first part
+([#103](https://github.com/Hafeok/Varve/issues/103)): on-behalf-of through a
+token provider, the change feed's format as the package `Varve.Delta`,
 `FollowAsync`, declared dataset setup and CORS.
 `v0.1.0-preview.5` before that closed milestone Commit path
 ([#91](https://github.com/Hafeok/Varve/issues/91)): concurrent commits written
@@ -65,10 +72,11 @@ read or write, with graph versions as HTTP tags.
 RDF 1.2 Turtle and TriG, RDF/XML and JSON-LD, read, written and negotiated
 over HTTP. `v0.1.0-preview.3` before that closed
 milestone Operability ([#12](https://github.com/Hafeok/Varve/issues/12)): the
-server somebody can run. Twenty-two packages and one executable: reading and
+server somebody can run. Twenty-four packages and one executable: reading and
 writing seven syntaxes, canonical JSON, the XSD value spaces, RDFC-1.0
 canonicalisation, the SPARQL algebra with its parser and serialiser, the
 SPARQL results formats read and written, a query evaluator with an optimiser,
+a SHACL validator with SHACL-SPARQL,
 an event-sourced store on files, in memory, in the browser and in an object
 store, SPARQL Update
 over it as one commit per request, the SPARQL 1.1 and Graph Store protocols
@@ -98,9 +106,11 @@ and it ships inside every package.
 | `Varve.Sparql.Results` | 2 | the SPARQL results formats — XML, JSON, CSV, TSV — as pull readers and streaming writers | working |
 | `Varve.Delta` | 3 | the change feed's format, `application/vnd.varve.delta` version 1, read for ever: the reader, the writer and the record model, with no store in it | working |
 | `Varve.Sparql.Evaluation` | 3 | the optimiser and evaluator: every operator, the function library, aggregates, property paths, `SERVICE` through a handler, over any quad source | working |
+| `Varve.Shacl` | 3 | SHACL 1.2 Core over any quad source: targets, paths, every core component, recursive shapes by stratified greatest fixpoint, the validation report as a canonical value, and an extension contract | working |
 | `Varve.Aspire` | 0 | the .NET Aspire hosting integration: `AddVarve`, `WithOidc`, `WithDataset` on an AppHost; references nothing from Varve | working |
 | `Varve.Analyzers` | — | the layer rules, at build time | working, never shipped |
-| `Varve.Events` | 4 | domain events as quads: the event catalogue's declarations, their rendering as canonical CloudEvents through declared `SELECT` mappings, JSON Schemas with immutable revisions, AsyncAPI 3.0, and the compatibility check of a declaration change | working |
+| `Varve.Events` | 4 | domain events as quads: the event catalogue's declarations, their rendering as canonical CloudEvents through declared `SELECT` mappings, JSON Schemas with immutable revisions, AsyncAPI 3.0, the compatibility check of a declaration change, and the declaration vocabulary's SHACL shapes | working |
+| `Varve.Shacl.Sparql` | 4 | SHACL-SPARQL: SPARQL-based constraints and constraint components, evaluated by `Varve.Sparql.Evaluation` with SHACL 1.2's pre-binding | working |
 | `Varve.Store` | 4 | the log, the default projection, pinned and as-of reads, checkpoints, subscriptions, dataset validators, the staging view, the bulk loader, replicas by file copy; checkpoints as extent sets with validity intervals; `log/` format 1, `derived/` format 4, reading format 3 | working |
 | `Varve.Sparql.Store` | 5 | SPARQL Update over the store: one request, one commit, `LOAD` through a caller's source, read and write scopes by graph | working |
 | `Varve.Store.Browser` | 5 | the store in a browser: the origin private file system through synchronous access handles in a worker, or IndexedDB | working |
@@ -110,7 +120,6 @@ and it ships inside every package.
 | `Varve.Protocol` | 5 | the SPARQL 1.1 Protocol, the Graph Store Protocol with graphs in six formats, the service description, time travel by `Varve-As-Of`, the change feed and the diff, the admin API, and graph-level authorisation, on any ASP.NET Core host | working |
 | `Varve.Protocol.Client` | 5 | the HTTP client of a dataset, `SERVICE` over HTTP for the evaluator and the document fetch `LOAD` needs, under an endpoint policy | working |
 | `Varve.Server` | 6 | the executable: the server with OIDC bearer tokens, health and readiness, telemetry, governed limits, and the `varve` command line — create, info, load, query, update, export, checkpoint, feed, lease, serve | working, Native AOT, container image |
-| SHACL | 3 | | not built |
 
 ### Conformance
 
@@ -146,7 +155,9 @@ The W3C suites are the acceptance gate, from
 | `sparql11/protocol`, `service-description`, over both stores | 74 |
 | `sparql11/http-rdf-update`, over both stores, 6 justified exemptions each | 50 |
 | `rdf-canon`, RDFC-1.0: 64 canonical forms, 21 issued maps, 1 refusal | 86 |
-| **Total** | **5,519 of 5,519** |
+| `data-shapes-test-suite`, SHACL 2017, `core` and `sparql`, × 2 subjects | 232 |
+| `shacl12-test-suite`, SHACL 1.2 Working Draft, `core` and `sparql`, × 2 subjects | 390 |
+| **Total** | **6,141 of 6,141** |
 
 Each SPARQL suite is parsed at its own version, so the 1.0 and 1.1 suites
 never see the 1.2 grammar; the 1.2 default is for API callers only. The six
@@ -163,7 +174,7 @@ other value-access arms. The 41 SPARQL 1.2 evaluation cases whose data is RDF
 every subject since the store answers a triple term's components by handle
 ([#87](https://github.com/Hafeok/Varve/issues/87)).
 
-**`baseline/exemptions.txt` holds twelve exemptions**, all in the
+**`baseline/exemptions.txt` holds forty exemptions.** Twelve are in the
 deprecated `http-rdf-update` suite, six a store, each with the section it
 rests on: two bodies in Turtle with no final `.` (Turtle 1.1 §2.4), the two
 `GET`s that depend on them, a `DELETE` of a graph no step creates (Graph Store
@@ -176,7 +187,13 @@ amended 2026-10-15), so a blank node inside a triple term keeps the identity
 ADR 0044 gives it. No
 syntax, canonicalisation or update case needs one, including none for empty
 graphs, which the store does not record (SPARQL 1.1 Update §3.2 allows it).
-`eng/ratchet.cs` fails the build if any of those 5,519 stops passing, and an
+The other twenty-eight are fourteen SHACL-SPARQL cases, over both subjects,
+each with its reason under ADR 0149: four where SHACL 2017's pre-binding rules
+and the 1.2 draft's disagree, and 1.2 is followed; and ten that use
+SPARQL-based node expressions, which part 1 leaves out beyond constants. Every
+SHACL Core case passes, 2017's and 1.2's. Each SHACL case runs over
+`InMemoryDataset` and over the store's pinned view, with SHACL-SPARQL on.
+`eng/ratchet.cs` fails the build if any of those 6,141 stops passing, and an
 exemption with no written justification fails the run too.
 
 Also true today, and measured rather than asserted:
@@ -304,7 +321,7 @@ is the Native AOT binary and nothing else:
 
 ```bash
 dotnet tool install --global Varve.Server --prerelease
-docker pull ghcr.io/hafeok/varve:v0.1.0-preview.8
+docker pull ghcr.io/hafeok/varve:v0.1.0-preview.9
 ```
 
 Serve one dataset on your machine. `--anonymous` is for development only: a
@@ -313,7 +330,7 @@ real deployment takes OIDC bearer tokens ([ADR 0037](docs/adr/0037-server-authen
 ```bash
 varve serve --anonymous --datasets-root "$PWD/data" --dataset people
 # or, listening on 8080 instead of 5000, with the datasets in the image's volume:
-docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.8 serve --anonymous --dataset people
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.9 serve --anonymous --dataset people
 ```
 
 The datasets root is an absolute path. Then write, read, go back, and read

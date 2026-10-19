@@ -27,6 +27,11 @@ with no store and no HTTP.
   commit. Its checks are well-formedness, a short name taken (refused without
   naming the other declaration), retirement in place of removal, and
   compatibility at an unchanged version.
+- **`EventDeclarationShapes`** is the declaration vocabulary's SHACL shapes,
+  as Turtle (ADR 0157). This package does not validate by them; a caller can,
+  with `Varve.Shacl`. They state what SHACL Core can, and a property holds
+  them to `EventDeclarations` on all of it. The `SELECT`, field names unique
+  within a type, and the checks across graphs remain the code's.
 
 `Varve.Protocol` serves all of it over HTTP, and its dataset validator runs
 the check.

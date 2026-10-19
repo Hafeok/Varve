@@ -166,3 +166,20 @@ what people read.
 Advancing the submodule pin may change which cases exist. The ratchet's third
 check — a baseline entry the run did not contain — is what turns that from a
 silent loss of coverage into a build failure.
+
+## Amendment, 2026-10-17 — the SHACL suites
+
+Filed by SHACL, part 1 (#120, under milestone 8, #13), unaccepted until the
+maintainer accepts it (ADR 0066).
+
+- **A fourth submodule**, `tests/w3c/data-shapes` (`https://github.com/w3c/data-shapes`),
+  pinned as the others are (ADR 0149 states the commit). It carries the 2017
+  SHACL suite and the SHACL 1.2 suite.
+- **A new family of cases**, `sht:Validate`, run by `ShaclConformanceTests`
+  over two subjects, `dataset` and `store`. A case is identified as the others
+  are, `<test IRI>@<subject>`, and the ratchet holds it in the same baseline.
+- The guard that no other RDF implementation is referenced holds for these
+  cases too: their expected reports are the suite's, compared by isomorphism.
+
+**The ledger.** No ruling changes; `W3cSuitesPinnedSubmodule` and
+`ConformanceRatchet` cover the new suites as written.
