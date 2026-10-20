@@ -561,8 +561,9 @@ work continued from the summary and the files.
 - **The generated REC portfolio has no `rec:leasor`.** Under REC's other
   shapes, the S head's only violations are 141 `sh:minCount` results on
   `rec:leasor`, one per lease. That is the generator's (ADR 0141), not
-  REC's. Under a `reject` binding a commit that adds a lease is refused,
-  which the benchmark reports.
+  REC's. Under a `reject` binding a commit that adds a lease was refused,
+  which the first benchmark run reported. Fixed on the pull request: see
+  below.
 
 ### Properties and tests
 
@@ -604,30 +605,31 @@ them (#126).
 | `Varve.Shacl.Sparql.Tests` | 13 | 7.0 s |
 
 With `VARVE_LONG_PROPERTIES`, the gate oracle's 5,000 commits ran in 18 s
-and the REC S full validation in about 1 m 30 s.
+and the three REC tests (the S head validated in full, and a gated store
+refusing a mutation) in about 2 m 30 s.
 
 ### Benchmarks: commit latency under a `reject` binding
 
 BenchmarkDotNet 0.15.8 on the file backend, REC 4.1.0's shapes without
 Brick's three SPARQL constraints, the last 220 commits of the portfolio's
-history after the rest was loaded. The workload and the reading are in
+history after the rest was loaded, on the generator's output version 2. The
+workload, the reading and the first run on version 1 are in
 `tests/Varve.Benchmarks/README.md`. Slower rows first:
 
 | REC | Binding | Mean per commit | StdDev | Allocated per commit |
 |---|---|---:|---:|---:|
-| M (≈5 M quads) | `reject` | 8.24 ms | 2.15 ms | 2,482.7 KB |
-| S (≈203 k quads) | `reject` | 8.24 ms | 3.41 ms | 2,079.7 KB |
-| M | none | 0.57 ms | 0.10 ms | 30.1 KB |
-| S | none | 0.53 ms | 0.09 ms | 20.4 KB |
+| M (≈5 M quads) | `reject` | 11.86 ms | 3.00 ms | 2,471.3 KB |
+| S (≈203 k quads) | `reject` | 7.62 ms | 1.69 ms | 2,294.6 KB |
+| M | none | 0.86 ms | 0.10 ms | 30.5 KB |
+| S | none | 0.51 ms | 0.07 ms | 35.4 KB |
 
 | REC | In the gate per commit | Affected focus nodes per commit (max) | Per affected focus node |
 |---|---:|---:|---:|
-| M | 6.30 ms | 2.6 (9) | 2.39 ms |
-| S | 4.98 ms | 2.6 (8) | 1.93 ms |
+| M | 9.08 ms | 2.6 (9) | 3.44 ms |
+| S | 6.38 ms | 2.6 (8) | 2.48 ms |
 
-The overhead does not grow with the dataset; it is the affected pairs'. 51 of
-220 commits at M and 40 at S were refused, for the leases' missing
-`rec:leasor`.
+No commit was refused. The affected focus nodes per commit are the same at
+both sizes; the gate's cost is theirs, not the dataset's.
 
 ### Public API
 
@@ -669,11 +671,52 @@ preview.10 is tagged.
   other suites fail here for want of their files, and CI runs them.
 - Durations per OS other than Linux come from CI's run of the pull request.
 
+### After the pull request opened
+
+The maintainer answered the pull request:
+
+> Good work. Yes, watch #140 and fix CI failures as they come.
+>
+> - **preview.10:** the maintainer is dispatching Release on `main` (`dry_run: false`) to tag #134. After that, your `release` gate should pass. If #135 lands first, renumber to preview.12.
+> - **The REC prefixes:** part B's gate declares the missing prefixes in its shapes composition (`sh:declare`), beside the `owl:Class rdfs:subClassOf rdfs:Class` triple. Record both in ADR 0176, with the exact triples added. The test pinning that REC 4.1.0 is refused as vendored stays. Draft the upstream issue text for the maintainer to file with REC: the undeclared prefixes, including `owl:` in the constraint that uses it without listing it, and the `owl:Class` note. Put it in the PR, not in the repository.
+> - **The lease rule:** fix the REC generator so leases carry `rec:leasor`.
+>   - Bump the generator's output version.
+>   - Record in the benchmark README which generator version #110's and this PR's numbers were measured with.
+>   - Violating commits for the `reject` tests come from an explicit mutation step in the test, never from a generator defect.
+>   - If the generator change is larger than a few lines, put it in part B rather than here, and say so.
+> - **The differences from the plan** (graph sets on the binding node, the single `IncrementalValidation.Compare`) are accepted. Make sure ADR 0170 and ADR 0155's amendment say what shipped.
+> - **Report the Windows and macOS test durations** from CI's run in the PR once it has run.
+
+What was done:
+
+- **The generator.** Each site gets an owner, a `rec:Company` made with the
+  site, and every lease names it as `rec:leasor`: five lines, so here, not in
+  part 2b. No random draw changes. `RecPortfolio.Version` is 2, and the
+  pinned hashes moved: S `66218df6…`, M `fb544c09…`, L `c004a342…`. The S head
+  conforms to REC's other shapes.
+- **The mutation.** A long test loads the S portfolio into a store, binds
+  REC's other shapes under `reject`, and checks that retracting one lease's
+  `rec:leasor` is refused with `shapes-violated` while the generator's next
+  commit is accepted.
+- **The benchmarks** were run again on version 2 (above). The README says
+  that the Object storage section's REC numbers (#92) are version 1's, that
+  #110 has published none yet, and that this section's are version 2's.
+- **The upstream draft** is a comment on #140. Reading the queries closely
+  found a second prefix used without being listed: `brick:` in
+  `bsh:TimeseriesReferenceOnPointsConstraint`, beside `owl:` in
+  `bsh:DeprecationRuleForInstances`. Part 2b's ADR 0176 records the
+  composition.
+- **ADRs 0155 and 0170** state what shipped: 0155's amendment names the single
+  `IncrementalValidation.Compare` and what it returns, and 0170 records that
+  the graph-set terms on the binding node were accepted.
+- **CI.** Every job that builds the solution fails on `CS0618` alone, and
+  `pipeline (devcontainer)` stops at `release`, which waits on preview.10's
+  tag. The Windows and macOS durations come with the test jobs, once the
+  decisions are accepted.
+
 ### What the maintainer is asked for
 
 - **Accept the decisions**, so `CS0618` clears. That means the five sets of
   ADRs 0169–0173.
-- **Cut `v0.1.0-preview.10`'s tag**, so `release` passes here.
-- **The REC prefix finding**: report it upstream with the OWL note, and
-  decide in part 2b whether the REC gate composes the declarations, leaves
-  the three constraints out, or waits for upstream.
+- **Cut `v0.1.0-preview.10`'s tag**, so `release` passes here: being done.
+- **File the REC upstream note** drafted on #140.
