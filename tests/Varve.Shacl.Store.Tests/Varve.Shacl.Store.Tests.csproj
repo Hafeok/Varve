@@ -11,6 +11,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The REC portfolio generator (ADR 0141), linked as the benchmarks link it: test-only, never shipped. -->
+    <Compile Include="../Varve.Rec.Tests/RecPortfolio.cs;../Varve.Rec.Tests/SplitMix64.cs" LinkBase="Rec" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
     <PackageReference Include="CsCheck" />
