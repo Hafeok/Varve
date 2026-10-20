@@ -115,10 +115,12 @@ jobs:
     # The union of what ci.yml's jobs ask for: a called workflow's jobs get
     # no more than this, and a run whose called job asks for more never
     # starts. The container job pushes the image it tests (packages: write);
-    # the Aspire sample pulls it (packages: read).
+    # the Aspire sample pulls it (packages: read). #134's `container` job
+    # requests `id-token: write`.
     permissions:
       contents: read
       packages: write
+      id-token: write
     uses: ./.github/workflows/ci.yml
     with:
       ref: ${{ needs.plan.outputs.sha }}
