@@ -1514,3 +1514,53 @@ answers every match by a scan, so validation over it is quadratic in the
 data: 200 ms at 10,000 triples, against 17 ms over the store view in a dry
 run. `ShaclBenchmarks` checks its agreement at the smallest size and does not
 time it.
+
+## Milestone 8, part 2a — commit latency under a `reject` shapes binding
+
+**Machine.** Intel Xeon @ 2.80 GHz, 4 logical and 4 physical cores, 15 GiB,
+Ubuntu 24.04.5 LTS, a cloud container. .NET SDK 10.0.401, runtime 10.0.12,
+X64 RyuJIT `x86-64-v4`. BenchmarkDotNet 0.15.8, `WarmupCount 1`,
+`IterationCount 8`, `InvocationCount 1`, 20 commits per invocation.
+
+**Workload.** `ShapesGateBenchmarks`: the REC portfolio (ADR 0141, seed
+20261015) on the file backend, its history but the last 241 commits loaded,
+REC 4.1.0's shapes in a named graph (the three files merged,
+`owl:Class rdfs:subClassOf rdfs:Class` added, Brick's three `sh:sparql`
+constraints left out because they declare no prefixes), then the held
+commits one at a time with the binding's gate as the request's validator or
+with none. The gate's first commit, which loads the shapes (about 13 s), is
+outside the measurement. The generator's leases have no `rec:leasor`, so
+under the gate a commit adding a lease is refused: 40 of 220 at S, 51 of 220
+at M.
+
+```bash
+WarningsNotAsErrors=CS0618 dotnet run -c Release --project tests/Varve.Benchmarks -- --filter '*ShapesGateBenchmarks*' --buildTimeout 1800
+dotnet run -c Release --project tests/Varve.Benchmarks -- --shapes-gate-affected S
+```
+
+Slower rows first:
+
+| REC | Binding | Mean per commit | Error | StdDev | Allocated per commit |
+|---|---|---:|---:|---:|---:|
+| M (≈5 M quads) | `reject` | 8.24 ms | 4.10 ms | 2.15 ms | 2,482.7 KB |
+| S (≈203 k quads) | `reject` | 8.24 ms | 6.52 ms | 3.41 ms | 2,079.7 KB |
+| M | none | 0.57 ms | 0.19 ms | 0.10 ms | 30.1 KB |
+| S | none | 0.53 ms | 0.17 ms | 0.09 ms | 20.4 KB |
+
+**Per affected focus node** (`--shapes-gate-affected`, the same held
+commits, the gate timed alone and the affected focus nodes counted beside it):
+
+| REC | In the gate per commit | Affected focus nodes per commit (max) | Per affected focus node |
+|---|---:|---:|---:|
+| M | 6.30 ms | 2.6 (9) | 2.39 ms |
+| S | 4.98 ms | 2.6 (8) | 1.93 ms |
+
+**Reading it.** The gate adds about 7.7 ms per commit, and the overhead
+barely grows from S to M though M holds about 25 times the quads: the cost is
+the affected pairs', not the dataset's (ADR 0171). What it costs is REC's
+breadth: a commit's few focus nodes each meet hundreds of class-targeted
+shapes through the shapes graph's class hierarchy, and every pair is
+validated twice, before and after. The spread is wide because commits differ
+in kind (a building added against a point retired). Before the shapes
+graph's subclass steps were remembered, the gate took 13.2 ms per commit at
+S in the second table's terms.
