@@ -26,6 +26,13 @@ public sealed record EpochClaim
     /// </summary>
     public LogSlot? Fence { get; init; }
 
+    /// <summary>
+    /// Where the claimant is reached by the other instances of its fleet, when
+    /// it said (ADR 0168). A record of format 1 written without it reads
+    /// without it.
+    /// </summary>
+    public WriterAddress? Address { get; init; }
+
     /// <summary>Why the epoch was released, when it was.</summary>
     public ReleaseReason? Released { get; init; }
 }

@@ -13,35 +13,43 @@ Each request names a dataset and needs one permission on it:
 |---|---|
 | `read` | queries, Graph Store reads, the service description, the feed, the diff |
 | `write` | updates and Graph Store writes; grants `read` |
-| `admin` | the dataset's status, settings and checkpoints; grants both; dataset-wide, every graph (ADR 0107) |
-| server admin | `Auth:Server:Admin`: creating, opening, closing and deleting datasets, and every permission on every dataset (ADR 0106) |
+| `admin` | the dataset's management resources — its declaration, settings, state, status, checkpoints and grants; grants both; dataset-wide, every graph (ADR 0107) |
+| operator | every permission on every dataset, and the fleet's management resources: the fleet graph, every declaration, `/manage/apply`, `/manage/system` (ADR 0163) |
 
-A caller holds a permission when one of the values of its role claim
-(`Auth:RoleClaimType`, `roles` by default) is listed for it. The claim is a
-string, several strings, or an object whose property names are the roles, as
-Zitadel's project roles are.
+**Grants are declarations** in the management plane (ADRs 0163, 0166), one
+graph per dataset in the fleet's system dataset, applied with `varve apply`;
+[Datasets](datasets.md) shows a complete one. A grant names its grantee as an
+agent IRI (`<issuer>#<subject>`), a role (a value of the role claim,
+`Auth:RoleClaimType`, `roles` by default), or a group (a value of another
+claim it names). The role claim is a string, several strings, or an object
+whose property names are the roles, as Zitadel's project roles are.
 
-**Graph-scoped grants** (ADR 0107) bound a `read` or `write` to graphs:
+**Grants are scoped by graph** (ADR 0107): explicit graph IRIs and
+`varve:defaultGraph`, IRI prefixes, every graph (`varve:allGraphs true`), or a
+template over the caller, such as `https://example.org/users/{sub}/`, for
+on-behalf-of users who own their graphs:
 
-```json
-"Datasets": {
-  "people": {
-    "Admin": [ "Varve.Admin" ],
-    "Grants": [
-      { "Claim": "Varve.People", "Permission": "write", "Graphs": [ "default", "https://example.org/graphs/people" ] },
-      { "Claim": "Varve.Public", "Permission": "read",  "GraphPrefixes": [ "https://example.org/graphs/public/" ] }
-    ]
-  }
-}
+```trig
+<urn:people:writers> a varve:Grant ; varve:grantee <urn:people:people> ;
+  varve:permission varve:write ;
+  varve:graph varve:defaultGraph, <https://example.org/graphs/people> .
+<urn:people:public> a varve:Grant ; varve:grantee <urn:people:public-role> ;
+  varve:permission varve:read ; varve:graphPrefix "https://example.org/graphs/public/" .
 ```
 
 A caller's readable graphs are the union of its `read` and `write` grants',
-its writable graphs the union of its `write` grants'; the `Read` and `Write`
-lists are the every-graph case. A graph outside the readable set is not
+its writable graphs the union of its `write` grants'. A graph outside the readable set is not
 there for that caller: a query does not see it, a `FROM` naming it names an
 empty graph, a Graph Store `GET`, `PUT` or `DELETE` of it is `404`, and the
 feed and the diff omit its changes. A write that changes a graph outside the
 writable set is `403 graph-not-writable` and commits nothing.
+
+**The grants in force are those at the management position the instance has
+applied** (ADR 0163 point 3). Every response names it in
+`Varve-Management-Position`. A request that must see a later grant, such as
+one a deployment just applied, sends `Varve-Min-Management-Position: p`; the
+instance advances once, and answers `503 management-behind` if it is still
+behind. A commit records the position it was authorised at (ADR 0165).
 
 The commit's agent is the token's `Auth:SubjectClaim` (`sub`; `oid` for
 Entra), written as `<issuer>#<subject>`; it is in every feed record and
@@ -91,9 +99,15 @@ CI runs this leg against a real tenant on `main` (ADR 0100, the
   "SubjectClaim": "oid",
   "RoleClaimType": "roles",
   "Production": true,
-  "Datasets": { "people": { "Read": [ "Varve.Read" ], "Write": [ "Varve.Write" ], "Admin": [ "Varve.Admin" ] } }
-}
+  "Management": { "Audience": "api://varve-manage" }
+},
+"Manage": { "BootstrapOperators": [ "Varve.Operator" ] }
 ```
+
+For the management plane, register a second application ID URI,
+`api://varve-manage`, with its own app roles (`Varve.Operator`, and any a
+dataset's admin grant names); a token for it is asked for with
+`scope=api://varve-manage/.default`.
 
 ### An application acting for its users: on-behalf-of
 
@@ -212,10 +226,9 @@ What the server needs of an issuer:
   "Mode": "Oidc",
   "Authority": "https://login.example/realms/varve",
   "Audiences": [ "varve-api" ],
-  "RoleClaimType": "roles",
-  "Datasets": { "people": { "Read": [ "reader" ], "Write": [ "writer" ] } },
-  "Server": { "Admin": [ "operator" ] }
-}
+  "RoleClaimType": "roles"
+},
+"Manage": { "BootstrapOperators": [ "operator" ] }
 ```
 
 Zitadel and mock-oauth2-server are exercised in CI on every pull request,
@@ -232,13 +245,48 @@ datasets exist. The request id in `Varve-Request-Id` and the problem's
 `instance` finds the refusal in the server's log, where the middleware's
 reason is at `Information` under `Microsoft.AspNetCore.Authentication`.
 
+## The management plane
+
+Management is a plane of its own, under `/manage/` (ADR 0163 point 1):
+
+- **Its own audience.** A management route takes a token for
+  `Auth:Management:Audience`, `api://varve-manage` by default; a data route
+  takes one for `Auth:Audiences`. Each plane runs its own bearer scheme and
+  accepts only its own audience, and a token whose `aud` names both is
+  refused by both. `Varve:Manage:Urls` puts the management plane on a
+  listener of its own, for network policy.
+- **Operators and dataset admins.** An operator is a bootstrap operator
+  (`Varve:Manage:BootstrapOperators`: agent IRIs or role values, always
+  operators) or holds a `varve:operator` grant in the fleet graph. A dataset's
+  admin holds an `admin` grant on it, and reaches that dataset's resources
+  alone. Only an operator declares a new dataset.
+- **Bootstrap.** The first system writer records the configured bootstrap
+  operators; an instance whose configured set differs is not ready. `varve
+  serve --record-bootstrap` on the system writer records a new set.
+- **CI authenticates by workload identity federation**: no key, no secret.
+  The job's own OIDC token is the client's assertion, exchanged at the issuer
+  for a token for the management audience:
+
+  ```sh
+  varve apply declarations/*.trig --server https://varve.example \
+    --authority https://login.microsoftonline.com/{tenant}/v2.0 \
+    --client-id {deployer-app-id} --client-assertion github \
+    --scope api://varve-manage/.default
+  ```
+
+  `--client-assertion github` asks GitHub Actions for the job's token (the
+  job needs `id-token: write`; `--assertion-audience` names its audience,
+  `api://AzureADTokenExchange` by default); `--client-assertion <file>` reads
+  a federated token file, as Kubernetes workload identity mounts one.
+
 ## Anonymous mode
 
 ```json
 "Auth": { "Mode": "Anonymous" }
 ```
 
-Every caller holds every permission on every graph, commits name no agent,
+Every caller holds every permission on every graph, the management plane's
+included, commits name no agent,
 and the server warns at every start. `Production: true` refuses it.
 
 ## The command line

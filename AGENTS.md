@@ -32,7 +32,7 @@ shared mutable state, no static registries. **High cohesion**: one reason to cha
 | 1 | `Varve.Rdf` — model and the abstract quad source contract |
 | 2 | syntax: `Varve.Turtle`, `Varve.RdfXml`, `Varve.JsonLd`, `Varve.Sparql.Results`, and `Varve.Sparql` (the algebra, parser and serialiser) |
 | 3 | `Varve.Sparql.Evaluation` (optimiser and evaluator, one package — ADR 0048), `Varve.Shacl` (SHACL Core, with no SPARQL — ADR 0148), `Varve.Delta` (the change feed's format, by dependency — ADR 0128) |
-| 4 | `Varve.Store` — log, projection contract, pre-commit validator contract; `Varve.Events` (domain events rendered from quads, by dependency — ADR 0143); `Varve.Shacl.Sparql` (SHACL-SPARQL over the evaluator, through `Varve.Shacl`'s extension contract — ADR 0148) |
+| 4 | `Varve.Store` — log, projection contract, pre-commit validator contract; `Varve.Events` (domain events rendered from quads, by dependency — ADR 0143); `Varve.Shacl.Sparql` (SHACL-SPARQL over the evaluator, through `Varve.Shacl`'s extension contract — ADR 0148); `Varve.Management` (the management plane's declarations and grants, by dependency — ADR 0166) |
 | 5 | integrations: `Varve.Sparql.Store`, `Varve.Store.Browser` |
 | 6 | hosts — every executable, and only executables: the server, the CLI, the smoke apps, the benchmarks (ADR 0060) |
 
@@ -152,7 +152,7 @@ tool's co-author trailer naming the product is not one (ADR 0033, amended
 
 ## `Varve.Store` behaviour
 
-**`docs/spec/log-and-projection-model.md` is the authority** (version 1.7) and
+**`docs/spec/log-and-projection-model.md` is the authority** (version 1.8) and
 beats the brief where they differ. ADRs 0010–0023 record what it presupposes and
 **none is `Proposed`**. The cipher is [0028](docs/adr/0028-deterministic-aead-from-hmac.md),
 superseding 0020, conditional on external review. Vocabulary that must not drift:
@@ -205,7 +205,25 @@ and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone 8, SHACL (#13), in two parts. Part 1 (#120; ADRs 0148–0157, filed
+Milestone Management plane (#105), part 1 (ADRs 0163–0166 and 0168, filed
+unaccepted); part 2 moves event schemas (ADR 0167). A fleet of servers on one
+store shares one **system dataset** at `_fleet/`: one instance writes it
+(`Varve:Fleet:Writer`), the others follow it as **tier-1 followers** (ADR
+0164: a read-only open that probes the next log slot, never lists, and is
+advanced only when a read arrives; the system dataset on the interval).
+Datasets, settings, placement and grants are **TriG declarations** in the
+`varve:` vocabulary, read and checked by `Varve.Management` (layer 4, ADR
+0166), and the grants in force are those at the instance's applied
+management position, which every response names and every commit records as
+a header attachment (ADR 0165, spec 1.8). The management plane is
+`/manage/…`, with its own token audience; `varve apply` plans and commits
+declarations as code; `Varve:Datasets`, `Varve:Auth:Datasets` and
+`Varve:Auth:Server:Admin` are refused at start. Any instance accepts a write
+and **forwards** it once to its writer's internal address (ADR 0168). The
+admin routes, setup's storage and settings, and `dataset-exists` are gone;
+setups apply data only. Fleet tests run two server processes on Azurite.
+
+Before that, milestone 8, SHACL (#13), in two parts. Part 1 (#120; ADRs 0148–0157, filed
 unaccepted) is the standalone validator. `Varve.Shacl` (layer 3) validates any
 quad source against a shapes graph read from any quad source: SHACL 1.2 Core
 as of the Working Draft of 2026-10-14, the 2017 Recommendation where the two

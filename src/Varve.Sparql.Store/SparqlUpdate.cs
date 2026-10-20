@@ -77,7 +77,7 @@ public static class SparqlUpdate
                     // Not evaluated. The store answers a request expecting a
                     // position no log reaches with Conflict and its head (T1
                     // step 1), before it looks at anything else.
-                    request = new CommitRequest { ExpectedPosition = new Position(long.MaxValue), Metadata = options.Metadata };
+                    request = new CommitRequest { ExpectedPosition = new Position(long.MaxValue), Metadata = options.Metadata, Validators = options.Validators };
                     return await dataset.CommitAsync(request, cancellationToken).ConfigureAwait(false);
                 }
 

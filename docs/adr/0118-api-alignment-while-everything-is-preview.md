@@ -90,3 +90,15 @@ they are.
 - **Layer ownership.** `Varve.Protocol` (5); the client (5); the CLI (6).
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-19 — state, settings and the dataset resource move
+
+Filed by milestone Management plane of #105, unaccepted until the maintainer
+accepts it (ADR 0066).
+
+`state`, `settings` and the dataset resource move under `/manage/`, with TriG
+bodies (ADR [0163](0163-the-management-plane.md)). Point 5's rule stands: the old
+paths are removed, not aliased.
+
+**The ledger.** `StateIsAResource`, `SettingsAreAResource` and `PutDatasetIsIdempotent`
+move to ADR 0163's set, superseded.

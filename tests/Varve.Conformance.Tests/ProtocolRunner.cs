@@ -434,7 +434,13 @@ internal static class ProtocolRunner
             {
                 HttpClient server = new() { BaseAddress = ProtocolSubjects.ServerAddress ?? throw new InvalidOperationException(ProtocolSubjects.ServerVariable + " is not set.") };
                 await RemoveAsync(server, cancellationToken).ConfigureAwait(false);
-                using HttpResponseMessage created = await server.PutAsync("datasets/" + ProtocolSubjects.ServerDataset, new StringContent("{\"storage\":\"File\"}", Encoding.UTF8, "application/json"), cancellationToken).ConfigureAwait(false);
+                using HttpResponseMessage created = await server.PutAsync(
+                    "manage/datasets/" + ProtocolSubjects.ServerDataset,
+                    new StringContent(
+                        "<urn:conformance> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> \"" + ProtocolSubjects.ServerDataset + "\" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#File> .",
+                        Encoding.UTF8,
+                        "application/trig"),
+                    cancellationToken).ConfigureAwait(false);
 
                 if (!created.IsSuccessStatusCode)
                 {
@@ -520,12 +526,12 @@ internal static class ProtocolRunner
             }
         }
 
-        // The dataset, closed then deleted (ADR 0106: an open dataset is not
-        // deleted), so that the next case starts empty; nothing to remove
-        // is fine.
+        // The dataset, declared closed then deleted (ADR 0163: a dataset
+        // declared open is not deleted), so that the next case starts empty;
+        // nothing to remove is fine.
         private static async Task RemoveAsync(HttpClient server, CancellationToken cancellationToken)
         {
-            string dataset = "datasets/" + ProtocolSubjects.ServerDataset;
+            string dataset = "manage/datasets/" + ProtocolSubjects.ServerDataset;
             using HttpResponseMessage closed = await server.PutAsync(dataset + "/state", new StringContent("{\"state\":\"closed\"}", Encoding.UTF8, "application/json"), cancellationToken).ConfigureAwait(false);
             using HttpResponseMessage deleted = await server.DeleteAsync(dataset, cancellationToken).ConfigureAwait(false);
 

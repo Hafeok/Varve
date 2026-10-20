@@ -196,6 +196,9 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-events", "Varve.Events: rendering replayed byte for byte, the number rule, schema golden files, compatibility, the catalogue's three views, AsyncAPI 3.0, the declaration shapes' agreement with the code",
         () => Test("Varve.Events.Tests")),
 
+    ("test-management", "Varve.Management: the vocabulary's reader and code validator, grants over a caller with templates, the plan's idempotence",
+        () => Test("Varve.Management.Tests")),
+
     ("test-xsd", "Varve.Xsd, and its properties; the evaluation suites gate it too",
         () => Test("Varve.Xsd.Tests")),
 

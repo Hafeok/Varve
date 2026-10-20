@@ -51,6 +51,11 @@ internal static class WriterRecordFormat
                     json.WriteString("fence", fence.Value);
                 }
 
+                if (claim.Address is { } address)
+                {
+                    json.WriteString("address", address.Value);
+                }
+
                 if (claim.Released is { } reason)
                 {
                     json.WriteString("released", Name(reason));
@@ -96,6 +101,7 @@ internal static class WriterRecordFormat
                     },
                     ClaimedAt = new ClaimTime(DateTimeOffset.Parse(claim.GetProperty("at").GetString()!, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind)),
                     Fence = claim.TryGetProperty("fence", out JsonElement fence) ? new LogSlot(fence.GetString()!) : null,
+                    Address = claim.TryGetProperty("address", out JsonElement address) ? new WriterAddress(address.GetString()!) : null,
                     Released = claim.TryGetProperty("released", out JsonElement released) ? Reason(released.GetString()) : null,
                 });
             }
@@ -118,6 +124,7 @@ internal static class WriterRecordFormat
     {
         ReleaseReason.Shutdown => "shutdown",
         ReleaseReason.OperatorTakeover => "operator-takeover",
+        ReleaseReason.Placement => "placement",
         _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, "No such reason."),
     };
 
@@ -125,6 +132,7 @@ internal static class WriterRecordFormat
     {
         "shutdown" => ReleaseReason.Shutdown,
         "operator-takeover" => ReleaseReason.OperatorTakeover,
+        "placement" => ReleaseReason.Placement,
         _ => throw new InvalidDataException("The writer record names a release reason '" + name + "' this version does not know."),
     };
 }

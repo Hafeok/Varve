@@ -44,16 +44,14 @@ public class SetupTests
         DatasetSetup setup = Setup(Migration("1-statuses"), Migration("2-retire-pending"));
 
         SetupResult first = await client.ApplyAsync(setup, C.Ct);
-        Assert.False(first.Created);
-        Assert.True(first.SettingsChanged);
         Assert.Equal(["vocabulary", "statuses"], first.BaselinesCommitted);
         Assert.Equal(["1-statuses", "2-retire-pending"], first.MigrationsApplied);
-        Assert.Equal(5L, dataset.Head.Value);
-        Assert.Equal(5L, first.Position);
+        Assert.Equal(4L, dataset.Head.Value);
+        Assert.Equal(4L, first.Position);
 
         SetupResult second = await client.ApplyAsync(setup, C.Ct);
         Assert.False(second.Committed);
-        Assert.Equal(5L, dataset.Head.Value);
+        Assert.Equal(4L, dataset.Head.Value);
         Assert.Equal(["1-statuses", "2-retire-pending"], await RecordedAsync(client));
     }
 
@@ -82,29 +80,6 @@ public class SetupTests
     }
 
     [Fact]
-    public async Task Settings_are_desired_state_a_declared_key_is_restored_and_an_undeclared_one_left_alone()
-    {
-        await using Dataset dataset = await EmptyAsync();
-        await using ProtocolTestHost host = await StartAsync(dataset);
-        SparqlHttpClient client = Client(host);
-        await client.ApplyAsync(Setup(), C.Ct);
-        Assert.Equal("Current", await ScopeAsync(client));
-
-        // A manual change to a key the setup declares is overwritten on the next apply.
-        await PatchScopeAsync(client, "AllHistory");
-        SetupResult restored = await client.ApplyAsync(Setup(), C.Ct);
-        Assert.True(restored.SettingsChanged);
-        Assert.Equal("Current", await ScopeAsync(client));
-
-        // A setup that declares no settings, or an empty object, leaves them as they are.
-        await PatchScopeAsync(client, "AllHistory");
-        DatasetSetup silent = new("d") { Settings = "{}" };
-        Assert.False((await client.ApplyAsync(silent, C.Ct)).SettingsChanged);
-        Assert.False((await client.ApplyAsync(new DatasetSetup("d"), C.Ct)).SettingsChanged);
-        Assert.Equal("AllHistory", await ScopeAsync(client));
-    }
-
-    [Fact]
     public async Task A_new_migration_applies_alone()
     {
         await using Dataset dataset = await EmptyAsync();
@@ -116,7 +91,6 @@ public class SetupTests
         SetupResult result = await client.ApplyAsync(Setup(Migration("1-statuses"), Migration("2-retire-pending")), C.Ct);
 
         Assert.Empty(result.BaselinesCommitted);
-        Assert.False(result.SettingsChanged);
         Assert.Equal(["2-retire-pending"], result.MigrationsApplied);
         Assert.Equal(before + 1, dataset.Head.Value);
     }
@@ -185,7 +159,7 @@ public class SetupTests
         await Task.WhenAll(Client(host).ApplyAsync(setup, C.Ct), Client(host).ApplyAsync(setup, C.Ct));
 
         Assert.Equal(["1-statuses", "2-retire-pending", "3-rename"], await RecordedAsync(Client(host)));
-        Assert.Equal(6L, dataset.Head.Value);
+        Assert.Equal(5L, dataset.Head.Value);
     }
 
     /// <summary>
@@ -275,7 +249,7 @@ public class SetupTests
 
     private static DatasetSetup Setup(params SetupMigration[] migrations)
     {
-        DatasetSetup setup = new("d") { Settings = "{\"defaultAccessScope\": \"Current\"}" };
+        DatasetSetup setup = new("d");
         setup.Baselines.Add(BaselineSource.FromBytes("vocabulary", Vocabulary, "text/turtle", Encoding.UTF8.GetBytes(
             "@prefix shop: <https://shop.example/ns#> .\nshop:Order a <http://www.w3.org/2000/01/rdf-schema#Class> .\nshop:status a <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property> .\n")));
         setup.Baselines.Add(BaselineSource.FromBytes("statuses", "https://shop.example/statuses", "application/n-triples", Encoding.UTF8.GetBytes(
@@ -287,20 +261,6 @@ public class SetupTests
         }
 
         return setup;
-    }
-
-    private static async Task<string> ScopeAsync(SparqlHttpClient client)
-    {
-        using HttpResponseMessage settings = await client.SettingsAsync(C.Ct);
-        using JsonDocument json = JsonDocument.Parse(await settings.Content.ReadAsStringAsync(C.Ct));
-        return json.RootElement.GetProperty("defaultAccessScope").GetString()!;
-    }
-
-    private static async Task PatchScopeAsync(SparqlHttpClient client, string scope)
-    {
-        using HttpResponseMessage head = await client.SettingsAsync(C.Ct);
-        using HttpResponseMessage patched = await client.PatchSettingsAsync("{\"defaultAccessScope\": \"" + scope + "\"}", SparqlHttpClient.PositionOf(head), C.Ct);
-        Assert.True(patched.IsSuccessStatusCode);
     }
 
     private static SetupMigration Migration(string id) =>

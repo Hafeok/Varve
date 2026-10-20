@@ -191,3 +191,17 @@ the maintainer accepts it (ADR 0066).
 
 **The ledger.** The ruling of this block is `GoverningGraphSeam`, unaccepted
 until the maintainer accepts it.
+
+## Amendment, 2026-10-19 — the mapping moves to the system dataset
+
+Filed by milestone Management plane of #105, unaccepted until the maintainer
+accepts it (ADR 0066).
+
+Point 1's grants are declared in the fleet's system dataset, not in the host's
+configuration (ADR [0163](0163-the-management-plane.md)), and a graph set may also be
+a template over the caller (ADR [0166](0166-varve-management-and-the-vocabulary.md)),
+expanded to explicit graphs or prefixes before it reaches `GraphScope`. Everything
+else stands: the seam, the wrapper and its cost, the governor, and row-level access
+as milestone 9's.
+
+**The ledger.** `GrantsAreScopedByGraphSet` moves to ADR 0163's set, superseded.

@@ -11,14 +11,15 @@ using System.Threading.Tasks;
 namespace Varve.Protocol.Client;
 
 /// <summary>
-/// A dataset as an application declares it (ADR 0130): its name and storage,
-/// its settings, the baseline it starts from and the migrations that are not
-/// idempotent by nature. <see cref="SparqlHttpClient.ApplyAsync"/> makes the
-/// dataset so, and applying the same setup again commits nothing.
+/// A dataset's data as an application declares it (ADR 0130): the baseline
+/// it starts from and the migrations that are not idempotent by nature.
+/// <see cref="SparqlHttpClient.ApplyAsync"/> makes the dataset so, and
+/// applying the same setup again commits nothing.
 /// </summary>
 /// <remarks>
-/// Grants are not part of a setup: an application cannot grant itself
-/// permissions, and they are the server's configuration (ADR 0107).
+/// The dataset's existence, storage, settings and grants are not part of a
+/// setup: they are management declarations, applied by <c>varve apply</c>
+/// (ADR 0163 point 10).
 /// </remarks>
 public sealed class DatasetSetup
 {
@@ -32,12 +33,6 @@ public sealed class DatasetSetup
     /// <summary>The dataset's name, the last segment of <c>/datasets/{name}/</c>.</summary>
     public string Name { get; }
 
-    /// <summary>The storage the dataset is created in when it does not exist; an existing dataset keeps its own.</summary>
-    public SetupStorage Storage { get; init; } = SetupStorage.File;
-
-    /// <summary>The settings, as the JSON object the settings resource takes (ADR 0118), or null to leave them as they are.</summary>
-    public string? Settings { get; init; }
-
     /// <summary>
     /// The baseline, added in order by the Graph Store Protocol's <c>POST</c>:
     /// one commit each the first time, none after. A baseline only adds, never
@@ -48,19 +43,6 @@ public sealed class DatasetSetup
 
     /// <summary>The migrations, applied in order, each once: its update and its record are one commit.</summary>
     public IList<SetupMigration> Migrations { get; } = [];
-}
-
-/// <summary>The storage a dataset is created in (ADR 0118).</summary>
-public enum SetupStorage
-{
-    /// <summary>Files under the server's datasets root: durable.</summary>
-    File = 0,
-
-    /// <summary>Memory: gone when the server stops.</summary>
-    Memory = 1,
-
-    /// <summary>A prefix in the server's object store: durable as the store is (ADR 0139).</summary>
-    ObjectStorage = 2,
 }
 
 /// <summary>
@@ -166,20 +148,12 @@ public sealed record SetupMigration(string Id, string Update);
 /// <summary>What <see cref="SparqlHttpClient.ApplyAsync"/> did (ADR 0130).</summary>
 public sealed class SetupResult
 {
-    internal SetupResult(bool created, bool settingsChanged, IReadOnlyList<string> baselines, IReadOnlyList<string> migrations, long position)
+    internal SetupResult(IReadOnlyList<string> baselines, IReadOnlyList<string> migrations, long position)
     {
-        Created = created;
-        SettingsChanged = settingsChanged;
         BaselinesCommitted = baselines;
         MigrationsApplied = migrations;
         Position = position;
     }
-
-    /// <summary>Whether the dataset was created.</summary>
-    public bool Created { get; }
-
-    /// <summary>Whether the settings were changed: one commit.</summary>
-    public bool SettingsChanged { get; }
 
     /// <summary>The baseline sources that committed, by name: one commit each.</summary>
     public IReadOnlyList<string> BaselinesCommitted { get; }
@@ -191,7 +165,7 @@ public sealed class SetupResult
     public long Position { get; }
 
     /// <summary>Whether anything committed: false for a setup already applied.</summary>
-    public bool Committed => SettingsChanged || BaselinesCommitted.Count > 0 || MigrationsApplied.Count > 0;
+    public bool Committed => BaselinesCommitted.Count > 0 || MigrationsApplied.Count > 0;
 }
 
 /// <summary>

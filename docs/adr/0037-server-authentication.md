@@ -77,3 +77,15 @@ block is the correction.
   the maintainer accepts it.
 - **Layer**: the ADR says `Varve.Server` is layer 5. ADR 0060 made it layer 6,
   as this ADR's set already records.
+
+## Amendment, 2026-10-19 — claims map through the system dataset
+
+Filed by milestone Management plane of #105, unaccepted until the maintainer
+accepts it (ADR 0066).
+
+Point 3's mapping of configured claims to permissions per dataset moves to the
+system dataset of the fleet (ADR [0163](0163-the-management-plane.md)): a grant is
+a declaration there, and `Varve:Auth:Datasets` is refused at start. The rest of
+this ADR stands. Each plane accepts only its own audience (ADR 0163 point 1).
+
+**The ledger.** `ClaimBasedDatasetPermissions` moves to ADR 0163's set, superseded.

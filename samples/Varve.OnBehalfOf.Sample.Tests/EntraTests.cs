@@ -52,11 +52,35 @@ public sealed class EntraTests
         string oid = Claim(userToken, "oid");
 
         int varvePort = FreePort();
-        using Process varve = StartVarve(varvePort, authority, varveAudience);
+        string root = Directory.CreateTempSubdirectory("varve-obo-").FullName;
+        using HttpClient http = new();
+
+        // Entra's tokens name the API as their audience, so no token here is
+        // for the management audience: the dataset and its grants are
+        // declared first, by an anonymous server on the same root, then
+        // served under Entra with the same bootstrap operators (ADR 0163).
+        using (Process declaring = StartVarve(varvePort, root, null, null))
+        {
+            try
+            {
+                await WaitReadyAsync(http, varvePort);
+                await DeclareAsync(http, varvePort, "orders",
+                    "<urn:test:read> a <https://w3id.org/varve/ns#Role> ; <https://w3id.org/varve/ns#claimValue> \"Varve.Read\" .\n"
+                    + "<urn:test:write> a <https://w3id.org/varve/ns#Role> ; <https://w3id.org/varve/ns#claimValue> \"Varve.Write\" .\n"
+                    + "<urn:test:readers> a <https://w3id.org/varve/ns#Grant> ; <https://w3id.org/varve/ns#grantee> <urn:test:read> ; <https://w3id.org/varve/ns#permission> <https://w3id.org/varve/ns#read> ; <https://w3id.org/varve/ns#allGraphs> true .\n"
+                    + "<urn:test:writers> a <https://w3id.org/varve/ns#Grant> ; <https://w3id.org/varve/ns#grantee> <urn:test:write> ; <https://w3id.org/varve/ns#permission> <https://w3id.org/varve/ns#write> ; <https://w3id.org/varve/ns#allGraphs> true .\n");
+            }
+            finally
+            {
+                declaring.Kill(entireProcessTree: true);
+                await declaring.WaitForExitAsync(TestContext.Current.CancellationToken);
+            }
+        }
+
+        using Process varve = StartVarve(varvePort, root, authority, varveAudience);
 
         try
         {
-            using HttpClient http = new();
             await WaitReadyAsync(http, varvePort);
 
             WebApplication sample = OrdersApi.Build([
@@ -103,7 +127,7 @@ public sealed class EntraTests
         }
     }
 
-    private static Process StartVarve(int port, string authority, string audience)
+    private static Process StartVarve(int port, string root, string? authority, string? audience)
     {
         ProcessStartInfo start = new("dotnet")
         {
@@ -114,19 +138,33 @@ public sealed class EntraTests
         foreach (string argument in (string[])[
             Path.Combine(AppContext.BaseDirectory, "Varve.Server.dll"),
             "--urls=http://127.0.0.1:" + port,
-            "--Varve:Auth:Mode=Oidc",
-            "--Varve:Auth:Authority=" + authority,
-            "--Varve:Auth:Audiences:0=" + audience,
-            "--Varve:Auth:SubjectClaim=oid",
-            "--Varve:Auth:Datasets:orders:Read:0=Varve.Read",
-            "--Varve:Auth:Datasets:orders:Write:0=Varve.Write",
-            "--Varve:Datasets:orders:Storage=Memory",
+            "--Varve:DatasetsRoot=" + root,
+            "--Varve:Manage:BootstrapOperators:0=Varve.Operator",
         ])
         {
             start.ArgumentList.Add(argument);
         }
 
+        foreach (string argument in authority is null
+            ? (string[])["--Varve:Auth:Mode=Anonymous"]
+            : ["--Varve:Auth:Mode=Oidc", "--Varve:Auth:Authority=" + authority, "--Varve:Auth:Audiences:0=" + audience, "--Varve:Auth:SubjectClaim=oid"])
+        {
+            start.ArgumentList.Add(argument);
+        }
+
         return Process.Start(start)!;
+    }
+
+    // A dataset declared in the server's management plane (ADR 0163), as an
+    // anonymous server takes it.
+    private static async Task DeclareAsync(HttpClient http, int port, string dataset, string grants = "")
+    {
+        using StringContent trig = new(
+            "<urn:test:" + dataset + "> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> \"" + dataset + "\" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#Memory> .\n" + grants,
+            System.Text.Encoding.UTF8,
+            "application/trig");
+        using HttpResponseMessage declared = await http.PutAsync(new Uri("http://127.0.0.1:" + port + "/manage/datasets/" + dataset), trig, TestContext.Current.CancellationToken);
+        Assert.True(declared.IsSuccessStatusCode, "The declaration of " + dataset + " was refused: " + (int)declared.StatusCode);
     }
 
     private static async Task WaitReadyAsync(HttpClient http, int port)

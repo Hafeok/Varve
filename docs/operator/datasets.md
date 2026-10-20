@@ -1,13 +1,13 @@
-# Datasets: their boundary, and their setup
+# Datasets: their boundary, their declaration, and their setup
 
 A dataset is what a server serves under `/datasets/{name}/`. This page covers
-two things:
+three things:
 
 - **where to draw a dataset's boundary**;
-- **how an application declares a dataset's setup**, so that it can be applied
-  on every start and commit nothing when nothing changed (ADR 0130).
-
-The configuration keys are in [Configure](configure.md#datasets).
+- **how a dataset is declared**: its existence, storage, settings, placement
+  and grants, as code in the management plane (ADRs 0163, 0166);
+- **how an application declares a dataset's data**, its setup, so that it can
+  be applied on every start and commit nothing when nothing changed (ADR 0130).
 
 ## Choosing the boundary
 
@@ -39,33 +39,130 @@ In domain-driven design terms:
 - **The setup baseline keeps a context's vocabulary identical across its
   shards:** one setup, applied to each tenant's dataset.
 
+## Declaring a dataset
+
+A dataset exists because the fleet's management plane declares it (ADR 0163).
+Its declaration is one named graph of the fleet's system dataset,
+`varve:manage/dataset/{name}`, written in TriG in the `varve:` vocabulary
+(ADR 0166). Every instance of the fleet reads the declarations at the
+management position it has applied, and converges to them: it opens the
+datasets placed on it as their writer, follows the others in the object store,
+closes what is declared closed, and the writer deletes what is no longer
+declared. A file kept in the application's repository is the source of
+truth; `varve apply` makes the server so.
+
+```trig
+@prefix varve: <https://w3id.org/varve/ns#> .
+@prefix n: <https://notes.example/manage/> .
+
+<https://w3id.org/varve/ns#manage/dataset/notes> {
+  n:notes a varve:Dataset ;
+    varve:datasetName "notes" ;
+    varve:storage varve:ObjectStorage ;      # File, Memory or ObjectStorage
+    varve:defaultAccessScope varve:Current ; # a setting, converged by the writer
+    varve:placedOn "varve-1" .               # optional: the system writer's by default
+
+  n:users a varve:Role ; varve:claimValue "Notes.User" .
+  n:support a varve:Group ; varve:claimType "groups" ; varve:claimValue "support-team" .
+
+  # Each user writes the graphs under their own prefix, also on behalf of an application.
+  n:own-graphs a varve:GraphTemplate ;
+    varve:template "https://notes.example/users/{sub}/" ; varve:match varve:Prefix .
+  n:users-own a varve:Grant ;
+    varve:grantee n:users ; varve:permission varve:write ; varve:graphTemplate n:own-graphs .
+  n:users-shared a varve:Grant ;
+    varve:grantee n:users ; varve:permission varve:read ; varve:graph <https://notes.example/shared> .
+  n:support-read a varve:Grant ;
+    varve:grantee n:support ; varve:permission varve:read ; varve:graphPrefix "https://notes.example/users/" .
+  n:owner-admin a varve:Grant ;
+    varve:grantee <https://login.example/v2.0#owner> ; varve:permission varve:admin .
+}
+
+<https://w3id.org/varve/ns#manage/fleet> {
+  <https://ops.example/manage/platform> a varve:Role ; varve:claimValue "Varve.Operator" .
+  <https://ops.example/manage/ops> a varve:Grant ;
+    varve:grantee <https://ops.example/manage/platform> ; varve:permission varve:operator .
+}
+```
+
+**No blank nodes**: every node is an IRI, so a declaration means the same on
+every apply. The code validator refuses an unknown term, a value of the wrong
+kind, a term reserved for a later milestone, and, until the event-schema move
+(ADR 0167), an event-catalogue term: the refusal is `422
+declaration-invalid`, naming the graph, the node and the property.
+
+### `varve apply`
+
+```sh
+varve apply notes.trig --server https://varve.example --plan --exit-code   # drift check: exit 2 on a diff
+varve apply notes.trig --server https://varve.example --plan --out plan.json
+varve apply --from-plan plan.json --server https://varve.example            # refused if a graph moved since
+varve apply notes.trig --server https://varve.example                        # plan and commit
+```
+
+- **A file owns every graph it names, whole.** Two files naming one graph are
+  refused.
+- **The plan** is the canonical diff (RDFC-1.0) of each owned graph against
+  the server's, at the system position it read, with each graph's version.
+- **The commit** is one `POST /manage/apply` replacing every owned graph,
+  under `Varve-If-Graphs-Match` naming each at the version the plan read.
+  Applies to disjoint graphs never conflict; applies to the same graph do,
+  and a stale saved plan is `412`.
+- **Applying again** commits nothing.
+- **`--from-config <appsettings.json>`** prints the TriG that replaces a
+  configuration's `Varve:Datasets` and `Varve:Auth:Datasets`, and names its
+  `Varve:Auth:Server:Admin` values for `Varve:Manage:BootstrapOperators`.
+- **The token** is for the management audience; CI obtains one by workload
+  identity federation ([Authenticate](authenticate.md#the-management-plane)).
+
+### The management resources
+
+The same graphs, one resource at a time, under the management plane's token:
+
+| Resource | Methods |
+|---|---|
+| `/manage/datasets` | `GET`: the datasets the caller administers, each with its state, storage and this instance's role (`writer`, `follower` or `elsewhere`) |
+| `/manage/datasets/{name}` | `GET` the declaration as TriG, its graph's version as `ETag`; `PUT` replaces it, `PATCH` replaces the values of each subject and property the body states; `DELETE` removes it, and only a dataset declared closed |
+| `…/settings` | `GET` the declared settings as JSON; `PUT` and `PATCH` take TriG stating the dataset node's settings |
+| `…/state` | `GET` this instance's state and role; `PUT {"state": "open"}` or `{"state": "closed"}` declares it, and every instance converges |
+| `…/status`, `…/checkpoints` | the dataset's status, and a checkpoint, taken by its writer |
+| `…/grants` | `GET` the grants as JSON, as of `Varve-As-Of`: who could read which graphs, then |
+| `/manage/fleet` | the fleet graph, as the dataset resource; an operator's |
+| `/manage/graphs` | `GET` every management graph as TriG, with `Varve-Graph-Versions` |
+| `/manage/apply` | `POST`, as above |
+| `/manage/sparql` | SPARQL over the system dataset, for an operator; an update runs the code validator |
+| `/manage/system` | `GET` this instance's role in the system dataset, epoch, positions, bootstrap state and writer |
+
+`PUT`, `PATCH` and `DELETE` take `If-Match` with the graph's version. A
+management write to an instance that does not write the system dataset is
+forwarded to the one that does ([The fleet](fleet.md)).
+
+- **Deleting** is two steps: declare the dataset closed, then `DELETE` it,
+  which is `409 dataset-open` before. Once the declaration is gone, the
+  dataset's writer deletes its storage: all of it, and not undoable.
+- **Settings converge.** Settings stay a commit kind of the dataset (ADR
+  0021): when the declared settings differ from the dataset's, its writer
+  commits a `Settings` commit carrying the management position it converged
+  to (ADR 0165), with the writer instance as its agent.
+
 ## The setup
 
-`Varve.Protocol.Client`'s `DatasetSetup` declares four things:
+`Varve.Protocol.Client`'s `DatasetSetup` declares a dataset's data, two
+things:
 
-1. **The dataset:** its name, and its storage when it is created.
-2. **Its settings:** the keys of the settings resource (ADR 0118) the setup
-   means to hold.
-3. **Its baseline:** sources of RDF, each added to one graph by the Graph
+1. **Its baseline:** sources of RDF, each added to one graph by the Graph
    Store Protocol.
-4. **Its migrations:** the changes that are not idempotent by nature, such as a
+2. **Its migrations:** the changes that are not idempotent by nature, such as a
    retraction, a rename or a split. Each runs once.
 
-`client.ApplyAsync(setup)` makes the dataset so, in that order. Applying it
-again commits nothing, since re-asserting what is there is an empty delta (I2).
+The dataset's existence, storage and settings are not a setup's: they are
+its declaration (ADR 0163 point 10). `client.ApplyAsync(setup)` makes the
+dataset's data so, in that order. Applying it again commits nothing, since
+re-asserting what is there is an empty delta (I2).
 
-- **The dataset** is created with `PUT /datasets/{name}` when a read answers
-  `404`, which takes a server admin. A dataset that exists needs only the
-  permissions of the steps after it.
-- **The settings are desired state, and the last writer wins.**
-  - Each key the setup declares is compared with the dataset's. When one
-    differs, the declared keys are merged in under `If-Match`, which takes the
-    dataset's `admin`.
-  - **A setup overwrites a manual change to a setting it declares**, on the next
-    apply.
-  - **It leaves a setting it does not declare alone**, whatever its value. To
-    let operators own a setting, leave it out of the setup.
-  - A settings commit names an agent, so it is refused in anonymous mode.
+- **The dataset** must be declared. A setup never creates one: a dataset the
+  management plane does not declare is refused at the first step, before
+  anything is sent.
 - **A baseline source is added**, with the Graph Store Protocol's `POST`,
   **and never replaces its graph.**
   - What the application writes to the same graph survives every apply and
@@ -92,8 +189,8 @@ again commits nothing, since re-asserting what is there is an empty delta (I2).
 
 The applier needs `write` on every graph the setup writes, `varve:setup`
 included, and `read` on `varve:setup`. **A setup never grants permissions:**
-an application cannot grant itself any, and grants are the server's
-configuration ([Authenticate](authenticate.md)).
+an application cannot grant itself any, and grants are declarations
+([Authenticate](authenticate.md)).
 
 ### In an application: `AddVarve`
 
@@ -127,12 +224,16 @@ outside the subset below, with its line and column.
 ```csharp
 builder.AddVarve("varve")
     .WithOidc(authority, "api://varve")
+    .WithOperators("Varve.Operator")
+    .WithManagementClient("varve-deployer", deployerSecret, scope: "api://varve-manage/.default")
     .WithSetupClient("varve-setup", setupSecret)
     .WithDataset("orders", read: ["Varve.Read"], write: ["Varve.Write"], setup: "varve/orders.yaml");
 ```
 
-The AppHost runs `varve setup apply` from the server's own image once the server is
-healthy, as the container `{server}-setup-{dataset}`. Another resource waits
+The AppHost writes the declarations of every `WithDataset` to one TriG file,
+and runs `varve apply` from the server's own image once the server is
+healthy, as the container `{server}-declare`. It then runs `varve setup
+apply`, as the container `{server}-setup-{dataset}`. Another resource waits
 for it with `.WaitForDatasetSetup(varve, "orders")`.
 
 ## The setup file
@@ -143,10 +244,7 @@ accepted silently.
 
 ```yaml
 # The shop's orders dataset.
-dataset: orders                  # required: the dataset's name
-storage: File                    # File (default) or Memory: used when it is created
-settings: |                      # optional: the settings resource's JSON
-  {"defaultAccessScope": "Current"}
+dataset: orders                  # required: the dataset's name, declared in the management plane
 baseline:                        # optional, in order
   - name: vocabulary             # optional: defaults to the file's name
     file: vocabulary.ttl         # required: relative to this file
@@ -182,7 +280,9 @@ migrations:                      # optional, in order, each once
 - a folded scalar (`>`), or `|` with an indicator (`|-`, `|+`, `|2`);
 - a document marker (`---`, `...`) or a directive (`%`);
 - a quoted or complex (`?`) key;
-- a key outside the schema above, or a key given twice;
+- a key outside the schema above, or a key given twice; `storage` and
+  `settings` are refused by name: they are a dataset's declaration now
+  (ADR 0163);
 - a line indented more than its mapping.
 
 A file's encoding is UTF-8. A baseline file may start with a byte order mark,

@@ -52,6 +52,19 @@ internal static class HttpLoad
                 Uri address = new("http://127.0.0.1:18080/");
                 await WaitAsync(address, "health/ready");
 
+                // The two datasets, declared in the management plane (ADR 0163).
+                using (HttpClient manage = Client(1))
+                {
+                    foreach ((string name, string storage) in new[] { ("memory", "Memory"), ("file", "File") })
+                    {
+                        using StringContent trig = new(
+                            "<urn:load:" + name + "> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> \"" + name + "\" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#" + storage + "> .",
+                            System.Text.Encoding.UTF8,
+                            "application/trig");
+                        (await manage.PutAsync(new Uri(address, "manage/datasets/" + name), trig)).EnsureSuccessStatusCode();
+                    }
+                }
+
                 foreach (string store in (string[])["memory", "file"])
                 {
                     Endpoint endpoint = new(
@@ -292,8 +305,6 @@ internal static class HttpLoad
             "--Logging:LogLevel:Default=Warning",
             "--Varve:Auth:Mode=Anonymous",
             "--Varve:DatasetsRoot=" + root,
-            "--Varve:Datasets:memory:Storage=Memory",
-            "--Varve:Datasets:file:Storage=File",
             "--Varve:Limits:MaxRequestBody=1073741824"])
         {
             start.ArgumentList.Add(arg);

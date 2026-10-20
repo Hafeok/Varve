@@ -1,8 +1,8 @@
-# Entra registrations for on-behalf-of
+# Entra registrations
 
 `main.bicep` creates the registrations of the on-behalf-of chain
 (ADR 0127; [Authenticate](../../../docs/operator/authenticate.md), "An
-application acting for its users"):
+application acting for its users"), and of the management plane (ADR 0163):
 
 - **Varve's API.** Application ID URI `api://varve`, v2 tokens, the app roles
   `Varve.Read`, `Varve.Write` and `Varve.Admin`, and the delegated scope
@@ -13,6 +13,12 @@ application acting for its users"):
   holds its users' tokens.
 - **A sign-in client**, public and with no credential, through which a
   person signs in by device code for a token to the calling application.
+- **Varve's management API.** Application ID URI `api://varve-manage`, a
+  registration of its own, so its tokens name the management audience alone
+  and each plane refuses the other's; the app role `Varve.Operator`.
+- **A deployer**, granted `Varve.Operator`, whose only credential is GitHub
+  Actions' OIDC token for the `varve-deploy` environment: what CI runs
+  `varve apply` as, by workload identity federation.
 
 It runs at tenant scope with the Microsoft Graph Bicep extension
 (`bicepconfig.json`, `microsoftgraph/v1.0:1.0.0` from `mcr.microsoft.com`).
@@ -49,8 +55,25 @@ Configure the server with the outputs:
   "Mode": "Oidc",
   "Authority": "https://login.microsoftonline.com/{tenant}/v2.0",
   "Audiences": [ "api://varve" ],
-  "SubjectClaim": "oid",
-  "Datasets": { "orders": { "Read": [ "Varve.Read" ], "Write": [ "Varve.Write" ] } }
+  "Management": { "Audience": "api://varve-manage" },
+  "SubjectClaim": "oid"
+},
+"Manage": { "BootstrapOperators": [ "Varve.Operator" ] }
+```
+
+and declare the datasets and their grants with `varve apply` (ADR 0163):
+
+```trig
+@prefix varve: <https://w3id.org/varve/ns#> .
+<https://w3id.org/varve/ns#manage/dataset/orders> {
+  <https://example.org/manage/orders> a varve:Dataset ;
+    varve:datasetName "orders" ; varve:storage varve:ObjectStorage .
+  <https://example.org/manage/readers> a varve:Role ; varve:claimValue "Varve.Read" .
+  <https://example.org/manage/writers> a varve:Role ; varve:claimValue "Varve.Write" .
+  <https://example.org/manage/read> a varve:Grant ; varve:grantee <https://example.org/manage/readers> ;
+    varve:permission varve:read ; varve:allGraphs true .
+  <https://example.org/manage/write> a varve:Grant ; varve:grantee <https://example.org/manage/writers> ;
+    varve:permission varve:write ; varve:allGraphs true .
 }
 ```
 

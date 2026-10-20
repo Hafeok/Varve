@@ -54,7 +54,7 @@ attachment <term>
   one space, and the commit's timestamp as RFC 3339 in UTC with exactly seven
   fractional digits and `Z`: `2026-10-07T12:00:00.0000000Z`.
 - **Metadata lines**, each optional and in this order: `agent`, `cause`,
-  `scope` (the declared named-graph scope), then zero or more `attachment`.
+  `scope` (the declared named-graph scope), then zero or more `attachment`: what the host and the validators attached, the host's first (storage specification 1.8, ADR 0165).
   Each is the keyword, one space, and one term in canonical N-Triples form.
 - **Change lines**: `+` or `-`, one space, and one quad in canonical N-Quads
   form without its trailing ` .`. A quad in the default graph has three terms.

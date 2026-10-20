@@ -103,8 +103,9 @@ public class SampleTests
 
 /// <summary>
 /// <c>WithAzureBlobStorage</c> (ADR 0142): the server's environment names the
-/// container and the cache on the volume, every declared dataset is an
-/// ObjectStorage dataset, and no credential is among the variables (ADR 0137).
+/// container, the cache on the volume and the address writes are forwarded
+/// to (ADR 0168); datasets are declarations, not configuration (ADR 0163);
+/// and no credential is among the variables (ADR 0137).
 /// </summary>
 public class AzureBlobStorageTests
 {
@@ -128,7 +129,37 @@ public class AzureBlobStorageTests
         Assert.Equal("Azure", environment["VARVE__OBJECTSTORAGE__PROVIDER"]);
         Assert.Equal("https://account.blob.core.windows.net/datasets", environment["VARVE__OBJECTSTORAGE__CONTAINERURL"]);
         Assert.Equal("/var/lib/varve/cache", environment["VARVE__OBJECTSTORAGE__CACHEPATH"]);
-        Assert.Equal("ObjectStorage", environment["VARVE__DATASETS__people__STORAGE"]);
+        Assert.True(environment.ContainsKey("VARVE__FLEET__INTERNALURL"));
+        Assert.DoesNotContain(environment.Keys, key => key.StartsWith("VARVE__DATASETS__", StringComparison.Ordinal) || key.StartsWith("VARVE__AUTH__DATASETS__", StringComparison.Ordinal));
         Assert.DoesNotContain(environment.Keys, key => key.Contains("KEY", StringComparison.OrdinalIgnoreCase) || key.Contains("CONNECTIONSTRING", StringComparison.OrdinalIgnoreCase) || key.Contains("SAS", StringComparison.OrdinalIgnoreCase));
+    }
+}
+
+/// <summary>
+/// <c>WithDataset</c> and <c>WithOperators</c> (ADR 0163): the bootstrap
+/// operators are configuration, and the datasets a declarations container
+/// applies with <c>varve apply</c> once the server is healthy.
+/// </summary>
+public class DeclarationTests
+{
+    [Fact]
+    public async Task Datasets_are_declared_by_a_container_and_operators_configured()
+    {
+        IDistributedApplicationBuilder builder = DistributedApplication.CreateBuilder();
+        IResourceBuilder<VarveResource> varve = builder.AddVarve("varve")
+            .WithOidc(ReferenceExpression.Create($"https://login.example/"), "api://varve")
+            .WithOperators("Varve.Operator")
+            .WithDataset("people", read: ["People.Reader"]);
+
+        await using DistributedApplication app = builder.Build();
+        DistributedApplicationExecutionContext publish = new(new DistributedApplicationExecutionContextOptions(DistributedApplicationOperation.Publish) { Services = app.Services });
+        IExecutionConfigurationResult configuration = await ExecutionConfigurationBuilder.Create(varve.Resource)
+            .WithEnvironmentVariablesConfig()
+            .BuildAsync(publish, null, CancellationToken.None);
+        Dictionary<string, string> environment = configuration.EnvironmentVariables.ToDictionary(variable => variable.Key, variable => variable.Value);
+
+        Assert.Equal("Varve.Operator", environment["VARVE__MANAGE__BOOTSTRAPOPERATORS__0"]);
+        Assert.Equal("api://varve-manage", environment["VARVE__AUTH__MANAGEMENT__AUDIENCE"]);
+        Assert.Contains(builder.Resources, resource => resource.Name == "varve-declare");
     }
 }

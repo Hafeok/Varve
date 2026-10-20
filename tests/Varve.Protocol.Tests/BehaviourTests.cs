@@ -391,7 +391,7 @@ public class BehaviourTests
         await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(dataset, stopping: P.Ct);
         await host.Client.SendAsync(P.Update(Sparql, "INSERT DATA { <http://ex/a> <http://ex/p> 1 }"), P.Ct);
 
-        HttpResponseMessage response = await host.Client.SendAsync(P.Get("datasets/d/status"), P.Ct);
+        HttpResponseMessage response = await host.Client.SendAsync(P.Get("manage/datasets/d/status"), P.Ct);
         string body = await response.Content.ReadAsStringAsync(P.Ct);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("\"name\":\"d\"", body, StringComparison.Ordinal);

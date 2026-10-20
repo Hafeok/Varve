@@ -58,6 +58,11 @@ public sealed partial class Dataset
         byte[] kindPayload,
         CancellationToken cancellationToken)
     {
+        if (IsFollower)
+        {
+            return CommitResult.Unavailable(_state.Head, "This dataset is a follower: its writer commits, and a follower only reads (ADR 0164).");
+        }
+
         long started = _options.Clock.GetTimestamp();
         PendingCommit pending = new(kind, request, metadata, expected, kindPayload, request?.ExpectedGraphs);
         _metrics.Queued(1);
@@ -408,6 +413,12 @@ public sealed partial class Dataset
         ulong agent = resolver.Resolve(metadata.Agent);
         ulong cause = resolver.Resolve(metadata.Cause);
         ulong scope = resolver.Resolve(metadata.GraphScope);
+        ulong[] hosted = new ulong[metadata.Attachments.Count];
+
+        for (int i = 0; i < hosted.Length; i++)
+        {
+            hosted[i] = resolver.Resolve(metadata.Attachments[i]);
+        }
 
         // Step 3: the operations in order over an overlay on the head; the net result.
         _pending.Clear();
@@ -451,7 +462,7 @@ public sealed partial class Dataset
             return CommitResult.NoChange(head);
         }
 
-        HashSet<ulong> referenced = [agent, cause, scope];
+        HashSet<ulong> referenced = [agent, cause, scope, .. hosted];
 
         foreach (Quad quad in asserted)
         {
@@ -469,8 +480,13 @@ public sealed partial class Dataset
         cause = map(cause);
         scope = map(scope);
 
-        // Steps 5 and 6.
-        List<ulong> attachments = [];
+        // Steps 5 and 6. The host's attachments come first (ADR 0165).
+        List<ulong> attachments = new(hosted.Length);
+
+        foreach (ulong id in hosted)
+        {
+            attachments.Add(map(id));
+        }
 
         if (kind == CommitKind.Data && (_options.Validators.Count > 0 || request?.Validators.Count > 0))
         {

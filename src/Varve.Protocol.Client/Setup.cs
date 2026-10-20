@@ -9,7 +9,6 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Varve.JsonLd;
@@ -29,28 +28,9 @@ public sealed partial class SparqlHttpClient
     private const string VarveNs = "https://w3id.org/varve/ns#";
 
     /// <summary>
-    /// Creates the dataset, as <c>PUT /datasets/{name}</c> does: <c>201</c> when it
-    /// was created, <c>204</c> when it exists in that storage, <c>409</c> when it
-    /// exists in another (ADR 0118); a server admin's call.
-    /// </summary>
-    public Task<HttpResponseMessage> PutDatasetAsync(SetupStorage storage, CancellationToken cancellationToken) =>
-        SendAsync(new HttpRequestMessage(HttpMethod.Put, new Uri(Dataset.AbsoluteUri.TrimEnd('/')))
-        {
-            Content = new StringContent(
-                storage switch
-                {
-                    SetupStorage.Memory => "{\"storage\":\"Memory\"}",
-                    SetupStorage.ObjectStorage => "{\"storage\":\"ObjectStorage\"}",
-                    _ => "{\"storage\":\"File\"}",
-                },
-                Encoding.UTF8,
-                "application/json"),
-        }, cancellationToken);
-
-    /// <summary>
-    /// Makes the dataset what <paramref name="setup"/> declares (ADR 0130), in
-    /// order: the dataset, created when a read answers <c>404</c>; the settings,
-    /// put under <c>If-Match</c> when they differ; each baseline source, by the
+    /// Makes the dataset's data what <paramref name="setup"/> declares (ADR
+    /// 0130), in order, once a read finds the dataset declared (ADR 0163):
+    /// each baseline source, by the
     /// Graph Store Protocol; each migration not yet recorded in
     /// <see cref="SetupGraph"/>, with its record, as one request under
     /// <c>If-Match</c>. A second apply of the same setup commits nothing.
@@ -87,8 +67,7 @@ public sealed partial class SparqlHttpClient
             }
         }
 
-        bool created = await EnsureDatasetAsync(setup, cancellationToken).ConfigureAwait(false);
-        bool settingsChanged = setup.Settings is not null && await EnsureSettingsAsync(setup.Settings, cancellationToken).ConfigureAwait(false);
+        await EnsureDatasetAsync(cancellationToken).ConfigureAwait(false);
         long position = await HeadForSetupAsync("baseline", cancellationToken).ConfigureAwait(false);
         List<string> committed = [];
 
@@ -123,82 +102,21 @@ public sealed partial class SparqlHttpClient
 
         List<string> applied = await MigrateAsync(setup.Migrations, cancellationToken).ConfigureAwait(false);
         position = Math.Max(position, await HeadForSetupAsync("migrations", cancellationToken).ConfigureAwait(false));
-        return new SetupResult(created, settingsChanged, committed, applied, position);
+        return new SetupResult(committed, applied, position);
     }
 
-    private async Task<bool> EnsureDatasetAsync(DatasetSetup setup, CancellationToken cancellationToken)
+    // The dataset is declared in the management plane (ADR 0163), never
+    // created by a setup: one that is not declared is refused here.
+    private async Task EnsureDatasetAsync(CancellationToken cancellationToken)
     {
-        using (HttpResponseMessage probe = await QueryAsync("ASK {}", "application/sparql-results+json", null, cancellationToken).ConfigureAwait(false))
+        using HttpResponseMessage probe = await QueryAsync("ASK {}", "application/sparql-results+json", null, cancellationToken).ConfigureAwait(false);
+
+        if (probe.StatusCode == HttpStatusCode.NotFound)
         {
-            if (probe.StatusCode != HttpStatusCode.NotFound)
-            {
-                await EnsureSetupStepAsync(probe, "dataset", cancellationToken).ConfigureAwait(false);
-                return false;
-            }
+            throw new SetupException("dataset", "the dataset is not declared; declare it in the management plane with `varve apply` first (ADR 0163)", (int)probe.StatusCode, null);
         }
 
-        using HttpResponseMessage created = await PutDatasetAsync(setup.Storage, cancellationToken).ConfigureAwait(false);
-        await EnsureSetupStepAsync(created, "dataset", cancellationToken).ConfigureAwait(false);
-        return created.StatusCode == HttpStatusCode.Created;
-    }
-
-    // The settings are desired state, last writer wins (ADR 0130): each key
-    // the setup declares is compared with the dataset's as a JSON value, and
-    // when one differs the declared keys alone are merged in (RFC 7396) under
-    // If-Match. A manual change to a declared key is overwritten on the next
-    // apply; a key the setup does not declare is never touched. A 409 or 412
-    // means another writer came first: the settings are read and compared
-    // again, and the declared values applied again.
-    private async Task<bool> EnsureSettingsAsync(string settings, CancellationToken cancellationToken)
-    {
-        JsonObject wanted;
-
-        try
-        {
-            wanted = JsonNode.Parse(settings) as JsonObject
-                ?? throw new SetupException("settings", "the settings are a JSON object", null, null);
-        }
-        catch (JsonException error)
-        {
-            throw new SetupException("settings", "the settings are not JSON: " + error.Message, null, null);
-        }
-
-        if (wanted.Count == 0)
-        {
-            return false;
-        }
-
-        for (int attempt = 0; ; attempt++)
-        {
-            using HttpResponseMessage current = await SettingsAsync(cancellationToken).ConfigureAwait(false);
-            await EnsureSetupStepAsync(current, "settings", cancellationToken).ConfigureAwait(false);
-            JsonObject? held = JsonNode.Parse(await current.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false)) as JsonObject;
-            bool differs = false;
-
-            foreach (KeyValuePair<string, JsonNode?> declared in wanted)
-            {
-                if (held is null || !held.TryGetPropertyValue(declared.Key, out JsonNode? value) || !JsonNode.DeepEquals(value, declared.Value))
-                {
-                    differs = true;
-                    break;
-                }
-            }
-
-            if (!differs)
-            {
-                return false;
-            }
-
-            using HttpResponseMessage patched = await PatchSettingsAsync(wanted.ToJsonString(), PositionOf(current), cancellationToken).ConfigureAwait(false);
-
-            if (Moved(patched) && attempt < MaxRetries)
-            {
-                continue;
-            }
-
-            await EnsureSetupStepAsync(patched, "settings", cancellationToken).ConfigureAwait(false);
-            return true;
-        }
+        await EnsureSetupStepAsync(probe, "dataset", cancellationToken).ConfigureAwait(false);
     }
 
     // Each migration not yet recorded, with its record, as one request. Its

@@ -3,11 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Varve.Protocol.Model;
 using Varve.Store;
 using Varve.Store.Azure;
 using Varve.Store.Azure.Model;
@@ -22,9 +20,10 @@ namespace Varve.Server;
 /// <summary>
 /// The server's object store (ADRs 0134–0139): one container or bucket from
 /// <c>Varve:ObjectStorage</c>, a dataset per prefix <c>{name}/</c>, each with
-/// its local cache under <c>CachePath/{name}</c>. The provider's adapter is
-/// made once and shared; each dataset opens for write, claiming the next
-/// epoch (ADR 0136).
+/// its local cache under <c>CachePath/{name}</c>, and the fleet's system
+/// dataset under <c>_fleet/</c> (ADR 0163). The provider's adapter is made
+/// once and shared; a dataset opens for write, claiming the next epoch (ADR
+/// 0136), or read-only, as a follower (ADR 0164).
 /// </summary>
 internal sealed class ObjectStores : IDisposable
 {
@@ -60,40 +59,27 @@ internal sealed class ObjectStores : IDisposable
         return store is null ? null : new ObjectStores(store, settings, clock);
     }
 
-    /// <summary>
-    /// The names of the datasets the store holds: every prefix with a manifest
-    /// under it. A dataset name starts with a letter or a digit (ADR 0093), so
-    /// the store is listed by each of those, and no name is missed.
-    /// </summary>
-    internal async Task<List<string>> DiscoverAsync(CancellationToken cancellationToken)
-    {
-        List<string> names = [];
-        const string Starts = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    /// <summary>Who this server is in a writer record (ADR 0136): the configured instance, or the machine name.</summary>
+    internal WriterInstance Instance => new(string.IsNullOrWhiteSpace(_settings.Instance) ? Environment.MachineName : _settings.Instance);
 
-        foreach (char start in Starts)
-        {
-            foreach (ObjectEntry entry in await _store.ListAsync(new ObjectName(start.ToString()), cancellationToken).ConfigureAwait(false))
-            {
-                string value = entry.Name.Value;
-
-                if (value.EndsWith(Manifest, StringComparison.Ordinal) && value.IndexOf('/') == value.Length - Manifest.Length && DatasetName.TryParse(value[..^Manifest.Length], out _))
-                {
-                    names.Add(value[..^Manifest.Length]);
-                }
-            }
-        }
-
-        return names;
-    }
+    /// <summary>The writer record of a dataset's prefix, as the store holds it now; none before the first claim.</summary>
+    internal async Task<WriterRecord?> ReadWriterAsync(string name, CancellationToken cancellationToken) =>
+        await Backend.ReadWriterAsync(_store, new ObjectName(name + "/"), cancellationToken).ConfigureAwait(false);
 
     /// <summary>Whether the store holds a dataset of this name: its manifest.</summary>
     internal async Task<bool> ExistsAsync(string name, CancellationToken cancellationToken) =>
         await _store.ReadAsync(new ObjectName(name + Manifest), new ByteOffset(0), new ByteCount(1), cancellationToken).ConfigureAwait(false) is not null;
 
-    /// <summary>Opens a dataset's storage for write: the next epoch is claimed, and the log fenced with it.</summary>
-    internal async Task<Backend> OpenAsync(string name, CancellationToken cancellationToken)
+    /// <summary>
+    /// Opens a dataset's storage: for write, the next epoch is claimed, the log
+    /// fenced with it, and <paramref name="address"/> recorded for forwarding
+    /// (ADRs 0136, 0168); read-only, for a follower, nothing is claimed.
+    /// </summary>
+    internal async Task<Backend> OpenAsync(string name, ObjectStorageAccess access, WriterAddress? address, CancellationToken cancellationToken)
     {
-        string cache = Path.Combine(_settings.CachePath!, name);
+        // A follower caches apart from the writer, so that the two can be open
+        // at once while a placement changes; no dataset name starts with '_'.
+        string cache = access == ObjectStorageAccess.Write ? Path.Combine(_settings.CachePath!, name) : Path.Combine(_settings.CachePath!, "_followers", name);
         Directory.CreateDirectory(cache);
 
         return await Backend.OpenAsync(new ObjectStorageOptions
@@ -101,8 +87,9 @@ internal sealed class ObjectStores : IDisposable
             Store = _store,
             Prefix = new ObjectName(name + "/"),
             Cache = new CacheDirectory(cache),
-            Access = ObjectStorageAccess.Write,
-            Instance = new WriterInstance(string.IsNullOrWhiteSpace(_settings.Instance) ? Environment.MachineName : _settings.Instance),
+            Access = access,
+            Instance = access == ObjectStorageAccess.Write ? Instance : null,
+            Address = access == ObjectStorageAccess.Write ? address : null,
             CacheBytes = new ByteCount(_settings.CacheBytes),
             Clock = _clock,
             ProbeRandomness = SystemProbeRandomness.Instance,
