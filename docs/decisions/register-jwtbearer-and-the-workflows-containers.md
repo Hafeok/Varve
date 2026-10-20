@@ -31,6 +31,8 @@ decisions:
     statement: "A mirror package may be seeded by hand from any registry at the pinned digest, because the digest is the image's identity and the source is not; CI itself never pulls from Docker Hub; amended 2026-10-19"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-19T00:00:00Z
+  - key: WatchReadByManifestHead
+    statement: "A row of .github/ci-images.yaml may name a watch reference, read by manifest HEAD only, when its upstream refuses CI's reads; Docker Hub is allowed there and nowhere else, and eng/ci-images.cs refuses docker.io in every other reference; amended 2026-10-20"
 ---
 
 The rulings of [ADR 0099](../adr/0099-register-jwtbearer-and-the-workflows-containers.md), filed unaccepted by milestone 7a of #11
