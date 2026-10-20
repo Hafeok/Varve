@@ -215,7 +215,7 @@ public sealed class ObjectStorageServerTests
             for (int i = 0; i < 4; i++)
             {
                 Assert.Equal(HttpStatusCode.NoContent, (await UpdateAsync(server, "INSERT DATA { <http://ex/s" + i + "> <http://ex/p> " + i + " }")).StatusCode);
-                Assert.True((await server.Client.PostAsync(new Uri("datasets/d/checkpoints", UriKind.Relative), null, Ct)).IsSuccessStatusCode);
+                Assert.True((await server.Client.PostAsync(new Uri("manage/datasets/d/checkpoints", UriKind.Relative), null, Ct)).IsSuccessStatusCode);
             }
 
             // A read of the store itself, announced, and its record gone after.
