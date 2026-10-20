@@ -343,6 +343,8 @@ jobs:
           dotnet test
           --project tests/Varve.Management.Tests/Varve.Management.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Management.Tests
 
       - name: Test Varve.Store
         # #126: about twice the slowest green run, so a hang fails in an hour
@@ -413,12 +415,16 @@ jobs:
           dotnet test
           --project tests/Varve.Shacl.Tests/Varve.Shacl.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Shacl.Tests
 
       - name: Test Varve.Shacl.Sparql
         run: >
           dotnet test
           --project tests/Varve.Shacl.Sparql.Tests/Varve.Shacl.Sparql.Tests.csproj
           --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Shacl.Sparql.Tests
 
       - name: Test Varve.Protocol
         run: >
@@ -770,6 +776,18 @@ jobs:
           --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
           --configuration Release
           --filter-class Varve.Server.Tests.FleetTests
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Server.Tests
+
+      - name: Upload the test results
+        # #126: every run keeps its TRX, pass or fail, so a slow or red run
+        # can be explained test by test from its own artifacts.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-fleet-services
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
 
   # The REC generator's bytes on both architectures (ADR 0141): its tests pin
   # each size's SHA-256, so a pass on each runner is the same bytes on both.
