@@ -2,9 +2,9 @@
 #
 # Some of the store's tests search a space wider than a pull request can wait
 # for. On a pull request each explores a share of it; here, every variable in
-# docs/testing.md section 8 is set, and each explores the whole, which is what
-# the gate explored before #126. The property each test proves is the same at
-# either depth.
+# docs/testing.md section 8 is set, and each explores the whole: as much as
+# the gate explored before #126, or more. The property each test proves is the
+# same at either depth.
 #
 # Not a required check: it runs after the commits it tests have landed. A red
 # night is a defect on main, found the next morning instead of never. #129 may
@@ -73,10 +73,12 @@ jobs:
 
       - name: Test Varve.Store at full depth
         # The pull request's depth runs in the build job; this is the rest.
-        # Each value is the one the gate used before #126 (docs/testing.md §8).
-        timeout-minutes: 120
+        # Each value covers the whole of its search (docs/testing.md §8). The
+        # crash during recovery at stride 1 runs alone for most of an hour on
+        # Windows with no other test ending, so the hang dump waits longer.
+        timeout-minutes: 150
         env:
-          VARVE_FAULT_RECOVERY_STRIDE: "5"
+          VARVE_FAULT_RECOVERY_STRIDE: "1"
         run: >
           dotnet test
           --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj
@@ -85,7 +87,7 @@ jobs:
           --report-trx
           --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Store.Tests
           --hangdump
-          --hangdump-timeout 30m
+          --hangdump-timeout 100m
 
       - name: Store test durations
         if: always()

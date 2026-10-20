@@ -792,19 +792,43 @@ public static class FaultInjectionTests
         /// A crash during recovery itself — while it seals an abandoned tail,
         /// deletes stale derived files, or continues the log — at every operation
         /// recovery performs, after a process crash at every 25th operation of the
-        /// workload, or every <c>VARVE_FAULT_RECOVERY_STRIDE</c>th: the nightly
-        /// run's 5 was the gate's until #126, and is about 57,700 points. The
-        /// second restart recovers as the first would have.
+        /// workload, from one chosen by a seed, or every
+        /// <c>VARVE_FAULT_RECOVERY_STRIDE</c>th. A pull request's run covers a
+        /// 25th of the 1,428 operations, and runs between them cover all of them;
+        /// the nightly run's stride of 1 covers every one, about 288,000 points.
+        /// <c>VARVE_FAULT_RECOVERY_SEED</c> replays a run: the test's output, and
+        /// the message of any failure, start with it. The second restart
+        /// recovers as the first would have.
         /// </summary>
         [Fact]
         public async Task a_crash_during_recovery_recovers()
         {
-            const int seed = 6601, steps = 24;
             int stride = Depth.Of("VARVE_FAULT_RECOVERY_STRIDE", 25);
+            int sweep = Depth.Seed("VARVE_FAULT_RECOVERY_SEED");
+            int from = 1 + (sweep % stride);
+            string replay = "VARVE_FAULT_RECOVERY_SEED=" + sweep + " VARVE_FAULT_RECOVERY_STRIDE=" + stride;
+            Report(replay + ": a crash at operation " + from + " of the workload and every " + stride + "th after it");
+            int points;
+
+            try
+            {
+                points = await CrashEveryRecoveryAsync(from, stride);
+            }
+            catch (Exception error)
+            {
+                throw new InvalidOperationException(replay + " replays this. " + error.Message, error);
+            }
+
+            Report(replay + ": " + points + " injection points");
+        }
+
+        private static async Task<int> CrashEveryRecoveryAsync(int from, int stride)
+        {
+            const int seed = 6601, steps = 24;
             Reference reference = await ReferenceAsync(seed, steps);
             int points = 0;
 
-            for (int operation = 1; operation <= reference.Operations; operation += stride)
+            for (int operation = from; operation <= reference.Operations; operation += stride)
             {
                 int at = operation;
                 (SimulatedFileSystem crashed, long acknowledged) = await CrashAsync(seed, steps, op => op.Number == at ? 0 : null);
@@ -847,7 +871,7 @@ public static class FaultInjectionTests
                 }
             }
 
-            Report("crash during recovery, every " + stride + "th operation: " + points + " injection points");
+            return points;
         }
     }
 

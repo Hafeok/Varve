@@ -244,14 +244,18 @@ Some searches are wider than a pull request can wait for. Each such test
 explores a pull request's share of its space by default, and the whole of
 it when its variable is set. **The property is the same at either depth**;
 only how much of the space is searched changes, and the pull request's share
-is a subset of the nightly's. The nightly run (`.github/workflows/nightly.yml`,
-on `main`) sets every variable below.
+is a subset of the nightly's. Where a share is chosen by a seed, each run
+draws a new one, so that pull requests between them search the whole space;
+the seed starts the test's output and any failure's message, and its
+variable replays the run. The nightly run (`.github/workflows/nightly.yml`,
+on `main`) sets every depth below.
 
 | Variable | Test | Pull request | Nightly |
 |---|---|---:|---:|
-| `VARVE_FAULT_RECOVERY_STRIDE` | `FaultInjectionTests.a_crash_during_recovery_recovers`: crashes the workload at every *n*th operation, then crashes its recovery at every operation | 25 (11,753 points) | 5 (57,679 points) |
+| `VARVE_FAULT_RECOVERY_STRIDE` | `FaultInjectionTests.CrashDuringRecovery.a_crash_during_recovery_recovers`: crashes the workload at every *n*th of its 1,428 operations, then its recovery at every operation | 25, from operation 1 + seed mod 25 (about 11,500 points) | 1 (about 288,000 points; the gate's was 5, 57,679) |
+| `VARVE_FAULT_RECOVERY_SEED` | the same: the seed that chooses where a pull request's share starts | a new one each run | n/a at stride 1 |
 
 The variables of §6 that hunt rather than gate (`VARVE_FAULT_SEEDS`,
 `VARVE_OBJECT_FAULT_SEEDS`, `VARVE_OBJECT_FAULT_STEPS`,
-`VARVE_HTTP_FAULT_STEPS`) stay what they were: the nightly run sets some of
-them too, and none of them is a pull request's gate.
+`VARVE_HTTP_FAULT_STEPS`) stay what they were: neither a pull request nor the
+nightly run sets them.

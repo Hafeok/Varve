@@ -38,6 +38,16 @@ internal static class Depth
         int.TryParse(Environment.GetEnvironmentVariable(variable), NumberStyles.None, CultureInfo.InvariantCulture, out int value) && value > 0
             ? value
             : pullRequest;
+
+    /// <summary>
+    /// Where a search that a pull request runs a share of starts in its space:
+    /// the variable's seed, which replays a run, or a new one each run, so that
+    /// pull requests cover the whole space between them.
+    /// </summary>
+    public static int Seed(string variable) =>
+        int.TryParse(Environment.GetEnvironmentVariable(variable), NumberStyles.None, CultureInfo.InvariantCulture, out int value)
+            ? value
+            : Random.Shared.Next();
 }
 
 internal static class T
