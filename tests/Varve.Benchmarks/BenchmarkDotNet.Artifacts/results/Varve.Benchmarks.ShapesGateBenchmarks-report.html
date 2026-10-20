@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Varve.Benchmarks.ShapesGateBenchmarks-20261020-192612</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Ubuntu 24.04.5 LTS (Noble Numbat)
+Intel Xeon Processor 2.80GHz, 1 CPU, 4 logical and 4 physical cores
+.NET SDK 10.0.401
+  [Host]     : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+  Job-ZJPUIJ : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+</code></pre>
+<pre><code>InvocationCount=1  IterationCount=8  UnrollFactor=1  
+WarmupCount=1  
+</code></pre>
+
+<table>
+<thead><tr><th>Method</th><th>Size</th><th>Binding</th><th>Mean </th><th>Error</th><th>StdDev</th><th>Gen0</th><th>Gen1</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>Commit</td><td>M</td><td>none</td><td>857.3 &mu;s</td><td>270.6 &mu;s</td><td>96.50 &mu;s</td><td>-</td><td>-</td><td>30.54 KB</td>
+</tr><tr><td>Commit</td><td>M</td><td>reject</td><td>11,858.7 &mu;s</td><td>5,730.0 &mu;s</td><td>2,996.91 &mu;s</td><td>100.0000</td><td>50.0000</td><td>2471.28 KB</td>
+</tr><tr><td>Commit</td><td>S</td><td>none</td><td>506.4 &mu;s</td><td>135.7 &mu;s</td><td>70.98 &mu;s</td><td>-</td><td>-</td><td>35.38 KB</td>
+</tr><tr><td>Commit</td><td>S</td><td>reject</td><td>7,624.3 &mu;s</td><td>3,236.3 &mu;s</td><td>1,692.64 &mu;s</td><td>100.0000</td><td>-</td><td>2294.61 KB</td>
+</tr></tbody></table>
+</body>
+</html>
