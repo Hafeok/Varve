@@ -3,20 +3,8 @@ set: the-admin-api
 namespace: varve
 adr: 0106
 decisions:
-  - key: AdminEndpoints
-    statement: "The admin API is GET /datasets, PUT and DELETE /datasets/{name}, POST /datasets/{name}/open and /close, POST /datasets/{name}/settings, POST /datasets/{name}/checkpoints, and /status extended with the projection and the state"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-09T00:00:00Z
-  - key: ServerAdminGrant
-    statement: "A server admin is a caller with a claim value in Varve:Auth:Server:Admin, administers every dataset, and alone creates, deletes, opens and closes datasets; the policy name is varve:server-admin"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-09T00:00:00Z
   - key: ListShowsAdministeredDatasets
     statement: "GET /datasets answers the datasets the caller administers, 200 with an empty list for a caller with none, so the list never reveals names to a caller who may not know them"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-09T00:00:00Z
-  - key: DatasetsDiscoveredUnderRoot
-    statement: "At start the server opens every configured dataset and then every directory directly under DatasetsRoot that holds a dataset; a created dataset survives a restart without a configuration edit"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-09T00:00:00Z
   - key: FailedDirectoryListedNotSkipped
@@ -43,3 +31,5 @@ decisions:
 
 The rulings of [ADR 0106](../adr/0106-the-admin-api.md), filed unaccepted by milestone 7b of #11
 (ADR 0066). Every citation is `CS0618` until the maintainer accepts them.
+
+Moved to a later set: `AdminEndpoints`, `ServerAdminGrant` and `DatasetsDiscoveredUnderRoot` are superseded by ADR 0163, in its set.

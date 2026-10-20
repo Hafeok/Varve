@@ -12,7 +12,9 @@ namespace Varve.Protocol;
 /// <summary>
 /// Maps one dataset's endpoints under the route builder it is given (ADRs
 /// 0091, 0093, 0118): <c>/</c>, <c>/sparql</c>, <c>/graphs</c>, <c>/commits</c>,
-/// <c>/diff</c>, <c>/status</c>, <c>/settings</c> and <c>/checkpoints</c>.
+/// <c>/diff</c> and <c>/events</c>. A dataset's status, settings and
+/// checkpoints are the management plane's (ADR 0163), mapped by
+/// <see cref="MapVarveManagement"/>.
 /// </summary>
 /// <remarks>
 /// The dataset is the route's <c>dataset</c> value when the host's prefix has
@@ -25,9 +27,9 @@ namespace Varve.Protocol;
 public static class VarveEndpoints
 {
     /// <summary>
-    /// Maps every endpoint of a dataset under fixed names: <c>/</c>,
-    /// <c>/sparql</c>, <c>/graphs</c>, <c>/commits</c>, <c>/diff</c>, <c>/status</c>,
-    /// <c>/settings</c> and <c>/checkpoints</c>.
+    /// Maps every data-plane endpoint of a dataset under fixed names:
+    /// <c>/</c>, <c>/sparql</c>, <c>/graphs</c>, <c>/commits</c>, <c>/diff</c>
+    /// and <c>/events</c>.
     /// </summary>
     public static IEndpointRouteBuilder MapVarveDataset(this IEndpointRouteBuilder routes, ProtocolOptions options)
     {
@@ -38,9 +40,6 @@ public static class VarveEndpoints
         routes.MapGraphStore("/graphs", options);
         routes.MapCommits("/commits", options);
         routes.MapDiff("/diff", options);
-        routes.MapDatasetStatus("/status", options);
-        routes.Map("/settings", Tracing.Traced("settings", options, context => AdminEndpoints.SettingsAsync(context, options)));
-        routes.Map("/checkpoints", Tracing.Traced("checkpoints", options, context => AdminEndpoints.CheckpointAsync(context, options)));
         routes.MapEvents("/events", options);
         return routes;
     }
@@ -82,24 +81,40 @@ public static class VarveEndpoints
     }
 
     /// <summary>
-    /// The admin API over the host's datasets (ADRs 0106, 0118), under
-    /// <paramref name="pattern"/>, the prefix the dataset groups are mounted
-    /// under (<c>/datasets</c>): <c>GET</c> lists; <c>PUT</c> and <c>DELETE</c>
-    /// of <c>{pattern}/{dataset}</c> create and delete; <c>GET</c> and
-    /// <c>PUT</c> of <c>{pattern}/{dataset}/state</c> read and set open or
-    /// closed. The dataset groups' own routes keep <c>GET</c> of
-    /// <c>{pattern}/{dataset}</c>.
+    /// The management plane's resources (ADRs 0163, 0168), at <c>/manage</c>:
+    /// <c>datasets</c>, and under <c>datasets/{dataset}</c> the dataset's
+    /// declaration, <c>settings</c>, <c>state</c>, <c>status</c>,
+    /// <c>checkpoints</c> and <c>grants</c>; then <c>fleet</c>, <c>graphs</c>,
+    /// <c>apply</c> and <c>system</c>. A host with no management plane passes
+    /// none: it maps the list, each dataset's status, checkpoints, settings and
+    /// state, which then act on the datasets it holds, and nothing it would
+    /// need a system dataset for.
     /// </summary>
-    public static IEndpointRouteBuilder MapVarveAdministration(this IEndpointRouteBuilder routes, string pattern, ProtocolOptions options)
+    public static IEndpointRouteBuilder MapVarveManagement(this IEndpointRouteBuilder routes, ProtocolOptions options, IManagementPlane? plane)
     {
         ArgumentNullException.ThrowIfNull(routes);
-        ArgumentNullException.ThrowIfNull(pattern);
         ArgumentNullException.ThrowIfNull(options);
-        string prefix = pattern.TrimEnd('/');
-        routes.MapMethods(prefix, ["GET"], Tracing.Traced("datasets", options, context => AdminEndpoints.ListAsync(context, options)));
-        routes.MapMethods(prefix + "/{" + Exchange.DatasetRouteValue + "}", ["PUT"], Tracing.Traced("create dataset", options, context => AdminEndpoints.CreateAsync(context, options)));
-        routes.MapMethods(prefix + "/{" + Exchange.DatasetRouteValue + "}", ["DELETE"], Tracing.Traced("delete dataset", options, context => AdminEndpoints.DeleteAsync(context, options)));
-        routes.Map(prefix + "/{" + Exchange.DatasetRouteValue + "}/state", Tracing.Traced("state", options, context => AdminEndpoints.StateAsync(context, options)));
+        const string Datasets = "/manage/datasets";
+        const string Dataset = Datasets + "/{" + Exchange.DatasetRouteValue + "}";
+        routes.MapMethods(Datasets, ["GET"], Tracing.Traced("datasets", options, context => ManagementEndpoints.ListAsync(context, options)));
+        routes.Map(Dataset + "/status", Tracing.Traced("status", options, context => StatusEndpoint.HandleAsync(context, options)));
+        routes.Map(Dataset + "/checkpoints", Tracing.Traced("checkpoints", options, context => ManagementEndpoints.CheckpointAsync(context, options)));
+
+        if (plane is null)
+        {
+            routes.Map(Dataset + "/settings", Tracing.Traced("settings", options, context => AdminEndpoints.SettingsAsync(context, options)));
+            routes.Map(Dataset + "/state", Tracing.Traced("state", options, context => AdminEndpoints.StateAsync(context, options)));
+            return routes;
+        }
+
+        routes.Map(Dataset, Tracing.Traced("dataset declaration", options, context => ManagementEndpoints.DatasetAsync(context, options, plane)));
+        routes.Map(Dataset + "/settings", Tracing.Traced("settings", options, context => ManagementEndpoints.SettingsAsync(context, options, plane)));
+        routes.Map(Dataset + "/state", Tracing.Traced("state", options, context => ManagementEndpoints.StateAsync(context, options, plane)));
+        routes.Map(Dataset + "/grants", Tracing.Traced("grants", options, context => ManagementEndpoints.GrantsAsync(context, options, plane)));
+        routes.Map("/manage/fleet", Tracing.Traced("fleet declaration", options, context => ManagementEndpoints.FleetAsync(context, options, plane)));
+        routes.Map("/manage/graphs", Tracing.Traced("management graphs", options, context => ManagementEndpoints.GraphsAsync(context, options, plane)));
+        routes.Map("/manage/apply", Tracing.Traced("apply", options, context => ManagementEndpoints.ApplyAsync(context, options, plane)));
+        routes.Map("/manage/system", Tracing.Traced("system", options, context => ManagementEndpoints.SystemAsync(context, options, plane)));
         return routes;
     }
 
@@ -153,13 +168,5 @@ public static class VarveEndpoints
         ArgumentNullException.ThrowIfNull(routes);
         ArgumentNullException.ThrowIfNull(options);
         return routes.Map(pattern, Tracing.Traced("diff", options, context => DiffEndpoint.HandleAsync(context, options)));
-    }
-
-    /// <summary>The dataset's status, for <c>admin</c> (ADR 0101).</summary>
-    public static IEndpointConventionBuilder MapDatasetStatus(this IEndpointRouteBuilder routes, string pattern, ProtocolOptions options)
-    {
-        ArgumentNullException.ThrowIfNull(routes);
-        ArgumentNullException.ThrowIfNull(options);
-        return routes.Map(pattern, Tracing.Traced("status", options, context => StatusEndpoint.HandleAsync(context, options)));
     }
 }

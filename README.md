@@ -43,14 +43,19 @@ where Varve is the wrong tool: [`docs/why.md`](docs/why.md).
 
 ## Status
 
-**`v0.1.0-preview.10` is the latest release; it closed milestone Extent
+**`v0.1.0-preview.11` is the latest release; it closed milestone Extent
 maintenance ([#110](https://github.com/Hafeok/Varve/issues/110))**: the writer
 merges extent sets in the background by a size-tiered policy with a cap, so
 reads stay bounded however many checkpoints a dataset takes, and deletes a
 merged set only when no instance's reader record still holds it; each set
 carries its commit index, so a cold start reads no log below the catalog; and
-`varve storage` shows what the store keeps and for whom. `v0.1.0-preview.9`
-before it completed the first part of milestone 8, SHACL
+`varve storage` shows what the store keeps and for whom. `v0.1.0-preview.10`
+before it closed the first part ([#131](https://github.com/Hafeok/Varve/issues/131)) of milestone Management
+plane ([#105](https://github.com/Hafeok/Varve/issues/105)): grants, datasets
+and settings declared as TriG and applied with `varve apply`, a system dataset
+per fleet that every server follows, grants enforced at the position each
+server has applied, and writes forwarded to their dataset's writer.
+`v0.1.0-preview.9` before that completed the first part of milestone 8, SHACL
 ([#120](https://github.com/Hafeok/Varve/issues/120), under
 [#13](https://github.com/Hafeok/Varve/issues/13)): the standalone validator, SHACL 1.2 Core and SHACL-SPARQL over any quad
 source, recursive shapes as a stratified greatest fixpoint, the report as a
@@ -119,6 +124,7 @@ and it ships inside every package.
 | `Varve.Analyzers` | — | the layer rules, at build time | working, never shipped |
 | `Varve.Events` | 4 | domain events as quads: the event catalogue's declarations, their rendering as canonical CloudEvents through declared `SELECT` mappings, JSON Schemas with immutable revisions, AsyncAPI 3.0, the compatibility check of a declaration change, and the declaration vocabulary's SHACL shapes | working |
 | `Varve.Shacl.Sparql` | 4 | SHACL-SPARQL: SPARQL-based constraints and constraint components, evaluated by `Varve.Sparql.Evaluation` with SHACL 1.2's pre-binding | working |
+| `Varve.Management` | 4 | the management plane's declarations: the `varve:` vocabulary for datasets, settings, placement and grants, their reader and code validator, grants over a caller with graph templates, and the RDFC-1.0 plan `varve apply` converges | working |
 | `Varve.Store` | 4 | the log, the default projection, pinned and as-of reads, checkpoints, subscriptions, dataset validators, the staging view, the bulk loader, replicas by file copy; checkpoints as extent sets with validity intervals; `log/` format 1, `derived/` format 4, reading format 3 | working |
 | `Varve.Sparql.Store` | 5 | SPARQL Update over the store: one request, one commit, `LOAD` through a caller's source, read and write scopes by graph | working |
 | `Varve.Store.Browser` | 5 | the store in a browser: the origin private file system through synchronous access handles in a worker, or IndexedDB | working |
@@ -329,16 +335,20 @@ is the Native AOT binary and nothing else:
 
 ```bash
 dotnet tool install --global Varve.Server --prerelease
-docker pull ghcr.io/hafeok/varve:v0.1.0-preview.10
+docker pull ghcr.io/hafeok/varve:v0.1.0-preview.11
 ```
 
 Serve one dataset on your machine. `--anonymous` is for development only: a
 real deployment takes OIDC bearer tokens ([ADR 0037](docs/adr/0037-server-authentication.md)).
 
 ```bash
-varve serve --anonymous --datasets-root "$PWD/data" --dataset people
+varve serve --anonymous --datasets-root "$PWD/data"
 # or, listening on 8080 instead of 5000, with the datasets in the image's volume:
-docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.10 serve --anonymous --dataset people
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.11 serve --anonymous
+
+# then declare the dataset in the management plane (ADR 0163):
+curl -X PUT http://localhost:5000/manage/datasets/people -H 'Content-Type: application/trig' \
+  --data '<urn:people> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> "people" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#File> .'
 ```
 
 The datasets root is an absolute path. Then write, read, go back, and read

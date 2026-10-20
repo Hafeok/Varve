@@ -31,6 +31,7 @@ internal static class Cli
         root.Subcommands.Add(Checkpoint.Command(target, io));
         root.Subcommands.Add(Feed.Command(target, io));
         root.Subcommands.Add(Setup.Command(target, io));
+        root.Subcommands.Add(Apply.Command(io));
         root.Subcommands.Add(Lease.Command(io));
         root.Subcommands.Add(Storage.Command(io));
         root.Subcommands.Add(Serve.Command());

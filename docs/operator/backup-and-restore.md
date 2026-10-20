@@ -24,23 +24,26 @@ commit, and a torn tail is ignored (ADR 0071, the failure-injection suite).
 A snapshot taken by the file system or the volume at one instant is the
 cleanest hot copy.
 
-**Cold**: close the dataset first, so that the copy is exactly a position:
+**Cold**: declare the dataset closed first, so that the copy is exactly a
+position. `$OPERATOR` is a token for the management audience (ADR 0163):
 
 ```sh
-curl -X POST -H "Authorization: Bearer $ADMIN" https://varve.example/datasets/people/close
+curl -X PUT -H "Authorization: Bearer $OPERATOR" -H 'Content-Type: application/json' \
+  -d '{"state":"closed"}' https://varve.example/manage/datasets/people/state
 cp -a /var/lib/varve/people /backup/people-$(date -u +%Y%m%dT%H%M%SZ)
-curl -X POST -H "Authorization: Bearer $ADMIN" https://varve.example/datasets/people/open
+curl -X PUT -H "Authorization: Bearer $OPERATOR" -H 'Content-Type: application/json' \
+  -d '{"state":"open"}' https://varve.example/manage/datasets/people/state
 ```
 
 Record the position with the copy: `varve info /backup/people-…` reads it
-from the copy itself, or `GET /datasets/people/status` before the close.
+from the copy itself, or `GET /manage/datasets/people/status` before the close.
 
 ## Checkpoints
 
 A checkpoint bounds the replay an open and an as-of read do (ADR 0078):
 
 ```sh
-curl -X POST -H "Authorization: Bearer $ADMIN" https://varve.example/datasets/people/checkpoints
+curl -X POST -H "Authorization: Bearer $OPERATOR" https://varve.example/manage/datasets/people/checkpoints
 varve checkpoint /var/lib/varve/people        # the dataset must not be held by a server
 ```
 
@@ -129,16 +132,17 @@ replication; see [Azure Container Apps](azure-container-apps.md).
 ## Restoring
 
 Put the directory under the root, under the name the dataset should have,
-and open it:
+with the dataset declared closed, then declare it open:
 
 ```sh
 cp -a /backup/people-20261008T120000Z /var/lib/varve/people
-curl -X POST -H "Authorization: Bearer $ADMIN" https://varve.example/datasets/people/open
+curl -X PUT -H "Authorization: Bearer $OPERATOR" -H 'Content-Type: application/json' \
+  -d '{"state":"open"}' https://varve.example/manage/datasets/people/state
 ```
 
-`open` finds a directory copied under the root since the server started,
-and the next start discovers it too (ADR 0106); `PUT` is for a new, empty
-dataset and answers `409 dataset-exists` for one that is there.
+A dataset not declared yet is declared with `varve apply`, as a `File`
+dataset of that name; its writer opens the directory it finds there (ADR
+0163). Declaring a dataset never empties a directory that holds one.
 The restored dataset is the one that was copied — same dataset id, same log
 bytes up to the copied position — so a client that kept a position resumes
 its feed from it. **Two copies of one dataset that both take commits

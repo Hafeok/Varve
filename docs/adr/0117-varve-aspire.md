@@ -154,3 +154,15 @@ maintainer accepts it (ADR 0066).
 
 **The ledger.** The ruling of this block is `MessagePackPinnedPastTheAdvisory`,
 unaccepted until the maintainer accepts it.
+
+## Amendment, 2026-10-19 — a dataset is declared by apply
+
+Filed by milestone Management plane of #105, unaccepted until the maintainer
+accepts it (ADR 0066).
+
+`WithDataset` generates the dataset's declarations and applies them with `varve
+apply` (ADR [0163](0163-the-management-plane.md)); the server no longer creates a
+configured dataset at start. `AddVarveFleet` models the two-app layout of ADR
+[0168](0168-write-routing-by-forwarding.md).
+
+**The ledger.** `WithDatasetDeclaresTheDataset` moves to ADR 0163's set, superseded.

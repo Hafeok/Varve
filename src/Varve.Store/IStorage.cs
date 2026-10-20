@@ -193,3 +193,20 @@ public interface IReadableBlob : IDisposable
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     int Read(ByteOffset offset, Span<byte> destination);
 }
+
+/// <summary>
+/// Storage another process writes, which a follower reads as it grows (ADR
+/// 0164): a refresh learns what the writer has appended since the last one,
+/// checks it as the writer's own open checks what it adopts, and makes it
+/// readable through <see cref="IStorage.Log"/>. It never writes.
+/// </summary>
+[Contract(typeof(TheTier1Follower.TailingStorageContract), Role = "storage a follower tails while another process writes it")]
+public interface ITailingStorage : IStorage
+{
+    /// <summary>
+    /// Learns and adopts what the writer appended since the last refresh.
+    /// True when there was anything.
+    /// </summary>
+    /// <exception cref="LogVerificationException">What the writer appended does not verify.</exception>
+    ValueTask<bool> RefreshAsync(CancellationToken cancellationToken);
+}

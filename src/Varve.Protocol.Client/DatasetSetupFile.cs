@@ -33,7 +33,7 @@ namespace Varve.Protocol.Client;
 /// </remarks>
 public static class DatasetSetupFile
 {
-    private static ImmutableArray<string> TopKeys { get; } = ["dataset", "storage", "settings", "baseline", "migrations"];
+    private static ImmutableArray<string> TopKeys { get; } = ["dataset", "baseline", "migrations"];
 
     private static ImmutableArray<string> BaselineKeys { get; } = ["name", "graph", "file", "format"];
 
@@ -62,20 +62,19 @@ public static class DatasetSetupFile
     private static DatasetSetup Build(Node root, string directory, string source)
     {
         Mapping top = root.AsMapping(source);
-        top.Only(TopKeys, source);
-        DatasetSetup setup = new(top.Required("dataset", source).AsScalar(source).Text)
+
+        // A dataset's existence, storage and settings are management
+        // declarations now (ADR 0163 point 10), refused by name.
+        foreach (string moved in (ReadOnlySpan<string>)["storage", "settings"])
         {
-            Storage = top.Optional("storage") is Node storage
-                ? storage.AsScalar(source).Text switch
-                {
-                    "File" => SetupStorage.File,
-                    "Memory" => SetupStorage.Memory,
-                    "ObjectStorage" => SetupStorage.ObjectStorage,
-                    _ => throw storage.Error(source, "storage is File, Memory or ObjectStorage"),
-                }
-                : SetupStorage.File,
-            Settings = top.Optional("settings")?.AsScalar(source).Text,
-        };
+            if (top.Optional(moved) is Node node)
+            {
+                throw node.Error(source, moved + " is a management declaration now, not a setup's: declare the dataset and its " + moved + " with `varve apply` (ADR 0163)");
+            }
+        }
+
+        top.Only(TopKeys, source);
+        DatasetSetup setup = new(top.Required("dataset", source).AsScalar(source).Text);
 
         if (top.Optional("baseline") is Node baseline)
         {

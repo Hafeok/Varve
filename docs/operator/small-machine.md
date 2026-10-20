@@ -13,7 +13,10 @@ are slow, and the card wears out.
 
 ```sh
 sudo mkdir -p /srv/varve && sudo chown "$USER" /srv/varve     # on the SSD
-varve serve --dataset people=File --set DatasetsRoot=/srv/varve --anonymous
+varve serve --set DatasetsRoot=/srv/varve --anonymous
+# then declare it, with varve apply or:
+curl -X PUT -H 'Content-Type: application/trig' http://localhost:5000/manage/datasets/people \
+  --data '<urn:people> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> "people" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#File> .' 
 ```
 
 or with the image:

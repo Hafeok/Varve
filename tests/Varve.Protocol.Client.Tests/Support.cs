@@ -42,6 +42,7 @@ internal static class C
         ProtocolTestHost.StartAsync(dataset, (app, options) =>
         {
             app.MapGroup("/datasets/{dataset}").MapVarveDataset(options);
+            app.MapVarveManagement(options, null);
             app.MapPost("/redirect", (RequestDelegate)(context =>
             {
                 context.Response.StatusCode = StatusCodes.Status302Found;
@@ -68,7 +69,7 @@ internal static class C
                 context.Response.ContentType = "text/plain";
                 await context.Response.WriteAsync("<http://ex/a> <http://ex/p> <b> .\n", context.RequestAborted);
             }));
-            app.MapGet("/echo/status", (RequestDelegate)(async context =>
+            app.MapGet("/manage/datasets/echo/status", (RequestDelegate)(async context =>
             {
                 context.Response.ContentType = "text/plain";
                 await context.Response.WriteAsync(context.Request.Headers.Authorization.ToString(), context.RequestAborted);

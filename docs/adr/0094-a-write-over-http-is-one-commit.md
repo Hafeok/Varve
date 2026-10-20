@@ -180,3 +180,15 @@ the Graph Store's; the ruling of this block is
 `GraphStoreTagIsTheGraphVersion`, and of the paragraph above
 `ServerRetriesOnlyItsOwnPrecondition`, unaccepted until the maintainer
 accepts them.
+
+## Amendment, 2026-10-19 — request ids unique across a fleet
+
+Filed by milestone Management plane of #105, unaccepted until the maintainer
+accepts it (ADR 0066).
+
+Point 3's request id becomes the instance's name, a colon and the
+`TraceIdentifier`, so that two instances of a fleet never mint the same one (ADR
+[0168](0168-write-routing-by-forwarding.md) point 7). A forwarded write's id is the
+writer's. The cause stays server-minted, as the amendment of 2026-10-09 requires.
+
+**The ledger.** `CauseIsTheRequestId` moves to ADR 0168's set, superseded.

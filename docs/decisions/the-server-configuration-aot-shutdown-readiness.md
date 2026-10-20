@@ -11,10 +11,6 @@ decisions:
     statement: "Auth:Mode has no default, and anonymous mode with Auth:Production refuses to start"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-08T00:00:00Z
-  - key: PermissionsAreCumulative
-    statement: "A claim value granting write grants read, one granting admin grants all three, and a grant names a configured dataset"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-08T00:00:00Z
   - key: ServerIsNativeAot
     statement: "Varve.Server publishes Native AOT with minimal APIs only and source-generated JSON, and the publish is a CI gate"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -39,10 +35,6 @@ decisions:
     statement: "GET /ready is 200 only when every dataset is open, not failed and at the head of its default projection; GET /live is 200 while serving"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-08T00:00:00Z
-  - key: StatusIsTheAdminEndpoint
-    statement: "GET /datasets/{name}/status, the one admin endpoint of 7a, reports the dataset's id, head, durability, settings, checkpoints and failure"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-08T00:00:00Z
   - key: ForwardedHeadersOnlyWhenConfigured
     statement: "Forwarded headers are honoured only when configured and only from configured proxies"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -51,3 +43,5 @@ decisions:
 
 The rulings of [ADR 0101](../adr/0101-the-server-configuration-aot-shutdown-readiness.md), filed unaccepted by milestone 7a of #11
 (ADR 0066). Every citation is `CS0618` until the maintainer accepts them.
+
+Moved to a later set: `PermissionsAreCumulative` and `StatusIsTheAdminEndpoint` are superseded by ADR 0163, in its set.

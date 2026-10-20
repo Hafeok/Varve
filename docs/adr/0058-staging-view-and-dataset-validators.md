@@ -145,3 +145,13 @@ provisional terms with it.
   `Varve.Rdf` types.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-19 — host attachments first
+
+Filed by milestone Management plane of #105, unaccepted until the maintainer
+accepts it (ADR 0066).
+
+A commit's host attachments (ADR [0165](0165-the-management-position-on-the-commit.md))
+are recorded before the dataset's validators' and the request's.
+
+**The ledger.** The ruling is ADR 0165's `HostAttachmentsOnTheCommit`.

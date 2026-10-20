@@ -235,3 +235,21 @@ static Varve.Store.ObjectStorage.ObjectStorage.ForgetReaderAsync(Varve.Store.IOb
 static Varve.Store.ObjectStorage.ObjectStorage.ReadReadersAsync(Varve.Store.IObjectStore! store, Varve.Store.Log.ObjectName? prefix, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Varve.Store.ObjectStorage.Model.ReaderRecord!>!>
 static Varve.Store.ObjectStorage.ObjectStorage.ReadReportAsync(Varve.Store.IObjectStore! store, Varve.Store.Log.ObjectName? prefix, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.ObjectStorage.Model.StorageReport!>
 Varve.Store.ObjectStorage.Model.StorageReport.UnnamedSets.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.Log.BlobName>!
+Varve.Store.ObjectStorage.ObjectStorage.RefreshAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
+Varve.Store.ObjectStorage.Model.WriterAddress
+Varve.Store.ObjectStorage.Model.WriterAddress.WriterAddress() -> void
+Varve.Store.ObjectStorage.Model.WriterAddress.WriterAddress(string! value) -> void
+Varve.Store.ObjectStorage.Model.WriterAddress.Value.get -> string!
+override Varve.Store.ObjectStorage.Model.WriterAddress.ToString() -> string!
+Varve.Store.ObjectStorage.Model.EpochClaim.Address.get -> Varve.Store.ObjectStorage.Model.WriterAddress?
+Varve.Store.ObjectStorage.Model.EpochClaim.Address.init -> void
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.Address.get -> Varve.Store.ObjectStorage.Model.WriterAddress?
+Varve.Store.ObjectStorage.Model.ObjectStorageOptions.Address.init -> void
+Varve.Store.ObjectStorage.Model.ReleaseReason.Placement = 2 -> Varve.Store.ObjectStorage.Model.ReleaseReason
+Varve.Store.ObjectStorage.ObjectStorage.ReleaseOnClose.get -> Varve.Store.ObjectStorage.Model.ReleaseReason
+Varve.Store.ObjectStorage.ObjectStorage.ReleaseOnClose.set -> void
+Varve.Store.ObjectStorage.Model.WriterAddress.Equals(Varve.Store.ObjectStorage.Model.WriterAddress other) -> bool
+override Varve.Store.ObjectStorage.Model.WriterAddress.GetHashCode() -> int
+static Varve.Store.ObjectStorage.Model.WriterAddress.operator !=(Varve.Store.ObjectStorage.Model.WriterAddress left, Varve.Store.ObjectStorage.Model.WriterAddress right) -> bool
+static Varve.Store.ObjectStorage.Model.WriterAddress.operator ==(Varve.Store.ObjectStorage.Model.WriterAddress left, Varve.Store.ObjectStorage.Model.WriterAddress right) -> bool
+~override Varve.Store.ObjectStorage.Model.WriterAddress.Equals(object obj) -> bool

@@ -1,86 +1,94 @@
 format: 1
 version: v0.1.0-preview.10
-title: Extent maintenance — background merges and extent deletion
+title: Management plane, part 1 — the fleet system dataset, grants as code, `varve apply`
 date: 2026-10-19
 basis:
-  - issue: 110
+  - issue: 131
   - storage-format: 1
   - delta-format: 1
-  - adr: "0158"
-  - adr: "0159"
-  - adr: "0160"
-  - adr: "0161"
-  - adr: "0162"
+  - adr: "0163"
+  - adr: "0164"
+  - adr: "0165"
+  - adr: "0166"
+  - adr: "0168"
 accepted-by: mailto:emil@okkels-klein.dk
 summary: |
-  ### Milestone Extent maintenance — background merges and extent deletion
+  ### Milestone Management plane, part 1 — the fleet system dataset, grants as code, `varve apply`
 
-  The writer merges extent sets in the background, so a read of the present
-  merges a bounded number of sets however many checkpoints a dataset takes,
-  and deletes a merged set only when no reader may still read it. This
-  release closes milestone Extent maintenance (#110). The log's bytes are
-  unchanged and derived format 4 holds: a set gains an optional ninth blob,
-  of a kind format 4 already defines. The five ADRs are filed unaccepted
-  and accepted on the pull request (ADR 0066).
+  Grants, datasets and their settings are declared as TriG in the
+  application's repository, planned and applied by CI, and enforced alike by
+  every server sharing a store. This release closes #131, the first part of
+  milestone Management plane (#105); part 2 moves event schemas from the
+  catalogue graphs to the management plane (ADR 0167) and closes the
+  milestone. Storage format 1 holds: the management position rides in the
+  commit header's attachment list. The five ADRs are filed unaccepted and
+  accepted on the pull request (ADR 0066).
 
   #### Added
 
-  - **Background merges** (ADRs 0158, 0159). The writer's maintenance
-    merges adjacent sets into one, writes it, then swaps the catalog once
-    under the epoch fence. A merge never blocks a commit or a checkpoint, is
-    a pure function of its inputs, and rebases onto the catalog if a
-    checkpoint or a drop swapped it meanwhile.
-    - The policy is size-tiered: `FanOut` adjacent sets of similar size
-      merge, and past a bound the smallest run merges. `MaxSetBytes` caps
-      a set, and so the cost of an as-of read inside one. At the defaults
-      (4, 256 MiB) a chain holds at most 15 sets below half the cap.
-    - `DatasetOptions.ExtentMerges` (`ExtentMergePolicy`), on the server
-      `Varve:Store:ExtentMerges`.
-    - At REC M after 100 checkpoints, head reads are faster than after 10
-      without merges, and an as-of read inside the largest set is within
-      1.16× of it. Write amplification was 1.77.
-  - **Extent deletion by reader announcements** (ADR 0160). Every
-    instance on an object store, the writer included, announces the oldest
-    and newest catalog versions it reads in a reader record,
-    `readers/<id>`. The writer deletes a set only when no record's interval
-    overlaps the versions that named it.
-    - `IExtentReaders` in `Varve.Store`; `ObjectStorageOptions.Reader` and
-      `Announcing`. The catalog version is the catalog's set sequence.
-    - Announcing is required. A follower's identity needs write access to
-      `readers/` only (ADR 0134 amended); the operator guide gives the Azure
-      ABAC condition and the S3 policy. `ReaderAnnouncing.Unannounced` reads
-      without a record, and fails a read that finds an extent gone with
-      `read-unannounced-extent-gone`.
-    - A reader whose record was forgotten fails with `reader-forgotten`
-      and attaches again.
-    - A record of a format this build does not read holds every version.
-    - The reader record is specified as its own format (storage format §8).
-  - **The shared commit index** (ADR 0161). Each set carries its window's
-    commit index as `extents/<set>/commits`, so a cold start reads no log
-    below the catalog.
-  - **Uploads are staged through the cache.** An extent is written to a
-    file in the cache and uploaded in one streamed create, and the file is
-    kept as its cached copy. A merge whose output would pass the store's
-    single-upload limit is refused before it starts.
-  - **The server** (ADR 0162):
-    - `varve storage <address>` prints the catalog's version, the sets per
-      permutation, the unnamed sets the store keeps, and the bytes each
-      reader record retains.
-    - `varve storage readers list` and `forget --reader --oldest --newest`.
-    - `varve info`, `query`, `export` and `feed` read a dataset in an object
-      store, announced, or with `--unannounced`.
-    - `/health/ready` reports `retention`, and never turns unready because
-      of it.
-    - `Varve:ObjectStorage:ReaderId`.
+  - **`Varve.Management`** (layer 4, ADR 0166): the `varve:` management
+    vocabulary; the reader and the validator, by focus and path; graph sets
+    as IRIs or templates over the caller; the grant table at a management
+    position; the plan as an RDFC-1.0 diff; TriG in and out.
+  - **The system dataset** (ADR 0163): one per fleet, at `_fleet/` on the
+    fleet's store, written by the instance `Varve:Fleet:Writer` names and
+    followed by the others. Datasets are opened as writer, follower or
+    elsewhere by their declared placement; a placement change moves the
+    writer by events, the old writer abdicating with the reason `placement`
+    and the new one claiming once it sees the release. A declared-closed
+    dataset is closed; an undeclared one is deleted by its writer; settings
+    are converged by the writer in a commit of their own. Bootstrap
+    operators from host configuration are recorded by the first writer, or
+    by `varve serve --record-bootstrap`.
+  - **Grants at the applied position**: each request is authorised against
+    the grant table at the position the instance has applied, named on every
+    response as `Varve-Management-Position`. `Varve-Min-Management-Position`
+    asks for a later one: the instance advances once, then answers `503
+    management-behind`.
+  - **The management position on the commit** (ADR 0165, specification
+    1.8): the position that authorised a commit is attached to its header as
+    `"p"^^varve:managementPosition`, and the positions a dataset records
+    never decrease.
+  - **The tier-1 follower** (ADR 0164): `Dataset.OpenFollowerAsync` and
+    `AdvanceAsync`. A follower probes the next log slot, and never lists; an
+    idle dataset makes no requests. A follower advances on demand: on a read
+    once `Varve:Fleet:FollowInterval` has passed, and on
+    `Varve-Min-Position`; the system dataset on the interval.
+  - **Forwarding** (ADR 0168): any instance accepts a write, authenticates
+    the caller, and forwards the request once, whole, to its dataset's
+    writer at the address in the writer record. A second hop answers `409
+    writer-moved`; no reachable writer answers `503 unavailable`, with the
+    reason `writer-unreachable` or `no-writer`. Request ids carry the
+    instance.
+  - **`/manage/`**: datasets, their state, settings, checkpoints and status,
+    the fleet graph, grants, plans and `/manage/sparql` for operators. Its
+    own token audience (`api://varve-manage` by default), each plane
+    refusing the other's tokens, and optionally its own listener,
+    `Varve:Manage:Urls`.
+  - **`varve apply`**: `--plan`, `--exit-code` for drift in CI, `--out` and
+    `--from-plan` for a reviewed plan, refused if stale, and
+    `--from-config` to convert a host's old configuration. Credentials by
+    client secret or a federated assertion (`--client-assertion github`).
+  - **Readiness** reports a `management` object, and each dataset's role
+    and lag; a bootstrap mismatch fails it.
+  - **Deployment**: Azure Container Apps as a writer app and a public app,
+    the public one writing only under `readers/`; an Entra registration for
+    the management audience, with a deployer federated to GitHub. Operator
+    pages for a fleet and for Kubernetes.
 
   #### Changed
 
-  - `IObjectStore` gains a streamed `CreateIfAbsentAsync(ObjectName,
-    ObjectContent, CancellationToken)`, with a default implementation. The
-    Azure and S3 adapters implement it, and raise
-    `ObjectStoreAccessDeniedException` on a 401 or 403, which is never
-    retried.
-  - `Varve.Protocol`: the problem types `reader-forgotten` and
-    `read-unannounced-extent-gone`; the `not-ready` problem gains
-    `retention`.
-  - The operator guide's checkpoint budget is removed.
+  - **The dataset state, settings, checkpoints and status routes move to
+    `/manage/datasets/{name}/`** (breaking), and the service description
+    points there. `IDatasetAdministration` is List, Open and Close.
+  - **`Varve:Datasets`, `Varve:Auth:Datasets` and
+    `Varve:Auth:Server:Admin` are refused at start** (breaking), each
+    naming its replacement; `varve apply --from-config` converts them.
+  - `Varve.Protocol.Client`: management calls under `/manage/`, settings
+    written as TriG. `DatasetSetup` keeps the baseline and the migrations;
+    a setup file naming storage or settings is refused, naming `varve
+    apply`.
+  - `Varve.Aspire`: `WithOperators`, `WithManagementClient`, and
+    `WithDataset` declaring through a container that runs `varve apply`.
+  - The writer record names the claimant's address, and a release may give
+    the reason `placement`.

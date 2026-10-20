@@ -43,7 +43,7 @@ namespace Varve.Store.ObjectStorage;
 /// </para>
 /// </remarks>
 [Contract(typeof(TheLogAsChunkObjects.ChunkPerFlush), Role = "a dataset's storage in an object store with conditional writes")]
-public sealed class ObjectStorage : IStorage, IStorageMaintenance, IExtentReaders, IAsyncDisposable
+public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExtentReaders, IAsyncDisposable
 {
     private const string SegmentCopies = "segments";
     private const string LocalStorage = "local";
@@ -171,6 +171,14 @@ public sealed class ObjectStorage : IStorage, IStorageMaintenance, IExtentReader
         ObjectRead? read = await ConditionalWrites.ReadWholeAsync(store, new ObjectNames(prefix).Writer, cancellationToken).ConfigureAwait(false);
         return read is null ? null : WriterRecordFormat.Read(read.Bytes.Span);
     }
+
+    /// <summary>
+    /// A follower's refresh (ADR 0164): probes the next log slot, and adopts
+    /// what the writer has appended since. Never lists, and never writes.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">This storage was opened for write.</exception>
+    /// <exception cref="LogVerificationException">A chunk does not verify or does not follow.</exception>
+    public ValueTask<bool> RefreshAsync(CancellationToken cancellationToken) => _log.RefreshAsync(cancellationToken);
 
     /// <inheritdoc />
     public ValueTask<bool> MaintainStorageAsync(CancellationToken cancellationToken) => _log.ConsolidateAsync(cancellationToken);
@@ -541,8 +549,15 @@ public sealed class ObjectStorage : IStorage, IStorageMaintenance, IExtentReader
     }
 
     /// <summary>
+    /// The reason a close releases the epoch with: <see cref="ReleaseReason.Shutdown"/>
+    /// unless the host says otherwise, as it does when the dataset was placed
+    /// on another instance (<see cref="ReleaseReason.Placement"/>, ADR 0163).
+    /// </summary>
+    public ReleaseReason ReleaseOnClose { get; set; } = ReleaseReason.Shutdown;
+
+    /// <summary>
     /// Releases the writer epoch, when this storage holds it, with the reason
-    /// <see cref="ReleaseReason.Shutdown"/>; then closes the cache. A release
+    /// <see cref="ReleaseOnClose"/>; then closes the cache. A release
     /// that cannot be written is left undone: the next writer's claim
     /// supersedes instead.
     /// </summary>
@@ -557,7 +572,7 @@ public sealed class ObjectStorage : IStorage, IStorageMaintenance, IExtentReader
         {
             if (_log.Writes && !IsSuperseded && _recordVersion is not null)
             {
-                await ReleaseAsync(ReleaseReason.Shutdown, CancellationToken.None).ConfigureAwait(false);
+                await ReleaseAsync(ReleaseOnClose, CancellationToken.None).ConfigureAwait(false);
             }
         }
         catch (IOException)
@@ -636,7 +651,7 @@ public sealed class ObjectStorage : IStorage, IStorageMaintenance, IExtentReader
 
             if (write)
             {
-                (record, version) = await ClaimAsync(options.Store, names, options.Instance!.Value, trigger, from, options.Clock, cancellationToken).ConfigureAwait(false);
+                (record, version) = await ClaimAsync(options.Store, names, options.Instance!.Value, options.Address, trigger, from, options.Clock, cancellationToken).ConfigureAwait(false);
                 lost = version is null;
             }
             else if (await ConditionalWrites.ReadWholeAsync(options.Store, names.Writer, cancellationToken).ConfigureAwait(false) is { } read)
@@ -679,7 +694,7 @@ public sealed class ObjectStorage : IStorage, IStorageMaintenance, IExtentReader
     // operator named. A lost claim is not retried (ADR 0136): retrying would
     // supersede the winner.
     private static async ValueTask<(WriterRecord? Record, ObjectVersion? Version)> ClaimAsync(
-        IObjectStore store, ObjectNames names, WriterInstance instance, ClaimTrigger trigger, WriterEpoch? from, TimeProvider clock, CancellationToken cancellationToken)
+        IObjectStore store, ObjectNames names, WriterInstance instance, WriterAddress? address, ClaimTrigger trigger, WriterEpoch? from, TimeProvider clock, CancellationToken cancellationToken)
     {
         ObjectRead? read = await ConditionalWrites.ReadWholeAsync(store, names.Writer, cancellationToken).ConfigureAwait(false);
         WriterRecord? current = read is null ? null : WriterRecordFormat.Read(read.Bytes.Span);
@@ -691,7 +706,7 @@ public sealed class ObjectStorage : IStorage, IStorageMaintenance, IExtentReader
 
         WriterEpoch epoch = current?.Epoch.Next ?? new WriterEpoch(1);
         List<EpochClaim> history = current is null ? [] : [.. current.History];
-        history.Add(new EpochClaim { Epoch = epoch, Holder = instance, Trigger = trigger, ClaimedAt = new ClaimTime(clock.GetUtcNow()) });
+        history.Add(new EpochClaim { Epoch = epoch, Holder = instance, Trigger = trigger, ClaimedAt = new ClaimTime(clock.GetUtcNow()), Address = address });
         WriterRecord claimed = new() { Epoch = epoch, Holder = instance, History = history };
         byte[] bytes = WriterRecordFormat.Write(claimed);
 

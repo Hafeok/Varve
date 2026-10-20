@@ -88,7 +88,6 @@ public class OutboundTests
     {
         ServerSettings settings = new()
         {
-            Datasets = { ["a"] = new DatasetSettings { Storage = "Memory" } },
             Auth = { Mode = "Anonymous" },
             Federation = { AllowedEndpoints = { "wikidata.org" }, Timeout = TimeSpan.Zero },
             Load = { AllowedSources = { "ftp://example.org/" } },

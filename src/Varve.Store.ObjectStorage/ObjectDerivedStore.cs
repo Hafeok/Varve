@@ -183,6 +183,7 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDerivedStoreLimits, I
         {
             ObjectRead? read = await ConditionalWrites.ReadWholeAsync(_store, _names.Derived(CatalogName), cancellationToken).ConfigureAwait(false);
             (_, ReadOnlyMemory<byte> payload) = read is null ? (0, ReadOnlyMemory<byte>.Empty) : Unwrap(read.Bytes);
+
             return payload.IsEmpty ? throw new KeyNotFoundException("No catalog.") : new BytesBlob(payload);
         }
 

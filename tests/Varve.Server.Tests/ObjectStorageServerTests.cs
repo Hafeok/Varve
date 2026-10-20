@@ -33,9 +33,6 @@ public sealed class ObjectStorageServerTests
     {
         ServerSettings settings = new();
         settings.Auth.Mode = "Anonymous";
-        settings.Datasets["d"] = new DatasetSettings { Storage = "ObjectStorage" };
-        Assert.Contains(SettingsCheck.Errors(settings), e => e.StartsWith("Varve:Datasets:d is an ObjectStorage dataset, and Varve:ObjectStorage:Provider is not set.", StringComparison.Ordinal));
-
         settings.ObjectStorage.Provider = "S3Compatible";
         List<string> s3 = SettingsCheck.Errors(settings);
         Assert.Contains(s3, e => e.StartsWith("Varve:ObjectStorage:Endpoint", StringComparison.Ordinal));
@@ -270,6 +267,11 @@ public sealed class ObjectStorageServerTests
         ["Varve:ObjectStorage:ContainerUrl"] = container.ToString(),
         ["Varve:ObjectStorage:CachePath"] = cache,
         ["Varve:ObjectStorage:Instance"] = instance,
+
+        // Both claim, as a mistaken second writer does (ADR 0136); the first
+        // follows on the minute, so its next write still finds the slot taken.
+        ["Varve:Fleet:InternalUrl"] = "http://127.0.0.1:9/" + instance,
+        ["Varve:Fleet:FollowInterval"] = "00:01:00",
     };
 
     private static async Task<(int Exit, string Out)> LeaseAsync(params string[] args)

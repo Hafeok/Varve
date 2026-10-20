@@ -261,3 +261,17 @@ name. Placement — which store, which region — moves to the management plane
 (#105).
 
 **The ledger.** The ruling is ADR 0139's `CatalogNamesTheChain`.
+
+## Amendment, 2026-10-19 — a setup keeps data-shaped work
+
+Filed by milestone Management plane of #105, unaccepted until the maintainer
+accepts it (ADR 0066).
+
+A dataset's existence, storage and settings are management declarations (ADR
+[0163](0163-the-management-plane.md) point 10). `DatasetSetup` keeps its baselines,
+its migrations and `varve:setup`; `Storage` and `Settings` leave it, the setup
+file's `storage` and `settings` keys are refused, and `ApplyAsync` requires the
+dataset to exist. Event declarations stay in the catalogue graphs until ADR 0167.
+
+**The ledger.** `SetupIsDeclared`, `ApplyOrder` and `SettingsAreDesiredState` move to
+ADR 0163's set, superseded.

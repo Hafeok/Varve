@@ -18,36 +18,64 @@ az group create --name varve --location westeurope
 az deployment group create --resource-group varve \
   --template-file deploy/azure/container-apps/main.bicep \
   --parameters authority=https://login.microsoftonline.com/{tenant}/v2.0 audience=api://varve \
-               image=ghcr.io/hafeok/varve@sha256:{digest} datasets='["people","orders"]'
+               image=ghcr.io/hafeok/varve@sha256:{digest} operators='["Varve.Operator"]'
 ```
+
+Then declare the datasets with `varve apply`, as [Datasets](datasets.md) says.
 
 The deploying identity needs to create role assignments on the resource group
 (Owner, or User Access Administrator beside Contributor). The outputs are the
-server's URL, the container's URL and the app's principal id.
+public app's URL, the writer's internal URL, the container's URL, and both
+apps' principal ids.
 
 | Parameter | Default | |
 |---|---|---|
 | `authority`, `audience` | — | `Varve:Auth` (ADR 0037); register the API as [Authenticate](authenticate.md) says |
+| `managementAudience` | `api://varve-manage` | `Varve:Auth:Management:Audience` (ADR 0163) |
+| `operators` | — | `Varve:Manage:BootstrapOperators`, at least one |
 | `image` | `ghcr.io/hafeok/varve:latest` | pin a digest in production |
-| `datasets` | `["default"]` | each an `ObjectStorage` dataset under its own prefix |
 | `storageSku` | `Standard_ZRS` | `Standard_ZRS` keeps a commit through a zone's loss; `Standard_LRS` is cheaper, one datacentre; `Standard_GZRS` adds a second region asynchronously |
 | `cacheBytes` | 4 GiB | `Varve:ObjectStorage:CacheBytes`, within the replica's ephemeral storage |
-| `cpu`, `memory` | `1.0`, `2Gi` | the replica's size |
-| `minReplicas` | 0 | scales to zero between requests; 1 keeps a replica warm, a latency option |
+| `cpu`, `memory` | `1.0`, `2Gi` | each replica's size |
+| `writerMinReplicas` | 1 | the writer: 1 keeps it warm; 0 lets it scale to zero, and a write then waits for its start |
+| `minReplicas`, `maxReplicas` | 0, 3 | the public app's replicas, each a follower that forwards writes |
 
 **The first start can fail** until the role assignment has propagated, which
-takes a few minutes: the configured datasets cannot be opened, the server
-exits, and Container Apps restarts it until they can.
+takes a few minutes: the system dataset cannot be opened, the server exits,
+and Container Apps restarts it until it can.
 
-## One replica, and why
+## Two apps: the writer and the readers
 
-Opening a dataset for write claims its next writer epoch (ADR 0136). A second
-replica would claim it in turn, and the first's next write would fail with
-[`503 writer-superseded`](../problems/writer-superseded.md). So the template
-sets `maxReplicas` to 1 and one active revision. A new revision is a clean
-handover: it claims the epoch, the old revision is superseded, its
-`/health/ready` turns false (`superseded`), and it leaves the load balancer
-before it is stopped. Every claim is in the writer record:
+Opening a dataset for write claims its next writer epoch (ADR 0136), so one
+instance writes each dataset, and the fleet's system dataset. The layout is
+two apps on one container (ADRs 0163, 0168):
+
+- **`varve-writer`**: one replica (`maxReplicas` 1, one active revision),
+  `Varve:Fleet:Writer` `true`, and `Varve:Fleet:InternalUrl` its internal
+  FQDN in the environment. It writes the system dataset and every dataset
+  placed on it; its identity has **Storage Blob Data Contributor** on the
+  container.
+- **`varve`**: N replicas, `Varve:Fleet:Writer` `false`. Each follows the
+  system dataset and the datasets it is read for (ADR 0164), and forwards
+  every write to `varve-writer` at the address in the writer record. Its
+  identity reads the container, and **writes only under the `readers/`
+  prefix**, where a reader announces the oldest catalog version it holds for
+  extent maintenance (#110): on Azure an ABAC condition on the role
+  assignment, on S3 a prefix-scoped policy. Whichever of #110 and #105 lands
+  second reconciles this grant with the reader contract.
+
+Clients reach `varve`; a write costs one extra hop inside the environment.
+The internal address carries the caller's token, so it stays inside the
+environment's network, or is `https`. Datasets are not parameters of the
+deployment: declare them with `varve apply` once it is up ([Datasets](datasets.md)).
+[The fleet](fleet.md) has the model and the request costs.
+
+A new revision of `varve-writer` is a clean handover: it claims the epoch,
+the old revision is superseded, its `/health/ready` turns false
+(`superseded`), and it leaves the load balancer before it is stopped. While
+`varve-writer` is down, `varve` keeps serving reads under the grants it last
+applied, and answers writes `503 unavailable` with the reason
+`writer-unreachable`. Every claim is in the writer record:
 
 ```sh
 varve lease https://{account}.blob.core.windows.net/datasets/people
@@ -56,8 +84,9 @@ varve lease https://{account}.blob.core.windows.net/datasets/people
 which shows the epoch, its holder and every claim, each with its trigger —
 `restart` for a replica's start, `operator` for a takeover. **A run of
 `restart` claims alternating between two holders means two writers are
-configured for one dataset**: two apps, or `maxReplicas` above 1, each start
-superseding the other. One claim per revision rollover, each by the new
+configured for one dataset**: two apps with `Writer` `true`, or `maxReplicas`
+above 1 on `varve-writer`, each start superseding the other; readiness
+reports the superseded one's management role `superseded`. One claim per revision rollover, each by the new
 revision after a `shutdown` release by the old, is the healthy pattern. A
 superseded instance never claims again on its own: it stays live and serves
 reads, and only a fresh process start claims, which is why liveness stays

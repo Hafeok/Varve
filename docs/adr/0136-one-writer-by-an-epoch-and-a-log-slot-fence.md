@@ -194,3 +194,17 @@ soon, never whether.
   type, `Varve.Protocol`, layer 5.
 - **Analyzer rule.** None.
 - **Open questions owned.** None. Automatic handover is Replication's (#97).
+
+## Amendment, 2026-10-19 — the claim records an address; the reason placement
+
+Filed by milestone Management plane of #105, unaccepted until the maintainer
+accepts it (ADR 0066).
+
+Each claim in the epoch history may carry `address`, the claiming instance's
+internal URL (ADR [0168](0168-write-routing-by-forwarding.md) point 6). The record
+stays `format: 1`, since a reader of format 1 reads members by name. A release may
+carry the reason `placement` (ADR [0163](0163-the-management-plane.md) point 12).
+This adds; no ruling of this ADR changes.
+
+**The ledger.** The rulings are ADR 0168's `WriterRecordNamesTheAddress` and ADR
+0163's `PlacementByEvents`.

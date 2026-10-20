@@ -11,13 +11,11 @@ Settings come from, later sources winning:
 1. `appsettings.json` in the working directory, when there is one;
 2. the files `--config <path>` names, in order;
 3. the environment: `VARVE__AUTH__MODE=Oidc`, two underscores for each colon;
-   a segment that names a dataset keeps its case, so the dataset `people` is
-   `VARVE__DATASETS__people__STORAGE`, and `VARVE__DATASETS__PEOPLE__STORAGE`
-   is another dataset, `PEOPLE`;
 4. the command line: `--Varve:Auth:Mode=Oidc`, or `--set Auth:Mode=Oidc`, or
    the typed options of `varve serve` (`--auth-mode Oidc`, `--authority`,
-   `--audience`, `--datasets-root`, `--dataset name[=File|Memory]`,
-   `--anonymous`, `--urls`), which map onto the same keys.
+   `--audience`, `--datasets-root`, `--anonymous`, `--urls`), which map onto
+   the same keys. `--record-bootstrap` is no key: it asks the system writer
+   to record the configured bootstrap operators (below).
 
 **A key the server does not know refuses to start**, naming it: a misspelt
 `Varve:Limit:QueryTimeout` is an error, never a default silently taken. A
@@ -36,10 +34,7 @@ varve serve --print-config --config /etc/varve/varve.json --set Limits:QueryTime
 {
   "Varve": {
     "DatasetsRoot": "/var/lib/varve",
-    "Datasets": {
-      "people": { "Storage": "File" },
-      "scratch": { "Storage": "Memory" }
-    },
+    "Manage": { "BootstrapOperators": [ "Varve.Operator" ] },
     "Auth": { "Mode": "Oidc", "Authority": "https://login.example/", "Audiences": [ "api://varve" ] },
     "Limits": { "QueryTimeout": "00:00:30" },
     "Federation": { "AllowedEndpoints": [ "https://query.wikidata.org/" ] },
@@ -53,24 +48,60 @@ varve serve --print-config --config /etc/varve/varve.json --set Limits:QueryTime
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `DatasetsRoot` | none | the directory file datasets live under, one subdirectory per dataset; absolute; required when any dataset is `File`, or when `Datasets` is empty |
-| `Datasets:{name}:Storage` | none | `File`, `Memory` or `ObjectStorage`; a `Memory` dataset is volatile and starts empty; an `ObjectStorage` dataset is in `ObjectStorage` under the prefix `{name}/` |
+| `DatasetsRoot` | none | the directory file datasets live under, one subdirectory per dataset, and the fleet's system dataset under `_fleet/` when there is no object store; absolute |
 
-A dataset name is 1 to 63 characters of `[A-Za-z0-9._-]`, starting with a
-letter or a digit (ADR 0093). Durability is the backend's (ADR 0073): `File`
-flushes every commit to the device, `Memory` keeps nothing. Directories under
-the root that are not configured are discovered and served; the admin API's
-`PUT /datasets/{name}` creates a new one there (ADR 0106), and
-`DELETE` of a closed dataset removes its directory. Where a dataset's boundary
-goes, and how an application declares its setup, is [Datasets](datasets.md).
+**Datasets are not configuration** (ADR 0163). They are declared in the
+management plane, as TriG, with `varve apply` or `PUT /manage/datasets/{name}`;
+every instance of the fleet converges to the declarations. A declared `File`
+dataset is the directory of its name under the root; `Memory` keeps nothing
+and starts empty; `ObjectStorage` is in the object store under the prefix
+`{name}/`. A dataset name is 1 to 63 characters of `[A-Za-z0-9._-]`, starting
+with a letter or a digit (ADR 0093). Durability is the backend's (ADR 0073).
+A directory under the root that is not declared is not served. Declaring,
+closing and deleting is [Datasets](datasets.md).
+
+With neither `DatasetsRoot` nor `ObjectStorage`, the system dataset is in
+memory and every declaration is lost when the process stops; the server
+warns at start.
+
+## The fleet — `Fleet` and `Manage`
+
+The servers that share one system dataset are a fleet (ADR 0163): one writes
+it, the others follow it (ADR 0164) and forward writes (ADR 0168). A server
+with no object store is a fleet of one. [The fleet](fleet.md) explains the
+model and its request costs.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `Fleet:Writer` | `true` | `true`, `false`, or an instance name compared with `ObjectStorage:Instance`: whether this instance writes the system dataset; any value but `false` lets it claim the datasets placed on it. A fleet of one is its own writer whatever this says |
+| `Fleet:InternalUrl` | none | the address other instances forward writes to, recorded in the writer record at claim; required on an instance that may claim in an object-store fleet; `https`, or `http` inside a private network only, since a caller's token crosses it |
+| `Fleet:FollowInterval` | `00:00:01` | how old a follower's last advance may be before a read advances it, and how often the system dataset is advanced; at most a minute (ADR 0164) |
+| `Fleet:AllowedLag` | 100 | how many system positions this instance may be behind the system tail and be ready |
+| `Manage:BootstrapOperators` | `[]` | agent IRIs (`<issuer>#<subject>`) or role values that are always operators; the first system writer records them; at least one under `Oidc` (ADR 0163 point 7) |
+| `Manage:Urls` | unset | listeners, `;`-separated, that serve `/manage/` alone; with them, the host's own listeners serve no management route |
+
+A configured bootstrap set that differs from the recorded one makes the
+instance not ready (`bootstrap: mismatch`). Change it by starting the system
+writer once with `varve serve --record-bootstrap`: an explicit system commit.
+
+## Removed keys
+
+These keys are refused at start, each naming what replaces it:
+
+| Key | Replaced by |
+|---|---|
+| `Datasets:{name}:Storage` | a dataset's declaration (ADR 0163); `varve apply --from-config <file>` prints the TriG |
+| `Auth:Datasets:{name}:…` | grants in the dataset's declaration (ADR 0166); `varve apply --from-config` prints them too |
+| `Auth:Server:Admin` | `Manage:BootstrapOperators`, and `varve:operator` grants in the fleet graph |
 
 ## The object store — `ObjectStorage`
 
 One container or bucket for the server's `ObjectStorage` datasets, a dataset
-per prefix `{name}/` (ADRs 0134–0139). Datasets the store holds are
-discovered at start; `PUT /datasets/{name}` with `{"storage": "ObjectStorage"}`
-creates one. Opening a dataset claims its next writer epoch (ADR 0136): run
-one instance per dataset, and see [Azure Container Apps](azure-container-apps.md).
+per prefix `{name}/` (ADRs 0134–0139), and the fleet's system dataset under
+`_fleet/` (ADR 0163). A dataset is declared with `varve:storage
+varve:ObjectStorage`. Its placed instance claims its next writer epoch (ADR
+0136); every other instance follows it read-only and forwards its writes
+([The fleet](fleet.md)).
 
 | Setting | Default | Meaning |
 |---|---|---|
@@ -79,10 +110,10 @@ one instance per dataset, and see [Azure Container Apps](azure-container-apps.md
 | `ObjectStorage:Endpoint` | none | S3-compatible: the service's `https` address |
 | `ObjectStorage:Bucket` | none | S3-compatible: the bucket |
 | `ObjectStorage:Region` | none | S3-compatible: the region the signature is for |
-| `ObjectStorage:CachePath` | none | absolute; the local cache, a directory per dataset: extent pages and the derived data any instance rebuilds |
+| `ObjectStorage:CachePath` | none | absolute; the local cache, a directory per dataset, and a follower's under `_followers/`: extent pages and the derived data any instance rebuilds |
 | `ObjectStorage:CacheBytes` | 8 GiB | the most each dataset's extent page cache holds; at least 64 MiB (ADR 0139) |
-| `ObjectStorage:Instance` | the machine name | who this server is in the writer record that `varve lease` shows |
-| `ObjectStorage:ReaderId` | a random id kept in each dataset's cache | this server's reader id: the name of its reader record in each dataset, `readers/<id>` (ADR 0160). Set it where the cache does not survive a restart, as on Container Apps, so a restart replaces the record its last run left; 1 to 128 ASCII letters, digits, `-`, `_` or `.` |
+| `ObjectStorage:Instance` | the machine name | who this server is in the writer record that `varve lease` shows, and the name `Fleet:Writer` and `varve:placedOn` compare with |
+| `ObjectStorage:ReaderId` | a random id kept in each dataset's cache | this server's reader id: the name of its reader record in each dataset, `readers/<id>` (ADR 0160). Set it where the cache does not survive a restart, as on Container Apps, so a restart replaces the record its last run left. A follower's record is the id with `-follower`, so a writer and a follower of one dataset on this server hold one each. 1 to 119 ASCII letters, digits, `-`, `_` or `.` |
 
 **No credential is configured, and none is accepted** (ADR 0137). Azure is
 reached as the workload's identity: Container Apps' managed identity, workload
@@ -112,18 +143,15 @@ to enforce conditional writes and is refused.
 |---|---|---|
 | `Mode` | none, required | `Oidc` or `Anonymous` |
 | `Authority` | — | the OIDC issuer; its discovery document is `/.well-known/openid-configuration` under it; required for `Oidc` |
-| `Audiences` | `[]` | the audiences a token may carry; at least one for `Oidc` |
+| `Audiences` | `[]` | the data plane's audiences; at least one for `Oidc` |
+| `Management:Audience` | `api://varve-manage` | the management plane's audience, which `Audiences` must not name: each plane accepts only its own, and a token for both is refused by both (ADR 0163 point 1) |
 | `SubjectClaim` | `sub` | the claim that names the caller as a commit's agent: `oid` for Entra |
 | `ApplicationClaim` | `azp` | the claim that names the application acting for the caller, recorded on the request span as `varve.azp` and never in the log; `appid` for an Entra v1 token (ADR 0127) |
 | `RoleClaimType` | `roles` | the claim whose values are mapped to permissions |
 | `RequireHttpsMetadata` | `true` | refuse an authority whose metadata is not served over HTTPS; off only for a loopback issuer in a test |
 | `Production` | `false` | refuse anonymous mode |
-| `Datasets:{name}:Read`, `Write`, `Admin` | `[]` | claim values granting each permission on every graph of the dataset; cumulative — write grants read, admin grants both |
-| `Datasets:{name}:Grants:{i}:Claim`, `Permission`, `Graphs`, `GraphPrefixes` | — | a grant scoped to graphs (ADR 0107): `Permission` is `read` or `write`; `Graphs` lists IRIs and `default`; `GraphPrefixes` lists IRI prefixes; at least one of the two |
-| `Server:Admin` | `[]` | claim values that administer the server: create, open, close and delete datasets, and every permission on every dataset (ADR 0106) |
-
-A grant that names a dataset not configured refuses to start.
-[Authenticate](authenticate.md) explains the model and shows provider
+Grants are not configuration: they are declared with each dataset (ADR
+0166). [Authenticate](authenticate.md) explains the model and shows provider
 examples.
 
 ## Limits — `Limits`

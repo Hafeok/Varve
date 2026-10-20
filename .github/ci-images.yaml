@@ -71,16 +71,17 @@ images:
     upstream: mcr.microsoft.com/azure-storage/azurite:3.37.0
     digest: sha256:830430c1da1a2d537e08f3e6764dd1f5ae00cf0346bcaf625b968ec3f0971fd5
     licence: MIT (https://github.com/Azure/Azurite/blob/main/LICENSE)
-    jobs: [samples (eventhubs), storage (services)]
+    jobs: [samples (eventhubs), storage (services), fleet (services)]
     why: >-
-      the Event Hubs emulator's metadata and checkpoint store (ADR 0146); and
-      Azure Blob Storage for the object-storage legs (ADR 0134)
+      the Event Hubs emulator's metadata and checkpoint store (ADR 0146);
+      Azure Blob Storage for the object-storage legs (ADR 0134); and the
+      fleet's shared store (ADR 0163)
 
   - name: rustfs
     upstream: ghcr.io/rustfs/rustfs:1.0.1
     digest: sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c
     licence: Apache-2.0 (https://github.com/rustfs/rustfs/blob/main/LICENSE)
-    jobs: [storage (services)]
+    jobs: [storage (services), fleet (services)]
     why: the S3-compatible server of the object-storage legs, which the contract suite chose (ADR 0134, decision 6)
 
   - name: eventhubs-emulator

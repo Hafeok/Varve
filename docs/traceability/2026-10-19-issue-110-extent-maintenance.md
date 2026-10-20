@@ -263,3 +263,40 @@ descriptor is renumbered to `v0.1.0-preview.10` (ADR 0102), with `main`
 merged into the branch: the README's status, AGENTS.md's state, the ADR index
 and the benchmarks README carry both milestones, and the changelog is
 projected again.
+
+## Addendum, 2026-10-20: CI's store step, and the merge of #134
+
+**The store step in CI**, `Test Varve.Store` in `build (…)`, in minutes:
+
+| Run | Linux | Windows |
+|---|---:|---:|
+| `main` at e42eb9e (SHACL, the preview.9 release gates) | 10.0 | 33.6 |
+| `main` at f7d25da (#130) | 16.1 | 28.6 |
+| #137 at 0657425, the same hour as this PR's run | 15.0 | 24.4 |
+| this PR at 75c2e8d | 16.6 | 36.1 |
+| this PR at 7b40629 | 16.5 | 35.5 |
+
+- **Windows** grew by about 7 minutes against `main` (28.6 → 35.5 at f7d25da, the
+  base of 7b40629; 24.4 for #137 in the same hour). That is more than the
+  Linux 70 s the new tests take here would predict.
+- **Linux** is unchanged against `main` at the same base (16.1 → 16.5).
+- **Per-test attribution is #126's.** #126 adds a TRX upload for every test
+  step, with each OS's twenty slowest tests in the job summary, and
+  re-measures this milestone's tests once it has landed. This pull request
+  adds none.
+- For reference, #126's figures for the Windows store step were 8 min before
+  #116, 29 min on #116's pull request run and 53 min at its land.
+
+**#134, Management plane part 1, landed first** with `v0.1.0-preview.10`, so
+this descriptor is renumbered to `v0.1.0-preview.11`, with `main` merged in.
+- **The reader-contract hook is wired** (ADR 0164 point 6, amended): a
+  follower announces the catalog version it opened in its reader record
+  through `Dataset.OpenAsync`, and the no-op hook is removed. The test
+  `a_follower_announces_the_catalog_version_it_opened` replaces #134's.
+- **A writer and a follower of one dataset on one server** hold separate
+  records. With `Varve:ObjectStorage:ReaderId` set, the follower's is the id
+  with `-follower`, so the two never overwrite each other; the setting is
+  now 1 to 119 characters.
+- **What it shows:** a tier-1 follower re-reads no catalog while it tails,
+  so its record retains the sets merged away since it opened, until it is
+  opened again. Readiness's `retention` reports the bytes.

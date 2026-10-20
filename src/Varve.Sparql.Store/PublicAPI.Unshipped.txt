@@ -40,3 +40,5 @@ Varve.Sparql.Store.ExpectedGraphVersion.Graph.get -> Varve.Rdf.RdfTerm?
 Varve.Sparql.Store.ExpectedGraphVersion.Version.get -> Varve.Store.Log.Position
 Varve.Sparql.Store.UpdateOptions.ExpectedGraphs.get -> System.Collections.Generic.IReadOnlyList<Varve.Sparql.Store.ExpectedGraphVersion!>?
 Varve.Sparql.Store.UpdateOptions.ExpectedGraphs.init -> void
+Varve.Sparql.Store.UpdateOptions.Validators.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.ICommitValidator!>!
+Varve.Sparql.Store.UpdateOptions.Validators.init -> void

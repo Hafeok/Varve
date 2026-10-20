@@ -25,8 +25,11 @@ internal sealed class ServerSettings
     /// </summary>
     public ObjectStorageSettings ObjectStorage { get; set; } = new();
 
-    /// <summary>The datasets, by name.</summary>
-    public Dictionary<string, DatasetSettings> Datasets { get; set; } = new(StringComparer.Ordinal);
+    /// <summary>The fleet this server is one of (ADRs 0163, 0164, 0168).</summary>
+    public FleetSettings Fleet { get; set; } = new();
+
+    /// <summary>The management plane (ADR 0163): its bootstrap operators and its optional listener.</summary>
+    public ManageSettings Manage { get; set; } = new();
 
     public AuthSettings Auth { get; set; } = new();
 
@@ -190,14 +193,39 @@ internal sealed class LoadSettings
     public long MaxResponseBytes { get; set; } = 1L << 30;
 }
 
-/// <summary>One dataset.</summary>
-internal sealed class DatasetSettings
+/// <summary>
+/// The fleet (ADRs 0163, 0164, 0168): who writes the system dataset, the
+/// address the writer is forwarded to, how often a follower advances, and the
+/// management lag readiness tolerates.
+/// </summary>
+internal sealed class FleetSettings
 {
     /// <summary>
-    /// <c>File</c> (under <see cref="ServerSettings.DatasetsRoot"/>), <c>Memory</c>,
-    /// or <c>ObjectStorage</c> (in <see cref="ServerSettings.ObjectStorage"/>).
+    /// <c>true</c>, <c>false</c>, or an instance name compared with
+    /// <see cref="ObjectStorageSettings.Instance"/>: whether this instance
+    /// writes the system dataset and claims the datasets placed on it. A fleet
+    /// of one, with no object store, is its own writer whatever this says.
     /// </summary>
-    public string? Storage { get; set; }
+    public string? Writer { get; set; }
+
+    /// <summary>The address other instances forward writes to, recorded at claim; required on an instance that may claim in an object-store fleet.</summary>
+    public string? InternalUrl { get; set; }
+
+    /// <summary>How old a follower's last advance may be before a read advances it, and how often the system dataset is advanced (ADR 0164).</summary>
+    public TimeSpan FollowInterval { get; set; } = TimeSpan.FromSeconds(1);
+
+    /// <summary>How many system positions this instance may be behind the system tail and be ready (ADR 0163 point 13).</summary>
+    public long AllowedLag { get; set; } = 100;
+}
+
+/// <summary>The management plane (ADR 0163).</summary>
+internal sealed class ManageSettings
+{
+    /// <summary>The bootstrap operators: agent IRIs or role values, always operators, recorded by the first writer.</summary>
+    public List<string> BootstrapOperators { get; set; } = [];
+
+    /// <summary>A second listener for <c>/manage/</c> alone, so network policy can isolate it; unset, one listener serves both planes.</summary>
+    public string? Urls { get; set; }
 }
 
 /// <summary>
@@ -267,53 +295,15 @@ internal sealed class AuthSettings
     /// <summary>A production deployment: anonymous mode is refused.</summary>
     public bool Production { get; set; }
 
-    /// <summary>Per dataset, the claim values that grant each permission.</summary>
-    public Dictionary<string, PermissionSettings> Datasets { get; set; } = new(StringComparer.Ordinal);
-
-    /// <summary>The server-wide grant (ADR 0106): who may create, open, close and delete datasets, and administers every one.</summary>
-    public ServerPermissionSettings Server { get; set; } = new();
+    /// <summary>The management plane's token (ADR 0163): its own audience, which the data plane refuses.</summary>
+    public ManagementAuthSettings Management { get; set; } = new();
 }
 
-/// <summary>The claim values of the server admin (ADR 0106), cumulative above every dataset's <c>admin</c>.</summary>
-internal sealed class ServerPermissionSettings
+/// <summary>The management plane's token (ADR 0163 point 1).</summary>
+internal sealed class ManagementAuthSettings
 {
-    public List<string> Admin { get; set; } = [];
-}
-
-/// <summary>
-/// The claim values that grant a dataset's permissions. Permissions are
-/// cumulative: a value that grants write grants read, and one that grants
-/// admin grants both.
-/// </summary>
-internal sealed class PermissionSettings
-{
-    /// <summary>Claim values that read every graph.</summary>
-    public List<string> Read { get; set; } = [];
-
-    /// <summary>Claim values that write, and so read, every graph.</summary>
-    public List<string> Write { get; set; } = [];
-
-    /// <summary>Claim values that administer the dataset: every permission, every graph.</summary>
-    public List<string> Admin { get; set; } = [];
-
-    /// <summary>Grants scoped to graphs (ADR 0107); the lists above are the <c>all</c> case.</summary>
-    public List<GrantSettings> Grants { get; set; } = [];
-}
-
-/// <summary>One scoped grant (ADR 0107): a claim value, <c>read</c> or <c>write</c>, and the graphs it reaches.</summary>
-internal sealed class GrantSettings
-{
-    /// <summary>The claim value the grant is for.</summary>
-    public string? Claim { get; set; }
-
-    /// <summary><c>read</c> or <c>write</c>; write grants read.</summary>
-    public string? Permission { get; set; }
-
-    /// <summary>Graph IRIs, and <c>default</c> for the default graph.</summary>
-    public List<string> Graphs { get; set; } = [];
-
-    /// <summary>IRI prefixes: every named graph whose IRI starts with one.</summary>
-    public List<string> GraphPrefixes { get; set; } = [];
+    /// <summary>The audience a management token is for; a token for both planes' audiences is refused by both.</summary>
+    public string Audience { get; set; } = "api://varve-manage";
 }
 
 /// <summary>The limits (ADR 0095); an absent one takes its documented default.</summary>

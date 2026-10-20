@@ -11,6 +11,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using CsCheck;
+using Varve.Management.Model;
 using Varve.Protocol.Model;
 using Xunit;
 
@@ -60,9 +61,30 @@ public class HealthTests
                     _ => "ready",
                 };
                 Assert.Equal(expected, state.State);
-                Assert.Equal(expected == "behind" ? dataset.Head - dataset.Projection : null, state.Lag);
+                Assert.Equal(expected is "behind" or "ready" ? dataset.Head - dataset.Projection : null, state.Lag);
             }
         }, iter: 2_000);
+    }
+
+    /// <summary>
+    /// With a management plane (ADR 0163 point 13), readiness is also false
+    /// exactly while the system role is superseded, the bootstrap operators
+    /// differ from the recorded ones, or the management lag exceeds the
+    /// allowed one; the datasets' rule is unchanged.
+    /// </summary>
+    [Fact]
+    public void readiness_is_false_exactly_while_management_is_superseded_mismatched_or_behind()
+    {
+        Gen<ManagementStatus> status = Gen.Select(Gen.Enum<ManagementRole>(), Gen.Enum<BootstrapState>(), Gen.Long[0, 50], Gen.Long[0, 20])
+            .Select((role, bootstrap, applied, lag) => new ManagementStatus(role, 1, new ManagementPosition(applied), new ManagementPosition(applied + lag), bootstrap, null));
+
+        Gen.Select(Health.Array[0, 4], status, Gen.Long[0, 20], Gen.Bool).Sample((datasets, management, allowed, draining) =>
+        {
+            (bool datasetsReady, _) = Readiness.Evaluate(datasets, 0, draining);
+            (bool ready, _) = Readiness.Evaluate(datasets, 0, draining, management, allowed);
+            bool managementReady = management.Role != ManagementRole.Superseded && management.Bootstrap != BootstrapState.Mismatch && management.Lag <= allowed;
+            Assert.Equal(datasetsReady && managementReady, ready);
+        }, iter: 1_000);
     }
 
     [Fact]

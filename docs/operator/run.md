@@ -36,9 +36,11 @@ docker run --detach --name varve \
   --env VARVE__AUTH__MODE=Oidc \
   --env VARVE__AUTH__AUTHORITY=https://login.example/ \
   --env VARVE__AUTH__AUDIENCES__0=api://varve \
-  --env VARVE__DATASETS__people__STORAGE=File \
+  --env VARVE__MANAGE__BOOTSTRAPOPERATORS__0=Varve.Operator \
   ghcr.io/hafeok/varve:v0.1.0-preview.3 serve
 ```
+
+Then declare its datasets with `varve apply` ([Datasets](datasets.md)).
 
 What the image fixes, and what it leaves to you:
 
@@ -46,8 +48,8 @@ What the image fixes, and what it leaves to you:
   the datasets root, so `--read-only` holds; the pull request's CI runs the
   W3C protocol suites and both auth legs against the container that way.
 - `Varve:DatasetsRoot` is `/var/lib/varve` in the image, by
-  `VARVE__DATASETSROOT`; mount a volume there. Datasets are directories under
-  it, discovered at start (ADR 0106) or created through the admin API.
+  `VARVE__DATASETSROOT`; mount a volume there. A declared `File` dataset is
+  a directory under it, and the fleet's system dataset is `_fleet/` there.
 - It listens on 8080 (`ASPNETCORE_URLS=http://+:8080`); TLS is the proxy's.
 - The entry point is the executable; the arguments are its command line:
   `serve` and its options, or any `varve` command. Configuration is the
@@ -72,9 +74,10 @@ for its suites, not a release.
 ## With .NET Aspire
 
 `Varve.Aspire` (ADR 0117) adds the same container to an AppHost:
-`builder.AddVarve("varve").WithOidc(…).WithDataset("people", …)`, with the
-volume, the endpoint, the health check and OTLP to the dashboard wired.
-`src/Varve.Aspire/README.md` has the three methods; `samples/` runs it beside
+`builder.AddVarve("varve").WithOidc(…).WithOperators(…).WithDataset("people", …)`,
+with the volume, the endpoint, the health check and OTLP to the dashboard
+wired, and the datasets declared by `varve apply` from a container of the
+same image. `src/Varve.Aspire/README.md` has the methods; `samples/` runs it beside
 a test issuer. Without `WithOidc` the server is anonymous in run mode and
 refuses to publish.
 
@@ -85,7 +88,7 @@ configuration runs the server:
 
 ```sh
 varve serve --Varve:DatasetsRoot=/var/lib/varve \
-            --Varve:Datasets:people:Storage=File \
+            --Varve:Manage:BootstrapOperators:0=Varve.Operator \
             --Varve:Auth:Mode=Oidc \
             --Varve:Auth:Authority=https://login.example/ \
             --Varve:Auth:Audiences:0=api://varve \
@@ -101,12 +104,16 @@ colon) and command-line arguments, later sources overriding earlier ones.
 prints every error, one per line, and exits with code 2. It never substitutes
 a default for a value that was given and is wrong.
 
-Datasets configured as `File` live under `Varve:DatasetsRoot`, one directory
-each, named after the dataset. A directory under the root that is not
-configured is **discovered** and served too (ADR 0106); one that fails to
-open is listed as failed with a reason, and the server still starts for the
-others. `Varve:Datasets` may be empty when a root is given: the admin API
-creates datasets under it.
+**Datasets are declared, not configured** (ADR 0163). A server starts with
+the datasets its fleet's management plane declares, and an empty one starts
+with none; `varve apply` or `PUT /manage/datasets/{name}` declares one, and
+every instance converges to it. A `File` dataset lives under
+`Varve:DatasetsRoot`, one directory each, named after the dataset. One that
+fails to open is listed as failed with a reason, tried again on every round,
+and the server still serves the others. A directory under the root that is
+not declared is not served. The removed `Varve:Datasets` and
+`Varve:Auth:Datasets` refuse to start; `varve apply --from-config` prints the
+TriG that replaces them.
 
 ## What it listens on
 
@@ -122,12 +129,16 @@ The routes, per dataset:
 | Route | What |
 |---|---|
 | `GET /health/live` | liveness: `200` once the process serves (ADR 0113) |
-| `GET /health/ready` | readiness: `200` when every dataset that should be open is open, not failed and within `Varve:Health:ReadyLag` of its head, `503 not-ready` with each dataset's state and reason otherwise, and during the drain |
-| `/datasets` | the admin API: list, create (`PUT`, idempotent), delete; `/datasets/{name}/state` reads and sets `open` or `closed` (ADRs 0106, 0118) |
+| `GET /health/ready` | readiness: `200` when every dataset that should be open is open, not failed and within `Varve:Health:ReadyLag` of its head, and the management plane is applied within `Varve:Fleet:AllowedLag`, not superseded, with the bootstrap operators recorded as configured; `503 not-ready` otherwise and during the drain. Both answers carry a `management` object — `role`, `epoch`, `position`, `lag`, `bootstrap` — and each dataset's state, role and lag (ADR 0163 point 13) |
+| `/manage/…` | the management plane, with a token for its own audience: datasets declared as TriG, their settings, state, status, checkpoints and grants, the fleet graph, `apply`, `sparql` and `system` ([Datasets](datasets.md#the-management-resources), ADR 0163) |
 | `/datasets/{name}/sparql` | SPARQL 1.1 Protocol query and update; `GET` with an RDF `Accept` is the service description, whose Varve terms [`docs/vocabulary.md`](../vocabulary.md) defines |
 | `/datasets/{name}/graphs` | the Graph Store Protocol |
 | `/datasets/{name}/commits`, `/commits/{position}`, `/diff` | the commits resource, a range or a live tail, one commit, and the diff (`docs/spec/change-feed.md`, ADR 0118) |
-| `/datasets/{name}/status`, `/settings`, `/checkpoints` | the dataset's status, its settings (`GET`, `PUT`, `PATCH` merge patch) and its checkpoints |
+
+A dataset's status, settings, state and checkpoints are management resources
+now, under `/manage/datasets/{name}/` (ADR 0163). Every response carries
+`Varve-Management-Position`, and in a fleet a write is forwarded to its
+writer ([The fleet](fleet.md)).
 
 Both probes are rate-limited per client address (`Varve:Health:RateLimit`),
 and every refusal anywhere is an RFC 9457 problem whose type is one of

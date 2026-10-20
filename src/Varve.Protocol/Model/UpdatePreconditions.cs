@@ -44,6 +44,13 @@ public sealed class UpdatePreconditions
     public IReadOnlyList<GraphPrecondition>? ExpectedGraphs { get; init; }
 
     /// <summary>
+    /// The host's validators the commit carries into the sequencer, such as
+    /// the order of management positions (ADR 0165); the executor passes
+    /// them to the store with the request.
+    /// </summary>
+    public IReadOnlyList<Varve.Store.ICommitValidator> Validators { get; init; } = [];
+
+    /// <summary>
     /// True when the client stated nothing: a conflict then comes from the
     /// executor's own inferred precondition, and the executor may re-pin and
     /// re-evaluate before answering it (ADR 0057, amended 2026-10-13).

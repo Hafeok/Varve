@@ -78,7 +78,6 @@ public static class ProblemCatalogue
         new(ProblemType.MethodNotAllowed, 405, "The endpoint does not serve this method."),
         new(ProblemType.NotAcceptable, 406, "Nothing in Accept is a format this endpoint writes."),
         new(ProblemType.Conflict, 409, "Another commit came first.", "position", "expectedPosition", "headPosition", "graphs", "graphsTruncated"),
-        new(ProblemType.DatasetExists, 409, "A dataset by that name exists."),
         new(ProblemType.DatasetOpen, 409, "The dataset is open; close it first."),
         new(ProblemType.PreconditionFailed, 412, "The precondition does not name the current version.", "position", "expectedPosition", "headPosition", "graphs"),
         new(ProblemType.RequestTooLarge, 413, "The request body is over the server's limit.", "limit"),
@@ -91,12 +90,16 @@ public static class ProblemCatalogue
         new(ProblemType.AsOfDistanceExceeded, 422, "The as-of position is too far from its nearest checkpoint.", "limit", "actual"),
         new(ProblemType.TooManyLiveTails, 429, "The client holds too many live tails open.", "limit"),
         new(ProblemType.TooManyRequests, 429, "The client sent more requests than the endpoint allows in its window."),
-        new(ProblemType.Unavailable, 503, "The dataset cannot answer now."),
+        new(ProblemType.Unavailable, 503, "The dataset cannot answer now.", "reason"),
         new(ProblemType.ReadLimitExceeded, 503, "The read was cut by a server limit."),
         new(ProblemType.ShuttingDown, 503, "The server is shutting down."),
-        new(ProblemType.NotReady, 503, "The server is not ready.", "datasets", "retention"),
+        new(ProblemType.NotReady, 503, "The server is not ready.", "management", "datasets", "retention"),
         new(ProblemType.ServerBusy, 503, "The server has as many reads in flight as it allows.", "limit"),
         new(ProblemType.WriterSuperseded, 503, "A newer writer holds the dataset; this instance serves reads only."),
+        new(ProblemType.ManagementBehind, 503, "The server has not applied the management position asked for.", "position", "appliedPosition"),
+        new(ProblemType.DatasetBehind, 503, "This instance has not applied the dataset position asked for.", "position", "appliedPosition"),
+        new(ProblemType.WriterMoved, 503, "The instance a write was forwarded to no longer writes the dataset.", "epoch", "requestId"),
+        new(ProblemType.DeclarationInvalid, 422, "The management declarations are not valid.", "findings"),
         new(ProblemType.ReaderForgotten, 503, "This instance's reader record was forgotten; it attaches again."),
         new(ProblemType.ReadUnannouncedExtentGone, 503, "An unannounced read found an extent gone."),
     ];
@@ -113,7 +116,8 @@ public static class ProblemCatalogue
     /// ADR 0145).
     /// </summary>
     public static bool IsValidatorType(ProblemType type) =>
-        type == ProblemType.EventDeclarationInvalid || type == ProblemType.EventSchemaIncompatible;
+        type == ProblemType.EventDeclarationInvalid || type == ProblemType.EventSchemaIncompatible
+        || type == ProblemType.DeclarationInvalid || type == ProblemType.ManagementBehind;
 
     /// <summary>The shape of <paramref name="type"/>, when it is catalogued.</summary>
     public static bool TryGet(ProblemType type, out ProblemShape? shape) => ByType.TryGetValue(type.Value, out shape);

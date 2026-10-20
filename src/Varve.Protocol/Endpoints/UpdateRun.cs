@@ -83,7 +83,7 @@ internal static class UpdateRun
         try
         {
             result = await exchange.Options.Updates
-                .ExecuteAsync(exchange.Dataset, update!, Writes.Metadata(exchange), new UpdatePreconditions { ExpectedPosition = plan.Expected, ExpectedGraphs = plan.Graphs }, exchange.Scope, context.RequestAborted)
+                .ExecuteAsync(exchange.Dataset, update!, Writes.Metadata(exchange), new UpdatePreconditions { ExpectedPosition = plan.Expected, ExpectedGraphs = plan.Graphs, Validators = Writes.Validators(exchange) }, exchange.Scope, context.RequestAborted)
                 .ConfigureAwait(false);
         }
         catch (GraphNotWritableException refused)

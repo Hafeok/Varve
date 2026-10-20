@@ -88,10 +88,7 @@ public readonly record struct ProblemType
     /// <summary>The server is shutting down.</summary>
     public static ProblemType ShuttingDown { get; } = new("shutting-down");
 
-    /// <summary>A dataset to create already exists, in some state (ADR 0106).</summary>
-    public static ProblemType DatasetExists { get; } = new("dataset-exists");
-
-    /// <summary>A dataset to delete is open; close it first (ADR 0106).</summary>
+    /// <summary>A dataset to delete is declared open; declare it closed first (ADRs 0106, 0163).</summary>
     public static ProblemType DatasetOpen { get; } = new("dataset-open");
 
     /// <summary>A commit that records its agent — a settings change — from a caller with none (ADRs 0094, 0106).</summary>
@@ -114,6 +111,18 @@ public readonly record struct ProblemType
 
     /// <summary><c>503</c>: a newer writer holds the dataset's epoch; this instance serves reads only (ADR 0136).</summary>
     public static ProblemType WriterSuperseded { get; } = new("writer-superseded");
+
+    /// <summary><c>503</c>: the server has not applied the management position the request asked for, after one advance (ADR 0163).</summary>
+    public static ProblemType ManagementBehind { get; } = new("management-behind");
+
+    /// <summary><c>503</c>: a follower has not applied the dataset position the read asked for, after one advance (ADR 0168).</summary>
+    public static ProblemType DatasetBehind { get; } = new("dataset-behind");
+
+    /// <summary><c>503</c>: a forwarded write reached an instance that does not write the dataset; it is never forwarded again (ADR 0168).</summary>
+    public static ProblemType WriterMoved { get; } = new("writer-moved");
+
+    /// <summary><c>422</c>: a management declaration the code validator refuses (ADR 0166).</summary>
+    public static ProblemType DeclarationInvalid { get; } = new("declaration-invalid");
 
     /// <summary><c>503</c>: this instance's reader record was forgotten while it read, and an extent its catalog names is gone; it attaches again (ADR 0160).</summary>
     public static ProblemType ReaderForgotten { get; } = new("reader-forgotten");
