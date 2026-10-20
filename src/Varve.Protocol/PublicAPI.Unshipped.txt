@@ -362,3 +362,23 @@ static Varve.Protocol.VarveEndpoints.MapVarveManagement(this Microsoft.AspNetCor
 static Varve.Protocol.Model.ProblemType.BindingNotIncremental.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.ShapesInvalid.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.ShapesViolated.get -> Varve.Protocol.Model.ProblemType
+Varve.Protocol.IManagementPlane.CheckBindings(Varve.Management.Model.Declarations! proposed) -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>?
+Varve.Protocol.IManagementPlane.DescribeBinding(Varve.Protocol.Model.DatasetName dataset, Varve.Rdf.RdfTerm! binding) -> Varve.Protocol.Model.BindingDescription?
+Varve.Protocol.Model.BindingDescription
+Varve.Protocol.Model.BindingDescription.<Clone>$() -> Varve.Protocol.Model.BindingDescription!
+Varve.Protocol.Model.BindingDescription.BindingDescription(Varve.Management.Model.BindingDeclaration! Declaration, Varve.Management.Model.ManagementPosition Position, Varve.Shacl.Model.ShapesClassification? Classification, System.Collections.Generic.IReadOnlyList<Varve.Shacl.Model.ShaclProblem!>! Problems) -> void
+Varve.Protocol.Model.BindingDescription.Classification.get -> Varve.Shacl.Model.ShapesClassification?
+Varve.Protocol.Model.BindingDescription.Classification.init -> void
+Varve.Protocol.Model.BindingDescription.Declaration.get -> Varve.Management.Model.BindingDeclaration!
+Varve.Protocol.Model.BindingDescription.Declaration.init -> void
+Varve.Protocol.Model.BindingDescription.Deconstruct(out Varve.Management.Model.BindingDeclaration! Declaration, out Varve.Management.Model.ManagementPosition Position, out Varve.Shacl.Model.ShapesClassification? Classification, out System.Collections.Generic.IReadOnlyList<Varve.Shacl.Model.ShaclProblem!>! Problems) -> void
+Varve.Protocol.Model.BindingDescription.Equals(Varve.Protocol.Model.BindingDescription? other) -> bool
+Varve.Protocol.Model.BindingDescription.Position.get -> Varve.Management.Model.ManagementPosition
+Varve.Protocol.Model.BindingDescription.Position.init -> void
+Varve.Protocol.Model.BindingDescription.Problems.get -> System.Collections.Generic.IReadOnlyList<Varve.Shacl.Model.ShaclProblem!>!
+Varve.Protocol.Model.BindingDescription.Problems.init -> void
+override Varve.Protocol.Model.BindingDescription.Equals(object? obj) -> bool
+override Varve.Protocol.Model.BindingDescription.GetHashCode() -> int
+override Varve.Protocol.Model.BindingDescription.ToString() -> string!
+static Varve.Protocol.Model.BindingDescription.operator !=(Varve.Protocol.Model.BindingDescription? left, Varve.Protocol.Model.BindingDescription? right) -> bool
+static Varve.Protocol.Model.BindingDescription.operator ==(Varve.Protocol.Model.BindingDescription? left, Varve.Protocol.Model.BindingDescription? right) -> bool
