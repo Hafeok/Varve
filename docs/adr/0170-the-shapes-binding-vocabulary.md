@@ -26,7 +26,7 @@ travels with the log" to milestone 8.
    | Term | Value | Default |
    |---|---|---|
    | `varve:boundGraph` | **the shapes graph**: exactly one absolute IRI, a named graph of the same dataset | required |
-   | `varve:validates` | a node carrying the grant vocabulary's graph-set terms: `varve:allGraphs true`, `varve:graph` (repeatable; an IRI or `varve:defaultGraph`) and `varve:graphPrefix` (repeatable) | required |
+   | `varve:allGraphs`, `varve:graph`, `varve:graphPrefix` | the graphs it validates, in the grant vocabulary's graph-set terms on the binding node itself, as a grant carries them: `varve:allGraphs true`, or `varve:graph` (repeatable; an IRI or `varve:defaultGraph`) and `varve:graphPrefix` (repeatable) | one of them required |
    | `varve:validationMode` | `varve:Reject`, `varve:Report` or `varve:Off` | required |
    | `varve:allowFullEvaluation` | `xsd:boolean` | `false` |
    | `varve:subClassOfInShapesGraph` | `xsd:boolean`, SHACL 1.2 Core §6.4's parameter | `false` |
@@ -34,6 +34,11 @@ travels with the log" to milestone 8.
    `varve:boundGraph` keeps ADR 0166's name and gains its meaning for this
    class; `varve:TBoxBinding` keeps it for Inference (#95). The graph-set terms
    are ADR 0166's own, so there is no parallel vocabulary.
+
+   *The plan had them on a separate node, `varve:validates`. ADR 0166's code
+   validator refuses every blank node in a management graph, so that node
+   would be a second IRI node per binding; the binding node carries them as a
+   grant node does, and `varve:validates` is not a term.*
 2. **Shapes are data.** The shapes graph is a named graph of the dataset it
    gates, so it is versioned with it, readable as of any position, and changed
    by commits like any graph — never a file the server reads.
@@ -43,10 +48,10 @@ travels with the log" to milestone 8.
    `sh:class` and `sh:node` work across the bound graphs, as REC's portfolio
    needs (one graph per site, ADR 0141).
 4. **What ADR 0166's code validator gains.** It refuses a `ShapesBinding`
-   without exactly one `varve:boundGraph`, one `varve:validates` and one
-   `varve:validationMode`; a `varve:graphTemplate` inside `varve:validates` (a
-   template expands per caller, and a binding has no caller); a shapes graph
-   inside its own data graph set; and an unknown mode. The rest — whether the
+   without exactly one `varve:boundGraph` and one `varve:validationMode` among
+   the three, or without a graph set; a `varve:graphTemplate` on it (a template
+   expands per caller, and a binding has no caller); and its own shapes graph
+   named by `varve:graph`. The rest — whether the
    shapes graph loads, and its classification — needs the data dataset and is
    ADR 0169's R4.
 5. **In code**, `Varve.Shacl.Store.ShapesBinding` is the value: the binding's
@@ -68,7 +73,7 @@ travels with the log" to milestone 8.
 
 ## Consequences
 
-- `docs/vocabulary.md` gains the five terms and the three mode individuals.
+- `docs/vocabulary.md` gains the four terms and the three mode individuals.
 - The operator's guide's page on shapes bindings (part 2b) shows a binding in
   TriG.
 

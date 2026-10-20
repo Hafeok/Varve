@@ -18,8 +18,27 @@ namespace Varve.Management.Model;
 [DesignDecision(typeof(VarveManagementAndTheVocabulary.ManagementSurfaceCarriesDeclaredValues), Scope = ExceptionScope.Boundary)]
 public sealed record GrantDeclaration(RdfTerm Node, string? Dataset, Principal Grantee, GrantAccess Access, GraphSet Graphs);
 
-/// <summary>A shapes or TBox binding, recorded until the milestone that acts on it.</summary>
-public sealed record BindingDeclaration(RdfTerm Node, BindingKind Kind, RdfTerm BoundGraph);
+/// <summary>
+/// A shapes or TBox binding. A shapes binding (ADR 0170) also states the graphs
+/// it validates, as a grant states its graphs, and its mode; a TBox binding is
+/// recorded until Inference acts on it.
+/// </summary>
+public sealed record BindingDeclaration(RdfTerm Node, BindingKind Kind, RdfTerm BoundGraph)
+{
+    /// <summary>The graphs a shapes binding validates; null for a TBox binding.</summary>
+    public GraphSet? Validates { get; init; }
+
+    /// <summary>A shapes binding's mode.</summary>
+    public ShapesMode Mode { get; init; }
+
+    /// <summary><c>varve:allowFullEvaluation</c>.</summary>
+    [DesignDecision(typeof(TheShapesBindingVocabulary.BindingTerms), Scope = ExceptionScope.Boundary)]
+    public bool AllowFullEvaluation { get; init; }
+
+    /// <summary><c>varve:subClassOfInShapesGraph</c>.</summary>
+    [DesignDecision(typeof(TheShapesBindingVocabulary.BindingTerms), Scope = ExceptionScope.Boundary)]
+    public bool SubClassOfInShapesGraph { get; init; }
+}
 
 /// <summary>One dataset's declarations (ADR 0163).</summary>
 [DesignDecision(typeof(VarveManagementAndTheVocabulary.ManagementSurfaceCarriesDeclaredValues), Scope = ExceptionScope.Boundary)]

@@ -78,6 +78,9 @@ public static class ManagementVocabulary
     internal static readonly RdfTerm Template = Term("template");
     internal static readonly RdfTerm Match = Term("match");
     internal static readonly RdfTerm BoundGraph = Term("boundGraph");
+    internal static readonly RdfTerm ValidationMode = Term("validationMode");
+    internal static readonly RdfTerm AllowFullEvaluation = Term("allowFullEvaluation");
+    internal static readonly RdfTerm SubClassOfInShapesGraph = Term("subClassOfInShapesGraph");
     internal static readonly RdfTerm BootstrapOperator = Term("bootstrapOperator");
 
     // Individuals.
@@ -93,6 +96,9 @@ public static class ManagementVocabulary
     internal static readonly RdfTerm DefaultGraph = Term("defaultGraph");
     internal static readonly RdfTerm Exact = Term("Exact");
     internal static readonly RdfTerm Prefix = Term("Prefix");
+    internal static readonly RdfTerm Reject = Term("Reject");
+    internal static readonly RdfTerm Report = Term("Report");
+    internal static readonly RdfTerm Off = Term("Off");
 
     // Outside varve:.
     internal static readonly RdfTerm Type = RdfTerm.Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type"u8);
@@ -116,7 +122,9 @@ public static class ManagementVocabulary
         "datasetName", "storage", "placedOn", "defaultAccessScope", "automaticHandover", "closed",
         "grantee", "permission", "allGraphs", "graph", "graphPrefix", "graphTemplate",
         "claimValue", "claimType", "template", "match", "boundGraph",
+        "validationMode", "allowFullEvaluation", "subClassOfInShapesGraph",
         "File", "Memory", "ObjectStorage", "AllHistory", "Current", "read", "write", "admin", "operator", "defaultGraph", "Exact", "Prefix",
+        "Reject", "Report", "Off",
     }.ToFrozenSet(StringComparer.Ordinal);
 
     /// <summary>The terms reserved for later milestones, refused with the reason.</summary>

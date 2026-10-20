@@ -361,9 +361,65 @@ public static class DeclarationReader
                         continue;
                     }
 
-                    yield return new BindingDeclaration(node, kind, bound[0]);
+                    if (kind == BindingKind.TBox)
+                    {
+                        yield return new BindingDeclaration(node, kind, bound[0]);
+                        continue;
+                    }
+
+                    if (ShapesBinding(node, bound[0]) is { } shapes)
+                    {
+                        yield return shapes;
+                    }
                 }
             }
+        }
+
+        /// <summary>A shapes binding's graphs, mode and flags (ADR 0170); null after a finding.</summary>
+        private BindingDeclaration? ShapesBinding(RdfTerm node, RdfTerm shapesGraph)
+        {
+            List<RdfTerm> modes = Values(node, ManagementVocabulary.ValidationMode);
+            ShapesMode? mode = modes.Count != 1 ? null : modes[0] switch
+            {
+                { } m when m.Equals(ManagementVocabulary.Reject) => ShapesMode.Reject,
+                { } m when m.Equals(ManagementVocabulary.Report) => ShapesMode.Report,
+                { } m when m.Equals(ManagementVocabulary.Off) => ShapesMode.Off,
+                _ => null,
+            };
+
+            if (mode is not { } validationMode)
+            {
+                Find(node, ManagementVocabulary.ValidationMode, "a shapes binding has exactly one varve:validationMode: varve:Reject, varve:Report or varve:Off");
+                return null;
+            }
+
+            if (Values(node, ManagementVocabulary.GraphTemplateProperty).Count > 0)
+            {
+                Find(node, ManagementVocabulary.GraphTemplateProperty, "a shapes binding names its graphs without varve:graphTemplate: a template expands per caller, and a binding has none");
+                return null;
+            }
+
+            if (Graphs(node, wide: false, "a shapes binding") is not { } graphs)
+            {
+                return null;
+            }
+
+            foreach (RdfTerm graph in graphs.Graphs)
+            {
+                if (graph.Equals(shapesGraph))
+                {
+                    Find(node, ManagementVocabulary.Graph, "a shapes binding's graphs do not name its own shapes graph, which is never data (ADR 0170)");
+                    return null;
+                }
+            }
+
+            return new BindingDeclaration(node, BindingKind.Shapes, shapesGraph)
+            {
+                Validates = graphs,
+                Mode = validationMode,
+                AllowFullEvaluation = Boolean(node, ManagementVocabulary.AllowFullEvaluation) ?? false,
+                SubClassOfInShapesGraph = Boolean(node, ManagementVocabulary.SubClassOfInShapesGraph) ?? false,
+            };
         }
 
         private Principal? PrincipalOf(RdfTerm node)
@@ -409,7 +465,7 @@ public static class DeclarationReader
             return Model.Principal.Agent(Encoding.UTF8.GetString(node.Lexical));
         }
 
-        private GraphSet? Graphs(RdfTerm node, bool wide)
+        private GraphSet? Graphs(RdfTerm node, bool wide, string owner = "a read or write grant")
         {
             bool all = Boolean(node, ManagementVocabulary.AllGraphs) ?? false;
             List<RdfTerm> graphs = Values(node, ManagementVocabulary.Graph);
@@ -441,7 +497,7 @@ public static class DeclarationReader
 
             if (!named)
             {
-                Find(node, null, "a read or write grant names its graphs: varve:allGraphs true, varve:graph, varve:graphPrefix or varve:graphTemplate");
+                Find(node, null, owner + " names its graphs: varve:allGraphs true, varve:graph, varve:graphPrefix or varve:graphTemplate");
                 return null;
             }
 
