@@ -176,3 +176,81 @@ What changed:
 **Found.**
 - `.devcontainer/auth-legs.sh` starts the same compose file, so a local run now needs a `docker login ghcr.io` with an account that can read the package. Part 2's `CONTRIBUTING.md` and local-run mechanism, the upstream reference at the same digest, resolves that.
 - Dependabot's docker-compose ecosystem watches this file and cannot read the private package. Part 2 switches that ecosystem off for these files.
+
+## Part 2, 2026-10-19: CI pulls only from the mirror
+
+#125 landed at 9d48ccc. The maintainer then ran the mirror:
+
+> `mirror-ci-images` is green on `main`: run 39218756137, re-run after the maintainer made four packages private.
+>
+> On the first run, all five copies landed at the pinned digests, and the visibility check failed as designed. Packages created by a workflow in a public repository inherit public visibility.
+> - PostgreSQL was already present, the hand seed.
+> - Zitadel, mock-oauth2-server, Azurite and RustFS were copied.
+>
+> All six packages are now private, and Hafeok/Varve has Actions access to each.
+>
+> Start PR 2 as planned. One addition: CONTRIBUTING.md and the ADR 0099 amendment should say that a new mirrored image comes out public on its first copy. The maintainer then sets it private and re-runs the workflow, which is red until they do. That's the expected sequence for every new row.
+
+The branch was restarted from `main` at 9d48ccc, the landed head, for this second pull request.
+
+### What changed
+
+- **Every compose file** pulls from `ghcr.io/hafeok/varve-ci/<name>` at the listed digest. The Event Hubs emulator is the exception: a `mirror: false` row, from `mcr.microsoft.com`.
+- **`ci.yml`:**
+  - `auth (mock-oauth2)`, `storage (services)` and `samples (eventhubs)` ask for `packages: read` and log in to `ghcr.io` with `GITHUB_TOKEN`. `auth (zitadel)`, `container` and `aspire sample` already did.
+  - The stopgap retries are gone, from all six starts.
+  - `release.yml`'s `gates` job, `ci.yml`'s one caller, grants `packages: write`, which covers the new requests (#89's rule, checked by hand).
+- **The Aspire sample.**
+  - It pins its issuer with `WithImageSHA256` to the row's digest. Aspire then names the image `<image>@sha256:<digest>`; a scratch AppHost outside the repository showed this for both the upstream and the mirror repository.
+  - `Varve:IssuerImage` replaces the image, defaulting to upstream, and the `aspire sample` job sets the mirror's.
+  - The row's `allowances` name the file and the job.
+- **`Varve.Aspire`** starts only `ghcr.io/hafeok/varve`, the server and its per-dataset setup, so it needs nothing.
+- **`eng/ci-images.cs`** is the gate, a job in `eng/ci.cs`. It reads the list and finds image references:
+  - under `.github/`: `image:` keys, `docker pull`, `uses: docker://`, and tokens naming a known registry;
+  - in C#: string literals naming an image, and `AddContainer`'s image argument.
+
+  Each reference must be one of:
+  - the mirror's, at the listed digest and tag;
+  - a `mirror: false` row's upstream, at its digest;
+  - an allowed upstream reference in C#, whose file pins the digest and whose named job sets the mirror's repository;
+  - `ghcr.io/hafeok/varve`.
+
+  Its first run found the `aspire sample` job's `Varve__IssuerImage`, a mirror repository without a digest. It is the override, so a digest-less mirror reference passes in a job an allowance names.
+- **`--local`** writes a compose override with the upstream references at the same digests, under `artifacts/ci-images/`. `.devcontainer/auth-legs.sh` uses it. `docker compose config` with the override showed both Zitadel images replaced and the bind mounts still resolved against the base file.
+- **`tests/fixtures/ci-images/`** is the gate's failure path. It exits 1 with four findings:
+  - a mirrored image referenced upstream;
+  - Docker Hub by an implicit registry;
+  - the mirror at an unlisted digest;
+  - an unlisted image started from C#.
+
+  The passing cases pass.
+- **`ci-images-upstream.yml`** runs weekly and by dispatch, on `main`. It resolves each row's upstream tag and compares the digest. It opens the issue "CI images behind upstream", or edits and comments on it, then fails, as `repo-standard.yml` does for drift. An unreadable tag is a warning and a line in the report.
+- **Dependabot's** docker-compose block is gone, replaced by a comment saying where these images are watched.
+- **`Directory.Packages.props`**'s image register names the list as the source.
+- **ADR 0099** has a dated amendment, with the rulings `TestContainersFromTheMirror` and `MirrorSeededByDigest` filed unaccepted. It covers:
+  - why ECR's cap broke point 4;
+  - the list, the mirror and the exceptions, including both base images;
+  - code that starts a container itself;
+  - hand seeding, in the maintainer's sentence;
+  - a new row coming out public on its first copy;
+  - updates and local runs;
+  - the narrowed done-when.
+- **`CONTRIBUTING.md`** has "CI's test containers": how CI pulls, local runs, bumping, adding a row (public first, then private), code that starts a container, and seeding.
+
+### Measured
+
+- `eng/ci-images.cs` finds 13 references in the tree and passes. Against its fixture it exits 1 with the four findings.
+- These pass: `eng/licence-headers.cs` (843 files), `eng/required-checks.cs` and `eng/decision-sets.cs` (1,049 decisions, 1,047 accepted; the two unaccepted are this amendment's).
+- The sample and its test project build, with the two `ASPIRE004` warnings `main` already had.
+- Two workflow scripts ran against a stubbed `docker`:
+  - the weekly comparison: one moved tag, an ECR tag that 429s, the rest current. It produced the table, the warning and `changed=true`;
+  - the mirror workflow: unchanged in its steps.
+
+### Found
+
+- **ECR is the weekly comparison's blind spot.** PostgreSQL's upstream is on ECR Public, and its tag will read as unreadable while ECR's anonymous cap holds on runners. A move upstream would then go unreported. The row's digest is also served by Docker Hub; reading the tag there would see a move, but that is a change to the list's upstream for the maintainer to decide.
+- **The gate's reach is stated in its header.** It covers `image:` keys, `docker pull`, `uses: docker://`, known registries and C#. A `docker run` of an image with no registry in a script is not found unless it is also pulled.
+
+### Left
+
+- The Aspire sample's test and the compose legs run only in CI, where Docker is. This container has none.

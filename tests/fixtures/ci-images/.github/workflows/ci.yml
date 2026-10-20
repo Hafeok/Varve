@@ -1,0 +1,19 @@
+name: fixture
+
+on:
+  pull_request:
+
+jobs:
+  fixture:
+    name: fixture job
+    runs-on: ubuntu-latest
+    env:
+      # Passes: this repository's own image.
+      IMAGE: ghcr.io/hafeok/varve
+      # Passes: the override of samples/Allowed.cs, in the job its allowance names.
+      ALLOWED_IMAGE: ghcr.io/hafeok/varve-ci/allowed
+    container:
+      # Not a reference: a workflow expression.
+      image: ${{ env.IMAGE }}
+    steps:
+      - run: echo fixture

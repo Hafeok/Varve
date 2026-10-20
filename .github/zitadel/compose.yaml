@@ -9,19 +9,15 @@
 # neither the login UI nor a proxy is needed. HTTP on localhost:8081, no TLS.
 #
 # Images are pinned by digest, resolved from the registries when this file was
-# written (2026-10-07); the tag beside each is for the reader. Every image comes
-# from ghcr.io — Zitadel's own packages, and this repository's mirror for
-# PostgreSQL (below) — and none from Docker Hub, whose limit a shared runner's
-# address exhausts. Dependabot's docker-compose ecosystem bumps them.
+# written (2026-10-07); the tag beside each is for the reader.
 #
-# Each digest is also in .github/ci-images.yaml, the list the CI image mirror
-# copies from (#118): a bump changes both.
-#
-# PostgreSQL comes from the mirror, ghcr.io/hafeok/varve-ci/postgres, at the
-# official image's digest, because ECR Public's anonymous data cap refused
-# every pull from CI's runners (#118). The package is private: a job that
-# starts this file logs in to ghcr.io with GITHUB_TOKEN (packages: read), and
-# a local run logs in with an account that can read it.
+# Both images come from this repository's private mirror,
+# ghcr.io/hafeok/varve-ci, at the digests .github/ci-images.yaml pins (#118,
+# ADR 0099's amendment of 2026-10-19): a job that starts this file logs in to
+# ghcr.io with GITHUB_TOKEN (packages: read). A local run, the devcontainer's
+# included, starts the upstream images at the same digests through an
+# override that `dotnet run eng/ci-images.cs -- --local <this file>` writes
+# (CONTRIBUTING.md). A bump changes the list and this file together.
 #
 # The bootstrap directory receives two personal access tokens, written by
 # Zitadel's first-instance setup: the administrator's, which the seed uses, and
@@ -44,7 +40,7 @@ services:
       retries: 30
 
   zitadel:
-    image: ghcr.io/zitadel/zitadel:v4.19.4@sha256:90a3045b80a2b5b395e1e770302076906af3a5911225af7c464b4f3bd00d0a1b
+    image: ghcr.io/hafeok/varve-ci/zitadel:v4.19.4@sha256:90a3045b80a2b5b395e1e770302076906af3a5911225af7c464b4f3bd00d0a1b
     user: "0"
     command: start-from-init --masterkey "MasterkeyNeedsToHave32Characters" --tlsMode disabled
     environment:

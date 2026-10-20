@@ -1,0 +1,138 @@
+# The CI images against their upstream tags (#118): once a week, each row of
+# .github/ci-images.yaml has its upstream tag resolved to the manifest digest
+# the registry serves now, and compared with the digest the list pins. When
+# any differs, the run opens the issue titled "CI images behind upstream", or
+# updates it, as repo-standard.yml does for configuration drift, and fails.
+#
+# The list is the source; Dependabot does not watch these images. Bumping one
+# is a pull request to the list and to the reference that pulls it, at the
+# new digest, after reading what changed upstream. On main the change
+# re-mirrors (mirror-ci-images.yml).
+#
+# A tag that cannot be resolved (an anonymous limit, a removed tag) is listed
+# as unreadable in the summary, and in the issue when there is one. On its
+# own it is a warning, not a difference: it says nothing about the pinned
+# image, which the mirror holds.
+#
+# The issue is opened with the workflow's own GITHUB_TOKEN (issues: write).
+# Reading the registries needs no credential.
+
+name: CI images upstream
+
+on:
+  schedule:
+    - cron: "41 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-images-upstream
+  cancel-in-progress: false
+
+env:
+  LIST: .github/ci-images.yaml
+
+jobs:
+  compare:
+    name: ci-images-upstream
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Compare each upstream tag with its pinned digest
+        id: compare
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # The manifest digest a reference resolves to now, or nothing.
+          digest_of() {
+            docker buildx imagetools inspect "$1" --format '{{json .Manifest.Digest}}' 2> /dev/null | tr -d '"'
+          }
+
+          changed=""
+          unreadable=""
+          count=$(yq -r '.images | length' "$LIST")
+          for i in $(seq 0 $((count - 1))); do
+            name=$(yq -r ".images[$i].name" "$LIST")
+            upstream=$(yq -r ".images[$i].upstream" "$LIST")
+            pinned=$(yq -r ".images[$i].digest" "$LIST")
+            current=$(digest_of "$upstream") || current=""
+
+            if [ -z "$current" ]; then
+              echo "::warning title=$name::could not resolve $upstream"
+              unreadable+="| \`$name\` | \`$upstream\` | \`$pinned\` |"$'\n'
+            elif [ "$current" != "$pinned" ]; then
+              echo "$name: $upstream is now $current; the list pins $pinned"
+              changed+="| \`$name\` | \`$upstream\` | \`$pinned\` | \`$current\` |"$'\n'
+            else
+              echo "$name: $upstream is still $pinned"
+            fi
+          done
+
+          report="$RUNNER_TEMP/ci-images-upstream.md"
+          {
+            if [ -n "$changed" ]; then
+              echo "The weekly comparison found upstream tags of CI's test containers that now resolve to another digest than \`$LIST\` pins."
+              echo
+              echo "| image | upstream tag | pinned | upstream now |"
+              echo "|---|---|---|---|"
+              printf '%s' "$changed"
+              echo
+              echo "Bumping one is a pull request to \`$LIST\` and to the reference that pulls it, at the new digest, after reading what changed upstream; on main it re-mirrors. A tag that moved without a release may be a rebuild of the same version. Leaving a row pinned is a decision too; this issue then stays open."
+            else
+              echo "Every upstream tag that could be read resolves to the digest \`$LIST\` pins."
+            fi
+            if [ -n "$unreadable" ]; then
+              echo
+              echo "Could not be resolved this time:"
+              echo
+              echo "| image | upstream tag | pinned |"
+              echo "|---|---|---|"
+              printf '%s' "$unreadable"
+            fi
+            echo
+            echo "Run: $RUN_URL"
+          } > "$report"
+
+          cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          echo "report=$report" >> "$GITHUB_OUTPUT"
+          echo "changed=$([ -n "$changed" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Open or update the issue
+        if: steps.compare.outputs.changed == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPORT: ${{ steps.compare.outputs.report }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="CI images behind upstream"
+
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" \
+            --json number,title --jq ".[] | select(.title == \"$title\") | .number" | head -n 1)
+
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --repo "$GITHUB_REPOSITORY" --body-file "$REPORT"
+            gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "Still behind: $RUN_URL"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body-file "$REPORT"
+          fi
+
+      - name: Fail on a difference
+        if: steps.compare.outputs.changed == 'true'
+        run: |
+          echo "::error::an upstream tag resolves to another digest than the list pins; see the issue"
+          exit 1
