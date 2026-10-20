@@ -242,3 +242,6 @@ Varve.Protocol.ProtocolOptions.EventSource.get -> string?
 Varve.Protocol.ProtocolOptions.EventSource.init -> void
 static Varve.Protocol.VarveEndpoints.MapEvents(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Routing.IEndpointRouteBuilder!
 static Varve.Protocol.VarveEndpoints.MapVarveEventTypes(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
+static Varve.Protocol.Model.ProblemType.BindingNotIncremental.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.ShapesInvalid.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.ShapesViolated.get -> Varve.Protocol.Model.ProblemType
