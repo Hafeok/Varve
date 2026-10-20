@@ -3,7 +3,7 @@
   "isRoot": true,
   "tools": {
     "decisiondriven.report": {
-      "version": "0.1.0-preview.7",
+      "version": "0.1.0-preview.8",
       "commands": [
         "decisiondriven-report"
       ],
