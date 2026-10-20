@@ -120,12 +120,17 @@ types its catalogue lists as validator types (ADR 0119, amended).
 
 ### 7. Where bindings come from
 
-- **Embedded**: `ShapesGateOptions.Bindings`, fixed for the open dataset.
+- **Embedded**: a `ShapesGate` over the bindings the caller gives, in
+  `DatasetOptions.Validators`.
 - **Over a fleet**: the binding in force for a commit is the one at the
-  management position the commit is authorised under (ADR 0165), read by the
-  host from the system dataset and handed to the validator as values. The
-  server gains no configuration key for bindings: until the management plane
-  (#134) is on `main`, it wires none, and a binding is an embedded caller's.
+  management position the write is authorised under (ADR 0165). The server
+  adds the dataset's gate to the validators a write carries at its pinned
+  position, beside the order of positions, and keeps one gate per dataset
+  while its bindings stay the same, so the shapes stay loaded. The apply path
+  checks a binding against its dataset where the instance holds it (R4); a
+  dataset held elsewhere is checked by its writer at commit time (R6).
+- **Described**: `GET /manage/datasets/{name}/bindings/{binding}` serves a
+  binding at the applied position with its shapes' classification.
 
 ## Alternatives considered
 
