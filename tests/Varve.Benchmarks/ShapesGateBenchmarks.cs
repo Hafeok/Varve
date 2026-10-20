@@ -40,10 +40,10 @@ namespace Varve.Benchmarks;
 /// shapes graph's.
 /// </para>
 /// <para>
-/// The generator's leases have no <c>rec:leasor</c>, which REC requires, so
-/// under the gate a commit that adds a lease is refused and one that ends it
-/// retracts nothing: both rows commit the same requests, and the gate's row
-/// counts its refusals, printed at the end. The shapes are loaded by one
+/// The portfolio is the generator's output version 2
+/// (<see cref="RecPortfolio.Version"/>), whose head conforms to these shapes,
+/// so every held commit is accepted under the gate; the refusals, printed at
+/// the end, are a check that none was refused. The shapes are loaded by one
 /// commit through the gate before anything is timed.
 /// </para>
 /// </remarks>
