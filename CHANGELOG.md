@@ -12,6 +12,88 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.0-preview.11] - 2026-10-20
+
+**SHACL, part 2a — commit-time gating under a shapes binding, incremental validation**
+
+### Milestone 8, SHACL, part 2a — commit-time gating, incremental validation
+
+A dataset's commits can be gated by SHACL. A shapes binding, declared on
+the management plane, names a shapes graph of the same dataset, the graphs
+it validates and a mode, and every server enforces it at the management
+position a write is authorised under. Only the focus nodes a commit
+affects are validated. This release closes #138, the first half of SHACL's
+part 2, under milestone 8 (#13); part 2b adds the validation projection,
+shapes for Varve's own declarations and the REC gate, and closes the
+milestone. Storage format 1 holds. The five ADRs are filed unaccepted and
+accepted on the pull request (ADR 0066).
+
+#### Added
+
+- **`Varve.Shacl.Store`** (layer 5, ADR 0169): `ShapesGate`, a dataset
+  validator over `ShapesBinding`s.
+  - `reject` refuses a commit when its affected focus nodes have a
+    violation not present at the pinned position, so the set of
+    violations never grows, and a conforming dataset stays conforming.
+  - `report` accepts and attaches the affected report's digest; `off`
+    runs nothing.
+  - A commit that changes the shapes is never refused for existing data.
+  - A `reject` binding whose shapes are classed full is refused unless it
+    declares `varve:allowFullEvaluation`, and fails closed if its shapes
+    become full later.
+  - `NOW()`, `RAND()`, `UUID()`, `STRUUID()`, and a `BNODE()` whose value
+    can reach a result, are refused in any binding not `off`.
+- **The binding vocabulary** (ADR 0170): `varve:ShapesBinding` with
+  `varve:boundGraph` (the shapes graph), the grant vocabulary's graph-set
+  terms, `varve:validationMode` (`varve:Reject`, `varve:Report`,
+  `varve:Off`), `varve:allowFullEvaluation` and
+  `varve:subClassOfInShapesGraph`. The data graph is the union of the
+  bound graphs. `varve apply` refuses a binding whose shapes do not load,
+  or are full under `reject` without the flag.
+- **Incremental validation** (`Varve.Shacl`, ADR 0171):
+  `IncrementalValidation.Compare` validates the pairs a delta affects, in
+  the state before and after it. `ShapesGraph.Classify()` classes every
+  shape incremental, scoped or full, with the construct and section that
+  decided it. `IShaclFootprint` lets an extension state its footprint;
+  SHACL-SPARQL constraints are analysed by their join graph.
+- **The attachment** (ADR 0173): an accepted commit under a `report` or
+  `reject` binding carries `<<( binding varve:affectedReport
+  "sha256:<hex>" )>>`, the SHA-256 of the canonical N-Quads of the report
+  restricted to the commit's affected focus nodes. A digest that no longer
+  reproduces after an upgrade is how a change in the engine's results
+  shows; a release that changes SHACL results says so in its notes.
+- **Three problem types**, `422`: `shapes-violated`,
+  `binding-not-incremental`, `shapes-invalid`.
+- **`GET /manage/datasets/{name}/bindings/{binding}`**: a binding at the
+  applied position, with its shapes' classification.
+- **`Varve.Derivation`** (layer 2, ADR 0172): dependency graphs and their
+  stratification, regular paths compiled to automata and evaluated
+  forwards, backwards and from a changed edge, and semi-naive
+  propagation, for SHACL now and Inference later.
+
+#### Changed
+
+- `Varve.Store`: `ValidationVerdict.Accept(IReadOnlyList<RdfTerm>)` and
+  `Attachments`, so one validator records several attachments
+  (additive).
+- `Varve.Shacl` stratifies shapes and walks paths through
+  `Varve.Derivation`; its results are unchanged.
+- Validation under `subClassOfInShapesGraph` remembers the shapes graph's
+  subclass steps.
+
+#### Performance
+
+At REC S and M on the file backend, a `reject` binding over REC 4.1.0's
+shapes adds about 7.7 ms to a commit (8.2 ms against 0.5–0.6 ms), nearly
+the same at both sizes: the cost is the affected focus nodes', about 2 ms
+each, not the dataset's.
+
+#### Known issues
+
+- REC 4.1.0 as vendored cannot be bound whole: three of Brick's SPARQL
+  constraints name prefixes that no file declares, so the shapes graph is
+  refused. Part 2b decides the REC gate's composition.
+
 ## [0.1.0-preview.10] - 2026-10-19
 
 **Management plane, part 1 — the fleet system dataset, grants as code, `varve apply`**
@@ -1232,7 +1314,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.10...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.11...HEAD
+[0.1.0-preview.11]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.10...v0.1.0-preview.11
 [0.1.0-preview.10]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.9...v0.1.0-preview.10
 [0.1.0-preview.9]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.8...v0.1.0-preview.9
 [0.1.0-preview.8]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.7...v0.1.0-preview.8
