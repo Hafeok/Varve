@@ -4,6 +4,10 @@
 # compose files, the same seed script, the same tests, both legs required so
 # that nothing passes by skipping. Tears the containers down afterwards.
 #
+# CI pulls the images from this repository's private mirror; here they come
+# from upstream at the same digests, through the overrides eng/ci-images.cs
+# writes (#118, CONTRIBUTING.md).
+#
 #   bash .devcontainer/auth-legs.sh
 
 set -euo pipefail
@@ -21,8 +25,10 @@ trap cleanup EXIT
 cleanup
 
 echo "--- mock-oauth2-server and Zitadel"
-docker compose --file "$mock" up --detach
-docker compose --file "$zitadel" up --detach --wait
+mock_local=$(dotnet run eng/ci-images.cs -- --local "$mock")
+zitadel_local=$(dotnet run eng/ci-images.cs -- --local "$zitadel")
+docker compose --file "$mock" --file "$mock_local" up --detach
+docker compose --file "$zitadel" --file "$zitadel_local" up --detach --wait
 
 for attempt in $(seq 1 60); do
   curl --silent --fail http://localhost:8080/varve/.well-known/openid-configuration > /dev/null && break

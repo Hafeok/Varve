@@ -5,16 +5,21 @@
 #
 # Its issuer is http://localhost:8080/varve, configured by the committed
 # tests/fixtures/auth/mock-oauth2.json. Pinned by digest, resolved from ghcr.io
-# when this file was written (2026-10-07); ghcr.io has no anonymous pull limit.
+# when this file was written (2026-10-07).
 #
-# Each digest is also in .github/ci-images.yaml, the list the CI image mirror
-# copies from (#118): a bump changes both.
+# The image comes from this repository's private mirror,
+# ghcr.io/hafeok/varve-ci, at the digests .github/ci-images.yaml pins (#118,
+# ADR 0099's amendment of 2026-10-19): a job that starts this file logs in to
+# ghcr.io with GITHUB_TOKEN (packages: read). A local run, the devcontainer's
+# included, starts the upstream images at the same digests through an
+# override that `dotnet run eng/ci-images.cs -- --local <this file>` writes
+# (CONTRIBUTING.md). A bump changes the list and this file together.
 
 name: varve-mock-oauth2
 
 services:
   mock-oauth2:
-    image: ghcr.io/navikt/mock-oauth2-server:6.0.4@sha256:47374fe063995d9b6d39ebb6ea21eb5f765025bf0aa08b61b08b439eb91adaf0
+    image: ghcr.io/hafeok/varve-ci/mock-oauth2-server:6.0.4@sha256:47374fe063995d9b6d39ebb6ea21eb5f765025bf0aa08b61b08b439eb91adaf0
     environment:
       JSON_CONFIG_PATH: /config/mock-oauth2.json
     ports:

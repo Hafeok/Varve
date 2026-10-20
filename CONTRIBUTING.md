@@ -351,6 +351,67 @@ memory** — resolve the current stable version when you add it.
 it. A major bump citing an untouched ADR claims the decision that admitted 4.x
 covers 5.x with nobody having looked.
 
+## CI's test containers
+
+CI starts third-party containers for its tests: identity providers, object
+stores and an emulator. They are listed once, in `.github/ci-images.yaml`, with
+each image's upstream reference, pinned digest, licence and jobs (ADR 0099,
+amended 2026-10-19).
+
+**CI pulls them from this repository's private mirror**,
+`ghcr.io/hafeok/varve-ci/<name>`, at the listed digest. A job that starts one
+asks for `packages: read` and logs in to `ghcr.io` with `GITHUB_TOKEN`. There
+are two exceptions:
+- a row marked `mirror: false` is pulled from upstream at its digest, for the
+  reason it states;
+- `ghcr.io/hafeok/varve` is this repository's own image.
+
+`dotnet run eng/ci-images.cs` checks every image reference under `.github/`,
+and every image C# names.
+
+**Local runs and the devcontainer use the upstream images, at the same
+digests.** The packages are private, so a local run can't pull them.
+`.devcontainer/auth-legs.sh` does this for you. For any other compose file:
+
+```bash
+local=$(dotnet run eng/ci-images.cs -- --local .github/storage/compose.yaml)
+docker compose --file .github/storage/compose.yaml --file "$local" up --detach
+```
+
+The override lands in `artifacts/ci-images/`. The Aspire sample runs the
+upstream issuer unless `Varve:IssuerImage` says otherwise. An upstream registry
+can refuse you: ECR Public's anonymous cap did, for PostgreSQL. The digest is
+the image's identity, so any registry serving it will do, Docker Hub included,
+for a local run.
+
+**Bumping an image** is one pull request to the list and to the reference that
+pulls it, at the new digest. The weekly `ci-images-upstream` workflow opens an
+issue when an upstream tag moves; Dependabot doesn't watch these images. On
+`main`, the change runs `mirror-ci-images`, which copies the image and checks
+its digest.
+
+**Adding an image** is a new row, and a reference to the mirror. **A new row's
+first copy comes out public**, because a package a workflow creates in a public
+repository inherits that visibility. That run is red, by design. The maintainer
+then:
+1. opens the package's settings
+   (`https://github.com/users/Hafeok/packages/container/varve-ci%2F<name>/settings`);
+2. sets it private under **Danger Zone**;
+3. checks that `Hafeok/Varve` has Read under **Manage Actions access**;
+4. re-runs the workflow, which finds the package present and passes.
+
+Until then, CI can't pull the new image, so land the row before the change
+that uses it.
+
+**Code that starts a container itself**, as the Aspire sample does, names the
+upstream image pinned with the row's digest, so that anyone can run it. The CI
+job that runs it overrides it to the mirror. The row's `allowances` name the
+file and that job, and the gate checks both.
+
+**A mirror may be seeded by hand** from any registry at the pinned digest, when
+the upstream registry refuses the workflow. The mirror workflow checks a seeded
+package as it checks a copy. Record it in the row's `seeded` field.
+
 ## Adding a syntax or a suite
 
 1. Wire the manifest into the conformance harness.
