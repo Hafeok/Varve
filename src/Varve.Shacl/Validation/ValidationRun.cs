@@ -395,9 +395,7 @@ internal sealed class ValidationRun
             if (Options.SubClassOfInShapesGraph)
             {
                 RdfTerm term = Data.Term(current);
-                List<RdfTerm> related = upward
-                    ? Shapes.Source.Objects(term, Vocabulary.RdfsSubClassOf)
-                    : Shapes.Source.Subjects(Vocabulary.RdfsSubClassOf, term);
+                List<RdfTerm> related = Shapes.Source.SubClassOf(term, upward);
                 foreach (RdfTerm other in related)
                 {
                     next.Add(Data.Resolve(other));
