@@ -16,6 +16,10 @@
 #   seeded    a copy made by hand, and why (ADR 0099, amendment 2026-10-19)
 #   allowances  where code outside .github/ names the upstream image: the
 #             file, and the CI job that overrides it to the mirror
+#   watch     where the weekly comparison reads the tag instead of upstream,
+#             by manifest HEAD only, when upstream refuses CI's reads; the
+#             only place Docker Hub may be named (ADR 0099, amendment
+#             2026-10-20). The mirror still copies from upstream.
 #
 # Every reference under .github/ is the mirror's, at the digest here, or the
 # upstream's for a `mirror: false` row; eng/ci-images.cs checks it, and the
@@ -39,6 +43,7 @@ images:
     licence: PostgreSQL Licence (https://www.postgresql.org/about/licence/); the official image's packaging is MIT, and its Alpine base carries its packages' own licences
     jobs: [auth (zitadel), container (linux-x64)]
     why: Zitadel's database, for auth test layer (c) (ADR 0100)
+    watch: docker.io/library/postgres:18.6-alpine
     seeded: >-
       By hand, on 2026-10-19, by the maintainer, from
       docker.io/library/postgres at this digest: ECR Public's anonymous data
