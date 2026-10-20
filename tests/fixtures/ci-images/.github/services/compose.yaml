@@ -1,0 +1,22 @@
+name: fixture
+
+services:
+  # Passes: the mirror, at the listed digest and tag.
+  mirrored:
+    image: ghcr.io/hafeok/varve-ci/kept:1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+  # Fails: a mirrored image, referenced upstream.
+  direct:
+    image: ghcr.io/example/kept:1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+  # Passes: a mirror: false row, upstream at its digest.
+  outside:
+    image: mcr.microsoft.com/example/outside:2.0@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+
+  # Fails: Docker Hub, by an implicit registry, and not listed.
+  hub:
+    image: postgres:16
+
+  # Fails: the mirror, at a digest the list does not pin.
+  stale:
+    image: ghcr.io/hafeok/varve-ci/kept:1.0@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee

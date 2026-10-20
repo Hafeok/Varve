@@ -49,7 +49,7 @@ service:
 ```sh
 docker run --rm -p 4318:4318 -v "$PWD/otel-collector.yaml:/etc/otelcol/config.yaml" otel/opentelemetry-collector:latest
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
-  varve serve --anonymous --dataset scratch=Memory
+  varve serve --anonymous
 ```
 
 ## Traces
@@ -66,8 +66,8 @@ where they do not.
 | `UPDATE` | an update |
 | `GET graph`, `HEAD graph`, `PUT graph`, `POST graph`, `DELETE graph` | the Graph Store Protocol |
 | `commits`, `commit` | the commits resource, a range or one position |
-| `diff`, `status`, `service description`, `settings`, `checkpoints` | the dataset's other resources |
-| `datasets`, `create dataset`, `delete dataset`, `state` | the admin API |
+| `diff`, `service description` | the dataset's other resources |
+| `datasets`, `dataset declaration`, `settings`, `state`, `status`, `checkpoints`, `grants`, `fleet declaration`, `management graphs`, `apply`, `system` | the management plane (ADR 0163) |
 | `sparql`, `graph` | the name before the operation was known: a request refused before parsing |
 
 | Attribute | Value |

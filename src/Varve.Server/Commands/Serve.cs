@@ -21,7 +21,7 @@ internal static class Serve
     internal static Command Command()
     {
         Option<string?> datasetsRoot = new("--datasets-root") { Description = "The directory file datasets live under (Varve:DatasetsRoot)." };
-        Option<string[]> dataset = new("--dataset") { Description = "A dataset to serve, as name or name=File|Memory (Varve:Datasets:{name}:Storage). Repeatable." };
+        Option<bool> recordBootstrap = new("--record-bootstrap") { Description = "As the system writer, record the configured Varve:Manage:BootstrapOperators, replacing the recorded ones: an explicit system commit (ADR 0163 point 7)." };
         Option<string?> authMode = new("--auth-mode") { Description = "Oidc or Anonymous (Varve:Auth:Mode)." };
         Option<bool> anonymous = new("--anonymous") { Description = "Shorthand for --auth-mode Anonymous: development only (ADR 0037)." };
         Option<string?> authority = new("--authority") { Description = "The OIDC issuer (Varve:Auth:Authority)." };
@@ -36,7 +36,7 @@ internal static class Serve
             TreatUnmatchedTokensAsErrors = false,
         };
         command.Options.Add(datasetsRoot);
-        command.Options.Add(dataset);
+        command.Options.Add(recordBootstrap);
         command.Options.Add(authMode);
         command.Options.Add(anonymous);
         command.Options.Add(authority);
@@ -67,12 +67,6 @@ internal static class Serve
                 Add("Auth:Audiences:" + i, audiences[i]);
             }
 
-            foreach (string entry in parsed.GetValue(dataset) ?? [])
-            {
-                int at = entry.IndexOf('=', StringComparison.Ordinal);
-                Add("Datasets:" + (at < 0 ? entry : entry[..at]) + ":Storage", at < 0 ? "File" : entry[(at + 1)..]);
-            }
-
             foreach (string entry in parsed.GetValue(set) ?? [])
             {
                 int at = entry.IndexOf('=', StringComparison.Ordinal);
@@ -96,6 +90,7 @@ internal static class Serve
                 Arguments = [.. arguments],
                 ConfigurationFiles = parsed.GetValue(config) ?? [],
                 PrintConfiguration = parsed.GetValue(print),
+                RecordBootstrap = parsed.GetValue(recordBootstrap),
             }, ready: null);
         });
         return command;

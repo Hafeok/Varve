@@ -311,33 +311,46 @@ public sealed partial class SparqlHttpClient
         return SendAsync(request, cancellationToken);
     }
 
-    /// <summary>The dataset's state, <c>open</c>, <c>closed</c> or <c>failed</c>, JSON (ADR 0118); a server admin's call.</summary>
-    public Task<HttpResponseMessage> StateAsync(CancellationToken cancellationToken) =>
-        SendAsync(new HttpRequestMessage(HttpMethod.Get, new Uri(Dataset, "state")), cancellationToken);
+    /// <summary>
+    /// The dataset's resource on the management plane (ADR 0163):
+    /// <c>/manage/datasets/{name}/{path}</c> on the dataset's server. A
+    /// management call needs a token for the management plane's audience,
+    /// which the data plane refuses, and the other way round.
+    /// </summary>
+    public Uri Management(string path)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        string name = Dataset.Segments[^1].TrimEnd('/');
+        return new Uri(Dataset, "../../manage/datasets/" + name + (path.Length == 0 ? string.Empty : "/" + path));
+    }
 
-    /// <summary>Asks for the dataset to be <paramref name="open"/> or closed, idempotently (ADR 0118); a server admin's call.</summary>
+    /// <summary>This instance's state and role in the dataset, JSON (ADR 0163); its admin's call.</summary>
+    public Task<HttpResponseMessage> StateAsync(CancellationToken cancellationToken) =>
+        SendAsync(new HttpRequestMessage(HttpMethod.Get, Management("state")), cancellationToken);
+
+    /// <summary>Declares the dataset <paramref name="open"/> or closed, idempotently; every instance converges to it (ADR 0163).</summary>
     public Task<HttpResponseMessage> SetStateAsync(bool open, CancellationToken cancellationToken) =>
-        SendAsync(new HttpRequestMessage(HttpMethod.Put, new Uri(Dataset, "state"))
+        SendAsync(new HttpRequestMessage(HttpMethod.Put, Management("state"))
         {
             Content = new StringContent(open ? "{\"state\":\"open\"}" : "{\"state\":\"closed\"}", Encoding.UTF8, "application/json"),
         }, cancellationToken);
 
-    /// <summary>The settings at the head, JSON, with the position as <c>ETag</c> (ADR 0118).</summary>
+    /// <summary>The declared settings, JSON, with the declaration graph's version as <c>ETag</c> (ADR 0163).</summary>
     public Task<HttpResponseMessage> SettingsAsync(CancellationToken cancellationToken) =>
-        SendAsync(new HttpRequestMessage(HttpMethod.Get, new Uri(Dataset, "settings")), cancellationToken);
+        SendAsync(new HttpRequestMessage(HttpMethod.Get, Management("settings")), cancellationToken);
 
-    /// <summary>Replaces the settings with <paramref name="json"/>, the whole of them, under <paramref name="ifMatch"/> (ADR 0118).</summary>
-    public Task<HttpResponseMessage> PutSettingsAsync(string json, long? ifMatch, CancellationToken cancellationToken) =>
-        SettingsWriteAsync(HttpMethod.Put, json, "application/json", ifMatch, cancellationToken);
+    /// <summary>Declares the settings <paramref name="trig"/> states of the dataset's node, replacing the declared ones, under <paramref name="ifMatch"/> (ADR 0163).</summary>
+    public Task<HttpResponseMessage> PutSettingsAsync(string trig, long? ifMatch, CancellationToken cancellationToken) =>
+        SettingsWriteAsync(HttpMethod.Put, trig, ifMatch, cancellationToken);
 
-    /// <summary>Merges <paramref name="json"/> into the settings (RFC 7396) under <paramref name="ifMatch"/> (ADR 0118).</summary>
-    public Task<HttpResponseMessage> PatchSettingsAsync(string json, long? ifMatch, CancellationToken cancellationToken) =>
-        SettingsWriteAsync(HttpMethod.Patch, json, "application/merge-patch+json", ifMatch, cancellationToken);
+    /// <summary>Declares the settings <paramref name="trig"/> states, keeping the others, under <paramref name="ifMatch"/> (ADR 0163).</summary>
+    public Task<HttpResponseMessage> PatchSettingsAsync(string trig, long? ifMatch, CancellationToken cancellationToken) =>
+        SettingsWriteAsync(HttpMethod.Patch, trig, ifMatch, cancellationToken);
 
-    private Task<HttpResponseMessage> SettingsWriteAsync(HttpMethod method, string json, string mediaType, long? ifMatch, CancellationToken cancellationToken)
+    private Task<HttpResponseMessage> SettingsWriteAsync(HttpMethod method, string trig, long? ifMatch, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(json);
-        HttpRequestMessage request = new(method, new Uri(Dataset, "settings")) { Content = new StringContent(json, Encoding.UTF8, mediaType) };
+        ArgumentNullException.ThrowIfNull(trig);
+        HttpRequestMessage request = new(method, Management("settings")) { Content = new StringContent(trig, Encoding.UTF8, "application/trig") };
 
         if (ifMatch is long expected)
         {
@@ -347,13 +360,13 @@ public sealed partial class SparqlHttpClient
         return SendAsync(request, cancellationToken);
     }
 
-    /// <summary>The dataset's status (ADRs 0101, 0106), JSON.</summary>
+    /// <summary>The dataset's status (ADRs 0101, 0163), JSON; its admin's call.</summary>
     public Task<HttpResponseMessage> StatusAsync(CancellationToken cancellationToken) =>
-        SendAsync(new HttpRequestMessage(HttpMethod.Get, new Uri(Dataset, "status")), cancellationToken);
+        SendAsync(new HttpRequestMessage(HttpMethod.Get, Management("status")), cancellationToken);
 
-    /// <summary>A checkpoint at the head, or at <paramref name="at"/> (ADR 0106).</summary>
+    /// <summary>A checkpoint at the head, or at <paramref name="at"/>, taken by the dataset's writer (ADRs 0106, 0168).</summary>
     public Task<HttpResponseMessage> CheckpointAsync(long? at, CancellationToken cancellationToken) =>
-        SendAsync(new HttpRequestMessage(HttpMethod.Post, new Uri(Dataset, at is long position ? "checkpoints?at=" + position.ToString(CultureInfo.InvariantCulture) : "checkpoints")), cancellationToken);
+        SendAsync(new HttpRequestMessage(HttpMethod.Post, Management(at is long position ? "checkpoints?at=" + position.ToString(CultureInfo.InvariantCulture) : "checkpoints")), cancellationToken);
 
     private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {

@@ -124,3 +124,13 @@ reserved to executables (ADR 0060).
   `Varve.Server`'s, layer 6. `Varve.Aspire`, layer 0 by dependency.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-19 — the hosted service runs data-shaped steps
+
+Filed by milestone Management plane of #105, unaccepted until the maintainer
+accepts it (ADR 0066).
+
+`AddVarve`'s hosted service and `varve setup apply` run only the data-shaped
+steps of ADR 0130 as amended today. `varve apply` is the Management plane's command,
+as `VarveApplyIsNotSetup` foresaw (ADR [0163](0163-the-management-plane.md) point 5).
+No ruling of this ADR changes.

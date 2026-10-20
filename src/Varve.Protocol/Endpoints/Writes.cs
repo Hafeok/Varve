@@ -273,8 +273,24 @@ internal static class Writes
         {
             Agent = exchange.Options.Identity.AgentOf(exchange.Context.User),
             Cause = RdfTerm.Literal(Encoding.UTF8.GetBytes(id)),
+            Attachments = exchange.Authorised is { } position ? [ManagementPositionTerm(position)] : [],
         };
     }
+
+    /// <summary>
+    /// The validators a data commit carries into the sequencer for the host:
+    /// the order of the management positions its dataset records (ADR 0165).
+    /// </summary>
+    internal static IReadOnlyList<ICommitValidator> Validators(Exchange exchange) =>
+        exchange.Options.Management is { } management && exchange.Authorised is { } position
+            ? [management.OrderOf(exchange.Name, position)]
+            : [];
+
+    /// <summary>The attachment a commit records its management position as (ADR 0165).</summary>
+    internal static RdfTerm ManagementPositionTerm(Management.Model.ManagementPosition position) =>
+        RdfTerm.Literal(Encoding.UTF8.GetBytes(position.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)), ManagementPositionDatatype);
+
+    private static readonly RdfTerm ManagementPositionDatatype = RdfTerm.Iri(Encoding.UTF8.GetBytes(ManagementOrder.PositionDatatype));
 
     /// <summary>
     /// Commits the request; null when the dataset's storage no longer holds

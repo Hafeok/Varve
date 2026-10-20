@@ -79,7 +79,7 @@ public class TelemetryTests
         await host.Client.GetAsync("datasets/d/commits?from=1&to=1", P.Ct);
         await host.Client.GetAsync("datasets/d/commits/1", P.Ct);
         await host.Client.GetAsync("datasets/d/diff?from=0&to=1", P.Ct);
-        await host.Client.GetAsync("datasets/d/status", P.Ct);
+        await host.Client.GetAsync("manage/datasets/d/status", P.Ct);
         await host.Client.GetAsync("datasets/d/", P.Ct);
         await host.Client.GetAsync("datasets/d/no-such", P.Ct);
 

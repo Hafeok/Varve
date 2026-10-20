@@ -46,14 +46,14 @@ Each is the absolute IRI of the resource, under the dataset's base.
 |---|---|---|
 | `varve:graphStore` | the Graph Store Protocol endpoint, `…/graphs` | on the service |
 | `varve:commits` | the commits resource, `…/commits`: a range by position, a live tail as server-sent events, and `…/commits/{position}` for one commit | on the service |
-| `varve:state` | the dataset's state resource, `…/state`: `{"state":"open"}` or `"closed"`, `GET` and idempotent `PUT` (ADR 0106) | on the service |
+| `varve:state` | the dataset's state resource on the management plane, `…/manage/datasets/{name}/state`: `{"state":"open"}` or `"closed"`, `GET` and idempotent `PUT`, a declaration every instance converges to (ADRs 0106, 0163) | on the service |
 | `varve:diff` | the diff, `…/diff?from=&to=`: the effective change between two positions in the delta format | on the service |
-| `varve:status` | the dataset's status, `…/status`: head, projection position and lag, checkpoints, settings | on the service |
-| `varve:settings` | the dataset's settings resource, `…/settings`: `GET` with an `ETag`, `PUT` whole, `PATCH` as a merge patch, under `If-Match` | on the service |
+| `varve:status` | the dataset's status on the management plane, `…/manage/datasets/{name}/status`: head, projection position and lag, checkpoints, settings (ADR 0163) | on the service |
+| `varve:settings` | the dataset's declared settings on the management plane, `…/manage/datasets/{name}/settings`: `GET` as JSON with the declaration graph's version as `ETag`; `PUT` and `PATCH` take TriG, under `If-Match` (ADR 0163) | on the service |
 | `varve:events` | the events resource, `…/events` (ADR 0143): the dataset's domain events as canonical CloudEvents, a range as `application/cloudevents-batch+json` or an open range as server-sent events | on the service |
 | `varve:eventTypes` | the event types resource, `…/events/types` (ADR 0144), with each type's schemas by version and revision under it and the AsyncAPI document beside it, `…/events/asyncapi` | on the service |
 | `varve:eventCatalogue` | an event catalogue graph the caller reads (ADR 0144); one triple per graph | on the service |
-| `varve:checkpoints` | the checkpoints resource, `…/checkpoints`: `GET` lists, `POST` takes one at a position | on the service |
+| `varve:checkpoints` | the checkpoints resource on the management plane, `…/manage/datasets/{name}/checkpoints`: `GET` lists, `POST` takes one at a position, by the dataset's writer (ADRs 0163, 0168) | on the service |
 | `varve:feedFormat` | a media type the commits resource and the diff write: `application/vnd.varve.delta; version=1` (the delta format) and `text/event-stream` (the live tail's framing); one triple per format | on the service, literals |
 
 ## Features
@@ -112,6 +112,61 @@ as management declarations.
 | `varve:fieldRequired` | whether every event carries the field | on a field node, an `xsd:boolean` |
 | `varve:fieldAs` | `"string"`: the member is always a JSON string | on a field node, optional |
 | `varve:fieldKeepLanguage` | `true`: a language-tagged value is an object with its language and direction | on a field node, optional |
+| `varve:EventTypeShape` | the SHACL node shape of a type node, shipped as `Varve.Events`' `EventDeclarationShapes` (ADR 0157); what it cannot state, the code checks | a shape, in that resource |
+| `varve:EventFieldShape` | the SHACL node shape of a field node, beside it (ADR 0157) | a shape, in that resource |
+
+## Validation reports (ADR 0151)
+
+`Varve.Shacl` adds one statement to a SHACL validation report.
+
+| Term | Meaning | Where |
+|---|---|---|
+| `varve:importNotFollowed` | an IRI the shapes graph names with `owl:imports`, which the validation did not fetch: shapes graphs are read whole from the caller, and nothing is fetched | on the `sh:ValidationReport`, one triple per IRI |
+
+## Management declarations (ADR 0166)
+
+The fleet's system dataset holds the management plane's declarations (ADR
+0163): one graph per dataset, `varve:manage/dataset/{name}`, the fleet's
+graph `varve:manage/fleet`, and `varve:manage/bootstrap`, which only the
+system writer records. Every node is an IRI. The code validator in
+`Varve.Management` refuses anything else, by focus node and path.
+
+| Term | Meaning | Where |
+|---|---|---|
+| `varve:manage/dataset/{name}` | a dataset's declaration graph | a graph name in the system dataset |
+| `varve:manage/fleet` | the fleet's declarations: its operators | a graph name in the system dataset |
+| `varve:manage/bootstrap` | the bootstrap operators the first system writer recorded | a graph name in the system dataset |
+| `varve:Dataset` | a dataset's declaration | `rdf:type` of the dataset node |
+| `varve:datasetName` | the dataset's name, equal to its graph's `{name}` | on the dataset node, an `xsd:string` |
+| `varve:storage` | `varve:File`, `varve:Memory` or `varve:ObjectStorage` | on the dataset node |
+| `varve:placedOn` | the instance that writes the dataset; the system writer's when absent (ADR 0163 point 12) | on the dataset node, an `xsd:string` |
+| `varve:defaultAccessScope` | `varve:AllHistory` or `varve:Current`, which the dataset's writer converges its settings to (ADR 0021) | on the dataset node |
+| `varve:automaticHandover` | the standby opt-in, recorded for Replication | on the dataset node, an `xsd:boolean` |
+| `varve:closed` | the dataset's declared state: every instance closes a closed dataset, and only a closed one is deleted | on the dataset node, an `xsd:boolean` |
+| `varve:Grant` | a grant | `rdf:type` of a grant node |
+| `varve:grantee` | the one principal a grant names | on a grant |
+| `varve:permission` | `varve:read`, `varve:write`, `varve:admin`, or `varve:operator` in the fleet graph alone | on a grant |
+| `varve:allGraphs` | `true`: every graph | on a read or write grant |
+| `varve:graph` | a graph the grant reaches, or `varve:defaultGraph` | on a grant, repeatable |
+| `varve:graphPrefix` | every named graph whose IRI starts with it | on a grant, an `xsd:string`, repeatable |
+| `varve:graphTemplate` | a `varve:GraphTemplate` expanded for the caller | on a grant, repeatable |
+| `varve:GraphTemplate` | an RFC 6570 level 1 template over `{sub}`, `{agent}` and `{claim.<name>}` | `rdf:type` of a template node |
+| `varve:template` | the template | on a template node, an `xsd:string` |
+| `varve:match` | `varve:Exact` or `varve:Prefix` | on a template node |
+| `varve:Agent` | a principal that is the agent IRI itself, `<issuer>#<subject>` | `rdf:type` of a principal |
+| `varve:Role` | a principal matched against the server's role claim | `rdf:type` of a principal |
+| `varve:Group` | a principal matched against `varve:claimType`'s claim, `groups` by default | `rdf:type` of a principal |
+| `varve:claimValue` | the claim value a role or group matches | on a principal, an `xsd:string` |
+| `varve:claimType` | the claim a group's value is in | on a group, an `xsd:string` |
+| `varve:ShapesBinding`, `varve:TBoxBinding` | a binding of a graph of shapes or of a TBox, recorded for SHACL and Inference | `rdf:type` of a binding node |
+| `varve:boundGraph` | the graph a binding names | on a binding node |
+| `varve:bootstrapOperator` | an agent IRI or role value the system writer recorded as a bootstrap operator | in `varve:manage/bootstrap` |
+| `varve:managementPosition` | the datatype of the management position a commit records as an attachment, `"p"^^varve:managementPosition` (ADR 0165) | a datatype IRI, in a commit's header |
+
+Reserved, and refused until their milestones: `varve:Binding` (abstract),
+`varve:ClassifierBinding`, `varve:KeyStoreBinding` and `varve:erasureMode`
+(#14). The event catalogue's terms join the management graphs in part 2 of
+the milestone (ADR 0167); until then they are refused there.
 
 ## Names that share the prefix but are not terms
 
@@ -130,4 +185,6 @@ A term is added by the ADR that needs it and listed here in the same
 change; a term is never redefined, and one no longer written stays here
 marked as such, so that an old description still reads. `varve:changeFeed`
 was the commits resource's name until ADR 0118 renamed it `varve:commits`
-(2026-10-09); nothing writes the old term.
+(2026-10-09); nothing writes the old term. `varve:state`, `varve:status`,
+`varve:settings` and `varve:checkpoints` keep their meaning and name the
+management plane's resources since ADR 0163 (2026-10-19).

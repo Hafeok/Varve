@@ -150,3 +150,15 @@ written; these rows replace three of its paths (ADR 0118):
 
 **The ledger.** `AdminEndpoints` and `SettingsCommitOverHttp` stand as
 accepted; the rulings of this block are ADR 0118's set.
+## Amendment, 2026-10-19 — the admin API becomes the management plane
+
+Filed by milestone Management plane of #105, unaccepted until the maintainer
+accepts it (ADR 0066).
+
+The admin API moves under `/manage/` and grants are now written through it, as
+declarations (ADR [0163](0163-the-management-plane.md)). A server admin becomes an
+operator: a bootstrap operator, or a principal with an operator grant in the fleet
+graph. Datasets are no longer discovered under a root: they are declared.
+
+**The ledger.** `AdminEndpoints`, `ServerAdminGrant` and `DatasetsDiscoveredUnderRoot`
+move to ADR 0163's set, superseded.

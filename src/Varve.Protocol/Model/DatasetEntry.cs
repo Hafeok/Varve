@@ -32,6 +32,22 @@ public enum DatasetOrigin : byte
 
     /// <summary>Created through the admin API in this process.</summary>
     Created = 2,
+
+    /// <summary>Declared in the fleet's system dataset (ADR 0163).</summary>
+    Declared = 3,
+}
+
+/// <summary>What this instance is to a dataset (ADRs 0163, 0164).</summary>
+public enum DatasetRole : byte
+{
+    /// <summary>It writes the dataset: it holds its writer epoch, or the dataset is not in an object store.</summary>
+    Writer = 0,
+
+    /// <summary>It follows the dataset its writer writes, serves its reads and forwards its writes.</summary>
+    Follower = 1,
+
+    /// <summary>The dataset is placed on another instance and not in an object store, so this one cannot serve it.</summary>
+    Elsewhere = 2,
 }
 
 /// <summary>A dataset's state in the host (ADR 0106).</summary>
@@ -70,8 +86,9 @@ public enum AdminOutcome : byte
 public sealed class DatasetEntry
 {
     /// <summary>An entry.</summary>
-    public DatasetEntry(DatasetName name, DatasetState state, DatasetStorage storage, DatasetOrigin origin, string? reason, DatasetId? id, Position? head)
+    public DatasetEntry(DatasetName name, DatasetState state, DatasetStorage storage, DatasetOrigin origin, string? reason, DatasetId? id, Position? head, DatasetRole role = DatasetRole.Writer)
     {
+        Role = role;
         Name = name;
         State = state;
         Storage = storage;
@@ -102,4 +119,7 @@ public sealed class DatasetEntry
 
     /// <summary>The head, when open.</summary>
     public Position? Head { get; }
+
+    /// <summary>What this instance is to the dataset.</summary>
+    public DatasetRole Role { get; }
 }

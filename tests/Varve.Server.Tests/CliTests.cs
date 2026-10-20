@@ -200,7 +200,7 @@ public sealed class CliTests : IDisposable
 
         // --no-store keeps nothing: a second device code flow, and the file is as it was.
         byte[] before = await File.ReadAllBytesAsync(credentials, TestContext.Current.CancellationToken);
-        Task<Run> ci = RunAsync("info", url, "--authority", issuer.Issuer, "--client-id", TestIssuer.ClientId, "--credentials", Path.Combine(_root, "other.json"), "--no-store");
+        Task<Run> ci = RunAsync("query", url, "-q", "ASK {}", "--authority", issuer.Issuer, "--client-id", TestIssuer.ClientId, "--credentials", Path.Combine(_root, "other.json"), "--no-store");
 
         await DeviceCodeAsync(issuer, 2, ci);
 
@@ -214,7 +214,7 @@ public sealed class CliTests : IDisposable
         // starts over. Written through the file's own writer: on Windows the
         // bytes are DPAPI-protected and not text to edit.
         file.Write(new Uri(url, UriKind.Absolute), issuer.Issuer, TestIssuer.ClientId, "stale");
-        Task<Run> again = RunAsync("info", url, "--authority", issuer.Issuer, "--client-id", TestIssuer.ClientId, "--credentials", credentials);
+        Task<Run> again = RunAsync("query", url, "-q", "ASK {}", "--authority", issuer.Issuer, "--client-id", TestIssuer.ClientId, "--credentials", credentials);
 
         await DeviceCodeAsync(issuer, 3, again);
 
@@ -223,14 +223,21 @@ public sealed class CliTests : IDisposable
         Assert.True(recovered.Exit == 0, recovered.Error);
         Assert.NotEqual("stale", file.TryRead(new Uri(url, UriKind.Absolute), issuer.Issuer, TestIssuer.ClientId));
 
-        // The remote feed and checkpoint go through the server's endpoints.
-        string token = issuer.Mint(Claims("administrator"));
-        Run feed = await RunAsync("feed", url, "--token", token);
+        // The remote feed goes through the data plane; info and checkpoint
+        // through the management plane, with a token for its audience (ADR 0163).
+        Run feed = await RunAsync("feed", url, "--token", issuer.Mint(Claims("administrator")));
         Assert.Equal(0, feed.Exit);
         Assert.Contains("commit 1 Data", feed.Data, StringComparison.Ordinal);
-        Run checkpoint = await RunAsync("checkpoint", url, "--token", token);
+        string manage = issuer.MintManagement(Claims("administrator"));
+        Run info = await RunAsync("info", url, "--token", manage);
+        Assert.True(info.Exit == 0, info.Error);
+        Assert.Contains("\"head\"", info.Out + info.Data, StringComparison.Ordinal);
+        Run checkpoint = await RunAsync("checkpoint", url, "--token", manage);
         Assert.Equal(0, checkpoint.Exit);
-        Run forbidden = await RunAsync("checkpoint", url, "--token", issuer.Mint(Claims("writer")));
+        Run dataToken = await RunAsync("checkpoint", url, "--token", issuer.Mint(Claims("administrator")));
+        Assert.Equal(1, dataToken.Exit);
+        Assert.Contains("401", dataToken.Error, StringComparison.Ordinal);
+        Run forbidden = await RunAsync("checkpoint", url, "--token", issuer.MintManagement(Claims("writer")));
         Assert.Equal(1, forbidden.Exit);
         Assert.Contains("403", forbidden.Error, StringComparison.Ordinal);
     }

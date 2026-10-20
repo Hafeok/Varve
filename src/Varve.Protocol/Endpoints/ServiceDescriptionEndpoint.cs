@@ -156,6 +156,15 @@ internal static class ServiceDescriptionEndpoint
         return address.EndsWith('/') ? address + "sparql" : address + "/sparql";
     }
 
+    // …/datasets/{name}/ on the data plane is …/manage/datasets/{name}/ on
+    // the management plane; a host that mounts one dataset at its root has
+    // it as the default dataset's.
+    private static string ManagementPrefix(string prefix)
+    {
+        int at = prefix.LastIndexOf("/datasets/", StringComparison.Ordinal);
+        return at >= 0 ? prefix[..at] + "/manage" + prefix[at..] : prefix + "manage/datasets/" + Model.DatasetName.Default.Value + "/";
+    }
+
     /// <summary>The description's fixed part: everything but the named graphs.</summary>
     internal static List<(RdfTerm, RdfTerm, RdfTerm)> Describe(string service, Position position, ProtocolLimits limits)
     {
@@ -208,11 +217,15 @@ internal static class ServiceDescriptionEndpoint
         triples.Add((self, Iri(Varve + "graphVersionETag"), RdfTerm.Literal("true"u8, Iri("http://www.w3.org/2001/XMLSchema#boolean"))));
         triples.Add((self, Iri(Varve + "graphStore"), Iri(prefix + "graphs")));
         triples.Add((self, Iri(Varve + "commits"), Iri(prefix + "commits")));
-        triples.Add((self, Iri(Varve + "state"), Iri(prefix + "state")));
         triples.Add((self, Iri(Varve + "diff"), Iri(prefix + "diff")));
-        triples.Add((self, Iri(Varve + "status"), Iri(prefix + "status")));
-        triples.Add((self, Iri(Varve + "settings"), Iri(prefix + "settings")));
-        triples.Add((self, Iri(Varve + "checkpoints"), Iri(prefix + "checkpoints")));
+
+        // The dataset's management resources are the management plane's
+        // (ADR 0163): /manage/datasets/{name}/…, for a management token.
+        string manage = ManagementPrefix(prefix);
+        triples.Add((self, Iri(Varve + "state"), Iri(manage + "state")));
+        triples.Add((self, Iri(Varve + "status"), Iri(manage + "status")));
+        triples.Add((self, Iri(Varve + "settings"), Iri(manage + "settings")));
+        triples.Add((self, Iri(Varve + "checkpoints"), Iri(manage + "checkpoints")));
 
         // The events (ADRs 0143, 0144): the rendered stream and the types list.
         triples.Add((self, Iri(Varve + "events"), Iri(prefix + "events")));

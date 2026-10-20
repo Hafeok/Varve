@@ -1,0 +1,29 @@
+# The fixture's list: three images, one kept upstream, one allowed in C#.
+
+images:
+  - name: kept
+    upstream: ghcr.io/example/kept:1.0
+    digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    licence: MIT
+    jobs: [fixture]
+    why: a mirrored image
+
+  - name: outside
+    upstream: mcr.microsoft.com/example/outside:2.0
+    digest: sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+    licence: proprietary
+    jobs: [fixture]
+    why: an image kept upstream
+    mirror: false
+    reason: >-
+      Its licence does not allow a copy.
+
+  - name: allowed
+    upstream: ghcr.io/example/allowed:3.0
+    digest: sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    licence: MIT
+    jobs: [fixture job]
+    why: an image C# starts
+    allowances:
+      - file: samples/Allowed.cs
+        job: fixture job

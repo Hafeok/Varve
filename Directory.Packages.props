@@ -167,15 +167,18 @@
     Container images of the auth and storage test legs (ADRs 0099, 0100, 0134). Not packages, so
     not PackageVersion items and not counted by the gate; listed here because
     this file is the register of every dependency. Started by the workflow and
-    the devcontainer, never by a test. The digests live in the compose files,
-    which are the source of truth and which Dependabot watches; a bump changes
-    the line here in the same commit.
+    the devcontainer, never by a test. The digests live in
+    .github/ci-images.yaml, the source of truth, and CI pulls each image from
+    this repository's private mirror, ghcr.io/hafeok/varve-ci, at that digest
+    (#118, ADR 0099's amendment of 2026-10-19), except the Event Hubs
+    emulator, which it keeps upstream. The table names the upstream image; a
+    bump changes the line here in the same commit.
 
     | Image | Tag | Licence | Pinned in |
     |=======|=====|=========|===========|
-    | ghcr.io/navikt/mock-oauth2-server | 6.0.4 | MIT | .github/mock-oauth2/compose.yaml |
+    | ghcr.io/navikt/mock-oauth2-server | 6.0.4 | MIT | .github/mock-oauth2/compose.yaml; samples/Varve.Aspire.Sample/Program.cs |
     | ghcr.io/zitadel/zitadel | v4.19.4 | AGPL-3.0 (run, never linked or shipped) | .github/zitadel/compose.yaml |
-    | public.ecr.aws/docker/library/postgres | 18.6-alpine | PostgreSQL | .github/zitadel/compose.yaml, which pulls the same digest from ghcr.io/hafeok/varve-ci/postgres (#118) |
+    | public.ecr.aws/docker/library/postgres | 18.6-alpine | PostgreSQL | .github/zitadel/compose.yaml |
     | mcr.microsoft.com/azure-storage/azurite | 3.37.0 | MIT | .github/storage/compose.yaml (ADR 0134) |
     | ghcr.io/rustfs/rustfs | 1.0.1 | Apache-2.0 | .github/storage/compose.yaml (ADR 0134) |
     | mcr.microsoft.com/azure-messaging/eventhubs-emulator | 2.2.1 | Microsoft's emulator licence, accepted by ACCEPT_EULA=Y (run in CI, never linked or shipped; ADR 0146) | .github/eventhubs/compose.yaml |
@@ -234,6 +237,12 @@
          The harness's freedom from it is a test, not a convention:
          The_harness_does_not_reference_another_rdf_implementation. -->
     <PackageVersion Include="dotNetRdf.Core" Version="3.5.2" Adr="0027" />
+
+    <!-- dotNetRDF's SHACL validator, MIT, on dotNetRdf.Core 3.5.2 and no
+         native asset: the SHACL benchmark's baseline and a differential oracle
+         in Varve.Shacl.Sparql.Tests, never src/ (ADR 0156). A disagreement is
+         judged against the specification, never settled by matching it. -->
+    <PackageVersion Include="dotNetRdf.Shacl" Version="3.5.2" Adr="0156" Scope="tests/" />
 
     <!-- A transitive dependency of dotNetRdf.Core, pinned rather than
          inherited. dotNetRdf.Core asks for AngleSharp 1.4.0, which NuGet audit

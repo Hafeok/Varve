@@ -1,0 +1,108 @@
+#nullable enable
+Varve.Shacl.ConstraintContext
+Varve.Shacl.ConstraintContext.CancellationToken.get -> System.Threading.CancellationToken
+Varve.Shacl.ConstraintContext.Data.get -> Varve.Rdf.IQuadSource!
+Varve.Shacl.ConstraintContext.DataGraph.get -> Varve.Rdf.GraphPattern
+Varve.Shacl.ConstraintContext.Fail(Varve.Shacl.Model.ShaclProblem! problem) -> void
+Varve.Shacl.ConstraintContext.FocusHandle.get -> Varve.Rdf.TermHandle
+Varve.Shacl.ConstraintContext.FocusNode.get -> Varve.Rdf.RdfTerm!
+Varve.Shacl.ConstraintContext.Report(Varve.Rdf.RdfTerm? value, Varve.Rdf.TermHandle valueHandle, Varve.Rdf.RdfTerm? pathPredicate, System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>? messages) -> void
+Varve.Shacl.ConstraintContext.ValueHandles.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.TermHandle>!
+Varve.Shacl.ConstraintContext.ValueNodes.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Shacl.IShaclConstraint
+Varve.Shacl.IShaclConstraint.Component.get -> Varve.Rdf.RdfTerm!
+Varve.Shacl.IShaclConstraint.Severity.get -> Varve.Rdf.RdfTerm?
+Varve.Shacl.IShaclConstraint.SourceConstraint.get -> Varve.Rdf.RdfTerm?
+Varve.Shacl.IShaclConstraint.Validate(Varve.Shacl.ConstraintContext! context) -> void
+Varve.Shacl.IShaclExtension
+Varve.Shacl.IShaclExtension.Begin(Varve.Shacl.ShapesGraphContext! context) -> Varve.Shacl.IShaclExtensionScope!
+Varve.Shacl.IShaclExtensionScope
+Varve.Shacl.IShaclExtensionScope.Load(Varve.Shacl.ShapeContext! shape) -> void
+Varve.Shacl.Model.ShaclProblem
+Varve.Shacl.Model.ShaclProblem.Cycle.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Shacl.Model.ShaclProblem.FocusNode.get -> Varve.Rdf.RdfTerm?
+Varve.Shacl.Model.ShaclProblem.Kind.get -> Varve.Shacl.Model.ShaclProblemKind
+Varve.Shacl.Model.ShaclProblem.Message.get -> string!
+Varve.Shacl.Model.ShaclProblem.ShaclProblem(Varve.Shacl.Model.ShaclProblemKind kind, Varve.Rdf.RdfTerm? shape, Varve.Rdf.RdfTerm? focusNode, string! message, System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>? cycle = null) -> void
+Varve.Shacl.Model.ShaclProblem.Shape.get -> Varve.Rdf.RdfTerm?
+Varve.Shacl.Model.ShaclProblemKind
+Varve.Shacl.Model.ShaclProblemKind.ExtensionFailure = 7 -> Varve.Shacl.Model.ShaclProblemKind
+Varve.Shacl.Model.ShaclProblemKind.IllFormedShape = 1 -> Varve.Shacl.Model.ShaclProblemKind
+Varve.Shacl.Model.ShaclProblemKind.InvalidPattern = 5 -> Varve.Shacl.Model.ShaclProblemKind
+Varve.Shacl.Model.ShaclProblemKind.MissingExtension = 3 -> Varve.Shacl.Model.ShaclProblemKind
+Varve.Shacl.Model.ShaclProblemKind.PatternTimeout = 6 -> Varve.Shacl.Model.ShaclProblemKind
+Varve.Shacl.Model.ShaclProblemKind.UnstratifiableRecursion = 2 -> Varve.Shacl.Model.ShaclProblemKind
+Varve.Shacl.Model.ShaclProblemKind.UnsupportedEntailment = 4 -> Varve.Shacl.Model.ShaclProblemKind
+Varve.Shacl.Model.ShaclResult
+Varve.Shacl.Model.ShaclResult.FocusNode.get -> Varve.Rdf.RdfTerm!
+Varve.Shacl.Model.ShaclResult.HasPath.get -> bool
+Varve.Shacl.Model.ShaclResult.Messages.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Shacl.Model.ShaclResult.Path.get -> Varve.Rdf.RdfTerm?
+Varve.Shacl.Model.ShaclResult.Severity.get -> Varve.Rdf.RdfTerm!
+Varve.Shacl.Model.ShaclResult.SourceConstraint.get -> Varve.Rdf.RdfTerm?
+Varve.Shacl.Model.ShaclResult.SourceConstraintComponent.get -> Varve.Rdf.RdfTerm!
+Varve.Shacl.Model.ShaclResult.SourceShape.get -> Varve.Rdf.RdfTerm!
+Varve.Shacl.Model.ShaclResult.Value.get -> Varve.Rdf.RdfTerm?
+Varve.Shacl.Model.ValidationReport
+Varve.Shacl.Model.ValidationReport.ConformanceDisallows.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>?
+Varve.Shacl.Model.ValidationReport.Conforms.get -> bool
+Varve.Shacl.Model.ValidationReport.ImportsNotFollowed.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Shacl.Model.ValidationReport.Results.get -> System.Collections.Generic.IReadOnlyList<Varve.Shacl.Model.ShaclResult!>!
+Varve.Shacl.Model.ValidationReport.Summary.get -> Varve.Shacl.Model.ValidationSummary
+Varve.Shacl.Model.ValidationReport.ToCanonicalNQuads() -> System.ReadOnlyMemory<byte>
+Varve.Shacl.Model.ValidationReport.ToDataset() -> Varve.Rdf.InMemoryDataset!
+Varve.Shacl.Model.ValidationSummary
+Varve.Shacl.Model.ValidationSummary.Debugs.get -> int
+Varve.Shacl.Model.ValidationSummary.Equals(Varve.Shacl.Model.ValidationSummary other) -> bool
+Varve.Shacl.Model.ValidationSummary.Infos.get -> int
+Varve.Shacl.Model.ValidationSummary.Others.get -> int
+Varve.Shacl.Model.ValidationSummary.Total.get -> int
+Varve.Shacl.Model.ValidationSummary.Traces.get -> int
+Varve.Shacl.Model.ValidationSummary.ValidationSummary() -> void
+Varve.Shacl.Model.ValidationSummary.Violations.get -> int
+Varve.Shacl.Model.ValidationSummary.Warnings.get -> int
+Varve.Shacl.ShaclOptions
+Varve.Shacl.ShaclOptions.Canonicalisation.get -> Varve.Rdf.CanonicalisationOptions!
+Varve.Shacl.ShaclOptions.Canonicalisation.init -> void
+Varve.Shacl.ShaclOptions.ConformanceDisallows.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>?
+Varve.Shacl.ShaclOptions.ConformanceDisallows.init -> void
+Varve.Shacl.ShaclOptions.Extensions.get -> System.Collections.Generic.IReadOnlyList<Varve.Shacl.IShaclExtension!>!
+Varve.Shacl.ShaclOptions.Extensions.init -> void
+Varve.Shacl.ShaclOptions.RegexTimeout.get -> System.TimeSpan
+Varve.Shacl.ShaclOptions.RegexTimeout.init -> void
+Varve.Shacl.ShaclOptions.ShaclOptions() -> void
+Varve.Shacl.ShaclOptions.SubClassOfInShapesGraph.get -> bool
+Varve.Shacl.ShaclOptions.SubClassOfInShapesGraph.init -> void
+Varve.Shacl.ShaclValidator
+Varve.Shacl.ShapeContext
+Varve.Shacl.ShapeContext.Add(Varve.Shacl.IShaclConstraint! constraint) -> void
+Varve.Shacl.ShapeContext.Graph.get -> Varve.Rdf.GraphPattern
+Varve.Shacl.ShapeContext.Path.get -> Varve.Rdf.RdfTerm?
+Varve.Shacl.ShapeContext.Refuse(Varve.Shacl.Model.ShaclProblem! problem) -> void
+Varve.Shacl.ShapeContext.Shape.get -> Varve.Rdf.RdfTerm!
+Varve.Shacl.ShapeContext.Source.get -> Varve.Rdf.IQuadSource!
+Varve.Shacl.ShapeContext.Term(Varve.Rdf.TermHandle handle) -> Varve.Rdf.RdfTerm!
+Varve.Shacl.ShapeContext.TryGetHandle(Varve.Rdf.RdfTerm! term, out Varve.Rdf.TermHandle handle) -> bool
+Varve.Shacl.ShapesGraph
+Varve.Shacl.ShapesGraphContext
+Varve.Shacl.ShapesGraphContext.DeclareShapeParameter(Varve.Rdf.RdfTerm! predicate) -> void
+Varve.Shacl.ShapesGraphContext.Graph.get -> Varve.Rdf.GraphPattern
+Varve.Shacl.ShapesGraphContext.Refuse(Varve.Shacl.Model.ShaclProblem! problem) -> void
+Varve.Shacl.ShapesGraphContext.Source.get -> Varve.Rdf.IQuadSource!
+Varve.Shacl.ShapesLoad
+Varve.Shacl.ShapesLoad.Problems.get -> System.Collections.Generic.IReadOnlyList<Varve.Shacl.Model.ShaclProblem!>!
+Varve.Shacl.ShapesLoad.Shapes.get -> Varve.Shacl.ShapesGraph?
+Varve.Shacl.ShapesLoad.Succeeded.get -> bool
+Varve.Shacl.ValidationOutcome
+Varve.Shacl.ValidationOutcome.Problems.get -> System.Collections.Generic.IReadOnlyList<Varve.Shacl.Model.ShaclProblem!>!
+Varve.Shacl.ValidationOutcome.Report.get -> Varve.Shacl.Model.ValidationReport?
+Varve.Shacl.ValidationOutcome.Succeeded.get -> bool
+override Varve.Shacl.Model.ShaclProblem.ToString() -> string!
+override Varve.Shacl.Model.ValidationSummary.Equals(object? obj) -> bool
+override Varve.Shacl.Model.ValidationSummary.GetHashCode() -> int
+static Varve.Shacl.Model.ValidationSummary.operator !=(Varve.Shacl.Model.ValidationSummary left, Varve.Shacl.Model.ValidationSummary right) -> bool
+static Varve.Shacl.Model.ValidationSummary.operator ==(Varve.Shacl.Model.ValidationSummary left, Varve.Shacl.Model.ValidationSummary right) -> bool
+static Varve.Shacl.ShaclOptions.Default.get -> Varve.Shacl.ShaclOptions!
+static Varve.Shacl.ShaclOptions.DefaultConformanceDisallows.get -> System.Collections.Immutable.ImmutableArray<Varve.Rdf.RdfTerm!>
+static Varve.Shacl.ShaclValidator.Validate(Varve.Shacl.ShapesGraph! shapes, Varve.Rdf.IQuadSource! data, Varve.Rdf.GraphPattern dataGraph, Varve.Shacl.ShaclOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Varve.Shacl.ValidationOutcome!
+static Varve.Shacl.ShapesGraph.Load(Varve.Rdf.IQuadSource! source, Varve.Rdf.GraphPattern graph, Varve.Shacl.ShaclOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Varve.Shacl.ShapesLoad!

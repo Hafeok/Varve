@@ -20,9 +20,6 @@ public class SetupFileTests
     private const string Full = """
         # The shop's orders dataset.
         dataset: orders
-        storage: Memory
-        settings: |
-          {"defaultAccessScope": "Current"}
 
         baseline:
           - name: vocabulary
@@ -56,8 +53,6 @@ public class SetupFileTests
             DatasetSetup setup = DatasetSetupFile.Read(Path.Combine(directory, "setup.yaml"));
 
             Assert.Equal("orders", setup.Name);
-            Assert.Equal(SetupStorage.Memory, setup.Storage);
-            Assert.Equal("{\"defaultAccessScope\": \"Current\"}\n", setup.Settings);
             Assert.Equal(3, setup.Baselines.Count);
             Assert.Equal(("vocabulary", "https://shop.example/vocabulary", "text/turtle"), (setup.Baselines[0].Name, setup.Baselines[0].Graph, setup.Baselines[0].MediaType));
             Assert.Equal(("statuses.nt", (string?)null, "application/n-triples"), (setup.Baselines[1].Name, setup.Baselines[1].Graph, setup.Baselines[1].MediaType));
@@ -90,14 +85,15 @@ public class SetupFileTests
     [InlineData("dataset: orders\nretention: forever\n", 2, 1, "'retention' is not a key here")]
     [InlineData("dataset: orders\nbaseline:\n  - file: a.ttl\n    weight: 3\n", 4, 5, "'weight' is not a key here")]
     [InlineData("dataset: orders\nbaseline:\n  - file: a.ttl\n    mode: replace\n", 4, 5, "'mode' is not a key here")]
-    [InlineData("dataset: orders\nstorage: Tape\n", 2, 10, "storage is File, Memory or ObjectStorage")]
+    [InlineData("dataset: orders\nstorage: Memory\n", 2, 10, "storage is a management declaration now")]
+    [InlineData("dataset: orders\nsettings: |\n  {}\n", 2, 11, "settings is a management declaration now")]
     [InlineData("dataset: orders\nmigrations:\n  - id: 1\n", 3, 5, "update or file")]
     [InlineData("\"dataset\": orders\n", 1, 1, "a key is plain")]
     [InlineData("dataset:orders\n", 1, 8, "followed by ': '")]
     [InlineData("dataset: 'orders\n", 1, 10, "single-quoted")]
     [InlineData("dataset: \"or\\qders\"\n", 1, 13, "not an escape")]
     [InlineData("dataset: orders\n  storage: File\n", 2, 3, "indented more")]
-    [InlineData("storage: File\n", 1, 1, "'dataset' is required")]
+    [InlineData("baseline:\n  - file: a.ttl\n", 1, 1, "'dataset' is required")]
     [InlineData("", 1, 1, "empty")]
     public void What_is_outside_the_subset_is_refused_at_its_line_and_column(string text, int line, int column, string says)
     {

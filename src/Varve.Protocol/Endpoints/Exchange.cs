@@ -28,10 +28,17 @@ internal sealed class Exchange
         Name = name;
         Dataset = dataset;
         Scope = scope;
+        Authorised = options.Management?.Applied;
     }
 
     /// <summary>What the caller may see and change of this dataset, by graph (ADR 0107).</summary>
     internal CallerScope Scope { get; }
+
+    /// <summary>
+    /// The management position the request was authorised at, which its
+    /// commit records (ADR 0165); none in a host with no management plane.
+    /// </summary>
+    internal Management.Model.ManagementPosition? Authorised { get; }
 
     internal HttpContext Context { get; }
 
@@ -70,8 +77,60 @@ internal sealed class Exchange
             return null;
         }
 
+        if (dataset.IsFollower && !await FollowAsync(context, options, name, dataset).ConfigureAwait(false))
+        {
+            return null;
+        }
+
         Tracing.Dataset(context, name.Value);
         return new Exchange(context, options, name, dataset, options.AccessScopes.ScopesOf(context.User, name));
+    }
+
+    /// <summary>The dataset a request's route names, as a write's target; none when the name is not one.</summary>
+    internal static WriterTarget? RouteTarget(HttpContext context) =>
+        context.Request.RouteValues.TryGetValue(DatasetRouteValue, out object? value)
+            ? DatasetName.TryParse(value as string, out DatasetName name) ? new WriterTarget(name) : null
+            : new WriterTarget(DatasetName.Default);
+
+    /// <summary>The read's minimum position: <c>Varve-Min-Position</c> (ADR 0168).</summary>
+    internal const string MinPositionHeader = "Varve-Min-Position";
+
+    // A follower is advanced before it answers, when it is due or the read
+    // asks for a later position (ADR 0164); still behind, the read is
+    // 503 dataset-behind, with no wait (ADR 0168).
+    private static async Task<bool> FollowAsync(HttpContext context, ProtocolOptions options, DatasetName name, Dataset dataset)
+    {
+        Store.Log.Position? atLeast = null;
+        StringValues header = context.Request.Headers[MinPositionHeader];
+
+        if (!StringValues.IsNullOrEmpty(header))
+        {
+            if (header.Count != 1 || !long.TryParse(header[0], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out long value))
+            {
+                await HttpProblems.BadRequest(context, "Varve-Min-Position is one position.").ConfigureAwait(false);
+                return false;
+            }
+
+            atLeast = new Store.Log.Position(value);
+        }
+
+        if (options.Following is { } following)
+        {
+            await following.FollowAsync(name, dataset, atLeast, context.RequestAborted).ConfigureAwait(false);
+        }
+
+        if (atLeast is { } wanted && wanted > dataset.Head)
+        {
+            Preconditions.Describe(context.Response, dataset.Head);
+            await HttpProblems.WriteAsync(context, ProblemType.DatasetBehind, "This instance follows the dataset and has applied position " + dataset.Head.ToString() + ".", members =>
+            {
+                members.Number("position", wanted.Value);
+                members.Number("appliedPosition", dataset.Head.Value);
+            }).ConfigureAwait(false);
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -80,6 +139,20 @@ internal sealed class Exchange
     /// an unscoped request costs what it did (ADR 0107).
     /// </summary>
     internal IQuadSource Readable(IQuadSource view) => GraphScopedQuadSource.Wrap(view, Scope.Readable);
+
+    /// <summary>
+    /// An exchange over the fleet's system dataset, for the management
+    /// endpoints (ADR 0163): authorised by the endpoint, every graph in scope.
+    /// </summary>
+    internal static Exchange ForSystem(HttpContext context, ProtocolOptions options, Dataset system) =>
+        new(context, options, DatasetName.Default, system, CallerScope.Everything);
+
+    /// <summary>Authorises <paramref name="permission"/> on <paramref name="name"/>; writes the refusal itself.</summary>
+    internal static Task<bool> AuthorizeDatasetAsync(HttpContext context, ProtocolOptions options, string permission, DatasetName name)
+    {
+        Describe(context, null);
+        return AuthorizeAsync(context, options, permission, name);
+    }
 
     /// <summary>Authorises this request for another permission, as an update inside a <c>POST</c> needs.</summary>
     internal Task<bool> AuthorizeAsync(string permission) => AuthorizeAsync(Context, Options, permission, Name);

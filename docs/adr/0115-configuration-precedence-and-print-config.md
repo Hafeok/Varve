@@ -91,3 +91,13 @@ endpoint carrying a query string or user information. Point 3's redaction is
 unchanged; there is no storage secret to redact.
 
 **The ledger.** The ruling is ADR 0137's `storage-credentials-are-workload-identity` set.
+
+## Amendment, 2026-10-19 — the fleet's keys
+
+Filed by milestone Management plane of #105, unaccepted until the maintainer
+accepts it (ADR 0066).
+
+The known keys gain `Varve:Fleet:*`, `Varve:Manage:*` and
+`Varve:Auth:Management:*`; `Varve:Datasets` and `Varve:Auth:Datasets` become known
+keys refused with a message naming `varve apply` (ADR
+[0163](0163-the-management-plane.md)). No ruling of this ADR changes.

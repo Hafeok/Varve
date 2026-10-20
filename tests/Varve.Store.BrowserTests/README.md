@@ -20,6 +20,11 @@ It runs, and reports every check of:
   through `File` rather than through the backend;
 - **measurements**: a 4 KiB block read, in order and at random, from a 16 MiB
   blob; opening and publishing it; a 256-byte append and flush.
+- **SHACL** (#120): `../Varve.AotSmoke/Shacl.cs`, the same file the AOT
+  smoke runs. A pinned view is validated against shapes with an XPath
+  pattern, a recursive `sh:node` and a SHACL-SPARQL constraint, and `REGEX`
+  and `REPLACE` run with XPath syntax. The answers, among them the SHA-256 of
+  the report's canonical form, must be the desktop's.
 
 The page loads it twice. `index.html` starts .NET in a dedicated worker, where
 synchronous access handles exist: both backends run, and `OpenAsync` must

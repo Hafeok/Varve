@@ -36,6 +36,12 @@ public sealed class ObjectStorageOptions
     public WriterInstance? Instance { get; init; }
 
     /// <summary>
+    /// Where the other instances of a fleet reach this one, recorded with its
+    /// claim (ADR 0168). Optional: a fleet of one forwards nothing.
+    /// </summary>
+    public WriterAddress? Address { get; init; }
+
+    /// <summary>
     /// Where a writer's open draws the random name of its conditional-writes
     /// probe (ADR 0134). Required for write; a read-only open does not probe.
     /// </summary>

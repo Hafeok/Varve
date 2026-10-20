@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using Varve.Rdf;
 using Varve.Sparql.Evaluation;
+using Varve.Store;
 using Varve.Store.Log;
 
 namespace Varve.Sparql.Store;
@@ -48,6 +49,13 @@ public sealed class UpdateOptions
 
     /// <summary>The commit's agent, cause and graph scope, passed to the store as given.</summary>
     public CommitMetadata Metadata { get; init; } = new();
+
+    /// <summary>
+    /// The request's own validators, passed to the store as given and run after
+    /// the dataset's (ADR 0058): a host's check that runs under the sequencer,
+    /// such as the order of management positions (ADR 0165).
+    /// </summary>
+    public IReadOnlyList<ICommitValidator> Validators { get; init; } = [];
 
     /// <summary>Where <c>LOAD</c> reads documents. The default refuses every IRI.</summary>
     public ILoadSource LoadSource { get; init; } = RefusingLoadSource.Instance;

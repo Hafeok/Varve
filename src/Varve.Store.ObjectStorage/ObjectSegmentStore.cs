@@ -550,6 +550,82 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
         }
     }
 
+    /// <summary>
+    /// A follower's refresh (ADR 0164): probes the next slot in log order with
+    /// a GET, adopts a chunk found there, and probes the slot after it, until
+    /// one is absent. An absent slot is nothing new once its segment's
+    /// consolidated object is absent too: consolidation deletes a sealed
+    /// segment's chunks, its seal among them, so a seal this store has not
+    /// seen can leave nothing at the slot. A consolidated object found is
+    /// adopted, and the probe moves to the next segment. Nothing is listed,
+    /// and nothing is written. True when anything was adopted.
+    /// </summary>
+    /// <exception cref="LogVerificationException">A chunk does not verify or does not follow.</exception>
+    public async ValueTask<bool> RefreshAsync(CancellationToken cancellationToken)
+    {
+        if (Writes)
+        {
+            throw new InvalidOperationException("A writer's log grows by its own appends; only a read-only store refreshes.");
+        }
+
+        await EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
+        bool adopted = false;
+
+        while (true)
+        {
+            int segmentId;
+            int chunk;
+            Segment? held;
+
+            lock (_lock)
+            {
+                held = _segments.Count == 0 ? null : _segments[^1];
+
+                if (held is null || held.Sealed)
+                {
+                    segmentId = held is null ? 0 : held.Id + 1;
+                    chunk = 0;
+                    held = null;
+                }
+                else
+                {
+                    segmentId = held.Id;
+                    chunk = held.NextChunk;
+                }
+            }
+
+            if (await ConditionalWrites.ReadWholeAsync(_store, _names.Chunk(segmentId, chunk), cancellationToken).ConfigureAwait(false) is { } read)
+            {
+                lock (_lock)
+                {
+                    (held ?? AddSegment(segmentId)).Adopt(read.Bytes.Span, chunk);
+                }
+
+                adopted = true;
+                continue;
+            }
+
+            if (await ConditionalWrites.ReadWholeAsync(_store, _names.Segment(segmentId), cancellationToken).ConfigureAwait(false) is not { } whole)
+            {
+                return adopted;
+            }
+
+            AdoptConsolidated(held ?? AddFollowedSegment(segmentId), whole);
+            adopted = true;
+        }
+    }
+
+    // A segment first seen consolidated, by a follower: it holds nothing yet.
+    private Segment AddFollowedSegment(int id)
+    {
+        lock (_lock)
+        {
+            Segment segment = new(id) { LoadedFrom = 0 };
+            _segments.Add(segment);
+            return segment;
+        }
+    }
+
     public void Dispose()
     {
         lock (_lock)
@@ -858,7 +934,13 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
         string slot = ObjectNames.Slot(segment.Id, 0);
         ObjectRead whole = await ConditionalWrites.ReadWholeAsync(_store, _names.Segment(segment.Id), cancellationToken).ConfigureAwait(false)
             ?? throw new LogVerificationException("A chunk of segment " + segment.Id + " was listed and is gone, and the segment was not consolidated: the log is damaged (" + slot + ").");
+        AdoptConsolidated(segment, whole);
+    }
 
+    // The segment as its consolidated object, which must hold every byte this
+    // store holds of it; its copy written to the cache.
+    private void AdoptConsolidated(Segment segment, ObjectRead whole)
+    {
         lock (_lock)
         {
             if (segment.Consolidated)

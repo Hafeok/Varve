@@ -1,0 +1,234 @@
+#nullable enable
+Varve.Management.DeclarationReader
+Varve.Management.GrantTable
+Varve.Management.GrantTable.Declarations.get -> Varve.Management.Model.Declarations!
+Varve.Management.GrantTable.IsAdmin(Varve.Management.Model.Caller! caller, string! dataset) -> bool
+Varve.Management.GrantTable.IsOperator(Varve.Management.Model.Caller! caller) -> bool
+Varve.Management.GrantTable.Position.get -> Varve.Management.Model.ManagementPosition
+Varve.Management.GrantTable.Reaches(Varve.Management.Model.Caller! caller, string! dataset) -> bool
+Varve.Management.GrantTable.ScopesOf(Varve.Management.Model.Caller! caller, string! dataset) -> Varve.Rdf.CallerScope!
+Varve.Management.GraphTemplates
+Varve.Management.ManagementPlan
+Varve.Management.ManagementPlan.Graphs.get -> System.Collections.Generic.IReadOnlyList<Varve.Management.Model.GraphPlan!>!
+Varve.Management.ManagementPlan.IsEmpty.get -> bool
+Varve.Management.ManagementPlan.ManagementPlan(Varve.Management.Model.ManagementPosition position, System.Collections.Generic.IReadOnlyList<Varve.Management.Model.GraphPlan!>! graphs) -> void
+Varve.Management.ManagementPlan.Position.get -> Varve.Management.Model.ManagementPosition
+Varve.Management.ManagementPlan.Render() -> string!
+Varve.Management.ManagementPlan.ToJson() -> byte[]!
+Varve.Management.ManagementTrig
+Varve.Management.ManagementVocabulary
+Varve.Management.Model.BindingDeclaration
+Varve.Management.Model.BindingDeclaration.<Clone>$() -> Varve.Management.Model.BindingDeclaration!
+Varve.Management.Model.BindingDeclaration.BindingDeclaration(Varve.Rdf.RdfTerm! Node, Varve.Management.Model.BindingKind Kind, Varve.Rdf.RdfTerm! BoundGraph) -> void
+Varve.Management.Model.BindingDeclaration.BoundGraph.get -> Varve.Rdf.RdfTerm!
+Varve.Management.Model.BindingDeclaration.BoundGraph.init -> void
+Varve.Management.Model.BindingDeclaration.Deconstruct(out Varve.Rdf.RdfTerm! Node, out Varve.Management.Model.BindingKind Kind, out Varve.Rdf.RdfTerm! BoundGraph) -> void
+Varve.Management.Model.BindingDeclaration.Equals(Varve.Management.Model.BindingDeclaration? other) -> bool
+Varve.Management.Model.BindingDeclaration.Kind.get -> Varve.Management.Model.BindingKind
+Varve.Management.Model.BindingDeclaration.Kind.init -> void
+Varve.Management.Model.BindingDeclaration.Node.get -> Varve.Rdf.RdfTerm!
+Varve.Management.Model.BindingDeclaration.Node.init -> void
+Varve.Management.Model.BindingKind
+Varve.Management.Model.BindingKind.Shapes = 0 -> Varve.Management.Model.BindingKind
+Varve.Management.Model.BindingKind.TBox = 1 -> Varve.Management.Model.BindingKind
+Varve.Management.Model.Caller
+Varve.Management.Model.Caller.Agent.get -> string?
+Varve.Management.Model.Caller.Caller(string? agent, string? subject, System.Collections.Generic.IReadOnlyDictionary<string!, System.Collections.Generic.IReadOnlyList<string!>!>! claims, string! roleClaimType) -> void
+Varve.Management.Model.Caller.Claims.get -> System.Collections.Generic.IReadOnlyDictionary<string!, System.Collections.Generic.IReadOnlyList<string!>!>!
+Varve.Management.Model.Caller.Holds(string! claimType, string! value) -> bool
+Varve.Management.Model.Caller.RoleClaimType.get -> string!
+Varve.Management.Model.Caller.Subject.get -> string?
+Varve.Management.Model.DatasetDeclaration
+Varve.Management.Model.DatasetDeclaration.AutomaticHandover.get -> bool
+Varve.Management.Model.DatasetDeclaration.AutomaticHandover.init -> void
+Varve.Management.Model.DatasetDeclaration.Bindings.get -> System.Collections.Generic.IReadOnlyList<Varve.Management.Model.BindingDeclaration!>!
+Varve.Management.Model.DatasetDeclaration.Bindings.init -> void
+Varve.Management.Model.DatasetDeclaration.DatasetDeclaration() -> void
+Varve.Management.Model.DatasetDeclaration.DefaultAccessScope.get -> Varve.Management.Model.HistoryScope?
+Varve.Management.Model.DatasetDeclaration.DefaultAccessScope.init -> void
+Varve.Management.Model.DatasetDeclaration.Grants.get -> System.Collections.Generic.IReadOnlyList<Varve.Management.Model.GrantDeclaration!>!
+Varve.Management.Model.DatasetDeclaration.Grants.init -> void
+Varve.Management.Model.DatasetDeclaration.Name.get -> string!
+Varve.Management.Model.DatasetDeclaration.Name.init -> void
+Varve.Management.Model.DatasetDeclaration.Node.get -> Varve.Rdf.RdfTerm!
+Varve.Management.Model.DatasetDeclaration.Node.init -> void
+Varve.Management.Model.DatasetDeclaration.PlacedOn.get -> string?
+Varve.Management.Model.DatasetDeclaration.PlacedOn.init -> void
+Varve.Management.Model.DatasetDeclaration.Storage.get -> Varve.Management.Model.StorageKind
+Varve.Management.Model.DatasetDeclaration.Storage.init -> void
+Varve.Management.Model.DeclarationFinding
+Varve.Management.Model.DeclarationFinding.<Clone>$() -> Varve.Management.Model.DeclarationFinding!
+Varve.Management.Model.DeclarationFinding.DeclarationFinding(Varve.Rdf.RdfTerm! Graph, Varve.Rdf.RdfTerm? Focus, Varve.Rdf.RdfTerm? Path, string! Message) -> void
+Varve.Management.Model.DeclarationFinding.Deconstruct(out Varve.Rdf.RdfTerm! Graph, out Varve.Rdf.RdfTerm? Focus, out Varve.Rdf.RdfTerm? Path, out string! Message) -> void
+Varve.Management.Model.DeclarationFinding.Equals(Varve.Management.Model.DeclarationFinding? other) -> bool
+Varve.Management.Model.DeclarationFinding.Focus.get -> Varve.Rdf.RdfTerm?
+Varve.Management.Model.DeclarationFinding.Focus.init -> void
+Varve.Management.Model.DeclarationFinding.Graph.get -> Varve.Rdf.RdfTerm!
+Varve.Management.Model.DeclarationFinding.Graph.init -> void
+Varve.Management.Model.DeclarationFinding.Message.get -> string!
+Varve.Management.Model.DeclarationFinding.Message.init -> void
+Varve.Management.Model.DeclarationFinding.Path.get -> Varve.Rdf.RdfTerm?
+Varve.Management.Model.DeclarationFinding.Path.init -> void
+Varve.Management.Model.Declarations
+Varve.Management.Model.Declarations.Bootstrap.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Varve.Management.Model.Declarations.Bootstrap.init -> void
+Varve.Management.Model.Declarations.Datasets.get -> System.Collections.Generic.IReadOnlyDictionary<string!, Varve.Management.Model.DatasetDeclaration!>!
+Varve.Management.Model.Declarations.Datasets.init -> void
+Varve.Management.Model.Declarations.Declarations() -> void
+Varve.Management.Model.Declarations.Findings.get -> System.Collections.Generic.IReadOnlyList<Varve.Management.Model.DeclarationFinding!>!
+Varve.Management.Model.Declarations.Findings.init -> void
+Varve.Management.Model.Declarations.FleetGrants.get -> System.Collections.Generic.IReadOnlyList<Varve.Management.Model.GrantDeclaration!>!
+Varve.Management.Model.Declarations.FleetGrants.init -> void
+Varve.Management.Model.GrantAccess
+Varve.Management.Model.GrantAccess.Admin = 2 -> Varve.Management.Model.GrantAccess
+Varve.Management.Model.GrantAccess.Operator = 3 -> Varve.Management.Model.GrantAccess
+Varve.Management.Model.GrantAccess.Read = 0 -> Varve.Management.Model.GrantAccess
+Varve.Management.Model.GrantAccess.Write = 1 -> Varve.Management.Model.GrantAccess
+Varve.Management.Model.GrantDeclaration
+Varve.Management.Model.GrantDeclaration.<Clone>$() -> Varve.Management.Model.GrantDeclaration!
+Varve.Management.Model.GrantDeclaration.Access.get -> Varve.Management.Model.GrantAccess
+Varve.Management.Model.GrantDeclaration.Access.init -> void
+Varve.Management.Model.GrantDeclaration.Dataset.get -> string?
+Varve.Management.Model.GrantDeclaration.Dataset.init -> void
+Varve.Management.Model.GrantDeclaration.Deconstruct(out Varve.Rdf.RdfTerm! Node, out string? Dataset, out Varve.Management.Model.Principal Grantee, out Varve.Management.Model.GrantAccess Access, out Varve.Management.Model.GraphSet! Graphs) -> void
+Varve.Management.Model.GrantDeclaration.Equals(Varve.Management.Model.GrantDeclaration? other) -> bool
+Varve.Management.Model.GrantDeclaration.GrantDeclaration(Varve.Rdf.RdfTerm! Node, string? Dataset, Varve.Management.Model.Principal Grantee, Varve.Management.Model.GrantAccess Access, Varve.Management.Model.GraphSet! Graphs) -> void
+Varve.Management.Model.GrantDeclaration.Grantee.get -> Varve.Management.Model.Principal
+Varve.Management.Model.GrantDeclaration.Grantee.init -> void
+Varve.Management.Model.GrantDeclaration.Graphs.get -> Varve.Management.Model.GraphSet!
+Varve.Management.Model.GrantDeclaration.Graphs.init -> void
+Varve.Management.Model.GrantDeclaration.Node.get -> Varve.Rdf.RdfTerm!
+Varve.Management.Model.GrantDeclaration.Node.init -> void
+Varve.Management.Model.GraphPlan
+Varve.Management.Model.GraphPlan.<Clone>$() -> Varve.Management.Model.GraphPlan!
+Varve.Management.Model.GraphPlan.Added.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Varve.Management.Model.GraphPlan.Added.init -> void
+Varve.Management.Model.GraphPlan.Content.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Varve.Management.Model.GraphPlan.Content.init -> void
+Varve.Management.Model.GraphPlan.Deconstruct(out Varve.Rdf.RdfTerm! Graph, out Varve.Management.Model.ManagementPosition Version, out System.Collections.Generic.IReadOnlyList<string!>! Content, out System.Collections.Generic.IReadOnlyList<string!>! Added, out System.Collections.Generic.IReadOnlyList<string!>! Removed) -> void
+Varve.Management.Model.GraphPlan.Equals(Varve.Management.Model.GraphPlan? other) -> bool
+Varve.Management.Model.GraphPlan.Graph.get -> Varve.Rdf.RdfTerm!
+Varve.Management.Model.GraphPlan.Graph.init -> void
+Varve.Management.Model.GraphPlan.GraphPlan(Varve.Rdf.RdfTerm! Graph, Varve.Management.Model.ManagementPosition Version, System.Collections.Generic.IReadOnlyList<string!>! Content, System.Collections.Generic.IReadOnlyList<string!>! Added, System.Collections.Generic.IReadOnlyList<string!>! Removed) -> void
+Varve.Management.Model.GraphPlan.Removed.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Varve.Management.Model.GraphPlan.Removed.init -> void
+Varve.Management.Model.GraphPlan.Version.get -> Varve.Management.Model.ManagementPosition
+Varve.Management.Model.GraphPlan.Version.init -> void
+Varve.Management.Model.GraphSet
+Varve.Management.Model.GraphSet.All.get -> bool
+Varve.Management.Model.GraphSet.All.init -> void
+Varve.Management.Model.GraphSet.DefaultGraph.get -> bool
+Varve.Management.Model.GraphSet.DefaultGraph.init -> void
+Varve.Management.Model.GraphSet.GraphSet() -> void
+Varve.Management.Model.GraphSet.Graphs.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Management.Model.GraphSet.Graphs.init -> void
+Varve.Management.Model.GraphSet.IsEmpty.get -> bool
+Varve.Management.Model.GraphSet.Prefixes.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Varve.Management.Model.GraphSet.Prefixes.init -> void
+Varve.Management.Model.GraphSet.Templates.get -> System.Collections.Generic.IReadOnlyList<Varve.Management.Model.GraphTemplate!>!
+Varve.Management.Model.GraphSet.Templates.init -> void
+Varve.Management.Model.GraphTemplate
+Varve.Management.Model.GraphTemplate.<Clone>$() -> Varve.Management.Model.GraphTemplate!
+Varve.Management.Model.GraphTemplate.Deconstruct(out string! Template, out Varve.Management.Model.TemplateMatch Match) -> void
+Varve.Management.Model.GraphTemplate.Equals(Varve.Management.Model.GraphTemplate? other) -> bool
+Varve.Management.Model.GraphTemplate.GraphTemplate(string! Template, Varve.Management.Model.TemplateMatch Match) -> void
+Varve.Management.Model.GraphTemplate.Match.get -> Varve.Management.Model.TemplateMatch
+Varve.Management.Model.GraphTemplate.Match.init -> void
+Varve.Management.Model.GraphTemplate.Template.get -> string!
+Varve.Management.Model.GraphTemplate.Template.init -> void
+Varve.Management.Model.HistoryScope
+Varve.Management.Model.HistoryScope.AllHistory = 0 -> Varve.Management.Model.HistoryScope
+Varve.Management.Model.HistoryScope.Current = 1 -> Varve.Management.Model.HistoryScope
+Varve.Management.Model.ManagementPosition
+Varve.Management.Model.ManagementPosition.Equals(Varve.Management.Model.ManagementPosition other) -> bool
+Varve.Management.Model.ManagementPosition.ManagementPosition() -> void
+Varve.Management.Model.ManagementPosition.ManagementPosition(long value) -> void
+Varve.Management.Model.ManagementPosition.Value.get -> long
+Varve.Management.Model.Principal
+Varve.Management.Model.Principal.ClaimType.get -> string!
+Varve.Management.Model.Principal.ClaimType.init -> void
+Varve.Management.Model.Principal.Deconstruct(out Varve.Management.Model.PrincipalKind Kind, out string! ClaimType, out string! Value) -> void
+Varve.Management.Model.Principal.Equals(Varve.Management.Model.Principal other) -> bool
+Varve.Management.Model.Principal.Kind.get -> Varve.Management.Model.PrincipalKind
+Varve.Management.Model.Principal.Kind.init -> void
+Varve.Management.Model.Principal.Principal() -> void
+Varve.Management.Model.Principal.Principal(Varve.Management.Model.PrincipalKind Kind, string! ClaimType, string! Value) -> void
+Varve.Management.Model.Principal.Value.get -> string!
+Varve.Management.Model.Principal.Value.init -> void
+Varve.Management.Model.PrincipalKind
+Varve.Management.Model.PrincipalKind.Agent = 0 -> Varve.Management.Model.PrincipalKind
+Varve.Management.Model.PrincipalKind.Group = 2 -> Varve.Management.Model.PrincipalKind
+Varve.Management.Model.PrincipalKind.Role = 1 -> Varve.Management.Model.PrincipalKind
+Varve.Management.Model.StorageKind
+Varve.Management.Model.StorageKind.File = 0 -> Varve.Management.Model.StorageKind
+Varve.Management.Model.StorageKind.Memory = 1 -> Varve.Management.Model.StorageKind
+Varve.Management.Model.StorageKind.ObjectStorage = 2 -> Varve.Management.Model.StorageKind
+Varve.Management.Model.TemplateMatch
+Varve.Management.Model.TemplateMatch.Exact = 0 -> Varve.Management.Model.TemplateMatch
+Varve.Management.Model.TemplateMatch.Prefix = 1 -> Varve.Management.Model.TemplateMatch
+const Varve.Management.ManagementVocabulary.BootstrapGraphIri = "https://w3id.org/varve/ns#manage/bootstrap" -> string!
+const Varve.Management.ManagementVocabulary.DatasetGraphPrefix = "https://w3id.org/varve/ns#manage/dataset/" -> string!
+const Varve.Management.ManagementVocabulary.FleetGraphIri = "https://w3id.org/varve/ns#manage/fleet" -> string!
+const Varve.Management.ManagementVocabulary.ManagePrefix = "https://w3id.org/varve/ns#manage/" -> string!
+const Varve.Management.ManagementVocabulary.Namespace = "https://w3id.org/varve/ns#" -> string!
+override Varve.Management.Model.BindingDeclaration.Equals(object? obj) -> bool
+override Varve.Management.Model.BindingDeclaration.GetHashCode() -> int
+override Varve.Management.Model.BindingDeclaration.ToString() -> string!
+override Varve.Management.Model.DeclarationFinding.Equals(object? obj) -> bool
+override Varve.Management.Model.DeclarationFinding.GetHashCode() -> int
+override Varve.Management.Model.DeclarationFinding.ToString() -> string!
+override Varve.Management.Model.GrantDeclaration.Equals(object? obj) -> bool
+override Varve.Management.Model.GrantDeclaration.GetHashCode() -> int
+override Varve.Management.Model.GrantDeclaration.ToString() -> string!
+override Varve.Management.Model.GraphPlan.Equals(object? obj) -> bool
+override Varve.Management.Model.GraphPlan.GetHashCode() -> int
+override Varve.Management.Model.GraphPlan.ToString() -> string!
+override Varve.Management.Model.GraphTemplate.Equals(object? obj) -> bool
+override Varve.Management.Model.GraphTemplate.GetHashCode() -> int
+override Varve.Management.Model.GraphTemplate.ToString() -> string!
+override Varve.Management.Model.ManagementPosition.GetHashCode() -> int
+override Varve.Management.Model.ManagementPosition.ToString() -> string!
+override Varve.Management.Model.Principal.GetHashCode() -> int
+static Varve.Management.DeclarationReader.Read(Varve.Rdf.IQuadSource! source) -> Varve.Management.Model.Declarations!
+static Varve.Management.GrantTable.Compile(Varve.Management.Model.Declarations! declarations, Varve.Management.Model.ManagementPosition position, System.Collections.Generic.IReadOnlyList<string!>! bootstrap) -> Varve.Management.GrantTable!
+static Varve.Management.GrantTable.Empty(System.Collections.Generic.IReadOnlyList<string!>! bootstrap) -> Varve.Management.GrantTable!
+static Varve.Management.GraphTemplates.Check(string! template) -> string?
+static Varve.Management.GraphTemplates.Expand(Varve.Management.Model.GraphTemplate! template, Varve.Management.Model.Caller! caller) -> string?
+static Varve.Management.ManagementPlan.CanonicalLines(Varve.Rdf.IQuadSource! source, Varve.Rdf.RdfTerm! graph) -> System.Collections.Generic.List<string!>!
+static Varve.Management.ManagementPlan.Compute(Varve.Rdf.IQuadSource! desired, System.Collections.Generic.IEnumerable<Varve.Rdf.RdfTerm!>! owned, Varve.Rdf.IQuadSource! current, System.Collections.Generic.IReadOnlyDictionary<Varve.Rdf.RdfTerm!, Varve.Management.Model.ManagementPosition>! versions, Varve.Management.Model.ManagementPosition position) -> Varve.Management.ManagementPlan!
+static Varve.Management.ManagementPlan.FromJson(System.ReadOnlySpan<byte> utf8) -> Varve.Management.ManagementPlan!
+static Varve.Management.ManagementPlan.NamedGraphs(Varve.Rdf.IQuadSource! source) -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+static Varve.Management.ManagementTrig.TryParse(System.ReadOnlySpan<byte> utf8, string? baseIri, out string? error) -> Varve.Rdf.InMemoryDataset?
+static Varve.Management.ManagementTrig.Write(Varve.Rdf.IQuadSource! source, System.Collections.Generic.IEnumerable<Varve.Rdf.RdfTerm!>! graphs) -> byte[]!
+static Varve.Management.ManagementVocabulary.BootstrapGraph.get -> Varve.Rdf.RdfTerm!
+static Varve.Management.ManagementVocabulary.DatasetGraph(string! dataset) -> Varve.Rdf.RdfTerm!
+static Varve.Management.ManagementVocabulary.FleetGraph.get -> Varve.Rdf.RdfTerm!
+static Varve.Management.ManagementVocabulary.IsDatasetName(string? name) -> bool
+static Varve.Management.ManagementVocabulary.IsManagementGraph(Varve.Rdf.RdfTerm! graph) -> bool
+static Varve.Management.ManagementVocabulary.TryGetDataset(Varve.Rdf.RdfTerm! graph, out string? dataset) -> bool
+static Varve.Management.Model.BindingDeclaration.operator !=(Varve.Management.Model.BindingDeclaration? left, Varve.Management.Model.BindingDeclaration? right) -> bool
+static Varve.Management.Model.BindingDeclaration.operator ==(Varve.Management.Model.BindingDeclaration? left, Varve.Management.Model.BindingDeclaration? right) -> bool
+static Varve.Management.Model.DeclarationFinding.operator !=(Varve.Management.Model.DeclarationFinding? left, Varve.Management.Model.DeclarationFinding? right) -> bool
+static Varve.Management.Model.DeclarationFinding.operator ==(Varve.Management.Model.DeclarationFinding? left, Varve.Management.Model.DeclarationFinding? right) -> bool
+static Varve.Management.Model.Declarations.Empty.get -> Varve.Management.Model.Declarations!
+static Varve.Management.Model.GrantDeclaration.operator !=(Varve.Management.Model.GrantDeclaration? left, Varve.Management.Model.GrantDeclaration? right) -> bool
+static Varve.Management.Model.GrantDeclaration.operator ==(Varve.Management.Model.GrantDeclaration? left, Varve.Management.Model.GrantDeclaration? right) -> bool
+static Varve.Management.Model.GraphPlan.operator !=(Varve.Management.Model.GraphPlan? left, Varve.Management.Model.GraphPlan? right) -> bool
+static Varve.Management.Model.GraphPlan.operator ==(Varve.Management.Model.GraphPlan? left, Varve.Management.Model.GraphPlan? right) -> bool
+static Varve.Management.Model.GraphSet.Everything.get -> Varve.Management.Model.GraphSet!
+static Varve.Management.Model.GraphTemplate.operator !=(Varve.Management.Model.GraphTemplate? left, Varve.Management.Model.GraphTemplate? right) -> bool
+static Varve.Management.Model.GraphTemplate.operator ==(Varve.Management.Model.GraphTemplate? left, Varve.Management.Model.GraphTemplate? right) -> bool
+static Varve.Management.Model.ManagementPosition.operator !=(Varve.Management.Model.ManagementPosition left, Varve.Management.Model.ManagementPosition right) -> bool
+static Varve.Management.Model.ManagementPosition.operator ==(Varve.Management.Model.ManagementPosition left, Varve.Management.Model.ManagementPosition right) -> bool
+static Varve.Management.Model.Principal.Agent(string! iri) -> Varve.Management.Model.Principal
+static Varve.Management.Model.Principal.Group(string! claimType, string! value) -> Varve.Management.Model.Principal
+static Varve.Management.Model.Principal.Role(string! value) -> Varve.Management.Model.Principal
+static Varve.Management.Model.Principal.operator !=(Varve.Management.Model.Principal left, Varve.Management.Model.Principal right) -> bool
+static Varve.Management.Model.Principal.operator ==(Varve.Management.Model.Principal left, Varve.Management.Model.Principal right) -> bool
+~override Varve.Management.Model.ManagementPosition.Equals(object obj) -> bool
+~override Varve.Management.Model.Principal.Equals(object obj) -> bool
+~override Varve.Management.Model.Principal.ToString() -> string
+static Varve.Management.ManagementTrig.TryParseLines(System.Collections.Generic.IEnumerable<string!>! lines, out string? error) -> Varve.Rdf.InMemoryDataset?
+Varve.Management.Model.DatasetDeclaration.Closed.get -> bool
+Varve.Management.Model.DatasetDeclaration.Closed.init -> void
+Varve.Management.GrantTable.Writes(Varve.Management.Model.Caller! caller, string! dataset) -> bool

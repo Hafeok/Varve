@@ -75,6 +75,30 @@ internal static class SparqlEndpoint
 
     private static async Task PostAsync(HttpContext context, ProtocolOptions options)
     {
+        // An update to a dataset another instance writes goes there, before it
+        // is authorised here (ADR 0168); a form says which it is only in its body.
+        Body? early = null;
+
+        if (options.Writers is not null && Exchange.RouteTarget(context) is { } target
+            && MediaTypes.TryReadContentType(context.Request.ContentType, out string earlyType, out _))
+        {
+            if (earlyType == MediaTypes.SparqlUpdate && await Forwarding.RouteAsync(context, options, target).ConfigureAwait(false))
+            {
+                return;
+            }
+
+            if (earlyType == MediaTypes.Form)
+            {
+                early = await RequestBodies.ReadAsync(context, options.Limits).ConfigureAwait(false);
+
+                if (early.Value.Bytes is { } bytes && Field(RequestBodies.ReadForm(bytes), "update").Count > 0
+                    && await Forwarding.RouteAsync(context, options, target, bytes).ConfigureAwait(false))
+                {
+                    return;
+                }
+            }
+        }
+
         // Read is the least any POST needs; an update asks for write too.
         if (await Exchange.BeginAsync(context, options, DatasetPermissions.Read).ConfigureAwait(false) is not { } exchange)
         {
@@ -101,7 +125,7 @@ internal static class SparqlEndpoint
             return;
         }
 
-        Body body = await RequestBodies.ReadAsync(context, options.Limits).ConfigureAwait(false);
+        Body body = early ?? await RequestBodies.ReadAsync(context, options.Limits).ConfigureAwait(false);
 
         if (body.TooLarge)
         {

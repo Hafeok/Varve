@@ -86,6 +86,8 @@ internal static partial class Program
             {
                 await DeterminismAsync(report, ct);
             }
+
+            await ShaclAsync(report);
         }
         catch (Exception e)
         {
@@ -93,6 +95,20 @@ internal static partial class Program
         }
 
         return report.Finish();
+    }
+
+    /// <summary>
+    /// SHACL, part 1 (#120) in the browser: the AOT smoke's
+    /// <see cref="Varve.AotSmoke.ShaclSmoke"/>, the same file, whose answers,
+    /// the report's canonical hash among them, must be the desktop's.
+    /// </summary>
+    private static async Task ShaclAsync(Report report)
+    {
+        (string shacl, string regex) = await Varve.AotSmoke.ShaclSmoke.RunAsync();
+        report.Line(shacl);
+        report.Line(regex);
+        report.Check("SHACL validates a pinned view with SHACL-SPARQL and an XPath pattern, as on the desktop", shacl == Varve.AotSmoke.ShaclSmoke.ExpectedShacl);
+        report.Check("REGEX and REPLACE take XPath syntax, as on the desktop", regex == Varve.AotSmoke.ShaclSmoke.ExpectedRegex);
     }
 
     private static BrowserStorageOptions Options() => new() { Clock = DeterministicScript.Clock() };

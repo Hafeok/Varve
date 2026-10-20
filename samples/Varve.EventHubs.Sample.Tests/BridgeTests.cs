@@ -54,13 +54,14 @@ public sealed class BridgeTests
         // holds this run's events under a key no other run used.
         string name = "shop" + Guid.NewGuid().ToString("N")[..8];
         int port = FreePort();
-        using Process varve = StartVarve(port, name);
+        using Process varve = StartVarve(port);
         string checkpointPath = Path.Combine(Path.GetTempPath(), "varve-bridge-" + name + ".checkpoint");
 
         try
         {
             using HttpClient http = new() { Timeout = Timeout.InfiniteTimeSpan };
             await WaitReadyAsync(http, port);
+            await DeclareAsync(http, port, name);
             SparqlHttpClient client = new(http, new Uri("http://127.0.0.1:" + port + "/datasets/" + name + "/"), ClientLimits.Default);
 
             List<string> expected = await WriteHistoryAsync(client, new Random(93));
@@ -288,7 +289,7 @@ public sealed class BridgeTests
         return string.Empty;
     }
 
-    private static Process StartVarve(int port, string dataset)
+    private static Process StartVarve(int port)
     {
         ProcessStartInfo start = new("dotnet")
         {
@@ -300,7 +301,6 @@ public sealed class BridgeTests
             Path.Combine(AppContext.BaseDirectory, "Varve.Server.dll"),
             "--urls=http://127.0.0.1:" + port,
             "--Varve:Auth:Mode=Anonymous",
-            "--Varve:Datasets:" + dataset + ":Storage=Memory",
         ])
         {
             start.ArgumentList.Add(argument);
@@ -314,6 +314,18 @@ public sealed class BridgeTests
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
         return process;
+    }
+
+    // A dataset declared in the server's management plane (ADR 0163), as an
+    // anonymous server takes it.
+    private static async Task DeclareAsync(HttpClient http, int port, string dataset, string grants = "")
+    {
+        using StringContent trig = new(
+            "<urn:test:" + dataset + "> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> \"" + dataset + "\" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#Memory> .\n" + grants,
+            System.Text.Encoding.UTF8,
+            "application/trig");
+        using HttpResponseMessage declared = await http.PutAsync(new Uri("http://127.0.0.1:" + port + "/manage/datasets/" + dataset), trig, Ct);
+        Assert.True(declared.IsSuccessStatusCode, "The declaration of " + dataset + " was refused: " + (int)declared.StatusCode);
     }
 
     private static async Task WaitReadyAsync(HttpClient http, int port)

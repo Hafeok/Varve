@@ -138,3 +138,83 @@ workflow starts a container, and a test reads where it is and skips when it is
 absent, unless `VARVE_STORAGE_LEGS_REQUIRED` names its leg.
 
 **The ledger.** The rulings are ADR 0134's `the-object-store-contract` set.
+
+## Amendment, 2026-10-19 — CI's test containers from this repository's mirror
+
+Filed by #118, unaccepted until the maintainer accepts it (ADR 0066).
+
+**Why.** Point 4 takes the test containers from "a registry without an
+anonymous pull limit", and ECR Public's anonymous data cap is one:
+- on 2026-10-16 it refused `container (linux-x64)`'s PostgreSQL pull on `main`
+  (run 38890772587);
+- from 2026-10-18 10:16 to 2026-10-19 06:41 it refused `auth (zitadel)`'s pull
+  on every run, on every runner, and on the maintainer's machine.
+
+The job count that shares a runner's address keeps growing.
+
+**The decision.**
+- **One list.** `.github/ci-images.yaml` lists every third-party test container
+  CI starts. Each row gives:
+  - the upstream reference;
+  - the manifest digest, which pins every platform;
+  - the licence;
+  - the jobs that start it;
+  - why.
+- **One mirror.** `mirror-ci-images.yml` runs on `main` only, when the list
+  changes or by dispatch.
+  - It copies each row by digest, a carbon copy of the index, to a private
+    package of this repository: `ghcr.io/hafeok/varve-ci/<name>`.
+  - It checks that the copy's digest is the pinned one, and that the package
+    is not readable anonymously.
+  - The packages are linked to this repository and readable by its Actions.
+    Nothing is redistributed.
+- **CI pulls only from the mirror**, after `docker login ghcr.io` with
+  `GITHUB_TOKEN` (`packages: read`). The exceptions:
+  - **A row marked `mirror: false` with a stated reason** is pulled upstream at
+    its digest. That is only the Event Hubs emulator: its licence is a
+    proprietary EULA, a hosted copy would raise a redistribution question, and
+    `mcr.microsoft.com` has no anonymous limit.
+  - **`ghcr.io/hafeok/varve`**, this repository's own image, which CI builds.
+  - **Not test containers, so not in the list:** the devcontainer's base image,
+    and the server Dockerfile's chiseled base. The chiseled base is the
+    shipped image's, and its provenance and SBOM name its registry (ADR 0111).
+- **Code that starts a container itself** names the upstream image pinned by
+  the row's digest, so that anyone can run it. The CI job that runs it
+  overrides it to the mirror, and the row's `allowances` name the file and
+  that job. Two such places exist:
+  - the Aspire sample's issuer (`Varve:IssuerImage`, ADR 0117);
+  - `Varve.Aspire`, which starts only `ghcr.io/hafeok/varve`.
+- **A mirror may be seeded by hand from any registry at the pinned digest.**
+  The digest is the image's identity, and the source is not. CI itself still
+  never pulls from Docker Hub. The mirror workflow checks a package already
+  present as it checks a copy. PostgreSQL was seeded this way on 2026-10-19,
+  from `docker.io/library/postgres`, while ECR refused every caller.
+- **A new row comes out public on its first copy.** A package a workflow
+  creates in a public repository inherits its visibility. So the first run
+  after a new row is red, by design. The maintainer then makes the package
+  private in its settings and re-runs the workflow, which finds the package
+  present and passes. This is the expected sequence for every new row.
+- **Updates come from the list, not from Dependabot.** Its docker-compose
+  ecosystem is switched off for these files, since it cannot read the mirror.
+  `ci-images-upstream.yml` runs weekly. It compares each upstream tag's
+  digest with the pinned one, and opens or updates one issue listing the
+  differences. A bump is a pull request to the list and to the reference.
+- **Local runs, the devcontainer's included,** use the upstream references at
+  the same digests. `dotnet run eng/ci-images.cs -- --local <compose file>`
+  writes the override (`CONTRIBUTING.md`).
+- **The gate** is `eng/ci-images.cs`, a job in `eng/ci.cs`. Every image
+  reference under `.github/`, and every image C# names, must be the mirror's
+  at the listed digest, or one of the exceptions above. Its fixture, which
+  references an upstream image directly, must fail it.
+
+**#118's done-when, narrowed.** Every third-party test container CI starts
+comes from `ghcr.io/hafeok/varve-ci/`, or is a `mirror: false` row. The two
+base images above are the stated exceptions.
+
+The rest of point 4 stands:
+- the workflow starts the containers, and no test or package does;
+- every image is pinned by digest;
+- CI never pulls from Docker Hub.
+
+**The ledger.** The rulings of this block are `TestContainersFromTheMirror`
+and `MirrorSeededByDigest`, unaccepted until the maintainer accepts them.

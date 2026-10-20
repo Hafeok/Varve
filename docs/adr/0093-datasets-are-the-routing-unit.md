@@ -113,3 +113,15 @@ is its current state (ADR 0118):
 dataset. **The ledger.** `DatasetRoutes` stands as accepted; the ruling of
 this block is `DatasetRoutesAfterAlignment`, unaccepted until the maintainer
 accepts it.
+## Amendment, 2026-10-19 — datasets are declared, and four resources move
+
+Filed by milestone Management plane of #105, unaccepted until the maintainer
+accepts it (ADR 0066).
+
+Datasets are declared in the system dataset and created by the instance they are
+placed on (ADR [0163](0163-the-management-plane.md)), and `state`, `settings`,
+`status` and `checkpoints` move under `/manage/datasets/{name}/`. The dataset
+stays the routing unit of the data plane.
+
+**The ledger.** `DatasetsCreatedByConfiguration` and `DatasetRoutesAfterAlignment`
+move to ADR 0163's set, superseded.

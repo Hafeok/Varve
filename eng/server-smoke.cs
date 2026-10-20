@@ -101,7 +101,7 @@ ProcessStartInfo start = new(binary)
     UseShellExecute = false,
 };
 
-foreach (string arg in (string[])["--urls=http://127.0.0.1:0", "--Varve:Auth:Mode=Anonymous", "--Varve:DatasetsRoot=" + root, "--Varve:Datasets:smoke:Storage=File"])
+foreach (string arg in (string[])["--urls=http://127.0.0.1:0", "--Varve:Auth:Mode=Anonymous", "--Varve:DatasetsRoot=" + root])
 {
     start.ArgumentList.Add(arg);
 }
@@ -176,6 +176,18 @@ try
     if (ready.StatusCode != HttpStatusCode.OK)
     {
         return Fail("/health/ready is " + (int)ready.StatusCode);
+    }
+
+    // The directory the command line made is served once the management
+    // plane declares it (ADR 0163): a File dataset of that name under the root.
+    HttpResponseMessage declared = await client.PutAsync("manage/datasets/smoke", new StringContent(
+        "<urn:smoke> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> \"smoke\" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#File> .",
+        Encoding.UTF8,
+        "application/trig"));
+
+    if (declared.StatusCode != HttpStatusCode.Created)
+    {
+        return Fail("the declaration is " + (int)declared.StatusCode + ": " + await declared.Content.ReadAsStringAsync());
     }
 
     HttpResponseMessage update = await client.PostAsync("datasets/smoke/sparql", new StringContent("INSERT DATA { <http://ex/a> <http://ex/p> \"smoke\" }", Encoding.UTF8, "application/sparql-update"));

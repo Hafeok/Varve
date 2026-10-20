@@ -44,6 +44,30 @@ internal sealed class OidcClient(HttpClient http, string authority)
         return await TokenAsync(form, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Workload identity federation (RFC 7523 §2.2): the client credentials
+    /// flow, the client authenticated by <paramref name="assertion"/>, a token
+    /// its own platform issued it, never a secret.
+    /// </summary>
+    internal async Task<OidcTokens> ClientAssertionAsync(string clientId, string assertion, string? scope, CancellationToken cancellationToken)
+    {
+        await DiscoverAsync(cancellationToken).ConfigureAwait(false);
+        Dictionary<string, string> form = new()
+        {
+            ["grant_type"] = "client_credentials",
+            ["client_id"] = clientId,
+            ["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+            ["client_assertion"] = assertion,
+        };
+
+        if (scope is not null)
+        {
+            form["scope"] = scope;
+        }
+
+        return await TokenAsync(form, cancellationToken).ConfigureAwait(false);
+    }
+
     internal async Task<OidcTokens> RefreshAsync(string clientId, string? secret, string refreshToken, CancellationToken cancellationToken)
     {
         await DiscoverAsync(cancellationToken).ConfigureAwait(false);

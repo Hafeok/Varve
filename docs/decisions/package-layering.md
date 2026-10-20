@@ -36,4 +36,4 @@ Moved to later sets: the layer table to ADR 0060's (`LayerTable`); the declarati
 and which assemblies declare no layer to ADR 0064's (`LayerDeclaredPerProject`,
 `UnlayeredAssemblies`); the escape for a forbidden reference to ADR 0062's
 (`LayerExceptionEscape`). Open question 2 is closed by ADR 0048 and its answer is in that set.
-Open question 1 is an open question, not a ruling, and is not enumerated.
+Open question 1 is closed by ADR 0148 (amendment of 2026-10-17) and its answer is in that set.
