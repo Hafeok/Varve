@@ -40,9 +40,11 @@ public interface IShaclFootprint
 public sealed class FootprintContext
 {
     private readonly List<TermHandle> _anchors;
+    private readonly List<TermHandle> _values;
 
-    internal FootprintContext(IQuadSource data, GraphPattern dataGraph, TermHandle subject, TermHandle predicate, TermHandle @object, List<TermHandle> anchors)
+    internal FootprintContext(IQuadSource data, GraphPattern dataGraph, TermHandle subject, TermHandle predicate, TermHandle @object, List<TermHandle> anchors, List<TermHandle> values)
     {
+        _values = values;
         Data = data;
         DataGraph = dataGraph;
         Subject = subject;
@@ -75,5 +77,20 @@ public sealed class FootprintContext
         }
 
         _anchors.Add(focus);
+    }
+
+    /// <summary>
+    /// Adds a value node whose check may change — an ASK validator's
+    /// <c>$value</c> (SHACL-SPARQL §4.3) — by its handle in <see cref="Data"/>;
+    /// the focus nodes that reach it by the shape's path are affected.
+    /// </summary>
+    public void AddValueNode(TermHandle value)
+    {
+        if (value.IsNone)
+        {
+            throw new ArgumentException("A value node is a held term.", nameof(value));
+        }
+
+        _values.Add(value);
     }
 }

@@ -11,6 +11,7 @@ Varve.Shacl.ConstraintContext.ValueHandles.get -> System.Collections.Generic.IRe
 Varve.Shacl.ConstraintContext.ValueNodes.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
 Varve.Shacl.FootprintContext
 Varve.Shacl.FootprintContext.Add(Varve.Rdf.TermHandle focus) -> void
+Varve.Shacl.FootprintContext.AddValueNode(Varve.Rdf.TermHandle value) -> void
 Varve.Shacl.FootprintContext.Data.get -> Varve.Rdf.IQuadSource!
 Varve.Shacl.FootprintContext.DataGraph.get -> Varve.Rdf.GraphPattern
 Varve.Shacl.FootprintContext.Object.get -> Varve.Rdf.TermHandle
@@ -105,6 +106,8 @@ Varve.Shacl.ShaclOptions.ConformanceDisallows.get -> System.Collections.Generic.
 Varve.Shacl.ShaclOptions.ConformanceDisallows.init -> void
 Varve.Shacl.ShaclOptions.Extensions.get -> System.Collections.Generic.IReadOnlyList<Varve.Shacl.IShaclExtension!>!
 Varve.Shacl.ShaclOptions.Extensions.init -> void
+Varve.Shacl.ShaclOptions.RefuseNonDeterministicFunctions.get -> bool
+Varve.Shacl.ShaclOptions.RefuseNonDeterministicFunctions.init -> void
 Varve.Shacl.ShaclOptions.RegexTimeout.get -> System.TimeSpan
 Varve.Shacl.ShaclOptions.RegexTimeout.init -> void
 Varve.Shacl.ShaclOptions.ShaclOptions() -> void
@@ -126,6 +129,7 @@ Varve.Shacl.ShapesGraphContext
 Varve.Shacl.ShapesGraphContext.DeclareShapeParameter(Varve.Rdf.RdfTerm! predicate) -> void
 Varve.Shacl.ShapesGraphContext.Graph.get -> Varve.Rdf.GraphPattern
 Varve.Shacl.ShapesGraphContext.Refuse(Varve.Shacl.Model.ShaclProblem! problem) -> void
+Varve.Shacl.ShapesGraphContext.RefuseNonDeterministicFunctions.get -> bool
 Varve.Shacl.ShapesGraphContext.Source.get -> Varve.Rdf.IQuadSource!
 Varve.Shacl.ShapesLoad
 Varve.Shacl.ShapesLoad.Problems.get -> System.Collections.Generic.IReadOnlyList<Varve.Shacl.Model.ShaclProblem!>!

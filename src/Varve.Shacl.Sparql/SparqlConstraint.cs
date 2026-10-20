@@ -27,8 +27,9 @@ internal sealed class SparqlConstraint(
     List<(string Name, RdfTerm Value)> parameters,
     bool ask,
     bool nodeShape,
-    EvaluationOptions options) : IShaclConstraint
+    EvaluationOptions options) : IShaclConstraint, IShaclFootprint
 {
+    private readonly QueryFootprint _footprint = QueryFootprint.Of(query, Prebound(parameters, ask));
     private const string FailureTrue = "true";
 
     public RdfTerm Component => component;
@@ -36,6 +37,40 @@ internal sealed class SparqlConstraint(
     public RdfTerm? SourceConstraint => sourceConstraint;
 
     public RdfTerm? Severity => severity;
+
+    /// <summary>Scoped when every pattern is joined to <c>$this</c> or <c>$value</c>, full otherwise (ADR 0171 §4).</summary>
+    public Maintainability Maintainability => _footprint.Maintainability;
+
+    /// <summary>What decided the class.</summary>
+    public string Construct => _footprint.Unanalysable is { } why
+        ? "a SPARQL-based constraint that cannot be analysed: " + why
+        : "a SPARQL-based constraint, by its join paths to $this";
+
+    /// <summary>A function whose value depends on the clock or on chance, or null (ADR 0169).</summary>
+    internal string? NonDeterministic => _footprint.NonDeterministic;
+
+    /// <inheritdoc />
+    public void Anchors(FootprintContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        _footprint.Anchors(context);
+    }
+
+    private static List<string> Prebound(List<(string Name, RdfTerm Value)> parameters, bool ask)
+    {
+        List<string> names = ["this"];
+        foreach ((string name, RdfTerm _) in parameters)
+        {
+            names.Add(name);
+        }
+
+        if (ask)
+        {
+            names.Add("value");
+        }
+
+        return names;
+    }
 
     public void Validate(ConstraintContext context)
     {

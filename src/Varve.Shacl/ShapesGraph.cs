@@ -63,7 +63,7 @@ public sealed class ShapesGraph
         cancellationToken.ThrowIfCancellationRequested();
 
         ShapesSource shapes = new(source, graph);
-        ShapesReader reader = new(shapes, options.Extensions);
+        ShapesReader reader = new(shapes, options.Extensions, options.RefuseNonDeterministicFunctions);
         List<Shape> read = reader.Read();
         List<ShaclProblem> problems = [.. reader.Problems];
         if (problems.Count == 0)

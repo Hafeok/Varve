@@ -286,14 +286,19 @@ internal sealed class AffectedPairs
                 case ExtensionConstraint { Inner: IShaclFootprint footprint }:
                     if (x.IsHeld && p.IsHeld && y.IsHeld)
                     {
-                        List<TermHandle> anchors = [];
-                        footprint.Anchors(new FootprintContext(data.Source, data.Graph, x.Handle, p.Handle, y.Handle, anchors));
+                        List<TermHandle> anchors = [], valueAnchors = [];
+                        footprint.Anchors(new FootprintContext(data.Source, data.Graph, x.Handle, p.Handle, y.Handle, anchors, valueAnchors));
                         foreach (TermHandle anchor in anchors)
                         {
                             if (seen.Add(Node.Held(anchor)))
                             {
                                 focus.Add(Node.Held(anchor));
                             }
+                        }
+
+                        foreach (TermHandle anchor in valueAnchors)
+                        {
+                            values.Add(Node.Held(anchor));
                         }
                     }
 

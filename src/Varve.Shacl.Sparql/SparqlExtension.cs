@@ -63,7 +63,7 @@ internal sealed class SparqlExtension(EvaluationOptions options) : IShaclExtensi
             }
         }
 
-        return new Scope(view, components, options);
+        return new Scope(view, components, options, context.RefuseNonDeterministicFunctions);
     }
 
     /// <summary>§4.2: a SPARQL-based constraint component, its parameters and validators.</summary>
@@ -128,7 +128,7 @@ internal sealed class SparqlExtension(EvaluationOptions options) : IShaclExtensi
 
     private sealed record Component(TermHandle Node, RdfTerm Term, List<Parameter> Parameters);
 
-    private sealed class Scope(ShapesView view, List<Component> components, EvaluationOptions options) : IShaclExtensionScope
+    private sealed class Scope(ShapesView view, List<Component> components, EvaluationOptions options, bool refuseNonDeterministic) : IShaclExtensionScope
     {
         public void Load(ShapeContext shape)
         {
@@ -180,7 +180,7 @@ internal sealed class SparqlExtension(EvaluationOptions options) : IShaclExtensi
             List<RdfTerm> messages = Terms(view.Objects(node, Vocabulary.Message));
             if (Parse(shape, node, term, Encoding.UTF8.GetString(select.Lexical), path, ["this"], expectSelect: true) is { } query)
             {
-                shape.Add(new SparqlConstraint(Vocabulary.SparqlConstraintComponent, term, severity, messages, query, [], ask: false, nodeShape: path is null, options));
+                Add(shape, term, new SparqlConstraint(Vocabulary.SparqlConstraintComponent, term, severity, messages, query, [], ask: false, nodeShape: path is null, options));
             }
         }
 
@@ -238,7 +238,7 @@ internal sealed class SparqlExtension(EvaluationOptions options) : IShaclExtensi
 
                 if (Parse(shape, v, component.Term, Encoding.UTF8.GetString(text.Lexical), path, prebound, expectSelect: !ask) is { } query)
                 {
-                    shape.Add(new SparqlConstraint(component.Term, null, null, messages, query, binding, ask, nodeShape: shape.Path is null, options));
+                    Add(shape, component.Term, new SparqlConstraint(component.Term, null, null, messages, query, binding, ask, nodeShape: shape.Path is null, options));
                 }
             }
         }
@@ -305,5 +305,17 @@ internal sealed class SparqlExtension(EvaluationOptions options) : IShaclExtensi
         }
 
         private List<RdfTerm> Terms(List<TermHandle> handles) => handles.ConvertAll(view.Term);
+
+        /// <summary>Adds the constraint, or refuses it when a binding forbids its non-deterministic function (ADR 0169).</summary>
+        private void Add(ShapeContext shape, RdfTerm owner, SparqlConstraint constraint)
+        {
+            if (refuseNonDeterministic && constraint.NonDeterministic is { } function)
+            {
+                shape.Refuse(Problem(owner, "the query calls " + function + ", whose value depends on the clock or on chance, so a validation cannot be repeated; a shapes binding refuses it (ADR 0169)"));
+                return;
+            }
+
+            shape.Add(constraint);
+        }
     }
 }

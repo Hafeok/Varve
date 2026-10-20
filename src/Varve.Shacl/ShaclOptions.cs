@@ -40,6 +40,15 @@ public sealed class ShaclOptions
     /// </summary>
     public IReadOnlyList<RdfTerm>? ConformanceDisallows { get; init; }
 
+    /// <summary>
+    /// Refuse, at load, a constraint whose value depends on the clock or on
+    /// chance — SPARQL's <c>NOW()</c>, <c>RAND()</c>, <c>UUID()</c> and
+    /// <c>STRUUID()</c>, and <c>BNODE()</c> whose value can reach a result —
+    /// since a validation that uses one cannot be repeated (ADR 0169). False
+    /// by default; a shapes binding not <c>off</c> sets it.
+    /// </summary>
+    public bool RefuseNonDeterministicFunctions { get; init; }
+
     /// <summary>The RDFC-1.0 options that label the report's own blank nodes (ADR 0154).</summary>
     public CanonicalisationOptions Canonicalisation { get; init; } = CanonicalisationOptions.Default;
 }
