@@ -43,9 +43,19 @@ where Varve is the wrong tool: [`docs/why.md`](docs/why.md).
 
 ## Status
 
-**`v0.1.0-preview.10` is the latest release, and it closed the first part
+**`v0.1.0-preview.11` is the latest release, and it completed the first half
+([#138](https://github.com/Hafeok/Varve/issues/138)) of SHACL's part 2, under
+milestone 8 ([#13](https://github.com/Hafeok/Varve/issues/13))**: a shapes
+binding, declared on the management plane, gates a dataset's commits —
+`reject` refuses a commit that introduces a violation, `report` records the
+affected report's digest on the commit — validating only the focus nodes a
+commit affects, with every shapes graph classed by what it can maintain
+incrementally, and `Varve.Derivation` for the dependency graphs, regular
+paths and propagation SHACL and Inference share. The validation projection,
+shapes for the declarations and the REC gate are the second half.
+`v0.1.0-preview.10` before it closed the first part
 ([#131](https://github.com/Hafeok/Varve/issues/131)) of milestone Management
-plane ([#105](https://github.com/Hafeok/Varve/issues/105))**: grants, datasets
+plane ([#105](https://github.com/Hafeok/Varve/issues/105)): grants, datasets
 and settings declared as TriG and applied with `varve apply`, a system dataset
 per fleet that every server follows, grants enforced at the position each
 server has applied, and writes forwarded to their dataset's writer.
@@ -110,6 +120,7 @@ and it ships inside every package.
 | `Varve.RdfXml` | 2 | RDF/XML over `System.Xml`'s reader and writer, with RDF 1.2's triple terms, annotations and directions | working |
 | `Varve.JsonLd` | 2 | JSON-LD 1.1 over `Utf8JsonReader`: expansion, toRdf and fromRdf, `rdf:JSON` in canonical form | working |
 | `Varve.Sparql` | 2 | SPARQL 1.1 Query and Update as an immutable algebra, with the 1.2 additions; the parser and the serialiser | working |
+| `Varve.Derivation` | 2 | the shared core of derivation: dependency graphs and their stratification, regular paths compiled to automata and evaluated forwards, backwards and from a changed edge, and semi-naive propagation | working |
 | `Varve.Sparql.Results` | 2 | the SPARQL results formats — XML, JSON, CSV, TSV — as pull readers and streaming writers | working |
 | `Varve.Delta` | 3 | the change feed's format, `application/vnd.varve.delta` version 1, read for ever: the reader, the writer and the record model, with no store in it | working |
 | `Varve.Sparql.Evaluation` | 3 | the optimiser and evaluator: every operator, the function library, aggregates, property paths, `SERVICE` through a handler, over any quad source | working |
@@ -121,6 +132,7 @@ and it ships inside every package.
 | `Varve.Management` | 4 | the management plane's declarations: the `varve:` vocabulary for datasets, settings, placement and grants, their reader and code validator, grants over a caller with graph templates, and the RDFC-1.0 plan `varve apply` converges | working |
 | `Varve.Store` | 4 | the log, the default projection, pinned and as-of reads, checkpoints, subscriptions, dataset validators, the staging view, the bulk loader, replicas by file copy; checkpoints as extent sets with validity intervals; `log/` format 1, `derived/` format 4, reading format 3 | working |
 | `Varve.Sparql.Store` | 5 | SPARQL Update over the store: one request, one commit, `LOAD` through a caller's source, read and write scopes by graph | working |
+| `Varve.Shacl.Store` | 5 | commit-time gating under a shapes binding: a dataset validator that validates the focus nodes a commit affects and refuses new violations (`reject`) or attaches the affected report's digest (`report`) | working |
 | `Varve.Store.Browser` | 5 | the store in a browser: the origin private file system through synchronous access handles in a worker, or IndexedDB | working |
 | `Varve.Store.ObjectStorage` | 5 | the store in any object store with conditional writes: the log as write-once chunk objects, one writer by an epoch fenced in the log, a local cache | working |
 | `Varve.Store.Azure` | 5 | Azure Blob Storage for the object-storage backend, over the REST API, authenticated by the workload's identity | working |
@@ -329,7 +341,7 @@ is the Native AOT binary and nothing else:
 
 ```bash
 dotnet tool install --global Varve.Server --prerelease
-docker pull ghcr.io/hafeok/varve:v0.1.0-preview.10
+docker pull ghcr.io/hafeok/varve:v0.1.0-preview.11
 ```
 
 Serve one dataset on your machine. `--anonymous` is for development only: a
@@ -338,7 +350,7 @@ real deployment takes OIDC bearer tokens ([ADR 0037](docs/adr/0037-server-authen
 ```bash
 varve serve --anonymous --datasets-root "$PWD/data"
 # or, listening on 8080 instead of 5000, with the datasets in the image's volume:
-docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.10 serve --anonymous
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.11 serve --anonymous
 
 # then declare the dataset in the management plane (ADR 0163):
 curl -X PUT http://localhost:5000/manage/datasets/people -H 'Content-Type: application/trig' \

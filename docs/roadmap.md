@@ -51,7 +51,7 @@ decisions it presupposes.
 | Managed storage engine for the projections | **Open** — `docs/research/managed-storage-engines.md` narrows it; ADR 0018 states the contract requirements. Decided at milestone 6. |
 | GDPR-style hard deletion in an append-only model | **Resolved** — ADR 0023: crypto-shredding, opt-in per dataset, access by key id; ADR 0028: the cipher, after 0020 failed its browser condition. 0028 is conditional on an external cryptographic review before milestone 9 ships. Remaining: **Q4**, **Q5**, **Q8**, **Q9**. |
 | Commit-time validation cost versus write latency, and what a validator may read | **Resolved** — ADR 0017: the overlay of the pending delta on the pinned state, and nothing else; the hook is inside the sequencer, so validation is write latency by construction. |
-| Incremental SHACL — which shapes are incrementally maintainable | **Open** — not addressed by this set. Due milestone 8. |
+| Incremental SHACL — which shapes are incrementally maintainable | **Resolved** — ADR 0171: by footprint, anchored in both states, to a least fixpoint over the shapes' dependencies; every shapes graph is classed incremental, scoped or full, statically. |
 
 The pre-commit validator hook is specified here even though no validator exists
 until milestone 8, and the key store, classifier and selector contracts are
@@ -539,8 +539,9 @@ landing decides the number. Only released and in-flight numbers are shown.
 | — | **Management plane**, part 1: fleet system dataset, grants as code, `varve apply`, forwarding | `preview.10` | Commit path, Object storage, Client and integration | issue #131 (part 1 landed) |
 | — | **Management plane**, part 2: event schemas in the management plane | next free | part 1 | issue #105 |
 | — | **Learning track**: Varve for SQL developers and DDD practitioners | next free | Client and integration, Management plane | issue #94 |
-| 8 | SHACL, part 1: the standalone validator, SHACL-SPARQL, XPath regular expressions in `Varve.Xsd`, the event declaration shapes | `preview.9` | — (#87 landed) | issue #120 (this pull request) |
-| 8 | SHACL, part 2: commit-time gating, the validation projection, incremental validation, the REC gate | next free | part 1, Object storage (REC shapes) | issue #13 |
+| 8 | SHACL, part 1: the standalone validator, SHACL-SPARQL, XPath regular expressions in `Varve.Xsd`, the event declaration shapes | `preview.9` | — (#87 landed) | issue #120 (landed) |
+| 8 | SHACL, part 2a: commit-time gating under a shapes binding, incremental validation, `Varve.Derivation` | `preview.11` | part 1, Management plane part 1 | issue #138 (this pull request) |
+| 8 | SHACL, part 2b: the validation projection, shapes for the declarations, the REC gate | next free | part 2a, Object storage (REC shapes) | issue #13 |
 | — | **Inference**: RDFS by rewriting, OWL 2 RL and rules as a projection | next free | 8 | issue #95 |
 | — | **Web UI**: operator console, then data explorer | next free | Management plane (console); 8 and Inference (explorer) | issue #96 |
 | — | **Replication**: three tiers, handover, promotion, fleet-level active-active | next free | Object storage, Extent maintenance, Commit path, Management plane | issue #97 |
@@ -773,6 +774,28 @@ evaluator's `REGEX` became stricter. `Varve.Events` ships the declaration
 vocabulary's shapes, held to the code by a property. Part 2 (#13) is what
 remains of the first paragraph: gating, the projection, incremental
 validation, and the REC gate.
+
+**Part 2a** (#138; ADRs 0169–0173), `0.1.0-preview.11`: commit-time gating.
+A shapes binding is a management declaration (ADR 0170); `Varve.Shacl.Store`
+(layer 5) gates the dataset's commits with it, validating only the focus
+nodes a commit affects (ADR 0171), refusing new violations under `reject`
+and attaching the affected report's digest under `report` (ADRs 0169,
+0173). `Varve.Derivation` (layer 2, ADR 0172) holds what SHACL and Inference
+share. Gate:
+
+- the incremental comparison against full validation over generated shapes
+  and histories, SHACL-SPARQL's join-graph analysis alike, and the gate's
+  verdicts and digests against a full-validation oracle, with shapes changed
+  alone and with data;
+- the regular-path and stratification properties of `Varve.Derivation`;
+- REC 4.1.0 standalone as an early signal: Brick's three SPARQL constraints
+  declare no prefixes and refuse the shapes graph as it stands; without them
+  nothing is classed full;
+- commit latency under a `reject` binding at REC S and M, on the file
+  backend.
+
+Part 2b (#13) is the validation projection, the declarations validated by
+shapes, and the REC gate.
 
 ## Inference — RDFS by rewriting, OWL 2 RL and rules as a projection
 
