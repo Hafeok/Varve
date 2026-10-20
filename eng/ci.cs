@@ -193,6 +193,9 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-json-canonical", "Varve.Json.Canonical: RFC 8785's vectors, Node's numbers as the oracle, the writer's refusals",
         () => Test("Varve.Json.Canonical.Tests")),
 
+    ("test-derivation", "Varve.Derivation: paths, their reverse and their anchors against a relational oracle, components and refused cycles by reachability, propagation as the least fixpoint",
+        () => Test("Varve.Derivation.Tests")),
+
     ("test-events", "Varve.Events: rendering replayed byte for byte, the number rule, schema golden files, compatibility, the catalogue's three views, AsyncAPI 3.0, the declaration shapes' agreement with the code",
         () => Test("Varve.Events.Tests")),
 

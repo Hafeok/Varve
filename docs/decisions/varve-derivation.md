@@ -11,6 +11,8 @@ decisions:
     statement: "A SHACL path is compiled to a regular path automaton, evaluated forwards and backwards with set semantics, a zero-length path reaching its start whatever the graph holds"
   - key: SemiNaivePropagation
     statement: "Propagation transfers each node of a set's frontier once, component by component in topological order, to the least fixpoint"
+  - key: DerivationModelNamespace
+    statement: "The values Varve.Derivation's algorithms take and answer, a polarity, an edge and a refused cycle, are its model namespace Varve.Derivation.Model; the algorithms and the graph a path walks are not"
   - key: SearchesAllocatePerCall
     statement: "A path search's or a propagation's visited sets and frontiers are allocated per call, never per triple or per edge"
 ---
