@@ -98,3 +98,19 @@ definition drift unless something holds them together.
   no layer.
 - **Analyzer rule.** None new; `VARVE0003` holds the per-value-node step.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-20 — the search moves to `Varve.Derivation`
+
+Filed by SHACL, part 2a (#138, under milestone 8, #13), unaccepted until the
+maintainer accepts it (ADR 0066).
+
+A SHACL path is compiled into a `Varve.Derivation` regular path (ADR
+[0172](0172-varve-derivation.md)) and evaluated there, forwards for value
+nodes and backwards for ADR 0171's anchors. The semantics of point 2 —
+a set, closures as least fixpoints, a zero-length path reaching its start
+whatever the graph holds — is that package's, and the divergence of point 5
+stands. The differential property is unchanged and now holds
+`Varve.Derivation`'s paths to the evaluator's. `Varve.Shacl` keeps the path's
+SHACL syntax and its SPARQL rendering.
+
+**The ledger.** The ruling is ADR 0172's `PathsAreRegularPaths`.

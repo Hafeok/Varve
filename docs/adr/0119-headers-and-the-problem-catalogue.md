@@ -163,3 +163,22 @@ test lists it as exercised by the server's object-store leg. Point 9's
 below the newest extent set (ADR 0138).
 
 **The ledger.** The ruling is ADR 0136's `WriterSupersededProblem`.
+
+## Amendment, 2026-10-20 — three problem types for shapes bindings
+
+Filed by SHACL, part 2a (#138, under milestone 8, #13), unaccepted until the
+maintainer accepts it (ADR 0066).
+
+- **`shapes-violated`** (`422`, members `binding`, `shapesGraph`, `findings`,
+  `report`, `shapesChanged`): a commit refused by a `reject` binding (ADR
+  [0169](0169-commit-time-gating-under-a-shapes-binding.md)).
+- **`binding-not-incremental`** (`422`, members `binding`, `shapes`): a
+  `reject` binding whose shapes include a full shape without
+  `varve:allowFullEvaluation`, at apply time or failing closed at commit time.
+- **`shapes-invalid`** (`422`, members `binding`, `problems`): a binding whose
+  shapes graph is refused.
+
+All three are validator types: they reach a response by the validator's path
+of the 2026-10-15 block above.
+
+**The ledger.** The ruling is ADR 0169's `ShapesBindingProblemTypes`.

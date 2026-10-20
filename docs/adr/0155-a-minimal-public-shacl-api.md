@@ -79,3 +79,24 @@ what it needs without changing what this part made public.
 - **Analyzer rule.** None; the public API analyzer records the baseline.
 - **Open questions owned.** None. The public model is owned by the "SHACL
   shapes model" milestone after 1.0.
+
+## Amendment, 2026-10-20 — what part 2 adds
+
+Filed by SHACL, part 2a (#138, under milestone 8, #13), unaccepted until the
+maintainer accepts it (ADR 0066).
+
+As point 3 foresaw, the additions are additive, and the pull request shows the
+baseline diff with no removed line:
+
+- `ShapesGraph.Classify()` and the classification it returns (ADR 0171);
+- `IncrementalValidation`, which finds the pairs a delta affects and
+  validates them before and after, and the restricted report (ADRs 0171,
+  0173);
+- `IShaclFootprint`, an optional extension member through which an extension
+  constraint states what it reads (`Varve.Shacl.Sparql` implements it);
+- `ShaclOptions.RefuseNonDeterministicFunctions`, which ADR 0169's binding
+  sets.
+
+The shapes model stays internal.
+
+**The ledger.** No new ruling here; ADR 0155's set stands.

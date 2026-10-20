@@ -327,6 +327,11 @@ Filed by SHACL, part 1 ([#120](https://github.com/Hafeok/Varve/issues/120), unde
 | [0155](0155-a-minimal-public-shacl-api.md) | A minimal public SHACL API, and the shapes model kept internal | Filed unaccepted (SHACL part 1, #120) |
 | [0156](0156-dotnetrdf-shacl-for-benchmarks-and-as-an-oracle.md) | `dotNetRdf.Shacl` for the benchmarks and as a differential oracle; amends 0027 | Filed unaccepted (SHACL part 1, #120) |
 | [0157](0157-shapes-for-event-declarations.md) | SHACL shapes for the event declaration vocabulary, shipped with `Varve.Events` | Filed unaccepted (SHACL part 1, #120) |
+| [0169](0169-commit-time-gating-under-a-shapes-binding.md) | `Varve.Shacl.Store`: commit-time gating under a shapes binding; amends 0017, 0058, 0119 | Filed unaccepted (SHACL part 2a, #138) |
+| [0170](0170-the-shapes-binding-vocabulary.md) | The shapes binding vocabulary; amends 0166 | Filed unaccepted (SHACL part 2a, #138) |
+| [0171](0171-which-shapes-are-incrementally-maintainable.md) | Which shapes are incrementally maintainable: footprints, anchors and three classes | Filed unaccepted (SHACL part 2a, #138) |
+| [0172](0172-varve-derivation.md) | `Varve.Derivation`: delta-driven maintenance at layer 2; amends 0003, 0150, 0152 | Filed unaccepted (SHACL part 2a, #138) |
+| [0173](0173-the-validation-report-on-the-commit.md) | The validation report on the commit: a reference and a digest; amends 0154 | Filed unaccepted (SHACL part 2a, #138) |
 
 ## Conformance — differential testing against Oxigraph
 
