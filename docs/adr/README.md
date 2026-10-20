@@ -333,6 +333,18 @@ Filed by SHACL, part 1 ([#120](https://github.com/Hafeok/Varve/issues/120), unde
 | [0172](0172-varve-derivation.md) | `Varve.Derivation`: delta-driven maintenance at layer 2; amends 0003, 0150, 0152 | Filed unaccepted (SHACL part 2a, #138) |
 | [0173](0173-the-validation-report-on-the-commit.md) | The validation report on the commit: a reference and a digest; amends 0154 | Filed unaccepted (SHACL part 2a, #138) |
 
+## Milestone Management plane — fleet system dataset, grants as code, `varve apply` (first part)
+
+Filed by milestone Management plane, part 1 ([#105](https://github.com/Hafeok/Varve/issues/105)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0163: SHACL holds 0148–0157 and Extent maintenance 0158–0162; 0167, the event-schema move, is part 2's. Amended by it, likewise unaccepted: 0017 and 0058 (host attachments); 0037, 0093, 0101, 0106, 0107, 0113, 0117, 0118 and 0130 (rulings superseded by 0163); 0094 and 0142 (superseded by 0168); 0115, 0131 and 0136 (additions).
+
+| # | Title | Status |
+|---:|---|---|
+| [0163](0163-the-management-plane.md) | The management plane: a fleet system dataset, declarations as code, `varve apply` | Filed unaccepted (Management plane, #105) |
+| [0164](0164-the-tier-1-follower.md) | The tier-1 follower: a dataset that tails its writer's log on the same store | Filed unaccepted (Management plane, #105) |
+| [0165](0165-the-management-position-on-the-commit.md) | The management position on the commit: a host attachment, no format change | Filed unaccepted (Management plane, #105) |
+| [0166](0166-varve-management-and-the-vocabulary.md) | `Varve.Management` and the management vocabulary | Filed unaccepted (Management plane, #105) |
+| [0168](0168-write-routing-by-forwarding.md) | Write routing by forwarding: the writer directory, the hop rule and the internal address | Filed unaccepted (Management plane, #105) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |

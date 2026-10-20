@@ -80,23 +80,13 @@ internal static class Setup
 
     private static string Describe(DatasetSetup setup, SetupResult result)
     {
-        if (!result.Created && !result.Committed)
+        if (!result.Committed)
         {
             return setup.Name + ": as declared already, at position " + result.Position + "; nothing committed";
         }
 
         System.Text.StringBuilder text = new();
         text.Append(setup.Name).Append(": ");
-
-        if (result.Created)
-        {
-            text.Append("created; ");
-        }
-
-        if (result.SettingsChanged)
-        {
-            text.Append("settings changed; ");
-        }
 
         foreach (string baseline in result.BaselinesCommitted)
         {

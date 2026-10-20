@@ -136,6 +136,16 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDisposable
         throw new IOException("The catalog changed under every attempt to fence it; the claim is not complete.");
     }
 
+    /// <summary>The catalog version a reader holds, for the test of the hook below.</summary>
+    internal ObjectVersion? HeldCatalog { get; private set; }
+
+    // Extent maintenance's reader contract (#110), as a stated hook (ADR
+    // 0164): a reader that opens the catalog holds that version, and will
+    // announce it under readers/ once #110 lands. Nothing deletes a shared
+    // extent before then (DeletionWaitsForExtentMaintenance), so recording
+    // it is all there is to do.
+    private void Hold(ObjectVersion version) => HeldCatalog = version;
+
     /// <summary>
     /// A blob of <c>derived/</c>. Extents and the catalog are written only by
     /// the epoch's writer: a read-only or superseded storage is refused before
@@ -164,6 +174,12 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDisposable
         {
             ObjectRead? read = await ConditionalWrites.ReadWholeAsync(_store, _names.Derived(CatalogName), cancellationToken).ConfigureAwait(false);
             (_, ReadOnlyMemory<byte> payload) = read is null ? (0, ReadOnlyMemory<byte>.Empty) : Unwrap(read.Bytes);
+
+            if (read is not null && _catalogVersion is null)
+            {
+                Hold(read.Version);
+            }
+
             return payload.IsEmpty ? throw new KeyNotFoundException("No catalog.") : new BytesBlob(payload);
         }
 

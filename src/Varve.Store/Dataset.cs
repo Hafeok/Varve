@@ -601,6 +601,11 @@ public sealed partial class Dataset : IAsyncDisposable
     // it materialises (issue #61).
     private async ValueTask CheckpointCoreAsync(long position, CancellationToken cancellationToken)
     {
+        if (IsFollower)
+        {
+            throw new InvalidOperationException("A follower writes no checkpoint; its writer's are attached when it opens (ADR 0164).");
+        }
+
         long started = _options.Clock.GetTimestamp();
         State state = _state;
         ArgumentOutOfRangeException.ThrowIfNegative(position);

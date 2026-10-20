@@ -12,6 +12,90 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.0-preview.10] - 2026-10-19
+
+**Management plane, part 1 — the fleet system dataset, grants as code, `varve apply`**
+
+### Milestone Management plane, part 1 — the fleet system dataset, grants as code, `varve apply`
+
+Grants, datasets and their settings are declared as TriG in the
+application's repository, planned and applied by CI, and enforced alike by
+every server sharing a store. This release closes #131, the first part of
+milestone Management plane (#105); part 2 moves event schemas from the
+catalogue graphs to the management plane (ADR 0167) and closes the
+milestone. Storage format 1 holds: the management position rides in the
+commit header's attachment list. The five ADRs are filed unaccepted and
+accepted on the pull request (ADR 0066).
+
+#### Added
+
+- **`Varve.Management`** (layer 4, ADR 0166): the `varve:` management
+  vocabulary; the reader and the validator, by focus and path; graph sets
+  as IRIs or templates over the caller; the grant table at a management
+  position; the plan as an RDFC-1.0 diff; TriG in and out.
+- **The system dataset** (ADR 0163): one per fleet, at `_fleet/` on the
+  fleet's store, written by the instance `Varve:Fleet:Writer` names and
+  followed by the others. Datasets are opened as writer, follower or
+  elsewhere by their declared placement; a placement change moves the
+  writer by events, the old writer abdicating with the reason `placement`
+  and the new one claiming once it sees the release. A declared-closed
+  dataset is closed; an undeclared one is deleted by its writer; settings
+  are converged by the writer in a commit of their own. Bootstrap
+  operators from host configuration are recorded by the first writer, or
+  by `varve serve --record-bootstrap`.
+- **Grants at the applied position**: each request is authorised against
+  the grant table at the position the instance has applied, named on every
+  response as `Varve-Management-Position`. `Varve-Min-Management-Position`
+  asks for a later one: the instance advances once, then answers `503
+  management-behind`.
+- **The management position on the commit** (ADR 0165, specification
+  1.8): the position that authorised a commit is attached to its header as
+  `"p"^^varve:managementPosition`, and the positions a dataset records
+  never decrease.
+- **The tier-1 follower** (ADR 0164): `Dataset.OpenFollowerAsync` and
+  `AdvanceAsync`. A follower probes the next log slot, and never lists; an
+  idle dataset makes no requests. A follower advances on demand: on a read
+  once `Varve:Fleet:FollowInterval` has passed, and on
+  `Varve-Min-Position`; the system dataset on the interval.
+- **Forwarding** (ADR 0168): any instance accepts a write, authenticates
+  the caller, and forwards the request once, whole, to its dataset's
+  writer at the address in the writer record. A second hop answers `409
+  writer-moved`; no reachable writer answers `503 unavailable`, with the
+  reason `writer-unreachable` or `no-writer`. Request ids carry the
+  instance.
+- **`/manage/`**: datasets, their state, settings, checkpoints and status,
+  the fleet graph, grants, plans and `/manage/sparql` for operators. Its
+  own token audience (`api://varve-manage` by default), each plane
+  refusing the other's tokens, and optionally its own listener,
+  `Varve:Manage:Urls`.
+- **`varve apply`**: `--plan`, `--exit-code` for drift in CI, `--out` and
+  `--from-plan` for a reviewed plan, refused if stale, and
+  `--from-config` to convert a host's old configuration. Credentials by
+  client secret or a federated assertion (`--client-assertion github`).
+- **Readiness** reports a `management` object, and each dataset's role
+  and lag; a bootstrap mismatch fails it.
+- **Deployment**: Azure Container Apps as a writer app and a public app,
+  the public one writing only under `readers/`; an Entra registration for
+  the management audience, with a deployer federated to GitHub. Operator
+  pages for a fleet and for Kubernetes.
+
+#### Changed
+
+- **The dataset state, settings, checkpoints and status routes move to
+  `/manage/datasets/{name}/`** (breaking), and the service description
+  points there. `IDatasetAdministration` is List, Open and Close.
+- **`Varve:Datasets`, `Varve:Auth:Datasets` and
+  `Varve:Auth:Server:Admin` are refused at start** (breaking), each
+  naming its replacement; `varve apply --from-config` converts them.
+- `Varve.Protocol.Client`: management calls under `/manage/`, settings
+  written as TriG. `DatasetSetup` keeps the baseline and the migrations;
+  a setup file naming storage or settings is refused, naming `varve
+  apply`.
+- `Varve.Aspire`: `WithOperators`, `WithManagementClient`, and
+  `WithDataset` declaring through a container that runs `varve apply`.
+- The writer record names the claimant's address, and a release may give
+  the reason `placement`.
+
 ## [0.1.0-preview.9] - 2026-10-17
 
 **SHACL, part 1 — the standalone validator**
@@ -1148,7 +1232,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.9...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.10...HEAD
+[0.1.0-preview.10]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.9...v0.1.0-preview.10
 [0.1.0-preview.9]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.8...v0.1.0-preview.9
 [0.1.0-preview.8]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.7...v0.1.0-preview.8
 [0.1.0-preview.7]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.6...v0.1.0-preview.7

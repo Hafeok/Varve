@@ -117,3 +117,14 @@ One resource group:
   cache, every dataset is `ObjectStorage`, and no variable is a credential.
 - The optional leg: `AzureAccountObjectStoreContractTests`,
   `AzureAccountStorageContractTests`, and the what-if.
+
+## Amendment, 2026-10-19 — two apps
+
+Filed by milestone Management plane of #105, unaccepted until the maintainer
+accepts it (ADR 0066).
+
+The Container Apps template runs two apps from one image, `varve-writer` and
+`varve` (ADR [0168](0168-write-routing-by-forwarding.md) point 9), in place of one
+app pinned to one replica.
+
+**The ledger.** `OneReplicaAtMost` moves to ADR 0168's set, superseded.

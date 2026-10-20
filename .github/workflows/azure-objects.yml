@@ -83,7 +83,7 @@ jobs:
           az account set --subscription "$AZURE_SUBSCRIPTION_ID"
           az deployment group what-if --resource-group "$VARVE_AZURE_RESOURCE_GROUP" \
             --template-file deploy/azure/container-apps/main.bicep \
-            --parameters authority="$VARVE_AZURE_AUTHORITY" audience="$VARVE_AZURE_AUDIENCE"
+            --parameters authority="$VARVE_AZURE_AUTHORITY" audience="$VARVE_AZURE_AUDIENCE" operators='["Varve.Operator"]'
 
       - name: Deploy the Container Apps template
         if: inputs.deploy
@@ -95,7 +95,7 @@ jobs:
           set -euo pipefail
           az deployment group create --resource-group "$VARVE_AZURE_RESOURCE_GROUP" \
             --template-file deploy/azure/container-apps/main.bicep \
-            --parameters authority="$VARVE_AZURE_AUTHORITY" audience="$VARVE_AZURE_AUDIENCE" \
+            --parameters authority="$VARVE_AZURE_AUTHORITY" audience="$VARVE_AZURE_AUDIENCE" operators='["Varve.Operator"]' \
             --query properties.outputs
 
       - name: Remove the token

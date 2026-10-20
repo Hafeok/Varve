@@ -16,6 +16,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Varve.Events;
+using Varve.Management;
+using Varve.Management.Model;
 using Varve.Protocol.Model;
 using Varve.Rdf;
 using Varve.Sparql.Algebra;
@@ -54,7 +56,14 @@ public class ProblemCatalogueTests
     /// (the concurrent-read limit, which is the host's rate limiter; and a
     /// writer superseded by a second server on the same object store, ADR 0136).
     /// </summary>
-    private static readonly ImmutableArray<ProblemType> TestedElsewhere = [ProblemType.TooManyLiveTails, ProblemType.ServerBusy, ProblemType.WriterSuperseded, ProblemType.EventNotRendered];
+    private static readonly ImmutableArray<ProblemType> TestedElsewhere =
+    [
+        ProblemType.TooManyLiveTails, ProblemType.ServerBusy, ProblemType.WriterSuperseded, ProblemType.EventNotRendered,
+        ProblemType.ManagementBehind, ProblemType.DatasetBehind,
+    ];
+
+    /// <summary>The types the management plane's endpoints emit, triggered by <see cref="every_problem_the_management_endpoints_emit_has_its_catalogued_shape"/>.</summary>
+    private static readonly ImmutableArray<ProblemType> ManagementTriggered = [ProblemType.DeclarationInvalid, ProblemType.DatasetOpen, ProblemType.WriterMoved];
 
     [Fact]
     public void every_problem_type_is_catalogued_with_a_page_stating_the_same_shape()
@@ -119,7 +128,7 @@ public class ProblemCatalogueTests
             map: (app, o) =>
             {
                 app.MapGroup("/datasets/{dataset}").MapVarveDataset(o);
-                app.MapVarveAdministration("/datasets", o);
+                app.MapVarveManagement(o, null);
             },
             limits: limits,
             accessScopes: new Scoped(new CallerScope(GraphScope.All, people, AdminAccess.None)),
@@ -134,7 +143,7 @@ public class ProblemCatalogueTests
                 [ProblemType.RdfSyntax] = () => Put("datasets/d/graphs?default", "not n-triples", "application/n-triples"),
                 [ProblemType.BadRequest] = () => P.Get(Sparql + "?query=ASK%7B%7D&query=ASK%7B%7D"),
                 [ProblemType.OperationFailed] = () => P.Update(Sparql, "LOAD <http://ex/nowhere>"),
-                [ProblemType.AgentRequired] = () => Put("datasets/d/settings", "{\"defaultAccessScope\":\"Current\"}", "application/json"),
+                [ProblemType.AgentRequired] = () => Put("manage/datasets/d/settings", "{\"defaultAccessScope\":\"Current\"}", "application/json"),
                 [ProblemType.GraphNotWritable] = () => P.Update(Sparql, "INSERT DATA { GRAPH <http://ex/other> { <http://ex/a> <http://ex/p> 1 } }"),
                 [ProblemType.DatasetNotFound] = () => P.Get("datasets/nowhere/sparql?query=ASK%7B%7D"),
                 [ProblemType.GraphNotFound] = () => P.Get("datasets/d/graphs?graph=" + Uri.EscapeDataString("http://ex/none"), "application/n-triples"),
@@ -143,8 +152,6 @@ public class ProblemCatalogueTests
                 [ProblemType.MethodNotAllowed] = () => new HttpRequestMessage(HttpMethod.Delete, new Uri(Sparql, UriKind.Relative)),
                 [ProblemType.NotAcceptable] = () => P.Query(Sparql, "ASK {}", accept: "image/png"),
                 [ProblemType.Conflict] = () => P.Update(Sparql, "DELETE WHERE { ?s ?p ?o }", "\"" + dataset.Head.Value + "\""),
-                [ProblemType.DatasetExists] = () => Put("datasets/x", "{\"storage\":\"Memory\"}", "application/json"),
-                [ProblemType.DatasetOpen] = () => new HttpRequestMessage(HttpMethod.Delete, new Uri("datasets/x", UriKind.Relative)),
                 [ProblemType.PreconditionFailed] = () => P.Update(Sparql, "INSERT DATA { <http://ex/b> <http://ex/p> 2 }", "\"77\""),
                 [ProblemType.RequestTooLarge] = () => P.Update(Sparql, "INSERT DATA { " + string.Concat(Enumerable.Range(0, 200).Select(i => "<http://ex/s" + i + "> <http://ex/p> " + i + " . ")) + "}"),
                 [ProblemType.UnsupportedMediaType] = () => new HttpRequestMessage(HttpMethod.Post, new Uri(Sparql, UriKind.Relative)) { Content = new StringContent("ASK {}", Encoding.UTF8, "text/plain") },
@@ -153,7 +160,7 @@ public class ProblemCatalogueTests
                 [ProblemType.EventSchemaIncompatible] = () => P.Update(Sparql,
                     "DELETE DATA { GRAPH <" + Catalogue + "> { <http://ex/types/T/at> <https://w3id.org/varve/ns#fieldDatatype> <http://www.w3.org/2001/XMLSchema#dateTime> } } ; "
                     + "INSERT DATA { GRAPH <" + Catalogue + "> { <http://ex/types/T/at> <https://w3id.org/varve/ns#fieldDatatype> <http://www.w3.org/2001/XMLSchema#string> } }"),
-                [ProblemType.Unavailable] = () => Put("datasets/broken/state", "{\"state\":\"open\"}", "application/json"),
+                [ProblemType.Unavailable] = () => Put("manage/datasets/broken/state", "{\"state\":\"open\"}", "application/json"),
                 [ProblemType.ReadLimitExceeded] = () => P.Query(Sparql, "SELECT * { ?s ?p ?o } "),
                 [ProblemType.MemoryLimitExceeded] = () => P.Query(Sparql, "SELECT * { ?s ?p ?o } ORDER BY ?s"),
                 [ProblemType.AsOfDistanceExceeded] = () => P.Query(Sparql, "ASK {}", asOf: "position:2"),
@@ -164,8 +171,6 @@ public class ProblemCatalogueTests
                     + Sh + "values> <http://ex/k> ; <" + Sh + "node> <http://ex/T> ] . <http://ex/T> <" + Sh + "nodeKind> <" + Sh + "IRI> } }"),
             };
 
-            // The dataset the admin triggers need: created first.
-            Assert.Equal(System.Net.HttpStatusCode.Created, (await host.Client.SendAsync(Put("datasets/x", "{\"storage\":\"File\"}", "application/json"), P.Ct)).StatusCode);
             await host.Client.SendAsync(P.Update(Sparql, "INSERT DATA { " + string.Concat(Enumerable.Range(0, 20).Select(i => "<http://ex/s" + i + "> <http://ex/p> " + i + " . ")) + "}"), P.Ct);
 
             // The shapes the binding's triggers need: integers on ex:q at ex:shaped.
@@ -215,8 +220,71 @@ public class ProblemCatalogueTests
             }
 
             // The catalogue is covered: by these, by the host's own, or not yet.
-            HashSet<string> covered = [.. triggers.Keys.Select(t => t.Value), .. ServerEmitted.Select(t => t.Value), .. NotYetEmittable.Select(t => t.Value), .. TestedElsewhere.Select(t => t.Value)];
+            HashSet<string> covered = [.. triggers.Keys.Select(t => t.Value), .. ManagementTriggered.Select(t => t.Value), .. ServerEmitted.Select(t => t.Value), .. NotYetEmittable.Select(t => t.Value), .. TestedElsewhere.Select(t => t.Value)];
             Assert.Equal(ProblemCatalogue.All.Select(s => s.Type.Value).Order(StringComparer.Ordinal), covered.Order(StringComparer.Ordinal));
+        }
+    }
+
+    /// <summary>
+    /// The management plane's problems (ADRs 0163, 0166, 0168): a declaration
+    /// the code validator refuses, a delete of a dataset declared open, and a
+    /// forwarded write that reaches an instance which no longer writes its
+    /// dataset. Each has its catalogued shape and no other member.
+    /// </summary>
+    [Fact]
+    public async Task every_problem_the_management_endpoints_emit_has_its_catalogued_shape()
+    {
+        Dataset system = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, P.Ct);
+        Dataset moved = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, P.Ct);
+        ProtocolTestHost.Datasets datasets = new();
+        datasets.Add("moved", moved);
+        TestPlane plane = new(system);
+        const string Declared = "<urn:y> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> \"y\" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#Memory> .";
+
+        await using (system)
+        await using (moved)
+        await using (ProtocolTestHost host = await ProtocolTestHost.StartAsync(
+            datasets,
+            map: (app, o) =>
+            {
+                app.MapGroup("/datasets/{dataset}").MapVarveDataset(o);
+                app.MapVarveManagement(o, plane);
+            },
+            writers: new MovedDirectory(),
+            stopping: P.Ct))
+        {
+            Assert.Equal(System.Net.HttpStatusCode.Created, (await host.Client.SendAsync(Put("manage/datasets/y", Declared, "application/trig"), P.Ct)).StatusCode);
+            Dictionary<ProblemType, Func<HttpRequestMessage>> triggers = new()
+            {
+                [ProblemType.DeclarationInvalid] = () => Put("manage/datasets/x", "<urn:x> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> \"x\" ; <https://w3id.org/varve/ns#erasureMode> \"y\" .", "application/trig"),
+                [ProblemType.DatasetOpen] = () => new HttpRequestMessage(HttpMethod.Delete, new Uri("manage/datasets/y", UriKind.Relative)),
+                [ProblemType.WriterMoved] = () =>
+                {
+                    HttpRequestMessage forwarded = P.Update("datasets/moved/sparql", "INSERT DATA { <http://ex/a> <http://ex/p> 1 }");
+                    forwarded.Headers.TryAddWithoutValidation("Varve-Forwarded", "another-one");
+                    return forwarded;
+                },
+            };
+
+            Assert.Equal(ManagementTriggered.Select(t => t.Value).Order(StringComparer.Ordinal), triggers.Keys.Select(t => t.Value).Order(StringComparer.Ordinal));
+
+            foreach ((ProblemType type, Func<HttpRequestMessage> trigger) in triggers)
+            {
+                ProblemShape shape = ProblemCatalogue.Of(type);
+                HttpResponseMessage response = await host.Client.SendAsync(trigger(), P.Ct);
+                string body = await response.Content.ReadAsStringAsync(P.Ct);
+                Assert.True(shape.Status == (int)response.StatusCode, shape.Name + ": " + (int)response.StatusCode + " " + body);
+                using JsonDocument problem = JsonDocument.Parse(body);
+                Assert.Equal(type.Value, problem.RootElement.GetProperty("type").GetString());
+
+                foreach (JsonProperty member in problem.RootElement.EnumerateObject())
+                {
+                    Assert.True(member.Name is "type" or "title" or "status" or "detail" or "instance" || shape.Members.Contains(member.Name), shape.Name + " carries an undeclared member " + member.Name);
+                }
+            }
+
+            Assert.Equal(1L, system.Head.Value);
+            Assert.Equal(0L, moved.Head.Value);
         }
     }
 
@@ -303,20 +371,6 @@ public class ProblemCatalogueTests
             }
         }
 
-        public ValueTask<AdminOutcome> CreateAsync(DatasetName name, DatasetStorage storage, CancellationToken cancellationToken)
-        {
-            lock (_entries)
-            {
-                if (_entries.ContainsKey(name.Value))
-                {
-                    return ValueTask.FromResult(AdminOutcome.Exists);
-                }
-
-                _entries[name.Value] = (storage, DatasetState.Open);
-                return ValueTask.FromResult(AdminOutcome.Done);
-            }
-        }
-
         public ValueTask<AdminOutcome> OpenAsync(DatasetName name, CancellationToken cancellationToken)
         {
             lock (_entries)
@@ -349,24 +403,37 @@ public class ProblemCatalogueTests
                 return ValueTask.FromResult(AdminOutcome.Done);
             }
         }
+    }
 
-        public ValueTask<AdminOutcome> DeleteAsync(DatasetName name, CancellationToken cancellationToken)
+    /// <summary>The management plane over an in-memory system dataset (ADR 0163): the grants and the status at its head.</summary>
+    private sealed class TestPlane(Dataset system) : IManagementPlane
+    {
+        public Dataset System => system;
+
+        public GrantTable Table
         {
-            lock (_entries)
+            get
             {
-                if (!_entries.TryGetValue(name.Value, out (DatasetStorage Storage, DatasetState State) entry))
-                {
-                    return ValueTask.FromResult(AdminOutcome.NotFound);
-                }
-
-                if (entry.State == DatasetState.Open)
-                {
-                    return ValueTask.FromResult(AdminOutcome.Open);
-                }
-
-                _entries.Remove(name.Value);
-                return ValueTask.FromResult(AdminOutcome.Done);
+                using DatasetView view = system.Pin();
+                return GrantTable.Compile(DeclarationReader.Read(view), new ManagementPosition(system.Head.Value), []);
             }
+        }
+
+        public ManagementStatus Status => new(ManagementRole.Writer, 0, new ManagementPosition(system.Head.Value), new ManagementPosition(system.Head.Value), BootstrapState.Absent, null);
+
+        public ICommitValidator Validator { get; } = new ManagementValidator();
+    }
+
+    /// <summary>Another instance writes the dataset "moved"; this one writes the rest.</summary>
+    private sealed class MovedDirectory : IWriterDirectory
+    {
+        public WriterName Instance { get; } = new("this-one");
+
+        public ValueTask<WriterRoute> RouteAsync(WriterTarget target, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(target.Dataset is { Value: "moved" } ? new WriterRoute(WriterRouteKind.Remote, "http://127.0.0.1:9/", 7) : WriterRoute.Local);
+
+        public void Stale(WriterTarget target)
+        {
         }
     }
 }

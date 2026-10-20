@@ -3,10 +3,6 @@ set: graph-level-authorisation
 namespace: varve
 adr: 0107
 decisions:
-  - key: GrantsAreScopedByGraphSet
-    statement: "A grant is (dataset, permission, graph set), the set all, an explicit list of graph IRIs with default naming the default graph, or a set of IRI prefixes; 7a's Read and Write lists are the all case; the mapping from claims lives in the host's configuration"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-09T00:00:00Z
   - key: AccessScopesSeam
     statement: "Varve.Protocol receives the resolved scope per request through IAccessScopes, a host-implemented seam answering a readable GraphScope, a writable GraphScope and whether the caller is admin, and knows no claim"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -67,3 +63,5 @@ decisions:
 
 The rulings of [ADR 0107](../adr/0107-graph-level-authorisation.md), filed unaccepted by milestone 7b of #11
 (ADR 0066). Every citation is `CS0618` until the maintainer accepts them.
+
+Moved to a later set: `GrantsAreScopedByGraphSet` is superseded by ADR 0163, under which the mapping from principals to graph sets lives in the system dataset, in its set.

@@ -179,6 +179,17 @@ read later would be a superseding ADR.
   commits" (a store policy) or "the overlay spills" (an overlay implementation
   concern).
 
+## Amendment, 2026-10-19 — the host may attach too
+
+Filed by milestone Management plane of #105, unaccepted until the maintainer
+accepts it (ADR 0066).
+
+An attachment may also be metadata the host attaches to the commit, not only a
+validator's (ADR [0165](0165-the-management-position-on-the-commit.md)). A validator
+still changes nothing about the data.
+
+**The ledger.** The ruling is ADR 0165's `HostAttachmentsOnTheCommit`.
+
 ## Amendment, 2026-10-20 — the first validator
 
 Filed by SHACL, part 2a (#138, under milestone 8, #13), unaccepted until the

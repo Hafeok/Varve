@@ -101,7 +101,6 @@ static Varve.Protocol.ProtocolLimits.Default.get -> Varve.Protocol.ProtocolLimit
 static Varve.Protocol.ProtocolLimits.operator !=(Varve.Protocol.ProtocolLimits left, Varve.Protocol.ProtocolLimits right) -> bool
 static Varve.Protocol.ProtocolLimits.operator ==(Varve.Protocol.ProtocolLimits left, Varve.Protocol.ProtocolLimits right) -> bool
 static Varve.Protocol.VarveEndpoints.MapCommits(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Routing.IEndpointRouteBuilder!
-static Varve.Protocol.VarveEndpoints.MapDatasetStatus(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
 static Varve.Protocol.VarveEndpoints.MapDiff(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
 static Varve.Protocol.VarveEndpoints.MapGraphStore(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Routing.IEndpointRouteBuilder!
 static Varve.Protocol.VarveEndpoints.MapServiceDescription(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
@@ -114,8 +113,6 @@ static Varve.Protocol.VarveEndpoints.MapVarveDataset(this Microsoft.AspNetCore.R
 ~override Varve.Protocol.ProtocolLimits.ToString() -> string
 Varve.Protocol.IDatasetAdministration
 Varve.Protocol.IDatasetAdministration.CloseAsync(Varve.Protocol.Model.DatasetName name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.AdminOutcome>
-Varve.Protocol.IDatasetAdministration.CreateAsync(Varve.Protocol.Model.DatasetName name, Varve.Protocol.Model.DatasetStorage storage, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.AdminOutcome>
-Varve.Protocol.IDatasetAdministration.DeleteAsync(Varve.Protocol.Model.DatasetName name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.AdminOutcome>
 Varve.Protocol.IDatasetAdministration.List() -> System.Collections.Generic.IReadOnlyList<Varve.Protocol.Model.DatasetEntry!>!
 Varve.Protocol.IDatasetAdministration.OpenAsync(Varve.Protocol.Model.DatasetName name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.AdminOutcome>
 Varve.Protocol.Model.AdminOutcome
@@ -125,7 +122,6 @@ Varve.Protocol.Model.AdminOutcome.Failed = 4 -> Varve.Protocol.Model.AdminOutcom
 Varve.Protocol.Model.AdminOutcome.NotFound = 1 -> Varve.Protocol.Model.AdminOutcome
 Varve.Protocol.Model.AdminOutcome.Open = 3 -> Varve.Protocol.Model.AdminOutcome
 Varve.Protocol.Model.DatasetEntry
-Varve.Protocol.Model.DatasetEntry.DatasetEntry(Varve.Protocol.Model.DatasetName name, Varve.Protocol.Model.DatasetState state, Varve.Protocol.Model.DatasetStorage storage, Varve.Protocol.Model.DatasetOrigin origin, string? reason, Varve.Store.Log.DatasetId? id, Varve.Store.Log.Position? head) -> void
 Varve.Protocol.Model.DatasetEntry.Head.get -> Varve.Store.Log.Position?
 Varve.Protocol.Model.DatasetEntry.Id.get -> Varve.Store.Log.DatasetId?
 Varve.Protocol.Model.DatasetEntry.Name.get -> Varve.Protocol.Model.DatasetName
@@ -149,9 +145,7 @@ Varve.Protocol.ProtocolOptions.Administration.get -> Varve.Protocol.IDatasetAdmi
 Varve.Protocol.ProtocolOptions.Administration.init -> void
 const Varve.Protocol.DatasetPermissions.ServerAdmin = "varve:server-admin" -> string!
 static Varve.Protocol.Model.ProblemType.AgentRequired.get -> Varve.Protocol.Model.ProblemType
-static Varve.Protocol.Model.ProblemType.DatasetExists.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.DatasetOpen.get -> Varve.Protocol.Model.ProblemType
-static Varve.Protocol.VarveEndpoints.MapVarveAdministration(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Routing.IEndpointRouteBuilder!
 Varve.Protocol.ChangeFeedWriter
 static Varve.Protocol.ChangeFeedWriter.WriteCommit(System.Buffers.IBufferWriter<byte>! output, Varve.Store.Log.Commit! commit) -> void
 static Varve.Protocol.ChangeFeedWriter.WriteCommit(System.Buffers.IBufferWriter<byte>! output, Varve.Store.Log.Commit! commit, Varve.Rdf.QuadDelta delta) -> void
@@ -242,6 +236,129 @@ Varve.Protocol.ProtocolOptions.EventSource.get -> string?
 Varve.Protocol.ProtocolOptions.EventSource.init -> void
 static Varve.Protocol.VarveEndpoints.MapEvents(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Routing.IEndpointRouteBuilder!
 static Varve.Protocol.VarveEndpoints.MapVarveEventTypes(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
+Varve.Protocol.IDatasetFollowing
+Varve.Protocol.IDatasetFollowing.FollowAsync(Varve.Protocol.Model.DatasetName name, Varve.Store.Dataset! dataset, Varve.Store.Log.Position? atLeast, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Protocol.IManagementAuthority
+Varve.Protocol.IManagementAuthority.AdvanceAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Management.Model.ManagementPosition>
+Varve.Protocol.IManagementAuthority.Applied.get -> Varve.Management.Model.ManagementPosition
+Varve.Protocol.IManagementAuthority.OrderOf(Varve.Protocol.Model.DatasetName dataset, Varve.Management.Model.ManagementPosition authorised) -> Varve.Store.ICommitValidator!
+Varve.Protocol.IWriterDirectory
+Varve.Protocol.IWriterDirectory.Instance.get -> Varve.Protocol.Model.WriterName
+Varve.Protocol.IWriterDirectory.RouteAsync(Varve.Protocol.Model.WriterTarget target, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.WriterRoute>
+Varve.Protocol.IWriterDirectory.Stale(Varve.Protocol.Model.WriterTarget target) -> void
+Varve.Protocol.Model.DatasetEntry.DatasetEntry(Varve.Protocol.Model.DatasetName name, Varve.Protocol.Model.DatasetState state, Varve.Protocol.Model.DatasetStorage storage, Varve.Protocol.Model.DatasetOrigin origin, string? reason, Varve.Store.Log.DatasetId? id, Varve.Store.Log.Position? head, Varve.Protocol.Model.DatasetRole role = Varve.Protocol.Model.DatasetRole.Writer) -> void
+Varve.Protocol.Model.DatasetEntry.Role.get -> Varve.Protocol.Model.DatasetRole
+Varve.Protocol.Model.DatasetOrigin.Declared = 3 -> Varve.Protocol.Model.DatasetOrigin
+Varve.Protocol.Model.DatasetRole
+Varve.Protocol.Model.DatasetRole.Elsewhere = 2 -> Varve.Protocol.Model.DatasetRole
+Varve.Protocol.Model.DatasetRole.Follower = 1 -> Varve.Protocol.Model.DatasetRole
+Varve.Protocol.Model.DatasetRole.Writer = 0 -> Varve.Protocol.Model.DatasetRole
+Varve.Protocol.Model.UpdatePreconditions.Validators.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.ICommitValidator!>!
+Varve.Protocol.Model.UpdatePreconditions.Validators.init -> void
+Varve.Protocol.Model.WriterName
+Varve.Protocol.Model.WriterName.Equals(Varve.Protocol.Model.WriterName other) -> bool
+Varve.Protocol.Model.WriterName.Value.get -> string!
+Varve.Protocol.Model.WriterName.WriterName() -> void
+Varve.Protocol.Model.WriterName.WriterName(string! value) -> void
+Varve.Protocol.Model.WriterRoute
+Varve.Protocol.Model.WriterRoute.Address.get -> string?
+Varve.Protocol.Model.WriterRoute.Address.init -> void
+Varve.Protocol.Model.WriterRoute.Deconstruct(out Varve.Protocol.Model.WriterRouteKind Kind, out string? Address, out long Epoch) -> void
+Varve.Protocol.Model.WriterRoute.Epoch.get -> long
+Varve.Protocol.Model.WriterRoute.Epoch.init -> void
+Varve.Protocol.Model.WriterRoute.Equals(Varve.Protocol.Model.WriterRoute other) -> bool
+Varve.Protocol.Model.WriterRoute.Kind.get -> Varve.Protocol.Model.WriterRouteKind
+Varve.Protocol.Model.WriterRoute.Kind.init -> void
+Varve.Protocol.Model.WriterRoute.WriterRoute() -> void
+Varve.Protocol.Model.WriterRoute.WriterRoute(Varve.Protocol.Model.WriterRouteKind Kind, string? Address, long Epoch) -> void
+Varve.Protocol.Model.WriterRouteKind
+Varve.Protocol.Model.WriterRouteKind.Local = 0 -> Varve.Protocol.Model.WriterRouteKind
+Varve.Protocol.Model.WriterRouteKind.NoWriter = 2 -> Varve.Protocol.Model.WriterRouteKind
+Varve.Protocol.Model.WriterRouteKind.Remote = 1 -> Varve.Protocol.Model.WriterRouteKind
+Varve.Protocol.Model.WriterTarget
+Varve.Protocol.Model.WriterTarget.Dataset.get -> Varve.Protocol.Model.DatasetName?
+Varve.Protocol.Model.WriterTarget.Dataset.init -> void
+Varve.Protocol.Model.WriterTarget.Deconstruct(out Varve.Protocol.Model.DatasetName? Dataset) -> void
+Varve.Protocol.Model.WriterTarget.Equals(Varve.Protocol.Model.WriterTarget other) -> bool
+Varve.Protocol.Model.WriterTarget.IsSystem.get -> bool
+Varve.Protocol.Model.WriterTarget.WriterTarget() -> void
+Varve.Protocol.Model.WriterTarget.WriterTarget(Varve.Protocol.Model.DatasetName? Dataset) -> void
+Varve.Protocol.ProtocolOptions.Following.get -> Varve.Protocol.IDatasetFollowing?
+Varve.Protocol.ProtocolOptions.Following.init -> void
+Varve.Protocol.ProtocolOptions.Forwarder.get -> System.Net.Http.HttpMessageInvoker?
+Varve.Protocol.ProtocolOptions.Forwarder.init -> void
+Varve.Protocol.ProtocolOptions.Management.get -> Varve.Protocol.IManagementAuthority?
+Varve.Protocol.ProtocolOptions.Management.init -> void
+Varve.Protocol.ProtocolOptions.Writers.get -> Varve.Protocol.IWriterDirectory?
+Varve.Protocol.ProtocolOptions.Writers.init -> void
+override Varve.Protocol.Model.WriterName.GetHashCode() -> int
+override Varve.Protocol.Model.WriterName.ToString() -> string!
+override Varve.Protocol.Model.WriterRoute.GetHashCode() -> int
+override Varve.Protocol.Model.WriterTarget.GetHashCode() -> int
+static Varve.Protocol.Model.ProblemType.DatasetBehind.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.DeclarationInvalid.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.ManagementBehind.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.WriterMoved.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.WriterName.operator !=(Varve.Protocol.Model.WriterName left, Varve.Protocol.Model.WriterName right) -> bool
+static Varve.Protocol.Model.WriterName.operator ==(Varve.Protocol.Model.WriterName left, Varve.Protocol.Model.WriterName right) -> bool
+static Varve.Protocol.Model.WriterRoute.Local.get -> Varve.Protocol.Model.WriterRoute
+static Varve.Protocol.Model.WriterRoute.operator !=(Varve.Protocol.Model.WriterRoute left, Varve.Protocol.Model.WriterRoute right) -> bool
+static Varve.Protocol.Model.WriterRoute.operator ==(Varve.Protocol.Model.WriterRoute left, Varve.Protocol.Model.WriterRoute right) -> bool
+static Varve.Protocol.Model.WriterTarget.System.get -> Varve.Protocol.Model.WriterTarget
+static Varve.Protocol.Model.WriterTarget.operator !=(Varve.Protocol.Model.WriterTarget left, Varve.Protocol.Model.WriterTarget right) -> bool
+static Varve.Protocol.Model.WriterTarget.operator ==(Varve.Protocol.Model.WriterTarget left, Varve.Protocol.Model.WriterTarget right) -> bool
+~override Varve.Protocol.Model.WriterName.Equals(object obj) -> bool
+~override Varve.Protocol.Model.WriterRoute.Equals(object obj) -> bool
+~override Varve.Protocol.Model.WriterRoute.ToString() -> string
+~override Varve.Protocol.Model.WriterTarget.Equals(object obj) -> bool
+~override Varve.Protocol.Model.WriterTarget.ToString() -> string
+Varve.Protocol.IManagementPlane
+Varve.Protocol.IManagementPlane.Status.get -> Varve.Protocol.Model.ManagementStatus
+Varve.Protocol.IManagementPlane.System.get -> Varve.Store.Dataset!
+Varve.Protocol.IManagementPlane.Table.get -> Varve.Management.GrantTable!
+Varve.Protocol.IManagementPlane.Validator.get -> Varve.Store.ICommitValidator!
+Varve.Protocol.Model.BootstrapState
+Varve.Protocol.Model.BootstrapState.Absent = 1 -> Varve.Protocol.Model.BootstrapState
+Varve.Protocol.Model.BootstrapState.Mismatch = 2 -> Varve.Protocol.Model.BootstrapState
+Varve.Protocol.Model.BootstrapState.Recorded = 0 -> Varve.Protocol.Model.BootstrapState
+Varve.Protocol.Model.ManagementRole
+Varve.Protocol.Model.ManagementRole.Follower = 1 -> Varve.Protocol.Model.ManagementRole
+Varve.Protocol.Model.ManagementRole.Superseded = 2 -> Varve.Protocol.Model.ManagementRole
+Varve.Protocol.Model.ManagementRole.Writer = 0 -> Varve.Protocol.Model.ManagementRole
+Varve.Protocol.Model.ManagementStatus
+Varve.Protocol.Model.ManagementStatus.Applied.get -> Varve.Management.Model.ManagementPosition
+Varve.Protocol.Model.ManagementStatus.Applied.init -> void
+Varve.Protocol.Model.ManagementStatus.Bootstrap.get -> Varve.Protocol.Model.BootstrapState
+Varve.Protocol.Model.ManagementStatus.Bootstrap.init -> void
+Varve.Protocol.Model.ManagementStatus.Deconstruct(out Varve.Protocol.Model.ManagementRole Role, out long Epoch, out Varve.Management.Model.ManagementPosition Applied, out Varve.Management.Model.ManagementPosition Tail, out Varve.Protocol.Model.BootstrapState Bootstrap, out string? WriterAddress) -> void
+Varve.Protocol.Model.ManagementStatus.Epoch.get -> long
+Varve.Protocol.Model.ManagementStatus.Epoch.init -> void
+Varve.Protocol.Model.ManagementStatus.Equals(Varve.Protocol.Model.ManagementStatus other) -> bool
+Varve.Protocol.Model.ManagementStatus.Lag.get -> long
+Varve.Protocol.Model.ManagementStatus.ManagementStatus() -> void
+Varve.Protocol.Model.ManagementStatus.ManagementStatus(Varve.Protocol.Model.ManagementRole Role, long Epoch, Varve.Management.Model.ManagementPosition Applied, Varve.Management.Model.ManagementPosition Tail, Varve.Protocol.Model.BootstrapState Bootstrap, string? WriterAddress) -> void
+Varve.Protocol.Model.ManagementStatus.Role.get -> Varve.Protocol.Model.ManagementRole
+Varve.Protocol.Model.ManagementStatus.Role.init -> void
+Varve.Protocol.Model.ManagementStatus.Tail.get -> Varve.Management.Model.ManagementPosition
+Varve.Protocol.Model.ManagementStatus.Tail.init -> void
+Varve.Protocol.Model.ManagementStatus.WriterAddress.get -> string?
+Varve.Protocol.Model.ManagementStatus.WriterAddress.init -> void
+override Varve.Protocol.Model.ManagementStatus.GetHashCode() -> int
+static Varve.Protocol.Model.ManagementStatus.operator !=(Varve.Protocol.Model.ManagementStatus left, Varve.Protocol.Model.ManagementStatus right) -> bool
+static Varve.Protocol.Model.ManagementStatus.operator ==(Varve.Protocol.Model.ManagementStatus left, Varve.Protocol.Model.ManagementStatus right) -> bool
+~override Varve.Protocol.Model.ManagementStatus.Equals(object obj) -> bool
+~override Varve.Protocol.Model.ManagementStatus.ToString() -> string
+Varve.Protocol.ManagementOrder
+Varve.Protocol.ManagementOrder.Highest(Varve.Protocol.Model.DatasetName dataset) -> Varve.Management.Model.ManagementPosition
+Varve.Protocol.ManagementOrder.ManagementOrder() -> void
+Varve.Protocol.ManagementOrder.Observe(Varve.Protocol.Model.DatasetName dataset, Varve.Management.Model.ManagementPosition position) -> void
+Varve.Protocol.ManagementOrder.Validator(Varve.Protocol.Model.DatasetName dataset, Varve.Management.Model.ManagementPosition authorised) -> Varve.Store.ICommitValidator!
+Varve.Protocol.ManagementValidator
+Varve.Protocol.ManagementValidator.ManagementValidator() -> void
+Varve.Protocol.ManagementValidator.Validate(Varve.Rdf.IQuadSource! proposed, Varve.Rdf.QuadDelta delta) -> Varve.Store.Log.ValidationVerdict
+const Varve.Protocol.ManagementOrder.PositionDatatype = "https://w3id.org/varve/ns#managementPosition" -> string!
+static Varve.Protocol.ManagementOrder.PositionOf(System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! attachments) -> Varve.Management.Model.ManagementPosition?
+static Varve.Protocol.VarveEndpoints.MapVarveManagement(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, Varve.Protocol.ProtocolOptions! options, Varve.Protocol.IManagementPlane? plane) -> Microsoft.AspNetCore.Routing.IEndpointRouteBuilder!
 static Varve.Protocol.Model.ProblemType.BindingNotIncremental.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.ShapesInvalid.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.ShapesViolated.get -> Varve.Protocol.Model.ProblemType

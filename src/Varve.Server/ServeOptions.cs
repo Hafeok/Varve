@@ -21,4 +21,7 @@ internal sealed class ServeOptions
 
     /// <summary>Print the effective <c>Varve:</c> configuration, validate, and exit without serving.</summary>
     public bool PrintConfiguration { get; init; }
+
+    /// <summary>As the system writer, record the configured bootstrap operators, replacing the recorded ones (ADR 0163 point 7).</summary>
+    public bool RecordBootstrap { get; init; }
 }

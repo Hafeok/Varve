@@ -3,14 +3,6 @@ set: client-side-setup-and-system-graphs
 namespace: varve
 adr: 0130
 decisions:
-  - key: SetupIsDeclared
-    statement: "DatasetSetup declares a dataset's name, storage, settings, ordered baseline sources and ordered named migrations"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-15T00:00:00Z
-  - key: ApplyOrder
-    statement: "ApplyAsync creates the dataset when a read answers 404, merges the declared settings under If-Match when one differs, adds each baseline by the Graph Store Protocol's POST, then applies each unrecorded migration"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-15T00:00:00Z
   - key: BaselineBlankNodesRefused
     statement: "A baseline source holding a blank node is refused before any request, naming the source and pointing to skolem IRIs"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -39,10 +31,6 @@ decisions:
     statement: "A baseline is added with the Graph Store Protocol's POST and never put, so applying or retrying it never retracts what the application wrote to its graph; retractions are recorded migrations"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-15T00:00:00Z
-  - key: SettingsAreDesiredState
-    statement: "A setup's settings are desired state, last writer wins: each declared key is compared and, when one differs, the declared keys alone are merged in under If-Match; a manual change to a declared key is overwritten on the next apply, and an undeclared key is never touched"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-15T00:00:00Z
   - key: CatalogueGraphsGovernedBySource
     statement: "The event catalogue graphs are system graphs governed by their source graphs, the first system graphs with a derived grant; varve:setup keeps point 5 as written"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -60,3 +48,5 @@ decisions:
 The rulings of [ADR 0130](../adr/0130-client-side-setup-and-system-graphs.md), one line each. The ADR is the
 narrative; this is what code cites. Filed unaccepted by milestone Client and integration of #93
 (ADR 0066); every citation is `CS0618` until the maintainer accepts them.
+
+Moved to a later set: `SetupIsDeclared`, `ApplyOrder` and `SettingsAreDesiredState` are superseded by ADR 0163, under which a setup keeps data-shaped work only, in its set.

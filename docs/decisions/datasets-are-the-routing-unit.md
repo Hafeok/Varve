@@ -15,19 +15,13 @@ decisions:
     statement: "The name is the host's and maps to a directory under the configured root; DatasetId stays the store's"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-08T00:00:00Z
-  - key: DatasetsCreatedByConfiguration
-    statement: "Datasets are created by configuration or the admin API, never by a request to a protocol endpoint"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-08T00:00:00Z
   - key: DirectGraphIdentificationByRequestAddress
     statement: "Direct graph identification takes the request's own scheme, host and path, behind a proxy only through configured forwarded headers"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-08T00:00:00Z
-  - key: DatasetRoutesAfterAlignment
-    statement: "The dataset routes are the service description, sparql, graphs, commits and commits/{position}, diff, status, state, settings and checkpoints, with health outside every dataset under /health/; amended 2026-10-09 under ADR 0118"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-10T00:00:00Z
 ---
 
 The rulings of [ADR 0093](../adr/0093-datasets-are-the-routing-unit.md), filed unaccepted by milestone 7a of #11
 (ADR 0066). Every citation is `CS0618` until the maintainer accepts them.
+
+Moved to a later set: `DatasetsCreatedByConfiguration` and `DatasetRoutesAfterAlignment` are superseded by ADR 0163, in its set.

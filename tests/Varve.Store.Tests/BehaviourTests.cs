@@ -152,6 +152,49 @@ public class BehaviourTests
         Assert.Equal(T.Iri("report"), attachment);
     }
 
+    [Fact]
+    public async Task the_hosts_attachments_come_first_survive_a_reopen_and_a_settings_commit_carries_them()
+    {
+        RdfTerm position = RdfTerm.Literal("42"u8.ToArray(), RdfTerm.Iri("https://w3id.org/varve/ns#managementPosition"u8));
+        MemoryStorage storage = new();
+
+        await using (Dataset dataset = await T.Open(storage))
+        {
+            CommitRequest request = new CommitRequest
+            {
+                Validators = [new Inspecting()],
+                Metadata = new CommitMetadata { Agent = T.Iri("me"), Attachments = [position] },
+            }.Assert(T.Iri("s"), T.Iri("p"), T.Iri("o"));
+
+            Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(request, T.Ct)).Outcome);
+            await dataset.ChangeSettingsAsync(
+                new SettingsChange { DefaultAccessScope = AccessScope.Current },
+                new CommitMetadata { Agent = T.Iri("me"), Cause = T.Literal("why"), Attachments = [position] },
+                cancellationToken: T.Ct);
+        }
+
+        await using Dataset reopened = await T.Open(storage);
+        RecordingProjection recorder = new();
+        await reopened.CatchUpAsync(recorder, T.Ct);
+        using DatasetView view = reopened.Pin();
+
+        Assert.Equal([position, T.Iri("report")], Externalise(view, recorder.Commits[0].Attachments));
+        Assert.Equal([position], Externalise(view, recorder.Commits[1].Attachments));
+
+        static RdfTerm[] Externalise(DatasetView view, ReadOnlyMemory<TermHandle> handles)
+        {
+            RdfTerm[] terms = new RdfTerm[handles.Length];
+
+            for (int i = 0; i < terms.Length; i++)
+            {
+                Assert.True(view.TryExternalise(handles.Span[i], out RdfTerm? term));
+                terms[i] = term!;
+            }
+
+            return terms;
+        }
+    }
+
     private sealed class Inspecting : ICommitValidator
     {
         public List<string> Seen { get; } = [];

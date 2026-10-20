@@ -16,6 +16,15 @@
           }
         },
         {
+          "requestParam": "scope",
+          "match": "api://varve-manage",
+          "claims": {
+            "sub": "${clientId}",
+            "aud": [ "api://varve-manage" ],
+            "roles": [ "varve.operator" ]
+          }
+        },
+        {
           "requestParam": "client_id",
           "match": "varve-cli",
           "claims": {

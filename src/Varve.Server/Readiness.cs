@@ -16,23 +16,34 @@ namespace Varve.Server;
 /// head, its projection, whether it failed, and whether its storage no longer
 /// holds the writer epoch (ADR 0136).
 /// </summary>
-internal readonly record struct DatasetHealth(string Name, DatasetState State, string? Reason, long Head, long Projection, bool Failed, bool Superseded = false);
+internal readonly record struct DatasetHealth(string Name, DatasetState State, string? Reason, long Head, long Projection, bool Failed, bool Superseded = false, DatasetRole Role = DatasetRole.Writer);
 
 /// <summary>One dataset's line in the readiness answer.</summary>
-internal readonly record struct DatasetReadiness(string Name, string State, string? Reason, long? Lag);
+internal readonly record struct DatasetReadiness(string Name, string State, string? Reason, long? Lag, DatasetRole Role = DatasetRole.Writer);
 
 /// <summary>
 /// The readiness decision (ADR 0113), pure, so that its property can be
 /// stated over generated states: every dataset that should be open is open,
 /// no default projection is failed, each is within the allowed lag of its
 /// head, and the host is not draining. A closed dataset is reported and does
-/// not count.
+/// not count. With a management plane (ADR 0163 point 13), the instance is
+/// also not ready when its system role is superseded, its bootstrap
+/// operators differ from the recorded ones, or its management lag exceeds
+/// the allowed one.
 /// </summary>
 internal static class Readiness
 {
-    internal static (bool Ready, List<DatasetReadiness> Datasets) Evaluate(IEnumerable<DatasetHealth> datasets, long allowedLag, bool draining)
+    internal static (bool Ready, List<DatasetReadiness> Datasets) Evaluate(IEnumerable<DatasetHealth> datasets, long allowedLag, bool draining) =>
+        Evaluate(datasets, allowedLag, draining, null, 0);
+
+    internal static (bool Ready, List<DatasetReadiness> Datasets) Evaluate(IEnumerable<DatasetHealth> datasets, long allowedLag, bool draining, ManagementStatus? management, long allowedManagementLag)
     {
         bool ready = !draining;
+
+        if (management is { } status && (status.Role == ManagementRole.Superseded || status.Bootstrap == BootstrapState.Mismatch || status.Lag > allowedManagementLag))
+        {
+            ready = false;
+        }
         List<DatasetReadiness> states = [];
 
         foreach (DatasetHealth dataset in datasets)
@@ -56,7 +67,7 @@ internal static class Readiness
                     ready = false;
                     break;
                 case DatasetState.Open:
-                    line = new DatasetReadiness(dataset.Name, "ready", null, null);
+                    line = new DatasetReadiness(dataset.Name, "ready", null, dataset.Head - dataset.Projection);
                     break;
                 case DatasetState.Closed:
                     line = new DatasetReadiness(dataset.Name, "closed", null, null);
@@ -67,7 +78,7 @@ internal static class Readiness
                     break;
             }
 
-            states.Add(line);
+            states.Add(line with { Role = dataset.Role });
         }
 
         return (ready, states);

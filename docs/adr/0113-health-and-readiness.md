@@ -87,3 +87,15 @@ Point 3 stands: liveness stays true, since restarting the process would claim
 the epoch back and supersede the newer writer.
 
 **The ledger.** The ruling is ADR 0136's `WriterSupersededProblem`.
+
+## Amendment, 2026-10-19 — readiness reports management and followers
+
+Filed by milestone Management plane of #105, unaccepted until the maintainer
+accepts it (ADR 0066).
+
+Readiness also reports the management state and each dataset's role and lag (ADR
+[0163](0163-the-management-plane.md) point 13); a superseded system writer, a
+bootstrap mismatch or a management lag past `Varve:Fleet:AllowedLag` is not ready.
+
+**The ledger.** `ReadinessIsEveryDatasetOpenAndWithinLag` moves to ADR 0163's set,
+superseded.

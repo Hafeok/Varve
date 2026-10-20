@@ -97,6 +97,25 @@ public sealed class ProtocolOptions
     /// <summary>The Event Hubs server the AsyncAPI document names, when the host publishes events there (ADR 0144).</summary>
     public EventHubsServer? EventHubs { get; init; }
 
+    /// <summary>
+    /// Who writes each dataset of the host's fleet (ADR 0168). Null in a
+    /// fleet of one: every write is then served here.
+    /// </summary>
+    public IWriterDirectory? Writers { get; init; }
+
+    /// <summary>What forwards a write to its writer (ADR 0168); required with <see cref="Writers"/>.</summary>
+    public System.Net.Http.HttpMessageInvoker? Forwarder { get; init; }
+
+    /// <summary>
+    /// The management plane's position, which every commit records and a
+    /// write's order is checked against (ADRs 0163, 0165). Null in a host
+    /// with no management plane: commits then carry no position.
+    /// </summary>
+    public IManagementAuthority? Management { get; init; }
+
+    /// <summary>How a follower is advanced before a read (ADR 0164). Null when the host follows nothing.</summary>
+    public IDatasetFollowing? Following { get; init; }
+
     /// <summary>The catalogue graphs' history of each dataset, replayed once and kept current.</summary>
     internal Endpoints.EventCatalogues Catalogues { get; } = new();
 }

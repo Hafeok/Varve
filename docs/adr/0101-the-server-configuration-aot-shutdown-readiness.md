@@ -209,3 +209,17 @@ a commit returns once the store acknowledged its chunk (ADR 0135).
 
 **The ledger.** The rulings are ADR 0136's `WriterOpenClaimsTheNextEpoch` and
 `ShutdownAbdicates`, and ADR 0139's `CatalogUnderTheEpochFence`.
+
+## Amendment, 2026-10-19 — grants and the status endpoint move
+
+Filed by milestone Management plane of #105, unaccepted until the maintainer
+accepts it (ADR 0066).
+
+A grant names a dataset in that dataset's own management graph, and status is
+`/manage/datasets/{name}/status` (ADR [0163](0163-the-management-plane.md)). The
+configuration gains `Varve:Fleet:*`, `Varve:Manage:*` and
+`Varve:Auth:Management:Audience`, and refuses `Varve:Datasets` and
+`Varve:Auth:Datasets`.
+
+**The ledger.** `PermissionsAreCumulative` and `StatusIsTheAdminEndpoint` move to
+ADR 0163's set, superseded.

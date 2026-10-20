@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 4 by dependency (ADR 0166): it reads TriG through Varve.Turtle
+         and canonicalises with Varve.Rdf, and answers scopes of Varve.Rdf's
+         types. It knows no store and no HTTP: a host pins the system dataset
+         at a position and hands its quads over. Nothing on layer 4
+         references it, and it references nothing on layer 4. -->
+    <ArchLayer>4</ArchLayer>
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <Description>The management plane's declarations: the varve: vocabulary for datasets, settings, placement and grants, their reader and code validator, grant evaluation over a caller with graph templates, and the RDFC-1.0 plan that varve apply converges.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- ADR 0003 permits InternalsVisibleTo toward *.Tests only. -->
+    <InternalsVisibleTo Include="Varve.Management.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Turtle/Varve.Turtle.csproj" />
+    <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
+    <ProjectReference Include="../Varve.Iri/Varve.Iri.csproj" />
+  </ItemGroup>
+
+</Project>

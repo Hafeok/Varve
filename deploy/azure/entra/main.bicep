@@ -23,6 +23,12 @@ targetScope = 'tenant'
 @description('Varve\'s application ID URI: the audience of every token for it, Varve:Auth:Audiences.')
 param varveIdentifierUri string = 'api://varve'
 
+@description('The management plane\'s application ID URI: Varve:Auth:Management:Audience, which the data plane refuses (ADR 0163 point 1).')
+param managementIdentifierUri string = 'api://varve-manage'
+
+@description('The GitHub environment whose Actions may run `varve apply` as the deployer: restrict it to main.')
+param githubDeployEnvironment string = 'varve-deploy'
+
 @description('The calling application\'s own application ID URI: the audience of the tokens its users send it.')
 param callerIdentifierUri string = 'api://varve-caller'
 
@@ -41,6 +47,7 @@ var writeRoleId = guid('varve', 'role', 'Varve.Write')
 var adminRoleId = guid('varve', 'role', 'Varve.Admin')
 var accessAsUserId = guid('varve', 'scope', 'access_as_user')
 var callerAccessAsUserId = guid('varve-caller', 'scope', 'access_as_user')
+var operatorRoleId = guid('varve-manage', 'role', 'Varve.Operator')
 
 resource varve 'Microsoft.Graph/applications@v1.0' = {
   uniqueName: 'varve-api-${environmentName}'
@@ -90,7 +97,7 @@ resource varve 'Microsoft.Graph/applications@v1.0' = {
       id: adminRoleId
       value: 'Varve.Admin'
       displayName: 'Varve administrators'
-      description: 'Administer datasets: status, settings, checkpoints.'
+      description: 'Administer datasets: the management plane\'s dataset resources, as a dataset admin grant names the role.'
       allowedMemberTypes: [
         'User'
         'Application'
@@ -102,6 +109,68 @@ resource varve 'Microsoft.Graph/applications@v1.0' = {
 
 resource varvePrincipal 'Microsoft.Graph/servicePrincipals@v1.0' = {
   appId: varve.appId
+}
+
+// The management plane, a registration of its own (ADR 0163 point 1): its
+// tokens name its audience alone, so the data plane refuses them, and a
+// data-plane token is refused here. Varve.Operator is a bootstrap operator
+// role value, Varve:Manage:BootstrapOperators.
+resource management 'Microsoft.Graph/applications@v1.0' = {
+  uniqueName: 'varve-manage-${environmentName}'
+  displayName: 'Varve management'
+  signInAudience: 'AzureADMyOrg'
+  identifierUris: [
+    managementIdentifierUri
+  ]
+  api: {
+    requestedAccessTokenVersion: 2
+  }
+  appRoles: [
+    {
+      id: operatorRoleId
+      value: 'Varve.Operator'
+      displayName: 'Varve operators'
+      description: 'Manage the fleet: declare datasets, grants and placement; read the system dataset.'
+      allowedMemberTypes: [
+        'User'
+        'Application'
+      ]
+      isEnabled: true
+    }
+  ]
+}
+
+resource managementPrincipal 'Microsoft.Graph/servicePrincipals@v1.0' = {
+  appId: management.appId
+}
+
+// The deployer: what CI runs `varve apply` as, by workload identity
+// federation (ADR 0163 point 5). Its only credential is GitHub's OIDC token
+// for one environment of one repository; it holds Varve.Operator.
+resource deployer 'Microsoft.Graph/applications@v1.0' = {
+  uniqueName: 'varve-deployer-${environmentName}'
+  displayName: 'Varve deployer'
+  signInAudience: 'AzureADMyOrg'
+}
+
+resource deployerPrincipal 'Microsoft.Graph/servicePrincipals@v1.0' = {
+  appId: deployer.appId
+}
+
+resource deployerOperates 'Microsoft.Graph/appRoleAssignedTo@v1.0' = {
+  appRoleId: operatorRoleId
+  principalId: deployerPrincipal.id
+  resourceId: managementPrincipal.id
+}
+
+resource deployerFromGitHub 'Microsoft.Graph/applications/federatedIdentityCredentials@v1.0' = {
+  name: '${deployer.uniqueName}/github-${githubDeployEnvironment}'
+  audiences: [
+    'api://AzureADTokenExchange'
+  ]
+  issuer: 'https://token.actions.githubusercontent.com'
+  subject: 'repo:${githubRepository}:environment:${githubDeployEnvironment}'
+  description: 'GitHub Actions in ${githubRepository}, environment ${githubDeployEnvironment}: varve apply.'
 }
 
 resource caller 'Microsoft.Graph/applications@v1.0' = {
@@ -220,3 +289,9 @@ output exchangeScope string = '${varveIdentifierUri}/access_as_user'
 
 @description('The Varve.Write role id, to assign to users and groups.')
 output writeRoleId string = writeRoleId
+
+@description('Varve:Auth:Management:Audience is this URI; `varve apply --scope` asks for {this}/.default.')
+output managementAudience string = managementIdentifierUri
+
+@description('The deployer\'s client id: `varve apply --client-id`, with `--client-assertion github`.')
+output deployerClientId string = deployer.appId

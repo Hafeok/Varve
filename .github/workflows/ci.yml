@@ -314,6 +314,12 @@ jobs:
           --project tests/Varve.Events.Tests/Varve.Events.Tests.csproj
           --configuration Release
 
+      - name: Test Varve.Management
+        run: >
+          dotnet test
+          --project tests/Varve.Management.Tests/Varve.Management.Tests.csproj
+          --configuration Release
+
       - name: Test Varve.Store
         run: >
           dotnet test
@@ -613,6 +619,57 @@ jobs:
           --configuration Release
           --filter-class Varve.Server.Tests.ObjectStorageServerTests
 
+  # The fleet (ADRs 0163, 0164, 0168): two server processes on one Azurite
+  # container, the system writer and a follower that forwards. Its own job,
+  # the Fleet category, so the release gate can take it over (#129).
+  fleet-services:
+    name: fleet (services)
+    runs-on: ubuntu-latest
+
+    # Its test containers come from this repository's private mirror (#118).
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start the object stores
+        run: |
+          docker compose --file .github/storage/compose.yaml up --detach
+          for attempt in $(seq 1 60); do
+            azurite=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:10000/devstoreaccount1?comp=list || true)
+            [ "$azurite" = 403 ] && exit 0
+            sleep 1
+          done
+          docker compose --file .github/storage/compose.yaml logs
+          exit 1
+
+      - name: Run the fleet
+        env:
+          VARVE_AZURITE: http://127.0.0.1:10000/devstoreaccount1
+          VARVE_STORAGE_LEGS_REQUIRED: azurite
+        run: >
+          dotnet test
+          --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
+          --configuration Release
+          --filter-class Varve.Server.Tests.FleetTests
+
   # The REC generator's bytes on both architectures (ADR 0141): its tests pin
   # each size's SHA-256, so a pass on each runner is the same bytes on both.
   rec-generator:
@@ -754,6 +811,10 @@ jobs:
     permissions:
       contents: read
       packages: write
+      # The job's own OIDC token, which varve apply presents to the test
+      # issuer as its client assertion: workload identity federation, no
+      # key (ADR 0163 point 5).
+      id-token: write
 
     env:
       IMAGE: ghcr.io/hafeok/varve
@@ -862,8 +923,9 @@ jobs:
 
       # Auth leg (b) against the container (ADR 0100, ADR 0111 point 8): the
       # mock on the host's 8080, the container on the host network at 8090,
-      # configured for the mock's issuer with both roles granted; the same
-      # provider tests, pointed at it by VARVE_SERVER_URL.
+      # configured for the mock's issuer; its dataset and both roles' grants
+      # declared by varve apply, authenticated by the job's OIDC token (ADR
+      # 0163); the same provider tests, pointed at it by VARVE_SERVER_URL.
       - name: Start mock-oauth2-server
         if: matrix.rid == 'linux-x64'
         run: |
@@ -887,9 +949,7 @@ jobs:
             --env VARVE__AUTH__ROLECLAIMTYPE=roles \
             --env VARVE__AUTH__SUBJECTCLAIM=sub \
             --env VARVE__AUTH__REQUIREHTTPSMETADATA=false \
-            --env VARVE__DATASETS__d__STORAGE=Memory \
-            --env VARVE__AUTH__DATASETS__d__READ__0=varve.read \
-            --env VARVE__AUTH__DATASETS__d__WRITE__0=varve.write \
+            --env VARVE__MANAGE__BOOTSTRAPOPERATORS__0=varve.operator \
             "$IMAGE:$TAG" serve
           for attempt in $(seq 1 60); do
             curl --silent --fail http://localhost:8090/health/ready > /dev/null && exit 0
@@ -897,6 +957,34 @@ jobs:
           done
           docker logs varve-mock
           exit 1
+
+      - name: Declare the dataset with varve apply, by workload identity federation
+        if: matrix.rid == 'linux-x64'
+        run: |
+          cat > "$RUNNER_TEMP/d.trig" <<'TRIG'
+          @prefix varve: <https://w3id.org/varve/ns#> .
+          <https://w3id.org/varve/ns#manage/dataset/d> {
+            <urn:ci:d> a varve:Dataset ; varve:datasetName "d" ; varve:storage varve:Memory .
+            <urn:ci:read> a varve:Role ; varve:claimValue "varve.read" .
+            <urn:ci:write> a varve:Role ; varve:claimValue "varve.write" .
+            <urn:ci:readers> a varve:Grant ; varve:grantee <urn:ci:read> ; varve:permission varve:read ; varve:allGraphs true .
+            <urn:ci:writers> a varve:Grant ; varve:grantee <urn:ci:write> ; varve:permission varve:write ; varve:allGraphs true .
+          }
+          TRIG
+          # mock-oauth2-server takes a client assertion only when its subject is
+          # the client id (RFC 7523 §3), where Entra maps the subject through a
+          # federated credential to its own client id. So the client here is
+          # named by the job token's subject, read from that token, and the
+          # fixture's management mapping matches on the scope instead.
+          subject=$(curl --silent --fail \
+            --header "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://varve-ci" \
+            | python3 -c 'import base64, json, sys; p = json.load(sys.stdin)["value"].split(".")[1]; print(json.loads(base64.urlsafe_b64decode(p + "=" * (-len(p) % 4)))["sub"])')
+          "${{ github.workspace }}/artifacts/server-aot/Varve.Server" apply "$RUNNER_TEMP/d.trig" \
+            --server http://localhost:8090 \
+            --authority http://localhost:8080/varve --client-id "$subject" \
+            --client-assertion github --assertion-audience api://varve-ci \
+            --scope api://varve-manage
 
       - name: Test the mock-oauth2 leg against the container
         if: matrix.rid == 'linux-x64'
@@ -927,6 +1015,33 @@ jobs:
         if: matrix.rid == 'linux-x64'
         run: dotnet run eng/zitadel-seed.cs -- --output ${{ github.workspace }}/artifacts/zitadel-seed.json
 
+      # Zitadel's tokens name its project as their audience, so no token here
+      # is for the management audience: the dataset is declared first, by the
+      # same image in anonymous mode on the same volume, then served under
+      # Zitadel with the same bootstrap operators (ADR 0163 point 7).
+      - name: Declare the dataset for the Zitadel leg
+        if: matrix.rid == 'linux-x64'
+        run: |
+          docker run --detach --name varve-declare --read-only --network host \
+            --volume varve-zitadel:/var/lib/varve \
+            --env ASPNETCORE_URLS=http://+:8090 \
+            --env VARVE__MANAGE__BOOTSTRAPOPERATORS__0=operator \
+            "$IMAGE:$TAG" serve --anonymous
+          for attempt in $(seq 1 60); do
+            curl --silent --fail http://localhost:8090/health/ready > /dev/null && break
+            sleep 1
+          done
+          curl --silent --show-error --fail --request PUT --header 'Content-Type: application/trig' \
+            --data-binary @- http://localhost:8090/manage/datasets/d <<'TRIG'
+          <urn:ci:d> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> "d" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#Memory> .
+          <urn:ci:read> a <https://w3id.org/varve/ns#Role> ; <https://w3id.org/varve/ns#claimValue> "read" .
+          <urn:ci:write> a <https://w3id.org/varve/ns#Role> ; <https://w3id.org/varve/ns#claimValue> "write" .
+          <urn:ci:readers> a <https://w3id.org/varve/ns#Grant> ; <https://w3id.org/varve/ns#grantee> <urn:ci:read> ; <https://w3id.org/varve/ns#permission> <https://w3id.org/varve/ns#read> ; <https://w3id.org/varve/ns#allGraphs> true .
+          <urn:ci:writers> a <https://w3id.org/varve/ns#Grant> ; <https://w3id.org/varve/ns#grantee> <urn:ci:write> ; <https://w3id.org/varve/ns#permission> <https://w3id.org/varve/ns#write> ; <https://w3id.org/varve/ns#allGraphs> true .
+          TRIG
+          docker stop varve-declare
+          docker rm varve-declare
+
       - name: Start the container against Zitadel
         if: matrix.rid == 'linux-x64'
         run: |
@@ -940,9 +1055,7 @@ jobs:
             --env "VARVE__AUTH__ROLECLAIMTYPE=$(jq -r .roleClaim "$seed")" \
             --env VARVE__AUTH__SUBJECTCLAIM=sub \
             --env VARVE__AUTH__REQUIREHTTPSMETADATA=false \
-            --env VARVE__DATASETS__d__STORAGE=Memory \
-            --env VARVE__AUTH__DATASETS__d__READ__0=read \
-            --env VARVE__AUTH__DATASETS__d__WRITE__0=write \
+            --env VARVE__MANAGE__BOOTSTRAPOPERATORS__0=operator \
             "$IMAGE:$TAG" serve
           for attempt in $(seq 1 60); do
             curl --silent --fail http://localhost:8090/health/ready > /dev/null && exit 0

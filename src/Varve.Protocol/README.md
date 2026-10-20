@@ -4,9 +4,9 @@ The SPARQL 1.1 Protocol, the Graph Store HTTP Protocol, the service
 description, time travel, the change feed and the diff, for a Varve store, as
 ASP.NET Core endpoint groups any host mounts.
 
-- **One endpoint group per dataset.** `MapVarveDataset` maps `/`, `/sparql`,
-  `/graphs`, `/commits`, `/diff`, `/status`, `/settings` and `/checkpoints`
-  under a prefix the host chooses. The
+- **One endpoint group per dataset.** `MapVarveDataset` maps the data plane,
+  `/`, `/sparql`, `/graphs`, `/commits`, `/diff` and `/events`, under a
+  prefix the host chooses. The
   host says which dataset a request names (`IDatasetResolver`), how an update
   executes (`ISparqlUpdateExecutor`), and who the caller is (`ICallerIdentity`).
 - **Every write is one commit**, with the caller as its agent. `If-Match`
@@ -37,16 +37,26 @@ ASP.NET Core endpoint groups any host mounts.
   extensions under `https://w3id.org/varve/ns#` — `position`, the headers,
   `graphStore`, `commits`, `state`, `diff`, `status`, `settings`, `checkpoints` —
   and `sd:BasicFederatedQuery` when the host answers `SERVICE` (ADR 0104).
-- **The admin API** (ADRs 0106, 0118): `MapVarveAdministration` mounts
-  `GET /datasets`, `PUT` and `DELETE` of `/datasets/{name}`, and `GET` and
-  `PUT` of `/datasets/{name}/state` (`open` or `closed`, idempotent), over the
-  host's `IDatasetAdministration`; each dataset group has `/settings` as a
-  resource (`GET` with the position as `ETag`, `PUT` replaces, `PATCH`
-  merges, both under `If-Match`, each a `Settings` commit) and
-  `POST /checkpoints`, and `/status` reports the projection.
+- **The management plane** (ADR 0163): `MapVarveManagement` mounts
+  `/manage/datasets` and, under `/manage/datasets/{name}`, the dataset's
+  declaration as TriG (`GET`, `PUT`, `PATCH`, `DELETE`), `settings`, `state`,
+  `status`, `checkpoints` and `grants`; then `/manage/fleet`, `/graphs`,
+  `/apply` and `/system`, over the host's `IManagementPlane`: the fleet's
+  system dataset, the grants in force, and the code validator every
+  management commit runs (ADR 0166). A host with no management plane passes
+  none, and gets the list, status, checkpoints, settings and state over its
+  `IDatasetAdministration`.
+- **Write routing by forwarding** (ADR 0168): with the host's
+  `IWriterDirectory`, a write to a dataset another instance writes is sent
+  to it whole, once, with the caller's token and `Varve-Forwarded`, and its
+  answer passed back; a forwarded write that reaches a non-writer is
+  `503 writer-moved`. `IManagementAuthority` pins the management position a
+  request is authorised at, which its commit records (ADR 0165), and
+  `IDatasetFollowing` advances a follower before a read; `Varve-Min-Position`
+  asks for a later one.
 - **Authorisation is four policy names**, `varve:read`, `varve:write`,
-  `varve:admin` and `varve:server-admin`. The host decides what satisfies
-  them. Nothing here authenticates.
+  `varve:admin` and `varve:server-admin` (an operator's). The host decides
+  what satisfies them. Nothing here authenticates.
 - **Graph-level scope** (ADR 0107): after the policy, the host's
   `IAccessScopes` answers what the caller reads and writes, by graph. A read
   evaluates over `GraphScopedQuadSource`, so an unreadable graph is absent

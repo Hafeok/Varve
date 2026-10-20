@@ -33,7 +33,20 @@ public sealed class HostTests
     {
         List<string> errors = SettingsCheck.Errors(new ServerSettings());
         Assert.Contains(errors, e => e.StartsWith("Varve:Auth:Mode", StringComparison.Ordinal));
-        Assert.Contains(errors, e => e.StartsWith("Varve:Datasets names", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The keys the management plane replaced are refused by name, each
+    /// saying what replaces it (ADR 0163), never as a misspelling.
+    /// </summary>
+    [Theory]
+    [InlineData("Varve:Datasets:d:Storage", "varve apply --from-config")]
+    [InlineData("Varve:Auth:Datasets:d:Read:0", "varve apply --from-config")]
+    [InlineData("Varve:Auth:Server:Admin:0", "Varve:Manage:BootstrapOperators")]
+    public void A_key_the_management_plane_replaced_is_refused_naming_its_replacement(string key, string names)
+    {
+        Assert.False(SettingsCheck.IsKnown(key["Varve:".Length..]));
+        Assert.Contains(names, SettingsCheck.UnknownKeyError(key), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -42,17 +55,12 @@ public sealed class HostTests
         ServerSettings settings = new()
         {
             DatasetsRoot = "relative/path",
-            Datasets =
-            {
-                ["-bad"] = new DatasetSettings { Storage = "Memory" },
-                ["files"] = new DatasetSettings { Storage = "File" },
-                ["odd"] = new DatasetSettings { Storage = "Tape" },
-            },
+            Fleet = { Writer = "two words", InternalUrl = "ftp://writer.internal/", FollowInterval = TimeSpan.Zero, AllowedLag = -1 },
             Auth =
             {
                 Mode = "Oidc",
                 Authority = "http://issuer.example/",
-                Datasets = { ["ghost"] = new PermissionSettings() },
+                Audiences = { "api://varve-manage" },
             },
             Limits = { QueryTimeout = TimeSpan.Zero, ResultSizeCap = -1 },
             ForwardedHeaders = { Enabled = true, KnownProxies = { "not-an-address" } },
@@ -62,12 +70,13 @@ public sealed class HostTests
         string[] expected =
         [
             "Varve:Auth:Authority",
-            "Varve:Auth:Audiences",
             "Varve:DatasetsRoot is an absolute path",
-            "Varve:Datasets:-bad is not a dataset name",
-            "Varve:Datasets:files is a File dataset",
-            "Varve:Datasets:odd:Storage",
-            "Varve:Auth:Datasets:ghost",
+            "Varve:Fleet:Writer",
+            "Varve:Fleet:InternalUrl",
+            "Varve:Fleet:FollowInterval",
+            "Varve:Fleet:AllowedLag",
+            "Varve:Manage:BootstrapOperators names at least one",
+            "Varve:Auth:Management:Audience",
             "Varve:Limits durations",
             "Varve:Limits sizes",
             "Varve:ForwardedHeaders:KnownProxies has not-an-address",
@@ -92,14 +101,14 @@ public sealed class HostTests
     [Fact]
     public async Task Anonymous_mode_warns_at_every_start()
     {
-        (int _, string output, string _) = await RunProcessAsync(stopAfterReady: true, "--Varve:Auth:Mode=Anonymous", "--Varve:Datasets:d:Storage=Memory");
+        (int _, string output, string _) = await RunProcessAsync(stopAfterReady: true, "--Varve:Auth:Mode=Anonymous");
         Assert.Contains("Anonymous mode is on", output, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task Anonymous_mode_in_production_does_not_start()
     {
-        (int exit, string _, string errors) = await RunProcessAsync(stopAfterReady: false, "--Varve:Auth:Mode=Anonymous", "--Varve:Auth:Production=true", "--Varve:Datasets:d:Storage=Memory");
+        (int exit, string _, string errors) = await RunProcessAsync(stopAfterReady: false, "--Varve:Auth:Mode=Anonymous", "--Varve:Auth:Production=true");
         Assert.Equal(2, exit);
         Assert.Contains("Varve:Auth:Mode is Anonymous in a configuration marked Production", errors, StringComparison.Ordinal);
     }
@@ -107,16 +116,18 @@ public sealed class HostTests
     [Fact]
     public async Task A_configuration_that_does_not_validate_exits_2_and_lists_its_errors()
     {
-        (int exit, string _, string errors) = await RunProcessAsync(stopAfterReady: false, "--Varve:Datasets:d:Storage=Tape");
+        (int exit, string _, string errors) = await RunProcessAsync(stopAfterReady: false, "--Varve:Datasets:d:Storage=Tape", "--Varve:Fleet:FollowInterval=00:00:00");
         Assert.Equal(2, exit);
         Assert.Contains("Varve:Auth:Mode is Oidc or Anonymous", errors, StringComparison.Ordinal);
-        Assert.Contains("Varve:Datasets:d:Storage is File, Memory or ObjectStorage", errors, StringComparison.Ordinal);
+        Assert.Contains("Varve:Fleet:FollowInterval is positive", errors, StringComparison.Ordinal);
+        Assert.Contains("Varve:Datasets:d:Storage: Varve:Datasets is removed", errors, StringComparison.Ordinal);
+        Assert.Contains("varve apply --from-config", errors, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task An_unknown_key_under_Varve_refuses_to_start()
     {
-        (int exit, string _, string errors) = await RunProcessAsync(stopAfterReady: false, "--Varve:Auth:Mode=Anonymous", "--Varve:Datasets:d:Storage=Memory", "--Varve:Limit:QueryTimeout=00:00:10");
+        (int exit, string _, string errors) = await RunProcessAsync(stopAfterReady: false, "--Varve:Auth:Mode=Anonymous", "--Varve:Limit:QueryTimeout=00:00:10");
         Assert.Equal(2, exit);
         Assert.Contains("Varve:Limit:QueryTimeout is not a setting the server knows", errors, StringComparison.Ordinal);
     }
@@ -137,7 +148,7 @@ public sealed class HostTests
             (int exit, string output, string errors) = await RunProcessAsync(
                 stopAfterReady: false,
                 new Dictionary<string, string> { ["VARVE__LIMITS__RESULTSIZECAP"] = "12345", ["VARVE__LIMITS__QUERYTIMEOUT"] = "00:00:07" },
-                "serve", "--print-config", "--anonymous", "--dataset", "d=Memory", "--config", file, "--set", "Limits:QueryTimeout=00:00:10", "--set", "Auth:ClientSecret=hunter2");
+                "serve", "--print-config", "--anonymous", "--set", "Fleet:FollowInterval=00:00:02", "--config", file, "--set", "Limits:QueryTimeout=00:00:10", "--set", "Auth:ClientSecret=hunter2");
 
             // The command line beat the environment, which beat the file, for QueryTimeout.
             using JsonDocument printed = JsonDocument.Parse(output);
@@ -145,7 +156,7 @@ public sealed class HostTests
             Assert.Equal(("00:00:10", "command line"), Setting(varve, "Limits:QueryTimeout"));
             Assert.Equal(("12345", "environment"), Setting(varve, "Limits:ResultSizeCap"));
             Assert.Equal(("777", "file " + file), Setting(varve, "Limits:MaxRequestBody"));
-            Assert.Equal(("Memory", "command line"), Setting(varve, "Datasets:d:Storage"));
+            Assert.Equal(("00:00:02", "command line"), Setting(varve, "Fleet:FollowInterval"));
             Assert.Equal(("Anonymous", "command line"), Setting(varve, "Auth:Mode"));
 
             // The secret is redacted in the print, and as an unknown key it refuses the start.
@@ -164,10 +175,10 @@ public sealed class HostTests
     [Fact]
     public async Task Print_config_of_a_valid_configuration_exits_0_without_serving()
     {
-        (int exit, string output, string _) = await RunProcessAsync(stopAfterReady: false, "serve", "--print-config", "--anonymous", "--dataset", "d=Memory");
+        (int exit, string output, string _) = await RunProcessAsync(stopAfterReady: false, "serve", "--print-config", "--anonymous", "--set", "Manage:BootstrapOperators:0=ops");
         Assert.Equal(0, exit);
         using JsonDocument printed = JsonDocument.Parse(output);
-        Assert.Equal(("Memory", "command line"), Setting(printed.RootElement.GetProperty("Varve"), "Datasets:d:Storage"));
+        Assert.Equal(("ops", "command line"), Setting(printed.RootElement.GetProperty("Varve"), "Manage:BootstrapOperators:0"));
         Assert.DoesNotContain("Now listening", output, StringComparison.Ordinal);
     }
 
@@ -282,7 +293,10 @@ public sealed class HostTests
         HttpResponseMessage ready = await server.Client.GetAsync(new Uri("health/ready", UriKind.Relative), Ct);
         Assert.Equal(HttpStatusCode.OK, live.StatusCode);
         Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
-        Assert.Equal("""{"status":"ready","datasets":{"d":"ready"}}""", await ready.Content.ReadAsStringAsync(Ct));
+        // The bootstrap operators, then the declaration of d: system position 2.
+        Assert.Equal(
+            """{"status":"ready","management":{"role":"writer","epoch":0,"position":2,"lag":0,"bootstrap":"recorded"},"datasets":{"d":{"state":"ready","role":"writer","lag":0}}}""",
+            await ready.Content.ReadAsStringAsync(Ct));
     }
 
     [Fact]
@@ -335,7 +349,6 @@ public sealed class HostTests
 
     private static ServerSettings Anonymous() => new()
     {
-        Datasets = { ["d"] = new DatasetSettings { Storage = "Memory" } },
         Auth = { Mode = "Anonymous" },
     };
 

@@ -26,7 +26,6 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`method-not-allowed`](method-not-allowed.md) | 405 |  | The endpoint does not serve this method. |
 | [`not-acceptable`](not-acceptable.md) | 406 |  | Nothing in Accept is a format this endpoint writes. |
 | [`conflict`](conflict.md) | 409 | `position`, `expectedPosition`, `headPosition`, `graphs`, `graphsTruncated` | Another commit came first. |
-| [`dataset-exists`](dataset-exists.md) | 409 |  | A dataset by that name exists. |
 | [`dataset-open`](dataset-open.md) | 409 |  | The dataset is open; close it first. |
 | [`precondition-failed`](precondition-failed.md) | 412 | `position`, `expectedPosition`, `headPosition`, `graphs` | The precondition does not name the current version. |
 | [`request-too-large`](request-too-large.md) | 413 | `limit` | The request body is over the server's limit. |
@@ -40,14 +39,18 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`shapes-invalid`](shapes-invalid.md) | 422 | `binding`, `problems` | The binding's shapes graph is refused. |
 | [`memory-limit-exceeded`](memory-limit-exceeded.md) | 422 | `limit`, `actual` | The request needs more memory than the server allows one request. |
 | [`as-of-distance-exceeded`](as-of-distance-exceeded.md) | 422 | `limit`, `actual` | The as-of position is too far from its nearest checkpoint. |
+| [`declaration-invalid`](declaration-invalid.md) | 422 | `findings` | The management declarations are not valid. |
 | [`too-many-live-tails`](too-many-live-tails.md) | 429 | `limit` | The client holds too many live tails open. |
 | [`too-many-requests`](too-many-requests.md) | 429 |  | The client sent more requests than the endpoint allows in its window. |
-| [`unavailable`](unavailable.md) | 503 |  | The dataset cannot answer now. |
+| [`unavailable`](unavailable.md) | 503 | `reason` | The dataset cannot answer now. |
 | [`read-limit-exceeded`](read-limit-exceeded.md) | 503 |  | The read was cut by a server limit. |
 | [`shutting-down`](shutting-down.md) | 503 |  | The server is shutting down. |
-| [`not-ready`](not-ready.md) | 503 | `datasets` | The server is not ready. |
+| [`not-ready`](not-ready.md) | 503 | `management`, `datasets` | The server is not ready. |
 | [`server-busy`](server-busy.md) | 503 | `limit` | The server has as many reads in flight as it allows. |
 | [`writer-superseded`](writer-superseded.md) | 503 |  | A newer writer holds the dataset; this instance serves reads only. |
+| [`management-behind`](management-behind.md) | 503 | `position`, `appliedPosition` | The server has not applied the management position asked for. |
+| [`dataset-behind`](dataset-behind.md) | 503 | `position`, `appliedPosition` | This instance has not applied the dataset position asked for. |
+| [`writer-moved`](writer-moved.md) | 503 | `epoch`, `requestId` | The instance a write was forwarded to no longer writes the dataset. |
 
 What each limit's failure looks like to a client is in
 [`docs/operator/limits.md`](../operator/limits.md).

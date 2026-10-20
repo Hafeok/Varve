@@ -11,10 +11,6 @@ decisions:
     statement: "Entra ID is the default, documented and tested issuer, and any other OIDC issuer works with the same code"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-22T00:00:00Z
-  - key: ClaimBasedDatasetPermissions
-    statement: "Configured claims map to read, write and admin permissions per dataset, and Varve keeps no user store"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-09-22T00:00:00Z
   - key: AnonymousModeIsExplicit
     statement: "Anonymous mode is enabled only explicitly, logs a warning on every start, and is enabled by the Aspire integration only in development"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -53,3 +49,5 @@ The statements here therefore name the package and not the layer.
 
 Moved to a later set: `RemoteCliUsesBearerTokens`, whose storage clause ADR 0105 supersedes in
 part (filed 2026-10-08, unaccepted); it keeps its key in `the-cli.md`.
+
+Moved to a later set: `ClaimBasedDatasetPermissions` is superseded by ADR 0163, under which claims map to permissions through declarations in the system dataset, in its set.
