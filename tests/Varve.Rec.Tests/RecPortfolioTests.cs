@@ -90,9 +90,9 @@ public sealed class RecPortfolioTests
     /// hashes are pinned, and CI runs this on linux-x64 and linux-arm64.
     /// </summary>
     [Theory]
-    [InlineData("S", "c04a57dce9928447819e211ce8ad2247a35b1aa432055926a7f51c20ec01fad8")]
-    [InlineData("M", "a6d28c61521255ae578585a104d7f961420522f1942b36fda94407c868e6ce59")]
-    [InlineData("L", "799c72181914ad6b65f597abc397810f4770de32bab63bea4c4a7dc324e8750b")]
+    [InlineData("S", "66218df6a6068e5cc9dbc8a1bd8c01644c609caa046a101dd98cbd131aa9cd01")]
+    [InlineData("M", "fb544c093381ba91cdff7723f0e9882c909e9189b56a786a30ee3f56d9e77b09")]
+    [InlineData("L", "c004a3421d4d223502c1bc5b7da4f067f496004a1108aa39523797be11e663f8")]
     public void the_same_seed_and_size_give_the_same_bytes(string sizeName, string expected)
     {
         RecSize size = Enum.Parse<RecSize>(sizeName);

@@ -50,8 +50,10 @@ internal sealed class RecCommit(string kind, List<RecQuad> asserted, List<RecQua
 /// (<c>testdata/rec/v4.1.0/rec.ttl</c>) and, for points, Brick's:
 /// <c>rec:hasPart</c> and <c>rec:isPartOf</c> down the topology,
 /// <c>rec:locatedIn</c> and <c>rec:isLocationOf</c> for assets,
-/// <c>rec:hasPoint</c>, and <c>rec:Lease</c> with <c>rec:leaseOf</c> and
-/// <c>rec:leasee</c>. Each site's quads are in a graph of their own.
+/// <c>rec:hasPoint</c>, and <c>rec:Lease</c> with <c>rec:leaseOf</c>,
+/// <c>rec:leasee</c> and <c>rec:leasor</c>, the site's owner, a
+/// <c>rec:Company</c> made with the site. Each site's quads are in a graph of
+/// their own.
 /// </para>
 /// <para>
 /// **The same seed and size give the same bytes on every platform**: the
@@ -61,6 +63,15 @@ internal sealed class RecCommit(string kind, List<RecQuad> asserted, List<RecQua
 /// </remarks>
 internal static class RecPortfolio
 {
+    /// <summary>
+    /// The version of the generator's output: a change that alters the bytes
+    /// of any seed and size bumps it, with the pinned hashes. Version 1 had
+    /// leases without <c>rec:leasor</c>, which REC requires; version 2 gives
+    /// each site an owner and every lease that leasor (#138). Measurements
+    /// state the version they were taken with.
+    /// </summary>
+    public const int Version = 2;
+
     private const string Rec = "https://w3id.org/rec#";
     private const string Brick = "https://brickschema.org/schema/Brick#";
     private const string Data = "https://example.org/rec/";
@@ -255,6 +266,8 @@ internal static class RecPortfolio
                 top.Add(new(Iri("site", site), Type, RecClass("Site"), graph));
                 top.Add(new(Iri("site", site), Label, Literal("Site " + site.ToString(CultureInfo.InvariantCulture)), graph));
                 Link(top, Iri("region", region), Iri("site", site), graph);
+                top.Add(new(Iri("owner", site), Type, RecClass("Company"), graph));
+                top.Add(new(Iri("owner", site), Label, Literal("Owner " + site.ToString(CultureInfo.InvariantCulture)), graph));
             }
 
             top.Add(new(Iri("building", building), Type, RecClass(_random.Pick(BuildingTypes)), graph));
@@ -576,6 +589,7 @@ internal static class RecPortfolio
                 new(Iri("company", company), Label, Literal("Tenant " + company.ToString(CultureInfo.InvariantCulture)), graph),
                 new(Iri("lease", lease), Type, RecClass("Lease"), graph),
                 new(Iri("lease", lease), RecProperty("leasee"), Iri("company", company), graph),
+                new(Iri("lease", lease), RecProperty("leasor"), Iri("owner", _leaseSite[lease]), graph),
             ];
 
             foreach (int room in _leaseRooms[lease])

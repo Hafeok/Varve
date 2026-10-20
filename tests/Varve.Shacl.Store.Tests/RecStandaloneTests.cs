@@ -5,11 +5,17 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Varve.Rdf;
 using Varve.Rec.Tests;
 using Varve.Shacl.Model;
 using Varve.Shacl.Sparql;
+using Varve.Shacl.Store.Model;
+using Varve.Store;
+using Varve.Store.Log;
 using Varve.Turtle;
 using Xunit;
 
@@ -49,35 +55,99 @@ public class RecStandaloneTests
 
     /// <summary>
     /// Without those three, the shapes load, none is classed full, and the
-    /// head of the S portfolio has one kind of violation: its leases lack the
-    /// <c>rec:leasor</c> REC requires. A full validation, so a long run.
+    /// head of the S portfolio conforms (generator version 2, whose leases
+    /// carry <c>rec:leasor</c>). A full validation, so a long run.
     /// </summary>
     [Fact]
-    public void TheSPortfolioUnderRecsOtherShapes()
+    public void TheSPortfolioConformsToRecsOtherShapes()
     {
         if (Environment.GetEnvironmentVariable("VARVE_LONG_PROPERTIES") is null)
         {
             Assert.Skip("A full validation of REC S: set VARVE_LONG_PROPERTIES.");
         }
 
+        Assert.Equal(2, RecPortfolio.Version);
         ShapesLoad load = ShapesGraph.Load(Shapes(withSparql: false), GraphPattern.DefaultGraph, Options, TestContext.Current.CancellationToken);
         ShapesGraph shapes = Assert.IsType<ShapesGraph>(load.Shapes);
-        ShapesClassification classification = shapes.Classify();
-        Assert.NotEqual(Maintainability.Full, classification.Worst);
+        Assert.NotEqual(Maintainability.Full, shapes.Classify().Worst);
 
-        ValidationOutcome outcome = ShaclValidator.Validate(shapes, Head(), GraphPattern.Any, Options, TestContext.Current.CancellationToken);
+        ValidationOutcome outcome = ShaclValidator.Validate(shapes, Data(Head(RecSize.S, held: 0).Quads), GraphPattern.Any, Options, TestContext.Current.CancellationToken);
         ValidationReport report = Assert.IsType<ValidationReport>(outcome.Report);
-        Assert.NotEmpty(report.Results);
-        Assert.All(report.Results, r =>
+        Assert.True(report.Conforms, report.Results.Count + " results");
+    }
+
+    /// <summary>
+    /// A <c>reject</c> binding of REC's other shapes over the S portfolio: the
+    /// generator's next commit is accepted, and a violation made by an explicit
+    /// mutation — a lease's <c>rec:leasor</c> retracted — is refused with
+    /// <c>shapes-violated</c>. The violation comes from the test, never from
+    /// the generator.
+    /// </summary>
+    [Fact]
+    public async Task A_reject_binding_refuses_a_mutation_and_accepts_the_portfolio()
+    {
+        if (Environment.GetEnvironmentVariable("VARVE_LONG_PROPERTIES") is null)
         {
-            Assert.Equal("http://www.w3.org/ns/shacl#MinCountConstraintComponent", Encoding.UTF8.GetString(r.SourceConstraintComponent.Lexical));
-            Assert.Equal("https://w3id.org/rec#leasor", Encoding.UTF8.GetString(r.Path!.Lexical));
-        });
+            Assert.Skip("REC S loaded into a store: set VARVE_LONG_PROPERTIES.");
+        }
+
+        CancellationToken ct = TestContext.Current.CancellationToken;
+        (List<(RdfTerm S, RdfTerm P, RdfTerm O, RdfTerm G)> quads, List<RecCommit> held) = Head(RecSize.S, held: 1);
+        RdfTerm shapesGraph = RdfTerm.Iri("https://example.org/rec/shapes"u8);
+        await using Dataset dataset = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, ct);
+        CommitRequest load = new();
+        foreach ((RdfTerm s, RdfTerm p, RdfTerm o, RdfTerm g) in quads)
+        {
+            load.Assert(s, p, o, g);
+        }
+
+        foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in ShapeTriples(withSparql: false))
+        {
+            load.Assert(s, p, o, shapesGraph);
+        }
+
+        Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(load, ct)).Outcome);
+
+        ShapesBinding binding = new(RdfTerm.Iri("https://example.org/rec/binding"u8), shapesGraph, GraphScope.Of([], ["https://example.org/rec/graph/"], DefaultGraphAccess.Excluded), ValidationMode.Reject) { SubClassOfInShapesGraph = true };
+        ShapesGate gate = new([binding]);
+
+        (RdfTerm S, RdfTerm P, RdfTerm O, RdfTerm G) leasor = quads.First(q => q.P.Equals(RdfTerm.Iri("https://w3id.org/rec#leasor"u8)));
+        CommitRequest mutation = new() { Validators = [gate] };
+        mutation.Retract(leasor.S, leasor.P, leasor.O, leasor.G);
+        CommitResult refused = await dataset.CommitAsync(mutation, ct);
+        Assert.Equal(CommitOutcome.Rejected, refused.Outcome);
+        Assert.Contains(refused.Report, t => Encoding.UTF8.GetString(t.Lexical).EndsWith("shapes-violated", StringComparison.Ordinal));
+
+        CommitRequest next = new() { Validators = [gate] };
+        foreach (RecQuad q in held[0].Asserted)
+        {
+            (RdfTerm s, RdfTerm p, RdfTerm o, RdfTerm g) = Terms(q);
+            next.Assert(s, p, o, g);
+        }
+
+        foreach (RecQuad q in held[0].Retracted)
+        {
+            (RdfTerm s, RdfTerm p, RdfTerm o, RdfTerm g) = Terms(q);
+            next.Retract(s, p, o, g);
+        }
+
+        Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(next, ct)).Outcome);
     }
 
     private static InMemoryDataset Shapes(bool withSparql)
     {
         InMemoryDatasetBuilder shapes = new();
+        foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in ShapeTriples(withSparql))
+        {
+            shapes.Add(s, p, o);
+        }
+
+        return shapes.ToDataset();
+    }
+
+    private static List<(RdfTerm S, RdfTerm P, RdfTerm O)> ShapeTriples(bool withSparql)
+    {
+        List<(RdfTerm, RdfTerm, RdfTerm)> triples = [];
         string directory = Path.Combine(Root(), "testdata", "rec", "v4.1.0");
         string[] files = ["rec.ttl", "Brick+patches.ttl", "recimports.ttl"];
         for (int f = 0; f < files.Length; f++)
@@ -89,22 +159,31 @@ public class RecStandaloneTests
                 RdfTerm predicate = q.Predicate.Materialise();
                 if (withSparql || !predicate.Equals(Sparql))
                 {
-                    shapes.Add(Own(q.Subject.Materialise()), predicate, Own(q.Object.Materialise()));
+                    triples.Add((Own(q.Subject.Materialise()), predicate, Own(q.Object.Materialise())));
                 }
             }, new TurtleOptions { Syntax = RdfSyntax.Turtle });
             Assert.True(parsed.Succeeded, files[f] + ": " + parsed.FirstError);
         }
 
-        shapes.Add(RdfTerm.Iri("http://www.w3.org/2002/07/owl#Class"u8), RdfTerm.Iri("http://www.w3.org/2000/01/rdf-schema#subClassOf"u8), RdfTerm.Iri("http://www.w3.org/2000/01/rdf-schema#Class"u8));
-        return shapes.ToDataset();
+        triples.Add((RdfTerm.Iri("http://www.w3.org/2002/07/owl#Class"u8), RdfTerm.Iri("http://www.w3.org/2000/01/rdf-schema#subClassOf"u8), RdfTerm.Iri("http://www.w3.org/2000/01/rdf-schema#Class"u8)));
+        return triples;
     }
 
-    /// <summary>The head of the S portfolio, every site's graph.</summary>
-    private static InMemoryDataset Head()
+    /// <summary>The portfolio's head but its last <paramref name="held"/> commits, as terms, and those commits.</summary>
+    private static (List<(RdfTerm S, RdfTerm P, RdfTerm O, RdfTerm G)> Quads, List<RecCommit> Held) Head(RecSize size, int held)
     {
+        int keep = RecPortfolio.Shape(size).Commits - held;
         HashSet<RecQuad> head = [];
-        foreach (RecCommit commit in RecPortfolio.Generate(RecSize.S, 20261015))
+        List<RecCommit> rest = [];
+        int n = 0;
+        foreach (RecCommit commit in RecPortfolio.Generate(size, 20261015))
         {
+            if (n++ >= keep)
+            {
+                rest.Add(commit);
+                continue;
+            }
+
             foreach (RecQuad q in commit.Retracted)
             {
                 head.Remove(q);
@@ -116,15 +195,23 @@ public class RecStandaloneTests
             }
         }
 
-        StringBuilder text = new();
-        foreach (RecQuad q in head)
+        return ([.. head.Select(Terms)], rest);
+    }
+
+    private static (RdfTerm S, RdfTerm P, RdfTerm O, RdfTerm G) Terms(RecQuad q) => (Term(q.Subject), Term(q.Predicate), Term(q.Object), Term(q.Graph));
+
+    private static RdfTerm Term(string text) => text[0] == '<'
+        ? RdfTerm.Iri(Encoding.UTF8.GetBytes(text[1..^1]))
+        : RdfTerm.Literal(Encoding.UTF8.GetBytes(text[1..^1]));
+
+    private static InMemoryDataset Data(List<(RdfTerm S, RdfTerm P, RdfTerm O, RdfTerm G)> quads)
+    {
+        InMemoryDatasetBuilder data = new();
+        foreach ((RdfTerm s, RdfTerm p, RdfTerm o, RdfTerm g) in quads)
         {
-            text.Append(q.Subject).Append(' ').Append(q.Predicate).Append(' ').Append(q.Object).Append(' ').Append(q.Graph).Append(" .\n");
+            data.Add(s, p, o, g);
         }
 
-        InMemoryDatasetBuilder data = new();
-        ParseResult parsed = NQuadsParser.Parse(Encoding.UTF8.GetBytes(text.ToString()), (in QuadView q) => data.Add(q.Subject.Materialise(), q.Predicate.Materialise(), q.Object.Materialise(), q.HasGraph ? q.Graph.Materialise() : null), new ParseOptions { Syntax = RdfSyntax.NQuads });
-        Assert.True(parsed.Succeeded, parsed.FirstError.ToString());
         return data.ToDataset();
     }
 
