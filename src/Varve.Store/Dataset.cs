@@ -814,9 +814,9 @@ public sealed partial class Dataset : IAsyncDisposable
                 return false;
             }
 
-            if (verdict.Attachment is not null)
+            foreach (RdfTerm attachment in verdict.Attachments)
             {
-                attachments.Add(resolver.ResolveFinal(verdict.Attachment));
+                attachments.Add(resolver.ResolveFinal(attachment));
             }
         }
 

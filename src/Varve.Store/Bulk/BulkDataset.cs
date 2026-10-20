@@ -173,9 +173,9 @@ public sealed partial class Dataset
                         return CommitResult.Rejected(head, verdict.Report);
                     }
 
-                    if (verdict.Attachment is not null)
+                    foreach (RdfTerm attachment in verdict.Attachments)
                     {
-                        attachments.Add(view.TryInternalise(verdict.Attachment, out TermHandle handle)
+                        attachments.Add(view.TryInternalise(attachment, out TermHandle handle)
                             ? handle.Value
                             : throw new InvalidOperationException("A bulk commit's attachment must be a term the proposed state holds (ADR 0081)."));
                     }

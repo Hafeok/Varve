@@ -148,6 +148,9 @@ jobs:
       - name: Test Varve.Shacl.Sparql
         run: dotnet test --project tests/Varve.Shacl.Sparql.Tests/Varve.Shacl.Sparql.Tests.csproj --configuration Release
 
+      - name: Test Varve.Shacl.Store
+        run: dotnet test --project tests/Varve.Shacl.Store.Tests/Varve.Shacl.Store.Tests.csproj --configuration Release
+
       - name: Run the W3C suites
         continue-on-error: true
         run: >
