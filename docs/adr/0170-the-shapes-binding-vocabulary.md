@@ -38,7 +38,8 @@ travels with the log" to milestone 8.
    *The plan had them on a separate node, `varve:validates`. ADR 0166's code
    validator refuses every blank node in a management graph, so that node
    would be a second IRI node per binding; the binding node carries them as a
-   grant node does, and `varve:validates` is not a term.*
+   grant node does, and `varve:validates` is not a term. The maintainer
+   accepted this on #140.*
 2. **Shapes are data.** The shapes graph is a named graph of the dataset it
    gates, so it is versioned with it, readable as of any position, and changed
    by commits like any graph — never a file the server reads.

@@ -89,13 +89,23 @@ As point 3 foresaw, the additions are additive, and the pull request shows the
 baseline diff with no removed line:
 
 - `ShapesGraph.Classify()` and the classification it returns (ADR 0171);
-- `IncrementalValidation`, which finds the pairs a delta affects and
-  validates them before and after, and the restricted report (ADRs 0171,
-  0173);
+- **one entry point for incremental validation**,
+  `IncrementalValidation.Compare(shapes, after, dataGraph, delta, options,
+  cancellationToken)`, returning an `IncrementalOutcome`: either the
+  problems that stopped it, or an `IncrementalComparison` with the affected
+  focus nodes, the number of affected pairs, the reports restricted to them
+  before and after the delta, and the results introduced (ADRs 0171, 0173).
+  The part 2 plan named two members instead,
+  `ShaclValidator.Validate(…, FocusSelection)` and `ShapesGraph.AffectedBy`;
+  the maintainer accepted the single call on #140, because a gate needs the
+  affected set, both restricted reports and the introduced results together,
+  and each is cheap only when computed with the others;
 - `IShaclFootprint`, an optional extension member through which an extension
-  constraint states what it reads (`Varve.Shacl.Sparql` implements it);
+  constraint states what it reads, with `FootprintContext` for the anchors
+  it adds (`Varve.Shacl.Sparql` implements it);
 - `ShaclOptions.RefuseNonDeterministicFunctions`, which ADR 0169's binding
-  sets.
+  sets, and `ShapesGraphContext.RefuseNonDeterministicFunctions`, which an
+  extension reads.
 
 The shapes model stays internal.
 
