@@ -146,7 +146,7 @@ system writer records. Every node is an IRI. The code validator in
 | `varve:Grant` | a grant | `rdf:type` of a grant node |
 | `varve:grantee` | the one principal a grant names | on a grant |
 | `varve:permission` | `varve:read`, `varve:write`, `varve:admin`, or `varve:operator` in the fleet graph alone | on a grant |
-| `varve:allGraphs` | `true`: every graph | on a read or write grant |
+| `varve:allGraphs` | `true`: every graph | on a read or write grant, or a shapes binding |
 | `varve:graph` | a graph the grant reaches, or `varve:defaultGraph` | on a grant, repeatable |
 | `varve:graphPrefix` | every named graph whose IRI starts with it | on a grant, an `xsd:string`, repeatable |
 | `varve:graphTemplate` | a `varve:GraphTemplate` expanded for the caller | on a grant, repeatable |
