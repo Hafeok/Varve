@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
+using Varve.Derivation;
 using Varve.Rdf;
 
 namespace Varve.Shacl.Validation;
@@ -15,7 +16,7 @@ namespace Varve.Shacl.Validation;
 /// source contract by handle. A constant is looked up and never added
 /// (ADR 0151); a term is externalised once per validation.
 /// </summary>
-internal sealed class DataGraph
+internal sealed class DataGraph : IPathGraph<Node, RdfTerm>
 {
     private readonly Dictionary<TermHandle, RdfTerm> _terms;
     private readonly Dictionary<RdfTerm, Node> _resolved = new(RdfTerm.Comparer);
@@ -45,6 +46,40 @@ internal sealed class DataGraph
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal NodeComparer Nodes { get; }
+
+    IEqualityComparer<Node> IPathGraph<Node, RdfTerm>.Nodes => Nodes;
+
+    /// <summary>A path's step forwards: the objects of (<paramref name="subject"/>, <paramref name="predicate"/>).</summary>
+    [DesignDecision(typeof(ShaclHotPathScope.ValueNodesAreGatheredPerFocusNode), Scope = ExceptionScope.HotPath)]
+    void IPathGraph<Node, RdfTerm>.Objects(Node subject, RdfTerm predicate, List<Node> into)
+    {
+        if (!subject.IsHeld || !TryHandle(predicate, out TermHandle p))
+        {
+            return;
+        }
+
+        using IQuadCursor cursor = Source.Match(subject.Handle, p, TermHandle.None, Graph);
+        while (cursor.MoveNext())
+        {
+            into.Add(Node.Held(cursor.Current.Object));
+        }
+    }
+
+    /// <summary>A path's step backwards: the subjects of (<paramref name="predicate"/>, <paramref name="obj"/>).</summary>
+    [DesignDecision(typeof(ShaclHotPathScope.ValueNodesAreGatheredPerFocusNode), Scope = ExceptionScope.HotPath)]
+    void IPathGraph<Node, RdfTerm>.Subjects(RdfTerm predicate, Node obj, List<Node> into)
+    {
+        if (!obj.IsHeld || !TryHandle(predicate, out TermHandle p))
+        {
+            return;
+        }
+
+        using IQuadCursor cursor = Source.Match(TermHandle.None, p, obj.Handle, Graph);
+        while (cursor.MoveNext())
+        {
+            into.Add(Node.Held(cursor.Current.Subject));
+        }
+    }
 
     /// <summary>A term as a node: the source's handle if it holds the term, the term otherwise. Never adds it.</summary>
     [DesignDecision(typeof(ShaclHotPathScope.TermsAreResolvedOncePerValidation), Scope = ExceptionScope.HotPath)]

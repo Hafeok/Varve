@@ -137,6 +137,9 @@ internal sealed class ValidationRun
     /// <summary>The nodes <paramref name="path"/> reaches from <paramref name="start"/>.</summary>
     internal List<Node> PathValues(ShapePath path, Node start) => _paths.Values(path, start);
 
+    /// <summary>The nodes from which <paramref name="path"/> reaches <paramref name="end"/>, added to <paramref name="into"/> unless <paramref name="seen"/> holds them.</summary>
+    internal void PathSources(ShapePath path, Node end, List<Node> into, HashSet<Node> seen) => _paths.Sources(path, end, into, seen);
+
     // ------------------------------------------------------------- targets
 
     /// <summary>§3.1.3: the target of a shape, every kind of target declaration united, distinct.</summary>

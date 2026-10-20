@@ -11,6 +11,7 @@ using System.Text.RegularExpressions;
 using System.Text.Unicode;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
+using Varve.Derivation.Model;
 using Varve.Rdf;
 using Varve.Shacl.Model;
 using Varve.Shacl.Shapes;
