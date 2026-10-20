@@ -194,10 +194,15 @@ internal sealed class DataGraph : IPathGraph<Node, RdfTerm>
             return found;
         }
 
+        // Over several graphs one triple may be in two of them: the data graph is their union, a set (§6.2).
+        HashSet<(TermHandle, TermHandle)>? seen = Graph.Match is GraphMatch.Any or GraphMatch.AnyNamed ? new(new PairComparer(Source.TermComparer)) : null;
         using IQuadCursor cursor = Source.Match(subject.Handle, TermHandle.None, TermHandle.None, Graph);
         while (cursor.MoveNext())
         {
-            found.Add((Node.Held(cursor.Current.Predicate), Node.Held(cursor.Current.Object)));
+            if (seen is null || seen.Add((cursor.Current.Predicate, cursor.Current.Object)))
+            {
+                found.Add((Node.Held(cursor.Current.Predicate), Node.Held(cursor.Current.Object)));
+            }
         }
 
         return found;
@@ -225,5 +230,12 @@ internal sealed class DataGraph : IPathGraph<Node, RdfTerm>
         }
 
         return found;
+    }
+
+    private sealed class PairComparer(IEqualityComparer<TermHandle> handles) : IEqualityComparer<(TermHandle, TermHandle)>
+    {
+        public bool Equals((TermHandle, TermHandle) x, (TermHandle, TermHandle) y) => handles.Equals(x.Item1, y.Item1) && handles.Equals(x.Item2, y.Item2);
+
+        public int GetHashCode((TermHandle, TermHandle) obj) => HashCode.Combine(handles.GetHashCode(obj.Item1), handles.GetHashCode(obj.Item2));
     }
 }

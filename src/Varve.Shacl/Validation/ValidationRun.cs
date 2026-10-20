@@ -229,6 +229,74 @@ internal sealed class ValidationRun
         return targets;
     }
 
+    /// <summary>
+    /// Whether <paramref name="node"/> is in the target of the shape (§3.1.3):
+    /// the same set <see cref="Targets"/> gives, asked of one node, for
+    /// incremental validation (ADR 0171).
+    /// </summary>
+    internal bool IsTarget(Shape shape, Node node)
+    {
+        foreach (RdfTerm target in shape.TargetNodes)
+        {
+            if (Data.Nodes.Equals(Data.Resolve(target), node))
+            {
+                return true;
+            }
+        }
+
+        foreach (RdfTerm cls in shape.TargetClasses)
+        {
+            if (IsInstanceOf(node, Data.Resolve(cls)))
+            {
+                return true;
+            }
+        }
+
+        if (node.IsHeld)
+        {
+            foreach (RdfTerm predicate in shape.TargetSubjectsOf)
+            {
+                if (Data.TryHandle(predicate, out TermHandle p) && Matches(node.Handle, p, TermHandle.None))
+                {
+                    return true;
+                }
+            }
+
+            foreach (RdfTerm predicate in shape.TargetObjectsOf)
+            {
+                if (Data.TryHandle(predicate, out TermHandle p) && Matches(TermHandle.None, p, node.Handle))
+                {
+                    return true;
+                }
+            }
+
+            if (shape.TargetWhere.Count > 0 && (Matches(node.Handle, TermHandle.None, TermHandle.None) || Matches(TermHandle.None, TermHandle.None, node.Handle)))
+            {
+                foreach (int where in shape.TargetWhere)
+                {
+                    if (Conforms(where, node))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            if (shape.Node.Kind == RdfTermKind.Iri && Data.TryHandle(Vocabulary.Shape, out TermHandle shapePredicate)
+                && Data.TryHandle(shape.Node, out TermHandle shapeNode) && Matches(node.Handle, shapePredicate, shapeNode))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool Matches(TermHandle subject, TermHandle predicate, TermHandle obj)
+    {
+        using IQuadCursor cursor = Data.Source.Match(subject, predicate, obj, Data.Graph);
+        return cursor.MoveNext();
+    }
+
     // ------------------------------------------------------- SHACL instances
 
     /// <summary>Whether <paramref name="cls"/> is <paramref name="ancestor"/> or one of its subclasses.</summary>
@@ -299,7 +367,8 @@ internal sealed class ValidationRun
         return found;
     }
 
-    private List<Node> SubclassesOf(Node cls) => [.. Closure(cls, upward: false)];
+    /// <summary>A class and its subclasses, <c>rdfs:subClassOf*</c> reversed, from the data graph and, by option, the shapes graph (§6.4).</summary>
+    internal List<Node> SubclassesOf(Node cls) => [.. Closure(cls, upward: false)];
 
     private HashSet<Node> Closure(Node start, bool upward)
     {
