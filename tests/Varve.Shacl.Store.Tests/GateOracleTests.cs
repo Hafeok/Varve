@@ -29,7 +29,7 @@ namespace Varve.Shacl.Store.Tests;
 public class GateOracleTests
 {
     /// <summary>Generated histories per run on the land gate, as reported in the pull request.</summary>
-    internal static readonly int Iterations = Environment.GetEnvironmentVariable("VARVE_LONG_PROPERTIES") is null ? 150 : 1_500;
+    internal static readonly int Iterations = Environment.GetEnvironmentVariable("VARVE_LONG_PROPERTIES") is null ? 500 : 5_000;
 
     private static readonly string[] Nodes = ["ex:n0", "ex:n1", "ex:n2"];
     private static readonly string[] Predicates = ["ex:p0", "ex:p1"];
