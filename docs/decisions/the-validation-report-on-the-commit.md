@@ -5,10 +5,16 @@ adr: 0173
 decisions:
   - key: AffectedReportAttachment
     statement: "An accepted commit under a report or reject binding carries one validator attachment per binding, the triple term (binding, varve:affectedReport, sha256 hex literal) over the canonical N-Quads of the report restricted to the commit's affected pairs"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-21T00:00:00Z
   - key: ReportStoredOnce
     statement: "The report is stored once, in the projection; the attachment is a reference and a digest of the slice the commit decided on"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-21T00:00:00Z
   - key: DigestMismatchIsAnEngineChange
     statement: "A digest that differs after an upgrade is an engine change, and a release that changes SHACL results says so in its notes"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-21T00:00:00Z
 ---
 
 The rulings of [ADR 0173](../adr/0173-the-validation-report-on-the-commit.md), one line each. The ADR is the
