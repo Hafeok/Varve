@@ -205,7 +205,23 @@ and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone Management plane (#105), part 1 (ADRs 0163–0166 and 0168, filed
+Milestone Extent maintenance (#110; ADRs 0158–0162), after Object storage. The writer's maintenance merges extent sets — `FanOut`
+adjacent sets of similar size, or the smallest run past the bound, never past
+`MaxSetBytes` — writes the merged set, then swaps the catalog once under the
+epoch fence, rebasing onto a catalog a checkpoint swapped meanwhile; a taken
+name takes the next sequence (0158, 0159). The catalog's version is its set
+sequence. Every instance on an object store, the writer included, announces
+the interval of versions it reads in `readers/<id>`, announce then confirm,
+and the writer, after its swap, reads the records and deletes a set only when
+no interval overlaps the versions that named it; a record of an unknown
+format holds everything, a forgotten reader fails with `reader-forgotten`, and
+an `--unannounced` read with `read-unannounced-extent-gone` (0160; 0134, 0139
+amended). Each set carries its commit index, so a cold start reads no log
+below the catalog (0161). Uploads are staged through the cache and refused
+past the store's single-upload limit. `varve storage`, `readers list` and
+`forget`, and readiness's `retention`, which never turns it unready (0162).
+
+Before that, milestone Management plane (#105), part 1 (ADRs 0163–0166 and 0168, filed
 unaccepted); part 2 moves event schemas (ADR 0167). A fleet of servers on one
 store shares one **system dataset** at `_fleet/`: one instance writes it
 (`Varve:Fleet:Writer`), the others follow it as **tier-1 followers** (ADR
@@ -222,6 +238,7 @@ declarations as code; `Varve:Datasets`, `Varve:Auth:Datasets` and
 and **forwards** it once to its writer's internal address (ADR 0168). The
 admin routes, setup's storage and settings, and `dataset-exists` are gone;
 setups apply data only. Fleet tests run two server processes on Azurite.
+
 
 Before that, milestone 8, SHACL (#13), in two parts. Part 1 (#120; ADRs 0148–0157, filed
 unaccepted) is the standalone validator. `Varve.Shacl` (layer 3) validates any
@@ -247,7 +264,9 @@ test-only oracle (0156). `Varve.Events` ships the declaration vocabulary's
 shapes (0157). Part 2 is commit-time gating, the validation projection,
 incremental validation and the REC gate.
 
-Before that, milestone Client and integration (#93), after Commit path, in two parts.
+Before that, milestone Object storage (#92; ADRs 0134–0142) put the log and
+the projection in an object store, and before it milestone Client and
+integration (#93), after Commit path, came in two parts.
 Part 2 (ADRs 0143–0147, filed unaccepted) is domain events. They are quads in
 an events graph, written in the same commit as the change. `Varve.Events`
 (layer 4) renders them as CloudEvents 1.0 in RFC 8785 canonical form, through

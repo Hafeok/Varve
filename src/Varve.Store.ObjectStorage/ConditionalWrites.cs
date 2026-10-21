@@ -102,13 +102,109 @@ internal static class ConditionalWrites
             {
                 throw;
             }
-            catch (Exception error) when (error is not WriterSupersededException)
+            catch (Exception error) when (error is not WriterSupersededException and not ObjectStoreAccessDeniedException)
             {
                 last = error;
             }
         }
 
         throw new IOException("Creating '" + name + "' failed " + Attempts + " times without an answer; whether it exists is unknown until the dataset is opened again.", last);
+    }
+
+    /// <summary>
+    /// Creates <paramref name="name"/> streamed from a staged file (ADR 0158),
+    /// or finds whose it is: equal bytes, read back in ranges, are this
+    /// writer's earlier attempt.
+    /// </summary>
+    /// <exception cref="IOException">Every attempt failed without an answer: the outcome is unknown.</exception>
+    public static async ValueTask<CreateOutcome> CreateAsync(IObjectStore store, ObjectName name, ObjectContent content, TimeProvider clock, CancellationToken cancellationToken)
+    {
+        Exception? last = null;
+
+        for (int attempt = 0; attempt < Attempts; attempt++)
+        {
+            if (attempt > 0)
+            {
+                await Task.Delay(Backoff(attempt), clock, cancellationToken).ConfigureAwait(false);
+            }
+
+            try
+            {
+                if (await store.CreateIfAbsentAsync(name, content, cancellationToken).ConfigureAwait(false) is not null)
+                {
+                    return CreateOutcome.Ours;
+                }
+
+                bool? same = await SameAsync(store, name, content, cancellationToken).ConfigureAwait(false);
+
+                if (same is { } found)
+                {
+                    return found ? CreateOutcome.Ours : CreateOutcome.Taken;
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception error) when (error is not WriterSupersededException and not ObjectStoreAccessDeniedException)
+            {
+                last = error;
+            }
+        }
+
+        throw new IOException("Creating '" + name + "' failed " + Attempts + " times without an answer; whether it exists is unknown until the dataset is opened again.", last);
+    }
+
+    // Whether the object holds the staged file's bytes; null when it is gone.
+    private static async ValueTask<bool?> SameAsync(IObjectStore store, ObjectName name, ObjectContent content, CancellationToken cancellationToken)
+    {
+        const int range = 1 << 20;
+        byte[] mine = new byte[range];
+        using Stream file = content.OpenRead();
+        long offset = 0;
+        ObjectVersion? version = null;
+
+        while (true)
+        {
+            ObjectRead? read = await store.ReadAsync(name, new ByteOffset(offset), new ByteCount(range), cancellationToken).ConfigureAwait(false);
+
+            if (read is null)
+            {
+                return offset == 0 ? null : throw new IOException("The object '" + name + "' was deleted while it was read back.");
+            }
+
+            if (read.Length.Value != content.Length.Value)
+            {
+                return false;
+            }
+
+            if (version is { } held && read.Version != held)
+            {
+                throw new IOException("The object '" + name + "' changed while it was read back; an object this backend creates is never replaced.");
+            }
+
+            version = read.Version;
+
+            if (read.Bytes.IsEmpty)
+            {
+                return offset == content.Length.Value;
+            }
+
+            int count = read.Bytes.Length;
+            await file.ReadExactlyAsync(mine.AsMemory(0, count), cancellationToken).ConfigureAwait(false);
+
+            if (!read.Bytes.Span.SequenceEqual(mine.AsSpan(0, count)))
+            {
+                return false;
+            }
+
+            offset += count;
+
+            if (offset == content.Length.Value)
+            {
+                return true;
+            }
+        }
     }
 
     /// <summary>
@@ -145,7 +241,7 @@ internal static class ConditionalWrites
             {
                 throw;
             }
-            catch (Exception error)
+            catch (Exception error) when (error is not ObjectStoreAccessDeniedException)
             {
                 last = error;
             }

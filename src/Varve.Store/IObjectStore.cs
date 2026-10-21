@@ -26,7 +26,7 @@ namespace Varve.Store;
 /// </para>
 /// <para>
 /// **A write's outcome may be unknown.** An exception from
-/// <see cref="CreateIfAbsentAsync"/> or <see cref="ReplaceIfUnchangedAsync"/>
+/// <see cref="CreateIfAbsentAsync(ObjectName, ReadOnlyMemory{byte}, CancellationToken)"/> or <see cref="ReplaceIfUnchangedAsync"/>
 /// says nothing about whether the store applied it; the caller finds out by
 /// reading. A lost race is not an exception: it is the <c>null</c> these
 /// return.
@@ -46,6 +46,24 @@ public interface IObjectStore
     /// was written.
     /// </summary>
     ValueTask<ObjectVersion?> CreateIfAbsentAsync(ObjectName name, ReadOnlyMemory<byte> content, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Writes an object only if no object of that name exists, its content
+    /// streamed from a staged file (ADR 0158). The same operation as the one
+    /// above; an adapter streams it, and this default reads the file whole.
+    /// </summary>
+    async ValueTask<ObjectVersion?> CreateIfAbsentAsync(ObjectName name, ObjectContent content, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        byte[] bytes = new byte[checked((int)content.Length.Value)];
+
+        using (System.IO.Stream stream = content.OpenRead())
+        {
+            await stream.ReadExactlyAsync(bytes, cancellationToken).ConfigureAwait(false);
+        }
+
+        return await CreateIfAbsentAsync(name, bytes, cancellationToken).ConfigureAwait(false);
+    }
 
     /// <summary>
     /// Replaces an object only if its current version is

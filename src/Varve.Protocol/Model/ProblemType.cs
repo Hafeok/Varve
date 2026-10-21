@@ -124,6 +124,12 @@ public readonly record struct ProblemType
     /// <summary><c>422</c>: a management declaration the code validator refuses (ADR 0166).</summary>
     public static ProblemType DeclarationInvalid { get; } = new("declaration-invalid");
 
+    /// <summary><c>503</c>: this instance's reader record was forgotten while it read, and an extent its catalog names is gone; it attaches again (ADR 0160).</summary>
+    public static ProblemType ReaderForgotten { get; } = new("reader-forgotten");
+
+    /// <summary><c>503</c>: a read opened unannounced found an extent its catalog names gone (ADR 0160).</summary>
+    public static ProblemType ReadUnannouncedExtentGone { get; } = new("read-unannounced-extent-gone");
+
     /// <summary><c>503</c>: as many reads in flight and queued as the server allows (ADR 0114).</summary>
     public static ProblemType ServerBusy { get; } = new("server-busy");
 

@@ -43,13 +43,19 @@ where Varve is the wrong tool: [`docs/why.md`](docs/why.md).
 
 ## Status
 
-**`v0.1.0-preview.10` is the latest release, and it closed the first part
-([#131](https://github.com/Hafeok/Varve/issues/131)) of milestone Management
-plane ([#105](https://github.com/Hafeok/Varve/issues/105))**: grants, datasets
+**`v0.1.0-preview.11` is the latest release; it closed milestone Extent
+maintenance ([#110](https://github.com/Hafeok/Varve/issues/110))**: the writer
+merges extent sets in the background by a size-tiered policy with a cap, so
+reads stay bounded however many checkpoints a dataset takes, and deletes a
+merged set only when no instance's reader record still holds it; each set
+carries its commit index, so a cold start reads no log below the catalog; and
+`varve storage` shows what the store keeps and for whom. `v0.1.0-preview.10`
+before it closed the first part ([#131](https://github.com/Hafeok/Varve/issues/131)) of milestone Management
+plane ([#105](https://github.com/Hafeok/Varve/issues/105)): grants, datasets
 and settings declared as TriG and applied with `varve apply`, a system dataset
 per fleet that every server follows, grants enforced at the position each
 server has applied, and writes forwarded to their dataset's writer.
-`v0.1.0-preview.9` before it completed the first part of milestone 8, SHACL
+`v0.1.0-preview.9` before that completed the first part of milestone 8, SHACL
 ([#120](https://github.com/Hafeok/Varve/issues/120), under
 [#13](https://github.com/Hafeok/Varve/issues/13)): the standalone validator, SHACL 1.2 Core and SHACL-SPARQL over any quad
 source, recursive shapes as a stratified greatest fixpoint, the report as a
@@ -329,7 +335,7 @@ is the Native AOT binary and nothing else:
 
 ```bash
 dotnet tool install --global Varve.Server --prerelease
-docker pull ghcr.io/hafeok/varve:v0.1.0-preview.10
+docker pull ghcr.io/hafeok/varve:v0.1.0-preview.11
 ```
 
 Serve one dataset on your machine. `--anonymous` is for development only: a
@@ -338,7 +344,7 @@ real deployment takes OIDC bearer tokens ([ADR 0037](docs/adr/0037-server-authen
 ```bash
 varve serve --anonymous --datasets-root "$PWD/data"
 # or, listening on 8080 instead of 5000, with the datasets in the image's volume:
-docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.10 serve --anonymous
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.11 serve --anonymous
 
 # then declare the dataset in the management plane (ADR 0163):
 curl -X PUT http://localhost:5000/manage/datasets/people -H 'Content-Type: application/trig' \

@@ -486,6 +486,7 @@ sequence, never reused:
 | `order0` … `order5` | 6 | the extent of order *k* |
 | `terms` | 7 | the window's dictionary: a run (§7.2) whose twelve key sections are empty, and whose term section holds the canonical ids allocated in the window |
 | `graphs` | 5 | the graph-version index at *to* (§7.3a) |
+| `commits` | 4 | optional: the commit index of the window, the entries after *from* up to *to* (§7.4); absent from a set written before milestone Extent maintenance (ADR 0161) |
 
 An **extent** of order *k* is laid out as a run (§7.2): the twelve key
 sections — only order *k*'s two are not empty — the term section, empty, and
@@ -530,7 +531,7 @@ contents are its directory, at offset 0:
 
 | Size | Field |
 |---|---|
-| 8 | the next set sequence number |
+| 8 | the next set sequence number: also the catalog's **version**, which every replacement of the file advances, so a set whose name carries *n* is named only by versions after *n* (ADR 0160) |
 | 4 | set count |
 | per set | `u16` name length, UTF-8 set name ending in `/`, `u64` from position, `u64` to position |
 | the cursor | present when the chain is not empty |
@@ -549,8 +550,46 @@ at the cursor, and reads the commit index below it from the log only when a
 read first needs it; a cursor the log does not bear out is ignored (ADR 0139). The file is replaced whole, after every set it names is written.
 On open each set is checked as §7.1 says and against the log's counters at its
 ends; the chain ends at the first that fails. A backend with one process
-deletes on open the sets no catalog names (ADR 0139).
+deletes on open the sets no catalog names (ADR 0139); a backend shared by
+several deletes them by the rule of reader records (§8, ADR 0160). Below the
+cursor, the commit index is read from the sets' `commits` files when every set
+has one that ends at its pin, and from the log's headers otherwise (ADR 0161).
 
 On an object store, the object `derived/catalog` holds the file behind a
 12-byte wrapper — magic `VRVK`, then the writer's epoch as an `i64` — and an
 object whose file part is empty stands for no catalog (ADR 0136, ADR 0139).
+
+## 8. Coordination state in an object store
+
+Objects beside `log/` and `derived/` under a dataset's prefix that instances
+use to coordinate, not derived data: **read forever** from the release that
+writes them, each with its own format version (ADR 0160). The writer record,
+`writer`, is ADR 0136's.
+
+### 8.1 Reader record — `readers/<id>`, format 1
+
+One per instance that reads extents from the store — the writer, a follower,
+a command-line read — named by its reader id: 1 to 128 ASCII letters, digits,
+`-`, `_` or `.`, not starting with `.` (ADR 0160). UTF-8 JSON, one object:
+
+| Member | Type | |
+|---|---|---|
+| `format` | number | `1` |
+| `reader` | string | the reader id, the object's name |
+| `holder` | string, optional | the name the instance gives itself, for the operator |
+| `catalogOldest` | number | the oldest catalog version (§7.6) the instance's reads hold |
+| `catalogNewest` | number | the newest catalog version they hold |
+| `at` | string, optional | when the record was written, ISO 8601 round-trip, by the host's clock; for the operator, never compared |
+| `state` | string | `announced`, or `forgotten` for the operator's tombstone, which is deleted after it is written |
+
+- **Written only by its reader**, by create-if-absent or by replace over what
+  a previous run of the same id left, then by replace-if-unchanged when the
+  interval changes, and deleted on a clean close. An operator's forget
+  replaces it by its tombstone against the version read, then deletes it.
+- **A record holds a set** whose name carries *n* and that the catalog of
+  version *r* stopped naming when `catalogOldest < r`, `catalogNewest > n` and
+  `r > n + 1`: some version it announces names the set. The writer deletes a
+  set no present record holds, after the swap that removed it.
+- **A record of another `format`, or one that does not parse, holds every
+  version.** It is never ignored.
+

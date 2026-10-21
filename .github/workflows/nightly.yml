@@ -2,7 +2,7 @@
 #
 # Some of the store's tests search a space wider than a pull request can wait
 # for. On a pull request each explores a share of it; here, every variable in
-# docs/testing.md section 7 is set, and each explores the whole, which is what
+# docs/testing.md section 8 is set, and each explores the whole, which is what
 # the gate explored before #126. The property each test proves is the same at
 # either depth.
 #
@@ -73,7 +73,7 @@ jobs:
 
       - name: Test Varve.Store at full depth
         # The pull request's depth runs in the build job; this is the rest.
-        # Each value is the one the gate used before #126 (docs/testing.md §7).
+        # Each value is the one the gate used before #126 (docs/testing.md §8).
         timeout-minutes: 120
         env:
           VARVE_FAULT_RECOVERY_STRIDE: "5"

@@ -60,8 +60,14 @@ internal static class T
     public static RdfTerm Lang(string lexical, string language) =>
         RdfTerm.Literal(Encoding.UTF8.GetBytes(lexical), Encoding.UTF8.GetBytes(language));
 
+    /// <remarks>
+    /// Background merges of extent sets are off (ADR 0158): the suites that
+    /// take and drop checkpoints state what the checkpoints are, and several
+    /// open a second dataset over one memory storage, which only one process
+    /// may write. The merge suites turn merges on and drive maintenance.
+    /// </remarks>
     public static DatasetOptions Options(TimeProvider? clock = null, int maxRecordBytes = 1 << 20, long segmentBytes = 64L << 20, GroupCommitOptions? groupCommit = null) =>
-        new() { Clock = clock ?? ManualClock.Epoch(), MaxRecordBytes = new ByteCount(maxRecordBytes), SegmentBytes = new ByteCount(segmentBytes), CommitCache = CommitCache, GroupCommit = groupCommit };
+        new() { Clock = clock ?? ManualClock.Epoch(), MaxRecordBytes = new ByteCount(maxRecordBytes), SegmentBytes = new ByteCount(segmentBytes), CommitCache = CommitCache, GroupCommit = groupCommit, ExtentMerges = ExtentMergePolicy.Off };
 
     /// <summary>The commit index's cache in tests: two entries, so that every suite pages the index out, merges it and reads it back (ADR 0089).</summary>
     public const int CommitCache = 2;

@@ -48,6 +48,28 @@ public sealed class ObjectStorageOptions
     public IProbeRandomness? ProbeRandomness { get; init; }
 
     /// <summary>
+    /// This instance's reader id, the name of its reader record (ADR 0160).
+    /// It survives a restart of the same instance, so a restart replaces the
+    /// record the last run left: set it where the cache directory does not
+    /// survive one — a container's — and leave it unset to keep a random one
+    /// in the cache directory.
+    /// </summary>
+    public ReaderId? Reader { get; init; }
+
+    /// <summary>
+    /// Whether the open writes a reader record. <see cref="ReaderAnnouncing.Required"/>
+    /// unless a read-only open asks explicitly for <see cref="ReaderAnnouncing.Unannounced"/>.
+    /// </summary>
+    public ReaderAnnouncing Announcing { get; init; } = ReaderAnnouncing.Required;
+
+    /// <summary>
+    /// The most one object may be written with in one request: the provider's
+    /// single-upload limit (ADR 0158). 5,000 MiB, Azure Blob Storage's, unless
+    /// set; Amazon S3's is 5 GiB.
+    /// </summary>
+    public ByteCount MaxObjectBytes { get; init; } = new(5000L << 20);
+
+    /// <summary>
     /// The clock the writer record's timestamps are read from, and retries
     /// wait on. Required: the store never reads the machine's clock itself
     /// (ADR 0011). Nothing is decided from it (ADR 0136).

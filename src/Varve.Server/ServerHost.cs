@@ -654,7 +654,8 @@ internal static partial class ServerHost
                 open ? dataset!.ProjectionPosition.Value : 0,
                 open && dataset!.IsFailed,
                 open && datasets.IsSuperseded(entry.Name),
-                entry.Role));
+                entry.Role,
+                open ? dataset!.Retention : null));
         }
 
         ManagementStatus management = fleet.Status;
@@ -697,6 +698,7 @@ internal static partial class ServerHost
                 }
 
                 json.WriteEndObject();
+                Readiness.WriteRetention(json, health);
             });
         }
 
@@ -731,6 +733,7 @@ internal static partial class ServerHost
             }
 
             json.WriteEndArray();
+            Readiness.WriteRetention(json, health);
         });
     }
 

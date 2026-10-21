@@ -275,15 +275,17 @@ public class TermFilterTests
 
         await dataset.CheckpointAsync(dataset.Head, T.Ct);
         // Runs keep format 3's layout under version 4; a checkpoint is an
-        // extent set, its order extents and its dictionary extent (ADR 0139).
+        // extent set, its order extents and its dictionary extent (ADR 0139),
+        // and its window's commit index, a kind format 4 has (ADR 0161).
         List<string> derived = [.. (await storage.Derived.ListAsync(T.Ct)).Select(n => n.Value).Where(n => n.StartsWith("index/runs/", StringComparison.Ordinal) || (n.StartsWith(ExtentSet.Prefix, StringComparison.Ordinal) && !n.EndsWith("/graphs", StringComparison.Ordinal)))];
         Assert.Contains(derived, n => n.StartsWith("index/runs/", StringComparison.Ordinal));
-        Assert.Equal(7, derived.Count(n => n.StartsWith(ExtentSet.Prefix, StringComparison.Ordinal)));
+        Assert.Equal(8, derived.Count(n => n.StartsWith(ExtentSet.Prefix, StringComparison.Ordinal)));
 
         foreach (string name in derived)
         {
             ushort kind = name.StartsWith("index/", StringComparison.Ordinal) ? DerivedFormat.KindRun
                 : name.EndsWith("/terms", StringComparison.Ordinal) ? DerivedFormat.KindExtentTerms
+                : name.EndsWith("/commits", StringComparison.Ordinal) ? DerivedFormat.KindCommits
                 : DerivedFormat.KindExtent;
             using IReadableBlob blob = await storage.Derived.OpenAsync(new BlobName(name), T.Ct);
             Assert.True(DerivedFormat.TryReadHeader(blob, T.Id, kind, out DerivedHeader header), name);

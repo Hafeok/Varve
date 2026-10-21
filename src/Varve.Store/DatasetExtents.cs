@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Store.Log;
 
 namespace Varve.Store;
@@ -16,17 +18,98 @@ namespace Varve.Store;
 /// position is the chain of sets from 0 to it, each a window's intervals; the
 /// catalog names the chain. A new checkpoint above the newest adds a set for
 /// the window after it; one inside a set splits that set; dropping one merges
-/// its set into the next, or drops the newest set. Every change writes its
-/// sets, then swaps the catalog, then retires what the catalog no longer
-/// names — so no catalog ever names a set that is not whole.
+/// its set into the next, or drops the newest set; the writer's maintenance
+/// merges adjacent sets of one size (ADR 0158, ADR 0159). Every change writes
+/// its sets, then swaps the catalog, then retires what the catalog no longer
+/// names — so no catalog ever names a set that is not whole — and a retired
+/// set is deleted once no reader record holds it (ADR 0160).
 /// </summary>
 public sealed partial class Dataset
 {
+    // Attempts at a set's name before a taken name is taken for a fault.
+    private const int NameAttempts = 8;
+
+    // Maintenance rounds between readings of the reader records while sets
+    // wait for deletion: a poll, which decides how soon, never whether (ADR 0160).
+    private const int RoundsBetweenPolls = 16;
+
     private readonly SemaphoreSlim _checkpointGate = new(1, 1);
+    private readonly SemaphoreSlim _announceGate = new(1, 1);
+    private readonly Lock _extentLock = new();
+
+    // Sets the catalog no longer names, by name: retired with a view still
+    // reading them (their sequence), and the version that stopped naming them.
+    private readonly Dictionary<string, long> _openRetired = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, long> _removedAt = new(StringComparer.Ordinal);
+
+    // Sets nothing in this process reads and no catalog names, waiting for no
+    // reader record to hold them: their sequence and the version that removed
+    // them, long.MaxValue while a catalog in the store still names them.
+    private readonly Dictionary<string, (long Sequence, long RemovedAt)> _unnamed = new(StringComparer.Ordinal);
+
+    // Merges refused because their output could pass the store's single
+    // request, by the first input's name: not tried again on the same inputs.
+    private readonly HashSet<string> _refusedMerges = new(StringComparer.Ordinal);
+
     private long _extentSequence;
+    private long _catalogVersion;
+    private long _announcingNext;
+    private (long Oldest, long Newest)? _announced;
+    private bool _deletionDue;
+    private int _roundsSincePoll;
+    private volatile bool _merges = true;
 
     // The pins of the catalog the open began at, or last wrote (ADR 0139).
     private Dictionary<long, CatalogPin> _catalogPins = [];
+
+    /// <summary>
+    /// The catalog version this dataset read at open or last swapped in (ADR
+    /// 0160): its next set sequence, which every swap advances.
+    /// </summary>
+    public CatalogVersion CatalogVersion => new(Interlocked.Read(ref _catalogVersion));
+
+    /// <summary>
+    /// What the store keeps for readers (ADR 0160, ADR 0162), as of the last
+    /// time the writer read the reader records; none on a storage with one
+    /// reader, or before the first reading.
+    /// </summary>
+    public ExtentRetention? Retention { get; private set; }
+
+    /// <summary>Test seam: the extent sets of the current state, oldest first, as (from, to, bytes).</summary>
+    internal (long From, long To, long Bytes)[] SetsForTests()
+    {
+        List<ExtentSet> sets = SetsOf(_state);
+        (long, long, long)[] windows = new (long, long, long)[sets.Count];
+
+        for (int i = 0; i < windows.Length; i++)
+        {
+            windows[i] = (sets[i].From, sets[i].To, sets[i].Bytes);
+        }
+
+        return windows;
+    }
+
+    /// <summary>Test seam: one background merge, if the policy has one due; true when it swapped one in.</summary>
+    internal ValueTask<bool> MergeOnceForTestsAsync(CancellationToken cancellationToken = default) => MergeExtentsAsync(cancellationToken);
+
+    /// <summary>Test seam: the reader records read, and every set no record holds deleted.</summary>
+    internal async ValueTask DeleteUnnamedForTestsAsync(CancellationToken cancellationToken = default)
+    {
+        await DeleteClosedRunsAsync(cancellationToken).ConfigureAwait(false);
+        await DeleteUnnamedSetsAsync(poll: true, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Test seam: the names of the extent sets of the current state, oldest first.</summary>
+    internal string[] SetNamesForTests() => [.. SetsOf(_state).ConvertAll(s => s.Name)];
+
+    /// <summary>Test seam: the sets waiting for deletion.</summary>
+    internal int UnnamedSetsForTests()
+    {
+        lock (_extentLock)
+        {
+            return _unnamed.Count;
+        }
+    }
 
     // The full checkpoints a format-3 directory holds, and the catalog's
     // chain: a full one at a position a set ends at gives way to the set.
@@ -53,18 +136,46 @@ public sealed partial class Dataset
 
     // The catalog's chain at open, each set checked against the log: a set
     // that is missing, foreign or stale ends the chain there, a cache miss
-    // like any derived file's (ADR 0072). Sets nothing names are deleted —
-    // on a store with followers, the backend keeps them for Extent
-    // maintenance (ADR 0139).
+    // like any derived file's (ADR 0072). On a storage with reader records the
+    // catalog's version is announced first, and the catalog read again: no
+    // extent of a version is read until the catalog read is the one announced
+    // (ADR 0160). Sets nothing names are deleted at once on a storage with one
+    // reader, and otherwise wait for no record to hold them.
+    [DesignDecision(typeof(ExtentDeletionByReaderAnnouncements.AnnounceThenConfirm), Scope = ExceptionScope.Boundary)]
     private async ValueTask<Checkpoint[]> LoadExtentsAsync(State state, CancellationToken cancellationToken)
     {
         List<ExtentSet> chain = [];
         HashSet<string> named = new(StringComparer.Ordinal);
+        HashSet<string> listed = new(StringComparer.Ordinal);
         var catalog = await ExtentCatalog.TryReadAsync(_storage.Derived, Id, cancellationToken).ConfigureAwait(false);
+
+        if (_storage is IExtentReaders readers)
+        {
+            while (true)
+            {
+                long version = catalog?.Sequence ?? 0;
+                await readers.AnnounceAsync(new CatalogVersion(version), new CatalogVersion(version), cancellationToken).ConfigureAwait(false);
+                _announced = (version, version);
+                var again = await ExtentCatalog.TryReadAsync(_storage.Derived, Id, cancellationToken).ConfigureAwait(false);
+
+                if (SameCatalog(catalog, again))
+                {
+                    break;
+                }
+
+                catalog = again;
+            }
+        }
 
         if (catalog is { } read)
         {
             _extentSequence = read.Sequence;
+            _catalogVersion = read.Sequence;
+
+            foreach (CatalogEntry entry in read.Sets)
+            {
+                listed.Add(entry.Name);
+            }
 
             foreach (CatalogEntry entry in read.Sets)
             {
@@ -91,6 +202,8 @@ public sealed partial class Dataset
             }
         }
 
+        HashSet<string> unnamed = new(StringComparer.Ordinal);
+
         foreach (BlobName name in await _storage.Derived.ListAsync(cancellationToken).ConfigureAwait(false))
         {
             long sequence = ExtentSet.SequenceOf(name.Value);
@@ -103,23 +216,318 @@ public sealed partial class Dataset
             _extentSequence = Math.Max(_extentSequence, sequence + 1);
             string set = name.Value[..(name.Value.IndexOf('/', ExtentSet.Prefix.Length) + 1)];
 
-            if (!named.Contains(set))
+            if (named.Contains(set))
+            {
+                continue;
+            }
+
+            if (_storage is not IExtentReaders)
             {
                 await _storage.Derived.DeleteAsync(name, cancellationToken).ConfigureAwait(false);
+            }
+            else if (unnamed.Add(set))
+            {
+                // A set the store's catalog still names — past where this
+                // log's chain ends — is removed by this writer's next swap.
+                lock (_extentLock)
+                {
+                    _unnamed[set] = (sequence, listed.Contains(set) ? long.MaxValue : _catalogVersion);
+                    _deletionDue = true;
+                }
             }
         }
 
         return Chains(chain);
     }
 
+    // Whether two reads of the catalog are one version: the same sequence,
+    // position and sets.
+    private static bool SameCatalog(
+        (DerivedHeader Header, long Sequence, CatalogEntry[] Sets, CatalogCursor? Cursor)? first,
+        (DerivedHeader Header, long Sequence, CatalogEntry[] Sets, CatalogCursor? Cursor)? second)
+    {
+        if (first is not { } a || second is not { } b)
+        {
+            return first is null && second is null;
+        }
+
+        if (a.Sequence != b.Sequence || a.Header.To != b.Header.To || a.Sets.Length != b.Sets.Length)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < a.Sets.Length; i++)
+        {
+            if (a.Sets[i] != b.Sets[i])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     // Closes sets written for a catalog that was never swapped in, and has
-    // them deleted once nothing reads them: no catalog names them.
+    // them deleted once nothing reads them: no catalog names them, so no
+    // record holds them either.
     private void RetireUnpublished(List<ExtentSet> written)
     {
         foreach (ExtentSet set in written)
         {
-            set.Run.Blob!.Retire(_closedRuns.Enqueue);
+            RetireSet(set, set.Sequence + 1);
         }
+    }
+
+    // A set the catalog stopped naming at removedAt: kept while a view of this
+    // process reads it, then waiting for no reader record to hold it.
+    private void RetireSet(ExtentSet set, long removedAt)
+    {
+        lock (_extentLock)
+        {
+            _openRetired[set.Name] = set.Sequence;
+            _removedAt[set.Name] = removedAt;
+        }
+
+        set.Run.Blob!.Retire(_closedRuns.Enqueue);
+    }
+
+    // A set name closed since it was retired: no view of this process reads
+    // it, and it waits for the deletion rule.
+    private void SetClosed(string name)
+    {
+        lock (_extentLock)
+        {
+            _openRetired.Remove(name);
+            long removedAt = _removedAt.Remove(name, out long at) ? at : long.MaxValue;
+            _unnamed[name] = (ExtentSet.SequenceOf(name), removedAt);
+            _deletionDue = true;
+        }
+    }
+
+    /// <summary>
+    /// Announces the catalog versions this process holds (ADR 0160): from the
+    /// oldest a retired set still read could be named by, to the newest
+    /// swapped in, or about to be. Written only when the interval changes.
+    /// </summary>
+    private async ValueTask AnnounceHeldAsync(CancellationToken cancellationToken)
+    {
+        if (_storage is not IExtentReaders readers)
+        {
+            return;
+        }
+
+        await _announceGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            long newest = Math.Max(Interlocked.Read(ref _catalogVersion), Interlocked.Read(ref _announcingNext));
+            long oldest = Interlocked.Read(ref _catalogVersion);
+
+            lock (_extentLock)
+            {
+                foreach (long sequence in _openRetired.Values)
+                {
+                    oldest = Math.Min(oldest, sequence + 1);
+                }
+            }
+
+            if (_announced == (oldest, newest))
+            {
+                return;
+            }
+
+            try
+            {
+                await readers.AnnounceAsync(new CatalogVersion(oldest), new CatalogVersion(newest), cancellationToken).ConfigureAwait(false);
+            }
+            catch (ReaderForgottenException)
+            {
+                // The writer's record was forgotten: the writer reads only
+                // what its own catalog names, so it announces again at once,
+                // as a fresh record.
+                await readers.AnnounceAsync(new CatalogVersion(oldest), new CatalogVersion(newest), cancellationToken).ConfigureAwait(false);
+            }
+
+            _announced = (oldest, newest);
+        }
+        finally
+        {
+            _announceGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Deletes the sets no catalog names that no reader record holds (ADR
+    /// 0160): after the swap that removed them, the records are read, and a set
+    /// is deleted only when no record's interval meets the versions that named
+    /// it. On a storage with one reader, at once. A delete that fails is tried
+    /// again at the next round.
+    /// </summary>
+    [DesignDecision(typeof(ExtentDeletionByReaderAnnouncements.SwapThenReadRecordsThenDelete), Scope = ExceptionScope.Boundary)]
+    private async ValueTask DeleteUnnamedSetsAsync(bool poll, CancellationToken cancellationToken)
+    {
+        KeyValuePair<string, (long Sequence, long RemovedAt)>[] pending;
+
+        lock (_extentLock)
+        {
+            if (_unnamed.Count == 0 || (!_deletionDue && !poll))
+            {
+                return;
+            }
+
+            _deletionDue = false;
+            pending = [.. _unnamed];
+        }
+
+        IReadOnlyList<ReaderAnnouncement> records = [];
+        IExtentReaders? readers = _storage as IExtentReaders;
+
+        if (readers is not null)
+        {
+            if (!readers.DeletesExtents)
+            {
+                return;
+            }
+
+            // This process's own record first, so what it no longer reads is
+            // not held back by it. A store that cannot be reached now only
+            // postpones the deletion to a later round; it never fails the
+            // swap that came before.
+            try
+            {
+                await AnnounceHeldAsync(cancellationToken).ConfigureAwait(false);
+                records = await readers.ReadAnnouncementsAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (System.IO.IOException)
+            {
+                lock (_extentLock)
+                {
+                    _deletionDue = true;
+                }
+
+                return;
+            }
+
+            _roundsSincePoll = 0;
+        }
+
+        List<(string Name, long Sequence, long RemovedAt)> held = [];
+
+        foreach (KeyValuePair<string, (long Sequence, long RemovedAt)> set in pending)
+        {
+            if (HeldBy(records, set.Value.Sequence, set.Value.RemovedAt))
+            {
+                held.Add((set.Key, set.Value.Sequence, set.Value.RemovedAt));
+                continue;
+            }
+
+            try
+            {
+                foreach (BlobName part in ExtentSet.BlobsOf(set.Key))
+                {
+                    await _storage.Derived.DeleteAsync(part, cancellationToken).ConfigureAwait(false);
+                }
+
+                lock (_extentLock)
+                {
+                    _unnamed.Remove(set.Key);
+                }
+            }
+            catch (System.IO.IOException)
+            {
+                lock (_extentLock)
+                {
+                    _deletionDue = true;
+                }
+            }
+        }
+
+        if (readers is not null)
+        {
+            await MeasureRetentionAsync(readers, records, held, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    [DesignDecision(typeof(ExtentDeletionByReaderAnnouncements.DeleteWhenNoRecordOverlaps), Scope = ExceptionScope.Boundary)]
+    private static bool HeldBy(IReadOnlyList<ReaderAnnouncement> records, long sequence, long removedAt)
+    {
+        foreach (ReaderAnnouncement record in records)
+        {
+            if (record.Holds(new CatalogVersion(sequence), new CatalogVersion(removedAt)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // The figures readiness reports (ADR 0162): what the store still holds of
+    // sets no catalog names, and what each record holds of it.
+    private async ValueTask MeasureRetentionAsync(
+        IExtentReaders readers, IReadOnlyList<ReaderAnnouncement> records, List<(string Name, long Sequence, long RemovedAt)> held, CancellationToken cancellationToken)
+    {
+        IReadOnlyDictionary<string, long> bytes = held.Count == 0
+            ? new Dictionary<string, long>()
+            : await readers.ExtentBytesAsync(cancellationToken).ConfigureAwait(false);
+        long total = 0;
+
+        foreach ((string name, _, _) in held)
+        {
+            total += bytes.TryGetValue(name, out long b) ? b : 0;
+        }
+
+        ReaderRetention[] retention = new ReaderRetention[records.Count];
+
+        for (int i = 0; i < records.Count; i++)
+        {
+            long retained = 0;
+
+            foreach ((string name, long sequence, long removedAt) in held)
+            {
+                if (records[i].Holds(new CatalogVersion(sequence), new CatalogVersion(removedAt)))
+                {
+                    retained += bytes.TryGetValue(name, out long b) ? b : 0;
+                }
+            }
+
+            retention[i] = new ReaderRetention(records[i], retained);
+        }
+
+        Retention = new ExtentRetention(CatalogVersion, SetsOf(_state).Count, held.Count, total, retention);
+    }
+
+    // Once per round of maintenance: the record brought up to date, and the
+    // sets waiting for deletion tried again when they are due, or every few
+    // rounds while any wait — a poll (ADR 0160).
+    [DesignDecision(typeof(ExtentDeletionByReaderAnnouncements.MaintenanceMayPoll), Scope = ExceptionScope.Boundary)]
+    private async ValueTask MaintainExtentsAsync(CancellationToken cancellationToken)
+    {
+        if (_storage is not IExtentReaders { DeletesExtents: true })
+        {
+            return;
+        }
+
+        // A record that cannot be written now only delays a deletion: it is
+        // written again next round, and the deletion waits for it. Before a
+        // swap, by contrast, a refused announcement refuses the swap.
+        try
+        {
+            await AnnounceHeldAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (System.IO.IOException)
+        {
+            return;
+        }
+
+        bool waiting;
+
+        lock (_extentLock)
+        {
+            waiting = _unnamed.Count > 0;
+        }
+
+        await DeleteUnnamedSetsAsync(waiting && ++_roundsSincePoll >= RoundsBetweenPolls, cancellationToken).ConfigureAwait(false);
     }
 
     // The catalog's cursor (ADR 0139, CatalogRecordsTheLogCursor): where the
@@ -204,18 +612,47 @@ public sealed partial class Dataset
     private string NextSetName(long from, long to) => ExtentSet.NameOf(from, to, Interlocked.Increment(ref _extentSequence) - 1);
 
     /// <summary>
+    /// Writes a set under a fresh name, and again under the next when a
+    /// create finds the name taken with other bytes — a superseded writer's
+    /// (ADR 0158): names are never reused. What a taken attempt left is never
+    /// named, and the deletion rule takes it.
+    /// </summary>
+    [DesignDecision(typeof(BackgroundExtentMerges.ATakenNameTakesTheNextSequence), Scope = ExceptionScope.Boundary)]
+    private async ValueTask<string> WriteUnderFreshNameAsync(long from, long to, Func<string, ValueTask> write)
+    {
+        for (int attempt = 1; ; attempt++)
+        {
+            string name = NextSetName(from, to);
+
+            try
+            {
+                await write(name).ConfigureAwait(false);
+                return name;
+            }
+            catch (DerivedNameTakenException) when (attempt < NameAttempts)
+            {
+                lock (_extentLock)
+                {
+                    _unnamed[name] = (ExtentSet.SequenceOf(name), long.MaxValue);
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// A set for the window <c>(from, to]</c> from the log: each commit's
     /// delta as events, paired into intervals (ADR 0138), and the entries the
-    /// window allocated as its dictionary; then its graph-version index.
+    /// window allocated as its dictionary; then its graph-version index and
+    /// its window's commit index (ADR 0161).
     /// </summary>
     private async ValueTask<ExtentSet> WriteSetFromLogAsync(State state, long from, long to, CancellationToken cancellationToken)
     {
-        string name = NextSetName(from, to);
         // A quad's event takes at least a few bytes of log: the window's
         // bytes bound its events, and so what the sorts need to hold.
         long expected = (state.LogBytesAt(to) - state.LogBytesAt(from)) / 4;
-        ExtentRowBuilder rows = new(_storage.Derived, "extents-" + (Interlocked.Read(ref _extentSequence) - 1).ToString(CultureInfo.InvariantCulture), expected);
+        ExtentRowBuilder rows = new(_storage.Derived, "extents-" + Interlocked.Read(ref _extentSequence).ToString(CultureInfo.InvariantCulture), expected);
         List<Allocation> allocations = [];
+        string name;
 
         try
         {
@@ -235,43 +672,131 @@ public sealed partial class Dataset
             }
 
             CommitEntry at = state.Commits.Entry(to);
-            await ExtentSet.WriteAsync(_storage.Derived, name, Id, from, to, at.HeaderHash(), at.BlankCount, rows.RowsAsync, [terms], cancellationToken).ConfigureAwait(false);
+            GraphVersions graphs = await GraphsAtAsync(state, to, cancellationToken).ConfigureAwait(false);
+
+            name = await WriteUnderFreshNameAsync(from, to, async attempt =>
+            {
+                await ExtentSet.WriteAsync(_storage.Derived, attempt, Id, from, to, at.HeaderHash(), at.BlankCount, rows.RowsAsync, [terms], cancellationToken).ConfigureAwait(false);
+                await graphs.WriteAsync(_storage.Derived, ExtentSet.GraphsOf(attempt), Id, at.HeaderHash(), cancellationToken).ConfigureAwait(false);
+                await CommitIndexFormat.WriteAsync(_storage.Derived, ExtentSet.CommitsOf(attempt), Id, from, to, state.Commits.Entry, cancellationToken).ConfigureAwait(false);
+            }).ConfigureAwait(false);
         }
         finally
         {
             await rows.DropAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        GraphVersions graphs = await GraphsAtAsync(state, to, cancellationToken).ConfigureAwait(false);
-        await graphs.WriteAsync(_storage.Derived, ExtentSet.GraphsOf(name), Id, state.Commits.Entry(to).HeaderHash(), cancellationToken).ConfigureAwait(false);
         return await LoadSetAsync(name, from, to, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Two adjacent sets as one, <c>(older.From, newer.To]</c>, from their
-    /// extents alone (ADR 0138): the older set's open intervals and the
-    /// newer's closing ones meet. Its graph-version index is the newer's.
+    /// Adjacent sets as one, <c>(first.From, last.To]</c>, from their extents
+    /// alone (ADR 0138, ADR 0158): each older window's open intervals and the
+    /// next one's closing ones meet, and every other interval is kept as it
+    /// is — a pure function of the inputs, which coalesces no history. Its
+    /// graph-version index is the newest input's, and its commit index the
+    /// inputs' end to end.
     /// </summary>
-    private async ValueTask<ExtentSet> MergeSetsAsync(State state, ExtentSet older, ExtentSet newer, CancellationToken cancellationToken)
+    [DesignDecision(typeof(BackgroundExtentMerges.MergeIsAPureFunctionOfItsInputs), Scope = ExceptionScope.Boundary)]
+    private async ValueTask<ExtentSet> MergeSetsAsync(State state, List<ExtentSet> inputs, CancellationToken cancellationToken)
     {
-        string name = NextSetName(older.From, newer.To);
+        ExtentSet first = inputs[0];
+        ExtentSet newest = inputs[^1];
+
+        IRowSource Combined(IndexOrder order)
+        {
+            IRowSource rows = inputs[0].Rows(order);
+
+            for (int i = 1; i < inputs.Count; i++)
+            {
+                rows = new AdjacentRows(rows, inputs[i].Rows(order));
+            }
+
+            return rows;
+        }
 
         ValueTask<IRowSource> Rows(IndexOrder order, long section, CancellationToken token) =>
-            new(new SectionRows(new ClassifiedRows(new AdjacentRows(older.Rows(order), newer.Rows(order))), section));
+            new(new SectionRows(new ClassifiedRows(Combined(order)), section));
 
-        await ExtentSet.WriteAsync(_storage.Derived, name, Id, older.From, newer.To, newer.ToHash, newer.BlankCount, Rows, [older.Run.Terms, newer.Run.Terms], cancellationToken).ConfigureAwait(false);
+        TermSection[] terms = new TermSection[inputs.Count];
 
-        if (await GraphVersions.TryReadAsync(_storage.Derived, newer.Graphs, Id, cancellationToken).ConfigureAwait(false) is { } graphs)
+        for (int i = 0; i < terms.Length; i++)
         {
-            await graphs.Versions.WriteAsync(_storage.Derived, ExtentSet.GraphsOf(name), Id, graphs.Hash, cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            GraphVersions rebuilt = await GraphsAtAsync(state, newer.To, cancellationToken).ConfigureAwait(false);
-            await rebuilt.WriteAsync(_storage.Derived, ExtentSet.GraphsOf(name), Id, newer.ToHash, cancellationToken).ConfigureAwait(false);
+            terms[i] = inputs[i].Run.Terms;
         }
 
-        return await LoadSetAsync(name, older.From, newer.To, cancellationToken).ConfigureAwait(false);
+        var graphs = await GraphVersions.TryReadAsync(_storage.Derived, newest.Graphs, Id, cancellationToken).ConfigureAwait(false);
+        GraphVersions? rebuilt = graphs is null ? await GraphsAtAsync(state, newest.To, cancellationToken).ConfigureAwait(false) : null;
+        List<CommitSegment> commits = await InputCommitsAsync(inputs, cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            CommitEntry EntryAt(long position)
+            {
+                foreach (CommitSegment segment in commits)
+                {
+                    if (segment.From < position && position <= segment.To)
+                    {
+                        return segment.Read(position);
+                    }
+                }
+
+                return state.Commits.Entry(position);
+            }
+
+            string name = await WriteUnderFreshNameAsync(first.From, newest.To, async attempt =>
+            {
+                await ExtentSet.WriteAsync(_storage.Derived, attempt, Id, first.From, newest.To, newest.ToHash, newest.BlankCount, Rows, terms, cancellationToken).ConfigureAwait(false);
+
+                if (graphs is { } read)
+                {
+                    await read.Versions.WriteAsync(_storage.Derived, ExtentSet.GraphsOf(attempt), Id, read.Hash, cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    await rebuilt!.WriteAsync(_storage.Derived, ExtentSet.GraphsOf(attempt), Id, newest.ToHash, cancellationToken).ConfigureAwait(false);
+                }
+
+                await CommitIndexFormat.WriteAsync(_storage.Derived, ExtentSet.CommitsOf(attempt), Id, first.From, newest.To, EntryAt, cancellationToken).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+
+            return await LoadSetAsync(name, first.From, newest.To, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            foreach (CommitSegment segment in commits)
+            {
+                segment.Blob.Release();
+            }
+        }
+    }
+
+    // The inputs' own commit index blobs, each for its window; a set written
+    // before them has none, and its entries come from the commit index.
+    private async ValueTask<List<CommitSegment>> InputCommitsAsync(List<ExtentSet> inputs, CancellationToken cancellationToken)
+    {
+        List<CommitSegment> commits = [];
+
+        foreach (ExtentSet input in inputs)
+        {
+            CommitSegment? segment = await CommitIndexFormat.TryLoadAsync(_storage.Derived, ExtentSet.CommitsOf(input.Name), Id, cancellationToken).ConfigureAwait(false);
+
+            if (segment is null)
+            {
+                continue;
+            }
+
+            if (segment.From == input.From && segment.To == input.To)
+            {
+                commits.Add(segment);
+            }
+            else
+            {
+                segment.Blob.Release();
+            }
+        }
+
+        return commits;
     }
 
     private async ValueTask<ExtentSet> LoadSetAsync(string name, long from, long to, CancellationToken cancellationToken) =>
@@ -328,7 +853,7 @@ public sealed partial class Dataset
                 throw;
             }
 
-            await PublishSetsAsync(sets, written, replaced, cancellationToken).ConfigureAwait(false);
+            await PublishSetsAsync(sets, written, replaced, replaced, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -361,14 +886,14 @@ public sealed partial class Dataset
             }
             else
             {
-                ExtentSet merged = await MergeSetsAsync(state, sets[k], sets[k + 1], cancellationToken).ConfigureAwait(false);
+                ExtentSet merged = await MergeSetsAsync(state, [sets[k], sets[k + 1]], cancellationToken).ConfigureAwait(false);
                 written.Add(merged);
                 replaced.Add(sets[k + 1]);
                 sets[k] = merged;
                 sets.RemoveAt(k + 1);
             }
 
-            await PublishSetsAsync(sets, written, replaced, cancellationToken).ConfigureAwait(false);
+            await PublishSetsAsync(sets, written, replaced, written.Count > 0 ? replaced : null, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -376,11 +901,175 @@ public sealed partial class Dataset
         }
     }
 
+    // Whether the policy has sets to merge now (ADR 0159): only the writer
+    // merges, and only what the catalog it last swapped names.
+    private bool ExtentMergeDue(State state) => _merges && _options.ExtentMerges.Enabled && NextMerge(SetsOf(state)) is not null;
+
+    private (int First, int Count)? NextMerge(List<ExtentSet> sets)
+    {
+        if (sets.Count < 2 || _storage is IExtentReaders { DeletesExtents: false })
+        {
+            return null;
+        }
+
+        long[] bytes = new long[sets.Count];
+
+        for (int i = 0; i < bytes.Length; i++)
+        {
+            bytes[i] = sets[i].Bytes;
+        }
+
+        (int First, int Count)? chosen = _options.ExtentMerges.Choose(bytes);
+        return chosen is { } c && _refusedMerges.Contains(sets[c.First].Name + "+" + c.Count.ToString(CultureInfo.InvariantCulture)) ? null : chosen;
+    }
+
+    /// <summary>
+    /// One background merge (ADR 0158): the policy's adjacent sets, read and
+    /// written holding neither the sequencer nor the checkpoint gate, then
+    /// swapped in under the gate — only if every input is still in the chain,
+    /// contiguous and in order, keeping every set added since. Otherwise it is
+    /// abandoned, and what it wrote, never named, waits for the deletion rule.
+    /// </summary>
+    [DesignDecision(typeof(BackgroundExtentMerges.MergeRebasesOnTheCatalog), Scope = ExceptionScope.Boundary)]
+    private async ValueTask<bool> MergeExtentsAsync(CancellationToken cancellationToken)
+    {
+        State state = _state;
+        List<ExtentSet> sets = SetsOf(state);
+
+        if (NextMerge(sets) is not { } chosen)
+        {
+            return false;
+        }
+
+        List<ExtentSet> inputs = sets.GetRange(chosen.First, chosen.Count);
+
+        if (!FitsOneRequest(inputs))
+        {
+            _refusedMerges.Add(inputs[0].Name + "+" + inputs.Count.ToString(CultureInfo.InvariantCulture));
+            return false;
+        }
+
+        // The inputs are held open while they are read: a drop meanwhile
+        // retires them, and the merge then finds them gone from the chain.
+        int acquired = 0;
+
+        while (acquired < inputs.Count && inputs[acquired].Run.Blob!.TryAcquire())
+        {
+            acquired++;
+        }
+
+        ExtentSet merged;
+
+        try
+        {
+            if (acquired < inputs.Count)
+            {
+                return false;
+            }
+
+            merged = await MergeSetsAsync(state, inputs, cancellationToken).ConfigureAwait(false);
+        }
+        catch (WriterSupersededException)
+        {
+            // Not the writer: a follower, or a superseded one. It never merges again.
+            _merges = false;
+            return false;
+        }
+        finally
+        {
+            for (int i = 0; i < acquired; i++)
+            {
+                inputs[i].Run.Blob!.Release();
+            }
+        }
+
+        if (_options.BeforeMergeSwap is { } pause)
+        {
+            await pause(cancellationToken).ConfigureAwait(false);
+        }
+
+        await _checkpointGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            List<ExtentSet> current = SetsOf(_state);
+            int k = current.FindIndex(s => ReferenceEquals(s, inputs[0]));
+            bool same = k >= 0 && k + inputs.Count <= current.Count;
+
+            for (int i = 0; same && i < inputs.Count; i++)
+            {
+                same = ReferenceEquals(current[k + i], inputs[i]);
+            }
+
+            if (!same)
+            {
+                RetireUnpublished([merged]);
+                await DeleteClosedRunsAsync(cancellationToken).ConfigureAwait(false);
+                return false;
+            }
+
+            current.RemoveRange(k, inputs.Count);
+            current.Insert(k, merged);
+
+            try
+            {
+                await PublishSetsAsync(current, [merged], inputs, inputs, cancellationToken).ConfigureAwait(false);
+            }
+            catch (WriterSupersededException)
+            {
+                _merges = false;
+                throw;
+            }
+
+            return true;
+        }
+        finally
+        {
+            _checkpointGate.Release();
+        }
+    }
+
+    // Whether every blob of the merge of these sets fits one request of the
+    // store's (ADR 0158): an order's merged extent is no larger than that
+    // order's inputs together, nor its dictionary than theirs.
+    [DesignDecision(typeof(BackgroundExtentMerges.MergeRefusedPastTheSinglePutLimit), Scope = ExceptionScope.Boundary)]
+    private bool FitsOneRequest(List<ExtentSet> inputs)
+    {
+        if (_storage.Derived is not IDerivedStoreLimits limits)
+        {
+            return true;
+        }
+
+        // Each blob's own header and directory, and the rows a merge writes
+        // where an open and a closing interval meet: a margin of a page each.
+        const long margin = 1L << 20;
+
+        for (int o = 0; o <= Orders.Count; o++)
+        {
+            long total = margin;
+
+            foreach (ExtentSet input in inputs)
+            {
+                total += o < Orders.Count ? input.Orders[o].Run.Blob!.Blob.Length.Value : input.Terms.Run.Blob!.Blob.Length.Value;
+            }
+
+            if (total > limits.MaxBlobBytes.Value)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     // Swaps the catalog to the new chain, then the state's checkpoints under
-    // the sequencer, then retires the sets the chain no longer holds. A swap
+    // the sequencer — and the projection's base runs, when they are the sets
+    // replaced — then retires the sets the chain no longer holds. The
+    // writer announces the version before swapping to it (ADR 0160). A swap
     // that fails — a superseded writer's (ADR 0136) — leaves the catalog and
     // the state as they were, and closes what was written.
-    private async ValueTask PublishSetsAsync(List<ExtentSet> sets, List<ExtentSet> written, List<ExtentSet> replaced, CancellationToken cancellationToken)
+    [DesignDecision(typeof(BackgroundExtentMerges.MergeWritesThenSwapsOnce), Scope = ExceptionScope.Boundary)]
+    private async ValueTask PublishSetsAsync(List<ExtentSet> sets, List<ExtentSet> written, List<ExtentSet> replaced, List<ExtentSet>? rebase, CancellationToken cancellationToken)
     {
         CatalogEntry[] entries = new CatalogEntry[sets.Count];
 
@@ -393,10 +1082,15 @@ public sealed partial class Dataset
         byte[] hash = sets.Count > 0 ? sets[^1].ToHash : LogFormat.Genesis();
         CatalogCursor? cursor;
 
+        // The catalog's version: past every set it names (ADR 0160).
+        long version = Interlocked.Increment(ref _extentSequence);
+
         try
         {
             cursor = await CursorAsync(_state, sets, cancellationToken).ConfigureAwait(false);
-            await ExtentCatalog.WriteAsync(_storage.Derived, Id, position, hash, Interlocked.Read(ref _extentSequence), entries, cursor, cancellationToken).ConfigureAwait(false);
+            Interlocked.Exchange(ref _announcingNext, version);
+            await AnnounceHeldAsync(cancellationToken).ConfigureAwait(false);
+            await ExtentCatalog.WriteAsync(_storage.Derived, Id, position, hash, version, entries, cursor, cancellationToken).ConfigureAwait(false);
         }
         catch
         {
@@ -404,7 +1098,22 @@ public sealed partial class Dataset
             throw;
         }
 
+        Interlocked.Exchange(ref _catalogVersion, version);
         _catalogPins = cursor is null ? [] : PinsOf(cursor);
+
+        lock (_extentLock)
+        {
+            // What the store's previous catalog named past this log's chain
+            // is named by no version from this one on.
+            foreach (KeyValuePair<string, (long Sequence, long RemovedAt)> set in new List<KeyValuePair<string, (long Sequence, long RemovedAt)>>(_unnamed))
+            {
+                if (set.Value.RemovedAt == long.MaxValue && !written.Exists(w => w.Name == set.Key))
+                {
+                    _unnamed[set.Key] = (set.Value.Sequence, version);
+                    _deletionDue = true;
+                }
+            }
+        }
 
         try
         {
@@ -422,6 +1131,9 @@ public sealed partial class Dataset
             throw;
         }
 
+        IndexVersion? rebased = null;
+        Run[] unbased = [];
+
         try
         {
             List<Checkpoint> checkpoints = [.. Array.FindAll(_state.Checkpoints, c => c.Chain is null && !sets.Exists(s => s.To == c.Position))];
@@ -435,6 +1147,13 @@ public sealed partial class Dataset
             }
 
             _state = _state.WithCheckpoints([.. checkpoints]);
+
+            if (rebase is not null && Rebase(_state.Index, rebase, written) is { } swapped)
+            {
+                rebased = swapped.Index;
+                unbased = swapped.Replaced;
+                _state = _state.WithIndex(swapped.Index, _state.Failed);
+            }
         }
         finally
         {
@@ -443,10 +1162,81 @@ public sealed partial class Dataset
 
         foreach (ExtentSet set in replaced)
         {
-            set.Run.Blob!.Retire(_closedRuns.Enqueue);
+            RetireSet(set, version);
+        }
+
+        if (rebased is not null)
+        {
+            await PersistStateAsync(rebased, cancellationToken).ConfigureAwait(false);
+
+            foreach (Run run in unbased)
+            {
+                await RetireRunAsync(run, cancellationToken).ConfigureAwait(false);
+            }
         }
 
         await DeleteClosedRunsAsync(cancellationToken).ConfigureAwait(false);
+        StartMaintenance();
+    }
+
+    // The projection's runs with the sets a swap replaced, where they stand
+    // side by side as its runs, replaced by the sets written in their place
+    // over the same window (ADR 0158): a merge's set for its inputs, a split's
+    // two sets for the one, a drop's merged set for its two. A read of the
+    // present then merges the runs the catalog names at once, not after the
+    // next open, and a replaced set is no longer held by the projection.
+    [DesignDecision(typeof(BackgroundExtentMerges.MergeReplacesThePrefixOfTheProjection), Scope = ExceptionScope.Boundary)]
+    private static (IndexVersion Index, Run[] Replaced)? Rebase(IndexVersion index, List<ExtentSet> replaced, List<ExtentSet> written)
+    {
+        if (replaced.Count == 0 || written.Count == 0 || replaced[0].From != written[0].From || replaced[^1].To != written[^1].To)
+        {
+            return null;
+        }
+
+        int first = Array.FindIndex(index.Runs, r => ReferenceEquals(r, replaced[0].Run));
+
+        if (first < 0 || first + replaced.Count > index.Frozen)
+        {
+            return null;
+        }
+
+        for (int i = 1; i < replaced.Count; i++)
+        {
+            if (!ReferenceEquals(index.Runs[first + i], replaced[i].Run))
+            {
+                return null;
+            }
+        }
+
+        int acquired = 0;
+
+        while (acquired < written.Count && written[acquired].Run.Blob!.TryAcquire())
+        {
+            acquired++;
+        }
+
+        if (acquired < written.Count)
+        {
+            for (int i = 0; i < acquired; i++)
+            {
+                written[i].Run.Blob!.Release();
+            }
+
+            return null;
+        }
+
+        int end = first + replaced.Count;
+        Run[] runs = new Run[index.Runs.Length - replaced.Count + written.Count];
+        Array.Copy(index.Runs, runs, first);
+
+        for (int i = 0; i < written.Count; i++)
+        {
+            runs[first + i] = written[i].Run;
+        }
+
+        Array.Copy(index.Runs, end, runs, first + written.Count, index.Runs.Length - end);
+        int frozen = Math.Max(first + written.Count, index.Frozen - replaced.Count + written.Count);
+        return (index.With(runs, frozen), index.Runs[first..end]);
     }
 
     /// <summary>

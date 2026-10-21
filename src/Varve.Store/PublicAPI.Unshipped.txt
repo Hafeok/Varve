@@ -547,6 +547,168 @@ override Varve.Store.Log.SegmentSlot.GetHashCode() -> int
 override Varve.Store.Log.SegmentSlot.ToString() -> string!
 static Varve.Store.Log.SegmentSlot.operator !=(Varve.Store.Log.SegmentSlot left, Varve.Store.Log.SegmentSlot right) -> bool
 static Varve.Store.Log.SegmentSlot.operator ==(Varve.Store.Log.SegmentSlot left, Varve.Store.Log.SegmentSlot right) -> bool
+Varve.Store.Dataset.CatalogVersion.get -> Varve.Store.Log.CatalogVersion
+Varve.Store.Dataset.Retention.get -> Varve.Store.ExtentRetention?
+Varve.Store.DatasetOptions.ExtentMerges.get -> Varve.Store.ExtentMergePolicy!
+Varve.Store.DatasetOptions.ExtentMerges.init -> void
+Varve.Store.DerivedNameTakenException
+Varve.Store.DerivedNameTakenException.DerivedNameTakenException() -> void
+Varve.Store.DerivedNameTakenException.DerivedNameTakenException(string! message) -> void
+Varve.Store.DerivedNameTakenException.DerivedNameTakenException(string! message, System.Exception! innerException) -> void
+Varve.Store.ExtentMergePolicy
+Varve.Store.ExtentMergePolicy.Enabled.get -> bool
+Varve.Store.ExtentMergePolicy.Enabled.init -> void
+Varve.Store.ExtentMergePolicy.ExtentMergePolicy() -> void
+Varve.Store.ExtentMergePolicy.FanOut.get -> int
+Varve.Store.ExtentMergePolicy.FanOut.init -> void
+Varve.Store.ExtentMergePolicy.MaxSetBytes.get -> Varve.Store.Log.ByteCount
+Varve.Store.ExtentMergePolicy.MaxSetBytes.init -> void
+Varve.Store.ExtentRetention
+Varve.Store.ExtentRetention.<Clone>$() -> Varve.Store.ExtentRetention!
+Varve.Store.ExtentRetention.Deconstruct(out Varve.Store.Log.CatalogVersion Version, out int Sets, out int UnnamedSets, out long RetainedBytes, out System.Collections.Generic.IReadOnlyList<Varve.Store.ReaderRetention!>! Readers) -> void
+Varve.Store.ExtentRetention.Equals(Varve.Store.ExtentRetention? other) -> bool
+Varve.Store.ExtentRetention.ExtentRetention(Varve.Store.Log.CatalogVersion Version, int Sets, int UnnamedSets, long RetainedBytes, System.Collections.Generic.IReadOnlyList<Varve.Store.ReaderRetention!>! Readers) -> void
+Varve.Store.ExtentRetention.Readers.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.ReaderRetention!>!
+Varve.Store.ExtentRetention.Readers.init -> void
+Varve.Store.ExtentRetention.RetainedBytes.get -> long
+Varve.Store.ExtentRetention.RetainedBytes.init -> void
+Varve.Store.ExtentRetention.Sets.get -> int
+Varve.Store.ExtentRetention.Sets.init -> void
+Varve.Store.ExtentRetention.UnnamedSets.get -> int
+Varve.Store.ExtentRetention.UnnamedSets.init -> void
+Varve.Store.ExtentRetention.Version.get -> Varve.Store.Log.CatalogVersion
+Varve.Store.ExtentRetention.Version.init -> void
+Varve.Store.IDerivedStoreLimits
+Varve.Store.IDerivedStoreLimits.MaxBlobBytes.get -> Varve.Store.Log.ByteCount
+Varve.Store.IExtentReaders
+Varve.Store.IExtentReaders.AnnounceAsync(Varve.Store.Log.CatalogVersion oldest, Varve.Store.Log.CatalogVersion newest, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Store.IExtentReaders.DeletesExtents.get -> bool
+Varve.Store.IExtentReaders.ExtentBytesAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyDictionary<string!, long>!>
+Varve.Store.Log.CatalogVersion
+Varve.Store.Log.CatalogVersion.CatalogVersion() -> void
+Varve.Store.Log.CatalogVersion.CatalogVersion(long value) -> void
+Varve.Store.Log.CatalogVersion.CompareTo(Varve.Store.Log.CatalogVersion other) -> int
+Varve.Store.Log.CatalogVersion.Equals(Varve.Store.Log.CatalogVersion other) -> bool
+Varve.Store.Log.CatalogVersion.Value.get -> long
+Varve.Store.Log.ReaderId
+Varve.Store.Log.ReaderId.Equals(Varve.Store.Log.ReaderId other) -> bool
+Varve.Store.Log.ReaderId.ReaderId() -> void
+Varve.Store.Log.ReaderId.ReaderId(string! value) -> void
+Varve.Store.Log.ReaderId.Value.get -> string!
+Varve.Store.ObjectStoreAccessDeniedException
+Varve.Store.ObjectStoreAccessDeniedException.ObjectStoreAccessDeniedException() -> void
+Varve.Store.ObjectStoreAccessDeniedException.ObjectStoreAccessDeniedException(string! message) -> void
+Varve.Store.ObjectStoreAccessDeniedException.ObjectStoreAccessDeniedException(string! message, System.Exception! innerException) -> void
+Varve.Store.ReaderForgottenException
+Varve.Store.ReaderForgottenException.ReaderForgottenException() -> void
+Varve.Store.ReaderForgottenException.ReaderForgottenException(string! message) -> void
+Varve.Store.ReaderForgottenException.ReaderForgottenException(string! message, System.Exception! innerException) -> void
+Varve.Store.ReaderRetention
+Varve.Store.ReaderRetention.<Clone>$() -> Varve.Store.ReaderRetention!
+Varve.Store.ReaderRetention.Announcement.init -> void
+Varve.Store.ReaderRetention.Equals(Varve.Store.ReaderRetention? other) -> bool
+Varve.Store.ReaderRetention.RetainedBytes.get -> long
+Varve.Store.ReaderRetention.RetainedBytes.init -> void
+Varve.Store.UnannouncedExtentGoneException
+Varve.Store.UnannouncedExtentGoneException.UnannouncedExtentGoneException() -> void
+Varve.Store.UnannouncedExtentGoneException.UnannouncedExtentGoneException(string! message) -> void
+Varve.Store.UnannouncedExtentGoneException.UnannouncedExtentGoneException(string! message, System.Exception! innerException) -> void
+override Varve.Store.ExtentRetention.Equals(object? obj) -> bool
+override Varve.Store.ExtentRetention.GetHashCode() -> int
+override Varve.Store.ExtentRetention.ToString() -> string!
+override Varve.Store.Log.CatalogVersion.GetHashCode() -> int
+override Varve.Store.Log.CatalogVersion.ToString() -> string!
+override Varve.Store.Log.ReaderId.GetHashCode() -> int
+override Varve.Store.Log.ReaderId.ToString() -> string!
+override Varve.Store.ReaderRetention.Equals(object? obj) -> bool
+override Varve.Store.ReaderRetention.GetHashCode() -> int
+override Varve.Store.ReaderRetention.ToString() -> string!
+static Varve.Store.ExtentMergePolicy.Default.get -> Varve.Store.ExtentMergePolicy!
+static Varve.Store.ExtentMergePolicy.DefaultMaxSetBytes.get -> Varve.Store.Log.ByteCount
+static Varve.Store.ExtentMergePolicy.Off.get -> Varve.Store.ExtentMergePolicy!
+static Varve.Store.ExtentRetention.operator !=(Varve.Store.ExtentRetention? left, Varve.Store.ExtentRetention? right) -> bool
+static Varve.Store.ExtentRetention.operator ==(Varve.Store.ExtentRetention? left, Varve.Store.ExtentRetention? right) -> bool
+static Varve.Store.Log.CatalogVersion.Newest.get -> Varve.Store.Log.CatalogVersion
+static Varve.Store.Log.CatalogVersion.operator !=(Varve.Store.Log.CatalogVersion left, Varve.Store.Log.CatalogVersion right) -> bool
+static Varve.Store.Log.CatalogVersion.operator <(Varve.Store.Log.CatalogVersion left, Varve.Store.Log.CatalogVersion right) -> bool
+static Varve.Store.Log.CatalogVersion.operator <=(Varve.Store.Log.CatalogVersion left, Varve.Store.Log.CatalogVersion right) -> bool
+static Varve.Store.Log.CatalogVersion.operator ==(Varve.Store.Log.CatalogVersion left, Varve.Store.Log.CatalogVersion right) -> bool
+static Varve.Store.Log.CatalogVersion.operator >(Varve.Store.Log.CatalogVersion left, Varve.Store.Log.CatalogVersion right) -> bool
+static Varve.Store.Log.CatalogVersion.operator >=(Varve.Store.Log.CatalogVersion left, Varve.Store.Log.CatalogVersion right) -> bool
+static Varve.Store.Log.ReaderId.IsValid(string? value) -> bool
+static Varve.Store.Log.ReaderId.operator !=(Varve.Store.Log.ReaderId left, Varve.Store.Log.ReaderId right) -> bool
+static Varve.Store.Log.ReaderId.operator ==(Varve.Store.Log.ReaderId left, Varve.Store.Log.ReaderId right) -> bool
+static Varve.Store.ReaderRetention.operator !=(Varve.Store.ReaderRetention? left, Varve.Store.ReaderRetention? right) -> bool
+static Varve.Store.ReaderRetention.operator ==(Varve.Store.ReaderRetention? left, Varve.Store.ReaderRetention? right) -> bool
+~override Varve.Store.Log.CatalogVersion.Equals(object obj) -> bool
+~override Varve.Store.Log.ReaderId.Equals(object obj) -> bool
+Varve.Store.IExtentReaders.ReadAnnouncementsAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Varve.Store.Log.ReaderAnnouncement!>!>
+Varve.Store.Log.ReaderAnnouncement
+Varve.Store.Log.ReaderAnnouncement.<Clone>$() -> Varve.Store.Log.ReaderAnnouncement!
+Varve.Store.Log.ReaderAnnouncement.Deconstruct(out Varve.Store.Log.ReaderId Reader, out Varve.Store.Log.CatalogVersion Oldest, out Varve.Store.Log.CatalogVersion Newest) -> void
+Varve.Store.Log.ReaderAnnouncement.Equals(Varve.Store.Log.ReaderAnnouncement? other) -> bool
+Varve.Store.Log.ReaderAnnouncement.Holds(Varve.Store.Log.CatalogVersion createdAfter, Varve.Store.Log.CatalogVersion removedAt) -> bool
+Varve.Store.Log.ReaderAnnouncement.Newest.get -> Varve.Store.Log.CatalogVersion
+Varve.Store.Log.ReaderAnnouncement.Newest.init -> void
+Varve.Store.Log.ReaderAnnouncement.Oldest.get -> Varve.Store.Log.CatalogVersion
+Varve.Store.Log.ReaderAnnouncement.Oldest.init -> void
+Varve.Store.Log.ReaderAnnouncement.Reader.get -> Varve.Store.Log.ReaderId
+Varve.Store.Log.ReaderAnnouncement.Reader.init -> void
+Varve.Store.Log.ReaderAnnouncement.ReaderAnnouncement(Varve.Store.Log.ReaderId Reader, Varve.Store.Log.CatalogVersion Oldest, Varve.Store.Log.CatalogVersion Newest) -> void
+Varve.Store.Log.ReaderAnnouncement.Understood.get -> bool
+Varve.Store.Log.ReaderAnnouncement.Understood.init -> void
+Varve.Store.ReaderRetention.Announcement.get -> Varve.Store.Log.ReaderAnnouncement!
+Varve.Store.ReaderRetention.Deconstruct(out Varve.Store.Log.ReaderAnnouncement! Announcement, out long RetainedBytes) -> void
+Varve.Store.ReaderRetention.ReaderRetention(Varve.Store.Log.ReaderAnnouncement! Announcement, long RetainedBytes) -> void
+override Varve.Store.Log.ReaderAnnouncement.Equals(object? obj) -> bool
+override Varve.Store.Log.ReaderAnnouncement.GetHashCode() -> int
+override Varve.Store.Log.ReaderAnnouncement.ToString() -> string!
+static Varve.Store.Log.ReaderAnnouncement.OfUnknownFormat(Varve.Store.Log.ReaderId reader) -> Varve.Store.Log.ReaderAnnouncement!
+static Varve.Store.Log.ReaderAnnouncement.operator !=(Varve.Store.Log.ReaderAnnouncement? left, Varve.Store.Log.ReaderAnnouncement? right) -> bool
+static Varve.Store.Log.ReaderAnnouncement.operator ==(Varve.Store.Log.ReaderAnnouncement? left, Varve.Store.Log.ReaderAnnouncement? right) -> bool
+Varve.Store.IObjectStore.CreateIfAbsentAsync(Varve.Store.Log.ObjectName name, Varve.Store.Log.ObjectContent! content, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.ObjectVersion?>
+Varve.Store.Log.ObjectContent
+Varve.Store.Log.ObjectContent.Length.get -> Varve.Store.Log.ByteCount
+Varve.Store.Log.ObjectContent.ObjectContent(System.IO.FileInfo! file) -> void
+Varve.Store.Log.ObjectContent.OpenRead() -> System.IO.Stream!
+Varve.Store.CatalogSet
+Varve.Store.CatalogSet.<Clone>$() -> Varve.Store.CatalogSet!
+Varve.Store.CatalogSet.Blobs.get -> System.Collections.Generic.IEnumerable<Varve.Store.Log.BlobName>!
+Varve.Store.CatalogSet.CatalogSet(Varve.Store.Log.BlobName Name, Varve.Store.Log.Position From, Varve.Store.Log.Position To) -> void
+Varve.Store.CatalogSet.CreatedAfter.get -> Varve.Store.Log.CatalogVersion
+Varve.Store.CatalogSet.Deconstruct(out Varve.Store.Log.BlobName Name, out Varve.Store.Log.Position From, out Varve.Store.Log.Position To) -> void
+Varve.Store.CatalogSet.Equals(Varve.Store.CatalogSet? other) -> bool
+Varve.Store.CatalogSet.From.get -> Varve.Store.Log.Position
+Varve.Store.CatalogSet.From.init -> void
+Varve.Store.CatalogSet.Name.get -> Varve.Store.Log.BlobName
+Varve.Store.CatalogSet.Name.init -> void
+Varve.Store.CatalogSet.To.get -> Varve.Store.Log.Position
+Varve.Store.CatalogSet.To.init -> void
+Varve.Store.CatalogSummary
+Varve.Store.CatalogSummary.<Clone>$() -> Varve.Store.CatalogSummary!
+Varve.Store.CatalogSummary.CatalogSummary(Varve.Store.Log.DatasetId Dataset, Varve.Store.Log.CatalogVersion Version, Varve.Store.Log.Position Position, System.Collections.Generic.IReadOnlyList<Varve.Store.CatalogSet!>! Sets) -> void
+Varve.Store.CatalogSummary.Dataset.get -> Varve.Store.Log.DatasetId
+Varve.Store.CatalogSummary.Dataset.init -> void
+Varve.Store.CatalogSummary.Deconstruct(out Varve.Store.Log.DatasetId Dataset, out Varve.Store.Log.CatalogVersion Version, out Varve.Store.Log.Position Position, out System.Collections.Generic.IReadOnlyList<Varve.Store.CatalogSet!>! Sets) -> void
+Varve.Store.CatalogSummary.Equals(Varve.Store.CatalogSummary? other) -> bool
+Varve.Store.CatalogSummary.Position.get -> Varve.Store.Log.Position
+Varve.Store.CatalogSummary.Position.init -> void
+Varve.Store.CatalogSummary.Sets.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.CatalogSet!>!
+Varve.Store.CatalogSummary.Sets.init -> void
+Varve.Store.CatalogSummary.Version.get -> Varve.Store.Log.CatalogVersion
+Varve.Store.CatalogSummary.Version.init -> void
+override Varve.Store.CatalogSet.Equals(object? obj) -> bool
+override Varve.Store.CatalogSet.GetHashCode() -> int
+override Varve.Store.CatalogSet.ToString() -> string!
+override Varve.Store.CatalogSummary.Equals(object? obj) -> bool
+override Varve.Store.CatalogSummary.GetHashCode() -> int
+override Varve.Store.CatalogSummary.ToString() -> string!
+static Varve.Store.CatalogSet.SequenceOf(Varve.Store.Log.BlobName blob) -> Varve.Store.Log.CatalogVersion?
+static Varve.Store.CatalogSet.operator !=(Varve.Store.CatalogSet? left, Varve.Store.CatalogSet? right) -> bool
+static Varve.Store.CatalogSet.operator ==(Varve.Store.CatalogSet? left, Varve.Store.CatalogSet? right) -> bool
+static Varve.Store.CatalogSummary.TryRead(System.ReadOnlyMemory<byte> file) -> Varve.Store.CatalogSummary?
+static Varve.Store.CatalogSummary.operator !=(Varve.Store.CatalogSummary? left, Varve.Store.CatalogSummary? right) -> bool
+static Varve.Store.CatalogSummary.operator ==(Varve.Store.CatalogSummary? left, Varve.Store.CatalogSummary? right) -> bool
 Varve.Store.Log.CommitMetadata.Attachments.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.Log.RequestTerm>!
 Varve.Store.Log.CommitMetadata.Attachments.init -> void
 Varve.Store.ITailingStorage

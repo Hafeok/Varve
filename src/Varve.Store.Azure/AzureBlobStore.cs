@@ -48,6 +48,13 @@ public sealed class AzureBlobStore : IObjectStore, IDisposable
 
     private const int Attempts = 6;
 
+    /// <summary>
+    /// The most one Put Blob may upload: 5,000 MiB since service version
+    /// 2019-12-12 (Put Blob, "Remarks"). The backend refuses a merge whose
+    /// output could pass it (ADR 0158).
+    /// </summary>
+    public static ByteCount MaxSingleUploadBytes { get; } = new(5000L << 20);
+
     private readonly HttpClient _http;
     private readonly IRequestSigner _signer;
     private readonly TimeProvider _clock;
@@ -94,6 +101,20 @@ public sealed class AzureBlobStore : IObjectStore, IDisposable
     public async ValueTask<ObjectVersion?> CreateIfAbsentAsync(ObjectName name, ReadOnlyMemory<byte> content, CancellationToken cancellationToken)
     {
         using HttpResponseMessage response = await SendAsync(() => Put(name, content, "If-None-Match", "*"), write: true, cancellationToken).ConfigureAwait(false);
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.Created => Version(response),
+            HttpStatusCode.Conflict or HttpStatusCode.PreconditionFailed => null,
+            _ => throw Failure(response, "PUT", name),
+        };
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<ObjectVersion?> CreateIfAbsentAsync(ObjectName name, ObjectContent content, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        using HttpResponseMessage response = await SendAsync(() => Put(name, Streamed(content), "If-None-Match", "*"), write: true, cancellationToken).ConfigureAwait(false);
 
         return response.StatusCode switch
         {
@@ -237,10 +258,13 @@ public sealed class AzureBlobStore : IObjectStore, IDisposable
     private static IOException Failure(HttpResponseMessage response, string operation, ObjectName name)
     {
         string code = response.Headers.TryGetValues("x-ms-error-code", out IEnumerable<string>? values) ? string.Join(",", values) : "no error code";
-        string hint = response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized
-            ? " The workload's identity needs Storage Blob Data Contributor on the container (ADR 0137)."
-            : string.Empty;
-        return new IOException("Azure Blob Storage answered " + (int)response.StatusCode + " " + code + " to " + operation + " '" + name + "'." + hint);
+        string message = "Azure Blob Storage answered " + (int)response.StatusCode + " " + code + " to " + operation + " '" + name + "'.";
+
+        // A refusal for the identity is its own error, so a caller can say
+        // which role the open needs (ADR 0137, ADR 0160).
+        return response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized
+            ? new ObjectStoreAccessDeniedException(message + " The workload's identity needs Storage Blob Data Contributor on the container (ADR 0137); a follower needs it only on readers/ (ADR 0134).")
+            : new IOException(message);
     }
 
     private static async ValueTask<string?> ReadListingAsync(Stream body, List<ObjectEntry> entries)
@@ -299,9 +323,20 @@ public sealed class AzureBlobStore : IObjectStore, IDisposable
 
     private Uri BlobAddress(ObjectName name) => new(_container + "/" + name.Value);
 
-    private HttpRequestMessage Put(ObjectName name, ReadOnlyMemory<byte> content, string condition, string value)
+    private HttpRequestMessage Put(ObjectName name, ReadOnlyMemory<byte> content, string condition, string value) =>
+        Put(name, new ReadOnlyMemoryContent(content), condition, value);
+
+    // A staged file's content, opened afresh for each attempt.
+    private static StreamContent Streamed(ObjectContent content)
     {
-        HttpRequestMessage request = new(HttpMethod.Put, BlobAddress(name)) { Content = new ReadOnlyMemoryContent(content) };
+        StreamContent body = new(content.OpenRead(), 1 << 16);
+        body.Headers.ContentLength = content.Length.Value;
+        return body;
+    }
+
+    private HttpRequestMessage Put(ObjectName name, HttpContent content, string condition, string value)
+    {
+        HttpRequestMessage request = new(HttpMethod.Put, BlobAddress(name)) { Content = content };
         request.Headers.Add("x-ms-blob-type", "BlockBlob");
         request.Headers.TryAddWithoutValidation(condition, value);
         return request;

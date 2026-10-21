@@ -209,7 +209,29 @@ is too small, the bulk gate (`--bulk-gate … --crash-every-record` in
 into every record of the load's commit, with `derived/` as it was before the
 load, without copying it (`CutStorage`).
 
-## 7. How long the tests take
+## 7. Extent maintenance — merges, readers and deletion
+
+Milestone Extent maintenance (#110; ADRs 0158–0161) adds three properties
+and a fault search, each sized for the land gate, with a variable that
+raises it for the release gate (#129) and for hunting:
+
+| Test | Land gate | Release gate |
+|---|---|---|
+| `ExtentMergeTests`: over generated histories with retractions and any schedule of checkpoints, drops and merges, the view at every position and the head equal the model's, before and after an open from the log and the extents alone | 40 schedules, about 3 s | `VARVE_EXTENT_SCHEDULES=<n>` |
+| `ExtentMergeTests`: the policy keeps its bound over any sequence of set sizes | 500 sequences, under a second | — |
+| `ObjectReaderScheduleTests`: over generated schedules of readers attaching, pinning, crashing, restarting and being forgotten, a writer holding several versions, and a second writer taking the epoch over, no extent a live announced version names is deleted, and every unnamed set goes once no record holds it | 60 schedules, about 4 s | `VARVE_READER_SCHEDULES=<n>` (1,200 ran clean at development) |
+| `ObjectReaderScheduleTests`: a fault before and after every write and delete the maintenance workload makes, under `derived/` and `readers/` | every injection point checked for whole catalogs; every eighth also read at every position; about 20 s | `VARVE_EXTENT_FAULTS_FULL=1`: every point read in full, about 30 s |
+
+All of them run in memory against `MemoryObjectStore`, so the Windows store
+step pays only their in-process cost. The follower that keeps serving across
+merges and deletions runs against Azurite and RustFS as well, in the
+`storage (services)` job (`AzuriteExtentMaintenanceTests`,
+`RustFsExtentMaintenanceTests`). The suites that state what the checkpoints
+are run with merges off (`T.Options()`); the merge suites turn them on and
+drive maintenance by hand, because a second dataset opened over one memory
+storage, which only one process may write, would race a background merge.
+
+## 8. How long the tests take
 
 Every `dotnet test` step in CI writes a TRX and uploads it, pass or fail,
 and the store's steps write their slowest tests, and the classes that held

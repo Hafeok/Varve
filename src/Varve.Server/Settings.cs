@@ -102,6 +102,23 @@ internal sealed class CorsSettings
 internal sealed class StoreSettings
 {
     public GroupCommitSettings GroupCommit { get; set; } = new();
+
+    public ExtentMergeSettings ExtentMerges { get; set; } = new();
+}
+
+/// <summary>
+/// The writer's background merges of extent sets (ADRs 0158, 0159): on by
+/// default, fan-out 4, merged sets capped at 256 MiB.
+/// </summary>
+internal sealed class ExtentMergeSettings
+{
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>How many adjacent sets of one size tier merge into one: 2 to 16.</summary>
+    public int FanOut { get; set; } = 4;
+
+    /// <summary>The bytes no merge makes a set exceed: 1 MiB or more.</summary>
+    public long MaxSetBytes { get; set; } = Varve.Store.ExtentMergePolicy.DefaultMaxSetBytes.Value;
 }
 
 /// <summary>
@@ -241,6 +258,14 @@ internal sealed class ObjectStorageSettings
 
     /// <summary>Who this server is in the writer record (ADR 0136); the machine name when unset.</summary>
     public string? Instance { get; set; }
+
+    /// <summary>
+    /// This server's reader id, the name of its reader record in each
+    /// dataset (ADR 0160). Set it where the cache does not survive a restart —
+    /// a container's — so a restart replaces the record its previous run left;
+    /// unset, a random id is kept in each dataset's cache directory.
+    /// </summary>
+    public string? ReaderId { get; set; }
 }
 
 /// <summary>Authentication and authorisation (ADR 0037).</summary>
