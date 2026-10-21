@@ -66,6 +66,7 @@ public sealed class ObjectCacheTests
             // are what a read verifies (storage format, sections 7.1 and 7.4).
             const int EntryBytes = 80;
             int verified = whole.Length - 160 - (12 + (8 * ((Commits + 127) / 128))) - EntryBytes;
+            List<(byte[] Damaged, string How)> cases = [];
 
             for (int at = 0; at < whole.Length; at++)
             {
@@ -73,18 +74,33 @@ public sealed class ObjectCacheTests
                 // cut inside it does; every sixteenth byte stands for them.
                 if (at >= verified || at % 16 == 0)
                 {
-                    await CheckAsync(whole[..at], "cut at byte " + at);
+                    cases.Add((whole[..at], "cut at byte " + at));
                 }
 
                 if (at >= verified && whole[at] != 0)
                 {
                     byte[] zeroed = [.. whole];
                     zeroed[at] = 0;
-                    await CheckAsync(zeroed, "byte " + at + " zeroed");
+                    cases.Add((zeroed, "byte " + at + " zeroed"));
                 }
             }
 
-            Assert.True(wrong.Count == 0, wrong.Count + " damaged blobs were not a miss, of " + whole.Length + " bytes:\n  " + string.Join("\n  ", wrong));
+            // A pull request checks every eighth case, from where a seed says,
+            // so that pull requests between them check all of them; the
+            // nightly run checks every one (docs/testing.md section 8).
+            int stride = Depth.Of("VARVE_CACHE_DAMAGE_STRIDE", 8);
+            int sweep = Depth.Seed("VARVE_CACHE_DAMAGE_SEED");
+            string replay = "VARVE_CACHE_DAMAGE_SEED=" + sweep + " VARVE_CACHE_DAMAGE_STRIDE=" + stride;
+            int checkedCases = 0;
+
+            for (int i = sweep % stride; i < cases.Count; i += stride)
+            {
+                await CheckAsync(cases[i].Damaged, cases[i].How);
+                checkedCases++;
+            }
+
+            TestContext.Current.TestOutputHelper?.WriteLine(replay + ": " + checkedCases + " of " + cases.Count + " damaged blobs");
+            Assert.True(wrong.Count == 0, replay + " replays this. " + wrong.Count + " damaged blobs were not a miss, of " + whole.Length + " bytes:\n  " + string.Join("\n  ", wrong));
 
             async Task CheckAsync(byte[] damaged, string how)
             {

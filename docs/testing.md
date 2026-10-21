@@ -254,6 +254,8 @@ on `main`) sets every depth below.
 |---|---|---:|---:|
 | `VARVE_FAULT_RECOVERY_STRIDE` | `FaultInjectionTests.CrashDuringRecovery.a_crash_during_recovery_recovers`: crashes the workload at every *n*th of its 1,428 operations, then its recovery at every operation | 25, from operation 1 + seed mod 25 (about 11,500 points) | 1 (about 288,000 points; the gate's was 5, 57,679) |
 | `VARVE_FAULT_RECOVERY_SEED` | the same: the seed that chooses where a pull request's share starts | a new one each run | n/a at stride 1 |
+| `VARVE_CACHE_DAMAGE_STRIDE` | `Objects.ObjectCacheTests.a_commit_index_blob_cut_short_or_with_its_verified_bytes_zeroed_is_a_miss`: reopens a cache whose commit index blob is cut or has a verified byte zeroed, one case in *n* | 8, from case seed mod 8 (69 of 552 cases) | 1 (all 552) |
+| `VARVE_CACHE_DAMAGE_SEED` | the same: the seed that chooses which eighth | a new one each run | n/a at stride 1 |
 
 The variables of §6 that hunt rather than gate (`VARVE_FAULT_SEEDS`,
 `VARVE_OBJECT_FAULT_SEEDS`, `VARVE_OBJECT_FAULT_STEPS`,

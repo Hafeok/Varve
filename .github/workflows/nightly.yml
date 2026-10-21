@@ -79,6 +79,7 @@ jobs:
         timeout-minutes: 150
         env:
           VARVE_FAULT_RECOVERY_STRIDE: "1"
+          VARVE_CACHE_DAMAGE_STRIDE: "1"
         run: >
           dotnet test
           --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj
