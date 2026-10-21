@@ -43,11 +43,13 @@ namespace Varve.Store.ObjectStorage;
 /// </para>
 /// </remarks>
 [Contract(typeof(TheLogAsChunkObjects.ChunkPerFlush), Role = "a dataset's storage in an object store with conditional writes")]
-public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IAsyncDisposable
+public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExtentReaders, IAsyncDisposable
 {
     private const string SegmentCopies = "segments";
     private const string LocalStorage = "local";
     private const string ExtentPages = "pages";
+    private const string StagedUploads = "staging";
+    private const string ReaderIdFile = "reader.id";
 
     private readonly IObjectStore _store;
     private readonly ObjectNames _names;
@@ -55,7 +57,11 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IAsync
     private readonly ObjectSegmentStore _log;
     private readonly FileStorage _local;
     private readonly ObjectDerivedStore _derived;
+    private readonly SemaphoreSlim _readerGate = new(1, 1);
     private ObjectVersion? _recordVersion;
+    private ObjectVersion? _readerVersion;
+    private bool _readerForgotten;
+    private int _disposed;
 
     private ObjectStorage(IObjectStore store, ObjectNames names, TimeProvider clock, ObjectSegmentStore log, FileStorage local, ObjectDerivedStore derived, WriterRecord? record, ObjectVersion? recordVersion, bool supersededAtOpen)
     {
@@ -95,8 +101,17 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IAsync
     /// <inheritdoc />
     public bool MaintenanceDue => _log.ConsolidationDue;
 
-    /// <summary>Test seam: the catalog version a follower holds (ADR 0164, #110's hook).</summary>
-    internal ObjectVersion? HeldCatalogForTests => _derived.HeldCatalog;
+    /// <summary>This instance's reader id: its reader record's name (ADR 0160).</summary>
+    public ReaderId Reader { get; private set; }
+
+    /// <summary>Whether this open writes a reader record.</summary>
+    public ReaderAnnouncing Announcing { get; private set; }
+
+    /// <inheritdoc />
+    public bool DeletesExtents => _log.Writes && !IsSuperseded && _derived.Writes;
+
+    // The name the record gives the instance: the writer's, or none.
+    private WriterInstance? Holder { get; set; }
 
     // Opened for write and lost the claim: read-only from the start.
     private bool SupersededAtOpen { get; }
@@ -169,6 +184,371 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IAsync
     public ValueTask<bool> MaintainStorageAsync(CancellationToken cancellationToken) => _log.ConsolidateAsync(cancellationToken);
 
     /// <summary>
+    /// Replaces this instance's reader record with what it announces (ADR
+    /// 0160): created on the first announcement — replacing the one a previous
+    /// run of the same id left — and afterwards replaced only against the
+    /// version this instance last wrote. A replace that finds another version
+    /// means the record was forgotten, or another instance of the same id
+    /// wrote it: the instance is forgotten, and its next announcement is a
+    /// fresh record.
+    /// </summary>
+    /// <exception cref="ReaderForgottenException">The record was forgotten.</exception>
+    /// <exception cref="ObjectStoreAccessDeniedException">The identity may not write <c>readers/</c>; the message names the role.</exception>
+    [DesignDecision(typeof(ExtentDeletionByReaderAnnouncements.AnnouncingIsRequired), Scope = ExceptionScope.Boundary)]
+    public async ValueTask AnnounceAsync(CatalogVersion oldest, CatalogVersion newest, CancellationToken cancellationToken)
+    {
+        if (Announcing == ReaderAnnouncing.Unannounced)
+        {
+            return;
+        }
+
+        ReaderRecord record = new()
+        {
+            Reader = Reader,
+            Holder = Holder,
+            Oldest = oldest,
+            Newest = newest,
+            AnnouncedAt = new ClaimTime(_clock.GetUtcNow()),
+        };
+        byte[] bytes = ReaderRecordFormat.Write(record);
+        ObjectName name = _names.Reader(Reader);
+
+        await _readerGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            if (_readerVersion is { } expected)
+            {
+                ObjectVersion? replaced = await ConditionalWrites.ReplaceAsync(_store, name, expected, bytes, _clock, cancellationToken).ConfigureAwait(false);
+
+                if (replaced is null)
+                {
+                    _readerVersion = null;
+                    _readerForgotten = true;
+                    throw new ReaderForgottenException("The reader record '" + name + "' was forgotten, or replaced by another instance of the reader id '" + Reader + "'; this instance attaches again (ADR 0160).");
+                }
+
+                _readerVersion = replaced;
+                return;
+            }
+
+            // A fresh record: over what a previous run of this id left, or new.
+            for (int attempt = 0; attempt < 8; attempt++)
+            {
+                ObjectRead? current = await ConditionalWrites.ReadWholeAsync(_store, name, cancellationToken).ConfigureAwait(false);
+
+                if (current is null)
+                {
+                    (CreateOutcome outcome, _) = await ConditionalWrites.CreateAsync(_store, name, bytes, _clock, cancellationToken).ConfigureAwait(false);
+
+                    if (outcome == CreateOutcome.Ours && await ConditionalWrites.ReadWholeAsync(_store, name, cancellationToken).ConfigureAwait(false) is { } written && written.Bytes.Span.SequenceEqual(bytes))
+                    {
+                        _readerVersion = written.Version;
+                        _readerForgotten = false;
+                        return;
+                    }
+
+                    continue;
+                }
+
+                if (await ConditionalWrites.ReplaceAsync(_store, name, current.Version, bytes, _clock, cancellationToken).ConfigureAwait(false) is { } version)
+                {
+                    _readerVersion = version;
+                    _readerForgotten = false;
+                    return;
+                }
+            }
+
+            throw new IOException("The reader record '" + name + "' changed under every attempt to write it: another instance announces under the reader id '" + Reader + "'. Give each instance its own id.");
+        }
+        catch (ObjectStoreAccessDeniedException denied)
+        {
+            throw new ObjectStoreAccessDeniedException(
+                "This open announces the catalog versions it reads in its reader record '" + name + "' (ADR 0160), and the store refused the write. "
+                + "The identity needs write access to readers/ under the dataset's prefix: on Azure, Storage Blob Data Contributor with a condition on the blob path readers/*; "
+                + "on S3, s3:PutObject and s3:DeleteObject on the prefix's readers/*. A read-only identity can read unannounced, explicitly (--unannounced).",
+                denied);
+        }
+        finally
+        {
+            _readerGate.Release();
+        }
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<IReadOnlyList<ReaderAnnouncement>> ReadAnnouncementsAsync(CancellationToken cancellationToken)
+    {
+        List<ReaderAnnouncement> announcements = [];
+
+        foreach (ReaderRecord record in await ReadReadersAsync(_store, _names, cancellationToken).ConfigureAwait(false))
+        {
+            if (record.State == ReaderRecordState.Announced || !record.Understood)
+            {
+                announcements.Add(record.Announcement);
+            }
+        }
+
+        return announcements;
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<IReadOnlyDictionary<string, long>> ExtentBytesAsync(CancellationToken cancellationToken) =>
+        await SetBytesAsync(_store, _names, cancellationToken).ConfigureAwait(false);
+
+    /// <summary>Every reader record of a dataset, forgotten ones included (ADR 0160). Changes nothing.</summary>
+    public static ValueTask<IReadOnlyList<ReaderRecord>> ReadReadersAsync(IObjectStore store, ObjectName? prefix, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        return ReadReadersAsync(store, new ObjectNames(prefix), cancellationToken);
+    }
+
+    /// <summary>
+    /// Forgets a reader record, the operator's act (ADR 0160, ADR 0162): only
+    /// if it still announces <paramref name="oldest"/> to <paramref name="newest"/>,
+    /// as it was listed. It is replaced by a tombstone against the version
+    /// read, so a reader that announced since is not forgotten by mistake,
+    /// then deleted. The writer may then delete what the record held, at its
+    /// next round. Returns false, doing nothing, when the record is gone or
+    /// announces something else now. No time is consulted.
+    /// </summary>
+    [DesignDecision(typeof(StorageOperationsAndTheReadersCommand.ReadersListAndForget), Scope = ExceptionScope.Boundary)]
+    public static async ValueTask<bool> ForgetReaderAsync(
+        IObjectStore store, ObjectName? prefix, ReaderId reader, CatalogVersion oldest, CatalogVersion newest, TimeProvider clock, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(clock);
+        ObjectNames names = new(prefix);
+        ObjectName name = names.Reader(reader);
+        ObjectRead? read = await ConditionalWrites.ReadWholeAsync(store, name, cancellationToken).ConfigureAwait(false);
+
+        if (read is null)
+        {
+            return false;
+        }
+
+        ReaderRecord record = ReaderRecordFormat.Read(reader, read.Bytes.Span);
+
+        if (record.Announcement.Oldest != oldest || record.Announcement.Newest != newest)
+        {
+            return false;
+        }
+
+        ReaderRecord tombstone = record.Understood
+            ? record with { State = ReaderRecordState.Forgotten, AnnouncedAt = new ClaimTime(clock.GetUtcNow()) }
+            : new ReaderRecord { Reader = reader, Oldest = oldest, Newest = newest, State = ReaderRecordState.Forgotten, AnnouncedAt = new ClaimTime(clock.GetUtcNow()) };
+
+        if (await ConditionalWrites.ReplaceAsync(store, name, read.Version, ReaderRecordFormat.Write(tombstone), clock, cancellationToken).ConfigureAwait(false) is null)
+        {
+            return false;
+        }
+
+        await store.DeleteAsync(name, cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <summary>
+    /// What <c>varve storage</c> reports (ADR 0162): the catalog's sets with
+    /// their bytes per permutation, the sets no catalog names that the store
+    /// still holds, and what each reader record holds of them — a set the
+    /// catalog stopped naming is held by a record that announces any version
+    /// after the set's sequence and before the current one. Changes nothing.
+    /// </summary>
+    [DesignDecision(typeof(StorageOperationsAndTheReadersCommand.StorageReportsSetsAndRetention), Scope = ExceptionScope.Boundary)]
+    public static async ValueTask<StorageReport> ReadReportAsync(IObjectStore store, ObjectName? prefix, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        ObjectNames names = new(prefix);
+        ObjectRead? catalogRead = await ConditionalWrites.ReadWholeAsync(store, names.Derived("catalog"), cancellationToken).ConfigureAwait(false);
+        CatalogSummary? catalog = null;
+
+        if (catalogRead is not null && catalogRead.Bytes.Length > 12)
+        {
+            catalog = CatalogSummary.TryRead(catalogRead.Bytes[12..]);
+        }
+
+        Dictionary<string, long> blobs = new(StringComparer.Ordinal);
+        string start = names.Derived(string.Empty).Value;
+
+        foreach (ObjectEntry entry in await store.ListAsync(names.Extents, cancellationToken).ConfigureAwait(false))
+        {
+            blobs[entry.Name.Value[start.Length..]] = entry.Length.Value;
+        }
+
+        HashSet<string> named = new(StringComparer.Ordinal);
+        List<StoredSet> sets = [];
+
+        foreach (CatalogSet set in catalog?.Sets ?? [])
+        {
+            named.Add(set.Name.Value);
+            ByteCount[] orders = new ByteCount[6];
+            long rest = 0;
+            int o = 0;
+
+            foreach (BlobName blob in set.Blobs)
+            {
+                long length = blobs.TryGetValue(blob.Value, out long b) ? b : 0;
+
+                if (o < orders.Length)
+                {
+                    orders[o++] = new ByteCount(length);
+                }
+                else
+                {
+                    rest += length;
+                }
+            }
+
+            sets.Add(new StoredSet(set, orders, new ByteCount(rest)));
+        }
+
+        Dictionary<string, long> unnamed = new(StringComparer.Ordinal);
+
+        foreach (KeyValuePair<string, long> set in Group(blobs))
+        {
+            if (!named.Contains(set.Key))
+            {
+                unnamed[set.Key] = set.Value;
+            }
+        }
+
+        CatalogVersion current = catalog?.Version ?? new CatalogVersion(0);
+        List<ReaderHolding> readers = [];
+
+        foreach (ReaderRecord record in await ReadReadersAsync(store, names, cancellationToken).ConfigureAwait(false))
+        {
+            long retained = 0;
+
+            foreach (KeyValuePair<string, long> set in unnamed)
+            {
+                if (record.State == ReaderRecordState.Announced || !record.Understood)
+                {
+                    if (CatalogSet.SequenceOf(new BlobName(set.Key)) is { } sequence && record.Announcement.Holds(sequence, current))
+                    {
+                        retained += set.Value;
+                    }
+                }
+            }
+
+            readers.Add(new ReaderHolding(record, new ByteCount(retained)));
+        }
+
+        long total = 0;
+
+        foreach (long bytes in unnamed.Values)
+        {
+            total += bytes;
+        }
+
+        return new StorageReport { Catalog = catalog, Sets = sets, UnnamedSets = [.. Unnamed(unnamed)], RetainedBytes = new ByteCount(total), Readers = readers };
+    }
+
+    private static IEnumerable<BlobName> Unnamed(Dictionary<string, long> sets)
+    {
+        foreach (string name in sets.Keys)
+        {
+            yield return new BlobName(name);
+        }
+    }
+
+    private static async ValueTask<IReadOnlyList<ReaderRecord>> ReadReadersAsync(IObjectStore store, ObjectNames names, CancellationToken cancellationToken)
+    {
+        List<ReaderRecord> records = [];
+
+        foreach (ObjectEntry entry in await store.ListAsync(names.Readers, cancellationToken).ConfigureAwait(false))
+        {
+            if (names.ReaderOf(entry.Name) is not { } reader)
+            {
+                continue;
+            }
+
+            // Deleted since the list: forgotten, or closed.
+            if (await ConditionalWrites.ReadWholeAsync(store, entry.Name, cancellationToken).ConfigureAwait(false) is { } read)
+            {
+                records.Add(ReaderRecordFormat.Read(reader, read.Bytes.Span));
+            }
+        }
+
+        return records;
+    }
+
+    private static async ValueTask<IReadOnlyDictionary<string, long>> SetBytesAsync(IObjectStore store, ObjectNames names, CancellationToken cancellationToken)
+    {
+        Dictionary<string, long> blobs = new(StringComparer.Ordinal);
+        string start = names.Derived(string.Empty).Value;
+
+        foreach (ObjectEntry entry in await store.ListAsync(names.Extents, cancellationToken).ConfigureAwait(false))
+        {
+            blobs[entry.Name.Value[start.Length..]] = entry.Length.Value;
+        }
+
+        return Group(blobs);
+    }
+
+    // Blob lengths by extent set: each name up to the slash after its set's.
+    private static Dictionary<string, long> Group(Dictionary<string, long> blobs)
+    {
+        Dictionary<string, long> sets = new(StringComparer.Ordinal);
+
+        foreach (KeyValuePair<string, long> blob in blobs)
+        {
+            int slash = blob.Key.IndexOf('/', "extents/".Length);
+
+            if (slash < 0)
+            {
+                continue;
+            }
+
+            string set = blob.Key[..(slash + 1)];
+            sets[set] = (sets.TryGetValue(set, out long bytes) ? bytes : 0) + blob.Value;
+        }
+
+        return sets;
+    }
+
+    // Whether this instance's record no longer says what it last wrote:
+    // forgotten, or written over by another instance of its id.
+    private bool RecordLost()
+    {
+        if (_readerForgotten)
+        {
+            return true;
+        }
+
+        if (_readerVersion is not { } held)
+        {
+            return true;
+        }
+
+        ObjectRead? read = ConditionalWrites.ReadWholeAsync(_store, _names.Reader(Reader), CancellationToken.None).AsTask().GetAwaiter().GetResult();
+        return read is null || read.Version != held;
+    }
+
+    // What a read that finds an extent gone throws (ADR 0160): never a wrong
+    // result, and damage only when this instance's record still stands.
+    private Exception Gone(ObjectName extent)
+    {
+        if (Announcing == ReaderAnnouncing.Unannounced)
+        {
+            return new UnannouncedExtentGoneException("The extent '" + extent + "' is gone from the store. This read was opened unannounced, so the writer may delete what it reads (ADR 0160); open it again.");
+        }
+
+        bool lost;
+
+        try
+        {
+            lost = RecordLost();
+        }
+        catch (IOException)
+        {
+            lost = false;
+        }
+
+        return lost
+            ? new ReaderForgottenException("The extent '" + extent + "' is gone from the store, and this instance's reader record '" + _names.Reader(Reader) + "' was forgotten; it attaches again (ADR 0160).")
+            : new IOException("The extent '" + extent + "' is gone from the store, though a catalog version this instance announces names it: damage, or a deletion that broke the rule of ADR 0160.");
+    }
+
+    /// <summary>
     /// The reason a close releases the epoch with: <see cref="ReleaseReason.Shutdown"/>
     /// unless the host says otherwise, as it does when the dataset was placed
     /// on another instance (<see cref="ReleaseReason.Placement"/>, ADR 0163).
@@ -183,6 +563,11 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IAsync
     /// </summary>
     public async ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) == 1)
+        {
+            return;
+        }
+
         try
         {
             if (_log.Writes && !IsSuperseded && _recordVersion is not null)
@@ -193,8 +578,23 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IAsync
         catch (IOException)
         {
         }
+
+        try
+        {
+            // A clean close announces nothing more: its record goes. One a
+            // crash leaves holds deletion back until the same id opens again,
+            // or the operator forgets it (ADR 0160).
+            if (_readerVersion is not null && !_readerForgotten && !RecordLost())
+            {
+                await _store.DeleteAsync(_names.Reader(Reader), CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+        catch (IOException)
+        {
+        }
         finally
         {
+            _readerGate.Dispose();
             _log.Dispose();
             _derived.Dispose();
             await _local.DisposeAsync().ConfigureAwait(false);
@@ -261,8 +661,15 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IAsync
 
             long epoch = write && !lost ? record!.Epoch.Value : 0;
             ObjectSegmentStore log = await ObjectSegmentStore.OpenAsync(options.Store, names, options.Clock, copies, epoch, cancellationToken).ConfigureAwait(false);
-            ObjectDerivedStore derived = new(options.Store, names, options.Clock, local.Derived, Path.Combine(options.Cache.Value, ExtentPages), options.CacheBytes.Value);
-            ObjectStorage storage = new(options.Store, names, options.Clock, log, local, derived, record, version, write && lost);
+            ObjectDerivedStore derived = new(
+                options.Store, names, options.Clock, local.Derived, Path.Combine(options.Cache.Value, ExtentPages), Path.Combine(options.Cache.Value, StagedUploads), options.CacheBytes.Value, options.MaxObjectBytes.Value);
+            ObjectStorage storage = new(options.Store, names, options.Clock, log, local, derived, record, version, write && lost)
+            {
+                Reader = options.Reader ?? KeptReaderId(options.Cache.Value, options.ProbeRandomness),
+                Announcing = write ? ReaderAnnouncing.Required : options.Announcing,
+                Holder = options.Instance,
+            };
+            derived.Gone = storage.Gone;
 
             if (write && !lost && !log.Superseded && log.Fence is { } fence)
             {
@@ -369,6 +776,31 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IAsync
             {
             }
         }
+    }
+
+    // The reader id kept in the cache directory, written once with a random
+    // value when there is none, so a restart that keeps its cache keeps its id.
+    private static ReaderId KeptReaderId(string cache, IProbeRandomness? randomness)
+    {
+        string path = Path.Combine(cache, ReaderIdFile);
+
+        if (File.Exists(path) && File.ReadAllText(path).Trim() is { } kept && ReaderId.IsValid(kept))
+        {
+            return new ReaderId(kept);
+        }
+
+        if (randomness is null)
+        {
+            throw new ArgumentException("A reader names its record: set ObjectStorageOptions.Reader, or ProbeRandomness for a random id kept in the cache directory (ADR 0160).", nameof(randomness));
+        }
+
+        byte[] random = new byte[16];
+        randomness.Fill(random);
+        string id = Convert.ToHexStringLower(random);
+        string temporary = path + ".tmp";
+        File.WriteAllText(temporary, id);
+        File.Move(temporary, path, overwrite: true);
+        return new ReaderId(id);
     }
 
     private static ConditionalWritesNotEnforcedException NotEnforced(IObjectStore store, string seen) =>

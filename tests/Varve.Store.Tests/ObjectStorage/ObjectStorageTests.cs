@@ -26,10 +26,14 @@ internal sealed class ObjectHarness : IAsyncDisposable
     private readonly List<Backend> _opened = [];
     private int _instances;
 
-    public ObjectHarness(MemoryObjectStore? store = null, ObjectName? prefix = null)
+    private readonly TimeProvider? _waits;
+
+    /// <summary>A harness over a store; <paramref name="waits"/> is the clock retries wait on, when they must not wait at all.</summary>
+    public ObjectHarness(MemoryObjectStore? store = null, ObjectName? prefix = null, TimeProvider? waits = null)
     {
         Store = store ?? new MemoryObjectStore();
         Prefix = prefix;
+        _waits = waits;
     }
 
     public MemoryObjectStore Store { get; }
@@ -38,7 +42,8 @@ internal sealed class ObjectHarness : IAsyncDisposable
 
     public ManualClock Clock { get; } = ManualClock.Epoch();
 
-    public ObjectStorageOptions Options(ObjectStorageAccess access = ObjectStorageAccess.Write, string? instance = null, long? cacheBytes = null)
+    public ObjectStorageOptions Options(
+        ObjectStorageAccess access = ObjectStorageAccess.Write, string? instance = null, long? cacheBytes = null, ReaderId? reader = null, ReaderAnnouncing announcing = ReaderAnnouncing.Required)
     {
         string cache = Directory.CreateTempSubdirectory("varve-objects-").FullName;
         _caches.Add(cache);
@@ -49,15 +54,17 @@ internal sealed class ObjectHarness : IAsyncDisposable
             Cache = new CacheDirectory(cache),
             Access = access,
             Instance = new WriterInstance(instance ?? "instance-" + ++_instances),
-            Clock = Clock,
+            Clock = _waits ?? Clock,
             ProbeRandomness = TestRandomness.Instance,
             CacheBytes = new ByteCount(cacheBytes ?? 8L << 30),
+            Reader = reader,
+            Announcing = announcing,
         };
     }
 
-    public async Task<Backend> OpenAsync(ObjectStorageAccess access = ObjectStorageAccess.Write, string? instance = null, long? cacheBytes = null)
+    public async Task<Backend> OpenAsync(ObjectStorageAccess access = ObjectStorageAccess.Write, string? instance = null, long? cacheBytes = null, ReaderId? reader = null)
     {
-        Backend storage = await Backend.OpenAsync(Options(access, instance, cacheBytes), T.Ct);
+        Backend storage = await Backend.OpenAsync(Options(access, instance, cacheBytes, reader), T.Ct);
         _opened.Add(storage);
         return storage;
     }
@@ -211,7 +218,7 @@ public sealed class ObjectStorageTests
     }
 
     [Fact]
-    public async Task a_read_only_open_changes_nothing_in_the_store()
+    public async Task a_read_only_open_changes_nothing_in_the_store_but_its_reader_record()
     {
         await using ObjectHarness harness = new();
         Backend writer = await harness.OpenAsync();
@@ -219,7 +226,16 @@ public sealed class ObjectStorageTests
         await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("o")), T.Ct);
         byte[] record = harness.Store.Get("writer")!;
         IReadOnlyList<string> names = harness.Store.Names();
-        harness.Store.ResetCounts();
+        List<string> written = [];
+        harness.Store.Hook = (operation, name) =>
+        {
+            if (operation is ObjectOperation.Create or ObjectOperation.Replace or ObjectOperation.Delete)
+            {
+                written.Add(name.Value);
+            }
+
+            return null;
+        };
 
         Backend reader = await harness.OpenAsync(ObjectStorageAccess.ReadOnly);
         await using (Dataset read = await Dataset.OpenAsync(reader, T.Options(), T.Ct))
@@ -228,11 +244,12 @@ public sealed class ObjectStorageTests
             await Assert.ThrowsAsync<InvalidOperationException>(async () => await read.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("x")), T.Ct));
         }
 
-        // No write at all: a follower does not probe (ADR 0134), so its
-        // identity needs only read access.
-        Assert.Equal(0, harness.Store.Count(ObjectOperation.Create));
-        Assert.Equal(0, harness.Store.Count(ObjectOperation.Replace));
-        Assert.Equal(0, harness.Store.Count(ObjectOperation.Delete));
+        await reader.DisposeAsync();
+        harness.Store.Hook = null;
+
+        // A follower does not probe (ADR 0134); its one write is its reader
+        // record, deleted when it closes (ADR 0160).
+        Assert.All(written, name => Assert.Equal("readers/" + reader.Reader, name));
         Assert.Equal(record, harness.Store.Get("writer"));
         Assert.Equal(names, harness.Store.Names());
         Assert.Null(reader.Epoch);

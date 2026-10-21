@@ -1,92 +1,90 @@
 format: 1
 version: v0.1.0-preview.11
-title: SHACL, part 2a — commit-time gating under a shapes binding, incremental validation
-date: 2026-10-20
+title: Extent maintenance — background merges and extent deletion
+date: 2026-10-19
 basis:
-  - issue: 138
+  - issue: 110
   - storage-format: 1
   - delta-format: 1
-  - adr: "0169"
-  - adr: "0170"
-  - adr: "0171"
-  - adr: "0172"
-  - adr: "0173"
+  - adr: "0158"
+  - adr: "0159"
+  - adr: "0160"
+  - adr: "0161"
+  - adr: "0162"
 accepted-by: mailto:emil@okkels-klein.dk
 summary: |
-  ### Milestone 8, SHACL, part 2a — commit-time gating, incremental validation
+  ### Milestone Extent maintenance — background merges and extent deletion
 
-  A dataset's commits can be gated by SHACL. A shapes binding, declared on
-  the management plane, names a shapes graph of the same dataset, the graphs
-  it validates and a mode, and every server enforces it at the management
-  position a write is authorised under. Only the focus nodes a commit
-  affects are validated. This release closes #138, the first half of SHACL's
-  part 2, under milestone 8 (#13); part 2b adds the validation projection,
-  shapes for Varve's own declarations and the REC gate, and closes the
-  milestone. Storage format 1 holds. The five ADRs are filed unaccepted and
-  accepted on the pull request (ADR 0066).
+  The writer merges extent sets in the background, so a read of the present
+  merges a bounded number of sets however many checkpoints a dataset takes,
+  and deletes a merged set only when no reader may still read it. This
+  release closes milestone Extent maintenance (#110). The log's bytes are
+  unchanged and derived format 4 holds: a set gains an optional ninth blob,
+  of a kind format 4 already defines. The five ADRs are filed unaccepted
+  and accepted on the pull request (ADR 0066).
 
   #### Added
 
-  - **`Varve.Shacl.Store`** (layer 5, ADR 0169): `ShapesGate`, a dataset
-    validator over `ShapesBinding`s.
-    - `reject` refuses a commit when its affected focus nodes have a
-      violation not present at the pinned position, so the set of
-      violations never grows, and a conforming dataset stays conforming.
-    - `report` accepts and attaches the affected report's digest; `off`
-      runs nothing.
-    - A commit that changes the shapes is never refused for existing data.
-    - A `reject` binding whose shapes are classed full is refused unless it
-      declares `varve:allowFullEvaluation`, and fails closed if its shapes
-      become full later.
-    - `NOW()`, `RAND()`, `UUID()`, `STRUUID()`, and a `BNODE()` whose value
-      can reach a result, are refused in any binding not `off`.
-  - **The binding vocabulary** (ADR 0170): `varve:ShapesBinding` with
-    `varve:boundGraph` (the shapes graph), the grant vocabulary's graph-set
-    terms, `varve:validationMode` (`varve:Reject`, `varve:Report`,
-    `varve:Off`), `varve:allowFullEvaluation` and
-    `varve:subClassOfInShapesGraph`. The data graph is the union of the
-    bound graphs. `varve apply` refuses a binding whose shapes do not load,
-    or are full under `reject` without the flag.
-  - **Incremental validation** (`Varve.Shacl`, ADR 0171):
-    `IncrementalValidation.Compare` validates the pairs a delta affects, in
-    the state before and after it. `ShapesGraph.Classify()` classes every
-    shape incremental, scoped or full, with the construct and section that
-    decided it. `IShaclFootprint` lets an extension state its footprint;
-    SHACL-SPARQL constraints are analysed by their join graph.
-  - **The attachment** (ADR 0173): an accepted commit under a `report` or
-    `reject` binding carries `<<( binding varve:affectedReport
-    "sha256:<hex>" )>>`, the SHA-256 of the canonical N-Quads of the report
-    restricted to the commit's affected focus nodes. A digest that no longer
-    reproduces after an upgrade is how a change in the engine's results
-    shows; a release that changes SHACL results says so in its notes.
-  - **Three problem types**, `422`: `shapes-violated`,
-    `binding-not-incremental`, `shapes-invalid`.
-  - **`GET /manage/datasets/{name}/bindings/{binding}`**: a binding at the
-    applied position, with its shapes' classification.
-  - **`Varve.Derivation`** (layer 2, ADR 0172): dependency graphs and their
-    stratification, regular paths compiled to automata and evaluated
-    forwards, backwards and from a changed edge, and semi-naive
-    propagation, for SHACL now and Inference later.
+  - **Background merges** (ADRs 0158, 0159). The writer's maintenance
+    merges adjacent sets into one, writes it, then swaps the catalog once
+    under the epoch fence. A merge never blocks a commit or a checkpoint, is
+    a pure function of its inputs, and rebases onto the catalog if a
+    checkpoint or a drop swapped it meanwhile.
+    - The policy is size-tiered: `FanOut` adjacent sets of similar size
+      merge, and past a bound the smallest run merges. `MaxSetBytes` caps
+      a set, and so the cost of an as-of read inside one. At the defaults
+      (4, 256 MiB) a chain holds at most 15 sets below half the cap.
+    - `DatasetOptions.ExtentMerges` (`ExtentMergePolicy`), on the server
+      `Varve:Store:ExtentMerges`.
+    - At REC M after 100 checkpoints, head reads are faster than after 10
+      without merges, and an as-of read inside the largest set is within
+      1.16× of it. Write amplification was 1.77.
+  - **Extent deletion by reader announcements** (ADR 0160). Every
+    instance on an object store, the writer included, announces the oldest
+    and newest catalog versions it reads in a reader record,
+    `readers/<id>`. The writer deletes a set only when no record's interval
+    overlaps the versions that named it.
+    - `IExtentReaders` in `Varve.Store`; `ObjectStorageOptions.Reader` and
+      `Announcing`. The catalog version is the catalog's set sequence.
+    - Announcing is required. A follower's identity needs write access to
+      `readers/` only (ADR 0134 amended); the operator guide gives the Azure
+      ABAC condition and the S3 policy. `ReaderAnnouncing.Unannounced` reads
+      without a record, and fails a read that finds an extent gone with
+      `read-unannounced-extent-gone`.
+    - A reader whose record was forgotten fails with `reader-forgotten`
+      and attaches again.
+    - A record of a format this build does not read holds every version.
+    - A tier-1 follower (ADR 0164) announces the catalog version it opened,
+      so the writer deletes nothing it reads; with
+      `Varve:ObjectStorage:ReaderId` set, its record is that id with
+      `-follower`.
+    - The reader record is specified as its own format (storage format §8).
+  - **The shared commit index** (ADR 0161). Each set carries its window's
+    commit index as `extents/<set>/commits`, so a cold start reads no log
+    below the catalog.
+  - **Uploads are staged through the cache.** An extent is written to a
+    file in the cache and uploaded in one streamed create, and the file is
+    kept as its cached copy. A merge whose output would pass the store's
+    single-upload limit is refused before it starts.
+  - **The server** (ADR 0162):
+    - `varve storage <address>` prints the catalog's version, the sets per
+      permutation, the unnamed sets the store keeps, and the bytes each
+      reader record retains.
+    - `varve storage readers list` and `forget --reader --oldest --newest`.
+    - `varve info`, `query`, `export` and `feed` read a dataset in an object
+      store, announced, or with `--unannounced`.
+    - `/health/ready` reports `retention`, and never turns unready because
+      of it.
+    - `Varve:ObjectStorage:ReaderId`.
 
   #### Changed
 
-  - `Varve.Store`: `ValidationVerdict.Accept(IReadOnlyList<RdfTerm>)` and
-    `Attachments`, so one validator records several attachments
-    (additive).
-  - `Varve.Shacl` stratifies shapes and walks paths through
-    `Varve.Derivation`; its results are unchanged.
-  - Validation under `subClassOfInShapesGraph` remembers the shapes graph's
-    subclass steps.
-
-  #### Performance
-
-  At REC S and M on the file backend, a `reject` binding over REC 4.1.0's
-  shapes adds about 7.7 ms to a commit (8.2 ms against 0.5–0.6 ms), nearly
-  the same at both sizes: the cost is the affected focus nodes', about 2 ms
-  each, not the dataset's.
-
-  #### Known issues
-
-  - REC 4.1.0 as vendored cannot be bound whole: three of Brick's SPARQL
-    constraints name prefixes that no file declares, so the shapes graph is
-    refused. Part 2b decides the REC gate's composition.
+  - `IObjectStore` gains a streamed `CreateIfAbsentAsync(ObjectName,
+    ObjectContent, CancellationToken)`, with a default implementation. The
+    Azure and S3 adapters implement it, and raise
+    `ObjectStoreAccessDeniedException` on a 401 or 403, which is never
+    retried.
+  - `Varve.Protocol`: the problem types `reader-forgotten` and
+    `read-unannounced-extent-gone`; the `not-ready` problem gains
+    `retention`.
+  - The operator guide's checkpoint budget is removed.

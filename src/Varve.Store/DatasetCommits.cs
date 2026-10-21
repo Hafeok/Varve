@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Store.Log;
 
 namespace Varve.Store;
@@ -127,10 +129,12 @@ public sealed partial class Dataset
 
     // The commit index below the catalog's position, read when first needed
     // (ADR 0139): a blob from position 0 in the local cache that agrees with
-    // the catalog's entry there, or else the log's headers up to it, verified
-    // to end at that entry and kept as a blob.
+    // the catalog's entry there; else the sets' own commit index blobs, each
+    // agreeing with the catalog's pin at its end (ADR 0161); else the log's
+    // headers up to it, verified to end at that entry. Kept as a blob.
+    [DesignDecision(typeof(TheSharedCommitIndex.ColdStartReadsNoLogBelowTheCatalog), Scope = ExceptionScope.Boundary)]
     private static Func<CancellationToken, ValueTask<CommitSegment>> PrefixLoader(
-        IStorage storage, DatasetId id, CommitEntry last, long to, List<CommitSegment> candidates, Func<long> nextSequence) =>
+        IStorage storage, DatasetId id, CommitEntry last, long to, List<CommitSegment> candidates, CatalogEntry[] sets, Dictionary<long, CommitEntry> pins, Func<long> nextSequence) =>
         async cancellationToken =>
         {
             CommitSegment? chosen = null;
@@ -155,6 +159,12 @@ public sealed partial class Dataset
             }
 
             BlobName name = CommitIndexFormat.Name(0, to, nextSequence());
+
+            if (await FromSetsAsync(storage, id, sets, pins, to, name, cancellationToken).ConfigureAwait(false) is { } shared)
+            {
+                return shared;
+            }
+
             CommitEntry built = default;
 
             await using (CommitIndexWriter writer = await CommitIndexWriter.StartAsync(storage.Derived, name, id, 0, to, cancellationToken).ConfigureAwait(false))
@@ -178,6 +188,72 @@ public sealed partial class Dataset
             return await CommitIndexFormat.TryLoadAsync(storage.Derived, name, id, cancellationToken).ConfigureAwait(false)
                 ?? throw new System.IO.IOException("The commit index blob below the catalog's position was written and cannot be read back.");
         };
+
+    // The commit index below the catalog from its sets' own blobs (ADR 0161),
+    // written end to end as one blob of the local cache; none when a set has
+    // no blob of its window, or one that does not end at the catalog's pin.
+    private static async ValueTask<CommitSegment?> FromSetsAsync(
+        IStorage storage, DatasetId id, CatalogEntry[] sets, Dictionary<long, CommitEntry> pins, long to, BlobName name, CancellationToken cancellationToken)
+    {
+        List<CommitSegment> loaded = [];
+
+        try
+        {
+            long expected = 0;
+
+            foreach (CatalogEntry set in sets)
+            {
+                CommitSegment? segment = await CommitIndexFormat.TryLoadAsync(storage.Derived, ExtentSet.CommitsOf(set.Name), id, cancellationToken).ConfigureAwait(false);
+
+                if (segment is null)
+                {
+                    return null;
+                }
+
+                loaded.Add(segment);
+
+                if (segment.From != expected || segment.From != set.From || segment.To != set.To
+                    || !pins.TryGetValue(set.To, out CommitEntry pin) || !segment.Read(set.To).SameAs(in pin))
+                {
+                    return null;
+                }
+
+                expected = set.To;
+            }
+
+            if (expected != to || loaded.Count == 0)
+            {
+                return null;
+            }
+
+            await using (CommitIndexWriter writer = await CommitIndexWriter.StartAsync(storage.Derived, name, id, 0, to, cancellationToken).ConfigureAwait(false))
+            {
+                foreach (CommitSegment segment in loaded)
+                {
+                    for (long p = segment.From + 1; p <= segment.To; p++)
+                    {
+                        await writer.AddAsync(segment.Read(p), cancellationToken).ConfigureAwait(false);
+                    }
+                }
+
+                await writer.PublishAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            return await CommitIndexFormat.TryLoadAsync(storage.Derived, name, id, cancellationToken).ConfigureAwait(false);
+        }
+        catch (System.IO.IOException)
+        {
+            // A blob gone or unreadable is a cache miss: the log's headers answer.
+            return null;
+        }
+        finally
+        {
+            foreach (CommitSegment segment in loaded)
+            {
+                segment.Blob.Release();
+            }
+        }
+    }
 
     /// <summary>
     /// Builds the commit index as the open scan passes each closed commit: the

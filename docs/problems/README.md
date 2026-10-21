@@ -45,12 +45,14 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`unavailable`](unavailable.md) | 503 | `reason` | The dataset cannot answer now. |
 | [`read-limit-exceeded`](read-limit-exceeded.md) | 503 |  | The read was cut by a server limit. |
 | [`shutting-down`](shutting-down.md) | 503 |  | The server is shutting down. |
-| [`not-ready`](not-ready.md) | 503 | `management`, `datasets` | The server is not ready. |
+| [`not-ready`](not-ready.md) | 503 | `management`, `datasets`, `retention` | The server is not ready. |
 | [`server-busy`](server-busy.md) | 503 | `limit` | The server has as many reads in flight as it allows. |
 | [`writer-superseded`](writer-superseded.md) | 503 |  | A newer writer holds the dataset; this instance serves reads only. |
 | [`management-behind`](management-behind.md) | 503 | `position`, `appliedPosition` | The server has not applied the management position asked for. |
 | [`dataset-behind`](dataset-behind.md) | 503 | `position`, `appliedPosition` | This instance has not applied the dataset position asked for. |
 | [`writer-moved`](writer-moved.md) | 503 | `epoch`, `requestId` | The instance a write was forwarded to no longer writes the dataset. |
+| [`reader-forgotten`](reader-forgotten.md) | 503 |  | This instance's reader record was forgotten; it attaches again. |
+| [`read-unannounced-extent-gone`](read-unannounced-extent-gone.md) | 503 |  | An unannounced read found an extent gone. |
 
 What each limit's failure looks like to a client is in
 [`docs/operator/limits.md`](../operator/limits.md).

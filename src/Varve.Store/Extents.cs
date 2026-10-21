@@ -77,6 +77,15 @@ internal sealed class ExtentSet
 
     internal static BlobName GraphsOf(string name) => new(name + "graphs");
 
+    /// <summary>The commit index of the set's window (ADR 0161): optional, absent from a set written before it.</summary>
+    internal static BlobName CommitsOf(string name) => new(name + "commits");
+
+    /// <summary>The bytes of the set's extents: its six orders and its dictionary.</summary>
+    internal long Bytes => Run.Blob!.Blob.Length.Value;
+
+    /// <summary>The sequence the set's name carries.</summary>
+    internal long Sequence => SequenceOf(Name);
+
     /// <summary>Every blob a set's name stands for, for deletion.</summary>
     internal static IEnumerable<BlobName> BlobsOf(string name)
     {
@@ -87,6 +96,7 @@ internal sealed class ExtentSet
 
         yield return TermsOf(name);
         yield return GraphsOf(name);
+        yield return CommitsOf(name);
     }
 
     /// <summary>The sequence a set's name carries, or -1 when the name is not a set's.</summary>
@@ -362,6 +372,32 @@ internal static class ExtentCatalog
         }
 
         using (blob)
+        {
+            return TryParse(blob, dataset);
+        }
+    }
+
+    /// <summary>A catalog's file, parsed: for this dataset, or, with none given, the one its header names.</summary>
+    internal static (DerivedHeader Header, long Sequence, CatalogEntry[] Sets, CatalogCursor? Cursor)? TryParse(IReadableBlob blob, DatasetId? named)
+    {
+        DatasetId dataset;
+
+        if (named is { } given)
+        {
+            dataset = given;
+        }
+        else
+        {
+            Span<byte> tail = stackalloc byte[DerivedFormat.HeaderLength];
+
+            if (blob.Length.Value < DerivedFormat.HeaderLength || blob.Read(new ByteOffset(blob.Length.Value - DerivedFormat.HeaderLength), tail) != tail.Length)
+            {
+                return null;
+            }
+
+            dataset = DatasetId.Read(tail.Slice(8, DatasetId.Length));
+        }
+
         {
             if (!DerivedFormat.TryReadHeader(blob, dataset, DerivedFormat.KindCatalog, out DerivedHeader header) || header.DirectoryOffset != 0 || header.Version < 4)
             {

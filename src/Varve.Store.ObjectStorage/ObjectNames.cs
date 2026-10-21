@@ -29,6 +29,24 @@ internal sealed class ObjectNames(ObjectName? prefix)
 
     public ObjectName Writer => new(_prefix + "writer");
 
+    /// <summary>Where the reader records are, <c>readers/</c> (ADR 0160).</summary>
+    public ObjectName Readers => new(_prefix + "readers/");
+
+    /// <summary>One reader's record.</summary>
+    public ObjectName Reader(ReaderId reader) => new(_prefix + "readers/" + reader.Value);
+
+    /// <summary>The reader a record's name stands for, or none when it is not one.</summary>
+    public ReaderId? ReaderOf(ObjectName name)
+    {
+        string start = Readers.Value;
+        return name.Value.StartsWith(start, StringComparison.Ordinal) && ReaderId.IsValid(name.Value[start.Length..])
+            ? new ReaderId(name.Value[start.Length..])
+            : null;
+    }
+
+    /// <summary>Where the extents are, <c>derived/extents/</c>.</summary>
+    public ObjectName Extents => new(_prefix + "derived/extents/");
+
     /// <summary>A key under the reserved <c>probe/</c>, where a writer's open tests that the store enforces conditional writes (ADR 0134).</summary>
     public ObjectName Probe(string id) => new(_prefix + "probe/" + id);
 

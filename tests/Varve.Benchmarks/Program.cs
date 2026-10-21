@@ -57,6 +57,12 @@ internal static class Program
             return;
         }
 
+        if (args.Length is >= 2 and <= 4 && args[0] == "--extent-maintenance")
+        {
+            ObjectStorageBench.ExtentMaintenanceAsync(args[1], args.Length > 2 ? int.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture) : 4, args.Length > 3 ? long.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture) << 20 : null).GetAwaiter().GetResult();
+            return;
+        }
+
         if (args.Length == 2 && args[0] == "--extent-reads")
         {
             ObjectStorageBench.ExtentReadsAsync(args[1]).GetAwaiter().GetResult();

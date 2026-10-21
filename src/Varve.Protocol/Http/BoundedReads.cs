@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Varve.Protocol.Model;
+using Varve.Store;
 using Varve.Sparql.Evaluation;
 
 namespace Varve.Protocol.Http;
@@ -86,6 +87,18 @@ internal static class BoundedReads
         catch (QueryEvaluationException error)
         {
             cut = ProblemType.OperationFailed;
+            detail = error.Message;
+        }
+        catch (ReaderForgottenException error)
+        {
+            // Never a wrong result: the read is failed, and the instance
+            // attaches again (ADR 0160).
+            cut = ProblemType.ReaderForgotten;
+            detail = error.Message;
+        }
+        catch (UnannouncedExtentGoneException error)
+        {
+            cut = ProblemType.ReadUnannouncedExtentGone;
             detail = error.Message;
         }
 

@@ -534,13 +534,13 @@ landing decides the number. Only released and in-flight numbers are shown.
 | — | **Commit path**: group commit, per-graph concurrency | `preview.5` | 6b landed | released |
 | — | **Client and integration**, part 1: token provider, on-behalf-of, `Varve.Delta`, follow, setup, CORS | `preview.6` | Commit path | issue #103, PR #102 (landed) |
 | — | **Object storage**: the log and the projections on any object store, Azure first | next free | Commit path | issue #92 (built; PR pending) |
-| — | **Extent maintenance**: background merges and extent deletion | next free | Object storage | issue #110 |
+| — | **Extent maintenance**: background merges and extent deletion | `preview.11` | Object storage | issue #110 (built; PR pending) |
 | — | **Client and integration**, part 2: events, catalogue, schema registry, AsyncAPI | next free | part 1 | issue #93 |
 | — | **Management plane**, part 1: fleet system dataset, grants as code, `varve apply`, forwarding | `preview.10` | Commit path, Object storage, Client and integration | issue #131 (part 1 landed) |
 | — | **Management plane**, part 2: event schemas in the management plane | next free | part 1 | issue #105 |
 | — | **Learning track**: Varve for SQL developers and DDD practitioners | next free | Client and integration, Management plane | issue #94 |
 | 8 | SHACL, part 1: the standalone validator, SHACL-SPARQL, XPath regular expressions in `Varve.Xsd`, the event declaration shapes | `preview.9` | — (#87 landed) | issue #120 (landed) |
-| 8 | SHACL, part 2a: commit-time gating under a shapes binding, incremental validation, `Varve.Derivation` | `preview.11` | part 1, Management plane part 1 | issue #138 (this pull request) |
+| 8 | SHACL, part 2a: commit-time gating under a shapes binding, incremental validation, `Varve.Derivation` | `preview.12` | part 1, Management plane part 1 | issue #138 (this pull request) |
 | 8 | SHACL, part 2b: the validation projection, shapes for the declarations, the REC gate | next free | part 2a, Object storage (REC shapes) | issue #13 |
 | — | **Inference**: RDFS by rewriting, OWL 2 RL and rules as a projection | next free | 8 | issue #95 |
 | — | **Web UI**: operator console, then data explorer | next free | Management plane (console); 8 and Inference (explorer) | issue #96 |
@@ -637,7 +637,7 @@ against an S3-compatible server on a NAS (where it supports web identity) with t
 the setup, the runtime limits for 8 GB, and measured commit latency, query
 throughput and cold start on the device; `linux-arm64` stays a CI target.
 
-## Extent maintenance — background merges and extent deletion
+## Extent maintenance *(complete)* — background merges and extent deletion
 
 **Why.** Object storage lands extents without merges. Every read merges
 across every extent set, and the count grows by one per checkpoint, so
@@ -654,6 +654,17 @@ across any merge and eviction schedule; failure injection at every extent
 write, catalog swap and deletion; a superseded writer's swap refused; read
 latency at REC M after 10, 50 and 100 checkpoints against Object storage's
 table.
+
+**Built** (ADRs 0158–0162): background merges by a size-tiered policy
+with a fan-out and a cap, `MaxSetBytes` 256 MiB from the REC M measurement;
+deletion by reader announcements, every instance, the writer included,
+announcing the interval of catalog versions it reads in `readers/<id>`;
+each set's commit index in the store, so a cold start reads no log below
+the catalog; staged uploads with the single-upload limit refused up front;
+`varve storage` and `varve storage readers list` and `forget`. The gate's
+latency reading is like for like within one run: head reads at 100
+checkpoints with merges against 10 without, and the as-of read inside the
+largest set against the same.
 
 ## Client and integration *(complete)* — on-behalf-of, setup, follow, events
 
@@ -775,7 +786,7 @@ vocabulary's shapes, held to the code by a property. Part 2 (#13) is what
 remains of the first paragraph: gating, the projection, incremental
 validation, and the REC gate.
 
-**Part 2a** (#138; ADRs 0169–0173), `0.1.0-preview.11`: commit-time gating.
+**Part 2a** (#138; ADRs 0169–0173), `0.1.0-preview.12`: commit-time gating.
 A shapes binding is a management declaration (ADR 0170); `Varve.Shacl.Store`
 (layer 5) gates the dataset's commits with it, validating only the focus
 nodes a commit affects (ADR 0171), refusing new violations under `reject`
@@ -896,7 +907,7 @@ What has to be true before the major version, under strict SemVer (ADR 0035). Is
 - [ ] **The CloudEvents rendering under the read-forever rule** (#93, second part)
 - [ ] **The learning track complete for every shipped feature** (#94)
 - [ ] **The soak gate holds under the shipped configuration** (#61)
-- [ ] **Extent maintenance** — background merges and the extent deletion rule, so read cost stays bounded under a checkpoint policy (#110)
+- [x] **Extent maintenance** — background merges and the extent deletion rule, so read cost stays bounded under a checkpoint policy (#110)
 - [ ] **Management plane** — grants and settings as code in a per-fleet system dataset, `varve apply`, the fleet grant properties (#105)
 - [ ] **Public API freeze covers the management API**, and the `varve:` management vocabulary is stable (#105)
 

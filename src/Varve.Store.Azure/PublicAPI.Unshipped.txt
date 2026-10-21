@@ -16,3 +16,5 @@ Varve.Store.Azure.Model.AzureBlobStoreOptions.Handler.get -> System.Net.Http.Htt
 Varve.Store.Azure.Model.AzureBlobStoreOptions.Handler.init -> void
 static Varve.Store.Azure.AzureBlobStore.Create(Varve.Store.Azure.Model.AzureBlobStoreOptions! options) -> Varve.Store.Azure.AzureBlobStore!
 override Varve.Store.Azure.AzureBlobStore.ToString() -> string!
+Varve.Store.Azure.AzureBlobStore.CreateIfAbsentAsync(Varve.Store.Log.ObjectName name, Varve.Store.Log.ObjectContent! content, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.ObjectVersion?>
+static Varve.Store.Azure.AzureBlobStore.MaxSingleUploadBytes.get -> Varve.Store.Log.ByteCount

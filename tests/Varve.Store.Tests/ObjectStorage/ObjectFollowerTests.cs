@@ -128,33 +128,37 @@ public sealed class ObjectFollowerTests
     }
 
     /// <summary>
-    /// A follower holds the catalog version it opened from, which #110's
-    /// reader contract will announce; a writer holds none through the hook,
-    /// and a re-opened follower holds the newer one (ADR 0164).
+    /// A follower announces the catalog version it opened from in its reader
+    /// record (#110's reader contract, ADR 0164's hook wired to ADR 0160), so
+    /// the writer deletes nothing it reads; a re-opened follower announces the
+    /// newer one, and the writer has a record of its own.
     /// </summary>
     [Fact]
-    public async Task a_follower_holds_the_catalog_version_it_opened()
+    public async Task a_follower_announces_the_catalog_version_it_opened()
     {
         await using ObjectHarness objects = new();
         Backend written = await objects.OpenAsync();
         await using Dataset writer = await T.OpenOrCreate(written, Small());
         await writer.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Iri("o")), T.Ct);
         await writer.CheckpointAsync(new Position(1), T.Ct);
+        CatalogVersion opened = writer.CatalogVersion;
 
         Backend first = await objects.OpenAsync(ObjectStorageAccess.ReadOnly);
         await using (Dataset follower = await Dataset.OpenFollowerAsync(first, Small(), T.Ct))
         {
-            Assert.NotNull(first.HeldCatalogForTests);
+            ReaderRecord held = (await Backend.ReadReadersAsync(objects.Store, objects.Prefix, T.Ct)).Single(r => r.Reader == first.Reader);
+            Assert.Equal(opened, held.Oldest);
+            Assert.Equal(opened, held.Newest);
         }
 
         await writer.CommitAsync(new CommitRequest().Assert(T.Iri("s2"), T.Iri("p"), T.Iri("o")), T.Ct);
         await writer.CheckpointAsync(new Position(2), T.Ct);
         Backend second = await objects.OpenAsync(ObjectStorageAccess.ReadOnly);
         await using Dataset again = await Dataset.OpenFollowerAsync(second, Small(), T.Ct);
+        IReadOnlyList<ReaderRecord> records = await Backend.ReadReadersAsync(objects.Store, objects.Prefix, T.Ct);
 
-        Assert.NotNull(second.HeldCatalogForTests);
-        Assert.NotEqual(first.HeldCatalogForTests, second.HeldCatalogForTests);
-        Assert.Null(written.HeldCatalogForTests);
+        Assert.True(records.Single(r => r.Reader == second.Reader).Oldest > opened);
+        Assert.Contains(records, r => r.Reader == written.Reader);
     }
 
     /// <summary>A chunk the writer did not write, in the next slot, refuses the advance.</summary>

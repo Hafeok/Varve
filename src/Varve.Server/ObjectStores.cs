@@ -91,10 +91,20 @@ internal sealed class ObjectStores : IDisposable
             Instance = access == ObjectStorageAccess.Write ? Instance : null,
             Address = access == ObjectStorageAccess.Write ? address : null,
             CacheBytes = new ByteCount(_settings.CacheBytes),
+            Reader = ReaderOf(access),
+            MaxObjectBytes = _settings.Provider == "Azure" ? AzureBlobStore.MaxSingleUploadBytes : S3ObjectStore.MaxSingleUploadBytes,
             Clock = _clock,
             ProbeRandomness = SystemProbeRandomness.Instance,
         }, cancellationToken).ConfigureAwait(false);
     }
+
+    // A writer and a follower of one dataset can be open here at once while a
+    // placement changes, each with a reader record of its own (ADR 0160): a
+    // configured id names the writer's, and the follower's is it with
+    // "-follower". Unconfigured, each keeps its own id in its own cache.
+    private ReaderId? ReaderOf(ObjectStorageAccess access) => string.IsNullOrWhiteSpace(_settings.ReaderId)
+        ? null
+        : new ReaderId(access == ObjectStorageAccess.Write ? _settings.ReaderId : _settings.ReaderId + "-follower");
 
     /// <summary>Deletes every object of a dataset, and its cache: all of it, and not undoable (ADR 0106).</summary>
     internal async Task DeleteAsync(string name, CancellationToken cancellationToken)

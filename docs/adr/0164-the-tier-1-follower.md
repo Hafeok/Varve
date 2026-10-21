@@ -151,3 +151,27 @@ interval, forever.
   - `Varve.Server` (6): when to advance.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-20 — the reader-contract hook, wired
+
+By milestone Extent maintenance (#110), which landed after #105 part 1, as
+point 6 asks. ADR 0160 rules what it does, so no ruling is added here.
+
+- **The hook becomes the announcement.** A follower opens with
+  `Dataset.OpenAsync`, which announces the catalog version it loads in the
+  follower's reader record, `readers/<id>`, and confirms it before reading
+  (ADR 0160, announce then confirm). The no-op `Hold` call in
+  `ObjectDerivedStore` is removed; the test
+  `a_follower_announces_the_catalog_version_it_opened` holds the follower's
+  record to the version it opened, and a re-opened follower's to the newer
+  one.
+- **What a follower holds, it retains.** `AdvanceAsync` tails the log and
+  re-reads no catalog, so a follower announces the version it opened from
+  until it is opened again. The writer keeps every set that version names;
+  `retention` on readiness and `varve storage` show the bytes (ADR 0162).
+- **A writer and a follower of one dataset on one server** hold a reader
+  record each. Unconfigured, each keeps its own id in its own cache
+  (`CachePath/{name}` and `CachePath/_followers/{name}`). With
+  `Varve:ObjectStorage:ReaderId` set, the writer's record is that id and the
+  follower's is the id with `-follower`, so the two never overwrite each
+  other's record while a placement changes.

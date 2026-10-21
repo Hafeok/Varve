@@ -8,6 +8,13 @@ by the Object storage addendum (requirement 9: "validity intervals replace
 point-in-time runs … so it gets its own ADR"); its scope was agreed on the
 plan, 2026-10-15.
 
+**Amended 2026-10-19** (ADR 0068), by milestone Extent maintenance of #110,
+unaccepted until the maintainer accepts it (ADR 0066): its consequence that
+the chain grows by a set per checkpoint until Extent maintenance, and the
+checkpoint budget it gave the operator guide, are replaced by the writer's
+background merges ([ADR 0158](0158-background-extent-merges.md),
+[ADR 0159](0159-the-extent-merge-policy.md)).
+
 **Supersedes in part** [ADR 0015](0015-checkpoints-and-reads.md): its section
 "No temporal index in the default projection" and its first alternative, the
 temporal index, rejected there. Every other ruling of 0015 stands: the log is
@@ -178,3 +185,20 @@ miss that ends the chain there (ADR 0072).
   reads the same at every position.
 - I7 for one set beside the log (`BehaviourTests.a_checkpoint_plus_the_tail_equals_full_replay`).
 - R2 as restated (`MaintenanceTests.an_as_of_read_reads_the_log_only_past_the_newest_checkpoint`).
+
+## Amendment, 2026-10-19 — the chain is bounded by background merges
+
+Filed by milestone Extent maintenance of #110, unaccepted until the
+maintainer accepts it (ADR 0066).
+
+The writer now merges adjacent sets in the background
+([ADR 0158](0158-background-extent-merges.md)) under a size-tiered policy
+with a stated bound ([ADR 0159](0159-the-extent-merge-policy.md)). A merge is
+this ADR's drop folded over `F` adjacent sets: the older windows' open
+intervals and the newer ones' closing intervals for one quad are one
+interval, and every other interval is kept. So no merge changes a result at
+any position, and none coalesces history or drops a retracted interval. The
+operator guide's checkpoint budget is removed. `Keep` keeps its meaning (at
+most `Keep` sets, the oldest dropped by merging into the next). A
+checkpoint's end inside a merged window is no longer a set's end, so an
+as-of read there narrows the larger, capped set.
