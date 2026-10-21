@@ -604,6 +604,18 @@ them (#126).
 | `Varve.Shacl.Tests` | 34 | 7.2 s |
 | `Varve.Shacl.Sparql.Tests` | 13 | 7.0 s |
 
+CI's run of the pull request at `0bb0d34` (after the decisions were
+accepted), each project's `dotnet test` duration. CI runs these projects on
+Ubuntu and Windows; its macOS job is the durability suite only, so there is no
+macOS figure.
+
+| Project | ubuntu-latest | windows-latest |
+|---|---:|---:|
+| `Varve.Derivation.Tests` (new) | 0.97 s | 1.23 s |
+| `Varve.Shacl.Store.Tests` (new, the two long REC tests skipped) | 10.9 s | 12.1 s |
+| `Varve.Shacl.Tests` | 4.6 s | 4.9 s |
+| `Varve.Shacl.Sparql.Tests` | 5.2 s | 6.4 s |
+
 With `VARVE_LONG_PROPERTIES`, the gate oracle's 5,000 commits ran in 18 s
 and the three REC tests (the S head validated in full, and a gated store
 refusing a mutation) in about 2 m 30 s.
@@ -714,9 +726,16 @@ What was done:
   tag. The Windows and macOS durations come with the test jobs, once the
   decisions are accepted.
 
+**The release renumbered, the decisions accepted.** #135 landed as
+`v0.1.0-preview.11` first, so `main` was merged (`cb46087`) and this
+descriptor became `v0.1.0-preview.12`; once preview.11 was tagged the release
+gates passed. The maintainer accepted ADRs 0169–0173 (`0bb0d34`). The first
+full CI run then built and passed every test project on Ubuntu and Windows,
+and failed only at `dotnet pack`: `Varve.Shacl.Store` had no `README.md`
+(NU5019), added in `fd94e29`.
+
+A session hook's request to rewrite `fd94e29` to the committer `noreply@anthropic.com` was declined on the maintainer's word: AGENTS.md and the DCO gate set the agent identity, `Claude (Emil) <claude+emil@okkels-klein.dk>`, signed with the agent key.
+
 ### What the maintainer is asked for
 
-- **Accept the decisions**, so `CS0618` clears. That means the five sets of
-  ADRs 0169–0173.
-- **Cut `v0.1.0-preview.10`'s tag**, so `release` passes here: being done.
 - **File the REC upstream note** drafted on #140.
