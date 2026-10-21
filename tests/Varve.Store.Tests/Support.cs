@@ -48,7 +48,27 @@ internal static class Depth
         int.TryParse(Environment.GetEnvironmentVariable(variable), NumberStyles.None, CultureInfo.InvariantCulture, out int value)
             ? value
             : Random.Shared.Next();
+
+    /// <summary>
+    /// A pull request's share of a search over points numbered from 1: every
+    /// <c>VARVE_{name}_STRIDE</c>th, <paramref name="pullRequest"/> unless it
+    /// is set, from the one <c>VARVE_{name}_SEED</c> chooses, new each run
+    /// unless it is set. Stride 1 is the whole search.
+    /// </summary>
+    public static Sweep SweepOf(string name, int pullRequest)
+    {
+        int stride = Of("VARVE_" + name + "_STRIDE", pullRequest);
+        int seed = Seed("VARVE_" + name + "_SEED");
+        return new Sweep(stride, 1 + (seed % stride), "VARVE_" + name + "_SEED=" + seed.ToString(CultureInfo.InvariantCulture) + " VARVE_" + name + "_STRIDE=" + stride.ToString(CultureInfo.InvariantCulture));
+    }
 }
+
+/// <summary>
+/// The points a run searches: <see cref="First"/>, then every
+/// <see cref="Stride"/>th; <see cref="Replay"/> names the variables that
+/// search them again, and starts the test's output and its failures' messages.
+/// </summary>
+internal readonly record struct Sweep(int Stride, int First, string Replay);
 
 internal static class T
 {

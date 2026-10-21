@@ -79,6 +79,9 @@ jobs:
         timeout-minutes: 150
         env:
           VARVE_FAULT_RECOVERY_STRIDE: "1"
+          VARVE_FAULT_PROCESS_STRIDE: "1"
+          VARVE_FAULT_BATCH_STRIDE: "1"
+          VARVE_FAULT_POWER_STRIDE: "1"
           VARVE_CACHE_DAMAGE_STRIDE: "1"
         run: >
           dotnet test

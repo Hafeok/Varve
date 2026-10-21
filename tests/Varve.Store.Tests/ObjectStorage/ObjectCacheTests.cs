@@ -88,19 +88,17 @@ public sealed class ObjectCacheTests
             // A pull request checks every eighth case, from where a seed says,
             // so that pull requests between them check all of them; the
             // nightly run checks every one (docs/testing.md section 8).
-            int stride = Depth.Of("VARVE_CACHE_DAMAGE_STRIDE", 8);
-            int sweep = Depth.Seed("VARVE_CACHE_DAMAGE_SEED");
-            string replay = "VARVE_CACHE_DAMAGE_SEED=" + sweep + " VARVE_CACHE_DAMAGE_STRIDE=" + stride;
+            Sweep sweep = Depth.SweepOf("CACHE_DAMAGE", 8);
             int checkedCases = 0;
 
-            for (int i = sweep % stride; i < cases.Count; i += stride)
+            for (int i = sweep.First - 1; i < cases.Count; i += sweep.Stride)
             {
                 await CheckAsync(cases[i].Damaged, cases[i].How);
                 checkedCases++;
             }
 
-            TestContext.Current.TestOutputHelper?.WriteLine(replay + ": " + checkedCases + " of " + cases.Count + " damaged blobs");
-            Assert.True(wrong.Count == 0, replay + " replays this. " + wrong.Count + " damaged blobs were not a miss, of " + whole.Length + " bytes:\n  " + string.Join("\n  ", wrong));
+            TestContext.Current.TestOutputHelper?.WriteLine(sweep.Replay + ": " + checkedCases + " of " + cases.Count + " damaged blobs");
+            Assert.True(wrong.Count == 0, sweep.Replay + " replays this. " + wrong.Count + " damaged blobs were not a miss, of " + whole.Length + " bytes:\n  " + string.Join("\n  ", wrong));
 
             async Task CheckAsync(byte[] damaged, string how)
             {

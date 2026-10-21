@@ -252,8 +252,11 @@ on `main`) sets every depth below.
 
 | Variable | Test | Pull request | Nightly |
 |---|---|---:|---:|
-| `VARVE_FAULT_RECOVERY_STRIDE` | `FaultInjectionTests.CrashDuringRecovery.a_crash_during_recovery_recovers`: crashes the workload at every *n*th of its 1,428 operations, then its recovery at every operation | 25, from operation 1 + seed mod 25 (about 11,500 points) | 1 (about 288,000 points; the gate's was 5, 57,679) |
+| `VARVE_FAULT_RECOVERY_STRIDE` | `FaultInjectionTests.CrashDuringRecovery.a_crash_during_recovery_recovers`: crashes the workload at every *n*th of its operations, then its recovery at every operation | 25, from operation 1 + seed mod 25 (about 11,500 points) | 1 (about 288,000 points; the gate's was 5, 57,679) |
 | `VARVE_FAULT_RECOVERY_SEED` | the same: the seed that chooses where a pull request's share starts | a new one each run | n/a at stride 1 |
+| `VARVE_FAULT_PROCESS_STRIDE`, `_SEED` | `FaultInjectionTests.ProcessCrash.a_process_crash_anywhere_recovers_to_the_last_closed_commit`: a process crash at every *n*th operation of the workload, at every cut of its write | 2, from operation 1 + seed mod 2 (about 4,400 and 5,200 points) | 1 (about 8,800 and 10,500) |
+| `VARVE_FAULT_BATCH_STRIDE`, `_SEED` | `FaultInjectionTests.BatchedCrash.a_crash_inside_a_batch_recovers_to_the_last_closed_commit`: the same inside batches, with three power-loss images an operation | 2 (about 6,500 and 7,000 points) | 1 (about 13,000 and 14,000) |
+| `VARVE_FAULT_POWER_STRIDE`, `_SEED` | `FaultInjectionTests.PowerLoss.a_power_loss_with_writes_reordered_up_to_the_flush_recovers`: power lost at every *n*th operation, six images each | 2 (about 4,300 and 3,900 points) | 1 (about 8,600 and 7,900) |
 | `VARVE_CACHE_DAMAGE_STRIDE` | `Objects.ObjectCacheTests.a_commit_index_blob_cut_short_or_with_its_verified_bytes_zeroed_is_a_miss`: reopens a cache whose commit index blob is cut or has a verified byte zeroed, one case in *n* | 8, from case seed mod 8 (69 of 552 cases) | 1 (all 552) |
 | `VARVE_CACHE_DAMAGE_SEED` | the same: the seed that chooses which eighth | a new one each run | n/a at stride 1 |
 
