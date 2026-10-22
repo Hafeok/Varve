@@ -22,6 +22,14 @@
 > 4. **Narrow the property test** to that claim, and keep a second property for the excluded class: canonicalisation still terminates and is deterministic there, even though isomorphic inputs may differ.
 > 5. **If any consumer relies on the over-strong claim, list it in the PR.** That includes `apply --plan`'s diff, the report digest (ADR 0173), and entity export, which is planned. Say whether each one can meet the excluded case. Management declarations refuse blank nodes, so `apply` is probably safe. Check the rest.
 
+## The ruling on the pull request (#141)
+
+> Good work. The case holds up: `_:x` and `_:y` tie at §4.7.3 because the relating quad's graph isn't hashed, and swapping them isn't an automorphism.
+>
+> - **It's tracked as #142,** not under #36, which stays as is. Reference #142 alongside #36 in `rdf-canon.md` §6.2, in ADR 0059's amendment and in the test that pins the counterexample. The upstream draft is in #142's body, so drop the duplicate draft from the PR body and link #142 instead.
+> - **Stay on RDFC-1.0 as written.** Don't hash the graph ourselves.
+> - **Land #141 before #140,** so #140's devcontainer job is green on the merged tree. Then merge `main` into #140's branch.
+
 ## What was done
 
 - The failing input of #140's `pipeline (devcontainer)` job (seed
@@ -43,5 +51,6 @@
 - The class the converse is claimed in: every quad that mentions a blank node
   in one graph, no blank graph name. A wider class may hold; nothing here
   shows which.
-- Adding §6.2's case to #36's report is left to the maintainer: the issue is
-  not edited by this change.
+- The maintainer filed §6.2's case as #142, beside #36, which stays as it
+  is, and ruled: stay on RDFC-1.0 as written, never hash the graph locally;
+  land this before #140.
