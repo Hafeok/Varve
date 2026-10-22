@@ -267,6 +267,59 @@ public class CanonPropertyTests
     }
 
     /// <summary>
+    /// The second gap, with IRI graph names only: one dataset, two quad orders,
+    /// two canonical forms. <c>_:x</c> and <c>_:y</c> are not automorphic —
+    /// <c>_:c</c>, the one <c>&lt;a&gt;</c> names, reaches <c>_:x</c> in
+    /// <c>&lt;g&gt;</c> and <c>_:y</c> in the default graph — but their
+    /// first-degree hashes are equal (each is the object of one quad in
+    /// <c>&lt;g&gt;</c> and one in the default graph, its subject a <c>_:z</c>,
+    /// §4.6.3) and so are their N-degree hashes: a related hash records the
+    /// position and predicate of the quad that relates two nodes, and the
+    /// related node's identifier, but not that quad's graph (§4.7.3). Both
+    /// relate to <c>_:c</c> and <c>_:d</c> as subjects of <c>&lt;p&gt;</c>.
+    /// The tie in §4.4.3 step 5 falls to input order. Found by the
+    /// isomorphism property at seed <c>1Axba7DbGjr2</c> and minimised;
+    /// pyoxigraph 0.5.11 and dotNetRDF 3.5.2 produce the same two forms
+    /// (<c>rdf-canon.md</c> §6).
+    /// </summary>
+    [Fact]
+    public void Rdfc_10_gives_one_dataset_in_two_quad_orders_two_forms()
+    {
+        const string a = """
+            _:c <http://example.org/p> _:x <http://example.org/g> .
+            _:d <http://example.org/p> _:x .
+            _:c <http://example.org/p> _:y .
+            _:d <http://example.org/p> _:y <http://example.org/g> .
+            <http://example.org/a> <http://example.org/q> _:c .
+            """;
+        const string b = """
+            _:c <http://example.org/p> _:y .
+            _:d <http://example.org/p> _:y <http://example.org/g> .
+            _:c <http://example.org/p> _:x <http://example.org/g> .
+            _:d <http://example.org/p> _:x .
+            <http://example.org/a> <http://example.org/q> _:c .
+            """;
+        List<DataQuad> first = Read(U(a));
+        List<DataQuad> second = Read(U(b));
+
+        Assert.True(Isomorphism.Compare(Parsed(first), Parsed(second)).IsSame);
+        Assert.Equal(
+            "<http://example.org/a> <http://example.org/q> _:c14n1 .\n"
+            + "_:c14n0 <http://example.org/p> _:c14n2 .\n"
+            + "_:c14n0 <http://example.org/p> _:c14n3 <http://example.org/g> .\n"
+            + "_:c14n1 <http://example.org/p> _:c14n2 <http://example.org/g> .\n"
+            + "_:c14n1 <http://example.org/p> _:c14n3 .\n",
+            Encoding.UTF8.GetString(Canonical(first)));
+        Assert.Equal(
+            "<http://example.org/a> <http://example.org/q> _:c14n1 .\n"
+            + "_:c14n0 <http://example.org/p> _:c14n2 <http://example.org/g> .\n"
+            + "_:c14n0 <http://example.org/p> _:c14n3 .\n"
+            + "_:c14n1 <http://example.org/p> _:c14n2 .\n"
+            + "_:c14n1 <http://example.org/p> _:c14n3 <http://example.org/g> .\n",
+            Encoding.UTF8.GetString(Canonical(second)));
+    }
+
+    /// <summary>
     /// In the class of the equivalence: outside it the canonical form is a
     /// relabelling that may tie the other way (§6).
     /// </summary>
