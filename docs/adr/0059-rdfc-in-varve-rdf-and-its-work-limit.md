@@ -14,6 +14,17 @@ Specification: [`docs/spec/rdf-canon.md`](../spec/rdf-canon.md).
 > and the suite's three computable poison graphs (test044–046) need 279.
 > Decision 2's rule — the default is set from the suite's measured maxima —
 > is what fixed the number; `rdf-canon.md` §2 has the measurements.
+>
+> **Amended 2026-10-22**, by evidence. RDFC-1.0 gives isomorphic datasets
+> different canonical forms with IRI graph names too: a related hash omits the
+> graph of the quad relating two blank nodes (§4.7.3), and the tie falls to
+> input order (`rdf-canon.md` §6.2, #36). Canonical equality still decides in
+> the harness and the cross-check still fails a case on any disagreement; such
+> a split can also come from a dataset with blank nodes across named graphs,
+> not only from one with blank graph names, and shows as a false failure,
+> never a false pass. The decision is unchanged. `rdf-canon.md` §6 now claims
+> the converse only where every quad that mentions a blank node is in one
+> graph and no graph name is blank.
 
 ## Context
 
