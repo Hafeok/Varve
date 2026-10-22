@@ -27,7 +27,7 @@ namespace Varve.Conformance.Tests;
 /// that class one direction holds — equal canonical forms mean isomorphic
 /// datasets — and canonicalisation is deterministic, but RDFC-1.0 can give
 /// isomorphic datasets different canonical forms: with blank graph names
-/// (#36), and with blank nodes related across IRI-named graphs, because a
+/// (#36), and with blank nodes related across IRI-named graphs (#142), because a
 /// related hash omits the graph of the quad that relates the two nodes
 /// (§4.7.3). Both are findings about the algorithm (<c>rdf-canon.md</c> §6):
 /// pyoxigraph's and dotNetRDF's RDFC-1.0 split the second the same way.
@@ -267,9 +267,9 @@ public class CanonPropertyTests
     }
 
     /// <summary>
-    /// The second gap, with IRI graph names only: one dataset, two quad orders,
-    /// two canonical forms. <c>_:x</c> and <c>_:y</c> are not automorphic —
-    /// <c>_:c</c>, the one <c>&lt;a&gt;</c> names, reaches <c>_:x</c> in
+    /// #142, beside #36: the second gap, with IRI graph names only: one
+    /// dataset, two quad orders, two canonical forms. <c>_:x</c> and
+    /// <c>_:y</c> are not automorphic — <c>_:c</c>, the one <c>&lt;a&gt;</c> names, reaches <c>_:x</c> in
     /// <c>&lt;g&gt;</c> and <c>_:y</c> in the default graph — but their
     /// first-degree hashes are equal (each is the object of one quad in
     /// <c>&lt;g&gt;</c> and one in the default graph, its subject a <c>_:z</c>,

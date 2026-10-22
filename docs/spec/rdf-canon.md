@@ -213,7 +213,7 @@ order. dotNetRDF is stable on this dataset but disagrees with both from the
 first issued identifier; why is not investigated here, and nothing is
 concluded from it.
 
-### 6.2 Blank nodes related across graphs
+### 6.2 Blank nodes related across graphs (#142)
 
 With IRI graph names only. Found by §7's property in the CI of #140 (seed
 `1Axba7DbGjr2`, reproduced on `main`, after many passing runs) and minimised
@@ -252,8 +252,10 @@ implementation's own random sequence):
 | dotNetRDF 3.5.2, `RdfCanonicalizer("SHA256")` | 2 — the same two, byte for byte | 157 / 143 |
 
 This is a second gap in the Recommendation, not a case of #36's: no graph name
-is blank, and no position is hidden. It belongs in the same report to the
-Working Group, which #36 tracks.
+is blank, and no position is hidden. Tracked as
+[#142](https://github.com/Hafeok/Varve/issues/142), beside #36, under ADR
+0038, D2: `spec-gap`; #142 carries the report. `RdfCanonicaliser` stays on
+RDFC-1.0 as written and does not hash the graph itself.
 
 ### 6.3 Where this package claims the converse
 
@@ -329,5 +331,5 @@ not rely on canonical form. The callers in this repository:
    1.2's.~~ Decided: it does, and 1.2 wins where 1.1 differs (ADR 0061).
 3. ~~**§6's counterexample** — whether and how to raise it with the RDF &
    SPARQL Working Group.~~ Decided on the 5c report: raised, with the minimal
-   pair (#36), and recorded here as a known limit. §6.2's case goes into
-   the same report.
+   pair (#36), and recorded here as a known limit. §6.2's case is a
+   separate report, #142.
