@@ -1,0 +1,63 @@
+name: Nightly
+
+# The long properties and the REC gate's long runs (#13): the land gate runs
+# their sized iteration counts, and this runs them in full with
+# VARVE_LONG_PROPERTIES set, every night on main and on demand. A failure
+# here is a defect to fix on main, never a reason to lower the land gate's
+# counts. No container is started, so no image of .github/ci-images.yaml is
+# needed.
+
+on:
+  schedule:
+    # 02:17 UTC: off the hour, as GitHub asks of scheduled workflows.
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+  VARVE_LONG_PROPERTIES: "1"
+
+jobs:
+  long:
+    name: long properties (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        project:
+          - Varve.Derivation.Tests
+          - Varve.Shacl.Tests
+          - Varve.Shacl.Sparql.Tests
+          - Varve.Shacl.Store.Tests
+
+    steps:
+      - name: Line endings
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          submodules: recursive
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Test ${{ matrix.project }}, long
+        run: >
+          dotnet test
+          --project tests/${{ matrix.project }}/${{ matrix.project }}.csproj
+          --configuration Release
