@@ -22,13 +22,15 @@ namespace Varve.Conformance.Tests;
 /// the canonical form reading back as the dataset it came from.
 /// </summary>
 /// <remarks>
-/// The equivalence holds in both directions for datasets whose graph names
-/// are IRIs. With blank nodes as graph names only one direction holds —
-/// equal canonical forms mean isomorphic datasets — because RDFC-1.0 can give
-/// two isomorphic datasets different canonical forms there; pyoxigraph's
-/// RDFC-1.0 gives the same two forms as this one on the pinned
-/// counterexample. That is a finding about the algorithm (<c>rdf-canon.md</c>
-/// §6), found by the first run of this property.
+/// The equivalence is asserted in both directions only where every quad that
+/// mentions a blank node is in one graph and no graph name is blank. Outside
+/// that class one direction holds — equal canonical forms mean isomorphic
+/// datasets — and canonicalisation is deterministic, but RDFC-1.0 can give
+/// isomorphic datasets different canonical forms: with blank graph names
+/// (#36), and with blank nodes related across IRI-named graphs (#142), because a
+/// related hash omits the graph of the quad that relates the two nodes
+/// (§4.7.3). Both are findings about the algorithm (<c>rdf-canon.md</c> §6):
+/// pyoxigraph's and dotNetRDF's RDFC-1.0 split the second the same way.
 /// </remarks>
 public class CanonPropertyTests
 {
@@ -79,6 +81,20 @@ public class CanonPropertyTests
 
     private static readonly Gen<(List<DataQuad> A, List<DataQuad> B)> AnyPair = PairOf(AnyDataset, AnyQuad);
 
+    // The class §6 claims the equivalence for: every quad that mentions a
+    // blank node moved into one graph, the default or an IRI, chosen per
+    // dataset. Quads without blank nodes stay where they were. The same move
+    // applied to both sides of a pair keeps an isomorphic pair isomorphic.
+    private static readonly Gen<RdfTerm?> OneGraph = Gen.OneOf(Gen.Const((RdfTerm?)null), Iri.Select(t => (RdfTerm?)t));
+
+    private static readonly Gen<List<DataQuad>> OneGraphDataset = Gen.Select(OneGraph, Dataset, (g, quads) => Confine(quads, g));
+
+    private static readonly Gen<(List<DataQuad> A, List<DataQuad> B)> OneGraphPair =
+        Gen.Select(OneGraph, Pair, (g, pair) => (Confine(pair.A, g), Confine(pair.B, g)));
+
+    private static List<DataQuad> Confine(List<DataQuad> quads, RdfTerm? graph) =>
+        [.. quads.Select(q => q.Subject.Kind == RdfTermKind.BlankNode || q.Object.Kind == RdfTermKind.BlankNode ? new DataQuad(q.Subject, q.Predicate, q.Object, graph) : q)];
+
     private static Gen<(List<DataQuad> A, List<DataQuad> B)> PairOf(Gen<List<DataQuad>> datasets, Gen<DataQuad> quads) =>
         Gen.Select(datasets, Gen.Int[0, 1_000_000], Gen.Int[0, 2], quads, (a, seed, edit, replacement) =>
         {
@@ -121,12 +137,16 @@ public class CanonPropertyTests
         return new DataQuad(Node(quad.Subject), quad.Predicate, Node(quad.Object), quad.Graph is null ? null : Node(quad.Graph));
     }
 
+    /// <summary>
+    /// Every quad that mentions a blank node in one graph, no blank graph
+    /// name: isomorphic exactly when the canonical forms are equal.
+    /// </summary>
     [Fact]
-    public void Without_blank_graph_names_isomorphism_holds_exactly_when_the_canonical_forms_are_equal()
+    public void With_blank_nodes_in_one_graph_isomorphism_holds_exactly_when_the_canonical_forms_are_equal()
     {
         int same = 0, different = 0, inconclusive = 0;
 
-        Pair.Sample(
+        OneGraphPair.Sample(
             pair =>
             {
                 IsomorphismResult verdict = Isomorphism.Compare(Parsed(pair.A), Parsed(pair.B));
@@ -158,20 +178,26 @@ public class CanonPropertyTests
     }
 
     /// <summary>
-    /// With blank graph names: equal canonical forms still mean isomorphic
-    /// datasets, always; isomorphic datasets with different canonical forms
-    /// are counted and reported, as RDFC-1.0's, not this implementation's.
+    /// Any dataset, blank graph names and blank nodes across graphs included:
+    /// canonicalisation terminates under the default work limit, the same
+    /// quads in the same order give the same bytes, and equal canonical forms
+    /// still mean isomorphic datasets. Isomorphic datasets with different
+    /// canonical forms are counted and reported, as RDFC-1.0's, not this
+    /// implementation's (<c>rdf-canon.md</c> §6).
     /// </summary>
     [Fact]
-    public void With_blank_graph_names_equal_canonical_forms_mean_isomorphic_datasets()
+    public void Across_graphs_canonicalisation_is_deterministic_and_equal_forms_mean_isomorphic_datasets()
     {
         int separatedWrongly = 0, isomorphic = 0;
 
         AnyPair.Sample(
             pair =>
             {
+                byte[] a = Canonical(pair.A);
+                Assert.True(a.AsSpan().SequenceEqual(Canonical(pair.A)), "not deterministic:\n" + Text(pair.A));
+
                 IsomorphismResult verdict = Isomorphism.Compare(Parsed(pair.A), Parsed(pair.B));
-                bool equal = Canonical(pair.A).AsSpan().SequenceEqual(Canonical(pair.B));
+                bool equal = a.AsSpan().SequenceEqual(Canonical(pair.B));
 
                 if (equal)
                 {
@@ -191,10 +217,11 @@ public class CanonPropertyTests
             iter: Iterations);
 
         TestContext.Current.TestOutputHelper?.WriteLine($"isomorphic pairs {isomorphic}, of which RDFC-1.0 gave different forms to {separatedWrongly}");
+        Assert.True(isomorphic > Iterations / 10, $"isomorphic {isomorphic}");
     }
 
     /// <summary>
-    /// The counterexample the first run found, minimised by hand: _:n0 and
+    /// #36: blank graph names. The counterexample the first run found, minimised by hand: _:n0 and
     /// _:n2 are not automorphic — swapping them needs _:n3 and _:n4 swapped,
     /// which the third quad of the first dataset forbids — but their
     /// first-degree hashes are equal and so are their N-degree hashes, because
@@ -239,10 +266,67 @@ public class CanonPropertyTests
             Encoding.UTF8.GetString(Canonical(second)));
     }
 
+    /// <summary>
+    /// #142, beside #36: the second gap, with IRI graph names only: one
+    /// dataset, two quad orders, two canonical forms. <c>_:x</c> and
+    /// <c>_:y</c> are not automorphic — <c>_:c</c>, the one <c>&lt;a&gt;</c> names, reaches <c>_:x</c> in
+    /// <c>&lt;g&gt;</c> and <c>_:y</c> in the default graph — but their
+    /// first-degree hashes are equal (each is the object of one quad in
+    /// <c>&lt;g&gt;</c> and one in the default graph, its subject a <c>_:z</c>,
+    /// §4.6.3) and so are their N-degree hashes: a related hash records the
+    /// position and predicate of the quad that relates two nodes, and the
+    /// related node's identifier, but not that quad's graph (§4.7.3). Both
+    /// relate to <c>_:c</c> and <c>_:d</c> as subjects of <c>&lt;p&gt;</c>.
+    /// The tie in §4.4.3 step 5 falls to input order. Found by the
+    /// isomorphism property at seed <c>1Axba7DbGjr2</c> and minimised;
+    /// pyoxigraph 0.5.11 and dotNetRDF 3.5.2 produce the same two forms
+    /// (<c>rdf-canon.md</c> §6).
+    /// </summary>
+    [Fact]
+    public void Rdfc_10_gives_one_dataset_in_two_quad_orders_two_forms()
+    {
+        const string a = """
+            _:c <http://example.org/p> _:x <http://example.org/g> .
+            _:d <http://example.org/p> _:x .
+            _:c <http://example.org/p> _:y .
+            _:d <http://example.org/p> _:y <http://example.org/g> .
+            <http://example.org/a> <http://example.org/q> _:c .
+            """;
+        const string b = """
+            _:c <http://example.org/p> _:y .
+            _:d <http://example.org/p> _:y <http://example.org/g> .
+            _:c <http://example.org/p> _:x <http://example.org/g> .
+            _:d <http://example.org/p> _:x .
+            <http://example.org/a> <http://example.org/q> _:c .
+            """;
+        List<DataQuad> first = Read(U(a));
+        List<DataQuad> second = Read(U(b));
+
+        Assert.True(Isomorphism.Compare(Parsed(first), Parsed(second)).IsSame);
+        Assert.Equal(
+            "<http://example.org/a> <http://example.org/q> _:c14n1 .\n"
+            + "_:c14n0 <http://example.org/p> _:c14n2 .\n"
+            + "_:c14n0 <http://example.org/p> _:c14n3 <http://example.org/g> .\n"
+            + "_:c14n1 <http://example.org/p> _:c14n2 <http://example.org/g> .\n"
+            + "_:c14n1 <http://example.org/p> _:c14n3 .\n",
+            Encoding.UTF8.GetString(Canonical(first)));
+        Assert.Equal(
+            "<http://example.org/a> <http://example.org/q> _:c14n1 .\n"
+            + "_:c14n0 <http://example.org/p> _:c14n2 <http://example.org/g> .\n"
+            + "_:c14n0 <http://example.org/p> _:c14n3 .\n"
+            + "_:c14n1 <http://example.org/p> _:c14n2 .\n"
+            + "_:c14n1 <http://example.org/p> _:c14n3 <http://example.org/g> .\n",
+            Encoding.UTF8.GetString(Canonical(second)));
+    }
+
+    /// <summary>
+    /// In the class of the equivalence: outside it the canonical form is a
+    /// relabelling that may tie the other way (§6).
+    /// </summary>
     [Fact]
     public void Canonicalising_the_canonical_form_gives_it_back()
     {
-        Dataset.Sample(
+        OneGraphDataset.Sample(
             quads =>
             {
                 byte[] once = Canonical(quads);

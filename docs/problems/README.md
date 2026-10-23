@@ -34,6 +34,9 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`event-declaration-invalid`](event-declaration-invalid.md) | 422 | `declaration`, `reason` | The event declaration is not well formed. |
 | [`event-schema-incompatible`](event-schema-incompatible.md) | 422 | `declaration`, `fields` | The declaration change is incompatible with its version. |
 | [`event-not-rendered`](event-not-rendered.md) | 422 | `event`, `eventType`, `reason` | An event could not be rendered. |
+| [`shapes-violated`](shapes-violated.md) | 422 | `binding`, `shapesGraph`, `findings`, `report`, `shapesChanged` | The commit introduces a violation of a shapes binding. |
+| [`binding-not-incremental`](binding-not-incremental.md) | 422 | `binding`, `shapes` | The binding's shapes cannot be validated incrementally. |
+| [`shapes-invalid`](shapes-invalid.md) | 422 | `binding`, `problems` | The binding's shapes graph is refused. |
 | [`memory-limit-exceeded`](memory-limit-exceeded.md) | 422 | `limit`, `actual` | The request needs more memory than the server allows one request. |
 | [`as-of-distance-exceeded`](as-of-distance-exceeded.md) | 422 | `limit`, `actual` | The as-of position is too far from its nearest checkpoint. |
 | [`declaration-invalid`](declaration-invalid.md) | 422 | `findings` | The management declarations are not valid. |

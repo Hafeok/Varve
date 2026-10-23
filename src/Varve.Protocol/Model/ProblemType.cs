@@ -67,6 +67,15 @@ public readonly record struct ProblemType
     /// <summary>A declaration change is incompatible with the version it keeps (ADR 0145).</summary>
     public static ProblemType EventSchemaIncompatible { get; } = new("event-schema-incompatible");
 
+    /// <summary>A commit introduces a violation under a <c>reject</c> shapes binding (ADR 0169).</summary>
+    public static ProblemType ShapesViolated { get; } = new("shapes-violated");
+
+    /// <summary>A <c>reject</c> binding's shapes include a full shape and the binding does not allow full evaluation (ADR 0169).</summary>
+    public static ProblemType BindingNotIncremental { get; } = new("binding-not-incremental");
+
+    /// <summary>A binding's shapes graph is refused, or a validation under it failed (ADR 0169).</summary>
+    public static ProblemType ShapesInvalid { get; } = new("shapes-invalid");
+
     /// <summary>An event could not be rendered; never a response, always an in-band CloudEvent's data (ADR 0143).</summary>
     public static ProblemType EventNotRendered { get; } = new("event-not-rendered");
 

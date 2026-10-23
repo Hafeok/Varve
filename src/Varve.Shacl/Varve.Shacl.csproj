@@ -15,6 +15,7 @@
     <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
     <ProjectReference Include="../Varve.Iri/Varve.Iri.csproj" />
     <ProjectReference Include="../Varve.Xsd/Varve.Xsd.csproj" />
+    <ProjectReference Include="../Varve.Derivation/Varve.Derivation.csproj" />
   </ItemGroup>
 
   <ItemGroup>

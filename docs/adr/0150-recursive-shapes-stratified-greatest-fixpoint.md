@@ -242,3 +242,18 @@ recursion through every polarity, and small data graphs, and checks:
 - **Layer ownership.** `Varve.Shacl`, layer 3.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-20 — the construction moves to `Varve.Derivation`
+
+Filed by SHACL, part 2a (#138, under milestone 8, #13), unaccepted until the
+maintainer accepts it (ADR 0066).
+
+The strongly connected components, the stratification and the refused cycle
+are computed by `Varve.Derivation`'s `DependencyGraph` (ADR
+[0172](0172-varve-derivation.md)), so Inference stratifies by the same code.
+The polarity table above stays `Varve.Shacl`'s, and so does the greatest
+fixpoint's iteration. The semantics is unchanged, and the property above holds
+it. ADR 0171 adds that incremental validation finds the pairs a delta affects
+by propagating along the same graph, polarity ignored.
+
+**The ledger.** The ruling is ADR 0172's `StratificationIsDerivations`.

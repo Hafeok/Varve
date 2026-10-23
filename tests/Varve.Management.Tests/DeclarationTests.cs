@@ -37,7 +37,9 @@ public sealed class DeclarationTests
           n:owner-admin a varve:Grant ;
             varve:grantee <https://login.example/v2.0#owner> ;
             varve:permission varve:admin .
-          n:shapes a varve:ShapesBinding ; varve:boundGraph <https://notes.example/shapes> .
+          n:shapes a varve:ShapesBinding ; varve:boundGraph <https://notes.example/shapes> ;
+            varve:validationMode varve:Reject ; varve:graphPrefix "https://notes.example/users/" ;
+            varve:subClassOfInShapesGraph true .
         }
 
         <https://w3id.org/varve/ns#manage/fleet> {
@@ -60,7 +62,12 @@ public sealed class DeclarationTests
         Assert.Equal("varve-1", notes.PlacedOn);
         Assert.False(notes.AutomaticHandover);
         Assert.Equal(4, notes.Grants.Count);
-        Assert.Equal(BindingKind.Shapes, Assert.Single(notes.Bindings).Kind);
+        BindingDeclaration binding = Assert.Single(notes.Bindings);
+        Assert.Equal(BindingKind.Shapes, binding.Kind);
+        Assert.Equal(ShapesMode.Reject, binding.Mode);
+        Assert.Equal(["https://notes.example/users/"], binding.Validates!.Prefixes);
+        Assert.True(binding.SubClassOfInShapesGraph);
+        Assert.False(binding.AllowFullEvaluation);
         GrantDeclaration ops = Assert.Single(declarations.FleetGrants);
         Assert.Equal(GrantAccess.Operator, ops.Access);
         Assert.Equal(Principal.Role("Varve.Operator"), ops.Grantee);
@@ -125,6 +132,11 @@ public sealed class DeclarationTests
     [InlineData("n:d a varve:Dataset ; varve:datasetName \"d\" . n:g a varve:Grant ; varve:grantee <https://i#a> ; varve:permission varve:read ; varve:graphTemplate n:t . n:t a varve:GraphTemplate ; varve:template \"https://x/{user}/\" ; varve:match varve:Prefix .", "{user}")]
     [InlineData("n:d a varve:Dataset ; varve:datasetName \"d\" . n:g a varve:Grant ; varve:grantee <https://i#a> ; varve:permission varve:read ; varve:graph \"not an iri\" .", "absolute IRI")]
     [InlineData("", "exactly one varve:Dataset")]
+    [InlineData("n:d a varve:Dataset ; varve:datasetName \"d\" . n:b a varve:ShapesBinding ; varve:boundGraph <https://x/shapes> ; varve:allGraphs true .", "exactly one varve:validationMode")]
+    [InlineData("n:d a varve:Dataset ; varve:datasetName \"d\" . n:b a varve:ShapesBinding ; varve:boundGraph <https://x/shapes> ; varve:validationMode varve:read ; varve:allGraphs true .", "exactly one varve:validationMode")]
+    [InlineData("n:d a varve:Dataset ; varve:datasetName \"d\" . n:b a varve:ShapesBinding ; varve:boundGraph <https://x/shapes> ; varve:validationMode varve:Report .", "a shapes binding names its graphs")]
+    [InlineData("n:d a varve:Dataset ; varve:datasetName \"d\" . n:b a varve:ShapesBinding ; varve:boundGraph <https://x/shapes> ; varve:validationMode varve:Report ; varve:graph <https://x/shapes> .", "own shapes graph")]
+    [InlineData("n:d a varve:Dataset ; varve:datasetName \"d\" . n:b a varve:ShapesBinding ; varve:boundGraph <https://x/shapes> ; varve:validationMode varve:Report ; varve:graphTemplate n:t . n:t a varve:GraphTemplate ; varve:template \"https://x/{sub}/\" ; varve:match varve:Prefix .", "without varve:graphTemplate")]
     public void the_code_validator_names_what_is_wrong(string body, string expected)
     {
         Declarations declarations = T.Read("<https://w3id.org/varve/ns#manage/dataset/d> { n:x n:y n:z . " + body + " }");

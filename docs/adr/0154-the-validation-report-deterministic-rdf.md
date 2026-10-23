@@ -114,3 +114,18 @@ node from one position to the next.
 - **Layer ownership.** `Varve.Shacl`, layer 3.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-20 — a report restricted to affected pairs
+
+Filed by SHACL, part 2a (#138, under milestone 8, #13), unaccepted until the
+maintainer accepts it (ADR 0066).
+
+A report may be **restricted** to some of a validation's (shape, focus node)
+pairs: its results are those pairs' results, a subset of the whole report's in
+the same order of point 3, and `sh:conforms` is computed over them. Its bytes
+follow point 2 unchanged. Commit-time gating attaches the SHA-256 of a
+restricted report's canonical N-Quads (ADR
+[0173](0173-the-validation-report-on-the-commit.md)), and the projection
+(part 2b) restricts its report the same way to check it.
+
+**The ledger.** The ruling is ADR 0173's `AffectedReportAttachment`.

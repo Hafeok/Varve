@@ -41,6 +41,16 @@ public sealed class ShapesGraph
 
     internal IReadOnlyList<IShaclExtension> Extensions { get; }
 
+    /// <summary>What the shapes read of the data, worked out once (ADR 0171). Two threads may build it at once; both build the same.</summary>
+    internal Incremental.ShapesFootprint Footprint => field ??= Incremental.ShapesFootprint.Of(this);
+
+    /// <summary>
+    /// The class of every shape — incremental, scoped or full — and the
+    /// constructs that decide it (ADR 0171), from the shapes graph alone.
+    /// </summary>
+    [DesignDecision(typeof(WhichShapesAreIncrementallyMaintainable.ClassificationIsStatic), Scope = ExceptionScope.Boundary)]
+    public ShapesClassification Classify() => Footprint.Classification;
+
     /// <summary>
     /// Loads the shapes graph <paramref name="graph"/> of
     /// <paramref name="source"/>: the shapes, or the problems that refuse them.
@@ -53,7 +63,7 @@ public sealed class ShapesGraph
         cancellationToken.ThrowIfCancellationRequested();
 
         ShapesSource shapes = new(source, graph);
-        ShapesReader reader = new(shapes, options.Extensions);
+        ShapesReader reader = new(shapes, options.Extensions, options.RefuseNonDeterministicFunctions);
         List<Shape> read = reader.Read();
         List<ShaclProblem> problems = [.. reader.Problems];
         if (problems.Count == 0)

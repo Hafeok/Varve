@@ -1570,3 +1570,68 @@ unchanged, as expected: its cost is still the listing of the open segment's
 19,745 chunks (5.7 s on RustFS, 1.5 s on Azurite). The Azurite load ran at
 64 commits/s against #92's 170: this Azurite was not started empty, and slows
 as earlier runs' blobs accumulate in it.
+
+## Milestone 8, part 2a — commit latency under a `reject` shapes binding
+
+**Machine.** Intel Xeon @ 2.80 GHz, 4 logical and 4 physical cores, 15 GiB,
+Ubuntu 24.04.5 LTS, a cloud container. .NET SDK 10.0.401, runtime 10.0.12,
+X64 RyuJIT `x86-64-v4`. BenchmarkDotNet 0.15.8, `WarmupCount 1`,
+`IterationCount 8`, `InvocationCount 1`, 20 commits per invocation.
+
+**Workload.** `ShapesGateBenchmarks`: the REC portfolio (ADR 0141, seed
+20261015, **generator output version 2**) on the file backend, its history
+but the last 241 commits loaded, REC 4.1.0's shapes in a named graph (the
+three files merged, `owl:Class rdfs:subClassOf rdfs:Class` added, Brick's
+three `sh:sparql` constraints left out because they declare no prefixes),
+then the held commits one at a time with the binding's gate as the request's
+validator or with none. The gate's first commit, which loads the shapes
+(about 13 s), is outside the measurement. Version 2's head conforms to these
+shapes, and no commit was refused in any row.
+
+```bash
+WarningsNotAsErrors=CS0618 dotnet run -c Release --project tests/Varve.Benchmarks -- --filter '*ShapesGateBenchmarks*' --buildTimeout 1800
+dotnet run -c Release --project tests/Varve.Benchmarks -- --shapes-gate-affected S
+```
+
+Slower rows first:
+
+| REC | Binding | Mean per commit | Error | StdDev | Allocated per commit |
+|---|---|---:|---:|---:|---:|
+| M (≈5 M quads) | `reject` | 11.86 ms | 5.73 ms | 3.00 ms | 2,471.3 KB |
+| S (≈203 k quads) | `reject` | 7.62 ms | 3.24 ms | 1.69 ms | 2,294.6 KB |
+| M | none | 0.86 ms | 0.27 ms | 0.10 ms | 30.5 KB |
+| S | none | 0.51 ms | 0.14 ms | 0.07 ms | 35.4 KB |
+
+**Per affected focus node** (`--shapes-gate-affected`, the same held
+commits, the gate timed alone and the affected focus nodes counted beside it):
+
+| REC | In the gate per commit | Affected focus nodes per commit (max) | Per affected focus node |
+|---|---:|---:|---:|
+| M | 9.08 ms | 2.6 (9) | 3.44 ms |
+| S | 6.38 ms | 2.6 (8) | 2.48 ms |
+
+**Reading it.** The gate adds about 7 ms per commit at S and 11 ms at M,
+for the same 2.6 affected focus nodes: the cost is the affected pairs', not
+the dataset's (ADR 0171), with the rest of M's difference in the larger
+store each pair's reads go to. What it costs is REC's breadth: a commit's few
+focus nodes each meet hundreds of class-targeted shapes through the shapes
+graph's class hierarchy, and every pair is validated twice, before and after.
+The spread is wide because commits differ in kind (a building added against
+a point retired).
+
+**This run against the first.** The first run of this benchmark, on
+generator version 1, refused the 40 (S) and 51 (M) of 220 commits that added a
+lease without `rec:leasor`; it measured 8.24 ms per commit under the gate at
+both sizes, and 0.53 and 0.57 ms without. This run, on version 2, refused
+none, so every gated commit also writes its attachment, and the machine was
+slower throughout (M's history took 128–133 s to load against 85 s): read the
+ratios within a table, not the absolute figures across the two runs. Before
+the shapes graph's subclass steps were remembered, the gate took 13.2 ms per
+commit at S (version 1).
+
+**Generator versions behind the REC numbers in this file.** The Object
+storage section's REC S and M runs (#92) were taken on generator output
+version 1, whose leases lack `rec:leasor`; the change in version 2 adds two
+quads per site and one per lease, so their sizes stand within 0.1%. The Extent
+maintenance section's REC S and M runs (#110, 2026-10-19) were taken on
+version 1 too, before this change. This section's numbers are version 2's.

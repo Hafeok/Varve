@@ -1,0 +1,26 @@
+#nullable enable
+Varve.Shacl.Store.Model.BindingCheck
+Varve.Shacl.Store.Model.BindingCheck.Accepted.get -> bool
+Varve.Shacl.Store.Model.BindingCheck.Classification.get -> Varve.Shacl.Model.ShapesClassification?
+Varve.Shacl.Store.Model.BindingCheck.Problems.get -> System.Collections.Generic.IReadOnlyList<Varve.Shacl.Model.ShaclProblem!>!
+Varve.Shacl.Store.Model.BindingCheck.Refusal.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>?
+Varve.Shacl.Store.Model.ShapesBinding
+Varve.Shacl.Store.Model.ShapesBinding.AllowFullEvaluation.get -> bool
+Varve.Shacl.Store.Model.ShapesBinding.AllowFullEvaluation.init -> void
+Varve.Shacl.Store.Model.ShapesBinding.Binding.get -> Varve.Rdf.RdfTerm!
+Varve.Shacl.Store.Model.ShapesBinding.Mode.get -> Varve.Shacl.Store.Model.ValidationMode
+Varve.Shacl.Store.Model.ShapesBinding.ShapesBinding(Varve.Rdf.RdfTerm! binding, Varve.Rdf.RdfTerm! shapesGraph, Varve.Rdf.GraphScope! validates, Varve.Shacl.Store.Model.ValidationMode mode) -> void
+Varve.Shacl.Store.Model.ShapesBinding.ShapesGraph.get -> Varve.Rdf.RdfTerm!
+Varve.Shacl.Store.Model.ShapesBinding.SubClassOfInShapesGraph.get -> bool
+Varve.Shacl.Store.Model.ShapesBinding.SubClassOfInShapesGraph.init -> void
+Varve.Shacl.Store.Model.ShapesBinding.Validates.get -> Varve.Rdf.GraphScope!
+Varve.Shacl.Store.Model.ValidationMode
+Varve.Shacl.Store.Model.ValidationMode.Off = 0 -> Varve.Shacl.Store.Model.ValidationMode
+Varve.Shacl.Store.Model.ValidationMode.Reject = 2 -> Varve.Shacl.Store.Model.ValidationMode
+Varve.Shacl.Store.Model.ValidationMode.Report = 1 -> Varve.Shacl.Store.Model.ValidationMode
+Varve.Shacl.Store.ShapesGate
+Varve.Shacl.Store.ShapesGate.Bindings.get -> System.Collections.Generic.IReadOnlyList<Varve.Shacl.Store.Model.ShapesBinding!>!
+Varve.Shacl.Store.ShapesGate.Check(Varve.Shacl.Store.Model.ShapesBinding! binding, Varve.Rdf.IQuadSource! state) -> Varve.Shacl.Store.Model.BindingCheck!
+Varve.Shacl.Store.ShapesGate.ShapesGate(System.Collections.Generic.IEnumerable<Varve.Shacl.Store.Model.ShapesBinding!>! bindings, Varve.Shacl.ShaclOptions? options = null) -> void
+Varve.Shacl.Store.ShapesGate.Validate(Varve.Rdf.IQuadSource! proposed, Varve.Rdf.QuadDelta delta) -> Varve.Store.Log.ValidationVerdict
+Varve.Shacl.Store.ShapesGate.Validate(Varve.Rdf.IQuadSource! proposed, Varve.Store.BulkDelta! delta) -> Varve.Store.Log.ValidationVerdict

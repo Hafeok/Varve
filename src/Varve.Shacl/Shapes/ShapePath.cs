@@ -5,6 +5,7 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Text;
+using Varve.Derivation;
 using Varve.Rdf;
 
 namespace Varve.Shacl.Shapes;
@@ -18,6 +19,16 @@ internal abstract class ShapePath
     private protected ShapePath()
     {
     }
+
+    /// <summary>
+    /// The path compiled once to <c>Varve.Derivation</c>'s automaton (ADR 0172,
+    /// ADR 0152 amended): searched forwards for value nodes and backwards for
+    /// anchors. Two threads may build it at once; both build the same.
+    /// </summary>
+    internal PathAutomaton<RdfTerm> Automaton => field ??= ToRegular().Compile();
+
+    /// <summary>The path as a regular path over predicate IRIs.</summary>
+    internal abstract RegularPath<RdfTerm> ToRegular();
 
     /// <summary>The path in SPARQL 1.2 property path syntax: the order key of a result (ADR 0154) and a readable form.</summary>
     internal string Sparql
@@ -62,6 +73,8 @@ internal sealed class PredicatePath(RdfTerm predicate) : ShapePath
     internal override void Write(StringBuilder text) => text.Append('<').Append(Encoding.UTF8.GetString(Predicate.Lexical)).Append('>');
 
     internal override RdfTerm WriteRdf(List<(RdfTerm, RdfTerm, RdfTerm)> triples, ref int blank) => Predicate;
+
+    internal override RegularPath<RdfTerm> ToRegular() => RegularPath.Edge(Predicate);
 }
 
 /// <summary>§4.2: a list of two or more paths, in order.</summary>
@@ -86,6 +99,17 @@ internal sealed class SequencePath(ImmutableArray<ShapePath> steps) : ShapePath
     }
 
     internal override RdfTerm WriteRdf(List<(RdfTerm, RdfTerm, RdfTerm)> triples, ref int blank) => WriteList(Steps, triples, ref blank);
+
+    internal override RegularPath<RdfTerm> ToRegular()
+    {
+        List<RegularPath<RdfTerm>> steps = [];
+        foreach (ShapePath step in Steps)
+        {
+            steps.Add(step.ToRegular());
+        }
+
+        return RegularPath.Sequence(steps);
+    }
 }
 
 /// <summary>§4.3: <c>sh:alternativePath</c> with a list of two or more paths.</summary>
@@ -114,6 +138,17 @@ internal sealed class AlternativePath(ImmutableArray<ShapePath> alternatives) : 
         RdfTerm node = Fresh(ref blank);
         triples.Add((node, Vocabulary.AlternativePath, WriteList(Alternatives, triples, ref blank)));
         return node;
+    }
+
+    internal override RegularPath<RdfTerm> ToRegular()
+    {
+        List<RegularPath<RdfTerm>> alternatives = [];
+        foreach (ShapePath alternative in Alternatives)
+        {
+            alternatives.Add(alternative.ToRegular());
+        }
+
+        return RegularPath.Alternative(alternatives);
     }
 }
 
@@ -166,4 +201,12 @@ internal sealed class UnaryPath(UnaryPathKind kind, ShapePath inner) : ShapePath
         triples.Add((node, predicate, Inner.WriteRdf(triples, ref blank)));
         return node;
     }
+
+    internal override RegularPath<RdfTerm> ToRegular() => Kind switch
+    {
+        UnaryPathKind.Inverse => RegularPath.Inverse(Inner.ToRegular()),
+        UnaryPathKind.ZeroOrMore => RegularPath.ZeroOrMore(Inner.ToRegular()),
+        UnaryPathKind.OneOrMore => RegularPath.OneOrMore(Inner.ToRegular()),
+        _ => RegularPath.ZeroOrOne(Inner.ToRegular()),
+    };
 }

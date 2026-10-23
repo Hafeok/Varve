@@ -716,3 +716,5 @@ Varve.Store.ITailingStorage.RefreshAsync(System.Threading.CancellationToken canc
 Varve.Store.Dataset.IsFollower.get -> bool
 Varve.Store.Dataset.AdvanceAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.Position>
 static Varve.Store.Dataset.OpenFollowerAsync(Varve.Store.ITailingStorage! storage, Varve.Store.DatasetOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Dataset!>
+Varve.Store.Log.ValidationVerdict.Attachments.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+static Varve.Store.Log.ValidationVerdict.Accept(System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! attachments) -> Varve.Store.Log.ValidationVerdict

@@ -164,3 +164,23 @@ free of grants.
 - **Layer ownership.** `Varve.Management` (4), as above.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-20 — a shapes binding's graphs and mode
+
+Filed by SHACL, part 2a (#138, under milestone 8, #13), unaccepted until the
+maintainer accepts it (ADR 0066).
+
+A `varve:ShapesBinding` is no longer only recorded: ADR
+[0170](0170-the-shapes-binding-vocabulary.md) gives it effect.
+- **Its terms.** `varve:boundGraph` names its shapes graph. It carries its
+  data graphs in point 3's graph-set terms (`varve:allGraphs`, `varve:graph`,
+  `varve:graphPrefix`), as a grant does. It has a `varve:validationMode` of
+  `varve:Reject`, `varve:Report` or `varve:Off`, and may set
+  `varve:allowFullEvaluation` and `varve:subClassOfInShapesGraph`.
+- **What point 4's validator refuses**, beside what it refused: a shapes
+  binding without exactly one mode or without a graph set; with a
+  `varve:graphTemplate`; or naming its own shapes graph by `varve:graph`.
+- `varve:TBoxBinding` is unchanged, recorded for Inference.
+
+**The ledger.** The rulings are ADR 0170's `BindingTerms` and
+`BindingDeclarationChecks`.

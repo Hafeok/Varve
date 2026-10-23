@@ -189,3 +189,28 @@ validator's (ADR [0165](0165-the-management-position-on-the-commit.md)). A valid
 still changes nothing about the data.
 
 **The ledger.** The ruling is ADR 0165's `HostAttachmentsOnTheCommit`.
+
+## Amendment, 2026-10-20 — the first validator
+
+Filed by SHACL, part 2a (#138, under milestone 8, #13), unaccepted until the
+maintainer accepts it (ADR 0066).
+
+The first implementation of this contract is `Varve.Shacl.Store` (ADR
+[0169](0169-commit-time-gating-under-a-shapes-binding.md)), at layer 5 as
+decided above. Within "the overlay and the delta, and nothing else":
+
+- it reads the overlay's base — the pinned position — as the pre-state, which
+  is part of the overlay it is given;
+- the shapes in force are a named graph *of the overlay*, so shapes are data
+  and a commit that changes them validates its data against them;
+- its attachment is a reference and a digest (ADR
+  [0173](0173-the-validation-report-on-the-commit.md)), one per binding, so an
+  accepting verdict may carry several attachments
+  (`ValidationVerdict.Accept(IReadOnlyList<RdfTerm>)`);
+- the check that needs another dataset — whether a binding's shapes graph
+  loads and how it is classified — runs above the store, before the
+  management commit is submitted, as the alternatives above say a
+  cross-dataset check must.
+
+**The ledger.** The rulings are ADR 0169's `ValidatorReadsOverlayAndPinnedBase`
+and `OneAttachmentPerBinding`.

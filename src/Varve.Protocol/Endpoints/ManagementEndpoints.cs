@@ -15,6 +15,7 @@ using Varve.Management.Model;
 using Varve.Protocol.Http;
 using Varve.Protocol.Model;
 using Varve.Rdf;
+using Varve.Shacl.Model;
 using Varve.Store;
 using Varve.Store.Log;
 
@@ -569,6 +570,13 @@ internal static class ManagementEndpoints
             return;
         }
 
+        // ADR 0169's R4: a shapes binding is checked against its dataset before the commit, above the store.
+        if (plane.CheckBindings(Proposed(desired)) is { } refusal)
+        {
+            await (ValidatorProblem.TryWriteAsync(context, refusal) ?? HttpProblems.WriteAsync(context, ProblemType.Rejected, "A shapes binding cannot be applied.")).ConfigureAwait(false);
+            return;
+        }
+
         CommitRequest request;
 
         using (DatasetView view = system.Pin())
@@ -618,6 +626,102 @@ internal static class ManagementEndpoints
     }
 
     // ---- helpers ----
+
+    /// <summary>The declarations the owned graphs would hold, read on their own: what a binding check needs.</summary>
+    private static Declarations Proposed(Dictionary<RdfTerm, List<Triple>> desired)
+    {
+        InMemoryDatasetBuilder builder = new();
+        foreach ((RdfTerm graph, List<Triple> triples) in desired)
+        {
+            foreach (Triple triple in triples)
+            {
+                builder.Add(triple.Subject, triple.Predicate, triple.Object, graph);
+            }
+        }
+
+        return DeclarationReader.Read(builder.ToDataset());
+    }
+
+    /// <summary>
+    /// <c>GET /manage/datasets/{name}/bindings/{binding}</c>: a shapes binding at
+    /// the applied position, its shapes' classification where this instance
+    /// holds the dataset (ADRs 0169, 0171).
+    /// </summary>
+    internal static async Task BindingAsync(HttpContext context, ProtocolOptions options, IManagementPlane plane)
+    {
+        if (!HttpMethods.IsGet(context.Request.Method))
+        {
+            await HttpProblems.MethodNotAllowed(context, "GET").ConfigureAwait(false);
+            return;
+        }
+
+        if (DatasetOf(context) is not { } name)
+        {
+            await HttpProblems.DatasetNotFound(context).ConfigureAwait(false);
+            return;
+        }
+
+        if (!await Exchange.AuthorizeDatasetAsync(context, options, DatasetPermissions.Admin, name).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        string? encoded = context.Request.RouteValues[BindingRouteValue] as string;
+        if (string.IsNullOrEmpty(encoded) || plane.DescribeBinding(name, RdfTerm.Iri(Encoding.UTF8.GetBytes(Uri.UnescapeDataString(encoded)))) is not { } binding)
+        {
+            await HttpProblems.WriteAsync(context, ProblemType.NotFound, "The dataset declares no shapes binding by that IRI.").ConfigureAwait(false);
+            return;
+        }
+
+        await WriteJsonAsync(context, StatusCodes.Status200OK, json =>
+        {
+            BindingDeclaration declared = binding.Declaration;
+            json.WriteString("binding", Encoding.UTF8.GetString(declared.Node.Lexical));
+            json.WriteString("shapesGraph", Encoding.UTF8.GetString(declared.BoundGraph.Lexical));
+            json.WriteString("validationMode", declared.Mode.ToString());
+            json.WriteBoolean("allowFullEvaluation", declared.AllowFullEvaluation);
+            json.WriteBoolean("subClassOfInShapesGraph", declared.SubClassOfInShapesGraph);
+            json.WriteNumber("position", binding.Position.Value);
+            if (binding.Classification is { } classification)
+            {
+                json.WriteString("maintainability", classification.Worst.ToString());
+                json.WriteStartArray("shapes");
+                foreach (ShapeClassification shape in classification.Shapes)
+                {
+                    json.WriteStartObject();
+                    json.WriteString("shape", shape.Shape.Kind == RdfTermKind.Iri ? Encoding.UTF8.GetString(shape.Shape.Lexical) : "_:" + Encoding.UTF8.GetString(shape.Shape.Lexical));
+                    json.WriteString("maintainability", shape.Maintainability.ToString());
+                    json.WriteStartArray("reasons");
+                    foreach (ClassificationReason reason in shape.Reasons)
+                    {
+                        json.WriteStartObject();
+                        json.WriteString("construct", reason.Construct);
+                        json.WriteString("section", reason.Section);
+                        json.WriteEndObject();
+                    }
+
+                    json.WriteEndArray();
+                    json.WriteEndObject();
+                }
+
+                json.WriteEndArray();
+            }
+
+            if (binding.Problems.Count > 0)
+            {
+                json.WriteStartArray("problems");
+                foreach (ShaclProblem problem in binding.Problems)
+                {
+                    json.WriteStringValue(problem.Message);
+                }
+
+                json.WriteEndArray();
+            }
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary>The route value naming a binding, its IRI percent-encoded.</summary>
+    internal const string BindingRouteValue = "binding";
 
     internal readonly record struct Triple(RdfTerm Subject, RdfTerm Predicate, RdfTerm Object);
 

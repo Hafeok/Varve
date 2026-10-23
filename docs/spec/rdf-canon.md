@@ -149,12 +149,33 @@ acceptable as public API where the harness's search was not.
 
 ## 6. Isomorphism, and where RDFC-1.0 falls short of it — a known limit
 
-Equal canonical forms mean isomorphic datasets, always: a canonical form is a
-relabelling of its dataset. The converse — isomorphic datasets have equal
-canonical forms, which §1 of the Recommendation and its §4.4.3 note rely on —
-**holds for datasets whose graph names are IRIs, and fails for some datasets
-with blank nodes as graph names.** Found by this milestone's isomorphism
-property (§7); the smallest instance is
+> **Corrected 2026-10-22.** This section said the converse below "holds for
+> datasets whose graph names are IRIs". It does not: §6.2 is a counterexample
+> with IRI graph names only, found by §7's property on CI. The claim is now
+> what RDFC-1.0 guarantees, and the class this package tests the converse
+> in (§6.3). ADR 0059 carries the amendment.
+
+**What RDFC-1.0 guarantees, for every dataset canonicalised within the work
+limit (§2):**
+
+- **Equal canonical forms mean isomorphic datasets.** A canonical form is a
+  relabelling of its dataset: §4.4.3's final steps replace each blank node
+  with the identifier issued to it, and nothing else.
+- **Determinism.** Every step is a function of its input, so the same quads
+  in the same order give the same bytes. For `RdfCanonicaliser` the order is
+  the order `Match` yields; two sources holding the same quads need not yield
+  them in the same order.
+
+**What it does not guarantee: that isomorphic datasets have equal canonical
+forms.** §1 of the Recommendation states it as the algorithm's purpose, and
+its §4.4.3 note relies on it, but it fails in two known cases. Both are the
+same mechanism: a hash omits something a quad says, two blank nodes that are
+not automorphic get equal hashes, and §4.4.3 step 5 orders the tied hash path
+results "by the hash in result", which leaves the order to the input.
+
+### 6.1 Blank nodes as graph names (#36)
+
+Found by the 5c isomorphism property (§7); the smallest instance is
 
 ```
 <http://example.org/a> <http://example.org/p> _:n1 _:n1 .
@@ -172,7 +193,10 @@ which is the object in one quad and the graph name in the other. §4.4.3 step
 5.4 orders the tied results "by the hash in result", which leaves the order
 to the input, so two relabellings of this dataset get two canonical forms.
 Only a quad with three blank nodes — subject, object and graph name — can
-hide the reference node's position this way.
+hide the reference node's position this way. Raised with the RDF & SPARQL
+Working Group under ADR 0038, D2: `spec-gap`;
+[#36](https://github.com/Hafeok/Varve/issues/36) tracks it and carries the
+report and, once filed, its URL.
 
 **It is the algorithm's, not this implementation's.** Over 300 random
 relabellings and quad orders of the dataset above (measured 2026-09-25):
@@ -189,22 +213,82 @@ order. dotNetRDF is stable on this dataset but disagrees with both from the
 first issued identifier; why is not investigated here, and nothing is
 concluded from it.
 
-**Known limit, stated for callers.** `RdfCanonicaliser` implements RDFC-1.0
-as specified, so for a dataset with blank nodes as graph names, equal
-canonical forms still mean isomorphic datasets, but isomorphic datasets may
-have different canonical forms. A caller comparing such datasets for
-isomorphism must not rely on canonical inequality. With IRI graph names only,
-the equivalence holds, and this package's property tests assert it (§7).
-Raised with the RDF & SPARQL Working Group under ADR 0038, D2: `spec-gap`;
-[#36](https://github.com/Hafeok/Varve/issues/36) tracks it and carries the
-report and, once filed, its URL.
+### 6.2 Blank nodes related across graphs (#142)
 
-The conformance harness compares `CONSTRUCT` results and update results by
-canonical equality and runs its backtracking check beside it as a
-cross-check (ADR 0059). No suite case compares a dataset with a blank graph
-name; if one did, a disagreement of this kind — canonical forms differ,
-backtracking finds a bijection — fails the case naming both verdicts, as
-ADR 0059 requires, and this section is where its explanation is.
+With IRI graph names only. Found by §7's property in the CI of #140 (seed
+`1Axba7DbGjr2`, reproduced on `main`, after many passing runs) and minimised
+to one dataset whose two quad orders get two canonical forms:
+
+```
+_:c <http://example.org/p> _:x <http://example.org/g> .
+_:d <http://example.org/p> _:x .
+_:c <http://example.org/p> _:y .
+_:d <http://example.org/p> _:y <http://example.org/g> .
+<http://example.org/a> <http://example.org/q> _:c .
+```
+
+`_:x` and `_:y` are not automorphic: `_:c`, the node `<a>` names, reaches
+`_:x` in `<g>` and `_:y` in the default graph. Their first-degree hashes are
+equal — each is the object of one quad in `<g>` and one in the default graph,
+with a `_:z` as subject (§4.6.3) — and so are their N-degree hashes, because
+a related hash (§4.7.3) is the position letter, the predicate and the related
+node's identifier: **the graph of the quad that relates the two nodes is not
+in it.** Both relate to `_:c` and to `_:d` as subjects of `<p>`; which of the
+two relating quads is in `<g>` is lost. Hash N-Degree Quads (§4.8.3) builds
+only from related hashes, so the tie reaches §4.4.3 step 5.
+
+It needs two blank nodes related to the same nodes through quads that differ
+only in their graphs. It is rare in random data: §7's generator met it once in
+many runs of 20,000 pairs.
+
+**It is the algorithm's, not this implementation's.** Over 300 random
+relabellings and quad orders of the dataset above (measured 2026-10-22; each
+implementation's own random sequence):
+
+| Implementation | Canonical forms | Split |
+|---|---:|---|
+| Varve (this package) | 2 | 155 / 145 |
+| pyoxigraph 0.5.11, `RDFC_1_0` | 2 — the same two, byte for byte | 151 / 149 |
+| dotNetRDF 3.5.2, `RdfCanonicalizer("SHA256")` | 2 — the same two, byte for byte | 157 / 143 |
+
+This is a second gap in the Recommendation, not a case of #36's: no graph name
+is blank, and no position is hidden. Tracked as
+[#142](https://github.com/Hafeok/Varve/issues/142), beside #36, under ADR
+0038, D2: `spec-gap`; #142 carries the report. `RdfCanonicaliser` stays on
+RDFC-1.0 as written and does not hash the graph itself.
+
+### 6.3 Where this package claims the converse
+
+**Where every quad that mentions a blank node is in one graph — the default
+graph or one IRI — and no graph name is blank.** There every relating quad has
+the same graph, so §6.2's omission loses nothing, and §6.1's quad cannot occur.
+It is a class in which no counterexample is known and neither mechanism
+applies. §7's property asserts the converse there by test, not by proof.
+
+**Known limit, stated for callers.** Outside that class, equal canonical forms
+still mean isomorphic datasets and the output is deterministic, but
+isomorphic datasets may have different canonical forms, and so may one
+dataset read in two orders. A caller comparing such datasets must not rely on
+canonical inequality, and a caller that needs stable bytes across sources must
+not rely on canonical form. The callers in this repository:
+
+- **The management plan** (`ManagementPlan.CanonicalLines`, the diff of
+  `apply --plan`) canonicalises one graph at a time, and management
+  declarations refuse blank nodes. Inside the class.
+- **The SHACL report digest** (ADR 0173, `ReportGraph`) canonicalises the
+  report as triples in the default graph, with every data blank node replaced
+  by a fixed IRI first. Inside the class.
+- **The conformance harness** (`DatasetComparison`, ADR 0059) can compare
+  datasets with blank nodes across named graphs. There a §6.2 split shows as
+  the comparisons disagreeing, which fails the case naming both verdicts: a
+  false failure, never a false pass, and this section is where its
+  explanation is. No suite case meets it today.
+- **Entity export** (#107, planned) promises RDFC-1.0 labels and
+  byte-deterministic fixtures of a boundary that can span named graphs.
+  Determinism from one source holds; equal bytes for the same entity read from
+  two sources, or a stale-fixture check by bytes, do not, outside the class.
+  Its design has to compare by isomorphism there or keep the boundary inside
+  the class.
 
 ## 7. Tests, and the gate
 
@@ -219,15 +303,17 @@ ADR 0059 requires, and this section is where its explanation is.
   on SHA-384 — and the ratchet.
 - **Isomorphism as a property.** For generated datasets and generated
   relabellings and reorderings of them, with one quad changed or removed in
-  some: without blank graph names, `iso(A, B) ⇔ canon(A) = canon(B)`, with
-  `iso` the harness's backtracking check — which is therefore also that
-  check's differential test; with blank graph names, `canon(A) = canon(B) ⇒
-  iso(A, B)`, and the pairs where RDFC-1.0 separates isomorphic datasets are
-  counted and reported. The generators count isomorphic and non-isomorphic
-  pairs, and both must occur. §6's counterexample is pinned as a test.
+  some: in §6.3's class, `iso(A, B) ⇔ canon(A) = canon(B)`, with `iso` the
+  harness's backtracking check — which is therefore also that check's
+  differential test; for any dataset, blank graph names and blank nodes
+  across graphs included, canonicalisation terminates under the default work
+  limit, gives the same bytes twice, and `canon(A) = canon(B) ⇒ iso(A, B)`,
+  and the pairs where RDFC-1.0 separates isomorphic datasets are counted and
+  reported. The generators count isomorphic and non-isomorphic pairs, and
+  both must occur. §6.1's and §6.2's counterexamples are pinned as tests.
 - **Idempotence**: `canon(canon(A)) = canon(A)`, reading the canonical form
-  back with `Varve.Turtle`, for datasets without blank graph names — with
-  them it inherits §6's shortfall, since the canonical form is a relabelling.
+  back with `Varve.Turtle`, in §6.3's class — outside it, it inherits §6's
+  shortfall, since the canonical form is a relabelling.
 - **The canonical form parses, and the writers agree**: every canonical
   output read back with `Varve.Turtle`'s N-Quads reader gives the dataset it
   was computed from, up to the issued relabelling; and writing what was read
@@ -245,4 +331,5 @@ ADR 0059 requires, and this section is where its explanation is.
    1.2's.~~ Decided: it does, and 1.2 wins where 1.1 differs (ADR 0061).
 3. ~~**§6's counterexample** — whether and how to raise it with the RDF &
    SPARQL Working Group.~~ Decided on the 5c report: raised, with the minimal
-   pair (#36), and recorded here as a known limit.
+   pair (#36), and recorded here as a known limit. §6.2's case is a
+   separate report, #142.

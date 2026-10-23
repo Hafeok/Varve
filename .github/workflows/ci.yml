@@ -302,6 +302,12 @@ jobs:
           --project tests/Varve.Json.Canonical.Tests/Varve.Json.Canonical.Tests.csproj
           --configuration Release
 
+      - name: Test Varve.Derivation
+        run: >
+          dotnet test
+          --project tests/Varve.Derivation.Tests/Varve.Derivation.Tests.csproj
+          --configuration Release
+
       - name: Test Varve.Events
         run: >
           dotnet test
@@ -360,6 +366,12 @@ jobs:
         run: >
           dotnet test
           --project tests/Varve.Shacl.Sparql.Tests/Varve.Shacl.Sparql.Tests.csproj
+          --configuration Release
+
+      - name: Test Varve.Shacl.Store
+        run: >
+          dotnet test
+          --project tests/Varve.Shacl.Store.Tests/Varve.Shacl.Store.Tests.csproj
           --configuration Release
 
       - name: Test Varve.Protocol

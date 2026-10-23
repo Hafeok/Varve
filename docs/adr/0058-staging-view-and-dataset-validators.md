@@ -155,3 +155,20 @@ A commit's host attachments (ADR [0165](0165-the-management-position-on-the-comm
 are recorded before the dataset's validators' and the request's.
 
 **The ledger.** The ruling is ADR 0165's `HostAttachmentsOnTheCommit`.
+
+## Amendment, 2026-10-20 — which shapes graph gates a dataset
+
+Filed by SHACL, part 2a (#138, under milestone 8, #13), unaccepted until the
+maintainer accepts it (ADR 0066).
+
+The question left to milestone 8 above — "recording *which shapes graph* gates
+a dataset, as data that travels with the log" — is answered by ADRs
+[0169](0169-commit-time-gating-under-a-shapes-binding.md) and
+[0170](0170-the-shapes-binding-vocabulary.md): a binding is a management
+declaration in the system dataset, applied at the management position a commit
+is authorised under (ADR 0165), and the shapes graph it names is a named graph
+of the gated dataset, in its log. The validator itself stays code, as decided
+above: `Varve.Shacl.Store`'s, in `DatasetOptions.Validators`.
+
+**The ledger.** The rulings are ADR 0170's `ShapesAreDataInTheDataset` and
+ADR 0169's `ShaclStoreAtLayerFive`.

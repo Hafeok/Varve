@@ -34,6 +34,8 @@
     <ProjectReference Include="../../src/Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
     <ProjectReference Include="../../src/Varve.Sparql.Store/Varve.Sparql.Store.csproj" />
     <ProjectReference Include="../../src/Varve.Shacl/Varve.Shacl.csproj" />
+    <ProjectReference Include="../../src/Varve.Shacl.Sparql/Varve.Shacl.Sparql.csproj" />
+    <ProjectReference Include="../../src/Varve.Shacl.Store/Varve.Shacl.Store.csproj" />
     <ProjectReference Include="../../src/Varve.Store.ObjectStorage/Varve.Store.ObjectStorage.csproj" />
     <ProjectReference Include="../../src/Varve.Store.Azure/Varve.Store.Azure.csproj" />
     <ProjectReference Include="../../src/Varve.Store.S3/Varve.Store.S3.csproj" />

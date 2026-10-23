@@ -13,16 +13,17 @@ namespace Varve.Shacl.Validation;
 /// <summary>An extension's constraint (ADR 0148) inside the shapes model: its results and failures pass through the contract's context.</summary>
 internal sealed class ExtensionConstraint : Constraint
 {
-    private readonly IShaclConstraint _inner;
-
     internal ExtensionConstraint(IShaclConstraint inner)
         : base(inner.Component)
     {
-        _inner = inner;
+        Inner = inner;
         Severity = inner.Severity;
     }
 
-    internal override RdfTerm? SourceConstraint => _inner.SourceConstraint;
+    internal override RdfTerm? SourceConstraint => Inner.SourceConstraint;
+
+    /// <summary>The extension's constraint, which may state what it reads (ADR 0171).</summary>
+    internal IShaclConstraint Inner { get; }
 
     [DesignDecision(typeof(ShaclHotPathScope.ExtensionsAreTheCallersCode), Scope = ExceptionScope.HotPath)]
     internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
@@ -56,6 +57,6 @@ internal sealed class ExtensionConstraint : Constraint
             },
             problem => throw new ShaclFailureException(problem),
             run.CancellationToken);
-        _inner.Validate(context);
+        Inner.Validate(context);
     }
 }
