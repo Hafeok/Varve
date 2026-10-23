@@ -100,6 +100,8 @@ internal static partial class ObjectStorageBench
 
             lines.Add(string.Create(CultureInfo.InvariantCulture, $"## As-of reads that seek, REC {size} on {kind}: {sets.Count} sets, the largest {Mib(largest.Bytes)} ({largest.From}, {largest.To}], generator output version {RecPortfolio.Version}"));
             lines.Add("");
+            lines.Add("| Read | A quad's lookup p50 / p99 | Its pages p50 / max | A subject's quads p50 / p99 | Their pages p50 / max |");
+            lines.Add("|---|---:|---:|---:|---:|");
 
             using (DatasetView head = dataset.Pin())
             {
