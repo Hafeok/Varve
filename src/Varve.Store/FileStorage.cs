@@ -65,6 +65,7 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
     private const string LockName = "LOCK";
     private const string OwnerName = "LOCK.owner";
     private const string IgnoreName = ".gitignore";
+    private const string Ignore = "*\n";
 
     private readonly IFileSystem _files;
     private readonly IDisposable _lease;
@@ -120,16 +121,18 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
         files.CreateDirectory(derived);
 
         IDisposable lease = files.TryLock(Path.Combine(derived, LockName))
-            ?? throw new DatasetLeasedException(directory, ReadOwner(files, Path.Combine(derived, OwnerName)));
+            ?? throw new DatasetLeasedException(directory, ReadSmallFile(files, Path.Combine(derived, OwnerName)));
 
         try
         {
             WriteSmallFile(files, Path.Combine(derived, OwnerName), Owner(options.Clock));
             string ignore = Path.Combine(derived, IgnoreName);
 
-            if (!files.FileExists(ignore))
+            // Rewritten whenever it is not what it should be, since it is not
+            // flushed: one a power loss tore is whole again at the next open.
+            if (ReadSmallFile(files, ignore) != Ignore)
             {
-                WriteSmallFile(files, ignore, "*\n");
+                WriteSmallFile(files, ignore, Ignore);
             }
 
             FileStorage storage = new(files, directory, lease);
@@ -157,7 +160,7 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
         + " on " + Environment.MachineName
         + ", since " + clock.GetUtcNow().ToString("O", CultureInfo.InvariantCulture);
 
-    private static string? ReadOwner(IFileSystem files, string path)
+    private static string? ReadSmallFile(IFileSystem files, string path)
     {
         try
         {
@@ -176,7 +179,13 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
         }
     }
 
-    // A small file replaced whole: written beside, flushed, renamed (ADR 0073).
+    // A small file replaced whole: written beside and renamed, so no reader
+    // sees it half written. Not flushed: neither small file is state. The
+    // owner is read only for a refusal's message (ADR 0075), and the ignore
+    // file is rewritten at open when it is not whole, so a power loss that
+    // tears either changes no answer. Flushing them cost two device flushes
+    // an open, which the object-storage backend pays at every open of its
+    // local cache (#126).
     private static void WriteSmallFile(IFileSystem files, string path, string text)
     {
         string temporary = path + TemporarySuffix;
@@ -189,7 +198,6 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
         using (IFileHandle handle = files.Open(temporary, FileOpen.CreateNew))
         {
             handle.WriteAsync(0, Encoding.UTF8.GetBytes(text), CancellationToken.None).AsTask().GetAwaiter().GetResult();
-            handle.Flush();
         }
 
         files.Move(temporary, path);
