@@ -99,6 +99,12 @@ public sealed partial class Dataset
         await DeleteUnnamedSetsAsync(poll: true, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Test seam: whether each extent set of the current state, oldest first, is sought inside its window (ADR 0177).</summary>
+    internal bool[] SeekableSetsForTests() => [.. SetsOf(_state).ConvertAll(s => s.Seekable)];
+
+    /// <summary>Test seam: the extent sets of the current state, oldest first, for the layout statistics of ADR 0177.</summary>
+    internal IReadOnlyList<ExtentSet> ExtentSetsForTests() => SetsOf(_state);
+
     /// <summary>Test seam: the names of the extent sets of the current state, oldest first.</summary>
     internal string[] SetNamesForTests() => [.. SetsOf(_state).ConvertAll(s => s.Name)];
 
@@ -676,7 +682,7 @@ public sealed partial class Dataset
 
             name = await WriteUnderFreshNameAsync(from, to, async attempt =>
             {
-                await ExtentSet.WriteAsync(_storage.Derived, attempt, Id, from, to, at.HeaderHash(), at.BlankCount, rows.RowsAsync, [terms], cancellationToken).ConfigureAwait(false);
+                await ExtentSet.WriteAsync(_storage.Derived, attempt, Id, from, to, at.HeaderHash(), at.BlankCount, rows.RowsAsync, [terms], cancellationToken, _options.ExtentVersion).ConfigureAwait(false);
                 await graphs.WriteAsync(_storage.Derived, ExtentSet.GraphsOf(attempt), Id, at.HeaderHash(), cancellationToken).ConfigureAwait(false);
                 await CommitIndexFormat.WriteAsync(_storage.Derived, ExtentSet.CommitsOf(attempt), Id, from, to, state.Commits.Entry, cancellationToken).ConfigureAwait(false);
             }).ConfigureAwait(false);
@@ -746,7 +752,7 @@ public sealed partial class Dataset
 
             string name = await WriteUnderFreshNameAsync(first.From, newest.To, async attempt =>
             {
-                await ExtentSet.WriteAsync(_storage.Derived, attempt, Id, first.From, newest.To, newest.ToHash, newest.BlankCount, Rows, terms, cancellationToken).ConfigureAwait(false);
+                await ExtentSet.WriteAsync(_storage.Derived, attempt, Id, first.From, newest.To, newest.ToHash, newest.BlankCount, Rows, terms, cancellationToken, _options.ExtentVersion).ConfigureAwait(false);
 
                 if (graphs is { } read)
                 {
@@ -907,7 +913,7 @@ public sealed partial class Dataset
 
     private (int First, int Count)? NextMerge(List<ExtentSet> sets)
     {
-        if (sets.Count < 2 || _storage is IExtentReaders { DeletesExtents: false })
+        if (sets.Count == 0 || _storage is IExtentReaders { DeletesExtents: false })
         {
             return null;
         }
@@ -919,8 +925,23 @@ public sealed partial class Dataset
             bytes[i] = sets[i].Bytes;
         }
 
-        (int First, int Count)? chosen = _options.ExtentMerges.Choose(bytes);
+        // When the policy has nothing to merge, the oldest set an earlier
+        // release wrote in format 4 is rewritten alone, as format 5: a merge
+        // of one input, a pure function of it like any (ADR 0178).
+        (int First, int Count)? chosen = (sets.Count >= 2 ? _options.ExtentMerges.Choose(bytes) : null) ?? Format4Set(sets);
         return chosen is { } c && _refusedMerges.Contains(sets[c.First].Name + "+" + c.Count.ToString(CultureInfo.InvariantCulture)) ? null : chosen;
+    }
+
+    // The oldest set not in the version this build writes, when this build writes 5.
+    private (int First, int Count)? Format4Set(List<ExtentSet> sets)
+    {
+        if (_options.ExtentVersion < DerivedFormat.ExtentVersion)
+        {
+            return null;
+        }
+
+        int k = sets.FindIndex(s => !s.Seekable);
+        return k < 0 ? null : (k, 1);
     }
 
     /// <summary>
@@ -1241,11 +1262,15 @@ public sealed partial class Dataset
 
     /// <summary>
     /// The view of a position strictly inside a set's window: the sets before
-    /// it, and the set narrowed to <c>(From, position]</c> as a run (ADR 0138),
-    /// written beside the projection's runs and deleted once the view lets go.
-    /// The set's whole dictionary is read through the position's counters.
+    /// it, and the set read at the position. A format-5 set is sought there
+    /// (ADR 0177): nothing is written, and a read costs its matches. A
+    /// format-4 set, written by an earlier release and not yet rewritten by
+    /// maintenance, is narrowed to <c>(From, position]</c> as a run (ADR
+    /// 0138), written beside the projection's runs and deleted once the view
+    /// lets go. The set's whole dictionary is read through the position's
+    /// counters.
     /// </summary>
-    private async ValueTask<(Run[] Index, Run[] Terms, Action Release)?> InsideSetAsync(State state, long position, CancellationToken cancellationToken)
+    private async ValueTask<(Run[] Index, ExtentSeek? Seek, Run[] Terms, Action Release)?> InsideSetAsync(State state, long position, CancellationToken cancellationToken)
     {
         while (true)
         {
@@ -1268,6 +1293,12 @@ public sealed partial class Dataset
             try
             {
                 ExtentSet holding = sets[k];
+
+                if (holding.Seekable)
+                {
+                    return (chain.Runs[..k], new ExtentSeek(holding, position), chain.Runs, chain.Release);
+                }
+
                 BlobName name = new(RunPrefix + "asof-" + position.ToString("D20", CultureInfo.InvariantCulture) + "." + Interlocked.Increment(ref _runSequence).ToString(CultureInfo.InvariantCulture));
 
                 ValueTask<IKeySource> Section(int section, CancellationToken token) =>
@@ -1292,7 +1323,7 @@ public sealed partial class Dataset
                     chain.Release();
                 }
 
-                return (index, chain.Runs, Release);
+                return (index, null, chain.Runs, Release);
             }
             catch
             {

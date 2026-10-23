@@ -222,6 +222,15 @@ raises it for the release gate (#129) and for hunting:
 | `ObjectReaderScheduleTests`: over generated schedules of readers attaching, pinning, crashing, restarting and being forgotten, a writer holding several versions, and a second writer taking the epoch over, no extent a live announced version names is deleted, and every unnamed set goes once no record holds it | 60 schedules, about 4 s | `VARVE_READER_SCHEDULES=<n>` (1,200 ran clean at development) |
 | `ObjectReaderScheduleTests`: a fault before and after every write and delete the maintenance workload makes, under `derived/` and `readers/` | every injection point checked for whole catalogs; every eighth also read at every position; about 20 s | `VARVE_EXTENT_FAULTS_FULL=1`: every point read in full, about 30 s |
 
+#133 (ADRs 0177, 0178) adds the seek's properties, under the same variable:
+
+| Test | Land gate | Release gate |
+|---|---|---|
+| `ExtentSeekTests`: over generated histories with retractions and any schedule of checkpoints, drops and merges, every view at every position equals the model by scan, every quad any view holds is looked up in every view and found where the scan found it, each subject's estimate is exact and its scan's count, and no read writes a narrowed run | 40 schedules, about 2 s | `VARVE_EXTENT_SCHEDULES=<n>` |
+| `ExtentSeekTests`: format-4 sets are narrowed, then rewritten by maintenance as format 5, equal at every position throughout | 20 histories, about 2 s | — |
+| `ExtentSeekTests`: a point lookup inside a set of 16,000 quads reads no more bytes than inside one of 2,000; a count over many of a sought set's rows is estimated and its scan exact | about 3 s and 2 s | — |
+| `ExtentLayoutStatistics`: the layout measurements of ADR 0177, over a dataset `--asof-seek file M` kept | does nothing | `VARVE_SEEK_LAYOUT_DATASET=<directory>` |
+
 All of them run in memory against `MemoryObjectStore`, so the Windows store
 step pays only their in-process cost. The follower that keeps serving across
 merges and deletions runs against Azurite and RustFS as well, in the

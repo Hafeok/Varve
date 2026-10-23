@@ -17,6 +17,13 @@ Extent maintenance of #110, unaccepted until the maintainer accepts it
 - its cold start reads the shared commit index of
   [ADR 0161](0161-the-shared-commit-index.md).
 
+**Amended 2026-10-23** (ADR 0068), by #133, unaccepted until the maintainer
+accepts it (ADR 0066): an extent is written in derived format 5, its
+positions in columns beside its keys and its rows within a key section
+([ADR 0177](0177-seek-dont-narrow-intervals-beside-the-key.md)); a format-4
+set is read, and rewritten by maintenance
+([ADR 0178](0178-the-format-5-upgrade-and-the-set-cap.md)).
+
 Builds on [ADR 0138](0138-validity-intervals-in-the-default-projection.md),
 whose sets this ADR lays out, and on ADR 0140's T7. **Amends**
 [ADR 0071](0071-synchronous-reads-over-asynchronous-storage.md) (a blob read
@@ -241,3 +248,26 @@ maintainer accepts it (ADR 0066). No byte of derived format 4 changes.
 - **A follower writes its reader record** under `readers/`, and nothing else
   (ADR 0134, amended). "Followers read it and never write it" still holds of
   the catalog.
+
+## Amendment, 2026-10-23 — derived format 5 for extents
+
+Filed by #133, unaccepted until the maintainer accepts it (ADR 0066).
+
+- **An extent is written as derived version 5**
+  ([ADR 0177](0177-seek-dont-narrow-intervals-beside-the-key.md)). Its two
+  key sections are format 4's. Its positions are fixed-width columns aligned
+  with them — one distance per open and per closing key — and its rows within
+  are a thirteenth key section, with a column of two distances a row. Its
+  directory gains a seventeenth word, the width. Storage format §7.5.
+- **Nothing else of a set changes.** The dictionary extent, the
+  graph-version index, the commit index and the catalog are still written as
+  version 4, so the section "An extent set" stands for every blob but the six
+  order extents.
+- **Format 4 is still read**, and narrowed inside its window, until
+  maintenance rewrites the set as format 5
+  ([ADR 0178](0178-the-format-5-upgrade-and-the-set-cap.md)). "Format 4 is
+  not read forever" stands, and is now exercised: the rewrite is a rebuild
+  from the set's rows, never a migration of its bytes.
+- **The page cache** is unchanged. A read inside a set's window now fetches
+  the pages its keys' blocks and column entries are on, not every page of the
+  set.

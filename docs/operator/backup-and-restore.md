@@ -68,8 +68,9 @@ merges sets after each checkpoint, by the policy of ADR 0159:
   at most `FanOut` times their smallest merges into one.
 - **Pressure.** Past the bound, the adjacent run with the fewest bytes merges.
 - **The cap.** A set past half of `MaxSetBytes` is not merged again, and no
-  merge makes a set past it. An as-of read inside a set narrows that set, so
-  the cap bounds its cost.
+  merge makes a set past it. It bounds one merge's work and the largest blob
+  an upload carries, not reads: an as-of read inside a set seeks it, at the
+  cost of its matches (ADR 0177).
 
 At the defaults (`Varve:Store:ExtentMerges`: `FanOut` 4, `MaxSetBytes`
 256 MiB, see [Configure](configure.md)) a chain holds at most 15 sets below
@@ -82,13 +83,24 @@ half the cap, plus the capped ones. Measured on REC size M (5,049,846 quads,
 | Head: a quad's lookup, p50 / p99 | 59 / 124 µs | 12 / 38 µs |
 | Head: one subject's quads, p50 / p99 | 9.0 / 41 µs | 4.6 / 13 µs |
 | Head: an exact count, p50 / p99 | 38 / 87 µs | 15 / 31 µs |
-| As-of inside the largest set | 2.4 s (183 MiB) | 2.7 s (211 MiB) |
+| As-of inside the largest set, before #133 (narrowing) | 2.4 s (183 MiB) | 2.7 s (211 MiB) |
+| As-of inside the largest set, a quad's lookup, since #133 | — | 4.4 / 15.0 µs (211 MiB) |
 | As-of at a set's end | < 0.1 ms | < 0.1 ms |
 
 **Write amplification** was 1.77: merges rewrote 746 MB for the 420 MB the
-checkpoints wrote. A higher `FanOut` rewrites less and keeps more sets; a
-smaller `MaxSetBytes` makes an as-of read inside a set cheaper and keeps more
-sets. `CheckpointPolicy.Keep` still drops the oldest sets, merging each into
+checkpoints wrote; with format-5 extents (#133), 1.86, for 3.5% smaller
+extents. A higher `FanOut` rewrites less and keeps more sets.
+
+**Sizing `MaxSetBytes`.** The cap no longer bounds what an as-of read costs,
+so it can be raised; at REC M it should not be, since at 1 GiB the chain
+held 7 sets against 5 and head lookups were slower (21 against 15 µs at
+p50). Raise it when the dataset is many times the cap: the sets past half
+of it, about `2 × total / MaxSetBytes`, are never merged again, and every
+read of the present merges one run each, so a 40 GiB dataset at 256 MiB
+keeps over 300 of them. Between 1 and 2 GiB keeps that count in the tens,
+at the cost of longer merges and more bytes rewritten. An order extent is
+about a seventh of its set, far below an object store's single upload
+(5,000 MiB on Azure, 5 GiB on S3), which bounds the cap from above. `CheckpointPolicy.Keep` still drops the oldest sets, merging each into
 the next, at no cost to any answer.
 
 ### Readers and retained bytes

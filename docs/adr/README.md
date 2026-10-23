@@ -357,6 +357,15 @@ Filed by milestone Extent maintenance ([#110](https://github.com/Hafeok/Varve/is
 | [0161](0161-the-shared-commit-index.md) | The shared commit index: each extent set carries its window's commit index | Filed unaccepted (Extent maintenance, #110) |
 | [0162](0162-storage-operations-and-the-readers-command.md) | Storage operations: `varve storage`, the readers command, readiness, and the operator guide | Filed unaccepted (Extent maintenance, #110) |
 
+## As-of reads that seek (#133)
+
+Filed by [#133](https://github.com/Hafeok/Varve/issues/133), in 1.0 ([#15](https://github.com/Hafeok/Varve/issues/15)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0177. Amended by it, likewise unaccepted: 0049 (an as-of view inside a set may estimate); 0072 (derived version 5, for extents); 0138 ("As-of reads": a format-5 set is sought); 0139 (an extent is written in format 5); 0159 (the cap bounds merges, not reads).
+
+| # | Title | Status |
+|---:|---|---|
+| [0177](0177-seek-dont-narrow-intervals-beside-the-key.md) | Seek, don't narrow: an extent's intervals beside its keys, derived format 5 | Filed unaccepted (#133) |
+| [0178](0178-the-format-5-upgrade-and-the-set-cap.md) | The format-5 upgrade, mixed-version instances, and the set cap | Filed unaccepted (#133) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |

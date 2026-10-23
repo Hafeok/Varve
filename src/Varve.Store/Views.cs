@@ -365,7 +365,12 @@ public sealed class DatasetView : IQuadSource, IDisposable
     /// <remarks>
     /// Exact, and cheap: the sum over the projection's runs of a prefix range
     /// per run, at <c>O(runs × log n)</c> (ADR 0049). An as-of read adds one
-    /// lookup per quad of the log tail it overlays.
+    /// lookup per quad of the log tail it overlays. An as-of view strictly
+    /// inside an extent set's window reads that set sought (ADR 0177): its
+    /// rows in the pattern's range are classified one by one while they are
+    /// at most 4,096, and the estimate stays exact; past that the set adds its
+    /// count at its end — asserted keys in the range minus retracted ones —
+    /// and the estimate says it is estimated.
     /// </remarks>
     public CardinalityEstimate Estimate(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph)
     {

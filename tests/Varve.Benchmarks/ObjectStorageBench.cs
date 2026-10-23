@@ -635,6 +635,9 @@ internal static partial class ObjectStorageBench
 
         internal CountingStore? Counter { get; }
 
+        /// <summary>The directory a file target's dataset is in, kept after the run.</summary>
+        internal string DatasetDirectory => Path.Combine(_root, "dataset");
+
         internal static async Task<Target> CreateAsync(string kind)
         {
             string run = "b" + Guid.NewGuid().ToString("N")[..20];
@@ -685,7 +688,7 @@ internal static partial class ObjectStorageBench
         }
 
         /// <summary>The dataset's storage, opened for write; a fresh cache directory when asked, as a new instance has.</summary>
-        internal async Task<IStorage> OpenAsync(bool fresh = false, string prefix = "dataset/")
+        internal async Task<IStorage> OpenAsync(bool fresh = false, string prefix = "dataset/", long? cacheBytes = null)
         {
             if (Counter is null)
             {
@@ -699,6 +702,7 @@ internal static partial class ObjectStorageBench
                 Store = Counter,
                 Prefix = new ObjectName(prefix),
                 Cache = new CacheDirectory(cache),
+                CacheBytes = new ByteCount(cacheBytes ?? (8L << 30)),
                 Instance = new WriterInstance("bench-" + _kind),
                 Clock = TimeProvider.System,
                 ProbeRandomness = BenchRandomness.Instance,

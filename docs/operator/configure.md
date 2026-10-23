@@ -280,7 +280,7 @@ checkpoints are taken; see [Back up and restore](backup-and-restore.md#checkpoin
 |---|---|---|
 | `Store:ExtentMerges:Enabled` | `true` | whether the writer merges adjacent extent sets as maintenance; a merge never changes a result |
 | `Store:ExtentMerges:FanOut` | `4` | how many adjacent sets of one size merge into one: 2 to 16. Higher keeps fewer rewrites and more sets |
-| `Store:ExtentMerges:MaxSetBytes` | 256 MiB | no merge makes a set larger, and a set past half of it is not merged again; at least 1 MiB. It bounds what an as-of read inside a set costs |
+| `Store:ExtentMerges:MaxSetBytes` | 256 MiB | no merge makes a set larger, and a set past half of it is not merged again; at least 1 MiB. It bounds one merge's work and the largest blob uploaded; an as-of read inside a set costs its matches whatever the set's size (ADR 0177). See [Back up and restore](backup-and-restore.md#merges) for when to raise it |
 
 ## Domain events — `Events` (ADRs 0143, 0144)
 

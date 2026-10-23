@@ -7,13 +7,35 @@
   Varve opens any dataset an earlier one wrote.
 - **`derived/` carries its own version and is a cache.** Each build states
   the derived versions it reads; a file of another version is a cache miss
-  and is rebuilt from the log (ADR 0072). This build writes **derived
-  format 3** (ADR 0109: runs carry a term filter) and reads **2 and 3**: a
-  format-2 dataset opens as it did and migrates as maintenance rewrites its
-  runs, with no step for the operator.
+  and is rebuilt from the log (ADR 0072). This build writes extents in
+  **derived format 5** (ADR 0177: a read inside a set seeks it) and every
+  other derived file in format 4, and reads 2 to 4, and 5 for an extent. A
+  dataset whose sets an earlier build wrote in format 4 opens as it was:
+  reads inside those sets narrow them, as before, until maintenance rewrites
+  each, oldest first, when no merge is due (ADR 0178). There is no step for
+  the operator; with `Store:ExtentMerges:Enabled` false nothing is rewritten.
 - **An older build does not read a newer derived format**: a downgrade sees
-  the format-3 runs as cache misses and rebuilds them from the log. Nothing
-  is lost; the first open after a downgrade replays.
+  the format-5 extents as cache misses, so its chain ends at the first such
+  set and it reads the log from there. Nothing is lost; the first open after
+  a downgrade replays.
+
+### Instances on one object store
+
+A fleet's followers and its writer may run different builds during a
+rolling upgrade (ADR 0178):
+
+- **Upgrade the followers first, then the writer.** A follower of this
+  build reads format-4 and format-5 sets alike, so it serves whatever the
+  writer writes.
+- **A follower of an earlier build, `v0.1.0-preview.12` or before, behind a
+  writer of this build**, still serves every position correctly: the catalog
+  and the dictionary extents are still format 4, so it attaches, but its
+  chain ends at the first format-5 set and it reads the log above that
+  set's start. Its opens and as-of reads cost the log's distance there until
+  it is upgraded. It never fails and never returns a wrong result.
+- **A writer of an earlier build** finds the format-5 sets cache misses and
+  writes its next checkpoint from the log; the sets it no longer names are
+  deleted by the rule of reader records (ADR 0160), as any unnamed set is.
 
 A build that cannot read a `log/` refuses with a message naming the version
 found and the versions it reads; that is a defect to report, not a case

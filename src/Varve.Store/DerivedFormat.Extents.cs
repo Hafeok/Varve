@@ -643,6 +643,7 @@ internal sealed class ExtentRows : RowPipe
     {
         _openKeys.Release();
         _closeKeys.Release();
+        _within.Release();
     }
 }
 
@@ -668,32 +669,47 @@ internal sealed class RowKeySource(IRowSource rows) : IKeySource, IDisposable
 }
 
 /// <summary>
-/// What an extent holds beyond a run's sections (ADR 0139, storage format
-/// §7.5): its order, the key range of every row, and where its open rows'
-/// positions, its closing rows' positions and its rows within are.
+/// What an extent holds beyond a run's sections (ADR 0139, ADR 0177, storage
+/// format §7.5): its order, the key range of every row, and where its open
+/// rows' positions, its closing rows' positions and its rows within are.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The sixteen directory words after a run's tail: the order; the smallest
-/// and the largest key (four words each); the open positions' offset and
-/// length; the closing positions' offset and length; the within rows'
-/// offset, length and count.
+/// The directory words after a run's tail: the order; the smallest and the
+/// largest key (four words each); the open positions' offset and length; the
+/// closing positions' offset and length; the within rows' offset, length and
+/// count; and, from version 5, the width of a position.
 /// </para>
 /// <para>
-/// A position is ULEB128 of its distance after the window's start, one per
-/// open key and one per closing key, in key order. A row within is its key's
-/// 32 bytes, then ULEB128 of the asserting position's distance after the
-/// window's start and of the retracting position's, each 0 for the window's
-/// boundary.
+/// Version 4: a position is ULEB128 of its distance after the window's start,
+/// one per open key and one per closing key, in key order, and a row within
+/// is its key's 32 bytes, then ULEB128 of the asserting position's distance
+/// after the window's start and of the retracting position's, each 0 for the
+/// window's boundary. Nothing in them is reachable but by reading from the
+/// start, so an as-of read inside the window narrows the whole extent.
+/// </para>
+/// <para>
+/// Version 5 (ADR 0177): the same distances, each in <see cref="Width"/>
+/// bytes little-endian, so the <c>i</c>th key's is at <c>i × width</c> — a
+/// column beside its key section. The rows within are a thirteenth key
+/// section, their keys in blocks with their fences in the directory, and
+/// their column holds two distances a row. A read reaches a key's intervals
+/// from the key, and a head read, which reads the two key sections a run
+/// has, never touches a column.
 /// </para>
 /// </remarks>
 internal sealed class ExtentInfo
 {
+    /// <summary>The words of a format-4 extent's tail.</summary>
     internal const int TailWords = 16;
 
-    private ExtentInfo(IReadableBlob blob, long windowFrom, IndexOrder order, QuadKey min, QuadKey max, long openAt, long openLength, long closeAt, long closeLength, long withinAt, long withinLength, long withinCount)
+    /// <summary>The words of a format-5 extent's tail: format 4's and the width.</summary>
+    internal const int TailWords5 = 17;
+
+    private ExtentInfo(IReadableBlob blob, ushort version, long windowFrom, IndexOrder order, QuadKey min, QuadKey max, long openAt, long openLength, long closeAt, long closeLength, long withinAt, long withinLength, long withinCount, int width, KeySection? withinKeys)
     {
         Blob = blob;
+        Version = version;
         WindowFrom = windowFrom;
         Order = order;
         Min = min;
@@ -705,11 +721,22 @@ internal sealed class ExtentInfo
         WithinAt = withinAt;
         WithinLength = withinLength;
         WithinCount = withinCount;
+        Width = width;
+        WithinKeys = withinKeys;
     }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal IReadableBlob Blob { get; }
 
+    /// <summary>The extent's derived version: 4, narrowed to be read inside its window, or 5, sought (ADR 0177).</summary>
+    internal ushort Version { get; }
+
+    /// <summary>Whether a read inside the window can reach a key's intervals from the key (ADR 0177).</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal bool Seekable => WithinKeys is not null;
+
     /// <summary>The position the window starts after.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal long WindowFrom { get; }
 
     internal IndexOrder Order { get; }
@@ -719,23 +746,51 @@ internal sealed class ExtentInfo
 
     internal QuadKey Max { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal long OpenAt { get; }
 
     internal long OpenLength { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal long CloseAt { get; }
 
     internal long CloseLength { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal long WithinAt { get; }
 
     internal long WithinLength { get; }
 
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal long WithinCount { get; }
 
-    internal static byte[] Words(IndexOrder order, QuadKey min, QuadKey max, long openAt, long openLength, long closeAt, long closeLength, long withinAt, long withinLength, long withinCount)
+    /// <summary>The bytes of one distance in a format-5 column; 0 in format 4, whose distances are ULEB128.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal int Width { get; }
+
+    /// <summary>The keys of the rows within, one a row, in a format-5 extent; null in format 4.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal KeySection? WithinKeys { get; }
+
+    /// <summary>The words an extent of this version adds to a run's tail.</summary>
+    internal static int WordsOf(ushort version) => version >= DerivedFormat.ExtentVersion ? TailWords5 : TailWords;
+
+    /// <summary>The bytes a distance takes in a window of this many positions: enough for the largest, at least one.</summary>
+    internal static int WidthFor(long distance)
     {
-        byte[] words = new byte[TailWords * 8];
+        int width = 1;
+
+        while (width < 8 && (ulong)distance >> (width * 8) != 0)
+        {
+            width++;
+        }
+
+        return width;
+    }
+
+    internal static byte[] Words(IndexOrder order, QuadKey min, QuadKey max, long openAt, long openLength, long closeAt, long closeLength, long withinAt, long withinLength, long withinCount, int width)
+    {
+        byte[] words = new byte[(width == 0 ? TailWords : TailWords5) * 8];
         Span<byte> span = words;
         BinaryPrimitives.WriteUInt64LittleEndian(span, (ulong)order);
         WriteKey(span[8..], min);
@@ -747,15 +802,22 @@ internal sealed class ExtentInfo
         BinaryPrimitives.WriteUInt64LittleEndian(span[104..], (ulong)withinAt);
         BinaryPrimitives.WriteUInt64LittleEndian(span[112..], (ulong)withinLength);
         BinaryPrimitives.WriteUInt64LittleEndian(span[120..], (ulong)withinCount);
+
+        if (width != 0)
+        {
+            BinaryPrimitives.WriteUInt64LittleEndian(span[128..], (ulong)width);
+        }
+
         return words;
     }
 
     /// <summary>
     /// The extent's own words, checked against where the run's sections end
-    /// and the directory begins; null when they do not describe sections that
-    /// fill the space between.
+    /// and the directory begins, and in version 5 against its key sections'
+    /// counts; null when they do not describe sections that fill the space
+    /// between.
     /// </summary>
-    internal static ExtentInfo? TryRead(IReadableBlob blob, ReadOnlySpan<byte> words, DerivedHeader header, long sectionsAt)
+    internal static ExtentInfo? TryRead(IReadableBlob blob, ReadOnlySpan<byte> words, DerivedHeader header, long sectionsAt, KeySection? withinKeys, long openCount, long closeCount)
     {
         ulong order = BinaryPrimitives.ReadUInt64LittleEndian(words);
         long openAt = (long)BinaryPrimitives.ReadUInt64LittleEndian(words[72..]);
@@ -771,23 +833,81 @@ internal sealed class ExtentInfo
             || openLength < 0 || closeLength < 0 || withinLength < 0 || withinCount < 0
             || closeAt != openAt + openLength
             || withinAt != closeAt + closeLength
-            || withinAt + withinLength != header.DirectoryOffset
-            || withinCount > withinLength / (QuadKey.Size + 2))
+            || withinAt + withinLength != header.DirectoryOffset)
         {
             return null;
         }
 
-        return new ExtentInfo(blob, header.From, (IndexOrder)order, ReadKey(words[8..]), ReadKey(words[40..]), openAt, openLength, closeAt, closeLength, withinAt, withinLength, withinCount);
+        int width = 0;
+
+        if (header.Version >= DerivedFormat.ExtentVersion)
+        {
+            // Every column holds exactly its keys' distances (ADR 0177).
+            ulong stored = BinaryPrimitives.ReadUInt64LittleEndian(words[128..]);
+
+            if (withinKeys is null || stored is < 1 or > 8)
+            {
+                return null;
+            }
+
+            width = (int)stored;
+
+            if (openLength != openCount * width
+                || closeLength != closeCount * width
+                || withinCount != withinKeys.Count
+                || withinLength != withinCount * 2 * width)
+            {
+                return null;
+            }
+        }
+        else if (withinCount > withinLength / (QuadKey.Size + 2))
+        {
+            return null;
+        }
+
+        return new ExtentInfo(blob, header.Version, header.From, (IndexOrder)order, ReadKey(words[8..]), ReadKey(words[40..]), openAt, openLength, closeAt, closeLength, withinAt, withinLength, withinCount, width, width == 0 ? null : withinKeys);
     }
 
     /// <summary>The open rows' asserting positions, in key order.</summary>
-    internal PositionReader OpenPositions() => new(Blob, OpenAt, OpenLength, WindowFrom);
+    internal PositionReader OpenPositions() => new(Blob, OpenAt, OpenLength, WindowFrom, Width);
 
     /// <summary>The closing rows' retracting positions, in key order.</summary>
-    internal PositionReader ClosePositions() => new(Blob, CloseAt, CloseLength, WindowFrom);
+    internal PositionReader ClosePositions() => new(Blob, CloseAt, CloseLength, WindowFrom, Width);
 
     /// <summary>The rows within, in order.</summary>
-    internal WithinReader Within() => new(Blob, WithinAt, WithinLength, WithinCount, WindowFrom);
+    internal WithinReader Within() => new(this);
+
+    /// <summary>
+    /// A distance of a format-5 column (ADR 0177): the <paramref name="index"/>th
+    /// of the column at <paramref name="at"/>, one small read.
+    /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal long Distance(long at, long index)
+    {
+        Span<byte> bytes = stackalloc byte[8];
+        Span<byte> read = bytes[..Width];
+
+        if (Blob.Read(new ByteOffset(at + (index * Width)), read) != read.Length)
+        {
+            throw new IOException("An extent is shorter than its directory says.");
+        }
+
+        return ColumnValue(read);
+    }
+
+    /// <summary>A distance of <c>bytes.Length</c> bytes, little-endian.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal static long ColumnValue(ReadOnlySpan<byte> bytes)
+    {
+        ulong value = 0;
+
+        for (int i = bytes.Length - 1; i >= 0; i--)
+        {
+            value = (value << 8) | bytes[i];
+        }
+
+        return (long)value;
+    }
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static void WriteKey(Span<byte> span, in QuadKey key)
@@ -811,7 +931,7 @@ internal class ForwardReader
 {
     private readonly IReadableBlob _blob;
     private readonly long _end;
-    private readonly byte[] _buffer = new byte[1 << 14];
+    private readonly byte[] _buffer;
     private long _next;
     private int _filled;
     private int _at;
@@ -821,6 +941,9 @@ internal class ForwardReader
         _blob = blob;
         _next = at;
         _end = at + length;
+
+        // A buffer no larger than what it reads: a seek's few rows read a few bytes (ADR 0177).
+        _buffer = new byte[(int)Math.Clamp(length, 1, 1 << 14)];
     }
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
@@ -863,45 +986,89 @@ internal class ForwardReader
         return 0;
     }
 
+    /// <summary>A distance of a format-5 column: <paramref name="width"/> bytes, little-endian (ADR 0177).</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    protected long Fixed(int width)
+    {
+        ulong value = 0;
+
+        for (int i = 0; i < width; i++)
+        {
+            value |= (ulong)Byte() << (i * 8);
+        }
+
+        return (long)value;
+    }
+
+    /// <summary>A distance in either version: ULEB128 in 4, <paramref name="width"/> bytes in 5.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    protected long Distance(int width) => width == 0 ? Uleb() : Fixed(width);
+
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private static void ThrowShort() => throw new IOException("An extent is shorter than its directory says.");
 }
 
 /// <summary>Positions of an extent's open or closing rows, in key order.</summary>
-internal sealed class PositionReader(IReadableBlob blob, long at, long length, long windowFrom) : ForwardReader(blob, at, length)
+internal sealed class PositionReader(IReadableBlob blob, long at, long length, long windowFrom, int width) : ForwardReader(blob, at, length)
 {
     /// <summary>The next position; the directory's counts make one due for every key read.</summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
-    internal long Next() => windowFrom + Uleb();
+    internal long Next() => windowFrom + Distance(width);
 }
 
-/// <summary>An extent's rows within, in order.</summary>
-internal sealed class WithinReader(IReadableBlob blob, long at, long length, long count, long windowFrom) : ForwardReader(blob, at, length)
+/// <summary>An extent's rows within, in order: in format 4 one stream, in format 5 a key section and its column.</summary>
+internal sealed class WithinReader : ForwardReader
 {
+    private readonly ExtentInfo _info;
+    private readonly SectionReader? _keys;
     private long _read;
+
+    internal WithinReader(ExtentInfo info)
+        : base(info.Blob, info.WithinAt, info.WithinLength)
+    {
+        _info = info;
+        _keys = info.WithinKeys is { } keys ? new SectionReader(keys) : null;
+    }
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool TryNext(out ExtentRow row)
     {
-        if (_read == count)
+        if (_read == _info.WithinCount)
         {
+            _keys?.Release();
             row = default;
             return false;
         }
 
-        Span<byte> key = stackalloc byte[QuadKey.Size];
+        QuadKey key;
 
-        for (int i = 0; i < key.Length; i++)
+        if (_keys is not null)
         {
-            key[i] = Byte();
+            key = _keys.Current();
+            _keys.Advance();
+        }
+        else
+        {
+            Span<byte> bytes = stackalloc byte[QuadKey.Size];
+
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                bytes[i] = Byte();
+            }
+
+            key = ExtentInfo.ReadKey(bytes);
         }
 
-        long from = Uleb();
-        long to = Uleb();
+        long from = Distance(_info.Width);
+        long to = Distance(_info.Width);
         _read++;
-        row = new ExtentRow(ExtentInfo.ReadKey(key), from == 0 ? 0 : windowFrom + from, to == 0 ? 0 : windowFrom + to, ExtentSection.Within);
+        long windowFrom = _info.WindowFrom;
+        row = new ExtentRow(key, from == 0 ? 0 : windowFrom + from, to == 0 ? 0 : windowFrom + to, ExtentSection.Within);
         return true;
     }
+
+    /// <summary>Returns the key block buffer, when the rows stop being read before their end.</summary>
+    internal void Release() => _keys?.Release();
 }
 
 internal static partial class DerivedFormat
@@ -912,7 +1079,9 @@ internal static partial class DerivedFormat
     /// section — so the extent reads as a run, an exact delta against the
     /// extents before it — then their positions and the rows within. The
     /// rows of each section are made twice, keys then positions, so nothing
-    /// the size of the extent is held.
+    /// the size of the extent is held. In format 5 (ADR 0177) the rows
+    /// within's keys are a thirteenth key section, and every position is a
+    /// fixed-width column beside its keys.
     /// </summary>
     internal static async ValueTask WriteExtentAsync(
         IDerivedStore store,
@@ -923,9 +1092,13 @@ internal static partial class DerivedFormat
         long to,
         byte[] toHash,
         Func<long, CancellationToken, ValueTask<IRowSource>> rows,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ushort version = ExtentVersion)
     {
         KeyRange range = new();
+        int width = version >= ExtentVersion ? ExtentInfo.WidthFor(to - from) : 0;
+        long openCount = 0;
+        long closeCount = 0;
 
         async ValueTask<IKeySource> Section(int section, CancellationToken token)
         {
@@ -939,60 +1112,31 @@ internal static partial class DerivedFormat
                 return new RangeKeys(await rows(ExtentSection.Close, token).ConfigureAwait(false), range);
             }
 
+            if (section == Sections)
+            {
+                return new RangeKeys(await rows(ExtentSection.Within, token).ConfigureAwait(false), range);
+            }
+
             return new SectionSource(KeySection.Empty);
         }
 
         async ValueTask<(long End, byte[] Words)> Extra(IBlobWriter writer, long offset, CancellationToken token)
         {
             long openAt = offset;
-            long openLength = await WritePositionsAsync(writer, await rows(ExtentSection.Open, token).ConfigureAwait(false), from, open: true, token).ConfigureAwait(false);
+            long openLength;
+            (openLength, openCount) = await WritePositionsAsync(writer, await rows(ExtentSection.Open, token).ConfigureAwait(false), from, open: true, width, token).ConfigureAwait(false);
             long closeAt = openAt + openLength;
-            long closeLength = await WritePositionsAsync(writer, await rows(ExtentSection.Close, token).ConfigureAwait(false), from, open: false, token).ConfigureAwait(false);
+            long closeLength;
+            (closeLength, closeCount) = await WritePositionsAsync(writer, await rows(ExtentSection.Close, token).ConfigureAwait(false), from, open: false, width, token).ConfigureAwait(false);
             long withinAt = closeAt + closeLength;
-            (long withinLength, long withinCount) = await WriteWithinAsync(writer, await rows(ExtentSection.Within, token).ConfigureAwait(false), from, range, token).ConfigureAwait(false);
-            return (withinAt + withinLength, ExtentInfo.Words(order, range.Min, range.Max, openAt, openLength, closeAt, closeLength, withinAt, withinLength, withinCount));
+            (long withinLength, long withinCount) = await WriteWithinAsync(writer, await rows(ExtentSection.Within, token).ConfigureAwait(false), from, range, width, token).ConfigureAwait(false);
+            return (withinAt + withinLength, ExtentInfo.Words(order, range.Min, range.Max, openAt, openLength, closeAt, closeLength, withinAt, withinLength, withinCount, width));
         }
 
-        await WriteRunAsync(store, name, KindExtent, dataset, from, to, toHash, Section, [], 0, cancellationToken, Version, Extra).ConfigureAwait(false);
+        await WriteRunAsync(store, name, KindExtent, dataset, from, to, toHash, Section, [], 0, cancellationToken, version, Extra).ConfigureAwait(false);
     }
 
-    private static async ValueTask<long> WritePositionsAsync(IBlobWriter writer, IRowSource rows, long from, bool open, CancellationToken cancellationToken)
-    {
-        using (rows)
-        {
-            ExtentRow[] buffer = new ExtentRow[1024];
-            ArrayBufferWriter<byte> bytes = new(1 << 16);
-            long length = 0;
-
-            while (true)
-            {
-                int count = rows.Next(buffer);
-
-                if (count == 0)
-                {
-                    break;
-                }
-
-                for (int i = 0; i < count; i++)
-                {
-                    LogFormat.WriteUleb(bytes, (ulong)((open ? buffer[i].From : buffer[i].To) - from));
-                }
-
-                if (bytes.WrittenCount >= 1 << 15)
-                {
-                    length += bytes.WrittenCount;
-                    await writer.WriteAsync(bytes.WrittenMemory, cancellationToken).ConfigureAwait(false);
-                    bytes.ResetWrittenCount();
-                }
-            }
-
-            length += bytes.WrittenCount;
-            await writer.WriteAsync(bytes.WrittenMemory, cancellationToken).ConfigureAwait(false);
-            return length;
-        }
-    }
-
-    private static async ValueTask<(long Length, long Count)> WriteWithinAsync(IBlobWriter writer, IRowSource rows, long from, KeyRange range, CancellationToken cancellationToken)
+    private static async ValueTask<(long Length, long Count)> WritePositionsAsync(IBlobWriter writer, IRowSource rows, long from, bool open, int width, CancellationToken cancellationToken)
     {
         using (rows)
         {
@@ -1012,10 +1156,54 @@ internal static partial class DerivedFormat
 
                 for (int i = 0; i < count; i++)
                 {
-                    ExtentInfo.WriteKey(bytes.GetSpan(QuadKey.Size), buffer[i].Key);
-                    bytes.Advance(QuadKey.Size);
-                    LogFormat.WriteUleb(bytes, buffer[i].From == 0 ? 0 : (ulong)(buffer[i].From - from));
-                    LogFormat.WriteUleb(bytes, buffer[i].To == 0 ? 0 : (ulong)(buffer[i].To - from));
+                    WriteDistance(bytes, (open ? buffer[i].From : buffer[i].To) - from, width);
+                }
+
+                total += count;
+
+                if (bytes.WrittenCount >= 1 << 15)
+                {
+                    length += bytes.WrittenCount;
+                    await writer.WriteAsync(bytes.WrittenMemory, cancellationToken).ConfigureAwait(false);
+                    bytes.ResetWrittenCount();
+                }
+            }
+
+            length += bytes.WrittenCount;
+            await writer.WriteAsync(bytes.WrittenMemory, cancellationToken).ConfigureAwait(false);
+            return (length, total);
+        }
+    }
+
+    private static async ValueTask<(long Length, long Count)> WriteWithinAsync(IBlobWriter writer, IRowSource rows, long from, KeyRange range, int width, CancellationToken cancellationToken)
+    {
+        using (rows)
+        {
+            ExtentRow[] buffer = new ExtentRow[1024];
+            ArrayBufferWriter<byte> bytes = new(1 << 16);
+            long length = 0;
+            long total = 0;
+
+            while (true)
+            {
+                int count = rows.Next(buffer);
+
+                if (count == 0)
+                {
+                    break;
+                }
+
+                for (int i = 0; i < count; i++)
+                {
+                    // Format 5's keys are the thirteenth key section; format 4's are inline.
+                    if (width == 0)
+                    {
+                        ExtentInfo.WriteKey(bytes.GetSpan(QuadKey.Size), buffer[i].Key);
+                        bytes.Advance(QuadKey.Size);
+                    }
+
+                    WriteDistance(bytes, buffer[i].From == 0 ? 0 : buffer[i].From - from, width);
+                    WriteDistance(bytes, buffer[i].To == 0 ? 0 : buffer[i].To - from, width);
                     range.Add(buffer[i].Key);
                 }
 
@@ -1033,6 +1221,25 @@ internal static partial class DerivedFormat
             await writer.WriteAsync(bytes.WrittenMemory, cancellationToken).ConfigureAwait(false);
             return (length, total);
         }
+    }
+
+    // A distance: ULEB128 in format 4, width bytes little-endian in 5.
+    private static void WriteDistance(ArrayBufferWriter<byte> bytes, long distance, int width)
+    {
+        if (width == 0)
+        {
+            LogFormat.WriteUleb(bytes, (ulong)distance);
+            return;
+        }
+
+        Span<byte> span = bytes.GetSpan(width);
+
+        for (int i = 0; i < width; i++)
+        {
+            span[i] = (byte)((ulong)distance >> (i * 8));
+        }
+
+        bytes.Advance(width);
     }
 
     /// <summary>The smallest and largest key seen.</summary>
