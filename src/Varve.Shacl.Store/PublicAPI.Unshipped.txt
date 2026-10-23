@@ -1,4 +1,5 @@
 #nullable enable
+Varve.Shacl.Store.BindingValidation
 Varve.Shacl.Store.Model.BindingCheck
 Varve.Shacl.Store.Model.BindingCheck.Accepted.get -> bool
 Varve.Shacl.Store.Model.BindingCheck.Classification.get -> Varve.Shacl.Model.ShapesClassification?
@@ -24,3 +25,15 @@ Varve.Shacl.Store.ShapesGate.Check(Varve.Shacl.Store.Model.ShapesBinding! bindin
 Varve.Shacl.Store.ShapesGate.ShapesGate(System.Collections.Generic.IEnumerable<Varve.Shacl.Store.Model.ShapesBinding!>! bindings, Varve.Shacl.ShaclOptions? options = null) -> void
 Varve.Shacl.Store.ShapesGate.Validate(Varve.Rdf.IQuadSource! proposed, Varve.Rdf.QuadDelta delta) -> Varve.Store.Log.ValidationVerdict
 Varve.Shacl.Store.ShapesGate.Validate(Varve.Rdf.IQuadSource! proposed, Varve.Store.BulkDelta! delta) -> Varve.Store.Log.ValidationVerdict
+Varve.Shacl.Store.ValidationProjection
+Varve.Shacl.Store.ValidationProjection.ApplyAsync(Varve.Store.Log.Commit! commit, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Shacl.Store.ValidationProjection.Binding.get -> Varve.Shacl.Store.Model.ShapesBinding!
+Varve.Shacl.Store.ValidationProjection.Floor.get -> Varve.Store.Log.Position
+Varve.Shacl.Store.ValidationProjection.LoadAsync(Varve.Store.IDerivedStore! store, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
+Varve.Shacl.Store.ValidationProjection.Position.get -> Varve.Store.Log.Position
+Varve.Shacl.Store.ValidationProjection.ResetAsync(Varve.Store.DatasetView? checkpoint, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Shacl.Store.ValidationProjection.SaveAsync(Varve.Store.IDerivedStore! store, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Shacl.Store.ValidationProjection.TryReportAt(Varve.Store.Log.Position position, out Varve.Shacl.ValidationOutcome! outcome) -> bool
+Varve.Shacl.Store.ValidationProjection.ValidationProjection(Varve.Store.Dataset! dataset, Varve.Shacl.Store.Model.ShapesBinding! binding, Varve.Shacl.ShaclOptions? options = null) -> void
+Varve.Shacl.Store.ValidationProjection.WaitForAsync(Varve.Store.Log.Position position, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+static Varve.Shacl.Store.BindingValidation.Validate(Varve.Shacl.Store.Model.ShapesBinding! binding, Varve.Rdf.IQuadSource! state, Varve.Shacl.ShaclOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Varve.Shacl.ValidationOutcome!
