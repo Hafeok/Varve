@@ -697,12 +697,20 @@ internal static class RunMerge
 /// </summary>
 internal sealed class IndexVersion
 {
-    internal IndexVersion(long position, Run[] runs, int frozen)
+    internal IndexVersion(long position, Run[] runs, int frozen, ExtentSeek? seek = null)
     {
         Position = position;
         Runs = runs;
         Frozen = frozen;
+        Seek = seek;
     }
+
+    /// <summary>
+    /// An as-of view's extent set read at a position inside its window, newer
+    /// than every run (ADR 0177); null for every other version.
+    /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal ExtentSeek? Seek { get; }
 
     internal static IndexVersion Empty { get; } = new(0, [], 0);
 
@@ -810,6 +818,11 @@ internal sealed class IndexVersion
     {
         QuadKey key = Orders.Key(IndexOrder.Spog, in quad);
 
+        if (Seek is not null && Seek.Lookup(in key) is { } sought)
+        {
+            return sought;
+        }
+
         for (int i = Runs.Length - 1; i >= 0; i--)
         {
             bool? said = Runs[i].Lookup(in key);
@@ -825,7 +838,9 @@ internal sealed class IndexVersion
 
     /// <summary>The quads matching a pattern.</summary>
     internal IQuadCursor Match(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph) =>
-        new RunCursor(Runs, subject.Value, predicate.Value, @object.Value, graph);
+        Seek is null
+            ? new RunCursor(Runs, subject.Value, predicate.Value, @object.Value, graph)
+            : new ExtentSeekScan(Runs, Seek, subject.Value, predicate.Value, @object.Value, graph);
 
     /// <summary>
     /// How many quads match a pattern, exactly, at <c>O(runs × log n)</c>
@@ -838,20 +853,27 @@ internal sealed class IndexVersion
     /// </summary>
     internal CardinalityEstimate Estimate(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph)
     {
-        if (graph.Match == GraphMatch.AnyNamed)
-        {
-            return CardinalityEstimate.Exact(new QuadCount(
-                CountRange(subject.Value, predicate.Value, @object.Value, GraphPattern.Any)
-                - CountRange(subject.Value, predicate.Value, @object.Value, GraphPattern.DefaultGraph)));
-        }
+        bool exact = true;
+        long count = graph.Match == GraphMatch.AnyNamed
+            ? CountRange(subject.Value, predicate.Value, @object.Value, GraphPattern.Any, ref exact)
+                - CountRange(subject.Value, predicate.Value, @object.Value, GraphPattern.DefaultGraph, ref exact)
+            : CountRange(subject.Value, predicate.Value, @object.Value, graph, ref exact);
 
-        return CardinalityEstimate.Exact(new QuadCount(CountRange(subject.Value, predicate.Value, @object.Value, graph)));
+        // A sought set's count is exact while its rows in the range are few
+        // (ADR 0177); past that the estimate says it is not.
+        return exact ? CardinalityEstimate.Exact(new QuadCount(count)) : CardinalityEstimate.Estimated(new QuadCount(Math.Max(0, count)));
     }
 
-    private long CountRange(ulong subject, ulong predicate, ulong @object, GraphPattern graph)
+    private long CountRange(ulong subject, ulong predicate, ulong @object, GraphPattern graph, ref bool exact)
     {
         (IndexOrder order, QuadKey low, QuadKey high) = RunCursor.Plan(subject, predicate, @object, graph);
         long count = 0;
+
+        if (Seek is not null)
+        {
+            count += Seek.Count(order, in low, in high, out bool counted);
+            exact &= counted;
+        }
 
         foreach (Run run in Runs)
         {

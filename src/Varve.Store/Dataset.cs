@@ -104,6 +104,9 @@ public sealed class DatasetOptions
     /// </summary>
     internal long TornWindow { get; set; } = LogFormat.WriteWindowBytes;
 
+    /// <summary>Test seam: the derived version extent sets are written in — 5 (ADR 0177), or 4 for a dataset an earlier release wrote.</summary>
+    internal ushort ExtentVersion { get; set; } = DerivedFormat.ExtentVersion;
+
     /// <summary>Test seam: awaited after a merge has written its set and before it takes the gate to swap (ADR 0158).</summary>
     internal Func<CancellationToken, ValueTask>? BeforeMergeSwap { get; set; }
 
@@ -517,11 +520,12 @@ public sealed partial class Dataset : IAsyncDisposable
 
         // Inside an extent set's window, and no checkpoint at the position
         // itself: the set's intervals answer it, at a cost that does not grow
-        // with the distance from the set's start (ADR 0138).
+        // with the distance from the set's start (ADR 0138), nor, for a
+        // format-5 set, with the set's size (ADR 0177).
         if (checkpoint?.Position != position
             && await InsideSetAsync(state, position, cancellationToken).ConfigureAwait(false) is { } inside)
         {
-            IndexVersion within = new(position, inside.Index, inside.Index.Length);
+            IndexVersion within = new(position, inside.Index, inside.Index.Length, inside.Seek);
             TermView insideTerms = state.TermsAt(_dictionary, inside.Terms, position);
             return new DatasetView(position, new IndexSource(within, insideTerms), insideTerms, _metrics.Pinned(inside.Release));
         }
