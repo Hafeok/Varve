@@ -125,6 +125,13 @@ internal static partial class ObjectStorageBench
                 {
                     using DatasetView view = await dataset.AsOfAsync(new Position((set.From + set.To) / 2));
                     lines.Add(ScanLine(set.Bytes, view, pages, terms, probes));
+
+                    // A broad pattern: one predicate's quads, early, halfway and late in the window.
+                    foreach (int quarter in new[] { 1, 2, 3 })
+                    {
+                        using DatasetView at = await dataset.AsOfAsync(new Position(set.From + ((set.To - set.From) * quarter / 4)));
+                        lines.Add(PredicateLine(set.Bytes, at, pages, terms, subject));
+                    }
                 }
             }
 
@@ -253,6 +260,40 @@ internal static partial class ObjectStorageBench
         double total = times.Sum() / 3;
         return string.Create(CultureInfo.InvariantCulture,
             $"- subject scans inside a set of {Mib(setBytes)} at {view.Position.Value}: {scans} subjects, {matches:N0} quads; per scan p50 / p99 {Percentile(times, 0.5):F1} / {Percentile(times, 0.99):F1} µs, {(double)touched / Math.Max(1, scans):F1} pages; per match {total / Math.Max(1, matches):F2} µs, {(double)touched / Math.Max(1, matches):F3} pages");
+    }
+
+    // One predicate's quads at a view: time and pages, in all and per match.
+    private static string PredicateLine(long setBytes, DatasetView view, PageCounter pages, Terms terms, RecQuad subject)
+    {
+        if (!view.TryInternalise(terms.Of(subject.Predicate), out TermHandle p))
+        {
+            return "- the predicate is not yet in the dictionary at " + view.Position.Value;
+        }
+
+        List<double> times = [];
+        int matches = 0;
+        int touched = 0;
+
+        for (int round = 0; round < 5; round++)
+        {
+            pages.Reset();
+            long started = Stopwatch.GetTimestamp();
+            using IQuadCursor cursor = view.Match(TermHandle.None, p, TermHandle.None, GraphPattern.Any);
+            matches = 0;
+
+            while (cursor.MoveNext())
+            {
+                matches++;
+            }
+
+            times.Add(Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+            touched = pages.Touched;
+        }
+
+        times.Sort();
+        double median = times[times.Count / 2];
+        return string.Create(CultureInfo.InvariantCulture,
+            $"- a predicate's quads inside a set of {Mib(setBytes)} at {view.Position.Value}: {matches:N0} quads, {median:F2} ms, {touched} pages; per match {median * 1000 / Math.Max(1, matches):F3} µs, {(double)touched / Math.Max(1, matches):F4} pages");
     }
 
     // The ranged reads of a lookup and a scan when no page stays cached: each is a page miss.
