@@ -111,7 +111,42 @@ REC M, generator output version 2, on files, a checkpoint every hundredth of
 the history with maintenance after each (`--extent-maintenance M` and
 `--asof-seek file M`), on one machine:
 
-{{MEASURED}}
+Layout 1 (this ADR) against format 4's narrowing, the same benchmark on
+`main`'s store and on this one, two runs each, the largest set 211 MiB:
+
+| | Format 4: narrow | Format 5: seek |
+|---|---:|---:|
+| Opening a view inside the largest set, with its estimate of every quad | 2,950 / 3,246 ms | 0.01 ms |
+| A quad's lookup inside it, p50 / p99 | 3.3 / 10.3 µs, after the narrowing | 4.4 / 15.0 µs |
+| Its extent pages, p50 / max | 0 / 3 (the narrowed run, written) | 2 / 5 |
+| A quad's lookup at the head, p50 / p99, same run | 12.5 / 40.6 µs | 15.2 / 52.1 µs |
+| A subject's quads inside it, p50 / p99 | 7.6 / 29.0 µs | 10.5 / 44.8 µs |
+| One predicate's quads inside it, a quarter / half / three quarters in | 0.7 / 1.3 / 1.8 ms | 4.1 / 9.4 / 12.0 ms |
+| Bytes checkpointed over the history | 420,777,999 | 405,933,553 |
+| Bytes merges rewrote, and per byte checkpointed | 750,437,062, 1.78 | 753,709,040, 1.86 |
+| Checkpoints, all 100, and maintenance, all of it | 24.7 s, 80.7 s | 24.2 s, 91.8 s |
+
+- **The gate.** An as-of lookup inside the largest set is 0.29× a head
+  lookup at p50 and at p99 (4.4 against 15.2 µs, 15.0 against 52.1 µs), from
+  the first read: there is no narrowing to pay. The sets before it are
+  fewer than the head's, so it reads fewer runs.
+- **Scans cost their matches.** A subject's quads inside the 211 MiB set and
+  inside one of 7.5 MiB, 28× apart, over the same 200 subjects and 705
+  quads: 0.567 and 0.562 pages a match, 2.37 and 4.04 µs a match.
+- **Head reads are unchanged.** The benchmark's head row differs by run
+  (12.5 to 15.3 µs at p50 over four runs of both), so the same head lookups
+  and scans were timed over one dataset of each format, in three rounds
+  alternating `main`'s store and this one: 21.9–24.7 µs on `main` and
+  format 4, 23.6–26.1 µs on this store and format 4, 22.2–23.1 µs on format 5,
+  at p50; the p99s overlap as well.
+- **What a seek costs that narrowing does not**, once paid: a broad scan
+  reads the columns as well as the keys, about 0.25 µs a match against 0.04 —
+  but narrowing paid three seconds first, the cost of some 14 million such matches.
+- **Write amplification** is up from 1.78 to 1.86 only because format 5's
+  extents are 3.5% smaller: merges rewrote the same bytes (+0.4%) for fewer
+  checkpointed. Maintenance takes 14% longer: a merge reads its inputs' rows
+  once more, for the rows within's keys.
+- **On Azurite**: {{AZURITE}}
 
 ## Alternatives considered
 
@@ -122,11 +157,21 @@ the history with maintenance after each (`--extent-maintenance M` and
   key — candidate 1 — and the index would sit beside it. What it could save
   on a scan is the rows whose verdict at `P` is the start's, read and
   passed. Measured on the largest set (Checks: `ExtentLayoutStatistics`):
-  {{SKIP}}. Not built: the reads it could pass are a fraction of rows a scan
+  REC M's largest set, (0, 3000], holds 2,678,212 rows, every one an open
+  row: a skip index could pass 75%, 50% and 25% of them, in whole 128-row
+  blocks, a quarter, half and three quarters into the window, because ids are
+  allocated in commit order. That is the broad scan's gap above, at most:
+  a predicate's quads a quarter in would read a quarter of the rows. A point
+  lookup or a subject's quads read one or two blocks either way. Not built
+  now: it changes no lookup, and adds a second structure every checkpoint
+  and merge writes and every format reader keeps; it is a block summary
+  (the least assertion and the greatest retraction of each block of a
+  column) that a later format can add beside these columns without moving
+  them. Not built: the reads it could pass are a fraction of rows a scan
   already reads by the block, and every checkpoint and merge would write and
   every format reader keep a second structure.
 - **Position-sorted runs within a key range (candidate 3)**, for keys with
-  many intervals: only if keys have many. Measured: {{PERKEY}}. A key's rows
+  many intervals: only if keys have many. Measured: every key of the largest set has exactly one interval (mean 1.000, max 1). A key's rows
   within are adjacent and few, so a run sorted by position inside a key
   would order one or two rows.
 - **Positions inline in the key sections** (a 48-byte row instead of a
