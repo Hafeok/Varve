@@ -254,3 +254,43 @@ The branch was restarted from `main` at 9d48ccc, the landed head, for this secon
 ### Left
 
 - The Aspire sample's test and the compose legs run only in CI, where Docker is. This container has none.
+
+## Part 3, 2026-10-20: PostgreSQL watched on Docker Hub
+
+#130 landed at f7d25da, and #118 is closed. The maintainer:
+
+> A follow-up to #118. One small PR, no release descriptor. Commits reference #118; it is closed, so use no closing keyword.
+>
+> The maintainer's ruling from 2026-10-19, not yet on `main`:
+> - **The postgres row** in `.github/ci-images.yaml` gains `watch: docker.io/library/postgres:18.6-alpine`. `upstream` stays ECR Public, and the mirror still copies from there. A future bump that ECR refuses is seeded by hand under `MirrorSeededByDigest`.
+> - **`ci-images-upstream.yml`** reads a row's `watch` reference, when present, by manifest HEAD only: no pull, no layers. The issue it opens says when a bump has to be seeded by hand.
+> - **`eng/ci-images.cs`** allows `docker.io` only as a row's `watch` value. Add a fixture case where `docker.io` appears anywhere else, and it fails.
+> - **ADR 0099** gets one more dated sentence: "A row may name a `watch` reference, read by manifest HEAD only, when its upstream refuses CI's reads. Docker Hub is allowed there and nowhere else." If that needs a new ruling in the decision set, file it unaccepted and say so.
+> - **Test it:** dispatch `ci-images-upstream` once from the PR branch, and quote its summary showing postgres read through `watch`.
+
+The branch was restarted from `main` at f7d25da.
+
+### What changed
+
+- **`.github/ci-images.yaml`.** The postgres row has `watch: docker.io/library/postgres:18.6-alpine`, and the header describes the field.
+- **`eng/ci-images.cs`.**
+  - A row's `watch` must be a tag reference with no digest.
+  - A `docker.io` reference is a finding everywhere else: under `.github/`, in C#, and as a row's `upstream`.
+  - The list's prose fields are not references, so `seeded` may still say where a hand copy came from.
+- **The fixture** gains two failing cases, a row whose `upstream` is on Docker Hub and a `docker pull` of `docker.io` in a workflow. It also gains one passing case, a row that watches Docker Hub. It exits 1 with six findings.
+- **`ci-images-upstream.yml`.**
+  - A row with `watch` is read there by one manifest HEAD request. An anonymous token comes from the registry's challenge, and the digest from `Docker-Content-Digest`. Nothing is pulled.
+  - The summary has a table of what was read, from where and how.
+  - The issue lists, under "Seeded by hand", each moved row that is read through `watch`.
+  - The job also runs on a dispatch from any branch, for this test, but it opens or edits the issue only on `main`.
+- **ADR 0099** has an amendment of 2026-10-20 with the maintainer's sentence, and the ruling `WatchReadByManifestHead`, filed unaccepted: Docker Hub as a `watch` is a decision no accepted ruling states.
+- **`CONTRIBUTING.md`** has a paragraph on `watch`.
+
+### Measured
+
+- The gate passes on the tree. Against its fixture it exits 1 with the six findings.
+- The comparison step, run in this container against the real registries:
+  - with the list as committed, postgres resolved through `watch` to its pinned digest, `sha256:77f58511…a1873`, on one run;
+  - with the pinned digest altered in a copy of the list, it reported the move and the seeded-by-hand note.
+- **Docker Hub refuses the HEAD itself once an address's limit is spent.** In this container, `ratelimit-remaining` fell from 36 to 0 between two requests seconds apart: other traffic shares this container's egress address. Of five runs, two read postgres and three got a `429` on the HEAD. On a runner, whose address is shared too, the read can fail the same way. That is a warning in the summary, not a difference.
+- The sandbox's proxy puts `HTTP/1.1 200 Connection Established` before the registry's status line. `--suppress-connect-headers` drops it; on a runner without a proxy it changes nothing.

@@ -9,13 +9,22 @@
 # new digest, after reading what changed upstream. On main the change
 # re-mirrors (mirror-ci-images.yml).
 #
+# A row with a `watch` reference is read there instead of upstream, by one
+# manifest HEAD request: no pull, no layers. That is for an upstream that
+# refuses CI's reads, as ECR Public's anonymous cap does for PostgreSQL, and
+# it is the one place Docker Hub may be named (ADR 0099, amendment of
+# 2026-10-20). The mirror still copies from upstream, so a bump of such a row
+# that upstream refuses is seeded by hand at the new digest
+# (MirrorSeededByDigest), and the issue says so.
+#
 # A tag that cannot be resolved (an anonymous limit, a removed tag) is listed
 # as unreadable in the summary, and in the issue when there is one. On its
 # own it is a warning, not a difference: it says nothing about the pinned
 # image, which the mirror holds.
 #
-# The issue is opened with the workflow's own GITHUB_TOKEN (issues: write).
-# Reading the registries needs no credential.
+# The issue is opened with the workflow's own GITHUB_TOKEN (issues: write),
+# and only on main. A dispatch from another branch is a dry run: the summary
+# and the job's result, no issue. Reading the registries needs no credential.
 
 name: CI images upstream
 
@@ -37,7 +46,7 @@ env:
 jobs:
   compare:
     name: ci-images-upstream
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     permissions:
@@ -59,24 +68,65 @@ jobs:
             docker buildx imagetools inspect "$1" --format '{{json .Manifest.Digest}}' 2> /dev/null | tr -d '"'
           }
 
+          # The same, by one manifest HEAD request and nothing else: no
+          # manifest body, no layers. An anonymous token is taken from the
+          # registry's challenge when it asks for one.
+          head_digest() {
+            local ref="$1" host repo tag accept headers realm service token
+            tag="${ref##*:}"
+            repo="${ref%:*}"
+            host="${repo%%/*}"
+            repo="${repo#*/}"
+            [ "$host" = "docker.io" ] && host="registry-1.docker.io"
+            accept='application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json'
+            headers=$(curl --silent --head --suppress-connect-headers --header "Accept: $accept" "https://$host/v2/$repo/manifests/$tag") || return 1
+            if printf '%s' "$headers" | head -n 1 | grep -q ' 401'; then
+              realm=$(printf '%s' "$headers" | tr -d '\r' | sed -n 's/^[Ww][Ww][Ww]-[Aa]uthenticate: .*realm="\([^"]*\)".*/\1/p')
+              service=$(printf '%s' "$headers" | tr -d '\r' | sed -n 's/^[Ww][Ww][Ww]-[Aa]uthenticate: .*service="\([^"]*\)".*/\1/p')
+              token=$(curl --silent --fail "$realm?service=$service&scope=repository:$repo:pull" | jq -r '.token // .access_token // empty') || return 1
+              headers=$(curl --silent --head --suppress-connect-headers --header "Accept: $accept" --header "Authorization: Bearer $token" "https://$host/v2/$repo/manifests/$tag") || return 1
+            fi
+            printf '%s' "$headers" | head -n 1 | grep -q ' 200' || return 1
+            printf '%s' "$headers" | tr -d '\r' | sed -n 's/^[Dd]ocker-[Cc]ontent-[Dd]igest: //p'
+          }
+
           changed=""
           unreadable=""
+          read=""
+          by_hand=""
           count=$(yq -r '.images | length' "$LIST")
           for i in $(seq 0 $((count - 1))); do
             name=$(yq -r ".images[$i].name" "$LIST")
             upstream=$(yq -r ".images[$i].upstream" "$LIST")
+            watch=$(yq -r ".images[$i].watch" "$LIST")
             pinned=$(yq -r ".images[$i].digest" "$LIST")
-            current=$(digest_of "$upstream") || current=""
+
+            if [ "$watch" != "null" ]; then
+              source="$watch"
+              how="watch, manifest HEAD"
+              current=$(head_digest "$watch") || current=""
+            else
+              source="$upstream"
+              how="upstream"
+              current=$(digest_of "$upstream") || current=""
+            fi
 
             if [ -z "$current" ]; then
-              echo "::warning title=$name::could not resolve $upstream"
-              unreadable+="| \`$name\` | \`$upstream\` | \`$pinned\` |"$'\n'
+              echo "::warning title=$name::could not resolve $source"
+              unreadable+="| \`$name\` | \`$source\` | \`$pinned\` |"$'\n'
+              result="unreadable"
             elif [ "$current" != "$pinned" ]; then
-              echo "$name: $upstream is now $current; the list pins $pinned"
-              changed+="| \`$name\` | \`$upstream\` | \`$pinned\` | \`$current\` |"$'\n'
+              echo "$name: $source is now $current; the list pins $pinned"
+              changed+="| \`$name\` | \`$source\` | \`$pinned\` | \`$current\` |"$'\n'
+              result="**moved**"
+              if [ "$watch" != "null" ]; then
+                by_hand+="- \`$name\`: read through \`$watch\`, because \`$upstream\` refuses CI's reads. The mirror copies from upstream, so if it refuses the bump too, seed \`ghcr.io/hafeok/varve-ci/$name\` by hand at \`$current\`, from any registry that serves that digest (ADR 0099, \`MirrorSeededByDigest\`), and record it in the row's \`seeded\`."$'\n'
+              fi
             else
-              echo "$name: $upstream is still $pinned"
+              echo "$name: $source is still $pinned"
+              result="current"
             fi
+            read+="| \`$name\` | \`$source\` | $how | \`$pinned\` | \`${current:-—}\` | $result |"$'\n'
           done
 
           report="$RUNNER_TEMP/ci-images-upstream.md"
@@ -89,9 +139,21 @@ jobs:
               printf '%s' "$changed"
               echo
               echo "Bumping one is a pull request to \`$LIST\` and to the reference that pulls it, at the new digest, after reading what changed upstream; on main it re-mirrors. A tag that moved without a release may be a rebuild of the same version. Leaving a row pinned is a decision too; this issue then stays open."
+              if [ -n "$by_hand" ]; then
+                echo
+                echo "**Seeded by hand.** These rows are read through their \`watch\` reference:"
+                echo
+                printf '%s' "$by_hand"
+              fi
             else
               echo "Every upstream tag that could be read resolves to the digest \`$LIST\` pins."
             fi
+            echo
+            echo "What was read:"
+            echo
+            echo "| image | read from | how | pinned | now | result |"
+            echo "|---|---|---|---|---|---|"
+            printf '%s' "$read"
             if [ -n "$unreadable" ]; then
               echo
               echo "Could not be resolved this time:"
@@ -111,7 +173,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
       - name: Open or update the issue
-        if: steps.compare.outputs.changed == 'true'
+        if: steps.compare.outputs.changed == 'true' && github.ref == 'refs/heads/main'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
