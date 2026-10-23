@@ -26,26 +26,26 @@ internal static class Azurite
 {
     public static string Account() => ServiceLegs.Require("azurite", "VARVE_AZURITE").TrimEnd('/');
 
-    /// <summary>The container <see cref="ContainerAsync"/> created last, for a test that opens it again with its own handler.</summary>
-    public static Uri? LastContainer { get; private set; }
-
     /// <summary>A fresh container, created with the development key.</summary>
-    public static async Task<AzureBlobStore> ContainerAsync()
+    public static async Task<AzureBlobStore> ContainerAsync() =>
+        AzureBlobStore.Create(new AzureBlobStoreOptions { ContainerUrl = await NewContainerAsync(), Clock = TimeProvider.System });
+
+    /// <summary>
+    /// A fresh container's address, for a test that opens it with a handler
+    /// of its own. Returned, never held in a static: test classes run in
+    /// parallel, and one's container must not be read as another's.
+    /// </summary>
+    public static async Task<Uri> NewContainerAsync()
     {
         Uri container = new(Account() + "/" + ServiceLegs.Run());
-        using (HttpClient http = new())
-        using (DevelopmentKeySigner signer = new(TimeProvider.System))
-        using (HttpRequestMessage create = new(HttpMethod.Put, new Uri(container + "?restype=container")))
-        {
-            create.Headers.Add("x-ms-version", "2025-11-05");
-            await signer.SignAsync(create, T.Ct);
-            using HttpResponseMessage response = await http.SendAsync(create, T.Ct);
-            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        }
-
-        LastContainer = container;
-
-        return AzureBlobStore.Create(new AzureBlobStoreOptions { ContainerUrl = container, Clock = TimeProvider.System });
+        using HttpClient http = new();
+        using DevelopmentKeySigner signer = new(TimeProvider.System);
+        using HttpRequestMessage create = new(HttpMethod.Put, new Uri(container + "?restype=container"));
+        create.Headers.Add("x-ms-version", "2025-11-05");
+        await signer.SignAsync(create, T.Ct);
+        using HttpResponseMessage response = await http.SendAsync(create, T.Ct);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        return container;
     }
 }
 
@@ -122,6 +122,29 @@ public sealed class AzuriteAdapterTests
         Assert.Null(await store.CreateIfAbsentAsync(name, new byte[] { 2 }, T.Ct));
     }
 
+    /// <summary>
+    /// What Azurite answers the conditional writes, beside what the service
+    /// answers (#143, `AzureAccountConditionalWriteTests`): the same three,
+    /// a replace of no blob included, which is 412 ConditionNotMet on both
+    /// and never the 404 ADR 0134's decision 5 also maps.
+    /// </summary>
+    [Fact]
+    public async Task azurite_answers_409_to_a_create_that_finds_a_blob_and_412_to_a_stale_replace_and_to_a_replace_of_nothing()
+    {
+        using RecordingHandler recording = new();
+        using AzureBlobStore store = AzureBlobStore.Create(new AzureBlobStoreOptions { ContainerUrl = await Azurite.NewContainerAsync(), Clock = TimeProvider.System, Handler = recording });
+        ObjectName name = new("a");
+        ObjectVersion v1 = Assert.IsType<ObjectVersion>(await store.CreateIfAbsentAsync(name, new byte[] { 1 }, T.Ct));
+        Assert.Null(await store.CreateIfAbsentAsync(name, new byte[] { 2 }, T.Ct));
+        ObjectVersion v2 = Assert.IsType<ObjectVersion>(await store.ReplaceIfUnchangedAsync(name, v1, new byte[] { 3 }, T.Ct));
+        Assert.Null(await store.ReplaceIfUnchangedAsync(name, v1, new byte[] { 4 }, T.Ct));
+        Assert.Null(await store.ReplaceIfUnchangedAsync(new ObjectName("none"), v2, new byte[] { 5 }, T.Ct));
+
+        var puts = recording.Exchanges.Where(e => e.Method == "PUT").ToList();
+        Assert.Equal([201, 409, 201, 412, 412], puts.Select(p => p.Status));
+        Assert.Equal(["BlobAlreadyExists", "ConditionNotMet", "ConditionNotMet"], puts.Where(p => p.Code is not null).Select(p => p.Code));
+    }
+
     [Fact]
     public async Task a_list_pages_past_five_thousand_names()
     {
@@ -159,5 +182,19 @@ public sealed class AzuriteAdapterTests
         }));
         Assert.DoesNotContain("SECRETSIGNATURE", refused.Message, StringComparison.Ordinal);
         Assert.Contains("ADR 0137", refused.Message, StringComparison.Ordinal);
+    }
+}
+
+/// <summary>The writer fence of ADR 0136 on Azurite: the cases every store runs.</summary>
+public sealed class AzuriteWriterFenceTests
+{
+    public static TheoryData<string> Cases() => [.. WriterFenceCases.All().Select(c => c.Name)];
+
+    [Theory]
+    [MemberData(nameof(Cases))]
+    public async Task azurite_fences_a_superseded_writer(string name)
+    {
+        using AzureBlobStore store = await Azurite.ContainerAsync();
+        await WriterFenceCases.All().Single(c => c.Name == name).Run(store, null, TimeProvider.System);
     }
 }
