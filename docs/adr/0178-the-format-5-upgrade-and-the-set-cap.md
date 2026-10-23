@@ -80,7 +80,27 @@ position sampled, its chain empty.
   follower of this build reads both formats, so nothing pays the log's
   distance.
 
-**4. `MaxSetBytes`: {{CAP}}**
+**4. `MaxSetBytes`: the default stays 256 MiB; the cap bounds a merge, not a read.**
+- **What it no longer bounds.** An as-of read inside a set costs its
+  matches whatever the set's size (ADR 0177), so the reason ADR 0159 gave for
+  256 MiB — narrowing the largest set within the gate — is gone.
+- **What it still bounds.** The work of one merge, which reads its inputs
+  and writes the merged set, and the largest blob an upload carries: an
+  order extent is about a seventh of its set, against the 5,000 MiB single
+  upload of Azure Blob Storage and 5 GiB of S3 (ADR 0158, point 9).
+- **Why the default stays.** Measured at REC M on files with the cap at
+  1 GiB (`--asof-seek file M 1024`), the chain held 7 sets against 5 and its
+  largest 282 MiB against 211, so head lookups merged more runs: 21.4 / 63.4
+  µs at p50 / p99 against 15.2 / 52.1. Write amplification fell from 1.86 to
+  1.75. The size-tiered policy places sets by their sizes, and a larger cap
+  at this size only moves where the classes fall. Nothing measured asks for
+  a larger default.
+- **When to raise it.** On a dataset many times the cap, the sets past half
+  of it are never merged again, about `2 × total / MaxSetBytes` of them, and
+  every read of the present merges one run each. A cap of 1 to 2 GiB keeps
+  that count down where the dataset is tens of GiB, at a merge's time and
+  the bytes it rewrites; the operator guide says so. The upload limit
+  bounds it from above.
 
 ## Alternatives considered
 

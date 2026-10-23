@@ -12,7 +12,7 @@ decisions:
   - key: FollowersFirst
     statement: "A rolling upgrade on one object store upgrades the followers before the writer"
   - key: TheCapBoundsMergesNotReads
-    statement: "MaxSetBytes bounds a merge's work and an extent's upload, not an as-of read's cost; {{CAP_STATEMENT}}"
+    statement: "MaxSetBytes bounds a merge's work and an extent's upload, not an as-of read's cost; its default stays 256 MiB"
 ---
 
 The rulings of [ADR 0178](../adr/0178-the-format-5-upgrade-and-the-set-cap.md),

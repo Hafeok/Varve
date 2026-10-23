@@ -1634,7 +1634,40 @@ ranged read.
 
 ### Azurite (`--asof-seek azurite M`)
 
-{{AZURITE_SECTION}}
+Azurite 3.37.0 on loopback, started empty for each run, so the figures
+measure the protocol and the request counts, not a cloud's latency. Slower
+rows first:
+
+| Read | Format | Lookup p50 / p99 | A subject's quads p50 / p99 |
+|---|---|---:|---:|
+| head | 5 | 14.9 / 7,374.6 µs | 13.5 / 51.5 µs |
+| head | 4 | 12.1 / 8,249.2 µs | 10.7 / 62.0 µs |
+| as of 1500, inside the largest set (211 MiB) | 5 | 4.2 / 15.6 µs | 9.8 / 48.9 µs |
+| as of 1500, inside the largest set, **after narrowing it: 3,103 ms** | 4 | 1.9 / 5.0 µs | 5.4 / 20.9 µs |
+
+- A head lookup's p99 is a page miss: the first round meets pages not yet
+  cached.
+- **Ranged reads**, each view opened on its own over a fresh cache, 200
+  lookups: an as-of lookup made at most 5, 25 in all, and a head lookup at
+  most 6, 30 in all; then a subject's 12 quads made none. Format 4's
+  narrowing reads every page of the set before the first lookup.
+- **The load** with checkpoints and maintenance took 318.9 s (format 4:
+  287.9 s); the 100 checkpoints 33.8 s (32.5 s), maintenance 150.2 s
+  (125.7 s). Every byte uploaded, the log's included: 753,774,959 rewritten
+  for 406,099,866 checkpointed, 1.86 per byte (1.78).
+
+### The cap at 1 GiB (`--asof-seek file M 1024`)
+
+| | 256 MiB | 1 GiB |
+|---|---:|---:|
+| Sets, and the largest | 5, 211 MiB | 7, 282 MiB |
+| Head lookup p50 / p99 | 15.2 / 52.1 µs | 21.4 / 63.4 µs |
+| As-of lookup inside the largest set p50 / p99 | 4.4 / 15.0 µs | 3.8 / 14.0 µs |
+| Pages a subject's match, inside the largest set | 0.567 | 0.567 |
+| Write amplification | 1.86 | 1.75 |
+
+The as-of read no longer depends on the cap; the chain does, and at REC M
+a larger cap made it longer. The default stays (ADR 0178).
 
 ### Layout statistics (ADR 0177's candidates 2 and 3)
 

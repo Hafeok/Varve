@@ -146,7 +146,13 @@ Layout 1 (this ADR) against format 4's narrowing, the same benchmark on
   extents are 3.5% smaller: merges rewrote the same bytes (+0.4%) for fewer
   checkpointed. Maintenance takes 14% longer: a merge reads its inputs' rows
   once more, for the rows within's keys.
-- **On Azurite**: {{AZURITE}}
+- **On Azurite** (3.37.0, on loopback, started empty for each run): an
+  as-of lookup inside the largest set 4.2 / 15.6 µs at p50 / p99 against
+  14.9 µs / 7.4 ms at the head (a head lookup's p99 meets pages not yet
+  cached); opening the view 0.01 ms against format 4's 3,103 ms, whose
+  narrowing reads every page of the 211 MiB set. From a fresh cache, 200
+  as-of lookups made 25 ranged reads, at most 5 for one lookup — the same 2
+  to 5 pages a lookup touches on files.
 
 ## Alternatives considered
 

@@ -13,6 +13,11 @@ request. Decided by the maintainer on the Extent maintenance plan,
   at p50 and p99; an as-of read inside the largest set within 2× of the same
   row's.
 
+**Amended 2026-10-23** (ADR 0068), by #133, unaccepted until the maintainer
+accepts it (ADR 0066): the cap no longer bounds an as-of read's cost, and
+its default stays 256 MiB for other reasons
+([ADR 0178](0178-the-format-5-upgrade-and-the-set-cap.md)); see the end.
+
 Builds on [ADR 0158](0158-background-extent-merges.md), which says how a
 merge runs. This ADR says which sets merge, and when.
 
@@ -154,3 +159,20 @@ gate.**
     side of a tier's edge merging.
   - The read latency gate, in `tests/Varve.Benchmarks`
     (`--extent-maintenance`).
+
+## Amendment, 2026-10-23 — the cap bounds merges, not reads
+
+Filed by #133, unaccepted until the maintainer accepts it (ADR 0066); ruled
+in [ADR 0178](0178-the-format-5-upgrade-and-the-set-cap.md).
+
+- Point 3's "so an as-of read inside a set costs at most a capped set's
+  narrowing" holds only of a format-4 set. A format-5 set is sought
+  ([ADR 0177](0177-seek-dont-narrow-intervals-beside-the-key.md)), and an
+  as-of read inside it costs its matches at any size: 0.29× a head lookup
+  inside the 211 MiB set at REC M.
+- The cap now bounds one merge's work and the largest blob an upload
+  carries. Its default stays **256 MiB**: at 1 GiB REC M's chain held 7 sets
+  against 5, and head lookups were slower, 21.4 against 15.2 µs at p50.
+- The consequence "a smaller cap makes as-of reads inside a set cheaper"
+  is withdrawn. A larger cap keeps fewer sets past half of it on a dataset
+  many times its size; the operator guide gives the trade.

@@ -226,9 +226,9 @@ raises it for the release gate (#129) and for hunting:
 
 | Test | Land gate | Release gate |
 |---|---|---|
-| `ExtentSeekTests`: over generated histories with retractions and any schedule of checkpoints, drops and merges, every view at every position equals the model by scan, every quad any view holds is looked up in every view and found where the scan found it, each subject's estimate is exact and its scan's count, and no read writes a narrowed run | 40 schedules, {{SEEK_TIME}} | `VARVE_EXTENT_SCHEDULES=<n>` |
-| `ExtentSeekTests`: format-4 sets are narrowed, then rewritten by maintenance as format 5, equal at every position throughout | 20 histories, {{UPGRADE_TIME}} | — |
-| `ExtentSeekTests`: a point lookup inside a set of 16,000 quads reads no more bytes than inside one of 2,000; a count over many of a sought set's rows is estimated and its scan exact | {{BYTES_TIME}} | — |
+| `ExtentSeekTests`: over generated histories with retractions and any schedule of checkpoints, drops and merges, every view at every position equals the model by scan, every quad any view holds is looked up in every view and found where the scan found it, each subject's estimate is exact and its scan's count, and no read writes a narrowed run | 40 schedules, about 2 s | `VARVE_EXTENT_SCHEDULES=<n>` |
+| `ExtentSeekTests`: format-4 sets are narrowed, then rewritten by maintenance as format 5, equal at every position throughout | 20 histories, about 2 s | — |
+| `ExtentSeekTests`: a point lookup inside a set of 16,000 quads reads no more bytes than inside one of 2,000; a count over many of a sought set's rows is estimated and its scan exact | about 3 s and 2 s | — |
 | `ExtentLayoutStatistics`: the layout measurements of ADR 0177, over a dataset `--asof-seek file M` kept | does nothing | `VARVE_SEEK_LAYOUT_DATASET=<directory>` |
 
 All of them run in memory against `MemoryObjectStore`, so the Windows store

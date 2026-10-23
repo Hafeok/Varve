@@ -693,7 +693,12 @@ fixed-width columns beside the keys and the rows within as a thirteenth key
 section, so a key's intervals are a fence search, a block and a column read
 away; as-of lookups, scans and estimates that seek; format-4 sets narrowed
 until maintenance rewrites them, one a round; an older follower reads the
-log above its chain, never a wrong answer. {{ROADMAP_NUMBERS}}
+log above its chain, never a wrong answer. At REC M, inside the largest set
+(211 MiB), an as-of lookup is 0.29× a head lookup at p50 and p99 where it
+took 2.9 s; a subject's quads cost 0.56 pages a match at set sizes 28×
+apart; head reads unchanged; write amplification 1.86, against 1.78, for
+3.5% smaller extents. `MaxSetBytes` stays 256 MiB and bounds merges, not
+reads.
 
 ## Client and integration *(complete)* — on-behalf-of, setup, follow, events
 
