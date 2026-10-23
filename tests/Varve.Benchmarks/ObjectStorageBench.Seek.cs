@@ -105,14 +105,14 @@ internal static partial class ObjectStorageBench
 
             using (DatasetView head = dataset.Pin())
             {
-                lines.Add(Line("head", head, pages, terms, probes, subject));
+                lines.Add(Line("head", head, pages, terms, probes, subject, target.Counter is null));
             }
 
             double opening = await AsOfAsync(dataset, new Position(inLargest));
 
             using (DatasetView inside = await dataset.AsOfAsync(new Position(inLargest)))
             {
-                lines.Add(Line("as of " + inLargest + ", inside the largest set", inside, pages, terms, probes, subject));
+                lines.Add(Line("as of " + inLargest + ", inside the largest set", inside, pages, terms, probes, subject, target.Counter is null));
             }
 
             lines.Add("");
@@ -135,16 +135,29 @@ internal static partial class ObjectStorageBench
                 }
             }
 
-            // On an object store: the ranged reads a lookup makes when no page stays cached.
+            // On an object store: the ranged reads of lookups from a fresh
+            // cache, each view opened on its own so neither warms the other.
             if (target.Counter is not null)
             {
                 await Target.CloseAsync(opened);
-                opened = await target.OpenAsync(fresh: true, cacheBytes: 1);
-                await using StoreDatasetType cold = await StoreDatasetType.OpenAsync(opened, options);
-                using DatasetView inside = await cold.AsOfAsync(new Position(inLargest));
-                using DatasetView headView = cold.Pin();
-                lines.Add(ReadsLine("head", headView, target.Counter, terms, probes, subject));
-                lines.Add(ReadsLine("as of " + inLargest + ", inside the largest set", inside, target.Counter, terms, probes, subject));
+
+                foreach (bool asOf in new[] { false, true })
+                {
+                    IStorage cold = await target.OpenAsync(fresh: true);
+
+                    try
+                    {
+                        await using StoreDatasetType reopened = await StoreDatasetType.OpenAsync(cold, options);
+                        using DatasetView view = asOf ? await reopened.AsOfAsync(new Position(inLargest)) : reopened.Pin();
+                        lines.Add(ReadsLine(asOf ? "as of " + inLargest + ", inside the largest set" : "head", view, target.Counter, terms, probes, subject));
+                    }
+                    finally
+                    {
+                        await Target.CloseAsync(cold);
+                    }
+                }
+
+                opened = await target.OpenAsync(fresh: true);
             }
         }
 
@@ -173,7 +186,7 @@ internal static partial class ObjectStorageBench
 
     // A table row of reads at one view: a quad's lookup and a subject's
     // quads, p50 / p99, and the extent pages each touched at p50 / max.
-    private static string Line(string what, DatasetView view, PageCounter pages, Terms terms, List<RecQuad> probes, RecQuad subject)
+    private static string Line(string what, DatasetView view, PageCounter pages, Terms terms, List<RecQuad> probes, RecQuad subject, bool counted)
     {
         List<double> lookups = [];
         List<double> scans = [];
@@ -214,8 +227,10 @@ internal static partial class ObjectStorageBench
         scans.Sort();
         lookupPages.Sort();
         scanPages.Sort();
+        // On an object store the pages are counted below the cache, as ranged reads, not here.
+        string Pages(List<double> sorted) => counted ? string.Create(CultureInfo.InvariantCulture, $"{Percentile(sorted, 0.5):F0} / {sorted[^1]:F0}") : "—";
         return string.Create(CultureInfo.InvariantCulture,
-            $"| {what} | {Percentile(lookups, 0.5):F1} / {Percentile(lookups, 0.99):F1} µs | {Percentile(lookupPages, 0.5):F0} / {lookupPages[^1]:F0} | {Percentile(scans, 0.5):F1} / {Percentile(scans, 0.99):F1} µs ({matches} quads) | {Percentile(scanPages, 0.5):F0} / {scanPages[^1]:F0} |");
+            $"| {what} | {Percentile(lookups, 0.5):F1} / {Percentile(lookups, 0.99):F1} µs | {Pages(lookupPages)} | {Percentile(scans, 0.5):F1} / {Percentile(scans, 0.99):F1} µs ({matches} quads) | {Pages(scanPages)} |");
     }
 
     // Scans of the probes' distinct subjects at one view: time and pages per scan and per match.
@@ -296,7 +311,7 @@ internal static partial class ObjectStorageBench
             $"- a predicate's quads inside a set of {Mib(setBytes)} at {view.Position.Value}: {matches:N0} quads, {median:F2} ms, {touched} pages; per match {median * 1000 / Math.Max(1, matches):F3} µs, {(double)touched / Math.Max(1, matches):F4} pages");
     }
 
-    // The ranged reads of a lookup and a scan when no page stays cached: each is a page miss.
+    // The ranged reads of lookups and a scan from a fresh cache: each is a page miss.
     private static string ReadsLine(string what, DatasetView view, CountingStore counter, Terms terms, List<RecQuad> probes, RecQuad subject)
     {
         List<double> lookups = [];
@@ -320,7 +335,7 @@ internal static partial class ObjectStorageBench
         lookups.Sort();
         reads.Sort();
         return string.Create(CultureInfo.InvariantCulture,
-            $"- {what}, no page cached: a lookup p50 / p99 {Percentile(lookups, 0.5):F2} / {Percentile(lookups, 0.99):F2} ms, ranged reads p50 / max {Percentile(reads, 0.5):F0} / {reads[^1]:F0}; a subject's {matches} quads {scanMs:F2} ms, {scanReads} ranged reads");
+            $"- {what}, from a fresh cache, 200 lookups: a lookup p50 / p99 {Percentile(lookups, 0.5):F2} / {Percentile(lookups, 0.99):F2} ms, ranged reads p50 / max {Percentile(reads, 0.5):F0} / {reads[^1]:F0}, {reads.Sum():F0} in all; then a subject's {matches} quads {scanMs:F2} ms, {scanReads} ranged reads");
 
         static int T(IQuadCursor cursor)
         {
