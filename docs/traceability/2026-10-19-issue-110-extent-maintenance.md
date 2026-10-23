@@ -1,0 +1,302 @@
+# Extent maintenance — background merges and extent deletion
+
+> **Recorded contemporaneously**, by the session that did the work, under
+> [ADR 0033](../adr/0033-commit-traceability.md). The prompts below are
+> verbatim. The transcript itself is held by the maintainer.
+
+| | |
+|---|---|
+| **Issue** | [#110](https://github.com/Hafeok/Varve/issues/110), milestone Extent maintenance |
+| **Date** | 2026-10-19 |
+| **Tool** | Claude Code 2.1.303, a cloud session |
+| **Model** | `claude-opus-5-5`, configured and served, from the session's own metadata |
+| **Session identifier** | `session_014BgePW3C3ECWERkiQMVdPb` |
+| **Branch** | `claude/gracious-goldberg-ufudmi`, from `main` at ce6136b (`v0.1.0-preview.8`) |
+| **ADRs** | 0158–0162, filed unaccepted; 0139 superseded in part by 0160; 0134, 0138 and 0139 carry dated amendments |
+
+## The prompt
+
+The maintainer's message, with the session prompt in a zip, which was not
+copied into the repository:
+
+> @"/root/.claude/uploads/8202f6b4-aa9a-5406-9603-ac378f889ee6/6c4a25b7-varve-extent-maintenance.zip" Unzip the attached varve-extent-maintenance.zip outside the repository and read varve-claude-code-extent-maintenance.md in full. It's the session prompt for milestone Extent maintenance (#110) in github.com/Hafeok/Varve. Work from current main. AGENTS.md applies in full. Read issue #110 and the ADRs the prompt names, then post the plan answering its seven plan questions and wait for approval before writing code. The Management plane (#105) runs in parallel; coordinate only through the reader contract the prompt describes.
+
+The session prompt, `varve-claude-code-extent-maintenance.md`:
+
+> # Session: Extent maintenance — background merges and extent deletion (#110)
+>
+> Object storage (#92, `v0.1.0-preview.8`) landed extents without merges, by the cut the maintainer accepted on 2026-10-15. Each checkpoint adds one extent set per permutation. Every head and as-of read merges across all of them, and on an object store no extent is ever deleted. This milestone bounds both, and it is in 1.0 (#15).
+>
+> **Starting point.** Current `main`. Two other sessions run in parallel:
+> - **SHACL part 1 (#123)** touches nothing here.
+> - **Management plane (#105)** builds a read-only tier-1 follower on the follower attach that #92 landed. That follower reads extents, so it is a reader under your deletion rule (point 4).
+>
+> Whichever of you lands second wires the follower into the reader contract. If you land first, define the contract so that #105's follower can use it unchanged.
+>
+> **Read before planning:**
+> - issue #110;
+> - ADRs 0134–0142, above all 0136 (one writer by an epoch and a log-slot fence), 0138 (validity intervals) and 0139 (extents and the projection catalog). Read 0139's "Deletion waits for Extent maintenance" and its shared commit index paragraph: both are this milestone's;
+> - ADR 0071 and ADR 0072 with their dated amendments;
+> - #92's traceability record and the operator guide's checkpoint budget;
+> - `src/Varve.Store.ObjectStorage` (the catalog, the page cache, follower attach and the cold start);
+> - #117 (object store verification), which may land before or after you.
+>
+> `AGENTS.md` applies in full. Plan first, and wait for approval. Land as one PR, red only on `CS0618`. Its descriptor is at the next free `0.1.0-preview.N` when it lands (ADR 0102), names #110, closes it with a `Closes #110` trailer on the descriptor commit, and carries `accepted-by: mailto:emil@okkels-klein.dk` (the descriptor's line, `docs/releases.md` point 6). Use bare #N everywhere else, and put no closing keyword in the PR description (#108). Your ADRs are 0158–0162: SHACL holds 0148–0157 and the Management plane holds 0163 onward. Land through `land/`.
+>
+> ## A. Decisions (Accepted unless stated; each becomes an ADR or a dated amendment)
+>
+> 1. **Only the writer merges.**
+>    - A merge writes its new extents with create-if-absent, then swaps the catalog once with replace-if-unchanged, under the epoch fence of ADR 0136.
+>    - A superseded writer's swap is refused, and so are its extents: they are never named.
+>    - A merge never blocks the commit path, and never blocks a checkpoint.
+>    - A checkpoint that lands while a merge is running wins. The merge's swap then rebases: it replaces its input sets only if every one of them is still in the catalog, keeps every set added since, and otherwise abandons the merge (its extents become unnamed and are deleted under point 4).
+>    - There is no separate merge worker in this milestone. If the plan finds the writer must offload merges, stop and say why before designing one.
+>
+> 2. **The merge policy.**
+>    - The policy is stated per permutation, with the bound it maintains on the number of extent sets. Size-tiered with a stated fan-out is the default proposal. Argue for another policy only with numbers.
+>    - Merges are triggered by events, the catalog changing at a checkpoint, never by elapsed time.
+>    - Measure write amplification: bytes rewritten per byte checkpointed, over the REC M history.
+>    - The policy is configurable within stated limits. The default holds the read latency gate.
+>
+> 3. **A merge never changes a result.**
+>    - A merge is a pure function of its input sets. It preserves every validity interval exactly (ADR 0138), so a read at any position over the merged catalog equals the same read over the unmerged one.
+>    - A merge has no other effect, either: it neither coalesces history nor drops retracted intervals. Compaction that drops history is a different decision, and it is not this milestone's.
+>
+> 4. **The deletion rule: readers announce, and no timer.**
+>    - **Who announces what.** Every instance that reads extents from the store announces the oldest catalog version any of its in-flight reads holds. That covers the writer, followers, and CLI reads that attach. An as-of read does not need an old catalog version: merged extents carry the same intervals, so it reads through the newest catalog. Only reads that already hold a catalog version count.
+>    - **The reader record.** Propose its object, location, identity and update rules. The identity must survive a restart of the same instance, for example by being persisted in its cache directory or its configuration.
+>    - **What the writer may delete:** an extent named by no catalog version at or after the oldest version any present reader record announces.
+>    - **A dead reader's record holds deletion back until an event removes it.** The events are:
+>      - the same instance restarting and replacing its record;
+>      - an operator command, `varve storage readers` with `list` and `forget`;
+>      - later, fleet membership from the Management plane (#105). Record this as a consequence of the ADR, not as work here.
+>    - Never a timer.
+>    - **What a forgotten reader sees.** A reader whose announced version was forgotten while it was still alive must fail the affected reads with a new problem type (propose its name) and re-attach. It must never return a wrong result.
+>    - **Retention is visible.** The bytes retained because of each reader record are reported on readiness and in `varve storage readers list`.
+>    - **On the file backend** the process holding the OS lock is the only reader, so a retired set is deleted at once, as today.
+>
+> 5. **The shared commit index (ADR 0139).**
+>    - At each checkpoint, the writer stores the commit index below the catalog in the object store, beside the extents. A cold start or a follower then never reads the log's headers below the catalog.
+>    - The plan says whether this needs a new derived kind. If so, it is derived format 5, and format 4 stays readable under read-forever, with a fixture written by the current build (#129's inventory will list it).
+>    - If 0139's "no format change" holds after all, say why.
+>
+> 6. **Operations.**
+>    - The operator guide's checkpoint budget from #92 is removed. In its place, the guide documents the merge policy, write amplification, retained bytes and the readers command.
+>    - `varve storage` reports extent sets per permutation and retained bytes.
+>    - If #117 has landed, `varve storage verify` gains two checks:
+>      - every extent a catalog names exists;
+>      - no reader record names a catalog version that no longer exists.
+>
+> ## B. Definition of done
+>
+> - Over generated histories with retractions, a merged projection equals the in-memory one at every position. This holds across any merge schedule, any interleaving of checkpoints and merges, and any cache eviction schedule.
+> - Failure injection at every extent write, catalog swap, reader-record write and deletion. No reader ever sees a catalog naming a missing extent, except a forgotten reader, which gets the problem of point 4 and never a wrong result.
+> - Over generated schedules of readers attaching, pinning, announcing, crashing, restarting and being forgotten, no extent that a live announced catalog version names is ever deleted. Every unnamed extent is deleted once no record holds it.
+> - A superseded writer's merge swap is refused, and its extents are never named.
+> - A follower attached to the writer's catalog keeps serving across merges and deletions on Azurite and on RustFS.
+> - Read latency at REC size M after 10, 50 and 100 checkpoints with merges on, against #92's table without them, with the slower rows shown first. Also report write amplification and the cold start with the shared commit index, against #92's.
+> - Every milestone 4 and 6a property and the storage contract suite unchanged.
+> - The traceability record. README Status, `docs/roadmap.md`, AGENTS.md's State and `eng/status.cs` are updated for the milestone.
+>
+> ## CI and test time
+>
+> - Use only the images listed in `.github/ci-images.yaml` (#118). If #118's PR 2 has landed, use the mirror references. Never add an image without a row.
+> - Size property-test iteration counts for the land gate. State each count, and report each new test project's duration per OS. The Windows store step has grown from 8 to 53 minutes (#126), so don't add to that without saying so.
+> - A long run, such as many generated schedules or many checkpoints, belongs in a separately named job or test category that #129 can move to the release gate. Say which runs those are.
+>
+> ## Plan questions
+>
+> 1. The merge policy, its bound on sets per permutation, and the expected write amplification.
+> 2. The rebase rule when a checkpoint lands during a merge, and what is abandoned when.
+> 3. The reader record: object, identity, update rule, and the contract the Management plane's follower implements. Name the package and type, and check them against the layer rules.
+> 4. Dead readers: the events that remove a record, the `forget` command's authorisation, and the problem type a forgotten reader gets.
+> 5. The shared commit index, and whether it is derived format 5.
+> 6. Which existing tests and documents change, including the operator guide's checkpoint budget.
+> 7. ADR numbers within 0158–0162, and the amendments (0139 certainly, 0072 if the format changes).
+
+## The plan, and the maintainer's rulings
+
+The session read issue #110, ADRs 0134–0142, 0071 and 0072 with their
+amendments, #92's record and benchmarks, the operator guide's checkpoint
+budget and `Varve.Store.ObjectStorage`, and posted a plan answering the seven
+questions. It proposed size-tiered merges with fan-out 4 and a cap; a rebase
+that keeps sets added since and abandons on a missing input; the catalog
+version as the set-sequence counter, advanced at every swap; a reader record
+`readers/<id>` with announce-then-confirm; `varve storage readers forget`
+guarded by what list showed; `reader-forgotten`; the shared commit index as
+an optional ninth blob in format 4. It raised four findings: a superseded
+writer's create could take the name a new writer's set needs; a follower
+would now write, against ADR 0134; ADR 0072's "derived is not read forever"
+against the prompt's read-forever for format 4; and the backend buffered a
+whole blob in memory before uploading it. The maintainer's answer:
+
+> Approved, with one correctness change and these rulings.
+>
+> **Correctness: the record announces an interval, not the oldest version.**
+> - A reader holding v₁ and v₃ that announces only v₁ lets the writer delete a set named in (v₁, v₄) that the v₃ view still reads.
+> - So the record carries `catalogOldest` and `catalogNewest`, the oldest and newest versions it holds. The writer deletes set s (removed at r) only when no record's [oldest, newest] overlaps (s, r).
+> - State the writer's order in ADR 0160: swap, then read the records, then delete. Announce-then-confirm is safe only with that order. Prove it in the reader-schedule property, including readers that hold several versions at once.
+> - The contract becomes `AnnounceAsync(CatalogVersion oldest, CatalogVersion newest)`.
+>
+> **Rulings:**
+> 1. **Format:** the optional ninth blob in derived format 4. No format 5.
+> 2. **The writer writes a record too.** The refcount covers the writer's own views only while it remains the writer. After supersession, the stepped-down instance's in-flight reads would be invisible to the new writer, which could merge and delete under them. With a record, every role is uniform, as Replication's handover needs. The record is replaced only when the held interval changes.
+> 3. **Announcing is required by default.** A `403` on the record fails the open and names the role. `varve` read commands accept an explicit `--unannounced` for read-only identities. Such a read may find an extent gone. It then fails with its own problem type (propose a name, e.g. `read-unannounced-extent-gone`), never the damage `IOException`, and never returns a wrong result. No silent fallback.
+> 4. **The latency gate is relative, within the same run** on the same runner:
+>    - head reads with merges on at 100 checkpoints stay within 1.5× of that run's 10-checkpoint row, at p50 and p99;
+>    - an as-of read inside the largest set stays within 2× of that run's 10-checkpoint as-of row, at the default `MaxSetBytes`.
+>
+>    `MaxSetBytes` is in scope. State its default from the M measurement. Report #92's absolute numbers alongside for reference, not as the gate.
+> 5. **Derived formats are rebuilt, not read forever** (ADR 0072, 0139). #129 has been corrected to say so.
+>    - The reader record v1 and the writer record are coordination state and are read forever.
+>    - A record of an unknown version is treated as holding every catalog version, which blocks deletion. It is never ignored.
+>    - Add the reader record to the spec as its own format with a version.
+>
+> **Findings:**
+> 1. Fix it as proposed: a taken name means taking the next sequence. Add a property test: a superseded writer's creates, checkpoints and merges never make the new writer's checkpoint or merge fail, and none of them is ever named.
+> 2. Amend 0134. The follower's write access is scoped to the `readers/` prefix: Azure with an ABAC condition on the blob path, and S3 with a prefix-scoped policy. Document both in the operator guide. Workload identity stays the only credential.
+> 3. Settled by ruling 5.
+> 4. Stage uploads through a file in the cache. State the single-PUT size limit per provider (Azure and S3), and refuse a merge whose output would exceed it, rather than failing midway. Multipart is a later decision.
+>
+> **Also:**
+> - Readiness reports retained bytes but never turns unready because of them.
+> - A maintenance round may poll, since an interval only affects how soon something is deleted, never whether it's safe to (handover ADR point 7). Say so in 0160.
+> - Using the set-sequence counter as the catalog version is accepted.
+
+## The report
+
+**ADRs.** Five, filed unaccepted (ADR 0066), with their decision sets:
+- **0158**: background merges, by the writer only. A merge writes, then swaps once under the fence, rebases onto a catalog swapped meanwhile, and is a pure function of its inputs. A taken name takes the next sequence. Uploads are staged through the cache, and a merge past the single-upload limit is refused.
+- **0159**: the merge policy, size-tiered with a fan-out of 4 and `MaxSetBytes` of 256 MiB.
+- **0160**: extent deletion by reader announcements. It covers the interval record, announce-then-confirm, and the writer's order: swap, then read the records, then delete. It also covers polling, a forgotten reader, an unannounced read, and a record of an unknown format.
+- **0161**: the shared commit index, the ninth blob in derived format 4.
+- **0162**: `varve storage`, the readers command and retention on readiness.
+
+`CS0618` is the one red.
+
+**What else changed**, by dated amendment (ADR 0068):
+- **0134**: a follower writes its reader record; the streamed create; the refusals for the identity.
+- **0138**: the chain is bounded by merges, and the checkpoint budget is removed.
+- **0139**: deletion and merges move to 0158 and 0160; the shared commit index; the catalog's sequence as its version. `DeletionWaitsForExtentMaintenance` moves to 0160's set.
+- `storage-format.md` gains the commits row in §7.5, the version note in §7.6, and the reader record as its own format with a version in §8.
+- Two problem types, both `503`: `reader-forgotten` and `read-unannounced-extent-gone`. `not-ready` gains `retention`.
+- The operator guide replaces the checkpoint budget with merges, retained bytes and the readers command. The Azure ABAC condition and the S3 prefix policy for `readers/` are in the Azure Container Apps page.
+
+**The departure from the plan.** The plan's tier rule needed a run of `F` sets in one tier. The policy property found chains it never merged: sizes alternating either side of a tier's edge. The rule became "similar sizes" (largest at most `F` times the smallest), plus a pressure rule past the bound. ADR 0159 records both and the alternative.
+
+**The gate's as-of reading, for the maintainer.** Ruling 4 compares "an as-of read inside the largest set" with "that run's 10-checkpoint as-of row". REC M's history is front-loaded, so the 10-checkpoint chain's "inside a set" column, at a middle set, reads a small set: 33 ms. Against it the merged chain's largest set, 2,736 ms, is not within 2×. The benchmark and ADR 0159 compare the largest set of each chain instead: 2,736 ms against 2,358 ms, 1.16×. If the ruling meant the middle-set column, the cap must come down, to near the 10-checkpoint chain's middle set, and the chain grows.
+
+The benchmark's gate fails visibly. The first run compared against the
+middle-set column and printed:
+
+```
+- as-of inside the largest set: 2760.2 against 31.1 × 2.0 = 62.1: OVER
+```
+
+**The properties and gates**, with counts and durations on this session's container:
+- **The policy** (`ExtentMergeTests.the_policy_keeps_its_bound_over_any_sequence_of_sets`): 500 generated sequences of sizes and fan-outs, merged to exhaustion after each arrival, never past the bound. 0.2 s.
+- **Merged projection equals the model** at every position across any schedule of checkpoints, drops and merges: 40 schedules (`VARVE_EXTENT_SCHEDULES` raises it), 0.9 s. A checkpoint or drop during a merge (above, split and drop) is kept, or abandons it, and the projection's runs are rebased. Under 0.1 s each.
+- **The reader schedule** (`ObjectReaderScheduleTests`): 60 schedules (`VARVE_READER_SCHEDULES`) of three readers, each holding several catalog versions at once. Readers announce, confirm, pin and release; the writer checkpoints, merges, drops and deletes; a writer is superseded and the superseded one keeps creating, checkpointing and merging. The checks: no extent a live announced version names is ever deleted, and every unnamed one is deleted once no record holds it. None of the superseded writer's sets is ever named, and none makes the new writer's checkpoint or merge fail (finding 1's property). 5.2 s. 1,200 schedules ran clean on demand.
+- **Faults at every extent write, catalog swap, record write and deletion**: 117 writes and 234 injection points. Structural checks run at each point, and the full comparison every 8th point (`VARVE_EXTENT_FAULTS_FULL=1` runs it at all). No reader is ever shown a catalog naming a missing extent. 37.7 s here; 20 s alone, and 31 s with every point in full.
+- **Reader records** (`ObjectExtentMaintenanceTests`), each under 0.3 s:
+  - a follower writes only its record, and an unannounced one writes nothing;
+  - a dead reader's record holds deletion until it restarts or is forgotten;
+  - a forgotten reader fails with `reader-forgotten`, and an unannounced read fails on a gone extent with `read-unannounced-extent-gone`, never with a wrong result;
+  - a `403` on the record fails the open, naming the role;
+  - a record of an unknown format holds every version;
+  - a taken name takes the next sequence.
+- **A follower across merges and deletions** on Azurite (12.2 s) and RustFS (3.1 s).
+- **A cold start reads no log header below the catalog's slot** and serves feed, as-of and by-time reads at every position, as an open of the whole log does (`ObjectColdStartTests`, 6.9 s).
+- **The server**: the storage command against Azurite, reporting sets and readers and forgetting only what it was shown (2.9 s). Readiness reports retention and never turns unready.
+- **Totals at the last run**, on the rebased head:
+  - `Varve.Store.Tests`: 320, 303 passed, 17 skipped (the real Azure account and the deep fault exploration, env-gated), 24 min 42 s.
+  - `Varve.Server.Tests`: 93, 87 passed, 6 skipped (the identity providers), 11.7 s.
+  - `Varve.Protocol.Tests`: 108 passed, 30.6 s.
+  - None failed. The new store tests add about 70 s on Linux here, 38 s of it the fault test. Windows was not measured in this session: its duration per OS is CI's to report on the pull request, and with #126's 53-minute Windows store step that figure is the one to watch.
+
+**Defects found by the properties, and fixed:**
+- **The policy stranded alternating sizes**: the tier rule above.
+- **An abandoned merge's output was not deleted promptly.** It now goes straight to deletion.
+- **A split's index held the replaced set**, so retention stayed high. The index's rebase now replaces the projection's base runs on a merge, a split or a drop-merge.
+- **Maintenance failed permanently when an announce failed with an `IOException`.** Maintenance and deletion now tolerate it, and the next round retries.
+- **A test-harness artifact**: two `Dataset`s writing one `MemoryStorage` while merges ran in the background ("does not read back"). Tests that open a second dataset run with merges off.
+- **`ExtentMergePolicy.DefaultMaxSetBytes` read as 0**, from static initialisation order.
+
+**Benchmarks** (`tests/Varve.Benchmarks/README.md`, the Extent maintenance section):
+- **REC M on files, one run.** Head reads at 100 checkpoints with merges (5 sets) beat the 10-checkpoint row without merges at p50 and p99: lookup 12.1 / 37.8 µs against 59.0 / 123.8 µs. The as-of read inside the largest set is 1.16× (above).
+- **Write amplification:** 1.77.
+- **The chain** held 3 to 10 sets after each tenth of the checkpoints; the bound is 15.
+- **The first as-of read below the catalog** now takes 233 reads: 6.0 s on Azurite and 3.5 s on RustFS, against #92's 27.7 s and 10.1 s over 18,977 chunk reads.
+- **The cold start** is unchanged, at 4.2 s and 6.4 s, and is still the listing of the open segment's chunks.
+
+**Not done here:**
+- `varve storage verify` waits for #117; ADR 0162 point 7 states its two checks.
+- Multipart uploads are a later decision (finding 4).
+
+**The release** is the next free `0.1.0-preview.N` at landing; the
+descriptor says `v0.1.0-preview.9`. #123 holds preview.9, and whichever of
+#123, #110 and #131 lands later renumbers its descriptor (ADR 0102).
+
+**The reader contract with #105.** #105 part 1 (#131) has a no-op hook,
+`OnCatalogHeld`, where its follower holds a catalog version. Whichever of the
+two lands second wires it into `IExtentReaders.AnnounceAsync(oldest, newest)`.
+
+## Addendum, 2026-10-19: the maintainer's approval
+
+The maintainer approved and asked for the pull request:
+- **The as-of gate** reads like for like, the largest set against the largest
+  set (1.16×). ADR 0159 and the benchmarks README also state the absolute
+  figure, 2,736 ms at REC M, which grows with `MaxSetBytes` since narrowing
+  is O(set size). O(matches) narrowing is a separate issue; `MaxSetBytes` is
+  unchanged.
+- **The release number** is the next free one at landing.
+- **Windows time:** CI's per-OS durations for the store step are quoted on
+  the pull request and here once CI has run, against #126's figures: 8 min
+  before #116, 29 min on #116's pull request run, 53 min at its land.
+- **`varve storage verify`** and multipart uploads are stated in ADR 0162's
+  consequences.
+
+## Addendum, 2026-10-19: the release is `v0.1.0-preview.10`
+
+SHACL, part 1 (#123) landed first as `v0.1.0-preview.9`, so this milestone's
+descriptor is renumbered to `v0.1.0-preview.10` (ADR 0102), with `main`
+merged into the branch: the README's status, AGENTS.md's state, the ADR index
+and the benchmarks README carry both milestones, and the changelog is
+projected again.
+
+## Addendum, 2026-10-20: CI's store step, and the merge of #134
+
+**The store step in CI**, `Test Varve.Store` in `build (…)`, in minutes:
+
+| Run | Linux | Windows |
+|---|---:|---:|
+| `main` at e42eb9e (SHACL, the preview.9 release gates) | 10.0 | 33.6 |
+| `main` at f7d25da (#130) | 16.1 | 28.6 |
+| #137 at 0657425, the same hour as this PR's run | 15.0 | 24.4 |
+| this PR at 75c2e8d | 16.6 | 36.1 |
+| this PR at 7b40629 | 16.5 | 35.5 |
+
+- **Windows** grew by about 7 minutes against `main` (28.6 → 35.5 at f7d25da, the
+  base of 7b40629; 24.4 for #137 in the same hour). That is more than the
+  Linux 70 s the new tests take here would predict.
+- **Linux** is unchanged against `main` at the same base (16.1 → 16.5).
+- **Per-test attribution is #126's.** #126 adds a TRX upload for every test
+  step, with each OS's twenty slowest tests in the job summary, and
+  re-measures this milestone's tests once it has landed. This pull request
+  adds none.
+- For reference, #126's figures for the Windows store step were 8 min before
+  #116, 29 min on #116's pull request run and 53 min at its land.
+
+**#134, Management plane part 1, landed first** with `v0.1.0-preview.10`, so
+this descriptor is renumbered to `v0.1.0-preview.11`, with `main` merged in.
+- **The reader-contract hook is wired** (ADR 0164 point 6, amended): a
+  follower announces the catalog version it opened in its reader record
+  through `Dataset.OpenAsync`, and the no-op hook is removed. The test
+  `a_follower_announces_the_catalog_version_it_opened` replaces #134's.
+- **A writer and a follower of one dataset on one server** hold separate
+  records. With `Varve:ObjectStorage:ReaderId` set, the follower's is the id
+  with `-follower`, so the two never overwrite each other; the setting is
+  now 1 to 119 characters.
+- **What it shows:** a tier-1 follower re-reads no catalog while it tails,
+  so its record retains the sets merged away since it opened, until it is
+  opened again. Readiness's `retention` reports the bytes.

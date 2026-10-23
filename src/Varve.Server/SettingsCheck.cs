@@ -31,7 +31,7 @@ internal static class SettingsCheck
         "Fleet:Writer", "Fleet:InternalUrl", "Fleet:FollowInterval", "Fleet:AllowedLag",
         "Manage:BootstrapOperators:*", "Manage:Urls",
         "ObjectStorage:Provider", "ObjectStorage:ContainerUrl", "ObjectStorage:Endpoint", "ObjectStorage:Bucket", "ObjectStorage:Region",
-        "ObjectStorage:CachePath", "ObjectStorage:CacheBytes", "ObjectStorage:Instance",
+        "ObjectStorage:CachePath", "ObjectStorage:CacheBytes", "ObjectStorage:Instance", "ObjectStorage:ReaderId",
         "Auth:Mode", "Auth:Authority", "Auth:Audiences:*", "Auth:SubjectClaim", "Auth:ApplicationClaim", "Auth:RoleClaimType", "Auth:RequireHttpsMetadata", "Auth:Production",
         "Auth:Management:Audience",
         "Limits:QueryTimeout", "Limits:ResultSizeCap", "Limits:MaxRequestBody", "Limits:PinnedReadLifetime", "Limits:FeedHeartbeat",
@@ -44,6 +44,7 @@ internal static class SettingsCheck
         "Telemetry:QueryText",
         "Cors:AllowedOrigins:*", "Cors:MaxAge",
         "Store:GroupCommit:MaxRecords", "Store:GroupCommit:MaxBytes",
+        "Store:ExtentMerges:Enabled", "Store:ExtentMerges:FanOut", "Store:ExtentMerges:MaxSetBytes",
         "Events:Source", "Events:EventHubs:Host", "Events:EventHubs:Hub",
     ];
 
@@ -239,6 +240,18 @@ internal static class SettingsCheck
         if (settings.Store.GroupCommit.MaxRecords < 1 || settings.Store.GroupCommit.MaxBytes < 1 || settings.Store.GroupCommit.MaxBytes > 4L << 20)
         {
             errors.Add("Varve:Store:GroupCommit: MaxRecords is at least one, and MaxBytes between one byte and the write window, 4 MiB (ADR 0124).");
+        }
+
+        if (settings.Store.ExtentMerges.FanOut is < 2 or > 16 || settings.Store.ExtentMerges.MaxSetBytes < 1L << 20)
+        {
+            errors.Add("Varve:Store:ExtentMerges: FanOut is 2 to 16, and MaxSetBytes 1 MiB or more (ADR 0159).");
+        }
+
+        // The follower's record is the id with "-follower" (ObjectStores), so
+        // that one must be valid too.
+        if (settings.ObjectStorage.ReaderId is { } reader && !Varve.Store.Log.ReaderId.IsValid(reader + "-follower"))
+        {
+            errors.Add("Varve:ObjectStorage:ReaderId is 1 to 119 ASCII letters, digits, '-', '_' or '.', not starting with '.' (ADR 0160).");
         }
 
         if (!string.IsNullOrWhiteSpace(settings.DatasetsRoot) && !Path.IsPathFullyQualified(settings.DatasetsRoot))

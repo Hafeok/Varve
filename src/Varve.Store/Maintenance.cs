@@ -146,6 +146,7 @@ public sealed partial class Dataset
         || CheckpointDue(state)
         || CommitPagingDue(state)
         || CommitMergeDue(state.Commits)
+        || ExtentMergeDue(state)
         || _storage is IStorageMaintenance { MaintenanceDue: true };
 
     private static int LeadingBlobRuns(IndexVersion index)
@@ -291,6 +292,13 @@ public sealed partial class Dataset
             return true;
         }
 
+        // A merge of extent sets, considered once the catalog changed (ADR 0159).
+        if (ExtentMergeDue(state) && await MergeExtentsAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return true;
+        }
+
+        await MaintainExtentsAsync(cancellationToken).ConfigureAwait(false);
         return false;
     }
 
@@ -445,19 +453,18 @@ public sealed partial class Dataset
     {
         while (_closedRuns.TryDequeue(out BlobName name))
         {
-            // An extent set's name stands for its extents (ADR 0139).
+            // An extent set's name stands for its extents (ADR 0139), deleted
+            // by the rule of reader announcements (ADR 0160).
             if (name.Value.StartsWith(ExtentSet.Prefix, StringComparison.Ordinal))
             {
-                foreach (BlobName part in ExtentSet.BlobsOf(name.Value))
-                {
-                    await _storage.Derived.DeleteAsync(part, cancellationToken).ConfigureAwait(false);
-                }
-
+                SetClosed(name.Value);
                 continue;
             }
 
             await _storage.Derived.DeleteAsync(name, cancellationToken).ConfigureAwait(false);
         }
+
+        await DeleteUnnamedSetsAsync(poll: false, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>After the projection is rebuilt: the old version's runs retired, and the state rewritten.</summary>

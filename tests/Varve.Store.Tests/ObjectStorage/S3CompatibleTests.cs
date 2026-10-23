@@ -108,6 +108,17 @@ public abstract class S3CompatibleStorageContractTests : StorageContractTests, I
     }
 }
 
+public sealed class RustFsExtentMaintenanceTests
+{
+    /// <summary>A follower keeps serving across the writer's merges and deletions, on RustFS (ADRs 0158, 0160).</summary>
+    [Fact]
+    public async Task a_follower_keeps_serving_across_merges_and_deletions_on_rustfs()
+    {
+        using S3ObjectStore store = await S3Server.RustFs.BucketAsync();
+        await ExtentMaintenanceCases.FollowerAcrossMergesAndDeletionsAsync(store);
+    }
+}
+
 public sealed class RustFsObjectStoreContractTests : S3CompatibleObjectStoreContractTests
 {
     internal override S3Server Server => S3Server.RustFs;

@@ -8,6 +8,13 @@ by the maintainer on the Object storage plan, 2026-10-15: REST rather than a
 provider SDK; the providers in packages of their own, the contract in
 `Varve.Store`; the S3-compatible server chosen by the contract suite.
 
+**Amended 2026-10-19** (ADR 0068), by milestone Extent maintenance of #110,
+unaccepted until the maintainer accepts it (ADR 0066):
+- a follower writes its reader record under `readers/`, and its identity's
+  write access is scoped to that prefix;
+- the create may stream its content from a staged file;
+- a refusal for the identity is its own error.
+
 ## Context
 
 Azure Container Apps has no block disk. Azure Files breaks three things the
@@ -243,3 +250,36 @@ Any other S3-compatible store is untested, and the operator guide says so.
   layer 6.
 - **Analyzer rule.** None new. `DD0001` holds the layers.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-19 — the follower's reader record, the streamed create, and refusals
+
+Filed by milestone Extent maintenance of #110, unaccepted until the
+maintainer accepts it (ADR 0066).
+
+- **A follower writes one object: its reader record** (ADR 0160),
+  `readers/<id>` under the dataset's prefix. It still never writes the log,
+  the writer record, the catalog or an extent, so a store cannot be
+  corrupted through it, and it still does not probe. Its identity needs:
+  - **Azure:** Storage Blob Data Reader on the container, and Storage Blob
+    Data Contributor with an ABAC condition on the blob path, the dataset's
+    `readers/*`;
+  - **S3:** `s3:GetObject` and `s3:ListBucket`, and `s3:PutObject` and
+    `s3:DeleteObject` on the prefix's `readers/*`.
+
+  The workload's identity stays the only credential (ADR 0137). A read that
+  must not write — an identity with read access alone — is opened unannounced,
+  explicitly (ADR 0160). Decision 9's "a follower's identity needs only read
+  access" is replaced by this.
+- **The create may stream** (ADR 0158). `IObjectStore` gains
+  `CreateIfAbsentAsync(ObjectName, ObjectContent, …)`, the same operation
+  with its content streamed from a staged file. Its default implementation
+  reads the file whole and calls the first. `Varve.Store.Azure` and
+  `Varve.Store.S3` stream it; S3 hashes the file once for SigV4. The
+  contract is still five operations.
+- **A refusal for the identity is its own error.** Both adapters raise
+  `ObjectStoreAccessDeniedException` for `401` and `403`, which the backend
+  never retries, so an open can name the role it needs.
+- **The single-request upload limit is stated per provider:** 5,000 MiB for
+  Azure's Put Blob (`AzureBlobStore.MaxSingleUploadBytes`), 5 GiB for S3's
+  PutObject (`S3ObjectStore.MaxSingleUploadBytes`). Multipart upload is a
+  later decision (ADR 0158).

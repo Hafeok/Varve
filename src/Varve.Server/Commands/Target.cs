@@ -28,8 +28,11 @@ internal abstract class Opened : IAsyncDisposable
     public abstract ValueTask DisposeAsync();
 }
 
-/// <summary>A dataset directory, open for the command's lifetime.</summary>
-internal sealed class Local(Dataset dataset, FileStorage files, Outbound outbound) : Opened
+/// <summary>
+/// A dataset opened in this process for the command's lifetime: a directory,
+/// or a dataset in an object store opened read-only (ADR 0160).
+/// </summary>
+internal sealed class Local(Dataset dataset, IAsyncDisposable files, Outbound outbound, string? cache = null) : Opened
 {
     internal Dataset Dataset { get; } = dataset;
 
@@ -48,6 +51,11 @@ internal sealed class Local(Dataset dataset, FileStorage files, Outbound outboun
     {
         await Dataset.DisposeAsync().ConfigureAwait(false);
         await files.DisposeAsync().ConfigureAwait(false);
+
+        if (cache is not null && Directory.Exists(cache))
+        {
+            Directory.Delete(cache, recursive: true);
+        }
     }
 
     /// <summary>RAND(), UUID() and STRUUID() at the composition root: the operating system's (ADR 0056).</summary>
@@ -72,7 +80,18 @@ internal sealed class Remote(SparqlHttpClient client, HttpClient http) : Opened
 /// <summary>The options every command over a dataset shares, and how they open it.</summary>
 internal sealed class Target
 {
-    internal readonly Argument<string> Dataset = new("dataset") { Description = "A dataset directory, or the URL of a dataset on a server (…/datasets/{name}/)." };
+    internal readonly Argument<string> Dataset = new("dataset")
+    {
+        Description = "A dataset directory; the URL of a dataset on a server (…/datasets/{name}/); or a dataset in an object store, read-only: https://{account}.blob.core.windows.net/{container}/{dataset} or s3://{bucket}/{dataset}.",
+    };
+
+    internal readonly Option<bool> Unannounced = new("--unannounced")
+    {
+        Description = "Object store: read without a reader record, for an identity that may only read; the writer may then delete what the read holds, and such a read fails rather than answer wrong (ADR 0160).",
+    };
+
+    internal readonly Option<string?> Endpoint = new("--endpoint") { Description = "s3://: the S3-compatible service's endpoint." };
+    internal readonly Option<string?> Region = new("--region") { Description = "s3://: the region the signature is for." };
     internal readonly Option<string?> Authority = new("--authority") { Description = "The OIDC issuer a server's tokens come from, for a URL." };
     internal readonly Option<string?> ClientId = new("--client-id") { Description = "The OIDC client: with --client-secret the client credentials flow, alone the device code flow." };
     internal readonly Option<string?> ClientSecret = new("--client-secret") { Description = "The client's secret; VARVE_CLIENT_SECRET when absent." };
@@ -87,6 +106,9 @@ internal sealed class Target
     internal void AddTo(Command command, bool remote = true)
     {
         command.Arguments.Add(Dataset);
+        command.Options.Add(Unannounced);
+        command.Options.Add(Endpoint);
+        command.Options.Add(Region);
         command.Options.Add(AllowEndpoint);
         command.Options.Add(AllowSource);
         command.Options.Add(AllowPrivate);
@@ -110,6 +132,16 @@ internal sealed class Target
     internal async Task<Opened> OpenAsync(ParseResult parsed, Io io, CancellationToken cancellationToken)
     {
         string dataset = parsed.GetValue(Dataset)!;
+
+        if (ObjectLease.IsObjectStore(dataset))
+        {
+            return await OpenObjectStoreAsync(dataset, parsed, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (parsed.GetValue(Unannounced))
+        {
+            throw new Cli.CommandException("--unannounced is for a dataset in an object store (ADR 0160).");
+        }
 
         if (IsUrl(dataset))
         {
@@ -144,6 +176,59 @@ internal sealed class Target
         {
             await files.DisposeAsync().ConfigureAwait(false);
             throw;
+        }
+    }
+
+    /// <summary>
+    /// A dataset in an object store, opened read-only (ADRs 0139, 0160): it
+    /// claims nothing, and announces the catalog version it reads in a reader
+    /// record of a fresh id, deleted when the command ends — unless
+    /// <c>--unannounced</c> asks, explicitly, for no record. Writes are refused.
+    /// </summary>
+    [DecisionDriven.DesignDecision(typeof(DecisionDriven.Ledger.Varve.StorageOperationsAndTheReadersCommand.ReadCommandsMayReadUnannounced), Scope = DecisionDriven.ExceptionScope.Boundary)]
+    private async Task<Local> OpenObjectStoreAsync(string address, ParseResult parsed, CancellationToken cancellationToken)
+    {
+        (IObjectStore store, ObjectName prefix) = ObjectLease.Open(address, parsed.GetValue(Endpoint), parsed.GetValue(Region));
+        string cache = Directory.CreateTempSubdirectory("varve-read-").FullName;
+        TimeProvider clock = TimeProvider.System;
+        Varve.Store.ObjectStorage.ObjectStorage? storage = null;
+
+        try
+        {
+            storage = await Varve.Store.ObjectStorage.ObjectStorage.OpenAsync(new Varve.Store.ObjectStorage.Model.ObjectStorageOptions
+            {
+                Store = store,
+                Prefix = prefix,
+                Cache = new Varve.Store.ObjectStorage.Model.CacheDirectory(cache),
+                Access = Varve.Store.ObjectStorage.Model.ObjectStorageAccess.ReadOnly,
+                Announcing = parsed.GetValue(Unannounced) ? Varve.Store.ObjectStorage.Model.ReaderAnnouncing.Unannounced : Varve.Store.ObjectStorage.Model.ReaderAnnouncing.Required,
+                ProbeRandomness = SystemProbeRandomness.Instance,
+                Clock = clock,
+            }, cancellationToken).ConfigureAwait(false);
+            DatasetOptions options = new() { Clock = clock, Validators = [new EventCatalogueValidator()], Maintenance = MaintenanceMode.Off, ExtentMerges = ExtentMergePolicy.Off };
+            Dataset dataset = await Varve.Store.Dataset.OpenAsync(storage, options, cancellationToken).ConfigureAwait(false);
+            return new Local(dataset, new OwnedStore(storage, store), OutboundOf(parsed), cache);
+        }
+        catch
+        {
+            if (storage is not null)
+            {
+                await storage.DisposeAsync().ConfigureAwait(false);
+            }
+
+            (store as IDisposable)?.Dispose();
+            Directory.Delete(cache, recursive: true);
+            throw;
+        }
+    }
+
+    // The backend, then the adapter it was opened over.
+    private sealed class OwnedStore(Varve.Store.ObjectStorage.ObjectStorage storage, IObjectStore store) : IAsyncDisposable
+    {
+        public async ValueTask DisposeAsync()
+        {
+            await storage.DisposeAsync().ConfigureAwait(false);
+            (store as IDisposable)?.Dispose();
         }
     }
 

@@ -113,6 +113,7 @@ varve:ObjectStorage`. Its placed instance claims its next writer epoch (ADR
 | `ObjectStorage:CachePath` | none | absolute; the local cache, a directory per dataset, and a follower's under `_followers/`: extent pages and the derived data any instance rebuilds |
 | `ObjectStorage:CacheBytes` | 8 GiB | the most each dataset's extent page cache holds; at least 64 MiB (ADR 0139) |
 | `ObjectStorage:Instance` | the machine name | who this server is in the writer record that `varve lease` shows, and the name `Fleet:Writer` and `varve:placedOn` compare with |
+| `ObjectStorage:ReaderId` | a random id kept in each dataset's cache | this server's reader id: the name of its reader record in each dataset, `readers/<id>` (ADR 0160). Set it where the cache does not survive a restart, as on Container Apps, so a restart replaces the record its last run left. A follower's record is the id with `-follower`, so a writer and a follower of one dataset on this server hold one each. 1 to 119 ASCII letters, digits, `-`, `_` or `.` |
 
 **No credential is configured, and none is accepted** (ADR 0137). Azure is
 reached as the workload's identity: Container Apps' managed identity, workload
@@ -270,6 +271,16 @@ commit that finds the dataset idle is written at once; there is no timer.
 
 `varve.store.commit.batch_size` ([Observe](observe.md)) shows how many
 commits each write carried.
+
+The writer merges its extent sets in the background (ADRs 0158, 0159), so a
+read of the present merges a bounded number of runs however many
+checkpoints are taken; see [Back up and restore](backup-and-restore.md#checkpoints).
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Store:ExtentMerges:Enabled` | `true` | whether the writer merges adjacent extent sets as maintenance; a merge never changes a result |
+| `Store:ExtentMerges:FanOut` | `4` | how many adjacent sets of one size merge into one: 2 to 16. Higher keeps fewer rewrites and more sets |
+| `Store:ExtentMerges:MaxSetBytes` | 256 MiB | no merge makes a set larger, and a set past half of it is not merged again; at least 1 MiB. It bounds what an as-of read inside a set costs |
 
 ## Domain events — `Events` (ADRs 0143, 0144)
 

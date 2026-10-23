@@ -48,3 +48,5 @@ static Varve.Store.S3.S3ObjectStore.Create(Varve.Store.S3.Model.S3ObjectStoreOpt
 ~override Varve.Store.S3.Model.S3Bucket.Equals(object obj) -> bool
 ~override Varve.Store.S3.Model.S3Region.Equals(object obj) -> bool
 override Varve.Store.S3.S3ObjectStore.ToString() -> string!
+Varve.Store.S3.S3ObjectStore.CreateIfAbsentAsync(Varve.Store.Log.ObjectName name, Varve.Store.Log.ObjectContent! content, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.ObjectVersion?>
+static Varve.Store.S3.S3ObjectStore.MaxSingleUploadBytes.get -> Varve.Store.Log.ByteCount

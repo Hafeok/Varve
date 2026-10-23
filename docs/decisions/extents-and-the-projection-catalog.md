@@ -35,10 +35,6 @@ decisions:
     statement: "The page cache holds at most its configured bytes; it evicts the least recently read extent's pages, which are fetched again when next read"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-17T00:00:00Z
-  - key: DeletionWaitsForExtentMaintenance
-    statement: "An extent no catalog names is not deleted from an object store before milestone Extent maintenance states the rule for live readers; a directory, with one process, deletes it once no view holds it"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-17T00:00:00Z
   - key: CatalogRecordsTheLogCursor
     statement: "The catalog records where the log continues after its position — the segment, the offset and the backend's slot there — and its sets' ends' commit index entries, so an open lists and reads only the log after it"
     accepted-by: mailto:emil@okkels-klein.dk
