@@ -46,6 +46,21 @@ public static class ManagementVocabulary
     /// <summary>The bootstrap graph.</summary>
     public static RdfTerm BootstrapGraph { get; } = Term("manage/bootstrap");
 
+    /// <summary><c>varve:eventDeclarations</c>, on a dataset's node: where its event declarations are (ADR 0167).</summary>
+    public static RdfTerm EventDeclarationsProperty => EventDeclarations;
+
+    /// <summary><c>varve:Moving</c>: the event declarations are frozen in the catalogue graphs and being copied.</summary>
+    public static RdfTerm MovingState => Moving;
+
+    /// <summary><c>varve:Moved</c>: the event declarations are in the dataset's graph, for good.</summary>
+    public static RdfTerm MovedState => Moved;
+
+    /// <summary><c>varve:sourceGraph</c>, on a moved event type's node: the graph its catalogue graph's name carried.</summary>
+    public static RdfTerm SourceGraphProperty { get; } = Term("sourceGraph");
+
+    /// <summary><c>varve:defaultGraph</c>: the default graph, where an IRI is needed for it.</summary>
+    public static RdfTerm DefaultGraphTerm => DefaultGraph;
+
     // Classes.
     internal static readonly RdfTerm Dataset = Term("Dataset");
     internal static readonly RdfTerm Grant = Term("Grant");
@@ -82,6 +97,7 @@ public static class ManagementVocabulary
     internal static readonly RdfTerm AllowFullEvaluation = Term("allowFullEvaluation");
     internal static readonly RdfTerm SubClassOfInShapesGraph = Term("subClassOfInShapesGraph");
     internal static readonly RdfTerm BootstrapOperator = Term("bootstrapOperator");
+    internal static readonly RdfTerm EventDeclarations = Term("eventDeclarations");
 
     // Individuals.
     internal static readonly RdfTerm File = Term("File");
@@ -99,6 +115,8 @@ public static class ManagementVocabulary
     internal static readonly RdfTerm Reject = Term("Reject");
     internal static readonly RdfTerm Report = Term("Report");
     internal static readonly RdfTerm Off = Term("Off");
+    internal static readonly RdfTerm Moving = Term("Moving");
+    internal static readonly RdfTerm Moved = Term("Moved");
 
     // Outside varve:.
     internal static readonly RdfTerm Type = RdfTerm.Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type"u8);
@@ -106,8 +124,9 @@ public static class ManagementVocabulary
     internal const string XsdBoolean = "http://www.w3.org/2001/XMLSchema#boolean";
 
     /// <summary>
-    /// The event-catalogue terms of ADR 0144, which a management graph holds
-    /// only from part 2 on (ADR 0167): until then they are refused.
+    /// The event-catalogue terms of ADR 0144, which a dataset's graph holds
+    /// once its declarations have moved there (ADR 0167), and no other
+    /// management graph holds.
     /// </summary>
     internal static readonly FrozenSet<string> EventTerms = new[]
     {
@@ -125,6 +144,7 @@ public static class ManagementVocabulary
         "validationMode", "allowFullEvaluation", "subClassOfInShapesGraph",
         "File", "Memory", "ObjectStorage", "AllHistory", "Current", "read", "write", "admin", "operator", "defaultGraph", "Exact", "Prefix",
         "Reject", "Report", "Off",
+        "eventDeclarations", "Moving", "Moved",
     }.ToFrozenSet(StringComparer.Ordinal);
 
     /// <summary>The terms reserved for later milestones, refused with the reason.</summary>

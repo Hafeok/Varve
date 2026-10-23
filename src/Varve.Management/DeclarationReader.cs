@@ -152,6 +152,10 @@ public static class DeclarationReader
         {
             int before = _findings.Count;
 
+            // A dataset's graph holds event declarations once they moved there (ADR 0167).
+            bool moved = ManagementVocabulary.TryGetDataset(_graph, out _)
+                && Triples.Exists(static t => t.Predicate.Equals(ManagementVocabulary.EventDeclarations) && t.Object.Equals(ManagementVocabulary.Moved));
+
             foreach (Triple triple in Triples)
             {
                 if (triple.Subject.Kind == RdfTermKind.BlankNode || triple.Object.Kind == RdfTermKind.BlankNode)
@@ -186,7 +190,10 @@ public static class DeclarationReader
 
                 if (ManagementVocabulary.EventTerms.Contains(local))
                 {
-                    Find(focus, path, "varve:" + local + " is an event-schema term: event schemas stay in the dataset's catalogue graphs until the Management plane's part 2 moves them here (ADR 0167)");
+                    if (!moved)
+                    {
+                        Find(focus, path, "varve:" + local + " is an event-schema term: a dataset's event declarations are in its catalogue graphs until POST /manage/datasets/{name}/events/move moves them here, and a graph holds them only once it says varve:eventDeclarations varve:Moved (ADR 0167)");
+                    }
                 }
                 else if (ManagementVocabulary.Reserved.TryGetValue(local, out string? reason))
                 {
@@ -262,6 +269,7 @@ public static class DeclarationReader
             string? placed = Literal(node, ManagementVocabulary.PlacedOn, required: false);
             bool handover = Boolean(node, ManagementVocabulary.AutomaticHandover) ?? false;
             bool closed = Boolean(node, ManagementVocabulary.Closed) ?? false;
+            EventDeclarationState events = EventState(node);
             List<GrantDeclaration> grants = Grants(name);
             List<BindingDeclaration> bindings = [.. Bindings()];
 
@@ -282,8 +290,29 @@ public static class DeclarationReader
                 DefaultAccessScope = scope,
                 AutomaticHandover = handover,
                 Closed = closed,
+                EventDeclarations = events,
                 Grants = grants.FindAll(static grant => grant.Access != GrantAccess.Operator),
                 Bindings = bindings,
+            };
+        }
+
+        // varve:eventDeclarations, on the dataset node only (ADR 0167).
+        private EventDeclarationState EventState(RdfTerm node)
+        {
+            foreach (Triple triple in Triples)
+            {
+                if (triple.Predicate.Equals(ManagementVocabulary.EventDeclarations) && !triple.Subject.Equals(node))
+                {
+                    Find(triple.Subject, ManagementVocabulary.EventDeclarations, "varve:eventDeclarations is stated on the dataset's node only");
+                }
+            }
+
+            return One(node, ManagementVocabulary.EventDeclarations) switch
+            {
+                null => EventDeclarationState.InDataset,
+                { } value when value.Equals(ManagementVocabulary.Moving) => EventDeclarationState.Moving,
+                { } value when value.Equals(ManagementVocabulary.Moved) => EventDeclarationState.Moved,
+                _ => Invalid(EventDeclarationState.InDataset, node, ManagementVocabulary.EventDeclarations, "varve:eventDeclarations is varve:Moving or varve:Moved"),
             };
         }
 
