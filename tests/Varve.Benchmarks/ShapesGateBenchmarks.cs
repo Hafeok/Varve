@@ -125,7 +125,7 @@ public class ShapesGateBenchmarks
 internal static class RecShapes
 {
     private const string Rec = "https://w3id.org/rec#";
-    private static readonly RdfTerm ShapesGraphIri = RdfTerm.Iri("https://example.org/rec/shapes"u8);
+    internal static readonly RdfTerm ShapesGraphIri = RdfTerm.Iri("https://example.org/rec/shapes"u8);
     private static readonly RdfTerm BindingIri = RdfTerm.Iri("https://example.org/rec/binding"u8);
     private static readonly RdfTerm Sparql = RdfTerm.Iri("http://www.w3.org/ns/shacl#sparql"u8);
 
@@ -134,20 +134,31 @@ internal static class RecShapes
     internal static ShapesBinding Binding() =>
         new(BindingIri, ShapesGraphIri, GraphScope.Of([], ["https://example.org/rec/graph/"], DefaultGraphAccess.Excluded), ValidationMode.Reject) { SubClassOfInShapesGraph = true };
 
-    /// <summary>The shapes' triples: REC's three files merged, each file's blank nodes its own.</summary>
-    internal static List<(RdfTerm S, RdfTerm P, RdfTerm O)> Triples()
+    /// <summary>
+    /// The shapes' triples: REC's three files merged, each file's blank nodes
+    /// its own. Without <paramref name="composed"/>, part 2a's reading: no
+    /// SPARQL constraint, and the <c>owl:Class</c> triple. With it, the REC
+    /// gate's composition (ADR 0176): every constraint, and
+    /// <c>testdata/rec/gate/composition.ttl</c>.
+    /// </summary>
+    internal static List<(RdfTerm S, RdfTerm P, RdfTerm O)> Triples(bool composed = false)
     {
         List<(RdfTerm, RdfTerm, RdfTerm)> triples = [];
         string directory = Path.Combine(Root(), "testdata", "rec", "v4.1.0");
-        string[] files = ["rec.ttl", "Brick+patches.ttl", "recimports.ttl"];
-        for (int f = 0; f < files.Length; f++)
+        List<string> files = [Path.Combine(directory, "rec.ttl"), Path.Combine(directory, "Brick+patches.ttl"), Path.Combine(directory, "recimports.ttl")];
+        if (composed)
+        {
+            files.Add(Path.Combine(Root(), "testdata", "rec", "gate", "composition.ttl"));
+        }
+
+        for (int f = 0; f < files.Count; f++)
         {
             string prefix = "f" + f.ToString(CultureInfo.InvariantCulture) + "_";
             RdfTerm Own(RdfTerm term) => term.Kind == RdfTermKind.BlankNode ? RdfTerm.BlankNode(Encoding.UTF8.GetBytes(prefix + Encoding.UTF8.GetString(term.Lexical))) : term;
-            ParseResult parsed = TurtleParser.Parse(File.ReadAllBytes(Path.Combine(directory, files[f])), (in QuadView q) =>
+            ParseResult parsed = TurtleParser.Parse(File.ReadAllBytes(files[f]), (in QuadView q) =>
             {
                 RdfTerm predicate = q.Predicate.Materialise();
-                if (!predicate.Equals(Sparql))
+                if (composed || !predicate.Equals(Sparql))
                 {
                     triples.Add((Own(q.Subject.Materialise()), predicate, Own(q.Object.Materialise())));
                 }
@@ -158,12 +169,16 @@ internal static class RecShapes
             }
         }
 
-        triples.Add((RdfTerm.Iri("http://www.w3.org/2002/07/owl#Class"u8), RdfTerm.Iri("http://www.w3.org/2000/01/rdf-schema#subClassOf"u8), RdfTerm.Iri("http://www.w3.org/2000/01/rdf-schema#Class"u8)));
+        if (!composed)
+        {
+            triples.Add((RdfTerm.Iri("http://www.w3.org/2002/07/owl#Class"u8), RdfTerm.Iri("http://www.w3.org/2000/01/rdf-schema#subClassOf"u8), RdfTerm.Iri("http://www.w3.org/2000/01/rdf-schema#Class"u8)));
+        }
+
         return triples;
     }
 
     /// <summary>A file-backed dataset with the portfolio's history but its last <paramref name="held"/> commits, and the shapes; the held commits as requests.</summary>
-    internal static async Task<(FileDataset Dataset, List<RecChange> Held)> LoadAsync(RecSize size, ulong seed, int held)
+    internal static async Task<(FileDataset Dataset, List<RecChange> Held)> LoadAsync(RecSize size, ulong seed, int held, bool composed = false)
     {
         FileDataset dataset = await FileDataset.CreateAsync();
         Dictionary<string, RdfTerm> terms = new(StringComparer.Ordinal);
@@ -198,7 +213,7 @@ internal static class RecShapes
         }
 
         CommitRequest shapes = new();
-        foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in Triples())
+        foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in Triples(composed))
         {
             shapes.Assert(s, p, o, ShapesGraphIri);
         }

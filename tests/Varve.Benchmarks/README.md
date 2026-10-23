@@ -1629,9 +1629,56 @@ ratios within a table, not the absolute figures across the two runs. Before
 the shapes graph's subclass steps were remembered, the gate took 13.2 ms per
 commit at S (version 1).
 
-**Generator versions behind the REC numbers in this file.** The Object
-storage section's REC S and M runs (#92) were taken on generator output
-version 1, whose leases lack `rec:leasor`; the change in version 2 adds two
-quads per site and one per lease, so their sizes stand within 0.1%. The Extent
-maintenance section's REC S and M runs (#110, 2026-10-19) were taken on
-version 1 too, before this change. This section's numbers are version 2's.
+**Generator versions behind the REC numbers in this file.**
+- **Version 1** has leases without `rec:leasor`. The Object storage section's
+  REC S and M runs (#92), and the Extent maintenance section's (#110,
+  2026-10-19), were taken on it. Version 2 adds two quads per site and one per
+  lease, so their sizes stand within 0.1%.
+- **Version 2** is behind this section's numbers (#140, part 2a), and the next
+  section's (part 2b). The generator did not change in part 2b.
+
+## Milestone 8, part 2b — the validation projection's lag and rebuild
+
+**Machine.** As part 2a's above: Intel Xeon @ 2.80 GHz, 4 cores, 15 GiB,
+Ubuntu 24.04.5 LTS, a cloud container, .NET SDK 10.0.401, runtime 10.0.12.
+
+**Workload.** `--validation-projection <S|M>` (`ValidationProjectionBench`).
+The REC portfolio, seed 20261015, **generator output version 2**, runs on the
+file backend: its history but the last 200 commits, then REC 4.1.0's shapes
+in the REC gate's composition (ADR 0176), with Brick's three SPARQL
+constraints and the prefix declarations. A `report` binding over the site
+graphs, with `varve:subClassOfInShapesGraph`, has a projection (ADR 0174)
+that keeps up with the dataset:
+- **cold start:** the projection reset to the head, one generation there, as
+  a server starts one with no saved state;
+- **lag:** the 200 held commits, each committed, then applied to the
+  projection. The time to apply is how far the report graph trails the head;
+- **rebuild for a shapes change:** three commits that add or remove one
+  shape, each starting a generation, a full validation at the head.
+
+Each is one run, not BenchmarkDotNet: a rebuild at M is minutes. Every report
+had no result.
+
+```bash
+dotnet run -c Release --project tests/Varve.Benchmarks -- --validation-projection S
+dotnet run -c Release --project tests/Varve.Benchmarks -- --validation-projection M
+```
+
+Slower rows first:
+
+| REC | Rebuild for a shapes change (mean of 3, min–max) | Cold start at the head | Lag per commit: mean | median | p95 | max |
+|---|---:|---:|---:|---:|---:|---:|
+| M (25,004 commits, ≈5 M quads) | 213.4 s (209.7–218.1 s) | 183.9 s | 9.12 ms | 8.06 ms | 20.00 ms | 68.89 ms |
+| S (1,004 commits, ≈203 k quads) | 3.6 s (3.5–3.7 s) | 4.3 s | 5.54 ms | 4.19 ms | 14.44 ms | 68.34 ms |
+
+**Reading it.**
+- **A generation is a full validation of the binding's data graph.** Its time
+  grows with the data: 50 times longer at M, which holds 25 times the quads.
+  Most of the shapes are scoped by their class targets (ADR 0171), and Brick's
+  `brick:Entity`-targeted SPARQL constraints run once per entity.
+- **The lag is a commit's affected focus nodes'**, as part 2a's gate is. The
+  held commits are events, a few entities each. A commit that builds a level,
+  about 250 entities, costs about 185 ms through the projection under the
+  composed shapes: Brick's two SPARQL constraints run per entity, before and
+  after.
+- **Part 2a's 7.6 ms** were measured without those constraints.
