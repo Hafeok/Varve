@@ -244,3 +244,17 @@ Varve.Management.Model.ShapesMode
 Varve.Management.Model.ShapesMode.Off = 0 -> Varve.Management.Model.ShapesMode
 Varve.Management.Model.ShapesMode.Reject = 2 -> Varve.Management.Model.ShapesMode
 Varve.Management.Model.ShapesMode.Report = 1 -> Varve.Management.Model.ShapesMode
+Varve.Management.EventDeclarationMoves
+Varve.Management.Model.DatasetDeclaration.EventDeclarations.get -> Varve.Management.Model.EventDeclarationState
+Varve.Management.Model.DatasetDeclaration.EventDeclarations.init -> void
+Varve.Management.Model.EventDeclarationState
+Varve.Management.Model.EventDeclarationState.InDataset = 0 -> Varve.Management.Model.EventDeclarationState
+Varve.Management.Model.EventDeclarationState.Moved = 2 -> Varve.Management.Model.EventDeclarationState
+Varve.Management.Model.EventDeclarationState.Moving = 1 -> Varve.Management.Model.EventDeclarationState
+static Varve.Management.EventDeclarationMoves.Allowed(Varve.Management.Model.EventDeclarationState from, Varve.Management.Model.EventDeclarationState to) -> bool
+static Varve.Management.EventDeclarationMoves.Check(Varve.Management.Model.Declarations! before, Varve.Management.Model.Declarations! after) -> System.Collections.Generic.IReadOnlyList<Varve.Management.Model.DeclarationFinding!>!
+static Varve.Management.ManagementVocabulary.DefaultGraphTerm.get -> Varve.Rdf.RdfTerm!
+static Varve.Management.ManagementVocabulary.EventDeclarationsProperty.get -> Varve.Rdf.RdfTerm!
+static Varve.Management.ManagementVocabulary.MovedState.get -> Varve.Rdf.RdfTerm!
+static Varve.Management.ManagementVocabulary.MovingState.get -> Varve.Rdf.RdfTerm!
+static Varve.Management.ManagementVocabulary.SourceGraphProperty.get -> Varve.Rdf.RdfTerm!

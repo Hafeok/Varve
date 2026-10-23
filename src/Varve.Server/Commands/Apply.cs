@@ -280,7 +280,7 @@ internal static class Apply
     // The token (ADR 0163 point 5): given; or obtained by workload identity
     // federation, the platform's own token as the client's assertion; or by
     // a client secret, which a deployment should not need.
-    private static async Task<string?> TokenAsync(
+    internal static async Task<string?> TokenAsync(
         ParseResult parsed,
         HttpClient http,
         Option<string?> token,

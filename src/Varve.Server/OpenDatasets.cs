@@ -43,9 +43,11 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     private readonly ObjectStores? _objects;
     private readonly ManagementOrder _order;
     private readonly WriterAddress? _address;
+    private readonly Func<string, bool> _moved;
 
-    internal OpenDatasets(ServerSettings settings, ObjectStores? objects, ManagementOrder order, TimeProvider clock, ILogger logger)
+    internal OpenDatasets(ServerSettings settings, ObjectStores? objects, ManagementOrder order, TimeProvider clock, ILogger logger, Func<string, bool> moved)
     {
+        _moved = moved;
         _objects = objects;
         _order = order;
         _groupCommit = new GroupCommitOptions
@@ -399,7 +401,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         // The bounds are a durable backend's; the memory backend has no flush
         // for a batch to share, and writes each request alone (ADR 0124).
         // The event catalogue's check gates every write path (ADR 0145).
-        DatasetOptions options = new() { Clock = _clock, Name = name, GroupCommit = entry.Storage == DatasetStorage.Memory ? null : _groupCommit, ExtentMerges = _merges, Validators = [new EventCatalogueValidator()] };
+        DatasetOptions options = new() { Clock = _clock, Name = name, GroupCommit = entry.Storage == DatasetStorage.Memory ? null : _groupCommit, ExtentMerges = _merges, Validators = [new EventCatalogueValidator(new DatasetName(name), () => _moved(name))] };
 
         try
         {

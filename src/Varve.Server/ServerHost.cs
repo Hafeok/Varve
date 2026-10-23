@@ -609,6 +609,7 @@ internal static partial class ServerHost
             Writers = fleet.IsFleetOfOne ? null : fleet,
             Forwarder = forwarder,
             Management = fleet,
+            Plane = fleet,
             Following = fleet,
             Identity = anonymous ? new NoAgent() : new TokenIdentity(settings.Auth.SubjectClaim, settings.Auth.ApplicationClaim),
             AccessScopes = scopes,
@@ -622,6 +623,7 @@ internal static partial class ServerHost
             EventSource = settings.Events.Source,
             EventHubs = string.IsNullOrEmpty(settings.Events.EventHubs.Host) ? null : new EventHubsServer(settings.Events.EventHubs.Host, settings.Events.EventHubs.Hub!),
         };
+        fleet.Resume = (name, cancellationToken) => EventDeclarationMove.ResumeAsync(options, fleet, name, cancellationToken);
 
         app.MapGroup("/datasets/{dataset}").RequireRateLimiting("reads").MapVarveDataset(options);
         app.MapVarveManagement(options, fleet);
@@ -675,6 +677,18 @@ internal static partial class ServerHost
 
         static string Role(DatasetRole role) => role switch { DatasetRole.Writer => "writer", DatasetRole.Follower => "follower", _ => "elsewhere" };
 
+        // A move of the dataset's event declarations that has not finished (ADR 0167).
+        Varve.Management.Model.Declarations declarations = fleet.Current.Table.Declarations;
+
+        void Moving(Utf8JsonWriter json, string name)
+        {
+            if (declarations.Datasets.TryGetValue(name, out Varve.Management.Model.DatasetDeclaration? declared)
+                && declared.EventDeclarations == Varve.Management.Model.EventDeclarationState.Moving)
+            {
+                json.WriteString("eventDeclarations", "moving");
+            }
+        }
+
         if (ready)
         {
             return WriteJsonAsync(context, StatusCodes.Status200OK, "application/json", json =>
@@ -688,6 +702,7 @@ internal static partial class ServerHost
                     json.WriteStartObject(state.Name);
                     json.WriteString("state", state.State);
                     json.WriteString("role", Role(state.Role));
+                    Moving(json, state.Name);
 
                     if (state.Lag is long lag)
                     {
@@ -718,6 +733,7 @@ internal static partial class ServerHost
                 json.WriteString("name", state.Name);
                 json.WriteString("state", state.State);
                 json.WriteString("role", Role(state.Role));
+                Moving(json, state.Name);
 
                 if (state.Reason is not null)
                 {
