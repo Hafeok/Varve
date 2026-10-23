@@ -41,6 +41,8 @@ decisions:
     accepted-at: 2026-09-20T00:00:00Z
   - key: HangDumpForTheStoreTests
     statement: "Microsoft.Testing.Extensions.HangDump is a test-time register entry under this ADR, referenced by Varve.Store.Tests alone, so a hang in a store-test step writes a dump naming its tests before the step's time limit; amended 2026-10-19"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-09-23T00:00:00Z
 ---
 
 The rulings of [ADR 0007](../adr/0007-w3c-conformance-harness.md) still in force, one line each. The ADR is the
