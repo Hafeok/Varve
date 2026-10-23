@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using Varve.Rdf;
@@ -224,6 +225,95 @@ public sealed class ValidationReport
             whole.ConformanceDisallows,
             whole._shapesAreData,
             whole.Canonicalisation);
+    }
+
+    /// <summary>
+    /// One report of the results of <paramref name="parts"/>, in ADR 0154's
+    /// order, with <paramref name="header"/>'s imports, conformance-disallow
+    /// set and canonicalisation: how a validation projection serves the report
+    /// at a position from its rows (ADR 0174). Every part and the header come
+    /// from validations of the same shapes graph with the same options; the
+    /// header's own results are not included.
+    /// </summary>
+    public static ValidationReport Compose(ValidationReport header, IEnumerable<ValidationReport> parts)
+    {
+        ArgumentNullException.ThrowIfNull(header);
+        ArgumentNullException.ThrowIfNull(parts);
+        List<(ShaclResult Result, ShapePath? Path, string[] Key)> kept = [];
+        foreach (ValidationReport part in parts)
+        {
+            for (int i = 0; i < part.Results.Count; i++)
+            {
+                kept.Add((part.Results[i], part._paths[i], Key(part.Results[i], part._paths[i])));
+            }
+        }
+
+        kept.Sort(static (a, b) => Compare(a.Key, b.Key));
+        HashSet<RdfTerm> disallowed = new(header.ConformanceDisallows ?? ShaclOptions.DefaultConformanceDisallows, RdfTerm.Comparer);
+        List<ShaclResult> results = kept.ConvertAll(k => k.Result);
+        (bool conforms, ValidationSummary summary) = Summarise(results, disallowed);
+        ImmutableArray<ShapePath?>.Builder paths = ImmutableArray.CreateBuilder<ShapePath?>(kept.Count);
+        ImmutableArray<int>.Builder sources = ImmutableArray.CreateBuilder<int>(kept.Count);
+        for (int i = 0; i < kept.Count; i++)
+        {
+            paths.Add(kept[i].Path);
+            sources.Add(i);
+        }
+
+        return new ValidationReport(
+            conforms,
+            summary,
+            results,
+            paths.MoveToImmutable(),
+            sources.MoveToImmutable(),
+            header.ImportsNotFollowed,
+            header.ConformanceDisallows,
+            header._shapesAreData,
+            header.Canonicalisation);
+    }
+
+    /// <summary>
+    /// Writes the report as bytes <see cref="ReadFrom"/> reads back to an
+    /// equal report, the same canonical N-Quads included: what a validation
+    /// projection keeps of a row in the local cache (ADR 0174).
+    /// </summary>
+    public void WriteTo(IBufferWriter<byte> writer)
+    {
+        ArgumentNullException.ThrowIfNull(writer);
+        ReportCodec.Write(writer, _shapesAreData, ConformanceDisallows, ImportsNotFollowed, Results, _paths);
+    }
+
+    /// <summary>
+    /// Reads a report <see cref="WriteTo"/> wrote, with
+    /// <paramref name="options"/>' canonicalisation limits.
+    /// </summary>
+    /// <exception cref="System.IO.InvalidDataException">The bytes are not a report this version reads.</exception>
+    public static ValidationReport ReadFrom(ReadOnlySpan<byte> bytes, ShaclOptions? options = null)
+    {
+        (bool shapesAreData, IReadOnlyList<RdfTerm>? disallows, IReadOnlyList<RdfTerm> imports, List<(ShaclResult Result, ShapePath? Path)> read) = ReportCodec.Read(bytes);
+        List<(ShaclResult Result, ShapePath? Path, string[] Key)> kept = read.ConvertAll(r => (r.Result, r.Path, Key(r.Result, r.Path)));
+        kept.Sort(static (a, b) => Compare(a.Key, b.Key));
+        HashSet<RdfTerm> disallowed = new(disallows ?? ShaclOptions.DefaultConformanceDisallows, RdfTerm.Comparer);
+        List<ShaclResult> results = kept.ConvertAll(k => k.Result);
+        (bool conforms, ValidationSummary summary) = Summarise(results, disallowed);
+        ImmutableArray<ShapePath?>.Builder paths = ImmutableArray.CreateBuilder<ShapePath?>(kept.Count);
+        ImmutableArray<int>.Builder sources = ImmutableArray.CreateBuilder<int>(kept.Count);
+        for (int i = 0; i < kept.Count; i++)
+        {
+            paths.Add(kept[i].Path);
+            sources.Add(i);
+        }
+
+        return new ValidationReport(
+            conforms,
+            summary,
+            results,
+            paths.MoveToImmutable(),
+            sources.MoveToImmutable(),
+            imports,
+            disallows,
+            shapesAreData,
+            (options ?? ShaclOptions.Default).Canonicalisation);
     }
 
     /// <summary>Each result's identity for ADR 0169's R1 — focus node, source shape, component, path, value — as one string.</summary>
