@@ -43,7 +43,16 @@ where Varve is the wrong tool: [`docs/why.md`](docs/why.md).
 
 ## Status
 
-**`v0.1.0-preview.12` is the latest release, and it completed the first half
+**`v0.1.0-preview.13` is the latest release, and it made an as-of read
+inside an extent set cost its matches, not the set
+([#133](https://github.com/Hafeok/Varve/issues/133), in 1.0 by
+[#15](https://github.com/Hafeok/Varve/issues/15))**: a read at a position
+inside a set's window seeks the set — derived format 5 keeps each extent's
+positions in columns beside its keys and its rows within as a key section —
+so an as-of lookup at REC M costs {{README_RATIO}} a lookup at the head where it
+cost seconds, and merges and checkpoints write the new layout. Sets an
+earlier release wrote are read as before and rewritten by maintenance.
+`v0.1.0-preview.12` before it completed the first half
 ([#138](https://github.com/Hafeok/Varve/issues/138)) of SHACL's part 2, under
 milestone 8 ([#13](https://github.com/Hafeok/Varve/issues/13))**: a shapes
 binding, declared on the management plane, gates a dataset's commits —
