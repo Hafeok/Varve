@@ -123,9 +123,11 @@ Three things are hard about the move.
    - The catalogue graphs' history stays readable as of any position, through
      SPARQL, the Graph Store and `Varve-As-Of`, under the same governor rule
      (ADR 0144 point 3).
-   - Declarations are written on the management plane, through `varve apply`,
-     `PUT`/`PATCH /manage/datasets/{d}` or the `…/events` resource. `apply`
-     owns the event nodes with the rest of the dataset's graph.
+   - Declarations are written on the management plane, through `varve apply`
+     or `PUT`/`PATCH /manage/datasets/{d}`. `apply` owns the event nodes with
+     the rest of the dataset's graph. `GET /manage/datasets/{d}/events` says
+     where they are (`in-dataset`, `moving` or `moved`), and answers the
+     event nodes as TriG when asked for `application/trig`.
 9. **Validation in the new home is the same.** On every commit to the system
    dataset, `ManagementValidator` reads the declarations by the code validator
    (ADR 0166), and checks the event nodes of each dataset's graph it touches

@@ -27,6 +27,7 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`not-acceptable`](not-acceptable.md) | 406 |  | Nothing in Accept is a format this endpoint writes. |
 | [`conflict`](conflict.md) | 409 | `position`, `expectedPosition`, `headPosition`, `graphs`, `graphsTruncated` | Another commit came first. |
 | [`dataset-open`](dataset-open.md) | 409 |  | The dataset is open; close it first. |
+| [`event-catalogue-moved`](event-catalogue-moved.md) | 409 | `manage` | The dataset's event declarations are on the management plane. |
 | [`precondition-failed`](precondition-failed.md) | 412 | `position`, `expectedPosition`, `headPosition`, `graphs` | The precondition does not name the current version. |
 | [`request-too-large`](request-too-large.md) | 413 | `limit` | The request body is over the server's limit. |
 | [`unsupported-media-type`](unsupported-media-type.md) | 415 |  | The request body is in a media type or charset this endpoint does not read. |

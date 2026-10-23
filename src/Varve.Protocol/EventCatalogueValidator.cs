@@ -44,12 +44,12 @@ public sealed class EventCatalogueValidator : ICommitValidator
         }
 
         DeclarationVerdict verdict = EventDeclarationCheck.Check(proposed, changes);
+        return verdict.Accepted ? ValidationVerdict.Accept() : Refuse(verdict);
+    }
 
-        if (verdict.Accepted)
-        {
-            return ValidationVerdict.Accept();
-        }
-
+    /// <summary>The refusal of a check's verdict, as its own problem type (ADR 0145 point 6).</summary>
+    internal static ValidationVerdict Refuse(DeclarationVerdict verdict)
+    {
         ArrayBufferWriter<byte> json = new();
         CanonicalJsonWriter writer = new(json);
         writer.StartObject();
@@ -91,6 +91,22 @@ public sealed class EventCatalogueValidator : ICommitValidator
 
         writer.EndObject();
         return ValidationVerdict.Reject(ValidatorProblem.Report(type, json.WrittenSpan.ToArray()));
+    }
+
+    /// <summary>The refusal of one problem with a declaration, as <c>event-declaration-invalid</c>.</summary>
+    internal static ValidationVerdict Refuse(DeclarationProblem problem)
+    {
+        ArrayBufferWriter<byte> json = new();
+        CanonicalJsonWriter writer = new(json);
+        writer.StartObject();
+        writer.WriteName("declaration"u8);
+        writer.WriteString(problem.Declaration.Lexical);
+        writer.WriteName("detail"u8);
+        writer.WriteString(problem.Detail);
+        writer.WriteName("reason"u8);
+        writer.WriteString(problem.Reason);
+        writer.EndObject();
+        return ValidationVerdict.Reject(ValidatorProblem.Report(ProblemType.EventDeclarationInvalid, json.WrittenSpan.ToArray()));
     }
 
     private static void Collect(
