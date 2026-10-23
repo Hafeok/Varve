@@ -383,6 +383,41 @@ public class ShapesAgreementTests
         return outcome.Report!;
     }
 
+    /// <summary>
+    /// The shapes target event nodes by class, not by graph (ADR 0175), so
+    /// they validate a declaration wherever it is: in the dataset's catalogue
+    /// graph, where it is before Management plane part 2 moves it, and in the
+    /// dataset's management graph beside its varve:Dataset, where it is after.
+    /// </summary>
+    [Fact]
+    public void The_shapes_validate_event_nodes_in_a_catalogue_graph_and_in_a_management_graph()
+    {
+        const string Type = """
+            <https://x/t> a varve:EventType ; varve:eventName "T" ; varve:eventClass <https://x/T> ; varve:eventVersion VERSION ;
+              varve:eventSelect "SELECT ?a WHERE { ?event <https://x/a> ?a }" ; varve:eventField <https://x/t-a> .
+            <https://x/t-a> a varve:EventField ; varve:fieldName "a" ; varve:fieldDatatype <http://www.w3.org/2001/XMLSchema#string> ; varve:fieldRequired true .
+            """;
+        const string Dataset = "<https://x/d> a varve:Dataset ; varve:datasetName \"d\" ; varve:storage varve:Memory .\n";
+        foreach ((string home, string beside) in (ReadOnlySpan<(string, string)>)[(Varve + "events-catalogue/default", string.Empty), (Varve + "manage/dataset/d", Dataset)])
+        {
+            foreach ((string version, int results) in (ReadOnlySpan<(string, int)>)[("1", 0), ("0", 1)])
+            {
+                InMemoryDatasetBuilder builder = new();
+                RdfTerm graph = Terms.Iri(home);
+                ParseResult parsed = TurtleParser.Parse(
+                    Encoding.UTF8.GetBytes("@prefix varve: <" + Varve + "> .\n" + beside + Type.Replace("VERSION", version, StringComparison.Ordinal)),
+                    (in QuadView quad) => builder.Add(quad.Subject.Materialise(), quad.Predicate.Materialise(), quad.Object.Materialise(), graph),
+                    new TurtleOptions { Syntax = RdfSyntax.Turtle });
+                Assert.True(parsed.Succeeded, parsed.FirstError.ToString());
+                InMemoryDataset data = builder.ToDataset();
+                Assert.True(data.TryInternalise(graph, out TermHandle handle));
+                ShaclReport report = ShaclValidator.Validate(Shapes, data, GraphPattern.Named(handle), null, TestContext.Current.CancellationToken).Report!;
+                Assert.Equal(results, report.Results.Count);
+                Assert.All(report.Results, r => Assert.Equal(Terms.Iri("https://x/t"), r.FocusNode));
+            }
+        }
+    }
+
     private static ShapesGraph LoadShapes() => ShapesGraph.Load(Parse(EventDeclarationShapes.Turtle), GraphPattern.DefaultGraph).Shapes!;
 
     private static InMemoryDataset Parse(string turtle)
