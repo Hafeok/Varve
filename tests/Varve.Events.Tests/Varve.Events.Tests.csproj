@@ -6,10 +6,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="../../src/Varve.Events/Varve.Events.csproj" />
     <ProjectReference Include="../../src/Varve.Turtle/Varve.Turtle.csproj" />
     <!-- The declaration shapes' agreement property (ADR 0157); the package itself does not reference it. -->
     <ProjectReference Include="../../src/Varve.Shacl/Varve.Shacl.csproj" />
+    <!-- Rendering across the move (ADR 0167): the translation is Varve.Protocol's. -->
+    <ProjectReference Include="../../src/Varve.Protocol/Varve.Protocol.csproj" />
   </ItemGroup>
 
   <ItemGroup>

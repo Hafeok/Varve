@@ -29,6 +29,27 @@ namespace Varve.Protocol;
 [Contract(typeof(TheEventSchemaRegistry.CompatibilityCheckedAtCommit), Role = "the dataset validator that checks event declarations")]
 public sealed class EventCatalogueValidator : ICommitValidator
 {
+    private readonly DatasetName _dataset;
+    private readonly Func<bool>? _moved;
+
+    /// <summary>The check of a dataset whose event declarations are in its catalogue graphs for good.</summary>
+    public EventCatalogueValidator()
+    {
+    }
+
+    /// <summary>
+    /// The check of <paramref name="dataset"/>, which refuses every catalogue
+    /// write as <c>event-catalogue-moved</c> while <paramref name="moved"/>
+    /// says its declarations are moving or moved at the position the host has
+    /// applied (ADR 0167), before it reads the write as a declaration.
+    /// </summary>
+    public EventCatalogueValidator(DatasetName dataset, Func<bool> moved)
+    {
+        ArgumentNullException.ThrowIfNull(moved);
+        _dataset = dataset;
+        _moved = moved;
+    }
+
     /// <inheritdoc />
     public ValidationVerdict Validate(IQuadSource proposed, QuadDelta delta)
     {
@@ -41,6 +62,11 @@ public sealed class EventCatalogueValidator : ICommitValidator
         if (changes.Count == 0)
         {
             return ValidationVerdict.Accept();
+        }
+
+        if (_moved?.Invoke() == true)
+        {
+            return EventCatalogueFreeze.Refusal(_dataset);
         }
 
         DeclarationVerdict verdict = EventDeclarationCheck.Check(proposed, changes);

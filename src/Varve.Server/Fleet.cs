@@ -75,9 +75,14 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         _role = role;
         _placeholder = placeholder;
         _snapshot = new Snapshot(GrantTable.Empty(_bootstrap), BootstrapState.Absent);
-        Datasets = new OpenDatasets(settings, objects, _order, clock, logger);
+        Datasets = new OpenDatasets(settings, objects, _order, clock, logger, Moved);
         Instance = new WriterName(_instance.Value);
     }
+
+    // Whether a dataset's event declarations are moving or moved at the applied position (ADR 0167).
+    private bool Moved(string dataset) =>
+        Volatile.Read(ref _snapshot).Table.Declarations.Datasets.TryGetValue(dataset, out DatasetDeclaration? declared)
+        && declared.EventDeclarations != EventDeclarationState.InDataset;
 
     /// <summary>Whether the fleet is this instance alone: no object store, so no follower and no forwarding.</summary>
     internal bool IsFleetOfOne { get; }

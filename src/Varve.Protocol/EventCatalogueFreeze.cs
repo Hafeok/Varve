@@ -42,13 +42,19 @@ public sealed class EventCatalogueFreeze : ICommitValidator
             return ValidationVerdict.Accept();
         }
 
+        return Refusal(_dataset);
+    }
+
+    /// <summary>The refusal of a catalogue write of <paramref name="dataset"/>, naming the declarations' new home.</summary>
+    internal static ValidationVerdict Refusal(DatasetName dataset)
+    {
         // The path of the dataset's declarations in their new home.
-        string manage = "/manage/datasets/" + _dataset.Value + "/events";
+        string manage = "/manage/datasets/" + dataset.Value + "/events";
         ArrayBufferWriter<byte> json = new();
         CanonicalJsonWriter writer = new(json);
         writer.StartObject();
         writer.WriteName("detail"u8);
-        writer.WriteString("The event declarations of dataset " + _dataset.Value + " are on the management plane (ADR 0167): its catalogue graphs take no write; declare event types at " + manage + ".");
+        writer.WriteString("The event declarations of dataset " + dataset.Value + " are on the management plane (ADR 0167): its catalogue graphs take no write; declare event types at " + manage + ".");
         writer.WriteName("manage"u8);
         writer.WriteString(manage);
         writer.EndObject();
