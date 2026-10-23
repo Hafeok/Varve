@@ -310,3 +310,34 @@ storage implements:
     - an unannounced read;
     - a `403` naming the role;
     - an unknown format holding everything.
+
+## Amendment, 2026-10-23 — a refused replace of the reader record is read back before it means forgotten
+
+Filed by the live Azure leg of #143 for #145, unaccepted until the maintainer
+accepts it (ADR 0066).
+
+Decision 4's last bullet says a replace that finds another version means the
+record was forgotten, or another instance of the same id wrote it. There is a
+third case, seen against a storage account and not in memory or on Azurite,
+where a round trip is too short for it: the instance's own earlier replace
+landed after its answer was lost — a cancellation or a dropped connection on
+a request the store had applied — so the store holds a version this instance
+never heard, and the record is its own. The instance then held a stale
+version, its next replace was refused, and it declared itself forgotten
+(`ReaderForgottenException`) over a record nobody had touched.
+
+**The rule, refined.** A replace against the held version that is refused is
+followed by a read of the record. When the record is this instance's own —
+its reader id and its holder, in a format this build reads — it was written
+by an attempt whose answer was lost: the instance adopts that version and
+replaces once more. Only a record that is gone, of a format this build does
+not read, or another holder's means forgotten, and then decision 9 applies
+as before. A clean close's delete already reads the record first
+(`RecordLost`), so nothing changes there. This is ADR 0135's principle
+applied to the reader record: an exception from a write means its outcome
+is unknown, and the caller finds out by reading.
+
+**The ledger.** No ruling changes: `AForgottenReaderFailsAndReattaches` and
+`EveryInstanceAnnouncesAnInterval` stand as written. Pinned by
+`ObjectStorageTests.an_announcement_whose_answer_was_lost_is_adopted_by_the_next_and_the_reader_is_not_forgotten`,
+in memory, by a replace cancelled after the store applied it.

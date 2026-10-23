@@ -221,6 +221,15 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
             {
                 ObjectVersion? replaced = await ConditionalWrites.ReplaceAsync(_store, name, expected, bytes, _clock, cancellationToken).ConfigureAwait(false);
 
+                if (replaced is null && await OwnRecordVersionAsync(name, cancellationToken).ConfigureAwait(false) is { } unheard)
+                {
+                    // The version held is stale, but the record is this
+                    // instance's own: an earlier replace landed after its
+                    // answer was lost, at a version this instance never heard
+                    // (#145). Adopt it; the record was not forgotten.
+                    replaced = await ConditionalWrites.ReplaceAsync(_store, name, unheard, bytes, _clock, cancellationToken).ConfigureAwait(false);
+                }
+
                 if (replaced is null)
                 {
                     _readerVersion = null;
@@ -503,6 +512,22 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
         }
 
         return sets;
+    }
+
+    // The record's current version when the record is this instance's own,
+    // by its reader id and its holder; null when it is gone, of a format this
+    // build cannot read, or another holder's.
+    private async ValueTask<ObjectVersion?> OwnRecordVersionAsync(ObjectName name, CancellationToken cancellationToken)
+    {
+        ObjectRead? current = await ConditionalWrites.ReadWholeAsync(_store, name, cancellationToken).ConfigureAwait(false);
+
+        if (current is null)
+        {
+            return null;
+        }
+
+        ReaderRecord found = ReaderRecordFormat.Read(Reader, current.Bytes.Span);
+        return found.Understood && found.Reader == Reader && found.Holder == Holder ? current.Version : null;
     }
 
     // Whether this instance's record no longer says what it last wrote:
