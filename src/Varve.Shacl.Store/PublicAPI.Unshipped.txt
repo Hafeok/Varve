@@ -31,6 +31,7 @@ Varve.Shacl.Store.ValidationProjection.Binding.get -> Varve.Shacl.Store.Model.Sh
 Varve.Shacl.Store.ValidationProjection.Floor.get -> Varve.Store.Log.Position
 Varve.Shacl.Store.ValidationProjection.LoadAsync(Varve.Store.IDerivedStore! store, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
 Varve.Shacl.Store.ValidationProjection.Position.get -> Varve.Store.Log.Position
+Varve.Shacl.Store.ValidationProjection.ReportGraph.get -> Varve.Rdf.RdfTerm!
 Varve.Shacl.Store.ValidationProjection.ResetAsync(Varve.Store.DatasetView? checkpoint, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
 Varve.Shacl.Store.ValidationProjection.SaveAsync(Varve.Store.IDerivedStore! store, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
 Varve.Shacl.Store.ValidationProjection.TryReportAt(Varve.Store.Log.Position position, out Varve.Shacl.ValidationOutcome! outcome) -> bool

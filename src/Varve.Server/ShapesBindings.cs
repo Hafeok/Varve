@@ -104,7 +104,7 @@ internal sealed class ShapesBindings
     }
 
     /// <summary>The bindings that act: shapes bindings not <c>off</c>.</summary>
-    private static List<ShapesBinding> Acting(DatasetDeclaration declared)
+    internal static List<ShapesBinding> Acting(DatasetDeclaration declared)
     {
         List<ShapesBinding> acting = [];
         foreach (BindingDeclaration binding in declared.Bindings)

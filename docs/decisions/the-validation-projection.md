@@ -17,6 +17,8 @@ decisions:
     statement: "A snapshot in the local cache records its binding's IRI, shapes graph, graphs, IRI prefixes as strings, default graph and subclass flag under a format version, and is read only when every one matches; a release that changes SHACL results bumps the format, and otherwise the projection is rebuilt from the log"
   - key: ReservedReportGraph
     statement: "The report at a position is readable as the reserved graph https://w3id.org/varve/ns#validation/{enc(binding IRI)}, composed at a pinned position through the staging view by a Varve.Protocol seam the host implements"
+  - key: ReportReadOnFirstNeed
+    statement: "A read adds a report graph to its overlay, staged on the view, the first time it names the graph or matches every graph, and then once; after that each quad is the overlay's, and a read that never needs a report never reads one"
   - key: ReadNeedsEveryValidatedGraph
     statement: "A caller reads a binding's report graph only when it reads every graph the binding validates, since the report names their nodes and values (ADR 0107, amended)"
   - key: ReportGraphNotWritable

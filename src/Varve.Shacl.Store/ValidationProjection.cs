@@ -5,6 +5,7 @@
 using System;
 using System.Buffers;
 using System.IO;
+using System.Text;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -64,6 +65,13 @@ public sealed class ValidationProjection : IProjection
 
     /// <summary>The binding projected.</summary>
     public ShapesBinding Binding { get; }
+
+    /// <summary>
+    /// The reserved graph the report is read as:
+    /// <c>https://w3id.org/varve/ns#validation/{enc(binding IRI)}</c>, every
+    /// byte outside RFC 3986's unreserved set percent-encoded (ADR 0174).
+    /// </summary>
+    public RdfTerm ReportGraph => RdfTerm.Iri(Encoding.UTF8.GetBytes("https://w3id.org/varve/ns#validation/" + ProjectionSnapshot.Encode(Binding.Binding.Lexical)));
 
     /// <inheritdoc />
     public Position Position => new(Volatile.Read(ref _position));

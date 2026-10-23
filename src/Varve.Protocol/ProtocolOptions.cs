@@ -116,6 +116,12 @@ public sealed class ProtocolOptions
     /// <summary>How a follower is advanced before a read (ADR 0164). Null when the host follows nothing.</summary>
     public IDatasetFollowing? Following { get; init; }
 
+    /// <summary>
+    /// The host's validation projections, served as reserved report graphs
+    /// (ADR 0174); null when the host keeps none.
+    /// </summary>
+    public IValidationReports? ValidationReports { get; init; }
+
     /// <summary>The catalogue graphs' history of each dataset, replayed once and kept current.</summary>
     internal Endpoints.EventCatalogues Catalogues { get; } = new();
 }

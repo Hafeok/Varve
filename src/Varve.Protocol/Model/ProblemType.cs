@@ -127,6 +127,9 @@ public readonly record struct ProblemType
     /// <summary><c>503</c>: a follower has not applied the dataset position the read asked for, after one advance (ADR 0168).</summary>
     public static ProblemType DatasetBehind { get; } = new("dataset-behind");
 
+    /// <summary><c>503</c>: a read of a report graph at a position its validation projection has not reached, after one bounded wait (ADR 0174).</summary>
+    public static ProblemType ValidationBehind { get; } = new("validation-behind");
+
     /// <summary><c>503</c>: a forwarded write reached an instance that does not write the dataset; it is never forwarded again (ADR 0168).</summary>
     public static ProblemType WriterMoved { get; } = new("writer-moved");
 
