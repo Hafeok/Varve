@@ -6,7 +6,11 @@ Status: written by milestone 6a with [ADR 0072](../adr/0072-format-version-1.md)
 which is the reasoning; this document is the layout. `log/` is version 1.
 `derived/` is **derived format version 4** since milestone Object storage
 (ADR 0139): a checkpoint is a chain of extent sets named by a catalog (§7.5,
-§7.6); every older kind keeps version 3's layout. Version 3 (milestone 7b,
+§7.6); every older kind keeps version 3's layout. Since #133 an **extent** is
+written as **version 5** (ADR 0177): its rows within are a thirteenth key
+section and its positions are fixed-width columns beside its keys, so a read
+inside its window seeks it; every other kind is still written as version 4,
+and a version-4 extent is still read. Version 3 (milestone 7b,
 ADR 0109: a run carries a filter over its terms' hashes after its hash index)
 is read as before, its full checkpoints with it. Version 2
 (milestone 6c, ADRs 0079 and 0080: runs carry the dictionary's entries, and
@@ -311,7 +315,7 @@ rename (ADR 0071, ADR 0073), so a reader never sees one half written.
 | Offset | Size | Field |
 |---:|---:|---|
 | 0 | 4 | magic `VRVD` |
-| 4 | 2 | derived format version, `4`; `2` and `3` are read (§7.2, §7.5) |
+| 4 | 2 | derived format version: `5` for an extent, `4` for every other kind; `2` and `3` are read (§7.2), and `4` for an extent (§7.5) |
 | 6 | 2 | kind: `1` run, `2` checkpoint, `3` projection state, `4` commit index, `5` graph-version index, `6` extent, `7` extent dictionary, `8` catalog |
 | 8 | 16 | dataset id |
 | 24 | 8 | from position: a run or a commit index blob covers the commits after it; 0 for the others |
@@ -324,7 +328,7 @@ rename (ADR 0071, ADR 0073), so a reader never sees one half written.
 | 128 | 32 | self-hash of bytes 0–127 |
 
 A derived file is used only if its header and directory verify, its version is
-2 to 4, its kind is the one expected, its dataset id is the log's, and its *to
+2 to 4 — or 5, for an extent — its kind is the one expected, its dataset id is the log's, and its *to
 position*'s header hash is the log's. Otherwise it is a cache miss.
 
 ### 7.2 Runs and checkpoints
@@ -379,8 +383,8 @@ section, and a reader looks up its index for every key.
 | Size | Field |
 |---:|---|
 | 4 | keys per block, `128` |
-| 4 | key section count, `12` |
-| 24 × 12 | per key section: `u64` byte offset, `u64` key count, `u64` byte length |
+| 4 | key section count, `12`; `13` for a version-5 extent (§7.5) |
+| 24 × the count | per key section: `u64` byte offset, `u64` key count, `u64` byte length |
 | 32 × Σ blocks | fences: the first key of every block, section by section |
 | 8 × Σ blocks | where every block begins within its section, section by section |
 | 8 | term section's `From`: the canonical counter before its first entry |
@@ -475,7 +479,7 @@ merged, so there are few. The *n* is a sequence number.
 
 ### 7.5 Extents — `derived/extents/<from>-<to>.<n>/`
 
-Version 4 (ADR 0138, ADR 0139). A checkpoint is the chain of **extent sets**
+Version 5 (ADR 0177), and version 4 read (ADR 0138, ADR 0139). A checkpoint is the chain of **extent sets**
 the catalog (§7.6) names; a set for the window *(from, to]* is eight files
 under one directory name, positions in twenty digits and *n* the catalog's
 sequence, never reused:
@@ -487,10 +491,12 @@ sequence, never reused:
 | `graphs` | 5 | the graph-version index at *to* (§7.3a) |
 | `commits` | 4 | optional: the commit index of the window, the entries after *from* up to *to* (§7.4); absent from a set written before milestone Extent maintenance (ADR 0161) |
 
-An **extent** of order *k* is laid out as a run (§7.2): the twelve key
-sections — only order *k*'s two are not empty — the term section, empty, and
-the filter; then three sections of its own; then the directory, which is a
-run's followed by sixteen `u64` words:
+An **extent** of order *k* is laid out as a run (§7.2): the key sections —
+only order *k*'s two of the twelve are not empty, and in version 5 a
+thirteenth, the rows within's keys — the term section, empty, and the filter;
+then three sections of its own; then the directory, which is a run's with the
+key section count `13` in version 5, followed by sixteen `u64` words in
+version 4 and seventeen in version 5:
 
 | Word | Field |
 |---:|---|
@@ -501,6 +507,7 @@ run's followed by sixteen `u64` words:
 | 11, 12 | the closing positions' offset and length |
 | 13, 14 | the rows within: offset and length; they end where the directory begins |
 | 15 | the count of rows within |
+| 16 | version 5: *w*, the bytes of one distance, 1 to 8 — the fewest that hold *to* − *from* |
 
 A quad's **intervals** in the window are its assertions paired with the
 retractions after them. An interval is **open** if the quad was not asserted at
@@ -512,15 +519,46 @@ throughout has none.
 
 - The open intervals' keys are the order's **asserted** section, the closing
   intervals' its **retracted** section: the set is the window's exact delta.
-- **Positions**: ULEB128 of a position minus *from*, one per key of the
-  asserted section (its assertion), then one per key of the retracted section
-  (its retraction), in key order.
+  A read of the present reads these two sections and nothing else.
+- A **distance** is a position minus *from*; `0` stands for the window's
+  boundary.
+
+**Version 5** (ADR 0177) puts every distance in a column beside its keys:
+
+- **Open positions:** one distance per key of the asserted section, its
+  assertion, each *w* bytes little-endian, in key order: the *i*th key's at
+  *i* × *w*.
+- **Closing positions:** the same, per key of the retracted section, its
+  retraction.
+- **Rows within:** their keys are the thirteenth key section, one key a row,
+  in blocks with their fences and block starts in the directory like every
+  section's; equal keys follow each other. Their column holds two distances
+  a row, the assertion's then the retraction's, each *w* bytes: the *i*th
+  row's at 2*i* × *w*. Rows are sorted by key, then assertion, then
+  retraction.
+
+So a key's intervals are reached from the key: a binary search of a
+section's fences, one block, and one read of its column. A read at a
+position *P* strictly inside the window holds a quad at *from* when one of
+its rows begins at the boundary, and at *P* when one of its rows covers *P*
+(assertion at or before it, retraction after it or none); where the two
+differ, the set at *P* asserts or retracts it.
+
+**Version 4**, read until maintenance rewrites the set as version 5:
+
+- **Positions**: ULEB128 of a distance, one per key of the asserted section
+  (its assertion), then one per key of the retracted section (its
+  retraction), in key order.
 - **A row within**: the key's 32 bytes, then ULEB128 of the assertion's
-  position minus *from* and of the retraction's, each `0` for the window's
-  boundary. Rows are sorted by key, then assertion, then retraction.
+  distance and of the retraction's. Rows are sorted by key, then assertion,
+  then retraction.
+
+Nothing in version 4 is reachable but by reading from a section's start, so
+a read inside its window narrows the whole set (ADR 0138).
 
 The `terms` file's *from* and *to* and its counters are the window's; each
-extent's *to hash* is the log's at *to*.
+extent's *to hash* is the log's at *to*. Every extent of a set is one
+version: a set is written whole by one build.
 
 ### 7.6 Catalog — `derived/catalog`
 

@@ -15,6 +15,11 @@ checkpoint budget it gave the operator guide, are replaced by the writer's
 background merges ([ADR 0158](0158-background-extent-merges.md),
 [ADR 0159](0159-the-extent-merge-policy.md)).
 
+**Amended 2026-10-23** (ADR 0068), by #133, unaccepted until the maintainer
+accepts it (ADR 0066): its section "As-of reads" — a read inside a set's
+window narrows the set — holds only of a format-4 set; a format-5 set is
+sought ([ADR 0177](0177-seek-dont-narrow-intervals-beside-the-key.md)).
+
 **Supersedes in part** [ADR 0015](0015-checkpoints-and-reads.md): its section
 "No temporal index in the default projection" and its first alternative, the
 temporal index, rejected there. Every other ruling of 0015 stands: the log is
@@ -202,3 +207,27 @@ operator guide's checkpoint budget is removed. `Keep` keeps its meaning (at
 most `Keep` sets, the oldest dropped by merging into the next). A
 checkpoint's end inside a merged window is no longer a set's end, so an
 as-of read there narrows the larger, capped set.
+
+## Amendment, 2026-10-23 — a read inside a set seeks it
+
+Filed by #133, unaccepted until the maintainer accepts it (ADR 0066); ruled
+in [ADR 0177](0177-seek-dont-narrow-intervals-beside-the-key.md) and
+[ADR 0178](0178-the-format-5-upgrade-and-the-set-cap.md).
+
+"As-of reads", its first point, now reads:
+
+- **At or below the newest set's end:** the sets whose windows end at or
+  below `P`, and — when `P` falls strictly inside a set's window `(a, e]` —
+  that set **read at `P`**. A format-5 set is **sought**: each read looks its
+  keys up in the set and classifies only the matching rows' intervals
+  against `(a, P]`, which is `net(L(a..P])` for those keys. Nothing is
+  written, and the cost is the read's matches, not the set's size. A format-4
+  set, written before #133 and not yet rewritten by maintenance, is still
+  narrowed as this ADR first said. No log is read either way.
+
+The decision `AsOfInsideAWindowNarrowsTheSet` therefore holds of format-4
+sets only; `SeekDontNarrow` of ADR 0177's set rules format 5. A merged set
+read inside its window is sought like any, so the cap no longer bounds the
+read (ADR 0178). Everything else here stands: a checkpoint is a chain of
+sets, a set is the window's exact delta, and no merge or drop changes a
+result.
