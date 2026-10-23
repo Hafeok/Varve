@@ -345,6 +345,14 @@ Filed by milestone Management plane, part 1 ([#105](https://github.com/Hafeok/Va
 | [0166](0166-varve-management-and-the-vocabulary.md) | `Varve.Management` and the management vocabulary | Filed unaccepted (Management plane, #105) |
 | [0168](0168-write-routing-by-forwarding.md) | Write routing by forwarding: the writer directory, the hop rule and the internal address | Filed unaccepted (Management plane, #105) |
 
+## Milestone Management plane — the event-schema move (second part)
+
+Filed by milestone Management plane, part 2 ([#105](https://github.com/Hafeok/Varve/issues/105)), unaccepted until the maintainer accepts it on its pull request (ADR 0066). Amended by it, likewise unaccepted: 0144 (point 6 realised), 0145 (revision identifiers after the move) and 0166 (the event declarations join).
+
+| # | Title | Status |
+|---:|---|---|
+| [0167](0167-event-declarations-move-to-the-management-plane.md) | Event declarations move to the management plane: freeze, barrier, copy and switch; the boundary; `m{p}` revisions | Filed unaccepted (Management plane, #105) |
+
 ## Milestone Extent maintenance — background merges and extent deletion
 
 Filed by milestone Extent maintenance ([#110](https://github.com/Hafeok/Varve/issues/110)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered 0158–0162: SHACL holds 0148–0157 and the Management plane 0163 onward. Amended by it, likewise unaccepted: 0134 (a follower writes its reader record; the streamed create; refusals for the identity); 0138 (the chain bounded by merges, the checkpoint budget removed); 0139 (deletion and merges superseded, the shared commit index, the catalog's sequence as its version).
