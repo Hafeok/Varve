@@ -81,8 +81,20 @@ projection (spec §7, ADR 0016).
      point 4) bumps the format.
    - **The server** passes a file dataset's own `derived/`, which is on the
      machine. A memory or object-storage dataset has no local derived store
-     the server can give, so its projection is kept in memory and rebuilt
-     when the instance starts. It is never written to an object store.
+     the server can give, so its projection is kept in memory. It is never
+     written to an object store.
+   - **A cold start begins at the head.** A projection with no saved state,
+     on a dataset with history, is reset to a view of the head
+     (`IProjection.ResetAsync`): one generation there, which is its floor,
+     and it follows the log from then on. Replaying the history commit by
+     commit would read each position as of, and an as-of read costs its
+     distance from a checkpoint or its extent set's size (ADR 0138), so that
+     replay grows with the square of the history. **Below the floor**
+     nothing is held, and a read of the report there is the binding's full
+     validation as of that position, computed when it is read: correct, and
+     at a full validation's cost.
+   - **A projection that keeps up** reads each commit at the head, through
+     the index (`Dataset.Pin`), and reads it as of only when it is behind.
 8. **The reserved graph.** The report at a position is readable as
    `https://w3id.org/varve/ns#validation/{enc(binding IRI)}`, `enc`
    percent-encoding every byte outside RFC 3986's unreserved set, as the
@@ -141,9 +153,11 @@ projection (spec §7, ADR 0016).
 
 ## Consequences
 
-- **Every instance rebuilds every projection on a cold start.** At REC M
-  that is the rebuild time the benchmark reports, once per binding per start.
-  A file dataset's warm restart reads its saved state.
+- **Every instance rebuilds every projection on a cold start**: one full
+  validation at the head per binding, the rebuild time the benchmark reports
+  at REC M. A file dataset's warm restart reads its saved state instead.
+- **Reads below a projection's floor** cost a full validation each. They are
+  the history before the instance first started the projection, read as of.
 - **The report at every position is held in memory**, as rows whose
   intervals cover the whole log. A long history with results that change
   often grows it. Compaction below a horizon is the archive's (milestone

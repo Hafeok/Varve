@@ -92,7 +92,15 @@ public sealed class ValidationProjection : IProjection
             return;
         }
 
-        using (DatasetView view = await _dataset.AsOfAsync(commit.Position, cancellationToken).ConfigureAwait(false))
+        // A projection that keeps up reads its commit at the head, through the index; one catching up reads it as of.
+        DatasetView view = _dataset.Pin();
+        if (view.Position != commit.Position)
+        {
+            view.Dispose();
+            view = await _dataset.AsOfAsync(commit.Position, cancellationToken).ConfigureAwait(false);
+        }
+
+        using (view)
         {
             Apply(view, commit.Delta, position, cancellationToken);
         }

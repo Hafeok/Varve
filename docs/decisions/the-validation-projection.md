@@ -13,6 +13,8 @@ decisions:
     statement: "The report at p is the composition of the rows valid at p, and equals ShaclValidator.Validate over AsOfAsync(p) through the binding's data graph, byte for byte in canonical N-Quads"
   - key: LocalCacheOnly
     statement: "The projection's state is stored under derived/validation/{enc(binding)}/ in an IDerivedStore the host supplies from the local cache, never on an object store, and every instance rebuilds it on a cold start"
+  - key: ColdStartAtTheHead
+    statement: "A projection with no saved state on a dataset with history starts at the head, by one generation there that is its floor; below the floor a read of the report is the binding's full validation as of that position, computed when read; a projection that keeps up reads each commit at the head through the index"
   - key: SnapshotIdentifiesItsBinding
     statement: "A snapshot in the local cache records its binding's IRI, shapes graph, graphs, IRI prefixes as strings, default graph and subclass flag under a format version, and is read only when every one matches; a release that changes SHACL results bumps the format, and otherwise the projection is rebuilt from the log"
   - key: ReservedReportGraph

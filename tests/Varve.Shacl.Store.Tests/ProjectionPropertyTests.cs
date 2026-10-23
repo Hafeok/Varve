@@ -275,6 +275,38 @@ public class ProjectionPropertyTests
         Assert.False(await new ValidationProjection(dataset, binding).LoadAsync(damaged.Derived, ct));
     }
 
+    [Fact]
+    public async Task A_cold_start_begins_at_the_head_and_holds_nothing_below_it()
+    {
+        CancellationToken ct = TestContext.Current.CancellationToken;
+        ShapesBinding binding = Support.Binding(ValidationMode.Report);
+        await using Dataset dataset = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, ct);
+        await dataset.CommitAsync(Support.Request(dataset, "ex:S sh:targetSubjectsOf ex:p0 ; sh:property [ sh:path ex:p0 ; sh:datatype xsd:integer ] .", []), ct);
+        await dataset.CommitAsync(Support.Request(dataset, null, [(Support.Ex("n0"), Support.Ex("p0"), Support.Ex("n1"), true)]), ct);
+
+        ValidationProjection projection = new(dataset, binding);
+        using (DatasetView head = dataset.Pin())
+        {
+            await projection.ResetAsync(head, ct);
+        }
+
+        Assert.Equal(new Position(2), projection.Floor);
+        Assert.Equal(new Position(2), projection.Position);
+        Assert.False(projection.TryReportAt(new Position(1), out _));
+
+        await dataset.CommitAsync(Support.Request(dataset, null, [(Support.Ex("n2"), Support.Ex("p0"), Support.Ex("n1"), true)]), ct);
+        await dataset.CatchUpAsync(projection, ct);
+        for (long p = 2; p <= 3; p++)
+        {
+            using DatasetView view = await dataset.AsOfAsync(new Position(p), ct);
+            Assert.True(projection.TryReportAt(new Position(p), out ValidationOutcome actual));
+            Assert.Equal(Bytes(BindingValidation.Validate(binding, view, null, ct)), Bytes(actual));
+        }
+
+        Assert.True(projection.TryReportAt(new Position(3), out ValidationOutcome three));
+        Assert.Equal(2, three.Report!.Results.Count);
+    }
+
     /// <summary>The canonical N-Quads of a report, or the problems' kinds and messages.</summary>
     private static string Bytes(ValidationOutcome outcome) => outcome.Report is { } report
         ? Encoding.UTF8.GetString(report.ToCanonicalNQuads().Span)

@@ -27,9 +27,10 @@ namespace Varve.Server;
 /// binding of each dataset this instance holds open, under the declarations
 /// in force, each fed the dataset's commits by a subscription of its own and
 /// served as its reserved report graph. A file dataset's projection keeps its
-/// state in the dataset's own <c>derived/</c>; any other is rebuilt from the
-/// log when the instance starts. A projection's lag is reported on
-/// readiness and never makes the dataset unready.
+/// state in the dataset's own <c>derived/</c>. One with no saved state starts
+/// at the head, a generation there, below which a read of the report is the
+/// binding's full validation as of the position read. A projection's lag is
+/// reported on readiness and never makes the dataset unready.
 /// </summary>
 [Contract(typeof(TheValidationProjection.OneProjectionPerBinding), Role = "the server's validation projections, fed and served")]
 internal sealed partial class ValidationProjections : IValidationReports, IAsyncDisposable
@@ -229,6 +230,13 @@ internal sealed partial class ValidationProjections : IValidationReports, IAsync
                 return outcome;
             }
 
+            if (position < Projection.Floor)
+            {
+                // Below the floor nothing is held: the binding's full validation as of the position, when read.
+                using DatasetView view = Dataset.AsOfAsync(position, _stop.Token).AsTask().GetAwaiter().GetResult();
+                return BindingValidation.Validate(Projection.Binding, view, null, _stop.Token);
+            }
+
             // The one bounded wait, on this thread: a read's match is synchronous.
             try
             {
@@ -283,6 +291,12 @@ internal sealed partial class ValidationProjections : IValidationReports, IAsync
                 if (_cache is not null && await Projection.LoadAsync(_cache, stopping).ConfigureAwait(false))
                 {
                     ProjectionLog.Loaded(logger, Name, Projection.Position.Value);
+                }
+                else if (Dataset.Head.Value > 0)
+                {
+                    // A cold start: one generation at the head, which is the projection's floor (ADR 0174).
+                    using DatasetView head = Dataset.Pin();
+                    await Projection.ResetAsync(head, stopping).ConfigureAwait(false);
                 }
 
                 int applied = 0;
