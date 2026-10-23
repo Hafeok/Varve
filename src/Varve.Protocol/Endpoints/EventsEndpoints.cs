@@ -374,11 +374,11 @@ internal static class EventsEndpoints
                 return;
             }
 
-            long? wanted = null;
+            SchemaRevisionId? wanted = null;
 
             if (values.TryGetValue(RevisionRouteValue, out object? revisionValue))
             {
-                if (!long.TryParse((string?)revisionValue, NumberStyles.None, CultureInfo.InvariantCulture, out long revision))
+                if (!SchemaRevisionId.TryParse((string?)revisionValue, out SchemaRevisionId revision))
                 {
                     await HttpProblems.WriteAsync(context, ProblemType.NotFound, "No such revision.").ConfigureAwait(false);
                     return;
@@ -389,7 +389,7 @@ internal static class EventsEndpoints
 
             foreach (SchemaRevision candidate in type.Revisions)
             {
-                if (candidate.Version == version && (wanted is null || candidate.Revision.Value == wanted))
+                if (candidate.Version == version && (wanted is null || candidate.Revision == wanted))
                 {
                     chosen = candidate;
                 }
