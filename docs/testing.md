@@ -270,3 +270,51 @@ The variables of §6 that hunt rather than gate (`VARVE_FAULT_SEEDS`,
 `VARVE_OBJECT_FAULT_SEEDS`, `VARVE_OBJECT_FAULT_STEPS`,
 `VARVE_HTTP_FAULT_STEPS`) stay what they were: neither a pull request nor the
 nightly run sets them.
+
+## 9. The live Azure leg — what the emulator cannot answer
+
+The object-storage adapters are proved against Azurite and RustFS in CI (ADR
+0134). Azurite copies the service's error precedence, but it is not the
+service: the status codes it answers, its races, its visibility and its
+latency are its own. The live leg (#143) runs the same suites against a real
+storage account, and a few tests that only mean something there.
+
+**One command runs it, and nothing else does.** Every live test carries the
+trait `Category=AzureLive` and skips unless the container is named:
+
+```bash
+VARVE_AZURE_BLOB_ENDPOINT=https://<account>.blob.core.windows.net/ \
+VARVE_AZURE_BLOB_CONTAINER=varve-test \
+VARVE_AZURE_TENANT_ID=<tenant> \
+dotnet test --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj --configuration Release \
+  -- --filter-trait Category=AzureLive
+```
+
+`VARVE_AZURE_CONTAINER`, a container URL, names it in one variable instead,
+as `azure-objects.yml` does. The identity is the workload's and never a key
+(ADR 0137): on a workstation the fixture runs `az account get-access-token
+--tenant` itself, pinned to `VARVE_AZURE_TENANT_ID`, so a profile signed in to
+several tenants answers for one, and `AZURE_CONFIG_DIR` picks the profile; in
+CI the adapter's own sources apply (`AZURE_FEDERATED_TOKEN_FILE`). Only the
+fixture pins; the adapter's production path is untouched.
+
+**Every run is isolated.** A run writes under `<utc-time>-<random>/` in the
+container, each test under a prefix of its own below it, and deletes only what
+it wrote, at the end of each test. Nothing outside the run's prefix is listed,
+written or deleted; a suite written for a container of its own runs under the
+prefix through `PrefixedObjectStore`, with the real adapter beneath.
+
+| Suite | Also on | What the live run adds |
+|---|---|---|
+| `AzureAccountObjectStoreContractTests`: the seven contract cases, the two race properties included | memory, Azurite, RustFS | the service's own answers to the five operations |
+| `AzureAccountStorageContractTests`: the storage contract over the backend | memory, Azurite, RustFS | — |
+| `AzureAccountExtentMaintenanceTests`: a follower across merges and deletions | memory, Azurite, RustFS | — |
+| `AzureAccountWriterFenceTests` (`WriterFenceCases`): the claim, the fence slot, the release, a stalled writer superseded, six writers claiming at once, the operator's takeover | memory, Azurite | the race of the claim on the service |
+| `AzureAccountFaultTests`: the HTTP failure-injection workload | Azurite, every request | every `VARVE_AZURE_FAULT_STRIDE`-th request (every seventh unless set; `1` is every request, about an hour) |
+| `AzureAccountConditionalWriteTests` | — | the status and error codes the service answers a create that finds a blob, a stale replace and a replace of nothing; a 503, a 500 and a lost answer on one create, which lands at most once |
+| `AzureAccountReadAfterWriteTests` | — | a second client, with a pool of its own, reads and lists a blob at once; a follower reads a sealed segment at once |
+| `AzureAccountRaceTests` | — | `VARVE_AZURE_RACERS` × `VARVE_AZURE_RACE_ROUNDS` (32 × 20 unless set) racing one create and one replace, with the losers' answers counted |
+| `AzureAccountLatencyTests` | — | p50, p95 and p99 of a 1 KiB create, a 1 KiB read and a one-quad commit, `VARVE_AZURE_LATENCY_COMMITS` of each; informational, never a gate |
+
+The results of a run, emulator beside live, go into a report under
+`docs/reports/`, with every difference found linked to an issue.
