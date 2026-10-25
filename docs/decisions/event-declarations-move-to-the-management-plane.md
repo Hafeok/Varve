@@ -8,9 +8,11 @@ decisions:
   - key: FreezeBarrierCopySwitch
     statement: "The system writer commits Moving at m1; the dataset's writer refuses catalogue writes authorised there or later, passes a refused probe through its sequencer at m1, then copies its final catalogue into the dataset's graph with varve:sourceGraph, committed with Moved at m2 under the graph's version"
   - key: MoveRunsUnderTheCallersToken
-    statement: "The move route is routed to the dataset's writer, which makes the freeze and the switch as management writes under the caller's token, forwarded to the system writer once; the move is idempotent and resumes from the frozen catalogue"
+    statement: "The move route is routed to the dataset's writer, which makes the freeze and the switch as management writes under the caller's token, forwarded to the system writer once; the move is idempotent and resumes from the frozen catalogue, and a switch resumed with no request names the agent of the freeze commit's header"
   - key: MoveTransitions
-    statement: "A dataset's event declarations go from none to Moving, from Moving back to none, or from Moving to Moved with the event nodes; Moved is final"
+    statement: "A dataset's event declarations go from none or varve:InDataset to Moving, from Moving to varve:InDataset by a cancel committed on its own at m3, after which catalogue writes authorised at m3 or later are accepted, or from Moving to Moved with the event nodes; Moved is final"
+  - key: MovingIsReported
+    statement: "A move left Moving is reported by the dataset's status, readiness and its events resource as moving since m1, as information, never unready"
   - key: BoundaryIsTheRecordedPosition
     statement: "A data commit renders its events from the system dataset exactly when the management position it records is m2 or later, and from the dataset's catalogue history otherwise"
   - key: ContinueFromKeepsRevisions

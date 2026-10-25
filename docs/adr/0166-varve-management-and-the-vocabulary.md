@@ -207,6 +207,6 @@ maintainer accepts it (ADR 0066). The rulings are ADR
   in `ManagementValidator`. In any other dataset's graph, and in the fleet
   graph, they are still refused, with a message that names the move.
 - **What point 4's validator refuses**, beside what it refused: more than one
-  `varve:eventDeclarations`; a change of it other than none to `Moving`,
-  `Moving` to none, or `Moving` to `Moved`; and event terms brought in by any
+  `varve:eventDeclarations`; a change of it other than none or `InDataset`
+  to `Moving`, `Moving` to `InDataset` (a cancel), or `Moving` to `Moved`; and event terms brought in by any
   commit but the one that makes the graph `Moved`, or later ones.

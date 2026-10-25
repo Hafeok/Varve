@@ -7,7 +7,10 @@
 request. Decided by the maintainer on the plan of #105 (2026-10-19), question
 6, as approved with the plan's revision, including the revision identifiers
 after the move (`m{p}`); and on the part 2 plan (#105, 2026-10-23), for the
-credential that carries the copy (point 3) and the cancel (point 4).
+credential that carries the copy (point 3) and the cancel (point 4), approved
+on 2026-10-25 with two conditions: a switch finished with no fresh request
+names the freeze's agent, and a move left `Moving` is reported (point 3). The
+cancel is a commit of its own (point 4).
 
 **Amends** ADR [0144](0144-the-event-catalogue.md) (point 6 realised), ADR
 [0145](0145-the-event-schema-registry.md) (revision identifiers) and ADR
@@ -81,15 +84,37 @@ Three things are hard about the move.
      answers the move done. A writer that also writes the system dataset
      resumes a `Moving` dataset by itself when it converges, with no token.
      Otherwise the next request resumes it, and the CLI retries.
-   - `GET /manage/datasets/{d}/events` and readiness name a dataset that is
-     `moving`.
-4. **Transitions.** The system dataset's validator allows none to `Moving`,
-   `Moving` to none (a cancel), and `Moving` to `Moved`, which brings the event
-   nodes. `Moved` is final. A cancel reopens catalogue writes authorised from
-   then on. A copy in flight fails its version check, reads the state again
-   and stops. The dataset's writer cancels the move itself when the frozen
-   catalogue does not translate one-to-one, for example when one type node's
-   IRI is in two catalogue graphs, and the move's answer says why.
+   - **Who a resumed switch names.** A switch committed with no fresh
+     request is the act of the agent who authorised the freeze, never of the
+     instance. That agent is recorded where every commit records its agent:
+     the header of the freeze commit at m₁ (ADR 0094). The switch's commit
+     names that agent, and its cause names the resume and m₁. The resume finds
+     m₁ in the system dataset's log, as the commit that made the dataset's
+     graph say `varve:Moving`. Neither m₁ nor the agent is a value a
+     declaration states, so neither can be supplied by the caller of a later
+     management write. A freeze committed in anonymous mode names no agent,
+     and neither does its resumed switch.
+   - **A move left `Moving` is visible, as information only.** The dataset's
+     status (`/manage/datasets/{d}/status`), readiness and `GET
+     /manage/datasets/{d}/events` report `"events": {"state": "moving",
+     "since": m₁}`. They never make the instance unready. The operator guide
+     says how to resume (`varve manage move-events`) and how to cancel.
+4. **Transitions.** The system dataset's validator allows:
+   - none, or `varve:InDataset`, to `Moving` (the freeze);
+   - `Moving` to `varve:InDataset` (the cancel);
+   - `Moving` to `Moved`, which brings the event nodes.
+
+   `Moved` is final.
+   - **A cancel is a management commit of its own,** stating
+     `varve:eventDeclarations varve:InDataset` at m₃. Catalogue writes are
+     accepted again only for commits authorised at m₃ or later. A commit
+     authorised between m₁ and m₃ reads `Moving` there, and is refused.
+   - **A copy in flight** fails its version check, reads the state again and
+     stops.
+   - **The automatic cancel.** The dataset's writer cancels the move itself,
+     by the same commit, when the frozen catalogue does not translate
+     one-to-one, for example when one node is in two catalogue graphs. The
+     move's answer says why.
 5. **The boundary is exact.** A data commit renders its events from the
    system dataset if and only if the management position it records is m₂ or
    later. Otherwise it renders from the dataset's catalogue history, as
@@ -156,8 +181,9 @@ Three things are hard about the move.
 ## Consequences
 
 - **Problem type:** `event-catalogue-moved` (`409`).
-- **Vocabulary:** `varve:eventDeclarations`, `varve:Moving`, `varve:Moved`, and
-  `varve:sourceGraph` (already listed by ADR 0166 for part 2).
+- **Vocabulary:** `varve:eventDeclarations`, `varve:InDataset`,
+  `varve:Moving`, `varve:Moved`, and `varve:sourceGraph` (already listed by ADR
+  0166 for part 2).
 - **Breaking before 1.0:** `SchemaRevision.Revision` and
   `EventEndpoints.Schema(…, SchemaRevisionId)`.
 - **The tests:**
@@ -169,7 +195,10 @@ Three things are hard about the move.
   - catalogue writes refused after m₁, at the store and over HTTP;
   - as-of reads of the catalogue graphs equal before and after the move;
   - a crash at every step recovers to a completed move, with nothing lost or
-    doubled;
+    doubled, and a stop between a freeze and a cancel leaves the catalogue
+    frozen until the cancel, reported as `moving since m₁`;
+  - about half the generated histories also cross a freeze and a cancel;
+  - a switch resumed with no request names the freeze's agent;
   - the fleet suite moves a dataset through a non-writer.
 - **The operator guide** gains "Moving event schemas".
 
