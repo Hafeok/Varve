@@ -4,8 +4,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using CsCheck;
+using Varve.Delta.Model;
 using Varve.Events.Model;
 using Varve.Rdf;
 using Varve.Shacl;
@@ -156,6 +158,70 @@ public class ShapesAgreementTests
         Assert.True(problems.Count > 0 || report.Conforms, shown);
         return fault != "none";
     }
+
+    /// <summary>
+    /// ADR 0175's agreement property: the runtime check, shapes and residual
+    /// code, refuses exactly what the frozen code check refuses, with the same
+    /// problem type, over generated catalogue commits that add a graph or edit
+    /// a valid one, with at most one fault, and edits that change a field.
+    /// </summary>
+    [Fact]
+    public void The_runtime_refuses_exactly_what_the_oracle_refuses()
+    {
+        Gen<Declaration> declaration = Gen.Select(Gen.Int[1, 3], Gen.Bool, Gen.Bool, Gen.Bool, (f, s, c, r) => new Declaration(f, s, c, r));
+        Gen.Select(declaration.Array[1, 3], Gen.Int[0, 2], Gen.Int[0, Enum.GetValues<Seen>().Length - 1], Gen.Int[0, Enum.GetValues<Unseen>().Length - 1], Gen.Int[0, 3])
+            .Sample((types, mode, seen, unseen, edit) =>
+            {
+                List<(RdfTerm S, RdfTerm P, RdfTerm O)> before = edit == 0 ? [] : Build(types);
+                List<(RdfTerm S, RdfTerm P, RdfTerm O)> after = Build(types);
+                if (edit >= 2)
+                {
+                    // An incompatible change to a field, at the same version or the next.
+                    Replace(after, FieldNode(0, 0), V("fieldDatatype"), Terms.Iri(Terms.Xsd + "boolean"));
+                    if (edit == 3)
+                    {
+                        Replace(after, TypeNode(0), V("eventVersion"), Terms.Literal("2", Terms.Xsd + "integer"));
+                    }
+                }
+
+                string fault = "none";
+                if (mode == 1 && Apply((Seen)seen, types, after, out _))
+                {
+                    fault = ((Seen)seen).ToString();
+                }
+                else if (mode == 2 && Apply((Unseen)unseen, types, after))
+                {
+                    fault = ((Unseen)unseen).ToString();
+                }
+
+                (InMemoryDataset proposed, List<FeedChange> changes) = Commit(before, after);
+                DeclarationVerdict runtime = EventDeclarationCheck.Check(proposed, changes);
+                DeclarationVerdict oracle = Oracle.CodeEventDeclarationCheck.Check(proposed, changes);
+                string shown = fault + " edit " + edit + "\nruntime: " + Shown(runtime) + "\noracle: " + Shown(oracle);
+
+                Assert.True(runtime.Accepted == oracle.Accepted, shown);
+                Assert.True(runtime.ProblemType == oracle.ProblemType, shown);
+                if (runtime.ProblemType == DeclarationVerdict.IncompatibleType)
+                {
+                    Assert.True(runtime.Declaration!.Equals(oracle.Declaration) && runtime.Fields.SequenceEqual(oracle.Fields), shown);
+                }
+            }, iter: Iterations);
+    }
+
+    private static (InMemoryDataset Proposed, List<FeedChange> Changes) Commit(List<(RdfTerm S, RdfTerm P, RdfTerm O)> before, List<(RdfTerm S, RdfTerm P, RdfTerm O)> after)
+    {
+        HashSet<Q> then = [.. before.Select(t => new Q(t.S, t.P, t.O, CatalogueGraph))];
+        HashSet<Q> now = [.. after.Select(t => new Q(t.S, t.P, t.O, CatalogueGraph))];
+        List<FeedChange> changes =
+        [
+            .. then.Except(now).Select(q => new FeedChange(FeedChangeKind.Retract, q.S, q.P, q.O, q.G)),
+            .. now.Except(then).Select(q => new FeedChange(FeedChangeKind.Assert, q.S, q.P, q.O, q.G)),
+        ];
+        return (Trig.Load(now), changes);
+    }
+
+    private static string Shown(DeclarationVerdict verdict) => verdict.Accepted ? "accepted"
+        : verdict.ProblemType + " " + (verdict.Declaration is { } node ? Encoding.UTF8.GetString(node.Lexical) : "-") + " " + verdict.Reason + " " + verdict.Detail;
 
     [Fact]
     public void The_shapes_are_well_formed_and_a_spec_example_conforms()

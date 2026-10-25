@@ -131,17 +131,27 @@ varve:GrantShape
         sh:path varve:permission ;
         sh:in ( varve:read varve:write varve:admin varve:operator ) ;
         sh:message "varve:permission is varve:read, varve:write, varve:admin or varve:operator" ;
-    ] ;
-    # admin and operator cover every graph, and name no graph set.
+    ] .
+
+varve:WideGrantShape
+    a sh:NodeShape ;
+    rdfs:comment "admin and operator cover every graph, and name no graph set." ;
+    sh:targetClass varve:Grant ;
     sh:or (
         [ sh:property [ sh:path varve:permission ; sh:in ( varve:read varve:write ) ] ]
         [ sh:and ( varve:NamesNoGraphSet ) ]
     ) ;
-    # read and write name their graphs.
+    sh:message "admin and operator cover every graph: such a grant names no graph set (ADR 0107)" .
+
+varve:NamedGrantShape
+    a sh:NodeShape ;
+    rdfs:comment "read and write name their graphs." ;
+    sh:targetClass varve:Grant ;
     sh:or (
         [ sh:property [ sh:path varve:permission ; sh:in ( varve:admin varve:operator ) ] ]
         [ sh:and ( varve:NamesAGraphSet ) ]
-    ) .
+    ) ;
+    sh:message "a read or write grant names its graphs: varve:allGraphs true, varve:graph, varve:graphPrefix or varve:graphTemplate" .
 
 # ---- Graph sets: on a grant and on a shapes binding ----------------------
 
@@ -318,5 +328,11 @@ varve:ShapesBindingShape
         sh:maxCount 1 ;
         sh:datatype xsd:boolean ;
         sh:message "this property's value is an xsd:boolean" ;
-    ] ;
-    sh:node varve:NamesAGraphSet .
+    ] .
+
+varve:ShapesBindingGraphsShape
+    a sh:NodeShape ;
+    rdfs:comment "A shapes binding names its graphs." ;
+    sh:targetClass varve:ShapesBinding ;
+    sh:node varve:NamesAGraphSet ;
+    sh:message "a shapes binding names its graphs: varve:allGraphs true, varve:graph, varve:graphPrefix or varve:graphTemplate" .

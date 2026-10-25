@@ -99,3 +99,19 @@ shows they agree with the code.
   `Varve.Shacl` and declares no layer.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-25 — the shapes decide at runtime
+
+Filed by SHACL, part 2b (milestone 8, #13), unaccepted until the maintainer
+accepts it (ADR 0066).
+
+Point 1's "`Varve.Events` does not reference `Varve.Shacl`" no longer holds.
+Under ADR [0175](0175-shapes-validate-varves-declarations.md),
+`EventDeclarationCheck.Check` validates each touched catalogue graph by these
+shapes, and their results are its `event-declaration-invalid` problems. The
+code checks only point 3. Point 4's property stands, and a second one pins
+the runtime against the code check as it stood, frozen in the tests as the
+oracle.
+
+**The ledger.** The rulings are ADR 0175's `ShapesAreTheRuntimeValidator`,
+`ResidualCheckInCode` and `CodeValidatorsAreTheOracle`.

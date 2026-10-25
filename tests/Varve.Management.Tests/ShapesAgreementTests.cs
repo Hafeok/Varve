@@ -17,8 +17,10 @@ using Xunit;
 namespace Varve.Management.Tests;
 
 /// <summary>
-/// ADR 0175's agreement property for the management vocabulary, its shapes
-/// (<c>shapes/management.ttl</c>) against the code validator: over generated
+/// ADR 0175's agreement properties for the management vocabulary: its shapes
+/// (<c>shapes/management.ttl</c>) against the code validator frozen as the
+/// oracle (<see cref="Oracle.CodeDeclarationReader"/>), and the runtime against
+/// the oracle: over generated
 /// dataset graphs, valid and with one fault each, a graph the code reads with
 /// no finding conforms to the shapes; a fault the shapes state makes both
 /// refuse, the shapes naming the node the code names; and a fault only the
@@ -139,6 +141,34 @@ public sealed class ShapesAgreementTests
             string body = Body(declaration with { Template = true }, fault.ToString());
             Assert.True(Code(body).Count > 0, fault + ": the code found nothing in\n" + body);
             Assert.Empty(ShapeResults(body));
+        }, iter: Iterations);
+    }
+
+    /// <summary>
+    /// The runtime — the shapes and the residual check — refuses exactly what
+    /// the oracle refuses, over valid graphs and every fault, and every node
+    /// the oracle names is one the runtime names.
+    /// </summary>
+    [Fact]
+    public void The_runtime_refuses_exactly_what_the_oracle_refuses()
+    {
+        string[] faults = [.. Enum.GetNames<Seen>(), .. Enum.GetNames<Unseen>()];
+        Gen.Select(Declarations, Gen.Int[-1, faults.Length - 1]).Sample((declaration, index) =>
+        {
+            string? fault = index < 0 ? null : faults[index];
+            string body = Body(declaration with { Roles = Math.Max(1, declaration.Roles), Groups = Math.Max(1, declaration.Groups), Template = true, Bindings = Math.Max(1, declaration.Bindings) }, fault);
+            List<DeclarationFinding> oracle = Code(body);
+            List<DeclarationFinding> runtime = Runtime(body);
+            Assert.True(oracle.Count == 0 == (runtime.Count == 0), (fault ?? "valid") + ": the oracle found " + oracle.Count + ", the runtime " + runtime.Count + "\n" + body);
+            HashSet<RdfTerm> named = new(runtime.SelectMany(f => f.Focus is { } focus ? [focus] : Array.Empty<RdfTerm>()), RdfTerm.Comparer);
+            ShapeResults(body).ForEach(r => { if (r.Value is { } v) { named.Add(v); } });
+            foreach (DeclarationFinding finding in oracle)
+            {
+                if (finding.Focus is { } focus)
+                {
+                    Assert.True(named.Contains(focus), fault + ": the oracle names " + Show(focus) + "\n" + body);
+                }
+            }
         }, iter: Iterations);
     }
 
@@ -279,7 +309,11 @@ public sealed class ShapesAgreementTests
         return text.ToString();
     }
 
-    private static List<DeclarationFinding> Code(string body) => [.. T.Read("<" + Graph + "> {\n" + body + "}").Findings];
+    /// <summary>The oracle's findings: the code validator as it stood before the switch.</summary>
+    private static List<DeclarationFinding> Code(string body) => [.. Oracle.CodeDeclarationReader.Read(T.Trig("<" + Graph + "> {\n" + body + "}")).Findings];
+
+    /// <summary>The runtime's findings: the shapes' and the residual check's.</summary>
+    private static List<DeclarationFinding> Runtime(string body) => [.. T.Read("<" + Graph + "> {\n" + body + "}").Findings];
 
     private static List<ShaclResult> ShapeResults(string body) => [.. Validate(Shapes, TrigDataset("<" + Graph + "> {\n" + body + "}", wrap: false), Graph).Results];
 

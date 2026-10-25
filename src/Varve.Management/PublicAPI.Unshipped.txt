@@ -244,3 +244,5 @@ Varve.Management.Model.ShapesMode
 Varve.Management.Model.ShapesMode.Off = 0 -> Varve.Management.Model.ShapesMode
 Varve.Management.Model.ShapesMode.Reject = 2 -> Varve.Management.Model.ShapesMode
 Varve.Management.Model.ShapesMode.Report = 1 -> Varve.Management.Model.ShapesMode
+Varve.Management.ManagementShapes
+static Varve.Management.ManagementShapes.Turtle.get -> string!

@@ -145,3 +145,18 @@ risk as any rendering: a generator change silently alters a served `$id`.
   - `Varve.Server` (6): the binding.
 - **Analyzer rule.** None new.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-25 — what the commit-time check runs
+
+Filed by SHACL, part 2b (milestone 8, #13), unaccepted until the maintainer
+accepts it (ADR 0066).
+
+Point 4's check is unchanged in what it refuses and how it answers. What it
+runs changes: the declaration shapes of ADR 0157 decide what they state, and
+the code decides the rest and the version history (ADR
+[0175](0175-shapes-validate-varves-declarations.md)).
+`event-declaration-invalid` and `event-schema-incompatible` keep their wire
+shape.
+
+**The ledger.** The rulings are ADR 0175's `ShapesAreTheRuntimeValidator` and
+`WireShapesKept`.

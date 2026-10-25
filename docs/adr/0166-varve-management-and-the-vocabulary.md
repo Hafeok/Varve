@@ -184,3 +184,25 @@ A `varve:ShapesBinding` is no longer only recorded: ADR
 
 **The ledger.** The rulings are ADR 0170's `BindingTerms` and
 `BindingDeclarationChecks`.
+
+## Amendment, 2026-10-25 — shapes validate the declarations
+
+Filed by SHACL, part 2b (milestone 8, #13), unaccepted until the maintainer
+accepts it (ADR 0066).
+
+- **Point 1.** `Varve.Management` also references `Varve.Shacl` (3).
+- **Point 4.** The validator refuses what it refused, and its findings keep
+  their wire shape. What SHACL Core can state, `shapes/management.ttl` decides
+  at runtime, with each finding built from a report result. The code keeps:
+  - blank nodes;
+  - unknown and reserved terms;
+  - the graphs point 2 admits;
+  - the dataset named as its graph;
+  - the fleet graph's rules and the bootstrap graph;
+  - template syntax.
+
+  The validator as it stood is frozen in the tests as the oracle (ADR
+  [0175](0175-shapes-validate-varves-declarations.md)).
+
+**The ledger.** The rulings are ADR 0175's `ShapesAreTheRuntimeValidator`,
+`ResidualCheckInCode` and `CodeValidatorsAreTheOracle`.
