@@ -288,7 +288,19 @@ Example tests cover:
 
 ### Durations
 
-Linux, the machine above, `dotnet test -c Release`: to follow in the next commit, when the run ends.
+Linux, the machine above, `dotnet test -c Release --no-build`, slower rows first. Earlier in the session, REC S's test alone took 9 m 17 s.
+
+| Project | Tests | Duration |
+|---|---:|---:|
+| `Varve.Shacl.Store.Tests` (REC S's agreement on its PR sample; the three long tests skipped) | 24, 3 skipped | 6 m 53 s |
+| `Varve.Rec.Tests` | 6 | 55.8 s |
+| `Varve.Protocol.Tests` | 116 | 31.3 s |
+| `Varve.Server.Tests` | 119, 12 skipped | 10.2 s |
+| `Varve.Events.Tests` | 99 | 5.5 s |
+| `Varve.Shacl.Sparql.Tests` | 13 | 5.4 s |
+| `Varve.Shacl.Tests` | 34 | 4.8 s |
+| `Varve.Management.Tests` | 34 | 4.6 s |
+| `Varve.Derivation.Tests` | 8 | 1.6 s |
 
 ### Benchmarks: the projection's lag and rebuild
 
