@@ -1,0 +1,98 @@
+format: 1
+version: v0.1.0-preview.13
+title: SHACL, part 2b — the validation projection, shapes for the declarations, the REC gate
+date: 2026-10-25
+basis:
+  - issue: 13
+  - storage-format: 1
+  - delta-format: 1
+  - adr: "0174"
+  - adr: "0175"
+  - adr: "0176"
+accepted-by: mailto:emil@okkels-klein.dk
+summary: |
+  ### Milestone 8, SHACL, part 2b — the validation projection, shapes for the declarations, the REC gate
+
+  A shapes binding's report is now kept for every position, and served as a
+  graph. Varve's own declarations are validated by SHACL shapes, and
+  RealEstateCore's shapes validate generated portfolios three ways that
+  agree. This release closes milestone 8 (#13), after part 1 (#120) and
+  part 2a (#138). Storage format 1 holds. The three ADRs are filed
+  unaccepted and accepted on the pull request (ADR 0066).
+
+  #### Added
+
+  - **The validation projection** (`Varve.Shacl.Store`, ADR 0174):
+    `ValidationProjection`, one per shapes binding.
+    - **Its rows.** They are keyed by shape and focus node, with validity
+      intervals, and each commit maintains them from the pairs it affects.
+    - **The guarantee.** Its report at a position equals
+      `ShaclValidator.Validate` over `AsOfAsync` there, byte for byte.
+    - **Where it lives.** It is stored under
+      `derived/validation/{enc(binding)}/` in the local cache only, never
+      on an object store. Every instance rebuilds it from the head on a cold
+      start. A position below that floor is answered by a full validation as
+      of it.
+  - **The report graph**, `https://w3id.org/varve/ns#validation/{enc(binding
+    IRI)}`, served at a pinned position through the staging view, so it
+    takes no dictionary terms.
+    - **Reading it** needs read on every graph the binding validates (ADR
+      0107, amended). A grant naming the graph itself has no effect.
+    - **Writing it** is `graph-not-writable`.
+  - **`503 validation-behind`**, with `binding`, `position` and
+    `projectedPosition`, when a read of a report graph is above its
+    projection after one bounded wait. Readiness reports each binding's lag,
+    which never makes the dataset unready.
+  - **`Varve.Protocol`**: `IValidationReports`, `IValidationReportGraph`,
+    `ProtocolOptions.ValidationReports`, `ReportGraphGuard` and
+    `ValidationBehindException`, the seam the server composes the
+    projections through.
+  - **`Varve.Shacl`** (additive, ADR 0155): `ShaclValidator.ValidateByPair`
+    and `PairedOutcome`, `FocusPair`, `IncrementalComparison.Pairs`, and
+    `ValidationReport.Compose`, `WriteTo` and `ReadFrom`.
+    `ValidationOutcome.Reported` and `Failed` are added too.
+  - **`Varve.Rdf`**: `GraphScope.Prefixes`.
+  - **`Varve.Management`**: `ManagementShapes.Turtle`, the management
+    vocabulary's SHACL Core shapes.
+  - **The REC gate** (ADR 0176). It composes REC 4.1.0's three SHACL files
+    with `owl:Class rdfs:subClassOf rdfs:Class` and `sh:declare`s for the
+    prefixes Brick's SPARQL constraints use. The ADR records the exact
+    triples. Over generated portfolios, standalone validation, commit-time
+    `reject` and the projection agree:
+    - REC S at every 25th position and the last on pull requests;
+    - REC S at all 1,001 positions nightly;
+    - REC M at 100 positions nightly.
+
+    `testdata/rec/gate/features.md` reports the SHACL features REC uses.
+  - **`docs/operator/shapes.md`**: binding shapes, the modes, the report
+    graph and the REC composition.
+
+  #### Changed
+
+  - **Shapes are the runtime validator of Varve's declarations** (ADR 0175).
+    - `EventDeclarationCheck.Check` validates by ADR 0157's shapes.
+    - `DeclarationReader.Read` validates by `shapes/management.ttl`.
+    - What SHACL Core cannot state stays a residual check in code.
+
+    Verdicts, problem types and wire shapes are unchanged, and the code
+    validators as they stood are the tests' oracle. `Varve.Events` and
+    `Varve.Management` now reference `Varve.Shacl`.
+  - **`Varve.Shacl` indexes the shapes graph when it loads.** REC's
+    composition loads in about 1 s instead of 14 s.
+
+  #### Performance
+
+  At REC M (25,001 commits, generator output version 2), on the session's
+  machine, the projection lags a commit by 9.1 ms on average (median 8.1,
+  p95 20.0, max 68.9). A rebuild after a shapes change takes 213 s, and a
+  cold start 184 s. At REC S the lag is 5.5 ms on average, a rebuild takes
+  3.6 s, and a cold start 4.3 s.
+
+  #### Known issues
+
+  - **REC 4.1.0 as vendored** still refuses its own shapes graph, for the
+    undeclared prefixes. The gate's composition is the workaround, and an
+    upstream note is drafted on the pull request.
+  - **REC S's agreement test** takes about nine minutes on a pull request.
+    Brick's `brick:Entity`-targeted SPARQL constraints run before and after
+    each building commit.

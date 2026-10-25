@@ -205,7 +205,23 @@ and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone 8, SHACL (#13), part 2a (#138; ADRs 0169–0173, filed unaccepted).
+Milestone 8, SHACL (#13), complete with part 2b (ADRs 0174–0176, filed
+unaccepted). Each shapes binding keeps a **validation projection** in
+`Varve.Shacl.Store` (0174). It lives in the local cache only and is rebuilt
+by every instance from the head on a cold start. Its report at p equals
+`ShaclValidator.Validate` over `AsOfAsync(p)`, byte for byte. It is served
+as the reserved graph `varve:validation/{enc(binding)}` through the staging
+view, readable by a caller who reads every validated graph, and never
+writable. A read above its position is `503 validation-behind`, and its lag
+is on readiness, never making the dataset unready. **Varve's declarations
+are validated by shapes** at runtime (0175): ADR 0157's for events,
+`shapes/management.ttl` for management. A residual code check covers what
+Core cannot state, and the old code validators are the tests' oracle. **The
+REC gate** (0176) composes REC 4.1.0 with `owl:Class rdfs:subClassOf
+rdfs:Class` and the prefixes Brick leaves undeclared. Standalone, commit
+time and the projection agree on REC S on pull requests and on M nightly.
+
+Part 2a (#138; ADRs 0169–0173, filed unaccepted).
 A **shapes binding** (`varve:ShapesBinding`, ADR 0170) is a management
 declaration naming a shapes graph of the same dataset, the graphs it
 validates as one data graph, and a mode. `Varve.Shacl.Store` (layer 5) is a
@@ -221,8 +237,7 @@ footprint, in both states, to a least fixpoint (0171); every shapes graph is
 classed incremental, scoped or full, statically. `Varve.Derivation` (layer
 2, 0172) holds the dependency graphs, stratification, regular paths and
 semi-naive propagation. The server adds a dataset's gate at the management
-position a write is authorised under. Part 2b is the validation projection,
-shapes for the declarations and the REC gate.
+position a write is authorised under.
 
 Before that, milestone Extent maintenance (#110; ADRs 0158–0162), after Object storage. The writer's maintenance merges extent sets — `FanOut`
 adjacent sets of similar size, or the smallest run past the bound, never past
