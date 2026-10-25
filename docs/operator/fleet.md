@@ -99,8 +99,8 @@ state (`recorded`, `absent` or `mismatch`). Each dataset carries its role
 its system role is `superseded`, its bootstrap is `mismatch`, its management
 lag exceeds `Varve:Fleet:AllowedLag`, or a dataset fails ADR 0113's rule.
 A dataset whose event declarations are moving to the management plane, and
-whose move has not finished, carries `"eventDeclarations": "moving"` ([Moving
-event schemas](moving-event-schemas.md)).
+whose move has not finished, carries `"events": {"state": "moving", "since": m₁}`, as information: it
+never makes the instance unready ([Moving event schemas](moving-event-schemas.md)).
 
 **A mistaken second system writer** — two instances with `Writer` `true` —
 shows as a superseded instance in readiness, and as a run of `restart`

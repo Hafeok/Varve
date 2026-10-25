@@ -51,8 +51,10 @@ pull request (ADR 0066), with dated amendments to ADRs 0144, 0145 and 0166.
   history, so its events are the same bytes as before the move.
 - **`GET /manage/datasets/{name}/events`**: where a dataset's event
   declarations are (`in-dataset`, `moving` or `moved`), and the moved
-  event nodes as TriG on request. Readiness names a dataset whose move has
-  not finished.
+  event nodes as TriG on request. A move left `Moving` is reported by
+  status, readiness and this resource as `{"state":"moving","since":m₁}`,
+  as information, never unready. A switch finished with no request names
+  the agent who authorised the freeze.
 - **`409 event-catalogue-moved`**: a write to a catalogue graph after the
   freeze, at the store and over HTTP. Its `manage` member names the
   declarations' new home. The catalogue graphs' history stays readable as
@@ -62,8 +64,8 @@ pull request (ADR 0066), with dated amendments to ADRs 0144, 0145 and 0166.
   not change keeps its revision and its `dataschema`.
 - **`ManagedEventDeclarations`** (`Varve.Protocol`): a dataset graph's event
   nodes in the catalogue graphs' change form, and the copy the other way.
-- **Vocabulary:** `varve:eventDeclarations`, `varve:Moving`, `varve:Moved`
-  and `varve:sourceGraph`.
+- **Vocabulary:** `varve:eventDeclarations`, `varve:InDataset`,
+  `varve:Moving`, `varve:Moved` and `varve:sourceGraph`.
 
 #### Changed
 
@@ -77,8 +79,9 @@ pull request (ADR 0066), with dated amendments to ADRs 0144, 0145 and 0166.
   catalogue-graph translation. `event-declaration-invalid` and
   `event-schema-incompatible` answer as before the move.
 - `ManagementValidator` allows only the move's transitions of
-  `varve:eventDeclarations`: none to `Moving`, `Moving` back to none (a
-  cancel), and `Moving` to `Moved`, which is final.
+  `varve:eventDeclarations`: none or `InDataset` to `Moving`, `Moving` to
+  `InDataset` (a cancel, its own management commit), and `Moving` to
+  `Moved`, which is final.
 
 #### Known issues
 

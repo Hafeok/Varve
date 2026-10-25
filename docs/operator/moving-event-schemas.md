@@ -54,21 +54,36 @@ the moved event nodes.
 
 A move is idempotent: sending it again resumes it where it stopped.
 
-- **A stop before the copy** leaves the dataset `moving`. Readiness names it
-  with `"eventDeclarations": "moving"`. The catalogue stays frozen, and
-  nothing is lost: the copy reads the catalogue the freeze made final.
+- **A stop before the copy** leaves the dataset `moving`. The catalogue stays
+  frozen, and nothing is lost: the copy reads the catalogue the freeze made
+  final.
+- **Seeing it.** The dataset's status (`GET /manage/datasets/notes/status`), the
+  instance's readiness (`GET /health/ready`) and
+  `GET /manage/datasets/notes/events` all report
+  `"events": {"state": "moving", "since": m₁}`, m₁ being the system
+  position of the freeze. It is information only: readiness stays `200`,
+  and reads and data writes go on.
 - **The resume.**
   - The writer of a fleet of one, and any instance that writes both the
     dataset and the system dataset (the default placement), finishes the
     move by itself on its next interval.
-  - Otherwise, send the move again. `varve manage move-events` does so by
-    itself when the writer changed during the request.
+  - Otherwise, send the move again with
+    `varve manage move-events notes …`, the same command as the move. It
+    copies the frozen catalogue and switches. It also retries by itself
+    when the writer changed during the request.
+  - A switch the writer finished by itself is attributed to the agent who
+    authorised the freeze at m₁, read from the freeze commit's header, never
+    to the instance.
 - **A stop after the switch** leaves the dataset `moved`. The answer was lost,
   and sending the move again answers `moved` with the same position.
-- **Cancelling.** While the dataset is `moving`, retracting
-  `varve:eventDeclarations varve:Moving` from its graph cancels the move.
-  Catalogue writes authorised from then on are accepted again. `varve:Moved`
-  is final.
+- **Cancelling.** While the dataset is `moving`, replace
+  `varve:eventDeclarations varve:Moving` with
+  `varve:eventDeclarations varve:InDataset` on the dataset's node, in your
+  declaration file, and `varve apply` it (or `PUT` the dataset's
+  declarations). The cancel is its own management commit, at m₃.
+  Catalogue writes authorised at m₃ or later are accepted again, and the
+  event bytes of every commit are unchanged. A dataset in `InDataset` may
+  move again later. `varve:Moved` is final, and cannot be cancelled.
 
 ## After the move
 

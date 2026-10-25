@@ -170,6 +170,11 @@ per dataset and explicit:
   type node gains `varve:sourceGraph` G, or `varve:defaultGraph`: the source
   graph its catalogue graph's name carried. This is committed with
   `varve:Moved` at m₂.
+- **The cancel.** While `varve:Moving` holds, a management commit at m₃ may
+  replace it with `varve:InDataset`. A commit authorised at m₃ or later may
+  change a catalogue graph again; one authorised in [m₁, m₃) stays refused.
+  Nothing renders differently: the declarations never left the catalogue
+  graphs.
 - **Declarations in force at a commit.** A commit is rendered with the
   declarations of the system dataset at the management position it records
   (ADR 0165) when that position is m₂ or later, translated back into the

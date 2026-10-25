@@ -18,8 +18,9 @@ declaration file under `varve apply`. Nothing was committed. The catalogue
 graphs' history stays readable as of any position.
 
 While a move is `Moving`, an operator or the dataset's admin can still cancel
-it by retracting `varve:Moving` from the dataset's graph; catalogue writes
-authorised after the cancel are accepted again.
+it by stating `varve:eventDeclarations varve:InDataset` in the dataset's graph,
+its own management commit at m₃; catalogue writes authorised at m₃ or later
+are accepted again.
 
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,

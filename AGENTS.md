@@ -221,8 +221,8 @@ the revisions; `ManagedEventDeclarations` translates both ways). Revisions
 minted after the move are `m{p}` (`SchemaRevisionId`, breaking). Catalogue
 writes are refused with `409 event-catalogue-moved`; moved declarations are
 checked by `EventDeclarationCheck` over their translation, inside
-`ManagementValidator`. A move is idempotent and resumes; a cancel retracts
-`Moving`; `Moved` is final.
+`ManagementValidator`. A move is idempotent and resumes; a cancel states
+`varve:InDataset` at its own position; `Moved` is final.
 
 Before that, milestone 8, SHACL (#13), part 2a (#138; ADRs 0169–0173, filed unaccepted).
 A **shapes binding** (`varve:ShapesBinding`, ADR 0170) is a management

@@ -121,9 +121,37 @@ that needs a decision and two additions:
   validator is `DeclarationReader` inside `ManagementValidator`, and the
   session calls only those entry points.
 
-The session built point A as proposed while waiting. **No answer had come
-when this record was written**; point A is the question the pull request
-carries.
+The session built point A as proposed while waiting.
+
+**The answer, 2026-10-25** (verbatim):
+
+> Point A is approved as built. The dataset's writer makes the freeze and the switch under the caller's token, with no peer identity (as ADR 0168 refused). Two conditions:
+> 1. A switch completed without a fresh request (the dataset's writer is also the system writer) is attributed to the agent who authorised the freeze at m₁, never to the instance. Say in ADR 0167 where that agent is recorded: the freeze node or its attachment.
+> 2. A move left in `Moving` is visible: the dataset's status and readiness report `events: moving since m₁`, as information only, never unready. The operator guide's new page says how to resume, with `varve manage move-events`, and how to cancel.
+>
+> The additions (cancel while `Moving`, and the automatic cancel when the catalogue doesn't translate one-to-one) are accepted. A cancel is its own management commit, e.g. `varve:InDataset` at m₃, and catalogue writes are accepted again only for commits authorised at m₃ or later. Add one generated history that crosses a freeze and a cancel to the byte-identity property, and test a stop between the freeze and a cancel.
+>
+> Azurite-only fleet move: accepted, for the reason stated (no web identity on RustFS in CI). Leave it in the record as a known gap. Replication will meet the same limit.
+>
+> Then carry on. The maintainer will accept the decisions when CI is otherwise green.
+
+**What the conditions became.**
+
+- **Condition 1.** The agent is recorded in the header of the freeze commit
+  at m₁ (ADR 0094), the commit whose attachment is m₁, and is found from the
+  system log, not stated in a declaration. A switch resumed with no request
+  carries that agent and a cause naming the freeze (ADR 0167 point 3).
+  `EventMoveTests.A_switch_finished_by_itself_names_the_agent_who_authorised_the_freeze`.
+- **Condition 2.** The dataset's status, readiness and
+  `GET /manage/datasets/{d}/events` report
+  `"events": {"state": "moving", "since": m₁}`; readiness stays `200`. The
+  guide's page says how to resume and how to cancel.
+- **The cancel** is `varve:eventDeclarations varve:InDataset`, a new term,
+  committed on its own at m₃; a dataset in `InDataset` may move again. The
+  byte-identity property's generator crosses a freeze and a cancel in about
+  half its histories (a catalogue change between them is refused in every
+  world). `EventMoveTests.A_move_left_moving_is_reported_and_a_cancel_after_a_stop_reopens_the_catalogue`
+  stops between the freeze and the cancel.
 
 ## The report
 
@@ -180,15 +208,19 @@ revisions.
 
 **Deviations, stated.**
 
-- **RustFS.** As in part 1, the server reaches an S3 store only by web
-  identity (ADR 0137), which RustFS in CI has not. The fleet's server
-  processes, the move among them, run on Azurite. The move is above the store.
+- **RustFS, a known gap, accepted.** As in part 1, the server reaches an S3
+  store only by web identity (ADR 0137), which RustFS in CI has not. The
+  fleet's server processes, the move among them, run on Azurite only. The
+  move is above the store. Replication will meet the same limit.
 - **The catalogue's refusal.** The freeze is exact at the authorised
   position, by a request validator. The dataset validator also refuses a
   catalogue write once the applied declarations say `Moving` or `Moved`, so
   that a malformed write is `event-catalogue-moved` and not
   `event-declaration-invalid`. That refuses more, never less.
-- **Point A** is built as proposed and awaits the maintainer.
+- **Point A** is approved as built, with the two conditions above.
+- **A hang, found and fixed.** `Dataset.Subscribe` tails the log for ever;
+  the scan for the freeze's agent, and a test's scan for the switch, now stop
+  at the head they captured.
 
 **Durations, Linux x64 (the session's container).** Recorded from the
 session's own runs, Azurite started locally; other operating systems are
@@ -196,12 +228,16 @@ CI's.
 
 | Project | Tests | Duration |
 |---|---:|---:|
-| `Varve.Events.Tests` | 127 | 11 s |
-| `Varve.Management.Tests` | 45 | 6 s |
-| `Varve.Protocol.Tests` | 113 | 49 s |
-| `Varve.Protocol.Client.Tests` | 117 | 12 s |
-| `Varve.Server.Tests`, with `FleetTests` on Azurite | 127 (6 skipped: other providers) | 37 s |
+| `Varve.Events.Tests` | 127 | 8 s |
+| `Varve.Management.Tests` | 46 | 2 s |
+| `Varve.Protocol.Tests` | 113 | 42 s |
+| `Varve.Protocol.Client.Tests` | 117 | 7 s |
+| `Varve.Server.Tests`, with `FleetTests` on Azurite | 129 (6 skipped: other providers) | 28 s |
+
+Durations after the conditions, 2026-10-25, wall clock per `dotnet test`.
 
 The new tests: `MovePropertyTests` 0.8 s in all (the 200-history property
-0.5 s); `EventMoveTests` 1.6 s; the two fleet move cases 2.6 s and 3.0 s.
+0.5 s), 2.3 s after the freeze-and-cancel histories; `EventMoveTests` 1.6 s,
+3.6 s with the two tests of the conditions (nine in all); the two fleet move
+cases 2.6 s and 3.0 s.
 None needs a long-run variable.
