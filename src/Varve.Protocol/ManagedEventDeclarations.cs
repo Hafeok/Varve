@@ -334,4 +334,22 @@ public static class EventDeclarationMove
         ArgumentNullException.ThrowIfNull(plane);
         return Endpoints.EventMoves.ResumeAsync(options, plane, dataset, cancellationToken);
     }
+
+    /// <summary>
+    /// When <paramref name="dataset"/>'s event declarations are moving, the
+    /// system position m₁ of the freeze, which status and readiness report as
+    /// information (ADR 0167); none otherwise.
+    /// </summary>
+    public static async Task<long?> MovingSinceAsync(IManagementPlane plane, DatasetName dataset, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(plane);
+
+        if (!plane.Table.Declarations.Datasets.TryGetValue(dataset.Value, out Varve.Management.Model.DatasetDeclaration? declared)
+            || declared.EventDeclarations != Varve.Management.Model.EventDeclarationState.Moving)
+        {
+            return null;
+        }
+
+        return (await Endpoints.EventMoves.FreezeOfAsync(plane.System, ManagementVocabulary.DatasetGraph(dataset.Value), cancellationToken).ConfigureAwait(false))?.Since;
+    }
 }

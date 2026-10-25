@@ -233,6 +233,151 @@ public sealed class EventMoveTests
         }
     }
 
+    /// <summary>
+    /// A move finished with no request, by the system writer that also writes
+    /// the dataset, is the act of the agent who authorised the freeze: its
+    /// commit names the agent the freeze commit's header names, never the
+    /// instance (ADR 0167 point 3).
+    /// </summary>
+    [Fact]
+    public async Task A_switch_finished_by_itself_names_the_agent_who_authorised_the_freeze()
+    {
+        string root = Directory.CreateTempSubdirectory("varve-move-").FullName;
+        RdfTerm alice = RdfTerm.Iri("https://issuer.example/#alice"u8);
+
+        try
+        {
+            await using (RunningServer first = await StartAsync(root, interval: "00:01:00"))
+            {
+                await SeedAsync(first);
+
+                // The freeze, committed by alice; the server stops before the copy.
+                Fleet fleet = first.Started!.Fleet;
+                fleet.Resume = null;
+                CommitResult frozen = await fleet.System.CommitAsync(new CommitRequest
+                {
+                    Metadata = new CommitMetadata { Agent = alice },
+                    Validators = [fleet.Validator],
+                }.Assert(RdfTerm.Iri("urn:fleet:d"u8), RdfTerm.Iri(Encoding.UTF8.GetBytes(Varve + "eventDeclarations")), RdfTerm.Iri(Encoding.UTF8.GetBytes(Varve + "Moving")), RdfTerm.Iri(Encoding.UTF8.GetBytes(Varve + "manage/dataset/d"))), Ct);
+                Assert.Equal(CommitOutcome.Committed, frozen.Outcome);
+            }
+
+            await using RunningServer second = await StartAsync(root);
+            await WaitStateAsync(second, "moved");
+
+            // The switch: the system commit that made the graph say Moved.
+            RdfTerm? agent = null;
+            Dataset system = second.Started!.Fleet.System;
+            long head = system.Head.Value;
+
+            await foreach (Commit commit in system.Subscribe(new Position(0), SubscriptionFilter.All, Ct))
+            {
+                foreach (Quad quad in commit.Delta.Asserted)
+                {
+                    if (commit.TryExternalise(quad.Object, out RdfTerm? o) && o.Equals(RdfTerm.Iri(Encoding.UTF8.GetBytes(Varve + "Moved"))))
+                    {
+                        Assert.True(commit.TryExternalise(commit.Agent, out agent));
+                    }
+                }
+
+                // A subscription tails the log: read it to the head, and no further.
+                if (commit.Position.Value >= head)
+                {
+                    break;
+                }
+            }
+
+            Assert.Equal(alice, agent);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// A move left Moving, by a stop between the freeze and a cancel, on an
+    /// instance that does not finish it by itself: status and readiness say
+    /// `moving since m₁` and stay ready, the catalogue is frozen, and the
+    /// cancel, a commit of its own at m₃, reopens it for writes authorised from
+    /// m₃ on, with every event as before.
+    /// </summary>
+    [Fact]
+    public async Task A_move_left_moving_is_reported_and_a_cancel_after_a_stop_reopens_the_catalogue()
+    {
+        string root = Directory.CreateTempSubdirectory("varve-move-").FullName;
+
+        try
+        {
+            string before;
+            long since;
+
+            await using (RunningServer first = await StartAsync(root))
+            {
+                await SeedAsync(first);
+                before = await EventsAsync(first);
+                HttpResponseMessage graph = await first.Client.GetAsync(new Uri("manage/datasets/d", UriKind.Relative), Ct);
+                string trig = await graph.Content.ReadAsStringAsync(Ct);
+                first.Started!.Fleet.Resume = null;
+                HttpResponseMessage freeze = await TrigAsync(first, "manage/datasets/d", trig.TrimEnd().TrimEnd('}') + " <urn:fleet:d> <" + Varve + "eventDeclarations> <" + Varve + "Moving> . }");
+                Assert.Equal(HttpStatusCode.NoContent, freeze.StatusCode);
+                since = long.Parse(freeze.Headers.GetValues("Varve-Position").Single(), System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            // The next instance finishes nothing by itself here: it stands for one that writes the dataset but not the system dataset.
+            await using RunningServer second = await StartAsync(root, interval: "00:01:00");
+            second.Started!.Fleet.Resume = null;
+
+            JsonElement status = (await JsonAsync(await second.Client.GetAsync(new Uri("manage/datasets/d/status", UriKind.Relative), Ct))).RootElement;
+            Assert.Equal("moving", status.GetProperty("events").GetProperty("state").GetString());
+            Assert.Equal(since, status.GetProperty("events").GetProperty("since").GetInt64());
+            HttpResponseMessage ready = await second.Client.GetAsync(new Uri("health/ready", UriKind.Relative), Ct);
+            string readiness = await ready.Content.ReadAsStringAsync(Ct);
+            Assert.True(ready.StatusCode == HttpStatusCode.OK, readiness);
+            Assert.Equal(since, JsonDocument.Parse(readiness).RootElement.GetProperty("datasets").GetProperty("d").GetProperty("events").GetProperty("since").GetInt64());
+            Assert.Equal(since, (await JsonAsync(await second.Client.GetAsync(new Uri("manage/datasets/d/events", UriKind.Relative), Ct))).RootElement.GetProperty("since").GetInt64());
+
+            const string Comment = "INSERT DATA { GRAPH <" + Catalogue + "> { <https://example.org/types/Paid> <http://www.w3.org/2000/01/rdf-schema#comment> \"after the cancel\" } }";
+            Assert.Equal(HttpStatusCode.Conflict, (await UpdateAsync(second, Comment)).StatusCode);
+
+            // The cancel: varve:InDataset, its own commit.
+            string current = await (await second.Client.GetAsync(new Uri("manage/datasets/d", UriKind.Relative), Ct)).Content.ReadAsStringAsync(Ct);
+            Assert.Contains("Moving", current, StringComparison.Ordinal);
+            string cancelled = current.Replace("<" + Varve + "Moving>", "<" + Varve + "InDataset>", StringComparison.Ordinal).Replace("varve:Moving", "varve:InDataset", StringComparison.Ordinal);
+            HttpResponseMessage cancel = await TrigAsync(second, "manage/datasets/d", cancelled);
+            Assert.True(cancel.StatusCode == HttpStatusCode.NoContent, await cancel.Content.ReadAsStringAsync(Ct));
+            Assert.True(long.Parse(cancel.Headers.GetValues("Varve-Position").Single(), System.Globalization.CultureInfo.InvariantCulture) > since);
+            Assert.Equal("in-dataset", (await JsonAsync(await second.Client.GetAsync(new Uri("manage/datasets/d/events", UriKind.Relative), Ct))).RootElement.GetProperty("state").GetString());
+            Assert.False((await JsonAsync(await second.Client.GetAsync(new Uri("manage/datasets/d/status", UriKind.Relative), Ct))).RootElement.TryGetProperty("events", out _));
+
+            Assert.Equal(before, await EventsAsync(second));
+            HttpResponseMessage reopened = await UpdateAsync(second, Comment);
+            Assert.True(reopened.StatusCode == HttpStatusCode.NoContent, await reopened.Content.ReadAsStringAsync(Ct));
+
+            // And the dataset can be moved again from there.
+            Assert.Equal(HttpStatusCode.OK, (await MoveAsync(second)).StatusCode);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static async Task WaitStateAsync(RunningServer server, string state)
+    {
+        for (int attempt = 0; attempt < 100; attempt++)
+        {
+            if ((await JsonAsync(await server.Client.GetAsync(new Uri("manage/datasets/d/events", UriKind.Relative), Ct))).RootElement.GetProperty("state").GetString() == state)
+            {
+                return;
+            }
+
+            await Task.Delay(100, Ct);
+        }
+
+        Assert.Fail("d's event declarations did not become " + state);
+    }
+
     [Fact]
     public async Task A_catalogue_that_does_not_translate_one_to_one_cancels_the_move_and_writes_reopen()
     {
@@ -297,11 +442,11 @@ public sealed class EventMoveTests
         Assert.Equal(HttpStatusCode.NoContent, (await UpdateAsync(server, Event(1, "19.99"))).StatusCode);
     }
 
-    private static Task<RunningServer> StartAsync(string root) => RunningServer.StartAsync(new Dictionary<string, string>
+    private static Task<RunningServer> StartAsync(string root, string interval = "00:00:00.100") => RunningServer.StartAsync(new Dictionary<string, string>
     {
         ["Varve:Auth:Mode"] = "Anonymous",
         ["Varve:DatasetsRoot"] = root,
-        ["Varve:Fleet:FollowInterval"] = "00:00:00.100",
+        ["Varve:Fleet:FollowInterval"] = interval,
         ["Varve:Events:Source"] = "https://varve.example.org/",
     });
 

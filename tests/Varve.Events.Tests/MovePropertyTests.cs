@@ -24,24 +24,34 @@ namespace Varve.Events.Tests;
 /// move and from the management plane's commits, translated by
 /// <see cref="ManagedEventDeclarations"/>, from the move's position on, by the
 /// management position each commit records; and through the switched path
-/// replayed again. #93's two rendering properties are re-run over the
-/// switched path.
+/// replayed again. About half the histories also cross a freeze and its
+/// cancel before the move, between which a catalogue write is refused, and
+/// after which it is accepted again. #93's two rendering properties are re-run
+/// over the switched path.
 /// </summary>
 public sealed class MovePropertyTests
 {
     private static readonly EventEndpoints Endpoints = new("https://varve.example.org/", "d");
 
-    private static readonly Gen<(List<Generators.Step> Steps, int Move)> Moves =
-        Generators.Histories.SelectMany(steps => Gen.Int[0, steps.Count].Select(move => (steps, move)));
+    /// <summary>
+    /// A history, the step it moves at, and in about half the samples a freeze
+    /// and a cancel before it (ADR 0167): a catalogue write between the two is
+    /// refused, and one after the cancel accepted again.
+    /// </summary>
+    private static readonly Gen<(List<Generators.Step> Steps, int Move, int Freeze, int Cancel)> Moves =
+        Generators.Histories.SelectMany(steps => Gen.Int[0, steps.Count].SelectMany(move =>
+            Gen.Select(Gen.Bool, Gen.Int[0, move], Gen.Int[0, move], (cancelled, a, b) => cancelled
+                ? (steps, move, Math.Min(a, b), Math.Max(a, b))
+                : (steps, move, -1, -1))));
 
     [Fact]
     public void rendering_is_byte_identical_across_the_move() => Property.Run(() =>
         Moves.Sample(sample =>
         {
-            Crossing crossing = Crossing.Play(sample.Steps, sample.Move);
+            Crossing crossing = Crossing.Play(sample.Steps, sample.Move, sample.Freeze, sample.Cancel);
             List<RenderedEvent> oracle = crossing.Oracle.RenderAll(Endpoints, crossing.Oracle.Head);
             List<RenderedEvent> switched = crossing.RenderSwitched(crossing.Switched.Head);
-            List<RenderedEvent> again = Crossing.Play(sample.Steps, sample.Move).RenderSwitched(crossing.Switched.Head);
+            List<RenderedEvent> again = Crossing.Play(sample.Steps, sample.Move, sample.Freeze, sample.Cancel).RenderSwitched(crossing.Switched.Head);
 
             Assert.Equal(oracle.Count, switched.Count);
             Assert.Equal(switched.Count, again.Count);
@@ -77,7 +87,7 @@ public sealed class MovePropertyTests
     public void the_switched_path_renders_every_commit_twice_with_identical_bytes() => Property.Run(() =>
         Moves.Sample(sample =>
         {
-            Crossing crossing = Crossing.Play(sample.Steps, sample.Move);
+            Crossing crossing = Crossing.Play(sample.Steps, sample.Move, sample.Freeze, sample.Cancel);
             List<RenderedEvent> first = crossing.RenderSwitched(crossing.Switched.Head);
             List<RenderedEvent> second = crossing.RenderSwitched(crossing.Switched.Head);
             return first.Count == second.Count && first.Zip(second).All(p => p.First.Json.Span.SequenceEqual(p.Second.Json.Span));
@@ -87,7 +97,7 @@ public sealed class MovePropertyTests
     public void the_switched_path_renders_a_commit_with_the_declaration_in_force_at_its_position() => Property.Run(() =>
         Moves.Sample(sample =>
         {
-            Crossing crossing = Crossing.Play(sample.Steps, sample.Move);
+            Crossing crossing = Crossing.Play(sample.Steps, sample.Move, sample.Freeze, sample.Cancel);
             List<RenderedEvent> late = crossing.RenderSwitched(crossing.Switched.Head);
 
             for (long p = 1; p <= crossing.Switched.Head.Value; p++)
@@ -150,7 +160,7 @@ public sealed class MovePropertyTests
         /// <summary>The management position the switch was committed at: m₂.</summary>
         internal long MovedAt { get; private set; } = long.MaxValue;
 
-        internal static Crossing Play(List<Generators.Step> steps, int move)
+        internal static Crossing Play(List<Generators.Step> steps, int move, int freeze = -1, int cancel = -1)
         {
             Crossing crossing = new();
             Dictionary<int, List<Q>> declared = [];
@@ -160,6 +170,17 @@ public sealed class MovePropertyTests
 
             for (int i = 0; i <= steps.Count; i++)
             {
+                // A freeze at m1, then its cancel, a commit of its own at m3.
+                if (i == freeze)
+                {
+                    management++;
+                }
+
+                if (i == cancel)
+                {
+                    management++;
+                }
+
                 if (i == move)
                 {
                     // The freeze at m1, the switch at m2: the catalogue as it is now.
@@ -177,6 +198,9 @@ public sealed class MovePropertyTests
 
                 switch (steps[i])
                 {
+                    case Generators.Declare when i >= freeze && i < cancel:
+                        // Authorised while frozen: refused, in every world.
+                        break;
                     case Generators.Declare d:
                         List<Q> quads = Generators.TypeOf(d.Index, d.Fields, d.Version, d.Retired).Quads(Terms.EventsGraph);
                         List<Q> old = declared.TryGetValue(d.Index, out List<Q>? was) ? was : [];

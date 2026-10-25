@@ -258,3 +258,4 @@ static Varve.Management.ManagementVocabulary.EventDeclarationsProperty.get -> Va
 static Varve.Management.ManagementVocabulary.MovedState.get -> Varve.Rdf.RdfTerm!
 static Varve.Management.ManagementVocabulary.MovingState.get -> Varve.Rdf.RdfTerm!
 static Varve.Management.ManagementVocabulary.SourceGraphProperty.get -> Varve.Rdf.RdfTerm!
+static Varve.Management.ManagementVocabulary.InDatasetState.get -> Varve.Rdf.RdfTerm!

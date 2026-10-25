@@ -310,9 +310,10 @@ public static class DeclarationReader
             return One(node, ManagementVocabulary.EventDeclarations) switch
             {
                 null => EventDeclarationState.InDataset,
+                { } value when value.Equals(ManagementVocabulary.InDataset) => EventDeclarationState.InDataset,
                 { } value when value.Equals(ManagementVocabulary.Moving) => EventDeclarationState.Moving,
                 { } value when value.Equals(ManagementVocabulary.Moved) => EventDeclarationState.Moved,
-                _ => Invalid(EventDeclarationState.InDataset, node, ManagementVocabulary.EventDeclarations, "varve:eventDeclarations is varve:Moving or varve:Moved"),
+                _ => Invalid(EventDeclarationState.InDataset, node, ManagementVocabulary.EventDeclarations, "varve:eventDeclarations is varve:InDataset, varve:Moving or varve:Moved"),
             };
         }
 

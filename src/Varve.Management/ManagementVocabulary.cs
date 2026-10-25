@@ -49,6 +49,9 @@ public static class ManagementVocabulary
     /// <summary><c>varve:eventDeclarations</c>, on a dataset's node: where its event declarations are (ADR 0167).</summary>
     public static RdfTerm EventDeclarationsProperty => EventDeclarations;
 
+    /// <summary><c>varve:InDataset</c>: the event declarations are in the catalogue graphs; stated by a cancel.</summary>
+    public static RdfTerm InDatasetState => InDataset;
+
     /// <summary><c>varve:Moving</c>: the event declarations are frozen in the catalogue graphs and being copied.</summary>
     public static RdfTerm MovingState => Moving;
 
@@ -115,6 +118,7 @@ public static class ManagementVocabulary
     internal static readonly RdfTerm Reject = Term("Reject");
     internal static readonly RdfTerm Report = Term("Report");
     internal static readonly RdfTerm Off = Term("Off");
+    internal static readonly RdfTerm InDataset = Term("InDataset");
     internal static readonly RdfTerm Moving = Term("Moving");
     internal static readonly RdfTerm Moved = Term("Moved");
 
@@ -144,7 +148,7 @@ public static class ManagementVocabulary
         "validationMode", "allowFullEvaluation", "subClassOfInShapesGraph",
         "File", "Memory", "ObjectStorage", "AllHistory", "Current", "read", "write", "admin", "operator", "defaultGraph", "Exact", "Prefix",
         "Reject", "Report", "Off",
-        "eventDeclarations", "Moving", "Moved",
+        "eventDeclarations", "InDataset", "Moving", "Moved",
     }.ToFrozenSet(StringComparer.Ordinal);
 
     /// <summary>The terms reserved for later milestones, refused with the reason.</summary>

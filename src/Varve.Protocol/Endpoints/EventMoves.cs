@@ -120,7 +120,8 @@ internal static class EventMoves
             types = Triples(view, graph).Count(t => t.Predicate.Equals(Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")) && t.Object.Equals(Iri(ManagementVocabulary.Namespace + "EventType")));
         }
 
-        await WriteJsonAsync(context, StatusCodes.Status200OK, State(declared.EventDeclarations), table.Position.Value, types).ConfigureAwait(false);
+        Freeze? since = declared.EventDeclarations == EventDeclarationState.Moving ? await FreezeOfAsync(system, graph, context.RequestAborted).ConfigureAwait(false) : null;
+        await WriteJsonAsync(context, StatusCodes.Status200OK, State(declared.EventDeclarations), table.Position.Value, types, since?.Since).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -235,7 +236,8 @@ internal static class EventMoves
             if (state == EventDeclarationState.InDataset)
             {
                 // The freeze.
-                List<Triple> frozen = [.. current, new Triple(node, ManagementVocabulary.EventDeclarationsProperty, ManagementVocabulary.MovingState)];
+                List<Triple> frozen = current.FindAll(t => !t.Predicate.Equals(ManagementVocabulary.EventDeclarationsProperty));
+                frozen.Add(new Triple(node, ManagementVocabulary.EventDeclarationsProperty, ManagementVocabulary.MovingState));
                 Written freeze = await WriteAsync(move, graph, frozen, version, cancellationToken).ConfigureAwait(false);
 
                 if (freeze.Problem is { } problem)
@@ -271,7 +273,9 @@ internal static class EventMoves
                 // cancelled, and catalogue writes are accepted again.
                 DeclarationProblem problem = untranslatable ?? new DeclarationProblem(
                     nodes.Find(n => held.Contains(n.Subject)).Subject, "graph", "the node is already a node of the dataset's declarations; the catalogue cannot be copied into them");
+                // The cancel is a commit of its own, m₃: catalogue writes authorised there or later are accepted again.
                 List<Triple> cancelled = current.FindAll(t => !t.Predicate.Equals(ManagementVocabulary.EventDeclarationsProperty));
+                cancelled.Add(new Triple(node, ManagementVocabulary.EventDeclarationsProperty, ManagementVocabulary.InDatasetState));
                 Written cancel = await WriteAsync(move, graph, cancelled, version, cancellationToken).ConfigureAwait(false);
 
                 if (cancel.Stale)
@@ -459,13 +463,25 @@ internal static class EventMoves
             return new Written(0, true, null);
         }
 
-        CommitMetadata metadata = move.Context is { } context
-            ? Writes.Metadata(Exchange.ForSystem(context, move.Options, system))
-            : new CommitMetadata
+        CommitMetadata metadata;
+
+        if (move.Context is { } context)
+        {
+            metadata = Writes.Metadata(Exchange.ForSystem(context, move.Options, system));
+        }
+        else
+        {
+            // A move finished with no request is the act of the agent who
+            // authorised the freeze, as the freeze commit's header names them,
+            // never of the instance (ADR 0167 point 3).
+            Freeze? freeze = await FreezeOfAsync(system, graph, cancellationToken).ConfigureAwait(false);
+            metadata = new CommitMetadata
             {
-                Agent = RdfTerm.Iri(Encoding.UTF8.GetBytes("urn:varve:writer:" + (move.Options.Writers?.Instance.Value ?? "local"))),
-                Cause = RdfTerm.Literal(Encoding.UTF8.GetBytes("varve: the move of " + move.Name.Value + "'s event declarations, resumed (ADR 0167)")),
+                Agent = freeze?.Agent is { } agent ? RequestTerm.FromTerm(agent) : default,
+                Cause = RdfTerm.Literal(Encoding.UTF8.GetBytes("varve: the move of " + move.Name.Value + "'s event declarations frozen at " + (freeze?.Since ?? 0).ToString(CultureInfo.InvariantCulture) + ", resumed (ADR 0167)")),
             };
+        }
+
         CommitRequest request = new()
         {
             ExpectedPosition = version,
@@ -513,6 +529,84 @@ internal static class EventMoves
             default:
                 string reason = result.Reason ?? "unavailable";
                 return new Written(0, false, c => HttpProblems.WriteAsync(c, ProblemType.Unavailable, "The system dataset cannot take the move's write now: " + reason + ".", m => m.String("reason", "unavailable")));
+        }
+    }
+
+    // ---- the freeze ----
+
+    /// <summary>The freeze in force: the system position m₁ that froze the catalogue, and the agent its commit names, when it names one.</summary>
+    internal sealed record Freeze(long Since, RdfTerm? Agent);
+
+    /// <summary>
+    /// The freeze of the dataset whose graph is <paramref name="graph"/>, when
+    /// its declarations are <c>varve:Moving</c>: the system commit that made
+    /// them so, read from the log, so that neither its position nor its agent
+    /// is a value a declaration states.
+    /// </summary>
+    internal static async Task<Freeze?> FreezeOfAsync(Dataset system, RdfTerm graph, CancellationToken cancellationToken)
+    {
+        Freeze? freeze = null;
+        HashSet<(RdfTerm, RdfTerm)> markers = [];
+        long head = system.Head.Value;
+
+        if (head == 0)
+        {
+            return null;
+        }
+
+        // A subscription tails the log: it is read to the head as it is now, and no further.
+        await foreach (Commit commit in system.Subscribe(new Position(0), SubscriptionFilter.All, cancellationToken).ConfigureAwait(false))
+        {
+            if (commit.Position.Value > head)
+            {
+                break;
+            }
+
+            if (commit.Kind != CommitKind.Data)
+            {
+                if (commit.Position.Value >= head)
+                {
+                    break;
+                }
+
+                continue;
+            }
+
+            bool was = markers.Contains((graph, ManagementVocabulary.MovingState));
+            Mark(commit, commit.Delta.Retracted, graph, markers, assert: false);
+            Mark(commit, commit.Delta.Asserted, graph, markers, assert: true);
+            bool now = markers.Contains((graph, ManagementVocabulary.MovingState));
+
+            if (now && !was)
+            {
+                freeze = new Freeze(commit.Position.Value, !commit.Agent.IsNone && commit.TryExternalise(commit.Agent, out RdfTerm? agent) ? agent : null);
+            }
+            else if (!now)
+            {
+                freeze = null;
+            }
+
+            if (commit.Position.Value >= head)
+            {
+                break;
+            }
+        }
+
+        return freeze;
+    }
+
+    // The values of varve:eventDeclarations in the dataset's graph, as (graph, value).
+    private static void Mark(Commit commit, ReadOnlySpan<Quad> quads, RdfTerm graph, HashSet<(RdfTerm, RdfTerm)> markers, bool assert)
+    {
+        foreach (Quad quad in quads)
+        {
+            if (!quad.IsDefaultGraph
+                && commit.TryExternalise(quad.Predicate, out RdfTerm? p) && p.Equals(ManagementVocabulary.EventDeclarationsProperty)
+                && commit.TryExternalise(quad.Graph, out RdfTerm? g) && g.Equals(graph)
+                && commit.TryExternalise(quad.Object, out RdfTerm? o))
+            {
+                _ = assert ? markers.Add((graph, o)) : markers.Remove((graph, o));
+            }
         }
     }
 
@@ -603,7 +697,7 @@ internal static class EventMoves
     private static DatasetName? Name(HttpContext context) =>
         context.Request.RouteValues.TryGetValue(Exchange.DatasetRouteValue, out object? value) && DatasetName.TryParse(value as string, out DatasetName name) ? name : null;
 
-    private static async Task WriteJsonAsync(HttpContext context, int status, string state, long position, int types)
+    private static async Task WriteJsonAsync(HttpContext context, int status, string state, long position, int types, long? since = null)
     {
         System.Buffers.ArrayBufferWriter<byte> body = new(128);
 
@@ -611,6 +705,12 @@ internal static class EventMoves
         {
             json.WriteStartObject();
             json.WriteString("state", state);
+
+            if (since is long frozen)
+            {
+                json.WriteNumber("since", frozen);
+            }
+
             json.WriteNumber("position", position);
             json.WriteNumber("types", types);
             json.WriteEndObject();

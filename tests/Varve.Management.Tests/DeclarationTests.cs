@@ -249,6 +249,18 @@ public sealed class DeclarationTests
     }
 
     [Fact]
+    public void a_cancel_states_varve_InDataset_and_the_dataset_may_move_again_from_it()
+    {
+        const string Moving = "<https://w3id.org/varve/ns#manage/dataset/d> { n:d a varve:Dataset ; varve:datasetName \"d\" ; varve:eventDeclarations varve:Moving . }";
+        const string Cancelled = "<https://w3id.org/varve/ns#manage/dataset/d> { n:d a varve:Dataset ; varve:datasetName \"d\" ; varve:eventDeclarations varve:InDataset . }";
+        Declarations cancelled = T.Read(Cancelled);
+        Assert.Empty(cancelled.Findings);
+        Assert.Equal(EventDeclarationState.InDataset, cancelled.Datasets["d"].EventDeclarations);
+        Assert.Empty(EventDeclarationMoves.Check(T.Read(Moving), cancelled));
+        Assert.Empty(EventDeclarationMoves.Check(cancelled, T.Read(Moving)));
+    }
+
+    [Fact]
     public void a_deleted_dataset_is_not_a_transition()
     {
         Declarations before = T.Read("<https://w3id.org/varve/ns#manage/dataset/d> { n:d a varve:Dataset ; varve:datasetName \"d\" ; varve:eventDeclarations varve:Moved . }");

@@ -92,7 +92,7 @@ public enum PrincipalKind : byte
 /// <summary>Where a dataset's event declarations are (ADR 0167): <c>varve:eventDeclarations</c> on its node.</summary>
 public enum EventDeclarationState : byte
 {
-    /// <summary>No value: in the dataset's catalogue graphs, written by the data plane.</summary>
+    /// <summary>No value, or <c>varve:InDataset</c> after a cancel: in the dataset's catalogue graphs, written by the data plane.</summary>
     InDataset,
 
     /// <summary><c>varve:Moving</c>: frozen in the catalogue graphs, being copied here.</summary>

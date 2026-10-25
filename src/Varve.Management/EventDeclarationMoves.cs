@@ -11,9 +11,10 @@ using Varve.Management.Model;
 namespace Varve.Management;
 
 /// <summary>
-/// The transitions of a dataset's event declarations (ADR 0167): from none to
-/// <c>varve:Moving</c>, back to none (a cancel), or from <c>varve:Moving</c> to
-/// <c>varve:Moved</c>, which is final. A dataset whose graph is removed is
+/// The transitions of a dataset's event declarations (ADR 0167): from none or
+/// <c>varve:InDataset</c> to <c>varve:Moving</c> (the freeze), back to
+/// <c>varve:InDataset</c> (a cancel, a commit of its own), or from
+/// <c>varve:Moving</c> to <c>varve:Moved</c>, which is final. A dataset whose graph is removed is
 /// deleted, not moved, and is not checked here.
 /// </summary>
 [Contract(typeof(EventDeclarationsMoveToTheManagementPlane.MoveTransitions), Role = "the allowed changes of a dataset's event declarations' state")]

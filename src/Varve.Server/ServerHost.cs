@@ -639,10 +639,22 @@ internal static partial class ServerHost
     // within its lag, not superseded, with the bootstrap operators recorded
     // as configured (ADR 0163 point 13). A closed dataset is reported and
     // does not count.
-    private static Task ReadyAsync(HttpContext context, Fleet fleet, ServerSettings settings, Drain drain)
+    private static async Task ReadyAsync(HttpContext context, Fleet fleet, ServerSettings settings, Drain drain)
     {
         OpenDatasets datasets = fleet.Datasets;
         List<DatasetHealth> health = [];
+
+        // A move of a dataset's event declarations left Moving, since m₁ (ADR 0167): information, never unready.
+        Dictionary<string, long> moving = new(StringComparer.Ordinal);
+
+        foreach ((string name, Varve.Management.Model.DatasetDeclaration declared) in fleet.Current.Table.Declarations.Datasets)
+        {
+            if (declared.EventDeclarations == Varve.Management.Model.EventDeclarationState.Moving
+                && await EventDeclarationMove.MovingSinceAsync(fleet, new DatasetName(name), context.RequestAborted).ConfigureAwait(false) is long since)
+            {
+                moving[name] = since;
+            }
+        }
 
         foreach (DatasetEntry entry in datasets.List())
         {
@@ -677,21 +689,20 @@ internal static partial class ServerHost
 
         static string Role(DatasetRole role) => role switch { DatasetRole.Writer => "writer", DatasetRole.Follower => "follower", _ => "elsewhere" };
 
-        // A move of the dataset's event declarations that has not finished (ADR 0167).
-        Varve.Management.Model.Declarations declarations = fleet.Current.Table.Declarations;
-
         void Moving(Utf8JsonWriter json, string name)
         {
-            if (declarations.Datasets.TryGetValue(name, out Varve.Management.Model.DatasetDeclaration? declared)
-                && declared.EventDeclarations == Varve.Management.Model.EventDeclarationState.Moving)
+            if (moving.TryGetValue(name, out long since))
             {
-                json.WriteString("eventDeclarations", "moving");
+                json.WriteStartObject("events");
+                json.WriteString("state", "moving");
+                json.WriteNumber("since", since);
+                json.WriteEndObject();
             }
         }
 
         if (ready)
         {
-            return WriteJsonAsync(context, StatusCodes.Status200OK, "application/json", json =>
+            await WriteJsonAsync(context, StatusCodes.Status200OK, "application/json", json =>
             {
                 json.WriteString("status", "ready");
                 Management(json);
@@ -714,10 +725,11 @@ internal static partial class ServerHost
 
                 json.WriteEndObject();
                 Readiness.WriteRetention(json, health);
-            });
+            }).ConfigureAwait(false);
+            return;
         }
 
-        return WriteProblemAsync(context, ProblemType.NotReady, drain.Draining ? "The server is draining." : null, json =>
+        await WriteProblemAsync(context, ProblemType.NotReady, drain.Draining ? "The server is draining." : null, json =>
         {
             Management(json);
             json.WriteStartArray("datasets");
@@ -750,7 +762,7 @@ internal static partial class ServerHost
 
             json.WriteEndArray();
             Readiness.WriteRetention(json, health);
-        });
+        }).ConfigureAwait(false);
     }
 
     // The dataset a data-plane path names: /datasets/{name}/….
