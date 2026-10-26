@@ -2,12 +2,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 using Varve.Management.Model;
 using Varve.Protocol.Model;
+using Varve.Rdf;
 using Varve.Store;
 using Varve.Store.Log;
 
@@ -93,4 +95,15 @@ public interface IManagementPlane
 
     /// <summary>The validator every commit to the system dataset runs (ADR 0166): the code validator over the graphs it touches.</summary>
     ICommitValidator Validator { get; }
+
+    /// <summary>
+    /// Checks each shapes binding of <paramref name="proposed"/> against the
+    /// dataset it gates, where this instance holds it, before the management
+    /// commit is submitted (ADR 0169's R4): the refusal of the first one
+    /// refused, as a validator's report, or null. None by default.
+    /// </summary>
+    IReadOnlyList<RdfTerm>? CheckBindings(Declarations proposed) => null;
+
+    /// <summary>A shapes binding of <paramref name="dataset"/> at the applied position, with its classification where this instance holds the dataset; null when there is no such binding. None by default.</summary>
+    BindingDescription? DescribeBinding(DatasetName dataset, RdfTerm binding) => null;
 }

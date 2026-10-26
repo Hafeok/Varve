@@ -232,3 +232,15 @@ static Varve.Management.ManagementTrig.TryParseLines(System.Collections.Generic.
 Varve.Management.Model.DatasetDeclaration.Closed.get -> bool
 Varve.Management.Model.DatasetDeclaration.Closed.init -> void
 Varve.Management.GrantTable.Writes(Varve.Management.Model.Caller! caller, string! dataset) -> bool
+Varve.Management.Model.BindingDeclaration.AllowFullEvaluation.get -> bool
+Varve.Management.Model.BindingDeclaration.AllowFullEvaluation.init -> void
+Varve.Management.Model.BindingDeclaration.Mode.get -> Varve.Management.Model.ShapesMode
+Varve.Management.Model.BindingDeclaration.Mode.init -> void
+Varve.Management.Model.BindingDeclaration.SubClassOfInShapesGraph.get -> bool
+Varve.Management.Model.BindingDeclaration.SubClassOfInShapesGraph.init -> void
+Varve.Management.Model.BindingDeclaration.Validates.get -> Varve.Management.Model.GraphSet?
+Varve.Management.Model.BindingDeclaration.Validates.init -> void
+Varve.Management.Model.ShapesMode
+Varve.Management.Model.ShapesMode.Off = 0 -> Varve.Management.Model.ShapesMode
+Varve.Management.Model.ShapesMode.Reject = 2 -> Varve.Management.Model.ShapesMode
+Varve.Management.Model.ShapesMode.Report = 1 -> Varve.Management.Model.ShapesMode

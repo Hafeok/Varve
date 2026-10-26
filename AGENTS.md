@@ -30,10 +30,10 @@ shared mutable state, no static registries. **High cohesion**: one reason to cha
 |---:|---|
 | 0 | `Varve.Iri`, `Varve.Xsd`, `Varve.Json.Canonical` (ADR 0147) |
 | 1 | `Varve.Rdf` — model and the abstract quad source contract |
-| 2 | syntax: `Varve.Turtle`, `Varve.RdfXml`, `Varve.JsonLd`, `Varve.Sparql.Results`, and `Varve.Sparql` (the algebra, parser and serialiser) |
+| 2 | syntax: `Varve.Turtle`, `Varve.RdfXml`, `Varve.JsonLd`, `Varve.Sparql.Results`, and `Varve.Sparql` (the algebra, parser and serialiser); `Varve.Derivation` (dependency graphs, regular paths, propagation — ADR 0172, amending 0003) |
 | 3 | `Varve.Sparql.Evaluation` (optimiser and evaluator, one package — ADR 0048), `Varve.Shacl` (SHACL Core, with no SPARQL — ADR 0148), `Varve.Delta` (the change feed's format, by dependency — ADR 0128) |
 | 4 | `Varve.Store` — log, projection contract, pre-commit validator contract; `Varve.Events` (domain events rendered from quads, by dependency — ADR 0143); `Varve.Shacl.Sparql` (SHACL-SPARQL over the evaluator, through `Varve.Shacl`'s extension contract — ADR 0148); `Varve.Management` (the management plane's declarations and grants, by dependency — ADR 0166) |
-| 5 | integrations: `Varve.Sparql.Store`, `Varve.Store.Browser` |
+| 5 | integrations: `Varve.Sparql.Store`, `Varve.Store.Browser`, `Varve.Shacl.Store` (commit-time gating under a shapes binding — ADR 0169) |
 | 6 | hosts — every executable, and only executables: the server, the CLI, the smoke apps, the benchmarks (ADR 0060) |
 
 **Same-layer references are violations.** Contracts live in the lowest layer that
@@ -205,7 +205,26 @@ and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone Extent maintenance (#110; ADRs 0158–0162), after Object storage. The writer's maintenance merges extent sets — `FanOut`
+Milestone 8, SHACL (#13), part 2a (#138; ADRs 0169–0173, filed unaccepted).
+A **shapes binding** (`varve:ShapesBinding`, ADR 0170) is a management
+declaration naming a shapes graph of the same dataset, the graphs it
+validates as one data graph, and a mode. `Varve.Shacl.Store` (layer 5) is a
+dataset validator (0169): `reject` refuses a commit whose affected focus
+nodes have a violation not present at the pinned position, so violations
+never grow; `report` accepts and attaches `<<( binding varve:affectedReport
+"sha256:…" )>>` (0173); a shapes change is never refused for existing data;
+a `reject` binding whose shapes are classed full is refused at apply time
+without `varve:allowFullEvaluation`, and fails closed if it gets there
+anyway; `NOW()`, `RAND()`, `UUID()`, `STRUUID()` and a reachable `BNODE()`
+are refused. Only the focus nodes a delta affects are validated, by
+footprint, in both states, to a least fixpoint (0171); every shapes graph is
+classed incremental, scoped or full, statically. `Varve.Derivation` (layer
+2, 0172) holds the dependency graphs, stratification, regular paths and
+semi-naive propagation. The server adds a dataset's gate at the management
+position a write is authorised under. Part 2b is the validation projection,
+shapes for the declarations and the REC gate.
+
+Before that, milestone Extent maintenance (#110; ADRs 0158–0162), after Object storage. The writer's maintenance merges extent sets — `FanOut`
 adjacent sets of similar size, or the smallest run past the bound, never past
 `MaxSetBytes` — writes the merged set, then swaps the catalog once under the
 epoch fence, rebasing onto a catalog a checkpoint swapped meanwhile; a taken

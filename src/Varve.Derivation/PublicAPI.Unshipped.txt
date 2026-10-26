@@ -1,0 +1,69 @@
+#nullable enable
+Varve.Derivation.DependencyGraph<TLabel>
+Varve.Derivation.DependencyGraph<TLabel>.Add(int source, int target, Varve.Derivation.Model.Polarity polarity, TLabel label) -> void
+Varve.Derivation.DependencyGraph<TLabel>.DependencyGraph(int vertexCount) -> void
+Varve.Derivation.DependencyGraph<TLabel>.Incoming(int vertex) -> System.Collections.Generic.IReadOnlyList<Varve.Derivation.Model.DependencyEdge<TLabel>>!
+Varve.Derivation.DependencyGraph<TLabel>.Outgoing(int vertex) -> System.Collections.Generic.IReadOnlyList<Varve.Derivation.Model.DependencyEdge<TLabel>>!
+Varve.Derivation.DependencyGraph<TLabel>.Stratify() -> Varve.Derivation.Stratification<TLabel>!
+Varve.Derivation.DependencyGraph<TLabel>.VertexCount.get -> int
+Varve.Derivation.IPathGraph<TNode, TLabel>
+Varve.Derivation.IPathGraph<TNode, TLabel>.Nodes.get -> System.Collections.Generic.IEqualityComparer<TNode>!
+Varve.Derivation.IPathGraph<TNode, TLabel>.Objects(TNode subject, TLabel label, System.Collections.Generic.List<TNode>! into) -> void
+Varve.Derivation.IPathGraph<TNode, TLabel>.Subjects(TLabel label, TNode obj, System.Collections.Generic.List<TNode>! into) -> void
+Varve.Derivation.Model.DependencyEdge<TLabel>
+Varve.Derivation.Model.DependencyEdge<TLabel>.Deconstruct(out int Source, out int Target, out Varve.Derivation.Model.Polarity Polarity, out TLabel Label) -> void
+Varve.Derivation.Model.DependencyEdge<TLabel>.DependencyEdge() -> void
+Varve.Derivation.Model.DependencyEdge<TLabel>.DependencyEdge(int Source, int Target, Varve.Derivation.Model.Polarity Polarity, TLabel Label) -> void
+Varve.Derivation.Model.DependencyEdge<TLabel>.Equals(Varve.Derivation.Model.DependencyEdge<TLabel> other) -> bool
+Varve.Derivation.Model.DependencyEdge<TLabel>.Label.get -> TLabel
+Varve.Derivation.Model.DependencyEdge<TLabel>.Label.init -> void
+Varve.Derivation.Model.DependencyEdge<TLabel>.Polarity.get -> Varve.Derivation.Model.Polarity
+Varve.Derivation.Model.DependencyEdge<TLabel>.Polarity.init -> void
+Varve.Derivation.Model.DependencyEdge<TLabel>.Source.get -> int
+Varve.Derivation.Model.DependencyEdge<TLabel>.Source.init -> void
+Varve.Derivation.Model.DependencyEdge<TLabel>.Target.get -> int
+Varve.Derivation.Model.DependencyEdge<TLabel>.Target.init -> void
+Varve.Derivation.Model.Polarity
+Varve.Derivation.Model.Polarity.Both = 2 -> Varve.Derivation.Model.Polarity
+Varve.Derivation.Model.Polarity.Negative = 1 -> Varve.Derivation.Model.Polarity
+Varve.Derivation.Model.Polarity.Positive = 0 -> Varve.Derivation.Model.Polarity
+Varve.Derivation.Model.Polarity.Target = 3 -> Varve.Derivation.Model.Polarity
+Varve.Derivation.Model.RefusedCycle<TLabel>
+Varve.Derivation.Model.RefusedCycle<TLabel>.Edge.get -> Varve.Derivation.Model.DependencyEdge<TLabel>
+Varve.Derivation.Model.RefusedCycle<TLabel>.Edges.get -> System.Collections.Generic.IReadOnlyList<Varve.Derivation.Model.DependencyEdge<TLabel>>!
+Varve.Derivation.PathAutomaton<TLabel>
+Varve.Derivation.PathAutomaton<TLabel>.AcceptsEmpty.get -> bool
+Varve.Derivation.PathAutomaton<TLabel>.Anchors<TNode>(Varve.Derivation.IPathGraph<TNode, TLabel>! graph, TNode subject, TLabel label, TNode obj, System.Collections.Generic.List<TNode>! into, System.Collections.Generic.HashSet<TNode>! seen) -> void
+Varve.Derivation.PathAutomaton<TLabel>.Evaluate<TNode>(Varve.Derivation.IPathGraph<TNode, TLabel>! graph, TNode start, System.Collections.Generic.List<TNode>! into, System.Collections.Generic.HashSet<TNode>! seen) -> void
+Varve.Derivation.PathAutomaton<TLabel>.IsBounded.get -> bool
+Varve.Derivation.PathAutomaton<TLabel>.Labels.get -> System.Collections.Generic.IEnumerable<TLabel>!
+Varve.Derivation.PathAutomaton<TLabel>.Reverse<TNode>(Varve.Derivation.IPathGraph<TNode, TLabel>! graph, TNode end, System.Collections.Generic.List<TNode>! into, System.Collections.Generic.HashSet<TNode>! seen) -> void
+Varve.Derivation.Propagation<TNode, TLabel>
+Varve.Derivation.Propagation<TNode, TLabel>.Propagation(Varve.Derivation.DependencyGraph<TLabel>! graph, Varve.Derivation.Stratification<TLabel>! strata, System.Collections.Generic.IEqualityComparer<TNode>! nodes) -> void
+Varve.Derivation.Propagation<TNode, TLabel>.Run(Varve.Derivation.PropagationTransfer<TNode, TLabel>! transfer) -> void
+Varve.Derivation.Propagation<TNode, TLabel>.Seed(int vertex, TNode node) -> bool
+Varve.Derivation.Propagation<TNode, TLabel>.SetOf(int vertex) -> System.Collections.Generic.IReadOnlySet<TNode>!
+Varve.Derivation.PropagationTransfer<TNode, TLabel>
+Varve.Derivation.RegularPath
+Varve.Derivation.RegularPath<TLabel>
+Varve.Derivation.RegularPath<TLabel>.Compile() -> Varve.Derivation.PathAutomaton<TLabel>!
+Varve.Derivation.Stratification<TLabel>
+Varve.Derivation.Stratification<TLabel>.ComponentCount.get -> int
+Varve.Derivation.Stratification<TLabel>.ComponentOf(int vertex) -> int
+Varve.Derivation.Stratification<TLabel>.IsCyclic(int vertex) -> bool
+Varve.Derivation.Stratification<TLabel>.IsStratifiable.get -> bool
+Varve.Derivation.Stratification<TLabel>.Members(int component) -> System.Collections.Generic.IReadOnlyList<int>!
+Varve.Derivation.Stratification<TLabel>.Refused.get -> System.Collections.Generic.IReadOnlyList<Varve.Derivation.Model.RefusedCycle<TLabel>!>!
+override Varve.Derivation.Model.DependencyEdge<TLabel>.GetHashCode() -> int
+static Varve.Derivation.Model.DependencyEdge<TLabel>.operator !=(Varve.Derivation.Model.DependencyEdge<TLabel> left, Varve.Derivation.Model.DependencyEdge<TLabel> right) -> bool
+static Varve.Derivation.Model.DependencyEdge<TLabel>.operator ==(Varve.Derivation.Model.DependencyEdge<TLabel> left, Varve.Derivation.Model.DependencyEdge<TLabel> right) -> bool
+static Varve.Derivation.RegularPath.Alternative<TLabel>(System.Collections.Generic.IEnumerable<Varve.Derivation.RegularPath<TLabel>!>! alternatives) -> Varve.Derivation.RegularPath<TLabel>!
+static Varve.Derivation.RegularPath.Edge<TLabel>(TLabel label) -> Varve.Derivation.RegularPath<TLabel>!
+static Varve.Derivation.RegularPath.Inverse<TLabel>(Varve.Derivation.RegularPath<TLabel>! path) -> Varve.Derivation.RegularPath<TLabel>!
+static Varve.Derivation.RegularPath.OneOrMore<TLabel>(Varve.Derivation.RegularPath<TLabel>! path) -> Varve.Derivation.RegularPath<TLabel>!
+static Varve.Derivation.RegularPath.Sequence<TLabel>(System.Collections.Generic.IEnumerable<Varve.Derivation.RegularPath<TLabel>!>! steps) -> Varve.Derivation.RegularPath<TLabel>!
+static Varve.Derivation.RegularPath.ZeroOrMore<TLabel>(Varve.Derivation.RegularPath<TLabel>! path) -> Varve.Derivation.RegularPath<TLabel>!
+static Varve.Derivation.RegularPath.ZeroOrOne<TLabel>(Varve.Derivation.RegularPath<TLabel>! path) -> Varve.Derivation.RegularPath<TLabel>!
+virtual Varve.Derivation.PropagationTransfer<TNode, TLabel>.Invoke(Varve.Derivation.Model.DependencyEdge<TLabel> edge, TNode node, System.Collections.Generic.List<TNode>! into) -> void
+~override Varve.Derivation.Model.DependencyEdge<TLabel>.Equals(object obj) -> bool
+~override Varve.Derivation.Model.DependencyEdge<TLabel>.ToString() -> string

@@ -193,6 +193,9 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-json-canonical", "Varve.Json.Canonical: RFC 8785's vectors, Node's numbers as the oracle, the writer's refusals",
         () => Test("Varve.Json.Canonical.Tests")),
 
+    ("test-derivation", "Varve.Derivation: paths, their reverse and their anchors against a relational oracle, components and refused cycles by reachability, propagation as the least fixpoint",
+        () => Test("Varve.Derivation.Tests")),
+
     ("test-events", "Varve.Events: rendering replayed byte for byte, the number rule, schema golden files, compatibility, the catalogue's three views, AsyncAPI 3.0, the declaration shapes' agreement with the code",
         () => Test("Varve.Events.Tests")),
 
@@ -217,11 +220,14 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-sparql-store", "Varve.Sparql.Store: SPARQL Update as one commit, and the reference-model property",
         () => Test("Varve.Sparql.Store.Tests")),
 
-    ("test-shacl", "Varve.Shacl: ADR 0150's recursion examples and the greatest-fixpoint property, the report's determinism property, inputs and failures, a store left as it was",
+    ("test-shacl", "Varve.Shacl: ADR 0150's recursion examples and the greatest-fixpoint property, the report's determinism property, inputs and failures, a store left as it was, incremental validation against a full one at every position, the classification",
         () => Test("Varve.Shacl.Tests")),
 
-    ("test-shacl-sparql", "Varve.Shacl.Sparql: the path differential against the evaluator, and dotNetRDF as a differential oracle (ADR 0156)",
+    ("test-shacl-sparql", "Varve.Shacl.Sparql: the path differential against the evaluator, dotNetRDF as a differential oracle (ADR 0156), SPARQL constraints maintained incrementally, the refused functions",
         () => Test("Varve.Shacl.Sparql.Tests")),
+
+    ("test-shacl-store", "Varve.Shacl.Store: a reject binding against a full-validation oracle over generated commits, the attachment's digest after the commit, ADR 0169's rules",
+        () => Test("Varve.Shacl.Store.Tests")),
 
     ("test-protocol", "Varve.Protocol: the endpoints over a real socket, the protocol properties",
         () => Test("Varve.Protocol.Tests")),

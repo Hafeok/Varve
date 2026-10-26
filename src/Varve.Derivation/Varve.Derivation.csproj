@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 2 (ADR 0172, ADR 0003 amended 2026-10-20): what depends on the
+         model alone and layer 3 needs. How derived facts over a graph follow
+         the graph's exact deltas: the dependency graph and its
+         stratification, regular paths and their anchors, propagation to a
+         least fixpoint. Shared by Varve.Shacl and, later, Inference. -->
+    <ArchLayer>2</ArchLayer>
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <Description>Delta-driven maintenance over any graph: a dependency graph with polarities, its strongly connected components and stratification; regular paths evaluated forwards and backwards, with the anchors of a changed edge; and propagation of affected keys to a least fixpoint.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Varve.Derivation.Tests" />
+  </ItemGroup>
+
+</Project>

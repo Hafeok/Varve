@@ -11,6 +11,7 @@ using System.Text.RegularExpressions;
 using System.Text.Unicode;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
+using Varve.Derivation.Model;
 using Varve.Rdf;
 using Varve.Shacl.Model;
 using Varve.Shacl.Shapes;
@@ -378,6 +379,9 @@ internal sealed class PairConstraint(PairKind kind, ShapePath other) : Constrain
     _ => Vocabulary.LessThanOrEqualsConstraintComponent,
 })
 {
+    /// <summary>The second path, read from the focus node.</summary>
+    internal ShapePath Other => other;
+
     [DesignDecision(typeof(ShaclHotPathScope.ComparisonsGatherTheirOtherSide), Scope = ExceptionScope.HotPath)]
     internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
@@ -623,6 +627,12 @@ internal sealed class QualifiedConstraint(int qualified, ImmutableArray<int> sib
 /// <summary>§7.8.5 <c>sh:reifierShape</c> and <c>sh:reificationRequired</c>.</summary>
 internal sealed class ReifierShapeConstraint(int reifierShape, bool required, RdfTerm predicate) : Constraint(Vocabulary.ReifierShapeConstraintComponent)
 {
+    /// <summary>The shape the reifiers are checked against.</summary>
+    internal int ReifierShape => reifierShape;
+
+    /// <summary>The predicate of the reified triples, the property shape's path.</summary>
+    internal RdfTerm Predicate => predicate;
+
     internal override IEnumerable<ShapeReference> References => [new ShapeReference(reifierShape, Vocabulary.ReifierShape, Polarity.Positive)];
 
     internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
@@ -656,6 +666,9 @@ internal sealed class ReifierShapeConstraint(int reifierShape, bool required, Rd
 /// <summary>§7.9.1 <c>sh:closed</c> (true or <c>sh:ByTypes</c>) with <c>sh:ignoredProperties</c>.</summary>
 internal sealed class ClosedConstraint(ImmutableArray<RdfTerm> allowed, bool byTypes) : Constraint(Vocabulary.ClosedConstraintComponent)
 {
+    /// <summary><c>sh:ByTypes</c>: the permitted properties follow the value's types.</summary>
+    internal bool ByTypes => byTypes;
+
     // Read, never written, by validations that may run at once.
     private readonly HashSet<RdfTerm> _allowed = new(allowed, RdfTerm.Comparer);
 
@@ -791,6 +804,9 @@ internal sealed class RootClassConstraint(ImmutableArray<RdfTerm> roots) : Const
 /// <summary>§7.9.5 <c>sh:uniqueValuesFor</c>: no two target nodes of the shape share all the properties' values.</summary>
 internal sealed class UniqueValuesForConstraint(ImmutableArray<RdfTerm> properties) : Constraint(Vocabulary.UniqueValuesForConstraintComponent)
 {
+    /// <summary>The properties whose values make a node's key.</summary>
+    internal ImmutableArray<RdfTerm> Properties => properties;
+
     internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
         for (int i = 0; i < values.Count; i++)

@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 5 (ADR 0148, ADR 0169): SHACL at commit time, the store's
+         pre-commit validator contract implemented over Varve.Shacl and
+         Varve.Shacl.Sparql. Varve.Store learns nothing about SHACL, and a
+         binding reaches this package as a value the host maps. -->
+    <ArchLayer>5</ArchLayer>
+    <ArchContractTypeAssemblies>$(ArchContractTypeAssemblies);Varve.Shacl;Varve.Store</ArchContractTypeAssemblies>
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <Description>Commit-time SHACL gating for Varve.Store: shapes bindings that refuse a commit introducing a violation, or attach a digest of its affected report, validating only the focus nodes a commit's delta affects.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Shacl/Varve.Shacl.csproj" />
+    <ProjectReference Include="../Varve.Shacl.Sparql/Varve.Shacl.Sparql.csproj" />
+    <ProjectReference Include="../Varve.Store/Varve.Store.csproj" />
+    <ProjectReference Include="../Varve.Turtle/Varve.Turtle.csproj" />
+    <ProjectReference Include="../Varve.Json.Canonical/Varve.Json.Canonical.csproj" />
+    <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Varve.Shacl.Store.Tests" />
+  </ItemGroup>
+
+</Project>

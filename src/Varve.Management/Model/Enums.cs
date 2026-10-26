@@ -63,6 +63,19 @@ public enum BindingKind : byte
     TBox,
 }
 
+/// <summary>What a shapes binding does to a commit: <c>varve:validationMode</c> (ADR 0170).</summary>
+public enum ShapesMode : byte
+{
+    /// <summary><c>varve:Off</c>: recorded only.</summary>
+    Off,
+
+    /// <summary><c>varve:Report</c>: accepted, its affected report's digest attached.</summary>
+    Report,
+
+    /// <summary><c>varve:Reject</c>: a commit introducing a violation is refused.</summary>
+    Reject,
+}
+
 /// <summary>What kind of principal a grant names.</summary>
 public enum PrincipalKind : byte
 {

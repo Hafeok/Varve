@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
+using Varve.Derivation.Model;
 using Varve.Rdf;
 using Varve.Shacl.Validation;
 
@@ -77,15 +78,6 @@ internal readonly struct ShapeReference(int target, RdfTerm parameter, Polarity 
     internal RdfTerm Parameter { get; } = parameter;
 
     internal Polarity Polarity { get; } = polarity;
-}
-
-/// <summary>ADR 0150's polarity of a reference.</summary>
-internal enum Polarity
-{
-    Positive,
-    Negative,
-    Both,
-    Target,
 }
 
 /// <summary>

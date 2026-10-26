@@ -330,6 +330,12 @@ jobs:
           --report-trx
           --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Json.Canonical.Tests
 
+      - name: Test Varve.Derivation
+        run: >
+          dotnet test
+          --project tests/Varve.Derivation.Tests/Varve.Derivation.Tests.csproj
+          --configuration Release
+
       - name: Test Varve.Events
         run: >
           dotnet test
@@ -426,6 +432,12 @@ jobs:
           --configuration Release
           --report-trx
           --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Shacl.Sparql.Tests
+
+      - name: Test Varve.Shacl.Store
+        run: >
+          dotnet test
+          --project tests/Varve.Shacl.Store.Tests/Varve.Shacl.Store.Tests.csproj
+          --configuration Release
 
       - name: Test Varve.Protocol
         run: >

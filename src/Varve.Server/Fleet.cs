@@ -47,6 +47,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     private readonly ILogger _logger;
     private readonly IHttpContextAccessor _accessor;
     private readonly ManagementOrder _order;
+    private readonly ShapesBindings _shapes = new();
     private readonly WriterInstance _instance;
     private readonly bool _mayClaim;
     private readonly string[] _bootstrap;
@@ -311,7 +312,27 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
     private Snapshot Pinned() => _accessor.HttpContext?.Items[SnapshotKey] as Snapshot ?? Volatile.Read(ref _snapshot);
 
-    public ICommitValidator OrderOf(DatasetName dataset, ManagementPosition authorised) => _order.Validator(dataset, authorised);
+    /// <summary>
+    /// The validators a data write carries, authorised at the request's pinned
+    /// management position: the order of positions (ADR 0165), and the
+    /// dataset's shapes bindings at that position (ADR 0169).
+    /// </summary>
+    public ICommitValidator OrderOf(DatasetName dataset, ManagementPosition authorised)
+    {
+        ICommitValidator order = _order.Validator(dataset, authorised);
+        return _shapes.GateOf(dataset, Pinned().Table.Declarations) is { } gate ? new OrderAndShapes(order, gate) : order;
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<RdfTerm>? CheckBindings(Declarations proposed) =>
+        ShapesBindings.Check(proposed, name => Datasets.TryResolve(name, out Dataset? dataset) ? dataset : null);
+
+    /// <inheritdoc />
+    public BindingDescription? DescribeBinding(DatasetName dataset, RdfTerm binding)
+    {
+        GrantTable table = Pinned().Table;
+        return ShapesBindings.Describe(dataset, binding, table.Declarations, table.Position, Datasets.TryResolve(dataset, out Dataset? held) ? held : null);
+    }
 
     /// <summary>The highest management position <paramref name="dataset"/>'s log records, as this writer knows (ADR 0165).</summary>
     internal ManagementPosition Recorded(DatasetName dataset) => _order.Highest(dataset);

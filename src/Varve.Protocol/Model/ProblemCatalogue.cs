@@ -86,6 +86,9 @@ public static class ProblemCatalogue
         new(ProblemType.EventDeclarationInvalid, 422, "The event declaration is not well formed.", "declaration", "reason"),
         new(ProblemType.EventSchemaIncompatible, 422, "The declaration change is incompatible with its version.", "declaration", "fields"),
         new(ProblemType.EventNotRendered, 422, EventRenderer.ProblemTitle, "event", "eventType", "reason"),
+        new(ProblemType.ShapesViolated, 422, "The commit introduces a violation of a shapes binding.", "binding", "shapesGraph", "findings", "report", "shapesChanged"),
+        new(ProblemType.BindingNotIncremental, 422, "The binding's shapes cannot be validated incrementally.", "binding", "shapes"),
+        new(ProblemType.ShapesInvalid, 422, "The binding's shapes graph is refused.", "binding", "problems"),
         new(ProblemType.MemoryLimitExceeded, 422, "The request needs more memory than the server allows one request.", "limit", "actual"),
         new(ProblemType.AsOfDistanceExceeded, 422, "The as-of position is too far from its nearest checkpoint.", "limit", "actual"),
         new(ProblemType.TooManyLiveTails, 429, "The client holds too many live tails open.", "limit"),
@@ -113,11 +116,12 @@ public static class ProblemCatalogue
     /// <summary>
     /// Whether <paramref name="type"/> is one a dataset validator raises, so
     /// that a rejection naming it is answered as that type (ADR 0119 amended,
-    /// ADR 0145).
+    /// ADR 0145, ADR 0169).
     /// </summary>
     public static bool IsValidatorType(ProblemType type) =>
         type == ProblemType.EventDeclarationInvalid || type == ProblemType.EventSchemaIncompatible
-        || type == ProblemType.DeclarationInvalid || type == ProblemType.ManagementBehind;
+        || type == ProblemType.DeclarationInvalid || type == ProblemType.ManagementBehind
+        || type == ProblemType.ShapesViolated || type == ProblemType.BindingNotIncremental || type == ProblemType.ShapesInvalid;
 
     /// <summary>The shape of <paramref name="type"/>, when it is catalogued.</summary>
     public static bool TryGet(ProblemType type, out ProblemShape? shape) => ByType.TryGetValue(type.Value, out shape);

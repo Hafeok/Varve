@@ -111,6 +111,7 @@ public static class VarveEndpoints
         routes.Map(Dataset + "/settings", Tracing.Traced("settings", options, context => ManagementEndpoints.SettingsAsync(context, options, plane)));
         routes.Map(Dataset + "/state", Tracing.Traced("state", options, context => ManagementEndpoints.StateAsync(context, options, plane)));
         routes.Map(Dataset + "/grants", Tracing.Traced("grants", options, context => ManagementEndpoints.GrantsAsync(context, options, plane)));
+        routes.Map(Dataset + "/bindings/{" + ManagementEndpoints.BindingRouteValue + "}", Tracing.Traced("binding", options, context => ManagementEndpoints.BindingAsync(context, options, plane)));
         routes.Map("/manage/fleet", Tracing.Traced("fleet declaration", options, context => ManagementEndpoints.FleetAsync(context, options, plane)));
         routes.Map("/manage/graphs", Tracing.Traced("management graphs", options, context => ManagementEndpoints.GraphsAsync(context, options, plane)));
         routes.Map("/manage/apply", Tracing.Traced("apply", options, context => ManagementEndpoints.ApplyAsync(context, options, plane)));

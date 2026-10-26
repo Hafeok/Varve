@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Varve.Rdf;
 
@@ -19,6 +20,8 @@ internal sealed class ShapesSource
 {
     private readonly Dictionary<TermHandle, RdfTerm> _terms;
     private readonly Dictionary<RdfTerm, TermHandle> _handles = new(RdfTerm.Comparer);
+    private readonly ConcurrentDictionary<RdfTerm, List<RdfTerm>> _superclasses = new(RdfTerm.Comparer);
+    private readonly ConcurrentDictionary<RdfTerm, List<RdfTerm>> _subclasses = new(RdfTerm.Comparer);
 
     internal ShapesSource(IQuadSource source, GraphPattern graph)
     {
@@ -43,6 +46,17 @@ internal sealed class ShapesSource
         Collect(s, p, TermHandle.None, Position.Object, found);
         return found;
     }
+
+    /// <summary>
+    /// The direct superclasses (<paramref name="upward"/>) or subclasses of
+    /// <paramref name="term"/> by <c>rdfs:subClassOf</c>, remembered: the
+    /// shapes graph does not change once loaded, and a validation under
+    /// SHACL 1.2 Core §6.4's parameter asks for the same classes at every
+    /// commit (ADR 0169).
+    /// </summary>
+    internal List<RdfTerm> SubClassOf(RdfTerm term, bool upward) => upward
+        ? _superclasses.GetOrAdd(term, t => Objects(t, Vocabulary.RdfsSubClassOf))
+        : _subclasses.GetOrAdd(term, t => Subjects(Vocabulary.RdfsSubClassOf, t));
 
     /// <summary>The one object, or null when there is none; <paramref name="count"/> says how many there were.</summary>
     internal RdfTerm? Object(RdfTerm subject, RdfTerm predicate, out int count)

@@ -166,3 +166,19 @@ SPARQL vocabulary crosses layer 3. The SHACL store integration is
 packages; nothing else here changes. Both open questions are now closed.
 
 **The ledger.** The rulings are ADR 0148's set; this amendment adds none here.
+
+### Amendment, 2026-10-20 — layer 2 is what depends on the model alone
+
+Filed by SHACL, part 2a (#138, under milestone 8, #13), unaccepted until the
+maintainer accepts it (ADR 0066).
+
+Layer 2's description above, "syntax", is widened: layer 2 holds the packages
+that depend on the RDF model alone and that layer 3 needs. It gains
+**`Varve.Derivation`** ([ADR 0172](0172-varve-derivation.md)): the dependency
+graph and its stratification, regular paths and their anchors, and
+propagation to a least fixpoint, shared by `Varve.Shacl` (3) and, later,
+Inference. Layer 5 gains **`Varve.Shacl.Store`** ([ADR 0169](0169-commit-time-gating-under-a-shapes-binding.md)),
+named by ADR 0148. Nothing else here changes.
+
+**The ledger.** The rulings are ADR 0172's set (`DerivationAtLayerTwo`) and
+ADR 0169's (`ShaclStoreAtLayerFive`); this amendment adds none here.

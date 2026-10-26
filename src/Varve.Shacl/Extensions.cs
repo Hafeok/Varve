@@ -82,6 +82,13 @@ public sealed class ShapesGraphContext
     /// <summary>The shapes graph in it.</summary>
     public GraphPattern Graph { get; }
 
+    /// <summary>
+    /// Whether a constraint whose value depends on the clock or on chance must
+    /// refuse the shapes graph, naming the shape and the function (ADR 0169):
+    /// <see cref="ShaclOptions.RefuseNonDeterministicFunctions"/>.
+    /// </summary>
+    public bool RefuseNonDeterministicFunctions { get; internal init; }
+
     internal IReadOnlyList<RdfTerm> Parameters => _parameters;
 
     /// <summary>Declares a predicate whose subject is a shape (SHACL 1.2 Core §3.1), such as <c>sh:sparql</c>.</summary>

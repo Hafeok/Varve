@@ -102,7 +102,19 @@ public class ProblemCatalogueTests
     public async Task every_problem_the_endpoints_emit_has_its_catalogued_shape_and_no_other_member()
     {
         Dataset dataset = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()),
-            new DatasetOptions { Clock = TimeProvider.System, Validators = [new RefusesSecret(), new EventCatalogueValidator()] }, P.Ct);
+            new DatasetOptions
+            {
+                Clock = TimeProvider.System,
+                Validators =
+                [
+                    new RefusesSecret(),
+                    new EventCatalogueValidator(),
+
+                    // ADR 0169's three types: shapes in a writable graph, over the default graph only.
+                    new Varve.Shacl.Store.ShapesGate([new Varve.Shacl.Store.Model.ShapesBinding(
+                        RdfTerm.Iri("http://ex/binding"u8), RdfTerm.Iri("http://ex/people"u8), GraphScope.Of([], [], DefaultGraphAccess.Included), Varve.Shacl.Store.Model.ValidationMode.Reject)]),
+                ],
+            }, P.Ct);
         ProtocolTestHost.Datasets datasets = new();
         datasets.Add("d", dataset);
         ProtocolLimits limits = new(TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1), new ByteCount(200), new ByteCount(2048), TimeSpan.FromSeconds(15))
@@ -155,9 +167,19 @@ public class ProblemCatalogueTests
                 [ProblemType.ReadLimitExceeded] = () => P.Query(Sparql, "SELECT * { ?s ?p ?o } "),
                 [ProblemType.MemoryLimitExceeded] = () => P.Query(Sparql, "SELECT * { ?s ?p ?o } ORDER BY ?s"),
                 [ProblemType.AsOfDistanceExceeded] = () => P.Query(Sparql, "ASK {}", asOf: "position:2"),
+                [ProblemType.ShapesViolated] = () => P.Update(Sparql, "INSERT DATA { <http://ex/shaped> <http://ex/q> \"x\" }"),
+                [ProblemType.ShapesInvalid] = () => P.Update(Sparql, "INSERT DATA { GRAPH <http://ex/people> { <http://ex/S2> <" + Sh + "targetNode> <http://ex/z> ; <" + Sh + "not> <http://ex/S2> } }"),
+                [ProblemType.BindingNotIncremental] = () => P.Update(Sparql,
+                    "INSERT DATA { GRAPH <http://ex/people> { <http://ex/S3> <" + Sh + "targetNode> <http://ex/z> ; <" + Sh + "property> [ <" + Sh + "path> <http://ex/q> ; <"
+                    + Sh + "values> <http://ex/k> ; <" + Sh + "node> <http://ex/T> ] . <http://ex/T> <" + Sh + "nodeKind> <" + Sh + "IRI> } }"),
             };
 
             await host.Client.SendAsync(P.Update(Sparql, "INSERT DATA { " + string.Concat(Enumerable.Range(0, 20).Select(i => "<http://ex/s" + i + "> <http://ex/p> " + i + " . ")) + "}"), P.Ct);
+
+            // The shapes the binding's triggers need: integers on ex:q at ex:shaped.
+            Assert.Equal(System.Net.HttpStatusCode.NoContent, (await host.Client.SendAsync(P.Update(Sparql,
+                "INSERT DATA { GRAPH <http://ex/people> { <http://ex/S> <" + Sh + "targetNode> <http://ex/shaped> ; <" + Sh + "property> [ <" + Sh + "path> <http://ex/q> ; <"
+                + Sh + "datatype> <http://www.w3.org/2001/XMLSchema#integer> ] } }"), P.Ct)).StatusCode);
 
             // A declaration the event triggers change, in the default graph's catalogue.
             Assert.Equal(System.Net.HttpStatusCode.NoContent, (await host.Client.SendAsync(P.Update(Sparql,
@@ -270,6 +292,8 @@ public class ProblemCatalogueTests
     }
 
     private const string Catalogue = "https://w3id.org/varve/ns#events-catalogue/default";
+
+    private const string Sh = "http://www.w3.org/ns/shacl#";
 
     private static HttpRequestMessage Put(string path, string body, string mediaType) =>
         new(HttpMethod.Put, new Uri(path, UriKind.Relative)) { Content = new StringContent(body, Encoding.UTF8, mediaType) };

@@ -146,7 +146,7 @@ system writer records. Every node is an IRI. The code validator in
 | `varve:Grant` | a grant | `rdf:type` of a grant node |
 | `varve:grantee` | the one principal a grant names | on a grant |
 | `varve:permission` | `varve:read`, `varve:write`, `varve:admin`, or `varve:operator` in the fleet graph alone | on a grant |
-| `varve:allGraphs` | `true`: every graph | on a read or write grant |
+| `varve:allGraphs` | `true`: every graph | on a read or write grant, or a shapes binding |
 | `varve:graph` | a graph the grant reaches, or `varve:defaultGraph` | on a grant, repeatable |
 | `varve:graphPrefix` | every named graph whose IRI starts with it | on a grant, an `xsd:string`, repeatable |
 | `varve:graphTemplate` | a `varve:GraphTemplate` expanded for the caller | on a grant, repeatable |
@@ -158,8 +158,12 @@ system writer records. Every node is an IRI. The code validator in
 | `varve:Group` | a principal matched against `varve:claimType`'s claim, `groups` by default | `rdf:type` of a principal |
 | `varve:claimValue` | the claim value a role or group matches | on a principal, an `xsd:string` |
 | `varve:claimType` | the claim a group's value is in | on a group, an `xsd:string` |
-| `varve:ShapesBinding`, `varve:TBoxBinding` | a binding of a graph of shapes or of a TBox, recorded for SHACL and Inference | `rdf:type` of a binding node |
-| `varve:boundGraph` | the graph a binding names | on a binding node |
+| `varve:ShapesBinding`, `varve:TBoxBinding` | a binding of a graph of shapes, which gates commits (ADR 0170), or of a TBox, recorded for Inference | `rdf:type` of a binding node |
+| `varve:boundGraph` | the graph a binding names: a shapes binding's shapes graph, a named graph of the same dataset | on a binding node |
+| `varve:validationMode` | `varve:Reject`, `varve:Report` or `varve:Off`: what a shapes binding does to a commit (ADR 0169) | on a shapes binding, exactly one |
+| `varve:allowFullEvaluation` | a `reject` shapes binding may have shapes classed full, at their cost per commit (ADR 0171) | on a shapes binding, an `xsd:boolean`, false by default |
+| `varve:subClassOfInShapesGraph` | SHACL 1.2 Core §6.4's parameter: `rdfs:subClassOf` read from the shapes graph too | on a shapes binding, an `xsd:boolean`, false by default |
+| `varve:affectedReport` | the predicate of a shapes binding's commit attachment, `<<( binding varve:affectedReport "sha256:…" )>>`: the digest of the commit's affected report (ADR 0173) | in a triple term, in a commit's header |
 | `varve:bootstrapOperator` | an agent IRI or role value the system writer recorded as a bootstrap operator | in `varve:manage/bootstrap` |
 | `varve:managementPosition` | the datatype of the management position a commit records as an attachment, `"p"^^varve:managementPosition` (ADR 0165) | a datatype IRI, in a commit's header |
 

@@ -29,6 +29,7 @@ public sealed class ValidationReport
         ValidationSummary summary,
         IReadOnlyList<ShaclResult> results,
         ImmutableArray<ShapePath?> paths,
+        ImmutableArray<int> sources,
         IReadOnlyList<RdfTerm> importsNotFollowed,
         IReadOnlyList<RdfTerm>? conformanceDisallows,
         bool shapesAreData,
@@ -38,6 +39,7 @@ public sealed class ValidationReport
         Summary = summary;
         Results = results;
         _paths = paths;
+        Sources = sources;
         ImportsNotFollowed = importsNotFollowed;
         ConformanceDisallows = conformanceDisallows;
         _shapesAreData = shapesAreData;
@@ -61,6 +63,9 @@ public sealed class ValidationReport
 
     internal CanonicalisationOptions Canonicalisation { get; }
 
+    /// <summary>For each result, in order, the index of the record it was made from in the list given to <see cref="Create"/>.</summary>
+    internal ImmutableArray<int> Sources { get; }
+
     /// <summary>The report graph, its own blank nodes labelled by RDFC-1.0 and the data's as their source gives them (ADR 0154).</summary>
     public InMemoryDataset ToDataset() => Graph().ToDataset();
 
@@ -78,9 +83,10 @@ public sealed class ValidationReport
         DataGraph data = run.Data;
         HashSet<RdfTerm> disallowed = new(run.Options.ConformanceDisallows ?? ShaclOptions.DefaultConformanceDisallows, RdfTerm.Comparer);
 
-        List<(ShaclResult Result, ShapePath? Path, string[] Key)> keyed = [];
-        foreach (ResultRecord record in records)
+        List<(ShaclResult Result, ShapePath? Path, string[] Key, int Source)> keyed = [];
+        for (int index = 0; index < records.Count; index++)
         {
+            ResultRecord record = records[index];
             RdfTerm focus = data.Term(record.Focus);
             RdfTerm? value = record.Value is { } v ? data.Term(v) : null;
             ShaclResult result = new(
@@ -94,46 +100,151 @@ public sealed class ValidationReport
                 record.Severity,
                 record.Messages.IsDefault ? [] : record.Messages);
 
-            List<string> messages = [];
-            foreach (RdfTerm message in result.Messages)
-            {
-                messages.Add(Strings.NTriples(message));
-            }
-
-            messages.Sort(string.CompareOrdinal);
-            string[] key =
-            [
-                Strings.NTriples(focus),
-                record.Path?.Sparql ?? string.Empty,
-                value is null ? string.Empty : Strings.NTriples(value),
-                Strings.NTriples(record.Shape.Node),
-                record.SourceConstraint is null ? string.Empty : Strings.NTriples(record.SourceConstraint),
-                Strings.NTriples(record.Component),
-                Strings.NTriples(record.Severity),
-                string.Join(" ", messages),
-            ];
+            string[] key = Key(result, record.Path);
 
             // Every result is a new result node (SHACL 1.2 Core §7): two equal results are two (ADR 0154).
-            keyed.Add((result, record.Path, key));
+            keyed.Add((result, record.Path, key, index));
         }
 
-        keyed.Sort(static (a, b) =>
+        keyed.Sort(static (a, b) => Compare(a.Key, b.Key));
+        List<ShaclResult> results = keyed.ConvertAll(k => k.Result);
+        (bool conforms, ValidationSummary summary) = Summarise(results, disallowed);
+
+        ImmutableArray<ShapePath?>.Builder paths = ImmutableArray.CreateBuilder<ShapePath?>(keyed.Count);
+        ImmutableArray<int>.Builder sources = ImmutableArray.CreateBuilder<int>(keyed.Count);
+        foreach ((ShaclResult _, ShapePath? path, string[] _, int source) in keyed)
         {
-            for (int i = 0; i < a.Key.Length; i++)
+            paths.Add(path);
+            sources.Add(source);
+        }
+
+        return new ValidationReport(
+            conforms,
+            summary,
+            results,
+            paths.MoveToImmutable(),
+            sources.MoveToImmutable(),
+            run.Shapes.Imports,
+            run.Options.ConformanceDisallows,
+            run.Data.Source == run.Shapes.Source.Source,
+            run.Options.Canonicalisation);
+    }
+
+    /// <summary>A result's order key (ADR 0154 point 3): each field's canonical N-Triples form, a path by its SPARQL form, an absent field empty.</summary>
+    private static string[] Key(ShaclResult result, ShapePath? path)
+    {
+        List<string> messages = [];
+        foreach (RdfTerm message in result.Messages)
+        {
+            messages.Add(Strings.NTriples(message));
+        }
+
+        messages.Sort(string.CompareOrdinal);
+        return
+        [
+            Strings.NTriples(result.FocusNode),
+            path?.Sparql ?? string.Empty,
+            result.Value is null ? string.Empty : Strings.NTriples(result.Value),
+            Strings.NTriples(result.SourceShape),
+            result.SourceConstraint is null ? string.Empty : Strings.NTriples(result.SourceConstraint),
+            Strings.NTriples(result.SourceConstraintComponent),
+            Strings.NTriples(result.Severity),
+            string.Join(" ", messages),
+        ];
+    }
+
+    private static int Compare(string[] a, string[] b)
+    {
+        for (int i = 0; i < a.Length; i++)
+        {
+            int c = XsdString.CompareCodePoints(a[i], b[i]);
+            if (c != 0)
             {
-                int c = XsdString.CompareCodePoints(a.Key[i], b.Key[i]);
-                if (c != 0)
-                {
-                    return c;
-                }
+                return c;
+            }
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// <paramref name="whole"/> without the results of <paramref name="removed"/>
+    /// and with those of <paramref name="added"/>, in ADR 0154's order: the
+    /// whole report after a delta from the one before it and the delta's
+    /// <c>IncrementalComparison</c> (ADR 0171). Equal results are
+    /// interchangeable, so a removed result takes away one equal to it.
+    /// </summary>
+    internal static ValidationReport Combine(ValidationReport whole, ValidationReport removed, ValidationReport added)
+    {
+        Dictionary<string, int> taken = new(StringComparer.Ordinal);
+        for (int i = 0; i < removed.Results.Count; i++)
+        {
+            string joined = string.Join("\u0000", Key(removed.Results[i], removed._paths[i]));
+            taken[joined] = taken.GetValueOrDefault(joined) + 1;
+        }
+
+        List<(ShaclResult Result, ShapePath? Path, string[] Key)> kept = [];
+        for (int i = 0; i < whole.Results.Count; i++)
+        {
+            string[] key = Key(whole.Results[i], whole._paths[i]);
+            string joined = string.Join("\u0000", key);
+            if (taken.TryGetValue(joined, out int count) && count > 0)
+            {
+                taken[joined] = count - 1;
+                continue;
             }
 
-            return 0;
-        });
+            kept.Add((whole.Results[i], whole._paths[i], key));
+        }
 
+        for (int i = 0; i < added.Results.Count; i++)
+        {
+            kept.Add((added.Results[i], added._paths[i], Key(added.Results[i], added._paths[i])));
+        }
+
+        kept.Sort(static (a, b) => Compare(a.Key, b.Key));
+        HashSet<RdfTerm> disallowed = new(whole.ConformanceDisallows ?? ShaclOptions.DefaultConformanceDisallows, RdfTerm.Comparer);
+        List<ShaclResult> results = kept.ConvertAll(k => k.Result);
+        (bool conforms, ValidationSummary summary) = Summarise(results, disallowed);
+        ImmutableArray<ShapePath?>.Builder paths = ImmutableArray.CreateBuilder<ShapePath?>(kept.Count);
+        ImmutableArray<int>.Builder sources = ImmutableArray.CreateBuilder<int>(kept.Count);
+        for (int i = 0; i < kept.Count; i++)
+        {
+            paths.Add(kept[i].Path);
+            sources.Add(i);
+        }
+
+        return new ValidationReport(
+            conforms,
+            summary,
+            results,
+            paths.MoveToImmutable(),
+            sources.MoveToImmutable(),
+            whole.ImportsNotFollowed,
+            whole.ConformanceDisallows,
+            whole._shapesAreData,
+            whole.Canonicalisation);
+    }
+
+    /// <summary>Each result's identity for ADR 0169's R1 — focus node, source shape, component, path, value — as one string.</summary>
+    internal List<string> Identities()
+    {
+        List<string> identities = new(Results.Count);
+        for (int i = 0; i < Results.Count; i++)
+        {
+            string[] key = Key(Results[i], _paths[i]);
+            identities.Add(key[0] + " " + key[3] + " " + key[5] + " " + key[1] + " " + key[2]);
+        }
+
+        return identities;
+    }
+
+    /// <summary>§6.8.1.1 and the counts: whether no result has a disallowed severity, and the results by severity.</summary>
+    private static (bool Conforms, ValidationSummary Summary) Summarise(List<ShaclResult> results, HashSet<RdfTerm> disallowed)
+    {
         int violations = 0, warnings = 0, infos = 0, traces = 0, debugs = 0, others = 0;
         bool conforms = true;
-        foreach ((ShaclResult result, ShapePath? _, string[] _) in keyed)
+        foreach (ShaclResult result in results)
         {
             RdfTerm severity = result.Severity;
             conforms &= !disallowed.Contains(severity);
@@ -163,20 +274,6 @@ public sealed class ValidationReport
             }
         }
 
-        ImmutableArray<ShapePath?>.Builder paths = ImmutableArray.CreateBuilder<ShapePath?>(keyed.Count);
-        foreach ((ShaclResult _, ShapePath? path, string[] _) in keyed)
-        {
-            paths.Add(path);
-        }
-
-        return new ValidationReport(
-            conforms,
-            new ValidationSummary(violations, warnings, infos, traces, debugs, others),
-            keyed.ConvertAll(k => k.Result),
-            paths.MoveToImmutable(),
-            run.Shapes.Imports,
-            run.Options.ConformanceDisallows,
-            run.Data.Source == run.Shapes.Source.Source,
-            run.Options.Canonicalisation);
+        return (conforms, new ValidationSummary(violations, warnings, infos, traces, debugs, others));
     }
 }

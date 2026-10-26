@@ -49,10 +49,13 @@ internal sealed class ShapesReader
     private readonly List<Shape> _shapes = [];
     private readonly Dictionary<(RdfTerm, RdfTerm, RdfTerm), List<RdfTerm>> _reifiers = new(new TripleComparer());
 
-    internal ShapesReader(ShapesSource source, IReadOnlyList<IShaclExtension> extensions)
+    private readonly bool _refuseNonDeterministic;
+
+    internal ShapesReader(ShapesSource source, IReadOnlyList<IShaclExtension> extensions, bool refuseNonDeterministic = false)
     {
         _source = source;
         _extensions = extensions;
+        _refuseNonDeterministic = refuseNonDeterministic;
     }
 
     internal IReadOnlyList<ShaclProblem> Problems => _problems;
@@ -77,7 +80,7 @@ internal sealed class ShapesReader
         List<RdfTerm> extensionParameters = [];
         foreach (IShaclExtension extension in _extensions)
         {
-            ShapesGraphContext context = new(_source.Source, _source.Graph, _problems);
+            ShapesGraphContext context = new(_source.Source, _source.Graph, _problems) { RefuseNonDeterministicFunctions = _refuseNonDeterministic };
             scopes.Add(extension.Begin(context));
             extensionParameters.AddRange(context.Parameters);
         }
