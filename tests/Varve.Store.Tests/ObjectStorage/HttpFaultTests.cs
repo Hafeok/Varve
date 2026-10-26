@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -24,7 +25,7 @@ internal sealed class FaultingHandler(FaultController faults, HttpMessageHandler
 {
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        switch (faults.Next())
+        switch (faults.Next(request))
         {
             case ObjectFault.Http500:
                 return new HttpResponseMessage(HttpStatusCode.InternalServerError) { RequestMessage = request };
@@ -41,6 +42,14 @@ internal sealed class FaultingHandler(FaultController faults, HttpMessageHandler
             case ObjectFault.HttpLostResponse:
                 (await base.SendAsync(request, cancellationToken)).Dispose();
                 throw new HttpRequestException("injected: the response was lost after the store applied the request");
+
+            case ObjectFault.HttpAppliedThenCancelled:
+                (await base.SendAsync(request, cancellationToken)).Dispose();
+                throw new OperationCanceledException("injected: the caller cancelled after the store applied the request", faults.CancelCaller());
+
+            case ObjectFault.HttpAppliedThenTimedOut:
+                (await base.SendAsync(request, cancellationToken)).Dispose();
+                throw new TaskCanceledException("injected: the client timed out after the store applied the request", new TimeoutException());
 
             case ObjectFault.KillBefore:
                 faults.Dead = true;
@@ -107,6 +116,7 @@ internal static class HttpFaultSuite
     public static readonly ObjectFault[] Kinds =
     [
         ObjectFault.Http500, ObjectFault.Http503, ObjectFault.Http429, ObjectFault.HttpTimeout, ObjectFault.HttpLostResponse,
+        ObjectFault.HttpAppliedThenCancelled, ObjectFault.HttpAppliedThenTimedOut,
     ];
 
     // Six steps keep the leg to minutes; a deeper run sets the variable.
@@ -132,6 +142,8 @@ internal static class HttpFaultSuite
 
         int points = 0;
         int crashes = 0;
+        int abandoned = 0;
+        SortedDictionary<string, int> surfaced = new(StringComparer.Ordinal);
 
         foreach (ObjectFault kind in Kinds)
         {
@@ -150,10 +162,18 @@ internal static class HttpFaultSuite
 
                 points++;
                 crashes += run.Workload.Crashes;
+                abandoned += run.Workload.Abandoned;
+
+                foreach ((string site, int count) in run.Workload.Surfaced)
+                {
+                    surfaced[site] = surfaced.GetValueOrDefault(site) + count;
+                }
             }
         }
 
-        TestContext.Current.TestOutputHelper?.WriteLine(label + ": " + requests + " requests, " + points + " injection points (every " + stride + "), " + crashes + " crashes while reopening, " + elapsed.Elapsed.TotalSeconds.ToString("F0", System.Globalization.CultureInfo.InvariantCulture) + " s");
+        TestContext.Current.TestOutputHelper?.WriteLine("surfaced at the workload: " + string.Join(", ", surfaced.Select(s => s.Key + " ×" + s.Value)));
+
+        TestContext.Current.TestOutputHelper?.WriteLine(label + ": " + requests + " requests, " + points + " injection points (every " + stride + "), " + crashes + " crashes while reopening, " + abandoned + " calls abandoned by cancellation, " + elapsed.Elapsed.TotalSeconds.ToString("F0", System.Globalization.CultureInfo.InvariantCulture) + " s");
     }
 }
 
@@ -162,11 +182,13 @@ internal sealed class HttpFaultRun : IAsyncDisposable
 {
     private readonly IDisposable _owner;
     private readonly FaultingHandler _handler;
+    private readonly FaultController _faults;
 
-    private HttpFaultRun(IDisposable owner, FaultingHandler handler, ObjectFaultRun workload)
+    private HttpFaultRun(IDisposable owner, FaultingHandler handler, FaultController faults, ObjectFaultRun workload)
     {
         _owner = owner;
         _handler = handler;
+        _faults = faults;
         Workload = workload;
     }
 
@@ -177,7 +199,7 @@ internal sealed class HttpFaultRun : IAsyncDisposable
         FaultController faults = new(fault);
         FaultingHandler handler = new(faults);
         (IObjectStore store, IDisposable owner) = await open(handler);
-        return new HttpFaultRun(owner, handler, new ObjectFaultRun(9301, HttpFaultSuite.Steps, faults, store));
+        return new HttpFaultRun(owner, handler, faults, new ObjectFaultRun(9301, HttpFaultSuite.Steps, faults, store));
     }
 
     public async ValueTask DisposeAsync()
@@ -185,10 +207,12 @@ internal sealed class HttpFaultRun : IAsyncDisposable
         await Workload.DisposeAsync();
         _owner.Dispose();
         _handler.Dispose();
+        _faults.Dispose();
     }
 }
 
 /// <summary>The failure-injection workload over HTTP against Azurite, one fault of each kind at every request.</summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Faults)]
 public sealed class AzuriteFaultTests
 {
     [Fact]

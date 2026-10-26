@@ -328,9 +328,10 @@ version, its next replace was refused, and it declared itself forgotten
 
 **The rule, refined.** A replace against the held version that is refused is
 followed by a read of the record. When the record is this instance's own —
-its reader id and its holder, in a format this build reads — it was written
-by an attempt whose answer was lost: the instance adopts that version and
-replaces once more. Only a record that is gone, of a format this build does
+its reader id and its holder, both absent for a holder-less follower such
+as the server's read-only open, in a format this build reads — it was
+written by an attempt whose answer was lost: the instance adopts that
+version and replaces once more. Only a record that is gone, of a format this build does
 not read, or another holder's means forgotten, and then decision 9 applies
 as before. A clean close's delete already reads the record first
 (`RecordLost`), so nothing changes there. This is ADR 0135's principle
@@ -340,4 +341,7 @@ is unknown, and the caller finds out by reading.
 **The ledger.** No ruling changes: `AForgottenReaderFailsAndReattaches` and
 `EveryInstanceAnnouncesAnInterval` stand as written. Pinned by
 `ObjectStorageTests.an_announcement_whose_answer_was_lost_is_adopted_by_the_next_and_the_reader_is_not_forgotten`,
-in memory, by a replace cancelled after the store applied it.
+in memory, and by `LostAnswerCases` over the HTTP adapter on Azurite and on
+a storage account, for a named writer and a holder-less follower, by a
+replace cancelled after the store applied it. The general rule is ADR
+0136's amendment of the same date.
