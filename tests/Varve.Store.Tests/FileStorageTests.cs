@@ -110,6 +110,34 @@ public sealed class FileStorageTests
 {
     private static readonly string[] SetParts = ["order0", "order1", "order2", "order3", "order4", "order5", "terms", "graphs"];
 
+    /// <summary>
+    /// The ignore file and the lease's owner are written without a flush
+    /// (#126): neither is state. An ignore file a power loss left empty, cut
+    /// short or zeroed is whole again after the next open, so derived/ stays
+    /// out of version control (ADR 0075).
+    /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("*")]
+    [InlineData("\0\0")]
+    public async Task a_torn_ignore_file_is_whole_again_after_an_open(string torn)
+    {
+        await using TemporaryDirectory directory = new();
+        string ignore = Path.Combine(directory.Path, "derived", ".gitignore");
+
+        await using (FileStorage storage = await FileStorage.OpenAsync(directory.Directory, TemporaryDirectory.Options, T.Ct))
+        {
+        }
+
+        await File.WriteAllTextAsync(ignore, torn, T.Ct);
+
+        await using (FileStorage storage = await FileStorage.OpenAsync(directory.Directory, TemporaryDirectory.Options, T.Ct))
+        {
+        }
+
+        Assert.Equal("*\n", await File.ReadAllTextAsync(ignore, T.Ct));
+    }
+
     [Fact]
     public async Task a_dataset_on_disk_has_the_layout_of_the_storage_format()
     {

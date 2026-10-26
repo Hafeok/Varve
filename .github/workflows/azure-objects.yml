@@ -62,6 +62,9 @@ jobs:
           echo "AZURE_FEDERATED_TOKEN_FILE=$RUNNER_TEMP/assertion" >> "$GITHUB_ENV"
 
       - name: Test against the storage account
+        # #126: two contract classes against a real account; the services
+        # leg's limit and hang dump, which run the same classes on emulators.
+        timeout-minutes: 10
         run: >
           dotnet test
           --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj
@@ -69,6 +72,10 @@ jobs:
           --no-build
           --filter-class Varve.Store.Tests.Objects.AzureAccountObjectStoreContractTests
           --filter-class Varve.Store.Tests.Objects.AzureAccountStorageContractTests
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Store.Tests
+          --hangdump
+          --hangdump-timeout 5m
 
       - name: What-if for the Container Apps template
         env:
@@ -101,3 +108,13 @@ jobs:
       - name: Remove the token
         if: always()
         run: rm -f "$RUNNER_TEMP/assertion"
+
+      - name: Upload the test results
+        # #126: every run keeps its TRX, pass or fail, so a slow or red run
+        # can be explained test by test from its own artifacts.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-azure-objects
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn

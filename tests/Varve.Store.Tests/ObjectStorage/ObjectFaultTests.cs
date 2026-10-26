@@ -499,10 +499,20 @@ public sealed class ObjectFaultTests
 
     private static int Steps => int.TryParse(Environment.GetEnvironmentVariable("VARVE_OBJECT_FAULT_STEPS"), NumberStyles.None, CultureInfo.InvariantCulture, out int steps) ? steps : 24;
 
+    /// <summary>
+    /// One fault of each kind at every request of the workload. A pull request
+    /// injects at every second request, from one a seed chooses, so that pull
+    /// requests between them inject at every one;
+    /// <c>VARVE_OBJECT_FAULT_SWEEP_STRIDE=1</c>, as the nightly run sets,
+    /// injects at all of them, and <c>VARVE_OBJECT_FAULT_SWEEP_SEED</c>
+    /// replays a run (#126).
+    /// </summary>
     [Theory]
     [MemberData(nameof(Seeds))]
     public async Task after_a_fault_at_any_request_the_dataset_reopens_at_the_last_closed_commit_with_nothing_lost_or_doubled(int seed)
     {
+        Sweep sweep = Depth.SweepOf("OBJECT_FAULT_SWEEP", 2);
+        TestContext.Current.TestOutputHelper?.WriteLine(sweep.Replay);
         int requests;
 
         await using (ObjectFaultRun clean = new(seed, Steps, fault: null))
@@ -518,7 +528,7 @@ public sealed class ObjectFaultTests
 
         foreach (ObjectFault kind in new[] { ObjectFault.FailBefore, ObjectFault.LoseAnswer, ObjectFault.KillBefore, ObjectFault.KillAfter })
         {
-            for (int at = 1; at <= requests; at++)
+            for (int at = sweep.First; at <= requests; at += sweep.Stride)
             {
                 await using ObjectFaultRun run = new(seed, Steps, (at, kind));
 
@@ -528,7 +538,7 @@ public sealed class ObjectFaultTests
                 }
                 catch (Exception error)
                 {
-                    throw new InvalidOperationException("seed " + seed + ", " + kind + " at request " + at + " of " + requests + ": " + error.Message, error);
+                    throw new InvalidOperationException(sweep.Replay + ": seed " + seed + ", " + kind + " at request " + at + " of " + requests + ": " + error.Message, error);
                 }
 
                 points++;
@@ -536,6 +546,6 @@ public sealed class ObjectFaultTests
             }
         }
 
-        TestContext.Current.TestOutputHelper?.WriteLine("seed " + seed + ": " + requests + " requests, " + points + " injection points, " + crashes + " crashes while reopening");
+        TestContext.Current.TestOutputHelper?.WriteLine(sweep.Replay + ": seed " + seed + ": " + requests + " requests, " + points + " injection points, " + crashes + " crashes while reopening");
     }
 }

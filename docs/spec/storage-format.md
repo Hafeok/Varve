@@ -53,9 +53,10 @@ storage contract that writes them is ADRs 0018, 0040 and 0071.
     00000001.seg
     …
   derived/
-    .gitignore          "*", written at creation
+    .gitignore          "*", written at open when it is not; not flushed
     LOCK                the lease (ADR 0075), held open; not a blob
-    LOCK.owner          who holds it, for the refusal's message; not a blob
+    LOCK.owner          who holds it, for the refusal's message; not a blob,
+                        not flushed
     checkpoints/<P>
     checkpoints/<P>.graphs   the graph-version index at P (ADR 0125)
     index/state
