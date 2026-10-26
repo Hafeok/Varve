@@ -70,7 +70,7 @@ validated them standalone, and found two gaps in the vendored files:
 
    | Size | Positions | When |
    |---|---|---|
-   | S, 1,001 commits | every 25th and the last, 41 | every pull request |
+   | S, 1,001 commits | every 250th and the last, 5 | every pull request |
    | S | all 1,001 | nightly, `VARVE_LONG_PROPERTIES` |
    | M, 25,001 commits | 100, spread over the history, the last among them | nightly, `VARVE_LONG_PROPERTIES` |
 
@@ -102,13 +102,20 @@ validated them standalone, and found two gaps in the vendored files:
 
 ## Consequences
 
-- **REC S's agreement test runs on every pull request**, at about nine
-  minutes on the session's machine. Of that, about 370 s is the history
-  through the gate and the projection, and about 170 s is the 41
-  comparisons. The cost per commit is the building commits': each adds a
-  level of about 250 entities, and each entity runs Brick's two
-  `brick:Entity`-targeted SPARQL constraints before and after. Part 2a's
-  7.6 ms per commit was measured on event commits without them.
+- **REC S's agreement test runs on every pull request**, in under a minute
+  on the session's machine (54 s): the history through the gate and the
+  projection, and five comparisons.
+- **What measuring it found.** At every 25th position it took about nine
+  minutes, and about 315 s of that was the history. A building commit, which
+  adds a level of about 250 entities, cost about 185 ms. A profile put that
+  cost in finding the affected pairs, not in validating them: every
+  `rdf:type` triple made its subject a candidate target of each of Brick's
+  1,445 class-targeted shapes, in both states, in the gate and again in the
+  projection. ADR 0171's anchor rule is narrower: x, when y is the class or
+  one of its subclasses. `Varve.Shacl` now applies it, through an index of
+  shapes by target class, and the same rule to `sh:class`'s value nodes. The
+  incremental property against full validation pins both: dropping either
+  fails it. The history then takes about 33 s, against 315 s.
 - **Upstream.** The undeclared prefixes are a REC defect, with
   `owl:Class rdfs:subClassOf rdfs:Class` as a note. The pull request carries
   the issue text for the maintainer to file.

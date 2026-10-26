@@ -72,7 +72,7 @@ public class RecGateTests
     /// <summary>
     /// REC S: every commit of the generated history is accepted by a
     /// <c>reject</c> gate, and fed to the projection as it lands; at every
-    /// 25th position and the last (every position, long), the projection's
+    /// 250th position and the last (every position, long), the projection's
     /// report equals the standalone validation there byte for byte, and the
     /// commit's attachment is the digest of the projection's slice.
     /// </summary>
@@ -80,7 +80,7 @@ public class RecGateTests
     public async Task REC_S_standalone_commit_time_and_projection_agree()
     {
         long last = RecPortfolio.Shape(RecSize.S).Commits + 1;
-        (int compared, TimeSpan elapsed, TimeSpan comparing) = await RunAsync(RecSize.S, p => Long || p % 25 == 0 || p == last, TestContext.Current.CancellationToken);
+        (int compared, TimeSpan elapsed, TimeSpan comparing) = await RunAsync(RecSize.S, p => Long || p % 250 == 0 || p == last, TestContext.Current.CancellationToken);
         TestContext.Current.SendDiagnosticMessage($"REC S: {last} commits through the gate and the projection, {compared} positions compared, in {elapsed.TotalSeconds:F1} s, {comparing.TotalSeconds:F1} s of it comparing");
     }
 

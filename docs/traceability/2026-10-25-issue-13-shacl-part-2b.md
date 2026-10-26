@@ -243,10 +243,27 @@ from the summary and the files.
   by subject, predicate-object, object and predicate. REC's composition
   loaded in 14 s over an unindexed `InMemoryDataset`, and now loads in about
   1 s. The W3C SHACL suites are unchanged: 628 passing, 28 exempt.
-- **REC S costs about nine minutes on a pull request.** That is more than
-  part 2a's figure suggested. Brick's two `brick:Entity`-targeted SPARQL
-  constraints run before and after every building commit, at about 185 ms
-  each. ADR 0176 records it, and the pull request flags it.
+- **REC S's pull-request sample, and a performance fix it found.** At every
+  25th position, REC S's agreement took about nine minutes. The pull request
+  first put that down to Brick's SPARQL constraints. The maintainer asked
+  (on #149) for every 250th position and the last, aiming for under a
+  minute. That sample alone took 5 m 43 s, so the session profiled the run
+  with `dotnet-stack`:
+  - **The history,** about 315 s, was spent finding affected pairs, not
+    validating them, in the gate and again in the projection.
+  - **The cause:** every `rdf:type` triple made its subject a candidate
+    target of each of Brick's 1,445 class-targeted shapes, in both states.
+    ADR 0171's anchor rule is narrower: x, when y is the class or one of its
+    subclasses.
+  - **The fix:** `Varve.Shacl` now applies that rule, through an index of
+    shapes by target class, and the same rule to `sh:class`'s value nodes.
+    `AffectedPairs` also reuses its scratch collections.
+  - **The check:** the incremental property against full validation passes
+    at both counts. Dropping either narrowing fails it.
+
+  REC S's PR sample now runs in 54 s on the session's machine: 33 s of
+  history and 19 s of comparisons. ADR 0176 records the cost, and the
+  benchmarks were run again.
 - **The management entry point is `DeclarationReader`.** The brief and ADR
   0166 name a `DeclarationValidator`, which `main` doesn't have. Management
   validation is `DeclarationReader.Read`, run on commit by `Varve.Protocol`'s
@@ -276,7 +293,7 @@ from the summary and the files.
 | The event shapes against the code on what the shapes state (ADR 0157, `Varve.Events.Tests`) | 2,000 | — | none |
 | Management plane part 2's moved declarations: the shapes in the management graph, and the code and the runtime check against its oracle in catalogue form, unchanged and with each fault the shapes state (`Varve.Events.Tests`) | 25 cases | — | none |
 | The management shapes against the code, and the runtime against its oracle (`Varve.Management.Tests`) | 1,000 | 10,000 | none. Dropping the shapes' findings at runtime fails it |
-| REC S: standalone, commit-time `reject` and the projection agree (`Varve.Shacl.Store.Tests`) | every 25th position and the last, 41 | all 1,001 | none |
+| REC S: standalone, commit-time `reject` and the projection agree (`Varve.Shacl.Store.Tests`) | every 250th position and the last, 5 | all 1,001 | none |
 | REC M, the same | — | 100 positions | not run in this session; the nightly runs it |
 
 Example tests cover:

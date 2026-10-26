@@ -8,7 +8,7 @@ decisions:
   - key: VendoredStaysRefused
     statement: "REC 4.1.0 as vendored, without the composition, is refused for its undeclared SPARQL prefixes, and a test pins the refusal; the defect is reported upstream with no exemption taken"
   - key: ThreeWaysAgree
-    statement: "Standalone validation, commit-time gating under reject and the validation projection agree on generated REC portfolios: REC S at every 25th position and the last on every pull request and at every position nightly, REC M at 100 positions nightly, with every commit of the history accepted"
+    statement: "Standalone validation, commit-time gating under reject and the validation projection agree on generated REC portfolios: REC S at every 250th position and the last on every pull request and at every position nightly, REC M at 100 positions nightly, with every commit of the history accepted"
   - key: FeaturesReportPinned
     statement: "Which SHACL features REC uses, the class each falls in, and the shapes that cannot be evaluated are reported in testdata/rec/gate/features.md, written and pinned by a test"
   - key: OperatorsAddTheComposition

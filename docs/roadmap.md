@@ -829,7 +829,7 @@ Gate:
 - the runtime declaration checks against their oracles, over generated
   declarations valid and mutated;
 - REC S standalone, at commit time under `reject` and in the projection,
-  agreeing at every 25th position and the last on pull requests and at all
+  agreeing at every 250th position and the last on pull requests and at all
   positions nightly, and REC M at 100 positions nightly. The features report
   is `testdata/rec/gate/features.md`;
 - projection lag and rebuild time at REC S and M.
