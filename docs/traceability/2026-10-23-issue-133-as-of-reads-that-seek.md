@@ -109,11 +109,12 @@ the history and maintenance after each, the largest set 211 MiB:
 **2. The format change.** Derived **version 5 of kind 6** (an extent) only;
 every other kind, the catalog included, is still written as version 4. A
 format-4 set is **read with the old narrowing path, never failed**, and
-maintenance **rewrites** it alone as format 5 when no merge is due. A
-preview.12 follower behind a writer of this release finds the format-5
+maintenance **rewrites** it alone as format 5 when no merge is due — once no
+present reader record says it reads only format 4 (revised on review, below).
+A preview.12 follower behind a writer of this release finds the format-5
 extents cache misses, its chain ends before them, and it reads the log above:
 correct at every position, at the log's cost, until upgraded. Followers
-first, then the writer. Checked with `main`'s store (preview.12's extent
+first is the recommendation; the store is correct in either order. Checked with `main`'s store (preview.12's extent
 code) over this build's sets, on a directory and on Azurite: the same answers
 at every position sampled (below).
 
@@ -196,9 +197,8 @@ including the test host's start: the 40-schedule property about 2.3 s, the
 format-4 upgrade 2.4 s, the bytes test 2.7 s, the estimate test 1.8 s.
 Windows and macOS are CI's to report on the pull request (#126). The
 40-schedule property shares `VARVE_EXTENT_SCHEDULES` with
-`ExtentMergeTests` for the release gate. **No nightly workflow exists** in
-`.github/workflows/`: the variable is set by whoever runs the release gate
-(`docs/testing.md` §7, #129), as for #110's properties.
+`ExtentMergeTests`; after main's #126 merged, the nightly run sets it to
+400 (`.github/workflows/nightly.yml`, `docs/testing.md` §8).
 
 **The store suite** (`Varve.Store.Tests`, Linux, this container): 338 tests, 282 passed, 56 skipped (env-gated: the object-store services, the real Azure account and the deep explorations), none failed, 14 min 34 s.
 
