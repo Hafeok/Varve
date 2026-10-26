@@ -247,7 +247,12 @@ and the store's steps write their slowest tests, and the classes that held
 the parallel slots, to the job summary (`eng/test-durations.cs`, #126). A
 slow run is explained from its own artifacts; two runs compare test by test.
 Each store step has a time limit at about twice its slowest green run, and a
-hang dump below it that names the tests in flight.
+hang dump below it that names the tests in flight. The hang dump counts from
+the last test that ended, so a step whose longest test runs on alone after
+the rest sets it above that test's run: the `storage (services)` job's
+`AzuriteFaultTests`, the HTTP fault workload with seven kinds at every
+request (§9), runs alone for six minutes or more, and the job's hang dump
+waits ten.
 
 Some searches are wider than a pull request can wait for. Each such test
 explores a pull request's share of its space by default, and the whole of
