@@ -326,3 +326,18 @@ message. `docs/testing.md` section 8 lists them.
   > 2026-10-19, the amendment's date. The ruling is in force.
 
 - The nightly run has not run yet: it runs on `main` once this lands.
+
+## After it landed, 2026-10-26
+
+#136 landed on 2026-10-26 at `aeb65d2`, after `main` was merged in at
+`a8b062f` and the two test steps it brought were given a TRX. The same
+session then took one follow-up, on the maintainer's prompt:
+
+> One small follow-up PR, no descriptor. Commits reference #126 (closed, so no closing keyword).
+>
+> 1. `docs/traceability/2026-10-19-issue-126-store-test-time.md`: `HangDumpForTheStoreTests` is accepted. Update both places, with a dated note rather than rewriting the history.
+> 2. `entra-obo.yml`: add `--report-trx` to its test step and upload the `.trx`, as for the other workflows.
+> 3. The commit index question is #146. Link it from the record's open points.
+
+Each is done as asked: the notes above, the link under What is left, and the
+on-behalf-of leg's TRX, which its next dispatch on `main` is the first run of.
