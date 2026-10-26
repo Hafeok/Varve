@@ -390,6 +390,14 @@ issue when an upstream tag moves; Dependabot doesn't watch these images. On
 `main`, the change runs `mirror-ci-images`, which copies the image and checks
 its digest.
 
+**When an upstream refuses CI's reads**, as ECR Public's anonymous cap does
+for PostgreSQL, the row can name a `watch` reference. The weekly comparison
+then reads the tag there instead, with one manifest HEAD request and no pull.
+Docker Hub is allowed as a `watch` and nowhere else; `eng/ci-images.cs`
+refuses it in every other reference. The mirror still copies from
+`upstream`, so a bump that upstream refuses is seeded by hand (below), and the
+comparison's issue says so.
+
 **Adding an image** is a new row, and a reference to the mirror. **A new row's
 first copy comes out public**, because a package a workflow creates in a public
 repository inherits that visibility. That run is red, by design. The maintainer
