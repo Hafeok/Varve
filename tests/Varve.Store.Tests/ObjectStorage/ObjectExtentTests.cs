@@ -22,6 +22,7 @@ namespace Varve.Store.Tests.Objects;
 /// cache under any eviction schedule, swapped only by the epoch's writer,
 /// attached by a follower, and never named by a catalog before they are whole.
 /// </summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class ObjectExtentTests
 {
     /// <summary>

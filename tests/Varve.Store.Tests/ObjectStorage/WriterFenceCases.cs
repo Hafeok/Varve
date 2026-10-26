@@ -331,6 +331,7 @@ internal static class WriterFenceCases
 }
 
 /// <summary>The fence cases over the in-memory store: the gate every build runs.</summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class MemoryWriterFenceTests
 {
     public static TheoryData<string> Cases() => [.. WriterFenceCases.All().Select(c => c.Name)];

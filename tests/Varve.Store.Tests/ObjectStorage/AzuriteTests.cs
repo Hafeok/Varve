@@ -49,6 +49,7 @@ internal static class Azurite
     }
 }
 
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class AzuriteExtentMaintenanceTests
 {
     /// <summary>A follower keeps serving across the writer's merges and deletions, on Azurite (ADRs 0158, 0160).</summary>
@@ -60,6 +61,7 @@ public sealed class AzuriteExtentMaintenanceTests
     }
 }
 
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class AzuriteObjectStoreContractTests
 {
     public static TheoryData<string> Cases() => [.. ObjectStoreContractCases.All().Select(c => c.Name)];
@@ -73,6 +75,7 @@ public sealed class AzuriteObjectStoreContractTests
     }
 }
 
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class AzuriteStorageContractTests : StorageContractTests, IAsyncLifetime
 {
     private readonly List<(AzureBlobStore Store, Backend Storage, string Cache)> _opened = [];
@@ -110,6 +113,7 @@ public sealed class AzuriteStorageContractTests : StorageContractTests, IAsyncLi
     }
 }
 
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class AzuriteAdapterTests
 {
     [Fact]
@@ -186,6 +190,7 @@ public sealed class AzuriteAdapterTests
 }
 
 /// <summary>The writer fence of ADR 0136 on Azurite: the cases every store runs.</summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class AzuriteWriterFenceTests
 {
     public static TheoryData<string> Cases() => [.. WriterFenceCases.All().Select(c => c.Name)];

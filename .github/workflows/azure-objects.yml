@@ -1,5 +1,7 @@
 # The object-storage backend against a real storage account, and the Container
-# Apps template's what-if (ADR 0142), run by hand.
+# Apps template's what-if (ADR 0142), run by hand. Every object-store test
+# class carries Category=AzureObjects or Category=AzureObjectsFaults (#143);
+# this runs the first, azure-objects-faults.yml the second.
 #
 # Dispatched by the maintainer, in the `azure-objects` environment, which
 # only `main` may use. No credential is stored anywhere (ADR 0137):
@@ -62,16 +64,15 @@ jobs:
           echo "AZURE_FEDERATED_TOKEN_FILE=$RUNNER_TEMP/assertion" >> "$GITHUB_ENV"
 
       - name: Test against the storage account
-        # #126: two contract classes against a real account; the services
-        # leg's limit and hang dump, which run the same classes on emulators.
-        timeout-minutes: 10
+        # #126's limit and hang dump; #143: every class of the AzureObjects
+        # trait against a real account, about a quarter of an hour.
+        timeout-minutes: 30
         run: >
           dotnet test
           --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj
           --configuration Release
           --no-build
-          --filter-class Varve.Store.Tests.Objects.AzureAccountObjectStoreContractTests
-          --filter-class Varve.Store.Tests.Objects.AzureAccountStorageContractTests
+          --filter-trait Category=AzureObjects
           --report-trx
           --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Store.Tests
           --hangdump

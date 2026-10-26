@@ -23,7 +23,7 @@ namespace Varve.Store.Tests.Objects;
 /// status codes and error codes the service itself gives to the writes the
 /// backend relies on, as ADR 0134 states them from Azurite's source.
 /// </summary>
-[Trait("Category", AzureAccount.Category)]
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class AzureAccountConditionalWriteTests
 {
     [Fact]
@@ -151,6 +151,7 @@ public sealed class AzureAccountConditionalWriteTests
         public ValueTask DisposeAsync()
         {
             Store.Dispose();
+            Faults.Dispose();
             return ValueTask.CompletedTask;
         }
     }
@@ -161,7 +162,7 @@ public sealed class AzureAccountConditionalWriteTests
 /// see every write that has returned), from a second client with a
 /// connection pool of its own.
 /// </summary>
-[Trait("Category", AzureAccount.Category)]
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class AzureAccountReadAfterWriteTests
 {
     private static int Rounds =>
@@ -245,7 +246,7 @@ public sealed class AzureAccountReadAfterWriteTests
 }
 
 /// <summary>A list of more than one page on the service, as the Azurite adapter test runs it.</summary>
-[Trait("Category", AzureAccount.Category)]
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class AzureAccountListingTests
 {
     [Fact]
@@ -287,7 +288,7 @@ public sealed class AzureAccountListingTests
 /// <c>VARVE_AZURE_RACERS</c> clients (32 unless set) over
 /// <c>VARVE_AZURE_RACE_ROUNDS</c> rounds (20 unless set).
 /// </summary>
-[Trait("Category", AzureAccount.Category)]
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class AzureAccountRaceTests
 {
     private static int Racers =>
@@ -371,7 +372,7 @@ public sealed class AzureAccountRaceTests
 /// and p99. The numbers depend on where this runs and are labelled so in
 /// the report; they are not a performance claim.
 /// </summary>
-[Trait("Category", AzureAccount.Category)]
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class AzureAccountLatencyTests
 {
     private static int Commits =>

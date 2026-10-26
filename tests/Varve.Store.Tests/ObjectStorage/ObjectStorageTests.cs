@@ -90,6 +90,7 @@ internal sealed class ObjectHarness : IAsyncDisposable
     }
 }
 
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class ObjectStorageContractTests : StorageContractTests, IAsyncLifetime
 {
     // Each case asks for empty storage: a store of its own each time.
@@ -117,6 +118,7 @@ public sealed class ObjectStorageContractTests : StorageContractTests, IAsyncLif
     }
 }
 
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class MemoryObjectStoreContractTests
 {
     public static TheoryData<string> Cases() => [.. ObjectStoreContractCases.All().Select(c => c.Name)];
@@ -127,6 +129,7 @@ public sealed class MemoryObjectStoreContractTests
         ObjectStoreContractCases.All().Single(c => c.Name == name).Run(new MemoryObjectStore(), "contract/", T.Ct);
 }
 
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class ObjectStorageTests
 {
     [Fact]

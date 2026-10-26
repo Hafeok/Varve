@@ -32,10 +32,12 @@ namespace Varve.Store.Tests.Objects;
 /// The container is <c>VARVE_AZURE_CONTAINER</c>, a container URL, or else
 /// <c>VARVE_AZURE_BLOB_ENDPOINT</c> with <c>VARVE_AZURE_BLOB_CONTAINER</c>
 /// (<c>varve-test</c> unless set). Without either the leg is skipped. Every
-/// live test carries the trait <c>Category=AzureLive</c>, so one command runs
-/// the leg and nothing else does: <c>dotnet test --project
+/// class here carries <c>Category=AzureObjects</c>, or
+/// <c>Category=AzureObjectsFaults</c> for the failure-injection workload
+/// (<see cref="ObjectTraits"/>), so one command runs the leg and nothing
+/// else does: <c>dotnet test --project
 /// tests/Varve.Store.Tests/Varve.Store.Tests.csproj -- --filter-trait
-/// Category=AzureLive</c>.
+/// Category=AzureObjects</c>, and the same with <c>AzureObjectsFaults</c>.
 /// </para>
 /// <para>
 /// The identity is the workload's and never a key (ADR 0137). On a
@@ -50,9 +52,6 @@ namespace Varve.Store.Tests.Objects;
 /// </remarks>
 internal static class AzureAccount
 {
-    /// <summary>The trait every live test carries.</summary>
-    public const string Category = "AzureLive";
-
     /// <summary>This run's prefix in the container: the UTC time it started and a short random part.</summary>
     public static string RunPrefix { get; } =
         DateTime.UtcNow.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture) + "-" + Guid.NewGuid().ToString("N")[..8] + "/";
@@ -260,7 +259,7 @@ internal sealed class PrefixedObjectStore(IObjectStore inner, ObjectName prefix)
     private ObjectName Under(ObjectName name) => new(prefix.Value + name.Value);
 }
 
-[Trait("Category", AzureAccount.Category)]
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class AzureAccountObjectStoreContractTests
 {
     public static TheoryData<string> Cases() => [.. ObjectStoreContractCases.All().Select(c => c.Name)];
@@ -283,7 +282,7 @@ public sealed class AzureAccountObjectStoreContractTests
     }
 }
 
-[Trait("Category", AzureAccount.Category)]
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class AzureAccountStorageContractTests : StorageContractTests, IAsyncLifetime
 {
     private readonly List<(AzureBlobStore Store, Backend Storage, string Cache, ObjectName Prefix)> _opened = [];
@@ -316,7 +315,7 @@ public sealed class AzureAccountStorageContractTests : StorageContractTests, IAs
     }
 }
 
-[Trait("Category", AzureAccount.Category)]
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class AzureAccountExtentMaintenanceTests
 {
     /// <summary>A follower keeps serving across the writer's merges and deletions, on the account (ADRs 0158, 0160).</summary>
@@ -338,7 +337,7 @@ public sealed class AzureAccountExtentMaintenanceTests
 }
 
 /// <summary>The writer fence of ADR 0136 against the account: the cases every store runs.</summary>
-[Trait("Category", AzureAccount.Category)]
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class AzureAccountWriterFenceTests
 {
     public static TheoryData<string> Cases() => [.. WriterFenceCases.All().Select(c => c.Name)];
@@ -369,7 +368,7 @@ public sealed class AzureAccountWriterFenceTests
 /// is tens of milliseconds where Azurite's is one, and the suite's cost is
 /// quadratic in the workload's requests.
 /// </summary>
-[Trait("Category", AzureAccount.Category)]
+[Trait(ObjectTraits.Name, ObjectTraits.Faults)]
 public sealed class AzureAccountFaultTests
 {
     private static int Stride =>
