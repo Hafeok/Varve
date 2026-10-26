@@ -12,6 +12,7 @@
 | **Model** | `claude-fable-5-1`, from the session's own metadata |
 | **Session identifier** | `66ad8861-82e0-4845-823d-ad239f419d19`, the local session's id as its scratch directory names it |
 | **Branch** | `issue-143-azure-blob-live`, from `main` at 6f438ff |
+| **Signing** | The commits are signed with the maintainer's own key: this run predates the separate agent signing identity. Later local sessions sign as the agent identity. |
 | **Report** | [`docs/reports/azure-blob-live-2026-10-23.md`](../reports/azure-blob-live-2026-10-23.md) |
 
 ## The prompt

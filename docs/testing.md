@@ -279,16 +279,24 @@ service: the status codes it answers, its races, its visibility and its
 latency are its own. The live leg (#143) runs the same suites against a real
 storage account, and a few tests that only mean something there.
 
-**One command runs it, and nothing else does.** Every live test carries the
-trait `Category=AzureLive` and skips unless the container is named:
+**Two traits, and every class carries one.** Every test class in
+`Varve.Store.Tests.Objects` carries `Category=AzureObjects` or, for the
+failure-injection workloads, `Category=AzureObjectsFaults`; `TraitGuardTests`
+fails a class that carries neither or both, so no class drops out of CI
+unseen. The optional CI leg `azure-objects.yml` runs the first against the
+account; `azure-objects-faults.yml` runs the second nightly, on a push to
+`land/**` and when a release descriptor reaches `main`, about an hour. The
+live tests skip unless the container is named:
 
 ```bash
 VARVE_AZURE_BLOB_ENDPOINT=https://<account>.blob.core.windows.net/ \
 VARVE_AZURE_BLOB_CONTAINER=varve-test \
 VARVE_AZURE_TENANT_ID=<tenant> \
 dotnet test --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj --configuration Release \
-  -- --filter-trait Category=AzureLive
+  -- --filter-trait Category=AzureObjects
 ```
+
+and the same with `Category=AzureObjectsFaults` for the workloads.
 
 `VARVE_AZURE_CONTAINER`, a container URL, names it in one variable instead,
 as `azure-objects.yml` does. The identity is the workload's and never a key
@@ -310,7 +318,8 @@ prefix through `PrefixedObjectStore`, with the real adapter beneath.
 | `AzureAccountStorageContractTests`: the storage contract over the backend | memory, Azurite, RustFS | — |
 | `AzureAccountExtentMaintenanceTests`: a follower across merges and deletions | memory, Azurite, RustFS | — |
 | `AzureAccountWriterFenceTests` (`WriterFenceCases`): the claim, the fence slot, the release, a stalled writer superseded, six writers claiming at once, the operator's takeover | memory, Azurite | the race of the claim on the service |
-| `AzureAccountFaultTests`: the HTTP failure-injection workload | Azurite, every request | every `VARVE_AZURE_FAULT_STRIDE`-th request (every seventh unless set; `1` is every request, about an hour) |
+| `AzureAccountFaultTests`: the HTTP failure-injection workload, seven fault kinds, the two applied-then-lost ones included (`HttpAppliedThenCancelled`, `HttpAppliedThenTimedOut`) | Azurite, every request | every `VARVE_AZURE_FAULT_STRIDE`-th request (every seventh unless set; `1` is every request, about an hour) |
+| `AzureAccountLostAnswerTests` (`LostAnswerCases`): a reader-record replace applied and then cancelled, or timed out, for a named writer and a holder-less follower (#145) | Azurite | the fault the account showed, on the account |
 | `AzureAccountConditionalWriteTests` | — | the status and error codes the service answers a create that finds a blob, a stale replace and a replace of nothing; a 503, a 500 and a lost answer on one create, which lands at most once |
 | `AzureAccountReadAfterWriteTests` | — | a second client, with a pool of its own, reads and lists a blob at once; a follower reads a sealed segment at once |
 | `AzureAccountRaceTests` | — | `VARVE_AZURE_RACERS` × `VARVE_AZURE_RACE_ROUNDS` (32 × 20 unless set) racing one create and one replace, with the losers' answers counted |

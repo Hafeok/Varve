@@ -16,11 +16,11 @@ Developed with AI assistance under human review; the session is recorded in
 
 | | |
 |---|---|
-| **Account** | A disposable test account the maintainer deployed from a template outside the repository: StorageV2, `Standard_LRS`, Hot tier, **flat namespace** (hierarchical namespace off), blob versioning off, soft delete off, shared-key access **disabled**, OAuth by default, TLS 1.2, HTTPS only, a 7-day lifecycle rule on the test container. One container, `varve-test`. |
-| **Region** | Not read: the control plane was off limits to the session (data plane only). The endpoint's DNS name resolves through the `gvx01prdstr03a` storage cluster, which the maintainer can map to the region. |
+| **Account** | A disposable test account deployed from [`eng/azure/blob-live/varve-blob-test.bicep`](../../eng/azure/blob-live/varve-blob-test.bicep) (its README says how): StorageV2, `Standard_LRS`, Hot tier, **flat namespace** (hierarchical namespace off), blob versioning off, soft delete off, shared-key access **disabled**, OAuth by default, TLS 1.2, HTTPS only, a 7-day lifecycle rule on the test container. One container, `varve-test`. |
+| **Region** | Sweden Central. (The session read nothing from the control plane; the maintainer states the region.) |
 | **Identity** | The maintainer's user account, Storage Blob Data Contributor on the account, through a dedicated Azure CLI profile (`AZURE_CONFIG_DIR`). No key, SAS or connection string anywhere (ADR 0137). |
 | **Client** | `Varve.Store.Azure` over `HttpClient`, no Azure SDK (ADR 0134, decision 3); `x-ms-version: 2025-11-05`, which the service echoed on every answer. .NET SDK 10.0.401 on Linux x64; Azure CLI 2.76.0 for the token; Azurite 3.37.0 in Docker on the same machine for the emulator column. |
-| **Client location** | The maintainer's workstation under WSL2 (kernel 5.15), on a residential connection; the maintainer states the city. A request round trip to the account measured 23–27 ms at the median throughout the run. |
+| **Client location** | A developer workstation in Denmark, under WSL2 (kernel 5.15). A request round trip to the account measured 23–27 ms at the median throughout the run. |
 | **Isolation** | Every run under `<utc-time>-<random>/` in the container, every test under a prefix below it, each deleted at the test's end. Nothing outside a run's prefix was listed, written or deleted. A listing of the container under each run's prefix after the run returned nothing. |
 
 The smoke call of step 0 (one PUT with `If-None-Match: *`, one GET, one
@@ -43,16 +43,24 @@ attempt: `201`, `200`, `202`.
 There is **no blob lease and no lease test**: ADR 0136 refuses a lease, one
 writer holds an epoch in the `writer` record, and a successor's claim fences
 the log by creating the next slot. The brief's "lease" suite is the fence,
-and that is what ran.
+and that is what ran. The brief was wrong on that and on the SDK credential;
+the code and the ADRs are right, and the maintainer confirmed it on closing
+out #143.
 
 ## 3. The live leg
 
-One command runs it, and it is skipped wherever the container is not named
-(`docs/testing.md` §8):
+Two traits run it, and it is skipped wherever the container is not named
+(`docs/testing.md` §8): every test class of `Varve.Store.Tests.Objects`
+carries `Category=AzureObjects` or, for the failure-injection workloads,
+`Category=AzureObjectsFaults`, and `TraitGuardTests` fails a class that
+carries neither or both. `azure-objects.yml` runs the first against the
+account on every dispatch, in place of its two class filters;
+`azure-objects-faults.yml` runs the second nightly, on a push to `land/**`
+and when a release descriptor reaches `main`.
 
 ```bash
 dotnet test --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj --configuration Release \
-  -- --filter-trait Category=AzureLive
+  -- --filter-trait Category=AzureObjects
 ```
 
 The fixture (`AzureAccount`) pins the tenant by running `az account
@@ -199,9 +207,81 @@ service exactly as on Azurite.
   | read, 1 KiB | 23 | 28 | 35 | 48 |
   | commit of one quad through the dataset | 26 | 42 | 65 | 129 |
 
-  A commit is one create (ADR 0135), so its median is the round trip. The
-  client is the workstation of §1; the service is in the region the
-  maintainer records there.
+  A commit is one create (ADR 0135), so its p50 of about one round trip
+  means a one-quad commit costs one service round trip. The client is the
+  workstation of §1; the service is in Sweden Central.
+
+## 6a. The fault mode the suite lacked: applied, then the answer lost
+
+#145 was found on the account and nowhere else, and the suite's 495
+injection points had no mode for it: the service applies a write and the
+client then loses the answer in a way the backend's own retry cannot see
+through. The suite now has two, at every request, beside the five it had:
+
+- `HttpAppliedThenCancelled`: the request is forwarded and applied, and the
+  caller's own cancellation fires before the answer arrives. The workload
+  hands every call the controller's token, so the cancellation is the
+  caller's, as the dataset's close was in #145; a cancelled maintenance
+  round is run again at once on the same storage, as a server does, so
+  state the cut-short round left stale is used rather than discarded by a
+  restart. A reader declared forgotten anywhere in the workload is a failure
+  outright: the workload forgets none.
+- `HttpAppliedThenTimedOut`: applied, then the client's timeout, a
+  `TaskCanceledException` with no token cancelled, as `HttpClient` throws
+  it. The backend's replace helper retries that, reads back and recognises
+  its own write within the call.
+
+Where the two modes surfaced, recorded by the workload per call site: on
+Azurite, the cancellation reached the caller only at opens (a restart's 20
+times, a takeover's 20) and the timeout likewise (7 and 14), each a crash
+and a reopen; every commit and maintenance request either mode hit was
+settled inside the backend by reading back, and the caller got a normal
+answer. That is the rule of ADR 0136's amendment at work on every write
+type but the one #145 missed, which the deterministic cases cover.
+
+**Every conditional write the backend makes**, enumerated from the adapter's
+traffic over the whole live run (3,724 exchanges traced), is hit by both
+modes, because the workload makes each of them and the modes fire at every
+request: `probe/<random>` (create, replace), `writer` (create, replace),
+`log/MANIFEST` (create), `log/<segment>.chunks/<chunk>` (create),
+`log/<segment>.seg` (create), `derived/extents/<set>/<part>` (create),
+`derived/catalog` (create, replace), `readers/<id>` (create, replace). The
+ADR 0136 amendment of 2026-10-23 lists each with how its writer recognises
+its own write.
+
+**The deterministic reproduction** (`LostAnswerCases`, on Azurite and on the
+account): the reader record's replace, targeted by path and condition,
+applied and then cancelled, for a named writer and for a holder-less
+follower. With the #145 fix reverted locally, not committed, both
+applied-then-cancelled cases fail on Azurite with `ReaderForgottenException`
+and the in-memory pin fails with it; the two applied-then-timed-out cases
+pass, since the replace helper recovers within the call. With the fix
+restored all pass.
+
+**Holder-less followers make a conditional write.** The server opens every
+read-only dataset with no instance name (`ObjectStores.OpenAsync`), and such
+a follower announces its reader record by create-if-absent and
+replace-if-unchanged, and writes nothing else. So the rule applies to them,
+with the same recognition a named instance gets — a record under its reader
+id with no holder is its own — under the same defect, #145, and pinned by
+the follower cases above, which fail without the fix.
+
+**The second live run**, with the two new modes and the deterministic cases
+on the account, under a fresh run prefix and the same tenant-pinned token:
+
+| Run | What | Result |
+|---|---|---|
+| 2026-10-23, 10:20–10:33 UTC | the `AzureObjects` trait, under a fresh run prefix | 110 passed, 44 skipped (the Azurite and RustFS classes, unconfigured), none failed |
+| 2026-10-23, 10:33–12:56 UTC | the `AzureObjectsFaults` trait: `LostAnswerCases` on the account, and the HTTP fault workload with seven kinds at every request | the four lost-answer cases pass; 99 requests, 693 injection points, nothing lost or doubled at any, 28 crashes while reopening; about 70 minutes of running time, the workstation's sleep of an hour and a half inside the wall clock |
+
+One run was stopped by hand: the first attempt at the faults trait, at
+10:22 UTC, killed after a defect in the workload's own cancellation
+handling showed on Azurite, so its cleanup never ran and 2,431 blobs
+stayed under its prefix. They were deleted afterwards by a delete scoped to
+that prefix alone, and a listing of the container under this day's prefixes
+then returned no blob. Nothing else remained under any run's prefix. The
+same seeded workload passed on Azurite with the same 693 points in 14
+minutes, and in memory with its four kinds at 1,068 points.
 
 ## 7. ADRs touched
 
@@ -210,11 +290,15 @@ service exactly as on Azurite.
   changes.
 - **ADR 0134**, dated amendment: the service's answers, observed; a replace
   of nothing is `412` on the service and `404` on Azurite. No ruling changes.
-- **ADR 0136** is confirmed, not contradicted: the fence held under every
-  schedule the suites ran on the service, and the chained claim of §5.4 is
-  its decision 2.
-- No ADR is contradicted; nothing was changed silently. Both amendments are
-  filed unaccepted (ADR 0066).
+- **ADR 0136**, dated amendment: a conditional write whose answer is lost is
+  settled by reading back and recognising the writer's own write, never
+  assumed failed and never retried blind; every role that makes one is
+  subject to it, holder-less followers included. The fence itself is
+  confirmed, not contradicted: it held under every schedule the suites ran
+  on the service, and the chained claim of §5.4 is its decision 2.
+- No ADR is contradicted; nothing was changed silently. The three
+  amendments are filed unaccepted (ADR 0066), for the maintainer to accept
+  in review.
 
 ## 8. What remains untested, and why
 
@@ -228,10 +312,11 @@ service exactly as on Azurite.
 - **The server legs**: `FleetTests` and `ObjectStorageServerTests` run two
   server processes on Azurite and were not run on the account; they are
   Azurite-gated by `VARVE_AZURITE` and would need the same fixture work in
-  `Varve.Server.Tests`.
+  `Varve.Server.Tests`. They are the scope of the Container Apps performance
+  environment, a separate ADR and not this branch.
 - **Workload identity and the managed-identity endpoint**: the CI leg's and
   Container Apps' token sources were not exercised from a workstation; only
-  the CLI source was.
+  the CLI source was. The same environment covers them.
 - **Token expiry during a run**: the run was shorter than a token's life, so
   the five-minute refresh margin was not crossed.
 - **Uploads near the 5,000 MiB single-request limit** (ADR 0158): nothing
@@ -246,7 +331,9 @@ service exactly as on Azurite.
 
 - None of the live tests is a stub. The tracing handler in the fixture
   (`VARVE_AZURE_TRACE`) is a diagnostic, off unless named.
-- `azure-objects.yml` still filters the optional CI leg by the two original
-  class names; switching it to the trait would run the whole leg there,
-  about three minutes plus the fault suite, which is the maintainer's call.
-- The region of the account is the maintainer's to record in §1.
+- `azure-objects.yml` is still dispatched by hand, as it was; the maintainer
+  asked for it on every pull request and push, which its environment,
+  restricted to `main`, does not allow from a pull request's branch. The
+  trigger is the maintainer's to widen with the environment.
+- `azure-objects-faults.yml` runs on a push to `land/**`, which the
+  environment's branch rule must admit before it can run there.
