@@ -40,7 +40,9 @@ ASP.NET Core endpoint groups any host mounts.
 - **The management plane** (ADR 0163): `MapVarveManagement` mounts
   `/manage/datasets` and, under `/manage/datasets/{name}`, the dataset's
   declaration as TriG (`GET`, `PUT`, `PATCH`, `DELETE`), `settings`, `state`,
-  `status`, `checkpoints` and `grants`; then `/manage/fleet`, `/graphs`,
+  `status`, `checkpoints`, `grants`, `events` and `events/move` (the move of
+  the dataset's event declarations to the management plane, ADR 0167); then
+  `/manage/fleet`, `/graphs`,
   `/apply` and `/system`, over the host's `IManagementPlane`: the fleet's
   system dataset, the grants in force, and the code validator every
   management commit runs (ADR 0166). A host with no management plane passes

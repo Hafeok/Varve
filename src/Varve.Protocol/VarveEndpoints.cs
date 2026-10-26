@@ -84,7 +84,8 @@ public static class VarveEndpoints
     /// The management plane's resources (ADRs 0163, 0168), at <c>/manage</c>:
     /// <c>datasets</c>, and under <c>datasets/{dataset}</c> the dataset's
     /// declaration, <c>settings</c>, <c>state</c>, <c>status</c>,
-    /// <c>checkpoints</c> and <c>grants</c>; then <c>fleet</c>, <c>graphs</c>,
+    /// <c>checkpoints</c>, <c>grants</c>, <c>events</c> and <c>events/move</c>
+    /// (ADR 0167); then <c>fleet</c>, <c>graphs</c>,
     /// <c>apply</c> and <c>system</c>. A host with no management plane passes
     /// none: it maps the list, each dataset's status, checkpoints, settings and
     /// state, which then act on the datasets it holds, and nothing it would
@@ -111,6 +112,8 @@ public static class VarveEndpoints
         routes.Map(Dataset + "/settings", Tracing.Traced("settings", options, context => ManagementEndpoints.SettingsAsync(context, options, plane)));
         routes.Map(Dataset + "/state", Tracing.Traced("state", options, context => ManagementEndpoints.StateAsync(context, options, plane)));
         routes.Map(Dataset + "/grants", Tracing.Traced("grants", options, context => ManagementEndpoints.GrantsAsync(context, options, plane)));
+        routes.Map(Dataset + "/events", Tracing.Traced("event declarations", options, context => EventMoves.EventsAsync(context, options, plane)));
+        routes.Map(Dataset + "/events/move", Tracing.Traced("event declarations move", options, context => EventMoves.MoveAsync(context, options, plane)));
         routes.Map(Dataset + "/bindings/{" + ManagementEndpoints.BindingRouteValue + "}", Tracing.Traced("binding", options, context => ManagementEndpoints.BindingAsync(context, options, plane)));
         routes.Map("/manage/fleet", Tracing.Traced("fleet declaration", options, context => ManagementEndpoints.FleetAsync(context, options, plane)));
         routes.Map("/manage/graphs", Tracing.Traced("management graphs", options, context => ManagementEndpoints.GraphsAsync(context, options, plane)));

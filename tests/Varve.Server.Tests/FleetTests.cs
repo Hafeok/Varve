@@ -209,6 +209,79 @@ public sealed class FleetTests : IAsyncDisposable
         Assert.Contains("holder: b", output.ToString(), StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The move of a dataset's event declarations (ADR 0167), sent to an
+    /// instance that writes neither the dataset nor the system dataset, and
+    /// forwarded to the dataset's writer: here the system writer, or the other
+    /// instance, whose management writes then go to the system writer under
+    /// the caller's token, each forwarded once.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Event_declarations_move_through_a_non_writer_and_render_the_same_events(bool placedOnTheFollower)
+    {
+        Uri container = await ContainerAsync();
+        Server a = await StartAsync("a", container, writer: "a");
+        long declared = await DeclareAsync(a, "d");
+        Server b = await StartAsync("b", container, writer: "a");
+        await WaitDeclaredAsync(b, declared, "d", "follower");
+        Server dataWriter = a, other = b;
+
+        if (placedOnTheFollower)
+        {
+            HttpResponseMessage placed = await a.Http.PutAsync(new Uri(a.Address, "manage/datasets/d"), Trig(Declaration("d") + " <urn:fleet:d> <https://w3id.org/varve/ns#placedOn> \"b\" ."), Ct);
+            Assert.True(placed.IsSuccessStatusCode, (int)placed.StatusCode + " " + await placed.Content.ReadAsStringAsync(Ct));
+            await WaitDeclaredAsync(b, long.Parse(placed.Headers.GetValues("Varve-Position").Single(), CultureInfo.InvariantCulture), "d", "writer");
+            await WaitDeclaredAsync(a, long.Parse(placed.Headers.GetValues("Varve-Position").Single(), CultureInfo.InvariantCulture), "d", "follower");
+            (dataWriter, other) = (b, a);
+        }
+
+        const string Catalogue = "https://w3id.org/varve/ns#events-catalogue/default";
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(other, "d", "INSERT DATA { GRAPH <" + Catalogue + "> { "
+            + "<http://ex/types/Paid> a <https://w3id.org/varve/ns#EventType> ; <https://w3id.org/varve/ns#eventName> \"Paid\" ; "
+            + "<https://w3id.org/varve/ns#eventClass> <http://ex/Paid> ; <https://w3id.org/varve/ns#eventVersion> 1 ; "
+            + "<https://w3id.org/varve/ns#eventField> <http://ex/types/Paid/total> ; "
+            + "<https://w3id.org/varve/ns#eventSelect> \"SELECT ?total WHERE { ?event <http://ex/total> ?total }\" . "
+            + "<http://ex/types/Paid/total> a <https://w3id.org/varve/ns#EventField> ; <https://w3id.org/varve/ns#fieldName> \"total\" ; "
+            + "<https://w3id.org/varve/ns#fieldDatatype> <http://www.w3.org/2001/XMLSchema#integer> ; <https://w3id.org/varve/ns#fieldRequired> true } }")).StatusCode);
+        HttpResponseMessage emitted = await Update(other, "d", "INSERT DATA { <http://ex/e1> a <http://ex/Paid> ; <http://ex/total> 5 }");
+        Assert.Equal(HttpStatusCode.NoContent, emitted.StatusCode);
+        string before = await EventsAsync(dataWriter, emitted.Headers.GetValues("Varve-Position").Single());
+
+        // Sent to the instance that writes neither the dataset nor, when placed elsewhere, the system dataset.
+        HttpResponseMessage moved = await other.Http.PostAsync(new Uri(other.Address, "manage/datasets/d/events/move"), null, Ct);
+        string answer = await moved.Content.ReadAsStringAsync(Ct);
+        Assert.True(moved.StatusCode == HttpStatusCode.OK, answer + "\n" + a.Log + "\n" + b.Log);
+        Assert.Contains("\"state\":\"moved\"", answer, StringComparison.Ordinal);
+
+        // The same events, read on either instance; a catalogue write through the other is refused at the writer.
+        Assert.Equal(before, await EventsAsync(dataWriter, emitted.Headers.GetValues("Varve-Position").Single()));
+        Assert.Equal(before, await EventsAsync(other, emitted.Headers.GetValues("Varve-Position").Single()));
+        HttpResponseMessage refused = await Update(other, "d", "INSERT DATA { GRAPH <" + Catalogue + "> { <http://ex/types/Paid> <http://www.w3.org/2000/01/rdf-schema#comment> \"x\" } }");
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+        Assert.Contains("event-catalogue-moved", await refused.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+
+        // A commit after the move renders from the system dataset, on either instance, with the revision it had.
+        HttpResponseMessage later = await Update(other, "d", "INSERT DATA { <http://ex/e2> a <http://ex/Paid> ; <http://ex/total> 6 }");
+        Assert.Equal(HttpStatusCode.NoContent, later.StatusCode);
+        string after = await EventsAsync(other, later.Headers.GetValues("Varve-Position").Single());
+        Assert.Equal(after, await EventsAsync(dataWriter, later.Headers.GetValues("Varve-Position").Single()));
+        Assert.StartsWith(before.TrimEnd(']'), after, StringComparison.Ordinal);
+        Assert.Contains("/types/Paid/versions/1/revisions/", after[before.Length..], StringComparison.Ordinal);
+    }
+
+    private static async Task<string> EventsAsync(Server server, string atLeast)
+    {
+        using HttpRequestMessage request = new(HttpMethod.Get, new Uri(server.Address, "datasets/d/events?from=0"));
+        request.Headers.TryAddWithoutValidation("Accept", "application/cloudevents-batch+json");
+        request.Headers.TryAddWithoutValidation("Varve-Min-Position", atLeast);
+        HttpResponseMessage response = await server.Http.SendAsync(request, Ct);
+        string body = await response.Content.ReadAsStringAsync(Ct);
+        Assert.True(response.StatusCode == HttpStatusCode.OK, server.Instance + ": " + (int)response.StatusCode + " " + body);
+        return body;
+    }
+
     // ---- the fleet ----
 
     private async Task<Server> StartAsync(string instance, Uri container, string writer = "a")
@@ -366,6 +439,9 @@ public sealed class FleetTests : IAsyncDisposable
                 "--Varve:Fleet:Writer=" + writer,
                 "--Varve:Fleet:InternalUrl=" + address,
                 "--Varve:Fleet:FollowInterval=00:00:00.200",
+
+                // One event source, so that every instance renders the same bytes (ADR 0143).
+                "--Varve:Events:Source=https://varve.example.org/",
             ])
             {
                 start.ArgumentList.Add(argument);

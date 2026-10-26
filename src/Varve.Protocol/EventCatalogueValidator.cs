@@ -29,6 +29,27 @@ namespace Varve.Protocol;
 [Contract(typeof(TheEventSchemaRegistry.CompatibilityCheckedAtCommit), Role = "the dataset validator that checks event declarations")]
 public sealed class EventCatalogueValidator : ICommitValidator
 {
+    private readonly DatasetName _dataset;
+    private readonly Func<bool>? _moved;
+
+    /// <summary>The check of a dataset whose event declarations are in its catalogue graphs for good.</summary>
+    public EventCatalogueValidator()
+    {
+    }
+
+    /// <summary>
+    /// The check of <paramref name="dataset"/>, which refuses every catalogue
+    /// write as <c>event-catalogue-moved</c> while <paramref name="moved"/>
+    /// says its declarations are moving or moved at the position the host has
+    /// applied (ADR 0167), before it reads the write as a declaration.
+    /// </summary>
+    public EventCatalogueValidator(DatasetName dataset, Func<bool> moved)
+    {
+        ArgumentNullException.ThrowIfNull(moved);
+        _dataset = dataset;
+        _moved = moved;
+    }
+
     /// <inheritdoc />
     public ValidationVerdict Validate(IQuadSource proposed, QuadDelta delta)
     {
@@ -43,13 +64,18 @@ public sealed class EventCatalogueValidator : ICommitValidator
             return ValidationVerdict.Accept();
         }
 
-        DeclarationVerdict verdict = EventDeclarationCheck.Check(proposed, changes);
-
-        if (verdict.Accepted)
+        if (_moved?.Invoke() == true)
         {
-            return ValidationVerdict.Accept();
+            return EventCatalogueFreeze.Refusal(_dataset);
         }
 
+        DeclarationVerdict verdict = EventDeclarationCheck.Check(proposed, changes);
+        return verdict.Accepted ? ValidationVerdict.Accept() : Refuse(verdict);
+    }
+
+    /// <summary>The refusal of a check's verdict, as its own problem type (ADR 0145 point 6).</summary>
+    internal static ValidationVerdict Refuse(DeclarationVerdict verdict)
+    {
         ArrayBufferWriter<byte> json = new();
         CanonicalJsonWriter writer = new(json);
         writer.StartObject();
@@ -91,6 +117,22 @@ public sealed class EventCatalogueValidator : ICommitValidator
 
         writer.EndObject();
         return ValidationVerdict.Reject(ValidatorProblem.Report(type, json.WrittenSpan.ToArray()));
+    }
+
+    /// <summary>The refusal of one problem with a declaration, as <c>event-declaration-invalid</c>.</summary>
+    internal static ValidationVerdict Refuse(DeclarationProblem problem)
+    {
+        ArrayBufferWriter<byte> json = new();
+        CanonicalJsonWriter writer = new(json);
+        writer.StartObject();
+        writer.WriteName("declaration"u8);
+        writer.WriteString(problem.Declaration.Lexical);
+        writer.WriteName("detail"u8);
+        writer.WriteString(problem.Detail);
+        writer.WriteName("reason"u8);
+        writer.WriteString(problem.Reason);
+        writer.EndObject();
+        return ValidationVerdict.Reject(ValidatorProblem.Report(ProblemType.EventDeclarationInvalid, json.WrittenSpan.ToArray()));
     }
 
     private static void Collect(
