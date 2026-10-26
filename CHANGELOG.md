@@ -49,6 +49,14 @@ filed unaccepted and accepted on the pull request (ADR 0066).
   had; a merge stays a pure function of its inputs (ADR 0158). Write
   amplification at REC M is 1.86 per byte against 1.78, for extents 3.5%
   smaller; checkpoint time is unchanged, maintenance 14% longer.
+- **Every block of a format-5 extent is checked** (ADR 0177). The
+  directory carries a 64-bit check for each key block and each column
+  block, verified when the block is read: an extent with any byte zeroed,
+  flipped or cut serves the same answers or fails the read, never a
+  different answer.
+- **Reader records state the derived format they read** (ADR 0160,
+  amended): `maxDerived`, absent read as 4, the record still version 1.
+  `varve storage readers list` shows it.
 - **`MaxSetBytes` bounds merges, not reads** (ADR 0178, 0159 amended). Its
   default stays 256 MiB: at REC M a 1 GiB cap made the chain longer. The
   operator guide says when to raise it.
@@ -60,12 +68,25 @@ filed unaccepted and accepted on the pull request (ADR 0066).
   maintenance rewrites each alone as format 5, oldest first, when no merge
   is due (ADR 0178). With `ExtentMerges.Enabled` false nothing is
   rewritten.
-- **Upgrade followers before the writer.** A follower of
+- **Older readers decide when the rewrite starts** (ADR 0178). While any
+  present reader record reads only format 4 (one of
+  `v0.1.0-preview.12` or before has no `maxDerived`), no format-4 set is
+  rewritten and merges of format-4 sets stay format 4; new checkpoints are
+  format 5. Once the record is forgotten or its reader upgraded, the
+  rewrite proceeds.
+- **Followers first is recommended; either order is safe.** A follower of
   `v0.1.0-preview.12` behind a writer of this release finds the format-5
   extents cache misses: its chain ends at the first such set and it reads
-  the log above it, serving every position correctly at the log's cost. A
-  writer of `v0.1.0-preview.12` (a downgrade) writes its next checkpoint
-  from the log.
+  the log above it, serving every position correctly at the log's cost,
+  and the format-4 sets it needs stay while it is announced. A writer of
+  `v0.1.0-preview.12` (a downgrade) deletes the format-5 sets and writes
+  its next checkpoint from the log.
+
+#### Fixed
+
+- **A key with two intervals inside one set** is looked up at its first:
+  a lower bound in a run is now the first of equal keys, not whichever a
+  binary search met first. Found by the damage property on review.
 
 #### Measured
 
