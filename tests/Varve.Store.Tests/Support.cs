@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -25,6 +26,49 @@ internal sealed class ManualClock : TimeProvider
 
     public static ManualClock Epoch() => new(new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.Zero));
 }
+
+/// <summary>
+/// How much of a long search a run makes: the pull request's amount, or the
+/// one its variable names, which the nightly run sets (#126; docs/testing.md,
+/// "How long the tests take"). The property searched is the same at either.
+/// </summary>
+internal static class Depth
+{
+    public static int Of(string variable, int pullRequest) =>
+        int.TryParse(Environment.GetEnvironmentVariable(variable), NumberStyles.None, CultureInfo.InvariantCulture, out int value) && value > 0
+            ? value
+            : pullRequest;
+
+    /// <summary>
+    /// Where a search that a pull request runs a share of starts in its space:
+    /// the variable's seed, which replays a run, or a new one each run, so that
+    /// pull requests cover the whole space between them.
+    /// </summary>
+    public static int Seed(string variable) =>
+        int.TryParse(Environment.GetEnvironmentVariable(variable), NumberStyles.None, CultureInfo.InvariantCulture, out int value)
+            ? value
+            : Random.Shared.Next();
+
+    /// <summary>
+    /// A pull request's share of a search over points numbered from 1: every
+    /// <c>VARVE_{name}_STRIDE</c>th, <paramref name="pullRequest"/> unless it
+    /// is set, from the one <c>VARVE_{name}_SEED</c> chooses, new each run
+    /// unless it is set. Stride 1 is the whole search.
+    /// </summary>
+    public static Sweep SweepOf(string name, int pullRequest)
+    {
+        int stride = Of("VARVE_" + name + "_STRIDE", pullRequest);
+        int seed = Seed("VARVE_" + name + "_SEED");
+        return new Sweep(stride, 1 + (seed % stride), "VARVE_" + name + "_SEED=" + seed.ToString(CultureInfo.InvariantCulture) + " VARVE_" + name + "_STRIDE=" + stride.ToString(CultureInfo.InvariantCulture));
+    }
+}
+
+/// <summary>
+/// The points a run searches: <see cref="First"/>, then every
+/// <see cref="Stride"/>th; <see cref="Replay"/> names the variables that
+/// search them again, and starts the test's output and its failures' messages.
+/// </summary>
+internal readonly record struct Sweep(int Stride, int First, string Replay);
 
 internal static class T
 {

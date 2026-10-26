@@ -39,6 +39,10 @@ decisions:
     statement: "eng/ scripts are C# file-based apps run with dotnet run, one implementation for every operating system"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-20T00:00:00Z
+  - key: HangDumpForTheStoreTests
+    statement: "Microsoft.Testing.Extensions.HangDump is a test-time register entry under this ADR, referenced by Varve.Store.Tests alone, so a hang in a store-test step writes a dump naming its tests before the step's time limit; amended 2026-10-19"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-19T00:00:00Z
 ---
 
 The rulings of [ADR 0007](../adr/0007-w3c-conformance-harness.md) still in force, one line each. The ADR is the
@@ -47,3 +51,5 @@ narrative; this is what code cites. Acceptance is transcribed from the ADR's Sta
 `ManifestsReadByVarveTurtle` is the exit criterion's outcome, recorded by the undated
 "Met at milestone 3b" note inside the ADR; it carries 2026-09-22, the date of the milestone
 3b record, and replaces the temporary dotNetRdf.Core reader the ADR first decided.
+
+`HangDumpForTheStoreTests` is the amendment of 2026-10-19 (#126), filed unaccepted (ADR 0066).

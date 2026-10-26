@@ -230,3 +230,51 @@ merges and deletions runs against Azurite and RustFS as well, in the
 are run with merges off (`T.Options()`); the merge suites turn them on and
 drive maintenance by hand, because a second dataset opened over one memory
 storage, which only one process may write, would race a background merge.
+
+## 8. How long the tests take
+
+Every `dotnet test` step in CI writes a TRX and uploads it, pass or fail,
+and the store's steps write their slowest tests, and the classes that held
+the parallel slots, to the job summary (`eng/test-durations.cs`, #126). A
+slow run is explained from its own artifacts; two runs compare test by test.
+Each store step has a time limit at about twice its slowest green run, and a
+hang dump below it that names the tests in flight.
+
+Some searches are wider than a pull request can wait for. Each such test
+explores a pull request's share of its space by default, and the whole of
+it when its variable is set. **The property is the same at either depth**;
+only how much of the space is searched changes, and the pull request's share
+is a subset of the nightly's. Where a share is chosen by a seed, each run
+draws a new one, so that pull requests between them search the whole space;
+the seed starts the test's output and any failure's message, and its
+variable replays the run. The nightly run (`.github/workflows/nightly.yml`,
+on `main`) sets every depth below.
+
+| Variable | Test | Pull request | Nightly |
+|---|---|---:|---:|
+| `VARVE_FAULT_RECOVERY_STRIDE` | `FaultInjectionTests.CrashDuringRecovery.a_crash_during_recovery_recovers`: crashes the workload at every *n*th of its operations, then its recovery at every operation | 25, from operation 1 + seed mod 25 (about 11,500 points) | 1 (about 288,000 points; the gate's was 5, 57,679) |
+| `VARVE_FAULT_RECOVERY_SEED` | the same: the seed that chooses where a pull request's share starts | a new one each run | n/a at stride 1 |
+| `VARVE_FAULT_PROCESS_STRIDE`, `_SEED` | `FaultInjectionTests.ProcessCrash.a_process_crash_anywhere_recovers_to_the_last_closed_commit`: a process crash at every *n*th operation of the workload, at every cut of its write | 2, from operation 1 + seed mod 2 (about 4,400 and 5,200 points) | 1 (about 8,800 and 10,500) |
+| `VARVE_FAULT_BATCH_STRIDE`, `_SEED` | `FaultInjectionTests.BatchedCrash.a_crash_inside_a_batch_recovers_to_the_last_closed_commit`: the same inside batches, with three power-loss images an operation | 2 (about 6,500 and 7,000 points) | 1 (about 13,000 and 14,000) |
+| `VARVE_FAULT_POWER_STRIDE`, `_SEED` | `FaultInjectionTests.PowerLoss.a_power_loss_with_writes_reordered_up_to_the_flush_recovers`: power lost at every *n*th operation, six images each | 2 (about 4,300 and 3,900 points) | 1 (about 8,600 and 7,900) |
+| `VARVE_OBJECT_FAULT_SWEEP_STRIDE`, `_SEED` | `Objects.ObjectFaultTests.after_a_fault_at_any_request_the_dataset_reopens_at_the_last_closed_commit_with_nothing_lost_or_doubled`: each of four faults at every *n*th request of the workload (not `VARVE_OBJECT_FAULT_SEEDS`, the workloads hunted) | 2 (532 of 1,068 points) | 1 (all) |
+| `VARVE_CACHE_DAMAGE_STRIDE` | `Objects.ObjectCacheTests.a_commit_index_blob_cut_short_or_with_its_verified_bytes_zeroed_is_a_miss`: reopens a cache whose commit index blob is cut or has a verified byte zeroed, one case in *n* | 8, from case seed mod 8 (69 of 552 cases) | 1 (all 552) |
+| `VARVE_CACHE_DAMAGE_SEED` | the same: the seed that chooses which eighth | a new one each run | n/a at stride 1 |
+
+The nightly run also sets section 7's release-gate depths for Extent
+maintenance: `VARVE_EXTENT_SCHEDULES=400` (40 on a pull request),
+`VARVE_READER_SCHEDULES=1200` (60; the count run clean at development) and
+`VARVE_EXTENT_FAULTS_FULL=1`.
+
+The nightly run's second job sets `VARVE_LONG_PROPERTIES=1` for the SHACL
+projects: `Varve.Derivation.Tests`, `Varve.Shacl.Tests`,
+`Varve.Shacl.Sparql.Tests` and `Varve.Shacl.Store.Tests`. Their properties
+that have a long count then run at ten times a pull request's iterations.
+The REC gate's three ways are compared at all 1,001 positions of REC S (41
+on a pull request) and at 100 positions of REC M (none on a pull request)
+(ADR 0176).
+
+The variables of §6 that hunt rather than gate (`VARVE_FAULT_SEEDS`,
+`VARVE_OBJECT_FAULT_SEEDS`, `VARVE_OBJECT_FAULT_STEPS`,
+`VARVE_HTTP_FAULT_STEPS`) stay what they were: neither a pull request nor the
+nightly run sets them.
