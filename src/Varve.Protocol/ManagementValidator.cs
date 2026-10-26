@@ -7,6 +7,9 @@ using System.Buffers;
 using System.Collections.Generic;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
+using Varve.Delta.Model;
+using Varve.Events;
+using Varve.Events.Model;
 using Varve.Json.Canonical;
 using Varve.Management;
 using Varve.Management.Model;
@@ -49,7 +52,145 @@ public sealed class ManagementValidator : ICommitValidator
             }
         }
 
-        return findings.Count == 0 ? ValidationVerdict.Accept() : ValidationVerdict.Reject(Report(findings));
+        if (findings.Count > 0)
+        {
+            return ValidationVerdict.Reject(Report(findings));
+        }
+
+        return Moves(proposed, delta, touched);
+    }
+
+    /// <summary>
+    /// The event declarations of each dataset graph the commit touches (ADR
+    /// 0167): the state's change is one the move allows, and a moved graph's
+    /// event nodes, put in the catalogue graphs' form before and after, pass
+    /// the same check as before the move (<see cref="EventDeclarationCheck"/>).
+    /// </summary>
+    private static ValidationVerdict Moves(IQuadSource proposed, QuadDelta delta, HashSet<RdfTerm> touched)
+    {
+        Dictionary<RdfTerm, (List<(RdfTerm, RdfTerm, RdfTerm)> Before, List<(RdfTerm, RdfTerm, RdfTerm)> After)> graphs = [];
+        InMemoryDatasetBuilder before = new(), after = new();
+
+        foreach (RdfTerm graph in touched)
+        {
+            if (!ManagementVocabulary.TryGetDataset(graph, out _))
+            {
+                continue;
+            }
+
+            List<(RdfTerm, RdfTerm, RdfTerm)> now = Triples(proposed, graph);
+            HashSet<(RdfTerm, RdfTerm, RdfTerm)> then = [.. now];
+            Undo(proposed, delta.Asserted, graph, then, remove: true);
+            Undo(proposed, delta.Retracted, graph, then, remove: false);
+            graphs[graph] = ([.. then], now);
+
+            foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in then)
+            {
+                before.Add(s, p, o, graph);
+            }
+
+            foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in now)
+            {
+                after.Add(s, p, o, graph);
+            }
+        }
+
+        if (graphs.Count == 0)
+        {
+            return ValidationVerdict.Accept();
+        }
+
+        Declarations previous = DeclarationReader.Read(before.ToDataset());
+        Declarations next = DeclarationReader.Read(after.ToDataset());
+        IReadOnlyList<DeclarationFinding> transitions = EventDeclarationMoves.Check(previous, next);
+
+        if (transitions.Count > 0)
+        {
+            return ValidationVerdict.Reject(Report([.. transitions]));
+        }
+
+        foreach ((RdfTerm graph, (List<(RdfTerm, RdfTerm, RdfTerm)> then, List<(RdfTerm, RdfTerm, RdfTerm)> now)) in graphs)
+        {
+            ManagementVocabulary.TryGetDataset(graph, out string? name);
+
+            if (!next.Datasets.TryGetValue(name!, out DatasetDeclaration? declared) || declared.EventDeclarations != EventDeclarationState.Moved)
+            {
+                continue;
+            }
+
+            List<DeclarationProblem> problems = [];
+            List<FeedChange> moved = ManagedEventDeclarations.ToCatalogue(now, problems);
+
+            if (problems.Count > 0)
+            {
+                return EventCatalogueValidator.Refuse(problems[0]);
+            }
+
+            List<FeedChange> changes = ManagedEventDeclarations.Changes(ManagedEventDeclarations.ToCatalogue(then, []), moved);
+
+            if (changes.Count == 0)
+            {
+                continue;
+            }
+
+            InMemoryDatasetBuilder catalogue = new();
+
+            foreach (FeedChange change in moved)
+            {
+                catalogue.Add(change.Subject, change.Predicate, change.Object, change.Graph);
+            }
+
+            DeclarationVerdict verdict = EventDeclarationCheck.Check(catalogue.ToDataset(), changes);
+
+            if (!verdict.Accepted)
+            {
+                return EventCatalogueValidator.Refuse(verdict);
+            }
+        }
+
+        return ValidationVerdict.Accept();
+    }
+
+    private static List<(RdfTerm, RdfTerm, RdfTerm)> Triples(IQuadSource source, RdfTerm graph)
+    {
+        List<(RdfTerm, RdfTerm, RdfTerm)> triples = [];
+
+        if (!source.TryInternalise(graph, out TermHandle handle))
+        {
+            return triples;
+        }
+
+        using IQuadCursor cursor = source.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Named(handle));
+
+        while (cursor.MoveNext())
+        {
+            Quad quad = cursor.Current;
+
+            if (source.TryExternalise(quad.Subject, out RdfTerm? s)
+                && source.TryExternalise(quad.Predicate, out RdfTerm? p)
+                && source.TryExternalise(quad.Object, out RdfTerm? o))
+            {
+                triples.Add((s, p, o));
+            }
+        }
+
+        return triples;
+    }
+
+    // The graph's triples before the commit: its assertions taken out, its retractions put back.
+    private static void Undo(IQuadSource proposed, ReadOnlySpan<Quad> quads, RdfTerm graph, HashSet<(RdfTerm, RdfTerm, RdfTerm)> state, bool remove)
+    {
+        foreach (Quad quad in quads)
+        {
+            if (!quad.IsDefaultGraph
+                && proposed.TryExternalise(quad.Graph, out RdfTerm? g) && g.Equals(graph)
+                && proposed.TryExternalise(quad.Subject, out RdfTerm? s)
+                && proposed.TryExternalise(quad.Predicate, out RdfTerm? p)
+                && proposed.TryExternalise(quad.Object, out RdfTerm? o))
+            {
+                _ = remove ? state.Remove((s, p, o)) : state.Add((s, p, o));
+            }
+        }
     }
 
     private static void Touch(IQuadSource proposed, ReadOnlySpan<Quad> quads, HashSet<RdfTerm> touched, List<DeclarationFinding> findings)
