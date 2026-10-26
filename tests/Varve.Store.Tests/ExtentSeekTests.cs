@@ -146,6 +146,49 @@ public sealed class ExtentSeekTests
     }
 
     /// <summary>
+    /// Found by <c>ExtentDamageTests</c>' undamaged check: quads asserted at a
+    /// set's start, retracted inside it and asserted again have two rows
+    /// within under one key, and a lookup's lower bound found the second of
+    /// them by a search that stops at any equal key, so it never saw that the
+    /// quad was held at the start, and the older set answered for it. Twenty
+    /// such quads put the duplicates where a search meets the second.
+    /// </summary>
+    [Fact]
+    public async Task a_quad_retracted_and_asserted_again_inside_a_set_is_looked_up_as_the_scan_finds_it()
+    {
+        await using Dataset dataset = await T.OpenOrCreate(new MemoryStorage(), ExtentMergeTests.Merging(T.Options(), 4));
+        CommitRequest asserted = new();
+        CommitRequest retracted = new();
+
+        for (int i = 0; i < 20; i++)
+        {
+            asserted.Assert(T.Iri("s" + i), T.Iri("p"), T.Iri("o"));
+            retracted.Retract(T.Iri("s" + i), T.Iri("p"), T.Iri("o"));
+        }
+
+        await dataset.CommitAsync(asserted, T.Ct);
+        await dataset.CheckpointAsync(dataset.Head, T.Ct);
+        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("x"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await dataset.CommitAsync(retracted, T.Ct);
+        await dataset.CommitAsync(asserted, T.Ct);
+        await dataset.CheckpointAsync(dataset.Head, T.Ct);
+        Assert.All(dataset.SeekableSetsForTests(), Assert.True);
+
+        // At 3 the twenty are retracted: inside the set (1, 4].
+        using DatasetView view = await dataset.AsOfAsync(new Position(3), T.Ct);
+        Assert.Single(T.All(view));
+        Assert.True(view.TryInternalise(T.Iri("p"), out TermHandle p));
+        Assert.True(view.TryInternalise(T.Iri("o"), out TermHandle o));
+
+        for (int i = 0; i < 20; i++)
+        {
+            Assert.True(view.TryInternalise(T.Iri("s" + i), out TermHandle s));
+            Quad quad = new(s, p, o);
+            Assert.False(view.Contains(in quad), "s" + i + " is retracted at 3");
+        }
+    }
+
+    /// <summary>
     /// A count of a range holding more of a sought set's rows than it reads
     /// one by one is estimated, and says so; the scan is still exact.
     /// </summary>

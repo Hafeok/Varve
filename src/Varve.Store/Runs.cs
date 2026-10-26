@@ -641,12 +641,32 @@ internal sealed class Run
         return ~low;
     }
 
-    /// <summary>The first index whose key is at or above the bound.</summary>
+    /// <summary>
+    /// The first index whose key is at or above the bound: the first of equal
+    /// keys, which a format-5 extent's rows within hold one an interval (ADR
+    /// 0177), not whichever of them a search meets first.
+    /// </summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static int LowerBound(ReadOnlySpan<QuadKey> keys, in QuadKey bound)
     {
-        int at = Search(keys, in bound);
-        return at >= 0 ? at : ~at;
+        int low = 0;
+        int high = keys.Length;
+
+        while (low < high)
+        {
+            int middle = low + ((high - low) >> 1);
+
+            if (keys[middle].CompareTo(bound) < 0)
+            {
+                low = middle + 1;
+            }
+            else
+            {
+                high = middle;
+            }
+        }
+
+        return low;
     }
 
     /// <summary>The first index whose key is above the bound.</summary>
