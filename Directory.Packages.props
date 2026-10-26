@@ -46,7 +46,7 @@
          in its commit body (ADR 0063). Referenced from Directory.Build.props
          with PrivateAssets="all", so it is never in a published package's
          dependencies. -->
-    <PackageVersion Include="DecisionDriven.Analyzers" Version="0.1.0-preview.7" Adr="0063" />
+    <PackageVersion Include="DecisionDriven.Analyzers" Version="0.1.0-preview.9" Adr="0063" />
 
     <!-- The whole-graph report, a .NET tool run in CI and never a gate. No
          project references it: .config/dotnet-tools.json installs it, at the
@@ -77,18 +77,18 @@
          Tokens, JsonWebTokens, Logging, Abstractions) comes with it, MIT and
          managed; the register cites the decision for the direct package and
          the gate counts the closure in Varve.Server's assets. -->
-    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" Adr="0099" Scope="src/Varve.Server/" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.14" Adr="0099" Scope="src/Varve.Server/" />
 
     <!-- The CLI's command line (ADR 0105): stable, MIT, Microsoft, no native
          asset, trimming- and AOT-annotated; in Varve.Server alone, on the
          same condition as JwtBearer, that the server's Native AOT publish
          stays green. -->
-    <PackageVersion Include="System.CommandLine" Version="2.0.12" Adr="0105" Scope="src/Varve.Server/" />
+    <PackageVersion Include="System.CommandLine" Version="2.0.14" Adr="0105" Scope="src/Varve.Server/" />
 
     <!-- The CLI's credential file on Windows (ADR 0105): DPAPI through the
          managed wrapper, CurrentUser scope. Elsewhere the file's mode is the
          protection, and the package is linked but never called. -->
-    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" Adr="0105" Scope="src/Varve.Server/" />
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.14" Adr="0105" Scope="src/Varve.Server/" />
 
     <!-- The OpenTelemetry exporter (ADR 0112): the SDK, its hosting
          integration and the OTLP exporter, Apache-2.0, managed, trimming- and
@@ -97,9 +97,9 @@
          through the BCL's ActivitySource and Meter and reference none of
          these; the server builds the SDK only when an OTEL_EXPORTER_OTLP_*
          endpoint is configured. -->
-    <PackageVersion Include="OpenTelemetry" Version="1.19.1" Adr="0112" Scope="src/Varve.Server/" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" Adr="0112" Scope="src/Varve.Server/" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" Adr="0112" Scope="src/Varve.Server/" />
+    <PackageVersion Include="OpenTelemetry" Version="1.20.1" Adr="0112" Scope="src/Varve.Server/" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.20.1" Adr="0112" Scope="src/Varve.Server/" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.20.1" Adr="0112" Scope="src/Varve.Server/" />
   </ItemGroup>
 
   <ItemGroup Label="Varve.Protocol.Client's hosting (ADR 0131)">
@@ -107,8 +107,8 @@
          dataset's setup at start: the two abstractions packages every .NET
          host already loads, MIT, managed, trimming- and AOT-annotated, no
          native asset. At the runtime's version, as JwtBearer is. -->
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" Adr="0131" Scope="src/Varve.Protocol.Client/" />
-    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.12" Adr="0131" Scope="src/Varve.Protocol.Client/" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.14" Adr="0131" Scope="src/Varve.Protocol.Client/" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.14" Adr="0131" Scope="src/Varve.Protocol.Client/" />
   </ItemGroup>
 
   <ItemGroup Label="Samples only — never of a shipped package (ADR 0133)">
@@ -186,8 +186,8 @@
   -->
 
   <ItemGroup Label="Test-time">
-    <PackageVersion Include="xunit.v3" Version="4.0.1" Adr="0009" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" Adr="0007" />
+    <PackageVersion Include="xunit.v3" Version="4.0.2" Adr="0009" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.5.1" Adr="0007" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" Version="1.1.4" Adr="0004" />
     <!-- A transitive dependency of the analyzer harness, pinned rather than
          inherited: Microsoft.CodeAnalysis.Analyzer.Testing asks for
