@@ -247,6 +247,11 @@ from the summary and the files.
   part 2a's figure suggested. Brick's two `brick:Entity`-targeted SPARQL
   constraints run before and after every building commit, at about 185 ms
   each. ADR 0176 records it, and the pull request flags it.
+- **The management entry point is `DeclarationReader`.** The brief and ADR
+  0166 name a `DeclarationValidator`, which `main` doesn't have. Management
+  validation is `DeclarationReader.Read`, run on commit by `Varve.Protocol`'s
+  `ManagementValidator`, so the switch went behind it. The Management plane
+  part 2 session (#147) confirmed this, and ADR 0175 says so.
 - **The event check's agreement is on the verdict.** `EventDeclarationCheck`
   answers its first problem only, so the runtime and the oracle are compared
   on two things:
@@ -269,6 +274,7 @@ from the summary and the files.
 | The projection's report at every position equals a full validation there, byte for byte, over generated histories with retractions and shapes changes (`Varve.Shacl.Store.Tests`) | 200 histories | 2,000 | none at the head |
 | The event check against its oracle: same verdict and problem type, and same declaration and fields for an incompatible change (`Varve.Events.Tests`) | 2,000 | — | none. Dropping the shapes' findings at runtime fails it |
 | The event shapes against the code on what the shapes state (ADR 0157, `Varve.Events.Tests`) | 2,000 | — | none |
+| Management plane part 2's moved declarations: the shapes in the management graph, and the code and the runtime check against its oracle in catalogue form, unchanged and with each fault the shapes state (`Varve.Events.Tests`) | 25 cases | — | none |
 | The management shapes against the code, and the runtime against its oracle (`Varve.Management.Tests`) | 1,000 | 10,000 | none. Dropping the shapes' findings at runtime fails it |
 | REC S: standalone, commit-time `reject` and the projection agree (`Varve.Shacl.Store.Tests`) | every 25th position and the last, 41 | all 1,001 | none |
 | REC M, the same | — | 100 positions | not run in this session; the nightly runs it |
@@ -296,7 +302,7 @@ Linux, the machine above, `dotnet test -c Release --no-build`, slower rows first
 | `Varve.Rec.Tests` | 6 | 55.8 s |
 | `Varve.Protocol.Tests` | 116 | 31.3 s |
 | `Varve.Server.Tests` | 119, 12 skipped | 10.2 s |
-| `Varve.Events.Tests` | 99 | 5.5 s |
+| `Varve.Events.Tests` | 124 | 5.5 s |
 | `Varve.Shacl.Sparql.Tests` | 13 | 5.4 s |
 | `Varve.Shacl.Tests` | 34 | 4.8 s |
 | `Varve.Management.Tests` | 34 | 4.6 s |

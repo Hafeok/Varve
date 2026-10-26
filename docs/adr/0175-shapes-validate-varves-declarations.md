@@ -33,13 +33,20 @@ user's data.
 
 1. **The shapes are the runtime validator**, behind the existing entry
    points:
-   - `EventDeclarationCheck.Check` validates each touched catalogue graph
-     by `EventDeclarationShapes.ttl` (ADR 0157 point 2). The event shapes'
+   - `EventDeclarationCheck.Check`, which `EventCatalogueValidator` runs on
+     a commit, validates each touched catalogue graph by
+     `EventDeclarationShapes.ttl` (ADR 0157 point 2). The event shapes'
      results become `event-declaration-invalid` problems.
-   - `DeclarationReader.Read` validates each fleet and dataset graph by
-     `src/Varve.Management/shapes/management.ttl`, embedded in the assembly
-     and readable through `ManagementShapes.Turtle`. Its results become
-     `declaration-invalid` findings.
+   - `DeclarationReader.Read`, which `Varve.Protocol`'s
+     `ManagementValidator` runs on every commit to the system dataset,
+     validates each fleet and dataset graph by
+     `src/Varve.Management/shapes/management.ttl`. That file is embedded in
+     the assembly and readable through `ManagementShapes.Turtle`, and its
+     results become `declaration-invalid` findings.
+
+   ADR 0166 names the management side's validator `DeclarationValidator`.
+   No type has that name: the validation is `DeclarationReader`'s, and
+   `ManagementValidator` is its commit-time host.
 
    The management shapes state, by SHACL Core only:
    - `varve:Dataset`: its name, storage, default access scope, description
@@ -62,7 +69,17 @@ user's data.
    `sh:message`.
 2. **The event shapes target by class.** They validate a declaration in a
    catalogue graph and in a management graph alike, wherever Management
-   plane part 2 moves it. Both homes are tested.
+   plane part 2 moves it. Both homes are tested, and so is Management plane
+   part 2's fixture of moved declarations
+   (`tests/Varve.Events.Tests/fixtures/moved-declarations/`), unchanged and
+   with each fault the shapes state:
+   - in its management graph, the shapes name the faulty node;
+   - in catalogue form, the code names it, and the runtime check and its
+     oracle agree.
+
+   Whichever of the two pull requests lands second reconciles
+   `shapes/management.ttl` with the move's terms (`varve:eventDeclarations`,
+   its states, and `varve:sourceGraph`).
 3. **The residual check in code** is what Core cannot state:
    - **for events**, ADR 0157 point 3 and the version history (ADR 0145);
    - **for management declarations**:

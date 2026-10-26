@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using CsCheck;
@@ -208,6 +209,68 @@ public class ShapesAgreementTests
             }, iter: Iterations);
     }
 
+    /// <summary>
+    /// The agreement over Management plane part 2's fixture of moved
+    /// declarations (<c>fixtures/moved-declarations/</c>, ADR 0167), unchanged
+    /// and with each fault the shapes state: the shapes validate the event
+    /// nodes in their new home, the dataset's management graph beside its
+    /// other declarations; the code and the runtime check read the same nodes
+    /// in their old home, a catalogue graph; and the two homes agree.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(EverySeenFaultAndNone))]
+    public void The_moved_declarations_agree_in_both_homes(string fault)
+    {
+        const string N = "https://notes.example/manage/";
+        List<(RdfTerm S, RdfTerm P, RdfTerm O)> moved = Trig.Quads(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "moved-declarations", "notes.trig")))
+            .ConvertAll(q => (q.S, q.P, q.O));
+        Declaration[] types = [new Declaration(1, false, true, false), new Declaration(1, true, false, false)];
+        RdfTerm? faulty = null;
+        bool applied = fault != "none"
+            && Apply(Enum.Parse<Seen>(fault), types, moved, Terms.Iri(N + "note-created"), Terms.Iri(N + "note-created-title"), Terms.Iri(N + "note-shared"), out faulty);
+        if (fault != "none" && !applied)
+        {
+            return;
+        }
+
+        // The old home: the event nodes alone, without the move's varve:sourceGraph, as one catalogue graph.
+        HashSet<RdfTerm> eventNodes = [.. moved.Where(t => t.P.Equals(Terms.Iri(Terms.RdfType)) && (t.O.Equals(V("EventType")) || t.O.Equals(V("EventField")))).Select(t => t.S)];
+        List<(RdfTerm S, RdfTerm P, RdfTerm O)> catalogue = moved.FindAll(t => eventNodes.Contains(t.S) && !t.P.Equals(V("sourceGraph")));
+
+        ShaclReport report = Validate(moved);
+        List<EventTypeDeclaration> read = [];
+        List<DeclarationProblem> problems = [];
+        EventDeclarations.ReadGraph(CatalogueGraph, catalogue, read, problems);
+        (InMemoryDataset proposed, List<FeedChange> changes) = Commit([], catalogue);
+        DeclarationVerdict runtime = EventDeclarationCheck.Check(proposed, changes);
+        DeclarationVerdict oracle = Oracle.CodeEventDeclarationCheck.Check(proposed, changes);
+        string shown = fault + "\ncode: " + string.Join("; ", problems.ConvertAll(p => p.ToString())) + "\nshapes: " + Results(report)
+            + "\nruntime: " + Shown(runtime) + "\noracle: " + Shown(oracle);
+
+        Assert.True(runtime.Accepted == oracle.Accepted && runtime.ProblemType == oracle.ProblemType, shown);
+        if (!applied)
+        {
+            Assert.True(report.Conforms && problems.Count == 0 && read.Count == 2 && runtime.Accepted, shown);
+            return;
+        }
+
+        Assert.False(report.Conforms, shown);
+        Assert.True(Names(report, faulty!), "the shapes do not name " + faulty + "\n" + shown);
+        Assert.True(problems.Exists(p => p.Declaration.Equals(faulty)) || (Owner(catalogue, faulty!) is { } owner && problems.Exists(p => p.Declaration.Equals(owner))), "the code does not name " + faulty + "\n" + shown);
+        Assert.False(runtime.Accepted, shown);
+    }
+
+    public static TheoryData<string> EverySeenFaultAndNone()
+    {
+        TheoryData<string> data = ["none"];
+        foreach (Seen fault in Enum.GetValues<Seen>())
+        {
+            data.Add(fault.ToString());
+        }
+
+        return data;
+    }
+
     private static (InMemoryDataset Proposed, List<FeedChange> Changes) Commit(List<(RdfTerm S, RdfTerm P, RdfTerm O)> before, List<(RdfTerm S, RdfTerm P, RdfTerm O)> after)
     {
         HashSet<Q> then = [.. before.Select(t => new Q(t.S, t.P, t.O, CatalogueGraph))];
@@ -281,9 +344,12 @@ public class ShapesAgreementTests
     }
 
     /// <summary>Applies a fault the shapes state; false when the graph has nothing it applies to.</summary>
-    private static bool Apply(Seen fault, Declaration[] types, List<(RdfTerm S, RdfTerm P, RdfTerm O)> triples, out RdfTerm? faulty)
+    private static bool Apply(Seen fault, Declaration[] types, List<(RdfTerm S, RdfTerm P, RdfTerm O)> triples, out RdfTerm? faulty) =>
+        Apply(fault, types, triples, TypeNode(0), FieldNode(0, 0), TypeNode(1), out faulty);
+
+    /// <summary>Applies a fault the shapes state to <paramref name="type"/>, its field <paramref name="field"/>, or <paramref name="second"/>, another type.</summary>
+    private static bool Apply(Seen fault, Declaration[] types, List<(RdfTerm S, RdfTerm P, RdfTerm O)> triples, RdfTerm type, RdfTerm field, RdfTerm second, out RdfTerm? faulty)
     {
-        RdfTerm type = TypeNode(0), field = FieldNode(0, 0);
         faulty = type;
         switch (fault)
         {
@@ -322,8 +388,8 @@ public class ShapesAgreementTests
                 }
 
                 // The code keeps the first type of the two, in its order, and refuses the second; the shapes name both.
-                faulty = TypeNode(1);
-                Replace(triples, faulty, V("eventClass"), Terms.Iri(Terms.Ex + "Class0"));
+                faulty = second;
+                Replace(triples, faulty, V("eventClass"), triples.Find(t => t.S.Equals(type) && t.P.Equals(V("eventClass"))).O);
                 return true;
         }
 
@@ -343,7 +409,7 @@ public class ShapesAgreementTests
                     return false;
                 }
 
-                triples.Add((TypeNode(1), V("eventField"), field));
+                triples.Add((second, V("eventField"), field));
                 return true;
             default:
                 throw new InvalidOperationException(fault.ToString());
