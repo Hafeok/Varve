@@ -88,6 +88,7 @@ jobs:
           VARVE_READER_SCHEDULES: "1200"
           VARVE_EXTENT_FAULTS_FULL: "1"
           VARVE_CACHE_DAMAGE_STRIDE: "1"
+          VARVE_EXTENT_DAMAGE_STRIDE: "1"
         run: >
           dotnet test
           --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj

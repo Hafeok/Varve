@@ -76,7 +76,7 @@ internal sealed class ExtentSeek
 
         if (next < end)
         {
-            atPosition |= info.WindowFrom + info.Distance(info.OpenAt, next) <= Position;
+            atPosition |= info.WindowFrom + info.Distance(ExtentInfo.OpenColumn, next, 0) <= Position;
         }
 
         (next, end) = run.Retracted(IndexOrder.Spog).Range(in spog, in spog, buffer, out _, out _);
@@ -84,15 +84,15 @@ internal sealed class ExtentSeek
         if (next < end)
         {
             atStart = true;
-            atPosition |= info.WindowFrom + info.Distance(info.CloseAt, next) > Position;
+            atPosition |= info.WindowFrom + info.Distance(ExtentInfo.CloseColumn, next, 0) > Position;
         }
 
         (next, end) = info.WithinKeys!.Range(in spog, in spog, buffer, out _, out _);
 
         for (long row = next; row < end; row++)
         {
-            long from = info.Distance(info.WithinAt, 2 * row);
-            long to = info.Distance(info.WithinAt, (2 * row) + 1);
+            long from = info.Distance(ExtentInfo.WithinColumn, row, 0);
+            long to = info.Distance(ExtentInfo.WithinColumn, row, 1);
             atStart |= from == 0;
             atPosition |= Covers(from == 0 ? 0 : info.WindowFrom + from, to == 0 ? 0 : info.WindowFrom + to, Position);
         }
@@ -179,9 +179,9 @@ internal sealed class ExtentSeekCursor : IDisposable
     {
         _windowFrom = info.WindowFrom;
         _position = position;
-        _open = new ColumnRows(info, run.Asserted(order), info.OpenAt, 1, in low, in high);
-        _close = new ColumnRows(info, run.Retracted(order), info.CloseAt, 1, in low, in high);
-        _within = new ColumnRows(info, info.WithinKeys!, info.WithinAt, 2, in low, in high);
+        _open = new ColumnRows(info, run.Asserted(order), ExtentInfo.OpenColumn, in low, in high);
+        _close = new ColumnRows(info, run.Retracted(order), ExtentInfo.CloseColumn, in low, in high);
+        _within = new ColumnRows(info, info.WithinKeys!, ExtentInfo.WithinColumn, in low, in high);
     }
 
     /// <summary>The next key the delta holds, and whether it asserts or retracts it; false at the range's end.</summary>
@@ -256,28 +256,23 @@ internal sealed class ExtentSeekCursor : IDisposable
 /// <summary>
 /// The rows of one key section in a key range, with their column beside them
 /// (ADR 0177): one distance a row, or two for the rows within, read forward
-/// from the range's first row.
+/// from the range's first row, a checked block at a time.
 /// </summary>
-internal sealed class ColumnRows : ForwardReader
+internal sealed class ColumnRows
 {
     private readonly SectionReader _keys;
+    private readonly ColumnReader? _column;
     private readonly long _end;
-    private readonly int _width;
-    private readonly int _values;
+    private readonly bool _pairs;
 
-    internal ColumnRows(ExtentInfo info, KeySection keys, long columnAt, int values, in QuadKey low, in QuadKey high)
-        : this(info, keys, columnAt, values, Bounds(keys, in low, in high))
+    internal ColumnRows(ExtentInfo info, KeySection keys, int column, in QuadKey low, in QuadKey high)
     {
-    }
-
-    private ColumnRows(ExtentInfo info, KeySection keys, long columnAt, int values, (long Next, long End) range)
-        : base(info.Blob, columnAt + (range.Next * values * info.Width), (range.End - range.Next) * values * info.Width)
-    {
+        (long next, long end) = Bounds(keys, in low, in high);
         _keys = new SectionReader(keys);
-        _keys.Seek(range.Next);
-        _end = range.End;
-        _width = info.Width;
-        _values = values;
+        _keys.Seek(next);
+        _end = end;
+        _pairs = column == ExtentInfo.WithinColumn;
+        _column = next < end ? new ColumnReader(info, column, next) : null;
         Load();
     }
 
@@ -316,8 +311,8 @@ internal sealed class ColumnRows : ForwardReader
         }
 
         Key = _keys.Current();
-        First = Fixed(_width);
-        Second = _values == 2 ? Fixed(_width) : 0;
+        First = _column!.Next();
+        Second = _pairs ? _column.Next() : 0;
     }
 
     // The section's indexes from the low bound through the high one.

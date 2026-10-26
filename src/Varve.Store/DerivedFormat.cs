@@ -230,7 +230,7 @@ internal static partial class DerivedFormat
     /// What an extent writes after its term section (ADR 0139): its own
     /// sections from <c>offset</c>, and the directory words that describe them.
     /// </summary>
-    internal delegate ValueTask<(long End, byte[] Words)> ExtraSections(IBlobWriter writer, long offset, CancellationToken cancellationToken);
+    internal delegate ValueTask<(long End, byte[] Words, Chunked<ulong>?[]? ColumnChecks)> ExtraSections(IBlobWriter writer, long offset, CancellationToken cancellationToken);
 
     /// <summary>
     /// The same, with each section's source made just before it is written
@@ -269,6 +269,11 @@ internal static partial class DerivedFormat
         long[] lengths = new long[sectionCount];
         Chunked<QuadKey>[] fences = new Chunked<QuadKey>[sectionCount];
         Chunked<long>[] starts = new Chunked<long>[sectionCount];
+        Chunked<ulong>[] checks = new Chunked<ulong>[sectionCount];
+
+        // A format-5 extent checks every block (ADR 0177).
+        bool isChecked = sectionCount > Sections;
+        blocks.Checked = isChecked;
 
         for (int section = 0; section < sectionCount; section++)
         {
@@ -299,6 +304,7 @@ internal static partial class DerivedFormat
             lengths[section] = blocks.Length;
             fences[section] = blocks.Fences;
             starts[section] = blocks.Blocks;
+            checks[section] = blocks.Checks;
             offset += blocks.Length;
 
             if (source is IDisposable disposable)
@@ -314,10 +320,11 @@ internal static partial class DerivedFormat
             await WriteTermsAsync(writer, terms, offset, version >= 3, cancellationToken).ConfigureAwait(false);
         offset = filterAt + filterLength;
         byte[] extraWords = [];
+        Chunked<ulong>?[]? columnChecks = null;
 
         if (extra is not null)
         {
-            (offset, extraWords) = await extra(writer, offset, cancellationToken).ConfigureAwait(false);
+            (offset, extraWords, columnChecks) = await extra(writer, offset, cancellationToken).ConfigureAwait(false);
         }
 
         // The directory streams to the blob, hashed as it goes: its fences
@@ -349,6 +356,34 @@ internal static partial class DerivedFormat
             for (int chunk = 0; chunk < starts[section].ChunkCount; chunk++)
             {
                 await directory.WriteAsync(starts[section], chunk, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        // A format-5 extent's checks (ADR 0177): every key block's, then every
+        // column block's — a key block's rows are its column block's.
+        if (isChecked)
+        {
+            for (int section = 0; section < sectionCount; section++)
+            {
+                for (int chunk = 0; chunk < checks[section].ChunkCount; chunk++)
+                {
+                    await directory.WriteAsync(checks[section], chunk, cancellationToken).ConfigureAwait(false);
+                }
+            }
+
+            for (int section = 0; section < sectionCount; section++)
+            {
+                Chunked<ulong> column = columnChecks?[section] ?? new Chunked<ulong>();
+
+                if (column.Count != starts[section].Count)
+                {
+                    throw new InvalidOperationException("An extent's column has " + column.Count + " block checks for a key section of " + starts[section].Count + " blocks.");
+                }
+
+                for (int chunk = 0; chunk < column.ChunkCount; chunk++)
+                {
+                    await directory.WriteAsync(column, chunk, cancellationToken).ConfigureAwait(false);
+                }
             }
         }
 
@@ -644,7 +679,10 @@ internal static partial class DerivedFormat
             keysEnd += lengths[section];
         }
 
-        if (header.DirectoryLength != fixedLength + (blocksTotal * (QuadKey.Size + 8)) + (tailWords * 8))
+        // A format-5 extent carries two checks a block, its keys' and its column's (ADR 0177).
+        bool isChecked = sectionCount > Sections;
+
+        if (header.DirectoryLength != fixedLength + (blocksTotal * (QuadKey.Size + 8 + (isChecked ? 16 : 0))) + (tailWords * 8))
         {
             return null;
         }
@@ -676,6 +714,28 @@ internal static partial class DerivedFormat
             if (!directory.TryReadStarts(blockCounts[section], lengths[section], starts[section]))
             {
                 return null;
+            }
+        }
+
+        Chunked<ulong>[]? checks = null;
+        Chunked<ulong>[]? columnChecks = null;
+
+        if (isChecked)
+        {
+            checks = new Chunked<ulong>[sectionCount];
+            columnChecks = new Chunked<ulong>[sectionCount];
+
+            foreach (Chunked<ulong>[] read in (Chunked<ulong>[][])[checks, columnChecks])
+            {
+                for (int section = 0; section < sectionCount; section++)
+                {
+                    read[section] = new Chunked<ulong>(blockCounts[section]);
+
+                    if (!directory.TryReadChecks(blockCounts[section], read[section]))
+                    {
+                        return null;
+                    }
+                }
             }
         }
 
@@ -746,7 +806,7 @@ internal static partial class DerivedFormat
         for (int section = 0; section < Sections; section++)
         {
             KeySection keys = starts[section] is { } held
-                ? KeySection.On(blob, offsets[section], counts[section], fences[section], held)
+                ? KeySection.On(blob, offsets[section], counts[section], fences[section], held, checks?[section])
                 : KeySection.Sparse(blob, offsets[section], counts[section], fences[section], startsAt[section], lengths[section]);
 
             if (section % 2 == 0)
@@ -766,7 +826,7 @@ internal static partial class DerivedFormat
         if (sectionCount > Sections)
         {
             within = starts[Sections] is { } held
-                ? KeySection.On(blob, offsets[Sections], counts[Sections], fences[Sections], held)
+                ? KeySection.On(blob, offsets[Sections], counts[Sections], fences[Sections], held, checks![Sections])
                 : null;
         }
 
@@ -775,7 +835,7 @@ internal static partial class DerivedFormat
         if (kind == KindExtent
             && (header.Version < 4
                 || extentOrder >= Orders.Count
-                || (extent = ExtentInfo.TryRead(blob, tail[(9 * 8)..], header, sectionsEnd, within, counts[(int)extentOrder * 2], counts[((int)extentOrder * 2) + 1])) is null))
+                || (extent = ExtentInfo.TryRead(blob, tail[(9 * 8)..], header, sectionsEnd, within, counts[(int)extentOrder * 2], counts[((int)extentOrder * 2) + 1], ColumnChecksOf(columnChecks, (int)extentOrder))) is null))
         {
             return null;
         }
@@ -783,6 +843,11 @@ internal static partial class DerivedFormat
         TermSection termSection = TermSection.On(blob, canonicalFrom, canonicalTo, entriesAt, entriesLength, offsetsAt, hashesAt, filter);
         return new LoadedRun(new Run(asserted, retracted, header.From, header.To, termSection, owner), header, blank, extent);
     }
+
+    // A format-5 extent's column checks by column: its open positions',
+    // its closing positions' and its rows within's (ADR 0177).
+    private static (Chunked<ulong> Open, Chunked<ulong> Close, Chunked<ulong> Within)? ColumnChecksOf(Chunked<ulong>[]? columnChecks, int order) =>
+        columnChecks is null || order >= Orders.Count ? null : (columnChecks[order * 2], columnChecks[(order * 2) + 1], columnChecks[Sections]);
 
     /// <summary>A run's directory, written to its blob in parts and hashed as it goes.</summary>
     private sealed class DirectoryWriter(IBlobWriter writer) : IDisposable
@@ -904,6 +969,32 @@ internal static partial class DerivedFormat
             }
 
             starts?.Add(sectionLength);
+            return true;
+        }
+
+        // The next count checks, eight bytes each.
+        internal bool TryReadChecks(long count, Chunked<ulong> checks)
+        {
+            int per = _buffer.Length / 8;
+
+            for (long done = 0; done < count;)
+            {
+                int take = (int)Math.Min(per, count - done);
+                Span<byte> bytes = _buffer.AsSpan(0, take * 8);
+
+                if (!TryRead(bytes))
+                {
+                    return false;
+                }
+
+                for (int i = 0; i < take; i++)
+                {
+                    checks.Add(BinaryPrimitives.ReadUInt64LittleEndian(bytes[(i * 8)..]));
+                }
+
+                done += take;
+            }
+
             return true;
         }
 

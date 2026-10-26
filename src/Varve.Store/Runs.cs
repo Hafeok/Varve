@@ -39,6 +39,11 @@ internal sealed class KeySection
     private readonly Chunked<QuadKey> _fences;
     private readonly Chunked<long> _blocks;
 
+    // A format-5 extent's block checks (ADR 0177): each block read is checked
+    // against its own; null for every other section, whose blocks are placed
+    // by the directory and not checked one by one.
+    private readonly Chunked<ulong>? _checks;
+
     // A sparse section holds the first key of every SparseStride-th block
     // and none of the block starts: those are read from the directory,
     // where they begin at _startsAt, and a block's own first key from the
@@ -48,8 +53,9 @@ internal sealed class KeySection
     private readonly long _blockCount;
     private readonly long _length;
 
-    private KeySection(ReadOnlyMemory<QuadKey> memory, IReadableBlob? blob, long offset, long count, Chunked<QuadKey> fences, Chunked<long> blocks, int stride, long startsAt, long length)
+    private KeySection(ReadOnlyMemory<QuadKey> memory, IReadableBlob? blob, long offset, long count, Chunked<QuadKey> fences, Chunked<long> blocks, int stride, long startsAt, long length, Chunked<ulong>? checks = null)
     {
+        _checks = checks;
         Memory = memory;
         _blob = blob;
         _offset = offset;
@@ -81,8 +87,8 @@ internal sealed class KeySection
     /// from <paramref name="offset"/>, block <c>b</c> spanning
     /// <c>[blocks[b], blocks[b + 1])</c> bytes from there.
     /// </summary>
-    internal static KeySection On(IReadableBlob blob, long offset, long count, Chunked<QuadKey> fences, Chunked<long> blocks) =>
-        count == 0 ? Empty : new(ReadOnlyMemory<QuadKey>.Empty, blob, offset, count, fences, blocks, 1, 0, 0);
+    internal static KeySection On(IReadableBlob blob, long offset, long count, Chunked<QuadKey> fences, Chunked<long> blocks, Chunked<ulong>? checks = null) =>
+        count == 0 ? Empty : new(ReadOnlyMemory<QuadKey>.Empty, blob, offset, count, fences, blocks, 1, 0, 0, checks);
 
     /// <summary>
     /// A section of a blob held sparsely: <paramref name="fences"/> the first
@@ -124,6 +130,11 @@ internal sealed class KeySection
         if (length > bytes.Length || length < 0 || _blob!.Read(new ByteOffset(_offset + at), bytes[..length]) != length)
         {
             throw new IOException("A derived run is shorter than its directory says.");
+        }
+
+        if (_checks is not null && BlockCheck.Of(bytes[..length]) != _checks[block])
+        {
+            throw new IOException("A block of an extent does not match its check; the extent is damaged.");
         }
 
         KeyBlocks.Decode(bytes[..length], buffer[..count]);
