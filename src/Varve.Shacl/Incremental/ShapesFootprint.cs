@@ -23,6 +23,7 @@ internal sealed class ShapesFootprint
 {
     private readonly Dictionary<RdfTerm, List<int>> _byPredicate = new(RdfTerm.Comparer);
     private readonly List<int> _anyPredicate = [];
+    private readonly Dictionary<RdfTerm, List<int>> _byTargetClass = new(RdfTerm.Comparer);
 
     private ShapesFootprint(ShapesGraph shapes)
     {
@@ -75,6 +76,18 @@ internal sealed class ShapesFootprint
         into.AddRange(_anyPredicate);
     }
 
+    /// <summary>
+    /// The shapes that have <paramref name="cls"/> among their target classes,
+    /// explicit or implicit (§3.1.3.2–3), none when no shape does. An
+    /// <c>rdf:type</c> triple reaches them through its class's superclasses,
+    /// not through <see cref="Readers"/>, unless they read <c>rdf:type</c> for
+    /// another reason too.
+    /// </summary>
+    internal List<int>? TargetedBy(RdfTerm cls) => _byTargetClass.GetValueOrDefault(cls);
+
+    /// <summary>Whether any shape has a target class.</summary>
+    internal bool HasTargetClasses => _byTargetClass.Count > 0;
+
     private void Reads(int shape, RdfTerm predicate)
     {
         if (!_byPredicate.TryGetValue(predicate, out List<int>? readers))
@@ -99,7 +112,20 @@ internal sealed class ShapesFootprint
         // Targets (§3.1.3).
         if (shape.TargetClasses.Count > 0)
         {
-            Reads(s, Vocabulary.RdfType);
+            foreach (RdfTerm cls in shape.TargetClasses)
+            {
+                if (!_byTargetClass.TryGetValue(cls, out List<int>? targeted))
+                {
+                    targeted = [];
+                    _byTargetClass[cls] = targeted;
+                }
+
+                if (targeted.Count == 0 || targeted[^1] != s)
+                {
+                    targeted.Add(s);
+                }
+            }
+
             Reads(s, Vocabulary.RdfsSubClassOf);
             reasons.Add(new(Maintainability.Scoped, "sh:targetClass on rdfs:subClassOf in the data graph", "SHACL 1.2 Core §3.1.3.2"));
         }

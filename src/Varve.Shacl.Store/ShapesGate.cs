@@ -10,7 +10,6 @@ using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Shacl.Model;
-using Varve.Shacl.Sparql;
 using Varve.Shacl.Store.Model;
 using Varve.Store;
 using Varve.Store.Log;
@@ -43,16 +42,7 @@ public sealed class ShapesGate : ICommitValidator
         ArgumentNullException.ThrowIfNull(bindings);
         _bindings = [.. bindings];
         _bindings.Sort(static (a, b) => string.CompareOrdinal(Encoding.UTF8.GetString(a.Binding.Lexical), Encoding.UTF8.GetString(b.Binding.Lexical)));
-        options ??= ShaclOptions.Default;
-        IReadOnlyList<IShaclExtension> extensions = options.Extensions.Count > 0 ? options.Extensions : [SparqlConstraints.Extension()];
-        _options = new ShaclOptions
-        {
-            Extensions = extensions,
-            RegexTimeout = options.RegexTimeout,
-            ConformanceDisallows = options.ConformanceDisallows,
-            Canonicalisation = options.Canonicalisation,
-            RefuseNonDeterministicFunctions = true,
-        };
+        _options = options ?? ShaclOptions.Default;
     }
 
     /// <summary>The bindings, in the order of their IRIs.</summary>
@@ -96,7 +86,7 @@ public sealed class ShapesGate : ICommitValidator
     {
         ArgumentNullException.ThrowIfNull(binding);
         ArgumentNullException.ThrowIfNull(state);
-        ShapesLoad load = Load(binding, state);
+        ShapesLoad load = BindingValidation.Load(binding, state, Options(binding));
         if (load.Shapes is not { } shapes)
         {
             return new BindingCheck(null, load.Problems, Report.ShapesInvalid(binding, load.Problems));
@@ -112,10 +102,10 @@ public sealed class ShapesGate : ICommitValidator
     private bool Decide(ShapesBinding binding, IQuadSource proposed, QuadDelta delta, List<RdfTerm> attachments, out ValidationVerdict refused)
     {
         refused = default;
-        bool touched = Touches(proposed, delta, binding.ShapesGraph);
+        bool touched = BindingValidation.Touches(proposed, delta, binding.ShapesGraph);
         if (touched || !_loaded.TryGetValue(binding.Binding, out ShapesGraph? shapes))
         {
-            ShapesLoad load = Load(binding, proposed);
+            ShapesLoad load = BindingValidation.Load(binding, proposed, Options(binding));
             if (load.Shapes is null)
             {
                 // A bound shapes graph that does not load refuses the commit, whichever made it so (R4, R5).
@@ -143,7 +133,7 @@ public sealed class ShapesGate : ICommitValidator
         }
 
         DataGraphSource data = new(proposed, binding);
-        QuadDelta changes = InDataGraph(data, delta);
+        QuadDelta changes = BindingValidation.InDataGraph(data, delta);
         IncrementalOutcome outcome = IncrementalValidation.Compare(shapes, data, GraphPattern.Any, changes, Options(binding));
         if (outcome.Comparison is not { } comparison)
         {
@@ -191,85 +181,5 @@ public sealed class ShapesGate : ICommitValidator
         return RdfTerm.TripleTerm(binding.Binding, AffectedReport, RdfTerm.Literal(Encoding.UTF8.GetBytes(literal)));
     }
 
-    private ShaclOptions Options(ShapesBinding binding) => binding.SubClassOfInShapesGraph
-        ? new ShaclOptions
-        {
-            Extensions = _options.Extensions,
-            RegexTimeout = _options.RegexTimeout,
-            ConformanceDisallows = _options.ConformanceDisallows,
-            Canonicalisation = _options.Canonicalisation,
-            RefuseNonDeterministicFunctions = true,
-            SubClassOfInShapesGraph = true,
-        }
-        : _options;
-
-    /// <summary>The shapes graph as of <paramref name="state"/>, copied out so that it outlives the view, and loaded.</summary>
-    private ShapesLoad Load(ShapesBinding binding, IQuadSource state)
-    {
-        InMemoryDatasetBuilder builder = new();
-        if (state.TryInternalise(binding.ShapesGraph, out TermHandle graph))
-        {
-            using IQuadCursor cursor = state.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Named(graph));
-            while (cursor.MoveNext())
-            {
-                Quad quad = cursor.Current;
-                if (state.TryExternalise(quad.Subject, out RdfTerm? s) && state.TryExternalise(quad.Predicate, out RdfTerm? p) && state.TryExternalise(quad.Object, out RdfTerm? o))
-                {
-                    builder.Add(s, p, o);
-                }
-            }
-        }
-
-        return ShapesGraph.Load(builder.ToDataset(), GraphPattern.DefaultGraph, Options(binding));
-    }
-
-    private static bool Touches(IQuadSource proposed, QuadDelta delta, RdfTerm shapesGraph)
-    {
-        if (!proposed.TryInternalise(shapesGraph, out TermHandle graph))
-        {
-            return false;
-        }
-
-        foreach (Quad quad in delta.Asserted)
-        {
-            if (proposed.TermComparer.Equals(quad.Graph, graph))
-            {
-                return true;
-            }
-        }
-
-        foreach (Quad quad in delta.Retracted)
-        {
-            if (proposed.TermComparer.Equals(quad.Graph, graph))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static QuadDelta InDataGraph(DataGraphSource data, QuadDelta delta)
-    {
-        List<Quad> asserted = [], retracted = [];
-        foreach (Quad quad in delta.Asserted)
-        {
-            if (data.Allows(quad.Graph))
-            {
-                asserted.Add(quad);
-            }
-        }
-
-        foreach (Quad quad in delta.Retracted)
-        {
-            if (data.Allows(quad.Graph))
-            {
-                retracted.Add(quad);
-            }
-        }
-
-        return asserted.Count == delta.Asserted.Length && retracted.Count == delta.Retracted.Length
-            ? delta
-            : QuadDelta.Create([.. asserted], [.. retracted]);
-    }
+    private ShaclOptions Options(ShapesBinding binding) => BindingValidation.Options(binding, _options);
 }

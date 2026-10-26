@@ -1,0 +1,373 @@
+# SHACL shapes for the management vocabulary (ADRs 0166, 0170, 0175), with one
+# management graph as the data graph. SHACL Core only: Varve.Management is
+# at layer 4, beside Varve.Shacl.Sparql, so it cannot reference it.
+#
+# What Core cannot state, the residual check in Varve.Management states
+# alone (ADR 0175 point 3):
+# - no blank node anywhere, and no unknown or reserved varve: term (Core
+#   cannot target every subject, nor every predicate in a namespace);
+# - ADR 0144's event-schema terms only in a dataset's graph that says
+#   varve:eventDeclarations varve:Moved (ADR 0167): the graph's own state;
+# - the graph names the system dataset admits, and nothing in its default
+#   graph;
+# - a dataset's graph declares exactly one varve:Dataset, whose
+#   varve:datasetName is the graph's own name;
+# - the fleet graph declares no dataset and grants varve:operator only, and a
+#   dataset's graph grants no varve:operator;
+# - the bootstrap graph holds only varve:bootstrapOperator literals;
+# - a graph template's syntax.
+# Each needs the graph's name, a count across the graph, or a parser. The
+# move's transitions (ADR 0167 point 4: none or varve:InDataset to Moving, the
+# cancel back to varve:InDataset, Moving to Moved) compare two management
+# positions, and ManagementValidator checks them.
+
+@prefix sh:    <http://www.w3.org/ns/shacl#> .
+@prefix varve: <https://w3id.org/varve/ns#> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+
+# ---- Datasets (ADR 0166 point 2) ----------------------------------------
+
+varve:DatasetShape
+    a sh:NodeShape ;
+    rdfs:comment "A dataset's declaration." ;
+    sh:targetClass varve:Dataset ;
+    sh:property [
+        sh:path varve:datasetName ;
+        sh:minCount 1 ;
+        sh:message "this property is required" ;
+    ] ;
+    sh:property [
+        sh:path varve:datasetName ;
+        sh:maxCount 1 ;
+        sh:message "this property is stated at most once" ;
+    ] ;
+    sh:property [
+        sh:path varve:datasetName ;
+        sh:datatype xsd:string ;
+        sh:message "this property's value is a plain string literal" ;
+    ] ;
+    sh:property [
+        sh:path varve:storage ;
+        sh:maxCount 1 ;
+        sh:message "this property is stated at most once" ;
+    ] ;
+    sh:property [
+        sh:path varve:storage ;
+        sh:in ( varve:File varve:Memory varve:ObjectStorage ) ;
+        sh:message "varve:storage is varve:File, varve:Memory or varve:ObjectStorage" ;
+    ] ;
+    sh:property [
+        sh:path varve:defaultAccessScope ;
+        sh:maxCount 1 ;
+        sh:message "this property is stated at most once" ;
+    ] ;
+    sh:property [
+        sh:path varve:defaultAccessScope ;
+        sh:in ( varve:AllHistory varve:Current ) ;
+        sh:message "varve:defaultAccessScope is varve:AllHistory or varve:Current" ;
+    ] ;
+    sh:property [
+        sh:path varve:placedOn ;
+        sh:maxCount 1 ;
+        sh:message "this property is stated at most once" ;
+    ] ;
+    sh:property [
+        sh:path varve:placedOn ;
+        sh:datatype xsd:string ;
+        sh:message "this property's value is a plain string literal" ;
+    ] ;
+    sh:property [
+        sh:path varve:automaticHandover ;
+        sh:maxCount 1 ;
+        sh:message "this property is stated at most once" ;
+    ] ;
+    sh:property [
+        sh:path varve:automaticHandover ;
+        sh:datatype xsd:boolean ;
+        sh:message "this property's value is an xsd:boolean" ;
+    ] ;
+    sh:property [
+        sh:path varve:closed ;
+        sh:maxCount 1 ;
+        sh:message "this property is stated at most once" ;
+    ] ;
+    sh:property [
+        sh:path varve:closed ;
+        sh:datatype xsd:boolean ;
+        sh:message "this property's value is an xsd:boolean" ;
+    ] ;
+    sh:property [
+        sh:path varve:eventDeclarations ;
+        sh:maxCount 1 ;
+        sh:message "this property is stated at most once" ;
+    ] ;
+    sh:property [
+        sh:path varve:eventDeclarations ;
+        sh:in ( varve:InDataset varve:Moving varve:Moved ) ;
+        sh:message "varve:eventDeclarations is varve:InDataset, varve:Moving or varve:Moved" ;
+    ] .
+
+# ---- Moving event declarations (ADR 0167) --------------------------------
+
+varve:EventDeclarationsShape
+    a sh:NodeShape ;
+    rdfs:comment "Where a dataset's event declarations are is the dataset's to say: varve:InDataset, as a cancel states it, varve:Moving or varve:Moved." ;
+    sh:targetSubjectsOf varve:eventDeclarations ;
+    sh:class varve:Dataset ;
+    sh:message "varve:eventDeclarations is stated on the dataset's node only" .
+
+varve:MovedEventTypeShape
+    a sh:NodeShape ;
+    rdfs:comment "An event type in a management graph, moved there from its catalogue graph, names the graph that catalogue described." ;
+    sh:targetClass varve:EventType ;
+    sh:property [
+        sh:path varve:sourceGraph ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:message "a moved event type names exactly one varve:sourceGraph, an absolute IRI or varve:defaultGraph" ;
+    ] .
+
+# ---- Grants (ADR 0166 point 3, ADR 0107) ---------------------------------
+
+varve:GrantShape
+    a sh:NodeShape ;
+    rdfs:comment "A grant: one grantee, one permission, and for read and write a graph set." ;
+    sh:targetClass varve:Grant ;
+    sh:property [
+        sh:path varve:grantee ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "a grant names exactly one varve:grantee" ;
+    ] ;
+    sh:property [
+        sh:path varve:grantee ;
+        sh:nodeKind sh:IRI ;
+        sh:message "a grantee is an IRI: an agent's, or a role's or group's node" ;
+    ] ;
+    sh:property [
+        sh:path varve:grantee ;
+        sh:or (
+            [ sh:class varve:Role ]
+            [ sh:class varve:Group ]
+            [ sh:pattern "^[A-Za-z][A-Za-z0-9+.-]*:" ]
+        ) ;
+        sh:message "an agent is named by its absolute IRI, the token's issuer, a hash and its subject" ;
+    ] ;
+    sh:property [
+        sh:path varve:permission ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "a grant has exactly one varve:permission" ;
+    ] ;
+    sh:property [
+        sh:path varve:permission ;
+        sh:in ( varve:read varve:write varve:admin varve:operator ) ;
+        sh:message "varve:permission is varve:read, varve:write, varve:admin or varve:operator" ;
+    ] .
+
+varve:WideGrantShape
+    a sh:NodeShape ;
+    rdfs:comment "admin and operator cover every graph, and name no graph set." ;
+    sh:targetClass varve:Grant ;
+    sh:or (
+        [ sh:property [ sh:path varve:permission ; sh:in ( varve:read varve:write ) ] ]
+        [ sh:and ( varve:NamesNoGraphSet ) ]
+    ) ;
+    sh:message "admin and operator cover every graph: such a grant names no graph set (ADR 0107)" .
+
+varve:NamedGrantShape
+    a sh:NodeShape ;
+    rdfs:comment "read and write name their graphs." ;
+    sh:targetClass varve:Grant ;
+    sh:or (
+        [ sh:property [ sh:path varve:permission ; sh:in ( varve:admin varve:operator ) ] ]
+        [ sh:and ( varve:NamesAGraphSet ) ]
+    ) ;
+    sh:message "a read or write grant names its graphs: varve:allGraphs true, varve:graph, varve:graphPrefix or varve:graphTemplate" .
+
+# ---- Graph sets: on a grant and on a shapes binding ----------------------
+
+varve:GraphSetShape
+    a sh:NodeShape ;
+    rdfs:comment "The graph-set terms, on a grant or a shapes binding." ;
+    sh:targetClass varve:Grant , varve:ShapesBinding ;
+    sh:property [
+        sh:path varve:allGraphs ;
+        sh:maxCount 1 ;
+        sh:message "this property is stated at most once" ;
+    ] ;
+    sh:property [
+        sh:path varve:allGraphs ;
+        sh:datatype xsd:boolean ;
+        sh:message "this property's value is an xsd:boolean" ;
+    ] ;
+    sh:property [
+        sh:path varve:graph ;
+        sh:or (
+            [ sh:in ( varve:defaultGraph ) ]
+            [ sh:nodeKind sh:IRI ; sh:pattern "^[A-Za-z][A-Za-z0-9+.-]*:" ; sh:not [ sh:pattern "^https://w3id\\.org/varve/ns#" ] ]
+        ) ;
+        sh:message "varve:graph is an absolute IRI or varve:defaultGraph" ;
+    ] ;
+    sh:property [
+        sh:path varve:graphPrefix ;
+        sh:nodeKind sh:Literal ;
+        sh:minLength 1 ;
+        sh:message "varve:graphPrefix is a non-empty literal" ;
+    ] ;
+    sh:property [
+        sh:path varve:graphTemplate ;
+        sh:class varve:GraphTemplate ;
+        sh:message "varve:graphTemplate names a varve:GraphTemplate declared in the same graph" ;
+    ] ;
+    # varve:allGraphs true covers every graph: nothing else is named beside it.
+    sh:not [
+        sh:property [ sh:path varve:allGraphs ; sh:hasValue true ] ;
+        sh:or (
+            [ sh:property [ sh:path varve:graph ; sh:minCount 1 ] ]
+            [ sh:property [ sh:path varve:graphPrefix ; sh:minCount 1 ] ]
+            [ sh:property [ sh:path varve:graphTemplate ; sh:minCount 1 ] ]
+        )
+    ] ;
+    sh:message "varve:allGraphs covers every graph; name no other graph beside it" .
+
+varve:NamesNoGraphSet
+    a sh:NodeShape ;
+    rdfs:comment "Names no graph: what an admin or operator grant is." ;
+    sh:property [ sh:path varve:allGraphs ; sh:maxCount 0 ] ;
+    sh:property [ sh:path varve:graph ; sh:maxCount 0 ] ;
+    sh:property [ sh:path varve:graphPrefix ; sh:maxCount 0 ] ;
+    sh:property [ sh:path varve:graphTemplate ; sh:maxCount 0 ] ;
+    sh:message "admin and operator cover every graph: such a grant names no graph set (ADR 0107)" .
+
+varve:NamesAGraphSet
+    a sh:NodeShape ;
+    rdfs:comment "Names its graphs: varve:allGraphs true, or at least one graph, prefix or template." ;
+    sh:or (
+        [ sh:property [ sh:path varve:allGraphs ; sh:hasValue true ] ]
+        [ sh:property [ sh:path varve:graph ; sh:minCount 1 ] ]
+        [ sh:property [ sh:path varve:graphPrefix ; sh:minCount 1 ] ]
+        [ sh:property [ sh:path varve:graphTemplate ; sh:minCount 1 ] ]
+    ) ;
+    sh:message "names its graphs: varve:allGraphs true, varve:graph, varve:graphPrefix or varve:graphTemplate" .
+
+# ---- Principals and templates (ADR 0166 point 3) -------------------------
+#
+# A principal or a template is read where a grant names it, as the code
+# reads it: each shape targets the objects of varve:grantee or
+# varve:graphTemplate, and a role's or a group's rules hold when the node is
+# one.
+
+varve:PrincipalShape
+    a sh:NodeShape ;
+    rdfs:comment "A grantee is a role or a group, not both." ;
+    sh:targetObjectsOf varve:grantee ;
+    sh:not [ sh:and ( [ sh:class varve:Role ] [ sh:class varve:Group ] ) ] ;
+    sh:message "a principal is a role or a group, not both" .
+
+varve:RoleOrGroupClaimShape
+    a sh:NodeShape ;
+    rdfs:comment "A role or a group has exactly one claim value, a plain string." ;
+    sh:targetObjectsOf varve:grantee ;
+    sh:or (
+        [ sh:not [ sh:or ( [ sh:class varve:Role ] [ sh:class varve:Group ] ) ] ]
+        [ sh:property [ sh:path varve:claimValue ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ]
+    ) ;
+    sh:message "a role's or group's varve:claimValue is required, stated once, a plain string literal" .
+
+varve:GroupClaimTypeShape
+    a sh:NodeShape ;
+    rdfs:comment "A group's claim type is at most one plain string." ;
+    sh:targetObjectsOf varve:grantee ;
+    sh:or (
+        [ sh:not [ sh:class varve:Group ] ]
+        [ sh:class varve:Role ]
+        [ sh:property [ sh:path varve:claimType ; sh:maxCount 1 ; sh:datatype xsd:string ] ]
+    ) ;
+    sh:message "a group's varve:claimType is stated at most once, a plain string literal" .
+
+varve:GraphTemplateShape
+    a sh:NodeShape ;
+    rdfs:comment "A graph template a grant names: one template string, and how it matches." ;
+    sh:targetObjectsOf varve:graphTemplate ;
+    sh:property [
+        sh:path varve:template ;
+        sh:minCount 1 ;
+        sh:message "this property is required" ;
+    ] ;
+    sh:property [
+        sh:path varve:template ;
+        sh:maxCount 1 ;
+        sh:message "this property is stated at most once" ;
+    ] ;
+    sh:property [
+        sh:path varve:template ;
+        sh:datatype xsd:string ;
+        sh:message "this property's value is a plain string literal" ;
+    ] ;
+    sh:property [
+        sh:path varve:match ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( varve:Exact varve:Prefix ) ;
+        sh:message "varve:match is varve:Exact or varve:Prefix" ;
+    ] .
+
+# ---- Bindings (ADRs 0166, 0170) -----------------------------------------
+
+varve:BindingShape
+    a sh:NodeShape ;
+    rdfs:comment "A shapes or TBox binding: exactly one bound graph, an absolute IRI." ;
+    sh:targetClass varve:ShapesBinding , varve:TBoxBinding ;
+    sh:property [
+        sh:path varve:boundGraph ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:pattern "^[A-Za-z][A-Za-z0-9+.-]*:" ;
+        sh:message "a binding names exactly one varve:boundGraph, an absolute IRI" ;
+    ] .
+
+varve:ShapesBindingShape
+    a sh:NodeShape ;
+    rdfs:comment "A shapes binding: a mode, the graphs it validates, and its flags." ;
+    sh:targetClass varve:ShapesBinding ;
+    sh:property [
+        sh:path varve:validationMode ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( varve:Reject varve:Report varve:Off ) ;
+        sh:message "a shapes binding has exactly one varve:validationMode: varve:Reject, varve:Report or varve:Off" ;
+    ] ;
+    sh:property [
+        sh:path varve:graphTemplate ;
+        sh:maxCount 0 ;
+        sh:message "a shapes binding names its graphs without varve:graphTemplate: a template expands per caller, and a binding has none" ;
+    ] ;
+    sh:property [
+        sh:path varve:graph ;
+        sh:disjoint varve:boundGraph ;
+        sh:message "a shapes binding's graphs do not name its own shapes graph, which is never data (ADR 0170)" ;
+    ] ;
+    sh:property [
+        sh:path varve:allowFullEvaluation ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:boolean ;
+        sh:message "this property's value is an xsd:boolean" ;
+    ] ;
+    sh:property [
+        sh:path varve:subClassOfInShapesGraph ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:boolean ;
+        sh:message "this property's value is an xsd:boolean" ;
+    ] .
+
+varve:ShapesBindingGraphsShape
+    a sh:NodeShape ;
+    rdfs:comment "A shapes binding names its graphs." ;
+    sh:targetClass varve:ShapesBinding ;
+    sh:node varve:NamesAGraphSet ;
+    sh:message "a shapes binding names its graphs: varve:allGraphs true, varve:graph, varve:graphPrefix or varve:graphTemplate" .

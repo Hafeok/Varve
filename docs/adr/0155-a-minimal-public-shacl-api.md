@@ -110,3 +110,31 @@ baseline diff with no removed line:
 The shapes model stays internal.
 
 **The ledger.** No new ruling here; ADR 0155's set stands.
+
+## Amendment, 2026-10-23 — what part 2b adds
+
+Filed by SHACL, part 2b (milestone 8, #13), unaccepted until the maintainer
+accepts it (ADR 0066).
+
+Additive, for the validation projection (ADR
+[0174](0174-the-validation-projection.md)); the pull request shows the
+baseline diff with no removed line:
+
+- `IncrementalComparison.Pairs`: every affected (shape, focus node) pair, as
+  a `FocusPair` with its results after the delta, or none when it is no
+  longer a target;
+- `ShaclValidator.ValidateByPair`, returning a `PairedOutcome`: the whole
+  report and every targeted pair with a result;
+- `ValidationReport.Compose(header, parts)`: one report from parts, under a
+  header's imports and conformance set;
+- `ValidationReport.WriteTo` and `ValidationReport.ReadFrom`: a report as
+  bytes and back, paths included, the same canonical N-Quads after;
+- `ValidationOutcome.Reported` and `ValidationOutcome.Failed`, for a store
+  that serves a report it keeps.
+
+The shapes model stays internal. The bytes of `WriteTo` are derived and
+droppable, versioned by their first four bytes, and refused when not this
+version's.
+
+**The ledger.** No new ruling here; ADR 0155's set stands, and the
+projection's rulings are ADR 0174's.

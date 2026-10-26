@@ -110,6 +110,62 @@ public class ShapesBindingTests
         }
     }
 
+    [Fact]
+    public async Task The_report_is_a_reserved_graph_read_by_query_and_by_graph_store_and_never_written()
+    {
+        string root = Directory.CreateTempSubdirectory("varve-shapes-").FullName;
+        try
+        {
+            await using RunningServer server = await RunningServer.StartAsync(new Dictionary<string, string> { ["Varve:Auth:Mode"] = "Anonymous", ["Varve:DatasetsRoot"] = root });
+            Assert.Equal(HttpStatusCode.Created, (await Trig(server, "manage/datasets/people", Declaration("people", "Report"))).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await Update(server, "people", Integers)).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await Update(server, "people", "INSERT DATA { <http://ex/ann> <http://ex/age> \"old\" }")).StatusCode);
+            const string Report = "https://w3id.org/varve/ns#validation/urn%3Abinding%3Apeople";
+
+            // By query: the report at the head names the focus node.
+            string query = "SELECT ?focus WHERE { GRAPH <" + Report + "> { ?result <" + Sh + "focusNode> ?focus } }";
+            using (HttpRequestMessage request = new(HttpMethod.Post, new Uri("datasets/people/sparql", UriKind.Relative)) { Content = new StringContent(query, Encoding.UTF8, "application/sparql-query") })
+            {
+                request.Headers.Accept.ParseAdd("application/sparql-results+json");
+                HttpResponseMessage answered = await server.Client.SendAsync(request, Ct);
+                string body = await answered.Content.ReadAsStringAsync(Ct);
+                Assert.True(answered.StatusCode == HttpStatusCode.OK, body);
+                using JsonDocument json = JsonDocument.Parse(body);
+                JsonElement binding = Assert.Single(json.RootElement.GetProperty("results").GetProperty("bindings").EnumerateArray());
+                Assert.Equal("http://ex/ann", binding.GetProperty("focus").GetProperty("value").GetString());
+            }
+
+            // By graph store: the whole report, tagged with the position it was read at.
+            using (HttpRequestMessage request = new(HttpMethod.Get, new Uri("datasets/people/graphs?graph=" + Uri.EscapeDataString(Report), UriKind.Relative)))
+            {
+                request.Headers.Accept.ParseAdd("application/n-triples");
+                HttpResponseMessage read = await server.Client.SendAsync(request, Ct);
+                string body = await read.Content.ReadAsStringAsync(Ct);
+                Assert.True(read.StatusCode == HttpStatusCode.OK, body);
+                Assert.Contains("<" + Sh + "conforms> \"false\"", body, StringComparison.Ordinal);
+                Assert.Contains("<http://ex/ann>", body, StringComparison.Ordinal);
+            }
+
+            // Never written, by anyone.
+            HttpResponseMessage refused = await Update(server, "people", "INSERT DATA { GRAPH <" + Report + "> { <http://ex/a> <http://ex/b> <http://ex/c> } }");
+            Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+            Assert.Contains("graph-not-writable", await refused.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+
+            // Readiness reports the binding's lag, beside the dataset's.
+            HttpResponseMessage ready = await server.Client.GetAsync(new Uri("health/ready", UriKind.Relative), Ct);
+            using (JsonDocument json = JsonDocument.Parse(await ready.Content.ReadAsStringAsync(Ct)))
+            {
+                Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
+                JsonElement validation = json.RootElement.GetProperty("datasets").GetProperty("people").GetProperty("validation");
+                Assert.True(validation.GetProperty("urn:binding:people").GetInt64() >= 0);
+            }
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static async Task<HttpResponseMessage> Trig(RunningServer server, string path, string trig)
     {
         using HttpRequestMessage request = new(HttpMethod.Put, new Uri(path, UriKind.Relative)) { Content = new StringContent(trig, Encoding.UTF8, "application/trig") };

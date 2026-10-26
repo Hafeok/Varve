@@ -10,6 +10,11 @@
 # night is a defect on main, found the next morning instead of never. #129 may
 # make this run a release's gate.
 #
+# The long properties and the REC gate's long runs (#13) run here too, with
+# VARVE_LONG_PROPERTIES set: the land gate runs their sized iteration counts,
+# and this runs them in full. A failure is a defect to fix on main, never a
+# reason to lower the land gate's counts.
+#
 # No container: the suites here run in process. The services legs keep their
 # own job in ci.yml and its images in .github/ci-images.yaml.
 name: Nightly
@@ -110,5 +115,63 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: test-results-nightly-${{ matrix.os }}
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
+
+  long:
+    name: long properties (${{ matrix.project }})
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      VARVE_LONG_PROPERTIES: "1"
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [Varve.Derivation.Tests, Varve.Shacl.Tests, Varve.Shacl.Sparql.Tests, Varve.Shacl.Store.Tests]
+
+    steps:
+      - name: Line endings
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # The SHACL suites and REC's shapes are submodules.
+          submodules: recursive
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Test ${{ matrix.project }}, long
+        run: >
+          dotnet test
+          --project tests/${{ matrix.project }}/${{ matrix.project }}.csproj
+          --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/${{ matrix.project }}
+
+      - name: Test durations
+        if: always()
+        run: >
+          dotnet run eng/test-durations.cs --
+          ${{ github.workspace }}/artifacts/test-results/${{ matrix.project }}
+          --label "${{ matrix.project }}, long"
+
+      - name: Upload the test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-nightly-${{ matrix.project }}
           path: ${{ github.workspace }}/artifacts/test-results
           if-no-files-found: warn

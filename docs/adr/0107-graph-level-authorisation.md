@@ -205,3 +205,22 @@ else stands: the seam, the wrapper and its cost, the governor, and row-level acc
 as milestone 9's.
 
 **The ledger.** `GrantsAreScopedByGraphSet` moves to ADR 0163's set, superseded.
+
+## Amendment, 2026-10-23 — who reads a validation report graph
+
+Filed by SHACL, part 2b (milestone 8, #13), unaccepted until the maintainer
+accepts it (ADR 0066).
+
+A binding's report graph, `varve:validation/{enc(binding IRI)}` (ADR
+[0174](0174-the-validation-projection.md)), is read by a caller who reads
+**every graph the binding validates**. A report names those graphs' nodes and
+values, so it is never more visible than they are. That means:
+- every graph, when the binding validates every graph;
+- the default graph, when the binding names it;
+- each named graph the binding lists;
+- each prefix the binding lists, under a prefix of the caller's own.
+
+A grant naming the report graph itself has no effect. Any other caller sees
+no such graph: a query finds nothing in it, and the Graph Store answers `404`.
+
+**The ledger.** The ruling is ADR 0174's `ReadNeedsEveryValidatedGraph`.

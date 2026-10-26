@@ -266,6 +266,14 @@ maintenance: `VARVE_EXTENT_SCHEDULES=400` (40 on a pull request),
 `VARVE_READER_SCHEDULES=1200` (60; the count run clean at development) and
 `VARVE_EXTENT_FAULTS_FULL=1`.
 
+The nightly run's second job sets `VARVE_LONG_PROPERTIES=1` for the SHACL
+projects: `Varve.Derivation.Tests`, `Varve.Shacl.Tests`,
+`Varve.Shacl.Sparql.Tests` and `Varve.Shacl.Store.Tests`. Their properties
+that have a long count then run at ten times a pull request's iterations.
+The REC gate's three ways are compared at all 1,001 positions of REC S
+(every 250th and the last, five, on a pull request, in about a minute) and
+at 100 positions of REC M (none on a pull request) (ADR 0176).
+
 The variables of §6 that hunt rather than gate (`VARVE_FAULT_SEEDS`,
 `VARVE_OBJECT_FAULT_SEEDS`, `VARVE_OBJECT_FAULT_STEPS`,
 `VARVE_HTTP_FAULT_STEPS`) stay what they were: neither a pull request nor the

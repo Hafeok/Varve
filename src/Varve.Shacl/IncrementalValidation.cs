@@ -69,8 +69,11 @@ public static class IncrementalValidation
         }
 
         List<ResultRecord> before = [], after = [];
-        ResultSink beforeSink = ResultSink.Collecting(before), afterSink = ResultSink.Collecting(after);
+        ResultSink beforeSink = ResultSink.Collecting(before);
         HashSet<Node> focus = new(pre.Data.Nodes);
+        List<FocusPair> focusPairs = [];
+        List<ResultRecord> pairRecords = [];
+        ResultSink pairSink = ResultSink.Collecting(pairRecords);
         int pairs = 0;
         foreach ((Shape shape, Node node) in affected.Pairs())
         {
@@ -83,9 +86,16 @@ public static class IncrementalValidation
 
             if (post.IsTarget(shape, node))
             {
-                post.ValidateFocus(shape, node, afterSink);
+                pairRecords.Clear();
+                post.ValidateFocus(shape, node, pairSink);
+                after.AddRange(pairRecords);
+                focusPairs.Add(new FocusPair(shape.Node, post.Data.Term(node), ValidationReport.Create(post, pairRecords)));
                 focus.Add(node);
                 pairs++;
+            }
+            else
+            {
+                focusPairs.Add(new FocusPair(shape.Node, post.Data.Term(node), null));
             }
         }
 
@@ -103,7 +113,8 @@ public static class IncrementalValidation
             ValidationReport.Create(pre, before),
             afterReport,
             Introduced(shapes, pre, post, before, after, afterReport),
-            pairs);
+            pairs,
+            focusPairs);
     }
 
     private static void Add(AffectedPairs affected, DataGraph data, in Quad quad)

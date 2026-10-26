@@ -57,12 +57,13 @@ public class ProblemCatalogueTests
     /// Types whose trigger holds state across requests, exercised in
     /// <c>GovernanceTests</c> (the live-tail bound) and <c>Varve.Server.Tests</c>
     /// (the concurrent-read limit, which is the host's rate limiter; and a
-    /// writer superseded by a second server on the same object store, ADR 0136).
+    /// writer superseded by a second server on the same object store, ADR 0136),
+    /// and <c>ReportGraphTests</c> (a validation projection behind, ADR 0174).
     /// </summary>
     private static readonly ImmutableArray<ProblemType> TestedElsewhere =
     [
         ProblemType.TooManyLiveTails, ProblemType.ServerBusy, ProblemType.WriterSuperseded, ProblemType.EventNotRendered,
-        ProblemType.ManagementBehind, ProblemType.DatasetBehind,
+        ProblemType.ManagementBehind, ProblemType.DatasetBehind, ProblemType.ValidationBehind,
     ];
 
     /// <summary>The types the management plane's endpoints emit, triggered by <see cref="every_problem_the_management_endpoints_emit_has_its_catalogued_shape"/>.</summary>

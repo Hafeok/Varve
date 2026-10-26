@@ -30,6 +30,8 @@
 
   <ItemGroup>
     <ProjectReference Include="../Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
+    <!-- Layer 3 (ADR 0175, amending 0157 point 1): the declaration shapes are the runtime validator. -->
+    <ProjectReference Include="../Varve.Shacl/Varve.Shacl.csproj" />
     <ProjectReference Include="../Varve.Delta/Varve.Delta.csproj" />
     <ProjectReference Include="../Varve.Sparql/Varve.Sparql.csproj" />
     <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />

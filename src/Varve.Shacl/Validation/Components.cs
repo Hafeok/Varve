@@ -26,6 +26,9 @@ namespace Varve.Shacl.Validation;
 /// <summary>§7.1.1 <c>sh:class</c>: a list is a union of classes.</summary>
 internal sealed class ClassConstraint(ImmutableArray<RdfTerm> classes) : Constraint(Vocabulary.ClassConstraintComponent)
 {
+    /// <summary>The classes a value node must be an instance of, one of them at least.</summary>
+    internal ImmutableArray<RdfTerm> Classes => classes;
+
     internal override void Validate(ValidationRun run, Shape shape, Node focus, List<Node> values, ResultSink sink)
     {
         for (int i = 0; i < values.Count; i++)
