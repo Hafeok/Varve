@@ -149,7 +149,7 @@ The maintainer started the session with the test account's variables set
 - **Two defects, fixed and pinned:** #144 (`ObjectSegmentStore.Segment.Prepend`
   with an empty buffer) and #145 (`ObjectStorage.AnnounceAsync` after a
   replace whose answer was lost). ADRs 0160 and 0134 carry dated amendments.
-- **Step 4.** The report, `docs/testing.md` §8, and this record.
+- **Step 4.** The report, `docs/testing.md` §9, and this record.
 - **Not done, and why.** The optional CI workflow still filters by class;
   switching it to the trait is the maintainer's call. The server legs
   (`FleetTests`, `ObjectStorageServerTests`) were not taken to the account.

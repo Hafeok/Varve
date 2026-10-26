@@ -1,7 +1,7 @@
 # A disposable storage account for the live Azure leg
 
 `varve-blob-test.bicep` creates what the object-storage backend's live leg
-(`docs/testing.md` §8, `docs/reports/azure-blob-live-2026-10-23.md`) runs
+(`docs/testing.md` §9, `docs/reports/azure-blob-live-2026-10-23.md`) runs
 against: a precursor environment for developer-driven runs from a
 workstation, not a deployment of Varve. Deploy it into a resource group of
 its own and delete the group when done.
@@ -35,4 +35,4 @@ az deployment group create  --resource-group <group> --template-file varve-blob-
 
 `what-if` first, every time. Teardown is deleting the resource group. The
 tests themselves need only the data plane; they are run as `docs/testing.md`
-§8 says, with `VARVE_AZURE_BLOB_ENDPOINT` set to the `blobEndpoint` output.
+§9 says, with `VARVE_AZURE_BLOB_ENDPOINT` set to the `blobEndpoint` output.

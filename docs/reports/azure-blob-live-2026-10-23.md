@@ -50,7 +50,7 @@ out #143.
 ## 3. The live leg
 
 Two traits run it, and it is skipped wherever the container is not named
-(`docs/testing.md` §8): every test class of `Varve.Store.Tests.Objects`
+(`docs/testing.md` §9): every test class of `Varve.Store.Tests.Objects`
 carries `Category=AzureObjects` or, for the failure-injection workloads,
 `Category=AzureObjectsFaults`, and `TraitGuardTests` fails a class that
 carries neither or both. `azure-objects.yml` runs the first against the
