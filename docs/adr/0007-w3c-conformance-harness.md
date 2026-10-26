@@ -183,3 +183,28 @@ maintainer accepts it (ADR 0066).
 
 **The ledger.** No ruling changes; `W3cSuitesPinnedSubmodule` and
 `ConformanceRatchet` cover the new suites as written.
+
+## Amendment, 2026-10-19 — `Microsoft.Testing.Extensions.HangDump`
+
+Filed by #126, unaccepted until the maintainer accepts it (ADR 0066).
+
+- **The need.** No step that runs `Varve.Store.Tests` had a time limit or a
+  dump: a hang held a runner to GitHub's six-hour job limit and named no
+  test. Each such step now has `timeout-minutes`, and below it
+  `--hangdump --hangdump-timeout <t>`, which writes a dump of the test host
+  when no test has reported for `<t>` and names the tests in flight. VSTest's
+  `--blame-hang-timeout` is not available: this repository runs on
+  Microsoft.Testing.Platform (ADR 0006).
+- **The entry.** `Microsoft.Testing.Extensions.HangDump` 2.4.1, the same
+  platform line as `Microsoft.Testing.Extensions.TrxReport` 2.4.1, which this
+  ADR already admits for the same reason: an extension the platform does not
+  build in. Test-time only, referenced by `Varve.Store.Tests` alone, never by
+  anything packable. MIT and managed; it brings
+  `Microsoft.Diagnostics.NETCore.Client` 0.2.607501 (MIT, managed, the
+  runtime's diagnostics client) and `Microsoft.Extensions.Logging.Abstractions`
+  transitively, neither with a native asset.
+- **When it leaves.** When the platform builds hang dumps in, or the store
+  tests stop being the long step a hang would hide in.
+
+**The ledger.** The ruling of this block is `HangDumpForTheStoreTests`,
+unaccepted until the maintainer accepts it.

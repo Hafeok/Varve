@@ -188,6 +188,7 @@
   <ItemGroup Label="Test-time">
     <PackageVersion Include="xunit.v3" Version="4.0.1" Adr="0009" />
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" Adr="0007" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.HangDump" Version="2.4.1" Adr="0007" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" Version="1.1.4" Adr="0004" />
     <!-- A transitive dependency of the analyzer harness, pinned rather than
          inherited: Microsoft.CodeAnalysis.Analyzer.Testing asks for
