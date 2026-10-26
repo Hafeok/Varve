@@ -2,15 +2,17 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-using System;
-using System.Buffers;
 using System.Buffers.Binary;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
+using System.Threading;
+using System;
+using DecisionDriven.Ledger.Varve;
+using DecisionDriven;
 using Varve.Rdf;
 using Varve.Store.Log;
 
@@ -63,6 +65,13 @@ internal sealed class ExtentSet
 
     /// <summary>The set as a run, held open by the catalog that names it and every view that reads it.</summary>
     internal Run Run { get; }
+
+    /// <summary>
+    /// Whether a read inside the window seeks the set rather than narrowing
+    /// it: every extent of it is format 5 (ADR 0177). A format-4 set is
+    /// narrowed until maintenance rewrites it.
+    /// </summary>
+    internal bool Seekable => Array.TrueForAll(Orders, o => o.Extent!.Seekable);
 
     /// <summary>The graph-version index at the set's end (ADR 0125), beside its extents.</summary>
     internal BlobName Graphs => GraphsOf(Name);
@@ -189,6 +198,7 @@ internal sealed class ExtentSet
     /// order's rows by section, then the dictionary extent from the window's
     /// term sections. Nothing names the set until a catalog does.
     /// </summary>
+    [DesignDecision(typeof(SeekingExtentSets.EveryWriterWritesFormat5), Scope = ExceptionScope.Boundary)]
     internal static async ValueTask WriteAsync(
         IDerivedStore store,
         string name,
@@ -199,12 +209,13 @@ internal sealed class ExtentSet
         long blankCount,
         Func<IndexOrder, long, CancellationToken, ValueTask<IRowSource>> rows,
         TermSection[] terms,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ushort version = DerivedFormat.ExtentVersion)
     {
         for (int o = 0; o < Store.Orders.Count; o++)
         {
             IndexOrder order = (IndexOrder)o;
-            await DerivedFormat.WriteExtentAsync(store, OrderOf(name, order), order, dataset, from, to, toHash, (section, token) => rows(order, section, token), cancellationToken).ConfigureAwait(false);
+            await DerivedFormat.WriteExtentAsync(store, OrderOf(name, order), order, dataset, from, to, toHash, (section, token) => rows(order, section, token), cancellationToken, version).ConfigureAwait(false);
         }
 
         await DerivedFormat.WriteRunAsync(

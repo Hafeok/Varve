@@ -12,6 +12,90 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.0-preview.15] - 2026-10-23
+
+**As-of reads that seek — an as-of read inside an extent set costs its matches**
+
+### As-of reads that seek (#133, in 1.0 by #15)
+
+An as-of read at a position inside an extent set's window no longer
+narrows the whole set before it begins: it looks its keys up in the set as
+a read of the present does, and classifies only the matching rows'
+intervals. At REC M, inside the largest merged set (211 MiB), a quad's
+as-of lookup takes 4.4 / 15.0 µs at p50 / p99, 0.29× the same lookup at
+the head, where opening that view took 2.9 s. This release closes #133.
+The log's bytes are unchanged at storage format 1; extents are written in
+derived format 5, rebuilt and never migrated (ADR 0072). The two ADRs are
+filed unaccepted and accepted on the pull request (ADR 0066).
+
+#### Changed
+
+- **Derived format 5, for extents only** (ADR 0177). An extent's positions
+  are fixed-width columns beside its key sections, one distance a key, and
+  its rows within are a thirteenth key section with a column of two
+  distances a row. Its asserted and retracted sections are format 4's,
+  byte for byte, and a read of the present reads nothing else. Every other
+  derived blob, the catalog included, is still written as format 4.
+  Storage format §7.5.
+- **As-of reads seek** (ADR 0177). A lookup is three fence searches, a
+  block each and a column read; a scan merges the set's rows in the
+  pattern's range a key at a time; nothing is written. An as-of scan costs
+  its matches: 0.56 pages a match for a subject's quads at set sizes 28×
+  apart.
+- **An as-of estimate inside a set may be estimated** (ADR 0049, amended):
+  exact while the set holds at most 4,096 rows in the pattern's range,
+  otherwise the set's count at its end, marked estimated.
+- **Checkpoints, merges and drops write format 5**, from the rows format 4
+  had; a merge stays a pure function of its inputs (ADR 0158). Write
+  amplification at REC M is 1.86 per byte against 1.78, for extents 3.5%
+  smaller; checkpoint time is unchanged, maintenance 14% longer.
+- **Every block of a format-5 extent is checked** (ADR 0177). The
+  directory carries a 64-bit check for each key block and each column
+  block, verified when the block is read: an extent with any byte zeroed,
+  flipped or cut serves the same answers or fails the read, never a
+  different answer.
+- **Reader records state the derived format they read** (ADR 0160,
+  amended): `maxDerived`, absent read as 4, the record still version 1.
+  `varve storage readers list` shows it.
+- **`MaxSetBytes` bounds merges, not reads** (ADR 0178, 0159 amended). Its
+  default stays 256 MiB: at REC M a 1 GiB cap made the chain longer. The
+  operator guide says when to raise it.
+
+#### Upgrading
+
+- **A dataset written by `v0.1.0-preview.14` or before opens as it is.**
+  Reads inside its format-4 sets narrow them, as before, until
+  maintenance rewrites each alone as format 5, oldest first, when no merge
+  is due (ADR 0178). With `ExtentMerges.Enabled` false nothing is
+  rewritten.
+- **Older readers decide when the rewrite starts** (ADR 0178). While any
+  present reader record reads only format 4 (one of
+  `v0.1.0-preview.14` or before has no `maxDerived`), no format-4 set is
+  rewritten and merges of format-4 sets stay format 4; new checkpoints are
+  format 5. Once the record is forgotten or its reader upgraded, the
+  rewrite proceeds.
+- **Followers first is recommended; either order is safe.** A follower of
+  `v0.1.0-preview.14` or before behind a writer of this release finds the format-5
+  extents cache misses: its chain ends at the first such set and it reads
+  the log above it, serving every position correctly at the log's cost,
+  and the format-4 sets it needs stay while it is announced. A writer of
+  `v0.1.0-preview.14` or before (a downgrade) deletes the format-5 sets and writes
+  its next checkpoint from the log.
+
+#### Fixed
+
+- **A key with two intervals inside one set** is looked up at its first:
+  a lower bound in a run is now the first of equal keys, not whichever a
+  binary search met first. Found by the damage property on review.
+
+#### Measured
+
+REC M, generator output version 2, on files and on Azurite
+(`tests/Varve.Benchmarks/README.md`, "As-of reads that seek"). Head reads
+are unchanged: over one dataset of each format, in alternating rounds,
+the same lookups and scans at p50 overlap between this release and
+`main`'s store.
+
 ## [0.1.0-preview.14] - 2026-10-26
 
 **SHACL, part 2b — the validation projection, shapes for the declarations, the REC gate**
@@ -1574,7 +1658,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.14...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.15...HEAD
+[0.1.0-preview.15]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.14...v0.1.0-preview.15
 [0.1.0-preview.14]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.13...v0.1.0-preview.14
 [0.1.0-preview.13]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.12...v0.1.0-preview.13
 [0.1.0-preview.12]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.11...v0.1.0-preview.12

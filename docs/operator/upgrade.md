@@ -7,13 +7,46 @@
   Varve opens any dataset an earlier one wrote.
 - **`derived/` carries its own version and is a cache.** Each build states
   the derived versions it reads; a file of another version is a cache miss
-  and is rebuilt from the log (ADR 0072). This build writes **derived
-  format 3** (ADR 0109: runs carry a term filter) and reads **2 and 3**: a
-  format-2 dataset opens as it did and migrates as maintenance rewrites its
-  runs, with no step for the operator.
+  and is rebuilt from the log (ADR 0072). This build writes extents in
+  **derived format 5** (ADR 0177: a read inside a set seeks it) and every
+  other derived file in format 4, and reads 2 to 4, and 5 for an extent. A
+  dataset whose sets an earlier build wrote in format 4 opens as it was:
+  reads inside those sets narrow them, as before, until maintenance rewrites
+  each, oldest first, when no merge is due and no reader of an earlier build
+  is present (ADR 0178, below). There is no step for the operator; with
+  `Store:ExtentMerges:Enabled` false nothing is rewritten.
 - **An older build does not read a newer derived format**: a downgrade sees
-  the format-3 runs as cache misses and rebuilds them from the log. Nothing
-  is lost; the first open after a downgrade replays.
+  the format-5 extents as cache misses, so its chain ends at the first such
+  set and it reads the log from there. Nothing is lost; the first open after
+  a downgrade replays.
+
+### Instances on one object store
+
+A fleet's followers and its writer may run different builds during a
+rolling upgrade (ADR 0178). **The store is safe in either order**; the
+order only decides how much log an older follower replays.
+
+- **Recommended: the followers first, then the writer.** A follower of this
+  build reads format-4 and format-5 sets alike, so it serves whatever the
+  writer writes, and nothing replays the log.
+- **Why the other order is safe too.** Every reader record says the newest
+  derived format its reader reads (`maxDerived`; a record of
+  `v0.1.0-preview.14` or before does not say, which counts as 4). While any
+  present record says 4, the writer rewrites no format-4 set, and its
+  merges and splits of them keep format 4; only its new checkpoints are
+  format 5. So a follower of an earlier build, behind a writer of this
+  build, keeps its chain of format-4 sets and reads only the log above them
+  — the windows of the writer's new sets — not the whole history. It never
+  fails and never returns a wrong result.
+- **When the old followers are gone**, restarted on this build or
+  forgotten (`varve storage readers forget`), every record says 5 and the
+  writer's maintenance rewrites the format-4 sets as format 5, the oldest
+  first, one a round. `varve storage readers list` shows each record's
+  `maxDerived`, so the operator sees what holds the rewrite back.
+- **A writer of an earlier build** (a downgrade) finds the format-5 sets
+  cache misses and writes its next checkpoint from the log; the sets it no
+  longer names are deleted by the rule of reader records (ADR 0160), as any
+  unnamed set is.
 
 A build that cannot read a `log/` refuses with a message naming the version
 found and the versions it reads; that is a defect to report, not a case

@@ -1571,6 +1571,125 @@ unchanged, as expected: its cost is still the listing of the open segment's
 64 commits/s against #92's 170: this Azurite was not started empty, and slows
 as earlier runs' blobs accumulate in it.
 
+## As-of reads that seek (#133) — derived format 5
+
+Run on the session's container, 2026-10-23: Intel Xeon, 4 cores, 15 GiB,
+Ubuntu 24.04, .NET SDK 10.0.401. REC M, seed 20261015, **generator output
+version 2**, a checkpoint every hundredth of the history and maintenance
+after each, fan-out 4, `MaxSetBytes` 256 MiB; then opened again, so the
+chain of 5 sets is the projection's base. The format-4 rows are the same
+benchmark built over `main`'s store (`v0.1.0-preview.12`), on the same
+machine, run alternately with this one. The commands:
+
+```sh
+Varve.Benchmarks --asof-seek <file|azurite> M [maxSetMiB]   # head and as-of reads, pages, scans, checkpoint time
+Varve.Benchmarks --extent-maintenance M                    # #110's table, on this build
+```
+
+A page is 1 MiB of an extent, as the object store's page cache holds it;
+on files it is counted at the blob read, on an object store each miss is a
+ranged read.
+
+### Files (`--asof-seek file M`), slower rows first
+
+| Read | Format | Lookup p50 / p99 | Its pages p50 / max | A subject's quads p50 / p99 | Their pages |
+|---|---|---:|---:|---:|---:|
+| head | 5 | 15.2 / 52.1 µs | 3 / 8 | 13.3 / 59.7 µs | 1 |
+| head | 4 | 12.5 / 40.6 µs | 3 / 8 | 10.8 / 44.3 µs | 1 |
+| as of 1500, inside the largest set (211 MiB) | 5 | 4.4 / 15.0 µs | 2 / 5 | 10.5 / 44.8 µs | 2 |
+| as of 1500, inside the largest set, **after narrowing it: 2,950 ms** | 4 | 3.3 / 10.3 µs | 0 / 3 | 7.6 / 29.0 µs | 0 |
+
+- **The gate**: inside the largest set an as-of lookup is 0.29× the head's,
+  at p50 and p99, and opening the view takes 0.01 ms against 2,950 ms
+  (3,246 ms in the second run).
+- **Head reads**: the head rows above differ by run as much as by format
+  (14.1, 15.2, 15.3 µs at p50 for format 5 over three runs; 12.3, 12.5,
+  14.3 µs for format 4), so the same lookups and subject scans were timed
+  over one kept dataset of each format, in three alternating rounds: p50
+  lookup 21.9–24.7 µs for `main` on format 4, 23.6–26.1 µs for this build
+  on format 4, 22.2–23.1 µs for this build on format 5. No difference past
+  the noise.
+- **Scans by matches, at two set sizes 28× apart** (the probes' 200
+  subjects, 705 quads):
+
+  | Set | Per scan p50 / p99 | Pages a scan | Per match | Pages a match |
+  |---|---:|---:|---:|---:|
+  | 7.5 MiB, at 15250 | 13.5 / 43.9 µs | 2.0 | 4.32 µs | 0.562 |
+  | 211.3 MiB, at 1500 | 7.4 / 39.0 µs | 2.0 | 2.34 µs | 0.567 |
+
+- **A broad scan**, one predicate's quads, a quarter, half and three
+  quarters into the largest set: 17,409, 34,842 and 52,275 quads in 4.1,
+  9.4 and 12.0 ms, 2 pages; format 4, after its narrowing, 0.7, 1.3 and
+  1.8 ms. In the 7.5 MiB set, 131,000 quads in 9.8 ms either way.
+- **The same predicate at the head** (#133's review), 132,587 quads: 53.4
+  and 55.5 ms over two runs with block checks (0.40–0.42 µs a match),
+  against 4.99–6.15, 7.69–8.57 and 8.09–11.09 ms inside the largest set
+  (0.16–0.35 µs a match), so an as-of broad scan costs at most 0.84× the
+  head's per match, and less in all. Format 4 on `main`: 48.3 ms at the head
+  in both runs. That gap is between processes and datasets, not the head
+  path: one predicate's 1,512,879 quads at the head of one kept dataset, in
+  three alternating rounds, took 86.8–94.7 ms at best for `main` on format 4,
+  90.0–90.2 ms for this build on format 4 after a cold first round, and
+  86.1–92.5 ms on format 5.
+- **Checkpoints and merges**: the 100 checkpoints took 24.2 s against
+  24.7 s; maintenance 91.8 s against 80.7 s, a merge reading its inputs'
+  rows once more for the rows within's keys. Merges rewrote 753,709,040
+  bytes for 405,933,553 checkpointed, **1.86** per byte, against 750,437,062
+  for 420,777,999, 1.78: format 5's extents are 3.5% smaller, and the bytes
+  rewritten 0.4% more.
+- **#110's table on this build** (`--extent-maintenance M`): every head
+  read at 100 checkpoints with merges within its gate (lookup 11.9 / 38.8 µs
+  against 51.8 / 121.3 µs × 1.5), and the as-of read inside the largest set
+  under 0.1 ms in every row, from 3,390 ms on `main` in the same container.
+
+### Azurite (`--asof-seek azurite M`)
+
+Azurite 3.37.0 on loopback, started empty for each run, so the figures
+measure the protocol and the request counts, not a cloud's latency. Slower
+rows first:
+
+| Read | Format | Lookup p50 / p99 | A subject's quads p50 / p99 |
+|---|---|---:|---:|
+| head | 5 | 14.9 / 7,374.6 µs | 13.5 / 51.5 µs |
+| head | 4 | 12.1 / 8,249.2 µs | 10.7 / 62.0 µs |
+| as of 1500, inside the largest set (211 MiB) | 5 | 4.2 / 15.6 µs | 9.8 / 48.9 µs |
+| as of 1500, inside the largest set, **after narrowing it: 3,103 ms** | 4 | 1.9 / 5.0 µs | 5.4 / 20.9 µs |
+
+- A head lookup's p99 is a page miss: the first round meets pages not yet
+  cached.
+- **Ranged reads**, each view opened on its own over a fresh cache, 200
+  lookups: an as-of lookup made at most 5, 25 in all, and a head lookup at
+  most 6, 30 in all; then a subject's 12 quads made none. Format 4's
+  narrowing reads every page of the set before the first lookup.
+- **The load** with checkpoints and maintenance took 318.9 s (format 4:
+  287.9 s); the 100 checkpoints 33.8 s (32.5 s), maintenance 150.2 s
+  (125.7 s). Every byte uploaded, the log's included: 753,774,959 rewritten
+  for 406,099,866 checkpointed, 1.86 per byte (1.78).
+
+### The cap at 1 GiB (`--asof-seek file M 1024`)
+
+| | 256 MiB | 1 GiB |
+|---|---:|---:|
+| Sets, and the largest | 5, 211 MiB | 7, 282 MiB |
+| Head lookup p50 / p99 | 15.2 / 52.1 µs | 21.4 / 63.4 µs |
+| As-of lookup inside the largest set p50 / p99 | 4.4 / 15.0 µs | 3.8 / 14.0 µs |
+| Pages a subject's match, inside the largest set | 0.567 | 0.567 |
+| Write amplification | 1.86 | 1.75 |
+
+The as-of read no longer depends on the cap; the chain does, and at REC M
+a larger cap made it longer. The default stays (ADR 0178).
+
+### Layout statistics (ADR 0177's candidates 2 and 3)
+
+`ExtentLayoutStatistics` over the file run's kept dataset: the largest set,
+(0, 3000], 221,530,425 bytes, holds 2,678,212 keys and as many rows — one
+interval a key, at p50, p99.99 and max, so position-sorted runs inside a key
+(candidate 3) would order nothing. A skip index (candidate 2) could pass, at
+a quarter, half and three quarters into the window, 75.0%, 50.0% and 25.0%
+of the rows, in whole blocks (15,696, 10,462 and 5,227 of 20,924): REC M's
+ids follow commit order. That is the broad scan's share above; a lookup or
+a subject's quads read one or two blocks either way.
+
 ## Milestone 8, part 2a — commit latency under a `reject` shapes binding
 
 **Machine.** Intel Xeon @ 2.80 GHz, 4 logical and 4 physical cores, 15 GiB,

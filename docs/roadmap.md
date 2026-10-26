@@ -535,6 +535,7 @@ landing decides the number. Only released and in-flight numbers are shown.
 | — | **Client and integration**, part 1: token provider, on-behalf-of, `Varve.Delta`, follow, setup, CORS | `preview.6` | Commit path | issue #103, PR #102 (landed) |
 | — | **Object storage**: the log and the projections on any object store, Azure first | next free | Commit path | issue #92 (built; PR pending) |
 | — | **Extent maintenance**: background merges and extent deletion | `preview.11` | Object storage | issue #110 (built; PR pending) |
+| — | **As-of reads that seek**: an as-of read inside an extent set costs its matches, derived format 5 for extents | next free | Extent maintenance | issue #133 (this pull request) |
 | — | **Client and integration**, part 2: events, catalogue, schema registry, AsyncAPI | next free | part 1 | issue #93 |
 | — | **Management plane**, part 1: fleet system dataset, grants as code, `varve apply`, forwarding | `preview.10` | Commit path, Object storage, Client and integration | issue #131 (part 1 landed) |
 | — | **Management plane**, part 2: event schemas in the management plane, the close-out | `preview.13` | part 1 | issue #105 (landed) |
@@ -665,6 +666,39 @@ the catalog; staged uploads with the single-upload limit refused up front;
 latency reading is like for like within one run: head reads at 100
 checkpoints with merges against 10 without, and the as-of read inside the
 largest set against the same.
+
+## As-of reads that seek *(complete)* — an as-of read inside an extent set costs its matches
+
+**Why.** Extent maintenance measured an as-of read inside the largest merged
+set at REC M at 2,736 ms, against 12.1 µs for a lookup at the head: the read
+narrowed the whole set before it began (ADR 0138), so its cost was the set's
+size and grew with `MaxSetBytes`. Time travel is the store's thesis. In 1.0
+by #15's amendment of 2026-10-19 (#133).
+
+**Scope.** Seek, don't narrow: a read inside a set's window looks its keys
+up in the set as a read of the present does and classifies only the
+matching rows' intervals. At least two layouts measured; merges write the
+new one; head reads no slower; format-4 sets read, never failed, during an
+upgrade.
+
+**Gate.** Over generated histories with retractions, as-of reads equal the
+model at every position across any merge and eviction schedule; at REC M an
+as-of lookup inside the largest set within 2× of a head lookup at p50 and
+p99; an as-of scan's time and pages proportional to its matches at two set
+sizes at least 4× apart; head reads unchanged within noise; write
+amplification and checkpoint time reported; files and Azurite.
+
+**Built** (ADRs 0177–0178): derived format 5 for extents, positions as
+fixed-width columns beside the keys and the rows within as a thirteenth key
+section, so a key's intervals are a fence search, a block and a column read
+away; as-of lookups, scans and estimates that seek; format-4 sets narrowed
+until maintenance rewrites them, one a round; an older follower reads the
+log above its chain, never a wrong answer. At REC M, inside the largest set
+(211 MiB), an as-of lookup is 0.29× a head lookup at p50 and p99 where it
+took 2.9 s; a subject's quads cost 0.56 pages a match at set sizes 28×
+apart; head reads unchanged; write amplification 1.86, against 1.78, for
+3.5% smaller extents. `MaxSetBytes` stays 256 MiB and bounds merges, not
+reads.
 
 ## Client and integration *(complete)* — on-behalf-of, setup, follow, events
 
@@ -944,6 +978,7 @@ What has to be true before the major version, under strict SemVer (ADR 0035). Is
 - [ ] **The learning track complete for every shipped feature** (#94)
 - [ ] **The soak gate holds under the shipped configuration** (#61)
 - [x] **Extent maintenance** — background merges and the extent deletion rule, so read cost stays bounded under a checkpoint policy (#110)
+- [x] **As-of reads cost their matches** — an as-of read inside an extent set seeks it, within 2× of the same read at the head at REC M (#133)
 - [ ] **Management plane** — grants and settings as code in a per-fleet system dataset, `varve apply`, the fleet grant properties (#105)
 - [ ] **Public API freeze covers the management API**, and the `varve:` management vocabulary is stable (#105)
 

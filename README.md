@@ -43,15 +43,25 @@ where Varve is the wrong tool: [`docs/why.md`](docs/why.md).
 
 ## Status
 
-**`v0.1.0-preview.14` is the latest release, and it closed milestone 8,
-SHACL ([#13](https://github.com/Hafeok/Varve/issues/13))**, with part 2b:
+**`v0.1.0-preview.15` is the latest release, and it made an as-of read
+inside an extent set cost its matches, not the set
+([#133](https://github.com/Hafeok/Varve/issues/133), in 1.0 by
+[#15](https://github.com/Hafeok/Varve/issues/15))**: a read at a position
+inside a set's window seeks the set — derived format 5 keeps each extent's
+positions in columns beside its keys and its rows within as a key section —
+so an as-of lookup at REC M costs a third of a lookup at the head where it
+cost three seconds, and merges and checkpoints write the new layout, every
+block checked. Sets an earlier release wrote are read as before and
+rewritten by maintenance once no reader of the earlier format is announced.
+`v0.1.0-preview.14` before it closed milestone 8, SHACL
+([#13](https://github.com/Hafeok/Varve/issues/13)), with part 2b:
 each shapes binding keeps a validation projection, whose report at any
 position is served as a reserved graph and equals a full validation there,
 byte for byte; Varve's own event and management declarations are validated
 at runtime by SHACL shapes, with a residual check in code; and the REC gate
 validates generated RealEstateCore portfolios with REC 4.1.0's own shapes,
 standalone, at commit time and in the projection, agreeing at every sampled
-position. `v0.1.0-preview.13` before it closed milestone Management plane
+position. `v0.1.0-preview.13` before that closed milestone Management plane
 ([#105](https://github.com/Hafeok/Varve/issues/105)) with its second part: a dataset's event declarations move, by an explicit act,
 from its catalogue graphs to its declarations on the management plane, where
 `varve apply` owns them with its grants and settings. The events every commit
@@ -361,7 +371,7 @@ is the Native AOT binary and nothing else:
 
 ```bash
 dotnet tool install --global Varve.Server --prerelease
-docker pull ghcr.io/hafeok/varve:v0.1.0-preview.14
+docker pull ghcr.io/hafeok/varve:v0.1.0-preview.15
 ```
 
 Serve one dataset on your machine. `--anonymous` is for development only: a
@@ -370,7 +380,7 @@ real deployment takes OIDC bearer tokens ([ADR 0037](docs/adr/0037-server-authen
 ```bash
 varve serve --anonymous --datasets-root "$PWD/data"
 # or, listening on 8080 instead of 5000, with the datasets in the image's volume:
-docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.14 serve --anonymous
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.15 serve --anonymous
 
 # then declare the dataset in the management plane (ADR 0163):
 curl -X PUT http://localhost:5000/manage/datasets/people -H 'Content-Type: application/trig' \

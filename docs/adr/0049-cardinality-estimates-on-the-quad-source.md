@@ -11,6 +11,10 @@ widen the contract deliberately, in a superseding ADR — not to move the
 evaluator down a layer". This widens; it does not supersede, because nothing
 0022 decided changes.
 
+**Amended 2026-10-23** (ADR 0068), by #133 under ADR
+[0177](0177-seek-dont-narrow-intervals-beside-the-key.md): an as-of view
+inside an extent set's window may estimate; see the end.
+
 ## Context
 
 An optimiser that reorders joins needs to know which pattern is small. Over
@@ -135,3 +139,28 @@ lowest layer that can define it without knowing its implementers (ADR 0003).
   layer 1**. The store's implementation is `Varve.Store`, layer 4, internal.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-23 — an as-of view inside a set may estimate
+
+Filed by #133, unaccepted until the maintainer accepts it (ADR 0066); ruled
+in [ADR 0177](0177-seek-dont-narrow-intervals-beside-the-key.md).
+
+The store's estimate was exact because every member of a view's index is an
+exact delta whose ranges two binary searches count. An as-of view at a
+position strictly inside a format-5 extent set's window reads that set
+sought, not narrowed, and the set's delta at the position is not counted by
+a binary search: its rows in the range must be classified one by one.
+
+- **Exact while cheap.** When the sought set holds at most 4,096 rows in the
+  pattern's range the store classifies them, and the estimate stays
+  **exact** — every other member still counted by its fences.
+- **Estimated past that.** Otherwise the set contributes its count at its
+  end — its asserted keys in the range minus its retracted ones — and the
+  estimate is **estimated**: the third promise, a count the source has reason
+  to believe, derived as stated here and on `DatasetView.Estimate`. It never
+  costs more than the fences of three sections.
+- **Every other view stays exact**: the head, a pin, an as-of view at a set's
+  end or above the chain, and a view inside a format-4 set, which is narrowed.
+
+The first two promises are unchanged, and `QuadOverlay` and the graph scopes
+already pass an estimated base on as estimated.
