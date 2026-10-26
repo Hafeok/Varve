@@ -1639,8 +1639,8 @@ commit at S (version 1).
 
 ## Milestone 8, part 2b — the validation projection's lag and rebuild
 
-**Machine.** As part 2a's above: Intel Xeon @ 2.80 GHz, 4 cores, 15 GiB,
-Ubuntu 24.04.5 LTS, a cloud container, .NET SDK 10.0.401, runtime 10.0.12.
+**Machine.** A cloud container: Intel Xeon @ 2.10 GHz, 4 cores, 15 GiB,
+Ubuntu 24.04.5 LTS, .NET SDK 10.0.401, runtime 10.0.12.
 
 **Workload.** `--validation-projection <S|M>` (`ValidationProjectionBench`).
 The REC portfolio, seed 20261015, **generator output version 2**, runs on the
@@ -1668,8 +1668,16 @@ Slower rows first:
 
 | REC | Rebuild for a shapes change (mean of 3, min–max) | Cold start at the head | Lag per commit: mean | median | p95 | max |
 |---|---:|---:|---:|---:|---:|---:|
-| M (25,004 commits, ≈5 M quads) | 213.4 s (209.7–218.1 s) | 183.9 s | 9.12 ms | 8.06 ms | 20.00 ms | 68.89 ms |
-| S (1,004 commits, ≈203 k quads) | 3.6 s (3.5–3.7 s) | 4.3 s | 5.54 ms | 4.19 ms | 14.44 ms | 68.34 ms |
+| M (25,004 commits, ≈5 M quads) | 193.7 s (191.9–195.0 s) | 182.3 s | 3.02 ms | 1.99 ms | 9.61 ms | 59.17 ms |
+| S (1,004 commits, ≈203 k quads) | 3.7 s (3.1–4.4 s) | 7.1 s | 2.34 ms | 1.35 ms | 8.44 ms | 53.14 ms |
+
+The first run, before the fix to incremental validation's candidate targets
+(see *Reading it*), measured on the same machine:
+
+| REC | Rebuild for a shapes change | Cold start at the head | Lag per commit: mean | median | p95 | max |
+|---|---:|---:|---:|---:|---:|---:|
+| M | 213.4 s (209.7–218.1 s) | 183.9 s | 9.12 ms | 8.06 ms | 20.00 ms | 68.89 ms |
+| S | 3.6 s (3.5–3.7 s) | 4.3 s | 5.54 ms | 4.19 ms | 14.44 ms | 68.34 ms |
 
 **Reading it.**
 - **A generation is a full validation of the binding's data graph.** Its time
@@ -1677,8 +1685,14 @@ Slower rows first:
   Most of the shapes are scoped by their class targets (ADR 0171), and Brick's
   `brick:Entity`-targeted SPARQL constraints run once per entity.
 - **The lag is a commit's affected focus nodes'**, as part 2a's gate is. The
-  held commits are events, a few entities each. A commit that builds a level,
-  about 250 entities, costs about 185 ms through the projection under the
-  composed shapes: Brick's two SPARQL constraints run per entity, before and
-  after.
+  held commits are events, a few entities each.
+- **The fix between the two runs.** In the first run, finding the affected
+  pairs cost more than validating them. Each `rdf:type` triple made its
+  subject a candidate target of every one of Brick's 1,445 class-targeted
+  shapes, in both states. ADR 0171's rule is narrower: x, when y is the
+  class or one of its subclasses. `Varve.Shacl` now applies it, through an
+  index of shapes by target class. The mean lag fell to a third at M, and a
+  commit that builds a level, about 250 entities, is no longer about 185 ms.
+  A generation is a full validation, so the fix leaves it unchanged. S's
+  cold start of 7.1 s against 4.3 s is one run's spread at a few seconds.
 - **Part 2a's 7.6 ms** were measured without those constraints.

@@ -93,11 +93,11 @@ unaccepted and accepted on the pull request (ADR 0066).
 
 #### Performance
 
-At REC M (25,001 commits, generator output version 2), on the session's
-machine, the projection lags a commit by 9.1 ms on average (median 8.1,
-p95 20.0, max 68.9). A rebuild after a shapes change takes 213 s, and a
-cold start 184 s. At REC S the lag is 5.5 ms on average, a rebuild takes
-3.6 s, and a cold start 4.3 s.
+At REC M (25,004 commits, generator output version 2), on the session's
+machine, the projection lags a commit by 3.0 ms on average (median 2.0,
+p95 9.6, max 59.2). A rebuild after a shapes change takes 194 s, and a
+cold start 182 s. At REC S the lag is 2.3 ms on average, a rebuild takes
+3.7 s, and a cold start 7.1 s.
 
 #### Known issues
 

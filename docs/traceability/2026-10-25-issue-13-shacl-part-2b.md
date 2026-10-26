@@ -315,7 +315,7 @@ Linux, the machine above, `dotnet test -c Release --no-build`, slower rows first
 
 | Project | Tests | Duration |
 |---|---:|---:|
-| `Varve.Shacl.Store.Tests` (REC S's agreement on its PR sample; the three long tests skipped) | 24, 3 skipped | 6 m 53 s |
+| `Varve.Shacl.Store.Tests` (REC S's agreement on its PR sample of five positions; the three long tests skipped) | 24, 3 skipped | 59.9 s (6 m 53 s at every 25th position, before the incremental fix) |
 | `Varve.Rec.Tests` | 6 | 55.8 s |
 | `Varve.Protocol.Tests` | 116 | 31.3 s |
 | `Varve.Server.Tests` | 119, 12 skipped | 10.2 s |
@@ -332,8 +332,12 @@ output version 2, on the machine above. Slower rows first:
 
 | REC | Cold start | Rebuild after a shapes change (3 runs) | Lag per commit, 200 commits: mean | median | p95 | max |
 |---|---:|---:|---:|---:|---:|---:|
-| M (25,004 commits) | 183.9 s | 213.4 s (209.7–218.1) | 9.12 ms | 8.06 ms | 20.00 ms | 68.89 ms |
-| S (1,004 commits) | 4.3 s | 3.6 s (3.5–3.7) | 5.54 ms | 4.19 ms | 14.44 ms | 68.34 ms |
+| M (25,004 commits) | 182.3 s | 193.7 s (191.9–195.0) | 3.02 ms | 1.99 ms | 9.61 ms | 59.17 ms |
+| S (1,004 commits) | 7.1 s | 3.7 s (3.1–4.4) | 2.34 ms | 1.35 ms | 8.44 ms | 53.14 ms |
+
+Before the incremental fix, on the same machine: M 183.9 s, 213.4 s, and a
+lag of 9.12 / 8.06 / 20.00 / 68.89 ms; S 4.3 s, 3.6 s, and 5.54 / 4.19 /
+14.44 / 68.34 ms.
 
 The benchmark README records the generator version behind each table: #92's
 and #110's are version 1, #140's and these are version 2.
