@@ -2,15 +2,17 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-using System;
-using System.Buffers;
 using System.Buffers.Binary;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
+using System.Threading;
+using System;
+using DecisionDriven.Ledger.Varve;
+using DecisionDriven;
 using Varve.Rdf;
 using Varve.Store.Log;
 
@@ -196,6 +198,7 @@ internal sealed class ExtentSet
     /// order's rows by section, then the dictionary extent from the window's
     /// term sections. Nothing names the set until a catalog does.
     /// </summary>
+    [DesignDecision(typeof(SeekingExtentSets.EveryWriterWritesFormat5), Scope = ExceptionScope.Boundary)]
     internal static async ValueTask WriteAsync(
         IDerivedStore store,
         string name,

@@ -2,6 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
+
 namespace Varve.Store.Log;
 
 /// <summary>
@@ -24,6 +27,7 @@ public sealed record ReaderAnnouncement(ReaderId Reader, CatalogVersion Oldest, 
     /// this build does not read. While a present record says less than 5, the
     /// writer leaves format-4 extent sets as they are.
     /// </summary>
+    [DesignDecision(typeof(TheFormat5UpgradeAndTheSetCap.ReaderRecordsStateMaxDerived), Scope = ExceptionScope.Boundary)]
     public DerivedVersion MaxDerived { get; init; } = DerivedVersion.Format4;
 
     /// <summary>A record of a format this build does not read: it holds every version (ADR 0160).</summary>

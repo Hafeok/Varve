@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using DecisionDriven.Ledger.Varve;
+using DecisionDriven;
 using Varve.Store.Log;
 
 namespace Varve.Store;
@@ -19,8 +21,9 @@ namespace Varve.Store;
 /// over 1 MiB. Once <see cref="FanOut"/> adjacent sets of one tier stand
 /// side by side, they merge into one, which lands a tier up. A set past half
 /// of <see cref="MaxSetBytes"/> is not merged again, and no merge makes a set
-/// past it, so an as-of read inside a set — which narrows that one set — costs
-/// at most a capped set's size.
+/// past it, so one merge's work and one extent's upload are bounded. An as-of
+/// read inside a format-5 set seeks it, at the cost of its matches whatever
+/// the set's size (ADR 0177, ADR 0178).
 /// </para>
 /// <para>
 /// **The bound.** At most <c>(F − 1)</c> sets per tier below the cap, plus the
@@ -57,7 +60,8 @@ public sealed class ExtentMergePolicy
     /// <summary>How many adjacent sets of one tier merge into one: 2 to 16, 4 by default.</summary>
     public int FanOut { get; init; } = 4;
 
-    /// <summary>The bytes no merge makes a set exceed; 1 MiB or more.</summary>
+    /// <summary>The bytes no merge makes a set exceed; 1 MiB or more. It bounds merges, not reads (ADR 0178).</summary>
+    [DesignDecision(typeof(TheFormat5UpgradeAndTheSetCap.TheCapBoundsMergesNotReads), Scope = ExceptionScope.Boundary)]
     public ByteCount MaxSetBytes { get; init; } = new(DefaultCap);
 
     internal void Validate()

@@ -106,6 +106,7 @@ internal static partial class DerivedFormat
     /// the keys. Every other kind is still written as 4, so a reader of 4 still
     /// reads the catalog and the dictionary; a format-4 extent is still read.
     /// </summary>
+    [DesignDecision(typeof(SeekingExtentSets.Format5ForExtentsOnly), Scope = ExceptionScope.Boundary)]
     internal const ushort ExtentVersion = 5;
 
     /// <summary>The oldest derived version this build reads: 2, a run without a filter (ADR 0080).</summary>
@@ -158,6 +159,7 @@ internal static partial class DerivedFormat
     }
 
     /// <summary>The header at the end of a derived blob, when it is one this store reads for this dataset.</summary>
+    [DesignDecision(typeof(TheFormat5UpgradeAndTheSetCap.AnOlderReaderMissesFormat5), Scope = ExceptionScope.Boundary)]
     internal static bool TryReadHeader(IReadableBlob blob, DatasetId dataset, ushort kind, out DerivedHeader header)
     {
         header = default;

@@ -921,6 +921,7 @@ internal sealed class ExtentInfo
     /// </summary>
     /// <exception cref="IOException">The extent is short, or the block does not match its check.</exception>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    [DesignDecision(typeof(SeekingExtentSets.EveryBlockIsChecked), Scope = ExceptionScope.Boundary)]
     internal int ReadColumnBlock(int column, long block, Span<byte> into)
     {
         int values = ValuesOf(column);
@@ -1214,6 +1215,7 @@ internal static partial class DerivedFormat
     /// within's keys are a thirteenth key section, and every position is a
     /// fixed-width column beside its keys.
     /// </summary>
+    [DesignDecision(typeof(SeekingExtentSets.IntervalsBesideTheKey), Scope = ExceptionScope.Boundary)]
     internal static async ValueTask WriteExtentAsync(
         IDerivedStore store,
         BlobName name,

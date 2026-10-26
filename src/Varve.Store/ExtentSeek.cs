@@ -32,6 +32,7 @@ namespace Varve.Store;
 /// and one read of the column each.
 /// </para>
 /// </remarks>
+[DesignDecision(typeof(SeekingExtentSets.SeekDontNarrow), Scope = ExceptionScope.Boundary)]
 internal sealed class ExtentSeek
 {
     /// <summary>
@@ -109,6 +110,7 @@ internal sealed class ExtentSeek
     /// delta, when the set holds at most <see cref="ExactCountRows"/> rows in
     /// it; otherwise its count at its end, and <paramref name="exact"/> false.
     /// </summary>
+    [DesignDecision(typeof(SeekingExtentSets.AnEstimateInsideASetMayBeEstimated), Scope = ExceptionScope.Boundary)]
     internal long Count(IndexOrder order, in QuadKey low, in QuadKey high, out bool exact)
     {
         ExtentInfo info = Info(order);
@@ -329,6 +331,7 @@ internal sealed class ColumnRows
 /// same order and range — a key the delta asserts is yielded, one it
 /// retracts is not, and every other comes from the older runs.
 /// </summary>
+[DesignDecision(typeof(SeekingExtentSets.ReadsOfThePresentNeverTouchAColumn), Scope = ExceptionScope.Boundary)]
 internal sealed class ExtentSeekScan : IQuadCursor
 {
     private readonly RunCursor _older;
