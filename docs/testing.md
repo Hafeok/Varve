@@ -271,7 +271,8 @@ on `main`) sets every depth below.
 | `VARVE_CACHE_DAMAGE_SEED` | the same: the seed that chooses which eighth | a new one each run | n/a at stride 1 |
 
 The nightly run also sets section 7's release-gate depths for Extent
-maintenance: `VARVE_EXTENT_SCHEDULES=400` (40 on a pull request),
+maintenance: `VARVE_EXTENT_SCHEDULES=400` (40 on a pull request; it sets
+both `ExtentMergeTests`' and #133's `ExtentSeekTests`' schedules),
 `VARVE_READER_SCHEDULES=1200` (60; the count run clean at development) and
 `VARVE_EXTENT_FAULTS_FULL=1`.
 
