@@ -5,6 +5,13 @@
 **Filed unaccepted by #133, 2026-10-23** (ADR 0066). Acceptance is the
 maintainer's act on the pull request.
 
+**Amends** [ADR 0160](0160-extent-deletion-by-reader-announcements.md):
+a reader record gains the optional `maxDerived` (point 2), by dated
+amendment. **Revised 2026-10-26** on the pull request's review, before
+acceptance: point 2, which rewrote the oldest format-4 set first whatever
+read the store, now waits for every present reader to read format 5, and
+point 3's upgrade order is a recommendation.
+
 **Amends** [ADR 0159](0159-the-extent-merge-policy.md), point 3 and its
 consequence: `MaxSetBytes` no longer bounds an as-of read's cost, and its
 sizing advice changes, by dated amendment. Follows
@@ -36,26 +43,47 @@ loads, verifies and serves reads of the present as it did: its key sections
 are format 5's. A read inside its window narrows it (ADR 0138), and costs
 what it did. Nothing is rebuilt at open.
 
-**2. Maintenance rewrites format-4 sets as format 5, one a round.**
-- When the merge policy has nothing due, the writer's maintenance rewrites
-  the oldest format-4 set of the chain alone: a merge of one input, by ADR
+**2. Older readers decide when format-4 sets are rewritten.** Rewriting
+the oldest set first would put a format-5 set at the front of the chain, and
+a reader of format 4 that opens after it would replay the entire log, its
+chain ending there. So the rule is safe whatever the order of the upgrade:
+- **Every reader record says what its reader reads**: an optional
+  `maxDerived` (storage format §8.1, ADR 0160 amended), the newest derived
+  format the instance reads. Absent, it is 4, so a record written before #133
+  — and one of a format this build does not read — counts as a reader of
+  format 4, and the record stays format 1. Every record this build writes, by
+  every path that writes one, says 5. `varve storage readers list` and
+  readiness's `retention` show it.
+- **While any present record says less than 5**, the writer rewrites no
+  format-4 set, and a merge, a drop's merge or a split of a format-4 set
+  writes format 4. New checkpoints, and merges of format-5 sets only, still
+  write format 5. So format-5 sets stand only above the format-4 ones, an
+  older reader's chain ends only where they begin, and it replays only their
+  windows: the recent log.
+- **Once every present record says 5** — the older reader forgotten by the
+  operator, or restarted on this release, which replaces its record — the
+  writer's maintenance rewrites format-4 sets, one a round when the merge
+  policy has nothing due, the oldest first: a merge of one input, by ADR
   0158's machinery — written under a fresh name, swapped once under the
   epoch fence, rebased on the catalog, abandoned if a checkpoint or drop
-  touched its input meanwhile, and refused past the single-upload limit.
+  touched its input meanwhile, and refused past the single-upload limit. A
+  merge of format-4 inputs then writes format 5 too, so a set the policy
+  would merge anyway is not rewritten twice.
+- **The writer reads the records** before it chooses a rewrite or writes a
+  set in place of a format-4 one, and whenever its deletion rule reads them
+  (ADR 0160), only while a format-4 set is left; until it first has, it
+  holds. A store with one reader, a directory, has no records and rewrites
+  at once.
 - It is a pure function of its input's rows, as every merge is (ADR 0177,
   point 4); the window, the dictionary, the graph-version index and the
-  commit index are the input's.
-- A merge of format-4 inputs writes format 5 too, so a set the policy would
-  merge anyway is not rewritten twice.
-- The rewritten set's old blobs are deleted by the deletion rule (ADR 0160),
-  as any merged input's are.
+  commit index are the input's. The rewritten set's old blobs are deleted by
+  the deletion rule (ADR 0160), as any merged input's are.
 - With merges off (`ExtentMerges.Enabled` false) nothing is rewritten and
-  format-4 sets stay narrowed. A checkpoint inside a format-4 set splits it
-  into two format-5 sets read from the log, as any split.
+  format-4 sets stay narrowed.
 
 So the upgrade's cost is one rewrite of each format-4 set, the bytes of the
-chain once, spread over maintenance rounds; it adds to the write
-amplification once, not per checkpoint.
+chain once, spread over maintenance rounds once no older reader is left; it
+adds to the write amplification once, not per checkpoint.
 
 **3. An instance of an older build finds a format-5 extent a cache miss.**
 A reader of derived format 4 refuses a header of version 5 (ADR 0072). The
@@ -76,9 +104,11 @@ position sampled, its chain empty.
   checkpoint from the log, in format 4. On a directory it deletes the
   format-5 sets at open, as any set its chain does not name; on an object
   store they are unnamed after its next swap and deleted by the reader rule.
-- **The order for a rolling upgrade is followers first, then the writer.** A
-  follower of this build reads both formats, so nothing pays the log's
-  distance.
+- **Followers first, then the writer, is a recommendation.** A follower of
+  this build reads both formats, so nothing pays the log's distance. In the
+  other order the store is safe too: by point 2 an older follower's chain
+  ends only at the format-5 sets a new writer adds, so it replays only the
+  log they cover, and the format-4 sets wait for it to go.
 
 **4. `MaxSetBytes`: the default stays 256 MiB; the cap bounds a merge, not a read.**
 - **What it no longer bounds.** An as-of read inside a set costs its
@@ -150,5 +180,14 @@ position sampled, its chain empty.
     read by narrowing at every position; opened by this build, rewritten by
     maintenance until no format-4 set is left, and equal at every position
     throughout.
+  - `ObjectFormatUpgradeTests.no_format_4_set_is_rewritten_while_a_reader_of_format_4_is_present`:
+    format-4 sets written by an earlier release, and a reader record without
+    `maxDerived` present; this build's checkpoints and every merge due leave
+    format-4 sets first and format-5 sets only above where the older chain
+    ended; then, the record forgotten, or its reader restarted on this
+    release, rewriting proceeds until every set is format 5; every position
+    reads the same throughout. With the rule removed it fails.
+  - `ObjectStorageServerTests`: `varve storage readers list` shows
+    `maxDerived`, against Azurite; readiness carries it.
   - The mixed-version check: `v0.1.0-preview.12`'s store reading this
     build's sets, on a directory and on Azurite, in the traceability record.

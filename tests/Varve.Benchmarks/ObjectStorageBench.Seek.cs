@@ -118,6 +118,12 @@ internal static partial class ObjectStorageBench
             lines.Add("");
             lines.Add(string.Create(CultureInfo.InvariantCulture, $"- opening the view inside the largest set and its estimate of every quad, median of 5: {opening:F2} ms"));
 
+            // The same predicate's quads at the head, beside the as-of scans below.
+            using (DatasetView head = dataset.Pin())
+            {
+                lines.Add(PredicateLine(0, head, pages, terms, subject).Replace("inside a set of 0.0 MiB", "at the head", StringComparison.Ordinal));
+            }
+
             // Scans inside two sets at least 4× apart, by the probes' subjects.
             if (smaller != default)
             {

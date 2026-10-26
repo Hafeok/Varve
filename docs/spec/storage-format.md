@@ -496,8 +496,8 @@ An **extent** of order *k* is laid out as a run (§7.2): the key sections —
 only order *k*'s two of the twelve are not empty, and in version 5 a
 thirteenth, the rows within's keys — the term section, empty, and the filter;
 then three sections of its own; then the directory, which is a run's with the
-key section count `13` in version 5, followed by sixteen `u64` words in
-version 4 and seventeen in version 5:
+key section count `13` and the checks below in version 5, followed by
+sixteen `u64` words in version 4 and seventeen in version 5:
 
 | Word | Field |
 |---:|---|
@@ -538,8 +538,22 @@ throughout has none.
   row's at 2*i* × *w*. Rows are sorted by key, then assertion, then
   retraction.
 
+- **Checks:** the directory, after the block starts, carries 8 × Σ blocks
+  bytes of **key-block checks** — one `u64` a block, section by section — and
+  as many again of **column-block checks**: the check of the column bytes of
+  each key block's rows (its up to 128 distances, or 256 for the rows within),
+  section by section, so a section's column has as many blocks as its keys.
+  A check is computed over a block's bytes as: `h = 0x243F6A8885A308D3 ^
+  length`; for each whole eight bytes `w`, little-endian, `h = (h ^ w) ×
+  0x9E3779B97F4A7C15`; then the remaining bytes, little-endian and zero-filled,
+  as one more `w`; then SplitMix64's finaliser (`h ^= h >> 30; h ×=
+  0xBF58476D1CE4E5B9; h ^= h >> 27; h ×= 0x94D049BB133111EB; h ^= h >> 31`),
+  all modulo 2⁶⁴. Each step is a bijection of `w`, so damage inside one word
+  always changes the check. A block is checked when it is read, by a read of
+  the present as by a seek, and one that does not match fails the read.
+
 So a key's intervals are reached from the key: a binary search of a
-section's fences, one block, and one read of its column. A read at a
+section's fences, one block, and one read of its column's block. A read at a
 position *P* strictly inside the window holds a quad at *from* when one of
 its rows begins at the boundary, and at *P* when one of its rows covers *P*
 (assertion at or before it, retraction after it or none); where the two

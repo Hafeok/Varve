@@ -5,7 +5,9 @@
 **Filed unaccepted by #133, 2026-10-23** (ADR 0066). Acceptance is the
 maintainer's act on the pull request. The decision to seek rather than
 narrow, and the candidates measured, are #133's and the session's prompt
-(1.0, #15, amended 2026-10-19).
+(1.0, #15, amended 2026-10-19). The layout, candidate 1, was approved on the
+pull request's review, 2026-10-26; the same review asked for the block
+checks (point 6) and the head's broad scan beside the as-of one.
 
 **Amends** by dated amendment:
 - [ADR 0138](0138-validity-intervals-in-the-default-projection.md), its
@@ -93,7 +95,8 @@ Checks).
 
 **4. Every writer writes format 5, merges included.** A checkpoint writes
 its set from the log in format 5. A merge (ADR 0158) and a drop write theirs
-from their inputs' rows in format 5, whatever their inputs' format: a merge
+from their inputs' rows in format 5, whatever their inputs' format — except
+where ADR 0178 keeps format 4 for a reader that reads no more: a merge
 stays a pure function of its inputs' rows, and the layout is only how the
 output is written. The rows, their classification and every interval are
 those format 4 had.
@@ -104,6 +107,28 @@ catalog, runs and the projection's state are written as 4, unchanged. A
 reader of format 4 therefore still reads the catalog and every other blob of
 a set, and finds a format-5 extent a cache miss (ADR 0178). Format 5 is not
 read forever (ADR 0072): a later change to extents is a rebuild.
+
+**6. Every block is checked.** The extent's directory — hashed whole —
+carries a 64-bit check of every key block and of every column block of 128
+rows (storage format §7.5), and a block is checked when it is read: by a
+read of the present, which reads key blocks, as by a seek, which reads
+columns too. A block that does not match fails the read.
+- **Why now.** #146 found that one damaged byte where nothing checks it can
+  give a wrong history. Over every byte of a set's six order extents, zeroed,
+  flipped or the blob cut there (`ExtentDamageTests`), format 5 without
+  checks served a different answer for **212 of 14,523** damaged extents —
+  every one a byte of a key block or a column, which only the directory's
+  placement guarded; the header and the directory, hashed, made the rest a
+  cache miss. With the checks, **none of 15,384**: 305 fail a read, and the
+  rest are a cache miss or never read. Format 4's key blocks and streams are
+  no better guarded; it is not changed, and is rewritten (ADR 0178).
+- **The check** is one multiplication a word, each step a bijection, so
+  damage inside one eight-byte word always changes it, and a cut changes the
+  length it mixes in. It costs a read of the present a pass over the bytes of
+  each block it decodes. Not a cryptographic hash: it detects damage, not
+  tampering, which the store's credentials guard (ADR 0134).
+- **So #146 needs no format 6** for extents: the check is in format 5 from
+  its first release.
 
 ### What was measured
 
@@ -238,6 +263,17 @@ Layout 1 (this ADR) against format 4's narrowing, the same benchmark on
     point lookup inside a set of 16,000 quads reads no more than inside one of
     2,000; a count over more rows than are counted one by one is estimated,
     and its scan exact.
+  - `ExtentSeekTests.a_quad_retracted_and_asserted_again_inside_a_set_is_looked_up_as_the_scan_finds_it`:
+    the rows within hold one key an interval, and a lower bound found by a
+    search that stops at any equal key missed a quad's row from the window's
+    start, so the older set answered a lookup for it. `ExtentDamageTests`'
+    undamaged check found it; a lower bound is now the first of equal keys,
+    and this test fails without that.
+  - `ExtentDamageTests`: every byte of a set's six order extents zeroed,
+    flipped or cut, opened again from the log and the extents and read at
+    every position by scan and by lookup: never a different answer (point
+    6). A pull request checks every sixteenth case, the nightly run all
+    (`VARVE_EXTENT_DAMAGE_STRIDE`).
   - `ExtentTests`, `ExtentMergeTests`, `EstimateTests`: unchanged, now over
     format-5 sets.
   - `ObjectExtentTests.eviction_never_changes_a_result`: a cache of 1 byte, of
