@@ -292,7 +292,10 @@ public sealed partial class Dataset
             return true;
         }
 
-        // A merge of extent sets, considered once the catalog changed (ADR 0159).
+        // A merge of extent sets, considered once the catalog changed (ADR 0159);
+        // a format-4 set's rewrite waits for no older reader (ADR 0178).
+        await NoteOlderReadersAsync(cancellationToken).ConfigureAwait(false);
+
         if (ExtentMergeDue(state) && await MergeExtentsAsync(cancellationToken).ConfigureAwait(false))
         {
             return true;

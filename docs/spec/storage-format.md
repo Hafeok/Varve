@@ -619,6 +619,7 @@ a command-line read — named by its reader id: 1 to 128 ASCII letters, digits,
 | `catalogNewest` | number | the newest catalog version they hold |
 | `at` | string, optional | when the record was written, ISO 8601 round-trip, by the host's clock; for the operator, never compared |
 | `state` | string | `announced`, or `forgotten` for the operator's tombstone, which is deleted after it is written |
+| `maxDerived` | number, optional | the newest derived format (§7) the instance reads; absent means `4`, as in a record written before #133. Every writer since writes it (ADR 0178) |
 
 - **Written only by its reader**, by create-if-absent or by replace over what
   a previous run of the same id left, then by replace-if-unchanged when the
@@ -630,4 +631,8 @@ a command-line read — named by its reader id: 1 to 128 ASCII letters, digits,
   set no present record holds, after the swap that removed it.
 - **A record of another `format`, or one that does not parse, holds every
   version.** It is never ignored.
+- **While a present record's `maxDerived` is below 5**, the writer rewrites
+  no format-4 extent set, and a merge or split of format-4 sets writes format
+  4 (ADR 0178); a record of another `format` counts as `4`. Adding the field
+  leaves the record format 1.
 

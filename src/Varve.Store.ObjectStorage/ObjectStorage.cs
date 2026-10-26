@@ -209,6 +209,7 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
             Oldest = oldest,
             Newest = newest,
             AnnouncedAt = new ClaimTime(_clock.GetUtcNow()),
+            MaxDerived = DerivedVersion.ThisBuildReads,
         };
         byte[] bytes = ReaderRecordFormat.Write(record);
         ObjectName name = _names.Reader(Reader);

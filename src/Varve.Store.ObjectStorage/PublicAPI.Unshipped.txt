@@ -176,6 +176,8 @@ Varve.Store.ObjectStorage.Model.ReaderRecord.Reader.init -> void
 Varve.Store.ObjectStorage.Model.ReaderRecord.ReaderRecord() -> void
 Varve.Store.ObjectStorage.Model.ReaderRecord.State.get -> Varve.Store.ObjectStorage.Model.ReaderRecordState
 Varve.Store.ObjectStorage.Model.ReaderRecord.State.init -> void
+Varve.Store.ObjectStorage.Model.ReaderRecord.MaxDerived.get -> Varve.Store.Log.DerivedVersion
+Varve.Store.ObjectStorage.Model.ReaderRecord.MaxDerived.init -> void
 Varve.Store.ObjectStorage.Model.ReaderRecord.Understood.get -> bool
 Varve.Store.ObjectStorage.Model.ReaderRecord.Understood.init -> void
 Varve.Store.ObjectStorage.Model.ReaderRecordState

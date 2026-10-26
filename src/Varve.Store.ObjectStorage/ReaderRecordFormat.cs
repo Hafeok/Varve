@@ -17,6 +17,8 @@ namespace Varve.Store.ObjectStorage;
 /// A reader record's bytes (ADR 0160): JSON an operator can read, written and
 /// read by hand so that nothing reflects. Format 1 is read for ever; a record
 /// of another format, or one that does not read, holds every catalog version.
+/// Its optional <c>maxDerived</c> (ADR 0178) leaves it format 1: a record
+/// without it is a reader of derived format 4.
 /// </summary>
 internal static class ReaderRecordFormat
 {
@@ -39,6 +41,9 @@ internal static class ReaderRecordFormat
 
             json.WriteNumber("catalogOldest", record.Oldest.Value);
             json.WriteNumber("catalogNewest", record.Newest.Value);
+
+            // Optional in format 1 (ADR 0178): a record without it reads 4.
+            json.WriteNumber("maxDerived", record.MaxDerived.Value);
 
             if (record.AnnouncedAt is { } at)
             {
@@ -71,6 +76,7 @@ internal static class ReaderRecordFormat
                 Holder = root.TryGetProperty("holder", out JsonElement holder) ? new WriterInstance(holder.GetString()!) : null,
                 Oldest = new CatalogVersion(root.GetProperty("catalogOldest").GetInt64()),
                 Newest = new CatalogVersion(root.GetProperty("catalogNewest").GetInt64()),
+                MaxDerived = root.TryGetProperty("maxDerived", out JsonElement maxDerived) ? new DerivedVersion(maxDerived.GetInt32()) : DerivedVersion.Format4,
                 AnnouncedAt = root.TryGetProperty("at", out JsonElement at)
                     ? new ClaimTime(DateTimeOffset.Parse(at.GetString()!, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind))
                     : null,

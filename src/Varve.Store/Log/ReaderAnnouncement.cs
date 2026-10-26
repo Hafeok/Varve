@@ -18,6 +18,14 @@ public sealed record ReaderAnnouncement(ReaderId Reader, CatalogVersion Oldest, 
     /// <summary>False for a record of a format this build does not read, which holds every version.</summary>
     public bool Understood { get; init; } = true;
 
+    /// <summary>
+    /// The newest derived format the reader reads (ADR 0178): 4 for a record
+    /// that does not say, as one written before #133, and for one of a format
+    /// this build does not read. While a present record says less than 5, the
+    /// writer leaves format-4 extent sets as they are.
+    /// </summary>
+    public DerivedVersion MaxDerived { get; init; } = DerivedVersion.Format4;
+
     /// <summary>A record of a format this build does not read: it holds every version (ADR 0160).</summary>
     public static ReaderAnnouncement OfUnknownFormat(ReaderId reader) =>
         new(reader, new CatalogVersion(0), CatalogVersion.Newest) { Understood = false };

@@ -231,6 +231,7 @@ internal static class Storage
         return record.Reader
             + "  " + versions
             + "  " + (record.State == ReaderRecordState.Forgotten ? "forgotten" : "announced")
+            + "  reads derived format " + record.MaxDerived.ToString() + " (maxDerived)"
             + (record.Holder is { } holder ? "  by " + holder.Value : string.Empty)
             + (record.AnnouncedAt is { } at ? "  at " + at.Value.ToString("O", CultureInfo.InvariantCulture) : string.Empty)
             + "  retains " + Bytes(holding.RetainedBytes.Value);

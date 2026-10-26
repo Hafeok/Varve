@@ -59,6 +59,12 @@ public sealed partial class Dataset
     private int _roundsSincePoll;
     private volatile bool _merges = true;
 
+    // Whether a present reader record reads no more than derived format 4
+    // (ADR 0178): while one does, format-4 sets are not rewritten. Unknown —
+    // so held — until the writer first reads the records; a storage with one
+    // reader has no records, and this build reads format 5.
+    private volatile bool _olderReaders = true;
+
     // The pins of the catalog the open began at, or last wrote (ADR 0139).
     private Dictionary<long, CatalogPin> _catalogPins = [];
 
@@ -403,6 +409,7 @@ public sealed partial class Dataset
             {
                 await AnnounceHeldAsync(cancellationToken).ConfigureAwait(false);
                 records = await readers.ReadAnnouncementsAsync(cancellationToken).ConfigureAwait(false);
+                NoteOlderReaders(records);
             }
             catch (System.IO.IOException)
             {
@@ -651,7 +658,7 @@ public sealed partial class Dataset
     /// window allocated as its dictionary; then its graph-version index and
     /// its window's commit index (ADR 0161).
     /// </summary>
-    private async ValueTask<ExtentSet> WriteSetFromLogAsync(State state, long from, long to, CancellationToken cancellationToken)
+    private async ValueTask<ExtentSet> WriteSetFromLogAsync(State state, long from, long to, ushort version, CancellationToken cancellationToken)
     {
         // A quad's event takes at least a few bytes of log: the window's
         // bytes bound its events, and so what the sorts need to hold.
@@ -682,7 +689,7 @@ public sealed partial class Dataset
 
             name = await WriteUnderFreshNameAsync(from, to, async attempt =>
             {
-                await ExtentSet.WriteAsync(_storage.Derived, attempt, Id, from, to, at.HeaderHash(), at.BlankCount, rows.RowsAsync, [terms], cancellationToken, _options.ExtentVersion).ConfigureAwait(false);
+                await ExtentSet.WriteAsync(_storage.Derived, attempt, Id, from, to, at.HeaderHash(), at.BlankCount, rows.RowsAsync, [terms], cancellationToken, version).ConfigureAwait(false);
                 await graphs.WriteAsync(_storage.Derived, ExtentSet.GraphsOf(attempt), Id, at.HeaderHash(), cancellationToken).ConfigureAwait(false);
                 await CommitIndexFormat.WriteAsync(_storage.Derived, ExtentSet.CommitsOf(attempt), Id, from, to, state.Commits.Entry, cancellationToken).ConfigureAwait(false);
             }).ConfigureAwait(false);
@@ -706,6 +713,7 @@ public sealed partial class Dataset
     [DesignDecision(typeof(BackgroundExtentMerges.MergeIsAPureFunctionOfItsInputs), Scope = ExceptionScope.Boundary)]
     private async ValueTask<ExtentSet> MergeSetsAsync(State state, List<ExtentSet> inputs, CancellationToken cancellationToken)
     {
+        ushort version = VersionReplacing(inputs);
         ExtentSet first = inputs[0];
         ExtentSet newest = inputs[^1];
 
@@ -752,7 +760,7 @@ public sealed partial class Dataset
 
             string name = await WriteUnderFreshNameAsync(first.From, newest.To, async attempt =>
             {
-                await ExtentSet.WriteAsync(_storage.Derived, attempt, Id, first.From, newest.To, newest.ToHash, newest.BlankCount, Rows, terms, cancellationToken, _options.ExtentVersion).ConfigureAwait(false);
+                await ExtentSet.WriteAsync(_storage.Derived, attempt, Id, first.From, newest.To, newest.ToHash, newest.BlankCount, Rows, terms, cancellationToken, version).ConfigureAwait(false);
 
                 if (graphs is { } read)
                 {
@@ -817,6 +825,7 @@ public sealed partial class Dataset
     /// </summary>
     private async ValueTask CheckpointExtentsAsync(long position, CancellationToken cancellationToken)
     {
+        await NoteOlderReadersAsync(cancellationToken).ConfigureAwait(false);
         await _checkpointGate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
@@ -836,7 +845,7 @@ public sealed partial class Dataset
             {
                 if (position > end)
                 {
-                    ExtentSet set = await WriteSetFromLogAsync(state, end, position, cancellationToken).ConfigureAwait(false);
+                    ExtentSet set = await WriteSetFromLogAsync(state, end, position, _options.ExtentVersion, cancellationToken).ConfigureAwait(false);
                     written.Add(set);
                     sets.Add(set);
                 }
@@ -844,9 +853,10 @@ public sealed partial class Dataset
                 {
                     int k = sets.FindIndex(s => s.From < position && position < s.To);
                     ExtentSet holding = sets[k];
-                    ExtentSet first = await WriteSetFromLogAsync(state, holding.From, position, cancellationToken).ConfigureAwait(false);
+                    ushort version = VersionReplacing([holding]);
+                    ExtentSet first = await WriteSetFromLogAsync(state, holding.From, position, version, cancellationToken).ConfigureAwait(false);
                     written.Add(first);
-                    ExtentSet second = await WriteSetFromLogAsync(state, position, holding.To, cancellationToken).ConfigureAwait(false);
+                    ExtentSet second = await WriteSetFromLogAsync(state, position, holding.To, version, cancellationToken).ConfigureAwait(false);
                     written.Add(second);
                     sets[k] = first;
                     sets.Insert(k + 1, second);
@@ -870,6 +880,7 @@ public sealed partial class Dataset
     /// <summary>Drops an extent checkpoint: its set merged into the next, or, the newest, dropped.</summary>
     private async ValueTask DropExtentCheckpointAsync(long position, CancellationToken cancellationToken)
     {
+        await NoteOlderReadersAsync(cancellationToken).ConfigureAwait(false);
         await _checkpointGate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
@@ -932,16 +943,61 @@ public sealed partial class Dataset
         return chosen is { } c && _refusedMerges.Contains(sets[c.First].Name + "+" + c.Count.ToString(CultureInfo.InvariantCulture)) ? null : chosen;
     }
 
-    // The oldest set not in the version this build writes, when this build writes 5.
+    // The version a set written in place of these is written in (ADR 0178):
+    // format 4 while a present reader reads no more and one of them is
+    // format 4 — a merge, a drop's merge or a split of the oldest sets keeps
+    // their format, so such a reader's chain ends only at the newest sets —
+    // and otherwise what this build writes.
+    private ushort VersionReplacing(List<ExtentSet> replaced) =>
+        _storage is IExtentReaders && _olderReaders && !replaced.TrueForAll(s => s.Seekable) ? DerivedFormat.Version : _options.ExtentVersion;
+
+    // The oldest set not in the version this build writes, when this build
+    // writes 5 and no reader that reads only format 4 is present (ADR 0178):
+    // its chain would end at the rewritten set, the oldest, and it would
+    // replay the whole log. New checkpoints and merges still write format 5,
+    // so such a reader's chain ends only at the newest sets.
     private (int First, int Count)? Format4Set(List<ExtentSet> sets)
     {
-        if (_options.ExtentVersion < DerivedFormat.ExtentVersion)
+        if (_options.ExtentVersion < DerivedFormat.ExtentVersion || (_storage is IExtentReaders && _olderReaders))
         {
             return null;
         }
 
         int k = sets.FindIndex(s => !s.Seekable);
         return k < 0 ? null : (k, 1);
+    }
+
+    /// <summary>
+    /// Reads the reader records, when a format-4 set waits to be rewritten,
+    /// and notes whether any present one reads no more than format 4 (ADR
+    /// 0178). A store that cannot be reached leaves the note as it was.
+    /// </summary>
+    private async ValueTask NoteOlderReadersAsync(CancellationToken cancellationToken)
+    {
+        if (_storage is not IExtentReaders readers || SetsOf(_state).TrueForAll(s => s.Seekable))
+        {
+            return;
+        }
+
+        try
+        {
+            NoteOlderReaders(await readers.ReadAnnouncementsAsync(cancellationToken).ConfigureAwait(false));
+        }
+        catch (System.IO.IOException)
+        {
+        }
+    }
+
+    private void NoteOlderReaders(IReadOnlyList<ReaderAnnouncement> records)
+    {
+        bool older = false;
+
+        foreach (ReaderAnnouncement record in records)
+        {
+            older |= record.MaxDerived.Value < DerivedFormat.ExtentVersion;
+        }
+
+        _olderReaders = older;
     }
 
     /// <summary>
@@ -954,6 +1010,7 @@ public sealed partial class Dataset
     [DesignDecision(typeof(BackgroundExtentMerges.MergeRebasesOnTheCatalog), Scope = ExceptionScope.Boundary)]
     private async ValueTask<bool> MergeExtentsAsync(CancellationToken cancellationToken)
     {
+        await NoteOlderReadersAsync(cancellationToken).ConfigureAwait(false);
         State state = _state;
         List<ExtentSet> sets = SetsOf(state);
 
