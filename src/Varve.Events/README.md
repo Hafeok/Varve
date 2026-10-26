@@ -13,7 +13,10 @@ with no store and no HTTP.
   graphs and maps one back to the source graph that governs it.
 - **`EventCatalogueHistory`** replays the catalogue graphs' changes. It
   answers the declarations, versions and immutable schema revisions in force
-  at any position.
+  at any position. `ContinueFrom` starts the history after a dataset's
+  declarations moved to the management plane, keeping the revisions at the
+  move; a revision minted after it is a `SchemaRevisionId` written `m{p}`
+  (ADR 0167).
 - **`EventRenderer`** renders a commit's events. The declaration's `SELECT`
   runs over the event node's closure as of the commit, and its values are
   mapped to JSON by a fixed table and the number rule. Rendering a commit

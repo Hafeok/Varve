@@ -15,3 +15,10 @@ The files were written once, by running the tests with
 switch writes only missing files and is refused when `CI` is set. They are
 never regenerated: a generator change that alters one is a defect, or a
 change of the read-forever rule, which an ADR decides.
+
+A case that crosses the move of a dataset's declarations to the management
+plane (ADR 0167) adds `history/mNN.trig`: the catalogue, in the catalogue
+graphs' form, at management position NN after the move. The test continues
+the dataset's history from its last state (`EventCatalogueHistory.ContinueFrom`)
+and replays them; a revision minted there is written `rm{NN}.json`. The case
+`moved` is the first.

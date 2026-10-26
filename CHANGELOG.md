@@ -12,7 +12,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-## [0.1.0-preview.13] - 2026-10-23
+## [0.1.0-preview.14] - 2026-10-23
 
 **As-of reads that seek — an as-of read inside an extent set costs its matches**
 
@@ -63,23 +63,23 @@ filed unaccepted and accepted on the pull request (ADR 0066).
 
 #### Upgrading
 
-- **A dataset written by `v0.1.0-preview.12` or before opens as it is.**
+- **A dataset written by `v0.1.0-preview.13` or before opens as it is.**
   Reads inside its format-4 sets narrow them, as before, until
   maintenance rewrites each alone as format 5, oldest first, when no merge
   is due (ADR 0178). With `ExtentMerges.Enabled` false nothing is
   rewritten.
 - **Older readers decide when the rewrite starts** (ADR 0178). While any
   present reader record reads only format 4 (one of
-  `v0.1.0-preview.12` or before has no `maxDerived`), no format-4 set is
+  `v0.1.0-preview.13` or before has no `maxDerived`), no format-4 set is
   rewritten and merges of format-4 sets stay format 4; new checkpoints are
   format 5. Once the record is forgotten or its reader upgraded, the
   rewrite proceeds.
 - **Followers first is recommended; either order is safe.** A follower of
-  `v0.1.0-preview.12` behind a writer of this release finds the format-5
+  `v0.1.0-preview.13` or before behind a writer of this release finds the format-5
   extents cache misses: its chain ends at the first such set and it reads
   the log above it, serving every position correctly at the log's cost,
   and the format-4 sets it needs stay while it is announced. A writer of
-  `v0.1.0-preview.12` (a downgrade) deletes the format-5 sets and writes
+  `v0.1.0-preview.13` or before (a downgrade) deletes the format-5 sets and writes
   its next checkpoint from the log.
 
 #### Fixed
@@ -95,6 +95,83 @@ REC M, generator output version 2, on files and on Azurite
 are unchanged: over one dataset of each format, in alternating rounds,
 the same lookups and scans at p50 overlap between this release and
 `main`'s store.
+
+## [0.1.0-preview.13] - 2026-10-23
+
+**Management plane, part 2 — event schemas move to the management plane**
+
+### Milestone Management plane, part 2 — event schemas move to the management plane
+
+A dataset's event declarations can move from its catalogue graphs to its
+declarations on the management plane, where they are written, reviewed and
+applied like its grants and settings. The events every commit renders do
+not change by a byte across the move. This release closes milestone
+Management plane (#105), whose first part was #131 (`v0.1.0-preview.10`).
+Storage format 1 holds. ADR 0167 is filed unaccepted and accepted on the
+pull request (ADR 0066), with dated amendments to ADRs 0144, 0145 and 0166.
+
+#### Added
+
+- **The move, per dataset, as an explicit act** (ADR 0167):
+  `POST /manage/datasets/{name}/events/move` and `varve manage move-events
+  <name>`, by an operator or the dataset's admin, sent to any instance.
+  - The system writer freezes the catalogue graphs with
+    `varve:eventDeclarations varve:Moving` at m₁.
+  - The dataset's writer passes a barrier through its sequencer, so the
+    catalogue at its head is final. It then copies each catalogue graph into
+    the dataset's graph, each type node with `varve:sourceGraph`, committed
+    with `varve:Moved` at m₂ under the graph's version.
+  - The move runs under the caller's token. The request is forwarded to
+    the dataset's writer, and its management writes go to the system writer
+    once each (ADR 0168).
+  - The move is idempotent and resumes where it stopped. An instance that
+    writes both the dataset and the system dataset finishes a stopped move
+    by itself.
+  - A catalogue that does not translate one-to-one cancels the move, and the
+    answer says why.
+- **The boundary is exact.** A commit renders its events from the system
+  dataset exactly when the management position it records is m₂ or later.
+  Every commit before that renders from the dataset's own catalogue
+  history, so its events are the same bytes as before the move.
+- **`GET /manage/datasets/{name}/events`**: where a dataset's event
+  declarations are (`in-dataset`, `moving` or `moved`), and the moved
+  event nodes as TriG on request. A move left `Moving` is reported by
+  status, readiness and this resource as `{"state":"moving","since":m₁}`,
+  as information, never unready. A switch finished with no request names
+  the agent who authorised the freeze.
+- **`409 event-catalogue-moved`**: a write to a catalogue graph after the
+  freeze, at the store and over HTTP. Its `manage` member names the
+  declarations' new home. The catalogue graphs' history stays readable as
+  of any position.
+- **`EventCatalogueHistory.ContinueFrom`**: the history after the move,
+  seeded with the revisions at it, so that a type whose schema bytes did
+  not change keeps its revision and its `dataschema`.
+- **`ManagedEventDeclarations`** (`Varve.Protocol`): a dataset graph's event
+  nodes in the catalogue graphs' change form, and the copy the other way.
+- **Vocabulary:** `varve:eventDeclarations`, `varve:InDataset`,
+  `varve:Moving`, `varve:Moved` and `varve:sourceGraph`.
+
+#### Changed
+
+- **Breaking:** `SchemaRevision.Revision` is a `SchemaRevisionId`, and
+  `EventEndpoints.Schema` takes one. A revision minted after the move is
+  `…/versions/{n}/revisions/m{p}`, with p the management position.
+  Revisions minted before the move keep their bare integers, and every URL
+  already served stays immutable (ADR 0145, amended).
+- Moved event declarations are checked in their new home by the same
+  entry point as before, `EventDeclarationCheck`, over their
+  catalogue-graph translation. `event-declaration-invalid` and
+  `event-schema-incompatible` answer as before the move.
+- `ManagementValidator` allows only the move's transitions of
+  `varve:eventDeclarations`: none or `InDataset` to `Moving`, `Moving` to
+  `InDataset` (a cancel, its own management commit), and `Moving` to
+  `Moved`, which is final.
+
+#### Known issues
+
+- The fleet's server processes run on Azurite only. A server reaches an
+  S3 store only by web identity (ADR 0137), which RustFS in CI does not
+  provide. The move is above the store.
 
 ## [0.1.0-preview.12] - 2026-10-20
 
@@ -1478,7 +1555,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.13...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.14...HEAD
+[0.1.0-preview.14]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.13...v0.1.0-preview.14
 [0.1.0-preview.13]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.12...v0.1.0-preview.13
 [0.1.0-preview.12]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.11...v0.1.0-preview.12
 [0.1.0-preview.11]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.10...v0.1.0-preview.11

@@ -329,7 +329,7 @@ in [ADR 0178](0178-the-format-5-upgrade-and-the-set-cap.md).
   which set may be deleted. It decides whether the writer may rewrite a
   format-4 set as format 5: not while a present record says less (ADR 0178,
   point 2).
-- **The record format stays 1.** A reader of `v0.1.0-preview.12` reads a
+- **The record format stays 1.** A reader of `v0.1.0-preview.13` or before reads a
   record with the member as it reads any, ignoring what it does not know;
   this build reads one without it as 4.
 - `varve storage readers list` and readiness's `retention` show it.

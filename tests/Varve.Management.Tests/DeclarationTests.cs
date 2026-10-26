@@ -123,6 +123,10 @@ public sealed class DeclarationTests
     [InlineData("n:d a varve:Dataset ; varve:datasetName \"other\" .", "must be equal")]
     [InlineData("n:d a varve:Dataset ; varve:datasetName \"d\" ; varve:colour \"red\" .", "varve:colour is not a term")]
     [InlineData("n:d a varve:Dataset ; varve:datasetName \"d\" . n:t a varve:EventType .", "ADR 0167")]
+    [InlineData("n:d a varve:Dataset ; varve:datasetName \"d\" ; varve:eventDeclarations varve:Moving . n:t a varve:EventType .", "varve:eventDeclarations varve:Moved")]
+    [InlineData("n:d a varve:Dataset ; varve:datasetName \"d\" ; varve:eventDeclarations varve:read .", "varve:Moving or varve:Moved")]
+    [InlineData("n:d a varve:Dataset ; varve:datasetName \"d\" ; varve:eventDeclarations varve:Moving, varve:Moved .", "at most once")]
+    [InlineData("n:d a varve:Dataset ; varve:datasetName \"d\" . n:x varve:eventDeclarations varve:Moved .", "dataset's node only")]
     [InlineData("n:d a varve:Dataset ; varve:datasetName \"d\" ; varve:erasureMode true .", "#14")]
     [InlineData("n:d a varve:Dataset ; varve:datasetName \"d\" . n:c a varve:ClassifierBinding .", "#14")]
     [InlineData("n:d a varve:Dataset ; varve:datasetName \"d\" . n:g a varve:Grant ; varve:grantee <https://i#a> ; varve:permission varve:operator .", "fleet graph only")]
@@ -195,5 +199,71 @@ public sealed class DeclarationTests
         Assert.True(ManagementVocabulary.IsManagementGraph(ManagementVocabulary.FleetGraph));
         Assert.False(ManagementVocabulary.IsManagementGraph(T.Iri("https://w3id.org/varve/ns#setup")));
         Assert.DoesNotContain(T.Read(Notes).Datasets.Keys, key => key != "notes");
+    }
+
+    [Fact]
+    public void a_moved_graph_holds_event_declarations_and_says_where_they_are()
+    {
+        Declarations declarations = T.Read("""
+            <https://w3id.org/varve/ns#manage/dataset/d> {
+              n:d a varve:Dataset ; varve:datasetName "d" ; varve:eventDeclarations varve:Moved .
+              n:t a varve:EventType ; varve:sourceGraph varve:defaultGraph ; varve:eventName "T" ; varve:eventField n:f .
+              n:f a varve:EventField ; varve:fieldName "f" .
+            }
+            """);
+
+        Assert.Empty(declarations.Findings);
+        Assert.Equal(EventDeclarationState.Moved, declarations.Datasets["d"].EventDeclarations);
+    }
+
+    [Fact]
+    public void event_terms_stay_refused_in_the_fleet_graph()
+    {
+        Declarations declarations = T.Read("""
+            <https://w3id.org/varve/ns#manage/fleet> { n:t a varve:EventType ; varve:eventDeclarations varve:Moved . }
+            """);
+
+        Assert.Contains(declarations.Findings, finding => finding.Message.Contains("ADR 0167", System.StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(EventDeclarationState.InDataset, EventDeclarationState.InDataset, true)]
+    [InlineData(EventDeclarationState.InDataset, EventDeclarationState.Moving, true)]
+    [InlineData(EventDeclarationState.Moving, EventDeclarationState.InDataset, true)]
+    [InlineData(EventDeclarationState.Moving, EventDeclarationState.Moved, true)]
+    [InlineData(EventDeclarationState.Moved, EventDeclarationState.Moved, true)]
+    [InlineData(EventDeclarationState.InDataset, EventDeclarationState.Moved, false)]
+    [InlineData(EventDeclarationState.Moved, EventDeclarationState.Moving, false)]
+    [InlineData(EventDeclarationState.Moved, EventDeclarationState.InDataset, false)]
+    public void the_move_s_transitions(EventDeclarationState from, EventDeclarationState to, bool allowed)
+    {
+        Assert.Equal(allowed, EventDeclarationMoves.Allowed(from, to));
+        Declarations before = T.Read(Graph(from));
+        Declarations after = T.Read(Graph(to));
+        Assert.Equal(allowed, EventDeclarationMoves.Check(before, after).Count == 0);
+
+        static string Graph(EventDeclarationState state) =>
+            "<https://w3id.org/varve/ns#manage/dataset/d> { n:d a varve:Dataset ; varve:datasetName \"d\""
+            + state switch { EventDeclarationState.Moving => " ; varve:eventDeclarations varve:Moving", EventDeclarationState.Moved => " ; varve:eventDeclarations varve:Moved", _ => string.Empty }
+            + " . }";
+    }
+
+    [Fact]
+    public void a_cancel_states_varve_InDataset_and_the_dataset_may_move_again_from_it()
+    {
+        const string Moving = "<https://w3id.org/varve/ns#manage/dataset/d> { n:d a varve:Dataset ; varve:datasetName \"d\" ; varve:eventDeclarations varve:Moving . }";
+        const string Cancelled = "<https://w3id.org/varve/ns#manage/dataset/d> { n:d a varve:Dataset ; varve:datasetName \"d\" ; varve:eventDeclarations varve:InDataset . }";
+        Declarations cancelled = T.Read(Cancelled);
+        Assert.Empty(cancelled.Findings);
+        Assert.Equal(EventDeclarationState.InDataset, cancelled.Datasets["d"].EventDeclarations);
+        Assert.Empty(EventDeclarationMoves.Check(T.Read(Moving), cancelled));
+        Assert.Empty(EventDeclarationMoves.Check(cancelled, T.Read(Moving)));
+    }
+
+    [Fact]
+    public void a_deleted_dataset_is_not_a_transition()
+    {
+        Declarations before = T.Read("<https://w3id.org/varve/ns#manage/dataset/d> { n:d a varve:Dataset ; varve:datasetName \"d\" ; varve:eventDeclarations varve:Moved . }");
+        Assert.Empty(EventDeclarationMoves.Check(before, Declarations.Empty));
     }
 }

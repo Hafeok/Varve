@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 using Varve.Delta.Model;
@@ -11,9 +12,87 @@ using Varve.Rdf;
 
 namespace Varve.Events.Model;
 
-/// <summary>One revision of an event type's schema: the version, and the position at which the generated schema took this form.</summary>
+/// <summary>One revision of an event type's schema: the version, and where the generated schema took this form.</summary>
 [DesignDecision(typeof(DomainEventsAsCloudevents.EventSurfaceCarriesDeclaredValues), Scope = ExceptionScope.Boundary)]
-public readonly record struct SchemaRevision(int Version, FeedPosition Revision);
+public readonly record struct SchemaRevision(int Version, SchemaRevisionId Revision);
+
+/// <summary>
+/// A revision's identifier (ADR 0145, amended by ADR 0167): a dataset
+/// position, written as its bare integer, for a revision minted from the
+/// dataset's catalogue graphs; a management position, written <c>m{p}</c>, for
+/// one minted after the dataset's declarations moved to the management plane.
+/// The two spaces never collide, and every revision of the dataset space sorts
+/// before every revision of the management space, since a move is final.
+/// </summary>
+[DesignDecision(typeof(EventDeclarationsMoveToTheManagementPlane.RevisionsAfterTheMove), Scope = ExceptionScope.Boundary)]
+public readonly record struct SchemaRevisionId : IComparable<SchemaRevisionId>
+{
+    private SchemaRevisionId(long position, bool management)
+    {
+        Position = position;
+        IsManagement = management;
+    }
+
+    /// <summary>The position: a dataset position, or a management position when <see cref="IsManagement"/>.</summary>
+    public long Position { get; }
+
+    /// <summary>Whether the position is a management position: a revision minted after the move.</summary>
+    public bool IsManagement { get; }
+
+    /// <summary>A revision minted at a dataset position.</summary>
+    public static SchemaRevisionId Dataset(FeedPosition position) => new(position.Value, management: false);
+
+    /// <summary>A revision minted at a management position, after the move.</summary>
+    public static SchemaRevisionId Management(long position)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(position);
+        return new(position, management: true);
+    }
+
+    /// <summary>The identifier as a URL segment: <c>{p}</c>, or <c>m{p}</c> after the move.</summary>
+    public override string ToString() =>
+        (IsManagement ? "m" : string.Empty) + Position.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>Reads a URL segment: digits, or <c>m</c> then digits, with no sign, space or leading zero but a lone <c>0</c>.</summary>
+    [DesignDecision(typeof(DomainEventsAsCloudevents.EventSurfaceCarriesDeclaredValues), Scope = ExceptionScope.Boundary)]
+    public static bool TryParse(string? text, out SchemaRevisionId revision)
+    {
+        revision = default;
+
+        if (string.IsNullOrEmpty(text))
+        {
+            return false;
+        }
+
+        bool management = text[0] == 'm';
+        ReadOnlySpan<char> digits = management ? text.AsSpan(1) : text.AsSpan();
+
+        if (digits.Length == 0 || (digits.Length > 1 && digits[0] == '0')
+            || !long.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out long position))
+        {
+            return false;
+        }
+
+        revision = new SchemaRevisionId(position, management);
+        return true;
+    }
+
+    /// <inheritdoc />
+    public int CompareTo(SchemaRevisionId other) =>
+        IsManagement != other.IsManagement ? (IsManagement ? 1 : -1) : Position.CompareTo(other.Position);
+
+    /// <summary>Whether <paramref name="left"/> is minted before <paramref name="right"/>.</summary>
+    public static bool operator <(SchemaRevisionId left, SchemaRevisionId right) => left.CompareTo(right) < 0;
+
+    /// <summary>Whether <paramref name="left"/> is minted after <paramref name="right"/>.</summary>
+    public static bool operator >(SchemaRevisionId left, SchemaRevisionId right) => left.CompareTo(right) > 0;
+
+    /// <summary>Whether <paramref name="left"/> is minted no later than <paramref name="right"/>.</summary>
+    public static bool operator <=(SchemaRevisionId left, SchemaRevisionId right) => left.CompareTo(right) <= 0;
+
+    /// <summary>Whether <paramref name="left"/> is minted no earlier than <paramref name="right"/>.</summary>
+    public static bool operator >=(SchemaRevisionId left, SchemaRevisionId right) => left.CompareTo(right) >= 0;
+}
 
 /// <summary>An event type as the catalogue holds it at one position: its declaration, the revision in force, and every revision before.</summary>
 public sealed class CataloguedType

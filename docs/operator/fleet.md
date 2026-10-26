@@ -98,6 +98,9 @@ state (`recorded`, `absent` or `mismatch`). Each dataset carries its role
 (`writer`, `follower` or `elsewhere`) and lag. An instance is not ready when
 its system role is `superseded`, its bootstrap is `mismatch`, its management
 lag exceeds `Varve:Fleet:AllowedLag`, or a dataset fails ADR 0113's rule.
+A dataset whose event declarations are moving to the management plane, and
+whose move has not finished, carries `"events": {"state": "moving", "since": m₁}`, as information: it
+never makes the instance unready ([Moving event schemas](moving-event-schemas.md)).
 
 **A mistaken second system writer** — two instances with `Writer` `true` —
 shows as a superseded instance in readiness, and as a run of `restart`
@@ -141,3 +144,16 @@ The code is the same everywhere; only the address differs.
   ([Azure Container Apps](azure-container-apps.md)).
 - **Handover by hand**: N single-replica apps behind a front door, each with
   its own instance name, and placement changed by declaration.
+
+## Event schemas in a fleet
+
+A dataset's event declarations can live on the management plane (ADR 0167),
+and [Moving event schemas](moving-event-schemas.md) moves them there. In a
+fleet, the move may be sent to any instance. It is forwarded to the dataset's
+writer, which makes the freeze and the copy as management writes under the
+caller's token, forwarded once to the system writer. Every instance then
+renders a moved dataset's events from its own follower of the system dataset,
+at the management position each commit records. An instance that has not
+applied that position yet answers the events request `503
+management-behind`. A writer that also writes the system dataset finishes a
+stopped move by itself; any other instance finishes it on the next request.

@@ -218,3 +218,17 @@ The rest of point 4 stands:
 
 **The ledger.** The rulings of this block are `TestContainersFromTheMirror`
 and `MirrorSeededByDigest`, unaccepted until the maintainer accepts them.
+
+## Amendment, 2026-10-20 — a `watch` reference, read by manifest HEAD
+
+Filed by a follow-up to #118, on the maintainer's ruling of 2026-10-19, unaccepted until the maintainer accepts it (ADR 0066).
+
+A row may name a `watch` reference, read by manifest HEAD only, when its upstream refuses CI's reads. Docker Hub is allowed there and nowhere else.
+
+- **Where it applies.** PostgreSQL's row watches `docker.io/library/postgres:18.6-alpine`, because ECR Public's anonymous cap refuses its upstream.
+- **What stays the same.** The row's `upstream` is still ECR Public, and the mirror still copies from there. A bump that ECR refuses is seeded by hand under `MirrorSeededByDigest`, and the weekly comparison's issue says so.
+- **The checks.**
+  - `ci-images-upstream.yml` reads a `watch` with one manifest HEAD request: no pull, no layers.
+  - `eng/ci-images.cs` refuses `docker.io` anywhere else: under `.github/`, in C#, and as a row's `upstream`.
+
+**The ledger.** The ruling of this block is `WatchReadByManifestHead`, unaccepted until the maintainer accepts it.

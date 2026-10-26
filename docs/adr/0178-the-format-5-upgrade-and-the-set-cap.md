@@ -24,7 +24,7 @@ Records decision set
 ## Context
 
 ADR 0177 writes extents in derived format 5, so an as-of read inside a set
-seeks it. Datasets written by `v0.1.0-preview.12` and before hold format-4
+seeks it. Datasets written by `v0.1.0-preview.13` and before hold format-4
 sets, on directories and in object stores, and a fleet upgrades one instance
 at a time: for a while a writer and its followers may run different builds
 over one store. Derived data is rebuilt, not read forever (ADR 0072; #129's
@@ -95,12 +95,12 @@ log from that set's start. Measured with `v0.1.0-preview.12`'s store over
 this build's sets, on a directory and on Azurite: the same answers at every
 position sampled, its chain empty.
 
-- **A follower of `v0.1.0-preview.12` behind a writer of this build** serves
+- **A follower of `v0.1.0-preview.13` or before behind a writer of this build** serves
   every position correctly, at the cost of the log's distance above its
   chain's end at open and on as-of reads, until it is upgraded. Its reader
   record is the same format (ADR 0160), so deletion is unchanged. It never
   fails and never returns a wrong result.
-- **A writer of `v0.1.0-preview.12`** — a downgrade — writes its next
+- **A writer of `v0.1.0-preview.13` or before** — a downgrade — writes its next
   checkpoint from the log, in format 4. On a directory it deletes the
   format-5 sets at open, as any set its chain does not name; on an object
   store they are unnamed after its next swap and deleted by the reader rule.
@@ -151,7 +151,7 @@ position sampled, its chain empty.
 
 ## Consequences
 
-- A dataset upgraded from `v0.1.0-preview.12` keeps its as-of cost inside
+- A dataset upgraded from `v0.1.0-preview.13` or before keeps its as-of cost inside
   each set until maintenance rewrites it; the sets the policy merges first
   are rewritten by the merge.
 - The narrowing path, `RestrictedRows` and the narrowed run, is kept for

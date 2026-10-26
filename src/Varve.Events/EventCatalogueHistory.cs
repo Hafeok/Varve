@@ -28,6 +28,49 @@ public sealed class EventCatalogueHistory
     private readonly List<EventCatalogueSnapshot> _snapshots = [new EventCatalogueSnapshot(new FeedPosition(0), [])];
     private readonly object _gate = new();
 
+    /// <summary>A history of the dataset's catalogue graphs, replayed from position 1: its revisions are dataset positions.</summary>
+    public EventCatalogueHistory()
+    {
+    }
+
+    private EventCatalogueHistory(EventCatalogueSnapshot last)
+    {
+        IsManagement = true;
+        _snapshots = [new EventCatalogueSnapshot(new FeedPosition(0), last.Types)];
+
+        foreach (CataloguedType type in last.Types)
+        {
+            List<(SchemaRevision Revision, byte[] Schema)> list = new(type.Revisions.Count);
+
+            for (int i = 0; i < type.Revisions.Count; i++)
+            {
+                // Only the last revision's bytes are compared with what follows.
+                list.Add((type.Revisions[i], i == type.Revisions.Count - 1 ? EventSchemas.Generate(type.Declaration, id: null) : []));
+            }
+
+            _revisions[type.Declaration.Name] = list;
+        }
+    }
+
+    /// <summary>
+    /// The history after a dataset's declarations moved to the management plane
+    /// (ADR 0167), seeded with the revisions of <paramref name="last"/>, the
+    /// catalogue at the move. It is fed management positions, from the system
+    /// dataset's commits in the catalogue graphs' change form, and the
+    /// revisions it mints are management positions (<c>m{p}</c>). A type whose
+    /// generated schema has the same bytes as at the move keeps its revision,
+    /// so its <c>dataschema</c> does not change. Its first snapshot, at
+    /// position 0, is <paramref name="last"/>'s types.
+    /// </summary>
+    public static EventCatalogueHistory ContinueFrom(EventCatalogueSnapshot last)
+    {
+        ArgumentNullException.ThrowIfNull(last);
+        return new EventCatalogueHistory(last);
+    }
+
+    /// <summary>Whether the history's positions are management positions: a history continued from a move.</summary>
+    public bool IsManagement { get; }
+
     /// <summary>The last position applied.</summary>
     public FeedPosition Position { get; private set; }
 
@@ -113,6 +156,9 @@ public sealed class EventCatalogueHistory
         }
     }
 
+    /// <summary>The catalogue at which <paramref name="revision"/> was minted, when it is of this history's space.</summary>
+    public EventCatalogueSnapshot At(SchemaRevisionId revision) => At(new FeedPosition(revision.Position));
+
     /// <summary>The catalogue at <paramref name="position"/>: the last snapshot at or before it.</summary>
     public EventCatalogueSnapshot At(FeedPosition position)
     {
@@ -151,9 +197,11 @@ public sealed class EventCatalogueHistory
         if (list.Count == 0 || list[^1].Revision.Version != declaration.Version || !list[^1].Schema.AsSpan().SequenceEqual(schema))
         {
             // A revision is fixed once recorded: a later position appends.
-            if (list.Count == 0 || list[^1].Revision.Revision < position)
+            SchemaRevisionId minted = IsManagement ? SchemaRevisionId.Management(position.Value) : SchemaRevisionId.Dataset(position);
+
+            if (list.Count == 0 || list[^1].Revision.Revision < minted)
             {
-                list.Add((new SchemaRevision(declaration.Version, position), schema));
+                list.Add((new SchemaRevision(declaration.Version, minted), schema));
             }
         }
 

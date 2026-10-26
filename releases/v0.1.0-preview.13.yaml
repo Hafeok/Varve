@@ -1,91 +1,83 @@
 format: 1
 version: v0.1.0-preview.13
-title: As-of reads that seek — an as-of read inside an extent set costs its matches
+title: Management plane, part 2 — event schemas move to the management plane
 date: 2026-10-23
 basis:
-  - issue: 133
+  - issue: 105
   - storage-format: 1
   - delta-format: 1
-  - adr: "0177"
-  - adr: "0178"
+  - adr: "0167"
 accepted-by: mailto:emil@okkels-klein.dk
 summary: |
-  ### As-of reads that seek (#133, in 1.0 by #15)
+  ### Milestone Management plane, part 2 — event schemas move to the management plane
 
-  An as-of read at a position inside an extent set's window no longer
-  narrows the whole set before it begins: it looks its keys up in the set as
-  a read of the present does, and classifies only the matching rows'
-  intervals. At REC M, inside the largest merged set (211 MiB), a quad's
-  as-of lookup takes 4.4 / 15.0 µs at p50 / p99, 0.29× the same lookup at
-  the head, where opening that view took 2.9 s. This release closes #133.
-  The log's bytes are unchanged at storage format 1; extents are written in
-  derived format 5, rebuilt and never migrated (ADR 0072). The two ADRs are
-  filed unaccepted and accepted on the pull request (ADR 0066).
+  A dataset's event declarations can move from its catalogue graphs to its
+  declarations on the management plane, where they are written, reviewed and
+  applied like its grants and settings. The events every commit renders do
+  not change by a byte across the move. This release closes milestone
+  Management plane (#105), whose first part was #131 (`v0.1.0-preview.10`).
+  Storage format 1 holds. ADR 0167 is filed unaccepted and accepted on the
+  pull request (ADR 0066), with dated amendments to ADRs 0144, 0145 and 0166.
+
+  #### Added
+
+  - **The move, per dataset, as an explicit act** (ADR 0167):
+    `POST /manage/datasets/{name}/events/move` and `varve manage move-events
+    <name>`, by an operator or the dataset's admin, sent to any instance.
+    - The system writer freezes the catalogue graphs with
+      `varve:eventDeclarations varve:Moving` at m₁.
+    - The dataset's writer passes a barrier through its sequencer, so the
+      catalogue at its head is final. It then copies each catalogue graph into
+      the dataset's graph, each type node with `varve:sourceGraph`, committed
+      with `varve:Moved` at m₂ under the graph's version.
+    - The move runs under the caller's token. The request is forwarded to
+      the dataset's writer, and its management writes go to the system writer
+      once each (ADR 0168).
+    - The move is idempotent and resumes where it stopped. An instance that
+      writes both the dataset and the system dataset finishes a stopped move
+      by itself.
+    - A catalogue that does not translate one-to-one cancels the move, and the
+      answer says why.
+  - **The boundary is exact.** A commit renders its events from the system
+    dataset exactly when the management position it records is m₂ or later.
+    Every commit before that renders from the dataset's own catalogue
+    history, so its events are the same bytes as before the move.
+  - **`GET /manage/datasets/{name}/events`**: where a dataset's event
+    declarations are (`in-dataset`, `moving` or `moved`), and the moved
+    event nodes as TriG on request. A move left `Moving` is reported by
+    status, readiness and this resource as `{"state":"moving","since":m₁}`,
+    as information, never unready. A switch finished with no request names
+    the agent who authorised the freeze.
+  - **`409 event-catalogue-moved`**: a write to a catalogue graph after the
+    freeze, at the store and over HTTP. Its `manage` member names the
+    declarations' new home. The catalogue graphs' history stays readable as
+    of any position.
+  - **`EventCatalogueHistory.ContinueFrom`**: the history after the move,
+    seeded with the revisions at it, so that a type whose schema bytes did
+    not change keeps its revision and its `dataschema`.
+  - **`ManagedEventDeclarations`** (`Varve.Protocol`): a dataset graph's event
+    nodes in the catalogue graphs' change form, and the copy the other way.
+  - **Vocabulary:** `varve:eventDeclarations`, `varve:InDataset`,
+    `varve:Moving`, `varve:Moved` and `varve:sourceGraph`.
 
   #### Changed
 
-  - **Derived format 5, for extents only** (ADR 0177). An extent's positions
-    are fixed-width columns beside its key sections, one distance a key, and
-    its rows within are a thirteenth key section with a column of two
-    distances a row. Its asserted and retracted sections are format 4's,
-    byte for byte, and a read of the present reads nothing else. Every other
-    derived blob, the catalog included, is still written as format 4.
-    Storage format §7.5.
-  - **As-of reads seek** (ADR 0177). A lookup is three fence searches, a
-    block each and a column read; a scan merges the set's rows in the
-    pattern's range a key at a time; nothing is written. An as-of scan costs
-    its matches: 0.56 pages a match for a subject's quads at set sizes 28×
-    apart.
-  - **An as-of estimate inside a set may be estimated** (ADR 0049, amended):
-    exact while the set holds at most 4,096 rows in the pattern's range,
-    otherwise the set's count at its end, marked estimated.
-  - **Checkpoints, merges and drops write format 5**, from the rows format 4
-    had; a merge stays a pure function of its inputs (ADR 0158). Write
-    amplification at REC M is 1.86 per byte against 1.78, for extents 3.5%
-    smaller; checkpoint time is unchanged, maintenance 14% longer.
-  - **Every block of a format-5 extent is checked** (ADR 0177). The
-    directory carries a 64-bit check for each key block and each column
-    block, verified when the block is read: an extent with any byte zeroed,
-    flipped or cut serves the same answers or fails the read, never a
-    different answer.
-  - **Reader records state the derived format they read** (ADR 0160,
-    amended): `maxDerived`, absent read as 4, the record still version 1.
-    `varve storage readers list` shows it.
-  - **`MaxSetBytes` bounds merges, not reads** (ADR 0178, 0159 amended). Its
-    default stays 256 MiB: at REC M a 1 GiB cap made the chain longer. The
-    operator guide says when to raise it.
+  - **Breaking:** `SchemaRevision.Revision` is a `SchemaRevisionId`, and
+    `EventEndpoints.Schema` takes one. A revision minted after the move is
+    `…/versions/{n}/revisions/m{p}`, with p the management position.
+    Revisions minted before the move keep their bare integers, and every URL
+    already served stays immutable (ADR 0145, amended).
+  - Moved event declarations are checked in their new home by the same
+    entry point as before, `EventDeclarationCheck`, over their
+    catalogue-graph translation. `event-declaration-invalid` and
+    `event-schema-incompatible` answer as before the move.
+  - `ManagementValidator` allows only the move's transitions of
+    `varve:eventDeclarations`: none or `InDataset` to `Moving`, `Moving` to
+    `InDataset` (a cancel, its own management commit), and `Moving` to
+    `Moved`, which is final.
 
-  #### Upgrading
+  #### Known issues
 
-  - **A dataset written by `v0.1.0-preview.12` or before opens as it is.**
-    Reads inside its format-4 sets narrow them, as before, until
-    maintenance rewrites each alone as format 5, oldest first, when no merge
-    is due (ADR 0178). With `ExtentMerges.Enabled` false nothing is
-    rewritten.
-  - **Older readers decide when the rewrite starts** (ADR 0178). While any
-    present reader record reads only format 4 (one of
-    `v0.1.0-preview.12` or before has no `maxDerived`), no format-4 set is
-    rewritten and merges of format-4 sets stay format 4; new checkpoints are
-    format 5. Once the record is forgotten or its reader upgraded, the
-    rewrite proceeds.
-  - **Followers first is recommended; either order is safe.** A follower of
-    `v0.1.0-preview.12` behind a writer of this release finds the format-5
-    extents cache misses: its chain ends at the first such set and it reads
-    the log above it, serving every position correctly at the log's cost,
-    and the format-4 sets it needs stay while it is announced. A writer of
-    `v0.1.0-preview.12` (a downgrade) deletes the format-5 sets and writes
-    its next checkpoint from the log.
-
-  #### Fixed
-
-  - **A key with two intervals inside one set** is looked up at its first:
-    a lower bound in a run is now the first of equal keys, not whichever a
-    binary search met first. Found by the damage property on review.
-
-  #### Measured
-
-  REC M, generator output version 2, on files and on Azurite
-  (`tests/Varve.Benchmarks/README.md`, "As-of reads that seek"). Head reads
-  are unchanged: over one dataset of each format, in alternating rounds,
-  the same lookups and scans at p50 overlap between this release and
-  `main`'s store.
+  - The fleet's server processes run on Azurite only. A server reaches an
+    S3 store only by web identity (ADR 0137), which RustFS in CI does not
+    provide. The move is above the store.
