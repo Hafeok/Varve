@@ -291,3 +291,4 @@ Varve.Rdf.GraphGovernor
 Varve.Rdf.GraphScope.Governor.get -> Varve.Rdf.GraphGovernor?
 Varve.Rdf.GraphScope.WithGovernor(Varve.Rdf.GraphGovernor! governor) -> Varve.Rdf.GraphScope!
 virtual Varve.Rdf.GraphGovernor.Invoke(Varve.Rdf.RdfTerm! graph, out Varve.Rdf.RdfTerm? governor) -> bool
+Varve.Rdf.GraphScope.Prefixes.get -> System.Collections.Generic.IReadOnlyList<string!>!

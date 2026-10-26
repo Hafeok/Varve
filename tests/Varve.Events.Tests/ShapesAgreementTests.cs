@@ -4,8 +4,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
 using CsCheck;
+using Varve.Delta.Model;
 using Varve.Events.Model;
 using Varve.Rdf;
 using Varve.Shacl;
@@ -157,6 +160,132 @@ public class ShapesAgreementTests
         return fault != "none";
     }
 
+    /// <summary>
+    /// ADR 0175's agreement property: the runtime check, shapes and residual
+    /// code, refuses exactly what the frozen code check refuses, with the same
+    /// problem type, over generated catalogue commits that add a graph or edit
+    /// a valid one, with at most one fault, and edits that change a field.
+    /// </summary>
+    [Fact]
+    public void The_runtime_refuses_exactly_what_the_oracle_refuses()
+    {
+        Gen<Declaration> declaration = Gen.Select(Gen.Int[1, 3], Gen.Bool, Gen.Bool, Gen.Bool, (f, s, c, r) => new Declaration(f, s, c, r));
+        Gen.Select(declaration.Array[1, 3], Gen.Int[0, 2], Gen.Int[0, Enum.GetValues<Seen>().Length - 1], Gen.Int[0, Enum.GetValues<Unseen>().Length - 1], Gen.Int[0, 3])
+            .Sample((types, mode, seen, unseen, edit) =>
+            {
+                List<(RdfTerm S, RdfTerm P, RdfTerm O)> before = edit == 0 ? [] : Build(types);
+                List<(RdfTerm S, RdfTerm P, RdfTerm O)> after = Build(types);
+                if (edit >= 2)
+                {
+                    // An incompatible change to a field, at the same version or the next.
+                    Replace(after, FieldNode(0, 0), V("fieldDatatype"), Terms.Iri(Terms.Xsd + "boolean"));
+                    if (edit == 3)
+                    {
+                        Replace(after, TypeNode(0), V("eventVersion"), Terms.Literal("2", Terms.Xsd + "integer"));
+                    }
+                }
+
+                string fault = "none";
+                if (mode == 1 && Apply((Seen)seen, types, after, out _))
+                {
+                    fault = ((Seen)seen).ToString();
+                }
+                else if (mode == 2 && Apply((Unseen)unseen, types, after))
+                {
+                    fault = ((Unseen)unseen).ToString();
+                }
+
+                (InMemoryDataset proposed, List<FeedChange> changes) = Commit(before, after);
+                DeclarationVerdict runtime = EventDeclarationCheck.Check(proposed, changes);
+                DeclarationVerdict oracle = Oracle.CodeEventDeclarationCheck.Check(proposed, changes);
+                string shown = fault + " edit " + edit + "\nruntime: " + Shown(runtime) + "\noracle: " + Shown(oracle);
+
+                Assert.True(runtime.Accepted == oracle.Accepted, shown);
+                Assert.True(runtime.ProblemType == oracle.ProblemType, shown);
+                if (runtime.ProblemType == DeclarationVerdict.IncompatibleType)
+                {
+                    Assert.True(runtime.Declaration!.Equals(oracle.Declaration) && runtime.Fields.SequenceEqual(oracle.Fields), shown);
+                }
+            }, iter: Iterations);
+    }
+
+    /// <summary>
+    /// The agreement over Management plane part 2's fixture of moved
+    /// declarations (<c>fixtures/moved-declarations/</c>, ADR 0167), unchanged
+    /// and with each fault the shapes state: the shapes validate the event
+    /// nodes in their new home, the dataset's management graph beside its
+    /// other declarations; the code and the runtime check read the same nodes
+    /// in their old home, a catalogue graph; and the two homes agree.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(EverySeenFaultAndNone))]
+    public void The_moved_declarations_agree_in_both_homes(string fault)
+    {
+        const string N = "https://notes.example/manage/";
+        List<(RdfTerm S, RdfTerm P, RdfTerm O)> moved = Trig.Quads(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "moved-declarations", "notes.trig")))
+            .ConvertAll(q => (q.S, q.P, q.O));
+        Declaration[] types = [new Declaration(1, false, true, false), new Declaration(1, true, false, false)];
+        RdfTerm? faulty = null;
+        bool applied = fault != "none"
+            && Apply(Enum.Parse<Seen>(fault), types, moved, Terms.Iri(N + "note-created"), Terms.Iri(N + "note-created-title"), Terms.Iri(N + "note-shared"), out faulty);
+        if (fault != "none" && !applied)
+        {
+            return;
+        }
+
+        // The old home: the event nodes alone, without the move's varve:sourceGraph, as one catalogue graph.
+        HashSet<RdfTerm> eventNodes = [.. moved.Where(t => t.P.Equals(Terms.Iri(Terms.RdfType)) && (t.O.Equals(V("EventType")) || t.O.Equals(V("EventField")))).Select(t => t.S)];
+        List<(RdfTerm S, RdfTerm P, RdfTerm O)> catalogue = moved.FindAll(t => eventNodes.Contains(t.S) && !t.P.Equals(V("sourceGraph")));
+
+        ShaclReport report = Validate(moved);
+        List<EventTypeDeclaration> read = [];
+        List<DeclarationProblem> problems = [];
+        EventDeclarations.ReadGraph(CatalogueGraph, catalogue, read, problems);
+        (InMemoryDataset proposed, List<FeedChange> changes) = Commit([], catalogue);
+        DeclarationVerdict runtime = EventDeclarationCheck.Check(proposed, changes);
+        DeclarationVerdict oracle = Oracle.CodeEventDeclarationCheck.Check(proposed, changes);
+        string shown = fault + "\ncode: " + string.Join("; ", problems.ConvertAll(p => p.ToString())) + "\nshapes: " + Results(report)
+            + "\nruntime: " + Shown(runtime) + "\noracle: " + Shown(oracle);
+
+        Assert.True(runtime.Accepted == oracle.Accepted && runtime.ProblemType == oracle.ProblemType, shown);
+        if (!applied)
+        {
+            Assert.True(report.Conforms && problems.Count == 0 && read.Count == 2 && runtime.Accepted, shown);
+            return;
+        }
+
+        Assert.False(report.Conforms, shown);
+        Assert.True(Names(report, faulty!), "the shapes do not name " + faulty + "\n" + shown);
+        Assert.True(problems.Exists(p => p.Declaration.Equals(faulty)) || (Owner(catalogue, faulty!) is { } owner && problems.Exists(p => p.Declaration.Equals(owner))), "the code does not name " + faulty + "\n" + shown);
+        Assert.False(runtime.Accepted, shown);
+    }
+
+    public static TheoryData<string> EverySeenFaultAndNone()
+    {
+        TheoryData<string> data = ["none"];
+        foreach (Seen fault in Enum.GetValues<Seen>())
+        {
+            data.Add(fault.ToString());
+        }
+
+        return data;
+    }
+
+    private static (InMemoryDataset Proposed, List<FeedChange> Changes) Commit(List<(RdfTerm S, RdfTerm P, RdfTerm O)> before, List<(RdfTerm S, RdfTerm P, RdfTerm O)> after)
+    {
+        HashSet<Q> then = [.. before.Select(t => new Q(t.S, t.P, t.O, CatalogueGraph))];
+        HashSet<Q> now = [.. after.Select(t => new Q(t.S, t.P, t.O, CatalogueGraph))];
+        List<FeedChange> changes =
+        [
+            .. then.Except(now).Select(q => new FeedChange(FeedChangeKind.Retract, q.S, q.P, q.O, q.G)),
+            .. now.Except(then).Select(q => new FeedChange(FeedChangeKind.Assert, q.S, q.P, q.O, q.G)),
+        ];
+        return (Trig.Load(now), changes);
+    }
+
+    private static string Shown(DeclarationVerdict verdict) => verdict.Accepted ? "accepted"
+        : verdict.ProblemType + " " + (verdict.Declaration is { } node ? Encoding.UTF8.GetString(node.Lexical) : "-") + " " + verdict.Reason + " " + verdict.Detail;
+
     [Fact]
     public void The_shapes_are_well_formed_and_a_spec_example_conforms()
     {
@@ -215,9 +344,12 @@ public class ShapesAgreementTests
     }
 
     /// <summary>Applies a fault the shapes state; false when the graph has nothing it applies to.</summary>
-    private static bool Apply(Seen fault, Declaration[] types, List<(RdfTerm S, RdfTerm P, RdfTerm O)> triples, out RdfTerm? faulty)
+    private static bool Apply(Seen fault, Declaration[] types, List<(RdfTerm S, RdfTerm P, RdfTerm O)> triples, out RdfTerm? faulty) =>
+        Apply(fault, types, triples, TypeNode(0), FieldNode(0, 0), TypeNode(1), out faulty);
+
+    /// <summary>Applies a fault the shapes state to <paramref name="type"/>, its field <paramref name="field"/>, or <paramref name="second"/>, another type.</summary>
+    private static bool Apply(Seen fault, Declaration[] types, List<(RdfTerm S, RdfTerm P, RdfTerm O)> triples, RdfTerm type, RdfTerm field, RdfTerm second, out RdfTerm? faulty)
     {
-        RdfTerm type = TypeNode(0), field = FieldNode(0, 0);
         faulty = type;
         switch (fault)
         {
@@ -256,8 +388,8 @@ public class ShapesAgreementTests
                 }
 
                 // The code keeps the first type of the two, in its order, and refuses the second; the shapes name both.
-                faulty = TypeNode(1);
-                Replace(triples, faulty, V("eventClass"), Terms.Iri(Terms.Ex + "Class0"));
+                faulty = second;
+                Replace(triples, faulty, V("eventClass"), triples.Find(t => t.S.Equals(type) && t.P.Equals(V("eventClass"))).O);
                 return true;
         }
 
@@ -277,7 +409,7 @@ public class ShapesAgreementTests
                     return false;
                 }
 
-                triples.Add((TypeNode(1), V("eventField"), field));
+                triples.Add((second, V("eventField"), field));
                 return true;
             default:
                 throw new InvalidOperationException(fault.ToString());
@@ -381,6 +513,41 @@ public class ShapesAgreementTests
         ValidationOutcome outcome = ShaclValidator.Validate(Shapes, builder.ToDataset(), GraphPattern.DefaultGraph);
         Assert.True(outcome.Succeeded, string.Join("; ", outcome.Problems));
         return outcome.Report!;
+    }
+
+    /// <summary>
+    /// The shapes target event nodes by class, not by graph (ADR 0175), so
+    /// they validate a declaration wherever it is: in the dataset's catalogue
+    /// graph, where it is before Management plane part 2 moves it, and in the
+    /// dataset's management graph beside its varve:Dataset, where it is after.
+    /// </summary>
+    [Fact]
+    public void The_shapes_validate_event_nodes_in_a_catalogue_graph_and_in_a_management_graph()
+    {
+        const string Type = """
+            <https://x/t> a varve:EventType ; varve:eventName "T" ; varve:eventClass <https://x/T> ; varve:eventVersion VERSION ;
+              varve:eventSelect "SELECT ?a WHERE { ?event <https://x/a> ?a }" ; varve:eventField <https://x/t-a> .
+            <https://x/t-a> a varve:EventField ; varve:fieldName "a" ; varve:fieldDatatype <http://www.w3.org/2001/XMLSchema#string> ; varve:fieldRequired true .
+            """;
+        const string Dataset = "<https://x/d> a varve:Dataset ; varve:datasetName \"d\" ; varve:storage varve:Memory .\n";
+        foreach ((string home, string beside) in (ReadOnlySpan<(string, string)>)[(Varve + "events-catalogue/default", string.Empty), (Varve + "manage/dataset/d", Dataset)])
+        {
+            foreach ((string version, int results) in (ReadOnlySpan<(string, int)>)[("1", 0), ("0", 1)])
+            {
+                InMemoryDatasetBuilder builder = new();
+                RdfTerm graph = Terms.Iri(home);
+                ParseResult parsed = TurtleParser.Parse(
+                    Encoding.UTF8.GetBytes("@prefix varve: <" + Varve + "> .\n" + beside + Type.Replace("VERSION", version, StringComparison.Ordinal)),
+                    (in QuadView quad) => builder.Add(quad.Subject.Materialise(), quad.Predicate.Materialise(), quad.Object.Materialise(), graph),
+                    new TurtleOptions { Syntax = RdfSyntax.Turtle });
+                Assert.True(parsed.Succeeded, parsed.FirstError.ToString());
+                InMemoryDataset data = builder.ToDataset();
+                Assert.True(data.TryInternalise(graph, out TermHandle handle));
+                ShaclReport report = ShaclValidator.Validate(Shapes, data, GraphPattern.Named(handle), null, TestContext.Current.CancellationToken).Report!;
+                Assert.Equal(results, report.Results.Count);
+                Assert.All(report.Results, r => Assert.Equal(Terms.Iri("https://x/t"), r.FocusNode));
+            }
+        }
     }
 
     private static ShapesGraph LoadShapes() => ShapesGraph.Load(Parse(EventDeclarationShapes.Turtle), GraphPattern.DefaultGraph).Shapes!;

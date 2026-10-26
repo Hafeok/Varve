@@ -101,10 +101,21 @@ internal static class BoundedReads
             cut = ProblemType.ReadUnannouncedExtentGone;
             detail = error.Message;
         }
+        catch (ValidationBehindException error)
+        {
+            cut = ProblemType.ValidationBehind;
+            detail = error.Message;
+            members = ValidationBehind(error);
+        }
 
         if (!output.HasStarted && !response.HasStarted)
         {
             output.Discard();
+            if (cut == ProblemType.ValidationBehind)
+            {
+                response.Headers.RetryAfter = "1";
+            }
+
             await HttpProblems.WriteAsync(context, cut.Value, detail, members).ConfigureAwait(false);
         }
         else if (trailers)
@@ -116,4 +127,12 @@ internal static class BoundedReads
             context.Abort();
         }
     }
+
+    /// <summary>The members of <c>validation-behind</c>: the binding, the position read, and the position its projection reached.</summary>
+    internal static Action<ProblemMembers> ValidationBehind(ValidationBehindException error) => m =>
+    {
+        m.String("binding", System.Text.Encoding.UTF8.GetString(error.Binding.Lexical));
+        m.Number("position", error.Position.Value);
+        m.Number("projectedPosition", error.Projected.Value);
+    };
 }

@@ -77,7 +77,14 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         _snapshot = new Snapshot(GrantTable.Empty(_bootstrap), BootstrapState.Absent);
         Datasets = new OpenDatasets(settings, objects, _order, clock, logger, Moved);
         Instance = new WriterName(_instance.Value);
+        Projections = new ValidationProjections(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
     }
+
+    /// <summary>How long a read of a report graph waits for its projection before <c>validation-behind</c> (ADR 0174).</summary>
+    internal static readonly TimeSpan ReportWait = TimeSpan.FromSeconds(2);
+
+    /// <summary>The validation projections of the datasets held here (ADR 0174).</summary>
+    internal ValidationProjections Projections { get; }
 
     // Whether a dataset's event declarations are moving or moved at the applied position (ADR 0167).
     private bool Moved(string dataset) =>
@@ -393,6 +400,12 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
         Placement placement = new(_instance, _mayClaim, _role == ManagementRole.Writer, IsFleetOfOne);
         await Datasets.ReconcileAsync(current.Table.Declarations, current.Table.Position, placement, cancellationToken).ConfigureAwait(false);
+
+        // The validation projections follow the bindings in force and the datasets held (ADR 0174).
+        foreach (DatasetEntry entry in Datasets.List())
+        {
+            Projections.Reconcile(entry.Name);
+        }
     }
 
     private BootstrapState BootstrapOf(IReadOnlyList<string> recorded)
@@ -640,6 +653,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
     public async ValueTask DisposeAsync()
     {
+        await Projections.DisposeAsync().ConfigureAwait(false);
         await Datasets.DisposeAsync().ConfigureAwait(false);
         await _system.DisposeAsync().ConfigureAwait(false);
 

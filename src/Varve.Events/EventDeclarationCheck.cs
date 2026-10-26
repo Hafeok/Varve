@@ -16,7 +16,9 @@ namespace Varve.Events;
 /// The check of a commit that changes catalogue graphs (ADR 0145,
 /// docs/spec/events.md §7): the declarations of the touched graphs before and
 /// after, compared. It needs the proposed state and the commit's changes to
-/// catalogue graphs, never the history.
+/// catalogue graphs, never the history. A touched graph is validated by the
+/// event shapes (ADR 0175), and the code checks only what they cannot state:
+/// ADR 0157 point 3 and the version history.
 /// </summary>
 [Contract(typeof(TheEventSchemaRegistry.CompatibilityCheckedAtCommit), Role = "the check a dataset validator runs on a catalogue change")]
 public static class EventDeclarationCheck
@@ -54,7 +56,7 @@ public static class EventDeclarationCheck
         }
 
         List<EventTypeDeclaration> before = [], after = [];
-        List<DeclarationProblem> beforeProblems = [], afterProblems = [];
+        List<DeclarationProblem> beforeProblems = [], afterProblems = [], shaped = [];
 
         List<RdfTerm> touchedOrder = [.. touched.Keys];
         touchedOrder.Sort(TermOrder.Instance);
@@ -75,9 +77,13 @@ public static class EventDeclarationCheck
                 then.Add((change.Subject, change.Predicate, change.Object));
             }
 
-            EventDeclarations.ReadGraph(graph, now, after, afterProblems);
+            // The shapes decide what they state, and the reader the rest (ADR 0175).
+            EventDeclarations.ReadGraph(graph, now, after, afterProblems, ProblemsDecidedBy.ShapesAndCode);
+            shaped.AddRange(EventShapes.Validate(now));
             EventDeclarations.ReadGraph(graph, [.. then], before, beforeProblems);
         }
+
+        afterProblems.AddRange(shaped);
 
         if (afterProblems.Count > 0)
         {

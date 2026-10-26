@@ -182,3 +182,22 @@ All three are validator types: they reach a response by the validator's path
 of the 2026-10-15 block above.
 
 **The ledger.** The ruling is ADR 0169's `ShapesBindingProblemTypes`.
+
+## Amendment, 2026-10-23 — `validation-behind`, and a guard's `graph-not-writable`
+
+Filed by SHACL, part 2b (milestone 8, #13), unaccepted until the maintainer
+accepts it (ADR 0066).
+
+- **`validation-behind`** (`503`, members `binding`, `position`,
+  `projectedPosition`): a read of a report graph at a position its binding's
+  validation projection has not reached, after one bounded wait (ADR
+  [0174](0174-the-validation-projection.md)). The response carries
+  `Retry-After: 1`. Past the first byte it is the `Varve-Error` trailer, as
+  every read limit is.
+- **`graph-not-writable` is also a validator type**, so that
+  `ReportGraphGuard`'s refusal of a write to a report graph reaches the
+  response as that type, with `graph`, by the validator's path of the
+  2026-10-15 block above.
+
+**The ledger.** The rulings are ADR 0174's `ValidationBehind` and
+`ReportGraphNotWritable`.

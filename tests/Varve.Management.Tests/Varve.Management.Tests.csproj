@@ -7,6 +7,13 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Varve.Management/Varve.Management.csproj" />
+    <!-- The management shapes' agreement with the code validator (ADR 0175). -->
+    <ProjectReference Include="../../src/Varve.Shacl/Varve.Shacl.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Management plane part 2's fixture of moved declarations, kept once, in the events tests (ADR 0175). -->
+    <None Include="../Varve.Events.Tests/fixtures/moved-declarations/notes.trig" Link="fixtures/moved-declarations/notes.trig" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

@@ -24,3 +24,5 @@
 ## 7 — Server and CLI *(complete)*
 
 ## 8 — SHACL *(complete)*
+
+## 9 — Erasure mode *(complete)*

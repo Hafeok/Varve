@@ -332,6 +332,9 @@ Filed by SHACL, part 1 ([#120](https://github.com/Hafeok/Varve/issues/120), unde
 | [0171](0171-which-shapes-are-incrementally-maintainable.md) | Which shapes are incrementally maintainable: footprints, anchors and three classes | Filed unaccepted (SHACL part 2a, #138) |
 | [0172](0172-varve-derivation.md) | `Varve.Derivation`: delta-driven maintenance at layer 2; amends 0003, 0150, 0152 | Filed unaccepted (SHACL part 2a, #138) |
 | [0173](0173-the-validation-report-on-the-commit.md) | The validation report on the commit: a reference and a digest; amends 0154 | Filed unaccepted (SHACL part 2a, #138) |
+| [0174](0174-the-validation-projection.md) | The validation projection and its reserved graph; amends 0107, 0119, 0130, 0155 | Filed unaccepted (SHACL part 2b, #13) |
+| [0175](0175-shapes-validate-varves-declarations.md) | Shapes validate Varve's own declarations; amends 0145, 0157, 0166 | Filed unaccepted (SHACL part 2b, #13) |
+| [0176](0176-the-rec-gate.md) | The REC gate: its shapes composition, and three ways that agree | Filed unaccepted (SHACL part 2b, #13) |
 
 ## Milestone Management plane — fleet system dataset, grants as code, `varve apply` (first part)
 

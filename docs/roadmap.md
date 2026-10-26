@@ -538,11 +538,11 @@ landing decides the number. Only released and in-flight numbers are shown.
 | — | **As-of reads that seek**: an as-of read inside an extent set costs its matches, derived format 5 for extents | next free | Extent maintenance | issue #133 (this pull request) |
 | — | **Client and integration**, part 2: events, catalogue, schema registry, AsyncAPI | next free | part 1 | issue #93 |
 | — | **Management plane**, part 1: fleet system dataset, grants as code, `varve apply`, forwarding | `preview.10` | Commit path, Object storage, Client and integration | issue #131 (part 1 landed) |
-| — | **Management plane**, part 2: event schemas in the management plane, the close-out | `preview.13` | part 1 | issue #105 (this pull request) |
+| — | **Management plane**, part 2: event schemas in the management plane, the close-out | `preview.13` | part 1 | issue #105 (landed) |
 | — | **Learning track**: Varve for SQL developers and DDD practitioners | next free | Client and integration, Management plane | issue #94 |
 | 8 | SHACL, part 1: the standalone validator, SHACL-SPARQL, XPath regular expressions in `Varve.Xsd`, the event declaration shapes | `preview.9` | — (#87 landed) | issue #120 (landed) |
 | 8 | SHACL, part 2a: commit-time gating under a shapes binding, incremental validation, `Varve.Derivation` | `preview.12` | part 1, Management plane part 1 | issue #138 (landed) |
-| 8 | SHACL, part 2b: the validation projection, shapes for the declarations, the REC gate | next free | part 2a, Object storage (REC shapes) | issue #13 |
+| 8 | SHACL, part 2b: the validation projection, shapes for the declarations, the REC gate | `preview.14` | part 2a, Object storage (REC shapes) | issue #13 (this pull request) |
 | — | **Inference**: RDFS by rewriting, OWL 2 RL and rules as a projection | next free | 8 | issue #95 |
 | — | **Web UI**: operator console, then data explorer | next free | Management plane (console); 8 and Inference (explorer) | issue #96 |
 | — | **Replication**: three tiers, handover, promotion, fleet-level active-active | next free | Object storage, Extent maintenance, Commit path, Management plane | issue #97 |
@@ -797,7 +797,7 @@ accordingly; chapter 5 carries a marker updated by milestone 9, and chapter
 3's SHACL section is written here if milestone 8 has landed first, otherwise
 a marker that milestone 8 replaces.
 
-## 8 — SHACL
+## 8 — SHACL *(complete)*
 
 As issue #13 states: the standalone validator to the W3C SHACL suite, then
 commit-time gating through the pre-commit validator, then incremental
@@ -846,8 +846,37 @@ share. Gate:
 - commit latency under a `reject` binding at REC S and M, on the file
   backend.
 
-Part 2b (#13) is the validation projection, the declarations validated by
-shapes, and the REC gate.
+**Part 2b** (#13; ADRs 0174–0176), `0.1.0-preview.14`: the projection, the
+declarations and the REC gate, closing the milestone.
+- **The validation projection** (ADR 0174). Each binding keeps one, in the
+  local cache only. Its report at a position is served as the reserved graph
+  `varve:validation/{enc(binding)}`, readable by a caller who reads every
+  graph the binding validates. A read above the projection's position is
+  `503 validation-behind`, and readiness reports the lag.
+- **Shapes validate Varve's own declarations** (ADR 0175). Event
+  declarations are checked by ADR 0157's shapes, and management declarations
+  by `shapes/management.ttl`. What SHACL Core cannot state stays a residual
+  check in code, and the code validators as they stood are the tests' oracle.
+- **The REC gate** (ADR 0176) composes REC 4.1.0's three files with
+  `owl:Class rdfs:subClassOf rdfs:Class` and the prefixes Brick's SPARQL
+  constraints leave undeclared. `docs/operator/shapes.md` is the operator's
+  guide.
+
+Gate:
+
+- the projection's report at every position of generated histories, with
+  retractions and shapes changes, equal to a full validation there, byte for
+  byte, after a snapshot is loaded and from a cold start at the head;
+- the runtime declaration checks against their oracles, over generated
+  declarations valid and mutated;
+- REC S standalone, at commit time under `reject` and in the projection,
+  agreeing at every 250th position and the last on pull requests and at all
+  positions nightly, and REC M at 100 positions nightly. The features report
+  is `testdata/rec/gate/features.md`;
+- projection lag and rebuild time at REC S and M.
+
+Chapter 3's SHACL section is the Learning track's, which has not landed
+(#94).
 
 ## Inference — RDFS by rewriting, OWL 2 RL and rules as a projection
 

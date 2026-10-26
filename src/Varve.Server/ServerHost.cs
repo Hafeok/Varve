@@ -622,6 +622,7 @@ internal static partial class ServerHost
             Logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Varve.Protocol"),
             EventSource = settings.Events.Source,
             EventHubs = string.IsNullOrEmpty(settings.Events.EventHubs.Host) ? null : new EventHubsServer(settings.Events.EventHubs.Host, settings.Events.EventHubs.Hub!),
+            ValidationReports = fleet.Projections,
         };
         fleet.Resume = (name, cancellationToken) => EventDeclarationMove.ResumeAsync(options, fleet, name, cancellationToken);
 
@@ -689,6 +690,29 @@ internal static partial class ServerHost
 
         static string Role(DatasetRole role) => role switch { DatasetRole.Writer => "writer", DatasetRole.Follower => "follower", _ => "elsewhere" };
 
+        // Each binding's validation projection lag (ADR 0174): reported, and never a reason to be unready.
+        void Validation(Utf8JsonWriter json, string name)
+        {
+            if (!DatasetName.TryParse(name, out DatasetName dataset))
+            {
+                return;
+            }
+
+            SortedDictionary<string, long> lags = fleet.Projections.LagOf(dataset);
+            if (lags.Count == 0)
+            {
+                return;
+            }
+
+            json.WriteStartObject("validation");
+            foreach ((string binding, long lag) in lags)
+            {
+                json.WriteNumber(binding, lag);
+            }
+
+            json.WriteEndObject();
+        }
+
         void Moving(Utf8JsonWriter json, string name)
         {
             if (moving.TryGetValue(name, out long since))
@@ -720,6 +744,7 @@ internal static partial class ServerHost
                         json.WriteNumber("lag", lag);
                     }
 
+                    Validation(json, state.Name);
                     json.WriteEndObject();
                 }
 
@@ -757,6 +782,7 @@ internal static partial class ServerHost
                     json.WriteNumber("lag", lag);
                 }
 
+                Validation(json, state.Name);
                 json.WriteEndObject();
             }
 

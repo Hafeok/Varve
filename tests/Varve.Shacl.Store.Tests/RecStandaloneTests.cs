@@ -4,7 +4,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -16,7 +15,6 @@ using Varve.Shacl.Sparql;
 using Varve.Shacl.Store.Model;
 using Varve.Store;
 using Varve.Store.Log;
-using Varve.Turtle;
 using Xunit;
 
 namespace Varve.Shacl.Store.Tests;
@@ -29,8 +27,6 @@ namespace Varve.Shacl.Store.Tests;
 /// </summary>
 public class RecStandaloneTests
 {
-    private static readonly RdfTerm Sparql = RdfTerm.Iri("http://www.w3.org/ns/shacl#sparql"u8);
-
     private static readonly ShaclOptions Options = new() { Extensions = [SparqlConstraints.Extension()], SubClassOfInShapesGraph = true, RefuseNonDeterministicFunctions = true };
 
     /// <summary>
@@ -134,75 +130,13 @@ public class RecStandaloneTests
         Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(next, ct)).Outcome);
     }
 
-    private static InMemoryDataset Shapes(bool withSparql)
-    {
-        InMemoryDatasetBuilder shapes = new();
-        foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in ShapeTriples(withSparql))
-        {
-            shapes.Add(s, p, o);
-        }
+    private static InMemoryDataset Shapes(bool withSparql) => RecShapes.Dataset(withSparql, composed: false);
 
-        return shapes.ToDataset();
-    }
+    private static List<(RdfTerm S, RdfTerm P, RdfTerm O)> ShapeTriples(bool withSparql) => RecShapes.Triples(withSparql, composed: false);
 
-    private static List<(RdfTerm S, RdfTerm P, RdfTerm O)> ShapeTriples(bool withSparql)
-    {
-        List<(RdfTerm, RdfTerm, RdfTerm)> triples = [];
-        string directory = Path.Combine(Root(), "testdata", "rec", "v4.1.0");
-        string[] files = ["rec.ttl", "Brick+patches.ttl", "recimports.ttl"];
-        for (int f = 0; f < files.Length; f++)
-        {
-            string prefix = "f" + f + "_";
-            RdfTerm Own(RdfTerm term) => term.Kind == RdfTermKind.BlankNode ? RdfTerm.BlankNode(Encoding.UTF8.GetBytes(prefix + Encoding.UTF8.GetString(term.Lexical))) : term;
-            ParseResult parsed = TurtleParser.Parse(File.ReadAllBytes(Path.Combine(directory, files[f])), (in QuadView q) =>
-            {
-                RdfTerm predicate = q.Predicate.Materialise();
-                if (withSparql || !predicate.Equals(Sparql))
-                {
-                    triples.Add((Own(q.Subject.Materialise()), predicate, Own(q.Object.Materialise())));
-                }
-            }, new TurtleOptions { Syntax = RdfSyntax.Turtle });
-            Assert.True(parsed.Succeeded, files[f] + ": " + parsed.FirstError);
-        }
+    private static (List<(RdfTerm S, RdfTerm P, RdfTerm O, RdfTerm G)> Quads, List<RecCommit> Held) Head(RecSize size, int held) => RecShapes.Head(size, held);
 
-        triples.Add((RdfTerm.Iri("http://www.w3.org/2002/07/owl#Class"u8), RdfTerm.Iri("http://www.w3.org/2000/01/rdf-schema#subClassOf"u8), RdfTerm.Iri("http://www.w3.org/2000/01/rdf-schema#Class"u8)));
-        return triples;
-    }
-
-    /// <summary>The portfolio's head but its last <paramref name="held"/> commits, as terms, and those commits.</summary>
-    private static (List<(RdfTerm S, RdfTerm P, RdfTerm O, RdfTerm G)> Quads, List<RecCommit> Held) Head(RecSize size, int held)
-    {
-        int keep = RecPortfolio.Shape(size).Commits - held;
-        HashSet<RecQuad> head = [];
-        List<RecCommit> rest = [];
-        int n = 0;
-        foreach (RecCommit commit in RecPortfolio.Generate(size, 20261015))
-        {
-            if (n++ >= keep)
-            {
-                rest.Add(commit);
-                continue;
-            }
-
-            foreach (RecQuad q in commit.Retracted)
-            {
-                head.Remove(q);
-            }
-
-            foreach (RecQuad q in commit.Asserted)
-            {
-                head.Add(q);
-            }
-        }
-
-        return ([.. head.Select(Terms)], rest);
-    }
-
-    private static (RdfTerm S, RdfTerm P, RdfTerm O, RdfTerm G) Terms(RecQuad q) => (Term(q.Subject), Term(q.Predicate), Term(q.Object), Term(q.Graph));
-
-    private static RdfTerm Term(string text) => text[0] == '<'
-        ? RdfTerm.Iri(Encoding.UTF8.GetBytes(text[1..^1]))
-        : RdfTerm.Literal(Encoding.UTF8.GetBytes(text[1..^1]));
+    private static (RdfTerm S, RdfTerm P, RdfTerm O, RdfTerm G) Terms(RecQuad q) => RecShapes.Terms(q);
 
     private static InMemoryDataset Data(List<(RdfTerm S, RdfTerm P, RdfTerm O, RdfTerm G)> quads)
     {
@@ -213,16 +147,5 @@ public class RecStandaloneTests
         }
 
         return data.ToDataset();
-    }
-
-    private static string Root()
-    {
-        DirectoryInfo? d = new(AppContext.BaseDirectory);
-        while (d is not null && !File.Exists(Path.Combine(d.FullName, "Varve.slnx")))
-        {
-            d = d.Parent;
-        }
-
-        return d?.FullName ?? throw new InvalidOperationException("The repository root is not above " + AppContext.BaseDirectory + ".");
     }
 }

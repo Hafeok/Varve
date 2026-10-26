@@ -31,7 +31,7 @@ order only decides how much log an older follower replays.
   writer writes, and nothing replays the log.
 - **Why the other order is safe too.** Every reader record says the newest
   derived format its reader reads (`maxDerived`; a record of
-  `v0.1.0-preview.13` or before does not say, which counts as 4). While any
+  `v0.1.0-preview.14` or before does not say, which counts as 4). While any
   present record says 4, the writer rewrites no format-4 set, and its
   merges and splits of them keep format 4; only its new checkpoints are
   format 5. So a follower of an earlier build, behind a writer of this

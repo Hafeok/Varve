@@ -105,13 +105,28 @@ public static partial class EventDeclarations
         return triples;
     }
 
-    /// <summary>Reads one catalogue graph's triples into declarations and problems.</summary>
+    /// <summary>
+    /// Reads one catalogue graph's triples into declarations and problems.
+    /// Under <see cref="ProblemsDecidedBy.ShapesAndCode"/>, a problem the event shapes state
+    /// is left to them (ADR 0175): the reader stops reading what it is wrong
+    /// about, and only what the shapes cannot state is a problem here.
+    /// </summary>
     internal static void ReadGraph(
         RdfTerm graph,
         IReadOnlyList<(RdfTerm Subject, RdfTerm Predicate, RdfTerm Object)> triples,
         List<EventTypeDeclaration> types,
-        List<DeclarationProblem> problems)
+        List<DeclarationProblem> problems,
+        ProblemsDecidedBy decidedBy = ProblemsDecidedBy.Code)
     {
+        bool shapesDecide = decidedBy == ProblemsDecidedBy.ShapesAndCode;
+        void Stated(DeclarationProblem problem)
+        {
+            if (!shapesDecide)
+            {
+                problems.Add(problem);
+            }
+        }
+
         if (triples.Count == 0)
         {
             return;
@@ -163,7 +178,7 @@ public static partial class EventDeclarations
 
             if (isType && isField)
             {
-                problems.Add(new(node, Reasons.Term, "a node is a type and a field at once"));
+                Stated(new(node, Reasons.Term, "a node is a type and a field at once"));
             }
             else if (isType)
             {
@@ -194,12 +209,12 @@ public static partial class EventDeclarations
 
                 if (!fieldNodes.Contains(o))
                 {
-                    problems.Add(new(typeNode, Reasons.Field, "varve:eventField names a node that is no varve:EventField in this graph"));
+                    Stated(new(typeNode, Reasons.Field, "varve:eventField names a node that is no varve:EventField in this graph"));
                     badTypes.Add(typeNode);
                 }
                 else if (owner.TryGetValue(o, out RdfTerm? other) && !other.Equals(typeNode))
                 {
-                    problems.Add(new(o, Reasons.Field, "a field node belongs to two types"));
+                    Stated(new(o, Reasons.Field, "a field node belongs to two types"));
                     badTypes.Add(typeNode);
                     badTypes.Add(other);
                 }
@@ -214,7 +229,7 @@ public static partial class EventDeclarations
         {
             if (!owner.ContainsKey(fieldNode))
             {
-                problems.Add(new(fieldNode, Reasons.Field, "a field node belongs to no type"));
+                Stated(new(fieldNode, Reasons.Field, "a field node belongs to no type"));
             }
         }
 
@@ -227,7 +242,7 @@ public static partial class EventDeclarations
                 continue;
             }
 
-            EventTypeDeclaration? declaration = ReadType(typeNode, sourceGraph, nodes, owner, problems);
+            EventTypeDeclaration? declaration = ReadType(typeNode, sourceGraph, nodes, owner, problems, shapesDecide);
 
             if (declaration is null)
             {
@@ -236,7 +251,7 @@ public static partial class EventDeclarations
 
             if (classes.TryGetValue(declaration.Class, out RdfTerm? first))
             {
-                problems.Add(new(typeNode, Reasons.ClassTaken, "the class is declared by another type of this source graph"));
+                Stated(new(typeNode, Reasons.ClassTaken, "the class is declared by another type of this source graph"));
                 continue;
             }
 
@@ -250,7 +265,8 @@ public static partial class EventDeclarations
         RdfTerm? sourceGraph,
         SortedDictionary<RdfTerm, List<(RdfTerm Predicate, RdfTerm Object)>> nodes,
         Dictionary<RdfTerm, RdfTerm> owner,
-        List<DeclarationProblem> problems)
+        List<DeclarationProblem> problems,
+        bool shapesDecide)
     {
         if (typeNode.Kind != RdfTermKind.Iri)
         {
@@ -259,17 +275,23 @@ public static partial class EventDeclarations
         }
 
         Properties properties = new(nodes[typeNode]);
-        string? error = properties.Unknown(
+        string? unknown = properties.Unknown(
             Vocabulary.TypeIri, Vocabulary.EventNameIri, Vocabulary.EventClassIri, Vocabulary.EventVersionIri,
             Vocabulary.EventSelectIri, Vocabulary.EventSubjectIri, Vocabulary.EventRetiredIri, Vocabulary.EventFieldPropertyIri,
             Vocabulary.CommentIri);
+
+        if (unknown is not null)
+        {
+            problems.Add(new(typeNode, Reasons.Term, unknown));
+            return null;
+        }
 
         string? name = null, select = null, subject = null, description = null;
         RdfTerm? @class = null;
         int version = 0;
         bool retired = false;
 
-        error ??= properties.String(Vocabulary.EventNameIri, required: true, out name)
+        string? error = properties.String(Vocabulary.EventNameIri, required: true, out name)
             ?? (NamePattern().IsMatch(name!) ? null : "varve:eventName is not a short name ([A-Za-z][A-Za-z0-9._-]{0,127})")
             ?? properties.Iri(Vocabulary.EventClassIri, out @class)
             ?? properties.Version(out version)
@@ -280,7 +302,12 @@ public static partial class EventDeclarations
 
         if (error is not null)
         {
-            problems.Add(new(typeNode, Reasons.Term, error));
+            // Every rule of this chain is the shapes' (ADR 0157 point 2).
+            if (!shapesDecide)
+            {
+                problems.Add(new(typeNode, Reasons.Term, error));
+            }
+
             return null;
         }
 
@@ -294,7 +321,7 @@ public static partial class EventDeclarations
                 continue;
             }
 
-            EventFieldDeclaration? field = ReadField(fieldNode, nodes[fieldNode], problems);
+            EventFieldDeclaration? field = ReadField(fieldNode, nodes[fieldNode], problems, shapesDecide);
 
             if (field is null)
             {
@@ -320,7 +347,11 @@ public static partial class EventDeclarations
 
         if (subject is not null && !FieldNamePattern().IsMatch(subject))
         {
-            problems.Add(new(typeNode, Reasons.Term, "varve:eventSubject is not a variable name"));
+            if (!shapesDecide)
+            {
+                problems.Add(new(typeNode, Reasons.Term, "varve:eventSubject is not a variable name"));
+            }
+
             return null;
         }
 
@@ -340,7 +371,7 @@ public static partial class EventDeclarations
         return new EventTypeDeclaration(typeNode, sourceGraph, name!, @class!, version, select!, subject, description, retired, fields, compiled!);
     }
 
-    private static EventFieldDeclaration? ReadField(RdfTerm fieldNode, List<(RdfTerm Predicate, RdfTerm Object)> triples, List<DeclarationProblem> problems)
+    private static EventFieldDeclaration? ReadField(RdfTerm fieldNode, List<(RdfTerm Predicate, RdfTerm Object)> triples, List<DeclarationProblem> problems, bool shapesDecide)
     {
         if (fieldNode.Kind != RdfTermKind.Iri)
         {
@@ -349,15 +380,21 @@ public static partial class EventDeclarations
         }
 
         Properties properties = new(triples);
-        string? error = properties.Unknown(
+        string? unknown = properties.Unknown(
             Vocabulary.TypeIri, Vocabulary.FieldNameIri, Vocabulary.FieldDatatypeIri, Vocabulary.FieldRequiredIri,
             Vocabulary.FieldAsIri, Vocabulary.FieldKeepLanguageIri, Vocabulary.CommentIri);
+
+        if (unknown is not null)
+        {
+            problems.Add(new(fieldNode, Reasons.Term, unknown));
+            return null;
+        }
 
         string? name = null, @as = null, description = null;
         RdfTerm? datatype = null;
         bool required = false, keepLanguage = false;
 
-        error ??= properties.String(Vocabulary.FieldNameIri, required: true, out name)
+        string? error = properties.String(Vocabulary.FieldNameIri, required: true, out name)
             ?? (FieldNamePattern().IsMatch(name!) ? null : "varve:fieldName is not a field name ([A-Za-z_][A-Za-z0-9_]{0,63})")
             ?? properties.Iri(Vocabulary.FieldDatatypeIri, out datatype)
             ?? properties.Boolean(Vocabulary.FieldRequiredIri, required: true, out required)
@@ -366,15 +403,16 @@ public static partial class EventDeclarations
             ?? properties.Boolean(Vocabulary.FieldKeepLanguageIri, required: false, out keepLanguage)
             ?? properties.String(Vocabulary.CommentIri, required: false, out description);
 
-        if (error is not null)
+        if (error is not null || name == CompiledSelect.EventVariable.Name)
         {
-            problems.Add(new(fieldNode, Reasons.Term, error));
-            return null;
-        }
+            // The shapes' rules (ADR 0157 point 2).
+            if (!shapesDecide)
+            {
+                problems.Add(error is not null
+                    ? new(fieldNode, Reasons.Term, error)
+                    : new(fieldNode, Reasons.Field, "a field is not named event, which is the event node's variable"));
+            }
 
-        if (name == CompiledSelect.EventVariable.Name)
-        {
-            problems.Add(new(fieldNode, Reasons.Field, "a field is not named event, which is the event node's variable"));
             return null;
         }
 
@@ -546,6 +584,16 @@ public static partial class EventDeclarations
 }
 
 /// <summary>The reasons of docs/spec/events.md §7.1, as the problem's <c>reason</c> member spells them.</summary>
+/// <summary>Who decides a catalogue graph's problems (ADR 0175).</summary>
+internal enum ProblemsDecidedBy
+{
+    /// <summary>The code alone, every problem: the reader for rendering, and the oracle.</summary>
+    Code,
+
+    /// <summary>The event shapes what they state, and the code the rest: the commit-time check.</summary>
+    ShapesAndCode,
+}
+
 internal static class Reasons
 {
     internal const string Graph = "graph";

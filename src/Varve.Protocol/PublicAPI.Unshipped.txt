@@ -384,6 +384,28 @@ override Varve.Protocol.Model.BindingDescription.GetHashCode() -> int
 override Varve.Protocol.Model.BindingDescription.ToString() -> string!
 static Varve.Protocol.Model.BindingDescription.operator !=(Varve.Protocol.Model.BindingDescription? left, Varve.Protocol.Model.BindingDescription? right) -> bool
 static Varve.Protocol.Model.BindingDescription.operator ==(Varve.Protocol.Model.BindingDescription? left, Varve.Protocol.Model.BindingDescription? right) -> bool
+Varve.Protocol.IValidationReportGraph
+Varve.Protocol.IValidationReportGraph.Binding.get -> Varve.Rdf.RdfTerm!
+Varve.Protocol.IValidationReportGraph.Graph.get -> Varve.Rdf.RdfTerm!
+Varve.Protocol.IValidationReportGraph.ReportAt(Varve.Store.Log.Position position) -> Varve.Shacl.ValidationOutcome!
+Varve.Protocol.IValidationReportGraph.TryReportAt(Varve.Store.Log.Position position, out Varve.Shacl.ValidationOutcome! outcome) -> bool
+Varve.Protocol.IValidationReportGraph.Validates.get -> Varve.Rdf.GraphScope!
+Varve.Protocol.IValidationReports
+Varve.Protocol.IValidationReports.Of(Varve.Protocol.Model.DatasetName dataset) -> System.Collections.Generic.IReadOnlyList<Varve.Protocol.IValidationReportGraph!>!
+Varve.Protocol.ProtocolOptions.ValidationReports.get -> Varve.Protocol.IValidationReports?
+Varve.Protocol.ProtocolOptions.ValidationReports.init -> void
+Varve.Protocol.ReportGraphGuard
+Varve.Protocol.ReportGraphGuard.ReportGraphGuard() -> void
+Varve.Protocol.ReportGraphGuard.Validate(Varve.Rdf.IQuadSource! proposed, Varve.Rdf.QuadDelta delta) -> Varve.Store.Log.ValidationVerdict
+Varve.Protocol.ValidationBehindException
+Varve.Protocol.ValidationBehindException.Binding.get -> Varve.Rdf.RdfTerm!
+Varve.Protocol.ValidationBehindException.Position.get -> Varve.Store.Log.Position
+Varve.Protocol.ValidationBehindException.Projected.get -> Varve.Store.Log.Position
+Varve.Protocol.ValidationBehindException.ValidationBehindException() -> void
+Varve.Protocol.ValidationBehindException.ValidationBehindException(Varve.Rdf.RdfTerm! binding, Varve.Store.Log.Position position, Varve.Store.Log.Position projected) -> void
+Varve.Protocol.ValidationBehindException.ValidationBehindException(string! message) -> void
+Varve.Protocol.ValidationBehindException.ValidationBehindException(string! message, System.Exception! innerException) -> void
+static Varve.Protocol.Model.ProblemType.ValidationBehind.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.EventCatalogueMoved.get -> Varve.Protocol.Model.ProblemType
 Varve.Protocol.ManagedEventDeclarations
 static Varve.Protocol.ManagedEventDeclarations.Changes(System.Collections.Generic.IReadOnlyList<Varve.Delta.Model.FeedChange>! before, System.Collections.Generic.IReadOnlyList<Varve.Delta.Model.FeedChange>! after) -> System.Collections.Generic.List<Varve.Delta.Model.FeedChange>!

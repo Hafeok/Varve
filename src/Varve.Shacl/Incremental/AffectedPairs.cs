@@ -36,6 +36,15 @@ internal sealed class AffectedPairs
     private readonly HashSet<Node>[] _targets;
     private readonly bool[] _full;
     private readonly List<int> _readers = [];
+
+    // Scratch collections reused by every call of Local and Seed: one changed
+    // triple meets every shape that reads its predicate, in both states, and
+    // most such calls find nothing to seed.
+    private readonly List<Node> _focus = [];
+    private readonly List<Node> _values = [];
+    private readonly List<Node> _sources = [];
+    private readonly HashSet<Node>[] _seen;
+    private readonly HashSet<Node>[] _sourceSeen;
     private bool _any;
 
     internal AffectedPairs(ShapesGraph shapes, ValidationRun before, ValidationRun after)
@@ -51,6 +60,8 @@ internal sealed class AffectedPairs
         }
 
         _full = new bool[shapes.Shapes.Length];
+        _seen = [new HashSet<Node>(before.Data.Nodes), new HashSet<Node>(after.Data.Nodes)];
+        _sourceSeen = [new HashSet<Node>(before.Data.Nodes), new HashSet<Node>(after.Data.Nodes)];
     }
 
     /// <summary>Adds one changed triple of the data graph, asserted or retracted, its predicate's term given.</summary>
@@ -66,6 +77,24 @@ internal sealed class AffectedPairs
             foreach (ValidationRun run in _runs)
             {
                 Local(shape, run, subject, predicate, predicateTerm, obj);
+            }
+        }
+
+        // A target class's shapes, by the type's superclasses in each state (ADR 0171).
+        if (_footprint.HasTargetClasses && predicateTerm.Equals(Vocabulary.RdfType))
+        {
+            foreach (ValidationRun run in _runs)
+            {
+                foreach (Node cls in run.SuperclassesOf(obj))
+                {
+                    if (_footprint.TargetedBy(run.Data.Term(cls)) is { } targeted)
+                    {
+                        foreach (int s in targeted)
+                        {
+                            _targets[s].Add(subject);
+                        }
+                    }
+                }
             }
         }
     }
@@ -184,7 +213,8 @@ internal sealed class AffectedPairs
         // Targets (§3.1.3): nodes the triple may move into or out of them.
         if (shape.TargetClasses.Count > 0)
         {
-            if (isType)
+            // ADR 0171: x, when y is a target class or one of its subclasses, in this state.
+            if (isType && IsSubclassOfAny(run, y, shape.TargetClasses))
             {
                 _targets[s].Add(x);
             }
@@ -216,18 +246,22 @@ internal sealed class AffectedPairs
         }
 
         // The path's triples (§4): the focus nodes that reach the triple by the path's prefix.
-        List<Node> focus = [];
-        HashSet<Node> seen = new(data.Nodes);
+        List<Node> focus = _focus;
+        HashSet<Node> seen = _seen[Of(run)];
+        focus.Clear();
+        seen.Clear();
         shape.Path?.Automaton.Anchors(data, x, predicate, y, focus, seen);
 
         // What the components read at value nodes, or at the focus node directly (§7).
-        List<Node> values = [];
+        List<Node> values = _values;
+        values.Clear();
         foreach (Constraint constraint in shape.Constraints)
         {
             switch (constraint)
             {
-                case ClassConstraint:
-                    if (isType)
+                case ClassConstraint cls:
+                    // x as a value node, when y is the class or one of its subclasses, in this state.
+                    if (isType && IsSubclassOfAny(run, y, cls.Classes))
                     {
                         values.Add(x);
                     }
@@ -314,11 +348,42 @@ internal sealed class AffectedPairs
         Seed(shape, run, values);
     }
 
+    /// <summary>
+    /// Whether <paramref name="type"/> is one of <paramref name="classes"/> or
+    /// a subclass of one in <paramref name="run"/>'s state. A type triple
+    /// changes an instance of no other class, and the state the subclass
+    /// triples hold in is each run's own, so asking both runs is exact.
+    /// </summary>
+    private static bool IsSubclassOfAny(ValidationRun run, Node type, IReadOnlyList<RdfTerm> classes)
+    {
+        HashSet<Node> superclasses = run.SuperclassesOf(type);
+        foreach (RdfTerm cls in classes)
+        {
+            if (superclasses.Contains(run.Data.Resolve(cls)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>The index of <paramref name="run"/> in the two states: 0 before the delta, 1 after.</summary>
+    private int Of(ValidationRun run) => ReferenceEquals(run, _runs[0]) ? 0 : 1;
+
     /// <summary>Seeds a shape with the focus nodes whose value nodes include one of <paramref name="values"/>.</summary>
     private void Seed(Shape shape, ValidationRun run, List<Node> values)
     {
-        List<Node> focus = [];
-        Sources(shape, run, values, focus);
+        if (values.Count == 0)
+        {
+            return;
+        }
+
+        List<Node> focus = _sources;
+        HashSet<Node> seen = _sourceSeen[Of(run)];
+        focus.Clear();
+        seen.Clear();
+        Sources(shape, run, values, focus, seen);
         foreach (Node node in focus)
         {
             _affected.Seed(shape.Index, node);
@@ -326,7 +391,7 @@ internal sealed class AffectedPairs
     }
 
     /// <summary>Rev_s: the nodes from which the shape's value nodes include one of <paramref name="values"/> (§6.9).</summary>
-    private static void Sources(Shape shape, ValidationRun run, List<Node> values, List<Node> into)
+    private static void Sources(Shape shape, ValidationRun run, List<Node> values, List<Node> into, HashSet<Node> seen)
     {
         if (shape.Path is not { } path)
         {
@@ -334,7 +399,6 @@ internal sealed class AffectedPairs
             return;
         }
 
-        HashSet<Node> seen = new(run.Data.Nodes);
         foreach (Node value in values)
         {
             run.PathSources(path, value, into, seen);
@@ -358,7 +422,7 @@ internal sealed class AffectedPairs
             {
                 List<Node> heads = [];
                 ListMembers.Reverse(run.Data, node, heads, new HashSet<Node>(run.Data.Nodes));
-                Sources(shape, run, heads, into);
+                Sources(shape, run, heads, into, new HashSet<Node>(run.Data.Nodes));
             }
             else if (edge.Label.Equals(Vocabulary.ReifierShape))
             {
@@ -372,7 +436,7 @@ internal sealed class AffectedPairs
             }
             else
             {
-                Sources(shape, run, [node], into);
+                Sources(shape, run, [node], into, new HashSet<Node>(run.Data.Nodes));
             }
         }
     }

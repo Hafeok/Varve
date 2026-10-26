@@ -191,3 +191,14 @@ position sampled, its chain empty.
     `maxDerived`, against Azurite; readiness carries it.
   - The mixed-version check: `v0.1.0-preview.12`'s store reading this
     build's sets, on a directory and on Azurite, in the traceability record.
+
+## Amendment, 2026-10-26 — the release that ships format 5
+
+Filed by #133 when SHACL, part 2b (#149) landed first as
+`v0.1.0-preview.14`; it changes no ruling. Format 5 ships in
+`v0.1.0-preview.15`, and `v0.1.0-preview.14` writes and reads format 4 only,
+as the releases before it do. Where this ADR, and ADR 0160's amendment of
+2026-10-26, name `v0.1.0-preview.13` or before as the releases that read
+format 4 only, read `v0.1.0-preview.14` or before. What was measured against
+`v0.1.0-preview.12`'s store stays as measured: no extent code changed in the
+releases between.

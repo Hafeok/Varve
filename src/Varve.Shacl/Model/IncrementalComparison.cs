@@ -23,14 +23,23 @@ public sealed class IncrementalComparison
         ValidationReport before,
         ValidationReport after,
         IReadOnlyList<ShaclResult> introduced,
-        int affectedPairs)
+        int affectedPairs,
+        IReadOnlyList<FocusPair> pairs)
     {
         AffectedFocusNodes = affectedFocusNodes;
         Before = before;
         After = after;
         Introduced = introduced;
         AffectedPairs = affectedPairs;
+        Pairs = pairs;
     }
+
+    /// <summary>
+    /// Every affected pair with its results after the delta, null for a pair
+    /// that is no longer a target: what a validation projection replaces its
+    /// rows by (ADR 0174).
+    /// </summary>
+    public IReadOnlyList<FocusPair> Pairs { get; }
 
     /// <summary>The focus nodes of the affected pairs, distinct, in canonical N-Triples order.</summary>
     public IReadOnlyList<RdfTerm> AffectedFocusNodes { get; }

@@ -14,9 +14,11 @@ using Varve.Rdf;
 namespace Varve.Management;
 
 /// <summary>
-/// Reads the management graphs of a quad source into declarations, and the
-/// code validator's findings with them (ADR 0166 point 4). A graph with a
-/// finding contributes nothing it is wrong about; the findings say what.
+/// Reads the management graphs of a quad source into declarations, with the
+/// findings that refuse them. The management shapes decide every rule SHACL
+/// Core can state (ADR 0175), each finding built from a report result, and a
+/// residual check here the rest (ADR 0166 point 4). A graph with a finding
+/// contributes nothing the reader found it wrong about.
 /// </summary>
 [Contract(typeof(VarveManagementAndTheVocabulary.CodeValidatorNamesFocusAndPath), Role = "the reader and code validator of management declarations")]
 public static class DeclarationReader
@@ -88,6 +90,7 @@ public static class DeclarationReader
             {
                 fleet.AddRange(reader.Grants(dataset: null));
                 reader.RefuseDatasets("the fleet graph declares no dataset: each dataset has a graph of its own");
+                findings.AddRange(ManagementShapes.Validate(graph, triples));
             }
             else if (graph.Equals(ManagementVocabulary.BootstrapGraph))
             {
@@ -99,6 +102,8 @@ public static class DeclarationReader
                 {
                     datasets[name] = declared;
                 }
+
+                findings.AddRange(ManagementShapes.Validate(graph, triples));
             }
             else
             {
@@ -160,7 +165,7 @@ public static class DeclarationReader
             {
                 if (triple.Subject.Kind == RdfTermKind.BlankNode || triple.Object.Kind == RdfTermKind.BlankNode)
                 {
-                    Find(triple.Subject.Kind == RdfTermKind.BlankNode ? null : triple.Subject, triple.Predicate,
+                    Residual(triple.Subject.Kind == RdfTermKind.BlankNode ? null : triple.Subject, triple.Predicate,
                         "a declaration holds no blank node: give every node an IRI, so that applying it again changes nothing");
                     continue;
                 }
@@ -190,18 +195,19 @@ public static class DeclarationReader
 
                 if (ManagementVocabulary.EventTerms.Contains(local))
                 {
+                    // Whether the graph says its declarations moved is the graph's own state, which Core cannot state (ADR 0175).
                     if (!moved)
                     {
-                        Find(focus, path, "varve:" + local + " is an event-schema term: a dataset's event declarations are in its catalogue graphs until POST /manage/datasets/{name}/events/move moves them here, and a graph holds them only once it says varve:eventDeclarations varve:Moved (ADR 0167)");
+                        Residual(focus, path, "varve:" + local + " is an event-schema term: a dataset's event declarations are in its catalogue graphs until POST /manage/datasets/{name}/events/move moves them here, and a graph holds them only once it says varve:eventDeclarations varve:Moved (ADR 0167)");
                     }
                 }
                 else if (ManagementVocabulary.Reserved.TryGetValue(local, out string? reason))
                 {
-                    Find(focus, path, reason);
+                    Residual(focus, path, reason);
                 }
                 else if (!ManagementVocabulary.Known.Contains(local))
                 {
-                    Find(focus, path, "varve:" + local + " is not a term of the management vocabulary (ADR 0166)");
+                    Residual(focus, path, "varve:" + local + " is not a term of the management vocabulary (ADR 0166)");
                 }
             }
         }
@@ -210,7 +216,7 @@ public static class DeclarationReader
         {
             foreach (RdfTerm node in Typed(ManagementVocabulary.Dataset))
             {
-                Find(node, ManagementVocabulary.Type, message);
+                Residual(node, ManagementVocabulary.Type, message);
             }
         }
 
@@ -226,7 +232,7 @@ public static class DeclarationReader
                 }
                 else
                 {
-                    Find(triple.Subject, triple.Predicate, "the bootstrap graph holds only varve:bootstrapOperator literals, written by the system writer");
+                    Residual(triple.Subject, triple.Predicate, "the bootstrap graph holds only varve:bootstrapOperator literals, written by the system writer");
                 }
             }
 
@@ -239,7 +245,7 @@ public static class DeclarationReader
 
             if (declared.Count != 1)
             {
-                Find(null, null, "a dataset's graph declares exactly one varve:Dataset; this one declares " + declared.Count);
+                Residual(null, null, "a dataset's graph declares exactly one varve:Dataset; this one declares " + declared.Count);
                 return null;
             }
 
@@ -248,7 +254,7 @@ public static class DeclarationReader
 
             if (stated is not null && stated != name)
             {
-                Find(node, ManagementVocabulary.DatasetName, "varve:datasetName is \"" + stated + "\" in the graph of dataset " + name + "; they must be equal");
+                Residual(node, ManagementVocabulary.DatasetName, "varve:datasetName is \"" + stated + "\" in the graph of dataset " + name + "; they must be equal");
             }
 
             StorageKind storage = One(node, ManagementVocabulary.Storage) switch
@@ -277,7 +283,7 @@ public static class DeclarationReader
             {
                 if (grant.Access == GrantAccess.Operator)
                 {
-                    Find(grant.Node, ManagementVocabulary.Permission, "varve:operator is granted in the fleet graph only");
+                    Residual(grant.Node, ManagementVocabulary.Permission, "varve:operator is granted in the fleet graph only");
                 }
             }
 
@@ -303,7 +309,7 @@ public static class DeclarationReader
             {
                 if (triple.Predicate.Equals(ManagementVocabulary.EventDeclarations) && !triple.Subject.Equals(node))
                 {
-                    Find(triple.Subject, ManagementVocabulary.EventDeclarations, "varve:eventDeclarations is stated on the dataset's node only");
+                    Stated(triple.Subject, ManagementVocabulary.EventDeclarations, "varve:eventDeclarations is stated on the dataset's node only");
                 }
             }
 
@@ -328,13 +334,13 @@ public static class DeclarationReader
 
                 if (grantees.Count != 1)
                 {
-                    Find(node, ManagementVocabulary.Grantee, "a grant names exactly one varve:grantee; this one names " + grantees.Count);
+                    Stated(node, ManagementVocabulary.Grantee, "a grant names exactly one varve:grantee; this one names " + grantees.Count);
                     continue;
                 }
 
                 if (permissions.Count != 1)
                 {
-                    Find(node, ManagementVocabulary.Permission, "a grant has exactly one varve:permission; this one has " + permissions.Count);
+                    Stated(node, ManagementVocabulary.Permission, "a grant has exactly one varve:permission; this one has " + permissions.Count);
                     continue;
                 }
 
@@ -349,13 +355,13 @@ public static class DeclarationReader
 
                 if (permission is not { } granted)
                 {
-                    Find(node, ManagementVocabulary.Permission, "varve:permission is varve:read, varve:write, varve:admin or varve:operator");
+                    Stated(node, ManagementVocabulary.Permission, "varve:permission is varve:read, varve:write, varve:admin or varve:operator");
                     continue;
                 }
 
                 if (dataset is null && granted != GrantAccess.Operator)
                 {
-                    Find(node, ManagementVocabulary.Permission, "the fleet graph grants varve:operator only; a dataset's grants are in its own graph");
+                    Residual(node, ManagementVocabulary.Permission, "the fleet graph grants varve:operator only; a dataset's grants are in its own graph");
                     continue;
                 }
 
@@ -387,7 +393,7 @@ public static class DeclarationReader
 
                     if (bound.Count != 1 || bound[0].Kind != RdfTermKind.Iri || !IsAbsolute(bound[0]))
                     {
-                        Find(node, ManagementVocabulary.BoundGraph, "a binding names exactly one varve:boundGraph, an absolute IRI");
+                        Stated(node, ManagementVocabulary.BoundGraph, "a binding names exactly one varve:boundGraph, an absolute IRI");
                         continue;
                     }
 
@@ -419,13 +425,13 @@ public static class DeclarationReader
 
             if (mode is not { } validationMode)
             {
-                Find(node, ManagementVocabulary.ValidationMode, "a shapes binding has exactly one varve:validationMode: varve:Reject, varve:Report or varve:Off");
+                Stated(node, ManagementVocabulary.ValidationMode, "a shapes binding has exactly one varve:validationMode: varve:Reject, varve:Report or varve:Off");
                 return null;
             }
 
             if (Values(node, ManagementVocabulary.GraphTemplateProperty).Count > 0)
             {
-                Find(node, ManagementVocabulary.GraphTemplateProperty, "a shapes binding names its graphs without varve:graphTemplate: a template expands per caller, and a binding has none");
+                Stated(node, ManagementVocabulary.GraphTemplateProperty, "a shapes binding names its graphs without varve:graphTemplate: a template expands per caller, and a binding has none");
                 return null;
             }
 
@@ -438,7 +444,7 @@ public static class DeclarationReader
             {
                 if (graph.Equals(shapesGraph))
                 {
-                    Find(node, ManagementVocabulary.Graph, "a shapes binding's graphs do not name its own shapes graph, which is never data (ADR 0170)");
+                    Stated(node, ManagementVocabulary.Graph, "a shapes binding's graphs do not name its own shapes graph, which is never data (ADR 0170)");
                     return null;
                 }
             }
@@ -456,7 +462,7 @@ public static class DeclarationReader
         {
             if (node.Kind != RdfTermKind.Iri)
             {
-                Find(node, ManagementVocabulary.Grantee, "a grantee is an IRI: an agent's, or a role's or group's node");
+                Stated(node, ManagementVocabulary.Grantee, "a grantee is an IRI: an agent's, or a role's or group's node");
                 return null;
             }
 
@@ -465,7 +471,7 @@ public static class DeclarationReader
 
             if (role && group)
             {
-                Find(node, ManagementVocabulary.Type, "a principal is a role or a group, not both");
+                Stated(node, ManagementVocabulary.Type, "a principal is a role or a group, not both");
                 return null;
             }
 
@@ -488,7 +494,7 @@ public static class DeclarationReader
 
             if (!IsAbsolute(node))
             {
-                Find(node, ManagementVocabulary.Grantee, "an agent is named by its absolute IRI, the token's issuer, a hash and its subject");
+                Stated(node, ManagementVocabulary.Grantee, "an agent is named by its absolute IRI, the token's issuer, a hash and its subject");
                 return null;
             }
 
@@ -507,7 +513,7 @@ public static class DeclarationReader
             {
                 if (all || named)
                 {
-                    Find(node, ManagementVocabulary.Permission, "admin and operator cover every graph: such a grant names no graph set (ADR 0107)");
+                    Stated(node, ManagementVocabulary.Permission, "admin and operator cover every graph: such a grant names no graph set (ADR 0107)");
                     return null;
                 }
 
@@ -516,7 +522,7 @@ public static class DeclarationReader
 
             if (all && named)
             {
-                Find(node, ManagementVocabulary.AllGraphs, "varve:allGraphs covers every graph; name no other graph beside it");
+                Stated(node, ManagementVocabulary.AllGraphs, "varve:allGraphs covers every graph; name no other graph beside it");
                 return null;
             }
 
@@ -527,7 +533,7 @@ public static class DeclarationReader
 
             if (!named)
             {
-                Find(node, null, owner + " names its graphs: varve:allGraphs true, varve:graph, varve:graphPrefix or varve:graphTemplate");
+                Stated(node, null, owner + " names its graphs: varve:allGraphs true, varve:graph, varve:graphPrefix or varve:graphTemplate");
                 return null;
             }
 
@@ -549,7 +555,7 @@ public static class DeclarationReader
                 }
                 else
                 {
-                    Find(node, ManagementVocabulary.Graph, "varve:graph is an absolute IRI or varve:defaultGraph");
+                    Stated(node, ManagementVocabulary.Graph, "varve:graph is an absolute IRI or varve:defaultGraph");
                     ok = false;
                 }
             }
@@ -558,7 +564,7 @@ public static class DeclarationReader
             {
                 if (prefix.Kind != RdfTermKind.Literal || prefix.Lexical.IsEmpty)
                 {
-                    Find(node, ManagementVocabulary.GraphPrefix, "varve:graphPrefix is a non-empty literal");
+                    Stated(node, ManagementVocabulary.GraphPrefix, "varve:graphPrefix is a non-empty literal");
                     ok = false;
                     continue;
                 }
@@ -587,7 +593,7 @@ public static class DeclarationReader
         {
             if (!Has(node, ManagementVocabulary.Type, ManagementVocabulary.GraphTemplate))
             {
-                Find(node, ManagementVocabulary.GraphTemplateProperty, "varve:graphTemplate names a varve:GraphTemplate declared in the same graph");
+                Stated(node, ManagementVocabulary.GraphTemplateProperty, "varve:graphTemplate names a varve:GraphTemplate declared in the same graph");
                 return null;
             }
 
@@ -606,7 +612,7 @@ public static class DeclarationReader
 
             if (GraphTemplates.Check(template) is { } problem)
             {
-                Find(node, ManagementVocabulary.Template, problem);
+                Residual(node, ManagementVocabulary.Template, problem);
                 return null;
             }
 
@@ -654,7 +660,7 @@ public static class DeclarationReader
 
             if (values.Count > 1)
             {
-                Find(node, predicate, "this property is stated at most once; here it is stated " + values.Count + " times");
+                Stated(node, predicate, "this property is stated at most once; here it is stated " + values.Count + " times");
             }
 
             return values.Count == 0 ? null : values[0];
@@ -668,7 +674,7 @@ public static class DeclarationReader
             {
                 if (required)
                 {
-                    Find(node, predicate, "this property is required");
+                    Stated(node, predicate, "this property is required");
                 }
 
                 return null;
@@ -676,7 +682,7 @@ public static class DeclarationReader
 
             if (value.Kind != RdfTermKind.Literal || !value.Language.IsEmpty || (value.Datatype is { } datatype && !datatype.Lexical.SequenceEqual("http://www.w3.org/2001/XMLSchema#string"u8)))
             {
-                Find(node, predicate, "this property's value is a plain string literal");
+                Stated(node, predicate, "this property's value is a plain string literal");
                 return null;
             }
 
@@ -705,17 +711,28 @@ public static class DeclarationReader
                 }
             }
 
-            Find(node, predicate, "this property's value is an xsd:boolean");
+            Stated(node, predicate, "this property's value is an xsd:boolean");
             return null;
         }
 
         private T Invalid<T>(T fallback, RdfTerm node, RdfTerm predicate, string message)
         {
-            Find(node, predicate, message);
+            Stated(node, predicate, message);
             return fallback;
         }
 
-        private void Find(RdfTerm? focus, RdfTerm? path, string message) => _findings.Add(new DeclarationFinding(_graph, focus, path, message));
+        /// <summary>A finding only the code can see (ADR 0175 point 3): reported here.</summary>
+        private void Residual(RdfTerm? focus, RdfTerm? path, string message) => _findings.Add(new DeclarationFinding(_graph, focus, path, message));
+
+        /// <summary>
+        /// A rule the management shapes state: the shapes report it, from the
+        /// same graph, and the reader only stops reading what it is wrong
+        /// about (ADR 0175).
+        /// </summary>
+        private void Stated(RdfTerm? focus, RdfTerm? path, string message) => StatedByShapes.Add(new DeclarationFinding(_graph, focus, path, message));
+
+        /// <summary>What the reader saw that the shapes state: not reported, since the shapes' results are.</summary>
+        internal List<DeclarationFinding> StatedByShapes { get; } = [];
 
         private static bool IsAbsolute(RdfTerm iri) =>
             iri.Kind == RdfTermKind.Iri && IriRef.IsAbsolute(iri.Lexical);

@@ -275,3 +275,23 @@ dataset to exist. Event declarations stay in the catalogue graphs until ADR 0167
 
 **The ledger.** `SetupIsDeclared`, `ApplyOrder` and `SettingsAreDesiredState` move to
 ADR 0163's set, superseded.
+
+## Amendment, 2026-10-23 — a computed system graph
+
+Filed by SHACL, part 2b (milestone 8, #13), unaccepted until the maintainer
+accepts it (ADR 0066).
+
+Point 5's system graphs are ordinary data. **The report graphs are not**:
+`https://w3id.org/varve/ns#validation/{enc(binding IRI)}` is computed by its
+binding's validation projection (ADR [0174](0174-the-validation-projection.md)).
+- It is never in the log. A commit with a quad in any graph under
+  `https://w3id.org/varve/ns#validation/` is refused as `graph-not-writable`,
+  on every write path, an administrator's included.
+- It is visible to SPARQL and the Graph Store at any position the projection
+  has reached, and so time-travellable, to the callers ADR 0107's amendment of
+  the same day names.
+
+`varve:setup` and the catalogue graphs keep point 5 and its 2026-10-15
+amendment as written.
+
+**The ledger.** The ruling is ADR 0174's `ReportGraphNotWritable`.
