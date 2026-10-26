@@ -214,3 +214,54 @@ Windows and macOS are CI's to report on the pull request (#126). The
 - A skip index (layout 2): measured, recorded, not built.
 - The narrowing path stays for format-4 sets; it goes when no supported
   build writes format 4 (ADR 0178).
+
+## The review
+
+The maintainer approved layout 1 on #148 and asked for six things before
+acceptance; each, and what came of it:
+
+1. **Broad scans against the head.** The benchmark scans the same predicate
+   at the head: 132,587 quads in 53.4 and 55.5 ms (0.40–0.42 µs a match),
+   against 5.0–6.2, 7.7–8.6 and 8.1–11.1 ms a quarter, half and three
+   quarters into the largest set (0.16–0.35 µs a match). The as-of scan is at
+   most 0.84× the head's per match, inside the 3× the review set, so ADR
+   0177's "not built" for the skip index stands. Format 4 on `main` scanned
+   the head in 48.3 ms in both of its runs; the same head scan over one kept
+   dataset, alternating the builds three times, shows no difference past the
+   noise (86.8–94.7 ms at best on `main`, 90.0–90.2 and 86.1–92.5 ms on this
+   build over format 4 and format 5). The as-of lookup with block checks:
+   3.0 / 8.1 and 3.8 / 10.4 µs at p50 / p99 against the head's 11.3 / 34.8
+   and 12.4 / 35.6 µs.
+2. **Older readers decide when old sets are rewritten** (ADR 0178 point 2,
+   ADR 0160 amended). A reader record states `maxDerived`, absent read as 4,
+   the record still version 1; every writer path writes it. While a present
+   record says less than 5, no format-4 set is rewritten and merges of
+   format-4 sets stay format 4; new checkpoints and merges of format-5 sets
+   are format 5. `varve storage readers list` shows it.
+   `ObjectFormatUpgradeTests` writes a preview.12-style record by hand, shows
+   the format-4 sets kept under it, then forgets it or restarts its reader on
+   this build and shows the rewrite proceed; it fails with the rule turned
+   off. The upgrade guide recommends followers first and says why the store
+   is correct in either order.
+3. **Verification in format 5.** #126's damage property over the middle
+   set's six order extents (every byte zeroed, flipped, or the blob cut
+   there; `ExtentDamageTests`): before any change, 212 of 14,523 cases served
+   a different answer. Format 5 now carries a 64-bit check for every key
+   block and every column block, in the directory (storage format §7.5, ADR
+   0177 point 6), verified when the block is read: 0 of 15,384 cases served a
+   different answer, 305 failed the read. The property also found a defect
+   that was not damage: `Run.LowerBound` returned whichever equal key a
+   binary search met, so a key retracted and asserted again inside a set,
+   two rows within, could be looked up past its first interval; it now
+   returns the first, with a regression test.
+4. **Main merged.** The 40-schedule property's full depth runs nightly
+   (`VARVE_EXTENT_SCHEDULES=400` in `nightly.yml`), as does the damage
+   property's (`VARVE_EXTENT_DAMAGE_STRIDE=1`); `docs/testing.md` §8 lists
+   both.
+5. **The decisions are cited** as types: `seeking-extent-sets` and
+   `the-format-5-upgrade-and-the-set-cap`, at the code that implements each
+   ruling. CI is red on `CS0618` from those citations alone, and the release
+   job on ADRs 0177 and 0178 not yet Accepted, as intended.
+6. **The plan.** The prompt asked for the plan to be posted and approved
+   before implementing; it was implemented without that wait. Next time the
+   plan is posted and the work waits for its approval.

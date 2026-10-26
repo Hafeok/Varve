@@ -1621,6 +1621,16 @@ ranged read.
   quarters into the largest set: 17,409, 34,842 and 52,275 quads in 4.1,
   9.4 and 12.0 ms, 2 pages; format 4, after its narrowing, 0.7, 1.3 and
   1.8 ms. In the 7.5 MiB set, 131,000 quads in 9.8 ms either way.
+- **The same predicate at the head** (#133's review), 132,587 quads: 53.4
+  and 55.5 ms over two runs with block checks (0.40–0.42 µs a match),
+  against 4.99–6.15, 7.69–8.57 and 8.09–11.09 ms inside the largest set
+  (0.16–0.35 µs a match), so an as-of broad scan costs at most 0.84× the
+  head's per match, and less in all. Format 4 on `main`: 48.3 ms at the head
+  in both runs. That gap is between processes and datasets, not the head
+  path: one predicate's 1,512,879 quads at the head of one kept dataset, in
+  three alternating rounds, took 86.8–94.7 ms at best for `main` on format 4,
+  90.0–90.2 ms for this build on format 4 after a cold first round, and
+  86.1–92.5 ms on format 5.
 - **Checkpoints and merges**: the 100 checkpoints took 24.2 s against
   24.7 s; maintenance 91.8 s against 80.7 s, a merge reading its inputs'
   rows once more for the rows within's keys. Merges rewrote 753,709,040

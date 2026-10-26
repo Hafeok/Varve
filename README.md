@@ -50,8 +50,9 @@ inside an extent set cost its matches, not the set
 inside a set's window seeks the set — derived format 5 keeps each extent's
 positions in columns beside its keys and its rows within as a key section —
 so an as-of lookup at REC M costs a third of a lookup at the head where it
-cost three seconds, and merges and checkpoints write the new layout. Sets an
-earlier release wrote are read as before and rewritten by maintenance.
+cost three seconds, and merges and checkpoints write the new layout, every
+block checked. Sets an earlier release wrote are read as before and
+rewritten by maintenance once no reader of the earlier format is announced.
 `v0.1.0-preview.12` before it completed the first half
 ([#138](https://github.com/Hafeok/Varve/issues/138)) of SHACL's part 2, under
 milestone 8 ([#13](https://github.com/Hafeok/Varve/issues/13))**: a shapes

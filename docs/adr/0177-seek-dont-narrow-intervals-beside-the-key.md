@@ -147,6 +147,7 @@ Layout 1 (this ADR) against format 4's narrowing, the same benchmark on
 | A quad's lookup at the head, p50 / p99, same run | 12.5 / 40.6 µs | 15.2 / 52.1 µs |
 | A subject's quads inside it, p50 / p99 | 7.6 / 29.0 µs | 10.5 / 44.8 µs |
 | One predicate's quads inside it, a quarter / half / three quarters in | 0.7 / 1.3 / 1.8 ms | 4.1 / 9.4 / 12.0 ms |
+| The same predicate's quads at the head, 132,587 (rerun with block checks) | 48.3 ms | 53.4 / 55.5 ms |
 | Bytes checkpointed over the history | 420,777,999 | 405,933,553 |
 | Bytes merges rewrote, and per byte checkpointed | 750,437,062, 1.78 | 753,709,040, 1.86 |
 | Checkpoints, all 100, and maintenance, all of it | 24.7 s, 80.7 s | 24.2 s, 91.8 s |
@@ -167,6 +168,15 @@ Layout 1 (this ADR) against format 4's narrowing, the same benchmark on
 - **What a seek costs that narrowing does not**, once paid: a broad scan
   reads the columns as well as the keys, about 0.25 µs a match against 0.04 —
   but narrowing paid three seconds first, the cost of some 14 million such matches.
+- **A broad scan against the head's.** The same predicate at the head,
+  132,587 quads, took 53.4 and 55.5 ms in two later runs with block checks
+  (0.40–0.42 µs a match); inside the largest set 5.0–6.2, 7.7–8.6 and
+  8.1–11.1 ms (0.16–0.35 µs a match). An as-of broad scan is at most 0.84×
+  the head's per match, well inside 3×, so the skip index below stays not
+  built. The head's 48.3 against 53–55 ms between formats is between
+  processes: one kept dataset's head, one predicate's 1,512,879 quads, in
+  three alternating rounds, 86.8–94.7 ms at best on `main`, 90.0–90.2 ms on
+  this build over format 4 after a cold first round, 86.1–92.5 ms over format 5.
 - **Write amplification** is up from 1.78 to 1.86 only because format 5's
   extents are 3.5% smaller: merges rewrote the same bytes (+0.4%) for fewer
   checkpointed. Maintenance takes 14% longer: a merge reads its inputs' rows
@@ -198,9 +208,7 @@ Layout 1 (this ADR) against format 4's narrowing, the same benchmark on
   and merge writes and every format reader keeps; it is a block summary
   (the least assertion and the greatest retraction of each block of a
   column) that a later format can add beside these columns without moving
-  them. Not built: the reads it could pass are a fraction of rows a scan
-  already reads by the block, and every checkpoint and merge would write and
-  every format reader keep a second structure.
+  them.
 - **Position-sorted runs within a key range (candidate 3)**, for keys with
   many intervals: only if keys have many. Measured: every key of the largest set has exactly one interval (mean 1.000, max 1). A key's rows
   within are adjacent and few, so a run sorted by position inside a key
