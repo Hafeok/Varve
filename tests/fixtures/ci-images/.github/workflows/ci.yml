@@ -17,3 +17,5 @@ jobs:
       image: ${{ env.IMAGE }}
     steps:
       - run: echo fixture
+      # Fails: Docker Hub, named outside a row's watch.
+      - run: docker pull docker.io/library/alpine:3.20

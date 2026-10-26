@@ -537,11 +537,11 @@ landing decides the number. Only released and in-flight numbers are shown.
 | — | **Extent maintenance**: background merges and extent deletion | `preview.11` | Object storage | issue #110 (built; PR pending) |
 | — | **Client and integration**, part 2: events, catalogue, schema registry, AsyncAPI | next free | part 1 | issue #93 |
 | — | **Management plane**, part 1: fleet system dataset, grants as code, `varve apply`, forwarding | `preview.10` | Commit path, Object storage, Client and integration | issue #131 (part 1 landed) |
-| — | **Management plane**, part 2: event schemas in the management plane | next free | part 1 | issue #105 |
+| — | **Management plane**, part 2: event schemas in the management plane, the close-out | `preview.13` | part 1 | issue #105 (landed) |
 | — | **Learning track**: Varve for SQL developers and DDD practitioners | next free | Client and integration, Management plane | issue #94 |
 | 8 | SHACL, part 1: the standalone validator, SHACL-SPARQL, XPath regular expressions in `Varve.Xsd`, the event declaration shapes | `preview.9` | — (#87 landed) | issue #120 (landed) |
 | 8 | SHACL, part 2a: commit-time gating under a shapes binding, incremental validation, `Varve.Derivation` | `preview.12` | part 1, Management plane part 1 | issue #138 (landed) |
-| 8 | SHACL, part 2b: the validation projection, shapes for the declarations, the REC gate | `preview.13` | part 2a, Object storage (REC shapes) | issue #13 (this pull request) |
+| 8 | SHACL, part 2b: the validation projection, shapes for the declarations, the REC gate | `preview.14` | part 2a, Object storage (REC shapes) | issue #13 (this pull request) |
 | — | **Inference**: RDFS by rewriting, OWL 2 RL and rules as a projection | next free | 8 | issue #95 |
 | — | **Web UI**: operator console, then data explorer | next free | Management plane (console); 8 and Inference (explorer) | issue #96 |
 | — | **Replication**: three tiers, handover, promotion, fleet-level active-active | next free | Object storage, Extent maintenance, Commit path, Management plane | issue #97 |
@@ -695,7 +695,7 @@ bindings and event schemas move to the management plane. `varve apply` is
 the management plane's desired-state convergence; setup's command is
 `varve setup apply`, so the name is never reused with a different meaning.
 
-## Management plane — fleet system dataset, grants as code, `varve apply`
+## Management plane *(complete)* — fleet system dataset, grants as code, `varve apply`
 
 **Why.** Grants and settings must be declared in the application's
 repository, reviewed, applied by CI and audited, and a fleet of servers
@@ -721,8 +721,15 @@ federation. Bootstrap operators in host configuration, recorded on first
 write. Embedded hosts have no management plane. In two releases: part 1
 (#131, `preview.10`, landed) is everything above (ADRs 0163–0166, 0168),
 with event schemas still in the catalogue graphs and refused in management
-graphs; part 2 moves them to the management plane (ADR 0167) and closes the
-milestone.
+graphs; part 2 (`preview.13`) moves them to the management plane (ADR 0167)
+and closes the milestone. The move is per dataset and explicit: the system
+writer freezes the catalogue graphs at m₁, the dataset's writer passes a
+barrier through its sequencer and copies the final catalogue into the
+dataset's graph, committed with `varve:Moved` at m₂. A commit renders from
+the system dataset exactly when the management position it records is m₂
+or later, so the events are byte-identical across the move; revisions minted
+after it are `m{p}`; the catalogue graphs refuse writes with
+`409 event-catalogue-moved` and keep their history.
 
 **Gate.** `apply` idempotent; stale saved plans refused; disjoint applies
 never conflict; over generated grant histories, no response at position p
@@ -805,7 +812,7 @@ share. Gate:
 - commit latency under a `reject` binding at REC S and M, on the file
   backend.
 
-**Part 2b** (#13; ADRs 0174–0176), `0.1.0-preview.13`: the projection, the
+**Part 2b** (#13; ADRs 0174–0176), `0.1.0-preview.14`: the projection, the
 declarations and the REC gate, closing the milestone.
 - **The validation projection** (ADR 0174). Each binding keeps one, in the
   local cache only. Its report at a position is served as the reserved graph

@@ -72,6 +72,12 @@ public sealed class ShapesAgreementTests
         BindingValidatesItsShapes,
         BindingNamesNoGraph,
         BindingFlagNotBoolean,
+        EventDeclarationsTwice,
+        EventDeclarationsInvalid,
+        EventDeclarationsOffTheDataset,
+        MovedTypeWithoutSourceGraph,
+        MovedTypeTwoSourceGraphs,
+        MovedTypeSourceGraphLiteral,
     }
 
     /// <summary>Faults only the code sees (ADR 0175 point 3): the code refuses, the shapes conform.</summary>
@@ -87,7 +93,8 @@ public sealed class ShapesAgreementTests
         TemplateSyntax,
     }
 
-    private sealed record Declaration(bool Storage, bool Scope, bool Placed, int Roles, int Groups, bool Template, int ReadGrants, bool Admin, int Bindings);
+    /// <summary>Where the dataset's event declarations are (ADR 0167): 0 not stated, then varve:InDataset (a cancel), varve:Moving, varve:Moved.</summary>
+    private sealed record Declaration(bool Storage, bool Scope, bool Placed, int Roles, int Groups, bool Template, int ReadGrants, bool Admin, int Bindings, int Events);
 
     private static readonly Gen<Declaration> Declarations =
         from storage in Gen.Bool
@@ -99,7 +106,8 @@ public sealed class ShapesAgreementTests
         from reads in Gen.Int[1, 3]
         from admin in Gen.Bool
         from bindings in Gen.Int[0, 2]
-        select new Declaration(storage, scope, placed, roles, groups, template, reads, admin, bindings);
+        from events in Gen.Int[0, 3]
+        select new Declaration(storage, scope, placed, roles, groups, template, reads, admin, bindings, events);
 
     [Fact]
     public void A_valid_graph_conforms_and_the_code_finds_nothing()
@@ -172,6 +180,70 @@ public sealed class ShapesAgreementTests
         }, iter: Iterations);
     }
 
+    /// <summary>
+    /// Management plane part 2's fixture of moved declarations
+    /// (<c>fixtures/moved-declarations/notes.trig</c>, ADR 0167) in its
+    /// management form, as the system dataset holds it: the shapes conform and
+    /// the runtime and the oracle find nothing. With each fault of the move's
+    /// terms applied to it, the runtime and the oracle refuse, and the runtime
+    /// names the node the oracle names. Its catalogue form is the events tests'.
+    /// </summary>
+    [Theory]
+    [InlineData("none")]
+    [InlineData("no source graph")]
+    [InlineData("two source graphs")]
+    [InlineData("a literal source graph")]
+    [InlineData("an invalid state")]
+    [InlineData("the state off the dataset")]
+    [InlineData("not moved")]
+    public void The_moved_fixture_agrees_in_its_management_form(string fault)
+    {
+        string text = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "moved-declarations", "notes.trig")).ReplaceLineEndings("\n");
+        text = fault switch
+        {
+            "none" => text,
+            "no source graph" => Once(text, "    varve:sourceGraph varve:defaultGraph ;\n", string.Empty),
+            "two source graphs" => Once(text, "varve:sourceGraph varve:defaultGraph ;", "varve:sourceGraph varve:defaultGraph , <https://notes.example/other> ;"),
+            "a literal source graph" => Once(text, "varve:sourceGraph <https://notes.example/shared> ;", "varve:sourceGraph \"https://notes.example/shared\" ;"),
+            "an invalid state" => Once(text, "varve:eventDeclarations varve:Moved .", "varve:eventDeclarations varve:Off ."),
+            "the state off the dataset" => Once(text, "n:users a varve:Role ;", "n:users varve:eventDeclarations varve:Moving .\n  n:users a varve:Role ;"),
+            "not moved" => Once(text, "varve:eventDeclarations varve:Moved .", "varve:eventDeclarations varve:Moving ."),
+            _ => throw new ArgumentOutOfRangeException(nameof(fault)),
+        };
+
+        InMemoryDataset data = ManagementTrig.TryParse(Encoding.UTF8.GetBytes(text), null, out string? error) ?? throw new InvalidOperationException(error);
+        List<DeclarationFinding> oracle = [.. Oracle.CodeDeclarationReader.Read(data).Findings];
+        List<DeclarationFinding> runtime = [.. DeclarationReader.Read(data).Findings];
+        string shown = fault + "\noracle: " + string.Join("; ", oracle.Select(f => f.ToString())) + "\nruntime: " + string.Join("; ", runtime.Select(f => f.ToString()));
+        const string Graph = "https://w3id.org/varve/ns#manage/dataset/notes";
+        List<ShaclResult> shapes = [.. Validate(Shapes, data, Graph).Results];
+
+        if (fault == "none")
+        {
+            Assert.True(oracle.Count == 0 && runtime.Count == 0 && shapes.Count == 0, shown);
+            return;
+        }
+
+        Assert.True(oracle.Count > 0 && runtime.Count > 0, shown);
+        HashSet<RdfTerm> named = new(runtime.SelectMany(f => f.Focus is { } focus ? [focus] : Array.Empty<RdfTerm>()), RdfTerm.Comparer);
+        foreach (DeclarationFinding finding in oracle)
+        {
+            if (finding.Focus is { } focus)
+            {
+                Assert.True(named.Contains(focus), "the oracle names " + Show(focus) + "\n" + shown);
+            }
+        }
+
+        // The graph's state is the code's to see; every other fault of the move's terms, the shapes'.
+        Assert.True(fault == "not moved" ? shapes.Count == 0 : shapes.Count > 0, shown);
+    }
+
+    private static string Once(string text, string from, string to)
+    {
+        Assert.Equal(1, text.Split(from).Length - 1);
+        return text.Replace(from, to, StringComparison.Ordinal);
+    }
+
     /// <summary>A dataset graph's body, with the named fault applied.</summary>
     private static string Body(Declaration d, string? fault)
     {
@@ -190,6 +262,21 @@ public sealed class ShapesAgreementTests
         text.Append(fault == nameof(Seen.PlacedOnIri) ? " ; varve:placedOn <https://x/host>" : d.Placed ? " ; varve:placedOn \"varve-1\"" : string.Empty);
         text.Append(fault == nameof(Seen.HandoverNotBoolean) ? " ; varve:automaticHandover \"yes\"" : " ; varve:automaticHandover false");
         text.Append(fault == nameof(Seen.ClosedTwice) ? " ; varve:closed true , false" : string.Empty);
+
+        // The move's state: a moved type needs varve:Moved, an event term out of place needs any other.
+        int events = fault switch
+        {
+            nameof(Seen.MovedTypeWithoutSourceGraph) or nameof(Seen.MovedTypeTwoSourceGraphs) or nameof(Seen.MovedTypeSourceGraphLiteral) => 3,
+            nameof(Unseen.EventTerm) when d.Events == 3 => 2,
+            nameof(Seen.EventDeclarationsTwice) or nameof(Seen.EventDeclarationsInvalid) => 0,
+            _ => d.Events,
+        };
+        text.Append(fault switch
+        {
+            nameof(Seen.EventDeclarationsTwice) => " ; varve:eventDeclarations varve:Moving , varve:InDataset",
+            nameof(Seen.EventDeclarationsInvalid) => " ; varve:eventDeclarations varve:Off",
+            _ => events switch { 1 => " ; varve:eventDeclarations varve:InDataset", 2 => " ; varve:eventDeclarations varve:Moving", 3 => " ; varve:eventDeclarations varve:Moved", _ => string.Empty },
+        });
         text.Append(fault == nameof(Unseen.UnknownTerm) ? " ; varve:colour \"red\"" : string.Empty);
         text.Append(fault == nameof(Unseen.ReservedTerm) ? " ; varve:erasureMode true" : string.Empty);
         text.Append(" .\n");
@@ -301,9 +388,29 @@ public sealed class ShapesAgreementTests
             text.Append("n:d n:note [ n:text \"a blank node\" ] .\n");
         }
 
+        // A moved type, as the move copies it (ADR 0167): its catalogue graph's source, by varve:sourceGraph.
+        if (events == 3)
+        {
+            text.Append("n:t a varve:EventType");
+            text.Append(fault switch
+            {
+                nameof(Seen.MovedTypeWithoutSourceGraph) => string.Empty,
+                nameof(Seen.MovedTypeTwoSourceGraphs) => " ; varve:sourceGraph varve:defaultGraph , <https://x/g>",
+                nameof(Seen.MovedTypeSourceGraphLiteral) => " ; varve:sourceGraph \"https://x/g\"",
+                _ => " ; varve:sourceGraph varve:defaultGraph",
+            });
+            text.Append(" .\n");
+        }
+
+        if (fault == nameof(Seen.EventDeclarationsOffTheDataset))
+        {
+            text.Append("n:read0 varve:eventDeclarations varve:Moving .\n");
+        }
+
+        // An event term in a graph that has not moved, well formed: only the code sees where it is.
         if (fault == nameof(Unseen.EventTerm))
         {
-            text.Append("n:t a varve:EventType .\n");
+            text.Append("n:t a varve:EventType ; varve:sourceGraph varve:defaultGraph .\n");
         }
 
         return text.ToString();

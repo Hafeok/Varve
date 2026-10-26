@@ -43,7 +43,7 @@ where Varve is the wrong tool: [`docs/why.md`](docs/why.md).
 
 ## Status
 
-**`v0.1.0-preview.13` is the latest release, and it closed milestone 8,
+**`v0.1.0-preview.14` is the latest release, and it closed milestone 8,
 SHACL ([#13](https://github.com/Hafeok/Varve/issues/13))**, with part 2b:
 each shapes binding keeps a validation projection, whose report at any
 position is served as a reserved graph and equals a full validation there,
@@ -51,7 +51,15 @@ byte for byte; Varve's own event and management declarations are validated
 at runtime by SHACL shapes, with a residual check in code; and the REC gate
 validates generated RealEstateCore portfolios with REC 4.1.0's own shapes,
 standalone, at commit time and in the projection, agreeing at every sampled
-position. `v0.1.0-preview.12` before it completed the first half
+position. `v0.1.0-preview.13` before it closed milestone Management plane
+([#105](https://github.com/Hafeok/Varve/issues/105)) with its second part: a dataset's event declarations move, by an explicit act,
+from its catalogue graphs to its declarations on the management plane, where
+`varve apply` owns them with its grants and settings. The events every commit
+renders are the same bytes across the move, because a commit renders from the
+system dataset exactly when the management position it records is the move's
+or later. A schema revision minted after the move is `m{p}`, and the
+catalogue graphs refuse writes with `409 event-catalogue-moved` and keep their
+history. `v0.1.0-preview.12` before it completed the first half
 ([#138](https://github.com/Hafeok/Varve/issues/138)) of SHACL's part 2: a
 shapes binding, declared on the management plane, gates a dataset's commits —
 `reject` refuses a commit that introduces a violation, `report` records the
@@ -353,7 +361,7 @@ is the Native AOT binary and nothing else:
 
 ```bash
 dotnet tool install --global Varve.Server --prerelease
-docker pull ghcr.io/hafeok/varve:v0.1.0-preview.13
+docker pull ghcr.io/hafeok/varve:v0.1.0-preview.14
 ```
 
 Serve one dataset on your machine. `--anonymous` is for development only: a
@@ -362,7 +370,7 @@ real deployment takes OIDC bearer tokens ([ADR 0037](docs/adr/0037-server-authen
 ```bash
 varve serve --anonymous --datasets-root "$PWD/data"
 # or, listening on 8080 instead of 5000, with the datasets in the image's volume:
-docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.13 serve --anonymous
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.14 serve --anonymous
 
 # then declare the dataset in the management plane (ADR 0163):
 curl -X PUT http://localhost:5000/manage/datasets/people -H 'Content-Type: application/trig' \

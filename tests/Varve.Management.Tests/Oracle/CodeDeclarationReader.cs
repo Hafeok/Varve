@@ -15,7 +15,9 @@ namespace Varve.Management.Tests.Oracle;
 /// The code validator of management declarations as it stood before shapes
 /// became the runtime validator (ADR 0175): ADR 0166's reader and its every
 /// finding, frozen here as the oracle the shapes and the residual check are
-/// held to. Not shipped.
+/// held to, with Management plane part 2's additions (#147, ADR 0167) as
+/// that pull request made them, and the one rule the move's translation
+/// checked instead (a moved event type's <c>varve:sourceGraph</c>). Not shipped.
 /// </summary>
 internal static class CodeDeclarationReader
 {
@@ -150,6 +152,10 @@ internal static class CodeDeclarationReader
         {
             int before = _findings.Count;
 
+            // A dataset's graph holds event declarations once they moved there (ADR 0167).
+            bool moved = ManagementVocabulary.TryGetDataset(_graph, out _)
+                && Triples.Exists(static t => t.Predicate.Equals(ManagementVocabulary.EventDeclarations) && t.Object.Equals(ManagementVocabulary.Moved));
+
             foreach (Triple triple in Triples)
             {
                 if (triple.Subject.Kind == RdfTermKind.BlankNode || triple.Object.Kind == RdfTermKind.BlankNode)
@@ -184,7 +190,10 @@ internal static class CodeDeclarationReader
 
                 if (ManagementVocabulary.EventTerms.Contains(local))
                 {
-                    Find(focus, path, "varve:" + local + " is an event-schema term: event schemas stay in the dataset's catalogue graphs until the Management plane's part 2 moves them here (ADR 0167)");
+                    if (!moved)
+                    {
+                        Find(focus, path, "varve:" + local + " is an event-schema term: a dataset's event declarations are in its catalogue graphs until POST /manage/datasets/{name}/events/move moves them here, and a graph holds them only once it says varve:eventDeclarations varve:Moved (ADR 0167)");
+                    }
                 }
                 else if (ManagementVocabulary.Reserved.TryGetValue(local, out string? reason))
                 {
@@ -260,6 +269,7 @@ internal static class CodeDeclarationReader
             string? placed = Literal(node, ManagementVocabulary.PlacedOn, required: false);
             bool handover = Boolean(node, ManagementVocabulary.AutomaticHandover) ?? false;
             bool closed = Boolean(node, ManagementVocabulary.Closed) ?? false;
+            EventDeclarationState events = EventState(node);
             List<GrantDeclaration> grants = Grants(name);
             List<BindingDeclaration> bindings = [.. Bindings()];
 
@@ -280,10 +290,46 @@ internal static class CodeDeclarationReader
                 DefaultAccessScope = scope,
                 AutomaticHandover = handover,
                 Closed = closed,
+                EventDeclarations = events,
                 Grants = grants.FindAll(static grant => grant.Access != GrantAccess.Operator),
                 Bindings = bindings,
             };
         }
+
+        // varve:eventDeclarations, on the dataset node only (ADR 0167).
+        private EventDeclarationState EventState(RdfTerm node)
+        {
+            foreach (Triple triple in Triples)
+            {
+                if (triple.Predicate.Equals(ManagementVocabulary.EventDeclarations) && !triple.Subject.Equals(node))
+                {
+                    Find(triple.Subject, ManagementVocabulary.EventDeclarations, "varve:eventDeclarations is stated on the dataset's node only");
+                }
+            }
+
+            EventDeclarationState state = One(node, ManagementVocabulary.EventDeclarations) switch
+            {
+                null => EventDeclarationState.InDataset,
+                { } value when value.Equals(ManagementVocabulary.InDataset) => EventDeclarationState.InDataset,
+                { } value when value.Equals(ManagementVocabulary.Moving) => EventDeclarationState.Moving,
+                { } value when value.Equals(ManagementVocabulary.Moved) => EventDeclarationState.Moved,
+                _ => Invalid(EventDeclarationState.InDataset, node, ManagementVocabulary.EventDeclarations, "varve:eventDeclarations is varve:InDataset, varve:Moving or varve:Moved"),
+            };
+
+            // ManagedEventDeclarations' rule on #147, which the commit-time check met after this reader.
+            foreach (RdfTerm type in Typed(EventType))
+            {
+                List<RdfTerm> sources = Values(type, ManagementVocabulary.SourceGraphProperty);
+                if (sources.Count != 1 || sources[0].Kind != RdfTermKind.Iri)
+                {
+                    Find(type, ManagementVocabulary.SourceGraphProperty, "a moved event type names exactly one varve:sourceGraph, an absolute IRI or varve:defaultGraph");
+                }
+            }
+
+            return state;
+        }
+
+        private static readonly RdfTerm EventType = RdfTerm.Iri("https://w3id.org/varve/ns#EventType"u8);
 
         public List<GrantDeclaration> Grants(string? dataset)
         {

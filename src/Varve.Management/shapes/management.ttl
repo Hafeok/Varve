@@ -4,9 +4,10 @@
 #
 # What Core cannot state, the residual check in Varve.Management states
 # alone (ADR 0175 point 3):
-# - no blank node anywhere, and no unknown, reserved or event-schema
-#   varve: term (Core cannot target every subject, nor every predicate in a
-#   namespace);
+# - no blank node anywhere, and no unknown or reserved varve: term (Core
+#   cannot target every subject, nor every predicate in a namespace);
+# - ADR 0144's event-schema terms only in a dataset's graph that says
+#   varve:eventDeclarations varve:Moved (ADR 0167): the graph's own state;
 # - the graph names the system dataset admits, and nothing in its default
 #   graph;
 # - a dataset's graph declares exactly one varve:Dataset, whose
@@ -15,7 +16,10 @@
 #   dataset's graph grants no varve:operator;
 # - the bootstrap graph holds only varve:bootstrapOperator literals;
 # - a graph template's syntax.
-# Each needs the graph's name, a count across the graph, or a parser.
+# Each needs the graph's name, a count across the graph, or a parser. The
+# move's transitions (ADR 0167 point 4: none or varve:InDataset to Moving, the
+# cancel back to varve:InDataset, Moving to Moved) compare two management
+# positions, and ManagementValidator checks them.
 
 @prefix sh:    <http://www.w3.org/ns/shacl#> .
 @prefix varve: <https://w3id.org/varve/ns#> .
@@ -93,6 +97,37 @@ varve:DatasetShape
         sh:path varve:closed ;
         sh:datatype xsd:boolean ;
         sh:message "this property's value is an xsd:boolean" ;
+    ] ;
+    sh:property [
+        sh:path varve:eventDeclarations ;
+        sh:maxCount 1 ;
+        sh:message "this property is stated at most once" ;
+    ] ;
+    sh:property [
+        sh:path varve:eventDeclarations ;
+        sh:in ( varve:InDataset varve:Moving varve:Moved ) ;
+        sh:message "varve:eventDeclarations is varve:InDataset, varve:Moving or varve:Moved" ;
+    ] .
+
+# ---- Moving event declarations (ADR 0167) --------------------------------
+
+varve:EventDeclarationsShape
+    a sh:NodeShape ;
+    rdfs:comment "Where a dataset's event declarations are is the dataset's to say: varve:InDataset, as a cancel states it, varve:Moving or varve:Moved." ;
+    sh:targetSubjectsOf varve:eventDeclarations ;
+    sh:class varve:Dataset ;
+    sh:message "varve:eventDeclarations is stated on the dataset's node only" .
+
+varve:MovedEventTypeShape
+    a sh:NodeShape ;
+    rdfs:comment "An event type in a management graph, moved there from its catalogue graph, names the graph that catalogue described." ;
+    sh:targetClass varve:EventType ;
+    sh:property [
+        sh:path varve:sourceGraph ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:message "a moved event type names exactly one varve:sourceGraph, an absolute IRI or varve:defaultGraph" ;
     ] .
 
 # ---- Grants (ADR 0166 point 3, ADR 0107) ---------------------------------

@@ -64,7 +64,7 @@ Varve.Events.Model.EventEndpoints.Events.get -> string!
 Varve.Events.Model.EventEndpoints.Host.get -> string!
 Varve.Events.Model.EventEndpoints.Schema(string! type) -> string!
 Varve.Events.Model.EventEndpoints.Schema(string! type, int version) -> string!
-Varve.Events.Model.EventEndpoints.Schema(string! type, int version, Varve.Delta.Model.FeedPosition revision) -> string!
+Varve.Events.Model.EventEndpoints.Schema(string! type, int version, Varve.Events.Model.SchemaRevisionId revision) -> string!
 Varve.Events.Model.EventEndpoints.Scheme.get -> string!
 Varve.Events.Model.EventEndpoints.Source.get -> string!
 Varve.Events.Model.EventEndpoints.Types.get -> string!
@@ -122,12 +122,12 @@ Varve.Events.Model.RenderedEvent.Ordinal.get -> int
 Varve.Events.Model.RenderedEvent.Position.get -> Varve.Delta.Model.FeedPosition
 Varve.Events.Model.RenderedEvent.Type.get -> string!
 Varve.Events.Model.SchemaRevision
-Varve.Events.Model.SchemaRevision.Deconstruct(out int Version, out Varve.Delta.Model.FeedPosition Revision) -> void
+Varve.Events.Model.SchemaRevision.Deconstruct(out int Version, out Varve.Events.Model.SchemaRevisionId Revision) -> void
 Varve.Events.Model.SchemaRevision.Equals(Varve.Events.Model.SchemaRevision other) -> bool
-Varve.Events.Model.SchemaRevision.Revision.get -> Varve.Delta.Model.FeedPosition
+Varve.Events.Model.SchemaRevision.Revision.get -> Varve.Events.Model.SchemaRevisionId
 Varve.Events.Model.SchemaRevision.Revision.init -> void
 Varve.Events.Model.SchemaRevision.SchemaRevision() -> void
-Varve.Events.Model.SchemaRevision.SchemaRevision(int Version, Varve.Delta.Model.FeedPosition Revision) -> void
+Varve.Events.Model.SchemaRevision.SchemaRevision(int Version, Varve.Events.Model.SchemaRevisionId Revision) -> void
 Varve.Events.Model.SchemaRevision.Version.get -> int
 Varve.Events.Model.SchemaRevision.Version.init -> void
 Varve.Events.Model.TypeAssertion
@@ -198,3 +198,24 @@ const Varve.Events.EventRenderer.ProblemTitle = "An event could not be rendered.
 Varve.Events.Model.EventCatalogueSnapshot.Where(System.Func<Varve.Events.Model.CataloguedType!, bool>! predicate) -> Varve.Events.Model.EventCatalogueSnapshot!
 Varve.Events.EventDeclarationShapes
 static Varve.Events.EventDeclarationShapes.Turtle.get -> string!
+Varve.Events.EventCatalogueHistory.At(Varve.Events.Model.SchemaRevisionId revision) -> Varve.Events.Model.EventCatalogueSnapshot!
+Varve.Events.EventCatalogueHistory.IsManagement.get -> bool
+static Varve.Events.EventCatalogueHistory.ContinueFrom(Varve.Events.Model.EventCatalogueSnapshot! last) -> Varve.Events.EventCatalogueHistory!
+Varve.Events.Model.SchemaRevisionId
+Varve.Events.Model.SchemaRevisionId.CompareTo(Varve.Events.Model.SchemaRevisionId other) -> int
+Varve.Events.Model.SchemaRevisionId.Equals(Varve.Events.Model.SchemaRevisionId other) -> bool
+Varve.Events.Model.SchemaRevisionId.IsManagement.get -> bool
+Varve.Events.Model.SchemaRevisionId.Position.get -> long
+Varve.Events.Model.SchemaRevisionId.SchemaRevisionId() -> void
+override Varve.Events.Model.SchemaRevisionId.GetHashCode() -> int
+override Varve.Events.Model.SchemaRevisionId.ToString() -> string!
+static Varve.Events.Model.SchemaRevisionId.Dataset(Varve.Delta.Model.FeedPosition position) -> Varve.Events.Model.SchemaRevisionId
+static Varve.Events.Model.SchemaRevisionId.Management(long position) -> Varve.Events.Model.SchemaRevisionId
+static Varve.Events.Model.SchemaRevisionId.TryParse(string? text, out Varve.Events.Model.SchemaRevisionId revision) -> bool
+static Varve.Events.Model.SchemaRevisionId.operator !=(Varve.Events.Model.SchemaRevisionId left, Varve.Events.Model.SchemaRevisionId right) -> bool
+static Varve.Events.Model.SchemaRevisionId.operator <(Varve.Events.Model.SchemaRevisionId left, Varve.Events.Model.SchemaRevisionId right) -> bool
+static Varve.Events.Model.SchemaRevisionId.operator <=(Varve.Events.Model.SchemaRevisionId left, Varve.Events.Model.SchemaRevisionId right) -> bool
+static Varve.Events.Model.SchemaRevisionId.operator ==(Varve.Events.Model.SchemaRevisionId left, Varve.Events.Model.SchemaRevisionId right) -> bool
+static Varve.Events.Model.SchemaRevisionId.operator >(Varve.Events.Model.SchemaRevisionId left, Varve.Events.Model.SchemaRevisionId right) -> bool
+static Varve.Events.Model.SchemaRevisionId.operator >=(Varve.Events.Model.SchemaRevisionId left, Varve.Events.Model.SchemaRevisionId right) -> bool
+~override Varve.Events.Model.SchemaRevisionId.Equals(object obj) -> bool

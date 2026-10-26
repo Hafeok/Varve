@@ -143,6 +143,12 @@ internal static class EventsEndpoints
                     return;
                 }
 
+                if (rendered.Behind)
+                {
+                    await HttpProblems.WriteAsync(context, ProblemType.ManagementBehind, "A commit of the range records a management position this instance has not applied, so it cannot say which event declarations render it; read again.").ConfigureAwait(false);
+                    return;
+                }
+
                 foreach (RenderedEvent cloudEvent in rendered.Events)
                 {
                     if (!first)
@@ -219,6 +225,12 @@ internal static class EventsEndpoints
                         return;
                     }
 
+                    if (rendered.Behind)
+                    {
+                        await EndAsync(body, ProblemType.ManagementBehind, last).ConfigureAwait(false);
+                        return;
+                    }
+
                     if (rendered.Events.Count > 0)
                     {
                         data.ResetWrittenCount();
@@ -260,7 +272,7 @@ internal static class EventsEndpoints
         }
     }
 
-    private readonly record struct Rendered(IReadOnlyList<RenderedEvent> Events, long? Distance);
+    private readonly record struct Rendered(IReadOnlyList<RenderedEvent> Events, long? Distance, bool Behind = false);
 
     /// <summary>
     /// Renders one commit for the caller: the catalogue at the commit, cut to
@@ -277,7 +289,14 @@ internal static class EventsEndpoints
         }
 
         GraphScope readable = exchange.Scope.Readable;
-        EventCatalogueSnapshot snapshot = Visible(history.At(new FeedPosition(commit.Position.Value)), readable, type);
+
+        // From the system dataset or the dataset's own history, by the position the commit records (ADR 0167).
+        if (await exchange.Options.Catalogues.AtCommitAsync(exchange.Options, exchange.Dataset, exchange.Name, history, commit, cancellationToken).ConfigureAwait(false) is not { } atCommit)
+        {
+            return new Rendered([], null, Behind: true);
+        }
+
+        EventCatalogueSnapshot snapshot = Visible(atCommit, readable, type);
         List<TypeAssertion> assertions = [];
 
         foreach (TypeAssertion assertion in EventCatalogues.TypeAssertions(commit))
@@ -374,11 +393,11 @@ internal static class EventsEndpoints
                 return;
             }
 
-            long? wanted = null;
+            SchemaRevisionId? wanted = null;
 
             if (values.TryGetValue(RevisionRouteValue, out object? revisionValue))
             {
-                if (!long.TryParse((string?)revisionValue, NumberStyles.None, CultureInfo.InvariantCulture, out long revision))
+                if (!SchemaRevisionId.TryParse((string?)revisionValue, out SchemaRevisionId revision))
                 {
                     await HttpProblems.WriteAsync(context, ProblemType.NotFound, "No such revision.").ConfigureAwait(false);
                     return;
@@ -389,7 +408,7 @@ internal static class EventsEndpoints
 
             foreach (SchemaRevision candidate in type.Revisions)
             {
-                if (candidate.Version == version && (wanted is null || candidate.Revision.Value == wanted))
+                if (candidate.Version == version && (wanted is null || candidate.Revision == wanted))
                 {
                     chosen = candidate;
                 }
@@ -403,6 +422,13 @@ internal static class EventsEndpoints
         }
 
         EventCatalogueHistory history = await options.Catalogues.UpToAsync(read.Dataset, read.Position, context.RequestAborted).ConfigureAwait(false);
+
+        // A revision minted after the move is in the system dataset's history (ADR 0167).
+        if (found.Revision.IsManagement && read.Moved is { } moved)
+        {
+            history = moved.History;
+        }
+
         history.At(found.Revision).TryGet(name, out CataloguedType? then);
         string id = read.Endpoints.Schema(name, found.Version, found.Revision);
         byte[] schema = EventSchemas.Generate(then!.Declaration, id);
@@ -446,11 +472,10 @@ internal static class EventsEndpoints
             }
 
             CallerScope scope = options.AccessScopes.ScopesOf(context.User, entry.Name);
-            Position head = dataset.Head;
-            EventCatalogueHistory history = await options.Catalogues.UpToAsync(dataset, head, context.RequestAborted).ConfigureAwait(false);
+            (EventCatalogueSnapshot snapshot, EventCatalogues.Moved? _) = await SnapshotAsync(options, dataset, entry.Name, dataset.Head, context.RequestAborted).ConfigureAwait(false);
             EventEndpoints endpoints = Endpoints(context, options, entry.Name);
 
-            foreach (CataloguedType type in Visible(history.At(new FeedPosition(head.Value)), scope.Readable, null).Types)
+            foreach (CataloguedType type in Visible(snapshot, scope.Readable, null).Types)
             {
                 listed.Add(new ListedType(endpoints, type));
             }
@@ -461,7 +486,7 @@ internal static class EventsEndpoints
         await context.Response.BodyWriter.WriteAsync(EventViews.ServerList(listed), context.RequestAborted).ConfigureAwait(false);
     }
 
-    private sealed record CatalogueRead(Dataset Dataset, Position Position, EventCatalogueSnapshot Snapshot, EventEndpoints Endpoints);
+    private sealed record CatalogueRead(Dataset Dataset, Position Position, EventCatalogueSnapshot Snapshot, EventEndpoints Endpoints, EventCatalogues.Moved? Moved);
 
     /// <summary>The catalogue as of the read's position (<c>Varve-As-Of</c>), cut to what the caller reads.</summary>
     private static async Task<CatalogueRead?> CatalogueAsync(HttpContext context, ProtocolOptions options)
@@ -482,9 +507,34 @@ internal static class EventsEndpoints
             return null;
         }
 
-        EventCatalogueHistory history = await options.Catalogues.UpToAsync(exchange.Dataset, position, context.RequestAborted).ConfigureAwait(false);
-        EventCatalogueSnapshot snapshot = Visible(history.At(new FeedPosition(position.Value)), exchange.Scope.Readable, null);
-        return new CatalogueRead(exchange.Dataset, position, snapshot, Endpoints(context, options, exchange.Name));
+        (EventCatalogueSnapshot at, EventCatalogues.Moved? moved) = await SnapshotAsync(options, exchange.Dataset, exchange.Name, position, context.RequestAborted).ConfigureAwait(false);
+        EventCatalogueSnapshot snapshot = Visible(at, exchange.Scope.Readable, null);
+        return new CatalogueRead(exchange.Dataset, position, snapshot, Endpoints(context, options, exchange.Name), moved);
+    }
+
+    /// <summary>
+    /// The catalogue a view at <paramref name="position"/> shows (ADR 0167):
+    /// the dataset's own history, unless its declarations had moved by the
+    /// management position in force there, which is the applied one at the
+    /// head and the one the commit records for an as-of view.
+    /// </summary>
+    private static async Task<(EventCatalogueSnapshot Snapshot, EventCatalogues.Moved? Moved)> SnapshotAsync(
+        ProtocolOptions options, Dataset dataset, DatasetName name, Position position, CancellationToken cancellationToken)
+    {
+        EventCatalogueHistory history = await options.Catalogues.UpToAsync(dataset, position, cancellationToken).ConfigureAwait(false);
+
+        if (options.Plane is { } plane)
+        {
+            long? recorded = await EventCatalogues.RecordedAtAsync(dataset, position, cancellationToken).ConfigureAwait(false);
+            long? management = position == dataset.Head ? Math.Max(plane.System.Head.Value, recorded ?? 0) : recorded;
+
+            if (management is long m && await options.Catalogues.MovedAsync(plane, dataset, name, m, cancellationToken).ConfigureAwait(false) is { } moved)
+            {
+                return (moved.History.At(new FeedPosition(Math.Min(m, moved.Applied))), moved);
+            }
+        }
+
+        return (history.At(new FeedPosition(position.Value)), null);
     }
 
     /// <summary>The types whose catalogue graph the caller reads, and of one name when asked.</summary>

@@ -133,6 +133,9 @@ public readonly record struct ProblemType
     /// <summary><c>503</c>: a forwarded write reached an instance that does not write the dataset; it is never forwarded again (ADR 0168).</summary>
     public static ProblemType WriterMoved { get; } = new("writer-moved");
 
+    /// <summary><c>409</c>: a write to a catalogue graph after the dataset's event declarations froze or moved to the management plane (ADR 0167).</summary>
+    public static ProblemType EventCatalogueMoved { get; } = new("event-catalogue-moved");
+
     /// <summary><c>422</c>: a management declaration the code validator refuses (ADR 0166).</summary>
     public static ProblemType DeclarationInvalid { get; } = new("declaration-invalid");
 

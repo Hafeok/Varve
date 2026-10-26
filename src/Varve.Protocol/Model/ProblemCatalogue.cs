@@ -79,6 +79,7 @@ public static class ProblemCatalogue
         new(ProblemType.NotAcceptable, 406, "Nothing in Accept is a format this endpoint writes."),
         new(ProblemType.Conflict, 409, "Another commit came first.", "position", "expectedPosition", "headPosition", "graphs", "graphsTruncated"),
         new(ProblemType.DatasetOpen, 409, "The dataset is open; close it first."),
+        new(ProblemType.EventCatalogueMoved, 409, "The dataset's event declarations are on the management plane.", "manage"),
         new(ProblemType.PreconditionFailed, 412, "The precondition does not name the current version.", "position", "expectedPosition", "headPosition", "graphs"),
         new(ProblemType.RequestTooLarge, 413, "The request body is over the server's limit.", "limit"),
         new(ProblemType.UnsupportedMediaType, 415, "The request body is in a media type or charset this endpoint does not read."),
@@ -121,7 +122,7 @@ public static class ProblemCatalogue
     /// </summary>
     public static bool IsValidatorType(ProblemType type) =>
         type == ProblemType.EventDeclarationInvalid || type == ProblemType.EventSchemaIncompatible
-        || type == ProblemType.DeclarationInvalid || type == ProblemType.ManagementBehind
+        || type == ProblemType.DeclarationInvalid || type == ProblemType.ManagementBehind || type == ProblemType.EventCatalogueMoved
         || type == ProblemType.ShapesViolated || type == ProblemType.BindingNotIncremental || type == ProblemType.ShapesInvalid
         || type == ProblemType.GraphNotWritable;
 

@@ -373,9 +373,48 @@ The tests of every project this change touches pass (above). Until ADRs
 - **Other operating systems.** Their durations come from CI's run of the
   pull request (#126).
 
+### After the pull request opened
+
+The maintainer asked, on #149's session:
+- for REC S's pull-request sample at every 250th position and the last,
+  aiming for under a minute, with the per-OS durations;
+- for #147 (Management plane part 2) to land first. This pull request then
+  merges `main`, reconciles `shapes/management.ttl` with the move's terms
+  (the cancel state included) as the shapes' owner, renumbers the
+  descriptor, and re-runs both agreement properties, `notes.trig` in both
+  forms included.
+
+What was done:
+- **The sample and the fix it found.** See *Where the work departed* above.
+  REC S's sample runs in 54 s, and `Varve.Shacl.Store.Tests` in 60 s.
+- **Two gates the pipeline runs before the build** failed on the nightly's
+  matrix and on a status fixture, and both were fixed (`a658f54`).
+- **#147 landed as `v0.1.0-preview.13`,** and `main` was merged. This
+  descriptor is `v0.1.0-preview.14`.
+- **The shapes state the move's terms:**
+  - `varve:eventDeclarations`, at most once, `varve:InDataset` (the cancel),
+    `varve:Moving` or `varve:Moved`, on the dataset's node only;
+  - a moved type's one `varve:sourceGraph`, an IRI.
+
+  What stays code:
+  - event terms only in a graph that says `Moved`;
+  - the transitions between management positions.
+- **The oracle** took #147's reader changes as #147 made them, and the
+  `sourceGraph` rule from its move translation.
+- **The management agreement properties** gained six faults of the move's
+  terms. A new case runs `notes.trig` in its management form, unchanged and
+  with each fault. The events properties run it in both forms.
+- **The checks:** dropping the two new shapes fails seven tests. Every
+  touched suite passes after the merge: Events 154, Management 57,
+  Server 130, Protocol 116.
+- **Two refusals are reported differently,** as ADR 0175 point 5 records:
+  - a moved type's bad `varve:sourceGraph` is now `declaration-invalid` at
+    commit time, where #147 alone gave `event-declaration-invalid`;
+  - a stray `varve:eventDeclarations` in the fleet graph is now refused.
+
 ### What the maintainer is asked for
 
 - **Accept** ADRs 0174–0176 and their decision sets, and the amendments.
 - **File the REC upstream note** in the pull request's description.
-- **The release number.** #147 and #148 also propose
-  `v0.1.0-preview.13`, so whichever lands later renumbers.
+- **The release number.** #147 landed first as `v0.1.0-preview.13`, as the
+  maintainer ruled on #149, so this descriptor is `v0.1.0-preview.14`.

@@ -6,6 +6,12 @@
 2026-10-19** (ADR 0066). Acceptance is the maintainer's act on the pull
 request. Decided on the plan of #105, questions 2 and 5.
 
+**Amended 2026-10-20** (ADR 0068), by SHACL part 2a (#138), under ADR 0170:
+a shapes binding's graphs and mode. **Amended 2026-10-23**, by milestone
+Management plane of #105, part 2, under ADR
+[0167](0167-event-declarations-move-to-the-management-plane.md): the event
+declarations; see the end.
+
 ## Context
 
 ADR 0163 puts grants, settings and placement in the system dataset as TriG.
@@ -184,6 +190,26 @@ A `varve:ShapesBinding` is no longer only recorded: ADR
 
 **The ledger.** The rulings are ADR 0170's `BindingTerms` and
 `BindingDeclarationChecks`.
+
+## Amendment, 2026-10-23 — the event declarations join
+
+Filed by milestone Management plane, part 2, of #105, unaccepted until the
+maintainer accepts it (ADR 0066). The rulings are ADR
+[0167](0167-event-declarations-move-to-the-management-plane.md)'s.
+
+- **Four terms.** `varve:eventDeclarations`, on the dataset node, with
+  `varve:Moving` or `varve:Moved`; and `varve:sourceGraph`, an IRI or
+  `varve:defaultGraph`, on an event type node.
+- **Point 3's "Until then the validator refuses them"** ends for a dataset
+  whose graph says `varve:Moved`. There, ADR 0144's terms are known, and the
+  event nodes are checked by `EventDeclarationCheck` over their
+  catalogue-graph translation (ADR 0145), composed with point 4's validator
+  in `ManagementValidator`. In any other dataset's graph, and in the fleet
+  graph, they are still refused, with a message that names the move.
+- **What point 4's validator refuses**, beside what it refused: more than one
+  `varve:eventDeclarations`; a change of it other than none or `InDataset`
+  to `Moving`, `Moving` to `InDataset` (a cancel), or `Moving` to `Moved`; and event terms brought in by any
+  commit but the one that makes the graph `Moved`, or later ones.
 
 ## Amendment, 2026-10-25 — shapes validate the declarations
 

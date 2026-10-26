@@ -75,7 +75,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         _role = role;
         _placeholder = placeholder;
         _snapshot = new Snapshot(GrantTable.Empty(_bootstrap), BootstrapState.Absent);
-        Datasets = new OpenDatasets(settings, objects, _order, clock, logger);
+        Datasets = new OpenDatasets(settings, objects, _order, clock, logger, Moved);
         Instance = new WriterName(_instance.Value);
         Projections = new ValidationProjections(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
     }
@@ -85,6 +85,11 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
     /// <summary>The validation projections of the datasets held here (ADR 0174).</summary>
     internal ValidationProjections Projections { get; }
+
+    // Whether a dataset's event declarations are moving or moved at the applied position (ADR 0167).
+    private bool Moved(string dataset) =>
+        Volatile.Read(ref _snapshot).Table.Declarations.Datasets.TryGetValue(dataset, out DatasetDeclaration? declared)
+        && declared.EventDeclarations != EventDeclarationState.InDataset;
 
     /// <summary>Whether the fleet is this instance alone: no object store, so no follower and no forwarding.</summary>
     internal bool IsFleetOfOne { get; }
@@ -321,13 +326,22 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
     /// <summary>
     /// The validators a data write carries, authorised at the request's pinned
-    /// management position: the order of positions (ADR 0165), and the
-    /// dataset's shapes bindings at that position (ADR 0169).
+    /// management position: the order of positions (ADR 0165); the freeze of
+    /// the catalogue graphs once the dataset's event declarations are moving or
+    /// moved there (ADR 0167); and the dataset's shapes bindings at that
+    /// position (ADR 0169).
     /// </summary>
     public ICommitValidator OrderOf(DatasetName dataset, ManagementPosition authorised)
     {
-        ICommitValidator order = _order.Validator(dataset, authorised);
-        return _shapes.GateOf(dataset, Pinned().Table.Declarations) is { } gate ? new OrderAndShapes(order, gate) : order;
+        ICommitValidator validator = _order.Validator(dataset, authorised);
+        Declarations declarations = Pinned().Table.Declarations;
+
+        if (declarations.Datasets.TryGetValue(dataset.Value, out DatasetDeclaration? declared) && declared.EventDeclarations != EventDeclarationState.InDataset)
+        {
+            validator = new OrderAndShapes(validator, new EventCatalogueFreeze(dataset));
+        }
+
+        return _shapes.GateOf(dataset, declarations) is { } gate ? new OrderAndShapes(validator, gate) : validator;
     }
 
     /// <inheritdoc />
@@ -491,6 +505,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
             {
                 await Task.Delay(_settings.Fleet.FollowInterval, _clock, stopping).ConfigureAwait(false);
                 await AdvanceAsync(stopping).ConfigureAwait(false);
+                await ResumeMovesAsync(stopping).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (stopping.IsCancellationRequested)
             {
@@ -499,6 +514,35 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
             catch (Exception error)
             {
                 FleetLog.AdvanceFailed(_logger, SystemName, error.Message);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Finishes a move of a dataset's event declarations (ADR 0167): set by
+    /// the host once its protocol is composed. Null leaves every move to the
+    /// request that started it.
+    /// </summary>
+    internal Func<DatasetName, CancellationToken, Task<bool>>? Resume { get; set; }
+
+    // A move this instance can finish alone: it writes the system dataset and
+    // the dataset both (ADR 0167 point 3). Run on the interval, outside the
+    // advance, which the move itself takes.
+    private async Task ResumeMovesAsync(CancellationToken cancellationToken)
+    {
+        if (Resume is not { } resume || _role != ManagementRole.Writer)
+        {
+            return;
+        }
+
+        foreach ((string name, DatasetDeclaration declared) in Volatile.Read(ref _snapshot).Table.Declarations.Datasets)
+        {
+            DatasetName dataset = new(name);
+
+            if (declared.EventDeclarations == EventDeclarationState.Moving && Datasets.RoleOf(dataset) == DatasetRole.Writer)
+            {
+                bool moved = await resume(dataset, cancellationToken).ConfigureAwait(false);
+                FleetLog.MoveResumed(_logger, name, moved);
             }
         }
     }
@@ -651,5 +695,8 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
         [LoggerMessage(EventId = 13, Level = LogLevel.Warning, Message = "Advancing '{Name}' failed; it serves what it applied: {Reason}")]
         internal static partial void AdvanceFailed(ILogger logger, string name, string reason);
+
+        [LoggerMessage(EventId = 14, Level = LogLevel.Information, Message = "Resumed the move of '{Name}''s event declarations to the management plane; moved: {Moved} (ADR 0167).")]
+        internal static partial void MoveResumed(ILogger logger, string name, bool moved);
     }
 }

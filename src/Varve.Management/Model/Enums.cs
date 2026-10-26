@@ -88,3 +88,16 @@ public enum PrincipalKind : byte
     /// <summary>Every caller whose claim of the type holds the value.</summary>
     Group,
 }
+
+/// <summary>Where a dataset's event declarations are (ADR 0167): <c>varve:eventDeclarations</c> on its node.</summary>
+public enum EventDeclarationState : byte
+{
+    /// <summary>No value, or <c>varve:InDataset</c> after a cancel: in the dataset's catalogue graphs, written by the data plane.</summary>
+    InDataset,
+
+    /// <summary><c>varve:Moving</c>: frozen in the catalogue graphs, being copied here.</summary>
+    Moving,
+
+    /// <summary><c>varve:Moved</c>: in the dataset's graph of the system dataset, for good.</summary>
+    Moved,
+}

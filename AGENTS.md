@@ -221,7 +221,26 @@ REC gate** (0176) composes REC 4.1.0 with `owl:Class rdfs:subClassOf
 rdfs:Class` and the prefixes Brick leaves undeclared. Standalone, commit
 time and the projection agree on REC S on pull requests and on M nightly.
 
-Part 2a (#138; ADRs 0169–0173, filed unaccepted).
+Before that, milestone Management plane (#105) completed with its part 2 (ADR 0167,
+filed unaccepted; 0144, 0145 and 0166 amended). A dataset's **event
+declarations move** to its graph in the system dataset by an explicit act,
+`POST /manage/datasets/{d}/events/move` (`varve manage move-events`),
+routed to the dataset's writer and run under the caller's token: the system
+writer freezes the catalogue graphs (`varve:eventDeclarations varve:Moving`,
+m₁), the dataset's writer passes a refused probe through its sequencer so
+the catalogue is final, and copies it, each type node with
+`varve:sourceGraph`, committed with `varve:Moved` at m₂. A commit renders
+from the system dataset exactly when the management position it records is
+m₂ or later, else from the dataset's catalogue history, so events are
+byte-identical across the move (`EventCatalogueHistory.ContinueFrom` keeps
+the revisions; `ManagedEventDeclarations` translates both ways). Revisions
+minted after the move are `m{p}` (`SchemaRevisionId`, breaking). Catalogue
+writes are refused with `409 event-catalogue-moved`; moved declarations are
+checked by `EventDeclarationCheck` over their translation, inside
+`ManagementValidator`. A move is idempotent and resumes; a cancel states
+`varve:InDataset` at its own position; `Moved` is final.
+
+Before that, milestone 8's part 2a (#138; ADRs 0169–0173, filed unaccepted).
 A **shapes binding** (`varve:ShapesBinding`, ADR 0170) is a management
 declaration naming a shapes graph of the same dataset, the graphs it
 validates as one data graph, and a mode. `Varve.Shacl.Store` (layer 5) is a
@@ -256,7 +275,7 @@ past the store's single-upload limit. `varve storage`, `readers list` and
 `forget`, and readiness's `retention`, which never turns it unready (0162).
 
 Before that, milestone Management plane (#105), part 1 (ADRs 0163–0166 and 0168, filed
-unaccepted); part 2 moves event schemas (ADR 0167). A fleet of servers on one
+unaccepted); part 2, above, moved event schemas (ADR 0167). A fleet of servers on one
 store shares one **system dataset** at `_fleet/`: one instance writes it
 (`Varve:Fleet:Writer`), the others follow it as **tier-1 followers** (ADR
 0164: a read-only open that probes the next log slot, never lists, and is

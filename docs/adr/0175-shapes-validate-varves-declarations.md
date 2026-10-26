@@ -50,7 +50,12 @@ user's data.
 
    The management shapes state, by SHACL Core only:
    - `varve:Dataset`: its name, storage, default access scope, description
-     and flags, each at most once and of its type;
+     and flags, each at most once and of its type, and where its event
+     declarations are (`varve:eventDeclarations`, ADR 0167): at most once,
+     `varve:InDataset` (as a cancel states it), `varve:Moving` or
+     `varve:Moved`, on the dataset's node only;
+   - a moved `varve:EventType`: exactly one `varve:sourceGraph`, an IRI or
+     `varve:defaultGraph`;
    - `varve:Grant`: exactly one IRI grantee and one permission; an
      `admin` or `operator` grant names no graph set, and a `read` or `write`
      grant names one;
@@ -77,14 +82,18 @@ user's data.
    - in catalogue form, the code names it, and the runtime check and its
      oracle agree.
 
-   Whichever of the two pull requests lands second reconciles
-   `shapes/management.ttl` with the move's terms (`varve:eventDeclarations`,
-   its states, and `varve:sourceGraph`).
+   Management plane part 2 (#147) landed first, and this pull request
+   reconciled `shapes/management.ttl` with the move's terms, as point 1
+   lists them.
 3. **The residual check in code** is what Core cannot state:
    - **for events**, ADR 0157 point 3 and the version history (ADR 0145);
    - **for management declarations**:
      - blank nodes;
-     - unknown, reserved and event-schema `varve:` terms;
+     - unknown and reserved `varve:` terms;
+     - ADR 0144's event-schema terms only in a dataset's graph that says
+       `varve:eventDeclarations varve:Moved`, which is the graph's own state;
+     - the move's transitions (ADR 0167 point 4), which compare two
+       management positions and stay `ManagementValidator`'s;
      - the graph names the system dataset admits;
      - one `varve:Dataset` per dataset graph, named as its graph;
      - the fleet graph's rules;
@@ -95,7 +104,9 @@ user's data.
    every predicate, or a parser.
 4. **The oracle.** The code validators as they stood before the switch are
    frozen in the test projects, as `Oracle.CodeEventDeclarationCheck` and
-   `Oracle.CodeDeclarationReader`. Over generated declarations, valid and
+   `Oracle.CodeDeclarationReader`. The latter carries #147's additions to
+   the reader as #147 made them, and the `varve:sourceGraph` rule its move
+   translation (`ManagedEventDeclarations`) checked. Over generated declarations, valid and
    mutated by one fault each, the runtime refuses exactly what the oracle
    refuses, with the same problem type. For an incompatible change, it also
    gives the same declaration and fields. For a fault the shapes state, the
@@ -105,6 +116,16 @@ user's data.
    `event-declaration-invalid` and `event-schema-incompatible` keep their
    members. A message is the shape's `sh:message`, which keeps the code's
    wording where the rule is the same.
+
+   Two refusals the move's terms bring change where they are reported:
+   - **A moved type's `varve:sourceGraph`.** Missing, doubled or a literal,
+     it is refused at commit time by the shapes as `declaration-invalid`,
+     before `ManagementValidator` translates the moved nodes. Under #147
+     alone, the translation refused it as `event-declaration-invalid`. The
+     message is the same, and the translation keeps its check for the move's
+     own copy.
+   - **A stray `varve:eventDeclarations` in the fleet graph** is refused,
+     where the code read only dataset graphs for it.
 
 ## Alternatives considered
 

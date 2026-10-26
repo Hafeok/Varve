@@ -21,5 +21,8 @@ quads over.
   as JSON.
 - **`ManagementTrig`** reads and writes declarations as TriG.
 
-Event-schema declarations join the vocabulary with ADR 0167; until then they
-are refused in a management graph.
+A dataset's event-schema declarations move into its graph by ADR 0167:
+`varve:eventDeclarations` on its node says where they are (`varve:Moving`,
+`varve:Moved`), ADR 0144's terms are read in a graph that says `varve:Moved`
+and refused in any other management graph, and **`EventDeclarationMoves`**
+allows only the move's transitions.

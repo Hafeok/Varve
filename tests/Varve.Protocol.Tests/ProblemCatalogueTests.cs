@@ -118,6 +118,11 @@ public class ProblemCatalogueTests
             }, P.Ct);
         ProtocolTestHost.Datasets datasets = new();
         datasets.Add("d", dataset);
+
+        // ADR 0167: a dataset whose event declarations moved refuses catalogue writes.
+        Dataset frozen = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()),
+            new DatasetOptions { Clock = TimeProvider.System, Validators = [new EventCatalogueFreeze(new DatasetName("frozen"))] }, P.Ct);
+        datasets.Add("frozen", frozen);
         ProtocolLimits limits = new(TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1), new ByteCount(200), new ByteCount(2048), TimeSpan.FromSeconds(15))
         {
             MaxQueryMemory = new Varve.Sparql.Evaluation.MemoryBytes(1024),
@@ -127,6 +132,7 @@ public class ProblemCatalogueTests
         TestAdministration administration = new();
 
         await using (dataset)
+        await using (frozen)
         await using (ProtocolTestHost host = await ProtocolTestHost.StartAsync(
             datasets,
             map: (app, o) =>
@@ -161,6 +167,7 @@ public class ProblemCatalogueTests
                 [ProblemType.UnsupportedMediaType] = () => new HttpRequestMessage(HttpMethod.Post, new Uri(Sparql, UriKind.Relative)) { Content = new StringContent("ASK {}", Encoding.UTF8, "text/plain") },
                 [ProblemType.Rejected] = () => P.Update(Sparql, "INSERT DATA { <http://ex/secret> <http://ex/p> 1 }"),
                 [ProblemType.EventDeclarationInvalid] = () => P.Update(Sparql, "INSERT DATA { GRAPH <" + Catalogue + "> { <http://ex/stray> <http://ex/p> 1 } }"),
+                [ProblemType.EventCatalogueMoved] = () => P.Update("datasets/frozen/sparql", "INSERT DATA { GRAPH <" + Catalogue + "> { <http://ex/stray> <http://ex/p> 1 } }"),
                 [ProblemType.EventSchemaIncompatible] = () => P.Update(Sparql,
                     "DELETE DATA { GRAPH <" + Catalogue + "> { <http://ex/types/T/at> <https://w3id.org/varve/ns#fieldDatatype> <http://www.w3.org/2001/XMLSchema#dateTime> } } ; "
                     + "INSERT DATA { GRAPH <" + Catalogue + "> { <http://ex/types/T/at> <https://w3id.org/varve/ns#fieldDatatype> <http://www.w3.org/2001/XMLSchema#string> } }"),
