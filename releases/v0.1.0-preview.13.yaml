@@ -59,7 +59,7 @@ summary: |
     prefixes Brick's SPARQL constraints use. The ADR records the exact
     triples. Over generated portfolios, standalone validation, commit-time
     `reject` and the projection agree:
-    - REC S at every 25th position and the last on pull requests;
+    - REC S at every 250th position and the last on pull requests;
     - REC S at all 1,001 positions nightly;
     - REC M at 100 positions nightly.
 
@@ -79,6 +79,12 @@ summary: |
     `Varve.Management` now reference `Varve.Shacl`.
   - **`Varve.Shacl` indexes the shapes graph when it loads.** REC's
     composition loads in about 1 s instead of 14 s.
+  - **Incremental validation finds fewer candidate targets** (ADR 0171's
+    anchor rule). An `rdf:type` triple now reaches only the shapes that
+    target its class or a superclass, through an index of shapes by target
+    class. A `sh:class` value node is seeded only when its type is the class
+    or a subclass. Under REC's shapes, the gate's time over REC S's 1,001
+    commits fell from 180 s to 21 s. The results are unchanged.
 
   #### Performance
 
@@ -93,6 +99,3 @@ summary: |
   - **REC 4.1.0 as vendored** still refuses its own shapes graph, for the
     undeclared prefixes. The gate's composition is the workaround, and an
     upstream note is drafted on the pull request.
-  - **REC S's agreement test** takes about nine minutes on a pull request.
-    Brick's `brick:Entity`-targeted SPARQL constraints run before and after
-    each building commit.
