@@ -236,6 +236,14 @@ CI's.
 
 Durations after the conditions, 2026-10-25, wall clock per `dotnet test`.
 
+**After merging `main` (#136, #137), 2026-10-26, Release:** `Varve.Events.Tests`
+127 in 7 s, `Varve.Management.Tests` 46 in 3 s, `Varve.Protocol.Tests` 113 in
+36 s, `Varve.Server.Tests` 129 (6 skipped: other providers) in 24 s, and
+`FleetTests` alone on Azurite, the two move cases among its 6, in 21 s. ADR
+0167 accepted on 2026-10-26, so the Release build has no `CS0618`. No move
+test needs a nightly depth: each runs its whole space on every pull request
+(docs/testing.md §8 lists only searches wider than that).
+
 The new tests: `MovePropertyTests` 0.8 s in all (the 200-history property
 0.5 s), 2.3 s after the freeze-and-cancel histories; `EventMoveTests` 1.6 s,
 3.6 s with the two tests of the conditions (nine in all); the two fleet move
