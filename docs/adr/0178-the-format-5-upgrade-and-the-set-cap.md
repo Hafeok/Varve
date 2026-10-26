@@ -2,7 +2,7 @@
 
 ## Status
 
-**Filed unaccepted by #133, 2026-10-23** (ADR 0066). Acceptance is the
+**Accepted — filed unaccepted by #133, 2026-10-23** (ADR 0066). Acceptance is the
 maintainer's act on the pull request.
 
 **Amends** [ADR 0160](0160-extent-deletion-by-reader-announcements.md):

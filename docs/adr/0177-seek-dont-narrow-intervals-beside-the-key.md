@@ -2,7 +2,7 @@
 
 ## Status
 
-**Filed unaccepted by #133, 2026-10-23** (ADR 0066). Acceptance is the
+**Accepted — filed unaccepted by #133, 2026-10-23** (ADR 0066). Acceptance is the
 maintainer's act on the pull request. The decision to seek rather than
 narrow, and the candidates measured, are #133's and the session's prompt
 (1.0, #15, amended 2026-10-19). The layout, candidate 1, was approved on the
