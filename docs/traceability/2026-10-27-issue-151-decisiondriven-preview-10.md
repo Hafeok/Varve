@@ -210,3 +210,15 @@ one fresh commit from sixteen threads at once over 6,000 handles, ten
 rounds, and compares the answers with one thread's. It guards the rule. It
 is not a reproduction: the `??=` form also answered correctly, because each
 racing reader built a complete set of its own.
+
+## The follow-up: the decision-report baseline
+
+> Landed; open the baseline PR
+
+#173 landed at 705b268. The branch restarts from that `main`, and
+`dotnet run eng/decision-report.cs -- --update` rewrites
+`eng/decision-report/baseline.md` with DecisionDriven.Report 0.1.0-preview.10,
+over 27 assemblies. The baseline had been written at preview.7 and predated
+several packages. It now names `CommitRequestBuilder` and the two keys amended
+on 2026-10-27. Run again without `--update`, the report shows no difference
+from it. The baseline never gates.
