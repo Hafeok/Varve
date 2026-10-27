@@ -170,8 +170,9 @@ merged with its binding's TBox:
 
 So keep such triples out of a binding's TBox, and, where one graph needs
 them, in that graph. Measured on a data graph of 10,000 people, a commit and
-a query under RDFS take 3.6 ms with no such triple, 815 ms with one in the
-data graph and 793 ms with one in the TBox (the benchmarks' README).
+a query under RDFS take 7 ms with no such triple, 711 ms with one in the data
+graph and 694 ms with one in the TBox; at 100,000 people, 7 ms, 8.9 s and
+9.9 s (the benchmarks' README).
 
 **Finding them.** A TBox binding's description,
 `GET /manage/datasets/{name}/bindings/{binding}`, lists under `fullReads`

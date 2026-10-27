@@ -1,0 +1,655 @@
+// Validating benchmarks:
+// ***** BenchmarkRunner: Start   *****
+// ***** Found 6 benchmark(s) in total *****
+// ***** Building 1 exe(s) in Parallel: Start   *****
+// start dotnet  restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-DBWHYL-1/" /p:OutDir="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-DBWHYL-1/bin/Release/net10.0/" /p:OutputPath="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-DBWHYL-1/bin/Release/net10.0/" /p:PublishDir="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-DBWHYL-1/publish/" in /home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-DBWHYL-1
+// command took 5.64 sec and exited with 0
+// start dotnet  build -c Release --no-restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-DBWHYL-1/" /p:OutDir="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-DBWHYL-1/bin/Release/net10.0/" /p:OutputPath="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-DBWHYL-1/bin/Release/net10.0/" /p:PublishDir="/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-DBWHYL-1/publish/" --output "/home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-DBWHYL-1/bin/Release/net10.0/" in /home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-DBWHYL-1
+// command took 177.43 sec and exited with 0
+// ***** Done, took 00:03:03 (183.14 sec)   *****
+// Found 6 benchmarks:
+//   FullReadBenchmarks.CommitThenAsk: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2) [People=10000, Redefinition=data]
+//   FullReadBenchmarks.CommitThenAsk: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2) [People=10000, Redefinition=none]
+//   FullReadBenchmarks.CommitThenAsk: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2) [People=10000, Redefinition=tbox]
+//   FullReadBenchmarks.CommitThenAsk: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2) [People=100000, Redefinition=data]
+//   FullReadBenchmarks.CommitThenAsk: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2) [People=100000, Redefinition=none]
+//   FullReadBenchmarks.CommitThenAsk: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2) [People=100000, Redefinition=tbox]
+
+// **************************
+// Benchmark: FullReadBenchmarks.CommitThenAsk: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2) [People=10000, Redefinition=data]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Varve.Benchmarks-Job-DBWHYL-1.dll --anonymousPipes 168 169 --benchmarkName "Varve.Benchmarks.FullReadBenchmarks.CommitThenAsk(People: 10000, Redefinition: \"data\")" --job "InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2" --benchmarkId 0 in /home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-DBWHYL-1/bin/Release/net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.14 (10.0.14, 10.0.1426.52326), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2)
+
+// 10,000 people, redefinition in data: full reads http://example.org/inference/data
+OverheadJitting  1: 1 op, 248030.00 ns, 248.0300 us/op
+WorkloadJitting  1: 1 op, 770240854.00 ns, 770.2409 ms/op
+
+OverheadWarmup   1: 4 op, 1729.00 ns, 432.2500 ns/op
+OverheadWarmup   2: 4 op, 2029.00 ns, 507.2500 ns/op
+OverheadWarmup   3: 4 op, 2431.00 ns, 607.7500 ns/op
+OverheadWarmup   4: 4 op, 2192.00 ns, 548.0000 ns/op
+OverheadWarmup   5: 4 op, 2157.00 ns, 539.2500 ns/op
+OverheadWarmup   6: 4 op, 2274.00 ns, 568.5000 ns/op
+OverheadWarmup   7: 4 op, 2494.00 ns, 623.5000 ns/op
+OverheadWarmup   8: 4 op, 7988.00 ns, 1.9970 us/op
+OverheadWarmup   9: 4 op, 1430.00 ns, 357.5000 ns/op
+
+OverheadActual   1: 4 op, 1788.00 ns, 447.0000 ns/op
+OverheadActual   2: 4 op, 1330.00 ns, 332.5000 ns/op
+OverheadActual   3: 4 op, 1539.00 ns, 384.7500 ns/op
+OverheadActual   4: 4 op, 1419.00 ns, 354.7500 ns/op
+OverheadActual   5: 4 op, 1205.00 ns, 301.2500 ns/op
+OverheadActual   6: 4 op, 1734.00 ns, 433.5000 ns/op
+OverheadActual   7: 4 op, 1214.00 ns, 303.5000 ns/op
+OverheadActual   8: 4 op, 1182.00 ns, 295.5000 ns/op
+OverheadActual   9: 4 op, 1421.00 ns, 355.2500 ns/op
+OverheadActual  10: 4 op, 1424.00 ns, 356.0000 ns/op
+OverheadActual  11: 4 op, 1175.00 ns, 293.7500 ns/op
+OverheadActual  12: 4 op, 1384.00 ns, 346.0000 ns/op
+OverheadActual  13: 4 op, 1675.00 ns, 418.7500 ns/op
+OverheadActual  14: 4 op, 1179.00 ns, 294.7500 ns/op
+OverheadActual  15: 4 op, 1248.00 ns, 312.0000 ns/op
+OverheadActual  16: 4 op, 1284.00 ns, 321.0000 ns/op
+OverheadActual  17: 4 op, 1464.00 ns, 366.0000 ns/op
+OverheadActual  18: 4 op, 1156.00 ns, 289.0000 ns/op
+OverheadActual  19: 4 op, 1534.00 ns, 383.5000 ns/op
+OverheadActual  20: 4 op, 1285.00 ns, 321.2500 ns/op
+
+WorkloadWarmup   1: 4 op, 2947766058.00 ns, 736.9415 ms/op
+WorkloadWarmup   2: 4 op, 2911851510.00 ns, 727.9629 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 4 op, 2618479156.00 ns, 654.6198 ms/op
+WorkloadActual   2: 4 op, 2638501669.00 ns, 659.6254 ms/op
+WorkloadActual   3: 4 op, 2868295810.00 ns, 717.0740 ms/op
+WorkloadActual   4: 4 op, 2818776918.00 ns, 704.6942 ms/op
+WorkloadActual   5: 4 op, 2952181973.00 ns, 738.0455 ms/op
+WorkloadActual   6: 4 op, 2962989595.00 ns, 740.7474 ms/op
+WorkloadActual   7: 4 op, 2883841478.00 ns, 720.9604 ms/op
+WorkloadActual   8: 4 op, 3006018578.00 ns, 751.5046 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 4 op, 2618477799.00 ns, 654.6194 ms/op
+WorkloadResult   2: 4 op, 2638500312.00 ns, 659.6251 ms/op
+WorkloadResult   3: 4 op, 2868294453.00 ns, 717.0736 ms/op
+WorkloadResult   4: 4 op, 2818775561.00 ns, 704.6939 ms/op
+WorkloadResult   5: 4 op, 2952180616.00 ns, 738.0452 ms/op
+WorkloadResult   6: 4 op, 2962988238.00 ns, 740.7471 ms/op
+WorkloadResult   7: 4 op, 2883840121.00 ns, 720.9600 ms/op
+WorkloadResult   8: 4 op, 3006017221.00 ns, 751.5043 ms/op
+// GC:  17 8 0 2400135488 4
+// Threading:  0 0 4
+
+// 10,000 people, redefinition in data: the schema cache answered 1 lookups and saturated 49
+// AfterAll
+// Benchmark Process 19058 has exited with code 0.
+
+Mean = 710.909 ms, StdErr = 12.853 ms (1.81%), N = 8, StdDev = 36.353 ms
+Min = 654.619 ms, Q1 = 693.427 ms, Median = 719.017 ms, Q3 = 738.721 ms, Max = 751.504 ms
+IQR = 45.294 ms, LowerFence = 625.486 ms, UpperFence = 806.662 ms
+ConfidenceInterval = [641.402 ms; 780.415 ms] (CI 99.9%), Margin = 69.506 ms (9.78% of Mean)
+Skewness = -0.52, Kurtosis = 1.5, MValue = 2.67
+
+// ** Remained 5 (83.3 %) benchmark(s) to run. Estimated finish 2026-10-27 15:34 (0h 3m from now) **
+// **************************
+// Benchmark: FullReadBenchmarks.CommitThenAsk: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2) [People=10000, Redefinition=none]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Varve.Benchmarks-Job-DBWHYL-1.dll --anonymousPipes 168 169 --benchmarkName "Varve.Benchmarks.FullReadBenchmarks.CommitThenAsk(People: 10000, Redefinition: \"none\")" --job "InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2" --benchmarkId 1 in /home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-DBWHYL-1/bin/Release/net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.14 (10.0.14, 10.0.1426.52326), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2)
+
+// 10,000 people, redefinition in none: full reads none
+OverheadJitting  1: 1 op, 296112.00 ns, 296.1120 us/op
+WorkloadJitting  1: 1 op, 6539467.00 ns, 6.5395 ms/op
+
+OverheadWarmup   1: 4 op, 646.00 ns, 161.5000 ns/op
+OverheadWarmup   2: 4 op, 438.00 ns, 109.5000 ns/op
+OverheadWarmup   3: 4 op, 426.00 ns, 106.5000 ns/op
+OverheadWarmup   4: 4 op, 378.00 ns, 94.5000 ns/op
+OverheadWarmup   5: 4 op, 402.00 ns, 100.5000 ns/op
+OverheadWarmup   6: 4 op, 372.00 ns, 93.0000 ns/op
+OverheadWarmup   7: 4 op, 315.00 ns, 78.7500 ns/op
+OverheadWarmup   8: 4 op, 929.00 ns, 232.2500 ns/op
+OverheadWarmup   9: 4 op, 567.00 ns, 141.7500 ns/op
+
+OverheadActual   1: 4 op, 633.00 ns, 158.2500 ns/op
+OverheadActual   2: 4 op, 774.00 ns, 193.5000 ns/op
+OverheadActual   3: 4 op, 725.00 ns, 181.2500 ns/op
+OverheadActual   4: 4 op, 505.00 ns, 126.2500 ns/op
+OverheadActual   5: 4 op, 440.00 ns, 110.0000 ns/op
+OverheadActual   6: 4 op, 321.00 ns, 80.2500 ns/op
+OverheadActual   7: 4 op, 326.00 ns, 81.5000 ns/op
+OverheadActual   8: 4 op, 352.00 ns, 88.0000 ns/op
+OverheadActual   9: 4 op, 518.00 ns, 129.5000 ns/op
+OverheadActual  10: 4 op, 601.00 ns, 150.2500 ns/op
+OverheadActual  11: 4 op, 496.00 ns, 124.0000 ns/op
+OverheadActual  12: 4 op, 447.00 ns, 111.7500 ns/op
+OverheadActual  13: 4 op, 477.00 ns, 119.2500 ns/op
+OverheadActual  14: 4 op, 432.00 ns, 108.0000 ns/op
+OverheadActual  15: 4 op, 693.00 ns, 173.2500 ns/op
+OverheadActual  16: 4 op, 762.00 ns, 190.5000 ns/op
+OverheadActual  17: 4 op, 455.00 ns, 113.7500 ns/op
+OverheadActual  18: 4 op, 616.00 ns, 154.0000 ns/op
+OverheadActual  19: 4 op, 698.00 ns, 174.5000 ns/op
+OverheadActual  20: 4 op, 596.00 ns, 149.0000 ns/op
+
+WorkloadWarmup   1: 4 op, 22135999.00 ns, 5.5340 ms/op
+WorkloadWarmup   2: 4 op, 105069007.00 ns, 26.2673 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 4 op, 26154968.00 ns, 6.5387 ms/op
+WorkloadActual   2: 4 op, 21729490.00 ns, 5.4324 ms/op
+WorkloadActual   3: 4 op, 21515616.00 ns, 5.3789 ms/op
+WorkloadActual   4: 4 op, 21625385.00 ns, 5.4063 ms/op
+WorkloadActual   5: 4 op, 27967163.00 ns, 6.9918 ms/op
+WorkloadActual   6: 4 op, 29568638.00 ns, 7.3922 ms/op
+WorkloadActual   7: 4 op, 35452543.00 ns, 8.8631 ms/op
+WorkloadActual   8: 4 op, 39358062.00 ns, 9.8395 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 4 op, 26154456.50 ns, 6.5386 ms/op
+WorkloadResult   2: 4 op, 21728978.50 ns, 5.4322 ms/op
+WorkloadResult   3: 4 op, 21515104.50 ns, 5.3788 ms/op
+WorkloadResult   4: 4 op, 21624873.50 ns, 5.4062 ms/op
+WorkloadResult   5: 4 op, 27966651.50 ns, 6.9917 ms/op
+WorkloadResult   6: 4 op, 29568126.50 ns, 7.3920 ms/op
+WorkloadResult   7: 4 op, 35452031.50 ns, 8.8630 ms/op
+WorkloadResult   8: 4 op, 39357550.50 ns, 9.8394 ms/op
+// GC:  0 0 0 6095288 4
+// Threading:  0 0 4
+
+// 10,000 people, redefinition in none: the schema cache answered 0 lookups and saturated 49
+// AfterAll
+// Benchmark Process 19090 has exited with code 0.
+
+Mean = 6.980 ms, StdErr = 0.590 ms (8.46%), N = 8, StdDev = 1.670 ms
+Min = 5.379 ms, Q1 = 5.426 ms, Median = 6.765 ms, Q3 = 7.760 ms, Max = 9.839 ms
+IQR = 2.334 ms, LowerFence = 1.925 ms, UpperFence = 11.261 ms
+ConfidenceInterval = [3.787 ms; 10.173 ms] (CI 99.9%), Margin = 3.193 ms (45.74% of Mean)
+Skewness = 0.49, Kurtosis = 1.57, MValue = 2.67
+
+// ** Remained 4 (66.7 %) benchmark(s) to run. Estimated finish 2026-10-27 15:32 (0h 1m from now) **
+// **************************
+// Benchmark: FullReadBenchmarks.CommitThenAsk: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2) [People=10000, Redefinition=tbox]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Varve.Benchmarks-Job-DBWHYL-1.dll --anonymousPipes 168 169 --benchmarkName "Varve.Benchmarks.FullReadBenchmarks.CommitThenAsk(People: 10000, Redefinition: \"tbox\")" --job "InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2" --benchmarkId 2 in /home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-DBWHYL-1/bin/Release/net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.14 (10.0.14, 10.0.1426.52326), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2)
+
+// 10,000 people, redefinition in tbox: full reads http://example.org/inference/tbox
+OverheadJitting  1: 1 op, 268764.00 ns, 268.7640 us/op
+WorkloadJitting  1: 1 op, 697600043.00 ns, 697.6000 ms/op
+
+OverheadWarmup   1: 4 op, 1890.00 ns, 472.5000 ns/op
+OverheadWarmup   2: 4 op, 2314.00 ns, 578.5000 ns/op
+OverheadWarmup   3: 4 op, 2060.00 ns, 515.0000 ns/op
+OverheadWarmup   4: 4 op, 2236.00 ns, 559.0000 ns/op
+OverheadWarmup   5: 4 op, 2259.00 ns, 564.7500 ns/op
+OverheadWarmup   6: 4 op, 2293.00 ns, 573.2500 ns/op
+OverheadWarmup   7: 4 op, 2027.00 ns, 506.7500 ns/op
+
+OverheadActual   1: 4 op, 5436.00 ns, 1.3590 us/op
+OverheadActual   2: 4 op, 2396.00 ns, 599.0000 ns/op
+OverheadActual   3: 4 op, 2016.00 ns, 504.0000 ns/op
+OverheadActual   4: 4 op, 2367.00 ns, 591.7500 ns/op
+OverheadActual   5: 4 op, 2329.00 ns, 582.2500 ns/op
+OverheadActual   6: 4 op, 2042.00 ns, 510.5000 ns/op
+OverheadActual   7: 4 op, 2317.00 ns, 579.2500 ns/op
+OverheadActual   8: 4 op, 2037.00 ns, 509.2500 ns/op
+OverheadActual   9: 4 op, 1155.00 ns, 288.7500 ns/op
+OverheadActual  10: 4 op, 1104.00 ns, 276.0000 ns/op
+OverheadActual  11: 4 op, 1240.00 ns, 310.0000 ns/op
+OverheadActual  12: 4 op, 1200.00 ns, 300.0000 ns/op
+OverheadActual  13: 4 op, 1692.00 ns, 423.0000 ns/op
+OverheadActual  14: 4 op, 17938.00 ns, 4.4845 us/op
+OverheadActual  15: 4 op, 1264.00 ns, 316.0000 ns/op
+OverheadActual  16: 4 op, 1249.00 ns, 312.2500 ns/op
+OverheadActual  17: 4 op, 1197.00 ns, 299.2500 ns/op
+OverheadActual  18: 4 op, 1345.00 ns, 336.2500 ns/op
+OverheadActual  19: 4 op, 1562.00 ns, 390.5000 ns/op
+OverheadActual  20: 4 op, 1309.00 ns, 327.2500 ns/op
+
+WorkloadWarmup   1: 4 op, 3121592451.00 ns, 780.3981 ms/op
+WorkloadWarmup   2: 4 op, 2707213613.00 ns, 676.8034 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 4 op, 2945074005.00 ns, 736.2685 ms/op
+WorkloadActual   2: 4 op, 2828727455.00 ns, 707.1819 ms/op
+WorkloadActual   3: 4 op, 2738656163.00 ns, 684.6640 ms/op
+WorkloadActual   4: 4 op, 2822409008.00 ns, 705.6023 ms/op
+WorkloadActual   5: 4 op, 2749696842.00 ns, 687.4242 ms/op
+WorkloadActual   6: 4 op, 2799341791.00 ns, 699.8354 ms/op
+WorkloadActual   7: 4 op, 2771601001.00 ns, 692.9003 ms/op
+WorkloadActual   8: 4 op, 2729589774.00 ns, 682.3974 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 4 op, 2828725828.00 ns, 707.1815 ms/op
+WorkloadResult   2: 4 op, 2738654536.00 ns, 684.6636 ms/op
+WorkloadResult   3: 4 op, 2822407381.00 ns, 705.6018 ms/op
+WorkloadResult   4: 4 op, 2749695215.00 ns, 687.4238 ms/op
+WorkloadResult   5: 4 op, 2799340164.00 ns, 699.8350 ms/op
+WorkloadResult   6: 4 op, 2771599374.00 ns, 692.8998 ms/op
+WorkloadResult   7: 4 op, 2729588147.00 ns, 682.3970 ms/op
+// GC:  17 8 0 2400135488 4
+// Threading:  0 0 4
+
+// AfterAll
+// 10,000 people, redefinition in tbox: the schema cache answered 1 lookups and saturated 49
+// Benchmark Process 19101 has exited with code 0.
+
+Mean = 694.286 ms, StdErr = 3.805 ms (0.55%), N = 7, StdDev = 10.067 ms
+Min = 682.397 ms, Q1 = 686.044 ms, Median = 692.900 ms, Q3 = 702.718 ms, Max = 707.181 ms
+IQR = 16.675 ms, LowerFence = 661.032 ms, UpperFence = 727.731 ms
+ConfidenceInterval = [671.613 ms; 716.959 ms] (CI 99.9%), Margin = 22.673 ms (3.27% of Mean)
+Skewness = 0.12, Kurtosis = 1.05, MValue = 2
+
+// ** Remained 3 (50.0 %) benchmark(s) to run. Estimated finish 2026-10-27 15:32 (0h 1m from now) **
+// **************************
+// Benchmark: FullReadBenchmarks.CommitThenAsk: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2) [People=100000, Redefinition=data]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Varve.Benchmarks-Job-DBWHYL-1.dll --anonymousPipes 168 169 --benchmarkName "Varve.Benchmarks.FullReadBenchmarks.CommitThenAsk(People: 100000, Redefinition: \"data\")" --job "InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2" --benchmarkId 3 in /home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-DBWHYL-1/bin/Release/net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.14 (10.0.14, 10.0.1426.52326), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2)
+
+// 100,000 people, redefinition in data: full reads http://example.org/inference/data
+OverheadJitting  1: 1 op, 311360.00 ns, 311.3600 us/op
+WorkloadJitting  1: 1 op, 8345356564.00 ns, 8.3454 s/op
+
+OverheadWarmup   1: 4 op, 2026.00 ns, 506.5000 ns/op
+OverheadWarmup   2: 4 op, 1844.00 ns, 461.0000 ns/op
+OverheadWarmup   3: 4 op, 1565.00 ns, 391.2500 ns/op
+OverheadWarmup   4: 4 op, 1662.00 ns, 415.5000 ns/op
+OverheadWarmup   5: 4 op, 1237.00 ns, 309.2500 ns/op
+OverheadWarmup   6: 4 op, 1492.00 ns, 373.0000 ns/op
+OverheadWarmup   7: 4 op, 1380.00 ns, 345.0000 ns/op
+
+OverheadActual   1: 4 op, 5840.00 ns, 1.4600 us/op
+OverheadActual   2: 4 op, 1355.00 ns, 338.7500 ns/op
+OverheadActual   3: 4 op, 1721.00 ns, 430.2500 ns/op
+OverheadActual   4: 4 op, 1860.00 ns, 465.0000 ns/op
+OverheadActual   5: 4 op, 1561.00 ns, 390.2500 ns/op
+OverheadActual   6: 4 op, 1669.00 ns, 417.2500 ns/op
+OverheadActual   7: 4 op, 1612.00 ns, 403.0000 ns/op
+OverheadActual   8: 4 op, 1513.00 ns, 378.2500 ns/op
+OverheadActual   9: 4 op, 1417.00 ns, 354.2500 ns/op
+OverheadActual  10: 4 op, 1555.00 ns, 388.7500 ns/op
+OverheadActual  11: 4 op, 1763.00 ns, 440.7500 ns/op
+OverheadActual  12: 4 op, 1855.00 ns, 463.7500 ns/op
+OverheadActual  13: 4 op, 1676.00 ns, 419.0000 ns/op
+OverheadActual  14: 4 op, 2055.00 ns, 513.7500 ns/op
+OverheadActual  15: 4 op, 2060.00 ns, 515.0000 ns/op
+OverheadActual  16: 4 op, 1206.00 ns, 301.5000 ns/op
+OverheadActual  17: 4 op, 1104.00 ns, 276.0000 ns/op
+OverheadActual  18: 4 op, 1214.00 ns, 303.5000 ns/op
+OverheadActual  19: 4 op, 1090.00 ns, 272.5000 ns/op
+OverheadActual  20: 4 op, 1069.00 ns, 267.2500 ns/op
+
+WorkloadWarmup   1: 4 op, 32476501466.00 ns, 8.1191 s/op
+WorkloadWarmup   2: 4 op, 34974020894.00 ns, 8.7435 s/op
+
+// BeforeActualRun
+WorkloadActual   1: 4 op, 36183198397.00 ns, 9.0458 s/op
+WorkloadActual   2: 4 op, 35582149535.00 ns, 8.8955 s/op
+WorkloadActual   3: 4 op, 35771272723.00 ns, 8.9428 s/op
+WorkloadActual   4: 4 op, 35643891757.00 ns, 8.9110 s/op
+WorkloadActual   5: 4 op, 34604044176.00 ns, 8.6510 s/op
+WorkloadActual   6: 4 op, 35200987724.00 ns, 8.8002 s/op
+WorkloadActual   7: 4 op, 35350447214.00 ns, 8.8376 s/op
+WorkloadActual   8: 4 op, 35519761671.00 ns, 8.8799 s/op
+
+// AfterActualRun
+WorkloadResult   1: 4 op, 36183196810.50 ns, 9.0458 s/op
+WorkloadResult   2: 4 op, 35582147948.50 ns, 8.8955 s/op
+WorkloadResult   3: 4 op, 35771271136.50 ns, 8.9428 s/op
+WorkloadResult   4: 4 op, 35643890170.50 ns, 8.9110 s/op
+WorkloadResult   5: 4 op, 34604042589.50 ns, 8.6510 s/op
+WorkloadResult   6: 4 op, 35200986137.50 ns, 8.8002 s/op
+WorkloadResult   7: 4 op, 35350445627.50 ns, 8.8376 s/op
+WorkloadResult   8: 4 op, 35519760084.50 ns, 8.8799 s/op
+// GC:  176 62 9 23900219392 4
+// Threading:  0 0 4
+
+// 100,000 people, redefinition in data: the schema cache answered 0 lookups and saturated 50
+// AfterAll
+// Benchmark Process 19136 has exited with code 0.
+
+Mean = 8.870 s, StdErr = 0.041 s (0.46%), N = 8, StdDev = 0.115 s
+Min = 8.651 s, Q1 = 8.828 s, Median = 8.888 s, Q3 = 8.919 s, Max = 9.046 s
+IQR = 0.091 s, LowerFence = 8.692 s, UpperFence = 9.055 s
+ConfidenceInterval = [8.651 s; 9.090 s] (CI 99.9%), Margin = 0.220 s (2.48% of Mean)
+Skewness = -0.42, Kurtosis = 2.38, MValue = 2
+
+// ** Remained 2 (33.3 %) benchmark(s) to run. Estimated finish 2026-10-27 15:42 (0h 4m from now) **
+// **************************
+// Benchmark: FullReadBenchmarks.CommitThenAsk: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2) [People=100000, Redefinition=none]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Varve.Benchmarks-Job-DBWHYL-1.dll --anonymousPipes 168 169 --benchmarkName "Varve.Benchmarks.FullReadBenchmarks.CommitThenAsk(People: 100000, Redefinition: \"none\")" --job "InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2" --benchmarkId 4 in /home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-DBWHYL-1/bin/Release/net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.14 (10.0.14, 10.0.1426.52326), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2)
+
+// 100,000 people, redefinition in none: full reads none
+OverheadJitting  1: 1 op, 333352.00 ns, 333.3520 us/op
+WorkloadJitting  1: 1 op, 6849382.00 ns, 6.8494 ms/op
+
+OverheadWarmup   1: 4 op, 1165.00 ns, 291.2500 ns/op
+OverheadWarmup   2: 4 op, 532.00 ns, 133.0000 ns/op
+OverheadWarmup   3: 4 op, 470.00 ns, 117.5000 ns/op
+OverheadWarmup   4: 4 op, 534.00 ns, 133.5000 ns/op
+OverheadWarmup   5: 4 op, 495.00 ns, 123.7500 ns/op
+OverheadWarmup   6: 4 op, 491.00 ns, 122.7500 ns/op
+OverheadWarmup   7: 4 op, 536.00 ns, 134.0000 ns/op
+OverheadWarmup   8: 4 op, 506.00 ns, 126.5000 ns/op
+
+OverheadActual   1: 4 op, 666.00 ns, 166.5000 ns/op
+OverheadActual   2: 4 op, 488.00 ns, 122.0000 ns/op
+OverheadActual   3: 4 op, 622.00 ns, 155.5000 ns/op
+OverheadActual   4: 4 op, 439.00 ns, 109.7500 ns/op
+OverheadActual   5: 4 op, 518.00 ns, 129.5000 ns/op
+OverheadActual   6: 4 op, 617.00 ns, 154.2500 ns/op
+OverheadActual   7: 4 op, 546.00 ns, 136.5000 ns/op
+OverheadActual   8: 4 op, 485.00 ns, 121.2500 ns/op
+OverheadActual   9: 4 op, 461.00 ns, 115.2500 ns/op
+OverheadActual  10: 4 op, 584.00 ns, 146.0000 ns/op
+OverheadActual  11: 4 op, 549.00 ns, 137.2500 ns/op
+OverheadActual  12: 4 op, 875.00 ns, 218.7500 ns/op
+OverheadActual  13: 4 op, 539.00 ns, 134.7500 ns/op
+OverheadActual  14: 4 op, 433.00 ns, 108.2500 ns/op
+OverheadActual  15: 4 op, 497.00 ns, 124.2500 ns/op
+OverheadActual  16: 4 op, 356.00 ns, 89.0000 ns/op
+OverheadActual  17: 4 op, 459.00 ns, 114.7500 ns/op
+OverheadActual  18: 4 op, 534.00 ns, 133.5000 ns/op
+OverheadActual  19: 4 op, 515.00 ns, 128.7500 ns/op
+OverheadActual  20: 4 op, 500.00 ns, 125.0000 ns/op
+
+WorkloadWarmup   1: 4 op, 18267693.00 ns, 4.5669 ms/op
+WorkloadWarmup   2: 4 op, 98995420.00 ns, 24.7489 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 4 op, 29817176.00 ns, 7.4543 ms/op
+WorkloadActual   2: 4 op, 27937957.00 ns, 6.9845 ms/op
+WorkloadActual   3: 4 op, 27850026.00 ns, 6.9625 ms/op
+WorkloadActual   4: 4 op, 30927219.00 ns, 7.7318 ms/op
+WorkloadActual   5: 4 op, 28110147.00 ns, 7.0275 ms/op
+WorkloadActual   6: 4 op, 28060517.00 ns, 7.0151 ms/op
+WorkloadActual   7: 4 op, 28826947.00 ns, 7.2067 ms/op
+WorkloadActual   8: 4 op, 18275291.00 ns, 4.5688 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 4 op, 29816659.50 ns, 7.4542 ms/op
+WorkloadResult   2: 4 op, 27937440.50 ns, 6.9844 ms/op
+WorkloadResult   3: 4 op, 27849509.50 ns, 6.9624 ms/op
+WorkloadResult   4: 4 op, 28109630.50 ns, 7.0274 ms/op
+WorkloadResult   5: 4 op, 28060000.50 ns, 7.0150 ms/op
+WorkloadResult   6: 4 op, 28826430.50 ns, 7.2066 ms/op
+WorkloadResult   7: 4 op, 18274774.50 ns, 4.5687 ms/op
+// GC:  0 0 0 6096040 4
+// Threading:  0 0 4
+
+// 100,000 people, redefinition in none: the schema cache answered 0 lookups and saturated 49
+// AfterAll
+// Benchmark Process 19567 has exited with code 0.
+
+Mean = 6.746 ms, StdErr = 0.369 ms (5.47%), N = 7, StdDev = 0.975 ms
+Min = 4.569 ms, Q1 = 6.973 ms, Median = 7.015 ms, Q3 = 7.117 ms, Max = 7.454 ms
+IQR = 0.144 ms, LowerFence = 6.758 ms, UpperFence = 7.332 ms
+ConfidenceInterval = [4.548 ms; 8.943 ms] (CI 99.9%), Margin = 2.197 ms (32.57% of Mean)
+Skewness = -1.51, Kurtosis = 3.59, MValue = 2
+
+// ** Remained 1 (16.7 %) benchmark(s) to run. Estimated finish 2026-10-27 15:40 (0h 1m from now) **
+// **************************
+// Benchmark: FullReadBenchmarks.CommitThenAsk: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2) [People=100000, Redefinition=tbox]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Varve.Benchmarks-Job-DBWHYL-1.dll --anonymousPipes 168 169 --benchmarkName "Varve.Benchmarks.FullReadBenchmarks.CommitThenAsk(People: 100000, Redefinition: \"tbox\")" --job "InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2" --benchmarkId 5 in /home/user/Varve/tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks-Job-DBWHYL-1/bin/Release/net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.14 (10.0.14, 10.0.1426.52326), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2)
+
+// 100,000 people, redefinition in tbox: full reads http://example.org/inference/tbox
+OverheadJitting  1: 1 op, 313047.00 ns, 313.0470 us/op
+WorkloadJitting  1: 1 op, 9547840250.00 ns, 9.5478 s/op
+
+OverheadWarmup   1: 4 op, 2065.00 ns, 516.2500 ns/op
+OverheadWarmup   2: 4 op, 2342.00 ns, 585.5000 ns/op
+OverheadWarmup   3: 4 op, 2388.00 ns, 597.0000 ns/op
+OverheadWarmup   4: 4 op, 2449.00 ns, 612.2500 ns/op
+OverheadWarmup   5: 4 op, 2285.00 ns, 571.2500 ns/op
+OverheadWarmup   6: 4 op, 1913.00 ns, 478.2500 ns/op
+OverheadWarmup   7: 4 op, 1901.00 ns, 475.2500 ns/op
+OverheadWarmup   8: 4 op, 7385.00 ns, 1.8463 us/op
+OverheadWarmup   9: 4 op, 1929.00 ns, 482.2500 ns/op
+
+OverheadActual   1: 4 op, 1604.00 ns, 401.0000 ns/op
+OverheadActual   2: 4 op, 1956.00 ns, 489.0000 ns/op
+OverheadActual   3: 4 op, 1650.00 ns, 412.5000 ns/op
+OverheadActual   4: 4 op, 1744.00 ns, 436.0000 ns/op
+OverheadActual   5: 4 op, 2238.00 ns, 559.5000 ns/op
+OverheadActual   6: 4 op, 2003.00 ns, 500.7500 ns/op
+OverheadActual   7: 4 op, 1877.00 ns, 469.2500 ns/op
+OverheadActual   8: 4 op, 2114.00 ns, 528.5000 ns/op
+OverheadActual   9: 4 op, 2818.00 ns, 704.5000 ns/op
+OverheadActual  10: 4 op, 2095.00 ns, 523.7500 ns/op
+OverheadActual  11: 4 op, 2446.00 ns, 611.5000 ns/op
+OverheadActual  12: 4 op, 1131.00 ns, 282.7500 ns/op
+OverheadActual  13: 4 op, 1234.00 ns, 308.5000 ns/op
+OverheadActual  14: 4 op, 1078.00 ns, 269.5000 ns/op
+OverheadActual  15: 4 op, 1487.00 ns, 371.7500 ns/op
+OverheadActual  16: 4 op, 1267.00 ns, 316.7500 ns/op
+OverheadActual  17: 4 op, 1304.00 ns, 326.0000 ns/op
+OverheadActual  18: 4 op, 1293.00 ns, 323.2500 ns/op
+OverheadActual  19: 4 op, 1844.00 ns, 461.0000 ns/op
+OverheadActual  20: 4 op, 1461.00 ns, 365.2500 ns/op
+
+WorkloadWarmup   1: 4 op, 37835497135.00 ns, 9.4589 s/op
+WorkloadWarmup   2: 4 op, 39145279301.00 ns, 9.7863 s/op
+
+// BeforeActualRun
+WorkloadActual   1: 4 op, 40825368573.00 ns, 10.2063 s/op
+WorkloadActual   2: 4 op, 38943157930.00 ns, 9.7358 s/op
+WorkloadActual   3: 4 op, 43530673793.00 ns, 10.8827 s/op
+WorkloadActual   4: 4 op, 38730492374.00 ns, 9.6826 s/op
+WorkloadActual   5: 4 op, 38935006253.00 ns, 9.7338 s/op
+WorkloadActual   6: 4 op, 40974149956.00 ns, 10.2435 s/op
+WorkloadActual   7: 4 op, 36910497955.00 ns, 9.2276 s/op
+WorkloadActual   8: 4 op, 37608632646.00 ns, 9.4022 s/op
+
+// AfterActualRun
+WorkloadResult   1: 4 op, 40825366876.00 ns, 10.2063 s/op
+WorkloadResult   2: 4 op, 38943156233.00 ns, 9.7358 s/op
+WorkloadResult   3: 4 op, 43530672096.00 ns, 10.8827 s/op
+WorkloadResult   4: 4 op, 38730490677.00 ns, 9.6826 s/op
+WorkloadResult   5: 4 op, 38935004556.00 ns, 9.7338 s/op
+WorkloadResult   6: 4 op, 40974148259.00 ns, 10.2435 s/op
+WorkloadResult   7: 4 op, 36910496258.00 ns, 9.2276 s/op
+WorkloadResult   8: 4 op, 37608630949.00 ns, 9.4022 s/op
+// GC:  177 61 9 23900224184 4
+// Threading:  0 0 4
+
+// 100,000 people, redefinition in tbox: the schema cache answered 0 lookups and saturated 50
+// AfterAll
+// Benchmark Process 19576 has exited with code 0.
+
+Mean = 9.889 s, StdErr = 0.188 s (1.90%), N = 8, StdDev = 0.532 s
+Min = 9.228 s, Q1 = 9.613 s, Median = 9.735 s, Q3 = 10.216 s, Max = 10.883 s
+IQR = 0.603 s, LowerFence = 8.708 s, UpperFence = 11.120 s
+ConfidenceInterval = [8.873 s; 10.906 s] (CI 99.9%), Margin = 1.016 s (10.28% of Mean)
+Skewness = 0.53, Kurtosis = 1.96, MValue = 3.2
+
+// ** Remained 0 (0.0 %) benchmark(s) to run. Estimated finish 2026-10-27 15:46 (0h 0m from now) **
+// ***** BenchmarkRunner: Finish  *****
+
+// * Export *
+  BenchmarkDotNet.Artifacts/results/Varve.Benchmarks.FullReadBenchmarks-report.csv
+  BenchmarkDotNet.Artifacts/results/Varve.Benchmarks.FullReadBenchmarks-report-github.md
+  BenchmarkDotNet.Artifacts/results/Varve.Benchmarks.FullReadBenchmarks-report.html
+
+// * Detailed results *
+FullReadBenchmarks.CommitThenAsk: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2) [People=10000, Redefinition=data]
+Runtime = .NET 10.0.14 (10.0.14, 10.0.1426.52326), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 710.909 ms, StdErr = 12.853 ms (1.81%), N = 8, StdDev = 36.353 ms
+Min = 654.619 ms, Q1 = 693.427 ms, Median = 719.017 ms, Q3 = 738.721 ms, Max = 751.504 ms
+IQR = 45.294 ms, LowerFence = 625.486 ms, UpperFence = 806.662 ms
+ConfidenceInterval = [641.402 ms; 780.415 ms] (CI 99.9%), Margin = 69.506 ms (9.78% of Mean)
+Skewness = -0.52, Kurtosis = 1.5, MValue = 2.67
+-------------------- Histogram --------------------
+[630.763 ms ; 680.979 ms) | @@
+[680.979 ms ; 704.242 ms) | 
+[704.242 ms ; 751.956 ms) | @@@@@@
+---------------------------------------------------
+
+FullReadBenchmarks.CommitThenAsk: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2) [People=10000, Redefinition=none]
+Runtime = .NET 10.0.14 (10.0.14, 10.0.1426.52326), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 6.980 ms, StdErr = 0.590 ms (8.46%), N = 8, StdDev = 1.670 ms
+Min = 5.379 ms, Q1 = 5.426 ms, Median = 6.765 ms, Q3 = 7.760 ms, Max = 9.839 ms
+IQR = 2.334 ms, LowerFence = 1.925 ms, UpperFence = 11.261 ms
+ConfidenceInterval = [3.787 ms; 10.173 ms] (CI 99.9%), Margin = 3.193 ms (45.74% of Mean)
+Skewness = 0.49, Kurtosis = 1.57, MValue = 2.67
+-------------------- Histogram --------------------
+[5.289 ms ;  7.481 ms) | @@@@@@
+[7.481 ms ;  8.255 ms) | 
+[8.255 ms ; 10.447 ms) | @@
+---------------------------------------------------
+
+FullReadBenchmarks.CommitThenAsk: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2) [People=10000, Redefinition=tbox]
+Runtime = .NET 10.0.14 (10.0.14, 10.0.1426.52326), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 694.286 ms, StdErr = 3.805 ms (0.55%), N = 7, StdDev = 10.067 ms
+Min = 682.397 ms, Q1 = 686.044 ms, Median = 692.900 ms, Q3 = 702.718 ms, Max = 707.181 ms
+IQR = 16.675 ms, LowerFence = 661.032 ms, UpperFence = 727.731 ms
+ConfidenceInterval = [671.613 ms; 716.959 ms] (CI 99.9%), Margin = 22.673 ms (3.27% of Mean)
+Skewness = 0.12, Kurtosis = 1.05, MValue = 2
+-------------------- Histogram --------------------
+[680.741 ms ; 710.543 ms) | @@@@@@@
+---------------------------------------------------
+
+FullReadBenchmarks.CommitThenAsk: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2) [People=100000, Redefinition=data]
+Runtime = .NET 10.0.14 (10.0.14, 10.0.1426.52326), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 8.870 s, StdErr = 0.041 s (0.46%), N = 8, StdDev = 0.115 s
+Min = 8.651 s, Q1 = 8.828 s, Median = 8.888 s, Q3 = 8.919 s, Max = 9.046 s
+IQR = 0.091 s, LowerFence = 8.692 s, UpperFence = 9.055 s
+ConfidenceInterval = [8.651 s; 9.090 s] (CI 99.9%), Margin = 0.220 s (2.48% of Mean)
+Skewness = -0.42, Kurtosis = 2.38, MValue = 2
+-------------------- Histogram --------------------
+[8.576 s ; 8.783 s) | @
+[8.783 s ; 9.121 s) | @@@@@@@
+---------------------------------------------------
+
+FullReadBenchmarks.CommitThenAsk: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2) [People=100000, Redefinition=none]
+Runtime = .NET 10.0.14 (10.0.14, 10.0.1426.52326), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 6.746 ms, StdErr = 0.369 ms (5.47%), N = 7, StdDev = 0.975 ms
+Min = 4.569 ms, Q1 = 6.973 ms, Median = 7.015 ms, Q3 = 7.117 ms, Max = 7.454 ms
+IQR = 0.144 ms, LowerFence = 6.758 ms, UpperFence = 7.332 ms
+ConfidenceInterval = [4.548 ms; 8.943 ms] (CI 99.9%), Margin = 2.197 ms (32.57% of Mean)
+Skewness = -1.51, Kurtosis = 3.59, MValue = 2
+-------------------- Histogram --------------------
+[3.899 ms ; 5.238 ms) | @
+[5.238 ms ; 6.539 ms) | 
+[6.539 ms ; 8.123 ms) | @@@@@@
+---------------------------------------------------
+
+FullReadBenchmarks.CommitThenAsk: Job-DBWHYL(InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2) [People=100000, Redefinition=tbox]
+Runtime = .NET 10.0.14 (10.0.14, 10.0.1426.52326), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 9.889 s, StdErr = 0.188 s (1.90%), N = 8, StdDev = 0.532 s
+Min = 9.228 s, Q1 = 9.613 s, Median = 9.735 s, Q3 = 10.216 s, Max = 10.883 s
+IQR = 0.603 s, LowerFence = 8.708 s, UpperFence = 11.120 s
+ConfidenceInterval = [8.873 s; 10.906 s] (CI 99.9%), Margin = 1.016 s (10.28% of Mean)
+Skewness = 0.53, Kurtosis = 1.96, MValue = 3.2
+-------------------- Histogram --------------------
+[ 9.133 s ;  9.831 s) | @@@@@
+[ 9.831 s ; 10.196 s) | 
+[10.196 s ; 10.893 s) | @@@
+---------------------------------------------------
+
+// * Summary *
+
+BenchmarkDotNet v0.15.8, Linux Ubuntu 24.04.5 LTS (Noble Numbat)
+Intel Xeon Processor 2.10GHz, 1 CPU, 4 logical and 4 physical cores
+.NET SDK 10.0.403
+  [Host]     : .NET 10.0.14 (10.0.14, 10.0.1426.52326), X64 RyuJIT x86-64-v4
+  Job-DBWHYL : .NET 10.0.14 (10.0.14, 10.0.1426.52326), X64 RyuJIT x86-64-v4
+
+InvocationCount=4  IterationCount=8  UnrollFactor=1  
+WarmupCount=2  
+
+| Method        | People | Redefinition | Mean         | Error        | StdDev      | Gen0       | Gen1       | Gen2      | Allocated  |
+|-------------- |------- |------------- |-------------:|-------------:|------------:|-----------:|-----------:|----------:|-----------:|
+| CommitThenAsk | 10000  | data         |   710.909 ms |    69.506 ms |  36.3532 ms |  4250.0000 |  2000.0000 |         - |  572.24 MB |
+| CommitThenAsk | 10000  | none         |     6.980 ms |     3.193 ms |   1.6700 ms |          - |          - |         - |    1.45 MB |
+| CommitThenAsk | 10000  | tbox         |   694.286 ms |    22.673 ms |  10.0671 ms |  4250.0000 |  2000.0000 |         - |  572.24 MB |
+| CommitThenAsk | 100000 | data         | 8,870.492 ms |   219.796 ms | 114.9574 ms | 44000.0000 | 15500.0000 | 2250.0000 | 5698.26 MB |
+| CommitThenAsk | 100000 | none         |     6.746 ms |     2.197 ms |   0.9755 ms |          - |          - |         - |    1.45 MB |
+| CommitThenAsk | 100000 | tbox         | 9,889.311 ms | 1,016.454 ms | 531.6253 ms | 44250.0000 | 15250.0000 | 2250.0000 | 5698.26 MB |
+
+// * Warnings *
+MinIterationTime
+  FullReadBenchmarks.CommitThenAsk: InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2 -> The minimum observed iteration time is 21.516ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  FullReadBenchmarks.CommitThenAsk: InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2 -> The minimum observed iteration time is 18.275ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+
+// * Hints *
+Outliers
+  FullReadBenchmarks.CommitThenAsk: InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2 -> 1 outlier  was  removed (736.27 ms)
+  FullReadBenchmarks.CommitThenAsk: InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2 -> 1 outlier  was  detected (8.65 s)
+  FullReadBenchmarks.CommitThenAsk: InvocationCount=4, IterationCount=8, UnrollFactor=1, WarmupCount=2 -> 1 outlier  was  removed, 2 outliers were detected (4.57 ms, 7.73 ms)
+
+// * Legends *
+  People       : Value of the 'People' parameter
+  Redefinition : Value of the 'Redefinition' parameter
+  Mean         : Arithmetic mean of all measurements
+  Error        : Half of 99.9% confidence interval
+  StdDev       : Standard deviation of all measurements
+  Gen0         : GC Generation 0 collects per 1000 operations
+  Gen1         : GC Generation 1 collects per 1000 operations
+  Gen2         : GC Generation 2 collects per 1000 operations
+  Allocated    : Allocated memory per single operation (managed only, inclusive, 1KB = 1024B)
+  1 ms         : 1 Millisecond (0.001 sec)
+
+// * Diagnostic Output - MemoryDiagnoser *
+
+
+// ***** BenchmarkRunner: End *****
+Run time: 00:16:04 (964.99 sec), executed benchmarks: 6
+
+Global total time: 00:19:08 (1148.26 sec), executed benchmarks: 6
+// * Artifacts cleanup *
+Artifacts cleanup is finished
