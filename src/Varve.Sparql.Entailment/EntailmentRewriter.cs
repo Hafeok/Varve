@@ -187,11 +187,43 @@ public static class EntailmentRewriter
 
             foreach (CoverIndex cover in _merge.Covers())
             {
-                Add(_merge.CoveredNamedGraphs(cover).FindAll(graph => !owned.Contains(graph)), TBoxOf(cover));
+                Group(_merge.CoveredNamedGraphs(cover).FindAll(graph => !owned.Contains(graph)), TBoxOf(cover));
             }
 
-            Add(_merge.NamedGraphs().FindAll(graph => !owned.Contains(graph) && !_merge.TryGetCover(graph, out _)), []);
+            Group(_merge.NamedGraphs().FindAll(graph => !owned.Contains(graph) && !_merge.TryGetCover(graph, out _)), []);
             return union ?? new Values(AlgebraList.Of(g), AlgebraList.Empty<AlgebraList<RdfTerm?>>());
+
+            // A group shares one rewriting, under its TBox, but C2 asks each
+            // graph whether it names a term: a graph that names a candidate
+            // the TBox does not is rewritten on its own (ADR 0193 point 4).
+            void Group(List<TermHandle> graphs, IReadOnlyList<GraphPattern> scope)
+            {
+                PatternRewriting shared = Compiled(scope);
+                string key = KeyOf(scope);
+                HashSet<TermHandle> apart = new(_merge.TermComparer);
+                foreach (RdfTerm term in shared.Candidates(_named))
+                {
+                    if (!Occurs(scope, key, term))
+                    {
+                        apart.UnionWith(GraphsNaming(term));
+                    }
+                }
+
+                List<TermHandle> together = [];
+                foreach (TermHandle graph in graphs)
+                {
+                    if (apart.Contains(graph))
+                    {
+                        Add([graph], [GraphPattern.Named(graph)]);
+                    }
+                    else
+                    {
+                        together.Add(graph);
+                    }
+                }
+
+                Add(together, scope);
+            }
 
             void Add(List<TermHandle> graphs, IReadOnlyList<GraphPattern> scope)
             {
@@ -303,13 +335,68 @@ public static class EntailmentRewriter
             string key = KeyOf(scope);
             if (!_compiled.TryGetValue(key, out PatternRewriting? compiled))
             {
-                _compiled[key] = compiled = new PatternRewriting(SchemaOf(scope));
+                _compiled[key] = compiled = new PatternRewriting(SchemaOf(scope), term => Occurs(scope, key, term));
             }
 
             return compiled;
         }
 
         private readonly Dictionary<string, Schema> _schemas = [];
+        private readonly Dictionary<(string Scope, RdfTerm Term), bool> _occurs = [];
+
+        // Whether the scoping graph, through the merge, names a term: three
+        // bound probes per graph, once per request (ADR 0193 point 4).
+        private bool Occurs(IReadOnlyList<GraphPattern> scope, string key, RdfTerm term)
+        {
+            if (_occurs.TryGetValue((key, term), out bool known))
+            {
+                return known;
+            }
+
+            bool found = false;
+            if (_merge.TryInternalise(term, out TermHandle handle))
+            {
+                foreach (GraphPattern graph in scope)
+                {
+                    found = Any(_merge, handle, TermHandle.None, TermHandle.None, graph)
+                        || Any(_merge, TermHandle.None, handle, TermHandle.None, graph)
+                        || Any(_merge, TermHandle.None, TermHandle.None, handle, graph);
+                    if (found)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            _occurs[(key, term)] = found;
+            return found;
+        }
+
+        private static bool Any(TBoxMerge source, TermHandle s, TermHandle p, TermHandle o, GraphPattern graph)
+        {
+            using IQuadCursor cursor = source.Match(s, p, o, graph);
+            return cursor.MoveNext();
+        }
+
+        // The named graphs that name a term, unmerged.
+        private HashSet<TermHandle> GraphsNaming(RdfTerm term)
+        {
+            IQuadSource inner = _merge.Inner;
+            HashSet<TermHandle> graphs = new(inner.TermComparer);
+            if (inner.TryInternalise(term, out TermHandle handle))
+            {
+                foreach ((TermHandle s, TermHandle p, TermHandle o) in (ReadOnlySpan<(TermHandle, TermHandle, TermHandle)>)[(handle, TermHandle.None, TermHandle.None), (TermHandle.None, handle, TermHandle.None), (TermHandle.None, TermHandle.None, handle)])
+                {
+                    using IQuadCursor cursor = inner.Match(s, p, o, GraphPattern.AnyNamed);
+                    while (cursor.MoveNext())
+                    {
+                        graphs.Add(cursor.Current.Graph);
+                    }
+                }
+            }
+
+            return graphs;
+        }
 
         private Schema SchemaOf(IReadOnlyList<GraphPattern> scope)
         {

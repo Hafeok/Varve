@@ -28,17 +28,50 @@ internal sealed class PatternRewriting
 
     private readonly List<Branch> _branches;
     private readonly Schema _schema;
+    private readonly Func<RdfTerm, bool> _occurs;
     private readonly Dictionary<RdfTerm, Branch> _containerMembership = new(RdfTerm.Comparer);
 
-    internal PatternRewriting(Schema schema)
-        : this(schema, schema.Branches)
-    {
-    }
-
-    internal PatternRewriting(Schema schema, List<Branch> branches)
+    /// <summary>
+    /// The rewriting under <paramref name="schema"/>, where
+    /// <paramref name="occurs"/> says whether the scoping graph names a term:
+    /// an existence probe, memoised for the request (ADR 0193 point 4).
+    /// </summary>
+    internal PatternRewriting(Schema schema, Func<RdfTerm, bool> occurs)
     {
         _schema = schema;
-        _branches = branches;
+        _branches = schema.Branches;
+        _occurs = occurs;
+    }
+
+    /// <summary>
+    /// The terms C2 asks the scoping graph about: those of the tables a
+    /// variable can be bound to without the graph naming them, and the
+    /// <c>rdf:_n</c> the query names.
+    /// </summary>
+    internal IEnumerable<RdfTerm> Candidates(IEnumerable<RdfTerm> named)
+    {
+        HashSet<RdfTerm> seen = new(RdfTerm.Comparer);
+        foreach (Branch branch in _branches)
+        {
+            foreach (RdfTerm[] row in branch.Rows)
+            {
+                foreach (RdfTerm term in row)
+                {
+                    if (Restricted(term, _schema.Rules) && seen.Add(term))
+                    {
+                        yield return term;
+                    }
+                }
+            }
+        }
+
+        foreach (RdfTerm term in named)
+        {
+            if (seen.Add(term))
+            {
+                yield return term;
+            }
+        }
     }
 
     /// <summary>The rewritten form of <paramref name="bgp"/>.</summary>
@@ -101,7 +134,7 @@ internal sealed class PatternRewriting
         QueryPattern? union = null;
         foreach (Branch branch in Candidates(query))
         {
-            if (Unify(branch, query, names, blank, own, _schema.Rules) is { } pattern)
+            if (Unify(branch, query, names, blank, own, _schema.Rules, _occurs) is { } pattern)
             {
                 union = union is null ? pattern : new Union(union, pattern);
             }
@@ -138,7 +171,7 @@ internal sealed class PatternRewriting
     // One branch unified with the query triple: constants filter the table or
     // bind the asserted triple, variables are bound from the outputs, a
     // repeated variable is an equality. Null when nothing can match.
-    private static Project? Unify(Branch branch, PatternTerm[] query, Variable?[] names, bool[] blank, List<Variable> own, RuleSet rules)
+    private static Project? Unify(Branch branch, PatternTerm[] query, Variable?[] names, bool[] blank, List<Variable> own, RuleSet rules, Func<RdfTerm, bool> occurs)
     {
         int columns = branch.Parameters + branch.Slots;
         Variable[] column = new Variable[columns];
@@ -199,8 +232,8 @@ internal sealed class PatternRewriting
 
         // C2, and Varve's reading of σ (ADR 0193 point 4): a variable or a
         // blank node of the query bound from a column to an rdf:_n or, under
-        // RDF and RDFS, to xsd:string is bound only where the active graph
-        // names that term. The rows that need it are guarded, per term set.
+        // RDF and RDFS, to xsd:string is bound only where the scoping graph
+        // names that term, which a probe answered when the query was rewritten.
         List<int> bindingColumns = [];
         for (int i = 0; i < 3; i++)
         {
@@ -211,53 +244,23 @@ internal sealed class PatternRewriting
             }
         }
 
-        Dictionary<string, (List<RdfTerm> Terms, List<RdfTerm[]> Rows)> guarded = [];
-        foreach (RdfTerm[] row in rows)
+        if (bindingColumns.Count > 0)
         {
-            List<RdfTerm> terms = [];
-            foreach (int c in bindingColumns)
+            List<RdfTerm[]> named = [];
+            foreach (RdfTerm[] row in rows)
             {
-                if (Restricted(row[c], rules) && !terms.Contains(row[c]))
+                if (bindingColumns.TrueForAll(c => !Restricted(row[c], rules) || occurs(row[c])))
                 {
-                    terms.Add(row[c]);
+                    named.Add(row);
                 }
             }
 
-            string key = string.Join(" ", terms.ConvertAll(t => Encoding.UTF8.GetString(t.Lexical)));
-            if (!guarded.TryGetValue(key, out (List<RdfTerm> Terms, List<RdfTerm[]> Rows) group))
+            if (named.Count == 0 && rows.Count > 0)
             {
-                guarded[key] = group = (terms, []);
+                return null;
             }
 
-            group.Rows.Add(row);
-        }
-
-        bool anyGuard = false;
-        foreach ((List<RdfTerm> terms, List<RdfTerm[]> _) in guarded.Values)
-        {
-            anyGuard |= terms.Count > 0;
-        }
-
-        if (anyGuard)
-        {
-            QueryPattern? union = null;
-            foreach ((List<RdfTerm> terms, List<RdfTerm[]> part) in guarded.Values)
-            {
-                if (Build(branch, part, names, blank, own, column, roleColumn, asserted, valueConstraints, ByValue(rules)) is not { } built)
-                {
-                    continue;
-                }
-
-                QueryPattern one = built;
-                foreach (RdfTerm term in terms)
-                {
-                    one = new Filter(new ExistsExpression(Occurs(term), false), one);
-                }
-
-                union = union is null ? one : new Union(union, one);
-            }
-
-            return union is null ? null : new Project(union, AlgebraList.From(own));
+            rows = named;
         }
 
         return Build(branch, rows, names, blank, own, column, roleColumn, asserted, valueConstraints, ByValue(rules));
@@ -286,17 +289,6 @@ internal sealed class PatternRewriting
     // Whether a term is in the closure without the graph naming it.
     private static bool Restricted(RdfTerm term, RuleSet rules) =>
         Vocabulary.IsContainerMembership(term) || (term.Equals(Vocabulary.XsdString) && !rules.ByValue);
-
-    // The active graph names the term in some position.
-    private static Union Occurs(RdfTerm term)
-    {
-        TermPattern t = new(term);
-        VariablePattern a = new(new Variable(Prefix + "o1"));
-        VariablePattern b = new(new Variable(Prefix + "o2"));
-        return new Union(
-            new Union(new Bgp(AlgebraList.Of(new TriplePattern(t, a, b))), new Bgp(AlgebraList.Of(new TriplePattern(a, t, b)))),
-            new Bgp(AlgebraList.Of(new TriplePattern(a, b, t))));
-    }
 
     private static Project? Build(Branch branch, List<RdfTerm[]> rows, Variable?[] names, bool[] blank, List<Variable> own, Variable[] column, int?[] roleColumn, PatternTerm[] asserted, List<(int Role, RdfTerm Canonical)> valueConstraints, bool byValue)
     {
