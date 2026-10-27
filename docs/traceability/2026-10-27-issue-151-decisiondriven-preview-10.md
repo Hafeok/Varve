@@ -188,3 +188,25 @@ Turtle. Means moved within the run's noise; dotNetRDF itself moved by up to
    null test not reported.
 5. **The baseline** is for the next pull request, once this one lands.
 6. **No descriptor.**
+
+## The third prompt
+
+> Agreed on the CHANGELOG. You’re right, and the next descriptor carries the rename as breaking.
+>
+> _carried: keep the HashSet under CarriedHandlesAreAPrivateHashSet. I’ll accept it on the PR. Tighten its statement to the publication rule: “Built completely in a local, published once with Interlocked.CompareExchange, never mutated or handed out after publication.” Make the code match if it currently uses ??=. Keep the build-time table in the decision’s context, with the sorted ImmutableArray as the rejected alternative: O(log n) on every lookup, against a build that is rare.
+>
+> I’ll close #151 when #173 lands. Upstream filing is mine.
+
+## The third report
+
+The statement is the maintainer's, word for word. The code used `??=`, so
+`Commit` now reads `_carried` with `Volatile.Read` and publishes with
+`Interlocked.CompareExchange`. A reader that loses the race takes the
+published set. preview.10 reports nothing on that write; the only finding is
+the decision's `CS0618`. The decision's context keeps the build-time table
+and records the sorted `ImmutableArray` as rejected. A new test,
+`many_threads_externalising_one_commit_answer_what_one_thread_answers`, asks
+one fresh commit from sixteen threads at once over 6,000 handles, ten
+rounds, and compares the answers with one thread's. It guards the rule. It
+is not a reproduction: the `??=` form also answered correctly, because each
+racing reader built a complete set of its own.
