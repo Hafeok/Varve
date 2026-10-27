@@ -1,6 +1,7 @@
 {
   "parameters": {
     "Title": "Datasets",
+    "TitleId": "datasets-title",
     "Flush": true,
     "ChildContent": "<div class=\"vw-table-wrap\"></div>"
   }

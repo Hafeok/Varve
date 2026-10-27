@@ -32,7 +32,8 @@ structure has to be checked by the build.
 **1. `docs/ui/` is the design source, and changes only by pull request.** It
 holds:
 - `tokens.json`: the tokens, canonical;
-- `tokens.css`: generated from `tokens.json`, never edited;
+- `tokens.css`: generated from `tokens.json`, never edited, custom properties
+  only;
 - `bundle.css`: the component stylesheet;
 - `README.md`: the brand book (principles, content rules, colour, levels, terms,
   type, space, states, accessibility);
@@ -51,6 +52,16 @@ the source.
 `docs/ui/bundle.css` into `wwwroot/css/` with `<Content Include=… Link=…>`; no
 build step copies them. A check regenerates `tokens.css` from `tokens.json` and
 fails on any difference.
+
+`tokens.css` is **custom properties only**: the colour and shadow tokens per
+theme, then spacing, radius and the font families. The type styles stay in
+`tokens.json` as the design's vocabulary (`page-title`, `label` and the rest),
+and `bundle.css` applies them through its `vw-` component classes. No unprefixed
+global class is generated, so none can collide with another stylesheet's.
+
+The repository's generator is authoritative, so its `tokens.css` is not what the
+design system page would compile from the same `tokens.json`. That is intended:
+the repository is the source.
 
 **3. Plain CSS, served from the app's origin.** No component library, no CSS
 framework, no web fonts, no icon font, no `style` attributes, and no Blazor CSS
@@ -76,6 +87,10 @@ rule.** The levels are namespaces, in order: `Varve.WebUi.Atoms` <
   references the client's service types (everything in `Varve.Protocol.Client`
   outside `.Model`: the clients that call the server) or injects them, so only
   a page reads data. A page may use Parts and everything below.
+- **The client's model holds values only.** `Varve.Protocol.Client.Model` names
+  no type of `Varve.Protocol.Client` outside itself, or the model would carry a
+  service to a part. A value a part needs that is outside `.Model` moves into
+  `.Model`; it does not earn an exception.
 
 This is the stable dependency principle (AGENTS.md, "Stable dependencies")
 applied inside one host: the lowest levels have the most dependents and change
@@ -94,8 +109,14 @@ parameters as JSON and its expected markup as an HTML fragment. A component
 test renders the Razor component with each case's parameters and compares it to
 the fragment with bUnit's semantic markup comparison (attribute order and
 insignificant whitespace ignored). A design change without the code change, or
-the reverse, fails the build. The preview shows the same fragments, so the
-design system page and the app render one markup.
+the reverse, fails the build.
+
+The preview shows the same fragments, so the design system page and the app
+render one markup: each case is one figure in `preview.html`, its markup verbatim
+inside a `data-case` element, and a check compares the two the same way. The
+one mapping is the brand image, which a preview reaches at `../../assets/` and
+the app at `img/`. A state that follows an interaction, such as Copy's
+"Copied", is no case: a component test drives it.
 
 ## Alternatives considered
 
@@ -149,7 +170,7 @@ design system page and the app render one markup.
 
   No conflict.
 - **Layer ownership.** `Varve.WebUi`, layer 6. `docs/ui/` is documentation.
-- **Analyzer rule.** A new `VARVE` rule enforces point 4 with two checks:
+- **Analyzer rule.** A new `VARVE` rule enforces point 4 with three checks:
   1. **The level order.** A component type in a level namespace references
      component types only in lower level namespaces, over `Atoms < Molecules <
      Organisms < Templates < Parts < Pages`. Its own level is refused too.
@@ -157,6 +178,9 @@ design system page and the app render one markup.
      outside `.Model`) are referenced only in `Pages`. Client model types
      (`Varve.Protocol.Client.Model`) are referenced only in `Parts` and
      `Pages`.
+  3. **The model holds values only.** A type in `Varve.Protocol.Client.Model`
+     references no other type under `Varve.Protocol.Client`. This check needs
+     no Blazor, so it runs in the client itself.
 
   Razor components compile to C# through a source generator, and analyzers
   skip generated code unless they opt in. A probe on the milestone branch
@@ -168,8 +192,10 @@ design system page and the app render one markup.
   - `TokensCssTests.tokens_css_is_generated_from_tokens_json`: regenerate and
     compare byte for byte.
   - `ComponentContractTests`: every case under `docs/ui/components/*/cases/`
-    renders to its fragment; a component with a preview and no cases fails.
+    renders to its fragment; a component with a preview and no cases fails;
+    each preview shows every case's fragment, and nothing else under a
+    `data-case`.
   - `ToneMappingTests.every_problem_type_and_state_word_has_a_tone`: over
     `ProblemCatalogue` and the documented state words.
   - The level rule's analyzer tests, a violating and a conforming sample per
-    level.
+    level and per check.

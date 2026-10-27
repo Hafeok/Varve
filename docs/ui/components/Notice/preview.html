@@ -1,14 +1,15 @@
-<!-- @dsCard group="Molecules" height=230 -->
+<!-- @dsCard group="Molecules" height=272 -->
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8">
 <link rel="stylesheet" href="../../tokens.css"><link rel="stylesheet" href="../../bundle.css"><title>Notice — preview</title>
-<style>html,body{margin:0}body.vw-root{padding:16px}</style></head>
+<style>html,body{margin:0}body.vw-root{padding:16px}.cases{display:grid;gap:16px}.case{margin:0}.case figcaption{margin-bottom:4px;font-size:11px;line-height:16px;color:var(--ink-muted)}</style></head>
 <body class="vw-root">
-<style>.stack{display:grid;gap:12px}</style>
-<div class="stack">
-  <div class="vw-notice vw-notice--warn"><p class="vw-notice__title">The declaration will drift from Git</p><p class="vw-notice__body">This changes the dataset's declaration on the server. Your declaration files in Git will differ until you update them; <code>varve apply --plan</code> will show the difference.</p></div>
-  <div class="vw-notice"><p class="vw-notice__title">This instance follows notes</p><p class="vw-notice__body">Writes go to the writer, <code>varve-1</code>, epoch 7. Reads here are served at this instance's position.</p></div>
+<!-- One figure per contract case in cases/: the markup inside each data-case
+     element is the case's, verbatim, and a test checks it (ADR 0206 point 6). -->
+<div class="cases">
+<figure class="case"><figcaption>neutral</figcaption><div data-case="neutral"><div class="vw-notice"><p class="vw-notice__title">This instance follows notes</p><p class="vw-notice__body">Writes go to the writer, <code>varve-1</code>, epoch 7. Reads here are served at this instance's position.</p></div></div></figure>
+<figure class="case"><figcaption>warn</figcaption><div data-case="warn"><div class="vw-notice vw-notice--warn"><p class="vw-notice__title">The declaration will drift from Git</p><p class="vw-notice__body">This changes the dataset's declaration on the server. Your declaration files in Git will differ until you update them; <code>varve apply --plan</code> will show the difference.</p></div></div></figure>
 </div>
 </body>
 </html>

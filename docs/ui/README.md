@@ -81,6 +81,8 @@ Part 2 (the data explorer) will have a graph view. Its scope is fixed now so the
 
 System faces only (`sans`, `mono`): no font files, so nothing is added to the bundle budget or the CSP. Numbers use tabular figures throughout (`.vw-root` sets them).
 
+These are the style names of `tokens.json`, the design's vocabulary, not classes: `tokens.css` holds custom properties only, and `bundle.css` applies the styles through its `vw-` component classes.
+
 - `page-title` once per screen, the resource's name. `section-title` for panel heads.
 - `body` for everything running; `body-strong` for a row's identifying cell.
 - `caption` for secondary lines and relative times; `label` for field labels and table headers.
@@ -109,7 +111,7 @@ There is no icon set. State marks are CSS shapes drawn from tokens (`state`, `no
 
 ## Accessibility
 
-WCAG 2.2 AA. Every focusable element shows `focus-ring` as a 2px solid outline offset 2px. Lag is a native `<meter>` with `low`, `high` and `optimum` set, so its state reaches assistive technology. Dialogs are native `<dialog>` opened modal. Tables keep real `<th scope>` headers. In forced-colors mode the state marks render in `CanvasText`, and the word carries the state.
+WCAG 2.2 AA. Every focusable element shows `focus-ring` as a 2px solid outline offset 2px. Lag is a native `<meter>` with `low`, `high` and `optimum` set, so its state reaches assistive technology. Dialogs are native `<dialog>` opened modal. Tables keep real `<th scope>` headers, and every table has a name: a caption, or the panel title through `aria-labelledby`. The shell's first focusable element is a skip link to the main column (2.4.1), and its navigation is named "Main". A region that scrolls inside itself takes focus and has a name. In forced-colors mode the state marks render in `CanvasText`, and the word carries the state.
 
 ## Implementing in `Varve.WebUi`
 

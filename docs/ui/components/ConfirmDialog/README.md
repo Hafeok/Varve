@@ -7,5 +7,5 @@ The confirmation every act passes through: the dataset and the effect named in t
   - **Result:** what the write answered, shown in place: the new position on success, or the `ProblemPanel` (a `409` or `412`) with its reload action.
 - The confirming button repeats the act and the name ("Close notes"); it is enabled only when the typed name matches exactly.
 - It never closes on a failure.
-- A native `<dialog>` opened modal; Escape and Cancel close it without acting.
+- A native `<dialog>` opened modal with `showModal()`, so its markup carries no `open` attribute; Escape and Cancel close it without acting. The preview shows it in place with a preview-only style.
 - An organism: it composes `Field` and `Button`, and renders the note and the result from its slots. It never composes `ProblemPanel` or `Notice` itself, because a component uses only lower levels and never its own. It renders no input styles of its own.

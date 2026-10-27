@@ -1,14 +1,14 @@
-<!-- @dsCard group="Molecules" height=120 -->
+<!-- @dsCard group="Molecules" height=100 -->
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8">
 <link rel="stylesheet" href="../../tokens.css"><link rel="stylesheet" href="../../bundle.css"><title>CopyButton — preview</title>
-<style>html,body{margin:0}body.vw-root{padding:16px}</style></head>
+<style>html,body{margin:0}body.vw-root{padding:16px}.cases{display:grid;gap:16px}.case{margin:0}.case figcaption{margin-bottom:4px;font-size:11px;line-height:16px;color:var(--ink-muted)}</style></head>
 <body class="vw-root">
-<style>.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}</style>
-<div class="row">
-  <code>0HN7R3K2M9Q4:00000007</code> <button class="vw-button vw-button--small" type="button">Copy</button>
-  <code>0HN7R3K2M9Q4:00000008</code> <button class="vw-button vw-button--small" type="button">Copied</button>
+<!-- One figure per contract case in cases/: the markup inside each data-case
+     element is the case's, verbatim, and a test checks it (ADR 0206 point 6). -->
+<div class="cases">
+<figure class="case"><figcaption>copy</figcaption><div data-case="copy"><button class="vw-button vw-button--small" type="button">Copy</button><span class="vw-visually-hidden" aria-live="polite"></span></div></figure>
 </div>
 </body>
 </html>

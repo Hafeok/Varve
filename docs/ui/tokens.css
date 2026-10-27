@@ -72,12 +72,3 @@
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
   --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
-.page-title { font-family: var(--font-sans); font-size: 22px; line-height: 28px; font-weight: 600; letter-spacing: -0.01em; }
-.section-title { font-family: var(--font-sans); font-size: 16px; line-height: 24px; font-weight: 600; }
-.body { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 400; }
-.body-strong { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 600; }
-.caption { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 400; }
-.label { font-family: var(--font-sans); font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.06em; }
-.metric { font-family: var(--font-mono); font-size: 24px; line-height: 28px; font-weight: 500; }
-.code { font-family: var(--font-mono); font-size: 13px; line-height: 20px; font-weight: 400; }
-.code-small { font-family: var(--font-mono); font-size: 12px; line-height: 16px; font-weight: 400; }

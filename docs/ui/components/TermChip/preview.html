@@ -1,16 +1,20 @@
-<!-- @dsCard group="Atoms" height=170 -->
+<!-- @dsCard group="Atoms" height=480 -->
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8">
 <link rel="stylesheet" href="../../tokens.css"><link rel="stylesheet" href="../../bundle.css"><title>TermChip — preview</title>
-<style>html,body{margin:0}body.vw-root{padding:16px}.grid{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:8px 16px;align-items:center}</style></head>
+<style>html,body{margin:0}body.vw-root{padding:16px}.cases{display:grid;gap:16px}.case{margin:0}.case figcaption{margin-bottom:4px;font-size:11px;line-height:16px;color:var(--ink-muted)}</style></head>
 <body class="vw-root">
-<div class="grid">
-  <span class="vw-label">IRI</span><span><span class="vw-term vw-term--iri" title="https://notes.example/users/42"><a href="#">notes:users/42</a></span></span>
-  <span class="vw-label">Literal</span><span><span class="vw-term vw-term--literal"><span class="vw-term__value">Weekly sync</span><span class="vw-term__type">@en</span></span> <span class="vw-term vw-term--literal"><span class="vw-term__value">2026-10-27</span><span class="vw-term__type">xsd:date</span></span></span>
-  <span class="vw-label">Blank node</span><span><span class="vw-term vw-term--bnode">_:b7</span></span>
-  <span class="vw-label">Triple term</span><span><span class="vw-term vw-term--triple"><span class="vw-term vw-term--iri">notes:42</span><span class="vw-term vw-term--iri">dct:title</span><span class="vw-term vw-term--literal"><span class="vw-term__value">Weekly sync</span></span></span></span>
-  <span class="vw-label">In a diff</span><span><span class="vw-term vw-term--literal vw-term--added"><span class="vw-term__value">Weekly sync</span></span> <span class="vw-term vw-term--literal vw-term--removed"><span class="vw-term__value">Sync</span></span></span>
+<!-- One figure per contract case in cases/: the markup inside each data-case
+     element is the case's, verbatim, and a test checks it (ADR 0206 point 6). -->
+<div class="cases">
+<figure class="case"><figcaption>added</figcaption><div data-case="added"><span class="vw-term vw-term--literal vw-term--added"><span class="vw-term__value">Weekly sync</span></span></div></figure>
+<figure class="case"><figcaption>blank-node</figcaption><div data-case="blank-node"><span class="vw-term vw-term--bnode">_:b7</span></div></figure>
+<figure class="case"><figcaption>iri</figcaption><div data-case="iri"><span class="vw-term vw-term--iri" title="https://notes.example/users/42"><a href="#">notes:users/42</a></span></div></figure>
+<figure class="case"><figcaption>literal-datatype</figcaption><div data-case="literal-datatype"><span class="vw-term vw-term--literal"><span class="vw-term__value">2026-10-27</span><span class="vw-term__type">xsd:date</span></span></div></figure>
+<figure class="case"><figcaption>literal-language</figcaption><div data-case="literal-language"><span class="vw-term vw-term--literal"><span class="vw-term__value">Weekly sync</span><span class="vw-term__type">@en</span></span></div></figure>
+<figure class="case"><figcaption>removed</figcaption><div data-case="removed"><span class="vw-term vw-term--literal vw-term--removed"><span class="vw-term__value">Sync</span></span></div></figure>
+<figure class="case"><figcaption>triple</figcaption><div data-case="triple"><span class="vw-term vw-term--triple"><span class="vw-term vw-term--iri">notes:42</span><span class="vw-term vw-term--iri">dct:title</span><span class="vw-term vw-term--literal"><span class="vw-term__value">Weekly sync</span></span></span></div></figure>
 </div>
 </body>
 </html>
