@@ -354,6 +354,70 @@ public class BehaviourTests
         Assert.Equal(T.Render(pinnedBlank!), T.Render(blank!));
     }
 
+    /// <summary>
+    /// The set of handles a commit carries is built once and published once
+    /// (<c>CarriedHandlesAreAPrivateHashSet</c>). Many threads asking one fresh
+    /// commit at once, every one of them racing to build and publish it,
+    /// answer what one thread answers of the same commit delivered again.
+    /// </summary>
+    [Fact]
+    public async Task many_threads_externalising_one_commit_answer_what_one_thread_answers()
+    {
+        const int Quads = 2_000;
+        const int Threads = 16;
+        await using Dataset dataset = await T.Open(new MemoryStorage());
+        CommitRequestBuilder first = new();
+        CommitRequestBuilder second = new();
+
+        for (int i = 0; i < Quads; i++)
+        {
+            first.Assert(T.Iri("s" + i), T.Iri("p"), T.Iri("o" + i));
+            second.Assert(T.Iri("s" + i), T.Iri("q"), T.Iri("o" + i));
+        }
+
+        await dataset.CommitAsync(first, T.Ct);
+        await dataset.CommitAsync(second, T.Ct);
+        Commit alone = (await Take(dataset.Subscribe(new Position(1), SubscriptionFilter.All, T.Ct), 1)).Single();
+        TermHandle[] handles = [.. alone.Delta.Asserted.ToArray().SelectMany(q => new[] { q.Subject, q.Predicate, q.Object })];
+        string?[] expected = [.. handles.Select(h => alone.TryExternalise(h, out RdfTerm? term) ? T.Render(term!) : null)];
+        Assert.All(expected, Assert.NotNull);
+
+        for (int round = 0; round < 10; round++)
+        {
+            Commit shared = (await Take(dataset.Subscribe(new Position(1), SubscriptionFilter.All, T.Ct), 1)).Single();
+            using Barrier start = new(Threads);
+            Task<string?[]>[] readers = new Task<string?[]>[Threads];
+
+            for (int t = 0; t < Threads; t++)
+            {
+                int offset = t * (handles.Length / Threads);
+                readers[t] = Task.Factory.StartNew(
+                    () =>
+                    {
+                        start.SignalAndWait(T.Ct);
+                        string?[] answers = new string?[handles.Length];
+
+                        // Each thread starts somewhere else, so they do not all ask the same handle first.
+                        for (int i = 0; i < handles.Length; i++)
+                        {
+                            int at = (offset + i) % handles.Length;
+                            answers[at] = shared.TryExternalise(handles[at], out RdfTerm? term) ? T.Render(term!) : null;
+                        }
+
+                        return answers;
+                    },
+                    T.Ct,
+                    TaskCreationOptions.LongRunning,
+                    TaskScheduler.Default);
+            }
+
+            foreach (string?[] answers in await Task.WhenAll(readers))
+            {
+                Assert.Equal(expected, answers);
+            }
+        }
+    }
+
     [Fact]
     public async Task disposing_waits_for_the_commit_in_the_sequencer_and_later_commits_are_unavailable()
     {

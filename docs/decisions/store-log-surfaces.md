@@ -8,7 +8,7 @@ decisions:
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-29T00:00:00Z
   - key: CarriedHandlesAreAPrivateHashSet
-    statement: "Commit memoises the handles it carries as a private HashSet, built in a local, published once by ??= and never written after or handed out, because every immutable set measured costs 2.4 to 8.5 times its build on a commit's first externalisation"
+    statement: "Commit memoises the handles it carries as a private HashSet: built completely in a local, published once with Interlocked.CompareExchange, never mutated or handed out after publication"
 ---
 
 # Primitives on Varve.Store.Log's surface
@@ -50,11 +50,15 @@ maintainer accepts it (ADR 0066). `Commit.TryExternalise` answers a handle the
 commit carries but did not allocate by building, once, the set of every handle
 in its delta, metadata and attachments. preview.10's DD0019 reports a
 `[Memoized]` plain collection, because readers filling one collection together
-race. This one is never filled together: `Carried()` builds it in a local and
-`??=` publishes the finished set, which is only read from then on. A reader
-that loses the race builds an equal set and drops it. The immutable sets that
-answer the rule cost more, by `CommitPathBenchmarks.FirstExternaliseOfACarriedHandle`
-at 100,000 quads in one run on one machine:
+race. This one is never filled together, and the rule is publication.
+`Carried()` builds the set completely in a local.
+`Interlocked.CompareExchange` publishes it once, so no reader sees it before it
+is whole. After that it is only read, and never handed out. A reader that loses
+the race drops the set it built and takes the published one, which is equal.
+
+The immutable sets that answer the rule cost more to build, by
+`CommitPathBenchmarks.FirstExternaliseOfACarriedHandle` at 100,000 quads in one
+run on one machine:
 
 | Set | Build and one lookup | Allocated |
 |---|---:|---:|
@@ -62,6 +66,12 @@ at 100,000 quads in one run on one machine:
 | `FrozenSet<ulong>` | 10.7 ms | 22.77 MB |
 | `ImmutableHashSet<ulong>` | 37.7 ms | 10.69 MB |
 | sorted `ImmutableArray<ulong>` | 15.5 ms | 3.13 MB |
+
+**Rejected: the sorted `ImmutableArray<ulong>`**, searched by binary search. It
+is immutable, needs no decision, and holds a quarter of the memory. But it
+makes every lookup O(log n), and a commit's lookups are many, in exchange for a
+cheaper build that happens once per commit. The `HashSet` keeps lookups O(1),
+and its build is the cheapest of the four.
 
 The `HotPath` scope is the exception for a measured cost, not for a per-quad
 hot path: the build runs once per commit.
