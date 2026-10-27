@@ -238,6 +238,9 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-server", "Varve.Server: configuration, anonymous mode, readiness, shutdown, and the permission matrix against an issuer in the test (ADR 0100 layer (a))",
         () => Test("Varve.Server.Tests")),
 
+    ("test-webui", "Varve.WebUi: Blazor in no other src/ closure, the tone mapping, tokens.css generated from tokens.json, the components' markup contract (ADRs 0200, 0206)",
+        () => Test("Varve.WebUi.Tests")),
+
     // tools/repo-standard is its own solution, outside Varve.slnx, and moves to
     // its own repository (ADR 0039). Its jobs are separate so that the move
     // deletes them rather than untangling them. The Native AOT publish and the
