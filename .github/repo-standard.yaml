@@ -24,8 +24,8 @@ repository:
     squash_merge_commit_message: COMMIT_MESSAGES
   web_commit_signoff_required: false
   security:
-    private_vulnerability_reporting: false
-    dependabot_alerts: false
+    private_vulnerability_reporting: true
+    dependabot_alerts: true
     dependabot_security_updates: false
     secret_scanning: false
     secret_scanning_push_protection: false

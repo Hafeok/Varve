@@ -23,6 +23,15 @@ you if we think it is not a vulnerability, and why, rather than letting the
 thread go quiet. Fixes are released with an advisory naming the affected
 versions, and you are credited unless you ask not to be.
 
+**Advisories are GitHub security advisories with a CVE id**, GitHub acting as
+the CNA, published on this repository's Security tab when the fix is released
+([ADR 0224](docs/adr/0224-supply-chain-transparency.md)). They name the affected
+and fixed versions of each package, the CLI and the container image. If you
+build Varve into a product you place on the EU market, the advisory is what
+your own reports under the Cyber Resilience Act can cite. Varve itself is open
+source, not supplied commercially, and does not report to ENISA's Single
+Reporting Platform.
+
 **Please give us time to ship a fix before disclosing publicly.** There is no
 fixed embargo and no bug bounty; there is a single maintainer, and the honest
 answer is that a date will be agreed with you rather than imposed on you.
@@ -31,14 +40,20 @@ answer is that a date will be agreed with you rather than imposed on you.
 
 | Version | Supported |
 |---|---|
-| `0.x` prerelease | The most recent prerelease only |
-| `1.x` and later | Not yet released |
+| `0.1.0-preview.N` | The most recent preview only |
+| `1.x`, once released | The latest `1.minor` gets every fix |
+| `1.x`, after `2.0.0` | Security fixes only, for 12 months after `2.0.0` is released |
+| The same rule for every later major | The latest minor gets every fix; the previous major gets security fixes for 12 months after its successor |
 
-Nothing has been published to nuget.org yet. Until 1.0, only the most recent
-prerelease gets fixes: there is no support window on a version whose API is
-still allowed to change ([ADR 0035](docs/adr/0035-semantic-versioning.md)). This
-table gains real rows at 1.0, when the public API freezes and a version becomes
-something to stay on.
+The previews are published on nuget.org, on GitHub and as the container image
+`ghcr.io/hafeok/varve`. Until 1.0, only the most recent preview gets fixes:
+there is no support window on a version whose API is still allowed to change
+([ADR 0035](docs/adr/0035-semantic-versioning.md)), and a fix ships as the next
+preview. From 1.0 the public API is frozen, and a version becomes something to
+stay on: a fix to the latest minor is a patch release of it, and the previous
+major's security fixes are patch releases of its last minor. The release that
+ends a line's support says so in its notes. This is the maintainer's decision of
+2026-10-27 (ADR 0224 point 6).
 
 ## What we consider a vulnerability
 
@@ -67,9 +82,10 @@ such.
 
 ## How we look for these ourselves
 
-- **The W3C conformance suites** are the acceptance gate — 883 cases, no
-  exemptions — and roughly a third of them are negative cases whose whole
-  purpose is to be rejected.
+- **The W3C conformance suites** are the acceptance gate: every case the
+  baseline holds must keep passing, and an exemption needs a written
+  justification ([`README.md`](README.md) has today's count). A large share
+  of them are negative cases whose whole purpose is to be rejected.
 - **The chunk-boundary oracle** parses every manifest input whole, then again
   split at every byte offset, and requires the same answer
   ([`docs/testing.md`](docs/testing.md) §2). It has found nine defect classes,
@@ -93,12 +109,28 @@ freshness — and uploads to code scanning.
 
 ## Dependencies
 
-There are thirteen, all build-time or test-time, none shipped at runtime, and
-every one names the decision that admits it
-([ADR 0009](docs/adr/0009-dependency-policy-and-register.md)) — a gate fails the
-build otherwise. A package that ships a native asset is refused outright, and a
-second gate enforces that over the restore closure of everything packable.
-Dependabot watches actions and NuGet weekly.
+Every direct package names the decision that admits it
+([ADR 0009](docs/adr/0009-dependency-policy-and-register.md)), and every
+transitive one is admitted by the package that brings it in. The register gate
+checks them against every lockfile, with each package's licence and native
+assets ([ADR 0224](docs/adr/0224-supply-chain-transparency.md)). What reaches a
+consumer is small:
+
+- **The 24 library packages have no third-party dependency at runtime.**
+  `Varve.Protocol.Client` depends on eight `Microsoft.Extensions` abstractions.
+- **The server and CLI** ship 16 third-party packages: the JWT bearer
+  handler and IdentityModel, `System.CommandLine`, `ProtectedData` and
+  OpenTelemetry. The binaries and the image also contain the .NET runtime.
+- **`Varve.Aspire`**, a development-time package for an Aspire AppHost, brings
+  `Aspire.Hosting`'s closure, and with it the one native asset in a shipped
+  closure, by a stated exception.
+
+Every artefact carries an SPDX SBOM of exactly this, attested and published
+with the release, and known vulnerabilities in it fail the build unless a
+published VEX statement says why Varve is not affected. **How to verify any of
+it is in [`docs/supply-chain.md`](docs/supply-chain.md)**, which is written for a
+supplier assessment. Dependabot watches the Actions, the packages and the
+container's base image weekly.
 
 That small a surface is deliberate, and it is the most useful security property
 this project has: **there is very little here that is not ours**, so there is
