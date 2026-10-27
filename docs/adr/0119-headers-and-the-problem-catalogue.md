@@ -201,3 +201,21 @@ accepts it (ADR 0066).
 
 **The ledger.** The rulings are ADR 0174's `ValidationBehind` and
 `ReportGraphNotWritable`.
+
+## Amendment, 2026-10-27 — `entailment-unsupported`
+
+Filed by Inference, part 1 (#170, under #95), unaccepted until the maintainer
+accepts it (ADR 0066).
+
+- **`entailment-unsupported`** (`400`, members `value` and `supported`). It
+  answers:
+  - a `Varve-Entailment` header this server does not serve: an unknown token
+    or IRI, more than one value, or a regime whose part has not landed;
+  - a regime other than simple on an update request.
+
+  The rules are those of ADR [0192](0192-entailment-regimes-over-http.md).
+- `Varve-Entailment` is a request and a response header of the query
+  endpoints, beside `Varve-As-Of`, and `Vary` names it.
+
+**The ledger.** The rulings are ADR 0192's `EntailmentHeader` and
+`UpdatesAreSimple`.

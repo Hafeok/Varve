@@ -379,11 +379,15 @@ Filed by [#133](https://github.com/Hafeok/Varve/issues/133), in 1.0 ([#15](https
 
 ## Milestone Inference — RDFS by rewriting, OWL 2 RL and rules as a projection, inconsistency at commit
 
-Filed by milestone Inference ([#95](https://github.com/Hafeok/Varve/issues/95)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0190: Replication holds 0179–0189 and the Web UI 0200–0205, so Inference has 0190–0199 and 0206–0211. The grants ADR comes first, in a pull request of its own, ahead of the three parts (#170, #171 and #95's last). Amended by it, likewise unaccepted: 0107 (the dataset-public graphs of a binding, a graph governed by every graph of a set).
+Filed by milestone Inference ([#95](https://github.com/Hafeok/Varve/issues/95)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0190: Replication holds 0179–0189 and the Web UI 0200–0205, so Inference has 0190–0199 and 0206–0211. The grants ADR comes first, in a pull request of its own, ahead of the three parts (#170, #171 and #95's last). Amended by it, likewise unaccepted: 0107 (the dataset-public graphs of a binding, a graph governed by every graph of a set); by part 1 (#170), 0003 (the packages), 0119 (`entailment-unsupported`), 0132 (the header under CORS) and 0166 (the binding's terms).
 
 | # | Title | Status |
 |---:|---|---|
 | [0190](0190-entailments-under-graph-level-grants.md) | Entailments under graph-level grants: premise sets, intra-graph by default, the ontology readable by the dataset's readers; amends 0107 | Filed unaccepted (Inference, #95) |
+| [0191](0191-the-inference-packages-and-their-layers.md) | The inference packages and their layers; amends 0003 | Filed unaccepted (Inference part 1, #170) |
+| [0192](0192-entailment-regimes-over-http.md) | Entailment regimes over HTTP: the `Varve-Entailment` header and the service description; amends 0119, 0132 | Filed unaccepted (Inference part 1, #170) |
+| [0193](0193-rdfs-rdf-and-d-by-rewriting.md) | RDF, RDFS and D entailment by query rewriting | Filed unaccepted (Inference part 1, #170) |
+| [0194](0194-the-tbox-binding-vocabulary.md) | The TBox binding vocabulary; amends 0166 | Filed unaccepted (Inference part 1, #170) |
 
 ## Conformance — differential testing against Oxigraph
 
