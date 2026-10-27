@@ -87,7 +87,7 @@ for (int i = 0; i < args.Length; i++)
 
     switch (args[i])
     {
-        case "--version" when next is not null: version = next.TrimStart('v'); i++; break;
+        case "--version" when next is not null: version = next.Trim().TrimStart('v'); i++; break;
         case "--out" when next is not null: outDirectory = Path.GetFullPath(next); i++; break;
         case "--created" when next is not null: created = next; i++; break;
         case "--check-against" when next is not null: checkAgainst = Path.GetFullPath(next); i++; break;
