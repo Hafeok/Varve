@@ -1,0 +1,12 @@
+{
+  "parameters": {
+    "Status": 412,
+    "Title": "The precondition does not name the current version.",
+    "Detail": "The dataset's declaration changed after this view read it.",
+    "Type": "https://w3id.org/varve/problems/precondition-failed",
+    "TypeHref": "#",
+    "RequestId": "0HN7R3K2M9Q4:00000007",
+    "Members": "<dt>Expected</dt><dd><span class=\"vw-position vw-position--management\"><span class=\"vw-position__label\">expected</span> <span class=\"vw-position__value\">412</span></span></dd><dt>Head</dt><dd><span class=\"vw-position vw-position--management\"><span class=\"vw-position__label\">head</span> <span class=\"vw-position__value\">415</span></span></dd>",
+    "Actions": "<button class=\"vw-button vw-button--primary\" type=\"button\">Reload at head</button>"
+  }
+}

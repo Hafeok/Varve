@@ -1,0 +1,7 @@
+{
+  "parameters": {
+    "Columns": "<th scope=\"col\">Dataset</th><th scope=\"col\">State</th><th scope=\"col\">This instance</th><th scope=\"col\" class=\"vw-num\">Head</th><th scope=\"col\" class=\"vw-num\">Lag</th><th scope=\"col\">Storage</th>",
+    "ColumnCount": 6,
+    "Problem": "<div class=\"vw-problem\" role=\"alert\">a problem the page renders</div>"
+  }
+}

@@ -47,6 +47,17 @@ body.vw-root { margin: 0; }
 .vw-panel__body { padding: var(--space-4); }
 
 /* ---------- Shell ---------- */
+/* The skip link (WCAG 2.4.1): the shell's first focusable element, hidden
+   until it has focus. Absolute, so it takes no cell of the shell's grid. */
+.vw-skip {
+  position: absolute; left: var(--space-2); top: var(--space-2); z-index: 10;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-md);
+}
+.vw-skip:not(:focus) {
+  width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
 .vw-shell {
   display: grid;
   grid-template-columns: 208px minmax(0, 1fr);
@@ -280,9 +291,6 @@ body.vw-root { margin: 0; }
 }
 .vw-source__graph { font-family: var(--font-mono); font-size: 12px; margin-right: auto; overflow-wrap: anywhere; }
 .vw-source pre { margin: 0; padding: var(--space-3); overflow-x: auto; font-family: var(--font-mono); font-size: 13px; line-height: 20px; tab-size: 2; }
-.vw-source .vw-tok-iri { color: var(--accent); }
-.vw-source .vw-tok-lit { color: var(--ok); }
-.vw-source .vw-tok-kw { color: var(--ink-muted); }
 
 /* ---------- Commit list and live tail ---------- */
 .vw-commits { list-style: none; margin: 0; padding: 0; }

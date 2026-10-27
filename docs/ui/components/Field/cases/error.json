@@ -1,0 +1,9 @@
+{
+  "parameters": {
+    "Id": "f-confirm",
+    "Label": "Type <code>notes</code> to confirm",
+    "Value": "Notes",
+    "Exact": true,
+    "Error": "Type notes exactly; the name is case-sensitive."
+  }
+}

@@ -166,3 +166,70 @@ and `OneStateToToneMapping` are restated.
 **The brand book:** the level table gains the Parts row; domain knowledge
 and wording sit in parts; parts don't use parts. The `ConfirmDialog` and
 `Notice` READMEs say the drift note lives in a part.
+
+## Round 3: custom properties only, the model holds values, previews equal the cases
+
+**The ruling**, verbatim:
+
+> 1. Service/model split: agreed, no marker. Write the convention into `docs/rules/VARVE0006.md` so it’s a stated rule, not a habit: `Varve.Protocol.Client.Model` holds values only, and a type that a Part needs moves into `.Model` rather than earning an exception. Also add one check to VARVE0006: a type in `.Model` may not reference a service type. Otherwise `.Model` can quietly become a back door.
+> 2. Type-scale classes: drop them from `tokens.css`. Unprefixed global classes like `.label` will collide with something eventually, and nothing uses them. `tokens.css` becomes custom properties only. The type styles stay in `tokens.json` as the design vocabulary, and `bundle.css` applies them through `vw-` component classes, as it already does.
+>
+> * Change the generator, regenerate, and amend ADR 0206 point 2 in place in #174 to say “custom properties only”.
+> * This means the repo’s `tokens.css` is no longer what the design system page would compile. That’s fine: the repo is the source.
+>
+> 3. Component differences: keep the components as built. Update each preview and README in #174 to match, because the previews must show the same markup as the cases (ADR 0206 point 6). Per item:
+>
+> * `tabindex="-1"` on `h1` and `main`, `id="main"`: right. Also add a skip link as the first focusable element in `Shell` (“Skip to main content”, targeting `#main`, visible on focus). The navigation repeats on every screen, so WCAG 2.4.1 needs it. Give it a case and a preview state.
+> * Navigation label: use “Main”, not “Web UI”. Screen readers announce it as “Main navigation”, and “Web UI” is our project name, not the operator’s word.
+> * Brand image path: fine.
+> * `ConfirmDialog` without `open`: right.
+> * `SourceBlock`: `tabindex="0"` is right for a scrollable region. It also needs an accessible name: `aria-label` with the graph IRI. Dropping highlighting is fine. Remove the three `vw-tok-*` rules from `bundle.css` rather than shipping CSS no case covers; part 2 can add highlighting back with cases.
+> * `ResourceTable` caption: keep it optional and visually hidden. When it’s absent, the table takes its name from the panel title via `aria-labelledby`, so every table has a name either way. Put that in the README.
+> * `CopyButton` “Copied” state: test it as a bUnit interaction (click, then assert the state and its `aria-live` announcement), not as a case. The README says the state is transient.
+
+**Done in this pull request** (no code; the generator, the components and the
+tests are on the milestone branch):
+- **`tokens.css`, regenerated:** it now holds custom properties only. The nine
+  type-style classes are gone; nothing in `docs/ui/` used them.
+- **ADR 0206, amended in place:**
+  - point 1 and point 2: custom properties only, and why the repository's file
+    differs from the design system page's;
+  - point 4: the client's model holds values only;
+  - point 6: the previews carry the cases verbatim and are checked;
+  - the Checks: the rule's third check.
+- **The decision set:** `TokensJsonIsCanonical`, `OnlyPagesCallTheApi` and
+  `TheMarkupContractTest` are restated.
+- **The contract cases:** the cases join `docs/ui/components/*/cases/`, as
+  point 1 lists them. There are 56, one more than before (`Shell`'s
+  `skip-link`).
+- **Every preview is rebuilt from its cases.** Each case is one figure, with
+  its markup verbatim inside a `data-case` element; the milestone branch
+  checks the two against each other. Preview-only styles stay in each page's
+  own `<style>`:
+  - the dialog shown in place;
+  - the shell's frame.
+
+  Two things are preview-only content. The `Shell` preview focuses its skip
+  link with a script, so that state is visible. The `ResourceTable` preview
+  has the heading its tables are labelled by.
+- **`bundle.css`:** the three `vw-tok-*` rules are removed, and `vw-skip` is
+  added (hidden until focused, absolute so it takes no grid cell).
+- **READMEs:**
+  - `Shell`: the skip link, and the navigation named "Main";
+  - `SourceBlock`: unhighlighted, a focusable named region;
+  - `ResourceTable`: every table has a name;
+  - `CopyButton`: the transient state and its live region;
+  - `ConfirmDialog`: no `open`, opened by `showModal()`;
+  - `ViewHead`: the focusable title;
+  - `Panel`: `TitleId`;
+  - the brand book: the type names are vocabulary, not classes, and the
+    accessibility section gains the skip link, the table names and the
+    scrolling regions.
+
+**One deviation, stated.** An `aria-label` on a bare `<pre>` names an element
+whose role is generic, and ARIA 1.2 prohibits naming a generic element (axe
+reports it). So the `<pre>` also carries `role="region"`, the role the
+WCAG technique for a focusable scrolling area uses.
+
+**Held:** the rule's third check finds one type on main: `BearerToken.Fixed`
+returns a `BearerTokenProvider`. That was put to the maintainer.

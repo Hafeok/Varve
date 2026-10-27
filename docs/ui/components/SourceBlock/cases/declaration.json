@@ -1,0 +1,7 @@
+{
+  "parameters": {
+    "Graph": "varve:manage/dataset/notes",
+    "Position": 412,
+    "Source": "n:notes a varve:Dataset ;\n  varve:datasetName \"notes\" ;\n  varve:storage varve:ObjectStorage ."
+  }
+}

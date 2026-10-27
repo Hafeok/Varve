@@ -1,13 +1,16 @@
-<!-- @dsCard group="Atoms" height=230 -->
+<!-- @dsCard group="Atoms" height=368 -->
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8">
 <link rel="stylesheet" href="../../tokens.css"><link rel="stylesheet" href="../../bundle.css"><title>Field — preview</title>
-<style>html,body{margin:0}body.vw-root{padding:16px}.stack{display:grid;gap:16px;max-width:360px}</style></head>
+<style>html,body{margin:0}body.vw-root{padding:16px}.cases{display:grid;gap:16px}.case{margin:0}.case figcaption{margin-bottom:4px;font-size:11px;line-height:16px;color:var(--ink-muted)}[data-case]{max-width:360px}</style></head>
 <body class="vw-root">
-<div class="stack">
-  <div class="vw-field"><label for="f-asof">As of position</label><input id="f-asof" inputmode="numeric" value="17950" aria-describedby="f-asof-help"><span class="vw-field__help" id="f-asof-help">A position at or below the head, 18417.</span></div>
-  <div class="vw-field"><label for="f-confirm">Type <code>notes</code> to confirm</label><input id="f-confirm" autocomplete="off" spellcheck="false" value="Notes" aria-invalid="true" aria-describedby="f-confirm-err"><span class="vw-field__error" id="f-confirm-err">Type notes exactly; the name is case-sensitive.</span></div>
+<!-- One figure per contract case in cases/: the markup inside each data-case
+     element is the case's, verbatim, and a test checks it (ADR 0206 point 6). -->
+<div class="cases">
+<figure class="case"><figcaption>error</figcaption><div data-case="error"><div class="vw-field"><label for="f-confirm">Type <code>notes</code> to confirm</label><input id="f-confirm" autocomplete="off" spellcheck="false" value="Notes" aria-invalid="true" aria-describedby="f-confirm-err"><span class="vw-field__error" id="f-confirm-err">Type notes exactly; the name is case-sensitive.</span></div></div></figure>
+<figure class="case"><figcaption>help</figcaption><div data-case="help"><div class="vw-field"><label for="f-asof">As of position</label><input id="f-asof" inputmode="numeric" value="17950" aria-describedby="f-asof-help"><span class="vw-field__help" id="f-asof-help">A position at or below the head, 18417.</span></div></div></figure>
+<figure class="case"><figcaption>readonly</figcaption><div data-case="readonly"><div class="vw-field"><label for="f-iri">Graph</label><input id="f-iri" readonly value="varve:manage/dataset/notes"></div></div></figure>
 </div>
 </body>
 </html>

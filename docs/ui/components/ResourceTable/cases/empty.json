@@ -1,0 +1,9 @@
+{
+  "parameters": {
+    "Columns": "<th scope=\"col\">Dataset</th><th scope=\"col\">State</th><th scope=\"col\">This instance</th><th scope=\"col\" class=\"vw-num\">Head</th><th scope=\"col\" class=\"vw-num\">Lag</th><th scope=\"col\">Storage</th>",
+    "ColumnCount": 6,
+    "Empty": true,
+    "EmptyContent": "No datasets are declared. Declare one in TriG and run <code>varve apply</code>.",
+    "LabelledBy": "datasets-title"
+  }
+}
