@@ -59,11 +59,20 @@ public sealed partial class Dataset
     private int _roundsSincePoll;
     private volatile bool _merges = true;
 
+    // The sets a read or a merge found damaged, by name: the writer's next
+    // maintenance round writes each again from the log (ADR 0213).
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _damagedSets = new(StringComparer.Ordinal);
+
     // Whether a present reader record reads no more than derived format 4
     // (ADR 0178): while one does, format-4 sets are not rewritten. Unknown —
     // so held — until the writer first reads the records; a storage with one
     // reader has no records, and this build reads format 5.
     private volatile bool _olderReaders = true;
+
+    // Whether a present reader record reads no more than version 5, so a
+    // set's shared blobs are still written as 4 for it (ADR 0213); true until
+    // the records have been read, as _olderReaders is.
+    private volatile bool _uncheckingReaders = true;
 
     // The pins of the catalog the open began at, or last wrote (ADR 0139).
     private Dictionary<long, CatalogPin> _catalogPins = [];
@@ -209,7 +218,7 @@ public sealed partial class Dataset
                     break;
                 }
 
-                chain.Add(set);
+                chain.Add(Healing(set));
                 named.Add(entry.Name);
             }
         }
@@ -507,7 +516,7 @@ public sealed partial class Dataset
             retention[i] = new ReaderRetention(records[i], retained);
         }
 
-        Retention = new ExtentRetention(CatalogVersion, SetsOf(_state).Count, held.Count, total, retention);
+        Retention = new ExtentRetention(CatalogVersion, SetsOf(_state).Count, held.Count, total, retention) { UncheckedSets = UncheckedSets };
     }
 
     // Once per round of maintenance: the record brought up to date, and the
@@ -689,9 +698,9 @@ public sealed partial class Dataset
 
             name = await WriteUnderFreshNameAsync(from, to, async attempt =>
             {
-                await ExtentSet.WriteAsync(_storage.Derived, attempt, Id, from, to, at.HeaderHash(), at.BlankCount, rows.RowsAsync, [terms], cancellationToken, version).ConfigureAwait(false);
+                await ExtentSet.WriteAsync(_storage.Derived, attempt, Id, from, to, at.HeaderHash(), at.BlankCount, rows.RowsAsync, [terms], cancellationToken, version, SharedCheckedVersion).ConfigureAwait(false);
                 await graphs.WriteAsync(_storage.Derived, ExtentSet.GraphsOf(attempt), Id, at.HeaderHash(), cancellationToken).ConfigureAwait(false);
-                await CommitIndexFormat.WriteAsync(_storage.Derived, ExtentSet.CommitsOf(attempt), Id, from, to, state.Commits.Entry, cancellationToken).ConfigureAwait(false);
+                await CommitIndexFormat.WriteAsync(_storage.Derived, ExtentSet.CommitsOf(attempt), Id, from, to, state.Commits.Entry, cancellationToken, SharedCheckedVersion).ConfigureAwait(false);
             }).ConfigureAwait(false);
         }
         finally
@@ -760,7 +769,7 @@ public sealed partial class Dataset
 
             string name = await WriteUnderFreshNameAsync(first.From, newest.To, async attempt =>
             {
-                await ExtentSet.WriteAsync(_storage.Derived, attempt, Id, first.From, newest.To, newest.ToHash, newest.BlankCount, Rows, terms, cancellationToken, version).ConfigureAwait(false);
+                await ExtentSet.WriteAsync(_storage.Derived, attempt, Id, first.From, newest.To, newest.ToHash, newest.BlankCount, Rows, terms, cancellationToken, version, SharedCheckedVersion).ConfigureAwait(false);
 
                 if (graphs is { } read)
                 {
@@ -771,7 +780,7 @@ public sealed partial class Dataset
                     await rebuilt!.WriteAsync(_storage.Derived, ExtentSet.GraphsOf(attempt), Id, newest.ToHash, cancellationToken).ConfigureAwait(false);
                 }
 
-                await CommitIndexFormat.WriteAsync(_storage.Derived, ExtentSet.CommitsOf(attempt), Id, first.From, newest.To, EntryAt, cancellationToken).ConfigureAwait(false);
+                await CommitIndexFormat.WriteAsync(_storage.Derived, ExtentSet.CommitsOf(attempt), Id, first.From, newest.To, EntryAt, cancellationToken, SharedCheckedVersion).ConfigureAwait(false);
             }).ConfigureAwait(false);
 
             return await LoadSetAsync(name, first.From, newest.To, cancellationToken).ConfigureAwait(false);
@@ -793,7 +802,7 @@ public sealed partial class Dataset
 
         foreach (ExtentSet input in inputs)
         {
-            CommitSegment? segment = await CommitIndexFormat.TryLoadAsync(_storage.Derived, ExtentSet.CommitsOf(input.Name), Id, cancellationToken).ConfigureAwait(false);
+            CommitSegment? segment = await CommitIndexFormat.TryLoadAsync(_storage.Derived, ExtentSet.CommitsOf(input.Name), Id, cancellationToken, shared: true).ConfigureAwait(false);
 
             if (segment is null)
             {
@@ -814,8 +823,15 @@ public sealed partial class Dataset
     }
 
     private async ValueTask<ExtentSet> LoadSetAsync(string name, long from, long to, CancellationToken cancellationToken) =>
-        await ExtentSet.TryLoadAsync(_storage.Derived, name, Id, from, to, cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("An extent set just written does not read back.");
+        Healing(await ExtentSet.TryLoadAsync(_storage.Derived, name, Id, from, to, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("An extent set just written does not read back."));
+
+    /// <summary>A set, its run from now on healed from the log when a read finds a blob of it damaged (ADR 0213).</summary>
+    private ExtentSet Healing(ExtentSet set)
+    {
+        Healing(set.Run);
+        return set;
+    }
 
     /// <summary>
     /// The checkpoint at a position as extents: a set for the window after
@@ -952,31 +968,39 @@ public sealed partial class Dataset
     private ushort VersionReplacing(List<ExtentSet> replaced) =>
         _storage is IExtentReaders && _olderReaders && !replaced.TrueForAll(s => s.Seekable) ? DerivedFormat.Version : _options.ExtentVersion;
 
-    // The oldest set not in the version this build writes, when this build
-    // writes 5 and no reader that reads only format 4 is present (ADR 0178):
-    // its chain would end at the rewritten set, the oldest, and it would
-    // replay the whole log. New checkpoints and merges still write format 5,
-    // so such a reader's chain ends only at the newest sets.
+    // The oldest set with a blob older than this build writes, when this
+    // build writes 5 and no present reader would find the rewrite a miss
+    // (ADR 0178, ADR 0213): a format-4 set once no reader reads only format
+    // 4, a set with unchecked blobs once none reads less than 6. Such a
+    // reader's chain would end at the rewritten set, the oldest, and it
+    // would replay the whole log. New checkpoints and merges still write
+    // what every present reader reads, so its chain ends only at the newest.
     [DesignDecision(typeof(VerifiedDerivedData.MaintenanceRewritesFormat4Sets), Scope = ExceptionScope.Boundary)]
     private (int First, int Count)? Format4Set(List<ExtentSet> sets)
     {
-        if (_options.ExtentVersion < DerivedFormat.ExtentVersion || (_storage is IExtentReaders && _olderReaders))
+        if (_options.ExtentVersion < DerivedFormat.ExtentVersion)
         {
             return null;
         }
 
-        int k = sets.FindIndex(s => !s.Seekable);
+        bool shared = _storage is IExtentReaders;
+        int k = sets.FindIndex(s => (!s.Seekable && !(shared && _olderReaders)) || (!s.Checked && !(shared && _uncheckingReaders)));
         return k < 0 ? null : (k, 1);
     }
 
+    /// <summary>The sets not yet checked block by block (ADR 0213), which readiness's <c>retention</c> reports.</summary>
+    internal int UncheckedSets => SetsOf(_state).FindAll(s => !s.Checked).Count;
+
     /// <summary>
-    /// Reads the reader records, when a format-4 set waits to be rewritten,
+    /// Reads the reader records, when a format-4 set waits to be rewritten
+    /// or a reader of version 5 or older was present at the last reading,
     /// and notes whether any present one reads no more than format 4 (ADR
-    /// 0178). A store that cannot be reached leaves the note as it was.
+    /// 0178) or no more than 5 (ADR 0213). A store that cannot be reached
+    /// leaves the notes as they were.
     /// </summary>
     private async ValueTask NoteOlderReadersAsync(CancellationToken cancellationToken)
     {
-        if (_storage is not IExtentReaders readers || SetsOf(_state).TrueForAll(s => s.Seekable))
+        if (_storage is not IExtentReaders readers || (SetsOf(_state).TrueForAll(s => s.Checked) && !_uncheckingReaders))
         {
             return;
         }
@@ -993,14 +1017,28 @@ public sealed partial class Dataset
     private void NoteOlderReaders(IReadOnlyList<ReaderAnnouncement> records)
     {
         bool older = false;
+        bool unchecking = false;
 
         foreach (ReaderAnnouncement record in records)
         {
             older |= record.MaxDerived.Value < DerivedFormat.ExtentVersion;
+            unchecking |= record.MaxDerived.Value < DerivedFormat.CheckedVersion;
         }
 
         _olderReaders = older;
+        _uncheckingReaders = unchecking;
     }
+
+    /// <summary>
+    /// The version a set's dictionary and commit index blobs are written in
+    /// (ADR 0213): 6, each block checked, unless a present reader reads no
+    /// more than 5 and would find them a miss and its chain cut there; then
+    /// 4, as that reader wrote them. A store with no records, a directory,
+    /// has no such reader.
+    /// </summary>
+    [DesignDecision(typeof(VerifiedDerivedData.SharedBlobsInTheNewestVersionEveryReaderReads), Scope = ExceptionScope.Boundary)]
+    private ushort SharedCheckedVersion =>
+        _storage is IExtentReaders && _uncheckingReaders ? DerivedFormat.Version : DerivedFormat.CheckedVersion;
 
     /// <summary>
     /// One background merge (ADR 0158): the policy's adjacent sets, read and
@@ -1048,6 +1086,17 @@ public sealed partial class Dataset
             }
 
             merged = await MergeSetsAsync(state, inputs, cancellationToken).ConfigureAwait(false);
+        }
+        catch (DerivedDamageException)
+        {
+            // A merge reads its inputs' rows within and columns, which only a
+            // rewrite from the log restores: each is written again first.
+            foreach (ExtentSet input in inputs)
+            {
+                _damagedSets.TryAdd(input.Name, 0);
+            }
+
+            return false;
         }
         catch (WriterSupersededException)
         {
@@ -1102,6 +1151,73 @@ public sealed partial class Dataset
             }
 
             return true;
+        }
+        finally
+        {
+            _checkpointGate.Release();
+        }
+    }
+
+    /// <summary>Notes that a blob of a set was found damaged, so that the writer writes the set again (ADR 0213).</summary>
+    private void NoteDamagedSet(BlobName blob)
+    {
+        if (ExtentSet.SequenceOf(blob.Value) >= 0)
+        {
+            _damagedSets.TryAdd(blob.Value[..(blob.Value.IndexOf('/', ExtentSet.Prefix.Length) + 1)], 0);
+        }
+    }
+
+    // Whether a set of the chain was found damaged and this instance writes.
+    private bool RepairDue(State state) =>
+        _merges && !IsFollower && !_damagedSets.IsEmpty && SetsOf(state).Exists(s => _damagedSets.ContainsKey(s.Name));
+
+    /// <summary>
+    /// Writes the oldest damaged set of the chain again from the log, for its
+    /// window, and swaps it in for the damaged one, as a checkpoint's split
+    /// does (ADR 0213). Until then the damaged set is answered from the log
+    /// by every read that meets the damage.
+    /// </summary>
+    [DesignDecision(typeof(VerifiedDerivedData.DamageMidReadIsRerunAndResumed), Scope = ExceptionScope.Boundary)]
+    private async ValueTask<bool> RepairDamagedSetAsync(CancellationToken cancellationToken)
+    {
+        await _checkpointGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            State state = _state;
+            List<ExtentSet> sets = SetsOf(state);
+            int k = sets.FindIndex(s => _damagedSets.ContainsKey(s.Name));
+
+            if (k < 0)
+            {
+                _damagedSets.Clear();
+                return false;
+            }
+
+            ExtentSet damaged = sets[k];
+            List<ExtentSet> written = [];
+
+            try
+            {
+                ExtentSet rewritten = await WriteSetFromLogAsync(state, damaged.From, damaged.To, VersionReplacing([damaged]), cancellationToken).ConfigureAwait(false);
+                written.Add(rewritten);
+                sets[k] = rewritten;
+            }
+            catch
+            {
+                RetireUnpublished(written);
+                throw;
+            }
+
+            await PublishSetsAsync(sets, written, [damaged], [damaged], cancellationToken).ConfigureAwait(false);
+            _damagedSets.TryRemove(damaged.Name, out _);
+            return true;
+        }
+        catch (WriterSupersededException)
+        {
+            // Not the writer: it never repairs, as it never merges.
+            _merges = false;
+            return false;
         }
         finally
         {
@@ -1368,10 +1484,10 @@ public sealed partial class Dataset
 
                 await DerivedFormat.WriteRunAsync(
                     _storage.Derived, name, DerivedFormat.KindRun, Id, holding.From, position, state.Commits.Entry(position).HeaderHash(),
-                    Section, [TermSection.Empty(holding.Run.Terms.From)], state.BlankAt(position), cancellationToken).ConfigureAwait(false);
+                    Section, [TermSection.Empty(holding.Run.Terms.From)], state.BlankAt(position), cancellationToken, DerivedFormat.CheckedVersion).ConfigureAwait(false);
 
-                LoadedRun narrowed = await DerivedFormat.TryLoadAsync(_storage.Derived, name, Id, DerivedFormat.KindRun, cancellationToken).ConfigureAwait(false)
-                    ?? throw new InvalidOperationException("A narrowed extent just written does not read back.");
+                LoadedRun narrowed = Healing(await DerivedFormat.TryLoadAsync(_storage.Derived, name, Id, DerivedFormat.KindRun, cancellationToken).ConfigureAwait(false)
+                    ?? throw new InvalidOperationException("A narrowed extent just written does not read back."));
 
                 Run[] index = new Run[k + 1];
                 Array.Copy(chain.Runs, index, k);

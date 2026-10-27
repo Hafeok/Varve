@@ -16,18 +16,21 @@ namespace Varve.Store.Tests;
 /// A format-5 extent damaged where it is kept (#133's review, after #146 and
 /// #126's damaged cache): one byte of an order extent zeroed, flipped, or the
 /// blob cut short there, at any position. Opened again from the log and the
-/// extents, the dataset serves every position as before — by scan and by
-/// lookup — or fails the read. It never serves a different answer.
+/// extents, the dataset serves every position as before, by scan and by
+/// lookup. It never serves a different answer and never fails a read: damage
+/// is a miss, answered from the log (ADR 0213).
 /// </summary>
 /// <remarks>
 /// The header is self-hashed and the directory hashed whole (storage format
 /// §7.1); the key blocks and the columns are checked a block at a time
 /// against the checksums the directory carries (§7.5, ADR 0177), when read.
+/// A block that does not match is answered from the log for the set's window
+/// (ADR 0213), where ADR 0177 failed the read.
 /// </remarks>
 public sealed class ExtentDamageTests
 {
     [Fact]
-    public async Task an_order_extent_with_a_byte_zeroed_flipped_or_cut_never_serves_a_different_answer()
+    public async Task an_order_extent_with_a_byte_zeroed_flipped_or_cut_is_a_miss_never_a_different_answer_or_a_failed_read()
     {
         // A history with retractions and re-assertions, so the middle set has
         // open, closing and within rows; checkpoints at 6, 12 and the head.
@@ -139,13 +142,14 @@ public sealed class ExtentDamageTests
             }
             catch (Exception error) when (error is not Xunit.Sdk.XunitException)
             {
-                // A read that fails is not a wrong answer.
+                // A read that fails is not a miss (ADR 0213).
                 failed++;
+                wrong.Add(how + ": " + error.GetType().Name + ": " + error.Message);
             }
         }
 
         TestContext.Current.TestOutputHelper?.WriteLine(sweep.Replay + ": " + checkedCases + " of " + cases.Count + " damaged extents, " + failed + " failed a read, " + wrong.Count + " served a different answer");
-        Assert.True(wrong.Count == 0, sweep.Replay + " replays this. " + wrong.Count + " of " + checkedCases + " damaged extents served a different answer:\n  " + string.Join("\n  ", wrong.Take(40)));
+        Assert.True(wrong.Count == 0, sweep.Replay + " replays this. " + wrong.Count + " of " + checkedCases + " damaged extents served a different answer or failed a read:\n  " + string.Join("\n  ", wrong.Take(40)));
     }
 
     // Every position's quads, by scan, and every quad any position holds,

@@ -5,7 +5,6 @@
 using System;
 using System.Buffers;
 using System.Buffers.Binary;
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -897,7 +896,7 @@ internal sealed class ExtentInfo
     /// the <paramref name="which"/>th of its distances. The block of 128 rows it
     /// is in is read and checked, one small read.
     /// </summary>
-    /// <exception cref="IOException">The block does not match its check: the extent is damaged.</exception>
+    /// <exception cref="DerivedDamageException">The block does not match its check: the extent is damaged.</exception>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal long Distance(int column, long row, int which)
     {
@@ -908,7 +907,7 @@ internal sealed class ExtentInfo
 
         if (at + Width > read)
         {
-            throw new IOException("An extent is shorter than its directory says.");
+            throw new DerivedDamageException("An extent is shorter than its directory says.");
         }
 
         return ColumnValue(block.Slice(at, Width));
@@ -919,7 +918,7 @@ internal sealed class ExtentInfo
     /// rows' distances — into the buffer and checks it against its check;
     /// returns its bytes.
     /// </summary>
-    /// <exception cref="IOException">The extent is short, or the block does not match its check.</exception>
+    /// <exception cref="DerivedDamageException">The extent is short, or the block does not match its check.</exception>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     [DesignDecision(typeof(VerifiedDerivedData.EveryBlockIsChecked), Scope = ExceptionScope.Boundary)]
     internal int ReadColumnBlock(int column, long block, Span<byte> into)
@@ -932,12 +931,12 @@ internal sealed class ExtentInfo
 
         if (count <= 0 || length > into.Length || Blob.Read(new ByteOffset(ColumnAt(column) + (first * values * Width)), into[..length]) != length)
         {
-            throw new IOException("An extent is shorter than its directory says.");
+            throw new DerivedDamageException("An extent is shorter than its directory says.");
         }
 
         if (BlockCheck.Of(into[..length]) != _columnChecks[column]![block])
         {
-            throw new IOException("A block of an extent's column does not match its check; the extent is damaged.");
+            throw new DerivedDamageException("A block of an extent's column does not match its check; the extent is damaged.");
         }
 
         return length;
@@ -1056,7 +1055,7 @@ internal class ForwardReader
     }
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
-    private static void ThrowShort() => throw new IOException("An extent is shorter than its directory says.");
+    private static void ThrowShort() => throw new DerivedDamageException("An extent is shorter than its directory says.");
 }
 
 /// <summary>Positions of an extent's open or closing rows, in key order: ULEB128 in format 4, a checked column in 5.</summary>
@@ -1120,7 +1119,7 @@ internal sealed class ColumnReader
     }
 
     /// <summary>The next distance: a row's, or, for the rows within, a row's assertion then its retraction.</summary>
-    /// <exception cref="IOException">Its block does not match its check: the extent is damaged.</exception>
+    /// <exception cref="DerivedDamageException">Its block does not match its check: the extent is damaged.</exception>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal long Next()
     {

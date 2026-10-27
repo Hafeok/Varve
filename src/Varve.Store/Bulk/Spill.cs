@@ -40,10 +40,15 @@ internal sealed class SpillSpace
 
     internal SpillSpace(IDerivedStore store, string load)
     {
-        Store = store;
+        Store = new CheckedSpills(store);
         _root = Prefix + load + "/";
     }
 
+    /// <summary>
+    /// The store the spills are written to and read from, every page of each
+    /// checked as it is read (ADR 0213): a spill found damaged is
+    /// <see cref="DerivedDamageException"/>, never a wrong record.
+    /// </summary>
     internal IDerivedStore Store { get; }
 
     internal List<BlobName> Created { get; } = [];
@@ -98,6 +103,101 @@ internal sealed class SpillSpace
         {
             await Store.DeleteAsync(name, cancellationToken).ConfigureAwait(false);
         }
+    }
+}
+
+/// <summary>
+/// The spills of one load, whatever their layout, checked a page of 4 KiB at
+/// a time (ADR 0213). A spill is written and read back by the same load in
+/// the same process, and never outlives it, so the checks are kept here, in
+/// memory, as each spill is written, and never in the blob: a read of a spill
+/// verifies each page it touches, the first time, through
+/// <see cref="CheckedPages"/>. A page that does not match ends the load
+/// before its commit (<see cref="BulkLoadSpillDamagedException"/>).
+/// </summary>
+[DesignDecision(typeof(VerifiedDerivedData.ASpillDamagedFailsTheLoadUncommitted), Scope = ExceptionScope.Boundary)]
+internal sealed class CheckedSpills(IDerivedStore store) : IDerivedStore
+{
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, Chunked<ulong>> _checks = new(StringComparer.Ordinal);
+
+    public async ValueTask<IBlobWriter> CreateAsync(BlobName name, CancellationToken cancellationToken) =>
+        new Writer(this, name, await store.CreateAsync(name, cancellationToken).ConfigureAwait(false));
+
+    public async ValueTask<IReadableBlob> OpenAsync(BlobName name, CancellationToken cancellationToken)
+    {
+        IReadableBlob blob = await store.OpenAsync(name, cancellationToken).ConfigureAwait(false);
+
+        // A spill this load wrote is read through its checks; its length
+        // must be what was written, or the blob is cut.
+        if (!_checks.TryGetValue(name.Value, out Chunked<ulong>? checks) || checks.Count != (blob.Length.Value + CheckedPages.PageBytes - 1) / CheckedPages.PageBytes)
+        {
+            blob.Dispose();
+            throw new DerivedDamageException("A bulk load's spill is not the length it was written at.");
+        }
+
+        return new Owned(blob, new CheckedPages(blob, 0, blob.Length.Value, checks));
+    }
+
+    public ValueTask<bool> DeleteAsync(BlobName name, CancellationToken cancellationToken)
+    {
+        _checks.TryRemove(name.Value, out _);
+        return store.DeleteAsync(name, cancellationToken);
+    }
+
+    public ValueTask<IReadOnlyList<BlobName>> ListAsync(CancellationToken cancellationToken) => store.ListAsync(cancellationToken);
+
+    /// <summary>A spill being written: a check taken of every page as its bytes pass, kept once it is published.</summary>
+    private sealed class Writer(CheckedSpills owner, BlobName name, IBlobWriter writer) : IBlobWriter
+    {
+        private readonly byte[] _page = new byte[CheckedPages.PageBytes];
+        private readonly Chunked<ulong> _checks = new();
+        private int _filled;
+
+        public ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
+        {
+            ReadOnlySpan<byte> rest = bytes.Span;
+
+            while (rest.Length > 0)
+            {
+                int taken = Math.Min(_page.Length - _filled, rest.Length);
+                rest[..taken].CopyTo(_page.AsSpan(_filled));
+                _filled += taken;
+                rest = rest[taken..];
+
+                if (_filled == _page.Length)
+                {
+                    _checks.Add(BlockCheck.Of(_page));
+                    _filled = 0;
+                }
+            }
+
+            return writer.WriteAsync(bytes, cancellationToken);
+        }
+
+        public async ValueTask PublishAsync(CancellationToken cancellationToken)
+        {
+            if (_filled > 0)
+            {
+                _checks.Add(BlockCheck.Of(_page.AsSpan(0, _filled)));
+                _filled = 0;
+            }
+
+            owner._checks[name.Value] = _checks;
+            await writer.PublishAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        public ValueTask DisposeAsync() => writer.DisposeAsync();
+    }
+
+    /// <summary>The checked view of a spill, which disposes the spill with it.</summary>
+    private sealed class Owned(IReadableBlob blob, CheckedPages pages) : IReadableBlob
+    {
+        public ByteCount Length => blob.Length;
+
+        [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+        public int Read(ByteOffset offset, Span<byte> destination) => pages.Read(offset, destination);
+
+        public void Dispose() => blob.Dispose();
     }
 }
 

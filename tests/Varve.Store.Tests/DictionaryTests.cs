@@ -195,8 +195,8 @@ public class TermFilterTests
         Run run = Run.FromDelta([], [], TermSection.Of(allocations, 0), 0, 1);
         await DerivedFormat.WriteRunAsync(storage.Derived, new BlobName("r"), DerivedFormat.KindRun, T.Id, 0, 1, new byte[32], DerivedFormat.MergeOf([run], dropRetractions: false), [run.Terms], 0, T.Ct);
         LoadedRun loaded = (await DerivedFormat.TryLoadAsync(storage.Derived, new BlobName("r"), T.Id, DerivedFormat.KindRun, T.Ct))!;
-        // Format 3's layout, under version 4 (ADR 0139).
-        Assert.Equal(4, loaded.Header.Version);
+        // Format 3's layout, with every block and page checked, under version 6 (ADR 0213).
+        Assert.Equal(6, loaded.Header.Version);
         TermFilter filter = Assert.IsType<TermFilter>(loaded.Run.Terms.Filter);
         Assert.Equal(TermFilter.LengthFor(Count), filter.Length);
 
@@ -231,15 +231,18 @@ public class TermFilterTests
     }
 
     [Fact]
-    public async Task a_format_2_run_is_read_with_no_filter_and_answers_as_before()
+    public async Task a_format_2_run_is_read_with_no_filter_and_answers_as_before_where_it_may_be_a_sets()
     {
         Allocation[] allocations = [.. Enumerable.Range(0, 500).Select(i => new Allocation(TermIds.Canonical(i + 1), T.Iri("k" + i.ToString(CultureInfo.InvariantCulture))))];
         MemoryStorage storage = new();
         Run run = Run.FromDelta([], [], TermSection.Of(allocations, 0), 0, 1);
         await DerivedFormat.WriteRunAsync(storage.Derived, new BlobName("two"), DerivedFormat.KindRun, T.Id, 0, 1, new byte[32], DerivedFormat.MergeOf([run], dropRetractions: false), [run.Terms], 0, T.Ct, version: 2);
-        await DerivedFormat.WriteRunAsync(storage.Derived, new BlobName("three"), DerivedFormat.KindRun, T.Id, 0, 1, new byte[32], DerivedFormat.MergeOf([run], dropRetractions: false), [run.Terms], 0, T.Ct);
-        LoadedRun two = (await DerivedFormat.TryLoadAsync(storage.Derived, new BlobName("two"), T.Id, DerivedFormat.KindRun, T.Ct))!;
-        LoadedRun three = (await DerivedFormat.TryLoadAsync(storage.Derived, new BlobName("three"), T.Id, DerivedFormat.KindRun, T.Ct))!;
+        await DerivedFormat.WriteRunAsync(storage.Derived, new BlobName("three"), DerivedFormat.KindRun, T.Id, 0, 1, new byte[32], DerivedFormat.MergeOf([run], dropRetractions: false), [run.Terms], 0, T.Ct, version: 4);
+        // A local run below version 6 is a miss (ADR 0213); one read where it
+        // may be a set's, written for an older reader, is read as before.
+        Assert.Null(await DerivedFormat.TryLoadAsync(storage.Derived, new BlobName("two"), T.Id, DerivedFormat.KindRun, T.Ct));
+        LoadedRun two = (await DerivedFormat.TryLoadAsync(storage.Derived, new BlobName("two"), T.Id, DerivedFormat.KindRun, T.Ct, shared: true))!;
+        LoadedRun three = (await DerivedFormat.TryLoadAsync(storage.Derived, new BlobName("three"), T.Id, DerivedFormat.KindRun, T.Ct, shared: true))!;
         Assert.Equal(2, two.Header.Version);
         Assert.Null(two.Run.Terms.Filter);
         Assert.NotNull(three.Run.Terms.Filter);
@@ -260,7 +263,7 @@ public class TermFilterTests
     }
 
     [Fact]
-    public async Task maintenance_and_checkpoints_write_format_4_and_extents_format_5()
+    public async Task maintenance_and_checkpoints_write_the_checked_kinds_as_6_and_extents_as_5()
     {
         MemoryStorage storage = new();
         await using Dataset dataset = await T.OpenOrCreate(storage, new DatasetOptions { Clock = ManualClock.Epoch(), MemtableLimit = new QuadCount(4), CommitCache = T.CommitCache, Maintenance = MaintenanceMode.Off });
@@ -274,10 +277,11 @@ public class TermFilterTests
         }
 
         await dataset.CheckpointAsync(dataset.Head, T.Ct);
-        // Runs keep format 3's layout under version 4; a checkpoint is an
-        // extent set, its order extents and its dictionary extent (ADR 0139),
-        // and its window's commit index, a kind format 4 has (ADR 0161). The
-        // order extents alone are version 5 (ADR 0177).
+        // A checkpoint is an extent set, its order extents and its dictionary
+        // extent (ADR 0139), and its window's commit index (ADR 0161). The
+        // order extents are version 5 (ADR 0177); runs, the dictionary and the
+        // commit index are version 6, every block checked, since a directory
+        // has no reader of an older version (ADR 0213).
         List<string> derived = [.. (await storage.Derived.ListAsync(T.Ct)).Select(n => n.Value).Where(n => n.StartsWith("index/runs/", StringComparison.Ordinal) || (n.StartsWith(ExtentSet.Prefix, StringComparison.Ordinal) && !n.EndsWith("/graphs", StringComparison.Ordinal)))];
         Assert.Contains(derived, n => n.StartsWith("index/runs/", StringComparison.Ordinal));
         Assert.Equal(8, derived.Count(n => n.StartsWith(ExtentSet.Prefix, StringComparison.Ordinal)));
@@ -290,7 +294,7 @@ public class TermFilterTests
                 : DerivedFormat.KindExtent;
             using IReadableBlob blob = await storage.Derived.OpenAsync(new BlobName(name), T.Ct);
             Assert.True(DerivedFormat.TryReadHeader(blob, T.Id, kind, out DerivedHeader header), name);
-            Assert.Equal(kind == DerivedFormat.KindExtent ? 5 : 4, header.Version);
+            Assert.Equal(kind == DerivedFormat.KindExtent ? 5 : 6, header.Version);
         }
     }
 }

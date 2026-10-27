@@ -109,6 +109,16 @@ internal static partial class DerivedFormat
     [DesignDecision(typeof(VerifiedDerivedData.Format5ForExtentsOnly), Scope = ExceptionScope.Boundary)]
     internal const ushort ExtentVersion = 5;
 
+    /// <summary>
+    /// What this build writes a checked kind in: 6 (ADR 0213), which adds a
+    /// 64-bit check of every block to the directory of a run, a checkpoint,
+    /// a commit index blob, a dictionary extent and a checked envelope. A
+    /// set's shared blobs are written in it only once every announced reader
+    /// reads it, and as 4 before.
+    /// </summary>
+    [DesignDecision(typeof(VerifiedDerivedData.OneCheckPerBlock), Scope = ExceptionScope.Boundary)]
+    internal const ushort CheckedVersion = 6;
+
     /// <summary>The oldest derived version this build reads: 2, a run without a filter (ADR 0080).</summary>
     internal const ushort OldestRead = 2;
     internal const ushort KindRun = 1;
@@ -125,6 +135,9 @@ internal static partial class DerivedFormat
 
     /// <summary>The projection catalog (ADR 0139).</summary>
     internal const ushort KindCatalog = 8;
+
+    /// <summary>A checked envelope: a projection's bytes kept by another package, in checked blocks (ADR 0213).</summary>
+    internal const ushort KindEnvelope = 9;
     internal const int HeaderLength = 160;
 
     private const int Sections = Orders.Count * 2;
@@ -136,6 +149,30 @@ internal static partial class DerivedFormat
     internal static int SectionsOf(ushort kind, ushort version) => kind == KindExtent && version >= ExtentVersion ? Sections + 1 : Sections;
 
     private static ReadOnlySpan<byte> Magic => "VRVD"u8;
+
+    /// <summary>Whether a kind is written in <see cref="CheckedVersion"/>, its every block checked (ADR 0213).</summary>
+    internal static bool IsChecked(ushort kind) => kind is KindRun or KindCheckpoint or KindCommits or KindExtentTerms or KindEnvelope;
+
+    /// <summary>
+    /// Whether a derived blob's trailing header, <paramref name="tail"/>, says
+    /// it is written in a format that verifies itself: a checked kind in
+    /// <see cref="CheckedVersion"/>. Only a build that reads version 6 reads
+    /// such a blob, and that build finds a torn one a miss; any older reader
+    /// finds the version a miss before it reads a byte. Such a blob is
+    /// published without a flush (ADR 0213 point 8); every other one keeps it.
+    /// </summary>
+    [DesignDecision(typeof(VerifiedDerivedData.FlushBeforeVisible), Scope = ExceptionScope.Boundary)]
+    internal static bool VerifiesItself(ReadOnlySpan<byte> tail) =>
+        tail.Length == HeaderLength
+        && tail[..4].SequenceEqual(Magic)
+        && BinaryPrimitives.ReadUInt16LittleEndian(tail[4..]) == CheckedVersion
+        && IsChecked(BinaryPrimitives.ReadUInt16LittleEndian(tail[6..]));
+
+    /// <summary>Whether this build reads a blob of this kind in this version: 2 to 4 of any kind, 5 of an extent, 6 of a checked kind.</summary>
+    internal static bool Reads(ushort kind, ushort version) =>
+        version >= OldestRead
+        && (version <= Version || (kind == KindExtent && version == ExtentVersion) || (IsChecked(kind) && version == CheckedVersion))
+        && !(kind == KindEnvelope && version != CheckedVersion);
 
     internal static byte[] EncodeHeader(ushort kind, DatasetId dataset, long from, long to, ReadOnlySpan<byte> toHash, long directoryOffset, long directoryLength, ReadOnlySpan<byte> directoryHash) =>
         EncodeHeader(Version, kind, dataset, from, to, toHash, directoryOffset, directoryLength, directoryHash);
@@ -183,10 +220,10 @@ internal static partial class DerivedFormat
 
         // A version this build does not read is a cache miss (ADR 0072): the
         // file is rebuilt. Versions 2 and 3 differ by the filter section alone;
-        // 5 is an extent's alone (ADR 0177).
+        // 5 is an extent's alone (ADR 0177), and 6 the checked kinds' (ADR 0213).
         ushort version = BinaryPrimitives.ReadUInt16LittleEndian(bytes[4..]);
 
-        if (version < OldestRead || (version > Version && !(kind == KindExtent && version == ExtentVersion)))
+        if (!Reads(kind, version))
         {
             return false;
         }
@@ -225,7 +262,7 @@ internal static partial class DerivedFormat
         TermSection[] terms,
         long blankCount,
         CancellationToken cancellationToken,
-        ushort version = Version) =>
+        ushort version = 0) =>
         await WriteRunAsync(store, name, kind, dataset, from, to, toHash, (i, _) => new ValueTask<IKeySource>(sections[i]), terms, blankCount, cancellationToken, version).ConfigureAwait(false);
 
     /// <summary>
@@ -251,12 +288,19 @@ internal static partial class DerivedFormat
         TermSection[] terms,
         long blankCount,
         CancellationToken cancellationToken,
-        ushort version = Version,
+        ushort version = 0,
         ExtraSections? extra = null)
     {
-        if (version < OldestRead || (version > Version && !(kind == KindExtent && version == ExtentVersion)))
+        // Unsaid, what this build writes the kind in: 6 for a checked kind
+        // (ADR 0213), 4 for the others; an extent says its own.
+        if (version == 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(version), version, "A run is written in derived format 2 to 4, an extent in 4 or 5.");
+            version = IsChecked(kind) ? CheckedVersion : Version;
+        }
+
+        if (!Reads(kind, version) || kind == KindEnvelope)
+        {
+            throw new ArgumentOutOfRangeException(nameof(version), version, "A run is written in derived format 2 to 4 or 6, an extent in 4 or 5.");
         }
 
         // A format-5 extent's rows within are a thirteenth key section (ADR 0177).
@@ -273,8 +317,9 @@ internal static partial class DerivedFormat
         Chunked<long>[] starts = new Chunked<long>[sectionCount];
         Chunked<ulong>[] checks = new Chunked<ulong>[sectionCount];
 
-        // A format-5 extent checks every block (ADR 0177).
-        bool isChecked = sectionCount > Sections;
+        // A format-5 extent checks every block (ADR 0177), and so does every
+        // kind of version 6, its term section in pages too (ADR 0213).
+        bool isChecked = sectionCount > Sections || version >= CheckedVersion;
         blocks.Checked = isChecked;
 
         for (int section = 0; section < sectionCount; section++)
@@ -318,9 +363,11 @@ internal static partial class DerivedFormat
         await writer.WriteAsync(blocks.PendingBytes, cancellationToken).ConfigureAwait(false);
         blocks.Written();
 
+        using TermPages? pages = version >= CheckedVersion ? new TermPages(writer) : null;
         (long canonicalFrom, long canonicalTo, long entriesAt, long entriesLength, long offsetsAt, long hashesAt, long filterAt, long filterLength) =
-            await WriteTermsAsync(writer, terms, offset, version >= 3, cancellationToken).ConfigureAwait(false);
+            await WriteTermsAsync(pages ?? writer, terms, offset, version >= 3, cancellationToken).ConfigureAwait(false);
         offset = filterAt + filterLength;
+        Chunked<ulong>? pageChecks = pages?.Finish();
         byte[] extraWords = [];
         Chunked<ulong>?[]? columnChecks = null;
 
@@ -373,7 +420,7 @@ internal static partial class DerivedFormat
                 }
             }
 
-            for (int section = 0; section < sectionCount; section++)
+            for (int section = 0; section < sectionCount && kind == KindExtent; section++)
             {
                 Chunked<ulong> column = columnChecks?[section] ?? new Chunked<ulong>();
 
@@ -407,6 +454,16 @@ internal static partial class DerivedFormat
 
         part.Write(extraWords);
         await directory.WriteAsync(part.WrittenMemory, cancellationToken).ConfigureAwait(false);
+
+        // Version 6: a check of every page of the term section, after the
+        // tail, whose words say how many pages there are (ADR 0213).
+        if (pageChecks is not null)
+        {
+            for (int chunk = 0; chunk < pageChecks.ChunkCount; chunk++)
+            {
+                await directory.WriteAsync(pageChecks, chunk, cancellationToken).ConfigureAwait(false);
+            }
+        }
 
         byte[] header = EncodeHeader(version, kind, dataset, from, to, toHash, offset, directory.Length, directory.Hash());
         await writer.WriteAsync(header, cancellationToken).ConfigureAwait(false);
@@ -568,13 +625,15 @@ internal static partial class DerivedFormat
         long length = source.Length.Value;
         byte[] old = new byte[HeaderLength];
         source.Read(new ByteOffset(length - HeaderLength), old);
+        // The version stays: a version-6 run's layout is not a version-4 one's.
+        ushort version = BinaryPrimitives.ReadUInt16LittleEndian(old.AsSpan(4));
         ushort kind = BinaryPrimitives.ReadUInt16LittleEndian(old.AsSpan(6));
         DatasetId dataset = DatasetId.Read(old.AsSpan(8, DatasetId.Length));
         long from = (long)BinaryPrimitives.ReadUInt64LittleEndian(old.AsSpan(24));
         long to = (long)BinaryPrimitives.ReadUInt64LittleEndian(old.AsSpan(32));
         long directoryOffset = (long)BinaryPrimitives.ReadUInt64LittleEndian(old.AsSpan(72));
         long directoryLength = (long)BinaryPrimitives.ReadUInt64LittleEndian(old.AsSpan(80));
-        byte[] header = EncodeHeader(kind, dataset, from, to, toHash, directoryOffset, directoryLength, old.AsSpan(88, LogFormat.HashLength));
+        byte[] header = EncodeHeader(version, kind, dataset, from, to, toHash, directoryOffset, directoryLength, old.AsSpan(88, LogFormat.HashLength));
 
         await using IBlobWriter writer = await store.CreateAsync(name, cancellationToken).ConfigureAwait(false);
         byte[] buffer = new byte[1 << 20];
@@ -597,7 +656,12 @@ internal static partial class DerivedFormat
     /// A run or checkpoint over its blob, or null when the blob is not one this
     /// store can use. The blob stays open, held by the run's <see cref="RunBlob"/>.
     /// </summary>
-    internal static async ValueTask<LoadedRun?> TryLoadAsync(IDerivedStore store, BlobName name, DatasetId dataset, ushort kind, CancellationToken cancellationToken)
+    /// <remarks>
+    /// A checked kind (ADR 0213) below version 6 is used only where
+    /// <paramref name="shared"/> says it may be a set's, written for a reader
+    /// of version 4 or 5: a local run or checkpoint below 6 is a miss.
+    /// </remarks>
+    internal static async ValueTask<LoadedRun?> TryLoadAsync(IDerivedStore store, BlobName name, DatasetId dataset, ushort kind, CancellationToken cancellationToken, bool shared = false)
     {
         IReadableBlob blob;
 
@@ -614,7 +678,7 @@ internal static partial class DerivedFormat
 
         try
         {
-            loaded = TryLoad(blob, name, dataset, kind);
+            loaded = TryLoad(blob, name, dataset, kind, shared);
             return loaded;
         }
         finally
@@ -626,9 +690,11 @@ internal static partial class DerivedFormat
         }
     }
 
-    private static LoadedRun? TryLoad(IReadableBlob blob, BlobName name, DatasetId dataset, ushort kind)
+    [DesignDecision(typeof(VerifiedDerivedData.OlderLocalBlobsAreAMiss), Scope = ExceptionScope.Boundary)]
+    private static LoadedRun? TryLoad(IReadableBlob blob, BlobName name, DatasetId dataset, ushort kind, bool shared)
     {
-        if (!TryReadHeader(blob, dataset, kind, out DerivedHeader header))
+        if (!TryReadHeader(blob, dataset, kind, out DerivedHeader header)
+            || (IsChecked(kind) && header.Version < CheckedVersion && !shared))
         {
             return null;
         }
@@ -681,10 +747,14 @@ internal static partial class DerivedFormat
             keysEnd += lengths[section];
         }
 
-        // A format-5 extent carries two checks a block, its keys' and its column's (ADR 0177).
-        bool isChecked = sectionCount > Sections;
+        // A format-5 extent carries two checks a block, its keys' and its
+        // column's (ADR 0177); a version-6 run one, its keys', and after its
+        // tail one for every page of its term section (ADR 0213).
+        bool isChecked = sectionCount > Sections || header.Version >= CheckedVersion;
+        bool hasColumns = sectionCount > Sections;
+        long pagesLength = header.DirectoryLength - (fixedLength + (blocksTotal * (QuadKey.Size + 8 + (isChecked ? 8 : 0) + (hasColumns ? 8 : 0))) + (tailWords * 8));
 
-        if (header.DirectoryLength != fixedLength + (blocksTotal * (QuadKey.Size + 8 + (isChecked ? 16 : 0))) + (tailWords * 8))
+        if (header.Version >= CheckedVersion ? pagesLength < 8 || pagesLength % 8 != 0 : pagesLength != 0)
         {
             return null;
         }
@@ -725,9 +795,9 @@ internal static partial class DerivedFormat
         if (isChecked)
         {
             checks = new Chunked<ulong>[sectionCount];
-            columnChecks = new Chunked<ulong>[sectionCount];
+            columnChecks = hasColumns ? new Chunked<ulong>[sectionCount] : null;
 
-            foreach (Chunked<ulong>[] read in (Chunked<ulong>[][])[checks, columnChecks])
+            foreach (Chunked<ulong>[] read in hasColumns ? (Chunked<ulong>[][])[checks, columnChecks!] : [checks])
             {
                 for (int section = 0; section < sectionCount; section++)
                 {
@@ -744,7 +814,35 @@ internal static partial class DerivedFormat
         Span<byte> tail = stackalloc byte[(9 + ExtentInfo.TailWords5) * 8];
         tail = tail[..(tailWords * 8)];
 
-        if (!directory.TryRead(tail) || !directory.HashMatches(header.DirectoryHash))
+        if (!directory.TryRead(tail))
+        {
+            return null;
+        }
+
+        // Version 6: the term section's page checks, as many as its pages
+        // (ADR 0213), and only then is the directory's hash known.
+        Chunked<ulong>? pageChecks = null;
+
+        if (header.Version >= CheckedVersion)
+        {
+            long termsAt = (long)BinaryPrimitives.ReadUInt64LittleEndian(tail[16..]);
+            long termsEnd = (long)BinaryPrimitives.ReadUInt64LittleEndian(tail[56..]) + (long)BinaryPrimitives.ReadUInt64LittleEndian(tail[64..]);
+            long pages = (termsEnd - termsAt + CheckedPages.PageBytes - 1) / CheckedPages.PageBytes;
+
+            if (termsAt < 0 || termsEnd < termsAt || pages * 8 != pagesLength)
+            {
+                return null;
+            }
+
+            pageChecks = new Chunked<ulong>(pages);
+
+            if (!directory.TryReadChecks(pages, pageChecks))
+            {
+                return null;
+            }
+        }
+
+        if (!directory.HashMatches(header.DirectoryHash))
         {
             return null;
         }
@@ -789,8 +887,16 @@ internal static partial class DerivedFormat
 
             byte[] bits = new byte[filterLength];
 
-            if (blob.Read(new ByteOffset(filterAt), bits) != bits.Length)
+            try
             {
+                if (Terms(blob, pageChecks, entriesAt, filterAt + filterLength).Read(new ByteOffset(filterAt), bits) != bits.Length)
+                {
+                    return null;
+                }
+            }
+            catch (DerivedDamageException)
+            {
+                // A filter page that does not match its check: the run is a miss.
                 return null;
             }
 
@@ -842,14 +948,72 @@ internal static partial class DerivedFormat
             return null;
         }
 
-        TermSection termSection = TermSection.On(blob, canonicalFrom, canonicalTo, entriesAt, entriesLength, offsetsAt, hashesAt, filter);
+        TermSection termSection = TermSection.On(Terms(blob, pageChecks, entriesAt, hashesEnd + (filter is null ? 0 : TermFilter.LengthFor(terms))), canonicalFrom, canonicalTo, entriesAt, entriesLength, offsetsAt, hashesAt, filter);
         return new LoadedRun(new Run(asserted, retracted, header.From, header.To, termSection, owner), header, blank, extent);
     }
+
+    // What a run's term section is read through: the blob, or, in version 6,
+    // the blob with every page of the section checked before it is used.
+    private static IReadableBlob Terms(IReadableBlob blob, Chunked<ulong>? pageChecks, long from, long to) =>
+        pageChecks is null ? blob : new CheckedPages(blob, from, to, pageChecks);
 
     // A format-5 extent's column checks by column: its open positions',
     // its closing positions' and its rows within's (ADR 0177).
     private static (Chunked<ulong> Open, Chunked<ulong> Close, Chunked<ulong> Within)? ColumnChecksOf(Chunked<ulong>[]? columnChecks, int order) =>
         columnChecks is null || order >= Orders.Count ? null : (columnChecks[order * 2], columnChecks[(order * 2) + 1], columnChecks[Sections]);
+
+    /// <summary>
+    /// A version-6 run's term section on its way to the blob, a check taken of
+    /// every page of 4 KiB from the section's start (ADR 0213).
+    /// </summary>
+    private sealed class TermPages(IBlobWriter writer) : IBlobWriter, IDisposable
+    {
+        private readonly byte[] _page = ArrayPool<byte>.Shared.Rent(CheckedPages.PageBytes);
+        private readonly Chunked<ulong> _checks = new();
+        private int _filled;
+
+        public async ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
+        {
+            Take(bytes.Span);
+            await writer.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+        }
+
+        public ValueTask PublishAsync(CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("A run's term section is published with the run.");
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        public void Dispose() => ArrayPool<byte>.Shared.Return(_page);
+
+        /// <summary>The checks of every page, the last one short.</summary>
+        internal Chunked<ulong> Finish()
+        {
+            if (_filled > 0)
+            {
+                _checks.Add(BlockCheck.Of(_page.AsSpan(0, _filled)));
+                _filled = 0;
+            }
+
+            return _checks;
+        }
+
+        private void Take(ReadOnlySpan<byte> bytes)
+        {
+            while (bytes.Length > 0)
+            {
+                int taken = Math.Min(CheckedPages.PageBytes - _filled, bytes.Length);
+                bytes[..taken].CopyTo(_page.AsSpan(_filled));
+                _filled += taken;
+                bytes = bytes[taken..];
+
+                if (_filled == CheckedPages.PageBytes)
+                {
+                    _checks.Add(BlockCheck.Of(_page.AsSpan(0, CheckedPages.PageBytes)));
+                    _filled = 0;
+                }
+            }
+        }
+    }
 
     /// <summary>A run's directory, written to its blob in parts and hashed as it goes.</summary>
     private sealed class DirectoryWriter(IBlobWriter writer) : IDisposable
