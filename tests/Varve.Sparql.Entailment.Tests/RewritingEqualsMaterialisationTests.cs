@@ -84,6 +84,79 @@ public class RewritingEqualsMaterialisationTests
         Gen.Select(Graph, Graph, Graph, Bgp)
             .Sample((tbox, data, named, bgp) => Same(tbox, data, named, bgp, EntailmentRegime.Rdfs, Scope.NamedVariable), iter: Iterations);
 
+    /// <summary>
+    /// Two bindings and a graph neither covers (ADR 0193 point 1, ADR 0194
+    /// point 2): each graph is read merged with its own binding's TBox, the
+    /// default graph among them, a TBox graph and the uncovered graph over
+    /// their own triples.
+    /// </summary>
+    [Fact]
+    public void Rewriting_merges_each_graph_with_the_TBox_of_the_binding_that_covers_it() =>
+        Gen.Select(Gen.Select(Graph, Graph), Gen.Select(Graph, Graph, Graph, Graph), Bgp, Gen.Bool)
+            .Sample((tboxes, graphs, bgp, byGraph) => SameUnderTwo(tboxes, graphs, bgp, byGraph), iter: Iterations);
+
+    private static readonly RdfTerm Tbox2 = Named("tbox2");
+    private static readonly RdfTerm G2 = Named("g2");
+    private static readonly RdfTerm G3 = Named("g3");
+
+    private static void SameUnderTwo(
+        ((RdfTerm, RdfTerm, RdfTerm)[] One, (RdfTerm, RdfTerm, RdfTerm)[] Two) tboxes,
+        ((RdfTerm, RdfTerm, RdfTerm)[] Data, (RdfTerm, RdfTerm, RdfTerm)[] G1, (RdfTerm, RdfTerm, RdfTerm)[] G2, (RdfTerm, RdfTerm, RdfTerm)[] G3) graphs,
+        Slot[][] bgp,
+        bool byGraph)
+    {
+        (RdfTerm Name, (RdfTerm, RdfTerm, RdfTerm)[] Triples, (RdfTerm, RdfTerm, RdfTerm)[] Merged)[] named =
+        [
+            (Tbox, tboxes.One, []), (Tbox2, tboxes.Two, []), (G1, graphs.G1, tboxes.One), (G2, graphs.G2, tboxes.Two), (G3, graphs.G3, []),
+        ];
+        InMemoryDatasetBuilder builder = new();
+        foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in graphs.Data)
+        {
+            builder.Add(s, p, o);
+        }
+
+        foreach ((RdfTerm name, (RdfTerm, RdfTerm, RdfTerm)[] triples, _) in named)
+        {
+            foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in triples)
+            {
+                builder.Add(s, p, o, name);
+            }
+        }
+
+        // The first binding covers g1; the second g2 and the default graph.
+        TBoxCover[] covers =
+        [
+            new([Tbox], GraphScope.Of([G1], [], DefaultGraphAccess.Excluded)),
+            new([Tbox2], GraphScope.Of([G2], [], DefaultGraphAccess.Included)),
+        ];
+        string patterns = string.Join(" . ", bgp.Select(t => t[0].Text + " " + t[1].Text + " " + t[2].Text));
+        string query = byGraph ? "SELECT * { GRAPH ?g { " + patterns + " } }" : "SELECT * { " + patterns + " }";
+        List<string> expected = [];
+        if (byGraph)
+        {
+            foreach ((RdfTerm name, (RdfTerm, RdfTerm, RdfTerm)[] triples, (RdfTerm, RdfTerm, RdfTerm)[] merged) in named)
+            {
+                if (triples.Length > 0)
+                {
+                    expected.AddRange(Oracle.Solutions(EntailmentRegime.Rdfs, [.. merged, .. triples], bgp, "g", name));
+                }
+            }
+
+            expected.Sort(StringComparer.Ordinal);
+        }
+        else
+        {
+            expected = Oracle.Solutions(EntailmentRegime.Rdfs, [.. tboxes.Two, .. graphs.Data], bgp);
+        }
+
+        List<string> actual = Run(query, builder.ToDataset(), EntailmentRegime.Rdfs, covers);
+        Assert.True(
+            expected.SequenceEqual(actual),
+            query + "\nTBox 1: " + Show(tboxes.One) + "\nTBox 2: " + Show(tboxes.Two) + "\ndata: " + Show(graphs.Data)
+            + "\ng1: " + Show(graphs.G1) + "\ng2: " + Show(graphs.G2) + "\ng3: " + Show(graphs.G3)
+            + "\nmissing:\n  " + string.Join("\n  ", Minus(expected, actual)) + "\nextra:\n  " + string.Join("\n  ", Minus(actual, expected)));
+    }
+
     private enum Scope
     {
         Default,

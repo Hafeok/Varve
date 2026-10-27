@@ -111,8 +111,11 @@ distinct Σ it can meet:
 - **`GRAPH ?g`:** the named graphs that hold a triple with a schema predicate
   of their own are found by the same `Match` over every named graph,
   unmerged. Each gets its own Σ and a branch `VALUES ?g { … }` joined with
-  `GRAPH ?g { P′ }`. Every other named graph shares the TBox's Σ, in one
-  branch that filters those graphs out.
+  `GRAPH ?g { P′ }`. Every other named graph shares the Σ of its binding's
+  TBox, in one such branch per binding that lists the graphs it covers, and
+  the graphs no binding covers share the axioms' Σ in one more. The named
+  graphs are enumerated once per request for it, as the merge enumerates
+  them.
 - A schema triple inside a data graph therefore acts on that graph alone.
 
 ### 3. Each pattern is rewritten into the asserted patterns that entail it

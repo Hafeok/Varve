@@ -12,58 +12,73 @@ using Varve.Rdf;
 namespace Varve.Sparql.Entailment;
 
 /// <summary>
-/// A quad source in which every graph is read merged with the TBox graphs
-/// (ADR 0193 point 1): a <see cref="Match"/> of a graph also matches the TBox
-/// graphs, each TBox quad reported in the matched graph, and one over every
-/// named graph reports it once per named graph. A TBox quad the matched graph
-/// also holds is reported once.
+/// A quad source in which every graph is read merged with the TBox graphs of
+/// the binding that covers it (ADR 0193 point 1): a <see cref="Match"/> of a
+/// graph also matches its TBox graphs, each TBox quad reported in the matched
+/// graph, and one over every named graph reports it once per covered named
+/// graph. A TBox quad the matched graph also holds is reported once. A graph
+/// no binding covers is read as it is.
 /// </summary>
 /// <remarks>
 /// Built once per request over the request's pinned, scoped source, which it
-/// does not own; not shared between threads. The named graphs are enumerated
-/// the first time a match over every named graph finds a TBox quad, and then
-/// held for the request.
+/// does not own; not shared between threads. Which binding covers a graph is
+/// decided once per graph handle; the named graphs are enumerated the first
+/// time a match over every named graph needs them, and then held for the
+/// request.
 /// </remarks>
 [Contract(typeof(RdfsRdfAndDByRewriting.TBoxMergedIntoEveryGraph), Role = "every graph read with the TBox graphs")]
 internal sealed class TBoxMerge : IQuadSource
 {
-    private readonly TermHandle[] _tbox;
-    private readonly RdfTerm[] _tboxTerms;
+    private readonly TBoxCover[] _covers;
+    private readonly TermHandle[][] _tbox;
+    private readonly Dictionary<TermHandle, int> _coverOf;
+    private int _coverOfDefault = -2;
     private List<TermHandle>? _named;
+    private List<TermHandle>[]? _coveredNamed;
 
-    /// <summary><paramref name="inner"/>, with <paramref name="tboxGraphs"/> merged into each graph; a graph it does not hold is empty.</summary>
-    internal TBoxMerge(IQuadSource inner, IEnumerable<RdfTerm> tboxGraphs)
+    /// <summary><paramref name="inner"/>, each graph merged with the TBox graphs of the one of <paramref name="covers"/> that covers it.</summary>
+    internal TBoxMerge(IQuadSource inner, IReadOnlyList<TBoxCover> covers)
     {
         ArgumentNullException.ThrowIfNull(inner);
-        ArgumentNullException.ThrowIfNull(tboxGraphs);
+        ArgumentNullException.ThrowIfNull(covers);
         Inner = inner;
-        List<TermHandle> handles = [];
-        foreach (RdfTerm graph in tboxGraphs)
+        _coverOf = new Dictionary<TermHandle, int>(inner.TermComparer);
+        _covers = [.. covers];
+        _tbox = new TermHandle[_covers.Length][];
+        for (int c = 0; c < _covers.Length; c++)
         {
-            if (inner.TryInternalise(graph, out TermHandle handle) && !handles.Exists(h => inner.TermComparer.Equals(h, handle)))
+            List<TermHandle> handles = [];
+            foreach (RdfTerm graph in _covers[c].TBoxGraphs)
             {
-                handles.Add(handle);
+                if (inner.TryInternalise(graph, out TermHandle handle) && !handles.Exists(h => inner.TermComparer.Equals(h, handle)))
+                {
+                    handles.Add(handle);
+                }
             }
-        }
 
-        _tbox = [.. handles];
-        List<RdfTerm> terms = [];
-        foreach (TermHandle handle in _tbox)
-        {
-            if (inner.TryExternalise(handle, out RdfTerm? term))
-            {
-                terms.Add(term);
-            }
+            _tbox[c] = [.. handles];
         }
-
-        _tboxTerms = [.. terms];
     }
 
-    /// <summary>The TBox graphs the source holds, as handles.</summary>
-    internal IReadOnlyList<TermHandle> TBoxGraphs => _tbox;
+    /// <summary>The bindings, in the order given.</summary>
+    internal IEnumerable<CoverIndex> Covers()
+    {
+        for (int c = 0; c < _covers.Length; c++)
+        {
+            yield return new CoverIndex(c);
+        }
+    }
 
-    /// <summary>The TBox graphs the source holds, as terms.</summary>
-    internal IReadOnlyList<RdfTerm> TBoxGraphTerms => _tboxTerms;
+    /// <summary>A binding's TBox graphs the source holds, as handles.</summary>
+    internal IReadOnlyList<TermHandle> TBoxGraphsOf(CoverIndex cover) => _tbox[cover.Value];
+
+    /// <summary>The binding that covers a graph, if one does; <see cref="TermHandle.None"/> is the default graph.</summary>
+    internal bool TryGetCover(TermHandle graph, out CoverIndex cover)
+    {
+        int of = _covers.Length == 0 ? -1 : CoverOf(graph);
+        cover = new CoverIndex(of);
+        return of >= 0;
+    }
 
     /// <summary>The source the merge reads.</summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
@@ -96,9 +111,10 @@ internal sealed class TBoxMerge : IQuadSource
             return true;
         }
 
-        for (int i = 0; i < _tbox.Length; i++)
+        TermHandle[] tbox = TBoxOf(quad.Graph);
+        for (int i = 0; i < tbox.Length; i++)
         {
-            Quad there = new(quad.Subject, quad.Predicate, quad.Object, _tbox[i]);
+            Quad there = new(quad.Subject, quad.Predicate, quad.Object, tbox[i]);
             if (Inner.Contains(in there))
             {
                 return true;
@@ -112,48 +128,111 @@ internal sealed class TBoxMerge : IQuadSource
     public IQuadCursor Match(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph)
     {
         IQuadCursor own = Inner.Match(subject, predicate, @object, graph);
-        if (_tbox.Length == 0)
+        if (_covers.Length == 0)
         {
             return own;
         }
 
-        return graph.Match switch
+        switch (graph.Match)
         {
-            GraphMatch.DefaultGraph => new Cursor(this, own, subject, predicate, @object, [TermHandle.None]),
-            GraphMatch.Named => new Cursor(this, own, subject, predicate, @object, [graph.Graph]),
-            GraphMatch.AnyNamed => new Cursor(this, own, subject, predicate, @object, null),
-            _ => new Cursor(this, own, subject, predicate, @object, null, includeDefault: true),
-        };
+            case GraphMatch.DefaultGraph:
+            case GraphMatch.Named:
+                TermHandle target = graph.Match == GraphMatch.Named ? graph.Graph : TermHandle.None;
+                int cover = CoverOf(target);
+                return cover < 0 || _tbox[cover].Length == 0 ? own : new Cursor(this, own, subject, predicate, @object, cover, target);
+            case GraphMatch.AnyNamed:
+                return new Cursor(this, own, subject, predicate, @object, includeDefault: false);
+            default:
+                return new Cursor(this, own, subject, predicate, @object, includeDefault: true);
+        }
     }
 
     /// <inheritdoc />
-    /// <remarks>The graph's own estimate plus the TBox graphs', as an estimate: a TBox quad may be in the graph too.</remarks>
+    /// <remarks>The graph's own estimate plus its TBox graphs', as an estimate: a TBox quad may be in the graph too.</remarks>
     public CardinalityEstimate Estimate(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph)
     {
         CardinalityEstimate own = Inner.Estimate(subject, predicate, @object, graph);
-        if (_tbox.Length == 0)
+        if (_covers.Length == 0 || own.IsUnknown)
         {
             return own;
         }
 
-        long total = own.IsUnknown ? 0 : own.Count.Value;
-        long copies = graph.Match is GraphMatch.DefaultGraph or GraphMatch.Named ? 1 : Math.Max(1, NamedGraphs().Count);
-        foreach (TermHandle tbox in _tbox)
+        long total = own.Count.Value;
+        for (int c = 0; c < _covers.Length; c++)
         {
-            CardinalityEstimate there = Inner.Estimate(subject, predicate, @object, GraphPattern.Named(tbox));
-            if (there.IsUnknown)
+            long copies = graph.Match switch
             {
-                return CardinalityEstimate.Unknown;
+                GraphMatch.DefaultGraph => CoverOf(TermHandle.None) == c ? 1 : 0,
+                GraphMatch.Named => CoverOf(graph.Graph) == c ? 1 : 0,
+                GraphMatch.AnyNamed => CoveredNamedGraphs(c).Count,
+                _ => CoveredNamedGraphs(c).Count + (CoverOf(TermHandle.None) == c ? 1 : 0),
+            };
+
+            if (copies == 0)
+            {
+                continue;
             }
 
-            total += there.Count.Value * copies;
+            foreach (TermHandle tbox in _tbox[c])
+            {
+                CardinalityEstimate there = Inner.Estimate(subject, predicate, @object, GraphPattern.Named(tbox));
+                if (there.IsUnknown)
+                {
+                    return CardinalityEstimate.Unknown;
+                }
+
+                total += there.Count.Value * copies;
+            }
         }
 
-        return own.IsUnknown ? CardinalityEstimate.Unknown : CardinalityEstimate.Estimated(new QuadCount(total));
+        return CardinalityEstimate.Estimated(new QuadCount(total));
+    }
+
+    // The index of the binding that covers a graph, or -1, decided once per handle.
+    [DesignDecision(typeof(RdfsRdfAndDByRewriting.TBoxMergedIntoEveryGraph), Scope = ExceptionScope.HotPath)]
+    private int CoverOf(TermHandle graph)
+    {
+        if (graph.IsNone)
+        {
+            if (_coverOfDefault == -2)
+            {
+                _coverOfDefault = Decide(null);
+            }
+
+            return _coverOfDefault;
+        }
+
+        if (!_coverOf.TryGetValue(graph, out int cover))
+        {
+            cover = Inner.TryExternalise(graph, out RdfTerm? term) ? Decide(term) : -1;
+            _coverOf[graph] = cover;
+        }
+
+        return cover;
+
+        int Decide(RdfTerm? term)
+        {
+            for (int c = 0; c < _covers.Length; c++)
+            {
+                if (_covers[c].Covers(term))
+                {
+                    return c;
+                }
+            }
+
+            return -1;
+        }
+    }
+
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private TermHandle[] TBoxOf(TermHandle graph)
+    {
+        int cover = _covers.Length == 0 ? -1 : CoverOf(graph);
+        return cover < 0 ? [] : _tbox[cover];
     }
 
     /// <summary>The dataset's named graphs, enumerated once per request.</summary>
-    private List<TermHandle> NamedGraphs()
+    internal List<TermHandle> NamedGraphs()
     {
         if (_named is not null)
         {
@@ -177,9 +256,36 @@ internal sealed class TBoxMerge : IQuadSource
         return named;
     }
 
+    /// <summary>The named graphs a binding covers, partitioned once per request.</summary>
+    internal List<TermHandle> CoveredNamedGraphs(CoverIndex cover) => CoveredNamedGraphs(cover.Value);
+
+    private List<TermHandle> CoveredNamedGraphs(int cover)
+    {
+        if (_coveredNamed is null)
+        {
+            _coveredNamed = new List<TermHandle>[_covers.Length];
+            for (int c = 0; c < _covers.Length; c++)
+            {
+                _coveredNamed[c] = [];
+            }
+
+            foreach (TermHandle graph in NamedGraphs())
+            {
+                int of = CoverOf(graph);
+                if (of >= 0)
+                {
+                    _coveredNamed[of].Add(graph);
+                }
+            }
+        }
+
+        return _coveredNamed[cover];
+    }
+
     /// <summary>
-    /// The graph's own quads, then the TBox graphs' relabelled to each graph
-    /// matched, skipping those the graph holds itself.
+    /// The graph's own quads, then each binding's TBox graphs' relabelled to
+    /// each graph matched that it covers, skipping those the graph holds
+    /// itself.
     /// </summary>
     [DesignDecision(typeof(RdfsRdfAndDByRewriting.TBoxMergedIntoEveryGraph), Scope = ExceptionScope.HotPath)]
     private sealed class Cursor : IQuadCursor
@@ -190,23 +296,38 @@ internal sealed class TBoxMerge : IQuadSource
         private readonly TermHandle _predicate;
         private readonly TermHandle _object;
         private readonly bool _includeDefault;
-        private List<TermHandle>? _targets;
+        private readonly TermHandle _single;
+        private readonly bool _isSingle;
         private bool _ownDone;
+        private int _cover;
+        private readonly int _lastCover;
+        private List<TermHandle>? _targets;
         private int _tboxIndex;
         private int _targetIndex;
         private IQuadCursor? _tboxCursor;
         private Quad _found;
         private bool _hasFound;
 
-        internal Cursor(TBoxMerge owner, IQuadCursor own, TermHandle subject, TermHandle predicate, TermHandle @object, List<TermHandle>? targets, bool includeDefault = false)
+        // One graph, covered by one binding.
+        internal Cursor(TBoxMerge owner, IQuadCursor own, TermHandle subject, TermHandle predicate, TermHandle @object, int cover, TermHandle graph)
+            : this(owner, own, subject, predicate, @object, includeDefault: false)
+        {
+            _cover = cover;
+            _lastCover = cover;
+            _single = graph;
+            _isSingle = true;
+        }
+
+        // Every named graph, and the default graph too when asked.
+        internal Cursor(TBoxMerge owner, IQuadCursor own, TermHandle subject, TermHandle predicate, TermHandle @object, bool includeDefault)
         {
             _owner = owner;
             _own = own;
             _subject = subject;
             _predicate = predicate;
             _object = @object;
-            _targets = targets;
             _includeDefault = includeDefault;
+            _lastCover = owner._covers.Length - 1;
         }
 
         public Quad Current { get; private set; }
@@ -225,11 +346,20 @@ internal sealed class TBoxMerge : IQuadSource
                 _ownDone = true;
             }
 
-            while (_tboxIndex < _owner._tbox.Length)
+            while (_cover <= _lastCover)
             {
+                TermHandle[] tbox = _owner._tbox[_cover];
+                if (_tboxIndex >= tbox.Length || (_tboxIndex == 0 && _tboxCursor is null && Targets().Count == 0))
+                {
+                    _cover++;
+                    _tboxIndex = 0;
+                    _targets = null;
+                    continue;
+                }
+
                 if (!_hasFound)
                 {
-                    _tboxCursor ??= _owner.Inner.Match(_subject, _predicate, _object, GraphPattern.Named(_owner._tbox[_tboxIndex]));
+                    _tboxCursor ??= _owner.Inner.Match(_subject, _predicate, _object, GraphPattern.Named(tbox[_tboxIndex]));
                     if (!_tboxCursor.MoveNext())
                     {
                         _tboxCursor.Dispose();
@@ -261,6 +391,7 @@ internal sealed class TBoxMerge : IQuadSource
             return false;
         }
 
+        // The graphs matched that the current binding covers.
         private List<TermHandle> Targets()
         {
             if (_targets is not null)
@@ -268,10 +399,23 @@ internal sealed class TBoxMerge : IQuadSource
                 return _targets;
             }
 
-            List<TermHandle> targets = _includeDefault ? [TermHandle.None] : [];
-            targets.AddRange(_owner.NamedGraphs());
-            _targets = targets;
-            return targets;
+            if (_isSingle)
+            {
+                _targets = [_single];
+                return _targets;
+            }
+
+            List<TermHandle> covered = _owner.CoveredNamedGraphs(_cover);
+            if (_includeDefault && _owner.CoverOf(TermHandle.None) == _cover)
+            {
+                _targets = [TermHandle.None, .. covered];
+            }
+            else
+            {
+                _targets = covered;
+            }
+
+            return _targets;
         }
 
         public void Dispose()
@@ -281,3 +425,7 @@ internal sealed class TBoxMerge : IQuadSource
         }
     }
 }
+
+/// <summary>A binding's place among a merge's bindings.</summary>
+/// <param name="Value">Its index.</param>
+internal readonly record struct CoverIndex(int Value);

@@ -16,4 +16,11 @@ static Varve.Sparql.Entailment.LiteralValues.Canonical(Varve.Rdf.RdfTerm! term) 
 static Varve.Sparql.Entailment.LiteralValues.FunctionIri.get -> Varve.Rdf.RdfTerm!
 static Varve.Sparql.Entailment.LiteralValues.HasValueType(Varve.Rdf.RdfTerm! literal, Varve.Rdf.RdfTerm! datatype) -> bool
 static Varve.Sparql.Entailment.LiteralValues.HasValueTypeIri.get -> Varve.Rdf.RdfTerm!
-static Varve.Sparql.Entailment.EntailmentRewriter.Rewrite(Varve.Sparql.Algebra.Query! query, Varve.Rdf.IQuadSource! source, System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! tboxGraphs, Varve.Sparql.Entailment.Model.EntailmentRegime regime, System.Collections.Generic.IReadOnlyCollection<Varve.Rdf.RdfTerm!>? recognisedDatatypes = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Varve.Sparql.Entailment.EntailedQuery!
+Varve.Sparql.Entailment.TBoxCover
+Varve.Sparql.Entailment.TBoxCover.Covers(Varve.Rdf.RdfTerm? graph) -> bool
+Varve.Sparql.Entailment.TBoxCover.DataGraphs.get -> Varve.Rdf.GraphScope!
+Varve.Sparql.Entailment.TBoxCover.TBoxCover(System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! tboxGraphs, Varve.Rdf.GraphScope! dataGraphs) -> void
+Varve.Sparql.Entailment.TBoxCover.TBoxGraphs.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+static Varve.Sparql.Entailment.EntailmentRewriter.Rewrite(Varve.Sparql.Algebra.Query! query, Varve.Rdf.IQuadSource! source, System.Collections.Generic.IReadOnlyList<Varve.Sparql.Entailment.TBoxCover!>! covers, Varve.Sparql.Entailment.Model.EntailmentRegime regime, System.Collections.Generic.IReadOnlyCollection<Varve.Rdf.RdfTerm!>? recognisedDatatypes = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Varve.Sparql.Entailment.EntailedQuery!
+Varve.Sparql.Entailment.TBoxCover.Excluded.get -> Varve.Rdf.GraphScope!
+Varve.Sparql.Entailment.TBoxCover.Excluded.init -> void

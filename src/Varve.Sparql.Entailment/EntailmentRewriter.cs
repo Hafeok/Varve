@@ -47,8 +47,9 @@ public static class EntailmentRewriter
     /// <summary>
     /// <paramref name="query"/> under <paramref name="regime"/>, reading
     /// <paramref name="source"/> — the request's pinned, scoped view — with
-    /// <paramref name="tboxGraphs"/> merged into every graph. Under simple
-    /// entailment, the query and the source as given.
+    /// each graph merged with the TBox graphs of the one of
+    /// <paramref name="covers"/> that covers it. Under simple entailment, the
+    /// query and the source as given.
     /// </summary>
     /// <remarks>
     /// <paramref name="recognisedDatatypes"/> is RDF 1.1 Semantics' D, beside
@@ -57,17 +58,22 @@ public static class EntailmentRewriter
     /// Varve.Xsd's map under D. A datatype outside Varve.Xsd's map is
     /// recognised by name only.
     /// </remarks>
-    public static EntailedQuery Rewrite(Query query, IQuadSource source, IReadOnlyList<RdfTerm> tboxGraphs, EntailmentRegime regime, IReadOnlyCollection<RdfTerm>? recognisedDatatypes = null, CancellationToken cancellationToken = default)
+    /// <remarks>
+    /// A graph is covered by at most one binding (ADR 0194 point 2); were two
+    /// to cover it, the first would. A graph none covers is read over its own
+    /// triples, its TBox empty.
+    /// </remarks>
+    public static EntailedQuery Rewrite(Query query, IQuadSource source, IReadOnlyList<TBoxCover> covers, EntailmentRegime regime, IReadOnlyCollection<RdfTerm>? recognisedDatatypes = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
         ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(tboxGraphs);
+        ArgumentNullException.ThrowIfNull(covers);
         if (regime == EntailmentRegime.Simple)
         {
             return new EntailedQuery(query, source);
         }
 
-        TBoxMerge merge = new(source, tboxGraphs);
+        TBoxMerge merge = new(source, covers);
         RuleSet rules = recognisedDatatypes is null ? RulesOf(regime) : RulesOf(regime, recognisedDatatypes);
         Rewriter rewriter = new(merge, query.Dataset, rules, cancellationToken);
         return new EntailedQuery(rewriter.Rewrite(query), merge);
@@ -164,34 +170,48 @@ public static class EntailmentRewriter
             }
         }
 
+        // The named graphs partitioned by the Σ they meet: each with schema
+        // triples of its own, then each binding's covered rest, then the rest
+        // no binding covers, under the axioms alone (ADR 0193 point 2).
         private QueryPattern ByGraph(Variable g, Graph pattern)
         {
             List<TermHandle> own = OwnSchemaGraphs();
-            IReadOnlyList<GraphPattern> tboxOnly = TBoxOnly();
-            QueryPattern rest = new Graph(pattern.Name, Within(tboxOnly, pattern.Inner));
-            if (own.Count == 0)
-            {
-                return rest;
-            }
-
-            List<Expression> excluded = [new VariableExpression(g)];
+            HashSet<TermHandle> owned = new(own, _merge.TermComparer);
             QueryPattern? union = null;
             foreach (TermHandle graph in own)
             {
-                if (!_merge.TryExternalise(graph, out RdfTerm? name))
-                {
-                    continue;
-                }
-
-                excluded.Add(new ConstantExpression(name));
-                QueryPattern one = new Join(
-                    new Values(AlgebraList.Of(g), AlgebraList.Of(AlgebraList.Of<RdfTerm?>(name))),
-                    new Graph(pattern.Name, Within([GraphPattern.Named(graph)], pattern.Inner)));
-                union = union is null ? one : new Union(union, one);
+                Add([graph], [GraphPattern.Named(graph)]);
             }
 
-            QueryPattern others = new Filter(new FunctionCall(BuiltInFunction.NotIn, AlgebraList.From(excluded)), rest);
-            return union is null ? rest : new Union(union, others);
+            foreach (CoverIndex cover in _merge.Covers())
+            {
+                Add(_merge.CoveredNamedGraphs(cover).FindAll(graph => !owned.Contains(graph)), TBoxOf(cover));
+            }
+
+            Add(_merge.NamedGraphs().FindAll(graph => !owned.Contains(graph) && !_merge.TryGetCover(graph, out _)), []);
+            return union ?? new Values(AlgebraList.Of(g), AlgebraList.Empty<AlgebraList<RdfTerm?>>());
+
+            void Add(List<TermHandle> graphs, IReadOnlyList<GraphPattern> scope)
+            {
+                List<AlgebraList<RdfTerm?>> rows = [];
+                foreach (TermHandle graph in graphs)
+                {
+                    if (_merge.TryExternalise(graph, out RdfTerm? name))
+                    {
+                        rows.Add(AlgebraList.Of<RdfTerm?>(name));
+                    }
+                }
+
+                if (rows.Count == 0)
+                {
+                    return;
+                }
+
+                QueryPattern one = new Join(
+                    new Values(AlgebraList.Of(g), AlgebraList.From(rows)),
+                    new Graph(pattern.Name, Within(scope, pattern.Inner)));
+                union = union is null ? one : new Union(union, one);
+            }
         }
 
         private QueryPattern Within(IReadOnlyList<GraphPattern> scope, QueryPattern inner)
@@ -208,11 +228,11 @@ public static class EntailmentRewriter
             }
         }
 
-        // The scoping graph of a named graph with no schema of its own: the TBox.
-        private List<GraphPattern> TBoxOnly()
+        // The scoping graph of a covered named graph with no schema of its own: its binding's TBox.
+        private List<GraphPattern> TBoxOf(CoverIndex cover)
         {
             List<GraphPattern> tbox = [];
-            foreach (TermHandle graph in _merge.TBoxGraphs)
+            foreach (TermHandle graph in _merge.TBoxGraphsOf(cover))
             {
                 tbox.Add(GraphPattern.Named(graph));
             }
@@ -220,25 +240,35 @@ public static class EntailmentRewriter
             return tbox;
         }
 
-        // The named graphs holding schema triples of their own, found by the
-        // TBox schema's predicates over every named graph, unmerged.
+        // The named graphs holding schema triples of their own, found by each
+        // TBox schema's predicates, and the axioms', over every named graph,
+        // unmerged.
         private List<TermHandle> OwnSchemaGraphs()
         {
-            Schema tbox = SchemaOf(TBoxOnly());
             IQuadSource inner = _merge.Inner;
             HashSet<TermHandle> graphs = new(inner.TermComparer);
             List<TermHandle> found = [];
-            List<(RdfTerm P, RdfTerm? O)> probes = [];
-            foreach (RdfTerm predicate in tbox.SchemaPredicates)
+            HashSet<(RdfTerm P, RdfTerm? O)> probes = [];
+            List<List<GraphPattern>> scopes = [[]];
+            foreach (CoverIndex cover in _merge.Covers())
             {
-                probes.Add((predicate, null));
+                scopes.Add(TBoxOf(cover));
             }
 
-            foreach (RdfTerm meta in tbox.MetaClasses())
+            foreach (List<GraphPattern> scope in scopes)
             {
-                foreach (RdfTerm type in tbox.TypeLike)
+                Schema tbox = SchemaOf(scope);
+                foreach (RdfTerm predicate in tbox.SchemaPredicates)
                 {
-                    probes.Add((type, meta));
+                    probes.Add((predicate, null));
+                }
+
+                foreach (RdfTerm meta in tbox.MetaClasses())
+                {
+                    foreach (RdfTerm type in tbox.TypeLike)
+                    {
+                        probes.Add((type, meta));
+                    }
                 }
             }
 
