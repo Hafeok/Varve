@@ -1,0 +1,14 @@
+#nullable enable
+Varve.Sparql.Entailment.EntailedQuery
+Varve.Sparql.Entailment.EntailedQuery.Query.get -> Varve.Sparql.Algebra.Query!
+Varve.Sparql.Entailment.EntailedQuery.Source.get -> Varve.Rdf.IQuadSource!
+Varve.Sparql.Entailment.EntailmentRegimes
+Varve.Sparql.Entailment.EntailmentRewriter
+Varve.Sparql.Entailment.Model.EntailmentRegime
+Varve.Sparql.Entailment.Model.EntailmentRegime.D = 3 -> Varve.Sparql.Entailment.Model.EntailmentRegime
+Varve.Sparql.Entailment.Model.EntailmentRegime.Rdf = 1 -> Varve.Sparql.Entailment.Model.EntailmentRegime
+Varve.Sparql.Entailment.Model.EntailmentRegime.Rdfs = 2 -> Varve.Sparql.Entailment.Model.EntailmentRegime
+Varve.Sparql.Entailment.Model.EntailmentRegime.Simple = 0 -> Varve.Sparql.Entailment.Model.EntailmentRegime
+static Varve.Sparql.Entailment.EntailmentRegimes.Iri(Varve.Sparql.Entailment.Model.EntailmentRegime regime) -> Varve.Rdf.RdfTerm!
+static Varve.Sparql.Entailment.EntailmentRegimes.TryFromIri(Varve.Rdf.RdfTerm! iri, out Varve.Sparql.Entailment.Model.EntailmentRegime? regime) -> bool
+static Varve.Sparql.Entailment.EntailmentRewriter.Rewrite(Varve.Sparql.Algebra.Query! query, Varve.Rdf.IQuadSource! source, System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! tboxGraphs, Varve.Sparql.Entailment.Model.EntailmentRegime regime, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Varve.Sparql.Entailment.EntailedQuery!

@@ -13,8 +13,8 @@ three packages join the layer table.
 Inference has three tiers (#95). Each tier needs something different, and
 each need sits at a different layer:
 - **Tier 1** rewrites a query's algebra against an ontology read from a quad
-  source. It needs the algebra (`Varve.Sparql`, layer 2) and the dependency
-  graphs and paths of `Varve.Derivation` (layer 2). It needs no evaluator.
+  source. It needs the algebra (`Varve.Sparql`, layer 2). It needs no
+  evaluator.
 - **Tier 2** materialises a closure by rules.
   - Some of the rules are SPARQL `CONSTRUCT`, which needs the evaluator
     (`Varve.Sparql.Evaluation`, layer 3).
@@ -30,8 +30,10 @@ SPARQL (ADR 0005) or SHACL (ADR 0169). Same-layer references are refused (ADR
 ## Decision
 
 1. **`Varve.Sparql.Entailment`, layer 3.**
-   - **References:** `Varve.Sparql` (2), `Varve.Derivation` (2), `Varve.Rdf`
-     (1), `Varve.Xsd` (0) and `Varve.Iri` (0).
+   - **References:** `Varve.Sparql` (2), `Varve.Rdf` (1), `Varve.Xsd` (0)
+     and `Varve.Iri` (0). It does not need `Varve.Derivation`. ADR 0193's
+     saturation is a closure of a small schema, which needs no dependency
+     graph, and `Varve.Derivation` stays `Varve.Inference`'s.
    - **What it holds:**
      - the entailment regimes as a value;
      - the TBox merge, a view of a quad source in which every graph is read
@@ -101,7 +103,7 @@ SPARQL (ADR 0005) or SHACL (ADR 0169). Same-layer references are refused (ADR
   - **0048**: the evaluator is unchanged;
   - **0148**: the SHACL extension contract, reused;
   - **0169** and **0170**: the binding-as-a-value pattern;
-  - **0172**: `Varve.Derivation` reused;
+  - **0172**: `Varve.Derivation` reused by `Varve.Inference`;
   - **0174**: the protocol's seam pattern.
 
   No conflict.

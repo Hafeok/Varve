@@ -190,7 +190,7 @@ accepts it (ADR 0066).
 
 Three packages join the layers ([ADR 0191](0191-the-inference-packages-and-their-layers.md)):
 - **Layer 3: `Varve.Sparql.Entailment`.** The entailment regimes and query
-  rewriting, over the algebra and `Varve.Derivation`, beside the evaluator and
+  rewriting, over the algebra, beside the evaluator and
   `Varve.Shacl`, referencing neither.
 - **Layer 4: `Varve.Inference`.** The rule engine, over the evaluator and
   `Varve.Shacl`.
