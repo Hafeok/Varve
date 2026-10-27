@@ -38,6 +38,10 @@ revisited.
 [0128](0128-varve-delta-and-the-read-forever-rule.md): `basis` gains
 `delta-format`; see the end.
 
+**Amended 2026-10-27** (ADR 0068), by readiness B for #119 under ADR
+[0224](0224-supply-chain-transparency.md): descriptor format 2, with an `sbom:`
+list naming every artefact and its SBOM's digest; see the end.
+
 ## Context
 
 A release is a decision, and this repository files decisions: an ADR, a
@@ -359,3 +363,53 @@ every descriptor that was valid stays valid.
 The reasoning is ADR 0128's. **The ledger.** The rulings of this ADR stand;
 the ruling of this block is `DeltaFormatIsInTheBasis`, unaccepted until the
 maintainer accepts it.
+
+## Amendment, 2026-10-27 — descriptor format 2: `sbom:`
+
+Filed by readiness B for #119 under ADR 0224, unaccepted until the maintainer
+accepts it (ADR 0066). The maintainer approved the shape on #119, and it was
+posted on #167, whose Web UI bundle uses it.
+
+**The descriptor format goes to 2** and gains one list, `sbom:`. It has one
+line per artefact the release ships:
+
+```yaml
+format: 2
+sbom:
+  - nupkg: Varve.Rdf sha256:…
+  - tool: Varve.Server sha256:…
+  - image: ghcr.io/hafeok/varve sha256:…
+  - binary: varve-0.1.0-preview.N-linux-x64.tar.gz sha256:…
+  - asset: varve-webui-0.1.0-preview.N.zip sha256:…
+```
+
+- **The kinds:**
+  - `nupkg`, a library package;
+  - `tool`, the tool package;
+  - `image`, the container image;
+  - `binary`, a CLI binary, by its release asset's name;
+  - `asset`, any other release asset, the Web UI bundle among them.
+- **The digest is the SHA-256 of the artefact's SBOM, not of the artefact.**
+  - The descriptor is part of the commit that builds the artefacts, and a
+    package or binary embeds that commit, so a descriptor cannot hold its own
+    build's digest.
+  - An SBOM can be held: it is deterministic, carries no commit, and is
+    created at the descriptor's `date` (ADR 0224 point 2).
+  - The artefact's bytes are bound by its attestations, whose subject is the
+    artefact's digest, and by the release's attested `SHA256SUMS`.
+- **`eng/sbom.cs` writes the lines** (`sbom.txt`) after a restore, and
+  `--draft` says how. They are checked in three places:
+  - `eng/release.cs` (`release` in `eng/ci.cs`, and the plan) requires format
+    2 at every commit that carries `eng/sbom.cs`, with a line for every
+    packable project of `Varve.slnx` and for the image, and no `nupkg`, `tool`
+    or `image` line for anything else;
+  - `ci.yml` regenerates every pending descriptor's SBOMs at its version and
+    date, and fails a digest that differs, on the pull request;
+  - `publish.yml` does the same at the tag, before anything is pushed.
+- **A format-1 descriptor stays valid as it is** (rule 9). Every release cut
+  before this amendment is format 1. `docs/releases.md` §1 and §2 describe
+  format 2.
+
+**The ledger.** The rulings of this ADR stand; the ruling of this block is
+`TheDescriptorNamesEveryArtefactsSbom`, unaccepted until the maintainer
+accepts it.

@@ -11,6 +11,11 @@ for prerelease packages, and every banned-symbol entry cites an ADR.
 [0133](0133-packages-scoped-to-samples.md): an entry may carry a scope, which
 the gate enforces; see the end.
 
+**Amended 2026-10-27** (ADR 0068), by readiness B for #119 under ADR
+[0224](0224-supply-chain-transparency.md): the register is checked against
+every lockfile, licences by scope, and the native-asset gate folds into the
+register gate; see the end.
+
 ## Context
 
 `docs/brief.md`, constraint 4: minimal dependencies, prefer the BCL, every
@@ -260,3 +265,37 @@ entry with no scope may be used anywhere, as before. The reasoning is ADR
 
 **The ledger.** The rulings of this ADR stand; the ruling of this block is
 `EntryScopeIsChecked`, unaccepted until the maintainer accepts it.
+
+## Amendment, 2026-10-27 — the register against what was resolved
+
+Filed by readiness B for #119 under ADR 0224, unaccepted until the maintainer
+accepts it (ADR 0066). `Directory.Packages.props` stays the one register, and
+`eng/dependency-register.cs` the one gate. What changes:
+
+- **The register is checked against every `packages.lock.json`**, which every
+  project now has.
+  - A direct reference that no `PackageVersion` admits fails. So does a
+    reference that no `ImplicitPackage` admits: that item names an SDK's own
+    reference and what adds it.
+  - A register entry that nothing resolves fails as stale.
+  - A transitive package needs no entry: it is admitted by the ADR of the
+    package that brings it in, and the lockfile diff shows it in review.
+- **Every resolved package's licence is checked against its scope's
+  allow-list** (ADR 0224 point 4). A package that declares no SPDX expression
+  has its licence stated in a `PackageLicence` item, with what it declares, or
+  a named build-only exception.
+- **`eng/native-assets.cs` is folded into the register gate** as its
+  `--packages` half, with the same signal (`assetType: native`) and the same
+  scope: shipped closures.
+  - Its allow-list moves into the register as `NativeAssetException` items.
+  - The ruling `NoNativeAssetInShippedClosure` stands; the file it names is
+    now this gate.
+- **The gate also fails** on an Action not pinned by commit SHA, and on an
+  audit suppression without its VEX statement (ADR 0224 points 5 and 6).
+- **Each failure has a broken fixture** in
+  `tests/fixtures/dependency-register/`, run by `register-fixtures` in
+  `eng/ci.cs`.
+
+**The ledger.** The rulings of this ADR stand; the ruling of this block is
+`TheRegisterIsCheckedAgainstTheLockfiles`, unaccepted until the maintainer
+accepts it.

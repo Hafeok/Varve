@@ -63,6 +63,8 @@ decisions:
     statement: "The basis carries exactly one delta-format, equal to DeltaFormat.Current at the commit under release, required in every descriptor whose commit carries that constant; amended 2026-10-13 under ADR 0128"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-15T00:00:00Z
+  - key: TheDescriptorNamesEveryArtefactsSbom
+    statement: "From the commit that carries eng/sbom.cs a descriptor is format 2, and its sbom list names every artefact the release ships with its SBOM's SHA-256, checked on the pull request and before anything is pushed (ADR 0224)"
 ---
 
 The rulings of [ADR 0102](../adr/0102-a-release-is-a-descriptor.md), filed without
