@@ -137,6 +137,57 @@ public sealed class ObjectFollowerTests
         Assert.True(second.Epoch!.Value.Value > first.Epoch!.Value.Value);
     }
 
+    /// <summary>
+    /// A follower is due to open again once its memtable has grown by more
+    /// than its limit since its open (ADR 0164 point 5), counted from the
+    /// open: what its open replayed does not count. A follower opened again
+    /// is not due until it has applied as much once more, whether or not the
+    /// writer has written a newer catalog meanwhile. A writer is never due.
+    /// </summary>
+    [Fact]
+    public async Task a_follower_is_due_to_open_again_after_applying_its_memtable_limit()
+    {
+        DatasetOptions small = Small() is var options ? new DatasetOptions
+        {
+            Clock = options.Clock,
+            MaxRecordBytes = options.MaxRecordBytes,
+            SegmentBytes = options.SegmentBytes,
+            CommitCache = options.CommitCache,
+            Maintenance = MaintenanceMode.Off,
+            MemtableLimit = new Varve.Rdf.QuadCount(8),
+        } : throw new InvalidOperationException();
+
+        await using ObjectHarness objects = new();
+        await using Dataset writer = await T.OpenOrCreate(await objects.OpenAsync(), small);
+
+        for (int n = 0; n < 12; n++)
+        {
+            await writer.CommitAsync(new CommitRequest().Assert(T.Iri("s" + n), T.Iri("p"), T.Iri("o")), T.Ct);
+        }
+
+        // What its open replayed does not count.
+        await using Dataset follower = await Dataset.OpenFollowerAsync(await objects.OpenAsync(ObjectStorageAccess.ReadOnly), small, T.Ct);
+        long atOpen = follower.MemtableForTests();
+        Assert.True(atOpen > 8);
+        Assert.False(follower.ReopenDue);
+        Assert.False(writer.ReopenDue);
+
+        // Due exactly when the memtable has grown past the limit since the
+        // open, by the measure the writer's own flush compares with it.
+        for (int n = 12; !follower.ReopenDue; n++)
+        {
+            Assert.True(n < 40, "never due");
+            await writer.CommitAsync(new CommitRequest().Assert(T.Iri("s" + n), T.Iri("p"), T.Iri("o")), T.Ct);
+            await follower.AdvanceAsync(T.Ct);
+            Assert.Equal(follower.MemtableForTests() - atOpen > 8, follower.ReopenDue);
+        }
+
+        // Opened again with no newer catalog, it is not due again at once.
+        await using Dataset again = await Dataset.OpenFollowerAsync(await objects.OpenAsync(ObjectStorageAccess.ReadOnly), small, T.Ct);
+        Assert.False(again.ReopenDue);
+        Assert.Equal(writer.Head, again.Head);
+    }
+
     /// <summary>A follower commits nothing and writes no checkpoint, and a writer does not advance.</summary>
     [Fact]
     public async Task a_follower_refuses_writes_and_checkpoints()

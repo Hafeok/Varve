@@ -19,6 +19,22 @@ public sealed partial class Dataset
     /// </summary>
     public bool IsFollower { get; private set; }
 
+    // The quads in the memtable when the follower opened: what its open
+    // replayed from the log above the catalog, before any advance.
+    private long _memtableAtOpen;
+
+    /// <summary>
+    /// Whether this follower's memtable has grown by more than
+    /// <see cref="DatasetOptions.MemtableLimit"/> since it opened, by the
+    /// measure the writer's own flush compares with the limit (ADR 0164 point
+    /// 5): its host then opens it again from the writer's newest catalog, so
+    /// that a long-lived follower's memory stays bounded. Reads
+    /// pinned to this dataset keep it until they end. Counted from the open,
+    /// so a follower opened again on the same catalog is not due again until
+    /// it has applied as much once more.
+    /// </summary>
+    public bool ReopenDue => IsFollower && _state.Index.MemtableCount - _memtableAtOpen > _options.MemtableLimit.Value;
+
     /// <summary>
     /// Opens a dataset another process writes, as a follower (ADR 0164): an
     /// ordinary dataset at the head its storage holds now, whose
@@ -33,6 +49,7 @@ public sealed partial class Dataset
         ArgumentNullException.ThrowIfNull(storage);
         Dataset dataset = await OpenAsync(storage, options, cancellationToken).ConfigureAwait(false);
         dataset.IsFollower = true;
+        dataset._memtableAtOpen = dataset._state.Index.MemtableCount;
         return dataset;
     }
 

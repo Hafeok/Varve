@@ -258,6 +258,16 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             return;
         }
 
+        if (entry.State == DatasetState.Open && entry.Role == DatasetRole.Follower && role == DatasetRole.Follower && !entry.AwaitingRelease && entry.Dataset is { ReopenDue: true })
+        {
+            // A follower that has applied more than MemtableLimit since its
+            // open is opened again from the writer's newest catalog (ADR 0164
+            // point 5); reads pinned to the old one finish on it.
+            ReconcileLog.Reopened(_logger, name);
+            await SwitchAsync(name, entry, DatasetRole.Follower, wait: false, abdicate: false, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         if (entry.State == DatasetState.Open && entry.Role == role && !entry.AwaitingRelease && !(role == DatasetRole.Writer && entry.Superseded))
         {
             return;
@@ -603,6 +613,9 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
         [LoggerMessage(EventId = 5, Level = LogLevel.Warning, Message = "The dataset '{Name}' did not take its declared settings; tried again on the next round: {Reason}")]
         internal static partial void SettingsFailed(ILogger logger, string name, string reason);
+
+        [LoggerMessage(EventId = 7, Level = LogLevel.Information, Message = "The follower of '{Name}' applied more than its memtable limit since it opened, and opens again from the writer's newest catalog (ADR 0164).")]
+        internal static partial void Reopened(ILogger logger, string name);
     }
 
     /// <summary>One dataset's slot: its storage, its role, its state, and what it holds while open.</summary>
