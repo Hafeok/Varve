@@ -688,6 +688,14 @@ internal static partial class ServerHost
             json.WriteNumber("position", management.Applied.Value);
             json.WriteNumber("lag", management.Lag);
             json.WriteString("bootstrap", management.Bootstrap switch { BootstrapState.Recorded => "recorded", BootstrapState.Absent => "absent", _ => "mismatch" });
+
+            // A standby of the system dataset's writer set (ADR 0179 point 13).
+            if (fleet.IsSystemStandby)
+            {
+                json.WriteBoolean("standby", true);
+                json.WriteBoolean("warm", fleet.IsSystemWarm);
+            }
+
             json.WriteEndObject();
         }
 

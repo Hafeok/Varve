@@ -90,6 +90,29 @@ public sealed class HostTests
         Assert.Equal(expected.Length, errors.Count);
     }
 
+    [Theory]
+    [InlineData("a,b", false, "Varve:Fleet:Writer names one instance unless")]
+    [InlineData("a,a", true, "Varve:Fleet:Writer, with Varve:Fleet:AutomaticHandover true")]
+    [InlineData("a,false", true, "Varve:Fleet:Writer, with Varve:Fleet:AutomaticHandover true")]
+    [InlineData(null, true, "Varve:Fleet:AutomaticHandover needs Varve:Fleet:Writer")]
+    public void The_system_dataset_writer_set_is_checked(string? writer, bool handover, string error)
+    {
+        ServerSettings settings = Anonymous();
+        settings.Fleet.Writer = writer;
+        settings.Fleet.AutomaticHandover = handover;
+        Assert.Single(SettingsCheck.Errors(settings), e => e.StartsWith(error, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_system_dataset_writer_set_under_automatic_handover_is_accepted()
+    {
+        ServerSettings settings = Anonymous();
+        settings.Fleet.Writer = "a,b,c";
+        settings.Fleet.AutomaticHandover = true;
+        Assert.Empty(SettingsCheck.Errors(settings));
+        Assert.Equal(["a", "b", "c"], settings.Fleet.WriterSet);
+    }
+
     [Fact]
     public void Forwarded_headers_without_a_known_proxy_are_refused()
     {

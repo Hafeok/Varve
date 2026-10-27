@@ -74,6 +74,12 @@ and the two together are the **writer set**: only a member ever claims.
   differs from `placedOn` after a race is a state, and nothing reacts to it.
 - **A superseded holder** rejoins as a standby, and may claim again once it
   is warm.
+- **The system dataset hands over too**, when `Varve:Fleet:AutomaticHandover`
+  is `true`: `Varve:Fleet:Writer` is then its writer set, the same on every
+  instance, for example `a,b`, with the preferred writer first. Readiness's
+  `management` object then carries `standby` and `warm` on a standby. The
+  system dataset is released last when its writer shuts down, after the
+  datasets it holds, so its takeover follows theirs.
 
 ## Where a write goes: forwarding
 

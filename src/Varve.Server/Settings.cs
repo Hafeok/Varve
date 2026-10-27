@@ -215,6 +215,18 @@ internal sealed class FleetSettings
     /// </summary>
     public string? Writer { get; set; }
 
+    /// <summary>
+    /// Whether the system dataset hands over (ADR 0179 point 13): then
+    /// <see cref="Writer"/> is its writer set, instance names separated by
+    /// commas, the preferred writer first and its standbys after it.
+    /// </summary>
+    public bool AutomaticHandover { get; set; }
+
+    /// <summary>The system dataset's writer set under automatic handover, the preferred writer first; none without it.</summary>
+    internal IReadOnlyList<string>? WriterSet => AutomaticHandover && Writer is { Length: > 0 } names
+        ? names.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+        : null;
+
     /// <summary>The address other instances forward writes to, recorded at claim; required on an instance that may claim in an object-store fleet.</summary>
     public string? InternalUrl { get; set; }
 

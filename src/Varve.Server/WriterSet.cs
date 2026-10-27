@@ -151,7 +151,7 @@ internal sealed partial class OpenDatasets
     // Who claims after a release (point 4): one for placement, the preferred
     // writer alone; one for shutdown, storage-error or local-disk-error,
     // every warm member, racing. An operator's release is the operator's.
-    private static bool Races(ReleaseReason reason, bool preferred, bool warm) => reason switch
+    internal static bool Races(ReleaseReason reason, bool preferred, bool warm) => reason switch
     {
         ReleaseReason.Placement => preferred,
         ReleaseReason.Shutdown or ReleaseReason.StorageError or ReleaseReason.LocalDiskError => warm,

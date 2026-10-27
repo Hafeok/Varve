@@ -366,6 +366,68 @@ public abstract class FleetCases : IAsyncDisposable
         Assert.Equal(("b", "abdication"), (history[^1].GetProperty("holder").GetString(), history[^1].GetProperty("trigger").GetString()));
     }
 
+    /// <summary>
+    /// The system dataset hands over too (ADR 0179 point 13): with
+    /// Varve:Fleet:Writer "a,b" and automatic handover, a writes it and b is
+    /// its standby. a shuts down; b, warm, claims it in place and answers
+    /// management writes itself; a, restarted, finds b holding it and stands
+    /// by, forwarding management writes to b.
+    /// </summary>
+    [Fact]
+    public async Task The_system_dataset_moves_to_its_warm_standby_when_its_writer_shuts_down()
+    {
+        string[] handover = ["--Varve:Fleet:AutomaticHandover=true"];
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container, "a,b", handover);
+        long declared = await DeclareAsync(a, "d");
+        Server b = await StartAsync("b", container, "a,b", handover);
+        await WaitDeclaredAsync(b, declared, "d", "follower");
+        await WaitManagementAsync(b, "follower", warm: true);
+
+        Stopwatch takeover = Stopwatch.StartNew();
+        await a.StopAsync();
+        await WaitManagementAsync(b, "writer", warm: null);
+        takeover.Stop();
+        TestContext.Current.SendDiagnosticMessage("system takeover after a shutdown release, " + GetType().Name + ": " + takeover.ElapsedMilliseconds + " ms");
+
+        long second = await DeclareAsync(b, "e");
+        Server again = await StartAsync("a", container, "a,b", handover);
+        await WaitManagementAsync(again, "follower", warm: true);
+        await WaitDeclaredAsync(again, second, "e", "follower");
+        Assert.True((await Declare(again, "f")).IsSuccessStatusCode, "a management write through the returning writer is forwarded to b");
+
+        StringWriter output = new() { NewLine = "\n" };
+        await Varve.Server.Commands.Cli.RunAsync(container.Lease("_fleet"), new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct);
+        Assert.Contains("holder: b", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("abdication", output.ToString(), StringComparison.Ordinal);
+    }
+
+    // Until readiness reports the instance's system role, and as a standby whether it is warm (ADR 0179 point 13).
+    private static async Task WaitManagementAsync(Server server, string role, bool? warm)
+    {
+        string last = string.Empty;
+
+        for (int attempt = 0; attempt < 40; attempt++)
+        {
+            HttpResponseMessage ready = await server.Http.GetAsync(new Uri(server.Address, "health/ready"), Ct);
+            last = await ready.Content.ReadAsStringAsync(Ct);
+
+            using (JsonDocument body = JsonDocument.Parse(last))
+            {
+                if (body.RootElement.TryGetProperty("management", out JsonElement management)
+                    && management.GetProperty("role").GetString() == role
+                    && (warm is not { } wanted || (management.TryGetProperty("warm", out JsonElement reported) && reported.GetBoolean() == wanted)))
+                {
+                    return;
+                }
+            }
+
+            await Task.Delay(500, Ct);
+        }
+
+        Assert.Fail(server.Instance + " never reported the system role " + role + (warm is { } w ? ", warm " + w : string.Empty) + ": " + last + "\n" + server.Log);
+    }
+
     // Until readiness reports the dataset's standby warm (ADR 0180 point 7).
     private static async Task WaitWarmAsync(Server server, string dataset)
     {

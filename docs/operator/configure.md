@@ -73,7 +73,8 @@ model and its request costs.
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `Fleet:Writer` | `true` | `true`, `false`, or an instance name compared with `ObjectStorage:Instance`: whether this instance writes the system dataset; any value but `false` lets it claim the datasets placed on it. A fleet of one is its own writer whatever this says |
+| `Fleet:Writer` | `true` | `true`, `false`, or an instance name compared with `ObjectStorage:Instance`: whether this instance writes the system dataset; any value but `false` lets it claim the datasets placed on it. A fleet of one is its own writer whatever this says. With `Fleet:AutomaticHandover`, the system dataset's writer set instead: instance names separated by commas, no spaces, the preferred writer first |
+| `Fleet:AutomaticHandover` | `false` | whether the system dataset hands over to a warm standby (ADR 0179 point 13): `Fleet:Writer` is then its writer set, under the same start rule and race as a dataset's ([Standbys](fleet.md#standbys-a-writer-set)) |
 | `Fleet:InternalUrl` | none | the address other instances forward writes to, recorded in the writer record at claim; required on an instance that may claim in an object-store fleet; `https`, or `http` inside a private network only, since a caller's token crosses it |
 | `Fleet:FollowInterval` | `00:00:01` | how old a follower's last advance may be before a read advances it, and how often the system dataset is advanced; at most a minute (ADR 0164) |
 | `Fleet:AllowedLag` | 100 | how many system positions this instance may be behind the system tail and be ready |

@@ -6,6 +6,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -57,6 +58,10 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     private Snapshot _snapshot;
     private bool _placeholder;
     private bool _superseded;
+
+    // The system dataset's warm state, as a standby of it (ADR 0180 point 6).
+    private bool _systemAdvanced;
+    private bool _systemAdvanceFailed;
 
     private Fleet(ServerSettings settings, ObjectStores? objects, TimeProvider clock, ILogger logger, IHttpContextAccessor accessor, Dataset system, IAsyncDisposable? storage, ManagementRole role, bool placeholder)
     {
@@ -173,7 +178,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
             return new Fleet(settings, null, clock, logger, accessor, memory, null, ManagementRole.Writer, placeholder: false);
         }
 
-        if (IsSystemWriter(settings, objects.Instance))
+        if (settings.Fleet.WriterSet is { } set ? await StartsSystemAsync(objects, set, cancellationToken).ConfigureAwait(false) : IsSystemWriter(settings, objects.Instance))
         {
             (Dataset system, Backend storage) = await ClaimSystemAsync(settings, objects, options, cancellationToken).ConfigureAwait(false);
             return new Fleet(settings, objects, clock, logger, accessor, system, storage, ManagementRole.Writer, placeholder: false);
@@ -190,6 +195,40 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
         return new Fleet(settings, objects, clock, logger, accessor, followed, tailing, ManagementRole.Follower, placeholder: false);
     }
+
+    // The start rule for the system dataset's writer set (ADR 0179 point 13,
+    // ADR 0180 point 3): the preferred writer claims an empty or released
+    // record; a member claims its own record, or one whose holder is not a
+    // member. Otherwise a member starts as a standby, and a non-member follows.
+    private static async Task<bool> StartsSystemAsync(ObjectStores objects, IReadOnlyList<string> set, CancellationToken cancellationToken)
+    {
+        string instance = objects.Instance.Value;
+
+        if (!set.Contains(instance, StringComparer.Ordinal))
+        {
+            return false;
+        }
+
+        WriterRecord? record = await objects.ReadWriterAsync(SystemName, cancellationToken).ConfigureAwait(false);
+
+        if (record is null || record.Released is not null)
+        {
+            return set[0] == instance;
+        }
+
+        return record.Holder.Value == instance || !set.Contains(record.Holder.Value, StringComparer.Ordinal);
+    }
+
+    /// <summary>Whether this instance is a standby of the system dataset: in its writer set, and not writing it.</summary>
+    internal bool IsSystemStandby => _settings.Fleet.WriterSet is { } set && set.Contains(_instance.Value, StringComparer.Ordinal) && _role != ManagementRole.Writer;
+
+    /// <summary>
+    /// Whether this instance is a warm standby of the system dataset (ADR
+    /// 0180 point 6): it follows it, its last advance succeeded and followed
+    /// one since it opened, and its projection has caught up.
+    /// </summary>
+    internal bool IsSystemWarm => IsSystemStandby && !_placeholder && System is { IsFollower: true } system
+        && _systemAdvanced && !_systemAdvanceFailed && system.ProjectionPosition == system.Head;
 
     private static bool IsSystemWriter(ServerSettings settings, WriterInstance instance) => settings.Fleet.Writer switch
     {
@@ -509,9 +548,21 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         if (_role == ManagementRole.Writer && (_superseded || _systemStorage is Backend { IsSuperseded: true }))
         {
             // A mistaken second writer, or a successor: this instance is
-            // superseded, reports it, and follows (ADR 0136).
-            FleetLog.Superseded(_logger);
-            _role = ManagementRole.Superseded;
+            // superseded, reports it, and follows (ADR 0136). A member of the
+            // writer set rejoins it as a standby instead (ADR 0179 point 10).
+            bool member = _settings.Fleet.WriterSet is { } set && set.Contains(_instance.Value, StringComparer.Ordinal);
+
+            if (member)
+            {
+                FleetLog.Rejoined(_logger);
+            }
+            else
+            {
+                FleetLog.Superseded(_logger);
+            }
+
+            _role = member ? ManagementRole.Follower : ManagementRole.Superseded;
+            _superseded = false;
             await SwapSystemAsync(null, null).ConfigureAwait(false);
             _placeholder = true;
         }
@@ -535,6 +586,8 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
             try
             {
                 await System.AdvanceAsync(cancellationToken).ConfigureAwait(false);
+                _systemAdvanced = true;
+                _systemAdvanceFailed = false;
 
                 // A chunk of a newer epoch means the system writer changed (ADR 0179 point 12).
                 if (_systemStorage is Backend { AdoptedEpoch: { } adopted } && _routes.TryGetValue(SystemName, out WriterRoute route) && adopted.Value > route.Epoch)
@@ -545,8 +598,59 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
             catch (Exception error) when (error is not OperationCanceledException)
             {
                 // The grants stay at the last applied position (ADR 0163 point 8).
+                _systemAdvanceFailed = true;
                 FleetLog.AdvanceFailed(_logger, SystemName, error.Message);
             }
+
+            if (IsSystemStandby)
+            {
+                await RaceForSystemAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    // A standby of the system dataset reads its writer record on the
+    // interval, and claims a release its reason lets it race for, in place
+    // (ADR 0179 point 13, ADR 0180 point 4). A loser follows again.
+    private async Task RaceForSystemAsync(CancellationToken cancellationToken)
+    {
+        if (_systemStorage is not Backend storage
+            || await _objects!.ReadWriterAsync(SystemName, cancellationToken).ConfigureAwait(false) is not { Released: { } reason } record
+            || !OpenDatasets.Races(reason, _settings.Fleet.WriterSet![0] == _instance.Value, IsSystemWarm))
+        {
+            return;
+        }
+
+        WriterAddress? address = _settings.Fleet.InternalUrl is { } url ? new WriterAddress(url) : null;
+        bool won;
+
+        try
+        {
+            won = await System.TakeWriteAsync(
+                claim => storage.ClaimInPlaceAsync(_instance, address, SystemProbeRandomness.Instance, ClaimTrigger.Abdication, record.Epoch, claim),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            FleetLog.AdvanceFailed(_logger, SystemName, error.Message);
+            won = false;
+        }
+
+        if (won)
+        {
+            _role = ManagementRole.Writer;
+            _routes.TryRemove(SystemName, out _);
+            string released = Commands.ObjectLease.Shown(reason);
+            FleetLog.ClaimedSystem(_logger, storage.Epoch?.Value ?? 0, released);
+            return;
+        }
+
+        // Its storage may no longer refresh: the system dataset is followed again.
+        (Dataset? followed, Backend? tailing) = await FollowSystemAsync(_objects, new DatasetOptions { Clock = _clock, Name = SystemName }, cancellationToken).ConfigureAwait(false);
+
+        if (followed is not null)
+        {
+            await SwapSystemAsync(followed, tailing).ConfigureAwait(false);
         }
     }
 
@@ -554,6 +658,8 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     {
         next ??= await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = _clock, Name = SystemName }).ConfigureAwait(false);
         Dataset previous = Interlocked.Exchange(ref _system, next);
+        _systemAdvanced = false;
+        _systemAdvanceFailed = false;
         IAsyncDisposable? previousStorage = Interlocked.Exchange(ref _systemStorage, storage);
         await previous.DisposeAsync().ConfigureAwait(false);
 
@@ -777,6 +883,12 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
         [LoggerMessage(EventId = 13, Level = LogLevel.Warning, Message = "Advancing '{Name}' failed; it serves what it applied: {Reason}")]
         internal static partial void AdvanceFailed(ILogger logger, string name, string reason);
+
+        [LoggerMessage(EventId = 15, Level = LogLevel.Warning, Message = "A newer writer holds the system dataset: this instance rejoins its writer set as a standby (ADR 0179 point 10).")]
+        internal static partial void Rejoined(ILogger logger);
+
+        [LoggerMessage(EventId = 16, Level = LogLevel.Information, Message = "This standby claimed the system dataset in place at epoch {Epoch}, after a release for {Reason} (ADR 0179 point 13).")]
+        internal static partial void ClaimedSystem(ILogger logger, long epoch, string reason);
 
         [LoggerMessage(EventId = 14, Level = LogLevel.Information, Message = "Resumed the move of '{Name}''s event declarations to the management plane; moved: {Moved} (ADR 0167).")]
         internal static partial void MoveResumed(ILogger logger, string name, bool moved);

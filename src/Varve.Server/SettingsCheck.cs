@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
+using System.Linq;
 using System.Net;
 using Microsoft.Extensions.Configuration;
 
@@ -28,7 +29,7 @@ internal static class SettingsCheck
     internal static ImmutableArray<string> KnownKeys { get; } =
     [
         "DatasetsRoot",
-        "Fleet:Writer", "Fleet:InternalUrl", "Fleet:FollowInterval", "Fleet:AllowedLag",
+        "Fleet:Writer", "Fleet:AutomaticHandover", "Fleet:InternalUrl", "Fleet:FollowInterval", "Fleet:AllowedLag",
         "Manage:BootstrapOperators:*", "Manage:Urls",
         "ObjectStorage:Provider", "ObjectStorage:ContainerUrl", "ObjectStorage:Endpoint", "ObjectStorage:Bucket", "ObjectStorage:Region", "ObjectStorage:StsEndpoint",
         "ObjectStorage:CachePath", "ObjectStorage:CacheBytes", "ObjectStorage:Instance", "ObjectStorage:ReaderId",
@@ -338,6 +339,22 @@ internal static class SettingsCheck
         if (fleet.Writer is { } writer && (writer.Length == 0 || writer.AsSpan().IndexOfAny(" \t\r\n") >= 0))
         {
             errors.Add("Varve:Fleet:Writer is true, false, or an instance name.");
+        }
+
+        if (fleet.Writer is { } list && list.Contains(',', StringComparison.Ordinal) && !fleet.AutomaticHandover)
+        {
+            errors.Add("Varve:Fleet:Writer names one instance unless Varve:Fleet:AutomaticHandover is true; then it is the system dataset's writer set, the preferred writer first (ADR 0179 point 13).");
+        }
+
+        if (fleet.AutomaticHandover && fleet.WriterSet is { } set
+            && (set.Count == 0 || set.Any(name => string.Equals(name, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(name, "false", StringComparison.OrdinalIgnoreCase)) || set.Distinct(StringComparer.Ordinal).Count() != set.Count))
+        {
+            errors.Add("Varve:Fleet:Writer, with Varve:Fleet:AutomaticHandover true, is the system dataset's writer set: distinct instance names separated by commas, the preferred writer first (ADR 0179 point 13).");
+        }
+
+        if (fleet.AutomaticHandover && fleet.WriterSet is null)
+        {
+            errors.Add("Varve:Fleet:AutomaticHandover needs Varve:Fleet:Writer to name the system dataset's writer set (ADR 0179 point 13).");
         }
 
         if (fleet.InternalUrl is { } url
