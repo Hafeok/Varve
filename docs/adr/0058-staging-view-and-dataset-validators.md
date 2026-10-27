@@ -8,6 +8,9 @@ and the staging view, as specification T1 step 2 exposed, with the invariant
 stated below. Refines ADR 0017 (who supplies validators) and exposes what ADR
 0012 and T1 step 2 already do inside the sequencer. Neither is changed.
 
+**Amended 2026-10-27** (ADR 0068), filed unaccepted: `CommitRequest` is
+renamed `CommitRequestBuilder`; see the end.
+
 ## Context
 
 Two gaps appeared when SPARQL Update (ADR 0057) was written against the store.
@@ -172,3 +175,25 @@ above: `Varve.Shacl.Store`'s, in `DatasetOptions.Validators`.
 
 **The ledger.** The rulings are ADR 0170's `ShapesAreDataInTheDataset` and
 ADR 0169's `ShaclStoreAtLayerFive`.
+
+## Amendment, 2026-10-27 — `CommitRequest` is `CommitRequestBuilder`
+
+Filed with the move to `DecisionDriven.Analyzers` 0.1.0-preview.10 (#151),
+unaccepted until the maintainer accepts it (ADR 0066).
+
+The request this ADR's validators and `ToRequestTerm` speak of, `CommitRequest`, is
+`CommitRequestBuilder`. The accepted text above keeps the old name as written.
+
+`DecisionDriven.Analyzers` 0.1.0-preview.10 reports `CommitRequest` under
+DD0019: `Assert` and `Retract` add to the operations it holds, so a public
+model type changes after it is made. The finding offers two answers. One is
+`[DesignDecision]` citing an accepted decision, which accepts a violation; no
+decision says the request is a model value, and none was filed. The other is
+the rule's own exemption, a sealed `*Builder`: a type mutable by design that
+belongs to the code assembling a value. That is what the type is. Its caller
+assembles it and passes it once to `Dataset.CommitAsync`, and it is never
+handed out as a value. So the type is renamed `CommitRequestBuilder` and
+nothing else about it changes: the same members, the same contract. Breaking
+before 1.0 (ADR 0118).
+
+**The ledger.** No key of this ADR's set names the type; none changes.

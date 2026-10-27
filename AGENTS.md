@@ -62,7 +62,7 @@ tests, never scaffolding that compiles and does nothing.
 
 ## Rules: `DD` and `VARVE`
 
-`DecisionDriven.Analyzers` (`DD0001`–`DD0019`, development-time only, ADR 0062)
+`DecisionDriven.Analyzers` (`DD0001`–`DD0020`, development-time only, ADR 0062)
 and `Varve.Analyzers` (`VARVE0003`–`VARVE0005`, ADR 0064) run at error
 severity on every project in `src/`. Every ADR is also a decision set in
 `docs/decisions/`, and code cites a ruling as a type:

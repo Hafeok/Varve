@@ -30,3 +30,15 @@ was unavailable. It is diagnostic text, set by the store and read by a person.
 No caller branches on it: the outcome that matters is `CommitOutcome.Unavailable`.
 `CommitResult.Reason` cites this. The alternative is a wrapper, an
 `UnavailableReason` over `string`, which names the text but adds no rule to it.
+
+**Amended 2026-10-27**, filed unaccepted (ADR 0066): `CommitRequest` above is
+`CommitRequestBuilder`, still in `Varve.Store.Log`, and `RequestTerm` is its
+term. No key of this set names the type; none changes.
+
+`DecisionDriven.Analyzers` 0.1.0-preview.10 reports the type under DD0019,
+because `Assert` and `Retract` change it after it is made. The rule's own
+exemption for a type mutable by design is a sealed `*Builder`. That is what the
+type is: assembled by its caller, passed once to `Dataset.CommitAsync` and never
+handed out as a value. `[DesignDecision]` would have accepted a violation, and no
+decision says the request is a model value. Nothing else about the type changes.
+Breaking before 1.0 (ADR 0118).
