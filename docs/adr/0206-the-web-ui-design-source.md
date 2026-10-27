@@ -59,17 +59,31 @@ splits the shared stylesheet. Classes carry the `vw-` prefix; a data-dependent
 width uses `<meter>` or a class, never a computed style.
 
 **4. Components are organised by atomic level, and the levels are a dependency
-rule.** Namespaces `Varve.WebUi.Atoms`, `.Molecules`, `.Organisms`,
-`.Templates` and `.Pages`. A component references components of lower levels
-only. Only `.Pages` references `Varve.Protocol.Client` or injects a service
-that calls the server; everything below takes parameters. This is the stable
-dependency principle (AGENTS.md, "Stable dependencies") applied inside one host: the
-lowest levels have the most dependents and change least, and they are the
-abstract ones, knowing nothing of Varve's domain.
+rule.** The levels are namespaces, in order: `Varve.WebUi.Atoms` <
+`.Molecules` < `.Organisms` < `.Templates` < `.Parts` < `.Pages`.
+
+- **The rule is uniform.** A component uses components of lower levels only,
+  never one of its own. Parts don't use Parts, and pages don't use pages. There
+  is no exemption anywhere; if two components of one level genuinely need each
+  other, that is a design conversation, not an analyzer exception.
+- **Atoms to Templates are abstract.** They know nothing of Varve's domain, and
+  take everything as parameters.
+- **Parts are domain-aware and not routed:** the problem view, the read stamps,
+  the drift note, and the like. They may use the client's model types
+  (`Varve.Protocol.Client.Model`: a problem body, a position, a status) and
+  `Tones`, and they hold Varve's wording.
+- **Pages are the routed screens only.** They are the only level that
+  references the client's service types (everything in `Varve.Protocol.Client`
+  outside `.Model`: the clients that call the server) or injects them, so only
+  a page reads data. A page may use Parts and everything below.
+
+This is the stable dependency principle (AGENTS.md, "Stable dependencies")
+applied inside one host: the lowest levels have the most dependents and change
+least, and they are the abstract ones.
 
 **5. One state-to-tone mapping.** The mapping from an API state word or problem
 type to one of the five tones (ok, warn, critical, neutral, past) is one pure,
-tested mapping in `Varve.WebUi.Tones`, called by organisms and pages. Atoms take
+tested mapping in `Varve.WebUi.Tones`, called by parts and pages. Atoms take
 a `Tone` (declared in `.Atoms`) and a word; no atom maps, and no page repeats
 the table. A test enumerates `ProblemCatalogue` and the documented state words
 and fails on any that has no tone.
@@ -135,14 +149,21 @@ design system page and the app render one markup.
 
   No conflict.
 - **Layer ownership.** `Varve.WebUi`, layer 6. `docs/ui/` is documentation.
-- **Analyzer rule.** The level rule of point 4: a component type in a level
-  namespace references component types only in lower level namespaces, and
-  only `.Pages` references `Varve.Protocol.Client`. Razor components compile to
-  C# through a source generator, and most analyzers skip generated code; the
-  rule must opt into analysing it. Use the DecisionDriven layer rule if it can
-  be declared per namespace; otherwise a new VARVE rule. If the generated
-  component classes are not visible to an analyzer, stop and say so before
-  substituting a test over the compiled assembly.
+- **Analyzer rule.** A new `VARVE` rule enforces point 4 with two checks:
+  1. **The level order.** A component type in a level namespace references
+     component types only in lower level namespaces, over `Atoms < Molecules <
+     Organisms < Templates < Parts < Pages`. Its own level is refused too.
+  2. **Services against models.** Client service types (`Varve.Protocol.Client`
+     outside `.Model`) are referenced only in `Pages`. Client model types
+     (`Varve.Protocol.Client.Model`) are referenced only in `Parts` and
+     `Pages`.
+
+  Razor components compile to C# through a source generator, and analyzers
+  skip generated code unless they opt in. A probe on the milestone branch
+  showed that one which opts in sees every component class and every
+  `OpenComponent<T>` edge. The opt-in (`ConfigureGeneratedCodeAnalysis`) is
+  per analyzer and is scoped to this rule alone. The `DD` rules stay out of
+  generated code, since component parameters are not contracts.
 - **Tests.**
   - `TokensCssTests.tokens_css_is_generated_from_tokens_json`: regenerate and
     compare byte for byte.

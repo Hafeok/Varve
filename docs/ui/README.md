@@ -31,12 +31,13 @@ Components are organised by atomic level, and the levels are a dependency rule: 
 | Molecules | `KeyValue`, `LagMeter`, `Notice`, `ViewHead`, `Triple`, `AsOfBanner`, `CopyButton` | atoms |
 | Organisms | `ResourceTable`, `CommitList`, `ProblemPanel`, `SourceBlock`, `ConfirmDialog`, `Panel` | molecules, atoms |
 | Templates | `Shell` and the screen layouts | organisms and below; no data |
+| Parts | domain-aware pieces that are not routed: the problem view, the read stamps, the drift note | templates and below; the client's model types and the tone mapping; Varve's wording |
 | Pages | the routed screens | everything; the only level that calls the API |
 
-- **Lower levels are abstract.** An atom takes words, tones and values as parameters and knows nothing of Varve's domain. `StateBadge` takes a tone and a word; it does not know what `failed` means.
-- **Domain knowledge sits in one place above the atoms.** The mapping from an API state or problem to a tone (the table under Colour) is one tested mapping that pages and organisms call, never a lookup repeated per page or pushed down into an atom. Domain text is the same: the drift note's wording lives once at the page level, and a page passes it in a `Notice`; no molecule carries it.
-- **Never the same level.** A component uses only lower levels, never one of its own. Where an organism shows what another organism renders (a problem in a dialog, a problem in a table's place), it takes a slot the page fills.
-- **Only pages read data.** Everything below a page takes parameters, so every component renders from a fixture without a server.
+- **Lower levels are abstract.** Atoms, molecules, organisms and templates know nothing of Varve's domain. An atom takes words, tones and values as parameters. `StateBadge` takes a tone and a word; it does not know what `failed` means.
+- **Domain knowledge sits in parts.** The mapping from an API state or problem to a tone (the table under Colour) is one tested mapping that parts and pages call, never a lookup repeated per page or pushed down into an atom. Domain text is the same: the drift note's wording lives once, in a part, which a page passes into the dialog's slot; no molecule carries it.
+- **Never the same level.** A component uses only lower levels, never one of its own: parts don't use parts, and pages don't use pages. Where an organism shows what another organism renders (a problem in a dialog, a problem in a table's place), it takes a slot the page fills.
+- **Only pages read data.** Pages are the routed screens and the only level that calls the API. Everything below a page takes parameters, so every component renders from a fixture without a server.
 - **A change to a lower level is a change to every screen.** Change tokens and atoms deliberately; a page may change freely.
 
 ## Colour

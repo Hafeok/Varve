@@ -12,11 +12,11 @@ decisions:
   - key: PlainCssFromTheAppsOrigin
     statement: "The Web UI uses no component library, CSS framework, web font, icon font, style attribute or Blazor CSS isolation; classes carry the vw- prefix"
   - key: AtomicLevelsAreADependencyRule
-    statement: "Components live in the Atoms, Molecules, Organisms, Templates and Pages namespaces of Varve.WebUi, and a component references only lower levels"
+    statement: "Components live in the Atoms, Molecules, Organisms, Templates, Parts and Pages namespaces of Varve.WebUi, in that order, and a component references only lower levels, never its own, with no exemption"
   - key: OnlyPagesCallTheApi
-    statement: "Only Varve.WebUi.Pages references Varve.Protocol.Client or injects a service that calls the server; every lower level takes parameters"
+    statement: "Only Varve.WebUi.Pages, the routed screens, references or injects the client's service types, Varve.Protocol.Client outside its Model namespace; Parts and Pages may use the client's model types, and Atoms to Templates use neither"
   - key: OneStateToToneMapping
-    statement: "One tested mapping in Varve.WebUi.Tones maps API state words and problem types to the five tones; atoms take a Tone and never map"
+    statement: "One tested mapping in Varve.WebUi.Tones maps API state words and problem types to the five tones, called by parts and pages; atoms take a Tone and never map"
   - key: TheMarkupContractTest
     statement: "Each component's cases under docs/ui/components/<Comp>/cases/ are rendered by the Razor component and compared to their expected fragments semantically; a component with a preview and no cases fails"
 ---
