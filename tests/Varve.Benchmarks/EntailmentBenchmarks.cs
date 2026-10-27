@@ -21,20 +21,30 @@ namespace Varve.Benchmarks;
 /// <summary>
 /// Inference, part 1 (#170): query latency under RDFS rewriting against simple
 /// entailment, over a store whose people are typed at the leaves of a small
-/// class and property hierarchy held in a TBox graph, and the
-/// container-membership scan a pattern over <c>rdfs:member</c> pays (ADR 0193).
+/// class and property hierarchy held in a TBox graph, and the rewriting alone,
+/// cold and warm, at three data sizes over one fixed schema (ADR 0193).
 /// </summary>
 /// <remarks>
+/// <para>
 /// Each query counts, so that what is timed is the evaluation and not the
 /// writing of rows. Every count is checked once in the setup against what the
-/// data entails before anything is timed.
+/// data entails before anything is timed. The queries read through a schema
+/// cache, as the server's do.
+/// </para>
+/// <para>
+/// The rewriting of a query that names a class is the gate: it must not grow
+/// with the data. Cold is the first query, the schema saturated by probes and
+/// the distinct terms sought; warm is a later one, the schema cached. Two
+/// shapes stay answer-sized: <c>?s ?p ?o</c> and <c>?x a rdfs:Resource</c>,
+/// which <see cref="RdfsResources"/> times.
+/// </para>
 /// </remarks>
 [MemoryDiagnoser]
 [WarmupCount(2)]
 [IterationCount(8)]
 public class EntailmentBenchmarks : IDisposable
 {
-    internal static readonly ImmutableArray<int> Sizes = [10_000, 100_000];
+    internal static readonly ImmutableArray<int> Sizes = [10_000, 100_000, 1_000_000];
 
     private const string Ex = "http://example.org/inference/";
     private const string Prefix = "PREFIX ex: <" + Ex + ">\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n";
@@ -42,12 +52,15 @@ public class EntailmentBenchmarks : IDisposable
     private const string Agents = Prefix + "SELECT (COUNT(*) AS ?n) { ?x a ex:Agent }";
     private const string Knows = Prefix + "SELECT (COUNT(*) AS ?n) { ?x ex:knows ?y }";
     private const string Members = Prefix + "SELECT (COUNT(*) AS ?n) { ?s rdfs:member ?o }";
+    private const string Classes = Prefix + "SELECT ?c { ?c a rdfs:Class }";
+    private const string Resources = Prefix + "SELECT (COUNT(*) AS ?n) { ?x a rdfs:Resource }";
 
     private static readonly RdfTerm Tbox = Iri("tbox");
 
     private StoreDatasetType? _store;
     private DatasetView? _view;
     private TBoxCover[] _covers = [];
+    private readonly SchemaCache _schemas = new();
     private readonly Dictionary<string, Varve.Sparql.Algebra.Query> _queries = new(StringComparer.Ordinal);
 
     /// <summary>The number of people; one in twenty also holds a bag of five.</summary>
@@ -88,7 +101,7 @@ public class EntailmentBenchmarks : IDisposable
         _ = _store.CommitAsync(request).AsTask().GetAwaiter().GetResult();
         _view = _store.Pin();
         _covers = [new TBoxCover([Tbox], GraphScope.All)];
-        foreach (string text in (string[])[Students, Agents, Knows, Members])
+        foreach (string text in (string[])[Students, Agents, Knows, Members, Resources, Classes])
         {
             _queries[text] = Varve.Sparql.SparqlParser.ParseQuery(text.AsSpan());
         }
@@ -101,8 +114,18 @@ public class EntailmentBenchmarks : IDisposable
         Expect(RdfsKnows(), People);
         Expect(SimpleMembers(), 0);
         Expect(RdfsMembers(), bags);
+        if (RdfsResources() <= People)
+        {
+            throw new InvalidOperationException("Fewer resources than people.");
+        }
+
         Console.WriteLine($"// {People:N0} people, {bags:N0} container members: every count as the data entails it");
     }
+
+    /// <summary>The schema cache's lookups over the run: every query after the first is a hit.</summary>
+    [GlobalCleanup]
+    public void Cleanup() =>
+        Console.WriteLine($"// {People:N0} people: the schema cache answered {_schemas.Hits.Value:N0} lookups and saturated {_schemas.Misses.Value:N0}");
 
     /// <summary>A pattern the TBox says nothing new about: the rewriting's overhead alone.</summary>
     [Benchmark(Baseline = true)]
@@ -129,13 +152,25 @@ public class EntailmentBenchmarks : IDisposable
     [Benchmark]
     public long RdfsMembers() => Count(Members, EntailmentRegime.Rdfs);
 
-    /// <summary>The rewriting alone, the schema saturated and the tables built, nothing evaluated.</summary>
+    /// <summary>Every resource the data entails: answer-sized, one of the two shapes that read the data whole.</summary>
     [Benchmark]
-    public int RewriteAgents() => EntailmentRewriter.Rewrite(_queries[Agents], _view!, _covers, EntailmentRegime.Rdfs).Query.GetHashCode();
+    public long RdfsResources() => Count(Resources, EntailmentRegime.Rdfs);
+
+    /// <summary>The rewriting alone, as a first query: the schema saturated by probes, the tables built, nothing evaluated.</summary>
+    [Benchmark]
+    public int RewriteAgentsCold() => EntailmentRewriter.Rewrite(_queries[Agents], _view!, _covers, EntailmentRegime.Rdfs, schemas: new SchemaCache()).Query.GetHashCode();
+
+    /// <summary>The rewriting alone, as a later query: the schema from the cache.</summary>
+    [Benchmark]
+    public int RewriteAgentsWarm() => EntailmentRewriter.Rewrite(_queries[Agents], _view!, _covers, EntailmentRegime.Rdfs, schemas: _schemas).Query.GetHashCode();
+
+    /// <summary>A meta-query over the classes, as a later query: the typed classes sought, one seek per distinct class.</summary>
+    [Benchmark]
+    public int RewriteClassesWarm() => EntailmentRewriter.Rewrite(_queries[Classes], _view!, _covers, EntailmentRegime.Rdfs, schemas: _schemas).Query.GetHashCode();
 
     private long Count(string text, EntailmentRegime regime)
     {
-        EntailedQuery entailed = EntailmentRewriter.Rewrite(_queries[text], _view!, _covers, regime);
+        EntailedQuery entailed = EntailmentRewriter.Rewrite(_queries[text], _view!, _covers, regime, schemas: _schemas);
         using QueryResults results = new SparqlEvaluator().Evaluate(entailed.Query, entailed.Source);
         SolutionResults solutions = (SolutionResults)results;
         return solutions.MoveNext() && solutions.TryGetTerm(new ColumnIndex(0), out RdfTerm? n) ? long.Parse(Encoding.UTF8.GetString(n!.Lexical), System.Globalization.CultureInfo.InvariantCulture) : -1;
