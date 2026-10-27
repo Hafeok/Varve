@@ -113,6 +113,7 @@ public static class EntailmentRewriter
         private readonly Dictionary<string, PatternRewriting> _compiled = [];
         private readonly List<TermHandle>? _namedGraphs;
         private IReadOnlyList<GraphPattern> _scope;
+        private bool _exact = true;
 
         internal Rewriter(TBoxMerge merge, DatasetSpec? dataset, RuleSet rules, IReadOnlyCollection<RdfTerm> named, CancellationToken cancellationToken)
         {
@@ -146,7 +147,7 @@ public static class EntailmentRewriter
             }
         }
 
-        protected override QueryPattern RewriteBgp(Bgp pattern) => Compiled(_scope).Rewrite(pattern);
+        protected override QueryPattern RewriteBgp(Bgp pattern) => Compiled(_scope, _exact).Rewrite(pattern);
 
         // Property paths are evaluated without entailment (§10), and a
         // SERVICE's pattern is the remote endpoint's.
@@ -198,7 +199,7 @@ public static class EntailmentRewriter
             // the TBox does not is rewritten on its own (ADR 0193 point 4).
             void Group(List<TermHandle> graphs, IReadOnlyList<GraphPattern> scope)
             {
-                PatternRewriting shared = Compiled(scope);
+                PatternRewriting shared = Compiled(scope, exact: false);
                 string key = KeyOf(scope);
                 HashSet<TermHandle> apart = new(_merge.TermComparer);
                 foreach (RdfTerm term in shared.Candidates(_named))
@@ -222,10 +223,12 @@ public static class EntailmentRewriter
                     }
                 }
 
-                Add(together, scope);
+                Add(together, scope, exact: false);
             }
 
-            void Add(List<TermHandle> graphs, IReadOnlyList<GraphPattern> scope)
+            // A graph rewritten on its own is its scoping graph, and its
+            // distinct terms are its own; a group's are not (ADR 0193).
+            void Add(List<TermHandle> graphs, IReadOnlyList<GraphPattern> scope, bool exact = true)
             {
                 List<AlgebraList<RdfTerm?>> rows = [];
                 foreach (TermHandle graph in graphs)
@@ -243,15 +246,17 @@ public static class EntailmentRewriter
 
                 QueryPattern one = new Join(
                     new Values(AlgebraList.Of(g), AlgebraList.From(rows)),
-                    new Graph(pattern.Name, Within(scope, pattern.Inner)));
+                    new Graph(pattern.Name, Within(scope, pattern.Inner, exact)));
                 union = union is null ? one : new Union(union, one);
             }
         }
 
-        private QueryPattern Within(IReadOnlyList<GraphPattern> scope, QueryPattern inner)
+        private QueryPattern Within(IReadOnlyList<GraphPattern> scope, QueryPattern inner, bool exact = true)
         {
             IReadOnlyList<GraphPattern> outer = _scope;
+            bool outerExact = _exact;
             _scope = scope;
+            _exact = exact;
             try
             {
                 return Rewrite(inner);
@@ -259,6 +264,7 @@ public static class EntailmentRewriter
             finally
             {
                 _scope = outer;
+                _exact = outerExact;
             }
         }
 
@@ -330,12 +336,14 @@ public static class EntailmentRewriter
             return found;
         }
 
-        private PatternRewriting Compiled(IReadOnlyList<GraphPattern> scope)
+        // A scoping graph that is one set of graphs is exact; a group under
+        // GRAPH ?g shares a TBox but not its graphs' terms.
+        private PatternRewriting Compiled(IReadOnlyList<GraphPattern> scope, bool exact = true)
         {
-            string key = KeyOf(scope);
+            string key = KeyOf(scope) + (exact ? string.Empty : "|group");
             if (!_compiled.TryGetValue(key, out PatternRewriting? compiled))
             {
-                _compiled[key] = compiled = new PatternRewriting(SchemaOf(scope), term => Occurs(scope, key, term));
+                _compiled[key] = compiled = new PatternRewriting(SchemaOf(scope), term => Occurs(scope, key, term), exact ? predicate => Distinct(scope, key, predicate) : null);
             }
 
             return compiled;
@@ -343,6 +351,38 @@ public static class EntailmentRewriter
 
         private readonly Dictionary<string, Schema> _schemas = [];
         private readonly Dictionary<(string Scope, RdfTerm Term), bool> _occurs = [];
+        private readonly Dictionary<(string Scope, RdfTerm? Predicate), IReadOnlyList<RdfTerm>> _distinct = [];
+
+        // The distinct predicates of the scoping graph, or the distinct
+        // objects of a predicate in it: by each graph's seek, through the
+        // merge, once per request (ADR 0193).
+        private IReadOnlyList<RdfTerm> Distinct(IReadOnlyList<GraphPattern> scope, string key, RdfTerm? predicate)
+        {
+            if (_distinct.TryGetValue((key, predicate), out IReadOnlyList<RdfTerm>? known))
+            {
+                return known;
+            }
+
+            List<RdfTerm> terms = [];
+            HashSet<RdfTerm> seen = new(RdfTerm.Comparer);
+            TermHandle handle = TermHandle.None;
+            if (predicate is null || _merge.TryInternalise(predicate, out handle))
+            {
+                foreach (GraphPattern graph in scope)
+                {
+                    foreach (TermHandle term in predicate is null ? DistinctTerms.Predicates(_merge, graph) : DistinctTerms.Objects(_merge, handle, graph))
+                    {
+                        if (_merge.TryExternalise(term, out RdfTerm? external) && seen.Add(external))
+                        {
+                            terms.Add(external);
+                        }
+                    }
+                }
+            }
+
+            _distinct[(key, predicate)] = terms;
+            return terms;
+        }
 
         // Whether the scoping graph, through the merge, names a term: three
         // bound probes per graph, once per request (ADR 0193 point 4).

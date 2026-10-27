@@ -237,6 +237,14 @@ internal sealed class ExtentSeekCursor : IDisposable
         }
     }
 
+    /// <summary>Moves every section to its first row whose key is not below <paramref name="key"/>.</summary>
+    internal void SeekTo(in QuadKey key)
+    {
+        _open.SeekTo(in key);
+        _close.SeekTo(in key);
+        _within.SeekTo(in key);
+    }
+
     public void Dispose()
     {
         _open.Release();
@@ -263,18 +271,43 @@ internal sealed class ExtentSeekCursor : IDisposable
 internal sealed class ColumnRows
 {
     private readonly SectionReader _keys;
-    private readonly ColumnReader? _column;
+    private ColumnReader? _column;
     private readonly long _end;
     private readonly bool _pairs;
 
     internal ColumnRows(ExtentInfo info, KeySection keys, int column, in QuadKey low, in QuadKey high)
     {
         (long next, long end) = Bounds(keys, in low, in high);
+        _info = info;
+        _section = keys;
+        _columnIndex = column;
         _keys = new SectionReader(keys);
         _keys.Seek(next);
         _end = end;
         _pairs = column == ExtentInfo.WithinColumn;
         _column = next < end ? new ColumnReader(info, column, next) : null;
+        Load();
+    }
+
+    private readonly ExtentInfo _info;
+    private readonly KeySection _section;
+    private readonly int _columnIndex;
+
+    /// <summary>
+    /// Moves to the first row whose key is not below <paramref name="key"/>:
+    /// the keys by a lower bound, the column read again from that row, since
+    /// it reads forward only (ADR 0193).
+    /// </summary>
+    internal void SeekTo(in QuadKey key)
+    {
+        if (!HasCurrent || Key.CompareTo(key) >= 0)
+        {
+            return;
+        }
+
+        long at = Math.Min(_section.LowerBound(in key), _end);
+        _keys.Seek(at);
+        _column = at < _end ? new ColumnReader(_info, _columnIndex, at) : null;
         Load();
     }
 
@@ -348,6 +381,32 @@ internal sealed class ExtentSeekScan : IQuadCursor
     private bool _deltaEnded;
     private QuadKey _deltaKey;
     private bool _deltaAsserts;
+
+    /// <summary>The quads of one key range in one order, every key in it a match: what a seek to the next distinct key walks.</summary>
+    internal ExtentSeekScan(Run[] older, ExtentSeek seek, IndexOrder order, in QuadKey low, in QuadKey high)
+    {
+        _graph = GraphPattern.Any;
+        _order = order;
+        _older = new RunCursor(older, order, in low, in high);
+        _delta = seek.Delta(order, in low, in high);
+    }
+
+    /// <summary>Moves the older runs and the delta to their first key not below <paramref name="key"/>; a key held below it is let go.</summary>
+    internal void SeekTo(in QuadKey key)
+    {
+        if (_olderHeld && _olderKey.CompareTo(key) < 0)
+        {
+            _olderHeld = false;
+        }
+
+        if (_deltaHeld && _deltaKey.CompareTo(key) < 0)
+        {
+            _deltaHeld = false;
+        }
+
+        _older.SeekTo(in key);
+        _delta.SeekTo(in key);
+    }
 
     internal ExtentSeekScan(Run[] older, ExtentSeek seek, ulong subject, ulong predicate, ulong @object, GraphPattern graph)
     {

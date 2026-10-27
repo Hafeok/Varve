@@ -305,3 +305,5 @@ Varve.Rdf.ITermCursor.Current.get -> Varve.Rdf.TermHandle
 Varve.Rdf.ITermCursor.MoveNext() -> bool
 static Varve.Rdf.DistinctTerms.Objects(Varve.Rdf.IQuadSource! source, Varve.Rdf.TermHandle predicate, Varve.Rdf.GraphPattern graph) -> System.Collections.Generic.List<Varve.Rdf.TermHandle>!
 static Varve.Rdf.DistinctTerms.Predicates(Varve.Rdf.IQuadSource! source, Varve.Rdf.GraphPattern graph) -> System.Collections.Generic.List<Varve.Rdf.TermHandle>!
+Varve.Rdf.QuadOverlay.TryDistinctObjects(Varve.Rdf.TermHandle predicate, Varve.Rdf.GraphPattern graph, out Varve.Rdf.ITermCursor? objects) -> bool
+Varve.Rdf.QuadOverlay.TryDistinctPredicates(Varve.Rdf.GraphPattern graph, out Varve.Rdf.ITermCursor? predicates) -> bool

@@ -29,18 +29,23 @@ internal sealed class PatternRewriting
     private readonly List<Branch> _branches;
     private readonly Schema _schema;
     private readonly Func<RdfTerm, bool> _occurs;
+    private readonly Func<RdfTerm?, IReadOnlyList<RdfTerm>>? _distinct;
     private readonly Dictionary<RdfTerm, Branch> _containerMembership = new(RdfTerm.Comparer);
 
     /// <summary>
     /// The rewriting under <paramref name="schema"/>, where
     /// <paramref name="occurs"/> says whether the scoping graph names a term:
-    /// an existence probe, memoised for the request (ADR 0193 point 4).
+    /// an existence probe, memoised for the request (ADR 0193 point 4); and
+    /// <paramref name="distinct"/>, when the scoping graph is one set of
+    /// graphs, gives its distinct predicates (for none) or the distinct
+    /// objects of a predicate, by a seek past each.
     /// </summary>
-    internal PatternRewriting(Schema schema, Func<RdfTerm, bool> occurs)
+    internal PatternRewriting(Schema schema, Func<RdfTerm, bool> occurs, Func<RdfTerm?, IReadOnlyList<RdfTerm>>? distinct)
     {
         _schema = schema;
         _branches = schema.Branches;
         _occurs = occurs;
+        _distinct = distinct;
     }
 
     /// <summary>
@@ -134,7 +139,7 @@ internal sealed class PatternRewriting
         QueryPattern? union = null;
         foreach (Branch branch in Candidates(query))
         {
-            if (Unify(branch, query, names, blank, own, _schema.Rules, _occurs) is { } pattern)
+            if (Unify(branch, query, names, blank, own, _schema.Rules, _occurs, _distinct) is { } pattern)
             {
                 union = union is null ? pattern : new Union(union, pattern);
             }
@@ -171,7 +176,7 @@ internal sealed class PatternRewriting
     // One branch unified with the query triple: constants filter the table or
     // bind the asserted triple, variables are bound from the outputs, a
     // repeated variable is an equality. Null when nothing can match.
-    private static Project? Unify(Branch branch, PatternTerm[] query, Variable?[] names, bool[] blank, List<Variable> own, RuleSet rules, Func<RdfTerm, bool> occurs)
+    private static Project? Unify(Branch branch, PatternTerm[] query, Variable?[] names, bool[] blank, List<Variable> own, RuleSet rules, Func<RdfTerm, bool> occurs, Func<RdfTerm?, IReadOnlyList<RdfTerm>>? distinct)
     {
         int columns = branch.Parameters + branch.Slots;
         Variable[] column = new Variable[columns];
@@ -263,7 +268,7 @@ internal sealed class PatternRewriting
             rows = named;
         }
 
-        return Build(branch, rows, names, blank, own, column, roleColumn, asserted, valueConstraints, ByValue(rules));
+        return Build(branch, rows, names, blank, own, column, roleColumn, asserted, valueConstraints, ByValue(rules), distinct);
     }
 
     private static bool ByValue(RuleSet rules) => rules.ByValue;
@@ -290,7 +295,7 @@ internal sealed class PatternRewriting
     private static bool Restricted(RdfTerm term, RuleSet rules) =>
         Vocabulary.IsContainerMembership(term) || (term.Equals(Vocabulary.XsdString) && !rules.ByValue);
 
-    private static Project? Build(Branch branch, List<RdfTerm[]> rows, Variable?[] names, bool[] blank, List<Variable> own, Variable[] column, int?[] roleColumn, PatternTerm[] asserted, List<(int Role, RdfTerm Canonical)> valueConstraints, bool byValue)
+    private static Project? Build(Branch branch, List<RdfTerm[]> rows, Variable?[] names, bool[] blank, List<Variable> own, Variable[] column, int?[] roleColumn, PatternTerm[] asserted, List<(int Role, RdfTerm Canonical)> valueConstraints, bool byValue, Func<RdfTerm?, IReadOnlyList<RdfTerm>>? distinct)
     {
         int columns = column.Length;
 
@@ -322,6 +327,14 @@ internal sealed class PatternRewriting
 
         bool literalByValue = byValue && branch.Family == Family.LiteralObject;
         QueryPattern? core = literalByValue ? new Bgp(AlgebraList.Of(new TriplePattern(asserted[0], asserted[1], asserted[2]))) : Asserted(branch.Family, asserted);
+
+        // A fact read off the predicate alone, or off a type-like triple's
+        // class alone, needs each distinct one once, not every triple: the
+        // scoping graph's seek gives them (ADR 0193).
+        if (distinct is not null && core is not null && DistinctOnly(branch, asserted, rows, distinct) is { } seeked)
+        {
+            core = Restrict(branch.Family, asserted, seeked);
+        }
 
         // Under D the literal family's parameter is a datatype the literal's
         // value is in, tested once the table has bound it.
@@ -402,6 +415,77 @@ internal sealed class PatternRewriting
             _ => bgp,
         };
     }
+
+    // The distinct terms that stand for the asserted triple when the fact
+    // reads one role of it and the others are free: the predicates, or the
+    // classes of each type-like predicate the table names.
+    private static Values? DistinctOnly(Branch branch, PatternTerm[] asserted, List<RdfTerm[]> rows, Func<RdfTerm?, IReadOnlyList<RdfTerm>> distinct)
+    {
+        int read = -1;
+        foreach (Position at in branch.Out)
+        {
+            if (at.IsRole)
+            {
+                if (read >= 0 && read != at.Index)
+                {
+                    return null;
+                }
+
+                read = at.Index;
+            }
+        }
+
+        bool Free(int role) => asserted[role] is VariablePattern { Variable: var v } && v.Equals(Roles[role]);
+
+        switch (branch.Family)
+        {
+            case Family.AnyPredicate or Family.ContainerMembershipPredicate when read == 1 && Free(0) && Free(1) && Free(2):
+                return new Values(AlgebraList.Of(Roles[1]), AlgebraList.From(Column(distinct(null))));
+            case Family.AnyClass or Family.ContainerMembershipClass when read == 2 && Free(0) && Free(2):
+                if (asserted[1] is TermPattern { Term: var type })
+                {
+                    return new Values(AlgebraList.Of(Roles[2]), AlgebraList.From(Column(distinct(type))));
+                }
+
+                if (asserted[1] is not VariablePattern { Variable: var typeColumn })
+                {
+                    return null;
+                }
+
+                List<AlgebraList<RdfTerm?>> pairs = [];
+                HashSet<RdfTerm> types = new(RdfTerm.Comparer);
+                foreach (RdfTerm[] row in rows)
+                {
+                    if (types.Add(row[0]))
+                    {
+                        foreach (RdfTerm @class in distinct(row[0]))
+                        {
+                            pairs.Add(AlgebraList.Of<RdfTerm?>(row[0], @class));
+                        }
+                    }
+                }
+
+                return new Values(AlgebraList.Of(typeColumn, Roles[2]), AlgebraList.From(pairs));
+            default:
+                return null;
+        }
+
+        static IEnumerable<AlgebraList<RdfTerm?>> Column(IReadOnlyList<RdfTerm> terms)
+        {
+            foreach (RdfTerm term in terms)
+            {
+                yield return AlgebraList.Of<RdfTerm?>(term);
+            }
+        }
+    }
+
+    // The family's condition on the asserted triple, on what stands for it.
+    private static QueryPattern Restrict(Family family, PatternTerm[] asserted, QueryPattern inner) => family switch
+    {
+        Family.ContainerMembershipPredicate => new Filter(IsContainerMembership(asserted[1]), inner),
+        Family.ContainerMembershipClass => new Filter(IsContainerMembership(asserted[2]), inner),
+        _ => inner,
+    };
 
     // The literal family's table joins on the object's datatype.
     private static Extend LiteralCondition(Bgp bgp, PatternTerm @object)

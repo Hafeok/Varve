@@ -737,3 +737,5 @@ static Varve.Store.Log.DerivedVersion.operator ==(Varve.Store.Log.DerivedVersion
 static Varve.Store.Log.DerivedVersion.operator >(Varve.Store.Log.DerivedVersion left, Varve.Store.Log.DerivedVersion right) -> bool
 static Varve.Store.Log.DerivedVersion.operator >=(Varve.Store.Log.DerivedVersion left, Varve.Store.Log.DerivedVersion right) -> bool
 ~override Varve.Store.Log.DerivedVersion.Equals(object obj) -> bool
+Varve.Store.DatasetView.TryDistinctObjects(Varve.Rdf.TermHandle predicate, Varve.Rdf.GraphPattern graph, out Varve.Rdf.ITermCursor? objects) -> bool
+Varve.Store.DatasetView.TryDistinctPredicates(Varve.Rdf.GraphPattern graph, out Varve.Rdf.ITermCursor? predicates) -> bool
