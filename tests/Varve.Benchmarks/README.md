@@ -1815,3 +1815,81 @@ The first run, before the fix to incremental validation's candidate targets
   A generation is a full validation, so the fix leaves it unchanged. S's
   cold start of 7.1 s against 4.3 s is one run's spread at a few seconds.
 - **Part 2a's 7.6 ms** were measured without those constraints.
+
+## Inference, part 1 — RDFS rewriting, and the rewriting alone at three sizes
+
+**Machine.** Intel Xeon @ 2.10 GHz, 4 logical and 4 physical cores, 15 GiB,
+Ubuntu 24.04.5 LTS, a cloud container. .NET SDK 10.0.403, runtime 10.0.14,
+X64 RyuJIT `x86-64-v4`. BenchmarkDotNet 0.15.8, in process (the generated
+project is red on `CS0618` until ADRs 0190–0194 are accepted), `WarmupCount
+2`, `IterationCount 8`.
+
+**Workload.** `EntailmentBenchmarks`: a memory store with a TBox graph of
+five schema triples (`Student ⊑ Person ⊑ Agent ⊑ Thing`, `advisor ⊑ knows`,
+`knows` with domain `Person`), the schema fixed at every size, and N people
+in the default graph, each typed `Student` with one `advisor`; one in twenty
+also holds a bag of five members by `rdf:_1` … `rdf:_5`. Every count is
+checked against what the data entails before anything is timed. The queries
+read through one schema cache, as the server's do (ADR 0193 point 2).
+
+```bash
+WarningsNotAsErrors=CS0618 dotnet build tests/Varve.Benchmarks -c Release
+cd tests/Varve.Benchmarks && dotnet run -c Release --no-build -- --filter '*EntailmentBenchmarks*' --inProcess
+```
+
+**The gate: rewriting a query that names a class** (`?x a ex:Agent`,
+two `rdfs:subClassOf` steps above the asserted type), nothing evaluated.
+Cold is a first query: a fresh cache, the schema saturated by probes and the
+tables compiled. Warm is a later one, the schema from the cache. The
+meta-query `?c a rdfs:Class` adds the seek for the typed classes, one seek
+per distinct class.
+
+| People | Cold | Error | Warm | Error | `?c a rdfs:Class`, warm | Error | Allocated, cold / warm |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 10,000 | 1.42 ms | 0.11 ms | 39.0 µs | 4.4 µs | 47.8 µs | 5.1 µs | 1,640 / 53 KB |
+| 100,000 | 1.40 ms | 0.10 ms | 35.4 µs | 2.0 µs | 48.5 µs | 6.6 µs | 1,640 / 53 KB |
+| 1,000,000 | 1.55 ms | 0.27 ms | 35.4 µs | 4.7 µs | 50.1 µs | 9.3 µs | 1,640 / 53 KB |
+
+Flat across a hundredfold of data, within the error, and the allocation is
+the same to the kilobyte. The first build of this part, which read the
+schema by scanning for the shapes that act on it, took **2.9 s** to rewrite
+the same query at 100,000 people; the plan's probe design, which ships, takes
+1.4 ms cold.
+
+**The cache's hits and misses**, printed at the end of each run: every run
+saturated **1** schema, the first query's, and answered every later lookup
+from the cache: 4 lookups in a cold run's setup, 212,997 over a warm run's
+iterations, at each of the three sizes.
+
+**Queries, evaluated and counted**, the schema cached. These come from the
+first run of the same build, whose console output is kept as
+`EntailmentBenchmarks-20261027-130515.log`; it stopped at `rdfs:Resource` at
+1,000,000 people (below), so the rewriting rows above are a second run's:
+
+| Query | 10,000 | 100,000 | 1,000,000 |
+|---|---:|---:|---:|
+| `?x a ex:Student`, simple | 0.71 ms | 6.31 ms | 70.4 ms |
+| `?x a ex:Student`, RDFS | 20.9 ms | 287 ms | 4.31 s |
+| `?x a ex:Agent`, simple (no answer) | 2.5 µs | 2.5 µs | 3.0 µs |
+| `?x a ex:Agent`, RDFS | 17.5 ms | 270 ms | 3.75 s |
+| `?x ex:knows ?y`, RDFS (one sub-property) | 8.8 ms | 170 ms | 2.20 s |
+| `?s rdfs:member ?o`, simple (no answer) | 2.3 µs | 2.5 µs | 2.3 µs |
+| `?s rdfs:member ?o`, RDFS | 14.6 ms | 181 ms | 1.93 s |
+| `?x a rdfs:Resource`, RDFS | 170 ms | 2.54 s | not run |
+
+**Reading it.**
+- **The rewriting is the schema's and the query's,** not the data's. What a
+  query under RDFS costs beyond that is its evaluation, which is
+  answer-sized: each row above counts N or 2.5% of N answers, and grows with
+  them. Against simple entailment it pays the rewritten unions and the
+  `Distinct` over each basic graph pattern (point 6): 30 times the simple
+  count of the same answers at 10,000 people, 60 times at 1,000,000.
+- **The only O(data) shapes** are `?s ?p ?o` and `?x a rdfs:Resource`,
+  whose answers are the data: every term of the graph is a resource. Their
+  cost is the answers'. At 1,000,000 people one iteration of the count runs
+  past the in-process toolchain's limit, so that row is not reported; it
+  grew 15-fold from 10,000 to 100,000. The schema's one O(data) read, a
+  TBox that redefines the vocabulary, is not in this workload (ADR 0193
+  point 2).
+- **The container-membership pattern** finds its `rdf:_n` among the
+  distinct predicates, sought, not by a scan.
