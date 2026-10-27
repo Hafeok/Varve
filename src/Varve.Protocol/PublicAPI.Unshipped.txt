@@ -384,3 +384,39 @@ override Varve.Protocol.Model.BindingDescription.GetHashCode() -> int
 override Varve.Protocol.Model.BindingDescription.ToString() -> string!
 static Varve.Protocol.Model.BindingDescription.operator !=(Varve.Protocol.Model.BindingDescription? left, Varve.Protocol.Model.BindingDescription? right) -> bool
 static Varve.Protocol.Model.BindingDescription.operator ==(Varve.Protocol.Model.BindingDescription? left, Varve.Protocol.Model.BindingDescription? right) -> bool
+Varve.Protocol.IValidationReportGraph
+Varve.Protocol.IValidationReportGraph.Binding.get -> Varve.Rdf.RdfTerm!
+Varve.Protocol.IValidationReportGraph.Graph.get -> Varve.Rdf.RdfTerm!
+Varve.Protocol.IValidationReportGraph.ReportAt(Varve.Store.Log.Position position) -> Varve.Shacl.ValidationOutcome!
+Varve.Protocol.IValidationReportGraph.TryReportAt(Varve.Store.Log.Position position, out Varve.Shacl.ValidationOutcome! outcome) -> bool
+Varve.Protocol.IValidationReportGraph.Validates.get -> Varve.Rdf.GraphScope!
+Varve.Protocol.IValidationReports
+Varve.Protocol.IValidationReports.Of(Varve.Protocol.Model.DatasetName dataset) -> System.Collections.Generic.IReadOnlyList<Varve.Protocol.IValidationReportGraph!>!
+Varve.Protocol.ProtocolOptions.ValidationReports.get -> Varve.Protocol.IValidationReports?
+Varve.Protocol.ProtocolOptions.ValidationReports.init -> void
+Varve.Protocol.ReportGraphGuard
+Varve.Protocol.ReportGraphGuard.ReportGraphGuard() -> void
+Varve.Protocol.ReportGraphGuard.Validate(Varve.Rdf.IQuadSource! proposed, Varve.Rdf.QuadDelta delta) -> Varve.Store.Log.ValidationVerdict
+Varve.Protocol.ValidationBehindException
+Varve.Protocol.ValidationBehindException.Binding.get -> Varve.Rdf.RdfTerm!
+Varve.Protocol.ValidationBehindException.Position.get -> Varve.Store.Log.Position
+Varve.Protocol.ValidationBehindException.Projected.get -> Varve.Store.Log.Position
+Varve.Protocol.ValidationBehindException.ValidationBehindException() -> void
+Varve.Protocol.ValidationBehindException.ValidationBehindException(Varve.Rdf.RdfTerm! binding, Varve.Store.Log.Position position, Varve.Store.Log.Position projected) -> void
+Varve.Protocol.ValidationBehindException.ValidationBehindException(string! message) -> void
+Varve.Protocol.ValidationBehindException.ValidationBehindException(string! message, System.Exception! innerException) -> void
+static Varve.Protocol.Model.ProblemType.ValidationBehind.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.EventCatalogueMoved.get -> Varve.Protocol.Model.ProblemType
+Varve.Protocol.ManagedEventDeclarations
+static Varve.Protocol.ManagedEventDeclarations.Changes(System.Collections.Generic.IReadOnlyList<Varve.Delta.Model.FeedChange>! before, System.Collections.Generic.IReadOnlyList<Varve.Delta.Model.FeedChange>! after) -> System.Collections.Generic.List<Varve.Delta.Model.FeedChange>!
+static Varve.Protocol.ManagedEventDeclarations.ToCatalogue(System.Collections.Generic.IEnumerable<(Varve.Rdf.RdfTerm! Subject, Varve.Rdf.RdfTerm! Predicate, Varve.Rdf.RdfTerm! Object)>! datasetGraph, System.Collections.Generic.ICollection<Varve.Events.Model.DeclarationProblem>! problems) -> System.Collections.Generic.List<Varve.Delta.Model.FeedChange>!
+static Varve.Protocol.ManagedEventDeclarations.TryFromCatalogue(System.Collections.Generic.IReadOnlyList<Varve.Delta.Model.FeedChange>! catalogue, out System.Collections.Generic.List<(Varve.Rdf.RdfTerm! Subject, Varve.Rdf.RdfTerm! Predicate, Varve.Rdf.RdfTerm! Object)>! nodes, out Varve.Events.Model.DeclarationProblem? problem) -> bool
+Varve.Protocol.EventCatalogueFreeze
+Varve.Protocol.EventCatalogueFreeze.EventCatalogueFreeze(Varve.Protocol.Model.DatasetName dataset) -> void
+Varve.Protocol.EventCatalogueFreeze.Validate(Varve.Rdf.IQuadSource! proposed, Varve.Rdf.QuadDelta delta) -> Varve.Store.Log.ValidationVerdict
+Varve.Protocol.ProtocolOptions.Plane.get -> Varve.Protocol.IManagementPlane?
+Varve.Protocol.ProtocolOptions.Plane.init -> void
+Varve.Protocol.EventDeclarationMove
+static Varve.Protocol.EventDeclarationMove.ResumeAsync(Varve.Protocol.ProtocolOptions! options, Varve.Protocol.IManagementPlane! plane, Varve.Protocol.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
+Varve.Protocol.EventCatalogueValidator.EventCatalogueValidator(Varve.Protocol.Model.DatasetName dataset, System.Func<bool>! moved) -> void
+static Varve.Protocol.EventDeclarationMove.MovingSinceAsync(Varve.Protocol.IManagementPlane! plane, Varve.Protocol.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<long?>!

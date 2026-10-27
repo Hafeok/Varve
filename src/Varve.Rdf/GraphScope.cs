@@ -84,6 +84,10 @@ public sealed class GraphScope
     /// <summary>Whether the set names graphs by prefix.</summary>
     public bool HasPrefixes => _prefixes.Length > 0;
 
+    /// <summary>The IRI prefixes the set names graphs by, in the order given: what identifies the set beside <see cref="Graphs"/>, as a store that keeps something per scope needs.</summary>
+    [DesignDecision(typeof(TheValidationProjection.SnapshotIdentifiesItsBinding), Scope = ExceptionScope.Boundary)]
+    public IReadOnlyList<string> Prefixes => Array.ConvertAll(_prefixes, static prefix => Encoding.UTF8.GetString(prefix));
+
     /// <summary>
     /// The set of <paramref name="graphs"/>, each an IRI, every named graph
     /// whose IRI starts with one of <paramref name="prefixes"/>, and the

@@ -23,6 +23,10 @@ its section "Deletion waits for Extent maintenance". Its ruling
 key, restated. **Amends** [ADR 0134](0134-the-object-store-contract.md): a
 follower writes its reader record. Both by dated amendment.
 
+**Amended 2026-10-26** (ADR 0068), by #133, unaccepted until the maintainer
+accepts it (ADR 0066): a reader record gains an optional `maxDerived`
+([ADR 0178](0178-the-format-5-upgrade-and-the-set-cap.md)); see the end.
+
 Records decision set [`extent-deletion-by-reader-announcements`](../decisions/extent-deletion-by-reader-announcements.md).
 
 ## Context
@@ -310,3 +314,22 @@ storage implements:
     - an unannounced read;
     - a `403` naming the role;
     - an unknown format holding everything.
+
+## Amendment, 2026-10-26 — what a reader reads
+
+Filed by #133, unaccepted until the maintainer accepts it (ADR 0066); ruled
+in [ADR 0178](0178-the-format-5-upgrade-and-the-set-cap.md).
+
+- **A record says the newest derived format its reader reads**, as
+  `maxDerived`, optional in record format 1 (storage format §8.1). Absent, it
+  is 4: a record written before #133, and one of a format this build does not
+  read, is a reader of format 4. Every record this build writes, the
+  writer's and a follower's alike, says 5.
+- **The deletion rule is unchanged**: `maxDerived` decides nothing about
+  which set may be deleted. It decides whether the writer may rewrite a
+  format-4 set as format 5: not while a present record says less (ADR 0178,
+  point 2).
+- **The record format stays 1.** A reader of `v0.1.0-preview.13` or before reads a
+  record with the member as it reads any, ignoring what it does not know;
+  this build reads one without it as 4.
+- `varve storage readers list` and readiness's `retention` show it.

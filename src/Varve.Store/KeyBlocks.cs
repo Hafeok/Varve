@@ -192,6 +192,12 @@ internal sealed class KeyBlockWriter
     /// <summary>Where each of the section's blocks begins.</summary>
     internal Chunked<long> Blocks { get; private set; } = new();
 
+    /// <summary>Each block's check, when <see cref="Checked"/>: a format-5 extent's (ADR 0177).</summary>
+    internal Chunked<ulong> Checks { get; private set; } = new();
+
+    /// <summary>Whether each block's check is taken as it is encoded.</summary>
+    internal bool Checked { get; set; }
+
     /// <summary>Starts a new section; the bytes pending stay pending.</summary>
     internal void Begin()
     {
@@ -199,6 +205,7 @@ internal sealed class KeyBlockWriter
         Count = 0;
         Fences = new();
         Blocks = new();
+        Checks = new();
     }
 
     /// <summary>Adds keys, at most 2,048 at a time; blocks that fill are encoded into the pending bytes.</summary>
@@ -236,8 +243,51 @@ internal sealed class KeyBlockWriter
         Fences.Add(_block[0]);
         Blocks.Add(Length);
         int written = KeyBlocks.Encode(_block.AsSpan(0, _inBlock), _pending.AsSpan(Pending));
+
+        if (Checked)
+        {
+            Checks.Add(BlockCheck.Of(_pending.AsSpan(Pending, written)));
+        }
+
         Pending += written;
         Length += written;
         _inBlock = 0;
+    }
+}
+
+/// <summary>
+/// A format-5 extent's check of one block (ADR 0177, storage format §7.5):
+/// 64 bits over its bytes, each eight bytes folded in by one multiplication,
+/// a bijection, so a damaged byte — or any damage inside one eight-byte word
+/// — always changes the check, and the length is mixed in, so a cut does
+/// too. Damage across words is caught with all but negligible chance. Not
+/// a cryptographic hash: it detects damage, not tampering.
+/// </summary>
+[DesignDecision(typeof(SeekingExtentSets.EveryBlockIsChecked), Scope = ExceptionScope.Boundary)]
+internal static class BlockCheck
+{
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal static ulong Of(ReadOnlySpan<byte> bytes)
+    {
+        ulong h = 0x243F6A8885A308D3UL ^ (ulong)bytes.Length;
+        int at = 0;
+
+        while (bytes.Length - at >= 8)
+        {
+            h = (h ^ BinaryPrimitives.ReadUInt64LittleEndian(bytes[at..])) * 0x9E3779B97F4A7C15UL;
+            at += 8;
+        }
+
+        ulong tail = 0;
+
+        for (int shift = 0; at < bytes.Length; at++, shift += 8)
+        {
+            tail |= (ulong)bytes[at] << shift;
+        }
+
+        h = (h ^ tail) * 0x9E3779B97F4A7C15UL;
+        h = (h ^ (h >> 30)) * 0xBF58476D1CE4E5B9UL;
+        h = (h ^ (h >> 27)) * 0x94D049BB133111EBUL;
+        return h ^ (h >> 31);
     }
 }

@@ -332,6 +332,9 @@ Filed by SHACL, part 1 ([#120](https://github.com/Hafeok/Varve/issues/120), unde
 | [0171](0171-which-shapes-are-incrementally-maintainable.md) | Which shapes are incrementally maintainable: footprints, anchors and three classes | Filed unaccepted (SHACL part 2a, #138) |
 | [0172](0172-varve-derivation.md) | `Varve.Derivation`: delta-driven maintenance at layer 2; amends 0003, 0150, 0152 | Filed unaccepted (SHACL part 2a, #138) |
 | [0173](0173-the-validation-report-on-the-commit.md) | The validation report on the commit: a reference and a digest; amends 0154 | Filed unaccepted (SHACL part 2a, #138) |
+| [0174](0174-the-validation-projection.md) | The validation projection and its reserved graph; amends 0107, 0119, 0130, 0155 | Filed unaccepted (SHACL part 2b, #13) |
+| [0175](0175-shapes-validate-varves-declarations.md) | Shapes validate Varve's own declarations; amends 0145, 0157, 0166 | Filed unaccepted (SHACL part 2b, #13) |
+| [0176](0176-the-rec-gate.md) | The REC gate: its shapes composition, and three ways that agree | Filed unaccepted (SHACL part 2b, #13) |
 
 ## Milestone Management plane — fleet system dataset, grants as code, `varve apply` (first part)
 
@@ -345,6 +348,14 @@ Filed by milestone Management plane, part 1 ([#105](https://github.com/Hafeok/Va
 | [0166](0166-varve-management-and-the-vocabulary.md) | `Varve.Management` and the management vocabulary | Filed unaccepted (Management plane, #105) |
 | [0168](0168-write-routing-by-forwarding.md) | Write routing by forwarding: the writer directory, the hop rule and the internal address | Filed unaccepted (Management plane, #105) |
 
+## Milestone Management plane — the event-schema move (second part)
+
+Filed by milestone Management plane, part 2 ([#105](https://github.com/Hafeok/Varve/issues/105)), unaccepted until the maintainer accepts it on its pull request (ADR 0066). Amended by it, likewise unaccepted: 0144 (point 6 realised), 0145 (revision identifiers after the move) and 0166 (the event declarations join).
+
+| # | Title | Status |
+|---:|---|---|
+| [0167](0167-event-declarations-move-to-the-management-plane.md) | Event declarations move to the management plane: freeze, barrier, copy and switch; the boundary; `m{p}` revisions | Filed unaccepted (Management plane, #105) |
+
 ## Milestone Extent maintenance — background merges and extent deletion
 
 Filed by milestone Extent maintenance ([#110](https://github.com/Hafeok/Varve/issues/110)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered 0158–0162: SHACL holds 0148–0157 and the Management plane 0163 onward. Amended by it, likewise unaccepted: 0134 (a follower writes its reader record; the streamed create; refusals for the identity); 0138 (the chain bounded by merges, the checkpoint budget removed); 0139 (deletion and merges superseded, the shared commit index, the catalog's sequence as its version).
@@ -356,6 +367,15 @@ Filed by milestone Extent maintenance ([#110](https://github.com/Hafeok/Varve/is
 | [0160](0160-extent-deletion-by-reader-announcements.md) | Extent deletion by reader announcements: readers announce an interval, and no timer; supersedes 0139 in part | Filed unaccepted (Extent maintenance, #110) |
 | [0161](0161-the-shared-commit-index.md) | The shared commit index: each extent set carries its window's commit index | Filed unaccepted (Extent maintenance, #110) |
 | [0162](0162-storage-operations-and-the-readers-command.md) | Storage operations: `varve storage`, the readers command, readiness, and the operator guide | Filed unaccepted (Extent maintenance, #110) |
+
+## As-of reads that seek (#133)
+
+Filed by [#133](https://github.com/Hafeok/Varve/issues/133), in 1.0 ([#15](https://github.com/Hafeok/Varve/issues/15)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0177. Amended by it, likewise unaccepted: 0049 (an as-of view inside a set may estimate); 0072 (derived version 5, for extents); 0138 ("As-of reads": a format-5 set is sought); 0139 (an extent is written in format 5); 0159 (the cap bounds merges, not reads); 0160 (a reader record says what its reader reads, `maxDerived`).
+
+| # | Title | Status |
+|---:|---|---|
+| [0177](0177-seek-dont-narrow-intervals-beside-the-key.md) | Seek, don't narrow: an extent's intervals beside its keys, derived format 5 | Filed unaccepted (#133) |
+| [0178](0178-the-format-5-upgrade-and-the-set-cap.md) | The format-5 upgrade, mixed-version instances, and the set cap | Filed unaccepted (#133) |
 
 ## Conformance — differential testing against Oxigraph
 

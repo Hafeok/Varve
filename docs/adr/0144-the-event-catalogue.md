@@ -17,6 +17,10 @@ and on its plan:
 [0130](0130-client-side-setup-and-system-graphs.md) (the rule), each by a dated
 block (ADR 0068). The specification is `docs/spec/events.md` §3 and §6.3.
 
+**Amended 2026-10-23** (ADR 0068), by milestone Management plane of #105,
+part 2, under ADR [0167](0167-event-declarations-move-to-the-management-plane.md):
+point 6 realised; see the end.
+
 ## Context
 
 ADR 0143 renders events through declarations. Somebody must find the
@@ -171,3 +175,25 @@ The vocabulary must survive the move unchanged.
   - `Varve.Server` (6): the composition.
 - **Analyzer rule.** None new. `VARVE0003` checks the memoised decision.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-23 — point 6 realised: the move
+
+Filed by milestone Management plane, part 2, of #105, unaccepted until the
+maintainer accepts it (ADR 0066). The rulings are ADR
+[0167](0167-event-declarations-move-to-the-management-plane.md)'s.
+
+- **What moved.** A dataset's declarations move to its graph in the system
+  dataset, `varve:manage/dataset/{d}`, by an explicit act per dataset. Each
+  catalogue graph's triples are copied as they are, and each type node gains
+  `varve:sourceGraph G`, which the catalogue graph's name carried before.
+  Point 2's vocabulary is unchanged.
+- **The catalogue graphs after the move.** A write to one is refused with
+  `409 event-catalogue-moved`, from the management position that froze them.
+  They stay in the log, readable as of any position, under point 3's governor
+  rule, which is unchanged.
+- **Point 5's history** answers the declarations up to the move. A second
+  history, fed from the system dataset, answers them after it. A data commit
+  is rendered from the second exactly when the management position it records
+  is at or after the move's (ADR 0165).
+- **Point 7's rule** holds in the new home: the check is the same
+  (`EventDeclarationCheck`), over the dataset's moved declarations.

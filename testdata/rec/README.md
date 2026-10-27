@@ -18,3 +18,13 @@ it (ADR 0141, decision 1). It is never fetched at test time.
 them before reading a byte. Moving to another tag is a pull request that adds
 its directory, reruns every REC-based gate, and removes the old one (ADR
 0140). `THIRD-PARTY-NOTICES` at the repository root carries both notices.
+
+## The REC gate's files
+
+`gate/` is this repository's, not REC's, and the vendored directory's checksums
+do not cover it (ADR 0176):
+
+| File | What |
+|---|---|
+| `gate/composition.ttl` | what the gate adds to REC 4.1.0's shapes graph: `owl:Class rdfs:subClassOf rdfs:Class`, and the `sh:declare` prefix declarations Brick's three SPARQL constraints need |
+| `gate/features.md` | which SHACL features the composed shapes graph uses, the class each falls in, and the shapes that cannot be evaluated; written and pinned by `RecGateTests` (`VARVE_WRITE_GOLDEN=1` writes it again) |

@@ -28,24 +28,46 @@ public sealed class GoldenSchemaTests
         History history = new();
         List<Q> previous = [];
 
-        foreach (string file in Directory.GetFiles(Path.Combine(folder, "history"), "*.trig").Order(StringComparer.Ordinal))
+        foreach (string file in Directory.GetFiles(Path.Combine(folder, "history"), "*.trig").Where(f => char.IsAsciiDigit(Path.GetFileName(f)[0])).Order(StringComparer.Ordinal))
         {
             List<Q> state = Trig.Quads(File.ReadAllText(file));
             Assert.NotNull(history.Commit(previous.Except(state), state.Except(previous)));
             previous = state;
         }
 
-        EventCatalogueHistory catalogue = history.Catalogue(history.Head);
+        EventCatalogueHistory dataset = history.Catalogue(history.Head);
+        EventCatalogueHistory catalogue = dataset;
+
+        // A case that crosses the move (ADR 0167): mNN.trig is the catalogue,
+        // in the catalogue graphs' form, at management position NN after it.
+        string[] moved = [.. Directory.GetFiles(Path.Combine(folder, "history"), "m*.trig").Order(StringComparer.Ordinal)];
+
+        if (moved.Length > 0)
+        {
+            catalogue = EventCatalogueHistory.ContinueFrom(dataset.Current);
+            List<Q> managed = [];
+
+            foreach (string file in moved)
+            {
+                List<Q> state = Trig.Quads(File.ReadAllText(file));
+                List<Varve.Delta.Model.FeedChange> changes = [
+                    .. managed.Except(state).Select(q => new Varve.Delta.Model.FeedChange(Varve.Delta.Model.FeedChangeKind.Retract, q.S, q.P, q.O, q.G)),
+                    .. state.Except(managed).Select(q => new Varve.Delta.Model.FeedChange(Varve.Delta.Model.FeedChangeKind.Assert, q.S, q.P, q.O, q.G))];
+                catalogue.Apply(new Varve.Delta.Model.FeedPosition(long.Parse(Path.GetFileNameWithoutExtension(file)[1..], System.Globalization.CultureInfo.InvariantCulture)), changes);
+                managed = state;
+            }
+        }
+
         Dictionary<string, byte[]> generated = new(StringComparer.Ordinal);
 
         foreach (CataloguedType type in catalogue.Current.Types)
         {
             foreach (SchemaRevision revision in type.Revisions)
             {
-                Assert.True(catalogue.At(revision.Revision).TryGet(type.Declaration.Name, out CataloguedType? then));
+                Assert.True((revision.Revision.IsManagement ? catalogue : dataset).At(revision.Revision).TryGet(type.Declaration.Name, out CataloguedType? then));
                 Assert.Equal(revision.Version, then.Declaration.Version);
                 string id = Endpoints.Schema(type.Declaration.Name, revision.Version, revision.Revision);
-                generated[Path.Combine(type.Declaration.Name, "v" + revision.Version, "r" + revision.Revision.Value + ".json")] =
+                generated[Path.Combine(type.Declaration.Name, "v" + revision.Version, "r" + revision.Revision + ".json")] =
                     EventSchemas.Generate(then.Declaration, id);
             }
         }
@@ -83,6 +105,17 @@ public sealed class GoldenSchemaTests
         // 1: declared. 2: an optional field. 3: a description. 4: version 2.
         // 5: the query's text alone, and 6: retirement, change no schema.
         Assert.Equal(["OrderPlaced/v1/r1.json", "OrderPlaced/v1/r2.json", "OrderPlaced/v1/r3.json", "OrderPlaced/v2/r4.json"], revisions);
+    }
+
+    [Fact]
+    public void the_moved_case_keeps_its_revisions_across_the_move_and_mints_m_revisions_after()
+    {
+        string[] revisions = [.. Directory.GetFiles(Path.Combine(Root, "moved", "expected"), "*.json", SearchOption.AllDirectories)
+            .Select(f => Path.GetRelativePath(Path.Combine(Root, "moved", "expected"), f).Replace('\\', '/')).Order(StringComparer.Ordinal)];
+
+        // 1: declared. 2: an optional field. The move at m5 changes no byte,
+        // so it mints nothing; m7 adds an optional field, m9 is version 2.
+        Assert.Equal(["OrderPlaced/v1/r1.json", "OrderPlaced/v1/r2.json", "OrderPlaced/v1/rm7.json", "OrderPlaced/v2/rm9.json"], revisions);
     }
 
     private static string SourceFolder(string name)

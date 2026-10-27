@@ -31,7 +31,7 @@ planned on the roadmap and not yet released.
 | Change data capture | Debezium or the database's replication slot, plus its operations | The same commits resource; nothing extra to run | shipped |
 | Per-tenant and per-user visibility | Row-level security policies, tested by hand | Datasets for tenants, graph-level grants from your identity provider's claims | shipped; row-level access: milestone 9 |
 | Add a field | A migration, a deploy window, a backfill | Write the new property; older records simply do not have it | shipped |
-| Enforce the shape of data | Constraints and triggers, plus validation in application code | Shapes checked before each commit, with the report kept | milestone 8 (SHACL) |
+| Enforce the shape of data | Constraints and triggers, plus validation in application code | Shapes checked before each commit, with the report kept | shipped |
 | Categories, hierarchies and derived facts | Recursive CTEs, closure tables, denormalised flags kept in sync by triggers | The ontology is data; RDFS by query rewriting, OWL 2 RL and your own rules as a projection, with "why is this here" as a query and as-of reads of what was inferred | Inference |
 | Repeatable setup | Migration framework and its version table | Declarative setup that is idempotent by construction; migrations recorded as data | Client and integration |
 | Optimistic concurrency | Row-version columns, kept by every writer | `ETag` and `If-Match` on every resource, per graph | per dataset: shipped; per graph: Commit path |

@@ -79,6 +79,7 @@ public static class ProblemCatalogue
         new(ProblemType.NotAcceptable, 406, "Nothing in Accept is a format this endpoint writes."),
         new(ProblemType.Conflict, 409, "Another commit came first.", "position", "expectedPosition", "headPosition", "graphs", "graphsTruncated"),
         new(ProblemType.DatasetOpen, 409, "The dataset is open; close it first."),
+        new(ProblemType.EventCatalogueMoved, 409, "The dataset's event declarations are on the management plane.", "manage"),
         new(ProblemType.PreconditionFailed, 412, "The precondition does not name the current version.", "position", "expectedPosition", "headPosition", "graphs"),
         new(ProblemType.RequestTooLarge, 413, "The request body is over the server's limit.", "limit"),
         new(ProblemType.UnsupportedMediaType, 415, "The request body is in a media type or charset this endpoint does not read."),
@@ -101,6 +102,7 @@ public static class ProblemCatalogue
         new(ProblemType.WriterSuperseded, 503, "A newer writer holds the dataset; this instance serves reads only."),
         new(ProblemType.ManagementBehind, 503, "The server has not applied the management position asked for.", "position", "appliedPosition"),
         new(ProblemType.DatasetBehind, 503, "This instance has not applied the dataset position asked for.", "position", "appliedPosition"),
+        new(ProblemType.ValidationBehind, 503, "The validation report has not reached the position asked for.", "binding", "position", "projectedPosition"),
         new(ProblemType.WriterMoved, 503, "The instance a write was forwarded to no longer writes the dataset.", "epoch", "requestId"),
         new(ProblemType.DeclarationInvalid, 422, "The management declarations are not valid.", "findings"),
         new(ProblemType.ReaderForgotten, 503, "This instance's reader record was forgotten; it attaches again."),
@@ -120,8 +122,9 @@ public static class ProblemCatalogue
     /// </summary>
     public static bool IsValidatorType(ProblemType type) =>
         type == ProblemType.EventDeclarationInvalid || type == ProblemType.EventSchemaIncompatible
-        || type == ProblemType.DeclarationInvalid || type == ProblemType.ManagementBehind
-        || type == ProblemType.ShapesViolated || type == ProblemType.BindingNotIncremental || type == ProblemType.ShapesInvalid;
+        || type == ProblemType.DeclarationInvalid || type == ProblemType.ManagementBehind || type == ProblemType.EventCatalogueMoved
+        || type == ProblemType.ShapesViolated || type == ProblemType.BindingNotIncremental || type == ProblemType.ShapesInvalid
+        || type == ProblemType.GraphNotWritable;
 
     /// <summary>The shape of <paramref name="type"/>, when it is catalogued.</summary>
     public static bool TryGet(ProblemType type, out ProblemShape? shape) => ByType.TryGetValue(type.Value, out shape);

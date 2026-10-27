@@ -22,6 +22,7 @@ internal sealed class ShapesSource
     private readonly Dictionary<RdfTerm, TermHandle> _handles = new(RdfTerm.Comparer);
     private readonly ConcurrentDictionary<RdfTerm, List<RdfTerm>> _superclasses = new(RdfTerm.Comparer);
     private readonly ConcurrentDictionary<RdfTerm, List<RdfTerm>> _subclasses = new(RdfTerm.Comparer);
+    private Index? _index;
 
     internal ShapesSource(IQuadSource source, GraphPattern graph)
     {
@@ -101,10 +102,8 @@ internal sealed class ShapesSource
         }
 
         HashSet<(RdfTerm, RdfTerm)> seen = new(new PairComparer());
-        using IQuadCursor cursor = Source.Match(s, TermHandle.None, TermHandle.None, Graph);
-        while (cursor.MoveNext())
+        foreach (Quad quad in Matching(s, TermHandle.None, TermHandle.None))
         {
-            Quad quad = cursor.Current;
             (RdfTerm, RdfTerm) pair = (Term(quad.Predicate), Term(quad.Object));
             if (seen.Add(pair))
             {
@@ -125,10 +124,8 @@ internal sealed class ShapesSource
         }
 
         HashSet<(RdfTerm, RdfTerm)> seen = new(new PairComparer());
-        using IQuadCursor cursor = Source.Match(TermHandle.None, p, TermHandle.None, Graph);
-        while (cursor.MoveNext())
+        foreach (Quad quad in Matching(TermHandle.None, p, TermHandle.None))
         {
-            Quad quad = cursor.Current;
             (RdfTerm, RdfTerm) pair = (Term(quad.Subject), Term(quad.Object));
             if (seen.Add(pair))
             {
@@ -147,8 +144,12 @@ internal sealed class ShapesSource
             return false;
         }
 
-        using IQuadCursor cursor = Source.Match(s, p, o, Graph);
-        return cursor.MoveNext();
+        foreach (Quad _ in Matching(s, p, o))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>Whether <paramref name="node"/> appears in any triple of the graph.</summary>
@@ -159,14 +160,8 @@ internal sealed class ShapesSource
             return false;
         }
 
-        using IQuadCursor asSubject = Source.Match(h, TermHandle.None, TermHandle.None, Graph);
-        if (asSubject.MoveNext())
-        {
-            return true;
-        }
-
-        using IQuadCursor asObject = Source.Match(TermHandle.None, TermHandle.None, h, Graph);
-        return asObject.MoveNext();
+        Index index = Indexed();
+        return index.BySubject.ContainsKey(h) || index.ByObject.ContainsKey(h);
     }
 
     /// <summary>
@@ -299,16 +294,139 @@ internal sealed class ShapesSource
     private void Collect(TermHandle s, TermHandle p, TermHandle o, Position position, List<RdfTerm> into)
     {
         HashSet<TermHandle> seen = new(Source.TermComparer);
-        using IQuadCursor cursor = Source.Match(s, p, o, Graph);
-        while (cursor.MoveNext())
+        foreach (Quad quad in Matching(s, p, o))
         {
-            Quad quad = cursor.Current;
             TermHandle h = position == Position.Subject ? quad.Subject : quad.Object;
             if (seen.Add(h))
             {
                 into.Add(Term(h));
             }
         }
+    }
+
+    /// <summary>
+    /// The triples matching a pattern, from the graph's index, in the
+    /// source's order. A shapes graph is read once and asked many times, and
+    /// a source need not index every pattern (an in-memory dataset indexes
+    /// none), so the graph keeps its own: by subject, by predicate and
+    /// object, by object and by predicate.
+    /// </summary>
+    private IEnumerable<Quad> Matching(TermHandle s, TermHandle p, TermHandle o)
+    {
+        Index index = Indexed();
+        List<int>? rows;
+        if (!s.IsNone)
+        {
+            rows = index.BySubject.GetValueOrDefault(s);
+        }
+        else if (!p.IsNone && !o.IsNone)
+        {
+            rows = index.ByPredicateObject.GetValueOrDefault((p, o));
+        }
+        else if (!o.IsNone)
+        {
+            rows = index.ByObject.GetValueOrDefault(o);
+        }
+        else if (!p.IsNone)
+        {
+            rows = index.ByPredicate.GetValueOrDefault(p);
+        }
+        else
+        {
+            return index.Quads;
+        }
+
+        return rows is null ? [] : Filter(index.Quads, rows, s, p, o, Source.TermComparer);
+    }
+
+    private static IEnumerable<Quad> Filter(Quad[] quads, List<int> rows, TermHandle s, TermHandle p, TermHandle o, IEqualityComparer<TermHandle> terms)
+    {
+        foreach (int row in rows)
+        {
+            Quad quad = quads[row];
+            if ((s.IsNone || terms.Equals(quad.Subject, s)) && (p.IsNone || terms.Equals(quad.Predicate, p)) && (o.IsNone || terms.Equals(quad.Object, o)))
+            {
+                yield return quad;
+            }
+        }
+    }
+
+    private Index Indexed()
+    {
+        if (_index is { } built)
+        {
+            return built;
+        }
+
+        lock (_terms)
+        {
+            if (_index is not null)
+            {
+                return _index;
+            }
+
+            List<Quad> quads = [];
+            using (IQuadCursor cursor = Source.Match(TermHandle.None, TermHandle.None, TermHandle.None, Graph))
+            {
+                while (cursor.MoveNext())
+                {
+                    quads.Add(cursor.Current);
+                }
+            }
+
+            Index index = new([.. quads], Source.TermComparer);
+            System.Threading.Volatile.Write(ref _index, index);
+            return index;
+        }
+    }
+
+    /// <summary>The graph's triples, once, and where each pattern's rows are.</summary>
+    private sealed class Index
+    {
+        internal Index(Quad[] quads, IEqualityComparer<TermHandle> terms)
+        {
+            Quads = quads;
+            BySubject = new Dictionary<TermHandle, List<int>>(terms);
+            ByObject = new Dictionary<TermHandle, List<int>>(terms);
+            ByPredicate = new Dictionary<TermHandle, List<int>>(terms);
+            ByPredicateObject = new Dictionary<(TermHandle, TermHandle), List<int>>(new HandlePairComparer(terms));
+            for (int row = 0; row < quads.Length; row++)
+            {
+                Add(BySubject, quads[row].Subject, row);
+                Add(ByObject, quads[row].Object, row);
+                Add(ByPredicate, quads[row].Predicate, row);
+                Add(ByPredicateObject, (quads[row].Predicate, quads[row].Object), row);
+            }
+        }
+
+        internal Quad[] Quads { get; }
+
+        internal Dictionary<TermHandle, List<int>> BySubject { get; }
+
+        internal Dictionary<TermHandle, List<int>> ByObject { get; }
+
+        internal Dictionary<TermHandle, List<int>> ByPredicate { get; }
+
+        internal Dictionary<(TermHandle, TermHandle), List<int>> ByPredicateObject { get; }
+
+        private static void Add<TKey>(Dictionary<TKey, List<int>> index, TKey key, int row)
+            where TKey : notnull
+        {
+            if (!index.TryGetValue(key, out List<int>? rows))
+            {
+                rows = [];
+                index[key] = rows;
+            }
+
+            rows.Add(row);
+        }
+    }
+
+    private sealed class HandlePairComparer(IEqualityComparer<TermHandle> terms) : IEqualityComparer<(TermHandle, TermHandle)>
+    {
+        public bool Equals((TermHandle, TermHandle) x, (TermHandle, TermHandle) y) => terms.Equals(x.Item1, y.Item1) && terms.Equals(x.Item2, y.Item2);
+
+        public int GetHashCode((TermHandle, TermHandle) obj) => HashCode.Combine(terms.GetHashCode(obj.Item1), terms.GetHashCode(obj.Item2));
     }
 
     private enum Position

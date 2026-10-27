@@ -63,6 +63,12 @@ internal static class Program
             return;
         }
 
+        if (args.Length is 3 or 4 && args[0] == "--asof-seek")
+        {
+            ObjectStorageBench.AsOfSeekAsync(args[1], args[2], args.Length > 3 ? long.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture) << 20 : null).GetAwaiter().GetResult();
+            return;
+        }
+
         if (args.Length == 2 && args[0] == "--extent-reads")
         {
             ObjectStorageBench.ExtentReadsAsync(args[1]).GetAwaiter().GetResult();
@@ -90,6 +96,12 @@ internal static class Program
         if (args.Length == 2 && args[0] == "--shapes-gate-affected")
         {
             RecShapes.AffectedAsync(args[1]).GetAwaiter().GetResult();
+            return;
+        }
+
+        if (args.Length == 2 && args[0] == "--validation-projection")
+        {
+            ValidationProjectionBench.RunAsync(args[1]).GetAwaiter().GetResult();
             return;
         }
 

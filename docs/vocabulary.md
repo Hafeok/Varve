@@ -164,13 +164,18 @@ system writer records. Every node is an IRI. The code validator in
 | `varve:allowFullEvaluation` | a `reject` shapes binding may have shapes classed full, at their cost per commit (ADR 0171) | on a shapes binding, an `xsd:boolean`, false by default |
 | `varve:subClassOfInShapesGraph` | SHACL 1.2 Core §6.4's parameter: `rdfs:subClassOf` read from the shapes graph too | on a shapes binding, an `xsd:boolean`, false by default |
 | `varve:affectedReport` | the predicate of a shapes binding's commit attachment, `<<( binding varve:affectedReport "sha256:…" )>>`: the digest of the commit's affected report (ADR 0173) | in a triple term, in a commit's header |
+| `varve:validation/…` | `https://w3id.org/varve/ns#validation/{enc(binding IRI)}`: a shapes binding's validation report at the position read, computed by its projection and never written; read by a caller who reads every graph the binding validates (ADR 0174) | a graph name, of a data dataset |
 | `varve:bootstrapOperator` | an agent IRI or role value the system writer recorded as a bootstrap operator | in `varve:manage/bootstrap` |
 | `varve:managementPosition` | the datatype of the management position a commit records as an attachment, `"p"^^varve:managementPosition` (ADR 0165) | a datatype IRI, in a commit's header |
+| `varve:eventDeclarations` | where the dataset's event declarations are: `varve:Moving` (frozen in its catalogue graphs, being copied), `varve:Moved` (in this graph, for good) or `varve:InDataset` (in its catalogue graphs again, after a cancel); none while they are in its catalogue graphs and no move began (ADR 0167) | on the dataset node, at most one |
+| `varve:InDataset`, `varve:Moving`, `varve:Moved` | the values of `varve:eventDeclarations` | on the dataset node |
+| `varve:sourceGraph` | the graph a moved event type is rendered from, the one its catalogue graph's name carried: an IRI, or `varve:defaultGraph` (ADR 0167) | on an event type node in a dataset's graph, exactly one |
 
 Reserved, and refused until their milestones: `varve:Binding` (abstract),
 `varve:ClassifierBinding`, `varve:KeyStoreBinding` and `varve:erasureMode`
-(#14). The event catalogue's terms join the management graphs in part 2 of
-the milestone (ADR 0167); until then they are refused there.
+(#14). The event catalogue's terms (below) are in a dataset's graph once it
+says `varve:eventDeclarations varve:Moved` (ADR 0167), and refused in every
+other management graph.
 
 ## Names that share the prefix but are not terms
 

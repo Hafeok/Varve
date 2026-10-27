@@ -34,6 +34,9 @@ internal static class StatusEndpoint
 
         Dataset dataset = exchange.Dataset;
         Position head = dataset.Head;
+
+        // A move of the dataset's event declarations left Moving (ADR 0167): information, never a fault.
+        long? moving = options.Plane is { } plane ? await EventDeclarationMove.MovingSinceAsync(plane, exchange.Name, context.RequestAborted).ConfigureAwait(false) : null;
         Preconditions.Describe(context.Response, head);
         ArrayBufferWriter<byte> body = new(512);
 
@@ -65,6 +68,15 @@ internal static class StatusEndpoint
             }
 
             json.WriteEndArray();
+
+            if (moving is long since)
+            {
+                json.WriteStartObject("events");
+                json.WriteString("state", "moving");
+                json.WriteNumber("since", since);
+                json.WriteEndObject();
+            }
+
             json.WriteEndObject();
         }
 

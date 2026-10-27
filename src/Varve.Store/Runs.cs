@@ -39,6 +39,11 @@ internal sealed class KeySection
     private readonly Chunked<QuadKey> _fences;
     private readonly Chunked<long> _blocks;
 
+    // A format-5 extent's block checks (ADR 0177): each block read is checked
+    // against its own; null for every other section, whose blocks are placed
+    // by the directory and not checked one by one.
+    private readonly Chunked<ulong>? _checks;
+
     // A sparse section holds the first key of every SparseStride-th block
     // and none of the block starts: those are read from the directory,
     // where they begin at _startsAt, and a block's own first key from the
@@ -48,8 +53,9 @@ internal sealed class KeySection
     private readonly long _blockCount;
     private readonly long _length;
 
-    private KeySection(ReadOnlyMemory<QuadKey> memory, IReadableBlob? blob, long offset, long count, Chunked<QuadKey> fences, Chunked<long> blocks, int stride, long startsAt, long length)
+    private KeySection(ReadOnlyMemory<QuadKey> memory, IReadableBlob? blob, long offset, long count, Chunked<QuadKey> fences, Chunked<long> blocks, int stride, long startsAt, long length, Chunked<ulong>? checks = null)
     {
+        _checks = checks;
         Memory = memory;
         _blob = blob;
         _offset = offset;
@@ -81,8 +87,8 @@ internal sealed class KeySection
     /// from <paramref name="offset"/>, block <c>b</c> spanning
     /// <c>[blocks[b], blocks[b + 1])</c> bytes from there.
     /// </summary>
-    internal static KeySection On(IReadableBlob blob, long offset, long count, Chunked<QuadKey> fences, Chunked<long> blocks) =>
-        count == 0 ? Empty : new(ReadOnlyMemory<QuadKey>.Empty, blob, offset, count, fences, blocks, 1, 0, 0);
+    internal static KeySection On(IReadableBlob blob, long offset, long count, Chunked<QuadKey> fences, Chunked<long> blocks, Chunked<ulong>? checks = null) =>
+        count == 0 ? Empty : new(ReadOnlyMemory<QuadKey>.Empty, blob, offset, count, fences, blocks, 1, 0, 0, checks);
 
     /// <summary>
     /// A section of a blob held sparsely: <paramref name="fences"/> the first
@@ -124,6 +130,11 @@ internal sealed class KeySection
         if (length > bytes.Length || length < 0 || _blob!.Read(new ByteOffset(_offset + at), bytes[..length]) != length)
         {
             throw new IOException("A derived run is shorter than its directory says.");
+        }
+
+        if (_checks is not null && BlockCheck.Of(bytes[..length]) != _checks[block])
+        {
+            throw new IOException("A block of an extent does not match its check; the extent is damaged.");
         }
 
         KeyBlocks.Decode(bytes[..length], buffer[..count]);
@@ -641,12 +652,32 @@ internal sealed class Run
         return ~low;
     }
 
-    /// <summary>The first index whose key is at or above the bound.</summary>
+    /// <summary>
+    /// The first index whose key is at or above the bound: the first of equal
+    /// keys, which a format-5 extent's rows within hold one an interval (ADR
+    /// 0177), not whichever of them a search meets first.
+    /// </summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static int LowerBound(ReadOnlySpan<QuadKey> keys, in QuadKey bound)
     {
-        int at = Search(keys, in bound);
-        return at >= 0 ? at : ~at;
+        int low = 0;
+        int high = keys.Length;
+
+        while (low < high)
+        {
+            int middle = low + ((high - low) >> 1);
+
+            if (keys[middle].CompareTo(bound) < 0)
+            {
+                low = middle + 1;
+            }
+            else
+            {
+                high = middle;
+            }
+        }
+
+        return low;
     }
 
     /// <summary>The first index whose key is above the bound.</summary>
@@ -697,12 +728,20 @@ internal static class RunMerge
 /// </summary>
 internal sealed class IndexVersion
 {
-    internal IndexVersion(long position, Run[] runs, int frozen)
+    internal IndexVersion(long position, Run[] runs, int frozen, ExtentSeek? seek = null)
     {
         Position = position;
         Runs = runs;
         Frozen = frozen;
+        Seek = seek;
     }
+
+    /// <summary>
+    /// An as-of view's extent set read at a position inside its window, newer
+    /// than every run (ADR 0177); null for every other version.
+    /// </summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    internal ExtentSeek? Seek { get; }
 
     internal static IndexVersion Empty { get; } = new(0, [], 0);
 
@@ -810,6 +849,11 @@ internal sealed class IndexVersion
     {
         QuadKey key = Orders.Key(IndexOrder.Spog, in quad);
 
+        if (Seek is not null && Seek.Lookup(in key) is { } sought)
+        {
+            return sought;
+        }
+
         for (int i = Runs.Length - 1; i >= 0; i--)
         {
             bool? said = Runs[i].Lookup(in key);
@@ -825,7 +869,9 @@ internal sealed class IndexVersion
 
     /// <summary>The quads matching a pattern.</summary>
     internal IQuadCursor Match(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph) =>
-        new RunCursor(Runs, subject.Value, predicate.Value, @object.Value, graph);
+        Seek is null
+            ? new RunCursor(Runs, subject.Value, predicate.Value, @object.Value, graph)
+            : new ExtentSeekScan(Runs, Seek, subject.Value, predicate.Value, @object.Value, graph);
 
     /// <summary>
     /// How many quads match a pattern, exactly, at <c>O(runs × log n)</c>
@@ -838,20 +884,27 @@ internal sealed class IndexVersion
     /// </summary>
     internal CardinalityEstimate Estimate(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph)
     {
-        if (graph.Match == GraphMatch.AnyNamed)
-        {
-            return CardinalityEstimate.Exact(new QuadCount(
-                CountRange(subject.Value, predicate.Value, @object.Value, GraphPattern.Any)
-                - CountRange(subject.Value, predicate.Value, @object.Value, GraphPattern.DefaultGraph)));
-        }
+        bool exact = true;
+        long count = graph.Match == GraphMatch.AnyNamed
+            ? CountRange(subject.Value, predicate.Value, @object.Value, GraphPattern.Any, ref exact)
+                - CountRange(subject.Value, predicate.Value, @object.Value, GraphPattern.DefaultGraph, ref exact)
+            : CountRange(subject.Value, predicate.Value, @object.Value, graph, ref exact);
 
-        return CardinalityEstimate.Exact(new QuadCount(CountRange(subject.Value, predicate.Value, @object.Value, graph)));
+        // A sought set's count is exact while its rows in the range are few
+        // (ADR 0177); past that the estimate says it is not.
+        return exact ? CardinalityEstimate.Exact(new QuadCount(count)) : CardinalityEstimate.Estimated(new QuadCount(Math.Max(0, count)));
     }
 
-    private long CountRange(ulong subject, ulong predicate, ulong @object, GraphPattern graph)
+    private long CountRange(ulong subject, ulong predicate, ulong @object, GraphPattern graph, ref bool exact)
     {
         (IndexOrder order, QuadKey low, QuadKey high) = RunCursor.Plan(subject, predicate, @object, graph);
         long count = 0;
+
+        if (Seek is not null)
+        {
+            count += Seek.Count(order, in low, in high, out bool counted);
+            exact &= counted;
+        }
 
         foreach (Run run in Runs)
         {

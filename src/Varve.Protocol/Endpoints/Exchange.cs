@@ -138,7 +138,13 @@ internal sealed class Exchange
     /// scope, or the view itself when the caller reads every graph, so that
     /// an unscoped request costs what it did (ADR 0107).
     /// </summary>
-    internal IQuadSource Readable(IQuadSource view) => GraphScopedQuadSource.Wrap(view, Scope.Readable);
+    internal IQuadSource Readable(IQuadSource view)
+    {
+        // The report graphs the caller reads every bound graph of (ADR 0174).
+        return Options.ValidationReports is { } reports && view is DatasetView pinned && reports.Of(Name) is { Count: > 0 } graphs
+            ? ReportGraphs.Compose(pinned, Scope.Readable, graphs)
+            : GraphScopedQuadSource.Wrap(view, Scope.Readable);
+    }
 
     /// <summary>
     /// An exchange over the fleet's system dataset, for the management

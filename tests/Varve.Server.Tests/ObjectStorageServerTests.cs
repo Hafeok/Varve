@@ -177,7 +177,7 @@ public sealed class ObjectStorageServerTests
         }
 
         Assert.Equal(
-            """{"retention":{"d":{"catalogVersion":9,"sets":3,"unnamedSets":2,"retainedBytes":4096,"readers":[{"reader":"follower","oldest":4,"newest":4,"retainedBytes":4096}]}}}""",
+            """{"retention":{"d":{"catalogVersion":9,"sets":3,"unnamedSets":2,"retainedBytes":4096,"readers":[{"reader":"follower","oldest":4,"newest":4,"maxDerived":4,"retainedBytes":4096}]}}}""",
             Encoding.UTF8.GetString(body.WrittenSpan));
     }
 
@@ -235,6 +235,7 @@ public sealed class ObjectStorageServerTests
             (int listed, string readers) = await CliAsync("storage", "readers", "list", dataset);
             Assert.Equal(0, listed);
             string line = readers.Split('\n').Single(l => l.Contains("announced", StringComparison.Ordinal));
+            Assert.Contains("reads derived format 5 (maxDerived)", line, StringComparison.Ordinal);
             string id = line.Split("  ")[0];
             string[] versions = line.Split("versions ")[1].Split("  ")[0].Split(" to ");
 

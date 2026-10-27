@@ -1,0 +1,43 @@
+# A dataset's graph in the system dataset after its event declarations moved
+# there (ADR 0167): every node as the catalogue graphs held it, and each type
+# node with varve:sourceGraph naming the graph its catalogue graph's name
+# carried. Read by MovedFixtureTests, and left for SHACL part 2b's agreement
+# property: the shapes of ADR 0157 validate event nodes in both homes.
+
+PREFIX varve: <https://w3id.org/varve/ns#>
+PREFIX xsd:   <http://www.w3.org/2001/XMLSchema#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX n:     <https://notes.example/manage/>
+
+<https://w3id.org/varve/ns#manage/dataset/notes> {
+  n:notes a varve:Dataset ;
+    varve:datasetName "notes" ;
+    varve:storage varve:ObjectStorage ;
+    varve:eventDeclarations varve:Moved .
+
+  n:users a varve:Role ; varve:claimValue "Notes.User" .
+  n:users-own a varve:Grant ;
+    varve:grantee n:users ; varve:permission varve:write ; varve:graphPrefix "https://notes.example/users/" .
+
+  n:note-created a varve:EventType ;
+    varve:sourceGraph varve:defaultGraph ;
+    varve:eventName "NoteCreated" ;
+    varve:eventClass <https://notes.example/ns#Note> ;
+    varve:eventVersion 1 ;
+    rdfs:comment "A note was created." ;
+    varve:eventSelect "SELECT ?title WHERE { ?event <https://notes.example/ns#title> ?title }" ;
+    varve:eventField n:note-created-title .
+  n:note-created-title a varve:EventField ;
+    varve:fieldName "title" ; varve:fieldDatatype xsd:string ; varve:fieldRequired true .
+
+  n:note-shared a varve:EventType ;
+    varve:sourceGraph <https://notes.example/shared> ;
+    varve:eventName "NoteShared" ;
+    varve:eventClass <https://notes.example/ns#SharedNote> ;
+    varve:eventVersion 2 ;
+    varve:eventSubject "note" ;
+    varve:eventSelect "SELECT ?with ?note WHERE { ?event <https://notes.example/ns#with> ?with BIND(?event AS ?note) }" ;
+    varve:eventField n:note-shared-with .
+  n:note-shared-with a varve:EventField ;
+    varve:fieldName "with" ; varve:fieldDatatype xsd:anyURI ; varve:fieldRequired false .
+}

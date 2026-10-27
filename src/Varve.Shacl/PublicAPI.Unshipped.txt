@@ -39,12 +39,17 @@ Varve.Shacl.Model.ClassificationReason
 Varve.Shacl.Model.ClassificationReason.Construct.get -> string!
 Varve.Shacl.Model.ClassificationReason.Maintainability.get -> Varve.Shacl.Model.Maintainability
 Varve.Shacl.Model.ClassificationReason.Section.get -> string!
+Varve.Shacl.Model.FocusPair
+Varve.Shacl.Model.FocusPair.FocusNode.get -> Varve.Rdf.RdfTerm!
+Varve.Shacl.Model.FocusPair.Results.get -> Varve.Shacl.Model.ValidationReport?
+Varve.Shacl.Model.FocusPair.Shape.get -> Varve.Rdf.RdfTerm!
 Varve.Shacl.Model.IncrementalComparison
 Varve.Shacl.Model.IncrementalComparison.AffectedFocusNodes.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
 Varve.Shacl.Model.IncrementalComparison.AffectedPairs.get -> int
 Varve.Shacl.Model.IncrementalComparison.After.get -> Varve.Shacl.Model.ValidationReport!
 Varve.Shacl.Model.IncrementalComparison.Before.get -> Varve.Shacl.Model.ValidationReport!
 Varve.Shacl.Model.IncrementalComparison.Introduced.get -> System.Collections.Generic.IReadOnlyList<Varve.Shacl.Model.ShaclResult!>!
+Varve.Shacl.Model.IncrementalComparison.Pairs.get -> System.Collections.Generic.IReadOnlyList<Varve.Shacl.Model.FocusPair!>!
 Varve.Shacl.Model.Maintainability
 Varve.Shacl.Model.Maintainability.Full = 2 -> Varve.Shacl.Model.Maintainability
 Varve.Shacl.Model.Maintainability.Incremental = 0 -> Varve.Shacl.Model.Maintainability
@@ -89,6 +94,7 @@ Varve.Shacl.Model.ValidationReport.Results.get -> System.Collections.Generic.IRe
 Varve.Shacl.Model.ValidationReport.Summary.get -> Varve.Shacl.Model.ValidationSummary
 Varve.Shacl.Model.ValidationReport.ToCanonicalNQuads() -> System.ReadOnlyMemory<byte>
 Varve.Shacl.Model.ValidationReport.ToDataset() -> Varve.Rdf.InMemoryDataset!
+Varve.Shacl.Model.ValidationReport.WriteTo(System.Buffers.IBufferWriter<byte>! writer) -> void
 Varve.Shacl.Model.ValidationSummary
 Varve.Shacl.Model.ValidationSummary.Debugs.get -> int
 Varve.Shacl.Model.ValidationSummary.Equals(Varve.Shacl.Model.ValidationSummary other) -> bool
@@ -99,6 +105,10 @@ Varve.Shacl.Model.ValidationSummary.Traces.get -> int
 Varve.Shacl.Model.ValidationSummary.ValidationSummary() -> void
 Varve.Shacl.Model.ValidationSummary.Violations.get -> int
 Varve.Shacl.Model.ValidationSummary.Warnings.get -> int
+Varve.Shacl.PairedOutcome
+Varve.Shacl.PairedOutcome.Pairs.get -> System.Collections.Generic.IReadOnlyList<Varve.Shacl.Model.FocusPair!>!
+Varve.Shacl.PairedOutcome.Problems.get -> System.Collections.Generic.IReadOnlyList<Varve.Shacl.Model.ShaclProblem!>!
+Varve.Shacl.PairedOutcome.Report.get -> Varve.Shacl.Model.ValidationReport?
 Varve.Shacl.ShaclOptions
 Varve.Shacl.ShaclOptions.Canonicalisation.get -> Varve.Rdf.CanonicalisationOptions!
 Varve.Shacl.ShaclOptions.Canonicalisation.init -> void
@@ -143,9 +153,14 @@ override Varve.Shacl.Model.ShaclProblem.ToString() -> string!
 override Varve.Shacl.Model.ValidationSummary.Equals(object? obj) -> bool
 override Varve.Shacl.Model.ValidationSummary.GetHashCode() -> int
 static Varve.Shacl.IncrementalValidation.Compare(Varve.Shacl.ShapesGraph! shapes, Varve.Rdf.IQuadSource! after, Varve.Rdf.GraphPattern dataGraph, Varve.Rdf.QuadDelta delta, Varve.Shacl.ShaclOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Varve.Shacl.IncrementalOutcome!
+static Varve.Shacl.Model.ValidationReport.Compose(Varve.Shacl.Model.ValidationReport! header, System.Collections.Generic.IEnumerable<Varve.Shacl.Model.ValidationReport!>! parts) -> Varve.Shacl.Model.ValidationReport!
+static Varve.Shacl.Model.ValidationReport.ReadFrom(System.ReadOnlySpan<byte> bytes, Varve.Shacl.ShaclOptions? options = null) -> Varve.Shacl.Model.ValidationReport!
 static Varve.Shacl.Model.ValidationSummary.operator !=(Varve.Shacl.Model.ValidationSummary left, Varve.Shacl.Model.ValidationSummary right) -> bool
 static Varve.Shacl.Model.ValidationSummary.operator ==(Varve.Shacl.Model.ValidationSummary left, Varve.Shacl.Model.ValidationSummary right) -> bool
 static Varve.Shacl.ShaclOptions.Default.get -> Varve.Shacl.ShaclOptions!
 static Varve.Shacl.ShaclOptions.DefaultConformanceDisallows.get -> System.Collections.Immutable.ImmutableArray<Varve.Rdf.RdfTerm!>
 static Varve.Shacl.ShaclValidator.Validate(Varve.Shacl.ShapesGraph! shapes, Varve.Rdf.IQuadSource! data, Varve.Rdf.GraphPattern dataGraph, Varve.Shacl.ShaclOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Varve.Shacl.ValidationOutcome!
+static Varve.Shacl.ShaclValidator.ValidateByPair(Varve.Shacl.ShapesGraph! shapes, Varve.Rdf.IQuadSource! data, Varve.Rdf.GraphPattern dataGraph, Varve.Shacl.ShaclOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Varve.Shacl.PairedOutcome!
 static Varve.Shacl.ShapesGraph.Load(Varve.Rdf.IQuadSource! source, Varve.Rdf.GraphPattern graph, Varve.Shacl.ShaclOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Varve.Shacl.ShapesLoad!
+static Varve.Shacl.ValidationOutcome.Failed(System.Collections.Generic.IReadOnlyList<Varve.Shacl.Model.ShaclProblem!>! problems) -> Varve.Shacl.ValidationOutcome!
+static Varve.Shacl.ValidationOutcome.Reported(Varve.Shacl.Model.ValidationReport! report) -> Varve.Shacl.ValidationOutcome!

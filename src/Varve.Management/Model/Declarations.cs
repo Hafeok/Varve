@@ -65,6 +65,9 @@ public sealed class DatasetDeclaration
     /// <summary>Whether the dataset is declared closed: every instance closes it, and only then may it be deleted (ADR 0163).</summary>
     public bool Closed { get; init; }
 
+    /// <summary>Where the dataset's event declarations are (ADR 0167).</summary>
+    public EventDeclarationState EventDeclarations { get; init; }
+
     /// <summary>The dataset's grants.</summary>
     public IReadOnlyList<GrantDeclaration> Grants { get; init; } = [];
 

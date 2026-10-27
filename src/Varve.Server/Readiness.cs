@@ -67,6 +67,7 @@ internal static class Readiness
                 json.WriteString("reader", reader.Announcement.Reader.Value);
                 json.WriteNumber("oldest", reader.Announcement.Oldest.Value);
                 json.WriteNumber("newest", reader.Announcement.Newest.Value);
+                json.WriteNumber("maxDerived", reader.Announcement.MaxDerived.Value);
                 json.WriteNumber("retainedBytes", reader.RetainedBytes);
                 json.WriteEndObject();
             }

@@ -9,7 +9,7 @@
     <ArchLayer>4</ArchLayer>
     <IsPackable>true</IsPackable>
     <IsAotCompatible>true</IsAotCompatible>
-    <Description>The management plane's declarations: the varve: vocabulary for datasets, settings, placement and grants, their reader and code validator, grant evaluation over a caller with graph templates, and the RDFC-1.0 plan that varve apply converges.</Description>
+    <Description>The management plane's declarations: the varve: vocabulary for datasets, settings, placement and grants, their reader, SHACL shapes and residual check, grant evaluation over a caller with graph templates, and the RDFC-1.0 plan that varve apply converges.</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,6 +18,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The management vocabulary's shapes (ADR 0175), read through ManagementShapes.Turtle. -->
+    <EmbeddedResource Include="shapes/management.ttl" LogicalName="Varve.Management.shapes.management.ttl" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Layer 3 (ADR 0175): the management shapes are the runtime validator, SHACL Core only. -->
+    <ProjectReference Include="../Varve.Shacl/Varve.Shacl.csproj" />
     <ProjectReference Include="../Varve.Turtle/Varve.Turtle.csproj" />
     <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
     <ProjectReference Include="../Varve.Iri/Varve.Iri.csproj" />

@@ -18,6 +18,10 @@ is the layout; this ADR is the reasoning.
 [0124](0124-group-commit.md): the torn tail's rule gains the write window;
 see the end.
 
+**Amended 2026-10-23** (ADR 0068), by #133 under ADR
+[0177](0177-seek-dont-narrow-intervals-beside-the-key.md): derived version 5,
+for extents only; see the end.
+
 ## Context
 
 ADR 0045 wrote bytes so that milestone 4's properties tested something, and
@@ -264,4 +268,22 @@ accepts it (ADR 0066); ruled in [ADR 0139](0139-extents-and-the-projection-catal
   open; one that does not verify is a cache miss, and the chain it names
   ends at its first set that does not.
 - **Version 4 is not read forever.** A later change to extents is a rebuild
+  from the log.
+
+## Amendment, 2026-10-23 — derived version 5, for extents
+
+Filed by #133, unaccepted until the maintainer accepts it (ADR 0066); ruled
+in [ADR 0177](0177-seek-dont-narrow-intervals-beside-the-key.md). `log/` is
+unchanged at storage format 1.
+
+- **An extent (kind 6) is written as version 5**: its positions in columns
+  beside its keys, its rows within as a thirteenth key section. Every other
+  kind is still written as version 4, with the layout it had.
+- **This build reads derived versions 2 to 4, and 5 for an extent.** A
+  version-5 file of any other kind is a cache miss.
+- **An older build finds a version-5 extent a cache miss**, as this ADR has
+  it for any version it does not read: the chain it reads ends before that
+  set, and it reads the log from there
+  ([ADR 0178](0178-the-format-5-upgrade-and-the-set-cap.md)).
+- **Version 5 is not read forever.** A later change to extents is a rebuild
   from the log.

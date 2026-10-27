@@ -151,7 +151,11 @@ internal static class GraphStoreEndpoint
         RequestTerm graph = Writes.Term(GraphOf(target));
         bool withinBound = !Reads.IsAsOf(context) || position == exchange.Dataset.Head || Reads.AsOfDistance(exchange.Dataset, position) <= exchange.Options.Limits.MaxAsOfDistance;
 
+        // A report graph is in no commit: its version is the position it is read at (ADR 0174).
+        bool report = GraphOf(target) is { } named && named.Lexical.StartsWith(System.Text.Encoding.UTF8.GetBytes(ReportGraphs.Namespace));
+
         if (withinBound
+            && !report
             && await Reads.NotModifiedAsync(context, exchange.Dataset, position, await exchange.Dataset.GraphVersionAsync(graph, position, context.RequestAborted).ConfigureAwait(false)).ConfigureAwait(false))
         {
             return;
@@ -174,7 +178,7 @@ internal static class GraphStoreEndpoint
             return;
         }
 
-        Position version = await exchange.Dataset.GraphVersionAsync(graph, view.Position, context.RequestAborted).ConfigureAwait(false);
+        Position version = report ? view.Position : await exchange.Dataset.GraphVersionAsync(graph, view.Position, context.RequestAborted).ConfigureAwait(false);
         Preconditions.DescribeGraph(context.Response, version);
 
         // The graph was last modified by the commit that is its version.
@@ -183,9 +187,22 @@ internal static class GraphStoreEndpoint
             context.Response.Headers.LastModified = Microsoft.Net.Http.Headers.HeaderUtilities.FormatDate(modified);
         }
         IQuadSource source = exchange.Readable(view);
-        IQuadCursor? cursor = Open(source, target);
+        IQuadCursor? cursor;
+        bool any;
 
-        if (cursor is null || !cursor.MoveNext())
+        try
+        {
+            cursor = Open(source, target);
+            any = cursor is not null && cursor.MoveNext();
+        }
+        catch (ValidationBehindException behind)
+        {
+            context.Response.Headers.RetryAfter = "1";
+            await HttpProblems.WriteAsync(context, ProblemType.ValidationBehind, behind.Message, BoundedReads.ValidationBehind(behind)).ConfigureAwait(false);
+            return;
+        }
+
+        if (cursor is null || !any)
         {
             cursor?.Dispose();
 

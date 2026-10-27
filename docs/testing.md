@@ -222,6 +222,15 @@ raises it for the release gate (#129) and for hunting:
 | `ObjectReaderScheduleTests`: over generated schedules of readers attaching, pinning, crashing, restarting and being forgotten, a writer holding several versions, and a second writer taking the epoch over, no extent a live announced version names is deleted, and every unnamed set goes once no record holds it | 60 schedules, about 4 s | `VARVE_READER_SCHEDULES=<n>` (1,200 ran clean at development) |
 | `ObjectReaderScheduleTests`: a fault before and after every write and delete the maintenance workload makes, under `derived/` and `readers/` | every injection point checked for whole catalogs; every eighth also read at every position; about 20 s | `VARVE_EXTENT_FAULTS_FULL=1`: every point read in full, about 30 s |
 
+#133 (ADRs 0177, 0178) adds the seek's properties, under the same variable:
+
+| Test | Land gate | Release gate |
+|---|---|---|
+| `ExtentSeekTests`: over generated histories with retractions and any schedule of checkpoints, drops and merges, every view at every position equals the model by scan, every quad any view holds is looked up in every view and found where the scan found it, each subject's estimate is exact and its scan's count, and no read writes a narrowed run | 40 schedules, about 2 s | `VARVE_EXTENT_SCHEDULES=<n>` |
+| `ExtentSeekTests`: format-4 sets are narrowed, then rewritten by maintenance as format 5, equal at every position throughout | 20 histories, about 2 s | — |
+| `ExtentSeekTests`: a point lookup inside a set of 16,000 quads reads no more bytes than inside one of 2,000; a count over many of a sought set's rows is estimated and its scan exact | about 3 s and 2 s | — |
+| `ExtentLayoutStatistics`: the layout measurements of ADR 0177, over a dataset `--asof-seek file M` kept | does nothing | `VARVE_SEEK_LAYOUT_DATASET=<directory>` |
+
 All of them run in memory against `MemoryObjectStore`, so the Windows store
 step pays only their in-process cost. The follower that keeps serving across
 merges and deletions runs against Azurite and RustFS as well, in the
@@ -260,11 +269,21 @@ on `main`) sets every depth below.
 | `VARVE_OBJECT_FAULT_SWEEP_STRIDE`, `_SEED` | `Objects.ObjectFaultTests.after_a_fault_at_any_request_the_dataset_reopens_at_the_last_closed_commit_with_nothing_lost_or_doubled`: each of four faults at every *n*th request of the workload (not `VARVE_OBJECT_FAULT_SEEDS`, the workloads hunted) | 2 (532 of 1,068 points) | 1 (all) |
 | `VARVE_CACHE_DAMAGE_STRIDE` | `Objects.ObjectCacheTests.a_commit_index_blob_cut_short_or_with_its_verified_bytes_zeroed_is_a_miss`: reopens a cache whose commit index blob is cut or has a verified byte zeroed, one case in *n* | 8, from case seed mod 8 (69 of 552 cases) | 1 (all 552) |
 | `VARVE_CACHE_DAMAGE_SEED` | the same: the seed that chooses which eighth | a new one each run | n/a at stride 1 |
+| `VARVE_EXTENT_DAMAGE_STRIDE`, `_SEED` | `ExtentDamageTests.an_order_extent_with_a_byte_zeroed_flipped_or_cut_never_serves_a_different_answer` (#133): a format-5 extent with one byte zeroed, flipped, or the blob cut there, at every position of the middle set's six order extents, opened again from the log and the extents and read at every position by scan and by lookup | 16, from case seed mod 16 (962 of 15,384 cases, about 5 s) | 1 (all, about 42 s) |
 
 The nightly run also sets section 7's release-gate depths for Extent
-maintenance: `VARVE_EXTENT_SCHEDULES=400` (40 on a pull request),
+maintenance: `VARVE_EXTENT_SCHEDULES=400` (40 on a pull request; it sets
+both `ExtentMergeTests`' and #133's `ExtentSeekTests`' schedules),
 `VARVE_READER_SCHEDULES=1200` (60; the count run clean at development) and
 `VARVE_EXTENT_FAULTS_FULL=1`.
+
+The nightly run's second job sets `VARVE_LONG_PROPERTIES=1` for the SHACL
+projects: `Varve.Derivation.Tests`, `Varve.Shacl.Tests`,
+`Varve.Shacl.Sparql.Tests` and `Varve.Shacl.Store.Tests`. Their properties
+that have a long count then run at ten times a pull request's iterations.
+The REC gate's three ways are compared at all 1,001 positions of REC S
+(every 250th and the last, five, on a pull request, in about a minute) and
+at 100 positions of REC M (none on a pull request) (ADR 0176).
 
 The variables of §6 that hunt rather than gate (`VARVE_FAULT_SEEDS`,
 `VARVE_OBJECT_FAULT_SEEDS`, `VARVE_OBJECT_FAULT_STEPS`,

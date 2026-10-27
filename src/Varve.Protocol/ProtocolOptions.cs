@@ -113,8 +113,21 @@ public sealed class ProtocolOptions
     /// </summary>
     public IManagementAuthority? Management { get; init; }
 
+    /// <summary>
+    /// The management plane, whose system dataset holds the event declarations
+    /// of a dataset that moved them there (ADR 0167). Null in a host with no
+    /// management plane: every dataset's events render from its own catalogue.
+    /// </summary>
+    public IManagementPlane? Plane { get; init; }
+
     /// <summary>How a follower is advanced before a read (ADR 0164). Null when the host follows nothing.</summary>
     public IDatasetFollowing? Following { get; init; }
+
+    /// <summary>
+    /// The host's validation projections, served as reserved report graphs
+    /// (ADR 0174); null when the host keeps none.
+    /// </summary>
+    public IValidationReports? ValidationReports { get; init; }
 
     /// <summary>The catalogue graphs' history of each dataset, replayed once and kept current.</summary>
     internal Endpoints.EventCatalogues Catalogues { get; } = new();

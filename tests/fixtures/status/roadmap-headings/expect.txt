@@ -1,5 +1,5 @@
-# Milestone 5 released and not marked; milestone 8 marked and not released.
-# Milestone 8 (#13) and not 6: a fixture's unreleased milestone has to stay
-# unreleased, and 6 was released by v0.1.0-preview.4.
+# Milestone 5 released and not marked; milestone 9 marked and not released.
+# Milestone 9 (#14): a fixture's unreleased milestone has to stay unreleased;
+# 6 was released by v0.1.0-preview.4, and 8 (#13) by v0.1.0-preview.14.
 '## 5 — SPARQL' must say *(complete)*
-'## 8 — SHACL *(complete)*' says *(complete)*, and #13 is in no release's basis
+'## 9 — Erasure mode *(complete)*' says *(complete)*, and #14 is in no release's basis

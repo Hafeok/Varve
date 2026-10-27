@@ -23,6 +23,13 @@
 //     repository without a digest is the override, and passes;
 //   - ghcr.io/hafeok/varve, this repository's own image, which CI builds.
 //
+// Docker Hub is refused everywhere but one place: a row's `watch`, the
+// reference the weekly comparison reads by manifest HEAD when the row's
+// upstream refuses CI's reads (ADR 0099, amendment of 2026-10-20). A
+// `docker.io` reference under .github/, in C#, or as a row's `upstream` is
+// a finding. The list's prose fields (why, reason, seeded, licence) are not
+// references.
+//
 // It looks in every .yml, .yaml, .json and .sh file under .github/ (an
 // `image:` key, a `docker pull`, a `uses: docker://`, and any token naming a
 // known registry), and in every C# string literal under src/, tests/,
@@ -110,6 +117,15 @@ foreach (Row row in rows)
     if (Reference.Parse(row.Upstream) is not { Tag: not null, Digest: null })
     {
         findings.Add($"ci-images.yaml: '{row.Name}' has upstream '{row.Upstream}', not <registry>/<repository>:<tag>");
+    }
+    else if (Reference.Parse(row.Upstream).IsDockerHub)
+    {
+        findings.Add($"ci-images.yaml: '{row.Name}' has upstream '{row.Upstream}' on Docker Hub, which is allowed only as a row's watch");
+    }
+
+    if (row.Watch is not null && Reference.Parse(row.Watch) is not { Tag: not null, Digest: null })
+    {
+        findings.Add($"ci-images.yaml: '{row.Name}' has watch '{row.Watch}', not <registry>/<repository>:<tag>");
     }
 
     if (!row.Mirror && string.IsNullOrWhiteSpace(row.Reason))
@@ -221,6 +237,12 @@ void Check(string text, string file, int number, bool cSharp, string line, strin
 
     if (reference.Repository == Own)
     {
+        return;
+    }
+
+    if (reference.IsDockerHub)
+    {
+        findings.Add($"{where}: {text} is on Docker Hub, which is allowed only as a row's watch in ci-images.yaml");
         return;
     }
 
@@ -356,7 +378,7 @@ static List<Row> ReadList(string file, List<string> problems)
         if (current.ContainsKey("name") && current.ContainsKey("upstream") && current.ContainsKey("digest"))
         {
             bool mirror = !current.TryGetValue("mirror", out string? value) || value != "false";
-            rows.Add(new Row(current["name"], current["upstream"], current["digest"], mirror, current.GetValueOrDefault("reason"), [.. allowances]));
+            rows.Add(new Row(current["name"], current["upstream"], current["digest"], mirror, current.GetValueOrDefault("reason"), current.GetValueOrDefault("watch"), [.. allowances]));
         }
 
         current = null;
@@ -686,7 +708,7 @@ internal static partial class Patterns
     public static partial Regex RegistryToken();
 }
 
-internal sealed record Row(string Name, string Upstream, string Digest, bool Mirror, string? Reason, List<Allowance> Allowances);
+internal sealed record Row(string Name, string Upstream, string Digest, bool Mirror, string? Reason, string? Watch, List<Allowance> Allowances);
 
 internal sealed record Allowance(string File, string Job);
 
@@ -694,6 +716,8 @@ internal sealed record Allowance(string File, string Job);
 // explicit), tag and digest.
 internal sealed record Reference(string Repository, string? Tag, string? Digest)
 {
+    public bool IsDockerHub => Repository.StartsWith("docker.io/", StringComparison.Ordinal);
+
     public static Reference Parse(string text)
     {
         string? digest = null;

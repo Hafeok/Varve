@@ -6,7 +6,6 @@ using System;
 using System.Globalization;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
-using Varve.Delta.Model;
 
 namespace Varve.Events.Model;
 
@@ -80,6 +79,6 @@ public sealed class EventEndpoints
         Schema(type) + "/versions/" + version.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>Revision <paramref name="revision"/> of <paramref name="version"/> of <paramref name="type"/>: an immutable schema's <c>$id</c>.</summary>
-    public string Schema(string type, int version, FeedPosition revision) =>
-        Schema(type, version) + "/revisions/" + revision.Value.ToString(CultureInfo.InvariantCulture);
+    public string Schema(string type, int version, SchemaRevisionId revision) =>
+        Schema(type, version) + "/revisions/" + revision.ToString();
 }

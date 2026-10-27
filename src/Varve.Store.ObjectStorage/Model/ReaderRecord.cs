@@ -34,8 +34,11 @@ public sealed record ReaderRecord
     /// <summary>False for a record of a format this build does not read, which holds every catalog version.</summary>
     public bool Understood { get; init; } = true;
 
-    /// <summary>What it announces, as the deletion rule reads it.</summary>
+    /// <summary>The newest derived format its reader reads (ADR 0178): 4 when the record does not say.</summary>
+    public DerivedVersion MaxDerived { get; init; } = DerivedVersion.Format4;
+
+    /// <summary>What it announces, as the deletion rule and the rewrite of format-4 sets read it.</summary>
     public ReaderAnnouncement Announcement => Understood
-        ? new ReaderAnnouncement(Reader, Oldest, Newest)
+        ? new ReaderAnnouncement(Reader, Oldest, Newest) { MaxDerived = MaxDerived }
         : ReaderAnnouncement.OfUnknownFormat(Reader);
 }

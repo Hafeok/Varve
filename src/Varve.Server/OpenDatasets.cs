@@ -43,9 +43,11 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     private readonly ObjectStores? _objects;
     private readonly ManagementOrder _order;
     private readonly WriterAddress? _address;
+    private readonly Func<string, bool> _moved;
 
-    internal OpenDatasets(ServerSettings settings, ObjectStores? objects, ManagementOrder order, TimeProvider clock, ILogger logger)
+    internal OpenDatasets(ServerSettings settings, ObjectStores? objects, ManagementOrder order, TimeProvider clock, ILogger logger, Func<string, bool> moved)
     {
+        _moved = moved;
         _objects = objects;
         _order = order;
         _groupCommit = new GroupCommitOptions
@@ -79,6 +81,15 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
         dataset = null;
         return false;
+    }
+
+    /// <summary>The local derived store of an open dataset (ADR 0174): a file dataset's; null otherwise.</summary>
+    internal IDerivedStore? LocalDerivedOf(DatasetName name)
+    {
+        lock (_gate)
+        {
+            return _entries.TryGetValue(name.Value, out Entry? entry) && entry.State == DatasetState.Open ? entry.LocalDerived : null;
+        }
     }
 
     /// <summary>This instance's role in a dataset; none when it does not know the dataset.</summary>
@@ -399,7 +410,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         // The bounds are a durable backend's; the memory backend has no flush
         // for a batch to share, and writes each request alone (ADR 0124).
         // The event catalogue's check gates every write path (ADR 0145).
-        DatasetOptions options = new() { Clock = _clock, Name = name, GroupCommit = entry.Storage == DatasetStorage.Memory ? null : _groupCommit, ExtentMerges = _merges, Validators = [new EventCatalogueValidator()] };
+        DatasetOptions options = new() { Clock = _clock, Name = name, GroupCommit = entry.Storage == DatasetStorage.Memory ? null : _groupCommit, ExtentMerges = _merges, Validators = [new EventCatalogueValidator(new DatasetName(name), () => _moved(name)), new ReportGraphGuard()] };
 
         try
         {
@@ -602,6 +613,9 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         private IAsyncDisposable? Files { get; set; }
 
         internal bool Superseded => Files is Backend { IsSuperseded: true };
+
+        /// <summary>The derived store on this machine, where a projection of the server's own keeps its state (ADR 0174): a file dataset's; none for memory or an object store.</summary>
+        internal IDerivedStore? LocalDerived => Files is FileStorage files ? files.Derived : null;
 
         internal void Placed(DatasetRole role) => Role = role;
 

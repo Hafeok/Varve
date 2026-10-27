@@ -27,6 +27,7 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`not-acceptable`](not-acceptable.md) | 406 |  | Nothing in Accept is a format this endpoint writes. |
 | [`conflict`](conflict.md) | 409 | `position`, `expectedPosition`, `headPosition`, `graphs`, `graphsTruncated` | Another commit came first. |
 | [`dataset-open`](dataset-open.md) | 409 |  | The dataset is open; close it first. |
+| [`event-catalogue-moved`](event-catalogue-moved.md) | 409 | `manage` | The dataset's event declarations are on the management plane. |
 | [`precondition-failed`](precondition-failed.md) | 412 | `position`, `expectedPosition`, `headPosition`, `graphs` | The precondition does not name the current version. |
 | [`request-too-large`](request-too-large.md) | 413 | `limit` | The request body is over the server's limit. |
 | [`unsupported-media-type`](unsupported-media-type.md) | 415 |  | The request body is in a media type or charset this endpoint does not read. |
@@ -50,6 +51,7 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`writer-superseded`](writer-superseded.md) | 503 |  | A newer writer holds the dataset; this instance serves reads only. |
 | [`management-behind`](management-behind.md) | 503 | `position`, `appliedPosition` | The server has not applied the management position asked for. |
 | [`dataset-behind`](dataset-behind.md) | 503 | `position`, `appliedPosition` | This instance has not applied the dataset position asked for. |
+| [`validation-behind`](validation-behind.md) | 503 | `binding`, `position`, `projectedPosition` | The validation report has not reached the position asked for. |
 | [`writer-moved`](writer-moved.md) | 503 | `epoch`, `requestId` | The instance a write was forwarded to no longer writes the dataset. |
 | [`reader-forgotten`](reader-forgotten.md) | 503 |  | This instance's reader record was forgotten; it attaches again. |
 | [`read-unannounced-extent-gone`](read-unannounced-extent-gone.md) | 503 |  | An unannounced read found an extent gone. |

@@ -609,6 +609,7 @@ internal static partial class ServerHost
             Writers = fleet.IsFleetOfOne ? null : fleet,
             Forwarder = forwarder,
             Management = fleet,
+            Plane = fleet,
             Following = fleet,
             Identity = anonymous ? new NoAgent() : new TokenIdentity(settings.Auth.SubjectClaim, settings.Auth.ApplicationClaim),
             AccessScopes = scopes,
@@ -621,7 +622,9 @@ internal static partial class ServerHost
             Logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Varve.Protocol"),
             EventSource = settings.Events.Source,
             EventHubs = string.IsNullOrEmpty(settings.Events.EventHubs.Host) ? null : new EventHubsServer(settings.Events.EventHubs.Host, settings.Events.EventHubs.Hub!),
+            ValidationReports = fleet.Projections,
         };
+        fleet.Resume = (name, cancellationToken) => EventDeclarationMove.ResumeAsync(options, fleet, name, cancellationToken);
 
         app.MapGroup("/datasets/{dataset}").RequireRateLimiting("reads").MapVarveDataset(options);
         app.MapVarveManagement(options, fleet);
@@ -637,10 +640,22 @@ internal static partial class ServerHost
     // within its lag, not superseded, with the bootstrap operators recorded
     // as configured (ADR 0163 point 13). A closed dataset is reported and
     // does not count.
-    private static Task ReadyAsync(HttpContext context, Fleet fleet, ServerSettings settings, Drain drain)
+    private static async Task ReadyAsync(HttpContext context, Fleet fleet, ServerSettings settings, Drain drain)
     {
         OpenDatasets datasets = fleet.Datasets;
         List<DatasetHealth> health = [];
+
+        // A move of a dataset's event declarations left Moving, since m₁ (ADR 0167): information, never unready.
+        Dictionary<string, long> moving = new(StringComparer.Ordinal);
+
+        foreach ((string name, Varve.Management.Model.DatasetDeclaration declared) in fleet.Current.Table.Declarations.Datasets)
+        {
+            if (declared.EventDeclarations == Varve.Management.Model.EventDeclarationState.Moving
+                && await EventDeclarationMove.MovingSinceAsync(fleet, new DatasetName(name), context.RequestAborted).ConfigureAwait(false) is long since)
+            {
+                moving[name] = since;
+            }
+        }
 
         foreach (DatasetEntry entry in datasets.List())
         {
@@ -675,9 +690,43 @@ internal static partial class ServerHost
 
         static string Role(DatasetRole role) => role switch { DatasetRole.Writer => "writer", DatasetRole.Follower => "follower", _ => "elsewhere" };
 
+        // Each binding's validation projection lag (ADR 0174): reported, and never a reason to be unready.
+        void Validation(Utf8JsonWriter json, string name)
+        {
+            if (!DatasetName.TryParse(name, out DatasetName dataset))
+            {
+                return;
+            }
+
+            SortedDictionary<string, long> lags = fleet.Projections.LagOf(dataset);
+            if (lags.Count == 0)
+            {
+                return;
+            }
+
+            json.WriteStartObject("validation");
+            foreach ((string binding, long lag) in lags)
+            {
+                json.WriteNumber(binding, lag);
+            }
+
+            json.WriteEndObject();
+        }
+
+        void Moving(Utf8JsonWriter json, string name)
+        {
+            if (moving.TryGetValue(name, out long since))
+            {
+                json.WriteStartObject("events");
+                json.WriteString("state", "moving");
+                json.WriteNumber("since", since);
+                json.WriteEndObject();
+            }
+        }
+
         if (ready)
         {
-            return WriteJsonAsync(context, StatusCodes.Status200OK, "application/json", json =>
+            await WriteJsonAsync(context, StatusCodes.Status200OK, "application/json", json =>
             {
                 json.WriteString("status", "ready");
                 Management(json);
@@ -688,21 +737,24 @@ internal static partial class ServerHost
                     json.WriteStartObject(state.Name);
                     json.WriteString("state", state.State);
                     json.WriteString("role", Role(state.Role));
+                    Moving(json, state.Name);
 
                     if (state.Lag is long lag)
                     {
                         json.WriteNumber("lag", lag);
                     }
 
+                    Validation(json, state.Name);
                     json.WriteEndObject();
                 }
 
                 json.WriteEndObject();
                 Readiness.WriteRetention(json, health);
-            });
+            }).ConfigureAwait(false);
+            return;
         }
 
-        return WriteProblemAsync(context, ProblemType.NotReady, drain.Draining ? "The server is draining." : null, json =>
+        await WriteProblemAsync(context, ProblemType.NotReady, drain.Draining ? "The server is draining." : null, json =>
         {
             Management(json);
             json.WriteStartArray("datasets");
@@ -718,6 +770,7 @@ internal static partial class ServerHost
                 json.WriteString("name", state.Name);
                 json.WriteString("state", state.State);
                 json.WriteString("role", Role(state.Role));
+                Moving(json, state.Name);
 
                 if (state.Reason is not null)
                 {
@@ -729,12 +782,13 @@ internal static partial class ServerHost
                     json.WriteNumber("lag", lag);
                 }
 
+                Validation(json, state.Name);
                 json.WriteEndObject();
             }
 
             json.WriteEndArray();
             Readiness.WriteRetention(json, health);
-        });
+        }).ConfigureAwait(false);
     }
 
     // The dataset a data-plane path names: /datasets/{name}/….

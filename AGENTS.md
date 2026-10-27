@@ -205,7 +205,42 @@ and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone 8, SHACL (#13), part 2a (#138; ADRs 0169–0173, filed unaccepted).
+Milestone 8, SHACL (#13), complete with part 2b (ADRs 0174–0176, filed
+unaccepted). Each shapes binding keeps a **validation projection** in
+`Varve.Shacl.Store` (0174). It lives in the local cache only and is rebuilt
+by every instance from the head on a cold start. Its report at p equals
+`ShaclValidator.Validate` over `AsOfAsync(p)`, byte for byte. It is served
+as the reserved graph `varve:validation/{enc(binding)}` through the staging
+view, readable by a caller who reads every validated graph, and never
+writable. A read above its position is `503 validation-behind`, and its lag
+is on readiness, never making the dataset unready. **Varve's declarations
+are validated by shapes** at runtime (0175): ADR 0157's for events,
+`shapes/management.ttl` for management. A residual code check covers what
+Core cannot state, and the old code validators are the tests' oracle. **The
+REC gate** (0176) composes REC 4.1.0 with `owl:Class rdfs:subClassOf
+rdfs:Class` and the prefixes Brick leaves undeclared. Standalone, commit
+time and the projection agree on REC S on pull requests and on M nightly.
+
+Before that, milestone Management plane (#105) completed with its part 2 (ADR 0167,
+filed unaccepted; 0144, 0145 and 0166 amended). A dataset's **event
+declarations move** to its graph in the system dataset by an explicit act,
+`POST /manage/datasets/{d}/events/move` (`varve manage move-events`),
+routed to the dataset's writer and run under the caller's token: the system
+writer freezes the catalogue graphs (`varve:eventDeclarations varve:Moving`,
+m₁), the dataset's writer passes a refused probe through its sequencer so
+the catalogue is final, and copies it, each type node with
+`varve:sourceGraph`, committed with `varve:Moved` at m₂. A commit renders
+from the system dataset exactly when the management position it records is
+m₂ or later, else from the dataset's catalogue history, so events are
+byte-identical across the move (`EventCatalogueHistory.ContinueFrom` keeps
+the revisions; `ManagedEventDeclarations` translates both ways). Revisions
+minted after the move are `m{p}` (`SchemaRevisionId`, breaking). Catalogue
+writes are refused with `409 event-catalogue-moved`; moved declarations are
+checked by `EventDeclarationCheck` over their translation, inside
+`ManagementValidator`. A move is idempotent and resumes; a cancel states
+`varve:InDataset` at its own position; `Moved` is final.
+
+Before that, milestone 8's part 2a (#138; ADRs 0169–0173, filed unaccepted).
 A **shapes binding** (`varve:ShapesBinding`, ADR 0170) is a management
 declaration naming a shapes graph of the same dataset, the graphs it
 validates as one data graph, and a mode. `Varve.Shacl.Store` (layer 5) is a
@@ -221,8 +256,7 @@ footprint, in both states, to a least fixpoint (0171); every shapes graph is
 classed incremental, scoped or full, statically. `Varve.Derivation` (layer
 2, 0172) holds the dependency graphs, stratification, regular paths and
 semi-naive propagation. The server adds a dataset's gate at the management
-position a write is authorised under. Part 2b is the validation projection,
-shapes for the declarations and the REC gate.
+position a write is authorised under.
 
 Before that, milestone Extent maintenance (#110; ADRs 0158–0162), after Object storage. The writer's maintenance merges extent sets — `FanOut`
 adjacent sets of similar size, or the smallest run past the bound, never past
@@ -241,7 +275,7 @@ past the store's single-upload limit. `varve storage`, `readers list` and
 `forget`, and readiness's `retention`, which never turns it unready (0162).
 
 Before that, milestone Management plane (#105), part 1 (ADRs 0163–0166 and 0168, filed
-unaccepted); part 2 moves event schemas (ADR 0167). A fleet of servers on one
+unaccepted); part 2, above, moved event schemas (ADR 0167). A fleet of servers on one
 store shares one **system dataset** at `_fleet/`: one instance writes it
 (`Varve:Fleet:Writer`), the others follow it as **tier-1 followers** (ADR
 0164: a read-only open that probes the next log slot, never lists, and is

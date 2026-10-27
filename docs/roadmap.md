@@ -535,13 +535,14 @@ landing decides the number. Only released and in-flight numbers are shown.
 | — | **Client and integration**, part 1: token provider, on-behalf-of, `Varve.Delta`, follow, setup, CORS | `preview.6` | Commit path | issue #103, PR #102 (landed) |
 | — | **Object storage**: the log and the projections on any object store, Azure first | next free | Commit path | issue #92 (built; PR pending) |
 | — | **Extent maintenance**: background merges and extent deletion | `preview.11` | Object storage | issue #110 (built; PR pending) |
+| — | **As-of reads that seek**: an as-of read inside an extent set costs its matches, derived format 5 for extents | next free | Extent maintenance | issue #133 (this pull request) |
 | — | **Client and integration**, part 2: events, catalogue, schema registry, AsyncAPI | next free | part 1 | issue #93 |
 | — | **Management plane**, part 1: fleet system dataset, grants as code, `varve apply`, forwarding | `preview.10` | Commit path, Object storage, Client and integration | issue #131 (part 1 landed) |
-| — | **Management plane**, part 2: event schemas in the management plane | next free | part 1 | issue #105 |
+| — | **Management plane**, part 2: event schemas in the management plane, the close-out | `preview.13` | part 1 | issue #105 (landed) |
 | — | **Learning track**: Varve for SQL developers and DDD practitioners | next free | Client and integration, Management plane | issue #94 |
 | 8 | SHACL, part 1: the standalone validator, SHACL-SPARQL, XPath regular expressions in `Varve.Xsd`, the event declaration shapes | `preview.9` | — (#87 landed) | issue #120 (landed) |
-| 8 | SHACL, part 2a: commit-time gating under a shapes binding, incremental validation, `Varve.Derivation` | `preview.12` | part 1, Management plane part 1 | issue #138 (this pull request) |
-| 8 | SHACL, part 2b: the validation projection, shapes for the declarations, the REC gate | next free | part 2a, Object storage (REC shapes) | issue #13 |
+| 8 | SHACL, part 2a: commit-time gating under a shapes binding, incremental validation, `Varve.Derivation` | `preview.12` | part 1, Management plane part 1 | issue #138 (landed) |
+| 8 | SHACL, part 2b: the validation projection, shapes for the declarations, the REC gate | `preview.14` | part 2a, Object storage (REC shapes) | issue #13 (this pull request) |
 | — | **Inference**: RDFS by rewriting, OWL 2 RL and rules as a projection | next free | 8 | issue #95 |
 | — | **Web UI**: operator console, then data explorer | next free | Management plane (console); 8 and Inference (explorer) | issue #96 |
 | — | **Replication**: three tiers, handover, promotion, fleet-level active-active | next free | Object storage, Extent maintenance, Commit path, Management plane | issue #97 |
@@ -666,6 +667,39 @@ latency reading is like for like within one run: head reads at 100
 checkpoints with merges against 10 without, and the as-of read inside the
 largest set against the same.
 
+## As-of reads that seek *(complete)* — an as-of read inside an extent set costs its matches
+
+**Why.** Extent maintenance measured an as-of read inside the largest merged
+set at REC M at 2,736 ms, against 12.1 µs for a lookup at the head: the read
+narrowed the whole set before it began (ADR 0138), so its cost was the set's
+size and grew with `MaxSetBytes`. Time travel is the store's thesis. In 1.0
+by #15's amendment of 2026-10-19 (#133).
+
+**Scope.** Seek, don't narrow: a read inside a set's window looks its keys
+up in the set as a read of the present does and classifies only the
+matching rows' intervals. At least two layouts measured; merges write the
+new one; head reads no slower; format-4 sets read, never failed, during an
+upgrade.
+
+**Gate.** Over generated histories with retractions, as-of reads equal the
+model at every position across any merge and eviction schedule; at REC M an
+as-of lookup inside the largest set within 2× of a head lookup at p50 and
+p99; an as-of scan's time and pages proportional to its matches at two set
+sizes at least 4× apart; head reads unchanged within noise; write
+amplification and checkpoint time reported; files and Azurite.
+
+**Built** (ADRs 0177–0178): derived format 5 for extents, positions as
+fixed-width columns beside the keys and the rows within as a thirteenth key
+section, so a key's intervals are a fence search, a block and a column read
+away; as-of lookups, scans and estimates that seek; format-4 sets narrowed
+until maintenance rewrites them, one a round; an older follower reads the
+log above its chain, never a wrong answer. At REC M, inside the largest set
+(211 MiB), an as-of lookup is 0.29× a head lookup at p50 and p99 where it
+took 2.9 s; a subject's quads cost 0.56 pages a match at set sizes 28×
+apart; head reads unchanged; write amplification 1.86, against 1.78, for
+3.5% smaller extents. `MaxSetBytes` stays 256 MiB and bounds merges, not
+reads.
+
 ## Client and integration *(complete)* — on-behalf-of, setup, follow, events
 
 **Why.** The server is ready to be used by applications; this is what an
@@ -695,7 +729,7 @@ bindings and event schemas move to the management plane. `varve apply` is
 the management plane's desired-state convergence; setup's command is
 `varve setup apply`, so the name is never reused with a different meaning.
 
-## Management plane — fleet system dataset, grants as code, `varve apply`
+## Management plane *(complete)* — fleet system dataset, grants as code, `varve apply`
 
 **Why.** Grants and settings must be declared in the application's
 repository, reviewed, applied by CI and audited, and a fleet of servers
@@ -721,8 +755,15 @@ federation. Bootstrap operators in host configuration, recorded on first
 write. Embedded hosts have no management plane. In two releases: part 1
 (#131, `preview.10`, landed) is everything above (ADRs 0163–0166, 0168),
 with event schemas still in the catalogue graphs and refused in management
-graphs; part 2 moves them to the management plane (ADR 0167) and closes the
-milestone.
+graphs; part 2 (`preview.13`) moves them to the management plane (ADR 0167)
+and closes the milestone. The move is per dataset and explicit: the system
+writer freezes the catalogue graphs at m₁, the dataset's writer passes a
+barrier through its sequencer and copies the final catalogue into the
+dataset's graph, committed with `varve:Moved` at m₂. A commit renders from
+the system dataset exactly when the management position it records is m₂
+or later, so the events are byte-identical across the move; revisions minted
+after it are `m{p}`; the catalogue graphs refuse writes with
+`409 event-catalogue-moved` and keep their history.
 
 **Gate.** `apply` idempotent; stale saved plans refused; disjoint applies
 never conflict; over generated grant histories, no response at position p
@@ -756,7 +797,7 @@ accordingly; chapter 5 carries a marker updated by milestone 9, and chapter
 3's SHACL section is written here if milestone 8 has landed first, otherwise
 a marker that milestone 8 replaces.
 
-## 8 — SHACL
+## 8 — SHACL *(complete)*
 
 As issue #13 states: the standalone validator to the W3C SHACL suite, then
 commit-time gating through the pre-commit validator, then incremental
@@ -805,8 +846,37 @@ share. Gate:
 - commit latency under a `reject` binding at REC S and M, on the file
   backend.
 
-Part 2b (#13) is the validation projection, the declarations validated by
-shapes, and the REC gate.
+**Part 2b** (#13; ADRs 0174–0176), `0.1.0-preview.14`: the projection, the
+declarations and the REC gate, closing the milestone.
+- **The validation projection** (ADR 0174). Each binding keeps one, in the
+  local cache only. Its report at a position is served as the reserved graph
+  `varve:validation/{enc(binding)}`, readable by a caller who reads every
+  graph the binding validates. A read above the projection's position is
+  `503 validation-behind`, and readiness reports the lag.
+- **Shapes validate Varve's own declarations** (ADR 0175). Event
+  declarations are checked by ADR 0157's shapes, and management declarations
+  by `shapes/management.ttl`. What SHACL Core cannot state stays a residual
+  check in code, and the code validators as they stood are the tests' oracle.
+- **The REC gate** (ADR 0176) composes REC 4.1.0's three files with
+  `owl:Class rdfs:subClassOf rdfs:Class` and the prefixes Brick's SPARQL
+  constraints leave undeclared. `docs/operator/shapes.md` is the operator's
+  guide.
+
+Gate:
+
+- the projection's report at every position of generated histories, with
+  retractions and shapes changes, equal to a full validation there, byte for
+  byte, after a snapshot is loaded and from a cold start at the head;
+- the runtime declaration checks against their oracles, over generated
+  declarations valid and mutated;
+- REC S standalone, at commit time under `reject` and in the projection,
+  agreeing at every 250th position and the last on pull requests and at all
+  positions nightly, and REC M at 100 positions nightly. The features report
+  is `testdata/rec/gate/features.md`;
+- projection lag and rebuild time at REC S and M.
+
+Chapter 3's SHACL section is the Learning track's, which has not landed
+(#94).
 
 ## Inference — RDFS by rewriting, OWL 2 RL and rules as a projection
 
@@ -908,6 +978,7 @@ What has to be true before the major version, under strict SemVer (ADR 0035). Is
 - [ ] **The learning track complete for every shipped feature** (#94)
 - [ ] **The soak gate holds under the shipped configuration** (#61)
 - [x] **Extent maintenance** — background merges and the extent deletion rule, so read cost stays bounded under a checkpoint policy (#110)
+- [x] **As-of reads cost their matches** — an as-of read inside an extent set seeks it, within 2× of the same read at the head at REC M (#133)
 - [ ] **Management plane** — grants and settings as code in a per-fleet system dataset, `varve apply`, the fleet grant properties (#105)
 - [ ] **Public API freeze covers the management API**, and the `varve:` management vocabulary is stable (#105)
 

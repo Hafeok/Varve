@@ -657,6 +657,8 @@ Varve.Store.Log.ReaderAnnouncement.Reader.init -> void
 Varve.Store.Log.ReaderAnnouncement.ReaderAnnouncement(Varve.Store.Log.ReaderId Reader, Varve.Store.Log.CatalogVersion Oldest, Varve.Store.Log.CatalogVersion Newest) -> void
 Varve.Store.Log.ReaderAnnouncement.Understood.get -> bool
 Varve.Store.Log.ReaderAnnouncement.Understood.init -> void
+Varve.Store.Log.ReaderAnnouncement.MaxDerived.get -> Varve.Store.Log.DerivedVersion
+Varve.Store.Log.ReaderAnnouncement.MaxDerived.init -> void
 Varve.Store.ReaderRetention.Announcement.get -> Varve.Store.Log.ReaderAnnouncement!
 Varve.Store.ReaderRetention.Deconstruct(out Varve.Store.Log.ReaderAnnouncement! Announcement, out long RetainedBytes) -> void
 Varve.Store.ReaderRetention.ReaderRetention(Varve.Store.Log.ReaderAnnouncement! Announcement, long RetainedBytes) -> void
@@ -718,3 +720,20 @@ Varve.Store.Dataset.AdvanceAsync(System.Threading.CancellationToken cancellation
 static Varve.Store.Dataset.OpenFollowerAsync(Varve.Store.ITailingStorage! storage, Varve.Store.DatasetOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Dataset!>
 Varve.Store.Log.ValidationVerdict.Attachments.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
 static Varve.Store.Log.ValidationVerdict.Accept(System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! attachments) -> Varve.Store.Log.ValidationVerdict
+Varve.Store.Log.DerivedVersion
+Varve.Store.Log.DerivedVersion.CompareTo(Varve.Store.Log.DerivedVersion other) -> int
+Varve.Store.Log.DerivedVersion.DerivedVersion() -> void
+Varve.Store.Log.DerivedVersion.DerivedVersion(int value) -> void
+Varve.Store.Log.DerivedVersion.Equals(Varve.Store.Log.DerivedVersion other) -> bool
+Varve.Store.Log.DerivedVersion.Value.get -> int
+override Varve.Store.Log.DerivedVersion.GetHashCode() -> int
+override Varve.Store.Log.DerivedVersion.ToString() -> string!
+static Varve.Store.Log.DerivedVersion.Format4.get -> Varve.Store.Log.DerivedVersion
+static Varve.Store.Log.DerivedVersion.ThisBuildReads.get -> Varve.Store.Log.DerivedVersion
+static Varve.Store.Log.DerivedVersion.operator !=(Varve.Store.Log.DerivedVersion left, Varve.Store.Log.DerivedVersion right) -> bool
+static Varve.Store.Log.DerivedVersion.operator <(Varve.Store.Log.DerivedVersion left, Varve.Store.Log.DerivedVersion right) -> bool
+static Varve.Store.Log.DerivedVersion.operator <=(Varve.Store.Log.DerivedVersion left, Varve.Store.Log.DerivedVersion right) -> bool
+static Varve.Store.Log.DerivedVersion.operator ==(Varve.Store.Log.DerivedVersion left, Varve.Store.Log.DerivedVersion right) -> bool
+static Varve.Store.Log.DerivedVersion.operator >(Varve.Store.Log.DerivedVersion left, Varve.Store.Log.DerivedVersion right) -> bool
+static Varve.Store.Log.DerivedVersion.operator >=(Varve.Store.Log.DerivedVersion left, Varve.Store.Log.DerivedVersion right) -> bool
+~override Varve.Store.Log.DerivedVersion.Equals(object obj) -> bool

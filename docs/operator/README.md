@@ -1,7 +1,7 @@
 # Operating Varve
 
 The operator's guide to `Varve.Server`: one executable that is the server and
-the `varve` command line (ADR 0105). Twelve pages, each a task:
+the `varve` command line (ADR 0105). Fourteen pages, each a task:
 
 | Page | What it covers |
 |---|---|
@@ -10,6 +10,8 @@ the `varve` command line (ADR 0105). Twelve pages, each a task:
 | [Authenticate](authenticate.md) | OIDC bearer tokens, claims to permissions, graph-scoped grants, on-behalf-of and the attribution rule, anonymous mode, and how the command line gets a token |
 | [Datasets](datasets.md) | where a dataset's boundary goes; declaring datasets, settings and grants as TriG with `varve apply` and `/manage/`; and a setup an application applies on every start: `AddVarve`, `varve setup apply`, `WithDataset`, the setup file |
 | [The fleet](fleet.md) | the system dataset, its writer and followers, placement, write forwarding, reading your writes, readiness, and what each costs in store requests |
+| [Shapes](shapes.md) | shapes bindings: declaring one, `reject`, `report` and `off`, which shapes can be checked per commit, the attachment, the report graph and who reads it, the projection's lag, cold start and cost, and the composition REC and Brick need |
+| [Moving event schemas](moving-event-schemas.md) | moving a dataset's event declarations from its catalogue graphs to the management plane: the freeze, the copy, a stopped move, and declaring event types afterwards |
 | [Integrate](integrate.md) | the commits resource as the stream other systems follow, `FollowAsync` and its checkpoint, at least once; domain events as CloudEvents, their catalogue, schemas and AsyncAPI, `FollowEventsAsync`, and the Event Hubs bridge |
 | [Observe](observe.md) | the OTLP exporter and the `OTEL_*` variables, every span and metric by name, the log events, what it costs |
 | [Back up and restore](backup-and-restore.md) | what the files are, taking a copy, checkpoints, restoring, and the change feed as an incremental copy |
@@ -24,8 +26,8 @@ and its members (ADR 0119). Every term the service description coins under
 `https://w3id.org/varve/ns#` is in [`docs/vocabulary.md`](../vocabulary.md).
 
 The decisions behind the pages are ADRs 0101 (the host), 0105 (the command
-line), 0106 (the admin API), 0163–0166 and 0168 (the management plane, the
-follower, the management position, the vocabulary, write forwarding), 0107 (graph-level authorisation), 0104 (`SERVICE`
+line), 0106 (the admin API), 0163–0168 (the management plane, the
+follower, the management position, the vocabulary, the event-schema move, write forwarding), 0169–0176 (shapes bindings, the validation projection and the REC gate), 0107 (graph-level authorisation), 0104 (`SERVICE`
 and `LOAD` over HTTP), 0112 (telemetry), 0037, 0100 and 0127 (authentication
 and on-behalf-of), 0128 and 0129 (the feed's format and following it), 0130
 and 0131 (setup), and 0132 (CORS). The protocol a

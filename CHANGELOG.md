@@ -12,6 +12,270 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.0-preview.15] - 2026-10-23
+
+**As-of reads that seek — an as-of read inside an extent set costs its matches**
+
+### As-of reads that seek (#133, in 1.0 by #15)
+
+An as-of read at a position inside an extent set's window no longer
+narrows the whole set before it begins: it looks its keys up in the set as
+a read of the present does, and classifies only the matching rows'
+intervals. At REC M, inside the largest merged set (211 MiB), a quad's
+as-of lookup takes 4.4 / 15.0 µs at p50 / p99, 0.29× the same lookup at
+the head, where opening that view took 2.9 s. This release closes #133.
+The log's bytes are unchanged at storage format 1; extents are written in
+derived format 5, rebuilt and never migrated (ADR 0072). The two ADRs are
+filed unaccepted and accepted on the pull request (ADR 0066).
+
+#### Changed
+
+- **Derived format 5, for extents only** (ADR 0177). An extent's positions
+  are fixed-width columns beside its key sections, one distance a key, and
+  its rows within are a thirteenth key section with a column of two
+  distances a row. Its asserted and retracted sections are format 4's,
+  byte for byte, and a read of the present reads nothing else. Every other
+  derived blob, the catalog included, is still written as format 4.
+  Storage format §7.5.
+- **As-of reads seek** (ADR 0177). A lookup is three fence searches, a
+  block each and a column read; a scan merges the set's rows in the
+  pattern's range a key at a time; nothing is written. An as-of scan costs
+  its matches: 0.56 pages a match for a subject's quads at set sizes 28×
+  apart.
+- **An as-of estimate inside a set may be estimated** (ADR 0049, amended):
+  exact while the set holds at most 4,096 rows in the pattern's range,
+  otherwise the set's count at its end, marked estimated.
+- **Checkpoints, merges and drops write format 5**, from the rows format 4
+  had; a merge stays a pure function of its inputs (ADR 0158). Write
+  amplification at REC M is 1.86 per byte against 1.78, for extents 3.5%
+  smaller; checkpoint time is unchanged, maintenance 14% longer.
+- **Every block of a format-5 extent is checked** (ADR 0177). The
+  directory carries a 64-bit check for each key block and each column
+  block, verified when the block is read: an extent with any byte zeroed,
+  flipped or cut serves the same answers or fails the read, never a
+  different answer.
+- **Reader records state the derived format they read** (ADR 0160,
+  amended): `maxDerived`, absent read as 4, the record still version 1.
+  `varve storage readers list` shows it.
+- **`MaxSetBytes` bounds merges, not reads** (ADR 0178, 0159 amended). Its
+  default stays 256 MiB: at REC M a 1 GiB cap made the chain longer. The
+  operator guide says when to raise it.
+
+#### Upgrading
+
+- **A dataset written by `v0.1.0-preview.14` or before opens as it is.**
+  Reads inside its format-4 sets narrow them, as before, until
+  maintenance rewrites each alone as format 5, oldest first, when no merge
+  is due (ADR 0178). With `ExtentMerges.Enabled` false nothing is
+  rewritten.
+- **Older readers decide when the rewrite starts** (ADR 0178). While any
+  present reader record reads only format 4 (one of
+  `v0.1.0-preview.14` or before has no `maxDerived`), no format-4 set is
+  rewritten and merges of format-4 sets stay format 4; new checkpoints are
+  format 5. Once the record is forgotten or its reader upgraded, the
+  rewrite proceeds.
+- **Followers first is recommended; either order is safe.** A follower of
+  `v0.1.0-preview.14` or before behind a writer of this release finds the format-5
+  extents cache misses: its chain ends at the first such set and it reads
+  the log above it, serving every position correctly at the log's cost,
+  and the format-4 sets it needs stay while it is announced. A writer of
+  `v0.1.0-preview.14` or before (a downgrade) deletes the format-5 sets and writes
+  its next checkpoint from the log.
+
+#### Fixed
+
+- **A key with two intervals inside one set** is looked up at its first:
+  a lower bound in a run is now the first of equal keys, not whichever a
+  binary search met first. Found by the damage property on review.
+
+#### Measured
+
+REC M, generator output version 2, on files and on Azurite
+(`tests/Varve.Benchmarks/README.md`, "As-of reads that seek"). Head reads
+are unchanged: over one dataset of each format, in alternating rounds,
+the same lookups and scans at p50 overlap between this release and
+`main`'s store.
+
+## [0.1.0-preview.14] - 2026-10-26
+
+**SHACL, part 2b — the validation projection, shapes for the declarations, the REC gate**
+
+### Milestone 8, SHACL, part 2b — the validation projection, shapes for the declarations, the REC gate
+
+A shapes binding's report is now kept for every position, and served as a
+graph. Varve's own declarations are validated by SHACL shapes, and
+RealEstateCore's shapes validate generated portfolios three ways that
+agree. This release closes milestone 8 (#13), after part 1 (#120) and
+part 2a (#138), and follows Management plane part 2 (`v0.1.0-preview.13`):
+the shapes also state the terms of its event-declaration move. Storage format 1 holds. The three ADRs are filed
+unaccepted and accepted on the pull request (ADR 0066).
+
+#### Added
+
+- **The validation projection** (`Varve.Shacl.Store`, ADR 0174):
+  `ValidationProjection`, one per shapes binding.
+  - **Its rows.** They are keyed by shape and focus node, with validity
+    intervals, and each commit maintains them from the pairs it affects.
+  - **The guarantee.** Its report at a position equals
+    `ShaclValidator.Validate` over `AsOfAsync` there, byte for byte.
+  - **Where it lives.** It is stored under
+    `derived/validation/{enc(binding)}/` in the local cache only, never
+    on an object store. Every instance rebuilds it from the head on a cold
+    start. A position below that floor is answered by a full validation as
+    of it.
+- **The report graph**, `https://w3id.org/varve/ns#validation/{enc(binding
+  IRI)}`, served at a pinned position through the staging view, so it
+  takes no dictionary terms.
+  - **Reading it** needs read on every graph the binding validates (ADR
+    0107, amended). A grant naming the graph itself has no effect.
+  - **Writing it** is `graph-not-writable`.
+- **`503 validation-behind`**, with `binding`, `position` and
+  `projectedPosition`, when a read of a report graph is above its
+  projection after one bounded wait. Readiness reports each binding's lag,
+  which never makes the dataset unready.
+- **`Varve.Protocol`**: `IValidationReports`, `IValidationReportGraph`,
+  `ProtocolOptions.ValidationReports`, `ReportGraphGuard` and
+  `ValidationBehindException`, the seam the server composes the
+  projections through.
+- **`Varve.Shacl`** (additive, ADR 0155): `ShaclValidator.ValidateByPair`
+  and `PairedOutcome`, `FocusPair`, `IncrementalComparison.Pairs`, and
+  `ValidationReport.Compose`, `WriteTo` and `ReadFrom`.
+  `ValidationOutcome.Reported` and `Failed` are added too.
+- **`Varve.Rdf`**: `GraphScope.Prefixes`.
+- **`Varve.Management`**: `ManagementShapes.Turtle`, the management
+  vocabulary's SHACL Core shapes.
+- **The REC gate** (ADR 0176). It composes REC 4.1.0's three SHACL files
+  with `owl:Class rdfs:subClassOf rdfs:Class` and `sh:declare`s for the
+  prefixes Brick's SPARQL constraints use. The ADR records the exact
+  triples. Over generated portfolios, standalone validation, commit-time
+  `reject` and the projection agree:
+  - REC S at every 250th position and the last on pull requests;
+  - REC S at all 1,001 positions nightly;
+  - REC M at 100 positions nightly.
+
+  `testdata/rec/gate/features.md` reports the SHACL features REC uses.
+- **`docs/operator/shapes.md`**: binding shapes, the modes, the report
+  graph and the REC composition.
+
+#### Changed
+
+- **Shapes are the runtime validator of Varve's declarations** (ADR 0175).
+  - `EventDeclarationCheck.Check` validates by ADR 0157's shapes.
+  - `DeclarationReader.Read` validates by `shapes/management.ttl`.
+  - What SHACL Core cannot state stays a residual check in code.
+
+  Verdicts, problem types and wire shapes are unchanged, and the code
+  validators as they stood are the tests' oracle.
+  - **The move's terms (ADR 0167).** The shapes also state
+    `varve:eventDeclarations` (at most once, `varve:InDataset`,
+    `varve:Moving` or `varve:Moved`, on the dataset's node only) and a
+    moved event type's one `varve:sourceGraph`.
+  - **What moves to the shapes.** A moved type's missing or doubled
+    `varve:sourceGraph` is now refused at commit time as
+    `declaration-invalid`, with the same message, before the moved nodes
+    are translated. A stray `varve:eventDeclarations` in the fleet graph
+    is refused too. `Varve.Events` and
+  `Varve.Management` now reference `Varve.Shacl`.
+- **`Varve.Shacl` indexes the shapes graph when it loads.** REC's
+  composition loads in about 1 s instead of 14 s.
+- **Incremental validation finds fewer candidate targets** (ADR 0171's
+  anchor rule). An `rdf:type` triple now reaches only the shapes that
+  target its class or a superclass, through an index of shapes by target
+  class. A `sh:class` value node is seeded only when its type is the class
+  or a subclass. Under REC's shapes, the gate's time over REC S's 1,001
+  commits fell from 180 s to 21 s. The results are unchanged.
+
+#### Performance
+
+At REC M (25,004 commits, generator output version 2), on the session's
+machine, the projection lags a commit by 3.0 ms on average (median 2.0,
+p95 9.6, max 59.2). A rebuild after a shapes change takes 194 s, and a
+cold start 182 s. At REC S the lag is 2.3 ms on average, a rebuild takes
+3.7 s, and a cold start 7.1 s.
+
+#### Known issues
+
+- **REC 4.1.0 as vendored** still refuses its own shapes graph, for the
+  undeclared prefixes. The gate's composition is the workaround, and an
+  upstream note is drafted on the pull request.
+
+## [0.1.0-preview.13] - 2026-10-23
+
+**Management plane, part 2 — event schemas move to the management plane**
+
+### Milestone Management plane, part 2 — event schemas move to the management plane
+
+A dataset's event declarations can move from its catalogue graphs to its
+declarations on the management plane, where they are written, reviewed and
+applied like its grants and settings. The events every commit renders do
+not change by a byte across the move. This release closes milestone
+Management plane (#105), whose first part was #131 (`v0.1.0-preview.10`).
+Storage format 1 holds. ADR 0167 is filed unaccepted and accepted on the
+pull request (ADR 0066), with dated amendments to ADRs 0144, 0145 and 0166.
+
+#### Added
+
+- **The move, per dataset, as an explicit act** (ADR 0167):
+  `POST /manage/datasets/{name}/events/move` and `varve manage move-events
+  <name>`, by an operator or the dataset's admin, sent to any instance.
+  - The system writer freezes the catalogue graphs with
+    `varve:eventDeclarations varve:Moving` at m₁.
+  - The dataset's writer passes a barrier through its sequencer, so the
+    catalogue at its head is final. It then copies each catalogue graph into
+    the dataset's graph, each type node with `varve:sourceGraph`, committed
+    with `varve:Moved` at m₂ under the graph's version.
+  - The move runs under the caller's token. The request is forwarded to
+    the dataset's writer, and its management writes go to the system writer
+    once each (ADR 0168).
+  - The move is idempotent and resumes where it stopped. An instance that
+    writes both the dataset and the system dataset finishes a stopped move
+    by itself.
+  - A catalogue that does not translate one-to-one cancels the move, and the
+    answer says why.
+- **The boundary is exact.** A commit renders its events from the system
+  dataset exactly when the management position it records is m₂ or later.
+  Every commit before that renders from the dataset's own catalogue
+  history, so its events are the same bytes as before the move.
+- **`GET /manage/datasets/{name}/events`**: where a dataset's event
+  declarations are (`in-dataset`, `moving` or `moved`), and the moved
+  event nodes as TriG on request. A move left `Moving` is reported by
+  status, readiness and this resource as `{"state":"moving","since":m₁}`,
+  as information, never unready. A switch finished with no request names
+  the agent who authorised the freeze.
+- **`409 event-catalogue-moved`**: a write to a catalogue graph after the
+  freeze, at the store and over HTTP. Its `manage` member names the
+  declarations' new home. The catalogue graphs' history stays readable as
+  of any position.
+- **`EventCatalogueHistory.ContinueFrom`**: the history after the move,
+  seeded with the revisions at it, so that a type whose schema bytes did
+  not change keeps its revision and its `dataschema`.
+- **`ManagedEventDeclarations`** (`Varve.Protocol`): a dataset graph's event
+  nodes in the catalogue graphs' change form, and the copy the other way.
+- **Vocabulary:** `varve:eventDeclarations`, `varve:InDataset`,
+  `varve:Moving`, `varve:Moved` and `varve:sourceGraph`.
+
+#### Changed
+
+- **Breaking:** `SchemaRevision.Revision` is a `SchemaRevisionId`, and
+  `EventEndpoints.Schema` takes one. A revision minted after the move is
+  `…/versions/{n}/revisions/m{p}`, with p the management position.
+  Revisions minted before the move keep their bare integers, and every URL
+  already served stays immutable (ADR 0145, amended).
+- Moved event declarations are checked in their new home by the same
+  entry point as before, `EventDeclarationCheck`, over their
+  catalogue-graph translation. `event-declaration-invalid` and
+  `event-schema-incompatible` answer as before the move.
+- `ManagementValidator` allows only the move's transitions of
+  `varve:eventDeclarations`: none or `InDataset` to `Moving`, `Moving` to
+  `InDataset` (a cancel, its own management commit), and `Moving` to
+  `Moved`, which is final.
+
+#### Known issues
+
+- The fleet's server processes run on Azurite only. A server reaches an
+  S3 store only by web identity (ADR 0137), which RustFS in CI does not
+  provide. The move is above the store.
+
 ## [0.1.0-preview.12] - 2026-10-20
 
 **SHACL, part 2a — commit-time gating under a shapes binding, incremental validation**
@@ -1394,7 +1658,10 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.12...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.15...HEAD
+[0.1.0-preview.15]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.14...v0.1.0-preview.15
+[0.1.0-preview.14]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.13...v0.1.0-preview.14
+[0.1.0-preview.13]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.12...v0.1.0-preview.13
 [0.1.0-preview.12]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.11...v0.1.0-preview.12
 [0.1.0-preview.11]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.10...v0.1.0-preview.11
 [0.1.0-preview.10]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.9...v0.1.0-preview.10
