@@ -29,6 +29,19 @@
     apply();
     media.addEventListener('change', apply);
 
+    // The skip link (Shell): its href is "#main", which against the base
+    // address would be a navigation to the root. In the capture phase, before
+    // Blazor's router sees the click, it moves focus to the main column instead.
+    document.addEventListener('click', function (event) {
+        var link = event.target instanceof Element ? event.target.closest('a.vw-skip') : null;
+        var main = link ? document.getElementById('main') : null;
+
+        if (main) {
+            event.preventDefault();
+            main.focus();
+        }
+    }, true);
+
     window.varveWebUi = {
         copy: function (text) {
             return navigator.clipboard.writeText(text);

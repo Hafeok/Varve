@@ -4,7 +4,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Text;
 using System.Text.Json;
 
@@ -24,8 +23,11 @@ namespace Varve.WebUi.Tests;
 ///   <c>{name}</c> is <c>var(--name)</c>, the same in both themes.</item>
 ///   <item>Spacing, radius and the font families do not vary by theme and
 ///   are one <c>:root</c> block.</item>
-///   <item>Each type style is one class, in the order the groups list
-///   them.</item>
+///   <item>Nothing else: custom properties only. The type styles stay in
+///   <c>tokens.json</c> as the design's vocabulary, and <c>bundle.css</c>
+///   applies them through its <c>vw-</c> component classes, so the
+///   repository's file is not what the design system page would compile, and
+///   is not meant to be.</item>
 /// </list>
 /// </remarks>
 internal static class TokensCss
@@ -64,27 +66,6 @@ internal static class TokensCss
         }
 
         css.Append("}\n");
-
-        foreach (JsonElement group in type.GetProperty("groups").EnumerateArray())
-        {
-            string family = group.GetProperty("family").GetString()!;
-
-            foreach (JsonElement style in group.GetProperty("styles").EnumerateArray())
-            {
-                css.Append('.').Append(style.GetProperty("name").GetString())
-                    .Append(" { font-family: var(--font-").Append(family).Append(");")
-                    .Append(" font-size: ").Append(style.GetProperty("fontSize").GetString()).Append(';')
-                    .Append(" line-height: ").Append(style.GetProperty("lineHeight").GetString()).Append(';')
-                    .Append(" font-weight: ").Append(style.GetProperty("fontWeight").GetInt32().ToString(CultureInfo.InvariantCulture)).Append(';');
-
-                if (style.TryGetProperty("letterSpacing", out JsonElement spacing))
-                {
-                    css.Append(" letter-spacing: ").Append(spacing.GetString()).Append(';');
-                }
-
-                css.Append(" }\n");
-            }
-        }
 
         return css.ToString();
     }

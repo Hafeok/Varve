@@ -7,7 +7,7 @@
 {@Problem}
 else
 {
-<div class="vw-table-wrap"><table class="vw-table">@if (Caption is not null)
+<div class="vw-table-wrap"><table class="vw-table" aria-labelledby="@(Caption is null ? LabelledBy : null)">@if (Caption is not null)
 {<caption class="vw-visually-hidden">@Caption</caption>}<thead><tr>@Columns</tr></thead><tbody>@if (Loading)
 {
 @for (int i = 0; i < 3; i++)
@@ -40,6 +40,14 @@ else
     [Parameter]
     public string? Caption { get; set; }
 
+    /// <summary>
+    /// Without a caption, the id of the element that names the table: the
+    /// panel's title (<c>Panel.TitleId</c>). Every table has a name, one way or
+    /// the other.
+    /// </summary>
+    [Parameter]
+    public string? LabelledBy { get; set; }
+
     /// <summary>The rows are being read.</summary>
     [Parameter]
     public bool Loading { get; set; }
@@ -55,4 +63,13 @@ else
     /// <summary>What would appear, and how it gets there.</summary>
     [Parameter]
     public RenderFragment? EmptyContent { get; set; }
+
+    /// <inheritdoc />
+    protected override void OnParametersSet()
+    {
+        if (Problem is null && Caption is null && LabelledBy is null)
+        {
+            throw new InvalidOperationException("A ResourceTable takes a Caption or a LabelledBy: every table has a name (ADR 0206).");
+        }
+    }
 }

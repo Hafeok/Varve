@@ -1,11 +1,11 @@
 @* Shell (docs/ui/components/Shell): the frame around every screen, the bar
    (core mark, server address, a sign-in state per plane), the navigation
    rail, and the main column. Takes everything as parameters; no data. *@
-<div class="vw-shell"><header class="vw-shell__bar"><a class="vw-shell__brand" href=""><img src="img/varve-core.svg" alt=""> Varve</a><span class="vw-shell__server">@Server</span>@foreach (PlaneState plane in Planes)
+<div class="vw-shell"><a class="vw-skip" href="#main">Skip to main content</a><header class="vw-shell__bar"><a class="vw-shell__brand" href=""><img src="img/varve-core.svg" alt=""> Varve</a><span class="vw-shell__server">@Server</span>@foreach (PlaneState plane in Planes)
 {<span class="@(plane.Absent ? "vw-plane vw-plane--absent" : "vw-plane")">@plane.Name @if (plane.Anonymous)
 {<StateBadge Tone="Tone.Neutral" Word="@plane.Word" />}
 else
-{<strong>@plane.Word</strong>}</span>}@BarActions</header><nav class="vw-shell__nav" aria-label="Web UI">@foreach (NavGroup group in Navigation)
+{<strong>@plane.Word</strong>}</span>}@BarActions</header><nav class="vw-shell__nav" aria-label="Main">@foreach (NavGroup group in Navigation)
 {<div class="vw-shell__navgroup vw-label">@group.Name</div><ul>@foreach (NavEntry entry in group.Entries)
 {<li><a href="@entry.Href" aria-current="@(entry.Current ? "page" : null)">@entry.Text</a></li>}</ul>}</nav><main class="vw-shell__main" id="main" tabindex="-1">@ChildContent</main></div>
 

@@ -92,8 +92,19 @@ changes ADR 0206, not this rule's reach.
 Tier 1 and decidable: namespaces, one interface, and the symbols the compiler
 resolves.
 
-The service/model split is by namespace. Everything under
-`Varve.Protocol.Client` outside `.Model` counts as a service, which is strict
-on the few values there that call nothing (`ClientLimits`, `EndpointPolicy`,
-the token provider, the follow and setup options). No part needs them today.
-If one does, the type moves into `.Model`; a marker is not invented.
+The service/model split is by namespace, and the namespace is the convention
+below.
+
+## The client's convention: the model holds values only
+
+This is a stated rule, not a habit (ADR 0206 point 4):
+- **`Varve.Protocol.Client.Model` holds values only:** problem bodies,
+  response facts, readiness, positions, and their wrappers. Nothing in it
+  calls the server.
+- **Everything else under `Varve.Protocol.Client`, `.Hosting` included,
+  counts as a service.** That is strict on the few values there that call
+  nothing: `ClientLimits`, `EndpointPolicy`, the token provider, and the
+  follow and setup options. No part needs them today.
+- **A type a part needs moves into `.Model`; it does not earn an exception.**
+  There is no marker attribute and no list of allowed types: the namespace is
+  the whole test.

@@ -474,3 +474,48 @@ preview is a picture:
 - `ResourceTable`'s caption is optional and visually hidden.
 - `CopyButton`'s "Copied" state follows a click, not a parameter, so no case
   states it.
+
+### Round 3: custom properties only, the model's convention, previews equal to the cases
+
+The ruling is verbatim in the design source's record
+(`2026-10-27-issue-167-web-ui-design-source.md`, round 3), with the docs
+it changed in #174. Done on this branch:
+- **The client's convention** is stated in `docs/rules/VARVE0006.md`:
+  - `.Model` holds values only;
+  - a type a part needs moves into `.Model`, with no exception.
+- **The generator** writes custom properties only. Its unit test now also
+  says a type style becomes no class. `tokens.css` was regenerated from it,
+  and came here with the merge of #174.
+- **The components:**
+  - `Shell` starts with the skip link and names its navigation "Main".
+  - `MainLayout`'s own skip link is removed. It was a second one, never
+    shown on focus, and it navigated.
+  - `SourceBlock`'s `<pre>` is a named region.
+  - `Panel` takes `TitleId`. `ResourceTable` takes `LabelledBy` and refuses
+    to render a table with neither a caption nor a label.
+  - `CopyButton` has a live region, and reads "Copied" for two seconds, on
+    the injected `TimeProvider`.
+- **The skip link and the router.** Against the base address `/ui/`, a bare
+  `href="#main"` resolves to `/ui/#main`. From any other screen that is a
+  navigation. `js/webui.js` takes the click in the capture phase, before
+  Blazor's router, and moves focus to `main`.
+
+  Checked in Chromium on a Release publish, loading `/ui/health` directly:
+  - the link is 1×1 until focused;
+  - the first Tab focuses it at 161×38;
+  - Enter leaves the URL at `/ui/health` and focuses `main#main`;
+  - the page reported no errors.
+- **Tests:** `Varve.WebUi.Tests` passes 138. The new ones:
+  - every preview shows each case verbatim, and shows nothing that is not a
+    case;
+  - Copy, clicked, says "Copied" and announces it, then reverts once a manual
+    clock moves two seconds;
+  - a table with no name is refused.
+
+  Changing one class in `Notice/preview.html` failed exactly that preview
+  case.
+- **Held:** VARVE0006's third check (a `.Model` type names no service
+  type). Its analyzer and tests are written and pass. On this branch it
+  reports one type: `BearerToken.Fixed`, from ADR 0127, returns a
+  `BearerTokenProvider`. Fixing it changes public API that an accepted ADR
+  names, so it was put to the maintainer before anything is committed.

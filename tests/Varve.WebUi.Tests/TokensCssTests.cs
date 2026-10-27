@@ -41,7 +41,7 @@ public class TokensCssTests
     }
 
     [Fact]
-    public void a_reference_is_a_custom_property_and_a_themed_value_is_per_theme()
+    public void a_reference_is_a_custom_property_a_themed_value_is_per_theme_and_a_type_style_is_no_class()
     {
         const string Json = """
             {
@@ -60,8 +60,7 @@ public class TokensCssTests
             "/* T — generated from tokens.json */\n"
             + ":root, [data-theme=\"light\"] {\n  --ink: #000;\n  --ring: var(--ink);\n}\n"
             + "[data-theme=\"dark\"] {\n  --ink: #fff;\n  --ring: var(--ink);\n}\n"
-            + ":root {\n  --space-1: 4px;\n  --font-sans: system-ui;\n}\n"
-            + ".body { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 400; }\n",
+            + ":root {\n  --space-1: 4px;\n  --font-sans: system-ui;\n}\n",
             TokensCss.Generate(Encoding.UTF8.GetBytes(Json)));
     }
 

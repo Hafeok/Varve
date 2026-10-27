@@ -1,7 +1,7 @@
 @* Panel (docs/ui/components/Panel): the container a resource renders in. A
    table goes in flush, so its rows run edge to edge. *@
 <div class="vw-panel">@if (Title is not null)
-{<div class="vw-panel__head"><h2 class="vw-panel__title">@Title</h2>@Head</div>}@if (Flush)
+{<div class="vw-panel__head"><h2 class="vw-panel__title" id="@TitleId">@Title</h2>@Head</div>}@if (Flush)
 {@ChildContent}
 else
 {<div class="vw-panel__body">@ChildContent</div>}</div>
@@ -10,6 +10,10 @@ else
     /// <summary>The panel's section title, when it has a head.</summary>
     [Parameter]
     public string? Title { get; set; }
+
+    /// <summary>The title's id, for a table in the panel to take its name from.</summary>
+    [Parameter]
+    public string? TitleId { get; set; }
 
     /// <summary>Badges and actions in the head.</summary>
     [Parameter]

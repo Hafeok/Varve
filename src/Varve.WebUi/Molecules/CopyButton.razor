@@ -1,9 +1,16 @@
 @inject IJSRuntime Js
+@inject TimeProvider Time
 @* The Copy button beside a request id or a source (docs/ui/components/ProblemPanel,
-   SourceBlock): copies the text as given, never the rendered text. *@
-<Button Small="true" OnClick="CopyAsync">@(_copied ? "Copied" : "Copy")</Button>
+   SourceBlock): copies the text as given, never the rendered text. After a
+   copy it reads "Copied" for two seconds, and the live region beside it
+   announces it; then it reads "Copy" again. The state is transient, so no
+   contract case states it: a test clicks. *@
+<Button Small="true" OnClick="CopyAsync">@(_copied ? "Copied" : "Copy")</Button><span class="vw-visually-hidden" aria-live="polite">@(_copied ? "Copied" : null)</span>
 
 @code {
+    /// <summary>How long the button reads "Copied".</summary>
+    internal static readonly TimeSpan CopiedFor = TimeSpan.FromSeconds(2);
+
     private bool _copied;
 
     /// <summary>The text to copy, exactly.</summary>
@@ -14,5 +21,8 @@
     {
         await Js.InvokeVoidAsync("varveWebUi.copy", Text);
         _copied = true;
+        StateHasChanged();
+        await Task.Delay(CopiedFor, Time);
+        _copied = false;
     }
 }
