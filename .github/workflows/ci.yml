@@ -691,8 +691,10 @@ jobs:
           for attempt in $(seq 1 60); do
             azurite=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:10000/devstoreaccount1?comp=list || true)
             rustfs=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:9000/ || true)
-            issuer=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8090/varve/.well-known/openid-configuration || true)
-            [ "$azurite" = 403 ] && [ "$rustfs" = 403 ] && [ "$issuer" = 200 ] && exit 0
+            # RustFS answers before it has discovered its issuer: ready once its STS exchanges a token.
+            token=$(curl --silent --header 'Host: issuer:8080' --data 'grant_type=client_credentials&client_id=varve-storage&client_secret=unchecked&scope=openid' http://127.0.0.1:8090/varve/token | jq -r '.access_token // empty' || true)
+            sts=$(curl --silent --output /dev/null --write-out '%{http_code}' --data-urlencode "WebIdentityToken=$token" --data 'Action=AssumeRoleWithWebIdentity&Version=2011-06-15&DurationSeconds=900' http://127.0.0.1:9000/ || true)
+            [ "$azurite" = 403 ] && [ "$rustfs" = 403 ] && [ "$sts" = 200 ] && exit 0
             sleep 1
           done
           docker compose --file .github/storage/compose.yaml logs
@@ -790,8 +792,10 @@ jobs:
           for attempt in $(seq 1 60); do
             azurite=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:10000/devstoreaccount1?comp=list || true)
             rustfs=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:9000/ || true)
-            issuer=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8090/varve/.well-known/openid-configuration || true)
-            [ "$azurite" = 403 ] && [ "$rustfs" = 403 ] && [ "$issuer" = 200 ] && exit 0
+            # RustFS answers before it has discovered its issuer: ready once its STS exchanges a token.
+            token=$(curl --silent --header 'Host: issuer:8080' --data 'grant_type=client_credentials&client_id=varve-storage&client_secret=unchecked&scope=openid' http://127.0.0.1:8090/varve/token | jq -r '.access_token // empty' || true)
+            sts=$(curl --silent --output /dev/null --write-out '%{http_code}' --data-urlencode "WebIdentityToken=$token" --data 'Action=AssumeRoleWithWebIdentity&Version=2011-06-15&DurationSeconds=900' http://127.0.0.1:9000/ || true)
+            [ "$azurite" = 403 ] && [ "$rustfs" = 403 ] && [ "$sts" = 200 ] && exit 0
             sleep 1
           done
           docker compose --file .github/storage/compose.yaml logs
