@@ -216,3 +216,59 @@ Posted on #97 before any code:
     `Host` that SigV4 signed.
 - **So no fallback ADR is needed.** ADR 0182 (the in-process S3 leg) is not
   filed, and its number stays free.
+
+### The maintainer's second message
+
+> Keep the loopback commit. In the small-machine guide, add one paragraph: a single machine uses the file backend or a directory, and S3 is for setups with an OIDC issuer (link to the RustFS compose settings as the worked example). Keep the trailer as Co-Authored-By: Claude <noreply@anthropic.com>; the model is named in the traceability record only. Carry on with ADR 0179 and the remaining tier-1 work.
+
+### ADRs 0179 and 0180, filed
+
+- **ADR 0179, writer handover within a store,** is the draft as approved,
+  with these changes:
+  - abdication is for `storage-error`, and for `cache-error`, a fault of the
+    instance's own cache directory. That second reason is proposed with the
+    test that tells it apart from a fault deterministic over the log, which
+    fails the commit and never hands over;
+  - the takeover is answered by the instance that receives it;
+  - the claim happens in place, held equal to a re-open by a property;
+  - a superseded writer rejoins as a follower;
+  - forwarding across a handover answers `writer-moved`;
+  - the system dataset hands over too.
+- **ADR 0180, warm standbys and the writer set,** states:
+  - `placedOn` ∪ `standbyOn`;
+  - placement as events, and the start rule;
+  - standbys that follow on the interval;
+  - warm, as the default projection caught up, with binding lag beside it.
+
+  It asks one question on the pull request: who claims when the preferred
+  writer itself abdicates. Read alone, the maintainer's rule leaves that
+  release to the instance that made it.
+- **The rest of the filing.** `FollowOnDemand` moves from ADR 0164's set to
+  0180's, restated, so its one citation is `CS0618` until accepted. ADRs
+  0136, 0163, 0164, 0166 and 0168 are amended by dated blocks.
+
+### The rest of tier 1
+
+- **The writer directory across a handover.** The object-storage follower
+  reports the highest epoch it adopted (`ObjectStorage.AdoptedEpoch`), and the
+  route is read again when it rises. `NoWriter` is not cached. A forward that
+  a superseded or stepped-down writer refused is answered `writer-moved` with
+  that reason. The catalogue gains `writer-stepped-down`.
+- **Positions.** A sweep of every data-plane route on a follower showed the
+  code already met ADR 0096 point 4: every response that touched the dataset
+  names a position. Readiness now names each dataset's applied position.
+- **ADR 0164 point 5 is built.** `Dataset.ReopenDue`, and the reconcile
+  round's re-open. The memtable's count is two entries per quad in the tests'
+  datasets, not one, so the rule is stated in the measure the writer's flush
+  compares with `MemtableLimit`. `MemtableLimit`'s own documentation, "quads",
+  may overstate what it counts. That is noted here and not changed.
+- **Tier 1 under failure injection** (`ObjectFollowerFaultTests`) found two
+  pre-existing defects. Each is fixed with a test that fails without its fix:
+  - a follower stayed a commit behind after an advance whose scan failed once
+    its refresh had adopted the commits;
+  - an open for write failed (`ArrayBufferWriter` asked for no capacity) after
+    writers that claimed and closed with no record between them. Handover
+    makes such runs of claims routine.
+
+  2,000 schedules ran clean in about 60 s. The land gate runs 60, and the
+  nightly run 2,000.
