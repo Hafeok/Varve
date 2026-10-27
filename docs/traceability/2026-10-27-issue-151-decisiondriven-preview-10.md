@@ -114,3 +114,77 @@ Turtle. Means moved within the run's noise; dotNetRDF itself moved by up to
 15% between the runs. The rows that intern and hash terms, into
 `InMemoryDataset`, were 252.5 → 231.5 ms (N-Quads) and 98.0 → 85.7 ms
 (Turtle). There is no regression.
+
+## The second prompt
+
+> Yes, open the PR. Six points:
+>
+> 1. #151. That’s Dependabot’s 12-package bump. Either take all 12 into this branch, in one commit that says so, or rebase onto #151 after it merges. Say in the PR which you did. If you take them, I’ll close #151 as superseded.
+> 2. The rename to `CommitRequestBuilder`: agreed. The rule’s own exemption is the honest answer, and `[DesignDecision]` would have accepted a violation. Don’t leave the accepted documents saying something the code no longer does. Add a dated amendment, unaccepted, to `docs/spec/sparql-update-store.md` and to each ADR and decision set that names `CommitRequest`, recording the rename and its reason. It will be red on `CS0618` until I accept it on the PR, which is expected. Add a CHANGELOG entry marking it breaking (ADR 0118).
+> 3. `Commit._carried` as a `FrozenSet`. `FrozenSet` is built for fast reads and is slower to build than a `HashSet`. A copy per commit on the commit path needs a number. Add the `INSERT DATA` benchmark (#35’s) and a commit-path row, old head against this branch. If it regresses past noise, use an `ImmutableHashSet`, or keep a private `HashSet` that nothing hands out and mark it `[Memoized]` with that justification.
+> 4. The DD0019 false positive. Draft the upstream issue in the PR body:
+>    * a minimal repro: a field checked with `is null` and never returned, reported as handed out;
+>    * generic names only. The analyzer repo never names Varve.
+>  I’ll file it.
+> 5. The decision-report baseline. Regenerate it in a separate small PR right after this one lands. Don’t leave it at preview.7: bumping the analyzers is exactly what makes it stale.
+> 6. No release descriptor of its own. It rides the next release, and lands through `land/` as usual.
+
+## The second report
+
+1. **#151 is taken whole.** One commit bumps its ten packages that are not
+   DecisionDriven, at its versions, each checked on nuget.org. Its other two
+   are already at preview.10 here, newer than its preview.9. The same commit
+   carries what preview.10 changes against preview.7, from the package README,
+   because no release notes are published (ADR 0063).
+2. **The amendments.** ADRs 0058, 0065 and 0120 and the SPARQL Update
+   specification each gain a dated amendment, named on their Status lines. The
+   decision sets of 0065, 0120 and `store-log-surfaces` are amended too, all
+   unaccepted. `LogTypesThatMove` and
+   `DataOnlyRequestsGoStraightToTheCommitRequest` name the new type with no
+   acceptance; the second keeps its key. **Neither key is cited in code**, so
+   neither raises a `CS0618`; the `CS0618` this pull request does raise is the
+   decision under point 3. **No CHANGELOG entry**, because `CHANGELOG.md` is
+   the projection of `releases/`, and `eng/changelog.cs --check`, a gate, fails
+   on any hand edit (ADR 0102). The rename's commit is `refactor(store)!:`, so
+   `--unreleased` already lists it as **(breaking)**. ADR 0118 puts breaking
+   changes in the release descriptor's summary, which the next release
+   writes.
+3. **`Commit._carried`.** `CommitPathBenchmarks` is new: `Commit` is
+   `CommitAsync` of N quads, and `FirstExternaliseOfACarriedHandle` is the one
+   place the set is built. The machine was this container, .NET 10.0.14,
+   BenchmarkDotNet in process, 6cdb402 against this branch.
+
+   | Row | N | 6cdb402 | FrozenSet branch | Allocated (both) |
+   |---|---:|---:|---:|---:|
+   | `UpdateBenchmarks.Varve` (INSERT DATA, #35) | 10,000 | 48.5 ms | 61.0 ms | 28.89 MB |
+   | | 100,000 | 508.8 ms | 512.0 ms | 258.9 MB |
+   | `CommitPathBenchmarks.Commit` | 10,000 | 21.8 ms | 53.3 ms ± 22.1 | 24.15 MB |
+   | | 100,000 | 334.8 ms | 245.6 ms | 230.2 MB |
+
+   The commit path and `INSERT DATA` allocate the same bytes. Their times
+   move both ways inside their deviations, as they would if nothing on them
+   changed, and nothing does: the set is not built there. The build itself
+   regressed past noise, so all four sets were measured in one later run:
+
+   | Set, 100,000 quads | Build and one lookup | Allocated |
+   |---|---:|---:|
+   | `HashSet` (6cdb402) | 4.4 ms | 11.95 MB |
+   | `FrozenSet` | 10.7 ms | 22.77 MB |
+   | `ImmutableHashSet` | 37.7 ms | 10.69 MB |
+   | sorted `ImmutableArray`, binary search | 15.5 ms | 3.13 MB |
+
+   `ImmutableHashSet` is the worst of the four. preview.10 refuses a
+   `[Memoized]` `HashSet` as such: "a plain collection filled by concurrent
+   readers is a race". A justification therefore has to be a decision that
+   `[DesignDecision]` cites. It is filed as
+   `StoreLogSurfaces.CarriedHandlesAreAPrivateHashSet`, scope `HotPath`,
+   unaccepted, and its citation is the `CS0618` above. The sorted array is the
+   alternative if the maintainer would rather not accept it: immutable, no
+   decision, 3.5 times the build time and a quarter of the memory.
+4. **The upstream issue** is drafted in the pull request body, from a
+   standalone project that builds against preview.10 with only DD0019
+   reported: a `[Memoized]` `ConcurrentDictionary` tested with `is not null`
+   and never returned, reported as handed out, and the same field without the
+   null test not reported.
+5. **The baseline** is for the next pull request, once this one lands.
+6. **No descriptor.**
