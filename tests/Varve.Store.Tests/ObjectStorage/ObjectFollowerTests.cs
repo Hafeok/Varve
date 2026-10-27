@@ -110,6 +110,33 @@ public sealed class ObjectFollowerTests
         Assert.Equal(0, objects.Store.Count(ObjectOperation.Create) + objects.Store.Count(ObjectOperation.Replace) + objects.Store.Count(ObjectOperation.Delete));
     }
 
+    /// <summary>
+    /// A follower learns from its own refresh that the writer changed (ADR
+    /// 0179 point 12): the highest epoch in a chunk header it adopted is the
+    /// first writer's, and the second's once that one has fenced the log and
+    /// committed. No record is read for it.
+    /// </summary>
+    [Fact]
+    public async Task a_followers_refresh_reports_the_highest_epoch_it_adopted()
+    {
+        await using ObjectHarness objects = new();
+        Backend first = await objects.OpenAsync(instance: "a");
+        await using Dataset writer = await T.OpenOrCreate(first, Small());
+        await writer.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Iri("o")), T.Ct);
+        Backend followed = await objects.OpenAsync(ObjectStorageAccess.ReadOnly);
+        await using Dataset follower = await Dataset.OpenFollowerAsync(followed, Small(), T.Ct);
+        Assert.Equal(first.Epoch, followed.AdoptedEpoch);
+
+        Backend second = await objects.OpenAsync(instance: "b");
+        await using Dataset successor = await Dataset.OpenAsync(second, Small(), T.Ct);
+        await successor.CommitAsync(new CommitRequest().Assert(T.Iri("s2"), T.Iri("p"), T.Iri("o")), T.Ct);
+
+        objects.Store.ResetCounts();
+        Assert.Equal(successor.Head, await follower.AdvanceAsync(T.Ct));
+        Assert.Equal(second.Epoch, followed.AdoptedEpoch);
+        Assert.True(second.Epoch!.Value.Value > first.Epoch!.Value.Value);
+    }
+
     /// <summary>A follower commits nothing and writes no checkpoint, and a writer does not advance.</summary>
     [Fact]
     public async Task a_follower_refuses_writes_and_checkpoints()

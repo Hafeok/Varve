@@ -265,8 +265,9 @@ adds what a handover needs.
 - **The directory learns the new writer by events.** It re-reads a record
   on `writer-moved`, on a failed connect and on any `503` from the writer, as
   today. It now also re-reads one when a follower's advance adopts a chunk of
-  an epoch above the route's: `ITailingStorage.RefreshAsync` reports the
-  highest epoch it adopted.
+  an epoch above the route's. `ObjectStorage.AdoptedEpoch` reports the
+  highest epoch in a chunk header the follower adopted. It is the backend's,
+  as the epoch is (ADR 0135), so `ITailingStorage` is unchanged.
 - **`NoWriter` is not cached.** Each write while there is no writer reads the
   record once. The request is the event.
 - **A forward refused across the handover was not committed.** A writer
@@ -330,9 +331,9 @@ the event. This ADR does not extend the file backend across machines.
   - `ClaimTrigger` gains `Abdication` and `Probe`;
   - `ReleaseReason` gains `StorageError` and `CacheError`;
   - a write-open takes a claim already made, guarded by the epoch named.
-- **`Varve.Store`:**
-  - `ITailingStorage.RefreshAsync` reports the highest epoch it adopted;
-  - a follower `Dataset` can take a write-open in place.
+- **`Varve.Store.ObjectStorage`** also reports `ObjectStorage.AdoptedEpoch`,
+  the highest epoch a follower adopted.
+- **`Varve.Store`:** a follower `Dataset` can take a write-open in place.
 - **The gate (#97, #165)** adds `HandoverScheduleTests`, over generated
   schedules of:
   - abdications;
@@ -382,7 +383,7 @@ the event. This ADR does not extend the file backend across machines.
 
   No conflict.
 - **Layer ownership.**
-  - `Varve.Store` (4): the tailing contract's epoch, and the in-place write.
+  - `Varve.Store` (4): the in-place write.
   - `Varve.Store.ObjectStorage` (5): the claim and the release reasons.
   - `Varve.Protocol` (5): the problem types and the forwarder's answer.
   - `Varve.Server` (6): the triggers, the route, and when to claim.

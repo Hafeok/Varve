@@ -184,9 +184,11 @@ it (ADR 0066).
 - **`FollowOnDemand` moves** to [ADR 0180](0180-warm-standbys-and-the-writer-set.md)'s set, restated. A
   standby, like the system dataset, advances on the interval, so this ADR's
   set no longer holds it.
-- **`RefreshAsync` reports the highest epoch it adopted**, so the writer
-  directory learns of a handover from a follower's advance (ADR 0179 point
-  12). The contract's ruling, `TailingStorageContract`, is unchanged.
+- **The object-storage follower reports the highest epoch it adopted**,
+  `ObjectStorage.AdoptedEpoch`, so the writer directory learns of a handover
+  from a follower's advance (ADR 0179 point 12). The epoch is the backend's
+  (ADR 0135), so `ITailingStorage` and its ruling, `TailingStorageContract`,
+  are unchanged.
 - **Point 5 is built.** A follower that has applied more than `MemtableLimit`
   quads since its open is re-opened from the writer's newest catalog, with
   pinned reads keeping the old dataset.

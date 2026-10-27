@@ -5,7 +5,7 @@
 | **Type** | `https://w3id.org/varve/problems/writer-moved` |
 | **Title** | The instance a write was forwarded to no longer writes the dataset. |
 | **Status** | `503` |
-| **Members** | `epoch`, `requestId` |
+| **Members** | `epoch`, `requestId`, `reason` |
 
 A write was forwarded once, carrying `Varve-Forwarded`, and the instance it
 reached does not write the dataset now (ADR 0168 point 4): the writer
@@ -14,6 +14,13 @@ forwarded again, so a request crosses at most one hop. `epoch` is the epoch
 the answering instance knows; `requestId` names the request. Nothing was
 committed by the answering instance: send the write again, and it is routed
 to the writer anew.
+
+**Across a handover** (ADR 0179 point 12), the instance that forwarded a write
+answers `writer-moved` too when the writer it reached refused the batch as
+`writer-superseded` or `writer-stepped-down`. Such a batch was not committed,
+because the create that would hold it failed or never ran. `reason` is then
+the type the writer answered, and `epoch` the newest epoch the forwarding
+instance knows; absent otherwise.
 
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,

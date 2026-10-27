@@ -471,6 +471,12 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
             try
             {
                 await System.AdvanceAsync(cancellationToken).ConfigureAwait(false);
+
+                // A chunk of a newer epoch means the system writer changed (ADR 0179 point 12).
+                if (_systemStorage is Backend { AdoptedEpoch: { } adopted } && _routes.TryGetValue(SystemName, out WriterRoute route) && adopted.Value > route.Epoch)
+                {
+                    _routes.TryRemove(SystemName, out _);
+                }
             }
             catch (Exception error) when (error is not OperationCanceledException)
             {
@@ -579,6 +585,12 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
             await dataset.AdvanceAsync(cancellationToken).ConfigureAwait(false);
             Volatile.Write(ref follow.Last, _clock.GetTimestamp());
+
+            // A chunk of a newer epoch means the writer changed: the route is read again (ADR 0179 point 12).
+            if (Datasets.AdoptedEpochOf(name) is { } adopted && _routes.TryGetValue(name.Value, out WriterRoute route) && adopted > route.Epoch)
+            {
+                _routes.TryRemove(name.Value, out _);
+            }
         }
         catch (Exception error) when (error is not OperationCanceledException)
         {
@@ -627,7 +639,13 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
         WriterRecord? record = await _objects!.ReadWriterAsync(name, cancellationToken).ConfigureAwait(false);
         WriterRoute route = RouteOf(record);
-        _routes[name] = route;
+
+        // No writer is never kept: the next write reads the record again, the request being the event (ADR 0179 point 12).
+        if (route.Kind != WriterRouteKind.NoWriter)
+        {
+            _routes[name] = route;
+        }
+
         return route;
     }
 

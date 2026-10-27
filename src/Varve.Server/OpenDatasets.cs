@@ -385,6 +385,19 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     }
 
     /// <summary>
+    /// The highest writer epoch an open follower's storage has adopted, or
+    /// none: the writer directory compares it with its route's (ADR 0179
+    /// point 12).
+    /// </summary>
+    internal long? AdoptedEpochOf(DatasetName name)
+    {
+        lock (_gate)
+        {
+            return _entries.TryGetValue(name.Value, out Entry? entry) ? entry.AdoptedEpoch : null;
+        }
+    }
+
+    /// <summary>
     /// Whether an open dataset's storage no longer holds its writer epoch
     /// (ADR 0136): readiness reports it <c>superseded</c>.
     /// </summary>
@@ -613,6 +626,8 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         private IAsyncDisposable? Files { get; set; }
 
         internal bool Superseded => Files is Backend { IsSuperseded: true };
+
+        internal long? AdoptedEpoch => Files is Backend { AdoptedEpoch: { } epoch } ? epoch.Value : null;
 
         /// <summary>The derived store on this machine, where a projection of the server's own keeps its state (ADR 0174): a file dataset's; none for memory or an object store.</summary>
         internal IDerivedStore? LocalDerived => Files is FileStorage files ? files.Derived : null;

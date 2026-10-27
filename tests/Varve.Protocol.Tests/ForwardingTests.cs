@@ -5,12 +5,17 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using CsCheck;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Varve.Protocol.Model;
 using Varve.Rdf;
 using Varve.Store;
@@ -100,6 +105,51 @@ public sealed class ForwardingTests
     }
 
     /// <summary>
+    /// A writer that refuses a forwarded batch as superseded or stepped down
+    /// committed nothing (ADR 0179 point 12): the forwarding instance answers
+    /// writer-moved, with the writer's answer as its reason, marks the route
+    /// stale, and sends the body once. The writer is another process, so it
+    /// is played here by a loopback endpoint that answers as one does.
+    /// </summary>
+    [Theory]
+    [InlineData("writer-superseded")]
+    [InlineData("writer-stepped-down")]
+    public async Task A_forward_refused_across_a_handover_is_answered_writer_moved(string refusal)
+    {
+        int received = 0;
+        WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
+        builder.WebHost.UseKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, 0));
+        builder.Logging.ClearProviders();
+        await using WebApplication stepped = builder.Build();
+        stepped.Run(async context =>
+        {
+            Interlocked.Increment(ref received);
+            context.Response.StatusCode = 503;
+            context.Response.ContentType = "application/problem+json";
+            await context.Response.WriteAsync("{\"type\":\"https://w3id.org/varve/problems/" + refusal + "\",\"title\":\"t\",\"status\":503}", P.Ct);
+        });
+        await stepped.StartAsync(P.Ct);
+
+        await using Pair pair = await Pair.StartAsync();
+        pair.Elsewhere = stepped.Urls.First();
+        pair.Writer = Pair.Other;
+        using HttpResponseMessage moved = await pair.Hosts[0].Client.SendAsync(P.Update("datasets/d/sparql", "INSERT DATA { <http://ex/a> <http://ex/p> 1 }"), P.Ct);
+        string body = await moved.Content.ReadAsStringAsync(P.Ct);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, moved.StatusCode);
+        Assert.Contains("\"type\":\"https://w3id.org/varve/problems/writer-moved\"", body, StringComparison.Ordinal);
+        Assert.Contains("\"reason\":\"" + refusal + "\"", body, StringComparison.Ordinal);
+        Assert.Contains("\"epoch\":7", body, StringComparison.Ordinal);
+        Assert.Equal(1, received);
+        Assert.True(pair.Stale > 0);
+        Assert.Equal(0L, pair.Datasets[0].Head.Value + pair.Datasets[1].Head.Value);
+
+        // Any other 503 from the writer comes back as the writer wrote it.
+        using HttpResponseMessage busy = await pair.Hosts[0].Client.SendAsync(P.Query("datasets/d/sparql", "ASK {}"), P.Ct);
+        Assert.Equal(HttpStatusCode.OK, busy.StatusCode);
+    }
+
+    /// <summary>
     /// For generated schedules of writes to either instance, the writer moved
     /// between them while writes are in flight: each write is committed
     /// exactly once, in the dataset of the instance that served it as its
@@ -178,6 +228,7 @@ public sealed class ForwardingTests
     {
         internal const int Nobody = -1;
         internal const int Unreachable = -2;
+        internal const int Other = -3;
         // The forwards routed, then the routes marked stale.
         private readonly int[] _counts = new int[2];
 
@@ -190,6 +241,9 @@ public sealed class ForwardingTests
         internal Dataset[] Datasets { get; } = new Dataset[2];
 
         internal volatile int Writer;
+
+        // The address of a writer that is neither host, for Other.
+        internal string? Elsewhere;
 
         internal int Forwards => Volatile.Read(ref _counts[0]);
 
@@ -240,6 +294,7 @@ public sealed class ForwardingTests
                 string address = writer switch
                 {
                     Unreachable => "http://127.0.0.1:9/",
+                    Other => pair.Elsewhere!,
                     Nobody => pair.Hosts[1 - self].Address.AbsoluteUri,
                     _ => pair.Hosts[writer].Address.AbsoluteUri,
                 };

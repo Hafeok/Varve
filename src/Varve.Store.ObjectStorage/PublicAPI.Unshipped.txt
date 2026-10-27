@@ -255,3 +255,4 @@ override Varve.Store.ObjectStorage.Model.WriterAddress.GetHashCode() -> int
 static Varve.Store.ObjectStorage.Model.WriterAddress.operator !=(Varve.Store.ObjectStorage.Model.WriterAddress left, Varve.Store.ObjectStorage.Model.WriterAddress right) -> bool
 static Varve.Store.ObjectStorage.Model.WriterAddress.operator ==(Varve.Store.ObjectStorage.Model.WriterAddress left, Varve.Store.ObjectStorage.Model.WriterAddress right) -> bool
 ~override Varve.Store.ObjectStorage.Model.WriterAddress.Equals(object obj) -> bool
+Varve.Store.ObjectStorage.ObjectStorage.AdoptedEpoch.get -> Varve.Store.ObjectStorage.Model.WriterEpoch?

@@ -561,6 +561,30 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
     /// and nothing is written. True when anything was adopted.
     /// </summary>
     /// <exception cref="LogVerificationException">A chunk does not verify or does not follow.</exception>
+    /// <summary>
+    /// The highest writer epoch in a chunk header this store holds: what a
+    /// follower's refresh has seen of the writers since its open (ADR 0179
+    /// point 12). 0 when it holds no chunk with a header, as when it adopted
+    /// only consolidated segments.
+    /// </summary>
+    public long AdoptedEpoch
+    {
+        get
+        {
+            lock (_lock)
+            {
+                long epoch = 0;
+
+                foreach (Segment segment in _segments)
+                {
+                    epoch = Math.Max(epoch, segment.Epoch);
+                }
+
+                return epoch;
+            }
+        }
+    }
+
     public async ValueTask<bool> RefreshAsync(CancellationToken cancellationToken)
     {
         if (Writes)

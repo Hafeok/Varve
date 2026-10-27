@@ -49,9 +49,11 @@ public class ProblemCatalogueTests
     /// not exist; and a read that finds an extent gone, as a forgotten or an
     /// unannounced reader may (ADR 0160), needs a server that only reads a
     /// dataset in an object store, which is the Management plane's follower
-    /// (#105). Removed from here by the slice that makes each emittable.
+    /// (#105); and a writer's abdication (ADR 0179), which Replication part 1
+    /// (#165) builds after the forwarder learns to answer it. Removed from
+    /// here by the slice that makes each emittable.
     /// </summary>
-    private static readonly ImmutableArray<ProblemType> NotYetEmittable = [ProblemType.BelowArchiveHorizon, ProblemType.ReaderForgotten, ProblemType.ReadUnannouncedExtentGone];
+    private static readonly ImmutableArray<ProblemType> NotYetEmittable = [ProblemType.BelowArchiveHorizon, ProblemType.ReaderForgotten, ProblemType.ReadUnannouncedExtentGone, ProblemType.WriterSteppedDown];
 
     /// <summary>
     /// Types whose trigger holds state across requests, exercised in

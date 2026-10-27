@@ -180,6 +180,14 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
     /// <exception cref="LogVerificationException">A chunk does not verify or does not follow.</exception>
     public ValueTask<bool> RefreshAsync(CancellationToken cancellationToken) => _log.RefreshAsync(cancellationToken);
 
+    /// <summary>
+    /// The highest writer epoch in a chunk header this storage has adopted,
+    /// or none: how a follower learns, from its own refresh, that the
+    /// dataset's writer has changed (ADR 0179 point 12). The epoch is the
+    /// backend's, in the chunk header, never the log's (ADR 0135).
+    /// </summary>
+    public WriterEpoch? AdoptedEpoch => _log.AdoptedEpoch is > 0 and var epoch ? new WriterEpoch(epoch) : null;
+
     /// <inheritdoc />
     public ValueTask<bool> MaintainStorageAsync(CancellationToken cancellationToken) => _log.ConsolidateAsync(cancellationToken);
 
