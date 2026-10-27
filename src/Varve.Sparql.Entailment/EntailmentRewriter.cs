@@ -50,7 +50,14 @@ public static class EntailmentRewriter
     /// <paramref name="tboxGraphs"/> merged into every graph. Under simple
     /// entailment, the query and the source as given.
     /// </summary>
-    public static EntailedQuery Rewrite(Query query, IQuadSource source, IReadOnlyList<RdfTerm> tboxGraphs, EntailmentRegime regime, CancellationToken cancellationToken = default)
+    /// <remarks>
+    /// <paramref name="recognisedDatatypes"/> is RDF 1.1 Semantics' D, beside
+    /// <c>xsd:string</c> and <c>rdf:langString</c>, which every regime
+    /// recognises. Null is the regime's own: none more under RDF and RDFS,
+    /// Varve.Xsd's map under D. A datatype outside Varve.Xsd's map is
+    /// recognised by name only.
+    /// </remarks>
+    public static EntailedQuery Rewrite(Query query, IQuadSource source, IReadOnlyList<RdfTerm> tboxGraphs, EntailmentRegime regime, IReadOnlyCollection<RdfTerm>? recognisedDatatypes = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
         ArgumentNullException.ThrowIfNull(source);
@@ -61,8 +68,21 @@ public static class EntailmentRewriter
         }
 
         TBoxMerge merge = new(source, tboxGraphs);
-        Rewriter rewriter = new(merge, query.Dataset, RulesOf(regime), cancellationToken);
+        RuleSet rules = recognisedDatatypes is null ? RulesOf(regime) : RulesOf(regime, recognisedDatatypes);
+        Rewriter rewriter = new(merge, query.Dataset, rules, cancellationToken);
         return new EntailedQuery(rewriter.Rewrite(query), merge);
+    }
+
+    /// <summary>A regime's rules, recognising <paramref name="recognised"/> beside the two every regime does.</summary>
+    internal static RuleSet RulesOf(EntailmentRegime regime, IEnumerable<RdfTerm> recognised)
+    {
+        HashSet<RdfTerm> datatypes = new(Datatypes.RdfRecognised, RdfTerm.Comparer);
+        foreach (RdfTerm datatype in recognised)
+        {
+            datatypes.Add(datatype);
+        }
+
+        return new RuleSet(regime != EntailmentRegime.Rdf, datatypes);
     }
 
     /// <summary>The rules and recognised datatypes of a regime.</summary>

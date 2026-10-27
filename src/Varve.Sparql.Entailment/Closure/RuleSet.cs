@@ -25,4 +25,7 @@ internal sealed class RuleSet
 
     /// <summary>The datatypes D the closure recognises: GrdfD1 types their literals, rdfs1 makes them datatypes.</summary>
     internal IReadOnlySet<RdfTerm> Recognised { get; }
+
+    /// <summary>Whether a literal is its value: D recognises a datatype beside <c>xsd:string</c> and <c>rdf:langString</c>, whose values have one spelling.</summary>
+    internal bool ByValue => Recognised.Count > 2;
 }

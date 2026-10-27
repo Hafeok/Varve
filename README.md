@@ -154,6 +154,7 @@ and it ships inside every package.
 | `Varve.Sparql.Results` | 2 | the SPARQL results formats — XML, JSON, CSV, TSV — as pull readers and streaming writers | working |
 | `Varve.Delta` | 3 | the change feed's format, `application/vnd.varve.delta` version 1, read for ever: the reader, the writer and the record model, with no store in it | working |
 | `Varve.Sparql.Evaluation` | 3 | the optimiser and evaluator: every operator, the function library, aggregates, property paths, `SERVICE` through a handler, over any quad source | working |
+| `Varve.Sparql.Entailment` | 3 | SPARQL 1.1 entailment regimes by query rewriting: RDF, RDFS and D, complete under the regimes' answer conditions, with the ontology read from TBox graphs as of the read position | working; the protocol's header arrives with the rest of #170 |
 | `Varve.Shacl` | 3 | SHACL 1.2 Core over any quad source: targets, paths, every core component, recursive shapes by stratified greatest fixpoint, the validation report as a canonical value, and an extension contract | working |
 | `Varve.Aspire` | 0 | the .NET Aspire hosting integration: `AddVarve`, `WithOidc`, `WithDataset` on an AppHost; references nothing from Varve | working |
 | `Varve.Analyzers` | — | the layer rules, at build time | working, never shipped |
@@ -207,7 +208,14 @@ The W3C suites are the acceptance gate, from
 | `rdf-canon`, RDFC-1.0: 64 canonical forms, 21 issued maps, 1 refusal | 86 |
 | `data-shapes-test-suite`, SHACL 2017, `core` and `sparql`, × 2 subjects | 232 |
 | `shacl12-test-suite`, SHACL 1.2 Working Draft, `core` and `sparql`, × 2 subjects | 390 |
-| **Total** | **6,141 of 6,141** |
+| `sparql11/entailment` under RDF, RDFS and D, by rewriting (ADR 0193) | 95 |
+| `rdf11/rdf-mt`, by rewriting: the 38 cases that ask no consistency question | 38 |
+| **Total** | **6,274 of 6,274** |
+
+**Blocked as out of scope, not run:** 25, by name in
+`tests/Varve.Conformance.Tests/baseline/blocked.txt`: the RIF and the OWL 2
+DL and Full cases of `sparql11/entailment`, outside #15's scope. They are not
+exemptions.
 
 Each SPARQL suite is parsed at its own version, so the 1.0 and 1.1 suites
 never see the 1.2 grammar; the 1.2 default is for API callers only. The six

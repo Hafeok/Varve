@@ -690,9 +690,25 @@ a pinned view. Both are in the ratchet, one line per case per subject.
 - **The fixed world.** A fixed clock and a seeded random source; the
   `functions` cases that test `NOW`, `RAND`, `UUID` and `STRUUID` test
   properties of the result, not its value.
-- **Not wired**: `sparql11/entailment` (entailment regimes are out of scope)
-  and the SPARQL 1.2 cases whose data is RDF 1.2 Turtle or TriG, pinned as
-  blocked in the guard until the slice that brings RDF 1.2 Turtle (§13.3).
+- **Not wired**: the SPARQL 1.2 cases whose data is RDF 1.2 Turtle or TriG,
+  pinned as blocked in the guard until the slice that brings RDF 1.2 Turtle
+  (§13.3).
+- **`sparql11/entailment`** (wired by Inference part 1, #170, ADR 0193) runs
+  apart from these suites:
+  - each of its 70 cases runs under each of RDF, RDFS and D it lists, through
+    `Varve.Sparql.Entailment`'s rewriting over `InMemoryDataset`, one ratchet
+    line per case per regime (`@rdf`, `@rdfs`, `@d`): 95 lines;
+  - the cases that hold only under OWL 2 RDF-Based in the RL profile wait for
+    #171, and those under OWL 2 Direct in the QL profile for #95's last part,
+    named in `EntailmentGuardTests`;
+  - RIF and OWL 2 DL or Full beyond both profiles are blocked as out of scope
+    (#15, #95), 25 cases by name in `baseline/blocked.txt`, counted in
+    README by `eng/status.cs`.
+
+  `rdf11/rdf-mt` runs beside it, each case's result graph an `ASK` over its
+  action under its regime and recognised datatypes (`@rewriting`: 38 lines).
+  The 10 that ask whether the action is inconsistent wait for #171's clash
+  rules.
 
 ### 12.2 Properties
 

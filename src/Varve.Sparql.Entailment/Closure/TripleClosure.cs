@@ -157,7 +157,7 @@ internal sealed class TripleClosure
             if (o.Kind == RdfTermKind.Literal && DatatypeOf(o) is { } datatype && _rules.Recognised.Contains(datatype))
             {
                 Add(o, Vocabulary.Type, datatype);
-                if (_rules.Recognised.Contains(Vocabulary.Integer))
+                if (_rules.ByValue)
                 {
                     foreach (RdfTerm other in _rules.Recognised)
                     {

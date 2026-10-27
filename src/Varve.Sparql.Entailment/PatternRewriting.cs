@@ -263,7 +263,7 @@ internal sealed class PatternRewriting
         return Build(branch, rows, names, blank, own, column, roleColumn, asserted, valueConstraints, ByValue(rules));
     }
 
-    private static bool ByValue(RuleSet rules) => rules.Recognised.Contains(Vocabulary.Integer);
+    private static bool ByValue(RuleSet rules) => rules.ByValue;
 
     private static CustomFunctionCall Canonicalised(Expression expression) =>
         new(LiteralValues.FunctionIri, AlgebraList.Of(expression));
@@ -285,7 +285,7 @@ internal sealed class PatternRewriting
 
     // Whether a term is in the closure without the graph naming it.
     private static bool Restricted(RdfTerm term, RuleSet rules) =>
-        Vocabulary.IsContainerMembership(term) || (term.Equals(Vocabulary.XsdString) && !rules.Recognised.Contains(Vocabulary.Integer));
+        Vocabulary.IsContainerMembership(term) || (term.Equals(Vocabulary.XsdString) && !rules.ByValue);
 
     // The active graph names the term in some position.
     private static Union Occurs(RdfTerm term)
