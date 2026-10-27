@@ -18,6 +18,8 @@
          what it can see statically; only a real ILC run proves the packages
          publish and the binary runs. -->
     <PublishAot>true</PublishAot>
+    <!-- ADR 0224: every RID it is published for is in its lockfile. -->
+    <RuntimeIdentifiers>$(VarveNativeRuntimeIdentifiers)</RuntimeIdentifiers>
     <InvariantGlobalization>true</InvariantGlobalization>
     <StackTraceSupport>false</StackTraceSupport>
     <UseSystemResourceKeys>true</UseSystemResourceKeys>

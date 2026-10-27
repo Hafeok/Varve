@@ -1,0 +1,92 @@
+{
+  "version": 2,
+  "dependencies": {
+    "net10.0": {
+      "DecisionDriven.Analyzers": {
+        "type": "Direct",
+        "requested": "[0.1.0-preview.7, )",
+        "resolved": "0.1.0-preview.7",
+        "contentHash": "ja3oyFrFieMA+b79UhfJvCfHP2zd/S1qzboG0iXrqGLqeXNhO+enTVJTbxu+71t5ytHcZ9KzgNnzk5pvxzPDOg=="
+      },
+      "Microsoft.NET.ILLink.Tasks": {
+        "type": "Direct",
+        "requested": "[10.0.14, )",
+        "resolved": "10.0.14",
+        "contentHash": "YlTamXppEQls6DYWt7RdUuwWDb0lyw/vXCaGeQpLCpsLmfwGuCkOz/vIGgMTV7ECsJcavkCOkxZXv9s8rdAHkQ=="
+      },
+      "varve.derivation": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Rdf": "[1.0.0, )"
+        }
+      },
+      "varve.iri": {
+        "type": "Project"
+      },
+      "varve.rdf": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Iri": "[1.0.0, )"
+        }
+      },
+      "varve.shacl": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Derivation": "[1.0.0, )",
+          "Varve.Iri": "[1.0.0, )",
+          "Varve.Rdf": "[1.0.0, )",
+          "Varve.Xsd": "[1.0.0, )"
+        }
+      },
+      "varve.shacl.sparql": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Derivation": "[1.0.0, )",
+          "Varve.Rdf": "[1.0.0, )",
+          "Varve.Shacl": "[1.0.0, )",
+          "Varve.Sparql": "[1.0.0, )",
+          "Varve.Sparql.Evaluation": "[1.0.0, )"
+        }
+      },
+      "varve.sparql": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Iri": "[1.0.0, )",
+          "Varve.Rdf": "[1.0.0, )"
+        }
+      },
+      "varve.sparql.evaluation": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Iri": "[1.0.0, )",
+          "Varve.Rdf": "[1.0.0, )",
+          "Varve.Sparql": "[1.0.0, )",
+          "Varve.Xsd": "[1.0.0, )"
+        }
+      },
+      "varve.store": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Rdf": "[1.0.0, )",
+          "Varve.Xsd": "[1.0.0, )"
+        }
+      },
+      "varve.store.browser": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Store": "[1.0.0, )"
+        }
+      },
+      "varve.turtle": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Rdf": "[1.0.0, )"
+        }
+      },
+      "varve.xsd": {
+        "type": "Project"
+      }
+    },
+    "net10.0/browser-wasm": {}
+  }
+}

@@ -18,6 +18,8 @@
          Action downloads. The analyzers are on for every build so an AOT
          problem is a compile error before it is an ILC one. -->
     <IsAotCompatible>true</IsAotCompatible>
+    <!-- ADR 0224: every RID it is published for is in its lockfile. -->
+    <RuntimeIdentifiers>$(VarveNativeRuntimeIdentifiers)</RuntimeIdentifiers>
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>

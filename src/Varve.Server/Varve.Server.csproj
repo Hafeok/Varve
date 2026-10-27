@@ -21,6 +21,8 @@
     <!-- Native AOT is a gate (ADR 0101): minimal APIs only, no MVC, JSON
          without reflection, configuration bound by the source generator. -->
     <PublishAot>true</PublishAot>
+    <!-- ADR 0224: every RID it is published for is in its lockfile. -->
+    <RuntimeIdentifiers>$(VarveNativeRuntimeIdentifiers)</RuntimeIdentifiers>
     <InvariantGlobalization>true</InvariantGlobalization>
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <TrimmerSingleWarn>false</TrimmerSingleWarn>
