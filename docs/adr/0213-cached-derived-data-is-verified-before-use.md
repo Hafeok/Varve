@@ -102,21 +102,23 @@ the header's SHA-256, so a damaged check is caught before it is trusted.
 - **A kind read whole is verified whole when it is loaded:** the commit
   index, the graph-version index, the state, the catalog and the
   checked envelope. A blob that does not verify was never loaded.
-- **A kind read by range is verified per block,** the first time that block
-  is read: runs, checkpoints, the dictionary extent and order extents.
-- **Paid once per block per process.** A block that verified is not hashed
-  again while it stays in memory or in the page cache. An evicted page that
-  is fetched again is checked again.
+- **A kind read by range is verified per block,** before the block is used:
+  runs, the dictionary extent and order extents.
+- **What it costs, and when.** A key block or a column block is checked each
+  time it is read and decoded, as format 5's already are (ADR 0177): one pass
+  of the fold over its bytes. A page of a term section is checked once per
+  process, the first time any read touches it, and remembered.
 
 **3. Per kind:**
 
 | Kind | Block | Version |
 |---|---|---|
 | Commit index (4) | 128 entries (10,240 bytes). One check per block, after the directory's first timestamps. | **6** |
-| Runs and checkpoints (1, 2) | Each key block, as format 5's key sections. **The term section in 4 KiB pages**, from the entries' offset to the filter's end, so entries, offsets, the hash index and the filter are all covered. | **6** |
+| Runs (1) | Each key block, as format 5's key sections. **The term section in 4 KiB pages**, from the entries' offset to the filter's end, so entries, offsets, the hash index and the filter are all covered. The page checks follow the directory's tail words, which say how many pages there are. | **6** |
+| Checkpoints (2) | Not written since extent sets replaced them (ADR 0139). One an older release left is below 6, so a miss (point 7). | — |
 | Dictionary extent (7) | Its term section in 4 KiB pages, as a run's | **6** |
 | Order extents (6) | Format 5's key and column blocks, unchanged | 5 |
-| Graph-version index (5) | The whole: its contents are its directory | 4, unchanged. `TryLookupAsync` now verifies the directory's SHA-256 once before its first lookup. |
+| Graph-version index (5) | The whole: its contents are its directory | 4, unchanged. `TryLookupAsync`, which looks one graph up in a checkpoint's index, now reads the directory whole (16 bytes a graph) and verifies its SHA-256 before it searches. Before, it read a few entries the hash never covered. |
 | State (3), catalog (8) | The whole, as now | 4, unchanged |
 | Checked envelope (9, new) | 64 KiB | **6** |
 | Spills | Each spill's sort block, with its check written after it | — (never outlives its load) |
@@ -125,30 +127,46 @@ The catalog and the state stay at version 4, so an older build still attaches
 to the chain and reads the log above where it ends (ADR 0178 point 3).
 
 **4. Damage is a miss, wherever it is found.** A mismatch at load means the
-blob is not loaded. A mismatch mid-read — a block, a page, a column —
-raises an internal `DerivedDamage`, never an `IOException` to a caller,
-and is handled in four steps:
-1. **Quarantine.** The dataset stops using the blob.
-   - On files, the blob is deleted. Maintenance writes it again from the log
-     or from the set's other blobs.
-   - On an object store, the damaged page is dropped from the page cache
-     and fetched once more. If the store's own copy fails too, the set is cut
-     from this instance's chain: its chain ends below the set, and the reads
-     the set served are answered from the log above.
-2. **Re-run.** The operation runs again over the view without that blob.
-   That view is the sets and checkpoints below it plus the log's overlay
-   above them, the path as-of reads above the newest set already take (ADR
-   0138). It has the same answer.
-3. **Resume.** A scan that has already yielded rows does not start again. It
-   continues in the same order, over the new view, after the last key it
-   yielded. So a streamed result has no duplicate and no gap, and equals
-   the undamaged result byte for byte.
-4. **Again, down to the log.** A second damage during the re-run degrades
-   the same way, one blob further down. The last view is the log alone,
-   which is checked by its own hashes (ADR 0072). Damage there is the log's,
-   which is outside this ADR.
+blob is not loaded. A mismatch mid-read (a block, a page, a column, or a
+blob shorter than its directory says) raises an internal
+`DerivedDamageException`, which never reaches a caller. It is handled in
+four steps:
+1. **Re-run from the log, in place.** A run of `derived/` (a projection run
+   or an extent set read as one) is its window's net delta: `Run.Merge`
+   cancels opposite verdicts, and a set's open and closing sections are the
+   window's net assertions and retractions. So the read that finds the
+   damage rebuilds the run from the log for its window, in memory, once:
+   its net delta and the dictionary entries the window allocated. From then
+   on every section of the run reads from the rebuilt one, which holds the
+   same keys in the same places, and the rebuild checks that it does.
+2. **Resume.** A scan carries on from the block it was reading, so a streamed
+   result has no quad twice and none missing, and equals the undamaged
+   result byte for byte. A read that seeks a set, an as-of read inside its
+   window (ADR 0177), also reads the set's rows within and its columns, for
+   which there is no rebuilt counterpart. That read re-runs over the runs
+   below the set plus the log's net delta from the set's start to its
+   position, and a scan carries on after the quads it had yielded: both
+   read the same quads in the order the pattern's index keeps them.
+3. **Quarantine.** The blob is noted, and counted by
+   `varve.store.derived.damaged`. A set found damaged by a read, or by a
+   merge that reads its rows within and columns, is written again from the
+   log by the writer's next maintenance round, before any merge, under a
+   fresh name, and swapped in as a checkpoint's split swaps. Its window
+   costs a read of the log once. A damaged projection run is written again
+   by the next merge of runs, which reads it rebuilt. A follower writes
+   nothing; it answers from the rebuilt run for as long as it holds it. Its
+   page cache lives only in the process (ADR 0158), so a page damaged in the
+   local cache is fetched afresh by the next process.
+4. **Again, down to the log.** A second damage, in another blob, during the
+   same read degrades the same way, and damage to every blob at once leaves
+   every run rebuilt: the log alone, which its own hashes check (ADR 0072).
+   Damage there is the log's, which is outside this ADR.
 
 `ExtentDamageTests` no longer counts a failed read as a pass.
+
+A bulk load's delta run is written before its commit is in the log, so
+until then nothing can rebuild it: damage to it fails the load, uncommitted,
+as a spill's does (point 5). From its commit on, it heals like any run.
 
 **5. A damaged spill fails its load, with nothing committed.** A spill is
 the load's own input, sorted and already consumed, so it cannot be rebuilt
@@ -191,10 +209,13 @@ any `IDerivedStore`.
   today. Every reader record this build writes says 6. A directory store has
   no records, so it writes 6 at once.
 - **A local-only blob below version 6 is a miss at open**, and is rebuilt.
-  This covers the local commit index below the catalog, `index/runs`, and
-  `index/commits` on a directory store. The local commit index is rebuilt
-  from the sets' `commits` blobs or the log (ADR 0161); runs from the log
-  above the newest set.
+  This covers the local commit index below the catalog, `index/runs`,
+  `index/commits` on a directory store, and the full checkpoints of kind 2
+  that releases before extent sets wrote. The local commit index is rebuilt
+  from the sets' `commits` blobs or the log (ADR 0161); runs and old
+  checkpoints from the log. A directory written by such a release reads its
+  log once at its first open under this one, and a checkpoint then starts
+  its chain of sets (`Format3Tests`).
 - **A set's blobs below version 6 are rewritten by maintenance**, ADR 0178's
   rewrite generalised: once no announced reader reads less than 6, the
   oldest set with any blob below the newest version is rewritten alone, one
@@ -220,7 +241,11 @@ any `IDerivedStore`.
 - **When it stays:** a version-4 blob written while a preview.15 follower is
   announced keeps the flush, because that reader trusts what it reads.
 - The writer asks the reader records it already reads (ADR 0160) whenever
-  it chooses a version.
+  it chooses a version, and the file backend reads the version from the
+  header it is about to publish: a checked kind in version 6 is not flushed,
+  and every other blob is. A reader that reads no more than 5 finds a
+  version-6 blob a miss before it reads a byte of it, so what such a reader
+  can read is exactly what is flushed.
 - **The rename always stays,** so no reader sees a half-written name. The
   manifest and `log/` are unchanged: every flush they have is the log's
   durability, not a cache's.
@@ -273,6 +298,21 @@ The measurements are added here by dated amendment.
 - **Verify a whole set at open instead of recovering mid-read.** That avoids
   the resume, at the cost of the first alternative. The maintainer chose
   quarantine, re-run and resume (#129, 2026-10-27).
+- **Re-run every damaged read over the view below the blob, with an overlay
+  of the log.** That is how an as-of read above the newest set is served
+  (ADR 0138), and it is what a sought set falls back to. For any other run
+  it changes the order a scan yields in, since an overlay yields its base
+  first and its delta after, so a resumed scan would differ from the
+  undamaged one. Rebuilding the run itself keeps the order, and the place.
+- **Verify the commit index per block on first read, not whole at load.**
+  Cheaper for a long history read sparsely, but a damaged block would then be
+  met inside a synchronous read of an immutable index version, which would
+  have to be replaced in place. Revisit if the load shows in a measurement.
+- **Fetch a damaged object page again before rebuilding from the log.** A
+  page damaged in the local cache would come back whole from the store,
+  more cheaply than a window of the log. Not built: the page cache does not
+  outlive its process, damage there is rare, and the log answers correctly
+  either way.
 - **Rebuild a damaged spill from the input.** The input is a stream the
   caller handed over and the load consumed. Keeping a second copy to rebuild
   from doubles the load's disk.
@@ -288,8 +328,12 @@ The measurements are added here by dated amendment.
 - Local damage to any cached derived blob is a miss, then a rebuild, refetch
   or re-run. It is never an error and never a wrong result. A damaged spill
   fails its load before the commit, and the caller is told to resubmit.
-- Opening reads no more than before. A range-read block costs one pass of
-  the fold the first time it is read.
+- Opening reads no more than before, but for the commit index: a blob of it
+  is verified whole when it is loaded, 80 bytes a commit, so the first read
+  below the catalog in a process reads it once: 2 MB at REC M. On a
+  directory store the open already compares every entry with the log
+  (ADR 0089), so only the hashing is new. A key or column block costs one
+  pass of the fold each time it is read; a term page once per process.
 - `derived/` files of version 6 are slightly larger: 8 bytes per 10 KiB of
   commit index, and per 4 KiB of term section.
 - While an older follower is announced, a set's shared blobs stay unchecked
@@ -331,11 +375,13 @@ The measurements are added here by dated amendment.
   - `CommitIndexDamageTests`: #126's case in full, every byte of the
     commit-index blob, all 1,920 cases. It is run against `main` to show the
     985 wrong histories, then against this change to show none.
-  - `MidReadDamageTests`: a property on files and on objects that injects
-    damage at every block a scan reads. The streamed result must equal the
-    undamaged one byte for byte, with no duplicate and no gap. A second
-    damage injected during the re-run must degrade the same way, down to the
-    log.
+  - `MidReadDamageTests`: on files and on objects, damage injected at every
+    block a read reads, once the views are pinned: the head, the views at the
+    sets' ends, and views inside each set, every pattern's stream with every
+    term rendered, every quad looked up and every estimate. The result must
+    equal the undamaged one byte for byte. Two damages in two blobs, and
+    damage to every blob at once, must degrade the same way, down to the
+    log. A set found damaged is written again by the writer's next round.
   - `ExtentDamageTests`: a failed read is now a failure.
   - `SpillDamageTests`: a load with a spill damaged at every block throws
     `BulkLoadSpillDamagedException`, and the dataset reopens at the head
@@ -343,7 +389,9 @@ The measurements are added here by dated amendment.
   - `CheckedBlobTests`: the envelope's damage sweep, the binding to the
     dataset and the position, and a decoder's exception as a miss.
   - `FlushRuleTests`: under the power-loss model, a store with a reader
-    announced at `maxDerived` 5 tears a write at every derived publish.
-    Every blob that reader can read was flushed before it was renamed, and
-    nothing it reads is torn. With every reader at 6, no derived publish
-    flushes, and each torn blob is a miss with the right answer.
+    announced at `maxDerived` 5 has every derived file renamed without a
+    flush torn by a power cut. The set's shared blobs are version 4 and were
+    flushed; only version-6 blobs were not, and the answers after the cut
+    are the answers before it. With the reader at 6, the shared blobs are
+    version 6 and not flushed either, and each torn blob is a miss with the
+    right answer.

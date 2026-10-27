@@ -10,11 +10,11 @@ decisions:
   - key: EveryBlockIsChecked
     statement: "Every block of a checked derived blob is checked when it is read, and a block that does not match is a cache miss, never a failed read and never a different answer; superseding ADR 0177 point 6 in part"
   - key: DamageMidReadIsRerunAndResumed
-    statement: "A mismatch found mid-read quarantines the blob, the operation re-runs over the view without it, a scan that has yielded resumes after its last key in the same order, and a second damage degrades the same way down to the log"
+    statement: "A mismatch found mid-read rebuilds the damaged run from the log for its window, in memory and in place, so a scan carries on where it was; a read that seeks a set re-runs over the runs below it and the log, resuming after the quads it yielded; the writer writes a damaged set again from the log; a second damage degrades the same way, down to the log"
   - key: Format5ForExtentsOnly
     statement: "Derived version 5 is an order extent's alone; version 6 is the checked kinds' (runs, checkpoints, the commit index, the dictionary extent and the checked envelope), and the state, the graph-version index and the catalog are still version 4; superseding ADR 0177 point 5 in part"
   - key: GraphIndexLookupsVerifyTheDirectory
-    statement: "A graph-version index is looked up only after its directory's SHA-256 has verified, once per blob"
+    statement: "A graph-version index is looked up only in its directory read whole and verified against the header's SHA-256 of it"
   - key: ASpillDamagedFailsTheLoadUncommitted
     statement: "A spill carries a check per block, and a mismatch ends its bulk load before the commit with nothing visible, as BulkLoadSpillDamagedException and the problem type load-spill-damaged, so the caller knows a resubmit is right"
   - key: ProjectionsOutsideTheStoreWriteACheckedEnvelope
