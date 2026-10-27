@@ -92,3 +92,25 @@ A second test asserts that a made decision is read with zero bytes
 allocated: `GetOrAdd` with a static lambda and its argument passed through
 allocates no closure or delegate per call, and a hit is a read. The protocol
 allocation test stays green.
+
+### The pipeline
+
+`dotnet run eng/ci.cs` passed every job. The first run stopped at
+`test-sparql-results` because the container had not checked out the W3C
+submodules; after `git submodule update --init --recursive`, that job and
+every later one passed, conformance and pack included. The Release build
+reports no warning and no error in any project, so no `DD` finding remains.
+`decision-report` does not gate. Its baseline was already stale before this
+change, from preview.7 and missing several packages, and is left for its own
+refresh.
+
+### The parse benchmarks
+
+The machine was this cloud container, .NET 10.0.14, x86-64-v4, running
+BenchmarkDotNet in process with `--warmupCount 3 --iterationCount 8
+--invocationCount 1 --unrollFactor 1`, at 6cdb402 and then this branch.
+Allocation was the same to the byte in every Varve row, for N-Quads and for
+Turtle. Means moved within the run's noise; dotNetRDF itself moved by up to
+15% between the runs. The rows that intern and hash terms, into
+`InMemoryDataset`, were 252.5 → 231.5 ms (N-Quads) and 98.0 → 85.7 ms
+(Turtle). There is no regression.
