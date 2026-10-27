@@ -154,6 +154,15 @@ The code is the same everywhere; only the address differs.
 - **Handover by hand**: N single-replica apps behind a front door, each with
   its own instance name, and placement changed by declaration.
 
+**With standbys, a rolling deploy moves the writer to a standby on each
+restart** (ADR 0180 point 4). The restarting holder shuts down, releasing
+its epoch with `shutdown`. A warm standby wins the race to claim it, and the
+restarted instance comes back as a standby. So after a rolling deploy, the
+writer is whichever member won the last race, not `placedOn`. Nothing moves
+it back: `placedOn` is the preferred writer, claimed at a cold start, and
+changing it is how you move the writer on purpose. `varve lease` shows each
+move as an `abdication` claim following a `shutdown` release.
+
 ## Event schemas in a fleet
 
 A dataset's event declarations can live on the management plane (ADR 0167),

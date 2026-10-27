@@ -271,7 +271,10 @@ it (ADR 0066). Ruled in [ADR 0179](0179-writer-handover-within-a-store.md).
 - **Two more release reasons.**
   - `storage-error`: a batch failed against the store and the release could
     still be written.
-  - `cache-error`: a fault of the instance's own cache directory.
+  - `local-disk-error`: local storage the writer needs to keep committing
+    has failed, namely the memtable's spill, past the bound ADR 0179 point 6
+    states. A failed write to the derived cache is never a release reason
+    (#146).
 
   A fault deterministic over the log is never a release reason.
 - **A write-open may take a claim already made.** It is guarded by the epoch

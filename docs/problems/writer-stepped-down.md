@@ -13,7 +13,8 @@ reasons, which `reason` gives:
 - `shutdown`: a graceful shutdown;
 - `placement`: the dataset was placed elsewhere;
 - `storage-error`: a batch failed against the store;
-- `cache-error`: its local cache failed.
+- `local-disk-error`: its local disk could no longer take the memtable's
+  spills.
 
 Nothing in the refused request was committed. The instance answers the
 requests it held in flight this way, and later direct requests until it has

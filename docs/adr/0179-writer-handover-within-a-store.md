@@ -14,7 +14,10 @@
     [0180](0180-warm-standbys-and-the-writer-set.md));
   - the system dataset hands over too;
   - abdication is for a storage error, and for a fault shown to be local to
-    the instance, never for one that is deterministic over the log;
+    the instance, never for one that is deterministic over the log. The
+    local fault is `local-disk-error`, local storage the commit path needs. A
+    failed write to the derived cache degrades and never abdicates (#146);
+  - who claims after a release is settled by its reason (ADR 0180 point 4);
   - a claim in place is held equal to a re-open from the catalog by a
     property.
 
@@ -32,7 +35,7 @@ never refuses a write; it forwards it.
 **Amends**, each by a dated block:
 - [ADR 0136](0136-one-writer-by-an-epoch-and-a-log-slot-fence.md):
   - the triggers `abdication` and `probe`;
-  - the release reasons `storage-error` and `cache-error`;
+  - the release reasons `storage-error` and `local-disk-error`;
   - a write-open that takes a claim already made;
   - point 5 per dataset;
 - [ADR 0168](0168-write-routing-by-forwarding.md):
@@ -147,11 +150,29 @@ event seen from two sides. The reasons:
   spent or the store's answer an error, and the record replace then
   succeeded. Today such a writer refuses writes until it is re-opened (ADR
   0124). With a standby, the dataset need not wait for the re-open.
-- **`cache-error`**: a fault local to the instance. That is an I/O error from
-  the instance's local cache directory (ADR 0139): its disk full, read-only
-  or failing. It is known by where it was raised, the cache's own writes,
-  never by its message. A standby has its own cache, so its claim does not
-  meet the same fault.
+- **`local-disk-error`**: a failure of local storage that the writer needs
+  to keep committing. Each instance has its own disk, so a standby's claim
+  does not meet the same fault.
+  - **What the writer needs locally.** On the object-storage backend no
+    commit writes a local file: a commit is one create in the store and an
+    update in memory. What the writer does need is the memtable's spill
+    (ADR 0070). Its runs are kept in the local cache directory, never in the
+    store, and maintenance writes them off the sequencer.
+  - **A failed spill degrades first.** The writer stays. Readiness reports
+    the dataset's `spill` as `failing`, with the error's kind, and
+    maintenance tries again after the next commit, as it does now.
+  - **It abdicates when the memtable can no longer be bounded.** That is the
+    commit that takes the memtable past four times `MemtableLimit` while
+    spills are failing. The bound is reached by commits, not by elapsed time,
+    so an idle writer never abdicates. Past it, the writer's memory is no
+    longer bounded, and a standby with its own disk can spill. This is
+    proposed; the maintainer confirms the factor on the pull request.
+- **A failed write to the derived cache never abdicates** (#146's rule: the
+  cache is a miss, never a stop). This covers extent pages, the commit
+  index's cached blobs and every other local copy of something the store or
+  the log holds. The writer stops caching that kind, reports it on readiness
+  as `cache` with the kind, and serves from the store and the log. It goes
+  on committing.
 - **`placement`**: ADR 0163 point 12 and ADR 0180's placement event, as
   today.
 
@@ -161,13 +182,19 @@ writer stays. Such a fault is a function of the log, so every standby would
 meet it at the same position, and handing over would only move it: a
 handover storm with no timer to stop it.
 
-**The test that tells the two apart.** `HandoverAbdicationTests`:
+**The tests that tell them apart.** `HandoverAbdicationTests`:
 - **A projection fault**, injected as a function of the commit, fails the
   commit with `500` on the writer and again on a standby given the same
   commit. The epoch history is unchanged, so there was no handover.
-- **A cache fault**, injected into the writer's cache directory alone,
-  releases the epoch with `cache-error`. The standby then claims, and
-  commits the same request.
+- **A local disk fault**, failing every spill on the writer's disk alone,
+  keeps the writer and reports `spill: failing`. Once its memtable passes
+  the bound, it releases the epoch with `local-disk-error`. The standby then
+  claims, and commits the same request.
+- **A failing cache write never abdicates.** This is a property over
+  generated schedules of commits and reads, with writes to the derived cache
+  failing at any point, for any kind. The epoch history never changes, every
+  commit is acknowledged or refused as without the fault, and every read
+  equals the reference model.
 
 If the release cannot be written, nothing is released. Readiness turns false
 (the dataset `failed`), and the probe trigger applies.
@@ -329,7 +356,7 @@ the event. This ADR does not extend the file backend across machines.
   (409, with `reason` and `epoch`). `writer-moved` gains the member `reason`.
 - **`Varve.Store.ObjectStorage`:**
   - `ClaimTrigger` gains `Abdication` and `Probe`;
-  - `ReleaseReason` gains `StorageError` and `CacheError`;
+  - `ReleaseReason` gains `StorageError` and `LocalDiskError`;
   - a write-open takes a claim already made, guarded by the epoch named.
 - **`Varve.Store.ObjectStorage`** also reports `ObjectStorage.AdoptedEpoch`,
   the highest epoch a follower adopted.

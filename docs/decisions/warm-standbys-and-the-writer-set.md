@@ -9,6 +9,8 @@ decisions:
     statement: "An instance acts on a change between consecutive declarations, never on a state: a placedOn change makes the holder abdicate and only the new placedOn claim; removing the holder from standbyOn makes it abdicate to the preferred writer"
   - key: StartRuleForAWriterSet
     statement: "At start a member claims a dataset with a writer set only when the record is empty or released and it is the preferred writer, when it holds the record itself, or when the holder is not a member; otherwise it starts as a standby"
+  - key: ClaimAfterAReleaseByItsReason
+    statement: "A release for placement is claimed by the new placedOn alone; one for shutdown, storage-error or local-disk-error by every warm member racing, the store's conditional write picking one; a returning placedOn starts as a standby"
   - key: FollowOnDemand
     statement: "A follower advances when a read arrives after Varve:Fleet:FollowInterval since its last advance, or on a minimum-position header above it; a standby and the system dataset advance on the interval, a standby also reading the writer record conditionally"
   - key: WarmIsDefaultProjectionCaughtUp

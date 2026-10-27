@@ -8,7 +8,9 @@ by the maintainer on #97's plan, 2026-10-27:
 - **the writer set** is a separate `varve:standbyOn`. `varve:placedOn` keeps
   `maxCount 1` and means the preferred writer;
 - **claims:**
-  - a fresh or released dataset is claimed by `placedOn` alone;
+  - a fresh dataset, and one released while no member is warm (at a start),
+    is claimed by `placedOn` alone; otherwise the release's reason decides
+    (point 4, settled below);
   - a change of `placedOn` is a placement event, and only the new `placedOn`
     claims;
   - adding or removing a `standbyOn` is an event of its own;
@@ -18,9 +20,9 @@ by the maintainer on #97's plan, 2026-10-27:
   with the other conditions of point 6. Validation projections are not part
   of it, and their lag is reported beside it.
 
-**One question for the maintainer** is point 4's last bullet: who claims when
-the preferred writer *itself* abdicates. The rule above, read alone, leaves
-that release to `placedOn`, which is the instance that just released it.
+**Settled on #165, 2026-10-27:** who claims after a release is decided by its
+reason (point 4). A rolling deploy moves the writer to a standby on each
+restart, and the operator guide says so.
 
 **Supersedes in part** [ADR 0164](0164-the-tier-1-follower.md): its ruling
 `FollowOnDemand` moves to this ADR's set under the same key, restated, so
@@ -104,20 +106,22 @@ Otherwise it starts as a standby. So a returning writer never takes the epoch
 from a healthy successor, and a run of `restart` claims in the epoch history
 still means a deployment error (ADR 0136 point 7).
 
-**4. Who claims after a release.**
-- **A release with the reason `placement`** is claimed by the instance the
-  event names (point 2).
-- **A release by a standby that held the epoch** (`shutdown`, `storage-error`
-  or `cache-error`, ADR 0179 point 6) is claimed by the preferred writer
-  alone.
-- **A release by the preferred writer itself**, after a takeover took it back
-  or on its own shutdown, is the open question:
-  - read alone, the rule in Status leaves it to `placedOn`, the instance that
-    just released it;
-  - **proposed:** its warm standbys claim, racing, and the store's
-    replace-if-unchanged decides, as ADR 0179 point 2 says;
-  - without this, the preferred writer's abdication hands over to nobody
-    until its restart or a probe-triggered takeover.
+**4. Who claims after a release is settled by the release's reason.**
+- **`placement`:** only the new `placedOn` claims (point 2).
+- **`shutdown`, `storage-error` or `local-disk-error`** (ADR 0179 point 6):
+  every warm member races.
+  - That is the standbys, and the preferred writer when it is a standby.
+  - The instance that released is not warm, so it does not race.
+  - The store's replace-if-unchanged picks exactly one (ADR 0179 point 2).
+- **A returning `placedOn`** starts as a standby under the start rule (point
+  3). It claims again only by a release it wins, a takeover, or a placement
+  event.
+- **A rolling deploy moves the writer to a standby on each restart.** The
+  restarting holder shuts down, releasing with `shutdown`. A warm standby
+  wins the race, and the restarted instance comes back as a standby. The
+  operator guide says so: over a rolling deploy the writer ends on whichever
+  member won the last race, not on `placedOn`. That is a state nothing reacts
+  to (Status).
 
 **5. Standbys follow on the interval.** This restates ADR 0164's
 `FollowOnDemand`.
@@ -178,8 +182,11 @@ built until now, is built:
   preferred writer, and one cardinality.
 - **Placement as state, as today.** The holder after a takeover would abdicate
   back at once.
-- **Every member races for a fresh or released dataset.** Refused by the
-  maintainer: the preferred writer claims, with no race.
+- **Every member races for a fresh dataset.** Refused by the maintainer: the
+  preferred writer claims a fresh one, with no race.
+- **Only `placedOn` claims every release.** Refused by the maintainer on
+  #165: the preferred writer's own shutdown would hand over to nobody, so a
+  release for shutdown, storage-error or local-disk-error is raced for.
 - **Standbys follow on demand, like any follower.** A standby would be as far
   behind as the time since the last read, and would never see a release.
 - **Warm including the validation projections.** Refused by the maintainer:
@@ -226,5 +233,4 @@ built until now, is built:
   - `Varve.Server` (6): placement events, the start rule, tailing, warm and
     readiness.
 - **Analyzer rule.** None.
-- **Open questions owned.** Point 4's last bullet, for the maintainer on the
-  pull request.
+- **Open questions owned.** None.
