@@ -100,6 +100,23 @@ default.
    - The value the rewriting reads is the binding's TBox graphs and graph set.
      The server maps the declaration to it.
 
+8. **The full reads, surfaced.** A graph that holds a triple saying something
+   of the RDF or RDFS vocabulary itself makes every schema it is part of read
+   its scoping graph whole (ADR 0193 point 2). The operator sees which:
+   - **The binding's description.** `GET
+     /manage/datasets/{name}/bindings/{binding}`, behind admin, describes a
+     TBox binding: its TBox graphs, profile, default and position, and, where
+     this instance holds the dataset, `fullReads`, the graphs among its TBox
+     graphs and the graphs it covers that hold such a triple, the default
+     graph as `null`.
+   - **Readiness** gives each dataset's count as `fullReads`, and never turns
+     unready for it. It names no graph: `/health/ready` is unauthenticated
+     (ADR 0113 point 4), and a graph's name is what a grant guards
+     (ADR 0107).
+   - **Found by the saturation's own probes,** through the dataset's schema
+     cache, once per head and bindings, so a readiness probe repeats
+     nothing.
+
 ## Alternatives considered
 
 - **A `varve:tboxGraph` term beside `varve:boundGraph`.** It would be a second

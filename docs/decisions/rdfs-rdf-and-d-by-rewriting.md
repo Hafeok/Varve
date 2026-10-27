@@ -11,6 +11,8 @@ decisions:
     statement: "A named graph holding schema triples of its own is rewritten under its own schema, by a branch of its own under GRAPH ?g, and every other named graph shares the TBox's"
   - key: OneAssertedPremisePerEntailment
     statement: "Every RDFS rule has at most one premise outside the schema, so each pattern is rewritten into the union of the schema's matching triples and, per shape, the asserted pattern whose images can match it, through tables compiled by the forward chainer over one representative per shape"
+  - key: BranchesPrunedAtRewrite
+    statement: "A triple pattern's union drops a branch whose family's condition fails on its constants and a branch equal to one before it once a one-row table is folded in, the literal family's table not folded, and a property holds the pruned rewriting to the unpruned one"
   - key: ExistenceGuardedFacts
     statement: "A fact entailed only if some asserted triple of a shape exists is read from the distinct terms of the one role it reads, sought, where the scoping graph is the graphs evaluated, and otherwise guarded by an existence subquery over that shape, so it is never emitted for a graph without it"
   - key: SchemaByProbes

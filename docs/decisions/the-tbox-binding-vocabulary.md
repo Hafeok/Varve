@@ -15,6 +15,8 @@ decisions:
     statement: "The validator refuses a TBox binding without a TBox graph or with one that is the default graph or a varve: graph, without exactly one profile or a graph set, with a graph template, or naming its own TBox graph among its data graphs"
   - key: TBoxShapesFirst
     statement: "The binding's checks are shapes in shapes/management.ttl at runtime, the overlap, the dataset's default and the reserved terms a residual code check, and the extended code validator the tests' oracle"
+  - key: FullReadsSurfaced
+    statement: "A TBox binding's description, behind admin, names the graphs among its TBox and covered graphs that force a schema's full read, the default graph as null, and readiness counts them per dataset without naming them and never turns unready for them"
   - key: PlanListsDatasetPublicGraphs
     statement: "A management plan lists per dataset the graphs its TBox bindings make dataset-public, marking those widened and narrowed by the apply, and varve apply --plan prints the list before the graph diffs"
 ---

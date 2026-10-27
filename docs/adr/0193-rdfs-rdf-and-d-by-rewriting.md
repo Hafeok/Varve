@@ -203,6 +203,26 @@ entails.
 **No term is invented.** The rewriting adds no blank node, and every constant
 it emits is in the scoping graph or in the regime's vocabulary (C1 and C2).
 
+**Pruning.** A triple pattern's union keeps only branches that can add an
+answer, decided when the query is rewritten:
+- **A condition on a constant is decided.** A family's condition on the
+  asserted triple (an `rdf:_n` predicate, subject, object or class, or a
+  literal object) is false or true once the term it tests is a constant of
+  the query or of the table. False drops the branch, which would otherwise
+  read every triple of its pattern to find nothing. True drops the filter.
+- **A table of one row is folded** into its branch, its constants put into
+  the asserted triple and the outputs. Two branches that then differ in
+  nothing are one, and the second is dropped: under point 6's `Distinct` it
+  adds no row. The literal family's table is not folded, since it is a join
+  on the datatype the branch binds.
+- **A branch no axiom reaches is never built.** The tables hold only what Σ
+  derives, so a domain or range branch for a class no `rdfs:domain` or
+  `rdfs:range` reaches has no row and no branch.
+
+On the benchmark's data, `?x a ex:Student` falls from six branches, three of
+which read the same N rows and three of which read N rows to keep none, to
+one. A property holds the pruned rewriting to the unpruned one (point 9).
+
 ### 4. The answer conditions
 
 - **Well-formedness.** A branch that would put a literal in the subject
@@ -327,6 +347,11 @@ appears once per distinct σ, as §1.3 defines.
 The oracle is the compilation's forward chainer run on the whole graph rather
 than on representatives, so the property tests the context's property and the
 compilation together.
+
+**Pruning changes no answer.** A property holds the rewriting with point 3's
+pruning to the rewriting with every branch kept, as multisets, on generated
+cases aimed at `rdf:_n` and literal constants, and the default-graph,
+named-graph and `GRAPH ?g` properties compare the two on every case.
 
 **The probes equal the scan.** A second property compares Σ built by point
 2's probes with Σ built by reading the scoping graph whole (the first build,
