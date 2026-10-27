@@ -20,14 +20,17 @@ only lower levels:
 | `Molecules` | `KeyValue` and `KeyValueItem`, `LagMeter`, `Notice`, `ViewHead`, `Triple`, `AsOfBanner`, `CopyButton` |
 | `Organisms` | `ResourceTable`, `CommitList`, `ProblemPanel`, `SourceBlock`, `ConfirmDialog`, `Panel`, `TripleList` |
 | `Templates` | `Shell` |
-| `Pages` | the routed screens, the layout, and the page-level helpers `ProblemView`, `ReadStamps` and `DriftNote` |
+| `Parts` | the domain-aware pieces that are not routed: the layout `MainLayout`, `ProblemView`, `ReadStamps` and `DriftNote` |
+| `Pages` | the routed screens, the only level that reads the server |
 
-A component never uses its own level. Where an organism shows what another
-renders, it takes a slot the page fills: `ConfirmDialog`'s note and result,
-and `ResourceTable`'s problem. Only `Pages` sees `Varve.Protocol.Client`. A
+A component never uses its own level: parts don't use parts, and pages don't
+use pages. Where an organism shows what another renders, it takes a slot the
+page fills: `ConfirmDialog`'s note and result, and `ResourceTable`'s problem.
+Atoms to Templates know nothing of Varve's domain. Parts may use the client's
+model types (`Varve.Protocol.Client.Model`), and only pages its services. A
 problem becomes a `ProblemPanel`'s parameters in `ProblemView`, a state word
 becomes a tone in `Tones`, the one mapping, and the drift note's wording lives
-once, in `DriftNote`. Lower levels know nothing of Varve's domain.
+once, in `DriftNote`.
 
 No element waits on a visual decision now. A lag is shown as a number beside
 its readiness badge, and a `LagMeter` is used only where the API serves the

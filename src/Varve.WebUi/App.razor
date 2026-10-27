@@ -2,11 +2,11 @@
    keyboard or screen reader user lands on what changed (WCAG 2.4.3). *@
 <Router AppAssembly="typeof(App).Assembly">
     <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Pages.MainLayout)" />
+        <RouteView RouteData="routeData" DefaultLayout="typeof(Parts.MainLayout)" />
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
     <NotFound>
-        <LayoutView Layout="typeof(Pages.MainLayout)">
+        <LayoutView Layout="typeof(Parts.MainLayout)">
             <PageTitle>Not found · Varve</PageTitle>
             <ViewHead Title="Not found" />
             <p>The Web UI has no screen at this address.</p>
