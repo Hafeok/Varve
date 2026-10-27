@@ -33,14 +33,28 @@ summary: |
       covers it, given as `TBoxCover` values. A graph no binding covers is
       read over its own triples, and a named graph the source holds nothing
       of is not merged.
-    - The schema is saturated per scoping graph, meta-modelling included,
-      and compiled into tables once per query. Under `GRAPH ?g` the named
-      graphs are grouped by the schema they meet.
+    - The schema is saturated per scoping graph by bound probes to a
+      fixpoint, meta-modelling included, never by a scan of the data, and
+      compiled into tables. `SchemaCache` keeps it across queries, bounded,
+      keyed by the versions of the graphs it merges; the server keeps one
+      per dataset. Under `GRAPH ?g` the named graphs are grouped by the
+      schema they meet.
+    - C2 is answered by existence probes at rewrite time, memoised per
+      request. Classes and container membership properties are sought, one
+      seek per distinct term, where a pattern needs them.
+    - Rewriting does not grow with the data. `?s ?p ?o` and
+      `?x a rdfs:Resource` are answer-sized; a TBox that redefines the RDF or
+      RDFS vocabulary has its graph read whole when its schema is saturated.
     - D matches literals by value, with Varve.Xsd's datatype map, through
       two extension functions a host registers (`LiteralValues`).
     - Property paths and `SERVICE` are evaluated without entailment (§10).
     - Usable over any `IQuadSource`, without the store; the browser build
       carries it for 40 KB under brotli.
+  - **`Varve.Rdf`**: `IDistinctTermSource` and `DistinctTerms`, a source's
+    distinct predicates and objects by seek; `IGraphVersionSource` and
+    `GraphVersion`. The store's `DatasetView` answers both, at the head,
+    inside an extent set's window and as of a position, and
+    `GraphScopedQuadSource` forwards them.
   - **`Varve-Entailment`** (ADR 0192): a query asks for `simple`, `rdf`,
     `rdfs` or `d`, or a regime IRI in angle brackets.
     - Without it, the dataset's default from its TBox bindings applies, and

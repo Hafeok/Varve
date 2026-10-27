@@ -26,6 +26,41 @@ for acceptance to start #170. Branch it from #172's head and merge `main`
 once #172 lands. It's red only on `CS0618` until 0190 is accepted, which is
 expected."
 
+The maintainer's answer on review, verbatim, which reworked the schema's
+build:
+
+> 2.9 s to rewrite at 100,000 people means the schema is being built by
+> scanning the data, which the plan ruled out (Q3a: a few predicate-bound
+> probes). Rework it as follows. The current scan isn’t thrown away: it
+> becomes the test oracle. Schema by probes, to a fixpoint. Probe
+> rdfs:subPropertyOf and saturate it. The schema predicates are subClassOf,
+> subPropertyOf, domain, range and every predicate whose subPropertyOf* chain
+> reaches one of them. Probe each, re-saturate, and repeat until no new schema
+> predicate appears. Subproperties of rdf:type are typing data, handled by the
+> rewriting, not schema. C2 by existence probes, memoised per request, for
+> candidate answer terms. Don’t compute the whole vocabulary of the graph.
+> Classes and container membership properties by skip-seek, and only when the
+> query needs them. Use the distinct objects of (rdf:type, ?o) and the
+> distinct predicates, by seeking to the next distinct key on the
+> predicate-first index, one seek per distinct value. Compute them only for a
+> BGP with a variable in class or predicate position, or a meta-query. If an
+> index can’t seek to the next distinct key, add that capability (it’s the
+> same seek format 5 uses) rather than scan. Cache the saturated schema per
+> graph version (ADR 0126). A merged active graph keys on the set of its
+> graphs’ versions. Bound the cache, and report its hits and misses in the
+> benchmark. Gates: Equivalence: a property that the probe-built schema equals
+> the scan-built schema (today’s code, moved to the tests) on generated
+> graphs. The generator must cover subproperties of the schema predicates,
+> schema triples inside data graphs, chains through subPropertyOf, and rdf:_n.
+> Scaling: rewrite time at 10,000, 100,000 and 1,000,000 people, with a fixed
+> schema. Rewriting a query that names a class must stay flat with data size,
+> within the benchmark’s noise. Report the cold time (first query) and the
+> warm time (cached) separately. Report what’s left: ?s ?p ?o and ?x a
+> rdfs:Resource stay answer-sized scans. State that in ADR 0193 and the
+> benchmark, as the only O(data) shapes. Record the change against the plan in
+> ADR 0193’s context: the first build scanned, and the plan’s probe design is
+> what it ships.
+
 ## The report
 
 ### What was built
@@ -33,8 +68,16 @@ expected."
 - **ADRs 0191–0194**, filed unaccepted, with their decision sets and the
   dated amendments to ADRs 0003, 0119, 0132 and 0166.
 - **`Varve.Sparql.Entailment`** (layer 3): the TBox merge, the schema
-  saturation per scoping graph, the shapes and their tables, the rewriting
-  of basic graph patterns, D by value, and `TBoxCover`, one per binding.
+  saturation per scoping graph by probes, the shapes and their tables, the
+  rewriting of basic graph patterns, C2 by memoised probes, D by value,
+  `TBoxCover`, one per binding, and `SchemaCache`, the schemas kept per
+  graph version.
+- **The schema rework** (the maintainer's answer above): the scan-built
+  schema moved into the tests as the oracle; `IDistinctTermSource` in
+  `Varve.Rdf` and the store's seek to the next distinct key, over runs,
+  extent sets and an as-of tail; `IGraphVersionSource` and `GraphVersion`,
+  answered by `DatasetView` and forwarded by the scoped source; the server
+  keeps one cache per dataset's bindings.
 - **`Varve.Management`**: `varve:TBoxBinding` read into
   `TBoxBindingDeclaration`, its shapes and residual check, the code oracle
   extended; `GraphScope.WithDatasetPublic` in `Varve.Rdf` and
@@ -63,6 +106,9 @@ expected."
 | the same under `GRAPH ?g`, schema inside data graphs | 300; 3,000 | the same |
 | two bindings, the default graph covered, an uncovered graph | 300; 3,000 | the same |
 | the grant property's tier-1 half (ADR 0190 point 8) | 300; 3,000 | the same |
+| the probe-built schema equals the scan-built one | 300; 3,000 | `ProbeBuiltSchemaTests` |
+| distinct predicates and objects by seek equal the scan's, every position | per position | `ExtentSeekTests` |
+| a view's graph versions equal the fold's, and refuse past an as-of position | per position | `PerGraphConcurrencyTests` |
 | the shapes and the code oracle agree on TBox bindings, fifteen faults | 1,000; 10,000 | `ShapesAgreementTests` |
 | the plan's dataset-public list equals the grant tables' change | 300 | `TBoxBindingTests` |
 
@@ -72,7 +118,8 @@ where it was a gap in the ADR, stated in it:
 - two constants binding one role, now a branch with no answer;
 - `xsd:string` checked statically under `GRAPH ?g`, now a guard at run time;
 - meta-modelling (`rdfs:subClassOf` typed or ranged under the schema's own
-  classes), now read by the shape-driven scans of ADR 0193 point 2;
+  classes), first read by scanning for the shapes that act on the schema,
+  now by ADR 0193 point 2's probes;
 - σ unbounded by the specification: Varve restricts it as C2 restricts μ,
   stated in ADR 0193;
 - D's value types (`"1"^^xsd:int` is also an `xsd:integer`, a decimal);
@@ -82,7 +129,18 @@ where it was a gap in the ADR, stated in it:
 - **a graph's own schema was detected by schema predicates and meta-class
   typings only**, missing a triple that acts on the schema through a shape;
   found by the two-binding property at nightly depth. The saturation now
-  records every scan it reads, and `GRAPH ?g` probes with exactly those.
+  records every probe it makes, and `GRAPH ?g` probes with exactly those.
+
+The rework's properties found, each fixed:
+- an `rdf:_n` in class position, a literal class, a meta domain on
+  `rdfs:member` reached through an `rdf:_n`, and the axioms of a query-named
+  `rdf:_n` acting on other patterns, by the equivalence property;
+- an `rdf:_n` subject sending a graph to the whole read, which is now kept
+  for the vocabulary's other terms;
+- **a group under `GRAPH ?g` read the distinct terms of its TBox's scope, not
+  of its graphs**, so a graph's own `rdf:_1` lost its axioms; found by three
+  properties at nightly depth. A group reads its quads; only a scoping graph
+  that is exactly the graphs evaluated is sought.
 
 ### Decisions taken inside the plan
 
