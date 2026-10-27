@@ -24,7 +24,7 @@ decisions:
   - key: ExistenceByMemoisedProbe
     statement: "C2's question whether the scoping graph names a term is answered by an existence probe at rewrite time, memoised per request, for the candidate terms the tables hold"
   - key: SchemaCachedPerGraphVersion
-    statement: "A saturated schema is cached, bounded, keyed by the versions of the graphs its scoping graph merges"
+    statement: "A saturated schema is cached, bounded by count and by the size of its closure, keyed by the versions of the graphs its scoping graph merges, and one larger than the whole budget is not kept"
   - key: SigmaRestrictedLikeMu
     statement: "A blank node of the query binds, as a variable does under C2, only a term of the scoping graph or of the regime's vocabulary less rdf:_n, where the specification leaves σ unbounded"
   - key: AnswerConditions

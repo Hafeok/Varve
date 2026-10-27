@@ -153,10 +153,32 @@ grows with the data: a query whose TBox is small costs about what its simple
 form does (ADR 0193).
 
 Two patterns are answered by every term of the graph and cost what their
-answers do: `?s ?p ?o` and `?x a rdfs:Resource`. A TBox that redefines the
-RDF or RDFS vocabulary itself — `rdf:type rdfs:subPropertyOf ex:p`, a domain
-on `rdfs:member` — makes the schema read its graph whole, once per change to
-it.
+answers do: `?s ?p ?o` and `?x a rdfs:Resource`.
+
+### A triple about the vocabulary itself
+
+A triple that says something of the RDF or RDFS vocabulary itself —
+`rdf:type rdfs:subPropertyOf ex:p`, a domain on `rdfs:member` — makes any
+triple a possible schema triple, so the schema of every graph it is part of
+is read whole, and again after every commit to that graph (ADR 0193).
+
+Where it is held decides what it costs, because a graph's schema is read
+merged with its binding's TBox:
+- **In a data graph** it acts in that graph alone, and only that graph pays.
+- **In a TBox graph** it acts in every graph the binding covers, and each of
+  them pays, after every commit to it.
+
+So keep such triples out of a binding's TBox, and, where one graph needs
+them, in that graph. Measured on a data graph of 10,000 people, a commit and
+a query under RDFS take 3.6 ms with no such triple, 815 ms with one in the
+data graph and 793 ms with one in the TBox (the benchmarks' README).
+
+**Finding them.** A TBox binding's description,
+`GET /manage/datasets/{name}/bindings/{binding}`, lists under `fullReads`
+the graphs among its TBox and covered graphs that hold such a triple, the
+default graph as `null`. `/health/ready` counts them per dataset as
+`fullReads` without naming them, since it answers without credentials; the
+count never makes the server unready.
 
 A query under `GRAPH ?g` enumerates the dataset's named graphs once, to
 group them by the TBox each meets.

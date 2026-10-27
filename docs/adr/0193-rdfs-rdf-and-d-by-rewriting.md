@@ -132,8 +132,12 @@ scoping graph is read whole, and the result is correct at the cost of
 materialising it. It is the one O(data) read of the schema, and it is
 cached like any other (below).
 
-**The cache.** A saturated Σ is kept across requests, in a bounded cache
-that drops the least recently used first. Its key is the regime's rules, the
+**The cache.** A saturated Σ is kept across requests, in a cache bounded by
+count and by size, which drops the least recently used first. A Σ weighs its
+closure's triples: one read whole holds its scoping graph's closure, and a
+graph written to makes a new one per commit, so a bound by count alone would
+keep hundreds of them. A Σ heavier than the whole budget is saturated per
+request and not kept. Its key is the regime's rules, the
 `rdf:_n` the query names, and each graph the scoping graph merges, its own
 and its binding's TBox graphs, by name and version (ADR 0125). A merged
 active graph keys on the set of its graphs' versions.

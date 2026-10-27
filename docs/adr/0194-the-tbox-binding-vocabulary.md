@@ -116,6 +116,14 @@ default.
    - **Found by the saturation's own probes,** through the dataset's schema
      cache, once per head and bindings, so a readiness probe repeats
      nothing.
+   - **Where such an axiom costs least.** The full read is per scoping graph,
+     a graph merged with its binding's TBox. In a data graph the axiom acts in
+     that graph alone, which is read whole again after every commit to it. In
+     a TBox graph it acts in every graph the binding covers, and each of them
+     is read whole again after every commit to it: the benchmark measures the
+     two the same per commit, so a TBox graph saves nothing and spreads the
+     cost. The operator guide says to keep such axioms out of a binding's
+     TBox, and in the one graph that needs them where one does.
 
 ## Alternatives considered
 
