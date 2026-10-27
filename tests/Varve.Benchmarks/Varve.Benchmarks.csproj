@@ -33,6 +33,7 @@
     <ProjectReference Include="../../src/Varve.Sparql.Results/Varve.Sparql.Results.csproj" />
     <ProjectReference Include="../../src/Varve.Sparql.Evaluation/Varve.Sparql.Evaluation.csproj" />
     <ProjectReference Include="../../src/Varve.Sparql.Store/Varve.Sparql.Store.csproj" />
+    <ProjectReference Include="../../src/Varve.Sparql.Entailment/Varve.Sparql.Entailment.csproj" />
     <ProjectReference Include="../../src/Varve.Shacl/Varve.Shacl.csproj" />
     <ProjectReference Include="../../src/Varve.Shacl.Sparql/Varve.Shacl.Sparql.csproj" />
     <ProjectReference Include="../../src/Varve.Shacl.Store/Varve.Shacl.Store.csproj" />
