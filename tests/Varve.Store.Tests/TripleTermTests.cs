@@ -35,7 +35,7 @@ public class TripleTermTests
         Externalising validator = new();
 
         CommitResult result = await dataset.CommitAsync(
-            new CommitRequest { Validators = [validator] }.Assert(T.Iri("r"), T.Iri("reifies"), Triple(blankInside)), T.Ct);
+            new CommitRequestBuilder { Validators = [validator] }.Assert(T.Iri("r"), T.Iri("reifies"), Triple(blankInside)), T.Ct);
 
         Assert.Equal(CommitOutcome.Committed, result.Outcome);
         using DatasetView view = dataset.Pin();
@@ -54,7 +54,7 @@ public class TripleTermTests
         Dataset dataset = flushed ? await Dataset.CreateAsync(new MemoryStorage(), T.Id, options, T.Ct) : await T.Open(new MemoryStorage());
 
         await dataset.CommitAsync(
-            new CommitRequest()
+            new CommitRequestBuilder()
                 .Assert(T.Iri("r"), T.Iri("reifies"), Triple(blankInside: true))
                 .Assert(T.Blank("b"), T.Iri("name"), T.Literal("b")),
             T.Ct);
@@ -64,7 +64,7 @@ public class TripleTermTests
             await dataset.MaintainAsync(T.Ct);
         }
 
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("later"), T.Iri("reifies"), RdfTerm.TripleTerm(T.Iri("a"), T.Iri("tp"), T.Literal("later"))), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("later"), T.Iri("reifies"), RdfTerm.TripleTerm(T.Iri("a"), T.Iri("tp"), T.Literal("later"))), T.Ct);
         return dataset;
     }
 
@@ -128,12 +128,12 @@ public class TripleTermTests
     public async Task a_pinned_view_answers_the_same_after_a_later_commit_and_false_for_its_triple_term()
     {
         await using Dataset dataset = await T.Open(new MemoryStorage());
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("r"), T.Iri("reifies"), Triple(blankInside: true)), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("r"), T.Iri("reifies"), Triple(blankInside: true)), T.Ct);
         using DatasetView pinned = dataset.Pin();
         TermHandle triple = ObjectOf(pinned, "r");
         Assert.True(pinned.TryGetTripleTermComponents(triple, out TermHandle s, out TermHandle p, out TermHandle o));
 
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("later"), T.Iri("reifies"), RdfTerm.TripleTerm(T.Iri("a"), T.Iri("tp"), T.Literal("later"))), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("later"), T.Iri("reifies"), RdfTerm.TripleTerm(T.Iri("a"), T.Iri("tp"), T.Literal("later"))), T.Ct);
         using DatasetView head = dataset.Pin();
         TermHandle later = ObjectOf(head, "later");
 
@@ -186,11 +186,11 @@ public class TripleTermTests
     public async Task a_validator_takes_a_fresh_triple_term_apart_by_handle()
     {
         await using Dataset dataset = await T.Open(new MemoryStorage());
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("old"), T.Iri("reifies"), RdfTerm.TripleTerm(T.Iri("a"), T.Iri("tp"), T.Literal("old"))), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("old"), T.Iri("reifies"), RdfTerm.TripleTerm(T.Iri("a"), T.Iri("tp"), T.Literal("old"))), T.Ct);
         Destructuring validator = new();
 
         await dataset.CommitAsync(
-            new CommitRequest { Validators = [validator] }.Assert(T.Iri("r"), T.Iri("reifies"), Triple(blankInside: true)),
+            new CommitRequestBuilder { Validators = [validator] }.Assert(T.Iri("r"), T.Iri("reifies"), Triple(blankInside: true)),
             T.Ct);
 
         using DatasetView view = dataset.Pin();
@@ -206,7 +206,7 @@ public class TripleTermTests
     public async Task a_staging_view_takes_apart_staged_and_existing_triple_terms()
     {
         await using Dataset dataset = await T.Open(new MemoryStorage());
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("r"), T.Iri("reifies"), Triple(blankInside: true)), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("r"), T.Iri("reifies"), Triple(blankInside: true)), T.Ct);
         using DatasetView view = dataset.Pin();
         StagingView staging = view.Stage();
 
@@ -276,11 +276,11 @@ public class TripleTermTests
     public async Task the_pending_source_takes_a_triple_term_apart_without_allocating()
     {
         await using Dataset dataset = await T.Open(new MemoryStorage());
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("old"), T.Iri("reifies"), RdfTerm.TripleTerm(T.Iri("a"), T.Iri("tp"), T.Literal("old"))), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("old"), T.Iri("reifies"), RdfTerm.TripleTerm(T.Iri("a"), T.Iri("tp"), T.Literal("old"))), T.Ct);
         Measuring validator = new();
 
         await dataset.CommitAsync(
-            new CommitRequest { Validators = [validator] }.Assert(T.Iri("r"), T.Iri("reifies"), Triple(blankInside: true)),
+            new CommitRequestBuilder { Validators = [validator] }.Assert(T.Iri("r"), T.Iri("reifies"), Triple(blankInside: true)),
             T.Ct);
 
         Assert.Equal((0L, 0L), validator.Bytes);

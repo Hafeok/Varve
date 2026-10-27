@@ -35,7 +35,7 @@ public sealed class SpillDamageTests
         await using (FileStorage storage = FileStorage.Open(files, directory.Directory, TemporaryDirectory.Options))
         await using (Dataset dataset = await T.OpenOrCreate(storage, T.Options()))
         {
-            await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("before"), T.Iri("p"), T.Literal("0")), T.Ct);
+            await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("before"), T.Iri("p"), T.Literal("0")), T.Ct);
             before = string.Join(" ", T.Terms(dataset.Pin()));
         }
 
@@ -123,6 +123,6 @@ public sealed class SpillDamageTests
 
         await using FileStorage storage = FileStorage.Open(files, directory.Directory, TemporaryDirectory.Options);
         await using Dataset dataset = await T.OpenOrCreate(storage, T.Options());
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("before"), T.Iri("p"), T.Literal("0")), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("before"), T.Iri("p"), T.Literal("0")), T.Ct);
     }
 }

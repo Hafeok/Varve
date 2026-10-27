@@ -149,11 +149,11 @@ public class RuleTests
         const string shapes = "ex:S sh:targetSubjectsOf sh:targetSubjectsOf ; sh:closed true .";
         Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(Support.Request(dataset, shapes, []), Ct)).Outcome);
 
-        CommitRequest reserved = new();
+        CommitRequestBuilder reserved = new();
         reserved.Assert(RequestTerm.FromTerm(Support.Ex("x")), RequestTerm.FromTerm(RdfTerm.Iri("http://www.w3.org/ns/shacl#targetSubjectsOf"u8)), RequestTerm.FromTerm(Support.Ex("y")), RequestTerm.FromTerm(RdfTerm.Iri("https://w3id.org/varve/ns#setup"u8)));
         Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(reserved, Ct)).Outcome);
 
-        CommitRequest data = new();
+        CommitRequestBuilder data = new();
         data.Assert(RequestTerm.FromTerm(Support.Ex("x")), RequestTerm.FromTerm(RdfTerm.Iri("http://www.w3.org/ns/shacl#targetSubjectsOf"u8)), RequestTerm.FromTerm(Support.Ex("y")), RequestTerm.FromTerm(Support.DataGraph));
         Assert.Equal(CommitOutcome.Rejected, (await dataset.CommitAsync(data, Ct)).Outcome);
     }

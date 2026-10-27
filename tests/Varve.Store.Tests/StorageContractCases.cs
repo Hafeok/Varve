@@ -165,7 +165,7 @@ internal static class StorageContractCases
         {
             for (int i = 0; i < 20; i++)
             {
-                await dataset.CommitAsync(new CommitRequest().Assert(Iri("s" + i), Iri("p"), Literal(new string('x', 40))), ct);
+                await dataset.CommitAsync(new CommitRequestBuilder().Assert(Iri("s" + i), Iri("p"), Literal(new string('x', 40))), ct);
             }
 
             await dataset.CheckpointAsync(new Position(10), ct);

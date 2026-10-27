@@ -48,7 +48,7 @@ public class DictionaryTests
 
         for (int start = 0; start < terms; start += batch)
         {
-            CommitRequest request = new();
+            CommitRequestBuilder request = new();
 
             for (int i = start; i < Math.Min(terms, start + batch); i++)
             {
@@ -125,10 +125,10 @@ public class DictionaryTests
     {
         MemoryStorage storage = new();
         await using Dataset dataset = await Dataset.CreateAsync(storage, T.Id, Options(1), T.Ct);
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Lang("hello", "en")), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Lang("hello", "en")), T.Ct);
         await dataset.MaintainAsync(T.Ct);
 
-        Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(new CommitRequest().Retract(T.Iri("s"), T.Iri("p"), T.Lang("hello", "EN")), T.Ct)).Outcome);
+        Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(new CommitRequestBuilder().Retract(T.Iri("s"), T.Iri("p"), T.Lang("hello", "EN")), T.Ct)).Outcome);
         using DatasetView view = dataset.Pin();
         Assert.True(view.TryInternalise(T.Lang("hello", "EN"), out _));
         Assert.Equal(0, view.Estimate(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any).Count.Value);
@@ -270,7 +270,7 @@ public class TermFilterTests
 
         for (int i = 0; i < 6; i++)
         {
-            CommitRequest request = new();
+            CommitRequestBuilder request = new();
             request.Assert(T.Iri("s" + i.ToString(CultureInfo.InvariantCulture)), T.Iri("p"), T.Literal("o" + i.ToString(CultureInfo.InvariantCulture)));
             await dataset.CommitAsync(request, T.Ct);
             await dataset.MaintainAsync(T.Ct);

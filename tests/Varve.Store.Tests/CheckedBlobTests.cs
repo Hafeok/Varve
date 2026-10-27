@@ -26,7 +26,7 @@ public sealed class CheckedBlobTests
 
         for (int i = 0; i < 3; i++)
         {
-            await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s" + i), T.Iri("p"), T.Iri("o")), T.Ct);
+            await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s" + i), T.Iri("p"), T.Iri("o")), T.Ct);
         }
 
         // Two whole blocks and a short one.
@@ -104,7 +104,7 @@ public sealed class CheckedBlobTests
 
         await using (Dataset dataset = await T.OpenOrCreate(storage, T.Options()))
         {
-            await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Iri("o")), T.Ct);
+            await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Iri("o")), T.Ct);
             await dataset.WriteCheckedAsync(storage.Derived, name, new Position(1), new byte[] { 1, 2, 3 }, T.Ct);
             Assert.NotNull(await dataset.TryReadCheckedAsync(storage.Derived, name, T.Ct));
         }
@@ -112,13 +112,13 @@ public sealed class CheckedBlobTests
         // Another log at the same position: another commit there.
         MemoryStorage other = new();
         await using Dataset another = await T.OpenOrCreate(other, T.Options());
-        await another.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Iri("another")), T.Ct);
+        await another.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Iri("another")), T.Ct);
         Assert.Null(await another.TryReadCheckedAsync(storage.Derived, name, T.Ct));
 
         // Another dataset's id.
         MemoryStorage foreign = new();
         await using Dataset stranger = await Dataset.CreateAsync(foreign, new DatasetId(Guid.NewGuid()), T.Options(), T.Ct);
-        await stranger.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await stranger.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Iri("o")), T.Ct);
         Assert.Null(await stranger.TryReadCheckedAsync(storage.Derived, name, T.Ct));
 
         // Nothing there, or a position the dataset has not reached.

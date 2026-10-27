@@ -168,7 +168,7 @@ public sealed class MidReadDamageTests
 
         for (int c = 1; c <= Commits; c++)
         {
-            CommitRequest request = new();
+            CommitRequestBuilder request = new();
 
             for (int i = 0; i < 6; i++)
             {

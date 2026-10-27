@@ -21,9 +21,9 @@ namespace Varve.Store.Tests;
 /// </summary>
 public class MaintenanceTests
 {
-    private static CommitRequest Batch(int commit, int size)
+    private static CommitRequestBuilder Batch(int commit, int size)
     {
-        CommitRequest request = new();
+        CommitRequestBuilder request = new();
 
         for (int i = 0; i < size; i++)
         {

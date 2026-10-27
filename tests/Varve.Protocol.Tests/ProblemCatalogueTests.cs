@@ -362,7 +362,7 @@ public class ProblemCatalogueTests
             if (preconditions.ExpectedPosition is not null && update.Operations[0] is DeleteWhere)
             {
                 int n = Interlocked.Increment(ref _n);
-                await dataset.CommitAsync(new CommitRequest().Assert(RdfTerm.Iri("http://ex/race"u8), RdfTerm.Iri("http://ex/p"u8), RdfTerm.Literal(Encoding.UTF8.GetBytes("r" + n))), cancellationToken);
+                await dataset.CommitAsync(new CommitRequestBuilder().Assert(RdfTerm.Iri("http://ex/race"u8), RdfTerm.Iri("http://ex/p"u8), RdfTerm.Literal(Encoding.UTF8.GetBytes("r" + n))), cancellationToken);
             }
 
             return await inner.ExecuteAsync(target, update, metadata, preconditions, scope, cancellationToken);

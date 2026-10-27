@@ -424,7 +424,7 @@ public sealed partial class Dataset : IAsyncDisposable
     /// commit — or answers without changing anything.
     /// </summary>
     /// <exception cref="ArgumentException">A handle in the request was not issued by this dataset.</exception>
-    public async ValueTask<CommitResult> CommitAsync(CommitRequest request, CancellationToken cancellationToken = default)
+    public async ValueTask<CommitResult> CommitAsync(CommitRequestBuilder request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         return await SequenceAsync(CommitKind.Data, request, request.Metadata, request.ExpectedPosition?.Value, [], cancellationToken).ConfigureAwait(false);

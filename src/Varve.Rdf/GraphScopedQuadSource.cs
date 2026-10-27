@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using DecisionDriven;
@@ -19,17 +20,21 @@ namespace Varve.Rdf;
 /// term's existence is not a graph's.
 /// </summary>
 /// <remarks>
-/// Built once per request over the request's view, and not shared between
-/// threads: the prefix decisions it memoises are kept in a plain map. A scope
-/// of every graph is not wrapped (<see cref="Wrap"/>): the unwrapped source
-/// costs what it did.
+/// Built once per request over the request's view, and safe to read from
+/// several threads: the prefix decisions it memoises are kept in a concurrent
+/// map filled only through <c>GetOrAdd</c>, and a decision is a pure function
+/// of the graph, so two threads deciding one graph at once agree. A scope of
+/// every graph is not wrapped (<see cref="Wrap"/>): the unwrapped source costs
+/// what it did.
 /// </remarks>
 public sealed class GraphScopedQuadSource : IQuadSource
 {
     private readonly IQuadSource _inner;
     private readonly bool _default;
     private readonly HashSet<TermHandle> _named;
-    private readonly Dictionary<TermHandle, bool>? _decided;
+    private readonly bool _byPrefix;
+    [Memoized]
+    private readonly ConcurrentDictionary<TermHandle, bool>? _decided;
 
     /// <summary><paramref name="inner"/> seen through <paramref name="scope"/>.</summary>
     public GraphScopedQuadSource(IQuadSource inner, GraphScope scope)
@@ -59,7 +64,8 @@ public sealed class GraphScopedQuadSource : IQuadSource
             }
         }
 
-        _decided = scope.HasPrefixes || scope.Governor is not null ? new Dictionary<TermHandle, bool>(inner.TermComparer) : null;
+        _byPrefix = scope.HasPrefixes || scope.Governor is not null;
+        _decided = _byPrefix ? new ConcurrentDictionary<TermHandle, bool>(inner.TermComparer) : null;
     }
 
     /// <summary>The scope this source shows.</summary>
@@ -101,7 +107,7 @@ public sealed class GraphScopedQuadSource : IQuadSource
             case GraphMatch.Named:
                 return Allows(graph.Graph) ? _inner.Match(subject, predicate, @object, graph) : EmptyCursor.Instance;
             default:
-                if (!Scope.IncludesDefault && _named.Count == 0 && _decided is null)
+                if (!Scope.IncludesDefault && _named.Count == 0 && !_byPrefix)
                 {
                     return EmptyCursor.Instance;
                 }
@@ -125,7 +131,7 @@ public sealed class GraphScopedQuadSource : IQuadSource
             case GraphMatch.Named:
                 return Allows(graph.Graph) ? _inner.Estimate(subject, predicate, @object, graph) : CardinalityEstimate.Exact(new QuadCount(0));
             default:
-                if (!Scope.IncludesDefault && _named.Count == 0 && _decided is null)
+                if (!Scope.IncludesDefault && _named.Count == 0 && !_byPrefix)
                 {
                     return CardinalityEstimate.Exact(new QuadCount(0));
                 }
@@ -141,7 +147,7 @@ public sealed class GraphScopedQuadSource : IQuadSource
     /// <summary>Whether a quad in <paramref name="graph"/> is shown; <see cref="TermHandle.None"/> is the default graph.</summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool Allows(TermHandle graph) =>
-        graph.IsNone ? _default : InNamed(graph) || (_decided is not null && ByPrefix(graph));
+        graph.IsNone ? _default : InNamed(graph) || (_byPrefix && ByPrefix(graph));
 
     [DesignDecision(typeof(GraphLevelAuthorisation.ScopeFilterIsASetLookup), Scope = ExceptionScope.HotPath)]
     private bool InNamed(TermHandle graph) => _named.Contains(graph);
@@ -149,21 +155,15 @@ public sealed class GraphScopedQuadSource : IQuadSource
     // Decided once per graph handle: the first quad of a graph pays its
     // externalisation and the prefix comparison; every later one is a lookup.
     [DesignDecision(typeof(GraphLevelAuthorisation.PrefixDecisionMemoisedPerGraph), Scope = ExceptionScope.HotPath)]
-    private bool ByPrefix(TermHandle graph)
-    {
-        if (_decided!.TryGetValue(graph, out bool decided))
-        {
-            return decided;
-        }
+    private bool ByPrefix(TermHandle graph) =>
+        _decided!.GetOrAdd(graph, static (handle, self) => self.Decide(handle), this);
 
-        // A governed graph asks the scope, which asks its governor; any other
-        // named graph is decided by the prefixes alone, the explicit handles
-        // having been answered already.
-        decided = _inner.TryExternalise(graph, out RdfTerm? term) && term.Kind == RdfTermKind.Iri
-            && (Scope.Governor is not null && Scope.Governor(term, out _) ? Scope.Allows(term) : Scope.AllowsByPrefix(term.Lexical));
-        _decided[graph] = decided;
-        return decided;
-    }
+    // A governed graph asks the scope, which asks its governor; any other
+    // named graph is decided by the prefixes alone, the explicit handles
+    // having been answered already.
+    private bool Decide(TermHandle graph) =>
+        _inner.TryExternalise(graph, out RdfTerm? term) && term.Kind == RdfTermKind.Iri
+        && (Scope.Governor is not null && Scope.Governor(term, out _) ? Scope.Allows(term) : Scope.AllowsByPrefix(term.Lexical));
 
     private sealed class Cursor(IQuadCursor inner, GraphScopedQuadSource owner) : IQuadCursor
     {
