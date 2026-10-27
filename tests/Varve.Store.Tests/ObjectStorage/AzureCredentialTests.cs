@@ -21,6 +21,7 @@ namespace Varve.Store.Tests.Objects;
 /// The three Azure token sources, the cache, and the rule that a token never
 /// leaves the adapter (ADR 0137).
 /// </summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class AzureCredentialTests
 {
     private const string Secret = "eyJTOKEN-THAT-MUST-NEVER-APPEAR";

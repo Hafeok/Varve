@@ -23,6 +23,7 @@ namespace Varve.Store.Tests.Objects;
 /// their windows. Once the record is forgotten, or its reader upgraded,
 /// rewriting proceeds. Every position reads the same throughout.
 /// </summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class ObjectFormatUpgradeTests
 {
     [Theory]
