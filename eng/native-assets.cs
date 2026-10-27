@@ -18,7 +18,10 @@
 // a native runtime asset.
 //
 // Solution membership is the definition of "shipped" here, and it is not a
-// shortcut: the solution is what CI builds and what `dotnet pack` packs. The
+// shortcut: the solution is what CI builds and what `dotnet pack` packs. A
+// member that is published but never packed — the Web UI, a release asset of
+// static files (ADR 0200) — declares <VarveShipped>true</VarveShipped> and is
+// walked the same way. The
 // packable fixtures under tests/fixtures/ are deliberately outside it — they
 // exist to fail to build — and a gate that demanded a restore graph from a
 // project nothing ever restores would fail on a clean clone.
@@ -96,7 +99,7 @@ if (assetsOverride is not null)
 }
 else
 {
-    foreach (string project in PackableProjects(repositoryRoot))
+    foreach (string project in ShippedProjects(repositoryRoot))
     {
         string assets = Path.Combine(Path.GetDirectoryName(project) ?? ".", "obj", "project.assets.json");
 
@@ -249,7 +252,7 @@ static void Add(SortedDictionary<string, SortedSet<string>> byPackage, string pa
     files.Add(file);
 }
 
-static List<string> PackableProjects(string repositoryRoot)
+static List<string> ShippedProjects(string repositoryRoot)
 {
     List<string> projects = [];
 
@@ -269,9 +272,10 @@ static List<string> PackableProjects(string repositoryRoot)
             throw new InvalidOperationException("Varve.slnx names a project that does not exist: " + relative);
         }
 
-        foreach (XElement property in XDocument.Load(project).Descendants("IsPackable"))
+        foreach (XElement property in XDocument.Load(project).Descendants())
         {
-            if (string.Equals(property.Value.Trim(), "true", StringComparison.OrdinalIgnoreCase))
+            if (property.Name.LocalName is "IsPackable" or "VarveShipped"
+                && string.Equals(property.Value.Trim(), "true", StringComparison.OrdinalIgnoreCase))
             {
                 projects.Add(project);
                 break;
