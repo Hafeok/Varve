@@ -13,7 +13,7 @@
 | **Model** | `claude-opus-5-5`, configured and served, from the session's own metadata |
 | **Session identifier** | `session_01YWZaiBxSK7r6aizeG5YWo3` |
 | **Branch** | `claude/varve-store-perf-measure-hcl8ga`, from `main` at 9d48ccc; `main` merged in at 8faf8dc and 10c11df |
-| **ADRs** | 0007 amended (`Microsoft.Testing.Extensions.HangDump`, ruling `HangDumpForTheStoreTests`, filed unaccepted) |
+| **ADRs** | 0007 amended (`Microsoft.Testing.Extensions.HangDump`, ruling `HangDumpForTheStoreTests`, filed unaccepted; accepted since, see the note of 2026-10-26 under What is left) |
 
 ## The prompts
 
@@ -316,7 +316,28 @@ message. `docs/testing.md` section 8 lists them.
 
 - `ObjectFaultTests` is still the Windows step's tail, between 4 and 10
   minutes; it is disk-bound in the commit index publishes that stay.
-- The commit index's unverified entries (above), for an ADR.
+- The commit index's unverified entries (above), for an ADR:
+  [#146](https://github.com/Hafeok/Varve/issues/146).
 - The ADR 0007 amendment's ruling, `HangDumpForTheStoreTests`, is filed
   unaccepted (ADR 0066).
+
+  > **Note, 2026-10-26.** The maintainer accepted `HangDumpForTheStoreTests`
+  > before #136 landed: `d86da98` added the acceptance, and `bb656a0` dated it
+  > 2026-10-19, the amendment's date. The ruling is in force.
+
 - The nightly run has not run yet: it runs on `main` once this lands.
+
+## After it landed, 2026-10-26
+
+#136 landed on 2026-10-26 at `aeb65d2`, after `main` was merged in at
+`a8b062f` and the two test steps it brought were given a TRX. The same
+session then took one follow-up, on the maintainer's prompt:
+
+> One small follow-up PR, no descriptor. Commits reference #126 (closed, so no closing keyword).
+>
+> 1. `docs/traceability/2026-10-19-issue-126-store-test-time.md`: `HangDumpForTheStoreTests` is accepted. Update both places, with a dated note rather than rewriting the history.
+> 2. `entra-obo.yml`: add `--report-trx` to its test step and upload the `.trx`, as for the other workflows.
+> 3. The commit index question is #146. Link it from the record's open points.
+
+Each is done as asked: the notes above, the link under What is left, and the
+on-behalf-of leg's TRX, which its next dispatch on `main` is the first run of.
