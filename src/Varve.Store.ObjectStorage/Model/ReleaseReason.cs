@@ -18,4 +18,13 @@ public enum ReleaseReason
     /// observes this release (ADR 0163 point 12).
     /// </summary>
     Placement,
+
+    /// <summary>A batch failed against the store; the writer released so that a standby can take over (ADR 0179 point 6).</summary>
+    StorageError,
+
+    /// <summary>
+    /// The local storage the writer needs to keep committing failed past its
+    /// bound: the memtable's spills (ADR 0179 point 6).
+    /// </summary>
+    LocalDiskError,
 }

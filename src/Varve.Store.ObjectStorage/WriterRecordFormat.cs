@@ -43,7 +43,7 @@ internal static class WriterRecordFormat
                 json.WriteStartObject();
                 json.WriteNumber("epoch", claim.Epoch.Value);
                 json.WriteString("holder", claim.Holder.Value);
-                json.WriteString("trigger", claim.Trigger == ClaimTrigger.Operator ? "operator" : "restart");
+                json.WriteString("trigger", Name(claim.Trigger));
                 json.WriteString("at", claim.ClaimedAt.Value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
 
                 if (claim.Fence is { } fence)
@@ -96,6 +96,8 @@ internal static class WriterRecordFormat
                     {
                         "restart" => ClaimTrigger.Restart,
                         "operator" => ClaimTrigger.Operator,
+                        "abdication" => ClaimTrigger.Abdication,
+                        "probe" => ClaimTrigger.Probe,
                         string other => throw new InvalidDataException("The writer record names a trigger '" + other + "' this version does not know."),
                         null => throw new InvalidDataException("A claim in the writer record has no trigger."),
                     },
@@ -120,19 +122,33 @@ internal static class WriterRecordFormat
         }
     }
 
-    private static string Name(ReleaseReason reason) => reason switch
+    /// <summary>A release reason's name in the record (ADRs 0136, 0179).</summary>
+    internal static string Name(ReleaseReason reason) => reason switch
     {
         ReleaseReason.Shutdown => "shutdown",
         ReleaseReason.OperatorTakeover => "operator-takeover",
         ReleaseReason.Placement => "placement",
+        ReleaseReason.StorageError => "storage-error",
+        ReleaseReason.LocalDiskError => "local-disk-error",
         _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, "No such reason."),
     };
 
+    /// <summary>A claim trigger's name in the record (ADRs 0136, 0179).</summary>
+    internal static string Name(ClaimTrigger trigger) => trigger switch
+    {
+        ClaimTrigger.Restart => "restart",
+        ClaimTrigger.Operator => "operator",
+        ClaimTrigger.Abdication => "abdication",
+        ClaimTrigger.Probe => "probe",
+        _ => throw new ArgumentOutOfRangeException(nameof(trigger), trigger, "No such trigger."),
+    };
     private static ReleaseReason Reason(string? name) => name switch
     {
         "shutdown" => ReleaseReason.Shutdown,
         "operator-takeover" => ReleaseReason.OperatorTakeover,
         "placement" => ReleaseReason.Placement,
+        "storage-error" => ReleaseReason.StorageError,
+        "local-disk-error" => ReleaseReason.LocalDiskError,
         _ => throw new InvalidDataException("The writer record names a release reason '" + name + "' this version does not know."),
     };
 }

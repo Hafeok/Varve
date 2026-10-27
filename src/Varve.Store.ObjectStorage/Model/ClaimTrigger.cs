@@ -12,4 +12,10 @@ public enum ClaimTrigger
 
     /// <summary>An operator took the writer epoch over, naming the epoch they took it from.</summary>
     Operator,
+
+    /// <summary>A warm standby claimed after the holder released the epoch (ADR 0179 point 6).</summary>
+    Abdication,
+
+    /// <summary>A warm standby claimed on a takeover request after the orchestrator's probe failed, naming the epoch (ADR 0179 point 6).</summary>
+    Probe,
 }

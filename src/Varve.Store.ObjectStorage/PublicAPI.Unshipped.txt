@@ -256,3 +256,7 @@ static Varve.Store.ObjectStorage.Model.WriterAddress.operator !=(Varve.Store.Obj
 static Varve.Store.ObjectStorage.Model.WriterAddress.operator ==(Varve.Store.ObjectStorage.Model.WriterAddress left, Varve.Store.ObjectStorage.Model.WriterAddress right) -> bool
 ~override Varve.Store.ObjectStorage.Model.WriterAddress.Equals(object obj) -> bool
 Varve.Store.ObjectStorage.ObjectStorage.AdoptedEpoch.get -> Varve.Store.ObjectStorage.Model.WriterEpoch?
+Varve.Store.ObjectStorage.Model.ClaimTrigger.Abdication = 2 -> Varve.Store.ObjectStorage.Model.ClaimTrigger
+Varve.Store.ObjectStorage.Model.ClaimTrigger.Probe = 3 -> Varve.Store.ObjectStorage.Model.ClaimTrigger
+Varve.Store.ObjectStorage.Model.ReleaseReason.StorageError = 3 -> Varve.Store.ObjectStorage.Model.ReleaseReason
+Varve.Store.ObjectStorage.Model.ReleaseReason.LocalDiskError = 4 -> Varve.Store.ObjectStorage.Model.ReleaseReason

@@ -183,18 +183,38 @@ internal static class ObjectLease
 
         await io.Out.WriteLineAsync("epoch: " + record.Epoch).ConfigureAwait(false);
         await io.Out.WriteLineAsync("holder: " + record.Holder.Value).ConfigureAwait(false);
-        await io.Out.WriteLineAsync("released: " + (record.Released?.ToString() ?? "no")).ConfigureAwait(false);
+        await io.Out.WriteLineAsync("released: " + (record.Released is { } reason ? Shown(reason) : "no")).ConfigureAwait(false);
         await io.Out.WriteLineAsync("history:").ConfigureAwait(false);
 
         foreach (EpochClaim claim in record.History)
         {
             await io.Out.WriteLineAsync(
                 "  epoch " + claim.Epoch
-                + "  " + claim.Trigger.ToString().ToLowerInvariant()
+                + "  " + Shown(claim.Trigger)
                 + "  by " + claim.Holder.Value
                 + "  at " + claim.ClaimedAt.Value.ToString("O", CultureInfo.InvariantCulture)
                 + (claim.Fence is { } fence ? "  fence " + fence.Value : string.Empty)
-                + (claim.Released is { } released ? "  released: " + released.ToString().ToLowerInvariant() : string.Empty)).ConfigureAwait(false);
+                + (claim.Released is { } released ? "  released: " + Shown(released) : string.Empty)).ConfigureAwait(false);
         }
     }
+
+    // The names the record itself gives them (WriterRecordFormat), which a test holds equal.
+    internal static string Shown(ReleaseReason reason) => reason switch
+    {
+        ReleaseReason.Shutdown => "shutdown",
+        ReleaseReason.OperatorTakeover => "operator-takeover",
+        ReleaseReason.Placement => "placement",
+        ReleaseReason.StorageError => "storage-error",
+        ReleaseReason.LocalDiskError => "local-disk-error",
+        _ => reason.ToString(),
+    };
+
+    internal static string Shown(ClaimTrigger trigger) => trigger switch
+    {
+        ClaimTrigger.Restart => "restart",
+        ClaimTrigger.Operator => "operator",
+        ClaimTrigger.Abdication => "abdication",
+        ClaimTrigger.Probe => "probe",
+        _ => trigger.ToString(),
+    };
 }
