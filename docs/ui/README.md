@@ -28,13 +28,14 @@ Components are organised by atomic level, and the levels are a dependency rule: 
 |---|---|---|
 | Tokens | `tokens.json` | nothing |
 | Atoms | `Button`, `Field`, `StateBadge`, `PositionStamp`, `TermChip` | tokens |
-| Molecules | `KeyValue`, `LagMeter`, `Notice`, `ViewHead`, `Triple`, `AsOfBanner` | atoms |
+| Molecules | `KeyValue`, `LagMeter`, `Notice`, `ViewHead`, `Triple`, `AsOfBanner`, `CopyButton` | atoms |
 | Organisms | `ResourceTable`, `CommitList`, `ProblemPanel`, `SourceBlock`, `ConfirmDialog`, `Panel` | molecules, atoms |
 | Templates | `Shell` and the screen layouts | organisms and below; no data |
 | Pages | the routed screens | everything; the only level that calls the API |
 
 - **Lower levels are abstract.** An atom takes words, tones and values as parameters and knows nothing of Varve's domain. `StateBadge` takes a tone and a word; it does not know what `failed` means.
-- **Domain knowledge sits in one place above the atoms.** The mapping from an API state or problem to a tone (the table under Colour) is one tested mapping that pages and organisms call, never a lookup repeated per page or pushed down into an atom.
+- **Domain knowledge sits in one place above the atoms.** The mapping from an API state or problem to a tone (the table under Colour) is one tested mapping that pages and organisms call, never a lookup repeated per page or pushed down into an atom. Domain text is the same: the drift note's wording lives once at the page level, and a page passes it in a `Notice`; no molecule carries it.
+- **Never the same level.** A component uses only lower levels, never one of its own. Where an organism shows what another organism renders (a problem in a dialog, a problem in a table's place), it takes a slot the page fills.
 - **Only pages read data.** Everything below a page takes parameters, so every component renders from a fixture without a server.
 - **A change to a lower level is a change to every screen.** Change tokens and atoms deliberately; a page may change freely.
 
@@ -98,12 +99,12 @@ A screen renders all of these, from the same components:
 - **Empty:** the table's empty row, saying what would appear and how it gets there ("No datasets are declared. Declare one in TriG and run `varve apply`.").
 - **Forbidden (`403`)** and every other problem: the problem panel in place of the view's body, with the view head still showing what was requested.
 - **Signed out (`401`):** sign-in starts; no screen renders a `401`.
-- **Server unreachable:** a warn notice in the view head's place with the server address and the time of the last successful read; the last data stays visible, marked with its position.
+- **Server unreachable:** a warn notice directly below the view head, above everything else, with the server address and the time of the last successful read; the last data stays visible below it, marked with its position.
 - **Conflict on a write (`409`, `412`):** the problem panel inside the dialog that made the write, with `expectedPosition` and `headPosition` from its members, and the action to reload at the new position.
 
 ## Iconography
 
-There is no icon set. State marks are CSS shapes drawn from tokens (`state`, `notice`, `tail`). The one image is the core mark (`Logos/varve-core.svg`), the same file as the repository's package icon, used at 24px in the shell bar. Do not add icons for navigation or actions: words do that work.
+There is no icon set. State marks are CSS shapes drawn from tokens (`state`, `notice`, `tail`). The one image is the core mark (`docs/ui/assets/varve-core.svg`), the same file as the repository's package icon, used at 24px in the shell bar. Do not add icons for navigation or actions: words do that work.
 
 ## Accessibility
 
@@ -111,7 +112,7 @@ WCAG 2.2 AA. Every focusable element shows `focus-ring` as a 2px solid outline o
 
 ## Implementing in `Varve.WebUi`
 
-- `tokens.css` (generated from `tokens.json`) and `components/bundle.css` are the two stylesheets, served from the app's own origin, so the CSP needs `style-src 'self'` only.
+- `tokens.css` (generated from `tokens.json`) and `docs/ui/bundle.css` are the two stylesheets, served from the app's own origin, so the CSP needs `style-src 'self'` only.
 - Wrap the app in `.vw-root`. Components are Razor components emitting the markup in each component's preview; class names are the contract.
 - Do not use Blazor CSS isolation (`.razor.css`): it rewrites selectors with generated attributes and splits the one shared stylesheet. Styles are global and class-based, namespaced by the `vw-` prefix.
 - Do not set `style` attributes. Widths that depend on data use `<meter>` or classes, never computed inline styles.

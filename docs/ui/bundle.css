@@ -13,6 +13,12 @@
 }
 .vw-root *, .vw-root *::before, .vw-root *::after { box-sizing: border-box; }
 .vw-root :focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+/* A heading focused on navigation is not interactive, so it takes no ring;
+   every control keeps :focus-visible. */
+.vw-root [tabindex="-1"]:focus { outline: none; }
+/* The app's root fills the window, so the shell does too. */
+html, body.vw-root { height: 100%; }
+body.vw-root { margin: 0; }
 .vw-root a { color: var(--accent); text-underline-offset: 2px; }
 .vw-root code, .vw-mono { font-family: var(--font-mono); font-size: 13px; }
 .vw-muted { color: var(--ink-muted); }

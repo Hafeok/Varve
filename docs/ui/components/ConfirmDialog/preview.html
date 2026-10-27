@@ -10,7 +10,7 @@
   <div class="vw-dialog__body">
     <h2 class="vw-dialog__title" id="dlg-title">Close notes?</h2>
     <p class="vw-dialog__effect">Every instance stops serving <strong>notes</strong> and its writer releases the dataset. Reads and writes answer <code>404</code> until it is opened again. Nothing is deleted.</p>
-    <div class="vw-notice vw-notice--warn"><p class="vw-notice__title">The declaration will drift from Git</p><p class="vw-notice__body">Your declaration files will differ until you update them; <code>varve apply --plan</code> will show it.</p></div>
+    <div class="vw-notice vw-notice--warn"><p class="vw-notice__title">The declaration will drift from Git</p><p class="vw-notice__body">This changes the dataset's declaration on the server. Your declaration files in Git will differ until you update them; <code>varve apply --plan</code> will show the difference.</p></div>
     <div class="vw-field"><label for="confirm-name">Type <code>notes</code> to confirm</label><input id="confirm-name" autocomplete="off" spellcheck="false" value="notes"></div>
   </div>
   <div class="vw-dialog__foot"><button class="vw-button" type="button">Cancel</button><button class="vw-button vw-button--danger-solid" type="button">Close notes</button></div>
