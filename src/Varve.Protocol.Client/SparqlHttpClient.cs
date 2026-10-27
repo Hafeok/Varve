@@ -383,21 +383,7 @@ public sealed partial class SparqlHttpClient
             throw;
         }
 
-        using CancellationTokenSource bounded = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        bounded.CancelAfter(_limits.Timeout);
-
-        try
-        {
-            return await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, bounded.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            throw new HttpRequestException("<" + request.RequestUri + "> did not answer within " + _limits.Timeout.ToString() + ".");
-        }
-        finally
-        {
-            request.Dispose();
-        }
+        return await Requests.SendAsync(_http, request, _limits, cancellationToken).ConfigureAwait(false);
     }
 
     // The token for one request (ADR 0127): the provider's answer, asked for
