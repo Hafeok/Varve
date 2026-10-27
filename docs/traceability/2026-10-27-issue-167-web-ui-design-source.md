@@ -113,3 +113,56 @@ these are its own to change:
   wording lives.
 - **`CopyButton`** joins the molecules in the level table, with a folder, a
   README and a preview. ADR 0206 now says nineteen components.
+
+## The Parts level
+
+**The maintainer's ruling**, verbatim:
+
+> Neither 1 nor 2. Add a level: `Varve.WebUi.Parts`, between `Templates` and `Pages`.
+>
+> * Parts are domain-aware, non-routed components: `ProblemView`, `ReadStamps`, `DriftNote`, and the like later. They may use the client’s model types (a problem body, a position, a status) and `Tones`, and hold Varve’s wording.
+> * Pages are routed screens only. They are the only level that injects or calls the client’s services, i.e. reads data. They may use Parts and everything below.
+> * The rule stays uniform: a component uses only lower levels, never its own. Parts don’t use Parts, pages don’t use pages. No exemption anywhere. If two parts later genuinely need each other, that’s a design conversation, not an analyzer exception.
+> * The analyzer has two checks:
+>    1. the level order over `Atoms < Molecules < Organisms < Templates < Parts < Pages`;
+>    2. client service types (anything that calls the server) referenced only in `Pages`; client model types allowed in `Parts` and `Pages`.
+>  If the client doesn’t separate service types from model types cleanly enough for the analyzer to tell them apart, say so before inventing a marker.
+> * Opt-in to generated code stays scoped to this rule, as you found is possible.
+> * Paperwork:
+>    * ADR 0206 point 4 is amended in #174 (still unaccepted, so amend in place, no dated block). The decision set’s `AtomicLevelsAreADependencyRule` and `OnlyPagesCallTheApi` statements change to name Parts and the service/model split.
+>    * The brand book’s level table gains the Parts row.
+>    * Move `ProblemView`, `ReadStamps` and `DriftNote` into `Parts` on the milestone branch.
+
+**How the client's namespaces split.**
+- **`Varve.Protocol.Client.Model` holds only values,** and none of its types
+  calls the server: the problem, the response facts, readiness and its
+  wrappers, the graph content and condition, the RDF document, the received
+  events, and two exceptions.
+- **Every type that calls the server is outside it:**
+  - in `Varve.Protocol.Client`: `SparqlHttpClient`, `VarveHealthClient`,
+    `HttpServiceHandler`, `RdfDocumentClient` and `OutboundHttp`;
+  - in `.Hosting`: `DatasetSetupService`.
+- **The root namespace also holds values that call nothing:** `ClientLimits`,
+  `EndpointPolicy`, `BearerTokenProvider`, the follow and setup options, and
+  their exceptions.
+
+So the analyzer takes the namespaces as they stand, with no marker:
+- `.Model` is the model;
+- everything else under `Varve.Protocol.Client` counts as service.
+
+That is strict on the root's values, which no part needs today. This was
+reported to the maintainer.
+
+**Amended in place**, since the ADR is unaccepted:
+- **ADR 0206 point 4:** the six levels, the uniform rule, Parts and Pages, and
+  the service/model split.
+- **Point 5:** the tone mapping is called by parts and pages.
+- **The Checks' analyzer note:** the two checks, and the generated-code opt-in
+  scoped to the rule alone.
+
+**The decision set:** `AtomicLevelsAreADependencyRule`, `OnlyPagesCallTheApi`
+and `OneStateToToneMapping` are restated.
+
+**The brand book:** the level table gains the Parts row; domain knowledge
+and wording sit in parts; parts don't use parts. The `ConfirmDialog` and
+`Notice` READMEs say the drift note lives in a part.
