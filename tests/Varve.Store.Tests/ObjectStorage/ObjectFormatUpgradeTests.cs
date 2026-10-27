@@ -119,7 +119,7 @@ public sealed class ObjectFormatUpgradeTests
     {
         for (int i = first; i < first + count; i++)
         {
-            CommitRequest request = new CommitRequest().Assert(T.Iri("s" + i), T.Iri("p"), T.Iri("o" + (i % 3)));
+            CommitRequestBuilder request = new CommitRequestBuilder().Assert(T.Iri("s" + i), T.Iri("p"), T.Iri("o" + (i % 3)));
 
             if (i % 3 == 2)
             {

@@ -50,7 +50,7 @@ public sealed class ObjectCacheTests
                 for (int i = 1; i <= Commits; i++)
                 {
                     objects.Clock.Now = objects.Clock.Now.AddSeconds(1);
-                    await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s" + i), T.Iri("p"), T.Integer(i.ToString(CultureInfo.InvariantCulture))), T.Ct);
+                    await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s" + i), T.Iri("p"), T.Integer(i.ToString(CultureInfo.InvariantCulture))), T.Ct);
                 }
 
                 await dataset.CheckpointAsync(dataset.Head, T.Ct);

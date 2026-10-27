@@ -50,7 +50,7 @@ internal static class ConcurrentCommitBench
                             while (Stopwatch.GetTimestamp() < end)
                             {
                                 long n = Interlocked.Increment(ref count);
-                                await dataset.CommitAsync(new CommitRequest().Assert(Iri("s" + n + "-" + length), Iri("p"), Iri("w" + w)));
+                                await dataset.CommitAsync(new CommitRequestBuilder().Assert(Iri("s" + n + "-" + length), Iri("p"), Iri("w" + w)));
                             }
                         })));
                     }

@@ -100,11 +100,11 @@ public static class FaultInjectionTests
             // A batch (ADR 0124): the requests are queued while the sequencer
             // is held, and the first to enter after it writes them all with
             // one flush. Each one's state follows the one before it.
-            List<(CommitRequest Request, SortedSet<string> Next)> group = [];
+            List<(CommitRequestBuilder Request, SortedSet<string> Next)> group = [];
 
             for (int member = 0; member < batch && step + member < steps; member++)
             {
-                (CommitRequest request, SortedSet<string> next) = Generate(random, group.Count == 0 ? state : group[^1].Next);
+                (CommitRequestBuilder request, SortedSet<string> next) = Generate(random, group.Count == 0 ? state : group[^1].Next);
                 group.Add((request, next));
             }
 
@@ -112,7 +112,7 @@ public static class FaultInjectionTests
 
             using (await dataset.HoldSequencerForTestsAsync(T.Ct))
             {
-                foreach ((CommitRequest request, _) in group)
+                foreach ((CommitRequestBuilder request, _) in group)
                 {
                     answers.Add(dataset.CommitAsync(request, T.Ct).AsTask());
                 }
@@ -143,9 +143,9 @@ public static class FaultInjectionTests
     }
 
     // One request of a few asserts and retracts, and the state after it.
-    private static (CommitRequest Request, SortedSet<string> Next) Generate(Random random, SortedSet<string> state)
+    private static (CommitRequestBuilder Request, SortedSet<string> Next) Generate(Random random, SortedSet<string> state)
     {
-            CommitRequest request = new();
+            CommitRequestBuilder request = new();
         SortedSet<string> next = [.. state];
 
         for (int op = random.Next(1, 6); op > 0; op--)
@@ -271,7 +271,7 @@ public static class FaultInjectionTests
                     Same(Expected(reference, p, continued), T.Terms(asOf), where + ": as-of " + p);
                 }
 
-                CommitResult next = await dataset.CommitAsync(new CommitRequest().Assert(T.Iri(marker), T.Iri("crash"), T.Integer("1")), T.Ct);
+                CommitResult next = await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri(marker), T.Iri("crash"), T.Integer("1")), T.Ct);
                 Check(next.Outcome == CommitOutcome.Committed && next.Position.Value == head + 1, where + ": the recovered log does not continue");
                 await dataset.MaintainAsync(T.Ct);
             }
@@ -665,7 +665,7 @@ public static class FaultInjectionTests
             for (int i = 0; i < 12; i++)
             {
                 int g = i % CheckpointGraphs;
-                CommitResult result = await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s" + i), T.Iri("p"), T.Integer(i.ToString(CultureInfo.InvariantCulture)), T.Iri("g" + g)), T.Ct);
+                CommitResult result = await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s" + i), T.Iri("p"), T.Integer(i.ToString(CultureInfo.InvariantCulture)), T.Iri("g" + g)), T.Ct);
                 long[] next = [.. versions[^1]];
                 next[g] = result.Position.Value;
                 versions.Add(next);

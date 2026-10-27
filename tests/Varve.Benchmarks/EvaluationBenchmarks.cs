@@ -136,7 +136,7 @@ public class FilterBenchmarks
         const int PerCommit = 100_000;
         for (int from = 0; from < Quads; from += PerCommit)
         {
-            CommitRequest request = new();
+            CommitRequestBuilder request = new();
             for (int i = from; i < from + PerCommit; i++)
             {
                 string n = i.ToString(CultureInfo.InvariantCulture);

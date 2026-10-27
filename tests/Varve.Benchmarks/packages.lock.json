@@ -22,9 +22,9 @@
       },
       "DecisionDriven.Analyzers": {
         "type": "Direct",
-        "requested": "[0.1.0-preview.7, )",
-        "resolved": "0.1.0-preview.7",
-        "contentHash": "ja3oyFrFieMA+b79UhfJvCfHP2zd/S1qzboG0iXrqGLqeXNhO+enTVJTbxu+71t5ytHcZ9KzgNnzk5pvxzPDOg=="
+        "requested": "[0.1.0-preview.10, )",
+        "resolved": "0.1.0-preview.10",
+        "contentHash": "vMckz6UKXa+1VoG+4n4WwwOjlYRepYfBVDRkc1aUYOM3WT7K5k5PCYDiyl4krsUac8RgdhPwGA3xVpwF98ob7g=="
       },
       "dotNetRdf.Core": {
         "type": "Direct",
@@ -368,15 +368,15 @@
       },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "CentralTransitive",
-        "requested": "[10.0.12, )",
-        "resolved": "10.0.12",
-        "contentHash": "9/qymSh7hVDMGTGwrLz8MRp5zRyXy9adGDOs4HwRdnLil3oZGYuWeZjbmHgCQ9BL1qBroVfgUK3U/nb61617Cw=="
+        "requested": "[10.0.14, )",
+        "resolved": "10.0.14",
+        "contentHash": "QtpQzuSZVyTPCuHW058yCs9Nj0394uUkNyFHS813nOmK9UgUdBdaprJ5PPsBgsQIpxADTsTkbaMMonykem6qdw=="
       },
       "System.Security.Cryptography.ProtectedData": {
         "type": "CentralTransitive",
-        "requested": "[10.0.12, )",
-        "resolved": "10.0.12",
-        "contentHash": "wO0W8VDMeRJZakRySOmemAnrBZMwEFRlbfBtATxUiLf2I3IhSRnCp1Vt157NWptdE4IJ7eftd5n8q9LtaKHFTQ=="
+        "requested": "[10.0.14, )",
+        "resolved": "10.0.14",
+        "contentHash": "UuaBUHgmtc9h6CMxaQqFDDJxkS5JVy7XEB+DbtCvD68GFcVM9/AccuNwFpARx8nwCnvjaxzoOBjG3gPz32P1Eg=="
       }
     }
   }

@@ -6,6 +6,8 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Runtime.InteropServices;
+using DecisionDriven;
 using Varve.Rdf;
 using Varve.Shacl.Shapes;
 using Varve.Shacl.Validation;
@@ -22,7 +24,9 @@ public sealed class ValidationReport
 {
     private readonly ImmutableArray<ShapePath?> _paths;
     private readonly bool _shapesAreData;
-    private byte[]? _canonical;
+    [Memoized]
+    private ImmutableArray<byte> _canonical;
+    [Memoized]
     private ReportGraph? _graph;
 
     private ValidationReport(
@@ -68,6 +72,7 @@ public sealed class ValidationReport
     internal ImmutableArray<int> Sources { get; }
 
     /// <summary>The report graph, its own blank nodes labelled by RDFC-1.0 and the data's as their source gives them (ADR 0154).</summary>
+    /// <remarks>A dataset of its own on every call, built from the memoised triples, so no caller sees another's.</remarks>
     public InMemoryDataset ToDataset() => Graph().ToDataset();
 
     /// <summary>
@@ -75,9 +80,18 @@ public sealed class ValidationReport
     /// same bytes for the same shapes graph, data and labels.
     /// </summary>
     /// <exception cref="CanonicalisationLimitException">The report's own blank nodes exceed the RDFC-1.0 work limit.</exception>
-    public ReadOnlyMemory<byte> ToCanonicalNQuads() => _canonical ??= Graph().ToNQuads();
+    public ReadOnlyMemory<byte> ToCanonicalNQuads()
+    {
+        if (_canonical == default)
+        {
+            _canonical = ImmutableCollectionsMarshal.AsImmutableArray(Graph().ToNQuads());
+        }
 
-    private ReportGraph Graph() => _graph ??= ReportGraph.Build(this, _paths, _shapesAreData);
+        return _canonical.AsMemory();
+    }
+
+    private ReportGraph Graph() =>
+        _graph ??= ReportGraph.Build(Conforms, ConformanceDisallows, ImportsNotFollowed, Results, _paths, _shapesAreData, Canonicalisation);
 
     internal static ValidationReport Create(ValidationRun run, List<ResultRecord> records)
     {

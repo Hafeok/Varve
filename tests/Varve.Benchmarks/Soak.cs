@@ -89,7 +89,7 @@ internal static class Soak
 
             while (!stop.IsCancellationRequested)
             {
-                CommitRequest request = new();
+                CommitRequestBuilder request = new();
 
                 for (int i = 0; i < 50; i++)
                 {

@@ -467,7 +467,7 @@ internal static class ProtocolRunner
         {
             if (_server is null)
             {
-                CommitRequest request = new();
+                CommitRequestBuilder request = new();
 
                 foreach (DataQuad quad in quads)
                 {

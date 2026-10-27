@@ -57,7 +57,7 @@ public class IncrementalPropertyTests
             ValidationReport before = Full(shapes, dataset);
             foreach (Triple[] toggles in model.History)
             {
-                CommitRequest request = new();
+                CommitRequestBuilder request = new();
                 foreach (Triple triple in toggles.Distinct())
                 {
                     (RequestTerm s, RequestTerm p, RequestTerm o) = triple.Request();

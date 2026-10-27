@@ -89,7 +89,7 @@ public class InputTests
     {
         CancellationToken ct = TestContext.Current.CancellationToken;
         await using Dataset dataset = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, ct);
-        CommitRequest request = new();
+        CommitRequestBuilder request = new();
         request.Assert(RequestTerm.FromTerm(Support.Ex("x")), RequestTerm.FromTerm(Support.Ex("p")), RequestTerm.FromTerm(Support.Ex("present")));
         Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(request, ct)).Outcome);
 

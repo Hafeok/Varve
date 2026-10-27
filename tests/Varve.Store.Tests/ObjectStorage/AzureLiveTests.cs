@@ -217,7 +217,7 @@ public sealed class AzureAccountReadAfterWriteTests
             while (!(await writer.Log.ListSegmentsAsync(T.Ct)).Any(s => s.IsSealed))
             {
                 Assert.True(commits < 200, "no segment sealed in 200 commits");
-                await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s" + commits), T.Iri("p"), T.Literal("a literal long enough to roll a 2 KiB segment " + commits)), T.Ct);
+                await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s" + commits), T.Iri("p"), T.Literal("a literal long enough to roll a 2 KiB segment " + commits)), T.Ct);
                 commits++;
             }
 
@@ -416,7 +416,7 @@ public sealed class AzureAccountLatencyTests
                 for (int i = 0; i < count; i++)
                 {
                     long started = Stopwatch.GetTimestamp();
-                    CommitResult result = await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s" + i.ToString(CultureInfo.InvariantCulture)), T.Iri("p"), T.Literal("o")), T.Ct);
+                    CommitResult result = await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s" + i.ToString(CultureInfo.InvariantCulture)), T.Iri("p"), T.Literal("o")), T.Ct);
                     commits.Add(Stopwatch.GetElapsedTime(started).TotalMilliseconds);
                     Assert.Equal(CommitOutcome.Committed, result.Outcome);
                 }

@@ -120,7 +120,7 @@ public class RecGateTests
         int compared = 0;
         Stopwatch comparing = new();
 
-        CommitRequest shapes = new();
+        CommitRequestBuilder shapes = new();
         foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in RecShapes.Triples(withSparql: true, composed: true))
         {
             shapes.Assert(s, p, o, ShapesGraphName);
@@ -129,7 +129,7 @@ public class RecGateTests
         await LandAsync(shapes);
         foreach (RecCommit commit in RecPortfolio.Generate(size, 20261015))
         {
-            CommitRequest request = new() { Validators = [gate] };
+            CommitRequestBuilder request = new() { Validators = [gate] };
             foreach (RecQuad q in commit.Asserted)
             {
                 (RdfTerm s, RdfTerm p, RdfTerm o, RdfTerm g) = RecShapes.Terms(q);
@@ -147,7 +147,7 @@ public class RecGateTests
 
         return (compared, clock.Elapsed, comparing.Elapsed);
 
-        async Task LandAsync(CommitRequest request)
+        async Task LandAsync(CommitRequestBuilder request)
         {
             CommitResult result = await dataset.CommitAsync(request, ct);
             Assert.True(result.Outcome == CommitOutcome.Committed, "Commit " + (dataset.Head.Value + 1) + " was refused: " + string.Join(" ", result.Report.Select(t => Encoding.UTF8.GetString(t.Lexical))));

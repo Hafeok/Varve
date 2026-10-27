@@ -9,17 +9,25 @@ using Varve.Rdf;
 namespace Varve.Store.Log;
 
 /// <summary>
-/// A request to change the dataset: an ordered list of assertions and
-/// retractions over terms, metadata, an optional expected position, and the
-/// validators to run (spec T1).
+/// A request to change the dataset, assembled by its caller: an ordered list
+/// of assertions and retractions over terms, metadata, an optional expected
+/// position, and the validators to run (spec T1).
 /// </summary>
 /// <remarks>
+/// <para>
+/// A builder, mutable by design (DD0019): it belongs to the code assembling
+/// the request and is never handed out as a value. Once passed to
+/// <see cref="Dataset.CommitAsync"/> it is the sequencer's, and is not
+/// changed again.
+/// </para>
+/// <para>
 /// The operations are applied in order to an overlay on the head, and the
 /// log records the net result: asserting a present quad, retracting an absent
 /// one, and asserting then retracting an absent one contribute nothing
 /// (ADR 0010).
+/// </para>
 /// </remarks>
-public sealed class CommitRequest
+public sealed class CommitRequestBuilder
 {
     private readonly List<Operation> _operations = [];
 
@@ -55,24 +63,24 @@ public sealed class CommitRequest
     public QuadCount Count => new(_operations.Count);
 
     /// <summary>Asserts a quad in the default graph.</summary>
-    public CommitRequest Assert(RequestTerm subject, RequestTerm predicate, RequestTerm @object) =>
+    public CommitRequestBuilder Assert(RequestTerm subject, RequestTerm predicate, RequestTerm @object) =>
         Add(true, subject, predicate, @object, RequestTerm.None);
 
     /// <summary>Asserts a quad in a named graph.</summary>
-    public CommitRequest Assert(RequestTerm subject, RequestTerm predicate, RequestTerm @object, RequestTerm graph) =>
+    public CommitRequestBuilder Assert(RequestTerm subject, RequestTerm predicate, RequestTerm @object, RequestTerm graph) =>
         Add(true, subject, predicate, @object, graph);
 
     /// <summary>Retracts a quad from the default graph.</summary>
-    public CommitRequest Retract(RequestTerm subject, RequestTerm predicate, RequestTerm @object) =>
+    public CommitRequestBuilder Retract(RequestTerm subject, RequestTerm predicate, RequestTerm @object) =>
         Add(false, subject, predicate, @object, RequestTerm.None);
 
     /// <summary>Retracts a quad from a named graph.</summary>
-    public CommitRequest Retract(RequestTerm subject, RequestTerm predicate, RequestTerm @object, RequestTerm graph) =>
+    public CommitRequestBuilder Retract(RequestTerm subject, RequestTerm predicate, RequestTerm @object, RequestTerm graph) =>
         Add(false, subject, predicate, @object, graph);
 
     internal ReadOnlySpan<Operation> Operations => System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_operations);
 
-    private CommitRequest Add(bool assert, RequestTerm subject, RequestTerm predicate, RequestTerm @object, RequestTerm graph)
+    private CommitRequestBuilder Add(bool assert, RequestTerm subject, RequestTerm predicate, RequestTerm @object, RequestTerm graph)
     {
         if (subject.IsNone || predicate.IsNone || @object.IsNone)
         {
