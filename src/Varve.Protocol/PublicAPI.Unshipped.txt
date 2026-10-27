@@ -431,3 +431,4 @@ Varve.Protocol.ProtocolOptions.Entailment.init -> void
 static Varve.Protocol.EntailmentBindings.None.get -> Varve.Protocol.EntailmentBindings!
 static Varve.Protocol.Model.ProblemType.EntailmentUnsupported.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.EntailmentRefused.get -> Varve.Protocol.Model.ProblemType
+Varve.Protocol.EntailmentBindings.Schemas.get -> Varve.Sparql.Entailment.SchemaCache!

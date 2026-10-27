@@ -137,7 +137,7 @@ internal static class QueryRun
         {
             // The rewriting reads the caller's scoped view, the TBox graphs
             // through it (ADRs 0190, 0193); simple entailment is the query as sent.
-            EntailedQuery entailed = EntailmentRewriter.Rewrite(query, source, bindings.Covers, regime, cancellationToken: cancellationToken);
+            EntailedQuery entailed = EntailmentRewriter.Rewrite(query, source, bindings.Covers, regime, schemas: bindings.Schemas, cancellationToken: cancellationToken);
             using QueryResults answer = evaluator.Evaluate(entailed.Query, entailed.Source, cancellationToken);
 
             switch (answer)

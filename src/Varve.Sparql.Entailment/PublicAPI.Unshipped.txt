@@ -21,6 +21,22 @@ Varve.Sparql.Entailment.TBoxCover.Covers(Varve.Rdf.RdfTerm? graph) -> bool
 Varve.Sparql.Entailment.TBoxCover.DataGraphs.get -> Varve.Rdf.GraphScope!
 Varve.Sparql.Entailment.TBoxCover.TBoxCover(System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! tboxGraphs, Varve.Rdf.GraphScope! dataGraphs) -> void
 Varve.Sparql.Entailment.TBoxCover.TBoxGraphs.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
-static Varve.Sparql.Entailment.EntailmentRewriter.Rewrite(Varve.Sparql.Algebra.Query! query, Varve.Rdf.IQuadSource! source, System.Collections.Generic.IReadOnlyList<Varve.Sparql.Entailment.TBoxCover!>! covers, Varve.Sparql.Entailment.Model.EntailmentRegime regime, System.Collections.Generic.IReadOnlyCollection<Varve.Rdf.RdfTerm!>? recognisedDatatypes = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Varve.Sparql.Entailment.EntailedQuery!
 Varve.Sparql.Entailment.TBoxCover.Excluded.get -> Varve.Rdf.GraphScope!
 Varve.Sparql.Entailment.TBoxCover.Excluded.init -> void
+Varve.Sparql.Entailment.SchemaCache
+Varve.Sparql.Entailment.SchemaCache.SchemaCache() -> void
+static Varve.Sparql.Entailment.EntailmentRewriter.Rewrite(Varve.Sparql.Algebra.Query! query, Varve.Rdf.IQuadSource! source, System.Collections.Generic.IReadOnlyList<Varve.Sparql.Entailment.TBoxCover!>! covers, Varve.Sparql.Entailment.Model.EntailmentRegime regime, System.Collections.Generic.IReadOnlyCollection<Varve.Rdf.RdfTerm!>? recognisedDatatypes = null, Varve.Sparql.Entailment.SchemaCache? schemas = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Varve.Sparql.Entailment.EntailedQuery!
+Varve.Sparql.Entailment.Model.SchemaLookups
+Varve.Sparql.Entailment.Model.SchemaLookups.Deconstruct(out long Value) -> void
+Varve.Sparql.Entailment.Model.SchemaLookups.Equals(Varve.Sparql.Entailment.Model.SchemaLookups other) -> bool
+Varve.Sparql.Entailment.Model.SchemaLookups.SchemaLookups() -> void
+Varve.Sparql.Entailment.Model.SchemaLookups.SchemaLookups(long Value) -> void
+Varve.Sparql.Entailment.Model.SchemaLookups.Value.get -> long
+Varve.Sparql.Entailment.Model.SchemaLookups.Value.init -> void
+Varve.Sparql.Entailment.SchemaCache.Hits.get -> Varve.Sparql.Entailment.Model.SchemaLookups
+Varve.Sparql.Entailment.SchemaCache.Misses.get -> Varve.Sparql.Entailment.Model.SchemaLookups
+override Varve.Sparql.Entailment.Model.SchemaLookups.GetHashCode() -> int
+static Varve.Sparql.Entailment.Model.SchemaLookups.operator !=(Varve.Sparql.Entailment.Model.SchemaLookups left, Varve.Sparql.Entailment.Model.SchemaLookups right) -> bool
+static Varve.Sparql.Entailment.Model.SchemaLookups.operator ==(Varve.Sparql.Entailment.Model.SchemaLookups left, Varve.Sparql.Entailment.Model.SchemaLookups right) -> bool
+~override Varve.Sparql.Entailment.Model.SchemaLookups.Equals(object obj) -> bool
+~override Varve.Sparql.Entailment.Model.SchemaLookups.ToString() -> string

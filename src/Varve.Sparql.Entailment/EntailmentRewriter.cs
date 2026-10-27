@@ -59,11 +59,17 @@ public static class EntailmentRewriter
     /// recognised by name only.
     /// </remarks>
     /// <remarks>
+    /// <paramref name="schemas"/> keeps each scoping graph's schema across
+    /// requests, keyed by the versions of the graphs it merges, where
+    /// <paramref name="source"/> names them (<see cref="IGraphVersionSource"/>);
+    /// one cache serves one dataset. Null saturates every schema per request.
+    /// </remarks>
+    /// <remarks>
     /// A graph is covered by at most one binding (ADR 0194 point 2); were two
     /// to cover it, the first would. A graph none covers is read over its own
     /// triples, its TBox empty.
     /// </remarks>
-    public static EntailedQuery Rewrite(Query query, IQuadSource source, IReadOnlyList<TBoxCover> covers, EntailmentRegime regime, IReadOnlyCollection<RdfTerm>? recognisedDatatypes = null, CancellationToken cancellationToken = default)
+    public static EntailedQuery Rewrite(Query query, IQuadSource source, IReadOnlyList<TBoxCover> covers, EntailmentRegime regime, IReadOnlyCollection<RdfTerm>? recognisedDatatypes = null, SchemaCache? schemas = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
         ArgumentNullException.ThrowIfNull(source);
@@ -75,7 +81,7 @@ public static class EntailmentRewriter
 
         TBoxMerge merge = new(source, covers);
         RuleSet rules = recognisedDatatypes is null ? RulesOf(regime) : RulesOf(regime, recognisedDatatypes);
-        Rewriter rewriter = new(merge, query.Dataset, rules, NamedMembership.Of(query), cancellationToken);
+        Rewriter rewriter = new(merge, query.Dataset, rules, NamedMembership.Of(query), schemas, cancellationToken);
         return new EntailedQuery(rewriter.Rewrite(query), merge);
     }
 
@@ -109,17 +115,19 @@ public static class EntailmentRewriter
         private readonly TBoxMerge _merge;
         private readonly RuleSet _rules;
         private readonly IReadOnlyCollection<RdfTerm> _named;
+        private readonly SchemaCache? _cache;
         private readonly CancellationToken _cancellationToken;
         private readonly Dictionary<string, PatternRewriting> _compiled = [];
         private readonly List<TermHandle>? _namedGraphs;
         private IReadOnlyList<GraphPattern> _scope;
         private bool _exact = true;
 
-        internal Rewriter(TBoxMerge merge, DatasetSpec? dataset, RuleSet rules, IReadOnlyCollection<RdfTerm> named, CancellationToken cancellationToken)
+        internal Rewriter(TBoxMerge merge, DatasetSpec? dataset, RuleSet rules, IReadOnlyCollection<RdfTerm> named, SchemaCache? cache, CancellationToken cancellationToken)
         {
             _merge = merge;
             _rules = rules;
             _named = named;
+            _cache = cache;
             _cancellationToken = cancellationToken;
             if (dataset is null)
             {
@@ -441,13 +449,105 @@ public static class EntailmentRewriter
         private Schema SchemaOf(IReadOnlyList<GraphPattern> scope)
         {
             string key = KeyOf(scope);
-            if (!_schemas.TryGetValue(key, out Schema? schema))
+            if (_schemas.TryGetValue(key, out Schema? schema))
             {
-                _schemas[key] = schema = Schema.Saturate(_merge, scope, _rules, _named, _cancellationToken);
+                return schema;
             }
 
+            SchemaKey? versioned = _cache is null ? null : VersionsOf(scope);
+            if (versioned is not { } cached || !_cache!.TryGet(cached, out schema))
+            {
+                schema = Schema.Saturate(_merge, scope, _rules, _named, _cancellationToken);
+                if (versioned is { } kept)
+                {
+                    _cache!.Add(kept, schema);
+                }
+                else
+                {
+                    _cache?.Missed();
+                }
+            }
+
+            _schemas[key] = schema;
             return schema;
         }
+
+        // What a scoping graph's schema depends on: the regime's rules, the
+        // rdf:_n the query names, and each graph it merges, its own and its
+        // TBox graphs, by name and version; null where the source cannot name
+        // a version (ADR 0193).
+        private SchemaKey? VersionsOf(IReadOnlyList<GraphPattern> scope)
+        {
+            if (_merge.Inner is not IGraphVersionSource versions)
+            {
+                return null;
+            }
+
+            List<string> rules = [_rules.Rdfs ? "rdfs" : "rdf"];
+            foreach (RdfTerm datatype in _rules.Recognised)
+            {
+                rules.Add(Text(datatype));
+            }
+
+            List<string> named = [];
+            foreach (RdfTerm term in _named)
+            {
+                named.Add(Text(term));
+            }
+
+            List<string> graphs = [];
+            foreach (GraphPattern graph in scope)
+            {
+                if (Version(graph) is not { } own)
+                {
+                    return null;
+                }
+
+                System.Text.StringBuilder read = new(own);
+                foreach (TermHandle tbox in _merge.TBoxGraphsOf(graph))
+                {
+                    if (Version(GraphPattern.Named(tbox)) is not { } merged)
+                    {
+                        return null;
+                    }
+
+                    read.Append(" + ").Append(merged);
+                }
+
+                graphs.Add(read.ToString());
+            }
+
+            rules.Sort(StringComparer.Ordinal);
+            named.Sort(StringComparer.Ordinal);
+            graphs.Sort(StringComparer.Ordinal);
+            return new SchemaKey(string.Join(" ", rules) + " | " + string.Join(" ", named) + " | " + string.Join(" ; ", graphs));
+
+            string? Version(GraphPattern graph)
+            {
+                string name;
+                if (graph.Match == GraphMatch.DefaultGraph)
+                {
+                    name = "default";
+                }
+                else if (_merge.TryExternalise(graph.Graph, out RdfTerm? term))
+                {
+                    name = Text(term);
+                }
+                else
+                {
+                    return null;
+                }
+
+                return versions.TryGetGraphVersion(graph, out GraphVersion version)
+                    ? name + "@" + version.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    : null;
+            }
+        }
+
+        // A term in a key: an IRI or a blank node, as graphs, datatypes and
+        // rdf:_n are.
+        private static string Text(RdfTerm term) =>
+            (term.Kind == RdfTermKind.BlankNode ? "_:" : "<") + System.Text.Encoding.UTF8.GetString(term.Lexical) + (term.Kind == RdfTermKind.BlankNode ? string.Empty : ">");
 
         private static string KeyOf(IReadOnlyList<GraphPattern> scope)
         {

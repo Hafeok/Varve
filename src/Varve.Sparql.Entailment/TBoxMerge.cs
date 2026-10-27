@@ -289,6 +289,9 @@ internal sealed class TBoxMerge : IQuadSource, IDistinctTermSource
         }
     }
 
+    /// <summary>The TBox graphs merged into a single graph, none when no binding covers it or the source holds nothing of it.</summary>
+    internal TermHandle[] TBoxGraphsOf(GraphPattern graph) => TBoxOf(graph.Match == GraphMatch.Named ? graph.Graph : TermHandle.None);
+
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private TermHandle[] TBoxOf(TermHandle graph)
     {

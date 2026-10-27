@@ -46,4 +46,11 @@ public sealed class EntailmentBindings
 
     /// <summary>The regime a query without <c>Varve-Entailment</c> is answered under.</summary>
     public EntailmentRegime Default { get; }
+
+    /// <summary>
+    /// The dataset's saturated schemas, kept across its queries while the
+    /// graphs they merge keep their versions (ADR 0193); a new set of
+    /// bindings starts with none.
+    /// </summary>
+    public SchemaCache Schemas { get; } = new();
 }

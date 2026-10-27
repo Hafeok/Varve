@@ -334,19 +334,21 @@ internal sealed class PendingSource : IQuadSource
 /// </para>
 /// </remarks>
 [Contract(typeof(CheckpointsAndReads.PinnedReadIsASnapshot), Role = "a stable read of the dataset at one position")]
-public sealed class DatasetView : IQuadSource, IDistinctTermSource, IDisposable
+public sealed class DatasetView : IQuadSource, IDistinctTermSource, IGraphVersionSource, IDisposable
 {
     private readonly IQuadSource _source;
     private readonly TermView _terms;
+    private readonly GraphVersions? _graphs;
     private Action? _release;
     private bool _disposed;
 
-    internal DatasetView(long position, IQuadSource source, TermView terms, Action? release = null)
+    internal DatasetView(long position, IQuadSource source, TermView terms, Action? release = null, GraphVersions? graphs = null)
     {
         Position = new Position(position);
         _source = source;
         _terms = terms;
         _release = release;
+        _graphs = graphs;
     }
 
     /// <summary>The position this view reads.</summary>
@@ -389,6 +391,32 @@ public sealed class DatasetView : IQuadSource, IDistinctTermSource, IDisposable
     {
         ThrowIfDisposed();
         return _source.Match(subject, predicate, @object, graph);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// The graph's version as of this view's position (ADR 0125): the
+    /// position of the last commit at or before it that touched the graph.
+    /// Answered from the head's versions when the view was opened; refused
+    /// for a graph a commit after an as-of view's position has touched.
+    /// </remarks>
+    public bool TryGetGraphVersion(GraphPattern graph, out GraphVersion version)
+    {
+        ThrowIfDisposed();
+        version = GraphVersion.Empty;
+        if (_graphs is null || graph.Match is not (GraphMatch.DefaultGraph or GraphMatch.Named))
+        {
+            return false;
+        }
+
+        long at = _graphs.VersionOf(graph.Match == GraphMatch.DefaultGraph ? 0 : graph.Graph.Value);
+        if (at > Position.Value)
+        {
+            return false;
+        }
+
+        version = new GraphVersion(at);
+        return true;
     }
 
     /// <inheritdoc />

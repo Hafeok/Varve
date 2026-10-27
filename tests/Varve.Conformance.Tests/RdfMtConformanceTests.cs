@@ -60,7 +60,7 @@ public class RdfMtConformanceTests
             _ => EntailmentRegime.Rdfs,
         };
 
-        EntailedQuery entailed = EntailmentRewriter.Rewrite(ask, loaded.Source, [], regime, entry.Recognised, TestContext.Current.CancellationToken);
+        EntailedQuery entailed = EntailmentRewriter.Rewrite(ask, loaded.Source, [], regime, entry.Recognised, cancellationToken: TestContext.Current.CancellationToken);
         using QueryResults results = new SparqlEvaluator(EntailmentFunctions.Options).Evaluate(entailed.Query, entailed.Source, TestContext.Current.CancellationToken);
         bool entailedResult = ((BooleanResult)results).Value;
         Assert.True(entailedResult == entry.Positive, entry.Name + ": the action " + (entailedResult ? "entails" : "does not entail") + " the result under " + entry.Regime);
