@@ -19,7 +19,7 @@ namespace Varve.Server;
 internal readonly record struct DatasetHealth(string Name, DatasetState State, string? Reason, long Head, long Projection, bool Failed, bool Superseded = false, DatasetRole Role = DatasetRole.Writer, Varve.Store.ExtentRetention? Retention = null);
 
 /// <summary>One dataset's line in the readiness answer.</summary>
-internal readonly record struct DatasetReadiness(string Name, string State, string? Reason, long? Lag, DatasetRole Role = DatasetRole.Writer);
+internal readonly record struct DatasetReadiness(string Name, string State, string? Reason, long? Lag, DatasetRole Role = DatasetRole.Writer, long? Position = null);
 
 /// <summary>
 /// The readiness decision (ADR 0113), pure, so that its property can be
@@ -127,7 +127,8 @@ internal static class Readiness
                     break;
             }
 
-            states.Add(line with { Role = dataset.Role });
+            // The applied position of an open dataset: what a follower has applied, not the writer's head (ADR 0180 point 7).
+            states.Add(line with { Role = dataset.Role, Position = dataset.State == DatasetState.Open ? dataset.Head : null });
         }
 
         return (ready, states);

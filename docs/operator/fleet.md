@@ -94,8 +94,17 @@ Request ids are `<instance>:<id>`, unique across the fleet.
 `/health/ready` carries a `management` object: the instance's `role` in the
 system dataset (`writer`, `follower` or `superseded`), the `epoch`, the
 applied `position`, the `lag` behind the system tail, and the `bootstrap`
-state (`recorded`, `absent` or `mismatch`). Each dataset carries its role
-(`writer`, `follower` or `elsewhere`) and lag. An instance is not ready when
+state (`recorded`, `absent` or `mismatch`). Each dataset carries:
+- its role: `writer`, `follower` or `elsewhere`;
+- its `position`: what this instance has applied, a follower's included;
+- its `lag`: the commits it has applied to its log but not yet to its
+  default projection.
+
+A follower's position is how far it has read the writer's log, not a
+distance from the writer's head: no instance knows the head without asking
+the writer, so readiness reports none. To read your own write on any
+instance, send the position its response named as `Varve-Min-Position`
+(above). An instance is not ready when
 its system role is `superseded`, its bootstrap is `mismatch`, its management
 lag exceeds `Varve:Fleet:AllowedLag`, or a dataset fails ADR 0113's rule.
 A dataset whose event declarations are moving to the management plane, and

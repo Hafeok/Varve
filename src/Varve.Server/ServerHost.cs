@@ -739,6 +739,11 @@ internal static partial class ServerHost
                     json.WriteString("role", Role(state.Role));
                     Moving(json, state.Name);
 
+                    if (state.Position is long position)
+                    {
+                        json.WriteNumber("position", position);
+                    }
+
                     if (state.Lag is long lag)
                     {
                         json.WriteNumber("lag", lag);
@@ -775,6 +780,11 @@ internal static partial class ServerHost
                 if (state.Reason is not null)
                 {
                     json.WriteString("reason", state.Reason);
+                }
+
+                if (state.Position is long position)
+                {
+                    json.WriteNumber("position", position);
                 }
 
                 if (state.Lag is long lag)

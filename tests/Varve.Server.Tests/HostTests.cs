@@ -295,7 +295,7 @@ public sealed class HostTests
         Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
         // The bootstrap operators, then the declaration of d: system position 2.
         Assert.Equal(
-            """{"status":"ready","management":{"role":"writer","epoch":0,"position":2,"lag":0,"bootstrap":"recorded"},"datasets":{"d":{"state":"ready","role":"writer","lag":0}}}""",
+            """{"status":"ready","management":{"role":"writer","epoch":0,"position":2,"lag":0,"bootstrap":"recorded"},"datasets":{"d":{"state":"ready","role":"writer","position":0,"lag":0}}}""",
             await ready.Content.ReadAsStringAsync(Ct));
     }
 
