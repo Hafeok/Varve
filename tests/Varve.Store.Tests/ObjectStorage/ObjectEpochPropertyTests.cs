@@ -24,6 +24,51 @@ public sealed class ObjectEpochPropertyTests
 {
     private const int Iterations = 200;
 
+    /// <summary>
+    /// Writers that claim and close, one after another, before any record is
+    /// written, leave a segment that starts with fence chunks of no bytes.
+    /// A later open joins them under the chunks it read first, and joining
+    /// buffers of no bytes is allowed (#165, found by the tier-1 fault
+    /// property): every claim opens, and the log reads on.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task writers_that_wrote_only_fences_leave_a_log_every_later_writer_opens(bool closedBeforeTheLast)
+    {
+        DatasetOptions options = T.Options(maxRecordBytes: 128, segmentBytes: 1024) is var small
+            ? new DatasetOptions { Clock = small.Clock, MaxRecordBytes = small.MaxRecordBytes, SegmentBytes = small.SegmentBytes, CommitCache = small.CommitCache, Maintenance = MaintenanceMode.Off }
+            : throw new InvalidOperationException();
+        await using ObjectHarness objects = new(waits: new InstantClock(DateTimeOffset.UnixEpoch));
+        Dataset writer = await T.OpenOrCreate(await objects.OpenAsync(), options);
+        List<Dataset> opened = [writer];
+
+        for (int claim = 0; claim < 2; claim++)
+        {
+            await writer.DisposeAsync();
+            writer = await Dataset.OpenAsync(await objects.OpenAsync(), options, T.Ct);
+            opened.Add(writer);
+        }
+
+        await writer.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal(new string('o', 46))), T.Ct);
+        await writer.CommitAsync(new CommitRequest().Retract(T.Iri("s"), T.Iri("p"), T.Literal(new string('o', 46))), T.Ct);
+
+        if (closedBeforeTheLast)
+        {
+            await writer.DisposeAsync();
+        }
+
+        Dataset last = await Dataset.OpenAsync(await objects.OpenAsync(), options, T.Ct);
+        opened.Add(last);
+        Assert.Equal(2, last.Head.Value);
+        Assert.Equal(CommitOutcome.Committed, (await last.CommitAsync(new CommitRequest().Assert(T.Iri("t"), T.Iri("p"), T.Iri("o")), T.Ct)).Outcome);
+
+        foreach (Dataset dataset in opened)
+        {
+            await dataset.DisposeAsync();
+        }
+    }
+
     [Fact]
     public async Task a_superseded_writer_attempts_only_its_own_slots_or_the_fence_and_appends_nothing_after_it()
     {

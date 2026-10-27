@@ -1281,7 +1281,9 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
                 throw new LogVerificationException("Segment " + Id + " holds bytes after its seal.");
             }
 
-            ArrayBufferWriter<byte> joined = new(below.Bytes!.WrittenCount + Bytes!.WrittenCount);
+            // Both may hold no bytes, as fence chunks before a segment's first
+            // record do, and a buffer is never asked for no capacity.
+            ArrayBufferWriter<byte> joined = new(Math.Max(1, below.Bytes!.WrittenCount + Bytes!.WrittenCount));
             joined.Write(below.Bytes.WrittenSpan);
             joined.Write(Bytes.WrittenSpan);
             Bytes = joined;

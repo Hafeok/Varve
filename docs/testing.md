@@ -220,6 +220,7 @@ raises it for the release gate (#129) and for hunting:
 | `ExtentMergeTests`: over generated histories with retractions and any schedule of checkpoints, drops and merges, the view at every position and the head equal the model's, before and after an open from the log and the extents alone | 40 schedules, about 3 s | `VARVE_EXTENT_SCHEDULES=<n>` |
 | `ExtentMergeTests`: the policy keeps its bound over any sequence of set sizes | 500 sequences, under a second | — |
 | `ObjectReaderScheduleTests`: over generated schedules of readers attaching, pinning, crashing, restarting and being forgotten, a writer holding several versions, and a second writer taking the epoch over, no extent a live announced version names is deleted, and every unnamed set goes once no record holds it | 60 schedules, about 4 s | `VARVE_READER_SCHEDULES=<n>` (1,200 ran clean at development) |
+| `ObjectFollowerFaultTests` (#165, tier 1 under failure injection): over generated schedules of commits, seals, consolidations, takeovers after a close or a crash, re-opens of the follower, and advances whose reads the store fails before or after applying them, the follower equals the reference model at every position it reports, and reaches the head once the faults stop | 60 schedules, about 2 s | `VARVE_FOLLOWER_FAULT_SCHEDULES=<n>` (2,000 ran clean at development, about 60 s) |
 | `ObjectReaderScheduleTests`: a fault before and after every write and delete the maintenance workload makes, under `derived/` and `readers/` | every injection point checked for whole catalogs; every eighth also read at every position; about 20 s | `VARVE_EXTENT_FAULTS_FULL=1`: every point read in full, about 30 s |
 
 #133 (ADRs 0177, 0178) adds the seek's properties, under the same variable:
@@ -275,7 +276,8 @@ The nightly run also sets section 7's release-gate depths for Extent
 maintenance: `VARVE_EXTENT_SCHEDULES=400` (40 on a pull request; it sets
 both `ExtentMergeTests`' and #133's `ExtentSeekTests`' schedules),
 `VARVE_READER_SCHEDULES=1200` (60; the count run clean at development) and
-`VARVE_EXTENT_FAULTS_FULL=1`.
+`VARVE_EXTENT_FAULTS_FULL=1`. Replication part 1 (#165) adds
+`VARVE_FOLLOWER_FAULT_SCHEDULES=2000` (60).
 
 The nightly run's second job sets `VARVE_LONG_PROPERTIES=1` for the SHACL
 projects: `Varve.Derivation.Tests`, `Varve.Shacl.Tests`,

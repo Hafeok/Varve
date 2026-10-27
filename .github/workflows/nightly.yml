@@ -94,6 +94,8 @@ jobs:
           VARVE_EXTENT_FAULTS_FULL: "1"
           VARVE_CACHE_DAMAGE_STRIDE: "1"
           VARVE_EXTENT_DAMAGE_STRIDE: "1"
+          # Replication part 1 (#165): tier 1 under failure injection.
+          VARVE_FOLLOWER_FAULT_SCHEDULES: "2000"
         run: >
           dotnet test
           --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj

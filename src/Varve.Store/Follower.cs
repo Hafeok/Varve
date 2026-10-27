@@ -23,6 +23,10 @@ public sealed partial class Dataset
     // replayed from the log above the catalog, before any advance.
     private long _memtableAtOpen;
 
+    // Whether chunks the storage adopted may not have been applied yet:
+    // set from before a refresh until a scan completes (ADR 0164 point 2).
+    private bool _scanOwed;
+
     /// <summary>
     /// Whether this follower's memtable has grown by more than
     /// <see cref="DatasetOptions.MemtableLimit"/> since it opened, by the
@@ -74,8 +78,16 @@ public sealed partial class Dataset
         {
             ObjectDisposedException.ThrowIf(_disposing, this);
 
-            if (_storage is ITailingStorage tailing && !await tailing.RefreshAsync(cancellationToken).ConfigureAwait(false))
+            // A refresh that adopted chunks and then failed, or a scan that
+            // failed, leaves them held by the storage and not yet applied: the
+            // next advance scans even when its refresh finds nothing new, or the
+            // follower would stay behind until the writer appended again.
+            bool owed = _scanOwed;
+            _scanOwed = true;
+
+            if (_storage is ITailingStorage tailing && !await tailing.RefreshAsync(cancellationToken).ConfigureAwait(false) && !owed)
             {
+                _scanOwed = false;
                 return Head;
             }
 
@@ -103,6 +115,7 @@ public sealed partial class Dataset
 
             if (closed.Count == 0)
             {
+                _scanOwed = false;
                 return Head;
             }
 
@@ -139,6 +152,7 @@ public sealed partial class Dataset
             }
 
             _state = new State(p, commits, index, state.Checkpoints, null, graphs);
+            _scanOwed = false;
             Signal();
             return Head;
         }
