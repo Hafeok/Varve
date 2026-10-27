@@ -43,10 +43,26 @@ where Varve is the wrong tool: [`docs/why.md`](docs/why.md).
 
 ## Status
 
-**`v0.1.0-preview.15` is the latest release, and it made an as-of read
-inside an extent set cost its matches, not the set
-([#133](https://github.com/Hafeok/Varve/issues/133), in 1.0 by
-[#15](https://github.com/Hafeok/Varve/issues/15))**: a read at a position
+**`v0.1.0-preview.16` is the latest release, and it gave every shipped
+artefact an attested SBOM
+([#119](https://github.com/Hafeok/Varve/issues/119), in 1.0 by
+[#15](https://github.com/Hafeok/Varve/issues/15))**:
+- **Every package, the tool and the container image carry an SPDX 2.3 SBOM**
+  of exactly what they contain, generated from the locked restore and
+  byte-identical when generated twice. Each is attested keylessly beside the
+  artefact's build provenance, and named with its digest in the release
+  descriptor.
+- **The dependency gate checks every lockfile.** It fails an unadmitted or
+  stale package, a licence outside its scope, a native asset in a shipped
+  closure, an Action not pinned by SHA, or an audit exemption without its
+  VEX statement.
+- **`SECURITY.md` states the support period,** and
+  [`docs/supply-chain.md`](docs/supply-chain.md) says how to verify all of
+  it.
+
+`v0.1.0-preview.15` before it made an as-of read inside an extent set cost
+its matches, not the set
+([#133](https://github.com/Hafeok/Varve/issues/133)): a read at a position
 inside a set's window seeks the set — derived format 5 keeps each extent's
 positions in columns beside its keys and its rows within as a key section —
 so an as-of lookup at REC M costs a third of a lookup at the head where it
@@ -371,7 +387,7 @@ is the Native AOT binary and nothing else:
 
 ```bash
 dotnet tool install --global Varve.Server --prerelease
-docker pull ghcr.io/hafeok/varve:v0.1.0-preview.15
+docker pull ghcr.io/hafeok/varve:v0.1.0-preview.16
 ```
 
 Serve one dataset on your machine. `--anonymous` is for development only: a
@@ -380,7 +396,7 @@ real deployment takes OIDC bearer tokens ([ADR 0037](docs/adr/0037-server-authen
 ```bash
 varve serve --anonymous --datasets-root "$PWD/data"
 # or, listening on 8080 instead of 5000, with the datasets in the image's volume:
-docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.15 serve --anonymous
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.16 serve --anonymous
 
 # then declare the dataset in the management plane (ADR 0163):
 curl -X PUT http://localhost:5000/manage/datasets/people -H 'Content-Type: application/trig' \
