@@ -256,4 +256,66 @@
     <PackageVersion Include="AngleSharp" Version="1.8.2" Adr="0063" />
   </ItemGroup>
 
+  <!--
+    ADR 0224. The register is checked against what the restore resolved, every
+    packages.lock.json in the repository, direct and transitive. A transitive
+    package is admitted by the ADR of the package that brings it in, so it has
+    no entry here; the lockfile diff shows it in review, and the gate checks
+    its licence and its native assets like any other.
+
+    The items below are the register's other three kinds of entry. None of them
+    is an MSBuild item anything else reads.
+  -->
+
+  <ItemGroup Label="Implicit packages: referenced by an SDK, never by a project">
+    <!-- No PackageVersion can name these: the SDK adds the reference itself,
+         at its own version, and central package management leaves it alone.
+         Each names what adds it. The .NET SDK is pinned by global.json, with
+         roll-forward to its latest patch only (ADR 0224 point 5). -->
+    <ImplicitPackage Include="Microsoft.NET.ILLink.Tasks" Via="the .NET SDK, for IsAotCompatible and PublishAot" Adr="0224" />
+    <ImplicitPackage Include="Microsoft.DotNet.ILCompiler" Via="the .NET SDK, for PublishAot" Adr="0224" />
+    <ImplicitPackage Include="NETStandard.Library" Via="the .NET SDK, for a netstandard2.0 target (Varve.Analyzers, ADR 0004)" Adr="0224" />
+
+    <!-- The AppHost SDK adds its dashboard and orchestrator for the host it
+         restores on, so the sample's lockfile is the one CI's ubuntu runner
+         writes (ADR 0224). -->
+    <ImplicitPackage Include="Aspire.Dashboard.Sdk.*" Via="Aspire.AppHost.Sdk, per host RID" Adr="0117" />
+    <ImplicitPackage Include="Aspire.Hosting.Orchestration.*" Via="Aspire.AppHost.Sdk, per host RID" Adr="0117" />
+  </ItemGroup>
+
+  <ItemGroup Label="Licences stated, where a package declares no SPDX expression">
+    <!-- Each package below declares its licence by a file or a URL, not an
+         expression. The text was read on 2026-10-27 and is stated here, with
+         what the package declares (Declared), so that a version declaring
+         something else fails until it is read again. ADR 0224 point 4. -->
+
+    <!-- Runtime, in Varve.Aspire's closure through Aspire.Hosting: the file is
+         the two-clause BSD licence, word for word. -->
+    <PackageLicence Include="Fractions" Version="7.3.0" Declared="license.txt" Licence="BSD-2-Clause" Adr="0224" />
+
+    <!-- Build and test only. Each file or URL is the MIT licence. -->
+    <PackageLicence Include="CommandLineParser" Version="2.9.1" Declared="License.md" Licence="MIT" Adr="0224" />
+    <PackageLicence Include="Microsoft.DotNet.PlatformAbstractions" Version="3.1.6" Declared="LICENSE.TXT" Licence="MIT" Adr="0224" />
+    <PackageLicence Include="Microsoft.VisualStudio.Validation" Version="15.0.82" Declared="https://raw.githubusercontent.com/Microsoft/vs-validation/1fc5bdcf81/LICENSE" Licence="MIT" Adr="0224" />
+    <PackageLicence Include="NETStandard.Library" Version="2.0.3" Declared="https://github.com/dotnet/standard/blob/master/LICENSE.TXT" Licence="MIT" Adr="0224" />
+    <PackageLicence Include="System.ComponentModel.Composition" Version="4.5.0" Declared="https://github.com/dotnet/corefx/blob/master/LICENSE.TXT" Licence="MIT" Adr="0224" />
+    <PackageLicence Include="System.Security.Permissions" Version="4.5.0" Declared="https://github.com/dotnet/corefx/blob/master/LICENSE.TXT" Licence="MIT" Adr="0224" />
+
+    <!-- The one exception, named in ADR 0224: the package declares the .NET
+         Library licence by its old link, which is not an OSI-approved licence,
+         and it is recorded as declared, not restated. It ships nothing: it
+         reaches the build through Varve.Analyzers' netstandard2.0 target and
+         its analyzer packages, and the gate fails if it ever enters a shipped
+         closure. -->
+    <PackageLicence Include="Microsoft.NETCore.Platforms" Version="1.1.0" Declared="http://go.microsoft.com/fwlink/?LinkId=329770" Exception="build" Adr="0224" />
+  </ItemGroup>
+
+  <ItemGroup Label="Native assets in a shipped closure: the exceptions">
+    <!-- Constraint 1 is about the three hosts. Varve.Aspire is an AppHost-only
+         package, a development-time one, outside them: Aspire.Hosting brings
+         Hex1b's terminal interop, whose natives every AppHost carries
+         regardless of Varve. Its SBOM lists them (ADR 0224, D2). -->
+    <NativeAssetException Include="src/Varve.Aspire/Varve.Aspire.csproj" Adr="0117" Reason="an AppHost-only package, outside the three hosts of constraint 1: Aspire.Hosting brings Hex1b's terminal interop, whose natives every AppHost carries regardless of Varve" />
+  </ItemGroup>
+
 </Project>

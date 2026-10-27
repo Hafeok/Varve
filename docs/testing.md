@@ -158,9 +158,13 @@ file-based apps under `eng/`, run in CI. Each of them replaces a rule someone
 would otherwise have to remember.
 
 **Prove a gate's failure path by running it.** A gate that has never failed is
-a gate nobody has tested. `eng/native-assets.cs` is pointed at a real restore
-graph that contains a native asset and at one that does not, and both outcomes
-are asserted.
+a gate nobody has tested.
+- **The register gate's native-asset rule**, once `eng/native-assets.cs`, is
+  pointed at a real restore graph that contains a native asset and at one
+  that does not, and both outcomes are asserted.
+- **Each of the gate's other failure cases** (ADR 0224) is a broken register
+  in `tests/fixtures/dependency-register/`, restored for real from nuget.org
+  where it needs a restore, and required to fail for its own reason.
 
 ## 6. Failure injection — for everything that writes to disk
 
