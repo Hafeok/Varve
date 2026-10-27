@@ -226,8 +226,8 @@ Varve does not judge liveness. **Nothing else triggers a handover**:
   partition between a client and the writer says nothing about the writer.
 
 **7. No timers in Varve's decisions.**
-- A standby notices a release by reading the writer record with a
-  conditional GET on its follow interval (ADR 0180). The interval affects
+- A standby notices a release by reading the writer record on its follow
+  interval (ADR 0180 point 5). The interval affects
   how soon a takeover happens, never whether one is safe. Store change
   notifications could later shorten it without changing any decision.
 - A false probe failure, for example a writer stalled in a garbage collection,

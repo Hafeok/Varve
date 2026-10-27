@@ -315,6 +315,71 @@ public abstract class FleetCases : IAsyncDisposable
         Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 1 }")).StatusCode);
     }
 
+    /// <summary>
+    /// A rolling restart of a dataset with a writer set (ADR 0180 point 4): a
+    /// holds d and b is its standby, warm on readiness. a shuts down,
+    /// releasing for shutdown; b, warm, claims d in place and writes; a,
+    /// restarted, finds b holding the record, a member, and starts as b's
+    /// standby, forwarding writes to it. The takeover time is reported.
+    /// </summary>
+    [Fact]
+    public async Task A_rolling_restart_moves_the_writer_to_the_warm_standby_and_the_restarted_writer_stands_by()
+    {
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container, writer: "a");
+        long declared = await DeclareAsync(a, "d", "a", "b");
+        Server b = await StartAsync("b", container, writer: "a");
+        await WaitDeclaredAsync(b, declared, "d", "standby");
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+        await WaitWarmAsync(b, "d");
+
+        Stopwatch takeover = Stopwatch.StartNew();
+        await a.StopAsync();
+        await WaitDeclaredAsync(b, declared, "d", "writer");
+        takeover.Stop();
+        TestContext.Current.SendDiagnosticMessage("takeover after a shutdown release, " + GetType().Name + ": " + takeover.ElapsedMilliseconds + " ms");
+
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }")).StatusCode);
+
+        Server again = await StartAsync("a", container, writer: "a");
+        await WaitDeclaredAsync(again, declared, "d", "standby");
+        HttpResponseMessage forwarded = await Update(again, "d", "INSERT DATA { <http://ex/forwarded> <http://ex/p> 3 }");
+        Assert.Equal(HttpStatusCode.NoContent, forwarded.StatusCode);
+        Assert.Equal("3", await CountAsync(again, forwarded.Headers.GetValues("Varve-Position").Single()));
+
+        StringWriter output = new() { NewLine = "\n" };
+        await Varve.Server.Commands.Cli.RunAsync(container.Lease("d"), new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct);
+        Assert.Contains("holder: b", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("abdication", output.ToString(), StringComparison.Ordinal);
+    }
+
+    // Until readiness reports the dataset's standby warm (ADR 0180 point 7).
+    private static async Task WaitWarmAsync(Server server, string dataset)
+    {
+        string last = string.Empty;
+
+        for (int attempt = 0; attempt < 40; attempt++)
+        {
+            HttpResponseMessage ready = await server.Http.GetAsync(new Uri(server.Address, "health/ready"), Ct);
+            last = await ready.Content.ReadAsStringAsync(Ct);
+
+            if (ready.StatusCode == HttpStatusCode.OK)
+            {
+                using JsonDocument body = JsonDocument.Parse(last);
+                JsonElement entry = body.RootElement.GetProperty("datasets").GetProperty(dataset);
+
+                if (entry.GetProperty("role").GetString() == "standby" && entry.GetProperty("tailing").GetBoolean() && entry.GetProperty("warm").GetBoolean())
+                {
+                    return;
+                }
+            }
+
+            await Task.Delay(1000, Ct);
+        }
+
+        Assert.Fail(server.Instance + " never reported " + dataset + "'s standby warm: " + last + "\n" + server.Log);
+    }
+
     private static async Task<string> CountAsync(Server server, string atLeast)
     {
         using HttpRequestMessage read = new(HttpMethod.Get, new Uri(server.Address, "datasets/d/sparql?query=" + Uri.EscapeDataString("SELECT (COUNT(*) AS ?n) { ?s <http://ex/p> ?o }")));
@@ -357,6 +422,19 @@ public abstract class FleetCases : IAsyncDisposable
 
     private static Task<HttpResponseMessage> Declare(Server server, string dataset) =>
         server.Http.PutAsync(new Uri(server.Address, "manage/datasets/" + dataset), Trig(Declaration(dataset)), Ct);
+
+    // A dataset with a writer set (ADR 0180): placed on one instance, the others its standbys.
+    private static async Task<long> DeclareAsync(Server server, string dataset, string placedOn, params string[] standbys)
+    {
+        string trig = Declaration(dataset)
+            + " <urn:fleet:" + dataset + "> <https://w3id.org/varve/ns#placedOn> \"" + placedOn + "\" ;"
+            + " <https://w3id.org/varve/ns#automaticHandover> true"
+            + string.Concat(standbys.Select(standby => " ; <https://w3id.org/varve/ns#standbyOn> \"" + standby + "\""))
+            + " .";
+        HttpResponseMessage response = await server.Http.PutAsync(new Uri(server.Address, "manage/datasets/" + dataset), Trig(trig), Ct);
+        Assert.True(response.IsSuccessStatusCode, (int)response.StatusCode + " " + await response.Content.ReadAsStringAsync(Ct));
+        return long.Parse(response.Headers.GetValues("Varve-Position").Single(), CultureInfo.InvariantCulture);
+    }
 
     private static string Declaration(string dataset) =>
         "<urn:fleet:" + dataset + "> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> \"" + dataset + "\" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#ObjectStorage> .";
@@ -511,6 +589,24 @@ public abstract class FleetCases : IAsyncDisposable
             }
 
             Assert.Fail(Instance + " did not come up: " + Log);
+        }
+
+        /// <summary>Stops the process as an orchestrator does, by SIGTERM, and waits for it to exit: the host drains and releases what it holds.</summary>
+        internal async Task StopAsync()
+        {
+            if (_process.HasExited)
+            {
+                return;
+            }
+
+            using (Process signal = Process.Start("kill", ["-TERM", _process.Id.ToString(CultureInfo.InvariantCulture)]))
+            {
+                await signal.WaitForExitAsync(Ct);
+            }
+
+            using CancellationTokenSource exit = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+            exit.CancelAfter(TimeSpan.FromSeconds(60));
+            await _process.WaitForExitAsync(exit.Token);
         }
 
         internal void Kill()

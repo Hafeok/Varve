@@ -614,7 +614,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
         if (target.Dataset is { } dataset)
         {
-            if (Datasets.RoleOf(dataset) != DatasetRole.Follower)
+            if (Datasets.RoleOf(dataset) is not (DatasetRole.Follower or DatasetRole.Standby))
             {
                 // Written here, or not held here at all: served, or not found, here.
                 return WriterRoute.Local;

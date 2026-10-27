@@ -129,11 +129,13 @@ for a follower; this point adds the standby.
   `Varve:Fleet:FollowInterval` since its last advance, or on a minimum-position
   header above its head.
 - **A standby, and the system dataset,** advance on the interval. A standby
-  also reads the writer record by conditional GET on the same interval, which
-  is how it observes a release (ADR 0179 point 7).
+  also reads the writer record on the same interval, which is how it observes
+  a release (ADR 0179 point 7). The read is whole, a few hundred bytes: the
+  store contract has five operations and no conditional read (ADR 0134), and
+  adding one is not worth a sixth for a record this small.
 - **The cost**, stated in the operator guide: an idle standby dataset is three
-  GETs per interval, the writer record answering `304` and the two probes of
-  ADR 0164 point 3. An idle dataset with no standby still makes no requests.
+  GETs per interval, the writer record and the two probes of ADR 0164 point
+  3. An idle dataset with no standby still makes no requests.
 
 **6. Warm.** A standby is warm when all of these hold:
 - it is **tailing**: it follows on the interval (point 5);

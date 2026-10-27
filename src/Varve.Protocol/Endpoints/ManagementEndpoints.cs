@@ -189,7 +189,7 @@ internal static class ManagementEndpoints
             await WriteJsonAsync(context, StatusCodes.Status200OK, json =>
             {
                 json.WriteString("state", AdminEndpoints.StateName(entry.State));
-                json.WriteString("role", entry.Role switch { DatasetRole.Writer => "writer", DatasetRole.Follower => "follower", _ => "elsewhere" });
+                json.WriteString("role", entry.Role switch { DatasetRole.Writer => "writer", DatasetRole.Follower => "follower", DatasetRole.Standby => "standby", _ => "elsewhere" });
 
                 if (entry.Reason is not null)
                 {

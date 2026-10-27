@@ -254,6 +254,7 @@ Varve.Protocol.Model.DatasetOrigin.Declared = 3 -> Varve.Protocol.Model.DatasetO
 Varve.Protocol.Model.DatasetRole
 Varve.Protocol.Model.DatasetRole.Elsewhere = 2 -> Varve.Protocol.Model.DatasetRole
 Varve.Protocol.Model.DatasetRole.Follower = 1 -> Varve.Protocol.Model.DatasetRole
+Varve.Protocol.Model.DatasetRole.Standby = 3 -> Varve.Protocol.Model.DatasetRole
 Varve.Protocol.Model.DatasetRole.Writer = 0 -> Varve.Protocol.Model.DatasetRole
 Varve.Protocol.Model.UpdatePreconditions.Validators.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.ICommitValidator!>!
 Varve.Protocol.Model.UpdatePreconditions.Validators.init -> void

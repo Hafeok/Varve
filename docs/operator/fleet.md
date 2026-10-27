@@ -49,6 +49,32 @@ fencing any predecessor: a restart is the recovery from a writer that died
 without releasing. `varve lease <container>/<dataset>` shows every claim and
 release, `placement` included.
 
+### Standbys: a writer set
+
+A dataset declared with `varve:automaticHandover true` may name standbys,
+`varve:standbyOn "<instance>"`, any number of them, none equal to its
+`placedOn` (ADR 0180). The `placedOn` instance is the **preferred writer**,
+and the two together are the **writer set**: only a member ever claims.
+
+- **At start**, a member claims only when the writer record is empty or
+  released and it is the preferred writer, when the record names it (a
+  restart after its own crash), or when the record names an instance that is
+  not a member. Otherwise it starts as a standby. So a returning writer never
+  takes the dataset from a healthy successor.
+- **A standby tails on the interval**, whether or not reads arrive, and reads
+  the writer record on the same interval. That is how it sees a release.
+- **After a release, its reason decides who claims.** For `placement`, only
+  the `placedOn` instance. For `shutdown`, `storage-error` or
+  `local-disk-error`, every warm member races, and the store's conditional
+  write picks one. The winner claims in place: it keeps what it has applied
+  and cached, and commits at once.
+- **A placement change still works by events**: changing `placedOn` makes the
+  holder release for `placement`, whoever it is, and the new `placedOn`
+  claims. Taking the holder out of `standbyOn` does the same. A holder that
+  differs from `placedOn` after a race is a state, and nothing reacts to it.
+- **A superseded holder** rejoins as a standby, and may claim again once it
+  is warm.
+
 ## Where a write goes: forwarding
 
 Any instance accepts a write (ADR 0168). One that does not write the dataset
@@ -95,10 +121,17 @@ Request ids are `<instance>:<id>`, unique across the fleet.
 system dataset (`writer`, `follower` or `superseded`), the `epoch`, the
 applied `position`, the `lag` behind the system tail, and the `bootstrap`
 state (`recorded`, `absent` or `mismatch`). Each dataset carries:
-- its role: `writer`, `follower` or `elsewhere`;
+- its role: `writer`, `standby`, `follower` or `elsewhere`;
 - its `position`: what this instance has applied, a follower's included;
-- its `lag`: the commits it has applied to its log but not yet to its
-  default projection.
+- its `lag`, the projection lag: the commits it has applied to its log but
+  not yet to its default projection;
+- for a standby, `tailing` and `warm`. A standby is **warm** when it tails on
+  the interval, its last advance succeeded, its projection lag is zero, it is
+  not re-opening, and it has advanced since it opened. Only a warm standby
+  races for a release. A standby that is not warm is still ready to serve
+  reads;
+- `validation`: each shapes binding's projection lag, beside `warm` and never
+  part of it.
 
 A follower's position is how far it has read the writer's log, not a
 distance from the writer's head: no instance knows the head without asking
@@ -133,10 +166,12 @@ default of one second:
 | A read with `Varve-Min-Position` above the follower's head | one advance, whatever its age |
 | The system dataset, on every follower | one advance per interval: 2 GETs when idle |
 | The system writer | one GET of its writer record per interval, to learn it was superseded |
+| **An idle standby dataset** | **3 GETs per interval**: its writer record, read whole (a few hundred bytes), and the 2 GETs of an idle advance |
 | A forwarded write | the writer's own requests, and one extra HTTP hop between instances; the body is read whole before it is sent |
 
 So an idle fleet of N instances asks the store for about `2(N − 1) + 1`
-GETs per interval, whatever the number of datasets. A longer interval lowers
+GETs per interval, whatever the number of datasets, and 3 more per interval
+for each standby of each dataset. A longer interval lowers
 that and lengthens how soon a grant is enforced everywhere;
 `Varve-Min-Management-Position` gives the guarantee to the client that needs
 it.

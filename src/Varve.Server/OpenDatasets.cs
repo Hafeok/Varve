@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -181,7 +182,6 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
                 StorageKind.ObjectStorage => DatasetStorage.ObjectStorage,
                 _ => DatasetStorage.File,
             };
-            DatasetRole role = placement.RoleOf(declared, storage);
             Entry? entry;
             bool fresh = false;
 
@@ -195,7 +195,14 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
                 }
             }
 
-            await ConvergeAsync(name, entry, role, declared, placement, fresh, cancellationToken).ConfigureAwait(false);
+            if (placement.HasWriterSet(declared, storage))
+            {
+                await ConvergeMemberAsync(name, entry, declared, placement, fresh, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await ConvergeAsync(name, entry, placement.RoleOf(declared, storage), declared, placement, fresh, cancellationToken).ConfigureAwait(false);
+            }
 
             if (entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer && entry.Dataset is { } written)
             {
@@ -453,19 +460,21 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
                     return;
                 }
 
-                if (role == DatasetRole.Follower && !await _objects.ExistsAsync(name, cancellationToken).ConfigureAwait(false))
+                bool follows = role is DatasetRole.Follower or DatasetRole.Standby;
+
+                if (follows && !await _objects.ExistsAsync(name, cancellationToken).ConfigureAwait(false))
                 {
                     entry.Fail("Its writer has not created it yet; it is followed once it has.");
                     return;
                 }
 
-                Backend objects = await _objects.OpenAsync(name, role == DatasetRole.Writer ? ObjectStorageAccess.Write : ObjectStorageAccess.ReadOnly, _address, cancellationToken).ConfigureAwait(false);
+                Backend objects = await _objects.OpenAsync(name, follows ? ObjectStorageAccess.ReadOnly : ObjectStorageAccess.Write, _address, cancellationToken).ConfigureAwait(false);
 
                 try
                 {
                     Dataset dataset;
 
-                    if (role == DatasetRole.Follower)
+                    if (follows)
                     {
                         dataset = await Dataset.OpenFollowerAsync(objects, options, cancellationToken).ConfigureAwait(false);
                     }
@@ -649,12 +658,43 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
         internal void Placed(DatasetRole role) => Role = role;
 
+        /// <summary>The writer set this instance last applied, to compare the next declaration with (ADR 0180 point 2); none before the first.</summary>
+        internal (string? PlacedOn, IReadOnlyList<string> StandbyOn)? Applied { get; set; }
+
+        /// <summary>Whether the start rule has decided this dataset's role in this process (ADR 0180 point 3).</summary>
+        internal bool Started { get; set; }
+
+        /// <summary>Whether an advance has completed since the dataset was opened, and whether the last one succeeded (ADR 0180 point 6).</summary>
+        internal bool AdvancedSinceOpen { get; private set; }
+
+        internal bool LastAdvanceFailed { get; private set; }
+
+        /// <summary>The storage the dataset is open on, when it is an object store's.</summary>
+        internal Backend? Objects => Files as Backend;
+
+        /// <summary>
+        /// Whether this standby may claim the dataset (ADR 0180 point 6): it
+        /// tails on the interval, its last advance succeeded, its default
+        /// projection has caught up with what it applied, it is not due a
+        /// re-open, and it has advanced since it opened.
+        /// </summary>
+        internal bool Warm => Role == DatasetRole.Standby && State == DatasetState.Open && Dataset is { IsFollower: true, ReopenDue: false } dataset
+            && AdvancedSinceOpen && !LastAdvanceFailed && dataset.ProjectionPosition == dataset.Head;
+
+        internal void Advanced(bool succeeded)
+        {
+            AdvancedSinceOpen |= succeeded;
+            LastAdvanceFailed = !succeeded;
+        }
+
         internal void Opened(Dataset dataset, IAsyncDisposable? files)
         {
             Dataset = dataset;
             Files = files;
             State = DatasetState.Open;
             Reason = null;
+            AdvancedSinceOpen = false;
+            LastAdvanceFailed = false;
         }
 
         internal void Fail(string reason)
@@ -675,6 +715,8 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             State = staged.State;
             Reason = staged.Reason;
             Role = staged.Role;
+            AdvancedSinceOpen = false;
+            LastAdvanceFailed = false;
             staged.Dataset = null;
             staged.Files = null;
             return previous;
@@ -734,4 +776,18 @@ internal sealed record Placement(WriterInstance Instance, bool MayClaim, bool Sy
 
         return storage == DatasetStorage.ObjectStorage ? DatasetRole.Follower : DatasetRole.Elsewhere;
     }
+
+    /// <summary>
+    /// Whether a dataset has a writer set beyond its preferred writer (ADR
+    /// 0180 point 1): automatic handover, standbys, and an object store. A
+    /// fleet of one has none: it writes everything.
+    /// </summary>
+    internal bool HasWriterSet(DatasetDeclaration declared, DatasetStorage storage) =>
+        !FleetOfOne && storage == DatasetStorage.ObjectStorage && declared.AutomaticHandover && declared.StandbyOn.Count > 0;
+
+    /// <summary>Whether this instance is the dataset's preferred writer: its <c>placedOn</c>, or the system writer when none is declared.</summary>
+    internal bool IsPreferred(DatasetDeclaration declared) => declared.PlacedOn is { } placed ? placed == Instance.Value : SystemWriter;
+
+    /// <summary>Whether this instance is in the dataset's writer set, and may claim at all.</summary>
+    internal bool IsMember(DatasetDeclaration declared) => MayClaim && (IsPreferred(declared) || declared.StandbyOn.Contains(Instance.Value));
 }

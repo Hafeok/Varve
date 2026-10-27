@@ -12,7 +12,7 @@ decisions:
   - key: ClaimAfterAReleaseByItsReason
     statement: "A release for placement is claimed by the new placedOn alone; one for shutdown, storage-error or local-disk-error by every warm member racing, the store's conditional write picking one; a returning placedOn starts as a standby"
   - key: StandbysFollowOnTheInterval
-    statement: "A standby advances on Varve:Fleet:FollowInterval, as the system dataset does, and reads the dataset's writer record conditionally on the same interval; a follower that is not a standby still advances on demand (ADR 0164)"
+    statement: "A standby advances on Varve:Fleet:FollowInterval, as the system dataset does, and reads the dataset's writer record on the same interval; a follower that is not a standby still advances on demand (ADR 0164)"
   - key: WarmIsDefaultProjectionCaughtUp
     statement: "A standby is warm when it tails on the interval, its last advance succeeded, its default projection has caught up with what it applied, it is not re-opening, and it has advanced since its last open; validation projections are not part of warm"
   - key: ReadinessReportsTheStandby

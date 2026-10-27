@@ -661,6 +661,7 @@ internal static partial class ServerHost
         {
             Dataset? dataset = null;
             bool open = entry.State == DatasetState.Open && datasets.TryResolve(entry.Name, out dataset);
+            (bool tailing, bool warm) = datasets.StandbyOf(entry.Name);
             health.Add(new DatasetHealth(
                 entry.Name.Value,
                 entry.State,
@@ -670,7 +671,9 @@ internal static partial class ServerHost
                 open && dataset!.IsFailed,
                 open && datasets.IsSuperseded(entry.Name),
                 entry.Role,
-                open ? dataset!.Retention : null));
+                open ? dataset!.Retention : null,
+                tailing,
+                warm));
         }
 
         ManagementStatus management = fleet.Status;
@@ -688,7 +691,17 @@ internal static partial class ServerHost
             json.WriteEndObject();
         }
 
-        static string Role(DatasetRole role) => role switch { DatasetRole.Writer => "writer", DatasetRole.Follower => "follower", _ => "elsewhere" };
+        // A standby's tailing and warm (ADR 0180 point 7), beside its binding lags.
+        static void Standby(Utf8JsonWriter json, DatasetReadiness state)
+        {
+            if (state.Role == DatasetRole.Standby)
+            {
+                json.WriteBoolean("tailing", state.Tailing);
+                json.WriteBoolean("warm", state.Warm);
+            }
+        }
+
+        static string Role(DatasetRole role) => role switch { DatasetRole.Writer => "writer", DatasetRole.Follower => "follower", DatasetRole.Standby => "standby", _ => "elsewhere" };
 
         // Each binding's validation projection lag (ADR 0174): reported, and never a reason to be unready.
         void Validation(Utf8JsonWriter json, string name)
@@ -749,6 +762,7 @@ internal static partial class ServerHost
                         json.WriteNumber("lag", lag);
                     }
 
+                    Standby(json, state);
                     Validation(json, state.Name);
                     json.WriteEndObject();
                 }
@@ -792,6 +806,7 @@ internal static partial class ServerHost
                     json.WriteNumber("lag", lag);
                 }
 
+                Standby(json, state);
                 Validation(json, state.Name);
                 json.WriteEndObject();
             }

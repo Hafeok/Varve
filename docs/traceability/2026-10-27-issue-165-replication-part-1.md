@@ -306,3 +306,69 @@ Posted on #97 before any code:
   and ADR 0180 adds `StandbysFollowOnTheInterval` for a standby, cited from
   the standby's code when that is written. So the branch builds green until
   the handover code cites an unaccepted ruling.
+
+### Run 420: the first run that tested
+
+Run 420 (bed8fca) built on every OS. It waited in the queue behind other
+pull requests' runs before its jobs started. **The fleet job passed, on
+Azurite and on RustFS by web identity.** Three jobs failed, all on one test:
+#143's guard, which wants every class of the objects namespace to carry one of
+two traits, and four of this branch's classes carried none. The test-server
+job never got to the takeover test, which read the release in the CLI's old
+spelling; that would have failed too. Both are fixed in 2601679.
+
+Durations per OS, in minutes:
+
+| Job | ubuntu | windows | macos |
+|---|---|---|---|
+| build (the `test-store` failure) | 9.1 | 13.8 | |
+| pipeline (devcontainer; stopped at `test-store`) | 11.9 | | |
+| storage (services; the same failure) | 5.3 | | |
+| **fleet (services)** | **2.3** | | |
+| conformance | 2.8 | 4.0 | |
+| native aot | 2.7 | 4.7 | |
+| repo-standard native and action | 1.1 | 1.5 | |
+| durability | 0.3 | 1.1 | 0.6 |
+| auth (mock-oauth2 / zitadel) | 2.3 / 2.6 | | |
+| samples / samples (eventhubs) | 2.0 / 2.1 | | |
+| browser wasm / storage in Chromium | 1.9 / 2.5 | | |
+| decision report | 2.7 | | |
+| container (x64 / arm64) | 4.4 / 3.0 | | |
+| rec generator (x64 / arm64) | 1.5 / 1.2 | | |
+| aspire sample | 1.8 | | |
+| dco, release pending, bicep | 0.3 each | | |
+
+The local store suite also turned up a flaky case from `main`: the
+concurrent-claims fence case failed 2 runs in 40 there, and 6 in 40 here. It
+assumed every epoch in the history is still held, but a claimant can win an
+epoch and be fenced by the next before its own fence lands. It is fixed in
+the same commit.
+
+### The server's writer set (ADR 0180)
+
+- **Roles.** `standby` is a dataset role beside `writer`, `follower` and
+  `elsewhere`. A dataset with automatic handover and a `standbyOn` is
+  converged by events between the declarations applied, as point 2 says.
+- **The start rule** (point 3). A member claims only from an empty or
+  released record when it is the preferred writer, from its own record, or
+  from a holder outside the set. A holder named by no declared member, where
+  the preferred writer is the system writer's, is taken for a member and not
+  fenced.
+- **Standbys** tail on the interval, inside the round that already runs on
+  it, and read the writer record whole each round. The ADR said "conditional
+  GET"; the store contract has five operations and no conditional read (ADR
+  0134), so point 5 now says so. The cost stays three GETs.
+- **After a release**, `placement` is claimed by the preferred writer alone,
+  while `shutdown`, `storage-error` and `local-disk-error` are raced by every
+  warm member. The race is a claim in place guarded by the record's epoch.
+  A loser opens again as a standby. A superseded holder rejoins as a standby.
+- **Readiness** carries `tailing` and `warm` for a standby.
+- **The fleet case:** a rolling restart. a holds d with b as its standby; a
+  is stopped by SIGTERM; b, warm, claims in place; a comes back as b's
+  standby and forwards to it. Over three runs, takeover after the shutdown
+  release took 188–288 ms on Azurite and 212–316 ms on RustFS, at the
+  suite's 200 ms follow interval. Fleet 16/16, server 151 (6 provider tests
+  skipped locally), protocol 119.
+- **Not yet cited:** the rulings of ADR 0180 are cited in the last commit,
+  because a citation of an unaccepted ruling is `CS0618`, which stops every
+  CI job at the build.
