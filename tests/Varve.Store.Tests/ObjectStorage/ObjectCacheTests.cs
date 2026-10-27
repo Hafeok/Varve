@@ -29,6 +29,7 @@ namespace Varve.Store.Tests.Objects;
 /// temporary file flushed before its rename (ADR 0073), so a crash leaves a
 /// blob whole or absent; that flush stays for this reason (#126).
 /// </remarks>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class ObjectCacheTests
 {
     private const int Commits = 24;

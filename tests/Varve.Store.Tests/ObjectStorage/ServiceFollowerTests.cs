@@ -23,6 +23,7 @@ namespace Varve.Store.Tests.Objects;
 /// (its S3 access is web identity alone, ADR 0137); this is the same
 /// contract on both.
 /// </summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class ServiceFollowerTests
 {
     [Theory]

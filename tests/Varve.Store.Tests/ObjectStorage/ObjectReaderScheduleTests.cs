@@ -26,6 +26,7 @@ namespace Varve.Store.Tests.Objects;
 /// is deleted once no record holds it. Then a fault at every write and delete
 /// the workload makes, under <c>derived/</c> and <c>readers/</c>.
 /// </summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class ObjectReaderScheduleTests
 {
     // The land gate's count; VARVE_READER_SCHEDULES raises it for the release

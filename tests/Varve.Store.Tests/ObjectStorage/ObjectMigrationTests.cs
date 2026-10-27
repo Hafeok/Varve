@@ -20,6 +20,7 @@ namespace Varve.Store.Tests.Objects;
 /// into the other backend — the log, and the newest checkpoint's extents
 /// with a catalog that names them.
 /// </summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class ObjectMigrationTests
 {
     internal const int Iterations = 40;

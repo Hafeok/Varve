@@ -49,6 +49,7 @@ internal static class ObjectLog
 /// Every milestone 4 and 6a property of the file backend, re-run on the
 /// object-storage backend at the same iteration counts (#92's gate).
 /// </summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class ObjectPropertyTests
 {
     private const int Iterations = 40;

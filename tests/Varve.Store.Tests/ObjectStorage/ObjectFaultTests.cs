@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Varve.Store.Log;
 using Varve.Store.ObjectStorage.Model;
@@ -44,6 +46,20 @@ internal enum ObjectFault
 
     /// <summary>Over HTTP: the store applies the request and the response is lost.</summary>
     HttpLostResponse,
+
+    /// <summary>
+    /// Over HTTP: the store applies the request, and the caller's own
+    /// cancellation fires before the answer arrives (#145): the write landed,
+    /// and the caller is told nothing but that it gave up.
+    /// </summary>
+    HttpAppliedThenCancelled,
+
+    /// <summary>
+    /// Over HTTP: the store applies the request, and the client's timeout
+    /// fires before the answer arrives: a <see cref="System.Threading.Tasks.TaskCanceledException"/>
+    /// with no token cancelled, as <see cref="System.Net.Http.HttpClient"/> throws it.
+    /// </summary>
+    HttpAppliedThenTimedOut,
 }
 
 /// <summary>
@@ -51,11 +67,52 @@ internal enum ObjectFault
 /// with the one the fault is at. Shared by the in-memory store's hook and the
 /// HTTP handler, so one workload runs over both.
 /// </summary>
-internal sealed class FaultController((int At, ObjectFault Kind)? fault)
+internal sealed class FaultController((int At, ObjectFault Kind)? fault) : IDisposable
 {
+    private readonly Lock _gate = new();
     private int _requests;
+    private CancellationTokenSource _caller = new();
 
     public bool Armed { get; set; }
+
+    /// <summary>
+    /// Where the fault fires instead of at a request count: the first request
+    /// the predicate matches while armed. For a case that names the write it
+    /// wants hit, such as the reader record's replace.
+    /// </summary>
+    public Func<HttpRequestMessage, bool>? Target { get; set; }
+
+    /// <summary>
+    /// The token the workload gives every call it makes, so that
+    /// <see cref="ObjectFault.HttpAppliedThenCancelled"/> can be the caller's
+    /// own cancellation: it is cancelled by <see cref="CancelCaller"/>, and a
+    /// fresh one takes its place for the calls after.
+    /// </summary>
+    public CancellationToken Token
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _caller.Token;
+            }
+        }
+    }
+
+    /// <summary>Cancels the token the caller holds now, and hands out a fresh one from here on.</summary>
+    public CancellationToken CancelCaller()
+    {
+        CancellationTokenSource cancelled;
+
+        lock (_gate)
+        {
+            cancelled = _caller;
+            _caller = new CancellationTokenSource();
+        }
+
+        cancelled.Cancel();
+        return cancelled.Token;
+    }
 
     public bool Dead { get; set; }
 
@@ -63,8 +120,19 @@ internal sealed class FaultController((int At, ObjectFault Kind)? fault)
 
     public int Requests => _requests;
 
+    public void Dispose()
+    {
+        lock (_gate)
+        {
+            _caller.Dispose();
+        }
+    }
+
     /// <summary>The fault for this request, or null; throws when the process is dead.</summary>
-    public ObjectFault? Next()
+    public ObjectFault? Next() => Next(null);
+
+    /// <summary>The fault for this request, by count or by <see cref="Target"/>, or null; throws when the process is dead.</summary>
+    public ObjectFault? Next(HttpRequestMessage? request)
     {
         if (Dead)
         {
@@ -76,9 +144,16 @@ internal sealed class FaultController((int At, ObjectFault Kind)? fault)
             return null;
         }
 
-        int request = System.Threading.Interlocked.Increment(ref _requests);
+        int number = System.Threading.Interlocked.Increment(ref _requests);
 
-        if (fault is not { } at || at.At != request)
+        if (fault is not { } at || Fired)
+        {
+            return null;
+        }
+
+        bool hit = Target is { } target ? request is not null && target(request) : at.At == number;
+
+        if (!hit)
         {
             return null;
         }
@@ -132,10 +207,13 @@ internal sealed class ObjectFaultRun : IAsyncDisposable
     private Backend? _storage;
     private Dataset? _dataset;
 
+    private readonly bool _ownsFaults;
+
     /// <summary>A run over the in-memory store, faults injected by its hook.</summary>
     public ObjectFaultRun(int seed, int steps, (int At, ObjectFault Kind)? fault)
         : this(seed, steps, new FaultController(fault), new MemoryObjectStore())
     {
+        _ownsFaults = true;
         MemoryObjectStore memory = (MemoryObjectStore)Store;
         memory.Hook = (_, _) => MemoryHook(_faults.Next());
     }
@@ -163,7 +241,22 @@ internal sealed class ObjectFaultRun : IAsyncDisposable
     /// <summary>How many takeovers fenced the writer before them.</summary>
     public int Fences { get; private set; }
 
+    /// <summary>How many calls the caller abandoned by cancellation, and went on from.</summary>
+    public int Abandoned { get; private set; }
+
+    /// <summary>What surfaced at the workload's calls, by site and exception type: what a fault looks like to a caller.</summary>
+    public SortedDictionary<string, int> Surfaced { get; } = new(StringComparer.Ordinal);
+
+    private void Surfacing(string site, Exception error)
+    {
+        string key = site + ":" + error.GetType().Name;
+        Surfaced[key] = Surfaced.GetValueOrDefault(key) + 1;
+    }
+
     private int Acknowledged => _history.Count - 1;
+
+    // The token every call takes: the fault that cancels the caller cancels this one.
+    private CancellationToken Ct => _faults.Token;
 
     public async Task RunAsync()
     {
@@ -180,7 +273,7 @@ internal sealed class ObjectFaultRun : IAsyncDisposable
             }
             else if (roll < 80)
             {
-                await GuardAsync(async () => await _dataset!.MaintainAsync(T.Ct));
+                await GuardAsync(async () => await _dataset!.MaintainAsync(Ct));
             }
             else if (roll < 90)
             {
@@ -197,7 +290,7 @@ internal sealed class ObjectFaultRun : IAsyncDisposable
         await RestartAsync(inDoubt: null);
         await VerifyEveryPositionAsync();
 
-        CommitResult next = await _dataset!.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("final"), T.Iri("p"), T.Iri("o")), T.Ct);
+        CommitResult next = await _dataset!.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("final"), T.Iri("p"), T.Iri("o")), Ct);
         Assert.Equal(CommitOutcome.Committed, next.Outcome);
         _history.Add([.. _history[^1], "final p o"]);
         await CrashAsync();
@@ -208,6 +301,11 @@ internal sealed class ObjectFaultRun : IAsyncDisposable
     {
         _faults.Armed = false;
         await CrashAsync();
+
+        if (_ownsFaults)
+        {
+            _faults.Dispose();
+        }
 
         foreach (string cache in _caches)
         {
@@ -278,10 +376,25 @@ internal sealed class ObjectFaultRun : IAsyncDisposable
 
         try
         {
-            result = await _dataset!.CommitAsync(request, T.Ct);
+            result = await _dataset!.CommitAsync(request, Ct);
+        }
+        catch (ReaderForgottenException forgotten)
+        {
+            throw Forgotten(forgotten);
+        }
+        catch (OperationCanceledException error)
+        {
+            // The caller gave up on an answer the store may have given: the
+            // commit is in doubt, as after a lost answer.
+            Surfacing("commit", error);
+            Abandoned++;
+            await CrashAsync();
+            await RestartAsync(inDoubt: next);
+            return;
         }
         catch (Exception error) when (error is IOException or WriterSupersededException or InvalidOperationException)
         {
+            Surfacing("commit", error);
             await CrashAsync();
             await RestartAsync(inDoubt: next);
             return;
@@ -307,10 +420,12 @@ internal sealed class ObjectFaultRun : IAsyncDisposable
 
         try
         {
-            taker = await Backend.OpenAsync(Options("taker"), T.Ct);
+            taker = await Backend.OpenAsync(Options("taker"), Ct);
         }
-        catch (Exception error) when (error is IOException or LogVerificationException)
+        catch (Exception error) when (error is IOException or LogVerificationException or OperationCanceledException)
         {
+            Surfacing("takeover-open", error);
+
             if (taker is not null)
             {
                 await taker.DisposeAsync();
@@ -332,14 +447,14 @@ internal sealed class ObjectFaultRun : IAsyncDisposable
 
         try
         {
-            CommitResult refused = await _dataset!.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("fenced"), T.Iri("p"), T.Iri(probe.Split(' ')[2])), T.Ct);
+            CommitResult refused = await _dataset!.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("fenced"), T.Iri("p"), T.Iri(probe.Split(' ')[2])), Ct);
             Assert.NotEqual(CommitOutcome.Committed, refused.Outcome);
         }
         catch (WriterSupersededException)
         {
             Fences++;
         }
-        catch (IOException)
+        catch (Exception error) when (error is IOException or OperationCanceledException)
         {
             // A fault surfaced on the old writer's write: it was not
             // acknowledged either way, and the fence still holds it.
@@ -356,7 +471,7 @@ internal sealed class ObjectFaultRun : IAsyncDisposable
         {
             _dataset = await T.OpenOrCreate(taker, T.Options(maxRecordBytes: 256, segmentBytes: 2048));
         }
-        catch (Exception error) when (error is IOException or LogVerificationException or InvalidOperationException)
+        catch (Exception error) when (error is IOException or LogVerificationException or InvalidOperationException or OperationCanceledException)
         {
             await CrashAsync();
             await RestartAsync(inDoubt: null);
@@ -372,18 +487,55 @@ internal sealed class ObjectFaultRun : IAsyncDisposable
         await RestartAsync(inDoubt: null);
     }
 
+    // Maintenance: a fault is a crash and a restart, as elsewhere; a caller's
+    // cancellation is not. The process goes on, as a server whose maintenance
+    // round was cut short does, and runs the round again at once on the same
+    // storage, so that state the cut-short round left stale is used, not
+    // discarded by a restart (#145). In the seeded workload the cancellation
+    // has so far surfaced only at opens (Surfaced says where): a commit or a
+    // round whose write was applied and then cancelled settled it inside the
+    // backend by reading back, and answered. A reader declared forgotten is a
+    // failure outright: this workload forgets no reader.
     private async Task GuardAsync(Func<Task> action)
     {
         try
         {
             await action();
         }
+        catch (ReaderForgottenException forgotten)
+        {
+            throw Forgotten(forgotten);
+        }
+        catch (OperationCanceledException error)
+        {
+            Surfacing("maintenance", error);
+            Abandoned++;
+
+            try
+            {
+                await _dataset!.MaintainAsync(Ct);
+            }
+            catch (ReaderForgottenException forgotten)
+            {
+                throw Forgotten(forgotten);
+            }
+            catch (Exception again) when (again is IOException or WriterSupersededException or LogVerificationException or InvalidOperationException or OperationCanceledException)
+            {
+                Surfacing("maintenance-again", again);
+                await CrashAsync();
+                await RestartAsync(inDoubt: null);
+            }
+        }
         catch (Exception error) when (error is IOException or WriterSupersededException or LogVerificationException or InvalidOperationException)
         {
+            Surfacing("maintenance", error);
             await CrashAsync();
             await RestartAsync(inDoubt: null);
         }
     }
+
+    private static InvalidOperationException Forgotten(ReaderForgottenException forgotten) =>
+        new("a reader was declared forgotten, and this workload forgets none (#145): " + forgotten.Message, forgotten);
 
     // The process dies: nothing it sends from here on reaches the store, and
     // closing it releases nothing.
@@ -402,7 +554,7 @@ internal sealed class ObjectFaultRun : IAsyncDisposable
             {
                 await _dataset.DisposeAsync();
             }
-            catch (Exception error) when (error is IOException or WriterSupersededException or InvalidOperationException or AggregateException)
+            catch (Exception error) when (error is IOException or WriterSupersededException or InvalidOperationException or AggregateException or OperationCanceledException)
             {
             }
 
@@ -426,31 +578,35 @@ internal sealed class ObjectFaultRun : IAsyncDisposable
 
             try
             {
-                _storage = await Backend.OpenAsync(Options("process-" + ++_process), T.Ct);
+                _storage = await Backend.OpenAsync(Options("process-" + ++_process), Ct);
                 Assert.False(_storage.IsSuperseded, "a fresh process lost its claim with no other claimant");
                 _dataset = await T.OpenOrCreate(_storage, T.Options(maxRecordBytes: 256, segmentBytes: 2048));
+                long head = _dataset.Head.Value;
+
+                if (inDoubt is not null && head == Acknowledged + 1)
+                {
+                    // The commit in doubt reached the store before its answer was lost.
+                    _history.Add(inDoubt);
+                }
+
+                Assert.True(head >= Acknowledged, "an acknowledged commit was lost: the head is " + head + ", " + Acknowledged + " were acknowledged");
+                Assert.Equal(Acknowledged, head);
+
+                // The first read may reach the store too, and a fault there is a crash like any other.
+                using (DatasetView view = _dataset.Pin())
+                {
+                    Assert.Equal(Expected(_history[(int)head]), T.Terms(view));
+                }
+
                 break;
             }
-            catch (Exception error) when (error is IOException or LogVerificationException or InvalidOperationException)
+            catch (Exception error) when (error is IOException or LogVerificationException or InvalidOperationException or OperationCanceledException)
             {
+                Surfacing("restart", error);
                 Crashes++;
                 await CrashAsync();
             }
         }
-
-        long head = _dataset.Head.Value;
-
-        if (inDoubt is not null && head == Acknowledged + 1)
-        {
-            // The commit in doubt reached the store before its answer was lost.
-            _history.Add(inDoubt);
-        }
-
-        Assert.True(head >= Acknowledged, "an acknowledged commit was lost: the head is " + head + ", " + Acknowledged + " were acknowledged");
-        Assert.Equal(Acknowledged, head);
-
-        using DatasetView view = _dataset.Pin();
-        Assert.Equal(Expected(_history[(int)head]), T.Terms(view));
     }
 
     private async Task VerifyEveryPositionAsync()
@@ -484,6 +640,7 @@ internal sealed class ObjectFaultRun : IAsyncDisposable
 /// The failure-injection gate of #92 over the object-storage backend: one
 /// fault of each kind at every request of seeded workloads.
 /// </summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Faults)]
 public sealed class ObjectFaultTests
 {
     /// <summary>

@@ -18,6 +18,7 @@ namespace Varve.Store.Tests.Objects;
 /// The tier-1 follower (ADR 0164): a read-only open of a dataset another
 /// process writes, advanced by probing the next log slot.
 /// </summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class ObjectFollowerTests
 {
     // Sized for the land gate: each history is a few dozen commits with
