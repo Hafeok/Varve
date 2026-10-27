@@ -58,6 +58,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- docs/ui/ is the design source (ADR 0206): its two stylesheets and the
+         core mark are linked into the bundle, one copy, never copied by a
+         build step (point 2). -->
+    <Content Include="../../docs/ui/tokens.css" Link="wwwroot/css/tokens.css" />
+    <Content Include="../../docs/ui/bundle.css" Link="wwwroot/css/bundle.css" />
+    <Content Include="../../docs/ui/assets/varve-core.svg" Link="wwwroot/img/varve-core.svg" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- ADR 0003 permits InternalsVisibleTo toward *.Tests only. -->
     <InternalsVisibleTo Include="Varve.WebUi.Tests" />
   </ItemGroup>

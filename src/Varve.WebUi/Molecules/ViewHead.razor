@@ -1,0 +1,23 @@
+@* ViewHead (docs/ui/components/ViewHead): the top of every screen, the
+   resource's name and the positions the view was read at. A screen with no
+   stamp is a defect. The title takes focus on navigation. *@
+<div class="vw-viewhead"><h1 class="vw-viewhead__title" tabindex="-1">@if (CrumbText is not null)
+{<span class="vw-viewhead__crumb"><a href="@CrumbHref">@CrumbText</a> /</span>}@Title</h1>@ChildContent</div>
+
+@code {
+    /// <summary>The resource's name.</summary>
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = "";
+
+    /// <summary>The parent resource's name, when there is one.</summary>
+    [Parameter]
+    public string? CrumbText { get; set; }
+
+    /// <summary>The parent resource's address.</summary>
+    [Parameter]
+    public string? CrumbHref { get; set; }
+
+    /// <summary>One stamp per position the view's data came from.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

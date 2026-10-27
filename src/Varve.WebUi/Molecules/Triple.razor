@@ -1,0 +1,37 @@
+@* Triple (docs/ui/components/Triple): a statement as three term chips, with a
+   sign column and a note column. *@
+<li class="@Classes"><span class="vw-triple__sign" aria-label="@SignLabel">@Sign</span><span>@Subject</span><span class="vw-triple__p">@Predicate</span><span>@Object</span><span class="vw-triple__note">@Note</span></li>
+
+@code {
+    /// <summary>The subject's chip.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment? Subject { get; set; }
+
+    /// <summary>The predicate's chip.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment? Predicate { get; set; }
+
+    /// <summary>The object's chip.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment? Object { get; set; }
+
+    /// <summary>What the row is.</summary>
+    [Parameter]
+    public TripleKind Kind { get; set; }
+
+    /// <summary>The note: the graph, when and how it was asserted, the rule that inferred it.</summary>
+    [Parameter]
+    public string? Note { get; set; }
+
+    private string Classes => Kind switch
+    {
+        TripleKind.Added => "vw-triple vw-triple--added",
+        TripleKind.Removed => "vw-triple vw-triple--removed",
+        TripleKind.Inferred => "vw-triple vw-triple--inferred",
+        _ => "vw-triple",
+    };
+
+    private string? Sign => Kind switch { TripleKind.Added => "+", TripleKind.Removed => "−", _ => null };
+
+    private string? SignLabel => Kind switch { TripleKind.Added => "added", TripleKind.Removed => "removed", _ => null };
+}

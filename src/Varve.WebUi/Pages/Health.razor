@@ -1,133 +1,126 @@
 @page "/"
 @page "/health"
 @inject VarveHealthClient HealthClient
+@inject WebUiSettings Settings
 @inject TimeProvider Clock
 @* Health (#167): readiness with its reasons, the management plane on this
-   instance, and each dataset's state, role and lag (ADRs 0113, 0163, 0174).
-   Read from /health/ready through Varve.Protocol.Client, ready or not. *@
+   instance, and each dataset's state, role and lags (ADRs 0113, 0163, 0174),
+   read from /health/ready through Varve.Protocol.Client, ready or not. *@
 <PageTitle>Health · Varve</PageTitle>
-<h1 tabindex="-1">Health</h1>
-
-<p><button type="button" @onclick="ReadAsync" disabled="@_reading">Read again</button></p>
+<ViewHead Title="Health">@if (_result is not null)
+{<ReadStamps Facts="_result.Facts" />}</ViewHead>
 
 @if (_failure is not null)
 {
-    <p role="alert">The server did not answer: @_failure</p>
+    @* Server unreachable (docs/ui/README.md, States): the notice, the server's
+       address, and when it last answered; the last data stays below. Where the
+       notice sits relative to the view head is the screen's to settle. *@
+    <div data-ui-pending="unreachable-placement">
+        <Notice Title="The server did not answer" Warn="true"><code>@Settings.Server.AbsoluteUri</code>: @_failure @(_lastRead is { } last ? "Last read " + Utc(last) + "." : "It has not answered yet.")</Notice>
+    </div>
 }
-else if (_result is null)
-{
-    <p role="status">Reading…</p>
-}
-else
-{
-    <ReadAt Facts="_result.Facts" At="_readAt" />
 
-    @if (_result.Value is Readiness readiness)
+@if (_result?.Value is Readiness readiness)
+{
+    <Panel Title="Readiness">
+        <Head>
+            <StateBadge Tone="@Tones.OfState(readiness.IsReady ? "ready" : "not-ready")" Word="@(readiness.IsReady ? "ready" : "not-ready")" />
+            <Button Small="true" Disabled="_reading" OnClick="ReadAsync">Read again</Button>
+        </Head>
+        <ChildContent>
+            <p>@(readiness.IsReady ? "This instance is ready." : readiness.Detail ?? "This instance is not ready; the datasets below say why.") Read <code>@Utc(_lastRead!.Value)</code>.</p>
+        </ChildContent>
+    </Panel>
+
+    @if (readiness.Management is ManagementReadiness management)
     {
-        <p role="status" data-ui-pending="readiness-state">
-            @(readiness.IsReady ? "Ready." : "Not ready.")
-            @if (readiness.Detail is not null)
-            {
-                <text> @readiness.Detail</text>
-            }
-        </p>
+        <Panel Title="Management plane on this instance">
+            <KeyValue>
+                <KeyValueItem Label="Role">@Badge(management.Role?.Value)</KeyValueItem>
+                <KeyValueItem Label="Writer epoch"><code>@Text(management.Epoch)</code></KeyValueItem>
+                <KeyValueItem Label="Applied position">@if (management.Position is { } applied)
+                {<PositionStamp Label="applied" Value="applied.Value" Management="true" />}
+                else
+                {<text>not reported</text>}</KeyValueItem>
+                <KeyValueItem Label="Lag behind the system tail"><code data-ui-pending="lag-without-bound">@Text(management.Lag)</code></KeyValueItem>
+                <KeyValueItem Label="Bootstrap">@Badge(management.Bootstrap?.Value)</KeyValueItem>
+            </KeyValue>
+        </Panel>
+    }
 
-        @if (readiness.Management is ManagementReadiness management)
-        {
-            <h2>Management plane on this instance</h2>
-            <dl>
-                <dt>Role</dt>
-                <dd data-ui-pending="role">@Text(management.Role)</dd>
-                <dt>Writer epoch</dt>
-                <dd>@Text(management.Epoch)</dd>
-                <dt>Applied management position</dt>
-                <dd>@Text(management.Position)</dd>
-                <dt>Lag behind the system tail</dt>
-                <dd data-ui-pending="lag">@Text(management.Lag)</dd>
-                <dt>Bootstrap operators</dt>
-                <dd data-ui-pending="bootstrap">@Text(management.Bootstrap)</dd>
-            </dl>
-        }
-
-        <h2>Datasets</h2>
-        @if (readiness.Datasets.Count == 0)
-        {
-            <p>@(readiness.IsReady ? "No dataset is served." : "No dataset is behind, failed or superseded; the instance is not ready for the reason above.")</p>
-        }
-        else
-        {
-            <table>
-                <caption>@(readiness.IsReady ? "Every dataset this instance serves" : "The datasets that are not ready")</caption>
-                <thead>
-                    <tr>
-                        <th scope="col">Dataset</th>
-                        <th scope="col">State</th>
-                        <th scope="col">Role</th>
-                        <th scope="col">Projection lag</th>
-                        <th scope="col">Validation lag</th>
-                        <th scope="col">Reason</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (DatasetReadiness dataset in readiness.Datasets)
-                    {
-                        <tr>
-                            <th scope="row">@dataset.Name.Value</th>
-                            <td data-ui-pending="dataset-state">@Text(dataset.State)</td>
-                            <td data-ui-pending="role">@Text(dataset.Role)</td>
-                            <td data-ui-pending="lag">@Text(dataset.Lag)</td>
-                            <td>
-                                @if (dataset.Validation.Count == 0)
-                                {
-                                    <text>none bound</text>
-                                }
-                                else
-                                {
-                                    <ul>
-                                        @foreach (KeyValuePair<string, PositionLag> binding in dataset.Validation)
-                                        {
-                                            <li><span>@binding.Key</span>: <span data-ui-pending="lag">@binding.Value</span></li>
-                                        }
-                                    </ul>
-                                }
-                            </td>
-                            <td>@(dataset.Reason ?? "")</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-
-            @foreach (DatasetReadiness dataset in readiness.Datasets)
-            {
-                IReadOnlyDictionary<string, System.Text.Json.JsonElement> more = Unshown(dataset);
-
-                @if (more.Count > 0)
+    <Panel Title="Datasets" Flush="true">
+        <ResourceTable ColumnCount="6" Caption="@(readiness.IsReady ? "Every dataset this instance serves" : "The datasets that are not ready")" Empty="readiness.Datasets.Count == 0">
+            <Columns>
+                <th scope="col">Dataset</th><th scope="col">State</th><th scope="col">This instance</th><th scope="col" class="vw-num">Lag</th><th scope="col">Validation lag</th><th scope="col">Reason</th>
+            </Columns>
+            <EmptyContent>@(readiness.IsReady ? "No dataset is served here. Declare one in TriG and run varve apply." : "No dataset is behind, failed or superseded; the instance is not ready for the reason above.")</EmptyContent>
+            <Rows>
+                @foreach (DatasetReadiness dataset in readiness.Datasets)
                 {
-                    <h3>More about @dataset.Name.Value</h3>
-                    <JsonMembers Members="more" />
+                    <tr>
+                        <td class="vw-table__name">@dataset.Name.Value</td>
+                        <td>@Badge(dataset.State?.Value)</td>
+                        <td>@Badge(dataset.Role?.Value)</td>
+                        <td class="vw-num" data-ui-pending="lag-without-bound">@Text(dataset.Lag)</td>
+                        <td>@if (dataset.Validation.Count == 0)
+                        {<span class="vw-muted">none bound</span>}
+                        else
+                        {<KeyValue>@foreach (KeyValuePair<string, PositionLag> binding in dataset.Validation)
+                        {<KeyValueItem Label="@binding.Key"><code>@binding.Value</code></KeyValueItem>}</KeyValue>}</td>
+                        <td>@dataset.Reason</td>
+                    </tr>
                 }
-            }
-        }
+            </Rows>
+        </ResourceTable>
+    </Panel>
 
-        @if (readiness.Members.Count > 0)
+    @foreach (DatasetReadiness dataset in readiness.Datasets)
+    {
+        IReadOnlyList<KeyValuePair<string, System.Text.Json.JsonElement>> more = Unshown(dataset);
+
+        @if (more.Count > 0)
         {
-            <h2>More</h2>
-            <JsonMembers Members="readiness.Members" />
+            <Panel Title="@("More about " + dataset.Name.Value)">
+                <KeyValue>@foreach (KeyValuePair<string, System.Text.Json.JsonElement> member in more)
+                {<KeyValueItem Label="@member.Key"><code>@member.Value.GetRawText()</code></KeyValueItem>}</KeyValue>
+            </Panel>
         }
     }
-    else if (_result.Problem is Problem problem)
+
+    @if (readiness.Members.Count > 0)
     {
-        <ProblemView Problem="problem" Facts="_result.Facts" />
+        <Panel Title="More">
+            <KeyValue>@foreach (KeyValuePair<string, System.Text.Json.JsonElement> member in readiness.Members)
+            {<KeyValueItem Label="@member.Key"><code>@member.Value.GetRawText()</code></KeyValueItem>}</KeyValue>
+        </Panel>
     }
-    else
-    {
-        <NoProblemBody Facts="_result.Facts" />
-    }
+}
+else if (_result?.Problem is Problem problem)
+{
+    <ProblemView Problem="problem" Facts="_result.Facts" Management="true" />
+}
+else if (_result is not null)
+{
+    <Notice Title="The answer was not one Varve gives" Warn="true">The address answered <code>@((int)_result.Facts.Status)</code> with neither the resource nor a problem. Check that <code>Varve:Server</code> in the Web UI's <code>appsettings.json</code> names the server, and that nothing between them rewrites its answers.</Notice>
+}
+else if (_failure is null)
+{
+    <Panel Title="Datasets" Flush="true">
+        <ResourceTable ColumnCount="6" Caption="Every dataset this instance serves" Loading="true">
+            <Columns>
+                <th scope="col">Dataset</th><th scope="col">State</th><th scope="col">This instance</th><th scope="col" class="vw-num">Lag</th><th scope="col">Validation lag</th><th scope="col">Reason</th>
+            </Columns>
+        </ResourceTable>
+    </Panel>
 }
 
 @code {
+    // The members of a dataset's entry the table shows; any other is shown
+    // under "More about", so what a newer server adds is not dropped (ADR 0203).
+    private static readonly HashSet<string> Shown = new(StringComparer.Ordinal) { "name", "state", "role", "lag", "validation", "reason" };
+
     private VarveResult<Readiness>? _result;
-    private DateTimeOffset _readAt;
+    private DateTimeOffset? _lastRead;
     private string? _failure;
     private bool _reading;
 
@@ -140,8 +133,9 @@ else
 
         try
         {
-            _result = await HealthClient.ReadyAsync(CancellationToken.None);
-            _readAt = Clock.GetUtcNow();
+            VarveResult<Readiness> result = await HealthClient.ReadyAsync(CancellationToken.None);
+            _result = result;
+            _lastRead = Clock.GetUtcNow();
             _failure = null;
         }
         catch (HttpRequestException e)
@@ -154,25 +148,21 @@ else
         }
     }
 
-    // The members of a dataset's entry the table does not show: what a newer
-    // server adds (a position, a warm flag) is shown, never dropped (ADR 0203).
-    private static readonly HashSet<string> Shown = new(StringComparer.Ordinal) { "name", "state", "role", "lag", "validation", "reason" };
-
-    private static IReadOnlyDictionary<string, System.Text.Json.JsonElement> Unshown(DatasetReadiness dataset)
-    {
-        Dictionary<string, System.Text.Json.JsonElement> more = new(StringComparer.Ordinal);
-
-        foreach (KeyValuePair<string, System.Text.Json.JsonElement> member in dataset.Members)
+    private static RenderFragment Badge(string? word) => word is null
+        ? builder => builder.AddContent(0, "not reported")
+        : builder =>
         {
-            if (!Shown.Contains(member.Key))
-            {
-                more[member.Key] = member.Value;
-            }
-        }
+            builder.OpenComponent<StateBadge>(0);
+            builder.AddComponentParameter(1, nameof(StateBadge.Tone), Tones.OfState(word));
+            builder.AddComponentParameter(2, nameof(StateBadge.Word), word);
+            builder.CloseComponent();
+        };
 
-        return more;
-    }
+    private static IReadOnlyList<KeyValuePair<string, System.Text.Json.JsonElement>> Unshown(DatasetReadiness dataset) =>
+        [.. dataset.Members.Where(member => !Shown.Contains(member.Key))];
 
     private static string Text<T>(T? value)
         where T : struct => value?.ToString() ?? "not reported";
+
+    private static string Utc(DateTimeOffset at) => at.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture);
 }

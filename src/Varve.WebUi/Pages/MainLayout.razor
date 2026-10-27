@@ -1,0 +1,43 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject NavigationManager Navigation
+@inject WebUiSettings Settings
+@* The layout every screen renders in: the Shell template, given the server,
+   each plane's sign-in state and the navigation with the current screen
+   marked. Part 1's groups (docs/ui/components/Shell) fill in as their
+   screens are built. *@
+<a class="vw-visually-hidden" href="#main">Skip to the content</a>
+<Shell Server="@Settings.Server.AbsoluteUri" Planes="Planes" Navigation="Groups()">@Body</Shell>
+
+@code {
+    private static readonly (string Group, string Text, string Href)[] Screens =
+    [
+        ("Operate", "Health", "health"),
+    ];
+
+    private IReadOnlyList<PlaneState> Planes =>
+        Settings.Anonymous
+            ? [new PlaneState("Data plane", "anonymous", Anonymous: true, Absent: false), new PlaneState("Management", "anonymous", Anonymous: true, Absent: false)]
+            : [new PlaneState("Data plane", "signed out", Anonymous: false, Absent: true), new PlaneState("Management", "signed out", Anonymous: false, Absent: true)];
+
+    /// <inheritdoc />
+    protected override void OnInitialized() => Navigation.LocationChanged += Changed;
+
+    private IReadOnlyList<NavGroup> Groups()
+    {
+        string current = Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0];
+        List<NavGroup> groups = [];
+
+        foreach (IGrouping<string, (string Group, string Text, string Href)> group in Screens.GroupBy(screen => screen.Group))
+        {
+            groups.Add(new NavGroup(group.Key, [.. group.Select(screen => new NavEntry(screen.Text, screen.Href, current == screen.Href || (current.Length == 0 && screen.Href == "health")))]));
+        }
+
+        return groups;
+    }
+
+    private void Changed(object? sender, LocationChangedEventArgs e) => StateHasChanged();
+
+    /// <inheritdoc />
+    public void Dispose() => Navigation.LocationChanged -= Changed;
+}

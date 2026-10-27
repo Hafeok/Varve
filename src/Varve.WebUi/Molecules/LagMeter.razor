@@ -1,0 +1,21 @@
+@* LagMeter (docs/ui/components/LagMeter): how far something is behind its
+   head, against the bound readiness judges it by. A native meter with max at
+   twice the bound, low at half and high at the bound, so the browser picks the
+   tone and assistive technology reads the value; always beside the number. *@
+<div class="vw-lag"><span class="vw-lag__value">@(Text(Lag)) behind</span><meter min="0" max="@Text(Bound * 2)" low="@Text(Bound / 2)" high="@Text(Bound)" optimum="0" value="@Text(Lag)">@(Text(Lag)) positions behind</meter><span class="vw-lag__bound">@Caption</span></div>
+
+@code {
+    /// <summary>The lag, in positions.</summary>
+    [Parameter, EditorRequired]
+    public long Lag { get; set; }
+
+    /// <summary>The bound the server judges readiness by.</summary>
+    [Parameter, EditorRequired]
+    public long Bound { get; set; }
+
+    /// <summary>The bound and where it comes from, as the operator reads it.</summary>
+    [Parameter, EditorRequired]
+    public string Caption { get; set; } = "";
+
+    private static string Text(long value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+}

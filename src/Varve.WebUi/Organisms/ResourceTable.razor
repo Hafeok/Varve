@@ -1,0 +1,48 @@
+@* ResourceTable (docs/ui/components/ResourceTable): a collection resource,
+   one row per item, in a wrapper that scrolls inside itself. Loading is three
+   loading rows, and empty says what would appear and how it gets there. A
+   problem replaces the table: the page renders it in the table's place. *@
+<div class="vw-table-wrap"><table class="vw-table">@if (Caption is not null)
+{<caption class="vw-visually-hidden">@Caption</caption>}<thead><tr>@Columns</tr></thead><tbody>@if (Loading)
+{
+@for (int i = 0; i < 3; i++)
+{
+<tr class="vw-table__loading"><td colspan="@ColumnCount">@(i == 0 ? "Loading" : "")</td></tr>
+}
+}
+else if (Empty)
+{
+<tr class="vw-table__empty"><td colspan="@ColumnCount">@EmptyContent</td></tr>
+}
+else
+{@Rows}</tbody></table></div>
+
+@code {
+    /// <summary>The header cells, each a <c>th scope="col"</c>.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment? Columns { get; set; }
+
+    /// <summary>How many columns, for the loading and empty rows.</summary>
+    [Parameter, EditorRequired]
+    public int ColumnCount { get; set; }
+
+    /// <summary>The rows.</summary>
+    [Parameter]
+    public RenderFragment? Rows { get; set; }
+
+    /// <summary>What the table lists, for assistive technology.</summary>
+    [Parameter]
+    public string? Caption { get; set; }
+
+    /// <summary>The rows are being read.</summary>
+    [Parameter]
+    public bool Loading { get; set; }
+
+    /// <summary>There is nothing to list.</summary>
+    [Parameter]
+    public bool Empty { get; set; }
+
+    /// <summary>What would appear, and how it gets there.</summary>
+    [Parameter]
+    public RenderFragment? EmptyContent { get; set; }
+}

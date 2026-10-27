@@ -1,0 +1,20 @@
+@* SourceBlock (docs/ui/components/SourceBlock): a declaration as served,
+   read-only, with its graph, the management position it was read at, and a
+   Copy button that copies the source as served. Unhighlighted. The source
+   scrolls inside itself, so it takes focus for the keyboard. *@
+<div class="vw-source"><div class="vw-source__head"><span class="vw-source__graph">@Graph</span>@if (Position is long position)
+{<PositionStamp Label="management" Value="position" Management="true" />}<CopyButton Text="@Source" /></div><pre tabindex="0">@Source</pre></div>
+
+@code {
+    /// <summary>The graph's IRI.</summary>
+    [Parameter, EditorRequired]
+    public string Graph { get; set; } = "";
+
+    /// <summary>The management position it was read at.</summary>
+    [Parameter]
+    public long? Position { get; set; }
+
+    /// <summary>The source, exactly as served.</summary>
+    [Parameter, EditorRequired]
+    public string Source { get; set; } = "";
+}

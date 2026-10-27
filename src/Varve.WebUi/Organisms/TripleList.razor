@@ -1,0 +1,10 @@
+@* The statements of a description, a delta or a diff (docs/ui/components/Triple):
+   a column head for sighted readers, and the rows. *@
+<div class="vw-triples__head" aria-hidden="true"><span></span><span>Subject</span><span>Predicate</span><span>Object</span><span>Note</span></div>
+<ul class="vw-triples">@ChildContent</ul>
+
+@code {
+    /// <summary>The rows, each a <see cref="Molecules.Triple"/>.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment? ChildContent { get; set; }
+}

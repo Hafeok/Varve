@@ -1,0 +1,12 @@
+@* One field of a KeyValue: its label and its value, rendered by kind. *@
+<dt>@Label</dt><dd>@ChildContent</dd>
+
+@code {
+    /// <summary>The API's field name, in sentence case.</summary>
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = "";
+
+    /// <summary>The value: a stamp, a badge, a code, a time.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment? ChildContent { get; set; }
+}

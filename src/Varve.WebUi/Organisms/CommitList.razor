@@ -1,0 +1,14 @@
+@* CommitList (docs/ui/components/CommitList): the commits, newest first.
+   Commits outside the caller's scope are not shown, and never as a gap. *@
+<ol class="vw-commits" reversed>@foreach (CommitEntry commit in Commits)
+{
+<li class="@(commit.IsNew ? "vw-commit vw-commit--new" : "vw-commit")"><span class="vw-commit__pos"><a href="@commit.Href">@commit.Position</a></span><span class="vw-commit__what">@commit.What<span class="vw-commit__cause">@commit.Cause</span></span><span class="vw-commit__delta"><span class="vw-commit__add">+@Text(commit.Added)</span> <span class="vw-commit__del">−@Text(commit.Removed)</span></span></li>
+}</ol>
+
+@code {
+    /// <summary>The commits, newest first.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<CommitEntry> Commits { get; set; } = [];
+
+    private static string Text(long value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+}

@@ -1,0 +1,18 @@
+@inject IJSRuntime Js
+@* The Copy button beside a request id or a source (docs/ui/components/ProblemPanel,
+   SourceBlock): copies the text as given, never the rendered text. *@
+<Button Small="true" OnClick="CopyAsync">@(_copied ? "Copied" : "Copy")</Button>
+
+@code {
+    private bool _copied;
+
+    /// <summary>The text to copy, exactly.</summary>
+    [Parameter, EditorRequired]
+    public string Text { get; set; } = "";
+
+    private async Task CopyAsync()
+    {
+        await Js.InvokeVoidAsync("varveWebUi.copy", Text);
+        _copied = true;
+    }
+}

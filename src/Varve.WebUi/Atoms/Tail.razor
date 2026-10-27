@@ -1,0 +1,9 @@
+@* The live tail's indicator (docs/ui/components/CommitList): live, or paused
+   and saying so. *@
+<span class="@(Paused ? "vw-tail vw-tail--paused" : "vw-tail")">@(Paused ? "Paused" : "Live")</span>
+
+@code {
+    /// <summary>Whether the tail is paused.</summary>
+    [Parameter]
+    public bool Paused { get; set; }
+}

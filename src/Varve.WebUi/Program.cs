@@ -10,13 +10,15 @@ using Microsoft.Extensions.DependencyInjection;
 using Varve.Protocol.Client;
 using Varve.WebUi;
 
-// The composition root (ADR 0060): the server's address, the clients of
-// Varve.Protocol.Client the screens read through, and the clock.
+// The composition root (ADR 0060): the server's address and its mode, the
+// clients of Varve.Protocol.Client the screens read through, and the clock.
 WebAssemblyHostBuilder builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 Uri server = ServerAddress.From(builder.Configuration["Varve:Server"], new Uri(builder.HostEnvironment.BaseAddress));
+bool anonymous = !string.Equals(builder.Configuration["Varve:Auth:Mode"], "Oidc", StringComparison.Ordinal);
+builder.Services.AddSingleton(new WebUiSettings(server, anonymous));
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(new HttpClient());
 builder.Services.AddSingleton(services => new VarveHealthClient(services.GetRequiredService<HttpClient>(), server, ClientLimits.Default));

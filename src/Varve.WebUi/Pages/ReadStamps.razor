@@ -1,0 +1,12 @@
+@* The stamps of one read (#167, A6): the data position the response
+   describes, and the management position the instance answered at. A
+   position the server did not name is not shown, never invented. *@
+@if (Facts.Position is { } position)
+{<PositionStamp Label="read at" Value="position.Value" />}@if (Facts.ManagementPosition is { } management)
+{<PositionStamp Label="management" Value="management.Value" Management="true" />}
+
+@code {
+    /// <summary>The response's facts.</summary>
+    [Parameter, EditorRequired]
+    public ResponseFacts Facts { get; set; }
+}

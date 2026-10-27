@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,11 +7,16 @@
     <!-- The path the server serves the Web UI under (ADR 0202). A static
          host serving it elsewhere changes this one value. -->
     <base href="/ui/">
+    <!-- docs/ui/'s two stylesheets, linked into the bundle, never copied
+         (ADR 0206 point 2). -->
+    <link rel="stylesheet" href="css/tokens.css">
+    <link rel="stylesheet" href="css/bundle.css">
+    <!-- Sets data-theme before the first paint, from the viewer's stored
+         choice or prefers-color-scheme. A file, not inline, so the CSP holds
+         with script-src 'self' 'wasm-unsafe-eval' (ADR 0202). -->
+    <script src="js/webui.js"></script>
 </head>
-<body>
-    <!-- No inline script and no inline style, so the CSP holds with
-         script-src 'self' 'wasm-unsafe-eval' and style-src 'self' (ADR 0202).
-         Unstyled until docs/ui/ lands. -->
+<body class="vw-root">
     <div id="app">
         <p role="status">Loading the Varve Web UI…</p>
     </div>
