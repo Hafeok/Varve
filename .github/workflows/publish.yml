@@ -294,6 +294,19 @@ jobs:
         run: |
           echo "packages=$(ls *.nupkg | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
 
+      - name: Attest the packages' build provenance
+        # Keyless, through this job's OIDC identity (ADR 0224 point 3): every
+        # package and the checksum list, one SLSA v1 statement, before
+        # anything is pushed, so that no package reaches nuget.org without
+        # it. The SBOM attestations are one job per package, after this one
+        # (actions/attest takes one SBOM per call); a failed one is re-run on
+        # its own, and attests the same bytes.
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            ${{ github.workspace }}/artifacts/packages/*.nupkg
+            ${{ github.workspace }}/artifacts/packages/SHA256SUMS
+
       # The two steps below are adjacent on purpose. The key NuGet/login mints
       # lives one hour, and anything between them is something that can fail
       # while a credential is in flight.
@@ -313,14 +326,6 @@ jobs:
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
 
-      - name: Attest the packages' build provenance
-        # Keyless, through this job's OIDC identity (ADR 0224 point 3): every
-        # package and the checksum list, one SLSA v1 statement.
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          subject-path: |
-            ${{ github.workspace }}/artifacts/packages/*.nupkg
-            ${{ github.workspace }}/artifacts/packages/SHA256SUMS
 
       - name: Upload the test results
         # #126: every run keeps its TRX, pass or fail, so a slow or red run
