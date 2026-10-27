@@ -56,6 +56,19 @@ internal static class Vocabulary
     internal static readonly ImmutableArray<RdfTerm> SchemaPredicates = [SubClassOf, SubPropertyOf, Domain, Range];
 
     /// <summary>
+    /// The RDF and RDFS vocabulary the axioms name, but for the
+    /// <c>rdf:_n</c>: a triple that holds one as its subject or object can
+    /// change what Σ entails, as meta-modelling does, and is read into Σ by a
+    /// bound probe (ADR 0193 point 2).
+    /// </summary>
+    internal static readonly ImmutableArray<RdfTerm> Terms =
+    [
+        Type, Property, LangString, Statement, Subject, Predicate, Object, First, Rest, Value, Nil, List, Alt, Bag, Seq,
+        Resource, Class, Literal, Datatype, Container, ContainerMembershipProperty, SubClassOf, SubPropertyOf, Domain, Range,
+        Member, Comment, Label, SeeAlso, IsDefinedBy, XsdString,
+    ];
+
+    /// <summary>
     /// The RDF axiomatic triples of RDF 1.1 Semantics §8.1, less those of
     /// <c>rdf:_n</c>, which <see cref="ContainerMembershipAxioms"/> gives per term.
     /// </summary>
@@ -118,6 +131,11 @@ internal static class Vocabulary
     }
 
     /// <summary>Whether <paramref name="term"/> is <c>rdf:_n</c> for a positive integer n without a leading zero.</summary>
+    /// <summary>Whether a term is of the RDF or RDFS vocabulary, an <c>rdf:_n</c> among them.</summary>
+    internal static bool IsVocabulary(RdfTerm term) =>
+        term.Kind == RdfTermKind.Iri
+        && (term.Lexical.StartsWith(Encoding.UTF8.GetBytes(RdfNamespace)) || term.Lexical.StartsWith(Encoding.UTF8.GetBytes(RdfsNamespace)));
+
     internal static bool IsContainerMembership(RdfTerm term)
     {
         if (term.Kind != RdfTermKind.Iri)

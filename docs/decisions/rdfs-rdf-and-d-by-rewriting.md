@@ -13,8 +13,16 @@ decisions:
     statement: "Every RDFS rule has at most one premise outside the schema, so each pattern is rewritten into the union of the schema's matching triples and, per shape, the asserted pattern whose images can match it, through tables compiled by the forward chainer over one representative per shape"
   - key: ExistenceGuardedFacts
     statement: "A fact entailed only if some asserted triple of a shape exists is guarded by an existence subquery over that shape, so it is never emitted for a graph without it"
-  - key: ShapesThatActOnOthersAreSchema
-    statement: "The asserted triples of a shape whose consequences include a schema triple about one of its roles, other than reflexive subClassOf or subPropertyOf and subClassOf rdfs:Resource, are read into the schema before it is closed again"
+  - key: SchemaByProbes
+    statement: "The schema is read by bound probes to a fixpoint, never by a scan of the data: the schema predicates and their sub-properties, typings into a meta class, triples under a property whose domain or range is one, and triples whose subject or object is a term of the RDF and RDFS vocabulary"
+  - key: KnownTermsAreParameters
+    statement: "Every term the schema names is a known predicate and a known class of the compiled tables, so a triple whose predicate or class is one meets what the schema says of it, and a type-like triple whose class is an rdf:_n meets its axioms"
+  - key: DistinctTermsBySeek
+    statement: "The distinct predicates of a graph and the distinct objects of a predicate in it are enumerated by seeking past each, one seek per distinct term, where the source can; a source that cannot is read whole"
+  - key: ExistenceByMemoisedProbe
+    statement: "C2's question whether the scoping graph names a term is answered by an existence probe at rewrite time, memoised per request, for the candidate terms the tables hold"
+  - key: SchemaCachedPerGraphVersion
+    statement: "A saturated schema is cached, bounded, keyed by the versions of the graphs its scoping graph merges"
   - key: SigmaRestrictedLikeMu
     statement: "A blank node of the query binds, as a variable does under C2, only a term of the scoping graph or of the regime's vocabulary less rdf:_n, where the specification leaves σ unbounded"
   - key: AnswerConditions

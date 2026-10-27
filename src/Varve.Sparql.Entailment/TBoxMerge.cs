@@ -28,7 +28,7 @@ namespace Varve.Sparql.Entailment;
 /// request.
 /// </remarks>
 [Contract(typeof(RdfsRdfAndDByRewriting.TBoxMergedIntoEveryGraph), Role = "every graph read with the TBox graphs")]
-internal sealed class TBoxMerge : IQuadSource
+internal sealed class TBoxMerge : IQuadSource, IDistinctTermSource
 {
     private readonly TBoxCover[] _covers;
     private readonly TermHandle[][] _tbox;
@@ -72,6 +72,62 @@ internal sealed class TBoxMerge : IQuadSource
 
     /// <summary>A binding's TBox graphs the source holds, as handles.</summary>
     internal IReadOnlyList<TermHandle> TBoxGraphsOf(CoverIndex cover) => _tbox[cover.Value];
+
+    /// <inheritdoc />
+    /// <remarks>The graph's own distinct terms and those of its binding's TBox graphs, each by the inner's seek where it has one.</remarks>
+    public bool TryDistinctPredicates(GraphPattern graph, [NotNullWhen(true)] out ITermCursor? predicates)
+    {
+        predicates = Distinct(graph, (source, one) => DistinctTerms.Predicates(source, one));
+        return true;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>The graph's own distinct terms and those of its binding's TBox graphs, each by the inner's seek where it has one.</remarks>
+    public bool TryDistinctObjects(TermHandle predicate, GraphPattern graph, [NotNullWhen(true)] out ITermCursor? objects)
+    {
+        objects = Distinct(graph, (source, one) => DistinctTerms.Objects(source, predicate, one));
+        return true;
+    }
+
+    private TermCursor Distinct(GraphPattern graph, Func<IQuadSource, GraphPattern, List<TermHandle>> of)
+    {
+        HashSet<TermHandle> seen = new(Inner.TermComparer);
+        List<TermHandle> terms = [];
+        Add(of(Inner, graph));
+        if (TryGetCover(graph.Match == GraphMatch.Named ? graph.Graph : TermHandle.None, out CoverIndex cover))
+        {
+            foreach (TermHandle tbox in TBoxGraphsOf(cover))
+            {
+                Add(of(Inner, GraphPattern.Named(tbox)));
+            }
+        }
+
+        return new TermCursor(terms);
+
+        void Add(List<TermHandle> found)
+        {
+            foreach (TermHandle term in found)
+            {
+                if (seen.Add(term))
+                {
+                    terms.Add(term);
+                }
+            }
+        }
+    }
+
+    private sealed class TermCursor(List<TermHandle> terms) : ITermCursor
+    {
+        private int _at = -1;
+
+        public TermHandle Current => terms[_at];
+
+        public bool MoveNext() => ++_at < terms.Count;
+
+        public void Dispose()
+        {
+        }
+    }
 
     /// <summary>The binding that covers a graph, if one does; <see cref="TermHandle.None"/> is the default graph.</summary>
     internal bool TryGetCover(TermHandle graph, out CoverIndex cover)

@@ -75,7 +75,7 @@ public static class EntailmentRewriter
 
         TBoxMerge merge = new(source, covers);
         RuleSet rules = recognisedDatatypes is null ? RulesOf(regime) : RulesOf(regime, recognisedDatatypes);
-        Rewriter rewriter = new(merge, query.Dataset, rules, cancellationToken);
+        Rewriter rewriter = new(merge, query.Dataset, rules, NamedMembership.Of(query), cancellationToken);
         return new EntailedQuery(rewriter.Rewrite(query), merge);
     }
 
@@ -108,15 +108,17 @@ public static class EntailmentRewriter
     {
         private readonly TBoxMerge _merge;
         private readonly RuleSet _rules;
+        private readonly IReadOnlyCollection<RdfTerm> _named;
         private readonly CancellationToken _cancellationToken;
         private readonly Dictionary<string, PatternRewriting> _compiled = [];
         private readonly List<TermHandle>? _namedGraphs;
         private IReadOnlyList<GraphPattern> _scope;
 
-        internal Rewriter(TBoxMerge merge, DatasetSpec? dataset, RuleSet rules, CancellationToken cancellationToken)
+        internal Rewriter(TBoxMerge merge, DatasetSpec? dataset, RuleSet rules, IReadOnlyCollection<RdfTerm> named, CancellationToken cancellationToken)
         {
             _merge = merge;
             _rules = rules;
+            _named = named;
             _cancellationToken = cancellationToken;
             if (dataset is null)
             {
@@ -262,8 +264,14 @@ public static class EntailmentRewriter
                 probes.UnionWith(SchemaOf(scope).Scans);
             }
 
-            foreach ((RdfTerm? p, RdfTerm? o) in probes)
+            foreach ((RdfTerm? s, RdfTerm? p, RdfTerm? o) in probes)
             {
+                TermHandle sh = TermHandle.None;
+                if (s is not null && !inner.TryInternalise(s, out sh))
+                {
+                    continue;
+                }
+
                 TermHandle ph = TermHandle.None;
                 if (p is not null && !inner.TryInternalise(p, out ph))
                 {
@@ -276,7 +284,7 @@ public static class EntailmentRewriter
                     continue;
                 }
 
-                using IQuadCursor cursor = inner.Match(TermHandle.None, ph, oh, GraphPattern.AnyNamed);
+                using IQuadCursor cursor = inner.Match(sh, ph, oh, GraphPattern.AnyNamed);
                 while (cursor.MoveNext())
                 {
                     TermHandle graph = cursor.Current.Graph;
@@ -308,7 +316,7 @@ public static class EntailmentRewriter
             string key = KeyOf(scope);
             if (!_schemas.TryGetValue(key, out Schema? schema))
             {
-                _schemas[key] = schema = Schema.Saturate(_merge, scope, _rules, _cancellationToken);
+                _schemas[key] = schema = Schema.Saturate(_merge, scope, _rules, _named, _cancellationToken);
             }
 
             return schema;
@@ -324,6 +332,35 @@ public static class EntailmentRewriter
 
             parts.Sort(StringComparer.Ordinal);
             return string.Join("|", parts);
+        }
+    }
+
+    // The rdf:_n a query's basic graph patterns name.
+    private sealed class NamedMembership : AlgebraRewriter
+    {
+        private readonly HashSet<RdfTerm> _found = new(RdfTerm.Comparer);
+
+        internal static HashSet<RdfTerm> Of(Query query)
+        {
+            NamedMembership walk = new();
+            walk.Rewrite(query);
+            return walk._found;
+        }
+
+        protected override QueryPattern RewriteBgp(Bgp pattern)
+        {
+            foreach (TriplePattern triple in pattern.Triples)
+            {
+                foreach (PatternTerm term in (PatternTerm[])[triple.Subject, triple.Predicate, triple.Object])
+                {
+                    if (term is TermPattern { Term: var named } && Vocabulary.IsContainerMembership(named))
+                    {
+                        _found.Add(named);
+                    }
+                }
+            }
+
+            return pattern;
         }
     }
 }

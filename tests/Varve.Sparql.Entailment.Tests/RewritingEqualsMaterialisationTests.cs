@@ -57,8 +57,18 @@ public class RewritingEqualsMaterialisationTests
     private static readonly Gen<(RdfTerm, RdfTerm, RdfTerm)> DataTriple =
         Gen.Select(Of(Individuals, Classes), Of(Properties, [Vocab[0], Vocab[12], Vocab[8]]), Of(Individuals, Classes, Literals));
 
+    // A schema triple about the user's terms only, the vocabulary in object
+    // position alone: the schema the probes read without the whole-graph fallback.
+    private static readonly Gen<(RdfTerm, RdfTerm, RdfTerm)> PlainSchemaTriple =
+        Gen.Select(Of(Classes, Properties), Gen.OneOfConst(SchemaPredicates), Of(Classes, Properties, Vocab));
+
+    // Two graphs in three keep the vocabulary unredefined, so that most cases
+    // are answered by the probes and the tables (ADR 0193 point 2); the third
+    // may redefine it, and is read whole.
     private static readonly Gen<(RdfTerm, RdfTerm, RdfTerm)[]> Graph =
-        Gen.Frequency((2, SchemaTriple), (3, DataTriple)).Array[0, 7];
+        Gen.Frequency(
+            (1, Gen.Frequency((2, SchemaTriple), (3, DataTriple)).Array[0, 7]),
+            (2, Gen.Frequency((2, PlainSchemaTriple), (3, DataTriple)).Array[0, 7]));
 
     private static readonly Gen<Slot> Position =
         Gen.Frequency(

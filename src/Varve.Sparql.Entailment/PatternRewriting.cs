@@ -405,6 +405,7 @@ internal sealed class PatternRewriting
             Family.ContainerMembershipPredicate => Condition(bgp, IsContainerMembership(asserted[1])),
             Family.ContainerMembershipSubject => Condition(bgp, IsContainerMembership(asserted[0])),
             Family.ContainerMembershipObject => Condition(bgp, IsContainerMembership(asserted[2])),
+            Family.ContainerMembershipClass => Condition(bgp, IsContainerMembership(asserted[2])),
             Family.LiteralObject => LiteralCondition(bgp, asserted[2]),
             _ => bgp,
         };
@@ -457,6 +458,7 @@ internal sealed class PatternRewriting
         Family.KnownPredicate => [null, 0, null],
         Family.KnownClass => [null, 0, 1],
         Family.AnyClass => [null, 0, null],
+        Family.ContainerMembershipClass => [null, 0, null],
         _ => [null, null, null],
     };
 

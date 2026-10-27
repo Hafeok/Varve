@@ -43,7 +43,10 @@ internal sealed class Schema
     /// matches adds nothing to any, so its own saturation with the same TBox
     /// reaches this Σ.
     /// </summary>
-    internal List<Scan> Scans { get; private set; } = [];
+    internal List<Scan> Scans { get; private init; } = [];
+
+    /// <summary>Whether the scoping graph was read whole, its schema redefining the vocabulary.</summary>
+    internal bool ReadWhole { get; private init; }
 
     /// <summary>Σ, closed.</summary>
     internal TripleClosure Closure { get; }
@@ -64,14 +67,29 @@ internal sealed class Schema
     /// Saturates the schema of the scoping graph made of <paramref name="graphs"/>
     /// in <paramref name="source"/> (a merge, so the TBox is in each).
     /// </summary>
-    internal static Schema Saturate(IQuadSource source, IReadOnlyList<GraphPattern> graphs, RuleSet rules, CancellationToken cancellationToken)
+    /// <remarks>
+    /// <paramref name="named"/> are the <c>rdf:_n</c> the query names: their
+    /// axioms hold whether or not the graph names them, and act on every
+    /// pattern of the query (Entailment Regimes §3.4).
+    /// </remarks>
+    internal static Schema Saturate(IQuadSource source, IReadOnlyList<GraphPattern> graphs, RuleSet rules, IReadOnlyCollection<RdfTerm> named, CancellationToken cancellationToken)
     {
         List<Triple> found = [];
         HashSet<Triple> seen = [];
         HashSet<RdfTerm> scannedPredicates = new(RdfTerm.Comparer);
         HashSet<(RdfTerm, RdfTerm)> scannedTypes = [];
-        HashSet<bool> scannedAll = [];
         List<Scan> scans = [];
+
+        // A triple about the vocabulary itself is meta-modelling: read once,
+        // by subject and by object, so that Σ holds what it says.
+        if (rules.Rdfs)
+        {
+            foreach (RdfTerm term in Vocabulary.Terms)
+            {
+                Read(null, null, term);
+                Read(null, term);
+            }
+        }
 
         while (true)
         {
@@ -84,8 +102,18 @@ internal sealed class Schema
             }
 
             closure.AddContainerMembershipAxioms(Terms(found));
+            closure.AddContainerMembershipAxioms(named);
             closure.Close();
             Schema schema = new(rules, closure);
+
+            // A schema that says something of the vocabulary itself — rdf:type
+            // a sub-property of a schema predicate, rdfs:member with a domain —
+            // makes any triple a possible schema triple, which no bounded
+            // probe finds: its scoping graph is read whole (ADR 0193 point 2).
+            if (rules.Rdfs && RedefinesVocabulary(schema, found))
+            {
+                return Whole(source, graphs, rules, named, cancellationToken);
+            }
 
             bool more = false;
             foreach (RdfTerm predicate in schema.SchemaPredicates)
@@ -110,47 +138,35 @@ internal sealed class Schema
                         }
                     }
 
-                    foreach (RdfTerm property in closure.Subjects(Vocabulary.Domain, meta))
+                    // A triple under a property whose domain or range is a meta
+                    // class, or under any of its sub-properties, types its
+                    // subject or object into it.
+                    foreach (RdfTerm property in (IEnumerable<RdfTerm>)[.. closure.Subjects(Vocabulary.Domain, meta), .. closure.Subjects(Vocabulary.Range, meta)])
                     {
-                        if (scannedPredicates.Add(property))
+                        foreach (RdfTerm sub in (IEnumerable<RdfTerm>)[property, .. closure.Subjects(Vocabulary.SubPropertyOf, property)])
                         {
-                            more |= Read(property, null);
+                            if (scannedPredicates.Add(sub))
+                            {
+                                more |= Read(sub, null);
+                            }
                         }
-                    }
 
-                    foreach (RdfTerm property in closure.Subjects(Vocabulary.Range, meta))
-                    {
-                        if (scannedPredicates.Add(property))
-                        {
-                            more |= Read(property, null);
-                        }
                     }
-                }
-            }
-
-            // A shape whose consequences act on other triples is Σ's too.
-            List<Scan> needed = [];
-            List<Branch> branches = Shapes.Compile(schema, needed);
-            foreach (Scan scan in needed)
-            {
-                if (scan.Predicate is null ? scannedAll.Add(true) : scan.Object is null ? scannedPredicates.Add(scan.Predicate) : scannedTypes.Add((scan.Predicate, scan.Object)))
-                {
-                    more |= Read(scan.Predicate, scan.Object);
                 }
             }
 
             if (!more)
             {
-                schema.Branches = branches;
-                schema.Scans = scans;
-                return schema;
+                Schema done = new(rules, closure) { Scans = scans };
+                done.Branches = Shapes.Compile(done);
+                return done;
             }
         }
 
-        bool Read(RdfTerm? predicate, RdfTerm? @object)
+        bool Read(RdfTerm? predicate, RdfTerm? @object, RdfTerm? subject = null)
         {
-            scans.Add(new Scan(predicate, @object));
-            return Scan(source, graphs, null, predicate, @object, found, seen);
+            scans.Add(new Scan(subject, predicate, @object));
+            return Scan(source, graphs, subject, predicate, @object, found, seen);
         }
     }
 
@@ -211,6 +227,18 @@ internal sealed class Schema
                 AddClass(t.O);
             }
         }
+
+        // Every term Σ names is known in each role its families give it: a
+        // triple whose predicate or class is one of them meets what Σ says
+        // of that term, which no generic representative can (ADR 0193 point 3).
+        foreach (Triple t in Closure.All)
+        {
+            foreach (RdfTerm term in (RdfTerm[])[t.S, t.P, t.O])
+            {
+                AddPredicate(term);
+                AddClass(term);
+            }
+        }
     }
 
     private void AddPredicate(RdfTerm term)
@@ -221,13 +249,8 @@ internal sealed class Schema
         }
     }
 
-    private void AddClass(RdfTerm term)
-    {
-        if (term.Kind != RdfTermKind.Literal)
-        {
-            KnownClasses.Add(term);
-        }
-    }
+    // A literal is a class Σ may know too: one a range makes a datatype.
+    private void AddClass(RdfTerm term) => KnownClasses.Add(term);
 
     // One predicate-bound match per graph of the scoping graph; the terms are
     // externalised, since the schema is small and closed as terms.
@@ -273,6 +296,43 @@ internal sealed class Schema
         }
 
         return added;
+    }
+
+    // A triple of Σ whose subject is the vocabulary's, but for an rdf:_n,
+    // under a schema or type-like predicate.
+    private static bool RedefinesVocabulary(Schema schema, List<Triple> found)
+    {
+        foreach (Triple t in found)
+        {
+            // An rdf:_n is one term like any the user names, which the probes follow.
+            if (Vocabulary.IsVocabulary(t.S) && !Vocabulary.IsContainerMembership(t.S) && (schema.SchemaPredicates.Contains(t.P) || schema.TypeLike.Contains(t.P)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Σ of a scoping graph read whole: every triple, and the axioms of every <c>rdf:_n</c> it names.</summary>
+    private static Schema Whole(IQuadSource source, IReadOnlyList<GraphPattern> graphs, RuleSet rules, IReadOnlyCollection<RdfTerm> named, CancellationToken cancellationToken)
+    {
+        List<Triple> all = [];
+        Scan(source, graphs, null, null, null, all, []);
+        cancellationToken.ThrowIfCancellationRequested();
+        TripleClosure closure = new(rules);
+        closure.AddAxioms();
+        foreach (Triple triple in all)
+        {
+            closure.Add(triple);
+        }
+
+        closure.AddContainerMembershipAxioms(Terms(all));
+        closure.AddContainerMembershipAxioms(named);
+        closure.Close();
+        Schema schema = new(rules, closure) { Scans = [new Scan(null, null, null)], ReadWhole = true };
+        schema.Branches = Shapes.Compile(schema);
+        return schema;
     }
 
     private static IEnumerable<RdfTerm> Terms(List<Triple> triples)

@@ -294,3 +294,14 @@ virtual Varve.Rdf.GraphGovernor.Invoke(Varve.Rdf.RdfTerm! graph, out Varve.Rdf.R
 Varve.Rdf.GraphScope.Prefixes.get -> System.Collections.Generic.IReadOnlyList<string!>!
 Varve.Rdf.GraphScope.IsEmpty.get -> bool
 Varve.Rdf.GraphScope.WithDatasetPublic(System.ReadOnlySpan<Varve.Rdf.RdfTerm!> graphs) -> Varve.Rdf.GraphScope!
+Varve.Rdf.DistinctTerms
+Varve.Rdf.GraphScopedQuadSource.TryDistinctObjects(Varve.Rdf.TermHandle predicate, Varve.Rdf.GraphPattern graph, out Varve.Rdf.ITermCursor? objects) -> bool
+Varve.Rdf.GraphScopedQuadSource.TryDistinctPredicates(Varve.Rdf.GraphPattern graph, out Varve.Rdf.ITermCursor? predicates) -> bool
+Varve.Rdf.IDistinctTermSource
+Varve.Rdf.IDistinctTermSource.TryDistinctObjects(Varve.Rdf.TermHandle predicate, Varve.Rdf.GraphPattern graph, out Varve.Rdf.ITermCursor? objects) -> bool
+Varve.Rdf.IDistinctTermSource.TryDistinctPredicates(Varve.Rdf.GraphPattern graph, out Varve.Rdf.ITermCursor? predicates) -> bool
+Varve.Rdf.ITermCursor
+Varve.Rdf.ITermCursor.Current.get -> Varve.Rdf.TermHandle
+Varve.Rdf.ITermCursor.MoveNext() -> bool
+static Varve.Rdf.DistinctTerms.Objects(Varve.Rdf.IQuadSource! source, Varve.Rdf.TermHandle predicate, Varve.Rdf.GraphPattern graph) -> System.Collections.Generic.List<Varve.Rdf.TermHandle>!
+static Varve.Rdf.DistinctTerms.Predicates(Varve.Rdf.IQuadSource! source, Varve.Rdf.GraphPattern graph) -> System.Collections.Generic.List<Varve.Rdf.TermHandle>!

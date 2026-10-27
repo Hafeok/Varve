@@ -8,9 +8,6 @@ namespace Varve.Sparql.Entailment;
 
 /// <summary>
 /// Asserted triples the schema's saturation reads (ADR 0193 point 2): those
-/// under a predicate, optionally with an object, or every triple.
+/// with a bound subject, predicate or object, or two of them.
 /// </summary>
-internal readonly record struct Scan(RdfTerm? Predicate, RdfTerm? Object)
-{
-    internal static Scan Everything => new(null, null);
-}
+internal readonly record struct Scan(RdfTerm? Subject, RdfTerm? Predicate, RdfTerm? Object);

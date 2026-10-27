@@ -45,6 +45,9 @@ internal enum Family : byte
 
     /// <summary>A triple whose object is <c>rdf:_n</c>.</summary>
     ContainerMembershipObject,
+
+    /// <summary>A type-like triple whose class is <c>rdf:_n</c>, which meets its own axioms; the predicate is the parameter.</summary>
+    ContainerMembershipClass,
 }
 
 /// <summary>Where a branch's output position comes from: a role of the asserted triple, or a column of its table.</summary>
@@ -98,15 +101,7 @@ internal static class Shapes
     private static readonly RdfTerm RoleObject = Placeholder("o");
 
     /// <summary>The branches of <paramref name="schema"/>, Σ's first.</summary>
-    internal static List<Branch> Compile(Schema schema) => Compile(schema, null);
-
-    /// <summary>
-    /// The branches of <paramref name="schema"/>, and in <paramref name="needed"/>
-    /// the asserted triples whose shape derives a schema triple about one of
-    /// its roles that is not trivially true: those belong in Σ (ADR 0193
-    /// point 2), since that triple acts on other asserted triples.
-    /// </summary>
-    internal static List<Branch> Compile(Schema schema, List<Scan>? needed)
+    internal static List<Branch> Compile(Schema schema)
     {
         List<Branch> branches = [];
         Branch sigma = new(Family.Schema, 0, 3, Position.Column(0), Position.Column(1), Position.Column(2));
@@ -120,30 +115,31 @@ internal static class Shapes
 
         foreach (RdfTerm predicate in schema.KnownPredicates)
         {
-            Collect(schema, grouped, Family.KnownPredicate, [predicate], new Triple(RoleSubject, predicate, RoleObject), predicate, RoleObject, needed: needed, scan: new Scan(predicate, null));
+            Collect(schema, grouped, Family.KnownPredicate, [predicate], new Triple(RoleSubject, predicate, RoleObject), predicate, RoleObject);
         }
 
         foreach (RdfTerm type in schema.TypeLike)
         {
             foreach (RdfTerm @class in schema.KnownClasses)
             {
-                Collect(schema, grouped, Family.KnownClass, [type, @class], new Triple(RoleSubject, type, @class), type, @class, needed: needed, scan: new Scan(type, @class));
+                Collect(schema, grouped, Family.KnownClass, [type, @class], new Triple(RoleSubject, type, @class), type, @class);
             }
 
-            Collect(schema, grouped, Family.AnyClass, [type], new Triple(RoleSubject, type, RoleObject), type, RoleObject, needed: needed, scan: new Scan(type, null));
+            Collect(schema, grouped, Family.AnyClass, [type], new Triple(RoleSubject, type, RoleObject), type, RoleObject);
+            Collect(schema, grouped, Family.ContainerMembershipClass, [type], new Triple(RoleSubject, type, RoleObject), type, RoleObject, containerMembership: RoleObject);
         }
 
-        Collect(schema, grouped, Family.AnyPredicate, [], new Triple(RoleSubject, RolePredicate, RoleObject), RolePredicate, RoleObject, needed: needed, scan: Scan.Everything);
+        Collect(schema, grouped, Family.AnyPredicate, [], new Triple(RoleSubject, RolePredicate, RoleObject), RolePredicate, RoleObject);
 
         foreach (RdfTerm datatype in schema.Rules.Recognised)
         {
-            Collect(schema, grouped, Family.LiteralObject, [datatype], new Triple(RoleSubject, RolePredicate, LiteralOf(datatype)), RolePredicate, LiteralOf(datatype), needed: needed, scan: Scan.Everything);
+            Collect(schema, grouped, Family.LiteralObject, [datatype], new Triple(RoleSubject, RolePredicate, LiteralOf(datatype)), RolePredicate, LiteralOf(datatype));
         }
 
         // rdf:_n: its own axioms, as a predicate and as a term.
-        Collect(schema, grouped, Family.ContainerMembershipPredicate, [], new Triple(RoleSubject, RolePredicate, RoleObject), RolePredicate, RoleObject, containerMembership: RolePredicate, needed: needed, scan: Scan.Everything);
-        Collect(schema, grouped, Family.ContainerMembershipSubject, [], null, RolePredicate, RoleObject, containerMembership: RoleSubject, needed: needed, scan: Scan.Everything);
-        Collect(schema, grouped, Family.ContainerMembershipObject, [], null, RolePredicate, RoleObject, containerMembership: RoleObject, needed: needed, scan: Scan.Everything);
+        Collect(schema, grouped, Family.ContainerMembershipPredicate, [], new Triple(RoleSubject, RolePredicate, RoleObject), RolePredicate, RoleObject, containerMembership: RolePredicate);
+        Collect(schema, grouped, Family.ContainerMembershipSubject, [], null, RolePredicate, RoleObject, containerMembership: RoleSubject);
+        Collect(schema, grouped, Family.ContainerMembershipObject, [], null, RolePredicate, RoleObject, containerMembership: RoleObject);
 
         branches.AddRange(grouped.Values);
         return branches;
@@ -174,9 +170,7 @@ internal static class Shapes
         Triple? representative,
         RdfTerm predicateRole,
         RdfTerm objectRole,
-        RdfTerm? containerMembership = null,
-        List<Scan>? needed = null,
-        Scan? scan = null)
+        RdfTerm? containerMembership = null)
     {
         TripleClosure closure = new(schema.Rules, schema.Closure);
         if (containerMembership is not null)
@@ -193,16 +187,8 @@ internal static class Shapes
         }
 
         closure.Close();
-        RdfTerm[] roles = [RoleSubject, predicateRole, objectRole];
-        bool reported = false;
         foreach (Triple fact in closure.Own)
         {
-            if (needed is not null && scan is { } wanted && !reported && ActsOnOthers(schema, fact, roles))
-            {
-                needed.Add(wanted);
-                reported = true;
-            }
-
             Position[] positions = new Position[3];
             List<RdfTerm> slots = [];
             RdfTerm[] terms = [fact.S, fact.P, fact.O];
@@ -246,60 +232,6 @@ internal static class Shapes
             slots.CopyTo(row, parameters.Length);
             branch.Rows.Add(row);
         }
-    }
-
-    // A schema triple about a role that other asserted triples feel: any but
-    // (r subClassOf r), (r subPropertyOf r) and (r subClassOf rdfs:Resource);
-    // or a role typed a container membership property or a datatype, which
-    // rdfs12 and rdfs13 turn into one.
-    private static bool ActsOnOthers(Schema schema, Triple fact, RdfTerm[] roles)
-    {
-        bool subjectRole = IsRole(fact.S, roles);
-        bool objectRole = IsRole(fact.O, roles);
-        if (!subjectRole && !objectRole)
-        {
-            return false;
-        }
-
-        if (fact.P.Equals(Vocabulary.Type))
-        {
-            if (!subjectRole)
-            {
-                return false;
-            }
-
-            foreach (RdfTerm meta in schema.MetaClasses())
-            {
-                if (fact.O.Equals(meta))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        if (!schema.SchemaPredicates.Contains(fact.P))
-        {
-            return false;
-        }
-
-        bool reflexive = fact.S.Equals(fact.O) && (fact.P.Equals(Vocabulary.SubClassOf) || fact.P.Equals(Vocabulary.SubPropertyOf));
-        bool resource = fact.P.Equals(Vocabulary.SubClassOf) && fact.O.Equals(Vocabulary.Resource);
-        return !reflexive && !resource;
-    }
-
-    private static bool IsRole(RdfTerm term, RdfTerm[] roles)
-    {
-        foreach (RdfTerm role in roles)
-        {
-            if (term.Equals(role))
-            {
-                return true;
-            }
-        }
-
-        return term.Kind == RdfTermKind.Literal && term.Lexical.SequenceEqual("\u0001"u8);
     }
 
     private static bool Mentions(List<RdfTerm> slots, RdfTerm placeholder)
