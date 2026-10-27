@@ -202,7 +202,7 @@ accepts it (ADR 0066).
 **The ledger.** The rulings are ADR 0174's `ValidationBehind` and
 `ReportGraphNotWritable`.
 
-## Amendment, 2026-10-27 — `entailment-unsupported`
+## Amendment, 2026-10-27 — `entailment-unsupported` and `entailment-refused`
 
 Filed by Inference, part 1 (#170, under #95), unaccepted until the maintainer
 accepts it (ADR 0066).
@@ -214,8 +214,15 @@ accepts it (ADR 0066).
   - a regime other than simple on an update request.
 
   The rules are those of ADR [0192](0192-entailment-regimes-over-http.md).
+- **`entailment-refused`** (`400`, member `reason`): the regime's
+  `QueryRequestRefused` (SPARQL 1.1 Entailment Regimes §1.4), such as a
+  query illegal under OWL 2 Direct semantics or an inconsistent ontology
+  under it (`reason` `inconsistent`). It is catalogued now and emitted by no
+  tier-1 regime: RDF, RDFS and D never refuse a query. #95's later parts
+  emit it.
 - `Varve-Entailment` is a request and a response header of the query
-  endpoints, beside `Varve-As-Of`, and `Vary` names it.
+  endpoints, beside `Varve-As-Of`. The `Vary` every dataset response
+  carries names it, problems included, so the list stays one list.
 
 **The ledger.** The rulings are ADR 0192's `EntailmentHeader` and
 `UpdatesAreSimple`.

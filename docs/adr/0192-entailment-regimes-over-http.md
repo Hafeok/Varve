@@ -7,7 +7,8 @@
 (2026-10-27), question 3b. Acceptance is the maintainer's act on the pull
 request. Amends, each by a dated amendment:
 - **ADR [0119](0119-headers-and-the-problem-catalogue.md)**: the
-  `entailment-unsupported` problem;
+  `entailment-unsupported` and `entailment-refused` problems, and the
+  header in the `Vary` list;
 - **ADR [0132](0132-cors.md)**: the header joins both CORS lists.
 
 ## Context
@@ -46,6 +47,9 @@ request. Amends, each by a dated amendment:
    - **Anything else** — an unknown value, a regime not yet available, more
      than one value — is `400 entailment-unsupported`, with members `value`
      and `supported`, the tokens this server serves.
+   - **A query a regime refuses** — its `QueryRequestRefused` — is `400
+     entailment-refused`, with member `reason`. No tier-1 regime refuses a
+     query, so this part catalogues it and emits it nowhere.
 2. **The default.**
    - Without the header, a query is evaluated under the dataset's default.
      That is the `varve:defaultEntailment` of its TBox bindings at the
@@ -55,7 +59,8 @@ request. Amends, each by a dated amendment:
      `Varve-Entailment: simple`.
 3. **The response.**
    - It carries `Varve-Entailment`, naming the regime applied as its token.
-   - It carries `Vary: Varve-Entailment`.
+   - It carries `Vary: Varve-Entailment`. The header joins the `Vary` list
+     every dataset response carries (ADR 0119), problems included.
    - The query result's `ETag` is per position and regime.
 4. **Where the header applies.**
    - **Queries** honour it, on the SPARQL Protocol endpoints.

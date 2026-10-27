@@ -65,6 +65,7 @@ public static class ProblemCatalogue
         new(ProblemType.RdfSyntax, 400, "The RDF body does not parse."),
         new(ProblemType.BadRequest, 400, "The request is not one the protocol accepts."),
         new(ProblemType.EntailmentUnsupported, 400, "The server does not answer this request under that entailment regime.", "value", "supported"),
+        new(ProblemType.EntailmentRefused, 400, "The entailment regime refuses this query.", "reason"),
         new(ProblemType.OperationFailed, 400, "An operation failed; nothing was committed."),
         new(ProblemType.Unauthorized, 401, "The request carries no valid bearer token."),
         new(ProblemType.Forbidden, 403, "The caller does not hold the permission the request needs."),

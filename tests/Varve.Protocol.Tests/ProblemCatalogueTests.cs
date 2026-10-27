@@ -51,7 +51,7 @@ public class ProblemCatalogueTests
     /// dataset in an object store, which is the Management plane's follower
     /// (#105). Removed from here by the slice that makes each emittable.
     /// </summary>
-    private static readonly ImmutableArray<ProblemType> NotYetEmittable = [ProblemType.BelowArchiveHorizon, ProblemType.ReaderForgotten, ProblemType.ReadUnannouncedExtentGone];
+    private static readonly ImmutableArray<ProblemType> NotYetEmittable = [ProblemType.BelowArchiveHorizon, ProblemType.ReaderForgotten, ProblemType.ReadUnannouncedExtentGone, ProblemType.EntailmentRefused];
 
     /// <summary>
     /// Types whose trigger holds state across requests, exercised in

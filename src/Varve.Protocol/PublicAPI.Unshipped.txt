@@ -430,3 +430,4 @@ Varve.Protocol.ProtocolOptions.Entailment.get -> Varve.Protocol.IEntailmentBindi
 Varve.Protocol.ProtocolOptions.Entailment.init -> void
 static Varve.Protocol.EntailmentBindings.None.get -> Varve.Protocol.EntailmentBindings!
 static Varve.Protocol.Model.ProblemType.EntailmentUnsupported.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.EntailmentRefused.get -> Varve.Protocol.Model.ProblemType
