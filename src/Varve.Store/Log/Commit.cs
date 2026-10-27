@@ -3,10 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
-using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Store.Log;
@@ -24,8 +24,12 @@ namespace Varve.Store.Log;
 public sealed class Commit
 {
     private readonly Dataset _dataset;
+    // A HashSet, not an immutable set: built in a local, published once and
+    // never written again or handed out, and each immutable set measured cost
+    // 2.4 to 8.5 times its build (CommitPathBenchmarks).
     [Memoized]
-    private FrozenSet<ulong>? _carried;
+    [DesignDecision(typeof(StoreLogSurfaces.CarriedHandlesAreAPrivateHashSet), Scope = ExceptionScope.HotPath)]
+    private HashSet<ulong>? _carried;
 
     internal Commit(
         long position,
@@ -111,7 +115,7 @@ public sealed class Commit
         return true;
     }
 
-    private FrozenSet<ulong> Carried()
+    private HashSet<ulong> Carried()
     {
         HashSet<ulong> carried = [Agent.Value, Cause.Value, GraphScope.Value];
 
@@ -122,7 +126,7 @@ public sealed class Commit
 
         Add(carried, Delta.Asserted);
         Add(carried, Delta.Retracted);
-        return carried.ToFrozenSet();
+        return carried;
     }
 
     private static void Add(HashSet<ulong> carried, ReadOnlySpan<Quad> quads)
