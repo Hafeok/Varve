@@ -161,7 +161,10 @@ public sealed class ObjectStorageServerTests
     {
         Varve.Store.ExtentRetention retention = new(
             new Varve.Store.Log.CatalogVersion(9), 3, 2, 4096,
-            [new Varve.Store.ReaderRetention(new Varve.Store.Log.ReaderAnnouncement(new Varve.Store.Log.ReaderId("follower"), new Varve.Store.Log.CatalogVersion(4), new Varve.Store.Log.CatalogVersion(4)), 4096)]);
+            [new Varve.Store.ReaderRetention(new Varve.Store.Log.ReaderAnnouncement(new Varve.Store.Log.ReaderId("follower"), new Varve.Store.Log.CatalogVersion(4), new Varve.Store.Log.CatalogVersion(4)), 4096)])
+        {
+            UncheckedSets = 1,
+        };
         DatasetHealth[] health = [new DatasetHealth("d", DatasetState.Open, null, 4, 4, false, Retention: retention), new DatasetHealth("e", DatasetState.Open, null, 2, 2, false)];
         (bool ready, List<DatasetReadiness> states) = Readiness.Evaluate(health, allowedLag: 0, draining: false);
         Assert.True(ready);
@@ -177,7 +180,7 @@ public sealed class ObjectStorageServerTests
         }
 
         Assert.Equal(
-            """{"retention":{"d":{"catalogVersion":9,"sets":3,"unnamedSets":2,"retainedBytes":4096,"readers":[{"reader":"follower","oldest":4,"newest":4,"maxDerived":4,"retainedBytes":4096}]}}}""",
+            """{"retention":{"d":{"catalogVersion":9,"sets":3,"unnamedSets":2,"uncheckedSets":1,"retainedBytes":4096,"readers":[{"reader":"follower","oldest":4,"newest":4,"maxDerived":4,"retainedBytes":4096}]}}}""",
             Encoding.UTF8.GetString(body.WrittenSpan));
     }
 
