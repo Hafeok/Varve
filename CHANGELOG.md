@@ -46,13 +46,19 @@ are filed unaccepted and accepted on the pull request (ADR 0066).
     request. Classes and container membership properties are sought, one
     seek per distinct term, where a pattern needs them.
   - Rewriting does not grow with the data. `?s ?p ?o` and
-    `?x a rdfs:Resource` are answer-sized; a TBox that redefines the RDF or
-    RDFS vocabulary has its graph read whole when its schema is saturated.
+    `?x a rdfs:Resource` are answer-sized. A triple that says something of
+    the RDF or RDFS vocabulary itself makes the schema of every graph it is
+    part of read whole, after every commit to it: a TBox binding's
+    description (`GET /manage/datasets/{name}/bindings/{binding}`) names
+    those graphs under `fullReads`, and `/health/ready` counts them.
+  - Each pattern's union drops the branches the rewriting proves add
+    nothing; `?x a ex:Student` under RDFS reads its typings once, not six
+    times. The schema cache is bounded by size as well as count.
   - D matches literals by value, with Varve.Xsd's datatype map, through
     two extension functions a host registers (`LiteralValues`).
   - Property paths and `SERVICE` are evaluated without entailment (§10).
   - Usable over any `IQuadSource`, without the store; the browser build
-    carries it for 50 KB under brotli.
+    carries it for 42 KB under brotli against `main`.
 - **`Varve.Rdf`**: `IDistinctTermSource` and `DistinctTerms`, a source's
   distinct predicates and objects by seek; `IGraphVersionSource` and
   `GraphVersion`. The store's `DatasetView` answers both, at the head,

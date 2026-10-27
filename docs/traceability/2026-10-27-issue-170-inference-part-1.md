@@ -61,6 +61,43 @@ build:
 > ADR 0193’s context: the first build scanned, and the plan’s probe design is
 > what it ships.
 
+The maintainer's second review, on #178, verbatim:
+
+> Good work. Yes, watch #178 and fix what CI reports; review comments come
+> through me.
+>
+> 1. Vocabulary redefinitions: keep the full read, cached per graph version,
+> and surface it. Add a `fullReads` member to readiness and to the binding’s
+> description, naming every graph whose content forces the full read. The
+> operator guide says to keep such axioms in a TBox graph, because in a data
+> graph the read repeats after every commit to it. Add a benchmark row:
+> commits to a data graph that redefines RDFS vocabulary, with a query after
+> each one.
+> 2. RDFS at 30–60× simple: for the worst query shape, report the rewritten
+> union’s branch count and how many branches return answers on the benchmark
+> data. Prune branches the saturated TBox proves empty (for example, domain
+> and range branches for a class no `domain` or `range` axiom reaches). Add a
+> property that pruning never changes an answer. Then report the factor
+> again.
+> 3. `?x a rdfs:Resource` at 1,000,000: run it out of process, or report one
+> timed iteration marked as such. No empty rows.
+> 4. Browser size: give the delta against `main`’s WasmSmoke build, and
+> against the 1.72 MB measured on 2026-10-15.
+> 5. Run `dotnet run eng/ci.cs` in full and tick the box before asking for
+> review.
+>
+> ADR 0125 is the right citation; thanks for correcting it.
+
+Where the session departed from it, each said to the maintainer:
+- **Readiness counts `fullReads` and names none.** `/health/ready` is
+  unauthenticated (ADR 0113 point 4) and a graph's name is what a grant
+  guards (ADR 0107); the binding's description, behind admin, names them.
+- **The operator guide says the opposite of point 1's advice**, on the
+  benchmark's evidence: a graph's schema is read merged with its binding's
+  TBox, so in a TBox such a triple makes every covered graph read whole
+  after every commit to it; in a data graph only that graph pays. The two
+  measure the same per commit.
+
 ## The report
 
 ### What was built
@@ -72,6 +109,11 @@ build:
   rewriting of basic graph patterns, C2 by memoised probes, D by value,
   `TBoxCover`, one per binding, and `SchemaCache`, the schemas kept per
   graph version.
+- **The second review's revision:** `EntailmentRewriter.FullReads` and
+  `FullReadGraphs`; `fullReads` on a TBox binding's description and a count
+  in readiness; pruning of the rewritten unions (`Pruning`), and its
+  property; the schema cache bounded by size as well as count;
+  `FullReadBenchmarks`; every benchmark row out of process.
 - **The schema rework** (the maintainer's answer above): the scan-built
   schema moved into the tests as the oracle; `IDistinctTermSource` in
   `Varve.Rdf` and the store's seek to the next distinct key, over runs,
@@ -142,6 +184,21 @@ The rework's properties found, each fixed:
   properties at nightly depth. A group reads its quads; only a scoping graph
   that is exactly the graphs evaluated is sought.
 
+The second review's revision found:
+- **every dataset without a TBox binding shared one schema cache**, whose
+  keys name graphs and not datasets; each declared dataset now has its own.
+- **the schema cache, bounded by count only, ran a whole-graph schema per
+  commit out of memory**: the full-read benchmark at 100,000 people. It is
+  now bounded by the triples its schemas hold.
+- **a union branch per family, each reading every triple of its pattern**:
+  `?x a ex:Student` read the same N rows three times and N more three times
+  to keep none. Pruned, it reads them once.
+- **the property's first generators let a wrong pruning through** (one that
+  drops a branch whose guard holds on its constant, which another branch
+  usually covers); generators aimed at `rdf:_n` and literal constants, and the
+  comparison on every case of the materialisation properties, catch the
+  unsafe folding of the literal family's table every run.
+
 ### Decisions taken inside the plan
 
 - **Several bindings per dataset.** ADR 0193 merges each graph with the TBox
@@ -163,9 +220,11 @@ The bundle's `_framework/`, trimmed, each file compressed alone:
 | Build | raw | gzip | brotli |
 |---|---:|---:|---:|
 | 2026-10-15, before Inference | 5.37 MB | 2.05 MB | 1.72 MB |
-| `main` on 2026-10-27, re-measured | 6.42 MB | 2.42 MB | 2.03 MB |
-| this part, first build | 6.52 MB | 2.46 MB | 2.07 MB |
-| this part, after the schema rework | 6.54 MB | 2.47 MB | 2.08 MB |
+| `main` at `705b2686`, measured alike | 6.434 MB | 2.425 MB | 2.035 MB |
+| this part's head | 6.543 MB | 2.474 MB | 2.077 MB |
+
+Against `main`, 42 KB under brotli; against 2026-10-15, 357 KB, of which
+315 KB is `main`'s own growth since.
 
 The benchmark's numbers are in `tests/Varve.Benchmarks/README.md`, with the
 machine.

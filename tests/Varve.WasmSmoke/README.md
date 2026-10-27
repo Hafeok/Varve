@@ -48,14 +48,16 @@ for Inference, part 1 (#170) on 2026-10-27:
 | Build | raw | gzip | brotli |
 |---|---:|---:|---:|
 | 2026-10-15, before Inference (#95's plan) | 5.37 MB | 2.05 MB | 1.72 MB |
-| `main` on 2026-10-27, re-measured | 6.42 MB | 2.42 MB | 2.03 MB |
-| with `Varve.Sparql.Entailment` and the rewritten queries | 6.52 MB | 2.46 MB | 2.07 MB |
-| the same after the schema rework (probes, seek, cache) | 6.54 MB | 2.47 MB | 2.08 MB |
+| `main` at `705b2686`, 2026-10-27, its WasmSmoke built and measured alike | 6.434 MB | 2.425 MB | 2.035 MB |
+| #170's head, after the schema rework and pruning | 6.543 MB | 2.474 MB | 2.077 MB |
 
-Tier 1 costs 0.12 MB raw and 0.05 MB brotli: `Varve.Sparql.Entailment.wasm`
-is 85 KB, 33 KB under brotli (73 KB and 28 KB before the schema rework), and the rest is evaluator code the rewritten
-queries keep from trimming. The growth on `main` since 2026-10-15 is the
-milestones between.
+**Against `main`**, tier 1 costs 109 KB raw, 48 KB gzip and **42 KB
+brotli**: `Varve.Sparql.Entailment.wasm` is 86 KB, 34 KB under brotli, and
+the rest is evaluator code the rewritten queries keep from trimming.
+**Against 2026-10-15**, the bundle is 357 KB larger under brotli: 315 KB of
+it is `main`'s own growth since, the milestones between, and 42 KB is this
+part. Each size is the sum of `_framework/`'s files compressed alone, gzip at
+level 9 and brotli at quality 11.
 
 ## What it found
 
