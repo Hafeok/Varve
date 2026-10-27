@@ -54,7 +54,7 @@ internal static class ObjectLease
         || dataset.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
         || dataset.StartsWith("s3://", StringComparison.OrdinalIgnoreCase);
 
-    internal static async Task<int> RunAsync(string address, bool breakIt, bool take, long? epoch, string? endpoint, string? region, Io io, CancellationToken cancellationToken)
+    internal static async Task<int> RunAsync(string address, bool breakIt, bool take, long? epoch, string? endpoint, string? region, string? sts, Io io, CancellationToken cancellationToken)
     {
         if (breakIt)
         {
@@ -66,7 +66,7 @@ internal static class ObjectLease
             throw new Cli.CommandException("--take needs --epoch: the epoch it takes over from, as varve lease shows it, so a takeover never supersedes a writer the operator did not see (ADR 0136).");
         }
 
-        (IObjectStore store, ObjectName prefix) = Open(address, endpoint, region);
+        (IObjectStore store, ObjectName prefix) = Open(address, endpoint, region, sts);
 
         using (store as IDisposable)
         {
@@ -110,7 +110,26 @@ internal static class ObjectLease
         }
     }
 
-    internal static (IObjectStore Store, ObjectName Prefix) Open(string address, string? endpoint, string? region)
+    /// <summary>
+    /// The STS endpoint <c>--sts-endpoint</c> names, a self-hosted server's
+    /// own, or Amazon's when absent (ADR 0137): https, or http on loopback.
+    /// </summary>
+    internal static Uri? StsEndpoint(string? sts)
+    {
+        if (string.IsNullOrEmpty(sts))
+        {
+            return null;
+        }
+
+        if (!Uri.TryCreate(sts, UriKind.Absolute, out Uri? uri) || !(uri.Scheme == Uri.UriSchemeHttps || (uri.Scheme == Uri.UriSchemeHttp && uri.IsLoopback)) || uri.Query.Length > 0 || uri.UserInfo.Length > 0)
+        {
+            throw new Cli.CommandException("--sts-endpoint is the STS endpoint's absolute https address, with no query or user information (http only on loopback; ADR 0137).");
+        }
+
+        return uri;
+    }
+
+    internal static (IObjectStore Store, ObjectName Prefix) Open(string address, string? endpoint, string? region, string? sts)
     {
         Uri uri = new(address);
         string[] parts = uri.AbsolutePath.Trim('/').Split('/', 2);
@@ -135,6 +154,7 @@ internal static class ObjectLease
                 Endpoint = new Uri(endpoint),
                 Bucket = new S3Bucket(bucket),
                 Region = new S3Region(region),
+                StsEndpoint = StsEndpoint(sts),
                 Clock = TimeProvider.System,
             }), new ObjectName(dataset + "/"));
         }

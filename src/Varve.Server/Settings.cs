@@ -250,6 +250,12 @@ internal sealed class ObjectStorageSettings
     /// <summary>S3-compatible: the region the signature names.</summary>
     public string? Region { get; set; }
 
+    /// <summary>
+    /// S3-compatible: the STS endpoint the workload's web identity is
+    /// exchanged at, a self-hosted server's own; Amazon's when unset (ADR 0137).
+    /// </summary>
+    public string? StsEndpoint { get; set; }
+
     /// <summary>The local directory datasets cache in, a directory per dataset under it.</summary>
     public string? CachePath { get; set; }
 

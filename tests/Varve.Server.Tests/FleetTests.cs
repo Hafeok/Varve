@@ -20,14 +20,14 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using Varve.Store.Azure;
 using Xunit;
 
 namespace Varve.Server.Tests;
 
 /// <summary>
-/// A fleet of two server processes on one Azurite container (ADRs 0163,
-/// 0164, 0168): the system writer and a follower that forwards. Writes and
+/// A fleet of two server processes on one container or bucket (ADRs 0163,
+/// 0164, 0168), on Azurite and on RustFS, which the processes reach by web
+/// identity (#165): the system writer and a follower that forwards. Writes and
 /// management writes through the follower are forwarded and answered by the
 /// writer, and read back from the follower at the position they returned; an
 /// idle followed dataset makes no request to the store; the data plane keeps
@@ -36,16 +36,19 @@ namespace Varve.Server.Tests;
 /// moves the writer with writes in flight, losing none that were answered.
 /// The fleet category, which the release gate may run apart (#129).
 /// </summary>
-[Trait("Category", "Fleet")]
-public sealed class FleetTests : IAsyncDisposable
+public abstract class FleetCases : IAsyncDisposable
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private readonly string _caches = Directory.CreateTempSubdirectory("varve-fleet-").FullName;
     private readonly List<Server> _servers = [];
 
+    private protected abstract FleetStore Store { get; }
+
     public async ValueTask DisposeAsync()
     {
+        GC.SuppressFinalize(this);
+
         foreach (Server server in _servers)
         {
             await server.DisposeAsync();
@@ -57,12 +60,12 @@ public sealed class FleetTests : IAsyncDisposable
     [Fact]
     public async Task Writes_through_the_follower_are_forwarded_and_an_idle_dataset_makes_no_requests()
     {
-        Uri container = await ContainerAsync();
-        await using CountingProxy proxy = await CountingProxy.StartAsync(container);
+        FleetLocation container = await Store.NewAsync();
+        await using CountingProxy proxy = await CountingProxy.StartAsync(container.Upstream);
         Server a = await StartAsync("a", container);
         long declared = await DeclareAsync(a, "d");
         declared = Math.Max(declared, await DeclareAsync(a, "e"));
-        Server b = await StartAsync("b", proxy.Container(container));
+        Server b = await StartAsync("b", container.Through(proxy.Address));
         await WaitDeclaredAsync(b, declared, "d", "follower");
 
         // A data write to the follower is forwarded, and read back there at its position.
@@ -96,7 +99,7 @@ public sealed class FleetTests : IAsyncDisposable
     [Fact]
     public async Task The_data_plane_keeps_serving_with_the_system_writer_killed()
     {
-        Uri container = await ContainerAsync();
+        FleetLocation container = await Store.NewAsync();
         Server a = await StartAsync("a", container);
         long declared = await DeclareAsync(a, "d");
         Assert.Equal(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/a> <http://ex/p> 1 }")).StatusCode);
@@ -120,7 +123,7 @@ public sealed class FleetTests : IAsyncDisposable
     [Fact]
     public async Task A_mistaken_second_system_writer_shows_in_readiness_and_the_epoch_history()
     {
-        Uri container = await ContainerAsync();
+        FleetLocation container = await Store.NewAsync();
         Server a = await StartAsync("a", container);
         await DeclareAsync(a, "d");
 
@@ -150,7 +153,7 @@ public sealed class FleetTests : IAsyncDisposable
         await WaitReadyAsync(b, a, container);
 
         StringWriter output = new() { NewLine = "\n" };
-        Assert.Equal(0, await Varve.Server.Commands.Cli.RunAsync(["lease", container + "/_fleet"], new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct));
+        Assert.Equal(0, await Varve.Server.Commands.Cli.RunAsync(container.Lease("_fleet"), new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct));
         string record = output.ToString();
         Assert.Contains("epoch 1  restart  by a", record, StringComparison.Ordinal);
         Assert.Contains("epoch 2  restart  by b", record, StringComparison.Ordinal);
@@ -165,7 +168,7 @@ public sealed class FleetTests : IAsyncDisposable
     [Fact]
     public async Task A_placement_change_moves_the_writer_with_writes_in_flight_and_loses_none()
     {
-        Uri container = await ContainerAsync();
+        FleetLocation container = await Store.NewAsync();
         Server a = await StartAsync("a", container, writer: "a");
         long declared = await DeclareAsync(a, "d");
         Server b = await StartAsync("b", container, writer: "a");
@@ -204,7 +207,7 @@ public sealed class FleetTests : IAsyncDisposable
         // a now forwards to b, which writes.
         Assert.Equal(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 1 }")).StatusCode);
         StringWriter output = new() { NewLine = "\n" };
-        await Varve.Server.Commands.Cli.RunAsync(["lease", container + "/d"], new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct);
+        await Varve.Server.Commands.Cli.RunAsync(container.Lease("d"), new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct);
         Assert.Contains("placement", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("holder: b", output.ToString(), StringComparison.Ordinal);
     }
@@ -221,7 +224,7 @@ public sealed class FleetTests : IAsyncDisposable
     [InlineData(true)]
     public async Task Event_declarations_move_through_a_non_writer_and_render_the_same_events(bool placedOnTheFollower)
     {
-        Uri container = await ContainerAsync();
+        FleetLocation container = await Store.NewAsync();
         Server a = await StartAsync("a", container, writer: "a");
         long declared = await DeclareAsync(a, "d");
         Server b = await StartAsync("b", container, writer: "a");
@@ -284,7 +287,7 @@ public sealed class FleetTests : IAsyncDisposable
 
     // ---- the fleet ----
 
-    private async Task<Server> StartAsync(string instance, Uri container, string writer = "a")
+    private async Task<Server> StartAsync(string instance, FleetLocation container, string writer = "a")
     {
         int port = FreePort();
         Server server = Server.Start(instance, port, container, Path.Combine(_caches, instance), writer);
@@ -334,7 +337,7 @@ public sealed class FleetTests : IAsyncDisposable
         Assert.Fail(server.Instance + " did not hold " + dataset + " as " + role + " at system position " + position + ":\n" + server.Log);
     }
 
-    private static async Task WaitReadyAsync(Server server, Server other, Uri container)
+    private static async Task WaitReadyAsync(Server server, Server other, FleetLocation container)
     {
         string last = string.Empty;
 
@@ -353,37 +356,12 @@ public sealed class FleetTests : IAsyncDisposable
         }
 
         StringWriter lease = new() { NewLine = "\n" };
-        await Varve.Server.Commands.Cli.RunAsync(["lease", container + "/d"], new Varve.Server.Commands.Io(lease, new StringWriter(), new MemoryStream()), Ct);
+        await Varve.Server.Commands.Cli.RunAsync(container.Lease("d"), new Varve.Server.Commands.Io(lease, new StringWriter(), new MemoryStream()), Ct);
         Assert.Fail(server.Instance + " did not become ready: " + last + "\nd's writer record:\n" + lease + "\n" + server.Instance + ":\n" + server.Log + "\n" + other.Instance + ":\n" + other.Log);
     }
 
     private static Task<HttpResponseMessage> Update(Server server, string dataset, string update) =>
         server.Http.PostAsync(new Uri(server.Address, "datasets/" + dataset + "/sparql"), new StringContent(update, Encoding.UTF8, "application/sparql-update"), Ct);
-
-    private static async Task<Uri> ContainerAsync()
-    {
-        string account = Environment.GetEnvironmentVariable("VARVE_AZURITE") ?? string.Empty;
-
-        if (account.Length == 0)
-        {
-            if ((Environment.GetEnvironmentVariable("VARVE_STORAGE_LEGS_REQUIRED") ?? string.Empty).Split(',').Contains("azurite"))
-            {
-                Assert.Fail("The azurite leg is required here (VARVE_STORAGE_LEGS_REQUIRED) and VARVE_AZURITE is not set.");
-            }
-
-            Assert.Skip("The fleet runs on Azurite and needs VARVE_AZURITE (ADR 0163).");
-        }
-
-        Uri container = new(account.TrimEnd('/') + "/f" + Guid.NewGuid().ToString("N")[..20]);
-        using HttpClient http = new();
-        using DevelopmentKeySigner signer = new(TimeProvider.System);
-        using HttpRequestMessage create = new(HttpMethod.Put, new Uri(container + "?restype=container"));
-        create.Headers.Add("x-ms-version", "2025-11-05");
-        await signer.SignAsync(create, Ct);
-        using HttpResponseMessage response = await http.SendAsync(create, Ct);
-        Assert.True(response.IsSuccessStatusCode, "The container was not created: " + response.StatusCode);
-        return container;
-    }
 
     private static int FreePort()
     {
@@ -422,7 +400,7 @@ public sealed class FleetTests : IAsyncDisposable
             }
         }
 
-        internal static Server Start(string instance, int port, Uri container, string cache, string writer)
+        internal static Server Start(string instance, int port, FleetLocation container, string cache, string writer)
         {
             string address = "http://127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture);
             ProcessStartInfo start = new("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
@@ -432,8 +410,7 @@ public sealed class FleetTests : IAsyncDisposable
                 "--urls=" + address,
                 "--Logging:LogLevel:Default=Warning",
                 "--Varve:Auth:Mode=Anonymous",
-                "--Varve:ObjectStorage:Provider=Azure",
-                "--Varve:ObjectStorage:ContainerUrl=" + container,
+                .. container.ServerArguments,
                 "--Varve:ObjectStorage:CachePath=" + cache,
                 "--Varve:ObjectStorage:Instance=" + instance,
                 "--Varve:Fleet:Writer=" + writer,
@@ -445,6 +422,11 @@ public sealed class FleetTests : IAsyncDisposable
             ])
             {
                 start.ArgumentList.Add(argument);
+            }
+
+            foreach ((string name, string value) in container.Environment)
+            {
+                start.Environment[name] = value;
             }
 
             Server server = new(instance, new Uri(address + "/"), Process.Start(start)!);
@@ -508,7 +490,7 @@ public sealed class FleetTests : IAsyncDisposable
     }
 
     /// <summary>
-    /// A loopback proxy in front of Azurite that counts the requests it
+    /// A loopback proxy in front of the store that counts the requests it
     /// passes, by path: what one server asks of the store.
     /// </summary>
     private sealed class CountingProxy : IAsyncDisposable
@@ -524,9 +506,8 @@ public sealed class FleetTests : IAsyncDisposable
 
         internal Uri Address { get; }
 
-        internal static async Task<CountingProxy> StartAsync(Uri container)
+        internal static async Task<CountingProxy> StartAsync(Uri store)
         {
-            Uri azurite = new(container.GetLeftPart(UriPartial.Authority) + "/");
             WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
             builder.WebHost.UseKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, 0));
             builder.Logging.ClearProviders();
@@ -538,7 +519,7 @@ public sealed class FleetTests : IAsyncDisposable
             {
                 HttpRequest request = context.Request;
                 proxy!._seen.Enqueue((request.Method, request.Path.Value ?? string.Empty, request.QueryString.Value ?? string.Empty));
-                using HttpRequestMessage forward = new(new HttpMethod(request.Method), new Uri(azurite, request.Path.Value!.TrimStart('/') + request.QueryString.Value));
+                using HttpRequestMessage forward = new(new HttpMethod(request.Method), new Uri(store, request.Path.Value!.TrimStart('/') + request.QueryString.Value));
                 MemoryStream body = new();
                 await request.Body.CopyToAsync(body, context.RequestAborted);
 
@@ -549,8 +530,10 @@ public sealed class FleetTests : IAsyncDisposable
 
                 foreach ((string name, Microsoft.Extensions.Primitives.StringValues values) in request.Headers)
                 {
+                    // The host the client signed stays the host the store sees: S3's signature covers it.
                     if (name.Equals("Host", StringComparison.OrdinalIgnoreCase))
                     {
+                        forward.Headers.Host = values.ToString();
                         continue;
                     }
 
@@ -580,17 +563,15 @@ public sealed class FleetTests : IAsyncDisposable
             return proxy;
         }
 
-        /// <summary>The container's address through this proxy.</summary>
-        internal Uri Container(Uri container) => new(Address, container.AbsolutePath.TrimStart('/'));
-
         internal void Reset() => _seen.Clear();
 
         /// <summary>The requests whose path holds <paramref name="fragment"/>.</summary>
         internal int Count(string fragment) => _seen.Count(request => request.Path.Contains(fragment, StringComparison.Ordinal));
 
-        /// <summary>The LISTs under a prefix holding <paramref name="fragment"/>.</summary>
+        /// <summary>The LISTs under a prefix holding <paramref name="fragment"/>: Azure's <c>comp=list</c>, S3's <c>list-type=2</c>.</summary>
         internal int Lists(string fragment) => _seen.Count(request =>
-            request.Query.Contains("comp=list", StringComparison.Ordinal) && Uri.UnescapeDataString(request.Query).Contains(fragment.Trim('/'), StringComparison.Ordinal));
+            (request.Query.Contains("comp=list", StringComparison.Ordinal) || request.Query.Contains("list-type=", StringComparison.Ordinal))
+            && Uri.UnescapeDataString(request.Query).Contains(fragment.Trim('/'), StringComparison.Ordinal));
 
         public async ValueTask DisposeAsync()
         {
@@ -598,4 +579,18 @@ public sealed class FleetTests : IAsyncDisposable
             await _app.DisposeAsync();
         }
     }
+}
+
+/// <summary>The fleet on one Azurite container.</summary>
+[Trait("Category", "Fleet")]
+public sealed class FleetTests : FleetCases
+{
+    private protected override FleetStore Store => FleetStore.Azurite;
+}
+
+/// <summary>The fleet on one RustFS bucket, the server processes reaching it by web identity (#165).</summary>
+[Trait("Category", "Fleet")]
+public sealed class RustFsFleetTests : FleetCases
+{
+    private protected override FleetStore Store => FleetStore.RustFs;
 }

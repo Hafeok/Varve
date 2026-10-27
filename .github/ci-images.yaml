@@ -63,11 +63,12 @@ images:
     upstream: ghcr.io/navikt/mock-oauth2-server:6.0.4
     digest: sha256:47374fe063995d9b6d39ebb6ea21eb5f765025bf0aa08b61b08b439eb91adaf0
     licence: MIT (https://github.com/navikt/mock-oauth2-server/blob/master/LICENSE)
-    jobs: [auth (mock-oauth2), container (linux-x64), aspire sample]
+    jobs: [auth (mock-oauth2), container (linux-x64), aspire sample, storage (services), fleet (services)]
     why: >-
-      a standards mock issuer, for auth test layer (b) (ADR 0100); and the
+      a standards mock issuer, for auth test layer (b) (ADR 0100); the
       Aspire sample's issuer, which the sample's AppHost starts itself
-      (ADR 0117)
+      (ADR 0117); and the issuer RustFS exchanges web identity for, so that
+      the storage legs reach it as a server does (ADR 0137, #165)
     allowances:
       - file: samples/Varve.Aspire.Sample/Program.cs
         job: aspire sample

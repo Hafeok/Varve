@@ -34,7 +34,9 @@ shapes:
 - **The store speaks web identity.** The server assumes a role with
   `AssumeRoleWithWebIdentity`, its token in `AWS_WEB_IDENTITY_TOKEN_FILE` and
   the role in `AWS_ROLE_ARN`; `Varve:ObjectStorage:Provider` is
-  `S3Compatible` with the NAS's `Endpoint`, `Bucket` and `Region`.
+  `S3Compatible` with the NAS's `Endpoint`, `Bucket` and `Region`, and
+  `StsEndpoint` the store's own STS (for RustFS, its root URL, with an OIDC
+  provider configured on it).
 - **The store runs on the same host as the server**, reached on
   `127.0.0.1` with its key — the loopback exception, meant for development.
 

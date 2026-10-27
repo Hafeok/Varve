@@ -653,8 +653,11 @@ jobs:
   # The object-storage legs (ADR 0134): the storage contract suite and the
   # object-store contract, race properties included, against Azurite and the
   # S3-compatible server the suite chose, both started by compose on loopback
-  # ports and pinned by digest (ADR 0099). VARVE_STORAGE_LEGS_REQUIRED turns a
-  # leg's skip into a failure, so a container that did not start cannot pass.
+  # ports and pinned by digest (ADR 0099). The object-store contract runs on
+  # RustFS a second time by web identity alone, exchanged at RustFS's STS for
+  # a token of the issuer compose starts beside it (ADR 0137, #165).
+  # VARVE_STORAGE_LEGS_REQUIRED turns a leg's skip into a failure, so a
+  # container that did not start cannot pass.
   storage-services:
     name: storage (services)
     runs-on: ubuntu-latest
@@ -688,7 +691,8 @@ jobs:
           for attempt in $(seq 1 60); do
             azurite=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:10000/devstoreaccount1?comp=list || true)
             rustfs=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:9000/ || true)
-            [ "$azurite" = 403 ] && [ "$rustfs" = 403 ] && exit 0
+            issuer=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8090/varve/.well-known/openid-configuration || true)
+            [ "$azurite" = 403 ] && [ "$rustfs" = 403 ] && [ "$issuer" = 200 ] && exit 0
             sleep 1
           done
           docker compose --file .github/storage/compose.yaml logs
@@ -700,7 +704,8 @@ jobs:
         env:
           VARVE_AZURITE: http://127.0.0.1:10000/devstoreaccount1
           VARVE_RUSTFS: http://127.0.0.1:9000,varvetest,varvetestsecret
-          VARVE_STORAGE_LEGS_REQUIRED: azurite,rustfs
+          VARVE_RUSTFS_WEB_IDENTITY: http://127.0.0.1:9000/,http://127.0.0.1:8090/varve/token,issuer:8080
+          VARVE_STORAGE_LEGS_REQUIRED: azurite,rustfs,rustfs-web-identity
         run: >
           dotnet test
           --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj
@@ -744,8 +749,10 @@ jobs:
           if-no-files-found: warn
 
   # The fleet (ADRs 0163, 0164, 0168): two server processes on one Azurite
-  # container, the system writer and a follower that forwards. Its own job,
-  # the Fleet category, so the release gate can take it over (#129).
+  # container, the system writer and a follower that forwards, and the same
+  # cases on one RustFS bucket, which the processes reach by web identity
+  # alone (ADR 0137, #165). Its own job, the Fleet category, so the release
+  # gate can take it over (#129).
   fleet-services:
     name: fleet (services)
     runs-on: ubuntu-latest
@@ -778,7 +785,9 @@ jobs:
           docker compose --file .github/storage/compose.yaml up --detach
           for attempt in $(seq 1 60); do
             azurite=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:10000/devstoreaccount1?comp=list || true)
-            [ "$azurite" = 403 ] && exit 0
+            rustfs=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:9000/ || true)
+            issuer=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8090/varve/.well-known/openid-configuration || true)
+            [ "$azurite" = 403 ] && [ "$rustfs" = 403 ] && [ "$issuer" = 200 ] && exit 0
             sleep 1
           done
           docker compose --file .github/storage/compose.yaml logs
@@ -787,14 +796,24 @@ jobs:
       - name: Run the fleet
         env:
           VARVE_AZURITE: http://127.0.0.1:10000/devstoreaccount1
-          VARVE_STORAGE_LEGS_REQUIRED: azurite
+          VARVE_RUSTFS: http://127.0.0.1:9000,varvetest,varvetestsecret
+          VARVE_RUSTFS_WEB_IDENTITY: http://127.0.0.1:9000/,http://127.0.0.1:8090/varve/token,issuer:8080
+          VARVE_STORAGE_LEGS_REQUIRED: azurite,rustfs,rustfs-web-identity
         run: >
           dotnet test
           --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
           --configuration Release
           --filter-class Varve.Server.Tests.FleetTests
+          --filter-class Varve.Server.Tests.RustFsFleetTests
           --report-trx
           --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Server.Tests
+
+      - name: Fleet test durations
+        if: always()
+        run: >
+          dotnet run eng/test-durations.cs --
+          ${{ github.workspace }}/artifacts/test-results/Varve.Server.Tests
+          --label "the fleet on Azurite and RustFS"
 
       - name: Upload the test results
         # #126: every run keeps its TRX, pass or fail, so a slow or red run

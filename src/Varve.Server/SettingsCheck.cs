@@ -30,7 +30,7 @@ internal static class SettingsCheck
         "DatasetsRoot",
         "Fleet:Writer", "Fleet:InternalUrl", "Fleet:FollowInterval", "Fleet:AllowedLag",
         "Manage:BootstrapOperators:*", "Manage:Urls",
-        "ObjectStorage:Provider", "ObjectStorage:ContainerUrl", "ObjectStorage:Endpoint", "ObjectStorage:Bucket", "ObjectStorage:Region",
+        "ObjectStorage:Provider", "ObjectStorage:ContainerUrl", "ObjectStorage:Endpoint", "ObjectStorage:Bucket", "ObjectStorage:Region", "ObjectStorage:StsEndpoint",
         "ObjectStorage:CachePath", "ObjectStorage:CacheBytes", "ObjectStorage:Instance", "ObjectStorage:ReaderId",
         "Auth:Mode", "Auth:Authority", "Auth:Audiences:*", "Auth:SubjectClaim", "Auth:ApplicationClaim", "Auth:RoleClaimType", "Auth:RequireHttpsMetadata", "Auth:Production",
         "Auth:Management:Audience",
@@ -461,6 +461,12 @@ internal static class SettingsCheck
                 if (string.IsNullOrWhiteSpace(store.Region))
                 {
                     errors.Add("Varve:ObjectStorage:Region names the region the signature is for.");
+                }
+
+                if (store.StsEndpoint is { Length: > 0 } sts
+                    && (!Uri.TryCreate(sts, UriKind.Absolute, out Uri? stsUri) || !SecureOrLoopback(stsUri) || stsUri.Query.Length > 0 || stsUri.UserInfo.Length > 0))
+                {
+                    errors.Add("Varve:ObjectStorage:StsEndpoint is the STS endpoint's absolute https address, with no query or user information (http only on loopback; ADR 0137).");
                 }
 
                 break;

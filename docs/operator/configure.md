@@ -110,6 +110,7 @@ varve:ObjectStorage`. Its placed instance claims its next writer epoch (ADR
 | `ObjectStorage:Endpoint` | none | S3-compatible: the service's `https` address |
 | `ObjectStorage:Bucket` | none | S3-compatible: the bucket |
 | `ObjectStorage:Region` | none | S3-compatible: the region the signature is for |
+| `ObjectStorage:StsEndpoint` | Amazon's, `https://sts.amazonaws.com/` | S3-compatible: the STS endpoint the workload's web identity is exchanged at, a self-hosted server's own (RustFS: its root); `https`, or `http` only on loopback, with no query or user information (ADR 0137) |
 | `ObjectStorage:CachePath` | none | absolute; the local cache, a directory per dataset, and a follower's under `_followers/`: extent pages and the derived data any instance rebuilds |
 | `ObjectStorage:CacheBytes` | 8 GiB | the most each dataset's extent page cache holds; at least 64 MiB (ADR 0139) |
 | `ObjectStorage:Instance` | the machine name | who this server is in the writer record that `varve lease` shows, and the name `Fleet:Writer` and `varve:placedOn` compare with |
@@ -120,7 +121,8 @@ reached as the workload's identity: Container Apps' managed identity, workload
 identity (`AZURE_FEDERATED_TOKEN_FILE`, `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`),
 or on a workstation `az account get-access-token`; it needs Storage Blob Data
 Contributor on the container. An S3-compatible store is reached by
-`AssumeRoleWithWebIdentity` (`AWS_WEB_IDENTITY_TOKEN_FILE`, `AWS_ROLE_ARN`). A
+`AssumeRoleWithWebIdentity` (`AWS_WEB_IDENTITY_TOKEN_FILE`, `AWS_ROLE_ARN`),
+at Amazon's STS or at the store's own (`ObjectStorage:StsEndpoint`). A
 key named like `AccountKey`, `ConnectionString` or `SecretAccessKey`, or a SAS
 token in the address, refuses the start, naming the rule. Durability is the
 store's: `Replicated`, a commit returns once the store acknowledged its
