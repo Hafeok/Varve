@@ -17,7 +17,8 @@ namespace Varve.Sparql.Entailment;
 /// graph also matches its TBox graphs, each TBox quad reported in the matched
 /// graph, and one over every named graph reports it once per covered named
 /// graph. A TBox quad the matched graph also holds is reported once. A graph
-/// no binding covers is read as it is.
+/// no binding covers is read as it is, and so is a named graph the source
+/// holds nothing of: under a caller's scope, one it does not read.
 /// </summary>
 /// <remarks>
 /// Built once per request over the request's pinned, scoped source, which it
@@ -204,11 +205,19 @@ internal sealed class TBoxMerge : IQuadSource
 
         if (!_coverOf.TryGetValue(graph, out int cover))
         {
-            cover = Inner.TryExternalise(graph, out RdfTerm? term) ? Decide(term) : -1;
+            // A named graph the source holds no quad of is no graph of the
+            // dataset as the caller reads it: nothing is merged into it.
+            cover = Inner.TryExternalise(graph, out RdfTerm? term) && Holds(graph) ? Decide(term) : -1;
             _coverOf[graph] = cover;
         }
 
         return cover;
+
+        bool Holds(TermHandle named)
+        {
+            using IQuadCursor cursor = Inner.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Named(named));
+            return cursor.MoveNext();
+        }
 
         int Decide(RdfTerm? term)
         {

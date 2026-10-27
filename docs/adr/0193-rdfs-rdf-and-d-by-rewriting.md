@@ -73,6 +73,12 @@ asserted triple under a finite chain of steps, each guided by the schema.
   - The view reads through the caller's scoped source, so it reaches only
     what the caller reads, and the TBox graphs are readable by every reader of
     the dataset (ADR 0190).
+- **A named graph the caller's view holds nothing of** is not merged: it
+  is no graph of the dataset as the caller reads it, so `GRAPH <g>` over a
+  graph the caller does not read, or that does not exist, answers nothing
+  under any regime. The default graph always exists, and is merged with the
+  TBox of the binding that names it, which every reader of the dataset
+  reads (ADR 0190).
 - **The pinned position.** The view is over the pinned view, so the TBox is
   read as of the request's position. An as-of read rewrites against the
   ontology as it was then.
@@ -108,9 +114,11 @@ asserted triple under a finite chain of steps, each guided by the schema.
 **Which graphs need their own Σ.** A query rewrites each BGP once for each
 distinct Σ it can meet:
 - **The default graph, or one named graph, or a `FROM`-merged graph:** one Σ.
-- **`GRAPH ?g`:** the named graphs that hold a triple with a schema predicate
-  of their own are found by the same `Match` over every named graph,
-  unmerged. Each gets its own Σ and a branch `VALUES ?g { … }` joined with
+- **`GRAPH ?g`:** the named graphs with schema of their own are found by
+  the same scans over every named graph, unmerged: every scan the
+  saturation of their binding's TBox read, to its fixpoint, the shapes'
+  among them. A graph none of those scans matches adds nothing to any, so
+  its own saturation reaches its TBox's Σ. Each gets its own Σ and a branch `VALUES ?g { … }` joined with
   `GRAPH ?g { P′ }`. Every other named graph shares the Σ of its binding's
   TBox, in one such branch per binding that lists the graphs it covers, and
   the graphs no binding covers share the axioms' Σ in one more. The named

@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using CsCheck;
 using Varve.Rdf;
 using Varve.Sparql.Entailment.Model;
@@ -94,6 +95,123 @@ public class RewritingEqualsMaterialisationTests
     public void Rewriting_merges_each_graph_with_the_TBox_of_the_binding_that_covers_it() =>
         Gen.Select(Gen.Select(Graph, Graph), Gen.Select(Graph, Graph, Graph, Graph), Bgp, Gen.Bool)
             .Sample((tboxes, graphs, bgp, byGraph) => SameUnderTwo(tboxes, graphs, bgp, byGraph), iter: Iterations);
+
+    /// <summary>
+    /// ADR 0190 point 8, tier 1's half: for a caller whose readable set is
+    /// generated (none, the default graph alone, some named graphs), the
+    /// rewritten query read through the caller's scope, the TBox
+    /// dataset-public, answers exactly the union over each readable graph of
+    /// its closure with the TBox, and no term that only an unreadable graph
+    /// holds reaches the answer.
+    /// </summary>
+    [Fact]
+    public void A_caller_sees_exactly_the_entailments_of_the_graphs_it_reads() =>
+        Gen.Select(Gen.Select(Graph, Graph), Gen.Select(Graph, Graph, Graph), Gen.Int[0, 15], Bgp)
+            .Sample((graphs, named, readable, bgp) => SameForCaller(graphs, named, readable, bgp), iter: Iterations);
+
+    private static void SameForCaller(
+        ((RdfTerm, RdfTerm, RdfTerm)[] Tbox, (RdfTerm, RdfTerm, RdfTerm)[] Data) graphs,
+        ((RdfTerm, RdfTerm, RdfTerm)[] G1, (RdfTerm, RdfTerm, RdfTerm)[] G2, (RdfTerm, RdfTerm, RdfTerm)[] G3) named,
+        int readable,
+        Slot[][] bgp)
+    {
+        // Bit 0 the default graph, bits 1 to 3 the named graphs g1 to g3.
+        (RdfTerm Name, (RdfTerm, RdfTerm, RdfTerm)[] Triples)[] data = [(G1, named.G1), (G2, named.G2), (G3, named.G3)];
+        InMemoryDatasetBuilder builder = new();
+        foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in graphs.Tbox)
+        {
+            builder.Add(s, p, o, Tbox);
+        }
+
+        foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in graphs.Data)
+        {
+            builder.Add(s, p, o);
+        }
+
+        foreach ((RdfTerm name, (RdfTerm, RdfTerm, RdfTerm)[] triples) in data)
+        {
+            foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in triples)
+            {
+                builder.Add(s, p, o, name);
+            }
+        }
+
+        List<RdfTerm> listed = [];
+        for (int i = 0; i < data.Length; i++)
+        {
+            if ((readable & (2 << i)) != 0)
+            {
+                listed.Add(data[i].Name);
+            }
+        }
+
+        bool readsDefault = (readable & 1) != 0;
+        GraphScope scope = GraphScope.Of([.. listed], [], readsDefault ? DefaultGraphAccess.Included : DefaultGraphAccess.Excluded).WithDatasetPublic([Tbox]);
+        InMemoryDataset dataset = builder.ToDataset();
+        GraphScopedQuadSource source = new(dataset, scope);
+        TBoxCover[] covers = [new([Tbox], GraphScope.All)];
+        string patterns = string.Join(" . ", bgp.Select(t => t[0].Text + " " + t[1].Text + " " + t[2].Text));
+
+        List<string> expected = [];
+        if (!scope.IsEmpty)
+        {
+            if (graphs.Tbox.Length > 0)
+            {
+                expected.AddRange(Oracle.Solutions(EntailmentRegime.Rdfs, graphs.Tbox, bgp, "g", Tbox));
+            }
+
+            foreach ((RdfTerm name, (RdfTerm, RdfTerm, RdfTerm)[] triples) in data)
+            {
+                if (listed.Contains(name) && triples.Length > 0)
+                {
+                    expected.AddRange(Oracle.Solutions(EntailmentRegime.Rdfs, [.. graphs.Tbox, .. triples], bgp, "g", name));
+                }
+            }
+        }
+
+        expected.Sort(StringComparer.Ordinal);
+        string query = "SELECT * { GRAPH ?g { " + patterns + " } }";
+        List<string> actual = Run(query, source, EntailmentRegime.Rdfs, covers);
+
+        // A named graph the caller does not read is no graph of its dataset, under any regime.
+        foreach ((RdfTerm name, _) in data.Where(d => !listed.Contains(d.Name)))
+        {
+            Assert.Empty(Run("SELECT * { GRAPH <" + Encoding.UTF8.GetString(name.Lexical) + "> { " + patterns + " } }", source, EntailmentRegime.Rdfs, covers));
+        }
+        string shown = query + "\nreadable " + readable + "\nTBox: " + Show(graphs.Tbox) + "\ng1: " + Show(named.G1) + "\ng2: " + Show(named.G2) + "\ng3: " + Show(named.G3)
+            + "\nmissing:\n  " + string.Join("\n  ", Minus(expected, actual)) + "\nextra:\n  " + string.Join("\n  ", Minus(actual, expected));
+        Assert.True(expected.SequenceEqual(actual), shown);
+
+        // The default graph is always a graph of the dataset: read empty when the caller does not read it, merged with the TBox the caller reads.
+        List<string> byDefault = Oracle.Solutions(EntailmentRegime.Rdfs, [.. scope.IsEmpty ? [] : graphs.Tbox, .. readsDefault ? graphs.Data : []], bgp);
+        List<string> answeredByDefault = Run("SELECT * { " + patterns + " }", source, EntailmentRegime.Rdfs, covers);
+        Assert.True(byDefault.SequenceEqual(answeredByDefault), "the default graph, " + shown);
+
+        // No more: a term only an unreadable graph holds is in no answer.
+        HashSet<string> readableTerms = [];
+        foreach ((RdfTerm, RdfTerm, RdfTerm)[] triples in (IEnumerable<(RdfTerm, RdfTerm, RdfTerm)[]>)[graphs.Tbox, .. data.Where(d => listed.Contains(d.Name)).Select(d => d.Triples), readsDefault ? graphs.Data : []])
+        {
+            foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in triples)
+            {
+                readableTerms.UnionWith([Text(s), Text(p), Text(o)]);
+            }
+        }
+
+        foreach ((RdfTerm, RdfTerm, RdfTerm)[] hidden in (IEnumerable<(RdfTerm, RdfTerm, RdfTerm)[]>)[.. data.Where(d => !listed.Contains(d.Name)).Select(d => d.Triples), readsDefault ? [] : graphs.Data])
+        {
+            foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in hidden)
+            {
+                foreach (RdfTerm term in (RdfTerm[])[s, p, o])
+                {
+                    string text = Text(term);
+                    if (!readableTerms.Contains(text) && !patterns.Contains(text, StringComparison.Ordinal) && term.Kind == RdfTermKind.Iri && !text.Contains("www.w3.org", StringComparison.Ordinal))
+                    {
+                        Assert.True(!actual.Exists(row => row.Contains("=" + text, StringComparison.Ordinal)) && !answeredByDefault.Exists(row => row.Contains("=" + text, StringComparison.Ordinal)), text + " reached the answer: " + shown);
+                    }
+                }
+            }
+        }
+    }
 
     private static readonly RdfTerm Tbox2 = Named("tbox2");
     private static readonly RdfTerm G2 = Named("g2");

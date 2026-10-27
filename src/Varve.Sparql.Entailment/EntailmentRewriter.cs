@@ -248,33 +248,24 @@ public static class EntailmentRewriter
             IQuadSource inner = _merge.Inner;
             HashSet<TermHandle> graphs = new(inner.TermComparer);
             List<TermHandle> found = [];
-            HashSet<(RdfTerm P, RdfTerm? O)> probes = [];
+            HashSet<Scan> probes = [];
             List<List<GraphPattern>> scopes = [[]];
             foreach (CoverIndex cover in _merge.Covers())
             {
                 scopes.Add(TBoxOf(cover));
             }
 
+            // The scans each TBox's saturation read: a graph that matches
+            // none saturates to its TBox's Σ (ADR 0193 point 2).
             foreach (List<GraphPattern> scope in scopes)
             {
-                Schema tbox = SchemaOf(scope);
-                foreach (RdfTerm predicate in tbox.SchemaPredicates)
-                {
-                    probes.Add((predicate, null));
-                }
-
-                foreach (RdfTerm meta in tbox.MetaClasses())
-                {
-                    foreach (RdfTerm type in tbox.TypeLike)
-                    {
-                        probes.Add((type, meta));
-                    }
-                }
+                probes.UnionWith(SchemaOf(scope).Scans);
             }
 
-            foreach ((RdfTerm p, RdfTerm? o) in probes)
+            foreach ((RdfTerm? p, RdfTerm? o) in probes)
             {
-                if (!inner.TryInternalise(p, out TermHandle ph))
+                TermHandle ph = TermHandle.None;
+                if (p is not null && !inner.TryInternalise(p, out ph))
                 {
                     continue;
                 }

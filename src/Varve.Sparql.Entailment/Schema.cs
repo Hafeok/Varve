@@ -38,6 +38,13 @@ internal sealed class Schema
     /// <summary>The branches Σ compiles to (ADR 0193 point 3).</summary>
     internal List<Branch> Branches { get; private set; } = [];
 
+    /// <summary>
+    /// Every scan the saturation read, to its fixpoint. A graph none of them
+    /// matches adds nothing to any, so its own saturation with the same TBox
+    /// reaches this Σ.
+    /// </summary>
+    internal List<Scan> Scans { get; private set; } = [];
+
     /// <summary>Σ, closed.</summary>
     internal TripleClosure Closure { get; }
 
@@ -64,6 +71,7 @@ internal sealed class Schema
         HashSet<RdfTerm> scannedPredicates = new(RdfTerm.Comparer);
         HashSet<(RdfTerm, RdfTerm)> scannedTypes = [];
         HashSet<bool> scannedAll = [];
+        List<Scan> scans = [];
 
         while (true)
         {
@@ -84,7 +92,7 @@ internal sealed class Schema
             {
                 if (scannedPredicates.Add(predicate))
                 {
-                    more |= Scan(source, graphs, null, predicate, null, found, seen);
+                    more |= Read(predicate, null);
                 }
             }
 
@@ -98,7 +106,7 @@ internal sealed class Schema
                     {
                         if (scannedTypes.Add((type, meta)))
                         {
-                            more |= Scan(source, graphs, null, type, meta, found, seen);
+                            more |= Read(type, meta);
                         }
                     }
 
@@ -106,7 +114,7 @@ internal sealed class Schema
                     {
                         if (scannedPredicates.Add(property))
                         {
-                            more |= Scan(source, graphs, null, property, null, found, seen);
+                            more |= Read(property, null);
                         }
                     }
 
@@ -114,7 +122,7 @@ internal sealed class Schema
                     {
                         if (scannedPredicates.Add(property))
                         {
-                            more |= Scan(source, graphs, null, property, null, found, seen);
+                            more |= Read(property, null);
                         }
                     }
                 }
@@ -127,15 +135,22 @@ internal sealed class Schema
             {
                 if (scan.Predicate is null ? scannedAll.Add(true) : scan.Object is null ? scannedPredicates.Add(scan.Predicate) : scannedTypes.Add((scan.Predicate, scan.Object)))
                 {
-                    more |= Scan(source, graphs, null, scan.Predicate, scan.Object, found, seen);
+                    more |= Read(scan.Predicate, scan.Object);
                 }
             }
 
             if (!more)
             {
                 schema.Branches = branches;
+                schema.Scans = scans;
                 return schema;
             }
+        }
+
+        bool Read(RdfTerm? predicate, RdfTerm? @object)
+        {
+            scans.Add(new Scan(predicate, @object));
+            return Scan(source, graphs, null, predicate, @object, found, seen);
         }
     }
 
