@@ -69,7 +69,11 @@ public static class EntailmentRewriter
     /// to cover it, the first would. A graph none covers is read over its own
     /// triples, its TBox empty.
     /// </remarks>
-    public static EntailedQuery Rewrite(Query query, IQuadSource source, IReadOnlyList<TBoxCover> covers, EntailmentRegime regime, IReadOnlyCollection<RdfTerm>? recognisedDatatypes = null, SchemaCache? schemas = null, CancellationToken cancellationToken = default)
+    public static EntailedQuery Rewrite(Query query, IQuadSource source, IReadOnlyList<TBoxCover> covers, EntailmentRegime regime, IReadOnlyCollection<RdfTerm>? recognisedDatatypes = null, SchemaCache? schemas = null, CancellationToken cancellationToken = default) =>
+        Rewrite(query, source, covers, regime, Pruning.On, recognisedDatatypes, schemas, cancellationToken);
+
+    /// <summary>The rewriting with its pruning chosen: off for the property that pruning changes no answer.</summary>
+    internal static EntailedQuery Rewrite(Query query, IQuadSource source, IReadOnlyList<TBoxCover> covers, EntailmentRegime regime, Pruning pruning, IReadOnlyCollection<RdfTerm>? recognisedDatatypes = null, SchemaCache? schemas = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
         ArgumentNullException.ThrowIfNull(source);
@@ -81,7 +85,7 @@ public static class EntailmentRewriter
 
         TBoxMerge merge = new(source, covers);
         RuleSet rules = recognisedDatatypes is null ? RulesOf(regime) : RulesOf(regime, recognisedDatatypes);
-        Rewriter rewriter = new(merge, query.Dataset, rules, NamedMembership.Of(query), schemas, cancellationToken);
+        Rewriter rewriter = new(merge, query.Dataset, rules, NamedMembership.Of(query), schemas, cancellationToken) { Pruning = pruning };
         return new EntailedQuery(rewriter.Rewrite(query), merge);
     }
 
@@ -139,6 +143,8 @@ public static class EntailmentRewriter
         private readonly RuleSet _rules;
         private readonly IReadOnlyCollection<RdfTerm> _named;
         private readonly SchemaCache? _cache;
+
+        internal Pruning Pruning { get; init; }
         private readonly CancellationToken _cancellationToken;
         private readonly Dictionary<string, PatternRewriting> _compiled = [];
         private readonly List<TermHandle>? _namedGraphs;
@@ -434,7 +440,7 @@ public static class EntailmentRewriter
             string key = KeyOf(scope) + (exact ? string.Empty : "|group");
             if (!_compiled.TryGetValue(key, out PatternRewriting? compiled))
             {
-                _compiled[key] = compiled = new PatternRewriting(SchemaOf(scope), term => Occurs(scope, key, term), exact ? predicate => Distinct(scope, key, predicate) : null);
+                _compiled[key] = compiled = new PatternRewriting(SchemaOf(scope), term => Occurs(scope, key, term), exact ? predicate => Distinct(scope, key, predicate) : null, Pruning);
             }
 
             return compiled;

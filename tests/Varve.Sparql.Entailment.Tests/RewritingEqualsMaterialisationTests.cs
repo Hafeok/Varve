@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using CsCheck;
 using Varve.Rdf;
 using Varve.Sparql.Entailment.Model;
@@ -70,6 +71,26 @@ public class RewritingEqualsMaterialisationTests
             (1, Gen.Frequency((2, SchemaTriple), (3, DataTriple)).Array[0, 7]),
             (2, Gen.Frequency((2, PlainSchemaTriple), (3, DataTriple)).Array[0, 7]));
 
+    // What pruning decides on: rdf:_n and literals as constants, in data and
+    // in the query, from pools small enough that they meet.
+    private static readonly RdfTerm[] Guarded = [Vocab[12], Vocab[13], Vocab[8], Vocab[9], Vocab[0], Classes[0], Constants[0], Literals[0], Literals[4]];
+
+    private static readonly Gen<(RdfTerm, RdfTerm, RdfTerm)[]> GuardedGraph =
+        Gen.Frequency(
+            (3, Gen.Select(Of([Constants[0], Classes[0], Vocab[12]]), Of([Properties[0], Vocab[0], Vocab[12], Vocab[13], Vocab[8]]), Of([Constants[0], Classes[0], Vocab[12], Literals[0], Literals[4]]))),
+            (2, Gen.Select(Of([Properties[0], Vocab[12], Classes[0]]), Gen.OneOfConst(SchemaPredicates), Of([Classes[0], Vocab[8], Vocab[9], Vocab[11], IriOf(RdfsNs + "Resource")]))))
+        .Array[0, 6];
+
+    private static readonly Gen<Slot> GuardedPosition =
+        Gen.Frequency(
+            (3, Gen.OneOfConst("x", "y").Select(v => new Slot(v, null, null))),
+            (1, Gen.Const(new Slot(null, "q", null))),
+            (4, Gen.OneOfConst(Guarded).Select(t => new Slot(null, null, t))));
+
+    private static readonly Gen<Slot[][]> GuardedBgp =
+        Gen.Select(GuardedPosition, GuardedPosition, GuardedPosition).Select(t => new[] { t.Item1, t.Item2, t.Item3 }).Array[1, 2]
+            .Where(b => b.All(p => p[0].Term is not { Kind: RdfTermKind.Literal } && p[1].Term is not { Kind: RdfTermKind.Literal or RdfTermKind.BlankNode } && p[1].Blank is null));
+
     private static readonly Gen<Slot> Position =
         Gen.Frequency(
             (5, Gen.OneOfConst("x", "y", "z").Select(v => new Slot(v, null, null))),
@@ -94,6 +115,68 @@ public class RewritingEqualsMaterialisationTests
     public void Rewriting_equals_the_closure_of_each_named_graph_under_a_graph_variable() =>
         Gen.Select(Graph, Graph, Graph, Bgp)
             .Sample((tbox, data, named, bgp) => Same(tbox, data, named, bgp, EntailmentRegime.Rdfs, Scope.NamedVariable), iter: Iterations);
+
+    /// <summary>
+    /// ADR 0193 point 3's pruning: a branch decided false on its constants,
+    /// or the same as one before it once a one-row table is folded in, is
+    /// dropped, and no answer changes. The rewriting with every branch kept
+    /// is the oracle, in the default graph, a named graph and under
+    /// <c>GRAPH ?g</c>, under the three regimes; the share of cases whose
+    /// rewriting pruning changed is held above a quarter, so the property
+    /// tests the pruning.
+    /// </summary>
+    [Fact]
+    public void Pruning_changes_no_answer()
+    {
+        int cases = 0;
+        int pruned = 0;
+        Gen.Select(Gen.Frequency((1, Graph), (2, GuardedGraph)), Gen.Frequency((1, Graph), (2, GuardedGraph)), Gen.Frequency((1, Bgp), (2, GuardedBgp)), Gen.OneOfConst(EntailmentRegime.Rdf, EntailmentRegime.Rdfs, EntailmentRegime.D), Gen.OneOfConst(Scope.Default, Scope.NamedConstant, Scope.NamedVariable))
+            .Sample(
+                (tbox, data, bgp, regime, scope) =>
+                {
+                    InMemoryDatasetBuilder builder = new();
+                    foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in tbox)
+                    {
+                        builder.Add(s, p, o, Tbox);
+                    }
+
+                    foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in data)
+                    {
+                        if (scope == Scope.Default)
+                        {
+                            builder.Add(s, p, o);
+                        }
+                        else
+                        {
+                            builder.Add(s, p, o, G1);
+                        }
+                    }
+
+                    InMemoryDataset dataset = builder.ToDataset();
+                    string patterns = string.Join(" . ", bgp.Select(t => t[0].Text + " " + t[1].Text + " " + t[2].Text));
+                    string text = scope switch
+                    {
+                        Scope.Default => "SELECT * { " + patterns + " }",
+                        Scope.NamedConstant => "SELECT * { GRAPH <" + Ex + "g1> { " + patterns + " } }",
+                        _ => "SELECT * { GRAPH ?g { " + patterns + " } }",
+                    };
+
+                    TBoxCover[] covers = [new TBoxCover([Tbox], GraphScope.All)];
+                    CancellationToken ct = TestContext.Current.CancellationToken;
+                    EntailedQuery on = EntailmentRewriter.Rewrite(Parse(text), dataset, covers, regime, Pruning.On, cancellationToken: ct);
+                    EntailedQuery off = EntailmentRewriter.Rewrite(Parse(text), dataset, covers, regime, Pruning.Off, cancellationToken: ct);
+                    List<string> expected = Run(off);
+                    List<string> actual = Run(on);
+                    cases++;
+                    pruned += on.Query.Equals(off.Query) ? 0 : 1;
+                    Assert.True(
+                        expected.SequenceEqual(actual),
+                        "Under " + regime + ", " + text + "\nTBox: " + Show(tbox) + "\ndata: " + Show(data)
+                        + "\nmissing:\n  " + string.Join("\n  ", Minus(expected, actual)) + "\nextra:\n  " + string.Join("\n  ", Minus(actual, expected)));
+                },
+                iter: Iterations);
+        Assert.True(pruned * 4 > cases, "pruning changed " + pruned + " of " + cases + " rewritings");
+    }
 
     /// <summary>
     /// Two bindings and a graph neither covers (ADR 0193 point 1, ADR 0194
@@ -331,6 +414,10 @@ public class RewritingEqualsMaterialisationTests
             expected.SequenceEqual(actual),
             "Under " + regime + ", " + query + "\nTBox: " + Show(tbox) + "\ndata: " + Show(data) + "\ng1: " + Show(named)
             + "\nmissing:\n  " + string.Join("\n  ", Minus(expected, actual)) + "\nextra:\n  " + string.Join("\n  ", Minus(actual, expected)));
+
+        // Pruning changes no answer here either: every branch kept, the same rows.
+        List<string> unpruned = Run(EntailmentRewriter.Rewrite(Parse(query), dataset, [new TBoxCover([Tbox], GraphScope.All)], regime, Pruning.Off, cancellationToken: TestContext.Current.CancellationToken));
+        Assert.True(unpruned.SequenceEqual(actual), "Pruning changed the answers under " + regime + ", " + query + "\nTBox: " + Show(tbox) + "\ndata: " + Show(data) + "\ng1: " + Show(named));
     }
 
     // Each named graph the dataset holds, the TBox graph among them, merged with the TBox.

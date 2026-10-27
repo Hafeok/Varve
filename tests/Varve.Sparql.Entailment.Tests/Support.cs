@@ -40,9 +40,12 @@ internal static class Support
         Run(query, source, regime, tbox.Length == 0 ? [] : [new TBoxCover(tbox, GraphScope.All)]);
 
     /// <summary>A query's solutions under <paramref name="regime"/>, each graph merged with the TBox of the binding that covers it.</summary>
-    internal static List<string> Run(string query, IQuadSource source, EntailmentRegime regime, IReadOnlyList<TBoxCover> covers, SchemaCache? schemas = null)
+    internal static List<string> Run(string query, IQuadSource source, EntailmentRegime regime, IReadOnlyList<TBoxCover> covers, SchemaCache? schemas = null) =>
+        Run(EntailmentRewriter.Rewrite(Parse(query), source, covers, regime, schemas: schemas));
+
+    /// <summary>A rewritten query's solutions, as sorted lines.</summary>
+    internal static List<string> Run(EntailedQuery entailed)
     {
-        EntailedQuery entailed = EntailmentRewriter.Rewrite(Parse(query), source, covers, regime, schemas: schemas);
         EvaluationOptions options = new()
         {
             Functions = new Dictionary<string, IExtensionFunction>
