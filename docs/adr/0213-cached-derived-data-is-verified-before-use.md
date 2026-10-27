@@ -369,12 +369,19 @@ The measurements are added here by dated amendment.
   allocates nothing (`VARVE0003`).
 - **Tests.** Each sweep checks a seeded share on a pull request and every
   case on the nightly, as `docs/testing.md` §8 sets out.
-  - `DerivedDamageTests`: for each kind of point 3, on files and on objects,
-    a byte zeroed, flipped, or the blob cut, at every position. Each case
-    must give a miss and the right answer at every position.
-  - `CommitIndexDamageTests`: #126's case in full, every byte of the
-    commit-index blob, all 1,920 cases. It is run against `main` to show the
-    985 wrong histories, then against this change to show none.
+  - `DerivedDamageTests`: every blob of every kind but the order extents
+    (runs, state, graph-version indexes, catalog, the local commit index,
+    and each set's dictionary, commit index and graph index), a byte
+    zeroed, flipped, or the blob cut, at every position. Each case must
+    give a miss and the right answer at every position, by scan, by lookup,
+    for every graph's version and for the position at every commit's time.
+    The checks sit above the backend, so it runs on the memory backend;
+    damage met after the open is `MidReadDamageTests`', on files and on
+    objects.
+  - `ObjectCacheTests.a_commit_index_blob_with_any_byte_zeroed_flipped_or_cut_is_a_miss`:
+    #126's case in full, every byte of the commit-index blob in an object
+    store's cache, 6,324 cases. Run against `main` it shows the 985 wrong
+    histories of 1,920 zeroed entries; against this change, none.
   - `MidReadDamageTests`: on files and on objects, damage injected at every
     block a read reads, once the views are pinned: the head, the views at the
     sets' ends, and views inside each set, every pattern's stream with every
@@ -395,3 +402,44 @@ The measurements are added here by dated amendment.
     are the answers before it. With the reader at 6, the shared blobs are
     version 6 and not flushed either, and each torn blob is a miss with the
     right answer.
+
+## Amendment, 2026-10-27 — the cost, measured at REC M
+
+On this session's container (Intel Xeon, 4 cores at 2.1 GHz, 15 GiB, Ubuntu
+24.04, .NET SDK 10.0.403), `Varve.Benchmarks --asof-seek file M`: REC M,
+seed 20261015, a checkpoint every hundredth of the history with maintenance
+after each, then opened again from a fresh cache. `main` at 3a8f636 and this
+change, with the same benchmark, run alternately, four and three times. The
+figures are medians of the runs.
+
+| | `main` | This change | |
+|---|---:|---:|---:|
+| The open from a fresh cache | 496 ms | 291 ms | −41% |
+| The head's lookups and a subject's quads, first pass | 79.5 ms | 67.8 ms | −15% |
+| A quad's lookup at the head, p50 | 12.65 µs | 12.5 µs | −1% |
+| A subject's quads at the head, p50 | 9.85 µs | 10.0 µs | +1.5% |
+| A quad's lookup inside the largest set (213 MiB), p50 | 3.5 µs | 3.6 µs | +3% |
+| A subject's quads inside the largest set, p50 | 7.6 µs | 7.9 µs | +4% |
+| The load with 100 checkpoints and maintenance | 182.7 s | 189.2 s | +3.6% |
+| Of which the checkpoints | 26.0 s | 30.6 s | +18% |
+| `fsync` calls in the whole run (`strace -c`) | 28,222 | 27,938 | −284 |
+
+- **Reads.** Three of the four p50s are within #146's 3%. The fourth, a
+  subject's quads inside the largest set, is 0.3 µs over it. That is less
+  than the spread between `main`'s own runs, 7.5 to 10.1 µs. The p99s vary
+  more between runs than between builds.
+- **The open is not slower.** It was faster in every run of this change
+  than in any of `main`'s (270–346 ms against 463–548 ms). Why was not
+  established here; what matters for #146 is that verifying at open does
+  not show in it.
+- **Checkpoints pay for the checks.** A checkpoint now takes a check of
+  every key block and every term page as it writes them, 4.6 s more over
+  100 checkpoints, while it no longer flushes its version-6 files.
+- **The flush.** 284 derived files were published without a flush. Almost
+  all the remaining `fsync`s are the log's, one per commit (ADR 0124), and
+  those of the state, the catalog and the graph indexes, which stay version
+  4.
+- Windows and macOS are measured by the pull request's CI test durations,
+  not by this benchmark. The Windows store step's time is the one to watch
+  for point 8.
+
