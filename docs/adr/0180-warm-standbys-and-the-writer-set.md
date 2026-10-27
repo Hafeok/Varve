@@ -24,9 +24,9 @@ by the maintainer on #97's plan, 2026-10-27:
 reason (point 4). A rolling deploy moves the writer to a standby on each
 restart, and the operator guide says so.
 
-**Supersedes in part** [ADR 0164](0164-the-tier-1-follower.md): its ruling
-`FollowOnDemand` moves to this ADR's set under the same key, restated, so
-that a standby follows on the interval.
+**Adds to** [ADR 0164](0164-the-tier-1-follower.md): its ruling
+`FollowOnDemand` stands for a follower, and this ADR's
+`StandbysFollowOnTheInterval` rules for a standby.
 
 **Amends**, each by a dated block:
 - [ADR 0163](0163-the-management-plane.md) point 12 (the start rule and
@@ -123,8 +123,8 @@ still means a deployment error (ADR 0136 point 7).
   member won the last race, not on `placedOn`. That is a state nothing reacts
   to (Status).
 
-**5. Standbys follow on the interval.** This restates ADR 0164's
-`FollowOnDemand`.
+**5. Standbys follow on the interval.** ADR 0164's `FollowOnDemand` stands
+for a follower; this point adds the standby.
 - **A follower** advances when a read arrives after
   `Varve:Fleet:FollowInterval` since its last advance, or on a minimum-position
   header above its head.
@@ -222,7 +222,8 @@ built until now, is built:
 - **Checked against the accepted ADRs** (0001–0178). It touches:
   - **0113** (readiness fields; a standby not warm stays ready);
   - **0163** (amended, as listed);
-  - **0164** (`FollowOnDemand` superseded in part, restated; point 5 built);
+  - **0164** (`FollowOnDemand` stands, and a standby's interval is added
+    beside it; point 5 built);
   - **0166** (amended: a term);
   - **0169** and **0174** (validation projections are not part of warm);
   - **0175** (the shapes validate the new term).

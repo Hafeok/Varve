@@ -379,7 +379,7 @@ Filed by [#133](https://github.com/Hafeok/Varve/issues/133), in 1.0 ([#15](https
 
 ## Replication, part 1 (#165)
 
-Filed by [#165](https://github.com/Hafeok/Varve/issues/165), part 1 of Replication ([#97](https://github.com/Hafeok/Varve/issues/97)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0179; part 2 (#166) holds 0183–0186, and 0182 is unused, because the RustFS spike needed no fallback. Amended by it, likewise unaccepted: 0136 (triggers, release reasons, a claim made before the open, supersession per dataset); 0137 (a self-hosted store's STS, and RustFS by web identity); 0163 (the writer set's start rule and placement events; readiness); 0164 (`FollowOnDemand` moved to 0180; the epoch a refresh saw; point 5 built); 0166 (`varve:standbyOn`); 0168 (the directory across a handover).
+Filed by [#165](https://github.com/Hafeok/Varve/issues/165), part 1 of Replication ([#97](https://github.com/Hafeok/Varve/issues/97)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0179; part 2 (#166) holds 0183–0186, and 0182 is unused, because the RustFS spike needed no fallback. Amended by it, likewise unaccepted: 0136 (triggers, release reasons, a claim made before the open, supersession per dataset); 0137 (a self-hosted store's STS, and RustFS by web identity); 0163 (the writer set's start rule and placement events; readiness); 0164 (a standby's interval beside `FollowOnDemand`; the epoch a refresh saw; point 5 built); 0166 (`varve:standbyOn`); 0168 (the directory across a handover).
 
 | # | Title | Status |
 |---:|---|---|

@@ -15,6 +15,10 @@ decisions:
     statement: "A refresh GETs the next deterministic slot, and a seal moves the probe to the next segment; a 404 is nothing new once the probed segment's consolidated object is also absent, so an idle refresh is two GETs and a refresh never lists"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-19T00:00:00Z
+  - key: FollowOnDemand
+    statement: "A follower advances when a read arrives after Varve:Fleet:FollowInterval since its last advance, or on a minimum-position header above it; only the system dataset is advanced on the interval, so an idle dataset makes no requests"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-19T00:00:00Z
   - key: FollowerReopensFromTheCatalog
     statement: "A follower that has applied more than MemtableLimit quads since its open is re-opened from the writer's newest catalog, reads pinned to the old one ending on it"
     accepted-by: mailto:emil@okkels-klein.dk

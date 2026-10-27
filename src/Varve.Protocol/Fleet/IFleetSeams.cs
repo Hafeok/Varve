@@ -65,7 +65,7 @@ public interface IManagementAuthority
 /// advance is older than the host's interval or the read asks for a later
 /// position.
 /// </summary>
-[Contract(typeof(WarmStandbysAndTheWriterSet.FollowOnDemand), Role = "the host's on-demand advance of a follower before a read")]
+[Contract(typeof(TheTier1Follower.FollowOnDemand), Role = "the host's on-demand advance of a follower before a read")]
 public interface IDatasetFollowing
 {
     /// <summary>

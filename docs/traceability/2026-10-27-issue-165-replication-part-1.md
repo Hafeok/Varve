@@ -272,3 +272,37 @@ Posted on #97 before any code:
 
   2,000 schedules ran clean in about 60 s. The land gate runs 60, and the
   nightly run 2,000.
+
+### The maintainer's third message, and what followed
+
+> Good work, and the two bugs are exactly the failures handover would have made routine.
+>
+> 1. ADR 0180 point 4: warm standbys race, settled by the release reason:
+>    * `placement`: only the new `placedOn` claims;
+>    * `shutdown` or `storage-error`: warm standbys race, and the store’s conditional write picks one;
+>    * a returning `placedOn` starts as a standby under the start rule.
+>  State in the operator guide that a rolling deploy moves the writer to a standby on each restart.
+> 2. Narrow `cache-error` to `local-disk-error`: a failure of local storage the commit path needs (memtable spills, if they’re local). A failed derived-cache write degrades: caching off for that kind, reported on readiness, writer stays. That’s #146’s rule that the cache is a miss, never a stop. Add a property that a failing cache write never abdicates. Keep the deterministic-fault test as you have it.
+> 3. `MemtableLimit`: correct its documentation to what it counts, with the approximate bytes per unit. Expose it as `Varve:Store:MemtableLimit` (ADR 0115’s configuration rules, `configure.md`), since follower memory is something operators on small replicas need to bound. Then test the re-open through the server with a low limit.
+> 4. Open a draft PR now, so the RustFS web-identity leg and the fleet jobs run on GitHub before the handover work builds on them. Report the first run’s job durations per OS.
+>
+> Then continue with the handover.
+
+- **The fence defect was fixed on `main` too.** Main fixed it independently as
+  #144. The merge takes main's version, and this branch's test stays.
+- **`local-disk-error`.** On the object-storage backend no commit writes a
+  local file. The memtable's spills are local, but maintenance writes them off
+  the sequencer, and a failed one leaves the memtable growing, unreported.
+  The ADR makes a failed spill degrade, and abdicates at the commit that takes
+  the memtable past four times `MemtableLimit`. That bound is proposed.
+- **`MemtableLimit` counts entries:** a quad, or a term the dictionary adds.
+  Measured with a GC heap delta over 20,000 quads, an entry is about 215
+  bytes for a quad and about 90 for a short term.
+- **The draft PR's first CI run, 417,** stopped every job at the build, on the
+  one expected `CS0618`. So no test ran, the fleet's and the RustFS leg's
+  included. Its compose did start: the issuer was healthy, and the STS wait
+  passed. The citation came from moving `FollowOnDemand` out of ADR 0164's
+  accepted set. It was restored instead: 0164's ruling stands for a follower,
+  and ADR 0180 adds `StandbysFollowOnTheInterval` for a standby, cited from
+  the standby's code when that is written. So the branch builds green until
+  the handover code cites an unaccepted ruling.
