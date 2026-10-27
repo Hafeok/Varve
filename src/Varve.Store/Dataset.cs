@@ -39,9 +39,15 @@ public sealed class DatasetOptions
     public IReadOnlyList<ICommitValidator> Validators { get; init; } = [];
 
     /// <summary>
-    /// How many quads, asserted and retracted, the default projection holds in
-    /// memory before maintenance writes them to <c>derived/</c> as a run
-    /// (ADR 0070). Below it, opening replays them from the log.
+    /// How much the default projection holds in memory before maintenance
+    /// writes it to <c>derived/</c> as a run (ADR 0070); below it, opening
+    /// replays it from the log. It is counted in **memtable entries**: one
+    /// per quad asserted or retracted, and one per term the memtable's
+    /// dictionary adds. Measured on .NET 10, an entry holds about 215 bytes
+    /// for a quad's six order keys and about 90 for a short term, so the
+    /// default of 1,000,000 is roughly 100 to 220 MiB. A follower is opened
+    /// again once its memtable has grown by this much since it opened (ADR
+    /// 0164 point 5), so it bounds a follower's memory too.
     /// </summary>
     public QuadCount MemtableLimit { get; init; } = new(1_000_000);
 

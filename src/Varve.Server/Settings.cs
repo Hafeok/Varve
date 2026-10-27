@@ -104,6 +104,13 @@ internal sealed class StoreSettings
     public GroupCommitSettings GroupCommit { get; set; } = new();
 
     public ExtentMergeSettings ExtentMerges { get; set; } = new();
+
+    /// <summary>
+    /// The memtable's bound, in entries: a quad or a new term each (ADR 0070).
+    /// It bounds a writer's memory before a spill, and a follower's before it
+    /// is opened again (ADR 0164 point 5).
+    /// </summary>
+    public long MemtableLimit { get; set; } = 1_000_000;
 }
 
 /// <summary>

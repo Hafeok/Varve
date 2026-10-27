@@ -75,6 +75,20 @@ public sealed class ObjectStorageServerTests
         Assert.Equal(!accepted, refused);
     }
 
+    /// <summary>The memtable's bound is configurable, in entries, and at least one (ADR 0070; #165).</summary>
+    [Theory]
+    [InlineData(1_000_000, true)]
+    [InlineData(1, true)]
+    [InlineData(0, false)]
+    [InlineData(-5, false)]
+    public void the_memtable_limit_is_at_least_one(long limit, bool accepted)
+    {
+        ServerSettings settings = new();
+        settings.Auth.Mode = "Anonymous";
+        settings.Store.MemtableLimit = limit;
+        Assert.Equal(!accepted, SettingsCheck.Errors(settings).Any(e => e.StartsWith("Varve:Store:MemtableLimit", StringComparison.Ordinal)));
+    }
+
     [Fact]
     public void a_storage_credential_in_configuration_is_refused_by_name()
     {

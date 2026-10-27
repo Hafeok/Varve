@@ -44,7 +44,7 @@ internal static class SettingsCheck
         "Telemetry:QueryText",
         "Cors:AllowedOrigins:*", "Cors:MaxAge",
         "Store:GroupCommit:MaxRecords", "Store:GroupCommit:MaxBytes",
-        "Store:ExtentMerges:Enabled", "Store:ExtentMerges:FanOut", "Store:ExtentMerges:MaxSetBytes",
+        "Store:ExtentMerges:Enabled", "Store:ExtentMerges:FanOut", "Store:ExtentMerges:MaxSetBytes", "Store:MemtableLimit",
         "Events:Source", "Events:EventHubs:Host", "Events:EventHubs:Hub",
     ];
 
@@ -245,6 +245,11 @@ internal static class SettingsCheck
         if (settings.Store.ExtentMerges.FanOut is < 2 or > 16 || settings.Store.ExtentMerges.MaxSetBytes < 1L << 20)
         {
             errors.Add("Varve:Store:ExtentMerges: FanOut is 2 to 16, and MaxSetBytes 1 MiB or more (ADR 0159).");
+        }
+
+        if (settings.Store.MemtableLimit < 1)
+        {
+            errors.Add("Varve:Store:MemtableLimit is at least 1: the memtable's bound in entries, a quad or a new term each (ADR 0070).");
         }
 
         // The follower's record is the id with "-follower" (ObjectStores), so

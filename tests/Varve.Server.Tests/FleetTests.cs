@@ -274,6 +274,58 @@ public abstract class FleetCases : IAsyncDisposable
         Assert.Contains("/types/Paid/versions/1/revisions/", after[before.Length..], StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A follower whose memtable grows past Varve:Store:MemtableLimit since its
+    /// open is opened again from the writer's newest catalog by the reconcile
+    /// round (ADR 0164 point 5), and answers as before: the same quads, at the
+    /// writer's position.
+    /// </summary>
+    [Fact]
+    public async Task A_follower_past_its_memtable_limit_opens_again_and_answers_the_same()
+    {
+        string[] small = ["--Varve:Store:MemtableLimit=40", "--Logging:LogLevel:Default=Information"];
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container, "a", small);
+        long declared = await DeclareAsync(a, "d");
+        Server b = await StartAsync("b", container, "a", small);
+        await WaitDeclaredAsync(b, declared, "d", "follower");
+
+        StringBuilder triples = new();
+
+        for (int n = 0; n < 60; n++)
+        {
+            triples.Append("<http://ex/s").Append(n).Append("> <http://ex/p> ").Append(n).Append(" . ");
+        }
+
+        HttpResponseMessage written = await Update(a, "d", "INSERT DATA { " + triples + "}");
+        Assert.Equal(HttpStatusCode.NoContent, written.StatusCode);
+        string position = written.Headers.GetValues("Varve-Position").Single();
+        Assert.Equal("60", await CountAsync(b, position));
+
+        bool reopened = false;
+
+        for (int attempt = 0; attempt < 100 && !reopened; attempt++)
+        {
+            reopened = b.Log.Contains("opens again from the writer's newest catalog", StringComparison.Ordinal);
+            await Task.Delay(100, Ct);
+        }
+
+        Assert.True(reopened, "b never opened its follower again:\n" + b.Log);
+        Assert.Equal("60", await CountAsync(b, position));
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 1 }")).StatusCode);
+    }
+
+    private static async Task<string> CountAsync(Server server, string atLeast)
+    {
+        using HttpRequestMessage read = new(HttpMethod.Get, new Uri(server.Address, "datasets/d/sparql?query=" + Uri.EscapeDataString("SELECT (COUNT(*) AS ?n) { ?s <http://ex/p> ?o }")));
+        read.Headers.TryAddWithoutValidation("Varve-Min-Position", atLeast);
+        read.Headers.TryAddWithoutValidation("Accept", "text/csv");
+        HttpResponseMessage response = await server.Http.SendAsync(read, Ct);
+        string body = await response.Content.ReadAsStringAsync(Ct);
+        Assert.True(response.StatusCode == HttpStatusCode.OK, (int)response.StatusCode + " " + body);
+        return body.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)[1];
+    }
+
     private static async Task<string> EventsAsync(Server server, string atLeast)
     {
         using HttpRequestMessage request = new(HttpMethod.Get, new Uri(server.Address, "datasets/d/events?from=0"));
@@ -287,10 +339,10 @@ public abstract class FleetCases : IAsyncDisposable
 
     // ---- the fleet ----
 
-    private async Task<Server> StartAsync(string instance, FleetLocation container, string writer = "a")
+    private async Task<Server> StartAsync(string instance, FleetLocation container, string writer = "a", params string[] extra)
     {
         int port = FreePort();
-        Server server = Server.Start(instance, port, container, Path.Combine(_caches, instance), writer);
+        Server server = Server.Start(instance, port, container, Path.Combine(_caches, instance), writer, extra);
         _servers.Add(server);
         await server.WaitLiveAsync();
         return server;
@@ -400,7 +452,7 @@ public abstract class FleetCases : IAsyncDisposable
             }
         }
 
-        internal static Server Start(string instance, int port, FleetLocation container, string cache, string writer)
+        internal static Server Start(string instance, int port, FleetLocation container, string cache, string writer, string[] extra)
         {
             string address = "http://127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture);
             ProcessStartInfo start = new("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
@@ -419,6 +471,7 @@ public abstract class FleetCases : IAsyncDisposable
 
                 // One event source, so that every instance renders the same bytes (ADR 0143).
                 "--Varve:Events:Source=https://varve.example.org/",
+                .. extra,
             ])
             {
                 start.ArgumentList.Add(argument);

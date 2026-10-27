@@ -274,6 +274,16 @@ commit that finds the dataset idle is written at once; there is no timer.
 `varve.store.commit.batch_size` ([Observe](observe.md)) shows how many
 commits each write carried.
 
+The memtable holds what has not yet been written to `derived/` as a run
+(ADR 0070). It bounds a writer's memory before a spill, and a follower's,
+which is opened again from the writer's newest catalog once its memtable has
+grown by the limit since it opened (ADR 0164 point 5). On a small replica,
+this is the setting that bounds a follower's memory.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Store:MemtableLimit` | `1000000` | the memtable's bound, in entries: one per quad asserted or retracted, and one per term it adds. An entry holds about 215 bytes for a quad and about 90 for a short term (measured on .NET 10), so the default is roughly 100 to 220 MiB; at least 1. Lower spills and re-opens more often; a read is never wrong for it |
+
 The writer merges its extent sets in the background (ADRs 0158, 0159), so a
 read of the present merges a bounded number of runs however many
 checkpoints are taken; see [Back up and restore](backup-and-restore.md#checkpoints).
