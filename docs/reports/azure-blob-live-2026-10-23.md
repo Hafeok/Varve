@@ -55,8 +55,7 @@ carries `Category=AzureObjects` or, for the failure-injection workloads,
 `Category=AzureObjectsFaults`, and `TraitGuardTests` fails a class that
 carries neither or both. `azure-objects.yml` runs the first against the
 account on every dispatch, in place of its two class filters;
-`azure-objects-faults.yml` runs the second nightly, on a push to `land/**`
-and when a release descriptor reaches `main`.
+`azure-objects-faults.yml` runs the second, dispatched the same way.
 
 ```bash
 dotnet test --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj --configuration Release \
@@ -335,5 +334,8 @@ minutes, and in memory with its four kinds at 1,068 points.
   asked for it on every pull request and push, which its environment,
   restricted to `main`, does not allow from a pull request's branch. The
   trigger is the maintainer's to widen with the environment.
-- `azure-objects-faults.yml` runs on a push to `land/**`, which the
-  environment's branch rule must admit before it can run there.
+- `azure-objects-faults.yml` was written to run nightly, on a push to
+  `land/**` and when a release descriptor reaches `main`. Its first run, on
+  the landing branch of #154, found the `azure-objects` environment is not
+  the repository's to use: every variable came up empty and the leg failed
+  as required. It is dispatched by hand now, like `azure-objects.yml`.

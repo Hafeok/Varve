@@ -1,22 +1,13 @@
 # The failure-injection workloads of the object-storage backend against a
 # real storage account (#143): a fault of each kind at every request of the
 # seeded workload, in memory, and over HTTP against the account. An hour or
-# so, which is why it is not on every dispatch: nightly, on a push to a
-# land/** branch, and when a release descriptor reaches main. Same
-# environment and the same federated credential as azure-objects.yml; no
-# credential is stored anywhere (ADR 0137).
+# so. Dispatched by the maintainer, like azure-objects.yml, in the same
+# `azure-objects` environment and with the same federated credential: the
+# repository has no such environment of its own, so nothing runs this
+# unattended. No credential is stored anywhere (ADR 0137).
 name: azure-objects-faults
 
 on:
-  schedule:
-    - cron: "17 2 * * *"
-  push:
-    branches:
-      - "land/**"
-      - main
-    paths:
-      - "releases/**"
-      - ".github/workflows/azure-objects-faults.yml"
   workflow_dispatch:
 
 permissions:

@@ -308,9 +308,10 @@ storage account, and a few tests that only mean something there.
 failure-injection workloads, `Category=AzureObjectsFaults`; `TraitGuardTests`
 fails a class that carries neither or both, so no class drops out of CI
 unseen. The optional CI leg `azure-objects.yml` runs the first against the
-account; `azure-objects-faults.yml` runs the second nightly, on a push to
-`land/**` and when a release descriptor reaches `main`, about an hour. The
-live tests skip unless the container is named:
+account; `azure-objects-faults.yml` runs the second, about an hour. Both
+are dispatched by the maintainer in the `azure-objects` environment, which
+the repository does not hold, so neither runs unattended. The live tests
+skip unless the container is named:
 
 ```bash
 VARVE_AZURE_BLOB_ENDPOINT=https://<account>.blob.core.windows.net/ \
