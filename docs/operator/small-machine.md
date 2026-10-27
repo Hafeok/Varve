@@ -27,6 +27,15 @@ docker run --rm --read-only -v /srv/varve:/var/lib/varve -p 8080:8080 ghcr.io/ha
 
 ## An object store on a NAS — only by identity
 
+**A single machine uses the file backend, on a directory** (above). An
+object store earns its place when several instances share one log. On one
+machine it only adds a server to run and a credential path to set up. An
+S3-compatible store is for a setup that already has an OIDC issuer for the
+store to trust, so that the server's web identity can be exchanged at the
+store's STS. [CI's storage legs](../../.github/storage/compose.yaml) are the
+worked example: RustFS, with a mock-oauth2-server as its OIDC provider, its
+outbound allow-list, and the `groups` claim mapped to a policy.
+
 The server takes no static key for an object store, not even on loopback
 (ADR 0137, amended 2026-10-27): the loopback key is the S3 adapter's, for
 tests that make their own buckets, and no server setting reaches it. So an
