@@ -30,6 +30,7 @@ namespace Varve.Store.Tests.Objects;
 /// The reference model is the quad set at each position, kept from what each
 /// acknowledged commit asserted and retracted, never read from the store.
 /// </summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Faults)]
 public sealed class ObjectFollowerFaultTests
 {
     // The land gate's count; VARVE_FOLLOWER_FAULT_SCHEDULES raises it for

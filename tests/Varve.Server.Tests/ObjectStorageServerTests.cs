@@ -180,7 +180,7 @@ public sealed class ObjectStorageServerTests
             Assert.Equal(0, took);
             Assert.Contains("epoch: 3", after, StringComparison.Ordinal);
             Assert.Contains("operator", after, StringComparison.Ordinal);
-            Assert.Contains("released: OperatorTakeover", after, StringComparison.Ordinal);
+            Assert.Contains("released: operator-takeover", after, StringComparison.Ordinal);
 
             HttpResponseMessage taken = await UpdateAsync(second, "INSERT DATA { <http://ex/d> <http://ex/p> 4 }");
             Assert.Equal(HttpStatusCode.ServiceUnavailable, taken.StatusCode);

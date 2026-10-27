@@ -18,6 +18,7 @@ namespace Varve.Store.Tests.Objects;
 /// epoch history of a handover reads as it was written. A name this version
 /// does not know is refused, never read as another.
 /// </summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class WriterRecordFormatTests
 {
     internal static readonly (ClaimTrigger Trigger, string Name)[] Triggers =

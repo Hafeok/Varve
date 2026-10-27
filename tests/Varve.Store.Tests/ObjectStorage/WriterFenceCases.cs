@@ -151,7 +151,15 @@ internal static class WriterFenceCases
             Assert.NotEmpty(claimed);
             Assert.All(opened.Except(claimed), storage => Assert.True(storage.IsSuperseded));
             WriterRecord record = Assert.IsType<WriterRecord>(await Backend.ReadWriterAsync(store, prefix, T.Ct));
-            Assert.Equal(claimed.Select(storage => storage.Epoch!.Value.Value).Order(), record.History.Select(claim => claim.Epoch.Value));
+
+            // Every epoch still held is in the history, which ascends. A
+            // claimant can win an epoch in the record and be fenced by the
+            // next before its own fence lands: its epoch stays in the history,
+            // and it is superseded, as the reopen below counts too.
+            long[] history = [.. record.History.Select(claim => claim.Epoch.Value)];
+            Assert.Equal(history.Order(), history);
+            Assert.Equal(history.Length, history.Distinct().Count());
+            Assert.Subset(history.ToHashSet(), claimed.Select(storage => storage.Epoch!.Value.Value).ToHashSet());
             Assert.Equal(claimed.Max(storage => storage.Epoch!.Value), record.Epoch);
             Assert.Null(record.Released);
         }

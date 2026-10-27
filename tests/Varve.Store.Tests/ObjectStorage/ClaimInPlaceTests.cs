@@ -21,6 +21,7 @@ namespace Varve.Store.Tests.Objects;
 /// the catalog, as of every position after the claim. The writer it took
 /// over from, closed or stalled, appends nothing after the fence.
 /// </summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class ClaimInPlaceTests
 {
     // The land gate's count; VARVE_CLAIM_IN_PLACE_SCHEDULES raises it nightly (docs/testing.md §8).

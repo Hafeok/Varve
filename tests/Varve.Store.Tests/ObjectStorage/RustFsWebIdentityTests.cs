@@ -83,6 +83,7 @@ internal static class RustFsWebIdentity
 /// contract, the race properties included, is then signed with the temporary
 /// credentials RustFS's STS returns for the workload's token.
 /// </summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class RustFsWebIdentityObjectStoreContractTests
 {
     public static TheoryData<string> Cases() => [.. ObjectStoreContractCases.All().Select(c => c.Name)];
