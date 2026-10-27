@@ -3,8 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using DecisionDriven;
 using Varve.Rdf;
 
 namespace Varve.Store.Log;
@@ -22,7 +24,8 @@ namespace Varve.Store.Log;
 public sealed class Commit
 {
     private readonly Dataset _dataset;
-    private HashSet<ulong>? _carried;
+    [Memoized]
+    private FrozenSet<ulong>? _carried;
 
     internal Commit(
         long position,
@@ -98,7 +101,7 @@ public sealed class Commit
             }
         }
 
-        if (handle.IsNone || !Carried().Contains(handle.Value))
+        if (handle.IsNone || !(_carried ??= Carried()).Contains(handle.Value))
         {
             term = null;
             return false;
@@ -108,13 +111,8 @@ public sealed class Commit
         return true;
     }
 
-    private HashSet<ulong> Carried()
+    private FrozenSet<ulong> Carried()
     {
-        if (_carried is not null)
-        {
-            return _carried;
-        }
-
         HashSet<ulong> carried = [Agent.Value, Cause.Value, GraphScope.Value];
 
         foreach (TermHandle attachment in Attachments.Span)
@@ -124,8 +122,7 @@ public sealed class Commit
 
         Add(carried, Delta.Asserted);
         Add(carried, Delta.Retracted);
-        _carried = carried;
-        return carried;
+        return carried.ToFrozenSet();
     }
 
     private static void Add(HashSet<ulong> carried, ReadOnlySpan<Quad> quads)
