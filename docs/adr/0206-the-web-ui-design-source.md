@@ -91,7 +91,7 @@ design system page and the app render one markup.
 - **A component library** (Fluent UI Blazor, MudBlazor) or a CSS framework.
   Package tails under constraint 4, bundle bytes under ADR 0205, and in some of
   them reflection the trimmer warns about. The console's component set is
-  eighteen components; the design system already specifies them.
+  nineteen components; the design system already specifies them.
 - **A separate Razor class library for the components.** One consumer today;
   part 2 is the same app. A package boundary, a public API baseline and a layer
   position for no gain. Revisited when a second consumer exists (Graphsite's

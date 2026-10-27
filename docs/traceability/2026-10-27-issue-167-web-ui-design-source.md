@@ -68,3 +68,48 @@ these are its own to change:
 - linking the CSS into `wwwroot`;
 - the level rule;
 - the markup contract test.
+
+## The review round
+
+**The maintainer's rulings** on #174, verbatim where they concern it:
+
+> ADR 0206 edits: accepted as you made them.
+> Brand book paths: fix both in #174. Use `docs/ui/assets/varve-core.svg` and `docs/ui/bundle.css`, and check the rest of `docs/ui/` for other paths written relative to the artifact.
+> The two CSS gaps: fix them in #174. Patching `docs/ui/` by PR is the process, not a workaround. Add to `bundle.css`, base section:
+>
+> * `html, body.vw-root { height: 100%; } body.vw-root { margin: 0; } .vw-shell { min-height: 100%; }`
+> * `.vw-root [tabindex="-1"]:focus { outline: none; }`. A heading focused on navigation isn’t interactive, so it needs no ring. Every control keeps `:focus-visible`.
+>
+> Level rule: keep it strict. A component uses only lower levels, never its own level.
+>
+> * `ConfirmDialog` and `ResourceTable` taking a problem from the page: right. Make it a slot (`RenderFragment`) that the page fills, and update both components’ READMEs in #174 to say so.
+> * `CopyButton` as a molecule: right. Add it to the README’s level table and give it a component folder.
+> * The drift note as a switch on `Notice`: no. It puts domain text in a molecule, and lower levels must not know Varve’s domain. `Notice` stays generic. The drift note’s wording lives with the dialog’s caller: the page passes a `Notice` into `ConfirmDialog`’s slot, the same pattern as the problem. Put the text in one place in `Pages` or `Tones`, not per page.
+>
+> Placeholders:
+>
+> * `unreachable-placement`: directly below the view head, above everything else, with the last data still shown below it. The reference screens follow this.
+
+**What changed:**
+- **The two paths.** The core mark is `docs/ui/assets/varve-core.svg`, and the
+  stylesheet `docs/ui/bundle.css`. These were the only paths written relative
+  to the artifact. Every preview's `../../tokens.css`, `../../bundle.css` and
+  `../../assets/varve-core.svg` resolves from
+  `docs/ui/components/<Comp>/`, and no other file names a path.
+- **`bundle.css`, base section.**
+  - `.vw-root [tabindex="-1"]:focus { outline: none; }`.
+  - `html, body.vw-root { height: 100%; }` and `body.vw-root { margin: 0; }`.
+  - `.vw-shell { min-height: 100%; }` was already in the Shell section, so it
+    is not repeated.
+- **The level rule in the brand book.** A component never uses one of its own
+  level; an organism showing another organism's output takes a slot the page
+  fills. Domain text, such as the drift note, lives once at the page level.
+- **The unreachable notice** sits directly below the view head, above
+  everything else, with the last data below it.
+- **`ConfirmDialog`** takes a Note slot and a Result slot, which the page
+  fills; its preview's drift note now carries the fixed text.
+- **`ResourceTable`** takes a Problem slot, rendered in place of the table.
+- **`Notice`** is generic, and its README says where the drift note's
+  wording lives.
+- **`CopyButton`** joins the molecules in the level table, with a folder, a
+  README and a preview. ADR 0206 now says nineteen components.
