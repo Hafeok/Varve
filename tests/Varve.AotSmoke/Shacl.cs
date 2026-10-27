@@ -66,7 +66,7 @@ internal static class ShaclSmoke
 
     internal static async Task<(string Shacl, string Regex)> RunAsync()
     {
-        Varve.Store.Log.CommitRequest request = new();
+        Varve.Store.Log.CommitRequestBuilder request = new();
         TurtleOptions read = new() { Syntax = RdfSyntax.Turtle };
         ParseResult parsed = TurtleParser.Parse(
             Encoding.UTF8.GetBytes(Data),

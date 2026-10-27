@@ -84,7 +84,7 @@ public sealed class GroupCommitTests
 
             steps.Add(new Step((d, ct) =>
             {
-                CommitRequest request = new()
+                CommitRequestBuilder request = new()
                 {
                     ExpectedPosition = expected is long p ? new Position(p) : null,
                     Validators = validated ? Dozen : [],
@@ -290,7 +290,7 @@ public sealed class GroupCommitTests
 
     }
 
-    private static CommitRequest Quad(int i) => new CommitRequest().Assert(T.Iri("s" + i), T.Iri("p"), T.Integer(i.ToString(CultureInfo.InvariantCulture)));
+    private static CommitRequestBuilder Quad(int i) => new CommitRequestBuilder().Assert(T.Iri("s" + i), T.Iri("p"), T.Integer(i.ToString(CultureInfo.InvariantCulture)));
 
     /// <summary>
     /// No request of a batch is answered while its flush has not returned —

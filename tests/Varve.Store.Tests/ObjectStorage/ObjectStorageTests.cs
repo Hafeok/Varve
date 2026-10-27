@@ -198,10 +198,10 @@ public sealed class ObjectStorageTests
         Backend storage = await harness.OpenAsync();
         await using (Dataset dataset = await T.Open(storage))
         {
-            await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("first")), T.Ct);
+            await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("first")), T.Ct);
             harness.Store.ResetCounts();
 
-            CommitResult result = await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("second")), T.Ct);
+            CommitResult result = await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("second")), T.Ct);
 
             Assert.Equal(CommitOutcome.Committed, result.Outcome);
             Assert.Equal(1, harness.Store.Count(ObjectOperation.Create));
@@ -223,7 +223,7 @@ public sealed class ObjectStorageTests
         await using ObjectHarness harness = new();
         Backend writer = await harness.OpenAsync();
         await using Dataset dataset = await T.Open(writer);
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("o")), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("o")), T.Ct);
         byte[] record = harness.Store.Get("writer")!;
         IReadOnlyList<string> names = harness.Store.Names();
         List<string> written = [];
@@ -241,7 +241,7 @@ public sealed class ObjectStorageTests
         await using (Dataset read = await Dataset.OpenAsync(reader, T.Options(), T.Ct))
         {
             Assert.Equal(new Position(1), read.Head);
-            await Assert.ThrowsAsync<InvalidOperationException>(async () => await read.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("x")), T.Ct));
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await read.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("x")), T.Ct));
         }
 
         await reader.DisposeAsync();
@@ -262,13 +262,13 @@ public sealed class ObjectStorageTests
         await using ObjectHarness harness = new();
         Backend first = await harness.OpenAsync(instance: "first");
         Dataset old = await T.Open(first);
-        await old.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("one")), T.Ct);
-        await old.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("two")), T.Ct);
+        await old.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("one")), T.Ct);
+        await old.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("two")), T.Ct);
 
         Backend second = await harness.OpenAsync(instance: "second");
         Assert.Equal(new WriterEpoch(2), second.Epoch);
 
-        await Assert.ThrowsAsync<WriterSupersededException>(async () => await old.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("lost")), T.Ct));
+        await Assert.ThrowsAsync<WriterSupersededException>(async () => await old.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("lost")), T.Ct));
         Assert.True(first.IsSuperseded);
         Assert.Null(first.Epoch);
 
@@ -279,7 +279,7 @@ public sealed class ObjectStorageTests
 
         await using Dataset current = await T.Open(second);
         Assert.Equal(new Position(2), current.Head);
-        await current.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("three")), T.Ct);
+        await current.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("three")), T.Ct);
 
         await old.DisposeAsync();
         await first.DisposeAsync();
@@ -340,7 +340,7 @@ public sealed class ObjectStorageTests
         await using ObjectHarness harness = new();
         Backend stuck = await harness.OpenAsync(instance: "stuck");
         await using Dataset dataset = await T.Open(stuck);
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("o")), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("o")), T.Ct);
 
         Assert.Null(await Backend.TakeOverAsync(harness.Options(instance: "operator"), new WriterEpoch(7), T.Ct));
         Assert.Equal(new WriterEpoch(1), (await Backend.ReadWriterAsync(harness.Store, null, T.Ct))!.Epoch);
@@ -350,7 +350,7 @@ public sealed class ObjectStorageTests
         Assert.Equal(ReleaseReason.OperatorTakeover, taken.Released);
         Assert.Equal(ClaimTrigger.Operator, taken.History[^1].Trigger);
 
-        await Assert.ThrowsAsync<WriterSupersededException>(async () => await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("after")), T.Ct));
+        await Assert.ThrowsAsync<WriterSupersededException>(async () => await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("after")), T.Ct));
 
         Backend next = await harness.OpenAsync(instance: "next");
         Assert.Equal(new WriterEpoch(3), next.Epoch);
@@ -389,7 +389,7 @@ public sealed class ObjectStorageTests
         {
             for (int i = 0; i < 40; i++)
             {
-                await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s" + i), T.Iri("p"), T.Literal("a literal long enough to fill segments " + i)), T.Ct);
+                await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s" + i), T.Iri("p"), T.Literal("a literal long enough to fill segments " + i)), T.Ct);
             }
 
             before = (await T.CopyLogAsync(storage)).Segments;

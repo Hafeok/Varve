@@ -197,7 +197,7 @@ internal sealed class ObjectFaultRun : IAsyncDisposable
         await RestartAsync(inDoubt: null);
         await VerifyEveryPositionAsync();
 
-        CommitResult next = await _dataset!.CommitAsync(new CommitRequest().Assert(T.Iri("final"), T.Iri("p"), T.Iri("o")), T.Ct);
+        CommitResult next = await _dataset!.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("final"), T.Iri("p"), T.Iri("o")), T.Ct);
         Assert.Equal(CommitOutcome.Committed, next.Outcome);
         _history.Add([.. _history[^1], "final p o"]);
         await CrashAsync();
@@ -249,7 +249,7 @@ internal sealed class ObjectFaultRun : IAsyncDisposable
     {
         HashSet<string> state = _history[^1];
         HashSet<string> next = [.. state];
-        CommitRequest request = new();
+        CommitRequestBuilder request = new();
 
         if (state.Count > 0 && _random.Next(3) == 0)
         {
@@ -332,7 +332,7 @@ internal sealed class ObjectFaultRun : IAsyncDisposable
 
         try
         {
-            CommitResult refused = await _dataset!.CommitAsync(new CommitRequest().Assert(T.Iri("fenced"), T.Iri("p"), T.Iri(probe.Split(' ')[2])), T.Ct);
+            CommitResult refused = await _dataset!.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("fenced"), T.Iri("p"), T.Iri(probe.Split(' ')[2])), T.Ct);
             Assert.NotEqual(CommitOutcome.Committed, refused.Outcome);
         }
         catch (WriterSupersededException)

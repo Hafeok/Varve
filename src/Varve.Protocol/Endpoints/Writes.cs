@@ -297,7 +297,7 @@ internal static class Writes
     /// the writer epoch (ADR 0136), after answering <c>503 writer-superseded</c>:
     /// nothing was committed.
     /// </summary>
-    internal static async Task<CommitResult?> CommitAsync(Exchange exchange, CommitRequest request)
+    internal static async Task<CommitResult?> CommitAsync(Exchange exchange, CommitRequestBuilder request)
     {
         try
         {

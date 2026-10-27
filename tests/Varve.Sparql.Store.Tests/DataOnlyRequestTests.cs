@@ -60,11 +60,11 @@ public class DataOnlyRequestTests
         await using Dataset dataset = await Open();
         await Run(dataset, "INSERT DATA { :a :p :o . :b :p :o }");
 
-        CommitRequest request = await BuildAsync(dataset, "DELETE DATA { :b :p :o . :c :p :o } ; INSERT DATA { :d :p :o }");
+        CommitRequestBuilder request = await BuildAsync(dataset, "DELETE DATA { :b :p :o . :c :p :o } ; INSERT DATA { :d :p :o }");
         Assert.Null(request.ExpectedPosition);
 
         // Another writer lands after the pin: :c appears and :a goes.
-        await dataset.CommitAsync(new CommitRequest().Assert(Iri("c"), Iri("p"), Iri("o")).Retract(Iri("a"), Iri("p"), Iri("o")), Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(Iri("c"), Iri("p"), Iri("o")).Retract(Iri("a"), Iri("p"), Iri("o")), Ct);
 
         CommitResult result = await dataset.CommitAsync(request, Ct);
         Assert.Equal(CommitOutcome.Committed, result.Outcome);
@@ -76,7 +76,7 @@ public class DataOnlyRequestTests
     public async Task A_data_only_request_whose_change_the_head_already_holds_is_no_change()
     {
         await using Dataset dataset = await Open();
-        CommitRequest request = await BuildAsync(dataset, "INSERT DATA { :a :p :o }");
+        CommitRequestBuilder request = await BuildAsync(dataset, "INSERT DATA { :a :p :o }");
         await Run(dataset, "INSERT DATA { :a :p :o }");
 
         CommitResult result = await dataset.CommitAsync(request, Ct);
@@ -90,7 +90,7 @@ public class DataOnlyRequestTests
         await using Dataset dataset = await Open();
         await Run(dataset, "INSERT DATA { :a :p :o }");
 
-        CommitRequest request = await BuildAsync(dataset, "INSERT DATA { :b :p :o } ; DELETE WHERE { ?s :p :o }");
+        CommitRequestBuilder request = await BuildAsync(dataset, "INSERT DATA { :b :p :o } ; DELETE WHERE { ?s :p :o }");
         Assert.Equal(new Position(1), request.ExpectedPosition);
 
         await Run(dataset, "INSERT DATA { :c :p :o }");
@@ -105,7 +105,7 @@ public class DataOnlyRequestTests
         await using Dataset dataset = await Open();
         await Run(dataset, "INSERT DATA { :a :p :o }");
 
-        CommitRequest request = await BuildAsync(dataset, "INSERT DATA { :b :p :o }", new UpdateOptions { ExpectedPosition = new Position(1) });
+        CommitRequestBuilder request = await BuildAsync(dataset, "INSERT DATA { :b :p :o }", new UpdateOptions { ExpectedPosition = new Position(1) });
         Assert.Equal(new Position(1), request.ExpectedPosition);
 
         await Run(dataset, "INSERT DATA { :c :p :o }");
@@ -136,7 +136,7 @@ public class DataOnlyRequestTests
             }
 
             // Built at the head before the tail, submitted after it.
-            CommitRequest built = await BuildAsync(raced, request);
+            CommitRequestBuilder built = await BuildAsync(raced, request);
             Assert.Null(built.ExpectedPosition);
 
             foreach (string contended in tail)
@@ -176,7 +176,7 @@ public class DataOnlyRequestTests
         SparqlParser.ParseUpdate(Encoding.UTF8.GetBytes(update.StartsWith("PREFIX", StringComparison.Ordinal) ? update : Prefix + update));
 
     /// <summary>One request's execution, pinned, built and released, as <see cref="SparqlUpdate"/> does it; not submitted.</summary>
-    private static async Task<CommitRequest> BuildAsync(Dataset dataset, string update, UpdateOptions? options = null)
+    private static async Task<CommitRequestBuilder> BuildAsync(Dataset dataset, string update, UpdateOptions? options = null)
     {
         using DatasetView view = dataset.Pin();
         RequestExecution execution = new(view.Stage(), Parse(update), options ?? new UpdateOptions(), Ct);

@@ -79,7 +79,7 @@ internal static class GraphIndexBench
         }
 
         await dataset.CheckpointAsync(dataset.Head);
-        await dataset.CommitAsync(new CommitRequest().Assert(Iri("s", 1), Iri("p", 1), Iri("o", 1), Iri("g", 1)));
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(Iri("s", 1), Iri("p", 1), Iri("o", 1), Iri("g", 1)));
         await dataset.MaintainAsync();
         await dataset.DisposeAsync();
         return directory;

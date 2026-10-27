@@ -89,7 +89,7 @@ public sealed class ServiceFollowerTests
         for (int i = from; i < from + count; i++)
         {
             CommitResult result = await dataset.CommitAsync(
-                new CommitRequest().Assert(RdfTerm.Iri(Encoding.UTF8.GetBytes("http://ex/s" + i)), RdfTerm.Iri("http://ex/p"u8), RdfTerm.Literal(Encoding.UTF8.GetBytes(i.ToString(System.Globalization.CultureInfo.InvariantCulture)))),
+                new CommitRequestBuilder().Assert(RdfTerm.Iri(Encoding.UTF8.GetBytes("http://ex/s" + i)), RdfTerm.Iri("http://ex/p"u8), RdfTerm.Literal(Encoding.UTF8.GetBytes(i.ToString(System.Globalization.CultureInfo.InvariantCulture)))),
                 T.Ct);
             Assert.Equal(CommitOutcome.Committed, result.Outcome);
         }

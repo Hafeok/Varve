@@ -148,7 +148,7 @@ public sealed class FileStorageTests
         {
             for (int i = 0; i < 10; i++)
             {
-                await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s" + i), T.Iri("p"), T.Literal(new string('x', 80))), T.Ct);
+                await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s" + i), T.Iri("p"), T.Literal(new string('x', 80))), T.Ct);
             }
 
             await dataset.CheckpointAsync(new Position(5), T.Ct);

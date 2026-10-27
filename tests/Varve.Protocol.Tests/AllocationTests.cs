@@ -163,7 +163,7 @@ public class AllocationTests
     private static async Task<Dataset> StoreOf(int count)
     {
         Dataset dataset = await P.NewDatasetAsync();
-        Store.Log.CommitRequest request = new();
+        Store.Log.CommitRequestBuilder request = new();
 
         foreach (int i in Enumerable.Range(0, count))
         {

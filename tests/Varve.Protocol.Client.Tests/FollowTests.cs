@@ -206,7 +206,7 @@ public class FollowTests
 
     private static async Task CommitAsync(Dataset dataset, int i)
     {
-        CommitRequest request = new CommitRequest().Assert(
+        CommitRequestBuilder request = new CommitRequestBuilder().Assert(
             RequestTerm.FromTerm(C.Iri("http://ex/s" + i)),
             RequestTerm.FromTerm(C.Iri("http://ex/p")),
             RequestTerm.FromTerm(RdfTerm.Literal(Encoding.UTF8.GetBytes(i.ToString(System.Globalization.CultureInfo.InvariantCulture)))));

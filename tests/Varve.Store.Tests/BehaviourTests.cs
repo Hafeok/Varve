@@ -19,10 +19,10 @@ namespace Varve.Store.Tests;
 /// <summary>Worked examples of the store's behaviour, one rule each, beside the properties.</summary>
 public class BehaviourTests
 {
-    private static CommitRequest One(string subject, RdfTerm? graph = null) =>
+    private static CommitRequestBuilder One(string subject, RdfTerm? graph = null) =>
         graph is null
-            ? new CommitRequest().Assert(T.Iri(subject), T.Iri("p"), T.Iri("o"))
-            : new CommitRequest().Assert(T.Iri(subject), T.Iri("p"), T.Iri("o"), graph);
+            ? new CommitRequestBuilder().Assert(T.Iri(subject), T.Iri("p"), T.Iri("o"))
+            : new CommitRequestBuilder().Assert(T.Iri(subject), T.Iri("p"), T.Iri("o"), graph);
 
     // --- T1 ---------------------------------------------------------------------
 
@@ -32,7 +32,7 @@ public class BehaviourTests
         await using Dataset dataset = await T.Open(new MemoryStorage());
         await dataset.CommitAsync(One("s"), T.Ct);
 
-        CommitResult result = await dataset.CommitAsync(new CommitRequest()
+        CommitResult result = await dataset.CommitAsync(new CommitRequestBuilder()
             .Assert(T.Iri("s"), T.Iri("p"), T.Iri("o"))              // already present
             .Retract(T.Iri("absent"), T.Iri("p"), T.Iri("o"))        // not present
             .Assert(T.Iri("new"), T.Iri("p"), T.Iri("fresh"))        // asserted, then
@@ -54,19 +54,19 @@ public class BehaviourTests
         await dataset.CommitAsync(One("a"), T.Ct);
         await dataset.CommitAsync(One("b"), T.Ct);
 
-        CommitResult result = await dataset.CommitAsync(new CommitRequest { ExpectedPosition = new Position(1) }.Assert(T.Iri("c"), T.Iri("p"), T.Iri("o")), T.Ct);
+        CommitResult result = await dataset.CommitAsync(new CommitRequestBuilder { ExpectedPosition = new Position(1) }.Assert(T.Iri("c"), T.Iri("p"), T.Iri("o")), T.Ct);
 
         Assert.Equal(CommitOutcome.Conflict, result.Outcome);
         Assert.Equal(new Position(2), result.Position);
-        Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(new CommitRequest { ExpectedPosition = new Position(2) }.Assert(T.Iri("c"), T.Iri("p"), T.Iri("o")), T.Ct)).Outcome);
+        Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(new CommitRequestBuilder { ExpectedPosition = new Position(2) }.Assert(T.Iri("c"), T.Iri("p"), T.Iri("o")), T.Ct)).Outcome);
     }
 
     [Fact]
     public async Task a_blank_label_is_a_new_node_in_every_request_and_a_handle_is_the_same_node()
     {
         await using Dataset dataset = await T.Open(new MemoryStorage());
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Blank("x"), T.Iri("p"), T.Iri("o")).Assert(T.Blank("x"), T.Iri("q"), T.Iri("o")), T.Ct);
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Blank("x"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Blank("x"), T.Iri("p"), T.Iri("o")).Assert(T.Blank("x"), T.Iri("q"), T.Iri("o")), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Blank("x"), T.Iri("p"), T.Iri("o")), T.Ct);
 
         using DatasetView view = dataset.Pin();
         List<Quad> quads = T.All(view);
@@ -77,8 +77,8 @@ public class BehaviourTests
 
         // Re-sending the externalised label is a new node; the handle is the old one.
         Assert.True(view.TryExternalise(first, out RdfTerm? label));
-        await dataset.CommitAsync(new CommitRequest().Assert(label, T.Iri("r"), T.Iri("o")), T.Ct);
-        await dataset.CommitAsync(new CommitRequest().Assert(RequestTerm.Existing(first), T.Iri("s"), T.Iri("o")), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(label, T.Iri("r"), T.Iri("o")), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(RequestTerm.Existing(first), T.Iri("s"), T.Iri("o")), T.Ct);
 
         using DatasetView after = dataset.Pin();
         Assert.Equal(3, T.All(after).Select(q => q.Subject).Distinct().Count());
@@ -95,7 +95,7 @@ public class BehaviourTests
         await dataset.CommitAsync(One("s"), T.Ct);
 
         await Assert.ThrowsAsync<ArgumentException>(async () =>
-            await dataset.CommitAsync(new CommitRequest().Assert(RequestTerm.Existing(new TermHandle(999)), T.Iri("new"), T.Iri("o")), T.Ct));
+            await dataset.CommitAsync(new CommitRequestBuilder().Assert(RequestTerm.Existing(new TermHandle(999)), T.Iri("new"), T.Iri("o")), T.Ct));
 
         Assert.Equal(new Position(1), dataset.Head);
         using DatasetView view = dataset.Pin();
@@ -109,7 +109,7 @@ public class BehaviourTests
         await using Dataset dataset = await T.Open(new MemoryStorage());
         RecordingProjection recorder = new();
 
-        await dataset.CommitAsync(new CommitRequest()
+        await dataset.CommitAsync(new CommitRequestBuilder()
             .Assert(T.Iri("s"), T.Iri("p"), T.Integer("1"))
             .Assert(T.Iri("s"), T.Iri("p"), T.Integer("01"))
             .Assert(T.Iri("s"), T.Iri("p"), T.Boolean("true"))
@@ -139,7 +139,7 @@ public class BehaviourTests
         await dataset.CommitAsync(One("old"), T.Ct);
         Inspecting validator = new();
 
-        CommitRequest request = new CommitRequest { Validators = [validator] }.Assert(T.Iri("new"), T.Iri("p"), T.Iri("o")).Retract(T.Iri("old"), T.Iri("p"), T.Iri("o"));
+        CommitRequestBuilder request = new CommitRequestBuilder { Validators = [validator] }.Assert(T.Iri("new"), T.Iri("p"), T.Iri("o")).Retract(T.Iri("old"), T.Iri("p"), T.Iri("o"));
         CommitResult result = await dataset.CommitAsync(request, T.Ct);
 
         Assert.Equal(CommitOutcome.Committed, result.Outcome);
@@ -160,7 +160,7 @@ public class BehaviourTests
 
         await using (Dataset dataset = await T.Open(storage))
         {
-            CommitRequest request = new CommitRequest
+            CommitRequestBuilder request = new CommitRequestBuilder
             {
                 Validators = [new Inspecting()],
                 Metadata = new CommitMetadata { Agent = T.Iri("me"), Attachments = [position] },
@@ -278,7 +278,7 @@ public class BehaviourTests
         await dataset.CommitAsync(One("b"), T.Ct);                                       // 2: default graph
         await dataset.ChangeSettingsAsync(new SettingsChange { DefaultAccessScope = AccessScope.Current }, new CommitMetadata { Agent = T.Iri("me"), Cause = T.Iri("why") }, cancellationToken: T.Ct); // 3
         await dataset.AppendErasureAsync(7, new CommitMetadata { Agent = T.Iri("me") }, T.Ct); // 4: the test seam
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("c"), T.Iri("p"), T.Iri("o"), g).Assert(T.Iri("d"), T.Iri("p"), T.Iri("o")), T.Ct); // 5: both
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("c"), T.Iri("p"), T.Iri("o"), g).Assert(T.Iri("d"), T.Iri("p"), T.Iri("o")), T.Ct); // 5: both
 
         using DatasetView pin = dataset.Pin();
         Assert.True(pin.TryInternalise(g, out TermHandle gh));
@@ -318,9 +318,9 @@ public class BehaviourTests
     {
         await using Dataset dataset = await T.Open(new MemoryStorage());
         RdfTerm g = T.Iri("g");
-        await dataset.CommitAsync(new CommitRequest { Metadata = new CommitMetadata { Agent = T.Iri("alice") } }.Assert(T.Iri("s"), T.Iri("p"), T.Blank("x"), g), T.Ct); // 1
+        await dataset.CommitAsync(new CommitRequestBuilder { Metadata = new CommitMetadata { Agent = T.Iri("alice") } }.Assert(T.Iri("s"), T.Iri("p"), T.Blank("x"), g), T.Ct); // 1
         await dataset.CommitAsync(One("other"), T.Ct); // 2: filtered out
-        await dataset.CommitAsync(new CommitRequest { Metadata = new CommitMetadata { Agent = T.Iri("alice") } }.Assert(T.Iri("s"), T.Iri("q"), T.Iri("o"), g), T.Ct); // 3
+        await dataset.CommitAsync(new CommitRequestBuilder { Metadata = new CommitMetadata { Agent = T.Iri("alice") } }.Assert(T.Iri("s"), T.Iri("q"), T.Iri("o"), g), T.Ct); // 3
 
         using DatasetView pin = dataset.Pin();
         Assert.True(pin.TryInternalise(g, out TermHandle gh));
@@ -364,7 +364,7 @@ public class BehaviourTests
         BlockingValidator blocking = new(entered, proceed);
 
         Task<CommitResult> inFlight = Task.Run(async () =>
-            await dataset.CommitAsync(new CommitRequest { Validators = [blocking] }.Assert(T.Iri("b"), T.Iri("p"), T.Iri("o")), T.Ct), T.Ct);
+            await dataset.CommitAsync(new CommitRequestBuilder { Validators = [blocking] }.Assert(T.Iri("b"), T.Iri("p"), T.Iri("o")), T.Ct), T.Ct);
         Assert.True(entered.Wait(TimeSpan.FromSeconds(10), T.Ct));
 
         Task disposing = dataset.DisposeAsync().AsTask();

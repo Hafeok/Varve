@@ -52,7 +52,7 @@ public sealed partial class Dataset
 
     private async ValueTask<CommitResult> SequenceAsync(
         CommitKind kind,
-        CommitRequest? request,
+        CommitRequestBuilder? request,
         CommitMetadata metadata,
         long? expected,
         byte[] kindPayload,
@@ -376,7 +376,7 @@ public sealed partial class Dataset
         deferred = false;
         long head = staging.Head;
         CommitKind kind = pending.Kind;
-        CommitRequest? request = pending.Request;
+        CommitRequestBuilder? request = pending.Request;
         CommitMetadata metadata = pending.Metadata;
 
         if (_disposing)
@@ -425,7 +425,7 @@ public sealed partial class Dataset
 
         if (request is not null)
         {
-            foreach (CommitRequest.Operation operation in request.Operations)
+            foreach (CommitRequestBuilder.Operation operation in request.Operations)
             {
                 Quad quad = new(
                     new TermHandle(resolver.Resolve(operation.Subject)),
@@ -576,7 +576,7 @@ public sealed partial class Dataset
         ((long)_writer.RecordsOf(bodyLength) * LogFormat.RecordHeaderLength) + bodyLength + headerLength + 4;
 
     /// <summary>A request waiting for the sequencer, and its answer.</summary>
-    private sealed class PendingCommit(CommitKind kind, CommitRequest? request, CommitMetadata metadata, long? expected, byte[] kindPayload, IReadOnlyList<RequestTerm>? graphs)
+    private sealed class PendingCommit(CommitKind kind, CommitRequestBuilder? request, CommitMetadata metadata, long? expected, byte[] kindPayload, IReadOnlyList<RequestTerm>? graphs)
     {
         private const int Queued = 0;
         private const int Taken = 1;
@@ -586,7 +586,7 @@ public sealed partial class Dataset
 
         internal CommitKind Kind { get; } = kind;
 
-        internal CommitRequest? Request { get; } = request;
+        internal CommitRequestBuilder? Request { get; } = request;
 
         internal CommitMetadata Metadata { get; } = metadata;
 
