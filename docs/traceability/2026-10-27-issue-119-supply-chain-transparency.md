@@ -196,9 +196,32 @@ This pull request is step 1. Steps 2 and 3 are their own.
 - **The descriptor's lines** are `eng/sbom.cs`'s at `0.1.0-preview.16` and
   2026-10-27, with Syft v1.54.0, the version `publish.yml` pins.
 
-**The whole pipeline** (`dotnet run eng/ci.cs -- --base origin/main`) was
-running when this record was first committed. Its result and each job's
-duration are added to this record by the commit after it finishes.
+**The whole pipeline** (`dotnet run eng/ci.cs -- --base origin/main`) passes
+on Linux, in this 4-core container. It stopped twice on the way, and each stop
+was rerun from the job that stopped:
+- **`test-sparql-results`:** the clone had no W3C submodules (AGENTS.md's
+  `git submodule update --init --recursive`), which is this environment, not
+  the change.
+- **`pack`:** a real defect, fixed in this pull request. `Directory.Build.targets`
+  named each SBOM by `$(PackageId)`, which is not yet set where that file is
+  evaluated, so every pack looked for `nupkg/.spdx.json`. It is the project's
+  name now, which no project overrides. This is the first run that packed with
+  the SBOMs, and the gate caught it before any package was published.
+
+Durations, in seconds (#126):
+
+| Job | s | Job | s | Job | s |
+|---|---:|---|---:|---|---:|
+| `register` | 0.5 | `register-fixtures` | 14.0 | `restore` | 28.5 |
+| `register-packages` | 0.7 | `sbom` | 2.5–5.8 | `release` | 0.7 |
+| `build` | 121.5 | `build-benchmarks` | 85.1 | `test-analyzers` | 48.4 |
+| `test-store` | 366.3 | `test-rec` | 72.2 | `test-shacl-store` | 66.9 |
+| `test-protocol` | 50.4 | `conformance` | 48.9 | `test-sparql-results` | 44.8 |
+| `pack` | 8.9 | `decision-report` | 67.9 | every other job | under 40 each |
+
+`register` runs before restore, in under a second. The new jobs together add
+about 20 s to a run. The Windows leg and the release workflow run on the pull
+request and at the tag; this container cannot run them.
 
 **Found by reading the change back, and fixed before the push:**
 - A licence statement that matched only the benchmarks' or the samples'
