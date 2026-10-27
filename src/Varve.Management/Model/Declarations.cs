@@ -53,13 +53,16 @@ public sealed class DatasetDeclaration
     /// <summary>Where it is stored.</summary>
     public StorageKind Storage { get; init; } = StorageKind.File;
 
-    /// <summary>The instance that writes it, or none for the system writer's (ADR 0163 point 12).</summary>
+    /// <summary>The preferred writer, or none for the system writer's instance (ADR 0163 point 12, ADR 0180).</summary>
     public string? PlacedOn { get; init; }
+
+    /// <summary>The standbys of its writer set: instances that may take it over (ADR 0180). Empty without automatic handover.</summary>
+    public IReadOnlyList<string> StandbyOn { get; init; } = [];
 
     /// <summary>The declared default access scope, or none when it is not declared.</summary>
     public HistoryScope? DefaultAccessScope { get; init; }
 
-    /// <summary>The standby opt-in, recorded for Replication.</summary>
+    /// <summary>Whether a warm member of the writer set may take the dataset over (ADR 0179).</summary>
     public bool AutomaticHandover { get; init; }
 
     /// <summary>Whether the dataset is declared closed: every instance closes it, and only then may it be deleted (ADR 0163).</summary>

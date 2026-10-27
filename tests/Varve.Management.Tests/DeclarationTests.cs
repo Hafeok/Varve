@@ -49,6 +49,30 @@ public sealed class DeclarationTests
         }
         """;
 
+    /// <summary>
+    /// The writer set (ADR 0180): the preferred writer and the standbys, which
+    /// need the opt-in and are never the preferred writer.
+    /// </summary>
+    [Fact]
+    public void standbys_read_as_the_writer_set_and_need_the_opt_in()
+    {
+        const string Set = """
+            <https://w3id.org/varve/ns#manage/dataset/notes> {
+              n:notes a varve:Dataset ; varve:datasetName "notes" ; varve:storage varve:ObjectStorage ;
+                varve:placedOn "varve-0" ; varve:standbyOn "varve-2" , "varve-1" ; varve:automaticHandover true .
+            }
+            """;
+        Declarations set = T.Read(Set);
+        Assert.Empty(set.Findings);
+        DatasetDeclaration notes = Assert.Single(set.Datasets.Values);
+        Assert.Equal("varve-0", notes.PlacedOn);
+        Assert.Equal(["varve-1", "varve-2"], notes.StandbyOn);
+        Assert.True(notes.AutomaticHandover);
+
+        Assert.NotEmpty(T.Read(Set.Replace("varve:automaticHandover true", "varve:automaticHandover false", System.StringComparison.Ordinal)).Findings);
+        Assert.NotEmpty(T.Read(Set.Replace("\"varve-2\"", "\"varve-0\"", System.StringComparison.Ordinal)).Findings);
+    }
+
     [Fact]
     public void the_plans_example_reads_whole_with_no_finding()
     {
