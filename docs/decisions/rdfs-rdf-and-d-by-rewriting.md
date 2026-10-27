@@ -12,9 +12,9 @@ decisions:
   - key: OneAssertedPremisePerEntailment
     statement: "Every RDFS rule has at most one premise outside the schema, so each pattern is rewritten into the union of the schema's matching triples and, per shape, the asserted pattern whose images can match it, through tables compiled by the forward chainer over one representative per shape"
   - key: ExistenceGuardedFacts
-    statement: "A fact entailed only if some asserted triple of a shape exists is guarded by an existence subquery over that shape, so it is never emitted for a graph without it"
+    statement: "A fact entailed only if some asserted triple of a shape exists is read from the distinct terms of the one role it reads, sought, where the scoping graph is the graphs evaluated, and otherwise guarded by an existence subquery over that shape, so it is never emitted for a graph without it"
   - key: SchemaByProbes
-    statement: "The schema is read by bound probes to a fixpoint, never by a scan of the data: the schema predicates and their sub-properties, typings into a meta class, triples under a property whose domain or range is one, and triples whose subject or object is a term of the RDF and RDFS vocabulary"
+    statement: "The schema is read by bound probes to a fixpoint, never by a scan of the data: the schema predicates and their sub-properties, typings into a meta class, triples under a property whose domain or range is one, and triples whose subject or object is a term of the RDF and RDFS vocabulary; a schema that makes a vocabulary term other than an rdf:_n the subject of a schema or typing triple has its scoping graph read whole"
   - key: KnownTermsAreParameters
     statement: "Every term the schema names is a known predicate and a known class of the compiled tables, so a triple whose predicate or class is one meets what the schema says of it, and a type-like triple whose class is an rdf:_n meets its axioms"
   - key: DistinctTermsBySeek
@@ -30,7 +30,7 @@ decisions:
   - key: MultiplicityByDistinctSigma
     statement: "A rewritten basic graph pattern is Distinct over its variables and its renamed blank nodes, then projected to its variables, so a solution appears once per distinct blank-node mapping"
   - key: CompleteForTheThreeRegimes
-    statement: "The rewriting is complete for the RDFS regime (section 4), the RDF regime (section 2) and the D regime (section 5.1), refuses nothing in them, finds container membership properties by one scan of the scoping graph when a pattern needs them, and checks no consistency"
+    statement: "The rewriting is complete for the RDFS regime (section 4), the RDF regime (section 2) and the D regime (section 5.1), refuses nothing in them, finds container membership properties among the scoping graph's distinct predicates when a pattern needs them, and checks no consistency"
   - key: DByValue
     statement: "Under d the datatype map is Varve.Xsd's, a literal constant matches by value, a literal answer is canonical, a literal is an instance of every recognised datatype whose value space holds its value, and the host registers varve:canonical and varve:hasValueType; under simple, rdf and rdfs literals stay as written"
   - key: BasicGraphPatternsOnly

@@ -51,6 +51,17 @@ predicate is not a schema predicate**:
 So every entailed triple that is not about the schema is the image of **one**
 asserted triple under a finite chain of steps, each guided by the schema.
 
+**The change against the plan.** The plan in #95 (question 3a) read the
+schema by a few predicate-bound probes. The first build of this part
+scanned instead: to catch meta-modelling, it read every triple whose shape
+could act on the schema, which is every triple of the scoping graph, and
+rewriting one query over 100,000 people took 2.9 s. The maintainer ruled
+that out on review. What ships is the plan's design, as point 2 states it:
+the schema by probes to a fixpoint, C2 by memoised probes, classes and
+container membership properties by seeking the index, and the schema cached
+per graph version. The scanning build is kept as the test oracle of the
+probes (point 9).
+
 ## Decision
 
 ### 1. The ontology is merged into every graph a regime reads
@@ -85,40 +96,66 @@ asserted triple under a finite chain of steps, each guided by the schema.
 
 ### 2. The schema is saturated per scoping graph
 
-**The schema Σ of a scoping graph** is computed when the query is rewritten:
-1. Start from its triples whose predicate is a schema predicate. They are
-   found by one predicate-bound `Match` per schema predicate, through the
-   merge, to a fixpoint: a new `rdfs:subPropertyOf` triple can make a new
-   schema predicate.
-2. Add the regime's axiomatic triples. For RDFS that is RDF 1.1 Semantics'
+**The schema Σ of a scoping graph** is computed when the query is rewritten,
+by bound probes through the merge, never by a scan of the data:
+1. **The schema predicates.** Probe each schema predicate, starting from the
+   four, by a predicate-bound `Match`. A new `rdfs:subPropertyOf` triple can
+   make a new schema predicate: close, and probe again, until no new schema
+   predicate appears. A sub-property of `rdf:type` is typing data, which the
+   rewriting answers (point 3), not schema.
+2. **The regime's axiomatic triples.** For RDFS that is RDF 1.1 Semantics'
    rdfsV less `rdf:_n`, and its `rdf:_n` axioms only for the `rdf:_n` that
-   occur in the scoping graph (point 5).
-3. Add, by the same matches, the triples typed under
-   `rdfs:ContainerMembershipProperty` or `rdfs:Datatype`, and the triples of
-   a predicate whose domain or range is one of those. rdfs12 and rdfs13 turn
-   them into schema triples.
-4. Add the asserted triples of any shape (point 3) whose consequences
-   include a schema triple about one of its roles that other triples feel,
-   that is any but (r `rdfs:subClassOf` r), (r `rdfs:subPropertyOf` r) and
-   (r `rdfs:subClassOf` `rdfs:Resource`). The context's property assumes the
-   schema is fixed, and meta-modelling can break it: under `rdfs:subClassOf
-   rdfs:domain rdfs:ContainerMembershipProperty`, a plain
-   `rdfs:subClassOf a rdfs:subClassOf` makes `rdfs:subClassOf` a
-   sub-property of `rdfs:member` through rdfs10, which acts on every
-   `rdfs:subClassOf` triple. A pathological schema can pull every triple into
-   Σ. The result is then correct, at the cost of materialising the scoping
-   graph.
-5. Close the result under the RDFS rules with the procedure of Appendix A,
-   and repeat from 1 until nothing more is read.
+   Σ's triples or the query name. Every other `rdf:_n` meets the same axioms
+   through the container-membership tables (point 5).
+3. **Meta-modelling, by the same probes.** Under RDFS:
+   - the triples typed, by `rdf:type` or a sub-property of it, into a meta
+     class: `rdfs:ContainerMembershipProperty`, `rdfs:Datatype`, and any
+     class Σ makes a subclass of one (rdfs12 and rdfs13 turn them into
+     schema triples);
+   - the triples under a property whose domain or range is a meta class, or
+     under a sub-property of one;
+   - the triples whose subject or object is a term of the RDF and RDFS
+     vocabulary, read once, by subject and by object.
+4. **Close** the result under the RDFS rules with the procedure of Appendix
+   A, and repeat from 1 until no probe reads anything new.
+
+**Every term Σ names is a parameter of the tables**: a known predicate and a
+known class. A triple whose predicate or class is one meets what Σ says of
+it; a type-like triple whose class is an `rdf:_n` meets that term's axioms.
+
+**The one fallback that reads the graph whole.** A Σ that says something of
+the vocabulary itself — a term of the RDF or RDFS vocabulary, other than an
+`rdf:_n`, as the subject of a schema or typing triple, such as `rdf:type
+rdfs:subPropertyOf ex:p` or `rdfs:member rdfs:domain ex:C` — makes any
+triple a possible schema triple, and no bounded probe finds them. Its
+scoping graph is read whole, and the result is correct at the cost of
+materialising it. It is the one O(data) read of the schema, and it is
+cached like any other (below).
+
+**The cache.** A saturated Σ is kept across requests, in a bounded cache
+that drops the least recently used first. Its key is the regime's rules, the
+`rdf:_n` the query names, and each graph the scoping graph merges, its own
+and its binding's TBox graphs, by name and version (ADR 0125). A merged
+active graph keys on the set of its graphs' versions.
+- **The versions** come from the source (`IGraphVersionSource`). The store's
+  view names them as of its position, and refuses a graph a commit after an
+  as-of view's position has touched. A source that names none saturates per
+  request.
+- **The caller's scope.** The scoped source reports a graph the caller cannot
+  read as a graph with no quad, which is what the caller reads of it, so two
+  callers never share a Σ built from what one of them cannot see.
+- **One cache per dataset.** The server keeps one with each dataset's
+  bindings, so a change to the bindings starts a new one. The benchmark
+  reports its hits and misses.
 
 **Which graphs need their own Σ.** A query rewrites each BGP once for each
 distinct Σ it can meet:
 - **The default graph, or one named graph, or a `FROM`-merged graph:** one Σ.
 - **`GRAPH ?g`:** the named graphs with schema of their own are found by
-  the same scans over every named graph, unmerged: every scan the
-  saturation of their binding's TBox read, to its fixpoint, the shapes'
-  among them. A graph none of those scans matches adds nothing to any, so
-  its own saturation reaches its TBox's Σ. Each gets its own Σ and a branch `VALUES ?g { … }` joined with
+  the same probes over every named graph, unmerged: every probe the
+  saturation of their binding's TBox made, to its fixpoint. A graph none of
+  those probes matches adds nothing to any, so its own saturation reaches
+  its TBox's Σ. Each gets its own Σ and a branch `VALUES ?g { … }` joined with
   `GRAPH ?g { P′ }`. Every other named graph shares the Σ of its binding's
   TBox, in one such branch per binding that lists the graphs it covers, and
   the graphs no binding covers share the axioms' Σ in one more. The named
@@ -147,9 +184,17 @@ distinct Σ it can meet:
   shape with its predicate (and, for a class shape, its object) constrained by
   a `VALUES` table, and its result positions mapped by role;
 - **facts that exist only if some asserted triple of a shape exists**, such
-  as a class being an `rdfs:Class` because something has it as a type. These
-  are guarded by an existence subquery over that shape (`Slice` of a
-  projection), so they are not emitted for a graph where the shape is absent.
+  as a class being an `rdfs:Class` because something has it as a type, or a
+  predicate an `rdf:Property` because some triple has it. Where such a fact
+  reads one role of the shape's triple only, a predicate or a class, and the
+  scoping graph is exactly the graphs evaluated, the role's distinct terms
+  are sought at rewrite time and emitted as a `VALUES` table: the
+  predicate-first index is sought to the next distinct key, `(g, p+1)` or
+  `(g, p, o+1)`, one seek per distinct term, merged across the store's runs,
+  inside an extent set's window, and over an as-of view's log tail. Otherwise,
+  and for a group of graphs under `GRAPH ?g` that shares one rewriting, the
+  fact is guarded by an existence subquery over the shape (`Slice` of a
+  projection), so it is not emitted for a graph where the shape is absent.
 
 **Variables in every position** take their values from the tables, so a
 variable predicate, class or property ranges over what the scoping graph
@@ -176,8 +221,12 @@ it emits is in the scoping graph or in the regime's vocabulary (C1 and C2).
 - **Terms the closure holds that the graph need not name.** These are an
   `rdf:_n` the query names (§3.4), and, under RDF and RDFS, `xsd:string`,
   which rdfs1 and GrdfD1 type. A variable or query blank node binds one of
-  them only where the active graph names it, checked by an `EXISTS` in the
-  active graph, since under `GRAPH ?g` that graph varies per solution.
+  them only where the active graph names it. The rewriting asks the scoping
+  graph once per candidate term, by three bound probes per graph (as subject,
+  predicate and object) through the merge, memoised for the request, and
+  keeps or drops the rows. Under `GRAPH ?g` a group of graphs shares one
+  rewriting under its TBox, so a graph that names a candidate the TBox does
+  not is rewritten on its own, where the probe is exact.
 - **C2's vocabulary.**
   - RDFS uses rdfsV-Minus.
   - RDF uses rdfV-Minus, with rdfD2 and RDF's axioms only. The RDFS steps are
@@ -197,11 +246,20 @@ is refused. Item by item:
 |---|---|---|
 | ρdf (`subClassOf`, `subPropertyOf`, `domain`, `range`, `type`), variables in every position | by the tables | one union per triple pattern, of at most one branch per shape kind |
 | Axiomatic triples | as constants of Σ, by C2 | none at query time |
-| Container membership | the `rdf:_n` of the scoping graph, found by **one scan of the scoping graph** when a pattern can bind a variable to one | a scan, measured in the benchmarks |
+| Container membership | the `rdf:_n` of the scoping graph, its distinct predicates sought (point 3), when a pattern can bind a variable to one | one seek per distinct predicate |
+| Classes, as `?c a rdfs:Class` or a variable class | the distinct objects of `rdf:type`, sought | one seek per distinct class |
 | Reflexive `rdfs:subClassOf` and `rdfs:subPropertyOf` | for every class and property the scoping graph entails, including objects of `rdf:type` (axiom: its range is `rdfs:Class`) and every predicate (rdfD2) | an index walk |
 | Meta-queries over the TBox (`?c rdfs:subClassOf ?d`, `ex:C ?rel ex:D`) | from Σ | none at query time |
-| `?s ?p ?o`, `?x a rdfs:Resource` | complete, answer-sized | a scan |
+| `?s ?p ?o`, `?x a rdfs:Resource` | complete, answer-sized | a scan: **the only shapes whose cost grows with the data** |
 | Inconsistency | not checked: §4 allows answering over an RDFS-inconsistent graph, and C1 and C2 keep answers finite | none |
+
+**What grows with the data.** Rewriting a query is bounded by the schema and
+the query: probes, seeks per distinct term, and per-request memoised
+existence probes. Evaluating it is bounded by its answers. Two query shapes
+read the data whole, because their answers are the whole data: `?s ?p ?o`
+and `?x a rdfs:Resource`, which every term of the graph answers. The schema's
+one O(data) read is point 2's fallback for a schema that redefines the
+vocabulary. The benchmarks state the same.
 
 **The work limit.** A rewriting over a large Σ is bounded by the query's work
 limit. A rewritten query whose tables exceed it is refused as
@@ -270,6 +328,13 @@ The oracle is the compilation's forward chainer run on the whole graph rather
 than on representatives, so the property tests the context's property and the
 compilation together.
 
+**The probes equal the scan.** A second property compares Σ built by point
+2's probes with Σ built by reading the scoping graph whole (the first build,
+kept in the tests), on generated TBoxes and data graphs with sub-properties of
+the schema predicates, schema triples inside data graphs, chains through
+`rdfs:subPropertyOf`, and `rdf:_n` in every position. The cases that take the
+fallback are held below half, so the probes are what it tests.
+
 ## Alternatives considered
 
 - **A view that answers every `Match` with entailed quads** (backward
@@ -287,21 +352,25 @@ compilation together.
 - **Materialising RDFS for tier 1.** That is tier 2's job (#171), and its
   `rdfs` profile is this property's second oracle there.
 - **Refusing a variable that ranges over container membership properties.**
-  It is answerable at the cost of a scan, so it is answered and the cost is
-  stated.
+  It is answerable by a seek per distinct predicate, so it is answered.
+- **Reading Σ by scanning for the shapes that act on the schema.** The first
+  build did, and it costs a read of the scoping graph per query (the context's
+  change against the plan). It is the probes' test oracle.
 
 ## Consequences
 
 - **A query under a regime pays:**
-  - Σ's saturation, which is cached per (TBox graphs, graph versions) and
-    merged with a scoping graph's own schema triples;
-  - one `Match` per schema predicate;
+  - Σ's saturation by probes, on the first query over a set of graph
+    versions only; later ones read it from the cache;
+  - the seeks for distinct predicates and classes its patterns need, and
+    its C2 probes, memoised for the request;
   - the unions.
 
   The benchmarks report query latency under `rdfs` against `simple`, and the
-  container-membership scan.
-- **`GRAPH ?g` over many named graphs** costs one `Match` per schema predicate
-  over every named graph, to find those with their own schema.
+  rewriting alone, cold and warm, at 10,000, 100,000 and 1,000,000 people
+  over a fixed schema, with the cache's hits and misses.
+- **`GRAPH ?g` over many named graphs** costs every probe of its TBoxes'
+  saturation over every named graph, to find those with their own schema.
 - **`sparql11/entailment` and `rdf-mt` are wired** (§12.1 of
   `sparql-evaluation.md`, amended): the RDF, RDFS and D cases on the
   rewriting subject. The RIF and OWL 2 DL-only cases are blocked as out of
@@ -315,12 +384,13 @@ compilation together.
   - **0052**: the evaluator still never pins;
   - **0054**: normalisation runs after the rewriting;
   - **0095**: the pinned view;
+  - **0125**: graph versions key the schema cache;
   - **0107** and **0190**: the merge reads through the scoped source;
   - **0114**: the read limit.
 
   No conflict.
 - **Layer ownership.** `Varve.Sparql.Entailment` (3), all of it.
-- **Analyzer rule.** None new. The tables are built per query, the pattern
-  rewriting per BGP. `VARVE0003` checks the merge's `Match`, which runs per
+- **Analyzer rule.** None new. The tables are built per saturated schema,
+  the pattern rewriting per BGP. `VARVE0003` checks the merge's `Match`, which runs per
   quad.
 - **Open questions owned.** None.

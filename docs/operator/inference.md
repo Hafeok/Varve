@@ -144,7 +144,19 @@ covers carries one `sd:entailmentRegime` per regime served for it.
 ## Cost
 
 The rewriting runs once per query: each basic graph pattern becomes a union
-of the asserted patterns that entail it, its tables built from the TBox the
-pattern meets. A query whose TBox is small costs about what its simple form
-does, plus a scan per schema predicate. A query under `GRAPH ?g` enumerates
-the dataset's named graphs once, to group them by the TBox each meets.
+of the asserted patterns that entail it, its tables built from the schema
+the pattern meets. The schema is read by a few bound probes, never by a scan
+of the data, and kept across queries until a graph it reads changes, so a
+later query over the same graphs skips it. A pattern with a variable class
+or predicate seeks the index once per distinct class or predicate. Neither
+grows with the data: a query whose TBox is small costs about what its simple
+form does (ADR 0193).
+
+Two patterns are answered by every term of the graph and cost what their
+answers do: `?s ?p ?o` and `?x a rdfs:Resource`. A TBox that redefines the
+RDF or RDFS vocabulary itself — `rdf:type rdfs:subPropertyOf ex:p`, a domain
+on `rdfs:member` — makes the schema read its graph whole, once per change to
+it.
+
+A query under `GRAPH ?g` enumerates the dataset's named graphs once, to
+group them by the TBox each meets.
