@@ -662,6 +662,7 @@ internal static partial class ServerHost
             Dataset? dataset = null;
             bool open = entry.State == DatasetState.Open && datasets.TryResolve(entry.Name, out dataset);
             (bool tailing, bool warm) = datasets.StandbyOf(entry.Name);
+            (Exception? spill, Varve.Store.ObjectStorage.Model.LocalCache cache) = datasets.LocalHealthOf(entry.Name);
             health.Add(new DatasetHealth(
                 entry.Name.Value,
                 entry.State,
@@ -673,7 +674,9 @@ internal static partial class ServerHost
                 entry.Role,
                 open ? dataset!.Retention : null,
                 tailing,
-                warm));
+                warm,
+                spill,
+                cache));
         }
 
         ManagementStatus management = fleet.Status;
@@ -699,13 +702,40 @@ internal static partial class ServerHost
             json.WriteEndObject();
         }
 
-        // A standby's tailing and warm (ADR 0180 point 7), beside its binding lags.
+        // A standby's tailing and warm (ADR 0180 point 7), beside its binding
+        // lags; and a writer's failing spill and the local caches it turned
+        // off (ADR 0179 point 6): information, never a reason to be unready.
         static void Standby(Utf8JsonWriter json, DatasetReadiness state)
         {
             if (state.Role == DatasetRole.Standby)
             {
                 json.WriteBoolean("tailing", state.Tailing);
                 json.WriteBoolean("warm", state.Warm);
+            }
+
+            if (state.Spill is { } spill)
+            {
+                json.WriteStartObject("spill");
+                json.WriteString("state", "failing");
+                json.WriteString("kind", spill.GetType().Name);
+                json.WriteEndObject();
+            }
+
+            if (state.Cache != Varve.Store.ObjectStorage.Model.LocalCache.None)
+            {
+                json.WriteStartArray("cache");
+
+                if ((state.Cache & Varve.Store.ObjectStorage.Model.LocalCache.SegmentCopies) != 0)
+                {
+                    json.WriteStringValue("segment-copies");
+                }
+
+                if ((state.Cache & Varve.Store.ObjectStorage.Model.LocalCache.ExtentPages) != 0)
+                {
+                    json.WriteStringValue("extent-pages");
+                }
+
+                json.WriteEndArray();
             }
         }
 

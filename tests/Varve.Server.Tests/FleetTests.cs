@@ -403,6 +403,40 @@ public abstract class FleetCases : IAsyncDisposable
     }
 
     /// <summary>
+    /// The storage-error abdication (ADR 0179 point 6): a writes d through a
+    /// proxy that starts failing its log writes, so a batch fails with every
+    /// retry spent. a releases the epoch for storage-error and stands by; b,
+    /// warm and reaching the store directly, claims in place and writes, and a
+    /// forwards to it. The epoch history shows the release and the claim.
+    /// </summary>
+    [Fact]
+    public async Task A_writer_whose_batch_fails_against_the_store_abdicates_and_the_warm_standby_takes_over()
+    {
+        FleetLocation container = await Store.NewAsync();
+        await using CountingProxy proxy = await CountingProxy.StartAsync(container.Upstream);
+        Server a = await StartAsync("a", container.Through(proxy.Address), writer: "a");
+        long declared = await DeclareAsync(a, "d", "a", "b");
+        Server b = await StartAsync("b", container, writer: "a");
+        await WaitDeclaredAsync(b, declared, "d", "standby");
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+        await WaitWarmAsync(b, "d");
+
+        proxy.Fail = (method, path) => method == "PUT" && path.Contains("/d/log/", StringComparison.Ordinal);
+        HttpResponseMessage failed = await Update(a, "d", "INSERT DATA { <http://ex/lost> <http://ex/p> 2 }");
+        Assert.NotEqual(HttpStatusCode.NoContent, failed.StatusCode);
+        await WaitDeclaredAsync(b, declared, "d", "writer");
+
+        HttpResponseMessage written = await Update(a, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 3 }");
+        Assert.True(written.StatusCode == HttpStatusCode.NoContent, (int)written.StatusCode + " " + await written.Content.ReadAsStringAsync(Ct) + "\n" + a.Log);
+        Assert.Equal("2", await CountAsync(b, written.Headers.GetValues("Varve-Position").Single()));
+
+        StringWriter output = new() { NewLine = "\n" };
+        await Varve.Server.Commands.Cli.RunAsync(container.Lease("d"), new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct);
+        Assert.Contains("storage-error", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("holder: b", output.ToString(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// The probe trigger (ADR 0179 point 6): a holds d and is killed, so it
     /// releases nothing. A takeover request naming epoch 1, sent to b, warm,
     /// is answered by b with epoch 2, and b writes. Sent again it is a no-op,
@@ -832,6 +866,13 @@ public abstract class FleetCases : IAsyncDisposable
             {
                 HttpRequest request = context.Request;
                 proxy!._seen.Enqueue((request.Method, request.Path.Value ?? string.Empty, request.QueryString.Value ?? string.Empty));
+
+                // A store that fails what the test names, as a store's 500.
+                if (proxy.Fail is { } fail && fail(request.Method, request.Path.Value ?? string.Empty))
+                {
+                    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                    return;
+                }
                 using HttpRequestMessage forward = new(new HttpMethod(request.Method), new Uri(store, request.Path.Value!.TrimStart('/') + request.QueryString.Value));
                 MemoryStream body = new();
                 await request.Body.CopyToAsync(body, context.RequestAborted);
@@ -877,6 +918,9 @@ public abstract class FleetCases : IAsyncDisposable
         }
 
         internal void Reset() => _seen.Clear();
+
+        /// <summary>The requests the proxy answers 500 to, by method and path, instead of passing them on; none when null.</summary>
+        internal Func<string, string, bool>? Fail { get; set; }
 
         /// <summary>The requests whose path holds <paramref name="fragment"/>.</summary>
         internal int Count(string fragment) => _seen.Count(request => request.Path.Contains(fragment, StringComparison.Ordinal));

@@ -23,6 +23,25 @@ namespace Varve.Server;
 internal sealed partial class OpenDatasets
 {
     /// <summary>Whether this instance is a warm standby of the dataset (ADR 0180 point 6), and whether it tails it at all.</summary>
+    /// <summary>
+    /// How far past <see cref="Varve.Store.DatasetOptions.MemtableLimit"/> a writer's
+    /// memtable may grow while its spills fail before it releases the epoch
+    /// for local-disk-error (ADR 0179 point 6). Proposed; the maintainer
+    /// confirms the factor.
+    /// </summary>
+    internal const long SpillBound = 4;
+
+    /// <summary>A dataset's local storage as readiness reports it: its last spill's failure, and the local caches turned off (ADR 0179 point 6).</summary>
+    internal (Exception? Spill, LocalCache Cache) LocalHealthOf(DatasetName name)
+    {
+        lock (_gate)
+        {
+            return _entries.TryGetValue(name.Value, out Entry? entry) && entry.State == DatasetState.Open
+                ? (entry.Dataset?.SpillFailure, entry.Objects?.CacheOff ?? LocalCache.None)
+                : (null, LocalCache.None);
+        }
+    }
+
     internal (bool Tailing, bool Warm) StandbyOf(DatasetName name)
     {
         lock (_gate)
@@ -63,6 +82,27 @@ internal sealed partial class OpenDatasets
 
         bool preferred = placement.IsPreferred(declared);
 
+        if (holding && entry.Dataset is { AppendFailed: true })
+        {
+            // A batch failed against the store: the writer releases the epoch
+            // for storage-error and stands by, so a warm standby claims rather
+            // than the dataset waiting for a re-open (ADR 0179 point 6).
+            ReconcileLog.AbdicatedForStorage(_logger, name);
+            await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: ReleaseReason.StorageError, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        if (holding && entry.Dataset is { SpillFailure: not null } spilling && spilling.MemtableEntries.Value > SpillBound * _memtableLimit.Value)
+        {
+            // Spills to the local disk fail and the memtable is past the
+            // bound: this writer's memory can no longer be bounded, and a
+            // standby with its own disk can spill (ADR 0179 point 6). Reached
+            // by commits, never by time, so an idle writer never abdicates.
+            ReconcileLog.AbdicatedForLocalDisk(_logger, name, spilling.MemtableEntries.Value);
+            await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: ReleaseReason.LocalDiskError, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         if (holding)
         {
             // A change of placedOn moves the epoch to the new placedOn only;
@@ -70,7 +110,7 @@ internal sealed partial class OpenDatasets
             // and nothing reacts to it (point 2).
             if (previous is { } before && before.PlacedOn != declared.PlacedOn && !preferred)
             {
-                await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: true, cancellationToken).ConfigureAwait(false);
+                await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: ReleaseReason.Placement, cancellationToken).ConfigureAwait(false);
             }
 
             return;
@@ -81,7 +121,7 @@ internal sealed partial class OpenDatasets
             // Superseded: it rejoins as a standby, opened again, and is
             // eligible to claim once it is warm (ADR 0179 point 10).
             ReconcileLog.Rejoined(_logger, name);
-            await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: false, cancellationToken).ConfigureAwait(false);
+            await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: null, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -93,7 +133,7 @@ internal sealed partial class OpenDatasets
 
             if (Starts(record, declared, placement, preferred))
             {
-                await SwitchAsync(name, entry, DatasetRole.Writer, wait: true, abdicate: false, cancellationToken).ConfigureAwait(false);
+                await SwitchAsync(name, entry, DatasetRole.Writer, wait: true, abdicate: null, cancellationToken).ConfigureAwait(false);
                 return;
             }
         }
@@ -104,11 +144,11 @@ internal sealed partial class OpenDatasets
         {
             if (record is { Released: ReleaseReason.Placement } && preferred)
             {
-                await SwitchAsync(name, entry, DatasetRole.Writer, wait: false, abdicate: false, cancellationToken).ConfigureAwait(false);
+                await SwitchAsync(name, entry, DatasetRole.Writer, wait: false, abdicate: null, cancellationToken).ConfigureAwait(false);
                 return;
             }
 
-            await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: false, cancellationToken).ConfigureAwait(false);
+            await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: null, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -118,7 +158,7 @@ internal sealed partial class OpenDatasets
         {
             // Not warm while it re-opens (point 8).
             ReconcileLog.Reopened(_logger, name);
-            await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: false, cancellationToken).ConfigureAwait(false);
+            await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: null, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -207,7 +247,7 @@ internal sealed partial class OpenDatasets
         if (!won)
         {
             ReconcileLog.Lost(_logger, name);
-            await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: false, cancellationToken).ConfigureAwait(false);
+            await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: null, cancellationToken).ConfigureAwait(false);
             return false;
         }
 
@@ -276,6 +316,12 @@ internal sealed partial class OpenDatasets
 
         [LoggerMessage(EventId = 16, Level = LogLevel.Warning, Message = "The standby of '{Name}' did not advance, and is not warm until it does: {Reason}")]
         internal static partial void TailFailed(ILogger logger, string name, string reason);
+
+        [LoggerMessage(EventId = 18, Level = LogLevel.Warning, Message = "A batch of '{Name}' failed against the store: this writer released its epoch for storage-error and stands by (ADR 0179 point 6).")]
+        internal static partial void AbdicatedForStorage(ILogger logger, string name);
+
+        [LoggerMessage(EventId = 19, Level = LogLevel.Error, Message = "The memtable of '{Name}' holds {Entries} entries and its spills to the local disk fail: this writer released its epoch for local-disk-error and stands by (ADR 0179 point 6).")]
+        internal static partial void AbdicatedForLocalDisk(ILogger logger, string name, long entries);
 
         [LoggerMessage(EventId = 17, Level = LogLevel.Warning, Message = "A newer writer holds '{Name}': this instance rejoins its writer set as a standby (ADR 0179 point 10).")]
         internal static partial void Rejoined(ILogger logger, string name);

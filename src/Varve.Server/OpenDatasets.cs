@@ -273,7 +273,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             // open is opened again from the writer's newest catalog (ADR 0164
             // point 5); reads pinned to the old one finish on it.
             ReconcileLog.Reopened(_logger, name);
-            await SwitchAsync(name, entry, DatasetRole.Follower, wait: false, abdicate: false, cancellationToken).ConfigureAwait(false);
+            await SwitchAsync(name, entry, DatasetRole.Follower, wait: false, abdicate: null, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -323,7 +323,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             {
                 if (entry.State != DatasetState.Open || entry.Role != DatasetRole.Follower)
                 {
-                    await SwitchAsync(name, entry, DatasetRole.Follower, wait: true, abdicate: false, cancellationToken).ConfigureAwait(false);
+                    await SwitchAsync(name, entry, DatasetRole.Follower, wait: true, abdicate: null, cancellationToken).ConfigureAwait(false);
                 }
 
                 entry.AwaitingRelease = true;
@@ -335,7 +335,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
         // Placed elsewhere: abdicate with the reason, so the new writer
         // claims on seeing it (ADR 0136 point 6).
-        bool abdicate = entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer && role != DatasetRole.Writer;
+        ReleaseReason? abdicate = entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer && role != DatasetRole.Writer ? ReleaseReason.Placement : null;
 
         // A dataset that failed is tried again every round, without the
         // lease wait its first open had: its holder may have released it.
@@ -347,7 +347,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     // place, and only then is the old one released: a request resolves one
     // or the other, never neither. A file dataset's lease is one per
     // directory, so it is released before it is taken again.
-    private async Task SwitchAsync(string name, Entry entry, DatasetRole role, bool wait, bool abdicate, CancellationToken cancellationToken)
+    private async Task SwitchAsync(string name, Entry entry, DatasetRole role, bool wait, ReleaseReason? abdicate, CancellationToken cancellationToken)
     {
         if (entry.Storage == DatasetStorage.File)
         {
@@ -366,10 +366,14 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             return;
         }
 
-        if (abdicate)
+        if (abdicate is { } reason)
         {
-            entry.ReleaseFor(ReleaseReason.Placement);
-            ReconcileLog.Abdicated(_logger, name);
+            entry.ReleaseFor(reason);
+
+            if (reason == ReleaseReason.Placement)
+            {
+                ReconcileLog.Abdicated(_logger, name);
+            }
         }
 
         Entry previous;

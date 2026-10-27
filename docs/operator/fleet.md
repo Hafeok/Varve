@@ -137,7 +137,19 @@ state (`recorded`, `absent` or `mismatch`). Each dataset carries:
   races for a release. A standby that is not warm is still ready to serve
   reads;
 - `validation`: each shapes binding's projection lag, beside `warm` and never
-  part of it.
+  part of it;
+- `spill`, `{"state": "failing", "kind": …}`, while the memtable's spills to
+  the local disk fail. The writer goes on committing. With a standby, it
+  releases the epoch for `local-disk-error` once the memtable passes four
+  times `Varve:Store:MemtableLimit`;
+- `cache`, the local caches turned off because a write to them failed:
+  `segment-copies`, `extent-pages`. What they would hold is read from the
+  store, and nothing else changes: a failing cache never moves the writer.
+
+A writer whose batch fails against the store, with every retry spent,
+releases the epoch for `storage-error` when the dataset has a standby, so the
+standby takes over instead of the dataset waiting for a re-open. Without one
+it refuses writes until it is opened again, as before.
 
 A follower's position is how far it has read the writer's log, not a
 distance from the writer's head: no instance knows the head without asking
