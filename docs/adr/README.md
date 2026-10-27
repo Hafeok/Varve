@@ -377,6 +377,15 @@ Filed by [#133](https://github.com/Hafeok/Varve/issues/133), in 1.0 ([#15](https
 | [0177](0177-seek-dont-narrow-intervals-beside-the-key.md) | Seek, don't narrow: an extent's intervals beside its keys, derived format 5 | Filed unaccepted (#133) |
 | [0178](0178-the-format-5-upgrade-and-the-set-cap.md) | The format-5 upgrade, mixed-version instances, and the set cap | Filed unaccepted (#133) |
 
+## Replication, part 1 (#165)
+
+Filed by [#165](https://github.com/Hafeok/Varve/issues/165), part 1 of Replication ([#97](https://github.com/Hafeok/Varve/issues/97)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0179; part 2 (#166) holds 0183–0186, and 0182 is unused, because the RustFS spike needed no fallback. Amended by it, likewise unaccepted: 0136 (triggers, release reasons, a claim made before the open, supersession per dataset); 0137 (a self-hosted store's STS, and RustFS by web identity); 0163 (the writer set's start rule and placement events; readiness); 0164 (`FollowOnDemand` moved to 0180; the epoch a refresh saw; point 5 built); 0166 (`varve:standbyOn`); 0168 (the directory across a handover).
+
+| # | Title | Status |
+|---:|---|---|
+| [0179](0179-writer-handover-within-a-store.md) | Writer handover within a store: two triggers, an epoch claimed in the writer record, a log slot as the fence | Filed unaccepted (#165) |
+| [0180](0180-warm-standbys-and-the-writer-set.md) | Warm standbys and the writer set: `placedOn` ∪ `standbyOn`, placement by events, and what warm means | Filed unaccepted (#165) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |

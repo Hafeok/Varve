@@ -208,3 +208,28 @@ This adds; no ruling of this ADR changes.
 
 **The ledger.** The rulings are ADR 0168's `WriterRecordNamesTheAddress` and ADR
 0163's `PlacementByEvents`.
+
+## Amendment, 2026-10-27 — handover's triggers and release reasons, a claim made before the open, and supersession per dataset
+
+Filed by Replication part 1 (#165), unaccepted until the maintainer accepts
+it (ADR 0066). Ruled in [ADR 0179](0179-writer-handover-within-a-store.md).
+
+- **Two more triggers.** The epoch history's `trigger` may be `abdication`, a
+  standby's claim after a release, or `probe`, a standby's claim on a
+  takeover request. `restart` and `operator` are unchanged.
+- **Two more release reasons.**
+  - `storage-error`: a batch failed against the store and the release could
+    still be written.
+  - `cache-error`: a fault of the instance's own cache directory.
+
+  A fault deterministic over the log is never a release reason.
+- **A write-open may take a claim already made.** It is guarded by the epoch
+  named, then adopts and fences as point 2 says. This is how a warm standby
+  claims in place.
+- **Point 5 per dataset.** On a dataset with automatic handover (ADR 0180), a
+  superseded writer re-opens as a follower and is eligible again once warm.
+  On every other dataset point 5 stands.
+- **The record stays `format: 1`.** A reader of format 1 reads members by
+  name. An unknown trigger or reason was refused before this amendment, so a
+  build before it refuses a record written after a handover. The release
+  notes say so.

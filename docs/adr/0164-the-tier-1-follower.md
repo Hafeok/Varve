@@ -175,3 +175,18 @@ point 6 asks. ADR 0160 rules what it does, so no ruling is added here.
   `Varve:ObjectStorage:ReaderId` set, the writer's record is that id and the
   follower's is the id with `-follower`, so the two never overwrite each
   other's record while a placement changes.
+
+## Amendment, 2026-10-27 — standbys follow on the interval; the epoch a refresh saw; point 5 built
+
+Filed by Replication part 1 (#165), unaccepted until the maintainer accepts
+it (ADR 0066).
+
+- **`FollowOnDemand` moves** to [ADR 0180](0180-warm-standbys-and-the-writer-set.md)'s set, restated. A
+  standby, like the system dataset, advances on the interval, so this ADR's
+  set no longer holds it.
+- **`RefreshAsync` reports the highest epoch it adopted**, so the writer
+  directory learns of a handover from a follower's advance (ADR 0179 point
+  12). The contract's ruling, `TailingStorageContract`, is unchanged.
+- **Point 5 is built.** A follower that has applied more than `MemtableLimit`
+  quads since its open is re-opened from the writer's newest catalog, with
+  pinned reads keeping the old dataset.
