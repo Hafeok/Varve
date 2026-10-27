@@ -264,9 +264,86 @@ server:
 - `Varve.WebUi.Tests` (8): Blazor in no `src/` closure but the Web UI's, the
   server address, and the problem page link.
 
-**Placeholders for `docs/ui/`** (`data-ui-pending`):
+**Placeholders for `docs/ui/`** (`data-ui-pending`), at slice 1's end:
 - `readiness-state`;
 - `role`;
 - `lag`;
 - `bootstrap`;
 - `dataset-state`.
+
+All five were settled by the components, below.
+
+### The design source, and the components built against it
+
+**The prompt:**
+
+> Before the next slice: open a docs-only PR from the attached varve-docs-ui-0.1.zip, unpacked at the repo root, under #167. Number the ADR as the next free after your range (0206 unless taken) and fix its references and the decision set’s adr: to match. In the traceability record, name the source as the Varve design system artifact at version 1793092562-f3b6. Leave the decision set unaccepted; I accept on the PR. No code in that PR. The check that regenerates tokens.css from tokens.json, the CSS linking into wwwroot, the level rule and the contract test are ADR 0206’s points 2, 4 and 6 and belong in the milestone PR. Then build the components in the Atoms, Molecules, Organisms, Templates and Pages namespaces against docs/ui/, and keep the visual-decision placeholders only for what the screens will settle.
+
+and, while the pull request was being opened:
+
+> 0206 is confirmed as this ADR’s number. Inference’s planned 0206 has moved to 0212 (#171). Don’t renumber even if a branch’s ADR index still shows 0206 for Inference.
+
+**The docs-only pull request** is #174, from
+`claude/happy-heisenberg-v8vg11-docs-ui` off `main`. It carries its own record,
+`2026-10-27-issue-167-web-ui-design-source.md`, naming the source: the Varve
+design system artifact at version 1793092562-f3b6. That record lists the
+references fixed in ADR 0206 and what the brand book says that the files do
+not match. The pull request was merged into this branch, with `main`.
+
+**The components**, one namespace per level, with markup taken from each
+component's `preview.html`:
+- **Atoms:** `Button`, `Field`, `StateBadge`, `PositionStamp`, `TermChip` and
+  `Tail`.
+- **Molecules:** `KeyValue`, `LagMeter`, `Notice`, `ViewHead`, `Triple`,
+  `AsOfBanner` and `CopyButton`.
+- **Organisms:** `ResourceTable`, `CommitList`, `ProblemPanel`, `SourceBlock`,
+  `ConfirmDialog`, `Panel` and `TripleList`.
+- **Templates:** `Shell`.
+- **Pages:** Health, the layout, and `ProblemView` and `ReadStamps`.
+
+Health is rebuilt on them. `Tones` is the one state-to-tone mapping (point 5).
+`tokens.css`, `bundle.css` and the core mark are linked into `wwwroot` by
+`<Content Link>`; the published `bundle.css` is byte-identical to
+`docs/ui/bundle.css`. `js/webui.js`, an external file, sets `data-theme` before
+the first paint and holds `copy`, `showModal` and `close`.
+
+**Where the component specs conflict with the level rule:**
+- **`ConfirmDialog` composing `ProblemPanel`.** Both are organisms, so the page
+  passes the result in.
+- **`ResourceTable` showing the problem.** The page renders the problem in the
+  table's place.
+- **`CopyButton`** composes `Button`, so it is a molecule.
+- **The drift note** is a `Notice` switch, so that no molecule uses another.
+
+**Measured:**
+- The clean publish is **1.709 MB** brotli, 34 KB above slice 1, for every
+  component and both stylesheets.
+- In Chromium under the strict CSP, Health renders in light, dark and at 360 px
+  with no CSP violation, no console error and no sideways page scroll.
+
+**Found in `docs/ui`, reported rather than patched**, since it is the single
+source of the CSS:
+- `bundle.css` resets neither the body's margin nor its height, so the shell
+  sits 8 px in from the window and does not fill it.
+- A heading focused on navigation shows the focus ring.
+
+**Seen on the way.** The `DD` rules reported nothing on the components' public
+`string` parameters, which suggests analyzers do not see the Razor-generated
+classes. That is the condition ADR 0206's Checks says to stop at before
+substituting a test for the level rule. It is to be confirmed when the rule
+is built.
+
+**Tests.** `ToneMappingTests` checks:
+- every type in `ProblemCatalogue`;
+- every page in `docs/problems/`;
+- every state word the client's wrappers and the brand book's tone table
+  document.
+
+Each has a tone. The Web UI's tests: 20, all passing.
+
+**Placeholders left** (`data-ui-pending`), only for what the screens will
+settle:
+- `unreachable-placement`: where the "server did not answer" notice sits
+  against the view head.
+- `lag-without-bound`: a lag shown as a number because readiness serves no
+  bound for a `LagMeter`.
