@@ -12,12 +12,10 @@
 
 @if (_failure is not null)
 {
-    @* Server unreachable (docs/ui/README.md, States): the notice, the server's
-       address, and when it last answered; the last data stays below. Where the
-       notice sits relative to the view head is the screen's to settle. *@
-    <div data-ui-pending="unreachable-placement">
-        <Notice Title="The server did not answer" Warn="true"><code>@Settings.Server.AbsoluteUri</code>: @_failure @(_lastRead is { } last ? "Last read " + Utc(last) + "." : "It has not answered yet.")</Notice>
-    </div>
+    @* Server unreachable (docs/ui/README.md, States): directly below the view
+       head, above everything else, with the server's address and when it last
+       answered; the last data stays below, marked with its position. *@
+    <Notice Title="The server did not answer" Warn="true"><code>@Settings.Server.AbsoluteUri</code>: @_failure @(_lastRead is { } last ? "Last read " + Utc(last) + "." : "It has not answered yet.")</Notice>
 }
 
 @if (_result?.Value is Readiness readiness)
@@ -42,7 +40,7 @@
                 {<PositionStamp Label="applied" Value="applied.Value" Management="true" />}
                 else
                 {<text>not reported</text>}</KeyValueItem>
-                <KeyValueItem Label="Lag behind the system tail"><code data-ui-pending="lag-without-bound">@Text(management.Lag)</code></KeyValueItem>
+                <KeyValueItem Label="Lag behind the system tail"><code>@Text(management.Lag)</code></KeyValueItem>
                 <KeyValueItem Label="Bootstrap">@Badge(management.Bootstrap?.Value)</KeyValueItem>
             </KeyValue>
         </Panel>
@@ -61,7 +59,7 @@
                         <td class="vw-table__name">@dataset.Name.Value</td>
                         <td>@Badge(dataset.State?.Value)</td>
                         <td>@Badge(dataset.Role?.Value)</td>
-                        <td class="vw-num" data-ui-pending="lag-without-bound">@Text(dataset.Lag)</td>
+                        <td class="vw-num">@Text(dataset.Lag)</td>
                         <td>@if (dataset.Validation.Count == 0)
                         {<span class="vw-muted">none bound</span>}
                         else

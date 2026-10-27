@@ -1,7 +1,12 @@
 @* ResourceTable (docs/ui/components/ResourceTable): a collection resource,
    one row per item, in a wrapper that scrolls inside itself. Loading is three
-   loading rows, and empty says what would appear and how it gets there. A
-   problem replaces the table: the page renders it in the table's place. *@
+   loading rows, and empty says what would appear and how it gets there. On a
+   problem, the Problem slot the page fills is rendered in the table's place:
+   a component uses only lower levels, never its own (ADR 0206 point 4). *@
+@if (Problem is not null)
+{@Problem}
+else
+{
 <div class="vw-table-wrap"><table class="vw-table">@if (Caption is not null)
 {<caption class="vw-visually-hidden">@Caption</caption>}<thead><tr>@Columns</tr></thead><tbody>@if (Loading)
 {
@@ -16,6 +21,7 @@ else if (Empty)
 }
 else
 {@Rows}</tbody></table></div>
+}
 
 @code {
     /// <summary>The header cells, each a <c>th scope="col"</c>.</summary>
@@ -41,6 +47,10 @@ else
     /// <summary>There is nothing to list.</summary>
     [Parameter]
     public bool Empty { get; set; }
+
+    /// <summary>The problem the page renders in the table's place, a ProblemPanel.</summary>
+    [Parameter]
+    public RenderFragment? Problem { get; set; }
 
     /// <summary>What would appear, and how it gets there.</summary>
     [Parameter]

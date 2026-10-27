@@ -1,29 +1,19 @@
 @* Notice (docs/ui/components/Notice): a sentence the operator needs before
-   acting, inline in the flow. Never an error from the API: those are
-   problem panels. The drift note's text is fixed, so Drift renders it. *@
-@if (Drift)
-{
-<div class="vw-notice vw-notice--warn"><p class="vw-notice__title">The declaration will drift from Git</p><p class="vw-notice__body">This changes the dataset's declaration on the server. Your declaration files in Git will differ until you update them; <code>varve apply --plan</code> will show the difference.</p></div>
-}
-else
-{
+   acting, inline in the flow. Generic: the page passes the words in, the
+   drift note's included. Never an error from the API: those are problem
+   panels. *@
 <div class="@(Warn ? "vw-notice vw-notice--warn" : "vw-notice")"><p class="vw-notice__title">@Title</p><p class="vw-notice__body">@ChildContent</p></div>
-}
 
 @code {
     /// <summary>A one-line title.</summary>
-    [Parameter]
+    [Parameter, EditorRequired]
     public string Title { get; set; } = "";
 
     /// <summary>A short body.</summary>
-    [Parameter]
+    [Parameter, EditorRequired]
     public RenderFragment? ChildContent { get; set; }
 
     /// <summary>The operator should think before going on.</summary>
     [Parameter]
     public bool Warn { get; set; }
-
-    /// <summary>The fixed drift note, before an act that changes a declaration.</summary>
-    [Parameter]
-    public bool Drift { get; set; }
 }

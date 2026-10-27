@@ -1,13 +1,12 @@
 @inject IJSRuntime Js
 @* ConfirmDialog (docs/ui/components/ConfirmDialog): the confirmation every act
    passes through, a native dialog opened modal. It names the act and its
-   effect, carries the drift note when the act changes a declaration, and for
-   a close asks for the name typed. After the write it shows the result in
-   place, which the page passes in: a problem panel is the page's to render,
-   since an organism uses only lower levels (ADR 0206 point 4). It never
-   closes on a failure; Escape and Cancel close it without acting. *@
-<dialog class="vw-dialog" aria-labelledby="@(Id + "-title")" @ref="_dialog" @onclose="ClosedAsync"><div class="vw-dialog__body"><h2 class="vw-dialog__title" id="@(Id + "-title")">@Title</h2><p class="vw-dialog__effect">@Effect</p>@if (Drift)
-{<Notice Drift="true" />}@if (ConfirmName is not null)
+   effect and, for a close, asks for the name typed. The note (the drift
+   note) and the result (the new position, or a problem panel) are slots the
+   page fills: a component uses only lower levels, never its own (ADR 0206
+   point 4). It never closes on a failure; Escape and Cancel close it without
+   acting. *@
+<dialog class="vw-dialog" aria-labelledby="@(Id + "-title")" @ref="_dialog" @onclose="ClosedAsync"><div class="vw-dialog__body"><h2 class="vw-dialog__title" id="@(Id + "-title")">@Title</h2><p class="vw-dialog__effect">@Effect</p>@Note@if (ConfirmName is not null)
 {<Field Id="@(Id + "-name")" Exact="true" Value="@_typed" ValueChanged="Typed">
     <Label>Type <code>@ConfirmName</code> to confirm</Label>
 </Field>}@Result</div><div class="vw-dialog__foot"><Button OnClick="CancelAsync">@(Done ? "Close" : "Cancel")</Button>@if (!Done)
@@ -38,9 +37,9 @@
     [Parameter, EditorRequired]
     public RenderFragment? Effect { get; set; }
 
-    /// <summary>The act changes a declaration, so the drift note applies.</summary>
+    /// <summary>A note above the field, such as the drift note: a Notice the page passes in.</summary>
     [Parameter]
-    public bool Drift { get; set; }
+    public RenderFragment? Note { get; set; }
 
     /// <summary>The name to type to confirm; close only.</summary>
     [Parameter]

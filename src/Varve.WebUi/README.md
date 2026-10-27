@@ -17,17 +17,21 @@ only lower levels:
 | Level | Components |
 |---|---|
 | `Atoms` | `Button`, `Field`, `StateBadge`, `PositionStamp`, `TermChip`, `Tail` |
-| `Molecules` | `KeyValue` and `KeyValueItem`, `LagMeter`, `Notice` (with the fixed drift note), `ViewHead`, `Triple`, `AsOfBanner`, `CopyButton` |
+| `Molecules` | `KeyValue` and `KeyValueItem`, `LagMeter`, `Notice`, `ViewHead`, `Triple`, `AsOfBanner`, `CopyButton` |
 | `Organisms` | `ResourceTable`, `CommitList`, `ProblemPanel`, `SourceBlock`, `ConfirmDialog`, `Panel`, `TripleList` |
 | `Templates` | `Shell` |
-| `Pages` | the routed screens, the layout, and the page-level helpers `ProblemView` and `ReadStamps` |
+| `Pages` | the routed screens, the layout, and the page-level helpers `ProblemView`, `ReadStamps` and `DriftNote` |
 
-Only `Pages` sees `Varve.Protocol.Client`. A problem becomes a
-`ProblemPanel`'s parameters in `ProblemView`, and a state word becomes a tone in
-`Tones`, the one mapping.
+A component never uses its own level. Where an organism shows what another
+renders, it takes a slot the page fills: `ConfirmDialog`'s note and result,
+and `ResourceTable`'s problem. Only `Pages` sees `Varve.Protocol.Client`. A
+problem becomes a `ProblemPanel`'s parameters in `ProblemView`, a state word
+becomes a tone in `Tones`, the one mapping, and the drift note's wording lives
+once, in `DriftNote`. Lower levels know nothing of Varve's domain.
 
-Elements whose look waits on a screen reference in `docs/ui/screens/` carry
-`data-ui-pending`, naming the decision.
+No element waits on a visual decision now. A lag is shown as a number beside
+its readiness badge, and a `LagMeter` is used only where the API serves the
+bound.
 
 ```bash
 dotnet publish src/Varve.WebUi -c Release -o out   # needs the wasm-tools workload
