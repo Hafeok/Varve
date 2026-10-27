@@ -54,6 +54,7 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`validation-behind`](validation-behind.md) | 503 | `binding`, `position`, `projectedPosition` | The validation report has not reached the position asked for. |
 | [`writer-moved`](writer-moved.md) | 503 | `epoch`, `requestId`, `reason` | The instance a write was forwarded to no longer writes the dataset. |
 | [`writer-stepped-down`](writer-stepped-down.md) | 503 | `reason` | The writer released the dataset and commits nothing more. |
+| [`takeover-refused`](takeover-refused.md) | 409 | `reason`, `epoch` | This instance refuses to take the dataset over. |
 | [`reader-forgotten`](reader-forgotten.md) | 503 |  | This instance's reader record was forgotten; it attaches again. |
 | [`read-unannounced-extent-gone`](read-unannounced-extent-gone.md) | 503 |  | An unannounced read found an extent gone. |
 

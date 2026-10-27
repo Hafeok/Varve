@@ -402,6 +402,95 @@ public abstract class FleetCases : IAsyncDisposable
         Assert.Contains("abdication", output.ToString(), StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The probe trigger (ADR 0179 point 6): a holds d and is killed, so it
+    /// releases nothing. A takeover request naming epoch 1, sent to b, warm,
+    /// is answered by b with epoch 2, and b writes. Sent again it is a no-op,
+    /// epoch-moved; to a dataset without automatic handover it is
+    /// handover-off; to one whose writer set leaves b out, not-in-writer-set;
+    /// to the holder itself, which is no standby, cold.
+    /// The time from the kill to b's first write is reported.
+    /// </summary>
+    [Fact]
+    public async Task A_takeover_request_moves_a_killed_writer_s_dataset_to_the_warm_standby_and_refuses_the_rest()
+    {
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container, writer: "a");
+        long declared = await DeclareAsync(a, "d", "a", "b");
+        await DeclareAsync(a, "plain");
+        long last = await DeclareAsync(a, "other", "a", "c");
+        Server b = await StartAsync("b", container, writer: "a");
+        await WaitDeclaredAsync(b, last, "d", "standby");
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+        await WaitWarmAsync(b, "d");
+
+        await AssertRefusedAsync(b, "d", 5, "epoch-moved", 1);
+        await AssertRefusedAsync(b, "plain", 1, "handover-off", 1);
+        await AssertRefusedAsync(b, "other", 1, "not-in-writer-set", 1);
+        await AssertRefusedAsync(a, "d", 1, "cold", 1);
+
+        Stopwatch downtime = Stopwatch.StartNew();
+        a.Kill();
+        HttpResponseMessage took = await Takeover(b, "d", 1);
+        string answer = await took.Content.ReadAsStringAsync(Ct);
+        Assert.True(took.StatusCode == HttpStatusCode.OK, (int)took.StatusCode + " " + answer + "\n" + b.Log);
+        using (JsonDocument body = JsonDocument.Parse(answer))
+        {
+            Assert.Equal(2, body.RootElement.GetProperty("epoch").GetInt64());
+        }
+
+        HttpResponseMessage written = await Update(b, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }");
+        downtime.Stop();
+        Assert.Equal(HttpStatusCode.NoContent, written.StatusCode);
+        Assert.Equal("2", await CountAsync(b, written.Headers.GetValues("Varve-Position").Single()));
+        TestContext.Current.SendDiagnosticMessage("takeover on a probe, kill to the first write, " + GetType().Name + ": " + downtime.ElapsedMilliseconds + " ms");
+
+        await AssertRefusedAsync(b, "d", 1, "epoch-moved", 2);
+        StringWriter output = new() { NewLine = "\n" };
+        await Varve.Server.Commands.Cli.RunAsync(container.Lease("d"), new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct);
+        Assert.Contains("probe", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("holder: b", output.ToString(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The system dataset taken over on a probe (ADR 0179 point 13): its
+    /// writer a is killed, and b, warm in its writer set, takes it over on a
+    /// request to <c>_fleet</c>, then answers management writes.
+    /// </summary>
+    [Fact]
+    public async Task A_takeover_request_moves_the_system_dataset_of_a_killed_writer()
+    {
+        string[] handover = ["--Varve:Fleet:AutomaticHandover=true"];
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container, "a,b", handover);
+        await DeclareAsync(a, "d");
+        Server b = await StartAsync("b", container, "a,b", handover);
+        await WaitManagementAsync(b, "follower", warm: true);
+
+        Stopwatch downtime = Stopwatch.StartNew();
+        a.Kill();
+        HttpResponseMessage took = await Takeover(b, "_fleet", 1);
+        Assert.True(took.StatusCode == HttpStatusCode.OK, (int)took.StatusCode + " " + await took.Content.ReadAsStringAsync(Ct) + "\n" + b.Log);
+        Assert.True((await Declare(b, "e")).IsSuccessStatusCode);
+        downtime.Stop();
+        TestContext.Current.SendDiagnosticMessage("system takeover on a probe, kill to the first management write, " + GetType().Name + ": " + downtime.ElapsedMilliseconds + " ms");
+        await WaitManagementAsync(b, "writer", warm: null);
+    }
+
+    private static Task<HttpResponseMessage> Takeover(Server server, string dataset, long epoch) =>
+        server.Http.PutAsync(new Uri(server.Address, "manage/datasets/" + dataset + "/state"), new StringContent("{\"takeover\":{\"epoch\":" + epoch.ToString(CultureInfo.InvariantCulture) + "}}", Encoding.UTF8, "application/json"), Ct);
+
+    private static async Task AssertRefusedAsync(Server server, string dataset, long epoch, string reason, long current)
+    {
+        HttpResponseMessage refused = await Takeover(server, dataset, epoch);
+        string body = await refused.Content.ReadAsStringAsync(Ct);
+        Assert.True(refused.StatusCode == HttpStatusCode.Conflict, (int)refused.StatusCode + " " + body);
+        using JsonDocument problem = JsonDocument.Parse(body);
+        Assert.EndsWith("/takeover-refused", problem.RootElement.GetProperty("type").GetString(), StringComparison.Ordinal);
+        Assert.Equal(reason, problem.RootElement.GetProperty("reason").GetString());
+        Assert.Equal(current, problem.RootElement.GetProperty("epoch").GetInt64());
+    }
+
     // Until readiness reports the instance's system role, and as a standby whether it is warm (ADR 0179 point 13).
     private static async Task WaitManagementAsync(Server server, string role, bool? warm)
     {

@@ -372,3 +372,26 @@ the same commit.
 - **Not yet cited:** the rulings of ADR 0180 are cited in the last commit,
   because a citation of an unaccepted ruling is `CS0618`, which stops every
   CI job at the build.
+
+### The system dataset's writer set, and the takeover route
+
+- **The system dataset** hands over with `Varve:Fleet:AutomaticHandover`:
+  `Varve:Fleet:Writer` is then its writer set, the preferred writer first.
+  It takes over on a shutdown release in 632–1004 ms, over three runs on each
+  store. That is slower than a data dataset because `_fleet` is released
+  last on shutdown.
+- **The takeover route**, `PUT /manage/datasets/{d}/state` with
+  `{"takeover":{"epoch":n}}`, `_fleet` included. It is answered by the
+  instance that receives it, authorised as an operator at its applied
+  position, and never forwarded. A refusal is `409 takeover-refused`, with
+  `reason` and `epoch`.
+  - **One change to ADR 0179 point 6:** `epoch-moved` is checked before
+    `cold`. The winner of a takeover is no longer a standby, so a repeated
+    trigger sent to it would otherwise read as `cold` rather than the
+    no-op it is.
+  - **Kill to the first write through the standby** took 397–560 ms on
+    Azurite and RustFS, and 617–842 ms for the system dataset's first
+    management write, over three runs each.
+- **Model types.** The analyzers refused the outcome type in `Varve.Protocol`
+  (DD0010) and a naked `long` epoch (DD0013). The design change took a
+  `TakeoverEpoch` wrapper and `TakeoverOutcome` in `Varve.Protocol.Model`.

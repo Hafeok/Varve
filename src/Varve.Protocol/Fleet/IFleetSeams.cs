@@ -115,4 +115,15 @@ public interface IManagementPlane
     /// store, so it has no epoch. None by default.
     /// </summary>
     ValueTask<System.Action<System.Text.Json.Utf8JsonWriter>?> DescribeHandoverAsync(DatasetName dataset, CancellationToken cancellationToken) => default;
+
+    /// <summary>
+    /// A takeover request (ADR 0179 point 6): this instance, a warm standby
+    /// of <paramref name="dataset"/> (the system dataset when null), claims
+    /// the epoch after <paramref name="epoch"/> with the trigger
+    /// <c>probe</c>, only if the writer record still shows it. Answered here,
+    /// never forwarded: it acts on the store, and it must work when the
+    /// system writer is the instance that failed. Null when this instance has
+    /// no object store, so no epoch to take. None by default.
+    /// </summary>
+    ValueTask<TakeoverOutcome?> TakeoverAsync(DatasetName? dataset, TakeoverEpoch epoch, CancellationToken cancellationToken) => default;
 }

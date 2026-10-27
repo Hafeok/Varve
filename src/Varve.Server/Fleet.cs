@@ -458,6 +458,77 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         json.WriteEndArray();
     }
 
+    /// <inheritdoc />
+    public async ValueTask<TakeoverOutcome?> TakeoverAsync(DatasetName? dataset, TakeoverEpoch epoch, CancellationToken cancellationToken)
+    {
+        if (_objects is null)
+        {
+            return null;
+        }
+
+        // Inside the advance, so that no round switches the dataset's storage under the claim.
+        await _advance.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            if (dataset is not { } name)
+            {
+                return await TakeOverSystemAsync(epoch, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (!Volatile.Read(ref _snapshot).Table.Declarations.Datasets.TryGetValue(name.Value, out DatasetDeclaration? declared))
+            {
+                return new TakeoverOutcome(TakeoverRefusal.HandoverOff, new TakeoverEpoch(0));
+            }
+
+            Placement placement = new(_instance, _mayClaim, _role == ManagementRole.Writer, IsFleetOfOne);
+            TakeoverOutcome outcome = await Datasets.TakeoverAsync(name.Value, epoch, declared, placement, cancellationToken).ConfigureAwait(false);
+
+            if (outcome.Refusal == TakeoverRefusal.None)
+            {
+                _routes.TryRemove(name.Value, out _);
+            }
+
+            return outcome;
+        }
+        finally
+        {
+            _advance.Release();
+        }
+    }
+
+    // The system dataset's takeover (ADR 0179 point 13), by the same rules.
+    private async Task<TakeoverOutcome> TakeOverSystemAsync(TakeoverEpoch from, CancellationToken cancellationToken)
+    {
+        WriterRecord? record = await _objects!.ReadWriterAsync(SystemName, cancellationToken).ConfigureAwait(false);
+        long now = record?.Epoch.Value ?? 0;
+
+        if (_settings.Fleet.WriterSet is not { } set)
+        {
+            return new TakeoverOutcome(TakeoverRefusal.HandoverOff, new TakeoverEpoch(now));
+        }
+
+        if (!set.Contains(_instance.Value, StringComparer.Ordinal))
+        {
+            return new TakeoverOutcome(TakeoverRefusal.NotInWriterSet, new TakeoverEpoch(now));
+        }
+
+        // A trigger late or repeated for an old epoch is a visible no-op, whoever holds the dataset now (ADR 0179 point 10).
+        if (record is null || now != from.Value)
+        {
+            return new TakeoverOutcome(TakeoverRefusal.EpochMoved, new TakeoverEpoch(now));
+        }
+
+        if (!IsSystemWarm || _systemStorage is not Backend storage)
+        {
+            return new TakeoverOutcome(TakeoverRefusal.Cold, new TakeoverEpoch(now));
+        }
+
+        bool won = await ClaimSystemInPlaceAsync(storage, record, ClaimTrigger.Probe, cancellationToken).ConfigureAwait(false);
+        now = (await _objects.ReadWriterAsync(SystemName, cancellationToken).ConfigureAwait(false))?.Epoch.Value ?? now;
+        return new TakeoverOutcome(won ? TakeoverRefusal.None : TakeoverRefusal.EpochMoved, new TakeoverEpoch(now));
+    }
+
     /// <summary>The highest management position <paramref name="dataset"/>'s log records, as this writer knows (ADR 0165).</summary>
     internal ManagementPosition Recorded(DatasetName dataset) => _order.Highest(dataset);
 
@@ -621,13 +692,20 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
             return;
         }
 
+        await ClaimSystemInPlaceAsync(storage, record, ClaimTrigger.Abdication, cancellationToken).ConfigureAwait(false);
+    }
+
+    // The system dataset claimed in place from the epoch the record showed;
+    // a loser follows it again, since its storage may no longer refresh.
+    private async Task<bool> ClaimSystemInPlaceAsync(Backend storage, WriterRecord record, ClaimTrigger trigger, CancellationToken cancellationToken)
+    {
         WriterAddress? address = _settings.Fleet.InternalUrl is { } url ? new WriterAddress(url) : null;
         bool won;
 
         try
         {
             won = await System.TakeWriteAsync(
-                claim => storage.ClaimInPlaceAsync(_instance, address, SystemProbeRandomness.Instance, ClaimTrigger.Abdication, record.Epoch, claim),
+                claim => storage.ClaimInPlaceAsync(_instance, address, SystemProbeRandomness.Instance, trigger, record.Epoch, claim),
                 cancellationToken).ConfigureAwait(false);
         }
         catch (Exception error) when (error is not OperationCanceledException)
@@ -640,18 +718,19 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         {
             _role = ManagementRole.Writer;
             _routes.TryRemove(SystemName, out _);
-            string released = Commands.ObjectLease.Shown(reason);
-            FleetLog.ClaimedSystem(_logger, storage.Epoch?.Value ?? 0, released);
-            return;
+            string why = record.Released is { } reason ? Commands.ObjectLease.Shown(reason) : Commands.ObjectLease.Shown(trigger);
+            FleetLog.ClaimedSystem(_logger, storage.Epoch?.Value ?? 0, why);
+            return true;
         }
 
-        // Its storage may no longer refresh: the system dataset is followed again.
-        (Dataset? followed, Backend? tailing) = await FollowSystemAsync(_objects, new DatasetOptions { Clock = _clock, Name = SystemName }, cancellationToken).ConfigureAwait(false);
+        (Dataset? followed, Backend? tailing) = await FollowSystemAsync(_objects!, new DatasetOptions { Clock = _clock, Name = SystemName }, cancellationToken).ConfigureAwait(false);
 
         if (followed is not null)
         {
             await SwapSystemAsync(followed, tailing).ConfigureAwait(false);
         }
+
+        return false;
     }
 
     private async Task SwapSystemAsync(Dataset? next, IAsyncDisposable? storage)
@@ -887,7 +966,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         [LoggerMessage(EventId = 15, Level = LogLevel.Warning, Message = "A newer writer holds the system dataset: this instance rejoins its writer set as a standby (ADR 0179 point 10).")]
         internal static partial void Rejoined(ILogger logger);
 
-        [LoggerMessage(EventId = 16, Level = LogLevel.Information, Message = "This standby claimed the system dataset in place at epoch {Epoch}, after a release for {Reason} (ADR 0179 point 13).")]
+        [LoggerMessage(EventId = 16, Level = LogLevel.Information, Message = "This standby claimed the system dataset in place at epoch {Epoch}, on {Reason} (ADR 0179 point 13).")]
         internal static partial void ClaimedSystem(ILogger logger, long epoch, string reason);
 
         [LoggerMessage(EventId = 14, Level = LogLevel.Information, Message = "Resumed the move of '{Name}''s event declarations to the management plane; moved: {Moved} (ADR 0167).")]

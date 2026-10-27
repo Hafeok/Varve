@@ -220,6 +220,10 @@ A refusal is `409 takeover-refused`, a new problem type, with a `reason`:
 - `epoch-moved`: the record no longer shows *n*. The refusal carries the
   current epoch, so a late or repeated trigger is a visible no-op.
 
+They are checked in that list's order, except that `epoch-moved` comes
+before `cold`: the winner of a takeover is no longer a standby, and a
+repeated trigger sent to it must still read as the no-op it is.
+
 Varve does not judge liveness. **Nothing else triggers a handover**:
 - `503 server-busy` and `429` are load signals, and never trigger one;
 - a client's failure to reach the writer is not a trigger, because a

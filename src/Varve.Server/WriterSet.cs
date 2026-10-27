@@ -126,7 +126,7 @@ internal sealed partial class OpenDatasets
         // advance has applied up to, or more (ADR 0179 point 3).
         if (record is { Released: { } reason } && Races(reason, preferred, entry.Warm))
         {
-            await ClaimInPlaceAsync(name, entry, record, placement, cancellationToken).ConfigureAwait(false);
+            await ClaimInPlaceAsync(name, entry, record, placement, ClaimTrigger.Abdication, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -183,11 +183,11 @@ internal sealed partial class OpenDatasets
     // showed: the store's replace-if-unchanged picks one of the members that
     // race. A loser stays a standby, opened again, since its storage may no
     // longer refresh.
-    private async Task ClaimInPlaceAsync(string name, Entry entry, WriterRecord record, Placement placement, CancellationToken cancellationToken)
+    private async Task<bool> ClaimInPlaceAsync(string name, Entry entry, WriterRecord record, Placement placement, ClaimTrigger trigger, CancellationToken cancellationToken)
     {
         if (entry.Dataset is not { } dataset || entry.Objects is not { } storage)
         {
-            return;
+            return false;
         }
 
         bool won;
@@ -195,7 +195,7 @@ internal sealed partial class OpenDatasets
         try
         {
             won = await dataset.TakeWriteAsync(
-                claim => storage.ClaimInPlaceAsync(placement.Instance, _address, SystemProbeRandomness.Instance, ClaimTrigger.Abdication, record.Epoch, claim),
+                claim => storage.ClaimInPlaceAsync(placement.Instance, _address, SystemProbeRandomness.Instance, trigger, record.Epoch, claim),
                 cancellationToken).ConfigureAwait(false);
         }
         catch (Exception error) when (error is not OperationCanceledException)
@@ -208,17 +208,64 @@ internal sealed partial class OpenDatasets
         {
             ReconcileLog.Lost(_logger, name);
             await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: false, cancellationToken).ConfigureAwait(false);
-            return;
+            return false;
         }
 
         entry.Placed(DatasetRole.Writer);
-        ReconcileLog.Claimed(_logger, name, storage.Epoch?.Value ?? 0, record.Released is { } reason ? Commands.ObjectLease.Shown(reason) : "none");
+        string why = record.Released is { } reason ? Commands.ObjectLease.Shown(reason) : Commands.ObjectLease.Shown(trigger);
+        ReconcileLog.Claimed(_logger, name, storage.Epoch?.Value ?? 0, why);
         await SeedOrderAsync(new DatasetName(name), dataset, cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <summary>
+    /// A takeover request for a dataset (ADR 0179 point 6): refused unless
+    /// it declares automatic handover, this instance is in its writer set and
+    /// a warm standby of it, and the writer record still shows
+    /// <paramref name="from"/>; then claimed in place with the trigger
+    /// <c>probe</c>. The epoch returned is the record's after it.
+    /// </summary>
+    internal async Task<TakeoverOutcome> TakeoverAsync(string name, TakeoverEpoch from, DatasetDeclaration declared, Placement placement, CancellationToken cancellationToken)
+    {
+        WriterRecord? record = await _objects!.ReadWriterAsync(name, cancellationToken).ConfigureAwait(false);
+        long now = record?.Epoch.Value ?? 0;
+
+        if (declared.Storage != StorageKind.ObjectStorage || !declared.AutomaticHandover)
+        {
+            return new TakeoverOutcome(TakeoverRefusal.HandoverOff, new TakeoverEpoch(now));
+        }
+
+        if (!placement.IsMember(declared))
+        {
+            return new TakeoverOutcome(TakeoverRefusal.NotInWriterSet, new TakeoverEpoch(now));
+        }
+
+        Entry? entry;
+
+        lock (_gate)
+        {
+            entry = _entries.TryGetValue(name, out Entry? held) ? held : null;
+        }
+
+        // A trigger late or repeated for an old epoch is a visible no-op, whoever holds the dataset now (ADR 0179 point 10).
+        if (record is null || now != from.Value)
+        {
+            return new TakeoverOutcome(TakeoverRefusal.EpochMoved, new TakeoverEpoch(now));
+        }
+
+        if (entry is not { Warm: true })
+        {
+            return new TakeoverOutcome(TakeoverRefusal.Cold, new TakeoverEpoch(now));
+        }
+
+        bool won = await ClaimInPlaceAsync(name, entry, record, placement, ClaimTrigger.Probe, cancellationToken).ConfigureAwait(false);
+        now = (await _objects.ReadWriterAsync(name, cancellationToken).ConfigureAwait(false))?.Epoch.Value ?? now;
+        return new TakeoverOutcome(won ? TakeoverRefusal.None : TakeoverRefusal.EpochMoved, new TakeoverEpoch(now));
     }
 
     private static partial class ReconcileLog
     {
-        [LoggerMessage(EventId = 8, Level = LogLevel.Information, Message = "This standby claimed '{Name}' in place at epoch {Epoch}, after a release for {Reason} (ADR 0180).")]
+        [LoggerMessage(EventId = 8, Level = LogLevel.Information, Message = "This standby claimed '{Name}' in place at epoch {Epoch}, on {Reason} (ADR 0180).")]
         internal static partial void Claimed(ILogger logger, string name, long epoch, string reason);
 
         [LoggerMessage(EventId = 9, Level = LogLevel.Information, Message = "Another member claimed '{Name}' first; this instance stays its standby (ADR 0180).")]

@@ -423,3 +423,35 @@ static Varve.Protocol.EventDeclarationMove.ResumeAsync(Varve.Protocol.ProtocolOp
 Varve.Protocol.EventCatalogueValidator.EventCatalogueValidator(Varve.Protocol.Model.DatasetName dataset, System.Func<bool>! moved) -> void
 static Varve.Protocol.EventDeclarationMove.MovingSinceAsync(Varve.Protocol.IManagementPlane! plane, Varve.Protocol.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<long?>!
 static Varve.Protocol.Model.ProblemType.WriterSteppedDown.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.TakeoverRefused.get -> Varve.Protocol.Model.ProblemType
+Varve.Protocol.IManagementPlane.TakeoverAsync(Varve.Protocol.Model.DatasetName? dataset, Varve.Protocol.Model.TakeoverEpoch epoch, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.TakeoverOutcome?>
+Varve.Protocol.Model.TakeoverEpoch
+Varve.Protocol.Model.TakeoverEpoch.TakeoverEpoch() -> void
+Varve.Protocol.Model.TakeoverEpoch.TakeoverEpoch(long value) -> void
+Varve.Protocol.Model.TakeoverEpoch.Value.get -> long
+Varve.Protocol.Model.TakeoverOutcome
+Varve.Protocol.Model.TakeoverOutcome.TakeoverOutcome() -> void
+Varve.Protocol.Model.TakeoverOutcome.TakeoverOutcome(Varve.Protocol.Model.TakeoverRefusal Refusal, Varve.Protocol.Model.TakeoverEpoch Epoch) -> void
+Varve.Protocol.Model.TakeoverOutcome.Refusal.get -> Varve.Protocol.Model.TakeoverRefusal
+Varve.Protocol.Model.TakeoverOutcome.Refusal.init -> void
+Varve.Protocol.Model.TakeoverOutcome.Epoch.get -> Varve.Protocol.Model.TakeoverEpoch
+Varve.Protocol.Model.TakeoverOutcome.Epoch.init -> void
+Varve.Protocol.Model.TakeoverOutcome.Deconstruct(out Varve.Protocol.Model.TakeoverRefusal Refusal, out Varve.Protocol.Model.TakeoverEpoch Epoch) -> void
+Varve.Protocol.Model.TakeoverOutcome.Equals(Varve.Protocol.Model.TakeoverOutcome other) -> bool
+override Varve.Protocol.Model.TakeoverOutcome.GetHashCode() -> int
+static Varve.Protocol.Model.TakeoverOutcome.operator !=(Varve.Protocol.Model.TakeoverOutcome left, Varve.Protocol.Model.TakeoverOutcome right) -> bool
+static Varve.Protocol.Model.TakeoverOutcome.operator ==(Varve.Protocol.Model.TakeoverOutcome left, Varve.Protocol.Model.TakeoverOutcome right) -> bool
+~override Varve.Protocol.Model.TakeoverOutcome.Equals(object obj) -> bool
+~override Varve.Protocol.Model.TakeoverOutcome.ToString() -> string
+Varve.Protocol.Model.TakeoverEpoch.Equals(Varve.Protocol.Model.TakeoverEpoch other) -> bool
+override Varve.Protocol.Model.TakeoverEpoch.GetHashCode() -> int
+static Varve.Protocol.Model.TakeoverEpoch.operator !=(Varve.Protocol.Model.TakeoverEpoch left, Varve.Protocol.Model.TakeoverEpoch right) -> bool
+static Varve.Protocol.Model.TakeoverEpoch.operator ==(Varve.Protocol.Model.TakeoverEpoch left, Varve.Protocol.Model.TakeoverEpoch right) -> bool
+~override Varve.Protocol.Model.TakeoverEpoch.Equals(object obj) -> bool
+~override Varve.Protocol.Model.TakeoverEpoch.ToString() -> string
+Varve.Protocol.Model.TakeoverRefusal
+Varve.Protocol.Model.TakeoverRefusal.None = 0 -> Varve.Protocol.Model.TakeoverRefusal
+Varve.Protocol.Model.TakeoverRefusal.HandoverOff = 1 -> Varve.Protocol.Model.TakeoverRefusal
+Varve.Protocol.Model.TakeoverRefusal.NotInWriterSet = 2 -> Varve.Protocol.Model.TakeoverRefusal
+Varve.Protocol.Model.TakeoverRefusal.Cold = 3 -> Varve.Protocol.Model.TakeoverRefusal
+Varve.Protocol.Model.TakeoverRefusal.EpochMoved = 4 -> Varve.Protocol.Model.TakeoverRefusal
