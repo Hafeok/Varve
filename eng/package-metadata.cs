@@ -165,6 +165,33 @@ foreach (string package in packages)
     RequireFile(findings, archive, "LICENSE");
     RequireFile(findings, archive, "NOTICE");
 
+    // ADR 0224 point 3: the package's own SBOM, describing this package at this
+    // version. A pack that forgot it, or packed another package's, is caught
+    // here rather than on nuget.org, where it could not be replaced.
+    string? packageId = metadata.Element(nuspecNs + "id")?.Value;
+    string? packageVersion = metadata.Element(nuspecNs + "version")?.Value;
+    ZipArchiveEntry? sbom = archive.GetEntry("_manifest/spdx_2.3/manifest.spdx.json");
+
+    if (sbom is null)
+    {
+        findings.Add("no SBOM at _manifest/spdx_2.3/manifest.spdx.json; eng/sbom.cs writes it and the pack embeds it (ADR 0224)");
+    }
+    else
+    {
+        using Stream stream = sbom.Open();
+        using System.Text.Json.JsonDocument document = System.Text.Json.JsonDocument.Parse(stream);
+        System.Text.Json.JsonElement root = document.RootElement;
+        string? spdxVersion = root.TryGetProperty("spdxVersion", out System.Text.Json.JsonElement v) ? v.GetString() : null;
+        System.Text.Json.JsonElement described = root.GetProperty("packages")[0];
+
+        if (spdxVersion != "SPDX-2.3"
+            || described.GetProperty("name").GetString() != packageId
+            || described.GetProperty("versionInfo").GetString() != packageVersion)
+        {
+            findings.Add($"the embedded SBOM describes {described.GetProperty("name").GetString()} {described.GetProperty("versionInfo").GetString()} in {spdxVersion}, not {packageId} {packageVersion} in SPDX-2.3");
+        }
+    }
+
     if (findings.Count == 0)
     {
         Console.WriteLine($"ok  {name}");
