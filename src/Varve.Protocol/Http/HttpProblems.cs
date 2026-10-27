@@ -83,7 +83,7 @@ internal static class HttpProblems
         // the method alone — has not been described yet.
         if (response.Headers.Vary.Count == 0)
         {
-            response.Headers.Vary = new Microsoft.Extensions.Primitives.StringValues([Microsoft.Net.Http.Headers.HeaderNames.Accept, Preconditions.AsOfHeader, Microsoft.Net.Http.Headers.HeaderNames.Authorization]);
+            response.Headers.Vary = new Microsoft.Extensions.Primitives.StringValues([Microsoft.Net.Http.Headers.HeaderNames.Accept, Preconditions.AsOfHeader, Microsoft.Net.Http.Headers.HeaderNames.Authorization, EntailmentHeader.Name]);
         }
         ArrayBufferWriter<byte> body = new(512);
 

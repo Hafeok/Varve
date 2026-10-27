@@ -61,6 +61,7 @@ Each is the absolute IRI of the resource, under the dataset's base.
 | Term | Meaning | Where |
 |---|---|---|
 | `varve:VersionParameter` | the endpoint takes the `version` parameter and the `version=` media-type parameter of the SPARQL 1.2 Protocol draft (`1.1`, `1.2-basic`, `1.2`), the parameter winning over a `VERSION` declaration (ADR 0092 point 4) | a value of `sd:feature`; `sd:BasicFederatedQuery` beside it when the host answers `SERVICE` (ADR 0104) |
+| `varve:EntailmentHeader` | the endpoint reads `Varve-Entailment`: a query answered under `simple`, `rdf`, `rdfs` or `d`, the dataset's default without it (ADR 0192) | a value of `sd:feature` |
 
 ## The limits a client should know (ADR 0114)
 

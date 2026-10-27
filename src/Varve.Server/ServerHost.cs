@@ -498,13 +498,13 @@ internal static partial class ServerHost
     /// <summary>The request headers a browser may send (ADR 0132).</summary>
     internal static ImmutableArray<string> CorsRequestHeaders { get; } =
     [
-        "Authorization", "Content-Type", "Accept", "If-Match", "If-None-Match", "Varve-If-Graphs-Match", "Last-Event-ID", "Varve-As-Of", "Varve-Min-Position", "Varve-Min-Management-Position", "traceparent", "tracestate",
+        "Authorization", "Content-Type", "Accept", "If-Match", "If-None-Match", "Varve-If-Graphs-Match", "Last-Event-ID", "Varve-As-Of", "Varve-Min-Position", "Varve-Min-Management-Position", "Varve-Entailment", "traceparent", "tracestate",
     ];
 
     /// <summary>The response headers a browser may read beyond the safelisted ones (ADR 0132).</summary>
     internal static ImmutableArray<string> CorsResponseHeaders { get; } =
     [
-        "Varve-Position", "Varve-Management-Position", "Varve-Graph-Versions", "ETag", "Varve-Request-Id", "Link", "Location", "Retry-After", "WWW-Authenticate",
+        "Varve-Position", "Varve-Management-Position", "Varve-Graph-Versions", "Varve-Entailment", "ETag", "Varve-Request-Id", "Link", "Location", "Retry-After", "WWW-Authenticate",
     ];
 
     private static void Map(WebApplication app, ServerSettings settings, Fleet fleet, TimeProvider clock, bool anonymous, Outbound outbound, HttpMessageInvoker forwarder, Drain drain, CancellationToken stopping)
@@ -623,6 +623,7 @@ internal static partial class ServerHost
             EventSource = settings.Events.Source,
             EventHubs = string.IsNullOrEmpty(settings.Events.EventHubs.Host) ? null : new EventHubsServer(settings.Events.EventHubs.Host, settings.Events.EventHubs.Hub!),
             ValidationReports = fleet.Projections,
+            Entailment = new EntailmentBindingsOfTheFleet(fleet),
         };
         fleet.Resume = (name, cancellationToken) => EventDeclarationMove.ResumeAsync(options, fleet, name, cancellationToken);
 

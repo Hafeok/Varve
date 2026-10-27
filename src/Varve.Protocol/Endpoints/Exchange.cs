@@ -172,15 +172,15 @@ internal sealed class Exchange
 
     /// <summary>
     /// What every dataset response carries, problems included (ADR 0119):
-    /// <c>Vary</c>, because the content is per caller, per selector and per
-    /// format; <c>Varve-Request-Id</c>, the id a problem's <c>instance</c>
+    /// <c>Vary</c>, because the content is per caller, per selector, per
+    /// format and, for a query, per regime (ADR 0192); <c>Varve-Request-Id</c>, the id a problem's <c>instance</c>
     /// and a commit's cause repeat; and <c>Link rel="service-desc"</c> to
     /// the dataset's description when the request names a dataset.
     /// </summary>
     internal static void Describe(HttpContext context, string? datasetSegment)
     {
         HttpResponse response = context.Response;
-        response.Headers.Vary = new StringValues([HeaderNames.Accept, Preconditions.AsOfHeader, HeaderNames.Authorization]);
+        response.Headers.Vary = new StringValues([HeaderNames.Accept, Preconditions.AsOfHeader, HeaderNames.Authorization, EntailmentHeader.Name]);
         response.Headers[Preconditions.RequestIdHeader] = context.TraceIdentifier;
 
         if (datasetSegment is null)

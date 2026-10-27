@@ -420,3 +420,13 @@ Varve.Protocol.EventDeclarationMove
 static Varve.Protocol.EventDeclarationMove.ResumeAsync(Varve.Protocol.ProtocolOptions! options, Varve.Protocol.IManagementPlane! plane, Varve.Protocol.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
 Varve.Protocol.EventCatalogueValidator.EventCatalogueValidator(Varve.Protocol.Model.DatasetName dataset, System.Func<bool>! moved) -> void
 static Varve.Protocol.EventDeclarationMove.MovingSinceAsync(Varve.Protocol.IManagementPlane! plane, Varve.Protocol.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<long?>!
+Varve.Protocol.EntailmentBindings
+Varve.Protocol.EntailmentBindings.Covers.get -> System.Collections.Generic.IReadOnlyList<Varve.Sparql.Entailment.TBoxCover!>!
+Varve.Protocol.EntailmentBindings.Default.get -> Varve.Sparql.Entailment.Model.EntailmentRegime
+Varve.Protocol.EntailmentBindings.EntailmentBindings(System.Collections.Generic.IReadOnlyList<Varve.Sparql.Entailment.TBoxCover!>! covers, Varve.Sparql.Entailment.Model.EntailmentRegime defaultRegime) -> void
+Varve.Protocol.IEntailmentBindings
+Varve.Protocol.IEntailmentBindings.Of(Varve.Protocol.Model.DatasetName dataset) -> Varve.Protocol.EntailmentBindings!
+Varve.Protocol.ProtocolOptions.Entailment.get -> Varve.Protocol.IEntailmentBindings?
+Varve.Protocol.ProtocolOptions.Entailment.init -> void
+static Varve.Protocol.EntailmentBindings.None.get -> Varve.Protocol.EntailmentBindings!
+static Varve.Protocol.Model.ProblemType.EntailmentUnsupported.get -> Varve.Protocol.Model.ProblemType

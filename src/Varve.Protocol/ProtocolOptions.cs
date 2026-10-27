@@ -129,6 +129,16 @@ public sealed class ProtocolOptions
     /// </summary>
     public IValidationReports? ValidationReports { get; init; }
 
+    /// <summary>
+    /// The host's TBox bindings, which a query under a regime other than simple
+    /// is rewritten against (ADRs 0192, 0193); none by default, when every
+    /// graph's TBox is empty and the default regime is simple.
+    /// </summary>
+    public IEntailmentBindings? Entailment { get; init; }
+
+    /// <summary><see cref="Evaluation"/> with the functions a rewritten query calls, composed once.</summary>
+    internal EvaluationOptions EntailedEvaluation => field ??= Endpoints.EntailmentFunctions.With(Evaluation);
+
     /// <summary>The catalogue graphs' history of each dataset, replayed once and kept current.</summary>
     internal Endpoints.EventCatalogues Catalogues { get; } = new();
 }
