@@ -134,7 +134,7 @@ public class GateOracleTests
 
         // A blank node the commit creates is labelled by the id it is committed with, so the digest holds after the commit.
         List<(RdfTerm, RdfTerm, RdfTerm, bool)> data = [.. Support.Triples("_:b a ex:C0 ; ex:p0 \"x\" . ex:n1 a ex:C0 .").Select(t => (t.S, t.P, t.O, true))];
-        CommitRequest request = Support.Request(dataset, null, data);
+        CommitRequestBuilder request = Support.Request(dataset, null, data);
         CommitResult result = await dataset.CommitAsync(request, ct);
         Assert.Equal(CommitOutcome.Committed, result.Outcome);
         RdfTerm attachment = Assert.Single(await Support.HeadAttachmentsAsync(dataset, ct));

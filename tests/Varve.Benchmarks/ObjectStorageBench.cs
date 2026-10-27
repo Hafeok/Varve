@@ -58,7 +58,7 @@ internal static partial class ObjectStorageBench
 
         foreach (RecCommit commit in RecPortfolio.Generate(size, Seed))
         {
-            CommitRequest request = new();
+            CommitRequestBuilder request = new();
 
             foreach (RecQuad quad in commit.Asserted)
             {
@@ -168,7 +168,7 @@ internal static partial class ObjectStorageBench
         {
             for (int c = 0; c < PerWriter; c++)
             {
-                CommitRequest request = new();
+                CommitRequestBuilder request = new();
 
                 for (int q = 0; q < 10; q++)
                 {
@@ -216,7 +216,7 @@ internal static partial class ObjectStorageBench
 
                 foreach (RecCommit commit in RecPortfolio.Generate(size, Seed))
                 {
-                    CommitRequest request = new();
+                    CommitRequestBuilder request = new();
 
                     foreach (RecQuad quad in commit.Asserted)
                     {

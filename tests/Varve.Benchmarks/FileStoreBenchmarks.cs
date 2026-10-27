@@ -80,9 +80,9 @@ public class FileCommitBenchmarks
 {
     private const int Loaded = 100_000;
     private (RdfTerm S, RdfTerm P, RdfTerm O, RdfTerm? G)[] _quads = [];
-    private CommitRequest _bulk = new();
-    private CommitRequest[] _batches = [];
-    private CommitRequest[] _singles = [];
+    private CommitRequestBuilder _bulk = new();
+    private CommitRequestBuilder[] _batches = [];
+    private CommitRequestBuilder[] _singles = [];
     private FileDataset? _dataset;
 
     [GlobalSetup]
@@ -118,7 +118,7 @@ public class FileCommitBenchmarks
     {
         long position = 0;
 
-        foreach (CommitRequest batch in _batches)
+        foreach (CommitRequestBuilder batch in _batches)
         {
             position = (await _dataset!.Dataset.CommitAsync(batch)).Position.Value;
         }
@@ -132,7 +132,7 @@ public class FileCommitBenchmarks
     {
         long position = 0;
 
-        foreach (CommitRequest single in _singles)
+        foreach (CommitRequestBuilder single in _singles)
         {
             position = (await _dataset!.Dataset.CommitAsync(single)).Position.Value;
         }

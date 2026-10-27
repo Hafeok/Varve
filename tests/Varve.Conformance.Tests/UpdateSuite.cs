@@ -237,7 +237,7 @@ internal static class UpdateRunner
     // One setup commit per file, so that each file's blank nodes are its own.
     private static async Task LoadAsync(Dataset dataset, IReadOnlyList<DataQuad> quads, RdfTerm? graph, CancellationToken cancellationToken)
     {
-        CommitRequest request = new();
+        CommitRequestBuilder request = new();
 
         foreach (DataQuad quad in quads)
         {

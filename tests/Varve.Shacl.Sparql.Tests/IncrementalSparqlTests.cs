@@ -85,7 +85,7 @@ public class IncrementalSparqlTests
             List<string> before = Results(Full(shapes, dataset, options));
             foreach ((string S, string P, string O)[] toggles in history)
             {
-                CommitRequest request = new();
+                CommitRequestBuilder request = new();
                 foreach ((string s, string p, string o) in toggles.Distinct())
                 {
                     RequestTerm[] terms = [Term(s), Term(p), Term(o)];

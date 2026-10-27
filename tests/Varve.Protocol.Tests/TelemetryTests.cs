@@ -103,7 +103,7 @@ public class TelemetryTests
         await using Dataset dataset = await Dataset.CreateAsync(new MemoryStorage(), new Store.Log.DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System, Name = "metered" }, P.Ct);
         using Metrics metrics = new();
 
-        Store.Log.CommitResult committed = await dataset.CommitAsync(new Store.Log.CommitRequest().Assert(Rdf.RdfTerm.Iri("http://ex/s"u8), Rdf.RdfTerm.Iri("http://ex/p"u8), Rdf.RdfTerm.Iri("http://ex/o"u8)), P.Ct);
+        Store.Log.CommitResult committed = await dataset.CommitAsync(new Store.Log.CommitRequestBuilder().Assert(Rdf.RdfTerm.Iri("http://ex/s"u8), Rdf.RdfTerm.Iri("http://ex/p"u8), Rdf.RdfTerm.Iri("http://ex/o"u8)), P.Ct);
         Assert.Equal(Store.Log.CommitOutcome.Committed, committed.Outcome);
 
         (double duration, IReadOnlyDictionary<string, object?> tags) = metrics.Histogram("varve.store.commit.duration").Single();

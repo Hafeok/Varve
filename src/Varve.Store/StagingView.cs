@@ -147,7 +147,7 @@ public sealed class StagingView : IQuadSource
     }
 
     /// <summary>
-    /// What a <see cref="CommitRequest"/> takes for a handle of this view: the
+    /// What a <see cref="CommitRequestBuilder"/> takes for a handle of this view: the
     /// view's own handle as <see cref="RequestTerm.Existing"/>, and a
     /// provisional one as its term — a provisional blank node as a blank node
     /// whose label is unique within this staging view, so that all its

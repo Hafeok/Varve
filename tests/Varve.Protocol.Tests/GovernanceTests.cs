@@ -239,7 +239,7 @@ public class GovernanceTests
 
         for (int batch = 0; batch < rows; batch += 5_000)
         {
-            CommitRequest request = new();
+            CommitRequestBuilder request = new();
 
             for (int i = batch; i < Math.Min(rows, batch + 5_000); i++)
             {

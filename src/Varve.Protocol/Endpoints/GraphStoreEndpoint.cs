@@ -286,13 +286,13 @@ internal static class GraphStoreEndpoint
             return;
         }
 
-        CommitRequest request;
+        CommitRequestBuilder request;
         bool exists;
 
         using (DatasetView view = exchange.Dataset.Pin())
         {
             // It read the graph alone: the graph is its scope (ADR 0126).
-            request = new CommitRequest { ExpectedPosition = plan.Expected ?? view.Position, ExpectedGraphs = Writes.Scope(plan.Graphs), Metadata = Writes.Metadata(exchange), Validators = Writes.Validators(exchange) };
+            request = new CommitRequestBuilder { ExpectedPosition = plan.Expected ?? view.Position, ExpectedGraphs = Writes.Scope(plan.Graphs), Metadata = Writes.Metadata(exchange), Validators = Writes.Validators(exchange) };
             exists = Retract(view, target, request);
         }
 
@@ -318,14 +318,14 @@ internal static class GraphStoreEndpoint
 
     private static async Task WriteAsync(Exchange exchange, Target target, WritePlan plan, List<BodyTriple> triples, bool replace)
     {
-        CommitRequest request;
+        CommitRequestBuilder request;
         bool existed;
 
         using (DatasetView view = exchange.Dataset.Pin())
         {
             // A PUT replaces what it read, so it expects the position it read
             // at; a POST only adds, and expects a position only when asked.
-            request = new CommitRequest
+            request = new CommitRequestBuilder
             {
                 ExpectedPosition = plan.Expected ?? (replace ? view.Position : null),
                 ExpectedGraphs = plan.Expected is not null || replace ? Writes.Scope(plan.Graphs) : null,
@@ -370,7 +370,7 @@ internal static class GraphStoreEndpoint
     }
 
     // Retracts every quad of the target graph, by handle. True when it held one.
-    private static bool Retract(DatasetView view, Target target, CommitRequest request)
+    private static bool Retract(DatasetView view, Target target, CommitRequestBuilder request)
     {
         using IQuadCursor? cursor = Open(view, target);
         bool any = false;

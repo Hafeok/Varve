@@ -144,7 +144,7 @@ public sealed class ObjectPropertyTests
 
                         if (i % 7 == 0 || i == cuts.Count - 1)
                         {
-                            CommitResult next = await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("after"), T.Iri("cut"), T.Integer("1")), T.Ct);
+                            CommitResult next = await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("after"), T.Iri("cut"), T.Integer("1")), T.Ct);
                             Assert.Equal(CommitOutcome.Committed, next.Outcome);
                             await dataset.DisposeAsync();
                             await storage.DisposeAsync();
@@ -319,8 +319,8 @@ public sealed class ObjectPropertyTests
                     for (int i = 0; i < extra; i++)
                     {
                         string n = i.ToString(CultureInfo.InvariantCulture);
-                        await harness.Dataset.CommitAsync(new CommitRequest().Assert(T.Iri("here"), T.Iri("p0"), T.Integer(n)), T.Ct);
-                        await continued.CommitAsync(new CommitRequest().Assert(T.Iri("there"), T.Iri("p0"), T.Integer(n)), T.Ct);
+                        await harness.Dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("here"), T.Iri("p0"), T.Integer(n)), T.Ct);
+                        await continued.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("there"), T.Iri("p0"), T.Integer(n)), T.Ct);
                     }
                 }
 
@@ -338,13 +338,13 @@ public sealed class ObjectPropertyTests
         Backend storage = await objects.OpenAsync();
         DatasetOptions options = T.Options();
         await using Dataset dataset = await Dataset.CreateAsync(storage, T.Id, options, T.Ct);
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("a"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("a"), T.Iri("p"), T.Iri("o")), T.Ct);
 
         options.DefaultProjectionFault = position => position == 2;
-        Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("b"), T.Iri("p"), T.Iri("o")), T.Ct)).Outcome);
+        Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("b"), T.Iri("p"), T.Iri("o")), T.Ct)).Outcome);
         Assert.True(dataset.IsFailed);
         Assert.Throws<DatasetUnavailableException>(() => dataset.Pin());
-        Assert.Equal(CommitOutcome.Unavailable, (await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("c"), T.Iri("p"), T.Iri("o")), T.Ct)).Outcome);
+        Assert.Equal(CommitOutcome.Unavailable, (await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("c"), T.Iri("p"), T.Iri("o")), T.Ct)).Outcome);
 
         options.DefaultProjectionFault = null;
         await dataset.RebuildDefaultProjectionAsync(T.Ct);

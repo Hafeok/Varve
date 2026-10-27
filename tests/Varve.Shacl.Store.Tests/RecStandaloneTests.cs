@@ -91,7 +91,7 @@ public class RecStandaloneTests
         (List<(RdfTerm S, RdfTerm P, RdfTerm O, RdfTerm G)> quads, List<RecCommit> held) = Head(RecSize.S, held: 1);
         RdfTerm shapesGraph = RdfTerm.Iri("https://example.org/rec/shapes"u8);
         await using Dataset dataset = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, ct);
-        CommitRequest load = new();
+        CommitRequestBuilder load = new();
         foreach ((RdfTerm s, RdfTerm p, RdfTerm o, RdfTerm g) in quads)
         {
             load.Assert(s, p, o, g);
@@ -108,13 +108,13 @@ public class RecStandaloneTests
         ShapesGate gate = new([binding]);
 
         (RdfTerm S, RdfTerm P, RdfTerm O, RdfTerm G) leasor = quads.First(q => q.P.Equals(RdfTerm.Iri("https://w3id.org/rec#leasor"u8)));
-        CommitRequest mutation = new() { Validators = [gate] };
+        CommitRequestBuilder mutation = new() { Validators = [gate] };
         mutation.Retract(leasor.S, leasor.P, leasor.O, leasor.G);
         CommitResult refused = await dataset.CommitAsync(mutation, ct);
         Assert.Equal(CommitOutcome.Rejected, refused.Outcome);
         Assert.Contains(refused.Report, t => Encoding.UTF8.GetString(t.Lexical).EndsWith("shapes-violated", StringComparison.Ordinal));
 
-        CommitRequest next = new() { Validators = [gate] };
+        CommitRequestBuilder next = new() { Validators = [gate] };
         foreach (RecQuad q in held[0].Asserted)
         {
             (RdfTerm s, RdfTerm p, RdfTerm o, RdfTerm g) = Terms(q);

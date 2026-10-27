@@ -91,9 +91,9 @@ internal sealed class RequestExecution
     /// (ADR 0098). The writable scope is checked on the quads' graphs before
     /// any is written (ADR 0107).
     /// </summary>
-    internal static CommitRequest DataOnly(Update update, UpdateOptions options)
+    internal static CommitRequestBuilder DataOnly(Update update, UpdateOptions options)
     {
-        CommitRequest request = new() { Metadata = options.Metadata, Validators = options.Validators };
+        CommitRequestBuilder request = new() { Metadata = options.Metadata, Validators = options.Validators };
         GraphScope writable = options.WriteScope;
         Dictionary<RdfTerm, bool>? decided = writable.IsAll ? null : new Dictionary<RdfTerm, bool>(RdfTerm.Comparer);
         bool defaultDecided = writable.IsAll;
@@ -248,10 +248,10 @@ internal sealed class RequestExecution
     /// fixed order, the pinned position expected (§3 step 4), or none for a
     /// request of data operations alone.
     /// </summary>
-    internal CommitRequest ToCommitRequest()
+    internal CommitRequestBuilder ToCommitRequest()
     {
         CheckWritable();
-        CommitRequest request = new()
+        CommitRequestBuilder request = new()
         {
             ExpectedPosition = _dataOnly ? null : _staging.Position,
             ExpectedGraphs = _dataOnly || _options.ExpectedPosition is not null ? null : Scope(),
@@ -361,7 +361,7 @@ internal sealed class RequestExecution
     private RdfTerm? GraphOf(TermHandle graph) =>
         graph.IsNone ? null : _staging.TryExternalise(graph, out RdfTerm? term) ? term : throw new InvalidOperationException("A graph handle the staging view cannot name.");
 
-    private void Add(CommitRequest request, Quad quad, bool assert)
+    private void Add(CommitRequestBuilder request, Quad quad, bool assert)
     {
         RequestTerm s = _staging.ToRequestTerm(quad.Subject);
         RequestTerm p = _staging.ToRequestTerm(quad.Predicate);

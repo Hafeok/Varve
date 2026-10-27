@@ -58,9 +58,9 @@ public sealed class PerGraphConcurrencyTests
     /// of its scope, from the values it read, expecting that position with that
     /// scope — the read-modify-write a scope exists to protect.
     /// </summary>
-    private static CommitRequest Increment(Dictionary<int, int> read, int[] scope, long position, bool scoped)
+    private static CommitRequestBuilder Increment(Dictionary<int, int> read, int[] scope, long position, bool scoped)
     {
-        CommitRequest request = new()
+        CommitRequestBuilder request = new()
         {
             ExpectedPosition = new Position(position),
             ExpectedGraphs = scoped ? [.. scope.Select(GraphTerm)] : null,
@@ -245,7 +245,7 @@ public sealed class PerGraphConcurrencyTests
                 }
                 else
                 {
-                    CommitRequest request = new();
+                    CommitRequestBuilder request = new();
                     List<(bool Assert, int Graph, RdfTerm Object)> operations = [];
 
                     for (int op = random.Next(1, 4); op > 0; op--)
