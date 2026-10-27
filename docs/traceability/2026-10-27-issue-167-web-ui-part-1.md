@@ -347,3 +347,49 @@ settle:
   against the view head.
 - `lag-without-bound`: a lag shown as a number because readiness serves no
   bound for a `LagMeter`.
+
+### The review round, and whether an analyzer sees the components
+
+**The rulings** on #174 and the components, verbatim where they concern this
+branch:
+
+> Level rule: keep it strict. A component uses only lower levels, never its own level. […] The drift note as a switch on `Notice`: no. […] `Notice` stays generic. The drift note’s wording lives with the dialog’s caller: the page passes a `Notice` into `ConfirmDialog`’s slot, the same pattern as the problem. Put the text in one place in `Pages` or `Tones`, not per page.
+>
+> * `unreachable-placement`: directly below the view head, above everything else, with the last data still shown below it. The reference screens follow this.
+> * `lag-without-bound`: the UI never shows data the API doesn’t serve. Show the lag as a number with the readiness badge (`ready` / `behind`). Use `LagMeter` only where the bound is served. File the gap: readiness should carry each binding’s bound. That’s a small API change, and the meter can be wired up once it lands.
+>
+> Analyzer flag: stop as agreed, and confirm first. One more point if it turns out generated code can be analysed: opting the level rule into generated code must not opt the DD contract rules in as well. Component parameters aren’t contracts, and primitive-free rules would flood the components. Scope the opt-in to the level rule only.
+
+**Done in the code:**
+- `ConfirmDialog` takes a Note slot and a Result slot, and `ResourceTable` a
+  Problem slot, which the page fills.
+- `Notice` is generic, and the drift note's wording is in `Pages/DriftNote`,
+  once.
+- The unreachable notice sits directly below the view head.
+- A lag is a number beside its readiness badge.
+- No `data-ui-pending` is left. The readiness gap is filed as #176.
+
+**The probe.** A throwaway analyzer, never committed, was attached to
+`Varve.WebUi` for one build and then removed. It is two analyzers, identical
+but for `ConfigureGeneratedCodeAnalysis`, each reporting:
+- the `Button` component's type symbol;
+- every `OpenComponent<T>` invocation, with the type that makes it.
+
+The results:
+- **Default flags (`None`): nothing.** The Razor source generator's output
+  (`obj/…/RazorSourceGenerator/Atoms/Button_razor.g.cs`) is generated code,
+  and an analyzer that does not opt in neither analyses it nor reports in it.
+  That is why the `DD` rules were silent on the components' parameters.
+- **`Analyze | ReportDiagnostics`: 35 reports.** The `Button` type symbol, and
+  34 `OpenComponent<T>` edges from each component class to each component it
+  renders, `App`'s included.
+
+  The flags are per `DiagnosticAnalyzer`, so the level rule can opt in alone,
+  and the `DD` rules stay out as ruled.
+
+**Checked against the strict rule, the 34 edges hold two violations:**
+`Pages.Health` uses `Pages.ProblemView` and `Pages.ReadStamps`. `DriftNote`
+will make a third when a page passes it into a dialog. These page-level
+parts exist so that the client's types and Varve's wording are mapped once,
+at the level that may know them. Whether pages may use them is put to the
+maintainer before the rule is written.
