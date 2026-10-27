@@ -142,7 +142,7 @@ public sealed partial class Dataset : IAsyncDisposable
     private readonly IStorage _storage;
     private readonly DatasetOptions _options;
     private readonly TermDictionary _dictionary;
-    private readonly LogWriter _writer;
+    private LogWriter _writer;
     private readonly StoreMetrics _metrics;
     private readonly SemaphoreSlim _sequencer = new(1, 1);
     private readonly Lock _signalGate = new();

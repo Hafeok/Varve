@@ -738,3 +738,4 @@ static Varve.Store.Log.DerivedVersion.operator >(Varve.Store.Log.DerivedVersion 
 static Varve.Store.Log.DerivedVersion.operator >=(Varve.Store.Log.DerivedVersion left, Varve.Store.Log.DerivedVersion right) -> bool
 ~override Varve.Store.Log.DerivedVersion.Equals(object obj) -> bool
 Varve.Store.Dataset.ReopenDue.get -> bool
+Varve.Store.Dataset.TakeWriteAsync(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<bool>>! claim, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>

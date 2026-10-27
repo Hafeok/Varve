@@ -51,7 +51,7 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
     private readonly ObjectNames _names;
     private readonly TimeProvider _clock;
     private readonly string _cache;
-    private readonly long _epoch;
+    private long _epoch;
     private readonly Lock _lock = new();
     private readonly SemaphoreSlim _writing = new(1, 1);
     private readonly SemaphoreSlim _downloading = new(1, 1);
@@ -665,6 +665,31 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
         _writing.Dispose();
         _downloading.Dispose();
         _consolidating.Dispose();
+    }
+
+    /// <summary>
+    /// A follower's store becomes the writer's, in place (ADR 0179 point 8):
+    /// it adopts every chunk the writer it followed made, by the same probe a
+    /// refresh makes, then takes <paramref name="epoch"/>, already claimed in
+    /// the writer record, and fences the next slot with it, as a writer's open
+    /// does. A fence that finds a later epoch leaves it superseded.
+    /// </summary>
+    public async ValueTask ClaimInPlaceAsync(long epoch, CancellationToken cancellationToken)
+    {
+        if (Writes)
+        {
+            throw new InvalidOperationException("A writer's store holds its epoch already.");
+        }
+
+        ArgumentOutOfRangeException.ThrowIfLessThan(epoch, 1L);
+        await RefreshAsync(cancellationToken).ConfigureAwait(false);
+
+        lock (_lock)
+        {
+            _epoch = epoch;
+        }
+
+        await FenceAsync(cancellationToken).ConfigureAwait(false);
     }
 
     // The fence (ADR 0136): the slot after the last that exists, in log

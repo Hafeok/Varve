@@ -164,6 +164,52 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
         }
     }
 
+    /// <summary>
+    /// A follower's storage claims the epoch after <paramref name="from"/> and
+    /// becomes the writer's, in place (ADR 0179 point 8): it probes that the
+    /// store enforces conditional writes, claims only if the writer record
+    /// still shows <paramref name="from"/>, adopts every chunk the writer it
+    /// followed made, fences the log, records the fence, and fences the
+    /// catalog under the new epoch. What it has read and cached it keeps.
+    /// False when the record no longer showed <paramref name="from"/>, or a
+    /// later epoch held the log: nothing was written but the probe, and the
+    /// storage stays read-only.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">This storage was opened for write.</exception>
+    /// <exception cref="ConditionalWritesNotEnforcedException">The store does not enforce conditional writes.</exception>
+    public async ValueTask<bool> ClaimInPlaceAsync(WriterInstance instance, WriterAddress? address, IProbeRandomness randomness, ClaimTrigger trigger, WriterEpoch from, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(randomness);
+
+        if (_log.Writes)
+        {
+            throw new InvalidOperationException("This storage holds an epoch already; only a read-only open claims in place.");
+        }
+
+        await ProbeAsync(_store, _names, randomness, _clock, cancellationToken).ConfigureAwait(false);
+        (WriterRecord? record, ObjectVersion? version) = await ClaimAsync(_store, _names, instance, address, trigger, from, _clock, cancellationToken).ConfigureAwait(false);
+        Writer = record;
+
+        if (version is null)
+        {
+            return false;
+        }
+
+        _recordVersion = version;
+        Holder = instance;
+        Announcing = ReaderAnnouncing.Required;
+        long epoch = record!.Epoch.Value;
+        await _log.ClaimInPlaceAsync(epoch, cancellationToken).ConfigureAwait(false);
+
+        if (!_log.Superseded && _log.Fence is { } fence)
+        {
+            await RecordFenceAsync(fence, cancellationToken).ConfigureAwait(false);
+            await _derived.FenceCatalogAsync(epoch, cancellationToken).ConfigureAwait(false);
+        }
+
+        return !IsSuperseded;
+    }
+
     /// <summary>Reads a dataset's writer record, or none when no writer has claimed it. Changes nothing.</summary>
     public static async ValueTask<WriterRecord?> ReadWriterAsync(IObjectStore store, ObjectName? prefix, CancellationToken cancellationToken = default)
     {

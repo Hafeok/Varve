@@ -91,74 +91,146 @@ public sealed partial class Dataset
                 return Head;
             }
 
-            State state = _state;
-            long head = state.Head;
-            List<ScannedCommit> closed = [];
-            ValueTask Keep(ScannedCommit commit)
-            {
-                closed.Add(commit);
-                return ValueTask.CompletedTask;
-            }
-
-            if (head == 0)
-            {
-                await LogReader.ScanAsync(_storage.Log, Id, 0, Keep, _options.TornWindow, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                CommitEntry last = state.Commits.Entry(head);
-                byte[] previous = head == 1 ? LogFormat.Genesis() : state.Commits.Entry(head - 1).HeaderHash();
-                CommitLocation end = await LogReader.EndAsync(_storage.Log, Id, last.Location, head, previous, cancellationToken).ConfigureAwait(false);
-                LogStart start = new(end.Segment, end.Offset, head, last.HeaderHash());
-                await LogReader.ScanFromAsync(_storage.Log, Id, start, head, Keep, _options.TornWindow, cancellationToken).ConfigureAwait(false);
-            }
-
-            if (closed.Count == 0)
-            {
-                _scanOwed = false;
-                return Head;
-            }
-
-            CommitIndex commits = state.Commits;
-            long logBytes = state.LogBytesAt(head);
-            long p = head;
-
-            foreach (ScannedCommit commit in closed)
-            {
-                p++;
-
-                if (commit.Header.Kind == CommitKind.Erasure)
-                {
-                    throw new LogVerificationException(p, "Position " + p + " is an erasure commit, which needs erasure mode, and this version of Varve does not support erasure mode.");
-                }
-
-                DatasetSettings? changed = commit.Header.Kind == CommitKind.Settings ? Fold(commits.SettingsAt(p - 1), commit.Header) : null;
-                logBytes += commit.Bytes;
-                CommitEntry entry = new(commit.Header.TimestampTicks, commit.HeaderHash, commit.Location, commit.Header.CanonicalCount, commit.Header.BlankCount, logBytes);
-                commits = commits.Append(in entry, changed);
-            }
-
-            State partial = new(p, commits, state.Index, state.Checkpoints, null, state.Graphs);
-            IndexVersion index = state.Index;
-            GraphVersions graphs = state.Graphs;
-            p = head;
-
-            foreach (ScannedCommit commit in closed)
-            {
-                p++;
-                LoggedCommit full = commit.Full ?? await ReadLoggedAsync(partial, p, cancellationToken).ConfigureAwait(false);
-                index = index.Apply(full.Asserted, full.Retracted, partial.TermsOf(full, p), p);
-                graphs = graphs.Apply(full.Header.Kind, full.Asserted, full.Retracted, p);
-            }
-
-            _state = new State(p, commits, index, state.Checkpoints, null, graphs);
-            _scanOwed = false;
-            Signal();
+            await ApplyClosedAsync(cancellationToken).ConfigureAwait(false);
             return Head;
         }
         finally
         {
             _sequencer.Release();
         }
+    }
+
+    /// <summary>
+    /// A follower becomes its dataset's writer in place (ADR 0179 point 8).
+    /// - It applies what the writer it followed closed.
+    /// - <paramref name="claim"/> claims the epoch on the storage and fences the
+    ///   log. It is the host's, which knows the backend.
+    /// - It applies what the claim adopted, and opens the log for appends at
+    ///   the head.
+    ///
+    /// Its projection, graph versions, commit index and cache stay what they
+    /// are, so it commits at once. False when <paramref name="claim"/> lost;
+    /// the dataset is then still a follower, but its storage may no longer
+    /// refresh, and the host opens it again.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The dataset is not a follower.</exception>
+    /// <exception cref="LogVerificationException">What the writer appended does not verify.</exception>
+    public async ValueTask<bool> TakeWriteAsync(Func<CancellationToken, ValueTask<bool>> claim, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(claim);
+
+        if (!IsFollower)
+        {
+            throw new InvalidOperationException("Only a follower takes its dataset's writing over; a writer writes already.");
+        }
+
+        await _sequencer.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            ObjectDisposedException.ThrowIf(_disposing, this);
+
+            if (_storage is ITailingStorage tailing)
+            {
+                await tailing.RefreshAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            await ApplyClosedAsync(cancellationToken).ConfigureAwait(false);
+
+            if (!await claim(cancellationToken).ConfigureAwait(false))
+            {
+                return false;
+            }
+
+            // What the claim adopted, then the log opened at its end as a writer's open opens it.
+            LogScan scan = await ApplyClosedAsync(cancellationToken).ConfigureAwait(false);
+            _writer = await LogWriter.OpenAsync(_storage.Log, Id, scan, _options.SegmentBytes.Value, (int)_options.MaxRecordBytes.Value, cancellationToken).ConfigureAwait(false);
+            IsFollower = false;
+        }
+        finally
+        {
+            _sequencer.Release();
+        }
+
+        // The writer's open is an event of the deletion rule (ADR 0160), and so is this one.
+        if (_storage is IExtentReaders { DeletesExtents: true })
+        {
+            await DeleteUnnamedSetsAsync(poll: true, cancellationToken).ConfigureAwait(false);
+        }
+
+        return true;
+    }
+
+    // Applies every commit the storage holds closed above the head, as an
+    // open verifies them (I6), and returns the scan of the log's end. Inside
+    // the sequencer.
+    private async ValueTask<LogScan> ApplyClosedAsync(CancellationToken cancellationToken)
+    {
+        State state = _state;
+        long head = state.Head;
+        List<ScannedCommit> closed = [];
+        ValueTask Keep(ScannedCommit commit)
+        {
+            closed.Add(commit);
+            return ValueTask.CompletedTask;
+        }
+
+        LogScan scan;
+
+        if (head == 0)
+        {
+            scan = await LogReader.ScanAsync(_storage.Log, Id, 0, Keep, _options.TornWindow, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            CommitEntry last = state.Commits.Entry(head);
+            byte[] previous = head == 1 ? LogFormat.Genesis() : state.Commits.Entry(head - 1).HeaderHash();
+            CommitLocation end = await LogReader.EndAsync(_storage.Log, Id, last.Location, head, previous, cancellationToken).ConfigureAwait(false);
+            LogStart start = new(end.Segment, end.Offset, head, last.HeaderHash());
+            scan = await LogReader.ScanFromAsync(_storage.Log, Id, start, head, Keep, _options.TornWindow, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (closed.Count == 0)
+        {
+            _scanOwed = false;
+            return scan;
+        }
+
+        CommitIndex commits = state.Commits;
+        long logBytes = state.LogBytesAt(head);
+        long p = head;
+
+        foreach (ScannedCommit commit in closed)
+        {
+            p++;
+
+            if (commit.Header.Kind == CommitKind.Erasure)
+            {
+                throw new LogVerificationException(p, "Position " + p + " is an erasure commit, which needs erasure mode, and this version of Varve does not support erasure mode.");
+            }
+
+            DatasetSettings? changed = commit.Header.Kind == CommitKind.Settings ? Fold(commits.SettingsAt(p - 1), commit.Header) : null;
+            logBytes += commit.Bytes;
+            CommitEntry entry = new(commit.Header.TimestampTicks, commit.HeaderHash, commit.Location, commit.Header.CanonicalCount, commit.Header.BlankCount, logBytes);
+            commits = commits.Append(in entry, changed);
+        }
+
+        State partial = new(p, commits, state.Index, state.Checkpoints, null, state.Graphs);
+        IndexVersion index = state.Index;
+        GraphVersions graphs = state.Graphs;
+        p = head;
+
+        foreach (ScannedCommit commit in closed)
+        {
+            p++;
+            LoggedCommit full = commit.Full ?? await ReadLoggedAsync(partial, p, cancellationToken).ConfigureAwait(false);
+            index = index.Apply(full.Asserted, full.Retracted, partial.TermsOf(full, p), p);
+            graphs = graphs.Apply(full.Header.Kind, full.Asserted, full.Retracted, p);
+        }
+
+        _state = new State(p, commits, index, state.Checkpoints, null, graphs);
+        _scanOwed = false;
+        Signal();
+        return scan;
     }
 }
