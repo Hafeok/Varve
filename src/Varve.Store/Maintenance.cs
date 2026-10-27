@@ -115,6 +115,21 @@ public sealed partial class Dataset
     private Task? _maintenanceTask;
     private bool _maintenanceAgain;
     private Exception? _maintenanceFailure;
+
+    // The last spill's failure, cleared by one that succeeds (ADR 0179 point 6).
+    private Exception? _spillFailure;
+
+    /// <summary>
+    /// Why the memtable's last spill to a local run failed, or none when it
+    /// succeeded: the writer goes on committing, and maintenance tries again
+    /// after the next commit. A host reports it, and a host whose dataset has
+    /// a standby releases the epoch for <c>local-disk-error</c> once the
+    /// memtable can no longer be bounded (ADR 0179 point 6).
+    /// </summary>
+    public Exception? SpillFailure => Volatile.Read(ref _spillFailure);
+
+    /// <summary>The entries in the memtable now, by the measure <see cref="DatasetOptions.MemtableLimit"/> bounds.</summary>
+    public Varve.Rdf.QuadCount MemtableEntries => new(_state.Index.MemtableCount);
     private long _runSequence;
 
     /// <summary>
@@ -349,8 +364,25 @@ public sealed partial class Dataset
 
         // Streamed from the frozen runs: a flush holds no merged copy of them.
         Run[] memtable = frozen.Runs[disk..];
-        LoadedRun written = await WriteRunAsync(DerivedFormat.MergeOf(memtable, dropRetractions: disk == 0), memtable, cancellationToken).ConfigureAwait(false);
+        LoadedRun written = await SpillAsync(() => WriteRunAsync(DerivedFormat.MergeOf(memtable, dropRetractions: disk == 0), memtable, cancellationToken)).ConfigureAwait(false);
         return await SwapAsync(frozen.Runs, disk, frozen.Runs.Length, written, cancellationToken).ConfigureAwait(false);
+    }
+
+    // A run written to local storage, its failure kept for the host and
+    // cleared by the next that succeeds (ADR 0179 point 6).
+    private async ValueTask<LoadedRun> SpillAsync(Func<ValueTask<LoadedRun>> write)
+    {
+        try
+        {
+            LoadedRun written = await write().ConfigureAwait(false);
+            Volatile.Write(ref _spillFailure, null);
+            return written;
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            Volatile.Write(ref _spillFailure, error);
+            throw;
+        }
     }
 
     // Merges the newest two disk runs into one on disk, streaming.
@@ -358,7 +390,7 @@ public sealed partial class Dataset
     {
         Run older = index.Runs[disk - 2];
         Run newer = index.Runs[disk - 1];
-        LoadedRun written = await WriteRunAsync(DerivedFormat.MergeOf([older, newer], dropRetractions: disk == 2), [older, newer], cancellationToken).ConfigureAwait(false);
+        LoadedRun written = await SpillAsync(() => WriteRunAsync(DerivedFormat.MergeOf([older, newer], dropRetractions: disk == 2), [older, newer], cancellationToken)).ConfigureAwait(false);
         return await SwapAsync(index.Runs, disk - 2, disk, written, cancellationToken).ConfigureAwait(false);
     }
 

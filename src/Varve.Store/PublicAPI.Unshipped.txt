@@ -739,3 +739,6 @@ static Varve.Store.Log.DerivedVersion.operator >=(Varve.Store.Log.DerivedVersion
 ~override Varve.Store.Log.DerivedVersion.Equals(object obj) -> bool
 Varve.Store.Dataset.ReopenDue.get -> bool
 Varve.Store.Dataset.TakeWriteAsync(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<bool>>! claim, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
+Varve.Store.Dataset.AppendFailed.get -> bool
+Varve.Store.Dataset.SpillFailure.get -> System.Exception?
+Varve.Store.Dataset.MemtableEntries.get -> Varve.Rdf.QuadCount

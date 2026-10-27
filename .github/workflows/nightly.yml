@@ -97,6 +97,7 @@ jobs:
           # Replication part 1 (#165): tier 1 under failure injection.
           VARVE_FOLLOWER_FAULT_SCHEDULES: "2000"
           VARVE_CLAIM_IN_PLACE_SCHEDULES: "1000"
+          VARVE_CACHE_FAULT_SCHEDULES: "1000"
         run: >
           dotnet test
           --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj

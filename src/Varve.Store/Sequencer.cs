@@ -267,6 +267,7 @@ public sealed partial class Dataset
                 // of the active segment can no longer be trusted, and nothing
                 // staged against it was ever real (ADR 0124 point 3).
                 _broken = "An append failed; reopen the dataset to recover.";
+                _appendFailed = error is not WriterSupersededException;
 
                 foreach (Member member in members)
                 {

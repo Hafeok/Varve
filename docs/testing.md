@@ -222,6 +222,7 @@ raises it for the release gate (#129) and for hunting:
 | `ObjectReaderScheduleTests`: over generated schedules of readers attaching, pinning, crashing, restarting and being forgotten, a writer holding several versions, and a second writer taking the epoch over, no extent a live announced version names is deleted, and every unnamed set goes once no record holds it | 60 schedules, about 4 s | `VARVE_READER_SCHEDULES=<n>` (1,200 ran clean at development) |
 | `ObjectFollowerFaultTests` (#165, tier 1 under failure injection): over generated schedules of commits, seals, consolidations, takeovers after a close or a crash, re-opens of the follower, and advances whose reads the store fails before or after applying them, the follower equals the reference model at every position it reports, and reaches the head once the faults stop | 60 schedules, about 2 s | `VARVE_FOLLOWER_FAULT_SCHEDULES=<n>` (2,000 ran clean at development, about 60 s) |
 | `ClaimInPlaceTests` (#165, ADR 0179 point 8): over generated histories of commits, consolidations, checkpoints and advances, a follower claims the epoch in place at any point, after its writer closed or while it stalls, and writes on; the stalled writer appends nothing after the fence, and the dataset claimed in place answers every read equally to one re-opened from the catalog, as of every position after the claim | 40 schedules, about 2 s | `VARVE_CLAIM_IN_PLACE_SCHEDULES=<n>` (1,000 ran clean at development, about 18 s) |
+| `CacheFaultTests` (#165, #146, ADR 0179 point 6): over generated schedules of commits, consolidations, checkpoints and reads by the writer and a follower, writes to the segment copies, the extent pages or both fail from any step on; every commit is acknowledged, the writer keeps its one epoch and never fails an append or a spill, every read at every position equals the reference model, and only the kinds that failed are reported off. Mutants that rethrow instead of degrading are caught | 40 schedules, about 2 s | `VARVE_CACHE_FAULT_SCHEDULES=<n>` (1,000 ran clean at development, about 28 s) |
 | `ObjectReaderScheduleTests`: a fault before and after every write and delete the maintenance workload makes, under `derived/` and `readers/` | every injection point checked for whole catalogs; every eighth also read at every position; about 20 s | `VARVE_EXTENT_FAULTS_FULL=1`: every point read in full, about 30 s |
 
 #133 (ADRs 0177, 0178) adds the seek's properties, under the same variable:
@@ -284,7 +285,8 @@ both `ExtentMergeTests`' and #133's `ExtentSeekTests`' schedules),
 `VARVE_READER_SCHEDULES=1200` (60; the count run clean at development) and
 `VARVE_EXTENT_FAULTS_FULL=1`. Replication part 1 (#165) adds
 `VARVE_FOLLOWER_FAULT_SCHEDULES=2000` (60) and
-`VARVE_CLAIM_IN_PLACE_SCHEDULES=1000` (40).
+`VARVE_CLAIM_IN_PLACE_SCHEDULES=1000` (40) and
+`VARVE_CACHE_FAULT_SCHEDULES=1000` (40).
 
 The nightly run's second job sets `VARVE_LONG_PROPERTIES=1` for the SHACL
 projects: `Varve.Derivation.Tests`, `Varve.Shacl.Tests`,

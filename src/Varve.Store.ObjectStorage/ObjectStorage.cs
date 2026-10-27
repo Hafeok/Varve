@@ -62,6 +62,7 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
     private ObjectVersion? _readerVersion;
     private bool _readerForgotten;
     private int _disposed;
+    private LocalCacheHealth _cache = new();
 
     private ObjectStorage(IObjectStore store, ObjectNames names, TimeProvider clock, ObjectSegmentStore log, FileStorage local, ObjectDerivedStore derived, WriterRecord? record, ObjectVersion? recordVersion, bool supersededAtOpen)
     {
@@ -94,6 +95,13 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
     /// continue; every write is refused with <see cref="WriterSupersededException"/>.
     /// </summary>
     public bool IsSuperseded => SupersededAtOpen || (_log.Writes && (_log.Superseded || _derived.CatalogSuperseded));
+
+    /// <summary>
+    /// The local caches turned off because a write to them failed (#146): what
+    /// they would hold is read from the store, and nothing else changes. A
+    /// host reports them on readiness (ADR 0179 point 6).
+    /// </summary>
+    public LocalCache CacheOff => _cache.Off;
 
     /// <summary>The writer record as this storage last read or wrote it, or none when the store has none.</summary>
     public WriterRecord? Writer { get; private set; }
@@ -750,6 +758,10 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
                 Holder = options.Instance,
             };
             derived.Gone = storage.Gone;
+            LocalCacheHealth health = new() { Fault = options.CacheFault };
+            log.Cache = health;
+            derived.Cache = health;
+            storage._cache = health;
 
             if (write && !lost && !log.Superseded && log.Fence is { } fence)
             {

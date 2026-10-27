@@ -150,6 +150,9 @@ public sealed partial class Dataset : IAsyncDisposable
     private TaskCompletionSource _headAdvanced = NewSignal();
     private volatile State _state;
     private string? _broken;
+
+    // Set when a batch's append failed against the storage (ADR 0124 point 3).
+    private volatile bool _appendFailed;
     private volatile bool _disposing;
 
     private Dataset(IStorage storage, DatasetId id, DatasetOptions options, TermDictionary dictionary, LogWriter writer, State state)
@@ -200,6 +203,15 @@ public sealed partial class Dataset : IAsyncDisposable
     /// <see cref="RebuildDefaultProjectionAsync"/> succeeds (spec §7).
     /// </summary>
     public bool IsFailed => _state.Failed is not null;
+
+    /// <summary>
+    /// Whether a batch's append failed against the storage, with its retries
+    /// spent, so that the writer refuses every later commit until the dataset
+    /// is opened again (ADR 0124 point 3). A host whose dataset has a standby
+    /// releases the writer epoch then, for <c>storage-error</c>, so that the
+    /// standby need not wait for the re-open (ADR 0179 point 6).
+    /// </summary>
+    public bool AppendFailed => _appendFailed;
 
     /// <summary>
     /// The position the default projection has applied (spec §7): the head,
