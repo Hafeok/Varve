@@ -1,0 +1,43 @@
+<!-- @dsCard group="Templates" height=440 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8">
+<link rel="stylesheet" href="../../tokens.css"><link rel="stylesheet" href="../../bundle.css"><title>Shell — preview</title>
+<style>html,body{margin:0}body.vw-root{padding:16px}</style></head>
+<body class="vw-root">
+<style>.demo{height:420px;border:1px solid var(--rule);overflow:hidden}</style>
+<div class="demo">
+<div class="vw-shell">
+  <header class="vw-shell__bar">
+    <a class="vw-shell__brand" href="#"><img src="../../assets/varve-core.svg" alt=""> Varve</a>
+    <span class="vw-shell__server">https://varve.example</span>
+    <span class="vw-plane">Data plane <strong>signed in</strong></span>
+    <span class="vw-plane">Management <strong>signed in</strong></span>
+    <button class="vw-button vw-button--small" type="button">Sign out</button>
+  </header>
+  <nav class="vw-shell__nav" aria-label="Console">
+    <div class="vw-shell__navgroup vw-label">Operate</div>
+    <ul>
+      <li><a href="#" aria-current="page">Datasets</a></li>
+      <li><a href="#">Health</a></li>
+      <li><a href="#">Fleet</a></li>
+    </ul>
+    <div class="vw-shell__navgroup vw-label">History</div>
+    <ul><li><a href="#">Commits</a></li></ul>
+    <div class="vw-shell__navgroup vw-label">Declarations</div>
+    <ul>
+      <li><a href="#">Grants</a></li>
+      <li><a href="#">Shapes</a></li>
+    </ul>
+  </nav>
+  <main class="vw-shell__main">
+    <div class="vw-viewhead">
+      <h1 class="vw-viewhead__title">Datasets</h1>
+      <span class="vw-position vw-position--management"><span class="vw-position__label">management</span> <span class="vw-position__value">412</span></span>
+    </div>
+    <p class="vw-muted">Three datasets declared; this instance writes two of them.</p>
+  </main>
+</div>
+</div>
+</body>
+</html>
