@@ -1,0 +1,15 @@
+@inherits LayoutComponentBase
+@* Unstyled semantic markup until docs/ui/ lands (#96): landmarks, a skip
+   link and a navigation list, and no colour, type, spacing or icon. *@
+<a href="#main">Skip to the content</a>
+<header>
+    <p>Varve</p>
+    <nav aria-label="Screens">
+        <ul>
+            <li><NavLink href="health" Match="NavLinkMatch.All">Health</NavLink></li>
+        </ul>
+    </nav>
+</header>
+<main id="main" tabindex="-1">
+    @Body
+</main>

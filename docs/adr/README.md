@@ -148,7 +148,7 @@ Decided by the maintainer on the 5c report.
 
 | # | Title | Status |
 |---:|---|---|
-| [0060](0060-hosts-at-layer-6-the-composition-root.md) | Hosts at layer 6: the composition root, reserved to executables | Accepted; supersedes 0003's layer table; amended 2026-10-07 (the protocol seam's revisit condition; proposed) |
+| [0060](0060-hosts-at-layer-6-the-composition-root.md) | Hosts at layer 6: the composition root, reserved to executables | Accepted; supersedes 0003's layer table; amended 2026-10-07 (the protocol seam's revisit condition; proposed); amended 2026-10-27 (a host may be a browser application; filed unaccepted, #167) |
 | [0061](0061-canonical-n-triples-is-rdf-1-2s.md) | Canonical N-Triples and N-Quads follow RDF 1.2; where 1.1 and 1.2 differ, 1.2 wins | Accepted |
 
 ## Adopting `DecisionDriven.Analyzers`
@@ -376,6 +376,15 @@ Filed by [#133](https://github.com/Hafeok/Varve/issues/133), in 1.0 ([#15](https
 |---:|---|---|
 | [0177](0177-seek-dont-narrow-intervals-beside-the-key.md) | Seek, don't narrow: an extent's intervals beside its keys, derived format 5 | Filed unaccepted (#133) |
 | [0178](0178-the-format-5-upgrade-and-the-set-cap.md) | The format-5 upgrade, mixed-version instances, and the set cap | Filed unaccepted (#133) |
+
+## Web UI, part 1 (#167)
+
+Filed by Web UI part 1 ([#167](https://github.com/Hafeok/Varve/issues/167), milestone [#96](https://github.com/Hafeok/Varve/issues/96)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0200: Replication holds 0179–0189 and Inference 0190–0199. Amended by it, likewise unaccepted: 0060 (a host may be a browser application published as static files).
+
+| # | Title | Status |
+|---:|---|---|
+| [0200](0200-varve-webui-a-blazor-webassembly-host.md) | `Varve.WebUi`: a Blazor WebAssembly host at layer 6, and what Blazor costs | Filed unaccepted (Web UI part 1, #167) |
+| [0203](0203-typed-reads-in-the-protocol-client.md) | Typed reads in `Varve.Protocol.Client`: health, problems, response facts and the management plane | Filed unaccepted (Web UI part 1, #167) |
 
 ## Conformance — differential testing against Oxigraph
 

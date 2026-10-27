@@ -30,6 +30,7 @@
     <Project Path="src/Varve.Store.Azure/Varve.Store.Azure.csproj" />
     <Project Path="src/Varve.Store.S3/Varve.Store.S3.csproj" />
     <Project Path="src/Varve.Turtle/Varve.Turtle.csproj" />
+    <Project Path="src/Varve.WebUi/Varve.WebUi.csproj" />
     <Project Path="src/Varve.Xsd/Varve.Xsd.csproj" />
   </Folder>
   <Folder Name="/tests/">
@@ -57,6 +58,7 @@
     <Project Path="tests/Varve.Store.Tests/Varve.Store.Tests.csproj" />
     <Project Path="tests/Varve.Rec.Tests/Varve.Rec.Tests.csproj" />
     <Project Path="tests/Varve.Turtle.Tests/Varve.Turtle.Tests.csproj" />
+    <Project Path="tests/Varve.WebUi.Tests/Varve.WebUi.Tests.csproj" />
     <Project Path="tests/Varve.Xsd.Tests/Varve.Xsd.Tests.csproj" />
   </Folder>
 </Solution>

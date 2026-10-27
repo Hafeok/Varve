@@ -1,0 +1,43 @@
+@* A problem in the screen's place (#167): its title, status and detail, every
+   member it carries, a link to its page in docs/problems/ at the revision
+   this build came from, and the request id. Never a blank screen. *@
+<section role="alert" aria-labelledby="problem-title" data-problem="@(Problem.Type.Name ?? Problem.Type.Value)">
+    <h2 id="problem-title">@(Problem.Title.Length > 0 ? Problem.Title : "The server answered with a problem")</h2>
+    <dl>
+        <dt>Status</dt>
+        <dd>@((int)Problem.Status)</dd>
+        @if (Problem.Detail is not null)
+        {
+            <dt>Detail</dt>
+            <dd>@Problem.Detail</dd>
+        }
+        <dt>Type</dt>
+        <dd>
+            <code>@Problem.Type.Value</code>
+            @if (Problem.Type.Name is string name)
+            {
+                <text> · </text><a href="@ProblemDocs.Page(name)" rel="noreferrer">What it means</a>
+            }
+        </dd>
+        @if ((Facts?.RequestId ?? Problem.Instance) is { } request)
+        {
+            <dt>Request</dt>
+            <dd><code>@request</code></dd>
+        }
+    </dl>
+    @if (Problem.Members.Count > 0)
+    {
+        <h3>What the problem carries</h3>
+        <JsonMembers Members="Problem.Members" />
+    }
+</section>
+
+@code {
+    /// <summary>The problem to show.</summary>
+    [Parameter, EditorRequired]
+    public Problem Problem { get; set; } = null!;
+
+    /// <summary>The response's facts, when the problem came from one.</summary>
+    [Parameter]
+    public ResponseFacts? Facts { get; set; }
+}

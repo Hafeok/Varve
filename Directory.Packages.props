@@ -111,6 +111,18 @@
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.12" Adr="0131" Scope="src/Varve.Protocol.Client/" />
   </ItemGroup>
 
+  <ItemGroup Label="The Web UI (ADR 0200)">
+    <!-- Blazor WebAssembly: the components, the WebAssembly host and their
+         Microsoft.Extensions and JSInterop closure, MIT, managed, trimming-
+         annotated, no native asset. Scoped to the Web UI and its tests: no
+         other project may reference it, so no src/ package gains a Blazor
+         reference (ADR 0200). At the runtime's version, as JwtBearer is:
+         10.0.13 and 10.0.14 exist, and the pinned 10.0.12 of the
+         Microsoft.Extensions abstractions would refuse their closure as a
+         downgrade under transitive pinning. -->
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.12" Adr="0200" Scope="src/Varve.WebUi/, tests/Varve.WebUi.Tests/" />
+  </ItemGroup>
+
   <ItemGroup Label="Samples only — never of a shipped package (ADR 0133)">
     <!-- What an application really uses, for the samples that show how one
          uses Varve. Scoped to samples/, and the register fails a reference

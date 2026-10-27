@@ -1,0 +1,15 @@
+@* The router (ADR 0200). Focus moves to each page's h1 on navigation, so a
+   keyboard or screen reader user lands on what changed (WCAG 2.4.3). *@
+<Router AppAssembly="typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="typeof(Layout.MainLayout)">
+            <PageTitle>Not found · Varve</PageTitle>
+            <h1 tabindex="-1">Not found</h1>
+            <p>The Web UI has no screen at this address.</p>
+        </LayoutView>
+    </NotFound>
+</Router>

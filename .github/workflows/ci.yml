@@ -1621,7 +1621,8 @@ jobs:
   # Constraint 3. CI publishes the browser build and requires it to be
   # warning-free; it does not run it, because running it needs a browser and a
   # server. The run happens where the browser is, and ADR 0020 records the
-  # result of the one that mattered.
+  # result of the one that mattered. The Web UI is published here too, trimmed
+  # and warning-free (ADR 0200).
   wasm:
     name: browser wasm
     runs-on: ubuntu-latest
@@ -1665,6 +1666,18 @@ jobs:
         with:
           name: wasm-app-bundle
           path: tests/Varve.WasmSmoke/bin/Release/net10.0/browser-wasm/AppBundle
+          if-no-files-found: error
+
+      - name: Publish the Web UI
+        # ADR 0200: trimmed, relinked, from the checkout's clean tree, with a
+        # trim or AOT warning an error like any other.
+        run: dotnet publish src/Varve.WebUi --configuration Release --output "$RUNNER_TEMP/webui"
+
+      - name: Upload the Web UI
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: webui
+          path: ${{ runner.temp }}/webui/wwwroot
           if-no-files-found: error
 
   # The browser storage backends, run in a browser (ADR 0084): the storage

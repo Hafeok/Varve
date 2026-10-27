@@ -140,3 +140,23 @@ code the same way. One seam is a binding; two are bookkeeping. A third means
 protocols are a layer of their own between integrations and hosts, and this
 ADR's table should then be superseded with protocols at 6 and hosts at 7. The
 ruling is `ProtocolSeamRevisitCondition`.
+
+## Amendment, 2026-10-27 — a host may be a browser application
+
+Filed by Web UI part 1 (#167, milestone #96), unaccepted until the maintainer
+accepts it (ADR 0066). The table is unchanged.
+
+`Varve.WebUi` (ADR [0200](0200-varve-webui-a-blazor-webassembly-host.md)) is
+an executable in the sense this ADR means. It is a Blazor WebAssembly
+application whose entry point is the composition root: the server's
+address, the clients it reads through, and the clock. So it is layer 6.
+Two things are new for a host:
+- **It is published as static files and never packed.** It declares
+  `<VarveShipped>true</VarveShipped>`, and the native-asset gate walks its
+  closure as it walks a package's (ADR 0009's amendment of 2026-09-22, which
+  scopes constraint 1 to shipped artefacts).
+- **Its framework packages are scoped to it in the register.** A host may take
+  a framework no library may, and the register's scope (ADR 0133) is what
+  keeps it there.
+
+The ruling is `BrowserApplicationHost`.

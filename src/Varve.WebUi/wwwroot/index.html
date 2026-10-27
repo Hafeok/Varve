@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Varve</title>
+    <!-- The path the server serves the Web UI under (ADR 0202). A static
+         host serving it elsewhere changes this one value. -->
+    <base href="/ui/">
+</head>
+<body>
+    <!-- No inline script and no inline style, so the CSP holds with
+         script-src 'self' 'wasm-unsafe-eval' and style-src 'self' (ADR 0202).
+         Unstyled until docs/ui/ lands. -->
+    <div id="app">
+        <p role="status">Loading the Varve Web UI…</p>
+    </div>
+    <div id="blazor-error-ui" role="alert" hidden>
+        The Web UI stopped with an error. <a href="">Reload</a>
+    </div>
+    <script src="_framework/blazor.webassembly.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+@* Members a screen has no specific view for, as name and JSON (ADR 0203):
+   what a newer server sends is shown, not dropped, until it gets a view. *@
+<dl>
+    @foreach (KeyValuePair<string, System.Text.Json.JsonElement> member in Members)
+    {
+        <dt>@member.Key</dt>
+        <dd><code>@member.Value.GetRawText()</code></dd>
+    }
+</dl>
+
+@code {
+    /// <summary>The members, by name.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyDictionary<string, System.Text.Json.JsonElement> Members { get; set; } = new Dictionary<string, System.Text.Json.JsonElement>();
+}
