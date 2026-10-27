@@ -26,7 +26,12 @@ public class RewritingEqualsMaterialisationTests
 
     private static readonly RdfTerm[] Individuals = [Named("a"), Named("b"), Named("c"), RdfTerm.BlankNode("n1"u8)];
     private static readonly RdfTerm[] Constants = [Named("a"), Named("b"), Named("c")];
-    private static readonly RdfTerm[] Literals = [RdfTerm.Literal("x"u8), RdfTerm.Literal("1"u8, IriOf("http://www.w3.org/2001/XMLSchema#integer")), RdfTerm.Literal("y"u8, "en"u8)];
+    private static readonly RdfTerm[] Literals =
+    [
+        RdfTerm.Literal("x"u8), RdfTerm.Literal("1"u8, IriOf("http://www.w3.org/2001/XMLSchema#integer")), RdfTerm.Literal("y"u8, "en"u8),
+        RdfTerm.Literal("01"u8, IriOf("http://www.w3.org/2001/XMLSchema#integer")), RdfTerm.Literal("1"u8, IriOf("http://www.w3.org/2001/XMLSchema#int")),
+        RdfTerm.Literal("1.0"u8, IriOf("http://www.w3.org/2001/XMLSchema#decimal")),
+    ];
     private static readonly RdfTerm[] Classes = [Named("C1"), Named("C2"), Named("C3")];
     private static readonly RdfTerm[] Properties = [Named("p1"), Named("p2"), Named("p3")];
     private static readonly RdfTerm[] Vocab =

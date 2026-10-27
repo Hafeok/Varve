@@ -152,10 +152,21 @@ internal sealed class TripleClosure
             // rdfD2: the predicate of every triple is a property.
             Add(p, Vocabulary.Type, Vocabulary.Property);
 
-            // GrdfD1: a literal of a recognised datatype has that type.
+            // GrdfD1: a literal of a recognised datatype has that type; under
+            // D, every recognised datatype whose value space holds its value.
             if (o.Kind == RdfTermKind.Literal && DatatypeOf(o) is { } datatype && _rules.Recognised.Contains(datatype))
             {
                 Add(o, Vocabulary.Type, datatype);
+                if (_rules.Recognised.Contains(Vocabulary.Integer))
+                {
+                    foreach (RdfTerm other in _rules.Recognised)
+                    {
+                        if (LiteralValues.HasValueType(o, other))
+                        {
+                            Add(o, Vocabulary.Type, other);
+                        }
+                    }
+                }
             }
 
             if (!_rules.Rdfs)

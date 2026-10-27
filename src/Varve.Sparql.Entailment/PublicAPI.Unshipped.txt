@@ -12,3 +12,8 @@ Varve.Sparql.Entailment.Model.EntailmentRegime.Simple = 0 -> Varve.Sparql.Entail
 static Varve.Sparql.Entailment.EntailmentRegimes.Iri(Varve.Sparql.Entailment.Model.EntailmentRegime regime) -> Varve.Rdf.RdfTerm!
 static Varve.Sparql.Entailment.EntailmentRegimes.TryFromIri(Varve.Rdf.RdfTerm! iri, out Varve.Sparql.Entailment.Model.EntailmentRegime? regime) -> bool
 static Varve.Sparql.Entailment.EntailmentRewriter.Rewrite(Varve.Sparql.Algebra.Query! query, Varve.Rdf.IQuadSource! source, System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! tboxGraphs, Varve.Sparql.Entailment.Model.EntailmentRegime regime, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Varve.Sparql.Entailment.EntailedQuery!
+Varve.Sparql.Entailment.LiteralValues
+static Varve.Sparql.Entailment.LiteralValues.Canonical(Varve.Rdf.RdfTerm! term) -> Varve.Rdf.RdfTerm!
+static Varve.Sparql.Entailment.LiteralValues.FunctionIri.get -> Varve.Rdf.RdfTerm!
+static Varve.Sparql.Entailment.LiteralValues.HasValueType(Varve.Rdf.RdfTerm! literal, Varve.Rdf.RdfTerm! datatype) -> bool
+static Varve.Sparql.Entailment.LiteralValues.HasValueTypeIri.get -> Varve.Rdf.RdfTerm!

@@ -33,6 +33,15 @@ internal static class Oracle
     internal static List<string> Solutions(EntailmentRegime regime, IReadOnlyList<(RdfTerm S, RdfTerm P, RdfTerm O)> graph, IReadOnlyList<Slot[]> bgp, string? graphVariable = null, RdfTerm? graphName = null)
     {
         RuleSet rules = EntailmentRewriter.RulesOf(regime);
+
+        // Under D, a literal is its value: every literal, the graph's and the
+        // query's, in its canonical form (Entailment Regimes §5.1).
+        if (regime == EntailmentRegime.D)
+        {
+            graph = [.. graph.Select(t => (LiteralValues.Canonical(t.S), t.P, LiteralValues.Canonical(t.O)))];
+            bgp = [.. bgp.Select(p => p.Select(s => s.Term is { } term ? s with { Term = LiteralValues.Canonical(term) } : s).ToArray())];
+        }
+
         TripleClosure closure = new(rules);
         closure.AddAxioms();
         HashSet<RdfTerm> vocabulary = new(RdfTerm.Comparer);

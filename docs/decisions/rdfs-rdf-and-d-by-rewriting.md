@@ -13,6 +13,10 @@ decisions:
     statement: "Every RDFS rule has at most one premise outside the schema, so each pattern is rewritten into the union of the schema's matching triples and, per shape, the asserted pattern whose images can match it, through tables compiled by the forward chainer over one representative per shape"
   - key: ExistenceGuardedFacts
     statement: "A fact entailed only if some asserted triple of a shape exists is guarded by an existence subquery over that shape, so it is never emitted for a graph without it"
+  - key: ShapesThatActOnOthersAreSchema
+    statement: "The asserted triples of a shape whose consequences include a schema triple about one of its roles, other than reflexive subClassOf or subPropertyOf and subClassOf rdfs:Resource, are read into the schema before it is closed again"
+  - key: SigmaRestrictedLikeMu
+    statement: "A blank node of the query binds, as a variable does under C2, only a term of the scoping graph or of the regime's vocabulary less rdf:_n, where the specification leaves σ unbounded"
   - key: AnswerConditions
     statement: "Rewritten answers meet the regime's conditions: no invented blank node (C1), variables bound only to terms of the scoping graph or the regime's vocabulary less rdf:_n (C2), no literal in a variable's subject position, a query blank node free to stand for a literal's surrogate"
   - key: MultiplicityByDistinctSigma
@@ -20,7 +24,7 @@ decisions:
   - key: CompleteForTheThreeRegimes
     statement: "The rewriting is complete for the RDFS regime (section 4), the RDF regime (section 2) and the D regime (section 5.1), refuses nothing in them, finds container membership properties by one scan of the scoping graph when a pattern needs them, and checks no consistency"
   - key: DByValue
-    statement: "Under d the datatype map is Varve.Xsd's, a literal constant matches by value and a literal answer is canonical; under simple, rdf and rdfs literals stay as written"
+    statement: "Under d the datatype map is Varve.Xsd's, a literal constant matches by value, a literal answer is canonical, a literal is an instance of every recognised datatype whose value space holds its value, and the host registers varve:canonical and varve:hasValueType; under simple, rdf and rdfs literals stay as written"
   - key: BasicGraphPatternsOnly
     statement: "Only basic graph patterns are rewritten: property paths are evaluated without entailment and updates under simple entailment"
   - key: RewritingEqualsMaterialisation

@@ -87,7 +87,23 @@ asserted triple under a finite chain of steps, each guided by the schema.
 2. Add the regime's axiomatic triples. For RDFS that is RDF 1.1 Semantics'
    rdfsV less `rdf:_n`, and its `rdf:_n` axioms only for the `rdf:_n` that
    occur in the scoping graph (point 5).
-3. Close the result under the RDFS rules with the procedure of Appendix A.
+3. Add, by the same matches, the triples typed under
+   `rdfs:ContainerMembershipProperty` or `rdfs:Datatype`, and the triples of
+   a predicate whose domain or range is one of those. rdfs12 and rdfs13 turn
+   them into schema triples.
+4. Add the asserted triples of any shape (point 3) whose consequences
+   include a schema triple about one of its roles that other triples feel,
+   that is any but (r `rdfs:subClassOf` r), (r `rdfs:subPropertyOf` r) and
+   (r `rdfs:subClassOf` `rdfs:Resource`). The context's property assumes the
+   schema is fixed, and meta-modelling can break it: under `rdfs:subClassOf
+   rdfs:domain rdfs:ContainerMembershipProperty`, a plain
+   `rdfs:subClassOf a rdfs:subClassOf` makes `rdfs:subClassOf` a
+   sub-property of `rdfs:member` through rdfs10, which acts on every
+   `rdfs:subClassOf` triple. A pathological schema can pull every triple into
+   Σ. The result is then correct, at the cost of materialising the scoping
+   graph.
+5. Close the result under the RDFS rules with the procedure of Appendix A,
+   and repeat from 1 until nothing more is read.
 
 **Which graphs need their own Σ.** A query rewrites each BGP once for each
 distinct Σ it can meet:
@@ -139,6 +155,18 @@ it emits is in the scoping graph or in the regime's vocabulary (C1 and C2).
   for rdfD1's surrogate of a literal, as GrdfD1 has it (Appendix A), so the
   literal filter is not applied to it. That is the only place a generalised
   triple affects an answer.
+- **The range of σ, the specification's gap.** Read literally, §2 and §4 let
+  σ map a query blank node to any term (RDF-T). C2 restricts only variables.
+  So `SELECT * { _:b a rdfs:Resource }` on the empty graph has one solution
+  of unbounded multiplicity, one per IRI. The regimes never discuss this, and
+  SPARQL Query asks them to prevent trivial infinite answers (§1.3).
+  **Varve restricts σ as C2 restricts μ:** a blank node of the query binds a
+  term of the scoping graph or of the regime's vocabulary, less `rdf:_n`.
+- **Terms the closure holds that the graph need not name.** These are an
+  `rdf:_n` the query names (§3.4), and, under RDF and RDFS, `xsd:string`,
+  which rdfs1 and GrdfD1 type. A variable or query blank node binds one of
+  them only where the active graph names it, checked by an `EXISTS` in the
+  active graph, since under `GRAPH ?g` that graph varies per solution.
 - **C2's vocabulary.**
   - RDFS uses rdfsV-Minus.
   - RDF uses rdfV-Minus, with rdfD2 and RDF's axioms only. The RDFS steps are
@@ -180,11 +208,27 @@ appears once per distinct σ, as §1.3 defines.
   precision policy), and the operator guide documents it, as §5.1 requires.
 - **Canonical literals.** Each datatype's canonical literal is Varve.Xsd's
   canonical form, its lexical form canonical and its datatype canonical.
-- **Literal constants match by value.** A literal constant in a BGP becomes a
-  variable plus a value comparison over a predicate-bound `Match`. It is
-  fast when both literals are canonical and inline (ADR 0050).
+- **Canonical datatypes.** The canonical datatype is `xsd:integer` for every
+  integer, whether of an integer type or an integral `xsd:decimal`. It is
+  `xsd:dateTime` for `xsd:dateTimeStamp`, and `xsd:duration` for its two
+  subtypes. Otherwise it is the literal's own. An ill-typed literal, or one
+  outside the map, is its own canonical form.
+- **Literal constants match by value.** A literal constant in a BGP is
+  compared with the asserted term's canonical form instead of being bound
+  into the `Match`.
 - **Literal answers are returned in canonical form,** since C2 requires them
-  to be in Lit(SG).
+  to be in Lit(SG), and joins between patterns compare canonical forms.
+- **A literal is an instance of every recognised datatype whose value space
+  holds its value** (RDF 1.1 Semantics §7): `"1"^^xsd:int` is an
+  `xsd:integer`, an `xsd:decimal`, an `xsd:unsignedByte`, and so on. Under D
+  the closure's GrdfD1 adds each such type, and the literal family's
+  parameter is the type, tested on the literal's value.
+- **Two extension functions.** The rewriting calls `varve:canonical` and
+  `varve:hasValueType`. The evaluator is at the same layer and cannot be
+  referenced, so the host registers `LiteralValues.Canonical` and
+  `LiteralValues.HasValueType` under those IRIs. That is one adapter each,
+  as every extension function is registered (`sparql-evaluation.md` §7.10).
+  Only D needs them.
 - **Only under `d`.** Simple, RDF and RDFS keep literals as written, so
   `sparql-evaluation.md` §13 stands.
 

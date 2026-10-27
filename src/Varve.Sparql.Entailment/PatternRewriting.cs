@@ -157,6 +157,7 @@ internal sealed class PatternRewriting
 
         List<RdfTerm[]> rows = branch.Rows;
 
+        List<(int Role, RdfTerm Canonical)> valueConstraints = [];
         for (int i = 0; i < 3; i++)
         {
             if (query[i] is not TermPattern && query[i] is not TripleTermPattern)
@@ -165,14 +166,21 @@ internal sealed class PatternRewriting
             }
 
             RdfTerm value = query[i] is TermPattern tp ? tp.Term : GroundTerm((TripleTermPattern)query[i]);
+
             Position at = branch.Out[i];
             int? col = at.IsRole ? roleColumn[at.Index] : at.Index;
+            // Point 7: under D a literal constant matches by value.
+            bool byValue = ByValue(rules) && value.Kind == RdfTermKind.Literal;
             if (col is { } c)
             {
-                rows = Keep(rows, c, value);
+                rows = byValue ? KeepByValue(rows, c, value) : Keep(rows, c, value);
             }
 
-            if (at.IsRole)
+            if (at.IsRole && byValue && roleColumn[at.Index] is null)
+            {
+                valueConstraints.Add((at.Index, LiteralValues.Canonical(value)));
+            }
+            else if (at.IsRole)
             {
                 // Two positions of one role take one term.
                 if (asserted[at.Index] is TermPattern { Term: var earlier } && !earlier.Equals(value))
@@ -235,7 +243,7 @@ internal sealed class PatternRewriting
             QueryPattern? union = null;
             foreach ((List<RdfTerm> terms, List<RdfTerm[]> part) in guarded.Values)
             {
-                if (Build(branch, part, names, blank, own, column, roleColumn, asserted) is not { } built)
+                if (Build(branch, part, names, blank, own, column, roleColumn, asserted, valueConstraints, ByValue(rules)) is not { } built)
                 {
                     continue;
                 }
@@ -252,7 +260,27 @@ internal sealed class PatternRewriting
             return union is null ? null : new Project(union, AlgebraList.From(own));
         }
 
-        return Build(branch, rows, names, blank, own, column, roleColumn, asserted);
+        return Build(branch, rows, names, blank, own, column, roleColumn, asserted, valueConstraints, ByValue(rules));
+    }
+
+    private static bool ByValue(RuleSet rules) => rules.Recognised.Contains(Vocabulary.Integer);
+
+    private static CustomFunctionCall Canonicalised(Expression expression) =>
+        new(LiteralValues.FunctionIri, AlgebraList.Of(expression));
+
+    private static List<RdfTerm[]> KeepByValue(List<RdfTerm[]> rows, int column, RdfTerm value)
+    {
+        RdfTerm canonical = LiteralValues.Canonical(value);
+        List<RdfTerm[]> kept = [];
+        foreach (RdfTerm[] row in rows)
+        {
+            if (LiteralValues.Canonical(row[column]).Equals(canonical))
+            {
+                kept.Add(row);
+            }
+        }
+
+        return kept;
     }
 
     // Whether a term is in the closure without the graph naming it.
@@ -270,7 +298,7 @@ internal sealed class PatternRewriting
             new Bgp(AlgebraList.Of(new TriplePattern(a, b, t))));
     }
 
-    private static Project? Build(Branch branch, List<RdfTerm[]> rows, Variable?[] names, bool[] blank, List<Variable> own, Variable[] column, int?[] roleColumn, PatternTerm[] asserted)
+    private static Project? Build(Branch branch, List<RdfTerm[]> rows, Variable?[] names, bool[] blank, List<Variable> own, Variable[] column, int?[] roleColumn, PatternTerm[] asserted, List<(int Role, RdfTerm Canonical)> valueConstraints, bool byValue)
     {
         int columns = column.Length;
 
@@ -285,6 +313,10 @@ internal sealed class PatternRewriting
             }
 
             Expression source = Source(branch.Out[i], asserted, column, roleColumn);
+            if (byValue)
+            {
+                source = Canonicalised(source);
+            }
 
             if (bound.TryGetValue(name, out Expression? earlier))
             {
@@ -296,7 +328,17 @@ internal sealed class PatternRewriting
             }
         }
 
-        QueryPattern? core = Asserted(branch.Family, asserted);
+        bool literalByValue = byValue && branch.Family == Family.LiteralObject;
+        QueryPattern? core = literalByValue ? new Bgp(AlgebraList.Of(new TriplePattern(asserted[0], asserted[1], asserted[2]))) : Asserted(branch.Family, asserted);
+
+        // Under D the literal family's parameter is a datatype the literal's
+        // value is in, tested once the table has bound it.
+        Expression? late = literalByValue
+            ? new BinaryExpression(
+                BinaryOperator.And,
+                new FunctionCall(BuiltInFunction.IsLiteral, AlgebraList.Of(Term(asserted[2]))),
+                new CustomFunctionCall(LiteralValues.HasValueTypeIri, AlgebraList.Of<Expression>(Term(asserted[2]), new VariableExpression(column[0]))))
+            : null;
         QueryPattern table = new Values(
             AlgebraList.From(column),
             AlgebraList.From(Rows(rows)));
@@ -314,16 +356,27 @@ internal sealed class PatternRewriting
         else if (readsRoles)
         {
             pattern = columns == 0 ? core : new Join(table, core);
+            if (late is not null)
+            {
+                pattern = new Filter(late, pattern);
+            }
         }
         else
         {
             // Point 3: a fact that exists only if some asserted triple of the shape does.
-            pattern = new Filter(new ExistsExpression(core, false), table);
+            pattern = new Filter(new ExistsExpression(late is null ? core : new Filter(late, core), false), table);
         }
 
         foreach ((Variable name, Expression source) in bound)
         {
             pattern = new Extend(pattern, name, source);
+        }
+
+        foreach ((int role, RdfTerm canonical) in valueConstraints)
+        {
+            equalities.Add(new FunctionCall(
+                BuiltInFunction.SameTerm,
+                AlgebraList.Of<Expression>(Canonicalised(new VariableExpression(Roles[role])), new ConstantExpression(canonical))));
         }
 
         foreach (Expression equality in equalities)
