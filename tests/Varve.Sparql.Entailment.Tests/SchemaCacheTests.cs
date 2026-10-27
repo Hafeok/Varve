@@ -107,7 +107,7 @@ public class SchemaCacheTests
     private static VersionedSource Versioned(InMemoryDatasetBuilder builder, params (RdfTerm? Graph, long Version)[] versions) =>
         new VersionedSource(builder.ToDataset(), versions);
 
-    private sealed class VersionedSource(InMemoryDataset inner, (RdfTerm? Graph, long Version)[] versions) : IQuadSource, IGraphVersionSource
+    internal sealed class VersionedSource(InMemoryDataset inner, (RdfTerm? Graph, long Version)[] versions) : IQuadSource, IGraphVersionSource
     {
         public IEqualityComparer<TermHandle> TermComparer => inner.TermComparer;
 

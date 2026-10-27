@@ -48,6 +48,9 @@ internal sealed class Schema
     /// <summary>Whether the scoping graph was read whole, its schema redefining the vocabulary.</summary>
     internal bool ReadWhole { get; private init; }
 
+    /// <summary>The asserted triples that made <see cref="ReadWhole"/>: each says something of the vocabulary itself.</summary>
+    internal IReadOnlyList<Triple> FullReadCauses { get; private init; } = [];
+
     /// <summary>Σ, closed.</summary>
     internal TripleClosure Closure { get; }
 
@@ -110,9 +113,9 @@ internal sealed class Schema
             // a sub-property of a schema predicate, rdfs:member with a domain —
             // makes any triple a possible schema triple, which no bounded
             // probe finds: its scoping graph is read whole (ADR 0193 point 2).
-            if (rules.Rdfs && RedefinesVocabulary(schema, found))
+            if (rules.Rdfs && Redefinitions(schema, found) is { Count: > 0 } causes)
             {
-                return Whole(source, graphs, rules, named, cancellationToken);
+                return Whole(source, graphs, rules, named, causes, cancellationToken);
             }
 
             bool more = false;
@@ -300,22 +303,23 @@ internal sealed class Schema
 
     // A triple of Σ whose subject is the vocabulary's, but for an rdf:_n,
     // under a schema or type-like predicate.
-    private static bool RedefinesVocabulary(Schema schema, List<Triple> found)
+    private static List<Triple> Redefinitions(Schema schema, List<Triple> found)
     {
+        List<Triple> causes = [];
         foreach (Triple t in found)
         {
             // An rdf:_n is one term like any the user names, which the probes follow.
             if (Vocabulary.IsVocabulary(t.S) && !Vocabulary.IsContainerMembership(t.S) && (schema.SchemaPredicates.Contains(t.P) || schema.TypeLike.Contains(t.P)))
             {
-                return true;
+                causes.Add(t);
             }
         }
 
-        return false;
+        return causes;
     }
 
     /// <summary>Σ of a scoping graph read whole: every triple, and the axioms of every <c>rdf:_n</c> it names.</summary>
-    private static Schema Whole(IQuadSource source, IReadOnlyList<GraphPattern> graphs, RuleSet rules, IReadOnlyCollection<RdfTerm> named, CancellationToken cancellationToken)
+    private static Schema Whole(IQuadSource source, IReadOnlyList<GraphPattern> graphs, RuleSet rules, IReadOnlyCollection<RdfTerm> named, List<Triple> causes, CancellationToken cancellationToken)
     {
         List<Triple> all = [];
         Scan(source, graphs, null, null, null, all, []);
@@ -330,7 +334,7 @@ internal sealed class Schema
         closure.AddContainerMembershipAxioms(Terms(all));
         closure.AddContainerMembershipAxioms(named);
         closure.Close();
-        Schema schema = new(rules, closure) { Scans = [new Scan(null, null, null)], ReadWhole = true };
+        Schema schema = new(rules, closure) { Scans = [new Scan(null, null, null)], ReadWhole = true, FullReadCauses = causes };
         schema.Branches = Shapes.Compile(schema);
         return schema;
     }

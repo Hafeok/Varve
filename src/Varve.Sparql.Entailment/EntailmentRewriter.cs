@@ -85,6 +85,29 @@ public static class EntailmentRewriter
         return new EntailedQuery(rewriter.Rewrite(query), merge);
     }
 
+    /// <summary>
+    /// The graphs of <paramref name="source"/> whose content makes a schema
+    /// under RDFS or D read its scoping graph whole (ADR 0193 point 2): each
+    /// holds a triple that says something of the RDF or RDFS vocabulary
+    /// itself. Found by the saturation's own probes, through
+    /// <paramref name="schemas"/> where given, so a scoping graph whose
+    /// versions have not changed is not read again.
+    /// </summary>
+    /// <remarks>
+    /// The scoping graphs asked are those a query can meet: the default
+    /// graph, each binding's TBox graphs, and each named graph with schema
+    /// triples of its own. A graph named here forces the full read of every
+    /// scoping graph it is part of: a data graph its own, a TBox graph every
+    /// graph its binding covers.
+    /// </remarks>
+    public static FullReadGraphs FullReads(IQuadSource source, IReadOnlyList<TBoxCover> covers, SchemaCache? schemas = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(covers);
+        TBoxMerge merge = new(source, covers);
+        return new Rewriter(merge, null, RulesOf(EntailmentRegime.Rdfs), [], schemas, cancellationToken).FullReads();
+    }
+
     /// <summary>A regime's rules, recognising <paramref name="recognised"/> beside the two every regime does.</summary>
     internal static RuleSet RulesOf(EntailmentRegime regime, IEnumerable<RdfTerm> recognised)
     {
@@ -342,6 +365,66 @@ public static class EntailmentRewriter
             }
 
             return found;
+        }
+
+        // Every scoping graph a query can meet, saturated, and the graphs that
+        // hold the triples that made one read whole.
+        internal FullReadGraphs FullReads()
+        {
+            List<IReadOnlyList<GraphPattern>> scopes = [[GraphPattern.DefaultGraph]];
+            foreach (CoverIndex cover in _merge.Covers())
+            {
+                if (TBoxOf(cover) is { Count: > 0 } tbox)
+                {
+                    scopes.Add(tbox);
+                }
+            }
+
+            foreach (TermHandle graph in OwnSchemaGraphs())
+            {
+                scopes.Add([GraphPattern.Named(graph)]);
+            }
+
+            IQuadSource inner = _merge.Inner;
+            bool inDefault = false;
+            HashSet<TermHandle> named = new(inner.TermComparer);
+            foreach (IReadOnlyList<GraphPattern> scope in scopes)
+            {
+                foreach (Triple cause in SchemaOf(scope).FullReadCauses)
+                {
+                    if (!inner.TryInternalise(cause.S, out TermHandle s) || !inner.TryInternalise(cause.P, out TermHandle p) || !inner.TryInternalise(cause.O, out TermHandle o))
+                    {
+                        continue;
+                    }
+
+                    using IQuadCursor cursor = inner.Match(s, p, o, GraphPattern.Any);
+                    while (cursor.MoveNext())
+                    {
+                        if (cursor.Current.Graph.IsNone)
+                        {
+                            inDefault = true;
+                        }
+                        else
+                        {
+                            named.Add(cursor.Current.Graph);
+                        }
+                    }
+                }
+            }
+
+            List<RdfTerm> names = [];
+            foreach (TermHandle graph in named)
+            {
+                if (inner.TryExternalise(graph, out RdfTerm? name))
+                {
+                    names.Add(name);
+                }
+            }
+
+            names.Sort(static (a, b) => string.CompareOrdinal(Text(a), Text(b)));
+            List<RdfTerm?> graphs = inDefault ? [null] : [];
+            graphs.AddRange(names);
+            return new FullReadGraphs(graphs);
         }
 
         // A scoping graph that is one set of graphs is exact; a group under

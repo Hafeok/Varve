@@ -36,10 +36,21 @@ public sealed class EntailmentBindings
         ArgumentNullException.ThrowIfNull(covers);
         Covers = covers;
         Default = defaultRegime;
+        Schemas = new SchemaCache();
     }
 
-    /// <summary>No binding: every graph's TBox is empty, and the default is simple entailment.</summary>
-    public static EntailmentBindings None { get; } = new([], EntailmentRegime.Simple);
+    private EntailmentBindings()
+    {
+        Covers = [];
+        Default = EntailmentRegime.Simple;
+    }
+
+    /// <summary>
+    /// No binding: every graph's TBox is empty, and the default is simple
+    /// entailment. It is shared by every dataset that has none, so it keeps
+    /// no schema: its <see cref="Schemas"/> is null.
+    /// </summary>
+    public static EntailmentBindings None { get; } = new();
 
     /// <summary>The bindings, each its TBox graphs and the graphs it covers.</summary>
     public IReadOnlyList<TBoxCover> Covers { get; }
@@ -50,7 +61,8 @@ public sealed class EntailmentBindings
     /// <summary>
     /// The dataset's saturated schemas, kept across its queries while the
     /// graphs they merge keep their versions (ADR 0193); a new set of
-    /// bindings starts with none.
+    /// bindings starts with none. Null for <see cref="None"/>, which no one
+    /// dataset owns: a cache's keys name graphs, not the dataset they are in.
     /// </summary>
-    public SchemaCache Schemas { get; } = new();
+    public SchemaCache? Schemas { get; }
 }

@@ -107,6 +107,48 @@ public sealed class EntailmentTests : IAsyncLifetime
         Assert.Contains("#defaultEntailmentRegime> <http://www.w3.org/ns/entailment/RDFS>", body, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task A_data_graph_that_redefines_the_vocabulary_is_named_on_its_binding_and_counted_by_readiness()
+    {
+        Assert.Empty(await FullReadsAsync());
+        Assert.Null(await ReadinessCountAsync());
+
+        using HttpResponseMessage redefined = await SendAsync(Update(
+            "INSERT DATA { GRAPH <http://ex/data/2> { <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <" + Rdfs + "subPropertyOf> <http://ex/classifiedAs> } }"), Operator);
+        Assert.Equal(HttpStatusCode.NoContent, redefined.StatusCode);
+
+        Assert.Equal(["http://ex/data/2"], await FullReadsAsync());
+        Assert.Equal(1, await ReadinessCountAsync());
+
+        // The axiom acts in the graph that holds it, read whole: tom's typing
+        // there is a classifiedAs, rex's in data/1 is not.
+        using HttpResponseMessage all = await SendAsync(Query("SELECT ?x WHERE { GRAPH ?g { ?x <http://ex/classifiedAs> <http://ex/Animal> } } ORDER BY ?x", "rdfs"), Operator);
+        Assert.Equal("x\r\nhttp://ex/tom\r\n", await all.Content.ReadAsStringAsync(Ct));
+    }
+
+    // The binding's fullReads, the default graph as null.
+    private async Task<List<string?>> FullReadsAsync()
+    {
+        using HttpRequestMessage get = new(HttpMethod.Get, new Uri("manage/datasets/zoo/bindings/" + Uri.EscapeDataString("urn:tbox"), UriKind.Relative));
+        get.Headers.Authorization = Bearer(_issuer.MintManagement(new Dictionary<string, object> { ["sub"] = "ops", ["roles"] = Operator }));
+        using HttpResponseMessage described = await _server.Client.SendAsync(get, Ct);
+        string body = await described.Content.ReadAsStringAsync(Ct);
+        Assert.True(described.StatusCode == HttpStatusCode.OK, body);
+        using System.Text.Json.JsonDocument json = System.Text.Json.JsonDocument.Parse(body);
+        Assert.Equal("tbox", json.RootElement.GetProperty("kind").GetString());
+        Assert.Equal("http://ex/tbox", json.RootElement.GetProperty("tboxGraphs")[0].GetString());
+        return [.. json.RootElement.GetProperty("fullReads").EnumerateArray().Select(graph => graph.GetString())];
+    }
+
+    // Readiness, unauthenticated, counts the dataset's full reads and names none.
+    private async Task<int?> ReadinessCountAsync()
+    {
+        string body = await _server.Client.GetStringAsync(new Uri("health/ready", UriKind.Relative), Ct);
+        Assert.DoesNotContain("http://ex/data/2", body, StringComparison.Ordinal);
+        using System.Text.Json.JsonDocument json = System.Text.Json.JsonDocument.Parse(body);
+        return json.RootElement.GetProperty("datasets").GetProperty("zoo").TryGetProperty("fullReads", out System.Text.Json.JsonElement n) ? n.GetInt32() : null;
+    }
+
     private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, string[] roles)
     {
         request.Headers.Authorization = Bearer(_issuer.Mint(new Dictionary<string, object> { ["sub"] = roles[0], ["roles"] = roles }));

@@ -623,7 +623,7 @@ internal static partial class ServerHost
             EventSource = settings.Events.Source,
             EventHubs = string.IsNullOrEmpty(settings.Events.EventHubs.Host) ? null : new EventHubsServer(settings.Events.EventHubs.Host, settings.Events.EventHubs.Hub!),
             ValidationReports = fleet.Projections,
-            Entailment = new EntailmentBindingsOfTheFleet(fleet),
+            Entailment = fleet.Entailment,
         };
         fleet.Resume = (name, cancellationToken) => EventDeclarationMove.ResumeAsync(options, fleet, name, cancellationToken);
 
@@ -658,10 +658,28 @@ internal static partial class ServerHost
             }
         }
 
+        // The graphs whose content forces a schema's full read (ADR 0193
+        // point 2), counted: information, never unready. The names are on
+        // the binding's description, behind admin, since this answer is
+        // unauthenticated (ADR 0113) and graph names are a grant's (ADR 0107).
+        Dictionary<string, int> fullReads = new(StringComparer.Ordinal);
+
         foreach (DatasetEntry entry in datasets.List())
         {
             Dataset? dataset = null;
             bool open = entry.State == DatasetState.Open && datasets.TryResolve(entry.Name, out dataset);
+            if (open && !dataset!.IsFailed)
+            {
+                try
+                {
+                    fullReads[entry.Name.Value] = fleet.Entailment.FullReadsOf(entry.Name, dataset).Graphs.Count;
+                }
+                catch (DatasetUnavailableException)
+                {
+                    // Failed since: its line says so.
+                }
+            }
+
             health.Add(new DatasetHealth(
                 entry.Name.Value,
                 entry.State,
@@ -714,6 +732,14 @@ internal static partial class ServerHost
             json.WriteEndObject();
         }
 
+        void FullReads(Utf8JsonWriter json, string name)
+        {
+            if (fullReads.TryGetValue(name, out int count) && count > 0)
+            {
+                json.WriteNumber("fullReads", count);
+            }
+        }
+
         void Moving(Utf8JsonWriter json, string name)
         {
             if (moving.TryGetValue(name, out long since))
@@ -746,6 +772,7 @@ internal static partial class ServerHost
                     }
 
                     Validation(json, state.Name);
+                    FullReads(json, state.Name);
                     json.WriteEndObject();
                 }
 
@@ -784,6 +811,7 @@ internal static partial class ServerHost
                 }
 
                 Validation(json, state.Name);
+                FullReads(json, state.Name);
                 json.WriteEndObject();
             }
 

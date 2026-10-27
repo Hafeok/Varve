@@ -78,7 +78,11 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         Datasets = new OpenDatasets(settings, objects, _order, clock, logger, Moved);
         Instance = new WriterName(_instance.Value);
         Projections = new ValidationProjections(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
+        Entailment = new EntailmentBindingsOfTheFleet(this);
     }
+
+    /// <summary>The datasets' TBox bindings as a query reads them, and their schema caches (ADRs 0193, 0194).</summary>
+    internal EntailmentBindingsOfTheFleet Entailment { get; }
 
     /// <summary>How long a read of a report graph waits for its projection before <c>validation-behind</c> (ADR 0174).</summary>
     internal static readonly TimeSpan ReportWait = TimeSpan.FromSeconds(2);
@@ -353,6 +357,30 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     {
         GrantTable table = Pinned().Table;
         return ShapesBindings.Describe(dataset, binding, table.Declarations, table.Position, Datasets.TryResolve(dataset, out Dataset? held) ? held : null);
+    }
+
+    /// <inheritdoc />
+    public TBoxBindingDescription? DescribeTBoxBinding(DatasetName dataset, RdfTerm binding)
+    {
+        GrantTable table = Pinned().Table;
+        if (!table.Declarations.Datasets.TryGetValue(dataset.Value, out DatasetDeclaration? declared))
+        {
+            return null;
+        }
+
+        for (int i = 0; i < declared.TBoxBindings.Count; i++)
+        {
+            TBoxBindingDeclaration tbox = declared.TBoxBindings[i];
+            if (!tbox.Node.Equals(binding))
+            {
+                continue;
+            }
+
+            Varve.Sparql.Entailment.Model.FullReadGraphs? reads = Datasets.TryResolve(dataset, out Dataset? held) ? Entailment.FullReadsOf(dataset, held, i) : null;
+            return new TBoxBindingDescription(tbox, table.Position, reads);
+        }
+
+        return null;
     }
 
     /// <summary>The highest management position <paramref name="dataset"/>'s log records, as this writer knows (ADR 0165).</summary>

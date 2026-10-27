@@ -667,9 +667,16 @@ internal static class ManagementEndpoints
         }
 
         string? encoded = context.Request.RouteValues[BindingRouteValue] as string;
-        if (string.IsNullOrEmpty(encoded) || plane.DescribeBinding(name, RdfTerm.Iri(Encoding.UTF8.GetBytes(Uri.UnescapeDataString(encoded)))) is not { } binding)
+        RdfTerm? node = string.IsNullOrEmpty(encoded) ? null : RdfTerm.Iri(Encoding.UTF8.GetBytes(Uri.UnescapeDataString(encoded)));
+        if (node is not null && plane.DescribeTBoxBinding(name, node) is { } tbox)
         {
-            await HttpProblems.WriteAsync(context, ProblemType.NotFound, "The dataset declares no shapes binding by that IRI.").ConfigureAwait(false);
+            await WriteTBoxBindingAsync(context, tbox).ConfigureAwait(false);
+            return;
+        }
+
+        if (node is null || plane.DescribeBinding(name, node) is not { } binding)
+        {
+            await HttpProblems.WriteAsync(context, ProblemType.NotFound, "The dataset declares no shapes or TBox binding by that IRI.").ConfigureAwait(false);
             return;
         }
 
@@ -719,6 +726,48 @@ internal static class ManagementEndpoints
             }
         }).ConfigureAwait(false);
     }
+
+    // A TBox binding (ADR 0194): its TBox graphs, profile and default, and,
+    // where the dataset is held here, the graphs that force a full read of a
+    // schema it meets (ADR 0193 point 2), the default graph as null.
+    private static Task WriteTBoxBindingAsync(HttpContext context, TBoxBindingDescription binding) =>
+        WriteJsonAsync(context, StatusCodes.Status200OK, json =>
+        {
+            TBoxBindingDeclaration declared = binding.Declaration;
+            json.WriteString("binding", Encoding.UTF8.GetString(declared.Node.Lexical));
+            json.WriteString("kind", "tbox");
+            json.WriteStartArray("tboxGraphs");
+            foreach (RdfTerm graph in declared.TBoxGraphs)
+            {
+                json.WriteStringValue(Encoding.UTF8.GetString(graph.Lexical));
+            }
+
+            json.WriteEndArray();
+            json.WriteString("profile", declared.Profile.ToString());
+            if (declared.DefaultEntailment is { } regime)
+            {
+                json.WriteString("defaultEntailment", Encoding.UTF8.GetString(regime.Lexical));
+            }
+
+            json.WriteNumber("position", binding.Position.Value);
+            if (binding.FullReads is { } reads)
+            {
+                json.WriteStartArray("fullReads");
+                foreach (RdfTerm? graph in reads.Graphs)
+                {
+                    if (graph is null)
+                    {
+                        json.WriteNullValue();
+                    }
+                    else
+                    {
+                        json.WriteStringValue(graph.Kind == RdfTermKind.BlankNode ? "_:" + Encoding.UTF8.GetString(graph.Lexical) : Encoding.UTF8.GetString(graph.Lexical));
+                    }
+                }
+
+                json.WriteEndArray();
+            }
+        });
 
     /// <summary>The route value naming a binding, its IRI percent-encoded.</summary>
     internal const string BindingRouteValue = "binding";

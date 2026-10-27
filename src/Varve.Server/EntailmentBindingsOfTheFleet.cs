@@ -45,11 +45,8 @@ internal sealed class EntailmentBindingsOfTheFleet(Fleet fleet) : IEntailmentBin
         Dictionary<string, EntailmentBindings> map = new(System.StringComparer.Ordinal);
         foreach ((string name, DatasetDeclaration declared) in table.Declarations.Datasets)
         {
-            if (declared.TBoxBindings.Count == 0)
-            {
-                continue;
-            }
-
+            // A dataset with no binding still gets its own bindings, and so
+            // its own schema cache, for a query that asks for a regime.
             List<TBoxCover> covers = [];
             foreach (TBoxBindingDeclaration binding in declared.TBoxBindings)
             {
@@ -61,6 +58,59 @@ internal sealed class EntailmentBindingsOfTheFleet(Fleet fleet) : IEntailmentBin
         }
 
         return new Mapped(table, map);
+    }
+
+    // The full reads last found per dataset, at the head and bindings they were found at.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (long Head, EntailmentBindings Bindings, FullReadGraphs Reads)> _fullReads = new(System.StringComparer.Ordinal);
+
+    /// <summary>
+    /// The graphs of <paramref name="held"/> whose content forces a schema's
+    /// full read under its bindings (ADR 0193 point 2), at its head: found by
+    /// the saturation's probes through the dataset's schema cache, once per
+    /// head and bindings, so a readiness probe repeats nothing. With
+    /// <paramref name="binding"/>, only the graphs that binding's TBox graphs
+    /// and covered graphs hold.
+    /// </summary>
+    internal FullReadGraphs FullReadsOf(DatasetName dataset, Varve.Store.Dataset held, int? binding = null)
+    {
+        EntailmentBindings bindings = Of(dataset);
+        long head = held.Head.Value;
+        if (!_fullReads.TryGetValue(dataset.Value, out (long Head, EntailmentBindings Bindings, FullReadGraphs Reads) known) || known.Head != head || !ReferenceEquals(known.Bindings, bindings))
+        {
+            using Varve.Store.DatasetView view = held.Pin();
+            known = (view.Position.Value, bindings, EntailmentRewriter.FullReads(view, bindings.Covers, bindings.Schemas));
+            _fullReads[dataset.Value] = known;
+        }
+
+        if (binding is not { } index || index >= bindings.Covers.Count)
+        {
+            return known.Reads;
+        }
+
+        TBoxCover cover = bindings.Covers[index];
+        List<RdfTerm?> mine = [];
+        foreach (RdfTerm? graph in known.Reads.Graphs)
+        {
+            if (cover.Covers(graph) || (graph is not null && Contains(cover.TBoxGraphs, graph)))
+            {
+                mine.Add(graph);
+            }
+        }
+
+        return new FullReadGraphs(mine);
+
+        static bool Contains(IReadOnlyList<RdfTerm> graphs, RdfTerm graph)
+        {
+            foreach (RdfTerm tbox in graphs)
+            {
+                if (tbox.Equals(graph))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 
     private sealed record Mapped(GrantTable Table, Dictionary<string, EntailmentBindings> Bindings);

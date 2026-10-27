@@ -40,3 +40,16 @@ static Varve.Sparql.Entailment.Model.SchemaLookups.operator !=(Varve.Sparql.Enta
 static Varve.Sparql.Entailment.Model.SchemaLookups.operator ==(Varve.Sparql.Entailment.Model.SchemaLookups left, Varve.Sparql.Entailment.Model.SchemaLookups right) -> bool
 ~override Varve.Sparql.Entailment.Model.SchemaLookups.Equals(object obj) -> bool
 ~override Varve.Sparql.Entailment.Model.SchemaLookups.ToString() -> string
+Varve.Sparql.Entailment.Model.FullReadGraphs
+Varve.Sparql.Entailment.Model.FullReadGraphs.<Clone>$() -> Varve.Sparql.Entailment.Model.FullReadGraphs!
+Varve.Sparql.Entailment.Model.FullReadGraphs.Deconstruct(out System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm?>! Graphs) -> void
+Varve.Sparql.Entailment.Model.FullReadGraphs.Equals(Varve.Sparql.Entailment.Model.FullReadGraphs? other) -> bool
+Varve.Sparql.Entailment.Model.FullReadGraphs.FullReadGraphs(System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm?>! Graphs) -> void
+Varve.Sparql.Entailment.Model.FullReadGraphs.Graphs.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm?>!
+Varve.Sparql.Entailment.Model.FullReadGraphs.Graphs.init -> void
+override Varve.Sparql.Entailment.Model.FullReadGraphs.Equals(object? obj) -> bool
+override Varve.Sparql.Entailment.Model.FullReadGraphs.GetHashCode() -> int
+override Varve.Sparql.Entailment.Model.FullReadGraphs.ToString() -> string!
+static Varve.Sparql.Entailment.EntailmentRewriter.FullReads(Varve.Rdf.IQuadSource! source, System.Collections.Generic.IReadOnlyList<Varve.Sparql.Entailment.TBoxCover!>! covers, Varve.Sparql.Entailment.SchemaCache? schemas = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Varve.Sparql.Entailment.Model.FullReadGraphs!
+static Varve.Sparql.Entailment.Model.FullReadGraphs.operator !=(Varve.Sparql.Entailment.Model.FullReadGraphs? left, Varve.Sparql.Entailment.Model.FullReadGraphs? right) -> bool
+static Varve.Sparql.Entailment.Model.FullReadGraphs.operator ==(Varve.Sparql.Entailment.Model.FullReadGraphs? left, Varve.Sparql.Entailment.Model.FullReadGraphs? right) -> bool

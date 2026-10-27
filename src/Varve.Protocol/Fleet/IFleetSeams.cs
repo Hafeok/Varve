@@ -106,4 +106,12 @@ public interface IManagementPlane
 
     /// <summary>A shapes binding of <paramref name="dataset"/> at the applied position, with its classification where this instance holds the dataset; null when there is no such binding. None by default.</summary>
     BindingDescription? DescribeBinding(DatasetName dataset, RdfTerm binding) => null;
+
+    /// <summary>
+    /// A TBox binding of <paramref name="dataset"/> at the applied position,
+    /// with the graphs whose content forces a full read of a schema it
+    /// meets, where this instance holds the dataset (ADR 0194); null when
+    /// there is no such binding. None by default.
+    /// </summary>
+    TBoxBindingDescription? DescribeTBoxBinding(DatasetName dataset, RdfTerm binding) => null;
 }
