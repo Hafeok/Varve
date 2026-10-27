@@ -50,9 +50,10 @@ for Inference, part 1 (#170) on 2026-10-27:
 | 2026-10-15, before Inference (#95's plan) | 5.37 MB | 2.05 MB | 1.72 MB |
 | `main` on 2026-10-27, re-measured | 6.42 MB | 2.42 MB | 2.03 MB |
 | with `Varve.Sparql.Entailment` and the rewritten queries | 6.52 MB | 2.46 MB | 2.07 MB |
+| the same after the schema rework (probes, seek, cache) | 6.54 MB | 2.47 MB | 2.08 MB |
 
-Tier 1 costs 0.10 MB raw and 0.04 MB brotli: `Varve.Sparql.Entailment.wasm`
-is 73 KB, 28 KB under brotli, and the rest is evaluator code the rewritten
+Tier 1 costs 0.12 MB raw and 0.05 MB brotli: `Varve.Sparql.Entailment.wasm`
+is 85 KB, 33 KB under brotli (73 KB and 28 KB before the schema rework), and the rest is evaluator code the rewritten
 queries keep from trimming. The growth on `main` since 2026-10-15 is the
 milestones between.
 

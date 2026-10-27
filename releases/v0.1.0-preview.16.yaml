@@ -49,7 +49,7 @@ summary: |
       two extension functions a host registers (`LiteralValues`).
     - Property paths and `SERVICE` are evaluated without entailment (§10).
     - Usable over any `IQuadSource`, without the store; the browser build
-      carries it for 40 KB under brotli.
+      carries it for 50 KB under brotli.
   - **`Varve.Rdf`**: `IDistinctTermSource` and `DistinctTerms`, a source's
     distinct predicates and objects by seek; `IGraphVersionSource` and
     `GraphVersion`. The store's `DatasetView` answers both, at the head,

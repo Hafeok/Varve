@@ -164,7 +164,8 @@ The bundle's `_framework/`, trimmed, each file compressed alone:
 |---|---:|---:|---:|
 | 2026-10-15, before Inference | 5.37 MB | 2.05 MB | 1.72 MB |
 | `main` on 2026-10-27, re-measured | 6.42 MB | 2.42 MB | 2.03 MB |
-| this part | 6.52 MB | 2.46 MB | 2.07 MB |
+| this part, first build | 6.52 MB | 2.46 MB | 2.07 MB |
+| this part, after the schema rework | 6.54 MB | 2.47 MB | 2.08 MB |
 
 The benchmark's numbers are in `tests/Varve.Benchmarks/README.md`, with the
 machine.
