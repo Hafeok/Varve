@@ -351,6 +351,19 @@ public abstract class FleetCases : IAsyncDisposable
         await Varve.Server.Commands.Cli.RunAsync(container.Lease("d"), new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct);
         Assert.Contains("holder: b", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("abdication", output.ToString(), StringComparison.Ordinal);
+
+        // The state resource: a's role, the epoch b claimed, the writer set and the history (ADR 0180 point 7).
+        await WaitWarmAsync(again, "d");
+        using JsonDocument state = JsonDocument.Parse(await again.Http.GetStringAsync(new Uri(again.Address, "manage/datasets/d/state"), Ct));
+        JsonElement root = state.RootElement;
+        Assert.Equal("standby", root.GetProperty("role").GetString());
+        Assert.True(root.GetProperty("warm").GetBoolean());
+        Assert.Equal(2, root.GetProperty("epoch").GetInt64());
+        Assert.Equal("a", root.GetProperty("writerSet").GetProperty("placedOn").GetString());
+        Assert.Equal(["b"], root.GetProperty("writerSet").GetProperty("standbyOn").EnumerateArray().Select(standby => standby.GetString()));
+        JsonElement[] history = [.. root.GetProperty("history").EnumerateArray()];
+        Assert.Equal(("a", "restart", "shutdown"), (history[0].GetProperty("holder").GetString(), history[0].GetProperty("trigger").GetString(), history[0].GetProperty("released").GetString()));
+        Assert.Equal(("b", "abdication"), (history[^1].GetProperty("holder").GetString(), history[^1].GetProperty("trigger").GetString()));
     }
 
     // Until readiness reports the dataset's standby warm (ADR 0180 point 7).

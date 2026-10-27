@@ -355,6 +355,70 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         return ShapesBindings.Describe(dataset, binding, table.Declarations, table.Position, Datasets.TryResolve(dataset, out Dataset? held) ? held : null);
     }
 
+    /// <inheritdoc />
+    public async ValueTask<Action<System.Text.Json.Utf8JsonWriter>?> DescribeHandoverAsync(DatasetName dataset, CancellationToken cancellationToken)
+    {
+        if (_objects is null
+            || !Volatile.Read(ref _snapshot).Table.Declarations.Datasets.TryGetValue(dataset.Value, out DatasetDeclaration? declared)
+            || declared.Storage != StorageKind.ObjectStorage)
+        {
+            return null;
+        }
+
+        WriterRecord? record = await _objects.ReadWriterAsync(dataset.Value, cancellationToken).ConfigureAwait(false);
+        (_, bool warm) = Datasets.StandbyOf(dataset);
+        return json => WriteHandover(json, record, warm, declared);
+    }
+
+    // The writer epoch, warm, the writer set and the epoch history (ADR 0180
+    // point 7), in the lease command's names (ADR 0179 point 11).
+    private static void WriteHandover(System.Text.Json.Utf8JsonWriter json, WriterRecord? record, bool warm, DatasetDeclaration declared)
+    {
+        json.WriteNumber("epoch", record?.Epoch.Value ?? 0);
+        json.WriteBoolean("warm", warm);
+
+        if (record?.Released is { } released)
+        {
+            json.WriteString("released", Commands.ObjectLease.Shown(released));
+        }
+
+        json.WriteStartObject("writerSet");
+
+        if (declared.PlacedOn is { } placed)
+        {
+            json.WriteString("placedOn", placed);
+        }
+
+        json.WriteStartArray("standbyOn");
+
+        foreach (string standby in declared.StandbyOn)
+        {
+            json.WriteStringValue(standby);
+        }
+
+        json.WriteEndArray();
+        json.WriteBoolean("automaticHandover", declared.AutomaticHandover);
+        json.WriteEndObject();
+        json.WriteStartArray("history");
+
+        foreach (EpochClaim claim in record?.History ?? [])
+        {
+            json.WriteStartObject();
+            json.WriteNumber("epoch", claim.Epoch.Value);
+            json.WriteString("holder", claim.Holder.Value);
+            json.WriteString("trigger", Commands.ObjectLease.Shown(claim.Trigger));
+
+            if (claim.Released is { } reason)
+            {
+                json.WriteString("released", Commands.ObjectLease.Shown(reason));
+            }
+
+            json.WriteEndObject();
+        }
+
+        json.WriteEndArray();
+    }
+
     /// <summary>The highest management position <paramref name="dataset"/>'s log records, as this writer knows (ADR 0165).</summary>
     internal ManagementPosition Recorded(DatasetName dataset) => _order.Highest(dataset);
 

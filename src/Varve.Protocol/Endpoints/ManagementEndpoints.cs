@@ -140,7 +140,9 @@ internal static class ManagementEndpoints
 
     /// <summary>
     /// <c>GET</c> and <c>PUT /manage/datasets/{name}/state</c>: this instance's
-    /// state and role in the dataset; <c>{"state": "open" | "closed"}</c>
+    /// state and role in the dataset, and for an object-store dataset its
+    /// epoch, warm, writer set and epoch history (ADR 0180 point 7);
+    /// <c>{"state": "open" | "closed"}</c>
     /// declares it, and every instance converges to it. A takeover request is
     /// <c>409</c> until Replication (#97) makes a standby warm.
     /// </summary>
@@ -185,6 +187,7 @@ internal static class ManagementEndpoints
                 return;
             }
 
+            System.Action<System.Text.Json.Utf8JsonWriter>? handover = await plane.DescribeHandoverAsync(name, context.RequestAborted).ConfigureAwait(false);
             context.Response.Headers.CacheControl = "no-store";
             await WriteJsonAsync(context, StatusCodes.Status200OK, json =>
             {
@@ -195,6 +198,8 @@ internal static class ManagementEndpoints
                 {
                     json.WriteString("reason", entry.Reason);
                 }
+
+                handover?.Invoke(json);
             }).ConfigureAwait(false);
             return;
         }

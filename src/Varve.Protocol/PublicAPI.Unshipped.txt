@@ -367,6 +367,7 @@ static Varve.Protocol.Model.ProblemType.ShapesInvalid.get -> Varve.Protocol.Mode
 static Varve.Protocol.Model.ProblemType.ShapesViolated.get -> Varve.Protocol.Model.ProblemType
 Varve.Protocol.IManagementPlane.CheckBindings(Varve.Management.Model.Declarations! proposed) -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>?
 Varve.Protocol.IManagementPlane.DescribeBinding(Varve.Protocol.Model.DatasetName dataset, Varve.Rdf.RdfTerm! binding) -> Varve.Protocol.Model.BindingDescription?
+Varve.Protocol.IManagementPlane.DescribeHandoverAsync(Varve.Protocol.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Action<System.Text.Json.Utf8JsonWriter!>?>
 Varve.Protocol.Model.BindingDescription
 Varve.Protocol.Model.BindingDescription.<Clone>$() -> Varve.Protocol.Model.BindingDescription!
 Varve.Protocol.Model.BindingDescription.BindingDescription(Varve.Management.Model.BindingDeclaration! Declaration, Varve.Management.Model.ManagementPosition Position, Varve.Shacl.Model.ShapesClassification? Classification, System.Collections.Generic.IReadOnlyList<Varve.Shacl.Model.ShaclProblem!>! Problems) -> void

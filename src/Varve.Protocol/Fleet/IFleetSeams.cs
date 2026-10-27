@@ -106,4 +106,13 @@ public interface IManagementPlane
 
     /// <summary>A shapes binding of <paramref name="dataset"/> at the applied position, with its classification where this instance holds the dataset; null when there is no such binding. None by default.</summary>
     BindingDescription? DescribeBinding(DatasetName dataset, RdfTerm binding) => null;
+
+    /// <summary>
+    /// What <c>GET /manage/datasets/{name}/state</c> reports of a dataset's
+    /// handover (ADR 0180 point 7): the writer epoch, whether this instance is
+    /// a warm standby, the writer set, and the epoch history, written as
+    /// fields of the state's object. Null when the dataset is in no object
+    /// store, so it has no epoch. None by default.
+    /// </summary>
+    ValueTask<System.Action<System.Text.Json.Utf8JsonWriter>?> DescribeHandoverAsync(DatasetName dataset, CancellationToken cancellationToken) => default;
 }
