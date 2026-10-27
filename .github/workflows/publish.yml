@@ -335,7 +335,7 @@ jobs:
   # One SBOM attestation per package (ADR 0224 point 3): the SBOM the package
   # embeds, on the package's digest.
   attest-packages:
-    name: attest ${{ matrix.package }}
+    name: attest the packages' SBOMs
     needs: publish
     runs-on: ubuntu-latest
     strategy:
