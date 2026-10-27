@@ -208,7 +208,7 @@
 
     <!-- Property-based testing. Apache-2.0, and zero dependencies of its own,
          which is what decided it against FsCheck's FSharp.Core. ADR 0025. -->
-    <PackageVersion Include="CsCheck" Version="4.9.1" Adr="0025" />
+    <PackageVersion Include="CsCheck" Version="5.0.0" Adr="0025" />
 
     <!-- Versioning from the git tag. Apache-2.0, no dependencies of its own,
          and it contributes nothing to the package it versions: PrivateAssets
