@@ -107,7 +107,7 @@ internal static class VarveDiagnostics
     /// </summary>
     internal static readonly DiagnosticDescriptor ComponentLevel = new(
         id: ComponentLevelId,
-        title: "A Web UI component uses only lower levels, and only pages use the client's services",
+        title: "A Web UI component uses only lower levels, only pages use the client's services, and the client's model holds values only",
         messageFormat: "'{0}' is in {1} and {2}. Decide: {3}. The level rule has no exception path: if two "
             + "components of one level need each other, that is a design conversation, not an exception (ADR 0206).",
         category: LayeringCategory,
@@ -117,7 +117,8 @@ internal static class VarveDiagnostics
             "The Web UI's levels are namespaces, Atoms < Molecules < Organisms < Templates < Parts < Pages. A "
             + "component uses components of lower levels only, never its own. Types in Varve.Protocol.Client.Model "
             + "are named only in Parts and Pages, and every other type under Varve.Protocol.Client, the services "
-            + "that call the server, only in Pages. The rule analyses Razor's generated code, and only this rule "
+            + "that call the server, only in Pages; a type in Varve.Protocol.Client.Model names none of those "
+            + "services, so the model cannot carry one to a part. The rule analyses Razor's generated code, and only this rule "
             + "does (ADR 0206).",
         helpLinkUri: HelpLinkFor(ComponentLevelId));
 

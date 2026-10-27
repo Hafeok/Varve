@@ -22,7 +22,7 @@ table is retired by ADR 0062.
 | [VARVE0003](VARVE0003.md) | A hot path does not allocate, and calls only hot-path code | Implemented |
 | [VARVE0004](VARVE0004.md) | A hot path's signature does not force allocation or dispatch | Implemented |
 | [VARVE0005](VARVE0005.md) | Layer declaration is missing, malformed, or disagrees with the assembly | Implemented |
-| [VARVE0006](VARVE0006.md) | A Web UI component uses only lower levels, and only pages use the client's services (ADR 0206) | Implemented |
+| [VARVE0006](VARVE0006.md) | A Web UI component uses only lower levels, only pages use the client's services, and the client's model holds values only (ADR 0206) | Implemented |
 
 No `VARVE` rule is suppressed. `DD0008` reports a `#pragma`, a
 `[SuppressMessage]` or an `.editorconfig` downgrade for any `VARVE` id, because

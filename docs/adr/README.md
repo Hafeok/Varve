@@ -275,7 +275,7 @@ Filed by milestone Client and integration ([#93](https://github.com/Hafeok/Varve
 
 | # | Title | Status |
 |---:|---|---|
-| [0127](0127-on-behalf-of-and-the-token-provider.md) | On-behalf-of: the client's token provider, `azp` on the span, and the attribution rule; amends 0103 and 0112 | Filed unaccepted (Client and integration, #93) |
+| [0127](0127-on-behalf-of-and-the-token-provider.md) | On-behalf-of: the client's token provider, `azp` on the span, and the attribution rule; amends 0103 and 0112; amended 2026-10-27 (the fixed provider moves out of the model, unaccepted) | Filed unaccepted (Client and integration, #93) |
 | [0128](0128-varve-delta-and-the-read-forever-rule.md) | `Varve.Delta`: the delta format as a package of its own, read for ever; amends 0097, 0102 and 0103 | Filed unaccepted (Client and integration, #93) |
 | [0129](0129-following-the-commits-resource.md) | Following the commits resource: `FollowAsync`, a checkpoint the caller owns, at least once | Filed unaccepted (Client and integration, #93) |
 | [0130](0130-client-side-setup-and-system-graphs.md) | Client-side setup: a declared dataset, migrations recorded as data, and the first system graph | Filed unaccepted (Client and integration, #93); amended 2026-10-15 (ObjectStorage, filed unaccepted) |

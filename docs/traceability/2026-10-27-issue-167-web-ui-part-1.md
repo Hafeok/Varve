@@ -519,3 +519,26 @@ it changed in #174. Done on this branch:
   reports one type: `BearerToken.Fixed`, from ADR 0127, returns a
   `BearerTokenProvider`. Fixing it changes public API that an accepted ADR
   names, so it was put to the maintainer before anything is committed.
+
+**The held check, landed.** The maintainer chose option (a) for `BearerToken.Fixed`:
+- the convenience moves, unchanged, to `BearerTokens.Fixed` in
+  `Varve.Protocol.Client`, beside the delegate it returns;
+- `BearerToken.Fixed` is removed, not aliased; it was never in a release;
+- ADR 0127 gains a dated amendment, filed unaccepted, with the ruling
+  `FixedProviderBesideTheDelegate`.
+
+The CLI's `--token` and three tests call the new name. VARVE0006's third check
+is committed, and `docs/rules/VARVE0006.md` describes it. With the move, the
+solution builds with no report.
+
+The tests:
+- `Varve.Analyzers.Tests` passes 135, including the model's samples: clean,
+  a service named, a value outside the model named, a service naming the
+  model, and the message;
+- `Varve.Protocol.Client.Tests` passes 117;
+- the on-behalf-of tests pass.
+
+**Sign-offs corrected.** Four commits on these branches carried the agent's
+sign-off and a trailer naming a model. Their trailers were rewritten to the
+responsible human's sign-off, with the files unchanged, and the branches were
+force-pushed with the maintainer's permission.

@@ -70,7 +70,6 @@ Varve.Protocol.Client.Model.BearerTokenExpiredException.BearerTokenExpiredExcept
 Varve.Protocol.Client.Model.BearerTokenExpiredException.BearerTokenExpiredException(string! message, System.Exception! inner) -> void
 override Varve.Protocol.Client.Model.BearerToken.GetHashCode() -> int
 override Varve.Protocol.Client.Model.BearerToken.ToString() -> string!
-static Varve.Protocol.Client.Model.BearerToken.Fixed(string! value) -> Varve.Protocol.Client.BearerTokenProvider!
 static Varve.Protocol.Client.Model.BearerToken.operator !=(Varve.Protocol.Client.Model.BearerToken left, Varve.Protocol.Client.Model.BearerToken right) -> bool
 static Varve.Protocol.Client.Model.BearerToken.operator ==(Varve.Protocol.Client.Model.BearerToken left, Varve.Protocol.Client.Model.BearerToken right) -> bool
 virtual Varve.Protocol.Client.BearerTokenProvider.Invoke(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Client.Model.BearerToken?>
@@ -383,3 +382,5 @@ static Varve.Protocol.Client.Model.WriterEpoch.operator >=(Varve.Protocol.Client
 ~override Varve.Protocol.Client.Model.ResponseFacts.Equals(object obj) -> bool
 ~override Varve.Protocol.Client.Model.ResponseFacts.ToString() -> string
 ~override Varve.Protocol.Client.Model.WriterEpoch.Equals(object obj) -> bool
+Varve.Protocol.Client.BearerTokens
+static Varve.Protocol.Client.BearerTokens.Fixed(string! value) -> Varve.Protocol.Client.BearerTokenProvider!

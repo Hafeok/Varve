@@ -157,6 +157,60 @@ public class ComponentLevelAnalyzerTests
     public Task A_level_below_parts_using_the_clients_model_or_service_is_reported(string level) =>
         RunAsync(Component(level, "Sample", "global::Varve.Protocol.Client.Model.{|VARVE0006:Problem|} p = null; global::Varve.Protocol.Client.{|VARVE0006:VarveHealthClient|} s = null;"));
 
+    // The model holds values only: it names no service, with or without Blazor.
+    private const string ClientOnly = """
+        namespace Varve.Protocol.Client
+        {
+            public sealed class VarveHealthClient { }
+            public sealed class ClientLimits { }
+        }
+
+        namespace Varve.Protocol.Client.Model
+        {
+            public sealed class Problem { }
+        }
+        """;
+
+    private static Task RunClientAsync(string source)
+    {
+        CSharpAnalyzerTest<ComponentLevelAnalyzer, DefaultVerifier> test = new() { ReferenceAssemblies = ReferenceAssemblies.Net.Net80 };
+        test.TestState.Sources.Add(("Client.cs", ClientOnly));
+        test.TestState.Sources.Add(("Sample.cs", source));
+        return test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public Task A_model_type_naming_other_model_types_is_clean() =>
+        RunClientAsync("namespace Varve.Protocol.Client.Model { public sealed record Readiness(Problem Problem); }");
+
+    [Fact]
+    public Task A_model_type_naming_a_service_type_is_reported() =>
+        RunClientAsync("namespace Varve.Protocol.Client.Model { public sealed record Readiness(global::Varve.Protocol.Client.{|VARVE0006:VarveHealthClient|} Client); }");
+
+    [Fact]
+    public Task A_model_type_naming_a_value_outside_the_model_is_reported() =>
+        RunClientAsync("namespace Varve.Protocol.Client.Model.Health { public static class Limits { public static global::Varve.Protocol.Client.{|VARVE0006:ClientLimits|} Default => null; } }");
+
+    [Fact]
+    public Task A_service_naming_the_model_is_clean() =>
+        RunClientAsync("namespace Varve.Protocol.Client { public sealed class Reader { public global::Varve.Protocol.Client.Model.Problem Read() => null; } }");
+
+    [Fact]
+    public Task The_model_message_names_both_types()
+    {
+        CSharpAnalyzerTest<ComponentLevelAnalyzer, DefaultVerifier> test = new() { ReferenceAssemblies = ReferenceAssemblies.Net.Net80 };
+        test.TestState.Sources.Add(("Client.cs", ClientOnly));
+        test.TestState.Sources.Add(("Sample.cs", "namespace Varve.Protocol.Client.Model { public sealed class Sample { private global::Varve.Protocol.Client.{|#0:VarveHealthClient|} client; } }"));
+        test.ExpectedDiagnostics.Add(new DiagnosticResult(VarveDiagnostics.ComponentLevel)
+            .WithLocation(0)
+            .WithArguments(
+                "Varve.Protocol.Client.Model.Sample",
+                "Varve.Protocol.Client.Model",
+                "names the client's service type 'Varve.Protocol.Client.VarveHealthClient', which the model never names",
+                ComponentLevelAnalyzer.ModelNamesServiceDecide));
+        return test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
     // What the rule does not count.
     [Fact]
     public Task A_type_of_its_own_level_that_is_not_a_component_is_clean() =>

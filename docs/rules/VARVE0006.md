@@ -1,4 +1,4 @@
-# VARVE0006 — A Web UI component uses only lower levels, and only pages use the client's services
+# VARVE0006 — A Web UI component uses only lower levels, only pages use the client's services, and the client's model holds values only
 
 | | |
 |---|---|
@@ -25,8 +25,8 @@ The levels are namespaces, lowest first:
 5. `Varve.WebUi.Parts`
 6. `Varve.WebUi.Pages`
 
-For every name that a type in a level namespace writes, and that resolves to a
-type, it makes two checks:
+For every name that resolves to a type, it makes three checks: the first two
+in the level namespaces, the third in the client's model.
 
 1. **The level order.** A component, a type implementing
    `Microsoft.AspNetCore.Components.IComponent`, may be used only from a
@@ -44,8 +44,17 @@ type, it makes two checks:
      Those are the services that call the server: `SparqlHttpClient`,
      `VarveHealthClient` and the rest.
 
+3. **The model holds values only.** A type in `Varve.Protocol.Client.Model`
+   names no other type under `Varve.Protocol.Client`. Without this check, the
+   model could quietly become a back door: a part may name a model type, so a
+   model type that hands out a service would put the service in the part.
+   This check needs no Blazor, so it runs in the client itself. It found one
+   type when it was added: `BearerToken.Fixed` returned a
+   `BearerTokenProvider`. That moved to `BearerTokens.Fixed`, beside the
+   delegate (ADR 0127's amendment of 2026-10-27).
+
 Types outside the level namespaces, such as `App` and `Tones`, are not checked.
-A compilation without Blazor's `IComponent` is not checked at all.
+A compilation without Blazor's `IComponent` makes only the third check.
 
 ## Generated code, and only for this rule
 
@@ -105,6 +114,7 @@ This is a stated rule, not a habit (ADR 0206 point 4):
   counts as a service.** That is strict on the few values there that call
   nothing: `ClientLimits`, `EndpointPolicy`, the token provider, and the
   follow and setup options. No part needs them today.
+- **The model names no service** (check 3 above).
 - **A type a part needs moves into `.Model`; it does not earn an exception.**
   There is no marker attribute and no list of allowed types: the namespace is
   the whole test.

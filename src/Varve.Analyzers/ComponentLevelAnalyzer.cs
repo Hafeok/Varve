@@ -13,14 +13,14 @@ namespace Varve.Analyzers;
 /// <summary>
 /// VARVE0006. The Web UI's levels are a dependency rule (ADR 0206 point 4): a
 /// component uses only components of lower levels, never one of its own, and
-/// only pages use the client's services.
+/// only pages use the client's services, which the client's model never names.
 /// </summary>
 /// <remarks>
 /// <para>
 /// The levels are namespaces, in order: <c>Varve.WebUi.Atoms</c> &lt;
 /// <c>.Molecules</c> &lt; <c>.Organisms</c> &lt; <c>.Templates</c> &lt;
-/// <c>.Parts</c> &lt; <c>.Pages</c>. Two checks, over every name a type in a
-/// level namespace writes that resolves to a type:
+/// <c>.Parts</c> &lt; <c>.Pages</c>. Three checks, over every name that
+/// resolves to a type:
 /// </para>
 /// <list type="number">
 ///   <item><b>The level order.</b> A component type (one that implements
@@ -31,6 +31,11 @@ namespace Varve.Analyzers;
 ///   <c>Varve.Protocol.Client.Model</c> is named only in Parts and Pages; any
 ///   other type under <c>Varve.Protocol.Client</c>, the services that call the
 ///   server, only in Pages.</item>
+///   <item><b>The model holds values only.</b> A type in
+///   <c>Varve.Protocol.Client.Model</c> names no other type under
+///   <c>Varve.Protocol.Client</c>. Otherwise a part could reach a service
+///   through the model. This check needs no Blazor, so it runs in the client
+///   itself.</item>
 /// </list>
 /// <para>
 /// Razor compiles a component to C# through a source generator, and that is
@@ -71,6 +76,12 @@ public sealed class ComponentLevelAnalyzer : DiagnosticAnalyzer
 
     internal const string ModelFormat = "names the client's model type '{0}', which only a part or a page may use";
 
+    internal const string ModelNamesServiceFormat = "names the client's service type '{0}', which the model never names";
+
+    internal const string ModelNamesServiceDecide =
+        "keep the model to values, and let the service that calls the server take or return them | if the type "
+        + "named is a value that calls nothing, move it into Varve.Protocol.Client.Model";
+
     internal const string ModelDecide =
         "take the values as parameters of the abstract kind this level takes (words, tones, numbers, slots), and "
         + "map the model in a part | if this component holds Varve's domain, it belongs in Varve.WebUi.Parts";
@@ -90,12 +101,8 @@ public sealed class ComponentLevelAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(start =>
         {
+            // Null without Blazor: then only the model's check runs.
             INamedTypeSymbol? component = start.Compilation.GetTypeByMetadataName(ComponentInterface);
-
-            if (component is null)
-            {
-                return;
-            }
 
             start.RegisterSyntaxNodeAction(
                 node => Analyze(node, component),
@@ -104,7 +111,7 @@ public sealed class ComponentLevelAnalyzer : DiagnosticAnalyzer
         });
     }
 
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol component)
+    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol? component)
     {
         // A cref in a documentation comment, and a nameof, name a type without
         // using it; Razor writes a nameof for each parameter it sets, beside
@@ -117,9 +124,18 @@ public sealed class ComponentLevelAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        string userNamespace = user.ContainingNamespace?.ToDisplayString() ?? string.Empty;
+
+        if (IsUnder(userNamespace, ClientModelNamespace))
+        {
+            AnalyzeModel(context, user, userNamespace);
+            return;
+        }
+
         int userLevel = LevelOf(user.ContainingNamespace);
 
-        if (userLevel < 0
+        if (component is null
+            || userLevel < 0
             || context.SemanticModel.GetSymbolInfo(context.Node, context.CancellationToken).Symbol is not INamedTypeSymbol named)
         {
             return;
@@ -160,12 +176,31 @@ public sealed class ComponentLevelAnalyzer : DiagnosticAnalyzer
             SameOrHigherDecide));
     }
 
+    private static void AnalyzeModel(SyntaxNodeAnalysisContext context, INamedTypeSymbol user, string userNamespace)
+    {
+        if (context.SemanticModel.GetSymbolInfo(context.Node, context.CancellationToken).Symbol is not INamedTypeSymbol named)
+        {
+            return;
+        }
+
+        INamedTypeSymbol used = named.OriginalDefinition;
+        string usedNamespace = used.ContainingNamespace?.ToDisplayString() ?? string.Empty;
+
+        if (IsUnder(usedNamespace, ClientNamespace) && !IsUnder(usedNamespace, ClientModelNamespace))
+        {
+            Report(context, user, userNamespace, ModelNamesServiceFormat, used, ModelNamesServiceDecide);
+        }
+    }
+
     private static void Report(SyntaxNodeAnalysisContext context, INamedTypeSymbol user, int userLevel, string format, INamedTypeSymbol used, string decide) =>
+        Report(context, user, Levels[userLevel], format, used, decide);
+
+    private static void Report(SyntaxNodeAnalysisContext context, INamedTypeSymbol user, string where, string format, INamedTypeSymbol used, string decide) =>
         context.ReportDiagnostic(Diagnostic.Create(
             VarveDiagnostics.ComponentLevel,
             context.Node.GetLocation(),
             user.ToDisplayString(),
-            Levels[userLevel],
+            where,
             string.Format(System.Globalization.CultureInfo.InvariantCulture, format, used.ToDisplayString()),
             decide));
 
