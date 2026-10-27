@@ -379,12 +379,13 @@ Filed by [#133](https://github.com/Hafeok/Varve/issues/133), in 1.0 ([#15](https
 
 ## Web UI, part 1 (#167)
 
-Filed by Web UI part 1 ([#167](https://github.com/Hafeok/Varve/issues/167), milestone [#96](https://github.com/Hafeok/Varve/issues/96)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0200: Replication holds 0179–0189 and Inference 0190–0199. Amended by it, likewise unaccepted: 0060 (a host may be a browser application published as static files).
+Filed by Web UI part 1 ([#167](https://github.com/Hafeok/Varve/issues/167), milestone [#96](https://github.com/Hafeok/Varve/issues/96)), unaccepted until the maintainer accepts them on their pull request (ADR 0066). Numbered from 0200: Replication holds 0179–0189 and Inference 0190–0199. 0206 lands first, in a docs-only pull request; 0200–0205 come with the milestone's. Amended by it, likewise unaccepted: 0060 (a host may be a browser application published as static files).
 
 | # | Title | Status |
 |---:|---|---|
 | [0200](0200-varve-webui-a-blazor-webassembly-host.md) | `Varve.WebUi`: a Blazor WebAssembly host at layer 6, and what Blazor costs | Filed unaccepted (Web UI part 1, #167) |
 | [0203](0203-typed-reads-in-the-protocol-client.md) | Typed reads in `Varve.Protocol.Client`: health, problems, response facts and the management plane | Filed unaccepted (Web UI part 1, #167) |
+| [0206](0206-the-web-ui-design-source.md) | The Web UI's design source, its levels, and the markup contract | Filed unaccepted (Web UI part 1, #167) |
 
 ## Conformance — differential testing against Oxigraph
 

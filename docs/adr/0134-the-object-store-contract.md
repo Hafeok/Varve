@@ -283,3 +283,29 @@ maintainer accepts it (ADR 0066).
   Azure's Put Blob (`AzureBlobStore.MaxSingleUploadBytes`), 5 GiB for S3's
   PutObject (`S3ObjectStore.MaxSingleUploadBytes`). Multipart upload is a
   later decision (ADR 0158).
+
+## Amendment, 2026-10-23 — what the service answers, observed
+
+Filed by the live Azure leg of #143, unaccepted until the maintainer accepts
+it (ADR 0066). Decision 4 asks for the adapter suite to be re-run against a
+real account; the first such run with the service's answers recorded is
+`docs/reports/azure-blob-live-2026-10-23.md`, at `x-ms-version: 2025-11-05`,
+which the service echoed.
+
+- **A create-if-absent that finds a blob is `409 BlobAlreadyExists`** on the
+  service, as the context above took from Azurite's source: confirmed, 640
+  times out of 640 across 20 rounds of 32 racing clients.
+- **A replace-if-unchanged against a stale version is `412 ConditionNotMet`**,
+  confirmed, 620 of 620.
+- **A replace-if-unchanged of a blob that does not exist is
+  `412 ConditionNotMet`**, on the service and on Azurite 3.37.0 alike. The
+  `404` decision 5 also maps for a replace-if-unchanged was observed from
+  neither for Put Blob with `If-Match`; the mapping keeps it, since it is
+  harmless and a later service version could answer it. Pinned on each side:
+  `AzuriteAdapterTests.azurite_answers_409_to_a_create_that_finds_a_blob_and_412_to_a_stale_replace_and_to_a_replace_of_nothing`
+  and `AzureAccountConditionalWriteTests.the_service_answers_409_to_a_create_that_finds_a_blob_and_412_to_a_stale_replace`.
+- **Reads and lists after a write** returned the write every time asked, from
+  a second client with a connection pool of its own, 50 of 50, and a
+  follower read a segment whole the moment the writer sealed it.
+
+**The ledger.** No ruling changes; `LostRaceIsMappedPerProvider` stands.
