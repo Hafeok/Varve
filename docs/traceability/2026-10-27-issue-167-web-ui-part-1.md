@@ -393,3 +393,84 @@ will make a third when a page passes it into a dialog. These page-level
 parts exist so that the client's types and Varve's wording are mapped once,
 at the level that may know them. Whether pages may use them is put to the
 maintainer before the rule is written.
+
+### The Parts level, the level rule, the tokens check and the markup contract
+
+**The ruling** on the two violations, verbatim in its rule:
+
+> Neither 1 nor 2. Add a level: `Varve.WebUi.Parts`, between `Templates` and `Pages`.
+>
+> * Parts are domain-aware, non-routed components: `ProblemView`, `ReadStamps`, `DriftNote`, and the like later. They may use the client’s model types (a problem body, a position, a status) and `Tones`, and hold Varve’s wording.
+> * Pages are routed screens only. They are the only level that injects or calls the client’s services, i.e. reads data. They may use Parts and everything below.
+> * The rule stays uniform: a component uses only lower levels, never its own. Parts don’t use Parts, pages don’t use pages. No exemption anywhere. If two parts later genuinely need each other, that’s a design conversation, not an analyzer exception.
+> * The analyzer has two checks:
+>    1. the level order over `Atoms < Molecules < Organisms < Templates < Parts < Pages`;
+>    2. client service types (anything that calls the server) referenced only in `Pages`; client model types allowed in `Parts` and `Pages`.
+>  If the client doesn’t separate service types from model types cleanly enough for the analyzer to tell them apart, say so before inventing a marker.
+>
+> Then the VARVE rule (analyzer, a violating and a conforming sample per level and for the service-type check, doc page linking ADR 0206), the `tokens.css` regeneration check, and the contract test with bUnit.
+
+**The paperwork** (ADR 0206 point 4, its decision set, and the brand book's
+level table) is in #174, merged into this branch. `ProblemView`, `ReadStamps`,
+`DriftNote` and `MainLayout` moved to `Varve.WebUi.Parts`.
+
+**The client's split, as found.** No marker was invented:
+- `Varve.Protocol.Client.Model` holds values only: problems, response facts,
+  readiness and the wrappers.
+- The root namespace and `.Hosting` hold the services. They also hold a few
+  values that never call the server: `ClientLimits`, `EndpointPolicy`, the
+  follow and setup options, and the client's exceptions. The rule counts the
+  namespace, so these are service types to it, strictly. No part names one
+  today.
+  If one ever should, the move is the type to `.Model`, not an exception to
+  the rule.
+
+**VARVE0006** (`src/Varve.Analyzers/ComponentLevelAnalyzer.cs`,
+`docs/rules/VARVE0006.md`). The generated-code opt-in is this analyzer's
+alone. Its 29 tests:
+- a conforming sample at every level (each one rendering the level below);
+- a violating sample at every level (each one rendering its own level);
+- a component rendering a higher level;
+- a service and a model in Pages (clean) and a model in Parts (clean);
+- a service in Parts (reported), and a model or a service below Parts
+  (reported);
+- the exclusions: a non-component type, the component itself, a cref, a
+  `nameof`, a type outside the levels, and a compilation without Blazor.
+
+On this branch the Web UI builds with no VARVE0006 report.
+
+**`tokens.css`** is generated from `tokens.json` by
+`tests/Varve.WebUi.Tests/TokensCss.cs`, the authority as ruled. The test
+compares the result byte for byte with the committed file, and
+`VARVE_WRITE_TOKENS_CSS=1` rewrites it.
+- The sent file was already identical, so nothing was rewritten.
+- A one-byte edit to the committed file failed the test.
+- **Found:** the type-scale classes (`.page-title`, `.label` and the rest)
+  have no `vw-` prefix, unlike every other class. `bundle.css` does not use
+  them. The generator keeps them as sent. This is put to the maintainer, not
+  changed.
+
+**The markup contract** (ADR 0206 point 6; ADR 0204 for bUnit 2.11.3):
+- 55 cases, one or more per preview state, across all 19 components, under
+  `docs/ui/components/*/cases/`.
+- `ComponentContractTests` renders each case with bUnit and compares it
+  semantically.
+- A second test fails any component with a preview but no cases or no
+  component.
+- Changing one class in `Button/cases/primary.html` failed exactly that case;
+  restored, all 78 tests in the project pass.
+
+**Where a case differs from the preview,** the component is right and the
+preview is a picture:
+- `ViewHead`'s `h1` carries `tabindex="-1"`, for focus after navigation.
+- `Shell`:
+  - the navigation's label is "Web UI";
+  - the brand image is `img/varve-core.svg`, linked into `wwwroot`;
+  - `main` carries `id="main"` and `tabindex="-1"`.
+- `ConfirmDialog` renders without `open`. It is opened by `showModal()`
+  through `js/webui.js`, which the preview's static `open` stands in for.
+- `SourceBlock`'s `pre` is unhighlighted and carries `tabindex="0"`, so a
+  keyboard can scroll it.
+- `ResourceTable`'s caption is optional and visually hidden.
+- `CopyButton`'s "Copied" state follows a click, not a parameter, so no case
+  states it.

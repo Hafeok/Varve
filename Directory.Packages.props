@@ -121,6 +121,13 @@
          Microsoft.Extensions abstractions would refuse their closure as a
          downgrade under transitive pinning. -->
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.12" Adr="0200" Scope="src/Varve.WebUi/, tests/Varve.WebUi.Tests/" />
+
+    <!-- The Web UI's component tests (ADR 0204): renders a Razor component with
+         parameters and compares its markup semantically. MIT, managed. Not
+         the latest: 2.12 and later want the Blazor packages at 10.0.13, above
+         the runtime version pinned here; 2.11.3 is the newest whose floor
+         (10.0.10) the pin meets. Moves with the 10.0.x pins. -->
+    <PackageVersion Include="bunit" Version="2.11.3" Adr="0204" Scope="tests/Varve.WebUi.Tests/" />
   </ItemGroup>
 
   <ItemGroup Label="Samples only — never of a shipped package (ADR 0133)">

@@ -1,0 +1,8 @@
+{
+  "parameters": {
+    "Subject": "<span class=\"vw-term vw-term--iri\">notes:42</span>",
+    "Predicate": "<span class=\"vw-term vw-term--iri\">dct:creator</span>",
+    "Object": "<span class=\"vw-term vw-term--iri\">users:owner</span>",
+    "Note": "asserted"
+  }
+}

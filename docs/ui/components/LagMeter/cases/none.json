@@ -1,0 +1,7 @@
+{
+  "parameters": {
+    "Lag": 0,
+    "Bound": 100,
+    "Caption": "Bound 100 positions (ReadyLag)"
+  }
+}

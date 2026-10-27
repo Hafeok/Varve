@@ -1,0 +1,7 @@
+{
+  "parameters": {
+    "Disabled": true,
+    "DisabledReason": "Only the writer takes checkpoints.",
+    "ChildContent": "Take checkpoint"
+  }
+}
