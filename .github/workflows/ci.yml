@@ -200,7 +200,8 @@ jobs:
       - name: Dependency register
         # ADR 0009. Constraint 4 says every third-party package needs an ADR;
         # this is what makes that a gate rather than a sentence in a document.
-        # A text check over two inputs, so it runs before restore and fails in
+        # Since ADR 0224 it reads every lockfile, the Actions' pins and the VEX
+        # statements too: text only, so it runs before restore and fails in
         # seconds rather than after a compile.
         run: dotnet run eng/dependency-register.cs
 
@@ -227,14 +228,17 @@ jobs:
           restore-keys: nuget-${{ runner.os }}-
 
       - name: Restore
+        # Locked, since CI is set (ADR 0224): a lockfile the change forgot to
+        # update fails here.
         run: dotnet restore Varve.slnx
 
-      - name: Native assets
-        # ADR 0009's amendment scopes constraint 1 to shipped artifacts. This is
-        # what makes the scoped version a gate rather than a sentence: no
-        # package in a packable project's restore closure may contribute a
-        # native runtime asset. Needs the restore above, and nothing else.
-        run: dotnet run eng/native-assets.cs
+      - name: Licences and native assets
+        # ADR 0009's amendment scopes constraint 1 to shipped artifacts, and
+        # ADR 0224 adds each package's licence against its scope. No package
+        # in a packable project's restore closure may contribute a native
+        # runtime asset (what eng/native-assets.cs was). Needs the restore
+        # above, and nothing else.
+        run: dotnet run eng/dependency-register.cs -- --packages
 
       - name: Build
         # Warnings are errors by configuration, not by a flag here; see
@@ -489,15 +493,61 @@ jobs:
       # every pull request rather than first on a tag. This packs and reads the
       # nuspec back; it does not push, and the workflow that pushes is not
       # triggered by a pull request at all. ADR 0029.
+      - name: SBOMs, twice
+        # ADR 0224 points 1 and 2, ADR 0225: one SBOM per artefact from the
+        # locked restore, for the version MinVer gives this commit and created
+        # at its time, written twice and required byte-identical. The binaries'
+        # are written for every RID the CLI ships.
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(dotnet msbuild src/Varve.Iri/Varve.Iri.csproj -t:MinVer -getProperty:MinVerVersion)
+          export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
+          binaries=()
+          for rid in linux-x64 linux-arm64 win-x64 win-arm64 osx-x64 osx-arm64; do binaries+=(--binary "$rid"); done
+          dotnet run eng/sbom.cs -- --version "$version" --out "${{ github.workspace }}/artifacts/sbom" "${binaries[@]}"
+          dotnet run eng/sbom.cs -- --version "$version" --out "${{ github.workspace }}/artifacts/sbom-again" "${binaries[@]}" \
+            --check-against "${{ github.workspace }}/artifacts/sbom"
+
       - name: Pack
+        # Each package embeds its SBOM (ADR 0224 point 3), and the metadata
+        # gate reads it back.
         run: >
           dotnet pack Varve.slnx
           --configuration Release
           --no-build
+          -p:VarveSbomDirectory=${{ github.workspace }}/artifacts/sbom
           --output ${{ github.workspace }}/artifacts/packages
 
       - name: Check the package metadata
         run: dotnet run eng/package-metadata.cs -- ${{ github.workspace }}/artifacts/packages
+
+      - name: Install Syft
+        # For a pull request that proposes a release: the image SBOM's OS
+        # packages, at the version publish.yml uses (ADR 0225 point 5).
+        if: runner.os == 'Linux'
+        id: syft
+        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          syft-version: v1.54.0
+
+      - name: The proposed release's SBOM digests
+        # ADR 0102, amended 2026-10-27: a descriptor proposed here names every
+        # artefact's SBOM digest, and they are checked now, so that a wrong one
+        # is red on the pull request and not on the tag. Each pending
+        # descriptor (no tag yet) is regenerated at its version and date.
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for descriptor in releases/v*.yaml; do
+            version=$(basename "$descriptor" .yaml)
+            if git rev-parse -q --verify "refs/tags/$version" > /dev/null; then continue; fi
+            if ! grep -q '^sbom:' "$descriptor"; then continue; fi
+            created=$(sed -n 's/^date: *//p' "$descriptor")
+            dotnet run eng/sbom.cs -- --version "${version#v}" --created "$created" \
+              --out "$RUNNER_TEMP/sbom-$version" --syft "${{ steps.syft.outputs.cmd }}" --descriptor "$descriptor"
+          done
 
       - name: Upload the test results
         # #126: every run keeps its TRX, pass or fail, so a slow or red run

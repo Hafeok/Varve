@@ -37,12 +37,17 @@ jobs:
     # trusted-publishing policy on nuget.org is unchanged (ADR 0029).
     environment: release
 
+    outputs:
+      packages: ${{ steps.matrix.outputs.packages }}
+
     permissions:
       contents: read
 
       # Trusted publishing: the workflow's OIDC token is exchanged for a
       # short-lived API key. There is no long-lived secret to leak or rotate.
+      # The same identity signs the attestations (ADR 0224 point 3).
       id-token: write
+      attestations: write
 
     steps:
       - name: Line endings
@@ -74,6 +79,8 @@ jobs:
         run: dotnet workload install wasm-tools wasm-experimental
 
       - name: Dependency register
+        # ADR 0224: the register against every lockfile, the Action pins and
+        # the VEX statements. Text only; the restore's half follows it.
         run: dotnet run eng/dependency-register.cs
 
       - name: Decision sets
@@ -92,10 +99,14 @@ jobs:
         run: dotnet run eng/licence-headers.cs
 
       - name: Restore
+        # Locked (CI is set, ADR 0224): a lockfile that does not match the
+        # register fails here, before anything is built.
         run: dotnet restore Varve.slnx
 
-      - name: Native assets
-        run: dotnet run eng/native-assets.cs
+      - name: Licences and native assets
+        # ADR 0224 point 4, and constraint 1 on the shipped closure (what
+        # eng/native-assets.cs was).
+        run: dotnet run eng/dependency-register.cs -- --packages
 
       - name: Build
         run: dotnet build Varve.slnx --configuration Release --no-restore
@@ -198,12 +209,39 @@ jobs:
         # push has succeeded.
         run: dotnet run eng/release.cs -- --notes "$GITHUB_REF_NAME" --into "${{ github.workspace }}/artifacts/release"
 
+      - name: Install Syft
+        # The image's OS packages are Syft's, from the base image pinned by
+        # digest (ADR 0225 point 5). Its version is pinned, because the SBOM's
+        # digest is in the descriptor and must come out the same here.
+        id: syft
+        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          syft-version: v1.54.0
+
+      - name: SBOMs
+        # ADR 0224 points 1 to 3, ADR 0225: one SBOM per artefact, from this
+        # restore, created at the descriptor's date. Each digest must be the
+        # descriptor's (ADR 0102, amended 2026-10-27), checked here while
+        # nothing is permanent.
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          descriptor="releases/$GITHUB_REF_NAME.yaml"
+          created=$(sed -n 's/^date: *//p' "$descriptor")
+          dotnet run eng/sbom.cs -- --version "$version" --created "$created" \
+            --out "${{ github.workspace }}/artifacts/sbom" \
+            --syft "${{ steps.syft.outputs.cmd }}" \
+            --descriptor "$descriptor"
+
       - name: Pack
+        # Each package embeds its SBOM (ADR 0224 point 3).
         run: >
           dotnet pack Varve.slnx
           --configuration Release
           --no-build
           -p:ContinuousIntegrationBuild=true
+          -p:VarveSbomDirectory=${{ github.workspace }}/artifacts/sbom
           --output ${{ github.workspace }}/artifacts/packages
 
       - name: Check the package metadata
@@ -226,12 +264,35 @@ jobs:
           done
           exit $status
 
+      - name: Checksums
+        # Every file the release carries beyond its SBOMs, with its SHA-256;
+        # attested below with the packages, so the list is as verifiable as
+        # what it lists (ADR 0224 point 7).
+        working-directory: ${{ github.workspace }}/artifacts/packages
+        run: sha256sum *.nupkg > SHA256SUMS && cat SHA256SUMS
+
       - name: Upload the packages
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: packages
           path: ${{ github.workspace }}/artifacts/packages
           if-no-files-found: error
+
+      - name: Upload the SBOMs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sbom
+          path: ${{ github.workspace }}/artifacts/sbom
+          if-no-files-found: error
+
+      - name: The packages' SBOM matrix
+        # One SBOM attestation per package, so one job each (actions/attest
+        # takes one SBOM per call): the list, for the attest job.
+        id: matrix
+        shell: bash
+        working-directory: ${{ github.workspace }}/artifacts/packages
+        run: |
+          echo "packages=$(ls *.nupkg | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
 
       # The two steps below are adjacent on purpose. The key NuGet/login mints
       # lives one hour, and anything between them is something that can fail
@@ -252,6 +313,15 @@ jobs:
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
 
+      - name: Attest the packages' build provenance
+        # Keyless, through this job's OIDC identity (ADR 0224 point 3): every
+        # package and the checksum list, one SLSA v1 statement.
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            ${{ github.workspace }}/artifacts/packages/*.nupkg
+            ${{ github.workspace }}/artifacts/packages/SHA256SUMS
+
       - name: Upload the test results
         # #126: every run keeps its TRX, pass or fail, so a slow or red run
         # can be explained test by test from its own artifacts.
@@ -261,6 +331,40 @@ jobs:
           name: test-results-publish
           path: ${{ github.workspace }}/artifacts/test-results
           if-no-files-found: warn
+
+  # One SBOM attestation per package (ADR 0224 point 3): the SBOM the package
+  # embeds, on the package's digest.
+  attest-packages:
+    name: attest ${{ matrix.package }}
+    needs: publish
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.publish.outputs.packages) }}
+
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Download the packages
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: packages
+          path: ${{ runner.temp }}/packages
+
+      - name: The package's own SBOM
+        # The document embedded in the package is the one attested, so the
+        # two cannot differ.
+        run: unzip -p "$RUNNER_TEMP/packages/${{ matrix.package }}" _manifest/spdx_2.3/manifest.spdx.json > "$RUNNER_TEMP/sbom.spdx.json"
+
+      - name: Attest the SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/packages/${{ matrix.package }}
+          sbom-path: ${{ runner.temp }}/sbom.spdx.json
 
   # The container image (ADR 0111), after the gates: the Native AOT binary
   # published on a native runner per architecture, built into the chiseled
@@ -400,21 +504,22 @@ jobs:
           subject-digest: ${{ steps.manifest.outputs.digest }}
           push-to-registry: true
 
-      - name: Generate the SBOM
-        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+      - name: Download the SBOMs
+        # The image's SBOM was written in the publish job (ADR 0225 point 5):
+        # each platform's binary and its closure, from the restore, and the
+        # base image's OS packages, from the base pinned by digest. Its digest
+        # is the descriptor's.
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
-          image: ${{ env.IMAGE }}@${{ steps.manifest.outputs.digest }}
-          format: spdx-json
-          output-file: ${{ runner.temp }}/sbom.spdx.json
-          upload-artifact: false
-          upload-release-assets: false
+          name: sbom
+          path: ${{ runner.temp }}/sbom
 
       - name: Attest the SBOM
-        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.manifest.outputs.digest }}
-          sbom-path: ${{ runner.temp }}/sbom.spdx.json
+          sbom-path: ${{ runner.temp }}/sbom/image/varve.spdx.json
           push-to-registry: true
 
       - name: Verify, as an operator would
@@ -473,6 +578,38 @@ jobs:
           private-key: ${{ secrets.GATES_APP_PRIVATE_KEY }}
           permission-contents: write
 
+      - name: Download the packages
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: packages
+          path: ${{ runner.temp }}/packages
+
+      - name: Download the SBOMs
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: sbom
+          path: ${{ runner.temp }}/sbom
+
+      - name: The release's assets
+        # ADR 0224 points 3 and 6: every SBOM, the VEX document, the packages
+        # exactly as they were attested (nuget.org adds its repository
+        # signature, so its copies are not these bytes), and their checksums.
+        # Each SBOM is named for its artefact and version.
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          assets="$RUNNER_TEMP/assets"
+          mkdir -p "$assets"
+          cp "$RUNNER_TEMP"/packages/*.nupkg "$RUNNER_TEMP/packages/SHA256SUMS" "$assets/"
+          for sbom in "$RUNNER_TEMP"/sbom/nupkg/*.spdx.json "$RUNNER_TEMP"/sbom/tool/*.spdx.json; do
+            name=$(basename "$sbom" .spdx.json)
+            cp "$sbom" "$assets/$name.$version.spdx.json"
+          done
+          cp "$RUNNER_TEMP/sbom/image/varve.spdx.json" "$assets/varve-image-$version.spdx.json"
+          cp security/vex.openvex.json "$assets/varve-$version.openvex.json"
+          ls -l "$assets"
+
       - name: Create the release
         shell: bash
         env:
@@ -486,4 +623,82 @@ jobs:
             --verify-tag \
             --title "$(cat "$RUNNER_TEMP/release/title.txt")" \
             --notes-file "$RUNNER_TEMP/release/notes.md" \
-            "${prerelease[@]}"
+            "${prerelease[@]}" \
+            "$RUNNER_TEMP"/assets/*
+
+  # ADR 0224's consequence: what was published is verified as a consumer
+  # would verify it, after the release.
+  #
+  # - Each package attached to the release, which is the attested package
+  #   byte for byte, is verified with gh attestation verify for both
+  #   predicates. Each embedded SBOM must be the release's SBOM asset.
+  # - nuget.org's copy cannot be: nuget.org adds its repository signature, an
+  #   entry of its own, so its bytes are not the attested ones. It is
+  #   downloaded instead, and every entry but .signature.p7s is required to be
+  #   the attested package's, byte for byte. Its repository signature is then
+  #   verified with `dotnet nuget verify`.
+  # - The image is verified by the manifest job, as before.
+  verify:
+    name: verify what was published
+    needs: [release, attest-packages, manifest]
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Download the release's assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/release"
+
+      - name: Verify the release's packages and their SBOMs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/release"
+          sha256sum --check SHA256SUMS
+          version="${GITHUB_REF_NAME#v}"
+          for package in *.nupkg; do
+            for predicate in https://slsa.dev/provenance/v1 https://spdx.dev/Document/v2.3; do
+              gh attestation verify "$package" --owner hafeok --predicate-type "$predicate" --format json \
+                --jq '.[].verificationResult | "verified \(.statement.predicateType) for \(.statement.subject[0].name)@sha256:\(.statement.subject[0].digest.sha256), signed by \(.signature.certificate.buildSignerURI) at \(.signature.certificate.sourceRepositoryDigest)"' \
+                | tee -a "$GITHUB_STEP_SUMMARY"
+            done
+            id="${package%."$version".nupkg}"
+            unzip -p "$package" _manifest/spdx_2.3/manifest.spdx.json | cmp - "$id.$version.spdx.json"
+          done
+
+      - name: nuget.org serves the attested packages
+        # nuget.org indexes a new version within minutes, sometimes longer:
+        # each package is retried for up to 30 minutes.
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/release"
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p nuget
+          for package in *.nupkg; do
+            id="${package%."$version".nupkg}"
+            lower=$(echo "$id" | tr '[:upper:]' '[:lower:]')
+            url="https://api.nuget.org/v3-flatcontainer/$lower/$version/$lower.$version.nupkg"
+            for attempt in $(seq 1 60); do
+              if curl -fsSL -o "nuget/$package" "$url"; then break; fi
+              if [ "$attempt" -eq 60 ]; then echo "::error::$url is not served after 30 minutes"; exit 1; fi
+              sleep 30
+            done
+            dotnet run "$GITHUB_WORKSPACE/eng/nuget-served.cs" -- "$package" "nuget/$package" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+          dotnet nuget verify --all nuget/*.nupkg

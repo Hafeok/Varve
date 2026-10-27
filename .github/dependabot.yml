@@ -89,6 +89,22 @@ updates:
       - dependency-name: JsonSchema.Net
         versions: [">= 9.0.0"]
 
+  # The container image's two bases, pinned by digest in the Dockerfile
+  # (ADR 0111, amended 2026-10-27). Dependabot proposes a new digest when the
+  # tag moves; the image SBOM's digest in the next descriptor changes with it.
+  # mcr.microsoft.com, never Docker Hub.
+  - package-ecosystem: docker
+    directory: "/src/Varve.Server/container"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Copenhagen
+    commit-message:
+      prefix: build(deps)
+    labels:
+      - dependencies
+
   # The test containers CI starts are not watched here. They are pinned by
   # digest in .github/ci-images.yaml, the single list of them, and pulled
   # from this repository's private mirror (#118, ADR 0099's amendment of

@@ -15,10 +15,15 @@
 # 1654, `app`). Made on the full image, which has a shell, and copied: the
 # chiseled image cannot mkdir or chown, and a volume mounted on a directory
 # the image lacks would be root's.
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble AS layout
+#
+# Both bases are pinned by digest (ADR 0111, amended 2026-10-27; ADR 0224
+# point 5), the tag kept for the reader and for Dependabot, which proposes a
+# new digest when the tag moves. The chiseled base's digest is also what
+# publish.yml scans for the image SBOM's OS packages (ADR 0225 point 5).
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble@sha256:62028293921f5bd6db3d9f9119cd29cd926dfd3c2336da23b09f425e40c3c832 AS layout
 RUN mkdir -p /var/lib/varve && chown 1654:1654 /var/lib/varve
 
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled@sha256:4309626281bfe550c0f6bb4242c435cd5cdabed1d05a5bc5843f659336f53296
 
 # Varve.Server on Linux and macOS, Varve.Server.exe on Windows; here Linux.
 ARG BINARY=Varve.Server
