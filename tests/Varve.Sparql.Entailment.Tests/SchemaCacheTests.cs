@@ -85,6 +85,23 @@ public class SchemaCacheTests
     }
 
     [Fact]
+    public void A_schema_larger_than_the_budget_is_answered_and_not_kept()
+    {
+        IQuadSource source = Versioned(Students(), (null, 1), (Tbox, 1));
+        List<string> expected = Run("SELECT * { ?x a :Person }", source, EntailmentRegime.Rdfs, Covers);
+        SchemaCache small = new(256, budget: 10);
+        Assert.Equal(expected, Run("SELECT * { ?x a :Person }", source, EntailmentRegime.Rdfs, Covers, small));
+        Assert.Equal(expected, Run("SELECT * { ?x a :Person }", source, EntailmentRegime.Rdfs, Covers, small));
+        Assert.Equal(0, small.Hits.Value);
+
+        // The same schema under the default budget is kept.
+        SchemaCache large = new();
+        Run("SELECT * { ?x a :Person }", source, EntailmentRegime.Rdfs, Covers, large);
+        Run("SELECT * { ?x a :Person }", source, EntailmentRegime.Rdfs, Covers, large);
+        Assert.True(large.Hits.Value > 0);
+    }
+
+    [Fact]
     public void A_source_that_names_no_version_saturates_per_request()
     {
         IQuadSource source = Students().ToDataset();

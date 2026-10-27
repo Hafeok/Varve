@@ -14,7 +14,8 @@ namespace Varve.Sparql.Entailment;
 /// Saturated schemas kept across requests, one per scoping graph as of the
 /// versions of the graphs it merges (ADRs 0125, 0193): a query whose scoping
 /// graph has not changed since one before it reuses that one's schema, and
-/// pays no probe for it. Bounded, the least recently used dropped first.
+/// pays no probe for it. Bounded by count and by size, the least recently
+/// used dropped first.
 /// </summary>
 /// <remarks>
 /// One cache serves one dataset: a key names graphs and their versions, not
@@ -26,19 +27,31 @@ namespace Varve.Sparql.Entailment;
 public sealed class SchemaCache
 {
     private readonly int _capacity;
+    private readonly long _budget;
+    private long _weight;
     private readonly Lock _lock = new();
     private readonly Dictionary<SchemaKey, LinkedListNode<(SchemaKey Key, Schema Schema)>> _entries = [];
     private readonly LinkedList<(SchemaKey Key, Schema Schema)> _recent = new();
     private long _hits;
     private long _misses;
 
-    /// <summary>A cache of at most 256 schemas.</summary>
+    /// <summary>
+    /// A cache of at most 256 schemas holding at most 500,000 closure triples
+    /// between them. A schema read whole holds its scoping graph's closure,
+    /// and a graph written to makes a new one per commit, so the size is
+    /// bounded as well as the count; one larger than the whole budget is
+    /// saturated per request and not kept.
+    /// </summary>
     public SchemaCache()
-        : this(256)
+        : this(256, 500_000)
     {
     }
 
-    internal SchemaCache(int capacity) => _capacity = capacity;
+    internal SchemaCache(int capacity, long budget = 500_000)
+    {
+        _capacity = capacity;
+        _budget = budget;
+    }
 
     /// <summary>The lookups answered from the cache.</summary>
     public SchemaLookups Hits
@@ -95,22 +108,28 @@ public sealed class SchemaCache
 
     internal void Add(SchemaKey key, Schema schema)
     {
+        long weight = Weight(schema);
         lock (_lock)
         {
-            if (_entries.ContainsKey(key))
+            if (_entries.ContainsKey(key) || weight > _budget)
             {
                 return;
             }
 
             _entries[key] = _recent.AddFirst((key, schema));
-            while (_entries.Count > _capacity)
+            _weight += weight;
+            while (_entries.Count > _capacity || _weight > _budget)
             {
                 LinkedListNode<(SchemaKey Key, Schema Schema)> last = _recent.Last!;
                 _recent.RemoveLast();
                 _entries.Remove(last.Value.Key);
+                _weight -= Weight(last.Value.Schema);
             }
         }
     }
+
+    // A schema's size: the triples its closure holds beyond the axioms'.
+    private static long Weight(Schema schema) => 1 + schema.Closure.Own.Count;
 }
 
 // What a scoping graph's schema depends on, as text: the rules, the rdf:_n

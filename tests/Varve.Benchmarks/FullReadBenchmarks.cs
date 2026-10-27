@@ -32,7 +32,7 @@ namespace Varve.Benchmarks;
 [MemoryDiagnoser]
 [WarmupCount(2)]
 [IterationCount(8)]
-[InvocationCount(16)]
+[InvocationCount(4)]
 public class FullReadBenchmarks : IDisposable
 {
     private const string Ex = "http://example.org/inference/";
