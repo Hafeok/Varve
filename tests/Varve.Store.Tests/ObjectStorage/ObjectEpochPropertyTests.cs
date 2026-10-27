@@ -51,8 +51,8 @@ public sealed class ObjectEpochPropertyTests
             opened.Add(writer);
         }
 
-        await writer.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal(new string('o', 46))), T.Ct);
-        await writer.CommitAsync(new CommitRequest().Retract(T.Iri("s"), T.Iri("p"), T.Literal(new string('o', 46))), T.Ct);
+        await writer.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal(new string('o', 46))), T.Ct);
+        await writer.CommitAsync(new CommitRequestBuilder().Retract(T.Iri("s"), T.Iri("p"), T.Literal(new string('o', 46))), T.Ct);
 
         if (closedBeforeTheLast)
         {
@@ -62,7 +62,7 @@ public sealed class ObjectEpochPropertyTests
         Dataset last = await Dataset.OpenAsync(await objects.OpenAsync(), options, T.Ct);
         opened.Add(last);
         Assert.Equal(2, last.Head.Value);
-        Assert.Equal(CommitOutcome.Committed, (await last.CommitAsync(new CommitRequest().Assert(T.Iri("t"), T.Iri("p"), T.Iri("o")), T.Ct)).Outcome);
+        Assert.Equal(CommitOutcome.Committed, (await last.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("t"), T.Iri("p"), T.Iri("o")), T.Ct)).Outcome);
 
         foreach (Dataset dataset in opened)
         {
@@ -140,7 +140,7 @@ public sealed class ObjectEpochPropertyTests
                 {
                     try
                     {
-                        CommitResult result = await writer.CommitAsync(new CommitRequest().Assert(T.Iri("s" + batch.ToString(CultureInfo.InvariantCulture) + new string('x', 60)), T.Iri("p"), T.Iri("o")), T.Ct);
+                        CommitResult result = await writer.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s" + batch.ToString(CultureInfo.InvariantCulture) + new string('x', 60)), T.Iri("p"), T.Iri("o")), T.Ct);
 
                         if (result.Outcome == CommitOutcome.Committed)
                         {
@@ -185,7 +185,7 @@ public sealed class ObjectEpochPropertyTests
                 await writer.DisposeAsync();
                 await using Dataset current = await T.OpenOrCreate(second, T.Options(maxRecordBytes: 256, segmentBytes: schedule.SegmentBytes));
                 Assert.Equal(acknowledged, current.Head.Value);
-                CommitResult next = await current.CommitAsync(new CommitRequest().Assert(T.Iri("after"), T.Iri("p"), T.Iri("o")), T.Ct);
+                CommitResult next = await current.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("after"), T.Iri("p"), T.Iri("o")), T.Ct);
                 Assert.Equal(CommitOutcome.Committed, next.Outcome);
 
                 foreach (string consolidated in attemptsAfter.Where(a => a.EndsWith(".seg", StringComparison.Ordinal)).Distinct())

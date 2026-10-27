@@ -150,7 +150,7 @@ public sealed class ObjectFollowerFaultTests
                         break;
                     default:
                         (RdfTerm S, RdfTerm P, RdfTerm O, RdfTerm G) quad = (T.Iri("s" + subject), T.Iri("p"), T.Literal(new string('o', 40 + subject)), T.Iri("g" + (subject % 3)));
-                        CommitRequest request = assert ? new CommitRequest().Assert(quad.S, quad.P, quad.O, quad.G) : new CommitRequest().Retract(quad.S, quad.P, quad.O, quad.G);
+                        CommitRequestBuilder request = assert ? new CommitRequestBuilder().Assert(quad.S, quad.P, quad.O, quad.G) : new CommitRequestBuilder().Retract(quad.S, quad.P, quad.O, quad.G);
                         CommitResult result = await writer.CommitAsync(request, T.Ct);
 
                         if (result.Outcome == CommitOutcome.Committed)

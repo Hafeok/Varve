@@ -193,7 +193,7 @@ public class ReferencePropertyTests
                 return;
             }
 
-            CommitRequest request = new();
+            CommitRequestBuilder request = new();
             List<string> fresh = [];
 
             foreach (MQuad quad in retract)

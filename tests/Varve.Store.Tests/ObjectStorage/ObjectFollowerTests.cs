@@ -66,7 +66,7 @@ public sealed class ObjectFollowerTests
                                 cancellationToken: T.Ct);
                             break;
                         default:
-                            CommitRequest request = new();
+                            CommitRequestBuilder request = new();
                             request = assert
                                 ? request.Assert(T.Iri("s" + subject), T.Iri("p"), T.Literal(new string('o', 40 + subject)), T.Iri("g" + (subject % 3)))
                                 : request.Retract(T.Iri("s" + subject), T.Iri("p"), T.Literal(new string('o', 40 + subject)), T.Iri("g" + (subject % 3)));
@@ -96,7 +96,7 @@ public sealed class ObjectFollowerTests
     {
         await using ObjectHarness objects = new();
         await using Dataset writer = await T.OpenOrCreate(await objects.OpenAsync(), Small());
-        await writer.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await writer.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Iri("o")), T.Ct);
         await using Dataset follower = await Dataset.OpenFollowerAsync(await objects.OpenAsync(ObjectStorageAccess.ReadOnly), Small(), T.Ct);
 
         objects.Store.ResetCounts();
@@ -104,7 +104,7 @@ public sealed class ObjectFollowerTests
         Assert.Equal(2, objects.Store.Count(ObjectOperation.Read));
         Assert.Equal(0, objects.Store.Count(ObjectOperation.List));
 
-        await writer.CommitAsync(new CommitRequest().Assert(T.Iri("s2"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await writer.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s2"), T.Iri("p"), T.Iri("o")), T.Ct);
         objects.Store.ResetCounts();
         Assert.Equal(writer.Head, await follower.AdvanceAsync(T.Ct));
         Assert.Equal(0, objects.Store.Count(ObjectOperation.List));
@@ -123,14 +123,14 @@ public sealed class ObjectFollowerTests
         await using ObjectHarness objects = new();
         Backend first = await objects.OpenAsync(instance: "a");
         await using Dataset writer = await T.OpenOrCreate(first, Small());
-        await writer.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await writer.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Iri("o")), T.Ct);
         Backend followed = await objects.OpenAsync(ObjectStorageAccess.ReadOnly);
         await using Dataset follower = await Dataset.OpenFollowerAsync(followed, Small(), T.Ct);
         Assert.Equal(first.Epoch, followed.AdoptedEpoch);
 
         Backend second = await objects.OpenAsync(instance: "b");
         await using Dataset successor = await Dataset.OpenAsync(second, Small(), T.Ct);
-        await successor.CommitAsync(new CommitRequest().Assert(T.Iri("s2"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await successor.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s2"), T.Iri("p"), T.Iri("o")), T.Ct);
 
         objects.Store.ResetCounts();
         Assert.Equal(successor.Head, await follower.AdvanceAsync(T.Ct));
@@ -163,7 +163,7 @@ public sealed class ObjectFollowerTests
 
         for (int n = 0; n < 12; n++)
         {
-            await writer.CommitAsync(new CommitRequest().Assert(T.Iri("s" + n), T.Iri("p"), T.Iri("o")), T.Ct);
+            await writer.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s" + n), T.Iri("p"), T.Iri("o")), T.Ct);
         }
 
         // What its open replayed does not count.
@@ -178,7 +178,7 @@ public sealed class ObjectFollowerTests
         for (int n = 12; !follower.ReopenDue; n++)
         {
             Assert.True(n < 40, "never due");
-            await writer.CommitAsync(new CommitRequest().Assert(T.Iri("s" + n), T.Iri("p"), T.Iri("o")), T.Ct);
+            await writer.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s" + n), T.Iri("p"), T.Iri("o")), T.Ct);
             await follower.AdvanceAsync(T.Ct);
             Assert.Equal(follower.MemtableForTests() - atOpen > 8, follower.ReopenDue);
         }
@@ -195,12 +195,12 @@ public sealed class ObjectFollowerTests
     {
         await using ObjectHarness objects = new();
         await using Dataset writer = await T.OpenOrCreate(await objects.OpenAsync(), Small());
-        await writer.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await writer.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Iri("o")), T.Ct);
         await using Dataset follower = await Dataset.OpenFollowerAsync(await objects.OpenAsync(ObjectStorageAccess.ReadOnly), Small(), T.Ct);
 
         Assert.True(follower.IsFollower);
         Assert.False(writer.IsFollower);
-        CommitResult refused = await follower.CommitAsync(new CommitRequest().Assert(T.Iri("x"), T.Iri("p"), T.Iri("o")), T.Ct);
+        CommitResult refused = await follower.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("x"), T.Iri("p"), T.Iri("o")), T.Ct);
         Assert.Equal(CommitOutcome.Unavailable, refused.Outcome);
         await Assert.ThrowsAsync<InvalidOperationException>(async () => await follower.CheckpointAsync(new Position(1), T.Ct));
         await Assert.ThrowsAsync<InvalidOperationException>(async () => await writer.AdvanceAsync(T.Ct));
@@ -218,7 +218,7 @@ public sealed class ObjectFollowerTests
         await using ObjectHarness objects = new();
         Backend written = await objects.OpenAsync();
         await using Dataset writer = await T.OpenOrCreate(written, Small());
-        await writer.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await writer.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Iri("o")), T.Ct);
         await writer.CheckpointAsync(new Position(1), T.Ct);
         CatalogVersion opened = writer.CatalogVersion;
 
@@ -230,7 +230,7 @@ public sealed class ObjectFollowerTests
             Assert.Equal(opened, held.Newest);
         }
 
-        await writer.CommitAsync(new CommitRequest().Assert(T.Iri("s2"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await writer.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s2"), T.Iri("p"), T.Iri("o")), T.Ct);
         await writer.CheckpointAsync(new Position(2), T.Ct);
         Backend second = await objects.OpenAsync(ObjectStorageAccess.ReadOnly);
         await using Dataset again = await Dataset.OpenFollowerAsync(second, Small(), T.Ct);
@@ -246,7 +246,7 @@ public sealed class ObjectFollowerTests
     {
         await using ObjectHarness objects = new();
         await using Dataset writer = await T.OpenOrCreate(await objects.OpenAsync(), Small());
-        await writer.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await writer.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Iri("o")), T.Ct);
         await using Dataset follower = await Dataset.OpenFollowerAsync(await objects.OpenAsync(ObjectStorageAccess.ReadOnly), Small(), T.Ct);
 
         string next = objects.Store.Names().Where(name => name.Contains(".chunks/", StringComparison.Ordinal)).Max(StringComparer.Ordinal)!;

@@ -20,8 +20,8 @@ namespace Varve.Store.Tests;
 /// </summary>
 public sealed class FormatTests
 {
-    private static CommitRequest Quad(int i) =>
-        new CommitRequest().Assert(T.Iri("s" + i), T.Iri("p"), T.Literal(new string('x', 60)));
+    private static CommitRequestBuilder Quad(int i) =>
+        new CommitRequestBuilder().Assert(T.Iri("s" + i), T.Iri("p"), T.Literal(new string('x', 60)));
 
     private static async Task<(MemoryStorage Storage, DatasetOptions Options)> LogAsync(int commits, long segmentBytes = 64L << 20)
     {
@@ -105,7 +105,7 @@ public sealed class FormatTests
             // Bodies of a realistic size: here the bytes are the quads, not the headers.
             for (int i = 0; i < 200; i++)
             {
-                CommitRequest request = new();
+                CommitRequestBuilder request = new();
 
                 for (int q = 0; q < 20; q++)
                 {

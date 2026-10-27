@@ -72,7 +72,7 @@ public sealed class ClaimInPlaceTests
 
                         try
                         {
-                            late = await writer.CommitAsync(new CommitRequest().Assert(T.Iri("late"), T.Iri("p"), T.Iri("o")), T.Ct);
+                            late = await writer.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("late"), T.Iri("p"), T.Iri("o")), T.Ct);
                         }
                         catch (WriterSupersededException)
                         {
@@ -137,7 +137,7 @@ public sealed class ClaimInPlaceTests
                 break;
             default:
                 (RdfTerm S, RdfTerm P, RdfTerm O, RdfTerm G) quad = (T.Iri("s" + subject), T.Iri("p"), T.Literal(new string('o', 40 + subject)), T.Iri("g" + (subject % 3)));
-                await writer.CommitAsync(assert ? new CommitRequest().Assert(quad.S, quad.P, quad.O, quad.G) : new CommitRequest().Retract(quad.S, quad.P, quad.O, quad.G), T.Ct);
+                await writer.CommitAsync(assert ? new CommitRequestBuilder().Assert(quad.S, quad.P, quad.O, quad.G) : new CommitRequestBuilder().Retract(quad.S, quad.P, quad.O, quad.G), T.Ct);
                 break;
         }
     }

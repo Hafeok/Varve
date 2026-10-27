@@ -34,8 +34,8 @@ public sealed class FollowerPositionTests
 
         await using (Dataset writer = await Dataset.CreateAsync(storage, new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, P.Ct))
         {
-            await writer.CommitAsync(new CommitRequest().Assert(RdfTerm.Iri("http://ex/a"u8), RdfTerm.Iri("http://ex/p"u8), RdfTerm.Iri("http://ex/o"u8)), P.Ct);
-            await writer.CommitAsync(new CommitRequest().Assert(RdfTerm.Iri("http://ex/b"u8), RdfTerm.Iri("http://ex/p"u8), RdfTerm.Iri("http://ex/o"u8), RdfTerm.Iri("http://ex/g"u8)), P.Ct);
+            await writer.CommitAsync(new CommitRequestBuilder().Assert(RdfTerm.Iri("http://ex/a"u8), RdfTerm.Iri("http://ex/p"u8), RdfTerm.Iri("http://ex/o"u8)), P.Ct);
+            await writer.CommitAsync(new CommitRequestBuilder().Assert(RdfTerm.Iri("http://ex/b"u8), RdfTerm.Iri("http://ex/p"u8), RdfTerm.Iri("http://ex/o"u8), RdfTerm.Iri("http://ex/g"u8)), P.Ct);
         }
 
         await using Dataset follower = await Dataset.OpenFollowerAsync(new Tailing(storage), new DatasetOptions { Clock = TimeProvider.System }, P.Ct);

@@ -82,14 +82,14 @@ internal static class WriterFenceCases
         using Caches caches = new();
         Backend first = await Backend.OpenAsync(caches.Options(store, prefix, "first", clock), T.Ct);
         Dataset stalled = await T.Open(first);
-        await stalled.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("one")), T.Ct);
-        await stalled.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("two")), T.Ct);
+        await stalled.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("one")), T.Ct);
+        await stalled.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("two")), T.Ct);
 
         Backend second = await Backend.OpenAsync(caches.Options(store, prefix, "second", clock), T.Ct);
         Assert.Equal(new WriterEpoch(2), second.Epoch);
         Assert.False(second.IsSuperseded);
 
-        await Assert.ThrowsAsync<WriterSupersededException>(async () => await stalled.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("lost")), T.Ct));
+        await Assert.ThrowsAsync<WriterSupersededException>(async () => await stalled.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("lost")), T.Ct));
         Assert.True(first.IsSuperseded);
         Assert.Null(first.Epoch);
 
@@ -101,7 +101,7 @@ internal static class WriterFenceCases
         await using (Dataset current = await T.Open(second))
         {
             Assert.Equal(new Position(2), current.Head);
-            await current.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("three")), T.Ct);
+            await current.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("three")), T.Ct);
         }
 
         await stalled.DisposeAsync();
@@ -175,7 +175,7 @@ internal static class WriterFenceCases
         Backend creator = await Backend.OpenAsync(caches.Options(store, prefix, "creator", clock), T.Ct);
         await using (Dataset created = await T.Open(creator))
         {
-            await created.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("before")), T.Ct);
+            await created.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("before")), T.Ct);
         }
 
         await creator.DisposeAsync();
@@ -197,7 +197,7 @@ internal static class WriterFenceCases
 
                 try
                 {
-                    CommitResult result = await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("after")), T.Ct);
+                    CommitResult result = await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("after")), T.Ct);
                     Assert.Equal(CommitOutcome.Committed, result.Outcome);
                     committed++;
                     writer = storage.Writer!.Holder;
@@ -260,7 +260,7 @@ internal static class WriterFenceCases
         await using (Dataset dataset = await T.Open(fourth))
         {
             Assert.Equal(new Position(0), dataset.Head);
-            CommitResult result = await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("o")), T.Ct);
+            CommitResult result = await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("o")), T.Ct);
             Assert.Equal(CommitOutcome.Committed, result.Outcome);
         }
 
@@ -277,7 +277,7 @@ internal static class WriterFenceCases
         using Caches caches = new();
         Backend stuck = await Backend.OpenAsync(caches.Options(store, prefix, "stuck", clock), T.Ct);
         await using Dataset dataset = await T.Open(stuck);
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("o")), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("o")), T.Ct);
 
         Assert.Null(await Backend.TakeOverAsync(caches.Options(store, prefix, "operator", clock), new WriterEpoch(7), T.Ct));
         Assert.Equal(new WriterEpoch(1), (await Backend.ReadWriterAsync(store, prefix, T.Ct))!.Epoch);
@@ -287,7 +287,7 @@ internal static class WriterFenceCases
         Assert.Equal(ReleaseReason.OperatorTakeover, taken.Released);
         Assert.Equal(ClaimTrigger.Operator, taken.History[^1].Trigger);
 
-        await Assert.ThrowsAsync<WriterSupersededException>(async () => await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Literal("after")), T.Ct));
+        await Assert.ThrowsAsync<WriterSupersededException>(async () => await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("after")), T.Ct));
 
         Backend next = await Backend.OpenAsync(caches.Options(store, prefix, "next", clock), T.Ct);
         Assert.Equal(new WriterEpoch(3), next.Epoch);

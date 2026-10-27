@@ -45,7 +45,7 @@ public class AllocationTests
     private static async Task<Dataset> Loaded(int quads)
     {
         Dataset dataset = await T.Open(new MemoryStorage());
-        CommitRequest request = new();
+        CommitRequestBuilder request = new();
 
         for (int i = 0; i < quads; i++)
         {
@@ -55,7 +55,7 @@ public class AllocationTests
         await dataset.CommitAsync(request, T.Ct);
 
         // A second, smaller run on top, so the scan merges more than one run.
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("extra"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("extra"), T.Iri("p"), T.Iri("o")), T.Ct);
         return dataset;
     }
 
@@ -100,7 +100,7 @@ public class AllocationTests
     {
         DatasetOptions options = new() { Clock = ManualClock.Epoch(), MemtableLimit = new QuadCount(1), Maintenance = MaintenanceMode.Off };
         Dataset dataset = await Dataset.CreateAsync(storage, T.Id, options, T.Ct);
-        CommitRequest request = new();
+        CommitRequestBuilder request = new();
 
         for (int i = 0; i < quads; i++)
         {
@@ -109,7 +109,7 @@ public class AllocationTests
 
         await dataset.CommitAsync(request, T.Ct);
         await dataset.MaintainAsync(T.Ct);
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("extra"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("extra"), T.Iri("p"), T.Iri("o")), T.Ct);
         return dataset;
     }
 
@@ -246,8 +246,8 @@ public class AllocationTests
     {
         await using Dataset small = await Loaded(Small);
         await using Dataset large = await Loaded(Large);
-        CommitRequest smallRetract = Request(Small, assert: false), smallAssert = Request(Small, assert: true);
-        CommitRequest largeRetract = Request(Large, assert: false), largeAssert = Request(Large, assert: true);
+        CommitRequestBuilder smallRetract = Request(Small, assert: false), smallAssert = Request(Small, assert: true);
+        CommitRequestBuilder largeRetract = Request(Large, assert: false), largeAssert = Request(Large, assert: true);
 
         for (int i = 0; i < 3; i++)
         {
@@ -280,7 +280,7 @@ public class AllocationTests
     // thread measures nothing: the difference is between two threads'
     // counters. Such a reading is discarded, the retracted quads asserted
     // again unmeasured, and the same retraction measured again.
-    private static async Task<long> MeasureAsync(Dataset dataset, CommitRequest retract, CommitRequest reassert)
+    private static async Task<long> MeasureAsync(Dataset dataset, CommitRequestBuilder retract, CommitRequestBuilder reassert)
     {
         for (int attempt = 0; attempt < 20; attempt++)
         {
@@ -301,9 +301,9 @@ public class AllocationTests
         throw new InvalidOperationException("Every measured commit resumed on another thread.");
     }
 
-    private static CommitRequest Request(int quads, bool assert)
+    private static CommitRequestBuilder Request(int quads, bool assert)
     {
-        CommitRequest request = new();
+        CommitRequestBuilder request = new();
 
         for (int i = 0; i < quads; i++)
         {

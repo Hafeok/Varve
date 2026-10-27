@@ -8,6 +8,8 @@ change. Decisions: [ADR 0057](../adr/0057-sparql-update-one-request-one-commit.m
 (the execution model) and [ADR 0058](../adr/0058-staging-view-and-dataset-validators.md)
 (what the store provides for it). Amended 2026-10-08 with ADR 0057's
 amendment of that date: a data-only request expects no position (§3, §4, §7).
+Amended 2026-10-27, filed unaccepted (ADR 0066): `CommitRequest` is
+`CommitRequestBuilder` (§3); see the end.
 
 ## 1. Normative references
 
@@ -315,3 +317,20 @@ The operation's index in the request, its kind, and the cause.
 2. **A triple term around an existing blank node** cannot be built by a
    request (ADR 0044's stated limit). An `INSERT` template that would build
    one fails the operation, naming the limit.
+
+## Amendment, 2026-10-27 — `CommitRequest` is `CommitRequestBuilder`
+
+Filed with the move to `DecisionDriven.Analyzers` 0.1.0-preview.10 (#151),
+unaccepted until the maintainer accepts it (ADR 0066), with the same
+amendment to ADRs 0058, 0065 and 0120.
+
+§3 step 4's "one `CommitRequest`" is one `CommitRequestBuilder`. The accepted
+text above keeps the old name as written. What the step does is unchanged.
+
+`DecisionDriven.Analyzers` 0.1.0-preview.10 reports the type under DD0019,
+because `Assert` and `Retract` change it after it is made. The rule's own
+exemption for a type mutable by design is a sealed `*Builder`. That is what the
+type is: assembled by its caller, passed once to `Dataset.CommitAsync` and never
+handed out as a value. `[DesignDecision]` would have accepted a violation, and no
+decision says the request is a model value. Nothing else about the type changes.
+Breaking before 1.0 (ADR 0118).

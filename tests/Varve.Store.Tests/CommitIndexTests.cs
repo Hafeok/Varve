@@ -132,7 +132,7 @@ public class CommitIndexTests
         for (int i = 0; i < 20; i++)
         {
             clock.Now = clock.Now.AddSeconds(1);
-            await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s" + i), T.Iri("p"), T.Integer(i.ToString(CultureInfo.InvariantCulture))), T.Ct);
+            await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s" + i), T.Iri("p"), T.Integer(i.ToString(CultureInfo.InvariantCulture))), T.Ct);
         }
 
         await dataset.MaintainAsync(T.Ct);
@@ -147,7 +147,7 @@ public class CommitIndexTests
         for (int i = 20; i < 200; i++)
         {
             clock.Now = clock.Now.AddSeconds(1);
-            await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s" + i), T.Iri("p"), T.Integer(i.ToString(CultureInfo.InvariantCulture))), T.Ct);
+            await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s" + i), T.Iri("p"), T.Integer(i.ToString(CultureInfo.InvariantCulture))), T.Ct);
             await dataset.MaintainAsync(T.Ct);
         }
 
@@ -296,7 +296,7 @@ public class CommitIndexTests
         for (int i = from; i < from + count; i++)
         {
             clock.Now = clock.Now.AddSeconds(1);
-            await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s" + i), T.Iri("p"), T.Integer(i.ToString(CultureInfo.InvariantCulture))), T.Ct);
+            await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s" + i), T.Iri("p"), T.Integer(i.ToString(CultureInfo.InvariantCulture))), T.Ct);
             await dataset.MaintainAsync(T.Ct);
         }
     }

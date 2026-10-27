@@ -595,13 +595,13 @@ internal static class ManagementEndpoints
             return;
         }
 
-        CommitRequest request;
+        CommitRequestBuilder request;
 
         using (DatasetView view = system.Pin())
         {
             // With no versions named, the graphs as they are now: a write
             // after this pin to one of them conflicts (ADR 0125).
-            request = new CommitRequest
+            request = new CommitRequestBuilder
             {
                 ExpectedPosition = expected is null ? view.Position : new Position(since),
                 ExpectedGraphs = [.. Graphs(desired.Keys)],

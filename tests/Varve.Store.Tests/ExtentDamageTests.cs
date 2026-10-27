@@ -36,7 +36,7 @@ public sealed class ExtentDamageTests
 
         for (int c = 0; c < 18; c++)
         {
-            CommitRequest request = new();
+            CommitRequestBuilder request = new();
 
             for (int i = 0; i < 12; i++)
             {

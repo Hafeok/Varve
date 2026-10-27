@@ -57,7 +57,7 @@ public class ShapesGateBenchmarks
     internal const int Held = 12 * Batch;
     private const ulong Seed = 20261015;
 
-    private readonly Queue<CommitRequest> _held = new();
+    private readonly Queue<CommitRequestBuilder> _held = new();
     private FileDataset? _dataset;
     private ShapesGate? _gate;
     private int _refused;
@@ -212,7 +212,7 @@ internal static class RecShapes
             }
         }
 
-        CommitRequest shapes = new();
+        CommitRequestBuilder shapes = new();
         foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in Triples(composed))
         {
             shapes.Assert(s, p, o, ShapesGraphIri);
@@ -312,9 +312,9 @@ internal static class RecShapes
 /// <summary>One commit of the portfolio's history, as terms.</summary>
 internal sealed record RecChange((RdfTerm S, RdfTerm P, RdfTerm O, RdfTerm G)[] Asserted, (RdfTerm S, RdfTerm P, RdfTerm O, RdfTerm G)[] Retracted)
 {
-    internal CommitRequest Request(IReadOnlyList<ICommitValidator> validators)
+    internal CommitRequestBuilder Request(IReadOnlyList<ICommitValidator> validators)
     {
-        CommitRequest request = new() { Validators = validators };
+        CommitRequestBuilder request = new() { Validators = validators };
         foreach ((RdfTerm s, RdfTerm p, RdfTerm o, RdfTerm g) in Asserted)
         {
             request.Assert(s, p, o, g);

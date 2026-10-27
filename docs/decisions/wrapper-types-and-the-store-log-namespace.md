@@ -8,9 +8,9 @@ decisions:
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-25T00:00:00Z
   - key: LogTypesThatMove
-    statement: "Commit, CommitKind, CommitMetadata, CommitOutcome, CommitResult, CommitRequest, DatasetSettings, SettingsChange, SubscriptionFilter, ValidationVerdict and SegmentInfo move to Varve.Store.Log"
+    statement: "Commit, CommitKind, CommitMetadata, CommitOutcome, CommitResult, CommitRequestBuilder, DatasetSettings, SettingsChange, SubscriptionFilter, ValidationVerdict and SegmentInfo move to Varve.Store.Log; amended 2026-10-27, CommitRequest renamed CommitRequestBuilder under DD0019"
     accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-09-25T00:00:00Z
+    accepted-at: 2026-10-27T00:00:00Z
   - key: WrappersAreReadonlyRecordStructs
     statement: "Each wrapper is a readonly record struct over one primitive, with an explicit constructor, a Value property and no implicit conversion either way"
     accepted-by: mailto:emil@okkels-klein.dk

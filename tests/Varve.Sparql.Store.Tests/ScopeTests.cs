@@ -112,7 +112,7 @@ public sealed class ScopeTests
                 await Run(fresh, text);
             }
 
-            CommitRequest built = await BuildAsync(stale, request.Text);
+            CommitRequestBuilder built = await BuildAsync(stale, request.Text);
             long before = stale.Head.Value;
             Dictionary<int, long> versions = Enumerable.Range(0, Graphs).ToDictionary(g => g, g => stale.GraphVersion(GraphTerm(g)).Value);
 
@@ -160,7 +160,7 @@ public sealed class ScopeTests
     public async Task a_read_of_an_absent_graph_conflicts_with_a_commit_that_creates_it()
     {
         await using Dataset dataset = await Open();
-        CommitRequest built = await BuildAsync(dataset, "INSERT { GRAPH :g1 { :flag :p 1 } } WHERE { FILTER NOT EXISTS { GRAPH :h { ?s ?p ?o } } }");
+        CommitRequestBuilder built = await BuildAsync(dataset, "INSERT { GRAPH :g1 { :flag :p 1 } } WHERE { FILTER NOT EXISTS { GRAPH :h { ?s ?p ?o } } }");
         Assert.Contains(built.ExpectedGraphs!, g => g.Term is { } term && term.Equals(Iri("h")));
 
         await Run(dataset, "INSERT DATA { GRAPH :h { :a :b :c } }");
@@ -172,14 +172,14 @@ public sealed class ScopeTests
     public async Task writers_of_disjoint_graphs_do_not_conflict()
     {
         await using Dataset dataset = await Open();
-        List<CommitRequest> built = [];
+        List<CommitRequestBuilder> built = [];
 
         for (int g = 1; g <= 4; g++)
         {
             built.Add(await BuildAsync(dataset, "DELETE { GRAPH :g" + g + " { :c :v ?x } } INSERT { GRAPH :g" + g + " { :c :v 1 } } WHERE { OPTIONAL { GRAPH :g" + g + " { :c :v ?x } } }"));
         }
 
-        foreach (CommitRequest request in built)
+        foreach (CommitRequestBuilder request in built)
         {
             Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(request, Ct)).Outcome);
         }
@@ -200,7 +200,7 @@ public sealed class ScopeTests
     private static ValueTask<CommitResult> Run(Dataset dataset, string update) =>
         SparqlUpdate.ExecuteAsync(dataset, SparqlParser.ParseUpdate(Encoding.UTF8.GetBytes(Prefix + update)), new UpdateOptions(), Ct);
 
-    private static async Task<CommitRequest> BuildAsync(Dataset dataset, string update)
+    private static async Task<CommitRequestBuilder> BuildAsync(Dataset dataset, string update)
     {
         using DatasetView view = dataset.Pin();
         RequestExecution execution = new(view.Stage(), SparqlParser.ParseUpdate(Encoding.UTF8.GetBytes(Prefix + update)), new UpdateOptions(), Ct);

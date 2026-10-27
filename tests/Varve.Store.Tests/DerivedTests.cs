@@ -28,9 +28,9 @@ public sealed class DerivedTests
         Maintenance = mode,
     };
 
-    private static CommitRequest Quads(int i, int count = 3)
+    private static CommitRequestBuilder Quads(int i, int count = 3)
     {
-        CommitRequest request = new();
+        CommitRequestBuilder request = new();
 
         for (int q = 0; q < count; q++)
         {
@@ -92,7 +92,7 @@ public sealed class DerivedTests
 
         for (int i = 0; i < 40; i += 2)
         {
-            CommitRequest retract = new();
+            CommitRequestBuilder retract = new();
 
             for (int q = 0; q < 3; q++)
             {

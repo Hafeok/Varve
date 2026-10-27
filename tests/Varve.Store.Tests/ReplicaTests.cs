@@ -53,7 +53,7 @@ public class ReplicaTests
                     Assert.True(copied.Span.SequenceEqual(original.Span));
                 }
 
-                CommitResult next = await replica.CommitAsync(new CommitRequest().Assert(T.Iri("replica"), T.Iri("p"), T.Literal("continues")), T.Ct);
+                CommitResult next = await replica.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("replica"), T.Iri("p"), T.Literal("continues")), T.Ct);
                 Assert.Equal(CommitOutcome.Committed, next.Outcome);
             },
             iter: 150);
