@@ -9,6 +9,8 @@ decisions:
     accepted-at: 2026-09-29T00:00:00Z
   - key: CarriedHandlesAreAPrivateHashSet
     statement: "Commit memoises the handles it carries as a private HashSet: built completely in a local, published once with Interlocked.CompareExchange, never mutated or handed out after publication"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-27T00:00:00Z
 ---
 
 # Primitives on Varve.Store.Log's surface
