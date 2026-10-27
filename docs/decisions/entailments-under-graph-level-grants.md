@@ -29,10 +29,14 @@ decisions:
     statement: "A cross-graph binding whose rules have a negative dependency is refused at apply time; an intra-graph binding may use stratified negation"
   - key: RewritingReadsThroughTheScope
     statement: "Query-time rewriting reads its data and its TBox through the caller's GraphScopedQuadSource and needs no placement of its own"
-  - key: WitnessesNameOnlyReadableQuads
-    statement: "An inconsistency refusal names only quads the writing caller reads; a cross-graph witness that reaches another graph is named by its rule and the count of quads withheld, and the refusal stands"
+  - key: WriteOutcomeOnlyFromReadableGraphs
+    statement: "A data commit's tier-3 outcome, accepted or refused, its problem body and the attachment its writer sees, depends only on graphs the writer reads, and every witness it names is inside what the writer reads"
+  - key: CrossGraphGateNeedsReadOnEveryGraph
+    statement: "A cross-graph binding whose tier-3 mode is reject or report requires every write grant on any of its data graphs to carry read on all of them, checked when the binding is applied and whenever grants change, and a declaration that would break it is refused as declaration-invalid naming the binding and the grant"
+  - key: CrossGraphAttachmentReadAsAReport
+    statement: "A cross-graph binding's report attachment is delivered on the commits resource, the feed and the diff only to callers who read every graph of the binding"
   - key: TheGrantProperty
-    statement: "Over generated datasets, grants, TBoxes, rules and bindings, every surface shows each caller exactly the entailments of the closure of the graphs it reads with the TBox and rules, per graph without crossGraph and over their union with it"
+    statement: "Over generated datasets, grants, TBoxes, rules and bindings, every surface shows each caller exactly the entailments of the closure of the graphs it reads with the TBox and rules, per graph without crossGraph and over their union with it; and over pairs of datasets that differ only in graphs a writer does not read, the same write has the same outcome"
 ---
 
 The rulings of [ADR 0190](../adr/0190-entailments-under-graph-level-grants.md), one line each. The ADR is the

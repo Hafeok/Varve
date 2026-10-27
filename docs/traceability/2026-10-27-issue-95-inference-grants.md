@@ -289,7 +289,7 @@ point 9 as an amendment to ADR 0151.
 
 Docs only, filed unaccepted, with no release descriptor:
 - `docs/adr/0190-entailments-under-graph-level-grants.md` and its decision
-  set `docs/decisions/entailments-under-graph-level-grants.md`, 15 rulings;
+  set `docs/decisions/entailments-under-graph-level-grants.md`, 17 rulings;
 - a dated amendment to ADR 0107 (dataset-public graphs, a graph governed by a
   set);
 - the ADR index's new section.
@@ -299,6 +299,40 @@ at apply names every graph a binding makes dataset-public (point 5), with a
 property. The cross-graph growth measurement is owned by #171, as the
 maintainer asked. Nothing in `src/` changes, so no citation is `CS0618` yet.
 The parts that build on it cite it.
+
+### The maintainer's change to point 7, before acceptance
+
+The first wording of point 7 had a cross-graph witness that reaches a graph
+the writer cannot read named by its rule and a count of withheld quads, with
+the refusal standing. The maintainer ruled that this lets a writer probe a
+graph it cannot read: commit, see whether the commit is refused, and repeat.
+The count adds to that. Point 7 now states a precondition at apply instead:
+- a cross-graph binding gated by tier 3 needs every write grant on its data
+  graphs to carry read on all of them;
+- it is checked when the binding is applied and whenever grants change, and
+  refused as `declaration-invalid`, naming the binding and the grant;
+- a witness is then always inside what the writer reads, and the count is
+  gone.
+
+"Refuse and withhold" is recorded among the alternatives, with why it leaks.
+Point 8 gains the property that no write's outcome changes with the content
+of a graph the writer cannot read.
+
+While writing it, the session found that a `report` attachment of a
+cross-graph binding is itself a statement about every graph of the binding.
+Point 7 delivers it only to callers who read all of them, as ADR 0174 rules
+for a report graph. The maintainer's message, verbatim:
+
+> Change point 7 of ADR 0190 before acceptance. The cross-graph tier-3 ruling lets a writer probe graphs it can’t read: commit, see whether it’s refused, repeat. The withheld-quads count adds to that. Replace it with an apply-time precondition:
+>
+> * A cross-graph binding whose tier-3 mode is `reject` or `report` requires every write grant on any of its graphs to carry read on all of its graphs.
+> * It is checked when the binding is applied and whenever grants change. A declaration that would break it is refused with `declaration-invalid`, naming the binding and the grant.
+> * Then a witness is always inside what the writer reads, in both modes. Drop the withheld-count member.
+> * Record the rejected alternative (“refuse and withhold”) and why it leaks.
+> * Add a case to point 8’s property: no write’s outcome changes with the content of a graph the writer can’t read.
+>
+> CI on #172: yes, watch it and fix what CI reports. Review comments come from me, through the maintainer.
+> Don’t wait for acceptance to start #170. Branch it from #172’s head and merge `main` once #172 lands. It’s red only on `CS0618` until 0190 is accepted, which is expected.
 
 ### Left for the parts
 

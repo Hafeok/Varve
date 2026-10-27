@@ -187,15 +187,43 @@ A property holds it (point 8).
   - Every premise it names is then in a graph the caller reads, or in a TBox
     or rules graph.
 - **Tier 3 (inconsistency at commit)** runs on the writer, under the writing
-  caller's request. Its problem body names one witness per violation, as
-  quads, and names only quads the writing caller reads.
-  - **Intra-graph,** that is no restriction. A commit changes only the
-    closures of the graphs it writes, and a write grant reads (ADR 0107
-    point 1). So a witness is inside a written graph plus the TBox and rules.
-  - **Cross-graph,** a witness may reach a graph the writer cannot read. It is
-    then named by its rule alone, with a member saying how many of its quads
-    were withheld. The refusal itself still stands, since the commit would
-    make the closure inconsistent whoever reads it.
+  caller's request. A data commit's outcome — refused or accepted, the
+  problem body, and the attachment — depends only on graphs the writer reads.
+  Its problem body names one witness per violation, as quads, and every
+  witness is inside what the writer reads, in both modes:
+  - **Intra-graph,** that holds already. A commit changes only the closures
+    of the graphs it writes, and a write grant reads (ADR 0107 point 1). So a
+    witness is inside a written graph plus the TBox and rules, which are
+    dataset-public.
+  - **Cross-graph, it holds by a precondition checked at apply time.** A
+    cross-graph binding whose tier-3 mode is `reject` or `report` requires
+    every write grant on any of its data graphs to carry read on all of its
+    data graphs:
+    - **What "carry read" means.** The grantee of that write grant must read
+      every graph of the binding's graph set through its own grants, a write
+      grant reading as ADR 0107 point 1 has it. The check is set inclusion
+      over explicit graphs, prefixes and `allGraphs`. A dataset admin reads
+      every graph.
+    - **Templates.** A write grant by `varve:graphTemplate` counts as being on
+      the binding's graphs whenever its expansion could fall among them,
+      judged from the template's literal prefix. A read grant by template
+      covers nothing, since what it covers depends on the caller.
+    - **When it is checked:** when the binding is applied, and whenever
+      grants change, by the management validator (ADR 0166 point 4) over the
+      desired declarations of the fleet graph and the dataset's graph
+      together.
+    - **The refusal.** A declaration that would break the precondition is
+      refused with `declaration-invalid`. Its finding names the binding and
+      the grant.
+  - **TBox and rules commits are not gated** (ADR 0169's R5, as Inference
+    rules it). Writing them reveals nothing through a refusal, so the
+    precondition is over the data graphs.
+  - **`report`'s attachment** is the digest of the commit's new witnesses, so
+    it is a statement about the binding's graphs. On the commits resource,
+    the change feed and the diff, a cross-graph binding's attachment is
+    delivered only to callers who read every graph of the binding, as ADR
+    0174 rules for a report graph. To anyone else the commit carries no such
+    attachment.
 
 ### 8. The property
 
@@ -234,6 +262,20 @@ A third property holds point 5: for generated desired and current
 declarations, the plan names exactly the graphs whose dataset-public status
 the apply would change.
 
+A fourth holds point 7's tier 3, **no write's outcome changes with the
+content of a graph the writer can't read**:
+- **The pairs.** For generated pairs of datasets that differ only in graphs
+  the writer does not read, under generated grants and bindings, intra-graph
+  and cross-graph, in `reject` and in `report` mode.
+- **What must be equal.** The same write has the same outcome over both:
+  - accepted or refused;
+  - the problem body, byte for byte;
+  - the attachment the writer can see.
+- **The generator also produces declarations that break the precondition.**
+  Each is refused at apply with `declaration-invalid` naming the binding and
+  the grant, so the pairs are never tested with a declaration the validator
+  would not admit.
+
 ## Alternatives considered
 
 - **Hide every entailment that has an unreadable premise, the TBox
@@ -257,12 +299,26 @@ the apply would change.
   dataset sees nothing in it, and that stays so.
 - **Leave the rules graph under ordinary grants.** Rule-drawn conclusions
   would leak it or vanish, which is the TBox's argument again.
+- **Refuse and withhold**, the plan's first wording. Under a cross-graph
+  binding, a witness reaching a graph the writer cannot read would be named
+  by its rule and a count of withheld quads, and the refusal would still
+  stand. It leaks: a writer can probe a graph it cannot read by committing
+  and watching whether the commit is refused, then varying the commit and
+  repeating. The withheld count adds a measure of how much of the witness is
+  hidden. The outcome of a write would then depend on content the writer
+  cannot read, which is exactly what point 8's fourth property forbids. The
+  precondition removes the case instead of masking it.
 - **Allow negation across graphs and compute a closure per readable set.**
   Correct, but there is one closure per distinct readable set, a number the
   grants bound only by their combinations. Refused until a use needs it.
 
 ## Consequences
 
+- **A cross-graph binding gated by tier 3 constrains the grants.** Every
+  writer of its data graphs must read all of them. An operator who wants a
+  writer confined to one graph either keeps the binding intra-graph or gives
+  it no tier-3 mode. The refusal names the binding and the grant, so the
+  conflict is visible at apply, and `docs/operator/inference.md` says so.
 - **Readers of the dataset see its ontology and its rules.** An operator who
   binds a graph as a TBox makes it readable by every reader of the dataset.
   The plan says so at apply (point 5), and `docs/operator/inference.md` says
@@ -294,12 +350,17 @@ the apply would change.
     store;
   - **0174**: a report graph's read rule is unchanged, and a TBox graph it
     validates is now readable by more callers;
-  - **0017**: tier 3's witnesses are what the writer's validator reads.
+  - **0017**: tier 3's witnesses are what the writer's validator reads;
+  - **0166**: point 4's validator gains the precondition's refusal, by a
+    dated amendment in the part that builds tier 3;
+  - **0173**: a cross-graph binding's attachment is delivered as a report
+    graph is read.
 
   No conflict.
 - **Layer ownership.**
   - `Varve.Rdf` (1): the scope's two decisions.
-  - `Varve.Management` (4): the plan's report of dataset-public graphs.
+  - `Varve.Management` (4): the plan's report of dataset-public graphs, and
+    the cross-graph tier-3 precondition over grants and bindings.
   - `Varve.Inference` (4): premise sets and placement, through #171.
   - `Varve.Inference.Store` (5): the reserved graphs' table.
   - The server (6): the composition in `IAccessScopes`.
