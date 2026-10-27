@@ -997,11 +997,25 @@ static int CheckPackages(XDocument register, HashSet<string> knownAdrs, string s
         }
     }
 
+    // A statement nothing resolves is stale, but only a run that read every
+    // lockfile's graph can say so: the package may be in a project this run
+    // did not restore.
     for (int i = 0; i < statements.Count; i++)
     {
-        if (!usedStatements.Contains(i))
+        if (usedStatements.Contains(i))
         {
-            licenceFindings.Add($"  the register states a licence for {statements[i].Id}{(statements[i].Version is null ? "" : " " + statements[i].Version)}, which nothing resolves. Remove it.");
+            continue;
+        }
+
+        string statement = $"{statements[i].Id}{(statements[i].Version is null ? "" : " " + statements[i].Version)}";
+
+        if (unrestored.Count == 0)
+        {
+            licenceFindings.Add($"  the register states a licence for {statement}, which nothing resolves. Remove it.");
+        }
+        else
+        {
+            Console.WriteLine($"note  the licence statement for {statement} matched nothing restored in this run");
         }
     }
 
