@@ -12,6 +12,92 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.0-preview.16] - 2026-10-27
+
+**Inference, part 1 — RDFS, RDF and D by query rewriting, regimes over HTTP, the TBox binding**
+
+### Inference, part 1 — tier 1: RDFS, RDF and D by query rewriting
+
+A query can be answered under an entailment regime. This release completes
+the first of Inference's three parts (#170, under #95): the rewriting, the
+regimes over HTTP and the TBox binding. Nothing is materialised, and the log
+stays asserted-only. The closure (OWL 2 RL, custom rules) is part 2; the
+commit-time validator, `owl:sameAs`, OWL 2 QL and Brick are part 3. The
+storage format and the change feed's format are unchanged. The five ADRs
+are filed unaccepted and accepted on the pull request (ADR 0066).
+
+#### Added
+
+- **`Varve.Sparql.Entailment`** (layer 3, ADR 0191): `EntailmentRewriter`
+  rewrites a query's basic graph patterns so that simple evaluation answers
+  the RDF, RDFS or D regime (SPARQL 1.1 Entailment Regimes §2, §4, §5.1),
+  under conditions C1 and C2 and the multiplicity rule (ADR 0193).
+  - Each graph is read merged with the TBox graphs of the binding that
+    covers it, given as `TBoxCover` values. A graph no binding covers is
+    read over its own triples, and a named graph the source holds nothing
+    of is not merged.
+  - The schema is saturated per scoping graph, meta-modelling included,
+    and compiled into tables once per query. Under `GRAPH ?g` the named
+    graphs are grouped by the schema they meet.
+  - D matches literals by value, with Varve.Xsd's datatype map, through
+    two extension functions a host registers (`LiteralValues`).
+  - Property paths and `SERVICE` are evaluated without entailment (§10).
+  - Usable over any `IQuadSource`, without the store; the browser build
+    carries it for 40 KB under brotli.
+- **`Varve-Entailment`** (ADR 0192): a query asks for `simple`, `rdf`,
+  `rdfs` or `d`, or a regime IRI in angle brackets.
+  - Without it, the dataset's default from its TBox bindings applies, and
+    simple entailment when none states one.
+  - The response names the regime, `Vary` lists the header on every
+    dataset response, and the `ETag` of a query's answer is per position
+    and regime: `"<position>.<token>"`.
+  - `400 entailment-unsupported` (members `value` and `supported`) answers
+    anything else, and any value but `simple` on an update.
+    `entailment-refused` is catalogued for the regimes of later parts.
+  - The service description names the default
+    (`sd:defaultEntailmentRegime`), `sd:feature varve:EntailmentHeader`,
+    and the regimes of each covered named graph (`sd:entailmentRegime`).
+  - CORS allows and exposes the header (ADR 0132, amended).
+  - `IEntailmentBindings` is the protocol's seam; the server maps the
+    declarations at the request's management position.
+  - `SparqlHttpClient.QueryAsync` takes an optional regime, and
+    `varve query --entailment <token>` sends it.
+- **The TBox binding** (ADR 0194): `varve:TBoxBinding` reads into
+  `TBoxBindingDeclaration`: one or more `varve:boundGraph` TBox graphs, a
+  graph set, `varve:profile varve:Rewriting` and at most one
+  `varve:defaultEntailment`.
+  - The shapes in `shapes/management.ttl` validate it at runtime; the
+    residual check refuses two bindings whose graphs overlap, two
+    different defaults in a dataset, and the reserved terms
+    (`varve:RDFS`, `varve:OWL2RL`, `varve:RulesOnly`, `varve:rulesGraph`,
+    `varve:crossGraph`, `varve:sameAs`, `varve:inconsistencyMode`), each
+    naming the part that gives it effect.
+  - **A TBox graph is read by every caller who reads anything in its
+    dataset** (ADR 0190); writing it still needs a write grant.
+    `GraphScope.WithDatasetPublic` carries the rule, and
+    `GrantTable.ScopesOf` applies it.
+  - `ManagementPlan.DatasetPublic` lists the graphs the desired
+    declarations make dataset-public, marking those an apply widens and
+    narrows. `varve apply --plan` prints the list before the graph diffs,
+    and the saved plan carries it.
+- **Conformance.** The RDF, RDFS and D cases of `sparql11/entailment` and
+  the cases of `rdf-mt` the rewriting decides run under the ratchet. The
+  RIF and OWL 2 DL-only cases are blocked as out of scope (#15), listed by
+  name, and counted by `eng/status.cs`.
+- **The operator guide** `docs/operator/inference.md`.
+
+#### Changed
+
+- **`Vary` on every dataset response names `Varve-Entailment`** beside
+  `Accept`, `Varve-As-Of` and `Authorization`, problems included.
+- **A query's `ETag` under a regime other than simple** is
+  `"<position>.<token>"`. Under simple entailment, the default when no
+  binding is declared, it is the position alone, as before. An `If-Match`
+  naming such a tag on a write is refused: the tag names no position.
+- `varve:TBoxBinding` was recorded with exactly one `varve:boundGraph` and
+  no effect (ADR 0166). It now needs a profile and a graph set, and a
+  declaration without them is refused at apply.
+
 ## [0.1.0-preview.15] - 2026-10-23
 
 **As-of reads that seek — an as-of read inside an extent set costs its matches**
@@ -1658,7 +1744,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.15...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.16...HEAD
+[0.1.0-preview.16]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.15...v0.1.0-preview.16
 [0.1.0-preview.15]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.14...v0.1.0-preview.15
 [0.1.0-preview.14]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.13...v0.1.0-preview.14
 [0.1.0-preview.13]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.12...v0.1.0-preview.13
