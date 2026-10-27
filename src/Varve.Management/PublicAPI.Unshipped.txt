@@ -261,3 +261,52 @@ static Varve.Management.ManagementVocabulary.MovedState.get -> Varve.Rdf.RdfTerm
 static Varve.Management.ManagementVocabulary.MovingState.get -> Varve.Rdf.RdfTerm!
 static Varve.Management.ManagementVocabulary.SourceGraphProperty.get -> Varve.Rdf.RdfTerm!
 static Varve.Management.ManagementVocabulary.InDatasetState.get -> Varve.Rdf.RdfTerm!
+Varve.Management.Model.DatasetDeclaration.DefaultEntailment.get -> Varve.Rdf.RdfTerm?
+Varve.Management.Model.DatasetDeclaration.DefaultEntailment.init -> void
+Varve.Management.Model.DatasetDeclaration.TBoxBindings.get -> System.Collections.Generic.IReadOnlyList<Varve.Management.Model.TBoxBindingDeclaration!>!
+Varve.Management.Model.DatasetDeclaration.TBoxBindings.init -> void
+Varve.Management.Model.TBoxBindingDeclaration
+Varve.Management.Model.TBoxBindingDeclaration.<Clone>$() -> Varve.Management.Model.TBoxBindingDeclaration!
+Varve.Management.Model.TBoxBindingDeclaration.DataGraphs.get -> Varve.Management.Model.GraphSet!
+Varve.Management.Model.TBoxBindingDeclaration.DataGraphs.init -> void
+Varve.Management.Model.TBoxBindingDeclaration.Deconstruct(out Varve.Rdf.RdfTerm! Node, out System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! TBoxGraphs, out Varve.Management.Model.GraphSet! DataGraphs, out Varve.Management.Model.TBoxProfile Profile) -> void
+Varve.Management.Model.TBoxBindingDeclaration.DefaultEntailment.get -> Varve.Rdf.RdfTerm?
+Varve.Management.Model.TBoxBindingDeclaration.DefaultEntailment.init -> void
+Varve.Management.Model.TBoxBindingDeclaration.Equals(Varve.Management.Model.TBoxBindingDeclaration? other) -> bool
+Varve.Management.Model.TBoxBindingDeclaration.Node.get -> Varve.Rdf.RdfTerm!
+Varve.Management.Model.TBoxBindingDeclaration.Node.init -> void
+Varve.Management.Model.TBoxBindingDeclaration.Profile.get -> Varve.Management.Model.TBoxProfile
+Varve.Management.Model.TBoxBindingDeclaration.Profile.init -> void
+Varve.Management.Model.TBoxBindingDeclaration.TBoxBindingDeclaration(Varve.Rdf.RdfTerm! Node, System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! TBoxGraphs, Varve.Management.Model.GraphSet! DataGraphs, Varve.Management.Model.TBoxProfile Profile) -> void
+Varve.Management.Model.TBoxBindingDeclaration.TBoxGraphs.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Management.Model.TBoxBindingDeclaration.TBoxGraphs.init -> void
+Varve.Management.Model.TBoxProfile
+Varve.Management.Model.TBoxProfile.Rewriting = 0 -> Varve.Management.Model.TBoxProfile
+override Varve.Management.Model.TBoxBindingDeclaration.Equals(object? obj) -> bool
+override Varve.Management.Model.TBoxBindingDeclaration.GetHashCode() -> int
+override Varve.Management.Model.TBoxBindingDeclaration.ToString() -> string!
+static Varve.Management.GrantTable.DatasetPublicGraphs(Varve.Management.Model.DatasetDeclaration! dataset) -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+static Varve.Management.Model.TBoxBindingDeclaration.operator !=(Varve.Management.Model.TBoxBindingDeclaration? left, Varve.Management.Model.TBoxBindingDeclaration? right) -> bool
+static Varve.Management.Model.TBoxBindingDeclaration.operator ==(Varve.Management.Model.TBoxBindingDeclaration? left, Varve.Management.Model.TBoxBindingDeclaration? right) -> bool
+Varve.Management.ManagementPlan.DatasetPublic.get -> System.Collections.Generic.IReadOnlyList<Varve.Management.Model.DatasetPublicGraph!>!
+Varve.Management.ManagementPlan.DatasetPublic.init -> void
+Varve.Management.Model.DatasetPublicChange
+Varve.Management.Model.DatasetPublicChange.Narrowed = 2 -> Varve.Management.Model.DatasetPublicChange
+Varve.Management.Model.DatasetPublicChange.Unchanged = 0 -> Varve.Management.Model.DatasetPublicChange
+Varve.Management.Model.DatasetPublicChange.Widened = 1 -> Varve.Management.Model.DatasetPublicChange
+Varve.Management.Model.DatasetPublicGraph
+Varve.Management.Model.DatasetPublicGraph.<Clone>$() -> Varve.Management.Model.DatasetPublicGraph!
+Varve.Management.Model.DatasetPublicGraph.Change.get -> Varve.Management.Model.DatasetPublicChange
+Varve.Management.Model.DatasetPublicGraph.Change.init -> void
+Varve.Management.Model.DatasetPublicGraph.Dataset.get -> string!
+Varve.Management.Model.DatasetPublicGraph.Dataset.init -> void
+Varve.Management.Model.DatasetPublicGraph.DatasetPublicGraph(string! Dataset, Varve.Rdf.RdfTerm! Graph, Varve.Management.Model.DatasetPublicChange Change) -> void
+Varve.Management.Model.DatasetPublicGraph.Deconstruct(out string! Dataset, out Varve.Rdf.RdfTerm! Graph, out Varve.Management.Model.DatasetPublicChange Change) -> void
+Varve.Management.Model.DatasetPublicGraph.Equals(Varve.Management.Model.DatasetPublicGraph? other) -> bool
+Varve.Management.Model.DatasetPublicGraph.Graph.get -> Varve.Rdf.RdfTerm!
+Varve.Management.Model.DatasetPublicGraph.Graph.init -> void
+override Varve.Management.Model.DatasetPublicGraph.Equals(object? obj) -> bool
+override Varve.Management.Model.DatasetPublicGraph.GetHashCode() -> int
+override Varve.Management.Model.DatasetPublicGraph.ToString() -> string!
+static Varve.Management.Model.DatasetPublicGraph.operator !=(Varve.Management.Model.DatasetPublicGraph? left, Varve.Management.Model.DatasetPublicGraph? right) -> bool
+static Varve.Management.Model.DatasetPublicGraph.operator ==(Varve.Management.Model.DatasetPublicGraph? left, Varve.Management.Model.DatasetPublicGraph? right) -> bool

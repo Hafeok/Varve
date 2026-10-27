@@ -17,7 +17,9 @@ namespace Varve.Management.Tests.Oracle;
 /// finding, frozen here as the oracle the shapes and the residual check are
 /// held to, with Management plane part 2's additions (#147, ADR 0167) as
 /// that pull request made them, and the one rule the move's translation
-/// checked instead (a moved event type's <c>varve:sourceGraph</c>). Not shipped.
+/// checked instead (a moved event type's <c>varve:sourceGraph</c>), and the
+/// TBox binding's rules as Inference, part 1 (#170, ADR 0194) adds them.
+/// Not shipped.
 /// </summary>
 internal static class CodeDeclarationReader
 {
@@ -272,6 +274,7 @@ internal static class CodeDeclarationReader
             EventDeclarationState events = EventState(node);
             List<GrantDeclaration> grants = Grants(name);
             List<BindingDeclaration> bindings = [.. Bindings()];
+            List<TBoxBindingDeclaration> tboxBindings = TBoxBindings(out RdfTerm? defaultEntailment);
 
             foreach (GrantDeclaration grant in grants)
             {
@@ -293,6 +296,8 @@ internal static class CodeDeclarationReader
                 EventDeclarations = events,
                 Grants = grants.FindAll(static grant => grant.Access != GrantAccess.Operator),
                 Bindings = bindings,
+                TBoxBindings = tboxBindings,
+                DefaultEntailment = defaultEntailment,
             };
         }
 
@@ -393,29 +398,207 @@ internal static class CodeDeclarationReader
 
         private IEnumerable<BindingDeclaration> Bindings()
         {
-            foreach ((RdfTerm type, BindingKind kind) in new[] { (ManagementVocabulary.ShapesBinding, BindingKind.Shapes), (ManagementVocabulary.TBoxBinding, BindingKind.TBox) })
+            foreach (RdfTerm node in Typed(ManagementVocabulary.ShapesBinding))
             {
-                foreach (RdfTerm node in Typed(type))
+                List<RdfTerm> bound = Values(node, ManagementVocabulary.BoundGraph);
+
+                if (bound.Count != 1 || bound[0].Kind != RdfTermKind.Iri || !IsAbsolute(bound[0]))
                 {
-                    List<RdfTerm> bound = Values(node, ManagementVocabulary.BoundGraph);
+                    Find(node, ManagementVocabulary.BoundGraph, "a binding names exactly one varve:boundGraph, an absolute IRI");
+                    continue;
+                }
 
-                    if (bound.Count != 1 || bound[0].Kind != RdfTermKind.Iri || !IsAbsolute(bound[0]))
-                    {
-                        Find(node, ManagementVocabulary.BoundGraph, "a binding names exactly one varve:boundGraph, an absolute IRI");
-                        continue;
-                    }
+                if (ShapesBinding(node, bound[0]) is { } shapes)
+                {
+                    yield return shapes;
+                }
+            }
+        }
 
-                    if (kind == BindingKind.TBox)
-                    {
-                        yield return new BindingDeclaration(node, kind, bound[0]);
-                        continue;
-                    }
+        /// <summary>A dataset's TBox bindings (ADR 0194), each read on its own, then held to one another.</summary>
+        private List<TBoxBindingDeclaration> TBoxBindings(out RdfTerm? defaultEntailment)
+        {
+            List<TBoxBindingDeclaration> bindings = [];
 
-                    if (ShapesBinding(node, bound[0]) is { } shapes)
+            foreach (RdfTerm node in Typed(ManagementVocabulary.TBoxBinding))
+            {
+                if (TBoxBinding(node) is { } binding)
+                {
+                    bindings.Add(binding);
+                }
+            }
+
+            defaultEntailment = null;
+            bool agree = true;
+
+            // What Core cannot state (ADR 0175 point 3): the bindings held to one another.
+            for (int i = 0; i < bindings.Count; i++)
+            {
+                for (int j = i + 1; j < bindings.Count; j++)
+                {
+                    if (Overlap(bindings[i].DataGraphs, bindings[j].DataGraphs))
                     {
-                        yield return shapes;
+                        Find(bindings[j].Node, null, "each graph of a dataset is covered by at most one TBox binding; this binding's graphs overlap those of " + Encoding.UTF8.GetString(bindings[i].Node.Lexical) + " (ADR 0194)");
+                        agree = false;
                     }
                 }
+
+                if (bindings[i].DefaultEntailment is not { } stated)
+                {
+                    continue;
+                }
+
+                if (defaultEntailment is null)
+                {
+                    defaultEntailment = stated;
+                }
+                else if (!defaultEntailment.Equals(stated))
+                {
+                    Find(bindings[i].Node, ManagementVocabulary.DefaultEntailment, "the TBox bindings of a dataset state one varve:defaultEntailment, the dataset's default regime; this one states another (ADR 0194)");
+                    agree = false;
+                }
+            }
+
+            if (!agree)
+            {
+                defaultEntailment = null;
+                return [];
+            }
+
+            return bindings;
+        }
+
+        private TBoxBindingDeclaration? TBoxBinding(RdfTerm node)
+        {
+            List<RdfTerm> bound = Values(node, ManagementVocabulary.BoundGraph);
+            bool ok = true;
+
+            if (bound.Count == 0)
+            {
+                Find(node, ManagementVocabulary.BoundGraph, "a TBox binding names one or more varve:boundGraph TBox graphs");
+                return null;
+            }
+
+            foreach (RdfTerm graph in bound)
+            {
+                if (graph.Kind != RdfTermKind.Iri || !IsAbsolute(graph) || ManagementVocabulary.LocalName(graph) is not null)
+                {
+                    Find(node, ManagementVocabulary.BoundGraph, "a TBox graph is a named graph of the dataset, an absolute IRI, neither varve:defaultGraph nor under varve: (ADR 0194)");
+                    ok = false;
+                }
+            }
+
+            List<RdfTerm> profiles = Values(node, ManagementVocabulary.Profile);
+
+            // The materialising profiles are refused as reserved terms, by CheckTerms.
+            if (profiles.Count != 1 || !profiles[0].Equals(ManagementVocabulary.Rewriting))
+            {
+                Find(node, ManagementVocabulary.Profile, "a TBox binding has exactly one varve:profile: varve:Rewriting, varve:RDFS, varve:OWL2RL or varve:RulesOnly");
+                ok = false;
+            }
+
+            List<RdfTerm> defaults = Values(node, ManagementVocabulary.DefaultEntailment);
+            RdfTerm? defaultEntailment = defaults.Count == 0 ? null : defaults[0];
+
+            if (defaults.Count > 1)
+            {
+                Find(node, ManagementVocabulary.DefaultEntailment, "this property is stated at most once");
+                ok = false;
+            }
+            else if (defaultEntailment is not null && !ManagementVocabulary.DefaultEntailments.Contains(defaultEntailment))
+            {
+                Find(node, ManagementVocabulary.DefaultEntailment, "varve:defaultEntailment is ent:Simple, ent:RDF, ent:RDFS or ent:D; the OWL regimes are reserved for Inference's later parts (#95)");
+                ok = false;
+            }
+
+            if (Values(node, ManagementVocabulary.GraphTemplateProperty).Count > 0)
+            {
+                Find(node, ManagementVocabulary.GraphTemplateProperty, "a TBox binding names its graphs without varve:graphTemplate: a template expands per caller, and a binding has none");
+                return null;
+            }
+
+            if (Graphs(node, wide: false, "a TBox binding") is not { } graphs)
+            {
+                return null;
+            }
+
+            foreach (RdfTerm graph in graphs.Graphs)
+            {
+                if (bound.Exists(tbox => tbox.Equals(graph)))
+                {
+                    Find(node, ManagementVocabulary.Graph, "a TBox binding's data graphs do not name its own TBox graphs (ADR 0194)");
+                    ok = false;
+                }
+            }
+
+            if (!ok)
+            {
+                return null;
+            }
+
+            bound.Sort(TermOrder.Instance);
+            return new TBoxBindingDeclaration(node, bound, graphs, TBoxProfile.Rewriting) { DefaultEntailment = defaultEntailment };
+        }
+
+        // Two graph sets share a graph (ADR 0194 point 2): judged on allGraphs,
+        // the default graph, explicit graphs and prefixes, one a prefix of the
+        // other. A binding names no template.
+        private static bool Overlap(GraphSet a, GraphSet b)
+        {
+            if (a.All || b.All || (a.DefaultGraph && b.DefaultGraph))
+            {
+                return true;
+            }
+
+            foreach (RdfTerm graph in a.Graphs)
+            {
+                if (Covers(b, graph))
+                {
+                    return true;
+                }
+            }
+
+            foreach (RdfTerm graph in b.Graphs)
+            {
+                if (Covers(a, graph))
+                {
+                    return true;
+                }
+            }
+
+            foreach (string prefix in a.Prefixes)
+            {
+                foreach (string other in b.Prefixes)
+                {
+                    if (prefix.StartsWith(other, StringComparison.Ordinal) || other.StartsWith(prefix, StringComparison.Ordinal))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+
+            static bool Covers(GraphSet set, RdfTerm graph)
+            {
+                foreach (RdfTerm named in set.Graphs)
+                {
+                    if (named.Equals(graph))
+                    {
+                        return true;
+                    }
+                }
+
+                string iri = Encoding.UTF8.GetString(graph.Lexical);
+                foreach (string prefix in set.Prefixes)
+                {
+                    if (iri.StartsWith(prefix, StringComparison.Ordinal))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
             }
         }
 

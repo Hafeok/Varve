@@ -146,7 +146,7 @@ system writer records. Every node is an IRI. The code validator in
 | `varve:Grant` | a grant | `rdf:type` of a grant node |
 | `varve:grantee` | the one principal a grant names | on a grant |
 | `varve:permission` | `varve:read`, `varve:write`, `varve:admin`, or `varve:operator` in the fleet graph alone | on a grant |
-| `varve:allGraphs` | `true`: every graph | on a read or write grant, or a shapes binding |
+| `varve:allGraphs` | `true`: every graph | on a read or write grant, or a binding |
 | `varve:graph` | a graph the grant reaches, or `varve:defaultGraph` | on a grant, repeatable |
 | `varve:graphPrefix` | every named graph whose IRI starts with it | on a grant, an `xsd:string`, repeatable |
 | `varve:graphTemplate` | a `varve:GraphTemplate` expanded for the caller | on a grant, repeatable |
@@ -158,8 +158,11 @@ system writer records. Every node is an IRI. The code validator in
 | `varve:Group` | a principal matched against `varve:claimType`'s claim, `groups` by default | `rdf:type` of a principal |
 | `varve:claimValue` | the claim value a role or group matches | on a principal, an `xsd:string` |
 | `varve:claimType` | the claim a group's value is in | on a group, an `xsd:string` |
-| `varve:ShapesBinding`, `varve:TBoxBinding` | a binding of a graph of shapes, which gates commits (ADR 0170), or of a TBox, recorded for Inference | `rdf:type` of a binding node |
-| `varve:boundGraph` | the graph a binding names: a shapes binding's shapes graph, a named graph of the same dataset | on a binding node |
+| `varve:ShapesBinding`, `varve:TBoxBinding` | a binding of a graph of shapes, which gates commits (ADR 0170), or of TBox graphs, which a query of its data graphs is rewritten against (ADR 0194) | `rdf:type` of a binding node |
+| `varve:boundGraph` | the graph a binding names, a named graph of the same dataset: a shapes binding's shapes graph, exactly one; a TBox binding's TBox graphs, one or more, which every reader of the dataset reads (ADR 0190) | on a binding node |
+| `varve:profile` | what a TBox binding does: `varve:Rewriting`, a query rewritten against the TBox (tier 1) | on a TBox binding, exactly one |
+| `varve:Rewriting` | the value of `varve:profile` in effect | on a TBox binding |
+| `varve:defaultEntailment` | the dataset's default regime, `ent:Simple`, `ent:RDF`, `ent:RDFS` or `ent:D` (ADR 0192); every TBox binding of the dataset that states it states the same | on a TBox binding, at most one |
 | `varve:validationMode` | `varve:Reject`, `varve:Report` or `varve:Off`: what a shapes binding does to a commit (ADR 0169) | on a shapes binding, exactly one |
 | `varve:allowFullEvaluation` | a `reject` shapes binding may have shapes classed full, at their cost per commit (ADR 0171) | on a shapes binding, an `xsd:boolean`, false by default |
 | `varve:subClassOfInShapesGraph` | SHACL 1.2 Core §6.4's parameter: `rdfs:subClassOf` read from the shapes graph too | on a shapes binding, an `xsd:boolean`, false by default |
@@ -173,7 +176,10 @@ system writer records. Every node is an IRI. The code validator in
 
 Reserved, and refused until their milestones: `varve:Binding` (abstract),
 `varve:ClassifierBinding`, `varve:KeyStoreBinding` and `varve:erasureMode`
-(#14). The event catalogue's terms (below) are in a dataset's graph once it
+(#14); the materialising profiles `varve:RDFS`, `varve:OWL2RL` and
+`varve:RulesOnly`, `varve:rulesGraph` and `varve:crossGraph` (#171); and
+`varve:sameAs`, `varve:SameAsOff`, `varve:SameAsClasses` and
+`varve:inconsistencyMode` (Inference's last part, #95). The event catalogue's terms (below) are in a dataset's graph once it
 says `varve:eventDeclarations varve:Moved` (ADR 0167), and refused in every
 other management graph.
 

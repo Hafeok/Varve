@@ -101,6 +101,8 @@ public static class ManagementVocabulary
     internal static readonly RdfTerm SubClassOfInShapesGraph = Term("subClassOfInShapesGraph");
     internal static readonly RdfTerm BootstrapOperator = Term("bootstrapOperator");
     internal static readonly RdfTerm EventDeclarations = Term("eventDeclarations");
+    internal static readonly RdfTerm Profile = Term("profile");
+    internal static readonly RdfTerm DefaultEntailment = Term("defaultEntailment");
 
     // Individuals.
     internal static readonly RdfTerm File = Term("File");
@@ -121,11 +123,25 @@ public static class ManagementVocabulary
     internal static readonly RdfTerm InDataset = Term("InDataset");
     internal static readonly RdfTerm Moving = Term("Moving");
     internal static readonly RdfTerm Moved = Term("Moved");
+    internal static readonly RdfTerm Rewriting = Term("Rewriting");
 
     // Outside varve:.
     internal static readonly RdfTerm Type = RdfTerm.Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type"u8);
     [DesignDecision(typeof(VarveManagementAndTheVocabulary.ManagementSurfaceCarriesDeclaredValues), Scope = ExceptionScope.Boundary)]
     internal const string XsdBoolean = "http://www.w3.org/2001/XMLSchema#boolean";
+
+    /// <summary>The namespace of the entailment regimes' IRIs (SPARQL 1.1 Entailment Regimes §1.2).</summary>
+    [DesignDecision(typeof(VarveManagementAndTheVocabulary.ManagementSurfaceCarriesDeclaredValues), Scope = ExceptionScope.Boundary)]
+    internal const string EntailmentNamespace = "http://www.w3.org/ns/entailment/";
+
+    /// <summary>The regimes a binding's <c>varve:defaultEntailment</c> may name in this part (ADR 0194 point 1).</summary>
+    internal static readonly FrozenSet<RdfTerm> DefaultEntailments = new[]
+    {
+        RdfTerm.Iri(Encoding.UTF8.GetBytes(EntailmentNamespace + "Simple")),
+        RdfTerm.Iri(Encoding.UTF8.GetBytes(EntailmentNamespace + "RDF")),
+        RdfTerm.Iri(Encoding.UTF8.GetBytes(EntailmentNamespace + "RDFS")),
+        RdfTerm.Iri(Encoding.UTF8.GetBytes(EntailmentNamespace + "D")),
+    }.ToFrozenSet(RdfTerm.Comparer);
 
     /// <summary>
     /// The event-catalogue terms of ADR 0144, which a dataset's graph holds
@@ -149,6 +165,7 @@ public static class ManagementVocabulary
         "File", "Memory", "ObjectStorage", "AllHistory", "Current", "read", "write", "admin", "operator", "defaultGraph", "Exact", "Prefix",
         "Reject", "Report", "Off",
         "eventDeclarations", "InDataset", "Moving", "Moved",
+        "profile", "defaultEntailment", "Rewriting",
     }.ToFrozenSet(StringComparer.Ordinal);
 
     /// <summary>The terms reserved for later milestones, refused with the reason.</summary>
@@ -158,6 +175,15 @@ public static class ManagementVocabulary
         ["ClassifierBinding"] = "varve:ClassifierBinding is reserved for erasure and row-level access (#14)",
         ["KeyStoreBinding"] = "varve:KeyStoreBinding is reserved for erasure and row-level access (#14)",
         ["erasureMode"] = "varve:erasureMode is reserved for erasure mode (#14)",
+        ["RDFS"] = "varve:RDFS is a materialising profile, reserved for the inference projection (#171); varve:Rewriting is the profile in effect",
+        ["OWL2RL"] = "varve:OWL2RL is a materialising profile, reserved for the inference projection (#171); varve:Rewriting is the profile in effect",
+        ["RulesOnly"] = "varve:RulesOnly is a materialising profile, reserved for the inference projection (#171); varve:Rewriting is the profile in effect",
+        ["rulesGraph"] = "varve:rulesGraph is reserved for the inference projection (#171)",
+        ["crossGraph"] = "varve:crossGraph is reserved for the inference projection (#171)",
+        ["sameAs"] = "varve:sameAs is reserved for owl:sameAs handling, in Inference's last part (#95)",
+        ["SameAsOff"] = "varve:SameAsOff is reserved for owl:sameAs handling, in Inference's last part (#95)",
+        ["SameAsClasses"] = "varve:SameAsClasses is reserved for owl:sameAs handling, in Inference's last part (#95)",
+        ["inconsistencyMode"] = "varve:inconsistencyMode is reserved for the tier-3 validator, in Inference's last part (#95)",
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
     /// <summary>A dataset's declaration graph.</summary>

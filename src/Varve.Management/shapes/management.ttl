@@ -188,12 +188,12 @@ varve:NamedGrantShape
     ) ;
     sh:message "a read or write grant names its graphs: varve:allGraphs true, varve:graph, varve:graphPrefix or varve:graphTemplate" .
 
-# ---- Graph sets: on a grant and on a shapes binding ----------------------
+# ---- Graph sets: on a grant and on a binding -----------------------------
 
 varve:GraphSetShape
     a sh:NodeShape ;
-    rdfs:comment "The graph-set terms, on a grant or a shapes binding." ;
-    sh:targetClass varve:Grant , varve:ShapesBinding ;
+    rdfs:comment "The graph-set terms, on a grant or a binding." ;
+    sh:targetClass varve:Grant , varve:ShapesBinding , varve:TBoxBinding ;
     sh:property [
         sh:path varve:allGraphs ;
         sh:maxCount 1 ;
@@ -320,8 +320,8 @@ varve:GraphTemplateShape
 
 varve:BindingShape
     a sh:NodeShape ;
-    rdfs:comment "A shapes or TBox binding: exactly one bound graph, an absolute IRI." ;
-    sh:targetClass varve:ShapesBinding , varve:TBoxBinding ;
+    rdfs:comment "A shapes binding: exactly one bound graph, an absolute IRI." ;
+    sh:targetClass varve:ShapesBinding ;
     sh:property [
         sh:path varve:boundGraph ;
         sh:minCount 1 ;
@@ -371,3 +371,61 @@ varve:ShapesBindingGraphsShape
     sh:targetClass varve:ShapesBinding ;
     sh:node varve:NamesAGraphSet ;
     sh:message "a shapes binding names its graphs: varve:allGraphs true, varve:graph, varve:graphPrefix or varve:graphTemplate" .
+
+# ---- TBox bindings (ADR 0194) -------------------------------------------
+#
+# The residual check states what Core cannot: two bindings whose graph sets
+# overlap, two that state different defaults, and the reserved terms and
+# profiles (varve:RDFS, varve:OWL2RL, varve:RulesOnly), which this shape
+# admits so that the code names the part that gives them effect.
+
+varve:TBoxBindingShape
+    a sh:NodeShape ;
+    rdfs:comment "A TBox binding: its TBox graphs, one profile, its data graphs and at most one default regime." ;
+    sh:targetClass varve:TBoxBinding ;
+    sh:property [
+        sh:path varve:boundGraph ;
+        sh:minCount 1 ;
+        sh:message "a TBox binding names one or more varve:boundGraph TBox graphs" ;
+    ] ;
+    sh:property [
+        sh:path varve:boundGraph ;
+        sh:nodeKind sh:IRI ;
+        sh:pattern "^[A-Za-z][A-Za-z0-9+.-]*:" ;
+        sh:not [ sh:pattern "^https://w3id\\.org/varve/ns#" ] ;
+        sh:message "a TBox graph is a named graph of the dataset, an absolute IRI, neither varve:defaultGraph nor under varve: (ADR 0194)" ;
+    ] ;
+    sh:property [
+        sh:path varve:profile ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( varve:Rewriting varve:RDFS varve:OWL2RL varve:RulesOnly ) ;
+        sh:message "a TBox binding has exactly one varve:profile: varve:Rewriting, varve:RDFS, varve:OWL2RL or varve:RulesOnly" ;
+    ] ;
+    sh:property [
+        sh:path varve:graphTemplate ;
+        sh:maxCount 0 ;
+        sh:message "a TBox binding names its graphs without varve:graphTemplate: a template expands per caller, and a binding has none" ;
+    ] ;
+    sh:property [
+        sh:path varve:graph ;
+        sh:disjoint varve:boundGraph ;
+        sh:message "a TBox binding's data graphs do not name its own TBox graphs (ADR 0194)" ;
+    ] ;
+    sh:property [
+        sh:path varve:defaultEntailment ;
+        sh:maxCount 1 ;
+        sh:message "this property is stated at most once" ;
+    ] ;
+    sh:property [
+        sh:path varve:defaultEntailment ;
+        sh:in ( <http://www.w3.org/ns/entailment/Simple> <http://www.w3.org/ns/entailment/RDF> <http://www.w3.org/ns/entailment/RDFS> <http://www.w3.org/ns/entailment/D> ) ;
+        sh:message "varve:defaultEntailment is ent:Simple, ent:RDF, ent:RDFS or ent:D; the OWL regimes are reserved for Inference's later parts (#95)" ;
+    ] .
+
+varve:TBoxBindingGraphsShape
+    a sh:NodeShape ;
+    rdfs:comment "A TBox binding names its data graphs." ;
+    sh:targetClass varve:TBoxBinding ;
+    sh:node varve:NamesAGraphSet ;
+    sh:message "a TBox binding names its data graphs: varve:allGraphs true, varve:graph or varve:graphPrefix" .
