@@ -159,7 +159,7 @@ public interface IDerivedStore
 /// crash or an exception mid-write leaves no blob, and never a torn one
 /// (ADR 0071, ADR 0073).
 /// </remarks>
-[Contract(typeof(SynchronousReadsOverAsynchronousStorage.BlobsArePublishedAtomically), Role = "a derived blob being written, published atomically")]
+[Contract(typeof(VerifiedDerivedData.BlobsArePublishedAtomically), Role = "a derived blob being written, published atomically")]
 public interface IBlobWriter : IAsyncDisposable
 {
     /// <summary>Appends bytes to the blob.</summary>

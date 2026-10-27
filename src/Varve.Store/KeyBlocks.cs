@@ -263,7 +263,7 @@ internal sealed class KeyBlockWriter
 /// too. Damage across words is caught with all but negligible chance. Not
 /// a cryptographic hash: it detects damage, not tampering.
 /// </summary>
-[DesignDecision(typeof(SeekingExtentSets.EveryBlockIsChecked), Scope = ExceptionScope.Boundary)]
+[DesignDecision(typeof(VerifiedDerivedData.EveryBlockIsChecked), Scope = ExceptionScope.Boundary)]
 internal static class BlockCheck
 {
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]

@@ -106,7 +106,7 @@ internal static partial class DerivedFormat
     /// the keys. Every other kind is still written as 4, so a reader of 4 still
     /// reads the catalog and the dictionary; a format-4 extent is still read.
     /// </summary>
-    [DesignDecision(typeof(SeekingExtentSets.Format5ForExtentsOnly), Scope = ExceptionScope.Boundary)]
+    [DesignDecision(typeof(VerifiedDerivedData.Format5ForExtentsOnly), Scope = ExceptionScope.Boundary)]
     internal const ushort ExtentVersion = 5;
 
     /// <summary>The oldest derived version this build reads: 2, a run without a filter (ADR 0080).</summary>

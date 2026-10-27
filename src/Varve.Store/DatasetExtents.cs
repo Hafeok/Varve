@@ -948,7 +948,7 @@ public sealed partial class Dataset
     // format 4 — a merge, a drop's merge or a split of the oldest sets keeps
     // their format, so such a reader's chain ends only at the newest sets —
     // and otherwise what this build writes.
-    [DesignDecision(typeof(TheFormat5UpgradeAndTheSetCap.OlderReadersDecideRewrites), Scope = ExceptionScope.Boundary)]
+    [DesignDecision(typeof(VerifiedDerivedData.OlderReadersDecideRewrites), Scope = ExceptionScope.Boundary)]
     private ushort VersionReplacing(List<ExtentSet> replaced) =>
         _storage is IExtentReaders && _olderReaders && !replaced.TrueForAll(s => s.Seekable) ? DerivedFormat.Version : _options.ExtentVersion;
 
@@ -957,7 +957,7 @@ public sealed partial class Dataset
     // its chain would end at the rewritten set, the oldest, and it would
     // replay the whole log. New checkpoints and merges still write format 5,
     // so such a reader's chain ends only at the newest sets.
-    [DesignDecision(typeof(TheFormat5UpgradeAndTheSetCap.MaintenanceRewritesFormat4Sets), Scope = ExceptionScope.Boundary)]
+    [DesignDecision(typeof(VerifiedDerivedData.MaintenanceRewritesFormat4Sets), Scope = ExceptionScope.Boundary)]
     private (int First, int Count)? Format4Set(List<ExtentSet> sets)
     {
         if (_options.ExtentVersion < DerivedFormat.ExtentVersion || (_storage is IExtentReaders && _olderReaders))

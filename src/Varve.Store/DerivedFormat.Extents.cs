@@ -921,7 +921,7 @@ internal sealed class ExtentInfo
     /// </summary>
     /// <exception cref="IOException">The extent is short, or the block does not match its check.</exception>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
-    [DesignDecision(typeof(SeekingExtentSets.EveryBlockIsChecked), Scope = ExceptionScope.Boundary)]
+    [DesignDecision(typeof(VerifiedDerivedData.EveryBlockIsChecked), Scope = ExceptionScope.Boundary)]
     internal int ReadColumnBlock(int column, long block, Span<byte> into)
     {
         int values = ValuesOf(column);
