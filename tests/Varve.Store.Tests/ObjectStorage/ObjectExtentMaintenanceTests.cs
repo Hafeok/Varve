@@ -22,6 +22,7 @@ namespace Varve.Store.Tests.Objects;
 /// rather than answer wrong; and an identity that may not write its record
 /// fails the open, naming the role.
 /// </summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class ObjectExtentMaintenanceTests
 {
     [Fact]

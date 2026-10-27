@@ -20,6 +20,7 @@ namespace Varve.Store.Tests.Objects;
 /// and the first writer's every create after that is either a slot of its
 /// own that already exists or the fence slot, which exists too.
 /// </summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class ObjectEpochPropertyTests
 {
     private const int Iterations = 200;

@@ -209,6 +209,57 @@ This adds; no ruling of this ADR changes.
 **The ledger.** The rulings are ADR 0168's `WriterRecordNamesTheAddress` and ADR
 0163's `PlacementByEvents`.
 
+## Amendment, 2026-10-23 — a conditional write whose answer is lost is settled by reading back
+
+Filed by the live Azure leg of #143 for #145, unaccepted until the maintainer
+accepts it (ADR 0066). The maintainer's words, on closing out #143:
+
+> A conditional write whose answer is lost is settled by reading back and
+> recognising the writer's own write (by content, slot, nonce or instance
+> id, whichever the write carries). It is never assumed failed, and never
+> retried blind at the next position. Every role that makes a conditional
+> write is subject to this rule.
+
+The fence of decision 3 already rests on it for the log: a retry of a slot
+the writer wrote is a write of the same bytes, and a slot found taken is
+read before it is called the fence. The reader record did not, and #145 is
+what that cost: a replace the store applied and the caller never heard —
+cancelled 25 ms into a 25 ms round trip to a storage account — left the
+instance holding a version the store no longer had, and its next
+announcement called itself forgotten. The rule names every such write.
+
+**The roles that make a conditional write, and how each recognises its
+own.** Enumerated from the adapter's traffic in the failure-injection
+workload (`docs/reports/azure-blob-live-2026-10-23.md` §6), every
+`If-None-Match: *` and `If-Match` the backend sends:
+
+| Write | Role | Its own write is recognised by |
+|---|---|---|
+| `probe/<random>`: create, replace | writer's open | the random key is its own; a refusal is the probe's answer either way |
+| `writer`: create, replace | writer's open, close and takeover | the record's epoch and holder (decision 2) |
+| `log/MANIFEST`: create | the writer that creates the dataset | the manifest's bytes, written once (ADR 0072) |
+| `log/<segment>.chunks/<chunk>`: create | the writer, per commit and per fence | the chunk's header: epoch, slot and hash (decision 3) |
+| `log/<segment>.seg`: create | the writer's consolidation | the segment's bytes, which the chunks already hold (ADR 0135) |
+| `derived/extents/<set>/<part>`: create | the writer's checkpoint and merge | the set's sequence, named once (ADR 0139) |
+| `derived/catalog`: create, replace | the writer's swap | the catalog's sequence (ADR 0139) |
+| `readers/<id>`: create, replace | every instance, the writer, a named follower and a **holder-less follower** alike | the reader id and the holder, both null for a holder-less follower (ADR 0160, amended 2026-10-23) |
+
+**Holder-less followers make a conditional write**, the reader record, and
+nothing else: the server opens every read-only dataset with no instance
+name (`ObjectStores.OpenAsync`), and such a follower announces. The rule
+applies to them, with the same recognition as a named instance's — a record
+under its reader id with no holder is its own — and is pinned by
+`LostAnswerCases` on Azurite and on the account, for a named writer and a
+holder-less follower, by a replace cancelled after the store applied it and
+by one timed out after it. Both cases fail without the #145 fix.
+
+**The ledger.** No ruling of this ADR changes; the rule is the reading of
+decision 3 that already held for the log, now stated for every write. The
+failure-injection workload gains two modes for it,
+`HttpAppliedThenCancelled` and `HttpAppliedThenTimedOut`, at every request,
+and treats a reader declared forgotten as a failure, since the workload
+forgets none.
+
 ## Amendment, 2026-10-27 — handover's triggers and release reasons, a claim made before the open, and supersession per dataset
 
 Filed by Replication part 1 (#165), unaccepted until the maintainer accepts

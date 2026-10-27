@@ -700,7 +700,11 @@ jobs:
 
       - name: Test against them
         # #126: about twice its slowest green run, with the hang dump below it.
-        timeout-minutes: 10
+        # The HTTP fault workload on Azurite (AzuriteFaultTests, #143) runs
+        # alone for six minutes or more after every other test has ended, and
+        # the hang dump counts from the last test that ended, so it waits
+        # longer than that run (docs/testing.md §8).
+        timeout-minutes: 15
         env:
           VARVE_AZURITE: http://127.0.0.1:10000/devstoreaccount1
           VARVE_RUSTFS: http://127.0.0.1:9000,varvetest,varvetestsecret
@@ -714,7 +718,7 @@ jobs:
           --report-trx
           --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Store.Tests
           --hangdump
-          --hangdump-timeout 5m
+          --hangdump-timeout 10m
 
       - name: Store test durations
         if: always()

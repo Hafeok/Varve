@@ -116,6 +116,7 @@ public abstract class S3CompatibleStorageContractTests : StorageContractTests, I
     }
 }
 
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class RustFsExtentMaintenanceTests
 {
     /// <summary>A follower keeps serving across the writer's merges and deletions, on RustFS (ADRs 0158, 0160).</summary>
@@ -127,11 +128,13 @@ public sealed class RustFsExtentMaintenanceTests
     }
 }
 
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class RustFsObjectStoreContractTests : S3CompatibleObjectStoreContractTests
 {
     internal override S3Server Server => S3Server.RustFs;
 }
 
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class RustFsStorageContractTests : S3CompatibleStorageContractTests
 {
     internal override S3Server Server => S3Server.RustFs;
