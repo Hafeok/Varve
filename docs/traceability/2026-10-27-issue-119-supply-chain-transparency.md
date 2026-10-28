@@ -282,3 +282,17 @@ main: dependency-policy-and-register (1 key, ADR 0009), publishing-and-versionin
 session only wrote it at their direction, as the acceptance of ADRs
 0127–0133 was written. The ADRs' status text and the index rows are left as
 filed, as in that precedent.
+
+### After acceptance: Rekor's failures, 2026-10-28
+
+Two dry runs on this pull request each lost one SBOM attestation to Rekor,
+Sigstore's public transparency log:
+- on `6d0a486`, a network timeout fetching the log entry;
+- on `59dbeba`, the entry answered 404 just after it was written.
+
+Each passed when re-run, and neither touched Varve's code. A release makes
+about thirty attestations, so it would meet the same failure. Each of
+`publish.yml`'s six attestation steps now has one retry: the first attempt
+continues on error, and an identical step runs only if it failed. A second
+failure still fails the job, and the push still waits for every
+attestation. The decisions are unchanged.

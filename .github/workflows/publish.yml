@@ -375,10 +375,23 @@ jobs:
           echo "packages=$(ls *.nupkg | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
 
       - name: Attest the packages' build provenance
+        id: provenance
+        continue-on-error: true
         # Keyless, through this job's OIDC identity (ADR 0224 point 3): every
         # package and the checksum list, one SLSA v1 statement. The SBOM
         # attestations are the attest-packages job's, one job per package; the
         # push waits for both.
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            ${{ github.workspace }}/artifacts/packages/*.nupkg
+            ${{ github.workspace }}/artifacts/packages/SHA256SUMS
+
+      - name: Attest the packages' build provenance, again if the first attempt failed
+        # ADR 0224 point 3: Rekor, Sigstore's public log, times out or
+        # answers 404 now and then (#179's dry run had both). One retry,
+        # never more: a second failure fails the job.
+        if: steps.provenance.outcome == 'failure'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
@@ -424,6 +437,18 @@ jobs:
         run: unzip -p "$RUNNER_TEMP/packages/${{ matrix.package }}" _manifest/spdx_2.3/manifest.spdx.json > "$RUNNER_TEMP/sbom.spdx.json"
 
       - name: Attest the SBOM
+        id: sbom
+        continue-on-error: true
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/packages/${{ matrix.package }}
+          sbom-path: ${{ runner.temp }}/sbom.spdx.json
+
+      - name: Attest the SBOM, again if the first attempt failed
+        # ADR 0224 point 3: Rekor, Sigstore's public log, times out or
+        # answers 404 now and then (#179's dry run had both). One retry,
+        # never more: a second failure fails the job.
+        if: steps.sbom.outcome == 'failure'
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: ${{ runner.temp }}/packages/${{ matrix.package }}
@@ -654,7 +679,20 @@ jobs:
           docker buildx imagetools inspect "$IMAGE:$GITHUB_REF_NAME"
 
       - name: Attest the build provenance
+        id: image-provenance
         if: github.event_name == 'push'
+        continue-on-error: true
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.manifest.outputs.digest }}
+          push-to-registry: true
+
+      - name: Attest the build provenance, again if the first attempt failed
+        # ADR 0224 point 3: Rekor, Sigstore's public log, times out or
+        # answers 404 now and then (#179's dry run had both). One retry,
+        # never more: a second failure fails the job.
+        if: github.event_name == 'push' && steps.image-provenance.outcome == 'failure'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
@@ -672,7 +710,21 @@ jobs:
           path: ${{ runner.temp }}/sbom
 
       - name: Attest the SBOM
+        id: image-sbom
         if: github.event_name == 'push'
+        continue-on-error: true
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.manifest.outputs.digest }}
+          sbom-path: ${{ runner.temp }}/sbom/image/varve.spdx.json
+          push-to-registry: true
+
+      - name: Attest the SBOM, again if the first attempt failed
+        # ADR 0224 point 3: Rekor, Sigstore's public log, times out or
+        # answers 404 now and then (#179's dry run had both). One retry,
+        # never more: a second failure fails the job.
+        if: github.event_name == 'push' && steps.image-sbom.outcome == 'failure'
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
@@ -685,13 +737,36 @@ jobs:
       # is attested instead, with the same two predicates, and verified by
       # that digest as an operator verifies the image.
       - name: Attest each platform's build provenance (dry run)
+        id: platform-provenance
         if: github.event_name != 'push'
+        continue-on-error: true
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/digests/*
+
+      - name: Attest each platform's build provenance (dry run), again if the first attempt failed
+        # ADR 0224 point 3: Rekor, Sigstore's public log, times out or
+        # answers 404 now and then (#179's dry run had both). One retry,
+        # never more: a second failure fails the job.
+        if: github.event_name != 'push' && steps.platform-provenance.outcome == 'failure'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: ${{ runner.temp }}/digests/*
 
       - name: Attest each platform's SBOM (dry run)
+        id: platform-sbom
         if: github.event_name != 'push'
+        continue-on-error: true
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/digests/*
+          sbom-path: ${{ runner.temp }}/sbom/image/varve.spdx.json
+
+      - name: Attest each platform's SBOM (dry run), again if the first attempt failed
+        # ADR 0224 point 3: Rekor, Sigstore's public log, times out or
+        # answers 404 now and then (#179's dry run had both). One retry,
+        # never more: a second failure fails the job.
+        if: github.event_name != 'push' && steps.platform-sbom.outcome == 'failure'
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: ${{ runner.temp }}/digests/*
