@@ -346,6 +346,15 @@ The measurements are added here by dated amendment.
   sequencer and enters it only to publish (ADR 0070), so the checks add
   nothing to a commit's wait. Only Linux was measured: CI runs no REC M
   benchmark on Windows or macOS.
+- **The load takes about 3% longer, and that is accepted.** Over twenty
+  alternating pairs at REC M on Linux (the amendment of 2026-10-28), the
+  load with 100 checkpoints and maintenance took 170.8 s against 165.6 s:
+  +3.1%, 95% confidence interval +1.8% to +5.5%. Most of it, 4.6 s, is the
+  checkpoints' checks above, which the benchmark runs inline. Maintenance
+  took the same time, and merges rewrote 0.1% more bytes. The rest of the
+  load, the commits and the runs their memtable flushes write, took 1.7 s
+  more, +3.1% (+1.0% to +5.4%). The log's format is unchanged, so the runs'
+  block checks are the likely cause of that part; it was not measured apart.
 - While an older follower is announced, a set's shared blobs stay unchecked
   version 4, their flushes stay, and readiness says how many sets are not
   yet checked.
@@ -454,3 +463,39 @@ figures are medians of the runs.
   not by this benchmark. The Windows store step's time is the one to watch
   for point 8.
 
+## Amendment, 2026-10-28 — the reads, over twenty alternating pairs
+
+The maintainer asked for the as-of subject read, 4% over in the amendment
+above, to be measured until its difference has a 95% confidence interval.
+Same container and benchmark: `main` at 705b268 and this change at 1246f99,
+both with the same benchmark, run alternately for twenty pairs, the order
+swapped each pair. The interval is a bootstrap of the difference of the two
+sides' medians, 20,000 resamples of the pairs.
+
+| | `main` | This change | Difference | 95% CI |
+|---|---:|---:|---:|---:|
+| A quad's lookup at the head, p50 | 11.65 µs | 12.05 µs | +3.4% | −6.3% to +14.9% |
+| A subject's quads at the head, p50 | 9.45 µs | 9.35 µs | −1.1% | −8.3% to +26.3% |
+| A quad's lookup inside the largest set, p50 | 3.30 µs | 3.25 µs | −1.5% | −5.9% to +1.6% |
+| A subject's quads inside the largest set, p50 | 6.85 µs | 7.40 µs | +8.0% | +1.4% to +11.3% |
+| The open from a fresh cache | 494 ms | 281 ms | −43% | −47% to −38% |
+| The head's first pass | 66.8 ms | 67.6 ms | +1.3% | −6.2% to +12.0% |
+| The 100 checkpoints | 23.8 s | 28.35 s | +19.1% | +17.6% to +21.1% |
+| Maintenance | 88.0 s | 88.15 s | +0.2% | −1.9% to +1.6% |
+| The load with checkpoints and maintenance | 165.6 s | 170.8 s | +3.1% | +1.8% to +5.5% |
+
+- **The as-of subject read is within noise of #146's 3%.** Its interval,
+  +1.4% to +11.3%, does not exclude 3%, so the budget stands for it. It
+  does not show the read within 3% either: the estimate is +8%, and the
+  timer's resolution, 0.1 µs, is 1.4% of the read. The median of the
+  paired differences is +4.4% (−3.6% to +12.1%).
+- **The slow runs are not first reads.** The p50 is over 300 scans of one
+  subject in one view, and only the first reads its pages cold. In 3 of
+  `main`'s runs and 5 of this change's, every read was about a third
+  slower: the head's lookup about 14 µs against 11.5, the as-of lookup
+  about 4.5 µs against 3.3. The as-of lookup separates the two modes
+  cleanly (at most 3.6 µs, or at least 4.4). Over the runs in the fast
+  mode only, the as-of subject read is 6.80 µs against 7.30 µs, +7.4%
+  (−1.5% to +10.4%): the same as over all runs.
+- The checkpoints' +19% and the load's +3.1% are stated as accepted in the
+  consequences above.
