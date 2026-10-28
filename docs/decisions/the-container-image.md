@@ -33,6 +33,8 @@ decisions:
     accepted-at: 2026-10-10T00:00:00Z
   - key: TheBaseIsPinnedAndTheSbomMerged
     statement: "The image's bases are pinned by digest, and its SBOM is eng/sbom.cs's: each platform's binary closure and runtime from the restore, and the base's OS packages from Syft over the pinned base (ADR 0224, ADR 0225)"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-28T00:00:00Z
 ---
 
 The rulings of [ADR 0111](../adr/0111-the-container-image.md), filed unaccepted by milestone Operability of #12

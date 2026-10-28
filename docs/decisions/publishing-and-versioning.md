@@ -37,6 +37,8 @@ decisions:
     accepted-at: 2026-09-22T00:00:00Z
   - key: APackageCarriesItsSbom
     statement: "A published package carries its own SPDX 2.3 SBOM at _manifest/spdx_2.3/manifest.spdx.json, and the release carries the attested packages, SHA256SUMS, every SBOM and the VEX document (ADR 0224)"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-28T00:00:00Z
 ---
 
 The rulings of [ADR 0029](../adr/0029-publishing-and-versioning.md) still in force, one line each. The ADR is the

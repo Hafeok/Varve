@@ -272,3 +272,13 @@ Found in CI and fixed:
   - ADRs 0224 and 0225;
   - the amendments to 0009, 0029, 0102 and 0111;
   - their ledger keys.
+
+### Acceptance, 2026-10-28
+
+A later session (Claude Code, model `claude-fable-5-1`), on the maintainer's
+instruction to accept every decision on the open pull requests, added
+`accepted-by` and `accepted-at` to the 25 keys this branch files over
+main: dependency-policy-and-register (1 key, ADR 0009), publishing-and-versioning (1 key, ADR 0029), a-release-is-a-descriptor (1 key, ADR 0102), the-container-image (1 key, ADR 0111), supply-chain-transparency (16 keys, ADR 0224), the-sbom-generator (5 keys, ADR 0225). The acceptance is the maintainer's, who had read them; the
+session only wrote it at their direction, as the acceptance of ADRs
+0127–0133 was written. The ADRs' status text and the index rows are left as
+filed, as in that precedent.
