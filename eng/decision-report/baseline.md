@@ -1,6 +1,6 @@
 # Decision-driven report
 
-DecisionDriven.Report 0.1.0-preview.10 at `705b268623af`. Nothing here gates a build: a metric becomes a gate only by a decision that names its threshold and baseline.
+DecisionDriven.Report 0.1.0-preview.10 at `af8aee2292cf`. Nothing here gates a build: a metric becomes a gate only by a decision that names its threshold and baseline.
 
 ## Layers
 
@@ -305,6 +305,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/AspireTakesTheContainerAsAnExpression` — Varve.Aspire's WithAzureBlobStorage takes the container's address as an expression and passes no credential; it adds no package
 - `dec:varve/AsyncApiSchemaVendored` — The AsyncAPI 3.0.0 JSON Schema is vendored as test data with its Apache-2.0 notice and never fetched at test time
 - `dec:varve/AtLeastOnceIdempotentByPosition` — Delivery to a projection is at-least-once, and applying a commit at or below the projection's position is a no-op
+- `dec:varve/AtomicLevelsAreADependencyRule` — Components live in the Atoms, Molecules, Organisms, Templates, Parts and Pages namespaces of Varve.WebUi, in that order, and a component references only lower levels, never its own, with no exemption
 - `dec:varve/AttestedProvenanceAndSbom` — publish.yml attests build provenance and an SPDX SBOM for the manifest's digest through GitHub artifact attestations and verifies both with gh attestation verify
 - `dec:varve/AttributionIsTheCallersChoice` — A write through on-behalf-of records the user as agent and a write on the application's own account uses its client-credentials token and records the application; the guide states this as the caller's choice per write
 - `dec:varve/AuthJobNames` — The CI jobs auth (mock-oauth2) and auth (zitadel) are required checks declared in .github/repo-standard.yaml
@@ -513,6 +514,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/DisposeWaitsForTheSequencer` — Dataset.DisposeAsync waits for the sequencer, so a commit in progress finishes before the dataset closes
 - `dec:varve/DistinctAggregateIsASet` — DISTINCT in an aggregate is a set per accumulator keyed by term equality, and COUNT(DISTINCT *) keys on the whole solution
 - `dec:varve/DivergenceFoundByComparison` — Two logs with a common prefix and different continuations are divergent, and the branch point is the first position whose chain values differ
+- `dec:varve/DocsUiIsTheDesignSource` — docs/ui/ is the Web UI's design source and changes only by pull request; the design system artifact is a published view of it, first copied at a stated version recorded in traceability
 - `dec:varve/DocumentationFileGenerated` — GenerateDocumentationFile is on for every project
 - `dec:varve/DomainSeparatedGenesis` — At position 1, prev is the SHA-256 of a fixed, domain-separated UTF-8 string rather than zeros
 - `dec:varve/DoneAtOrBelowPyoxigraph` — #35 is done when the median of INSERT DATA of 100,000 quads, parsing included, is at or below pyoxigraph's on the same machine in the same run; otherwise the report says where the time is and the issue stays open
@@ -869,6 +871,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/OncePerCommitWorkInSequencer` — Everything that must happen exactly once per commit, from position and timestamp assignment to normalisation, validation and the synchronous default projection, happens in the sequencer
 - `dec:varve/OneAttachmentPerBinding` — A dataset's bindings are validated in the order of their IRIs, the first refusal wins, and an accepted commit records one attachment per binding through ValidationVerdict.Accept with a list
 - `dec:varve/OneCasePerManifestEntry` — Each manifest entry is one test case named by its test IRI, and suites are discovered from a table
+- `dec:varve/OneCopyOfTheCss` — Varve.WebUi links docs/ui/tokens.css and docs/ui/bundle.css into wwwroot without copying them
 - `dec:varve/OneExecutableIsServerAndCli` — Varve.Server is the tool varve: one executable, one composition root, one AOT publish; varve serve and a bare varve run the server of ADR 0101 unchanged
 - `dec:varve/OneOverlayImplementation` — One overlay implementation serves as-of reads, diff and pre-commit validation
 - `dec:varve/OnePagePerProblemType` — Each problem type has a page in docs/problems/ stating its title, status, members and when it is emitted, which its IRI under https://w3id.org/varve/problems/ resolves to
@@ -877,7 +880,9 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/OneQueryOneNode` — One query runs on one node; followers add capacity across queries, and distributed execution would be a milestone of its own
 - `dec:varve/OneReplicaAtMost` — Container Apps runs two apps from one image, varve-writer with one replica that claims and varve with N replicas that never claim and forward writes to varve-writer's internal FQDN
 - `dec:varve/OneSequencerPerDataset` — One sequencer per dataset processes commit requests one at a time and assigns dense, ascending positions (I1)
+- `dec:varve/OneStateToToneMapping` — One tested mapping in Varve.WebUi.Tones maps API state words and problem types to the five tones, called by parts and pages; atoms take a Tone and never map
 - `dec:varve/OnlyAppPinnedChecksCount` — A required check is matched by name and so is spoofable by any workflow a pull request adds; it holds against a pull request only when pinned to an App whose key no such workflow can reach, and agent review is pinned to the gates App
+- `dec:varve/OnlyPagesCallTheApi` — Only Varve.WebUi.Pages, the routed screens, references or injects the client's service types, Varve.Protocol.Client outside its Model namespace; Parts and Pages may use the client's model types, and Atoms to Templates use neither; the model holds values only and names no service type
 - `dec:varve/OnlyTheMaintainerMergesAndReleases` — Only the maintainer merges a pull request and only the maintainer releases
 - `dec:varve/OnlyTheNewestSegmentUnsealed` — Segments are numbered by the backend in ascending order, and only the newest may be unsealed or appended to
 - `dec:varve/OnlyTheWriterMerges` — Only the dataset's writer merges extent sets, in the dataset's maintenance off the sequencer; there is no separate merge worker
@@ -917,6 +922,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/PinPerQueryExecution` — A pinned read lives for one query execution, from before evaluation until the last result is consumed or the consumer stops, and is never cached or shared
 - `dec:varve/PinReleasedBeforeSubmit` — The update's pin is released before the composed delta is submitted
 - `dec:varve/PlacementByEvents` — varve:placedOn names the instance that writes a dataset, by default the system writer's; a change is made by the old writer abdicating with the reason placement when it applies the change, and the newly placed instance claiming after it observes the release
+- `dec:varve/PlainCssFromTheAppsOrigin` — The Web UI uses no component library, CSS framework, web font, icon font, style attribute or Blazor CSS isolation; classes carry the vw- prefix
 - `dec:varve/PlaintextConfinement` — No file in log/, no checkpoint and no filtered subscription record ever holds a private term's plaintext or key material, which exist only in memory and under derived/ tagged by KeyId (I9)
 - `dec:varve/PolicyConfigurableWithinLimits` — The fan-out is 2 to 16, 4 by default; MaxSetBytes is 1 MiB or more; merges can be turned off; the default holds the read latency gate
 - `dec:varve/PositionIsAWrapper` — Every log position is a Position over long, ordered as I1 requires, with no public arithmetic
@@ -1147,6 +1153,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/TestsRunOnTestingPlatform` — dotnet test runs on Microsoft.Testing.Platform, selected in global.json, so Microsoft.NET.Test.Sdk and the VSTest adapter are deliberately absent
 - `dec:varve/TheGatesAppTags` — The tag and the GitHub Release are created by the gates App with an installation token, never by GITHUB_TOKEN and never under a person's or a composite identity
 - `dec:varve/TheLogIsTheWriteAheadLog` — derived/ has no write-ahead log of its own and recovers by replaying the log from the projection's persisted position
+- `dec:varve/TheMarkupContractTest` — Each component's cases under docs/ui/components/<Comp>/cases/ are rendered by the Razor component and compared to their expected fragments semantically; a component with a preview and no cases fails, and each preview shows its cases' fragments verbatim
 - `dec:varve/TheSetIsTheUnitOfMerge` — A set's six order extents share one window in the catalog and merge together, so the bound on sets per permutation is the bound on sets
 - `dec:varve/ThreeClasses` — A shape is incremental, scoped or full by the worst of its targets, path, components and the shapes it reaches, per the table of ADR 0171
 - `dec:varve/ThreeDependencyClasses` — Dependencies are runtime, build-time or test-only, admitted on different bars, and a test-only stopgap states its exit criterion
@@ -1160,6 +1167,7 @@ Implicit somewhere, or dead. The report does not say which.
 - `dec:varve/TokenAudiencePerPlane` — Each plane accepts only its own audience, the management plane Varve:Auth:Management:Audience by default api://varve-manage, and a token naming both planes' audiences is refused by both
 - `dec:varve/TokenIsProvidedPerRequest` — The client's bearer token comes from a provider called for every request, its expiry honoured on the client's TimeProvider; the fixed AccessToken is removed; amended 2026-10-13 under ADR 0127
 - `dec:varve/TokenOnTheAuthorizationHeaderOnly` — The tool puts its GitHub token on the Authorization header only, never logs or writes it, and never sends it to an extends URL or follows a link off the API host
+- `dec:varve/TokensJsonIsCanonical` — tokens.json is canonical and tokens.css is generated from it as custom properties only, with no class; a check regenerates tokens.css and fails on any difference
 - `dec:varve/TokensStayInTheAdapter` — A token is cached until shortly before it expires and is never logged, never put in a problem body and never put in telemetry
 - `dec:varve/ToolPackageFrameworkDependentAotIsTheGate` — The tool package is framework-dependent with ToolCommandName varve, and the Native AOT single-file binary published by the native aot job on both runners, with the CLI smoke run against it, is the gate
 - `dec:varve/TopicSummariesForOutsideWork` — A design conversation held outside the repository is recorded as a topic summary naming its decisions, and the maintainer holds the transcript
