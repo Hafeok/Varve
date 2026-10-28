@@ -165,6 +165,32 @@ foreach (string package in packages)
     RequireFile(findings, archive, "LICENSE");
     RequireFile(findings, archive, "NOTICE");
 
+    // A tool package carries its implementation: the entry point its
+    // DotnetToolSettings.xml names, beside it. Since .NET 10 a tool project
+    // with RuntimeIdentifiers packs a pointer package with no assembly behind
+    // RID-specific ones, and #179 packed exactly that once without anything
+    // failing (ADR 0105: the tool is one framework-dependent package).
+    bool isTool = metadata.Descendants().Any(e => e.Name.LocalName == "packageType" && e.Attribute("name")?.Value == "DotnetTool");
+
+    if (isTool)
+    {
+        ZipArchiveEntry? settings = archive.Entries.FirstOrDefault(static e => e.FullName.StartsWith("tools/", StringComparison.Ordinal) && e.FullName.EndsWith("/DotnetToolSettings.xml", StringComparison.Ordinal));
+        string? entryPoint = null;
+
+        if (settings is not null)
+        {
+            using Stream stream = settings.Open();
+            entryPoint = XDocument.Load(stream).Descendants().FirstOrDefault(static e => e.Name.LocalName == "Command")?.Attribute("EntryPoint")?.Value;
+        }
+
+        string? expected = settings is null || entryPoint is null ? null : settings.FullName[..(settings.FullName.LastIndexOf('/') + 1)] + entryPoint;
+
+        if (expected is null || archive.GetEntry(expected) is null)
+        {
+            findings.Add($"a tool package without its implementation: {settings?.FullName ?? "no DotnetToolSettings.xml"} names {entryPoint ?? "no entry point"}, and the package does not carry it (a RID-specific pointer package?)");
+        }
+    }
+
     // ADR 0224 point 3: the package's own SBOM, describing this package at this
     // version. A pack that forgot it, or packed another package's, is caught
     // here rather than on nuget.org, where it could not be replaced.
