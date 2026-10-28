@@ -307,10 +307,12 @@ default would be the server collector, which keeps committed memory
 proportional to what every core allocated; the server's live heap is small
 and allocates in bursts, which the workstation collector fits, and
 `ConserveMemory` compacts the large object heap that the 6c soak found
-fragmenting. The soak gate is judged under this configuration, with the
-default runtime's hour beside it in the record and its drift measured
-against minutes 30–40, after the collector has reached its working size
-(ADR 0082, amended and superseded in part by ADR 0110).
+fragmenting. The soak gate is judged under this configuration, with its
+drift measured against minutes 30–40, after the collector has reached its
+working size (ADR 0082, amended and superseded in part by ADR 0110). Every
+release runs that soak for four hours on Linux and judges it by script, and
+a release is refused unless the weekly Windows soak passed within eight days
+(ADR 0215).
 
 `DOTNET_GCHeapHardLimit`, `DOTNET_gcServer` and the rest still apply as to
 any .NET process and override what ships: in a container the runtime bounds
