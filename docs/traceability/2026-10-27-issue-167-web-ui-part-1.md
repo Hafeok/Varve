@@ -542,3 +542,55 @@ The tests:
 sign-off and a trailer naming a model. Their trailers were rewritten to the
 responsible human's sign-off, with the files unchanged, and the branches were
 force-pushed with the maintainer's permission.
+
+### The reference screens, and the two components they added
+
+**The ruling**, verbatim:
+
+> Land `varve-docs-ui-screens.zip` (unpacked at the repo root) on the milestone branch, not as a separate PR. The screens use two components that `docs/ui/` doesn’t cover yet, and their cases need the code on this branch:
+>
+> * `Tail` (atom): add `docs/ui/components/Tail/` with README, preview and cases for live and paused.
+> * `TripleList` (organism): add `docs/ui/components/TripleList/` with cases for a delta and an empty list. Its header row `vw-triples__head` should be pinned there.
+>
+> Also add to `bundle.css`: `.vw-table th.vw-num { font-family: var(--font-sans); font-size: 11px; }`. Numeric column headers currently render in mono, unlike every other header. No case changes; the markup is the same.
+> When the OIDC sign-in slice lands, add a `Shell` case with the Sign out button. There’s still none, because `MainLayout` has no sign-in yet.
+> Treat the screens as pictures, not a contract. Where a page you build and a screen disagree, check the page against the cases and tell me, and I’ll regenerate the screens.
+
+**Done:**
+- **The screens:** `docs/ui/screens/` is added as received: 31 pages, the
+  README and `screens.css`. They carry no script, and they link only
+  `../tokens.css`, `../bundle.css`, `../assets/varve-core.svg` and
+  `screens.css`. Every class they use has a rule in `bundle.css` or
+  `screens.css`.
+- **`bundle.css`:** numeric column headers are set in the sans face at 11px,
+  like every other header. No case changed.
+- **`Tail`:**
+  - Added to `docs/ui/components/` with its README and preview.
+  - It has three cases: `live`, `paused` (with three new commits waiting),
+    and `paused-nothing-new`.
+  - **The paused wording changed.** The component said only "Paused". The
+    screens, and `CommitList`'s README ("pauses … and says so"), say
+    "Paused while you read · 3 new". `Tail` had no case yet, so it now takes
+    `Pending` and says that, with the count only when commits are waiting.
+- **`TripleList`:** added with its README, preview and two cases, `delta` and
+  `empty`. Both pin the `vw-triples__head` row. The component's markup is
+  unchanged.
+- **Tests:** the contract cases and the previews grow from 56 to 61.
+  `Varve.WebUi.Tests` passes 148. Every other case and preview regenerated
+  byte-identical.
+- **Owed:** a `Shell` case with Sign out, when the OIDC sign-in slice lands.
+
+**The Health page against its screens.** I compared the ready, not-ready,
+unreachable and loading screens' main column with `Pages/Health.razor`, by
+structure. The composition agrees:
+- view head and stamp;
+- the unreachable notice directly below the head;
+- the Readiness panel with its badge and Read again;
+- the management panel's five rows;
+- the Datasets table's six columns and its captions;
+- the three loading rows.
+
+One difference is not in the markup a case pins. The screens give every
+panel title an id (`readiness-title-2`, …), and the page sets `TitleId` on
+none of them. Only a table labelled by its panel needs one, and the page's
+tables have captions.

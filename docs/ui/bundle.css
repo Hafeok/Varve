@@ -201,6 +201,7 @@ body.vw-root { margin: 0; }
 .vw-table tr:last-child td { border-bottom: 0; }
 .vw-table .vw-num { text-align: right; font-family: var(--font-mono); font-size: 13px; white-space: nowrap; }
 .vw-table td.vw-num { padding-top: 9px; }
+.vw-table th.vw-num { font-family: var(--font-sans); font-size: 11px; }
 .vw-table tbody tr:hover { background: var(--ground); }
 .vw-table tbody tr[aria-selected="true"] { background: var(--layer); }
 .vw-table__name { font-weight: 600; }

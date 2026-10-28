@@ -1,9 +1,18 @@
-@* The live tail's indicator (docs/ui/components/CommitList): live, or paused
-   and saying so. *@
-<span class="@(Paused ? "vw-tail vw-tail--paused" : "vw-tail")">@(Paused ? "Paused" : "Live")</span>
+@* The live tail's indicator (docs/ui/components/Tail): live, or paused and
+   saying so, with how many commits arrived while it was paused. *@
+<span class="@(Paused ? "vw-tail vw-tail--paused" : "vw-tail")">@Words()</span>
 
 @code {
     /// <summary>Whether the tail is paused.</summary>
     [Parameter]
     public bool Paused { get; set; }
+
+    /// <summary>While paused, how many commits arrived and are not shown yet.</summary>
+    [Parameter]
+    public long Pending { get; set; }
+
+    private string Words() =>
+        !Paused ? "Live"
+        : Pending > 0 ? "Paused while you read · " + Pending.ToString(System.Globalization.CultureInfo.InvariantCulture) + " new"
+        : "Paused while you read";
 }
