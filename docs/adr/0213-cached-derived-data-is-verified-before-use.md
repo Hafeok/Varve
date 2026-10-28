@@ -271,7 +271,8 @@ At REC M (25,000 commits, 5.05 M quads), that gives:
 The pull request measures at REC M, per OS:
 - open time;
 - first-read time;
-- head and as-of latency, against #146's budget of 3% over today;
+- head and as-of latency, against #146's budget of 3% over today, amended
+  for one read (the amendment of 2026-10-28 below);
 - the flush count, and the Windows store step's time, before and after point
   8.
 
@@ -346,6 +347,13 @@ The measurements are added here by dated amendment.
   sequencer and enters it only to publish (ADR 0070), so the checks add
   nothing to a commit's wait. Only Linux was measured: CI runs no REC M
   benchmark on Windows or macOS.
+- **A subject's quads inside the largest set are about 8% slower, and that
+  is accepted.** Over twenty alternating pairs at REC M on Linux (the
+  amendment of 2026-10-28), the read's p50 is 7.40 µs against 6.85 µs:
+  +8.0%, 95% confidence interval +1.4% to +11.3%, about 0.55 µs. It is the
+  per-page check, and #146's budget of 3% is amended for this one read. The
+  head's lookup, the head's subject read and the as-of lookup stay within
+  the budget: their intervals include zero.
 - **The load takes about 3% longer, and that is accepted.** Over twenty
   alternating pairs at REC M on Linux (the amendment of 2026-10-28), the
   load with 100 checkpoints and maintenance took 170.8 s against 165.6 s:
@@ -484,12 +492,13 @@ sides' medians, 20,000 resamples of the pairs.
 | Maintenance | 88.0 s | 88.15 s | +0.2% | −1.9% to +1.6% |
 | The load with checkpoints and maintenance | 165.6 s | 170.8 s | +3.1% | +1.8% to +5.5% |
 
-- **The as-of subject read is within noise of #146's 3%.** Its interval,
-  +1.4% to +11.3%, does not exclude 3%, so the budget stands for it. It
-  does not show the read within 3% either: the estimate is +8%, and the
-  timer's resolution, 0.1 µs, is 1.4% of the read. The median of the
-  paired differences is +4.4% (−3.6% to +12.1%).
-- **The slow runs are not first reads.** The p50 is over 300 scans of one
+- **#146's budget is amended for one read.** A subject's quads inside the
+  largest set costs +8.0% (+1.4% to +11.3%), about 0.55 µs at REC M, and
+  that is accepted for the per-page check: the interval excludes zero, so
+  the read is slower, most likely by about 8%. The other three reads keep
+  the 3% budget: their intervals include zero. The median of the paired
+  differences for the amended read is +4.4% (−3.6% to +12.1%).
+- **The slow runs are not first-read cost, and both builds have them.** The p50 is over 300 scans of one
   subject in one view, and only the first reads its pages cold. In 3 of
   `main`'s runs and 5 of this change's, every read was about a third
   slower: the head's lookup about 14 µs against 11.5, the as-of lookup
