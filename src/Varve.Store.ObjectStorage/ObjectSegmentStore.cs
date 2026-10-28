@@ -646,7 +646,10 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
     // The fence (ADR 0136): the slot after the last that exists, in log
     // order, created with this writer's epoch. A create that finds its slot
     // taken adopts what is there and tries the next; one that finds a later
-    // epoch there is superseded already.
+    // epoch there is superseded already. So is a writer whose log already
+    // ends in a later epoch's chunk: it claimed before that writer, and
+    // listed the log after it fenced (#165). Fencing past it would let the
+    // lower epoch write and supersede the higher.
     private async ValueTask FenceAsync(CancellationToken cancellationToken)
     {
         while (true)
@@ -664,6 +667,12 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
                 }
 
                 Segment? last = _segments.Count == 0 ? null : _segments[^1];
+
+                if (last is not null && last.Epoch > _epoch)
+                {
+                    _superseded = true;
+                    return;
+                }
 
                 if (last is null || last.Sealed)
                 {
