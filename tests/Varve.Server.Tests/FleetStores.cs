@@ -32,6 +32,9 @@ internal abstract class FleetStore
 
     public abstract Task<FleetLocation> NewAsync();
 
+    /// <summary>Skips, or fails, as <see cref="NewAsync"/> would, before a property samples: CsCheck wraps a skip thrown inside it.</summary>
+    public abstract void RequireLeg();
+
     protected static string Require(string leg, string variable)
     {
         string value = Environment.GetEnvironmentVariable(variable) ?? string.Empty;
@@ -51,6 +54,8 @@ internal abstract class FleetStore
 
     private sealed class AzuriteFleetStore : FleetStore
     {
+        public override void RequireLeg() => Require("azurite", "VARVE_AZURITE");
+
         public override async Task<FleetLocation> NewAsync()
         {
             string account = Require("azurite", "VARVE_AZURITE");
@@ -79,6 +84,12 @@ internal abstract class FleetStore
 
         private readonly Lock _minting = new();
         private Task<string>? _tokenFile;
+
+        public override void RequireLeg()
+        {
+            Require("rustfs", "VARVE_RUSTFS");
+            Require("rustfs-web-identity", "VARVE_RUSTFS_WEB_IDENTITY");
+        }
 
         public override async Task<FleetLocation> NewAsync()
         {

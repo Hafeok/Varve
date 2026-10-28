@@ -792,6 +792,7 @@ public abstract class FleetCases : IAsyncDisposable
     [Fact]
     public async Task Two_regions_write_their_own_datasets_hand_over_within_them_and_never_have_two_writers()
     {
+        Store.RequireLeg();
         Gen<(int Kind, int Arg)[]> schedules = Gen.Select(Gen.Int[0, 5], Gen.Int[0, 7]).Array[4, 12];
         await schedules.SampleAsync(RunActiveActiveAsync, iter: ActiveActiveSchedules, print: schedule => string.Join(" ", schedule.Select(step => step.Kind + ":" + step.Arg)));
     }
