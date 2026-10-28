@@ -18,7 +18,7 @@ decisions:
   - key: ASpillDamagedFailsTheLoadUncommitted
     statement: "A spill carries a check per block, and a mismatch ends its bulk load before the commit with nothing visible, as BulkLoadSpillDamagedException and the problem type load-spill-damaged, so the caller knows a resubmit is right"
   - key: ProjectionsOutsideTheStoreWriteACheckedEnvelope
-    statement: "A projection kept in the local cache by another package writes and opens its blob through CheckedBlob, kind 9: 64 KiB blocks each checked, bound to the dataset and to the position and header hash it was built at; any failure to verify or to decode is a miss"
+    statement: "A projection kept in the local cache by another package writes and opens its blob through Dataset.WriteCheckedAsync and Dataset.TryReadCheckedAsync, kind 9: 64 KiB blocks each checked, bound to the dataset and to the position and header hash it was built at; any failure to verify or to decode is a miss"
   - key: CommitIndexBesideEachSet
     statement: "Each extent set carries the commit index of its window as a ninth blob, commits, of kind 4 in the newest commit-index layout every announced reader reads; a merged set's is its inputs' entries end to end; superseding ADR 0161 point 1 in part"
   - key: NoDerivedFormatChange

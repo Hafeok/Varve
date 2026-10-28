@@ -184,8 +184,10 @@ from the log. This is the one kind where a miss cannot mean a rebuild.
 projection kept in the local cache by another package cannot reach the
 store's internal formats. The validation projection (ADR 0174) is one, and
 Inference's `derived/inference/` (#171) is the next. For them, `Varve.Store`
-offers `CheckedBlob`, which writes and opens a blob of **kind 9** through
-any `IDerivedStore`.
+offers `Dataset.WriteCheckedAsync` and `Dataset.TryReadCheckedAsync`, which
+write and open a blob of **kind 9** through any `IDerivedStore`. The format's
+own code, `CheckedBlob`, stays internal, since only the dataset binds an
+envelope to its log.
 - **The layout:** the projection's bytes in 64 KiB blocks, then a
   directory of one check per block, then the derived header (§7.1).
 - **The binding:** the header carries the dataset id, the position the
@@ -336,12 +338,23 @@ The measurements are added here by dated amendment.
   pass of the fold each time it is read; a term page once per process.
 - `derived/` files of version 6 are slightly larger: 8 bytes per 10 KiB of
   commit index, and per 4 KiB of term section.
+- **Checkpoints take about 18% longer, and that is accepted.** At REC M on
+  Linux, 100 checkpoints took 30.6 s against 26.0 s (the amendment of
+  2026-10-27): a checkpoint now checks every key block and term page it
+  writes. Checkpoints run in the background, off the read path and off the
+  commit path: no read waits for one, and a checkpoint is written off the
+  sequencer and enters it only to publish (ADR 0070), so the checks add
+  nothing to a commit's wait. Windows has
+  only CI's store test durations, and only once the build is green; no CI
+  job runs the store on macOS. Each is recorded here by amendment when it
+  exists.
 - While an older follower is announced, a set's shared blobs stay unchecked
   version 4, their flushes stay, and readiness says how many sets are not
   yet checked.
 - `ExtentDamageTests` gets stricter, and every kind gets a damage test.
-- Inference part 2 writes `derived/inference/` through `CheckedBlob`, and
-  states no mechanism of its own.
+- Inference part 2 writes `derived/inference/` through
+  `Dataset.WriteCheckedAsync` and `TryReadCheckedAsync`, and states no
+  mechanism of its own.
 
 ## Checks
 
@@ -361,9 +374,9 @@ The measurements are added here by dated amendment.
   - **0174:** the snapshot's container. Amended.
   - **0177:** the checks themselves, now a miss. Superseded in part.
   - **0081:** a load commits once or not at all. Point 5 relies on it.
-- **Layer ownership.** `Varve.Store` (layer 4): the formats, `CheckedBlob`
-  and `DerivedDamage`. `Varve.Shacl.Store` (layer 5) writes its snapshot
-  through `CheckedBlob`. `Varve.Protocol` (layer 5) owns the problem type.
+- **Layer ownership.** `Varve.Store` (layer 4): the formats, the checked
+  envelope and `DerivedDamageException`. `Varve.Shacl.Store` (layer 5)
+  writes its snapshot through `Dataset.WriteCheckedAsync`. `Varve.Protocol` (layer 5) owns the problem type.
   `Varve.Server` (layer 6) runs `varve load`.
 - **Analyzer rule.** None new. The per-block check is `[HotPath]` and
   allocates nothing (`VARVE0003`).
