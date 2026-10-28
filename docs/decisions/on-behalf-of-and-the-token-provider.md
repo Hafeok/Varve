@@ -33,6 +33,8 @@ decisions:
     accepted-at: 2026-10-15T00:00:00Z
   - key: FixedProviderBesideTheDelegate
     statement: "The fixed-token convenience is BearerTokens.Fixed in Varve.Protocol.Client, beside the BearerTokenProvider delegate it returns; the model holds no provider"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-28T00:00:00Z
 ---
 
 The rulings of [ADR 0127](../adr/0127-on-behalf-of-and-the-token-provider.md), one line each. The ADR is the

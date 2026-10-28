@@ -25,6 +25,8 @@ decisions:
     accepted-at: 2026-10-08T00:00:00Z
   - key: BrowserApplicationHost
     statement: "A host may be a browser application published as static files and never packed; it declares VarveShipped so the native-asset gate walks its closure, and its framework packages are scoped to it in the register"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-28T00:00:00Z
 ---
 
 The rulings of [ADR 0060](../adr/0060-hosts-at-layer-6-the-composition-root.md) still in force, one line each. The ADR is the

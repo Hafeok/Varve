@@ -996,3 +996,13 @@ navigation still lands on what changed (2.4.3).
   - "read at" on Commits;
   - the declaration pages the reference screens add;
   - "All commits" as a button.
+
+### Acceptance, 2026-10-28
+
+A later session (Claude Code, model `claude-fable-5-1`), on the maintainer's
+instruction to accept every decision on the open pull requests, added
+`accepted-by` and `accepted-at` to the 40 keys this branch files over
+main: hosts-at-layer-6-the-composition-root (1 key, ADR 0060), on-behalf-of-and-the-token-provider (1 key, ADR 0127), varve-webui-a-blazor-webassembly-host (8 keys, ADR 0200), the-web-uis-own-oidc-client (6 keys, ADR 0201), serving-the-web-ui-and-its-content-security-policy (7 keys, ADR 0202), typed-reads-in-the-protocol-client (9 keys, ADR 0203), test-dependencies-for-the-web-ui (5 keys, ADR 0204), the-web-uis-size-budget-and-no-aot (3 keys, ADR 0205). The acceptance is the maintainer's, who had read them; the
+session only wrote it at their direction, as the acceptance of ADRs
+0127–0133 was written. The ADRs' status text and the index rows are left as
+filed, as in that precedent.
