@@ -138,9 +138,10 @@ Conventional commits, one logical change each, and three things in each:
   human in `eng/identities.json` or a delegate. Enforced by `eng/dco.cs`
   (ADR 0087). A session never uses `git commit -s`: that signs off as the
   session's own identity, which the gate refuses. `eng/hooks/commit-msg` adds
-  the right sign-off (`git config core.hooksPath eng/hooks`, which the
-  devcontainer sets; `dotnet run eng/dco.cs -- --sign-off-for <email>` prints
-  it).
+  the right sign-off; it needs `git config core.hooksPath eng/hooks`, which
+  every clone requires: the devcontainer sets it, a cloud session's bootstrap
+  must, and `eng/dco.cs` warns locally when it is not set.
+  `dotnet run eng/dco.cs -- --sign-off-for <email>` prints the sign-off.
 - **A signature**, for human committers. Cloud AI sessions are exempt by ruleset
   bypass; ADR 0034 records why, as a stated deviation.
 
@@ -197,6 +198,7 @@ dotnet run eng/land.cs -- <pr> --main              # then fast-forward main to i
 dotnet build Varve.slnx -c Release                 # zero warnings, or it is broken
 dotnet run eng/dependency-register.cs -- --base origin/main
 git submodule update --init --recursive            # needed for conformance
+git config core.hooksPath eng/hooks                # required in every clone, a session's included: the DCO sign-off
 ```
 
 Every gate is also a job in `eng/ci.cs`. `eng/` is the home of the Varve-specific

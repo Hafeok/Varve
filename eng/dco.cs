@@ -34,6 +34,11 @@
 // on that branch's head vouches for is everything it would bring to main
 // (ADR 0088); a local run uses origin/main..HEAD.
 //
+// Run on a clone, it warns when core.hooksPath is not eng/hooks: a clone
+// without the hook makes commits whose sign-off nothing has checked, and a
+// cloud session's clone is set up by a bootstrap, not by the devcontainer. A
+// warning, not a failure: CI's checkout makes no commit and has no hook.
+//
 // --sign-off-for prints the sign-off this gate accepts from an author: an
 // agent's responsible human, by name and first email, or a human's own. It is
 // what eng/hooks/commit-msg adds, so a commit is signed off as the gate reads
@@ -162,6 +167,7 @@ else
 {
     string range = explicitRange ?? ResolveRange(repositoryRoot, baseRef, headRef);
     Console.WriteLine($"note range: {range}");
+    WarnIfUnhooked(repositoryRoot);
 
     // \u0001 opens a record, \u0002 separates the fields, so a message
     // containing anything at all cannot be confused for a delimiter.
@@ -412,4 +418,25 @@ static string FindRepositoryRoot()
     throw new InvalidOperationException("Could not find the repository root (no Varve.slnx above the current directory).");
 }
 
+// A local clone without eng/hooks as its hooks path: a warning on stderr, so
+// an unhooked clone is found at its first local gate run, not by CI's refusal.
+static void WarnIfUnhooked(string repositoryRoot)
+{
+    if (Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true")
+    {
+        return;
+    }
+
+    (int exitCode, string stdout, _) = Git(repositoryRoot, "config", "--get", "core.hooksPath");
+    string hooksPath = exitCode == 0 ? stdout.Trim().TrimEnd('/') : "";
+    if (hooksPath is not ("eng/hooks" or "./eng/hooks") && hooksPath != Path.Combine(repositoryRoot, "eng", "hooks"))
+    {
+        Console.Error.WriteLine(
+            $"warn core.hooksPath is '{(hooksPath.Length == 0 ? "unset" : hooksPath)}', not 'eng/hooks': this clone's commits are not "
+            + "signed off by eng/hooks/commit-msg. Run: git config core.hooksPath eng/hooks (AGENTS.md).");
+    }
+}
+
+
 sealed record Commit(string Sha, int Parents, string AuthorName, string AuthorEmail, string Message);
+
