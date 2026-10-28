@@ -35,9 +35,9 @@
     <TrimmerSingleWarn>false</TrimmerSingleWarn>
 
     <!-- The feature switches the browser size measurements used (ADR 0200):
-         no ICU, no time zone data, and nothing a page has no use for. -->
+         no ICU, and nothing a page has no use for. No time zone data is
+         below, at publish: it relinks the runtime too. -->
     <InvariantGlobalization>true</InvariantGlobalization>
-    <InvariantTimezone>true</InvariantTimezone>
     <EventSourceSupport>false</EventSourceSupport>
     <UseSystemResourceKeys>true</UseSystemResourceKeys>
     <DebuggerSupport>false</DebuggerSupport>
@@ -45,12 +45,16 @@
     <StackTraceSupport>false</StackTraceSupport>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(_IsPublishing)' == 'true'">
+  <PropertyGroup Condition="'$(_IsPublishing)' == 'true' or '$(WasmBuildingForNestedPublish)' == 'true'">
     <!-- The runtime relinked to what the app uses, at publish only: it needs
          the wasm-tools workload, which the jobs that publish install and the
-         build jobs do not (ADR 0200). -->
+         build jobs do not (ADR 0200). InvariantTimezone is here for the
+         same reason: set at all, it makes restore require the workload. The
+         relink runs in a nested publish that clears _IsPublishing and sets
+         WasmBuildingForNestedPublish, so the condition names both. -->
     <WasmBuildNative>true</WasmBuildNative>
     <WasmNativeStrip>true</WasmNativeStrip>
+    <InvariantTimezone>true</InvariantTimezone>
   </PropertyGroup>
 
   <ItemGroup>
