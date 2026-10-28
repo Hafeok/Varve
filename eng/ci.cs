@@ -158,6 +158,16 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("land", "the landing helper builds and prints its usage",
         () => Run("dotnet", ["run", "eng/land.cs", "--", "--help"])),
 
+    // ADR 0224 point 5, amended 2026-10-28: every lockfile was written with the
+    // SDK global.json pins, whose own packages (ILLink, ILCompiler) it records.
+    // Before the restore, so a lockfile from another patch fails here with
+    // the script that regenerates them, not with NuGet's NU1004.
+    ("lockfiles", "every lockfile was written with global.json's SDK, before a locked restore says so less clearly",
+        () => Run("dotnet", ["run", "eng/lockfiles.cs", "--", "--check"])),
+
+    ("lockfiles-fixture", "the lockfile check fails a lockfile written with a newer SDK patch, naming the script",
+        () => Run("dotnet", ["run", "eng/lockfiles.cs", "--", "--check", "--lockfiles", "tests/fixtures/lockfiles/newer-patch"]) == 1 ? 0 : 1),
+
     // The solution, and the projects outside it that have lockfiles: the
     // samples, the benchmarks, the smoke apps and repo-standard. Locked, as CI
     // always restores (ADR 0224), so a lockfile the change forgot fails here.

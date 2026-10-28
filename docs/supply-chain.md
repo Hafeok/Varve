@@ -70,7 +70,7 @@ through GitHub's OIDC identity for this repository's `publish.yml` with
 Sigstore. No signing key exists to be stolen.
 - **SLSA v1 build provenance:** the workflow, the commit, the runner, and
   the build supply chain:
-  - the SDK, pinned by `global.json` to its latest patch;
+  - the SDK, pinned by `global.json`, the exact patch CI installs;
   - every Action, pinned by commit SHA;
   - every CI image, and the container's base image, pinned by digest.
 - **The SBOM**, as an attestation on the artefact's digest.

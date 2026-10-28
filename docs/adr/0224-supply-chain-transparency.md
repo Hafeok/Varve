@@ -23,6 +23,8 @@ Each amendment is dated 2026-10-27 and filed unaccepted.
 - point 3: every package's attestations come before the push, which is a job
   of its own;
 - point 3: `publish.yml` has a dry run on the pull request.
+- point 5: CI installs exactly the SDK `global.json` pins, and every lockfile
+  is written with it.
 
 **Builds on:**
 - constraint 1 (no native assets) and constraint 4 (an ADR per third-party
@@ -328,6 +330,29 @@ because none of it ships.
 **`global.json` rolls forward to the latest patch only** (`latestPatch`,
 maintainer's decision D5). A feature band changes the compiler and the
 analyzers, and a patch does not.
+
+**CI installs exactly the patch `global.json` pins** (revised 2026-10-28).
+- The SDK's patch fixes the versions of the packages it references by itself
+  (`Microsoft.NET.ILLink.Tasks`, `Microsoft.DotNet.ILCompiler`), and every
+  lockfile records them (point 2). A machine on another patch writes other
+  lockfiles, and a locked restore fails on them. The devcontainer's SDK
+  10.0.401 against lockfiles written with 10.0.403 was that failure.
+- So `latestPatch` governs a machine that has only another patch of the band,
+  and nothing in CI. Every workflow installs the SDK through one composite
+  action, `.github/actions/setup-dotnet`, which reads the version from
+  `global.json` and installs exactly it, with roll-forward disabled. No step
+  names a version. The devcontainer pins the same version.
+- **Dependabot's `dotnet-sdk` ecosystem bumps `global.json`.** Its pull
+  request is red until it is completed: `dotnet run eng/lockfiles.cs` on the
+  new SDK regenerates every lockfile and the devcontainer's pin, and the
+  pull request's diff then shows ILLink and ILCompiler moving with the SDK. A
+  major version is a target framework's decision, never a bump.
+- **A lockfile from another patch fails before the restore, naming the
+  script.** `eng/lockfiles.cs --check`, the first step after the SDK is
+  installed and a job of `eng/ci.cs`, compares each lockfile's ILLink and
+  ILCompiler with the running SDK's bundled version, and says whether the
+  lockfile was written with a newer or an older patch. A fixture under
+  `tests/fixtures/lockfiles/` proves the failure.
 
 The gate fails on an Action referenced by tag or branch (point 4). #89 does not
 cover that.

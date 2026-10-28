@@ -233,6 +233,31 @@ request and at the tag; this container cannot run them.
 - `eng/required-checks.cs` cannot expand a matrix value that comes from
   `fromJSON`, so the attestation job's name is fixed.
 
+### The review round, 2026-10-28
+
+The maintainer's review on the pull request asked for three changes, and
+each is made:
+- **The attestations precede the push.** nuget.org's trusted publishing names
+  the workflow file, never the job, so the push became its own job under the
+  `release` environment, and it pushes only the packages whose digests are in
+  the attested `SHA256SUMS`.
+- **`publish.yml` has a dry run** on a pull request that touches the release
+  path: every job, skipping only the pushes and the GitHub release.
+- **CI installs exactly the SDK `global.json` pins.** CI failed on the
+  devcontainer's SDK 10.0.401 against lockfiles written with 10.0.403, since
+  the SDK's patch fixes ILLink's and ILCompiler's versions. The 32 setup steps
+  are one composite action, `.github/actions/setup-dotnet`, which names no
+  version. Dependabot bumps `global.json`, `eng/lockfiles.cs` regenerates
+  every lockfile, and its `--check` fails a lockfile from another patch before
+  the restore, naming the script. Regenerating on 10.0.403 gave no diff.
+
+Found in CI and fixed:
+- `dotnet publish -r` restored the whole graph for one RID and failed the
+  locked restore (NU1004), so each RID publish restores first.
+- Since .NET 10 a tool project with RuntimeIdentifiers packs a pointer package
+  with no assembly. RuntimeIdentifiers is now set only while restoring, and
+  `eng/package-metadata.cs` fails a tool package without its entry point.
+
 ### What is left
 
 - **The maintainer applies** `private_vulnerability_reporting` and
@@ -240,9 +265,8 @@ request and at the tag; this container cannot run them.
 - **The Dependabot pull request that keeps a lockfile current is shown after
   this lands.** The first weekly run on this layout is the evidence asked for,
   and the next session on #119 or #129 links it.
-- **The first release in format 2 exercises `publish.yml`'s new jobs.** The
-  attestation of each package, the release's assets and the `verify` job have
-  not run before; `ci.yml` exercises every step they reuse.
+- **The first release in format 2 runs `publish.yml`'s pushes and the
+  tag's verification.** The dry run on this pull request runs every other job.
 - **#167** adds its `asset:` line when its zip exists.
 - **Accept on this pull request:**
   - ADRs 0224 and 0225;

@@ -27,6 +27,8 @@ decisions:
     statement: "Every Action in a workflow or action.yml is referenced by its full commit SHA, and the register gate fails on a tag or a branch"
   - key: SdkRollsForwardToPatchesOnly
     statement: "global.json pins the SDK with rollForward latestPatch: a feature band, which changes the compiler and analyzers, is a reviewed change"
+  - key: CiInstallsTheSdkGlobalJsonPins
+    statement: "Every workflow installs exactly the SDK patch global.json pins through the composite action .github/actions/setup-dotnet, no step names a version, Dependabot bumps global.json, and eng/lockfiles.cs regenerates every lockfile for it and fails a lockfile written with another patch before the restore, naming itself"
   - key: AuditExemptionsNeedVex
     statement: "NuGetAudit runs over every package with its findings as errors, and a NuGetAuditSuppress stands only with an OpenVEX not_affected statement in security/vex.openvex.json, published with every release"
   - key: TheSupportPeriod

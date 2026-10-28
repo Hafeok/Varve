@@ -1,0 +1,58 @@
+# The .NET SDK, exactly as global.json pins it (ADR 0224 point 5, D5 as
+# amended 2026-10-28). The one place a workflow installs .NET: every job uses
+# this action after its checkout, and no step names a version.
+#
+# global.json rolls forward to the latest patch, for a developer's machine.
+# CI does not: the SDK's patch fixes the versions of the packages it
+# references by itself (Microsoft.NET.ILLink.Tasks, Microsoft.DotNet.ILCompiler),
+# every lockfile records them, and a locked restore on another patch fails.
+# So this installs global.json's version with its roll-forward removed, through
+# actions/setup-dotnet's global-json-file, into a directory of its own, where
+# no SDK the runner image carries can be picked instead, and checks that the
+# lockfiles were written with that SDK (eng/lockfiles.cs --check).
+
+name: Set up .NET, exactly global.json's SDK
+description: Installs the SDK global.json pins, with no roll-forward, and checks the lockfiles were written with it.
+
+inputs:
+  check-lockfiles:
+    description: Whether to check that every lockfile was written with this SDK.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: The SDK global.json pins, without its roll-forward
+      shell: bash
+      run: |
+        set -euo pipefail
+        version=$(sed -n 's/^[[:space:]]*"version":[[:space:]]*"\([^"]*\)".*/\1/p' "$GITHUB_WORKSPACE/global.json" | head -n 1)
+        if [ -z "$version" ]; then echo "::error file=global.json::no sdk version in global.json"; exit 1; fi
+        mkdir -p "$RUNNER_TEMP/varve-sdk"
+        printf '{ "sdk": { "version": "%s", "rollForward": "disable" } }\n' "$version" > "$RUNNER_TEMP/varve-sdk/global.json"
+        {
+          echo "VARVE_SDK_VERSION=$version"
+          echo "DOTNET_INSTALL_DIR=$RUNNER_TEMP/dotnet"
+        } >> "$GITHUB_ENV"
+
+    - name: Install it
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+      with:
+        global-json-file: ${{ runner.temp }}/varve-sdk/global.json
+
+    - name: Exactly that SDK, and the lockfiles written with it
+      shell: bash
+      env:
+        CHECK_LOCKFILES: ${{ inputs.check-lockfiles }}
+      run: |
+        set -euo pipefail
+        actual=$(dotnet --version)
+        if [ "$actual" != "$VARVE_SDK_VERSION" ]; then
+          echo "::error file=global.json::the SDK in use is $actual, and global.json pins $VARVE_SDK_VERSION"
+          exit 1
+        fi
+        echo "SDK $actual, as global.json pins it"
+        if [ "$CHECK_LOCKFILES" = "true" ] && [ -f "$GITHUB_WORKSPACE/eng/lockfiles.cs" ]; then
+          (cd "$GITHUB_WORKSPACE" && dotnet run eng/lockfiles.cs -- --check)
+        fi
