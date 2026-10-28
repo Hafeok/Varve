@@ -1006,3 +1006,85 @@ main: hosts-at-layer-6-the-composition-root (1 key, ADR 0060), on-behalf-of-and-
 session only wrote it at their direction, as the acceptance of ADRs
 0127–0133 was written. The ADRs' status text and the index rows are left as
 filed, as in that precedent.
+
+### The rulings of 2026-10-28
+
+The maintainer accepted ADRs 0200–0205 and the part's two amendments on the
+pull request (ebd7f7a). The same day, these rulings were given on #187:
+- the release number;
+- "All commits", with `varve-docs-ui-screens-2.zip`;
+- Zitadel's management token;
+- `If-Match` on the state route;
+- Commits' "read at";
+- the extra declaration pages.
+
+What was done:
+- **The release number.** `.17` stays. A pull request that lands after this
+  one takes the next free number at landing.
+- **The screens and the link.**
+  - `docs/ui/screens/` now holds the zip's pages. `README.md` and
+    `screens.css` are kept, because the pages link the stylesheet.
+  - "All commits" is `<a href>` in the panel head, pinned by the new
+    `Panel` case `head-with-link`.
+  - The pages drop the panel-title ids no table uses. Only Datasets,
+    Projections and Grants keep theirs, and the screens agree.
+- **Commits' stamp.** The "read at" stamp is the newest position the list
+  holds. It advances with each commit the live tail shows. While paused it
+  stays, because the commits waiting are not in the list. A browser test
+  writes a commit and watches the stamp reach it.
+- **`If-Match` on close and open.**
+  - `SetStateAsync` takes the version of the declaration graph read, and
+    sends it as `If-Match`. A component test checks that the header is
+    the declaration's ETag.
+  - The state route ignores the header. That gap is filed as #189.
+  - The dialog's 412 path stays as built, tested against a fake server.
+- **Agents and roles, and Graph templates.**
+  - Both are read from the grants resource, so no API gap was filed.
+  - The client had dropped two things the wire carries: a group's claim
+    type, and a template's match. They are now kept as
+    `GrantEntry.GranteeClaimType` and `GraphScope.TemplateMatches`.
+    DD0013 refused a second member on the `GraphTemplate` wrapper, so the
+    match is a map beside the templates.
+  - A principal or a template no grant names is not shown on these
+    screens. The declaration's source has every node.
+- **Shapes, source only.**
+  - `ShapesBindingsAsync` reads each binding and its shapes graph through
+    `/manage/sparql`. The dataset's name is escaped into the graph's IRI.
+  - Each shapes graph is read from the data plane in Turtle and shown in a
+    `SourceBlock`, with no management stamp, because it is data.
+- **No new markup.** All three screens are built from `ResourceTable`,
+  `SourceBlock` and the read-only note. The rail adds them in the order the
+  screens show.
+- **The client additions.** They are recorded as a dated amendment to ADR
+  0203, with three keys filed unaccepted.
+- **Zitadel by token exchange.**
+  - `Varve:Auth:ManageGrant` takes `refresh` or `exchange`; there is also
+    `ManageAudience`.
+  - The exchange is RFC 8693, from the public client, with no secret and
+    no actor token, asking for a JWT.
+  - It is recorded as a dated amendment to ADR 0201, with one key filed
+    unaccepted.
+  - **Against Zitadel v4.19.4,** fresh from the CI compose and seeded by
+    `eng/zitadel-seed.cs`:
+    - the exchange runs from a public user-agent app with auth method
+      `none`;
+    - asked for a JWT, it answers one naming exactly the requested
+      project;
+    - asked for an access token, it answers an opaque one;
+    - it only narrows. A data-only subject token is refused
+      (`invalid_target`, then `invalid_scope` without `audience`).
+  - **Result:** on Zitadel the management plane stays signed out, as the
+    guide's issuer table now says. Asking for both audiences at sign-in and
+    exchanging each plane's token is put to the maintainer on #187.
+
+Measured:
+- **Tests:**
+
+  | Suite | Result |
+  |---|---|
+  | `Varve.WebUi.Tests` | 184 / 184 |
+  | `Varve.WebUi.Browser.Tests` | 6 / 6, about 1 minute |
+  | Server: Web UI hosting, management client | 19 / 19 |
+- **The download:** 1,830.4 kB brotli-11, from a clean tree. That is 155.4 kB
+  over slice 1's 1,675 kB, 7.6 kB over the acts, and within the 1,920,000-byte
+  budget.
