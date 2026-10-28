@@ -98,3 +98,42 @@ expectation in the test. It was both.
   the last segment, so its first held chunk is its last. With the open made
   to hold the whole segment from chunk 0, the same mutant fails it, and
   `main`'s own deterministic case too.
+
+## The maintainer's option D
+
+> Thanks, that’s the case that matters. Before choosing A, evaluate one more option:
+> D: when the last segment is consolidated, compare against the log’s last kept fence chunk. Consolidation keeps every fence (ADR 0136 point 4). Every writer fences before it writes, and with #185’s check, fences land in ascending epoch order. So the last surviving fence chunk in log order carries the highest epoch that ever fenced. The open reads that one chunk’s header (one GET, and only when the last segment has no chunks left) and is superseded if its epoch is above the claim’s. Check:
+>
+> 1. Is every fence chunk kept through consolidation, in every case, including fences in a segment consolidated after a handover?
+> 2. Can a writer write without a fence chunk of its epoch at or before its data, for example after an in-place claim (ADR 0179)? If so, D needs that path to fence too.
+> 3. Does it cover logs written before this change? It should, since it reads only what consolidation has always kept.
+>
+> If D holds, implement it with your consolidated case and a property over schedules that seal, consolidate and stall a claimant at every step. No ADR change is needed, since it implements ADR 0136 decision 2 as written. If it doesn’t hold, say which check fails and go with A plus the reread fallback, amending ADR 0135.
+> Keep it on #185, one PR for #181. Push the consolidated case together with the fix.
+
+- **1 holds.** The one delete of a log chunk is `DeleteChunksAsync`, and
+  what it deletes is a segment's `PendingDeletes`, taken from `DataChunks`.
+  `DataChunks` is filled by `Recorded` from each chunk's own flags, so a
+  fence is never in it. That is so whoever made the fence: a chunk adopted
+  from another epoch carries its flag. A writer consolidates only after
+  reading the segment from chunk 0, and deletes nothing once superseded.
+- **2 holds.** Every write-open fences before any append: `OpenAsync` with
+  an epoch, and on #175 the in-place claim, which refreshes and then calls
+  the same `FenceAsync`. An empty log's first writer fences at
+  `00000000.chunks/00000000`. The in-place path has no listing in hand, so
+  when `main` is merged into #175 it lists the log before it reads the tail.
+- **3 holds** for every log whose epochs never fall in log order, which is
+  every log that never met #181's race. One that did met it already, and D
+  reads what the race left.
+- **D is implemented as "the highest chunk still listed in log order"**.
+  That is the last kept fence once the deletes are done, and the seal while
+  they are pending, which is how the consolidated case runs, with
+  maintenance off. The argument is the same: a writer that wrote past that
+  chunk fenced at or before it.
+- **The property** stalls a claimant before its listing or its fence's
+  create. Meanwhile the next epoch commits over 1, 2 or 4 KiB segments,
+  maintains after any commit, stops at any of its creates or deletes, and
+  may run maintenance after it stops. Of 500 schedules, 5 ended in fences
+  alone and 4 in a pending seal. Three mutants each fail it: D removed, D
+  reading the lowest listed chunk, and the check removed as on `main`.
+  3,000 schedules ran clean in 29 s.
