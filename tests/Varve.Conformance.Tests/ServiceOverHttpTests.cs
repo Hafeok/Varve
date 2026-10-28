@@ -103,7 +103,7 @@ public class ServiceOverHttpTests
 
         for (int f = 0; f < files.Count; f++)
         {
-            CommitRequest request = new();
+            CommitRequestBuilder request = new();
 
             foreach (DataQuad quad in EvaluationData.Quads(files[f]))
             {

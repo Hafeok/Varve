@@ -95,7 +95,7 @@ public class LogPropertyTests
                     if (length % 97 == 0 || length == total)
                     {
                         // Recovery must leave a log that can be continued and reopened.
-                        CommitResult next = await opened.CommitAsync(new CommitRequest().Assert(T.Iri("after"), T.Iri("cut"), T.Integer("1")), T.Ct);
+                        CommitResult next = await opened.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("after"), T.Iri("cut"), T.Integer("1")), T.Ct);
                         Assert.Equal(CommitOutcome.Committed, next.Outcome);
                         Assert.Equal(opened.Head, next.Position);
 
@@ -484,8 +484,8 @@ public class LogPropertyTests
 
                 for (int i = 0; i < extra; i++)
                 {
-                    await harness.Dataset.CommitAsync(new CommitRequest().Assert(T.Iri("here"), T.Iri("p0"), T.Integer(i.ToString(System.Globalization.CultureInfo.InvariantCulture))), T.Ct);
-                    await other.CommitAsync(new CommitRequest().Assert(T.Iri("there"), T.Iri("p0"), T.Integer(i.ToString(System.Globalization.CultureInfo.InvariantCulture))), T.Ct);
+                    await harness.Dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("here"), T.Iri("p0"), T.Integer(i.ToString(System.Globalization.CultureInfo.InvariantCulture))), T.Ct);
+                    await other.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("there"), T.Iri("p0"), T.Integer(i.ToString(System.Globalization.CultureInfo.InvariantCulture))), T.Ct);
                 }
 
                 Assert.Equal(new Position(prefix + 1), await LogChain.FindDivergenceAsync(harness.Storage.Log, copy.Log, T.Ct));

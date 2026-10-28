@@ -7,6 +7,9 @@
 #35; builds on ADR 0057 as amended 2026-10-08 (a data-only request expects no
 position).
 
+**Amended 2026-10-27** (ADR 0068), filed unaccepted: `CommitRequest` is
+renamed `CommitRequestBuilder`; see the end.
+
 **Measured at filing, 2026-10-09** (`tests/Varve.Benchmarks/README.md`,
 Operability): on a 4-core cloud machine, `INSERT DATA` of 100,000 quads went
 from 539.7 ms to 416.8 ms (means) in the first run and measured 489.8 ms
@@ -80,3 +83,27 @@ normalises it against the head it meets (I2).
 - **Layer ownership.** `Varve.Sparql.Store`, layer 5.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-27 — `CommitRequest` is `CommitRequestBuilder`
+
+Filed with the move to `DecisionDriven.Analyzers` 0.1.0-preview.10 (#151),
+unaccepted until the maintainer accepts it (ADR 0066).
+
+The commit request the fast path writes its ground quads to is a
+`CommitRequestBuilder`. The accepted text above keeps the old name as written.
+
+`DecisionDriven.Analyzers` 0.1.0-preview.10 reports `CommitRequest` under
+DD0019: `Assert` and `Retract` add to the operations it holds, so a public
+model type changes after it is made. The finding offers two answers. One is
+`[DesignDecision]` citing an accepted decision, which accepts a violation; no
+decision says the request is a model value, and none was filed. The other is
+the rule's own exemption, a sealed `*Builder`: a type mutable by design that
+belongs to the code assembling a value. That is what the type is. Its caller
+assembles it and passes it once to `Dataset.CommitAsync`, and it is never
+handed out as a value. So the type is renamed `CommitRequestBuilder` and
+nothing else about it changes: the same members, the same contract. Breaking
+before 1.0 (ADR 0118).
+
+**The ledger.** `DataOnlyRequestsGoStraightToTheCommitRequest` keeps its key,
+which code may cite, and its statement names `CommitRequestBuilder`, with this
+amendment's date, unaccepted.

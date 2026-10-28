@@ -61,7 +61,7 @@ internal static class EvaluationSubjects
                 continue;
             }
 
-            CommitRequest request = new();
+            CommitRequestBuilder request = new();
             foreach (DataQuad quad in quads)
             {
                 RdfTerm? g = graph ?? quad.Graph;

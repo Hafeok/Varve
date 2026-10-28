@@ -27,7 +27,7 @@ for (int i = 1; i <= commits; i++)
 {
     clock.Now = clock.Now.AddSeconds(7);
     string n = i.ToString(CultureInfo.InvariantCulture);
-    CommitRequest request = new CommitRequest()
+    CommitRequestBuilder request = new CommitRequestBuilder()
         .Assert(Iri("s" + (i % 17)), Iri("p" + (i % 3)), Literal("v" + n), Iri("g" + (i % 3)))
         .Assert(Iri("s" + (i % 11)), Iri("q"), Iri("o" + (i % 5)));
 

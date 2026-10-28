@@ -327,7 +327,7 @@ internal static class EventMoves
         }
 
         validators.Add(new Probe());
-        CommitRequest probe = new CommitRequest { Validators = validators }.Assert(Barrier, Barrier, Barrier, Barrier);
+        CommitRequestBuilder probe = new CommitRequestBuilder { Validators = validators }.Assert(Barrier, Barrier, Barrier, Barrier);
         CommitResult result = await dataset.CommitAsync(probe, cancellationToken).ConfigureAwait(false);
 
         // Refused by the probe: every commit staged before it is in the log,
@@ -482,7 +482,7 @@ internal static class EventMoves
             };
         }
 
-        CommitRequest request = new()
+        CommitRequestBuilder request = new()
         {
             ExpectedPosition = version,
             ExpectedGraphs = [RequestTerm.FromTerm(graph)],

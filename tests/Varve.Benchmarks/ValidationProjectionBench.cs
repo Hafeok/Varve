@@ -78,7 +78,7 @@ internal static class ValidationProjectionBench
             List<double> rebuilds = [];
             for (int i = 0; i < ShapesChanges; i++)
             {
-                CommitRequest change = new();
+                CommitRequestBuilder change = new();
                 RdfTerm type = RdfTerm.Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type"u8);
                 RdfTerm nodeShape = RdfTerm.Iri("http://www.w3.org/ns/shacl#NodeShape"u8);
                 RdfTerm targetNode = RdfTerm.Iri("http://www.w3.org/ns/shacl#targetNode"u8);

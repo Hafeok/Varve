@@ -1,0 +1,63 @@
+# The failure-injection workloads of the object-storage backend against a
+# real storage account (#143): a fault of each kind at every request of the
+# seeded workload, in memory, and over HTTP against the account. An hour or
+# so. Dispatched by the maintainer, like azure-objects.yml, in the same
+# `azure-objects` environment and with the same federated credential: the
+# repository has no such environment of its own, so nothing runs this
+# unattended. No credential is stored anywhere (ADR 0137).
+name: azure-objects-faults
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  azure-objects-faults:
+    name: failure injection against a storage account
+    runs-on: ubuntu-latest
+    environment: azure-objects
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      VARVE_AZURE_CONTAINER: ${{ vars.VARVE_AZURE_CONTAINER }}
+      VARVE_STORAGE_LEGS_REQUIRED: azure
+      VARVE_AZURE_FAULT_STRIDE: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Build the store's tests
+        run: dotnet build tests/Varve.Store.Tests/Varve.Store.Tests.csproj --configuration Release
+
+      - name: GitHub's federated token
+        run: |
+          set -euo pipefail
+          assertion=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r .value)
+          echo "::add-mask::$assertion"
+          printf '%s' "$assertion" > "$RUNNER_TEMP/assertion"
+          echo "AZURE_FEDERATED_TOKEN_FILE=$RUNNER_TEMP/assertion" >> "$GITHUB_ENV"
+
+      - name: Failure injection against the storage account
+        timeout-minutes: 120
+        run: >
+          dotnet test
+          --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj
+          --configuration Release
+          --no-build
+          --filter-trait Category=AzureObjectsFaults
+
+      - name: Remove the token
+        if: always()
+        run: rm -f "$RUNNER_TEMP/assertion"

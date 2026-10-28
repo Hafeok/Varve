@@ -141,7 +141,7 @@ internal sealed class Harness : IAsyncDisposable
     {
         Dictionary<char, RdfTerm> labels = [];
         List<(bool, MQuad)> modelOps = [];
-        CommitRequest request = new()
+        CommitRequestBuilder request = new()
         {
             ExpectedPosition = AsPosition(Expected(step.Expected)),
             Metadata = new CommitMetadata { Agent = step.Agent == 0 ? RequestTerm.None : T.Iri("agent" + step.Agent) },

@@ -23,6 +23,7 @@ namespace Varve.Store.Tests.Objects;
 /// their windows. Once the record is forgotten, or its reader upgraded,
 /// rewriting proceeds. Every position reads the same throughout.
 /// </summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class ObjectFormatUpgradeTests
 {
     [Theory]
@@ -118,7 +119,7 @@ public sealed class ObjectFormatUpgradeTests
     {
         for (int i = first; i < first + count; i++)
         {
-            CommitRequest request = new CommitRequest().Assert(T.Iri("s" + i), T.Iri("p"), T.Iri("o" + (i % 3)));
+            CommitRequestBuilder request = new CommitRequestBuilder().Assert(T.Iri("s" + i), T.Iri("p"), T.Iri("o" + (i % 3)));
 
             if (i % 3 == 2)
             {

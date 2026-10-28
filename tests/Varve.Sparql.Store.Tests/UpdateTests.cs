@@ -370,7 +370,7 @@ public class UpdateTests
             if (!_interfered)
             {
                 _interfered = true;
-                await dataset.CommitAsync(new CommitRequest().Assert(Iri("theirs"), Iri("p"), RdfTerm.Literal("1"u8)), cancellationToken);
+                await dataset.CommitAsync(new CommitRequestBuilder().Assert(Iri("theirs"), Iri("p"), RdfTerm.Literal("1"u8)), cancellationToken);
             }
 
             return LoadedDocument.Of("<http://example.org/loaded> <http://example.org/p> <http://example.org/o> .\n"u8.ToArray(), RdfSyntax.NTriples, default);

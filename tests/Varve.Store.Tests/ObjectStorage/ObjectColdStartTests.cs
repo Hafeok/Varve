@@ -23,6 +23,7 @@ namespace Varve.Store.Tests.Objects;
 /// that read the whole log serves. The first read below the catalog reads
 /// the log's headers once; later ones read nothing from the log.
 /// </summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed partial class ObjectColdStartTests
 {
     [Fact]

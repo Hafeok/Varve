@@ -16,6 +16,7 @@ using Xunit;
 namespace Varve.Store.Tests.Objects;
 
 /// <summary>SigV4, web identity and the loopback rule of the S3 adapter (ADRs 0134, 0137).</summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class S3CredentialTests
 {
     [Fact]

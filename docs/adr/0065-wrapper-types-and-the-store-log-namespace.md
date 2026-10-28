@@ -5,6 +5,9 @@
 **Accepted.** 2026-09-25. Decided by the maintainer on the adoption plan
 (issue [#43](https://github.com/Hafeok/Varve/issues/43)).
 
+**Amended 2026-10-27** (ADR 0068), filed unaccepted: `CommitRequest` is
+renamed `CommitRequestBuilder`; see the end.
+
 It **supersedes in part**:
 
 - **ADR [0011](0011-concurrency-single-sequencer.md)**, where its *Checks*
@@ -248,3 +251,27 @@ for any other reason.
 - **Analyzer rule.** None new. `DD0013`–`DD0015` enforce it once sessions 2
   and 3 declare the model namespaces.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-27 — `CommitRequest` is `CommitRequestBuilder`
+
+Filed with the move to `DecisionDriven.Analyzers` 0.1.0-preview.10 (#151),
+unaccepted until the maintainer accepts it (ADR 0066).
+
+`CommitRequest`, one of the log's values this ADR moved to `Varve.Store.Log`, is
+`CommitRequestBuilder`, still in `Varve.Store.Log`. The accepted text above keeps
+the old name as written.
+
+`DecisionDriven.Analyzers` 0.1.0-preview.10 reports `CommitRequest` under
+DD0019: `Assert` and `Retract` add to the operations it holds, so a public
+model type changes after it is made. The finding offers two answers. One is
+`[DesignDecision]` citing an accepted decision, which accepts a violation; no
+decision says the request is a model value, and none was filed. The other is
+the rule's own exemption, a sealed `*Builder`: a type mutable by design that
+belongs to the code assembling a value. That is what the type is. Its caller
+assembles it and passes it once to `Dataset.CommitAsync`, and it is never
+handed out as a value. So the type is renamed `CommitRequestBuilder` and
+nothing else about it changes: the same members, the same contract. Breaking
+before 1.0 (ADR 0118).
+
+**The ledger.** `LogTypesThatMove` names `CommitRequestBuilder`, with this
+amendment's date, unaccepted.

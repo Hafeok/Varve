@@ -1,0 +1,7 @@
+{
+  "parameters": {
+    "Kind": "Literal",
+    "Text": "2026-10-27",
+    "Type": "xsd:date"
+  }
+}

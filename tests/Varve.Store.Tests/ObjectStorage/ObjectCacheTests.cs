@@ -29,6 +29,7 @@ namespace Varve.Store.Tests.Objects;
 /// temporary file flushed before its rename (ADR 0073), so a crash leaves a
 /// blob whole or absent; that flush stays for this reason (#126).
 /// </remarks>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class ObjectCacheTests
 {
     private const int Commits = 24;
@@ -49,7 +50,7 @@ public sealed class ObjectCacheTests
                 for (int i = 1; i <= Commits; i++)
                 {
                     objects.Clock.Now = objects.Clock.Now.AddSeconds(1);
-                    await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s" + i), T.Iri("p"), T.Integer(i.ToString(CultureInfo.InvariantCulture))), T.Ct);
+                    await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s" + i), T.Iri("p"), T.Integer(i.ToString(CultureInfo.InvariantCulture))), T.Ct);
                 }
 
                 await dataset.CheckpointAsync(dataset.Head, T.Ct);

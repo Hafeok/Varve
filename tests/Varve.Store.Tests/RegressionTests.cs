@@ -34,7 +34,7 @@ public class RegressionTests
         {
             for (int i = 0; (await storage.Log.ListSegmentsAsync(T.Ct)).Count < 2; i++)
             {
-                await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s" + i), T.Iri("p"), T.Literal(new string('x', 100))), T.Ct);
+                await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s" + i), T.Iri("p"), T.Literal(new string('x', 100))), T.Ct);
             }
         }
 
@@ -48,7 +48,7 @@ public class RegressionTests
             await using (Dataset recovered = await T.OpenOrCreate(copy, options))
             {
                 head = recovered.Head.Value;
-                CommitResult next = await recovered.CommitAsync(new CommitRequest().Assert(T.Iri("after"), T.Iri("p"), T.Iri("o")), T.Ct);
+                CommitResult next = await recovered.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("after"), T.Iri("p"), T.Iri("o")), T.Ct);
                 Assert.Equal(new Position(head + 1), next.Position);
             }
 

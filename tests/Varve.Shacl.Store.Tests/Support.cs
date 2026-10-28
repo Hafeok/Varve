@@ -56,9 +56,9 @@ internal static class Support
     }
 
     /// <summary>A request replacing the shapes graph with <paramref name="shapes"/>, and toggling data triples.</summary>
-    internal static CommitRequest Request(Dataset dataset, string? shapes, IEnumerable<(RdfTerm S, RdfTerm P, RdfTerm O, bool Assert)> data)
+    internal static CommitRequestBuilder Request(Dataset dataset, string? shapes, IEnumerable<(RdfTerm S, RdfTerm P, RdfTerm O, bool Assert)> data)
     {
-        CommitRequest request = new();
+        CommitRequestBuilder request = new();
         if (shapes is not null)
         {
             using DatasetView view = dataset.Pin();

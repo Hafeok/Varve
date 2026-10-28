@@ -48,7 +48,7 @@ internal static class AsOfLatency
 
             for (int c = 0; c < 10_000; c++)
             {
-                CommitRequest request = new();
+                CommitRequestBuilder request = new();
 
                 for (int i = 0; i < 50; i++)
                 {

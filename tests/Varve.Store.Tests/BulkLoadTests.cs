@@ -51,9 +51,9 @@ public class BulkLoadTests
 
     private static RdfTerm Predicate(int p) => T.Iri("p" + p.ToString(CultureInfo.InvariantCulture));
 
-    private static CommitRequest Request(IEnumerable<Op> ops)
+    private static CommitRequestBuilder Request(IEnumerable<Op> ops)
     {
-        CommitRequest request = new();
+        CommitRequestBuilder request = new();
 
         foreach (Op op in ops)
         {
@@ -227,7 +227,7 @@ public class BulkLoadTests
     {
         MemoryStorage storage = new();
         await using Dataset dataset = await Dataset.CreateAsync(storage, T.Id, Options(), T.Ct);
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Lang("hello", "EN")), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Lang("hello", "EN")), T.Ct);
         (long canonical, _) = dataset.CountersForTests();
 
         await using (BulkLoad load = await dataset.BeginBulkLoadAsync(Tiny, T.Ct))

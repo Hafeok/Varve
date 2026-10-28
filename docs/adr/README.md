@@ -385,6 +385,14 @@ Filed by milestone Inference ([#95](https://github.com/Hafeok/Varve/issues/95)),
 |---:|---|---|
 | [0190](0190-entailments-under-graph-level-grants.md) | Entailments under graph-level grants: premise sets, intra-graph by default, the ontology readable by the dataset's readers; amends 0107 | Filed unaccepted (Inference, #95) |
 
+## Web UI, part 1 (#167)
+
+Filed by Web UI part 1 ([#167](https://github.com/Hafeok/Varve/issues/167), milestone [#96](https://github.com/Hafeok/Varve/issues/96)), unaccepted until the maintainer accepts them on their pull request (ADR 0066). Numbered from 0200: Replication holds 0179–0189 and Inference 0190–0199. 0206 lands first, in a docs-only pull request; 0200–0205 come with the milestone's.
+
+| # | Title | Status |
+|---:|---|---|
+| [0206](0206-the-web-ui-design-source.md) | The Web UI's design source, its levels, and the markup contract | Filed unaccepted (Web UI part 1, #167) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |

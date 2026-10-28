@@ -1,0 +1,9 @@
+{
+  "parameters": {
+    "Kind": "Removed",
+    "Subject": "<span class=\"vw-term vw-term--iri\">notes:42</span>",
+    "Predicate": "<span class=\"vw-term vw-term--iri\">dct:title</span>",
+    "Object": "<span class=\"vw-term vw-term--literal\"><span class=\"vw-term__value\">Sync</span></span>",
+    "Note": "retracted at 18417"
+  }
+}

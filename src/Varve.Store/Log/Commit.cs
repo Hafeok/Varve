@@ -5,6 +5,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 
 namespace Varve.Store.Log;
@@ -22,6 +25,11 @@ namespace Varve.Store.Log;
 public sealed class Commit
 {
     private readonly Dataset _dataset;
+    // A HashSet, not an immutable set: built completely in a local, published
+    // once by Interlocked.CompareExchange, never mutated or handed out after
+    // (CarriedHandlesAreAPrivateHashSet).
+    [Memoized]
+    [DesignDecision(typeof(StoreLogSurfaces.CarriedHandlesAreAPrivateHashSet), Scope = ExceptionScope.HotPath)]
     private HashSet<ulong>? _carried;
 
     internal Commit(
@@ -98,7 +106,7 @@ public sealed class Commit
             }
         }
 
-        if (handle.IsNone || !Carried().Contains(handle.Value))
+        if (handle.IsNone || !CarriedHandles().Contains(handle.Value))
         {
             term = null;
             return false;
@@ -108,13 +116,21 @@ public sealed class Commit
         return true;
     }
 
-    private HashSet<ulong> Carried()
+    // The first reader to publish wins; a reader that loses drops the set it
+    // built and takes the published one, which is equal.
+    private HashSet<ulong> CarriedHandles()
     {
-        if (_carried is not null)
+        if (Volatile.Read(ref _carried) is { } published)
         {
-            return _carried;
+            return published;
         }
 
+        HashSet<ulong> built = Carried();
+        return Interlocked.CompareExchange(ref _carried, built, null) ?? built;
+    }
+
+    private HashSet<ulong> Carried()
+    {
         HashSet<ulong> carried = [Agent.Value, Cause.Value, GraphScope.Value];
 
         foreach (TermHandle attachment in Attachments.Span)
@@ -124,7 +140,6 @@ public sealed class Commit
 
         Add(carried, Delta.Asserted);
         Add(carried, Delta.Retracted);
-        _carried = carried;
         return carried;
     }
 

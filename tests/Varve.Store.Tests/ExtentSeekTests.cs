@@ -157,8 +157,8 @@ public sealed class ExtentSeekTests
     public async Task a_quad_retracted_and_asserted_again_inside_a_set_is_looked_up_as_the_scan_finds_it()
     {
         await using Dataset dataset = await T.OpenOrCreate(new MemoryStorage(), ExtentMergeTests.Merging(T.Options(), 4));
-        CommitRequest asserted = new();
-        CommitRequest retracted = new();
+        CommitRequestBuilder asserted = new();
+        CommitRequestBuilder retracted = new();
 
         for (int i = 0; i < 20; i++)
         {
@@ -168,7 +168,7 @@ public sealed class ExtentSeekTests
 
         await dataset.CommitAsync(asserted, T.Ct);
         await dataset.CheckpointAsync(dataset.Head, T.Ct);
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("x"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("x"), T.Iri("p"), T.Iri("o")), T.Ct);
         await dataset.CommitAsync(retracted, T.Ct);
         await dataset.CommitAsync(asserted, T.Ct);
         await dataset.CheckpointAsync(dataset.Head, T.Ct);
@@ -300,7 +300,7 @@ public sealed class ExtentSeekTests
 
         for (int b = 0; b < batches; b++)
         {
-            CommitRequest asserted = new();
+            CommitRequestBuilder asserted = new();
 
             for (int i = b * per; i < (b + 1) * per; i++)
             {
@@ -308,7 +308,7 @@ public sealed class ExtentSeekTests
             }
 
             await dataset.CommitAsync(asserted, T.Ct);
-            CommitRequest retracted = new();
+            CommitRequestBuilder retracted = new();
 
             for (int i = b * per; i < (b + 1) * per; i += retractEvery)
             {

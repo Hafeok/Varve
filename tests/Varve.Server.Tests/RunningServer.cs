@@ -107,7 +107,7 @@ internal sealed class RunningServer : IAsyncDisposable
     internal static async Task DeclareAsync(Fleet fleet, string trig)
     {
         InMemoryDataset desired = ManagementTrig.TryParse(Encoding.UTF8.GetBytes(trig), null, out string? error) ?? throw new InvalidOperationException(error);
-        CommitRequest request = new() { ExpectedPosition = fleet.System.Head, Validators = [fleet.Validator] };
+        CommitRequestBuilder request = new() { ExpectedPosition = fleet.System.Head, Validators = [fleet.Validator] };
         using (IQuadCursor cursor = desired.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any))
         {
             while (cursor.MoveNext())
