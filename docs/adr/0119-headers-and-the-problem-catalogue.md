@@ -14,6 +14,11 @@ point 4 (the cache headers).
 [0126](0126-graph-versions-over-http.md): point 9's members of `409` and
 `412`, and `412`'s title; see the end.
 
+**Amended 2026-10-28** (ADR 0068), by 1.0 readiness A under ADR
+[0214](0214-file-backend-failure-injection.md) (filed unaccepted): the
+problem types `storage-full` and `commit-outcome-unknown`, and the `not-ready` member `writesRefused`; see
+the end.
+
 ## Context
 
 ADR 0096 gave every dataset response `ETag` and `Varve-Position` and a
@@ -201,3 +206,29 @@ accepts it (ADR 0066).
 
 **The ledger.** The rulings are ADR 0174's `ValidationBehind` and
 `ReportGraphNotWritable`.
+
+## Amendment, 2026-10-28 — `storage-full` and `commit-outcome-unknown`
+
+Filed by 1.0 readiness A (#129), unaccepted until the maintainer accepts it
+(ADR 0066).
+
+- **`storage-full`** (`507`): a write refused because the dataset's storage
+  had no space, a full disk or an exhausted quota (ADR
+  [0214](0214-file-backend-failure-injection.md) point 2). Nothing was
+  written, and the dataset's next write tries the storage again, so a retry
+  once there is space is right. It is not `unavailable`, which says the
+  dataset cannot take writes.
+- **`commit-outcome-unknown`** (`503`, members `position`, `requestId`): a
+  write that may or may not have been committed. Its commit was closed in
+  the log and the flush did not return, and it is never `storage-full`,
+  since its record may survive; the commits resource settles it once the
+  head reaches `position`, by whether the commit there carries `requestId`
+  as its cause. Or it was forwarded and the writer's answer was lost (ADR
+  [0168](0168-write-routing-by-forwarding.md) point 7), with no `position`.
+  One type for both.
+- **`writesRefused`**, on `/health/ready` and on `not-ready`: an object
+  naming each dataset whose last write was refused for lack of space, as
+  `storage-full`. A full disk alone never makes the server unready.
+
+**The ledger.** The rulings are ADR 0214's `StorageFullIs507` and
+`OutcomeUnknownIs503WithTheRequestId`.

@@ -4,6 +4,10 @@
 
 **Accepted — filed unaccepted by session 6a of #10, 2026-10-02** (ADR 0066).
 
+**Amended 2026-10-28 by [ADR 0214](0214-file-backend-failure-injection.md)**
+(filed unaccepted): what the file backend does on a full disk, and the four
+faults run at every point on simulated and on real files. See the end.
+
 Completes ADR [0018](0018-storage-abstraction.md)'s "durability is declared,
 not assumed" for the file backend, and states, for every level, what survives
 power loss. The browser's level is 6c's.
@@ -127,3 +131,22 @@ with no dataset in it, because nothing else was written before it.
 - **Layer ownership.** `Varve.Store`, **layer 4**.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-28 — a full disk, and the faults on real files
+
+Filed by 1.0 readiness A (#129) with ADR 0214, unaccepted until the
+maintainer accepts it (ADR 0066). The levels above and what each survives
+stand.
+
+- **A full disk** at any allocation fails the commit that met it, which is
+  not acknowledged and is answered `storage-full`. The dataset stays open
+  for reads at its head. The next write recovers the writer in place, as an
+  open recovers after a process crash: it proceeds when the space is back,
+  and is refused `storage-full` when it is not. Nobody reopens anything. A
+  derived write that meets a full disk fails without breaking the dataset.
+  A full disk during recovery fails the open, and the next open with space
+  recovers.
+- **What this ADR's table claims for a power loss** is now tested on the file
+  system the store ships on, as well as in memory: ADR 0214 points 3 and 4
+  kill a real process at every flush, and replace a real directory with the
+  image each model leaves. The release gate runs both on Linux and Windows.
