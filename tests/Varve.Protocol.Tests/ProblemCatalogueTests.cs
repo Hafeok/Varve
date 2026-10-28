@@ -123,6 +123,21 @@ public class ProblemCatalogueTests
         Dataset frozen = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()),
             new DatasetOptions { Clock = TimeProvider.System, Validators = [new EventCatalogueFreeze(new DatasetName("frozen"))] }, P.Ct);
         datasets.Add("frozen", frozen);
+
+        // ADR 0214: a dataset whose disk is full refuses a write as storage-full.
+        FullStorage fullStorage = new(new MemoryStorage());
+        Dataset full = await Dataset.CreateAsync(fullStorage, new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, P.Ct);
+        fullStorage.Full = true;
+        datasets.Add("full", full);
+
+        // ADR 0214: a write closed in the log whose flush fails is not known.
+        FullStorage unflushedStorage = new(new MemoryStorage());
+        Dataset unflushed = await Dataset.CreateAsync(unflushedStorage, new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, P.Ct);
+        // A first commit opens the log's segment, so that the next write's
+        // records are appended and closed before its flush fails.
+        await unflushed.CommitAsync(new CommitRequestBuilder().Assert(RdfTerm.Iri("http://ex/a"u8), RdfTerm.Iri("http://ex/p"u8), RdfTerm.Iri("http://ex/o"u8)), P.Ct);
+        unflushedStorage.FlushFails = true;
+        datasets.Add("unflushed", unflushed);
         ProtocolLimits limits = new(TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1), new ByteCount(200), new ByteCount(2048), TimeSpan.FromSeconds(15))
         {
             MaxQueryMemory = new Varve.Sparql.Evaluation.MemoryBytes(1024),
@@ -133,6 +148,8 @@ public class ProblemCatalogueTests
 
         await using (dataset)
         await using (frozen)
+        await using (full)
+        await using (unflushed)
         await using (ProtocolTestHost host = await ProtocolTestHost.StartAsync(
             datasets,
             map: (app, o) =>
@@ -172,6 +189,8 @@ public class ProblemCatalogueTests
                     "DELETE DATA { GRAPH <" + Catalogue + "> { <http://ex/types/T/at> <https://w3id.org/varve/ns#fieldDatatype> <http://www.w3.org/2001/XMLSchema#dateTime> } } ; "
                     + "INSERT DATA { GRAPH <" + Catalogue + "> { <http://ex/types/T/at> <https://w3id.org/varve/ns#fieldDatatype> <http://www.w3.org/2001/XMLSchema#string> } }"),
                 [ProblemType.Unavailable] = () => Put("manage/datasets/broken/state", "{\"state\":\"open\"}", "application/json"),
+                [ProblemType.StorageFull] = () => P.Update("datasets/full/sparql", "INSERT DATA { <http://ex/a> <http://ex/p> 1 }"),
+                [ProblemType.CommitOutcomeUnknown] = () => P.Update("datasets/unflushed/sparql", "INSERT DATA { <http://ex/a> <http://ex/p> 1 }"),
                 [ProblemType.ReadLimitExceeded] = () => P.Query(Sparql, "SELECT * { ?s ?p ?o } "),
                 [ProblemType.MemoryLimitExceeded] = () => P.Query(Sparql, "SELECT * { ?s ?p ?o } ORDER BY ?s"),
                 [ProblemType.AsOfDistanceExceeded] = () => P.Query(Sparql, "ASK {}", asOf: "position:2"),

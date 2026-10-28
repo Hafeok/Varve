@@ -185,4 +185,33 @@ public class HealthTests
         // A dataset endpoint is not under the probes' limit.
         Assert.Equal(HttpStatusCode.OK, (await server.Client.GetAsync(new Uri("datasets/d/sparql?query=ASK%7B%7D", UriKind.Relative), Ct)).StatusCode);
     }
+
+    /// <summary>
+    /// A dataset whose last write was refused because its storage had no
+    /// space (ADR 0214) is reported under <c>writesRefused</c>, and readiness
+    /// stays ready: reads go on, and the next write tries again by itself.
+    /// </summary>
+    [Fact]
+    public void readiness_reports_writes_refused_for_space_and_stays_ready()
+    {
+        DatasetHealth[] health =
+        [
+            new DatasetHealth("d", DatasetState.Open, null, 4, 4, false, StorageFull: true),
+            new DatasetHealth("e", DatasetState.Open, null, 2, 2, false),
+        ];
+        (bool ready, List<DatasetReadiness> states) = Readiness.Evaluate(health, allowedLag: 0, draining: false);
+        Assert.True(ready);
+        Assert.All(states, state => Assert.Equal("ready", state.State));
+
+        System.Buffers.ArrayBufferWriter<byte> body = new();
+
+        using (Utf8JsonWriter json = new(body))
+        {
+            json.WriteStartObject();
+            Readiness.WriteRefusals(json, health);
+            json.WriteEndObject();
+        }
+
+        Assert.Equal("{\"writesRefused\":{\"d\":\"storage-full\"}}", System.Text.Encoding.UTF8.GetString(body.WrittenSpan));
+    }
 }
