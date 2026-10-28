@@ -4,9 +4,9 @@ namespace: varve
 adr: 0120
 decisions:
   - key: DataOnlyRequestsGoStraightToTheCommitRequest
-    statement: "A request of INSERT DATA and DELETE DATA alone with no expected position writes its ground quads to the CommitRequest as request terms with no staging view, no asserted or retracted set and no sort, one fresh blank node per label per request"
+    statement: "A request of INSERT DATA and DELETE DATA alone with no expected position writes its ground quads to the CommitRequestBuilder as request terms with no staging view, no asserted or retracted set and no sort, one fresh blank node per label per request; amended 2026-10-27, CommitRequest renamed CommitRequestBuilder under DD0019"
     accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-10T00:00:00Z
+    accepted-at: 2026-10-27T00:00:00Z
   - key: FastPathKeeps0057And0058
     statement: "The fast path keeps one request one commit and the effective delta because the sequencer normalises the chain against the head it meets, and no handle reaches the dictionary but through the commit"
     accepted-by: mailto:emil@okkels-klein.dk

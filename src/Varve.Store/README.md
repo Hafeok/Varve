@@ -64,7 +64,7 @@ DatasetOptions options = new() { Clock = TimeProvider.System };
 await using Dataset dataset = await Dataset.CreateAsync(storage, new DatasetId(Guid.NewGuid()), options);
 // Later: await Dataset.OpenAsync(storage, options);
 
-CommitResult result = await dataset.CommitAsync(new CommitRequest()
+CommitResult result = await dataset.CommitAsync(new CommitRequestBuilder()
     .Assert(RdfTerm.Iri("http://example.org/s"u8), RdfTerm.Iri("http://example.org/p"u8),
             RdfTerm.Literal("chat"u8, "en"u8)));
 

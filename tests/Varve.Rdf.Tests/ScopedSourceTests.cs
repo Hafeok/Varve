@@ -5,6 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using CsCheck;
 using Xunit;
 
@@ -137,6 +139,85 @@ public class ScopedSourceTests
                 }
             }
         }, iter: 300);
+    }
+
+    /// <summary>
+    /// One scoped source read by many threads at once over many prefixed
+    /// graphs, every one of them decided for the first time while the others
+    /// race to decide it too, answers what one thread answers: the prefix
+    /// decisions are memoised per graph (ADR 0107) and filled only through
+    /// <c>GetOrAdd</c>, so no read sees a decision half-made or lost.
+    /// </summary>
+    [Fact]
+    public async Task many_threads_reading_one_scoped_source_over_prefixed_graphs_answer_what_one_thread_answers()
+    {
+        const int Graphs = 2_000;
+        const int Threads = 16;
+        List<(string, string, string, string?)> quads = [("s", "p", "o", null)];
+
+        for (int i = 0; i < Graphs; i++)
+        {
+            string prefix = (i % 3) switch { 0 => "http://ex/g/", 1 => "http://other/", _ => "http://ex/h/" };
+            quads.Add(("s", "p", "o", prefix + i.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        }
+
+        InMemoryDataset dataset = Dataset(quads);
+        GraphScope scope = GraphScope.Of([], ["http://ex/g/", "http://ex/h/"], DefaultGraphAccess.Excluded);
+        HashSet<string> expected = Materialised(dataset, new GraphScopedQuadSource(dataset, scope).Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any));
+        Assert.Equal(Graphs - (Graphs + 2) / 3, expected.Count);
+
+        for (int round = 0; round < 20; round++)
+        {
+            GraphScopedQuadSource shared = new(dataset, scope);
+            using Barrier start = new(Threads);
+            Task<HashSet<string>>[] readers = new Task<HashSet<string>>[Threads];
+
+            for (int t = 0; t < Threads; t++)
+            {
+                readers[t] = Task.Factory.StartNew(
+                    () =>
+                    {
+                        start.SignalAndWait(TestContext.Current.CancellationToken);
+                        return Materialised(dataset, shared.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any));
+                    },
+                    TestContext.Current.CancellationToken,
+                    TaskCreationOptions.LongRunning,
+                    TaskScheduler.Default);
+            }
+
+            foreach (HashSet<string> answer in await Task.WhenAll(readers))
+            {
+                Assert.Equal(expected, answer);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Once a graph's prefix decision is made, reading it again is a lookup
+    /// that allocates nothing: <c>GetOrAdd</c> with a static factory and its
+    /// argument passed through costs no closure and no delegate per call.
+    /// </summary>
+    [Fact]
+    public void a_prefix_decision_once_made_is_read_without_allocating()
+    {
+        InMemoryDataset dataset = Dataset([("s", "p", "o", "http://ex/g/a"), ("s", "p", "o", "http://other/c")]);
+        GraphScopedQuadSource scoped = new(dataset, GraphScope.Of([], ["http://ex/g/"], DefaultGraphAccess.Excluded));
+        Assert.True(dataset.TryInternalise(Iri("http://ex/g/a"), out TermHandle a));
+        Assert.True(dataset.TryInternalise(Iri("http://other/c"), out TermHandle c));
+        Assert.True(scoped.Allows(a));
+        Assert.False(scoped.Allows(c));
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        bool allowed = true;
+
+        for (int i = 0; i < 10_000; i++)
+        {
+            allowed &= scoped.Allows(a) && !scoped.Allows(c);
+        }
+
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.True(allowed);
+        Assert.Equal(0L, allocated);
     }
 
     private static IEnumerable<GraphPattern> Patterns(InMemoryDataset dataset)

@@ -3,10 +3,60 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
 namespace Varve.Store.Tests.Objects;
+
+/// <summary>
+/// The two traits every test class of this namespace carries, exactly one
+/// each (#143): <see cref="Objects"/> for the object-store suites, which the
+/// optional CI leg runs against a storage account on every dispatch, and
+/// <see cref="Faults"/> for the failure-injection workloads, which run
+/// nightly, on <c>land/**</c> and at a release. <see cref="TraitGuardTests"/>
+/// fails a class that carries neither, so no class drops out of CI unseen.
+/// </summary>
+internal static class ObjectTraits
+{
+    public const string Name = "Category";
+
+    public const string Objects = "AzureObjects";
+
+    public const string Faults = "AzureObjectsFaults";
+}
+
+/// <summary>Every test class in this namespace carries exactly one of the two traits.</summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
+public sealed class TraitGuardTests
+{
+    [Fact]
+    public void every_test_class_of_the_objects_namespace_carries_exactly_one_of_the_two_traits()
+    {
+        List<string> wrong = [];
+
+        foreach (Type type in typeof(TraitGuardTests).Assembly.GetTypes())
+        {
+            if (type.Namespace != typeof(TraitGuardTests).Namespace || !type.IsClass || type.IsAbstract || type.IsNested
+                || !type.GetMethods().Any(method => method.IsDefined(typeof(FactAttribute), inherit: true)))
+            {
+                continue;
+            }
+
+            string[] values = [.. type.GetCustomAttributes(typeof(TraitAttribute), inherit: false)
+                .Cast<TraitAttribute>()
+                .Where(trait => trait.Name == ObjectTraits.Name)
+                .Select(trait => trait.Value)];
+
+            if (values.Length != 1 || values[0] is not (ObjectTraits.Objects or ObjectTraits.Faults))
+            {
+                wrong.Add(type.Name + " [" + string.Join(", ", values) + "]");
+            }
+        }
+
+        Assert.True(wrong.Count == 0, "These test classes do not carry exactly one of Category=" + ObjectTraits.Objects + " and Category=" + ObjectTraits.Faults + ": " + string.Join("; ", wrong));
+    }
+}
 
 /// <summary>
 /// The address of a storage service CI starts beside the tests (ADR 0099: the

@@ -264,7 +264,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
         RdfTerm graph = ManagementVocabulary.BootstrapGraph;
         RdfTerm predicate = RdfTerm.Iri(Encoding.UTF8.GetBytes(ManagementVocabulary.Namespace + "bootstrapOperator"));
-        CommitRequest request = new()
+        CommitRequestBuilder request = new()
         {
             ExpectedPosition = _system.Head,
             Metadata = new CommitMetadata { Cause = RdfTerm.Literal(Encoding.UTF8.GetBytes(replace ? "varve serve --record-bootstrap" : "varve serve: the first system writer")) },

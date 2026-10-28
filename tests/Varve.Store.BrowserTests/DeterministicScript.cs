@@ -69,7 +69,7 @@ internal static class DeterministicScript
     {
         for (int i = from; i < to; i++)
         {
-            CommitRequest request = new()
+            CommitRequestBuilder request = new()
             {
                 Metadata = new CommitMetadata { Agent = Iri("agent/" + (i % 3)) },
             };

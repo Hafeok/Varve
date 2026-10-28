@@ -41,8 +41,8 @@ internal static class FileStore
 
     private static FileStorageOptions StorageOptions => new() { Clock = TimeProvider.System };
 
-    private static CommitRequest Numbered(long n) =>
-        new CommitRequest().Assert(RdfTerm.Iri("http://example.org/s"u8), Predicate, RdfTerm.Literal(System.Text.Encoding.UTF8.GetBytes(n.ToString(CultureInfo.InvariantCulture))));
+    private static CommitRequestBuilder Numbered(long n) =>
+        new CommitRequestBuilder().Assert(RdfTerm.Iri("http://example.org/s"u8), Predicate, RdfTerm.Literal(System.Text.Encoding.UTF8.GetBytes(n.ToString(CultureInfo.InvariantCulture))));
 
     /// <summary>The child: open, commit until killed, print every acknowledged position.</summary>
     internal static async Task<int> CommitUntilKilledAsync(string directory)

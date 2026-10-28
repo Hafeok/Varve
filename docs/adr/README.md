@@ -389,6 +389,14 @@ Filed by milestone Inference ([#95](https://github.com/Hafeok/Varve/issues/95)),
 | [0193](0193-rdfs-rdf-and-d-by-rewriting.md) | RDF, RDFS and D entailment by query rewriting | Filed unaccepted (Inference part 1, #170) |
 | [0194](0194-the-tbox-binding-vocabulary.md) | The TBox binding vocabulary; amends 0166 | Filed unaccepted (Inference part 1, #170) |
 
+## Web UI, part 1 (#167)
+
+Filed by Web UI part 1 ([#167](https://github.com/Hafeok/Varve/issues/167), milestone [#96](https://github.com/Hafeok/Varve/issues/96)), unaccepted until the maintainer accepts them on their pull request (ADR 0066). Numbered from 0200: Replication holds 0179–0189 and Inference 0190–0199. 0206 lands first, in a docs-only pull request; 0200–0205 come with the milestone's.
+
+| # | Title | Status |
+|---:|---|---|
+| [0206](0206-the-web-ui-design-source.md) | The Web UI's design source, its levels, and the markup contract | Filed unaccepted (Web UI part 1, #167) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |

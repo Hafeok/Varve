@@ -25,7 +25,7 @@ internal static class C
     internal static async Task<Dataset> DataAsync()
     {
         Dataset dataset = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, Ct);
-        CommitRequest request = new CommitRequest()
+        CommitRequestBuilder request = new CommitRequestBuilder()
             .Assert(RequestTerm.FromTerm(Iri("http://ex/s")), RequestTerm.FromTerm(Iri("http://ex/p")), RequestTerm.FromTerm(RdfTerm.Literal("1"u8)))
             .Assert(RequestTerm.FromTerm(Iri("http://ex/s")), RequestTerm.FromTerm(Iri("http://ex/p")), RequestTerm.FromTerm(RdfTerm.Literal("2"u8)))
             .Assert(RequestTerm.FromTerm(Iri("http://ex/t")), RequestTerm.FromTerm(Iri("http://ex/p")), RequestTerm.FromTerm(RdfTerm.Literal("3"u8)), RequestTerm.FromTerm(Iri("http://ex/g")));

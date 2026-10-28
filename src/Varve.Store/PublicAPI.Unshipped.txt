@@ -48,11 +48,11 @@ Varve.Store.Log.CommitOutcome.Conflict = 2 -> Varve.Store.Log.CommitOutcome
 Varve.Store.Log.CommitOutcome.NoChange = 1 -> Varve.Store.Log.CommitOutcome
 Varve.Store.Log.CommitOutcome.Rejected = 3 -> Varve.Store.Log.CommitOutcome
 Varve.Store.Log.CommitOutcome.Unavailable = 4 -> Varve.Store.Log.CommitOutcome
-Varve.Store.Log.CommitRequest
-Varve.Store.Log.CommitRequest.CommitRequest() -> void
-Varve.Store.Log.CommitRequest.ExpectedPosition.init -> void
-Varve.Store.Log.CommitRequest.Metadata.get -> Varve.Store.Log.CommitMetadata!
-Varve.Store.Log.CommitRequest.Metadata.init -> void
+Varve.Store.Log.CommitRequestBuilder
+Varve.Store.Log.CommitRequestBuilder.CommitRequestBuilder() -> void
+Varve.Store.Log.CommitRequestBuilder.ExpectedPosition.init -> void
+Varve.Store.Log.CommitRequestBuilder.Metadata.get -> Varve.Store.Log.CommitMetadata!
+Varve.Store.Log.CommitRequestBuilder.Metadata.init -> void
 Varve.Store.Log.CommitResult
 Varve.Store.Log.CommitResult.CommitResult() -> void
 Varve.Store.Log.CommitResult.Equals(Varve.Store.Log.CommitResult other) -> bool
@@ -61,7 +61,7 @@ Varve.Store.Log.CommitResult.Reason.get -> string?
 Varve.Store.Log.CommitResult.Report.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
 Varve.Store.Dataset
 Varve.Store.Dataset.CatchUpAsync(Varve.Store.IProjection! projection, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
-Varve.Store.Dataset.CommitAsync(Varve.Store.Log.CommitRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.CommitResult>
+Varve.Store.Dataset.CommitAsync(Varve.Store.Log.CommitRequestBuilder! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.CommitResult>
 Varve.Store.Dataset.DisposeAsync() -> System.Threading.Tasks.ValueTask
 Varve.Store.Dataset.Durability.get -> Varve.Store.Log.Durability
 Varve.Store.Dataset.IsFailed.get -> bool
@@ -195,7 +195,7 @@ Varve.Store.Log.ByteOffset.Equals(Varve.Store.Log.ByteOffset other) -> bool
 Varve.Store.Log.ByteOffset.Value.get -> long
 Varve.Store.Log.Commit.Position.get -> Varve.Store.Log.Position
 Varve.Store.Log.Commit.Timestamp.get -> Varve.Store.Log.CommitTimestamp
-Varve.Store.Log.CommitRequest.ExpectedPosition.get -> Varve.Store.Log.Position?
+Varve.Store.Log.CommitRequestBuilder.ExpectedPosition.get -> Varve.Store.Log.Position?
 Varve.Store.Log.CommitResult.Position.get -> Varve.Store.Log.Position
 Varve.Store.Log.CommitTimestamp
 Varve.Store.Log.CommitTimestamp.CommitTimestamp() -> void
@@ -271,13 +271,13 @@ Varve.Store.Log.BlobName.Value.get -> string!
 Varve.Store.Log.CommitMetadata.Agent.get -> Varve.Store.Log.RequestTerm
 Varve.Store.Log.CommitMetadata.Cause.get -> Varve.Store.Log.RequestTerm
 Varve.Store.Log.CommitMetadata.GraphScope.get -> Varve.Store.Log.RequestTerm
-Varve.Store.Log.CommitRequest.Assert(Varve.Store.Log.RequestTerm subject, Varve.Store.Log.RequestTerm predicate, Varve.Store.Log.RequestTerm object) -> Varve.Store.Log.CommitRequest!
-Varve.Store.Log.CommitRequest.Assert(Varve.Store.Log.RequestTerm subject, Varve.Store.Log.RequestTerm predicate, Varve.Store.Log.RequestTerm object, Varve.Store.Log.RequestTerm graph) -> Varve.Store.Log.CommitRequest!
-Varve.Store.Log.CommitRequest.Count.get -> Varve.Rdf.QuadCount
-Varve.Store.Log.CommitRequest.Retract(Varve.Store.Log.RequestTerm subject, Varve.Store.Log.RequestTerm predicate, Varve.Store.Log.RequestTerm object) -> Varve.Store.Log.CommitRequest!
-Varve.Store.Log.CommitRequest.Retract(Varve.Store.Log.RequestTerm subject, Varve.Store.Log.RequestTerm predicate, Varve.Store.Log.RequestTerm object, Varve.Store.Log.RequestTerm graph) -> Varve.Store.Log.CommitRequest!
-Varve.Store.Log.CommitRequest.Validators.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.ICommitValidator!>!
-Varve.Store.Log.CommitRequest.Validators.init -> void
+Varve.Store.Log.CommitRequestBuilder.Assert(Varve.Store.Log.RequestTerm subject, Varve.Store.Log.RequestTerm predicate, Varve.Store.Log.RequestTerm object) -> Varve.Store.Log.CommitRequestBuilder!
+Varve.Store.Log.CommitRequestBuilder.Assert(Varve.Store.Log.RequestTerm subject, Varve.Store.Log.RequestTerm predicate, Varve.Store.Log.RequestTerm object, Varve.Store.Log.RequestTerm graph) -> Varve.Store.Log.CommitRequestBuilder!
+Varve.Store.Log.CommitRequestBuilder.Count.get -> Varve.Rdf.QuadCount
+Varve.Store.Log.CommitRequestBuilder.Retract(Varve.Store.Log.RequestTerm subject, Varve.Store.Log.RequestTerm predicate, Varve.Store.Log.RequestTerm object) -> Varve.Store.Log.CommitRequestBuilder!
+Varve.Store.Log.CommitRequestBuilder.Retract(Varve.Store.Log.RequestTerm subject, Varve.Store.Log.RequestTerm predicate, Varve.Store.Log.RequestTerm object, Varve.Store.Log.RequestTerm graph) -> Varve.Store.Log.CommitRequestBuilder!
+Varve.Store.Log.CommitRequestBuilder.Validators.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.ICommitValidator!>!
+Varve.Store.Log.CommitRequestBuilder.Validators.init -> void
 Varve.Store.Log.RequestTerm
 Varve.Store.Log.RequestTerm.Equals(Varve.Store.Log.RequestTerm other) -> bool
 Varve.Store.Log.RequestTerm.Handle.get -> Varve.Rdf.TermHandle
@@ -455,8 +455,8 @@ Varve.Store.Dataset.GraphVersionAsync(Varve.Store.Log.RequestTerm graph, Varve.S
 Varve.Store.Log.CommitConflicts
 Varve.Store.Log.CommitConflicts.Commits.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.Log.ConflictingCommit!>!
 Varve.Store.Log.CommitConflicts.Truncated.get -> bool
-Varve.Store.Log.CommitRequest.ExpectedGraphs.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.Log.RequestTerm>?
-Varve.Store.Log.CommitRequest.ExpectedGraphs.init -> void
+Varve.Store.Log.CommitRequestBuilder.ExpectedGraphs.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.Log.RequestTerm>?
+Varve.Store.Log.CommitRequestBuilder.ExpectedGraphs.init -> void
 Varve.Store.Log.ConflictingCommit
 Varve.Store.Log.ConflictingCommit.Graphs.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.Log.RequestTerm>!
 Varve.Store.Log.ConflictingCommit.Position.get -> Varve.Store.Log.Position

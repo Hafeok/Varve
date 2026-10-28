@@ -1,0 +1,10 @@
+{
+  "parameters": {
+    "Id": "cp",
+    "Title": "Take a checkpoint of notes?",
+    "Effect": "Writes a checkpoint of <strong>notes</strong> at position 18417: derived data, droppable, no change to the log.",
+    "ConfirmLabel": "Take checkpoint",
+    "Done": true,
+    "Result": "<p>Checkpoint taken at position 18417.</p>"
+  }
+}

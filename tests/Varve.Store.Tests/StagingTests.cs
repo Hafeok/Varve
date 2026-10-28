@@ -20,7 +20,7 @@ namespace Varve.Store.Tests;
 /// </summary>
 public class StagingTests
 {
-    private static CommitRequest One(string subject) => new CommitRequest().Assert(T.Iri(subject), T.Iri("p"), T.Iri("o"));
+    private static CommitRequestBuilder One(string subject) => new CommitRequestBuilder().Assert(T.Iri(subject), T.Iri("p"), T.Iri("o"));
 
     // ---- Validators bound to the dataset.
 
@@ -32,7 +32,7 @@ public class StagingTests
         await using Dataset dataset = await Dataset.CreateAsync(
             new MemoryStorage(), T.Id, new DatasetOptions { Clock = ManualClock.Epoch(), Validators = [first, second] }, T.Ct);
 
-        CommitRequest request = new CommitRequest { Validators = [own] }.Assert(T.Iri("a"), T.Iri("p"), T.Iri("o"));
+        CommitRequestBuilder request = new CommitRequestBuilder { Validators = [own] }.Assert(T.Iri("a"), T.Iri("p"), T.Iri("o"));
         Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(request, T.Ct)).Outcome);
         Assert.Equal(["dataset-1", "dataset-2", "request"], order);
 
@@ -122,7 +122,7 @@ public class StagingTests
         Assert.Equal(3, T.All(overlay).Count);
         Assert.Contains("<http://example.org/fresh> <http://example.org/p> _:staged1", T.Terms(overlay));
 
-        CommitRequest request = new() { ExpectedPosition = staging.Position };
+        CommitRequestBuilder request = new() { ExpectedPosition = staging.Position };
 
         foreach (Quad quad in asserted)
         {
@@ -156,7 +156,7 @@ public class StagingTests
 
         foreach (TermHandle handle in new[] { fresh, blank })
         {
-            CommitRequest request = new CommitRequest().Assert(RequestTerm.Existing(handle), T.Iri("p"), T.Iri("o"));
+            CommitRequestBuilder request = new CommitRequestBuilder().Assert(RequestTerm.Existing(handle), T.Iri("p"), T.Iri("o"));
             await Assert.ThrowsAsync<ArgumentException>(async () => await dataset.CommitAsync(request, T.Ct));
         }
 
@@ -170,7 +170,7 @@ public class StagingTests
     public async Task a_triple_term_around_a_blank_node_of_the_view_cannot_be_mapped()
     {
         await using Dataset dataset = await T.Open(new MemoryStorage());
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Blank("x"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Blank("x"), T.Iri("p"), T.Iri("o")), T.Ct);
         using DatasetView view = dataset.Pin();
         StagingView staging = view.Stage();
         TermHandle existing = T.All(view)[0].Subject;
@@ -188,7 +188,7 @@ public class StagingTests
     {
         await using Dataset dataset = await T.Open(new MemoryStorage());
         RdfTerm tripleTerm = RdfTerm.TripleTerm(T.Iri("s"), T.Iri("p"), T.Iri("o"));
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("a"), T.Iri("says"), tripleTerm), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("a"), T.Iri("says"), tripleTerm), T.Ct);
         using DatasetView view = dataset.Pin();
         StagingView staging = view.Stage();
 

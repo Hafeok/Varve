@@ -31,6 +31,7 @@ public sealed class RdfTerm : IEquatable<RdfTerm>
 {
     private readonly byte[] _lexical;
     private readonly byte[] _language;
+    [Memoized]
     private int _hash;
 
     private RdfTerm(
@@ -238,11 +239,18 @@ public sealed class RdfTerm : IEquatable<RdfTerm>
     /// <inheritdoc />
     public override int GetHashCode()
     {
-        if (_hash != 0)
+        // Zero is the sentinel for not yet computed, so a computed zero is
+        // stored as one.
+        if (_hash == 0)
         {
-            return _hash;
+            _hash = ComputeHash();
         }
 
+        return _hash;
+    }
+
+    private int ComputeHash()
+    {
         HashCode hash = default;
         hash.Add(Kind);
         hash.Add(Direction);
@@ -266,8 +274,7 @@ public sealed class RdfTerm : IEquatable<RdfTerm>
         }
 
         int computed = hash.ToHashCode();
-        _hash = computed == 0 ? 1 : computed;
-        return _hash;
+        return computed == 0 ? 1 : computed;
     }
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]

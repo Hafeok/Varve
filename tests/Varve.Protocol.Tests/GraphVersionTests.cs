@@ -178,7 +178,7 @@ public sealed class GraphVersionTests
         // A writer that read graph a at 1, and commits after two writers:
         // one of graph a, one of graph b. The store answers Conflict; the
         // protocol names the commit that touched a, and only a.
-        CommitRequest late = new CommitRequest { ExpectedPosition = new Position(1), ExpectedGraphs = [Varve.Rdf.RdfTerm.Iri("http://ex/a"u8)] }
+        CommitRequestBuilder late = new CommitRequestBuilder { ExpectedPosition = new Position(1), ExpectedGraphs = [Varve.Rdf.RdfTerm.Iri("http://ex/a"u8)] }
             .Assert(Varve.Rdf.RdfTerm.Iri("http://ex/s"u8), Varve.Rdf.RdfTerm.Iri("http://ex/p"u8), Varve.Rdf.RdfTerm.Iri("http://ex/o"u8), Varve.Rdf.RdfTerm.Iri("http://ex/a"u8));
         await host.Client.SendAsync(Put(Graph("b"), "<http://ex/s> <http://ex/p> 1 ."), P.Ct);
         await host.Client.SendAsync(Put(Graph("a"), "<http://ex/s> <http://ex/p> 2 ."), P.Ct);
@@ -217,7 +217,7 @@ public sealed class GraphVersionTests
 
             if (call <= races)
             {
-                CommitRequest write = new CommitRequest().Assert(RdfTerm.Iri("http://ex/race"u8), RdfTerm.Iri("http://ex/n"u8), RdfTerm.Literal(Encoding.UTF8.GetBytes("r" + call)), RdfTerm.Iri(Encoding.UTF8.GetBytes("http://ex/" + graph)));
+                CommitRequestBuilder write = new CommitRequestBuilder().Assert(RdfTerm.Iri("http://ex/race"u8), RdfTerm.Iri("http://ex/n"u8), RdfTerm.Literal(Encoding.UTF8.GetBytes("r" + call)), RdfTerm.Iri(Encoding.UTF8.GetBytes("http://ex/" + graph)));
                 dataset.CommitAsync(write, cancellationToken).AsTask().GetAwaiter().GetResult();
             }
 

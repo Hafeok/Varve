@@ -199,9 +199,9 @@ internal static partial class ObjectStorageBench
 
     private static string Mib(long bytes) => (bytes / (double)(1 << 20)).ToString("F1", CultureInfo.InvariantCulture) + " MiB";
 
-    private static CommitRequest Request(RecCommit commit, Terms terms, List<RecQuad> probes, ref RecQuad subject, int n)
+    private static CommitRequestBuilder Request(RecCommit commit, Terms terms, List<RecQuad> probes, ref RecQuad subject, int n)
     {
-        CommitRequest request = new();
+        CommitRequestBuilder request = new();
 
         foreach (RecQuad quad in commit.Asserted)
         {

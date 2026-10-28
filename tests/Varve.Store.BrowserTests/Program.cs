@@ -255,7 +255,7 @@ internal static partial class Program
         {
             for (int i = 0; i < 60; i++)
             {
-                await dataset.CommitAsync(new CommitRequest().Assert(StorageContractCases.Iri("s" + i), StorageContractCases.Iri("p"), StorageContractCases.Literal("v" + i)), ct);
+                await dataset.CommitAsync(new CommitRequestBuilder().Assert(StorageContractCases.Iri("s" + i), StorageContractCases.Iri("p"), StorageContractCases.Literal("v" + i)), ct);
 
                 if (i % 20 == 19)
                 {

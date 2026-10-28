@@ -16,7 +16,7 @@ public class SmokeTests
         MemoryStorage storage = new();
         await using (Dataset dataset = await T.Open(storage))
         {
-            CommitResult result = await dataset.CommitAsync(new CommitRequest()
+            CommitResult result = await dataset.CommitAsync(new CommitRequestBuilder()
                 .Assert(T.Iri("s"), T.Iri("p"), T.Literal("o"))
                 .Assert(T.Iri("s"), T.Iri("p"), T.Integer("42"), T.Iri("g")), T.Ct);
 
