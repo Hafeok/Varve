@@ -1677,6 +1677,12 @@ jobs:
         # trim or AOT warning an error like any other.
         run: dotnet publish src/Varve.WebUi --configuration Release --output "$RUNNER_TEMP/webui"
 
+      - name: The Web UI's download budget
+        # ADR 0205: brotli-11 of _framework/ against eng/browser-size.json,
+        # on this publish from a clean tree. Over budget fails; a growth is an
+        # amendment to the ADR, never a quiet drift.
+        run: dotnet run eng/browser-size.cs -- "$RUNNER_TEMP/webui/wwwroot"
+
       - name: Upload the Web UI
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:

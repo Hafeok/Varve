@@ -388,6 +388,7 @@ Filed by Web UI part 1 ([#167](https://github.com/Hafeok/Varve/issues/167), mile
 | [0202](0202-serving-the-web-ui-and-its-content-security-policy.md) | Serving the Web UI under `/ui/`, and its Content Security Policy | Filed unaccepted (Web UI part 1, #167) |
 | [0203](0203-typed-reads-in-the-protocol-client.md) | Typed reads in `Varve.Protocol.Client`: health, problems, response facts and the management plane | Filed unaccepted (Web UI part 1, #167) |
 | [0204](0204-test-dependencies-for-the-web-ui.md) | Test dependencies for the Web UI: bUnit, Playwright on the runner's Chrome, axe-core | Filed unaccepted (Web UI part 1, #167) |
+| [0205](0205-the-web-uis-size-budget-and-no-aot.md) | The Web UI's size budget, and why it is not AOT-compiled | Filed unaccepted (Web UI part 1, #167) |
 | [0206](0206-the-web-ui-design-source.md) | The Web UI's design source, its levels, and the markup contract | Filed unaccepted (Web UI part 1, #167) |
 
 ## Conformance — differential testing against Oxigraph

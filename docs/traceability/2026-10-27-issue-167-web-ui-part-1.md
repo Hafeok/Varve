@@ -873,3 +873,30 @@ put on #96.
   - `412` and `409` with "Reload at head" reading again;
   - `403` with no reload.
 - `Varve.WebUi.Tests` passes 175.
+
+### Gates: the size budget and the AOT choice (ADR 0205)
+
+**Measured** at this milestone's head, each build from a clean tree, served by
+`Varve.Server`, Chromium, cold cache, median of 10 loads of the Health screen:
+- **interpreted:** 1.823 MB brotli-11, 1077 ms (963–1186);
+- **AOT:** 4.108 MB, 1128 ms (1006–1283). The AOT publish took 4 min 44 s.
+
+The plan's rule chose interpreted: AOT saves no time, and its 2.29 MB cost
+about 1.8 s at 10 Mbit/s.
+
+**The gate:** `eng/browser-size.cs` and `eng/browser-size.json`.
+- **The budget:** 1,822.8 kB measured, 1,920,000 bytes.
+- **The failure paths, run:**
+  - a budget of 1.8 MB exited 1 with "over its budget";
+  - one of 2.1 MB printed the ratchet line to lower it to 1,920,000;
+  - the real budget exited 0.
+- **CI:** a step of `browser wasm`, after its publish.
+
+**Two wrong numbers caught on the way, and why.**
+- **5.2 MB:** a publish into a folder that held earlier publishes; their
+  fingerprinted files stayed.
+- **1.55 MB:** a publish whose `obj/` an AOT publish had just written. The
+  same CoreLib size, raw, but IL-stripped, so it compressed to 354 kB, not
+  485 kB.
+
+Both are why ADR 0205 point 4 says to measure from a clean tree only.
