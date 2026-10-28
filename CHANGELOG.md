@@ -12,6 +12,78 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.0-preview.17] - 2026-10-28
+
+**Web UI, part 1 — the operator console in the browser**
+
+### Milestone Web UI, part 1 — the operator console (#167, part 1 of #96)
+
+`Varve.WebUi` is a Blazor WebAssembly client of the public API, with no
+endpoints of its own. It shows:
+- the datasets, a dataset's status (at its head or as of a position);
+- the fleet;
+- a dataset's commits, followed live, and a commit's delta;
+- a dataset's grants and declaration source.
+
+It takes a checkpoint, and closes and opens a dataset, each through a
+confirmation that names the drift from Git. It is published as
+`varve-webui-<version>.zip`, with build provenance. The server serves it
+under `/ui/` when `Varve:WebUi:Path` names it, and any static host can
+serve it too. The storage and delta formats are unchanged. The seven ADRs
+are filed unaccepted and accepted on the pull request (ADR 0066). #96
+stays open for part 2, the data explorer.
+
+#### Added
+
+- **The Web UI** (ADR 0200).
+  - It is trimmed and interpreted, not AOT-compiled.
+  - Its download is 1.82 MB brotli-compressed, gated at 1,920,000 bytes
+    by `eng/browser-size.cs` (ADR 0205).
+  - AOT measured at 4.11 MB, and loaded no faster.
+- **Its design source is `docs/ui/`** (ADR 0206): the tokens, the
+  components' cases, and the reference screens.
+  - Every component renders the markup its cases pin, checked by bUnit.
+  - `VARVE0006` holds the levels apart, and only pages call the API.
+- **Its own OIDC client** (ADR 0201).
+  - Sign-in is authorisation code with PKCE, written on the BCL.
+  - Each plane gets its own token: the data plane from the code exchange,
+    the management plane from a refresh grant for its scope alone.
+  - Tokens live in the tab's memory. A reload signs in again with
+    `prompt=none`.
+- **`Varve:WebUi:Path`** (ADR 0202).
+  - The server serves the bundle under `/ui/`, with a Content Security
+    Policy: `script-src 'self' 'wasm-unsafe-eval'`, no inline script or
+    style, and the issuer's origin in `connect-src`.
+  - A compressed copy older than its file is never sent.
+- **Typed reads in `Varve.Protocol.Client`** (ADR 0203).
+  - `VarveManagementClient` and `VarveHealthClient` answer a
+    `VarveResult<T>`, with the problem read whole.
+  - New calls: the checkpoint and state acts, and
+    `SparqlHttpClient.ReadCommitsAsync` and `ReadCommitAsync`.
+  - Nothing was removed.
+- **Browser tests on the runner's Chrome** (ADR 0204), in the required job
+  `web ui in Chromium`:
+  - axe-core on every screen and dialog, in both themes, with no violation
+    and no policy violation;
+  - the skip link first;
+  - anonymous mode and sign-in against mock-oauth2-server;
+  - a token naming both audiences, refused by both planes.
+- **The operator guide's Web UI page,** `docs/operator/web-ui.md`.
+
+#### Changed
+
+- **`BearerToken.Fixed` is `BearerTokens.Fixed`** (ADR 0127, amended).
+  The fixed provider sits beside the delegate type, not on it.
+
+#### Not yet
+
+- **Zitadel's management plane:** a Zitadel refresh token never narrows
+  its audience, so the Web UI's management plane stays signed out there.
+  Token exchange is the proposal on #96.
+- **The state route ignores `If-Match`,** so the "Reload at head" path a
+  `412` would take is tested against a fake server only. The proposal is
+  on #96.
+
 ## [0.1.0-preview.15] - 2026-10-23
 
 **As-of reads that seek — an as-of read inside an extent set costs its matches**
@@ -1658,7 +1730,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.15...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.17...HEAD
+[0.1.0-preview.17]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.15...v0.1.0-preview.17
 [0.1.0-preview.15]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.14...v0.1.0-preview.15
 [0.1.0-preview.14]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.13...v0.1.0-preview.14
 [0.1.0-preview.13]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.12...v0.1.0-preview.13

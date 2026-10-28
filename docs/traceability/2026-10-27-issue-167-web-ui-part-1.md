@@ -974,3 +974,25 @@ navigation still lands on what changed (2.4.3).
 - "All commits" on a dataset is a `button` that navigates. The reference
   screens pin it as a button, so the page follows them. A link would be the
   usual choice.
+
+### Close-out
+
+- **The descriptor** is `releases/v0.1.0-preview.17.yaml`. Its basis is
+  #167, with ADRs 0200–0206. It is `.17` because two open pull requests, Inference part
+  1 and supply chain transparency, both propose `.16`. `eng/release.cs`
+  orders by precedence and needs no contiguity.
+- **`CHANGELOG.md`** is projected from it by `eng/changelog.cs`.
+- **The README's Status** names `.17`, and its image tags follow.
+- **`docs/roadmap.md`** marks part 1 *(complete)* under Web UI, whose own
+  heading stays open for part 2, as #96 does.
+- **AGENTS.md's State** leads with this milestone.
+- **The bundle ships with the release.** `publish.yml` gains the job that
+  builds `varve-webui-<version>.zip`, runs the size gate and the browser
+  tests on it, and attests it; the release attaches it (ADR 0202 point 6).
+- **Open on #96 at close-out:**
+  - Zitadel's management-plane token, by token exchange (sign-in's
+    third issuer);
+  - `If-Match` on the state route;
+  - "read at" on Commits;
+  - the declaration pages the reference screens add;
+  - "All commits" as a button.

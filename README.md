@@ -43,10 +43,21 @@ where Varve is the wrong tool: [`docs/why.md`](docs/why.md).
 
 ## Status
 
-**`v0.1.0-preview.15` is the latest release, and it made an as-of read
-inside an extent set cost its matches, not the set
+**`v0.1.0-preview.17` is the latest release, and it is the Web UI's first
+part, the operator console in the browser
+([#167](https://github.com/Hafeok/Varve/issues/167), part 1 of
+[#96](https://github.com/Hafeok/Varve/issues/96))**: a Blazor WebAssembly
+client of the public API, with no endpoints of its own. It shows the datasets,
+a dataset's status at its head or as of a position, the fleet, the commits
+followed live with each commit's delta, and the grants and declaration source.
+It takes a checkpoint, and closes and opens a dataset, each through a
+confirmation. Sign-in is its own OIDC client, with one token per plane. The
+server serves it under `/ui/` with a strict Content Security Policy, or any
+static host can, from `varve-webui-<version>.zip`.
+`v0.1.0-preview.15` before it made an as-of read inside an extent set cost
+its matches, not the set
 ([#133](https://github.com/Hafeok/Varve/issues/133), in 1.0 by
-[#15](https://github.com/Hafeok/Varve/issues/15))**: a read at a position
+[#15](https://github.com/Hafeok/Varve/issues/15)): a read at a position
 inside a set's window seeks the set — derived format 5 keeps each extent's
 positions in columns beside its keys and its rows within as a key section —
 so an as-of lookup at REC M costs a third of a lookup at the head where it
@@ -371,7 +382,7 @@ is the Native AOT binary and nothing else:
 
 ```bash
 dotnet tool install --global Varve.Server --prerelease
-docker pull ghcr.io/hafeok/varve:v0.1.0-preview.15
+docker pull ghcr.io/hafeok/varve:v0.1.0-preview.17
 ```
 
 Serve one dataset on your machine. `--anonymous` is for development only: a
@@ -380,7 +391,7 @@ real deployment takes OIDC bearer tokens ([ADR 0037](docs/adr/0037-server-authen
 ```bash
 varve serve --anonymous --datasets-root "$PWD/data"
 # or, listening on 8080 instead of 5000, with the datasets in the image's volume:
-docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.15 serve --anonymous
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.17 serve --anonymous
 
 # then declare the dataset in the management plane (ADR 0163):
 curl -X PUT http://localhost:5000/manage/datasets/people -H 'Content-Type: application/trig' \
