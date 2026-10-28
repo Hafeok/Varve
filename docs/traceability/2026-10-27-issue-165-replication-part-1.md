@@ -582,3 +582,13 @@ the same commit.
   a metric alert names the app as its target, while a log search alert
   names the workspace and carries the app as a dimension. So the choice is
   put to the maintainer before the Bicep's alert and Logic App are written.
+
+### Acceptance, 2026-10-28
+
+A later session (Claude Code, model `claude-fable-5-1`), on the maintainer's
+instruction to accept every decision on the open pull requests, added
+`accepted-by` and `accepted-at` to the 30 keys this branch files over
+main: writer-handover-within-a-store (11 keys, ADR 0179), warm-standbys-and-the-writer-set (7 keys, ADR 0180), handover-automation (12 keys, ADR 0181). The acceptance is the maintainer's, who had read them; the
+session only wrote it at their direction, as the acceptance of ADRs
+0127–0133 was written. The ADRs' status text and the index rows are left as
+filed, as in that precedent.
