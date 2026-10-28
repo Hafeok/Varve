@@ -6,6 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Microsoft.Extensions.Hosting;
 using Varve.Protocol.Model;
 
@@ -31,6 +33,7 @@ internal readonly record struct DatasetReadiness(string Name, string State, stri
 /// operators differ from the recorded ones, or its management lag exceeds
 /// the allowed one.
 /// </summary>
+[Contract(typeof(WarmStandbysAndTheWriterSet.ReadinessReportsTheStandby), Role = "readiness, with each standby's tailing and warm")]
 internal static class Readiness
 {
     /// <summary>

@@ -381,6 +381,13 @@ public sealed partial class Dataset
         CommitRequestBuilder? request = pending.Request;
         CommitMetadata metadata = pending.Metadata;
 
+        // A writer that stepped down appends nothing more (ADR 0179 point 6);
+        // thrown, it answers this commit alone, with nothing staged.
+        if (_steppedDown is { } reason)
+        {
+            throw new WriterSteppedDownException(reason, "The writer released the dataset for " + reason + " and commits nothing more; send the write again.");
+        }
+
         if (_disposing)
         {
             return CommitResult.Unavailable(head, "The dataset is closing.");

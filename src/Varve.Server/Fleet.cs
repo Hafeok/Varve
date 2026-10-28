@@ -693,7 +693,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     {
         if (_systemStorage is not Backend storage
             || await _objects!.ReadWriterAsync(SystemName, cancellationToken).ConfigureAwait(false) is not { Released: { } reason } record
-            || !OpenDatasets.Races(reason, _settings.Fleet.WriterSet![0] == _instance.Value, IsSystemWarm))
+            || !MemberDecision.ReleaseRace.Races(reason, _settings.Fleet.WriterSet![0] == _instance.Value, IsSystemWarm))
         {
             return;
         }

@@ -17,6 +17,8 @@ namespace Varve.Store.Tests.Objects;
 /// What a writer abdicates for, and what it never does (ADR 0179 point 6):
 /// - a projection fault is a function of the log, so it fails the standby at
 ///   the same position, and nothing a host releases the epoch for is set;
+/// - a writer that stepped down refuses every commit not yet appended with its
+///   reason, and writes nothing of it;
 /// - a local disk fault that fails every spill keeps the writer, reports the
 ///   spill, and reaches the spill bound at the commit that crosses it: past
 ///   <see cref="Dataset.SpillBoundFactor"/> times the memtable limit, or with
@@ -171,6 +173,34 @@ public sealed class HandoverAbdicationTests
         {
             await writer.DisposeAsync();
         }
+    }
+
+    // A writer that stepped down (ADR 0179 point 6) refuses every commit not
+    // yet appended with writer-stepped-down and its reason, and writes nothing
+    // of it; reads go on, and the epoch is released as the host chose.
+    [Fact]
+    public async Task a_writer_that_stepped_down_refuses_commits_with_its_reason_and_writes_nothing_of_them()
+    {
+        await using ObjectHarness objects = new(waits: new InstantClock(DateTimeOffset.UnixEpoch));
+        Backend written = await objects.OpenAsync(instance: "writer");
+        Dataset writer = await T.OpenOrCreate(written, Options());
+        Assert.Equal(CommitOutcome.Committed, (await writer.CommitAsync(One(1), T.Ct)).Outcome);
+
+        written.ReleaseOnClose = ReleaseReason.Placement;
+        writer.StepDown("placement");
+        Assert.Equal("placement", writer.SteppedDown);
+        WriterSteppedDownException refused = await Assert.ThrowsAsync<WriterSteppedDownException>(async () => await writer.CommitAsync(One(2), T.Ct));
+        Assert.Equal("placement", refused.Reason);
+        Assert.Equal(new Position(1), writer.Head);
+
+        await writer.DisposeAsync();
+        await written.DisposeAsync();
+        WriterRecord record = (await Backend.ReadWriterAsync(objects.Store, objects.Prefix, T.Ct))!;
+        Assert.Equal(ReleaseReason.Placement, record.Released);
+
+        // The log holds the one commit: nothing of the refused one was written.
+        await using Dataset reader = await Dataset.OpenFollowerAsync(await objects.OpenAsync(ObjectStorageAccess.ReadOnly), Options(), T.Ct);
+        Assert.Equal(new Position(1), reader.Head);
     }
 
     // The host's part (ADR 0179 points 6 and 8): the writer releases for

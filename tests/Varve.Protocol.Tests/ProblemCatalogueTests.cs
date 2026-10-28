@@ -49,11 +49,9 @@ public class ProblemCatalogueTests
     /// not exist; and a read that finds an extent gone, as a forgotten or an
     /// unannounced reader may (ADR 0160), needs a server that only reads a
     /// dataset in an object store, which is the Management plane's follower
-    /// (#105); and a writer's abdication (ADR 0179), which Replication part 1
-    /// (#165) builds after the forwarder learns to answer it. Removed from
-    /// here by the slice that makes each emittable.
+    /// (#105). Removed from here by the slice that makes each emittable.
     /// </summary>
-    private static readonly ImmutableArray<ProblemType> NotYetEmittable = [ProblemType.BelowArchiveHorizon, ProblemType.ReaderForgotten, ProblemType.ReadUnannouncedExtentGone, ProblemType.WriterSteppedDown];
+    private static readonly ImmutableArray<ProblemType> NotYetEmittable = [ProblemType.BelowArchiveHorizon, ProblemType.ReaderForgotten, ProblemType.ReadUnannouncedExtentGone];
 
     /// <summary>
     /// Types whose trigger holds state across requests, exercised in
@@ -126,6 +124,11 @@ public class ProblemCatalogueTests
         Dataset frozen = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()),
             new DatasetOptions { Clock = TimeProvider.System, Validators = [new EventCatalogueFreeze(new DatasetName("frozen"))] }, P.Ct);
         datasets.Add("frozen", frozen);
+
+        // ADR 0179 point 6: a writer that stepped down refuses what it has not appended.
+        Dataset stepped = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, P.Ct);
+        stepped.StepDown("placement");
+        datasets.Add("stepped", stepped);
         ProtocolLimits limits = new(TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1), new ByteCount(200), new ByteCount(2048), TimeSpan.FromSeconds(15))
         {
             MaxQueryMemory = new Varve.Sparql.Evaluation.MemoryBytes(1024),
@@ -136,6 +139,7 @@ public class ProblemCatalogueTests
 
         await using (dataset)
         await using (frozen)
+        await using (stepped)
         await using (ProtocolTestHost host = await ProtocolTestHost.StartAsync(
             datasets,
             map: (app, o) =>
@@ -170,6 +174,7 @@ public class ProblemCatalogueTests
                 [ProblemType.UnsupportedMediaType] = () => new HttpRequestMessage(HttpMethod.Post, new Uri(Sparql, UriKind.Relative)) { Content = new StringContent("ASK {}", Encoding.UTF8, "text/plain") },
                 [ProblemType.Rejected] = () => P.Update(Sparql, "INSERT DATA { <http://ex/secret> <http://ex/p> 1 }"),
                 [ProblemType.EventDeclarationInvalid] = () => P.Update(Sparql, "INSERT DATA { GRAPH <" + Catalogue + "> { <http://ex/stray> <http://ex/p> 1 } }"),
+                [ProblemType.WriterSteppedDown] = () => P.Update("datasets/stepped/sparql", "INSERT DATA { <http://ex/a> <http://ex/p> 1 }"),
                 [ProblemType.EventCatalogueMoved] = () => P.Update("datasets/frozen/sparql", "INSERT DATA { GRAPH <" + Catalogue + "> { <http://ex/stray> <http://ex/p> 1 } }"),
                 [ProblemType.EventSchemaIncompatible] = () => P.Update(Sparql,
                     "DELETE DATA { GRAPH <" + Catalogue + "> { <http://ex/types/T/at> <https://w3id.org/varve/ns#fieldDatatype> <http://www.w3.org/2001/XMLSchema#dateTime> } } ; "

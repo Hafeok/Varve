@@ -506,6 +506,12 @@ Varve.Store.WriterSupersededException
 Varve.Store.WriterSupersededException.WriterSupersededException() -> void
 Varve.Store.WriterSupersededException.WriterSupersededException(string! message) -> void
 Varve.Store.WriterSupersededException.WriterSupersededException(string! message, System.Exception! innerException) -> void
+Varve.Store.WriterSteppedDownException
+Varve.Store.WriterSteppedDownException.Reason.get -> string?
+Varve.Store.WriterSteppedDownException.WriterSteppedDownException() -> void
+Varve.Store.WriterSteppedDownException.WriterSteppedDownException(string! message) -> void
+Varve.Store.WriterSteppedDownException.WriterSteppedDownException(string! message, System.Exception! innerException) -> void
+Varve.Store.WriterSteppedDownException.WriterSteppedDownException(string! reason, string! message) -> void
 override Varve.Store.Log.ObjectEntry.GetHashCode() -> int
 override Varve.Store.Log.ObjectName.GetHashCode() -> int
 override Varve.Store.Log.ObjectName.ToString() -> string!
@@ -740,6 +746,8 @@ static Varve.Store.Log.DerivedVersion.operator >=(Varve.Store.Log.DerivedVersion
 Varve.Store.Dataset.ReopenDue.get -> bool
 Varve.Store.Dataset.TakeWriteAsync(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<bool>>! claim, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
 Varve.Store.Dataset.AppendFailed.get -> bool
+Varve.Store.Dataset.StepDown(string! reason) -> void
+Varve.Store.Dataset.SteppedDown.get -> string?
 Varve.Store.Dataset.SpillFailure.get -> System.Exception?
 Varve.Store.Dataset.MemtableEntries.get -> Varve.Rdf.QuadCount
 const Varve.Store.Dataset.SpillBoundFactor = 4 -> int

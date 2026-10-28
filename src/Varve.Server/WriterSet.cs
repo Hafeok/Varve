@@ -2,15 +2,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-using System;
-using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
+using System.Threading;
+using System;
 using Microsoft.Extensions.Logging;
 using Varve.Management.Model;
 using Varve.Protocol.Model;
-using Varve.Store;
 using Varve.Store.ObjectStorage.Model;
+using Varve.Store;
 
 namespace Varve.Server;
 
@@ -117,7 +116,7 @@ internal sealed partial class OpenDatasets
             }
         }
 
-        MemberStep step = Decide(previous, declared, placement, state, seen, entry.Warm, entry.Started);
+        MemberStep step = MemberDecision.Decide(previous, declared, placement, state, seen, entry.Warm, entry.Started);
         entry.Started = true;
 
         switch (step)
@@ -189,71 +188,6 @@ internal sealed partial class OpenDatasets
 
     /// <summary>The writer record as the decision reads it: who holds it, and why it was released.</summary>
     internal readonly record struct RecordView(string Holder, ReleaseReason? Released);
-
-    /// <summary>
-    /// A member's next step, from the declaration applied before and the one
-    /// applied now, what it holds, and the writer record (ADR 0180 points 2–4),
-    /// a function of these alone so a property can drive it. Placement is a
-    /// sequence of events: a holder abdicates only when placedOn changed and
-    /// it is not the new placedOn, never because the holder differs from
-    /// placedOn. A member that is not holding starts by the start rule, opens
-    /// as the preferred writer on a release for placement, and otherwise
-    /// stands by, racing for a release its reason allows once warm.
-    /// </summary>
-    internal static MemberStep Decide((string? PlacedOn, System.Collections.Generic.IReadOnlyList<string> StandbyOn)? previous, DatasetDeclaration declared, Placement placement, MemberState state, RecordView? record, bool warm, bool started)
-    {
-        bool preferred = placement.IsPreferred(declared);
-
-        switch (state)
-        {
-            case MemberState.Holding:
-                return previous is { } before && before.PlacedOn != declared.PlacedOn && !preferred ? MemberStep.Abdicate : MemberStep.Stay;
-            case MemberState.Superseded:
-                return MemberStep.Rejoin;
-        }
-
-        if (!started && Starts(record, declared, placement, preferred))
-        {
-            return MemberStep.Start;
-        }
-
-        if (state == MemberState.Away)
-        {
-            return record is { Released: ReleaseReason.Placement } && preferred ? MemberStep.Open : MemberStep.Stand;
-        }
-
-        // The record read before the advance: a release it shows is one the
-        // advance has applied up to, or more (ADR 0179 point 3).
-        return record is { Released: { } reason } && Races(reason, preferred, warm) ? MemberStep.Claim : MemberStep.Stay;
-    }
-
-    // The start rule (point 3): the record is empty or released and this is
-    // the preferred writer; it holds the record itself, a restart after its
-    // own crash; or its holder is not a member, so placement changed while
-    // this instance was down. A holder named by no declared member, where the
-    // preferred writer is the system writer's, may be that writer: it is
-    // taken for a member, and not fenced.
-    private static bool Starts(RecordView? record, DatasetDeclaration declared, Placement placement, bool preferred)
-    {
-        if (record is not { } held || held.Released is not null)
-        {
-            return preferred;
-        }
-
-        string holder = held.Holder;
-        bool member = declared.PlacedOn is not { } placed || placed == holder || declared.StandbyOn.Contains(holder);
-        return holder == placement.Instance.Value || !member;
-    }
-
-    // Who claims after a release (point 4): one for placement, the preferred
-    // writer alone; one for shutdown, storage-error or local-disk-error,
-    // every warm member, racing. An operator's release is the operator's.
-    internal static bool Races(ReleaseReason reason, bool preferred, bool warm) => reason switch
-    {
-        ReleaseReason.Placement => preferred,
-        ReleaseReason.Shutdown or ReleaseReason.StorageError or ReleaseReason.LocalDiskError => warm,
-        _ => false,
-    };
 
     // A standby follows on the interval (point 5), whether or not a read
     // arrives; a failed advance leaves it serving what it applied, and not warm.

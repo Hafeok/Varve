@@ -14,6 +14,8 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Protocol.Client;
 
 namespace Varve.Server.Commands;
@@ -30,6 +32,7 @@ namespace Varve.Server.Commands;
 /// nothing here waits on a clock but the pause before a failed watch is
 /// opened again.
 /// </summary>
+[Contract(typeof(HandoverAutomation.LivenessIsTheOrchestratorsJudgement), Role = "the Kubernetes handover controller, acting on kubelet's verdict")]
 internal static class KubernetesController
 {
     private const string ServiceAccount = "/var/run/secrets/kubernetes.io/serviceaccount/";
@@ -74,7 +77,7 @@ internal static class KubernetesController
                 {
                     string? bearer = await credentials.TokenAsync(parsed, varve, ct).ConfigureAwait(false);
                     string[] addresses = [.. others.Select(pod => parsed.GetValue(address)!.Replace("{pod}", pod, StringComparison.Ordinal).TrimEnd('/'))];
-                    return await Manage.TakeOverFromAsync(varve, bearer, failed, addresses, [], io, ct).ConfigureAwait(false);
+                    return await Takeovers.FromAsync(varve, bearer, failed, addresses, [], io, ct).ConfigureAwait(false);
                 },
                 cancellationToken).ConfigureAwait(false);
             return 0;
@@ -116,6 +119,7 @@ internal static class KubernetesController
     /// The list and the watch, and each pod's last <c>Ready</c> status.
     /// A pod seen first, or one that only turns ready, starts nothing.
     /// </summary>
+    [Contract(typeof(HandoverAutomation.KubernetesSampleWatchesReadiness), Role = "the list and watch of the fleet's pods")]
     internal sealed class Watcher(HttpClient http, Uri pods, string tokenFile, Io io)
     {
         private readonly Dictionary<string, bool> _ready = new(StringComparer.Ordinal);

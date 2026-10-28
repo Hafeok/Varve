@@ -624,3 +624,35 @@ filed, as in that precedent.
   trigger after the restart reads the restarted holder's epoch and looks
   like a genuine probe. The check is the command's, above the store.
 - The server suite passes: 174 tests.
+
+### Citing the accepted rulings, and writer-stepped-down
+
+- **Citations.** `[Contract]` is valid on classes, interfaces and delegates
+  only, once per type, so each ruling is cited on the type that embodies it:
+  - `WriterSetIsPlacedOnAndStandbyOn` on `Placement`;
+  - `WarmIsDefaultProjectionCaughtUp` on `OpenDatasets.Entry`;
+  - `ReadinessReportsTheStandby` on `Readiness`;
+  - `EveryHandoverIsVisible` on `EpochClaim`;
+  - the two Kubernetes rulings on the controller and its `Watcher`;
+  - `AutomationIdentityHoldsOperatorWithoutSecret` on `OperatorToken`.
+
+  The member decision moved into `MemberDecision`, which cites
+  `PlacementIsAnEvent`, with nested `StartRule` and `ReleaseRace` for their
+  rulings. The takeover code moved from `Manage` into `Takeovers`, which cites
+  `TakeoverCommandIsIdempotent`. The two rulings the amendment of 2026-10-28
+  changed or added are not cited until they are accepted, so nothing is red.
+- **`writer-stepped-down` is emitted** (ruling `SteppedDownAnswers`):
+  - `Dataset.StepDown(reason)` makes the sequencer refuse every commit not
+    yet appended with `WriterSteppedDownException`, an exception at the
+    store's boundary cited like `WriterSupersededException`. Nothing of the
+    refused commit is written, and a batch being appended finishes;
+  - the server steps the writer down when it releases: in `ReleaseFor`, for
+    placement, storage-error and local-disk-error, and at shutdown before
+    the release;
+  - the update and write endpoints answer `503 writer-stepped-down` with its
+    `reason`;
+  - it left `NotYetEmittable`. The catalogue test triggers it through a
+    stepped-down dataset, and `HandoverAbdicationTests` checks the refusal,
+    its reason and that nothing was written.
+- Suites: store 407, protocol 119, server 174. The one server failure in one
+  run was #183's `ShapesBindingTests` flake, which then passed three times.

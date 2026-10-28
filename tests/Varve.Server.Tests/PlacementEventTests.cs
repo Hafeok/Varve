@@ -20,7 +20,7 @@ namespace Varve.Server.Tests;
 /// histories of declarations of one dataset with a writer set (its
 /// <c>placedOn</c> moved, its standbys changed) and takeovers that leave the
 /// holder differing from <c>placedOn</c>. Three members each apply every
-/// declaration and act on <see cref="Decide"/>'s step, in an order generated
+/// declaration and act on <see cref="MemberDecision.Decide"/>'s step, in an order generated
 /// per round, against one writer record. Throughout:
 /// - a holder abdicates only in the round its <c>placedOn</c> changed, and
 ///   only when it is not the new <c>placedOn</c>;
@@ -178,7 +178,7 @@ public sealed class PlacementEventTests
                     member.Warm = true;
                 }
 
-                MemberStep step = Decide(previous, declared, placement, member.State, record, member.Warm, member.Started);
+                MemberStep step = MemberDecision.Decide(previous, declared, placement, member.State, record, member.Warm, member.Started);
                 member.Started = true;
                 Act(member, step, declared, previous);
             }

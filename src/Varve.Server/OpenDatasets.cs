@@ -9,6 +9,8 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Microsoft.Extensions.Logging;
 using Varve.Management.Model;
 using Varve.Protocol;
@@ -403,6 +405,9 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
         foreach (Entry entry in entries)
         {
+            // A writer in an object store releases for shutdown: what is in
+            // flight is answered writer-stepped-down (ADR 0179 point 6).
+            entry.StepDownForShutdown();
             await entry.ReleaseAsync().ConfigureAwait(false);
         }
     }
@@ -634,6 +639,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     }
 
     /// <summary>One dataset's slot: its storage, its role, its state, and what it holds while open.</summary>
+    [Contract(typeof(WarmStandbysAndTheWriterSet.WarmIsDefaultProjectionCaughtUp), Role = "an open dataset, and whether it is a warm standby")]
     private sealed class Entry(DatasetStorage storage)
     {
         internal DatasetStorage Storage { get; } = storage;
@@ -726,11 +732,25 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             return previous;
         }
 
+        internal void StepDownForShutdown()
+        {
+            if (Files is Backend { ReleaseOnClose: ReleaseReason.Shutdown } && Dataset is { IsFollower: false } writer)
+            {
+                writer.StepDown(Commands.ObjectLease.Shown(ReleaseReason.Shutdown));
+            }
+        }
+
         internal void ReleaseFor(ReleaseReason reason)
         {
             if (Files is Backend objects)
             {
                 objects.ReleaseOnClose = reason;
+
+                // The requests in flight are answered writer-stepped-down from here (ADR 0179 point 6).
+                if (Dataset is { IsFollower: false } writer)
+                {
+                    writer.StepDown(Commands.ObjectLease.Shown(reason));
+                }
             }
         }
 
@@ -761,6 +781,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 /// whether it may claim at all, whether it writes the system dataset, and
 /// whether the fleet is one instance.
 /// </summary>
+[Contract(typeof(WarmStandbysAndTheWriterSet.WriterSetIsPlacedOnAndStandbyOn), Role = "where this instance stands in a dataset's writer set")]
 internal sealed record Placement(WriterInstance Instance, bool MayClaim, bool SystemWriter, bool FleetOfOne)
 {
     /// <summary>This instance's role in a declared dataset.</summary>

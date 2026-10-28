@@ -582,7 +582,7 @@ public abstract class FleetCases : IAsyncDisposable
             {
                 StringWriter output = new() { NewLine = "\n" };
                 string[] addresses = [.. others.Select(pod => pods[pod].Address.ToString().TrimEnd('/'))];
-                bool handled = await Varve.Server.Commands.Manage.TakeOverFromAsync(varve, null, failed, addresses, [], new Varve.Server.Commands.Io(output, output, new MemoryStream()), ct);
+                bool handled = await Varve.Server.Commands.Takeovers.FromAsync(varve, null, failed, addresses, [], new Varve.Server.Commands.Io(output, output, new MemoryStream()), ct);
                 takeovers.Enqueue((failed, others, handled, output.ToString()));
                 return handled;
             },

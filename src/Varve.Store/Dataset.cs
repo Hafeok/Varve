@@ -163,6 +163,7 @@ public sealed partial class Dataset : IAsyncDisposable
 
     // Set when a batch's append failed against the storage (ADR 0124 point 3).
     private volatile bool _appendFailed;
+    private volatile string? _steppedDown;
     private volatile bool _disposing;
 
     private Dataset(IStorage storage, DatasetId id, DatasetOptions options, TermDictionary dictionary, LogWriter writer, State state)
@@ -222,6 +223,23 @@ public sealed partial class Dataset : IAsyncDisposable
     /// standby need not wait for the re-open (ADR 0179 point 6).
     /// </summary>
     public bool AppendFailed => _appendFailed;
+
+    /// <summary>
+    /// Steps the writer down for <paramref name="reason"/>, as its host does
+    /// when it releases the writer epoch (ADR 0179 point 6): every commit not
+    /// yet appended, queued or later, is refused with
+    /// <see cref="WriterSteppedDownException"/>, and nothing in it is written.
+    /// A batch already being appended finishes. Reads go on.
+    /// </summary>
+    /// <param name="reason">The release reason as the writer record names it.</param>
+    public void StepDown(string reason)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(reason);
+        _steppedDown = reason;
+    }
+
+    /// <summary>Why the writer stepped down, or null while it commits (<see cref="StepDown"/>).</summary>
+    public string? SteppedDown => _steppedDown;
 
     /// <summary>
     /// The position the default projection has applied (spec §7): the head,
