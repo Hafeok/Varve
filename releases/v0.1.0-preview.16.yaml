@@ -11,6 +11,7 @@ basis:
   - adr: "0192"
   - adr: "0193"
   - adr: "0194"
+  - adr: "0206"
 accepted-by: mailto:emil@okkels-klein.dk
 summary: |
   ### Inference, part 1 — tier 1: RDFS, RDF and D by query rewriting
