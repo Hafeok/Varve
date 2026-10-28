@@ -81,6 +81,33 @@ and the two together are the **writer set**: only a member ever claims.
   system dataset is released last when its writer shuts down, after the
   datasets it holds, so its takeover follows theirs.
 
+### Taking over from a failed writer
+
+A writer that crashes or hangs releases nothing, and Varve never judges
+liveness itself. The orchestrator's probe does, and automation turns its
+failure into a takeover request (ADRs 0179, 0181):
+
+```sh
+varve manage takeover --from a --server https://b.internal --server https://c.internal \
+  --authority https://login.microsoftonline.com/{tenant}/v2.0 --client-id {operatorClientId} \
+  --client-assertion /var/run/secrets/azure/tokens/azure-identity-token --scope api://varve-manage/.default
+```
+
+- **`--from` names the failed instance**, and only an epoch it still holds
+  is taken over. With no datasets named, that is every dataset it holds,
+  and the system dataset (`_fleet`).
+- **Each `--server` is an instance that may become the writer**, in order of
+  preference. Each one answers for itself, at the epoch it reads, so the
+  command asks the first that is a warm standby of the dataset. It skips one
+  that does not answer, the failed instance among them.
+- **It is safe to run twice.** A dataset another instance already holds, or
+  whose epoch moved meanwhile, is reported as needing nothing, and so is
+  one that declares no automatic handover; that one keeps restart as its
+  recovery. Exit code 0 means every dataset is handled; 1 means some
+  dataset was refused by every server, and standard error says why.
+- **The token is the operator role's** on the management audience. Prefer a
+  workload identity's federated token to a secret.
+
 ## Where a write goes: forwarding
 
 Any instance accepts a write (ADR 0168). One that does not write the dataset

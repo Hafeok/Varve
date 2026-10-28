@@ -496,6 +496,58 @@ public abstract class FleetCases : IAsyncDisposable
     }
 
     /// <summary>
+    /// The automation's command (ADR 0181): with a killed, <c>varve manage
+    /// takeover --from a</c> names a, c and b, in that order. It skips a, which
+    /// does not answer, and c, which is no standby of d, and moves d to b and
+    /// other to c, each a warm standby of its dataset. plain, which declares
+    /// no handover, is left to a's restart. Run again, as a duplicated trigger
+    /// would, it finds every epoch held by another instance and does nothing.
+    /// </summary>
+    [Fact]
+    public async Task The_takeover_command_moves_every_dataset_the_failed_instance_holds_to_a_warm_standby_and_runs_again_as_a_no_op()
+    {
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container, writer: "a");
+        await DeclareAsync(a, "d", "a", "b");
+        await DeclareAsync(a, "plain");
+        long last = await DeclareAsync(a, "other", "a", "c");
+        Server b = await StartAsync("b", container, writer: "a");
+        Server c = await StartAsync("c", container, writer: "a");
+        await WaitDeclaredAsync(b, last, "d", "standby");
+        await WaitDeclaredAsync(c, last, "other", "standby");
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(c, "other", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+        await WaitWarmAsync(b, "d");
+        await WaitWarmAsync(c, "other");
+
+        a.Kill();
+        string[] command = ["manage", "takeover", "--from", "a", "--server", a.Address.ToString(), "--server", c.Address.ToString(), "--server", b.Address.ToString()];
+        (int exit, string output, string error) = await RunAsync(command);
+        Assert.True(exit == 0, output + error);
+        Assert.Contains("Taken over: d from epoch 1 by " + b.Address.ToString().TrimEnd('/') + ", at epoch 2.", output, StringComparison.Ordinal);
+        Assert.Contains("Taken over: other from epoch 1 by " + c.Address.ToString().TrimEnd('/') + ", at epoch 2.", output, StringComparison.Ordinal);
+        Assert.Contains("plain: does not declare automatic handover", output, StringComparison.Ordinal);
+        Assert.Contains("_fleet: does not declare automatic handover", output, StringComparison.Ordinal);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(c, "other", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }")).StatusCode);
+
+        (exit, output, error) = await RunAsync(command);
+        Assert.True(exit == 0, output + error);
+        Assert.Contains("d: epoch 2 is held by b, not a; nothing to take over.", output, StringComparison.Ordinal);
+        Assert.Contains("other: epoch 2 is held by c, not a; nothing to take over.", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("Taken over", output, StringComparison.Ordinal);
+    }
+
+    private static async Task<(int Exit, string Output, string Error)> RunAsync(string[] args)
+    {
+        StringWriter output = new() { NewLine = "\n" };
+        StringWriter error = new() { NewLine = "\n" };
+        int exit = await Varve.Server.Commands.Cli.RunAsync(args, new Varve.Server.Commands.Io(output, error, new MemoryStream()), Ct);
+        return (exit, output.ToString(), error.ToString());
+    }
+
+    /// <summary>
     /// The system dataset taken over on a probe (ADR 0179 point 13): its
     /// writer a is killed, and b, warm in its writer set, takes it over on a
     /// request to <c>_fleet</c>, then answers management writes.

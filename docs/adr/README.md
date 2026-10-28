@@ -385,6 +385,7 @@ Filed by [#165](https://github.com/Hafeok/Varve/issues/165), part 1 of Replicati
 |---:|---|---|
 | [0179](0179-writer-handover-within-a-store.md) | Writer handover within a store: two triggers, an epoch claimed in the writer record, a log slot as the fence | Filed unaccepted (#165) |
 | [0180](0180-warm-standbys-and-the-writer-set.md) | Warm standbys and the writer set: `placedOn` ∪ `standbyOn`, placement by events, and what warm means | Filed unaccepted (#165) |
+| [0181](0181-handover-automation.md) | Handover automation: the orchestrator judges liveness, one idempotent command acts, and the two-app layout keeps restart | Filed unaccepted (#165) |
 
 ## Web UI, part 1 (#167)
 

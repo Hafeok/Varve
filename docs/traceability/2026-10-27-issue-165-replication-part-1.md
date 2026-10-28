@@ -480,3 +480,29 @@ the same commit.
   whose outcome is unknown (`Dataset.AppendFailed`, the storage-error
   abdication) moves to `commit-outcome-unknown` in the merge that brings it
   in.
+
+### ADR 0181, filed, and the takeover command
+
+- **ADR 0181** is filed unaccepted with its decision set,
+  `handover-automation`. It records the maintainer's answers: Q4's chain,
+  and plan point 4's Kubernetes sample and Azure layout. It adds what the
+  chain needed:
+  - a fixed job per app, so the Logic App passes nothing;
+  - a custom role for the Logic App. The built-in Jobs Operator role also
+    grants `listSecrets`. A start may override the job's template, so the
+    OAuth policy is the trust boundary;
+  - `--managed-identity` for the CLI.
+
+  The prices are from the Azure retail prices API, West Europe,
+  pay-as-you-go, because the pricing pages render theirs in script. The
+  Bicep's README confirms them against the pages.
+- **Two citations could not be confirmed.** The maintainer called the rule
+  that an operator-supplied prerequisite is identified by id "the perf
+  ADR's". No ADR on this branch has it, so 0181 attributes it to the
+  maintainer's answer and says so.
+- **`varve manage takeover`** is the automation's one act. A fleet case
+  kills the writer, a, of two datasets with different standbys, and runs
+  the command naming a, c and b. It skips a, which is dead, and moves each
+  dataset to its warm standby. It leaves a dataset with no handover, and the
+  system dataset without `Varve:Fleet:AutomaticHandover`, to a's restart. Run
+  again, it does nothing and exits 0. It passes on Azurite and RustFS.
