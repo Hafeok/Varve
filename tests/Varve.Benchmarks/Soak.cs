@@ -213,7 +213,7 @@ internal static class Soak
             using Process self = Process.GetCurrentProcess();
             int handles = Directory.Exists("/proc/self/fd") ? Directory.GetFiles("/proc/self/fd").Length : self.HandleCount;
             string[] derivedFiles = Directory.GetFiles(Path.Combine(directory, "derived"), "*", SearchOption.AllDirectories);
-            long derivedBytes = derivedFiles.Sum(f => new FileInfo(f).Length);
+            long derivedBytes = derivedFiles.Sum(SizeOf);
             long directories = derivedFiles.Where(f => !IsCheckpoint(f)).Sum(DirectoryLength);
             long checkpointDirectories = derivedFiles.Where(IsCheckpoint).Sum(DirectoryLength);
             long quads = 0;
@@ -308,6 +308,20 @@ internal static class Soak
     private static bool IsCheckpoint(string path) =>
         path.Replace('\\', '/').Contains("/derived/checkpoints/", StringComparison.Ordinal)
         || path.Replace('\\', '/').Contains("/derived/extents/", StringComparison.Ordinal);
+
+    // A file listed a moment ago may be gone: a temporary file renamed into
+    // place, or a file maintenance deleted. It counts as nothing.
+    private static long SizeOf(string path)
+    {
+        try
+        {
+            return new FileInfo(path).Length;
+        }
+        catch (FileNotFoundException)
+        {
+            return 0;
+        }
+    }
 
     private static long DirectoryLength(string path)
     {
