@@ -1,0 +1,6 @@
+{
+  "parameters": {
+    "Title": "This instance follows notes",
+    "ChildContent": "Writes go to the writer, <code>varve-1</code>, epoch 7. Reads here are served at this instance's position."
+  }
+}

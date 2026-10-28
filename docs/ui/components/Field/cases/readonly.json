@@ -1,0 +1,8 @@
+{
+  "parameters": {
+    "Id": "f-iri",
+    "Label": "Graph",
+    "Value": "varve:manage/dataset/notes",
+    "ReadOnly": true
+  }
+}
