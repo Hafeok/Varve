@@ -737,3 +737,6 @@ static Varve.Store.Log.DerivedVersion.operator ==(Varve.Store.Log.DerivedVersion
 static Varve.Store.Log.DerivedVersion.operator >(Varve.Store.Log.DerivedVersion left, Varve.Store.Log.DerivedVersion right) -> bool
 static Varve.Store.Log.DerivedVersion.operator >=(Varve.Store.Log.DerivedVersion left, Varve.Store.Log.DerivedVersion right) -> bool
 ~override Varve.Store.Log.DerivedVersion.Equals(object obj) -> bool
+Varve.Store.Log.CommitResult.StorageFull.get -> bool
+Varve.Store.Dataset.StorageFull.get -> bool
+Varve.Store.Log.CommitResult.OutcomeUnknownAt.get -> Varve.Store.Log.Position?

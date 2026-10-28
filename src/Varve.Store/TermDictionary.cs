@@ -188,6 +188,20 @@ internal sealed class TermDictionary
         }
     }
 
+    /// <summary>
+    /// Forgets every cached id. After a failed append the ids a batch staged
+    /// were never committed and are allocated again to other terms, while the
+    /// caches remember them for the terms staging gave them to (ADR 0214
+    /// point 2). Inside the sequencer, before the next staging; a reader never
+    /// caches an id its counters do not cover.
+    /// </summary>
+    [DesignDecision(typeof(FileBackendFailureInjection.TermsReadBackAfterAFailedAppend), Scope = ExceptionScope.Boundary)]
+    internal void Forget()
+    {
+        Array.Clear(_byTerm);
+        Array.Clear(_byId);
+    }
+
     // The cache's slot for the term: a hash table keyed by term under
     // RdfTerm's comparer, one entry per slot.
     [DesignDecision(typeof(StoreHotPathScope.TermLookupsAreHashLookups), Scope = ExceptionScope.HotPath)]

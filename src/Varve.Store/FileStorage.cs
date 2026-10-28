@@ -287,7 +287,26 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
                 _activeLength += bytes.Length;
             }
 
-            await handle.WriteAsync(offset, bytes, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await handle.WriteAsync(offset, bytes, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // A write that failed, a full disk above all, may have written
+                // part of its bytes or none: the segment is as long as the file
+                // is, not as the write would have made it, so that the writer's
+                // recovery reads and appends after what is there (ADR 0214).
+                lock (_gate)
+                {
+                    if (segment.Value == _activeId && ReferenceEquals(handle, _active))
+                    {
+                        _activeLength = handle.Length;
+                    }
+                }
+
+                throw;
+            }
         }
 
         public ValueTask FlushAsync(SegmentId segment, CancellationToken cancellationToken)
@@ -301,6 +320,13 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
                 else if (!_segments.Contains(segment.Value))
                 {
                     throw new ArgumentOutOfRangeException(nameof(segment), segment.Value, "No such segment.");
+                }
+                else if (!IsSealed(segment.Value))
+                {
+                    // The open segment of a log this process has not yet
+                    // written: what an earlier process wrote to it, and may
+                    // not have flushed, is flushed (ADR 0214 point 2).
+                    Writable(segment.Value).Flush();
                 }
 
                 return ValueTask.CompletedTask;
