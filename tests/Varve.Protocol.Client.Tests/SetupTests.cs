@@ -292,7 +292,7 @@ public class SetupTests
         public async ValueTask<CommitResult> ExecuteAsync(Dataset target, Update update, CommitMetadata metadata, UpdatePreconditions preconditions, CallerScope scope, CancellationToken cancellationToken)
         {
             int n = Interlocked.Increment(ref _n);
-            CommitRequest elsewhere = new CommitRequest().Assert(
+            CommitRequestBuilder elsewhere = new CommitRequestBuilder().Assert(
                 RequestTerm.FromTerm(RdfTerm.Iri("http://elsewhere.example/s"u8)),
                 RequestTerm.FromTerm(RdfTerm.Iri("http://elsewhere.example/p"u8)),
                 RequestTerm.FromTerm(RdfTerm.Literal(Encoding.UTF8.GetBytes("r" + n.ToString(System.Globalization.CultureInfo.InvariantCulture)))),

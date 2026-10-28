@@ -114,8 +114,8 @@ public class EstimateTests
     {
         await using Dataset dataset = await T.Open(new MemoryStorage());
         await dataset.CommitAsync(Eight(), T.Ct);
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("x"), T.Iri("p"), T.Iri("o")), T.Ct);
-        await dataset.CommitAsync(new CommitRequest().Retract(T.Iri("x"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("x"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Retract(T.Iri("x"), T.Iri("p"), T.Iri("o")), T.Ct);
 
         using DatasetView view = dataset.Pin();
         Assert.True(view.TryInternalise(T.Iri("x"), out TermHandle x));
@@ -135,8 +135,8 @@ public class EstimateTests
     {
         await using Dataset dataset = await T.Open(new MemoryStorage());
         await dataset.CommitAsync(Eight(), T.Ct);
-        await dataset.CommitAsync(new CommitRequest().Retract(T.Iri("s0"), T.Iri("p"), T.Iri("o")), T.Ct);
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s0"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Retract(T.Iri("s0"), T.Iri("p"), T.Iri("o")), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s0"), T.Iri("p"), T.Iri("o")), T.Ct);
 
         using DatasetView view = dataset.Pin();
         Assert.True(view.TryInternalise(T.Iri("s0"), out TermHandle s0));
@@ -146,9 +146,9 @@ public class EstimateTests
         Agree(view, "head " + view.Position);
     }
 
-    private static CommitRequest Eight()
+    private static CommitRequestBuilder Eight()
     {
-        CommitRequest request = new();
+        CommitRequestBuilder request = new();
 
         for (int i = 0; i < 8; i++)
         {
@@ -162,10 +162,10 @@ public class EstimateTests
     public async Task a_validator_sees_the_proposed_state_estimated()
     {
         await using Dataset dataset = await T.Open(new MemoryStorage());
-        await dataset.CommitAsync(new CommitRequest().Assert(T.Iri("s"), T.Iri("p"), T.Integer("1")), T.Ct);
+        await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Integer("1")), T.Ct);
         Counting validator = new();
 
-        CommitRequest request = new CommitRequest { Validators = [validator] }
+        CommitRequestBuilder request = new CommitRequestBuilder { Validators = [validator] }
             .Assert(T.Iri("s"), T.Iri("p"), T.Integer("2"))
             .Retract(T.Iri("s"), T.Iri("p"), T.Integer("1"));
         await dataset.CommitAsync(request, T.Ct);
@@ -177,7 +177,7 @@ public class EstimateTests
     public async Task inline_ids_hand_over_their_value_and_nothing_else_does()
     {
         await using Dataset dataset = await T.Open(new MemoryStorage());
-        await dataset.CommitAsync(new CommitRequest()
+        await dataset.CommitAsync(new CommitRequestBuilder()
             .Assert(T.Iri("s"), T.Iri("p"), T.Integer("1"))
             .Assert(T.Iri("s"), T.Iri("p"), T.Integer("-36028797018963968"))
             .Assert(T.Iri("s"), T.Iri("p"), T.Integer("36028797018963967"))

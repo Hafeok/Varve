@@ -105,7 +105,19 @@ jobs:
           --project samples/Varve.OnBehalfOf.Sample.Tests/Varve.OnBehalfOf.Sample.Tests.csproj
           --configuration Release
           --no-build
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.OnBehalfOf.Sample.Tests
 
       - name: Remove the tokens
         if: always()
         run: rm -f "$RUNNER_TEMP/user-token" "$RUNNER_TEMP/assertion"
+
+      - name: Upload the test results
+        # #126: every run keeps its TRX, pass or fail, as the other workflows'
+        # test steps do. The tokens are under RUNNER_TEMP, never in the TRX.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-entra-obo
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn

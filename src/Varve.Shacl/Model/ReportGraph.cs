@@ -23,32 +23,39 @@ internal sealed class ReportGraph
 {
     private const string FixedPrefix = "urn:x-varve-report-fixed:";
 
-    private readonly List<(RdfTerm Subject, RdfTerm Predicate, RdfTerm Object)> _triples;
+    private readonly ImmutableArray<(RdfTerm Subject, RdfTerm Predicate, RdfTerm Object)> _triples;
 
-    private ReportGraph(List<(RdfTerm, RdfTerm, RdfTerm)> triples) => _triples = triples;
+    private ReportGraph(ImmutableArray<(RdfTerm, RdfTerm, RdfTerm)> triples) => _triples = triples;
 
-    internal static ReportGraph Build(ValidationReport report, ImmutableArray<ShapePath?> paths, bool shapesAreData)
+    internal static ReportGraph Build(
+        bool conforms,
+        IReadOnlyList<RdfTerm>? conformanceDisallows,
+        IReadOnlyList<RdfTerm> importsNotFollowed,
+        IReadOnlyList<ShaclResult> results,
+        ImmutableArray<ShapePath?> paths,
+        bool shapesAreData,
+        CanonicalisationOptions canonicalisation)
     {
         // 1. The graph with provisional labels for the report's own nodes.
         List<(RdfTerm, RdfTerm, RdfTerm)> draft = [];
         HashSet<RdfTerm> own = new(ReferenceEqualityComparer.Instance);
         RdfTerm reportNode = Own("report", own);
         draft.Add((reportNode, Vocabulary.RdfType, Vocabulary.ValidationReportClass));
-        draft.Add((reportNode, Vocabulary.Conforms, report.Conforms ? Vocabulary.True : Vocabulary.False));
-        foreach (RdfTerm severity in report.ConformanceDisallows ?? [])
+        draft.Add((reportNode, Vocabulary.Conforms, conforms ? Vocabulary.True : Vocabulary.False));
+        foreach (RdfTerm severity in conformanceDisallows ?? [])
         {
             draft.Add((reportNode, Vocabulary.ConformanceDisallows, severity));
         }
 
-        foreach (RdfTerm imported in report.ImportsNotFollowed)
+        foreach (RdfTerm imported in importsNotFollowed)
         {
             draft.Add((reportNode, Vocabulary.ImportNotFollowed, imported));
         }
 
         int pathBlank = 0;
-        for (int i = 0; i < report.Results.Count; i++)
+        for (int i = 0; i < results.Count; i++)
         {
-            ShaclResult result = report.Results[i];
+            ShaclResult result = results[i];
             RdfTerm node = Own("r" + i.ToString(CultureInfo.InvariantCulture), own);
             draft.Add((reportNode, Vocabulary.Result, node));
             draft.Add((node, Vocabulary.RdfType, Vocabulary.ValidationResultClass));
@@ -122,7 +129,7 @@ internal sealed class ReportGraph
             builder.Add(skolem.GetValueOrDefault(s, s), p, skolem.GetValueOrDefault(o, o));
         }
 
-        CanonicalDataset canonical = RdfCanonicaliser.Canonicalise(builder.ToDataset(), report.Canonicalisation);
+        CanonicalDataset canonical = RdfCanonicaliser.Canonicalise(builder.ToDataset(), canonicalisation);
 
         // 4. The report's labels, disjoint from every data label.
         string labelPrefix = "c14n";
@@ -139,13 +146,13 @@ internal sealed class ReportGraph
             relabel[term] = RdfTerm.BlankNode(Encoding.UTF8.GetBytes(labelPrefix + issued["c14n".Length..]));
         }
 
-        List<(RdfTerm, RdfTerm, RdfTerm)> triples = new(draft.Count);
+        ImmutableArray<(RdfTerm, RdfTerm, RdfTerm)>.Builder triples = ImmutableArray.CreateBuilder<(RdfTerm, RdfTerm, RdfTerm)>(draft.Count);
         foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in draft)
         {
             triples.Add((relabel.GetValueOrDefault(s, s), p, relabel.GetValueOrDefault(o, o)));
         }
 
-        return new ReportGraph(triples);
+        return new ReportGraph(triples.MoveToImmutable());
     }
 
     internal InMemoryDataset ToDataset()

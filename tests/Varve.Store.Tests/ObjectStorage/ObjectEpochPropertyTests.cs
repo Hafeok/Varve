@@ -95,7 +95,7 @@ public sealed class ObjectEpochPropertyTests
                 {
                     try
                     {
-                        CommitResult result = await writer.CommitAsync(new CommitRequest().Assert(T.Iri("s" + batch.ToString(CultureInfo.InvariantCulture) + new string('x', 60)), T.Iri("p"), T.Iri("o")), T.Ct);
+                        CommitResult result = await writer.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s" + batch.ToString(CultureInfo.InvariantCulture) + new string('x', 60)), T.Iri("p"), T.Iri("o")), T.Ct);
 
                         if (result.Outcome == CommitOutcome.Committed)
                         {
@@ -140,7 +140,7 @@ public sealed class ObjectEpochPropertyTests
                 await writer.DisposeAsync();
                 await using Dataset current = await T.OpenOrCreate(second, T.Options(maxRecordBytes: 256, segmentBytes: schedule.SegmentBytes));
                 Assert.Equal(acknowledged, current.Head.Value);
-                CommitResult next = await current.CommitAsync(new CommitRequest().Assert(T.Iri("after"), T.Iri("p"), T.Iri("o")), T.Ct);
+                CommitResult next = await current.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("after"), T.Iri("p"), T.Iri("o")), T.Ct);
                 Assert.Equal(CommitOutcome.Committed, next.Outcome);
 
                 foreach (string consolidated in attemptsAfter.Where(a => a.EndsWith(".seg", StringComparison.Ordinal)).Distinct())

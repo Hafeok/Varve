@@ -103,7 +103,7 @@ public class ShaclBenchmarks : IDisposable
         string data = Data(Triples);
         _data = Parse(data);
         _store = StoreDatasetType.CreateAsync(new MemoryStorage(), new Varve.Store.Log.DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }).AsTask().GetAwaiter().GetResult();
-        global::Varve.Store.Log.CommitRequest request = new();
+        global::Varve.Store.Log.CommitRequestBuilder request = new();
         using (IQuadCursor cursor = _data.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.DefaultGraph))
         {
             while (cursor.MoveNext())

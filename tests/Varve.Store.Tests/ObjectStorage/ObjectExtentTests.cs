@@ -266,7 +266,7 @@ public sealed class ObjectExtentTests
         for (int i = 1; i <= commits; i++)
         {
             string n = i.ToString(CultureInfo.InvariantCulture);
-            CommitRequest request = new CommitRequest()
+            CommitRequestBuilder request = new CommitRequestBuilder()
                 .Assert(T.Iri("s" + (i % 5)), T.Iri("p"), T.Literal("v" + n))
                 .Assert(T.Iri("s" + (i % 3)), T.Iri("q"), T.Iri("o" + (i % 4)));
 

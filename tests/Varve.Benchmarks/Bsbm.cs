@@ -298,7 +298,7 @@ public class BsbmBenchmarks : IDisposable
         _varveQuery = SparqlParser.ParseQuery(text.AsSpan());
 
         InMemoryDatasetBuilder builder = new();
-        CommitRequest request = new();
+        CommitRequestBuilder request = new();
         Varve.Turtle.NQuadsParser.Parse(
             Bsbm.Data.AsSpan(),
             (in QuadView quad) =>

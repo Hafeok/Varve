@@ -94,7 +94,7 @@ public sealed class EventMoveTests
 
             // And at the store, by the validator a write authorised there carries.
             Assert.True(server.Started!.Fleet.Datasets.TryResolve(new DatasetName("d"), out Dataset? dataset));
-            CommitResult direct = await dataset.CommitAsync(new CommitRequest
+            CommitResult direct = await dataset.CommitAsync(new CommitRequestBuilder
             {
                 Validators = [server.Started.Fleet.OrderOf(new DatasetName("d"), server.Started.Fleet.Applied)],
             }.Assert(RdfTerm.Iri("https://example.org/x"u8), RdfTerm.Iri("https://example.org/y"u8), RdfTerm.Iri("https://example.org/z"u8), RdfTerm.Iri(Encoding.UTF8.GetBytes(Catalogue))), Ct);
@@ -254,7 +254,7 @@ public sealed class EventMoveTests
                 // The freeze, committed by alice; the server stops before the copy.
                 Fleet fleet = first.Started!.Fleet;
                 fleet.Resume = null;
-                CommitResult frozen = await fleet.System.CommitAsync(new CommitRequest
+                CommitResult frozen = await fleet.System.CommitAsync(new CommitRequestBuilder
                 {
                     Metadata = new CommitMetadata { Agent = alice },
                     Validators = [fleet.Validator],

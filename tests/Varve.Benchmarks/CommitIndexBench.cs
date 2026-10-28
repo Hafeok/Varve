@@ -41,7 +41,7 @@ internal static class CommitIndexBench
 
             for (int c = 0; c < commits; c++)
             {
-                CommitRequest request = new();
+                CommitRequestBuilder request = new();
                 request.Assert(Term("s", c % 1000), Term("p", c % 7), Term("o", c));
                 await writing.CommitAsync(request);
             }
